@@ -1,2 +1,2 @@
 # OpenLara
-Classic Tomb Raider OpenSource engine
+Classic Tomb Raider open-source engine
