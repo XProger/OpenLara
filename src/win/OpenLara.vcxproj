@@ -94,12 +94,15 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\controller.h" />
     <ClInclude Include="..\core.h" />
     <ClInclude Include="..\game.h" />
     <ClInclude Include="..\input.h" />
+    <ClInclude Include="..\level.h" />
     <ClInclude Include="..\mesh.h" />
     <ClInclude Include="..\shader.h" />
     <ClInclude Include="..\texture.h" />
+    <ClInclude Include="..\format.h" />
     <ClInclude Include="..\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

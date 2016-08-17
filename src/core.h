@@ -18,7 +18,6 @@
 
 // Texture
 	PFNGLACTIVETEXTUREPROC				glActiveTexture;
-	PFNGLCOMPRESSEDTEXIMAGE2DPROC		glCompressedTexImage2D;
 // Shader
 	PFNGLCREATEPROGRAMPROC				glCreateProgram;
 	PFNGLDELETEPROGRAMPROC				glDeleteProgram;
@@ -64,7 +63,6 @@ namespace Core {
 
 	void init() {
 		GetProcOGL(glActiveTexture);
-		GetProcOGL(glCompressedTexImage2D);
 
 		GetProcOGL(glCreateProgram);
 		GetProcOGL(glDeleteProgram);

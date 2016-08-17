@@ -24,6 +24,13 @@
 #define RAD2DEG	(180.0f / PI)
 #define EPS		FLT_EPSILON
 
+typedef char			int8;
+typedef	short			int16;
+typedef int				int32;
+typedef unsigned char	uint8;
+typedef unsigned short	uint16;
+typedef unsigned int	uint32;
+
 template <typename T>
 inline const T& min(const T &a, const T &b) {
 	return a < b ? a : b;
@@ -448,92 +455,6 @@ struct Stream {
 		T *a = new T[count];
 		read(a, count * sizeof(T));
 		return a;
-	}
-
-	char *readStr(char *buffer) {
-		unsigned char len;
-		read(&len, sizeof(len));
-		if (!len)
-			return NULL;
-		read(buffer, len);
-		buffer[len] = 0;
-		return buffer;
-	}
-};
-
-
-template <typename T, typename C = int>
-struct Array {
-	T	**items;
-	C	count;
-
-	Array() : items(NULL), count(0) {}
-
-	Array(int count) : count(count) {
-		if (count == 0) {
-			items = NULL;
-			return;
-		}
-		items = new T*[count];
-		for (int i = 0; i < count; i++)
-			items[i] = new T();
-	}
-
-	Array(Stream *stream) {
-		stream->read(count);
-		if (count == 0) {
-			items = NULL;
-			return;
-		}
-		items = new T*[count];
-		for (int i = 0; i < count; i++)
-			items[i] = new T(stream);
-	}
-
-	~Array() {
-		for (int i = 0; i < count; i++)
-			delete items[i];
-		delete[] items;
-	}
-
-	T* operator[] (int index) const { 
-		return items[index];
-	}
-};
-
-template <typename T, typename C = int>
-struct Vector {
-	T	*items;
-	C	count;
-
-	Vector(Stream *stream) {
-		stream->read(count);
-		if (count <= 0) {
-			items = NULL;
-			return;
-		}
-		items = (T*)malloc((int)count * sizeof(T));
-		stream->read(items, (int)count * sizeof(T));
-	}
-
-	Vector(Stream *stream, int count) : count(count) {
-		if (count <= 0) {
-			items = NULL;
-			return;
-		}
-		items = (T*)malloc((int)count * sizeof(T));
-		stream->read(items, (int)count * sizeof(T));
-	}
-
-
-	~Vector() {
-		if (items) free(items);
-	}
-
-	T& operator[] (int index) const {
-		ASSERT(index >= 0);
-		ASSERT(index < count);
-		return items[index];
 	}
 };
 
