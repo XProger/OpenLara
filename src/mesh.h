@@ -15,7 +15,7 @@ struct Mesh {
 	GLuint	ID[2];
 	int		iCount;
 	int		vCount;
-
+/*
 	Mesh(const char *name) {
 		Stream stream(name);
 		Index  *indices  = stream.readArray<Index> (stream.read(iCount));
@@ -29,7 +29,7 @@ struct Mesh {
 		delete[] indices;
 		delete[] vertices;
 	}
-
+*/
 	virtual ~Mesh() { 
 		glDeleteBuffers(2, ID);
 	}

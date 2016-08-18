@@ -1,54 +1,68 @@
 #ifndef H_LEVEL
 #define H_LEVEL
 
+#include "core.h"
 #include "utils.h"
 #include "format.h"
 #include "controller.h"
 
 struct Level {
 	TR::Level level;
-	Texture **textures;
+	Texture *atlas;
 	float time;
 	Controller *lara;
 
 	Level(const char *name) : level(Stream(name)), time(0.0f) {
-		if (level.tilesCount) {
-			textures = new Texture*[level.tilesCount];
-
-			for (int i = 0; i < level.tilesCount; i++) {
-			//	sprintf(buf, "LEVEL1_%d.PVR", i);
-			//	textures[i] = Core::load<Texture>(buf);
-				textures[i] = getTexture(i);
-			}
-		} else 
-			textures = NULL;
-
+		initAtlas();
 		lara = new Controller(&level);
 	}
 
 	~Level() {
-		for (int i = 0; i < level.tilesCount; i++)
-			delete textures[i];
-		delete[] textures;
+		delete atlas;
 	}
 
-	Texture *getTexture(int tile) {
-		TR::RGBA data[256 * 256];
-		for (int i = 0; i < 256 * 256; i++) {
-			int index = level.tiles[tile].index[i];
-			auto p = level.palette[index];
-			data[i].r = p.r;
-			data[i].g = p.g;
-			data[i].b = p.b;
-			data[i].a = index == 0 ? 0 : 255;
+	void initAtlas() {
+		if (!level.tilesCount) {
+			atlas = NULL;
+			return;
 		}
-		return new Texture(256, 256, 0, data);
+
+		TR::RGBA *data = new TR::RGBA[1024 * 1024];
+		for (int i = 0; i < level.tilesCount; i++) {
+			int tx = (i % 4) * 256;
+			int ty = (i / 4) * 256;
+
+			TR::RGBA *ptr = &data[ty * 1024 + tx];
+			for (int y = 0; y < 256; y++) {
+				for (int x = 0; x < 256; x++) {
+					int index = level.tiles[i].index[y * 256 + x];
+					auto p = level.palette[index];
+					ptr[x].r = p.r;
+					ptr[x].g = p.g;
+					ptr[x].b = p.b;
+					ptr[x].a = index == 0 ? 0 : 255;
+				}
+				ptr += 1024;
+			}
+		}
+
+		atlas = new Texture(1024, 1024, 0, data);
+		delete[] data;
+	}
+
+	void bindTexture(int tile) {
+		
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
+		glTranslatef((tile % 4) * 0.25f, (tile / 4) * 0.25f, 0.0f);
+		glScalef(0.25f, 0.25f, 1.0f);
+		glMatrixMode(GL_MODELVIEW);
 	}
 
 	void setTexture(int objTexture) {
 		auto &t = level.objectTextures[objTexture];
 		Core::setBlending(t.attribute == 2 ? bmAdd : bmAlpha);
-		textures[t.tileAndFlag & 0x7FFF]->bind(0);
+		bindTexture(t.tileAndFlag & 0x7FFF);
 	}
 
 	TR::StaticMesh* getMeshByID(int id) {
@@ -57,7 +71,6 @@ struct Level {
 				return &level.staticMeshes[i];
 		return NULL;
 	}
-
 
 	#define SCALE (1.0f / 1024.0f / 2.0f)
 
@@ -77,7 +90,7 @@ struct Level {
 				float a = 1.0f - v.lighting / 8191.0f;
 				glColor3f(a, a, a);
 				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3f(v.vertex.x, v.vertex.y, v.vertex.z);
+				glVertex3sv((GLshort*)&v.vertex);
 			}
 			glEnd();
 		}
@@ -94,7 +107,7 @@ struct Level {
 				float a = 1.0f - v.lighting / 8191.0f;
 				glColor3f(a, a, a);
 				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3f(v.vertex.x, v.vertex.y, v.vertex.z);
+				glVertex3sv((GLshort*)&v.vertex);
 			}
 			glEnd();
 		}
@@ -174,8 +187,8 @@ struct Level {
 
 				if (mesh.nCount > 0) {
 					auto vn = mesh.normals[f.vertices[k]];
-					vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glNormal3f(n.x, n.y, n.z);
+				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
+					glNormal3sv((GLshort*)&vn);
 				} else {
 					auto l = mesh.lights[f.vertices[k]];
 					float a = 1.0f - l / 8191.0f;
@@ -183,7 +196,7 @@ struct Level {
 				}
 
 				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3f(v.x, v.y, v.z);
+				glVertex3sv((GLshort*)&v);
 			}
 			glEnd();
 		}
@@ -200,15 +213,15 @@ struct Level {
 
 				if (mesh.nCount > 0) {
 					auto vn = mesh.normals[f.vertices[k]];
-					vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glNormal3f(n.x, n.y, n.z);
+				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
+					glNormal3sv((GLshort*)&vn);
 				} else {
 					auto l = mesh.lights[f.vertices[k]];
 					float a = 1.0f - l / 8191.0f;
 					glColor3f(a, a, a);
 				}
 				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3f(v.x, v.y, v.z);
+				glVertex3sv((GLshort*)&v);
 			}
 			glEnd();
 		}
@@ -217,51 +230,53 @@ struct Level {
 		// debug normals
 
 		// triangles (colored)
+		glBegin(GL_TRIANGLES);	
 		for (int j = 0; j < mesh.ctCount; j++) {
 			auto &f = mesh.ctriangles[j];
 			auto &c = level.palette[f.texture & 0xFF];
 				
-			glBegin(GL_TRIANGLES);	
 			for (int k = 0; k < 3; k++) {
 				auto &v = mesh.vertices[f.vertices[k]];
 
 				if (mesh.nCount > 0) {
 					auto vn = mesh.normals[f.vertices[k]];
-					vec3 n = vec3(vn.x, vn.y, vn.z).normal();
+				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
 					glColor3f(c.r / 255.0f * color.x, c.g / 255.0f * color.y, c.b / 255.0f * color.z);
-					glNormal3f(n.x, n.y, n.z);
+					glNormal3sv((GLshort*)&vn);
 				} else {
 					auto l = mesh.lights[f.vertices[k]];
 					float a = (1.0f - l / 8191.0f) / 255.0f;
 					glColor3f(c.r * a, c.g * a, c.b * a);
 				}
-				glVertex3f(v.x, v.y, v.z);
+				glVertex3sv((GLshort*)&v);
 			}
-			glEnd();
 		}
+		glEnd();
+
 		// rectangles (colored)
+		glBegin(GL_QUADS);	
 		for (int j = 0; j < mesh.crCount; j++) {
 			auto &f = mesh.crectangles[j];
 			auto &c = level.palette[f.texture & 0xFF];
 				
-			glBegin(GL_QUADS);	
 			for (int k = 0; k < 4; k++) {
 				auto &v = mesh.vertices[f.vertices[k]];
 
 				if (mesh.nCount > 0) {
 					auto vn = mesh.normals[f.vertices[k]];
-					vec3 n = vec3(vn.x, vn.y, vn.z).normal();
+				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
 					glColor3f(c.r / 255.0f * color.x, c.g / 255.0f * color.y, c.b / 255.0f * color.z);
-					glNormal3f(n.x, n.y, n.z);
+					glNormal3sv((GLshort*)&vn);
 				} else {
 					auto l = mesh.lights[f.vertices[k]];
 					float a = (1.0f - l / 8191.0f) / 255.0f;
 					glColor3f(c.r * a, c.g * a, c.b * a);
 				}
-				glVertex3f(v.x, v.y, v.z);
+				glVertex3sv((GLshort*)&v);
 			}
-			glEnd();
 		}
+		glEnd();
+	
 		glEnable(GL_TEXTURE_2D);
 
 		if (mesh.nCount > 0)
@@ -284,7 +299,7 @@ struct Level {
 		p[2] = right * sprite.l + up * sprite.t;
 		p[3] = right * sprite.r + up * sprite.t;
 
-		textures[sprite.tile]->bind(0);
+		bindTexture(sprite.tile);
 		glBegin(GL_QUADS);
 			glTexCoord2f(u0, v1);
 			glVertex3fv((GLfloat*)&p[0]);
@@ -734,6 +749,8 @@ struct Level {
 	}
 
 	void render() {
+		atlas->bind(0);
+
 		glEnable(GL_ALPHA_TEST);
 		glAlphaFunc(GL_GREATER, 0.9f);
 		glEnable(GL_TEXTURE_2D);

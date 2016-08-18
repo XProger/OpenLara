@@ -499,7 +499,7 @@ namespace TR {
 		// read version
 			stream.read(version);
 		// tiles
-			tiles = stream.readArray<Tile8>(stream.read(tilesCount));
+			stream.readArray(tiles, stream.read(tilesCount));
 			stream.read(unused);
 		// rooms
 			rooms = new Room[stream.read(roomsCount)];
@@ -511,70 +511,69 @@ namespace TR {
 			// room data
 				stream.read(d.size);
 				int pos = stream.pos;
-				d.vertices	 = stream.readArray<Room::Data::Vertex>(stream.read(d.vCount));
-				d.rectangles = stream.readArray<Rectangle>(stream.read(d.rCount));
-				d.triangles	 = stream.readArray<Triangle>(stream.read(d.tCount));
-				d.sprites	 = stream.readArray<Room::Data::Sprite>(stream.read(d.sCount));
+				stream.readArray(d.vertices,	stream.read(d.vCount));
+				stream.readArray(d.rectangles,	stream.read(d.rCount));
+				stream.readArray(d.triangles,	stream.read(d.tCount));
+				stream.readArray(d.sprites,		stream.read(d.sCount));
 				stream.setPos(pos + d.size * 2);
 			// portals
-				r.portals	 = stream.readArray<Room::Portal>(stream.read(r.portalsCount));
+				stream.readArray(r.portals, stream.read(r.portalsCount));
 			// sectors
 				stream.read(r.zSectors);
 				stream.read(r.xSectors);
-				r.sectors	 = stream.readArray<Room::Sector>(r.zSectors * r.xSectors);
+				stream.readArray(r.sectors, r.zSectors * r.xSectors);
 			// ambient light luminance
 				stream.read(r.ambient);
 			// lights
-				r.lights	 = stream.readArray<Room::Light>(stream.read(r.lightsCount));
+				stream.readArray(r.lights, stream.read(r.lightsCount));
 			// meshes
-				r.meshes	 = stream.readArray<Room::Mesh>(stream.read(r.meshesCount));
-			
+				stream.readArray(r.meshes, stream.read(r.meshesCount));	
 				stream.read(r.alternateRoom);
 				stream.read(r.flags);
 			}
 		// floors
-			floors			= stream.readArray<uint16>(stream.read(floorsCount));
+			stream.readArray(floors,		stream.read(floorsCount));
 		// meshes
-			meshData		= stream.readArray<uint16>(stream.read(meshDataSize));
-			meshOffsets		= stream.readArray<uint32>(stream.read(meshOffsetsCount));
+			stream.readArray(meshData,		stream.read(meshDataSize));
+			stream.readArray(meshOffsets,	stream.read(meshOffsetsCount));
 		// animations
-			anims			= stream.readArray<Animation>(stream.read(animsCount));
-			states			= stream.readArray<AnimState>(stream.read(statesCount));
-			ranges			= stream.readArray<AnimRange>(stream.read(rangesCount));
-			commands		= stream.readArray<int16>(stream.read(commandsCount));
-			nodesData		= stream.readArray<uint32>(stream.read(nodesDataSize));
-			frameData		= stream.readArray<uint16>(stream.read(frameDataSize));
+			stream.readArray(anims,			stream.read(animsCount));
+			stream.readArray(states,		stream.read(statesCount));
+			stream.readArray(ranges,		stream.read(rangesCount));
+			stream.readArray(commands,		stream.read(commandsCount));
+			stream.readArray(nodesData,		stream.read(nodesDataSize));
+			stream.readArray(frameData,		stream.read(frameDataSize));
 		// models
-			models			= stream.readArray<Model>(stream.read(modelsCount));
-			staticMeshes	= stream.readArray<StaticMesh>(stream.read(staticMeshesCount));
+			stream.readArray(models,		stream.read(modelsCount));
+			stream.readArray(staticMeshes,	stream.read(staticMeshesCount));
 		// textures & UV												  
-			objectTextures	= stream.readArray<ObjectTexture>(stream.read(objectTexturesCount));
-			spriteTextures	= stream.readArray<SpriteTexture>(stream.read(spriteTexturesCount));
-			spriteSequences	= stream.readArray<SpriteSequence>(stream.read(spriteSequencesCount));
+			stream.readArray(objectTextures,	stream.read(objectTexturesCount));
+			stream.readArray(spriteTextures,	stream.read(spriteTexturesCount));
+			stream.readArray(spriteSequences,	stream.read(spriteSequencesCount));
 		// cameras
-			camera			= stream.readArray<Camera>(stream.read(camerasCount));
+			stream.readArray(camera,		stream.read(camerasCount));
 		// sound sources
-			soundSources	= stream.readArray<SoundSource>(stream.read(soundSourcesCount));
+			stream.readArray(soundSources,	stream.read(soundSourcesCount));
 		// AI
-			boxes			= stream.readArray<Box>(stream.read(boxesCount));
-			overlaps		= stream.readArray<uint16>(stream.read(overlapsCount));
-			zones			= stream.readArray<Zone>(boxesCount);
+			stream.readArray(boxes,			stream.read(boxesCount));
+			stream.readArray(overlaps,		stream.read(overlapsCount));
+			stream.readArray(zones,			boxesCount);
 		// animated textures
-			animTexturesData	= stream.readArray<uint16>(stream.read(animTexturesDataSize));
+			stream.readArray(animTexturesData,	stream.read(animTexturesDataSize));
 		// entities (enemies, items, lara etc.)
-			entities		= stream.readArray<Entity>(stream.read(entitiesCount));
+			stream.readArray(entities,		stream.read(entitiesCount));
 		// palette
 			stream.seek(32 * 256);	// skip lightmap palette
-			palette			= stream.readArray<RGB>(256);
+			stream.readArray(palette,		256);
 		// cinematic frames for cameras
-			cameraFrames	= stream.readArray<CameraFrame>(stream.read(cameraFramesCount));
+			stream.readArray(cameraFrames,	stream.read(cameraFramesCount));
 		// demo data
-			demoData		= stream.readArray<uint8>(stream.read(demoDataSize));
+			stream.readArray(demoData,		stream.read(demoDataSize));
 		// sounds
-			soundsMap		= stream.readArray<int16>(256);
-			soundsInfo		= stream.readArray<SoundInfo>(stream.read(soundsInfoCount));
-			soundData		= stream.readArray<uint8>(stream.read(soundDataSize));
-			soundOffsets	= stream.readArray<uint32>(stream.read(soundOffsetsCount));
+			stream.readArray(soundsMap,		256);
+			stream.readArray(soundsInfo,	stream.read(soundsInfoCount));
+			stream.readArray(soundData,		stream.read(soundDataSize));
+			stream.readArray(soundOffsets,	stream.read(soundOffsetsCount));
 
 		// modify palette colors from 6-bit Amiga colorspace
 			int m = 0;

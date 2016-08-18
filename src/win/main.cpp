@@ -189,6 +189,8 @@ int main() {
 	
 	MSG msg;
 	msg.message = WM_PAINT;
+	
+	DWORD fps = 0, fpsTime = getTime() + 1000;
 
 	while (msg.message != WM_QUIT) 
 		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -207,6 +209,13 @@ int main() {
 			Game::render();
 
 			SwapBuffers(hDC);
+
+			if (fpsTime < getTime()) {
+				LOG("FPS: %d\n", fps);
+				fps = 0;
+				fpsTime = getTime() + 1000;
+			} else
+				fps++;
 		}
 		
 	Game::free();

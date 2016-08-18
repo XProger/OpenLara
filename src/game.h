@@ -62,7 +62,7 @@ namespace Game {
 		camera.znear	= 0.1f;
 		camera.zfar		= 1000.0f;
 //		camera.pos		= vec3(-10, -2, 26);
-		camera.pos		= vec3(-13.25, 0.42, 38.06);
+		camera.pos		= vec3(-13.25f, 0.42f, 38.06f);
 //		camera.pos		= vec3(-36, -1, 2);
 		camera.angle	= vec3(0);
 	}

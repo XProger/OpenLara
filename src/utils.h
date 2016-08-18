@@ -449,10 +449,10 @@ struct Stream {
 	}
 
 	template <typename T>
-	T* readArray(int count) {
+	T* readArray(T *&a, int count) {
 		if (!count)
 			return NULL;
-		T *a = new T[count];
+		a = new T[count];
 		read(a, count * sizeof(T));
 		return a;
 	}
