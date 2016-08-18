@@ -58,29 +58,11 @@ struct Level {
 		return NULL;
 	}
 
-	/*
-	float time;
-	vec3 laraPos(0.0f);
-
-
-			meshes = Array<tr_mesh>();
-			meshes.count = meshPointers.count;
-			meshes.items = new tr_mesh*[meshes.count];
-
-			for (int i = 0; i < meshPointers.count; i++) {
-				stream->setPos(meshesData + meshPointers[i]);
-				meshes.items[i] = new tr_mesh(stream);
-			}
-			*/
-		/*
-
-		*/
 
 	#define SCALE (1.0f / 1024.0f / 2.0f)
 
 	void renderRoom(const TR::Room &room) {
 		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
 		glTranslatef(room.info.x, 0.0f, room.info.z);
 
 		// rectangles
@@ -127,7 +109,6 @@ struct Level {
 			ASSERT(sMesh != NULL);
 
 			glPushMatrix();
-			glScalef(-SCALE, -SCALE, SCALE);
 			glTranslatef(rMesh.x, rMesh.y, rMesh.z);
 			glRotatef((rMesh.rotation >> 14) * 90.0f, 0, 1, 0);
 			
@@ -322,7 +303,6 @@ struct Level {
 		glColor3f(a, a, a);
 
 		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
 		glTranslatef(v.vertex.x + room.info.x, v.vertex.y, v.vertex.z + room.info.z);
 
 		renderSprite(level.spriteTextures[sprite.texture]);
@@ -462,7 +442,6 @@ struct Level {
 
 	void renderEntity(const TR::Entity &entity) {
 		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
 		glTranslatef(entity.x, entity.y, entity.z);
 
 		if (entity.intensity > -1) {
@@ -762,9 +741,10 @@ struct Level {
 		glEnable(GL_COLOR_MATERIAL);
 		glEnable(GL_LIGHT0);
 
-
 		Core::setCulling(cfFront);
 		glColor3f(1, 1, 1);
+
+		glScalef(-SCALE, -SCALE, SCALE);
 
 		for (int i = 0; i < level.roomsCount; i++)
 			renderRoom(level.rooms[i]);
