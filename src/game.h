@@ -18,7 +18,7 @@ struct Camera {
 		if (Input::down[ikD]) v = v + dir.cross(vec3(0, 1, 0));
 		if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
 
-		pos = pos + v.normal() * (Core::deltaTime);
+		pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
 
 		if (Input::down[ikMouseL]) {
 			vec2 delta = Input::mouse.pos - Input::mouse.start.L;
@@ -40,11 +40,6 @@ struct Camera {
 		Core::mProj = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
 	
 		Core::mViewProj = Core::mProj * Core::mView;
-
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf((GLfloat*)&Core::mProj);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf((GLfloat*)&Core::mView);
 	}
 };
 
@@ -59,10 +54,10 @@ namespace Game {
 		level = new Level("data\\LEVEL3A.PHD");
 
 		camera.fov		= 90.0f;
-		camera.znear	= 0.1f;
-		camera.zfar		= 1000.0f;
+		camera.znear	= 0.1f * 2048.0f;
+		camera.zfar		= 1000.0f * 2048.0f;
 //		camera.pos		= vec3(-10, -2, 26);
-		camera.pos		= vec3(-13.25f, 0.42f, 38.06f);
+		camera.pos		= vec3(-13.25f, 0.42f, 38.06f) * 2048.0f;
 //		camera.pos		= vec3(-36, -1, 2);
 		camera.angle	= vec3(0);
 	}
@@ -80,26 +75,12 @@ namespace Game {
 	}
 
 	void render() {
-//		Core::clear(vec4(0.1f, 0.4f, 0.4f, 0.0));
 		Core::clear(vec4(0.0f, 0.0f, 0.0f, 0.0));
 		Core::setViewport(0, 0, Core::width, Core::height);
 		Core::setBlending(bmAlpha);
 
 		camera.setup();		
-		/*
-		Debug::Draw::begin();
-		glDisable(GL_TEXTURE_2D);
-		Debug::Draw::axes(10);
-		glEnable(GL_TEXTURE_2D);
-		*/
-		vec3 pos = Core::mView.inverse().getPos();
-		GLfloat p[4] = { pos.x, pos.y, pos.z, 1.0f };
-		glLightfv(GL_LIGHT0, GL_POSITION, p);
-		glEnable(GL_DEPTH_TEST);
-
 		level->render();
-
-		//Debug::Draw::end();
 	}
 	
 	/*

@@ -43,6 +43,7 @@ const char SHADER[] = \
 	"		light += uAmbient;\n"\
 	"		color.xyz *= light;\n"\
 	"		color.xyz = pow(color.xyz, vec3(1.0/2.2));\n"\
+	"		//color.xyz = normalize(vLightVec) * 0.5 + 0.5;\n"\
 	"		gl_FragColor = color;\n"\
 	"	}\n"\
 	"#endif";
@@ -448,7 +449,7 @@ struct Level {
 		return NULL;
 	}
 
-	#define SCALE (1.0f / 1024.0f / 2.0f)
+	//#define SCALE (1.0f / 1024.0f / 2.0f)
 
 	void renderRoom(int index) {
 		TR::Room &room = level.rooms[index];
@@ -683,7 +684,7 @@ struct Level {
 		if (idx > -1) {
 			TR::Room::Light &light = level.rooms[room].lights[idx];
 			float c = level.rooms[room].lights[idx].Intensity / 8191.0f;
-			Core::lightPos   = vec3(-light.x, -light.y, light.z);
+			Core::lightPos   = vec3(-light.x, -light.y, light.z);// * SCALE;
 			Core::lightColor = vec4(c, c, c, 0.0f);
 		} else {
 			Core::lightPos   = vec3(0.0f);
@@ -1000,15 +1001,13 @@ struct Level {
 
 		glEnable(GL_ALPHA_TEST);
 		glAlphaFunc(GL_GREATER, 0.9f);
-		glEnable(GL_TEXTURE_2D);
-		glEnable(GL_NORMALIZE);
-		glEnable(GL_COLOR_MATERIAL);
-		//glEnable(GL_LIGHT0);
+		glEnable(GL_DEPTH_TEST);
 
 		Core::setCulling(cfFront);
 
 		Core::mModel.identity();
-		Core::mModel.scale(vec3(-SCALE, -SCALE, SCALE));
+//		Core::mModel.scale(vec3(-SCALE, -SCALE, SCALE));
+		Core::mModel.scale(vec3(-1, -1, 1));
 
 		Core::color   = vec4(1.0f);
 		Core::ambient = vec3(0.0f);
