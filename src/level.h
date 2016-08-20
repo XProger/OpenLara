@@ -6,19 +6,103 @@
 #include "format.h"
 #include "controller.h"
 
+const char SHADER[] = \
+	"varying vec3 vLightVec;\n"\
+	"varying vec2 vTexCoord;\n"\
+	"varying vec4 vNormal;\n"\
+	"varying vec4 vColor;\n"\
+	\
+	"#ifdef VERTEX\n"\
+	"	uniform	mat4 uViewProj;\n"\
+	"	uniform	mat4 uModel;\n"\
+	"	uniform	vec3 uLightPos;\n"\
+	\
+	"	attribute vec3 aCoord;\n"\
+	"	attribute vec2 aTexCoord;\n"\
+	"	attribute vec4 aNormal;\n"\
+	"	attribute vec4 aColor;\n"\
+	\
+	"	void main() {\n"\
+	"		vec4 coord	= uModel * vec4(aCoord, 1.0);\n"\
+	"		vLightVec	= uLightPos - coord.xyz;\n"\
+	"		vTexCoord	= aTexCoord + vec2(0.5/1024.0);\n"\
+	"		vNormal		= vec4(mat3(uModel[0].xyz, uModel[1].xyz, uModel[2].xyz) * (aNormal.xyz * 2.0 - 1.0), aNormal.w);\n"\
+	"		vColor		= aColor;\n"\
+	"		gl_Position	= uViewProj * coord;\n"\
+	"	}\n"\
+	"#else\n"\
+	"	uniform sampler2D sDiffuse;\n"\
+	"	uniform vec4      uColor;\n"\
+	"	uniform vec3      uAmbient;\n"\
+	"	uniform vec4      uLightColor;\n"\
+	\
+	"	void main() {\n"\
+	"		vec4 color = texture2D(sDiffuse, vTexCoord) * vColor * uColor;\n"\
+	"		color.xyz = pow(color.xyz, vec3(2.2));\n"\
+	"		vec3 light = uLightColor.xyz * max(vNormal.w, dot(normalize(vNormal.xyz), normalize(vLightVec)));\n"\
+	"		light += uAmbient;\n"\
+	"		color.xyz *= light;\n"\
+	"		color.xyz = pow(color.xyz, vec3(1.0/2.2));\n"\
+	"		gl_FragColor = color;\n"\
+	"	}\n"\
+	"#endif";
+
+
+ubyte4 packNormal(const TR::Vertex &n) {
+	vec3 vn = (vec3(n.x, n.y, n.z).normal() * 0.5f + vec3(0.5f)) * 255.0f;
+	ubyte4 v;
+//	v.x = (int)n.x * 255 / (2 * 16300) + 127;
+//	v.y = (int)n.y * 255 / (2 * 16300) + 127;
+//	v.z = (int)n.z * 255 / (2 * 16300) + 127;
+	v.x = (int)vn.x;
+	v.y = (int)vn.y;
+	v.z = (int)vn.z;
+	v.w = 0;
+	return v;
+}
+
 struct Level {
-	TR::Level level;
-	Texture *atlas;
-	float time;
-	Controller *lara;
+	TR::Level	level;
+	Shader		*shader;
+	Texture		*atlas;
+	Mesh		*mesh;
+
+	Controller	*lara;
+
+	float		time;
+
+	MeshRange	*rangeRooms;
+
+	int mCount;
+	struct MeshInfo : MeshRange {
+		int			offset;
+		TR::Vertex	center;
+		int32		radius;
+	} *meshInfo;
 
 	Level(const char *name) : level(Stream(name)), time(0.0f) {
+		shader = new Shader(SHADER);
 		initAtlas();
-		lara = new Controller(&level);
+		initMesh();
+
+		int entity = 0;
+		for (int i = 0; i < level.entitiesCount; i++)
+			if (level.entities[i].id == ENTITY_LARA) {
+				entity = i;
+				break;
+			}
+
+		lara = new Controller(&level, entity);
 	}
 
 	~Level() {
+		delete shader;
 		delete atlas;
+		delete mesh;
+		delete[] rangeRooms;
+		delete[] meshInfo;
+
+		delete lara;
 	}
 
 	void initAtlas() {
@@ -46,23 +130,315 @@ struct Level {
 			}
 		}
 
+		for (int y = 1020; y < 1024; y++)
+			for (int x = 1020; x < 1024; x++) {
+				int i = y * 1024 + x;
+				data[i].r = data[i].g = data[i].b = data[i].a = 255;	// white texel for colored triangles
+			}
+
 		atlas = new Texture(1024, 1024, 0, data);
 		delete[] data;
 	}
 
-	void bindTexture(int tile) {
-		
-		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
-		glTranslatef((tile % 4) * 0.25f, (tile / 4) * 0.25f, 0.0f);
-		glScalef(0.25f, 0.25f, 1.0f);
-		glMatrixMode(GL_MODELVIEW);
-	}
+	void initMesh() {
+		// TODO: sort by texture attribute (t.attribute == 2 ? bmAdd : bmAlpha)
 
-	void setTexture(int objTexture) {
-		auto &t = level.objectTextures[objTexture];
-		Core::setBlending(t.attribute == 2 ? bmAdd : bmAlpha);
-		bindTexture(t.tileAndFlag & 0x7FFF);
+		rangeRooms = new MeshRange[level.roomsCount];
+
+		int iCount = 0, vCount = 0;
+
+	// get rooms mesh info
+		for (int i = 0; i < level.roomsCount; i++) {
+			rangeRooms[i].vStart = vCount;
+			rangeRooms[i].iStart = iCount;
+			TR::Room::Data &d = level.rooms[i].data;
+			iCount += d.rCount * 6 + d.tCount * 3;
+			vCount += d.rCount * 4 + d.tCount * 3;
+			rangeRooms[i].iCount = iCount - rangeRooms[i].iStart;
+		}
+	// get objects mesh info
+		#define OFFSET(bytes) (ptr = (TR::Mesh*)((char*)ptr + (bytes) - sizeof(char*)))
+
+		mCount = 0;
+		TR::Mesh *ptr = (TR::Mesh*)level.meshData;
+		while ( ((int)ptr - (int)level.meshData) < level.meshDataSize * 2 ) {
+			mCount++;
+
+			OFFSET(ptr->vCount * sizeof(TR::Vertex));
+			if (ptr->nCount > 0)
+				OFFSET(ptr->nCount * sizeof(TR::Vertex));
+			else
+				OFFSET(-ptr->nCount * sizeof(int16));
+
+			iCount += ptr->rCount * 6;
+			vCount += ptr->rCount * 4;
+			OFFSET(ptr->rCount * sizeof(TR::Rectangle));
+
+			iCount += ptr->tCount * 3;
+			vCount += ptr->tCount * 3;
+			OFFSET(ptr->tCount * sizeof(TR::Triangle));
+
+			iCount += ptr->crCount * 6;
+			vCount += ptr->crCount * 4;
+			OFFSET(ptr->crCount * sizeof(TR::Rectangle));
+
+			iCount += ptr->ctCount * 3;
+			vCount += ptr->ctCount * 3;
+			OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
+			ptr = (TR::Mesh*)(((int)ptr + 3) & ~3);
+		}
+		meshInfo = new MeshInfo[mCount];
+
+		Index  *indices  = new Index[iCount];
+		Vertex *vertices = new Vertex[vCount];
+		iCount = vCount = 0;
+
+	// rooms geometry
+		for (int i = 0; i < level.roomsCount; i++) {
+			TR::Room::Data &d = level.rooms[i].data;
+
+			int vStart = vCount;
+
+			for (int j = 0; j < d.rCount; j++) {
+				auto &f = d.rectangles[j];
+				auto &t = level.objectTextures[f.texture];
+
+				int  tile = t.tileAndFlag & 0x7FFF;
+				int  tx = (tile % 4) * 256;
+				int  ty = (tile / 4) * 256;
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				indices[iCount + 3] = vIndex + 0;
+				indices[iCount + 4] = vIndex + 2;
+				indices[iCount + 5] = vIndex + 3;
+
+				iCount += 6;
+
+				for (int k = 0; k < 4; k++) {
+					auto &v = d.vertices[f.vertices[k]];
+					uint8 a = 255 - (v.lighting >> 5);
+					
+					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
+					vertices[vCount].color		= { a, a, a, 255 };
+					vertices[vCount].normal		= { 0, 0, 0, 255 };
+					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vCount++;
+				}
+			}
+
+			for (int j = 0; j < d.tCount; j++) {
+				auto &f = d.triangles[j];
+				auto &t = level.objectTextures[f.texture];
+
+				int  tile = t.tileAndFlag & 0x7FFF;
+				int  tx = (tile % 4) * 256;
+				int  ty = (tile / 4) * 256;
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				iCount += 3;
+
+				for (int k = 0; k < 3; k++) {
+					auto &v = d.vertices[f.vertices[k]];
+					uint8 a = 255 - (v.lighting >> 5);
+					
+					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
+					vertices[vCount].color		= { a, a, a, 255 };
+					vertices[vCount].normal		= { 0, 0, 0, 255 };
+					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vCount++;
+				}
+			}
+		}
+
+	// objects geometry
+		mCount = 0;
+		ptr = (TR::Mesh*)level.meshData;
+		while ( ((int)ptr - (int)level.meshData) < level.meshDataSize * sizeof(uint16) ) {
+			MeshInfo &info = meshInfo[mCount++];
+			info.offset = (int)ptr - (int)level.meshData;
+			info.vStart = vCount;
+			info.iStart = iCount;	
+			info.center = ptr->center;
+			info.radius = ptr->radius;
+
+			TR::Vertex *mVertices = (TR::Vertex*)&ptr->vertices;
+
+			OFFSET(ptr->vCount * sizeof(TR::Vertex));
+
+			TR::Vertex	*normals = NULL;
+			int16		*lights  = NULL;
+			int			nCount   = ptr->nCount;
+
+			if (ptr->nCount > 0) {
+				normals = (TR::Vertex*)&ptr->normals;
+				OFFSET(ptr->nCount * sizeof(TR::Vertex));
+			} else {
+				lights = (int16*)&ptr->lights;
+				OFFSET(-ptr->nCount * sizeof(int16));
+			}
+
+			int vStart = vCount;
+		// rectangles
+			for (int j = 0; j < ptr->rCount; j++) {
+				auto &f = ((TR::Rectangle*)&ptr->rectangles)[j];
+				auto &t = level.objectTextures[f.texture];
+
+				int  tile = t.tileAndFlag & 0x7FFF;
+				int  tx = (tile % 4) * 256;
+				int  ty = (tile / 4) * 256;
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				indices[iCount + 3] = vIndex + 0;
+				indices[iCount + 4] = vIndex + 2;
+				indices[iCount + 5] = vIndex + 3;
+
+				iCount += 6;
+
+				for (int k = 0; k < 4; k++) {
+					auto &v = mVertices[f.vertices[k]];
+					
+					vertices[vCount].coord		= { v.x, v.y, v.z };
+
+					if (nCount > 0) {
+						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						vertices[vCount].color	= { 255, 255, 255, 255 };
+					} else {
+						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
+						vertices[vCount].normal	= { 0, 0, 0, 255 };
+						vertices[vCount].color	= { a, a, a, 255 };
+					}
+					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vCount++;
+				}
+			}
+			OFFSET(ptr->rCount * sizeof(TR::Rectangle));
+
+		// triangles 
+			for (int j = 0; j < ptr->tCount; j++) {
+				auto &f = ((TR::Triangle*)&ptr->triangles)[j];
+				auto &t = level.objectTextures[f.texture];
+
+				int  tile = t.tileAndFlag & 0x7FFF;
+				int  tx = (tile % 4) * 256;
+				int  ty = (tile / 4) * 256;
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				iCount += 3;
+
+				for (int k = 0; k < 3; k++) {
+					auto &v = mVertices[f.vertices[k]];
+					vertices[vCount].coord		= { v.x, v.y, v.z };
+
+					if (nCount > 0) {
+						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						vertices[vCount].color	= { 255, 255, 255, 255 };
+					} else {
+						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
+						vertices[vCount].normal	= { 0, 0, 0, 255 };
+						vertices[vCount].color	= { a, a, a, 255 };
+					}
+					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vCount++;
+				}
+			}
+			OFFSET(ptr->tCount * sizeof(TR::Triangle));
+
+		// color rectangles
+			for (int j = 0; j < ptr->crCount; j++) {
+				auto &f = ((TR::Rectangle*)&ptr->crectangles)[j];
+				auto &c = level.palette[f.texture & 0xFF];
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				indices[iCount + 3] = vIndex + 0;
+				indices[iCount + 4] = vIndex + 2;
+				indices[iCount + 5] = vIndex + 3;
+
+				iCount += 6;
+
+				for (int k = 0; k < 4; k++) {
+					auto &v = mVertices[f.vertices[k]];
+					
+					vertices[vCount].coord		= { v.x, v.y, v.z };
+
+					if (nCount > 0) {
+						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						vertices[vCount].color	= { c.r, c.g, c.b, 255 };
+					} else {
+						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
+						vertices[vCount].normal	= { 0, 0, 0, 255 };
+						vertices[vCount].color	= { a, a, a, 255 };	// TODO: apply color
+					}
+					vertices[vCount].texCoord	= { 1022 << 5, 1022 << 5 };
+					vCount++;
+				}
+			}
+			OFFSET(ptr->crCount * sizeof(TR::Rectangle));
+
+		// color triangles
+			for (int j = 0; j < ptr->ctCount; j++) {
+				auto &f = ((TR::Triangle*)&ptr->ctriangles)[j];
+				auto &c = level.palette[f.texture & 0xFF];
+
+				int  vIndex = vCount - vStart;
+
+				indices[iCount + 0] = vIndex + 0;
+				indices[iCount + 1] = vIndex + 1;
+				indices[iCount + 2] = vIndex + 2;
+
+				iCount += 3;
+
+				for (int k = 0; k < 3; k++) {
+					auto &v = mVertices[f.vertices[k]];
+					
+					vertices[vCount].coord		= { v.x, v.y, v.z };
+
+					if (nCount > 0) {
+						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						vertices[vCount].color	= { c.r, c.g, c.b, 255 };
+					} else {
+						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
+						vertices[vCount].normal	= { 0, 0, 0, 255 };
+						vertices[vCount].color	= { a, a, a, 255 };	// TODO: apply color
+					}
+					vertices[vCount].texCoord	= { 1022 << 5, 1022 << 5 };
+					vCount++;
+				}
+			}
+			OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
+
+			ptr = (TR::Mesh*)(((int)ptr + 3) & ~3);
+
+			info.iCount = iCount - info.iStart;
+		}
+
+		mesh = new Mesh(indices, iCount, vertices, vCount);
+		delete[] indices;
+		delete[] vertices;
 	}
 
 	TR::StaticMesh* getMeshByID(int id) {
@@ -74,213 +450,56 @@ struct Level {
 
 	#define SCALE (1.0f / 1024.0f / 2.0f)
 
-	void renderRoom(const TR::Room &room) {
-		glPushMatrix();
-		glTranslatef(room.info.x, 0.0f, room.info.z);
+	void renderRoom(int index) {
+		TR::Room &room = level.rooms[index];
 
-		// rectangles
-		for (int j = 0; j < room.data.rCount; j++) {
-			auto &f = room.data.rectangles[j];
-			auto &t = level.objectTextures[f.texture];
-			setTexture(f.texture);
-
-			glBegin(GL_QUADS);
-			for (int k = 0; k < 4; k++) {
-				auto &v = room.data.vertices[f.vertices[k]];
-				float a = 1.0f - v.lighting / 8191.0f;
-				glColor3f(a, a, a);
-				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3sv((GLshort*)&v.vertex);
-			}
-			glEnd();
-		}
-		
-		// triangles
-		for (int j = 0; j < room.data.tCount; j++) {
-			auto &f = room.data.triangles[j];
-			auto &t = level.objectTextures[f.texture];
-			setTexture(f.texture);
-
-			glBegin(GL_TRIANGLES);	
-			for (int k = 0; k < 3; k++) {
-				auto &v = room.data.vertices[f.vertices[k]];
-				float a = 1.0f - v.lighting / 8191.0f;
-				glColor3f(a, a, a);
-				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3sv((GLshort*)&v.vertex);
-			}
-			glEnd();
-		}
-		glPopMatrix();
+		mat4 m = Core::mModel;
+		Core::mModel.translate(vec3(room.info.x, 0.0f, room.info.z));
+		shader->setParam(uModel, Core::mModel);
+		mesh->render(rangeRooms[index]);
+		Core::mModel = m;
 	
+		Core::color = vec4(1.0f);
+		shader->setParam(uColor, Core::color);	
+		
 		// meshes
-		float a = 1.0f - room.ambient / 8191.0f;
-
 		for (int j = 0; j < room.meshesCount; j++) {
 			auto rMesh = room.meshes[j];
 			auto sMesh = getMeshByID(rMesh.meshID);
 			ASSERT(sMesh != NULL);
 
-			glPushMatrix();
-			glTranslatef(rMesh.x, rMesh.y, rMesh.z);
-			glRotatef((rMesh.rotation >> 14) * 90.0f, 0, 1, 0);
-			
-			renderMesh(sMesh->mesh, vec3(a));
+			mat4 m = Core::mModel;
+			Core::mModel.translate(vec3(rMesh.x, rMesh.y, rMesh.z));
+			Core::mModel.rotateY((rMesh.rotation >> 14) * 90.0f * DEG2RAD);
 
-			glPopMatrix();
+			getLight(vec3(rMesh.x, rMesh.y, rMesh.z), index);
+			shader->setParam(uAmbient, Core::ambient);	
+			shader->setParam(uLightPos, Core::lightPos);	
+			shader->setParam(uLightColor, Core::lightColor);
+
+			renderMesh(sMesh->mesh);
+
+			Core::mModel = m;
 		}
-	
+	/*
 		// sprites
 		Core::setBlending(bmAlpha);
 		for (int j = 0; j < room.data.sCount; j++)
 			renderSprite(room, room.data.sprites[j]);
+			*/
 	}
 
 	
-	void renderMesh(uint32 meshOffset, const vec3 &color) {
-	// remap mesh
-		#define OFFSET(bytes) (ptr = (TR::Mesh*)((char*)ptr + bytes - sizeof(char*)))
+	void renderMesh(uint32 meshOffset) {
+		if (!level.meshOffsets[meshOffset] && meshOffset)
+			return;
 
-		TR::Mesh *ptr = (TR::Mesh*)((char*)level.meshData + level.meshOffsets[meshOffset]);
-		TR::Mesh mesh;
-		mesh.center = ptr->center;
-		mesh.radius = ptr->radius;
-		mesh.vCount = ptr->vCount;
-		mesh.vertices = (TR::Vertex*)&ptr->vertices;
-		OFFSET(mesh.vCount * sizeof(TR::Vertex));
-		mesh.nCount = ptr->nCount;
-		mesh.normals = (TR::Vertex*)&ptr->normals;
-		if (mesh.nCount > 0)
-			OFFSET(mesh.nCount * sizeof(TR::Vertex));
-		else
-			OFFSET(-mesh.nCount * sizeof(int16));
-
-		mesh.rCount = ptr->rCount;
-		mesh.rectangles = (TR::Rectangle*)&ptr->rectangles;
-		OFFSET(mesh.rCount * sizeof(TR::Rectangle));
-
-		mesh.tCount = ptr->tCount;
-		mesh.triangles = (TR::Triangle*)&ptr->triangles;
-		OFFSET(mesh.tCount * sizeof(TR::Triangle));
-
-		mesh.crCount = ptr->crCount;
-		mesh.crectangles = (TR::Rectangle*)&ptr->crectangles;
-		OFFSET(mesh.crCount * sizeof(TR::Rectangle));
-
-		mesh.ctCount = ptr->ctCount;
-		mesh.ctriangles = (TR::Triangle*)&ptr->ctriangles;
-		OFFSET(mesh.ctCount * sizeof(TR::Triangle));
-
-		if (mesh.nCount > 0)
-			glEnable(GL_LIGHTING);
-		glColor3f(color.x, color.y, color.z);
-
-		// triangles
-		for (int j = 0; j < mesh.tCount; j++) {
-			auto &f = mesh.triangles[j];
-			auto &t = level.objectTextures[f.texture];
-			setTexture(f.texture);
-				
-			glBegin(GL_TRIANGLES);	
-			for (int k = 0; k < 3; k++) {
-				auto &v = mesh.vertices[f.vertices[k]];
-
-				if (mesh.nCount > 0) {
-					auto vn = mesh.normals[f.vertices[k]];
-				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glNormal3sv((GLshort*)&vn);
-				} else {
-					auto l = mesh.lights[f.vertices[k]];
-					float a = 1.0f - l / 8191.0f;
-					glColor3f(a, a, a);
-				}
-
-				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3sv((GLshort*)&v);
+		for (int i = 0; i < mCount; i++)
+			if (meshInfo[i].offset == level.meshOffsets[meshOffset]) {
+				shader->setParam(uModel, Core::mModel);
+				mesh->render(meshInfo[i]);
+				break;
 			}
-			glEnd();
-		}
-
-		// rectangles
-		for (int j = 0; j < mesh.rCount; j++) {
-			auto &f = mesh.rectangles[j];
-			auto &t = level.objectTextures[f.texture];
-			setTexture(f.texture);
-				
-			glBegin(GL_QUADS);	
-			for (int k = 0; k < 4; k++) {
-				auto &v = mesh.vertices[f.vertices[k]];
-
-				if (mesh.nCount > 0) {
-					auto vn = mesh.normals[f.vertices[k]];
-				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glNormal3sv((GLshort*)&vn);
-				} else {
-					auto l = mesh.lights[f.vertices[k]];
-					float a = 1.0f - l / 8191.0f;
-					glColor3f(a, a, a);
-				}
-				glTexCoord2f(t.vertices[k].Xpixel / 256.0f, t.vertices[k].Ypixel / 256.0f);
-				glVertex3sv((GLshort*)&v);
-			}
-			glEnd();
-		}
-					
-		glDisable(GL_TEXTURE_2D);
-		// debug normals
-
-		// triangles (colored)
-		glBegin(GL_TRIANGLES);	
-		for (int j = 0; j < mesh.ctCount; j++) {
-			auto &f = mesh.ctriangles[j];
-			auto &c = level.palette[f.texture & 0xFF];
-				
-			for (int k = 0; k < 3; k++) {
-				auto &v = mesh.vertices[f.vertices[k]];
-
-				if (mesh.nCount > 0) {
-					auto vn = mesh.normals[f.vertices[k]];
-				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glColor3f(c.r / 255.0f * color.x, c.g / 255.0f * color.y, c.b / 255.0f * color.z);
-					glNormal3sv((GLshort*)&vn);
-				} else {
-					auto l = mesh.lights[f.vertices[k]];
-					float a = (1.0f - l / 8191.0f) / 255.0f;
-					glColor3f(c.r * a, c.g * a, c.b * a);
-				}
-				glVertex3sv((GLshort*)&v);
-			}
-		}
-		glEnd();
-
-		// rectangles (colored)
-		glBegin(GL_QUADS);	
-		for (int j = 0; j < mesh.crCount; j++) {
-			auto &f = mesh.crectangles[j];
-			auto &c = level.palette[f.texture & 0xFF];
-				
-			for (int k = 0; k < 4; k++) {
-				auto &v = mesh.vertices[f.vertices[k]];
-
-				if (mesh.nCount > 0) {
-					auto vn = mesh.normals[f.vertices[k]];
-				//	vec3 n = vec3(vn.x, vn.y, vn.z).normal();
-					glColor3f(c.r / 255.0f * color.x, c.g / 255.0f * color.y, c.b / 255.0f * color.z);
-					glNormal3sv((GLshort*)&vn);
-				} else {
-					auto l = mesh.lights[f.vertices[k]];
-					float a = (1.0f - l / 8191.0f) / 255.0f;
-					glColor3f(c.r * a, c.g * a, c.b * a);
-				}
-				glVertex3sv((GLshort*)&v);
-			}
-		}
-		glEnd();
-	
-		glEnable(GL_TEXTURE_2D);
-
-		if (mesh.nCount > 0)
-			glDisable(GL_LIGHTING);
 	}
 	
 	void renderSprite(const TR::SpriteTexture &sprite) {
@@ -299,7 +518,7 @@ struct Level {
 		p[2] = right * sprite.l + up * sprite.t;
 		p[3] = right * sprite.r + up * sprite.t;
 
-		bindTexture(sprite.tile);
+//		bindTexture(sprite.tile);
 		glBegin(GL_QUADS);
 			glTexCoord2f(u0, v1);
 			glVertex3fv((GLfloat*)&p[0]);
@@ -363,13 +582,8 @@ struct Level {
 
 		return ma.getRot().slerp(mb.getRot(), t).normal();
 	}
-
-	float debugTime = 0.0f;
-
-	void renderModel(const TR::Model &model) {
-		mat4 m;
-		m.identity();
-		
+	
+	void renderModel(const TR::Model &model) {		
 		TR::Animation *anim = &level.anims[model.animation];
 
 		float fTime = time;
@@ -377,8 +591,6 @@ struct Level {
 		if (model.id == ENTITY_LARA) {
 			anim = lara->anim;
 			fTime = lara->fTime;
-			m.translate(lara->pos);
-			m.rotateY(lara->angle);
 		}
 
 		float k = fTime * 30.0f / anim->frameRate;
@@ -422,6 +634,8 @@ struct Level {
 		int sIndex = 0;
 		mat4 stack[20];
 
+		mat4 m;
+		m.identity();
 		m.translate(vec3(frameA->x, frameA->y, frameA->z).lerp(vec3(frameB->x, frameB->y, frameB->z), k));
 
 		for (int i = 0; i < model.mCount; i++) {
@@ -447,39 +661,67 @@ struct Level {
 		//	m.rotateX(angle.x);
 		//	m.rotateZ(angle.z);
 			
-
-			glPushMatrix();
-			glMultMatrixf((GLfloat*)&m);
-			renderMesh(model.mStart + i, vec3(1.0f));
-			glPopMatrix();
+			mat4 tmp = Core::mModel;
+			Core::mModel = Core::mModel * m;
+			renderMesh(model.mStart + i);
+			Core::mModel = tmp;
 		}
 	}
 
+	void getLight(const vec3 &pos, int room) {
+		int idx = -1;
+		float dist;
+		for (int i = 0; i < level.rooms[room].lightsCount; i++) {
+			TR::Room::Light &light = level.rooms[room].lights[i];
+			float d = (pos - vec3(light.x, light.y, light.z)).length();
+			if (idx == -1 || d < dist) {
+				idx = i;
+				dist = d;
+			}
+		}
+
+		if (idx > -1) {
+			TR::Room::Light &light = level.rooms[room].lights[idx];
+			float c = level.rooms[room].lights[idx].Intensity / 8191.0f;
+			Core::lightPos   = vec3(-light.x, -light.y, light.z);
+			Core::lightColor = vec4(c, c, c, 0.0f);
+		} else {
+			Core::lightPos   = vec3(0.0f);
+			Core::lightColor = vec4(0.0f);
+		}
+		Core::ambient = vec3(1.0f - level.rooms[room].ambient / 8191.0f);
+	}
+
 	void renderEntity(const TR::Entity &entity) {
-		glPushMatrix();
-		glTranslatef(entity.x, entity.y, entity.z);
+		mat4 m = Core::mModel;
+		Core::mModel.translate(vec3(entity.x, entity.y, entity.z));
 
-		if (entity.intensity > -1) {
-			float a = 1.0f - entity.intensity / (float)0x1FFF;
-			glColor3f(a, a, a);
-		} else
-			glColor3f(1, 1, 1);
-	
+		float c = (entity.intensity > -1) ? (1.0f - entity.intensity / (float)0x1FFF) : 1.0f;
+		float l = 1.0f;
 
+		Core::color			= vec4(c, c, c, 1.0);
+		getLight(vec3(entity.x, entity.y, entity.z), entity.room);
+		
+		shader->setParam(uColor, Core::color);	
+		shader->setParam(uAmbient, Core::ambient);	
+		shader->setParam(uLightPos, Core::lightPos);	
+		shader->setParam(uLightColor, Core::lightColor);
+		
 		for (int i = 0; i < level.modelsCount; i++)
 			if (entity.id == level.models[i].id) {
-				glRotatef((entity.rotation >> 14) * 90.0f, 0, 1, 0);
+				Core::mModel.rotateY(entity.rotation / 16384.0f * PI * 0.5f);
+			//	Core::mModel.rotateY((entity.rotation >> 14) * 90.0f * DEG2RAD);
 				renderModel(level.models[i]);
 				break;
 			}
-		
+	/*	
 		for (int i = 0; i < level.spriteSequencesCount; i++)
 			if (entity.id == level.spriteSequences[i].id) {
 				renderSprite(level.spriteTextures[level.spriteSequences[i].sStart]);
 				break;
 			}
-
-		glPopMatrix();
+	*/
+		Core::mModel = m;
 	}
 
 
@@ -749,22 +991,33 @@ struct Level {
 	}
 
 	void render() {
+		shader->bind();
 		atlas->bind(0);
+		mesh->bind();
+
+		shader->setParam(uViewProj, Core::mViewProj);
+		shader->setParam(uModel, Core::mModel);
 
 		glEnable(GL_ALPHA_TEST);
 		glAlphaFunc(GL_GREATER, 0.9f);
 		glEnable(GL_TEXTURE_2D);
 		glEnable(GL_NORMALIZE);
 		glEnable(GL_COLOR_MATERIAL);
-		glEnable(GL_LIGHT0);
+		//glEnable(GL_LIGHT0);
 
 		Core::setCulling(cfFront);
-		glColor3f(1, 1, 1);
 
-		glScalef(-SCALE, -SCALE, SCALE);
+		Core::mModel.identity();
+		Core::mModel.scale(vec3(-SCALE, -SCALE, SCALE));
+
+		Core::color   = vec4(1.0f);
+		Core::ambient = vec3(0.0f);
+
+		shader->setParam(uColor, Core::color);	
+		shader->setParam(uAmbient, Core::ambient);	
 
 		for (int i = 0; i < level.roomsCount; i++)
-			renderRoom(level.rooms[i]);
+			renderRoom(i);
 
 		for (int i = 0; i < level.entitiesCount; i++)
 			renderEntity(level.entities[i]);

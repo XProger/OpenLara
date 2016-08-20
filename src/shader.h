@@ -3,25 +3,19 @@
 
 #include "core.h"
 
-enum AttribType		{ aCoord, aTexCoord, aNormal, aMAX };
-enum SamplerType	{ sTex0, sMAX };
-enum UniformType	{ uViewProj, uModel, uLightVec, uMAX };
+enum AttribType		{ aCoord, aTexCoord, aNormal, aColor, aMAX };
+enum SamplerType	{ sDiffuse, sMAX };
+enum UniformType	{ uViewProj, uModel, uColor, uAmbient, uLightPos, uLightColor, uMAX };
 
-const char *AttribName[aMAX]	= { "aCoord", "aTexCoord", "aNormal" };
-const char *SamplerName[sMAX]	= { "sTex0" };
-const char *UniformName[uMAX]	= { "uViewProj", "uModel", "uLightVec" };
+const char *AttribName[aMAX]	= { "aCoord", "aTexCoord", "aNormal", "aColor" };
+const char *SamplerName[sMAX]	= { "sDiffuse" };
+const char *UniformName[uMAX]	= { "uViewProj", "uModel", "uColor", "uAmbient", "uLightPos", "uLightColor" };
 
 struct Shader {
 	GLuint	ID;
 	GLint	uID[uMAX];
 
-	Shader(const char *name, int param) {
-		Stream stream(name);
-
-		char *text = new char[stream.size + 1];
-		stream.read(text, stream.size);
-		text[stream.size] = '\0';
-
+	Shader(const char *text) {
 		#define GLSL_DEFINE	"#version 110\n"
 
 		const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
@@ -44,7 +38,6 @@ struct Shader {
 			glAttachShader(ID, obj);
 			glDeleteShader(obj);
 		}
-		delete[] text;
 
 		for (int at = 0; at < aMAX; at++)
 			glBindAttribLocation(ID, at, AttribName[at]);
@@ -68,8 +61,6 @@ struct Shader {
 
 	void bind() {
 		glUseProgram(ID);
-		setParam(uViewProj, Core::mViewProj);
-		setParam(uModel, Core::mModel);
 	}
 
 	void setParam(UniformType uType, const vec3 &value, int count = 1) {

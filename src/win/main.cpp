@@ -1,3 +1,7 @@
+#ifdef _DEBUG
+	#include "crtdbg.h"
+#endif
+
 #include "game.h"
 
 DWORD getTime() {
@@ -171,6 +175,12 @@ void freeGL(HGLRC hRC) {
 }
 
 int main() {
+#ifdef _DEBUG
+	_CrtMemState _ms;
+	_CrtMemCheckpoint(&_ms);
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+#endif
 	RECT r = { 0, 0, 1280, 720 };
 	AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
 
@@ -223,6 +233,10 @@ int main() {
 	ReleaseDC(hWnd, hDC);
 
 	DestroyWindow(hWnd);
- 
+ #ifdef _DEBUG
+	_CrtMemDumpAllObjectsSince(&_ms);
+	system("pause");
+#endif
+
 	return 0;
 }

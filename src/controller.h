@@ -4,8 +4,10 @@
 #include "format.h"
 
 struct Controller {
-	TR::Level *level;
-	TR::Animation *anim;
+	TR::Level		*level;
+	int				entity;
+
+	TR::Animation	*anim;
 	float fTime;
 
 	vec3	pos;
@@ -14,9 +16,13 @@ struct Controller {
 	int state;	// LaraState
 	int lastFrame;
 
-	Controller(TR::Level *level) : level(level), pos(0.0f), angle(0.0f), fTime(0.0f) {
+	Controller(TR::Level *level, int entity) : level(level), entity(entity), pos(0.0f), angle(0.0f), fTime(0.0f) {
 		anim = &level->anims[0];
 		lastFrame = 0;
+
+		TR::Entity &e = level->entities[entity];
+		pos = vec3(e.x, e.y, e.z);
+		angle = e.rotation / 16384.0f * PI * 0.5f;
 	}
 
 	void update() {
@@ -181,8 +187,43 @@ struct Controller {
 		float speed = anim->speed.toFloat() + anim->accel.toFloat() * (fTime * 30.0f);			
 		pos = pos + vec3(sinf(d), 0, cosf(d)) * (speed * Core::deltaTime * 30.0f);
 
-
 		lastFrame = fIndex;
+
+		TR::Entity &e = level->entities[entity];
+
+		e.x = int(pos.x);
+		e.y = int(pos.y);
+		e.z = int(pos.z);
+		e.rotation = int(angle / (PI * 0.5f) * 16384.0f);
+
+	/*
+		TR::Room &room = level->rooms[level->entities[entity].room];
+		for (int i = 0; i < room.portalsCount; i++) {
+			if (insideRoom(pos, room.portals[i].roomIndex)) {
+				level->entities[entity].room = room.portals[i].roomIndex;
+				LOG("set room: %d\n", i);
+				break;
+			}
+		}
+		
+		
+		for (int i = 0; i < level->roomsCount; i++)
+			if (insideRoom(pos, i) && i != level->entities[entity].room) {
+				level->entities[entity].room = i;
+				LOG("set room: %d\n", i);
+				break;
+			}
+		*/
+	}
+
+	bool insideRoom(const vec3 &pos, int room) {
+		TR::Room &r = level->rooms[room];
+		vec3 min = vec3(r.info.x, r.info.yTop, r.info.z);
+		vec3 max = min + vec3(r.xSectors * 1024, r.info.yBottom - r.info.yTop, r.zSectors * 1024);
+
+		return	pos.x >= min.x && pos.x <= max.x && 
+				pos.y >= min.y && pos.y <= max.y && 
+				pos.z >= min.z && pos.z <= max.z;
 	}
 
 };

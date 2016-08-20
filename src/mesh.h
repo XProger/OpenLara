@@ -6,30 +6,30 @@
 typedef unsigned short Index;
 
 struct Vertex {
-	vec3 coord;
-	vec3 normal;
-	vec2 texCoord;
+	short3	coord;
+	short2	texCoord;
+	ubyte4	normal;
+	ubyte4	color;
+};
+
+struct MeshRange {
+	int iStart;
+	int iCount;
+	int vStart;
 };
 
 struct Mesh {
 	GLuint	ID[2];
 	int		iCount;
 	int		vCount;
-/*
-	Mesh(const char *name) {
-		Stream stream(name);
-		Index  *indices  = stream.readArray<Index> (stream.read(iCount));
-		Vertex *vertices = stream.readArray<Vertex>(stream.read(vCount));
 
+	Mesh(Index *indices, int iCount, Vertex *vertices, int vCount) : iCount(iCount), vCount(vCount) {
 		glGenBuffers(2, ID);
 		bind();
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
 		glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(Vertex), vertices, GL_STATIC_DRAW);
-
-		delete[] indices;
-		delete[] vertices;
 	}
-*/
+
 	virtual ~Mesh() { 
 		glDeleteBuffers(2, ID);
 	}
@@ -37,25 +37,20 @@ struct Mesh {
 	void bind() {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID[0]);
 		glBindBuffer(GL_ARRAY_BUFFER, ID[1]);
-	}
-
-	void render() {
-		bind();
 
 		glEnableVertexAttribArray(aCoord);
-		glEnableVertexAttribArray(aNormal);
 		glEnableVertexAttribArray(aTexCoord);
+		glEnableVertexAttribArray(aNormal);
+		glEnableVertexAttribArray(aColor);
+	}
 
-
-		Vertex *v = NULL;		
-		glVertexAttribPointer(aCoord,	 3, GL_FLOAT, false, sizeof(Vertex), &v->coord);
-		glVertexAttribPointer(aNormal,	 3, GL_FLOAT, false, sizeof(Vertex), &v->normal);
-		glVertexAttribPointer(aTexCoord, 2, GL_FLOAT, false, sizeof(Vertex), &v->texCoord);
-		glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, NULL);
-
-		glDisableVertexAttribArray(aCoord);
-		glDisableVertexAttribArray(aNormal);
-		glDisableVertexAttribArray(aTexCoord);
+	void render(const MeshRange &range) {
+		Vertex *v = (Vertex*)(range.vStart * sizeof(Vertex));
+		glVertexAttribPointer(aCoord,	 3, GL_SHORT,         false, sizeof(Vertex), &v->coord);
+		glVertexAttribPointer(aTexCoord, 2, GL_SHORT,         true,  sizeof(Vertex), &v->texCoord);
+		glVertexAttribPointer(aNormal,	 4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->normal);
+		glVertexAttribPointer(aColor,	 4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
+		glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(range.iStart * sizeof(Index)));
 	}
 };
 

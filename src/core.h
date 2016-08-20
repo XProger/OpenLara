@@ -50,6 +50,10 @@ namespace Core {
 	int width, height;
 	float deltaTime;
 	mat4 mView, mProj, mViewProj, mModel;
+	vec3 lightPos;
+	vec4 lightColor;
+	vec3 ambient;
+	vec4 color;
 }
 
 #include "texture.h"

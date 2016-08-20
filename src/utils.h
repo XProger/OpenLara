@@ -31,6 +31,18 @@ typedef unsigned char	uint8;
 typedef unsigned short	uint16;
 typedef unsigned int	uint32;
 
+struct ubyte4 {
+	uint8 x, y, z, w;
+};
+
+struct short2 {
+	int16 x, y;
+};
+
+struct short3 {
+	int16 x, y, z;
+};
+
 template <typename T>
 inline const T& min(const T &a, const T &b) {
 	return a < b ? a : b;
@@ -52,8 +64,9 @@ struct vec2 {
 	vec2 operator * (float s) const { return vec2(x*s, y*s); }
 	float dot(const vec2 &v) const { return x*v.x + y*v.y; }
 	float cross(const vec2 &v) const { return x*v.y - y*v.x; }
-	float length() const { return sqrtf(dot(*this)); }
-	vec2  normal() const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
+	float length2() const { return dot(*this); }
+	float length()  const { return sqrtf(length2()); }
+	vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
 };
 
 struct vec3 {
@@ -68,11 +81,11 @@ struct vec3 {
 	vec3 operator * (const vec3 &v) const { return vec3(x*v.x, y*v.y, z*v.z); }
 	vec3 operator * (float s) const { return vec3(x*s, y*s, z*s); }
 
-
 	float dot(const vec3 &v) const { return x*v.x + y*v.y + z*v.z; }
 	vec3  cross(const vec3 &v) const { return vec3(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x); }
-	float length() const { return sqrtf(x*x + y*y + z*z); }
-	vec3  normal() const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
+	float length2() const { return dot(*this); }
+	float length()  const { return sqrtf(length2()); }
+	vec3  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
 
 	vec3 lerp(const vec3 &v, const float t) const {
 		return *this + (v - *this) * t; 
@@ -86,6 +99,7 @@ struct vec4 {
 	};
 
 	vec4() {}
+	vec4(float s) : x(s), y(s), z(s), w(s) {}
 	vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 };
 
@@ -437,23 +451,24 @@ struct Stream {
 		pos += offset;
 	}
 
-	int read(void *data, int size) {
+	int raw(void *data, int size) {
 		pos += size;
 		return fread(data, 1, size, f);
 	}
 
 	template <typename T>
 	T& read(T &x) {
-		read(&x, sizeof(x));
+		raw(&x, sizeof(x));
 		return x;
 	}
 
 	template <typename T>
-	T* readArray(T *&a, int count) {
-		if (!count)
-			return NULL;
-		a = new T[count];
-		read(a, count * sizeof(T));
+	T* read(T *&a, int count) {
+		if (count) {
+			a = new T[count];
+			raw(a, count * sizeof(T));
+		} else
+			a = NULL;
 		return a;
 	}
 };
