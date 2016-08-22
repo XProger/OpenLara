@@ -215,13 +215,17 @@ int main() {
 			lastTime = time;
 
 			joyUpdate();
+
+			Core::stats.dips = 0;
+			Core::stats.tris = 0;
+
 			Game::update();
 			Game::render();
 
 			SwapBuffers(hDC);
 
 			if (fpsTime < getTime()) {
-				LOG("FPS: %d\n", fps);
+				LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
 				fps = 0;
 				fpsTime = getTime() + 1000;
 			} else

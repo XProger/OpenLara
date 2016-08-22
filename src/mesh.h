@@ -8,7 +8,7 @@ typedef unsigned short Index;
 struct Vertex {
 	short3	coord;
 	short2	texCoord;
-	ubyte4	normal;
+	short4	normal;
 	ubyte4	color;
 };
 
@@ -48,9 +48,12 @@ struct Mesh {
 		Vertex *v = (Vertex*)(range.vStart * sizeof(Vertex));
 		glVertexAttribPointer(aCoord,	 3, GL_SHORT,         false, sizeof(Vertex), &v->coord);
 		glVertexAttribPointer(aTexCoord, 2, GL_SHORT,         true,  sizeof(Vertex), &v->texCoord);
-		glVertexAttribPointer(aNormal,	 4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->normal);
+		glVertexAttribPointer(aNormal,	 4, GL_SHORT,         true,  sizeof(Vertex), &v->normal);
 		glVertexAttribPointer(aColor,	 4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
 		glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(range.iStart * sizeof(Index)));
+
+		Core::stats.dips++;
+		Core::stats.tris += range.iCount / 3;
 	}
 };
 

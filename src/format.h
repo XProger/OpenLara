@@ -4,6 +4,12 @@
 #include "utils.h"
 
 namespace TR {
+	#define ENTITY_FLAG_CLEAR	0x0080
+	#define ENTITY_FLAG_VISIBLE	0x0100
+	#define ENTITY_FLAG_MASK	0x3E00
+
+
+
 	#define ENTITY_LARA						0
 	
 	#define ENTITY_ENEMY_TWIN				6
@@ -70,7 +76,7 @@ namespace TR {
 		STATE_FAST_TURN_20,
 		STATE_STEP_RIGHT,
 		STATE_STEP_LEFT,
-		STATE_ROLL_23,
+		STATE_ROLL,
 		STATE_SLIDE,
 		STATE_BACK_JUMP,
 		STATE_RIGHT_JUMP,
@@ -101,7 +107,7 @@ namespace TR {
 		STATE_NULL_51,
 		STATE_SWAN_DIVE,
 		STATE_FAST_DIVE,
-		STATE_NULL_54,
+		STATE_HANDSTAND,
 		STATE_WATER_OUT,
 		STATE_CLIMB_START_AND_STANDING,
 		STATE_CLIMB_UP,
@@ -288,8 +294,8 @@ namespace TR {
 
 	struct AnimState {
 		uint16	state;
-		uint16	rCount;			// number of ranges
-		uint16	rangeOffset;	// Offset into animRanges[]
+		uint16	rangesCount;	// number of ranges
+		uint16	rangesOffset;	// Offset into animRanges[]
 	};
 
 	struct AnimRange {

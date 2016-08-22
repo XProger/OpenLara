@@ -95,8 +95,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\camera.h" />
     <ClInclude Include="..\controller.h" />
     <ClInclude Include="..\core.h" />
+    <ClInclude Include="..\debug.h" />
     <ClInclude Include="..\game.h" />
     <ClInclude Include="..\input.h" />
     <ClInclude Include="..\level.h" />
@@ -105,6 +107,9 @@
     <ClInclude Include="..\texture.h" />
     <ClInclude Include="..\format.h" />
     <ClInclude Include="..\utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shader.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

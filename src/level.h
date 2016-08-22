@@ -5,62 +5,12 @@
 #include "utils.h"
 #include "format.h"
 #include "controller.h"
+#include "camera.h"
+#include "debug.h"
 
-const char SHADER[] = \
-	"varying vec3 vLightVec;\n"\
-	"varying vec2 vTexCoord;\n"\
-	"varying vec4 vNormal;\n"\
-	"varying vec4 vColor;\n"\
-	\
-	"#ifdef VERTEX\n"\
-	"	uniform	mat4 uViewProj;\n"\
-	"	uniform	mat4 uModel;\n"\
-	"	uniform	vec3 uLightPos;\n"\
-	\
-	"	attribute vec3 aCoord;\n"\
-	"	attribute vec2 aTexCoord;\n"\
-	"	attribute vec4 aNormal;\n"\
-	"	attribute vec4 aColor;\n"\
-	\
-	"	void main() {\n"\
-	"		vec4 coord	= uModel * vec4(aCoord, 1.0);\n"\
-	"		vLightVec	= uLightPos - coord.xyz;\n"\
-	"		vTexCoord	= aTexCoord + vec2(0.5/1024.0);\n"\
-	"		vNormal		= vec4(mat3(uModel[0].xyz, uModel[1].xyz, uModel[2].xyz) * (aNormal.xyz * 2.0 - 1.0), aNormal.w);\n"\
-	"		vColor		= aColor;\n"\
-	"		gl_Position	= uViewProj * coord;\n"\
-	"	}\n"\
-	"#else\n"\
-	"	uniform sampler2D sDiffuse;\n"\
-	"	uniform vec4      uColor;\n"\
-	"	uniform vec3      uAmbient;\n"\
-	"	uniform vec4      uLightColor;\n"\
-	\
-	"	void main() {\n"\
-	"		vec4 color = texture2D(sDiffuse, vTexCoord) * vColor * uColor;\n"\
-	"		color.xyz = pow(color.xyz, vec3(2.2));\n"\
-	"		vec3 light = uLightColor.xyz * max(vNormal.w, dot(normalize(vNormal.xyz), normalize(vLightVec)));\n"\
-	"		light += uAmbient;\n"\
-	"		color.xyz *= light;\n"\
-	"		color.xyz = pow(color.xyz, vec3(1.0/2.2));\n"\
-	"		//color.xyz = normalize(vLightVec) * 0.5 + 0.5;\n"\
-	"		gl_FragColor = color;\n"\
-	"	}\n"\
-	"#endif";
-
-
-ubyte4 packNormal(const TR::Vertex &n) {
-	vec3 vn = (vec3(n.x, n.y, n.z).normal() * 0.5f + vec3(0.5f)) * 255.0f;
-	ubyte4 v;
-//	v.x = (int)n.x * 255 / (2 * 16300) + 127;
-//	v.y = (int)n.y * 255 / (2 * 16300) + 127;
-//	v.z = (int)n.z * 255 / (2 * 16300) + 127;
-	v.x = (int)vn.x;
-	v.y = (int)vn.y;
-	v.z = (int)vn.z;
-	v.w = 0;
-	return v;
-}
+const char SHADER[] = 
+	#include "shader.glsl"
+;
 
 struct Level {
 	TR::Level	level;
@@ -73,6 +23,9 @@ struct Level {
 	float		time;
 
 	MeshRange	*rangeRooms;
+
+	Camera		camera;
+
 
 	int mCount;
 	struct MeshInfo : MeshRange {
@@ -94,6 +47,15 @@ struct Level {
 			}
 
 		lara = new Controller(&level, entity);
+
+		camera.fov		= 90.0f;
+		camera.znear	= 0.1f * 2048.0f;
+		camera.zfar		= 1000.0f * 2048.0f;
+		camera.pos		= vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -512);
+//		camera.pos		= vec3(-10, -2, 26);
+//		camera.pos		= vec3(-13.25f, 0.42f, 38.06f) * 2048.0f;
+//		camera.pos		= vec3(-36, -1, 2);
+		camera.angle	= vec3(0, PI, 0);
 	}
 
 	~Level() {
@@ -226,8 +188,8 @@ struct Level {
 					
 					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
 					vertices[vCount].color		= { a, a, a, 255 };
-					vertices[vCount].normal		= { 0, 0, 0, 255 };
-					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vertices[vCount].normal		= { 0, 0, 0, 0x7FFF };
+					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -254,8 +216,8 @@ struct Level {
 					
 					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
 					vertices[vCount].color		= { a, a, a, 255 };
-					vertices[vCount].normal		= { 0, 0, 0, 255 };
-					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vertices[vCount].normal		= { 0, 0, 0, 0x7FFF };
+					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -316,14 +278,15 @@ struct Level {
 					vertices[vCount].coord		= { v.x, v.y, v.z };
 
 					if (nCount > 0) {
-						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						TR::Vertex &n = normals[f.vertices[k]];
+						vertices[vCount].normal	= { n.x, n.y, n.z, 0 };
 						vertices[vCount].color	= { 255, 255, 255, 255 };
 					} else {
 						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
 						vertices[vCount].normal	= { 0, 0, 0, 255 };
 						vertices[vCount].color	= { a, a, a, 255 };
 					}
-					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -351,14 +314,15 @@ struct Level {
 					vertices[vCount].coord		= { v.x, v.y, v.z };
 
 					if (nCount > 0) {
-						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						TR::Vertex &n = normals[f.vertices[k]];
+						vertices[vCount].normal	= { n.x, n.y, n.z, 0 };
 						vertices[vCount].color	= { 255, 255, 255, 255 };
 					} else {
 						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
 						vertices[vCount].normal	= { 0, 0, 0, 255 };
 						vertices[vCount].color	= { a, a, a, 255 };
 					}
-					vertices[vCount].texCoord	= { (tx + t.vertices[k].Xpixel) << 5, (ty + t.vertices[k].Ypixel) << 5 };
+					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -387,7 +351,8 @@ struct Level {
 					vertices[vCount].coord		= { v.x, v.y, v.z };
 
 					if (nCount > 0) {
-						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						TR::Vertex &n = normals[f.vertices[k]];
+						vertices[vCount].normal	= { n.x, n.y, n.z, 0 };
 						vertices[vCount].color	= { c.r, c.g, c.b, 255 };
 					} else {
 						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
@@ -419,7 +384,8 @@ struct Level {
 					vertices[vCount].coord		= { v.x, v.y, v.z };
 
 					if (nCount > 0) {
-						vertices[vCount].normal	= packNormal(normals[f.vertices[k]]);
+						TR::Vertex &n = normals[f.vertices[k]];
+						vertices[vCount].normal	= { n.x, n.y, n.z, 0 };
 						vertices[vCount].color	= { c.r, c.g, c.b, 255 };
 					} else {
 						uint8 a = 255 - (lights[f.vertices[k]] >> 5);
@@ -471,12 +437,10 @@ struct Level {
 
 			mat4 m = Core::mModel;
 			Core::mModel.translate(vec3(rMesh.x, rMesh.y, rMesh.z));
-			Core::mModel.rotateY((rMesh.rotation >> 14) * 90.0f * DEG2RAD);
+//			Core::mModel.rotateY((rMesh.rotation >> 14) * 90.0f * DEG2RAD);
+			Core::mModel.rotateY(rMesh.rotation / 16384.0f * PI * 0.5f);
 
 			getLight(vec3(rMesh.x, rMesh.y, rMesh.z), index);
-			shader->setParam(uAmbient, Core::ambient);	
-			shader->setParam(uLightPos, Core::lightPos);	
-			shader->setParam(uLightColor, Core::lightColor);
 
 			renderMesh(sMesh->mesh);
 
@@ -669,49 +633,58 @@ struct Level {
 		}
 	}
 
-	void getLight(const vec3 &pos, int room) {
+	int getLightIndex(const vec3 &pos, int &room) {
 		int idx = -1;
 		float dist;
-		for (int i = 0; i < level.rooms[room].lightsCount; i++) {
-			TR::Room::Light &light = level.rooms[room].lights[i];
-			float d = (pos - vec3(light.x, light.y, light.z)).length();
-			if (idx == -1 || d < dist) {
-				idx = i;
-				dist = d;
+		for (int j = 0; j < level.roomsCount; j++)
+			for (int i = 0; i < level.rooms[j].lightsCount; i++) {
+				TR::Room::Light &light = level.rooms[j].lights[i];
+				float d = (pos - vec3(light.x, light.y, light.z)).length();
+				if (idx == -1 || d < dist) {
+					idx = i;
+					dist = d;
+					room = j;
+				}
 			}
-		}
+		return idx;
+	}
 
+	void getLight(const vec3 &pos, int roomIndex) {
+		int room;
+		int idx = getLightIndex(pos, room);
 		if (idx > -1) {
 			TR::Room::Light &light = level.rooms[room].lights[idx];
 			float c = level.rooms[room].lights[idx].Intensity / 8191.0f;
-			Core::lightPos   = vec3(-light.x, -light.y, light.z);// * SCALE;
-			Core::lightColor = vec4(c, c, c, 0.0f);
+			Core::lightPos   = vec3(light.x, light.y, light.z);
+			Core::lightColor = vec4(c, c, c, light.fade * light.fade);
 		} else {
 			Core::lightPos   = vec3(0.0f);
 			Core::lightColor = vec4(0.0f);
 		}
-		Core::ambient = vec3(1.0f - level.rooms[room].ambient / 8191.0f);
+		Core::ambient = vec3(1.0f - level.rooms[roomIndex].ambient / 8191.0f);
+		shader->setParam(uAmbient, Core::ambient);	
+		shader->setParam(uLightPos, Core::lightPos);	
+		shader->setParam(uLightColor, Core::lightColor);
 	}
 
 	void renderEntity(const TR::Entity &entity) {
+	//	if (!(entity.flags & ENTITY_FLAG_VISIBLE))
+	//		return;
+			
 		mat4 m = Core::mModel;
 		Core::mModel.translate(vec3(entity.x, entity.y, entity.z));
 
 		float c = (entity.intensity > -1) ? (1.0f - entity.intensity / (float)0x1FFF) : 1.0f;
 		float l = 1.0f;
 
-		Core::color			= vec4(c, c, c, 1.0);
+		Core::color	= vec4(c, c, c, 1.0);
+		shader->setParam(uColor, Core::color);
+		
 		getLight(vec3(entity.x, entity.y, entity.z), entity.room);
-		
-		shader->setParam(uColor, Core::color);	
-		shader->setParam(uAmbient, Core::ambient);	
-		shader->setParam(uLightPos, Core::lightPos);	
-		shader->setParam(uLightColor, Core::lightColor);
-		
+				
 		for (int i = 0; i < level.modelsCount; i++)
 			if (entity.id == level.models[i].id) {
 				Core::mModel.rotateY(entity.rotation / 16384.0f * PI * 0.5f);
-			//	Core::mModel.rotateY((entity.rotation >> 14) * 90.0f * DEG2RAD);
 				renderModel(level.models[i]);
 				break;
 			}
@@ -756,17 +729,17 @@ struct Level {
 		glEnable(GL_TEXTURE_2D);
 		Core::setBlending(bmAlpha);
 	}
-
-	void debugFloor(const vec3 &f, const vec3 &c, int floorIndex) {
+	*/
+	void debugFloor(const vec3 &f, const vec3 &c, int floorIndex, bool current) {
 		vec3 vf[4] = { f, f + vec3(1024, 0, 0), f + vec3(1024, 0, 1024), f + vec3(0, 0, 1024) };
 		vec3 vc[4] = { c, c + vec3(1024, 0, 0), c + vec3(1024, 0, 1024), c + vec3(0, 0, 1024) };
 
-		auto *d = &floors[floorIndex];
+		uint16 *d = &level.floors[floorIndex];
 		auto cmd = *d;
 
 		do {
 			cmd = *d;
-			int func = cmd & 0x001F;			// function
+			int func = cmd & 0x001F;		// function
 			int sub  = (cmd & 0x7F00) >> 8;	// sub function
 			d++;
 
@@ -782,7 +755,7 @@ struct Level {
 				auto &p = func == 0x02 ? vf : vc;
 
 				if (func == 0x02) {
-
+					
 					if (sx > 0) {
 						p[0].y += sx;
 						p[3].y += sx;
@@ -828,7 +801,11 @@ struct Level {
 	//		LOG("%d %d\n", func, sub);
 		} while ((cmd & 0x8000) == 0);			// end
 
-		glColor3f(0, 1, 0);
+		if (current)
+			glColor3f(1, 1, 1);
+		else
+			glColor3f(0, 1, 0);
+
 		glBegin(GL_LINE_STRIP);
 			for (int i = 0; i < 5; i++)
 				glVertex3fv((GLfloat*)&vf[i % 4]);
@@ -840,50 +817,44 @@ struct Level {
 				glVertex3fv((GLfloat*)&vc[i % 4]);
 		glEnd();
 	}
+	
+	void debugSectors(int index) {
+		TR::Room &room = level.rooms[index];
 
-	void debugSectors(tr_room *room) {
-		vec3 p = (Core::viewPos / SCALE - vec3(-room->info.x, 0, room->info.z)) / vec3(1024, 1, 1024);
-		int px = (int)-p.x;
-		int pz = (int)p.z;
+		vec3 p = (lara->pos - vec3(room.info.x, 0, room.info.z)) / vec3(1024, 1, 1024);
 
-		for (int z = 0; z < room->zSectors; z++)
-			for (int x = 0; x < room->xSectors; x++) {
-				auto &s = room->sectors[x * room->zSectors + z];
-				vec3 f(x * 1024 + room->info.x, s.floor * 256, z * 1024 + room->info.z);
-				vec3 c(x * 1024 + room->info.x, s.ceiling * 256, z * 1024 + room->info.z);
+		for (int z = 0; z < room.zSectors; z++)
+			for (int x = 0; x < room.xSectors; x++) {
+				auto &s = room.sectors[x * room.zSectors + z];
+				vec3 f(x * 1024 + room.info.x, s.floor * 256, z * 1024 + room.info.z);
+				vec3 c(x * 1024 + room.info.x, s.ceiling * 256, z * 1024 + room.info.z);
 
-				debugFloor(f, c, s.floorIndex);
+				debugFloor(f, c, s.floorIndex, (int)p.x == x && (int)p.z == z);
 			}
 	}
-
+	
 	void debugRooms() {
-		glDisable(GL_TEXTURE_2D);
 		Core::setBlending(bmAdd);
 		glColor3f(0, 0.25f, 0);
 		glDepthMask(GL_FALSE);
 
-		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
-
-		for (int i = 0; i < rooms.count; i++) {
-			auto &r = *rooms[i];
+		for (int i = 0; i < level.roomsCount; i++) {
+			TR::Room &r = level.rooms[i];
 			vec3 p = vec3(r.info.x, r.info.yTop, r.info.z);
-			if (isInsideRoom(Core::viewPos, rooms[i])) {
-				debugSectors(rooms[i]);
+
+			if (i == level.entities[lara->entity].room) {//  isInsideRoom(Core::viewPos, rooms[i])) {
+				debugSectors(i);
 				glColor3f(0, 1, 0);
 			} else
 				glColor3f(1, 1, 1);
-
-			Debug::Draw::box(Box(p, p + vec3(r.xSectors * 1024, r.info.yBottom - r.info.yTop, r.zSectors * 1024)));
+			
+			Debug::Draw::box(p, p + vec3(r.xSectors * 1024, r.info.yBottom - r.info.yTop, r.zSectors * 1024));
 		}
 
-		glPopMatrix();
-
 		glDepthMask(GL_TRUE);
-		glEnable(GL_TEXTURE_2D);
 		Core::setBlending(bmAlpha);
 	}
-
+	/*
 	void debugMeshes() {
 		glPushMatrix();
 		glScalef(-SCALE, -SCALE, SCALE);
@@ -893,22 +864,28 @@ struct Level {
 		}
 		glPopMatrix();
 	}
-
+	*/
 	void debugLights() {
-		glDisable(GL_TEXTURE_2D);
+		int roomIndex = level.entities[lara->entity].room;
+		int lightIndex = getLightIndex(lara->pos, roomIndex);
+
 		glPointSize(8);
 		glBegin(GL_POINTS);
-		for (int i = 0; i < rooms.count; i++)
-			for (int j = 0; j < rooms[i]->lights.count; j++) {
-				auto &l = rooms[i]->lights[j];
-				float a = l.Intensity1 / 8191.0f;
-				glColor3f(a, a, a);
-				glVertex3f(-l.x * SCALE, -l.y * SCALE, l.z * SCALE);
+		for (int i = 0; i < level.roomsCount; i++)
+			for (int j = 0; j < level.rooms[i].lightsCount; j++) {
+				TR::Room::Light &l = level.rooms[i].lights[j];
+				float a = l.Intensity / 8191.0f;
+				vec3 p = vec3(l.x, l.y, l.z);
+				vec4 color = vec4(a, a, a, 1);
+				Debug::Draw::point(p, color);
+				if (i == roomIndex && j == lightIndex)
+					color = vec4(0, 1, 0, 1);
+				Debug::Draw::sphere(p, l.fade, color);
 			}
 		glEnd();
-		glEnable(GL_TEXTURE_2D);
 	}
 
+	/*
 	void debugEntity() {
 		Core::setCulling(cfNone);
 		Core::active.shader = NULL;
@@ -971,6 +948,7 @@ struct Level {
 	void update() {
 		time += Core::deltaTime;
 		lara->update();
+		camera.update();
 
 		if (tickTextureAnimation > 0.25f) {
 			tickTextureAnimation = 0.0f;
@@ -992,6 +970,9 @@ struct Level {
 	}
 
 	void render() {
+		camera.pos = vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -1024);
+		camera.setup();;
+
 		shader->bind();
 		atlas->bind(0);
 		mesh->bind();
@@ -1006,8 +987,6 @@ struct Level {
 		Core::setCulling(cfFront);
 
 		Core::mModel.identity();
-//		Core::mModel.scale(vec3(-SCALE, -SCALE, SCALE));
-		Core::mModel.scale(vec3(-1, -1, 1));
 
 		Core::color   = vec4(1.0f);
 		Core::ambient = vec3(0.0f);
@@ -1021,11 +1000,13 @@ struct Level {
 		for (int i = 0; i < level.entitiesCount; i++)
 			renderEntity(level.entities[i]);
 
-	//	debugRooms();
+		Debug::Draw::begin();
+		debugRooms();
 	//	debugMeshes();
-	//	debugLights();
+		debugLights();
 	//	debugPortals();
 	//	debugEntity();
+		Debug::Draw::end();
 	}
 
 };

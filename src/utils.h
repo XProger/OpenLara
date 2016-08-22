@@ -43,6 +43,10 @@ struct short3 {
 	int16 x, y, z;
 };
 
+struct short4 {
+	int16 x, y, z, w;
+};
+
 template <typename T>
 inline const T& min(const T &a, const T &b) {
 	return a < b ? a : b;
@@ -51,6 +55,11 @@ inline const T& min(const T &a, const T &b) {
 template <class T>
 inline const T& max(const T &a, const T &b) {
 	return a > b ? a : b;
+}
+
+template <class T>
+inline const int sign(const T &x) {
+	return x > 0 ? 1 : (x < 0 ? -1 : 0);
 }
 
 struct vec2 {
@@ -76,9 +85,12 @@ struct vec3 {
 	vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 	vec3(const vec2 &xy, float z = 0.0f) : x(xy.x), y(xy.y), z(z) {}
 
+	float& operator [] (int index) const { return ((float*)this)[index]; }
+
 	vec3 operator + (const vec3 &v) const { return vec3(x+v.x, y+v.y, z+v.z); }
 	vec3 operator - (const vec3 &v) const { return vec3(x-v.x, y-v.y, z-v.z); }
 	vec3 operator * (const vec3 &v) const { return vec3(x*v.x, y*v.y, z*v.z); }
+	vec3 operator / (const vec3 &v) const { return vec3(x/v.x, y/v.y, z/v.z); }
 	vec3 operator * (float s) const { return vec3(x*s, y*s, z*s); }
 
 	float dot(const vec3 &v) const { return x*v.x + y*v.y + z*v.z; }
