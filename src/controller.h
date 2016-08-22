@@ -265,6 +265,7 @@ struct Controller {
 	void move(const vec3 &speed) {
 		vec3 p = pos;
 		pos = pos + speed;
+		//pos.y += 1.0f; TODO: floor portal
 
 		checkPortals(p, pos);
 

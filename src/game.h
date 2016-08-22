@@ -10,7 +10,7 @@ namespace Game {
 
 	void init() {
 		Core::init();
-		level = new Level("data\\LEVEL1.PHD");
+		level = new Level("data\\LEVEL2_DEMO.PHD");
 	}
 
 	void free() {

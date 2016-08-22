@@ -970,7 +970,7 @@ struct Level {
 	}
 
 	void render() {
-		camera.pos = vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -1024);
+	//	camera.pos = vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -1024);
 		camera.setup();;
 
 		shader->bind();

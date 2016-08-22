@@ -4,11 +4,11 @@
 #include "utils.h"
 
 namespace TR {
+	#define TR1_DEMO
+
 	#define ENTITY_FLAG_CLEAR	0x0080
 	#define ENTITY_FLAG_VISIBLE	0x0100
 	#define ENTITY_FLAG_MASK	0x3E00
-
-
 
 	#define ENTITY_LARA						0
 	
@@ -130,6 +130,8 @@ namespace TR {
 		STATE_DASH_DIVE };
 
 	#pragma pack(push, 1)
+
+
 
 	struct fixed {
 		uint16	L;
@@ -556,6 +558,11 @@ namespace TR {
 			stream.read(objectTextures,		stream.read(objectTexturesCount));
 			stream.read(spriteTextures,		stream.read(spriteTexturesCount));
 			stream.read(spriteSequences,	stream.read(spriteSequencesCount));
+
+		#ifdef TR1_DEMO
+			stream.read(palette,		256);
+		#endif
+			
 		// cameras
 			stream.read(camera,			stream.read(camerasCount));
 		// sound sources
@@ -570,7 +577,9 @@ namespace TR {
 			stream.read(entities,		stream.read(entitiesCount));
 		// palette
 			stream.seek(32 * 256);	// skip lightmap palette
+		#ifndef TR1_DEMO
 			stream.read(palette,		256);
+		#endif
 		// cinematic frames for cameras
 			stream.read(cameraFrames,	stream.read(cameraFramesCount));
 		// demo data
