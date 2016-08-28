@@ -3,8 +3,13 @@
 
 #include "utils.h"
 
+//#define TR1_DEMO
+
 namespace TR {
-	#define TR1_DEMO
+	#define DATA_PORTAL		0x01
+	#define DATA_FLOOR		0x02
+	#define DATA_CEILING	0x03
+
 
 	#define ENTITY_FLAG_CLEAR	0x0080
 	#define ENTITY_FLAG_VISIBLE	0x0100
@@ -51,6 +56,7 @@ namespace TR {
 	#define ENTITY_AMMO_UZI			91
 	#define ENTITY_AMMO_SHOTGUN		89
 	#define ENTITY_AMMO_MAGNUM		90
+
 
 	enum LaraState {
 		STATE_WALK,
@@ -127,11 +133,10 @@ namespace TR {
 		STATE_DUCK,
 		STATE_DUCK_72,
 		STATE_DASH,
-		STATE_DASH_DIVE };
+		STATE_DASH_DIVE,
+		STATE_MAX };
 
 	#pragma pack(push, 1)
-
-
 
 	struct fixed {
 		uint16	L;

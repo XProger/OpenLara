@@ -3,6 +3,8 @@
 
 #include "format.h"
 
+#define GRAVITY 7.0f
+
 struct Controller {
 	TR::Level		*level;
 	int				entity;
@@ -10,17 +12,18 @@ struct Controller {
 	TR::Animation	*anim;
 	float fTime;
 
-	vec3	pos;
+	vec3	pos, velocity;
 	float	angle;
 
-	int state;	// LaraState
+	int state;	// target state
 	int lastFrame;
 
 	int sc;
 	bool lState;
+	bool onGround;
 
-	Controller(TR::Level *level, int entity) : level(level), entity(entity), pos(0.0f), angle(0.0f), fTime(0.0f) {
-		anim = &level->anims[0];
+	Controller(TR::Level *level, int entity) : level(level), entity(entity), pos(0.0f), velocity(0.0f), angle(0.0f), fTime(0.0f) {
+		anim = &level->anims[getModel().animation];
 		lastFrame = 0;
 
 		TR::Entity &e = level->entities[entity];
@@ -29,43 +32,117 @@ struct Controller {
 
 		sc = 0;
 		lState = false;
+
+		state = TR::STATE_STOP;
 	}
 
 	void update() {
 		float rot = 0.0f;
 		
-		state = TR::STATE_STOP;
-		if (Input::down[ikShift]) {
-			if (Input::down[ikUp])		{ state = TR::STATE_WALK; };
-			if (Input::down[ikDown])	{ state = TR::STATE_BACK; };
-			if (Input::down[ikLeft])	{ if (!Input::down[ikUp] && !Input::down[ikDown]) { state = TR::STATE_STEP_LEFT; }	else rot = -Core::deltaTime * PI; };
-			if (Input::down[ikRight])	{ if (!Input::down[ikUp] && !Input::down[ikDown]) { state = TR::STATE_STEP_RIGHT; }	else rot =  Core::deltaTime * PI; };
-		} else
-			if (Input::down[ikSpace]) {
-				if (anim->state == TR::STATE_RUN)
-					state = TR::STATE_FORWARD_JUMP;
-				else
-					if (Input::down[ikUp]) 
-						state = anim->state != TR::STATE_COMPRESS ? TR::STATE_COMPRESS : TR::STATE_FORWARD_JUMP;
-					else
-						if (Input::down[ikDown]) 
-							state = anim->state != TR::STATE_COMPRESS ? TR::STATE_COMPRESS : TR::STATE_BACK_JUMP;
-						else 
-							if (Input::down[ikLeft])
-								state = anim->state != TR::STATE_COMPRESS ? TR::STATE_COMPRESS : TR::STATE_LEFT_JUMP;
-							else
-								if (Input::down[ikRight])
-									state = anim->state != TR::STATE_COMPRESS ? TR::STATE_COMPRESS : TR::STATE_RIGHT_JUMP;
-								else
-									state = TR::STATE_UP_JUMP;
-			} else {
-				if (Input::down[ikUp])		{ state = TR::STATE_RUN; };
-				if (Input::down[ikDown])	{ state = TR::STATE_FAST_BACK; };
-				if (Input::down[ikLeft])	{ if (!Input::down[ikUp] && !Input::down[ikDown]) state = TR::STATE_TURN_LEFT;	rot = -Core::deltaTime * PI; };
-				if (Input::down[ikRight])	{ if (!Input::down[ikUp] && !Input::down[ikDown]) state = TR::STATE_TURN_RIGHT;	rot =  Core::deltaTime * PI; };				
-			}
-			
+		enum { LEFT = 1, RIGHT = 2, FORTH = 4, BACK = 8, JUMP = 16, WALK = 32, ACTION = 64, WEAPON = 128, ROLL = 256, GROUND = 512, WATER = 1024, DEATH = 2048,
+				PULL = 4096, PICKUP = 8192, SWITCH_ON = 16 * 1024, SWITCH_OFF = 32 * 1024, KEY = 64 * 1024, PUZZLE = 128 * 1024, HANG = 256 * 1024, FALL = 512 * 1024, COMPRESS = 1024 * 1024};
+		int mask = 0;
 
+		if (Input::down[ikW] || Input::joy.L.y < 0)								mask |= FORTH;
+		if (Input::down[ikS] || Input::joy.L.y > 0)								mask |= BACK;
+		if (Input::down[ikA] || Input::joy.L.x < 0)								mask |= LEFT;
+		if (Input::down[ikD] || Input::joy.L.x > 0)								mask |= RIGHT;
+		if (Input::down[ikSpace] || Input::down[ikJoyX])						mask |= JUMP;
+		if (Input::down[ikShift] || Input::down[ikJoyLT])						mask |= WALK;
+		if (Input::down[ikE] || /*Input::down[ikMouseL] ||*/ Input::down[ikJoyA])	mask |= ACTION;
+		if (Input::down[ikQ] || Input::down[ikMouseR] || Input::down[ikJoyY])	mask |= WEAPON;
+		if (onGround)															mask |= GROUND;
+		if (getRoom().flags & 1)												mask |= WATER;
+		if (velocity.y > 2048)													mask |= FALL;
+		if (anim->state == TR::STATE_COMPRESS)									mask |= COMPRESS;
+
+
+		int origMask = mask;
+		if (origMask & (FORTH | BACK)) 
+			mask &= ~(LEFT | RIGHT);
+
+
+		int stateMask[TR::STATE_MAX];
+		for (int i = 0; i < TR::STATE_MAX; i++)
+			stateMask[i] = -1;
+
+		stateMask[TR::STATE_WALK]				= GROUND | FORTH | WALK;
+		stateMask[TR::STATE_RUN]				= GROUND | FORTH;
+		stateMask[TR::STATE_STOP]				= GROUND;
+		stateMask[TR::STATE_FORWARD_JUMP]		= GROUND | JUMP | FORTH;
+//		stateMask[TR::STATE_FAST_TURN]			= 0;
+		stateMask[TR::STATE_FAST_BACK]			= GROUND | BACK;
+		stateMask[TR::STATE_TURN_RIGHT]			= GROUND | RIGHT;
+		stateMask[TR::STATE_TURN_LEFT]			= GROUND | LEFT;
+		stateMask[TR::STATE_DEATH]				= DEATH;
+		stateMask[TR::STATE_FAST_FALL]			= FALL;
+		stateMask[TR::STATE_HANG]				= HANG | ACTION;
+		stateMask[TR::STATE_REACH]				= ACTION;
+//		stateMask[TR::STATE_SPLAT]
+//		stateMask[TR::STATE_TREAD]
+//		stateMask[TR::STATE_FAST_TURN_14]
+		stateMask[TR::STATE_COMPRESS]			= GROUND | JUMP;
+		stateMask[TR::STATE_BACK]				= GROUND | WALK | BACK;
+		stateMask[TR::STATE_SWIM]				= WATER | FORTH;
+//		stateMask[TR::STATE_GLIDE]
+//		stateMask[TR::STATE_NULL_19]
+//		stateMask[TR::STATE_FAST_TURN_20]
+		stateMask[TR::STATE_FAST_TURN_20]		= GROUND | LEFT | RIGHT;
+		stateMask[TR::STATE_STEP_RIGHT]			= GROUND | WALK | RIGHT;
+		stateMask[TR::STATE_STEP_LEFT]			= GROUND | WALK | LEFT;
+		stateMask[TR::STATE_ROLL]				= GROUND | ROLL;
+//		stateMask[TR::STATE_SLIDE]
+		stateMask[TR::STATE_BACK_JUMP]			= GROUND | COMPRESS | BACK;
+		stateMask[TR::STATE_RIGHT_JUMP]			= GROUND | COMPRESS | RIGHT;
+		stateMask[TR::STATE_LEFT_JUMP]			= GROUND | COMPRESS | LEFT;
+		stateMask[TR::STATE_UP_JUMP]			= GROUND | COMPRESS;
+
+		stateMask[TR::STATE_DIVE]				= WATER;
+
+		stateMask[TR::STATE_PUSH_PULL_READY]	= GROUND | ACTION | PULL;
+		stateMask[TR::STATE_PICK_UP]			= GROUND | ACTION | PICKUP;
+		stateMask[TR::STATE_SWITCH_ON]			= GROUND | ACTION | SWITCH_ON;
+		stateMask[TR::STATE_SWITCH_OFF]			= GROUND | ACTION | SWITCH_OFF;
+		stateMask[TR::STATE_USE_KEY]			= GROUND | ACTION | KEY;
+		stateMask[TR::STATE_USE_PUZZLE]			= GROUND | ACTION | PUZZLE;
+
+		stateMask[TR::STATE_SWAN_DIVE]			= JUMP | WALK | FORTH;
+		
+
+		fTime += Core::deltaTime;
+		int fCount = anim->frameEnd - anim->frameStart + 1;
+		int fIndex = int(fTime * 30.0f);
+
+		state = -1;
+		int maxMask = 0;
+		if (stateMask[anim->state] != mask)
+			for (int i = 0; i < anim->scCount; i++) {
+				TR::AnimState &sc = level->states[anim->scOffset + i];
+				if (sc.state >= TR::STATE_MAX || stateMask[sc.state] == -1)
+					LOG("unknown state %d\n", sc.state);
+				else
+					if (stateMask[sc.state] > maxMask && ((stateMask[sc.state] & mask) == stateMask[sc.state])) {
+						maxMask = stateMask[sc.state];
+						state = anim->scOffset + i;
+					}
+			}
+
+		if (state > -1 && anim->state != level->states[state].state) {
+			TR::AnimState &sc = level->states[state];
+			for (int j = 0; j < sc.rangesCount; j++) {
+				TR::AnimRange &range = level->ranges[sc.rangesOffset + j];
+				if ( anim->frameStart + fIndex >= range.low && anim->frameStart + fIndex <= range.high) {
+					int st = anim->state;
+					anim  = &level->anims[range.nextAnimation];
+					fIndex = range.nextFrame - anim->frameStart;
+					fCount = anim->frameEnd - anim->frameStart + 1;
+					fTime = fIndex / 30.0f;
+					break;
+				}
+			}
+		}
+
+#ifdef _DEBUG
 		if (Input::down[ikEnter]) {
 			if (!lState) {
 				lState = true;
@@ -76,7 +153,7 @@ struct Controller {
 			//	anim = &level->anims[146];//level->ranges[ level->states[sc].rangesOffset ].nextAnimation ];
 			//	fTime = 0;
 			//	state = level->states[sc].state;
-				/*
+				
 				LOG("state: %d\n", anim->state);
 				for (int i = 0; i < anim->scCount; i++) {
 					auto &sc = level->states[anim->scOffset + i];
@@ -88,114 +165,23 @@ struct Controller {
 					}
 					LOG("\n");
 				}
-				*/
+				
 			}
 		} else
 			lState = false;
+#endif
+		if (anim->state == TR::STATE_RUN		|| 
+			anim->state == TR::STATE_FAST_BACK	||
+			anim->state == TR::STATE_WALK		||
+			anim->state == TR::STATE_BACK		||
+			anim->state == TR::STATE_TURN_LEFT	|| 
+			anim->state == TR::STATE_TURN_RIGHT) {
 
-		fTime += Core::deltaTime;
-		int fCount = anim->frameEnd - anim->frameStart + 1;
-		int fIndex = int(fTime * 30.0f);
-
-//		LOG("%d / %d\n", fIndex, fCount);
-
-//		fIndex = anim->frameStart + (fIndex % fCount);
-		//LOG("%d\n", fIndex);
-
-		/*
-		if (anim->state == state) {
-			for (int i = 0; i < anim->scCount; i++) {
-				auto &sc = level->stateChanges[anim->scOffset + i];
-				LOG("%d ", sc.state);
-			}
-			LOG("\n");
-		}
-		*/
-		
-		if (anim->state != state) {
-			for (int i = 0; i < anim->scCount; i++) {
-				auto &sc = level->states[anim->scOffset + i];
-				if (sc.state == state) {
-					for (int j = 0; j < sc.rangesCount; j++) {
-						auto &range = level->ranges[sc.rangesOffset + j];
-						if ( anim->frameStart + fIndex >= range.low && anim->frameStart + fIndex <= range.high) {
-							int st = anim->state;
-							anim  = &level->anims[range.nextAnimation];
-							fTime = 0.0f;//(ad.nextFrame - anim->frameStart) / (30.0f / anim->frameRate);
-							fIndex = range.nextFrame - anim->frameStart;
-							fCount = anim->frameEnd - anim->frameStart + 1;
-					//		LOG("set anim %d %f %f %d -> %d -> %d\n", range.nextAnimation, anim->accel.toFloat(), anim->speed.toFloat(), st, state, anim->state);
-								
-							//LOG("from %f to %f\n", s, s + a * c);
-				//			LOG("frame: %d\n", fIndex);
-							break;
-						}
-					}
-					break;
-				}
-			}
-		};
-		
-		if (fIndex >= fCount) {
-			fIndex = anim->nextFrame;
-			int id = anim->nextAnimation;
-			anim = &level->anims[anim->nextAnimation];
-			fIndex -= anim->frameStart;
-			fTime = (fIndex) / 30.0f;
-		}
-			
-		if (anim->state == state) {
-			angle += rot;
+			if (origMask & LEFT)  angle -= Core::deltaTime * PI;
+			if (origMask & RIGHT) angle += Core::deltaTime * PI;
 		}
 
 		float d = 0.0f;
-
-		int16 *ptr = &level->commands[anim->animCommand];
-
-		for (int i = 0; i < anim->acCount; i++) {
-			switch (*ptr++) {
-				case 0x01 : { // cmd position
-						int16 sx = *ptr++;
-						int16 sy = *ptr++;
-						int16 sz = *ptr++;
-						LOG("move: %d %d\n", (int)sx, (int)sy, (int)sz);
-						break;
-					}
-				case 0x02 : { // cmd jump speed
-						int16 sx = *ptr++;
-						int16 sz = *ptr++;
-						LOG("jump: %d %d\n", (int)sx, (int)sz);
-						break;
-					}
-				case 0x03 : // empty hands
-					break;
-				case 0x04 : // kill
-					break;
-				case 0x05 : { // play sound
-					int frame = (*ptr++);
-					int id    = (*ptr++) & 0x3FFF;
-					if (fIndex == frame - anim->frameStart && fIndex != lastFrame) {
-						auto a = level->soundsMap[id];
-						auto b = level->soundsInfo[a].index;
-						auto c = level->soundOffsets[b];
-
-						void *p = &level->soundData[c];
-
-						//PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
-					}
-					break;
-				}
-				case 0x06 :
-					if (fIndex != lastFrame && fIndex + anim->frameStart == ptr[0]) {
-						if (ptr[1] == 0) {
-							angle = angle + PI;
-						}
-					}
-					ptr += 2;
-					break;
-			}
-		}
-
 		switch (anim->state) {
 			case TR::STATE_BACK :
 			case TR::STATE_BACK_JUMP :
@@ -213,61 +199,90 @@ struct Controller {
 		}
 		d += angle;
 
-		float speed = anim->speed.toFloat() + anim->accel.toFloat() * (fTime * 30.0f);
+		bool endFrame = fIndex >= fCount;
 
-		move(vec3(sinf(d), 0, cosf(d)) * (speed * Core::deltaTime * 30.0f));
+		int16 *ptr = &level->commands[anim->animCommand];
+
+		for (int i = 0; i < anim->acCount; i++) {
+			switch (*ptr++) {
+				case 0x01 : { // cmd position
+					int16 sx = *ptr++;
+					int16 sy = *ptr++;
+					int16 sz = *ptr++;
+					LOG("move: %d %d\n", (int)sx, (int)sy, (int)sz);
+					break;
+				}
+				case 0x02 : { // cmd jump speed
+					int16 sy = *ptr++;
+					int16 sz = *ptr++;
+					if (endFrame) {
+						LOG("jump: %d %d\n", (int)sy, (int)sz);
+						velocity.x = sinf(d) * sz;
+						velocity.y = sy;
+						velocity.z = cosf(d) * sz;
+						onGround = false;
+					}
+					break;
+				}
+				case 0x03 : // empty hands
+					break;
+				case 0x04 : // kill
+					break;
+				case 0x05 : { // play sound
+					int frame = (*ptr++);
+					int id    = (*ptr++) & 0x3FFF;
+					if (fIndex == frame - anim->frameStart && fIndex != lastFrame) {
+						auto a = level->soundsMap[id];
+						auto b = level->soundsInfo[a].index;
+						auto c = level->soundOffsets[b];
+
+						void *p = &level->soundData[c];
+
+						PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+					}
+					break;
+				}
+				case 0x06 :
+					if (fIndex != lastFrame && fIndex + anim->frameStart == ptr[0]) {
+						if (ptr[1] == 0) {
+							angle = angle + PI;
+						}
+					}
+					ptr += 2;
+					break;
+			}
+		}
+
+
+
+		float dt = Core::deltaTime * 30.0f;
+
+		if (onGround) {
+			float speed = anim->speed.toFloat() + anim->accel.toFloat() * (fTime * 30.0f);
+			velocity.x = sinf(d) * speed;
+			velocity.z = cosf(d) * speed;
+		}
+		velocity.y += GRAVITY * dt;
+
+		if (endFrame) {
+			fIndex = anim->nextFrame;
+			int id = anim->nextAnimation;
+			anim = &level->anims[anim->nextAnimation];
+			fIndex -= anim->frameStart;
+			fTime = fIndex / 30.0f;
+			fCount = anim->frameEnd - anim->frameStart + 1;
+		}
+		
+
+		move(velocity * dt);
 		collide();
 
 		lastFrame = fIndex;
-		
-		updateEntity();
-
-	/*
-		TR::Room &room = level->rooms[level->entities[entity].room];
-		for (int i = 0; i < room.portalsCount; i++) {
-			if (insideRoom(pos, room.portals[i].roomIndex)) {
-				level->entities[entity].room = room.portals[i].roomIndex;
-				LOG("set room: %d\n", i);
-				break;
-			}
-		}
-		
-		
-		for (int i = 0; i < level->roomsCount; i++)
-			if (insideRoom(pos, i) && i != level->entities[entity].room) {
-				level->entities[entity].room = i;
-				LOG("set room: %d\n", i);
-				break;
-			}
-		*/
 	}
 
-	void checkPortals(const vec3 &oldPos, const vec3 &newPos) {
-		TR::Room &room = getRoom();
-
-		TR::Vertex a = { (int)oldPos.x - room.info.x, (int)oldPos.y, (int)oldPos.z - room.info.z };
-		TR::Vertex b = { (int)newPos.x - room.info.x, (int)newPos.y, (int)newPos.z - room.info.z };
-
-		for (int i = 0; i < room.portalsCount; i++) {
-			TR::Vertex &n = room.portals[i].normal;
-			TR::Vertex &v = room.portals[i].vertices[0];
-			int d = -(v.x * n.x + v.y * n.y + v.z * n.z);
-			int oldSign = sign(a.x * n.x + a.y * n.y + a.z * n.z + d);
-			int newSign = sign(b.x * n.x + b.y * n.y + b.z * n.z + d);
-			if (oldSign != newSign) {
-				getEntity().room = room.portals[i].roomIndex;
-				break;
-			}
-		}
-
-	}
-
-	void move(const vec3 &speed) {
+	void move(const vec3 &offset) {
 		vec3 p = pos;
-		pos = pos + speed;
-		//pos.y += 1.0f; TODO: floor portal
-
-		checkPortals(p, pos);
+		pos = pos + offset;
 
 		updateEntity();
 
@@ -279,13 +294,14 @@ struct Controller {
 
 		int d = entity.y - s.floor * 256;
 		if (d >= 256 * 4) {
-			pos = p;//vec3(entity.x, entity.y, entity.z);
+			pos.x = p.x;//vec3(entity.x, entity.y, entity.z);
+			pos.z = p.z;
 			updateEntity();
-			state = TR::STATE_STOP;
 			if (d >= 256 * 4) 
 				anim = &level->anims[53];	// forward smash
 			else
 				anim = &level->anims[11];	// instant stand
+			state = anim->state;
 			fTime = 0;
 		}
 	}
@@ -310,6 +326,13 @@ struct Controller {
 
 	TR::Entity& getEntity() {
 		return level->entities[entity];
+	}
+
+	TR::Model& getModel() {
+		TR::Entity &entity = getEntity();
+		for (int i = 0; i < level->modelsCount; i++)
+			if (entity.id == level->models[i].id)
+				return level->models[i];
 	}
 
 	TR::Room& getRoom() {
@@ -342,65 +365,94 @@ struct Controller {
 	//	dx -= 512;
 	//	dz -= 512;
 
-		uint16 *d = &level->floors[s.floorIndex];
-		auto cmd = *d;
+		uint16 cmd, *d = &level->floors[s.floorIndex];
 
-		do {
-			cmd = *d;
-			int func = cmd & 0x001F;		// function
-			int sub  = (cmd & 0x7F00) >> 8;	// sub function
-			d++;
+		if (s.floorIndex)
+			do {
+				cmd = *d++;
+				int func = cmd & 0x00FF;		// function
+				int sub  = (cmd & 0x7F00) >> 8;	// sub function
 
+				switch (func) {
+					case 1 :
+						entity.room = *d++;
+						break;
+					case 2   :
+					case 3 : {
+						int8 sx = (int8)(*d & 0x00FF);
+						int8 sz = (int8)((*d & 0xFF00) >> 8);
 
-			if (func == 0x00) {	// portal
-				LOG("portal\n");
-	//			d++;
-			}
-
-			if ((func == 0x02 || func == 0x03) && sub == 0x00) { // floor & ceiling heights
-				int sx = (int)(int8)(*d & 0x00FF);
-				int sz = (int)(int8)((*d & 0xFF00) >> 8);
-
-				if (func == 0x02) {
-					if (sx > 0)
-						bottom += sx * (1024 - dx) >> 2;
-					else
-						bottom -= sx * dx >> 2;
+						if (func == 2) {
+							if (sx > 0)
+								bottom += (int)sx * (1024 - dx) >> 2;
+							else
+								bottom -= (int)sx * dx >> 2;
 					
-					if (sz > 0)
-						bottom += sz * (1024 - dz) >> 2;
-					else
-						bottom -= sz * dz >> 2;	
-				} else {
-					/*
-					if (sx < 0) {
-						p[0].y += sx;
-						p[3].y += sx;
-					} else {
-						p[1].y -= sx;
-						p[2].y -= sx;
-					}
+							if (sz > 0)
+								bottom += (int)sz * (1024 - dz) >> 2;
+							else
+								bottom -= (int)sz * dz >> 2;	
+						} else {
+							/*
+							if (sx < 0) {
+								p[0].y += sx;
+								p[3].y += sx;
+							} else {
+								p[1].y -= sx;
+								p[2].y -= sx;
+							}
 
-					if (sz > 0) {
-						p[0].y -= sz;
-						p[1].y -= sz;
-					} else {
-						p[3].y += sz;
-						p[2].y += sz;
+							if (sz > 0) {
+								p[0].y -= sz;
+								p[1].y -= sz;
+							} else {
+								p[3].y += sz;
+								p[2].y += sz;
+							}
+							*/
+						}
+						d++;
+						break;
 					}
-					*/
+					case 4 : {
+						/*
+						//*d++; // trigger setup
+						if (sub == 0x00) LOG("trigger\n");
+						if (sub == 0x01) LOG("pad\n");
+						if (sub == 0x02) LOG("switch\n");
+						if (sub == 0x03) LOG("key\n");
+						if (sub == 0x04) LOG("pickup\n");
+						if (sub == 0x05) LOG("heavy-trigger\n");
+						if (sub == 0x06) LOG("anti-pad\n");
+						if (sub == 0x07) LOG("combat\n");
+						if (sub == 0x08) LOG("dummy\n");
+						if (sub == 0x09) LOG("anti-trigger\n");
+						*/
+						uint16 act;
+						do {
+							act = *d++; // trigger action 
+						} while (!(act & 0x8000));
+				
+						break;
+					}
+					default :
+						LOG("unknown func: %d\n", func);
 				}
 
-	//			d++;
+			} while (!(cmd & 0x8000));
+
+
+		onGround = pos.y > bottom;
+		if (onGround) {
+			onGround = true;
+			if (s.roomBelow != 255) {
+				entity.room = s.roomBelow;
+				onGround = false;
+				return;
 			}
-
-			d++;
-
-
-	//		LOG("%d %d\n", func, sub);
-		} while ((cmd & 0x8000) == 0);			// end
-
-		pos.y = bottom;
+			pos.y = bottom;
+			velocity.y = 0.0f;
+		}
 
 		entity.y = (int)pos.y;
 	}

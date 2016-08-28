@@ -5,9 +5,10 @@
 
 struct Camera {
 	float fov, znear, zfar;
-	vec3 pos, angle;
+	vec3 pos, angle, offset;
 
-	void update() {
+	void update() {			
+	#ifdef FREE_CAMERA
 		vec3 dir = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
 		vec3 v = vec3(0);
 
@@ -15,8 +16,8 @@ struct Camera {
 		if (Input::down[ikS]) v = v - dir;
 		if (Input::down[ikD]) v = v + dir.cross(vec3(0, 1, 0));
 		if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
-
 		pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
+	#endif	
 
 		if (Input::down[ikMouseL]) {
 			vec2 delta = Input::mouse.pos - Input::mouse.start.L;
@@ -29,6 +30,7 @@ struct Camera {
 
 	void setup() {
 		Core::mView.identity();
+		Core::mView.translate(vec3(-offset.x, -offset.y, -offset.z));
 		Core::mView.rotateZ(-angle.z);
 		Core::mView.rotateX(-angle.x);
 		Core::mView.rotateY(-angle.y);

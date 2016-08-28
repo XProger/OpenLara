@@ -48,13 +48,11 @@ struct Level {
 
 		lara = new Controller(&level, entity);
 
-		camera.fov		= 90.0f;
+		camera.fov		= 75.0f;
 		camera.znear	= 0.1f * 2048.0f;
 		camera.zfar		= 1000.0f * 2048.0f;
-		camera.pos		= vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -512);
-//		camera.pos		= vec3(-10, -2, 26);
-//		camera.pos		= vec3(-13.25f, 0.42f, 38.06f) * 2048.0f;
-//		camera.pos		= vec3(-36, -1, 2);
+		camera.offset	= vec3(0, 0, 768);
+		camera.pos		= vec3(0.0f);
 		camera.angle	= vec3(0, PI, 0);
 	}
 
@@ -419,15 +417,21 @@ struct Level {
 
 	void renderRoom(int index) {
 		TR::Room &room = level.rooms[index];
-
+		
 		mat4 m = Core::mModel;
 		Core::mModel.translate(vec3(room.info.x, 0.0f, room.info.z));
+		Core::color			= vec4(1.0f);
+		Core::ambient		= vec3(1.0f);
+		Core::lightColor	= vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
 		shader->setParam(uModel, Core::mModel);
+		shader->setParam(uColor, Core::color);	
+		shader->setParam(uAmbient, Core::ambient);	
+		shader->setParam(uLightColor, Core::lightColor);
+
 		mesh->render(rangeRooms[index]);
 		Core::mModel = m;
 	
-		Core::color = vec4(1.0f);
-		shader->setParam(uColor, Core::color);	
 		
 		// meshes
 		for (int j = 0; j < room.meshesCount; j++) {
@@ -548,7 +552,7 @@ struct Level {
 		return ma.getRot().slerp(mb.getRot(), t).normal();
 	}
 	
-	void renderModel(const TR::Model &model) {		
+	void renderModel(const TR::Model &model) {
 		TR::Animation *anim = &level.anims[model.animation];
 
 		float fTime = time;
@@ -698,108 +702,119 @@ struct Level {
 		Core::mModel = m;
 	}
 
-
-	/*
 	void debugPortals() {
-		glDisable(GL_TEXTURE_2D);
 		Core::setBlending(bmAdd);
-		glColor3f(0, 0.25f, 0);
+		glColor3f(0, 0.25f, 0.25f);
 		glDepthMask(GL_FALSE);
 
-		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
-
 		glBegin(GL_QUADS);
-		for (int i = 0; i < rooms.count; i++) {
-			int x = rooms[i]->info.x;
-			int z = rooms[i]->info.z;
-			for (int j = 0; j < rooms[i]->portals.count; j++) {
-				auto &p = rooms[i]->portals[j];
+		for (int i = 0; i < level.roomsCount; i++) {
+			TR::Room &r = level.rooms[i];
+			for (int j = 0; j < r.portalsCount; j++) {
+				TR::Room::Portal &p = r.portals[j];
 				for (int k = 0; k < 4; k++) {
-					auto &v = p.vertices[k];
-					glVertex3f(v.x + x, v.y, v.z + z);
+					TR::Vertex &v = p.vertices[k];
+					glVertex3f(v.x + r.info.x, v.y, v.z + r.info.z);
 				}
 			}
 		}
 		glEnd();
 
-		glPopMatrix();
-
 		glDepthMask(GL_TRUE);
-		glEnable(GL_TEXTURE_2D);
 		Core::setBlending(bmAlpha);
 	}
-	*/
+	
 	void debugFloor(const vec3 &f, const vec3 &c, int floorIndex, bool current) {
 		vec3 vf[4] = { f, f + vec3(1024, 0, 0), f + vec3(1024, 0, 1024), f + vec3(0, 0, 1024) };
 		vec3 vc[4] = { c, c + vec3(1024, 0, 0), c + vec3(1024, 0, 1024), c + vec3(0, 0, 1024) };
 
-		uint16 *d = &level.floors[floorIndex];
-		auto cmd = *d;
+		uint16 cmd, *d = &level.floors[floorIndex];
 
-		do {
-			cmd = *d;
-			int func = cmd & 0x001F;		// function
-			int sub  = (cmd & 0x7F00) >> 8;	// sub function
-			d++;
+		if (floorIndex)
+			do {
+				cmd = *d++;
+				int func = cmd & 0x00FF;		// function
+				int sub  = (cmd & 0x7F00) >> 8;	// sub function
 
-
-			if (func == 0x00) {	// portal
-	//			d++;
-			}
-
-			if ((func == 0x02 || func == 0x03) && sub == 0x00) { // floor & ceiling corners
-				int sx = 256 * (int)(int8)(*d & 0x00FF);
-				int sz = 256 * (int)(int8)((*d & 0xFF00) >> 8);
-
-				auto &p = func == 0x02 ? vf : vc;
-
-				if (func == 0x02) {
-					
-					if (sx > 0) {
-						p[0].y += sx;
-						p[3].y += sx;
-					} else {
-						p[1].y -= sx;
-						p[2].y -= sx;
-					}
-
-					if (sz > 0) {
-						p[0].y += sz;
-						p[1].y += sz;
-					} else {
-						p[3].y -= sz;
-						p[2].y -= sz;
-					}
-
-				} else {
-
-					if (sx < 0) {
-						p[0].y += sx;
-						p[3].y += sx;
-					} else {
-						p[1].y -= sx;
-						p[2].y -= sx;
-					}
-
-					if (sz > 0) {
-						p[0].y -= sz;
-						p[1].y -= sz;
-					} else {
-						p[3].y += sz;
-						p[2].y += sz;
-					}
+				if (func == 0x01) {	// portal
+					d++;
+				//	d += 2;
 
 				}
 
-	//			d++;
-			}
+				if ((func == 0x02 || func == 0x03) && sub == 0x00) { // floor & ceiling corners
+					int sx = 256 * int((int8)(*d & 0x00FF));
+					int sz = 256 * int((int8)((*d & 0xFF00) >> 8));
 
-			d++;
+					auto &p = func == 0x02 ? vf : vc;
+
+					if (func == 0x02) {
+					
+					//	if (current)
+					//		LOG("%d\n", sx);
+
+						if (sx > 0) {
+							p[0].y += sx;
+							p[3].y += sx;
+						} else {
+							p[1].y -= sx;
+							p[2].y -= sx;
+						}
+
+						if (sz > 0) {
+							p[0].y += sz;
+							p[1].y += sz;
+						} else {
+							p[3].y -= sz;
+							p[2].y -= sz;
+						}
+
+					} else {
+
+						if (sx < 0) {
+							p[0].y += sx;
+							p[3].y += sx;
+						} else {
+							p[1].y -= sx;
+							p[2].y -= sx;
+						}
+
+						if (sz > 0) {
+							p[0].y -= sz;
+							p[1].y -= sz;
+						} else {
+							p[3].y += sz;
+							p[2].y += sz;
+						}
+
+					}
+					d++;
+				}
 
 
-	//		LOG("%d %d\n", func, sub);
-		} while ((cmd & 0x8000) == 0);			// end
+				if (func == 0x04) {
+					//*d++; // trigger setup
+					/*
+					if (sub == 0x00) LOG("trigger\n");
+					if (sub == 0x01) LOG("pad\n");
+					if (sub == 0x02) LOG("switch\n");
+					if (sub == 0x03) LOG("key\n");
+					if (sub == 0x04) LOG("pickup\n");
+					if (sub == 0x05) LOG("heavy-trigger\n");
+					if (sub == 0x06) LOG("anti-pad\n");
+					if (sub == 0x07) LOG("combat\n");
+					if (sub == 0x08) LOG("dummy\n");
+					if (sub == 0x09) LOG("anti-trigger\n");
+					*/
+					uint16 act;
+					do {
+						act = *d++; // trigger action 
+					} while (!(act & 0x8000));
+				
+					break;
+				}
+
+			} while (!(cmd & 0x8000));
 
 		if (current)
 			glColor3f(1, 1, 1);
@@ -835,14 +850,14 @@ struct Level {
 	
 	void debugRooms() {
 		Core::setBlending(bmAdd);
-		glColor3f(0, 0.25f, 0);
 		glDepthMask(GL_FALSE);
 
 		for (int i = 0; i < level.roomsCount; i++) {
 			TR::Room &r = level.rooms[i];
 			vec3 p = vec3(r.info.x, r.info.yTop, r.info.z);
 
-			if (i == level.entities[lara->entity].room) {//  isInsideRoom(Core::viewPos, rooms[i])) {
+			if (i == level.entities[lara->entity].room) {
+			//if (lara->insideRoom(Core::viewPos, i)) {
 				debugSectors(i);
 				glColor3f(0, 1, 0);
 			} else
@@ -854,17 +869,16 @@ struct Level {
 		glDepthMask(GL_TRUE);
 		Core::setBlending(bmAlpha);
 	}
-	/*
+	
 	void debugMeshes() {
-		glPushMatrix();
-		glScalef(-SCALE, -SCALE, SCALE);
-		for (int i = 0; i < meshes.count; i++) {
-			renderMesh(meshes[i], vec3(1.0f));
-			glTranslatef(-128, 0, 0);
+		mat4 m = Core::mModel;
+		for (int i = 0; i < level.meshOffsetsCount; i++) {
+			renderMesh(i);
+			Core::mModel.translate(vec3(-128, 0, 0));
 		}
-		glPopMatrix();
+		Core::mModel = m;
 	}
-	*/
+	
 	void debugLights() {
 		int roomIndex = level.entities[lara->entity].room;
 		int lightIndex = getLightIndex(lara->pos, roomIndex);
@@ -970,7 +984,9 @@ struct Level {
 	}
 
 	void render() {
-	//	camera.pos = vec3(-lara->pos.x, -lara->pos.y, lara->pos.z) + vec3(0, 1024, -1024);
+	#ifndef FREE_CAMERA
+		camera.pos = vec3(-lara->pos.x, -lara->pos.y + 768, lara->pos.z);
+	#endif
 		camera.setup();;
 
 		shader->bind();
@@ -988,27 +1004,23 @@ struct Level {
 
 		Core::mModel.identity();
 
-		Core::color   = vec4(1.0f);
-		Core::ambient = vec3(0.0f);
-
-		shader->setParam(uColor, Core::color);	
-		shader->setParam(uAmbient, Core::ambient);	
-
 		for (int i = 0; i < level.roomsCount; i++)
 			renderRoom(i);
 
 		for (int i = 0; i < level.entitiesCount; i++)
 			renderEntity(level.entities[i]);
 
+	#ifdef _DEBUG
+	//	debugMeshes();
+
 		Debug::Draw::begin();
 		debugRooms();
-	//	debugMeshes();
-		debugLights();
-	//	debugPortals();
+	//	debugLights();
+		debugPortals();
 	//	debugEntity();
-		Debug::Draw::end();
+		Debug::Draw::end();	
+	#endif
 	}
-
 };
 
 #endif
