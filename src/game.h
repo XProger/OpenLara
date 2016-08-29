@@ -8,30 +8,30 @@
 #include "level.h"
 
 namespace Game {
-	Level		*level;
+    Level *level;
 
-	void init() {
-		Core::init();
-		level = new Level("data\\GYM.PHD");
-	}
+    void init() {
+        Core::init();
+        level = new Level("data\\GYM.PHD");
+    }
 
-	void free() {
-		delete level;
+    void free() {
+        delete level;
 
-		Core::free();
-	}
+        Core::free();
+    }
 
-	void update() {
-		level->update();
-	}
+    void update() {
+        level->update();
+    }
 
-	void render() {
-		Core::clear(vec4(0.0f));
-		Core::setViewport(0, 0, Core::width, Core::height);
-		Core::setBlending(bmAlpha);
+    void render() {
+        Core::clear(vec4(0.0f));
+        Core::setViewport(0, 0, Core::width, Core::height);
+        Core::setBlending(bmAlpha);
 
-		level->render();
-	}
+        level->render();
+    }
 }
 
 #endif
