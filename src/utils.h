@@ -445,6 +445,7 @@ struct Stream {
 
 	Stream(const char *name) : pos(0) {
 		f = fopen(name, "rb");
+        if (!f) LOG("error loading file\n");
 		fseek(f, 0, SEEK_END);
 		size = ftell(f);
 		fseek(f, 0, SEEK_SET);

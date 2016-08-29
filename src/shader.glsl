@@ -34,12 +34,12 @@ varying vec4 vColor;
 			discard;
 		color *= vColor * uColor;
 //	#ifdef LIGHTING
-		color.xyz = pow(color.xyz, vec3(2.2));
+		color.xyz = pow(abs(color.xyz), vec3(2.2));
 		float lum = dot(normalize(vNormal.xyz), normalize(vLightVec));
 		float att = max(0.0, 1.0 - dot(vLightVec, vLightVec) / uLightColor.w);
 		vec3 light = uLightColor.xyz * max(vNormal.w, lum * att) + uAmbient;
 		color.xyz *= light;
-		color.xyz = pow(color.xyz, vec3(1.0/2.2));
+		color.xyz = pow(abs(color.xyz), vec3(1.0/2.2));
 //	#endif
 		gl_FragColor = color;
 	}

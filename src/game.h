@@ -8,30 +8,31 @@
 #include "level.h"
 
 namespace Game {
-	Level		*level;
+    Level *level;
 
-	void init() {
+    void init() {
         Core::init();
-        level = new Level("data\\LEVEL2_DEMO.PHD");
-	}
+        Stream stream("LEVEL2_DEMO.PHD");
+        level = new Level(stream);
+    }
 
-	void free() {
-		delete level;
+    void free() {
+        delete level;
 
-		Core::free();
-	}
+        Core::free();
+    }
 
-	void update() {
-		level->update();
-	}
+    void update() {
+        level->update();
+    }
 
-	void render() {
-		Core::clear(vec4(0.0f));
-		Core::setViewport(0, 0, Core::width, Core::height);
-		Core::setBlending(bmAlpha);
+    void render() {
+        Core::clear(vec4(0.0f));
+        Core::setViewport(0, 0, Core::width, Core::height);
+        Core::setBlending(bmAlpha);
 
-		level->render();
-	}
+        level->render();
+    }
 }
 
 #endif

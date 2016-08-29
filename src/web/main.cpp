@@ -27,6 +27,9 @@ void main_loop() {
         FPS = 0;
     }
 
+    int f;
+    emscripten_get_canvas_size(&Core::width, &Core::height, &f);
+
     Game::update();
     Game::render();
     eglSwapBuffers(display, surface);
