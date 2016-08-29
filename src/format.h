@@ -3,7 +3,7 @@
 
 #include "utils.h"
 
-//#define TR1_DEMO
+#define TR1_DEMO
 
 namespace TR {
 	#define DATA_PORTAL		0x01

@@ -29,7 +29,10 @@ varying vec4 vColor;
 	uniform vec4      uLightColor;
 	
 	void main() {
-		vec4 color = texture2D(sDiffuse, vTexCoord) * vColor * uColor;
+		vec4 color = texture2D(sDiffuse, vTexCoord);
+		if (color.w < 0.9)
+			discard;
+		color *= vColor * uColor;
 //	#ifdef LIGHTING
 		color.xyz = pow(color.xyz, vec3(2.2));
 		float lum = dot(normalize(vNormal.xyz), normalize(vLightVec));

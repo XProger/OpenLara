@@ -238,7 +238,7 @@ struct Controller {
 
 						void *p = &level->soundData[c];
 
-						PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+					//	PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
 					}
 					break;
 				}

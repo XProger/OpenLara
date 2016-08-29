@@ -1,0 +1,77 @@
+<html>
+		<head><title>OpenLara</title><head>
+		<body>
+			<span id="status">Starting...</span>
+			<span><input type="button" value="fullscreen" onclick="Module.requestFullScreen(false, true)"><br><br>
+			<canvas id="canvas" width="160" height="120" oncontextmenu="event.preventDefault()"></canvas><br>
+			<span id="info"></span>
+			
+			<script type='text/javascript'>
+				var statusElement = document.getElementById('status');
+				var canvasElement = document.getElementById('canvas');
+
+				var Module = {
+					preRun: [],
+					postRun: [],
+					print: (function() {
+								return function(text) {
+									if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+									console.log(text);
+								};
+							})(),
+					printErr: function(text) {
+						if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+						if (0) {
+							dump(text + '\n');
+						} else {
+							console.error(text);
+						}
+					},
+					canvas: (function() {
+						canvasElement.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);						
+						return canvasElement;
+					})(),
+					setStatus: function(text) {
+						if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+						if (text === Module.setStatus.text) return;
+						statusElement.innerHTML = text;
+					},
+					totalDependencies: 0,
+					monitorRunDependencies: function(left) {
+						this.totalDependencies = Math.max(this.totalDependencies, left);
+						Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+					}
+				};
+				
+				var gl = canvasElement.getContext("webgl") || canvasElement.getContext("experimental-webgl");
+				
+				Module.setStatus('Downloading...');
+				window.onerror = function(event) {
+					Module.setStatus('Exception thrown, see JavaScript console');
+					//spinnerElement.style.display = 'none';
+					document.getElementById('info').innerHTML = event;
+					Module.setStatus = function(text) {
+						if (text) Module.printErr('[post-exception status] ' + text);
+					};
+				};
+			</script>	
+			<script>
+				(function() {
+					var memoryInitializer = 'OpenLara.js.mem';
+					if (typeof Module['locateFile'] === 'function') {
+						memoryInitializer = Module['locateFile'](memoryInitializer);
+					} else if (Module['memoryInitializerPrefixURL']) {
+						memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
+					}
+					var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
+					xhr.open('GET', memoryInitializer, true);
+					xhr.responseType = 'arraybuffer';
+					xhr.send(null);
+				})();
+
+				var script = document.createElement('script');
+				script.src = "OpenLara.js";
+				document.body.appendChild(script);
+			</script>
+		</body>
+</html>

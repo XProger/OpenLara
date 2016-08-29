@@ -11,8 +11,8 @@ namespace Game {
 	Level		*level;
 
 	void init() {
-		Core::init();
-		level = new Level("data\\GYM.PHD");
+        Core::init();
+        level = new Level("data\\LEVEL2_DEMO.PHD");
 	}
 
 	void free() {

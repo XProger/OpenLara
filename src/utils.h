@@ -131,23 +131,23 @@ struct quat {
 		w = cosf(angle);
 	}
 
-	quat quat::operator - () const {
+	quat operator - () const {
 		return quat(-x, -y, -z, -w);
 	}
 
-	quat quat::operator + (const quat &q) const { 
+	quat operator + (const quat &q) const { 
 		return quat(x + q.x, y + q.y, z + q.z, w + q.w); 
 	}
 
-	quat quat::operator - (const quat &q) const { 
+	quat operator - (const quat &q) const { 
 		return quat(x - q.x, y - q.y, z - q.z, w - q.w); 
 	}
 
-	quat quat::operator * (const float s) const { 
+	quat operator * (const float s) const { 
 		return quat(x * s, y * s, z * s, w * s); 
 	}
 
-	quat quat::operator * (const quat &q) const {
+	quat operator * (const quat &q) const {
 		return quat(w * q.x + x * q.w + y * q.z - z * q.y,
 					w * q.y + y * q.w + z * q.x - x * q.z,
 					w * q.z + z * q.w + x * q.y - y * q.x,
@@ -166,19 +166,19 @@ struct quat {
 		return sqrtf(length2());
 	}
 
-	void quat::normalize() {
+	void normalize() {
 		*this = normal();
 	}
 
-	quat quat::normal() const {
+	quat normal() const {
 		return *this * (1.0f / length());
 	}
 
-	quat quat::conjugate() const {
+	quat conjugate() const {
 		return quat(-x, -y, -z, w);
 	}
 
-	quat quat::inverse() const {
+	quat inverse() const {
 		return conjugate() * (1.0f / length2());
 	}
 
@@ -382,7 +382,7 @@ struct mat4 {
 		return r;
 	}
 
-	quat mat4::getRot() const {
+	quat getRot() const {
 		float t, s;
 		t = 1.0f + e00 + e11 + e22;
 		if (t > EPS) {
@@ -402,7 +402,7 @@ struct mat4 {
 				}
 	}
 
-	void mat4::setRot(const quat &rot) {
+	void setRot(const quat &rot) {
 		float	sx = rot.x * rot.x,
 				sy = rot.y * rot.y,
 				sz = rot.z * rot.z,
@@ -430,11 +430,11 @@ struct mat4 {
 		e12 = (t1 - t2) * inv;
 	}
 
-	vec3 mat4::getPos() const {
+	vec3 getPos() const {
 		return offset.xyz;
 	}
 
-	void mat4::setPos(const vec3 &pos) {
+	void setPos(const vec3 &pos) {
 		offset.xyz = pos;
 	}
 };

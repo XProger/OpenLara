@@ -6,7 +6,10 @@
 #include "format.h"
 #include "controller.h"
 #include "camera.h"
-#include "debug.h"
+
+#ifdef _DEBUG
+	#include "debug.h"
+#endif
 
 const char SHADER[] = 
 	#include "shader.glsl"
@@ -187,7 +190,7 @@ struct Level {
 					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
 					vertices[vCount].color		= { a, a, a, 255 };
 					vertices[vCount].normal		= { 0, 0, 0, 0x7FFF };
-					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
+					vertices[vCount].texCoord	= { (int16)((tx + (int)t.vertices[k].Xpixel) << 5) + 16, (int16)((ty + (int)t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -215,7 +218,7 @@ struct Level {
 					vertices[vCount].coord		= { v.vertex.x, v.vertex.y, v.vertex.z };
 					vertices[vCount].color		= { a, a, a, 255 };
 					vertices[vCount].normal		= { 0, 0, 0, 0x7FFF };
-					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
+					vertices[vCount].texCoord	= { (int16)((tx + (int)t.vertices[k].Xpixel) << 5) + 16, (int16)((ty + (int)t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -284,7 +287,7 @@ struct Level {
 						vertices[vCount].normal	= { 0, 0, 0, 255 };
 						vertices[vCount].color	= { a, a, a, 255 };
 					}
-					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
+					vertices[vCount].texCoord	= { (int16)((tx + (int)t.vertices[k].Xpixel) << 5) + 16, (int16)((ty + (int)t.vertices[k].Ypixel) << 5) + 16};
 					vCount++;
 				}
 			}
@@ -320,7 +323,7 @@ struct Level {
 						vertices[vCount].normal	= { 0, 0, 0, 255 };
 						vertices[vCount].color	= { a, a, a, 255 };
 					}
-					vertices[vCount].texCoord	= { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16};
+					vertices[vCount].texCoord   = { ((tx + t.vertices[k].Xpixel) << 5) + 16, ((ty + t.vertices[k].Ypixel) << 5) + 16 };
 					vCount++;
 				}
 			}
@@ -488,6 +491,7 @@ struct Level {
 		p[3] = right * sprite.r + up * sprite.t;
 
 //		bindTexture(sprite.tile);
+		/*
 		glBegin(GL_QUADS);
 			glTexCoord2f(u0, v1);
 			glVertex3fv((GLfloat*)&p[0]);
@@ -498,11 +502,13 @@ struct Level {
 			glTexCoord2f(u0, v0);		   
 			glVertex3fv((GLfloat*)&p[3]);
 		glEnd();
+		*/
 	}
 
 	void renderSprite(const TR::Room &room, const TR::Room::Data::Sprite &sprite) {
 		auto &v = room.data.vertices[sprite.vertex];
 		float a = 1.0f - v.lighting / (float)0x1FFF;
+		/*
 		glColor3f(a, a, a);
 
 		glPushMatrix();
@@ -511,6 +517,7 @@ struct Level {
 		renderSprite(level.spriteTextures[sprite.texture]);
 
 		glPopMatrix();
+		*/
 	}
 	
 	vec3 getAngle(TR::AnimFrame *frame, int index) {
@@ -702,6 +709,7 @@ struct Level {
 		Core::mModel = m;
 	}
 
+	#ifdef _DEBUG
 	void debugPortals() {
 		Core::setBlending(bmAdd);
 		glColor3f(0, 0.25f, 0.25f);
@@ -898,7 +906,7 @@ struct Level {
 			}
 		glEnd();
 	}
-
+	#endif
 	/*
 	void debugEntity() {
 		Core::setCulling(cfNone);
@@ -996,11 +1004,8 @@ struct Level {
 		shader->setParam(uViewProj, Core::mViewProj);
 		shader->setParam(uModel, Core::mModel);
 
-		glEnable(GL_ALPHA_TEST);
-		glAlphaFunc(GL_GREATER, 0.9f);
-		glEnable(GL_DEPTH_TEST);
-
 		Core::setCulling(cfFront);
+		glEnable(GL_DEPTH_TEST);
 
 		Core::mModel.identity();
 

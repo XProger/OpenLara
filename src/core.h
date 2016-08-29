@@ -2,9 +2,17 @@
 #define H_CORE
 
 #include <stdio.h>
-#include <windows.h>
-#include <gl/GL.h>
-#include <gl/glext.h>
+#ifdef WIN32
+	#include <windows.h>
+	#include <gl/GL.h>
+	#include <gl/glext.h>
+#elif __EMSCRIPTEN__
+	#include <emscripten.h>
+	#include <html5.h>
+	#include <GLES3/gl3.h>
+	#include <GLES3/gl2ext.h>
+	#define MOBILE
+#endif
 
 #include "utils.h"
 #include "input.h"
@@ -72,6 +80,7 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 namespace Core {
 
 	void init() {
+	#ifdef WIN32
 		GetProcOGL(glActiveTexture);
 
 		GetProcOGL(glCreateProgram);
@@ -99,6 +108,7 @@ namespace Core {
 		GetProcOGL(glDeleteBuffers);
 		GetProcOGL(glBindBuffer);
 		GetProcOGL(glBufferData);
+	#endif
 	}
 
 	void free() {

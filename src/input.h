@@ -59,6 +59,7 @@ namespace Input {
 				case ikMouseM : mouse.start.M = mouse.pos;	break;
 				case ikTouchA : touch.start.A = touch.A;	break;
 				case ikTouchB : touch.start.B = touch.B;	break;
+				default       : ;
 			}
 
 		down[key] = value;
@@ -76,6 +77,7 @@ namespace Input {
 			case ikJoyDP  : joy.DP	  = pos.x;	break;
 			case ikTouchA : touch.A   = pos;	break;
 			case ikTouchB : touch.B   = pos;	break;
+			default	      : ;
 		}
 	}
 }
