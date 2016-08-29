@@ -237,8 +237,9 @@ struct Controller {
                         auto c = level->soundOffsets[b];
 
                         void *p = &level->soundData[c];
-
-                    //    PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+                    #ifdef WIN32
+                        PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+                    #endif
                     }
                     break;
                 }
