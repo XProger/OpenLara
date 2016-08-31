@@ -6,6 +6,8 @@
 #define TR1_DEMO
 
 namespace TR {
+    #define ROOM_FLAG_VISIBLE   0x8000
+
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
     #define DATA_CEILING    0x03
@@ -156,6 +158,8 @@ namespace TR {
 
     struct Vertex {
         int16 x, y, z;
+
+        operator vec3() const { return vec3((float)x, (float)y, (float)z); };
     };
 
     struct Rectangle {

@@ -114,6 +114,8 @@ struct vec4 {
 	vec4(float s) : x(s), y(s), z(s), w(s) {}
 	vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 	vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
+
+    vec4& operator *= (const vec4 &v) { x*=v.x; y*=v.y; z*=v.z; w*=v.w; return *this; }
 };
 
 struct quat {

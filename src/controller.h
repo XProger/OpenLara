@@ -27,7 +27,7 @@ struct Controller {
         lastFrame = 0;
 
         TR::Entity &e = level->entities[entity];
-        pos = vec3(e.x, e.y, e.z);
+        pos = vec3((float)e.x, (float)e.y, (float)e.z);
         angle = e.rotation / 16384.0f * PI * 0.5f;
 
         sc = 0;
@@ -83,7 +83,7 @@ struct Controller {
 //      stateMask[TR::STATE_FAST_TURN_14]
         stateMask[TR::STATE_COMPRESS]           = GROUND | JUMP;
         stateMask[TR::STATE_BACK]               = GROUND | WALK | BACK;
-        stateMask[TR::STATE_SWIM]               = WATER | FORTH;
+        stateMask[TR::STATE_SWIM]               = WATER | JUMP;
 //      stateMask[TR::STATE_GLIDE]
 //      stateMask[TR::STATE_NULL_19]
 //      stateMask[TR::STATE_FAST_TURN_20]
@@ -106,7 +106,13 @@ struct Controller {
         stateMask[TR::STATE_USE_KEY]            = GROUND | ACTION | KEY;
         stateMask[TR::STATE_USE_PUZZLE]         = GROUND | ACTION | PUZZLE;
 
+        stateMask[TR::STATE_GLIDE]              = WATER | JUMP;
         stateMask[TR::STATE_SWAN_DIVE]          = JUMP | WALK | FORTH;
+        stateMask[TR::STATE_TREAD]              = WATER | GROUND;
+        
+        stateMask[TR::STATE_UNDERWATER_DEATH]   = WATER | DEATH;
+
+        
 
 
         fTime += Core::deltaTime;
@@ -254,8 +260,6 @@ struct Controller {
             }
         }
 
-
-
         float dt = Core::deltaTime * 30.0f;
 
         if (onGround) {
@@ -263,7 +267,9 @@ struct Controller {
             velocity.x = sinf(d) * speed;
             velocity.z = cosf(d) * speed;
         }
+
         velocity.y += GRAVITY * dt;
+
 
         if (endFrame) {
             fIndex = anim->nextFrame;
@@ -360,7 +366,7 @@ struct Controller {
         TR::Room::Sector &s = getSector(dx, dz);
         TR::Entity &entity = getEntity();
 
-        float bottom = (int)s.floor * 256;
+        float bottom = s.floor * 256.0f;
 
         float fx = dx / 1024.0f, fz = dz / 1024.0f;
 

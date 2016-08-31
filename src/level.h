@@ -238,7 +238,7 @@ struct Level {
             info.vStart = vCount;
             info.iStart = iCount;
             info.center = ptr->center;
-         //   info.radius = ptr->radius;
+            info.radius = ptr->radius;
 
             TR::Vertex *mVertices = (TR::Vertex*)&ptr->vertices;
 
@@ -423,13 +423,16 @@ struct Level {
         return NULL;
     }
 
-    //#define SCALE (1.0f / 1024.0f / 2.0f)
-
     void renderRoom(int index) {
         TR::Room &room = level.rooms[index];
 
+        if (room.flags & ROOM_FLAG_VISIBLE) return; // already rendered
+        room.flags |= ROOM_FLAG_VISIBLE;
+
+        vec3 offset = vec3(room.info.x, 0.0f, room.info.z);
+
         mat4 m = Core::mModel;
-        Core::mModel.translate(vec3(room.info.x, 0.0f, room.info.z));
+        Core::mModel.translate(offset);
         Core::color         = vec4(1.0f);
         Core::ambient       = vec3(1.0f);
         Core::lightColor    = vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -443,14 +446,16 @@ struct Level {
         Core::mModel = m;
 
         // meshes
-        for (int j = 0; j < room.meshesCount; j++) {
-            TR::Room::Mesh &rMesh = room.meshes[j];
+        for (int i = 0; i < room.meshesCount; i++) {
+            TR::Room::Mesh &rMesh = room.meshes[i];
             TR::StaticMesh *sMesh = getMeshByID(rMesh.meshID);
             ASSERT(sMesh != NULL);
 
             mat4 m = Core::mModel;
-            Core::mModel.translate(vec3(rMesh.x, rMesh.y, rMesh.z));
+            Core::mModel.translate(vec3((float)rMesh.x, (float)rMesh.y, (float)rMesh.z));
             Core::mModel.rotateY(rMesh.rotation / 16384.0f * PI * 0.5f);
+
+            // TODO: check visibility for sMesh.vBox
 
             getLight(vec3(rMesh.x, rMesh.y, rMesh.z), index);
 
@@ -459,6 +464,28 @@ struct Level {
             Core::mModel = m;
         }
         
+
+        Camera::Frustum *camFrustum = camera.frustum;   // push camera frustum
+        Camera::Frustum frustum = *camFrustum;
+        camera.frustum = &frustum;
+
+        for (int i = 0; i < room.portalsCount; i++) {
+            TR::Room::Portal &p = room.portals[i];
+
+            vec3 v[4] = {
+                offset + p.vertices[0],
+                offset + p.vertices[1],
+                offset + p.vertices[2],
+                offset + p.vertices[3],
+            };
+
+            if (frustum.clipByPortal(v, p.normal)) {
+                renderRoom(p.roomIndex);
+                frustum = *camFrustum;
+            }
+        }
+        camera.frustum = camFrustum;    // pop camera frustum
+
     /*
         // sprites
         Core::setBlending(bmAlpha);
@@ -474,8 +501,12 @@ struct Level {
 
         for (int i = 0; i < mCount; i++)
             if (meshInfo[i].offset == level.meshOffsets[meshOffset]) {
-                shader->setParam(uModel, Core::mModel);
-                mesh->render(meshInfo[i]);
+                MeshInfo &m = meshInfo[i];
+
+                if (camera.frustum->isVisible(Core::mModel * m.center, m.radius)) {
+                    shader->setParam(uModel, Core::mModel);
+                    mesh->render(m);
+                }
                 break;
             }
     }
@@ -687,6 +718,8 @@ struct Level {
     void renderEntity(const TR::Entity &entity) {
     //  if (!(entity.flags & ENTITY_FLAG_VISIBLE))
     //      return;
+        if (!(level.rooms[entity.room].flags & ROOM_FLAG_VISIBLE)) // check for room visibility
+            return;
 
         mat4 m = Core::mModel;
         Core::mModel.translate(vec3(entity.x, entity.y, entity.z));
@@ -902,13 +935,13 @@ struct Level {
         for (int i = 0; i < level.roomsCount; i++)
             for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                 TR::Room::Light &l = level.rooms[i].lights[j];
-                float a = l.Intensity / 8191.0f;
+                float a = l.intensity / 8191.0f;
                 vec3 p = vec3(l.x, l.y, l.z);
                 vec4 color = vec4(a, a, a, 1);
                 Debug::Draw::point(p, color);
                 if (i == roomIndex && j == lightIndex)
                     color = vec4(0, 1, 0, 1);
-                Debug::Draw::sphere(p, l.fade, color);
+                Debug::Draw::sphere(p, l.attenuation, color);
             }
         glEnd();
     }
@@ -942,7 +975,15 @@ struct Level {
     */
     }
 
+    int getCameraRoomIndex() {
+        for (int i = 0; i < level.roomsCount; i++)
+            if (lara->insideRoom(Core::viewPos, i))
+                return i;
+        return lara->getEntity().room;
+    }
+
     void render() {
+    //    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     #ifndef FREE_CAMERA
         camera.pos = vec3(-lara->pos.x, -lara->pos.y + 768, lara->pos.z);
     #endif
@@ -953,7 +994,6 @@ struct Level {
         mesh->bind();
 
         shader->setParam(uViewProj, Core::mViewProj);
-        shader->setParam(uModel, Core::mModel);
 
         glEnable(GL_DEPTH_TEST);
 
@@ -962,7 +1002,13 @@ struct Level {
         Core::mModel.identity();
 
         for (int i = 0; i < level.roomsCount; i++)
-            renderRoom(i);
+            level.rooms[i].flags &= ~ROOM_FLAG_VISIBLE;    // clear visible flag
+
+        renderRoom(getCameraRoomIndex());
+        renderRoom(lara->getEntity().room);
+
+        //for (int i = 0; i < level.roomsCount; i++)
+        //    renderRoom(i);
 
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
@@ -971,8 +1017,8 @@ struct Level {
     //  debugMeshes();
 
         Debug::Draw::begin();
-        debugRooms();
-    //  debugLights();
+    //    debugRooms();
+    //    debugLights();
         debugPortals();
         Debug::Draw::end();
     #endif
