@@ -1,0 +1,6 @@
+AddEncoding gzip .gz
+
+RewriteEngine on 
+RewriteCond %{HTTP:Accept-Encoding} gzip 
+RewriteCond %{REQUEST_FILENAME}.gz -f 
+RewriteRule ^(.+)\.(js|data|mem)$ $1.$2.gz [L] 
