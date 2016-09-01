@@ -163,7 +163,7 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 int main() {
     initGL();
 
-    emscripten_set_canvas_size(Core::width = 1280, Core::height = 720);
+    emscripten_set_canvas_size(Core::width = 800, Core::height = 600);
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);
     emscripten_set_keyup_callback(0, 0, 1, keyCallback);

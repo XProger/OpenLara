@@ -5,17 +5,17 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sMAX };
-enum UniformType    { uViewProj, uModel, uColor, uAmbient, uLightPos, uLightColor, uMAX };
+enum UniformType    { uViewProj, uViewInv, uModel, uColor, uAmbient, uViewPos, uLightPos, uLightColor, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse" };
-const char *UniformName[uMAX]   = { "uViewProj", "uModel", "uColor", "uAmbient", "uLightPos", "uLightColor" };
+const char *UniformName[uMAX]   = { "uViewProj", "uViewInv", "uModel", "uColor", "uAmbient", "uViewPos", "uLightPos", "uLightColor" };
 
 struct Shader {
     GLuint  ID;
     GLint   uID[uMAX];
 
-    Shader(const char *text) {
+    Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
 	        #define GLSL_DEFINE "precision highp float;\n" "#define MOBILE\n"
         #else
@@ -23,9 +23,9 @@ struct Shader {
         #endif
 
         const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-        const char *code[2][2] = {
-                { GLSL_DEFINE "#define VERTEX\n",   text },
-                { GLSL_DEFINE "#define FRAGMENT\n", text }
+        const char *code[2][3] = {
+                { GLSL_DEFINE "#define VERTEX\n",   defines, text },
+                { GLSL_DEFINE "#define FRAGMENT\n", defines, text }
             };
 
         GLchar info[256];
@@ -33,7 +33,7 @@ struct Shader {
         ID = glCreateProgram();
         for (int i = 0; i < 2; i++) {
             GLuint obj = glCreateShader(type[i]);
-            glShaderSource(obj, 2, code[i], NULL);
+            glShaderSource(obj, 3, code[i], NULL);
             glCompileShader(obj);
 
             glGetShaderInfoLog(obj, sizeof(info), NULL, info);
@@ -65,6 +65,7 @@ struct Shader {
 
     void bind() {
         glUseProgram(ID);
+        Core::active.shader = this;
     }
 
     void setParam(UniformType uType, const vec3 &value, int count = 1) {

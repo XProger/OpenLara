@@ -368,7 +368,7 @@ namespace TR {
     struct SpriteTexture {
         uint16  tile;
         uint8   u, v;
-        uint16  w, h;   // (ActualValue  * 256) + 255
+        uint16  w, h;
         int16   l, t, r, b;
     };
 

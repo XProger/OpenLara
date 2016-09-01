@@ -54,15 +54,23 @@
     PFNGLBUFFERDATAARBPROC              glBufferData;
 #endif
 
+struct Shader;
+struct Texture;
+
 namespace Core {
     int width, height;
     float deltaTime;
-    mat4 mView, mProj, mViewProj, mModel;
+    mat4 mView, mProj, mViewProj, mViewInv, mModel;
     vec3 viewPos;
     vec3 lightPos;
     vec4 lightColor;
     vec3 ambient;
     vec4 color;
+
+    struct {
+        Shader  *shader;
+        Texture *testures[8];
+    } active;
 
     struct {
         int dips;

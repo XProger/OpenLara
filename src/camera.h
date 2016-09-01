@@ -163,8 +163,8 @@ struct Camera {
         Core::mProj = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
 
         Core::mViewProj = Core::mProj * Core::mView;
-
-        Core::viewPos = Core::mView.inverse().getPos();
+        Core::mViewInv  = Core::mView.inverse();
+        Core::viewPos   = Core::mViewInv.getPos();
 
         frustum->pos = Core::viewPos;
         frustum->calcPlanes(Core::mViewProj);
