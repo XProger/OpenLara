@@ -6,310 +6,27 @@
 #define GRAVITY 7.0f
 
 struct Controller {
-    TR::Level       *level;
-    int             entity;
+    TR::Level   *level;
+    int         entity;
 
-    TR::Animation   *anim;
-    float fTime;
+    float       fTime;
+    int         lastFrame;
 
-    vec3    pos, velocity;
-    float   angle;
+    vec3        pos, velocity;
+    vec3        angle;
 
-    int state;  // target state
-    int lastFrame;
+    int         health; 
 
-    int sc;
-    bool lState;
-    bool onGround;
+    float       turnTime;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), pos(0.0f), velocity(0.0f), angle(0.0f), fTime(0.0f) {
-        anim = &level->anims[getModel().animation];
-        lastFrame = 0;
+    bool        onGround;
+    bool        inWater;
 
-        TR::Entity &e = level->entities[entity];
-        pos = vec3((float)e.x, (float)e.y, (float)e.z);
-        angle = e.rotation / 16384.0f * PI * 0.5f;
-
-        sc = 0;
-        lState = false;
-
-        state = TR::STATE_STOP;
-    }
-
-    void update() {
-        float rot = 0.0f;
-
-        enum { LEFT = 1, RIGHT = 2, FORTH = 4, BACK = 8, 
-               JUMP = 16, WALK = 32, ACTION = 64, WEAPON = 128, ROLL = 256,
-               GROUND = 512, WATER = 1024, DEATH = 2048,
-               PULL = 4096, PICKUP = 8192, SWITCH_ON = 16 * 1024, SWITCH_OFF = 32 * 1024, KEY = 64 * 1024, PUZZLE = 128 * 1024, HANG = 256 * 1024, FALL = 512 * 1024, COMPRESS = 1024 * 1024};
-        int mask = 0;
-
-        if (Input::down[ikW] || Input::joy.L.y < 0)                             mask |= FORTH;
-        if (Input::down[ikS] || Input::joy.L.y > 0)                             mask |= BACK;
-        if (Input::down[ikA] || Input::joy.L.x < 0)                             mask |= LEFT;
-        if (Input::down[ikD] || Input::joy.L.x > 0)                             mask |= RIGHT;
-        if (Input::down[ikSpace] || Input::down[ikJoyX])                        mask |= JUMP;
-        if (Input::down[ikShift] || Input::down[ikJoyLT])                       mask |= WALK;
-        if (Input::down[ikE] || /*Input::down[ikMouseL] ||*/ Input::down[ikJoyA])   mask |= ACTION;
-        if (Input::down[ikQ] || Input::down[ikMouseR] || Input::down[ikJoyY])   mask |= WEAPON;
-        if (onGround)                                                           mask |= GROUND;
-        if (getRoom().flags & 1)                                                mask |= WATER;
-        if (velocity.y > 2048)                                                  mask |= FALL;
-        if (anim->state == TR::STATE_COMPRESS)                                  mask |= COMPRESS;
-
-        int origMask = mask;
-        if (origMask & (FORTH | BACK))
-            mask &= ~(LEFT | RIGHT);
-
-        int stateMask[TR::STATE_MAX];
-        for (int i = 0; i < TR::STATE_MAX; i++)
-            stateMask[i] = -1;
-
-        stateMask[TR::STATE_WALK]               = GROUND | FORTH | WALK;
-        stateMask[TR::STATE_RUN]                = GROUND | FORTH;
-        stateMask[TR::STATE_STOP]               = GROUND;
-        stateMask[TR::STATE_FORWARD_JUMP]       = GROUND | JUMP | FORTH;
-//      stateMask[TR::STATE_FAST_TURN]          = 0;
-        stateMask[TR::STATE_FAST_BACK]          = GROUND | BACK;
-        stateMask[TR::STATE_TURN_RIGHT]         = GROUND | RIGHT;
-        stateMask[TR::STATE_TURN_LEFT]          = GROUND | LEFT;
-        stateMask[TR::STATE_DEATH]              = DEATH;
-        stateMask[TR::STATE_FAST_FALL]          = FALL;
-        stateMask[TR::STATE_HANG]               = HANG | ACTION;
-        stateMask[TR::STATE_REACH]              = ACTION;
-//      stateMask[TR::STATE_SPLAT]
-//      stateMask[TR::STATE_TREAD]
-//      stateMask[TR::STATE_FAST_TURN_14]
-        stateMask[TR::STATE_COMPRESS]           = GROUND | JUMP;
-        stateMask[TR::STATE_BACK]               = GROUND | WALK | BACK;
-        stateMask[TR::STATE_SWIM]               = WATER | JUMP;
-//      stateMask[TR::STATE_GLIDE]
-//      stateMask[TR::STATE_NULL_19]
-//      stateMask[TR::STATE_FAST_TURN_20]
-        stateMask[TR::STATE_FAST_TURN_20]       = GROUND | LEFT | RIGHT;
-        stateMask[TR::STATE_STEP_RIGHT]         = GROUND | WALK | RIGHT;
-        stateMask[TR::STATE_STEP_LEFT]          = GROUND | WALK | LEFT;
-        stateMask[TR::STATE_ROLL]               = GROUND | ROLL;
-//      stateMask[TR::STATE_SLIDE]
-        stateMask[TR::STATE_BACK_JUMP]          = GROUND | COMPRESS | BACK;
-        stateMask[TR::STATE_RIGHT_JUMP]         = GROUND | COMPRESS | RIGHT;
-        stateMask[TR::STATE_LEFT_JUMP]          = GROUND | COMPRESS | LEFT;
-        stateMask[TR::STATE_UP_JUMP]            = GROUND | COMPRESS;
-
-        stateMask[TR::STATE_DIVE]               = WATER;
-
-        stateMask[TR::STATE_PUSH_PULL_READY]    = GROUND | ACTION | PULL;
-        stateMask[TR::STATE_PICK_UP]            = GROUND | ACTION | PICKUP;
-        stateMask[TR::STATE_SWITCH_ON]          = GROUND | ACTION | SWITCH_ON;
-        stateMask[TR::STATE_SWITCH_OFF]         = GROUND | ACTION | SWITCH_OFF;
-        stateMask[TR::STATE_USE_KEY]            = GROUND | ACTION | KEY;
-        stateMask[TR::STATE_USE_PUZZLE]         = GROUND | ACTION | PUZZLE;
-
-        stateMask[TR::STATE_GLIDE]              = WATER | JUMP;
-        stateMask[TR::STATE_SWAN_DIVE]          = JUMP | WALK | FORTH;
-        stateMask[TR::STATE_TREAD]              = WATER | GROUND;
-        
-        stateMask[TR::STATE_UNDERWATER_DEATH]   = WATER | DEATH;
-
-        
-
-
-        fTime += Core::deltaTime;
-        int fCount = anim->frameEnd - anim->frameStart + 1;
-        int fIndex = int(fTime * 30.0f);
-
-        state = -1;
-        int maxMask = 0;
-        if (stateMask[anim->state] != mask)
-            for (int i = 0; i < anim->scCount; i++) {
-                TR::AnimState &sc = level->states[anim->scOffset + i];
-                if (sc.state >= TR::STATE_MAX || stateMask[sc.state] == -1)
-                    LOG("unknown state %d\n", sc.state);
-                else
-                    if (stateMask[sc.state] > maxMask && ((stateMask[sc.state] & mask) == stateMask[sc.state])) {
-                        maxMask = stateMask[sc.state];
-                        state = anim->scOffset + i;
-                    }
-            }
-
-        if (state > -1 && anim->state != level->states[state].state) {
-            TR::AnimState &sc = level->states[state];
-            for (int j = 0; j < sc.rangesCount; j++) {
-                TR::AnimRange &range = level->ranges[sc.rangesOffset + j];
-                if ( anim->frameStart + fIndex >= range.low && anim->frameStart + fIndex <= range.high) {
-                    int st = anim->state;
-                    anim  = &level->anims[range.nextAnimation];
-                    fIndex = range.nextFrame - anim->frameStart;
-                    fCount = anim->frameEnd - anim->frameStart + 1;
-                    fTime = fIndex / 30.0f;
-                    break;
-                }
-            }
-        }
-
-#ifdef _DEBUG
-        if (Input::down[ikEnter]) {
-            if (!lState) {
-                lState = true;
-            //  state = TR::STATE_ROLL;
-            //  fTime = 0;
-
-            //  sc = (sc + 1) % level->statesCount;
-            //  anim = &level->anims[146];//level->ranges[ level->states[sc].rangesOffset ].nextAnimation ];
-            //  fTime = 0;
-            //  state = level->states[sc].state;
-
-                LOG("state: %d\n", anim->state);
-                for (int i = 0; i < anim->scCount; i++) {
-                    auto &sc = level->states[anim->scOffset + i];
-                    LOG("-> %d : ", (int)sc.state);
-                    for (int j = 0; j < sc.rangesCount; j++) {
-                        TR::AnimRange &range = level->ranges[sc.rangesOffset + j];
-                        LOG("%d ", range.nextAnimation);
-                        //range.
-                    }
-                    LOG("\n");
-                }
-
-            }
-        } else
-            lState = false;
-#endif
-        if (anim->state == TR::STATE_RUN        ||
-            anim->state == TR::STATE_FAST_BACK  ||
-            anim->state == TR::STATE_WALK       ||
-            anim->state == TR::STATE_BACK       ||
-            anim->state == TR::STATE_TURN_LEFT  ||
-            anim->state == TR::STATE_TURN_RIGHT) {
-
-            if (origMask & LEFT)  angle -= Core::deltaTime * PI;
-            if (origMask & RIGHT) angle += Core::deltaTime * PI;
-        }
-
-        float d = 0.0f;
-        switch (anim->state) {
-            case TR::STATE_BACK :
-            case TR::STATE_BACK_JUMP :
-            case TR::STATE_FAST_BACK :
-                d = PI;
-                break;
-            case TR::STATE_STEP_LEFT :
-            case TR::STATE_LEFT_JUMP :
-                d = -PI * 0.5f;
-                break;
-            case TR::STATE_STEP_RIGHT :
-            case TR::STATE_RIGHT_JUMP :
-                d =  PI * 0.5f;
-                break;
-        }
-        d += angle;
-
-        bool endFrame = fIndex >= fCount;
-
-        int16 *ptr = &level->commands[anim->animCommand];
-
-        for (int i = 0; i < anim->acCount; i++) {
-            switch (*ptr++) {
-                case 0x01 : { // cmd position
-                    int16 sx = *ptr++;
-                    int16 sy = *ptr++;
-                    int16 sz = *ptr++;
-                    LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
-                    break;
-                }
-                case 0x02 : { // cmd jump speed
-                    int16 sy = *ptr++;
-                    int16 sz = *ptr++;
-                    if (endFrame) {
-                        LOG("jump: %d %d\n", (int)sy, (int)sz);
-                        velocity.x = sinf(d) * sz;
-                        velocity.y = sy;
-                        velocity.z = cosf(d) * sz;
-                        onGround = false;
-                    }
-                    break;
-                }
-                case 0x03 : // empty hands
-                    break;
-                case 0x04 : // kill
-                    break;
-                case 0x05 : { // play sound
-                    int frame = (*ptr++);
-                    int id    = (*ptr++) & 0x3FFF;
-                    if (fIndex == frame - anim->frameStart && fIndex != lastFrame) {
-                        auto a = level->soundsMap[id];
-                        auto b = level->soundsInfo[a].index;
-                        auto c = level->soundOffsets[b];
-
-                        void *p = &level->soundData[c];
-                    #ifdef WIN32
-                        PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
-                    #endif
-                    }
-                    break;
-                }
-                case 0x06 :
-                    if (fIndex != lastFrame && fIndex + anim->frameStart == ptr[0]) {
-                        if (ptr[1] == 0) {
-                            angle = angle + PI;
-                        }
-                    }
-                    ptr += 2;
-                    break;
-            }
-        }
-
-        float dt = Core::deltaTime * 30.0f;
-
-        if (onGround) {
-            float speed = anim->speed.toFloat() + anim->accel.toFloat() * (fTime * 30.0f);
-            velocity.x = sinf(d) * speed;
-            velocity.z = cosf(d) * speed;
-        }
-
-        velocity.y += GRAVITY * dt;
-
-
-        if (endFrame) {
-            fIndex = anim->nextFrame;
-            int id = anim->nextAnimation;
-            anim = &level->anims[anim->nextAnimation];
-            fIndex -= anim->frameStart;
-            fTime = fIndex / 30.0f;
-            fCount = anim->frameEnd - anim->frameStart + 1;
-        }
-
-        move(velocity * dt);
-        collide();
-
-        lastFrame = fIndex;
-    }
-
-    void move(const vec3 &offset) {
-        vec3 p = pos;
-        pos = pos + offset;
-
-        updateEntity();
-
-        TR::Room &room = getRoom();
-        TR::Entity &entity = getEntity();
-
-        int dx, dz;
-        TR::Room::Sector &s = getSector(dx, dz);
-
-        int d = entity.y - s.floor * 256;
-        if (d >= 256 * 4) {
-            pos.x = p.x;//vec3(entity.x, entity.y, entity.z);
-            pos.z = p.z;
-            updateEntity();
-            if (d >= 256 * 4)
-                anim = &level->anims[53];   // forward smash
-            else
-                anim = &level->anims[11];   // instant stand
-            state = anim->state;
-            fTime = 0;
-        }
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), fTime(0.0f), lastFrame(0), health(100), turnTime(0.0f) {
+        TR::Entity &e = getEntity();
+        pos   = vec3((float)e.x, (float)e.y, (float)e.z);
+        angle = vec3(0.0f, e.rotation / 16384.0f * PI * 0.5f, 0.0f);
+        onGround = inWater = false;
     }
 
     void updateEntity() {
@@ -317,7 +34,7 @@ struct Controller {
         e.x = int(pos.x);
         e.y = int(pos.y);
         e.z = int(pos.z);
-        e.rotation = int(angle / (PI * 0.5f) * 16384.0f);
+        e.rotation = int(angle.y / (PI * 0.5f) * 16384.0f);
     }
 
     bool insideRoom(const vec3 &pos, int room) {
@@ -361,12 +78,418 @@ struct Controller {
         return room.sectors[sx * room.zSectors + sz];
     }
 
+    bool changeState(int state) {
+        TR::Model     &model = getModel();
+        TR::Animation *anim  = &level->anims[model.animation];
+
+        if (state == anim->state)
+            return true;
+
+        int fIndex = int(fTime * 30.0f);
+
+        bool exists = false;
+
+        for (int i = 0; i < anim->scCount; i++) {
+            TR::AnimState &s = level->states[anim->scOffset + i];
+            if (s.state == state) {
+                exists = true;
+                for (int j = 0; j < s.rangesCount; j++) {
+                    TR::AnimRange &range = level->ranges[s.rangesOffset + j];
+                    if (anim->frameStart + fIndex >= range.low && anim->frameStart + fIndex <= range.high) {
+                        model.animation = range.nextAnimation;
+                        fTime = (range.nextFrame - level->anims[model.animation].frameStart) / 30.0f;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return exists;
+    }
+
+    virtual void update() {}
+};
+
+
+#define FAST_TURN_TIME      1.0f
+
+#define TURN_FAST           PI
+#define TURN_FAST_BACK      PI * 3.0f / 4.0f
+#define TURN_NORMAL         PI / 2.0f
+#define TURN_SLOW           PI / 3.0f
+#define TURN_TILT           PI / 18.0f
+#define TURN_WATER_FAST     PI * 3.0f / 4.0f
+#define TURN_WATER_SLOW     PI * 2.0f / 3.0f
+#define GLIDE_SPEED         50.0f
+
+struct Lara : Controller {
+    int sc;
+    bool lState;
+
+    Lara(TR::Level *level, int entity) : Controller(level, entity) {
+        pos = vec3(70067, -256, 29104);
+        angle = vec3(0.0f, -0.68f, 0.0f);
+        getEntity().room = 15;
+    }
+
+    virtual void update() {
+        TR::Model     &model = getModel();
+        TR::Animation *anim  = &level->anims[model.animation];
+
+        float rot = 0.0f;
+
+        enum {  LEFT        = 1 << 1, 
+                RIGHT       = 1 << 2, 
+                FORTH       = 1 << 3, 
+                BACK        = 1 << 4, 
+                JUMP        = 1 << 5,
+                WALK        = 1 << 6,
+                ACTION      = 1 << 7,
+                WEAPON      = 1 << 8,
+                GROUND      = 1 << 9,
+                WATER       = 1 << 10,
+                DEATH       = 1 << 11 };
+
+        int mask = 0;
+
+        if (Input::down[ikW] || Input::joy.L.y < 0)                             mask |= FORTH;
+        if (Input::down[ikS] || Input::joy.L.y > 0)                             mask |= BACK;
+        if (Input::down[ikA] || Input::joy.L.x < 0)                             mask |= LEFT;
+        if (Input::down[ikD] || Input::joy.L.x > 0)                             mask |= RIGHT;
+        if (Input::down[ikSpace] || Input::down[ikJoyX])                        mask |= JUMP;
+        if (Input::down[ikShift] || Input::down[ikJoyLT])                       mask |= WALK;
+        if (Input::down[ikE] || Input::down[ikMouseL] || Input::down[ikJoyA])   mask |= ACTION;
+        if (Input::down[ikQ] || Input::down[ikMouseR] || Input::down[ikJoyY])   mask |= WEAPON;
+        if (health <= 0)                                                        mask |= DEATH;
+        if (onGround)                                                           mask |= GROUND;
+        if (inWater)                                                            mask |= WATER;
+
+        int state = anim->state;
+
+        if ((mask & (GROUND | WATER)) == (GROUND | WATER)) {   // on water surface
+            angle.x = 0.0f;
+            
+            state = TR::STATE_SURF_TREAD;
+
+        } else if (mask & GROUND) {
+            angle.x = 0.0f;
+
+            if (state == TR::STATE_COMPRESS) {
+                switch (mask & (RIGHT | LEFT | FORTH | BACK)) {
+                    case RIGHT  : state = TR::STATE_RIGHT_JUMP;     break;
+                    case LEFT   : state = TR::STATE_LEFT_JUMP;      break;
+                    case FORTH  : state = TR::STATE_FORWARD_JUMP;   break;
+                    case BACK   : state = TR::STATE_BACK_JUMP;      break;
+                    default     : state = TR::STATE_UP_JUMP;        break;
+                }
+            } else
+                if (mask & JUMP) {   // jump button is pressed
+                    if ((mask & FORTH) && state == TR::STATE_FORWARD_JUMP)
+                        state = TR::STATE_RUN;
+                    else
+                        state = state == TR::STATE_RUN ? TR::STATE_FORWARD_JUMP : TR::STATE_COMPRESS;
+                } else
+                    if (mask & WALK) {      // walk button is pressed
+                        if (mask & FORTH)
+                            state = TR::STATE_WALK;
+                        else if (mask & BACK)
+                            state = TR::STATE_BACK;
+                        else if (mask & LEFT)
+                            state = TR::STATE_STEP_LEFT;
+                        else if (mask & RIGHT)
+                            state = TR::STATE_STEP_RIGHT;
+                        else
+                            state = TR::STATE_STOP;
+                    } else {                // only dpad buttons pressed
+                        if (mask & FORTH)
+                            state = TR::STATE_RUN;
+                        else if (mask & BACK)
+                            state = TR::STATE_FAST_BACK;
+                        else if (mask & LEFT)
+                            state = turnTime < FAST_TURN_TIME ? TR::STATE_TURN_LEFT  : TR::STATE_FAST_TURN;
+                        else if (mask & RIGHT)
+                            state = turnTime < FAST_TURN_TIME ? TR::STATE_TURN_RIGHT : TR::STATE_FAST_TURN;
+                        else
+                            state = TR::STATE_STOP;
+                    }
+
+        } else if (mask & WATER) {  // underwater
+
+            if (state == TR::STATE_FORWARD_JUMP || state == TR::STATE_BACK_JUMP || state == TR::STATE_LEFT_JUMP || state == TR::STATE_RIGHT_JUMP || state == TR::STATE_FAST_FALL) {
+                model.animation = TR::ANIM_WATER_FALL;
+                fTime = 0.0f;
+                state = level->anims[model.animation].state;
+            } else
+                if (mask & JUMP)
+                    state = TR::STATE_SWIM;
+                else
+                    state = (state == TR::STATE_SWIM || velocity.y > GLIDE_SPEED) ? TR::STATE_GLIDE : TR::STATE_TREAD;
+
+        } else {    // in the air
+            angle.x = 0.0f;
+
+            if (state == TR::STATE_FORWARD_JUMP) {
+                if (mask & ACTION)
+                    state = TR::STATE_REACH;
+                else if ((mask & (FORTH | WALK)) == (FORTH | WALK))
+                    state = TR::STATE_SWAN_DIVE;
+            }
+            
+       //     LOG("- speed: %f\n", velocity.length());
+
+        }
+
+    // try to set new state
+        if (!changeState(state)) {
+            int stopState = TR::STATE_FAST_FALL;
+
+            if ((mask & (GROUND | WATER)) == (GROUND | WATER))
+                stopState = TR::STATE_SURF_TREAD;
+            else if (mask & WATER)
+                stopState = TR::STATE_TREAD;
+            else if (mask & GROUND)
+                stopState = TR::STATE_STOP;
+              
+            if (state != stopState)
+                changeState(stopState);
+        }
+
+        anim  = &level->anims[model.animation]; // get new animation and state (if it has been changed)
+        state = anim->state;
+
+        fTime += Core::deltaTime;
+        int fCount = anim->frameEnd - anim->frameStart + 1;
+        int fIndex = int(fTime * 30.0f);
+
+#ifdef _DEBUG
+        // show state transitions for current animation
+        if (Input::down[ikEnter]) {
+            LOG("state: %d\n", anim->state);
+            for (int i = 0; i < anim->scCount; i++) {
+                auto &sc = level->states[anim->scOffset + i];
+                LOG("-> %d : ", (int)sc.state);
+                for (int j = 0; j < sc.rangesCount; j++) {
+                    TR::AnimRange &range = level->ranges[sc.rangesOffset + j];
+                    LOG("%d ", range.nextAnimation);
+                }
+                LOG("\n");
+            }
+        }
+#endif
+
+    // calculate turn tilt
+        if (state == TR::STATE_RUN && (mask & (GROUND | WATER)) == GROUND && (mask & (LEFT | RIGHT))) {
+            if (mask & LEFT)  angle.z -= Core::deltaTime * TURN_TILT;
+            if (mask & RIGHT) angle.z += Core::deltaTime * TURN_TILT;
+            angle.z = clamp(angle.z, -TURN_TILT, TURN_TILT);
+        } else
+            angle.z -= angle.z * min(Core::deltaTime * 8.0f, 1.0f);
+
+        if (state == TR::STATE_TURN_LEFT || state == TR::STATE_TURN_RIGHT || state == TR::STATE_FAST_TURN)
+            turnTime += Core::deltaTime;
+        else
+            turnTime = 0.0f;
+
+    // get turning angle
+        float w = 0.0f;
+       
+        if (state == TR::STATE_SWIM || state == TR::STATE_GLIDE)
+            w = TURN_WATER_FAST;
+        else if (state == TR::STATE_TREAD)
+            w = TURN_WATER_SLOW;
+        else if (state == TR::STATE_RUN || state == TR::STATE_FAST_TURN)
+            w = TURN_FAST;
+        else if (state == TR::STATE_FAST_BACK)
+            w = TURN_FAST_BACK;
+        else if (state == TR::STATE_TURN_LEFT || state == TR::STATE_TURN_RIGHT || state == TR::STATE_WALK)
+            w = TURN_NORMAL;   
+        else if (state == TR::STATE_FORWARD_JUMP || state == TR::STATE_BACK)
+            w = TURN_SLOW;
+
+        if (w != 0.0f) {
+            w *= Core::deltaTime;
+        // yaw
+            if (mask & LEFT)  { angle.y -= w; velocity = velocity.rotateY(+w); }
+            if (mask & RIGHT) { angle.y += w; velocity = velocity.rotateY(-w); }
+        // pitch (underwater only)
+            if ( ((mask & (GROUND | WATER)) == WATER) && (mask & (FORTH | BACK)) ) {
+                angle.x += ((mask & FORTH) ? -w : w) * 0.5f;
+                angle.x = clamp(angle.x, -PI * 0.5f, PI * 0.5f);
+            }
+        }
+
+    // get animation direction
+        float d = 0.0f;
+        switch (state) {
+            case TR::STATE_BACK :
+            case TR::STATE_BACK_JUMP :
+            case TR::STATE_FAST_BACK :
+                d = PI;
+                break;
+            case TR::STATE_STEP_LEFT :
+            case TR::STATE_LEFT_JUMP :
+                d = -PI * 0.5f;
+                break;
+            case TR::STATE_STEP_RIGHT :
+            case TR::STATE_RIGHT_JUMP :
+                d =  PI * 0.5f;
+                break;
+        }
+        d += angle.y;
+
+        bool endFrame = fIndex >= fCount;
+
+    // calculate moving speed
+        float dt = Core::deltaTime * 30.0f;
+
+        if (mask & (GROUND | WATER)) {
+            
+            if ((mask & (GROUND | WATER)) == (GROUND | WATER)) {    // on water
+
+            } else if (mask & WATER) {  // underwater
+
+                if (state == TR::STATE_SWIM) {
+                    velocity = vec3(angle.x, angle.y) * 35.0f;
+                } else if (state == TR::STATE_GLIDE || state == TR::STATE_TREAD)
+                    velocity = velocity - velocity * Core::deltaTime;
+
+                // TODO: apply flow velocity
+            } else {    // on ground
+                float speed = anim->speed + anim->accel * (fTime * 30.0f);
+ 
+                velocity.x = sinf(d) * speed;
+                velocity.z = cosf(d) * speed;
+                velocity.y += GRAVITY * dt;
+ 
+            }
+        } else
+            velocity.y += GRAVITY * dt;
+
+    // apply animation commands
+        int16 *ptr = &level->commands[anim->animCommand];
+
+        for (int i = 0; i < anim->acCount; i++) {
+            switch (*ptr++) {
+                case 0x01 : { // cmd position
+                    int16 sx = *ptr++;
+                    int16 sy = *ptr++;
+                    int16 sz = *ptr++;
+                    LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
+                    break;
+                }
+                case 0x02 : { // cmd jump speed
+                    int16 sy = *ptr++;
+                    int16 sz = *ptr++;
+                    if (endFrame) {
+                        LOG("jump: %d %d\n", (int)sy, (int)sz);
+                        velocity.x = sinf(d) * sz;
+                        velocity.y = sy;
+                        velocity.z = cosf(d) * sz;
+                        LOG("speed: %f\n", velocity.length());
+                        onGround = false;
+                    }
+                    break;
+                }
+                case 0x03 : // empty hands
+                    break;
+                case 0x04 : // kill
+                    break;
+                case 0x05 : { // play sound
+                    int frame = (*ptr++);
+                    int id    = (*ptr++) & 0x3FFF;
+                    if (fIndex == frame - anim->frameStart && fIndex != lastFrame) {
+                        int16 a = level->soundsMap[id];
+                        TR::SoundInfo &b = level->soundsInfo[a];
+                        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
+                            uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
+                            LOG("count %d\n", int(((b.flags & 0xFF) >> 2)));
+
+                            void *p = &level->soundData[c];
+                        #ifdef WIN32
+                            PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+                        #endif
+                        }
+                    }
+                    break;
+                }
+                case 0x06 :
+                    if (fIndex != lastFrame && fIndex + anim->frameStart == ptr[0]) {
+                        if (ptr[1] == 0) {
+                            angle = angle + PI;
+                        }
+                    }
+                    ptr += 2;
+                    break;
+                default :
+                    LOG("unknown animation command\n");
+            }
+        }
+
+
+
+    // check for next animation
+        if (endFrame) {
+            model.animation = anim->nextAnimation;
+            TR::Animation *nextAnim = &level->anims[anim->nextAnimation];
+            fTime = (anim->nextFrame - nextAnim->frameStart) / 30.0f;
+        }
+
+        move(velocity * dt);
+        collide();
+
+        lastFrame = fIndex;
+    }
+
+    void move(const vec3 &offset) {
+        vec3 p = pos;
+        pos = pos + offset;
+
+        updateEntity();
+
+        inWater = getRoom().flags & TR::ROOM_FLAG_WATER;
+
+        TR::Room &room = getRoom();
+        TR::Entity &entity = getEntity();
+
+        int dx, dz;
+        TR::Room::Sector &s = getSector(dx, dz);
+
+        int d = entity.y - s.floor * 256;
+        if (d >= 256 * 4) {
+            LOG("wall %d\n", d);
+            pos = p;
+            updateEntity();
+
+            TR::Model    &model = getModel();
+            TR::Animation *anim = &level->anims[model.animation];
+
+        // smashes
+            if (onGround) { // onGround
+                if (d >= 256 * 4 && anim->state == TR::STATE_RUN)
+                    model.animation = TR::ANIM_SMASH_RUN_LEFT;  // TODO: RIGHT
+                else
+                    model.animation = TR::ANIM_STAND;
+                velocity.x = velocity.z = 0.0f;
+            } else if (inWater) {   // in water
+                // do nothing
+                //velocity.x = velocity.z = 0.0f;
+            } else  { // in the air
+                model.animation = TR::ANIM_SMASH_JUMP;
+                velocity.x = -velocity.x * 0.5f;
+                velocity.z = -velocity.z * 0.5f;
+                velocity.y = 0.0f;
+            }
+            fTime = 0;            
+        }
+    }
+
     void collide() {
         int dx, dz;
         TR::Room::Sector &s = getSector(dx, dz);
         TR::Entity &entity = getEntity();
 
-        float bottom = s.floor * 256.0f;
+        float floor   = s.floor   * 256.0f;
+        float ceiling = s.ceiling * 256.0f;
 
         float fx = dx / 1024.0f, fz = dz / 1024.0f;
 
@@ -384,37 +507,29 @@ struct Controller {
                         break;
                     case 2   :
                     case 3 : {
-                        int8 sx = (int8)(*d & 0x00FF);
-                        int8 sz = (int8)((*d & 0xFF00) >> 8);
+                        int sx = (int8)(*d & 0x00FF);
+                        int sz = (int8)((*d & 0xFF00) >> 8);
 
                         if (func == 2) {
                             if (sx > 0)
-                                bottom += (int)sx * (1024 - dx) >> 2;
+                                floor += sx * (1024 - dx) >> 2;
                             else
-                                bottom -= (int)sx * dx >> 2;
+                                floor -= sx * dx >> 2;
 
                             if (sz > 0)
-                                bottom += (int)sz * (1024 - dz) >> 2;
+                                floor += sz * (1024 - dz) >> 2;
                             else
-                                bottom -= (int)sz * dz >> 2;
-                        } else {
-                            /*
-                            if (sx < 0) {
-                                p[0].y += sx;
-                                p[3].y += sx;
-                            } else {
-                                p[1].y -= sx;
-                                p[2].y -= sx;
-                            }
+                                floor -= sz * dz >> 2;
+                        } else {                        
+                            if (sx < 0)
+                                ceiling += sx * (1024 - dx) >> 2;
+                            else
+                                ceiling -= sx * dx >> 2;
 
-                            if (sz > 0) {
-                                p[0].y -= sz;
-                                p[1].y -= sz;
-                            } else {
-                                p[3].y += sz;
-                                p[2].y += sz;
-                            }
-                            */
+                            if (sz > 0)
+                                ceiling -= sz * (1024 - dz) >> 2;
+                            else
+                                ceiling += sz * dz >> 2;
                         }
                         d++;
                         break;
@@ -445,19 +560,30 @@ struct Controller {
 
             } while (!(cmd & 0x8000));
 
-
-        onGround = pos.y > bottom;
-        if (onGround) {
-            onGround = true;
-            if (s.roomBelow != 255) {
-                entity.room = s.roomBelow;
-                onGround = false;
-                return;
-            }
-            pos.y = bottom;
-            velocity.y = 0.0f;
+        float hmin = 0.0f, hmax = -768.0f;
+        if (inWater) {
+            hmin =  256.0f + 128.0f;
+            hmax = -256.0f - 128.0f;
         }
 
+        onGround = (pos.y >= floor) && (s.roomBelow == 0xFF) && !(getRoom().flags & TR::ROOM_FLAG_WATER);
+
+        if (pos.y + hmin >= floor) {
+            if (s.roomBelow == 0xFF) {
+                pos.y = floor - hmin;
+                velocity.y = 0.0f;
+            } else
+                entity.room = s.roomBelow;
+        }
+            
+        if (pos.y + hmax <= ceiling) {
+            if (s.roomAbove == 0xFF) {
+                pos.y = ceiling - hmax;
+                velocity.y = 0.0f;
+            } else
+                entity.room = s.roomAbove;
+        }
+                
         entity.y = (int)pos.y;
     }
 

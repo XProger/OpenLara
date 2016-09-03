@@ -6,7 +6,10 @@
 #define TR1_DEMO
 
 namespace TR {
-    #define ROOM_FLAG_VISIBLE   0x8000
+    enum : int32 {
+        ROOM_FLAG_WATER     = 0x0001,
+        ROOM_FLAG_VISIBLE   = 0x8000
+    };
 
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
@@ -59,13 +62,22 @@ namespace TR {
     #define ENTITY_AMMO_SHOTGUN     89
     #define ENTITY_AMMO_MAGNUM      90
 
+    // http://www.tombraiderforums.com/showthread.php?t=148859&highlight=Explanation+left
+    enum LaraAnim : int32 {
+        ANIM_STAND              = 11,
+        ANIM_SMASH_JUMP         = 32,
+        ANIM_SMASH_RUN_LEFT     = 53,
+        ANIM_SMASH_RUN_RIGHT    = 54,
+        ANIM_WATER_FALL         = 112,
+    };
 
-    enum LaraState {
+    // http://www.tombraiderforums.com/showthread.php?t=211681
+    enum LaraState : int32 {
         STATE_WALK,
         STATE_RUN,
         STATE_STOP,
         STATE_FORWARD_JUMP,
-        STATE_FAST_TURN,
+        STATE_4,
         STATE_FAST_BACK,
         STATE_TURN_RIGHT,
         STATE_TURN_LEFT,
@@ -81,7 +93,7 @@ namespace TR {
         STATE_SWIM,
         STATE_GLIDE,
         STATE_NULL_19,
-        STATE_FAST_TURN_20,
+        STATE_FAST_TURN,
         STATE_STEP_RIGHT,
         STATE_STEP_LEFT,
         STATE_ROLL,
@@ -143,7 +155,7 @@ namespace TR {
     struct fixed {
         uint16  L;
         int16   H;
-        float toFloat() {
+        operator float() const {
             return H + L / 65535.0f;
         }
     };
@@ -368,7 +380,7 @@ namespace TR {
     struct SpriteTexture {
         uint16  tile;
         uint8   u, v;
-        uint16  w, h;
+        uint16  w, h;   // (ActualValue  * 256) + 255
         int16   l, t, r, b;
     };
 
@@ -417,7 +429,7 @@ namespace TR {
     };
 
     struct SoundInfo {
-       uint16 index;    // (index into soundsIndices) -- NOT USED IN TR4-5!!!
+       uint16 offset;
        uint16 volume;
        uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
        uint16 flags;    // Bits 0-1: Looped flag, bits 2-5: num samples, bits 6-7: UNUSED

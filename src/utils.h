@@ -1,6 +1,7 @@
 #ifndef H_UTILS
 #define H_UTILS
 
+#include <stdlib.h>
 #include <cstring>
 #include <math.h>
 #include <float.h>
@@ -8,16 +9,19 @@
 #ifdef _DEBUG
 	#define debugBreak() _asm { int 3 }
 	#define ASSERT(expr) if (expr) {} else { LOG("ASSERT %s in %s:%d\n", #expr, __FILE__, __LINE__); debugBreak(); }
+
+    #ifndef ANDROID
+	    #define LOG(...) printf(__VA_ARGS__)
+    #else
+	    #include <android/log.h>
+	    #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"X5",__VA_ARGS__)
+    #endif
+
 #else
 	#define ASSERT(expr)
+    #define LOG(...) ((void)0)
 #endif
 
-#ifndef ANDROID
-	#define LOG(...) printf(__VA_ARGS__)
-#else
-	#include <android/log.h>
-	#define LOG(...) __android_log_print(ANDROID_LOG_INFO,"X5",__VA_ARGS__)
-#endif
 
 #define PI		3.14159265358979323846f
 #define DEG2RAD	(PI / 180.0f)
@@ -58,6 +62,11 @@ inline const T& max(const T &a, const T &b) {
 }
 
 template <class T>
+inline const T& clamp(const T &x, const T &a, const T &b) {
+	return x < a ? a : (x > b ? b : x);
+}
+
+template <class T>
 inline const int sign(const T &x) {
 	return x > 0 ? 1 : (x < 0 ? -1 : 0);
 }
@@ -84,6 +93,7 @@ struct vec3 {
 	vec3(float s) : x(s), y(s), z(s) {}
 	vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 	vec3(const vec2 &xy, float z = 0.0f) : x(xy.x), y(xy.y), z(z) {}
+    vec3(float lng, float lat) : x(sinf(lat) * cosf(lng)), y(-sinf(lng)), z(cosf(lat) * cosf(lng)) {}
 
 	float& operator [] (int index) const { return ((float*)this)[index]; }
 
@@ -102,6 +112,11 @@ struct vec3 {
 	vec3 lerp(const vec3 &v, const float t) const {
 		return *this + (v - *this) * t; 
 	}
+
+    vec3 rotateY(float angle) const {
+	    float s = sinf(angle), c = cosf(angle); 
+	    return vec3(x*c - z*s, y, x*s + z*c);
+    }
 };
 
 struct vec4 {

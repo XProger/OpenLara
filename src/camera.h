@@ -122,7 +122,7 @@ struct Camera {
     } *frustum;
 
     float fov, znear, zfar;
-    vec3 pos, angle, offset;
+    vec3 pos, angle, offset, deltaPos, deltaAngle, targetDeltaPos, targetAngle;
 
     Camera() : frustum(new Frustum()) {}
 
@@ -141,12 +141,14 @@ struct Camera {
         if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
         pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
     #endif
+        deltaPos = deltaPos.lerp(targetDeltaPos, Core::deltaTime * 10.0f);
+        angle    = angle.lerp(targetAngle, Core::deltaTime);
 
         if (Input::down[ikMouseL]) {
             vec2 delta = Input::mouse.pos - Input::mouse.start.L;
-            angle.x -= delta.y * 0.01f;
-            angle.y -= delta.x * 0.01f;
-            angle.x = min(max(angle.x, -PI * 0.5f + EPS), PI * 0.5f - EPS);
+            deltaAngle.x -= delta.y * 0.01f;
+            deltaAngle.y -= delta.x * 0.01f;
+            deltaAngle.x = min(max(deltaAngle.x + angle.x, -PI * 0.5f + EPS), PI * 0.5f - EPS) - angle.x;
             Input::mouse.start.L = Input::mouse.pos;
         }
     }
@@ -154,10 +156,10 @@ struct Camera {
     void setup() {
         Core::mView.identity();
         Core::mView.translate(vec3(-offset.x, -offset.y, -offset.z));
-        Core::mView.rotateZ(-angle.z);
-        Core::mView.rotateX(-angle.x);
-        Core::mView.rotateY(-angle.y);
-        Core::mView.translate(vec3(-pos.x, -pos.y, -pos.z));
+        Core::mView.rotateZ(-(angle.z + deltaAngle.z));
+        Core::mView.rotateX(-(angle.x + deltaAngle.x));
+        Core::mView.rotateY(-(angle.y + deltaAngle.y));
+        Core::mView.translate(deltaPos - pos);
         Core::mView.scale(vec3(-1, -1, 1));
 
         Core::mProj = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
