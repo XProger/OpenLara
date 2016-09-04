@@ -2,10 +2,10 @@ R"====(
 #ifndef SPRITE
 	varying vec4 vNormal;
 	varying vec3 vLightVec;
+	varying vec3 vViewVec;
 #endif
 varying vec2 vTexCoord;
 varying vec4 vColor;
-varying vec3 vViewVec;
 	
 #ifdef VERTEX
 	uniform	mat4 uViewProj;
@@ -15,6 +15,10 @@ varying vec3 vViewVec;
 		uniform	vec3 uLightPos;
     #else
     	uniform	mat4 uViewInv;
+	#endif
+
+	#ifdef CAUSTICS
+		uniform vec4 uParam;
 	#endif
 	
 	attribute vec3 aCoord;
@@ -26,6 +30,12 @@ varying vec3 vViewVec;
 		vec4 coord	= uModel * vec4(aCoord, 1.0);
 		vTexCoord	= aTexCoord;
 		vColor		= aColor;
+        
+		#ifdef CAUSTICS
+			float sum = coord.x + coord.y + coord.z;
+			vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 0.75 + 0.25;
+  		#endif
+
 		#ifndef SPRITE
     		vViewVec	= uViewPos - coord.xyz;
 			vLightVec	= uLightPos - coord.xyz;
@@ -36,11 +46,12 @@ varying vec3 vViewVec;
 		gl_Position	= uViewProj * coord;
 	}
 #else
-	uniform sampler2D sDiffuse;
+	uniform sampler2D	sDiffuse;
+	uniform vec4		uColor;
+
 	#ifndef SPRITE
-		uniform vec4      uColor;
-		uniform vec3      uAmbient;
-		uniform vec4      uLightColor;
+		uniform vec3	uAmbient;
+		uniform vec4	uLightColor;
 	#endif
 
 	void main() {
@@ -48,8 +59,8 @@ varying vec3 vViewVec;
 		if (color.w < 0.9)
 			discard;
 		color *= vColor;
+	    color *= uColor;
 		#ifndef SPRITE
-			color *= uColor;
 			color.xyz = pow(abs(color.xyz), vec3(2.2));
 			float lum = dot(normalize(vNormal.xyz), normalize(vLightVec));
 			float att = max(0.0, 1.0 - dot(vLightVec, vLightVec) / uLightColor.w);
