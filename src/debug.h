@@ -112,35 +112,37 @@ namespace Debug {
 
     namespace Level {
 
-        void debugFloor(const TR::Level &level, const vec3 &f, const vec3 &c, int floorIndex, bool current) {
+        void debugFloor(const TR::Level &level, const vec3 &f, const vec3 &c, int floorIndex, int boxIndex, bool current) {
             vec3 vf[4] = { f, f + vec3(1024, 0, 0), f + vec3(1024, 0, 1024), f + vec3(0, 0, 1024) };
             vec3 vc[4] = { c, c + vec3(1024, 0, 0), c + vec3(1024, 0, 1024), c + vec3(0, 0, 1024) };
 
-            uint16 cmd, *d = &level.floors[floorIndex];
 
-            if (floorIndex)
-                do {
-                    cmd = *d++;
-                    int func = cmd & 0x00FF;        // function
-                    int sub  = (cmd & 0x7F00) >> 8; // sub function
+            if (current)
+                glColor3f(1, 1, 1);
+            else
+                glColor3f(0, 1, 0);
 
-                    if (func == 0x01) { // portal
-                        d++;
-                    //  d += 2;
+            bool isPortal = false;
 
-                    }
+            TR::FloorData *fd = &level.floors[floorIndex];
+            TR::FloorData::Command cmd;
+            do {
+                cmd = (*fd++).cmd;
+                
+                switch (cmd.func) {
+                    case TR::FD_PORTAL  :
+                        isPortal = true;
+                        fd++;
+                        break; // portal
+                    case TR::FD_FLOOR   : // floor & ceiling
+                    case TR::FD_CEILING : { 
+                        TR::FloorData::Slant slant = (*fd++).slant;
+                        int sx = 256 * (int)slant.x;
+                        int sz = 256 * (int)slant.z;
 
-                    if ((func == 0x02 || func == 0x03) && sub == 0x00) { // floor & ceiling corners
-                        int sx = 256 * int((int8)(*d & 0x00FF));
-                        int sz = 256 * int((int8)((*d & 0xFF00) >> 8));
-
-                        auto &p = func == 0x02 ? vf : vc;
-
-                        if (func == 0x02) {
-
-                        //  if (current)
-                        //      LOG("%d\n", sx);
-
+                        auto &p = cmd.func == 0x02 ? vf : vc;
+                        
+                        if (cmd.func == 0x02) { // floor
                             if (sx > 0) {
                                 p[0].y += sx;
                                 p[3].y += sx;
@@ -156,9 +158,7 @@ namespace Debug {
                                 p[3].y -= sz;
                                 p[2].y -= sz;
                             }
-
-                        } else {
-
+                        } else { // ceiling
                             if (sx < 0) {
                                 p[0].y += sx;
                                 p[3].y += sx;
@@ -174,40 +174,39 @@ namespace Debug {
                                 p[3].y += sz;
                                 p[2].y += sz;
                             }
-
                         }
-                        d++;
-                    }
-
-
-                    if (func == 0x04) {
-                        //*d++; // trigger setup
-                        /*
-                        if (sub == 0x00) LOG("trigger\n");
-                        if (sub == 0x01) LOG("pad\n");
-                        if (sub == 0x02) LOG("switch\n");
-                        if (sub == 0x03) LOG("key\n");
-                        if (sub == 0x04) LOG("pickup\n");
-                        if (sub == 0x05) LOG("heavy-trigger\n");
-                        if (sub == 0x06) LOG("anti-pad\n");
-                        if (sub == 0x07) LOG("combat\n");
-                        if (sub == 0x08) LOG("dummy\n");
-                        if (sub == 0x09) LOG("anti-trigger\n");
-                        */
-                        uint16 act;
-                        do {
-                            act = *d++; // trigger action
-                        } while (!(act & 0x8000));
-
                         break;
                     }
-
-                } while (!(cmd & 0x8000));
-
-            if (current)
-                glColor3f(1, 1, 1);
-            else
-                glColor3f(0, 1, 0);
+                    case TR::FD_TRIGGER :  {
+                        TR::FloorData::TriggerInfo info = (*fd++).triggerInfo;
+                        TR::FloorData::TriggerCommand trigCmd;
+                        glColor3f(1, 0, 1);
+                        do {
+                            trigCmd = (*fd++).triggerCmd; // trigger action
+                            switch (trigCmd.func) {
+                                case  0 : break; // activate item
+                                case  1 : break; // switch to camera
+                                case  2 : break; // camera delay
+                                case  3 : break; // flip map
+                                case  4 : break; // flip on
+                                case  5 : break; // flip off
+                                case  6 : break; // look at item
+                                case  7 : break; // end level
+                                case  8 : break; // play soundtrack
+                                case  9 : break; // special hadrdcode trigger
+                                case 10 : break; // secret found
+                                case 11 : break; // clear bodies
+                                case 12 : break; // flyby camera sequence
+                                case 13 : break; // play cutscene
+                            }
+                        } while (!trigCmd.end);                       
+                        break;
+                    }
+                    default : 
+                        if (!cmd.end)
+                            LOG("unknown func %d : %d\n", cmd.func, cmd.sub);
+                }
+            } while (!cmd.end);
 
             glBegin(GL_LINE_STRIP);
                 for (int i = 0; i < 5; i++)
@@ -217,8 +216,43 @@ namespace Debug {
             glColor3f(1, 0, 0);
             glBegin(GL_LINE_STRIP);
                 for (int i = 0; i < 5; i++)
-                    glVertex3fv((GLfloat*)&vc[i % 4]);
+                    glVertex3fv((GLfloat*)&vc[i % 4]);  
             glEnd();
+
+            if (isPortal) {
+                glColor4f(0.0f, 0.0f, 1.0f, 0.5f);
+                glBegin(GL_QUADS);
+                for (int i = 3; i >= 0; i--)
+                    glVertex3fv((GLfloat*)&vf[i]);
+                glEnd();
+            }
+
+            if (boxIndex == 0xFFFF) {
+                glBegin(GL_LINES);
+                    float x = f.x + 512.0f, z = f.z + 512.0f;
+                    glVertex3f(x, f.y, z);
+                    glVertex3f(x, c.y, z);
+                glEnd();                
+            }
+        }
+
+        void debugBox(const TR::Box &b) {
+            glBegin(GL_QUADS);
+                float y = b.floor - 16.0f;
+                glVertex3f(b.minX, y, b.maxZ);
+                glVertex3f(b.maxX, y, b.maxZ);
+                glVertex3f(b.maxX, y, b.minZ);
+                glVertex3f(b.minX, y, b.minZ);
+            glEnd();
+        }
+
+        void debugOverlaps(const TR::Level &level, int boxIndex) {
+            glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
+            TR::Overlap *o = &level.overlaps[level.boxes[boxIndex].overlap & 0x7FFF];
+            do {
+                TR::Box &b = level.boxes[o->boxIndex];
+                debugBox(b);
+            } while (!(o++)->end);
         }
 
         void debugSectors(const TR::Level &level, const vec3 &pos, int roomIndex) {
@@ -229,15 +263,30 @@ namespace Debug {
             for (int z = 0; z < room.zSectors; z++)
                 for (int x = 0; x < room.xSectors; x++) {
                     auto &s = room.sectors[x * room.zSectors + z];
-                    vec3 f(x * 1024 + room.info.x, s.floor * 256, z * 1024 + room.info.z);
-                    vec3 c(x * 1024 + room.info.x, s.ceiling * 256, z * 1024 + room.info.z);
+                    float floor = s.floor * 256;
+                    /*
+                    if (s.boxIndex < 0xFFFF) {
+                        auto &b = level.boxes[s.boxIndex];
+                    //    floor = b.floor;
+                    }
+                    */
+                    vec3 f(x * 1024 + room.info.x, floor - 1, z * 1024 + room.info.z);
+                    vec3 c(x * 1024 + room.info.x, s.ceiling * 256 + 1, z * 1024 + room.info.z);
 
-                    debugFloor(level, f, c, s.floorIndex, (int)p.x == x && (int)p.z == z);
+                    bool current = (int)p.x == x && (int)p.z == z;
+                    debugFloor(level, f, c, s.floorIndex, s.boxIndex, current);
+
+                    if (current && s.boxIndex != 0xFFFF && level.boxes[s.boxIndex].overlap != 0xFFFF) {
+                        glDisable(GL_DEPTH_TEST);
+                        glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
+                        debugBox(level.boxes[s.boxIndex]);
+                        debugOverlaps(level, s.boxIndex);
+                        glEnable(GL_DEPTH_TEST);
+                    }
                 }
         }
 
         void rooms(const TR::Level &level, const vec3 &pos, int roomIndex) {
-            Core::setBlending(bmAdd);
             glDepthMask(GL_FALSE);
 
             for (int i = 0; i < level.roomsCount; i++) {
@@ -251,11 +300,10 @@ namespace Debug {
                 } else
                     glColor3f(1, 1, 1);
 
-                Debug::Draw::box(p, p + vec3(r.xSectors * 1024, r.info.yBottom - r.info.yTop, r.zSectors * 1024));
+            //    Debug::Draw::box(p, p + vec3(r.xSectors * 1024, r.info.yBottom - r.info.yTop, r.zSectors * 1024));
             }
 
             glDepthMask(GL_TRUE);
-            Core::setBlending(bmAlpha);
         }
 
         void portals(const TR::Level &level) {

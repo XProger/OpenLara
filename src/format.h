@@ -11,6 +11,13 @@ namespace TR {
         ROOM_FLAG_VISIBLE   = 0x8000
     };
 
+    enum {
+        FD_PORTAL   = 1,
+        FD_FLOOR    = 2,
+        FD_CEILING  = 3,
+        FD_TRIGGER  = 4,
+    };
+
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
     #define DATA_CEILING    0x03
@@ -65,6 +72,7 @@ namespace TR {
     // http://www.tombraiderforums.com/showthread.php?t=148859&highlight=Explanation+left
     enum LaraAnim : int32 {
         ANIM_STAND              = 11,
+        ANIM_FALL               = 34,
         ANIM_SMASH_JUMP         = 32,
         ANIM_SMASH_RUN_LEFT     = 53,
         ANIM_SMASH_RUN_RIGHT    = 54,
@@ -82,7 +90,7 @@ namespace TR {
         STATE_TURN_RIGHT,
         STATE_TURN_LEFT,
         STATE_DEATH,
-        STATE_FAST_FALL,
+        STATE_FALL,
         STATE_HANG,
         STATE_REACH,
         STATE_SPLAT,
@@ -129,25 +137,6 @@ namespace TR {
         STATE_FAST_DIVE,
         STATE_HANDSTAND,
         STATE_WATER_OUT,
-        STATE_CLIMB_START_AND_STANDING,
-        STATE_CLIMB_UP,
-        STATE_CLIMB_LEFT,
-        STATE_CLIMB_END,
-        STATE_CLIMB_RIGHT,
-        STATE_CLIMB_DOWN,
-        STATE_NULL_62,
-        STATE_NULL_63,
-        STATE_NULL_64,
-        STATE_WADE,
-        STATE_WATER_ROLL,
-        STATE_PICK_UP_FLARE,
-        STATE_NULL_68,
-        STATE_NULL_69,
-        STATE_DEATH_SLIDE,
-        STATE_DUCK,
-        STATE_DUCK_72,
-        STATE_DASH,
-        STATE_DASH_DIVE,
         STATE_MAX };
 
     #pragma pack(push, 1)
@@ -255,6 +244,26 @@ namespace TR {
             uint16  meshID;
             uint16  align;          // ! not exists in file !
         } *meshes;
+    };
+
+    union FloorData {
+        uint16 data;
+        struct Command {
+            uint16 func:8, sub:7, end:1;
+        } cmd;
+        struct Slant {
+            int8 x:8, z:8;
+        } slant;
+        struct TriggerInfo {
+            uint16  timer:8, once:1, mask:5, :2;
+        } triggerInfo;
+        struct TriggerCommand {
+            uint16 args:10, func:5, end:1;
+        } triggerCmd;
+    };
+
+    struct Overlap {
+        uint16 boxIndex:15, end:1;
     };
 
     struct Mesh {
@@ -417,7 +426,11 @@ namespace TR {
         int32   minZ, maxZ; // Horizontal dimensions in global units
         int32   minX, maxX;
         int16   floor;      // Height value in global units
-        int16   overlap;    // Index into Overlaps[].
+        uint16  overlap;    // Index into Overlaps[].
+
+        bool contains(int x, int z) {
+            return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+        }
     };
 
     struct Zone {
@@ -434,6 +447,7 @@ namespace TR {
        uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
        uint16 flags;    // Bits 0-1: Looped flag, bits 2-5: num samples, bits 6-7: UNUSED
     };
+
     #pragma pack(pop)
 
     struct Level {
@@ -450,7 +464,7 @@ namespace TR {
         Room            *rooms;
 
         int32           floorsCount;
-        uint16          *floors;
+        FloorData       *floors;
 
         int32           meshDataSize;
         uint16          *meshData;
@@ -500,7 +514,7 @@ namespace TR {
         int32           boxesCount;
         Box             *boxes;
         int32           overlapsCount;
-        uint16          *overlaps;
+        Overlap         *overlaps;
         Zone            *zones;
 
         int32           animTexturesDataSize;

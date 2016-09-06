@@ -3,7 +3,8 @@
 
 #include "format.h"
 
-#define GRAVITY 7.0f
+#define GRAVITY     7.0f
+#define NO_OVERLAP  0x7FFFFFFF
 
 struct Controller {
     TR::Level   *level;
@@ -28,6 +29,8 @@ struct Controller {
         angle = vec3(0.0f, e.rotation / 16384.0f * PI * 0.5f, 0.0f);
         onGround = inWater = false;
     }
+
+    virtual void update() {}
 
     void updateEntity() {
         TR::Entity &e = getEntity();
@@ -64,18 +67,22 @@ struct Controller {
         return level->rooms[getEntity().room];
     }
 
-    TR::Room::Sector& getSector(int &dx, int &dz) {
+    TR::Room::Sector& getSector(int x, int z, int &dx, int &dz) {
         TR::Room &room = getRoom();
-        TR::Entity &entity = getEntity();
-
-        dx = entity.x - room.info.x;
-        dz = entity.z - room.info.z;
-        int sx = dx / 1024;
-        int sz = dz / 1024;
-        dx -= sx * 1024;
-        dz -= sz * 1024;
+        
+        int sx = x - room.info.x;
+        int sz = z - room.info.z;
+        dx = sx & 1023; // mod 1024
+        dz = sz & 1023;
+        sx >>= 10;      // div 1024
+        sz >>= 10;
 
         return room.sectors[sx * room.zSectors + sz];
+    }
+
+    TR::Room::Sector& getSector(int &dx, int &dz) {
+        TR::Entity &entity = getEntity();
+        return getSector(entity.x, entity.z, dx, dz);
     }
 
     bool changeState(int state) {
@@ -107,7 +114,113 @@ struct Controller {
         return exists;
     }
 
-    virtual void update() {}
+    struct FloorInfo {
+        int floor, ceiling;
+        int roomNext, roomBelow, roomAbove;
+    };
+
+    int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ) { 
+        int dx, dz;
+        TR::Room::Sector &s = getSector(fromX, fromZ, dx, dz);
+
+        if (s.boxIndex == 0xFFFF) return NO_OVERLAP;
+
+        TR::Box &b = level->boxes[s.boxIndex];
+        if (b.contains(toX, toZ))
+            return b.floor;
+
+        int floor = NO_OVERLAP;
+        int delta = 0x7FFFFFFF;
+
+        TR::Overlap *o = &level->overlaps[b.overlap & 0x7FFF];
+        do {
+            TR::Box &b = level->boxes[o->boxIndex];
+            if (b.contains(toX, toZ)) { // get min delta
+                int d = abs(fromY - b.floor);
+                if (d < delta) {
+                    floor = b.floor;
+                    delta = d;
+                }
+            }
+        } while (!(o++)->end);
+
+        return floor;
+    }
+
+    FloorInfo getFloorInfo(int x, int z) {
+        int dx, dz;
+        TR::Room::Sector &s = getSector(x, z, dx, dz);
+
+        FloorInfo info;
+        info.floor      = 256 * (int)s.floor;
+        info.ceiling    = 256 * (int)s.ceiling;
+        info.roomNext   = 255;
+        info.roomBelow  = s.roomBelow;
+        info.roomAbove  = s.roomAbove;
+
+        if (!s.floorIndex) return info;
+
+        TR::FloorData *fd = &level->floors[s.floorIndex];
+        TR::FloorData::Command cmd;
+
+        do {
+            cmd = (*fd++).cmd;
+                
+            switch (cmd.func) {
+
+                case TR::FD_PORTAL  :
+                    info.roomNext = (*fd++).data;
+                    break;
+
+                case TR::FD_FLOOR   : // floor & ceiling
+                case TR::FD_CEILING : { 
+                    TR::FloorData::Slant slant = (*fd++).slant;
+                    int sx = (int)slant.x;
+                    int sz = (int)slant.z;
+                    if (cmd.func == TR::FD_FLOOR) {
+                        info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
+                        info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                    } else {
+                        info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
+                        info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
+                    }
+                    break;
+                }
+
+                case TR::FD_TRIGGER :  {
+                    TR::FloorData::TriggerInfo info = (*fd++).triggerInfo;
+                    TR::FloorData::TriggerCommand trigCmd;
+                    do {
+                        trigCmd = (*fd++).triggerCmd; // trigger action
+                        switch (trigCmd.func) {
+                            case  0 : break; // activate item
+                            case  1 : break; // switch to camera
+                            case  2 : break; // camera delay
+                            case  3 : break; // flip map
+                            case  4 : break; // flip on
+                            case  5 : break; // flip off
+                            case  6 : break; // look at item
+                            case  7 : break; // end level
+                            case  8 : break; // play soundtrack
+                            case  9 : break; // special hadrdcode trigger
+                            case 10 : break; // secret found
+                            case 11 : break; // clear bodies
+                            case 12 : break; // flyby camera sequence
+                            case 13 : break; // play cutscene
+                        }
+                        // ..
+                    } while (!trigCmd.end);                       
+                    break;
+                }
+
+                default : LOG("unknown func: %d\n", cmd.func);
+            }
+
+        } while (!cmd.end);
+
+        return info;
+    }
+
 };
 
 
@@ -136,6 +249,8 @@ struct Lara : Controller {
         TR::Model     &model = getModel();
         TR::Animation *anim  = &level->anims[model.animation];
 
+        fTime += Core::deltaTime;
+
         float rot = 0.0f;
 
         enum {  LEFT        = 1 << 1, 
@@ -149,6 +264,8 @@ struct Lara : Controller {
                 GROUND      = 1 << 9,
                 WATER       = 1 << 10,
                 DEATH       = 1 << 11 };
+
+        inWater = (getRoom().flags & TR::ROOM_FLAG_WATER);
 
         int mask = 0;
 
@@ -215,10 +332,13 @@ struct Lara : Controller {
 
         } else if (mask & WATER) {  // underwater
 
-            if (state == TR::STATE_FORWARD_JUMP || state == TR::STATE_BACK_JUMP || state == TR::STATE_LEFT_JUMP || state == TR::STATE_RIGHT_JUMP || state == TR::STATE_FAST_FALL) {
+            if (state == TR::STATE_FORWARD_JUMP || state == TR::STATE_UP_JUMP || state == TR::STATE_BACK_JUMP || state == TR::STATE_LEFT_JUMP || state == TR::STATE_RIGHT_JUMP || state == TR::STATE_FALL || state == TR::STATE_REACH) {
                 model.animation = TR::ANIM_WATER_FALL;
                 fTime = 0.0f;
                 state = level->anims[model.animation].state;
+            } else if (state == TR::STATE_SWAN_DIVE) {
+                state = TR::STATE_DIVE;
+                angle.x = -PI * 0.5f;
             } else
                 if (mask & JUMP)
                     state = TR::STATE_SWIM;
@@ -233,31 +353,46 @@ struct Lara : Controller {
                     state = TR::STATE_REACH;
                 else if ((mask & (FORTH | WALK)) == (FORTH | WALK))
                     state = TR::STATE_SWAN_DIVE;
+            } else if (state != TR::STATE_SWAN_DIVE && state != TR::STATE_REACH && state != TR::STATE_FALL && state != TR::STATE_UP_JUMP && state != TR::STATE_BACK_JUMP && state != TR::STATE_LEFT_JUMP && state != TR::STATE_RIGHT_JUMP) {
+                model.animation = TR::ANIM_FALL;
+                state = level->anims[model.animation].state;
             }
-            
+             //   state = TR::STATE_FALL;
        //     LOG("- speed: %f\n", velocity.length());
 
         }
 
     // try to set new state
         if (!changeState(state)) {
-            int stopState = TR::STATE_FAST_FALL;
+            int stopState = TR::STATE_FALL;
 
-            if ((mask & (GROUND | WATER)) == (GROUND | WATER))
+            if (state == TR::STATE_DIVE)
+                stopState = state;
+            else if ((mask & (GROUND | WATER)) == (GROUND | WATER))
                 stopState = TR::STATE_SURF_TREAD;
             else if (mask & WATER)
                 stopState = TR::STATE_TREAD;
             else if (mask & GROUND)
                 stopState = TR::STATE_STOP;
-              
-            if (state != stopState)
-                changeState(stopState);
+
+            changeState(stopState);
+            /*
+            if (state == stopState || !changeState(stopState)) {
+                int stopAnim = -1;
+                switch (stopState) {
+                    case TR::STATE_FALL : stopAnim = TR::ANIM_FALL; break;
+                }
+
+                if (stopAnim > -1) {
+                    model.animation = stopAnim;
+                    fTime = 0.0f;
+                }
+            }*/
         }
 
         anim  = &level->anims[model.animation]; // get new animation and state (if it has been changed)
         state = anim->state;
 
-        fTime += Core::deltaTime;
         int fCount = anim->frameEnd - anim->frameStart + 1;
         int fIndex = int(fTime * 30.0f);
 
@@ -350,8 +485,8 @@ struct Lara : Controller {
 
                 if (state == TR::STATE_SWIM) {
                     velocity = vec3(angle.x, angle.y) * 35.0f;
-                } else if (state == TR::STATE_GLIDE || state == TR::STATE_TREAD)
-                    velocity = velocity - velocity * Core::deltaTime;
+                } else 
+                    velocity = velocity - velocity * min(1.0f, Core::deltaTime * 2.0f);
 
                 // TODO: apply flow velocity
             } else {    // on ground
@@ -397,15 +532,20 @@ struct Lara : Controller {
                 case 0x05 : { // play sound
                     int frame = (*ptr++);
                     int id    = (*ptr++) & 0x3FFF;
-                    if (fIndex == frame - anim->frameStart && fIndex != lastFrame) {
+                    int idx   = frame - anim->frameStart;
+                     
+//                    if (fIndex != lastFrame)
+//                        LOG("play sound at %d current %d last %d (%d)\n", idx, fIndex, lastFrame, (int)id);
+
+                    if (idx > lastFrame && idx <= fIndex) {
                         int16 a = level->soundsMap[id];
                         TR::SoundInfo &b = level->soundsInfo[a];
                         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
                             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
-                            LOG("count %d\n", int(((b.flags & 0xFF) >> 2)));
 
                             void *p = &level->soundData[c];
                         #ifdef WIN32
+//                            LOG("play\n");
                             PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
                         #endif
                         }
@@ -425,14 +565,15 @@ struct Lara : Controller {
             }
         }
 
-
-
     // check for next animation
         if (endFrame) {
             model.animation = anim->nextAnimation;
             TR::Animation *nextAnim = &level->anims[anim->nextAnimation];
-            fTime = (anim->nextFrame - nextAnim->frameStart) / 30.0f;
+            fIndex = anim->nextFrame - nextAnim->frameStart;
+            fTime = fIndex / 30.0f;
         }
+
+
 
         move(velocity * dt);
         collide();
@@ -444,21 +585,16 @@ struct Lara : Controller {
         vec3 p = pos;
         pos = pos + offset;
 
-        updateEntity();
+        int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z); 
 
-        inWater = getRoom().flags & TR::ROOM_FLAG_WATER;
+        int state = level->anims[getModel().animation].state;
+        bool stop = false;
 
-        TR::Room &room = getRoom();
-        TR::Entity &entity = getEntity();
+        if ((d == NO_OVERLAP) ||
+           ((state == TR::STATE_WALK || state == TR::STATE_BACK || state == TR::STATE_STEP_LEFT || state == TR::STATE_STEP_RIGHT) && (int)p.y - d < -256) ||
+           ((int)p.y - d > 256)) {
 
-        int dx, dz;
-        TR::Room::Sector &s = getSector(dx, dz);
-
-        int d = entity.y - s.floor * 256;
-        if (d >= 256 * 4) {
-            LOG("wall %d\n", d);
             pos = p;
-            updateEntity();
 
             TR::Model    &model = getModel();
             TR::Animation *anim = &level->anims[model.animation];
@@ -470,6 +606,7 @@ struct Lara : Controller {
                 else
                     model.animation = TR::ANIM_STAND;
                 velocity.x = velocity.z = 0.0f;
+                fTime = 0;
             } else if (inWater) {   // in water
                 // do nothing
                 //velocity.x = velocity.z = 0.0f;
@@ -478,96 +615,52 @@ struct Lara : Controller {
                 velocity.x = -velocity.x * 0.5f;
                 velocity.z = -velocity.z * 0.5f;
                 velocity.y = 0.0f;
+                fTime = 0;
             }
-            fTime = 0;            
+                     
+        } else {
+            TR::Entity &entity = getEntity();
+            entity.x = (int)pos.x;
+            entity.y = (int)pos.y;
+            entity.z = (int)pos.z;
         }
     }
 
     void collide() {
-        int dx, dz;
-        TR::Room::Sector &s = getSector(dx, dz);
         TR::Entity &entity = getEntity();
 
-        float floor   = s.floor   * 256.0f;
-        float ceiling = s.ceiling * 256.0f;
-
-        float fx = dx / 1024.0f, fz = dz / 1024.0f;
-
-        uint16 cmd, *d = &level->floors[s.floorIndex];
-
-        if (s.floorIndex)
-            do {
-                cmd = *d++;
-                int func = cmd & 0x00FF;        // function
-                int sub  = (cmd & 0x7F00) >> 8; // sub function
-
-                switch (func) {
-                    case 1 :
-                        entity.room = *d++;
-                        break;
-                    case 2   :
-                    case 3 : {
-                        int sx = (int8)(*d & 0x00FF);
-                        int sz = (int8)((*d & 0xFF00) >> 8);
-
-                        if (func == 2) {
-                            if (sx > 0)
-                                floor += sx * (1024 - dx) >> 2;
-                            else
-                                floor -= sx * dx >> 2;
-
-                            if (sz > 0)
-                                floor += sz * (1024 - dz) >> 2;
-                            else
-                                floor -= sz * dz >> 2;
-                        } else {                        
-                            if (sx < 0)
-                                ceiling += sx * (1024 - dx) >> 2;
-                            else
-                                ceiling -= sx * dx >> 2;
-
-                            if (sz > 0)
-                                ceiling -= sz * (1024 - dz) >> 2;
-                            else
-                                ceiling += sz * dz >> 2;
-                        }
-                        d++;
-                        break;
-                    }
-                    case 4 : {
-                        /*
-                        if (sub == 0x00) LOG("trigger\n");
-                        if (sub == 0x01) LOG("pad\n");
-                        if (sub == 0x02) LOG("switch\n");
-                        if (sub == 0x03) LOG("key\n");
-                        if (sub == 0x04) LOG("pickup\n");
-                        if (sub == 0x05) LOG("heavy-trigger\n");
-                        if (sub == 0x06) LOG("anti-pad\n");
-                        if (sub == 0x07) LOG("combat\n");
-                        if (sub == 0x08) LOG("dummy\n");
-                        if (sub == 0x09) LOG("anti-trigger\n");
-                        */
-                        uint16 act;
-                        do {
-                            act = *d++; // trigger action
-                        } while (!(act & 0x8000));
-
-                        break;
-                    }
-                    default :
-                        LOG("unknown func: %d\n", func);
-                }
-
-            } while (!(cmd & 0x8000));
-
+        FloorInfo info = getFloorInfo(entity.x, entity.z);
+        
+        /*
         float hmin = 0.0f, hmax = -768.0f;
         if (inWater) {
             hmin =  256.0f + 128.0f;
             hmax = -256.0f - 128.0f;
         }
+        */
 
-        onGround = (pos.y >= floor) && (s.roomBelow == 0xFF) && !(getRoom().flags & TR::ROOM_FLAG_WATER);
+        if (info.roomNext != 0xFF)
+            entity.room = info.roomNext;
 
+        if (entity.y >= info.floor) {
+            if (info.roomBelow == 0xFF) {
+                entity.y = info.floor;
+                pos.y = entity.y;
+                velocity.y = 0.0f;
+            } else
+                entity.room = info.roomBelow;
+        }
+            
+        if (entity.y <= info.ceiling) {
+            if (info.roomAbove == 0xFF) {
+                entity.y = info.ceiling;
+                pos.y = entity.y;
+                velocity.y = -velocity.y;
+            } else
+                entity.room = info.roomAbove;
+        }
+
+       /* 
         if (pos.y + hmin >= floor) {
             if (s.roomBelow == 0xFF) {
                 pos.y = floor - hmin;
@@ -579,12 +672,30 @@ struct Lara : Controller {
         if (pos.y + hmax <= ceiling) {
             if (s.roomAbove == 0xFF) {
                 pos.y = ceiling - hmax;
-                velocity.y = 0.0f;
+                velocity.y = -velocity.y;
             } else
                 entity.room = s.roomAbove;
         }
-                
-        entity.y = (int)pos.y;
+        */
+
+        int state = level->anims[getModel().animation].state;
+
+        // TODO: use a brain!
+        float extra = 0;
+        if (state == TR::STATE_WALK         ||
+            state == TR::STATE_RUN          ||
+            state == TR::STATE_STOP         ||
+            state == TR::STATE_FAST_BACK    ||
+            state == TR::STATE_TURN_RIGHT   ||
+            state == TR::STATE_TURN_LEFT    ||
+            state == TR::STATE_BACK         ||
+            state == TR::STATE_FAST_TURN    ||
+            state == TR::STATE_STEP_RIGHT   ||
+            state == TR::STATE_STEP_LEFT    ||
+            state == TR::STATE_ROLL) 
+            extra = 256 + 128;
+
+        onGround = (pos.y + extra >= info.floor) && (info.roomBelow == 0xFF) && !(getRoom().flags & TR::ROOM_FLAG_WATER);
     }
 
 };
