@@ -33,6 +33,7 @@ struct Level {
         
         initAtlas();
         initShaders();
+        initOverrides();
 
         int entity = 0;
         for (int i = 0; i < level.entitiesCount; i++)
@@ -106,6 +107,42 @@ struct Level {
         shaders[shSprite]   = new Shader(SHADER, ext);
     }
 
+    void initOverrides() {
+    /*
+        for (int i = 0; i < level.entitiesCount; i++) {
+            int16 &id = level.entities[i].id;
+            switch (id) {
+            // weapon
+                case 84 : id =  99; break; // pistols
+                case 85 : id = 100; break; // shotgun
+                case 86 : id = 101; break; // magnums
+                case 87 : id = 102; break; // uzis
+            // ammo
+                case 88 : id = 103; break; // for pistols
+                case 89 : id = 104; break; // for shotgun
+                case 90 : id = 105; break; // for magnums
+                case 91 : id = 106; break; // for uzis
+            // medikit
+                case 93 : id = 108; break; // big
+                case 94 : id = 109; break; // small
+            // keys
+                case 110 : id = 114; break; 
+                case 111 : id = 115; break; 
+                case 112 : id = 116; break; 
+                case 113 : id = 117; break; 
+                case 126 : id = 127; break; 
+                case 129 : id = 133; break; 
+                case 130 : id = 134; break; 
+                case 131 : id = 135; break; 
+                case 132 : id = 136; break; 
+                case 141 : id = 145; break; 
+                case 142 : id = 146; break; 
+                case 143 : id = 150; break; 
+                case 144 : id = 150; break;
+            }
+        }
+    */ 
+    }
 
     TR::StaticMesh* getMeshByID(int id) {
         for (int i = 0; i < level.staticMeshesCount; i++)
