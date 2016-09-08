@@ -6,6 +6,7 @@
 #define TR1_DEMO
 
 namespace TR {
+
     enum : int32 {
         ROOM_FLAG_WATER     = 0x0001,
         ROOM_FLAG_VISIBLE   = 0x8000
@@ -16,6 +17,7 @@ namespace TR {
         FD_FLOOR    = 2,
         FD_CEILING  = 3,
         FD_TRIGGER  = 4,
+        FD_KILL     = 5,
     };
 
     #define DATA_PORTAL     0x01
@@ -348,8 +350,8 @@ namespace TR {
     };
 
     struct AnimTexture {
-        int16   tCount;             // Actually, this is the number of texture ID's - 1
-        int16   textures[0];         // offsets into ObjectTextures[], in animation order
+        int16   count;        // number of texture offsets - 1 in group
+        int16   textures[0];  // offsets into objectTextures[]
     };
 
     struct Node {
@@ -375,9 +377,13 @@ namespace TR {
         uint16  flags;
     };
 
+    struct Tile {
+        uint16 index:14, undefined:1, triangle:1;  // undefined - need check is animated, animated - is animated
+    };
+
     struct ObjectTexture  {
         uint16  attribute;  // 0 - opaque, 1 - transparent, 2 - blend additive
-        uint16  tileAndFlag;    // 0..14 - tile, 15 - is triangle
+        Tile    tile;       // 0..14 - tile, 15 - is triangle
         struct {
             uint8   Xcoordinate; // 1 if Xpixel is the low value, 255 if Xpixel is the high value in the object texture
             uint8   Xpixel;
@@ -423,8 +429,8 @@ namespace TR {
     };
 
     struct Box {
-        int32   minZ, maxZ; // Horizontal dimensions in global units
-        int32   minX, maxX;
+        uint32  minZ, maxZ; // Horizontal dimensions in global units
+        uint32  minX, maxX;
         int16   floor;      // Height value in global units
         uint16  overlap;    // Index into Overlaps[].
 
@@ -451,8 +457,6 @@ namespace TR {
     #pragma pack(pop)
 
     struct Level {
-        char            *data;
-
         uint32          version;    // version (4 bytes)
 
         int32           tilesCount;
@@ -586,7 +590,6 @@ namespace TR {
                 r.meshes = new Room::Mesh[stream.read(r.meshesCount)];
                 for (int i = 0; i < r.meshesCount; i++)
                     stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - sizeof(r.meshes[i].align));
-            //    stream.read(r.meshes,   stream.read(r.meshesCount));
             // misc flags
                 stream.read(r.alternateRoom);
                 stream.read(r.flags);
@@ -608,7 +611,6 @@ namespace TR {
             models = new Model[stream.read(modelsCount)];
             for (int i = 0; i < modelsCount; i++)
                 stream.raw(&models[i], sizeof(models[i]) - sizeof(models[i].align));
-        //    stream.read(models,         stream.read(modelsCount));
             stream.read(staticMeshes,   stream.read(staticMeshesCount));
         // textures & UV
             stream.read(objectTextures,     stream.read(objectTexturesCount));
@@ -633,7 +635,6 @@ namespace TR {
             entities = new Entity[stream.read(entitiesCount)];
             for (int i = 0; i < entitiesCount; i++)
                 stream.raw(&entities[i], sizeof(entities[i]) - sizeof(entities[i].align));
-        //    stream.read(entities,       stream.read(entitiesCount));
         // palette
             stream.seek(32 * 256);  // skip lightmap palette
 

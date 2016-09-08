@@ -40,6 +40,7 @@
     PFNGLGETSHADERINFOLOGPROC           glGetShaderInfoLog;
     PFNGLGETUNIFORMLOCATIONPROC         glGetUniformLocation;
     PFNGLUNIFORM1IVPROC                 glUniform1iv;
+    PFNGLUNIFORM2FVPROC                 glUniform2fv;
     PFNGLUNIFORM3FVPROC                 glUniform3fv;
     PFNGLUNIFORM4FVPROC                 glUniform4fv;
     PFNGLUNIFORMMATRIX4FVPROC           glUniformMatrix4fv;
@@ -104,6 +105,7 @@ namespace Core {
         GetProcOGL(glGetShaderInfoLog);
         GetProcOGL(glGetUniformLocation);
         GetProcOGL(glUniform1iv);
+        GetProcOGL(glUniform2fv);
         GetProcOGL(glUniform3fv);
         GetProcOGL(glUniform4fv);
         GetProcOGL(glUniformMatrix4fv);

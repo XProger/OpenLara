@@ -29,13 +29,10 @@ struct Level {
     Camera      camera;
 
     Level(Stream &stream) : level{stream}, time(0.0f) {
-        shaders[shStatic]   = new Shader(SHADER);
-        shaders[shCaustics] = new Shader(SHADER, "#define CAUSTICS\n");
-        shaders[shSprite]   = new Shader(SHADER, "#define SPRITE\n");
-
-        initAtlas();
-
         mesh = new MeshBuilder(level);
+        
+        initAtlas();
+        initShaders();
 
         int entity = 0;
         for (int i = 0; i < level.entitiesCount; i++)
@@ -99,6 +96,17 @@ struct Level {
         delete[] data;
     }
 
+    void initShaders() {
+        char def[255], ext[255];
+        sprintf(def, "#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n", mesh->animTexRangesCount, mesh->animTexOffsetsCount);
+        shaders[shStatic]   = new Shader(SHADER, def);
+        sprintf(ext, "%s#define CAUSTICS\n", def);
+        shaders[shCaustics] = new Shader(SHADER, ext);
+        sprintf(ext, "%s#define SPRITE\n", def);
+        shaders[shSprite]   = new Shader(SHADER, ext);
+    }
+
+
     TR::StaticMesh* getMeshByID(int id) {
         for (int i = 0; i < level.staticMeshesCount; i++)
             if (level.staticMeshes[i].id == id)
@@ -117,6 +125,8 @@ struct Level {
     }
 
     void renderRoom(int index) {
+        ASSERT(index >= 0 && index < level.roomsCount);
+
         TR::Room &room = level.rooms[index];
 
         if (room.flags & TR::ROOM_FLAG_VISIBLE) return; // already rendered
@@ -360,10 +370,10 @@ struct Level {
             TR::Room::Light &light = level.rooms[room].lights[idx];
             float c = level.rooms[room].lights[idx].intensity / 8191.0f;
             Core::lightPos   = vec3(light.x, light.y, light.z);
-            Core::lightColor = vec4(c, c, c, light.attenuation * light.attenuation);
+            Core::lightColor = vec4(c, c, c, (float)light.attenuation * (float)light.attenuation);
         } else {
-            Core::lightPos   = vec3(0.0f);
-            Core::lightColor = vec4(0.0f);
+            Core::lightPos   = vec3(0);
+            Core::lightColor = vec4(0, 0, 0, 1);
         }
         Core::ambient = vec3(1.0f - level.rooms[roomIndex].ambient / 8191.0f);
         Core::active.shader->setParam(uAmbient, Core::ambient);
@@ -430,26 +440,6 @@ struct Level {
         camera.targetDeltaPos = lara->inWater ? vec3(0.0f, -256.0f, 0.0f) : vec3(0.0f, -768.0f, 0.0f);
         camera.targetAngle = vec3(lara->angle.x, -lara->angle.y, 0.0f); //-lara->angle.z);
         camera.update();
-
-    /*
-        if (tickTextureAnimation > 0.25f) {
-            tickTextureAnimation = 0.0f;
-
-            if (level.animTexturesDataSize) {
-                uint16 *ptr = &level.animTexturesData[0];
-                int count = *ptr++;
-                for (int i = 0; i < count; i++) {
-                    auto animTex = (TR::AnimTexture*)ptr;
-                    auto id = level.objectTextures[animTex->textures[0]];
-                    for (int j = 0; j < animTex->tCount; j++) // tCount = count of textures in animation group - 1 (!!!)
-                        level.objectTextures[animTex->textures[j]] = level.objectTextures[animTex->textures[j + 1]];
-                    level.objectTextures[animTex->textures[animTex->tCount]] = id;
-                    ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->tCount + 1)) / sizeof(uint16);
-                }
-            }
-        } else
-            tickTextureAnimation += Core::deltaTime;
-    */
     }
 
     int getCameraRoomIndex() {
@@ -473,7 +463,9 @@ struct Level {
             shaders[i]->setParam(uViewProj, Core::mViewProj);
             shaders[i]->setParam(uViewInv, Core::mViewInv);
             shaders[i]->setParam(uViewPos, Core::viewPos);
-            shaders[i]->setParam(uParam, vec4(time, sinf(time * 1024.0f), 0, 0));
+            shaders[i]->setParam(uParam, vec4(time, 0, 0, 0));
+            shaders[i]->setParam(uAnimTexRanges, mesh->animTexRanges[0], mesh->animTexRangesCount); 
+            shaders[i]->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount); 
         }
         glEnable(GL_DEPTH_TEST);
 

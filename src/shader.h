@@ -5,11 +5,11 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sMAX };
-enum UniformType    { uViewProj, uViewInv, uModel, uColor, uAmbient, uViewPos, uLightPos, uLightColor, uParam, uMAX };
+enum UniformType    { uViewProj, uViewInv, uModel, uParam, uColor, uAmbient, uViewPos, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse" };
-const char *UniformName[uMAX]   = { "uViewProj", "uViewInv", "uModel", "uColor", "uAmbient", "uViewPos", "uLightPos", "uLightColor", "uParam" };
+const char *UniformName[uMAX]   = { "uViewProj", "uViewInv", "uModel", "uParam", "uColor", "uAmbient", "uViewPos", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
 
 struct Shader {
     GLuint  ID;
@@ -66,6 +66,11 @@ struct Shader {
     void bind() {
         glUseProgram(ID);
         Core::active.shader = this;
+    }
+
+    void setParam(UniformType uType, const vec2 &value, int count = 1) {
+        if (uID[uType] != -1)
+            glUniform2fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec3 &value, int count = 1) {

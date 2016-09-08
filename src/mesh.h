@@ -7,10 +7,10 @@
 typedef unsigned short Index;
 
 struct Vertex {
-    short3  coord;
-    short2  texCoord;
-    short4  normal;
-    ubyte4  color;
+    short4  coord;      // xyz  - position
+    short4  texCoord;   // xy   - texture coordinates, z - anim tex range index, w - anim tex frame index
+    short4  normal;     // xyz  - vertex normal, w - disable lighting (0, 1)
+    ubyte4  color;      // rgba - color
 };
 
 struct MeshRange {
@@ -47,8 +47,8 @@ struct Mesh {
 
     void render(const MeshRange &range) {
         Vertex *v = (Vertex*)(range.vStart * sizeof(Vertex));
-        glVertexAttribPointer(aCoord,    3, GL_SHORT,         false, sizeof(Vertex), &v->coord);
-        glVertexAttribPointer(aTexCoord, 2, GL_SHORT,         true,  sizeof(Vertex), &v->texCoord);
+        glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
+        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
         glVertexAttribPointer(aNormal,   4, GL_SHORT,         false, sizeof(Vertex), &v->normal);
         glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
         glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(range.iStart * sizeof(Index)));
@@ -79,7 +79,31 @@ struct MeshBuilder {
 // indexed mesh
     Mesh *mesh;
 
-    MeshBuilder(const TR::Level &level) {
+    vec2 *animTexRanges;
+    vec2 *animTexOffsets;
+
+    int animTexRangesCount;
+    int animTexOffsetsCount;
+
+    TR::Level *level;
+
+    MeshBuilder(TR::Level &level) : level(&level) {
+        initAnimTextures(level);
+
+    // create dummy white object textures for non-textured (colored) geometry
+        TR::ObjectTexture whiteTileQuad;
+        whiteTileQuad.attribute = 0;
+        whiteTileQuad.tile.index = 15;
+        whiteTileQuad.tile.triangle = 0;
+        whiteTileQuad.vertices[0] = 
+        whiteTileQuad.vertices[1] = 
+        whiteTileQuad.vertices[2] = 
+        whiteTileQuad.vertices[3] = { 0, 253, 0, 253 };
+
+        TR::ObjectTexture whiteTileTri = whiteTileQuad;
+        whiteTileTri.tile.triangle = 1;
+
+    // allocate room geometry ranges
         roomRanges = new RoomRange[level.roomsCount];
 
         int iCount = 0, vCount = 0;
@@ -158,37 +182,27 @@ struct MeshBuilder {
         // rooms geometry
             int vStart = vCount;
             for (int j = 0; j < d.rCount; j++) {
-                auto &f = d.rectangles[j];
-                auto &t = level.objectTextures[f.texture];
+                TR::Rectangle     &f = d.rectangles[j];
+                TR::ObjectTexture &t = level.objectTextures[f.texture];
 
-                int  tile = t.tileAndFlag & 0x7FFF;
-                int  tx = (tile % 4) * 256;
-                int  ty = (tile / 4) * 256;
-
-                addQuad(indices, iCount, vCount, vStart);
+                addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
                 for (int k = 0; k < 4; k++) {
-                    auto &v = d.vertices[f.vertices[k]];
+                    TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];
                     uint8 a = 255 - (v.lighting >> 5);
 
                     vertices[vCount].coord      = { v.vertex.x, v.vertex.y, v.vertex.z };
                     vertices[vCount].color      = { a, a, a, 255 };
                     vertices[vCount].normal     = { 0, 0, 0, 1 };
-                    vertices[vCount].texCoord.x = ((tx + t.vertices[k].Xpixel) << 5) + 16;
-                    vertices[vCount].texCoord.y = ((ty + t.vertices[k].Ypixel) << 5) + 16;
                     vCount++;
                 }
             }
 
             for (int j = 0; j < d.tCount; j++) {
-                auto &f = d.triangles[j];
-                auto &t = level.objectTextures[f.texture];
+                TR::Triangle      &f = d.triangles[j];
+                TR::ObjectTexture &t = level.objectTextures[f.texture];                
 
-                int  tile = t.tileAndFlag & 0x7FFF;
-                int  tx = (tile % 4) * 256;
-                int  ty = (tile / 4) * 256;
-
-                addTriangle(indices, iCount, vCount, vStart);
+                addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
                 for (int k = 0; k < 3; k++) {
                     auto &v = d.vertices[f.vertices[k]];
@@ -197,8 +211,6 @@ struct MeshBuilder {
                     vertices[vCount].coord      = { v.vertex.x, v.vertex.y, v.vertex.z };
                     vertices[vCount].color      = { a, a, a, 255 };
                     vertices[vCount].normal     = { 0, 0, 0, 1 };
-                    vertices[vCount].texCoord.x = ((tx + t.vertices[k].Xpixel) << 5) + 16;
-                    vertices[vCount].texCoord.y = ((ty + t.vertices[k].Ypixel) << 5) + 16;
                     vCount++;
                 }
             }
@@ -210,6 +222,7 @@ struct MeshBuilder {
                 TR::Room::Data::Sprite &f = d.sprites[j];                   
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
                 TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
+
                 uint8 intensity = 255 - (v.lighting >> 5);
                 addSprite(indices, vertices, iCount, vCount, vStart, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity);
             }
@@ -245,14 +258,10 @@ struct MeshBuilder {
             int vStart = vCount;
         // rectangles
             for (int j = 0; j < ptr->rCount; j++) {
-                auto &f = ((TR::Rectangle*)&ptr->rectangles)[j];
-                auto &t = level.objectTextures[f.texture];
+                TR::Rectangle     &f = ((TR::Rectangle*)&ptr->rectangles)[j];
+                TR::ObjectTexture &t = level.objectTextures[f.texture];
 
-                int  tile = t.tileAndFlag & 0x7FFF;
-                int  tx = (tile % 4) * 256;
-                int  ty = (tile / 4) * 256;
-
-                addQuad(indices, iCount, vCount, vStart);
+                addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
                 for (int k = 0; k < 4; k++) {
                     auto &v = mVertices[f.vertices[k]];
@@ -268,8 +277,6 @@ struct MeshBuilder {
                         vertices[vCount].normal = { 0, 0, 0, 1   };
                         vertices[vCount].color  = { a, a, a, 255 };
                     }
-                    vertices[vCount].texCoord.x = ((tx + t.vertices[k].Xpixel) << 5) + 16;
-                    vertices[vCount].texCoord.y = ((ty + t.vertices[k].Ypixel) << 5) + 16;
                     vCount++;
                 }
             }
@@ -277,14 +284,10 @@ struct MeshBuilder {
 
         // triangles
             for (int j = 0; j < ptr->tCount; j++) {
-                auto &f = ((TR::Triangle*)&ptr->triangles)[j];
-                auto &t = level.objectTextures[f.texture];
+                TR::Triangle      &f = ((TR::Triangle*)&ptr->triangles)[j];
+                TR::ObjectTexture &t = level.objectTextures[f.texture];
 
-                int  tile = t.tileAndFlag & 0x7FFF;
-                int  tx = (tile % 4) * 256;
-                int  ty = (tile / 4) * 256;
-
-                addTriangle(indices, iCount, vCount, vStart);
+                addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
                 for (int k = 0; k < 3; k++) {
                     auto &v = mVertices[f.vertices[k]];
@@ -299,8 +302,6 @@ struct MeshBuilder {
                         vertices[vCount].normal = { 0, 0, 0, 1   };
                         vertices[vCount].color  = { a, a, a, 255 };
                     }
-                    vertices[vCount].texCoord.x = ((tx + t.vertices[k].Xpixel) << 5) + 16;
-                    vertices[vCount].texCoord.y = ((ty + t.vertices[k].Ypixel) << 5) + 16;
                     vCount++;
                 }
             }
@@ -308,15 +309,15 @@ struct MeshBuilder {
 
         // color rectangles
             for (int j = 0; j < ptr->crCount; j++) {
-                auto &f = ((TR::Rectangle*)&ptr->crectangles)[j];
-                auto &c = level.palette[f.texture & 0xFF];
+                TR::Rectangle &f = ((TR::Rectangle*)&ptr->crectangles)[j];
+                TR::RGB       &c = level.palette[f.texture & 0xFF];
 
-                addQuad(indices, iCount, vCount, vStart);
+                addQuad(indices, iCount, vCount, vStart, vertices, &whiteTileQuad);
 
                 for (int k = 0; k < 4; k++) {
                     auto &v = mVertices[f.vertices[k]];
 
-                    vertices[vCount].coord      = { v.x, v.y, v.z };
+                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
 
                     if (nCount > 0) {
                         TR::Vertex &n = normals[f.vertices[k]];
@@ -327,7 +328,6 @@ struct MeshBuilder {
                         vertices[vCount].normal = { 0, 0, 0, 1   };
                         vertices[vCount].color  = { a, a, a, 255 }; // TODO: apply color
                     }
-                    vertices[vCount].texCoord   = { 1022 << 5, 1022 << 5 };
                     vCount++;
                 }
             }
@@ -335,15 +335,15 @@ struct MeshBuilder {
 
         // color triangles
             for (int j = 0; j < ptr->ctCount; j++) {
-                auto &f = ((TR::Triangle*)&ptr->ctriangles)[j];
-                auto &c = level.palette[f.texture & 0xFF];
+                TR::Triangle &f = ((TR::Triangle*)&ptr->ctriangles)[j];
+                TR::RGB      &c = level.palette[f.texture & 0xFF];
 
-                addTriangle(indices, iCount, vCount, vStart);
+                addTriangle(indices, iCount, vCount, vStart, vertices, &whiteTileTri);
 
                 for (int k = 0; k < 3; k++) {
                     auto &v = mVertices[f.vertices[k]];
 
-                    vertices[vCount].coord      = { v.x, v.y, v.z };
+                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
 
                     if (nCount > 0) {
                         TR::Vertex &n = normals[f.vertices[k]];
@@ -354,7 +354,6 @@ struct MeshBuilder {
                         vertices[vCount].normal = { 0, 0, 0, 1   };
                         vertices[vCount].color  = { a, a, a, 255 }; // TODO: apply color
                     }
-                    vertices[vCount].texCoord   = { 1022 << 5, 1022 << 5 };
                     vCount++;
                 }
             }
@@ -377,13 +376,105 @@ struct MeshBuilder {
     }
 
     ~MeshBuilder() {
+        delete[] animTexRanges;
+        delete[] animTexOffsets;
         delete[] roomRanges;
         delete[] meshInfo;
         delete[] spriteRanges;
         delete mesh;
     }
 
-     void addTriangle(Index *indices, int &iCount, int vCount, int vStart) {
+    vec2 getTexCoord(const TR::ObjectTexture &tex) {
+        int  tile = tex.tile.index;
+        int  tx = (tile % 4) * 256;
+        int  ty = (tile / 4) * 256;
+        return vec2( ((tx + tex.vertices[0].Xpixel) << 5) + 16,
+                     ((ty + tex.vertices[0].Ypixel) << 5) + 16 );
+    }
+
+    void initAnimTextures(TR::Level &level) {
+        if (!level.animTexturesDataSize) {
+            animTexRangesCount = animTexOffsetsCount = 1;
+            animTexRanges      = new vec2[1];
+            animTexOffsets     = new vec2[1];
+            animTexRanges[0]   = vec2(0.0f, 1.0f);
+            animTexOffsets[0]  = vec2(0.0f);
+        }
+
+        uint16 *ptr = &level.animTexturesData[0];
+        animTexRangesCount = *ptr++ + 1;
+        animTexRanges = new vec2[animTexRangesCount];
+        animTexRanges[0] = vec2(0.0f, 1.0f);
+        animTexOffsetsCount = 1;
+        for (int i = 1; i < animTexRangesCount; i++) {
+            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;
+            
+            int start = animTexOffsetsCount;
+            animTexOffsetsCount += animTex->count + 1;
+            animTexRanges[i] = vec2((float)start, (float)(animTexOffsetsCount - start));
+
+            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+        }
+        animTexOffsets = new vec2[animTexOffsetsCount];
+        animTexOffsets[0] = vec2(0.0f);
+        animTexOffsetsCount = 1;
+
+        ptr = &level.animTexturesData[1];
+        for (int i = 1; i < animTexRangesCount; i++) {
+            int start = animTexOffsetsCount;
+            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;            
+
+            vec2 first = getTexCoord(level.objectTextures[animTex->textures[0]]);
+            animTexOffsets[animTexOffsetsCount++] = vec2(0.0f); // first - first for first frame %)
+
+            for (int j = 1; j <= animTex->count; j++)
+                animTexOffsets[animTexOffsetsCount++] = getTexCoord(level.objectTextures[animTex->textures[j]]) - first;
+
+            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+        }
+    }
+
+    TR::ObjectTexture* getAnimTexture(TR::ObjectTexture *tex, int &range, int &frame) {
+        range = frame = 0;
+        if (!level->animTexturesDataSize)
+            return tex;
+
+        uint16 *ptr = &level->animTexturesData[1];
+        for (int i = 1; i < animTexRangesCount; i++) {
+            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;            
+
+            for (int j = 0; j <= animTex->count; j++)
+                if (tex == &level->objectTextures[animTex->textures[j]]) {
+                    range = i;
+                    frame = j;
+                    return &level->objectTextures[animTex->textures[0]];
+                }
+            
+            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+        }
+        
+        return tex;
+    }
+
+    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex) {
+        int range, frame;
+        tex = getAnimTexture(tex, range, frame);
+
+        int  tile = tex->tile.index;
+        int  tx = (tile % 4) * 256;
+        int  ty = (tile / 4) * 256;
+
+        int count = tex->tile.triangle ? 3 : 4;
+        for (int i = 0; i < count; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.texCoord.x = ((tx + tex->vertices[i].Xpixel) << 5) + 16;
+            v.texCoord.y = ((ty + tex->vertices[i].Ypixel) << 5) + 16;
+            v.texCoord.z = range;
+            v.texCoord.w = frame;
+        }
+    }
+
+    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
         int  vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -391,9 +482,11 @@ struct MeshBuilder {
         indices[iCount + 2] = vIndex + 2;
 
         iCount += 3;
-     }
 
-    void addQuad(Index *indices, int &iCount, int vCount, int vStart) {
+        if (tex) addTexCoord(vertices, vCount, tex);
+    }
+
+    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
         int  vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -405,14 +498,17 @@ struct MeshBuilder {
         indices[iCount + 5] = vIndex + 3;
 
         iCount += 6;
+
+        if (tex) addTexCoord(vertices, vCount, tex);
     }
 
     void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, uint8 intensity) {
-        addQuad(indices, iCount, vCount, vStart);
+        addQuad(indices, iCount, vCount, vStart, NULL, NULL);
 
         Vertex *quad = &vertices[vCount];
 
-        quad[0].coord = quad[1].coord = quad[2].coord = quad[3].coord = { x, y, z };
+        quad[0].coord = quad[1].coord = quad[2].coord = quad[3].coord = { x, y, z, 0 };
+        quad[0].normal = quad[1].normal = quad[2].normal = quad[3].normal = { 0, 0, 0, 0 };
 
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;
@@ -422,15 +518,10 @@ struct MeshBuilder {
         int16 u1 = u0 + (sprite.w >> 3);
         int16 v1 = v0 + (sprite.h >> 3);
 
-        quad[0].texCoord = { u0, v0 };
-        quad[1].texCoord = { u1, v0 };
-        quad[2].texCoord = { u1, v1 };
-        quad[3].texCoord = { u0, v1 };
-
-        quad[0].normal = { sprite.r, sprite.t, 0, 0 };
-        quad[1].normal = { sprite.l, sprite.t, 0, 0 };
-        quad[2].normal = { sprite.l, sprite.b, 0, 0 };
-        quad[3].normal = { sprite.r, sprite.b, 0, 0 };
+        quad[0].texCoord = { u0, v0, sprite.r, sprite.t };
+        quad[1].texCoord = { u1, v0, sprite.l, sprite.t };
+        quad[2].texCoord = { u1, v1, sprite.l, sprite.b };
+        quad[3].texCoord = { u0, v1, sprite.r, sprite.b };
 
         quad[0].color = quad[1].color = quad[2].color = quad[3].color = { intensity, intensity, intensity, 255 };
 

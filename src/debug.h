@@ -113,9 +113,10 @@ namespace Debug {
     namespace Level {
 
         void debugFloor(const TR::Level &level, const vec3 &f, const vec3 &c, int floorIndex, int boxIndex, bool current) {
+            if (floorIndex == 0) return;
+
             vec3 vf[4] = { f, f + vec3(1024, 0, 0), f + vec3(1024, 0, 1024), f + vec3(0, 0, 1024) };
             vec3 vc[4] = { c, c + vec3(1024, 0, 0), c + vec3(1024, 0, 1024), c + vec3(0, 0, 1024) };
-
 
             if (current)
                 glColor3f(1, 1, 1);
@@ -280,6 +281,7 @@ namespace Debug {
                         glDisable(GL_DEPTH_TEST);
                         glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
                         debugBox(level.boxes[s.boxIndex]);
+                        glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
                         debugOverlaps(level, s.boxIndex);
                         glEnable(GL_DEPTH_TEST);
                     }

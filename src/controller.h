@@ -3,8 +3,10 @@
 
 #include "format.h"
 
-#define GRAVITY     7.0f
+#define GRAVITY     6.0f
 #define NO_OVERLAP  0x7FFFFFFF
+
+#define SND_SECRET  13
 
 struct Controller {
     TR::Level   *level;
@@ -64,7 +66,9 @@ struct Controller {
     }
 
     TR::Room& getRoom() {
-        return level->rooms[getEntity().room];
+        int index = getEntity().room;
+        ASSERT(index >= 0 && index < level->roomsCount);
+        return level->rooms[index];
     }
 
     TR::Room::Sector& getSector(int x, int z, int &dx, int &dz) {
@@ -119,31 +123,34 @@ struct Controller {
         int roomNext, roomBelow, roomAbove;
     };
 
-    int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ) { 
+    int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ, int &delta) { 
         int dx, dz;
         TR::Room::Sector &s = getSector(fromX, fromZ, dx, dz);
 
         if (s.boxIndex == 0xFFFF) return NO_OVERLAP;
 
         TR::Box &b = level->boxes[s.boxIndex];
-        if (b.contains(toX, toZ))
+        if (b.contains(toX, toZ)) {
+            delta = 0;
             return b.floor;
+        }
 
         int floor = NO_OVERLAP;
-        int delta = 0x7FFFFFFF;
+        delta = floor;
 
         TR::Overlap *o = &level->overlaps[b.overlap & 0x7FFF];
         do {
-            TR::Box &b = level->boxes[o->boxIndex];
-            if (b.contains(toX, toZ)) { // get min delta
-                int d = abs(fromY - b.floor);
+            TR::Box &ob = level->boxes[o->boxIndex];
+            if (ob.contains(toX, toZ)) { // get min delta
+                int d = abs(ob.floor - b.floor);
                 if (d < delta) {
-                    floor = b.floor;
+                    floor = ob.floor;
                     delta = d;
                 }
             }
         } while (!(o++)->end);
 
+        delta = floor - b.floor;
         return floor;
     }
 
@@ -213,12 +220,28 @@ struct Controller {
                     break;
                 }
 
+                case TR::FD_KILL :
+                    health = 0;
+                    break;
+
                 default : LOG("unknown func: %d\n", cmd.func);
             }
 
         } while (!cmd.end);
 
         return info;
+    }
+
+    void playSound(int id) {
+        int16 a = level->soundsMap[id];
+        TR::SoundInfo &b = level->soundsInfo[a];
+        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
+            uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
+            void *p = &level->soundData[c];
+        #ifdef WIN32
+            PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+        #endif
+        }
     }
 
 };
@@ -240,9 +263,11 @@ struct Lara : Controller {
     bool lState;
 
     Lara(TR::Level *level, int entity) : Controller(level, entity) {
+    /*
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
-        getEntity().room = 15;
+        getEntity().room = 15;        
+    */
     }
 
     virtual void update() {
@@ -250,7 +275,7 @@ struct Lara : Controller {
         TR::Animation *anim  = &level->anims[model.animation];
 
         fTime += Core::deltaTime;
-
+//         return;
         float rot = 0.0f;
 
         enum {  LEFT        = 1 << 1, 
@@ -283,7 +308,9 @@ struct Lara : Controller {
 
         int state = anim->state;
 
-        if ((mask & (GROUND | WATER)) == (GROUND | WATER)) {   // on water surface
+        if (mask & DEATH)
+            state = TR::STATE_DEATH;
+        else if ((mask & (GROUND | WATER)) == (GROUND | WATER)) {   // on water surface
             angle.x = 0.0f;
             
             state = TR::STATE_SURF_TREAD;
@@ -398,7 +425,15 @@ struct Lara : Controller {
 
 #ifdef _DEBUG
         // show state transitions for current animation
+
         if (Input::down[ikEnter]) {
+            if (!lState) {
+                lState = true;
+                static int snd_id = 0;
+                playSound(snd_id);
+                LOG("sound: %d\n", snd_id++);
+            }
+            /*
             LOG("state: %d\n", anim->state);
             for (int i = 0; i < anim->scCount; i++) {
                 auto &sc = level->states[anim->scOffset + i];
@@ -408,8 +443,9 @@ struct Lara : Controller {
                     LOG("%d ", range.nextAnimation);
                 }
                 LOG("\n");
-            }
-        }
+            }*/
+        } else 
+            lState = false;
 #endif
 
     // calculate turn tilt
@@ -500,11 +536,13 @@ struct Lara : Controller {
         } else
             velocity.y += GRAVITY * dt;
 
+       
     // apply animation commands
         int16 *ptr = &level->commands[anim->animCommand];
 
         for (int i = 0; i < anim->acCount; i++) {
-            switch (*ptr++) {
+            int cmd = *ptr++; 
+            switch (cmd) {
                 case 0x01 : { // cmd position
                     int16 sx = *ptr++;
                     int16 sy = *ptr++;
@@ -538,17 +576,7 @@ struct Lara : Controller {
 //                        LOG("play sound at %d current %d last %d (%d)\n", idx, fIndex, lastFrame, (int)id);
 
                     if (idx > lastFrame && idx <= fIndex) {
-                        int16 a = level->soundsMap[id];
-                        TR::SoundInfo &b = level->soundsInfo[a];
-                        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-                            uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
-
-                            void *p = &level->soundData[c];
-                        #ifdef WIN32
-//                            LOG("play\n");
-                            PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
-                        #endif
-                        }
+                        playSound(id);
                     }
                     break;
                 }
@@ -561,7 +589,7 @@ struct Lara : Controller {
                     ptr += 2;
                     break;
                 default :
-                    LOG("unknown animation command\n");
+                    LOG("unknown animation command %d\n", cmd);
             }
         }
 
@@ -574,10 +602,10 @@ struct Lara : Controller {
         }
 
 
-
+        
         move(velocity * dt);
         collide();
-
+        
         lastFrame = fIndex;
     }
 
@@ -585,14 +613,15 @@ struct Lara : Controller {
         vec3 p = pos;
         pos = pos + offset;
 
-        int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z); 
+        int delta;
+        int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z, delta);
 
         int state = level->anims[getModel().animation].state;
         bool stop = false;
 
         if ((d == NO_OVERLAP) ||
-           ((state == TR::STATE_WALK || state == TR::STATE_BACK || state == TR::STATE_STEP_LEFT || state == TR::STATE_STEP_RIGHT) && (int)p.y - d < -256) ||
-           ((int)p.y - d > 256)) {
+           ((state == TR::STATE_WALK || state == TR::STATE_BACK || state == TR::STATE_STEP_LEFT || state == TR::STATE_STEP_RIGHT) && delta > 256) /*||
+           (delta < -256) */) {
 
             pos = p;
 
