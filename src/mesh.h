@@ -393,13 +393,7 @@ struct MeshBuilder {
     }
 
     void initAnimTextures(TR::Level &level) {
-        if (!level.animTexturesDataSize) {
-            animTexRangesCount = animTexOffsetsCount = 1;
-            animTexRanges      = new vec2[1];
-            animTexOffsets     = new vec2[1];
-            animTexRanges[0]   = vec2(0.0f, 1.0f);
-            animTexOffsets[0]  = vec2(0.0f);
-        }
+        ASSERT(level.animTexturesDataSize);
 
         uint16 *ptr = &level.animTexturesData[0];
         animTexRangesCount = *ptr++ + 1;
@@ -507,8 +501,9 @@ struct MeshBuilder {
 
         Vertex *quad = &vertices[vCount];
 
-        quad[0].coord = quad[1].coord = quad[2].coord = quad[3].coord = { x, y, z, 0 };
+        quad[0].coord  = quad[1].coord  = quad[2].coord  = quad[3].coord  = { x, y, z, 0 };
         quad[0].normal = quad[1].normal = quad[2].normal = quad[3].normal = { 0, 0, 0, 0 };
+        quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { intensity, intensity, intensity, 255 };
 
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;
@@ -522,8 +517,6 @@ struct MeshBuilder {
         quad[1].texCoord = { u1, v0, sprite.l, sprite.t };
         quad[2].texCoord = { u1, v1, sprite.l, sprite.b };
         quad[3].texCoord = { u0, v1, sprite.r, sprite.b };
-
-        quad[0].color = quad[1].color = quad[2].color = quad[3].color = { intensity, intensity, intensity, 255 };
 
         vCount += 4;
     }
@@ -544,8 +537,12 @@ struct MeshBuilder {
         return roomRanges[roomIndex].sprites.iCount > 0;
     }
 
+    void renderMesh(MeshInfo *meshInfo) {
+        mesh->render(*meshInfo);
+    }
+
     void renderMesh(int meshIndex) {
-        mesh->render(meshInfo[meshIndex]);
+        renderMesh(&meshInfo[meshIndex]);
     }
 
     void renderSprite(int spriteIndex) {

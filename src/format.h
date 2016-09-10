@@ -244,7 +244,7 @@ namespace TR {
             uint16  rotation;
             uint16  intensity;
             uint16  meshID;
-            uint16  align;          // ! not exists in file !
+            uint16  flags;          // ! not exists in file !
         } *meshes;
     };
 
@@ -342,11 +342,20 @@ namespace TR {
     };
 
     struct AnimFrame {
-        int16   minX, minY, minZ;   // Bounding box (low)
-        int16   maxX, maxY, maxZ;   // Bounding box (high)
-        int16   x, y, z;            // Starting offset for this model
+        TR::Vertex  min;   // Bounding box (low)
+        TR::Vertex  max;   // Bounding box (high)
+        TR::Vertex  pos;   // Starting offset for this model
         int16   aCount;
         uint16  angles[0];          // angle frames in YXZ order
+
+        vec3 getAngle(int index) {
+            #define ANGLE_SCALE (2.0f * PI / 1024.0f)
+
+            uint16 b = angles[index * 2 + 0];
+            uint16 a = angles[index * 2 + 1];
+
+            return vec3((a & 0x3FF0) >> 4, ( ((a & 0x000F) << 6) | ((b & 0xFC00) >> 10)), b & 0x03FF) * ANGLE_SCALE;
+        }
     };
 
     struct AnimTexture {
@@ -372,9 +381,40 @@ namespace TR {
     struct StaticMesh {
         uint32  id;             // Static Mesh Identifier
         uint16  mesh;           // Mesh (offset into MeshPointers[])
-        Vertex  vBox[2];
-        Vertex  cBox[2];
+        struct MinMax {
+            int16 minX, maxX, minY, maxY, minZ, maxZ;
+        } box[2];               // visible (minX, maxX, minY, maxY, minZ, maxZ) & collision
         uint16  flags;
+
+        void getBox(bool collision, int rotation, vec3 &min, vec3 &max) {
+            int k = rotation / 16384;
+
+            MinMax &m = box[collision];
+
+            ASSERT(m.minX <= m.maxX && m.minY <= m.maxY && m.minZ <= m.maxZ);
+
+            switch (k) {
+                case 0 : 
+                    min = vec3(m.minX, m.minY, m.minZ);
+                    max = vec3(m.maxX, m.maxY, m.maxZ);
+                    break;
+                case 1 : 
+                    min = vec3(m.minZ, m.minY, -m.maxX);
+                    max = vec3(m.maxZ, m.maxY, -m.minX);
+                    break;
+                case 2 : 
+                    min = vec3(-m.maxX, m.minY, -m.maxZ);
+                    max = vec3(-m.minX, m.maxY, -m.minZ);
+                    break;
+                case 3 : 
+                    min = vec3(-m.maxZ, m.minY, m.minX);
+                    max = vec3(-m.minZ, m.maxY, m.maxX);
+                    break;
+                default :
+                    ASSERT(false);
+            }
+            ASSERT(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+        }
     };
 
     struct Tile {
@@ -589,7 +629,7 @@ namespace TR {
             // meshes
                 r.meshes = new Room::Mesh[stream.read(r.meshesCount)];
                 for (int i = 0; i < r.meshesCount; i++)
-                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - sizeof(r.meshes[i].align));
+                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - sizeof(r.meshes[i].flags));
             // misc flags
                 stream.read(r.alternateRoom);
                 stream.read(r.flags);
@@ -705,6 +745,13 @@ namespace TR {
             delete[] soundsInfo;
             delete[] soundData;
             delete[] soundOffsets;
+        }
+
+        TR::StaticMesh* getMeshByID(int id) const { // TODO: map this
+            for (int i = 0; i < staticMeshesCount; i++)
+                if (staticMeshes[i].id == id)
+                    return &staticMeshes[i];
+            return NULL;
         }
     };
 }

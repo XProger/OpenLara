@@ -65,7 +65,7 @@ struct Controller {
         return level->models[0];
     }
 
-    TR::Room& getRoom() {
+    virtual TR::Room& getRoom() {
         int index = getEntity().room;
         ASSERT(index >= 0 && index < level->roomsCount);
         return level->rooms[index];
@@ -73,9 +73,13 @@ struct Controller {
 
     TR::Room::Sector& getSector(int x, int z, int &dx, int &dz) {
         TR::Room &room = getRoom();
-        
+
         int sx = x - room.info.x;
         int sz = z - room.info.z;
+
+        sx = clamp(sx, 0, (room.xSectors - 1) << 10);
+        sz = clamp(sz, 0, (room.zSectors - 1) << 10);
+
         dx = sx & 1023; // mod 1024
         dz = sz & 1023;
         sx >>= 10;      // div 1024
@@ -118,11 +122,6 @@ struct Controller {
         return exists;
     }
 
-    struct FloorInfo {
-        int floor, ceiling;
-        int roomNext, roomBelow, roomAbove;
-    };
-
     int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ, int &delta) { 
         int dx, dz;
         TR::Room::Sector &s = getSector(fromX, fromZ, dx, dz);
@@ -153,6 +152,11 @@ struct Controller {
         delta = floor - b.floor;
         return floor;
     }
+
+    struct FloorInfo {
+        int floor, ceiling;
+        int roomNext, roomBelow, roomAbove;
+    };
 
     FloorInfo getFloorInfo(int x, int z) {
         int dx, dz;
@@ -259,14 +263,17 @@ struct Controller {
 #define GLIDE_SPEED         50.0f
 
 struct Lara : Controller {
-    int sc;
-    bool lState;
 
     Lara(TR::Level *level, int entity) : Controller(level, entity) {
     /*
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
         getEntity().room = 15;        
+    */
+    /*
+        pos = vec3(41015, 3584, 34494);
+        angle = vec3(0.0f, -PI, 0.0f);
+        getEntity().room = 51;
     */
     }
 
@@ -425,7 +432,7 @@ struct Lara : Controller {
 
 #ifdef _DEBUG
         // show state transitions for current animation
-
+        static bool lState = false;
         if (Input::down[ikEnter]) {
             if (!lState) {
                 lState = true;
@@ -600,11 +607,11 @@ struct Lara : Controller {
             fIndex = anim->nextFrame - nextAnim->frameStart;
             fTime = fIndex / 30.0f;
         }
-
-
         
         move(velocity * dt);
         collide();
+
+        updateEntity();
         
         lastFrame = fIndex;
     }

@@ -17,6 +17,8 @@ namespace Debug {
         glPointSize(32);
 
         glUseProgram(0);
+        Core::active.shader = NULL;
+        Core::active.testures[0] = NULL;
     }
 
     void end() {
@@ -25,7 +27,8 @@ namespace Debug {
 
     namespace Draw {
 
-        void box(const vec3 &min, const vec3 &max) {
+        void box(const vec3 &min, const vec3 &max, const vec4 &color) {
+            glColor4fv((GLfloat*)&color);
             glBegin(GL_LINES);
                 glVertex3f(min.x, min.y, min.z);
                 glVertex3f(max.x, min.y, min.z);
@@ -348,6 +351,98 @@ namespace Debug {
                     Debug::Draw::sphere(p, l.attenuation, color);
                 }
             glEnd();
+        }
+
+        void meshes(const TR::Level &level) {
+        // static objects
+            for (int i = 0; i < level.roomsCount; i++) {
+                TR::Room &r = level.rooms[i];
+ 
+                for (int j = 0; j < r.meshesCount; j++) {
+                    TR::Room::Mesh &m = r.meshes[j];
+                                        
+                    TR::StaticMesh *sm = level.getMeshByID(m.meshID);
+                    ASSERT(sm != NULL);
+
+                    vec3 min, max, offset = vec3(m.x, m.y, m.z);
+                    sm->getBox(false, m.rotation, min, max); // visible box
+
+                    Debug::Draw::box(offset + min, offset + max, vec4(1, 1, 0, 0.25));
+
+                    if (sm->flags == 2) { // collision box
+                        sm->getBox(true, m.rotation, min, max);
+                        Debug::Draw::box(offset + min - vec3(10.0f), offset + max + vec3(10.0f), vec4(1, 0, 0, 0.50));
+                    }
+
+                    TR::Mesh *mesh = (TR::Mesh*)&level.meshData[level.meshOffsets[sm->mesh] / 2];
+
+                    ASSERT(mesh->radius == 0 || mesh->radius == 0x10000);
+
+                    Debug::Draw::sphere(offset + (min + max) * 0.5f, 128, mesh->radius == 0 ? vec4(0, 0, 1, 1) : vec4(0, 1, 0, 1));
+                }
+            }
+        // dynamic objects            
+            for (int i = 0; i < level.entitiesCount; i++) {
+                TR::Entity &e = level.entities[i];
+                mat4 matrix;
+                matrix.identity();
+                matrix.translate(vec3(e.x, e.y, e.z));
+                matrix.rotateY(e.rotation / 16384.0f * PI * 0.5f);
+
+                for (int j = 0; j < level.modelsCount; j++) {
+                    TR::Model &m = level.models[j];
+                    TR::Node *node = m.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[m.node] : NULL;
+
+                    if (!node) continue; // ???
+
+                    TR::Animation *anim  = m.animation < 0xFFFF ? &level.anims[m.animation] : NULL;
+                    TR::AnimFrame *frame = anim ? (TR::AnimFrame*)&level.frameData[anim->frameOffset >> 1] : NULL;
+
+                    //mat4 m;
+                    //m.identity();
+                   // m.translate(vec3(frame->x, frame->y, frame->z).lerp(vec3(frameB->x, frameB->y, frameB->z), k));
+
+                    int  sIndex = 0;
+                    mat4 stack[20];
+                    mat4 joint;
+
+                    joint.identity();
+                    if (frame) joint.translate(frame->pos);
+
+                    if (e.id == m.id) {
+                        for (int k = 0; k < m.mCount; k++) {
+
+                            if (k > 0 && node) {
+                                TR::Node &t = node[k - 1];
+
+                                if (t.flags & 0x01) joint = stack[--sIndex];
+                                if (t.flags & 0x02) stack[sIndex++] = joint;
+
+                                ASSERT(sIndex >= 0 && sIndex < 20);
+
+                                joint.translate(vec3(t.x, t.y, t.z));
+                            }
+
+                            vec3 a = frame ? frame->getAngle(k) : vec3(0.0f);
+
+                            mat4 rot;
+                            rot.identity();
+                            rot.rotateY(a.y);
+                            rot.rotateX(a.x);
+                            rot.rotateZ(a.z);
+
+                            joint = joint * rot;
+
+                            int offset = level.meshOffsets[m.mStart + k];
+                            TR::Mesh *mesh = (TR::Mesh*)&level.meshData[offset / 2];
+                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius & 0x3FF, mesh->radius > 0x3FF ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
+                        }
+                        break;
+                    }
+                
+                }
+
+            }
         }
 
     }

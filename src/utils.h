@@ -278,6 +278,18 @@ struct mat4 {
 		e23 = 2.0f * zfar * znear / (znear - zfar);
 	}
 
+    mat4(const vec3 &from, const vec3 &at, const vec3 &up) {
+	    vec3 r, u, d;
+	    d = (from - at).normal();
+	    r = up.cross(d).normal();
+	    u = d.cross(r);
+
+	    this->right		= vec4(r, 0.0f);
+	    this->up		= vec4(u, 0.0f);
+	    this->dir		= vec4(d, 0.0f);
+	    this->offset	= vec4(from, 1.0f);
+    }
+
 	void identity() {
 		e10 = e20 = e30 = e01 = e21 = e31 = e02 = e12 = e32 = e03 = e13 = e23 = 0.0f;
 		e00 = e11 = e22 = e33 = 1.0f;
