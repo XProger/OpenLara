@@ -225,7 +225,19 @@ struct Controller {
                     do {
                         trigCmd = (*fd++).triggerCmd; // trigger action
                         switch (trigCmd.func) {
-                            case  0 : break; // activate item
+                            case  0 : 
+                                /*
+                                if (getEntity().id == 0 && cmd.sub == 2) {
+                                    TR::Entity &e = level->entities[trigCmd.args];
+                                    for (int i = 0; i < level->modelsCount; i++)
+                                        if (e.id == level->models[i].id) {                                            
+                                            TR::Animation *anim = &level->anims[level->models[i].animation];
+                                            for (int j = 0; j < anim->scCount; j++)
+                                            LOG("state: %d\n", anim->state);
+                                            break;
+                                        }
+                                }*/
+                                break; // activate item
                             case  1 : break; // switch to camera
                             case  2 : break; // camera delay
                             case  3 : break; // flip map

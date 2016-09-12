@@ -19,7 +19,7 @@ struct Shader {
         #ifdef MOBILE
 	        #define GLSL_DEFINE "precision highp float;\n" "#define MOBILE\n"
         #else
-	        #define GLSL_DEFINE	"#version 120\n"
+	        #define GLSL_DEFINE "#version 120\n"
         #endif
 
         const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
