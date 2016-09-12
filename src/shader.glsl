@@ -36,7 +36,7 @@ varying vec4 vColor;
         
         #ifdef CAUSTICS
             float sum = coord.x + coord.y + coord.z;
-            vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 0.75 + 0.25;
+            vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
         #endif
 
         #ifndef SPRITE

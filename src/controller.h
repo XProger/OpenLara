@@ -80,14 +80,19 @@ struct Controller {
         return level->models[0];
     }
 
-    virtual TR::Room& getRoom() const {
-        int index = getEntity().room;
+    TR::Room& getRoom() const {
+        int index = getRoomIndex();
         ASSERT(index >= 0 && index < level->roomsCount);
         return level->rooms[index];
     }
 
-    TR::Room::Sector& getSector(int x, int z, int &dx, int &dz) const {
-        TR::Room &room = getRoom();
+    virtual int getRoomIndex() const {
+        return getEntity().room;
+    }
+
+    TR::Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
+        ASSERT(roomIndex >= 0 && roomIndex < level->roomsCount);
+        TR::Room &room = level->rooms[roomIndex];
 
         int sx = x - room.info.x;
         int sz = z - room.info.z;
@@ -105,7 +110,7 @@ struct Controller {
 
     TR::Room::Sector& getSector(int &dx, int &dz) const {
         TR::Entity &entity = getEntity();
-        return getSector(entity.x, entity.z, dx, dz);
+        return getSector(entity.room, entity.x, entity.z, dx, dz);
     }
 
     int setAnimation(int index, int frame = -1) {
@@ -145,7 +150,7 @@ struct Controller {
 
     int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ, int &delta) const { 
         int dx, dz;
-        TR::Room::Sector &s = getSector(fromX, fromZ, dx, dz);
+        TR::Room::Sector &s = getSector(getEntity().room, fromX, fromZ, dx, dz);
 
         if (s.boxIndex == 0xFFFF) return NO_OVERLAP;
 
@@ -157,12 +162,12 @@ struct Controller {
 
         int floor = NO_OVERLAP;
         delta = floor;
-
+       
         TR::Overlap *o = &level->overlaps[b.overlap & 0x7FFF];
         do {
             TR::Box &ob = level->boxes[o->boxIndex];
             if (ob.contains(toX, toZ)) { // get min delta
-                int d = abs(ob.floor - b.floor);
+                int d = abs(ob.floor - fromY);
                 if (d < delta) {
                     floor = ob.floor;
                     delta = d;
@@ -177,11 +182,16 @@ struct Controller {
     struct FloorInfo {
         int floor, ceiling;
         int roomNext, roomBelow, roomAbove;
+        int floorIndex;
     };
 
     FloorInfo getFloorInfo(int x, int z) {
+        return getFloorInfo(getRoomIndex(), x, z);
+    }
+
+    FloorInfo getFloorInfo(int roomIndex, int x, int z) {
         int dx, dz;
-        TR::Room::Sector &s = getSector(x, z, dx, dz);
+        TR::Room::Sector &s = getSector(roomIndex, x, z, dx, dz);
 
         FloorInfo info;
         info.floor      = 256 * (int)s.floor;
@@ -189,6 +199,7 @@ struct Controller {
         info.roomNext   = 255;
         info.roomBelow  = s.roomBelow;
         info.roomAbove  = s.roomAbove;
+        info.floorIndex = s.floorIndex;
 
         if (!s.floorIndex) return info;
 
@@ -282,21 +293,28 @@ struct Controller {
     }
 
     vec3 getDir() const {
-        return vec3(sinf(PI - angle.y) * cosf(-angle.x), -sinf(-angle.x), cosf(PI - angle.y) * cosf(-angle.x));
+        return vec3(angle.x, angle.y);
+    }
+
+    void turnToWall() {
+        float fx = pos.x / 1024.0f;
+        float fz = pos.z / 1024.0f;
+        fx -= (int)fx;
+        fz -= (int)fz;
+
+        float k;
+        if (fx > 1.0f - fz)
+            k = fx < fz ? 0 : 1;
+        else
+            k = fx < fz ? 3 : 2;
+
+        angle.y = k * PI * 0.5f;  // clamp angle to n*PI/2
     }
 
     void collide() {
         TR::Entity &entity = getEntity();
 
         FloorInfo info = getFloorInfo(entity.x, entity.z);
-
-        /*
-        float hmin = 0.0f, hmax = -768.0f;
-        if (inWater) {
-            hmin =  256.0f + 128.0f;
-            hmax = -256.0f - 128.0f;
-        }
-        */
 
         if (info.roomNext != 0xFF)
             entity.room = info.roomNext;
@@ -309,38 +327,28 @@ struct Controller {
             } else
                 entity.room = info.roomBelow;
         }
-            
-        if (entity.y <= info.ceiling) {
+         
+        int height = getHeight();
+        if (entity.y - getHeight() < info.ceiling) {
             if (info.roomAbove == 0xFF) {
-                entity.y = info.ceiling;
-                pos.y = entity.y;
-                velocity.y = -velocity.y;
-            } else
-                entity.room = info.roomAbove;
+                pos.y = entity.y = info.ceiling + height;
+                velocity.y = fabsf(velocity.y);
+            } else {
+                if (stand == STAND_UNDERWATER && !(level->rooms[info.roomAbove].flags & TR::ROOM_FLAG_WATER)) {
+                    stand = STAND_ONWATER;
+                    velocity.y = 0;
+                    pos.y = info.ceiling;
+                } else
+                    if (stand != STAND_ONWATER && entity.y < info.ceiling)
+                        entity.room = info.roomAbove;
+            }
         }
-
-       /* 
-        if (pos.y + hmin >= floor) {
-            if (s.roomBelow == 0xFF) {
-                pos.y = floor - hmin;
-                velocity.y = 0.0f;
-            } else
-                entity.room = s.roomBelow;
-        }
-            
-        if (pos.y + hmax <= ceiling) {
-            if (s.roomAbove == 0xFF) {
-                pos.y = ceiling - hmax;
-                velocity.y = -velocity.y;
-            } else
-                entity.room = s.roomAbove;
-        }
-        */
     }
 
     virtual void  updateVelocity()     {}
     virtual void  move() {}
     virtual Stand getStand()           { return STAND_AIR; }
+    virtual int   getHeight()          { return 0; }
     virtual int   getStateAir()        { return state; }
     virtual int   getStateGround()     { return state; }
     virtual int   getStateUnderwater() { return state; }
@@ -389,14 +397,18 @@ struct Controller {
         for (int i = 0; i < anim->acCount; i++) {
             int cmd = *ptr++; 
             switch (cmd) {
-                case 0x01 : { // cmd position
+                case TR::ANIM_CMD_MOVE : { // cmd position
                     int16 sx = *ptr++;
                     int16 sy = *ptr++;
                     int16 sz = *ptr++;
-                    LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
+                    if (endFrame) {
+                        pos = pos + vec3(sx, sy, sz).rotateY(angle.y);
+                        updateEntity();
+                        LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
+                    }
                     break;
                 }
-                case 0x02 : { // cmd jump speed
+                case TR::ANIM_CMD_SPEED : { // cmd jump speed
                     int16 sy = *ptr++;
                     int16 sz = *ptr++;
                     if (endFrame) {
@@ -404,16 +416,15 @@ struct Controller {
                         velocity.x = sinf(angleExt) * sz;
                         velocity.y = sy;
                         velocity.z = cosf(angleExt) * sz;
-                        LOG("speed: %f\n", velocity.length());
                         stand = STAND_AIR;
                     }
                     break;
                 }
-                case 0x03 : // empty hands
+                case TR::ANIM_CMD_EMPTY : // empty hands
                     break;
-                case 0x04 : // kill
+                case TR::ANIM_CMD_KILL : // kill
                     break;
-                case 0x05 : { // play sound
+                case TR::ANIM_CMD_SOUND : { // play sound
                     int frame = (*ptr++);
                     int id    = (*ptr++) & 0x3FFF;
                     int idx   = frame - anim->frameStart;
@@ -424,10 +435,14 @@ struct Controller {
                     }
                     break;
                 }
-                case 0x06 : // effect
+                case TR::ANIM_CMD_SPECIAL : // special commands
                     if (frameIndex != animPrevFrame && frameIndex + anim->frameStart == ptr[0]) {
-                        if (ptr[1] == 0)  // rolling
-                            angle.y = angle.y + PI;                        
+                        switch (ptr[1]) {
+                            case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;   break;
+                            case TR::ANIM_CMD_SPECIAL_BUBBLE : /* playSound(TR::SND_BUBBLE); */ break;
+                            case TR::ANIM_CMD_SPECIAL_CTRL   : LOG("water out ?\n");      break;
+                            default : LOG("unknown special cmd %d\n", (int)ptr[1]);
+                        }
                     }
                     ptr += 2;
                     break;

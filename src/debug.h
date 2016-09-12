@@ -321,7 +321,7 @@ namespace Debug {
 
             for (int z = 0; z < room.zSectors; z++)
                 for (int x = 0; x < room.xSectors; x++) {
-                    auto &s = room.sectors[x * room.zSectors + z];
+                    TR::Room::Sector &s = room.sectors[x * room.zSectors + z];
                     float floor = s.floor * 256;
                     /*
                     if (s.boxIndex < 0xFFFF) {

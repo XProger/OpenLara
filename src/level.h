@@ -29,7 +29,7 @@ struct Level {
 
     float       time;
 
-    Level(Stream &stream) : level{stream}, time(0.0f) {
+    Level(Stream &stream) : level{stream}, time(0.0f), lara(NULL) {
         #ifdef _DEBUG
             Debug::init();
         #endif
@@ -43,6 +43,7 @@ struct Level {
             TR::Entity &entity = level.entities[i];
             switch (entity.id) {
                 case ENTITY_LARA : 
+                case ENTITY_LARA_CUT :
                     entity.controller = (lara = new Lara(&level, i));
                     break;
                 case ENTITY_ENEMY_WOLF            :   
@@ -353,7 +354,6 @@ struct Level {
 
         int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
         k = k - fIndex;
-
 
         int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
         TR::AnimFrame *frameA = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + fIndexA * fSize) >> 1];

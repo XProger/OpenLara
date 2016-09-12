@@ -137,26 +137,26 @@ struct Camera : Controller {
     Frustum     *frustum;
 
     float fov, znear, zfar;
-    vec3 target, destPos, lastDest;
+    vec3 target, destPos, lastDest, angleAdv;
 
-    int         room;
+    int room;
 
     Camera(TR::Level *level, Controller *owner) : Controller(level, owner->entity), owner(owner), frustum(new Frustum()) {
-        fov          = 75.0f;
-        znear        = 0.1f * 2048.0f;
-        zfar         = 1000.0f * 2048.0f;
-        angle.y += PI;
+        fov         = 75.0f;
+        znear       = 0.1f * 2048.0f;
+        zfar        = 1000.0f * 2048.0f;
+        angleAdv    = vec3(0.0f);
         
         room = owner->getEntity().room;
-        pos = pos - getDir() * 1024.0f;
+        pos = pos - owner->getDir() * 1024.0f;
     }
 
     ~Camera() {
         delete frustum;
     }
 
-    virtual TR::Room& getRoom() const {
-        return level->rooms[room];
+    virtual int getRoomIndex() const {
+        return room;
     }
     
     virtual void update() {
@@ -170,24 +170,33 @@ struct Camera : Controller {
         if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
         pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
     #endif
-        if (Input::down[ikMouseL]) {
+        if (Input::down[ikMouseR]) {
             vec2 delta = Input::mouse.pos - Input::mouse.start.L;
-            angle.x += delta.y * 0.01f;
-        //    angle.y -= delta.x * 0.01f;
+            angleAdv.x += delta.y * 0.01f;
+            angleAdv.y += delta.x * 0.01f;
             Input::mouse.start.L = Input::mouse.pos;
         }
  
-        angle.y = PI - owner->angle.y;
+        float height = 0.0f;
+        switch (owner->stand) {
+            case Controller::STAND_AIR    :
+            case Controller::STAND_GROUND :
+                height = 768.0f;
+                break;
+            case Controller::STAND_UNDERWATER :
+            case Controller::STAND_ONWATER    :
+                height = 256.0f;
+                break;
+        }
+
+        angle = owner->angle + angleAdv;
         angle.z = 0.0f;        
-
-        angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
-
-        vec3 dir = getDir();
-
-        float height = owner->stand == Controller::STAND_UNDERWATER ? 256.0f : 768.0f;
+        //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
         target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
         
+        vec3 dir = getDir();
+
         if (owner->state != Lara::STATE_BACK_JUMP) {
             destPos = target - dir * 1024.0f;
             lastDest = destPos;

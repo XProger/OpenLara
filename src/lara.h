@@ -24,7 +24,14 @@ struct Lara : Controller {
         ANIM_SMASH_RUN_LEFT     = 53,
         ANIM_SMASH_RUN_RIGHT    = 54,
         ANIM_WATER_FALL         = 112,
-        ANIM_STAND_ROLL         = 146,
+        ANIM_TO_ONWATER         = 114,
+        ANIM_STAND_ROLL_BEGIN   = 146,
+        ANIM_STAND_ROLL_END     = 147,        
+        ANIM_TO_UNDERWATER      = 119,
+        ANIM_HIT_FRONT          = 125,
+        ANIM_HIT_BACK           = 126,
+        ANIM_HIT_LEFT           = 127,
+        ANIM_HIT_RIGHT          = 128,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -112,13 +119,42 @@ struct Lara : Controller {
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 14;
     */
+    //    updateEntity();
     }
 
     bool isMovingState(int state) {
-        return state == STATE_RUN || state == STATE_WALK || state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT;
+        return state == STATE_RUN || state == STATE_FAST_BACK || state == STATE_ROLL || state == STATE_WALK || state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT;
+    }
+
+    bool waterOut(int &outState) {
+        vec3 dst = pos + getDir() * 32.0f;
+
+        FloorInfo infoCur = getFloorInfo((int)pos.x, (int)pos.z),
+                  infoDst = getFloorInfo(infoCur.roomAbove, (int)dst.x, (int)dst.z);
+
+        if (infoDst.roomBelow == 0xFF && pos.y - infoDst.floor <= 256) { // possibility check
+            if (!setState(STATE_STOP)) { // can't set water out state
+                outState = STATE_STOP;
+                return true;
+            }
+            outState = state;
+
+            turnToWall();
+            dst.y   -= pos.y - infoDst.floor;
+            pos     = dst;  // set new position
+
+            getEntity().room = infoCur.roomAbove;
+            updateEntity();
+            return true;
+        }
+
+        return false;
     }
 
     virtual Stand getStand() {
+        if (stand == STAND_ONWATER && state != STATE_DIVE && state != STATE_STOP)
+            return stand;
+
         if (getRoom().flags & TR::ROOM_FLAG_WATER)
             return STAND_UNDERWATER; // TODO: ONWATER
 
@@ -130,6 +166,12 @@ struct Lara : Controller {
             return STAND_GROUND;
 
         return STAND_AIR;
+    }
+
+    virtual int getHeight() {
+        if (stand == STAND_GROUND || stand == STAND_AIR)
+            return 768;
+        return 0;
     }
 
     virtual int getStateAir() {
@@ -147,9 +189,20 @@ struct Lara : Controller {
 
     virtual int getStateGround() {
         angle.x = 0.0f;
-
+    /*
+    // hit test
+        if (animIndex != ANIM_HIT_FRONT)
+            for (int i = 0; i < level->entitiesCount; i++) {
+                TR::Entity &e = level->entities[i];
+                if (e.id != ENTITY_ENEMY_WOLF) continue;
+                vec3 v = vec3(e.x, e.y, e.z) - pos;
+                if (v.length2() < 128 * 128) {
+                    return setAnimation(ANIM_HIT_FRONT);
+                }
+            }
+    */
         if ( (mask & (FORTH | BACK)) == (FORTH | BACK) && (state == STATE_STOP || state == STATE_RUN) )
-            return setAnimation(ANIM_STAND_ROLL);
+            return setAnimation(ANIM_STAND_ROLL_BEGIN);
 
         // ready to jump
         if (state == STATE_COMPRESS) {
@@ -200,7 +253,29 @@ struct Lara : Controller {
     }
 
     virtual int getStateOnwater() {
-        angle.x = 0.0f;            
+        angle.x = 0.0f;  
+
+        if (state == STATE_WATER_OUT) return state;
+
+        if (state != STATE_SURF_TREAD && state != STATE_SURF_LEFT && state != STATE_SURF_RIGHT && state != STATE_SURF_SWIM && state != STATE_SURF_BACK && state != STATE_STOP)
+            return setAnimation(ANIM_TO_ONWATER);
+
+        if (mask & FORTH) {
+            if (mask & JUMP) { 
+                angle.x = -PI * 0.25f;
+                return setAnimation(ANIM_TO_UNDERWATER);
+            }
+
+            if ((mask & ACTION) && waterOut(state)) return state;
+
+            return STATE_SURF_SWIM;
+        }
+        
+        if (mask & BACK)  return STATE_SURF_BACK;
+        if (mask & WALK) {
+            if (mask & LEFT)  return STATE_SURF_LEFT;
+            if (mask & RIGHT) return STATE_SURF_RIGHT;         
+        }
         return STATE_SURF_TREAD;
     }
 
@@ -244,21 +319,24 @@ struct Lara : Controller {
         if (Input::down[ikEnter]) {
             if (!lState) {
                 lState = true;
-                static int snd_id = 0;
+                static int snd_id = 0;//160;
                 playSound(snd_id);
+            //    setAnimation(snd_id);
                 LOG("sound: %d\n", snd_id++);
-            }
-            /*
-            LOG("state: %d\n", anim->state);
-            for (int i = 0; i < anim->scCount; i++) {
-                auto &sc = level->states[anim->scOffset + i];
-                LOG("-> %d : ", (int)sc.state);
-                for (int j = 0; j < sc.rangesCount; j++) {
-                    AnimRange &range = level->ranges[sc.rangesOffset + j];
-                    LOG("%d ", range.nextAnimation);
+
+                LOG("state: %d\n", anim->state);
+                for (int i = 0; i < anim->scCount; i++) {
+                    auto &sc = level->states[anim->scOffset + i];
+                    LOG("-> %d : ", (int)sc.state);
+                    for (int j = 0; j < sc.rangesCount; j++) {
+                        TR::AnimRange &range = level->ranges[sc.rangesOffset + j];
+                        LOG("%d ", range.nextAnimation);
+                    }
+                    LOG("\n");
                 }
-                LOG("\n");
-            }*/
+
+            }
+            
         } else 
             lState = false;
 #endif
@@ -281,7 +359,7 @@ struct Lara : Controller {
        
         if (state == STATE_SWIM || state == STATE_GLIDE)
             w = TURN_WATER_FAST;
-        else if (state == STATE_TREAD)
+        else if (state == STATE_TREAD || state == STATE_SURF_TREAD || state == STATE_SURF_SWIM || state == STATE_SURF_BACK)
             w = TURN_WATER_SLOW;
         else if (state == STATE_RUN || state == STATE_FAST_TURN)
             w = TURN_FAST;
@@ -308,16 +386,19 @@ struct Lara : Controller {
         angleExt = angle.y;
         switch (state) {
             case STATE_BACK :
-            case STATE_BACK_JUMP :
-            case STATE_FAST_BACK :
+            case STATE_SURF_BACK  :
+            case STATE_BACK_JUMP  :
+            case STATE_FAST_BACK  :
                 angleExt += PI;
                 break;
-            case STATE_STEP_LEFT :
-            case STATE_LEFT_JUMP :
+            case STATE_LEFT_JUMP  :
+            case STATE_STEP_LEFT  :
+            case STATE_SURF_LEFT  :
                 angleExt -= PI * 0.5f;
                 break;
-            case STATE_STEP_RIGHT :
             case STATE_RIGHT_JUMP :
+            case STATE_STEP_RIGHT :
+            case STATE_SURF_RIGHT :
                 angleExt +=  PI * 0.5f;
                 break;
         }  
@@ -326,75 +407,116 @@ struct Lara : Controller {
     virtual void updateVelocity() {
     // calculate moving speed
         float dt = Core::deltaTime * 30.0f;
+        
+        TR::Animation *anim = &level->anims[animIndex];
 
-        if (stand == STAND_AIR) {
-            velocity.y += GRAVITY * dt;
-        } else if (stand == STAND_ONWATER) {
+        //if (anim->speed != 0.0f || anim->accel != 0.0f)
+        //    LOG("speed: %f accel: %f\n", (float)anim->speed, (float)anim->accel);
 
-        } else if (stand == STAND_UNDERWATER) {
+        switch (stand) {
+            case STAND_AIR :
+                velocity.y += GRAVITY * dt;
+                break;
+            case STAND_GROUND :
+            case STAND_ONWATER : {
 
-            if (state == STATE_SWIM)
-                velocity = vec3(angle.x, angle.y) * 35.0f;
-            else 
-                velocity = velocity - velocity * min(1.0f, Core::deltaTime * 2.0f);
+                float speed = 0.0f;
+                switch (state) {
+                    case STATE_SURF_SWIM  :
+                    case STATE_SURF_BACK  :
+                    case STATE_SURF_LEFT  :
+                    case STATE_SURF_RIGHT :
+                        speed = 15.0f;
+                        break;
+                    default :
+                        speed = anim->speed + anim->accel * (animTime * 30.0f);
+                        if (animIndex == ANIM_STAND_ROLL_END) 
+                            speed = -speed;
+                }
 
-            // TODO: apply flow velocity
-        } else if (stand == STAND_GROUND) {
-            TR::Animation *anim = &level->anims[animIndex];
+                velocity.x = sinf(angleExt) * speed;
+                velocity.z = cosf(angleExt) * speed;
+                if (stand == STAND_GROUND)
+                    velocity.y += GRAVITY * dt; 
+                else
+                    velocity.y = 0.0f;
+                break;
+            }
+            case STAND_UNDERWATER : {
+                float speed = 0.0f;
+                if (animIndex == ANIM_TO_UNDERWATER)
+                    speed = 15.0f;
+                if (state == STATE_SWIM)
+                    speed = 35.0f;
 
-            float speed = anim->speed + anim->accel * (animTime * 30.0f);
- 
-            velocity.x = sinf(angleExt) * speed;
-            velocity.z = cosf(angleExt) * speed;
-            velocity.y += GRAVITY * dt; 
-        }    
+                if (speed != 0.0f)
+                    velocity = vec3(angle.x, angle.y) * speed;
+                else 
+                    velocity = velocity - velocity * min(1.0f, Core::deltaTime * 2.0f);
+                // TODO: apply flow velocity
+                break;
+            }
+        }
     }
 
-    virtual void move() {
+    virtual void move() { // TORO: as part of Controller
+        if (velocity.length() < EPS) return;
+
         vec3 offset = velocity * Core::deltaTime * 30.0f;
 
         vec3 p = pos;
         pos = pos + offset;
+        
+        FloorInfo info = getFloorInfo((int)pos.x, (int)pos.z);
 
         int delta;
         int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z, delta);
 
-        int state = level->anims[animIndex].state;
-        bool stop = false;
+        int height = getHeight();
+        bool canPassGap;
 
-        if ((d == NO_OVERLAP) ||
-           ((state == STATE_WALK || state == STATE_BACK || state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT) && delta > 256) /*||
-           (delta < -256) */) {
-
-            pos = p;
-
-            TR::Animation *anim = &level->anims[animIndex];
-
-        // smashes
-            if (stand == STAND_GROUND) { // onGround
-                if (d >= 256 * 4 && anim->state == STATE_RUN)
-                    setAnimation(ANIM_SMASH_RUN_LEFT);  // TODO: RIGHT
-                else
-                    setAnimation(ANIM_STAND);
-
-                velocity.x = velocity.z = 0.0f;
-            } else if (stand == STAND_UNDERWATER) {   // in water
-                // do nothing
-                //velocity.x = velocity.z = 0.0f;
-            } else  { // in the air
-                setAnimation(ANIM_SMASH_JUMP);
-
-                velocity.x = -velocity.x * 0.5f;
-                velocity.z = -velocity.z * 0.5f;
-                velocity.y = 0.0f;
+        switch (stand) {
+            case STAND_AIR : 
+                canPassGap = ((int)p.y - d) <= 512 && (pos.y - height - info.ceiling > -256);
+                break;
+            case STAND_UNDERWATER : 
+                canPassGap = ((int)p.y - d) <  128; 
+                break;
+            case STAND_ONWATER : {
+                canPassGap = info.roomAbove != 0xFF;
+                break;
             }
-                     
-        } else {
-            TR::Entity &entity = getEntity();
-            entity.x = (int)pos.x;
-            entity.y = (int)pos.y;
-            entity.z = (int)pos.z;
+            default : // TODO: height
+                if (state == STATE_WALK || state == STATE_BACK || state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT) 
+                    canPassGap = delta <=  256;
+                else
+                    canPassGap = delta >= -256 - 16; 
         }
+
+        if (d == NO_OVERLAP || !canPassGap) {
+            pos = p; // TODO: use smart ejection
+
+        // hit the wall
+            switch (stand) {
+                case STAND_AIR :
+                    setAnimation(ANIM_SMASH_JUMP);
+                    velocity.x = -velocity.x * 0.5f;
+                    velocity.z = -velocity.z * 0.5f;
+                    velocity.y = 0.0f;
+                    break;
+                case STAND_GROUND :
+                    if (delta >= 256 * 4 && state == STATE_RUN)
+                        setAnimation(ANIM_SMASH_RUN_LEFT);  // TODO: RIGHT
+                    else
+                        setAnimation(ANIM_STAND);
+                    velocity.x = velocity.z = 0.0f;
+                    break;
+                case STAND_UNDERWATER :
+                case STAND_ONWATER    :
+                    break;
+            }                     
+        } else 
+            updateEntity();
     }
 };
 

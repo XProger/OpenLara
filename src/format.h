@@ -20,6 +20,25 @@ namespace TR {
         FD_KILL     = 5,
     };
 
+    enum {
+        ANIM_CMD_MOVE    = 1,
+        ANIM_CMD_SPEED   = 2,
+        ANIM_CMD_EMPTY   = 3,
+        ANIM_CMD_KILL    = 4,
+        ANIM_CMD_SOUND   = 5,
+        ANIM_CMD_SPECIAL = 6,
+    };
+
+    enum {
+        ANIM_CMD_SPECIAL_FLIP   = 0,
+        ANIM_CMD_SPECIAL_BUBBLE = 3,
+        ANIM_CMD_SPECIAL_CTRL   = 12,
+    };
+
+    enum {
+        SND_BUBBLE      = 37,
+    };
+
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
     #define DATA_CEILING    0x03
@@ -30,6 +49,7 @@ namespace TR {
     #define ENTITY_FLAG_MASK    0x3E00
 
     #define ENTITY_LARA                     0
+    #define ENTITY_LARA_CUT                 77
 
     #define ENTITY_ENEMY_TWIN               6
     #define ENTITY_ENEMY_WOLF               7

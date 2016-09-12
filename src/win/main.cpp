@@ -31,8 +31,8 @@ InputKey keyToInputKey(int code) {
 }
 
 InputKey mouseToInputKey(int msg) {
-    return (msg >= WM_LBUTTONDOWN || msg <= WM_LBUTTONDBLCLK) ? ikMouseL :
-           (msg >= WM_RBUTTONDOWN || msg <= WM_RBUTTONDBLCLK) ? ikMouseR : ikMouseM;
+    return (msg >= WM_LBUTTONDOWN && msg <= WM_LBUTTONDBLCLK) ? ikMouseL :
+           (msg >= WM_RBUTTONDOWN && msg <= WM_RBUTTONDBLCLK) ? ikMouseR : ikMouseM;
 }
 
 #define JOY_DEAD_ZONE_STICK        0.3f
