@@ -67,9 +67,9 @@ struct MeshBuilder {
 
 // objects meshes
     struct MeshInfo : MeshRange {
-        int         offset;
-        TR::Vertex  center;
-        int32       radius;
+        int          offset;
+        TR::Vertex   center;
+        TR::Collider collider;
     }   *meshInfo;
     int mCount;
 
@@ -131,7 +131,7 @@ struct MeshBuilder {
 
         mCount = 0;
         TR::Mesh *ptr = (TR::Mesh*)level.meshData;
-        while ( ((int)ptr - (int)level.meshData) < level.meshDataSize * 2 ) {
+        while ( ((intptr_t)ptr - (intptr_t)level.meshData) < level.meshDataSize * 2 ) {
             mCount++;
 
             OFFSET(ptr->vCount * sizeof(TR::Vertex));
@@ -155,7 +155,7 @@ struct MeshBuilder {
             iCount += ptr->ctCount * 3;
             vCount += ptr->ctCount * 3;
             OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
-            ptr = (TR::Mesh*)(((int)ptr + 3) & -4);
+            ptr = (TR::Mesh*)(((intptr_t)ptr + 3) & -4);
         }
         meshInfo = new MeshInfo[mCount];
         
@@ -229,15 +229,14 @@ struct MeshBuilder {
         }
 
     // build objects geometry
-        mCount = 0;
         ptr = (TR::Mesh*)level.meshData;
-        while ( ((int)ptr - (int)level.meshData) < level.meshDataSize * sizeof(uint16) ) {
-            MeshInfo &info = meshInfo[mCount++];
-            info.offset = (int)ptr - (int)level.meshData;
-            info.vStart = vCount;
-            info.iStart = iCount;
-            info.center = ptr->center;
-            info.radius = ptr->radius;
+        for (int i = 0; i < mCount; i++) {
+            MeshInfo &info = meshInfo[i];
+            info.offset   = (intptr_t)ptr - (intptr_t)level.meshData;
+            info.vStart   = vCount;
+            info.iStart   = iCount;
+            info.center   = ptr->center;
+            info.collider = ptr->collider;
 
             TR::Vertex *mVertices = (TR::Vertex*)&ptr->vertices;
 
@@ -326,7 +325,7 @@ struct MeshBuilder {
                     } else {
                         uint8 a = 255 - (lights[f.vertices[k]] >> 5);
                         vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 }; // TODO: apply color
+                        vertices[vCount].color  = { a, a, a, 255 };
                     }
                     vCount++;
                 }
@@ -352,16 +351,15 @@ struct MeshBuilder {
                     } else {
                         uint8 a = 255 - (lights[f.vertices[k]] >> 5);
                         vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 }; // TODO: apply color
+                        vertices[vCount].color  = { a, a, a, 255 };
                     }
                     vCount++;
                 }
             }
-            OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
-
-            ptr = (TR::Mesh*)(((int)ptr + 3) & -4);
-
             info.iCount = iCount - info.iStart;
+
+            OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
+            ptr = (TR::Mesh*)(((intptr_t)ptr + 3) & -4);
         }
 
     // build sprite sequences
@@ -388,8 +386,8 @@ struct MeshBuilder {
         int  tile = tex.tile.index;
         int  tx = (tile % 4) * 256;
         int  ty = (tile / 4) * 256;
-        return vec2( ((tx + tex.vertices[0].Xpixel) << 5) + 16,
-                     ((ty + tex.vertices[0].Ypixel) << 5) + 16 );
+        return vec2( (float)(((tx + tex.vertices[0].Xpixel) << 5) + 16),
+                     (float)(((ty + tex.vertices[0].Ypixel) << 5) + 16) );
     }
 
     void initAnimTextures(TR::Level &level) {

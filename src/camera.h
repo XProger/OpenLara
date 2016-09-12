@@ -3,9 +3,9 @@
 
 #include "core.h"
 #include "controller.h"
+#include "lara.h"
 
 #define MAX_CLIP_PLANES 10
-
 
 struct Frustum {
 
@@ -47,38 +47,7 @@ struct Frustum {
             planes[i].w   = -(pos.dot(planes[i].xyz));
             e1 = e2;
         }
-    #ifdef _DEBUG
-        dbg++;
-        debugPoly = poly;
-    #endif
     }
-
-#ifdef _DEBUG
-    void debug() {
-        if (debugPoly.count < 3) return;
-
-        glUseProgram(0);
-        Core::setBlending(bmAdd);
-        glDisable(GL_DEPTH_TEST);
-        glBegin(GL_TRIANGLES);
-        for (int i = 0; i < debugPoly.count; i++) {
-            glVertex3fv((GLfloat*)&pos);
-            glVertex3fv((GLfloat*)&debugPoly.vertices[i]);
-            glVertex3fv((GLfloat*)&debugPoly.vertices[(i + 1) % debugPoly.count]);
-        }
-        glEnd();
-
-        glColor3f(0, 1, 0);
-        glBegin(GL_LINE_STRIP);
-        for (int i = 0; i <= debugPoly.count; i++) {
-            glVertex3fv((GLfloat*)&debugPoly.vertices[i % debugPoly.count]);
-        }
-        glEnd();
-
-        glEnable(GL_DEPTH_TEST);
-        Core::setBlending(bmAlpha);
-    }
-#endif
 
     void clipPlane(const Poly &src, Poly &dst, const vec4 &plane) {
         dst.count = 0;
@@ -168,7 +137,7 @@ struct Camera : Controller {
     Frustum     *frustum;
 
     float fov, znear, zfar;
-    vec3 pos, target;
+    vec3 target, destPos, lastDest;
 
     int         room;
 
@@ -179,16 +148,17 @@ struct Camera : Controller {
         angle.y += PI;
         
         room = owner->getEntity().room;
+        pos = pos - getDir() * 1024.0f;
     }
 
     ~Camera() {
         delete frustum;
     }
 
-    virtual TR::Room& getRoom() {
+    virtual TR::Room& getRoom() const {
         return level->rooms[room];
     }
-
+    
     virtual void update() {
     #ifdef FREE_CAMERA
         vec3 dir = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
@@ -200,10 +170,6 @@ struct Camera : Controller {
         if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
         pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
     #endif
-    //    deltaPos = deltaPos.lerp(targetDeltaPos, Core::deltaTime * 10.0f);
-    //    angle    = angle.lerp(targetAngle, Core::deltaTime);
-
-
         if (Input::down[ikMouseL]) {
             vec2 delta = Input::mouse.pos - Input::mouse.start.L;
             angle.x += delta.y * 0.01f;
@@ -211,25 +177,31 @@ struct Camera : Controller {
             Input::mouse.start.L = Input::mouse.pos;
         }
  
- //       angle.x = owner->angle.x;
         angle.y = PI - owner->angle.y;
         angle.z = 0.0f;        
 
         angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
-        vec3 dir = vec3(sinf(PI - angle.y) * cosf(-angle.x), -sinf(-angle.x), cosf(PI - angle.y) * cosf(-angle.x));
+        vec3 dir = getDir();
 
-        float height = owner->inWater ? 256.0f : 768.0f;
+        float height = owner->stand == Controller::STAND_UNDERWATER ? 256.0f : 768.0f;
 
         target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
-        pos = target - dir * 1024.0;
+        
+        if (owner->state != Lara::STATE_BACK_JUMP) {
+            destPos = target - dir * 1024.0f;
+            lastDest = destPos;
+        } else
+            destPos = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);       
+
+        pos = pos.lerp(destPos, min(1.0f, Core::deltaTime * 2.0f));
 
         FloorInfo info = getFloorInfo((int)pos.x, (int)pos.z);
         
         if (info.roomNext != 255) 
             room = info.roomNext;
         
-        if (pos.y < info.ceiling) {
+        if (destPos.y < info.ceiling) {
             if (info.roomAbove != 255)
                 room = info.roomAbove;
             else
@@ -255,18 +227,7 @@ struct Camera : Controller {
         Core::viewPos   = Core::mViewInv.offset.xyz;
 
         frustum->pos = Core::viewPos;
-        frustum->calcPlanes(Core::mViewProj);
-       
-    #ifdef _DEBUG
-        vec3 offset = vec3(0.0f) - (Input::down[ikR] ? (Core::mViewInv.dir.xyz * 2048 - vec3(0, 2048, 0)) : vec3(0.0f));
-        
-        Core::mViewInv = mat4(pos - offset, target - offset, vec3(0, -1, 0));
-        Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
-
-        Core::mViewProj = Core::mProj * Core::mView;        
-        Core::viewPos   = Core::mViewInv.offset.xyz;
-    #endif
+        frustum->calcPlanes(Core::mViewProj);      
     }
 };
 

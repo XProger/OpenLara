@@ -100,8 +100,10 @@
     <ClInclude Include="..\controller.h" />
     <ClInclude Include="..\core.h" />
     <ClInclude Include="..\debug.h" />
+    <ClInclude Include="..\enemy.h" />
     <ClInclude Include="..\game.h" />
     <ClInclude Include="..\input.h" />
+    <ClInclude Include="..\lara.h" />
     <ClInclude Include="..\level.h" />
     <ClInclude Include="..\mesh.h" />
     <ClInclude Include="..\shader.h" />

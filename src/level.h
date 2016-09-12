@@ -4,9 +4,9 @@
 #include "core.h"
 #include "utils.h"
 #include "format.h"
-#include "controller.h"
+#include "lara.h"
+#include "enemy.h"
 #include "camera.h"
-
 
 #ifdef _DEBUG
     #include "debug.h"
@@ -30,31 +30,68 @@ struct Level {
     float       time;
 
     Level(Stream &stream) : level{stream}, time(0.0f) {
+        #ifdef _DEBUG
+            Debug::init();
+        #endif
         mesh = new MeshBuilder(level);
         
         initAtlas();
         initShaders();
         initOverrides();
 
-        int entity = 0;
-        for (int i = 0; i < level.entitiesCount; i++)
-            if (level.entities[i].id == ENTITY_LARA) {
-                entity = i;
-                break;
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &entity = level.entities[i];
+            switch (entity.id) {
+                case ENTITY_LARA : 
+                    entity.controller = (lara = new Lara(&level, i));
+                    break;
+                case ENTITY_ENEMY_WOLF            :   
+                    entity.controller = new Wolf(&level, i);
+                    break;
+                case ENTITY_ENEMY_BEAR            : 
+                    entity.controller = new Bear(&level, i);
+                    break;
+                case ENTITY_ENEMY_BAT             :   
+                    entity.controller = new Bat(&level, i);
+                    break;
+                case ENTITY_ENEMY_TWIN            :   
+                case ENTITY_ENEMY_CROCODILE_LAND  :   
+                case ENTITY_ENEMY_CROCODILE_WATER :   
+                case ENTITY_ENEMY_LION_MALE       :   
+                case ENTITY_ENEMY_LION_FEMALE     :   
+                case ENTITY_ENEMY_PUMA            :   
+                case ENTITY_ENEMY_GORILLA         :   
+                case ENTITY_ENEMY_RAT_LAND        :   
+                case ENTITY_ENEMY_RAT_WATER       :   
+                case ENTITY_ENEMY_REX             :   
+                case ENTITY_ENEMY_RAPTOR          :   
+                case ENTITY_ENEMY_MUTANT          :   
+                case ENTITY_ENEMY_CENTAUR         :   
+                case ENTITY_ENEMY_MUMMY           :   
+                case ENTITY_ENEMY_LARSON          :
+                    entity.controller = new Enemy(&level, i);
+                    break;
             }
+        }
 
-        lara    = new Lara(&level, entity);
-        camera  = new Camera(&level, lara);
+        ASSERT(lara != NULL);
+        camera = new Camera(&level, lara);
     }
 
     ~Level() {
+        #ifdef _DEBUG
+            Debug::free();
+        #endif
+        for (int i = 0; i < level.entitiesCount; i++)
+            delete (Controller*)level.entities[i].controller;
+
         for (int i = 0; i < shMAX; i++)
             delete shaders[i];
+
         delete atlas;
         delete mesh;
 
-        delete camera;
-        delete lara;
+        delete camera;        
     }
 
     void initAtlas() {
@@ -236,11 +273,6 @@ struct Level {
                 renderRoom(p.roomIndex, roomIndex);
         }
         camera->frustum = camFrustum;    // pop camera frustum
-        
-    #ifdef _DEBUG
-        glColor3f(0, 0.05, 0);
-        camera->frustum->debug();
-    #endif
     }
 
     MeshBuilder::MeshInfo* getMeshInfoByOffset(uint32 meshOffset) {
@@ -250,16 +282,15 @@ struct Level {
         for (int i = 0; i < mesh->mCount; i++)
             if (mesh->meshInfo[i].offset == level.meshOffsets[meshOffset])
                 return &mesh->meshInfo[i];
-
+        ASSERT(false);
         return NULL;
     }
 
     void renderMesh(uint32 meshOffset) {
         MeshBuilder::MeshInfo *m = getMeshInfoByOffset(meshOffset);
-        ASSERT(m != NULL);
-        if (!m) return;
+        if (!m) return; // invisible mesh (level.meshOffsets[meshOffset] == 0) camera target entity etc.
 
-        if ((m->radius & 0xFFFF) == 0 || camera->frustum->isVisible(Core::mModel * m->center, (m->radius & 0x3FF)) * 2) {
+        if (!m->collider.radius || camera->frustum->isVisible(Core::mModel * m->center, m->collider.radius * 2)) {
             Core::active.shader->setParam(uModel, Core::mModel);
             mesh->renderMesh(m);
         }
@@ -295,14 +326,21 @@ struct Level {
         return ma.getRot().slerp(mb.getRot(), t).normal();
     }
 
-    void renderModel(const TR::Model &model, vec3 angle) {
-        TR::Animation *anim = &level.anims[model.animation];
+    void renderModel(const TR::Model &model, const TR::Entity &entity) {
+        TR::Animation *anim;
+        float fTime;
+        vec3 angle;
 
-        float fTime = time;
+        Controller *controller = (Controller*)entity.controller;
 
-        if (model.id == ENTITY_LARA) {
-            fTime = lara->fTime;
-            angle = lara->angle;
+        if (controller) {
+            angle = controller->angle;
+            fTime = controller->animTime;
+            anim  = &level.anims[controller->animIndex];
+        } else {
+            anim  = &level.anims[model.animation];
+            angle = vec3(0.0f, entity.rotation / 16384.0f * PI * 0.5f, 0.0f);
+            fTime = time;
         }
 
         if (angle.y != 0.0f) Core::mModel.rotateY(angle.y);
@@ -405,9 +443,6 @@ struct Level {
     }
 
     void renderEntity(const TR::Entity &entity) {
-    //  if (!(entity.flags & ENTITY_FLAG_VISIBLE))
-    //      return;
-
         TR::Room &room = level.rooms[entity.room];
         if (!(room.flags & TR::ROOM_FLAG_VISIBLE)) // check for room visibility
             return;
@@ -431,7 +466,7 @@ struct Level {
         for (int i = 0; i < level.modelsCount; i++)
             if (entity.id == level.models[i].id) {
                 isModel = true;
-                renderModel(level.models[i], vec3(0, entity.rotation / 16384.0f * PI * 0.5f, 0));
+                renderModel(level.models[i], entity);
                 break;
             }
     
@@ -455,7 +490,13 @@ struct Level {
 
     void update() {
         time += Core::deltaTime;
-        lara->update();
+        
+        for (int i = 0; i < level.entitiesCount; i++) {
+            Controller *controller = (Controller*)level.entities[i].controller;
+            if (controller) 
+                controller->update();
+        }
+
         camera->update();
     }
 
@@ -511,7 +552,7 @@ struct Level {
     //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
-        Debug::Level::meshes(level);
+    //    Debug::Level::meshes(level);
         Debug::end();
     #endif
     }

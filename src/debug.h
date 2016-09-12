@@ -4,7 +4,27 @@
 #include "core.h"
 #include "format.h"
 
+extern HDC hDC;
+
 namespace Debug {
+
+    static GLuint font;
+
+    void init() {
+        font = glGenLists(256);
+        HDC hdc = hDC; 
+        HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
+                                 0, 0, FW_BOLD, 0, 0, 0,
+                                 ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                 ANTIALIASED_QUALITY, DEFAULT_PITCH, "Courier New");
+        SelectObject(hdc, hfont);
+        wglUseFontBitmaps(hdc, 0, 256, font);
+        DeleteObject(hfont);
+    }
+
+    void free() {
+        glDeleteLists(font, 256);
+    }
 
     void begin() {
         glMatrixMode(GL_PROJECTION);
@@ -110,6 +130,41 @@ namespace Debug {
             glBegin(GL_POINTS);
                 glVertex3fv((GLfloat*)&p);
             glEnd();
+        }
+
+        void text(const vec2 &pos, const vec4 &color, const char *str) {
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
+
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(0, Core::width, Core::height, 0, 0, 1);
+
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_TEXTURE_2D);
+            glColor4fv((GLfloat*)&color);
+            glRasterPos2f(pos.x, pos.y);
+            glListBase(font);
+            glCallLists(strlen(str), GL_UNSIGNED_BYTE, str);
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            glPopMatrix();
+        }
+
+        void text(const vec3 &pos, const vec4 &color, const char *str) {
+			vec4 p = Core::mViewProj * vec4(pos, 1);
+			if (p.w > 0) {
+				p.xyz = p.xyz * (1.0f / p.w);
+				p.y = -p.y;	
+				p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
+                text(vec2(p.x, p.y), color, str);
+			}
         }
     }
 
@@ -373,12 +428,14 @@ namespace Debug {
                         sm->getBox(true, m.rotation, min, max);
                         Debug::Draw::box(offset + min - vec3(10.0f), offset + max + vec3(10.0f), vec4(1, 0, 0, 0.50));
                     }
-
+                    /*
                     TR::Mesh *mesh = (TR::Mesh*)&level.meshData[level.meshOffsets[sm->mesh] / 2];
-
-                    ASSERT(mesh->radius == 0 || mesh->radius == 0x10000);
-
-                    Debug::Draw::sphere(offset + (min + max) * 0.5f, 128, mesh->radius == 0 ? vec4(0, 0, 1, 1) : vec4(0, 1, 0, 1));
+                    { //if (mesh->collider.info || mesh->collider.flags) {
+                        char buf[255];
+                        sprintf(buf, "radius %d info %d flags %d", (int)mesh->collider.radius, (int)mesh->collider.info, (int)mesh->collider.flags);
+                        Debug::Draw::text(offset + (min + max) * 0.5f, vec4(0.5, 0.5, 0.5, 1), buf);
+                    }
+                    */
                 }
             }
         // dynamic objects            
@@ -435,7 +492,14 @@ namespace Debug {
 
                             int offset = level.meshOffsets[m.mStart + k];
                             TR::Mesh *mesh = (TR::Mesh*)&level.meshData[offset / 2];
-                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius & 0x3FF, mesh->radius > 0x3FF ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
+                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->collider.radius, mesh->collider.info ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
+                            /*
+                            { //if (e.id != 0) {
+                                char buf[255];
+                                sprintf(buf, "(%d) radius %d info %d flags %d", e.id, (int)mesh->collider.radius, (int)mesh->collider.info, (int)mesh->collider.flags);
+                                Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
+                            }
+                            */
                         }
                         break;
                     }

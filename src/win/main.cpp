@@ -174,6 +174,8 @@ void freeGL(HGLRC hRC) {
     wglDeleteContext(hRC);
 }
 
+HDC hDC;
+
 int main() {
 #ifdef _DEBUG
     _CrtMemState _ms;
@@ -188,7 +190,7 @@ int main() {
 
     joyInit();
 
-    HDC hDC = GetDC(hWnd);
+    hDC = GetDC(hWnd);
     HGLRC hRC = initGL(hDC);
     Game::init();
 

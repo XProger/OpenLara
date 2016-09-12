@@ -47,9 +47,9 @@ namespace TR {
     #define ENTITY_ENEMY_RAPTOR             19
     #define ENTITY_ENEMY_MUTANT             20
 
-    #define ENTITY_ENEMY_CENTAUR    23
-    #define ENTITY_ENEMY_MUMMY      24
-    #define ENTITY_ENEMY_LARSON     27
+    #define ENTITY_ENEMY_CENTAUR            23
+    #define ENTITY_ENEMY_MUMMY              24
+    #define ENTITY_ENEMY_LARSON             27
 
     #define ENTITY_CRYSTAL          83
 
@@ -70,76 +70,6 @@ namespace TR {
     #define ENTITY_AMMO_UZI         91
     #define ENTITY_AMMO_SHOTGUN     89
     #define ENTITY_AMMO_MAGNUM      90
-
-    // http://www.tombraiderforums.com/showthread.php?t=148859&highlight=Explanation+left
-    enum LaraAnim : int32 {
-        ANIM_STAND              = 11,
-        ANIM_FALL               = 34,
-        ANIM_SMASH_JUMP         = 32,
-        ANIM_SMASH_RUN_LEFT     = 53,
-        ANIM_SMASH_RUN_RIGHT    = 54,
-        ANIM_WATER_FALL         = 112,
-    };
-
-    // http://www.tombraiderforums.com/showthread.php?t=211681
-    enum LaraState : int32 {
-        STATE_WALK,
-        STATE_RUN,
-        STATE_STOP,
-        STATE_FORWARD_JUMP,
-        STATE_4,
-        STATE_FAST_BACK,
-        STATE_TURN_RIGHT,
-        STATE_TURN_LEFT,
-        STATE_DEATH,
-        STATE_FALL,
-        STATE_HANG,
-        STATE_REACH,
-        STATE_SPLAT,
-        STATE_TREAD,
-        STATE_FAST_TURN_14,
-        STATE_COMPRESS,
-        STATE_BACK,
-        STATE_SWIM,
-        STATE_GLIDE,
-        STATE_NULL_19,
-        STATE_FAST_TURN,
-        STATE_STEP_RIGHT,
-        STATE_STEP_LEFT,
-        STATE_ROLL,
-        STATE_SLIDE,
-        STATE_BACK_JUMP,
-        STATE_RIGHT_JUMP,
-        STATE_LEFT_JUMP,
-        STATE_UP_JUMP,
-        STATE_FALL_BACK,
-        STATE_HANG_LEFT,
-        STATE_HANG_RIGHT,
-        STATE_SLIDE_BACK,
-        STATE_SURF_TREAD,
-        STATE_SURF_SWIM,
-        STATE_DIVE,
-        STATE_PUSH_BLOCK,
-        STATE_PULL_BLOCK,
-        STATE_PUSH_PULL_READY,
-        STATE_PICK_UP,
-        STATE_SWITCH_ON,
-        STATE_SWITCH_OFF,
-        STATE_USE_KEY,
-        STATE_USE_PUZZLE,
-        STATE_UNDERWATER_DEATH,
-        STATE_ROLL_45,
-        STATE_SPECIAL,
-        STATE_SURF_BACK,
-        STATE_SURF_LEFT,
-        STATE_SURF_RIGHT,
-        STATE_NULL_50,
-        STATE_NULL_51,
-        STATE_SWAN_DIVE,
-        STATE_FAST_DIVE,
-        STATE_HANDSTAND,
-        STATE_WATER_OUT,
-        STATE_MAX };
 
     #pragma pack(push, 1)
 
@@ -268,14 +198,19 @@ namespace TR {
         uint16 boxIndex:15, end:1;
     };
 
+    struct Collider {
+        uint16 radius:10, info:6;
+        uint16 flags:16;
+    };
+
     struct Mesh {
-        Vertex  center;
-        int32   radius;
+        Vertex      center;
+        Collider    collider;
 
-        int16   vCount;
-        Vertex  *vertices;  // List of vertices (relative coordinates)
-
-        int16   nCount;
+        uint16      vCount;
+        Vertex      *vertices;  // List of vertices (relative coordinates)
+ 
+        int16       nCount;
         union {
             Vertex  *normals;
             int16   *lights;    // if nCount < 0 -> (abs(nCount))
@@ -303,7 +238,9 @@ namespace TR {
         uint16  flags;          // 0x0100 indicates "initially invisible", 0x3e00 is Activation Mask
                                 // 0x3e00 indicates "open" or "activated";  these can be XORed with
                                 // related FloorData::FDlist fields (e.g. for switches)
-        uint16  align;          // ! not exists in file !
+    // not exists in file
+        uint16  align;
+        void    *controller;    // Controller implementation or NULL 
     };
 
     struct Animation {
@@ -474,7 +411,7 @@ namespace TR {
         int16   floor;      // Height value in global units
         uint16  overlap;    // Index into Overlaps[].
 
-        bool contains(int x, int z) {
+        bool contains(uint32 x, uint32 z) {
             return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
         }
     };
@@ -673,8 +610,11 @@ namespace TR {
             stream.read(animTexturesData,   stream.read(animTexturesDataSize));
         // entities (enemies, items, lara etc.)
             entities = new Entity[stream.read(entitiesCount)];
-            for (int i = 0; i < entitiesCount; i++)
-                stream.raw(&entities[i], sizeof(entities[i]) - sizeof(entities[i].align));
+            for (int i = 0; i < entitiesCount; i++) {
+                stream.raw(&entities[i], sizeof(entities[i]) - sizeof(entities[i].align) - sizeof(entities[i].controller));
+                entities[i].align = 0;
+                entities[i].controller = NULL;
+            }
         // palette
             stream.seek(32 * 256);  // skip lightmap palette
 
