@@ -171,10 +171,10 @@ struct Camera : Controller {
         pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
     #endif
         if (Input::down[ikMouseR]) {
-            vec2 delta = Input::mouse.pos - Input::mouse.start.L;
+            vec2 delta = Input::mouse.pos - Input::mouse.start.R;
             angleAdv.x += delta.y * 0.01f;
             angleAdv.y += delta.x * 0.01f;
-            Input::mouse.start.L = Input::mouse.pos;
+            Input::mouse.start.R = Input::mouse.pos;
         }
  
         float height = 0.0f;

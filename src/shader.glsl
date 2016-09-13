@@ -6,10 +6,11 @@ R"====(
 #endif
 varying vec2 vTexCoord;
 varying vec4 vColor;
-    
+
 #ifdef VERTEX
     uniform mat4 uViewProj;
     uniform mat4 uModel;
+    uniform mat4 uViewInv;
     uniform vec4 uColor;
 
     #ifndef SPRITE  
@@ -17,8 +18,6 @@ varying vec4 vColor;
         uniform vec3 uLightPos;
         uniform vec2 uAnimTexRanges[MAX_RANGES];
         uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-    #else
-        uniform mat4 uViewInv;
     #endif
 
     uniform vec4 uParam; // x - time
@@ -55,6 +54,7 @@ varying vec4 vColor;
             vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
             coord.xyz   -= uViewInv[0].xyz * aTexCoord.z + uViewInv[1].xyz * aTexCoord.w;
         #endif
+
         gl_Position = uViewProj * coord;
     }
 #else
@@ -73,13 +73,22 @@ varying vec4 vColor;
         color *= vColor;
         #ifndef SPRITE
             color.xyz = pow(abs(color.xyz), vec3(2.2));
-            float lum = dot(normalize(vNormal.xyz), normalize(vLightVec));
+            vec3 normal   = normalize(vNormal.xyz);
+            vec3 lightVec = normalize(vLightVec);
+            vec3 viewVec  = normalize(vViewVec);
+            float lum = dot(normal, lightVec);
             float att = max(0.0, 1.0 - dot(vLightVec, vLightVec) / uLightColor.w);
             vec3 light = uLightColor.xyz * max(vNormal.w, lum * att) + uAmbient;
+        // apply backlight
+            light *= max(vNormal.w, dot(normal, viewVec) * 0.5 + 0.5);
             color.xyz *= light;
             color.xyz = pow(abs(color.xyz), vec3(1.0/2.2));
         #endif
-        gl_FragColor = color;
+
+    // fog
+        float fog = clamp(1.0 / exp(gl_FragCoord.z / gl_FragCoord.w * 0.000025), 0.0, 1.0);
+
+        gl_FragColor = mix(vec4(0.0), color, fog);
     }
 #endif
 )===="
