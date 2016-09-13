@@ -174,7 +174,6 @@ void freeGL(HGLRC hRC) {
     wglDeleteContext(hRC);
 }
 
-HDC hDC;
 
 int main() {
 #ifdef _DEBUG
@@ -190,7 +189,7 @@ int main() {
 
     joyInit();
 
-    hDC = GetDC(hWnd);
+    HDC hDC = GetDC(hWnd);
     HGLRC hRC = initGL(hDC);
     Game::init();
 

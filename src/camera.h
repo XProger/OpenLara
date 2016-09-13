@@ -100,6 +100,7 @@ struct Frustum {
         return count >= 4;
     }
 
+    // AABB visibility check
     bool isVisible(const vec3 &min, const vec3 &max) const {
         if (count < 4) return false;
 
@@ -120,6 +121,27 @@ struct Frustum {
         return true;
     }
 
+    // OBB visibility check
+    bool isVisible(const mat4 &matrix, const vec3 &min, const vec3 &max) {
+        vec4 origPlanes[MAX_CLIP_PLANES];
+        memcpy(origPlanes, planes, count * sizeof(vec4));
+
+        // transform clip planes (relative)
+        mat4 m = matrix.inverse();
+        for (int i = 0; i < count; i++) {
+            vec4 &p = planes[i];
+            vec4 o = m * vec4(p.xyz * (-p.w), 1.0f);
+            vec4 n = m * vec4(p.xyz, 0.0f);
+            p.xyz = n.xyz;
+            p.w   = -o.xyz.dot(n.xyz);
+        }
+        bool visible = isVisible(min, max);
+
+        memcpy(planes, origPlanes, count * sizeof(vec4));
+        return visible;
+    }
+
+    // Sphere visibility check
     bool isVisible(const vec3 &center, float radius) {
         if (count < 4) return false;
 
@@ -172,7 +194,7 @@ struct Camera : Controller {
     #endif
         if (Input::down[ikMouseR]) {
             vec2 delta = Input::mouse.pos - Input::mouse.start.R;
-            angleAdv.x += delta.y * 0.01f;
+            angleAdv.x -= delta.y * 0.01f;
             angleAdv.y += delta.x * 0.01f;
             Input::mouse.start.R = Input::mouse.pos;
         }

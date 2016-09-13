@@ -477,7 +477,7 @@ struct Lara : Controller {
 
         switch (stand) {
             case STAND_AIR : 
-                canPassGap = ((int)p.y - d) <= 512 && (pos.y - height - info.ceiling > -256);
+                canPassGap = ((int)p.y - d) <= 512 && (info.roomAbove != 0xFF || (pos.y - height - info.ceiling > -256));
                 break;
             case STAND_UNDERWATER : 
                 canPassGap = ((int)p.y - d) <  128; 
@@ -499,13 +499,16 @@ struct Lara : Controller {
         // hit the wall
             switch (stand) {
                 case STAND_AIR :
-                    setAnimation(ANIM_SMASH_JUMP);
-                    velocity.x = -velocity.x * 0.5f;
-                    velocity.z = -velocity.z * 0.5f;
-                    velocity.y = 0.0f;
+                    if (state != STATE_UP_JUMP && state != STATE_REACH) {
+                        setAnimation(ANIM_SMASH_JUMP);
+                        velocity.x = -velocity.x * 0.5f;
+                        velocity.z = -velocity.z * 0.5f;
+                        velocity.y = 0.0f;
+                    } else
+                        velocity.x = velocity.z = 0.0f;
                     break;
                 case STAND_GROUND :
-                    if (delta >= 256 * 4 && state == STATE_RUN)
+                    if (delta <= -256 * 4 && state == STATE_RUN)
                         setAnimation(ANIM_SMASH_RUN_LEFT);  // TODO: RIGHT
                     else
                         setAnimation(ANIM_STAND);

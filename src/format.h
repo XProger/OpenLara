@@ -298,9 +298,15 @@ namespace TR {
         int16   nextFrame;      // Frame offset to dispatch to
     };
 
+    struct MinMax {
+        int16 minX, maxX, minY, maxY, minZ, maxZ;
+
+        vec3 min() const { return vec3((float)minX, (float)minY, (float)minZ); }
+        vec3 max() const { return vec3((float)maxX, (float)maxY, (float)maxZ); }
+    };
+
     struct AnimFrame {
-        TR::Vertex  min;   // Bounding box (low)
-        TR::Vertex  max;   // Bounding box (high)
+        MinMax      box;
         TR::Vertex  pos;   // Starting offset for this model
         int16   aCount;
         uint16  angles[0];          // angle frames in YXZ order
@@ -338,9 +344,7 @@ namespace TR {
     struct StaticMesh {
         uint32  id;             // Static Mesh Identifier
         uint16  mesh;           // Mesh (offset into MeshPointers[])
-        struct MinMax {
-            int16 minX, maxX, minY, maxY, minZ, maxZ;
-        } box[2];               // visible (minX, maxX, minY, maxY, minZ, maxZ) & collision
+        MinMax  box[2];         // visible (minX, maxX, minY, maxY, minZ, maxZ) & collision
         uint16  flags;
 
         void getBox(bool collision, int rotation, vec3 &min, vec3 &max) {

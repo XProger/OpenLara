@@ -3,8 +3,7 @@
 
 #include "core.h"
 #include "format.h"
-
-extern HDC hDC;
+#include "controller.h"
 
 namespace Debug {
 
@@ -12,7 +11,7 @@ namespace Debug {
 
     void init() {
         font = glGenLists(256);
-        HDC hdc = hDC; 
+        HDC hdc = GetDC(0); 
         HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
                                  0, 0, FW_BOLD, 0, 0, 0,
                                  ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -83,6 +82,13 @@ namespace Debug {
                 glVertex3f(min.x, min.y, max.z);
                 glVertex3f(min.x, max.y, max.z);
             glEnd();
+        }
+
+        void box(const mat4 &m, const vec3 &min, const vec3 &max, const vec4 &color) {
+            glPushMatrix();
+            glMultMatrixf((GLfloat*)&m);
+            box(min, max, color);
+            glPopMatrix();
         }
 
         void sphere(const vec3 &center, const float radius, const vec4 &color) {
@@ -441,10 +447,17 @@ namespace Debug {
         // dynamic objects            
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
+                Controller *controller = (Controller*)e.controller;
+
                 mat4 matrix;
                 matrix.identity();
                 matrix.translate(vec3(e.x, e.y, e.z));
-                matrix.rotateY(e.rotation / 16384.0f * PI * 0.5f);
+                if (controller) {
+                    matrix.rotateY(controller->angle.y);
+                    matrix.rotateX(controller->angle.x);
+                    matrix.rotateZ(controller->angle.z);
+                } else
+                    matrix.rotateY(e.rotation / 16384.0f * PI * 0.5f);
 
                 for (int j = 0; j < level.modelsCount; j++) {
                     TR::Model &m = level.models[j];
@@ -452,21 +465,25 @@ namespace Debug {
 
                     if (!node) continue; // ???
 
-                    TR::Animation *anim  = m.animation < 0xFFFF ? &level.anims[m.animation] : NULL;
-                    TR::AnimFrame *frame = anim ? (TR::AnimFrame*)&level.frameData[anim->frameOffset >> 1] : NULL;
-
-                    //mat4 m;
-                    //m.identity();
-                   // m.translate(vec3(frame->x, frame->y, frame->z).lerp(vec3(frameB->x, frameB->y, frameB->z), k));
-
-                    int  sIndex = 0;
-                    mat4 stack[20];
-                    mat4 joint;
-
-                    joint.identity();
-                    if (frame) joint.translate(frame->pos);
-
                     if (e.id == m.id) {
+                        ASSERT(m.animation < 0xFFFF);
+
+                        int fSize = sizeof(TR::AnimFrame) + m.mCount * sizeof(uint16) * 2;
+
+                        TR::Animation *anim  = controller ? &level.anims[controller->animIndex] : &level.anims[m.animation];
+                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[anim->frameOffset + (controller ? int((controller->animTime * 30.0f / anim->frameRate)) * fSize : 0) >> 1];
+
+                        //mat4 m;
+                        //m.identity();
+                        //m.translate(vec3(frame->x, frame->y, frame->z).lerp(vec3(frameB->x, frameB->y, frameB->z), k));
+
+                        int  sIndex = 0;
+                        mat4 stack[20];
+                        mat4 joint;
+
+                        joint.identity();
+                        if (frame) joint.translate(frame->pos);
+
                         for (int k = 0; k < m.mCount; k++) {
 
                             if (k > 0 && node) {
@@ -501,6 +518,8 @@ namespace Debug {
                             }
                             */
                         }
+
+                        Debug::Draw::box(matrix, frame->box.min(), frame->box.max(), vec4(1.0));
                         break;
                     }
                 

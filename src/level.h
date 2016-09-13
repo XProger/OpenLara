@@ -291,10 +291,8 @@ struct Level {
         MeshBuilder::MeshInfo *m = getMeshInfoByOffset(meshOffset);
         if (!m) return; // invisible mesh (level.meshOffsets[meshOffset] == 0) camera target entity etc.
 
-        if (!m->collider.radius || camera->frustum->isVisible(Core::mModel * m->center, m->collider.radius * 2)) {
-            Core::active.shader->setParam(uModel, Core::mModel);
-            mesh->renderMesh(m);
-        }
+        Core::active.shader->setParam(uModel, Core::mModel);
+        mesh->renderMesh(m);
     }
 
     float lerpAngle(float a, float b, float t) {
@@ -335,9 +333,9 @@ struct Level {
         Controller *controller = (Controller*)entity.controller;
 
         if (controller) {
+            anim  = &level.anims[controller->animIndex];
             angle = controller->angle;
             fTime = controller->animTime;
-            anim  = &level.anims[controller->animIndex];
         } else {
             anim  = &level.anims[model.animation];
             angle = vec3(0.0f, entity.rotation / 16384.0f * PI * 0.5f, 0.0f);
@@ -367,14 +365,20 @@ struct Level {
             nextAnim = anim;
 
         TR::AnimFrame *frameB = (TR::AnimFrame*)&level.frameData[(nextAnim->frameOffset + fIndexB * fSize) >> 1];
-        TR::Node *node = (int)model.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[model.node] : NULL;
 
-        int sIndex = 0;
-        mat4 stack[20];
+        vec3 bmin = frameA->box.min().lerp(frameB->box.min(), k);
+        vec3 bmax = frameA->box.max().lerp(frameB->box.max(), k);
+        if (!camera->frustum->isVisible(Core::mModel, bmin, bmax))
+            return;
+
+        TR::Node *node = (int)model.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[model.node] : NULL;
 
         mat4 m;
         m.identity();
         m.translate(((vec3)frameA->pos).lerp(frameB->pos, k));
+
+        int sIndex = 0;
+        mat4 stack[20];
 
         for (int i = 0; i < model.mCount; i++) {
 
@@ -552,7 +556,7 @@ struct Level {
     //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
-    //    Debug::Level::meshes(level);
+        Debug::Level::meshes(level);
         Debug::end();
     #endif
     }
