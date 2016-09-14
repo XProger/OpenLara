@@ -15,16 +15,18 @@ struct Frustum {
     };
 
     vec3 pos;
-    vec4 planes[MAX_CLIP_PLANES];
-    int  count;
+    vec4 planes[MAX_CLIP_PLANES * 2];   // + buffer for OBB visibility test
+    int  start, count;
 #ifdef _DEBUG
     int dbg;
     Poly debugPoly;
 #endif
+
     void calcPlanes(const mat4 &m) {
     #ifdef _DEBUG
         dbg = 0;
     #endif
+        start = 0;
         count = 5;
         planes[0] = vec4(m.e30 - m.e20, m.e31 - m.e21, m.e32 - m.e22, m.e33 - m.e23); // near
         planes[1] = vec4(m.e30 - m.e10, m.e31 - m.e11, m.e32 - m.e12, m.e33 - m.e13); // top
@@ -104,7 +106,7 @@ struct Frustum {
     bool isVisible(const vec3 &min, const vec3 &max) const {
         if (count < 4) return false;
 
-        for (int i = 0; i < count; i++) {
+        for (int i = start; i < start + count; i++) {
             const vec3 &n =  planes[i].xyz;
             const float d = -planes[i].w;
 
@@ -123,21 +125,17 @@ struct Frustum {
 
     // OBB visibility check
     bool isVisible(const mat4 &matrix, const vec3 &min, const vec3 &max) {
-        vec4 origPlanes[MAX_CLIP_PLANES];
-        memcpy(origPlanes, planes, count * sizeof(vec4));
-
+        start = count;
         // transform clip planes (relative)
         mat4 m = matrix.inverse();
         for (int i = 0; i < count; i++) {
             vec4 &p = planes[i];
             vec4 o = m * vec4(p.xyz * (-p.w), 1.0f);
             vec4 n = m * vec4(p.xyz, 0.0f);
-            p.xyz = n.xyz;
-            p.w   = -o.xyz.dot(n.xyz);
+            planes[start + i] = vec4(n.xyz, -n.xyz.dot(o.xyz));
         }
         bool visible = isVisible(min, max);
-
-        memcpy(planes, origPlanes, count * sizeof(vec4));
+        start = 0;
         return visible;
     }
 
