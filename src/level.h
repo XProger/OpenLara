@@ -7,6 +7,7 @@
 #include "lara.h"
 #include "enemy.h"
 #include "camera.h"
+#include "trigger.h"
 
 #ifdef _DEBUG
     #include "debug.h"
@@ -71,6 +72,25 @@ struct Level {
                 case ENTITY_ENEMY_MUMMY           :   
                 case ENTITY_ENEMY_LARSON          :
                     entity.controller = new Enemy(&level, i);
+                    break;
+                case ENTITY_DOOR_1                :
+                case ENTITY_DOOR_2                :
+                case ENTITY_DOOR_3                :
+                case ENTITY_DOOR_4                :
+                case ENTITY_DOOR_5                :
+                case ENTITY_DOOR_6                :
+                case ENTITY_DOOR_BIG_1            :
+                case ENTITY_DOOR_BIG_2            :
+                case ENTITY_DOOR_FLOOR_1          :
+                case ENTITY_DOOR_FLOOR_2          :
+                case ENTITY_BLADE                 :
+                    entity.controller = new Trigger(&level, i, true);
+                    break;
+                case ENTITY_SWITCH                :
+                case ENTITY_SWITCH_WATER          :
+                case ENTITY_HOLE_PUZZLE           :
+                case ENTITY_HOLE_KEY              :
+                    entity.controller = new Trigger(&level, i, false);
                     break;
             }
         }
@@ -360,7 +380,7 @@ struct Level {
 
         if (fIndexB == 0) {
             nextAnim = &level.anims[anim->nextAnimation];
-            fIndexB = (anim->nextFrame - nextAnim->frameStart) / anim->frameRate;
+            fIndexB = (anim->nextFrame - nextAnim->frameStart) / nextAnim->frameRate;
         } else
             nextAnim = anim;
 
@@ -553,10 +573,12 @@ struct Level {
 
     #ifdef _DEBUG
         Debug::begin();
-    //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
+        Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
-        Debug::Level::meshes(level);
+    //    Debug::Level::meshes(level);
+        Debug::Level::entities(level);
+        Debug::Level::info(level, lara->getEntity());
         Debug::end();
     #endif
     }

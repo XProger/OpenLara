@@ -340,7 +340,7 @@ namespace Debug {
 
                     bool current = (int)p.x == x && (int)p.z == z;
                     debugFloor(level, f, c, s.floorIndex, s.boxIndex, current);
-
+                    /*
                     if (current && s.boxIndex != 0xFFFF && level.boxes[s.boxIndex].overlap != 0xFFFF) {
                         glDisable(GL_DEPTH_TEST);
                         glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
@@ -349,6 +349,7 @@ namespace Debug {
                         debugOverlaps(level, s.boxIndex);
                         glEnable(GL_DEPTH_TEST);
                     }
+                    */
                 }
         }
 
@@ -392,6 +393,16 @@ namespace Debug {
 
             glDepthMask(GL_TRUE);
             Core::setBlending(bmAlpha);
+        }
+
+        void entities(const TR::Level &level) {
+            for (int i = 0; i < level.entitiesCount; i++) {
+                TR::Entity &e = level.entities[i];
+          
+                char buf[255];
+                sprintf(buf, "%d", (int)e.id);
+                Debug::Draw::text(vec3(e.x, e.y, e.z), vec4(0.8, 0.0, 0.0, 1), buf);
+            }
         }
 
         void lights(const TR::Level &level) {
@@ -471,7 +482,7 @@ namespace Debug {
                         int fSize = sizeof(TR::AnimFrame) + m.mCount * sizeof(uint16) * 2;
 
                         TR::Animation *anim  = controller ? &level.anims[controller->animIndex] : &level.anims[m.animation];
-                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[anim->frameOffset + (controller ? int((controller->animTime * 30.0f / anim->frameRate)) * fSize : 0) >> 1];
+                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + (controller ? int((controller->animTime * 30.0f / anim->frameRate)) * fSize : 0) >> 1)];
 
                         //mat4 m;
                         //m.identity();
@@ -528,6 +539,18 @@ namespace Debug {
             }
         }
 
+        void info(const TR::Level &level, const TR::Entity &entity) {
+            char buf[255];
+            sprintf(buf, "DIP = %d, TRI = %d", Core::stats.dips, Core::stats.tris);
+            Debug::Draw::text(vec2(16, 16), vec4(1.0f), buf);
+            sprintf(buf, "pos = (%d, %d, %d), room = %d", entity.x, entity.y, entity.z, entity.room);
+            Debug::Draw::text(vec2(16, 32), vec4(1.0f), buf);
+            
+            TR::Level::FloorInfo info;
+            level.getFloorInfo(entity.room, entity.x, entity.z, info);
+            sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
+            Debug::Draw::text(vec2(16, 48), vec4(1.0f), buf);
+        }
     }
 }
 

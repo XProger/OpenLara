@@ -39,14 +39,46 @@ namespace TR {
         SND_BUBBLE      = 37,
     };
 
+    enum {
+        TRIGGER_ACTIVATE = 0,
+        TRIGGER_PAD      = 1,
+        TRIGGER_SWITCH   = 2,
+        TRIGGER_KEY      = 3,
+        TRIGGER_PICKUP   = 4,
+        TRIGGER_HEAVY    = 5,
+        TRIGGER_ANTIPAD  = 6,
+        TRIGGER_COMBAT   = 7,
+        TRIGGER_DUMMY    = 8,
+        TRIGGER_ANTI     = 9
+    };
+
+    enum Action {
+        NONE            = -1,   // no action
+        ACTIVATE        =  0,   // activate item
+        CAMERA_SWITCH   =  1,   // switch to camera
+        CAMERA_DELAY    =  2,   // camera delay
+        FLIP_MAP        =  3,   // flip map
+        FLIP_ON         =  4,   // flip on
+        FLIP_OFF        =  5,   // flip off
+        LOOK_AT         =  6,   // look at item
+        END             =  7,   // end level
+        SOUNDTRACK      =  8,   // play soundtrack
+        HARDCODE        =  9,   // special hadrdcode trigger
+        SECRET          = 10,   // secret found
+        CLEAR_BODIES    = 11,   // clear bodies
+        CAMERA_FLYBY    = 12,   // flyby camera sequence
+        CUTSCENE        = 13,   // play cutscene
+    };
+
+
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
     #define DATA_CEILING    0x03
 
-
     #define ENTITY_FLAG_CLEAR   0x0080
     #define ENTITY_FLAG_VISIBLE 0x0100
-    #define ENTITY_FLAG_MASK    0x3E00
+    #define ENTITY_FLAG_ACTIVE  0x3E00
+
 
     #define ENTITY_LARA                     0
     #define ENTITY_LARA_CUT                 77
@@ -71,25 +103,41 @@ namespace TR {
     #define ENTITY_ENEMY_MUMMY              24
     #define ENTITY_ENEMY_LARSON             27
 
-    #define ENTITY_CRYSTAL          83
+    #define ENTITY_BLADE                    36
 
-    #define ENTITY_MEDIKIT_SMALL    93
-    #define ENTITY_MEDIKIT_BIG      94
+    #define ENTITY_CRYSTAL                  83
 
-    #define ENTITY_VIEW_TARGET      169
+    #define ENTITY_MEDIKIT_SMALL            93
+    #define ENTITY_MEDIKIT_BIG              94
 
-    #define ENTITY_TRAP_FLOOR       35
-    #define ENTITY_TRAP_SPIKES      37
-    #define ENTITY_TRAP_STONE       38
-    #define ENTITY_TRAP_DART        40
+    #define ENTITY_TRAP_FLOOR               35
+    #define ENTITY_TRAP_SPIKES              37
+    #define ENTITY_TRAP_STONE               38
+    #define ENTITY_TRAP_DART                40
 
-    #define ENTITY_SWITCH           55
+    #define ENTITY_SWITCH                   55
+    #define ENTITY_SWITCH_WATER             56
 
-    #define ENTITY_GUN_SHOTGUN      85
+    #define ENTITY_DOOR_1                   57
+    #define ENTITY_DOOR_2                   58
+    #define ENTITY_DOOR_3                   59
+    #define ENTITY_DOOR_4                   60
+    #define ENTITY_DOOR_BIG_1               61  
+    #define ENTITY_DOOR_BIG_2               62
+    #define ENTITY_DOOR_5                   63
+    #define ENTITY_DOOR_6                   64
+    #define ENTITY_DOOR_FLOOR_1             65
+    #define ENTITY_DOOR_FLOOR_2             66
 
-    #define ENTITY_AMMO_UZI         91
-    #define ENTITY_AMMO_SHOTGUN     89
-    #define ENTITY_AMMO_MAGNUM      90
+    #define ENTITY_GUN_SHOTGUN              85
+
+    #define ENTITY_AMMO_UZI                 91
+    #define ENTITY_AMMO_SHOTGUN             89
+    #define ENTITY_AMMO_MAGNUM              90
+
+    #define ENTITY_HOLE_PUZZLE              118
+    #define ENTITY_HOLE_KEY                 137
+    #define ENTITY_VIEW_TARGET              169
 
     #pragma pack(push, 1)
 
@@ -306,8 +354,8 @@ namespace TR {
     };
 
     struct AnimFrame {
-        MinMax      box;
-        TR::Vertex  pos;   // Starting offset for this model
+        MinMax  box;
+        Vertex  pos;   // Starting offset for this model
         int16   aCount;
         uint16  angles[0];          // angle frames in YXZ order
 
@@ -579,7 +627,7 @@ namespace TR {
             // lights
                 r.lights = new Room::Light[stream.read(r.lightsCount)];
                 for (int i = 0; i < r.lightsCount; i++) {
-                    TR::Room::Light &light = r.lights[i];
+                    Room::Light &light = r.lights[i];
                     stream.read(light.x);
                     stream.read(light.y);
                     stream.read(light.z);
@@ -711,13 +759,127 @@ namespace TR {
             delete[] soundOffsets;
         }
 
-        TR::StaticMesh* getMeshByID(int id) const { // TODO: map this
+    // common methods
+
+        StaticMesh* getMeshByID(int id) const { // TODO: map this
             for (int i = 0; i < staticMeshesCount; i++)
                 if (staticMeshes[i].id == id)
                     return &staticMeshes[i];
             return NULL;
         }
-    };
+
+        struct FloorInfo {
+            int floor, ceiling;
+            int roomNext, roomBelow, roomAbove;
+            int floorIndex;
+            bool kill;
+            int trigger;
+            FloorData::TriggerInfo trigInfo;
+            FloorData::TriggerCommand trigCmd[16];
+            int trigCmdCount;
+        };
+
+        Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
+            ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
+            Room &room = rooms[roomIndex];
+
+            int sx = x - room.info.x;
+            int sz = z - room.info.z;
+
+            sx = clamp(sx, 0, (room.xSectors - 1) * 1024);
+            sz = clamp(sz, 0, (room.zSectors - 1) * 1024);
+
+            dx = sx % 1024;
+            dz = sz % 1024;
+            sx /= 1024;
+            sz /= 1024;
+
+            return room.sectors[sx * room.zSectors + sz];
+        }
+
+        void getFloorInfo(int roomIndex, int x, int z, FloorInfo &info) const {
+            int dx, dz;
+            Room::Sector &s = getSector(roomIndex, x, z, dx, dz);
+
+            info.floor        = 256 * (int)s.floor;
+            info.ceiling      = 256 * (int)s.ceiling;
+            info.roomNext     = 255;
+            info.roomBelow    = s.roomBelow;
+            info.roomAbove    = s.roomAbove;
+            info.floorIndex   = s.floorIndex;
+            info.kill         = false;
+            info.trigger      = -1;
+            info.trigCmdCount = 0;
+
+            if (!s.floorIndex) return;
+
+            FloorData *fd = &floors[s.floorIndex];
+            FloorData::Command cmd;
+
+            do {
+                cmd = (*fd++).cmd;
+                
+                switch (cmd.func) {
+
+                    case FD_PORTAL  :
+                        info.roomNext = (*fd++).data;
+                        break;
+
+                    case FD_FLOOR   : // floor & ceiling
+                    case FD_CEILING : { 
+                        FloorData::Slant slant = (*fd++).slant;
+                        int sx = (int)slant.x;
+                        int sz = (int)slant.z;
+                        if (cmd.func == FD_FLOOR) {
+                            info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
+                            info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                        } else {
+                            info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
+                            info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
+                        }
+                        break;
+                    }
+
+                    case FD_TRIGGER :  {
+                        info.trigger        = cmd.sub;
+                        info.trigCmdCount   = 0;
+                        info.trigInfo       = (*fd++).triggerInfo;
+                        FloorData::TriggerCommand trigCmd;
+                        do {
+                            trigCmd = (*fd++).triggerCmd; // trigger action
+                            info.trigCmd[info.trigCmdCount++] = trigCmd;
+                            switch (trigCmd.func) {
+                                case  0 : break; // activate item
+                                case  1 : break; // switch to camera
+                                case  2 : break; // camera delay
+                                case  3 : break; // flip map
+                                case  4 : break; // flip on
+                                case  5 : break; // flip off
+                                case  6 : break; // look at item
+                                case  7 : break; // end level
+                                case  8 : break; // play soundtrack
+                                case  9 : break; // special hadrdcode trigger
+                                case 10 : break; // secret found
+                                case 11 : break; // clear bodies
+                                case 12 : break; // flyby camera sequence
+                                case 13 : break; // play cutscene
+                            }
+                            // ..
+                        } while (!trigCmd.end);                       
+                        break;
+                    }
+
+                    case FD_KILL :
+                        info.kill = true;
+                        break;
+
+                    default : LOG("unknown func: %d\n", cmd.func);
+                }
+
+            } while (!cmd.end);
+        }
+
+    }; // struct Level
 }
 
 #endif

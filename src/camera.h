@@ -225,7 +225,8 @@ struct Camera : Controller {
 
         pos = pos.lerp(destPos, min(1.0f, Core::deltaTime * 2.0f));
 
-        FloorInfo info = getFloorInfo((int)pos.x, (int)pos.z);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
         
         if (info.roomNext != 255) 
             room = info.roomNext;

@@ -109,6 +109,7 @@
     <ClInclude Include="..\shader.h" />
     <ClInclude Include="..\texture.h" />
     <ClInclude Include="..\format.h" />
+    <ClInclude Include="..\trigger.h" />
     <ClInclude Include="..\utils.h" />
   </ItemGroup>
   <ItemGroup>

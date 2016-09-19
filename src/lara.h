@@ -99,7 +99,7 @@ struct Lara : Controller {
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
-        getEntity().room = 15;        
+        getEntity().room = 15;
     */
     /*
     // level 2 (wolf)
@@ -129,8 +129,9 @@ struct Lara : Controller {
     bool waterOut(int &outState) {
         vec3 dst = pos + getDir() * 32.0f;
 
-        FloorInfo infoCur = getFloorInfo((int)pos.x, (int)pos.z),
-                  infoDst = getFloorInfo(infoCur.roomAbove, (int)dst.x, (int)dst.z);
+        TR::Level::FloorInfo infoCur, infoDst;
+        level->getFloorInfo(getEntity().room,  (int)pos.x, (int)pos.z, infoCur),
+        level->getFloorInfo(infoCur.roomAbove, (int)dst.x, (int)dst.z, infoDst);
 
         if (infoDst.roomBelow == 0xFF && pos.y - infoDst.floor <= 256) { // possibility check
             if (!setState(STATE_STOP)) { // can't set water out state
@@ -151,6 +152,77 @@ struct Lara : Controller {
         return false;
     }
 
+    void performTrigger() {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(e.room, e.x, e.z, info);
+
+        if (!info.trigCmdCount) return; // has no trigger
+        bool isActive = (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE);
+        if (info.trigInfo.once == 1 && (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE)) return; // once trigger is already activated
+
+        int actionState = 0;
+        switch (info.trigger) {
+            case TR::TRIGGER_ACTIVATE :
+                if (isActive) return;
+                actionState = state;
+                break;
+            case TR::TRIGGER_PAD :
+                if (stand != STAND_GROUND || isActive) return;
+                actionState = state;
+                break;
+            case TR::TRIGGER_SWITCH : 
+                if (mask & ACTION) {
+                    actionState = isActive ? STATE_SWITCH_OFF : STATE_SWITCH_ON;
+                } else 
+                    return;
+                break;
+            case TR::TRIGGER_KEY :
+                if (isActive) return;
+                if (mask & ACTION)
+                //    if (entity.id == ENTITY_PUZZLE_1)
+                //        actionState = STATE_USE_PUZZLE;
+                //    else
+                        actionState = STATE_USE_KEY; 
+                else
+                    return;
+                break;
+            case TR::TRIGGER_PICKUP :
+                if ((mask & ACTION) && stand == STAND_GROUND)
+                    actionState = STATE_PICK_UP;
+                else
+                    return;
+                break;
+            default :
+                return;
+        }
+        
+        // try to activate Lara state
+        if (!setState(actionState)) return;
+
+        // build trigger activation chain
+        for (int i = 0; i < info.trigCmdCount; i++) {
+            if (info.trigCmd[i].func != TR::Action::ACTIVATE) continue; // TODO: other trigger types
+            Controller *controller = (Controller*)level->entities[info.trigCmd[i].args].controller;
+            if (!controller) {
+                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
+                playSound(2);
+                return;
+            } else
+                controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args) : Action(TR::Action::NONE, 0);
+        }
+
+        if (info.trigCmd[0].func != TR::Action::ACTIVATE) return; // see above TODO
+
+        // activate first entity in chain
+        Controller *controller = (Controller*)level->entities[info.trigCmd[0].args].controller;
+        if (info.trigger == TR::TRIGGER_KEY) {
+            nextAction = controller->nextAction;
+            controller->nextAction.action = TR::Action::NONE;
+        } else
+            controller->activate();
+    }
+
     virtual Stand getStand() {
         if (stand == STAND_ONWATER && state != STATE_DIVE && state != STATE_STOP)
             return stand;
@@ -161,7 +233,8 @@ struct Lara : Controller {
         int extra = isMovingState(state) ? 256 : 0;
 
         TR::Entity &e = getEntity();
-        FloorInfo info = getFloorInfo(e.x, e.z);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(e.room, e.x, e.z, info);
         if (info.roomBelow == 0xFF && e.y + extra >= info.floor)
             return STAND_GROUND;
 
@@ -235,7 +308,7 @@ struct Lara : Controller {
          if (mask & FORTH) return STATE_RUN;
          if (mask & BACK)  return STATE_FAST_BACK;
          if (mask & LEFT)  return turnTime < FAST_TURN_TIME ? STATE_TURN_LEFT  : STATE_FAST_TURN;
-         if (mask & RIGHT) return turnTime < FAST_TURN_TIME ? STATE_TURN_RIGHT : STATE_FAST_TURN;         
+         if (mask & RIGHT) return turnTime < FAST_TURN_TIME ? STATE_TURN_RIGHT : STATE_FAST_TURN;
          return STATE_STOP;
     }
 
@@ -249,6 +322,7 @@ struct Lara : Controller {
         }
             
         if (mask & JUMP) return STATE_SWIM;
+
         return (state == STATE_SWIM || velocity.y > GLIDE_SPEED) ? STATE_GLIDE : STATE_TREAD;
     }
 
@@ -306,6 +380,8 @@ struct Lara : Controller {
     }
 
     virtual void updateState() {
+        performTrigger();
+
         TR::Animation *anim  = &level->anims[animIndex];
 
         int fCount = anim->frameEnd - anim->frameStart;
@@ -340,7 +416,6 @@ struct Lara : Controller {
         } else 
             lState = false;
 #endif
-
     // calculate turn tilt
         if (state == STATE_RUN && (mask & (LEFT | RIGHT))) {
             if (mask & LEFT)  angle.z -= Core::deltaTime * TURN_TILT;
@@ -401,7 +476,7 @@ struct Lara : Controller {
             case STATE_SURF_RIGHT :
                 angleExt +=  PI * 0.5f;
                 break;
-        }  
+        }
     }
 
     virtual void updateVelocity() {
@@ -467,7 +542,8 @@ struct Lara : Controller {
         vec3 p = pos;
         pos = pos + offset;
         
-        FloorInfo info = getFloorInfo((int)pos.x, (int)pos.z);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getEntity().room, (int)pos.x, (int)pos.z, info);
 
         int delta;
         int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z, delta);
@@ -518,7 +594,7 @@ struct Lara : Controller {
                 case STAND_ONWATER    :
                     break;
             }                     
-        } else 
+        } else
             updateEntity();
     }
 };

@@ -26,7 +26,7 @@ struct Controller {
             WALK        = 1 << 6,
             ACTION      = 1 << 7,
             WEAPON      = 1 << 8,
-            DEATH       = 1 << 11 };
+            DEATH       = 1 << 9 };
 
     float   animTime;
     int     animIndex;
@@ -41,12 +41,20 @@ struct Controller {
 
     float   turnTime;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f) {
+    struct Action {
+        TR::Action  action;
+        int         value;
+
+        Action(TR::Action action, int value) : action(action), value(value) {}
+    } nextAction;
+
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), nextAction(TR::Action::NONE, 0) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation / 16384.0f * PI * 0.5f, 0.0f);
         stand     = STAND_GROUND;
         animIndex = getModel().animation;
+        state     = level->anims[animIndex].state;
     }
 
     void updateEntity() {
@@ -90,29 +98,6 @@ struct Controller {
         return getEntity().room;
     }
 
-    TR::Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
-        ASSERT(roomIndex >= 0 && roomIndex < level->roomsCount);
-        TR::Room &room = level->rooms[roomIndex];
-
-        int sx = x - room.info.x;
-        int sz = z - room.info.z;
-
-        sx = clamp(sx, 0, (room.xSectors - 1) << 10);
-        sz = clamp(sz, 0, (room.zSectors - 1) << 10);
-
-        dx = sx & 1023; // mod 1024
-        dz = sz & 1023;
-        sx >>= 10;      // div 1024
-        sz >>= 10;
-
-        return room.sectors[sx * room.zSectors + sz];
-    }
-
-    TR::Room::Sector& getSector(int &dx, int &dz) const {
-        TR::Entity &entity = getEntity();
-        return getSector(entity.room, entity.x, entity.z, dx, dz);
-    }
-
     int setAnimation(int index, int frame = -1) {
         animIndex = index;
         TR::Animation &anim = level->anims[animIndex];
@@ -150,7 +135,7 @@ struct Controller {
 
     int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ, int &delta) const { 
         int dx, dz;
-        TR::Room::Sector &s = getSector(getEntity().room, fromX, fromZ, dx, dz);
+        TR::Room::Sector &s = level->getSector(getEntity().room, fromX, fromZ, dx, dz);
 
         if (s.boxIndex == 0xFFFF) return NO_OVERLAP;
 
@@ -179,108 +164,9 @@ struct Controller {
         return floor;
     }
 
-    struct FloorInfo {
-        int floor, ceiling;
-        int roomNext, roomBelow, roomAbove;
-        int floorIndex;
-    };
-
-    FloorInfo getFloorInfo(int x, int z) {
-        return getFloorInfo(getRoomIndex(), x, z);
-    }
-
-    FloorInfo getFloorInfo(int roomIndex, int x, int z) {
-        int dx, dz;
-        TR::Room::Sector &s = getSector(roomIndex, x, z, dx, dz);
-
-        FloorInfo info;
-        info.floor      = 256 * (int)s.floor;
-        info.ceiling    = 256 * (int)s.ceiling;
-        info.roomNext   = 255;
-        info.roomBelow  = s.roomBelow;
-        info.roomAbove  = s.roomAbove;
-        info.floorIndex = s.floorIndex;
-
-        if (!s.floorIndex) return info;
-
-        TR::FloorData *fd = &level->floors[s.floorIndex];
-        TR::FloorData::Command cmd;
-
-        do {
-            cmd = (*fd++).cmd;
-                
-            switch (cmd.func) {
-
-                case TR::FD_PORTAL  :
-                    info.roomNext = (*fd++).data;
-                    break;
-
-                case TR::FD_FLOOR   : // floor & ceiling
-                case TR::FD_CEILING : { 
-                    TR::FloorData::Slant slant = (*fd++).slant;
-                    int sx = (int)slant.x;
-                    int sz = (int)slant.z;
-                    if (cmd.func == TR::FD_FLOOR) {
-                        info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
-                        info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
-                    } else {
-                        info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
-                        info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
-                    }
-                    break;
-                }
-
-                case TR::FD_TRIGGER :  {
-                    TR::FloorData::TriggerInfo info = (*fd++).triggerInfo;
-                    TR::FloorData::TriggerCommand trigCmd;
-                    do {
-                        trigCmd = (*fd++).triggerCmd; // trigger action
-                        switch (trigCmd.func) {
-                            case  0 : 
-                                /*
-                                if (getEntity().id == 0 && cmd.sub == 2) {
-                                    TR::Entity &e = level->entities[trigCmd.args];
-                                    for (int i = 0; i < level->modelsCount; i++)
-                                        if (e.id == level->models[i].id) {                                            
-                                            TR::Animation *anim = &level->anims[level->models[i].animation];
-                                            for (int j = 0; j < anim->scCount; j++)
-                                            LOG("state: %d\n", anim->state);
-                                            break;
-                                        }
-                                }*/
-                                break; // activate item
-                            case  1 : break; // switch to camera
-                            case  2 : break; // camera delay
-                            case  3 : break; // flip map
-                            case  4 : break; // flip on
-                            case  5 : break; // flip off
-                            case  6 : break; // look at item
-                            case  7 : break; // end level
-                            case  8 : break; // play soundtrack
-                            case  9 : break; // special hadrdcode trigger
-                            case 10 : break; // secret found
-                            case 11 : break; // clear bodies
-                            case 12 : break; // flyby camera sequence
-                            case 13 : break; // play cutscene
-                        }
-                        // ..
-                    } while (!trigCmd.end);                       
-                    break;
-                }
-
-                case TR::FD_KILL :
-                    health = 0;
-                    break;
-
-                default : LOG("unknown func: %d\n", cmd.func);
-            }
-
-        } while (!cmd.end);
-
-        return info;
-    }
-
     void playSound(int id) const {
+    //    LOG("play sound %d\n", id);
+
         int16 a = level->soundsMap[id];
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
@@ -314,7 +200,8 @@ struct Controller {
     void collide() {
         TR::Entity &entity = getEntity();
 
-        FloorInfo info = getFloorInfo(entity.x, entity.z);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(entity.room, entity.x, entity.z, info);
 
         if (info.roomNext != 0xFF)
             entity.room = info.roomNext;
@@ -345,6 +232,16 @@ struct Controller {
         }
     }
 
+    void activateNext() { // activate next entity (for triggers)
+        if (nextAction.action == TR::Action::NONE) return; 
+        
+        Controller *controller = (Controller*)level->entities[nextAction.value].controller;
+        nextAction.action = TR::Action::NONE;
+        if (controller)
+            controller->activate();
+    }
+
+    virtual void  activate()           {} 
     virtual void  updateVelocity()     {}
     virtual void  move() {}
     virtual Stand getStand()           { return STAND_AIR; }
@@ -381,93 +278,97 @@ struct Controller {
     }
 
     virtual void updateBegin() {
-        animTime += Core::deltaTime;
         mask  = getInputMask();
         state = getState(stand = getStand());
     }
 
     virtual void updateEnd() {
-        int frameIndex = int(animTime * 30.0f);
-        TR::Animation *anim = &level->anims[animIndex];
-        bool endFrame = frameIndex >  anim->frameEnd - anim->frameStart;
- 
-    // apply animation commands
-        int16 *ptr = &level->commands[anim->animCommand];
-
-        for (int i = 0; i < anim->acCount; i++) {
-            int cmd = *ptr++; 
-            switch (cmd) {
-                case TR::ANIM_CMD_MOVE : { // cmd position
-                    int16 sx = *ptr++;
-                    int16 sy = *ptr++;
-                    int16 sz = *ptr++;
-                    if (endFrame) {
-                        pos = pos + vec3(sx, sy, sz).rotateY(angle.y);
-                        updateEntity();
-                        LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
-                    }
-                    break;
-                }
-                case TR::ANIM_CMD_SPEED : { // cmd jump speed
-                    int16 sy = *ptr++;
-                    int16 sz = *ptr++;
-                    if (endFrame) {
-                        LOG("jump: %d %d\n", (int)sy, (int)sz);
-                        velocity.x = sinf(angleExt) * sz;
-                        velocity.y = sy;
-                        velocity.z = cosf(angleExt) * sz;
-                        stand = STAND_AIR;
-                    }
-                    break;
-                }
-                case TR::ANIM_CMD_EMPTY : // empty hands
-                    break;
-                case TR::ANIM_CMD_KILL : // kill
-                    break;
-                case TR::ANIM_CMD_SOUND : { // play sound
-                    int frame = (*ptr++);
-                    int id    = (*ptr++) & 0x3FFF;
-                    int idx   = frame - anim->frameStart;
-                  
-                    if (idx > animPrevFrame && idx <= frameIndex) {
-                        playSound(id);
-                    //    LOG("play sound %d\n", getEntity().id);
-                    }
-                    break;
-                }
-                case TR::ANIM_CMD_SPECIAL : // special commands
-                    if (frameIndex != animPrevFrame && frameIndex + anim->frameStart == ptr[0]) {
-                        switch (ptr[1]) {
-                            case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;   break;
-                            case TR::ANIM_CMD_SPECIAL_BUBBLE : /* playSound(TR::SND_BUBBLE); */ break;
-                            case TR::ANIM_CMD_SPECIAL_CTRL   : LOG("water out ?\n");      break;
-                            default : LOG("unknown special cmd %d\n", (int)ptr[1]);
-                        }
-                    }
-                    ptr += 2;
-                    break;
-                default :
-                    LOG("unknown animation command %d\n", cmd);
-            }
-        }
-
-        if (endFrame) // if animation is end - switch to next
-            setAnimation(anim->nextAnimation, anim->nextFrame);            
-        else
-            animPrevFrame = frameIndex;        
-        
-        updateVelocity();
         move();
         collide();
-
         updateEntity();
     }
 
     virtual void updateState() {}
+
+    virtual void updateAnimation(bool commands) {
+        int frameIndex = int((animTime += Core::deltaTime) * 30.0f);
+        TR::Animation *anim = &level->anims[animIndex];
+        bool endFrame = frameIndex >  anim->frameEnd - anim->frameStart;
+ 
+    // apply animation commands
+        if (commands) {
+            int16 *ptr = &level->commands[anim->animCommand];
+
+            for (int i = 0; i < anim->acCount; i++) {
+                int cmd = *ptr++; 
+                switch (cmd) {
+                    case TR::ANIM_CMD_MOVE : { // cmd position
+                        int16 sx = *ptr++;
+                        int16 sy = *ptr++;
+                        int16 sz = *ptr++;
+                        if (endFrame) {
+                            pos = pos + vec3(sx, sy, sz).rotateY(angle.y);
+                            updateEntity();
+                            LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
+                        }
+                        break;
+                    }
+                    case TR::ANIM_CMD_SPEED : { // cmd jump speed
+                        int16 sy = *ptr++;
+                        int16 sz = *ptr++;
+                        if (endFrame) {
+                            LOG("jump: %d %d\n", (int)sy, (int)sz);
+                            velocity.x = sinf(angleExt) * sz;
+                            velocity.y = sy;
+                            velocity.z = cosf(angleExt) * sz;
+                            stand = STAND_AIR;
+                        }
+                        break;
+                    }
+                    case TR::ANIM_CMD_EMPTY : // empty hands
+                        break;
+                    case TR::ANIM_CMD_KILL : // kill
+                        break;
+                    case TR::ANIM_CMD_SOUND : { // play sound
+                        int frame = (*ptr++);
+                        int id    = (*ptr++) & 0x3FFF;
+                        int idx   = frame - anim->frameStart;
+                  
+                        if (idx > animPrevFrame && idx <= frameIndex) {
+                            if (getEntity().id != ENTITY_ENEMY_BAT) // temporary mute the bat
+                                playSound(id);
+                        }
+                        break;
+                    }
+                    case TR::ANIM_CMD_SPECIAL : // special commands
+                        if (frameIndex != animPrevFrame && frameIndex + anim->frameStart == ptr[0]) {
+                            switch (ptr[1]) {
+                                case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;   break;
+                                case TR::ANIM_CMD_SPECIAL_BUBBLE : /* playSound(TR::SND_BUBBLE); */ break;
+                                case TR::ANIM_CMD_SPECIAL_CTRL   : LOG("water out ?\n");      break;
+                                default : LOG("unknown special cmd %d\n", (int)ptr[1]);
+                            }
+                        }
+                        ptr += 2;
+                        break;
+                    default :
+                        LOG("unknown animation command %d\n", cmd);
+                }
+            }
+        }
+
+        if (endFrame) { // if animation is end - switch to next
+            setAnimation(anim->nextAnimation, anim->nextFrame);    
+            activateNext();
+        } else
+            animPrevFrame = frameIndex;
+    }
     
     virtual void update() {
         updateBegin();
         updateState();
+        updateAnimation(true);        
+        updateVelocity();
         updateEnd();
     }
 };
