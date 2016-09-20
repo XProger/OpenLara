@@ -103,17 +103,18 @@ namespace TR {
     #define ENTITY_ENEMY_MUMMY              24
     #define ENTITY_ENEMY_LARSON             27
 
-    #define ENTITY_BLADE                    36
+    #define ENTITY_TRAP_FLOOR               35
+    #define ENTITY_TRAP_BLADE               36
+    #define ENTITY_TRAP_SPIKES              37
+    #define ENTITY_TRAP_STONE               38
+    #define ENTITY_TRAP_DART                39
+    #define ENTITY_TRAP_DARTGUN             40
 
     #define ENTITY_CRYSTAL                  83
 
     #define ENTITY_MEDIKIT_SMALL            93
     #define ENTITY_MEDIKIT_BIG              94
 
-    #define ENTITY_TRAP_FLOOR               35
-    #define ENTITY_TRAP_SPIKES              37
-    #define ENTITY_TRAP_STONE               38
-    #define ENTITY_TRAP_DART                40
 
     #define ENTITY_SWITCH                   55
     #define ENTITY_SWITCH_WATER             56
@@ -859,7 +860,7 @@ namespace TR {
                                 case  7 : break; // end level
                                 case  8 : break; // play soundtrack
                                 case  9 : break; // special hadrdcode trigger
-                                case 10 : break; // secret found
+                                case 10 : break; // secret found (playSound(175))
                                 case 11 : break; // clear bodies
                                 case 12 : break; // flyby camera sequence
                                 case 13 : break; // play cutscene

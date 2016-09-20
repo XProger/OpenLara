@@ -83,8 +83,15 @@ struct Level {
                 case ENTITY_DOOR_BIG_2            :
                 case ENTITY_DOOR_FLOOR_1          :
                 case ENTITY_DOOR_FLOOR_2          :
-                case ENTITY_BLADE                 :
+                case ENTITY_TRAP_FLOOR            :
+                case ENTITY_TRAP_BLADE            :
+                case ENTITY_TRAP_SPIKES           :
+                case ENTITY_TRAP_STONE            :
+                //case ENTITY_TRAP_DART             :
                     entity.controller = new Trigger(&level, i, true);
+                    break;
+                case ENTITY_TRAP_DARTGUN          :
+                    entity.controller = new Dart(&level, i);
                     break;
                 case ENTITY_SWITCH                :
                 case ENTITY_SWITCH_WATER          :

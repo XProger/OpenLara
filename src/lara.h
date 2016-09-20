@@ -127,6 +127,7 @@ struct Lara : Controller {
     }
 
     bool waterOut(int &outState) {
+        // TODO: playSound 36
         vec3 dst = pos + getDir() * 32.0f;
 
         TR::Level::FloorInfo infoCur, infoDst;
@@ -209,7 +210,7 @@ struct Lara : Controller {
                 playSound(2);
                 return;
             } else
-                controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args) : Action(TR::Action::NONE, 0);
+                controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args, 0.0f) : Action(TR::Action::NONE, 0, 0.0f);
         }
 
         if (info.trigCmd[0].func != TR::Action::ACTIVATE) return; // see above TODO
@@ -220,7 +221,7 @@ struct Lara : Controller {
             nextAction = controller->nextAction;
             controller->nextAction.action = TR::Action::NONE;
         } else
-            controller->activate();
+            controller->activate((float)info.trigInfo.timer);
     }
 
     virtual Stand getStand() {
@@ -399,7 +400,7 @@ struct Lara : Controller {
                 playSound(snd_id);
             //    setAnimation(snd_id);
                 LOG("sound: %d\n", snd_id++);
-
+                /*
                 LOG("state: %d\n", anim->state);
                 for (int i = 0; i < anim->scCount; i++) {
                     auto &sc = level->states[anim->scOffset + i];
@@ -410,7 +411,7 @@ struct Lara : Controller {
                     }
                     LOG("\n");
                 }
-
+                */
             }
             
         } else 

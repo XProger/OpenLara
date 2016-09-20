@@ -44,11 +44,12 @@ struct Controller {
     struct Action {
         TR::Action  action;
         int         value;
+        float       timer;
 
-        Action(TR::Action action, int value) : action(action), value(value) {}
+        Action(TR::Action action, int value, float timer) : action(action), value(value), timer(timer) {}
     } nextAction;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), nextAction(TR::Action::NONE, 0) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), nextAction(TR::Action::NONE, 0, 0.0f) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation / 16384.0f * PI * 0.5f, 0.0f);
@@ -168,6 +169,7 @@ struct Controller {
     //    LOG("play sound %d\n", id);
 
         int16 a = level->soundsMap[id];
+        if (a == -1) return;
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
@@ -238,11 +240,11 @@ struct Controller {
         Controller *controller = (Controller*)level->entities[nextAction.value].controller;
         nextAction.action = TR::Action::NONE;
         if (controller)
-            controller->activate();
+            controller->activate(nextAction.timer);
     }
 
-    virtual void  activate()           {} 
-    virtual void  updateVelocity()     {}
+    virtual bool  activate(float timer) { return false; } 
+    virtual void  updateVelocity()      {}
     virtual void  move() {}
     virtual Stand getStand()           { return STAND_AIR; }
     virtual int   getHeight()          { return 0; }
