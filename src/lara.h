@@ -17,7 +17,7 @@
 struct Lara : Controller {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859&highlight=Explanation+left
-    enum LaraAnim : int32 {
+    enum {
         ANIM_STAND              = 11,
         ANIM_FALL               = 34,
         ANIM_SMASH_JUMP         = 32,
@@ -35,7 +35,7 @@ struct Lara : Controller {
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
-    enum LaraState : int32 {
+    enum {
         STATE_WALK,
         STATE_RUN,
         STATE_STOP,
@@ -94,7 +94,10 @@ struct Lara : Controller {
         STATE_WATER_OUT,
         STATE_MAX };
 
-    Lara(TR::Level *level, int entity) : Controller(level, entity) {
+    int     targetEntity;
+    float   targetTimer;
+
+    Lara(TR::Level *level, int entity) : Controller(level, entity), targetEntity(-1), targetTimer(0.0f) {
     /*
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
@@ -195,6 +198,7 @@ struct Lara : Controller {
                     return;
                 break;
             default :
+                LOG("unsupported trigger type %d\n", info.trigger);
                 return;
         }
         
@@ -203,25 +207,38 @@ struct Lara : Controller {
 
         // build trigger activation chain
         for (int i = 0; i < info.trigCmdCount; i++) {
-            if (info.trigCmd[i].func != TR::Action::ACTIVATE) continue; // TODO: other trigger types
-            Controller *controller = (Controller*)level->entities[info.trigCmd[i].args].controller;
-            if (!controller) {
-                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
-                playSound(2);
-                return;
-            } else
-                controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args, 0.0f) : Action(TR::Action::NONE, 0, 0.0f);
+            TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
+            switch  (cmd.action) {
+                case TR::Action::ACTIVATE : {
+                    Controller *controller = (Controller*)level->entities[cmd.args].controller;
+                    if (!controller) {
+                        LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
+                        playSound(2);
+                        return;
+                    } else
+                        controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args, 0.0f) : Action(TR::Action::NONE, 0, 0.0f);
+                    break;
+                }
+                case TR::Action::LOOK_AT :
+                    level->entities[cmd.args].flags |= ENTITY_FLAG_ACTIVE;
+                    targetEntity = cmd.args;
+                    targetTimer  = info.trigInfo.timer;
+                    break;
+                default : 
+                    LOG("unsupported trigger action %d\n", cmd.action);
+                    return;
+            }
         }
-
-        if (info.trigCmd[0].func != TR::Action::ACTIVATE) return; // see above TODO
 
         // activate first entity in chain
         Controller *controller = (Controller*)level->entities[info.trigCmd[0].args].controller;
-        if (info.trigger == TR::TRIGGER_KEY) {
-            nextAction = controller->nextAction;
-            controller->nextAction.action = TR::Action::NONE;
-        } else
-            controller->activate((float)info.trigInfo.timer);
+        if (controller) {
+            if (info.trigger == TR::TRIGGER_KEY) {
+                nextAction = controller->nextAction;
+                controller->nextAction.action = TR::Action::NONE;
+            } else
+                controller->activate((float)info.trigInfo.timer);
+        }
     }
 
     virtual Stand getStand() {
@@ -381,6 +398,11 @@ struct Lara : Controller {
     }
 
     virtual void updateState() {
+        if (targetTimer > 0.0f && (targetTimer -= Core::deltaTime) <= 0.0f) {
+            targetEntity = -1;
+            targetTimer  = 0.0f;
+        }
+
         performTrigger();
 
         TR::Animation *anim  = &level->anims[animIndex];

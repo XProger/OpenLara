@@ -5,19 +5,13 @@
 
 #define TR1_DEMO
 
+#define MAX_RESERVED_ENTITIES 64
+
 namespace TR {
 
     enum : int32 {
         ROOM_FLAG_WATER     = 0x0001,
         ROOM_FLAG_VISIBLE   = 0x8000
-    };
-
-    enum {
-        FD_PORTAL   = 1,
-        FD_FLOOR    = 2,
-        FD_CEILING  = 3,
-        FD_TRIGGER  = 4,
-        FD_KILL     = 5,
     };
 
     enum {
@@ -56,7 +50,7 @@ namespace TR {
         NONE            = -1,   // no action
         ACTIVATE        =  0,   // activate item
         CAMERA_SWITCH   =  1,   // switch to camera
-        CAMERA_DELAY    =  2,   // camera delay
+        UNDERWATER      =  2,   // underwater flow
         FLIP_MAP        =  3,   // flip map
         FLIP_ON         =  4,   // flip on
         FLIP_OFF        =  5,   // flip off
@@ -70,7 +64,6 @@ namespace TR {
         CUTSCENE        = 13,   // play cutscene
     };
 
-
     #define DATA_PORTAL     0x01
     #define DATA_FLOOR      0x02
     #define DATA_CEILING    0x03
@@ -78,67 +71,6 @@ namespace TR {
     #define ENTITY_FLAG_CLEAR   0x0080
     #define ENTITY_FLAG_VISIBLE 0x0100
     #define ENTITY_FLAG_ACTIVE  0x3E00
-
-
-    #define ENTITY_LARA                     0
-    #define ENTITY_LARA_CUT                 77
-
-    #define ENTITY_ENEMY_TWIN               6
-    #define ENTITY_ENEMY_WOLF               7
-    #define ENTITY_ENEMY_BEAR               8
-    #define ENTITY_ENEMY_BAT                9
-    #define ENTITY_ENEMY_CROCODILE_LAND     10
-    #define ENTITY_ENEMY_CROCODILE_WATER    11
-    #define ENTITY_ENEMY_LION_MALE          12
-    #define ENTITY_ENEMY_LION_FEMALE        13
-    #define ENTITY_ENEMY_PUMA               14
-    #define ENTITY_ENEMY_GORILLA            15
-    #define ENTITY_ENEMY_RAT_LAND           16
-    #define ENTITY_ENEMY_RAT_WATER          17
-    #define ENTITY_ENEMY_REX                18
-    #define ENTITY_ENEMY_RAPTOR             19
-    #define ENTITY_ENEMY_MUTANT             20
-
-    #define ENTITY_ENEMY_CENTAUR            23
-    #define ENTITY_ENEMY_MUMMY              24
-    #define ENTITY_ENEMY_LARSON             27
-
-    #define ENTITY_TRAP_FLOOR               35
-    #define ENTITY_TRAP_BLADE               36
-    #define ENTITY_TRAP_SPIKES              37
-    #define ENTITY_TRAP_STONE               38
-    #define ENTITY_TRAP_DART                39
-    #define ENTITY_TRAP_DARTGUN             40
-
-    #define ENTITY_CRYSTAL                  83
-
-    #define ENTITY_MEDIKIT_SMALL            93
-    #define ENTITY_MEDIKIT_BIG              94
-
-
-    #define ENTITY_SWITCH                   55
-    #define ENTITY_SWITCH_WATER             56
-
-    #define ENTITY_DOOR_1                   57
-    #define ENTITY_DOOR_2                   58
-    #define ENTITY_DOOR_3                   59
-    #define ENTITY_DOOR_4                   60
-    #define ENTITY_DOOR_BIG_1               61  
-    #define ENTITY_DOOR_BIG_2               62
-    #define ENTITY_DOOR_5                   63
-    #define ENTITY_DOOR_6                   64
-    #define ENTITY_DOOR_FLOOR_1             65
-    #define ENTITY_DOOR_FLOOR_2             66
-
-    #define ENTITY_GUN_SHOTGUN              85
-
-    #define ENTITY_AMMO_UZI                 91
-    #define ENTITY_AMMO_SHOTGUN             89
-    #define ENTITY_AMMO_MAGNUM              90
-
-    #define ENTITY_HOLE_PUZZLE              118
-    #define ENTITY_HOLE_KEY                 137
-    #define ENTITY_VIEW_TARGET              169
 
     #pragma pack(push, 1)
 
@@ -148,6 +80,14 @@ namespace TR {
         operator float() const {
             return H + L / 65535.0f;
         }
+    };
+
+    struct angle {
+        uint16 value;
+
+        angle() {}
+        angle(float value) : value(uint16(value / (PI * 0.5f) * 16384.0f)) {}
+        operator float() const { return value / 16384.0f * PI * 0.5f; };
     };
 
     struct RGB {
@@ -240,7 +180,7 @@ namespace TR {
 
         struct Mesh {
             int32   x, y, z;
-            uint16  rotation;
+            angle   rotation;
             uint16  intensity;
             uint16  meshID;
             uint16  flags;          // ! not exists in file !
@@ -259,8 +199,16 @@ namespace TR {
             uint16  timer:8, once:1, mask:5, :2;
         } triggerInfo;
         struct TriggerCommand {
-            uint16 args:10, func:5, end:1;
+            uint16 args:10, action:5, end:1;
         } triggerCmd;
+
+        enum {
+            PORTAL   = 1,
+            FLOOR    = 2,
+            CEILING  = 3,
+            TRIGGER  = 4,
+            KILL     = 5,
+        };
     };
 
     struct Overlap {
@@ -302,14 +250,92 @@ namespace TR {
         int16   id;             // Object Identifier (matched in Models[], or SpriteSequences[], as appropriate)
         int16   room;           // which room contains this item
         int32   x, y, z;        // world coords
-        int16   rotation;       // ((0xc000 >> 14) * 90) degrees
+        angle   rotation;       // ((0xc000 >> 14) * 90) degrees
         int16   intensity;      // (constant lighting; -1 means use mesh lighting)
         uint16  flags;          // 0x0100 indicates "initially invisible", 0x3e00 is Activation Mask
                                 // 0x3e00 indicates "open" or "activated";  these can be XORed with
                                 // related FloorData::FDlist fields (e.g. for switches)
     // not exists in file
         uint16  align;
+        int16   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
         void    *controller;    // Controller implementation or NULL 
+
+        enum {
+            LARA                     = 0,
+
+            ENEMY_TWIN               = 6,
+            ENEMY_WOLF               = 7,
+            ENEMY_BEAR               = 8,
+            ENEMY_BAT                = 9,
+            ENEMY_CROCODILE_LAND     = 10,
+            ENEMY_CROCODILE_WATER    = 11,
+            ENEMY_LION_MALE          = 12,
+            ENEMY_LION_FEMALE        = 13,
+            ENEMY_PUMA               = 14,
+            ENEMY_GORILLA            = 15,
+            ENEMY_RAT_LAND           = 16,
+            ENEMY_RAT_WATER          = 17,
+            ENEMY_REX                = 18,
+            ENEMY_RAPTOR             = 19,
+            ENEMY_MUTANT             = 20,
+
+            ENEMY_CENTAUR            = 23,
+            ENEMY_MUMMY              = 24,
+            ENEMY_LARSON             = 27,
+
+            TRAP_FLOOR               = 35,
+            TRAP_BLADE               = 36,
+            TRAP_SPIKES              = 37,
+            TRAP_STONE               = 38,
+            TRAP_DART                = 39,
+            TRAP_DARTGUN             = 40,
+
+            SWITCH                   = 55,
+            SWITCH_WATER             = 56,
+            DOOR_1                   = 57,
+            DOOR_2                   = 58,
+            DOOR_3                   = 59,
+            DOOR_4                   = 60,
+            DOOR_BIG_1               = 61,
+            DOOR_BIG_2               = 62,
+            DOOR_5                   = 63,
+            DOOR_6                   = 64,
+            DOOR_FLOOR_1             = 65,
+            DOOR_FLOOR_2             = 66,
+
+            LARA_CUT                 = 77,
+
+            CRYSTAL                  = 83,       // sprite
+            WEAPON_PISTOLS           = 84,       // sprite
+            WEAPON_SHOTGUN           = 85,       // sprite
+            WEAPON_MAGNUMS           = 86,       // sprite
+            WEAPON_UZIS              = 87,       // sprite
+            AMMO_SHOTGUN             = 89,       // sprite
+            AMMO_MAGNUMS             = 90,       // sprite
+            AMMO_UZIS                = 91,       // sprite
+            MEDIKIT_SMALL            = 93,       // sprite
+            MEDIKIT_BIG              = 94,       // sprite
+
+            HOLE_PUZZLE              = 118,
+
+            HOLE_KEY                 = 137,
+
+            ARTIFACT                 = 143,      // sprite
+
+            WATER_SPLASH             = 153,      // sprite
+
+            BUBBLE                   = 155,      // sprite
+
+            BLOOD                    = 158,      // sprite
+
+            SMOKE                    = 160,      // sprite
+
+            SPARK                    = 164,      // sprite
+
+            VIEW_TARGET              = 169,
+   
+            GLYPH                    = 190,      // sprite
+        };
     };
 
     struct Animation {
@@ -396,8 +422,8 @@ namespace TR {
         MinMax  box[2];         // visible (minX, maxX, minY, maxY, minZ, maxZ) & collision
         uint16  flags;
 
-        void getBox(bool collision, int rotation, vec3 &min, vec3 &max) {
-            int k = rotation / 16384;
+        void getBox(bool collision, angle rotation, vec3 &min, vec3 &max) {
+            int k = rotation.value / 0x4000;
 
             MinMax &m = box[collision];
 
@@ -574,6 +600,7 @@ namespace TR {
         int32           animTexturesDataSize;
         uint16          *animTexturesData;
 
+        int32           entitiesBaseCount;
         int32           entitiesCount;
         Entity          *entities;
 
@@ -666,6 +693,8 @@ namespace TR {
             stream.read(objectTextures,     stream.read(objectTexturesCount));
             stream.read(spriteTextures,     stream.read(spriteTexturesCount));
             stream.read(spriteSequences,    stream.read(spriteSequencesCount));
+            for (int i = 0; i < spriteSequencesCount; i++)
+                spriteSequences[i].sCount = -spriteSequences[i].sCount;
 
         #ifdef TR1_DEMO
             stream.read(palette,        256);
@@ -682,12 +711,17 @@ namespace TR {
         // animated textures
             stream.read(animTexturesData,   stream.read(animTexturesDataSize));
         // entities (enemies, items, lara etc.)
-            entities = new Entity[stream.read(entitiesCount)];
-            for (int i = 0; i < entitiesCount; i++) {
-                stream.raw(&entities[i], sizeof(entities[i]) - sizeof(entities[i].align) - sizeof(entities[i].controller));
-                entities[i].align = 0;
-                entities[i].controller = NULL;
+            entitiesCount = stream.read(entitiesBaseCount) + MAX_RESERVED_ENTITIES;
+            entities = new Entity[entitiesCount];
+            for (int i = 0; i < entitiesBaseCount; i++) {
+                Entity &e = entities[i];
+                stream.raw(&e, sizeof(e) - sizeof(e.align) - sizeof(e.controller) - sizeof(e.modelIndex));
+                e.align = 0;
+                e.controller = NULL;
+                e.modelIndex = getModelIndex(e.id);
             }
+            for (int i = entitiesBaseCount; i < entitiesCount; i++)
+                entities[i].id = -1;
         // palette
             stream.seek(32 * 256);  // skip lightmap palette
 
@@ -769,6 +803,43 @@ namespace TR {
             return NULL;
         }
 
+        int16 getModelIndex(int16 id) const {
+            for (int i = 0; i < modelsCount; i++)
+                if (id == models[i].id)
+                    return i + 1;
+    
+            for (int i = 0; i < spriteSequencesCount; i++)
+                if (id == spriteSequences[i].id)
+                    return -(i + 1);
+
+            ASSERT(false);
+            return 0;
+        }
+
+        int entityAdd(int16 id, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
+            int entityIndex = -1;
+            for (int i = entitiesBaseCount; i < entitiesCount; i++) 
+                if (entities[i].id == -1) {
+                    Entity &e = entities[i];
+                    e.id            = id;
+                    e.room          = room;
+                    e.x             = x;
+                    e.y             = y;
+                    e.z             = z;
+                    e.rotation      = rotation;
+                    e.intensity     = intensity;
+                    e.flags         = 0;
+                    e.modelIndex    = getModelIndex(e.id);
+                    e.controller    = NULL;
+                    return i;
+                }
+            return -1;
+        }
+
+        void entityRemove(int entityIndex) {
+            entities[entityIndex].id = -1;
+        }
+
         struct FloorInfo {
             int floor, ceiling;
             int roomNext, roomBelow, roomAbove;
@@ -822,16 +893,16 @@ namespace TR {
                 
                 switch (cmd.func) {
 
-                    case FD_PORTAL  :
+                    case FloorData::PORTAL  :
                         info.roomNext = (*fd++).data;
                         break;
 
-                    case FD_FLOOR   : // floor & ceiling
-                    case FD_CEILING : { 
+                    case FloorData::FLOOR   : // floor & ceiling
+                    case FloorData::CEILING : { 
                         FloorData::Slant slant = (*fd++).slant;
                         int sx = (int)slant.x;
                         int sz = (int)slant.z;
-                        if (cmd.func == FD_FLOOR) {
+                        if (cmd.func == FloorData::FLOOR) {
                             info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
                             info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
                         } else {
@@ -841,7 +912,7 @@ namespace TR {
                         break;
                     }
 
-                    case FD_TRIGGER :  {
+                    case FloorData::TRIGGER :  {
                         info.trigger        = cmd.sub;
                         info.trigCmdCount   = 0;
                         info.trigInfo       = (*fd++).triggerInfo;
@@ -849,28 +920,14 @@ namespace TR {
                         do {
                             trigCmd = (*fd++).triggerCmd; // trigger action
                             info.trigCmd[info.trigCmdCount++] = trigCmd;
-                            switch (trigCmd.func) {
-                                case  0 : break; // activate item
-                                case  1 : break; // switch to camera
-                                case  2 : break; // camera delay
-                                case  3 : break; // flip map
-                                case  4 : break; // flip on
-                                case  5 : break; // flip off
-                                case  6 : break; // look at item
-                                case  7 : break; // end level
-                                case  8 : break; // play soundtrack
-                                case  9 : break; // special hadrdcode trigger
-                                case 10 : break; // secret found (playSound(175))
-                                case 11 : break; // clear bodies
-                                case 12 : break; // flyby camera sequence
-                                case 13 : break; // play cutscene
+                            if (trigCmd.action == Action::CAMERA_SWITCH) {
+
                             }
-                            // ..
                         } while (!trigCmd.end);                       
                         break;
                     }
 
-                    case FD_KILL :
+                    case FloorData::KILL :
                         info.kill = true;
                         break;
 

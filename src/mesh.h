@@ -74,7 +74,7 @@ struct MeshBuilder {
     int mCount;
 
 // sprite sequences
-    MeshRange *spriteRanges;
+    MeshRange *sequenceRanges;
 
 // indexed mesh
     Mesh *mesh;
@@ -160,14 +160,14 @@ struct MeshBuilder {
         meshInfo = new MeshInfo[mCount];
         
     // get size of mesh for sprite sequences
-        spriteRanges = new MeshRange[level.spriteSequencesCount];
+        sequenceRanges = new MeshRange[level.spriteSequencesCount];
         for (int i = 0; i < level.spriteSequencesCount; i++) {
         // TODO: sequences not only first frame
-            spriteRanges[i].vStart = vCount;
-            spriteRanges[i].iStart = iCount;
-            spriteRanges[i].iCount = 6;
-            iCount += 6;
-            vCount += 4;
+            sequenceRanges[i].vStart = vCount;
+            sequenceRanges[i].iStart = iCount;
+            sequenceRanges[i].iCount = level.spriteSequences[i].sCount * 6;
+            iCount += level.spriteSequences[i].sCount * 6;
+            vCount += level.spriteSequences[i].sCount * 4;
         }
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
@@ -363,10 +363,11 @@ struct MeshBuilder {
         }
 
     // build sprite sequences
-        for (int i = 0; i < level.spriteSequencesCount; i++) {
-            TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart];
-            addSprite(indices, vertices, iCount, vCount, vCount, 0, -16, 0, sprite, 255);
-        }
+        for (int i = 0; i < level.spriteSequencesCount; i++) 
+            for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
+                TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
+                addSprite(indices, vertices, iCount, vCount, vCount, 0, 0, 0, sprite, 255);
+            }
 
         mesh = new Mesh(indices, iCount, vertices, vCount);
         delete[] indices;
@@ -378,7 +379,7 @@ struct MeshBuilder {
         delete[] animTexOffsets;
         delete[] roomRanges;
         delete[] meshInfo;
-        delete[] spriteRanges;
+        delete[] sequenceRanges;
         delete mesh;
     }
 
@@ -543,8 +544,12 @@ struct MeshBuilder {
         renderMesh(&meshInfo[meshIndex]);
     }
 
-    void renderSprite(int spriteIndex) {
-        mesh->render(spriteRanges[spriteIndex]);
+    void renderSprite(int sequenceIndex, int frame) {
+        MeshRange range = sequenceRanges[sequenceIndex];
+        range.iCount = 6;
+        range.iStart += frame * 6;
+        range.vStart += frame * 4;
+        mesh->render(range);
     }
 };
 

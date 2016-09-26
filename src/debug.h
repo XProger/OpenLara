@@ -195,19 +195,19 @@ namespace Debug {
                 cmd = (*fd++).cmd;
                 
                 switch (cmd.func) {
-                    case TR::FD_PORTAL  :
+                    case TR::FloorData::PORTAL  :
                         isPortal = true;
                         fd++;
                         break; // portal
-                    case TR::FD_FLOOR   : // floor & ceiling
-                    case TR::FD_CEILING : { 
+                    case TR::FloorData::FLOOR   : // floor & ceiling
+                    case TR::FloorData::CEILING : { 
                         TR::FloorData::Slant slant = (*fd++).slant;
                         int sx = 256 * (int)slant.x;
                         int sz = 256 * (int)slant.z;
 
                         auto &p = cmd.func == 0x02 ? vf : vc;
                         
-                        if (cmd.func == 0x02) { // floor
+                        if (cmd.func == TR::FloorData::FLOOR) { // floor
                             if (sx > 0) {
                                 p[0].y += sx;
                                 p[3].y += sx;
@@ -242,28 +242,12 @@ namespace Debug {
                         }
                         break;
                     }
-                    case TR::FD_TRIGGER :  {
+                    case TR::FloorData::TRIGGER :  {
                         TR::FloorData::TriggerInfo info = (*fd++).triggerInfo;
                         TR::FloorData::TriggerCommand trigCmd;
                         glColor3f(1, 0, 1);
                         do {
                             trigCmd = (*fd++).triggerCmd; // trigger action
-                            switch (trigCmd.func) {
-                                case  0 : break; // activate item
-                                case  1 : break; // switch to camera
-                                case  2 : break; // camera delay
-                                case  3 : break; // flip map
-                                case  4 : break; // flip on
-                                case  5 : break; // flip off
-                                case  6 : break; // look at item
-                                case  7 : break; // end level
-                                case  8 : break; // play soundtrack
-                                case  9 : break; // special hadrdcode trigger
-                                case 10 : break; // secret found
-                                case 11 : break; // clear bodies
-                                case 12 : break; // flyby camera sequence
-                                case 13 : break; // play cutscene
-                            }
                         } while (!trigCmd.end);                       
                         break;
                     }
@@ -468,7 +452,7 @@ namespace Debug {
                     matrix.rotateX(controller->angle.x);
                     matrix.rotateZ(controller->angle.z);
                 } else
-                    matrix.rotateY(e.rotation / 16384.0f * PI * 0.5f);
+                    matrix.rotateY(e.rotation);
 
                 for (int j = 0; j < level.modelsCount; j++) {
                     TR::Model &m = level.models[j];

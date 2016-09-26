@@ -153,18 +153,17 @@ struct Frustum {
 
 
 struct Camera : Controller {
-    Controller  *owner;
-    Frustum     *frustum;
+    Lara    *owner;
+    Frustum *frustum;
 
-    float fov, znear, zfar;
-    vec3 target, destPos, lastDest, angleAdv;
+    float   fov, znear, zfar;
+    vec3    target, destPos, lastDest, angleAdv;
+    int     room;
 
-    int room;
-
-    Camera(TR::Level *level, Controller *owner) : Controller(level, owner->entity), owner(owner), frustum(new Frustum()) {
+    Camera(TR::Level *level, Lara *owner) : Controller(level, owner->entity), owner(owner), frustum(new Frustum()) {
         fov         = 75.0f;
-        znear       = 0.1f * 2048.0f;
-        zfar        = 1000.0f * 2048.0f;
+        znear       = 128;
+        zfar        = 100.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
         
         room = owner->getEntity().room;
@@ -212,18 +211,28 @@ struct Camera : Controller {
         angle = owner->angle + angleAdv;
         angle.z = 0.0f;        
         //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
-
+        
         target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
         
-        vec3 dir = getDir();
+        vec3 dir;
+        float lerpFactor = 2.0f;
+        if (owner->targetEntity > -1) {            
+            TR::Entity &e = level->entities[owner->targetEntity];
+            dir = (vec3(e.x, e.y, e.z) - target).normal();
+            lerpFactor = 10.0f;
+        } else
+            dir = getDir();
 
         if (owner->state != Lara::STATE_BACK_JUMP) {
-            destPos = target - dir * 1024.0f;
+            vec3 eye = target - dir * 1024.0f;
+            destPos = trace(owner->getRoomIndex(), target, eye);
             lastDest = destPos;
-        } else
-            destPos = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);       
+        } else {
+            vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
+            destPos = trace(owner->getRoomIndex(), target, eye);     
+        }
 
-        pos = pos.lerp(destPos, min(1.0f, Core::deltaTime * 2.0f));
+        pos = pos.lerp(destPos, min(1.0f, Core::deltaTime * lerpFactor));
 
         TR::Level::FloorInfo info;
         level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
@@ -246,6 +255,62 @@ struct Camera : Controller {
                 if (info.floor != 0xffff8100)
                     pos.y = info.floor;
         }
+    }
+
+    vec3 trace(int fromRoom, const vec3 &from, const vec3 &to) { // TODO: use Bresenham
+        int room = fromRoom;
+
+        vec3 pos = from, dir = to - from;
+        int px = (int)pos.x, py = (int)pos.y, pz = (int)pos.z;
+
+        float dist = dir.length();
+        dir = dir * (1.0f / dist);
+
+        int lx = -1, lz = -1;
+        TR::Level::FloorInfo info;
+        while (dist > 1.0f) {
+            int sx = px / 1024 * 1024 + 512,
+                sz = pz / 1024 * 1024 + 512;
+
+            if (lx != sx || lz != sz) {
+                level->getFloorInfo(room, sx, sz, info);
+                lx = sx;
+                lz = sz;
+                if (info.roomNext != 0xFF) room = info.roomNext;
+            }
+
+            if (py > info.floor && info.roomBelow != 0xFF)
+                room = info.roomBelow;
+            else if (py < info.ceiling && info.roomAbove != 0xFF)
+                room = info.roomAbove;
+            else if (py > info.floor || py < info.ceiling) {
+                int minX = px / 1024 * 1024;
+                int minZ = pz / 1024 * 1024;
+                int maxX = minX + 1024;
+                int maxZ = minZ + 1024;
+
+                pos = vec3(clamp(px, minX, maxX), pos.y, clamp(pz, minZ, maxZ)) + boxNormal(px, pz) * 256.0f;
+                dir = (pos - from).normal();
+            }
+
+            float d = min(dist, 128.0f);    // STEP = 128
+            dist -= d;
+            pos = pos + dir * d;
+
+            px = (int)pos.x, py = (int)pos.y, pz = (int)pos.z;
+        }
+
+        return pos;
+    }
+
+    vec3 boxNormal(int x, int z) {
+        x %= 1024;
+        z %= 1024;
+
+        if (x > 1024 - z)
+            return x < z ? vec3(0, 0, 1)  : vec3(1, 0, 0);
+        else
+            return x < z ? vec3(-1, 0, 0) : vec3(0, 0, -1);
     }
 
     void setup() {

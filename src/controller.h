@@ -52,9 +52,9 @@ struct Controller {
     Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), nextAction(TR::Action::NONE, 0, 0.0f) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
-        angle     = vec3(0.0f, e.rotation / 16384.0f * PI * 0.5f, 0.0f);
+        angle     = vec3(0.0f, e.rotation, 0.0f);
         stand     = STAND_GROUND;
-        animIndex = getModel().animation;
+        animIndex = e.modelIndex > 0 ? level->models[e.modelIndex - 1].animation : 0;
         state     = level->anims[animIndex].state;
     }
 
@@ -63,7 +63,7 @@ struct Controller {
         e.x = int(pos.x);
         e.y = int(pos.y);
         e.z = int(pos.z);
-        e.rotation = int(angle.y / (PI * 0.5f) * 16384.0f);
+        e.rotation = angle.y;
     }
 
     bool insideRoom(const vec3 &pos, int room) const {
@@ -78,15 +78,6 @@ struct Controller {
 
     TR::Entity& getEntity() const {
         return level->entities[entity];
-    }
-
-    TR::Model& getModel() const {
-        TR::Entity &entity = getEntity();
-        for (int i = 0; i < level->modelsCount; i++)
-            if (entity.id == level->models[i].id)
-                return level->models[i];
-        ASSERT(false);
-        return level->models[0];
     }
 
     TR::Room& getRoom() const {
@@ -337,7 +328,7 @@ struct Controller {
                         int idx   = frame - anim->frameStart;
                   
                         if (idx > animPrevFrame && idx <= frameIndex) {
-                            if (getEntity().id != ENTITY_ENEMY_BAT) // temporary mute the bat
+                            if (getEntity().id != TR::Entity::ENEMY_BAT) // temporary mute the bat
                                 playSound(id);
                         }
                         break;
@@ -372,6 +363,53 @@ struct Controller {
         updateAnimation(true);        
         updateVelocity();
         updateEnd();
+    }
+};
+
+
+struct SpriteController : Controller {
+
+    enum {
+        FRAME_ANIMATED = -1,
+        FRAME_RANDOM   = -2,
+    };
+
+    int frame;
+    bool instant, animated;
+
+    SpriteController(TR::Level *level, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(level, entity), instant(instant), animated(frame == FRAME_ANIMATED) {
+        if (frame >= 0) { // specific frame
+            this->frame = frame;
+        } else if (frame == FRAME_RANDOM) { // random frame
+            this->frame = rand() % getSequence().sCount;
+        } else if (frame == FRAME_ANIMATED) { // animated
+            this->frame = 0;
+        }
+    }
+
+    TR::SpriteSequence& getSequence() {
+        return level->spriteSequences[-(getEntity().modelIndex + 1)];
+    }
+
+    void update() {
+        bool remove = false;
+        animTime += Core::deltaTime;
+
+        if (animated) {
+            frame = int(animTime * 10.0f);
+            TR::SpriteSequence &seq = getSequence();
+            if (instant && frame >= seq.sCount)
+                remove = true;
+            else
+                frame %= seq.sCount;
+        } else
+            if (instant && animTime >= 0.1f)
+                remove = true;
+
+        if (remove) {
+            level->entityRemove(entity);
+            delete this;
+        }
     }
 };
 

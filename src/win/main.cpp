@@ -196,33 +196,31 @@ int main() {
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
-    DWORD time, lastTime = getTime();
-
+    DWORD time, lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
     MSG msg;
-    msg.message = WM_PAINT;
 
-    DWORD fps = 0, fpsTime = getTime() + 1000;
-
-    while (msg.message != WM_QUIT)
+    do {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
+            joyUpdate();
+
             time = getTime();
             if (time <= lastTime)
                 continue;
 
-            Core::deltaTime = (time - lastTime) * 0.001f;
+            float delta = (time - lastTime) * 0.001f;
+            while (delta > EPS) {
+                Core::deltaTime = min(delta, 1.0f / 30.0f);
+                Game::update();
+                delta -= Core::deltaTime;
+            }
             lastTime = time;
-
-            joyUpdate();
 
             Core::stats.dips = 0;
             Core::stats.tris = 0;
-
-            Game::update();
             Game::render();
-
             SwapBuffers(hDC);
 
             if (fpsTime < getTime()) {
@@ -232,6 +230,7 @@ int main() {
             } else
                 fps++;
         }
+    } while (msg.message != WM_QUIT);
 
     Game::free();
     freeGL(hRC);

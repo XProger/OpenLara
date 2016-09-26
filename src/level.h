@@ -25,7 +25,7 @@ struct Level {
     Texture     *atlas;
     MeshBuilder *mesh;
 
-    Controller  *lara;
+    Lara        *lara;
     Camera      *camera;
 
     float       time;
@@ -43,60 +43,59 @@ struct Level {
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &entity = level.entities[i];
             switch (entity.id) {
-                case ENTITY_LARA : 
-                case ENTITY_LARA_CUT :
+                case TR::Entity::LARA : 
+                case TR::Entity::LARA_CUT :
                     entity.controller = (lara = new Lara(&level, i));
                     break;
-                case ENTITY_ENEMY_WOLF            :   
+                case TR::Entity::ENEMY_WOLF            :   
                     entity.controller = new Wolf(&level, i);
                     break;
-                case ENTITY_ENEMY_BEAR            : 
+                case TR::Entity::ENEMY_BEAR            : 
                     entity.controller = new Bear(&level, i);
                     break;
-                case ENTITY_ENEMY_BAT             :   
+                case TR::Entity::ENEMY_BAT             :   
                     entity.controller = new Bat(&level, i);
                     break;
-                case ENTITY_ENEMY_TWIN            :   
-                case ENTITY_ENEMY_CROCODILE_LAND  :   
-                case ENTITY_ENEMY_CROCODILE_WATER :   
-                case ENTITY_ENEMY_LION_MALE       :   
-                case ENTITY_ENEMY_LION_FEMALE     :   
-                case ENTITY_ENEMY_PUMA            :   
-                case ENTITY_ENEMY_GORILLA         :   
-                case ENTITY_ENEMY_RAT_LAND        :   
-                case ENTITY_ENEMY_RAT_WATER       :   
-                case ENTITY_ENEMY_REX             :   
-                case ENTITY_ENEMY_RAPTOR          :   
-                case ENTITY_ENEMY_MUTANT          :   
-                case ENTITY_ENEMY_CENTAUR         :   
-                case ENTITY_ENEMY_MUMMY           :   
-                case ENTITY_ENEMY_LARSON          :
+                case TR::Entity::ENEMY_TWIN            :   
+                case TR::Entity::ENEMY_CROCODILE_LAND  :   
+                case TR::Entity::ENEMY_CROCODILE_WATER :   
+                case TR::Entity::ENEMY_LION_MALE       :   
+                case TR::Entity::ENEMY_LION_FEMALE     :   
+                case TR::Entity::ENEMY_PUMA            :   
+                case TR::Entity::ENEMY_GORILLA         :   
+                case TR::Entity::ENEMY_RAT_LAND        :   
+                case TR::Entity::ENEMY_RAT_WATER       :   
+                case TR::Entity::ENEMY_REX             :   
+                case TR::Entity::ENEMY_RAPTOR          :   
+                case TR::Entity::ENEMY_MUTANT          :   
+                case TR::Entity::ENEMY_CENTAUR         :   
+                case TR::Entity::ENEMY_MUMMY           :   
+                case TR::Entity::ENEMY_LARSON          :
                     entity.controller = new Enemy(&level, i);
                     break;
-                case ENTITY_DOOR_1                :
-                case ENTITY_DOOR_2                :
-                case ENTITY_DOOR_3                :
-                case ENTITY_DOOR_4                :
-                case ENTITY_DOOR_5                :
-                case ENTITY_DOOR_6                :
-                case ENTITY_DOOR_BIG_1            :
-                case ENTITY_DOOR_BIG_2            :
-                case ENTITY_DOOR_FLOOR_1          :
-                case ENTITY_DOOR_FLOOR_2          :
-                case ENTITY_TRAP_FLOOR            :
-                case ENTITY_TRAP_BLADE            :
-                case ENTITY_TRAP_SPIKES           :
-                case ENTITY_TRAP_STONE            :
-                //case ENTITY_TRAP_DART             :
+                case TR::Entity::DOOR_1                :
+                case TR::Entity::DOOR_2                :
+                case TR::Entity::DOOR_3                :
+                case TR::Entity::DOOR_4                :
+                case TR::Entity::DOOR_5                :
+                case TR::Entity::DOOR_6                :
+                case TR::Entity::DOOR_BIG_1            :
+                case TR::Entity::DOOR_BIG_2            :
+                case TR::Entity::DOOR_FLOOR_1          :
+                case TR::Entity::DOOR_FLOOR_2          :
+                case TR::Entity::TRAP_FLOOR            :
+                case TR::Entity::TRAP_BLADE            :
+                case TR::Entity::TRAP_SPIKES           :
+                case TR::Entity::TRAP_STONE            :
                     entity.controller = new Trigger(&level, i, true);
                     break;
-                case ENTITY_TRAP_DARTGUN          :
-                    entity.controller = new Dart(&level, i);
+                case TR::Entity::TRAP_DARTGUN          :
+                    entity.controller = new Dartgun(&level, i);
                     break;
-                case ENTITY_SWITCH                :
-                case ENTITY_SWITCH_WATER          :
-                case ENTITY_HOLE_PUZZLE           :
-                case ENTITY_HOLE_KEY              :
+                case TR::Entity::SWITCH                :
+                case TR::Entity::SWITCH_WATER          :
+                case TR::Entity::HOLE_PUZZLE           :
+                case TR::Entity::HOLE_KEY              :
                     entity.controller = new Trigger(&level, i, false);
                     break;
             }
@@ -111,7 +110,8 @@ struct Level {
             Debug::free();
         #endif
         for (int i = 0; i < level.entitiesCount; i++)
-            delete (Controller*)level.entities[i].controller;
+            if (level.entities[i].id > -1)
+                delete (Controller*)level.entities[i].controller;
 
         for (int i = 0; i < shMAX; i++)
             delete shaders[i];
@@ -246,7 +246,7 @@ struct Level {
         // render static mesh
             mat4 mTemp = Core::mModel;
             Core::mModel.translate(offset);
-            Core::mModel.rotateY(rMesh.rotation / 16384.0f * PI * 0.5f);
+            Core::mModel.rotateY(rMesh.rotation);
             renderMesh(sMesh->mesh);
             Core::mModel = mTemp;
         }
@@ -365,7 +365,7 @@ struct Level {
             fTime = controller->animTime;
         } else {
             anim  = &level.anims[model.animation];
-            angle = vec3(0.0f, entity.rotation / 16384.0f * PI * 0.5f, 0.0f);
+            angle = vec3(0.0f, entity.rotation, 0.0f);
             fTime = time;
         }
 
@@ -436,6 +436,20 @@ struct Level {
         }
     }
 
+    void renderSequence(const TR::Entity &entity) {
+        shaders[shSprite]->bind();
+        Core::active.shader->setParam(uModel, Core::mModel);
+        Core::active.shader->setParam(uColor, Core::color);
+
+        int sIndex = -(entity.modelIndex + 1);        
+        int sFrame;
+        if (entity.controller)
+            sFrame = ((SpriteController*)entity.controller)->frame;
+        else
+            sFrame = int(time * 10.0f) % level.spriteSequences[sIndex].sCount;
+        mesh->renderSprite(sIndex, sFrame);
+    }
+
     int getLightIndex(const vec3 &pos, int &room) {
         int idx = -1;
         float dist;
@@ -474,6 +488,8 @@ struct Level {
     }
 
     void renderEntity(const TR::Entity &entity) {
+        if (entity.id < 0) return;
+
         TR::Room &room = level.rooms[entity.room];
         if (!(room.flags & TR::ROOM_FLAG_VISIBLE)) // check for room visibility
             return;
@@ -491,42 +507,27 @@ struct Level {
     // get light parameters for entity
         getLight(vec3(entity.x, entity.y, entity.z), entity.room);
 
-    // render entity models (TODO: remapping or consider model and entity id's)
-        bool isModel = false;
-
-        for (int i = 0; i < level.modelsCount; i++)
-            if (entity.id == level.models[i].id) {
-                isModel = true;
-                renderModel(level.models[i], entity);
-                break;
-            }
-    
+    // render entity models
+        if (entity.modelIndex > 0)
+            renderModel(level.models[entity.modelIndex - 1], entity);
     // if entity is billboard
-        if (!isModel) {
+        if (entity.modelIndex < 0) {
             Core::color = vec4(c, c, c, 1.0f);
-            shaders[shSprite]->bind();
-            Core::active.shader->setParam(uModel, Core::mModel);
-            Core::active.shader->setParam(uColor, Core::color);
-            for (int i = 0; i < level.spriteSequencesCount; i++)
-                if (entity.id == level.spriteSequences[i].id) {
-                    mesh->renderSprite(i);
-                    break;
-                }
+            renderSequence(entity);
         }
-    
+
         Core::mModel = m;
     }
-
-    float tickTextureAnimation = 0.0f;
 
     void update() {
         time += Core::deltaTime;
         
-        for (int i = 0; i < level.entitiesCount; i++) {
-            Controller *controller = (Controller*)level.entities[i].controller;
-            if (controller) 
-                controller->update();
-        }
+        for (int i = 0; i < level.entitiesCount; i++) 
+            if (level.entities[i].id > -1) {
+                Controller *controller = (Controller*)level.entities[i].controller;
+                if (controller) 
+                    controller->update();
+            }
 
         camera->update();
     }
@@ -578,6 +579,28 @@ struct Level {
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
 
+        /*
+        static int modelIndex = 0;
+        static bool lastStateK = false;
+
+        if (Input::down[ikM]) {
+            if (!lastStateK) {
+                lastStateK = true;
+            //    modelIndex = (modelIndex + 1) % level.modelsCount;
+                modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
+                LOG("model: %d %d\n", modelIndex, level.spriteSequences[modelIndex].id);
+            }
+        } else
+            lastStateK = false;
+
+        Core::mModel.translate(lara->pos + vec3(512, -512, 0));
+        //renderModel(level.models[modelIndex], level.entities[4]);
+        TR::Entity seq;
+        seq.modelIndex = -(modelIndex + 1);
+        seq.controller = NULL;
+        Core::color = vec4(1.0f);
+        renderSequence(seq);
+        */
     #ifdef _DEBUG
         Debug::begin();
         Debug::Level::rooms(level, lara->pos, lara->getEntity().room);

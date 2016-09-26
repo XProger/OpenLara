@@ -3,7 +3,7 @@
 
 #include "game.h"
 
-int lastTime, fpsTime, FPS;
+int lastTime, fpsTime, fps;
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
@@ -18,23 +18,28 @@ void main_loop() {
     if (time - lastTime <= 0)
         return;
 
-    Core::deltaTime = (time - lastTime) * 0.001f;
-    lastTime = time;
-
-    if (time > fpsTime) {
-        fpsTime = time + 1000;
-        LOG("FPS: %d\n", FPS);
-        FPS = 0;
+    float delta = (time - lastTime) * 0.001f;
+    while (delta > EPS) {
+        Core::deltaTime = min(delta, 1.0f / 30.0f);
+        Game::update();
+        delta -= Core::deltaTime;
     }
+    lastTime = time;
 
     int f;
     emscripten_get_canvas_size(&Core::width, &Core::height, &f);
 
-    Game::update();
+    Core::stats.dips = 0;
+    Core::stats.tris = 0;
     Game::render();
     eglSwapBuffers(display, surface);
 
-    FPS++;
+    if (fpsTime < getTime()) {
+        LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
+        fps = 0;
+        fpsTime = getTime() + 1000;
+    } else
+        fps++;
 }
 
 bool initGL() {
@@ -182,7 +187,7 @@ int main() {
 
     lastTime = getTime();
     fpsTime  = lastTime + 1000;
-    FPS      = 0;
+    fps      = 0;
 
     emscripten_set_main_loop(main_loop, 0, true);
 
