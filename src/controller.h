@@ -6,8 +6,6 @@
 #define GRAVITY     6.0f
 #define NO_OVERLAP  0x7FFFFFFF
 
-#define SND_SECRET  13
-
 struct Controller {
     TR::Level   *level;
     int         entity;
@@ -41,15 +39,17 @@ struct Controller {
 
     float   turnTime;
 
-    struct Action {
-        TR::Action  action;
-        int         value;
-        float       timer;
+    struct ActionCommand {
+        TR::Action      action;
+        int             value;
+        float           timer;
+        ActionCommand   *next;
 
-        Action(TR::Action action, int value, float timer) : action(action), value(value), timer(timer) {}
-    } nextAction;
+        ActionCommand() {}
+        ActionCommand(TR::Action action, int value, float timer, ActionCommand *next = NULL) : action(action), value(value), timer(timer), next(next) {}
+    } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), nextAction(TR::Action::NONE, 0, 0.0f) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), actionCommand(NULL) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation, 0.0f);
@@ -94,6 +94,7 @@ struct Controller {
         animIndex = index;
         TR::Animation &anim = level->anims[animIndex];
         animTime  = frame == -1 ? 0.0f : ((frame - anim.frameStart) / 30.0f);
+        ASSERT(anim.frameStart <= anim.frameEnd);
         animPrevFrame = -1;
         return state = anim.state;
     }
@@ -226,15 +227,50 @@ struct Controller {
     }
 
     void activateNext() { // activate next entity (for triggers)
-        if (nextAction.action == TR::Action::NONE) return; 
-        
-        Controller *controller = (Controller*)level->entities[nextAction.value].controller;
-        nextAction.action = TR::Action::NONE;
-        if (controller)
-            controller->activate(nextAction.timer);
+        if (!actionCommand || !actionCommand->next) {
+            actionCommand = NULL;
+            return;
+        }
+        ActionCommand *next = actionCommand->next;
+
+        Controller *controller = NULL;
+        switch (next->action) {
+            case TR::Action::ACTIVATE        :
+                controller = (Controller*)level->entities[next->value].controller;
+                break;
+            case TR::Action::CAMERA_SWITCH   :
+            case TR::Action::CAMERA_TARGET   :
+                controller = (Controller*)level->cameraController;
+                break;
+            case TR::Action::SECRET          :
+                if (!level->secrets[next->value]) {
+                    level->secrets[next->value] = true;
+                    playSound(TR::SND_SECRET);
+                }
+                actionCommand = next;
+                activateNext();
+                return;
+            case TR::Action::FLOW            :
+            case TR::Action::FLIP_MAP        :
+            case TR::Action::FLIP_ON         :
+            case TR::Action::FLIP_OFF        :
+            case TR::Action::END             :
+            case TR::Action::SOUNDTRACK      :
+            case TR::Action::HARDCODE        :
+            case TR::Action::CLEAR           :
+            case TR::Action::CAMERA_FLYBY    :
+            case TR::Action::CUTSCENE        :
+                break;
+        }
+
+        if (controller) {
+            if (controller->activate(next))
+                actionCommand = NULL;
+        } else
+            actionCommand = NULL;
     }
 
-    virtual bool  activate(float timer) { return false; } 
+    virtual bool  activate(ActionCommand *cmd) { actionCommand = cmd; return true; } 
     virtual void  updateVelocity()      {}
     virtual void  move() {}
     virtual Stand getStand()           { return STAND_AIR; }

@@ -6,6 +6,7 @@
 #define TR1_DEMO
 
 #define MAX_RESERVED_ENTITIES 64
+#define MAX_SECRETS_COUNT     16
 
 namespace TR {
 
@@ -15,12 +16,13 @@ namespace TR {
     };
 
     enum {
-        ANIM_CMD_MOVE    = 1,
-        ANIM_CMD_SPEED   = 2,
-        ANIM_CMD_EMPTY   = 3,
-        ANIM_CMD_KILL    = 4,
-        ANIM_CMD_SOUND   = 5,
-        ANIM_CMD_SPECIAL = 6,
+        ANIM_CMD_NONE       ,
+        ANIM_CMD_MOVE       ,
+        ANIM_CMD_SPEED      ,
+        ANIM_CMD_EMPTY      ,
+        ANIM_CMD_KILL       ,
+        ANIM_CMD_SOUND      ,
+        ANIM_CMD_SPECIAL    ,
     };
 
     enum {
@@ -30,43 +32,27 @@ namespace TR {
     };
 
     enum {
+        SND_NO          = 2,
         SND_BUBBLE      = 37,
+        SND_SECRET      = 173,
     };
 
-    enum {
-        TRIGGER_ACTIVATE = 0,
-        TRIGGER_PAD      = 1,
-        TRIGGER_SWITCH   = 2,
-        TRIGGER_KEY      = 3,
-        TRIGGER_PICKUP   = 4,
-        TRIGGER_HEAVY    = 5,
-        TRIGGER_ANTIPAD  = 6,
-        TRIGGER_COMBAT   = 7,
-        TRIGGER_DUMMY    = 8,
-        TRIGGER_ANTI     = 9
+    enum Action : uint16 {
+        ACTIVATE        ,   // activate item
+        CAMERA_SWITCH   ,   // switch to camera
+        FLOW            ,   // underwater flow
+        FLIP_MAP        ,   // flip map
+        FLIP_ON         ,   // flip on
+        FLIP_OFF        ,   // flip off
+        CAMERA_TARGET   ,   // look at item
+        END             ,   // end level
+        SOUNDTRACK      ,   // play soundtrack
+        HARDCODE        ,   // special hadrdcode trigger
+        SECRET          ,   // secret found
+        CLEAR           ,   // clear bodies
+        CAMERA_FLYBY    ,   // flyby camera sequence
+        CUTSCENE        ,   // play cutscene
     };
-
-    enum Action {
-        NONE            = -1,   // no action
-        ACTIVATE        =  0,   // activate item
-        CAMERA_SWITCH   =  1,   // switch to camera
-        UNDERWATER      =  2,   // underwater flow
-        FLIP_MAP        =  3,   // flip map
-        FLIP_ON         =  4,   // flip on
-        FLIP_OFF        =  5,   // flip off
-        LOOK_AT         =  6,   // look at item
-        END             =  7,   // end level
-        SOUNDTRACK      =  8,   // play soundtrack
-        HARDCODE        =  9,   // special hadrdcode trigger
-        SECRET          = 10,   // secret found
-        CLEAR_BODIES    = 11,   // clear bodies
-        CAMERA_FLYBY    = 12,   // flyby camera sequence
-        CUTSCENE        = 13,   // play cutscene
-    };
-
-    #define DATA_PORTAL     0x01
-    #define DATA_FLOOR      0x02
-    #define DATA_CEILING    0x03
 
     #define ENTITY_FLAG_CLEAR   0x0080
     #define ENTITY_FLAG_VISIBLE 0x0100
@@ -198,16 +184,24 @@ namespace TR {
         struct TriggerInfo {
             uint16  timer:8, once:1, mask:5, :2;
         } triggerInfo;
-        struct TriggerCommand {
-            uint16 args:10, action:5, end:1;
+        union TriggerCommand {
+            struct {
+                uint16 args:10;
+                Action action:5;
+                uint16 end:1;
+            };
+            struct {
+                uint16 delay:8, once:1; 
+            };
         } triggerCmd;
 
         enum {
-            PORTAL   = 1,
-            FLOOR    = 2,
-            CEILING  = 3,
-            TRIGGER  = 4,
-            KILL     = 5,
+            NONE    ,
+            PORTAL  ,
+            FLOOR   ,
+            CEILING ,
+            TRIGGER ,
+            KILL    ,
         };
     };
 
@@ -586,7 +580,7 @@ namespace TR {
         SpriteSequence  *spriteSequences;
 
         int32           camerasCount;
-        Camera          *camera;
+        Camera          *cameras;
 
         int32           soundSourcesCount;
         SoundSource     *soundSources;
@@ -622,6 +616,34 @@ namespace TR {
 
         int32           soundOffsetsCount;
         uint32          *soundOffsets;
+
+   // common
+        enum Trigger : uint32 {
+            ACTIVATE    ,
+            PAD         ,
+            SWITCH      ,
+            KEY         ,
+            PICKUP      ,
+            HEAVY       ,
+            ANTIPAD     ,
+            COMBAT      ,
+            DUMMY       ,
+            ANTI        ,
+        };
+    
+        struct FloorInfo {
+            int floor, ceiling;
+            int roomNext, roomBelow, roomAbove;
+            int floorIndex;
+            int kill;
+            int trigCmdCount;
+            Trigger trigger;
+            FloorData::TriggerInfo trigInfo;
+            FloorData::TriggerCommand trigCmd[16];
+        };
+
+        bool    secrets[MAX_SECRETS_COUNT];
+        void    *cameraController;
 
         Level(Stream &stream) {
         // read version
@@ -701,7 +723,7 @@ namespace TR {
         #endif
 
         // cameras
-            stream.read(camera,         stream.read(camerasCount));
+            stream.read(cameras,        stream.read(camerasCount));
         // sound sources
             stream.read(soundSources,   stream.read(soundSourcesCount));
         // AI
@@ -720,8 +742,10 @@ namespace TR {
                 e.controller = NULL;
                 e.modelIndex = getModelIndex(e.id);
             }
-            for (int i = entitiesBaseCount; i < entitiesCount; i++)
+            for (int i = entitiesBaseCount; i < entitiesCount; i++) {
                 entities[i].id = -1;
+                entities[i].controller = NULL;
+            }
         // palette
             stream.seek(32 * 256);  // skip lightmap palette
 
@@ -747,6 +771,8 @@ namespace TR {
                 c.g <<= 2;
                 c.b <<= 2;
             }
+
+            memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
         }
 
         ~Level() {
@@ -778,7 +804,7 @@ namespace TR {
             delete[] objectTextures;
             delete[] spriteTextures;
             delete[] spriteSequences;
-            delete[] camera;
+            delete[] cameras;
             delete[] soundSources;
             delete[] boxes;
             delete[] overlaps;
@@ -838,18 +864,8 @@ namespace TR {
 
         void entityRemove(int entityIndex) {
             entities[entityIndex].id = -1;
+            entities[entityIndex].controller = NULL;
         }
-
-        struct FloorInfo {
-            int floor, ceiling;
-            int roomNext, roomBelow, roomAbove;
-            int floorIndex;
-            bool kill;
-            int trigger;
-            FloorData::TriggerInfo trigInfo;
-            FloorData::TriggerCommand trigCmd[16];
-            int trigCmdCount;
-        };
 
         Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
@@ -879,8 +895,8 @@ namespace TR {
             info.roomBelow    = s.roomBelow;
             info.roomAbove    = s.roomAbove;
             info.floorIndex   = s.floorIndex;
-            info.kill         = false;
-            info.trigger      = -1;
+            info.kill         = 0;
+            info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
             if (!s.floorIndex) return;
@@ -913,22 +929,19 @@ namespace TR {
                     }
 
                     case FloorData::TRIGGER :  {
-                        info.trigger        = cmd.sub;
+                        info.trigger        = (Trigger)cmd.sub;
                         info.trigCmdCount   = 0;
                         info.trigInfo       = (*fd++).triggerInfo;
                         FloorData::TriggerCommand trigCmd;
                         do {
                             trigCmd = (*fd++).triggerCmd; // trigger action
                             info.trigCmd[info.trigCmdCount++] = trigCmd;
-                            if (trigCmd.action == Action::CAMERA_SWITCH) {
-
-                            }
                         } while (!trigCmd.end);                       
                         break;
                     }
 
                     case FloorData::KILL :
-                        info.kill = true;
+                        info.kill = 1;
                         break;
 
                     default : LOG("unknown func: %d\n", cmd.func);

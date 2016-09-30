@@ -17,9 +17,10 @@ struct Trigger : Controller {
         return (state != baseState) == (getEntity().flags & ENTITY_FLAG_ACTIVE) > 0;
     }
 
-    virtual bool activate(float timer) {
-        if (this->timer != 0.0f || !inState()) return false;
-        this->timer = timer;
+    virtual bool activate(ActionCommand *cmd) {
+        if (this->timer != 0.0f || !inState() || actionCommand) return false;
+        Controller::activate(cmd);
+        this->timer = cmd->timer;
 
         getEntity().flags ^= ENTITY_FLAG_ACTIVE;
         
@@ -93,8 +94,8 @@ struct Dartgun : Trigger {
 
     Dartgun(TR::Level *level, int entity) : Trigger(level, entity, true), origin(pos) {}
 
-    virtual bool activate(float timer) {
-        if (!Trigger::activate(timer))
+    virtual bool activate(ActionCommand *cmd) {
+        if (!Trigger::activate(cmd))
             return false;
         
         // add dart (bullet)

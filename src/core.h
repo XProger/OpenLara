@@ -7,11 +7,11 @@
     #include <gl/GL.h>
     #include <gl/glext.h>
 #elif __EMSCRIPTEN__
-	#include <emscripten.h>
-	#include <html5.h>
-	#include <GLES3/gl3.h>
-	#include <GLES3/gl2ext.h>
-	#define MOBILE
+    #include <emscripten.h>
+    #include <html5.h>
+    #include <GLES3/gl3.h>
+    #include <GLES3/gl2ext.h>
+    #define MOBILE
 #endif
 
 #include "utils.h"

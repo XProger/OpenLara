@@ -111,6 +111,8 @@ struct vec3 {
     vec3  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
 
     vec3 lerp(const vec3 &v, const float t) const {
+        if (t <= 0.0f) return *this;
+        if (t >= 1.0f) return v;
         return *this + (v - *this) * t; 
     }
 

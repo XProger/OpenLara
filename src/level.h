@@ -103,6 +103,8 @@ struct Level {
 
         ASSERT(lara != NULL);
         camera = new Camera(&level, lara);
+
+        level.cameraController = camera;
     }
 
     ~Level() {
@@ -110,8 +112,7 @@ struct Level {
             Debug::free();
         #endif
         for (int i = 0; i < level.entitiesCount; i++)
-            if (level.entities[i].id > -1)
-                delete (Controller*)level.entities[i].controller;
+            delete (Controller*)level.entities[i].controller;
 
         for (int i = 0; i < shMAX; i++)
             delete shaders[i];
@@ -528,15 +529,8 @@ struct Level {
                 if (controller) 
                     controller->update();
             }
-
+        
         camera->update();
-    }
-
-    int getCameraRoomIndex() {
-        for (int i = 0; i < level.roomsCount; i++)
-            if (lara->insideRoom(Core::viewPos, i))
-                return i;
-        return lara->getEntity().room;
     }
 
     void render() {
@@ -573,7 +567,7 @@ struct Level {
         }
 
     // TODO: collision detection for camera
-        renderRoom(camera->room);
+        renderRoom(camera->getRoomIndex());
 
         shaders[shStatic]->bind();
         for (int i = 0; i < level.entitiesCount; i++)
@@ -603,7 +597,7 @@ struct Level {
         */
     #ifdef _DEBUG
         Debug::begin();
-        Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
+    //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
     //    Debug::Level::meshes(level);

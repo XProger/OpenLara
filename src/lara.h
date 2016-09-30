@@ -14,9 +14,14 @@
 #define TURN_WATER_SLOW     PI * 2.0f / 3.0f
 #define GLIDE_SPEED         50.0f
 
+
+#define MAX_TRIGGER_ACTIONS 64
+
 struct Lara : Controller {
 
-    // http://www.tombraiderforums.com/showthread.php?t=148859&highlight=Explanation+left
+    ActionCommand actionList[MAX_TRIGGER_ACTIONS];
+
+    // http://www.tombraiderforums.com/showthread.php?t=148859
     enum {
         ANIM_STAND              = 11,
         ANIM_FALL               = 34,
@@ -76,8 +81,8 @@ struct Lara : Controller {
         STATE_PULL_BLOCK,
         STATE_PUSH_PULL_READY,
         STATE_PICK_UP,
-        STATE_SWITCH_ON,
-        STATE_SWITCH_OFF,
+        STATE_SWITCH_DOWN,
+        STATE_SWITCH_UP,
         STATE_USE_KEY,
         STATE_USE_PUZZLE,
         STATE_UNDERWATER_DEATH,
@@ -94,10 +99,7 @@ struct Lara : Controller {
         STATE_WATER_OUT,
         STATE_MAX };
 
-    int     targetEntity;
-    float   targetTimer;
-
-    Lara(TR::Level *level, int entity) : Controller(level, entity), targetEntity(-1), targetTimer(0.0f) {
+    Lara(TR::Level *level, int entity) : Controller(level, entity) {
     /*
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
@@ -157,6 +159,8 @@ struct Lara : Controller {
     }
 
     void performTrigger() {
+        if (actionCommand) return;
+
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.z, info);
@@ -165,80 +169,80 @@ struct Lara : Controller {
         bool isActive = (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE);
         if (info.trigInfo.once == 1 && (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE)) return; // once trigger is already activated
 
-        int actionState = 0;
+        int actionState = state;
         switch (info.trigger) {
-            case TR::TRIGGER_ACTIVATE :
+            case TR::Level::Trigger::ACTIVATE :
                 if (isActive) return;
-                actionState = state;
                 break;
-            case TR::TRIGGER_PAD :
+            case TR::Level::Trigger::PAD :
                 if (stand != STAND_GROUND || isActive) return;
-                actionState = state;
                 break;
-            case TR::TRIGGER_SWITCH : 
-                if (mask & ACTION) {
-                    actionState = isActive ? STATE_SWITCH_OFF : STATE_SWITCH_ON;
-                } else 
+            case TR::Level::Trigger::SWITCH :
+                actionState = (isActive && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
+                if ((mask & ACTION) == 0 || state == actionState)
+                    return;
+                if (fabsf(level->entities[info.trigCmd[0].args].rotation - e.rotation) > PI * 0.25f)
                     return;
                 break;
-            case TR::TRIGGER_KEY :
-                if (isActive) return;
-                if (mask & ACTION)
-                //    if (entity.id == ENTITY_PUZZLE_1)
-                //        actionState = STATE_USE_PUZZLE;
-                //    else
-                        actionState = STATE_USE_KEY; 
-                else
+            case TR::Level::Trigger::KEY :
+                actionState = STATE_USE_KEY;
+                if (isActive || (mask & ACTION) == 0 || state == actionState)   // TODO: STATE_USE_PUZZLE
+                    return;
+                if (fabsf(level->entities[info.trigCmd[0].args].rotation - e.rotation) > PI * 0.25f)
                     return;
                 break;
-            case TR::TRIGGER_PICKUP :
-                if ((mask & ACTION) && stand == STAND_GROUND)
-                    actionState = STATE_PICK_UP;
-                else
+            case TR::Level::Trigger::PICKUP :
+                if (!isActive)  // check if item is not picked up
                     return;
                 break;
             default :
                 LOG("unsupported trigger type %d\n", info.trigger);
                 return;
         }
-        
+
         // try to activate Lara state
         if (!setState(actionState)) return;
 
-        // build trigger activation chain
-        for (int i = 0; i < info.trigCmdCount; i++) {
-            TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
-            switch  (cmd.action) {
-                case TR::Action::ACTIVATE : {
-                    Controller *controller = (Controller*)level->entities[cmd.args].controller;
-                    if (!controller) {
-                        LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
-                        playSound(2);
-                        return;
-                    } else
-                        controller->nextAction = (i < info.trigCmdCount - 1) ? Action(TR::Action::ACTIVATE, info.trigCmd[i + 1].args, 0.0f) : Action(TR::Action::NONE, 0, 0.0f);
-                    break;
-                }
-                case TR::Action::LOOK_AT :
-                    level->entities[cmd.args].flags |= ENTITY_FLAG_ACTIVE;
-                    targetEntity = cmd.args;
-                    targetTimer  = info.trigInfo.timer;
-                    break;
-                default : 
-                    LOG("unsupported trigger action %d\n", cmd.action);
-                    return;
-            }
+        if (info.trigger == TR::Level::Trigger::SWITCH || info.trigger == TR::Level::Trigger::KEY) {
+            TR::Entity &p = level->entities[info.trigCmd[0].args];
+            angle.y = p.rotation;
+            angle.x = 0;
+            pos = vec3(p.x, p.y, p.z) + vec3(sinf(angle.y), 0, cosf(angle.y)) * (stand == STAND_GROUND ? 384 : 128);
+            updateEntity();
         }
 
-        // activate first entity in chain
-        Controller *controller = (Controller*)level->entities[info.trigCmd[0].args].controller;
-        if (controller) {
-            if (info.trigger == TR::TRIGGER_KEY) {
-                nextAction = controller->nextAction;
-                controller->nextAction.action = TR::Action::NONE;
-            } else
-                controller->activate((float)info.trigInfo.timer);
+        // build trigger activation chain
+        ActionCommand *actionItem = &actionList[1];
+
+        Controller *controller = this;
+        for (int i = 0; i < info.trigCmdCount; i++) {
+            if (!controller) {
+                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
+                playSound(TR::SND_NO);
+                return;
+            }
+
+            if (info.trigger == TR::Level::Trigger::KEY && i == 0) continue; // skip keyhole
+
+            TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
+            switch (cmd.action) {
+                case TR::Action::CAMERA_SWITCH :
+                    *actionItem = ActionCommand(cmd.action, cmd.args, (float)info.trigCmd[++i].delay);    // camera switch uses next command for delay timer
+                    break;
+                default :
+                    *actionItem = ActionCommand(cmd.action, cmd.args, info.trigInfo.timer);
+            }
+
+            actionItem->next = (i < info.trigCmdCount - 1) ? actionItem + 1 : NULL;
+            actionItem++;
         }
+
+        LOG("perform\n");
+        actionList[0].next = &actionList[1];
+        actionCommand = &actionList[0];
+
+        if (info.trigger != TR::Level::Trigger::KEY)
+            activateNext();
     }
 
     virtual Stand getStand() {
@@ -398,11 +402,6 @@ struct Lara : Controller {
     }
 
     virtual void updateState() {
-        if (targetTimer > 0.0f && (targetTimer -= Core::deltaTime) <= 0.0f) {
-            targetEntity = -1;
-            targetTimer  = 0.0f;
-        }
-
         performTrigger();
 
         TR::Animation *anim  = &level->anims[animIndex];

@@ -160,25 +160,53 @@ struct Camera : Controller {
     vec3    target, destPos, lastDest, angleAdv;
     int     room;
 
-    Camera(TR::Level *level, Lara *owner) : Controller(level, owner->entity), owner(owner), frustum(new Frustum()) {
+    float   timer;
+    int     actTargetEntity, actCamera;
+
+    Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
         fov         = 75.0f;
         znear       = 128;
         zfar        = 100.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
         
-        room = owner->getEntity().room;
-        pos = pos - owner->getDir() * 1024.0f;
+        if (owner) {
+            room = owner->getEntity().room;
+            pos = pos - owner->getDir() * 1024.0f;
+        }
     }
 
-    ~Camera() {
+    virtual ~Camera() {
         delete frustum;
     }
-
+    
     virtual int getRoomIndex() const {
-        return room;
+        return actCamera > -1 ? level->cameras[actCamera].room : room;
+    }
+
+    virtual bool activate(ActionCommand *cmd) {
+        Controller::activate(cmd);
+        if (cmd->timer)
+            this->timer = cmd->timer;
+        if (cmd->action == TR::Action::CAMERA_TARGET)
+            actTargetEntity = cmd->value;
+        if (cmd->action == TR::Action::CAMERA_SWITCH) {
+            actCamera = cmd->value;
+            lastDest = pos;
+        }
+        activateNext();
+        return true;
     }
     
     virtual void update() {
+        if (timer > 0.0f) {
+            timer -= Core::deltaTime;
+            if (timer <= 0.0f) {
+                timer = 0.0f;
+                if (room != getRoomIndex())
+                    pos = lastDest;
+                actTargetEntity = actCamera = -1;
+            }
+        }
     #ifdef FREE_CAMERA
         vec3 dir = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
         vec3 v = vec3(0);
@@ -211,28 +239,41 @@ struct Camera : Controller {
         angle = owner->angle + angleAdv;
         angle.z = 0.0f;        
         //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
-        
-        target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
-        
-        vec3 dir;
-        float lerpFactor = 2.0f;
-        if (owner->targetEntity > -1) {            
-            TR::Entity &e = level->entities[owner->targetEntity];
-            dir = (vec3(e.x, e.y, e.z) - target).normal();
-            lerpFactor = 10.0f;
-        } else
-            dir = getDir();
 
-        if (owner->state != Lara::STATE_BACK_JUMP) {
-            vec3 eye = target - dir * 1024.0f;
-            destPos = trace(owner->getRoomIndex(), target, eye);
-            lastDest = destPos;
+        vec3 dir;
+        target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
+
+        if (actCamera > -1) {
+            TR::Camera &c = level->cameras[actCamera];
+            destPos = vec3(c.x, c.y, c.z);
+            if (room != getRoomIndex()) 
+                pos = destPos;
+            if (actTargetEntity > -1) {
+                TR::Entity &e = level->entities[actTargetEntity];
+                target = vec3(e.x, e.y, e.z);
+            }
         } else {
-            vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
-            destPos = trace(owner->getRoomIndex(), target, eye);     
+            if (actTargetEntity > -1) {
+                TR::Entity &e = level->entities[actTargetEntity];
+                dir = (vec3(e.x, e.y, e.z) - target).normal();
+            } else
+                dir = getDir();
+
+            if (owner->state != Lara::STATE_BACK_JUMP || actTargetEntity > -1) {
+                vec3 eye = target - dir * 1024.0f;
+                destPos = trace(owner->getRoomIndex(), target, eye);
+                lastDest = destPos;
+            } else {
+                vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
+                destPos = trace(owner->getRoomIndex(), target, eye);
+            }
         }
 
-        pos = pos.lerp(destPos, min(1.0f, Core::deltaTime * lerpFactor));
+        float lerpFactor = (actTargetEntity == -1) ? 2.0f : 10.0f;
+
+        pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
+
+        if (actCamera > -1) return;
 
         TR::Level::FloorInfo info;
         level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
@@ -313,7 +354,7 @@ struct Camera : Controller {
             return x < z ? vec3(-1, 0, 0) : vec3(0, 0, -1);
     }
 
-    void setup() {
+    virtual void setup() {
         Core::mViewInv = mat4(pos, target, vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverse();
         Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
