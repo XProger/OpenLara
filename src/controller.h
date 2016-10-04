@@ -166,8 +166,9 @@ struct Controller {
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
             void *p = &level->soundData[c];
-        #ifdef WIN32
-            PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
+        #ifdef WIN32           
+            Sound::play(new Stream(p, 1024 * 1024), b.volume / 255.0f, 0.0f, Sound::Flags::PAN);
+        //    PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
         #endif
         }
     }

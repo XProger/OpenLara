@@ -525,7 +525,7 @@ namespace Debug {
 
         void info(const TR::Level &level, const TR::Entity &entity) {
             char buf[255];
-            sprintf(buf, "DIP = %d, TRI = %d", Core::stats.dips, Core::stats.tris);
+            sprintf(buf, "DIP = %d, TRI = %d, SND = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount);
             Debug::Draw::text(vec2(16, 16), vec4(1.0f), buf);
             sprintf(buf, "pos = (%d, %d, %d), room = %d", entity.x, entity.y, entity.z, entity.room);
             Debug::Draw::text(vec2(16, 32), vec4(1.0f), buf);

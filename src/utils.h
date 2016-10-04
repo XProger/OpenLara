@@ -36,6 +36,8 @@ typedef unsigned char   uint8;
 typedef unsigned short  uint16;
 typedef unsigned int    uint32;
 
+#define FOURCC(str)     (*((uint32*)str))
+
 struct ubyte4 {
     uint8 x, y, z, w;
 };
@@ -473,9 +475,12 @@ struct mat4 {
 
 struct Stream {
     FILE        *f;
-    int         size, pos;
+	const char	*data;
+	int         size, pos;
 
-    Stream(const char *name) : pos(0) {
+	Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
+
+    Stream(const char *name) : data(NULL), size(-1), pos(0) {
         f = fopen(name, "rb");
         if (!f) LOG("error loading file\n");
         fseek(f, 0, SEEK_END);
@@ -484,32 +489,36 @@ struct Stream {
     }
 
     ~Stream() {
-        fclose(f);
+		if (f) fclose(f);
     }
 
     void setPos(int pos) {
         this->pos = pos;
-        fseek(f, pos, SEEK_SET);
+		if (f) fseek(f, pos, SEEK_SET);
     }
 
     void seek(int offset) {
-        fseek(f, offset, SEEK_CUR);
+        if (!offset) return;
+        if (f) fseek(f, offset, SEEK_CUR);
         pos += offset;
     }
 
-    int raw(void *data, int size) {
-        pos += size;
-        return fread(data, 1, size, f);
+    void raw(void *data, int count) {
+		if (f)
+			fread(data, 1, count, f);
+		else
+			memcpy(data, this->data + pos, count);
+		pos += count;
     }
 
     template <typename T>
-    T& read(T &x) {
+    inline T& read(T &x) {
         raw(&x, sizeof(x));
         return x;
     }
 
     template <typename T>
-    T* read(T *&a, int count) {
+    inline T* read(T *&a, int count) {
         if (count) {
             a = new T[count];
             raw(a, count * sizeof(T));

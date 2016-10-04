@@ -16,6 +16,7 @@
 
 #include "utils.h"
 #include "input.h"
+#include "sound.h"
 
 #ifdef WIN32
     #if defined(_MSC_VER) // Visual Studio
@@ -119,10 +120,11 @@ namespace Core {
         GetProcOGL(glBindBuffer);
         GetProcOGL(glBufferData);
     #endif
+        Sound::init();
     }
 
     void free() {
-        //
+        Sound::free();
     }
 
     void clear(const vec4 &color) {

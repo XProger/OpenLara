@@ -1,7 +1,13 @@
 #ifdef _DEBUG
     #include "crtdbg.h"
 #endif
+/* // VS2015 ?
+#include <stdint.h>
 
+void __cdecl operator delete(void *ptr, unsigned int size) {
+	//	
+}
+*/
 #include "game.h"
 
 DWORD getTime() {
@@ -16,6 +22,7 @@ DWORD getTime() {
 #endif
 }
 
+// common input functions
 InputKey keyToInputKey(int code) {
     int codes[] = {
         VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SPACE, VK_RETURN, VK_ESCAPE, VK_SHIFT, VK_CONTROL, VK_MENU,
@@ -35,7 +42,8 @@ InputKey mouseToInputKey(int msg) {
            (msg >= WM_RBUTTONDOWN && msg <= WM_RBUTTONDBLCLK) ? ikMouseR : ikMouseM;
 }
 
-#define JOY_DEAD_ZONE_STICK        0.3f
+// joystick
+#define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
 
 bool joyReady;
@@ -99,11 +107,75 @@ void joyUpdate() {
         joyFree();
 }
 
+// sound
+#define SND_SIZE 4608*2
+
+bool sndReady;
+char *sndData;
+CRITICAL_SECTION sndCS;
+HWAVEOUT waveOut;
+WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 2, 44100, 44100 * 4, 4, 16, sizeof(waveFmt) };
+WAVEHDR waveBuf[2];
+
+void soundFree() {
+    if (!sndReady) return;
+    sndReady = false;
+	EnterCriticalSection(&sndCS);
+	waveOutUnprepareHeader(waveOut, &waveBuf[0], sizeof(WAVEHDR));
+	waveOutUnprepareHeader(waveOut, &waveBuf[1], sizeof(WAVEHDR));
+	waveOutReset(waveOut);
+	waveOutClose(waveOut);
+	delete[] sndData;
+	LeaveCriticalSection(&sndCS);
+	DeleteCriticalSection(&sndCS);
+}
+
+void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEHDR waveBuf, DWORD dwParam2) {
+    if (!sndReady) return;
+    if (uMsg == MM_WOM_CLOSE) {
+        soundFree();
+        return;
+    }
+
+	EnterCriticalSection(&sndCS);
+	waveOutUnprepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
+	Sound::fill((Sound::Frame*)waveBuf->lpData, SND_SIZE / 4);
+	waveOutPrepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
+	waveOutWrite(waveOut, waveBuf, sizeof(WAVEHDR));
+	LeaveCriticalSection(&sndCS);
+}
+
+void soundInit(HWND hwnd) {
+	InitializeCriticalSection(&sndCS);
+	if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)sndFill, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) {
+        sndReady = true;
+		sndData  = new char[SND_SIZE * 2];
+		memset(&waveBuf, 0, sizeof(waveBuf));
+		for (int i = 0; i < 2; i++) {
+			waveBuf[i].dwBufferLength = SND_SIZE;
+			waveBuf[i].lpData = sndData + SND_SIZE * i;
+			sndFill(waveOut, 0, 0, &waveBuf[i], 0);
+		}
+	} else {
+        sndReady = false;
+		sndData  = NULL;
+    }
+}
+
+
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+		// window
         case WM_ACTIVATE :
             Input::reset();
             break;
+		case WM_SIZE:
+			Core::width = LOWORD(lParam);
+			Core::height = HIWORD(lParam);
+			break;
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
         // keyboard
         case WM_KEYDOWN    :
         case WM_KEYUP      :
@@ -134,19 +206,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_MOUSEMOVE :
             Input::setPos(ikMouseL, vec2((float)(short)LOWORD(lParam), (float)(short)HIWORD(lParam)));
             break;
-        // gamepad
+        // joystick
         case WM_DEVICECHANGE :
             joyInit();
             return 1;
         // touch
-        // ...
-        case WM_SIZE :
-            Core::width  = LOWORD(lParam);
-            Core::height = HIWORD(lParam);
-            break;
-        case WM_DESTROY :
-            PostQuitMessage(0);
-            break;
+        // TODO
+		// sound
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
@@ -187,11 +253,12 @@ int main() {
 
     HWND hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
 
-    joyInit();
-
-    HDC hDC = GetDC(hWnd);
+	HDC hDC = GetDC(hWnd);
     HGLRC hRC = initGL(hDC);
-    Game::init();
+	
+	joyInit();
+	soundInit(hWnd);
+	Game::init();
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
@@ -211,11 +278,13 @@ int main() {
                 continue;
 
             float delta = (time - lastTime) * 0.001f;
+            EnterCriticalSection(&sndCS);
             while (delta > EPS) {
                 Core::deltaTime = min(delta, 1.0f / 30.0f);
                 Game::update();
                 delta -= Core::deltaTime;
             }
+            LeaveCriticalSection(&sndCS);
             lastTime = time;
 
             Core::stats.dips = 0;
@@ -232,7 +301,9 @@ int main() {
         }
     } while (msg.message != WM_QUIT);
 
+	soundFree();
     Game::free();
+
     freeGL(hRC);
     ReleaseDC(hWnd, hDC);
 

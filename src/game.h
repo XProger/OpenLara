@@ -14,6 +14,10 @@ namespace Game {
         Core::init();
         Stream stream("LEVEL2_DEMO.PHD");
         level = new Level(stream);
+        
+        //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
+        Sound::play(new Stream("05.ogg"), 1, 1, 0);
+        //Sound::play(new Stream("03.mp3"), 1, 1, 0);
     }
 
     void free() {
