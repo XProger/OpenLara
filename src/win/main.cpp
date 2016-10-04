@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 void __cdecl operator delete(void *ptr, unsigned int size) {
-	//	
+    //  
 }
 */
 #include "game.h"
@@ -120,14 +120,14 @@ WAVEHDR waveBuf[2];
 void soundFree() {
     if (!sndReady) return;
     sndReady = false;
-	EnterCriticalSection(&sndCS);
-	waveOutUnprepareHeader(waveOut, &waveBuf[0], sizeof(WAVEHDR));
-	waveOutUnprepareHeader(waveOut, &waveBuf[1], sizeof(WAVEHDR));
-	waveOutReset(waveOut);
-	waveOutClose(waveOut);
-	delete[] sndData;
-	LeaveCriticalSection(&sndCS);
-	DeleteCriticalSection(&sndCS);
+    EnterCriticalSection(&sndCS);
+    waveOutUnprepareHeader(waveOut, &waveBuf[0], sizeof(WAVEHDR));
+    waveOutUnprepareHeader(waveOut, &waveBuf[1], sizeof(WAVEHDR));
+    waveOutReset(waveOut);
+    waveOutClose(waveOut);
+    delete[] sndData;
+    LeaveCriticalSection(&sndCS);
+    DeleteCriticalSection(&sndCS);
 }
 
 void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEHDR waveBuf, DWORD dwParam2) {
@@ -137,45 +137,45 @@ void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEH
         return;
     }
 
-	EnterCriticalSection(&sndCS);
-	waveOutUnprepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
-	Sound::fill((Sound::Frame*)waveBuf->lpData, SND_SIZE / 4);
-	waveOutPrepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
-	waveOutWrite(waveOut, waveBuf, sizeof(WAVEHDR));
-	LeaveCriticalSection(&sndCS);
+    EnterCriticalSection(&sndCS);
+    waveOutUnprepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
+    Sound::fill((Sound::Frame*)waveBuf->lpData, SND_SIZE / 4);
+    waveOutPrepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
+    waveOutWrite(waveOut, waveBuf, sizeof(WAVEHDR));
+    LeaveCriticalSection(&sndCS);
 }
 
 void soundInit(HWND hwnd) {
-	InitializeCriticalSection(&sndCS);
-	if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)sndFill, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) {
+    InitializeCriticalSection(&sndCS);
+    if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)sndFill, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) {
         sndReady = true;
-		sndData  = new char[SND_SIZE * 2];
-		memset(&waveBuf, 0, sizeof(waveBuf));
-		for (int i = 0; i < 2; i++) {
-			waveBuf[i].dwBufferLength = SND_SIZE;
-			waveBuf[i].lpData = sndData + SND_SIZE * i;
-			sndFill(waveOut, 0, 0, &waveBuf[i], 0);
-		}
-	} else {
+        sndData  = new char[SND_SIZE * 2];
+        memset(&waveBuf, 0, sizeof(waveBuf));
+        for (int i = 0; i < 2; i++) {
+            waveBuf[i].dwBufferLength = SND_SIZE;
+            waveBuf[i].lpData = sndData + SND_SIZE * i;
+            sndFill(waveOut, 0, 0, &waveBuf[i], 0);
+        }
+    } else {
         sndReady = false;
-		sndData  = NULL;
+        sndData  = NULL;
     }
 }
 
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-		// window
+        // window
         case WM_ACTIVATE :
             Input::reset();
             break;
-		case WM_SIZE:
-			Core::width = LOWORD(lParam);
-			Core::height = HIWORD(lParam);
-			break;
-		case WM_DESTROY:
-			PostQuitMessage(0);
-			break;
+        case WM_SIZE:
+            Core::width = LOWORD(lParam);
+            Core::height = HIWORD(lParam);
+            break;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
         // keyboard
         case WM_KEYDOWN    :
         case WM_KEYUP      :
@@ -212,7 +212,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 1;
         // touch
         // TODO
-		// sound
+        // sound
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
@@ -253,12 +253,12 @@ int main() {
 
     HWND hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
 
-	HDC hDC = GetDC(hWnd);
+    HDC hDC = GetDC(hWnd);
     HGLRC hRC = initGL(hDC);
-	
-	joyInit();
-	soundInit(hWnd);
-	Game::init();
+    
+    joyInit();
+    soundInit(hWnd);
+    Game::init();
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
@@ -301,7 +301,7 @@ int main() {
         }
     } while (msg.message != WM_QUIT);
 
-	soundFree();
+    soundFree();
     Game::free();
 
     freeGL(hRC);

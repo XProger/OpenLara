@@ -6,14 +6,14 @@
 #define STB_VORBIS_HEADER_ONLY
 #include "libs/stb_vorbis/stb_vorbis.c"
 
-#define SND_CHANNELS_MAX	32
-#define BUFFER_SIZE_MP3		8192
+#define SND_CHANNELS_MAX    32
+#define BUFFER_SIZE_MP3     8192
 
 namespace Sound {
 
     struct Frame {
-		short L, R;
-	};
+        short L, R;
+    };
 
     struct Decoder {
         Stream  *stream;
@@ -77,12 +77,12 @@ namespace Sound {
                 sample  = clamp(sample, -32768, 32767);
                 sample2 = sample1;
                 sample1 = sample;
-			    delta   = max(table[nibble] * delta / 256, 16);
+                delta   = max(table[nibble] * delta / 256, 16);
                 return sample;
             }
         } channel[2];
 
-	    virtual int decode(Frame *frames, int count) {
+        virtual int decode(Frame *frames, int count) {
             static const int coeff1[] = { 256, 512, 0, 192, 240, 460, 392 };
             static const int coeff2[] = { 0, -256, 0, 64, 0, -208, -232 };
             
@@ -110,7 +110,7 @@ namespace Sound {
                     frames[1].R = channel[1].sample1;
                 }
                 return 2;
-		    } else {
+            } else {
                 uint8 value;
                 stream->read(value);
                 uint8 n1 = value >> 4, n2 = value & 0xF;
@@ -125,7 +125,7 @@ namespace Sound {
                     return 1;
                 }
             }
-	    }
+        }
     };
 
     struct MP3 : Decoder {
@@ -149,9 +149,9 @@ namespace Sound {
             int i = 0;
             char *ptr = (char*)frames;
             while (ptr < (char*)&frames[count]) {
-				int res = mp3_decode(mp3, buffer + pos, size - pos, (short*)ptr, &info);
-				if (res) {
-					pos += res;
+                int res = mp3_decode(mp3, buffer + pos, size - pos, (short*)ptr, &info);
+                if (res) {
+                    pos += res;
                     ptr += info.audio_bytes;
                     i   += info.audio_bytes;
                 } else
@@ -191,7 +191,7 @@ namespace Sound {
                 int res = stb_vorbis_get_samples_short_interleaved(ogg, channels, (short*)frames + i, (count - i) * 2);
                 if (!res) break;
                 i += res;
-		    }
+            }
             return i;
         }
     };
@@ -201,19 +201,19 @@ namespace Sound {
         vec3 velocity;
     } listener;
 
-	enum Flags {
-		LOOP			= 1,
-		PAN				= 2,
-		REVERB_NEAR	    = 4,
-		REVERB_MIDDLE	= 8,
-		REVERB_FAR		= 16,
-	};
+    enum Flags {
+        LOOP            = 1,
+        PAN             = 2,
+        REVERB_NEAR     = 4,
+        REVERB_MIDDLE   = 8,
+        REVERB_FAR      = 16,
+    };
 
-	struct Sample {
+    struct Sample {
         Decoder *decoder;
-		float	volume;
-		float	pitch;
-		int		flags;
+        float   volume;
+        float   pitch;
+        int     flags;
         bool    isPlaying;
 
         Sample(Stream *stream, float volume, float pitch, int flags) : decoder(NULL), volume(volume), pitch(pitch), flags(flags), isPlaying(true) {
@@ -250,10 +250,10 @@ namespace Sound {
                 decoder = new OGG(stream, 2);
             } else if (fourcc == FOURCC("ID3\3")) { // mp3
                 decoder = new MP3(stream, 2);
-			}
+            }
             
             ASSERT(decoder != NULL);
-		}
+        }
 
         ~Sample() {
             delete decoder;
@@ -272,7 +272,7 @@ namespace Sound {
             return true;
         }
 
-	} *channels[SND_CHANNELS_MAX];
+    } *channels[SND_CHANNELS_MAX];
     int channelsCount;
 
     void init() {
@@ -286,7 +286,7 @@ namespace Sound {
         mp3_decode_free();
     }
 
-	void fill(Frame *frames, int count) {
+    void fill(Frame *frames, int count) {
         struct FrameHI {
             int L, R;
         };
@@ -296,24 +296,24 @@ namespace Sound {
 
         Frame *buffer = new Frame[count];
 
-		for (int i = 0; i < channelsCount; i++) {
+        for (int i = 0; i < channelsCount; i++) {
             
             memset(buffer, 0, sizeof(Frame) * count);
-			channels[i]->render(buffer, count);
-			
+            channels[i]->render(buffer, count);
+            
             for (int j = 0; j < count; j++) {
-				result[j].L += buffer[j].L;
-				result[j].R += buffer[j].R;
-			}
-		}
+                result[j].L += buffer[j].L;
+                result[j].R += buffer[j].R;
+            }
+        }
 
         for (int i = 0; i < count; i++) {
             frames[i].L = clamp(result[i].L, -32768, 32767);
             frames[i].R = clamp(result[i].R, -32768, 32767);
         }
 
-		delete[] buffer;
-		delete[] result;
+        delete[] buffer;
+        delete[] result;
 
         for (int i = 0; i < channelsCount; i++) 
             if (!channels[i]->isPlaying) {
@@ -321,7 +321,7 @@ namespace Sound {
                 channels[i] = channels[--channelsCount];
                 i--;
             }
-	}
+    }
 
     Stream *openWAD(const char *name) {
         Stream *stream = new Stream("cdaudio.wad");
@@ -344,13 +344,13 @@ namespace Sound {
         return NULL;
     }
 
-	void play(Stream *stream, float volume, float pitch, int flags) {
+    void play(Stream *stream, float volume, float pitch, int flags) {
         if (!stream) return;
         if (channelsCount < SND_CHANNELS_MAX)
             channels[channelsCount++] = new Sample(stream, volume, pitch, flags);
         else
             LOG("! no free channels\n");        
-	}
+    }
 }
 
 #endif
