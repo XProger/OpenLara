@@ -166,10 +166,7 @@ struct Controller {
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
             void *p = &level->soundData[c];
-        #ifdef WIN32           
             Sound::play(new Stream(p, 1024 * 1024), b.volume / 255.0f, 0.0f, Sound::Flags::PAN);
-        //    PlaySound((LPSTR)p, NULL, SND_ASYNC | SND_MEMORY);
-        #endif
         }
     }
 
@@ -373,8 +370,8 @@ struct Controller {
                     case TR::ANIM_CMD_SPECIAL : // special commands
                         if (frameIndex != animPrevFrame && frameIndex + anim->frameStart == ptr[0]) {
                             switch (ptr[1]) {
-                                case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;   break;
-                                case TR::ANIM_CMD_SPECIAL_BUBBLE : /* playSound(TR::SND_BUBBLE); */ break;
+                                case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;    break;
+                                case TR::ANIM_CMD_SPECIAL_BUBBLE : playSound(TR::SND_BUBBLE); break;
                                 case TR::ANIM_CMD_SPECIAL_CTRL   : LOG("water out ?\n");      break;
                                 default : LOG("unknown special cmd %d\n", (int)ptr[1]);
                             }

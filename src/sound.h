@@ -1,13 +1,25 @@
 #ifndef H_SOUND
 #define H_SOUND
 
+//#define DECODE_ADPCM
+//#define DECODE_MP3
+#define DECODE_OGG
+
+#ifdef __EMSCRIPTEN__ // TODO: http streaming
+    #undef DECODE_MP3
+    #undef DECODE_OGG
+#endif
+
 #include "utils.h"
-#include "libs/minimp3/minimp3.h"
-#define STB_VORBIS_HEADER_ONLY
-#include "libs/stb_vorbis/stb_vorbis.c"
+#ifdef DECODE_MP3
+    #include "libs/minimp3/minimp3.h"
+#endif
+#ifdef DECODE_OGG
+    #define STB_VORBIS_HEADER_ONLY
+    #include "libs/stb_vorbis/stb_vorbis.c"
+#endif
 
 #define SND_CHANNELS_MAX    32
-#define BUFFER_SIZE_MP3     8192
 
 namespace Sound {
 
@@ -56,6 +68,7 @@ namespace Sound {
         }
     };
 
+#ifdef DECODE_ADPCM
     struct ADPCM : Decoder { // https://wiki.multimedia.cx/?title=Microsoft_ADPCM
         int size, block;
 
@@ -127,7 +140,9 @@ namespace Sound {
             }
         }
     };
-
+#endif
+	
+#ifdef DECODE_MP3
     struct MP3 : Decoder {
         mp3_decoder_t   mp3;
         char    *buffer;
@@ -160,7 +175,9 @@ namespace Sound {
             return i;
         }
     };
+#endif
 
+#ifdef DECODE_OGG
     struct OGG : Decoder {
         stb_vorbis       *ogg;
         stb_vorbis_alloc alloc;
@@ -195,6 +212,7 @@ namespace Sound {
             return i;
         }
     };
+#endif
 
     struct Listener {
         mat4 matrix;
@@ -216,7 +234,7 @@ namespace Sound {
         int     flags;
         bool    isPlaying;
 
-        Sample(Stream *stream, float volume, float pitch, int flags) : decoder(NULL), volume(volume), pitch(pitch), flags(flags), isPlaying(true) {
+        Sample(Stream *stream, float volume, float pitch, int flags) : decoder(NULL), volume(volume), pitch(pitch), flags(flags) {
             uint32 fourcc; 
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
@@ -240,19 +258,28 @@ namespace Sound {
                         stream->seek(size - sizeof(waveFmt));
                     } else if (type == FOURCC("data")) {
                         if (waveFmt.format == 1) decoder = new   PCM(stream, waveFmt.channels, waveFmt.samplesPerSec, size, waveFmt.sampleBits);
+                        #ifdef DECODE_ADPCM
                         if (waveFmt.format == 2) decoder = new ADPCM(stream, waveFmt.channels, size, waveFmt.block);
+                        #endif
                         break;
                     } else
                         stream->seek(size);
                 }
-            } else if (fourcc == FOURCC("OggS")) { // ogg
+            } 
+            #ifdef DECODE_OGG
+            else if (fourcc == FOURCC("OggS")) { // ogg
                 stream->seek(-4);
                 decoder = new OGG(stream, 2);
-            } else if (fourcc == FOURCC("ID3\3")) { // mp3
+            }
+            #endif 
+            #ifdef DECODE_MP3
+            else if (fourcc == FOURCC("ID3\3")) { // mp3                
                 decoder = new MP3(stream, 2);
             }
-            
-            ASSERT(decoder != NULL);
+            #endif
+			
+            isPlaying = decoder != NULL;
+            ASSERT(isPlaying);
         }
 
         ~Sample() {
@@ -260,6 +287,7 @@ namespace Sound {
         }
 
         bool render(Frame *frames, int count) {
+            if (!isPlaying) return 0;
             int i = 0;
             while (i < count) {
                 int res = decoder->decode(&frames[i], count - i);
@@ -277,13 +305,17 @@ namespace Sound {
 
     void init() {
         channelsCount = 0;
+    #ifdef DECODE_MP3
         mp3_decode_init();
+    #endif
     }
 
     void free() {
         for (int i = 0; i < channelsCount; i++)
             delete channels[i];
+    #ifdef DECODE_MP3
         mp3_decode_free();
+    #endif
     }
 
     void fill(Frame *frames, int count) {

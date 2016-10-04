@@ -41,8 +41,30 @@
 					monitorRunDependencies: function(left) {
 						this.totalDependencies = Math.max(this.totalDependencies, left);
 						Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
-					}
+					},
 				};
+			
+				function snd_init() {
+					var AudioContext = window.AudioContext || window.webkitAudioContext;
+					if (!AudioContext) return;
+					var ctx = new (window.AudioContext || window.webkitAudioContext)();
+					var count  = 2048;
+					var frames = Module._malloc(count * 4); // interleaved short L, R
+					var proc   = ctx.createScriptProcessor(count, 2, 2);
+
+					proc.onaudioprocess = function(e) {
+						var L = e.outputBuffer.getChannelData(0),
+							R = e.outputBuffer.getChannelData(1);
+						Module.ccall('snd_fill', 'null', ['number', 'number'], [frames, count]);
+						var index = frames;
+						for (var i = 0; i < count; i++) {
+							L[i] = Module.getValue(index    , 'i16') / 0x8000;
+							R[i] = Module.getValue(index + 2, 'i16') / 0x8000;
+							index += 4;
+						}
+					}
+					proc.connect(ctx.destination);
+				}
 				
 				var gl = canvasElement.getContext("webgl") || canvasElement.getContext("experimental-webgl");
 				
@@ -74,5 +96,7 @@
 				script.src = "OpenLara.js";
 				document.body.appendChild(script);
 			</script>
+						
+			<audio autoplay loop><source src="05.ogg" type="audio/ogg"></audio>
 		</body>
 </html>
