@@ -47,20 +47,20 @@
 				function snd_init() {
 					var AudioContext = window.AudioContext || window.webkitAudioContext;
 					if (!AudioContext) return;
-					var ctx = new (window.AudioContext || window.webkitAudioContext)();
+					var ctx    = new (window.AudioContext || window.webkitAudioContext)();
 					var count  = 2048;
-					var frames = Module._malloc(count * 4); // interleaved short L, R
+                    var rate   = 44100 / ctx.sampleRate;
+                    var framesCount = Math.ceil(count * rate);
+					var frames = Module._malloc(framesCount * 4); // interleaved short L, R
 					var proc   = ctx.createScriptProcessor(count, 2, 2);
-
 					proc.onaudioprocess = function(e) {
 						var L = e.outputBuffer.getChannelData(0),
 							R = e.outputBuffer.getChannelData(1);
-						Module.ccall('snd_fill', 'null', ['number', 'number'], [frames, count]);
-						var index = frames;
+						Module.ccall('snd_fill', 'null', ['number', 'number'], [frames, framesCount]);
 						for (var i = 0; i < count; i++) {
+                            var index = frames + Math.floor(i * rate) * 4; // 4 is sample frame stride in bytes
 							L[i] = Module.getValue(index    , 'i16') / 0x8000;
 							R[i] = Module.getValue(index + 2, 'i16') / 0x8000;
-							index += 4;
 						}
 					}
 					proc.connect(ctx.destination);
