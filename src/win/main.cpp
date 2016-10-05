@@ -1,13 +1,16 @@
 #ifdef _DEBUG
     #include "crtdbg.h"
 #endif
-/* // VS2015 ?
-#include <stdint.h>
 
-void __cdecl operator delete(void *ptr, unsigned int size) {
-    //  
-}
-*/
+#ifdef MINIMAL
+    #if _MSC_VER == 1900 // VS2015
+        #include <malloc.h>
+        void __cdecl operator delete(void *ptr, unsigned int size) { free(ptr); }
+        // add "/d2noftol3" to compiler additional options
+        // add define _NO_CRT_STDIO_INLINE
+    #endif
+#endif
+
 #include "game.h"
 
 DWORD getTime() {
@@ -177,10 +180,29 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             PostQuitMessage(0);
             break;
         // keyboard
+        case WM_CHAR       :
+        case WM_SYSCHAR    : 
+            break;
         case WM_KEYDOWN    :
         case WM_KEYUP      :
-        case WM_SYSKEYDOWN :
-        case WM_SYSKEYUP   :
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+            if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN) { // switch to fullscreen or window
+                static WINDOWPLACEMENT pLast;
+                DWORD style = GetWindowLong(hWnd, GWL_STYLE);
+                if (style & WS_OVERLAPPEDWINDOW) {
+                    MONITORINFO mInfo = { sizeof(mInfo) };
+                    if (GetWindowPlacement(hWnd, &pLast) && GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTOPRIMARY), &mInfo)) {
+                        RECT &r = mInfo.rcMonitor;                      
+                        SetWindowLong(hWnd, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
+                        MoveWindow(hWnd, r.left, r.top, r.right - r.left, r.bottom - r.top, FALSE);
+                    }
+                } else {
+                    SetWindowLong(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+                    SetWindowPlacement(hWnd, &pLast);
+                }
+                break;
+            }
             Input::setDown(keyToInputKey(wParam), msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
             break;
         // mouse
@@ -240,9 +262,10 @@ void freeGL(HGLRC hRC) {
     wglDeleteContext(hRC);
 }
 
-
+#ifndef _DEBUG
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+#else
 int main() {
-#ifdef _DEBUG
     _CrtMemState _ms;
     _CrtMemCheckpoint(&_ms);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -263,7 +286,7 @@ int main() {
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
-    DWORD time, lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
+    DWORD lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
     MSG msg;
 
     do {
@@ -273,7 +296,7 @@ int main() {
         } else {
             joyUpdate();
 
-            time = getTime();
+            DWORD time = getTime();
             if (time <= lastTime)
                 continue;
 
