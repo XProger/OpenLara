@@ -120,7 +120,7 @@ HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 2, 44100, 44100 * 4, 4, 16, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
 
-void soundFree() {
+void sndFree() {
     if (!sndReady) return;
     sndReady = false;
     EnterCriticalSection(&sndCS);
@@ -136,7 +136,7 @@ void soundFree() {
 void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEHDR waveBuf, DWORD dwParam2) {
     if (!sndReady) return;
     if (uMsg == MM_WOM_CLOSE) {
-        soundFree();
+        sndFree();
         return;
     }
 
@@ -148,7 +148,7 @@ void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEH
     LeaveCriticalSection(&sndCS);
 }
 
-void soundInit(HWND hwnd) {
+void sndInit(HWND hwnd) {
     InitializeCriticalSection(&sndCS);
     if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)sndFill, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) {
         sndReady = true;
@@ -280,7 +280,7 @@ int main() {
     HGLRC hRC = initGL(hDC);
     
     joyInit();
-    soundInit(hWnd);
+    sndInit(hWnd);
     Game::init();
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
@@ -324,7 +324,7 @@ int main() {
         }
     } while (msg.message != WM_QUIT);
 
-    soundFree();
+    sndFree();
     Game::free();
 
     freeGL(hRC);
