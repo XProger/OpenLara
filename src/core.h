@@ -6,27 +6,42 @@
     #include <windows.h>
     #include <gl/GL.h>
     #include <gl/glext.h>
+#elif __linux__
+    #define LINUX 1
+    #include <GL/gl.h>
+    #include <GL/glx.h>
+    #include <GL/glext.h>
 #elif __EMSCRIPTEN__
+    #define MOBILE 1
     #include <emscripten.h>
     #include <html5.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
-    #define MOBILE
 #endif
 
 #include "utils.h"
 #include "input.h"
 #include "sound.h"
 
-#ifdef WIN32
-    #if defined(_MSC_VER) // Visual Studio
-        #define GetProcOGL(x) *(void**)&x=(void*)wglGetProcAddress(#x);
+#if defined(WIN32) || defined(LINUX)
+    void* GetProc(const char *name) {
+        #ifdef WIN32
+    	    return (void*)wglGetProcAddress(name);
+        #elif LINUX
+	        return (void*)glXGetProcAddress((GLubyte*)name);
+        #endif
+    }
+
+    #if defined(_MSC_VER) || defined(__clang__) // Visual Studio
+        #define GetProcOGL(x) *(void**)&x=(void*)GetProc(#x);
     #else // GCC
-        #define GetProcOGL(x) x=(typeof(x))wglGetProcAddress(#x);
+        #define GetProcOGL(x) x=(typeof(x))GetProc(#x);
     #endif
 
 // Texture
+    #ifdef WIN32
     PFNGLACTIVETEXTUREPROC              glActiveTexture;
+    #endif
 // Shader
     PFNGLCREATEPROGRAMPROC              glCreateProgram;
     PFNGLDELETEPROGRAMPROC              glDeleteProgram;
@@ -90,9 +105,10 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 namespace Core {
 
     void init() {
-    #ifdef WIN32
+    #if defined(WIN32) || defined(LINUX)
+        #ifdef WIN32
         GetProcOGL(glActiveTexture);
-
+        #endif
         GetProcOGL(glCreateProgram);
         GetProcOGL(glDeleteProgram);
         GetProcOGL(glLinkProgram);
