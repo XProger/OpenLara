@@ -32,11 +32,7 @@
         #endif
     }
 
-    #if defined(_MSC_VER) || defined(__clang__) // Visual Studio
-        #define GetProcOGL(x) *(void**)&x=(void*)GetProc(#x);
-    #else // GCC
-        #define GetProcOGL(x) x=(typeof(x))GetProc(#x);
-    #endif
+    #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
 
 // Texture
     #ifdef WIN32
