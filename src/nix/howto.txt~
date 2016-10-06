@@ -1,3 +1,0 @@
-sudo apt-get install git g++ libx11-dev libgl1-mesa-dev libpulse-dev
-git clone https://github.com/XProger/OpenLara
-cd OpenLara/src/nix

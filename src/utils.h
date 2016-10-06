@@ -19,7 +19,7 @@
 
 #else
     #define ASSERT(expr)
-    #define LOG(...) ((void)0)
+    #define LOG(...)
 //    #define LOG(...) printf(__VA_ARGS__)
 #endif
 

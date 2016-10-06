@@ -104,6 +104,10 @@ void WndProc(const XEvent &e) {
             break;
         case KeyPress   : 
         case KeyRelease :
+            if (e.type == KeyPress && (e.xkey.state & Mod1Mask) && e.xkey.keycode == 36) {
+                // TODO: windowed <-> fullscreen switch
+                break;
+            }
             Input::setDown(keyToInputKey(e.xkey.keycode), e.type == KeyPress);
             break;
         case ButtonPress :
@@ -111,12 +115,10 @@ void WndProc(const XEvent &e) {
             InputKey key = mouseToInputKey(e.xbutton.button);
             Input::setPos(key, Input::mouse.pos);
             Input::setDown(key, e.type == ButtonPress);
-            printf("%d\n", (int)e.xbutton.button);
             break;
         }
         case MotionNotify :
             Input::setPos(ikMouseL, vec2((float)e.xmotion.x, (float)e.xmotion.y));
-            printf("mouse: %d %d\n", (int)e.xmotion.x, (int)e.xmotion.y);
             break;
     }    
 }
@@ -151,11 +153,6 @@ int main() {
 
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, wnd, &WM_DELETE_WINDOW, 1);
-
-//    XGrabPointer(dpy, wnd, false, 
-//                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask | ButtonMotionMask, 
-//                 GrabModeAsync, GrabModeAsync, wnd, None, CurrentTime);
-    XGrabKeyboard(dpy, wnd, false, 1, 1, 0);
 
     sndInit();
     Game::init();
