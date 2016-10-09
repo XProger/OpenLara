@@ -138,6 +138,14 @@ namespace Debug {
             glEnd();
         }
 
+        void line(const vec3 &a, const vec3 &b, const vec4 &color) {
+            glBegin(GL_LINES);                
+                glColor4fv((GLfloat*)&color);
+                glVertex3fv((GLfloat*)&a);
+                glVertex3fv((GLfloat*)&b);
+            glEnd();
+        }
+
         void text(const vec2 &pos, const vec4 &color, const char *str) {
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
@@ -189,6 +197,8 @@ namespace Debug {
 
             bool isPortal = false;
 
+            float fx = 0.0f, fz = 0.0f;
+
             TR::FloorData *fd = &level.floors[floorIndex];
             TR::FloorData::Command cmd;
             do {
@@ -208,6 +218,9 @@ namespace Debug {
                         auto &p = cmd.func == 0x02 ? vf : vc;
                         
                         if (cmd.func == TR::FloorData::FLOOR) { // floor
+                            fx = (float)slant.x;
+                            fz = (float)slant.z;
+
                             if (sx > 0) {
                                 p[0].y += sx;
                                 p[3].y += sx;
@@ -283,6 +296,24 @@ namespace Debug {
                     glVertex3f(x, c.y, z);
                 glEnd();                
             }
+
+            vec3 a = (vf[0] + vf[1] + vf[2] + vf[3]) * 0.25f;
+            vec3 n = vec3(-fx, -4.0f, -fz).normal();
+            vec3 b = a + n * 1.0f;
+
+            vec3 v = ((Controller*)level.entities[0].controller)->getDir();
+            vec3 p = v - n * n.dot(v);
+            vec3 c = b + p.normal() * 256.0f;
+
+            glBegin(GL_LINES);                
+                glColor3f(1, 1, 1);
+                glVertex3fv((GLfloat*)&a);
+                glVertex3fv((GLfloat*)&b);
+
+                glColor3f(1, 1, 0);
+                glVertex3fv((GLfloat*)&b);
+                glVertex3fv((GLfloat*)&c);
+            glEnd();
         }
 
         void debugBox(const TR::Box &b) {

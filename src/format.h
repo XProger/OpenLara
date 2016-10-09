@@ -33,6 +33,7 @@ namespace TR {
 
     enum {
         SND_NO          = 2,
+        SND_LANDING     = 4,
         SND_BUBBLE      = 37,
         SND_SECRET      = 173,
     };
@@ -280,7 +281,7 @@ namespace TR {
             TRAP_FLOOR               = 35,
             TRAP_BLADE               = 36,
             TRAP_SPIKES              = 37,
-            TRAP_STONE               = 38,
+            TRAP_BOULDER             = 38,
             TRAP_DART                = 39,
             TRAP_DARTGUN             = 40,
 
@@ -633,6 +634,7 @@ namespace TR {
     
         struct FloorInfo {
             int floor, ceiling;
+            int slantX, slantZ;
             int roomNext, roomBelow, roomAbove;
             int floorIndex;
             int kill;
@@ -640,6 +642,19 @@ namespace TR {
             Trigger trigger;
             FloorData::TriggerInfo trigInfo;
             FloorData::TriggerCommand trigCmd[16];
+
+            vec3 getNormal() {
+                return vec3((float)-slantX, -4.0f, (float)-slantZ).normal();
+            }
+
+            vec3 getSlant(const vec3 &dir) {
+                // project floor normal into plane(dir, up) 
+                vec3 r = vec3(dir.z, 0.0f, -dir.x); // up(0, 1, 0).cross(dir)
+                vec3 n = getNormal();
+                n = n - r * r.dot(n);
+                // project dir into plane(dir, n)
+                return n.cross(dir.cross(n)).normal();
+            }
         };
 
         bool    secrets[MAX_SECRETS_COUNT];
@@ -891,6 +906,8 @@ namespace TR {
 
             info.floor        = 256 * (int)s.floor;
             info.ceiling      = 256 * (int)s.ceiling;
+            info.slantX       = 0;
+            info.slantZ       = 0;
             info.roomNext     = 255;
             info.roomBelow    = s.roomBelow;
             info.roomAbove    = s.roomAbove;
@@ -919,6 +936,8 @@ namespace TR {
                         int sx = (int)slant.x;
                         int sz = (int)slant.z;
                         if (cmd.func == FloorData::FLOOR) {
+                            info.slantX = sx;
+                            info.slantZ = sz;
                             info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
                             info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
                         } else {

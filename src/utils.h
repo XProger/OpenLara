@@ -25,6 +25,7 @@
 
 
 #define PI      3.14159265358979323846f
+#define PI2     (PI * 2.0f)
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
 #define EPS     FLT_EPSILON
@@ -74,6 +75,16 @@ inline const int sign(const T &x) {
     return x > 0 ? 1 : (x < 0 ? -1 : 0);
 }
 
+float clampAngle(float a) {
+	return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
+}
+
+float shortAngle(float a, float b) {
+	float n = clampAngle(b) - clampAngle(a);
+	return clampAngle(n - int(n / PI2) * PI2);
+}
+
+
 struct vec2 {
     float x, y;
     vec2() {}
@@ -110,7 +121,7 @@ struct vec3 {
     vec3  cross(const vec3 &v) const { return vec3(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x); }
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
-    vec3  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
+    vec3  normal()  const { float s = length(); return s == 0.0f ? (*this) : (*this)*(1.0f/s); }
 
     vec3 lerp(const vec3 &v, const float t) const {
         if (t <= 0.0f) return *this;
@@ -227,10 +238,10 @@ struct quat {
             temp = q;
 
         if (1.0f - cosom > EPS) {
-            omega = acos(cosom);
-            sinom = 1.0f / sin(omega);
-            scale0 = sin((1.0f - t) * omega) * sinom;
-            scale1 = sin(t * omega) * sinom;
+            omega = acosf(cosom);
+            sinom = 1.0f / sinf(omega);
+            scale0 = sinf((1.0f - t) * omega) * sinom;
+            scale1 = sinf(t * omega) * sinom;
         } else {
             scale0 = 1.0f - t;
             scale1 = t;

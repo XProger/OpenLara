@@ -7,6 +7,8 @@
 
 #define MAX_CLIP_PLANES 10
 
+#define CAMERA_OFFSET (1024.0f + 512.0f)
+
 struct Frustum {
 
     struct Poly {
@@ -64,15 +66,15 @@ struct Frustum {
             float t2 = v2.dot(plane.xyz) + plane.w;
         
         // hack for big float numbers
-            int s1 = sign((int)t1);
-            int s2 = sign((int)t2);
+            int s1 = (int)t1;
+            int s2 = (int)t2;
 
             if (s1 >= 0) {
                 dst.vertices[dst.count++] = v1;
                 ASSERT(dst.count < MAX_CLIP_PLANES);
             }
             
-            if (s1 * s2 < 0) {
+            if ((s1 ^ s2) < 0) { // check for opposite signs
                 float k1 = t2 / (t2 - t1);
                 float k2 = t1 / (t2 - t1);
                 dst.vertices[dst.count++] = v1 * (float)k1 - v2 * (float)k2;
@@ -224,24 +226,12 @@ struct Camera : Controller {
             Input::mouse.start.R = Input::mouse.pos;
         }
  
-        float height = 0.0f;
-        switch (owner->stand) {
-            case Controller::STAND_AIR    :
-            case Controller::STAND_GROUND :
-                height = 768.0f;
-                break;
-            case Controller::STAND_UNDERWATER :
-            case Controller::STAND_ONWATER    :
-                height = 256.0f;
-                break;
-        }
-
         angle = owner->angle + angleAdv;
         angle.z = 0.0f;        
         //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
         vec3 dir;
-        target = vec3(owner->pos.x, owner->pos.y - height, owner->pos.z);
+        target = vec3(owner->pos.x, owner->pos.y, owner->pos.z) + owner->getViewOffset();
 
         if (actCamera > -1) {
             TR::Camera &c = level->cameras[actCamera];
@@ -260,7 +250,7 @@ struct Camera : Controller {
                 dir = getDir();
 
             if (owner->state != Lara::STATE_BACK_JUMP || actTargetEntity > -1) {
-                vec3 eye = target - dir * 1024.0f;
+                vec3 eye = target - dir * CAMERA_OFFSET;
                 destPos = trace(owner->getRoomIndex(), target, eye);
                 lastDest = destPos;
             } else {

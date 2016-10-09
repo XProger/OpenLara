@@ -86,8 +86,10 @@ struct Level {
                 case TR::Entity::TRAP_FLOOR            :
                 case TR::Entity::TRAP_BLADE            :
                 case TR::Entity::TRAP_SPIKES           :
-                case TR::Entity::TRAP_STONE            :
                     entity.controller = new Trigger(&level, i, true);
+                    break;
+                case TR::Entity::TRAP_BOULDER          :
+                    entity.controller = new Boulder(&level, i);
                     break;
                 case TR::Entity::TRAP_DARTGUN          :
                     entity.controller = new Dartgun(&level, i);
@@ -386,12 +388,15 @@ struct Level {
 
         TR::Animation *nextAnim = NULL;
 
+        vec3 move(0.0f);
         if (fIndexB == 0) {
+            if (controller)
+                move = controller->getAnimMove();
             nextAnim = &level.anims[anim->nextAnimation];
             fIndexB = (anim->nextFrame - nextAnim->frameStart) / nextAnim->frameRate;
         } else
             nextAnim = anim;
-
+        
         TR::AnimFrame *frameB = (TR::AnimFrame*)&level.frameData[(nextAnim->frameOffset + fIndexB * fSize) >> 1];
 
         vec3 bmin = frameA->box.min().lerp(frameB->box.min(), k);
@@ -403,7 +408,7 @@ struct Level {
 
         mat4 m;
         m.identity();
-        m.translate(((vec3)frameA->pos).lerp(frameB->pos, k));
+        m.translate(((vec3)frameA->pos).lerp(move + frameB->pos, k));
 
         int sIndex = 0;
         mat4 stack[20];
@@ -601,7 +606,7 @@ struct Level {
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
     //    Debug::Level::meshes(level);
-        Debug::Level::entities(level);
+    //    Debug::Level::entities(level);
         Debug::Level::info(level, lara->getEntity());
         Debug::end();
     #endif

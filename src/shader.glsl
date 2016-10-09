@@ -88,7 +88,7 @@ varying vec4 vColor;
     // fog
         float fog = clamp(1.0 / exp(gl_FragCoord.z / gl_FragCoord.w * 0.000025), 0.0, 1.0);
 
-        gl_FragColor = mix(vec4(0.0), color, fog);
+        gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 1.0), color, fog);
     }
 #endif
 )===="

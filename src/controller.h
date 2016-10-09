@@ -6,12 +6,14 @@
 #define GRAVITY     6.0f
 #define NO_OVERLAP  0x7FFFFFFF
 
+#define SPRITE_FPS  10.0f
+
 struct Controller {
     TR::Level   *level;
     int         entity;
 
     enum Stand { 
-        STAND_AIR, STAND_GROUND, STAND_UNDERWATER, STAND_ONWATER 
+        STAND_AIR, STAND_GROUND, STAND_SLIDE, STAND_HANG, STAND_UNDERWATER, STAND_ONWATER
     }       stand;
     int     state;
     int     mask;
@@ -54,7 +56,7 @@ struct Controller {
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation, 0.0f);
         stand     = STAND_GROUND;
-        animIndex = e.modelIndex > 0 ? level->models[e.modelIndex - 1].animation : 0;
+        animIndex = e.modelIndex > 0 ? getModel().animation : 0;
         state     = level->anims[animIndex].state;
     }
 
@@ -63,6 +65,8 @@ struct Controller {
         e.x = int(pos.x);
         e.y = int(pos.y);
         e.z = int(pos.z);
+        while (angle.y < 0.0f)   angle.y += 2 * PI;
+        while (angle.y > 2 * PI) angle.y -= 2 * PI;
         e.rotation = angle.y;
     }
 
@@ -74,6 +78,10 @@ struct Controller {
         return  pos.x >= min.x && pos.x <= max.x &&
                 pos.y >= min.y && pos.y <= max.y &&
                 pos.z >= min.z && pos.z <= max.z;
+    }
+
+    TR::Model& getModel() const {
+        return level->models[getEntity().modelIndex - 1];
     }
 
     TR::Entity& getEntity() const {
@@ -198,7 +206,7 @@ struct Controller {
         if (info.roomNext != 0xFF)
             entity.room = info.roomNext;
 
-        if (entity.y >= info.floor) {
+        if (entity.y > info.floor) {
             if (info.roomBelow == 0xFF) {
                 entity.y = info.floor;
                 pos.y = entity.y;
@@ -275,6 +283,8 @@ struct Controller {
     virtual int   getHeight()          { return 0; }
     virtual int   getStateAir()        { return state; }
     virtual int   getStateGround()     { return state; }
+    virtual int   getStateSlide()      { return state; }
+    virtual int   getStateHang()       { return state; }
     virtual int   getStateUnderwater() { return state; }
     virtual int   getStateOnwater()    { return state; }
     virtual int   getStateDeath()      { return state; }
@@ -290,6 +300,10 @@ struct Controller {
             state = getStateDeath();        
         else if (stand == STAND_GROUND)
             state = getStateGround();
+        else if (stand == STAND_SLIDE)
+            state = getStateSlide();
+        else if (stand == STAND_HANG)
+            state = getStateHang();
         else if (stand == STAND_AIR)
             state = getStateAir();
         else if (stand == STAND_UNDERWATER)
@@ -317,10 +331,34 @@ struct Controller {
 
     virtual void updateState() {}
 
+    virtual vec3 getAnimMove() {
+        TR::Animation *anim = &level->anims[animIndex];
+        int16 *ptr = &level->commands[anim->animCommand];
+
+        for (int i = 0; i < anim->acCount; i++) {
+            int cmd = *ptr++; 
+            switch (cmd) {
+                case TR::ANIM_CMD_MOVE : { // cmd position
+                    int16 sx = *ptr++;
+                    int16 sy = *ptr++;
+                    int16 sz = *ptr++;
+                    return vec3((float)sx, (float)sy, (float)sz);
+                    break;
+                }
+                case TR::ANIM_CMD_SPEED : // cmd jump speed
+                case TR::ANIM_CMD_SOUND : // play sound
+                case TR::ANIM_CMD_SPECIAL : // special commands
+                    ptr += 2;
+                    break;
+            }
+        }
+        return vec3(0.0f);
+    }
+
     virtual void updateAnimation(bool commands) {
         int frameIndex = int((animTime += Core::deltaTime) * 30.0f);
         TR::Animation *anim = &level->anims[animIndex];
-        bool endFrame = frameIndex >  anim->frameEnd - anim->frameStart;
+        bool endFrame = frameIndex > anim->frameEnd - anim->frameStart;
  
     // apply animation commands
         if (commands) {
@@ -334,7 +372,7 @@ struct Controller {
                         int16 sy = *ptr++;
                         int16 sz = *ptr++;
                         if (endFrame) {
-                            pos = pos + vec3(sx, sy, sz).rotateY(angle.y);
+                            pos = pos + vec3(sx, sy, sz).rotateY(-angle.y);
                             updateEntity();
                             LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
                         }
@@ -360,11 +398,9 @@ struct Controller {
                         int frame = (*ptr++);
                         int id    = (*ptr++) & 0x3FFF;
                         int idx   = frame - anim->frameStart;
-                  
-                        if (idx > animPrevFrame && idx <= frameIndex) {
-                            if (getEntity().id != TR::Entity::ENEMY_BAT) // temporary mute the bat
-                                playSound(id);
-                        }
+
+                        if (idx > animPrevFrame && idx <= frameIndex)
+                            playSound(id);
                         break;
                     }
                     case TR::ANIM_CMD_SPECIAL : // special commands
@@ -430,14 +466,14 @@ struct SpriteController : Controller {
         animTime += Core::deltaTime;
 
         if (animated) {
-            frame = int(animTime * 10.0f);
+            frame = int(animTime * SPRITE_FPS);
             TR::SpriteSequence &seq = getSequence();
             if (instant && frame >= seq.sCount)
                 remove = true;
             else
                 frame %= seq.sCount;
         } else
-            if (instant && animTime >= 0.1f)
+            if (instant && animTime >= (1.0f / SPRITE_FPS))
                 remove = true;
 
         if (remove) {

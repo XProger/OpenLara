@@ -109,14 +109,28 @@ struct Dartgun : Trigger {
             level->entities[dartIndex].controller = new Dart(level, dartIndex);
 
         int smokeIndex = level->entityAdd(TR::Entity::SMOKE, entity.room, (int)pos.x, (int)pos.y, (int)pos.z, entity.rotation, -1);
-        if (smokeIndex > -1)
+        if (smokeIndex > -1) {
+            level->entities[smokeIndex].intensity  = 0x1FFF - level->rooms[entity.room].ambient;
             level->entities[smokeIndex].controller = new SpriteController(level, smokeIndex);
+        }
 
         playSound(151);
 
         return true;
     }
 
+};
+
+struct Boulder : Trigger {
+
+    Boulder(TR::Level *level, int entity) : Trigger(level, entity, true) {}
+
+    virtual void update() {
+        if (getEntity().flags & ENTITY_FLAG_ACTIVE) {
+            updateAnimation(true);
+            updateEntity();
+        }
+    }
 };
 
 #endif

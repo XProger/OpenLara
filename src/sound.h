@@ -380,8 +380,10 @@ namespace Sound {
         if (!stream) return;
         if (channelsCount < SND_CHANNELS_MAX)
             channels[channelsCount++] = new Sample(stream, volume, pitch, flags);
-        else
-            LOG("! no free channels\n");        
+        else {
+            LOG("! no free channels\n");  
+            delete stream;
+        }
     }
 }
 
