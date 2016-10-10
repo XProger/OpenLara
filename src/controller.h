@@ -174,7 +174,7 @@ struct Controller {
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
             void *p = &level->soundData[c];
-            Sound::play(new Stream(p, 1024 * 1024), b.volume / 255.0f, 0.0f, Sound::Flags::PAN);
+            Sound::play(new Stream(p, 1024 * 1024), (float)b.volume / 0xFFFF, 0.0f, Sound::Flags::PAN);
         }
     }
 

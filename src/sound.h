@@ -297,6 +297,12 @@ namespace Sound {
                 }
                 i += res;
             }
+
+            if (volume != 1.0f)
+                for (int j = 0; j < i; j++) {
+                    frames[j].L = int(frames[j].L * volume);
+                    frames[j].R = int(frames[j].R * volume);
+                }
             return true;
         }
 
