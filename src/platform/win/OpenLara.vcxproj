@@ -41,14 +41,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\..\bin\</OutDir>
-    <IncludePath>..\;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
+    <OutDir>..\..\..\bin\</OutDir>
+    <IncludePath>..\..\;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\..\bin\</OutDir>
+    <OutDir>..\..\..\bin\</OutDir>
     <GenerateManifest>false</GenerateManifest>
-    <IncludePath>..\;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
+    <IncludePath>..\..\;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -97,32 +97,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\libs\minimp3\minimp3.cpp" />
-    <ClCompile Include="..\libs\stb_vorbis\stb_vorbis.c" />
+    <ClCompile Include="..\..\libs\minimp3\minimp3.cpp" />
+    <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\camera.h" />
-    <ClInclude Include="..\controller.h" />
-    <ClInclude Include="..\core.h" />
-    <ClInclude Include="..\debug.h" />
-    <ClInclude Include="..\enemy.h" />
-    <ClInclude Include="..\game.h" />
-    <ClInclude Include="..\input.h" />
-    <ClInclude Include="..\lara.h" />
-    <ClInclude Include="..\level.h" />
-    <ClInclude Include="..\libs\minimp3\libc.h" />
-    <ClInclude Include="..\libs\minimp3\minimp3.h" />
-    <ClInclude Include="..\mesh.h" />
-    <ClInclude Include="..\shader.h" />
-    <ClInclude Include="..\sound.h" />
-    <ClInclude Include="..\texture.h" />
-    <ClInclude Include="..\format.h" />
-    <ClInclude Include="..\trigger.h" />
-    <ClInclude Include="..\utils.h" />
+    <ClInclude Include="..\..\camera.h" />
+    <ClInclude Include="..\..\controller.h" />
+    <ClInclude Include="..\..\core.h" />
+    <ClInclude Include="..\..\debug.h" />
+    <ClInclude Include="..\..\enemy.h" />
+    <ClInclude Include="..\..\game.h" />
+    <ClInclude Include="..\..\input.h" />
+    <ClInclude Include="..\..\lara.h" />
+    <ClInclude Include="..\..\level.h" />
+    <ClInclude Include="..\..\libs\minimp3\libc.h" />
+    <ClInclude Include="..\..\libs\minimp3\minimp3.h" />
+    <ClInclude Include="..\..\mesh.h" />
+    <ClInclude Include="..\..\shader.h" />
+    <ClInclude Include="..\..\sound.h" />
+    <ClInclude Include="..\..\texture.h" />
+    <ClInclude Include="..\..\format.h" />
+    <ClInclude Include="..\..\trigger.h" />
+    <ClInclude Include="..\..\utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\shader.glsl" />
+    <None Include="..\..\shader.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -225,6 +225,9 @@ struct Camera : Controller {
             angleAdv.y += delta.x * 0.01f;
             Input::mouse.start.R = Input::mouse.pos;
         }
+
+        angleAdv.x -= Input::joy.L.y * 2.0f * Core::deltaTime;
+        angleAdv.y += Input::joy.L.x * 2.0f * Core::deltaTime;
  
         angle = owner->angle + angleAdv;
         angle.z = 0.0f;        

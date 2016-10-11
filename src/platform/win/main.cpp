@@ -27,7 +27,7 @@ DWORD getTime() {
 
 // common input functions
 InputKey keyToInputKey(int code) {
-    int codes[] = {
+    static const int codes[] = {
         VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SPACE, VK_RETURN, VK_ESCAPE, VK_SHIFT, VK_CONTROL, VK_MENU,
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
@@ -61,7 +61,7 @@ void joyInit() {
 void joyFree() {
     joyReady = false;
     memset(&Input::joy, 0, sizeof(Input::joy));
-    for (int ik = ikJoyA; ik <= ikJoyDP; ik++)
+    for (int ik = ikJoyA; ik <= ikJoyPOV; ik++)
         Input::down[ik] = false;
 }
 
@@ -72,7 +72,7 @@ float joyAxis(int x, int xMin, int xMax) {
 vec2 joyDir(float ax, float ay) {
     vec2 dir = vec2(ax, ay);
     float dist = min(1.0f, dir.length());
-    if (dist < JOY_DEAD_ZONE_STICK) dist = 0;
+    if (dist < JOY_DEAD_ZONE_STICK) dist = 0.0f;
 
     return dir.normal() * dist;
 }
@@ -96,13 +96,22 @@ void joyUpdate() {
                                          joyAxis(info.dwRpos, caps.wRmin, caps.wRmax)));
 
         if (caps.wCaps & JOYCAPS_HASZ) {
-            float z = joyAxis(info.dwZpos, caps.wZmin, caps.wZmax);
-            if (fabsf(z) > JOY_DEAD_ZONE_TRIGGER)
-                Input::setPos(z > 0.0f ? ikJoyLT : ikJoyRT, vec2(fabsf(z), 0.0f));
+            float z  = joyAxis(info.dwZpos, caps.wZmin, caps.wZmax);
+            InputKey key = z > JOY_DEAD_ZONE_TRIGGER ? ikJoyLT : (z < -JOY_DEAD_ZONE_TRIGGER ? ikJoyRT : ikNone);
+            if (key != ikNone) {
+                Input::setPos(key, vec2(fabsf(z), 0.0f));
+                Input::setPos(key == ikJoyLT ? ikJoyRT : ikJoyLT, vec2(0.0f)); // release opposite trigger
+            } else {
+                Input::setPos(ikJoyLT, vec2(0.0f));
+                Input::setPos(ikJoyRT, vec2(0.0f));
+            }
         }
 
-        if (caps.wCaps & JOYCAPS_HASPOV && info.dwPOV != JOY_POVCENTERED)
-            Input::setPos(ikJoyDP, vec2((float)(1 + info.dwPOV / 4500), 0));
+        if (caps.wCaps & JOYCAPS_HASPOV)
+            if (info.dwPOV == JOY_POVCENTERED)
+                Input::setPos(ikJoyPOV, vec2(0.0f));
+            else
+                Input::setPos(ikJoyPOV, vec2(float(1 + info.dwPOV / 4500), 0.0f));
 
         for (int i = 0; i < 10; i++)
             Input::setDown((InputKey)(ikJoyA + i), (info.dwButtons & (1 << i)) > 0);

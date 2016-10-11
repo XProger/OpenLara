@@ -359,7 +359,7 @@ struct Lara : Controller {
             TR::Level::FloorInfo info;
             level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info);
 
-            if (abs(info.floor - (p.y - 768.0f + 64.0f)) < 32) {
+            if (abs(int(info.floor - (p.y - 768.0f + 64.0f))) < 32) {
                 turnToWall();
                 pos = pos - getDir() * 128.0f; // TODO: collision wall offset
                 pos.y = info.floor + 768.0f - 64.0f;
@@ -556,18 +556,23 @@ struct Lara : Controller {
             case STAND_HANG       : return STATE_HANG;
             case STAND_ONWATER    : return STATE_SURF_TREAD;
             case STAND_UNDERWATER : return STATE_TREAD;
+            default : ;
         }
         return STATE_FALL;
     }
 
     virtual int getInputMask() {
         mask = 0;
-        if (Input::down[ikW] || Input::joy.L.y < 0)                             mask |= FORTH;
-        if (Input::down[ikS] || Input::joy.L.y > 0)                             mask |= BACK;
-        if (Input::down[ikA] || Input::joy.L.x < 0)                             mask |= LEFT;
-        if (Input::down[ikD] || Input::joy.L.x > 0)                             mask |= RIGHT;
+        int &p = Input::joy.POV;
+        if (Input::down[ikW] || p == 8 || p == 1 || p == 2)                     mask |= FORTH;
+        if (Input::down[ikD] || p == 2 || p == 3 || p == 4)                     mask |= RIGHT;
+        if (Input::down[ikS] || p == 4 || p == 5 || p == 6)                     mask |= BACK;
+        if (Input::down[ikA] || p == 6 || p == 7 || p == 8)                     mask |= LEFT;
+        if (Input::down[ikJoyB])                                                mask  = FORTH | BACK; // roll
+        if (Input::down[ikJoyRT])                                               mask  = WALK | RIGHT; // step right
+        if (Input::down[ikJoyLT])                                               mask  = WALK | LEFT;  // step left
         if (Input::down[ikSpace] || Input::down[ikJoyX])                        mask |= JUMP;
-        if (Input::down[ikShift] || Input::down[ikJoyLT])                       mask |= WALK;
+        if (Input::down[ikShift] || Input::down[ikJoyLB])                       mask |= WALK;
         if (Input::down[ikE] || Input::down[ikMouseL] || Input::down[ikJoyA])   mask |= ACTION;
         if (Input::down[ikQ] || Input::down[ikMouseR] || Input::down[ikJoyY])   mask |= WEAPON;
         if (health <= 0)                                                        mask  = DEATH;
@@ -838,7 +843,6 @@ struct Lara : Controller {
                 } else
                     pos.y += DESCENT_SPEED * Core::deltaTime;
             }
-
 
             updateEntity();
         }

@@ -18,7 +18,72 @@ extern "C" {
     }
 }
 
+InputKey joyToInputKey(int code) {
+    static const int codes[] = { 0, 1, 2, 3, 4, 5, 10, 11, 8, 9, 6, 7 };
+
+    for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
+        if (codes[i] == code)
+            return (InputKey)(ikJoyA + i);
+    
+    return ikNone;
+}
+
+int joyGetPOV(int mask) {
+    switch (mask) {
+        case 0b0001 : return 1;
+        case 0b1001 : return 2;
+        case 0b1000 : return 3;
+        case 0b1010 : return 4;
+        case 0b0010 : return 5;
+        case 0b0110 : return 6;
+        case 0b0100 : return 7;
+        case 0b0101 : return 8;
+    }
+    return 0;
+}
+
+#define JOY_DEAD_ZONE_STICK      0.3f
+#define JOY_DEAD_ZONE_TRIGGER    0.01f
+
+vec2 joyAxis(float x, float y) {
+    if (fabsf(x) > JOY_DEAD_ZONE_STICK || fabsf(y) > JOY_DEAD_ZONE_STICK)
+        return vec2(x, y);
+    return vec2(0.0f);
+}
+
+vec2 joyTrigger(float x) {
+    return vec2(x > JOY_DEAD_ZONE_TRIGGER ? x : 0.0f, 0.0f);
+}
+
+void joyUpdate() {
+    int count = emscripten_get_num_gamepads();
+    if (count <= 0)
+        return;
+
+    EmscriptenGamepadEvent state;
+    if (emscripten_get_gamepad_status(0, &state) != EMSCRIPTEN_RESULT_SUCCESS)
+        return;
+
+    for (int i = 0; i < max(state.numButtons, 12); i++) {
+        InputKey key = joyToInputKey(i);
+        Input::setDown(key, state.digitalButton[i]);
+        if (key == ikJoyLT || key == ikJoyRT)
+            Input::setPos(key, joyTrigger(state.analogButton[i]));
+    }
+
+    if (state.numButtons > 15) { // get POV
+        auto &b = state.digitalButton;
+        int pov = joyGetPOV(b[12] | (b[13] << 1) | (b[14] << 2) | (b[15] << 3));
+        Input::setPos(ikJoyPOV, vec2((float)pov, 0.0f));
+    }
+
+    if (state.numAxes > 1) Input::setPos(ikJoyL, joyAxis(state.axis[0], state.axis[1]));
+    if (state.numAxes > 3) Input::setPos(ikJoyR, joyAxis(state.axis[2], state.axis[3]));
+}
+
 void main_loop() {
+    joyUpdate();
+
     int time = getTime();
 
     if (time - lastTime <= 0)
@@ -82,7 +147,7 @@ void freeGL() {
 }
 
 InputKey keyToInputKey(int code) {
-    int codes[] = {
+    static const int codes[] = {
         0x25, 0x27, 0x26, 0x28, 0x20, 0x0D, 0x1B, 0x10, 0x11, 0x12,
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',

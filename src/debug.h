@@ -303,7 +303,7 @@ namespace Debug {
 
             vec3 v = ((Controller*)level.entities[0].controller)->getDir();
             vec3 p = v - n * n.dot(v);
-            vec3 c = b + p.normal() * 256.0f;
+            vec3 d = b + p.normal() * 256.0f;
 
             glBegin(GL_LINES);                
                 glColor3f(1, 1, 1);
@@ -312,7 +312,7 @@ namespace Debug {
 
                 glColor3f(1, 1, 0);
                 glVertex3fv((GLfloat*)&b);
-                glVertex3fv((GLfloat*)&c);
+                glVertex3fv((GLfloat*)&d);
             glEnd();
         }
 

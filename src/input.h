@@ -14,7 +14,7 @@ enum InputKey { ikNone,
     // touch
         ikTouchA, ikTouchB,
     // gamepad
-        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoyL, ikJoyR, ikJoySelect, ikJoyStart, ikJoyLT, ikJoyRT, ikJoyDP,
+        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoyL, ikJoyR, ikJoySelect, ikJoyStart, ikJoyLT, ikJoyRT, ikJoyPOV,
         ikMAX };
 
 namespace Input {
@@ -30,7 +30,8 @@ namespace Input {
 
     struct {
         vec2  L, R;
-        float LT, RT, DP;
+        float LT, RT;
+		int   POV;
     } joy;
 
     struct {
@@ -58,10 +59,9 @@ namespace Input {
                 case ikMouseR : mouse.start.R = mouse.pos;  break;
                 case ikMouseM : mouse.start.M = mouse.pos;  break;
                 case ikTouchA : touch.start.A = touch.A;    break;
-                case ikTouchB : touch.start.B = touch.B;    break;
+                case ikTouchB : touch.start.B = touch.B;    break;                
                 default       : ;
             }
-
         down[key] = value;
     }
 
@@ -69,16 +69,17 @@ namespace Input {
         switch (key) {
             case ikMouseL :
             case ikMouseR :
-            case ikMouseM : mouse.pos = pos;    break;
-            case ikJoyL   : joy.L     = pos;    break;
-            case ikJoyR   : joy.R     = pos;    break;
-            case ikJoyLT  : joy.LT    = pos.x;  break;
-            case ikJoyRT  : joy.RT    = pos.x;  break;
-            case ikJoyDP  : joy.DP    = pos.x;  break;
-            case ikTouchA : touch.A   = pos;    break;
-            case ikTouchB : touch.B   = pos;    break;
-            default       : ;
+            case ikMouseM : mouse.pos = pos;         return;
+            case ikJoyL   : joy.L     = pos;         return;
+            case ikJoyR   : joy.R     = pos;         return;
+            case ikTouchA : touch.A   = pos;         return;
+            case ikTouchB : touch.B   = pos;         return;
+            case ikJoyLT  : joy.LT    = pos.x;       break;
+            case ikJoyRT  : joy.RT    = pos.x;       break;
+            case ikJoyPOV : joy.POV   = (int)pos.x;  break;
+            default       : return;
         }
+        setDown(key, pos.x > 0.0f);
     }
 }
 

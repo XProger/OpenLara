@@ -1022,11 +1022,10 @@ static float float32_unpack(uint32 x)
 }
 */
 float ldexpi(int m, int e) {
-    return m * pow(2, e);
+    return (float)(m * pow(2, e));
 }
 
-static float float32_unpack(uint32 x)
-{
+static float float32_unpack(uint32 x) {
    // from the specification
    uint32 s = x & 0x80000000;
    int32  m = x & 0x1fffff;
@@ -1223,7 +1222,7 @@ static int lookup1_values(int a, int b)
 	int r = 0, p = 0;
 	do {
 		r++;
-        p = pow(r, b);
+        p = (int)pow(r, b);
 	} while (p <= a);
 	return r - 1;
 }
