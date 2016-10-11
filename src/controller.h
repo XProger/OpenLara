@@ -103,7 +103,7 @@ struct Controller {
         TR::Animation &anim = level->anims[animIndex];
         animTime  = frame == -1 ? 0.0f : ((frame - anim.frameStart) / 30.0f);
         ASSERT(anim.frameStart <= anim.frameEnd);
-        animPrevFrame = -1;
+        animPrevFrame = int(animTime * 30.0f) - 1;
         return state = anim.state;
     }
 
@@ -345,9 +345,9 @@ struct Controller {
                     return vec3((float)sx, (float)sy, (float)sz);
                     break;
                 }
-                case TR::ANIM_CMD_SPEED : // cmd jump speed
-                case TR::ANIM_CMD_SOUND : // play sound
-                case TR::ANIM_CMD_SPECIAL : // special commands
+                case TR::ANIM_CMD_SPEED  : // cmd jump speed
+                case TR::ANIM_CMD_SOUND  : // play sound
+                case TR::ANIM_CMD_EFFECT : // special commands
                     ptr += 2;
                     break;
             }
@@ -394,28 +394,24 @@ struct Controller {
                         break;
                     case TR::ANIM_CMD_KILL : // kill
                         break;
-                    case TR::ANIM_CMD_SOUND : { // play sound
+                    case TR::ANIM_CMD_SOUND  : // play sound
+                    case TR::ANIM_CMD_EFFECT : { // special commands
                         int frame = (*ptr++);
                         int id    = (*ptr++) & 0x3FFF;
                         int idx   = frame - anim->frameStart;
 
-                        if (idx > animPrevFrame && idx <= frameIndex)
-                            playSound(id);
+                        if (idx > animPrevFrame && idx <= frameIndex) {
+                            if (cmd == TR::ANIM_CMD_EFFECT) {
+                                switch (id) {
+                                    case TR::EFFECT_ROTATE_180   : angle.y = angle.y + PI;    break;
+                                    case TR::EFFECT_LARA_BUBBLES : playSound(TR::SND_BUBBLE); break;
+                                    default : LOG("unknown special cmd %d (anim %d)\n", id, animIndex);
+                                }
+                            } else
+                                playSound(id);
+                        }
                         break;
                     }
-                    case TR::ANIM_CMD_SPECIAL : // special commands
-                        if (frameIndex != animPrevFrame && frameIndex + anim->frameStart == ptr[0]) {
-                            switch (ptr[1]) {
-                                case TR::ANIM_CMD_SPECIAL_FLIP   : angle.y = angle.y + PI;    break;
-                                case TR::ANIM_CMD_SPECIAL_BUBBLE : playSound(TR::SND_BUBBLE); break;
-                                case TR::ANIM_CMD_SPECIAL_CTRL   : LOG("water out ?\n");      break;
-                                default : LOG("unknown special cmd %d\n", (int)ptr[1]);
-                            }
-                        }
-                        ptr += 2;
-                        break;
-                    default :
-                        LOG("unknown animation command %d\n", cmd);
                 }
             }
         }
