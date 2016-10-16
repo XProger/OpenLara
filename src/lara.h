@@ -955,11 +955,11 @@ struct Lara : Controller {
                     break;
                 case STAND_AIR        : {
                     int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
-                    TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize) / 2)];
+                    TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[((anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize)) >> 1)];
 
                     f = info.floor   - (p.y + frame->box.maxY);
                     c = (p.y + frame->box.minY) - info.ceiling;
-                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256); 
+                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256);  
                     break;
                 }
                 case STAND_ONWATER : {

@@ -618,7 +618,7 @@ struct Level {
     //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
-    //    Debug::Level::meshes(level);
+        Debug::Level::meshes(level);
     //    Debug::Level::entities(level);
         Debug::Level::info(level, lara->getEntity(), (int)lara->state, lara->animIndex, int(lara->animTime * 30.0f));
         Debug::end();
