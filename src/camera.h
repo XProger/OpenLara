@@ -7,7 +7,7 @@
 
 #define MAX_CLIP_PLANES 10
 
-#define CAMERA_OFFSET (1024.0f + 512.0f)
+#define CAMERA_OFFSET (1024.0f + 256.0f)
 
 struct Frustum {
 
@@ -198,7 +198,7 @@ struct Camera : Controller {
         activateNext();
         return true;
     }
-    
+
     virtual void update() {
         if (timer > 0.0f) {
             timer -= Core::deltaTime;
@@ -210,13 +210,13 @@ struct Camera : Controller {
             }
         }
     #ifdef FREE_CAMERA
-        vec3 dir = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
+        vec3 d = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
         vec3 v = vec3(0);
 
-        if (Input::down[ikW]) v = v + dir;
-        if (Input::down[ikS]) v = v - dir;
-        if (Input::down[ikD]) v = v + dir.cross(vec3(0, 1, 0));
-        if (Input::down[ikA]) v = v - dir.cross(vec3(0, 1, 0));
+        if (Input::down[ikUp]) v = v + d;
+        if (Input::down[ikDown]) v = v - d;
+        if (Input::down[ikRight]) v = v + d.cross(vec3(0, 1, 0));
+        if (Input::down[ikLeft]) v = v - d.cross(vec3(0, 1, 0));
         pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
     #endif
         if (Input::down[ikMouseR]) {
@@ -274,7 +274,7 @@ struct Camera : Controller {
         if (info.roomNext != 255) 
             room = info.roomNext;
         
-        if (destPos.y < info.ceiling) {
+        if (pos.y < info.ceiling) {
             if (info.roomAbove != 255)
                 room = info.roomAbove;
             else
@@ -300,17 +300,21 @@ struct Camera : Controller {
         float dist = dir.length();
         dir = dir * (1.0f / dist);
 
-        int lx = -1, lz = -1;
+        int lr = -1, lx = -1, lz = -1;
         TR::Level::FloorInfo info;
         while (dist > 1.0f) {
             int sx = px / 1024 * 1024 + 512,
                 sz = pz / 1024 * 1024 + 512;
 
-            if (lx != sx || lz != sz) {
+            if (lr != room || lx != sx || lz != sz) {
                 level->getFloorInfo(room, sx, sz, info);
+                if (info.roomNext != 0xFF) {
+                    room = info.roomNext;
+                    level->getFloorInfo(room, sx, sz, info);
+                }
+                lr = room;
                 lx = sx;
                 lz = sz;
-                if (info.roomNext != 0xFF) room = info.roomNext;
             }
 
             if (py > info.floor && info.roomBelow != 0xFF)

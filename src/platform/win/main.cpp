@@ -309,12 +309,14 @@ int main() {
             if (time <= lastTime)
                 continue;
 
+            float slow = Input::down[ikR] ? 8.0f : 1.0f;
+
             float delta = (time - lastTime) * 0.001f;
             EnterCriticalSection(&sndCS);
             while (delta > EPS) {
-                Core::deltaTime = min(delta, 1.0f / 30.0f);
+                Core::deltaTime = min(delta, 1.0f / 30.0f) / slow;
                 Game::update();
-                delta -= Core::deltaTime;
+                delta -= Core::deltaTime * slow;
             }
             LeaveCriticalSection(&sndCS);
             lastTime = time;

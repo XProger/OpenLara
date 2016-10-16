@@ -10,11 +10,6 @@
 
 namespace TR {
 
-    enum : int32 {
-        ROOM_FLAG_WATER     = 0x0001,
-        ROOM_FLAG_VISIBLE   = 0x8000
-    };
-
     enum {
         ANIM_CMD_NONE       ,
         ANIM_CMD_MOVE       ,
@@ -100,10 +95,6 @@ namespace TR {
         CUTSCENE        ,   // play cutscene
     };
 
-    #define ENTITY_FLAG_CLEAR   0x0080
-    #define ENTITY_FLAG_VISIBLE 0x0100
-    #define ENTITY_FLAG_ACTIVE  0x3E00
-
     #pragma pack(push, 1)
 
     struct fixed {
@@ -186,7 +177,9 @@ namespace TR {
         uint16  lightsCount;
         uint16  meshesCount;
         int16   alternateRoom;
-        int16   flags;
+        struct {
+            uint16 water:1, unused:14, rendered:1;
+        } flags;
 
         struct Portal {
             uint16  roomIndex;
@@ -215,7 +208,9 @@ namespace TR {
             angle   rotation;
             uint16  intensity;
             uint16  meshID;
-            uint16  flags;          // ! not exists in file !
+            struct { // ! not exists in file !
+                uint16 unused:15, rendered:1;    
+            } flags;
         } *meshes;
     };
 
@@ -287,20 +282,8 @@ namespace TR {
     };
 
     struct Entity {
-        int16   id;             // Object Identifier (matched in Models[], or SpriteSequences[], as appropriate)
-        int16   room;           // which room contains this item
-        int32   x, y, z;        // world coords
-        angle   rotation;       // ((0xc000 >> 14) * 90) degrees
-        int16   intensity;      // (constant lighting; -1 means use mesh lighting)
-        uint16  flags;          // 0x0100 indicates "initially invisible", 0x3e00 is Activation Mask
-                                // 0x3e00 indicates "open" or "activated";  these can be XORed with
-                                // related FloorData::FDlist fields (e.g. for switches)
-    // not exists in file
-        uint16  align;
-        int16   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
-        void    *controller;    // Controller implementation or NULL 
-
-        enum {
+        enum Type : int16 {
+            NONE                     = -1,
             LARA                     = 0,
 
             ENEMY_TWIN               = 6,
@@ -353,10 +336,23 @@ namespace TR {
             AMMO_SHOTGUN             = 89,       // sprite
             AMMO_MAGNUMS             = 90,       // sprite
             AMMO_UZIS                = 91,       // sprite
+
             MEDIKIT_SMALL            = 93,       // sprite
             MEDIKIT_BIG              = 94,       // sprite
 
+            PUZZLE_1                 = 110,      // sprite
+            PUZZLE_2                 = 111,      // sprite
+            PUZZLE_3                 = 112,      // sprite
+            PUZZLE_4                 = 113,      // sprite
+
             HOLE_PUZZLE              = 118,
+
+            PICKUP                   = 126,      // sprite
+
+            KEY_1                    = 129,      // sprite
+            KEY_2                    = 130,      // sprite
+            KEY_3                    = 131,      // sprite
+            KEY_4                    = 132,      // sprite
 
             HOLE_KEY                 = 137,
 
@@ -375,7 +371,19 @@ namespace TR {
             VIEW_TARGET              = 169,
    
             GLYPH                    = 190,      // sprite
-        };
+        }       type;
+        int16   room;
+        int32   x, y, z;
+        angle   rotation;
+        int16   intensity;
+        union {
+            struct { uint16 unused:7, clear:1, invisible:1, active:5, unused2:1, rendered:1; };
+            uint16 value;
+        } flags;
+    // not exists in file
+        uint16  align;
+        int16   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
+        void    *controller;    // Controller implementation or NULL 
     };
 
     struct Animation {
@@ -447,25 +455,27 @@ namespace TR {
     };
 
     struct Model {
-        uint32  id;         // Item Identifier (matched in Entities[])
-        uint16  mCount;     // number of meshes in this object
-        uint16  mStart;     // stating mesh (offset into MeshPointers[])
-        uint32  node;       // offset into MeshTree[]
-        uint32  frame;      // byte offset into Frames[] (divide by 2 for Frames[i])
-        uint16  animation;  // offset into Animations[]
-        uint16  align;      // ! not exists in file !
+        Entity::Type    type;
+        uint16          unused;
+        uint16          mCount;    
+        uint16          mStart;    
+        uint32          node;      
+        uint32          frame;     
+        uint16          animation; 
+        uint16          align;     
     };
 
     struct StaticMesh {
-        uint32  id;             // Static Mesh Identifier
-        uint16  mesh;           // Mesh (offset into MeshPointers[])
-        MinMax  box[2];         // visible (minX, maxX, minY, maxY, minZ, maxZ) & collision
+        uint32  id;    
+        uint16  mesh;  
+        MinMax  vbox;
+        MinMax  cbox;
         uint16  flags;
 
         void getBox(bool collision, angle rotation, vec3 &min, vec3 &max) {
             int k = rotation.value / 0x4000;
 
-            MinMax &m = box[collision];
+            MinMax &m = collision ? cbox : vbox;
 
             ASSERT(m.minX <= m.maxX && m.minY <= m.maxY && m.minZ <= m.maxZ);
 
@@ -516,9 +526,10 @@ namespace TR {
     };
 
     struct SpriteSequence {
-        int32   id;         // Sprite identifier
-        int16   sCount;     // Negative of ``how many sprites are in this sequence''
-        int16   sStart;     // Where (in sprite texture list) this sequence starts
+        Entity::Type    type;
+        uint16          unused;
+        int16           sCount;    
+        int16           sStart;    
     };
 
     struct Camera {
@@ -800,10 +811,10 @@ namespace TR {
                 stream.raw(&e, sizeof(e) - sizeof(e.align) - sizeof(e.controller) - sizeof(e.modelIndex));
                 e.align = 0;
                 e.controller = NULL;
-                e.modelIndex = getModelIndex(e.id);
+                e.modelIndex = getModelIndex(e.type);
             }
             for (int i = entitiesBaseCount; i < entitiesCount; i++) {
-                entities[i].id = -1;
+                entities[i].type = Entity::NONE;
                 entities[i].controller = NULL;
             }
         // palette
@@ -889,33 +900,33 @@ namespace TR {
             return NULL;
         }
 
-        int16 getModelIndex(int16 id) const {
+        int16 getModelIndex(Entity::Type type) const {
             for (int i = 0; i < modelsCount; i++)
-                if (id == models[i].id)
+                if (type == models[i].type)
                     return i + 1;
     
             for (int i = 0; i < spriteSequencesCount; i++)
-                if (id == spriteSequences[i].id)
+                if (type == spriteSequences[i].type)
                     return -(i + 1);
 
             ASSERT(false);
             return 0;
         }
 
-        int entityAdd(int16 id, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
+        int entityAdd(TR::Entity::Type type, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
             int entityIndex = -1;
             for (int i = entitiesBaseCount; i < entitiesCount; i++) 
-                if (entities[i].id == -1) {
+                if (entities[i].type == Entity::NONE) {
                     Entity &e = entities[i];
-                    e.id            = id;
+                    e.type          = type;
                     e.room          = room;
                     e.x             = x;
                     e.y             = y;
                     e.z             = z;
                     e.rotation      = rotation;
                     e.intensity     = intensity;
-                    e.flags         = 0;
-                    e.modelIndex    = getModelIndex(e.id);
+                    e.flags.value   = 0;
+                    e.modelIndex    = getModelIndex(e.type);
                     e.controller    = NULL;
                     return i;
                 }
@@ -923,7 +934,7 @@ namespace TR {
         }
 
         void entityRemove(int entityIndex) {
-            entities[entityIndex].id = -1;
+            entities[entityIndex].type       = Entity::NONE;
             entities[entityIndex].controller = NULL;
         }
 
@@ -945,7 +956,7 @@ namespace TR {
             return room.sectors[sx * room.zSectors + sz];
         }
 
-        void getFloorInfo(int roomIndex, int x, int z, FloorInfo &info) const {
+        void getFloorInfo(int roomIndex, int x, int z, FloorInfo &info, bool actual = false, int prevRoom = 0xFF) const {
             int dx, dz;
             Room::Sector &s = getSector(roomIndex, x, z, dx, dz);
 
@@ -960,6 +971,20 @@ namespace TR {
             info.kill         = 0;
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
+
+            if (actual) {
+                if (info.roomBelow != 0xFF && info.roomBelow != prevRoom) {
+                    FloorInfo tmp;
+                    getFloorInfo(info.roomBelow, x, z, tmp, true, roomIndex);
+                    info.floor = tmp.floor;
+                }
+
+                if (info.roomAbove != 0xFF && info.roomAbove != prevRoom) {
+                    FloorInfo tmp;
+                    getFloorInfo(info.roomAbove, x, z, tmp, true, roomIndex);
+                    info.ceiling = tmp.ceiling;
+                }
+            }
 
             if (!s.floorIndex) return;
 
@@ -1012,6 +1037,9 @@ namespace TR {
                 }
 
             } while (!cmd.end);
+
+            if (actual && info.roomNext != 0xFF)
+                getFloorInfo(info.roomNext, x, z, info, actual, prevRoom);
         }
 
     }; // struct Level

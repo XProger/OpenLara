@@ -14,7 +14,7 @@ struct Trigger : Controller {
     }
 
     bool inState() {
-        return (state != baseState) == (getEntity().flags & ENTITY_FLAG_ACTIVE) > 0;
+        return (state != baseState) == (getEntity().flags.active != 0);
     }
 
     virtual bool activate(ActionCommand *cmd) {
@@ -22,7 +22,7 @@ struct Trigger : Controller {
         Controller::activate(cmd);
         this->timer = cmd->timer;
 
-        getEntity().flags ^= ENTITY_FLAG_ACTIVE;
+        getEntity().flags.active ^= 0x1F;
         
         if (immediate)
             activateNext();
@@ -37,7 +37,7 @@ struct Trigger : Controller {
             timer -= Core::deltaTime;
             if (timer <= 0.0f) {
                 timer = 0.0f;
-                entity.flags &= ~ENTITY_FLAG_ACTIVE;
+                entity.flags.active ^= 0x1F;
             }
         }
 
@@ -45,12 +45,12 @@ struct Trigger : Controller {
             timer += Core::deltaTime;
             if (timer >= 0.0f) {
                 timer = 0.0f;
-                entity.flags |= ENTITY_FLAG_ACTIVE;
+                entity.flags.active ^= 0x1F;
             }
         }
 
         if (!inState())
-            setState(state != baseState ? baseState : (entity.id == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
+            setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
 
         updateAnimation(true);
         updateEntity();
@@ -77,9 +77,7 @@ struct Dart : Controller {
                 TR::Entity &e = getEntity();
                 
                 vec3 p = pos - dir * 64.0f; // wall offset = 64
-                int sparkIndex = level->entityAdd(TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, e.rotation, -1);
-                if (sparkIndex > -1)
-                    level->entities[sparkIndex].controller = new SpriteController(level, sparkIndex, true, SpriteController::FRAME_RANDOM);
+                addSprite(level, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, SpriteController::FRAME_RANDOM);
 
                 level->entityRemove(entity);
                 delete this;
@@ -108,12 +106,8 @@ struct Dartgun : Trigger {
         if (dartIndex > -1)
             level->entities[dartIndex].controller = new Dart(level, dartIndex);
 
-        int smokeIndex = level->entityAdd(TR::Entity::SMOKE, entity.room, (int)pos.x, (int)pos.y, (int)pos.z, entity.rotation, -1);
-        if (smokeIndex > -1) {
-            level->entities[smokeIndex].intensity  = 0x1FFF - level->rooms[entity.room].ambient;
-            level->entities[smokeIndex].controller = new SpriteController(level, smokeIndex);
-        }
-
+        addSprite(level, TR::Entity::SMOKE, entity.room, (int)pos.x, (int)pos.y, (int)pos.z);
+        
         playSound(151);
 
         return true;
@@ -126,7 +120,7 @@ struct Boulder : Trigger {
     Boulder(TR::Level *level, int entity) : Trigger(level, entity, true) {}
 
     virtual void update() {
-        if (getEntity().flags & ENTITY_FLAG_ACTIVE) {
+        if (getEntity().flags.active) {
             updateAnimation(true);
             updateEntity();
         }

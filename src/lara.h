@@ -14,6 +14,10 @@
 #define TURN_WATER_SLOW     PI * 2.0f / 3.0f
 #define GLIDE_SPEED         50.0f
 
+#define LARA_HANG_OFFSET    735
+
+#define PICKUP_FRAME_GROUND     40
+#define PICKUP_FRAME_UNDERWATER 16
 
 #define MAX_TRIGGER_ACTIONS 64
 
@@ -22,6 +26,7 @@
 struct Lara : Controller {
 
     ActionCommand actionList[MAX_TRIGGER_ACTIONS];
+    int lastPickUp;
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
     enum {
@@ -29,7 +34,8 @@ struct Lara : Controller {
         
         ANIM_CLIMB_JUMP         = 26,
 
-        ANIM_HANG_UP            = 29,
+        ANIM_HANG_FALL          = 28,
+        ANIM_HANG_WALL          = 29,
 
         ANIM_FALL               = 34,
         ANIM_SMASH_JUMP         = 32,
@@ -51,7 +57,7 @@ struct Lara : Controller {
 
         ANIM_SLIDE_FORTH        = 70,
 
-        ANIM_HANG_FORTH         = 96,
+        ANIM_HANG               = 96,
 
         ANIM_STAND_NORMAL       = 103,
 
@@ -66,6 +72,8 @@ struct Lara : Controller {
         ANIM_HIT_RIGHT          = 128,
         ANIM_STAND_ROLL_BEGIN   = 146,
         ANIM_STAND_ROLL_END     = 147,
+
+        ANIM_HANG_NOWALL        = 150,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -93,7 +101,7 @@ struct Lara : Controller {
         STATE_FAST_TURN,
         STATE_STEP_RIGHT,
         STATE_STEP_LEFT,
-        STATE_ROLL,
+        STATE_ROLL_1,
         STATE_SLIDE,
         STATE_BACK_JUMP,
         STATE_RIGHT_JUMP,
@@ -115,7 +123,7 @@ struct Lara : Controller {
         STATE_USE_KEY,
         STATE_USE_PUZZLE,
         STATE_UNDERWATER_DEATH,
-        STATE_ROLL_45,
+        STATE_ROLL_2,
         STATE_SPECIAL,
         STATE_SURF_BACK,
         STATE_SURF_LEFT,
@@ -129,18 +137,38 @@ struct Lara : Controller {
         STATE_MAX };
 
     Lara(TR::Level *level, int entity) : Controller(level, entity) {
+    #ifdef _DEBUG
     /*
+    // gym 
+        pos = vec3(43182, 2473, 51556);
+        angle = vec3(0.0f, PI * 0.5f, 0.0f);
+        getEntity().room = 12;
+    */
+    
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
         getEntity().room = 15;
-    */
+    
     /*
     // level 2 (wolf)
         pos = vec3(75671, -1024, 22862);
         angle = vec3(0.0f, -PI * 0.25f, 0.0f);
         getEntity().room = 13;
     */
+
+    /*
+    // level 2 (room 1)
+        pos = vec3(31400, -2560, 25200);
+        angle = vec3(0.0f, PI, 0.0f);
+        getEntity().room = 43;   
+        
+    // level 2 (medikit)
+        pos = vec3(30800, -7936, 22131);
+        angle = vec3(0.0f, 0.0f, 0.0f);
+        getEntity().room = 58;   
+     */
+
     /*
     // level 3a
         pos = vec3(41015, 3584, 34494);
@@ -153,7 +181,8 @@ struct Lara : Controller {
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 14;
     */
-    //    updateEntity();
+        updateEntity();
+    #endif
     }
 
     bool waterOut(int &outState) {
@@ -164,7 +193,9 @@ struct Lara : Controller {
         level->getFloorInfo(getEntity().room,  (int)pos.x, (int)pos.z, infoCur),
         level->getFloorInfo(infoCur.roomAbove, (int)dst.x, (int)dst.z, infoDst);
 
-        if (infoDst.roomBelow == 0xFF && pos.y - infoDst.floor <= 256) { // possibility check
+        int h = int(pos.y - infoDst.floor);
+
+        if (h > 0 && h <= 256) { // possibility check
             if (!setState(STATE_STOP)) { // can't set water out state
                 outState = STATE_STOP;
                 return true;
@@ -183,7 +214,55 @@ struct Lara : Controller {
         return false;
     }
 
-    void performTrigger() {
+    bool doPickUp() {
+        int room = getRoomIndex();
+        TR::Entity &e = getEntity();
+
+        for (int i = 0; i < level->entitiesCount; i++) {
+            TR::Entity &item = level->entities[i];
+            if (item.room == room && !item.flags.invisible) {
+                if (abs(item.x - e.x) > 256 || abs(item.z - e.z) > 256)
+                    continue;
+
+                switch (item.type) {
+                    case TR::Entity::WEAPON_PISTOLS :
+                    case TR::Entity::WEAPON_SHOTGUN :
+                    case TR::Entity::WEAPON_MAGNUMS :
+                    case TR::Entity::WEAPON_UZIS    :
+                    case TR::Entity::AMMO_SHOTGUN   :
+                    case TR::Entity::AMMO_MAGNUMS   :
+                    case TR::Entity::AMMO_UZIS      :
+                    case TR::Entity::MEDIKIT_SMALL  :
+                    case TR::Entity::MEDIKIT_BIG    :
+                    case TR::Entity::PUZZLE_1       :
+                    case TR::Entity::PUZZLE_2       :
+                    case TR::Entity::PUZZLE_3       :
+                    case TR::Entity::PUZZLE_4       :
+                    case TR::Entity::PICKUP         :
+                    case TR::Entity::KEY_1          :
+                    case TR::Entity::KEY_2          :
+                    case TR::Entity::KEY_3          :
+                    case TR::Entity::KEY_4          :
+                    case TR::Entity::ARTIFACT       :
+                        lastPickUp = i;
+                        angle.x = 0.0f;
+                        pos.x = item.x;
+                        pos.y = item.y;
+                        pos.z = item.z;
+                        if (stand == STAND_UNDERWATER) { // TODO: lerp to pos/angle
+                            pos = pos - getDir() * 256.0f;
+                            pos.y -= 256;
+                        }
+                        updateEntity();                       
+                        return true;
+                    default : ;
+                }
+            }
+        }
+        return false;
+    }
+
+    void doTrigger() {
         if (actionCommand) return;
 
         TR::Entity &e = getEntity();
@@ -191,8 +270,8 @@ struct Lara : Controller {
         level->getFloorInfo(e.room, e.x, e.z, info);
 
         if (!info.trigCmdCount) return; // has no trigger
-        bool isActive = (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE);
-        if (info.trigInfo.once == 1 && (level->entities[info.trigCmd[0].args].flags & ENTITY_FLAG_ACTIVE)) return; // once trigger is already activated
+        bool isActive = (level->entities[info.trigCmd[0].args].flags.active);
+        if (info.trigInfo.once == 1 && isActive) return; // once trigger is already activated
 
         int actionState = state;
         switch (info.trigger) {
@@ -243,7 +322,7 @@ struct Lara : Controller {
         Controller *controller = this;
         for (int i = 0; i < info.trigCmdCount; i++) {
             if (!controller) {
-                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].id);
+                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].type);
                 playSound(TR::SND_NO);
                 return;
             }
@@ -263,7 +342,6 @@ struct Lara : Controller {
             actionItem++;
         }
 
-        LOG("perform\n");
         actionList[0].next = &actionList[1];
         actionCommand = &actionList[0];
 
@@ -316,31 +394,52 @@ struct Lara : Controller {
     }
 
     virtual Stand getStand() {
-        if (stand == STAND_HANG && (mask & ACTION))
-            return stand;
+        if (state == STATE_HANG || state == STATE_HANG_LEFT || state == STATE_HANG_RIGHT) {
+            if (mask & ACTION)
+                return STAND_HANG;
+            setAnimation(ANIM_HANG_FALL);
+            velocity = vec3(0.0f);
+            pos.y += 128.0f;
+            updateEntity();
+            return STAND_AIR;
+        }
+
+        if (state == STATE_HANDSTAND || state == STATE_HANG_UP)
+            return STAND_HANG;
 
         if (stand == STAND_ONWATER && state != STATE_DIVE && state != STATE_STOP)
             return stand;
 
-        if (getRoom().flags & TR::ROOM_FLAG_WATER)
+        if (getRoom().flags.water)
             return STAND_UNDERWATER; // TODO: ONWATER
 
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.z, info);
+        level->getFloorInfo(e.room, e.x, e.z, info, true);
 
         if (stand == STAND_SLIDE || (stand == STAND_AIR && velocity.y > 0) || stand == STAND_GROUND) {
             if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
                 if (stand == STAND_AIR)
                     playSound(TR::SND_LANDING);
+                pos.y = info.floor;
+                updateEntity();
+
+                if (stand == STAND_GROUND || stand == STAND_AIR)
+                    slideStart();
+                
                 return STAND_SLIDE;
             }
         }
 
         int extra = stand != STAND_AIR ? 256 : 0;
 
-        if (stand != STAND_HANG && info.roomBelow == 0xFF && e.y + extra >= info.floor)
+        if (e.y + extra >= info.floor) {
+            if (stand != STAND_GROUND) {
+                pos.y = info.floor;
+                updateEntity();
+            }
             return STAND_GROUND;
+        }
 
         return STAND_AIR;
     }
@@ -354,18 +453,37 @@ struct Lara : Controller {
     virtual int getStateAir() {
         angle.x = 0.0f;
 
+        if (state == STATE_REACH && getDir().dot(vec3(velocity.x, 0.0f, velocity.z)) < 0)
+            velocity.x = velocity.z = 0.0f;
+
         if ((state == STATE_REACH || state == STATE_UP_JUMP) && (mask & ACTION)) {
+
+            if (state == STATE_REACH && velocity.y < 0.0f)
+                return state;
+
             vec3 p = pos + getDir() * 128.0f;
             TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info);
+            
+            info.roomAbove = getRoomIndex();
+            level->getFloorInfo(info.roomAbove, (int)pos.x, (int)pos.z, info);
+            if (info.roomAbove == 0xFF)
+                info.roomAbove = getRoomIndex();
 
-            if (abs(int(info.floor - (p.y - 768.0f + 64.0f))) < 32) {
+            do {
+                level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.z, info, true);
+            } while (info.ceiling > p.y - LARA_HANG_OFFSET && info.roomAbove != 0xFF);
+
+            if (abs(int(info.floor - (p.y - LARA_HANG_OFFSET))) < 16) {
                 turnToWall();
-                pos = pos - getDir() * 128.0f; // TODO: collision wall offset
-                pos.y = info.floor + 768.0f - 64.0f;
-                stand = STAND_HANG;
+                pos = pos - getDir() * 96.0f; // TODO: collision wall offset
+                pos.y = info.floor + LARA_HANG_OFFSET;
                 updateEntity();
-                return setAnimation(state == STATE_HANG ? ANIM_HANG_UP : ANIM_HANG_FORTH);
+
+                stand = STAND_HANG;
+                if (state == STATE_REACH) {
+                    return STATE_HANG; // TODO: ANIM_HANG_WALL / ANIM_HANG_NOWALL
+                } else
+                    return setAnimation(ANIM_HANG, -15);
             }
         }
 
@@ -373,14 +491,17 @@ struct Lara : Controller {
             if (mask & ACTION) return STATE_REACH;
             if ((mask & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
         } else 
-            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP && state != STATE_ROLL)
+            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP && state != STATE_ROLL_1 && state != STATE_ROLL_2)
                 return setAnimation(ANIM_FALL);
 
         return state;
     }
 
     virtual int getStateGround() {
-        angle.x = 0.0f;      
+        angle.x = 0.0f;
+
+        if (mask == ACTION && doPickUp())
+            return STATE_PICK_UP;
 
     /*
     // hit test
@@ -431,18 +552,20 @@ struct Lara : Controller {
         if ( (mask & (FORTH | ACTION)) == (FORTH | ACTION) && (animIndex == ANIM_STAND || animIndex == ANIM_STAND_NORMAL) ) {
             vec3 p = pos + getDir() * 64.0f;
             TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info);
+            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
             int h = (int)pos.y - info.floor;
             
             int aIndex = animIndex;
-            if (h < 2 * 256 - 16)
+            if (h < 256 + 128) {
                 ; // do nothing
-            else if (h <= 2 * 256 + 16)
+            } else if (h <= 2 * 256 + 128) {
                 aIndex = ANIM_CLIMB_2;
-            else if (h <= 3 * 256 + 16)
+                pos.y  = info.floor + 512;
+            } else if (h <= 3 * 256 + 128) {
                 aIndex = ANIM_CLIMB_3;
-            else if (h <= 7 * 256 + 16)
-                aIndex = ANIM_CLIMB_JUMP;
+                pos.y  = info.floor + 768;
+            } else if (h <= 7 * 256 + 128)
+                aIndex = ANIM_CLIMB_JUMP;            
 
             if (aIndex != animIndex) {
                 turnToWall();
@@ -459,8 +582,7 @@ struct Lara : Controller {
         return STATE_STOP;
     }
 
-    virtual int getStateSlide() {
-
+    void slideStart() {
         TR::Entity &e = getEntity();
 
         if (state != STATE_SLIDE && state != STATE_SLIDE_BACK) {
@@ -484,29 +606,40 @@ struct Lara : Controller {
 
             angle.y = dir;
             updateEntity();
-            return setAnimation(aIndex);
+            setAnimation(aIndex);
         }
+    }
 
-        if (mask & JUMP) {
-            stand    = STAND_GROUND;
-            pos.y   -= 16;
-            updateEntity();
+    virtual int getStateSlide() {
+        if (mask & JUMP)
             return state == STATE_SLIDE ? STATE_FORWARD_JUMP : STATE_BACK_JUMP;
-        }
-
         return state;
     }
 
     virtual int getStateHang() {
         if (mask & LEFT)  return STATE_HANG_LEFT;
         if (mask & RIGHT) return STATE_HANG_RIGHT;
-        if (mask & FORTH) return (mask & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;
+        if (mask & FORTH) {
+            // possibility check
+            TR::Level::FloorInfo info;
+            vec3 p = pos + getDir() * 128.0f;
+            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
+            if (info.floor - info.ceiling >= 768) {
+                LOG("%d %d %d\n", info.floor, info.ceiling, info.floor - info.ceiling);
+                return (mask & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;
+            }
+        }
         return STATE_HANG;
     }
 
     virtual int getStateUnderwater() {
-        if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH)
+        if (mask == ACTION && doPickUp())
+            return STATE_PICK_UP;
+
+        if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
+            addSprite(level, TR::Entity::Type::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return setAnimation(ANIM_WATER_FALL);
+        }
         
         if (state == STATE_SWAN_DIVE) {
             angle.x = -PI * 0.5f;
@@ -550,7 +683,7 @@ struct Lara : Controller {
     }
 
     virtual int getStateDefault() {
-        if (state == STATE_DIVE) return state;
+        if (state == STATE_DIVE || (state == STATE_RUN && (mask & JUMP)) ) return state;
         switch (stand) {
             case STAND_GROUND     : return STATE_STOP;
             case STAND_HANG       : return STATE_HANG;
@@ -580,7 +713,7 @@ struct Lara : Controller {
     }
 
     virtual void updateState() {
-        performTrigger();
+        doTrigger();
 
         TR::Animation *anim  = &level->anims[animIndex];
 
@@ -595,11 +728,11 @@ struct Lara : Controller {
         if (Input::down[ikEnter]) {
             if (!lState) {
                 lState = true;
-                /*
+                
                 static int snd_id = 0;//160;
-                playSound(snd_id);
+                /*playSound(snd_id);
                 */
-            //    setAnimation(snd_id);
+                //setAnimation(snd_id);
                 //LOG("sound: %d\n", snd_id++);
                 
                 LOG("state: %d\n", anim->state);
@@ -684,6 +817,17 @@ struct Lara : Controller {
         }
     }
 
+    
+    virtual void doCustomCommand(int curFrame, int prevFrame) {
+        if (state == STATE_PICK_UP) {
+            if (!level->entities[lastPickUp].flags.invisible) {
+                int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;                
+                if (curFrame >= pickupFrame)
+                    level->entities[lastPickUp].flags.invisible = true; // TODO: add to inventory
+            }
+        }
+    }
+
     virtual void updateVelocity() {
     // calculate moving speed
         float dt = Core::deltaTime * 30.0f;
@@ -723,7 +867,13 @@ struct Lara : Controller {
                 } else {
                     TR::Entity &e = getEntity();
                     TR::Level::FloorInfo info;
-                    level->getFloorInfo(e.room, e.x, e.z, info);
+                    if (stand == STAND_HANG) {
+                        vec3 p = pos + getDir() * 128.0f;
+                        level->getFloorInfo(e.room, (int)p.x, (int)p.z, info);
+                        if (info.roomAbove != 0xFF && info.floor >= e.y - LARA_HANG_OFFSET)
+                            level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.z, info);
+                    } else
+                        level->getFloorInfo(e.room, e.x, e.z, info);
 
                     vec3 v(sinf(angleExt), 0.0f, cosf(angleExt));
                     velocity = info.getSlant(v) * speed;
@@ -747,8 +897,31 @@ struct Lara : Controller {
         }
     }
 
-    virtual void move() { // TORO: as part of Controller
-        if (velocity.length() < EPS) return;
+    virtual void checkRoom() {
+        TR::Level::FloorInfo info;
+        TR::Entity &e = getEntity();
+        level->getFloorInfo(e.room, e.x, e.z, info);
+
+        if (info.roomNext != 0xFF)
+            e.room = info.roomNext;        
+
+        if (info.roomBelow != 0xFF && e.y > info.floor)
+            e.room = info.roomBelow;       
+
+        if (info.roomAbove != 0xFF && e.y <= info.ceiling) {
+            if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
+                stand = STAND_ONWATER;
+                velocity.y = 0;
+                pos.y = info.ceiling;
+                updateEntity();
+            } else
+                if (stand != STAND_ONWATER)
+                    e.room = info.roomAbove;
+        }
+    }
+
+    virtual void move() { // TODO: sphere / bbox collision
+        if (velocity.length() < 0.001f) return;
 
         vec3 offset = velocity * Core::deltaTime * 30.0f;
 
@@ -756,96 +929,107 @@ struct Lara : Controller {
         pos = pos + offset;
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getEntity().room, (int)pos.x, (int)pos.z, info);
+        level->getFloorInfo(getEntity().room, (int)pos.x, (int)pos.z, info, true);
 
-        int delta;
-        int d = getOverlap((int)p.x, (int)p.y, (int)p.z, (int)pos.x, (int)pos.z, delta);
+    // get frame to get height
+        TR::Animation *anim  = &level->anims[animIndex];
 
-        int height = getHeight();
-        bool canPassGap;
+        bool canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
+        float f = info.floor - pos.y;
+        float c = pos.y - info.ceiling;
 
-        float h = info.floor - pos.y;
-
-        switch (stand) {
-            case STAND_AIR : 
-                canPassGap = ((int)p.y - d) <= 512 && (info.roomAbove != 0xFF || (pos.y - height - info.ceiling > -256));
-                break;
-            case STAND_UNDERWATER : 
-                canPassGap = ((int)p.y - d) <  128; 
-                break;
-            case STAND_ONWATER : {
-                canPassGap = info.roomAbove != 0xFF;
-                break;
-            }
-            default : // TODO: height
-                if (state == STATE_WALK || state == STATE_BACK) 
-                    canPassGap = h >= -256 && h <=  256;
-                else
-                    if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
-                        canPassGap = h >= -128 && h <= 128;
+        if (canPassGap)
+            switch (stand) {
+                case STAND_GROUND     : {                    
+                    if (state == STATE_WALK || state == STATE_BACK) 
+                        canPassGap = fabsf(f) <= (256.0f + 128.0f);
                     else
-                        canPassGap = h >= -256 - 16; 
-        }
+                        if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
+                            canPassGap = fabsf(f) <= (128.0f + 64.0f);
+                        else
+                            canPassGap = f >= -(256 + 128);
+                    break;
+                }
+                case STAND_UNDERWATER : 
+                    canPassGap = f > 0.0f && c > 0.0f;
+                    break;
+                case STAND_AIR        : {
+                    int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
+                    TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize) / 2)];
 
-        TR::Animation *anim = &level->anims[animIndex];
-        int frame = int(animTime * 30.0f);
-        bool left = (anim->frameEnd - anim->frameStart) / 2 > frame;
+                    f = info.floor   - (p.y + frame->box.maxY);
+                    c = (p.y + frame->box.minY) - info.ceiling;
+                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256); 
+                    break;
+                }
+                case STAND_ONWATER : {
+                    canPassGap = (info.floor - p.y) >= 1.0f && c >= 1.0f;
+                    break;
+                }
+                default : ;
+            }
 
-        if (d == NO_OVERLAP || !canPassGap) {
+        bool isLeftFoot = (anim->frameEnd - anim->frameStart) / 2 > int(animTime * 30.0f);
+
+        if (!canPassGap) {
             pos = p; // TODO: use smart ejection
 
         // hit the wall
             switch (stand) {
                 case STAND_AIR :
-                    if (state != STATE_UP_JUMP && state != STATE_REACH) {
+                    if (state == STATE_UP_JUMP || state == STATE_REACH) {
+                        velocity.x = velocity.z = 0.0f;
+                        if (c <= 0 && offset.y < 0.0f) offset.y = velocity.y = 0.0f;
+                    }
+
+                    if (velocity.x != 0.0f || velocity.z != 0.0f) {
                         setAnimation(ANIM_SMASH_JUMP);
                         velocity.x = -velocity.x * 0.5f;
                         velocity.z = -velocity.z * 0.5f;
-                        velocity.y = 0.0f;
-                    } else {
-                        velocity.x = velocity.z = 0.0f;
-                        pos.y = p.y + offset.y;
-                        updateEntity();
+                        if (offset.y < 0.0f)
+                            offset.y = velocity.y = 0.0f;
                     }
+
+                    pos.y = p.y + offset.y;
+
                     break;
                 case STAND_GROUND :
-                    if (delta <= -256 * 4 && state == STATE_RUN)
-                        setAnimation(left ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
-                    else
+                case STAND_HANG   :
+                    if (f <= -(256 * 3 - 128) && state == STATE_RUN)
+                        setAnimation(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
+                    else if (stand == STAND_HANG)
+                        setAnimation(ANIM_HANG, -21);
+                    else if (state != STATE_ROLL_1 && state != STATE_ROLL_2)
                         setAnimation(ANIM_STAND);
                     velocity.x = velocity.z = 0.0f;
                     break;
                 default : ;// no smash animation
             }                     
-        } else {
-            if (state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_ROLL) {
-                if (h <= -128 && h >= -256) { // ascend
-                    if (state == STATE_RUN)  setAnimation(left ? ANIM_RUN_ASCEND_LEFT  : ANIM_RUN_ASCEND_RIGHT);
-                    if (state == STATE_WALK) setAnimation(left ? ANIM_WALK_ASCEND_LEFT : ANIM_WALK_ASCEND_RIGHT);
-                    pos.y = info.floor;
-                }
+        } else
+            if (stand == STAND_GROUND) {
+                int h = int(info.floor - pos.y);
 
-                if (h >= 128 && h <= 256 && (state == STATE_WALK || state == STATE_BACK)) { // descend
-                    if (state == STATE_WALK) setAnimation(left ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
-                    if (state == STATE_BACK) setAnimation(left ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
-                    pos.y = info.floor;
-                }
-
-                if (h > 0 && (state == STATE_RUN || state == STATE_ROLL)) {
-                    pos.y += DESCENT_SPEED * Core::deltaTime;
-                }
-            }
-
-            if (state == STATE_FAST_BACK) {
-                if (h >= 255) {
+                if (h >= 256 && state == STATE_FAST_BACK) {
                     stand = STAND_AIR;
                     setAnimation(ANIM_FALL);
+                } else if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
+                    if (state == STATE_WALK) setAnimation(isLeftFoot ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
+                    if (state == STATE_BACK) setAnimation(isLeftFoot ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
+                    pos.y = info.floor;
+                } else if (h > -1.0f) {
+                    pos.y = min((float)info.floor, pos.y += DESCENT_SPEED * Core::deltaTime);
+                } else if (h > -128) {
+                    pos.y = info.floor;
+                } else if (h >= -(256 + 128) && (state == STATE_RUN || state == STATE_WALK)) { // ascend
+                    if (state == STATE_RUN)  setAnimation(isLeftFoot ? ANIM_RUN_ASCEND_LEFT  : ANIM_RUN_ASCEND_RIGHT);
+                    if (state == STATE_WALK) setAnimation(isLeftFoot ? ANIM_WALK_ASCEND_LEFT : ANIM_WALK_ASCEND_RIGHT);
+                    pos.y = info.floor;
                 } else
-                    pos.y += DESCENT_SPEED * Core::deltaTime;
+                    pos.y = info.floor;
             }
 
-            updateEntity();
-        }
+        updateEntity();
+        checkRoom();
     }
 };
 

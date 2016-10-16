@@ -42,7 +42,7 @@ struct Level {
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &entity = level.entities[i];
-            switch (entity.id) {
+            switch (entity.type) {
                 case TR::Entity::LARA : 
                 case TR::Entity::LARA_CUT :
                     entity.controller = (lara = new Lara(&level, i));
@@ -100,6 +100,7 @@ struct Level {
                 case TR::Entity::HOLE_KEY              :
                     entity.controller = new Trigger(&level, i, false);
                     break;
+                default : ;
             }
         }
 
@@ -208,7 +209,7 @@ struct Level {
     }
 
     Shader *setRoomShader(const TR::Room &room, float intensity) {
-        if (room.flags & TR::ROOM_FLAG_WATER) {
+        if (room.flags.water) {
             Core::color = vec4(0.6f * intensity, 0.9f * intensity, 0.9f * intensity, 1.0f);
             return shaders[shCaustics];
         } else {
@@ -231,7 +232,7 @@ struct Level {
     // room static meshes
         for (int i = 0; i < room.meshesCount; i++) {
             TR::Room::Mesh &rMesh = room.meshes[i];
-            if ((rMesh.flags & TR::ROOM_FLAG_VISIBLE)) continue;    // skip if already rendered
+            if (rMesh.flags.rendered) continue;    // skip if already rendered
 
             TR::StaticMesh *sMesh = level.getMeshByID(rMesh.meshID);
             ASSERT(sMesh != NULL);
@@ -241,7 +242,7 @@ struct Level {
             sMesh->getBox(false, rMesh.rotation, min, max);
             if (!camera->frustum->isVisible(offset + min, offset + max))
                 continue;           
-            rMesh.flags |= TR::ROOM_FLAG_VISIBLE;
+            rMesh.flags.rendered = true;
 
         // set light parameters
             getLight(offset, roomIndex);
@@ -255,8 +256,8 @@ struct Level {
         }
 
     // room geometry & sprites
-        if (!(room.flags & TR::ROOM_FLAG_VISIBLE)) {    // skip if already rendered
-            room.flags |= TR::ROOM_FLAG_VISIBLE;
+        if (!room.flags.rendered) {    // skip if already rendered
+            room.flags.rendered = true;
 
             Core::lightColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
             Core::ambient    = vec3(1.0f);
@@ -494,10 +495,10 @@ struct Level {
     }
 
     void renderEntity(const TR::Entity &entity) {
-        if (entity.id < 0) return;
+        if (entity.type == TR::Entity::NONE) return;
 
         TR::Room &room = level.rooms[entity.room];
-        if (!(room.flags & TR::ROOM_FLAG_VISIBLE)) // check for room visibility
+        if (!room.flags.rendered || entity.flags.invisible) // check for room visibility
             return;
 
         mat4 m = Core::mModel;
@@ -529,7 +530,7 @@ struct Level {
         time += Core::deltaTime;
         
         for (int i = 0; i < level.entitiesCount; i++) 
-            if (level.entities[i].id > -1) {
+            if (level.entities[i].type != TR::Entity::NONE) {
                 Controller *controller = (Controller*)level.entities[i].controller;
                 if (controller) 
                     controller->update();
@@ -565,10 +566,10 @@ struct Level {
     // clear visible flags for rooms & static meshes
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room &room = level.rooms[i];
-            room.flags &= ~TR::ROOM_FLAG_VISIBLE;           // clear visible flag for room geometry & sprites
+            room.flags.rendered = false;                            // clear visible flag for room geometry & sprites
 
             for (int j = 0; j < room.meshesCount; j++)
-                room.meshes[j].flags &= ~TR::ROOM_FLAG_VISIBLE;       // clear visible flag for room static meshes
+                room.meshes[j].flags.rendered = false;     // clear visible flag for room static meshes
         }
 
     // TODO: collision detection for camera
@@ -582,18 +583,30 @@ struct Level {
         static int modelIndex = 0;
         static bool lastStateK = false;
 
+        static int lastEntity = -1;
+
         if (Input::down[ikM]) {
             if (!lastStateK) {
                 lastStateK = true;
             //    modelIndex = (modelIndex + 1) % level.modelsCount;
                 modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
                 LOG("model: %d %d\n", modelIndex, level.spriteSequences[modelIndex].id);
+                if (lastEntity > -1) {
+                    delete level.entities[lastEntity].controller;
+                    level.entityRemove(lastEntity);
+                }
+                lastEntity = level.entityAdd(level.models[modelIndex].id, lara->getRoomIndex(), lara->pos.x + 1024, lara->pos.y - 1024, lara->pos.z, lara->getEntity().rotation, -1);
+                level.entities[lastEntity].controller = new Controller(&level, lastEntity);
             }
         } else
             lastStateK = false;
 
         Core::mModel.translate(lara->pos + vec3(512, -512, 0));
-        //renderModel(level.models[modelIndex], level.entities[4]);
+        if (lastEntity > -1)
+            renderEntity(level.entities[lastEntity]);
+//        renderModel(level.models[modelIndex], level.entities[4]);
+*/
+        /*
         TR::Entity seq;
         seq.modelIndex = -(modelIndex + 1);
         seq.controller = NULL;
@@ -607,7 +620,7 @@ struct Level {
     //    Debug::Level::portals(level);
     //    Debug::Level::meshes(level);
     //    Debug::Level::entities(level);
-        Debug::Level::info(level, lara->getEntity());
+        Debug::Level::info(level, lara->getEntity(), (int)lara->state, lara->animIndex, int(lara->animTime * 30.0f));
         Debug::end();
     #endif
     }

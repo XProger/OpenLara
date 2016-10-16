@@ -98,10 +98,10 @@ struct Controller {
         return getEntity().room;
     }
 
-    int setAnimation(int index, int frame = -1) {
+    int setAnimation(int index, int frame = 0) {
         animIndex = index;
         TR::Animation &anim = level->anims[animIndex];
-        animTime  = frame == -1 ? 0.0f : ((frame - anim.frameStart) / 30.0f);
+        animTime  = (frame <= 0 ? -frame : (frame - anim.frameStart)) / 30.0f;
         ASSERT(anim.frameStart <= anim.frameEnd);
         animPrevFrame = int(animTime * 30.0f) - 1;
         return state = anim.state;
@@ -134,26 +134,25 @@ struct Controller {
         return exists;
     }
 
-    int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ, int &delta) const { 
+    int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ) const {
         int dx, dz;
         TR::Room::Sector &s = level->getSector(getEntity().room, fromX, fromZ, dx, dz);
-
-        if (s.boxIndex == 0xFFFF) return NO_OVERLAP;
+        
+        if (s.boxIndex == 0xFFFF)
+            return NO_OVERLAP;      
 
         TR::Box &b = level->boxes[s.boxIndex];
-        if (b.contains(toX, toZ)) {
-            delta = 0;
-            return b.floor;
-        }
+        if (b.contains(toX, toZ))
+            return 0;
 
         int floor = NO_OVERLAP;
-        delta = floor;
-       
+        int delta = NO_OVERLAP;
+
         TR::Overlap *o = &level->overlaps[b.overlap & 0x7FFF];
         do {
             TR::Box &ob = level->boxes[o->boxIndex];
             if (ob.contains(toX, toZ)) { // get min delta
-                int d = abs(ob.floor - fromY);
+                int d = abs(b.floor - ob.floor);
                 if (d < delta) {
                     floor = ob.floor;
                     delta = d;
@@ -161,8 +160,10 @@ struct Controller {
             }
         } while (!(o++)->end);
 
-        delta = floor - b.floor;
-        return floor;
+        if (floor == NO_OVERLAP)
+            return NO_OVERLAP;
+
+        return b.floor - floor;
     }
 
     void playSound(int id) const {
@@ -208,20 +209,23 @@ struct Controller {
 
         if (entity.y > info.floor) {
             if (info.roomBelow == 0xFF) {
-                entity.y = info.floor;
-                pos.y = entity.y;
-                velocity.y = 0.0f;
+                if (entity.y > info.floor) {
+                    entity.y = info.floor;
+                    pos.y = entity.y;
+                    velocity.y = 0.0f;
+                }
             } else
                 entity.room = info.roomBelow;
         }
          
         int height = getHeight();
-        if (entity.y - getHeight() < info.ceiling) {
+        if (entity.y - height < info.ceiling) {
             if (info.roomAbove == 0xFF) {
                 pos.y = entity.y = info.ceiling + height;
-                velocity.y = fabsf(velocity.y);
+                if (velocity.y < 0.0f)
+                    velocity.y = GRAVITY;
             } else {
-                if (stand == STAND_UNDERWATER && !(level->rooms[info.roomAbove].flags & TR::ROOM_FLAG_WATER)) {
+                if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
                     stand = STAND_ONWATER;
                     velocity.y = 0;
                     pos.y = info.ceiling;
@@ -277,19 +281,21 @@ struct Controller {
     }
 
     virtual bool  activate(ActionCommand *cmd) { actionCommand = cmd; return true; } 
+    virtual void  doCustomCommand       (int curFrame, int prevFrame) {}
     virtual void  updateVelocity()      {}
-    virtual void  move() {}
-    virtual Stand getStand()           { return STAND_AIR; }
-    virtual int   getHeight()          { return 0; }
-    virtual int   getStateAir()        { return state; }
-    virtual int   getStateGround()     { return state; }
-    virtual int   getStateSlide()      { return state; }
-    virtual int   getStateHang()       { return state; }
-    virtual int   getStateUnderwater() { return state; }
-    virtual int   getStateOnwater()    { return state; }
-    virtual int   getStateDeath()      { return state; }
-    virtual int   getStateDefault()    { return state; }
-    virtual int   getInputMask()       { return 0; }
+    virtual void  checkRoom()           {}
+    virtual void  move()                {}
+    virtual Stand getStand()            { return STAND_AIR; }
+    virtual int   getHeight()           { return 0; }
+    virtual int   getStateAir()         { return state; }
+    virtual int   getStateGround()      { return state; }
+    virtual int   getStateSlide()       { return state; }
+    virtual int   getStateHang()        { return state; }
+    virtual int   getStateUnderwater()  { return state; }
+    virtual int   getStateOnwater()     { return state; }
+    virtual int   getStateDeath()       { return state; }
+    virtual int   getStateDefault()     { return state; }
+    virtual int   getInputMask()        { return 0; }
 
     virtual int getState(Stand stand) {
         TR::Animation *anim  = &level->anims[animIndex];
@@ -324,8 +330,8 @@ struct Controller {
     }
 
     virtual void updateEnd() {
+        TR::Entity &e = getEntity();
         move();
-        collide();
         updateEntity();
     }
 
@@ -374,6 +380,7 @@ struct Controller {
                         if (endFrame) {
                             pos = pos + vec3(sx, sy, sz).rotateY(-angle.y);
                             updateEntity();
+                            checkRoom();
                             LOG("move: %d %d %d\n", (int)sx, (int)sy, (int)sz);
                         }
                         break;
@@ -403,8 +410,9 @@ struct Controller {
                         if (idx > animPrevFrame && idx <= frameIndex) {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (id) {
-                                    case TR::EFFECT_ROTATE_180   : angle.y = angle.y + PI;    break;
-                                    case TR::EFFECT_LARA_BUBBLES : playSound(TR::SND_BUBBLE); break;
+                                    case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI;    break;
+                                    case TR::EFFECT_LARA_BUBBLES   : if (rand() % 10 > 6) playSound(TR::SND_BUBBLE); break;
+                                    case TR::EFFECT_LARA_HANDSFREE : break;
                                     default : LOG("unknown special cmd %d (anim %d)\n", id, animIndex);
                                 }
                             } else
@@ -415,6 +423,8 @@ struct Controller {
                 }
             }
         }
+
+        doCustomCommand(frameIndex, animPrevFrame);
 
         if (endFrame) { // if animation is end - switch to next
             setAnimation(anim->nextAnimation, anim->nextFrame);    
@@ -478,5 +488,13 @@ struct SpriteController : Controller {
         }
     }
 };
+
+void addSprite(TR::Level *level, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1) {
+    int index = level->entityAdd(type, room, x, y, z, 0, -1);
+    if (index > -1) {
+        level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
+        level->entities[index].controller = new SpriteController(level, index, true, frame);
+    }        
+}
 
 #endif
