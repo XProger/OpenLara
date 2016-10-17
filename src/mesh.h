@@ -73,8 +73,8 @@ struct MeshBuilder {
     }   *meshInfo;
     int mCount;
 
-    MeshRange *sequenceRanges;  // sprite sequences
-    MeshRange shadowSpot;
+    MeshRange *spriteSequences;
+    MeshRange shadowBlob;
 
 // indexed mesh
     Mesh *mesh;
@@ -160,21 +160,21 @@ struct MeshBuilder {
         meshInfo = new MeshInfo[mCount];
         
     // get size of mesh for sprite sequences
-        sequenceRanges = new MeshRange[level.spriteSequencesCount];
+        spriteSequences = new MeshRange[level.spriteSequencesCount];
         for (int i = 0; i < level.spriteSequencesCount; i++) {
         // TODO: sequences not only first frame
-            sequenceRanges[i].vStart = vCount;
-            sequenceRanges[i].iStart = iCount;
-            sequenceRanges[i].iCount = level.spriteSequences[i].sCount * 6;
+            spriteSequences[i].vStart = vCount;
+            spriteSequences[i].iStart = iCount;
+            spriteSequences[i].iCount = level.spriteSequences[i].sCount * 6;
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
         }
 
     // get size of simple shadow spot mesh (8 triangles, 8 vertices)
-        shadowSpot.vStart = vCount;
-        shadowSpot.iStart = iCount;
-        shadowSpot.iCount = 8 * 3;
-        iCount += shadowSpot.iCount;
+        shadowBlob.vStart = vCount;
+        shadowBlob.iStart = iCount;
+        shadowBlob.iCount = 8 * 3;
+        iCount += shadowBlob.iCount;
         vCount += 8;
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
@@ -393,7 +393,7 @@ struct MeshBuilder {
             indices[idx + 1] = 0;
             indices[idx + 2] = (i + 1) % 8;
         }
-        iCount += shadowSpot.iCount;
+        iCount += shadowBlob.iCount;
         vCount += 8;
 
         mesh = new Mesh(indices, iCount, vertices, vCount);
@@ -406,7 +406,7 @@ struct MeshBuilder {
         delete[] animTexOffsets;
         delete[] roomRanges;
         delete[] meshInfo;
-        delete[] sequenceRanges;
+        delete[] spriteSequences;
         delete mesh;
     }
 
@@ -572,7 +572,7 @@ struct MeshBuilder {
     }
 
     void renderSprite(int sequenceIndex, int frame) {
-        MeshRange range = sequenceRanges[sequenceIndex];
+        MeshRange range = spriteSequences[sequenceIndex];
         range.iCount = 6;
         range.iStart += frame * 6;
         range.vStart += frame * 4;
@@ -580,7 +580,7 @@ struct MeshBuilder {
     }
 
     void renderShadowSpot() {
-        mesh->render(shadowSpot);
+        mesh->render(shadowBlob);
     }
 };
 
