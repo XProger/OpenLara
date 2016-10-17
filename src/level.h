@@ -356,6 +356,19 @@ struct Level {
         return ma.getRot().slerp(mb.getRot(), t).normal();
     }
 
+    void renderShadow(const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
+        mat4 m;
+        m.identity();
+        m.translate(pos);
+        m.rotateY(angle);
+        m.translate(vec3(offset.x, 0.0f, offset.z));
+        m.scale(vec3(size.x, 0.0f, size.z) / 1024.0f);
+
+        Core::active.shader->setParam(uModel, m);
+        Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        mesh->renderShadowSpot();
+    }
+
     void renderModel(const TR::Model &model, const TR::Entity &entity) {
         TR::Animation *anim;
         float fTime;
@@ -440,6 +453,12 @@ struct Level {
             Core::mModel = Core::mModel * m;
             renderMesh(model.mStart + i);
             Core::mModel = tmp;
+        }
+
+        if (TR::castShadow(entity.type)) {
+            TR::Level::FloorInfo info;
+            level.getFloorInfo(entity.room, entity.x, entity.z, info, true);
+            renderShadow(vec3(entity.x, info.floor - 16.0f, entity.z), (bmax + bmin) * 0.5f, (bmax - bmin) * 0.8f, entity.rotation);
         }
     }
 
@@ -618,7 +637,7 @@ struct Level {
     //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
     //    Debug::Level::lights(level);
     //    Debug::Level::portals(level);
-        Debug::Level::meshes(level);
+    //    Debug::Level::meshes(level);
     //    Debug::Level::entities(level);
         Debug::Level::info(level, lara->getEntity(), (int)lara->state, lara->animIndex, int(lara->animTime * 30.0f));
         Debug::end();

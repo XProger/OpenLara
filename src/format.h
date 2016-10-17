@@ -1043,6 +1043,10 @@ namespace TR {
         }
 
     }; // struct Level
+
+    bool castShadow(Entity::Type type) {
+        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_LARSON) || type == Entity::LARA || type == Entity::LARA_CUT;
+    }
 }
 
 #endif

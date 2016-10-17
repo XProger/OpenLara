@@ -73,8 +73,8 @@ struct MeshBuilder {
     }   *meshInfo;
     int mCount;
 
-// sprite sequences
-    MeshRange *sequenceRanges;
+    MeshRange *sequenceRanges;  // sprite sequences
+    MeshRange shadowSpot;
 
 // indexed mesh
     Mesh *mesh;
@@ -169,6 +169,13 @@ struct MeshBuilder {
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
         }
+
+    // get size of simple shadow spot mesh (8 triangles, 8 vertices)
+        shadowSpot.vStart = vCount;
+        shadowSpot.iStart = iCount;
+        shadowSpot.iCount = 8 * 3;
+        iCount += shadowSpot.iCount;
+        vCount += 8;
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
         Index  *indices  = new Index[iCount];
@@ -369,6 +376,26 @@ struct MeshBuilder {
                 addSprite(indices, vertices, iCount, vCount, vCount, 0, 0, 0, sprite, 255);
             }
 
+    // build shadow spot
+        for (int i = 0; i < 8; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal    = { 0, 0, 0, 1 };
+            v.color     = { 255, 255, 255, 255 };
+            v.texCoord  = { 32688, 32688, 0, 0 };
+
+            float a = i * (PI / 4.0f) + (PI / 8.0f);
+            short c = short(cosf(a) * 512.0f);
+            short s = short(sinf(a) * 512.0f);
+            v.coord = { c, 0, s, 0 };
+
+            int idx = iCount + i * 3;
+            indices[idx + 0] = i;
+            indices[idx + 1] = 0;
+            indices[idx + 2] = (i + 1) % 8;
+        }
+        iCount += shadowSpot.iCount;
+        vCount += 8;
+
         mesh = new Mesh(indices, iCount, vertices, vCount);
         delete[] indices;
         delete[] vertices;
@@ -550,6 +577,10 @@ struct MeshBuilder {
         range.iStart += frame * 6;
         range.vStart += frame * 4;
         mesh->render(range);
+    }
+
+    void renderShadowSpot() {
+        mesh->render(shadowSpot);
     }
 };
 
