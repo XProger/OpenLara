@@ -491,7 +491,7 @@ struct Lara : Controller {
             if (mask & ACTION) return STATE_REACH;
             if ((mask & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
         } else 
-            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP && state != STATE_ROLL_1 && state != STATE_ROLL_2)
+            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
                 return setAnimation(ANIM_FALL);
 
         return state;
@@ -940,6 +940,15 @@ struct Lara : Controller {
 
         if (canPassGap)
             switch (stand) {
+                case STAND_AIR        : {
+                    int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
+                    TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[((anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize)) >> 1)];
+
+                    f = info.floor   - (p.y + frame->box.maxY);
+                    c = (p.y + frame->box.minY) - info.ceiling;
+                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256);  
+                    break;
+                }
                 case STAND_GROUND     : {                    
                     if (state == STATE_WALK || state == STATE_BACK) 
                         canPassGap = fabsf(f) <= (256.0f + 128.0f);
@@ -950,22 +959,21 @@ struct Lara : Controller {
                             canPassGap = f >= -(256 + 128);
                     break;
                 }
+                case STAND_HANG : {
+                    canPassGap = f >= 220.0f; // check dist to floor
+                    if (canPassGap) { // check end of hang layer
+                        vec3 d = pos + getDir() * 128.0f;
+                        level->getFloorInfo(info.roomAbove != 0xFF ? info.roomAbove : getRoomIndex(), (int)d.x, (int)d.z, info, true);
+                        canPassGap = fabsf((pos.y - LARA_HANG_OFFSET) - info.floor) < 64.0f;
+                    }
+                    break;
+                }
                 case STAND_UNDERWATER : 
                     canPassGap = f > 0.0f && c > 0.0f;
                     break;
-                case STAND_AIR        : {
-                    int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
-                    TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[((anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize)) >> 1)];
-
-                    f = info.floor   - (p.y + frame->box.maxY);
-                    c = (p.y + frame->box.minY) - info.ceiling;
-                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256);  
-                    break;
-                }
-                case STAND_ONWATER : {
+                case STAND_ONWATER :
                     canPassGap = (info.floor - p.y) >= 1.0f && c >= 1.0f;
                     break;
-                }
                 default : ;
             }
 
