@@ -75,6 +75,7 @@ namespace TR {
         SND_NO          = 2,
         SND_LANDING     = 4,
         SND_BUBBLE      = 37,
+        SND_DART        = 151,
         SND_SECRET      = 173,
     };
 
@@ -472,34 +473,17 @@ namespace TR {
         MinMax  cbox;
         uint16  flags;
 
-        void getBox(bool collision, angle rotation, vec3 &min, vec3 &max) {
+        void getBox(bool collision, angle rotation, ::Box &box) {
             int k = rotation.value / 0x4000;
 
             MinMax &m = collision ? cbox : vbox;
 
             ASSERT(m.minX <= m.maxX && m.minY <= m.maxY && m.minZ <= m.maxZ);
 
-            switch (k) {
-                case 0 : 
-                    min = vec3(m.minX, m.minY, m.minZ);
-                    max = vec3(m.maxX, m.maxY, m.maxZ);
-                    break;
-                case 1 : 
-                    min = vec3(m.minZ, m.minY, -m.maxX);
-                    max = vec3(m.maxZ, m.maxY, -m.minX);
-                    break;
-                case 2 : 
-                    min = vec3(-m.maxX, m.minY, -m.maxZ);
-                    max = vec3(-m.minX, m.maxY, -m.minZ);
-                    break;
-                case 3 : 
-                    min = vec3(-m.maxZ, m.minY, m.minX);
-                    max = vec3(-m.minZ, m.maxY, m.maxX);
-                    break;
-                default :
-                    ASSERT(false);
-            }
-            ASSERT(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+            box = ::Box(m.min(), m.max());
+            box.rotate90(k);
+
+            ASSERT(box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z);
         }
     };
 

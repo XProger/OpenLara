@@ -160,6 +160,7 @@ struct Camera : Controller {
 
     float   fov, znear, zfar;
     vec3    target, destPos, lastDest, angleAdv;
+    mat4    mViewInv;
     int     room;
 
     float   timer;
@@ -266,29 +267,32 @@ struct Camera : Controller {
 
         pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
 
-        if (actCamera > -1) return;
+        if (actCamera <= -1) {
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
+        
+            if (info.roomNext != 255) 
+                room = info.roomNext;
+        
+            if (pos.y < info.ceiling) {
+                if (info.roomAbove != 255)
+                    room = info.roomAbove;
+                else
+                    if (info.ceiling != 0xffff8100)
+                        pos.y = info.ceiling;
+            }
 
-        TR::Level::FloorInfo info;
-        level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
-        
-        if (info.roomNext != 255) 
-            room = info.roomNext;
-        
-        if (pos.y < info.ceiling) {
-            if (info.roomAbove != 255)
-                room = info.roomAbove;
-            else
-                if (info.ceiling != 0xffff8100)
-                    pos.y = info.ceiling;
+            if (pos.y > info.floor) {
+                if (info.roomBelow != 255)
+                    room = info.roomBelow;
+                else
+                    if (info.floor != 0xffff8100)
+                        pos.y = info.floor;
+            }
         }
 
-        if (pos.y > info.floor) {
-            if (info.roomBelow != 255)
-                room = info.roomBelow;
-            else
-                if (info.floor != 0xffff8100)
-                    pos.y = info.floor;
-        }
+        mViewInv = mat4(pos, target, vec3(0, -1, 0));
+        Sound::listener.matrix = mViewInv;
     }
 
     vec3 trace(int fromRoom, const vec3 &from, const vec3 &to) { // TODO: use Bresenham
@@ -352,7 +356,7 @@ struct Camera : Controller {
     }
 
     virtual void setup() {
-        Core::mViewInv = mat4(pos, target, vec3(0, -1, 0));
+        Core::mViewInv = mViewInv;
         Core::mView    = Core::mViewInv.inverse();
         Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
 
@@ -360,7 +364,7 @@ struct Camera : Controller {
         Core::viewPos   = Core::mViewInv.offset.xyz;
 
         frustum->pos = Core::viewPos;
-        frustum->calcPlanes(Core::mViewProj);      
+        frustum->calcPlanes(Core::mViewProj);
     }
 };
 

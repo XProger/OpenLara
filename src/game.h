@@ -17,7 +17,7 @@ namespace Game {
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
-            Sound::play(new Stream("05.ogg"), 1, 1, 0);
+            Sound::play(new Stream("05.ogg"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
             //Sound::play(new Stream("03.mp3"), 1, 1, 0);
         #endif
     }

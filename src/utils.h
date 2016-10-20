@@ -76,12 +76,12 @@ inline const int sign(const T &x) {
 }
 
 float clampAngle(float a) {
-	return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
+    return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
 }
 
 float shortAngle(float a, float b) {
-	float n = clampAngle(b) - clampAngle(a);
-	return clampAngle(n - int(n / PI2) * PI2);
+    float n = clampAngle(b) - clampAngle(a);
+    return clampAngle(n - int(n / PI2) * PI2);
 }
 
 
@@ -111,10 +111,14 @@ struct vec3 {
 
     float& operator [] (int index) const { return ((float*)this)[index]; }
 
+    vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
+    vec3& operator -= (const vec3 &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
+    vec3& operator *= (const vec3 &v) { x *= v.x; y *= v.y; z *= v.z; return *this; }
+    vec3& operator *= (float s)       { x *= s;   y *= s;   z *= s;   return *this; }
+
     vec3 operator + (const vec3 &v) const { return vec3(x+v.x, y+v.y, z+v.z); }
     vec3 operator - (const vec3 &v) const { return vec3(x-v.x, y-v.y, z-v.z); }
     vec3 operator * (const vec3 &v) const { return vec3(x*v.x, y*v.y, z*v.z); }
-    vec3 operator / (const vec3 &v) const { return vec3(x/v.x, y/v.y, z/v.z); }
     vec3 operator * (float s) const { return vec3(x*s, y*s, z*s); }
 
     float dot(const vec3 &v) const { return x*v.x + y*v.y + z*v.z; }
@@ -484,12 +488,33 @@ struct mat4 {
     }
 };
 
+struct Box {
+    vec3 min, max;
+
+    Box() {}
+    Box(const vec3 &min, const vec3 &max) : min(min), max(max) {}
+
+    void rotate90(int n) {
+        switch (n) {
+            case 0  : break;
+            case 1  : *this = Box(vec3( min.z, min.y, -max.x), vec3( max.z, max.y, -min.x)); break;
+            case 2  : *this = Box(vec3(-max.x, min.y, -max.z), vec3(-min.x, max.y, -min.z)); break;
+            case 3  : *this = Box(vec3(-max.z, min.y,  min.x), vec3(-min.z, max.y,  max.x)); break;
+            default : ASSERT(false);
+        }
+    }
+
+    bool intersect(const Box &box) const {
+        return !((max.x < box.min.x || min.x > box.max.x) || (max.y < box.min.y || min.y > box.max.y) || (max.z < box.min.z || min.z > box.max.z));
+    }
+};
+
 struct Stream {
     FILE        *f;
-	const char	*data;
-	int         size, pos;
+    const char	*data;
+    int         size, pos;
 
-	Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
+    Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
 
     Stream(const char *name) : data(NULL), size(-1), pos(0) {
         f = fopen(name, "rb");
@@ -500,12 +525,12 @@ struct Stream {
     }
 
     ~Stream() {
-		if (f) fclose(f);
+        if (f) fclose(f);
     }
 
     void setPos(int pos) {
         this->pos = pos;
-		if (f) fseek(f, pos, SEEK_SET);
+        if (f) fseek(f, pos, SEEK_SET);
     }
 
     void seek(int offset) {
@@ -515,11 +540,11 @@ struct Stream {
     }
 
     void raw(void *data, int count) {
-		if (f)
-			fread(data, 1, count, f);
-		else
-			memcpy(data, this->data + pos, count);
-		pos += count;
+        if (f)
+            fread(data, 1, count, f);
+        else
+            memcpy(data, this->data + pos, count);
+        pos += count;
     }
 
     template <typename T>

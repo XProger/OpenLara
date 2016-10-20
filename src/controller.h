@@ -166,7 +166,7 @@ struct Controller {
         return b.floor - floor;
     }
 
-    void playSound(int id) const {
+    void playSound(int id, const vec3 &pos, int flags) const {
     //    LOG("play sound %d\n", id);
 
         int16 a = level->soundsMap[id];
@@ -175,7 +175,7 @@ struct Controller {
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
             void *p = &level->soundData[c];
-            Sound::play(new Stream(p, 1024 * 1024), (float)b.volume / 0xFFFF, 0.0f, Sound::Flags::PAN);
+            Sound::play(new Stream(p, 1024 * 1024), pos, (float)b.volume / 0xFFFF, 0.0f, flags);
         }
     }
 
@@ -196,6 +196,27 @@ struct Controller {
             k = fx < fz ? 3 : 2;
 
         angle.y = k * PI * 0.5f;  // clamp angle to n*PI/2
+    }
+
+    virtual Box getBoundingBox() {
+        TR::Animation *anim  = &level->anims[animIndex];
+        TR::Model     &model = getModel();
+
+        float k = animTime * 30.0f / anim->frameRate;
+        int fIndex = (int)k;
+        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
+
+        int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
+        k = k - fIndex;
+
+        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
+        TR::AnimFrame *fA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
+        TR::AnimFrame *fB = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexB * fSize) >> 1];
+        Box box(fA->box.min().lerp(fB->box.min(), k), fA->box.max().lerp(fB->box.max(), k));
+        box.rotate90(getEntity().rotation.value / 0x4000);
+        box.min += pos;
+        box.max += pos;
+        return box;
     }
 
     void collide() {
@@ -255,7 +276,7 @@ struct Controller {
             case TR::Action::SECRET          :
                 if (!level->secrets[next->value]) {
                     level->secrets[next->value] = true;
-                    playSound(TR::SND_SECRET);
+                    playSound(TR::SND_SECRET, pos, 0);
                 }
                 actionCommand = next;
                 activateNext();
@@ -411,12 +432,12 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (id) {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI;    break;
-                                    case TR::EFFECT_LARA_BUBBLES   : if (rand() % 10 > 6) playSound(TR::SND_BUBBLE); break;
+                                    case TR::EFFECT_LARA_BUBBLES   : if (rand() % 10 > 6) playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN); break;
                                     case TR::EFFECT_LARA_HANDSFREE : break;
                                     default : LOG("unknown special cmd %d (anim %d)\n", id, animIndex);
                                 }
                             } else
-                                playSound(id);
+                                playSound(id, pos, Sound::Flags::PAN);
                         }
                         break;
                     }

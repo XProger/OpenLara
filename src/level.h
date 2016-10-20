@@ -238,10 +238,11 @@ struct Level {
             ASSERT(sMesh != NULL);
 
         // check visibility
-            vec3 min, max, offset = vec3(rMesh.x, rMesh.y, rMesh.z);
-            sMesh->getBox(false, rMesh.rotation, min, max);
-            if (!camera->frustum->isVisible(offset + min, offset + max))
-                continue;           
+            Box box;
+            vec3 offset = vec3(rMesh.x, rMesh.y, rMesh.z);
+            sMesh->getBox(false, rMesh.rotation, box);
+            if (!camera->frustum->isVisible(offset + box.min, offset + box.max))
+                continue;
             rMesh.flags.rendered = true;
 
         // set light parameters
@@ -362,7 +363,7 @@ struct Level {
         m.translate(pos);
         m.rotateY(angle);
         m.translate(vec3(offset.x, 0.0f, offset.z));
-        m.scale(vec3(size.x, 0.0f, size.z) / 1024.0f);
+        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));
 
         Core::active.shader->setParam(uModel, m);
         Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));

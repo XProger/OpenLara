@@ -20,6 +20,7 @@
 #endif
 
 #define SND_CHANNELS_MAX    32
+#define SND_FADEOFF_DIST    (1024.0f * 5.0f)
 
 namespace Sound {
 
@@ -216,7 +217,7 @@ namespace Sound {
 
     struct Listener {
         mat4 matrix;
-        vec3 velocity;
+    //    vec3 velocity;
     } listener;
 
     enum Flags {
@@ -229,12 +230,14 @@ namespace Sound {
 
     struct Sample {
         Decoder *decoder;
+        vec3    pos;
+        vec3    velocity;
         float   volume;
         float   pitch;
         int     flags;
         bool    isPlaying;
 
-        Sample(Stream *stream, float volume, float pitch, int flags) : decoder(NULL), volume(volume), pitch(pitch), flags(flags) {
+        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags) : decoder(NULL), pos(pos), volume(volume), pitch(pitch), flags(flags) {
             uint32 fourcc; 
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
@@ -286,6 +289,21 @@ namespace Sound {
             delete decoder;
         }
 
+        vec3 getPan() {
+            if (!(flags & PAN))
+                return vec3(1.0f);
+            mat4  m = Sound::listener.matrix;
+            vec3  v = pos - m.offset.xyz;
+
+            float dist = max(0.0f, 1.0f - (v.length2() / (SND_FADEOFF_DIST * SND_FADEOFF_DIST)));
+            float pan  = m.right.xyz.dot(v.normal());
+
+            float l = min(1.0f, 1.0f - pan);
+            float r = min(1.0f, 1.0f + pan);
+
+            return vec3(l, r, 1.0f) * dist;
+        }
+
         bool render(Frame *frames, int count) {
             if (!isPlaying) return 0;
             int i = 0;
@@ -298,14 +316,15 @@ namespace Sound {
                 i += res;
             }
 
-            if (volume != 1.0f)
+            vec3 pan = getPan() * volume;
+
+            if (pan.x < 1.0f || pan.y < 1.0f)
                 for (int j = 0; j < i; j++) {
-                    frames[j].L = int(frames[j].L * volume);
-                    frames[j].R = int(frames[j].R * volume);
+                    frames[j].L = int(frames[j].L * pan.x);
+                    frames[j].R = int(frames[j].R * pan.y);
                 }
             return true;
         }
-
     } *channels[SND_CHANNELS_MAX];
     int channelsCount;
 
@@ -338,7 +357,7 @@ namespace Sound {
             
             memset(buffer, 0, sizeof(Frame) * count);
             channels[i]->render(buffer, count);
-            
+
             for (int j = 0; j < count; j++) {
                 result[j].L += buffer[j].L;
                 result[j].R += buffer[j].R;
@@ -382,14 +401,15 @@ namespace Sound {
         return NULL;
     }
 
-    void play(Stream *stream, float volume, float pitch, int flags) {
-        if (!stream) return;
+    Sample* play(Stream *stream, const vec3 &pos, float volume, float pitch, int flags) {
+        if (!stream) return NULL;
+
         if (channelsCount < SND_CHANNELS_MAX)
-            channels[channelsCount++] = new Sample(stream, volume, pitch, flags);
-        else {
-            LOG("! no free channels\n");  
-            delete stream;
-        }
+            return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags);
+
+        LOG("! no free channels\n");  
+        delete stream;
+        return NULL;
     }
 }
 

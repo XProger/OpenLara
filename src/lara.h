@@ -144,11 +144,16 @@ struct Lara : Controller {
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 12;
     */
-    
+    /*
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
         getEntity().room = 15;
+    */
+    // level 2 (blade)
+        pos = vec3(27221, -1024, 29205);
+        angle = vec3(0.0f, PI * 0.5f, 0.0f);
+        getEntity().room = 61;
     
     /*
     // level 2 (wolf)
@@ -323,7 +328,7 @@ struct Lara : Controller {
         for (int i = 0; i < info.trigCmdCount; i++) {
             if (!controller) {
                 LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].type);
-                playSound(TR::SND_NO);
+                playSound(TR::SND_NO, pos, 0);
                 return;
             }
 
@@ -420,7 +425,7 @@ struct Lara : Controller {
         if (stand == STAND_SLIDE || (stand == STAND_AIR && velocity.y > 0) || stand == STAND_GROUND) {
             if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
                 if (stand == STAND_AIR)
-                    playSound(TR::SND_LANDING);
+                    playSound(TR::SND_LANDING, pos, Sound::Flags::PAN);
                 pos.y = info.floor;
                 updateEntity();
 
@@ -928,8 +933,9 @@ struct Lara : Controller {
         vec3 p = pos;
         pos = pos + offset;
 
+        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getEntity().room, (int)pos.x, (int)pos.z, info, true);
+        level->getFloorInfo(e.room, (int)pos.x, (int)pos.z, info, true);
 
     // get frame to get height
         TR::Animation *anim  = &level->anims[animIndex];
@@ -937,7 +943,40 @@ struct Lara : Controller {
         bool canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
         float f = info.floor - pos.y;
         float c = pos.y - info.ceiling;
+        /*
+        Box eBox = Box(pos - vec3(128.0f, 0.0f, 128.0f), pos + vec3(128.0, getHeight(), 128.0f)); // getBoundingBox();
+        // check static meshes in the room
+        if (canPassGap) {
+            TR::Room &r = level->rooms[e.room];
+            for (int i = 0; i < r.meshesCount; i++) {
+                TR::Room::Mesh &m = r.meshes[i];                                        
+                TR::StaticMesh *sm = level->getMeshByID(m.meshID);
+                if (sm->flags != 2) continue; // no have collision box
 
+                Box  mBox;
+                vec3 offset(m.x, m.y, m.z);
+                sm->getBox(true, m.rotation, mBox);
+                mBox.min += offset;
+                mBox.max += offset;
+
+                if (eBox.intersect(mBox)) {
+                    canPassGap = false;
+                    break;
+                }
+            }
+        }
+        
+        // check entities in the room
+        if (canPassGap)
+            for (int i = 0; i < level->entitiesCount; i++) 
+                if (i != entity && level->entities[i].room == e.room && level->entities[i].controller) {
+                    Box mBox = ((Controller*)level->entities[i].controller)->getBoundingBox();
+                    if (eBox.intersect(mBox)) {
+                        canPassGap = false;
+                        break;
+                    }
+                }
+        */
         if (canPassGap)
             switch (stand) {
                 case STAND_AIR        : {

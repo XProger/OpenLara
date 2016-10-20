@@ -107,8 +107,8 @@ struct Dartgun : Trigger {
             level->entities[dartIndex].controller = new Dart(level, dartIndex);
 
         addSprite(level, TR::Entity::SMOKE, entity.room, (int)pos.x, (int)pos.y, (int)pos.z);
-        
-        playSound(151);
+
+        playSound(TR::SND_DART, pos, Sound::Flags::PAN);
 
         return true;
     }

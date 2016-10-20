@@ -295,7 +295,7 @@ namespace Debug {
         void debugSectors(const TR::Level &level, const vec3 &pos, int roomIndex) {
             TR::Room &room = level.rooms[roomIndex];
 
-            vec3 p = (pos - vec3(room.info.x, 0, room.info.z)) / vec3(1024, 1, 1024);
+            vec3 p = (pos - vec3(room.info.x, 0, room.info.z)) * vec3(1.0f / 1024.0f, 1, 1.0f / 1024.0f);
 
             glDisable(GL_DEPTH_TEST);
             for (int z = 0; z < room.zSectors; z++)
@@ -409,14 +409,15 @@ namespace Debug {
                     TR::StaticMesh *sm = level.getMeshByID(m.meshID);
                     ASSERT(sm != NULL);
 
-                    vec3 min, max, offset = vec3(m.x, m.y, m.z);
-                    sm->getBox(false, m.rotation, min, max); // visible box
+                    Box box;
+                    vec3 offset = vec3(m.x, m.y, m.z);
+                    sm->getBox(false, m.rotation, box); // visible box
 
-                    Debug::Draw::box(offset + min, offset + max, vec4(1, 1, 0, 0.25));
+                    Debug::Draw::box(offset + box.min, offset + box.max, vec4(1, 1, 0, 0.25));
 
                     if (sm->flags == 2) { // collision box
-                        sm->getBox(true, m.rotation, min, max);
-                        Debug::Draw::box(offset + min - vec3(10.0f), offset + max + vec3(10.0f), vec4(1, 0, 0, 0.50));
+                        sm->getBox(true, m.rotation, box);
+                        Debug::Draw::box(offset + box.min - vec3(10.0f), offset + box.max + vec3(10.0f), vec4(1, 0, 0, 0.50));
                     }
                     /*
                     TR::Mesh *mesh = (TR::Mesh*)&level.meshData[level.meshOffsets[sm->mesh] / 2];
