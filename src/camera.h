@@ -5,7 +5,7 @@
 #include "controller.h"
 #include "lara.h"
 
-#define MAX_CLIP_PLANES 10
+#define MAX_CLIP_PLANES 16
 
 #define CAMERA_OFFSET (1024.0f + 256.0f)
 

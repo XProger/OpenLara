@@ -1,7 +1,10 @@
 #ifndef H_LARA
 #define H_LARA
-
+/*****************************************/
+/*     Desine sperare qui hic intras     */
+/*****************************************/
 #include "controller.h"
+#include "trigger.h"
 
 #define FAST_TURN_TIME      1.0f
 
@@ -138,54 +141,52 @@ struct Lara : Controller {
 
     Lara(TR::Level *level, int entity) : Controller(level, entity) {
     #ifdef _DEBUG
-    /*
+/*
     // gym 
         pos = vec3(43182, 2473, 51556);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 12;
-    */
-    /*
+        
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
         getEntity().room = 15;
-    */
+        
     // level 2 (blade)
         pos = vec3(27221, -1024, 29205);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 61;
-    
-    /*
+        
     // level 2 (wolf)
         pos = vec3(75671, -1024, 22862);
         angle = vec3(0.0f, -PI * 0.25f, 0.0f);
         getEntity().room = 13;
-    */
 
-    /*
     // level 2 (room 1)
         pos = vec3(31400, -2560, 25200);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 43;   
-        
+
     // level 2 (medikit)
         pos = vec3(30800, -7936, 22131);
         angle = vec3(0.0f, 0.0f, 0.0f);
         getEntity().room = 58;   
-     */
-
-    /*
+        */
+    // level 2 (block)
+        pos = vec3(60843, 1024, 30557);
+        angle = vec3(0.0f, PI, 0.0f);
+        getEntity().room = 19;   
+        /*
     // level 3a
         pos = vec3(41015, 3584, 34494);
         angle = vec3(0.0f, -PI, 0.0f);
         getEntity().room = 51;
-    */
-    /*
+
     // level 1
         pos = vec3(20215, 6656, 52942);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 14;
-    */
+*/
         updateEntity();
     #endif
     }
@@ -207,7 +208,7 @@ struct Lara : Controller {
             }
             outState = state;
 
-            turnToWall();
+            alignToWall();
             dst.y   -= pos.y - infoDst.floor;
             pos     = dst;  // set new position
 
@@ -267,6 +268,10 @@ struct Lara : Controller {
         return false;
     }
 
+    bool checkAngle(TR::angle rotation) {
+        return fabsf(shortAngle(rotation, getEntity().rotation)) < PI * 0.25f;
+    }
+
     void doTrigger() {
         if (actionCommand) return;
 
@@ -290,14 +295,14 @@ struct Lara : Controller {
                 actionState = (isActive && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
                 if ((mask & ACTION) == 0 || state == actionState)
                     return;
-                if (fabsf(shortAngle(level->entities[info.trigCmd[0].args].rotation, e.rotation)) > PI * 0.25f) // TODO clamp angles
+                if (!checkAngle(level->entities[info.trigCmd[0].args].rotation))
                     return;
                 break;
             case TR::Level::Trigger::KEY :
                 actionState = STATE_USE_KEY;
                 if (isActive || (mask & ACTION) == 0 || state == actionState)   // TODO: STATE_USE_PUZZLE
                     return;
-                if (fabsf(shortAngle(level->entities[info.trigCmd[0].args].rotation, e.rotation)) > PI * 0.25f) // TODO clamp angles
+                if (!checkAngle(level->entities[info.trigCmd[0].args].rotation))
                     return;
                 break;
             case TR::Level::Trigger::PICKUP :
@@ -479,7 +484,7 @@ struct Lara : Controller {
             } while (info.ceiling > p.y - LARA_HANG_OFFSET && info.roomAbove != 0xFF);
 
             if (abs(int(info.floor - (p.y - LARA_HANG_OFFSET))) < 16) {
-                turnToWall();
+                alignToWall();
                 pos = pos - getDir() * 96.0f; // TODO: collision wall offset
                 pos.y = info.floor + LARA_HANG_OFFSET;
                 updateEntity();
@@ -502,11 +507,64 @@ struct Lara : Controller {
         return state;
     }
 
+    float distTo(const TR::Entity &e) {
+        return (pos - vec3(e.x, e.y, e.z)).length();
+    }
+
+    Block* getBlock() {
+        int x = getEntity().x;
+        int y = getEntity().y;
+        int z = getEntity().z;
+
+        for (int i = 0; i < level->entitiesCount; i++) {
+            TR::Entity &e = level->entities[i];
+            if ((e.type == TR::Entity::BLOCK_1 || e.type == TR::Entity::BLOCK_2) && e.y == y) {
+                int dx = abs(e.x - x);
+                int dz = abs(e.z - z);
+                if ((dx <= (512 + 128) && dz <= (512 - 128)) ||
+                    (dx <= (512 - 128) && dz <= (512 + 128))) {
+                    
+                    alignToWall();
+
+                    Block *block = (Block*)e.controller;
+                    block->angle.y = angle.y;
+                    block->updateEntity();
+                    return block;
+                }
+            }
+        }
+        return NULL;
+    }
+
     virtual int getStateGround() {
         angle.x = 0.0f;
 
-        if (mask == ACTION && doPickUp())
+        if ((mask & ACTION) && doPickUp())
             return STATE_PICK_UP;
+
+        if ( (mask & (FORTH | ACTION)) == (FORTH | ACTION) && (animIndex == ANIM_STAND || animIndex == ANIM_STAND_NORMAL) ) {
+            vec3 p = pos + getDir() * 64.0f;
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
+            int h = (int)pos.y - info.floor;
+            
+            int aIndex = animIndex;
+            if (info.floor == info.ceiling || h < 256 + 128) {
+                ; // do nothing
+            } else if (h <= 2 * 256 + 128) {
+                aIndex = ANIM_CLIMB_2;
+                pos.y  = info.floor + 512;
+            } else if (h <= 3 * 256 + 128) {
+                aIndex = ANIM_CLIMB_3;
+                pos.y  = info.floor + 768;
+            } else if (h <= 7 * 256 + 128)
+                aIndex = ANIM_CLIMB_JUMP;            
+
+            if (aIndex != animIndex) {
+                alignToWall();
+                return setAnimation(aIndex);
+            }
+        }
 
     /*
     // hit test
@@ -554,29 +612,18 @@ struct Lara : Controller {
             return STATE_STOP;
         } 
 
-        if ( (mask & (FORTH | ACTION)) == (FORTH | ACTION) && (animIndex == ANIM_STAND || animIndex == ANIM_STAND_NORMAL) ) {
-            vec3 p = pos + getDir() * 64.0f;
-            TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
-            int h = (int)pos.y - info.floor;
-            
-            int aIndex = animIndex;
-            if (h < 256 + 128) {
-                ; // do nothing
-            } else if (h <= 2 * 256 + 128) {
-                aIndex = ANIM_CLIMB_2;
-                pos.y  = info.floor + 512;
-            } else if (h <= 3 * 256 + 128) {
-                aIndex = ANIM_CLIMB_3;
-                pos.y  = info.floor + 768;
-            } else if (h <= 7 * 256 + 128)
-                aIndex = ANIM_CLIMB_JUMP;            
-
-            if (aIndex != animIndex) {
-                turnToWall();
-                updateEntity();
-                return setAnimation(aIndex);
+        if (mask & ACTION) {
+            if (state == STATE_PUSH_PULL_READY && (mask & (FORTH | BACK))) {
+                int pushState = (mask & FORTH) ? STATE_PUSH_BLOCK : STATE_PULL_BLOCK;
+                Block *block = getBlock();                
+                if (canSetState(pushState) && block->doMove(mask & FORTH)) {
+                    alignToWall(128.0f);
+                    return pushState;
+                }
             }
+
+            if (state == STATE_PUSH_PULL_READY || getBlock())
+                return STATE_PUSH_PULL_READY;
         }
 
         // only dpad buttons pressed
@@ -629,10 +676,8 @@ struct Lara : Controller {
             TR::Level::FloorInfo info;
             vec3 p = pos + getDir() * 128.0f;
             level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
-            if (info.floor - info.ceiling >= 768) {
-                LOG("%d %d %d\n", info.floor, info.ceiling, info.floor - info.ceiling);
-                return (mask & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;
-            }
+            if (info.floor - info.ceiling >= 768)
+                return (mask & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;          
         }
         return STATE_HANG;
     }
@@ -983,9 +1028,18 @@ struct Lara : Controller {
                     int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
                     TR::AnimFrame *frame = (TR::AnimFrame*)&level->frameData[((anim->frameOffset + (int(animTime * 30.0f / anim->frameRate) * fSize)) >> 1)];
 
-                    f = info.floor   - (p.y + frame->box.maxY);
-                    c = (p.y + frame->box.minY) - info.ceiling;
-                    canPassGap = f >= -256 && c >= (state == STATE_UP_JUMP ? 0.0f : -256);  
+                    f = info.floor   - (pos.y + frame->box.maxY);
+                    c = (pos.y + frame->box.minY) - info.ceiling;
+                    canPassGap = f >= -256;
+                    if (canPassGap && c < 0) {
+                        if (c > -256) { // position correction for ceiling step (less than 256)
+                            pos.y -= c;
+                            if (velocity.y < 0.0f) {
+                                velocity.y = 0.0f;
+                            }
+                        } else
+                            canPassGap = false;
+                    }
                     break;
                 }
                 case STAND_GROUND     : {                    

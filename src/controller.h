@@ -107,6 +107,27 @@ struct Controller {
         return state = anim.state;
     }
 
+    bool canSetState(int state) {
+        TR::Animation *anim = &level->anims[animIndex];
+
+        if (state == anim->state)
+            return true;
+
+        int fIndex = int(animTime * 30.0f);
+
+        for (int i = 0; i < anim->scCount; i++) {
+            TR::AnimState &s = level->states[anim->scOffset + i];
+            if (s.state == state)
+                for (int j = 0; j < s.rangesCount; j++) {
+                    TR::AnimRange &range = level->ranges[s.rangesOffset + j];
+                    if (anim->frameStart + fIndex >= range.low && anim->frameStart + fIndex <= range.high)
+                        return true;
+                }
+        }
+
+        return false;
+    }
+
     bool setState(int state) {
         TR::Animation *anim = &level->anims[animIndex];
 
@@ -183,19 +204,28 @@ struct Controller {
         return vec3(angle.x, angle.y);
     }
 
-    void turnToWall() {
+    void alignToWall(float offset = 0.0f) {
         float fx = pos.x / 1024.0f;
         float fz = pos.z / 1024.0f;
         fx -= (int)fx;
         fz -= (int)fz;
 
-        float k;
+        int k;
         if (fx > 1.0f - fz)
             k = fx < fz ? 0 : 1;
         else
             k = fx < fz ? 3 : 2;
 
         angle.y = k * PI * 0.5f;  // clamp angle to n*PI/2
+
+        if (offset != 0.0f) {
+            vec3 dir = getDir() * (512.0f - offset);
+            if (k % 2)
+                pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f + dir.x;
+            else
+                pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f + dir.z;
+        }
+        updateEntity();
     }
 
     virtual Box getBoundingBox() {

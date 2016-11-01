@@ -313,14 +313,14 @@ namespace Debug {
 
                     bool current = (int)p.x == x && (int)p.z == z;
                     debugFloor(level, roomIndex, room.info.x + x * 1024, room.info.z + z * 1024);
-                    
+                   /* 
                     if (current && s.boxIndex != 0xFFFF && level.boxes[s.boxIndex].overlap != 0xFFFF) {
                         glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
                         debugBox(level.boxes[s.boxIndex]);
                         glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
                         debugOverlaps(level, s.boxIndex);
                     }
-                    
+                    */
                 }
             glEnable(GL_DEPTH_TEST);
         }

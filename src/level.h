@@ -94,6 +94,10 @@ struct Level {
                 case TR::Entity::TRAP_DARTGUN          :
                     entity.controller = new Dartgun(&level, i);
                     break;
+                case TR::Entity::BLOCK_1 :
+                case TR::Entity::BLOCK_2 :
+                    entity.controller = new Block(&level, i);
+                    break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :
                 case TR::Entity::HOLE_PUZZLE           :

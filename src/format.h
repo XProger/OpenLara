@@ -314,6 +314,9 @@ namespace TR {
             TRAP_DART                = 39,
             TRAP_DARTGUN             = 40,
 
+            BLOCK_1                  = 48,
+            BLOCK_2                  = 49,
+
             SWITCH                   = 55,
             SWITCH_WATER             = 56,
             DOOR_1                   = 57,

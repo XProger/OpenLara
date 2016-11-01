@@ -58,6 +58,19 @@ struct Mesh {
     }
 };
 
+
+#define CHECK_NORMAL(n) \
+        if (!(n.x | n.y | n.z)) {\
+            vec3 o(mVertices[f.vertices[0]]);\
+            vec3 a = o - mVertices[f.vertices[1]];\
+            vec3 b = o - mVertices[f.vertices[2]];\
+            o = b.cross(a).normal() * 16300.0f;\
+            n.x = (int)o.x;\
+            n.y = (int)o.y;\
+            n.z = (int)o.z;\
+        }\
+
+
 struct MeshBuilder {
 // rooms
     struct RoomRange {
@@ -253,7 +266,7 @@ struct MeshBuilder {
             int16       *lights  = NULL;
             int         nCount   = ptr->nCount;
 
-            if (ptr->nCount > 0) {
+            if (nCount > 0) {
                 normals = (TR::Vertex*)&ptr->normals;
                 OFFSET(ptr->nCount * sizeof(TR::Vertex));
             } else {
@@ -262,6 +275,7 @@ struct MeshBuilder {
             }
 
             int vStart = vCount;
+            short4 pn = { 0 };
         // rectangles
             for (int j = 0; j < ptr->rCount; j++) {
                 TR::Rectangle     &f = ((TR::Rectangle*)&ptr->rectangles)[j];
@@ -270,19 +284,18 @@ struct MeshBuilder {
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
                 for (int k = 0; k < 4; k++) {
-                    auto &v = mVertices[f.vertices[k]];
+                    uint16     idx = f.vertices[k];
+                    TR::Vertex &v  = mVertices[idx];
 
-                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
+                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
 
-                    if (nCount > 0) {
-                        TR::Vertex &n = normals[f.vertices[k]];
-                        if (n.x | n.y | n.z)
-                            vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        else
-                            vertices[vCount].normal = vertices[vCount].coord;
+                    if (normals) {
+                        TR::Vertex &n = normals[idx];
+                        CHECK_NORMAL(n);
+                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                         vertices[vCount].color  = { 255, 255, 255, 255 };
                     } else {
-                        uint8 a = 255 - (lights[f.vertices[k]] >> 5);
+                        uint8 a = 255 - (lights[idx] >> 5);
                         vertices[vCount].normal = { 0, 0, 0, 1   };
                         vertices[vCount].color  = { a, a, a, 255 };
                     }
@@ -304,10 +317,8 @@ struct MeshBuilder {
 
                     if (nCount > 0) {
                         TR::Vertex &n = normals[f.vertices[k]];
-                        if (n.x | n.y | n.z)
-                            vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        else
-                            vertices[vCount].normal = vertices[vCount].coord;
+                        CHECK_NORMAL(n);
+                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                         vertices[vCount].color  = { 255, 255, 255, 255 };
                     } else {
                         uint8 a = 255 - (lights[f.vertices[k]] >> 5);
@@ -333,10 +344,8 @@ struct MeshBuilder {
 
                     if (nCount > 0) {
                         TR::Vertex &n = normals[f.vertices[k]];
-                        if (n.x | n.y | n.z)
-                            vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        else
-                            vertices[vCount].normal = vertices[vCount].coord;
+                        CHECK_NORMAL(n);
+                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                         vertices[vCount].color  = { c.r, c.g, c.b, 255 };
                     } else {
                         uint8 a = 255 - (lights[f.vertices[k]] >> 5);
@@ -362,10 +371,8 @@ struct MeshBuilder {
 
                     if (nCount > 0) {
                         TR::Vertex &n = normals[f.vertices[k]];
-                        if (n.x | n.y | n.z)
-                            vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        else
-                            vertices[vCount].normal = vertices[vCount].coord;
+                        CHECK_NORMAL(n);
+                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                         vertices[vCount].color  = { c.r, c.g, c.b, 255 };
                     } else {
                         uint8 a = 255 - (lights[f.vertices[k]] >> 5);

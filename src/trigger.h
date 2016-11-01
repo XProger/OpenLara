@@ -127,4 +127,52 @@ struct Boulder : Trigger {
     }
 };
 
+// not a trigger
+struct Block : Controller {
+
+    enum {
+        STATE_STAND = 1,
+        STATE_PUSH,
+        STATE_PULL,
+    };
+
+    Block(TR::Level *level, int entity) : Controller(level, entity) {
+        updateFloor(true);
+    }
+
+    void updateFloor(bool rise) {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(e.room, e.x, e.z, info);
+        if (info.roomNext != 0xFF)
+            e.room = info.roomNext;
+        int dx, dz;
+        TR::Room::Sector &s = level->getSector(e.room, e.x, e.z, dx, dz);
+        s.floor += rise ? -4 : 4;
+    }
+
+    bool doMove(bool push) {
+    // check floor height of next floor
+        vec3 dir = getDir() * (push ? 1024.0f : -2048.0f);
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(e.room, e.x + (int)dir.x, e.z + (int)dir.z, info, true);
+        if ((info.slantX | info.slantZ) || info.floor != e.y)
+            return false;        
+        if (!setState(push ? STATE_PUSH : STATE_PULL))
+            return false;
+        updateFloor(false);
+        return true;
+    }
+
+    virtual void update() {
+        if (state == STATE_STAND) return;
+        updateAnimation(true);
+        if (state == STATE_STAND) {
+            updateEntity();
+            updateFloor(true);
+        }
+    }
+};
+
 #endif
