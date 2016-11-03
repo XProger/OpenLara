@@ -3,8 +3,6 @@
 
 #include "utils.h"
 
-#define TR1_DEMO
-
 #define MAX_RESERVED_ENTITIES 64
 #define MAX_SECRETS_COUNT     16
 
@@ -703,7 +701,7 @@ namespace TR {
         bool    secrets[MAX_SECRETS_COUNT];
         void    *cameraController;
 
-        Level(Stream &stream) {
+        Level(Stream &stream, bool demo) {
         // read version
             stream.read(version);
         // tiles
@@ -776,9 +774,8 @@ namespace TR {
             for (int i = 0; i < spriteSequencesCount; i++)
                 spriteSequences[i].sCount = -spriteSequences[i].sCount;
 
-        #ifdef TR1_DEMO
-            stream.read(palette,        256);
-        #endif
+            if (demo)
+                stream.read(palette,        256);
 
         // cameras
             stream.read(cameras,        stream.read(camerasCount));
@@ -807,9 +804,8 @@ namespace TR {
         // palette
             stream.seek(32 * 256);  // skip lightmap palette
 
-        #ifndef TR1_DEMO
-            stream.read(palette,        256);
-        #endif
+            if (!demo)
+                stream.read(palette,        256);
 
         // cinematic frames for cameras
             stream.read(cameraFrames,   stream.read(cameraFramesCount));

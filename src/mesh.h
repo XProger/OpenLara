@@ -121,6 +121,7 @@ struct MeshBuilder {
         TR::Collider collider;
     }   *meshInfo;
     int mCount;
+    MeshInfo **meshMap;  // meshInfo by meshOffsetIndex
 
     MeshRange *spriteSequences;
     MeshRange shadowBlob;
@@ -211,6 +212,8 @@ struct MeshBuilder {
         }
         aCount += mCount;
         meshInfo = new MeshInfo[mCount];
+        meshMap  = new MeshInfo*[level.meshOffsetsCount];
+        memset(meshMap, 0, sizeof(meshMap[0]) * level.meshOffsetsCount); 
         
     // get size of mesh for sprite sequences
         spriteSequences = new MeshRange[level.spriteSequencesCount];
@@ -221,8 +224,8 @@ struct MeshBuilder {
             spriteSequences[i].iCount = level.spriteSequences[i].sCount * 6;
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
-        }
-        aCount += level.spriteSequencesCount;
+            aCount += level.spriteSequences[i].sCount;
+        }        
 
     // get size of simple shadow spot mesh (8 triangles, 8 vertices)
         shadowBlob.vStart = vCount;
@@ -299,6 +302,13 @@ struct MeshBuilder {
             info.iStart   = iCount;
             info.center   = ptr->center;
             info.collider = ptr->collider;
+
+            if (!info.offset)
+                meshMap[0] = &info;
+            else
+                for (int j = 0; j < level.meshOffsetsCount; j++)
+                    if (info.offset == level.meshOffsets[j])
+                        meshMap[j] = &info;
 
             TR::Vertex *mVertices = (TR::Vertex*)&ptr->vertices;
 
@@ -471,8 +481,18 @@ struct MeshBuilder {
             if (r.sprites.iCount)
                 mesh->initRange(r.sprites);
         }
+
         for (int i = 0; i < level.spriteSequencesCount; i++)
-            mesh->initRange(spriteSequences[i]);
+            for (int j = 0; j < spriteSequences[i].iCount / 6; j++) { // init VAO for each frame
+                MeshRange range = spriteSequences[i];
+                range.iCount = 6;
+                range.iStart += j * 6;
+                range.vStart += j * 4;
+                mesh->initRange(range);
+                if (j == 0)
+                    spriteSequences[i].aIndex = range.aIndex;
+            }
+       
         for (int i = 0; i < mCount; i++)
             mesh->initRange(meshInfo[i]);
         mesh->initRange(shadowBlob);
@@ -483,6 +503,7 @@ struct MeshBuilder {
         delete[] animTexOffsets;
         delete[] roomRanges;
         delete[] meshInfo;
+        delete[] meshMap;
         delete[] spriteSequences;
         delete mesh;
     }
@@ -650,9 +671,7 @@ struct MeshBuilder {
 
     void renderSprite(int sequenceIndex, int frame) {
         MeshRange range = spriteSequences[sequenceIndex];
-        range.iCount = 6;
-        range.iStart += frame * 6;
-        range.vStart += frame * 4;
+        range.aIndex += frame;
         mesh->render(range);
     }
 

@@ -13,7 +13,7 @@ namespace Game {
     void init() {
         Core::init();
         Stream stream("LEVEL2_DEMO.PHD");
-        level = new Level(stream);
+        level = new Level(stream, true);
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
@@ -36,7 +36,6 @@ namespace Game {
         Core::clear(vec4(0.0f));
         Core::setViewport(0, 0, Core::width, Core::height);
         Core::setBlending(bmAlpha);
-
         level->render();
     }
 }

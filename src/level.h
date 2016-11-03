@@ -30,7 +30,7 @@ struct Level {
 
     float       time;
 
-    Level(Stream &stream) : level{stream}, time(0.0f), lara(NULL) {
+    Level(Stream &stream, bool demo) : level{stream, demo}, time(0.0f), lara(NULL) {
         #ifdef _DEBUG
             Debug::init();
         #endif
@@ -210,7 +210,7 @@ struct Level {
                 case 144 : id = 150; break;
             }
         }
-    */ 
+    */
     }
 
     Shader *setRoomShader(const TR::Room &room, float intensity) {
@@ -324,40 +324,15 @@ struct Level {
         camera->frustum = camFrustum;    // pop camera frustum
     }
 
-    MeshBuilder::MeshInfo* getMeshInfoByOffset(uint32 meshOffset) {
-        if (!level.meshOffsets[meshOffset] && meshOffset)
-            return NULL;
-
-        for (int i = 0; i < mesh->mCount; i++)
-            if (mesh->meshInfo[i].offset == level.meshOffsets[meshOffset])
-                return &mesh->meshInfo[i];
-        ASSERT(false);
-        return NULL;
-    }
-
-    void renderMesh(uint32 meshOffset) {
-        MeshBuilder::MeshInfo *m = getMeshInfoByOffset(meshOffset);
-        if (!m) return; // invisible mesh (level.meshOffsets[meshOffset] == 0) camera target entity etc.
+    void renderMesh(uint32 offsetIndex) {
+        MeshBuilder::MeshInfo *m = mesh->meshMap[offsetIndex];
+        if (!m) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
 
         Core::active.shader->setParam(uModel, Core::mModel);
         mesh->renderMesh(m);
     }
 
-    float lerpAngle(float a, float b, float t) {
-        float d = b - a;
-        if (d >= PI)
-            a += PI * 2.0f;
-        else
-            if (d <= -PI)
-                a -= PI * 2.0f;
-        return a + (b - a) * t;
-    }
-
-    quat lerpAngle(const vec3 &a, const vec3 &b, float t) {
-    //  return vec3(lerpAngle(a.x, b.x, t),
-    //              lerpAngle(a.y, b.y, t),
-    //              lerpAngle(a.z, b.z, t));
-
+    quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
         mat4 ma, mb;
         ma.identity();
         mb.identity();

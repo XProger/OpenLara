@@ -171,12 +171,12 @@ struct Lara : Controller {
         pos = vec3(30800, -7936, 22131);
         angle = vec3(0.0f, 0.0f, 0.0f);
         getEntity().room = 58;   
-        */
+        
     // level 2 (block)
         pos = vec3(60843, 1024, 30557);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 19;   
-        /*
+        
     // level 3a
         pos = vec3(41015, 3584, 34494);
         angle = vec3(0.0f, -PI, 0.0f);
