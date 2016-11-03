@@ -1,12 +1,10 @@
 #include "game.h"
-#include <Carbon/Carbon.h>
-#include <AudioToolbox/AudioQueue.h>
 
 bool isQuit = false;
 WindowRef window;
 AGLContext context;
 
-#define SND_SIZE 8192	// можно и 4096, что в 2 раза сократит latency, но в симуляторе будут слышны щелчки
+#define SND_SIZE 8192
 
 static AudioQueueRef audioQueue;
 
@@ -16,19 +14,20 @@ void soundFill(void* inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffe
     Sound::fill((Sound::Frame*)frames, count);
     inBuffer->mAudioDataByteSize = count * 4;
     AudioQueueEnqueueBuffer(audioQueue, inBuffer, 0, NULL);
+	// TODO: mutex
 }
 
 void soundInit() {
     AudioStreamBasicDescription deviceFormat;
-    deviceFormat.mSampleRate 		= 44100;
-    deviceFormat.mFormatID 			= kAudioFormatLinearPCM;
-    deviceFormat.mFormatFlags 		= kLinearPCMFormatFlagIsSignedInteger;
-    deviceFormat.mBytesPerPacket	= 4;
-    deviceFormat.mFramesPerPacket	= 1;
-    deviceFormat.mBytesPerFrame		= 4;
-    deviceFormat.mChannelsPerFrame	= 2;
-    deviceFormat.mBitsPerChannel	= 16;
-    deviceFormat.mReserved			= 0;
+    deviceFormat.mSampleRate        = 44100;
+    deviceFormat.mFormatID          = kAudioFormatLinearPCM;
+    deviceFormat.mFormatFlags       = kLinearPCMFormatFlagIsSignedInteger;
+    deviceFormat.mBytesPerPacket    = 4;
+    deviceFormat.mFramesPerPacket   = 1;
+    deviceFormat.mBytesPerFrame     = 4;
+    deviceFormat.mChannelsPerFrame  = 2;
+    deviceFormat.mBitsPerChannel    = 16;
+    deviceFormat.mReserved          = 0;
 
     AudioQueueNewOutput(&deviceFormat, soundFill, NULL, NULL, NULL, 0, &audioQueue);
 
@@ -65,11 +64,11 @@ InputKey mouseToInputKey(int btn) {
 }
 
 OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userData) {
-	OSType eventClass	= GetEventClass(event);
-	UInt32 eventKind	= GetEventKind(event);
+    OSType eventClass   = GetEventClass(event);
+    UInt32 eventKind    = GetEventKind(event);
 
-	switch (eventClass) {
-		case kEventClassWindow :
+    switch (eventClass) {
+        case kEventClassWindow :
             switch (eventKind) {
                 case kEventWindowClosed :
                     isQuit = true;
@@ -84,35 +83,35 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
                 }
             }
             break;
-			
+
         case kEventClassMouse : {
-			EventMouseButton mouseButton;
-			CGPoint mousePos;
-			Rect wndRect;
-			
-			GetEventParameter(event, kEventParamMouseLocation, typeHIPoint, NULL, sizeof(mousePos), NULL, &mousePos);
-			GetEventParameter(event, kEventParamMouseButton, typeMouseButton, NULL, sizeof(mouseButton), nil, &mouseButton);			
-			
-			GetWindowBounds(window, kWindowContentRgn, &wndRect);
-			mousePos.x -= wndRect.left;
-			mousePos.y -= wndRect.top;
+            EventMouseButton mouseButton;
+            CGPoint mousePos;
+            Rect wndRect;
+
+            GetEventParameter(event, kEventParamMouseLocation, typeHIPoint, NULL, sizeof(mousePos), NULL, &mousePos);
+            GetEventParameter(event, kEventParamMouseButton, typeMouseButton, NULL, sizeof(mouseButton), nil, &mouseButton);
+
+            GetWindowBounds(window, kWindowContentRgn, &wndRect);
+            mousePos.x -= wndRect.left;
+            mousePos.y -= wndRect.top;
             vec2 pos(mousePos.x, mousePos.y);
 
-			switch (eventKind) {
-				case kEventMouseDown	:
-                case kEventMouseUp		: {
+            switch (eventKind) {
+                case kEventMouseDown    :
+                case kEventMouseUp      : {
                     InputKey key = mouseToInputKey(mouseButton);
                     Input::setPos(key, pos);
                     Input::setDown(key, eventKind == kEventMouseDown);
-					break;
+                    break;
                 }
-				case kEventMouseDragged	:
-					Input::setPos(ikMouseL, pos);
-					break;
-			}
-			break;
+                case kEventMouseDragged :
+                    Input::setPos(ikMouseL, pos);
+                    break;
+            }
+            break;
         }
-			
+
         case kEventClassKeyboard : {
             switch (eventKind) {
                 case kEventRawKeyDown :
@@ -134,22 +133,22 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
             }
             break;
         }
-	}
-	
-	return CallNextEventHandler(handler, event);
+    }
+
+    return CallNextEventHandler(handler, event);
 }
 
 int getTime() {
-	UInt64 t;
-	Microseconds((UnsignedWide*)&t);
-	return int(t / 1000);
+    UInt64 t;
+    Microseconds((UnsignedWide*)&t);
+    return int(t / 1000);
 }
 
 char *contentPath;
 
 int main() {
 // init window
-	Rect rect = {0, 0, 720, 1280};
+    Rect rect = {0, 0, 720, 1280};
     CreateNewWindow(kDocumentWindowClass, kWindowCloseBoxAttribute | kWindowCollapseBoxAttribute | kWindowFullZoomAttribute | kWindowResizableAttribute | kWindowStandardHandlerAttribute, &rect, &window);
     SetWTitle(window, "\pOpenLara");
 
@@ -157,9 +156,9 @@ int main() {
     GLint attribs[] = {
         AGL_RGBA,
         AGL_DOUBLEBUFFER,
-        AGL_BUFFER_SIZE,	32,
-        AGL_DEPTH_SIZE,		24,
-        AGL_STENCIL_SIZE,	8,
+        AGL_BUFFER_SIZE,    32,
+        AGL_DEPTH_SIZE,     24,
+        AGL_STENCIL_SIZE,   8,
         AGL_NONE
     };
     AGLPixelFormat format = aglChoosePixelFormat(NULL, 0, (GLint*)&attribs);
@@ -170,12 +169,12 @@ int main() {
     aglSetCurrentContext(context);
 
     // get path to game content
-	CFBundleRef bundle	= CFBundleGetMainBundle();
-	CFURLRef bundleURL	= CFBundleCopyBundleURL(bundle);
-	CFStringRef pathStr	= CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
+    CFBundleRef bundle  = CFBundleGetMainBundle();
+    CFURLRef bundleURL  = CFBundleCopyBundleURL(bundle);
+    CFStringRef pathStr = CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
     contentPath = new char[1024];
-	CFStringGetFileSystemRepresentation(pathStr, contentPath, 1024);
-	strcat(contentPath, "/Contents/Resources/");
+    CFStringGetFileSystemRepresentation(pathStr, contentPath, 1024);
+    strcat(contentPath, "/Contents/Resources/");
 
     soundInit();
     Game::init();
@@ -198,8 +197,8 @@ int main() {
 
     int lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
 
-	EventRecord event;
-	while (!isQuit)
+    EventRecord event;
+    while (!isQuit)
         if (!GetNextEvent(0xffff, &event)) {
             int time = getTime();
             if (time <= lastTime)
@@ -225,12 +224,13 @@ int main() {
             } else
                 fps++;
         }
-	
-	Game::free();
+
+    Game::free();
     delete[] contentPath;
+	// TODO: sndFree
 
     aglSetCurrentContext(NULL);
-	ReleaseWindow(window);
-	
-	return 0;
+    ReleaseWindow(window);
+
+    return 0;
 }

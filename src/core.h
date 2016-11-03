@@ -13,6 +13,7 @@
     #include <GL/glext.h>
 #elif __APPLE__
     #include <Carbon/Carbon.h>
+    #include <AudioToolbox/AudioQueue.h>
     #include <OpenGL/OpenGL.h>
     #include <OpenGL/gl.h>
     #include <OpenGL/glext.h>
