@@ -517,7 +517,15 @@ struct Stream {
     Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
 
     Stream(const char *name) : data(NULL), size(-1), pos(0) {
+    #ifdef __APPLE__
+        extern char *contentPath;
+        int len = strlen(contentPath);
+        strcat(contentPath, name);
+        f = fopen(contentPath, "rb");
+        contentPath[len] = '\0';
+    #else
         f = fopen(name, "rb");
+    #endif
         if (!f) LOG("error loading file\n");
         fseek(f, 0, SEEK_END);
         size = ftell(f);

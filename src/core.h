@@ -11,6 +11,12 @@
     #include <GL/gl.h>
     #include <GL/glx.h>
     #include <GL/glext.h>
+#elif __APPLE__
+    #include <Carbon/Carbon.h>
+    #include <OpenGL/OpenGL.h>
+    #include <OpenGL/gl.h>
+    #include <OpenGL/glext.h>
+    #include <AGL/agl.h>
 #elif __EMSCRIPTEN__
     #define MOBILE 1
     #include <emscripten.h>

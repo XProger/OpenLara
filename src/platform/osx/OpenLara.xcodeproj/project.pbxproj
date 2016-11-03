@@ -1,0 +1,331 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
+		99BFB6A51DCA872D00E2E997 /* LEVEL2_DEMO.PHD in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */; };
+		99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A41DCA872D00E2E997 /* 05.ogg */; };
+		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
+		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
+		99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0951796A9730032DE85 /* AGL.framework */; };
+		99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0B81796AB7B0032DE85 /* Carbon.framework */; };
+		99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0931796A96F0032DE85 /* OpenGL.framework */; };
+		99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
+		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
+		99BFB68F1DCA7F1700E2E997 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
+		99BFB6901DCA7F1700E2E997 /* mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mesh.h; path = ../../mesh.h; sourceTree = "<group>"; };
+		99BFB6911DCA7F1700E2E997 /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debug.h; path = ../../debug.h; sourceTree = "<group>"; };
+		99BFB6921DCA7F1700E2E997 /* controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = controller.h; path = ../../controller.h; sourceTree = "<group>"; };
+		99BFB6931DCA7F1700E2E997 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
+		99BFB6941DCA7F1700E2E997 /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../sound.h; sourceTree = "<group>"; };
+		99BFB6951DCA7F1700E2E997 /* camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = camera.h; path = ../../camera.h; sourceTree = "<group>"; };
+		99BFB6961DCA7F1700E2E997 /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = core.h; path = ../../core.h; sourceTree = "<group>"; };
+		99BFB6971DCA7F1700E2E997 /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
+		99BFB6981DCA7F1700E2E997 /* shader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shader.h; path = ../../shader.h; sourceTree = "<group>"; };
+		99BFB6991DCA7F1700E2E997 /* shader.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = shader.glsl; path = ../../shader.glsl; sourceTree = "<group>"; };
+		99BFB69A1DCA7F1700E2E997 /* input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = input.h; path = ../../input.h; sourceTree = "<group>"; };
+		99BFB69B1DCA7F1700E2E997 /* enemy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = enemy.h; path = ../../enemy.h; sourceTree = "<group>"; };
+		99BFB69C1DCA7F1700E2E997 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
+		99BFB69D1DCA7F1700E2E997 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
+		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
+		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2_DEMO.PHD; path = ../../../bin/LEVEL2_DEMO.PHD; sourceTree = SOURCE_ROOT; };
+		99BFB6A41DCA872D00E2E997 /* 05.ogg */ = {isa = PBXFileReference; lastKnownFileType = file; name = 05.ogg; path = ../../../bin/05.ogg; sourceTree = SOURCE_ROOT; };
+		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
+		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
+		99C4C0931796A96F0032DE85 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		99C4C0951796A9730032DE85 /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = System/Library/Frameworks/AGL.framework; sourceTree = SDKROOT; };
+		99C4C09B1796AACF0032DE85 /* OpenLara.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenLara.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "OpenLara-Info.plist"; sourceTree = "<group>"; };
+		99C4C0B81796AB7B0032DE85 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudioKit.framework; path = System/Library/Frameworks/CoreAudioKit.framework; sourceTree = SDKROOT; };
+		99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		99C4C0981796AACF0032DE85 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */,
+				99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */,
+				99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */,
+				99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		99C4C0771796A8230032DE85 = {
+			isa = PBXGroup;
+			children = (
+				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,
+				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
+				99BFB69E1DCA7F1700E2E997 /* libs */,
+				99BFB6A11DCA7F5300E2E997 /* main.cpp */,
+				99BFB68D1DCA7F1700E2E997 /* lara.h */,
+				99BFB68E1DCA7F1700E2E997 /* format.h */,
+				99BFB68F1DCA7F1700E2E997 /* level.h */,
+				99BFB6901DCA7F1700E2E997 /* mesh.h */,
+				99BFB6911DCA7F1700E2E997 /* debug.h */,
+				99BFB6921DCA7F1700E2E997 /* controller.h */,
+				99BFB6931DCA7F1700E2E997 /* utils.h */,
+				99BFB6941DCA7F1700E2E997 /* sound.h */,
+				99BFB6951DCA7F1700E2E997 /* camera.h */,
+				99BFB6961DCA7F1700E2E997 /* core.h */,
+				99BFB6971DCA7F1700E2E997 /* trigger.h */,
+				99BFB6981DCA7F1700E2E997 /* shader.h */,
+				99BFB6991DCA7F1700E2E997 /* shader.glsl */,
+				99BFB69A1DCA7F1700E2E997 /* input.h */,
+				99BFB69B1DCA7F1700E2E997 /* enemy.h */,
+				99BFB69C1DCA7F1700E2E997 /* game.h */,
+				99BFB69D1DCA7F1700E2E997 /* texture.h */,
+				99C4C0A31796AACF0032DE85 /* Supporting Files */,
+				99C4C0821796A8230032DE85 /* Frameworks */,
+				99C4C0811796A8230032DE85 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		99C4C0811796A8230032DE85 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				99C4C09B1796AACF0032DE85 /* OpenLara.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		99C4C0821796A8230032DE85 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */,
+				99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */,
+				99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */,
+				99C4C0B81796AB7B0032DE85 /* Carbon.framework */,
+				99C4C0931796A96F0032DE85 /* OpenGL.framework */,
+				99C4C0951796A9730032DE85 /* AGL.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		99C4C0A31796AACF0032DE85 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */,
+				99BFB6A41DCA872D00E2E997 /* 05.ogg */,
+				99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */,
+			);
+			name = "Supporting Files";
+			path = OpenLara;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		99C4C09A1796AACF0032DE85 /* OpenLara */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 99C4C0B41796AAD00032DE85 /* Build configuration list for PBXNativeTarget "OpenLara" */;
+			buildPhases = (
+				99C4C0971796AACF0032DE85 /* Sources */,
+				99C4C0981796AACF0032DE85 /* Frameworks */,
+				99C4C0991796AACF0032DE85 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenLara;
+			productName = OpenLara;
+			productReference = 99C4C09B1796AACF0032DE85 /* OpenLara.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		99C4C0781796A8230032DE85 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0810;
+				ORGANIZATIONNAME = XProger;
+			};
+			buildConfigurationList = 99C4C07B1796A8230032DE85 /* Build configuration list for PBXProject "OpenLara" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 99C4C0771796A8230032DE85;
+			productRefGroup = 99C4C0811796A8230032DE85 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				99C4C09A1796AACF0032DE85 /* OpenLara */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		99C4C0991796AACF0032DE85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */,
+				99BFB6A51DCA872D00E2E997 /* LEVEL2_DEMO.PHD in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		99C4C0971796AACF0032DE85 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */,
+				99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */,
+				99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		99C4C08C1796A8230032DE85 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		99C4C08D1796A8230032DE85 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		99C4C0B51796AAD00032DE85 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				INFOPLIST_FILE = "OpenLara-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xproger.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		99C4C0B61796AAD00032DE85 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				INFOPLIST_FILE = "OpenLara-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.xproger.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		99C4C07B1796A8230032DE85 /* Build configuration list for PBXProject "OpenLara" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99C4C08C1796A8230032DE85 /* Debug */,
+				99C4C08D1796A8230032DE85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		99C4C0B41796AAD00032DE85 /* Build configuration list for PBXNativeTarget "OpenLara" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99C4C0B51796AAD00032DE85 /* Debug */,
+				99C4C0B61796AAD00032DE85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 99C4C0781796A8230032DE85 /* Project object */;
+}
