@@ -19,8 +19,11 @@
 
 #else
     #define ASSERT(expr)
-    #define LOG(...)
-//    #define LOG(...) printf(__VA_ARGS__)
+    #ifdef PROFILE
+        #define LOG(...) printf(__VA_ARGS__)
+    #else
+        #define LOG(...)
+    #endif
 #endif
 
 

@@ -64,8 +64,10 @@ struct Shader {
     }
 
     void bind() {
-        glUseProgram(ID);
-        Core::active.shader = this;
+        if (Core::active.shader != this) {
+            Core::active.shader = this;
+            glUseProgram(ID);
+        }
     }
 
     void setParam(UniformType uType, const vec2 &value, int count = 1) {

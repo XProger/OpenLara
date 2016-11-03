@@ -17,22 +17,62 @@ struct MeshRange {
     int iStart;
     int iCount;
     int vStart;
+    int aIndex;
+
+    MeshRange() : aIndex(-1) {}
+
+    void setup() const {
+        Vertex *v = (Vertex*)(vStart * sizeof(Vertex));
+        glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
+        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
+        glVertexAttribPointer(aNormal,   4, GL_SHORT,         false, sizeof(Vertex), &v->normal);
+        glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
+    }
+
+    void bind(GLuint *VAO) const {
+        if (aIndex > -1)
+            glBindVertexArray(VAO[aIndex]);
+        else
+            setup();        
+    }
 };
 
 struct Mesh {
     GLuint  ID[2];
+    GLuint  *VAO;
     int     iCount;
     int     vCount;
+    int     aCount;
+    int     aIndex;
 
-    Mesh(Index *indices, int iCount, Vertex *vertices, int vCount) : iCount(iCount), vCount(vCount) {
+    Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount) : VAO(NULL), iCount(iCount), vCount(vCount), aCount(aCount), aIndex(0) {
         glGenBuffers(2, ID);
         bind();
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
         glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(Vertex), vertices, GL_STATIC_DRAW);
+
+        if (Core::support.VAO && aCount) {
+            VAO = new GLuint[aCount];
+            glGenVertexArrays(aCount, VAO);
+        }
     }
 
     virtual ~Mesh() {
+        if (VAO) {
+            glDeleteVertexArrays(aCount, VAO);
+            delete[] VAO;
+        }
         glDeleteBuffers(2, ID);
+    }
+
+    void initRange(MeshRange &range) {
+        if (Core::support.VAO) {
+            range.aIndex = aIndex++;
+            range.bind(VAO);
+            bind();
+            range.setup();
+        } else
+            range.aIndex = -1;
     }
 
     void bind() {
@@ -46,11 +86,7 @@ struct Mesh {
     }
 
     void render(const MeshRange &range) {
-        Vertex *v = (Vertex*)(range.vStart * sizeof(Vertex));
-        glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
-        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
-        glVertexAttribPointer(aNormal,   4, GL_SHORT,         false, sizeof(Vertex), &v->normal);
-        glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
+        range.bind(VAO);
         glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(range.iStart * sizeof(Index)));
 
         Core::stats.dips++;
@@ -119,7 +155,7 @@ struct MeshBuilder {
     // allocate room geometry ranges
         roomRanges = new RoomRange[level.roomsCount];
 
-        int iCount = 0, vCount = 0;
+        int iCount = 0, vCount = 0, aCount = 0;
 
     // get size of mesh for rooms (geometry & sprites)
         for (int i = 0; i < level.roomsCount; i++) {
@@ -131,13 +167,16 @@ struct MeshBuilder {
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
             r.geometry.iCount = iCount - r.geometry.iStart;
-
+            
             r.sprites.vStart = vCount;
             r.sprites.iStart = iCount;
             iCount += d.sCount * 6;
             vCount += d.sCount * 4;
             r.sprites.iCount = iCount - r.sprites.iStart;
+            if (r.sprites.iCount)
+                aCount++;
         }
+        aCount += level.roomsCount;
 
     // get objects mesh info
         #define OFFSET(bytes) (ptr = (TR::Mesh*)((char*)ptr + (bytes) - sizeof(char*)))
@@ -170,6 +209,7 @@ struct MeshBuilder {
             OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
             ptr = (TR::Mesh*)(((intptr_t)ptr + 3) & -4);
         }
+        aCount += mCount;
         meshInfo = new MeshInfo[mCount];
         
     // get size of mesh for sprite sequences
@@ -182,11 +222,13 @@ struct MeshBuilder {
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
         }
+        aCount += level.spriteSequencesCount;
 
     // get size of simple shadow spot mesh (8 triangles, 8 vertices)
         shadowBlob.vStart = vCount;
         shadowBlob.iStart = iCount;
         shadowBlob.iCount = 8 * 3;
+        aCount++;
         iCount += shadowBlob.iCount;
         vCount += 8;
 
@@ -220,7 +262,7 @@ struct MeshBuilder {
 
             for (int j = 0; j < d.tCount; j++) {
                 TR::Triangle      &f = d.triangles[j];
-                TR::ObjectTexture &t = level.objectTextures[f.texture];                
+                TR::ObjectTexture &t = level.objectTextures[f.texture];
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -239,7 +281,7 @@ struct MeshBuilder {
             TR::Room::Info &info = level.rooms[i].info;
             vStart = vCount;
             for (int j = 0; j < d.sCount; j++) {
-                TR::Room::Data::Sprite &f = d.sprites[j];                   
+                TR::Room::Data::Sprite &f = d.sprites[j];
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
                 TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
 
@@ -415,9 +457,25 @@ struct MeshBuilder {
         iCount += shadowBlob.iCount;
         vCount += 8;
 
-        mesh = new Mesh(indices, iCount, vertices, vCount);
+        mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
         delete[] indices;
         delete[] vertices;
+
+        PROFILE_LABEL(BUFFER, mesh->ID[0], "Geometry indices");
+        PROFILE_LABEL(BUFFER, mesh->ID[1], "Geometry vertices");
+
+        // initialize Vertex Arrays
+        for (int i = 0; i < level.roomsCount; i++) {
+            RoomRange &r = roomRanges[i];
+            mesh->initRange(r.geometry);
+            if (r.sprites.iCount)
+                mesh->initRange(r.sprites);
+        }
+        for (int i = 0; i < level.spriteSequencesCount; i++)
+            mesh->initRange(spriteSequences[i]);
+        for (int i = 0; i < mCount; i++)
+            mesh->initRange(meshInfo[i]);
+        mesh->initRange(shadowBlob);
     }
 
     ~MeshBuilder() {
@@ -461,7 +519,7 @@ struct MeshBuilder {
         ptr = &level.animTexturesData[1];
         for (int i = 1; i < animTexRangesCount; i++) {
             int start = animTexOffsetsCount;
-            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;            
+            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;
 
             vec2 first = getTexCoord(level.objectTextures[animTex->textures[0]]);
             animTexOffsets[animTexOffsetsCount++] = vec2(0.0f); // first - first for first frame %)
@@ -480,7 +538,7 @@ struct MeshBuilder {
 
         uint16 *ptr = &level->animTexturesData[1];
         for (int i = 1; i < animTexRangesCount; i++) {
-            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;            
+            TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;
 
             for (int j = 0; j <= animTex->count; j++)
                 if (tex == &level->objectTextures[animTex->textures[j]]) {

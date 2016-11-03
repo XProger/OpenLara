@@ -72,10 +72,41 @@
     PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
     PFNGLBINDBUFFERARBPROC              glBindBuffer;
     PFNGLBUFFERDATAARBPROC              glBufferData;
+    PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
+    PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
+    PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+// Profiling
+    #ifdef PROFILE
+        PFNGLOBJECTLABELPROC                glObjectLabel;
+        PFNGLPUSHDEBUGGROUPPROC             glPushDebugGroup;
+        PFNGLPOPDEBUGGROUPPROC              glPopDebugGroup;
+    #endif
 #endif
 
 struct Shader;
 struct Texture;
+
+#ifdef PROFILE
+    struct Marker {
+        Marker(const char *title) {
+            if (glPushDebugGroup) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
+        }
+
+        ~Marker() {
+            if (glPopDebugGroup) glPopDebugGroup();
+        }
+
+        static void setLabel(GLenum id, GLuint name, const char *label) {
+            if (glObjectLabel) glObjectLabel(id, name, -1, label);
+        }
+    };
+
+    #define PROFILE_MARKER(title)               Marker marker(title)
+    #define PROFILE_LABEL(id, name, label)      Marker::setLabel(GL_##id, name, label)
+#else
+    #define PROFILE_MARKER(title)
+    #define PROFILE_LABEL(id, name, label)
+#endif
 
 namespace Core {
     int width, height;
@@ -96,13 +127,17 @@ namespace Core {
         int dips;
         int tris;
     } stats;
+
+    struct {
+        bool VAO;
+    } support;
 }
 
 #include "texture.h"
 #include "shader.h"
 #include "mesh.h"
 
-enum CullMode { cfNone, cfBack, cfFront };
+enum CullMode  { cfNone, cfBack, cfFront };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 
 namespace Core {
@@ -138,7 +173,17 @@ namespace Core {
         GetProcOGL(glDeleteBuffers);
         GetProcOGL(glBindBuffer);
         GetProcOGL(glBufferData);
+        GetProcOGL(glGenVertexArrays);
+        GetProcOGL(glDeleteVertexArrays);
+        GetProcOGL(glBindVertexArray);
+        #ifdef PROFILE
+            GetProcOGL(glObjectLabel);
+            GetProcOGL(glPushDebugGroup);
+            GetProcOGL(glPopDebugGroup);
+        #endif
     #endif
+        support.VAO = (void*)glBindVertexArray != NULL;
+
         Sound::init();
     }
 

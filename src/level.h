@@ -163,6 +163,7 @@ struct Level {
 
         atlas = new Texture(1024, 1024, 0, data);
         delete[] data;
+        PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
     }
 
     void initShaders() {
@@ -224,6 +225,7 @@ struct Level {
 
     void renderRoom(int roomIndex, int from = -1) {
         ASSERT(roomIndex >= 0 && roomIndex < level.roomsCount);
+        PROFILE_MARKER("ROOM");
 
         TR::Room &room = level.rooms[roomIndex];
         vec3 offset = vec3(room.info.x, 0.0f, room.info.z);
@@ -234,50 +236,60 @@ struct Level {
         sh->setParam(uColor, Core::color);
 
     // room static meshes
-        for (int i = 0; i < room.meshesCount; i++) {
-            TR::Room::Mesh &rMesh = room.meshes[i];
-            if (rMesh.flags.rendered) continue;    // skip if already rendered
+        {
+            PROFILE_MARKER("R_MESH");
 
-            TR::StaticMesh *sMesh = level.getMeshByID(rMesh.meshID);
-            ASSERT(sMesh != NULL);
+            for (int i = 0; i < room.meshesCount; i++) {
+                TR::Room::Mesh &rMesh = room.meshes[i];
+                if (rMesh.flags.rendered) continue;    // skip if already rendered
 
-        // check visibility
-            Box box;
-            vec3 offset = vec3(rMesh.x, rMesh.y, rMesh.z);
-            sMesh->getBox(false, rMesh.rotation, box);
-            if (!camera->frustum->isVisible(offset + box.min, offset + box.max))
-                continue;
-            rMesh.flags.rendered = true;
+                TR::StaticMesh *sMesh = level.getMeshByID(rMesh.meshID);
+                ASSERT(sMesh != NULL);
 
-        // set light parameters
-            getLight(offset, roomIndex);
+            // check visibility
+                Box box;
+                vec3 offset = vec3(rMesh.x, rMesh.y, rMesh.z);
+                sMesh->getBox(false, rMesh.rotation, box);
+                if (!camera->frustum->isVisible(offset + box.min, offset + box.max))
+                    continue;
+                rMesh.flags.rendered = true;
 
-        // render static mesh
-            mat4 mTemp = Core::mModel;
-            Core::mModel.translate(offset);
-            Core::mModel.rotateY(rMesh.rotation);
-            renderMesh(sMesh->mesh);
-            Core::mModel = mTemp;
+            // set light parameters
+                getLight(offset, roomIndex);
+
+            // render static mesh
+                mat4 mTemp = Core::mModel;
+                Core::mModel.translate(offset);
+                Core::mModel.rotateY(rMesh.rotation);
+                renderMesh(sMesh->mesh);
+                Core::mModel = mTemp;
+            }
         }
 
     // room geometry & sprites
         if (!room.flags.rendered) {    // skip if already rendered
-            room.flags.rendered = true;
-
-            Core::lightColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-            Core::ambient    = vec3(1.0f);
-            sh->setParam(uLightColor, Core::lightColor);
-            sh->setParam(uAmbient, Core::ambient);
 
             mat4 mTemp = Core::mModel;
-            Core::mModel.translate(offset);
+            {
+                PROFILE_MARKER("R_GEOM");
 
-        // render room geometry
-            sh->setParam(uModel, Core::mModel);
-            mesh->renderRoomGeometry(roomIndex);
+                room.flags.rendered = true;
+
+                Core::lightColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                Core::ambient    = vec3(1.0f);
+                sh->setParam(uLightColor, Core::lightColor);
+                sh->setParam(uAmbient, Core::ambient);
+
+                Core::mModel.translate(offset);
+
+            // render room geometry
+                sh->setParam(uModel, Core::mModel);
+                mesh->renderRoomGeometry(roomIndex);
+            }
 
         // render room sprites
             if (mesh->hasRoomSprites(roomIndex)) {
+                PROFILE_MARKER("R_SPR");
                 sh = shaders[shSprite];
                 sh->bind();
                 sh->setParam(uModel, Core::mModel);
@@ -539,10 +551,13 @@ struct Level {
         getLight(vec3(entity.x, entity.y, entity.z), entity.room);
 
     // render entity models
-        if (entity.modelIndex > 0)
+        if (entity.modelIndex > 0) {
+            PROFILE_MARKER("MDL");
             renderModel(level.models[entity.modelIndex - 1], entity);
+        }
     // if entity is billboard
         if (entity.modelIndex < 0) {
+            PROFILE_MARKER("SPR");
             Core::color = vec4(c, c, c, 1.0f);
             renderSequence(entity);
         }
@@ -563,23 +578,25 @@ struct Level {
         camera->update();
     }
 
-    void render() {
-    //    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    void setup() {
+        PROFILE_MARKER("SETUP");
 
         camera->setup();;
-
         atlas->bind(0);
-        mesh->bind();
 
-        // set frame constants for all shaders 
+        if (!Core::support.VAO)
+            mesh->bind();
+
+        // set frame constants for all shaders
+        Core::active.shader = NULL;
         for (int i = 0; i < shMAX; i++) {
             shaders[i]->bind();
             shaders[i]->setParam(uViewProj, Core::mViewProj);
             shaders[i]->setParam(uViewInv, Core::mViewInv);
             shaders[i]->setParam(uViewPos, Core::viewPos);
             shaders[i]->setParam(uParam, vec4(time, 0, 0, 0));
-            shaders[i]->setParam(uAnimTexRanges, mesh->animTexRanges[0], mesh->animTexRangesCount); 
-            shaders[i]->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount); 
+            shaders[i]->setParam(uAnimTexRanges, mesh->animTexRanges[0], mesh->animTexRangesCount);
+            shaders[i]->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
         }
         glEnable(GL_DEPTH_TEST);
 
@@ -587,63 +604,45 @@ struct Level {
 
         Core::mModel.identity();
 
-    // clear visible flags for rooms & static meshes
+        // clear visible flags for rooms & static meshes
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room &room = level.rooms[i];
             room.flags.rendered = false;                            // clear visible flag for room geometry & sprites
 
             for (int j = 0; j < room.meshesCount; j++)
                 room.meshes[j].flags.rendered = false;     // clear visible flag for room static meshes
-        }
+        }    
+    }
 
-    // TODO: collision detection for camera
+    void renderRooms() {
+        PROFILE_MARKER("ROOMS");
         renderRoom(camera->getRoomIndex());
+    }
+
+    void renderEntities() {
+        PROFILE_MARKER("ENTITIES");
 
         shaders[shStatic]->bind();
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
+    }
 
-        /*
-        static int modelIndex = 0;
-        static bool lastStateK = false;
+    void renderScene() {
+        PROFILE_MARKER("SCENE");
+        setup();
+        renderRooms();
+        renderEntities();
+    }
 
-        static int lastEntity = -1;
-
-        if (Input::down[ikM]) {
-            if (!lastStateK) {
-                lastStateK = true;
-            //    modelIndex = (modelIndex + 1) % level.modelsCount;
-                modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
-                LOG("model: %d %d\n", modelIndex, level.spriteSequences[modelIndex].id);
-                if (lastEntity > -1) {
-                    delete level.entities[lastEntity].controller;
-                    level.entityRemove(lastEntity);
-                }
-                lastEntity = level.entityAdd(level.models[modelIndex].id, lara->getRoomIndex(), lara->pos.x + 1024, lara->pos.y - 1024, lara->pos.z, lara->getEntity().rotation, -1);
-                level.entities[lastEntity].controller = new Controller(&level, lastEntity);
-            }
-        } else
-            lastStateK = false;
-
-        Core::mModel.translate(lara->pos + vec3(512, -512, 0));
-        if (lastEntity > -1)
-            renderEntity(level.entities[lastEntity]);
-//        renderModel(level.models[modelIndex], level.entities[4]);
-*/
-        /*
-        TR::Entity seq;
-        seq.modelIndex = -(modelIndex + 1);
-        seq.controller = NULL;
-        Core::color = vec4(1.0f);
-        renderSequence(seq);
-        */
+    void render() {
+        renderScene();
     #ifdef _DEBUG
         Debug::begin();
-    //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-    //    Debug::Level::lights(level);
-    //    Debug::Level::portals(level);
-    //    Debug::Level::meshes(level);
-    //    Debug::Level::entities(level);
+        //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
+        //    Debug::Level::lights(level);
+        //    Debug::Level::portals(level);
+        //    Debug::Level::meshes(level);
+        //    Debug::Level::entities(level);
         Debug::Level::info(level, lara->getEntity(), (int)lara->state, lara->animIndex, int(lara->animTime * 30.0f));
         Debug::end();
     #endif

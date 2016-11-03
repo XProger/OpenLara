@@ -271,14 +271,16 @@ void freeGL(HGLRC hRC) {
     wglDeleteContext(hRC);
 }
 
-#ifndef _DEBUG
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-#else
+#ifdef _DEBUG
 int main() {
     _CrtMemState _ms;
     _CrtMemCheckpoint(&_ms);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+#elif PROFILE
+int main() {
+#else
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 #endif
     RECT r = { 0, 0, 1280, 720 };
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
