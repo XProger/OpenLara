@@ -224,8 +224,8 @@ struct MeshBuilder {
             spriteSequences[i].iCount = level.spriteSequences[i].sCount * 6;
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
-            aCount += level.spriteSequences[i].sCount;
-        }        
+        }
+        aCount += level.spriteSequencesCount;
 
     // get size of simple shadow spot mesh (8 triangles, 8 vertices)
         shadowBlob.vStart = vCount;
@@ -444,7 +444,7 @@ struct MeshBuilder {
         for (int i = 0; i < level.spriteSequencesCount; i++) 
             for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
                 TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
-                addSprite(indices, vertices, iCount, vCount, vCount, 0, 0, 0, sprite, 255);
+                addSprite(indices, vertices, iCount, vCount, spriteSequences[i].vStart, 0, 0, 0, sprite, 255);
             }
 
     // build shadow spot
@@ -483,16 +483,7 @@ struct MeshBuilder {
         }
 
         for (int i = 0; i < level.spriteSequencesCount; i++)
-            for (int j = 0; j < spriteSequences[i].iCount / 6; j++) { // init VAO for each frame
-                MeshRange range = spriteSequences[i];
-                range.iCount = 6;
-                range.iStart += j * 6;
-                range.vStart += j * 4;
-                mesh->initRange(range);
-                if (j == 0)
-                    spriteSequences[i].aIndex = range.aIndex;
-            }
-       
+            mesh->initRange(spriteSequences[i]);       
         for (int i = 0; i < mCount; i++)
             mesh->initRange(meshInfo[i]);
         mesh->initRange(shadowBlob);
@@ -671,7 +662,8 @@ struct MeshBuilder {
 
     void renderSprite(int sequenceIndex, int frame) {
         MeshRange range = spriteSequences[sequenceIndex];
-        range.aIndex += frame;
+        range.iCount  = 6;
+        range.iStart += frame * 6;
         mesh->render(range);
     }
 

@@ -747,18 +747,18 @@ struct Lara : Controller {
     virtual int getInputMask() {
         mask = 0;
         int &p = Input::joy.POV;
-        if (Input::down[ikW] || p == 8 || p == 1 || p == 2)                     mask |= FORTH;
-        if (Input::down[ikD] || p == 2 || p == 3 || p == 4)                     mask |= RIGHT;
-        if (Input::down[ikS] || p == 4 || p == 5 || p == 6)                     mask |= BACK;
-        if (Input::down[ikA] || p == 6 || p == 7 || p == 8)                     mask |= LEFT;
-        if (Input::down[ikJoyB])                                                mask  = FORTH | BACK; // roll
-        if (Input::down[ikJoyRT])                                               mask  = WALK | RIGHT; // step right
-        if (Input::down[ikJoyLT])                                               mask  = WALK | LEFT;  // step left
-        if (Input::down[ikSpace] || Input::down[ikJoyX])                        mask |= JUMP;
-        if (Input::down[ikShift] || Input::down[ikJoyLB])                       mask |= WALK;
-        if (Input::down[ikE] || Input::down[ikMouseL] || Input::down[ikJoyA])   mask |= ACTION;
-        if (Input::down[ikQ] || Input::down[ikMouseR] || Input::down[ikJoyY])   mask |= WEAPON;
-        if (health <= 0)                                                        mask  = DEATH;
+        if (Input::down[ikW] || Input::down[ikUp]    || p == 8 || p == 1 || p == 2)     mask |= FORTH;
+        if (Input::down[ikD] || Input::down[ikRight] || p == 2 || p == 3 || p == 4)     mask |= RIGHT;
+        if (Input::down[ikS] || Input::down[ikDown]  || p == 4 || p == 5 || p == 6)     mask |= BACK;
+        if (Input::down[ikA] || Input::down[ikLeft]  || p == 6 || p == 7 || p == 8)     mask |= LEFT;
+        if (Input::down[ikJoyB])                                                        mask  = FORTH | BACK; // roll
+        if (Input::down[ikJoyRT] || Input::down[ikX])                                   mask  = WALK | RIGHT; // step right
+        if (Input::down[ikJoyLT] || Input::down[ikZ])                                   mask  = WALK | LEFT;  // step left
+        if (Input::down[ikSpace] || Input::down[ikJoyX])                                mask |= JUMP;
+        if (Input::down[ikShift] || Input::down[ikJoyLB])                               mask |= WALK;
+        if (Input::down[ikE] || Input::down[ikCtrl] || Input::down[ikJoyA])             mask |= ACTION;
+        if (Input::down[ikQ] || Input::down[ikAlt]  || Input::down[ikJoyY])             mask |= WEAPON;
+        if (health <= 0)                                                                mask  = DEATH;
         return mask;
     }
 
