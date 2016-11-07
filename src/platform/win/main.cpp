@@ -313,7 +313,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
             float slow = Input::down[ikR] ? 8.0f : 1.0f;
 
-            float delta = (time - lastTime) * 0.001f;
+            float delta = min(1.0f, (time - lastTime) * 0.001f);
             EnterCriticalSection(&sndCS);
             while (delta > EPS) {
                 Core::deltaTime = min(delta, 1.0f / 30.0f) / slow;

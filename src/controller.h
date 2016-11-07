@@ -2,6 +2,8 @@
 #define H_CONTROLLER
 
 #include "format.h"
+#include "frustum.h"
+#include "mesh.h"
 
 #define GRAVITY     6.0f
 #define NO_OVERLAP  0x7FFFFFFF
@@ -43,6 +45,9 @@ struct Controller {
 
     int     *meshes;
     int     mCount;
+    quat    *animOverrides;   // left & right arms animation frames
+    int     animOverrideMask;
+    mat4    *joints;
 
     struct ActionCommand {
         TR::Action      action;
@@ -54,7 +59,7 @@ struct Controller {
         ActionCommand(TR::Action action, int value, float timer, ActionCommand *next = NULL) : action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), actionCommand(NULL) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), actionCommand(NULL), mCount(0), meshes(NULL), animOverrides(NULL), animOverrideMask(0), joints(NULL) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation, 0.0f);
@@ -62,14 +67,25 @@ struct Controller {
         animIndex = e.modelIndex > 0 ? getModel().animation : 0;
         state     = level->anims[animIndex].state;
         TR::Model &model = getModel();
-        mCount    = model.mCount;
-        meshes    = mCount ? new int[mCount] : NULL;
-        for (int i = 0; i < mCount; i++)
-            meshes[i] = model.mStart + i;
     }
 
     virtual ~Controller() {
         delete[] meshes;
+        delete[] animOverrides;
+        delete[] joints;
+    }
+
+    void initMeshOverrides() {
+        TR::Model &model = getModel();
+        mCount = model.mCount;
+        meshes = mCount ? new int[mCount] : NULL;
+        for (int i = 0; i < mCount; i++)
+            meshes[i] = model.mStart + i;
+
+        animOverrides    = new quat[model.mCount];
+        animOverrideMask = 0;
+
+        joints = new mat4[model.mCount];
     }
 
     void meshSwap(TR::Model &model, int mask) {
@@ -267,6 +283,77 @@ struct Controller {
         box.min += pos;
         box.max += pos;
         return box;
+    }
+
+    vec3 trace(int fromRoom, const vec3 &from, const vec3 &to, int &room, bool isCamera) { // TODO: use Bresenham
+        room = fromRoom;
+
+        vec3 pos = from, dir = to - from;
+        int px = (int)pos.x, py = (int)pos.y, pz = (int)pos.z;
+
+        float dist = dir.length();
+        dir = dir * (1.0f / dist);
+
+        int lr = -1, lx = -1, lz = -1;
+        TR::Level::FloorInfo info;
+        while (dist > 1.0f) {
+            int sx = px / 1024 * 1024 + 512,
+                sz = pz / 1024 * 1024 + 512;
+
+            if (lr != room || lx != sx || lz != sz) {
+                level->getFloorInfo(room, sx, sz, info);
+                if (info.roomNext != 0xFF) {
+                    room = info.roomNext;
+                    level->getFloorInfo(room, sx, sz, info);
+                }
+                lr = room;
+                lx = sx;
+                lz = sz;
+            }
+
+            if (isCamera) {
+                if (py > info.floor && info.roomBelow != 0xFF)
+                    room = info.roomBelow;
+                else if (py < info.ceiling && info.roomAbove != 0xFF)
+                    room = info.roomAbove;
+                else if (py > info.floor || py < info.ceiling) {
+                    int minX = px / 1024 * 1024;
+                    int minZ = pz / 1024 * 1024;
+                    int maxX = minX + 1024;
+                    int maxZ = minZ + 1024;
+
+                    pos = vec3(clamp(px, minX, maxX), pos.y, clamp(pz, minZ, maxZ)) + boxNormal(px, pz) * 256.0f;
+                    dir = (pos - from).normal();
+                }
+            } else {
+                if (py > info.floor) {
+                    if (info.roomBelow != 0xFF) 
+                        room = info.roomBelow;
+                    else
+                        break;
+                }
+
+                if (py < info.ceiling) {
+                    if (info.roomAbove != 0xFF)
+                        room = info.roomAbove;
+                    else
+                        break;
+                }
+            }
+
+            float d = min(dist, 32.0f);    // STEP = 32
+            dist -= d;
+            pos = pos + dir * d;
+
+            px = (int)pos.x, py = (int)pos.y, pz = (int)pos.z;
+        }
+
+        return pos;
+    }
+
+    void doBubbles() {
+        if (rand() % 10 <= 6) return;
+        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
     }
 
     void collide() {
@@ -482,7 +569,7 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (id) {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI;    break;
-                                    case TR::EFFECT_LARA_BUBBLES   : if (rand() % 10 > 6) playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN); break;
+                                    case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
                                     case TR::EFFECT_LARA_HANDSFREE : break;
                                     default : LOG("unknown special cmd %d (anim %d)\n", id, animIndex);
                                 }
@@ -511,6 +598,122 @@ struct Controller {
         updateVelocity();
         updateEnd();
     }
+    
+    void renderMesh(MeshBuilder *mesh, uint32 offsetIndex) {
+        MeshBuilder::MeshInfo *m = mesh->meshMap[offsetIndex];
+        if (!m) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
+
+        Core::active.shader->setParam(uModel, Core::mModel);
+        mesh->renderMesh(m);
+    }
+
+    void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
+        mat4 m;
+        m.identity();
+        m.translate(pos);
+        m.rotateY(angle);
+        m.translate(vec3(offset.x, 0.0f, offset.z));
+        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));
+
+        Core::active.shader->setParam(uModel, m);
+        Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        mesh->renderShadowSpot();
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
+        PROFILE_MARKER("MDL");
+        TR::Entity &entity = getEntity();
+        TR::Model  &model  = getModel();
+
+        TR::Animation *anim;
+        float fTime;
+        vec3 angle;
+
+        Controller *controller = (Controller*)entity.controller;
+
+        anim  = &level->anims[controller->animIndex];
+        angle = controller->angle;
+        fTime = controller->animTime;
+
+        if (angle.y != 0.0f) Core::mModel.rotateY(angle.y);
+        if (angle.x != 0.0f) Core::mModel.rotateX(angle.x);
+        if (angle.z != 0.0f) Core::mModel.rotateZ(angle.z);
+
+        float k = fTime * 30.0f / anim->frameRate;
+        int fIndex = (int)k;
+        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
+
+        int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
+        k = k - fIndex;
+
+        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
+        TR::AnimFrame *frameA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
+
+        TR::Animation *nextAnim = NULL;
+
+        vec3 move(0.0f);
+        if (fIndexB == 0) {
+            move     = getAnimMove();
+            nextAnim = &level->anims[anim->nextAnimation];
+            fIndexB  = (anim->nextFrame - nextAnim->frameStart) / nextAnim->frameRate;
+        } else
+            nextAnim = anim;
+        
+        TR::AnimFrame *frameB = (TR::AnimFrame*)&level->frameData[(nextAnim->frameOffset + fIndexB * fSize) >> 1];
+
+        vec3 bmin = frameA->box.min().lerp(frameB->box.min(), k);
+        vec3 bmax = frameA->box.max().lerp(frameB->box.max(), k);
+        if (frustum && !frustum->isVisible(Core::mModel, bmin, bmax))
+            return;
+
+        TR::Node *node = (int)model.node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model.node] : NULL;
+
+        mat4 m;
+        m.identity();
+        m.translate(((vec3)frameA->pos).lerp(move + frameB->pos, k));
+
+        int sIndex = 0;
+        mat4 stack[20];
+
+        for (int i = 0; i < model.mCount; i++) {
+
+            if (i > 0 && node) {
+                TR::Node &t = node[i - 1];
+
+                if (t.flags & 0x01) m = stack[--sIndex];
+                if (t.flags & 0x02) stack[sIndex++] = m;
+
+                ASSERT(sIndex >= 0 && sIndex < 20);
+
+                m.translate(vec3(t.x, t.y, t.z));
+            }
+
+            quat q;
+            if (animOverrideMask & (1 << i))
+                q = animOverrides[i];
+            else
+                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), k);
+            m = m * mat4(q, vec3(0.0f));
+
+            mat4 tmp = Core::mModel;
+            Core::mModel = Core::mModel * m;
+            if (meshes)
+                renderMesh(mesh, meshes[i]);
+            else
+                renderMesh(mesh, model.mStart + i);
+
+            if (joints)
+                joints[i] = Core::mModel;
+
+            Core::mModel = tmp;
+        }
+
+        if (TR::castShadow(entity.type)) {
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(entity.room, entity.x, entity.z, info, true);
+            renderShadow(mesh, vec3(entity.x, info.floor - 16.0f, entity.z), (bmax + bmin) * 0.5f, (bmax - bmin) * 0.8f, entity.rotation);
+        }
+    }
 };
 
 
@@ -521,10 +724,10 @@ struct SpriteController : Controller {
         FRAME_RANDOM   = -2,
     };
 
-    int frame;
-    bool instant, animated;
+    int frame, flag;
+    bool instant;
 
-    SpriteController(TR::Level *level, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(level, entity), instant(instant), animated(frame == FRAME_ANIMATED) {
+    SpriteController(TR::Level *level, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(level, entity), instant(instant), flag(frame) {
         if (frame >= 0) { // specific frame
             this->frame = frame;
         } else if (frame == FRAME_RANDOM) { // random frame
@@ -539,10 +742,12 @@ struct SpriteController : Controller {
     }
 
     void update() {
+        if (flag >= 0) return;
+
         bool remove = false;
         animTime += Core::deltaTime;
 
-        if (animated) {
+        if (flag == FRAME_ANIMATED) {
             frame = int(animTime * SPRITE_FPS);
             TR::SpriteSequence &seq = getSequence();
             if (instant && frame >= seq.sCount)
@@ -558,6 +763,12 @@ struct SpriteController : Controller {
             delete this;
         }
     }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
+        PROFILE_MARKER("SPR");
+        Core::active.shader->setParam(uModel, Core::mModel);
+        mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
+    }
 };
 
 void addSprite(TR::Level *level, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1) {
@@ -565,7 +776,7 @@ void addSprite(TR::Level *level, TR::Entity::Type type, int room, int x, int y, 
     if (index > -1) {
         level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
         level->entities[index].controller = new SpriteController(level, index, true, frame);
-    }        
+    }
 }
 
 #endif

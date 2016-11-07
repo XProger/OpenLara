@@ -156,6 +156,7 @@
     <ClInclude Include="..\..\core.h" />
     <ClInclude Include="..\..\debug.h" />
     <ClInclude Include="..\..\enemy.h" />
+    <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
     <ClInclude Include="..\..\input.h" />
     <ClInclude Include="..\..\lara.h" />

@@ -32,6 +32,7 @@
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
 #define EPS     FLT_EPSILON
+#define randf() ((float)rand()/RAND_MAX)
 
 typedef char            int8;
 typedef short           int16;
@@ -505,6 +506,16 @@ quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
     mb.rotateZ(b.z);
 
     return ma.getRot().slerp(mb.getRot(), t).normal();
+}
+
+vec3 boxNormal(int x, int z) {
+    x %= 1024;
+    z %= 1024;
+
+    if (x > 1024 - z)
+        return x < z ? vec3(0, 0, 1)  : vec3(1, 0, 0);
+    else
+        return x < z ? vec3(-1, 0, 0) : vec3(0, 0, -1);
 }
 
 struct Box {

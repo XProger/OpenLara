@@ -70,11 +70,40 @@ namespace TR {
 	};
 
     enum {
-        SND_NO          = 2,
-        SND_LANDING     = 4,
-        SND_BUBBLE      = 37,
-        SND_DART        = 151,
-        SND_SECRET      = 173,
+        SND_NO              = 2,
+
+        SND_LANDING         = 4,
+        
+        SND_UNHOLSTER       = 6,
+        SND_HOLSTER         = 7,
+        SND_PISTOLS_SHOT    = 8,
+        SND_SHOTGUN_RELOAD  = 9,
+        SND_RICOCHET        = 10,
+        
+        SND_SCREAM          = 30,
+        SND_HIT             = 31,
+        
+        SND_BUBBLE          = 37,
+         
+        SND_UZIS_SHOT       = 43,
+        SND_MAGNUMS_SHOT    = 44,
+        SND_SHOTGUN_SHOT    = 45,
+        
+        SND_UNDERWATER      = 60,
+        
+        SND_MENU_SPIN       = 108,
+        SND_MENU_HOME       = 109,
+        SND_MENU_CONTROLS   = 110,
+        SND_MENU_SHOW       = 111,
+        SND_MENU_HIDE       = 112,
+        SND_MENU_COMPASS    = 113,
+        SND_MENU_WEAPON     = 114,
+        SND_MENU_PAGE       = 115,
+        SND_HEALTH          = 116,
+        
+        SND_DART            = 151,
+        
+        SND_SECRET          = 173,
     };
 
     enum Action : uint16 {

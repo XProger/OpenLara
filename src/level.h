@@ -40,7 +40,7 @@ struct Level {
         initShaders();
         initOverrides();
 
-        for (int i = 0; i < level.entitiesCount; i++) {
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &entity = level.entities[i];
             switch (entity.type) {
                 case TR::Entity::LARA : 
@@ -104,7 +104,11 @@ struct Level {
                 case TR::Entity::HOLE_KEY              :
                     entity.controller = new Trigger(&level, i, false);
                     break;
-                default : ;
+                default : 
+                    if (entity.modelIndex > 0)
+                        entity.controller = new Controller(&level, i);
+                    else
+                        entity.controller = new SpriteController(&level, i, 0);
             }
         }
 
@@ -261,7 +265,8 @@ struct Level {
                 mat4 mTemp = Core::mModel;
                 Core::mModel.translate(offset);
                 Core::mModel.rotateY(rMesh.rotation);
-                renderMesh(sMesh->mesh);
+                Core::active.shader->setParam(uModel, Core::mModel);
+                mesh->renderMesh(mesh->meshMap[sMesh->mesh]);
                 Core::mModel = mTemp;
             }
         }
@@ -324,141 +329,6 @@ struct Level {
         camera->frustum = camFrustum;    // pop camera frustum
     }
 
-    void renderMesh(uint32 offsetIndex) {
-        MeshBuilder::MeshInfo *m = mesh->meshMap[offsetIndex];
-        if (!m) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
-
-        Core::active.shader->setParam(uModel, Core::mModel);
-        mesh->renderMesh(m);
-    }
-
-    void renderShadow(const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
-        mat4 m;
-        m.identity();
-        m.translate(pos);
-        m.rotateY(angle);
-        m.translate(vec3(offset.x, 0.0f, offset.z));
-        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));
-
-        Core::active.shader->setParam(uModel, m);
-        Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
-        mesh->renderShadowSpot();
-    }
-
-    void renderModel(const TR::Model &model, const TR::Entity &entity) {
-        TR::Animation *anim;
-        float fTime;
-        vec3 angle;
-
-        Controller *controller = (Controller*)entity.controller;
-
-        if (controller) {
-            anim  = &level.anims[controller->animIndex];
-            angle = controller->angle;
-            fTime = controller->animTime;
-        } else {
-            anim  = &level.anims[model.animation];
-            angle = vec3(0.0f, entity.rotation, 0.0f);
-            fTime = time;
-        }
-
-        if (angle.y != 0.0f) Core::mModel.rotateY(angle.y);
-        if (angle.x != 0.0f) Core::mModel.rotateX(angle.x);
-        if (angle.z != 0.0f) Core::mModel.rotateZ(angle.z);
-
-        float k = fTime * 30.0f / anim->frameRate;
-        int fIndex = (int)k;
-        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
-
-        int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
-        k = k - fIndex;
-
-        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
-        TR::AnimFrame *frameA = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
-
-        TR::Animation *nextAnim = NULL;
-
-        vec3 move(0.0f);
-        if (fIndexB == 0) {
-            if (controller)
-                move = controller->getAnimMove();
-            nextAnim = &level.anims[anim->nextAnimation];
-            fIndexB = (anim->nextFrame - nextAnim->frameStart) / nextAnim->frameRate;
-        } else
-            nextAnim = anim;
-        
-        TR::AnimFrame *frameB = (TR::AnimFrame*)&level.frameData[(nextAnim->frameOffset + fIndexB * fSize) >> 1];
-
-        vec3 bmin = frameA->box.min().lerp(frameB->box.min(), k);
-        vec3 bmax = frameA->box.max().lerp(frameB->box.max(), k);
-        if (!camera->frustum->isVisible(Core::mModel, bmin, bmax))
-            return;
-
-        TR::Node *node = (int)model.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[model.node] : NULL;
-
-        mat4 m;
-        m.identity();
-        m.translate(((vec3)frameA->pos).lerp(move + frameB->pos, k));
-
-        int sIndex = 0;
-        mat4 stack[20];
-
-        for (int i = 0; i < model.mCount; i++) {
-
-            if (i > 0 && node) {
-                TR::Node &t = node[i - 1];
-
-                if (t.flags & 0x01) m = stack[--sIndex];
-                if (t.flags & 0x02) stack[sIndex++] = m;
-
-                ASSERT(sIndex >= 0 && sIndex < 20);
-
-                m.translate(vec3(t.x, t.y, t.z));
-            }
-
-            quat q;
-            if (entity.type == TR::Entity::LARA && (((Lara*)controller)->animOverrideMask & (1 << i)))
-                q = ((Lara*)controller)->animOverrides[i];
-            else
-                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), k);
-            m = m * mat4(q, vec3(0.0f));
-
-
-        //  vec3 angle = lerpAngle(getAngle(frameA, i), getAngle(frameB, i), k);
-        //  m.rotateY(angle.y);
-        //  m.rotateX(angle.x);
-        //  m.rotateZ(angle.z);
-
-            mat4 tmp = Core::mModel;
-            Core::mModel = Core::mModel * m;
-            if (controller)
-                renderMesh(controller->meshes[i]);
-            else
-                renderMesh(model.mStart + i);
-            Core::mModel = tmp;
-        }
-
-        if (TR::castShadow(entity.type)) {
-            TR::Level::FloorInfo info;
-            level.getFloorInfo(entity.room, entity.x, entity.z, info, true);
-            renderShadow(vec3(entity.x, info.floor - 16.0f, entity.z), (bmax + bmin) * 0.5f, (bmax - bmin) * 0.8f, entity.rotation);
-        }
-    }
-
-    void renderSequence(const TR::Entity &entity) {
-        shaders[shSprite]->bind();
-        Core::active.shader->setParam(uModel, Core::mModel);
-        Core::active.shader->setParam(uColor, Core::color);
-
-        int sIndex = -(entity.modelIndex + 1);        
-        int sFrame;
-        if (entity.controller)
-            sFrame = ((SpriteController*)entity.controller)->frame;
-        else
-            sFrame = int(time * 10.0f) % level.spriteSequences[sIndex].sCount;
-        mesh->renderSprite(sIndex, sFrame);
-    }
-
     int getLightIndex(const vec3 &pos, int &room) {
         int idx = -1;
         float dist;
@@ -498,6 +368,7 @@ struct Level {
 
     void renderEntity(const TR::Entity &entity) {
         if (entity.type == TR::Entity::NONE) return;
+        ASSERT(entity.controller);
 
         TR::Room &room = level.rooms[entity.room];
         if (!room.flags.rendered || entity.flags.invisible) // check for room visibility
@@ -509,31 +380,28 @@ struct Level {
         float c = (entity.intensity > -1) ? (1.0f - entity.intensity / (float)0x1FFF) : 1.0f;
         float l = 1.0f;
 
-    // set shader
-        setRoomShader(room, c)->bind();
+        if (entity.modelIndex > 0) { // model
+            // set shader
+            setRoomShader(room, c)->bind();
+            Core::active.shader->setParam(uColor, Core::color);
+            // get light parameters for entity
+            getLight(vec3(entity.x, entity.y, entity.z), entity.room);
+        }
+
+        if (entity.modelIndex < 0) { // sprite
+            shaders[shSprite]->bind();
+            Core::color = vec4(c, c, c, 1.0f);
+        }
         Core::active.shader->setParam(uColor, Core::color);
 
-    // get light parameters for entity
-        getLight(vec3(entity.x, entity.y, entity.z), entity.room);
-
-    // render entity models
-        if (entity.modelIndex > 0) {
-            PROFILE_MARKER("MDL");
-            renderModel(level.models[entity.modelIndex - 1], entity);
-        }
-    // if entity is billboard
-        if (entity.modelIndex < 0) {
-            PROFILE_MARKER("SPR");
-            Core::color = vec4(c, c, c, 1.0f);
-            renderSequence(entity);
-        }
+        ((Controller*)entity.controller)->render(camera->frustum, mesh);
 
         Core::mModel = m;
     }
 
     void update() {
         time += Core::deltaTime;
-        
+
         for (int i = 0; i < level.entitiesCount; i++) 
             if (level.entities[i].type != TR::Entity::NONE) {
                 Controller *controller = (Controller*)level.entities[i].controller;
