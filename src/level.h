@@ -332,22 +332,6 @@ struct Level {
         mesh->renderMesh(m);
     }
 
-    quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
-        mat4 ma, mb;
-        ma.identity();
-        mb.identity();
-
-        ma.rotateY(a.y);
-        ma.rotateX(a.x);
-        ma.rotateZ(a.z);
-
-        mb.rotateY(b.y);
-        mb.rotateX(b.x);
-        mb.rotateZ(b.z);
-
-        return ma.getRot().slerp(mb.getRot(), t).normal();
-    }
-
     void renderShadow(const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
         mat4 m;
         m.identity();
@@ -432,7 +416,11 @@ struct Level {
                 m.translate(vec3(t.x, t.y, t.z));
             }
 
-            quat q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), k);
+            quat q;
+            if (entity.type == TR::Entity::LARA && (((Lara*)controller)->animOverrideMask & (1 << i)))
+                q = ((Lara*)controller)->animOverrides[i];
+            else
+                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), k);
             m = m * mat4(q, vec3(0.0f));
 
 
@@ -443,7 +431,10 @@ struct Level {
 
             mat4 tmp = Core::mModel;
             Core::mModel = Core::mModel * m;
-            renderMesh(model.mStart + i);
+            if (controller)
+                renderMesh(controller->meshes[i]);
+            else
+                renderMesh(model.mStart + i);
             Core::mModel = tmp;
         }
 

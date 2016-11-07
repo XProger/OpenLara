@@ -491,6 +491,22 @@ struct mat4 {
     }
 };
 
+quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
+    mat4 ma, mb;
+    ma.identity();
+    mb.identity();
+
+    ma.rotateY(a.y);
+    ma.rotateX(a.x);
+    ma.rotateZ(a.z);
+
+    mb.rotateY(b.y);
+    mb.rotateX(b.x);
+    mb.rotateZ(b.z);
+
+    return ma.getRot().slerp(mb.getRot(), t).normal();
+}
+
 struct Box {
     vec3 min, max;
 

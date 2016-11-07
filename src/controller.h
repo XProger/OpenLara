@@ -41,6 +41,9 @@ struct Controller {
 
     float   turnTime;
 
+    int     *meshes;
+    int     mCount;
+
     struct ActionCommand {
         TR::Action      action;
         int             value;
@@ -58,6 +61,23 @@ struct Controller {
         stand     = STAND_GROUND;
         animIndex = e.modelIndex > 0 ? getModel().animation : 0;
         state     = level->anims[animIndex].state;
+        TR::Model &model = getModel();
+        mCount    = model.mCount;
+        meshes    = mCount ? new int[mCount] : NULL;
+        for (int i = 0; i < mCount; i++)
+            meshes[i] = model.mStart + i;
+    }
+
+    virtual ~Controller() {
+        delete[] meshes;
+    }
+
+    void meshSwap(TR::Model &model, int mask) {
+        for (int i = 0; i < model.mCount; i++) {
+            int index = model.mStart + i;
+            if (((1 << i) & mask) && level->meshOffsets[index])
+                meshes[i] = index;
+        }
     }
 
     void updateEntity() {

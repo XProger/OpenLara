@@ -138,8 +138,54 @@ struct Lara : Controller {
         STATE_HANDSTAND,
         STATE_WATER_OUT,
         STATE_MAX };
+    
+    enum : int {
+        BODY_HIP        = 0x0001,
+        BODY_LEG_R1     = 0x0002,
+        BODY_LEG_R2     = 0x0004,
+        BODY_LEG_R3     = 0x0008,
+        BODY_LEG_L1     = 0x0010,
+        BODY_LEG_L2     = 0x0020,
+        BODY_LEG_L3     = 0x0040,
+        BODY_CHEST      = 0x0080,
+        BODY_ARM_L1     = 0x0100,
+        BODY_ARM_L2     = 0x0200,
+        BODY_ARM_L3     = 0x0400,
+        BODY_ARM_R1     = 0x0800,
+        BODY_ARM_R2     = 0x1000,
+        BODY_ARM_R3     = 0x2000,
+        BODY_HEAD       = 0x4000,
+        BODY_ARM_L      = BODY_ARM_L1 | BODY_ARM_L2 | BODY_ARM_L3,
+        BODY_ARM_R      = BODY_ARM_R1 | BODY_ARM_R2 | BODY_ARM_R3,
+        BODY_LEG_L      = BODY_LEG_L1 | BODY_LEG_L2 | BODY_LEG_L3,
+        BODY_LEG_R      = BODY_LEG_R1 | BODY_LEG_R2 | BODY_LEG_R3,
+        BODY_UPPER      = BODY_CHEST  | BODY_ARM_L  | BODY_ARM_R,       // without head
+        BODY_LOWER      = BODY_HIP    | BODY_LEG_L  | BODY_LEG_R,
+    };
 
-    Lara(TR::Level *level, int entity) : Controller(level, entity) {
+    struct Weapon {
+        enum Type  { EMPTY, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
+        enum State { IS_CLEAN, IS_ARMED, IS_FIRING };
+        enum Anim  { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
+
+        int ammo;   // if -1 weapon is not available
+    } weapons[Weapon::MAX];
+
+    Weapon::Type    wpnCurrent;
+    Weapon::State   wpnState;
+    Weapon::Anim    wpnAnim;
+    float           wpnAnimTime;
+    float           wpnAnimDir;
+    quat            animOverrides[15];   // left & right arms animation frames
+    int             animOverrideMask;
+
+    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), animOverrideMask(0) {
+        memset(weapons, -1, sizeof(weapons));
+        weapons[Weapon::PISTOLS].ammo = 0;
+        weapons[Weapon::SHOTGUN].ammo = 8;
+
+        setWeapon(Weapon::PISTOLS, Weapon::IS_CLEAN, Weapon::Anim::NONE, 1.0f);
+
     #ifdef _DEBUG
 /*
     // gym 
@@ -189,6 +235,78 @@ struct Lara : Controller {
 */
         updateEntity();
     #endif
+    }
+
+    void setWeapon(Weapon::Type wType, Weapon::State wState, Weapon::Anim wAnim, float wAnimDir) {
+        wpnAnimDir = wAnimDir;
+
+        if (wAnim != wpnAnim) {
+            wpnAnim = wAnim;
+            TR::Animation *anim = &level->anims[getWeaponAnimIndex(wpnAnim)];
+            wpnAnimTime = wpnAnimDir >= 0.0f ? 0.0f : ((anim->frameEnd - anim->frameStart) / 30.0f);
+        }
+
+        if (wpnCurrent == wType && wpnState == wState) 
+            return;
+
+        int mask = 0;
+        switch (wType) {
+            case Weapon::EMPTY   : break;
+            case Weapon::PISTOLS : 
+            case Weapon::MAGNUMS :
+            case Weapon::UZIS    :
+                switch (wState) {
+                    case Weapon::IS_CLEAN  : mask = BODY_LEG_L1 | BODY_LEG_R1;              break;
+                    case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
+                    case Weapon::IS_FIRING : mask = BODY_ARM_L3 | BODY_ARM_R3 | BODY_HEAD;  break;
+                }
+                break;
+            case Weapon::SHOTGUN :
+                switch (wState) {
+                    case Weapon::IS_CLEAN  : mask = BODY_CHEST;                             break;
+                    case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
+                    case Weapon::IS_FIRING : mask = BODY_ARM_L3 | BODY_ARM_R3 | BODY_HEAD;  break;
+                }
+                break;
+        }
+
+        // restore original meshes first
+        meshSwap(level->models[Weapon::EMPTY], BODY_HEAD | BODY_UPPER | BODY_LOWER);
+        // replace some parts
+        meshSwap(level->models[wType], mask);
+        // have a shotgun in inventory place it on the back if another weapon is in use
+        if (wType != Weapon::SHOTGUN && weapons[Weapon::SHOTGUN].ammo != -1) 
+            meshSwap(level->models[Weapon::SHOTGUN], BODY_CHEST);
+        // mesh swap to angry Lara's head while firing (from uzis model)
+        if (wState == Weapon::IS_FIRING)                                        
+            meshSwap(level->models[Weapon::UZIS], BODY_HEAD);
+
+        wpnCurrent = wType;
+        wpnState   = wState;
+    }
+
+    int getWeaponAnimIndex(Weapon::Anim wAnim) {
+        int baseAnim = level->models[wpnCurrent].animation;
+
+        if (wpnCurrent == Weapon::SHOTGUN) {
+            switch (wAnim) {
+                case Weapon::Anim::PREPARE   : ASSERT(false); break;    // rifle has no prepare animation
+                case Weapon::Anim::UNHOLSTER : return baseAnim + 1;
+                case Weapon::Anim::HOLSTER   : return baseAnim + 3;
+                case Weapon::Anim::HOLD      : 
+                case Weapon::Anim::AIM       : return baseAnim;
+                case Weapon::Anim::FIRE      : return baseAnim + 2;
+            }
+        } else
+            switch (wAnim) {
+                case Weapon::Anim::PREPARE   : return baseAnim + 1;
+                case Weapon::Anim::UNHOLSTER : return baseAnim + 2;
+                case Weapon::Anim::HOLSTER   : ASSERT(false); break;    // pistols has no holster animation (it's reversed unholster)
+                case Weapon::Anim::HOLD      : 
+                case Weapon::Anim::AIM       : return baseAnim;
+                case Weapon::Anim::FIRE      : return baseAnim + 3;
+            }
+        return 0;
     }
 
     bool waterOut(int &outState) {
@@ -403,6 +521,10 @@ struct Lara : Controller {
         return vec3(0.0f, h, 0.0f);
     }
 
+    bool emptyHands() {
+        return wpnState == Weapon::IS_CLEAN;
+    }
+
     virtual Stand getStand() {
         if (state == STATE_HANG || state == STATE_HANG_LEFT || state == STATE_HANG_RIGHT) {
             if (mask & ACTION)
@@ -466,7 +588,7 @@ struct Lara : Controller {
         if (state == STATE_REACH && getDir().dot(vec3(velocity.x, 0.0f, velocity.z)) < 0)
             velocity.x = velocity.z = 0.0f;
 
-        if ((state == STATE_REACH || state == STATE_UP_JUMP) && (mask & ACTION)) {
+        if ((state == STATE_REACH || state == STATE_UP_JUMP) && (mask & ACTION) && emptyHands()) {
 
             if (state == STATE_REACH && velocity.y < 0.0f)
                 return state;
@@ -498,8 +620,10 @@ struct Lara : Controller {
         }
 
         if (state == STATE_FORWARD_JUMP) {
-            if (mask & ACTION) return STATE_REACH;
-            if ((mask & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
+            if (emptyHands()) {
+                if (mask & ACTION) return STATE_REACH;
+                if ((mask & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
+            }
         } else 
             if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
                 return setAnimation(ANIM_FALL);
@@ -539,10 +663,10 @@ struct Lara : Controller {
     virtual int getStateGround() {
         angle.x = 0.0f;
 
-        if ((mask & ACTION) && doPickUp())
+        if ((mask & ACTION) && doPickUp() && emptyHands())
             return STATE_PICK_UP;
 
-        if ( (mask & (FORTH | ACTION)) == (FORTH | ACTION) && (animIndex == ANIM_STAND || animIndex == ANIM_STAND_NORMAL) ) {
+        if ( (mask & (FORTH | ACTION)) == (FORTH | ACTION) && (animIndex == ANIM_STAND || animIndex == ANIM_STAND_NORMAL) && emptyHands()) {
             vec3 p = pos + getDir() * 64.0f;
             TR::Level::FloorInfo info;
             level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.z, info, true);
@@ -612,7 +736,7 @@ struct Lara : Controller {
             return STATE_STOP;
         } 
 
-        if (mask & ACTION) {
+        if ((mask & ACTION) && emptyHands()) {
             if (state == STATE_PUSH_PULL_READY && (mask & (FORTH | BACK))) {
                 int pushState = (mask & FORTH) ? STATE_PUSH_BLOCK : STATE_PULL_BLOCK;
                 Block *block = getBlock();                
@@ -878,6 +1002,135 @@ struct Lara : Controller {
         }
     }
 
+    virtual void updateAnimation(bool commands) {
+        Controller::updateAnimation(commands);
+
+    // apply weapon state changes
+        if (wpnCurrent == Weapon::EMPTY) {
+            animOverrideMask &= ~(BODY_ARM_L | BODY_ARM_R);
+            return;
+        }
+
+        Weapon::Anim nextAnim = wpnAnim;
+
+        bool isRifle = wpnCurrent == Weapon::SHOTGUN;
+
+        if ((mask & WEAPON) && wpnAnim != Weapon::Anim::PREPARE && wpnAnim != Weapon::Anim::UNHOLSTER && wpnAnim != Weapon::Anim::HOLSTER) {
+            if (wpnState == Weapon::IS_CLEAN)
+                setWeapon(wpnCurrent, wpnState, isRifle ? Weapon::Anim::UNHOLSTER : Weapon::Anim::PREPARE, 1.0f);
+            else
+                if (isRifle)
+                    setWeapon(wpnCurrent, wpnState, Weapon::Anim::HOLSTER,    1.0f);
+                else
+                    setWeapon(wpnCurrent, wpnState, Weapon::Anim::UNHOLSTER, -1.0f);
+        }
+
+        if (wpnState != Weapon::IS_CLEAN) {
+            if (mask & ACTION) {
+                if (wpnAnim == Weapon::Anim::HOLD)
+                    setWeapon(wpnCurrent, wpnState, Weapon::Anim::AIM, 1.0f);
+            } else
+                if (wpnAnim == Weapon::Anim::AIM)
+                    wpnAnimDir = -1.0f;
+        }
+
+        TR::Animation *anim = &level->anims[getWeaponAnimIndex(wpnAnim)];
+        float maxTime = (anim->frameEnd - anim->frameStart) / 30.0f;
+
+        if (wpnAnim == Weapon::Anim::NONE) {
+            animOverrideMask &= ~(BODY_ARM_L | BODY_ARM_R);
+            return;
+        }
+        animOverrideMask |= BODY_ARM_L | BODY_ARM_R;
+
+        Weapon::Anim prevAnim = wpnAnim; // cache before changes
+
+        wpnAnimTime += Core::deltaTime * wpnAnimDir;
+
+        /*
+                        case Weapon::Anim::FIRE      : 
+                        if (!(mask & ACTION))
+                            setWeapon(wpnCurrent, Weapon::IS_ARMED, Weapon::Anim::AIM, -1.0f);
+                        break;
+        */
+
+        if (wpnAnim == Weapon::Anim::FIRE && wpnAnimTime >= maxTime)
+            if (!(mask & ACTION))
+                setWeapon(wpnCurrent, Weapon::IS_ARMED, Weapon::Anim::AIM, -1.0f);
+
+                
+        if (isRifle) {
+            if (wpnAnimDir > 0.0f)
+                switch (wpnAnim) {
+                    case Weapon::Anim::UNHOLSTER : 
+                        if (wpnAnimTime >= maxTime)
+                            setWeapon(wpnCurrent, Weapon::IS_ARMED,  Weapon::Anim::HOLD, 0.0f);
+                        else if (wpnAnimTime >= maxTime * 0.3f)
+                            setWeapon(wpnCurrent, Weapon::IS_ARMED,  wpnAnim,            1.0f);
+                        break;
+                    case Weapon::Anim::HOLSTER   : 
+                        if (wpnAnimTime >= maxTime)
+                            setWeapon(wpnCurrent, Weapon::IS_CLEAN,  Weapon::Anim::NONE, wpnAnimDir);
+                        else if (wpnAnimTime >= maxTime * 0.7f)
+                            setWeapon(wpnCurrent, Weapon::IS_CLEAN,  wpnAnim,            1.0f);                        break;
+                    case Weapon::Anim::AIM       : if (wpnAnimTime >= maxTime) setWeapon(wpnCurrent, Weapon::IS_FIRING, Weapon::Anim::FIRE, wpnAnimDir);   break;
+                };
+
+            if (wpnAnimDir < 0.0f && wpnAnimTime <= 0.0f)
+                switch (wpnAnim) {
+                    case Weapon::Anim::AIM       : setWeapon(wpnCurrent, wpnState,          Weapon::Anim::HOLD, 0.0f);         break;
+                };
+        } else {
+            if (wpnAnimDir > 0.0f && wpnAnimTime >= maxTime)
+                switch (wpnAnim) {
+                    case Weapon::Anim::PREPARE   : setWeapon(wpnCurrent, Weapon::IS_ARMED,  Weapon::Anim::UNHOLSTER, wpnAnimDir);   break;
+                    case Weapon::Anim::UNHOLSTER : setWeapon(wpnCurrent, wpnState,          Weapon::Anim::HOLD,      0.0f);         break;
+                    case Weapon::Anim::AIM       : setWeapon(wpnCurrent, Weapon::IS_FIRING, Weapon::Anim::FIRE,      wpnAnimDir);   break;
+                };
+        
+            if (wpnAnimDir < 0.0f && wpnAnimTime <= 0.0f)
+                switch (wpnAnim) {
+                    case Weapon::Anim::PREPARE   : setWeapon(wpnCurrent, wpnState,         Weapon::Anim::NONE,    wpnAnimDir);  break;
+                    case Weapon::Anim::UNHOLSTER : setWeapon(wpnCurrent, Weapon::IS_CLEAN, Weapon::Anim::PREPARE, wpnAnimDir);  break;
+                    case Weapon::Anim::AIM       : setWeapon(wpnCurrent, wpnState,         Weapon::Anim::HOLD,    0.0f);        break;
+                };
+        }
+
+        if (prevAnim != wpnAnim) // check by cache
+            anim = &level->anims[getWeaponAnimIndex(wpnAnim)];
+
+        if (wpnAnim == Weapon::Anim::NONE) {
+            animOverrideMask &= ~(BODY_ARM_L | BODY_ARM_R);
+            return;
+        }
+
+    // update animation overrides
+        float k = wpnAnimTime * 30.0f / anim->frameRate;
+        int fIndex = (int)k;
+        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
+
+        int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
+        k = k - fIndex;
+
+        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
+        TR::AnimFrame *frameA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
+        TR::AnimFrame *frameB = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexB * fSize) >> 1];
+        LOG("%d %d %f\n", getWeaponAnimIndex(wpnAnim), fIndexA, wpnAnimTime);
+
+    // left arm
+        animOverrides[ 8] = lerpFrames(frameA, frameB, k,  8);
+        animOverrides[ 9] = lerpFrames(frameA, frameB, k,  9);
+        animOverrides[10] = lerpFrames(frameA, frameB, k, 10);
+    // right arm
+        animOverrides[11] = lerpFrames(frameA, frameB, k, 11);
+        animOverrides[12] = lerpFrames(frameA, frameB, k, 12);
+        animOverrides[13] = lerpFrames(frameA, frameB, k, 13);
+    }
+
+    quat lerpFrames(TR::AnimFrame *frameA, TR::AnimFrame *frameB,  float t, int index) {
+        return lerpAngle(frameA->getAngle(index), frameB->getAngle(index), t);
+    }
+
     virtual void updateVelocity() {
     // calculate moving speed
         float dt = Core::deltaTime * 30.0f;
@@ -994,7 +1247,7 @@ struct Lara : Controller {
         if (canPassGap) {
             TR::Room &r = level->rooms[e.room];
             for (int i = 0; i < r.meshesCount; i++) {
-                TR::Room::Mesh &m = r.meshes[i];                                        
+                TR::Room::Mesh &m = r.meshes[i];
                 TR::StaticMesh *sm = level->getMeshByID(m.meshID);
                 if (sm->flags != 2) continue; // no have collision box
 
