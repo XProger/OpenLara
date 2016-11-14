@@ -141,6 +141,10 @@ struct vec3 {
         float s = sinf(angle), c = cosf(angle); 
         return vec3(x*c - z*s, y, x*s + z*c);
     }
+
+    float angle(const vec3 &v) {
+        return dot(v) / (length() * v.length());
+    }
 };
 
 struct vec4 {
@@ -158,7 +162,10 @@ struct vec4 {
 };
 
 struct quat {
-    float x, y, z, w;
+    union {
+        struct { float x, y, z, w; };
+        struct { vec3  xyz; };
+    };
 
     quat() {}
     quat(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
@@ -492,20 +499,17 @@ struct mat4 {
     }
 };
 
+quat rotYXZ(const vec3 &a) {
+    mat4 m;
+    m.identity();
+    m.rotateY(a.y);
+    m.rotateX(a.x);
+    m.rotateZ(a.z);
+    return m.getRot();
+}
+
 quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
-    mat4 ma, mb;
-    ma.identity();
-    mb.identity();
-
-    ma.rotateY(a.y);
-    ma.rotateX(a.x);
-    ma.rotateZ(a.z);
-
-    mb.rotateY(b.y);
-    mb.rotateX(b.x);
-    mb.rotateZ(b.z);
-
-    return ma.getRot().slerp(mb.getRot(), t).normal();
+    return rotYXZ(a).slerp(rotYXZ(b), t).normal();
 }
 
 vec3 boxNormal(int x, int z) {

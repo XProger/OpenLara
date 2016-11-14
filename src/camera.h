@@ -22,7 +22,7 @@ struct Camera : Controller {
     vec3    viewOffset;
 
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
-        fov         = 75.0f;
+        fov         = 80.0f;
         znear       = 128;
         zfar        = 100.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
@@ -57,6 +57,8 @@ struct Camera : Controller {
     }
 
     virtual void update() {
+        actTargetEntity = owner->target;
+
         if (timer > 0.0f) {
             timer -= Core::deltaTime;
             if (timer <= 0.0f) {

@@ -415,6 +415,10 @@ namespace TR {
         uint16  align;
         int16   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
         void    *controller;    // Controller implementation or NULL 
+
+        bool isEnemy() {
+            return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
+        }
     };
 
     struct Animation {
