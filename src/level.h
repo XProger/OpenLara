@@ -371,11 +371,8 @@ struct Level {
         ASSERT(entity.controller);
 
         TR::Room &room = level.rooms[entity.room];
-        if (!room.flags.rendered || entity.flags.invisible) // check for room visibility
+        if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
             return;
-
-        mat4 m = Core::mModel;
-        Core::mModel.translate(vec3(entity.x, entity.y, entity.z));
 
         float c = (entity.intensity > -1) ? (1.0f - entity.intensity / (float)0x1FFF) : 1.0f;
         float l = 1.0f;
@@ -395,8 +392,6 @@ struct Level {
         Core::active.shader->setParam(uColor, Core::color);
 
         ((Controller*)entity.controller)->render(camera->frustum, mesh);
-
-        Core::mModel = m;
     }
 
     void update() {
@@ -446,6 +441,9 @@ struct Level {
             for (int j = 0; j < room.meshesCount; j++)
                 room.meshes[j].flags.rendered = false;     // clear visible flag for room static meshes
         }    
+        
+        for (int i = 0; i < level.entitiesCount; i++)
+            level.entities[i].flags.rendered = false;
     }
 
     void renderRooms() {

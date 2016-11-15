@@ -6,7 +6,7 @@
 			<input type="button" value="fullscreen" onclick="Module.requestFullScreen(false, true)"><br><br>
 			<canvas id="canvas" width="160" height="120" oncontextmenu="event.preventDefault()"></canvas><br>
 			<span id="info"><a target="_blank" href="https://github.com/XProger/OpenLara">OpenLara on github</a><br>controls:<br>keyboad: move - WASD / arrows, jump - Space, action - E/Ctrl, draw weapon - Q, change weapon - 1-4, walk - Shift, side steps - ZX/walk+direction, camera - MouseR)<br>gamepad: PSX controls on XBox controller</span>
-			
+
 			<script type='text/javascript'>
 				var statusElement = document.getElementById('status');
 				var canvasElement = document.getElementById('canvas');
@@ -29,7 +29,7 @@
 						}
 					},
 					canvas: (function() {
-						canvasElement.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);						
+						canvasElement.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
 						return canvasElement;
 					})(),
 					setStatus: function(text) {
@@ -43,14 +43,14 @@
 						Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
 					},
 				};
-			
+
 				function snd_init() {
 					var AudioContext = window.AudioContext || window.webkitAudioContext;
 					if (!AudioContext) return;
-					var ctx    = new (window.AudioContext || window.webkitAudioContext)();
+					var ctx	   = new (window.AudioContext || window.webkitAudioContext)();
 					var count  = 2048;
-                    var rate   = 44100 / ctx.sampleRate;
-                    var framesCount = Math.ceil(count * rate);
+					var rate   = 44100 / ctx.sampleRate;
+					var framesCount = Math.ceil(count * rate);
 					var frames = Module._malloc(framesCount * 4); // interleaved short L, R
 					var proc   = ctx.createScriptProcessor(count, 2, 2);
 					proc.onaudioprocess = function(e) {
@@ -58,16 +58,16 @@
 							R = e.outputBuffer.getChannelData(1);
 						Module.ccall('snd_fill', 'null', ['number', 'number'], [frames, framesCount]);
 						for (var i = 0; i < count; i++) {
-                            var index = frames + Math.floor(i * rate) * 4; // 4 is sample frame stride in bytes
-							L[i] = Module.getValue(index    , 'i16') / 0x8000;
+							var index = frames + Math.floor(i * rate) * 4; // 4 is sample frame stride in bytes
+							L[i] = Module.getValue(index	, 'i16') / 0x8000;
 							R[i] = Module.getValue(index + 2, 'i16') / 0x8000;
 						}
 					}
 					proc.connect(ctx.destination);
 				}
-				
+
 				var gl = canvasElement.getContext("webgl") || canvasElement.getContext("experimental-webgl");
-				
+
 				Module.setStatus('Downloading...');
 				window.onerror = function(event) {
 					Module.setStatus('Exception thrown, see JavaScript console');
@@ -77,7 +77,7 @@
 						if (text) Module.printErr('[post-exception status] ' + text);
 					};
 				};
-			</script>	
+			</script>
 			<script>
 				(function() {
 					var memoryInitializer = 'OpenLara.js.mem';
@@ -95,8 +95,13 @@
 				var script = document.createElement('script');
 				script.src = "OpenLara.js";
 				document.body.appendChild(script);
+
+				window.onbeforeunload = function () { // Ctrl+W
+					return "Really want to quit the game?";
+				};
+
 			</script>
-						
+
 			<audio autoplay loop><source src="05.ogg" type="audio/ogg"></audio>
 		</body>
 </html>

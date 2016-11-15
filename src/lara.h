@@ -187,20 +187,23 @@ struct Lara : Controller {
         float           animTime;
         float           animMaxTime;
         int             animIndex;
-        quat            rot;
+        quat            rot, rotAbs;
         Weapon::Anim    anim;        
     } arms[2];
 
     int  target;
     quat rotHead, rotChest;
 
+    int     health; 
+    float   turnTime;
 
-    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1) {
+    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1), health(100), turnTime(0.0f) {
         initMeshOverrides();
         for (int i = 0; i < 2; i++) {
             arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
             arms[i].animTime  = 0.0f;
             arms[i].rot       = quat(0, 0, 0, 1);
+            arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
 
         rotHead = rotChest = quat(0, 0, 0, 1);
@@ -261,7 +264,7 @@ struct Lara : Controller {
         updateEntity();
     #endif
     }
-
+    
     void wpnSet(Weapon::Type wType) {
         wpnCurrent = wType;
         wpnState   = Weapon::IS_FIRING;
@@ -287,6 +290,16 @@ struct Lara : Controller {
                 arm.animTime = arm.animMaxTime + wAnimTime;
 
         wpnSetState(wState);
+    }
+
+    int wpnGetDamage() {
+        switch (wpnCurrent) {
+            case Weapon::PISTOLS : return 10;
+            case Weapon::SHOTGUN : return 5;
+            case Weapon::MAGNUMS : return 20;
+            case Weapon::UZIS    : return 5;
+            default : return 0;
+        }
     }
 
     void wpnSetState(Weapon::State wState) {
@@ -335,32 +348,6 @@ struct Lara : Controller {
         wpnState   = wState;
     }
 
-    /*
-    void setWeaponAnim(Weapon::Anim wAnim, float wAnimDir, Arm *arm) {
-        arm->animDir = wAnimDir;
-
-        if (wAnim != arm->anim) {
-            arm->anim = wAnim;
-            TR::Animation *anim = &level->anims[getWeaponAnimIndex(arm->anim)];
-            arm->animTime = arm->animDir >= 0.0f ? 0.0f : ((anim->frameEnd - anim->frameStart) / 30.0f);
-            arm->lastFrame = 0xFFFF;
-        }
-    }
-
-    void setWeapon(Weapon::Type wType, Weapon::State wState, Weapon::Anim wAnim = Weapon::Anim::NONE, float wAnimDir = 0.0f, Arm *arm = NULL) {
-
-        if (wpnCurrent != Weapon::SHOTGUN && wAnim != Weapon::Anim::HOLD && wAnim != Weapon::Anim::AIM && wAnim != Weapon::Anim::FIRE) {
-            setWeaponAnim(wAnim, wAnimDir, &arms[0]);
-            setWeaponAnim(wAnim, wAnimDir, &arms[1]);
-        } else
-            setWeaponAnim(wAnim, wAnimDir, !arm ? &arms[1] : arm);
-
-        if (wpnCurrent == wType && wpnState == wState) 
-            return;
-        wpnCurrent = wType;
-        wpnSetState(wState);
-    }
-*/
     bool emptyHands() {
         return arms[0].anim == Weapon::Anim::NONE;
     }
@@ -422,7 +409,7 @@ struct Lara : Controller {
                 wpnSetAnim(arms[0], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, -1.0f);
                 wpnSetAnim(arms[1], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, -1.0f);
             } else
-                wpnSetAnim(arms[0], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, 1.0f);
+                wpnSetAnim(arms[0], wpnState, Weapon::Anim::HOLSTER, 0.0f, 1.0f);
         }
     }
 
@@ -474,7 +461,7 @@ struct Lara : Controller {
             int frameIndex = getFrameIndex(arms[i].animIndex, arms[i].animTime);
             if (arms[i].anim == Weapon::Anim::FIRE) {
                 if (frameIndex < arms[i].lastFrame) {
-                    if (target == -1 || ((mask & ACTION) && arms[i].target > -1)) {
+                    if ((mask & ACTION) && (target == -1 || (target > -1 && arms[i].target > -1))) {
                         armShot[i] = true;
                     } else
                         wpnSetAnim(arms[i], Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, target == -1);
@@ -516,24 +503,25 @@ struct Lara : Controller {
 
             int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
 
-            quat tmp = animOverrides[joint];
-            animOverrides[joint] = arm->rot * quat(vec3(1, 0, 0), PI * 0.5f) ;
-            mat4 m = getJoint(joint, true);
-            animOverrides[joint] = tmp;
-
-            vec3 p = m.getPos();
-            vec3 d = (m * vec4(0, 1, 0, 0)).xyz;
+            vec3 p = getJoint(joint, false).getPos();
+            vec3 d = arm->rotAbs * vec3(0, 0, 1);
             vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
 
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
-            hit -= d * 64.0f;
-            addSprite(level, TR::Entity::SPARK, room, (int)hit.x, (int)hit.y, (int)hit.z, SpriteController::FRAME_RANDOM);
+            if (target > -1 && checkHit(target, p, hit, hit)) {
+                ((Controller*)level->entities[target].controller)->hit(wpnGetDamage());
+                hit -= d * 64.0f;
+                addSprite(level, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, SpriteController::FRAME_ANIMATED);
+            } else {
+                hit -= d * 64.0f;
+                addSprite(level, TR::Entity::SPARK, room, (int)hit.x, (int)hit.y, (int)hit.z, SpriteController::FRAME_RANDOM);
 
-            float dist = (hit - p).length();
-            if (dist < nearDist) {
-                nearPos  = hit;
-                nearDist = dist;
+                float dist = (hit - p).length();
+                if (dist < nearDist) {
+                    nearPos  = hit;
+                    nearDist = dist;
+                }
             }
         }
 
@@ -622,39 +610,35 @@ struct Lara : Controller {
     }
 
     void animateShotgun() {
-        /*
-        float &wpnAnimDir  = arms[0].animDir;
-        float &wpnAnimTime = arms[0].animTime;
-        Weapon::Anim &wpnAnim = arms[0].anim;
-        TR::Animation *anim = &level->anims[getWeaponAnimIndex(arms[0].anim)];
-        float maxTime = (anim->frameEnd - anim->frameStart) / 30.0f;
-
-        if (wpnAnimDir > 0.0f)
-            switch (wpnAnim) {
+        Arm &arm = arms[0];
+        if (arm.animDir >= 0.0f)
+            switch (arm.anim) {
                 case Weapon::Anim::UNHOLSTER : 
-                    if (wpnAnimTime >= maxTime)
-                        setWeapon(wpnCurrent, Weapon::IS_ARMED, Weapon::Anim::HOLD, 0.0f);
-                    else if (wpnAnimTime >= maxTime * 0.3f)
-                        setWeapon(wpnCurrent, Weapon::IS_ARMED, wpnAnim, 1.0f);
+                    if (arm.animTime >= arm.animMaxTime)
+                        wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::HOLD, 0.0f, 1.0f, false);
+                    else if (arm.animTime >= arm.animMaxTime * 0.3f)
+                        wpnSetAnim(arm, Weapon::IS_ARMED, arm.anim, arm.animTime, 1.0f);
                     break;
                 case Weapon::Anim::HOLSTER : 
-                    if (wpnAnimTime >= maxTime)
-                        setWeapon(wpnCurrent, Weapon::IS_HIDDEN, Weapon::Anim::NONE, wpnAnimDir);
-                    else if (wpnAnimTime >= maxTime * 0.7f)
-                        setWeapon(wpnCurrent, Weapon::IS_HIDDEN, wpnAnim, 1.0f);
+                    if (arm.animTime >= arm.animMaxTime)
+                        wpnSetAnim(arm, Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 1.0f, false);  
+                    else if (arm.animTime >= arm.animMaxTime * 0.7f)
+                        wpnSetAnim(arm, Weapon::IS_HIDDEN, arm.anim, arm.animTime, 1.0f);
                     break;
                 case Weapon::Anim::AIM :
-                    if (wpnAnimTime >= maxTime)
-                        setWeapon(wpnCurrent, Weapon::IS_FIRING, Weapon::Anim::FIRE, wpnAnimDir);
+                    if (arm.animTime >= arm.animMaxTime) {
+                        if (mask & ACTION)
+                            wpnSetAnim(arm, Weapon::IS_FIRING, Weapon::Anim::FIRE, arm.animTime - arm.animMaxTime, 1.0f);
+                        else
+                            wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, false);
+                    }
                     break;
                 default : ;
             };
 
-        if (wpnAnimDir < 0.0f && wpnAnimTime <= 0.0f)
-            if (wpnAnim == Weapon::Anim::AIM) {
-                setWeapon(wpnCurrent, wpnState, Weapon::Anim::HOLD, 0.0f);
-            };
-            */
+        if (arm.animDir < 0.0f && arm.animTime <= 0.0f)
+            if (arm.anim == Weapon::Anim::AIM)
+                wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::HOLD, 0.0f, 1.0f, false);
     }
 
     void updateOverrides() {
@@ -669,29 +653,30 @@ struct Lara : Controller {
         animOverrides[ 7] = lerpFrames(frameA, frameB, t,  7);
         animOverrides[14] = lerpFrames(frameA, frameB, t, 14);
         
-        // right arm
-        if (arms[0].anim != Weapon::Anim::NONE) {
-            getFrames(&frameA, &frameB, t, arms[0].animIndex, arms[0].animTime);        
+        
+        if (!emptyHands()) {
+            // right arm
+            Arm *arm = &arms[0];
+            getFrames(&frameA, &frameB, t, arm->animIndex, arm->animTime);
             animOverrides[ 8] = lerpFrames(frameA, frameB, t,  8);
             animOverrides[ 9] = lerpFrames(frameA, frameB, t,  9);
             animOverrides[10] = lerpFrames(frameA, frameB, t, 10);
-            animOverrideMask |=  BODY_ARM_R;
-        } else
-            animOverrideMask &= ~BODY_ARM_R;
-
-        // left arm
-        if (arms[1].anim != Weapon::Anim::NONE) {
-            getFrames(&frameA, &frameB, t, arms[1].animIndex, arms[1].animTime);        
+            // left arm
+            if (wpnCurrent != Weapon::SHOTGUN) arm = &arms[1];
+            getFrames(&frameA, &frameB, t, arm->animIndex, arm->animTime);
             animOverrides[11] = lerpFrames(frameA, frameB, t, 11);
             animOverrides[12] = lerpFrames(frameA, frameB, t, 12);
             animOverrides[13] = lerpFrames(frameA, frameB, t, 13);
-            animOverrideMask |=  BODY_ARM_L;
+
+            animOverrideMask |= BODY_ARM_R | BODY_ARM_L;
         } else
-            animOverrideMask &= ~BODY_ARM_L;
+            animOverrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
 
         lookAt(target);
-
-        if (wpnCurrent != Weapon::SHOTGUN)
+        
+        if (wpnCurrent == Weapon::SHOTGUN)
+            aimShotgun();
+        else
             aimPistols();
     }
 
@@ -714,6 +699,12 @@ struct Lara : Controller {
         animOverrides[14] = rotHead * animOverrides[14];
     }
 
+    void aimShotgun() {
+        quat rot;
+        if (!aim(target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arms[0].rotAbs))
+            arms[0].target = -1;
+    }
+
     void aimPistols() {
         float speed = 8.0f * Core::deltaTime;
 
@@ -721,48 +712,53 @@ struct Lara : Controller {
             int joint  = i ? 11 : 8;
             vec4 range = i ? vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.5f, PI * 0.2f) : vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.2f, PI * 0.5f);
 
-            Arm *arm = &arms[i];
+            Arm &arm = arms[i];
             quat rot;
-            if (!aim(target, joint, range, rot)) {                
-                arm->target = -1;
+            if (!aim(target, joint, range, rot, &arm.rotAbs)) {
+                arm.target = -1;
                 rot = quat(0, 0, 0, 1);
-            } else
-                arm->target = target;
+            }
 
             float t;
-            if (arm->anim == Weapon::Anim::FIRE)
+            if (arm.anim == Weapon::Anim::FIRE)
                 t = 1.0f;
-            else if (arm->anim == Weapon::Anim::AIM)
-                t = arm->animTime / arm->animMaxTime;
+            else if (arm.anim == Weapon::Anim::AIM)
+                t = arm.animTime / arm.animMaxTime;
             else
                 t = 0.0f;
 
-            arm->rot = arm->rot.slerp(rot, speed);
-            animOverrides[joint] = animOverrides[joint].slerp(arm->rot * animOverrides[joint], t);
+            arm.rot = arm.rot.slerp(rot, speed);
+            animOverrides[joint] = animOverrides[joint].slerp(arm.rot * animOverrides[joint], t);
         }
     }
 
-    bool aim(int target, int joint, const vec4 &angleRange, quat &rot) {
-        if (target == -1) return false;
+    bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
+        if (target > -1) {
+            TR::Entity &e = level->entities[target];
+            vec3 t(e.x, e.y, e.z);
 
-        TR::Entity &e = level->entities[target];
-        vec3 t(e.x, e.y, e.z);
+            mat4 m = getJoint(joint);
+            vec3 delta = (m.inverse() * t).normal();
 
-        mat4 m = getJoint(joint);
-        vec3 delta = (m.inverse() * t).normal();
+            float angleY = clampAngle(atan2(delta.x, delta.z));
+            float angleX = clampAngle(asinf(delta.y));
 
-        float angleY = clampAngle(atan2(delta.x, delta.z));
-        float angleX = clampAngle(asinf(delta.y));
+            if (angleX > angleRange.x && angleX <= angleRange.y &&
+                angleY > angleRange.z && angleY <= angleRange.w) {
 
-        if (angleX < angleRange.x || angleX > angleRange.y || 
-            angleY < angleRange.z || angleY > angleRange.w)
-            return false;
+                quat ax(vec3(1, 0, 0), -angleX);
+                quat ay(vec3(0, 1, 0), angleY);
 
-        quat ax(vec3(1, 0, 0), -angleX);
-        quat ay(vec3(0, 1, 0), angleY);
+                rot = ay * ax;
+                if (rotAbs)
+                    *rotAbs = m.getRot() * rot;
+                return true;
+            }
+        }
 
-        rot = ay * ax;
-        return true;
+        if (rotAbs)
+            *rotAbs = rotYXZ(angle);
+        return false;
     }
 
     void updateTargets() {
@@ -771,30 +767,58 @@ struct Lara : Controller {
             return;
         }
 
-        if (!(mask & ACTION) || target == -1) {
+        if (!(mask & ACTION)) {
             target = getTarget();
-            arms[0].target = target;
-            arms[1].target = target;
-        }
+            arms[0].target = arms[1].target = target;
+        } else
+            if (target > -1) {
+                TR::Entity &e = level->entities[target];
+                vec3 to   = vec3(e.x, e.y, e.z);
+                vec3 from = pos - vec3(0, 512, 0);
+                arms[0].target = arms[1].target = checkOcclusion(from, to, (to - from).length()) ? target : -1;
+            }
     }
 
     int getTarget() {
-        int dist = TARGET_MAX_DIST * 3.0f;
-            
+        vec3 dir = getDir().normal();
+        int dist = TARGET_MAX_DIST;// * TARGET_MAX_DIST;
+
         int index = -1;
-        TR::Entity &entity = getEntity();
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (!e.isEnemy()) continue;
+            if (!e.flags.rendered || !e.isEnemy()) continue;
 
-            int d = abs(e.x - entity.x) + abs(e.y - entity.y) + abs(e.z - entity.z);
-            if (d < dist) {
+            vec3 p = vec3(e.x, e.y, e.z);
+            vec3 v = p - pos;
+            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sigth -60..+60 degrees
+
+            int d = v.length();
+            if (d < dist && checkOcclusion(pos - vec3(0, 512, 0), p, d) ) {
                 index = i;
                 dist  = d;
             }
         }
 
         return index;
+    }
+
+    bool checkOcclusion(const vec3 &from, const vec3 &to, float dist) {
+        int room;
+        vec3 d = trace(getRoomIndex(), from, to, room, false); // check occlusion
+        return ((d - from).length() > (dist - 512.0f));
+    }
+
+    bool checkHit(int target, const vec3 &from, const vec3 &to, vec3 &point) {
+        TR::Entity &e = level->entities[target];
+        Box box = ((Controller*)e.controller)->getBoundingBox();
+        float t;
+        vec3 v = (to - from);
+        vec3 dir = v.normal();
+        if (box.intersect(from, dir, t) && v.length() > t) {
+            point = from + dir * t;
+            return true;
+        } else
+            return false;
     }
 
     bool waterOut(int &outState) {
@@ -965,14 +989,14 @@ struct Lara : Controller {
             activateNext();
     }
 
-    vec3 getViewOffset() {
-        vec3 offset = vec3(0.0f);
+    vec3 getViewPoint() {
+        vec3 offset = chestOffset;
         if (stand != STAND_UNDERWATER)
             offset.y -= 256.0f;
         if (wpnState != Weapon::IS_HIDDEN)
             offset.y -= 256.0f;
 
-        return chestOffset - pos + offset;
+        return offset;
     }
 
     virtual Stand getStand() {
@@ -1722,14 +1746,11 @@ struct Lara : Controller {
         float alpha = min(1.0f, (0.1f - time) * 20.0f);
         float lum   = 3.0f;
 
-        mat4 tmp = Core::mModel;
-        Core::mModel = matrix;
-        Core::mModel.rotateX(-PI * 0.5f);
-        Core::mModel.translate(offset);
+        mat4 m(matrix);
+        m.rotateX(-PI * 0.5f);
+        m.translate(offset);
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
-        renderMesh(mesh, level->models[47].mStart);
-        Core::active.shader->setParam(uColor, Core::color);
-        Core::mModel = tmp;
+        renderMesh(m, mesh, level->models[47].mStart);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
