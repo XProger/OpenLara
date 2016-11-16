@@ -31,7 +31,7 @@ struct Controller {
             DEATH       = 1 << 9 };
 
     float   animTime;
-    int     animIndex;
+    int     animIndex, animPrev;
     int     animPrevFrame;
 
     vec3    pos, velocity;
@@ -61,6 +61,7 @@ struct Controller {
         angle     = vec3(0.0f, e.rotation, 0.0f);
         stand     = STAND_GROUND;
         animIndex = e.modelIndex > 0 ? getModel().animation : 0;
+        animPrev  = animIndex;
         state     = level->anims[animIndex].state;
         TR::Model &model = getModel();
     }
@@ -90,6 +91,11 @@ struct Controller {
             if (((1 << i) & mask) && level->meshOffsets[index])
                 meshes[i] = index;
         }
+    }
+
+    int getFramesCount(int animIndex) {
+        TR::Animation &anim = level->anims[animIndex];
+        return (anim.frameEnd - anim.frameStart) / anim.frameRate + 1;
     }
 
     int getFrameIndex(int animIndex, float t) {
@@ -214,6 +220,7 @@ struct Controller {
     }
 
     int setAnimation(int index, int frame = 0) {
+        animPrev  = animIndex;
         animIndex = index;
         TR::Animation &anim = level->anims[animIndex];
         animTime  = (frame <= 0 ? -frame : (frame - anim.frameStart)) / 30.0f;
