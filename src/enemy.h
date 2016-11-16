@@ -4,11 +4,18 @@
 #include "controller.h"
 
 struct Enemy : Controller {
-    Enemy(TR::Level *level, int entity) : Controller(level, entity) {}
+    int health;
+
+    Enemy(TR::Level *level, int entity) : Controller(level, entity), health(100) {}
 
     virtual Stand getStand() {
         return STAND_GROUND;
     }
+
+    virtual void hit(int damage) {
+        health -= damage;
+    };
+
 };
 
 

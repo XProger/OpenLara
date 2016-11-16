@@ -106,6 +106,20 @@ struct Mesh {
             n.z = (int)o.z;\
         }\
 
+#define CHECK_ROOM_NORMAL(n) \
+            vec3 o(d.vertices[f.vertices[0]].vertex);\
+            vec3 a = o - d.vertices[f.vertices[1]].vertex;\
+            vec3 b = o - d.vertices[f.vertices[2]].vertex;\
+            o = b.cross(a).normal() * 16300.0f;\
+            n.x = (int)o.x;\
+            n.y = (int)o.y;\
+            n.z = (int)o.z;
+
+
+uint8 intensity(int lighting) {
+    float a = 1.0f - (lighting >> 5) / 255.0f;
+    return int(255 * a * a);
+}
 
 struct MeshBuilder {
 // rooms
@@ -252,13 +266,14 @@ struct MeshBuilder {
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
+                TR::Vertex n;
+                CHECK_ROOM_NORMAL(n);
+
                 for (int k = 0; k < 4; k++) {
                     TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];
-                    uint8 a = 255 - (v.lighting >> 5);
-
-                    vertices[vCount].coord      = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
-                    vertices[vCount].color      = { a, a, a, 255 };
-                    vertices[vCount].normal     = { 0, 0, 0, 1 };
+                    vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
+                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
+                    vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                     vCount++;
                 }
             }
@@ -269,13 +284,14 @@ struct MeshBuilder {
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
+                TR::Vertex n;
+                CHECK_ROOM_NORMAL(n);
+
                 for (int k = 0; k < 3; k++) {
                     auto &v = d.vertices[f.vertices[k]];
-                    uint8 a = 255 - (v.lighting >> 5);
-
-                    vertices[vCount].coord      = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
-                    vertices[vCount].color      = { a, a, a, 255 };
-                    vertices[vCount].normal     = { 0, 0, 0, 1 };
+                    vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
+                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
+                    vertices[vCount].normal = { n.x, n.y, n.z, 0 };
                     vCount++;
                 }
             }
@@ -288,8 +304,7 @@ struct MeshBuilder {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
                 TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
 
-                uint8 intensity = 255 - (v.lighting >> 5);
-                addSprite(indices, vertices, iCount, vCount, vStart, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity);
+                addSprite(indices, vertices, iCount, vCount, vStart, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity(v.lighting));
             }
         }
 
@@ -335,21 +350,26 @@ struct MeshBuilder {
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
+                short4 normal;
+                if (!normals) {
+                    TR::Vertex n = { 0, 0, 0 };
+                    CHECK_NORMAL(n);
+                    normal = { n.x, n.y, n.z, 0 };
+                }
+
                 for (int k = 0; k < 4; k++) {
-                    uint16     idx = f.vertices[k];
-                    TR::Vertex &v  = mVertices[idx];
+                    TR::Vertex &v  = mVertices[f.vertices[k]];
 
                     vertices[vCount].coord = { v.x, v.y, v.z, 0 };
 
                     if (normals) {
-                        TR::Vertex &n = normals[idx];
+                        TR::Vertex &n = normals[f.vertices[k]];
                         CHECK_NORMAL(n);
                         vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { 255, 255, 255, 255 };
+                        vertices[vCount].color  = { 255, 255, 255, 0 };
                     } else {
-                        uint8 a = 255 - (lights[idx] >> 5);
-                        vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 };
+                        vertices[vCount].normal = normal;
+                        vertices[vCount].color  = { 255, 255, 255, intensity(lights[f.vertices[k]]) };
                     }
                     vCount++;
                 }
@@ -363,19 +383,25 @@ struct MeshBuilder {
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
+                short4 normal;
+                if (!normals) {
+                    TR::Vertex n = { 0, 0, 0 };
+                    CHECK_NORMAL(n);
+                    normal = { n.x, n.y, n.z, 0 };
+                }
+
                 for (int k = 0; k < 3; k++) {
                     auto &v = mVertices[f.vertices[k]];
-                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
+                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
 
-                    if (nCount > 0) {
+                    if (normals) {
                         TR::Vertex &n = normals[f.vertices[k]];
                         CHECK_NORMAL(n);
                         vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { 255, 255, 255, 255 };
+                        vertices[vCount].color  = { 255, 255, 255, 0 };
                     } else {
-                        uint8 a = 255 - (lights[f.vertices[k]] >> 5);
-                        vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 };
+                        vertices[vCount].normal = normal;
+                        vertices[vCount].color  = { 255, 255, 255, intensity(lights[f.vertices[k]]) };
                     }
                     vCount++;
                 }
@@ -389,20 +415,26 @@ struct MeshBuilder {
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &whiteTileQuad);
 
+                short4 normal;
+                if (!normals) {
+                    TR::Vertex n = { 0, 0, 0 };
+                    CHECK_NORMAL(n);
+                    normal = { n.x, n.y, n.z, 0 };
+                }
+
                 for (int k = 0; k < 4; k++) {
                     auto &v = mVertices[f.vertices[k]];
 
-                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
+                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
 
-                    if (nCount > 0) {
+                    if (normals) {
                         TR::Vertex &n = normals[f.vertices[k]];
                         CHECK_NORMAL(n);
                         vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { c.r, c.g, c.b, 255 };
+                        vertices[vCount].color  = { c.r, c.g, c.b, 0 };
                     } else {
-                        uint8 a = 255 - (lights[f.vertices[k]] >> 5);
-                        vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 };
+                        vertices[vCount].normal = normal;
+                        vertices[vCount].color  = { c.r, c.g, c.b, intensity(lights[f.vertices[k]]) };
                     }
                     vCount++;
                 }
@@ -419,17 +451,23 @@ struct MeshBuilder {
                 for (int k = 0; k < 3; k++) {
                     auto &v = mVertices[f.vertices[k]];
 
-                    vertices[vCount].coord      = { v.x, v.y, v.z, 0 };
+                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
 
-                    if (nCount > 0) {
+                    short4 normal;
+                    if (!normals) {
+                        TR::Vertex n = { 0, 0, 0 };
+                        CHECK_NORMAL(n);
+                        normal = { n.x, n.y, n.z, 0 };
+                    }
+
+                    if (normals) {
                         TR::Vertex &n = normals[f.vertices[k]];
                         CHECK_NORMAL(n);
                         vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { c.r, c.g, c.b, 255 };
+                        vertices[vCount].color  = { c.r, c.g, c.b, 0 };
                     } else {
-                        uint8 a = 255 - (lights[f.vertices[k]] >> 5);
-                        vertices[vCount].normal = { 0, 0, 0, 1   };
-                        vertices[vCount].color  = { a, a, a, 255 };
+                        vertices[vCount].normal = normal;
+                        vertices[vCount].color  = { c.r, c.g, c.b, intensity(lights[f.vertices[k]]) };
                     }
                     vCount++;
                 }
@@ -450,8 +488,8 @@ struct MeshBuilder {
     // build shadow spot
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
-            v.normal    = { 0, 0, 0, 1 };
-            v.color     = { 255, 255, 255, 255 };
+            v.normal    = { 0, -1, 0, 0 };
+            v.color     = { 255, 255, 255, 0 };
             v.texCoord  = { 32688, 32688, 0, 0 };
 
             float a = i * (PI / 4.0f) + (PI / 8.0f);
@@ -618,7 +656,7 @@ struct MeshBuilder {
 
         quad[0].coord  = quad[1].coord  = quad[2].coord  = quad[3].coord  = { x, y, z, 0 };
         quad[0].normal = quad[1].normal = quad[2].normal = quad[3].normal = { 0, 0, 0, 0 };
-        quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { intensity, intensity, intensity, 255 };
+        quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { 255, 255, 255, intensity };
 
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;

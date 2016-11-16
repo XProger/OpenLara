@@ -26,12 +26,12 @@
     #endif
 #endif
 
-
+#define EPS     FLT_EPSILON
+#define INF		INFINITY
 #define PI      3.14159265358979323846f
 #define PI2     (PI * 2.0f)
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
-#define EPS     FLT_EPSILON
 #define randf() ((float)rand()/RAND_MAX)
 
 typedef char            int8;
@@ -141,6 +141,10 @@ struct vec3 {
         float s = sinf(angle), c = cosf(angle); 
         return vec3(x*c - z*s, y, x*s + z*c);
     }
+
+    float angle(const vec3 &v) {
+        return dot(v) / (length() * v.length());
+    }
 };
 
 struct vec4 {
@@ -154,11 +158,15 @@ struct vec4 {
     vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
     vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
 
+    vec4 operator * (const vec4 &v) const { return vec4(x*v.x, y*v.y, z*v.z, w*v.w); }
     vec4& operator *= (const vec4 &v) { x*=v.x; y*=v.y; z*=v.z; w*=v.w; return *this; }
 };
 
 struct quat {
-    float x, y, z, w;
+    union {
+        struct { float x, y, z, w; };
+        struct { vec3  xyz; };
+    };
 
     quat() {}
     quat(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
@@ -193,6 +201,11 @@ struct quat {
                     w * q.y + y * q.w + z * q.x - x * q.z,
                     w * q.z + z * q.w + x * q.y - y * q.x,
                     w * q.w - x * q.x - y * q.y - z * q.z);
+    }
+
+    vec3 operator * (const vec3 &v) const {
+    //	return v + xyz.cross(xyz.cross(v) + v * w) * 2.0f;
+	    return (*this * quat(v.x, v.y, v.z, 0) * inverse()).xyz;
     }
 
     float dot(const quat &q) const {
@@ -492,20 +505,17 @@ struct mat4 {
     }
 };
 
+quat rotYXZ(const vec3 &a) {
+    mat4 m;
+    m.identity();
+    m.rotateY(a.y);
+    m.rotateX(a.x);
+    m.rotateZ(a.z);
+    return m.getRot();
+}
+
 quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
-    mat4 ma, mb;
-    ma.identity();
-    mb.identity();
-
-    ma.rotateY(a.y);
-    ma.rotateX(a.x);
-    ma.rotateZ(a.z);
-
-    mb.rotateY(b.y);
-    mb.rotateX(b.x);
-    mb.rotateZ(b.z);
-
-    return ma.getRot().slerp(mb.getRot(), t).normal();
+    return rotYXZ(a).slerp(rotYXZ(b), t).normal();
 }
 
 vec3 boxNormal(int x, int z) {
@@ -536,6 +546,22 @@ struct Box {
 
     bool intersect(const Box &box) const {
         return !((max.x < box.min.x || min.x > box.max.x) || (max.y < box.min.y || min.y > box.max.y) || (max.z < box.min.z || min.z > box.max.z));
+    }
+
+    bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
+	    float t1 = INF, t0 = -t1;
+
+	    for (int i = 0; i < 3; i++) 
+		    if (rayDir[i] != 0) {
+			    float lo = (min[i] - rayPos[i]) / rayDir[i];
+			    float hi = (max[i] - rayPos[i]) / rayDir[i];
+			    t0 = ::max(t0, ::min(lo, hi));
+			    t1 = ::min(t1, ::max(lo, hi));
+		    } else
+			    if (rayPos[i] < min[i] || rayPos[i] > max[i])
+				    return false;
+	    t = t0;
+	    return (t0 <= t1) && (t1 > 0);
     }
 };
 

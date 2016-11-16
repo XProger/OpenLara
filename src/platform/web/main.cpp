@@ -96,10 +96,7 @@ void main_loop() {
         delta -= Core::deltaTime;
     }
     lastTime = time;
-
-    int f;
-    emscripten_get_canvas_size(&Core::width, &Core::height, &f);
-
+    
     Core::stats.dips = 0;
     Core::stats.tris = 0;
     Game::render();
@@ -146,6 +143,39 @@ void freeGL() {
     eglTerminate(display);
 }
 
+EM_BOOL resize() {
+    int f;
+    emscripten_get_canvas_size(&Core::width, &Core::height, &f);
+    LOG("resize %d x %d\n", Core::width, Core::height);
+    return 1;
+}
+
+EM_BOOL resizeCallback(int eventType, const EmscriptenUiEvent *e, void *userData) {
+    return resize();
+}
+
+EM_BOOL fullscreenCallback(int eventType, const void *reserved, void *userData) {
+    return resize();
+}
+
+bool isFullScreen() {
+	EmscriptenFullscreenChangeEvent status;
+	emscripten_get_fullscreen_status(&status);
+	return status.isFullscreen;
+}
+
+void changeWindowMode() {
+    if (!isFullScreen()) {
+        EmscriptenFullscreenStrategy s;
+        s.scaleMode                 = EMSCRIPTEN_FULLSCREEN_SCALE_STRETCH;
+        s.canvasResolutionScaleMode = EMSCRIPTEN_FULLSCREEN_CANVAS_SCALE_HIDEF;
+        s.filteringMode             = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
+        s.canvasResizedCallback     = fullscreenCallback;
+        emscripten_request_fullscreen_strategy(NULL, 1, &s);
+    } else
+        emscripten_exit_fullscreen();
+}
+
 InputKey keyToInputKey(int code) {
     static const int codes[] = {
         0x25, 0x27, 0x26, 0x28, 0x20, 0x0D, 0x1B, 0x10, 0x11, 0x12,
@@ -164,18 +194,13 @@ EM_BOOL keyCallback(int eventType, const EmscriptenKeyboardEvent *e, void *userD
     switch(eventType) {
         case EMSCRIPTEN_EVENT_KEYDOWN:
         case EMSCRIPTEN_EVENT_KEYUP:
+            if (eventType == EMSCRIPTEN_EVENT_KEYDOWN && e->altKey && e->keyCode == 0x0D) {  // Alt + Enter
+                changeWindowMode();
+                break;
+            }
             Input::setDown(keyToInputKey(e->keyCode), eventType == EMSCRIPTEN_EVENT_KEYDOWN);
             break;
     }
-    return 1;
-}
-
-EM_BOOL resizeCallback(int eventType, const EmscriptenUiEvent *e, void *userData) {
-//    Core::width = e->documentBodyClientWidth;
-//    Core::height = e->documentBodyClientHeight;
-    int f;
-    emscripten_get_canvas_size(&Core::width, &Core::height, &f);
-    LOG("resize %d x %d\n", Core::width, Core::height);
     return 1;
 }
 
@@ -237,8 +262,8 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 }
 
 int main() {
-    initGL();
-
+    initGL();    
+    
     emscripten_set_canvas_size(Core::width = 854, Core::height = 480);
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);
@@ -253,7 +278,7 @@ int main() {
     emscripten_set_mousedown_callback(0, 0, 1, mouseCallback);
     emscripten_set_mouseup_callback(0, 0, 1, mouseCallback);
     emscripten_set_mousemove_callback(0, 0, 1, mouseCallback);
-
+    
     Game::init();
 
     emscripten_run_script("snd_init()");

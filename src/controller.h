@@ -39,10 +39,6 @@ struct Controller {
 
     float   angleExt;
 
-    int     health; 
-
-    float   turnTime;
-
     int     *meshes;
     int     mCount;
     quat    *animOverrides;   // left & right arms animation frames
@@ -59,7 +55,7 @@ struct Controller {
         ActionCommand(TR::Action action, int value, float timer, ActionCommand *next = NULL) : action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), health(100), turnTime(0.0f), actionCommand(NULL), mCount(0), meshes(NULL), animOverrides(NULL), animOverrideMask(0), joints(NULL) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), velocity(0.0f), animTime(0.0f), animPrevFrame(0), actionCommand(NULL), mCount(0), meshes(NULL), animOverrides(NULL), animOverrideMask(0), joints(NULL) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation, 0.0f);
@@ -94,6 +90,89 @@ struct Controller {
             if (((1 << i) & mask) && level->meshOffsets[index])
                 meshes[i] = index;
         }
+    }
+
+    int getFrameIndex(int animIndex, float t) {
+        TR::Animation &anim = level->anims[animIndex];
+        return int(t * 30.0f / anim.frameRate) % ((anim.frameEnd - anim.frameStart) / anim.frameRate + 1);
+    }
+
+    void getFrames(TR::AnimFrame **frameA, TR::AnimFrame **frameB, float &t, int animIndex, float animTime, bool nextAnim = false, vec3 *move = NULL) {
+        TR::Animation *anim = &level->anims[animIndex];
+
+        t = animTime * 30.0f / anim->frameRate;
+        int fIndex = (int)t;
+        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
+
+        int fSize = sizeof(TR::AnimFrame) + getModel().mCount * sizeof(uint16) * 2;
+        t -= fIndex;
+
+        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
+        *frameA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
+
+        if (!fIndexB) {
+            if (move)
+                *move = getAnimMove();
+            if (nextAnim) {
+                int nextFrame = anim->nextFrame;
+                anim = &level->anims[anim->nextAnimation];
+                fIndexB = (nextFrame - anim->frameStart) / anim->frameRate;
+            }
+        }
+        *frameB = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexB * fSize) >> 1];
+    }
+
+    mat4 getJoint(int index, bool postRot = false) {
+        mat4 matrix;
+        matrix.identity();
+
+        matrix.translate(pos);
+        if (angle.y != 0.0f) matrix.rotateY(angle.y);
+        if (angle.x != 0.0f) matrix.rotateX(angle.x);
+        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+
+        TR::Animation *anim = &level->anims[animIndex];
+        TR::Model    &model = getModel();
+
+        float t;
+        vec3 move(0.0f);
+        TR::AnimFrame *frameA, *frameB;
+        getFrames(&frameA, &frameB, t, animIndex, animTime, true, &move);
+
+        TR::Node *node = (int)model.node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model.node] : NULL;
+
+        matrix.translate(((vec3)frameA->pos).lerp(move + frameB->pos, t));
+
+        int sIndex = 0;
+        mat4 stack[20];
+
+        for (int i = 0; i < model.mCount; i++) {
+
+            if (i > 0 && node) {
+                TR::Node &t = node[i - 1];
+
+                if (t.flags & 0x01) matrix = stack[--sIndex];
+                if (t.flags & 0x02) stack[sIndex++] = matrix;
+
+                ASSERT(sIndex >= 0 && sIndex < 20);
+
+                matrix.translate(vec3(t.x, t.y, t.z));
+            }
+
+            if (i == index && !postRot)
+                return matrix;
+
+            quat q;
+            if (animOverrideMask & (1 << i))
+                q = animOverrides[i];
+            else
+                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), t);
+            matrix = matrix * mat4(q, vec3(0.0f));
+
+            if (i == index && postRot)
+                return matrix;
+        }
+        return matrix;
     }
 
     void updateEntity() {
@@ -265,20 +344,11 @@ struct Controller {
     }
 
     virtual Box getBoundingBox() {
-        TR::Animation *anim  = &level->anims[animIndex];
-        TR::Model     &model = getModel();
+        float t;
+        TR::AnimFrame *frameA, *frameB;
+        getFrames(&frameA, &frameB, t, animIndex, animTime, true);
 
-        float k = animTime * 30.0f / anim->frameRate;
-        int fIndex = (int)k;
-        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
-
-        int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
-        k = k - fIndex;
-
-        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
-        TR::AnimFrame *fA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
-        TR::AnimFrame *fB = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexB * fSize) >> 1];
-        Box box(fA->box.min().lerp(fB->box.min(), k), fA->box.max().lerp(fB->box.max(), k));
+        Box box(frameA->box.min().lerp(frameB->box.min(), t), frameA->box.max().lerp(frameB->box.max(), t));
         box.rotate90(getEntity().rotation.value / 0x4000);
         box.min += pos;
         box.max += pos;
@@ -454,6 +524,7 @@ struct Controller {
     virtual int   getStateDeath()       { return state; }
     virtual int   getStateDefault()     { return state; }
     virtual int   getInputMask()        { return 0; }
+    virtual void  hit(int damage)       { };
 
     virtual int getState(Stand stand) {
         TR::Animation *anim  = &level->anims[animIndex];
@@ -599,12 +670,12 @@ struct Controller {
         updateEnd();
     }
     
-    void renderMesh(MeshBuilder *mesh, uint32 offsetIndex) {
-        MeshBuilder::MeshInfo *m = mesh->meshMap[offsetIndex];
-        if (!m) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
-
-        Core::active.shader->setParam(uModel, Core::mModel);
-        mesh->renderMesh(m);
+    void renderMesh(const mat4 &matrix, MeshBuilder *mesh, uint32 offsetIndex) {
+        MeshBuilder::MeshInfo *mInfo = mesh->meshMap[offsetIndex];
+        if (!mInfo) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
+        
+        Core::active.shader->setParam(uModel, matrix);
+        mesh->renderMesh(mInfo);
     }
 
     void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
@@ -617,60 +688,36 @@ struct Controller {
 
         Core::active.shader->setParam(uModel, m);
         Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        Core::active.shader->setParam(uAmbient, vec3(0.0f));
         mesh->renderShadowSpot();
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
-        PROFILE_MARKER("MDL");
         TR::Entity &entity = getEntity();
         TR::Model  &model  = getModel();
 
-        TR::Animation *anim;
-        float fTime;
-        vec3 angle;
+        TR::Animation *anim  = &level->anims[animIndex];
 
-        Controller *controller = (Controller*)entity.controller;
+        mat4 matrix(Core::mModel);
+        matrix.translate(pos);
+        if (angle.y != 0.0f) matrix.rotateY(angle.y);
+        if (angle.x != 0.0f) matrix.rotateX(angle.x);
+        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
 
-        anim  = &level->anims[controller->animIndex];
-        angle = controller->angle;
-        fTime = controller->animTime;
-
-        if (angle.y != 0.0f) Core::mModel.rotateY(angle.y);
-        if (angle.x != 0.0f) Core::mModel.rotateX(angle.x);
-        if (angle.z != 0.0f) Core::mModel.rotateZ(angle.z);
-
-        float k = fTime * 30.0f / anim->frameRate;
-        int fIndex = (int)k;
-        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
-
-        int fSize = sizeof(TR::AnimFrame) + model.mCount * sizeof(uint16) * 2;
-        k = k - fIndex;
-
-        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
-        TR::AnimFrame *frameA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1];
-
-        TR::Animation *nextAnim = NULL;
-
+        float t;
         vec3 move(0.0f);
-        if (fIndexB == 0) {
-            move     = getAnimMove();
-            nextAnim = &level->anims[anim->nextAnimation];
-            fIndexB  = (anim->nextFrame - nextAnim->frameStart) / nextAnim->frameRate;
-        } else
-            nextAnim = anim;
-        
-        TR::AnimFrame *frameB = (TR::AnimFrame*)&level->frameData[(nextAnim->frameOffset + fIndexB * fSize) >> 1];
+        TR::AnimFrame *frameA, *frameB;
+        getFrames(&frameA, &frameB, t, animIndex, animTime, true, &move);
 
-        vec3 bmin = frameA->box.min().lerp(frameB->box.min(), k);
-        vec3 bmax = frameA->box.max().lerp(frameB->box.max(), k);
-        if (frustum && !frustum->isVisible(Core::mModel, bmin, bmax))
+        vec3 bmin = frameA->box.min().lerp(frameB->box.min(), t);
+        vec3 bmax = frameA->box.max().lerp(frameB->box.max(), t);
+        if (frustum && !frustum->isVisible(matrix, bmin, bmax))
             return;
+        entity.flags.rendered = true;
 
         TR::Node *node = (int)model.node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model.node] : NULL;
 
-        mat4 m;
-        m.identity();
-        m.translate(((vec3)frameA->pos).lerp(move + frameB->pos, k));
+        matrix.translate(((vec3)frameA->pos).lerp(move + frameB->pos, t));
 
         int sIndex = 0;
         mat4 stack[20];
@@ -680,32 +727,28 @@ struct Controller {
             if (i > 0 && node) {
                 TR::Node &t = node[i - 1];
 
-                if (t.flags & 0x01) m = stack[--sIndex];
-                if (t.flags & 0x02) stack[sIndex++] = m;
+                if (t.flags & 0x01) matrix = stack[--sIndex];
+                if (t.flags & 0x02) stack[sIndex++] = matrix;
 
                 ASSERT(sIndex >= 0 && sIndex < 20);
 
-                m.translate(vec3(t.x, t.y, t.z));
+                matrix.translate(vec3(t.x, t.y, t.z));
             }
 
             quat q;
             if (animOverrideMask & (1 << i))
                 q = animOverrides[i];
             else
-                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), k);
-            m = m * mat4(q, vec3(0.0f));
-
-            mat4 tmp = Core::mModel;
-            Core::mModel = Core::mModel * m;
+                q = lerpAngle(frameA->getAngle(i), frameB->getAngle(i), t);
+            matrix = matrix * mat4(q, vec3(0.0f));
+            
             if (meshes)
-                renderMesh(mesh, meshes[i]);
+                renderMesh(matrix, mesh, meshes[i]);
             else
-                renderMesh(mesh, model.mStart + i);
+                renderMesh(matrix, mesh, model.mStart + i);
 
             if (joints)
-                joints[i] = Core::mModel;
-
-            Core::mModel = tmp;
+                joints[i] = matrix;
         }
 
         if (TR::castShadow(entity.type)) {
@@ -765,8 +808,9 @@ struct SpriteController : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
-        PROFILE_MARKER("SPR");
-        Core::active.shader->setParam(uModel, Core::mModel);
+        mat4 m(Core::mModel);
+        m.translate(pos);
+        Core::active.shader->setParam(uModel, m);
         mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
     }
 };

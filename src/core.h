@@ -83,6 +83,8 @@
     #endif
 #endif
 
+#define MAX_LIGHTS 3
+
 struct Shader;
 struct Texture;
 
@@ -113,8 +115,8 @@ namespace Core {
     float deltaTime;
     mat4 mView, mProj, mViewProj, mViewInv, mModel;
     vec3 viewPos;
-    vec3 lightPos;
-    vec4 lightColor;
+    vec3 lightPos[MAX_LIGHTS];
+    vec4 lightColor[MAX_LIGHTS];
     vec3 ambient;
     vec4 color;
 
@@ -185,6 +187,9 @@ namespace Core {
         support.VAO = (void*)glBindVertexArray != NULL;
 
         Sound::init();
+
+        for (int i = 0; i < MAX_LIGHTS; i++)
+            lightColor[i] = vec4(0, 0, 0, 1);
     }
 
     void free() {

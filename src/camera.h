@@ -19,10 +19,9 @@ struct Camera : Controller {
 
     float   timer;
     int     actTargetEntity, actCamera;
-    vec3    viewOffset;
 
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
-        fov         = 75.0f;
+        fov         = 80.0f;
         znear       = 128;
         zfar        = 100.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
@@ -30,8 +29,8 @@ struct Camera : Controller {
         if (owner) {
             room = owner->getEntity().room;
             pos = pos - owner->getDir() * 1024.0f;
+            target = owner->getViewPoint();
         }
-        viewOffset = owner->getViewOffset();
     }
 
     virtual ~Camera() {
@@ -57,6 +56,8 @@ struct Camera : Controller {
     }
 
     virtual void update() {
+        actTargetEntity = owner->target;
+
         if (timer > 0.0f) {
             timer -= Core::deltaTime;
             if (timer <= 0.0f) {
@@ -90,11 +91,9 @@ struct Camera : Controller {
         angle.z = 0.0f;        
         //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
-        float lerpFactor = (actTargetEntity == -1) ? 4.0f : 10.0f;
-        viewOffset = viewOffset.lerp(owner->getViewOffset(), Core::deltaTime * lerpFactor);
-
+        float lerpFactor = (actTargetEntity == -1) ? 6.0f : 10.0f;
         vec3 dir;
-        target = vec3(owner->pos.x, owner->pos.y, owner->pos.z) + viewOffset;
+        target = target.lerp(owner->getViewPoint(), lerpFactor * Core::deltaTime);
 
         if (actCamera > -1) {
             TR::Camera &c = level->cameras[actCamera];
