@@ -688,6 +688,7 @@ struct Controller {
 
         Core::active.shader->setParam(uModel, m);
         Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        Core::active.shader->setParam(uAmbient, vec3(0.0f));
         mesh->renderShadowSpot();
     }
 

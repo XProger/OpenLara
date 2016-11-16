@@ -26,6 +26,7 @@
 
 #define DESCENT_SPEED       2048.0f
 #define MUZZLE_FLASH_TIME   0.1f
+#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 2048 * 2048)
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
 struct Lara : Controller {
@@ -490,12 +491,15 @@ struct Lara : Controller {
 
         for (int i = 0; i < count; i++) {
             Arm *arm;
+            int armIndex;
             if (wpnCurrent == Weapon::SHOTGUN) {
                 if (!rightHand) continue;
                 arm = &arms[0];
+                armIndex = 0;
             } else {
                 if (!(i ? leftHand : rightHand)) continue;
                 arm = &arms[i];
+                armIndex = i;
             }
             
             arm->shotTimer = 0.0f;
@@ -523,6 +527,9 @@ struct Lara : Controller {
                     nearDist = dist;
                 }
             }
+
+            Core::lightPos[1 + armIndex]   = getJoint(armIndex == 0 ? 10 : 13, false).getPos();
+            Core::lightColor[1 + armIndex] = FLASH_LIGHT_COLOR;
         }
 
         if (hasShot) {
@@ -571,6 +578,9 @@ struct Lara : Controller {
             for (int i = 0; i < 2; i++){
                 arms[i].animTime  += Core::deltaTime * arms[i].animDir;
                 arms[i].shotTimer += Core::deltaTime;
+
+                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, 0.0f, 1.0f);
+                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, sqrtf(intensity));
             }
  
             if (isRifle)

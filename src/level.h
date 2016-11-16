@@ -172,11 +172,11 @@ struct Level {
 
     void initShaders() {
         char def[255], ext[255];
-        sprintf(def, "#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n", mesh->animTexRangesCount, mesh->animTexOffsetsCount);
+        sprintf(def, "#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n", MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount);
         shaders[shStatic]   = new Shader(SHADER, def);
-        sprintf(ext, "%s#define CAUSTICS\n", def);
+        sprintf(ext, "#define MAX_LIGHTS %d\n%s#define CAUSTICS\n", MAX_LIGHTS, def);
         shaders[shCaustics] = new Shader(SHADER, ext);
-        sprintf(ext, "%s#define SPRITE\n", def);
+        sprintf(ext, "#define MAX_LIGHTS %d\n%s#define SPRITE\n", MAX_LIGHTS, def);
         shaders[shSprite]   = new Shader(SHADER, ext);
     }
 
@@ -238,11 +238,12 @@ struct Level {
 
         sh->bind();
         sh->setParam(uColor, Core::color);
+        sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+        sh->setParam(uLightPos, Core::lightPos[0], MAX_LIGHTS);
+        sh->setParam(uAmbient, vec3(0.0f));//Core::ambient);
 
     // room static meshes
         {
-            PROFILE_MARKER("R_MESH");
-
             for (int i = 0; i < room.meshesCount; i++) {
                 TR::Room::Mesh &rMesh = room.meshes[i];
                 if (rMesh.flags.rendered) continue;    // skip if already rendered
@@ -261,11 +262,17 @@ struct Level {
             // set light parameters
                 getLight(offset, roomIndex);
 
+                if (rMesh.intensity >= 0) {
+                    Core::ambient = vec3(intensity(rMesh.intensity) / 255.0f);
+                    Core::ambient       = vec3(0.0);
+                    sh->setParam(uAmbient, Core::ambient);
+                }
+
             // render static mesh
                 mat4 mTemp = Core::mModel;
                 Core::mModel.translate(offset);
                 Core::mModel.rotateY(rMesh.rotation);
-                Core::active.shader->setParam(uModel, Core::mModel);
+                sh->setParam(uModel, Core::mModel);
                 mesh->renderMesh(mesh->meshMap[sMesh->mesh]);
                 Core::mModel = mTemp;
             }
@@ -275,30 +282,30 @@ struct Level {
         if (!room.flags.rendered) {    // skip if already rendered
 
             mat4 mTemp = Core::mModel;
-            {
-                PROFILE_MARKER("R_GEOM");
+            room.flags.rendered = true;
 
-                room.flags.rendered = true;
+            Core::lightColor[0] = vec4(0, 0, 0, 1);
+            Core::ambient       = vec3(0.0);
 
-                Core::lightColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-                Core::ambient    = vec3(1.0f);
-                sh->setParam(uLightColor, Core::lightColor);
-                sh->setParam(uAmbient, Core::ambient);
+            sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+            sh->setParam(uLightPos, Core::lightPos[0], MAX_LIGHTS);
+            sh->setParam(uAmbient, Core::ambient);
 
-                Core::mModel.translate(offset);
+            Core::mModel.translate(offset);
 
-            // render room geometry
-                sh->setParam(uModel, Core::mModel);
-                mesh->renderRoomGeometry(roomIndex);
-            }
+        // render room geometry
+            sh->setParam(uModel, Core::mModel);
+            mesh->renderRoomGeometry(roomIndex);
 
         // render room sprites
             if (mesh->hasRoomSprites(roomIndex)) {
-                PROFILE_MARKER("R_SPR");
                 sh = shaders[shSprite];
                 sh->bind();
                 sh->setParam(uModel, Core::mModel);
                 sh->setParam(uColor, Core::color);
+                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                sh->setParam(uLightPos, Core::lightPos[0], MAX_LIGHTS);
+                sh->setParam(uAmbient, vec3(0.0f));//Core::ambient);
                 mesh->renderRoomSprites(roomIndex);
             }
 
@@ -353,17 +360,17 @@ struct Level {
         if (idx > -1) {
             TR::Room::Light &light = level.rooms[room].lights[idx];
             float c = level.rooms[room].lights[idx].intensity / 8191.0f;
-            Core::lightPos   = vec3(light.x, light.y, light.z);
-            Core::lightColor = vec4(c, c, c, (float)light.attenuation * (float)light.attenuation);
+            Core::lightPos[0]   = vec3(light.x, light.y, light.z);
+            Core::lightColor[0] = vec4(c, c, c, (float)light.attenuation * (float)light.attenuation);
         } else {
-            Core::lightPos   = vec3(0);
-            Core::lightColor = vec4(0, 0, 0, 1);
+            Core::lightPos[0]   = vec3(0);
+            Core::lightColor[0] = vec4(0, 0, 0, 1);
         }
 
         Core::ambient = vec3(1.0f - level.rooms[roomIndex].ambient / 8191.0f);
         Core::active.shader->setParam(uAmbient, Core::ambient);
-        Core::active.shader->setParam(uLightPos, Core::lightPos);
-        Core::active.shader->setParam(uLightColor, Core::lightColor);
+        Core::active.shader->setParam(uLightPos, Core::lightPos[0], MAX_LIGHTS);
+        Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
     }
 
     void renderEntity(const TR::Entity &entity) {
