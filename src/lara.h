@@ -6,13 +6,12 @@
 #include "controller.h"
 #include "trigger.h"
 
-#define FAST_TURN_TIME      1.0f
-
 #define TURN_FAST           PI
 #define TURN_FAST_BACK      PI * 3.0f / 4.0f
 #define TURN_NORMAL         PI / 2.0f
 #define TURN_SLOW           PI / 3.0f
-#define TURN_TILT           PI / 18.0f
+#define TILT_MAX            (PI / 18.0f)
+#define TILT_SPEED          TILT_MAX
 #define TURN_WATER_FAST     PI * 3.0f / 4.0f
 #define TURN_WATER_SLOW     PI * 2.0f / 3.0f
 #define GLIDE_SPEED         50.0f
@@ -195,11 +194,9 @@ struct Lara : Controller {
     int  target;
     quat rotHead, rotChest;
 
-    int     health; 
-    float   turnTime;
-
-    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1), health(100), turnTime(0.0f) {
+    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1) {
         initMeshOverrides();
+        initAnimOverrides();
         for (int i = 0; i < 2; i++) {
             arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
             arms[i].animTime  = 0.0f;
@@ -296,7 +293,7 @@ struct Lara : Controller {
     int wpnGetDamage() {
         switch (wpnCurrent) {
             case Weapon::PISTOLS : return 10;
-            case Weapon::SHOTGUN : return 5;
+            case Weapon::SHOTGUN : return 15;
             case Weapon::MAGNUMS : return 20;
             case Weapon::UZIS    : return 5;
             default : return 0;
@@ -742,35 +739,6 @@ struct Lara : Controller {
         }
     }
 
-    bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
-        if (target > -1) {
-            TR::Entity &e = level->entities[target];
-            vec3 t(e.x, e.y, e.z);
-
-            mat4 m = getJoint(joint);
-            vec3 delta = (m.inverse() * t).normal();
-
-            float angleY = clampAngle(atan2(delta.x, delta.z));
-            float angleX = clampAngle(asinf(delta.y));
-
-            if (angleX > angleRange.x && angleX <= angleRange.y &&
-                angleY > angleRange.z && angleY <= angleRange.w) {
-
-                quat ax(vec3(1, 0, 0), -angleX);
-                quat ay(vec3(0, 1, 0), angleY);
-
-                rot = ay * ax;
-                if (rotAbs)
-                    *rotAbs = m.getRot() * rot;
-                return true;
-            }
-        }
-
-        if (rotAbs)
-            *rotAbs = rotYXZ(angle);
-        return false;
-    }
-
     void updateTargets() {
         if (emptyHands() || !wpnReady()) {
             target = arms[0].target = arms[1].target = -1;
@@ -796,11 +764,13 @@ struct Lara : Controller {
         int index = -1;
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (!e.flags.rendered || !e.isEnemy()) continue;
+            if (!e.flags.active || !e.isEnemy()) continue;
+            Controller *controller = (Controller*)e.controller;
+            if (controller->health <= 0) continue;
 
-            vec3 p = vec3(e.x, e.y, e.z);
+            vec3 p = controller->pos;
             vec3 v = p - pos;
-            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sigth -60..+60 degrees
+            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sight -60..+60 degrees
 
             int d = v.length();
             if (d < dist && checkOcclusion(pos - vec3(0, 512, 0), p, d) ) {
@@ -1176,18 +1146,6 @@ struct Lara : Controller {
             }
         }
 
-    /*
-    // hit test
-        if (animIndex != ANIM_HIT_FRONT)
-            for (int i = 0; i < level->entitiesCount; i++) {
-                TR::Entity &e = level->entities[i];
-                if (e.id != ENTITY_ENEMY_WOLF) continue;
-                vec3 v = vec3(e.x, e.y, e.z) - pos;
-                if (v.length2() < 128 * 128) {
-                    return setAnimation(ANIM_HIT_FRONT);
-                }
-            }
-    */
         if ( (mask & (FORTH | BACK)) == (FORTH | BACK) && (state == STATE_STOP || state == STATE_RUN) )
             return setAnimation(ANIM_STAND_ROLL_BEGIN);
 
@@ -1239,8 +1197,14 @@ struct Lara : Controller {
         // only dpad buttons pressed
         if (mask & FORTH) return STATE_RUN;
         if (mask & BACK)  return STATE_FAST_BACK;
-        if (mask & LEFT)  return turnTime < FAST_TURN_TIME ? STATE_TURN_LEFT  : STATE_FAST_TURN;
-        if (mask & RIGHT) return turnTime < FAST_TURN_TIME ? STATE_TURN_RIGHT : STATE_FAST_TURN;
+        if (mask & (LEFT | RIGHT)) {
+            if (state == STATE_FAST_TURN)
+                return state;
+
+            if (mask & LEFT)  return (state == STATE_TURN_LEFT  && animPrev == animIndex) ? STATE_FAST_TURN : STATE_TURN_LEFT;
+            if (mask & RIGHT) return (state == STATE_TURN_RIGHT && animPrev == animIndex) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
+        }
+
         return STATE_STOP;
     }
 
@@ -1411,44 +1375,49 @@ struct Lara : Controller {
             lState = false;
 #endif
     // calculate turn tilt
-        if (state == STATE_RUN && (mask & (LEFT | RIGHT))) {
-            if (mask & LEFT)  angle.z -= Core::deltaTime * TURN_TILT;
-            if (mask & RIGHT) angle.z += Core::deltaTime * TURN_TILT;
-            angle.z = clamp(angle.z, -TURN_TILT, TURN_TILT);
+        if (state == STATE_RUN && (mask & (LEFT | RIGHT)) && (tilt == 0.0f || (tilt < 0.0f && (mask & LEFT)) || (tilt > 0.0f && (mask & RIGHT)))) {
+            if (mask & LEFT)  tilt -= TILT_SPEED * Core::deltaTime;
+            if (mask & RIGHT) tilt += TILT_SPEED * Core::deltaTime;
         } else
-            angle.z -= angle.z * min(Core::deltaTime * 8.0f, 1.0f);
+            if (fabsf(tilt) > 0.01f)
+                tilt -= sign(tilt) * TILT_SPEED * 4.0f * Core::deltaTime;
+            else
+                tilt = 0.0f;
+        tilt = clamp(tilt, -TILT_MAX, TILT_MAX);
+        
+        angle.z = tilt;
 
-        if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_FAST_TURN)
-            turnTime += Core::deltaTime;
-        else
-            turnTime = 0.0f;
-
+            
     // get turning angle
-        float w = 0.0f;
-       
+        float w = (mask & LEFT) ? -1.0f : ((mask & RIGHT) ? 1.0f : 0.0f);
+
         if (state == STATE_SWIM || state == STATE_GLIDE)
-            w = TURN_WATER_FAST;
+            w *= TURN_WATER_FAST;
         else if (state == STATE_TREAD || state == STATE_SURF_TREAD || state == STATE_SURF_SWIM || state == STATE_SURF_BACK)
-            w = TURN_WATER_SLOW;
-        else if (state == STATE_RUN || state == STATE_FAST_TURN)
-            w = TURN_FAST; // TODO: modulate angular speed by turnTime factor
+            w *= TURN_WATER_SLOW;
+        else if (state == STATE_RUN)
+            w  *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / TILT_MAX;
+        else if (state == STATE_FAST_TURN)
+            w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
-            w = TURN_FAST_BACK;
+            w *= TURN_FAST_BACK;
         else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK)
-            w = TURN_NORMAL;   
+            w *= TURN_NORMAL;   
         else if (state == STATE_FORWARD_JUMP || state == STATE_BACK)
-            w = TURN_SLOW;
+            w *= TURN_SLOW;
+        else 
+            w = 0.0f;
 
         if (w != 0.0f) {
             w *= Core::deltaTime;
-        // yaw
-            if (mask & LEFT)  { angle.y -= w; velocity = velocity.rotateY(+w); }
-            if (mask & RIGHT) { angle.y += w; velocity = velocity.rotateY(-w); }
-        // pitch (underwater only)
-            if (stand == STAND_UNDERWATER && (mask & (FORTH | BACK)) ) {
-                angle.x += ((mask & FORTH) ? -w : w) * 0.5f;
-                angle.x = clamp(angle.x, -PI * 0.5f, PI * 0.5f);
-            }
+            angle.y += w; 
+            velocity = velocity.rotateY(-w);
+        }
+
+    // pitch (underwater only)
+        if (stand == STAND_UNDERWATER && (mask & (FORTH | BACK)) ) {
+            angle.x += ((mask & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * 0.5f * Core::deltaTime;
+            angle.x = clamp(angle.x, -PI * 0.5f, PI * 0.5f);
         }
 
     // get animation direction
@@ -1492,22 +1461,12 @@ struct Lara : Controller {
         updateWeapon();
     }
 
-    quat lerpFrames(TR::AnimFrame *frameA, TR::AnimFrame *frameB,  float t, int index) {
-        return lerpAngle(frameA->getAngle(index), frameB->getAngle(index), t);
-    }
-
     virtual void updateVelocity() {
-    // calculate moving speed
-        float dt = Core::deltaTime * 30.0f;
-        
         TR::Animation *anim = &level->anims[animIndex];
-
-        //if (anim->speed != 0.0f || anim->accel != 0.0f)
-        //    LOG("speed: %f accel: %f\n", (float)anim->speed, (float)anim->accel);
 
         switch (stand) {
             case STAND_AIR :
-                velocity.y += GRAVITY * dt;
+                velocity.y += GRAVITY * 30.0f * Core::deltaTime;
                 break;
             case STAND_GROUND  :
             case STAND_SLIDE   :
