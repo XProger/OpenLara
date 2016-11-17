@@ -41,9 +41,13 @@ struct Controller {
 
     int     *meshes;
     int     mCount;
+
+    // TODO: Character class
     quat    *animOverrides;   // left & right arms animation frames
     int     animOverrideMask;
     mat4    *joints;
+    int     health; 
+    float   tilt;
 
     struct ActionCommand {
         TR::Action      action;
@@ -64,6 +68,8 @@ struct Controller {
         animPrev  = animIndex;
         state     = level->anims[animIndex].state;
         TR::Model &model = getModel();
+        health    = 100;
+        tilt      = 0.0f;
     }
 
     virtual ~Controller() {
@@ -78,6 +84,10 @@ struct Controller {
         meshes = mCount ? new int[mCount] : NULL;
         for (int i = 0; i < mCount; i++)
             meshes[i] = model.mStart + i;
+    }
+
+    void initAnimOverrides() {
+        TR::Model &model = getModel();
 
         animOverrides    = new quat[model.mCount];
         animOverrideMask = 0;
@@ -179,6 +189,36 @@ struct Controller {
                 return matrix;
         }
         return matrix;
+    }
+
+    bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
+        if (target > -1) {
+            TR::Entity &e = level->entities[target];
+            Box box = ((Controller*)e.controller)->getBoundingBox();
+            vec3 t = (box.min + box.max) * 0.5f;
+
+            mat4 m = getJoint(joint);
+            vec3 delta = (m.inverse() * t).normal();
+
+            float angleY = clampAngle(atan2(delta.x, delta.z));
+            float angleX = clampAngle(asinf(delta.y));
+
+            if (angleX > angleRange.x && angleX <= angleRange.y &&
+                angleY > angleRange.z && angleY <= angleRange.w) {
+
+                quat ax(vec3(1, 0, 0), -angleX);
+                quat ay(vec3(0, 1, 0), angleY);
+
+                rot = ay * ax;
+                if (rotAbs)
+                    *rotAbs = m.getRot() * rot;
+                return true;
+            }
+        }
+
+        if (rotAbs)
+            *rotAbs = rotYXZ(angle);
+        return false;
     }
 
     void updateEntity() {
@@ -763,6 +803,10 @@ struct Controller {
             level->getFloorInfo(entity.room, entity.x, entity.z, info, true);
             renderShadow(mesh, vec3(entity.x, info.floor - 16.0f, entity.z), (bmax + bmin) * 0.5f, (bmax - bmin) * 0.8f, entity.rotation);
         }
+    }
+
+    quat lerpFrames(TR::AnimFrame *frameA, TR::AnimFrame *frameB,  float t, int index) {
+        return lerpAngle(frameA->getAngle(index), frameB->getAngle(index), t);
     }
 };
 

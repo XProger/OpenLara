@@ -20,7 +20,7 @@
 #endif
 
 #define SND_CHANNELS_MAX    32
-#define SND_FADEOFF_DIST    (1024.0f * 5.0f)
+#define SND_FADEOFF_DIST    (1024.0f * 10.0f)
 
 namespace Sound {
 

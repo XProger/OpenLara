@@ -194,11 +194,9 @@ struct Lara : Controller {
     int  target;
     quat rotHead, rotChest;
 
-    int     health; 
-    float   tilt;
-
-    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1), health(100), tilt(0.0f) {
+    Lara(TR::Level *level, int entity) : Controller(level, entity), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), target(-1) {
         initMeshOverrides();
+        initAnimOverrides();
         for (int i = 0; i < 2; i++) {
             arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
             arms[i].animTime  = 0.0f;
@@ -295,7 +293,7 @@ struct Lara : Controller {
     int wpnGetDamage() {
         switch (wpnCurrent) {
             case Weapon::PISTOLS : return 10;
-            case Weapon::SHOTGUN : return 5;
+            case Weapon::SHOTGUN : return 15;
             case Weapon::MAGNUMS : return 20;
             case Weapon::UZIS    : return 5;
             default : return 0;
@@ -741,35 +739,6 @@ struct Lara : Controller {
         }
     }
 
-    bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
-        if (target > -1) {
-            TR::Entity &e = level->entities[target];
-            vec3 t(e.x, e.y, e.z);
-
-            mat4 m = getJoint(joint);
-            vec3 delta = (m.inverse() * t).normal();
-
-            float angleY = clampAngle(atan2(delta.x, delta.z));
-            float angleX = clampAngle(asinf(delta.y));
-
-            if (angleX > angleRange.x && angleX <= angleRange.y &&
-                angleY > angleRange.z && angleY <= angleRange.w) {
-
-                quat ax(vec3(1, 0, 0), -angleX);
-                quat ay(vec3(0, 1, 0), angleY);
-
-                rot = ay * ax;
-                if (rotAbs)
-                    *rotAbs = m.getRot() * rot;
-                return true;
-            }
-        }
-
-        if (rotAbs)
-            *rotAbs = rotYXZ(angle);
-        return false;
-    }
-
     void updateTargets() {
         if (emptyHands() || !wpnReady()) {
             target = arms[0].target = arms[1].target = -1;
@@ -795,11 +764,13 @@ struct Lara : Controller {
         int index = -1;
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (!e.flags.rendered || !e.isEnemy()) continue;
+            if (!e.flags.active || !e.isEnemy()) continue;
+            Controller *controller = (Controller*)e.controller;
+            if (controller->health <= 0) continue;
 
-            vec3 p = vec3(e.x, e.y, e.z);
+            vec3 p = controller->pos;
             vec3 v = p - pos;
-            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sigth -60..+60 degrees
+            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sight -60..+60 degrees
 
             int d = v.length();
             if (d < dist && checkOcclusion(pos - vec3(0, 512, 0), p, d) ) {
@@ -1490,22 +1461,12 @@ struct Lara : Controller {
         updateWeapon();
     }
 
-    quat lerpFrames(TR::AnimFrame *frameA, TR::AnimFrame *frameB,  float t, int index) {
-        return lerpAngle(frameA->getAngle(index), frameB->getAngle(index), t);
-    }
-
     virtual void updateVelocity() {
-    // calculate moving speed
-        float dt = Core::deltaTime * 30.0f;
-        
         TR::Animation *anim = &level->anims[animIndex];
-
-        //if (anim->speed != 0.0f || anim->accel != 0.0f)
-        //    LOG("speed: %f accel: %f\n", (float)anim->speed, (float)anim->accel);
 
         switch (stand) {
             case STAND_AIR :
-                velocity.y += GRAVITY * dt;
+                velocity.y += GRAVITY * 30.0f * Core::deltaTime;
                 break;
             case STAND_GROUND  :
             case STAND_SLIDE   :
