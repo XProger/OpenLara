@@ -277,6 +277,44 @@ int main() {
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     mainWindow.contentView = view;
     [view.openGLContext makeCurrentContext];
+    
+    // Init main menu
+    NSMenu *mainMenu = [[NSMenu alloc] initWithTitle:@""];
+    NSMenuItem *appMenu = [[NSMenuItem alloc] initWithTitle:@"OpenLara" action:nil keyEquivalent:@""];
+    [mainMenu addItem:appMenu];
+    appMenu.submenu = [[NSMenu alloc] initWithTitle:@"OpenLara"];
+    
+    // - app menu (no preferences)
+    [appMenu.submenu addItemWithTitle:@"About OpenLara" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+    
+    [appMenu.submenu addItem:[NSMenuItem separatorItem]];
+    
+    NSMenuItem *servicesItem = [[NSMenuItem alloc] initWithTitle:@"Services" action:nil keyEquivalent:@""];
+    servicesItem.submenu = [[NSMenu alloc] initWithTitle:@"Services"];
+    [appMenu.submenu addItem:servicesItem];
+    
+    [appMenu.submenu addItem:[NSMenuItem separatorItem]];
+    
+    [appMenu.submenu addItemWithTitle:@"Hide OpenLara" action:@selector(hide:) keyEquivalent:@"h"];
+    NSMenuItem *hideOthersItem = [appMenu.submenu addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
+    hideOthersItem.keyEquivalentModifierMask = NSAlternateKeyMask | NSCommandKeyMask;
+    [appMenu.submenu addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
+    
+    [appMenu.submenu addItem:[NSMenuItem separatorItem]];
+    
+    [appMenu.submenu addItemWithTitle:@"Quit OpenLara" action:@selector(terminate:) keyEquivalent:@"q"];
+    
+    // - window menu
+    NSMenuItem *windowMenu= [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
+    [mainMenu addItem:windowMenu];
+    windowMenu.submenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    
+    [windowMenu.submenu addItemWithTitle:@"Minimize" action:@selector(miniaturize:) keyEquivalent:@"m"];
+    [windowMenu.submenu addItemWithTitle:@"Zoom" action:@selector(zoom:) keyEquivalent:@""];
+    
+    application.mainMenu = mainMenu;
+    application.windowsMenu = windowMenu.submenu;
+    application.servicesMenu = servicesItem.submenu;
 
     // get path to game content
     NSBundle *bundle  = [NSBundle mainBundle];
