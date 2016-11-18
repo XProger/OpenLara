@@ -327,6 +327,7 @@ int main() {
     Game::init();
     
     // show window
+    [mainWindow center];
     [mainWindow makeKeyAndOrderFront:nil];
     
     // Set up DisplayLink. This will call our callback in time with display
