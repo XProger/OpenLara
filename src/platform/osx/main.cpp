@@ -1,5 +1,8 @@
 #include "game.h"
 
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+
 bool isQuit = false;
 WindowRef window;
 AGLContext context;
@@ -139,9 +142,14 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
 }
 
 int getTime() {
-    UInt64 t;
-    Microseconds((UnsignedWide*)&t);
-    return int(t / 1000);
+    static mach_timebase_info_data_t timebaseInfo;
+    if (timebaseInfo.denom == 0) {
+        mach_timebase_info(&timebaseInfo);
+    }
+    
+    uint64_t absolute = mach_absolute_time();
+    uint64_t milliseconds = absolute * timebaseInfo.numer / (timebaseInfo.denom * 1000000ULL);
+    return int(milliseconds);
 }
 
 char *contentPath;
