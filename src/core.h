@@ -18,6 +18,14 @@
     #include <OpenGL/gl.h>
     #include <OpenGL/glext.h>
     #include <AGL/agl.h>
+/*
+ * In compatibility mode, Mac OS X only supports OpenGL 2 (no VAO), but it does 
+ * support the Apple-specific VAO extension which is older and in all relevant 
+ * parts 100% compatible. So use those functions instead.
+ */
+#define glBindVertexArray glBindVertexArrayAPPLE
+#define glGenVertexArrays glGenVertexArraysAPPLE
+#define glDeleteVertexArrays glDeleteVertexArraysAPPLE
 #elif __EMSCRIPTEN__
     #define MOBILE 1
     #include <emscripten.h>
