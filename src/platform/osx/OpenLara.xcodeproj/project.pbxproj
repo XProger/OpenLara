@@ -7,18 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
+		523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E31DDF7AA5006FE2FC /* Cocoa.framework */; };
+		523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E51DDF926E006FE2FC /* QuartzCore.framework */; };
+		99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.mm */; };
 		99BFB6A51DCA872D00E2E997 /* LEVEL2_DEMO.PHD in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */; };
 		99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A41DCA872D00E2E997 /* 05.ogg */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
-		99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0951796A9730032DE85 /* AGL.framework */; };
-		99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0B81796AB7B0032DE85 /* Carbon.framework */; };
 		99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0931796A96F0032DE85 /* OpenGL.framework */; };
 		99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		523F97E31DDF7AA5006FE2FC /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		523F97E51DDF926E006FE2FC /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
 		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
 		99BFB68F1DCA7F1700E2E997 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
@@ -37,7 +39,7 @@
 		99BFB69C1DCA7F1700E2E997 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
 		99BFB69D1DCA7F1700E2E997 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
-		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		99BFB6A11DCA7F5300E2E997 /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2_DEMO.PHD; path = ../../../bin/LEVEL2_DEMO.PHD; sourceTree = SOURCE_ROOT; };
 		99BFB6A41DCA872D00E2E997 /* 05.ogg */ = {isa = PBXFileReference; lastKnownFileType = file; name = 05.ogg; path = ../../../bin/05.ogg; sourceTree = SOURCE_ROOT; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
@@ -57,10 +59,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */,
+				523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */,
 				99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */,
 				99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */,
-				99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */,
-				99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,7 +75,7 @@
 				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,
 				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
 				99BFB69E1DCA7F1700E2E997 /* libs */,
-				99BFB6A11DCA7F5300E2E997 /* main.cpp */,
+				99BFB6A11DCA7F5300E2E997 /* main.mm */,
 				99BFB68D1DCA7F1700E2E997 /* lara.h */,
 				99BFB68E1DCA7F1700E2E997 /* format.h */,
 				99BFB68F1DCA7F1700E2E997 /* level.h */,
@@ -108,6 +110,8 @@
 		99C4C0821796A8230032DE85 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				523F97E51DDF926E006FE2FC /* QuartzCore.framework */,
+				523F97E31DDF7AA5006FE2FC /* Cocoa.framework */,
 				99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */,
 				99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */,
 				99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */,
@@ -193,7 +197,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */,
-				99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */,
+				99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */,
 				99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
