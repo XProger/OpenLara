@@ -318,10 +318,10 @@ int main() {
 
     // get path to game content
     NSBundle *bundle  = [NSBundle mainBundle];
-    NSURL *bundleURL  = bundle.bundleURL;
+    NSURL *resourceURL  = bundle.resourceURL;
     contentPath = new char[1024];
-    [bundleURL getFileSystemRepresentation:contentPath maxLength:1024];
-    strcat(contentPath, "/Contents/Resources/");
+    [resourceURL getFileSystemRepresentation:contentPath maxLength:1024];
+    strcat(contentPath, "/");
 
     soundInit();
     Game::init();
