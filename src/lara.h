@@ -889,7 +889,7 @@ struct Lara : Controller {
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.z, info);
 
-        if (!info.trigCmdCount) return; // has no trigger
+        if (!info.trigCmd.size()) return; // has no trigger
         bool isActive = (level->entities[info.trigCmd[0].args].flags.active);
         if (info.trigInfo.once == 1 && isActive) return; // once trigger is already activated
 
@@ -940,7 +940,7 @@ struct Lara : Controller {
         ActionCommand *actionItem = &actionList[1];
 
         Controller *controller = this;
-        for (int i = 0; i < info.trigCmdCount; i++) {
+        for (int i = 0; i < info.trigCmd.size(); i++) {
             if (!controller) {
                 LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].type);
                 playSound(TR::SND_NO, pos, 0);
@@ -958,7 +958,7 @@ struct Lara : Controller {
                     *actionItem = ActionCommand(cmd.action, cmd.args, info.trigInfo.timer);
             }
 
-            actionItem->next = (i < info.trigCmdCount - 1) ? actionItem + 1 : NULL;
+            actionItem->next = (i < info.trigCmd.size() - 1) ? actionItem + 1 : NULL;
             actionItem++;
         }
 

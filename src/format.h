@@ -3,6 +3,8 @@
 
 #include "utils.h"
 
+#include <vector>
+
 #define MAX_RESERVED_ENTITIES 64
 #define MAX_SECRETS_COUNT     16
 
@@ -712,10 +714,9 @@ namespace TR {
             int roomNext, roomBelow, roomAbove;
             int floorIndex;
             int kill;
-            int trigCmdCount;
             Trigger trigger;
             FloorData::TriggerInfo trigInfo;
-            FloorData::TriggerCommand trigCmd[16];
+            std::vector<FloorData::TriggerCommand> trigCmd;
 
             vec3 getNormal() {
                 return vec3((float)-slantX, -4.0f, (float)-slantZ).normal();
@@ -986,7 +987,6 @@ namespace TR {
             info.floorIndex   = s.floorIndex;
             info.kill         = 0;
             info.trigger      = Trigger::ACTIVATE;
-            info.trigCmdCount = 0;
 
             if (actual) {
                 if (info.roomBelow != 0xFF && info.roomBelow != prevRoom) {
@@ -1035,12 +1035,12 @@ namespace TR {
 
                     case FloorData::TRIGGER :  {
                         info.trigger        = (Trigger)cmd.sub;
-                        info.trigCmdCount   = 0;
+                        info.trigCmd.clear();
                         info.trigInfo       = (*fd++).triggerInfo;
                         FloorData::TriggerCommand trigCmd;
                         do {
                             trigCmd = (*fd++).triggerCmd; // trigger action
-                            info.trigCmd[info.trigCmdCount++] = trigCmd;
+                            info.trigCmd.push_back(trigCmd);
                         } while (!trigCmd.end);                       
                         break;
                     }
