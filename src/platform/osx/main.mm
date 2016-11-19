@@ -223,7 +223,7 @@ CVReturn displayLinkCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *no
     // TODO: This should probably get the time from the outputTime parameter
     int time = getTime();
     if (time <= lastTime)
-        return kCVReturnUnsupported;
+        return kCVReturnSuccess;
     
     // TODO: This should probably run the update in a separate thread
     // and only do rendering here
