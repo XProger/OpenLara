@@ -311,14 +311,12 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
             if (time <= lastTime)
                 continue;
 
-            float slow = Input::down[ikR] ? 8.0f : 1.0f;
-
             float delta = min(1.0f, (time - lastTime) * 0.001f);
             EnterCriticalSection(&sndCS);
             while (delta > EPS) {
-                Core::deltaTime = min(delta, 1.0f / 30.0f) / slow;
+                Core::deltaTime = min(delta, 1.0f / 30.0f);
                 Game::update();
-                delta -= Core::deltaTime * slow;
+                delta -= Core::deltaTime;
             }
             LeaveCriticalSection(&sndCS);
             lastTime = time;

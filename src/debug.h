@@ -449,13 +449,13 @@ namespace Debug {
                     TR::Node *node = m.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[m.node] : NULL;
 
                     if (!node) continue; // ???
-
+/*
                     if (e.type == m.type) {
                         ASSERT(m.animation < 0xFFFF);
 
                         int fSize = sizeof(TR::AnimFrame) + m.mCount * sizeof(uint16) * 2;
 
-                        TR::Animation *anim  = controller ? &level.anims[controller->animIndex] : &level.anims[m.animation];
+                        TR::Animation *anim  = controller->animation;
                         TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + (controller ? int((controller->animTime * 30.0f / anim->frameRate)) * fSize : 0) >> 1)];
 
                         //mat4 m;
@@ -495,35 +495,39 @@ namespace Debug {
                             int offset = level.meshOffsets[m.mStart + k];
                             TR::Mesh *mesh = (TR::Mesh*)&level.meshData[offset / 2];
                             Debug::Draw::sphere(matrix * joint * mesh->center, mesh->collider.radius, mesh->collider.info ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
-                            /*
+                            
                             { //if (e.id != 0) {
                                 char buf[255];
                                 sprintf(buf, "(%d) radius %d info %d flags %d", e.id, (int)mesh->collider.radius, (int)mesh->collider.info, (int)mesh->collider.flags);
                                 Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
                             }
-                            */
+                            
                         }
-
                         Debug::Draw::box(matrix, frame->box.min(), frame->box.max(), vec4(1.0));
+
                         break;
                     }
+*/
                 
                 }
 
             }
         }
 
-        void info(const TR::Level &level, const TR::Entity &entity, int state, int anim, int frame) {
+        void info(const TR::Level &level, const TR::Entity &entity, Animation &anim) {
             char buf[255];
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount);
             Debug::Draw::text(vec2(16, 16), vec4(1.0f), buf);
-            sprintf(buf, "pos = (%d, %d, %d), room = %d, state = %d, anim = %d, frame = %d", entity.x, entity.y, entity.z, entity.room, state, anim, frame);
+            sprintf(buf, "pos = (%d, %d, %d), room = %d", entity.x, entity.y, entity.z, entity.room);
             Debug::Draw::text(vec2(16, 32), vec4(1.0f), buf);
+            int rate = anim.anims[anim.index].frameRate;
+            sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
+            Debug::Draw::text(vec2(16, 48), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
             level.getFloorInfo(entity.room, entity.x, entity.z, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
-            Debug::Draw::text(vec2(16, 48), vec4(1.0f), buf);
+            Debug::Draw::text(vec2(16, 64), vec4(1.0f), buf);
         }
     }
 }

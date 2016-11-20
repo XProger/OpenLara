@@ -2,6 +2,7 @@
 #define H_TRIGGER
 
 #include "controller.h"
+#include "sprite.h"
 
 struct Trigger : Controller {
 
@@ -50,7 +51,7 @@ struct Trigger : Controller {
         }
 
         if (!inState())
-            setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
+            animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
 
         updateAnimation(true);
         updateEntity();
@@ -58,7 +59,7 @@ struct Trigger : Controller {
 };
 
 struct Dart : Controller {
-
+    vec3 velocity;
     vec3 dir;
     bool inWall;    // dart starts from wall
 
@@ -67,7 +68,8 @@ struct Dart : Controller {
     }
 
     virtual void update() {
-        velocity = dir * level->anims[animIndex].speed;
+        TR::Animation *anim = animation;
+        velocity = dir * animation.getSpeed();
         pos = pos + velocity * (Core::deltaTime * 30.0f);
         updateEntity();
         TR::Level::FloorInfo info;
@@ -77,7 +79,7 @@ struct Dart : Controller {
                 TR::Entity &e = getEntity();
                 
                 vec3 p = pos - dir * 64.0f; // wall offset = 64
-                addSprite(level, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, SpriteController::FRAME_RANDOM);
+                Sprite::add(level, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
 
                 level->entityRemove(entity);
                 delete this;
@@ -99,14 +101,13 @@ struct Dartgun : Trigger {
         // add dart (bullet)
         TR::Entity &entity = getEntity();
 
-        vec3 pos = vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
-        pos = pos + vec3(entity.x, entity.y, entity.z);
+        vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
 
-        int dartIndex = level->entityAdd(TR::Entity::TRAP_DART, entity.room, (int)pos.x, (int)pos.y, (int)pos.z, entity.rotation, entity.intensity);
+        int dartIndex = level->entityAdd(TR::Entity::TRAP_DART, entity.room, (int)p.x, (int)p.y, (int)p.z, entity.rotation, entity.intensity);
         if (dartIndex > -1)
             level->entities[dartIndex].controller = new Dart(level, dartIndex);
 
-        addSprite(level, TR::Entity::SMOKE, entity.room, (int)pos.x, (int)pos.y, (int)pos.z);
+        Sprite::add(level, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
 
         playSound(TR::SND_DART, pos, Sound::Flags::PAN);
 
@@ -159,7 +160,7 @@ struct Block : Controller {
         level->getFloorInfo(e.room, e.x + (int)dir.x, e.z + (int)dir.z, info, true);
         if ((info.slantX | info.slantZ) || info.floor != e.y)
             return false;        
-        if (!setState(push ? STATE_PUSH : STATE_PULL))
+        if (!animation.setState(push ? STATE_PUSH : STATE_PULL))
             return false;
         updateFloor(false);
         return true;

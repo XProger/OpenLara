@@ -56,7 +56,9 @@ struct Camera : Controller {
     }
 
     virtual void update() {
-        actTargetEntity = owner->target;
+        int lookAt = -1;
+        if (owner->target > -1)     lookAt = owner->target;
+        if (actTargetEntity > -1)   lookAt = actTargetEntity;
 
         if (timer > 0.0f) {
             timer -= Core::deltaTime;
@@ -65,6 +67,7 @@ struct Camera : Controller {
                 if (room != getRoomIndex())
                     pos = lastDest;
                 actTargetEntity = actCamera = -1;
+                target = owner->getViewPoint();
             }
         }
     #ifdef FREE_CAMERA
@@ -91,28 +94,28 @@ struct Camera : Controller {
         angle.z = 0.0f;        
         //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
-        float lerpFactor = (actTargetEntity == -1) ? 6.0f : 10.0f;
+        float lerpFactor = (lookAt == -1) ? 6.0f : 10.0f;
         vec3 dir;
         target = target.lerp(owner->getViewPoint(), lerpFactor * Core::deltaTime);
 
         if (actCamera > -1) {
             TR::Camera &c = level->cameras[actCamera];
-            destPos = vec3(c.x, c.y, c.z);
+            destPos = vec3(float(c.x), float(c.y), float(c.z));
             if (room != getRoomIndex()) 
                 pos = destPos;
-            if (actTargetEntity > -1) {
-                TR::Entity &e = level->entities[actTargetEntity];
-                target = vec3(e.x, e.y, e.z);
+            if (lookAt > -1) {
+                TR::Entity &e = level->entities[lookAt];
+                target = ((Controller*)e.controller)->pos;
             }
         } else {
-            if (actTargetEntity > -1) {
-                TR::Entity &e = level->entities[actTargetEntity];
-                dir = (vec3(e.x, e.y, e.z) - target).normal();
+            if (lookAt > -1) {
+                TR::Entity &e = level->entities[lookAt];
+                dir = (((Controller*)e.controller)->pos - target).normal();
             } else
                 dir = getDir();
 
             int destRoom;
-            if ((owner->wpnState != Lara::Weapon::IS_HIDDEN || owner->state != Lara::STATE_BACK_JUMP) || actTargetEntity > -1) {
+            if ((!owner->emptyHands() || owner->state != Lara::STATE_BACK_JUMP) || lookAt > -1) {
                 vec3 eye = target - dir * CAMERA_OFFSET;
                 destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
                 lastDest = destPos;
@@ -138,7 +141,7 @@ struct Camera : Controller {
                     room = info.roomAbove;
                 else
                     if (info.ceiling != 0xffff8100)
-                        pos.y = info.ceiling;
+                        pos.y = (float)info.ceiling;
             }
 
             if (pos.y > info.floor) {
@@ -146,7 +149,7 @@ struct Camera : Controller {
                     room = info.roomBelow;
                 else
                     if (info.floor != 0xffff8100)
-                        pos.y = info.floor;
+                        pos.y = (float)info.floor;
             }
 
         // play underwater sound when camera goes under water

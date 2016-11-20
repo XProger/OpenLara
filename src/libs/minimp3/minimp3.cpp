@@ -2504,16 +2504,16 @@ int mp3_decode_init() {
         for(i=0; i<512*16; i++){
             int exponent= (i>>4);
             double f= libc_pow(i&15, 4.0 / 3.0) * libc_pow(2, (exponent-400)*0.25 + FRAC_BITS + 5);
-            expval_table[exponent][i&15]= f;
+            expval_table[exponent][i&15]= uint32_t(f);
             if((i&15)==1)
-                exp_table[exponent]= f;
+                exp_table[exponent]= uint32_t(f);
         }
 
         for(i=0;i<7;i++) {
             float f;
             int v;
             if (i != 6) {
-                f = tan((double)i * M_PI / 12.0);
+                f = float(tan((double)i * M_PI / 12.0));
                 v = FIXR(f / (1.0 + f));
             } else {
                 v = FIXR(1.0);
@@ -2522,7 +2522,7 @@ int mp3_decode_init() {
             is_table[1][6 - i] = v;
         }
         for(i=7;i<16;i++)
-            is_table[0][i] = is_table[1][i] = 0.0;
+            is_table[0][i] = is_table[1][i] = 0;
 
         for(i=0;i<16;i++) {
             double f;
@@ -2540,7 +2540,7 @@ int mp3_decode_init() {
         for(i=0;i<8;i++) {
             float ci, cs, ca;
             ci = ci_table[i];
-            cs = 1.0 / sqrt(1.0 + ci * ci);
+            cs = float(1.0 / sqrt(1.0 + ci * ci));
             ca = cs * ci;
             csa_table[i][0] = FIXHR(cs/4);
             csa_table[i][1] = FIXHR(ca/4);

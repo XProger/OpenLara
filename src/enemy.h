@@ -1,26 +1,11 @@
 #ifndef H_ENEMY
 #define H_ENEMY
 
-#include "controller.h"
+#include "character.h"
 
-struct Enemy : Controller {
-    int target;
-    quat rotHead, rotChest;
-    int baseAnim;
+struct Enemy : Character {
 
-    Enemy(TR::Level *level, int entity) : Controller(level, entity), target(-1) {
-        initAnimOverrides();
-        rotHead  = rotChest = quat(0, 0, 0, 1);
-        baseAnim = animIndex;
-    }
-
-    virtual Stand getStand() {
-        return STAND_GROUND;
-    }
-
-    virtual void hit(int damage) {
-        health -= damage;
-    };
+    Enemy(TR::Level *level, int entity, int health) : Character(level, entity, health) {}
 
     virtual bool activate(ActionCommand *cmd) {
         Controller::activate(cmd);
@@ -38,66 +23,40 @@ struct Enemy : Controller {
     }
 
     virtual void updateVelocity() {
-        TR::Animation *anim = &level->anims[animIndex];
-        float speed = anim->speed + anim->accel * (animTime * 30.0f);
+        TR::Animation *anim = animation;
+        float speed = anim->speed + anim->accel * (animation.time * 30.0f);
         velocity = getDir() * speed;
     }
 
-    virtual void move() {
+    virtual void updatePosition() {
         if (!getEntity().flags.active) return;
         vec3 p = pos;
         pos += velocity * Core::deltaTime * 30.0f;
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.z, info);
+        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.z, info, true);
         if (pos.y - info.floor > 1024) {
             pos = p;
             return;
         }
         if (stand == STAND_GROUND)
-            pos.y = info.floor;
+            pos.y = float(info.floor);
         updateEntity();
         checkRoom();
     }
 
-    virtual void checkRoom() {
-        TR::Level::FloorInfo info;
-        TR::Entity &e = getEntity();
-        level->getFloorInfo(e.room, e.x, e.z, info);
-
-        if (info.roomNext != 0xFF)
-            e.room = info.roomNext;        
-
-        if (info.roomBelow != 0xFF && e.y > info.floor)
-            e.room = info.roomBelow;       
-
-        if (info.roomAbove != 0xFF && e.y <= info.ceiling) {
-            if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
-                stand = STAND_ONWATER;
-                velocity.y = 0;
-                pos.y = info.ceiling;
-                updateEntity();
-            } else
-                if (stand != STAND_ONWATER)
-                    e.room = info.roomAbove;
-        }
-    }
-
     void setOverrides(bool active, int chest, int head) {
         int mask = 0;
-        if (head  > -1) mask |= (1 << head);
-        if (chest > -1) mask |= (1 << chest);
+        if (active && head  > -1) {
+            animation.overrides[head] = animation.getJointRot(head);
+            animation.overrideMask |=  (1 << head);
+        } else
+            animation.overrideMask &= ~(1 << head);
 
-        if (active)
-            animOverrideMask |= mask;
-        else
-            animOverrideMask &= ~mask;
-
-        TR::AnimFrame *frameA, *frameB;
-        float t;
-
-        getFrames(&frameA, &frameB, t, animIndex, animTime, true);
-        animOverrides[chest] = lerpFrames(frameA, frameB, t, chest);
-        animOverrides[head]  = lerpFrames(frameA, frameB, t, head);
+        if (active && chest  > -1) {
+            animation.overrides[chest] = animation.getJointRot(chest);
+            animation.overrideMask |=  (1 << chest);
+        } else
+            animation.overrideMask &= ~(1 << chest);
     }
 
     void lookAt(int target, int chest, int head) {
@@ -105,11 +64,11 @@ struct Enemy : Controller {
         quat rot;
 
         if (chest > -1) {
-            if (aim(target, chest, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.75f, PI * 0.75f), rot))
+            if (aim(target, chest, vec4(-PI * 0.8f, PI * 0.8f, -PI * 0.75f, PI * 0.75f), rot))
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
             else 
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
-            animOverrides[chest] = rotChest * animOverrides[chest];
+            animation.overrides[chest] = rotChest * animation.overrides[chest];
         }
 
         if (head > -1) {
@@ -117,14 +76,16 @@ struct Enemy : Controller {
                 rotHead = rotHead.slerp(rot, speed);
             else
                 rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
-            animOverrides[head] = rotHead * animOverrides[head];
+            animation.overrides[head] = rotHead * animation.overrides[head];
         }
     }
 
-    virtual int getInputMask() {
+    virtual int getInput() {
         if (target > -1) {
-            vec3 v = (((Controller*)level->entities[target].controller)->pos - pos).normal();
-            float d = atan2(v.x, v.z) - angle.y;
+            vec3 a = (((Controller*)level->entities[target].controller)->pos - pos).normal();
+            vec3 b = getDir();
+            vec3 n = vec3(0, 1, 0);
+            float d = atan2(b.cross(a).dot(n), a.dot(b));
             if (fabsf(d) > 0.01f)
                 return d < 0 ? LEFT : RIGHT;
         }
@@ -135,6 +96,9 @@ struct Enemy : Controller {
 
 #define WOLF_TURN_FAST   PI
 #define WOLF_TURN_SLOW   (PI / 3.0f)
+#define WOLF_TILT_MAX    (PI / 6.0f)
+#define WOLF_TILT_SPEED  WOLF_TILT_MAX
+
 
 struct Wolf : Enemy {
 
@@ -163,7 +127,7 @@ struct Wolf : Enemy {
         JOINT_HEAD     = 3
     };
 
-    Wolf(TR::Level *level, int entity) : Enemy(level, entity) {}
+    Wolf(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
 
     virtual int getStateGround() {
         // STATE_SLEEP     -> STATE_STOP
@@ -178,9 +142,9 @@ struct Wolf : Enemy {
 
         if (health <= 0) {
             switch (state) {
-                case STATE_RUN  : return setAnimation(baseAnim + ANIM_DEATH_RUN);
-                case STATE_JUMP : return setAnimation(baseAnim + ANIM_DEATH_JUMP);
-                default         : return setAnimation(baseAnim + ANIM_DEATH);
+                case STATE_RUN  : return animation.setAnim(ANIM_DEATH_RUN);
+                case STATE_JUMP : return animation.setAnim(ANIM_DEATH_JUMP);
+                default         : return animation.setAnim(ANIM_DEATH);
             }
         }
 
@@ -191,7 +155,7 @@ struct Wolf : Enemy {
         switch (state) {
             case STATE_SLEEP    : return STATE_STOP;
             case STATE_STOP     : return STATE_HOWL;
-            case STATE_GROWL    : return STATE_STALKING;
+            case STATE_GROWL    : return randf() > 0.5f ? STATE_STALKING : STATE_RUN;
             case STATE_STALKING : if (health < 70) return STATE_RUN; break;
         }
 
@@ -215,7 +179,7 @@ struct Wolf : Enemy {
         float w = 0.0f;
         if (state == STATE_RUN || state == STATE_STALKING) {
             w = state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW;
-            if (mask & LEFT) w = -w;
+            if (input & LEFT) w = -w;
                 
             if (w != 0.0f) {
                 w *= Core::deltaTime;
@@ -226,12 +190,14 @@ struct Wolf : Enemy {
             velocity = vec3(0.0f);
     }
 
-    virtual void move() {
+    virtual void updatePosition() {
+        updateTilt(state == STATE_RUN, WOLF_TILT_SPEED, WOLF_TILT_MAX);
+
         if (state == STATE_DEATH) {
-            animOverrideMask = 0;
+            animation.overrideMask = 0;
             return;
         }
-        Enemy::move();
+        Enemy::updatePosition();
         setOverrides(state == STATE_STALKING || state == STATE_RUN, JOINT_CHEST, JOINT_HEAD);
         lookAt(target, JOINT_CHEST, JOINT_HEAD);
     }
@@ -244,7 +210,7 @@ struct Bear : Enemy {
         STATE_STOP   = 1,
     };
 
-    Bear(TR::Level *level, int entity) : Enemy(level, entity) {}
+    Bear(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
 
     virtual int getStateGround() {
         return state;
@@ -259,14 +225,14 @@ struct Bat : Enemy {
         STATE_FLY    = 2,
     };
 
-    Bat(TR::Level *level, int entity) : Enemy(level, entity) {}
+    Bat(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
 
     virtual Stand getStand() {
         return STAND_AIR;
     }
 
     virtual int getStateAir() {
-        animTime = 0.0f;
+        animation.time = 0.0f;
         return STATE_AWAKE;
     }
 };

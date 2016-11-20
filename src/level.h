@@ -30,7 +30,7 @@ struct Level {
 
     float       time;
 
-    Level(Stream &stream, bool demo) : level{stream, demo}, time(0.0f), lara(NULL) {
+    Level(const char *name, bool demo, bool home) : level(name, demo), time(0.0f), lara(NULL) {
         #ifdef _DEBUG
             Debug::init();
         #endif
@@ -44,8 +44,10 @@ struct Level {
             TR::Entity &entity = level.entities[i];
             switch (entity.type) {
                 case TR::Entity::LARA : 
+                    entity.controller = (lara = new Lara(&level, i, home));
+                    break;
                 case TR::Entity::LARA_CUT :
-                    entity.controller = (lara = new Lara(&level, i));
+                    entity.controller = (lara = new Lara(&level, i, false));
                     break;
                 case TR::Entity::ENEMY_WOLF            :   
                     entity.controller = new Wolf(&level, i);
@@ -71,7 +73,7 @@ struct Level {
                 case TR::Entity::ENEMY_CENTAUR         :   
                 case TR::Entity::ENEMY_MUMMY           :   
                 case TR::Entity::ENEMY_LARSON          :
-                    entity.controller = new Enemy(&level, i);
+                    entity.controller = new Enemy(&level, i, 100);
                     break;
                 case TR::Entity::DOOR_1                :
                 case TR::Entity::DOOR_2                :
@@ -108,7 +110,7 @@ struct Level {
                     if (entity.modelIndex > 0)
                         entity.controller = new Controller(&level, i);
                     else
-                        entity.controller = new SpriteController(&level, i, 0);
+                        entity.controller = new Sprite(&level, i, 0);
             }
         }
 
@@ -232,7 +234,7 @@ struct Level {
         PROFILE_MARKER("ROOM");
 
         TR::Room &room = level.rooms[roomIndex];
-        vec3 offset = vec3(room.info.x, 0.0f, room.info.z);
+        vec3 offset = vec3(float(room.info.x), 0.0f, float(room.info.z));
 
         Shader *sh = setRoomShader(room, 1.0f);
 
@@ -251,9 +253,11 @@ struct Level {
                 TR::StaticMesh *sMesh = level.getMeshByID(rMesh.meshID);
                 ASSERT(sMesh != NULL);
 
+                if (!mesh->meshMap[sMesh->mesh]) continue;
+
             // check visibility
                 Box box;
-                vec3 offset = vec3(rMesh.x, rMesh.y, rMesh.z);
+                vec3 offset = vec3((float)rMesh.x, (float)rMesh.y, (float)rMesh.z);
                 sMesh->getBox(false, rMesh.rotation, box);
                 if (!camera->frustum->isVisible(offset + box.min, offset + box.max))
                     continue;
@@ -343,7 +347,7 @@ struct Level {
         int j = room;
             for (int i = 0; i < level.rooms[j].lightsCount; i++) {
                 TR::Room::Light &light = level.rooms[j].lights[i];
-                float d = (pos - vec3(light.x, light.y, light.z)).length2();
+                float d = (pos - vec3(float(light.x), float(light.y), float(light.z))).length2();
                 if (idx == -1 || d < dist) {
                     idx = i;
                     dist = d;
@@ -360,7 +364,7 @@ struct Level {
         if (idx > -1) {
             TR::Room::Light &light = level.rooms[room].lights[idx];
             float c = level.rooms[room].lights[idx].intensity / 8191.0f;
-            Core::lightPos[0]   = vec3(light.x, light.y, light.z);
+            Core::lightPos[0]   = vec3(float(light.x), float(light.y), float(light.z));
             Core::lightColor[0] = vec4(c, c, c, (float)light.attenuation * (float)light.attenuation);
         } else {
             Core::lightPos[0]   = vec3(0);
@@ -389,7 +393,7 @@ struct Level {
             setRoomShader(room, c)->bind();
             Core::active.shader->setParam(uColor, Core::color);
             // get light parameters for entity
-            getLight(vec3(entity.x, entity.y, entity.z), entity.room);
+            getLight(((Controller*)entity.controller)->pos, entity.room);
         }
 
         if (entity.modelIndex < 0) { // sprite
@@ -482,7 +486,7 @@ struct Level {
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-        Debug::Level::info(level, lara->getEntity(), (int)lara->state, lara->animIndex, int(lara->animTime * 30.0f));
+        Debug::Level::info(level, lara->getEntity(), lara->animation);
         Debug::end();
     #endif
     }

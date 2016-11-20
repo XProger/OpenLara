@@ -5,13 +5,14 @@
 
 #define MAX_RESERVED_ENTITIES 64
 #define MAX_SECRETS_COUNT     16
+#define MAX_TRIGGER_COMMANDS  32
 
 namespace TR {
 
     enum {
         ANIM_CMD_NONE       ,
-        ANIM_CMD_MOVE       ,
-        ANIM_CMD_SPEED      ,
+        ANIM_CMD_OFFSET     ,
+        ANIM_CMD_JUMP       ,
         ANIM_CMD_EMPTY      ,
         ANIM_CMD_KILL       ,
         ANIM_CMD_SOUND      ,
@@ -104,6 +105,15 @@ namespace TR {
         SND_DART            = 151,
         
         SND_SECRET          = 173,
+    };
+
+    enum {
+        MODEL_LARA          = 0,
+        MODEL_PISTOLS       = 1,
+        MODEL_SHOTGUN       = 2,
+        MODEL_MAGNUMS       = 3,
+        MODEL_UZIS          = 4,
+        MODEL_LARA_SPEC     = 5,
     };
 
     enum Action : uint16 {
@@ -419,6 +429,17 @@ namespace TR {
         bool isEnemy() {
             return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
         }
+
+        int isItem() {
+            return (type >= WEAPON_PISTOLS && type <= AMMO_UZIS) ||
+                   (type >= PUZZLE_1 && type <= PUZZLE_4) ||
+                   (type >= KEY_1 && type <= KEY_4) ||
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == ARTIFACT || type == PICKUP);
+        }
+
+        bool isBlock() {
+            return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_2;
+        }
     };
 
     struct Animation {
@@ -463,11 +484,13 @@ namespace TR {
         vec3 max() const { return vec3((float)maxX, (float)maxY, (float)maxZ); }
     };
 
+    #pragma warning( push )
+    #pragma warning( disable : 4200 ) // zero-sized array warning
     struct AnimFrame {
         MinMax  box;
-        Vertex  pos;   // Starting offset for this model
+        Vertex  pos;
         int16   aCount;
-        uint16  angles[0];          // angle frames in YXZ order
+        uint16  angles[0];  // angle frames in YXZ order
 
         vec3 getAngle(int index) {
             #define ANGLE_SCALE (2.0f * PI / 1024.0f)
@@ -475,7 +498,7 @@ namespace TR {
             uint16 b = angles[index * 2 + 0];
             uint16 a = angles[index * 2 + 1];
 
-            return vec3((a & 0x3FF0) >> 4, ( ((a & 0x000F) << 6) | ((b & 0xFC00) >> 10)), b & 0x03FF) * ANGLE_SCALE;
+            return vec3(float((a & 0x3FF0) >> 4), float( ((a & 0x000F) << 6) | ((b & 0xFC00) >> 10)), float(b & 0x03FF)) * ANGLE_SCALE;
         }
     };
 
@@ -483,6 +506,7 @@ namespace TR {
         int16   count;        // number of texture offsets - 1 in group
         int16   textures[0];  // offsets into objectTextures[]
     };
+    #pragma warning( push )
 
     struct Node {
         uint32  flags;
@@ -715,7 +739,7 @@ namespace TR {
             int trigCmdCount;
             Trigger trigger;
             FloorData::TriggerInfo trigInfo;
-            FloorData::TriggerCommand trigCmd[16];
+            FloorData::TriggerCommand trigCmd[MAX_TRIGGER_COMMANDS];
 
             vec3 getNormal() {
                 return vec3((float)-slantX, -4.0f, (float)-slantZ).normal();
@@ -734,7 +758,8 @@ namespace TR {
         bool    secrets[MAX_SECRETS_COUNT];
         void    *cameraController;
 
-        Level(Stream &stream, bool demo) {
+        Level(const char *name, bool demo) {
+            Stream stream(name);
         // read version
             stream.read(version);
         // tiles
@@ -1039,6 +1064,7 @@ namespace TR {
                         info.trigInfo       = (*fd++).triggerInfo;
                         FloorData::TriggerCommand trigCmd;
                         do {
+                            ASSERT(info.trigCmdCount < MAX_TRIGGER_COMMANDS);
                             trigCmd = (*fd++).triggerCmd; // trigger action
                             info.trigCmd[info.trigCmdCount++] = trigCmd;
                         } while (!trigCmd.end);                       
