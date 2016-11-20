@@ -12,8 +12,9 @@ namespace Game {
 
     void init() {
         Core::init();
-        Stream stream("LEVEL2_DEMO.PHD");
-        level = new Level(stream, true);
+        level = new Level("LEVEL2_DEMO.PHD", true, false);
+        //level = new Level("GYM.PHD", false, true);
+        //level = new Level("LEVEL4.PHD", false, false);
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
@@ -29,7 +30,13 @@ namespace Game {
     }
 
     void update() {
+        float dt = Core::deltaTime;
+        if (Input::down[ikR]) // slow motion (for animation debugging)
+            Core::deltaTime /= 50.0f;
+
         level->update();
+
+        Core::deltaTime = dt;
     }
 
     void render() {

@@ -22,7 +22,7 @@
     #ifdef PROFILE
         #define LOG(...) printf(__VA_ARGS__)
     #else
-        #define LOG(...)
+        #define LOG(...) 0
     #endif
 #endif
 
@@ -114,6 +114,9 @@ struct vec3 {
     vec3(float lng, float lat) : x(sinf(lat) * cosf(lng)), y(-sinf(lng)), z(cosf(lat) * cosf(lng)) {}
 
     float& operator [] (int index) const { return ((float*)this)[index]; }
+
+    bool operator == (float s) const { return x == s && y == s && z == s; }
+    bool operator != (float s) const { return !(*this == s); }
 
     vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
     vec3& operator -= (const vec3 &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
@@ -533,6 +536,14 @@ struct Box {
 
     Box() {}
     Box(const vec3 &min, const vec3 &max) : min(min), max(max) {}
+
+    vec3 center() const {
+        return (min + max) * 0.5f;
+    }
+
+    vec3 size() const {
+        return max - min;
+    }
 
     void rotate90(int n) {
         switch (n) {

@@ -151,7 +151,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\animation.h" />
     <ClInclude Include="..\..\camera.h" />
+    <ClInclude Include="..\..\character.h" />
     <ClInclude Include="..\..\controller.h" />
     <ClInclude Include="..\..\core.h" />
     <ClInclude Include="..\..\debug.h" />
@@ -166,6 +168,7 @@
     <ClInclude Include="..\..\mesh.h" />
     <ClInclude Include="..\..\shader.h" />
     <ClInclude Include="..\..\sound.h" />
+    <ClInclude Include="..\..\sprite.h" />
     <ClInclude Include="..\..\texture.h" />
     <ClInclude Include="..\..\format.h" />
     <ClInclude Include="..\..\trigger.h" />
