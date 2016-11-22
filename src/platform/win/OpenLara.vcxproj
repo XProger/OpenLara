@@ -161,6 +161,7 @@
     <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
     <ClInclude Include="..\..\input.h" />
+    <ClInclude Include="..\..\inventory.h" />
     <ClInclude Include="..\..\lara.h" />
     <ClInclude Include="..\..\level.h" />
     <ClInclude Include="..\..\libs\minimp3\libc.h" />

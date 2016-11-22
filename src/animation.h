@@ -54,6 +54,7 @@ struct Animation {
         prev        = index;
         index       = animIndex;
         next        = anims[index].nextAnimation - model->animation;
+        dir         = 1.0f;
         time        = (animFrame <= 0 ? -animFrame : (animFrame - anim->frameStart)) / 30.0f;
         timeMax     = (anim->frameEnd - anim->frameStart + lerpToNext) / 30.0f;
         framesCount = anim->frameEnd - anim->frameStart + 1;

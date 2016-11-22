@@ -20,7 +20,7 @@
 #endif
 
 #define SND_CHANNELS_MAX    32
-#define SND_FADEOFF_DIST    (1024.0f * 10.0f)
+#define SND_FADEOFF_DIST    (1024.0f * 8.0f)
 
 namespace Sound {
 
@@ -35,6 +35,7 @@ namespace Sound {
         Decoder(Stream *stream, int channels) : stream(stream), channels(channels), offset(stream->pos) {}
         virtual ~Decoder() { delete stream; }
         virtual int decode(Frame *frames, int count) { return 0; }
+        virtual void replay() { stream->seek(offset - stream->pos); }
     };
 
     struct PCM : Decoder {
@@ -175,6 +176,12 @@ namespace Sound {
             }
             return i;
         }
+
+        virtual void replay() {
+            mp3_done(mp3);
+            mp3 = mp3_create();
+            pos = 0;
+        }
     };
 #endif
 
@@ -212,6 +219,8 @@ namespace Sound {
             }
             return i;
         }
+
+        // TODO: replay
     };
 #endif
 
@@ -223,9 +232,10 @@ namespace Sound {
     enum Flags {
         LOOP            = 1,
         PAN             = 2,
-        REVERB_NEAR     = 4,
-        REVERB_MIDDLE   = 8,
-        REVERB_FAR      = 16,
+        REPLAY          = 4,
+        REVERB_NEAR     = 8,
+        REVERB_MIDDLE   = 16,
+        REVERB_FAR      = 32,
     };
 
     struct Sample {
@@ -235,9 +245,10 @@ namespace Sound {
         float   volume;
         float   pitch;
         int     flags;
+        int     id;
         bool    isPlaying;
 
-        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags) : decoder(NULL), pos(pos), volume(volume), pitch(pitch), flags(flags) {
+        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags, int id) : decoder(NULL), pos(pos), volume(volume), pitch(pitch), flags(flags), id(id) {
             uint32 fourcc; 
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
@@ -401,11 +412,23 @@ namespace Sound {
         return NULL;
     }
 
-    Sample* play(Stream *stream, const vec3 &pos, float volume, float pitch, int flags) {
+    Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         if (!stream) return NULL;
 
+        if (flags & REPLAY)
+            for (int i = 0; i < channelsCount; i++)
+                if (channels[i]->id == id) {
+                    channels[i]->pos = pos;
+                    // channels[i]->pitch = pitch; // TODO
+                    // channels[i]->gain = gain; // TODO
+                    channels[i]->decoder->replay();
+                    delete stream;
+                    return channels[i];
+                }
+
+
         if (channelsCount < SND_CHANNELS_MAX)
-            return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags);
+            return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags, id);
 
         LOG("! no free channels\n");  
         delete stream;

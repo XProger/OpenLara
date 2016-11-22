@@ -4,8 +4,9 @@
 #include "character.h"
 
 struct Enemy : Character {
+    bool bitten;
 
-    Enemy(TR::Level *level, int entity, int health) : Character(level, entity, health) {}
+    Enemy(TR::Level *level, int entity, int health) : Character(level, entity, health), bitten(false) {}
 
     virtual bool activate(ActionCommand *cmd) {
         Controller::activate(cmd);
@@ -23,9 +24,7 @@ struct Enemy : Character {
     }
 
     virtual void updateVelocity() {
-        TR::Animation *anim = animation;
-        float speed = anim->speed + anim->accel * (animation.time * 30.0f);
-        velocity = getDir() * speed;
+        velocity = getDir() * animation.getSpeed();
     }
 
     virtual void updatePosition() {
@@ -38,8 +37,13 @@ struct Enemy : Character {
             pos = p;
             return;
         }
-        if (stand == STAND_GROUND)
-            pos.y = float(info.floor);
+
+        switch (stand) {
+            case STAND_GROUND : pos.y = float(info.floor); break;
+            case STAND_AIR    : pos.y = clamp(pos.y, float(info.ceiling), float(info.floor)); break;
+            default : ;
+        }
+
         updateEntity();
         checkRoom();
     }
@@ -80,16 +84,54 @@ struct Enemy : Character {
         }
     }
 
-    virtual int getInput() {
-        if (target > -1) {
-            vec3 a = (((Controller*)level->entities[target].controller)->pos - pos).normal();
+    bool getTargetInfo(int height, vec3 *pos, float *angleX, float *angleY, float *dist) {
+        if (target == -1) return false;
+        Character *character  = (Character*)level->entities[target].controller;
+        if (character->health <= 0) return false;
+
+        vec3 p = character->pos;
+        p.y -= height;
+        if (pos) *pos = p;
+        vec3 a = p - this->pos;
+        if (dist) *dist = a.length();
+
+        if (angleX || angleY) {
+            a = a.normal();
             vec3 b = getDir();
             vec3 n = vec3(0, 1, 0);
-            float d = atan2(b.cross(a).dot(n), a.dot(b));
-            if (fabsf(d) > 0.01f)
-                return d < 0 ? LEFT : RIGHT;
+            if (angleX) *angleX = 0.0f;
+            if (angleY) *angleY = atan2(b.cross(a).dot(n), a.dot(b));
+        }
+        return true;
+    }
+
+    int turn(float delta, float speed) {
+        speed *= Core::deltaTime;
+        decrease(delta, angle.y, speed);
+        if (speed != 0.0f) {
+            velocity = velocity.rotateY(-speed);
+            return speed < 0 ? LEFT : RIGHT;
         }
         return 0;
+    }
+
+    int lift(float delta, float speed) {
+        speed *= Core::deltaTime;
+        decrease(delta, pos.y, speed);
+        if (speed != 0.0f) {
+            updateEntity();
+            return speed < 0 ? FORTH : BACK;
+        }
+        return 0;
+    }
+
+    void bite(const vec3 &pos, int damage) {
+        if (bitten) return;
+        bitten = true;
+        ASSERT(target > -1);
+        Character *c = (Character*)level->entities[target].controller;
+        c->hit(damage, this);
+        Sprite::add(level, TR::Entity::BLOOD, c->getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
     }
 };
 
@@ -98,7 +140,6 @@ struct Enemy : Character {
 #define WOLF_TURN_SLOW   (PI / 3.0f)
 #define WOLF_TILT_MAX    (PI / 6.0f)
 #define WOLF_TILT_SPEED  WOLF_TILT_MAX
-
 
 struct Wolf : Enemy {
 
@@ -117,9 +158,9 @@ struct Wolf : Enemy {
         STATE_HOWL     = 7,
         STATE_SLEEP    = 8,
         STATE_GROWL    = 9,
-        STATE_10       = 10, // WTF?
+        STATE_TURN     = 10,
         STATE_DEATH    = 11,
-        STATE_ATTACK   = 12,
+        STATE_BITE     = 12,
     };
 
     enum {
@@ -127,45 +168,47 @@ struct Wolf : Enemy {
         JOINT_HEAD     = 3
     };
 
-    Wolf(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
+    Wolf(TR::Level *level, int entity) : Enemy(level, entity, 6) {}
 
     virtual int getStateGround() {
-        // STATE_SLEEP     -> STATE_STOP
-        // STATE_STOP      -> STATE_WALK, STATE_HOWL, STATE_SLEEP, STATE_GROWL
-        // STATE_WALK      -> NULL
-        // STATE_RUN       -> STaTE_JUMP, STATe_GROWL, STATE_10
-        // STATE_STALKING  -> STATE_RUN, STATE_GROWL, STATE_BITING
-        // STATE_JUMP      -> STATE_RUN
-        // STATE_GROWL     -> STATE_STOP, STATE_RUN, STATE_STALKING, STATE_HOWL, STATE_ATTACK 
-        // STATE_BITING    -> NULL
-        if (state == STATE_DEATH) return state;
-
-        if (health <= 0) {
-            switch (state) {
-                case STATE_RUN  : return animation.setAnim(ANIM_DEATH_RUN);
-                case STATE_JUMP : return animation.setAnim(ANIM_DEATH_JUMP);
-                default         : return animation.setAnim(ANIM_DEATH);
-            }
-        }
-
         TR::Entity &e = getEntity();
         if (!e.flags.active)
             return (state == STATE_STOP || state == STATE_SLEEP) ? STATE_SLEEP : STATE_STOP;
 
         switch (state) {
-            case STATE_SLEEP    : return STATE_STOP;
-            case STATE_STOP     : return STATE_HOWL;
-            case STATE_GROWL    : return randf() > 0.5f ? STATE_STALKING : STATE_RUN;
-            case STATE_STALKING : if (health < 70) return STATE_RUN; break;
+            case STATE_SLEEP    : return target > -1 ? STATE_STOP : state;
+            case STATE_STOP     : return target > -1 ? STATE_HOWL : STATE_SLEEP;
+            case STATE_HOWL     : return state;
+            case STATE_GROWL    : return target > -1 ? (randf() > 0.5f ? STATE_STALKING : STATE_RUN) : STATE_STOP;
+            case STATE_RUN      :
+            case STATE_STALKING : {
+                if (state == STATE_STALKING && health < 6) return STATE_RUN;
+
+                float angleY, dist;
+                if (getTargetInfo(0, NULL, NULL, &angleY, &dist)) {
+                    float w = state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW;
+                    input = turn(angleY, w);   // also set input mask (left, right) for tilt control
+
+                    if ((state == STATE_STALKING && dist < 512)) {
+                        bitten = false;
+                        return STATE_BITE;
+                    }
+                    if ((state == STATE_RUN && dist > 512 && dist < 1024)) {
+                        bitten = false;
+                        return STATE_JUMP;
+                    }
+                } else {
+                    target = -1;
+                    return STATE_GROWL;
+                }
+                break;
+            }
         }
 
-        if (target > -1 && (state == STATE_STALKING || state == STATE_RUN)) {
-            vec3 v = ((Controller*)level->entities[target].controller)->pos - pos;
-            float d = v.length();
-            if (state == STATE_STALKING && d < 512)
-                return STATE_ATTACK;
-            if (state == STATE_RUN && d > 512 && d < 1024)
-                return STATE_JUMP;
+        if ((state == STATE_JUMP || state == STATE_BITE) && !bitten) {
+            float dist;
+            if (getTargetInfo(0, NULL, NULL, NULL, &dist) && dist < 256.0f)
+                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).getPos(), state == STATE_BITE ? 100 : 50);                
         }
 
         if (state == STATE_JUMP)
@@ -174,20 +217,13 @@ struct Wolf : Enemy {
         return state;
     }
 
-    virtual void updateState() {
-        Enemy::updateState();
-        float w = 0.0f;
-        if (state == STATE_RUN || state == STATE_STALKING) {
-            w = state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW;
-            if (input & LEFT) w = -w;
-                
-            if (w != 0.0f) {
-                w *= Core::deltaTime;
-                angle.y += w; 
-                velocity = velocity.rotateY(-w);
-            }
-        } else
-            velocity = vec3(0.0f);
+    virtual int getStateDeath() {
+        switch (state) {
+            case STATE_DEATH : return state;
+            case STATE_RUN   : return animation.setAnim(ANIM_DEATH_RUN);
+            case STATE_JUMP  : return animation.setAnim(ANIM_DEATH_JUMP);
+            default          : return animation.setAnim(ANIM_DEATH);
+        }
     }
 
     virtual void updatePosition() {
@@ -207,34 +243,151 @@ struct Wolf : Enemy {
 struct Bear : Enemy {
 
     enum {
-        STATE_STOP   = 1,
+        ANIM_DEATH_HIND = 19,
+        ANIM_DEATH      = 20,
     };
 
-    Bear(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
+    enum {
+        STATE_WALK   = 0,
+        STATE_STOP   = 1,
+        STATE_HIND   = 2,
+        STATE_RUN    = 3,
+        STATE_HOWL   = 4,
+        STATE_GROWL  = 5,
+        STATE_BITE   = 6,
+        STATE_ATTACK = 7,
+        STATE_EAT    = 8,
+        STATE_DEATH  = 9,
+    };
+
+    enum {
+        JOINT_CHEST    = 2,
+        JOINT_HEAD     = 3
+    };
+
+    Bear(TR::Level *level, int entity) : Enemy(level, entity, 20) {}
 
     virtual int getStateGround() {
+        switch (state) {
+            case STATE_STOP     : return STATE_RUN;
+            case STATE_GROWL    : return state;
+            case STATE_WALK     : 
+            case STATE_RUN      :
+            case STATE_HIND     : {
+                if (state == STATE_HIND && health < 6) return STATE_RUN;
+
+                float angleY, dist;
+                if (getTargetInfo(0, NULL, NULL, &angleY, &dist)) {
+                    float w = state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW;
+                    input = turn(angleY, w);   // also set input mask (left, right) for tilt control
+
+                    if ((state == STATE_HIND && dist < 512)) {
+                        bitten = false;
+                        return STATE_ATTACK;
+                    }
+                    if ((state == STATE_RUN && dist > 512 && dist < 1024)) {
+                        bitten = false;
+                        return STATE_BITE;
+                    }
+                }
+                break;
+            }
+        }
+
+        if ((state == STATE_ATTACK || state == STATE_BITE) && !bitten) {
+            float dist;
+            if (getTargetInfo(0, NULL, NULL, NULL, &dist) && dist < 256.0f)
+                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).getPos(), state == STATE_BITE ? 100 : 50);                
+        }
+
         return state;
+    }
+
+    virtual int getStateDeath() {
+        return state == STATE_DEATH ? state : animation.setAnim(ANIM_DEATH);
+    }
+
+    virtual void updatePosition() {
+        updateTilt(state == STATE_RUN, WOLF_TILT_SPEED, WOLF_TILT_MAX);
+        Enemy::updatePosition();
+        /*
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+        Enemy::updatePosition();
+        setOverrides(state == STATE_STALKING || state == STATE_RUN, JOINT_CHEST, JOINT_HEAD);
+        lookAt(target, JOINT_CHEST, JOINT_HEAD);
+        */
     }
 };
 
 
+#define BAT_TURN_SPEED  PI
+#define BAT_LIFT_SPEED  512.0f
+
 struct Bat : Enemy {
 
     enum {
-        STATE_AWAKE  = 1,
-        STATE_FLY    = 2,
+        ANIM_DEATH     = 4,
     };
 
-    Bat(TR::Level *level, int entity) : Enemy(level, entity, 100) {}
+    enum {
+        STATE_AWAKE    = 1,
+        STATE_FLY      = 2,
+        STATE_ATTACK   = 3,
+        STATE_CIRCLING = 4,
+        STATE_DEATH    = 5,
+    };
 
-    virtual Stand getStand() {
-        return STAND_AIR;
-    }
+    Bat(TR::Level *level, int entity) : Enemy(level, entity, 1) { stand = STAND_AIR; }
 
     virtual int getStateAir() {
-        animation.time = 0.0f;
-        return STATE_AWAKE;
+        if (!getEntity().flags.active) {
+            animation.time = 0.0f;
+            animation.dir = 0.0f;
+            return STATE_AWAKE;
+        }
+
+        switch (state) {
+            case STATE_AWAKE  : return STATE_FLY;
+            case STATE_ATTACK : 
+            case STATE_FLY    : {
+                vec3 p;
+                float angleY, dist;
+                if (getTargetInfo(765, &p, NULL, &angleY, &dist)) {
+                    turn(angleY, BAT_TURN_SPEED);
+                    lift(p.y - pos.y, BAT_LIFT_SPEED);
+
+                    if (dist < 128) {                        
+                        if (state == STATE_ATTACK && !(animation.frameIndex % 15))
+                            bite(pos, 2); // TODO: bite position
+                        else
+                            bitten = false;
+                        return STATE_ATTACK;
+                    } else
+                        return STATE_FLY;
+                } else {
+                    turn(PI, BAT_TURN_SPEED); // circling
+                    return STATE_FLY;
+                }
+            }                
+        }
+
+        return state;
     }
+
+    virtual int getStateDeath() {
+        return state == STATE_DEATH ? state : animation.setAnim(ANIM_DEATH);
+    }
+
+    virtual void updateVelocity() {
+        if (state != STATE_DEATH)
+            Enemy::updateVelocity();
+        else
+            velocity = vec3(0.0f, velocity.y + GRAVITY * Core::deltaTime, 0.0f);
+    }
+
 };
 
 #endif

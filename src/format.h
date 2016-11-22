@@ -409,6 +409,8 @@ namespace TR {
 
             SPARK                    = 164,      // sprite
 
+            MUZZLE_FLASH             = 166,
+
             VIEW_TARGET              = 169,
    
             GLYPH                    = 190,      // sprite
@@ -617,10 +619,13 @@ namespace TR {
     };
 
     struct SoundInfo {
-       uint16 offset;
-       uint16 volume;
-       uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
-       uint16 flags;    // Bits 0-1: Looped flag, bits 2-5: num samples, bits 6-7: UNUSED
+        uint16 offset;
+        uint16 volume;
+        uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
+        union {
+            struct { uint16 replay:2, count:6, unknown:5, pitch:1, gain:1; };
+            uint16 value;
+        } flags;
     };
 
     #pragma pack(pop)
@@ -758,6 +763,10 @@ namespace TR {
         bool    secrets[MAX_SECRETS_COUNT];
         void    *cameraController;
 
+        struct {
+            Model *muzzleFlash;
+        } extra;
+
         Level(const char *name, bool demo) {
             Stream stream(name);
         // read version
@@ -883,8 +892,15 @@ namespace TR {
                 c.g <<= 2;
                 c.b <<= 2;
             }
-
+        // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
+        // get special models indices
+            memset(&extra, 0, sizeof(extra));
+            for (int i = 0; i < modelsCount; i++)
+                switch (models[i].type) {
+                    case Entity::MUZZLE_FLASH : extra.muzzleFlash = &models[i]; break;
+                    default : ;
+                }
         }
 
         ~Level() {

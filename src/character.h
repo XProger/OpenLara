@@ -12,27 +12,29 @@ struct Character : Controller {
     enum Stand { 
         STAND_AIR, STAND_GROUND, STAND_SLIDE, STAND_HANG, STAND_UNDERWATER, STAND_ONWATER
     }       stand;
-    int     input;
+    int     input, lastInput;
 
-    enum {  LEFT        = 1 << 1, 
-            RIGHT       = 1 << 2, 
-            FORTH       = 1 << 3, 
-            BACK        = 1 << 4, 
-            JUMP        = 1 << 5,
-            WALK        = 1 << 6,
-            ACTION      = 1 << 7,
-            WEAPON      = 1 << 8,
-            DEATH       = 1 << 9 };
+    enum Key {  
+        LEFT        = 1 << 1, 
+        RIGHT       = 1 << 2, 
+        FORTH       = 1 << 3, 
+        BACK        = 1 << 4, 
+        JUMP        = 1 << 5,
+        WALK        = 1 << 6,
+        ACTION      = 1 << 7,
+        WEAPON      = 1 << 8,
+        DEATH       = 1 << 9
+    };
 
     vec3    velocity;
     float   angleExt;
 
-    Character(TR::Level *level, int entity, int health) : Controller(level, entity), target(-1), health(100), tilt(0.0f), stand(STAND_GROUND), velocity(0.0f) {
+    Character(TR::Level *level, int entity, int health) : Controller(level, entity), target(-1), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f) {
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
     }
 
-    virtual void hit(int damage) {
+    virtual void hit(int damage, Controller *enemy = NULL) {
         health -= damage;
     };
 
@@ -63,6 +65,7 @@ struct Character : Controller {
         health = 0;
     }
 
+    virtual void  updateVelocity()      {}
     virtual void  updatePosition()      {}
     virtual Stand getStand()            { return stand; }
     virtual int   getHeight()           { return 0; }
@@ -74,7 +77,7 @@ struct Character : Controller {
     virtual int   getStateOnwater()     { return state; }
     virtual int   getStateDeath()       { return state; }
     virtual int   getStateDefault()     { return state; }
-    virtual int   getInput()            { return 0; }
+    virtual int   getInput()            { return health <= 0 ? DEATH : 0; }
 
     virtual void updateState() {
         int state = animation.state;
@@ -117,7 +120,12 @@ struct Character : Controller {
         angle.z = tilt;
     }
 
+    bool isPressed(Key key) {
+        return (input & key) && !(lastInput & key);
+    }
+
     virtual void update() {
+        lastInput = input;
         input = getInput();
         stand = getStand();
         updateState();
