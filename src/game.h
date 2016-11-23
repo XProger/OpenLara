@@ -32,7 +32,9 @@ namespace Game {
     void update() {
         float dt = Core::deltaTime;
         if (Input::down[ikR]) // slow motion (for animation debugging)
-            Core::deltaTime /= 50.0f;
+            Core::deltaTime /= 10.0f;
+        if (Input::down[ikT])
+            Core::deltaTime *= 10.0f;
 
         level->update();
 

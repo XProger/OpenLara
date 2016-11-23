@@ -6,7 +6,7 @@
 #include "mesh.h"
 #include "animation.h"
 
-#define GRAVITY     6.0f
+#define GRAVITY     (6.0f * 30.0f)
 #define NO_OVERLAP  0x7FFFFFFF
 #define SPRITE_FPS  10.0f
 
@@ -165,11 +165,13 @@ struct Controller {
 
         int16 a = level->soundsMap[id];
         if (a == -1) return;
+
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-            uint32 c = level->soundOffsets[b.offset + rand() % ((b.flags & 0xFF) >> 2)];
+            int index = b.offset + rand() % b.flags.count;
+            uint32 c = level->soundOffsets[index];
             void *p = &level->soundData[c];
-            Sound::play(new Stream(p, 1024 * 1024), pos, (float)b.volume / 0xFFFF, 0.0f, flags);
+            Sound::play(new Stream(p, 1024 * 1024), pos, (float)b.volume / 0xFFFF, 0.0f, flags | ((b.flags.replay == 1) ? Sound::REPLAY : 0), entity * 1000 + index);
         }
     }
 
@@ -360,7 +362,6 @@ struct Controller {
 
     virtual bool  activate(ActionCommand *cmd)  { actionCommand = cmd; return true; } 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
-    virtual void  updateVelocity()              {}
     virtual void  checkRoom()                   {}
 
     virtual void  cmdOffset(const vec3 &offset) {

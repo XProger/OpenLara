@@ -123,6 +123,7 @@ struct Camera : Controller {
                 vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
                 destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
             }
+            room = destRoom;
         }
 
         pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
@@ -153,8 +154,8 @@ struct Camera : Controller {
             }
 
         // play underwater sound when camera goes under water
-            if (lastRoom != room && !level->rooms[lastRoom].flags.water && level->rooms[room].flags.water)
-                playSound(TR::SND_UNDERWATER, vec3(0.0f), 0);
+        //    if (lastRoom != room && !level->rooms[lastRoom].flags.water && level->rooms[room].flags.water)
+        //        playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::REPLAY); // TODO: loop sound
         }
 
         mViewInv = mat4(pos, target, vec3(0, -1, 0));

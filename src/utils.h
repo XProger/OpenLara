@@ -88,6 +88,15 @@ float shortAngle(float a, float b) {
     return clampAngle(n - int(n / PI2) * PI2);
 }
 
+float decrease(float delta, float &value, float &speed) {
+    if (speed > 0.0f && fabsf(delta) > 0.01f) {
+        if (delta > 0) speed = min(delta,  speed);
+        if (delta < 0) speed = max(delta, -speed);
+        value += speed;
+        return speed;
+    } else
+        return 0.0f;
+}
 
 struct vec2 {
     float x, y;
