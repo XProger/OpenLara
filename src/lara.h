@@ -962,7 +962,7 @@ struct Lara : Character {
                 if (!checkAngle(level->entities[info.trigCmd[0].args].rotation))
                     return;
                 if (animation.canSetState(actionState)) {
-                    if (false) { //!useItem(TR::Entity::NONE, level->entities[info.trigCmd[0].args].type)) {
+                    if (!useItem(TR::Entity::NONE, level->entities[info.trigCmd[0].args].type)) {
                         playSound(TR::SND_NO, pos, Sound::PAN);
                         return;
                     }
