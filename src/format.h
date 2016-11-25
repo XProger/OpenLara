@@ -10,6 +10,10 @@
 namespace TR {
 
     enum {
+        FLOOR_BLOCK = -127,
+    };
+
+    enum {
         ANIM_CMD_NONE       ,
         ANIM_CMD_OFFSET     ,
         ANIM_CMD_JUMP       ,
@@ -387,6 +391,7 @@ namespace TR {
             PUZZLE_4                 = 113,      // sprite
 
             HOLE_PUZZLE              = 118,
+            HOLE_PUZZLE_SET          = 122,
 
             PICKUP                   = 126,      // sprite
 
@@ -766,6 +771,7 @@ namespace TR {
 
         struct {
             Model *muzzleFlash;
+            Model *puzzleSet;
         } extra;
 
         Level(const char *name, bool demo) {
@@ -899,7 +905,8 @@ namespace TR {
             memset(&extra, 0, sizeof(extra));
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
-                    case Entity::MUZZLE_FLASH : extra.muzzleFlash = &models[i]; break;
+                    case Entity::MUZZLE_FLASH    : extra.muzzleFlash = &models[i]; break;
+                    case Entity::HOLE_PUZZLE_SET : extra.puzzleSet   = &models[i]; break;
                     default : ;
                 }
         }
@@ -1032,6 +1039,9 @@ namespace TR {
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
+            if (s.floor == -127) 
+                return;
+
             Room::Sector *sBelow = &s;
             while (sBelow->roomBelow != 0xFF) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
             info.floor = 256 * sBelow->floor;
@@ -1072,7 +1082,7 @@ namespace TR {
                             if (ey >= y - 128 && ey < info.floor)
                                 info.floor = ey;
                             if (ey  < y - 128 && ey > info.ceiling)
-                                info.ceiling = ey + (e.type == Entity::TRAP_FLOOR ? 256 : 0);
+                                info.ceiling = ey + (e.type == Entity::TRAP_FLOOR ? 0 : 256);
                             break;
                         }
 

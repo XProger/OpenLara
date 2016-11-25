@@ -57,8 +57,10 @@ struct Camera : Controller {
 
     virtual void update() {
         int lookAt = -1;
-        if (owner->target > -1)     lookAt = owner->target;
         if (actTargetEntity > -1)   lookAt = actTargetEntity;
+        if (owner->target > -1)     lookAt = owner->target;
+
+        owner->viewTarget = lookAt;
 
         if (timer > 0.0f) {
             timer -= Core::deltaTime;

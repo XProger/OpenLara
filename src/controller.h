@@ -52,7 +52,9 @@ struct Controller {
             meshes[i] = model->mStart + i;
     }
 
-    void meshSwap(TR::Model *model, int mask) {
+    void meshSwap(TR::Model *model, int mask = 0xFFFFFFFF) {
+        if (!meshes) initMeshOverrides();
+
         for (int i = 0; i < model->mCount; i++) {
             int index = model->mStart + i;
             if (((1 << i) & mask) && level->meshOffsets[index])

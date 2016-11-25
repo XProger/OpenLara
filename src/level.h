@@ -385,7 +385,7 @@ struct Level {
     }
 
     void renderEntity(const TR::Entity &entity) {
-    //    if (entity.room != lara->getRoomIndex()) return;
+        //if (entity.room != lara->getRoomIndex()) return;
         if (entity.type == TR::Entity::NONE) return;
         ASSERT(entity.controller);
 
@@ -495,7 +495,7 @@ struct Level {
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
             Debug::Level::entities(level);
-      //  Debug::Level::info(level, lara->getEntity(), lara->animation);
+        Debug::Level::info(level, lara->getEntity(), lara->animation);
         Debug::end();
     #endif
     }

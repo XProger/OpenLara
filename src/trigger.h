@@ -51,7 +51,7 @@ struct Trigger : Controller {
             }
         }
 
-        if (!inState())
+        if (!inState() && entity.type != TR::Entity::HOLE_KEY && entity.type != TR::Entity::HOLE_PUZZLE)
             animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
 
         updateAnimation(true);
@@ -179,8 +179,45 @@ struct Block : Controller {
 
 
 struct Door : Trigger {
+    int8 *floor[2], orig[2];
 
-    Door(TR::Level *level, int entity) : Trigger(level, entity, true) {}
+    Door(TR::Level *level, int entity) : Trigger(level, entity, true) {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        vec3 p = pos - getDir() * 1024.0f;
+
+        level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
+        int dx, dz;
+        TR::Room::Sector *s = &level->getSector(e.room, (int)p.x, (int)p.z, dx, dz);
+
+        orig[0] = *(floor[0] = &s->floor);
+
+        if (info.roomNext != 0xFF) {
+            s = &level->getSector(info.roomNext, e.x, e.z, dx, dz);
+            orig[1] = *(floor[1] = &s->floor);
+        } else
+            floor[1] = NULL;
+
+        updateBlock();
+    }
+
+    void updateBlock() {
+        int8 v[2];
+        if (getEntity().flags.active) {
+            v[0] = orig[0];
+            v[1] = orig[1];
+        } else
+            v[0] = v[1] = TR::FLOOR_BLOCK;
+
+        if (floor[0]) *floor[0] = v[0];
+        if (floor[1]) *floor[1] = v[1];
+    }
+
+    virtual bool activate(ActionCommand *cmd) {
+        bool res = Trigger::activate(cmd);
+        updateBlock();
+        return res;
+    }
 };
 
 struct DoorFloor : Trigger {
@@ -235,7 +272,7 @@ struct TrapFloor : Trigger {
                 e.room = info.roomBelow;
 
             if (pos.y > info.floor) {
-                pos.y = info.floor;
+                pos.y = (float)info.floor;
                 animation.setState(STATE_DOWN);
             }
             updateEntity();

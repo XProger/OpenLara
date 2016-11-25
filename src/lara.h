@@ -24,6 +24,7 @@
 
 #define PICKUP_FRAME_GROUND     40
 #define PICKUP_FRAME_UNDERWATER 16
+#define PUZZLE_FRAME            80
 
 #define MAX_TRIGGER_ACTIONS 64
 
@@ -193,8 +194,9 @@ struct Lara : Character {
     
     Inventory inventory;
     int lastPickUp;
+    int viewTarget;
 
-    Lara(TR::Level *level, int entity, bool home) : Character(level, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos) {
+    Lara(TR::Level *level, int entity, bool home) : Character(level, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1) {
         animation.setAnim(ANIM_STAND);
         getEntity().flags.active = 1;
         initMeshOverrides();
@@ -264,12 +266,12 @@ struct Lara : Character {
         pos = vec3(31390, -2048, 33472);
         angle = vec3(0.0f, 0.0f, 0.0f);
         getEntity().room = 63;
-        
+        */
     // level 2 (trap door)
         pos = vec3(21987, -1024, 29144);
         angle = vec3(0.0f, PI * 3.0f * 0.5f, 0.0f);
         getEntity().room = 61;
-        
+        /*
     // level 3a
         pos = vec3(41015, 3584, 34494);
         angle = vec3(0.0f, -PI, 0.0f);
@@ -374,6 +376,15 @@ struct Lara : Character {
 
     bool emptyHands() {
         return wpnCurrent == Weapon::EMPTY || arms[0].anim == Weapon::Anim::NONE;
+    }
+
+    bool canLookAt() {
+        return (stand == STAND_GROUND || stand == STAND_SLIDE)  
+               && state != STATE_REACH
+               && state != STATE_PUSH_BLOCK
+               && state != STATE_PULL_BLOCK
+               && state != STATE_PUSH_PULL_READY
+               && state != STATE_PICK_UP;
     }
 
     bool canDrawWeapon() {
@@ -713,7 +724,8 @@ struct Lara : Character {
         } else
             animation.overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
 
-        lookAt(target);
+
+        lookAt(viewTarget);
         
         if (wpnCurrent == Weapon::SHOTGUN)
             aimShotgun();
@@ -725,15 +737,16 @@ struct Lara : Character {
         float speed = 8.0f * Core::deltaTime;
         quat rot;
 
+        bool can = canLookAt();
         // chest
-        if ((stand == STAND_GROUND || stand == STAND_SLIDE) && aim(target, 7, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.9f, PI * 0.9f), rot))
+        if (can && aim(target, 7, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.9f, PI * 0.9f), rot))
             rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
         else 
             rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
         animation.overrides[7] = rotChest * animation.overrides[7];
 
         // head
-        if (aim(target, 14, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
+        if (can && aim(target, 14, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
             rotHead = rotHead.slerp(rot, speed);
         else
             rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
@@ -941,15 +954,21 @@ struct Lara : Character {
                     return;
                 break;
             case TR::Level::Trigger::KEY :
-                actionState = STATE_USE_KEY;
+                if (level->entities[info.trigCmd[0].args].flags.active)
+                    return;
+                actionState = level->entities[info.trigCmd[0].args].type == TR::Entity::HOLE_KEY ? STATE_USE_KEY : STATE_USE_PUZZLE;
                 if (isActive || !isPressed(ACTION) || state == actionState || !emptyHands())   // TODO: STATE_USE_PUZZLE
                     return;
                 if (!checkAngle(level->entities[info.trigCmd[0].args].rotation))
                     return;
-                if (animation.canSetState(actionState) && !useItem(TR::Entity::NONE, level->entities[info.trigCmd[0].args].type)) {
-                    playSound(TR::SND_NO, pos, Sound::PAN);
+                if (animation.canSetState(actionState)) {
+                    if (false) { //!useItem(TR::Entity::NONE, level->entities[info.trigCmd[0].args].type)) {
+                        playSound(TR::SND_NO, pos, Sound::PAN);
+                        return;
+                    }
+                } else
                     return;
-                }
+                lastPickUp = info.trigCmd[0].args; // TODO: it's not pickup, it's key/puzzle hole
                 break;
             case TR::Level::Trigger::PICKUP :
                 if (!isActive)  // check if item is not picked up
@@ -964,6 +983,9 @@ struct Lara : Character {
         if (!animation.setState(actionState)) return;
 
         if (info.trigger == TR::Level::Trigger::SWITCH || info.trigger == TR::Level::Trigger::KEY) {
+            if (info.trigger == TR::Level::Trigger::KEY)
+                level->entities[info.trigCmd[0].args].flags.active = true;
+
             TR::Entity &p = level->entities[info.trigCmd[0].args];
             angle.y = p.rotation;
             angle.x = 0;
@@ -1370,14 +1392,23 @@ struct Lara : Character {
     }
 
     virtual void doCustomCommand(int curFrame, int prevFrame) {
-        if (state == STATE_PICK_UP) {
-            TR::Entity &item = level->entities[lastPickUp];
-            if (!item.flags.invisible) {
-                int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;                
-                if (animation.isFrameActive(pickupFrame)) {
-                    item.flags.invisible = true;
-                    inventory.add(item.type, 1);
+        switch (state) {
+            case STATE_PICK_UP : {
+                TR::Entity &item = level->entities[lastPickUp];
+                if (!item.flags.invisible) {
+                    int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;                
+                    if (animation.isFrameActive(pickupFrame)) {
+                        item.flags.invisible = true;
+                        inventory.add(item.type, 1);
+                    }
                 }
+                break;
+            }
+            case STATE_USE_PUZZLE : {
+                TR::Entity &item = level->entities[lastPickUp];
+                if (animation.isFrameActive(PUZZLE_FRAME))
+                    ((Controller*)item.controller)->meshSwap(level->extra.puzzleSet);
+                break;
             }
         }
     }

@@ -196,10 +196,9 @@ namespace Sound {
         OGG(Stream *stream, int channels) : Decoder(stream, channels), size(stream->size), pos(0) {
             buffer = new char[size]; // TODO: file streaming
             stream->raw(buffer, size);
-            int error;
             alloc.alloc_buffer_length_in_bytes = 256 * 1024;
             alloc.alloc_buffer = new char[alloc.alloc_buffer_length_in_bytes];
-            ogg = stb_vorbis_open_memory((unsigned char*)buffer, size, &error, &alloc);
+            ogg = stb_vorbis_open_memory((unsigned char*)buffer, size, NULL, &alloc);
             stb_vorbis_info info = stb_vorbis_get_info(ogg);
             channels = info.channels;
         }
@@ -220,7 +219,10 @@ namespace Sound {
             return i;
         }
 
-        // TODO: replay
+        virtual void replay() {
+            stb_vorbis_close(ogg);
+            ogg = stb_vorbis_open_memory((unsigned char*)buffer, size, NULL, &alloc);
+        }
     };
 #endif
 
@@ -321,8 +323,11 @@ namespace Sound {
             while (i < count) {
                 int res = decoder->decode(&frames[i], count - i);
                 if (res == 0) {
-                    if (i == 0) isPlaying = false;
-                    break;
+                    if (!(flags & Flags::LOOP)) {
+                        if (i == 0) isPlaying = false;
+                        break;
+                    } else
+                        decoder->replay();
                 }
                 i += res;
             }
