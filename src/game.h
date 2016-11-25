@@ -14,7 +14,7 @@ namespace Game {
         Core::init();
         level = new Level("LEVEL2_DEMO.PHD", true, false);
         //level = new Level("GYM.PHD", false, true);
-        //level = new Level("LEVEL4.PHD", false, false);
+        //level = new Level("LEVEL8A.PHD", false, false);
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);

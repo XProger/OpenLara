@@ -32,7 +32,7 @@ struct Enemy : Character {
         vec3 p = pos;
         pos += velocity * Core::deltaTime * 30.0f;
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.z, info, true);
+        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
         if (pos.y - info.floor > 1024) {
             pos = p;
             return;

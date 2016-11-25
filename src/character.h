@@ -41,19 +41,19 @@ struct Character : Controller {
     virtual void checkRoom() {
         TR::Level::FloorInfo info;
         TR::Entity &e = getEntity();
-        level->getFloorInfo(e.room, e.x, e.z, info);
+        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
         if (info.roomNext != 0xFF)
             e.room = info.roomNext;        
 
-        if (info.roomBelow != 0xFF && e.y > info.floor)
-            e.room = info.roomBelow;       
+        if (info.roomBelow != 0xFF && e.y > info.roomFloor)
+            e.room = info.roomBelow;
 
-        if (info.roomAbove != 0xFF && e.y <= info.ceiling) {
+        if (info.roomAbove != 0xFF && e.y <= info.roomCeiling) {
             if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
                 stand = STAND_ONWATER;
                 velocity.y = 0;
-                pos.y = float(info.ceiling);
+                pos.y = float(info.roomCeiling);
                 updateEntity();
             } else
                 if (stand != STAND_ONWATER)
