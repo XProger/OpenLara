@@ -71,7 +71,7 @@ struct Controller {
             mat4 m = animation.getJoints(getMatrix(), joint);
             vec3 delta = (m.inverse() * t).normal();
 
-            float angleY = clampAngle(atan2(delta.x, delta.z));
+            float angleY = clampAngle(atan2f(delta.x, delta.z));
             float angleX = clampAngle(asinf(delta.y));
 
             if (angleX > angleRange.x && angleX <= angleRange.y &&
