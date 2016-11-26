@@ -3,7 +3,7 @@
 #endif
 
 #ifdef MINIMAL
-    #if _MSC_VER == 1900 // VS2015
+    #if _MSC_VER >= 1900 // VS2015 (1900) VS2017 (1910)
         #include <malloc.h>
         void __cdecl operator delete(void *ptr, unsigned int size) { free(ptr); }
         // add "/d2noftol3" to compiler additional options

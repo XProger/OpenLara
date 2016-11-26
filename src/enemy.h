@@ -100,7 +100,7 @@ struct Enemy : Character {
             vec3 b = getDir();
             vec3 n = vec3(0, 1, 0);
             if (angleX) *angleX = 0.0f;
-            if (angleY) *angleY = atan2(b.cross(a).dot(n), a.dot(b));
+            if (angleY) *angleY = atan2f(b.cross(a).dot(n), a.dot(b));
         }
         return true;
     }
