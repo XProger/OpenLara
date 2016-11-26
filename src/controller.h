@@ -24,13 +24,14 @@ struct Controller {
     int     mCount;
 
     struct ActionCommand {
+        int             emitter;
         TR::Action      action;
         int             value;
         float           timer;
         ActionCommand   *next;
 
         ActionCommand() {}
-        ActionCommand(TR::Action action, int value, float timer, ActionCommand *next = NULL) : action(action), value(value), timer(timer), next(next) {}
+        ActionCommand(int emitter, TR::Action action, int value, float timer, ActionCommand *next = NULL) : emitter(emitter), action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
     Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), actionCommand(NULL), mCount(0), meshes(NULL) {
@@ -51,7 +52,9 @@ struct Controller {
             meshes[i] = model->mStart + i;
     }
 
-    void meshSwap(TR::Model *model, int mask) {
+    void meshSwap(TR::Model *model, int mask = 0xFFFFFFFF) {
+        if (!meshes) initMeshOverrides();
+
         for (int i = 0; i < model->mCount; i++) {
             int index = model->mStart + i;
             if (((1 << i) & mask) && level->meshOffsets[index])
@@ -223,10 +226,10 @@ struct Controller {
                 sz = pz / 1024 * 1024 + 512;
 
             if (lr != room || lx != sx || lz != sz) {
-                level->getFloorInfo(room, sx, sz, info);
+                level->getFloorInfo(room, sx, py, sz, info);
                 if (info.roomNext != 0xFF) {
                     room = info.roomNext;
-                    level->getFloorInfo(room, sx, sz, info);
+                    level->getFloorInfo(room, sx, py, sz, info);
                 }
                 lr = room;
                 lx = sx;
@@ -234,9 +237,9 @@ struct Controller {
             }
 
             if (isCamera) {
-                if (py > info.floor && info.roomBelow != 0xFF)
+                if (py > info.roomFloor && info.roomBelow != 0xFF)
                     room = info.roomBelow;
-                else if (py < info.ceiling && info.roomAbove != 0xFF)
+                else if (py < info.roomCeiling && info.roomAbove != 0xFF)
                     room = info.roomAbove;
                 else if (py > info.floor || py < info.ceiling) {
                     int minX = px / 1024 * 1024;
@@ -248,14 +251,14 @@ struct Controller {
                     dir = (pos - from).normal();
                 }
             } else {
-                if (py > info.floor) {
+                if (py > info.roomFloor) {
                     if (info.roomBelow != 0xFF) 
                         room = info.roomBelow;
                     else
                         break;
                 }
 
-                if (py < info.ceiling) {
+                if (py < info.roomCeiling) {
                     if (info.roomAbove != 0xFF)
                         room = info.roomAbove;
                     else
@@ -277,45 +280,7 @@ struct Controller {
         if (rand() % 10 <= 6) return;
         playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
     }
-    /*
-    void collide() {
-        TR::Entity &entity = getEntity();
 
-        TR::Level::FloorInfo info;
-        level->getFloorInfo(entity.room, entity.x, entity.z, info);
-
-        if (info.roomNext != 0xFF)
-            entity.room = info.roomNext;
-
-        if (entity.y > info.floor) {
-            if (info.roomBelow == 0xFF) {
-                if (entity.y > info.floor) {
-                    entity.y = info.floor;
-                    pos.y = entity.y;
-                    velocity.y = 0.0f;
-                }
-            } else
-                entity.room = info.roomBelow;
-        }
-         
-        int height = getHeight();
-        if (entity.y - height < info.ceiling) {
-            if (info.roomAbove == 0xFF) {
-                pos.y = entity.y = info.ceiling + height;
-                if (velocity.y < 0.0f)
-                    velocity.y = GRAVITY;
-            } else {
-                if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
-                    stand = STAND_ONWATER;
-                    velocity.y = 0;
-                    pos.y = info.ceiling;
-                } else
-                    if (stand != STAND_ONWATER && entity.y < info.ceiling)
-                        entity.room = info.roomAbove;
-            }
-        }
-    }
-    */
     void activateNext() { // activate next entity (for triggers)
         if (!actionCommand || !actionCommand->next) {
             actionCommand = NULL;
@@ -480,7 +445,7 @@ struct Controller {
 
         if (TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;
-            level->getFloorInfo(entity.room, entity.x, entity.z, info, true);
+            level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
             renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size() * 0.8f, angle.y);
         }
     }

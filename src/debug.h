@@ -184,84 +184,71 @@ namespace Debug {
 
     namespace Level {
 
-        void debugFloor(const TR::Level &level, int roomIndex, int x, int z) {
+        void debugFloor(const TR::Level &level, int roomIndex, int x, int y, int z) {
             TR::Level::FloorInfo info;
-            level.getFloorInfo(roomIndex, x, z, info);
+            level.getFloorInfo(roomIndex, x, y, z, info);
 
-            vec3 f = vec3(x, info.floor,   z);
-            vec3 c = vec3(x, info.ceiling, z);
-            vec3 vf[4] = { f, f + vec3(1024, 0, 0), f + vec3(1024, 0, 1024), f + vec3(0, 0, 1024) };
-            vec3 vc[4] = { c, c + vec3(1024, 0, 0), c + vec3(1024, 0, 1024), c + vec3(0, 0, 1024) };
+            vec3 rf[4], rc[4], f[4], c[4];
 
-                        
-            int sx = 256 * info.slantX;
-            int sz = 256 * info.slantZ;
+            int offsets[4][2] = { { 1, 1 }, { 1023, 1 }, { 1023, 1023 }, { 1, 1023 } };
 
-            if (sx > 0) {
-                vf[0].y += sx;
-                vf[3].y += sx;
-            } else {
-                vf[1].y -= sx;
-                vf[2].y -= sx;
+            for (int i = 0; i < 4; i++) {
+                level.getFloorInfo(roomIndex, x + offsets[i][0], y, z + offsets[i][1], info);
+                rf[i] = vec3( x + offsets[i][0], info.roomFloor - 4,   z + offsets[i][1] );
+                rc[i] = vec3( x + offsets[i][0], info.roomCeiling + 4, z + offsets[i][1] );
+                f[i]  = vec3( x + offsets[i][0], info.floor - 4,       z + offsets[i][1] );
+                c[i]  = vec3( x + offsets[i][0], info.ceiling + 4,     z + offsets[i][1] );
+                if (info.roomBelow == 0xFF) rf[i].y = f[i].y;
+                if (info.roomAbove == 0xFF) rc[i].y = c[i].y;
             }
-
-            if (sz > 0) {
-                vf[0].y += sz;
-                vf[1].y += sz;
-            } else {
-                vf[3].y -= sz;
-                vf[2].y -= sz;
-            }
-            /*
-                        } else { // ceiling
-                            if (sx < 0) {
-                                p[0].y += sx;
-                                p[3].y += sx;
-                            } else {
-                                p[1].y -= sx;
-                                p[2].y -= sx;
-                            }
-
-                            if (sz > 0) {
-                                p[0].y -= sz;
-                                p[1].y -= sz;
-                            } else {
-                                p[3].y += sz;
-                                p[2].y += sz;
-                            }
-                        }
-            */
-
-            glBegin(GL_LINE_STRIP);
-                for (int i = 0; i < 5; i++)
-                    glVertex3fv((GLfloat*)&vf[i % 4]);
-            glEnd();
-
-            glColor3f(1, 0, 0);
-            glBegin(GL_LINE_STRIP);
-                for (int i = 0; i < 5; i++)
-                    glVertex3fv((GLfloat*)&vc[i % 4]);  
-            glEnd();
 
             if (info.roomNext != 0xFF) {
-                glColor4f(0.0f, 0.0f, 1.0f, 0.5f);
+                glColor4f(0.0f, 0.0f, 1.0f, 0.1f);
                 glBegin(GL_QUADS);
-                for (int i = 3; i >= 0; i--)
-                    glVertex3fv((GLfloat*)&vf[i]);
+                    glVertex3fv((GLfloat*)&f[3]);
+                    glVertex3fv((GLfloat*)&f[2]);
+                    glVertex3fv((GLfloat*)&f[1]);
+                    glVertex3fv((GLfloat*)&f[0]);
+                glEnd();
+            } else {
+
+                glColor4f(0.0f, 1.0f, 0.0f, 0.1f);
+                glBegin(GL_QUADS);
+                    glVertex3fv((GLfloat*)&f[3]);
+                    glVertex3fv((GLfloat*)&f[2]);
+                    glVertex3fv((GLfloat*)&f[1]);
+                    glVertex3fv((GLfloat*)&f[0]);
+                glEnd();
+
+                if (info.trigCmdCount > 0)
+                    glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+                else
+                    glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
+                glBegin(GL_LINE_STRIP);
+                    for (int i = 0; i < 5; i++)
+                        glVertex3fv((GLfloat*)&rf[i % 4]);
                 glEnd();
             }
+                
+            glColor4f(1.0f, 0.0f, 0.0f, 0.1f);
+            glBegin(GL_QUADS);
+                glVertex3fv((GLfloat*)&c[0]);
+                glVertex3fv((GLfloat*)&c[1]);
+                glVertex3fv((GLfloat*)&c[2]);
+                glVertex3fv((GLfloat*)&c[3]);
+            glEnd();
 
-            if (info.roomAbove != 0xFF) {
-                glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-                glBegin(GL_QUADS);
-                for (int i = 3; i >= 0; i--) {
-                    vec3 v = vf[i];
-                    v.y -= 32.0f;
-                    glVertex3fv((GLfloat*)&v);
-                }
-                glEnd();
-            }
+            if (info.trigCmdCount > 0)
+                glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+            else
+                glColor4f(1.0f, 0.0f, 0.0f, 0.25f);
+            glBegin(GL_LINE_STRIP);
+                for (int i = 0; i < 5; i++)
+                    glVertex3fv((GLfloat*)&rc[i % 4]);  
+            glEnd();
 
+
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
             /*
             if (boxIndex == 0xFFFF) {
@@ -292,37 +279,14 @@ namespace Debug {
             } while (!(o++)->end);
         }
 
-        void debugSectors(const TR::Level &level, const vec3 &pos, int roomIndex) {
+        void sectors(const TR::Level &level, int roomIndex, int y) {
             TR::Room &room = level.rooms[roomIndex];
 
-            vec3 p = (pos - vec3(room.info.x, 0, room.info.z)) * vec3(1.0f / 1024.0f, 1, 1.0f / 1024.0f);
-
-            glDisable(GL_DEPTH_TEST);
+        //    glDisable(GL_DEPTH_TEST);
             for (int z = 0; z < room.zSectors; z++)
-                for (int x = 0; x < room.xSectors; x++) {
-                    TR::Room::Sector &s = room.sectors[x * room.zSectors + z];
-                    float floor = s.floor * 256;
-                    /*
-                    if (s.boxIndex < 0xFFFF) {
-                        auto &b = level.boxes[s.boxIndex];
-                    //    floor = b.floor;
-                    }
-                    */
-                    vec3 f(x * 1024 + room.info.x, floor - 1, z * 1024 + room.info.z);
-                    vec3 c(x * 1024 + room.info.x, s.ceiling * 256 + 1, z * 1024 + room.info.z);
-
-                    bool current = (int)p.x == x && (int)p.z == z;
-                    debugFloor(level, roomIndex, room.info.x + x * 1024, room.info.z + z * 1024);
-                   /* 
-                    if (current && s.boxIndex != 0xFFFF && level.boxes[s.boxIndex].overlap != 0xFFFF) {
-                        glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
-                        debugBox(level.boxes[s.boxIndex]);
-                        glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
-                        debugOverlaps(level, s.boxIndex);
-                    }
-                    */
-                }
-            glEnable(GL_DEPTH_TEST);
+                for (int x = 0; x < room.xSectors; x++)
+                    debugFloor(level, roomIndex, room.info.x + x * 1024, y, room.info.z + z * 1024);
+        //    glEnable(GL_DEPTH_TEST);
         }
 
         void rooms(const TR::Level &level, const vec3 &pos, int roomIndex) {
@@ -334,7 +298,7 @@ namespace Debug {
 
                 if (i == roomIndex) {
                 //if (lara->insideRoom(Core::viewPos, i)) {
-                    debugSectors(level, pos, i);
+                   // sectors(level, i);
                     glColor3f(0, 1, 0);
                 } else
                     glColor3f(1, 1, 1);
@@ -526,7 +490,7 @@ namespace Debug {
             Debug::Draw::text(vec2(16, 48), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
-            level.getFloorInfo(entity.room, entity.x, entity.z, info);
+            level.getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
             Debug::Draw::text(vec2(16, 64), vec4(1.0f), buf);
         }

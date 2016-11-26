@@ -12,6 +12,7 @@ struct Trigger : Controller {
 
     Trigger(TR::Level *level, int entity, bool immediate) : Controller(level, entity), immediate(immediate), timer(0.0f) {
         baseState = state;
+        getEntity().flags.collision = false;
     }
 
     bool inState() {
@@ -50,7 +51,7 @@ struct Trigger : Controller {
             }
         }
 
-        if (!inState())
+        if (!inState() && entity.type != TR::Entity::HOLE_KEY && entity.type != TR::Entity::HOLE_PUZZLE)
             animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
 
         updateAnimation(true);
@@ -73,7 +74,7 @@ struct Dart : Controller {
         pos = pos + velocity * (Core::deltaTime * 30.0f);
         updateEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.z, info);
+        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
         if (pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())) {
             if (!inWall) {
                 TR::Entity &e = getEntity();
@@ -144,7 +145,7 @@ struct Block : Controller {
     void updateFloor(bool rise) {
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.z, info);
+        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
         if (info.roomNext != 0xFF)
             e.room = info.roomNext;
         int dx, dz;
@@ -157,7 +158,7 @@ struct Block : Controller {
         vec3 dir = getDir() * (push ? 1024.0f : -2048.0f);
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x + (int)dir.x, e.z + (int)dir.z, info, true);
+        level->getFloorInfo(e.room, e.x + (int)dir.x, e.y, e.z + (int)dir.z, info);
         if ((info.slantX | info.slantZ) || info.floor != e.y)
             return false;        
         if (!animation.setState(push ? STATE_PUSH : STATE_PULL))
@@ -172,6 +173,109 @@ struct Block : Controller {
         if (state == STATE_STAND) {
             updateEntity();
             updateFloor(true);
+        }
+    }
+};
+
+
+struct Door : Trigger {
+    int8 *floor[2], orig[2];
+
+    Door(TR::Level *level, int entity) : Trigger(level, entity, true) {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        vec3 p = pos - getDir() * 1024.0f;
+
+        level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
+        int dx, dz;
+        TR::Room::Sector *s = &level->getSector(e.room, (int)p.x, (int)p.z, dx, dz);
+
+        orig[0] = *(floor[0] = &s->floor);
+
+        if (info.roomNext != 0xFF) {
+            s = &level->getSector(info.roomNext, e.x, e.z, dx, dz);
+            orig[1] = *(floor[1] = &s->floor);
+        } else
+            floor[1] = NULL;
+
+        updateBlock();
+    }
+
+    void updateBlock() {
+        int8 v[2];
+        if (getEntity().flags.active) {
+            v[0] = orig[0];
+            v[1] = orig[1];
+        } else
+            v[0] = v[1] = TR::FLOOR_BLOCK;
+
+        if (floor[0]) *floor[0] = v[0];
+        if (floor[1]) *floor[1] = v[1];
+    }
+
+    virtual bool activate(ActionCommand *cmd) {
+        bool res = Trigger::activate(cmd);
+        updateBlock();
+        return res;
+    }
+};
+
+struct DoorFloor : Trigger {
+
+    DoorFloor(TR::Level *level, int entity) : Trigger(level, entity, true) {
+        getEntity().flags.collision = true;
+    }
+
+    virtual bool activate(ActionCommand *cmd) {
+        bool res = Trigger::activate(cmd);
+        getEntity().flags.collision = !getEntity().flags.active;
+        return res;
+    }
+
+};
+
+
+struct TrapFloor : Trigger {
+
+    enum {
+        STATE_STATIC,
+        STATE_SHAKE,
+        STATE_FALL,
+        STATE_DOWN,
+    };
+    float velocity;
+
+    TrapFloor(TR::Level *level, int entity) : Trigger(level, entity, true), velocity(0) {
+        TR::Entity &e = getEntity();
+        e.flags.collision = true;
+    }
+
+    virtual bool activate(ActionCommand *cmd) {
+        TR::Entity &e = level->entities[cmd->emitter];
+        if (e.type != TR::Entity::LARA) return true;
+        int ey = (int)pos.y - 512; // real floor object position
+        return (abs(e.y - ey) <= 8) ? Trigger::activate(cmd) : true;
+    }
+
+    virtual void update() {
+        Trigger::update();
+        if (state == STATE_FALL) {
+            TR::Entity &e = getEntity();
+            e.flags.collision = false;
+            velocity += GRAVITY * 30 * Core::deltaTime;
+            pos.y += velocity * Core::deltaTime;
+
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(e.room, e.x, (int)pos.y, e.z, info);
+
+            if (pos.y > info.roomFloor && info.roomBelow != 0xFF)
+                e.room = info.roomBelow;
+
+            if (pos.y > info.floor) {
+                pos.y = (float)info.floor;
+                animation.setState(STATE_DOWN);
+            }
+            updateEntity();
         }
     }
 };

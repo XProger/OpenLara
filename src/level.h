@@ -83,9 +83,15 @@ struct Level {
                 case TR::Entity::DOOR_6                :
                 case TR::Entity::DOOR_BIG_1            :
                 case TR::Entity::DOOR_BIG_2            :
+                    entity.controller = new Door(&level, i);
+                    break;
                 case TR::Entity::DOOR_FLOOR_1          :
                 case TR::Entity::DOOR_FLOOR_2          :
+                    entity.controller = new DoorFloor(&level, i);
+                    break;
                 case TR::Entity::TRAP_FLOOR            :
+                    entity.controller = new TrapFloor(&level, i);
+                    break;
                 case TR::Entity::TRAP_BLADE            :
                 case TR::Entity::TRAP_SPIKES           :
                     entity.controller = new Trigger(&level, i, true);
@@ -238,6 +244,8 @@ struct Level {
 
         Shader *sh = setRoomShader(room, 1.0f);
 
+        Core::lightColor[0] = vec4(0, 0, 0, 1);
+
         sh->bind();
         sh->setParam(uColor, Core::color);
         sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
@@ -264,12 +272,11 @@ struct Level {
                 rMesh.flags.rendered = true;
 
             // set light parameters
-                getLight(offset, roomIndex);
+                //getLight(offset, roomIndex);
 
                 if (rMesh.intensity >= 0) {
-                    Core::ambient = vec3(intensity(rMesh.intensity) / 255.0f);
-                    Core::ambient       = vec3(0.0);
-                    sh->setParam(uAmbient, Core::ambient);
+                //    Core::ambient = vec3(intensity(rMesh.intensity) / 255.0f);
+                    sh->setParam(uAmbient, vec3(0.0f));//Core::ambient);
                 }
 
             // render static mesh
@@ -378,6 +385,7 @@ struct Level {
     }
 
     void renderEntity(const TR::Entity &entity) {
+        //if (entity.room != lara->getRoomIndex()) return;
         if (entity.type == TR::Entity::NONE) return;
         ASSERT(entity.controller);
 
@@ -483,9 +491,10 @@ struct Level {
         Debug::begin();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level);
+        Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
-        //    Debug::Level::entities(level);
+            Debug::Level::entities(level);
         Debug::Level::info(level, lara->getEntity(), lara->animation);
         Debug::end();
     #endif

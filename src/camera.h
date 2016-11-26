@@ -21,7 +21,7 @@ struct Camera : Controller {
     int     actTargetEntity, actCamera;
 
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
-        fov         = 80.0f;
+        fov         = 65.0f;
         znear       = 128;
         zfar        = 100.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
@@ -57,8 +57,10 @@ struct Camera : Controller {
 
     virtual void update() {
         int lookAt = -1;
-        if (owner->target > -1)     lookAt = owner->target;
         if (actTargetEntity > -1)   lookAt = actTargetEntity;
+        if (owner->target > -1)     lookAt = owner->target;
+
+        owner->viewTarget = lookAt;
 
         if (timer > 0.0f) {
             timer -= Core::deltaTime;
@@ -130,27 +132,27 @@ struct Camera : Controller {
 
         if (actCamera <= -1) {
             TR::Level::FloorInfo info;
-            level->getFloorInfo(room, (int)pos.x, (int)pos.z, info);
+            level->getFloorInfo(room, (int)pos.x, (int)pos.y, (int)pos.z, info);
         
             int lastRoom = room;
 
             if (info.roomNext != 255) 
                 room = info.roomNext;
         
-            if (pos.y < info.ceiling) {
+            if (pos.y < info.roomCeiling) {
                 if (info.roomAbove != 255)
                     room = info.roomAbove;
                 else
-                    if (info.ceiling != 0xffff8100)
-                        pos.y = (float)info.ceiling;
+                    if (info.roomCeiling != 0xffff8100)
+                        pos.y = (float)info.roomCeiling;
             }
 
-            if (pos.y > info.floor) {
+            if (pos.y > info.roomFloor) {
                 if (info.roomBelow != 255)
                     room = info.roomBelow;
                 else
-                    if (info.floor != 0xffff8100)
-                        pos.y = (float)info.floor;
+                    if (info.roomFloor != 0xffff8100)
+                        pos.y = (float)info.roomFloor;
             }
 
         // play underwater sound when camera goes under water
