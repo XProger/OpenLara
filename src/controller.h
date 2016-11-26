@@ -237,9 +237,9 @@ struct Controller {
             }
 
             if (isCamera) {
-                if (py > info.roomFloor && info.roomBelow != 0xFF)
+                if (py > info.floor && info.roomBelow != 0xFF)
                     room = info.roomBelow;
-                else if (py < info.roomCeiling && info.roomAbove != 0xFF)
+                else if (py < info.ceiling && info.roomAbove != 0xFF)
                     room = info.roomAbove;
                 else if (py > info.floor || py < info.ceiling) {
                     int minX = px / 1024 * 1024;
@@ -251,14 +251,14 @@ struct Controller {
                     dir = (pos - from).normal();
                 }
             } else {
-                if (py > info.roomFloor) {
+                if (py > info.floor) {
                     if (info.roomBelow != 0xFF) 
                         room = info.roomBelow;
                     else
                         break;
                 }
 
-                if (py < info.roomCeiling) {
+                if (py < info.ceiling) {
                     if (info.roomAbove != 0xFF)
                         room = info.roomAbove;
                     else
