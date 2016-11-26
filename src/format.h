@@ -368,8 +368,12 @@ namespace TR {
             DOOR_BIG_2               = 62,
             DOOR_5                   = 63,
             DOOR_6                   = 64,
-            DOOR_FLOOR_1             = 65,
-            DOOR_FLOOR_2             = 66,
+            TRAP_DOOR_1              = 65,
+            TRAP_DOOR_2              = 66,
+
+            BRIDGE_0                 = 68,
+            BRIDGE_1                 = 69,
+            BRIDGE_2                 = 70,
 
             LARA_CUT                 = 77,
 
@@ -1064,6 +1068,8 @@ namespace TR {
             if (info.trigCmdCount) {
                 int sx = x / 1024;
                 int sz = z / 1024;
+                int dx = x % 1024;
+                int dz = z % 1024;
 
                 for (int i = 0; i < info.trigCmdCount; i++) {                    
                     FloorData::TriggerCommand cmd = info.trigCmd[i];
@@ -1075,14 +1081,43 @@ namespace TR {
                     if (sx != e.x / 1024 || sz != e.z / 1024) continue;
 
                     switch (e.type) {
-                        case Entity::DOOR_FLOOR_1 :
-                        case Entity::DOOR_FLOOR_2 :
-                        case Entity::TRAP_FLOOR   : {
+                        case Entity::TRAP_DOOR_1 :
+                        case Entity::TRAP_DOOR_2 :
+                        case Entity::TRAP_FLOOR  : {
                             int ey = e.y - (e.type == Entity::TRAP_FLOOR ? 512 : 0);
                             if (ey >= y - 128 && ey < info.floor)
                                 info.floor = ey;
                             if (ey  < y - 128 && ey > info.ceiling)
                                 info.ceiling = ey + (e.type == Entity::TRAP_FLOOR ? 0 : 256);
+                            break;
+                        }
+                        case Entity::BRIDGE_0    : 
+                        case Entity::BRIDGE_1    : 
+                        case Entity::BRIDGE_2    : {
+                            int s = (e.type == Entity::BRIDGE_1) ? 1 :
+                                    (e.type == Entity::BRIDGE_2) ? 2 : 0;
+
+                            int ey = e.y, sx = 0, sz = 0; 
+
+                            if (s > 0) {
+                                switch (e.rotation.value / 0x4000) { // get slantXZ by direction
+                                    case 0 : sx =  s; break;
+                                    case 1 : sz = -s; break;
+                                    case 2 : sx = -s; break;
+                                    case 3 : sz =  s; break;
+                                }
+
+                                ey -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
+                                ey -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                            }
+
+                            if (y - 128 <= ey) {
+                                info.floor  = ey;
+                                info.slantX = sx;
+                                info.slantZ = sz;
+                            }
+                            if (ey  < y - 128)
+                                info.ceiling = ey + 64;
                             break;
                         }
 

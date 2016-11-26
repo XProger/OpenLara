@@ -220,9 +220,9 @@ struct Door : Trigger {
     }
 };
 
-struct DoorFloor : Trigger {
+struct TrapDoor : Trigger {
 
-    DoorFloor(TR::Level *level, int entity) : Trigger(level, entity, true) {
+    TrapDoor(TR::Level *level, int entity) : Trigger(level, entity, true) {
         getEntity().flags.collision = true;
     }
 
@@ -277,6 +277,14 @@ struct TrapFloor : Trigger {
             }
             updateEntity();
         }
+    }
+};
+
+
+struct Bridge : Trigger {
+
+    Bridge(TR::Level *level, int entity) : Trigger(level, entity, true) {
+        getEntity().flags.collision = true;
     }
 };
 

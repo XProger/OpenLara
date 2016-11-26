@@ -186,7 +186,6 @@ namespace Debug {
 
         void debugFloor(const TR::Level &level, int roomIndex, int x, int y, int z) {
             TR::Level::FloorInfo info;
-            level.getFloorInfo(roomIndex, x, y, z, info);
 
             vec3 rf[4], rc[4], f[4], c[4];
 

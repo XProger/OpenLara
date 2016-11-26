@@ -85,9 +85,14 @@ struct Level {
                 case TR::Entity::DOOR_BIG_2            :
                     entity.controller = new Door(&level, i);
                     break;
-                case TR::Entity::DOOR_FLOOR_1          :
-                case TR::Entity::DOOR_FLOOR_2          :
-                    entity.controller = new DoorFloor(&level, i);
+                case TR::Entity::TRAP_DOOR_1           :
+                case TR::Entity::TRAP_DOOR_2           :
+                    entity.controller = new TrapDoor(&level, i);
+                    break;
+                case TR::Entity::BRIDGE_0              :
+                case TR::Entity::BRIDGE_1              :
+                case TR::Entity::BRIDGE_2              :
+                    entity.controller = new Bridge(&level, i);
                     break;
                 case TR::Entity::TRAP_FLOOR            :
                     entity.controller = new TrapFloor(&level, i);
