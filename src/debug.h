@@ -4,6 +4,7 @@
 #include "core.h"
 #include "format.h"
 #include "controller.h"
+#include "mesh.h"
 
 namespace Debug {
 
@@ -332,12 +333,20 @@ namespace Debug {
         }
 
         void entities(const TR::Level &level) {
+            char buf[255];
+
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
           
-                char buf[255];
                 sprintf(buf, "%d", (int)e.type);
-                Debug::Draw::text(vec3(e.x, e.y, e.z), vec4(0.8, 0.0, 0.0, 1), buf);
+                Debug::Draw::text(vec3(e.x, e.y, e.z), vec4(0.8, 0, 0, 1), buf);
+            }
+
+            for (int i = 0; i < level.camerasCount; i++) {
+                TR::Camera &c = level.cameras[i];
+          
+                sprintf(buf, "%d (%d)", i, c.room);
+                Debug::Draw::text(vec3(c.x, c.y, c.z), vec4(0, 0.8, 0, 1), buf);
             }
         }
 
@@ -477,21 +486,138 @@ namespace Debug {
             }
         }
 
+        #define case_name(a,b) case a::b : return #b
+
+        const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger &trigger) {
+            switch (trigger) {
+                case_name(TR::Level::Trigger, ACTIVATE );
+                case_name(TR::Level::Trigger, PAD      );
+                case_name(TR::Level::Trigger, SWITCH   );
+                case_name(TR::Level::Trigger, KEY      );
+                case_name(TR::Level::Trigger, PICKUP   );
+                case_name(TR::Level::Trigger, HEAVY    );
+                case_name(TR::Level::Trigger, ANTIPAD  );
+                case_name(TR::Level::Trigger, COMBAT   );
+                case_name(TR::Level::Trigger, DUMMY    );
+                case_name(TR::Level::Trigger, ANTI     );
+            }
+            return "UNKNOWN";
+        }
+
+        const char *getTriggerAction(const TR::Level &level, const TR::Action &action) {
+            switch (action) {
+                case_name(TR::Action, ACTIVATE      );
+                case_name(TR::Action, CAMERA_SWITCH );
+                case_name(TR::Action, FLOW          );
+                case_name(TR::Action, FLIP_MAP      );
+                case_name(TR::Action, FLIP_ON       );
+                case_name(TR::Action, FLIP_OFF      );
+                case_name(TR::Action, CAMERA_TARGET );
+                case_name(TR::Action, END           );
+                case_name(TR::Action, SOUNDTRACK    );
+                case_name(TR::Action, HARDCODE      );
+                case_name(TR::Action, SECRET        );
+                case_name(TR::Action, CLEAR         );
+                case_name(TR::Action, CAMERA_FLYBY  );
+                case_name(TR::Action, CUTSCENE      );
+            }
+            return "UNKNOWN";
+        }
+
+        const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
+            switch (entity.type) {
+                case_name(TR::Entity, LARA                 ); 
+                case_name(TR::Entity, ENEMY_TWIN           ); 
+                case_name(TR::Entity, ENEMY_WOLF           ); 
+                case_name(TR::Entity, ENEMY_BEAR           ); 
+                case_name(TR::Entity, ENEMY_BAT            ); 
+                case_name(TR::Entity, ENEMY_CROCODILE_LAND ); 
+                case_name(TR::Entity, ENEMY_CROCODILE_WATER); 
+                case_name(TR::Entity, ENEMY_LION_MALE      ); 
+                case_name(TR::Entity, ENEMY_LION_FEMALE    ); 
+                case_name(TR::Entity, ENEMY_PUMA           ); 
+                case_name(TR::Entity, ENEMY_GORILLA        ); 
+                case_name(TR::Entity, ENEMY_RAT_LAND       ); 
+                case_name(TR::Entity, ENEMY_RAT_WATER      ); 
+                case_name(TR::Entity, ENEMY_REX            ); 
+                case_name(TR::Entity, ENEMY_RAPTOR         ); 
+                case_name(TR::Entity, ENEMY_MUTANT         ); 
+                case_name(TR::Entity, ENEMY_CENTAUR        ); 
+                case_name(TR::Entity, ENEMY_MUMMY          ); 
+                case_name(TR::Entity, ENEMY_LARSON         ); 
+                case_name(TR::Entity, TRAP_FLOOR           ); 
+                case_name(TR::Entity, TRAP_BLADE           ); 
+                case_name(TR::Entity, TRAP_SPIKES          ); 
+                case_name(TR::Entity, TRAP_BOULDER         ); 
+                case_name(TR::Entity, TRAP_DART            ); 
+                case_name(TR::Entity, TRAP_DARTGUN         ); 
+                case_name(TR::Entity, SWITCH               ); 
+                case_name(TR::Entity, SWITCH_WATER         ); 
+                case_name(TR::Entity, DOOR_1               ); 
+                case_name(TR::Entity, DOOR_2               ); 
+                case_name(TR::Entity, DOOR_3               ); 
+                case_name(TR::Entity, DOOR_4               ); 
+                case_name(TR::Entity, DOOR_BIG_1           ); 
+                case_name(TR::Entity, DOOR_BIG_2           ); 
+                case_name(TR::Entity, DOOR_5               ); 
+                case_name(TR::Entity, DOOR_6               ); 
+                case_name(TR::Entity, TRAP_DOOR_1          ); 
+                case_name(TR::Entity, TRAP_DOOR_2          );
+                case_name(TR::Entity, BRIDGE_0             );
+                case_name(TR::Entity, BRIDGE_1             );
+                case_name(TR::Entity, BRIDGE_2             );
+                case_name(TR::Entity, GEARS_1              );
+                case_name(TR::Entity, GEARS_2              );
+                case_name(TR::Entity, GEARS_3              );
+                case_name(TR::Entity, PUZZLE_1             ); 
+                case_name(TR::Entity, PUZZLE_2             ); 
+                case_name(TR::Entity, PUZZLE_3             ); 
+                case_name(TR::Entity, PUZZLE_4             ); 
+                case_name(TR::Entity, HOLE_PUZZLE          ); 
+                case_name(TR::Entity, HOLE_PUZZLE_SET      ); 
+                case_name(TR::Entity, PICKUP               ); 
+                case_name(TR::Entity, KEY_1                ); 
+                case_name(TR::Entity, KEY_2                ); 
+                case_name(TR::Entity, KEY_3                ); 
+                case_name(TR::Entity, KEY_4                ); 
+                case_name(TR::Entity, HOLE_KEY             ); 
+                case_name(TR::Entity, VIEW_TARGET          );
+                case_name(TR::Entity, SOURCE_WATER         ); 
+            }
+            return "UNKNOWN";
+        }
+
         void info(const TR::Level &level, const TR::Entity &entity, Animation &anim) {
+            float y = 0.0f;
+
             char buf[255];
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount);
-            Debug::Draw::text(vec2(16, 16), vec4(1.0f), buf);
+            Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = ((Controller*)entity.controller)->angle * RAD2DEG;
             sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, entity.room);
-            Debug::Draw::text(vec2(16, 32), vec4(1.0f), buf);
+            Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
-            Debug::Draw::text(vec2(16, 48), vec4(1.0f), buf);
+            Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
             level.getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
-            Debug::Draw::text(vec2(16, 64), vec4(1.0f), buf);
+            Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
+          
+            if (info.trigCmdCount > 0) {
+                y += 16;
+                sprintf(buf, "trigger: %s%s mask: %d", getTriggerType(level, info.trigger), info.trigInfo.once ? " (once)" : "", info.trigInfo.mask);
+                Debug::Draw::text(vec2(16, y += 16), vec4(0.5f, 0.8f, 0.5f, 1.0f), buf);
+
+                for (int i = 0; i < info.trigCmdCount; i++) {
+                    TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
+                    
+                    const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? getEntityName(level, level.entities[cmd.args]) : "";
+                    sprintf(buf, "%s -> %s (%d)", getTriggerAction(level, cmd.action), ent, cmd.args);
+                    Debug::Draw::text(vec2(16, y += 16), vec4(0.1f, 0.6f, 0.1f, 1.0f), buf);
+                }
+            }
         }
     }
 }

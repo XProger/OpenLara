@@ -46,7 +46,7 @@ varying vec4 vColor;
             vNormal     = uModel * aNormal;
         #else
             vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
-            coord.xyz   -= uViewInv[0].xyz * aTexCoord.z + uViewInv[1].xyz * aTexCoord.w;
+            coord.xyz  += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
             vNormal     = vec4(uViewPos.xyz - coord.xyz, 0.0);
         #endif
 

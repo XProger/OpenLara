@@ -18,7 +18,8 @@
 #define TILT_MAX            (PI / 18.0f)
 #define TILT_SPEED          TILT_MAX
 
-#define GLIDE_SPEED         50.0f
+#define GLIDE_SPEED         35.0f
+#define SWIM_SPEED          45.0f
 
 #define LARA_HANG_OFFSET    735.0f
 
@@ -266,16 +267,21 @@ struct Lara : Character {
         pos = vec3(31390, -2048, 33472);
         angle = vec3(0.0f, 0.0f, 0.0f);
         getEntity().room = 63;
-        */
+        
     // level 2 (trap door)
         pos = vec3(21987, -1024, 29144);
         angle = vec3(0.0f, PI * 3.0f * 0.5f, 0.0f);
         getEntity().room = 61;
-        /*
-    // level 3a
+        
+    // level 3a (t-rex)
         pos = vec3(41015, 3584, 34494);
         angle = vec3(0.0f, -PI, 0.0f);
         getEntity().room = 51;
+        
+    // level 3a (gears)
+        pos = vec3(38643, -3072, 92370);
+        angle = vec3(0.0f, PI * 0.5f, 0.0f);
+        getEntity().room = 5;
         
     // level 1
         pos = vec3(20215, 6656, 52942);
@@ -912,6 +918,7 @@ struct Lara : Character {
     }
 
     bool useItem(TR::Entity::Type item, TR::Entity::Type slot) {
+        return true;
         if (item == TR::Entity::NONE) {
             switch (slot) {
                 case TR::Entity::HOLE_KEY    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4 
@@ -1418,7 +1425,9 @@ struct Lara : Character {
         updateWeapon();
     }
 
-    virtual void updateVelocity() {            
+    virtual void updateVelocity() {
+        checkTrigger();
+
     // get turning angle
         float w = (input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f);
 
@@ -1523,7 +1532,7 @@ struct Lara : Character {
                 if (animation.index == ANIM_TO_UNDERWATER)
                     speed = 15.0f;
                 if (state == STATE_SWIM)
-                    speed = 35.0f;
+                    speed = SWIM_SPEED;
 
                 if (speed != 0.0f)
                     velocity = vec3(angle.x, angle.y) * speed;
@@ -1540,8 +1549,6 @@ struct Lara : Character {
 
         if (velocity.length() >= 0.001f) 
             move();
-
-        checkTrigger();
     }
 
     void move() {
@@ -1702,6 +1709,15 @@ struct Lara : Character {
         updateEntity();
         checkRoom();
     }
+
+    virtual void applyFlow(TR::Camera &sink) {
+        if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;
+        vec3 v(0.0f);
+        v.x = (float)sign((sink.x / 1024 - (int)pos.x / 1024));
+        v.z = (float)sign((sink.z / 1024 - (int)pos.z / 1024));
+        velocity = v * (sink.speed * 8.0f);
+    }
+
 
     void renderMuzzleFlash(MeshBuilder *mesh, const mat4 &matrix, const vec3 &offset, float time) {
         ASSERT(level->extra.muzzleFlash);

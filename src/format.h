@@ -268,13 +268,14 @@ namespace TR {
             uint16  timer:8, once:1, mask:5, :2;
         } triggerInfo;
         union TriggerCommand {
+            uint16 value;
             struct {
                 uint16 args:10;
                 Action action:5;
                 uint16 end:1;
             };
             struct {
-                uint16 delay:8, once:1; 
+                uint16 delay:8, once:1, timer:7;
             };
         } triggerCmd;
 
@@ -375,6 +376,10 @@ namespace TR {
             BRIDGE_1                 = 69,
             BRIDGE_2                 = 70,
 
+            GEARS_1                  = 74,
+            GEARS_2                  = 75,
+            GEARS_3                  = 76,
+
             LARA_CUT                 = 77,
 
             CRYSTAL                  = 83,       // sprite
@@ -421,8 +426,10 @@ namespace TR {
             MUZZLE_FLASH             = 166,
 
             VIEW_TARGET              = 169,
-   
+            SOURCE_WATER             = 170,
+
             GLYPH                    = 190,      // sprite
+
         }       type;
         int16   room;
         int32   x, y, z;
@@ -587,7 +594,10 @@ namespace TR {
 
     struct Camera {
         int32   x, y, z;
-        int16   room;
+        union {
+            int16   room;   // for camera
+            int16   speed;  // for sink (underwater current)
+        };
         uint16  flags;
     };
 

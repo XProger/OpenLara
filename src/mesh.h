@@ -139,6 +139,7 @@ struct MeshBuilder {
 
     MeshRange *spriteSequences;
     MeshRange shadowBlob;
+    MeshRange bar;
 
 // indexed mesh
     Mesh *mesh;
@@ -248,6 +249,14 @@ struct MeshBuilder {
         aCount++;
         iCount += shadowBlob.iCount;
         vCount += 8;
+
+    // bar (health, oxygen)
+        bar.vStart = vCount;
+        bar.iStart = iCount;
+        bar.iCount = 2 * 3;
+        aCount++;
+        iCount += bar.iCount;
+        vCount += 4;
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
         Index  *indices  = new Index[iCount];
@@ -505,6 +514,23 @@ struct MeshBuilder {
         iCount += shadowBlob.iCount;
         vCount += 8;
 
+    // white bar
+        addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTileQuad);
+        vertices[vCount + 0].coord = { 0, 0, 0, 0 };
+        vertices[vCount + 1].coord = { 1, 0, 0, 0 };
+        vertices[vCount + 2].coord = { 1, 1, 0, 0 };
+        vertices[vCount + 3].coord = { 0, 1, 0, 0 };
+
+        for (int i = 0; i < 4; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal    = { 0, 0, 0, 0 };
+            v.color     = { 255, 255, 255, 255 };
+            v.texCoord  = { 32688, 32688, 0, 0 };
+        }
+        iCount += bar.iCount;
+        vCount += 8;
+
+    // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
         delete[] indices;
         delete[] vertices;
@@ -666,10 +692,10 @@ struct MeshBuilder {
         int16 u1 = u0 + (sprite.w >> 3);
         int16 v1 = v0 + (sprite.h >> 3);
 
-        quad[0].texCoord = { u0, v0, sprite.r, sprite.t };
-        quad[1].texCoord = { u1, v0, sprite.l, sprite.t };
-        quad[2].texCoord = { u1, v1, sprite.l, sprite.b };
-        quad[3].texCoord = { u0, v1, sprite.r, sprite.b };
+        quad[0].texCoord = { u0, v0, sprite.l, sprite.t };
+        quad[1].texCoord = { u1, v0, sprite.r, sprite.t };
+        quad[2].texCoord = { u1, v1, sprite.r, sprite.b };
+        quad[3].texCoord = { u0, v1, sprite.l, sprite.b };
 
         vCount += 4;
     }
@@ -707,6 +733,90 @@ struct MeshBuilder {
 
     void renderShadowSpot() {
         mesh->render(shadowBlob);
+    }
+
+    void renderLine(const vec2 &pos, const vec2 &size, uint32 color) {
+
+    }
+
+    void renderBar(const vec2 &size, float value) {
+        float w = size.y / 9.0f;
+        /*
+        // health bar
+        enum Colors {
+            clBlack = 0xFF000000,
+            clGrayL = 0xFF748474,
+            clGrayD = 0xFF4C504C,
+            clRed1  = 0xFF705C2C,
+            clRed2  = 0xFFA47848,
+            clRed3  = 0xFF705C2C,
+            clRed4  = 0xFF584400,
+            clRed5  = 0xFF503014,
+        };
+
+        uint32 *d = (uint32*)&data[0];
+        d[0] = clGrayD; d[1] = clGrayD; d[2] = clGrayD; d[3] = clGrayD; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clBlack; d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed1;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed2;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed3;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed4;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed5;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clBlack; d[2] = clBlack; d[3] = clBlack; d[4] = clGrayL; d+= 1024;
+        d[0] = clGrayD; d[1] = clGrayL; d[2] = clGrayL; d[3] = clGrayL; d[4] = clGrayL; d+= 1024;
+        */
+    }
+
+    void textOut(const vec2 &pos, const vec4 &color, char *text) {
+        const static uint8 char_width[110] = {
+            14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
+            12, 11, 9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, 12, 8,
+            10, 10, 10, 10, 10, 9, 10, 10, 5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 11, 8, 13, 16, 9, 4, 12, 12, 
+            7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
+        
+        static const uint8 char_map[102] = {
+            0, 64, 66, 78, 77, 74, 78, 79, 69, 70, 92, 72, 63, 71, 62, 68, 52, 53, 54, 55, 56, 57, 58, 59, 
+            60, 61, 73, 73, 66, 74, 75, 65, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 
+            18, 19, 20, 21, 22, 23, 24, 25, 80, 76, 81, 97, 98, 77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 
+            37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0 };
+        
+        if (!text) return;
+        
+        Core::active.shader->setParam(uColor, color);
+        //text = "a: b";
+        mat4 m;
+        m.identity();
+        m.translate(vec3(pos.x, pos.y, 0.0f));
+       // text = "A";
+        while (char c = *text++) {
+            
+            int frame = c > 10 ? (c > 15 ? char_map[c - 32] : c + 91) : c + 81; 
+
+
+            //int frame = T_remapASCII[c - 32];
+            /*
+            if (c >= 'A' && c <= 'Z')
+                frame = c - 'A';
+            else if (c >= 'a' && c <= 'z')
+                frame = 26 + c - 'a';
+            else if (c >= '0' && c <= '9')
+                frame = 52 + c - '0';
+            else {
+                if (c == ' ')
+                    m.translate(vec3(16, 0.0f, 0.0f));
+                continue;
+            }
+            */
+            if (c == ' ' || c == '_') {
+                m.translate(vec3(char_width[0], 0.0f, 0.0f));
+                continue;
+            }
+
+            TR::SpriteTexture &s = level->spriteTextures[level->spriteSequences[15].sStart + frame];
+            Core::active.shader->setParam(uModel, m);
+            renderSprite(15, frame);
+            m.translate(vec3(char_width[frame], 0.0f, 0.0f));
+        }
     }
 };
 

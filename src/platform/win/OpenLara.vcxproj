@@ -176,6 +176,7 @@
     <ClInclude Include="..\..\utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\gui.glsl" />
     <None Include="..\..\shader.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

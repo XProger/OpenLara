@@ -17,8 +17,12 @@ const char SHADER[] =
     #include "shader.glsl"
 ;
 
+const char GUI[] =
+    #include "gui.glsl"
+;
+
 struct Level {
-    enum { shStatic, shCaustics, shSprite, shMAX };
+    enum { shStatic, shCaustics, shSprite, shGUI, shMAX };
 
     TR::Level   level;
     Shader      *shaders[shMAX];
@@ -43,10 +47,10 @@ struct Level {
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &entity = level.entities[i];
             switch (entity.type) {
-                case TR::Entity::LARA : 
+                case TR::Entity::LARA                  : 
                     entity.controller = (lara = new Lara(&level, i, home));
                     break;
-                case TR::Entity::LARA_CUT :
+                case TR::Entity::LARA_CUT              :
                     entity.controller = (lara = new Lara(&level, i, false));
                     break;
                 case TR::Entity::ENEMY_WOLF            :   
@@ -94,6 +98,11 @@ struct Level {
                 case TR::Entity::BRIDGE_2              :
                     entity.controller = new Bridge(&level, i);
                     break;
+                case TR::Entity::GEARS_1               :
+                case TR::Entity::GEARS_2               :
+                case TR::Entity::GEARS_3               :
+                    entity.controller = new Boulder(&level, i);
+                    break;
                 case TR::Entity::TRAP_FLOOR            :
                     entity.controller = new TrapFloor(&level, i);
                     break;
@@ -107,8 +116,8 @@ struct Level {
                 case TR::Entity::TRAP_DARTGUN          :
                     entity.controller = new Dartgun(&level, i);
                     break;
-                case TR::Entity::BLOCK_1 :
-                case TR::Entity::BLOCK_2 :
+                case TR::Entity::BLOCK_1               :
+                case TR::Entity::BLOCK_2               :
                     entity.controller = new Block(&level, i);
                     break;
                 case TR::Entity::SWITCH                :
@@ -117,7 +126,7 @@ struct Level {
                 case TR::Entity::HOLE_KEY              :
                     entity.controller = new Trigger(&level, i, false);
                     break;
-                default : 
+                default                                : 
                     if (entity.modelIndex > 0)
                         entity.controller = new Controller(&level, i);
                     else
@@ -172,6 +181,7 @@ struct Level {
             }
         }
 
+        // white texture
         for (int y = 1020; y < 1024; y++)
             for (int x = 1020; x < 1024; x++) {
                 int i = y * 1024 + x;
@@ -191,6 +201,7 @@ struct Level {
         shaders[shCaustics] = new Shader(SHADER, ext);
         sprintf(ext, "#define MAX_LIGHTS %d\n%s#define SPRITE\n", MAX_LIGHTS, def);
         shaders[shSprite]   = new Shader(SHADER, ext);
+        shaders[shGUI]      = new Shader(GUI, "");
     }
 
     void initOverrides() {
@@ -500,7 +511,20 @@ struct Level {
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
             Debug::Level::entities(level);
-        Debug::Level::info(level, lara->getEntity(), lara->animation);
+           /*
+            shaders[shGUI]->bind();
+            Core::mViewProj = mat4(0, (float)Core::width, (float)Core::height, 0, 0, 1);
+            Core::active.shader->setParam(uViewProj, Core::mViewProj);            
+            atlas->bind(0);
+
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            //
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+            */
+
+            Debug::Level::info(level, lara->getEntity(), lara->animation);
         Debug::end();
     #endif
     }

@@ -306,6 +306,8 @@ struct Controller {
                 activateNext();
                 return;
             case TR::Action::FLOW            :
+                applyFlow(level->cameras[next->value]);
+                break;
             case TR::Action::FLIP_MAP        :
             case TR::Action::FLIP_ON         :
             case TR::Action::FLIP_OFF        :
@@ -315,6 +317,9 @@ struct Controller {
             case TR::Action::CLEAR           :
             case TR::Action::CAMERA_FLYBY    :
             case TR::Action::CUTSCENE        :
+                LOG("! action is not implemented\n");
+                actionCommand = next;
+                activateNext();
                 break;
         }
 
@@ -328,6 +333,7 @@ struct Controller {
     virtual bool  activate(ActionCommand *cmd)  { actionCommand = cmd; return true; } 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
     virtual void  checkRoom()                   {}
+    virtual void  applyFlow(TR::Camera &sink)   {}
 
     virtual void  cmdOffset(const vec3 &offset) {
         pos = pos + offset.rotateY(-angle.y);
