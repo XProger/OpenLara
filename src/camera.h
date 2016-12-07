@@ -22,8 +22,8 @@ struct Camera : Controller {
 
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
         fov         = 65.0f;
-        znear       = 128;
-        zfar        = 100.0f * 1024.0f;
+        znear       = 16;
+        zfar        = 15.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
         
         if (owner) {
@@ -56,6 +56,43 @@ struct Camera : Controller {
     }
 
     virtual void update() {
+        if (Input::down[ikMouseR]) {
+            vec2 delta = Input::mouse.pos - Input::mouse.start.R;
+            angleAdv.x -= delta.y * 0.01f;
+            angleAdv.y += delta.x * 0.01f;
+            Input::mouse.start.R = Input::mouse.pos;
+        }
+
+        angleAdv.x -= Input::joy.L.y * 2.0f * Core::deltaTime;
+        angleAdv.y += Input::joy.L.x * 2.0f * Core::deltaTime;
+ 
+        angle = owner->angle + angleAdv;
+        angle.z = 0.0f;        
+
+    #ifdef LEVEL_EDITOR
+        angle   = angleAdv;
+        angle.x = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
+
+        vec3 d = vec3(sinf(angle.y) * cosf(angle.x), -sinf(angle.x), cosf(angle.y) * cosf(angle.x));
+        vec3 v = vec3(0);
+
+        if (Input::down[ikW]) v = v + d;
+        if (Input::down[ikS]) v = v - d;
+        if (Input::down[ikA]) v = v + d.cross(vec3(0, 1, 0));
+        if (Input::down[ikD]) v = v - d.cross(vec3(0, 1, 0));
+        pos = pos + v.normal() * (Core::deltaTime * 2048.0f * 10.0f);
+
+        mViewInv.identity();
+        mViewInv.translate(pos);
+        mViewInv.rotateY(angle.y - PI);
+        mViewInv.rotateX(-angle.x);
+        mViewInv.rotateZ(PI);
+
+        Sound::listener.matrix = mViewInv;
+
+        return;
+    #endif
+
         int lookAt = -1;
         if (actTargetEntity > -1)   lookAt = actTargetEntity;
         if (owner->target > -1)     lookAt = owner->target;
@@ -72,29 +109,6 @@ struct Camera : Controller {
                 target = owner->getViewPoint();
             }
         }
-    #ifdef FREE_CAMERA
-        vec3 d = vec3(sinf(angle.y - PI) * cosf(-angle.x), -sinf(-angle.x), cosf(angle.y - PI) * cosf(-angle.x));
-        vec3 v = vec3(0);
-
-        if (Input::down[ikUp]) v = v + d;
-        if (Input::down[ikDown]) v = v - d;
-        if (Input::down[ikRight]) v = v + d.cross(vec3(0, 1, 0));
-        if (Input::down[ikLeft]) v = v - d.cross(vec3(0, 1, 0));
-        pos = pos + v.normal() * (Core::deltaTime * 2048.0f);
-    #endif
-        if (Input::down[ikMouseR]) {
-            vec2 delta = Input::mouse.pos - Input::mouse.start.R;
-            angleAdv.x -= delta.y * 0.01f;
-            angleAdv.y += delta.x * 0.01f;
-            Input::mouse.start.R = Input::mouse.pos;
-        }
-
-        angleAdv.x -= Input::joy.L.y * 2.0f * Core::deltaTime;
-        angleAdv.y += Input::joy.L.x * 2.0f * Core::deltaTime;
- 
-        angle = owner->angle + angleAdv;
-        angle.z = 0.0f;        
-        //angle.x  = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
         float lerpFactor = (lookAt == -1) ? 6.0f : 10.0f;
         vec3 dir;
@@ -164,11 +178,12 @@ struct Camera : Controller {
         Sound::listener.matrix = mViewInv;
     }
 
-    virtual void setup() {
-        Core::mViewInv = mViewInv;
-        Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
-
+    virtual void setup(bool calcMatrices) {
+        if (calcMatrices) {
+            Core::mViewInv = mViewInv;
+            Core::mView    = Core::mViewInv.inverse();
+            Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+        }
         Core::mViewProj = Core::mProj * Core::mView;        
         Core::viewPos   = Core::mViewInv.offset.xyz;
 

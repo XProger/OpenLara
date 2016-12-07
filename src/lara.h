@@ -1035,7 +1035,7 @@ struct Lara : Character {
     }
 
     vec3 getViewPoint() {
-        vec3 offset = chestOffset;
+        vec3 offset = chestOffset = animation.getJoints(getMatrix(), 7).getPos();
         if (stand != STAND_UNDERWATER)
             offset.y -= 256.0f;
         if (!emptyHands())
@@ -1379,22 +1379,30 @@ struct Lara : Character {
         return STATE_FALL;
     }
 
-    virtual int getInput() {
+    virtual int getInput() { // TODO: updateInput
         input = Character::getInput();
         if (input & DEATH) return input;
 
         int &p = Input::joy.POV;
-        if (Input::down[ikW] || Input::down[ikUp]    || p == 8 || p == 1 || p == 2)     input |= FORTH;
-        if (Input::down[ikD] || Input::down[ikRight] || p == 2 || p == 3 || p == 4)     input |= RIGHT;
-        if (Input::down[ikS] || Input::down[ikDown]  || p == 4 || p == 5 || p == 6)     input |= BACK;
-        if (Input::down[ikA] || Input::down[ikLeft]  || p == 6 || p == 7 || p == 8)     input |= LEFT;
-        if (Input::down[ikJoyB])                                                        input  = FORTH | BACK; // roll
-        if (Input::down[ikJoyRT] || Input::down[ikX])                                   input  = WALK | RIGHT; // step right
-        if (Input::down[ikJoyLT] || Input::down[ikZ])                                   input  = WALK | LEFT;  // step left
-        if (Input::down[ikSpace] || Input::down[ikJoyX])                                input |= JUMP;
-        if (Input::down[ikShift] || Input::down[ikJoyLB])                               input |= WALK;
-        if (Input::down[ikE] || Input::down[ikCtrl] || Input::down[ikJoyA])             input |= ACTION;
-        if (Input::down[ikQ] || Input::down[ikAlt]  || Input::down[ikJoyY])             input |= WEAPON;
+
+    #ifndef LEVEL_EDITOR
+        if (Input::down[ikW]) input |= FORTH;
+        if (Input::down[ikD]) input |= RIGHT;
+        if (Input::down[ikS]) input |= BACK;
+        if (Input::down[ikA]) input |= LEFT;
+    #endif
+
+        if (Input::down[ikUp]    || p == 8 || p == 1 || p == 2)             input |= FORTH;
+        if (Input::down[ikRight] || p == 2 || p == 3 || p == 4)             input |= RIGHT;
+        if (Input::down[ikDown]  || p == 4 || p == 5 || p == 6)             input |= BACK;
+        if (Input::down[ikLeft]  || p == 6 || p == 7 || p == 8)             input |= LEFT;
+        if (Input::down[ikJoyB])                                            input  = FORTH | BACK; // roll
+        if (Input::down[ikJoyRT] || Input::down[ikX])                       input  = WALK | RIGHT; // step right
+        if (Input::down[ikJoyLT] || Input::down[ikZ])                       input  = WALK | LEFT;  // step left
+        if (Input::down[ikSpace] || Input::down[ikJoyX])                    input |= JUMP;
+        if (Input::down[ikShift] || Input::down[ikJoyLB])                   input |= WALK;
+        if (Input::down[ikE] || Input::down[ikCtrl] || Input::down[ikJoyA]) input |= ACTION;
+        if (Input::down[ikQ] || Input::down[ikAlt]  || Input::down[ikJoyY]) input |= WEAPON;
         return input;
     }
 

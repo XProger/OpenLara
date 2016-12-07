@@ -165,6 +165,8 @@ struct Controller {
 
     void playSound(int id, const vec3 &pos, int flags) const {
     //    LOG("play sound %d\n", id);
+        if (level->version == TR::Level::VER_TR1_PSX)
+            return;
 
         int16 a = level->soundsMap[id];
         if (a == -1) return;
@@ -407,6 +409,17 @@ struct Controller {
         mesh->renderMesh(mInfo);
     }
 
+    mat4 getMatrix() {
+        mat4 matrix;
+        matrix.identity();
+        matrix.translate(pos);
+        if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
+        if (angle.x != 0.0f) matrix.rotateX(angle.x);
+        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+        return matrix;
+    }
+
+/*
     void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
         mat4 m;
         m.identity();
@@ -420,16 +433,7 @@ struct Controller {
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
         mesh->renderShadowSpot();
     }
-
-    mat4 getMatrix() {
-        mat4 matrix;
-        matrix.identity();
-        matrix.translate(pos);
-        if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
-        if (angle.x != 0.0f) matrix.rotateX(angle.x);
-        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
-        return matrix;
-    }
+*/
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) { // TODO: animation.calcJoints
         mat4 matrix = getMatrix();
@@ -448,12 +452,13 @@ struct Controller {
         animation.getJoints(matrix, -1, true, joints);
         for (int i = 0; i < model->mCount; i++)
             renderMesh(joints[i], mesh, meshes ? meshes[i] : (model->mStart + i));
-
+    /* // blob shadow
         if (TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;
             level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
             renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size() * 0.8f, angle.y);
         }
+    */
     }
 };
 

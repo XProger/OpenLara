@@ -7,10 +7,10 @@
 typedef unsigned short Index;
 
 struct Vertex {
-    short4  coord;      // xyz  - position
+    short4  coord;      // xyz  - position, w - unused
     short4  texCoord;   // xy   - texture coordinates, z - anim tex range index, w - anim tex frame index
     short4  normal;     // xyz  - vertex normal, w - disable lighting (0, 1)
-    ubyte4  color;      // rgba - color
+    ubyte4  color;      // xyz  - color, w - intensity
 };
 
 struct MeshRange {
@@ -115,10 +115,14 @@ struct Mesh {
             n.y = (int)o.y;\
             n.z = (int)o.z;
 
+float intensityf(int lighting) {
+    if (lighting < 0) return 1.0f;
+    float lum = 1.0f - (lighting >> 5) / 255.0f;
+    return lum * lum; // gamma to linear space
+}
 
 uint8 intensity(int lighting) {
-    float a = 1.0f - (lighting >> 5) / 255.0f;
-    return int(255 * a * a);
+    return uint8(intensityf(lighting) * 255);
 }
 
 struct MeshBuilder {
@@ -134,7 +138,6 @@ struct MeshBuilder {
         TR::Vertex   center;
         TR::Collider collider;
     }   *meshInfo;
-    int mCount;
     MeshInfo **meshMap;  // meshInfo by meshOffsetIndex
 
     MeshRange *spriteSequences;
@@ -160,10 +163,10 @@ struct MeshBuilder {
         whiteTileQuad.attribute = 0;
         whiteTileQuad.tile.index = 15;
         whiteTileQuad.tile.triangle = 0;
-        whiteTileQuad.vertices[0] = 
-        whiteTileQuad.vertices[1] = 
-        whiteTileQuad.vertices[2] = 
-        whiteTileQuad.vertices[3] = { 0, 253, 0, 253 };
+        whiteTileQuad.texCoord[0] = 
+        whiteTileQuad.texCoord[1] = 
+        whiteTileQuad.texCoord[2] = 
+        whiteTileQuad.texCoord[3] = { 253, 253 };
 
         TR::ObjectTexture whiteTileTri = whiteTileQuad;
         whiteTileTri.tile.triangle = 1;
@@ -197,36 +200,13 @@ struct MeshBuilder {
     // get objects mesh info
         #define OFFSET(bytes) (ptr = (TR::Mesh*)((char*)ptr + (bytes) - sizeof(char*)))
 
-        mCount = 0;
-        TR::Mesh *ptr = (TR::Mesh*)level.meshData;
-        while ( ((intptr_t)ptr - (intptr_t)level.meshData) < level.meshDataSize * 2 ) {
-            mCount++;
-
-            OFFSET(ptr->vCount * sizeof(TR::Vertex));
-            if (ptr->nCount > 0)
-                OFFSET(ptr->nCount * sizeof(TR::Vertex));
-            else
-                OFFSET(-ptr->nCount * sizeof(int16));
-
-            iCount += ptr->rCount * 6;
-            vCount += ptr->rCount * 4;
-            OFFSET(ptr->rCount * sizeof(TR::Rectangle));
-
-            iCount += ptr->tCount * 3;
-            vCount += ptr->tCount * 3;
-            OFFSET(ptr->tCount * sizeof(TR::Triangle));
-
-            iCount += ptr->crCount * 6;
-            vCount += ptr->crCount * 4;
-            OFFSET(ptr->crCount * sizeof(TR::Rectangle));
-
-            iCount += ptr->ctCount * 3;
-            vCount += ptr->ctCount * 3;
-            OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
-            ptr = (TR::Mesh*)(((intptr_t)ptr + 3) & -4);
+        for (int i = 0; i < level.meshesCount; i++) {
+            TR::Mesh &mesh = level.meshes[i];
+            iCount += mesh.rCount * 6 + mesh.tCount * 3;
+            vCount += mesh.rCount * 4 + mesh.tCount * 3;
         }
-        aCount += mCount;
-        meshInfo = new MeshInfo[mCount];
+        aCount += level.meshesCount;
+        meshInfo = new MeshInfo[level.meshesCount];
         meshMap  = new MeshInfo*[level.meshOffsetsCount];
         memset(meshMap, 0, sizeof(meshMap[0]) * level.meshOffsetsCount); 
         
@@ -281,8 +261,8 @@ struct MeshBuilder {
                 for (int k = 0; k < 4; k++) {
                     TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];
                     vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
-                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
                     vertices[vCount].normal = { n.x, n.y, n.z, 0 };
+                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
                     vCount++;
                 }
             }
@@ -299,8 +279,8 @@ struct MeshBuilder {
                 for (int k = 0; k < 3; k++) {
                     auto &v = d.vertices[f.vertices[k]];
                     vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
-                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
                     vertices[vCount].normal = { n.x, n.y, n.z, 0 };
+                    vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
                     vCount++;
                 }
             }
@@ -318,14 +298,17 @@ struct MeshBuilder {
         }
 
     // build objects geometry
-        ptr = (TR::Mesh*)level.meshData;
-        for (int i = 0; i < mCount; i++) {
+        TR::Color24 COLOR_WHITE = { 255, 255, 255 };
+
+        for (int i = 0; i < level.meshesCount; i++) {
+            TR::Mesh &mesh = level.meshes[i];
+
             MeshInfo &info = meshInfo[i];
-            info.offset   = (intptr_t)ptr - (intptr_t)level.meshData;
+            info.offset   = mesh.offset;
             info.vStart   = vCount;
             info.iStart   = iCount;
-            info.center   = ptr->center;
-            info.collider = ptr->collider;
+            info.center   = mesh.center;
+            info.collider = mesh.collider;
 
             if (!info.offset)
                 meshMap[0] = &info;
@@ -334,157 +317,45 @@ struct MeshBuilder {
                     if (info.offset == level.meshOffsets[j])
                         meshMap[j] = &info;
 
-            TR::Vertex *mVertices = (TR::Vertex*)&ptr->vertices;
-
-            OFFSET(ptr->vCount * sizeof(TR::Vertex));
-
-            TR::Vertex  *normals = NULL;
-            int16       *lights  = NULL;
-            int         nCount   = ptr->nCount;
-
-            if (nCount > 0) {
-                normals = (TR::Vertex*)&ptr->normals;
-                OFFSET(ptr->nCount * sizeof(TR::Vertex));
-            } else {
-                lights = (int16*)&ptr->lights;
-                OFFSET(-ptr->nCount * sizeof(int16));
-            }
-
             int vStart = vCount;
-            short4 pn = { 0 };
-        // rectangles
-            for (int j = 0; j < ptr->rCount; j++) {
-                TR::Rectangle     &f = ((TR::Rectangle*)&ptr->rectangles)[j];
-                TR::ObjectTexture &t = level.objectTextures[f.texture];
+            for (int j = 0; j < mesh.rCount; j++) {
+                TR::Rectangle &f = mesh.rectangles[j];
+                bool textured = !(f.texture & 0x8000);
+                TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
+                TR::Color24 &c = textured ? COLOR_WHITE : level.getColor(f.texture);
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
-                short4 normal;
-                if (!normals) {
-                    TR::Vertex n = { 0, 0, 0 };
-                    CHECK_NORMAL(n);
-                    normal = { n.x, n.y, n.z, 0 };
-                }
-
                 for (int k = 0; k < 4; k++) {
-                    TR::Vertex &v  = mVertices[f.vertices[k]];
+                    TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
 
-                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
+                    vertices[vCount].coord  = v.coord;
+                    vertices[vCount].normal = v.normal;
+                    vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
 
-                    if (normals) {
-                        TR::Vertex &n = normals[f.vertices[k]];
-                        CHECK_NORMAL(n);
-                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { 255, 255, 255, 0 };
-                    } else {
-                        vertices[vCount].normal = normal;
-                        vertices[vCount].color  = { 255, 255, 255, intensity(lights[f.vertices[k]]) };
-                    }
                     vCount++;
                 }
             }
-            OFFSET(ptr->rCount * sizeof(TR::Rectangle));
 
-        // triangles
-            for (int j = 0; j < ptr->tCount; j++) {
-                TR::Triangle      &f = ((TR::Triangle*)&ptr->triangles)[j];
-                TR::ObjectTexture &t = level.objectTextures[f.texture];
+            for (int j = 0; j < mesh.tCount; j++) {
+                TR::Triangle &f = mesh.triangles[j];
+                bool textured = !(f.texture & 0x8000);
+                TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
+                TR::Color24 &c = textured ? COLOR_WHITE : level.getColor(f.texture);
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
-                short4 normal;
-                if (!normals) {
-                    TR::Vertex n = { 0, 0, 0 };
-                    CHECK_NORMAL(n);
-                    normal = { n.x, n.y, n.z, 0 };
-                }
-
                 for (int k = 0; k < 3; k++) {
-                    auto &v = mVertices[f.vertices[k]];
-                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
+                    TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
 
-                    if (normals) {
-                        TR::Vertex &n = normals[f.vertices[k]];
-                        CHECK_NORMAL(n);
-                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { 255, 255, 255, 0 };
-                    } else {
-                        vertices[vCount].normal = normal;
-                        vertices[vCount].color  = { 255, 255, 255, intensity(lights[f.vertices[k]]) };
-                    }
-                    vCount++;
-                }
-            }
-            OFFSET(ptr->tCount * sizeof(TR::Triangle));
+                    vertices[vCount].coord  = v.coord;
+                    vertices[vCount].normal = v.normal;
+                    vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
 
-        // color rectangles
-            for (int j = 0; j < ptr->crCount; j++) {
-                TR::Rectangle &f = ((TR::Rectangle*)&ptr->crectangles)[j];
-                TR::RGB       &c = level.palette[f.texture & 0xFF];
-
-                addQuad(indices, iCount, vCount, vStart, vertices, &whiteTileQuad);
-
-                short4 normal;
-                if (!normals) {
-                    TR::Vertex n = { 0, 0, 0 };
-                    CHECK_NORMAL(n);
-                    normal = { n.x, n.y, n.z, 0 };
-                }
-
-                for (int k = 0; k < 4; k++) {
-                    auto &v = mVertices[f.vertices[k]];
-
-                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
-
-                    if (normals) {
-                        TR::Vertex &n = normals[f.vertices[k]];
-                        CHECK_NORMAL(n);
-                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { c.r, c.g, c.b, 0 };
-                    } else {
-                        vertices[vCount].normal = normal;
-                        vertices[vCount].color  = { c.r, c.g, c.b, intensity(lights[f.vertices[k]]) };
-                    }
-                    vCount++;
-                }
-            }
-            OFFSET(ptr->crCount * sizeof(TR::Rectangle));
-
-        // color triangles
-            for (int j = 0; j < ptr->ctCount; j++) {
-                TR::Triangle &f = ((TR::Triangle*)&ptr->ctriangles)[j];
-                TR::RGB      &c = level.palette[f.texture & 0xFF];
-
-                addTriangle(indices, iCount, vCount, vStart, vertices, &whiteTileTri);
-
-                for (int k = 0; k < 3; k++) {
-                    auto &v = mVertices[f.vertices[k]];
-
-                    vertices[vCount].coord = { v.x, v.y, v.z, 0 };
-
-                    short4 normal;
-                    if (!normals) {
-                        TR::Vertex n = { 0, 0, 0 };
-                        CHECK_NORMAL(n);
-                        normal = { n.x, n.y, n.z, 0 };
-                    }
-
-                    if (normals) {
-                        TR::Vertex &n = normals[f.vertices[k]];
-                        CHECK_NORMAL(n);
-                        vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                        vertices[vCount].color  = { c.r, c.g, c.b, 0 };
-                    } else {
-                        vertices[vCount].normal = normal;
-                        vertices[vCount].color  = { c.r, c.g, c.b, intensity(lights[f.vertices[k]]) };
-                    }
                     vCount++;
                 }
             }
             info.iCount = iCount - info.iStart;
-
-            OFFSET(ptr->ctCount * sizeof(TR::Triangle) + sizeof(TR::Mesh));
-            ptr = (TR::Mesh*)(((intptr_t)ptr + 3) & -4);
         }
 
     // build sprite sequences
@@ -497,7 +368,7 @@ struct MeshBuilder {
     // build shadow spot
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
-            v.normal    = { 0, -1, 0, 0 };
+            v.normal    = { 0, -1, 0, 1 };
             v.color     = { 255, 255, 255, 0 };
             v.texCoord  = { 32688, 32688, 0, 0 };
 
@@ -548,7 +419,7 @@ struct MeshBuilder {
 
         for (int i = 0; i < level.spriteSequencesCount; i++)
             mesh->initRange(spriteSequences[i]);       
-        for (int i = 0; i < mCount; i++)
+        for (int i = 0; i < level.meshesCount; i++)
             mesh->initRange(meshInfo[i]);
         mesh->initRange(shadowBlob);
     }
@@ -567,8 +438,8 @@ struct MeshBuilder {
         int  tile = tex.tile.index;
         int  tx = (tile % 4) * 256;
         int  ty = (tile / 4) * 256;
-        return vec2( (float)(((tx + tex.vertices[0].Xpixel) << 5) + 16),
-                     (float)(((ty + tex.vertices[0].Ypixel) << 5) + 16) );
+        return vec2( (float)(((tx + tex.texCoord[0].x) << 5) + 16),
+                     (float)(((ty + tex.texCoord[0].y) << 5) + 16) );
     }
 
     void initAnimTextures(TR::Level &level) {
@@ -629,7 +500,7 @@ struct MeshBuilder {
         return tex;
     }
 
-    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex) {
+    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex, bool triangle) {
         int range, frame;
         tex = getAnimTexture(tex, range, frame);
 
@@ -637,14 +508,17 @@ struct MeshBuilder {
         int  tx = (tile % 4) * 256;
         int  ty = (tile / 4) * 256;
 
-        int count = tex->tile.triangle ? 3 : 4;
+        int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
-            v.texCoord.x = ((tx + tex->vertices[i].Xpixel) << 5) + 16;
-            v.texCoord.y = ((ty + tex->vertices[i].Ypixel) << 5) + 16;
+            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 16;
+            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 16;
             v.texCoord.z = range;
             v.texCoord.w = frame;
         }
+
+        if (level->version == TR::Level::VER_TR1_PSX && !triangle)
+            swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
     }
 
     void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
@@ -656,7 +530,7 @@ struct MeshBuilder {
 
         iCount += 3;
 
-        if (tex) addTexCoord(vertices, vCount, tex);
+        if (tex) addTexCoord(vertices, vCount, tex, true);
     }
 
     void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
@@ -672,7 +546,7 @@ struct MeshBuilder {
 
         iCount += 6;
 
-        if (tex) addTexCoord(vertices, vCount, tex);
+        if (tex) addTexCoord(vertices, vCount, tex, false);
     }
 
     void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, uint8 intensity) {
@@ -687,10 +561,10 @@ struct MeshBuilder {
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;
 
-        int16 u0 = ((tx + sprite.u) << 5) + 16;
-        int16 v0 = ((ty + sprite.v) << 5) + 16;
-        int16 u1 = u0 + (sprite.w >> 3);
-        int16 v1 = v0 + (sprite.h >> 3);
+        int16 u0 = ((tx + sprite.texCoord[0].x) << 5) + 16;
+        int16 v0 = ((ty + sprite.texCoord[0].y) << 5) + 16;
+        int16 u1 = ((tx + sprite.texCoord[1].x) << 5) + 16;
+        int16 v1 = ((ty + sprite.texCoord[1].y) << 5) + 16;
 
         quad[0].texCoord = { u0, v0, sprite.l, sprite.t };
         quad[1].texCoord = { u1, v0, sprite.r, sprite.t };

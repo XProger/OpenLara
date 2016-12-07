@@ -9,6 +9,10 @@ struct Enemy : Character {
     Enemy(TR::Level *level, int entity, int health) : Character(level, entity, health), bitten(false) {}
 
     virtual bool activate(ActionCommand *cmd) {
+    #ifdef LEVEL_EDITOR
+        return true;
+    #endif
+
         Controller::activate(cmd);
 
         getEntity().flags.active = true;        

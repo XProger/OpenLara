@@ -43,22 +43,6 @@ typedef unsigned int    uint32;
 
 #define FOURCC(str)     (*((uint32*)str))
 
-struct ubyte4 {
-    uint8 x, y, z, w;
-};
-
-struct short2 {
-    int16 x, y;
-};
-
-struct short3 {
-    int16 x, y, z;
-};
-
-struct short4 {
-    int16 x, y, z, w;
-};
-
 template <typename T>
 inline const T& min(const T &a, const T &b) {
     return a < b ? a : b;
@@ -77,6 +61,13 @@ inline const T& clamp(const T &x, const T &a, const T &b) {
 template <class T>
 inline const int sign(const T &x) {
     return x > 0 ? 1 : (x < 0 ? -1 : 0);
+}
+
+template <class T>
+inline void swap(T &a, T &b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
 }
 
 float clampAngle(float a) {
@@ -515,6 +506,28 @@ struct mat4 {
     void setPos(const vec3 &pos) {
         offset.xyz = pos;
     }
+};
+
+struct ubyte2 {
+    uint8 x, y;
+};
+
+struct ubyte4 {
+    uint8 x, y, z, w;
+};
+
+struct short2 {
+    int16 x, y;
+};
+
+struct short3 {
+    int16 x, y, z;
+};
+
+struct short4 {
+    int16 x, y, z, w;
+
+    operator vec3() const { return vec3((float)x, (float)y, (float)z); };
 };
 
 quat rotYXZ(const vec3 &a) {

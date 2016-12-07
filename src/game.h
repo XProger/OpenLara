@@ -12,9 +12,10 @@ namespace Game {
 
     void init() {
         Core::init();
-        level = new Level("LEVEL2_DEMO.PHD", true, false);
+        //level = new Level("LEVEL2.PHD", false, false);
         //level = new Level("GYM.PHD", false, true);
         //level = new Level("LEVEL3A.PHD", false, false);
+        level = new Level("LEVEL2.PSX", false, false);
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
@@ -42,9 +43,6 @@ namespace Game {
     }
 
     void render() {
-        Core::clear(vec4(0.0f));
-        Core::setViewport(0, 0, Core::width, Core::height);
-        Core::setBlending(bmAlpha);
         level->render();
     }
 }

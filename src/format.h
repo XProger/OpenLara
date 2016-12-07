@@ -6,6 +6,7 @@
 #define MAX_RESERVED_ENTITIES 64
 #define MAX_SECRETS_COUNT     16
 #define MAX_TRIGGER_COMMANDS  32
+#define MAX_MESHES            256
 
 namespace TR {
 
@@ -155,12 +156,26 @@ namespace TR {
         operator float() const { return value / 16384.0f * PI * 0.5f; };
     };
 
-    struct RGB {
-        uint8 r, g, b;
+    struct Color32 {
+        uint8 r, g, b, a;
+
+        Color32() {}
+        Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
     };
 
-    struct RGBA {
-        uint8 r, g, b, a;
+
+    struct Color24 {
+        uint8 r, g, b;
+
+        Color24() {}
+        Color24(uint8 r, uint8 g, uint8 b) : r(r), g(g), b(b) {}
+    };
+
+    struct Color16 {
+        uint16 r:5, g:5, b:5, a:1;
+
+        operator Color24() const { return Color24(r << 3, g << 3, b << 3); }
+        operator Color32() const { return Color32(r << 3, g << 3, b << 3, -a); }
     };
 
     struct Vertex {
@@ -171,7 +186,7 @@ namespace TR {
 
     struct Rectangle {
         uint16 vertices[4];
-        uint16 texture;     // 15 bit - double-sided
+        uint16 texture;
     };
 
     struct Triangle {
@@ -179,8 +194,22 @@ namespace TR {
         uint16 texture;
     };
 
+    struct Tile4 {
+        struct {
+            uint8 a:4, b:4;
+        } index[256 * 256 / 2];
+    };
+
     struct Tile8 {
         uint8 index[256 * 256];
+    };
+
+    struct Tile32 {
+        Color32 color[256 * 256];
+    };
+
+    struct CLUT {
+        Color16 color[16];
     };
 
     struct Room {
@@ -250,6 +279,7 @@ namespace TR {
             angle   rotation;
             uint16  intensity;
             uint16  meshID;
+            uint16  align; // PSX
             struct { // ! not exists in file !
                 uint16 unused:15, rendered:1;    
             } flags;
@@ -298,30 +328,31 @@ namespace TR {
         uint16 flags:16;
     };
 
+    // internal mesh structure
     struct Mesh {
-        Vertex      center;
-        Collider    collider;
 
-        uint16      vCount;
-        Vertex      *vertices;  // List of vertices (relative coordinates)
- 
-        int16       nCount;
-        union {
-            Vertex  *normals;
-            int16   *lights;    // if nCount < 0 -> (abs(nCount))
+        struct Vertex {
+            short4 coord;
+            short4 normal;
         };
 
-        uint16      rCount;
-        Rectangle   *rectangles;
+        int32       offset;
+        TR::Vertex  center;
+        Collider    collider;
+        int16       vCount;
+        int16       rCount;
+        int16       tCount;
 
-        uint16      tCount;
+        Vertex      *vertices;
+        Rectangle   *rectangles;
         Triangle    *triangles;
 
-        uint16      crCount;
-        Rectangle   *crectangles;
-
-        uint16      ctCount;
-        Triangle    *ctriangles;
+        Mesh() : vertices(0), rectangles(0), triangles(0) {}
+        ~Mesh() {
+            delete[] vertices;
+            delete[] rectangles;
+            delete[] triangles;
+        }
     };
 
     struct Entity {
@@ -564,25 +595,21 @@ namespace TR {
     };
 
     struct Tile {
-        uint16 index:14, undefined:1, triangle:1;  // undefined - need check is animated, animated - is animated
+        uint16 index:14, undefined:1, triangle:1;
     };
 
-    struct ObjectTexture  {
-        uint16  attribute;  // 0 - opaque, 1 - transparent, 2 - blend additive
-        Tile    tile;       // 0..14 - tile, 15 - is triangle
-        struct {
-            uint8   Xcoordinate; // 1 if Xpixel is the low value, 255 if Xpixel is the high value in the object texture
-            uint8   Xpixel;
-            uint8   Ycoordinate; // 1 if Ypixel is the low value, 255 if Ypixel is the high value in the object texture
-            uint8   Ypixel;
-        } vertices[4]; // The four corners of the texture
+    struct ObjectTexture {
+        uint16  clut;
+        Tile    tile;           // tile or palette index
+        uint16  attribute;      // 0 - opaque, 1 - transparent, 2 - blend additive 
+        ubyte2  texCoord[4];
     };
 
     struct SpriteTexture {
+        uint16  clut;
         uint16  tile;
-        uint8   u, v;
-        uint16  w, h;   // (ActualValue  * 256) + 255
         int16   l, t, r, b;
+        ubyte2  texCoord[2];
     };
 
     struct SpriteSequence {
@@ -650,12 +677,15 @@ namespace TR {
     #pragma pack(pop)
 
     struct Level {
-        uint32          version;    // version (4 bytes)
+        enum : uint32 {
+            VER_TR1_PC  = 0x00000020,
+            VER_TR1_PSX = 0x0000BC20,
+        }               version;
 
         int32           tilesCount;
-        Tile8           *tiles;     // 8-bit (palettized) textiles 256x256
+        Tile32          *tiles;
 
-        uint32          unused;     // 32-bit unused value (4 bytes)
+        uint32          unused;
 
         uint16          roomsCount;
         Room            *rooms;
@@ -663,8 +693,8 @@ namespace TR {
         int32           floorsCount;
         FloorData       *floors;
 
-        int32           meshDataSize;
-        uint16          *meshData;
+        int16           meshesCount;
+        Mesh            meshes[MAX_MESHES];
 
         int32           meshOffsetsCount;
         uint32          *meshOffsets;
@@ -721,7 +751,9 @@ namespace TR {
         int32           entitiesCount;
         Entity          *entities;
 
-        RGB             *palette;
+        Color24         *palette;
+        CLUT            *cluts;
+        Tile4           *tiles4;
 
         uint16          cameraFramesCount;
         CameraFrame     *cameraFrames;
@@ -788,13 +820,40 @@ namespace TR {
             Model *puzzleSet;
         } extra;
 
-        Level(const char *name, bool demo) {
+        Level(const char *name, bool demo) {            
             Stream stream(name);
-        // read version
+
+            tiles4  = NULL;
+            Tile8    *tiles8  = NULL;
+            cluts   = NULL;
+            palette = NULL;
+
             stream.read(version);
-        // tiles
-            stream.read(tiles, stream.read(tilesCount));
-            stream.read(unused);
+
+            if (version != VER_TR1_PC && version != VER_TR1_PSX) {
+                LOG("unsupported level format\n"); 
+                ASSERT(false); 
+                memset(this, 0, sizeof(*this)); 
+                return;
+            }
+
+            if (version == VER_TR1_PSX) {
+                uint32 offsetTexTiles;
+
+                stream.seek(12);
+                stream.read(offsetTexTiles);
+                stream.seek(offsetTexTiles - stream.pos + 8);
+                
+                stream.read(tiles4, tilesCount = 13);
+                stream.read(cluts, 512);
+                
+                stream.seek(0x4000 + 4);
+            } else {
+            // tiles
+                stream.read(tiles8, stream.read(tilesCount));
+                stream.read(unused);
+            }
+
         // rooms
             rooms = new Room[stream.read(roomsCount)];
             for (int i = 0; i < roomsCount; i++) {
@@ -804,12 +863,21 @@ namespace TR {
                 stream.read(r.info);
             // room data
                 stream.read(d.size);
-                int pos = stream.pos;
-                stream.read(d.vertices,     stream.read(d.vCount));
-                stream.read(d.rectangles,   stream.read(d.rCount));
+                if (version == VER_TR1_PSX) stream.seek(2);
+                stream.read(d.vertices, stream.read(d.vCount));
+
+                if (version == VER_TR1_PSX)
+                    for (int i = 0; i < d.vCount; i++) // convert vertex luminance from PSX to PC format
+                        d.vertices[i].lighting = 0x1FFF - (d.vertices[i].lighting << 5);               
+
+                stream.read(d.rectangles, stream.read(d.rCount));
+                
+                if (version == VER_TR1_PSX)
+                    for (int i = 0; i < d.rCount; i++) // swap indices (quad strip -> quad list)
+                        swap(d.rectangles[i].vertices[2], d.rectangles[i].vertices[3]);
+                        
                 stream.read(d.triangles,    stream.read(d.tCount));
                 stream.read(d.sprites,      stream.read(d.sCount));
-                stream.setPos(pos + d.size * 2);
             // portals
                 stream.read(r.portals,  stream.read(r.portalsCount));
             // sectors
@@ -825,14 +893,17 @@ namespace TR {
                     stream.read(light.x);
                     stream.read(light.y);
                     stream.read(light.z);
-                    stream.read(light.intensity);
+                    if (version == VER_TR1_PSX) {
+                        uint32 intensity;
+                        light.intensity = stream.read(intensity);
+                    } else
+                        stream.read(light.intensity);
                     stream.read(light.attenuation);
                 }
-            //    stream.read(r.lights,   stream.read(r.lightsCount));
             // meshes
                 r.meshes = new Room::Mesh[stream.read(r.meshesCount)];
                 for (int i = 0; i < r.meshesCount; i++)
-                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - sizeof(r.meshes[i].flags));
+                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - (version == VER_TR1_PC ? sizeof(r.meshes[i].align) : 0) - sizeof(r.meshes[i].flags));
             // misc flags
                 stream.read(r.alternateRoom);
                 stream.read(r.flags);
@@ -841,8 +912,7 @@ namespace TR {
         // floors
             stream.read(floors,         stream.read(floorsCount));
         // meshes
-            stream.read(meshData,       stream.read(meshDataSize));
-            stream.read(meshOffsets,    stream.read(meshOffsetsCount));
+            readMeshes(stream);
         // animations
             stream.read(anims,          stream.read(animsCount));
             stream.read(states,         stream.read(statesCount));
@@ -853,18 +923,13 @@ namespace TR {
         // models
             models = new Model[stream.read(modelsCount)];
             for (int i = 0; i < modelsCount; i++)
-                stream.raw(&models[i], sizeof(models[i]) - sizeof(models[i].align));
-            stream.read(staticMeshes,   stream.read(staticMeshesCount));
+                stream.raw(&models[i], sizeof(models[i]) - (version == VER_TR1_PC ? sizeof(models[i].align) : 0));
+            stream.read(staticMeshes, stream.read(staticMeshesCount));
         // textures & UV
-            stream.read(objectTextures,     stream.read(objectTexturesCount));
-            stream.read(spriteTextures,     stream.read(spriteTexturesCount));
-            stream.read(spriteSequences,    stream.read(spriteSequencesCount));
-            for (int i = 0; i < spriteSequencesCount; i++)
-                spriteSequences[i].sCount = -spriteSequences[i].sCount;
-
-            if (demo)
-                stream.read(palette,        256);
-
+            readObjectTex(stream);
+            readSpriteTex(stream);
+        // palette for demo levels
+            if (version == VER_TR1_PC && demo) stream.read(palette, 256);
         // cameras
             stream.read(cameras,        stream.read(camerasCount));
         // sound sources
@@ -889,30 +954,36 @@ namespace TR {
                 entities[i].type = Entity::NONE;
                 entities[i].controller = NULL;
             }
-        // palette
-            stream.seek(32 * 256);  // skip lightmap palette
 
-            if (!demo)
-                stream.read(palette,        256);
-
-        // cinematic frames for cameras
-            stream.read(cameraFrames,   stream.read(cameraFramesCount));
+            if (version == VER_TR1_PC) stream.seek(32 * 256);
+        // palette for release levels
+            if (version == VER_TR1_PC && !demo) stream.read(palette, 256);
+        // cinematic frames for cameras (PC)
+            if (version == VER_TR1_PC)
+                stream.read(cameraFrames,   stream.read(cameraFramesCount));
         // demo data
             stream.read(demoData,       stream.read(demoDataSize));
         // sounds
             stream.read(soundsMap,      256);
             stream.read(soundsInfo,     stream.read(soundsInfoCount));
-            stream.read(soundData,      stream.read(soundDataSize));
-            stream.read(soundOffsets,   stream.read(soundOffsetsCount));
-
-        // modify palette colors from 6-bit Amiga colorspace
-            int m = 0;
-            for (int i = 0; i < 256; i++) {
-                RGB &c = palette[i];
-                c.r <<= 2;
-                c.g <<= 2;
-                c.b <<= 2;
+            if (version == VER_TR1_PC) {
+                stream.read(soundData,      stream.read(soundDataSize));
+                stream.read(soundOffsets,   stream.read(soundOffsetsCount));
             }
+        // cinematic frames for cameras (PSX)
+            if (version == VER_TR1_PSX)
+                stream.read(cameraFrames,   stream.read(cameraFramesCount));
+
+            initTiles(tiles4, tiles8, palette, cluts);
+
+            //delete[] tiles4;   tiles4 = NULL;
+            delete[] tiles8;   tiles8 = NULL;
+
+            if (version == VER_TR1_PSX) {
+                soundData    = NULL;
+                soundOffsets = NULL;
+            }
+
         // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
         // get special models indices
@@ -941,7 +1012,6 @@ namespace TR {
             }
             delete[] rooms;
             delete[] floors;
-            delete[] meshData;
             delete[] meshOffsets;
             delete[] anims;
             delete[] states;
@@ -962,6 +1032,8 @@ namespace TR {
             delete[] animTexturesData;
             delete[] entities;
             delete[] palette;
+            delete[] cluts;
+            delete[] tiles4;
             delete[] cameraFrames;
             delete[] demoData;
             delete[] soundsMap;
@@ -970,7 +1042,349 @@ namespace TR {
             delete[] soundOffsets;
         }
 
+        void readMeshes(Stream &stream) {
+            uint32 meshDataSize;
+            stream.read(meshDataSize);
+            int32 start = stream.pos;
+            int32 end   = stream.pos + meshDataSize * 2;
+            meshesCount = 0;
+            while (stream.pos < end) {
+                Mesh &mesh = meshes[meshesCount++];
+                mesh.offset = stream.pos - start;
+
+                stream.read(mesh.center);
+                stream.read(mesh.collider);
+                stream.read(mesh.vCount);
+
+                switch (version) {
+                    case VER_TR1_PC : {
+                    /*  struct {
+                            short3      center;
+                            short2      collider;
+                            short       vCount;
+                            short3      vertices[vCount];
+                            short       nCount;
+                            short3      normals[max(0, nCount)];
+                            ushort      luminance[-min(0, nCount)];
+                            short       rCount;
+                            Rectangle   rectangles[rCount];
+                            short       tCount;
+                            Triangle    triangles[tCount];
+                            short       crCount;
+                            Rectangle   crectangles[crCount];
+                            short       ctCount;
+                            Triangle    ctriangles[ctCount];
+                        }; */
+                        mesh.vertices = new Mesh::Vertex[mesh.vCount];
+                        for (int i = 0; i < mesh.vCount; i++) {
+                            short4 &c = mesh.vertices[i].coord;
+                            stream.read(c.x);
+                            stream.read(c.y);
+                            stream.read(c.z);
+                            c.w = 0;
+                        }
+                        int16 nCount;
+                        stream.read(nCount);
+                        ASSERT(mesh.vCount == abs(nCount));
+                        for (int i = 0; i < mesh.vCount; i++) {
+                            short4 &c = mesh.vertices[i].coord;
+                            short4 &n = mesh.vertices[i].normal;
+                            if (nCount > 0) { // normal
+                                stream.read(n.x);
+                                stream.read(n.y);
+                                stream.read(n.z);
+                                n.w = 1;
+                            } else { // intensity
+                                stream.read(c.w);
+                                n = { 0, 0, 0, 0 };
+                            }
+                        }
+
+                        uint16 rCount, crCount, tCount, ctCount;
+
+                        int tmp = stream.pos;
+                        stream.seek(stream.read(rCount)  * sizeof(Rectangle));
+                        stream.seek(stream.read(tCount)  * sizeof(Triangle));
+                        stream.seek(stream.read(crCount) * sizeof(Rectangle));
+                        stream.seek(stream.read(ctCount) * sizeof(Triangle));
+                        stream.setPos(tmp);
+
+                        mesh.rectangles = new Rectangle[mesh.rCount = rCount + crCount];
+                        mesh.triangles  = new Triangle[mesh.tCount  = tCount + ctCount];
+
+                        stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[0],      rCount  * sizeof(Rectangle));
+                        stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[0],       tCount  * sizeof(Triangle));
+                        stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[rCount], crCount * sizeof(Rectangle));
+                        stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[tCount],  ctCount * sizeof(Triangle));
+                    // add "use palette color" flags
+                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].texture |= 0x8000;
+                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].texture  |= 0x8000;
+                        break;
+                    }
+                    case VER_TR1_PSX : {
+                    /*  struct {
+                            short3      center;
+                            short2      collider;
+                            short       vCount;
+                            short4      vertices[abs(vCount)];
+                            short4      normals[max(0, vCount)];
+                            ushort      luminance[-min(0, vCount)];
+                            short       rCount;
+                            Rectangle   rectangles[rCount];
+                            short       tCount;
+                            Triangle    triangles[tCount];
+                        }; */
+
+
+                        int nCount = mesh.vCount;
+                        mesh.vCount = abs(mesh.vCount);
+                        mesh.vertices = new Mesh::Vertex[mesh.vCount];
+
+                        for (int i = 0; i < mesh.vCount; i++)
+                            stream.read(mesh.vertices[i].coord);
+
+                        for (int i = 0; i < mesh.vCount; i++) {
+                            short4 &c = mesh.vertices[i].coord;
+                            short4 &n = mesh.vertices[i].normal;
+                            if (nCount > 0) { // normal
+                                stream.read(n);
+                                n.w = 1;
+                            } else { // intensity
+                                stream.read(c.w);
+                                n = { 0, 0, 0, 0 };
+                            }
+                        }
+
+                        stream.read(mesh.rectangles, stream.read(mesh.rCount));
+                        stream.read(mesh.triangles,  stream.read(mesh.tCount));   
+                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 300) mesh.rectangles[i].texture |= 0x8000;
+                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 300) mesh.triangles[i].texture  |= 0x8000;
+                        break;
+                    }
+                }
+
+                #define RECALC_ZERO_NORMALS(mesh, face, count)\
+                    for (int j = 0; j < count; j++) {\
+                        Mesh::Vertex &v = mesh.vertices[face.vertices[j]];\
+                        short4 &n = v.normal;\
+                        if (!(n.x | n.y | n.z)) {\
+                            vec3 o(mesh.vertices[face.vertices[0]].coord);\
+                            vec3 a = o - mesh.vertices[face.vertices[1]].coord;\
+                            vec3 b = o - mesh.vertices[face.vertices[2]].coord;\
+                            o = b.cross(a).normal() * 16300.0f;\
+                            n.x = (int)o.x;\
+                            n.y = (int)o.y;\
+                            n.z = (int)o.z;\
+                        }\
+                    }
+
+            // recalc zero normals
+                for (int i = 0; i < mesh.rCount; i++) {
+                    Rectangle &f = mesh.rectangles[i];
+                    RECALC_ZERO_NORMALS(mesh, f, 4);
+                }
+
+                for (int i = 0; i < mesh.tCount; i++) {
+                    Triangle &f = mesh.triangles[i];
+                    RECALC_ZERO_NORMALS(mesh, f, 3);
+                }
+
+                #undef RECALC_ZERO_NORMALS
+
+                int32 align = (stream.pos - start - mesh.offset) % 4;
+                if (align) stream.seek(4 - align);
+            }
+            ASSERT(stream.pos - start == meshDataSize * 2);
+
+            stream.read(meshOffsets, stream.read(meshOffsetsCount));
+        }
+
+        void readObjectTex(Stream &stream) {
+            #define SET_PARAMS(t, d, c) {\
+                    t.clut        = c;\
+                    t.tile        = d.tile;\
+                    t.attribute   = d.attribute;\
+                    t.texCoord[0] = { d.x0, d.y0 };\
+                    t.texCoord[1] = { d.x1, d.y1 };\
+                    t.texCoord[2] = { d.x2, d.y2 };\
+                    t.texCoord[3] = { d.x3, d.y3 };\
+                }
+
+            stream.read(objectTexturesCount);
+            objectTextures = new ObjectTexture[objectTexturesCount];
+            for (int i = 0; i < objectTexturesCount; i++) {
+                ObjectTexture &t = objectTextures[i];
+                switch (version) {
+                    case VER_TR1_PC : {                        
+                        struct {
+                            uint16  attribute;
+                            Tile    tile;       
+                            uint8   xh0, x0, yh0, y0;
+                            uint8   xh1, x1, yh1, y1;
+                            uint8   xh2, x2, yh2, y2;
+                            uint8   xh3, x3, yh3, y3;
+                        } d;
+                        stream.read(d);
+                        SET_PARAMS(t, d, 0);
+                        break;
+                    }
+                    case VER_TR1_PSX : {
+                        struct {
+                            uint8   x0, y0;
+                            uint16  clut;
+                            uint8   x1, y1;
+                            Tile    tile;       
+                            uint8   x2, y2;
+                            uint16  unknown;
+                            uint8   x3, y3;
+                            uint16  attribute; 
+                        } d;
+                        stream.read(d);
+                        SET_PARAMS(t, d, d.clut);
+                        break;
+                    }
+                }
+            }
+
+            #undef SET_PARAMS
+        }
+
+        void readSpriteTex(Stream &stream) {
+            #define SET_PARAMS(t, d, c) {\
+                    t.clut = c;\
+                    t.tile = d.tile;\
+                    t.l    = d.l;\
+                    t.t    = d.t;\
+                    t.r    = d.r;\
+                    t.b    = d.b;\
+                }
+
+            stream.read(spriteTexturesCount);
+            spriteTextures = new SpriteTexture[spriteTexturesCount];
+            for (int i = 0; i < spriteTexturesCount; i++) {
+                SpriteTexture &t = spriteTextures[i];
+                switch (version) {
+                    case VER_TR1_PC : {                        
+                        struct {
+                            uint16  tile;
+                            uint8   u, v;
+                            uint16  w, h;
+                            int16   l, t, r, b;
+                        } d;
+                        stream.read(d);
+                        SET_PARAMS(t, d, 0);
+                        t.texCoord[0] = { d.u,              d.v              };
+                        t.texCoord[1] = { d.u + (d.w >> 8), d.v + (d.h >> 8) };
+                        break;
+                    }
+                    case VER_TR1_PSX : {
+                        struct {
+                            int16   l, t, r, b;
+                            uint16  clut;
+                            uint16  tile;
+                            uint8   u0, v0;
+                            uint8   u1, v1;
+                        } d;
+                        stream.read(d);
+                        SET_PARAMS(t, d, d.clut);
+                        t.texCoord[0] = { d.u0, d.v0 };
+                        t.texCoord[1] = { d.u1, d.v1 };
+                        break;
+                    }
+                }
+            }
+
+            #undef SET_PARAMS
+
+            stream.read(spriteSequences, stream.read(spriteSequencesCount));
+            for (int i = 0; i < spriteSequencesCount; i++)
+                spriteSequences[i].sCount = -spriteSequences[i].sCount;
+        }
+
+        void initTiles(Tile4 *tiles4, Tile8 *tiles8, Color24 *palette, CLUT *cluts) {
+            tiles = new Tile32[tilesCount];
+
+            if (palette)
+                for (int j = 0; j < 256; j++) { // Amiga -> PC color palette
+                    Color24 &c = palette[j];
+                    c.r <<= 2;
+                    c.g <<= 2;
+                    c.b <<= 2;
+                }
+
+            switch (version) {
+                case VER_TR1_PC : {
+                    ASSERT(tiles8);
+                    ASSERT(palette);
+                    for (int i = 0; i < tilesCount; i++) {
+                        Color32 *ptr = &tiles[i].color[0];
+                        for (int y = 0; y < 256; y++) {
+                            for (int x = 0; x < 256; x++) {
+                                uint8 index = tiles8[i].index[y * 256 + x];
+                                Color24 &p = palette[index];
+                                ptr[x].r = p.r;
+                                ptr[x].g = p.g;
+                                ptr[x].b = p.b;
+                                ptr[x].a = index == 0 ? 0 : 255;
+                            }
+                            ptr += 256;
+                        }
+                    }
+                    break;
+                }
+                case VER_TR1_PSX : {
+                    ASSERT(tiles4);
+                    ASSERT(cluts);
+
+                    for (int i = 0; i < objectTexturesCount; i++) {
+                        ObjectTexture &t = objectTextures[i];
+                        CLUT   &clut = cluts[t.clut];
+                        Tile32 &dst  = tiles[t.tile.index];
+                        Tile4  &src  = tiles4[t.tile.index];
+
+                        int minX = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
+                        int maxX = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
+                        int minY = min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
+                        int maxY = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
+
+                        for (int y = minY; y <= maxY; y++)
+                            for (int x = minX; x <= maxX; x++)                          
+                                dst.color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
+                    }
+
+                    for (int i = 0; i < spriteTexturesCount; i++) {
+                        SpriteTexture &t = spriteTextures[i];
+                        CLUT   &clut = cluts[t.clut];
+                        Tile32 &dst  = tiles[t.tile];
+                        Tile4  &src  = tiles4[t.tile];
+                        
+                        for (int y = t.texCoord[0].y; y < t.texCoord[1].y; y++)
+                            for (int x = t.texCoord[0].x; x < t.texCoord[1].x; x += 2) {                           
+                                dst.color[y * 256 + x + 0] = clut.color[src.index[(y * 256 + x) / 2].a];
+                                dst.color[y * 256 + x + 1] = clut.color[src.index[(y * 256 + x) / 2].b];
+                            }
+                    }
+
+                    break;
+                }
+            }
+        }
+
     // common methods
+        Color24 getColor(int texture) {
+            switch (version) {
+                case VER_TR1_PC  : return palette[texture & 0xFF];
+                case VER_TR1_PSX : {
+                    ObjectTexture &t = objectTextures[texture & 0x7FFF];
+                    int idx  = (t.texCoord[0].y * 256 + t.texCoord[0].x) / 2;
+                    int part = t.texCoord[0].x % 2;
+                    Tile4 &tile = tiles4[t.tile.index];
+                    CLUT  &clut = cluts[t.clut];
+                    return clut.color[part ? tile.index[idx].b : tile.index[idx].a];
+                }
+            }
+            return Color24(255, 0, 255);
+        }
 
         StaticMesh* getMeshByID(int id) const { // TODO: map this
             for (int i = 0; i < staticMeshesCount; i++)

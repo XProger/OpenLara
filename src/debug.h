@@ -355,7 +355,6 @@ namespace Debug {
         //    int lightIndex = getLightIndex(lara->pos, roomIndex);
 
             glPointSize(8);
-            glBegin(GL_POINTS);
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
@@ -367,7 +366,6 @@ namespace Debug {
                     //    color = vec4(0, 1, 0, 1);
                     Debug::Draw::sphere(p, l.attenuation, color);
                 }
-            glEnd();
         }
 
         void meshes(const TR::Level &level) {
@@ -551,6 +549,8 @@ namespace Debug {
                 case_name(TR::Entity, TRAP_BOULDER         ); 
                 case_name(TR::Entity, TRAP_DART            ); 
                 case_name(TR::Entity, TRAP_DARTGUN         ); 
+                case_name(TR::Entity, BLOCK_1              ); 
+                case_name(TR::Entity, BLOCK_2              ); 
                 case_name(TR::Entity, SWITCH               ); 
                 case_name(TR::Entity, SWITCH_WATER         ); 
                 case_name(TR::Entity, DOOR_1               ); 

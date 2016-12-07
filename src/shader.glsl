@@ -1,101 +1,193 @@
 R"====(
-varying vec4 vNormal;
-varying vec3 vLightVec[MAX_LIGHTS];
-varying vec3 vViewVec;
 varying vec2 vTexCoord;
-varying vec4 vColor;
+
+#ifndef PASS_SHADOW
+    varying vec4 vLightProj;
+    varying vec4 vNormal;
+    varying vec3 vLightVec[MAX_LIGHTS];
+    varying vec3 vViewVec;
+    varying vec4 vColor;
+#endif
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
     uniform mat4 uModel;
     uniform mat4 uViewInv;
-    uniform vec3 uLightPos[MAX_LIGHTS];
-    uniform vec3 uViewPos;
+    uniform mat4 uLightProj;
 
-    #ifndef SPRITE
-        uniform vec2 uAnimTexRanges[MAX_RANGES];
-        uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+    #ifndef PASS_SHADOW
+        uniform vec3 uLightPos[MAX_LIGHTS];
+        uniform vec3 uViewPos;
+
+        #ifndef SPRITE
+            uniform vec2 uAnimTexRanges[MAX_RANGES];
+            uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+        #endif
+    
+        uniform vec4 uParam; // x - time
     #endif
 
-    uniform vec4 uParam; // x - time
     
     attribute vec4 aCoord;
     attribute vec4 aTexCoord;
-    attribute vec4 aNormal;
-    attribute vec4 aColor;
+    #ifndef PASS_SHADOW
+        attribute vec4 aNormal;
+        attribute vec4 aColor;
+    #endif
 
     #define TEXCOORD_SCALE (1.0 / 32767.0)
     
     void main() {
         vec4 coord  = uModel * vec4(aCoord.xyz, 1.0);
-        vColor      = aColor;
-        
-        #ifdef CAUSTICS
-            float sum = coord.x + coord.y + coord.z;
-            vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
-        #endif
 
         #ifndef SPRITE
-            // animated texture coordinates
-            vec2 range  = uAnimTexRanges[int(aTexCoord.z)]; // x - start index, y - count
+            #ifndef PASS_SHADOW
+                // animated texture coordinates
+                vec2 range  = uAnimTexRanges[int(aTexCoord.z)]; // x - start index, y - count
 
-            float f = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
-            vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
+                float f = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
+                vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
-            vTexCoord   = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
-            vNormal     = uModel * aNormal;
+                vTexCoord   = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
+                vNormal     = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz
+, aNormal.w);
+            #else
+                vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
+            #endif
         #else
-            vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
             coord.xyz  += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
-            vNormal     = vec4(uViewPos.xyz - coord.xyz, 0.0);
+            #ifndef PASS_SHADOW
+                vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
+                vNormal     = vec4(uViewPos.xyz - coord.xyz, 0.0);
+            #endif
         #endif
 
-        vViewVec = uViewPos - coord.xyz;
-        for (int i = 0; i < MAX_LIGHTS; i++)
-            vLightVec[i] = uLightPos[i] - coord.xyz;
+        #ifndef PASS_SHADOW
+            vColor = aColor;
+
+            #if defined(CAUSTICS) 
+                float sum = coord.x + coord.y + coord.z;
+                vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
+            #endif
+
+            vViewVec = uViewPos - coord.xyz;
+            for (int i = 0; i < MAX_LIGHTS; i++)
+                vLightVec[i] = uLightPos[i] - coord.xyz;
+
+		    vLightProj	  = uLightProj * coord;
+		    vLightProj.z -= 0.001 * vLightProj.w;
+        #endif
 
         gl_Position = uViewProj * coord;
     }
 #else
     uniform sampler2D   sDiffuse;
     uniform vec4        uColor;
-    uniform vec3        uAmbient;
-    uniform vec4        uLightColor[MAX_LIGHTS];
+    #ifndef PASS_SHADOW
+        uniform vec4    uLightColor[MAX_LIGHTS];
+    #endif
+
+	#ifdef PASS_SHADOW
+		#ifdef SHADOW_COLOR
+			vec4 pack(in float value) {
+				vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+				vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+				vec4 res = fract(value * bitSh);
+				res -= res.xxyz * bitMsk;
+				return res;
+			}
+		#endif
+	#else
+        #ifdef SHADOW_SAMPLER
+		    uniform sampler2DShadow sShadow;
+		    #ifdef MOBILE
+			    #define SHADOW(V) (shadow2DEXT(sShadow, V))				
+		    #else
+			    #define SHADOW(V) (shadow2D(sShadow, V).x)
+		    #endif
+	    #else
+		    uniform sampler2D sShadow;
+		    #define CMP(a,b) float(a > b)
+
+		    #ifdef SHADOW_DEPTH
+			    #define SHADOW(V) CMP(texture2D(sShadow, (V).xy).x, p.z)
+		    #elif defined(SHADOW_COLOR)
+			    float unpack(vec4 value) {
+				    vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+				    return dot(value, bitSh);
+			    }
+			    #define SHADOW(V) CMP(unpack(texture2D(sShadow, (V).xy)), p.z)				
+		    #endif
+	    #endif
+
+	    float getShadow(vec4 lightProj) {
+		    vec3 p = lightProj.xyz / lightProj.w;
+            
+            if (lightProj.w < 0.0) return 1.0; 
+
+//	        return texture2D(sShadow, p.xy).x;
+		    const float tx = 1.0 / 1024.0;
+		    vec3 dx = vec3(tx, 0.0, 0.0);
+		    vec3 dy = vec3(0.0, tx, 0.0);
+		    vec3 dxdyp = dx + dy;
+		    vec3 dxdyn = dx - dy;
+		    float rShadow = 
+			    SHADOW(p + dx) +
+			    SHADOW(p - dx) + 
+			    SHADOW(p + dy) + 
+			    SHADOW(p - dy) + 
+			    SHADOW(p + dxdyp) + 
+			    SHADOW(p - dxdyp) + 
+			    SHADOW(p + dxdyn) + 
+			    SHADOW(p - dxdyn);
+		    return rShadow * 0.125;
+	    }
+    #endif
 
     void main() {
         vec4 color = texture2D(sDiffuse, vTexCoord);
         if (color.w < 0.6)
             discard;
+        
+        #ifdef PASS_SHADOW
+			#ifdef SHADOW_COLOR
+				gl_FragColor = pack(gl_FragCoord.z);
+			#else
+				gl_FragColor = vec4(1.0);
+			#endif
+        #else
+            color.xyz *= uColor.xyz;
+            color.xyz *= vColor.xyz;
 
-        color *= uColor;
-        color.xyz *= vColor.xyz;
+            color.xyz = pow(abs(color.xyz), vec3(2.2)); // to linear space
 
-        color.xyz = pow(abs(color.xyz), vec3(2.2)); // to linear space
+        // calc point lights
+            vec3 normal   = normalize(vNormal.xyz);
+            vec3 viewVec  = normalize(vViewVec);
+            vec3 light    = vec3(0.0f);
+            for (int i = 0; i < MAX_LIGHTS; i++) {
+                vec3 lv = vLightVec[i];
+                vec4 lc = uLightColor[i];
+                float lum = max(0.0, dot(normal, normalize(lv)));
+                float att = max(0.0, 1.0 - dot(lv, lv) / lc.w);
+                light += lc.xyz * (lum * att);
+            }
+        // calc backlight
+            light += (vColor.w + min(uColor.w, vNormal.w));
+            light *= dot(normal, viewVec) * 0.5 + 0.5;
 
-    // calc point lights
-        vec3 normal   = normalize(vNormal.xyz);
-        vec3 viewVec  = normalize(vViewVec);
-        vec3 light    = uAmbient;
-        for (int i = 0; i < MAX_LIGHTS; i++) {
-            vec3 lv = vLightVec[i];
-            vec4 lc = uLightColor[i];
-            float lum = max(0.0, dot(normal, normalize(lv)));
-            float att = max(0.0, 1.0 - dot(lv, lv) / lc.w);
-            light += lc.xyz * (lum * att);
-        }
-    // calc backlight
-        light *= dot(normal, viewVec) * 0.5 + 0.5;
+        // apply lighting
+            color.xyz *= mix(vec3(uColor.w), light, getShadow(vLightProj));
 
-    // apply lighting
-        color.xyz *= vColor.w + light;
+            
+            color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
 
-        color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
+        // apply fog
+            float fog = clamp(1.0 / exp(gl_FragCoord.z / gl_FragCoord.w * 0.000025), 0.0, 1.0);
+            color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, fog);
 
-    // apply fog
-        float fog = clamp(1.0 / exp(gl_FragCoord.z / gl_FragCoord.w * 0.000025), 0.0, 1.0);
-        color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, fog);
-
-        gl_FragColor = color;
+            gl_FragColor = color;
+        #endif
     }
 #endif
 )===="
