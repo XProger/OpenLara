@@ -23,7 +23,7 @@ struct Camera : Controller {
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
         fov         = 65.0f;
         znear       = 16;
-        zfar        = 15.0f * 1024.0f;
+        zfar        = 32.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
         
         if (owner) {
@@ -147,8 +147,6 @@ struct Camera : Controller {
         if (actCamera <= -1) {
             TR::Level::FloorInfo info;
             level->getFloorInfo(room, (int)pos.x, (int)pos.y, (int)pos.z, info);
-        
-            int lastRoom = room;
 
             if (info.roomNext != 255) 
                 room = info.roomNext;
@@ -168,10 +166,6 @@ struct Camera : Controller {
                     if (info.roomFloor != 0xffff8100)
                         pos.y = (float)info.roomFloor;
             }
-
-        // play underwater sound when camera goes under water
-        //    if (lastRoom != room && !level->rooms[lastRoom].flags.water && level->rooms[room].flags.water)
-        //        playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::REPLAY); // TODO: loop sound
         }
 
         mViewInv = mat4(pos, target, vec3(0, -1, 0));

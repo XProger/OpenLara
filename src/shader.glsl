@@ -5,6 +5,7 @@ varying vec2 vTexCoord;
     varying vec4 vLightProj;
     varying vec4 vNormal;
     varying vec3 vLightVec[MAX_LIGHTS];
+    varying vec3 vLightTarget;
     varying vec3 vViewVec;
     varying vec4 vColor;
 #endif
@@ -14,6 +15,7 @@ varying vec2 vTexCoord;
     uniform mat4 uModel;
     uniform mat4 uViewInv;
     uniform mat4 uLightProj;
+    uniform vec3 uLightTarget;
 
     #ifndef PASS_SHADOW
         uniform vec3 uLightPos[MAX_LIGHTS];
@@ -49,8 +51,7 @@ varying vec2 vTexCoord;
                 vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
                 vTexCoord   = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
-                vNormal     = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz
-, aNormal.w);
+                vNormal     = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz, aNormal.w);
             #else
                 vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
             #endif
@@ -74,11 +75,21 @@ varying vec2 vTexCoord;
             for (int i = 0; i < MAX_LIGHTS; i++)
                 vLightVec[i] = uLightPos[i] - coord.xyz;
 
-		    vLightProj	  = uLightProj * coord;
-		    vLightProj.z -= 0.001 * vLightProj.w;
+            vLightTarget  = uLightTarget - coord.xyz;
+            
+            
+            //float rLightAngle = dot(normalize(vLightVec[0]), normalize(vNormal.xyz));
+            //float rNormalScale = clamp(1.0 - rLightAngle, 0.0, 1.0);
+            //rNormalScale *= 50.0;//10.0 * (1.0 / 1024.0);
+            vLightProj = uLightProj * coord;//vec4(coord.xyz + normalize(vNormal.xyz) * rNormalScale, 1.0f);
+
+            coord = uViewProj * coord;
+        #else
+            coord = uViewProj * coord;
+           // coord.z *= coord.w;
         #endif
 
-        gl_Position = uViewProj * coord;
+        gl_Position = coord;
     }
 #else
     uniform sampler2D   sDiffuse;
@@ -87,61 +98,73 @@ varying vec2 vTexCoord;
         uniform vec4    uLightColor[MAX_LIGHTS];
     #endif
 
-	#ifdef PASS_SHADOW
-		#ifdef SHADOW_COLOR
-			vec4 pack(in float value) {
-				vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
-				vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
-				vec4 res = fract(value * bitSh);
-				res -= res.xxyz * bitMsk;
-				return res;
-			}
-		#endif
-	#else
+    #ifdef PASS_SHADOW
+        #ifdef SHADOW_COLOR
+            vec4 pack(in float value) {
+                vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+                vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+                vec4 res = fract(value * bitSh);
+                res -= res.xxyz * bitMsk;
+                return res;
+            }
+        #endif
+    #else
+        #ifdef AMBIENT_CUBE
+            uniform vec3 uAmbientCube[6];
+
+            vec3 getAmbientLight(vec3 n) {
+                vec3 sqr = n * n;
+                vec3 pos = step(0.0, n);
+                return sqr.x * mix(uAmbientCube[0], uAmbientCube[1], pos.x) + 
+                       sqr.y * mix(uAmbientCube[2], uAmbientCube[3], pos.y) +
+                       sqr.z * mix(uAmbientCube[4], uAmbientCube[5], pos.z);
+            }
+        #else
+            uniform vec3 uAmbient;
+
+            vec3 getAmbientLight(vec3 n) {
+                return vec3(vColor.w);
+            }
+        #endif
+
         #ifdef SHADOW_SAMPLER
-		    uniform sampler2DShadow sShadow;
-		    #ifdef MOBILE
-			    #define SHADOW(V) (shadow2DEXT(sShadow, V))				
-		    #else
-			    #define SHADOW(V) (shadow2D(sShadow, V).x)
-		    #endif
-	    #else
-		    uniform sampler2D sShadow;
-		    #define CMP(a,b) float(a > b)
+            uniform sampler2DShadow sShadow;
+            #ifdef MOBILE
+                #define SHADOW(V) (shadow2DEXT(sShadow, V))             
+            #else
+                #define SHADOW(V) (shadow2D(sShadow, V).x)
+            #endif
+        #else
+            uniform sampler2D sShadow;
+            #define CMP(a,b) float(a > b)
 
-		    #ifdef SHADOW_DEPTH
-			    #define SHADOW(V) CMP(texture2D(sShadow, (V).xy).x, p.z)
-		    #elif defined(SHADOW_COLOR)
-			    float unpack(vec4 value) {
-				    vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-				    return dot(value, bitSh);
-			    }
-			    #define SHADOW(V) CMP(unpack(texture2D(sShadow, (V).xy)), p.z)				
-		    #endif
-	    #endif
+            #ifdef SHADOW_DEPTH
+                #define SHADOW(V) CMP(texture2D(sShadow, (V).xy).x, p.z)
+            #elif defined(SHADOW_COLOR)
+                float unpack(vec4 value) {
+                    vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+                    return dot(value, bitSh);
+                }
+                #define SHADOW(V) CMP(unpack(texture2D(sShadow, (V).xy)), p.z)
+            #else
+                #define SHADOW(v) 1.0
+            #endif
+        #endif
 
-	    float getShadow(vec4 lightProj) {
-		    vec3 p = lightProj.xyz / lightProj.w;
-            
-            if (lightProj.w < 0.0) return 1.0; 
+        float getShadow(vec4 lightProj) {
+            vec3 p = lightProj.xyz / lightProj.w;
 
-//	        return texture2D(sShadow, p.xy).x;
-		    const float tx = 1.0 / 1024.0;
-		    vec3 dx = vec3(tx, 0.0, 0.0);
-		    vec3 dy = vec3(0.0, tx, 0.0);
-		    vec3 dxdyp = dx + dy;
-		    vec3 dxdyn = dx - dy;
-		    float rShadow = 
-			    SHADOW(p + dx) +
-			    SHADOW(p - dx) + 
-			    SHADOW(p + dy) + 
-			    SHADOW(p - dy) + 
-			    SHADOW(p + dxdyp) + 
-			    SHADOW(p - dxdyp) + 
-			    SHADOW(p + dxdyn) + 
-			    SHADOW(p - dxdyn);
-		    return rShadow * 0.125;
-	    }
+            if (lightProj.w < 1.0) return 1.0; 
+
+            float rShadow = 0.0;
+            for (float y = -3.5 ; y <=3.5 ; y+=1.0)
+                for (float x = -3.5 ; x <=3.5 ; x+=1.0)
+                    rShadow += SHADOW(p + vec3(x, y, 0.0) * (1.0 / 1024.0) );					
+            rShadow /= 64.0;
+
+            float fade = min(1.0, dot(vLightTarget.xz, vLightTarget.xz) / (MAX_SHADOW_DIST * MAX_SHADOW_DIST));
+            return mix(rShadow, 1.0, fade);
+        }
     #endif
 
     void main() {
@@ -150,11 +173,11 @@ varying vec2 vTexCoord;
             discard;
         
         #ifdef PASS_SHADOW
-			#ifdef SHADOW_COLOR
-				gl_FragColor = pack(gl_FragCoord.z);
-			#else
-				gl_FragColor = vec4(1.0);
-			#endif
+            #ifdef SHADOW_COLOR
+                gl_FragColor = pack(gl_FragCoord.z);
+            #else
+                gl_FragColor = vec4(1.0);
+            #endif
         #else
             color.xyz *= uColor.xyz;
             color.xyz *= vColor.xyz;
@@ -164,7 +187,7 @@ varying vec2 vTexCoord;
         // calc point lights
             vec3 normal   = normalize(vNormal.xyz);
             vec3 viewVec  = normalize(vViewVec);
-            vec3 light    = vec3(0.0f);
+            vec3 light    = vec3(0.0);
             for (int i = 0; i < MAX_LIGHTS; i++) {
                 vec3 lv = vLightVec[i];
                 vec4 lc = uLightColor[i];
@@ -172,14 +195,23 @@ varying vec2 vTexCoord;
                 float att = max(0.0, 1.0 - dot(lv, lv) / lc.w);
                 light += lc.xyz * (lum * att);
             }
-        // calc backlight
-            light += (vColor.w + min(uColor.w, vNormal.w));
-            light *= dot(normal, viewVec) * 0.5 + 0.5;
 
         // apply lighting
-            color.xyz *= mix(vec3(uColor.w), light, getShadow(vLightProj));
+            #ifdef SPRITE
+                color.xyz *= light + vColor.w;
+            #else
+                float shadow = getShadow(vLightProj);
 
-            
+                vec3 dlight = mix(vec3(uColor.w * uColor.w), light + uColor.w, shadow);
+                dlight *= dot(normal, viewVec) * 0.5 + 0.5; //  backlight
+
+                vec3 slight = light + mix(uColor.w, vColor.w, shadow);
+                
+                light = mix(slight, dlight, vNormal.w);
+
+                color.xyz *= light;
+            #endif
+
             color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
 
         // apply fog

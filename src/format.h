@@ -277,11 +277,11 @@ namespace TR {
         struct Mesh {
             int32   x, y, z;
             angle   rotation;
-            uint16  intensity;
+            int16   intensity;
             uint16  meshID;
             uint16  align; // PSX
             struct { // ! not exists in file !
-                uint16 unused:15, rendered:1;    
+                uint16 unused:15, rendered:1;
             } flags;
         } *meshes;
     };
@@ -336,13 +336,13 @@ namespace TR {
             short4 normal;
         };
 
-        int32       offset;
-        TR::Vertex  center;
         Collider    collider;
+        TR::Vertex  center;
         int16       vCount;
         int16       rCount;
         int16       tCount;
 
+        int32       offset;
         Vertex      *vertices;
         Rectangle   *rectangles;
         Triangle    *triangles;
@@ -669,7 +669,7 @@ namespace TR {
         uint16 volume;
         uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
         union {
-            struct { uint16 replay:2, count:6, unknown:5, pitch:1, gain:1; };
+            struct { uint16 replay:2, count:6, unknown:5, pitch:1, gain:1, :1; };
             uint16 value;
         } flags;
     };
@@ -679,7 +679,7 @@ namespace TR {
     struct Level {
         enum : uint32 {
             VER_TR1_PC  = 0x00000020,
-            VER_TR1_PSX = 0x0000BC20,
+            VER_TR1_PSX = 0x56414270,
         }               version;
 
         int32           tilesCount;
@@ -771,6 +771,7 @@ namespace TR {
 
         int32           soundOffsetsCount;
         uint32          *soundOffsets;
+        uint32          *soundSize;
 
    // common
         enum Trigger : uint32 {
@@ -828,8 +829,14 @@ namespace TR {
             cluts   = NULL;
             palette = NULL;
 
-            stream.read(version);
+            int soundOffset = 0;
 
+            stream.read(version);
+            if (version != VER_TR1_PC) {
+                soundOffset = version;
+                stream.read(version);
+            }
+            
             if (version != VER_TR1_PC && version != VER_TR1_PSX) {
                 LOG("unsupported level format\n"); 
                 ASSERT(false); 
@@ -840,15 +847,34 @@ namespace TR {
             if (version == VER_TR1_PSX) {
                 uint32 offsetTexTiles;
 
-                stream.seek(12);
+                stream.seek(8);
                 stream.read(offsetTexTiles);
-                stream.seek(offsetTexTiles - stream.pos + 8);
-                
+            // sound offsets
+                uint16 numSounds;
+                stream.setPos(22);
+                stream.read(numSounds);
+                stream.setPos(2086 + numSounds * 512);
+                soundOffsetsCount = numSounds;
+                soundOffsets = new uint32[soundOffsetsCount];
+                soundSize    = new uint32[soundOffsetsCount];
+                uint32 soundDataSize = 0;
+                for (int i = 0; i < soundOffsetsCount; i++) {
+                    soundOffsets[i] = soundDataSize;
+                    uint16 size;
+                    stream.read(size);
+                    soundDataSize += soundSize[i] = size * 8;
+                }           
+            // sound data
+                stream.setPos(2600 + numSounds * 512);
+                stream.read(soundData, soundDataSize);
+            // tiles
+                stream.setPos(offsetTexTiles + 8);                
                 stream.read(tiles4, tilesCount = 13);
                 stream.read(cluts, 512);
                 
                 stream.seek(0x4000 + 4);
             } else {
+                soundSize = NULL;
             // tiles
                 stream.read(tiles8, stream.read(tilesCount));
                 stream.read(unused);
@@ -955,14 +981,18 @@ namespace TR {
                 entities[i].controller = NULL;
             }
 
-            if (version == VER_TR1_PC) stream.seek(32 * 256);
-        // palette for release levels
-            if (version == VER_TR1_PC && !demo) stream.read(palette, 256);
-        // cinematic frames for cameras (PC)
-            if (version == VER_TR1_PC)
-                stream.read(cameraFrames,   stream.read(cameraFramesCount));
-        // demo data
-            stream.read(demoData,       stream.read(demoDataSize));
+            if (version == VER_TR1_PC) {
+                stream.seek(32 * 256);
+            // palette for release levels
+                if (!demo) 
+                    stream.read(palette, 256);
+            // cinematic frames for cameras (PC)
+                    stream.read(cameraFrames,   stream.read(cameraFramesCount));
+            // demo data
+                    stream.read(demoData,       stream.read(demoDataSize));
+            } else
+                demoData = NULL;
+
         // sounds
             stream.read(soundsMap,      256);
             stream.read(soundsInfo,     stream.read(soundsInfoCount));
@@ -978,11 +1008,6 @@ namespace TR {
 
             //delete[] tiles4;   tiles4 = NULL;
             delete[] tiles8;   tiles8 = NULL;
-
-            if (version == VER_TR1_PSX) {
-                soundData    = NULL;
-                soundOffsets = NULL;
-            }
 
         // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
@@ -1040,6 +1065,7 @@ namespace TR {
             delete[] soundsInfo;
             delete[] soundData;
             delete[] soundOffsets;
+            delete[] soundSize;
         }
 
         void readMeshes(Stream &stream) {
@@ -1134,8 +1160,6 @@ namespace TR {
                             short       tCount;
                             Triangle    triangles[tCount];
                         }; */
-
-
                         int nCount = mesh.vCount;
                         mesh.vCount = abs(mesh.vCount);
                         mesh.vertices = new Mesh::Vertex[mesh.vCount];
@@ -1215,7 +1239,7 @@ namespace TR {
             for (int i = 0; i < objectTexturesCount; i++) {
                 ObjectTexture &t = objectTextures[i];
                 switch (version) {
-                    case VER_TR1_PC : {                        
+                    case VER_TR1_PC : {                   
                         struct {
                             uint16  attribute;
                             Tile    tile;       
@@ -1273,8 +1297,8 @@ namespace TR {
                         } d;
                         stream.read(d);
                         SET_PARAMS(t, d, 0);
-                        t.texCoord[0] = { d.u,              d.v              };
-                        t.texCoord[1] = { d.u + (d.w >> 8), d.v + (d.h >> 8) };
+                        t.texCoord[0] = { d.u,                       d.v                       };
+                        t.texCoord[1] = { (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) };
                         break;
                     }
                     case VER_TR1_PSX : {
@@ -1304,18 +1328,18 @@ namespace TR {
         void initTiles(Tile4 *tiles4, Tile8 *tiles8, Color24 *palette, CLUT *cluts) {
             tiles = new Tile32[tilesCount];
 
-            if (palette)
-                for (int j = 0; j < 256; j++) { // Amiga -> PC color palette
-                    Color24 &c = palette[j];
-                    c.r <<= 2;
-                    c.g <<= 2;
-                    c.b <<= 2;
-                }
-
             switch (version) {
                 case VER_TR1_PC : {
                     ASSERT(tiles8);
                     ASSERT(palette);
+
+                    for (int j = 0; j < 256; j++) { // Amiga -> PC color palette
+                        Color24 &c = palette[j];
+                        c.r <<= 2;
+                        c.g <<= 2;
+                        c.b <<= 2;
+                    }
+
                     for (int i = 0; i < tilesCount; i++) {
                         Color32 *ptr = &tiles[i].color[0];
                         for (int y = 0; y < 256; y++) {
@@ -1386,6 +1410,16 @@ namespace TR {
             return Color24(255, 0, 255);
         }
 
+        Stream* getSampleStream(int index) {
+            uint8 *data = &soundData[soundOffsets[index]];
+            uint32 size = 0;
+            switch (version) {
+                case VER_TR1_PC  : size = ((uint32*)data)[1] + 8; break; // read size from wave header
+                case VER_TR1_PSX : size = soundSize[index]; break;
+            }
+            return new Stream(data, size);
+        }
+
         StaticMesh* getMeshByID(int id) const { // TODO: map this
             for (int i = 0; i < staticMeshesCount; i++)
                 if (staticMeshes[i].id == id)
@@ -1407,7 +1441,6 @@ namespace TR {
         }
 
         int entityAdd(TR::Entity::Type type, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
-            int entityIndex = -1;
             for (int i = entitiesBaseCount; i < entitiesCount; i++) 
                 if (entities[i].type == Entity::NONE) {
                     Entity &e = entities[i];

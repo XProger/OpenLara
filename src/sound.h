@@ -1,6 +1,7 @@
 #ifndef H_SOUND
 #define H_SOUND
 
+#define DECODE_VAG
 //#define DECODE_ADPCM
 //#define DECODE_MP3
 #define DECODE_OGG
@@ -65,7 +66,7 @@ namespace Sound {
             }
 
             int k = 44100 / freq;
-            for (int i = 1; i < k; i++) frames[i] = frames[0];
+            for (int i = 1; i < k; i++) frames[i] = frames[0]; // TODO: lerp
             return k;
         }
     };
@@ -144,6 +145,82 @@ namespace Sound {
     };
 #endif
 	
+
+
+double samples[28];
+#ifdef DECODE_VAG
+    struct VAG : Decoder {
+        uint8 pred, shift, flags;
+        int s1, s2;
+        Frame buffer[28 * 4];
+        int bufferSize;
+
+        VAG(Stream *stream) : Decoder(stream, 1), s1(0), s2(0), bufferSize(0) {}
+
+        void predicate(short value) {
+            int inc[] = { 0, 60, 115,  90, 122 };
+            int dec[] = { 0,  0, -52, -55, -60 };
+
+            int s = (s1 * inc[pred] + s2 * dec[pred]) >> 6;
+            s = clamp((value >> shift) + s, -32768, 32767);
+			s2 = s1;
+            s1 = s;
+        }
+
+        void resample(Frame *frames, short value) {
+            predicate(value);
+			frames[0].L = frames[0].R = s2 + (s1 - s2) / 4;     // 0.25
+			frames[1].L = frames[1].R = s2 + (s1 - s2) / 2;     // 0.50
+			frames[2].L = frames[2].R = s2 + (s1 - s2) * 3 / 4; // 0.75
+			frames[3].L = frames[3].R = s1;                     // 1.00
+        }
+
+        int processBlock() {
+            if (stream->pos >= stream->size)
+                return 0;
+            stream->read(pred);
+            stream->read(flags);
+            shift = pred & 0x0F;
+            pred >>= 4;
+
+            int i = 0;
+            while (i < 14) {
+                uint8 d;
+                stream->read(d);
+                resample(&buffer[i * 8 + 0], (d & 0x0F) << 12);
+                resample(&buffer[i * 8 + 4], (d & 0xF0) <<  8);
+                i++;
+            }
+            return i * 8;
+        }
+
+        virtual int decode(Frame *frames, int count) {
+            int res = 0;
+
+            while (res < count) {
+                if (!bufferSize && !(bufferSize = processBlock())) // if no data in buffer - process next block
+                    break;
+
+                int length = min(bufferSize, count - res);
+                memcpy(&frames[res], buffer, length * sizeof(Frame));
+                res += length;
+
+                if (bufferSize -= length) { // if data remained in buffer, move it to the beginning
+                    memcpy(buffer, &buffer[sizeof(buffer) / sizeof(Frame) - bufferSize], bufferSize * sizeof(Frame));
+                    break;
+                }
+            }
+
+            return res;
+        }
+
+        virtual void replay() {
+            stream->setPos(0);
+            s1 = s2 = 0;
+        }
+    };
+#endif
+
 #ifdef DECODE_MP3
     struct MP3 : Decoder {
         mp3_decoder_t   mp3;
@@ -289,8 +366,14 @@ namespace Sound {
             }
             #endif 
             #ifdef DECODE_MP3
-            else if (fourcc == FOURCC("ID3\3")) { // mp3                
+            else if (fourcc == FOURCC("ID3\3")) { // mp3
                 decoder = new MP3(stream, 2);
+            }
+            #endif
+            #ifdef DECODE_VAG
+            else { // vag
+                stream->setPos(0);
+                decoder = new VAG(stream);
             }
             #endif
 			

@@ -918,7 +918,6 @@ struct Lara : Character {
     }
 
     bool useItem(TR::Entity::Type item, TR::Entity::Type slot) {
-        return true;
         if (item == TR::Entity::NONE) {
             switch (slot) {
                 case TR::Entity::HOLE_KEY    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4 
@@ -1570,13 +1569,12 @@ struct Lara : Character {
         level->getFloorInfo(e.room, (int)pos.x, (int)pos.y, (int)pos.z, info);
 
     // get frame to get height
-        TR::Animation *anim  = animation;
-
         bool canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
         float f = info.floor - pos.y;
         float c = pos.y - info.ceiling;
 
         /*
+        TR::Animation *anim  = animation;
         Box eBox = Box(pos - vec3(128.0f, 0.0f, 128.0f), pos + vec3(128.0, getHeight(), 128.0f)); // getBoundingBox();
         // check static meshes in the room
         if (canPassGap) {
@@ -1732,7 +1730,6 @@ struct Lara : Character {
         if (time > MUZZLE_FLASH_TIME) return;
         float alpha = min(1.0f, (0.1f - time) * 20.0f);
         float lum   = 3.0f;
-
         mat4 m(matrix);
         m.rotateX(-PI * 0.5f);
         m.translate(offset);
@@ -1744,10 +1741,10 @@ struct Lara : Character {
         Controller::render(frustum, mesh);
         chestOffset = animation.getJoints(getMatrix(), 7).getPos(); // TODO: move to update func
 
-        if (wpnCurrent != Weapon::SHOTGUN) {
+        if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow) {
             mat4 matrix = getMatrix();
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 10), vec3(-10, -50, 150), arms[0].shotTimer);
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 13), vec3( 10, -50, 150), arms[1].shotTimer);
+            renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
+            renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
         }
     }
 };

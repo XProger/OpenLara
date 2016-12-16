@@ -34,7 +34,7 @@ struct Controller {
         ActionCommand(int emitter, TR::Action action, int value, float timer, ActionCommand *next = NULL) : emitter(emitter), action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), actionCommand(NULL), mCount(0), meshes(NULL) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), meshes(NULL), mCount(0), actionCommand(NULL) {
         TR::Entity &e = getEntity();
         pos       = vec3((float)e.x, (float)e.y, (float)e.z);
         angle     = vec3(0.0f, e.rotation, 0.0f);
@@ -164,19 +164,13 @@ struct Controller {
     }
 
     void playSound(int id, const vec3 &pos, int flags) const {
-    //    LOG("play sound %d\n", id);
-        if (level->version == TR::Level::VER_TR1_PSX)
-            return;
-
         int16 a = level->soundsMap[id];
         if (a == -1) return;
 
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             int index = b.offset + rand() % b.flags.count;
-            uint32 c = level->soundOffsets[index];
-            void *p = &level->soundData[c];
-            Sound::play(new Stream(p, 1024 * 1024), pos, (float)b.volume / 0xFFFF, 0.0f, flags | ((b.flags.replay == 1) ? Sound::REPLAY : 0), entity * 1000 + index);
+            Sound::play(level->getSampleStream(index), pos, (float)b.volume / 0xFFFF, 0.0f, flags | ((b.flags.replay == 1) ? Sound::REPLAY : 0), entity * 1000 + index);
         }
     }
 
@@ -452,6 +446,7 @@ struct Controller {
         animation.getJoints(matrix, -1, true, joints);
         for (int i = 0; i < model->mCount; i++)
             renderMesh(joints[i], mesh, meshes ? meshes[i] : (model->mStart + i));
+
     /* // blob shadow
         if (TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;

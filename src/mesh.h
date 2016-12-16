@@ -286,7 +286,6 @@ struct MeshBuilder {
             }
 
         // rooms sprites
-            TR::Room::Info &info = level.rooms[i].info;
             vStart = vCount;
             for (int j = 0; j < d.sCount; j++) {
                 TR::Room::Data::Sprite &f = d.sprites[j];
@@ -322,7 +321,7 @@ struct MeshBuilder {
                 TR::Rectangle &f = mesh.rectangles[j];
                 bool textured = !(f.texture & 0x8000);
                 TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
-                TR::Color24 &c = textured ? COLOR_WHITE : level.getColor(f.texture);
+                TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -341,7 +340,7 @@ struct MeshBuilder {
                 TR::Triangle &f = mesh.triangles[j];
                 bool textured = !(f.texture & 0x8000);
                 TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
-                TR::Color24 &c = textured ? COLOR_WHITE : level.getColor(f.texture);
+                TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -465,7 +464,6 @@ struct MeshBuilder {
 
         ptr = &level.animTexturesData[1];
         for (int i = 1; i < animTexRangesCount; i++) {
-            int start = animTexOffsetsCount;
             TR::AnimTexture *animTex = (TR::AnimTexture*)ptr;
 
             vec2 first = getTexCoord(level.objectTextures[animTex->textures[0]]);
@@ -511,8 +509,8 @@ struct MeshBuilder {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
-            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 16;
-            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 16;
+            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 8;
+            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 8;
             v.texCoord.z = range;
             v.texCoord.w = frame;
         }
@@ -561,10 +559,10 @@ struct MeshBuilder {
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;
 
-        int16 u0 = ((tx + sprite.texCoord[0].x) << 5) + 16;
-        int16 v0 = ((ty + sprite.texCoord[0].y) << 5) + 16;
-        int16 u1 = ((tx + sprite.texCoord[1].x) << 5) + 16;
-        int16 v1 = ((ty + sprite.texCoord[1].y) << 5) + 16;
+        int16 u0 = ((tx + sprite.texCoord[0].x) << 5) + 8;
+        int16 v0 = ((ty + sprite.texCoord[0].y) << 5) + 8;
+        int16 u1 = ((tx + sprite.texCoord[1].x) << 5) + 8;
+        int16 v1 = ((ty + sprite.texCoord[1].y) << 5) + 8;
 
         quad[0].texCoord = { u0, v0, sprite.l, sprite.t };
         quad[1].texCoord = { u1, v0, sprite.r, sprite.t };
@@ -614,8 +612,8 @@ struct MeshBuilder {
     }
 
     void renderBar(const vec2 &size, float value) {
-        float w = size.y / 9.0f;
         /*
+        float w = size.y / 9.0f;
         // health bar
         enum Colors {
             clBlack = 0xFF000000,
@@ -686,7 +684,6 @@ struct MeshBuilder {
                 continue;
             }
 
-            TR::SpriteTexture &s = level->spriteTextures[level->spriteSequences[15].sStart + frame];
             Core::active.shader->setParam(uModel, m);
             renderSprite(15, frame);
             m.translate(vec3(char_width[frame], 0.0f, 0.0f));

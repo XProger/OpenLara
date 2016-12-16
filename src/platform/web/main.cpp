@@ -262,9 +262,7 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 }
 
 int main() {
-    initGL();    
-    
-    emscripten_set_canvas_size(Core::width = 854, Core::height = 480);
+    initGL(); 
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);
     emscripten_set_keyup_callback(0, 0, 1, keyCallback);
@@ -280,8 +278,8 @@ int main() {
     emscripten_set_mousemove_callback(0, 0, 1, mouseCallback);
     
     Game::init();
-
     emscripten_run_script("snd_init()");
+    resize();
 
     lastTime = getTime();
     fpsTime  = lastTime + 1000;

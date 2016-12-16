@@ -53,7 +53,6 @@ struct Enemy : Character {
     }
 
     void setOverrides(bool active, int chest, int head) {
-        int mask = 0;
         if (active && head  > -1) {
             animation.overrides[head] = animation.getJointRot(head);
             animation.overrideMask |=  (1 << head);

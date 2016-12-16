@@ -32,7 +32,7 @@ struct Texture {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? GL_LINEAR : GL_NEAREST);
 
         GLint format = depth ? GL_DEPTH_COMPONENT : GL_RGBA;
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, depth ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE, data);
     }
 
     virtual ~Texture() {

@@ -484,6 +484,54 @@ namespace Debug {
             }
         }
 
+        void dumpSample(TR::Level *level, int index) {
+            char buf[255];
+            sprintf(buf, "samples_PSX/%03d.wav", index);
+            FILE *f = fopen(buf, "wb");
+
+            if (level->version == TR::Level::VER_TR1_PSX) {
+                int dataSize = level->soundSize[index] / 16 * 28 * 2 * 4;
+
+                struct Header {
+                    uint32 RIFF;
+                    uint32 rSize;
+                    uint32 WAVE;
+                    uint32 fmt;
+                    uint32 wSize;
+                    struct {
+                        uint16  format;
+                        uint16  channels;
+                        uint32  samplesPerSec;
+                        uint32  bytesPerSec;
+                        uint16  block;
+                        uint16  sampleBits;
+                    } fmtHeader;
+                    uint32 data;
+                    uint32 dataSize;
+                } header = {
+                        FOURCC("RIFF"), sizeof(Header) - 8 + dataSize,
+                        FOURCC("WAVE"), FOURCC("fmt "), 16,
+                        { 1, 1, 44100, 44100 * 16 / 8, 0, 16 },
+                        FOURCC("data"), dataSize
+                    };
+
+                fwrite(&header, sizeof(header), 1, f);
+
+                Sound::VAG vag(new Stream(&level->soundData[level->soundOffsets[index]], dataSize));        
+                Sound::Frame frames[4 * 28];
+                while (int count = vag.decode(frames, 4 * 28))
+                    for (int i = 0; i < count; i++)
+                        fwrite(&frames[i].L, 2, 1, f);                
+            }
+
+            if (level->version == TR::Level::VER_TR1_PC) {
+                uint32 *data = (uint32*)&level->soundData[level->soundOffsets[index]];
+                fwrite(data, data[1] + 8, 1, f);
+            }
+
+            fclose(f);
+        }
+
         #define case_name(a,b) case a::b : return #b
 
         const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger &trigger) {

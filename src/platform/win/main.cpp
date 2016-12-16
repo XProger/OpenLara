@@ -120,7 +120,7 @@ void joyUpdate() {
 }
 
 // sound
-#define SND_SIZE 4608*2
+#define SND_SIZE 4704*2
 
 bool sndReady;
 char *sndData;

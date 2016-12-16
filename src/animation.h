@@ -198,8 +198,6 @@ struct Animation {
     }
 
     mat4 getJoints(mat4 matrix, int joint, bool postRot = false, mat4 *joints = NULL) {
-        TR::Animation *anim = anims + index;
-
         vec3 offset = isPrepareToNext ? this->offset : vec3(0.0f);
         matrix.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
 

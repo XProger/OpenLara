@@ -69,7 +69,6 @@ struct Dart : Controller {
     }
 
     virtual void update() {
-        TR::Animation *anim = animation;
         velocity = dir * animation.getSpeed();
         pos = pos + velocity * (Core::deltaTime * 30.0f);
         updateEntity();

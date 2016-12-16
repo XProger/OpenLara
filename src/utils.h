@@ -19,11 +19,11 @@
 
 #else
     #define ASSERT(expr)
-    #ifdef PROFILE
+//    #ifdef PROFILE
         #define LOG(...) printf(__VA_ARGS__)
-    #else
-        #define LOG(...) 0
-    #endif
+//    #else
+//        #define LOG(...) 0
+//    #endif
 #endif
 
 #define EPS     FLT_EPSILON

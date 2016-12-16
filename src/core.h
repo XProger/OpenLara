@@ -41,9 +41,9 @@
 #if defined(WIN32) || defined(LINUX)
     void* GetProc(const char *name) {
         #ifdef WIN32
-    	    return (void*)wglGetProcAddress(name);
+            return (void*)wglGetProcAddress(name);
         #elif LINUX
-	        return (void*)glXGetProcAddress((GLubyte*)name);
+            return (void*)glXGetProcAddress((GLubyte*)name);
         #endif
     }
 
@@ -84,15 +84,15 @@
     PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
     PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
 // Render to texture
-	PFNGLGENFRAMEBUFFERSPROC			glGenFramebuffers;
-	PFNGLBINDFRAMEBUFFERPROC			glBindFramebuffer;
-	PFNGLFRAMEBUFFERTEXTURE2DPROC		glFramebufferTexture2D;
-	PFNGLGENRENDERBUFFERSPROC			glGenRenderbuffers;
-	PFNGLBINDRENDERBUFFERPROC			glBindRenderbuffer;
-	PFNGLFRAMEBUFFERRENDERBUFFERPROC	glFramebufferRenderbuffer;
-	PFNGLRENDERBUFFERSTORAGEPROC		glRenderbufferStorage;
-	PFNGLCHECKFRAMEBUFFERSTATUSPROC		glCheckFramebufferStatus;
-	PFNGLDRAWBUFFERSPROC				glDrawBuffers;
+    PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
+    PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
+    PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
+    PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
+    PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
+    PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
+    PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
+    PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
+    PFNGLDRAWBUFFERSPROC                glDrawBuffers;
 // Profiling
     #ifdef PROFILE
         PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -101,7 +101,8 @@
     #endif
 #endif
 
-#define MAX_LIGHTS 3
+#define MAX_LIGHTS      3
+#define MAX_SHADOW_DIST 4096
 
 struct Shader;
 struct Texture;
@@ -137,6 +138,8 @@ namespace Core {
     vec4 lightColor[MAX_LIGHTS];
     vec4 color;
 
+    enum { passOpaque, passShadow } pass;
+
     GLuint RT;
 
     struct {
@@ -165,9 +168,9 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 
 namespace Core {
 
-	bool extSupport(const char *str, const char *ext) {
-		return strstr(str, ext) != NULL;
-	}
+    bool extSupport(const char *str, const char *ext) {
+        return strstr(str, ext) != NULL;
+    }
 
     void init() {
     #if defined(WIN32) || defined(LINUX)
@@ -220,20 +223,20 @@ namespace Core {
             GetProcOGL(glPopDebugGroup);
         #endif
     #endif
-		char *ext = (char*)glGetString(GL_EXTENSIONS);
-		//LOG("%s\n", ext);
-		support.depthTexture  = extSupport(ext, "_depth_texture");
-		support.shadowSampler = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        char *ext = (char*)glGetString(GL_EXTENSIONS);
+        //LOG("%s\n", ext);
+        support.depthTexture  = extSupport(ext, "_depth_texture");
+        support.shadowSampler = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
         support.VAO           = (void*)glBindVertexArray != NULL;
-		
-		LOG("Vendor   : %s\n", glGetString(GL_VENDOR));
-		LOG("Renderer : %s\n", glGetString(GL_RENDERER));
-		LOG("Version  : %s\n", glGetString(GL_VERSION));
+        
+        LOG("Vendor   : %s\n", glGetString(GL_VENDOR));
+        LOG("Renderer : %s\n", glGetString(GL_RENDERER));
+        LOG("Version  : %s\n", glGetString(GL_VERSION));
 
-		LOG("supports:\n");
-		LOG("  depth texture  : %s\n", support.depthTexture ? "true" : "false");
-		LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
-		LOG("  vertex arrays  : %s\n", support.VAO ? "true" : "false");
+        LOG("supports:\n");
+        LOG("  depth texture  : %s\n", support.depthTexture ? "true" : "false");
+        LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
+        LOG("  vertex arrays  : %s\n", support.VAO ? "true" : "false");
         LOG("\n");
 
         glGenFramebuffers(1, &RT);
@@ -298,18 +301,18 @@ namespace Core {
     }
 
     void setTarget(Texture *target) {
-		if (!target)  {
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			return;
-		}
+        if (!target)  {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return;
+        }
 
-		glBindFramebuffer(GL_FRAMEBUFFER, RT);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->ID, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, RT);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->ID, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, 0, 0);
 
-		GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
-		glDrawBuffers(target->depth ? 0 : 1, buffers);
-	}
+        GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
+        glDrawBuffers(target->depth ? 0 : 1, buffers);
+    }
 }
 
 #endif
