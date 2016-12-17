@@ -3,11 +3,11 @@ varying vec2 vTexCoord;
 
 #ifndef PASS_SHADOW
     varying vec4 vLightProj;
+    varying vec3 vCoord;
     varying vec4 vNormal;
-    varying vec3 vLightVec[MAX_LIGHTS];
-    varying vec3 vLightTarget;
     varying vec3 vViewVec;
     varying vec4 vColor;
+    varying float vLightTargetDist;
 #endif
 
 #ifdef VERTEX
@@ -18,7 +18,6 @@ varying vec2 vTexCoord;
     uniform vec3 uLightTarget;
 
     #ifndef PASS_SHADOW
-        uniform vec3 uLightPos[MAX_LIGHTS];
         uniform vec3 uViewPos;
 
         #ifndef SPRITE
@@ -72,29 +71,21 @@ varying vec2 vTexCoord;
             #endif
 
             vViewVec = uViewPos - coord.xyz;
-            for (int i = 0; i < MAX_LIGHTS; i++)
-                vLightVec[i] = uLightPos[i] - coord.xyz;
 
-            vLightTarget  = uLightTarget - coord.xyz;
-            
-            
-            //float rLightAngle = dot(normalize(vLightVec[0]), normalize(vNormal.xyz));
-            //float rNormalScale = clamp(1.0 - rLightAngle, 0.0, 1.0);
-            //rNormalScale *= 50.0;//10.0 * (1.0 / 1024.0);
-            vLightProj = uLightProj * coord;//vec4(coord.xyz + normalize(vNormal.xyz) * rNormalScale, 1.0f);
-
-            coord = uViewProj * coord;
-        #else
-            coord = uViewProj * coord;
-           // coord.z *= coord.w;
+            vec2 dist = (uLightTarget - coord.xyz).xz;
+            vLightTargetDist = dot(dist, dist) / (MAX_SHADOW_DIST * MAX_SHADOW_DIST);
+          
+            vLightProj = uLightProj * coord;
+            vCoord = coord.xyz;
         #endif
 
-        gl_Position = coord;
+        gl_Position = uViewProj * coord;
     }
 #else
     uniform sampler2D   sDiffuse;
     uniform vec4        uColor;
     #ifndef PASS_SHADOW
+        uniform vec3    uLightPos[MAX_LIGHTS];
         uniform vec4    uLightColor[MAX_LIGHTS];
     #endif
 
@@ -152,17 +143,36 @@ varying vec2 vTexCoord;
         #endif
 
         float getShadow(vec4 lightProj) {
+            vec2 poissonDisk[16];
+            poissonDisk[ 0] = vec2( -0.94201624, -0.39906216 );
+            poissonDisk[ 1] = vec2(  0.94558609, -0.76890725 );
+            poissonDisk[ 2] = vec2( -0.09418410, -0.92938870 );
+            poissonDisk[ 3] = vec2(  0.34495938,  0.29387760 );
+            poissonDisk[ 4] = vec2( -0.91588581,  0.45771432 );
+            poissonDisk[ 5] = vec2( -0.81544232, -0.87912464 );
+            poissonDisk[ 6] = vec2( -0.38277543,  0.27676845 );
+            poissonDisk[ 7] = vec2(  0.97484398,  0.75648379 );
+            poissonDisk[ 8] = vec2(  0.44323325, -0.97511554 );
+            poissonDisk[ 9] = vec2(  0.53742981, -0.47373420 );
+            poissonDisk[10] = vec2( -0.26496911, -0.41893023 );
+            poissonDisk[11] = vec2(  0.79197514,  0.19090188 );
+            poissonDisk[12] = vec2( -0.24188840,  0.99706507 );
+            poissonDisk[13] = vec2( -0.81409955,  0.91437590 );
+            poissonDisk[14] = vec2(  0.19984126,  0.78641367 );
+            poissonDisk[15] = vec2(  0.14383161, -0.14100790 );
+
             vec3 p = lightProj.xyz / lightProj.w;
 
-            if (lightProj.w < 1.0) return 1.0; 
+            if (lightProj.w < 0.0) return 1.0; 
 
             float rShadow = 0.0;
-            for (float y = -3.5 ; y <=3.5 ; y+=1.0)
-                for (float x = -3.5 ; x <=3.5 ; x+=1.0)
-                    rShadow += SHADOW(p + vec3(x, y, 0.0) * (1.0 / 1024.0) );					
-            rShadow /= 64.0;
+            for (int i = 0; i < 16; i += 1)
+                rShadow += SHADOW(p + vec3(poissonDisk[i] * 2.0, 0.0) * (1.0 / 1024.0));
+            rShadow /= 16.0;
 
-            float fade = min(1.0, dot(vLightTarget.xz, vLightTarget.xz) / (MAX_SHADOW_DIST * MAX_SHADOW_DIST));
+            rShadow = clamp(rShadow * 1.25, 0.0, 1.0); // apply contrast (1.25)
+
+            float fade = min(1.0, vLightTargetDist);
             return mix(rShadow, 1.0, fade);
         }
     #endif
@@ -173,10 +183,16 @@ varying vec2 vTexCoord;
             discard;
         
         #ifdef PASS_SHADOW
+	        float dx = dFdx(gl_FragCoord.z);
+	        float dy = dFdy(gl_FragCoord.z);
+            float bias  = 4.0 * max(dx, dy);
+            float depth = gl_FragCoord.z + bias;
+	
             #ifdef SHADOW_COLOR
-                gl_FragColor = pack(gl_FragCoord.z);
+                gl_FragColor = pack(depth);
             #else
                 gl_FragColor = vec4(1.0);
+                gl_FragDepth = depth;
             #endif
         #else
             color.xyz *= uColor.xyz;
@@ -189,7 +205,7 @@ varying vec2 vTexCoord;
             vec3 viewVec  = normalize(vViewVec);
             vec3 light    = vec3(0.0);
             for (int i = 0; i < MAX_LIGHTS; i++) {
-                vec3 lv = vLightVec[i];
+                vec3 lv = uLightPos[i] - vCoord.xyz;
                 vec4 lc = uLightColor[i];
                 float lum = max(0.0, dot(normal, normalize(lv)));
                 float att = max(0.0, 1.0 - dot(lv, lv) / lc.w);

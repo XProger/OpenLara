@@ -17,7 +17,11 @@ struct Shader {
 
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
-	        #define GLSL_DEFINE "precision highp float;\n" "#define MOBILE\n"
+	        #define GLSL_DEFINE "#extension GL_EXT_frag_depth : enable\n"\
+                                "#extension GL_OES_standard_derivatives : enable\n"\
+                                "#define MOBILE\n"\
+                                "#define gl_FragDepth gl_FragDepthEXT\n"\
+                                "precision highp float;\n"
         #else
 	        #define GLSL_DEFINE "#version 120\n"
         #endif
