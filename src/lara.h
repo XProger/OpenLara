@@ -1733,6 +1733,7 @@ struct Lara : Character {
         mat4 m(matrix);
         m.rotateX(-PI * 0.5f);
         m.translate(offset);
+        
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
         renderMesh(m, mesh, level->extra.muzzleFlash->mStart);
     }
@@ -1741,10 +1742,12 @@ struct Lara : Character {
         Controller::render(frustum, mesh);
         chestOffset = animation.getJoints(getMatrix(), 7).getPos(); // TODO: move to update func
 
-        if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow) {
+        if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();
+            Core::active.shader->setParam(uType, Shader::FLASH);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
+            Core::active.shader->setParam(uType, Shader::ENTITY);
         }
     }
 };

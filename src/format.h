@@ -271,7 +271,7 @@ namespace TR {
             int32   x, y, z;
             uint16  align;          // ! not exists in file !
             uint16  intensity;
-            uint32  attenuation;
+            uint32  radius;
         } *lights;
 
         struct Mesh {
@@ -924,7 +924,9 @@ namespace TR {
                         light.intensity = stream.read(intensity);
                     } else
                         stream.read(light.intensity);
-                    stream.read(light.attenuation);
+                    stream.read(light.radius);
+
+                    light.radius *= 2;
                 }
             // meshes
                 r.meshes = new Room::Mesh[stream.read(r.meshesCount)];
@@ -1107,7 +1109,6 @@ namespace TR {
                             stream.read(c.x);
                             stream.read(c.y);
                             stream.read(c.z);
-                            c.w = 0;
                         }
                         int16 nCount;
                         stream.read(nCount);
@@ -1120,6 +1121,7 @@ namespace TR {
                                 stream.read(n.y);
                                 stream.read(n.z);
                                 n.w = 1;
+                                c.w = 0x1FFF;
                             } else { // intensity
                                 stream.read(c.w);
                                 n = { 0, 0, 0, 0 };
@@ -1173,6 +1175,7 @@ namespace TR {
                             if (nCount > 0) { // normal
                                 stream.read(n);
                                 n.w = 1;
+                                c.w = 0x1FFF;
                             } else { // intensity
                                 stream.read(c.w);
                                 n = { 0, 0, 0, 0 };

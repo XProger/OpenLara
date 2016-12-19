@@ -22,7 +22,7 @@ const char GUI[] =
 ;
 
 struct Level {
-    enum { shStatic, shCaustics, shSprite, shShadowOpaque, shShadowSprite, shGUI, shMAX };
+    enum { shDefault, shShadow, shGUI, shMAX };
 
     TR::Level   level;
     Shader      *shaders[shMAX];
@@ -34,9 +34,8 @@ struct Level {
     Texture     *shadow;
 
     float       time;
-    bool        perspShadows;
 
-    Level(const char *name, bool demo, bool home) : level(name, demo), lara(NULL), time(0.0f), perspShadows(false) {
+    Level(const char *name, bool demo, bool home) : level(name, demo), lara(NULL), time(0.0f) {
         #ifdef _DEBUG
             Debug::init();
         #endif
@@ -215,17 +214,10 @@ struct Level {
 			else
 				strcat(ext, "#define SHADOW_COLOR\n");
 
-        sprintf(def, "%s#define PASS_SHADOW\n", ext);
-        shaders[shShadowOpaque] = new Shader(SHADER, def);
-        strcat(def, "#define SPRITE\n");
-        shaders[shShadowSprite] = new Shader(SHADER, def);
-
         sprintf(def, "%s#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_SHADOW_DIST %d.0\n", ext, MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount, MAX_SHADOW_DIST);
-        shaders[shStatic]   = new Shader(SHADER, def);
-        sprintf(ext, "%s#define CAUSTICS\n", def);
-        shaders[shCaustics] = new Shader(SHADER, ext);
-        sprintf(ext, "%s#define SPRITE\n", def);
-        shaders[shSprite]   = new Shader(SHADER, ext);
+        shaders[shDefault]  = new Shader(SHADER, def);
+        sprintf(def, "%s#define PASS_SHADOW\n", ext);
+        shaders[shShadow]   = new Shader(SHADER, def);
         sprintf(ext, "%s#define SPRITE\n", def);
         shaders[shGUI]      = new Shader(GUI, "");
     }
@@ -331,17 +323,21 @@ struct Level {
     }
 #endif
 
-    Shader *setRoomShader(const TR::Room &room, float intensity) {
-        if (Core::pass == Core::passShadow)
-            return shaders[shShadowOpaque];
+    void setRoomShader(const TR::Room &room, float intensity) {
+        if (Core::pass == Core::passShadow) {
+            shaders[shShadow]->bind();
+            return;
+        }
 
+        shaders[shDefault]->bind();
         if (room.flags.water) {
             Core::color = vec4(0.6f, 0.9f, 0.9f, intensity);
-            return shaders[shCaustics];
+            Core::active.shader->setParam(uCaustics, 1);
         } else {
             Core::color = vec4(1.0f, 1.0f, 1.0f, intensity);
-            return shaders[shStatic];
+            Core::active.shader->setParam(uCaustics, 0);
         }
+        Core::active.shader->setParam(uColor, Core::color);
     }
 
     void renderRoom(int roomIndex, int from = -1) {
@@ -351,14 +347,13 @@ struct Level {
         TR::Room &room = level.rooms[roomIndex];
         vec3 offset = vec3(float(room.info.x), 0.0f, float(room.info.z));
 
-        Shader *sh = setRoomShader(room, 1.0f);
+        setRoomShader(room, intensityf(room.ambient));
+        Shader *sh = Core::active.shader;
 
         Core::lightColor[0] = vec4(0, 0, 0, 1);
-       // glDisable(GL_CULL_FACE);
-        sh->bind();
-        sh->setParam(uColor,      Core::color);
+        sh->setParam(uType,       Shader::ROOM);
         sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-        sh->setParam(uLightPos,   Core::lightPos[0], MAX_LIGHTS);
+        sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
     // room static meshes
         if (Core::pass != Core::passShadow)
@@ -379,8 +374,8 @@ struct Level {
                     continue;
                 rMesh.flags.rendered = true;
 
-                Core::color.w = intensityf(rMesh.intensity == -1 ? room.ambient : rMesh.intensity);
-                sh->setParam(uColor, Core::color);
+                //Core::color.w = intensityf(rMesh.intensity);//intensityf(rMesh.intensity == -1 ? room.ambient : rMesh.intensity);
+                //sh->setParam(uColor, Core::color);
 
             // render static mesh
                 mat4 mTemp = Core::mModel;
@@ -396,29 +391,20 @@ struct Level {
             mat4 mTemp = Core::mModel;
             room.flags.rendered = true;
 
-            Core::lightColor[0] = vec4(0, 0, 0, 1);
-
             Core::mModel.translate(offset);
 
-        // render room geometry
             sh->setParam(uModel, Core::mModel);
+
+        // render room geometry
             if (Core::pass == Core::passOpaque) {
-                Core::color.w = intensityf(room.ambient);
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-                sh->setParam(uColor,      Core::color);
                 mesh->renderRoomGeometry(roomIndex);
             }
 
         // render room sprites
             if (mesh->hasRoomSprites(roomIndex) && Core::pass != Core::passShadow) {
-                sh = shaders[Core::pass == Core::passShadow ? shShadowSprite : shSprite];
-                sh->bind();
-                Core::color.w = 1.0f;
-                sh->setParam(uModel,      Core::mModel);
-                sh->setParam(uColor,      Core::color);
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                Core::color.w = 1.0;
+                sh->setParam(uType,  Shader::SPRITE);
+                sh->setParam(uColor, Core::color);
                 mesh->renderRoomSprites(roomIndex);
             }
 
@@ -453,32 +439,14 @@ struct Level {
         camera->frustum = camFrustum;    // pop camera frustum
     }
 
-    int getLightIndex(const vec3 &pos, int &room) {
-        int idx = -1;
-        float dist;
-      //  for (int j = 0; j < level.roomsCount; j++)
-        int j = room;
-            for (int i = 0; i < level.rooms[j].lightsCount; i++) {
-                TR::Room::Light &light = level.rooms[j].lights[i];
-                float d = (pos - vec3(float(light.x), float(light.y), float(light.z))).length2();
-                if (idx == -1 || d < dist) {
-                    idx = i;
-                    dist = d;
-                //    room = j;
-                }
-            }
-        return idx;
-    }
-
-
-    int getLightIndex2(const vec3 &pos, int &room, float maxAtt = -1.0f, int depth = 3) {
+    int getLightIndex(const vec3 &pos, int &room, float maxAtt = -1.0f, int depth = 0) {
         int idx = -1;
 
         TR::Room &r = level.rooms[room];
 
         for (int i = 0; i < r.lightsCount; i++) {
             TR::Room::Light &light = r.lights[i];
-            float att = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.attenuation * (float)light.attenuation));
+            float att = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
             if (att > maxAtt) {
                 maxAtt = att;
                 idx    = i;
@@ -488,7 +456,7 @@ struct Level {
         if (depth > 0) 
             for (int i = 0; i < r.portalsCount; i++) {
                 int nextRoom = r.portals[i].roomIndex;
-                int nextLight = getLightIndex2(pos, nextRoom, maxAtt, depth - 1);
+                int nextLight = getLightIndex(pos, nextRoom, maxAtt, depth - 1);
                 if (nextLight > -1) {
                     room = nextRoom;
                     idx  = nextLight;
@@ -506,7 +474,7 @@ struct Level {
             TR::Room::Light &light = level.rooms[room].lights[idx];
             float c = 1.0f - intensityf(level.rooms[room].lights[idx].intensity);
             Core::lightPos[0]   = vec3(float(light.x), float(light.y), float(light.z));
-            Core::lightColor[0] = vec4(c, c, c, (float)light.attenuation * (float)light.attenuation);
+            Core::lightColor[0] = vec4(c, c, c, (float)light.radius * (float)light.radius);
         } else {
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
@@ -525,19 +493,20 @@ struct Level {
             return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity; 
-        setRoomShader(room, sqrtf(intensityf(lum)))->bind();
+        setRoomShader(room, intensityf(lum));
 
-        if (entity.modelIndex > 0) // model
+        if (entity.modelIndex > 0) { // model
             getLight(((Controller*)entity.controller)->pos, entity.room);
+            Core::active.shader->setParam(uType, Shader::ENTITY);
+        }
 
         if (entity.modelIndex < 0) { // sprite
-            shaders[Core::pass == Core::passShadow ? shShadowSprite : shSprite]->bind();
+            Core::active.shader->setParam(uType, Shader::SPRITE);
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
         }        
-       
-        Core::active.shader->setParam(uColor, Core::color);
-        Core::active.shader->setParam(uLightPos, Core::lightPos[0], MAX_LIGHTS);
+        
+        Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
         Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
 
         ((Controller*)entity.controller)->render(camera->frustum, mesh);
@@ -555,16 +524,6 @@ struct Level {
             }
         
         camera->update();
-
-        static bool tmpFlag = false;
-
-        if (Input::down[ikEnter]) {
-            if (!tmpFlag) {
-                perspShadows = !perspShadows;
-                tmpFlag = true;
-            }
-        } else
-            tmpFlag = false;
     }
 
     void setup() {
@@ -581,25 +540,23 @@ struct Level {
         Core::active.shader = NULL;
         for (int i = 0; i < shMAX; i++) {
             shaders[i]->bind();
-            shaders[i]->setParam(uViewProj, Core::mViewProj);
-            shaders[i]->setParam(uLightProj, Core::mLightProj);
-            shaders[i]->setParam(uViewInv, Core::mViewInv);
-            shaders[i]->setParam(uViewPos, Core::viewPos);
-            shaders[i]->setParam(uParam, vec4(time, 0, 0, 0));
-            shaders[i]->setParam(uLightTarget, lara->pos);
-            shaders[i]->setParam(uAnimTexRanges, mesh->animTexRanges[0], mesh->animTexRangesCount);
-            shaders[i]->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
+            shaders[i]->setParam(uViewProj,         Core::mViewProj);
+            shaders[i]->setParam(uLightProj,        Core::mLightProj);
+            shaders[i]->setParam(uViewInv,          Core::mViewInv);
+            shaders[i]->setParam(uViewPos,          Core::viewPos);
+            shaders[i]->setParam(uTime,             time);
+            shaders[i]->setParam(uLightTarget,      lara->pos);
+            shaders[i]->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
+            shaders[i]->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
         }
         glEnable(GL_DEPTH_TEST);
-
-        Core::setCulling(cfFront);
 
         Core::mModel.identity();
 
         // clear visible flags for rooms & static meshes
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room &room = level.rooms[i];
-            room.flags.rendered = false;                            // clear visible flag for room geometry & sprites
+            room.flags.rendered = false;                   // clear visible flag for room geometry & sprites
 
             for (int j = 0; j < room.meshesCount; j++)
                 room.meshes[j].flags.rendered = false;     // clear visible flag for room static meshes
@@ -621,7 +578,7 @@ struct Level {
 
     void renderEntities() {
         PROFILE_MARKER("ENTITIES");
-        shaders[Core::pass == Core::passShadow ? shShadowOpaque : shStatic]->bind();
+        shaders[Core::pass == Core::passShadow ? shShadow : shDefault]->bind();
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
     }
@@ -638,27 +595,13 @@ struct Level {
     
     // omni-spot light shadows
         int room = lara->getRoomIndex();
-        int idx = getLightIndex2(lara->pos, room);
+        int idx = getLightIndex(lara->pos, room);
         if (idx < 0) return false;
 
-        if (perspShadows) {
-            TR::Room::Light &light = level.rooms[room].lights[idx];
-            vec3 lightPos = vec3(float(light.x), float(light.y), float(light.z)); 
-	        Core::mView = mat4(lightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0)).inverse();
-	        Core::mProj = mat4(120, 1.0f, camera->znear, camera->zfar);
-            //Core::mProj.e22 /= camera->zfar;
-            //Core::mProj.e32 /= camera->zfar;
-        } else {
-        // fixed direct light shadows
-            float size = MAX_SHADOW_DIST;
-            float zfar = 8192.0f;
-	        Core::mView = mat4(pos - vec3(1536, 4096, 1024), pos, vec3(1, 0, 0)).inverse();
-	        Core::mProj = mat4(-size, size, -size, size, 0, zfar);
-
-        //    Core::mProj.e22 /= zfar;
-        //    Core::mProj.e23 /= zfar;
-        }
-
+        TR::Room::Light &light = level.rooms[room].lights[idx];
+        vec3 shadowLightPos = vec3(float(light.x), float(light.y), float(light.z)); 
+	    Core::mView = mat4(shadowLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0)).inverse();
+	    Core::mProj = mat4(120, 1.0f, camera->znear, camera->zfar);
 
 	    Core::mViewProj = Core::mProj * Core::mView;
 
@@ -667,12 +610,7 @@ struct Level {
 	    bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
 	    Core::mLightProj = bias * Core::mProj * Core::mView; //  * ( * ) ?
 
-        Shader *sh = shaders[shShadowOpaque];
-        sh->bind();
-        sh->setParam(uViewProj, Core::mViewProj);
-        sh->setParam(uLightProj, Core::mLightProj);
-
-        sh = shaders[shShadowSprite];
+        Shader *sh = shaders[shShadow];
         sh->bind();
         sh->setParam(uViewProj, Core::mViewProj);
         sh->setParam(uLightProj, Core::mLightProj);
@@ -688,15 +626,17 @@ struct Level {
 	    Core::setBlending(bmNone);
 	    Core::setTarget(shadow);
 	    Core::setViewport(0, 0, shadow->width, shadow->height);
-	    Core::clear(vec4(1.0));	    
+	    Core::clear(vec4(1.0));
+        Core::setCulling(cfBack);
 	    renderScene();
+        Core::setCulling(cfFront);
 	    Core::setTarget(NULL);
         shadow->bind(sShadow);
     }
     
     void render() {
         renderShadows();
-
+        
         Core::pass = Core::passOpaque;
         Core::setBlending(bmAlpha);
         Core::clear(vec4(0.0f));
@@ -733,7 +673,7 @@ struct Level {
 
         Debug::begin();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-            Debug::Level::lights(level);
+            Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);

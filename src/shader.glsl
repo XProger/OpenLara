@@ -2,13 +2,22 @@ R"====(
 varying vec2 vTexCoord;
 
 #ifndef PASS_SHADOW
-    varying vec4 vLightProj;
-    varying vec3 vCoord;
-    varying vec4 vNormal;
-    varying vec3 vViewVec;
-    varying vec4 vColor;
+    varying vec3  vCoord;
+    varying vec4  vNormal;
+    varying vec3  vViewVec;
+    varying vec4  vColor;
+    varying vec4  vLightProj;
     varying float vLightTargetDist;
 #endif
+
+#define TYPE_SPRITE 0
+#define TYPE_ROOM   1
+#define TYPE_ENTITY 2
+#define TYPE_FLASH  3
+
+uniform int   uType;
+uniform int   uCaustics;
+uniform float uTime;
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
@@ -19,20 +28,16 @@ varying vec2 vTexCoord;
 
     #ifndef PASS_SHADOW
         uniform vec3 uViewPos;
-
-        #ifndef SPRITE
-            uniform vec2 uAnimTexRanges[MAX_RANGES];
-            uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-        #endif
-    
-        uniform vec4 uParam; // x - time
+        uniform vec2 uAnimTexRanges[MAX_RANGES];
+        uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
     #endif
 
     
     attribute vec4 aCoord;
     attribute vec4 aTexCoord;
+    attribute vec4 aNormal;
+
     #ifndef PASS_SHADOW
-        attribute vec4 aNormal;
         attribute vec4 aColor;
     #endif
 
@@ -41,12 +46,13 @@ varying vec2 vTexCoord;
     void main() {
         vec4 coord  = uModel * vec4(aCoord.xyz, 1.0);
 
-        #ifndef SPRITE
+        
+        if (uType != TYPE_SPRITE) {
             #ifndef PASS_SHADOW
                 // animated texture coordinates
                 vec2 range  = uAnimTexRanges[int(aTexCoord.z)]; // x - start index, y - count
 
-                float f = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
+                float f = fract((aTexCoord.w + uTime * 4.0 - range.x) / range.y) * range.y;
                 vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
                 vTexCoord   = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
@@ -54,21 +60,21 @@ varying vec2 vTexCoord;
             #else
                 vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
             #endif
-        #else
+        } else {
             coord.xyz  += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
             #ifndef PASS_SHADOW
                 vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
                 vNormal     = vec4(uViewPos.xyz - coord.xyz, 0.0);
             #endif
-        #endif
+        }
 
         #ifndef PASS_SHADOW
             vColor = aColor;
 
-            #if defined(CAUSTICS) 
+            if (uCaustics != 0) {
                 float sum = coord.x + coord.y + coord.z;
-                vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
-            #endif
+                vColor.xyz *= abs(sin(sum / 512.0 + uTime)) * 1.5 + 0.5; // color dodge
+            }
 
             vViewVec = uViewPos - coord.xyz;
 
@@ -76,6 +82,7 @@ varying vec2 vTexCoord;
             vLightTargetDist = dot(dist, dist) / (MAX_SHADOW_DIST * MAX_SHADOW_DIST);
           
             vLightProj = uLightProj * coord;
+
             vCoord = coord.xyz;
         #endif
 
@@ -130,19 +137,32 @@ varying vec2 vTexCoord;
             #define CMP(a,b) float(a > b)
 
             #ifdef SHADOW_DEPTH
-                #define SHADOW(V) CMP(texture2D(sShadow, (V).xy).x, p.z)
+                #define compare(p, z) CMP(texture2D(sShadow, (p)).x, (z));
             #elif defined(SHADOW_COLOR)
                 float unpack(vec4 value) {
                     vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
                     return dot(value, bitSh);
                 }
-                #define SHADOW(V) CMP(unpack(texture2D(sShadow, (V).xy)), p.z)
-            #else
-                #define SHADOW(v) 1.0
+                #define compare(p, z) CMP(unpack(texture2D(sShadow, (p))), (z));
             #endif
+
+            float SHADOW(vec3 p) {
+                vec2 t = vec2(0.0, 1.0 / 1024.0);
+                vec2 c = floor(p.xy * 1024.0 + 0.5) / 1024.0;
+                vec4 s;
+                s.x = compare(c + t.xx, p.z);
+                s.y = compare(c + t.xy, p.z);
+                s.z = compare(c + t.yx, p.z);
+                s.w = compare(c + t.yy, p.z);
+                vec2 f = fract(p.xy * 1024.0 + 0.5);
+                return mix(mix(s.x, s.y, f.y), mix(s.z, s.w, f.y), f.x);
+            }
         #endif
 
         float getShadow(vec4 lightProj) {
+            vec3 p = lightProj.xyz / lightProj.w;
+            if (lightProj.w < 0.0) return 1.0; 
+
             vec2 poissonDisk[16];
             poissonDisk[ 0] = vec2( -0.94201624, -0.39906216 );
             poissonDisk[ 1] = vec2(  0.94558609, -0.76890725 );
@@ -160,20 +180,21 @@ varying vec2 vTexCoord;
             poissonDisk[13] = vec2( -0.81409955,  0.91437590 );
             poissonDisk[14] = vec2(  0.19984126,  0.78641367 );
             poissonDisk[15] = vec2(  0.14383161, -0.14100790 );
-
-            vec3 p = lightProj.xyz / lightProj.w;
-
-            if (lightProj.w < 0.0) return 1.0; 
-
+//return SHADOW(p);
             float rShadow = 0.0;
             for (int i = 0; i < 16; i += 1)
-                rShadow += SHADOW(p + vec3(poissonDisk[i] * 2.0, 0.0) * (1.0 / 1024.0));
+                rShadow += SHADOW(p + vec3(poissonDisk[i] * 1.5, 0.0) * (1.0 / 1024.0));
             rShadow /= 16.0;
-
-            rShadow = clamp(rShadow * 1.25, 0.0, 1.0); // apply contrast (1.25)
 
             float fade = min(1.0, vLightTargetDist);
             return mix(rShadow, 1.0, fade);
+        }
+
+        vec3 calcLight(vec3 normal, vec3 pos, vec4 color) {
+            vec3 lv = pos - vCoord.xyz;
+            float lum = max(0.0, dot(normal, normalize(lv)));
+            float att = max(0.0, 1.0 - dot(lv, lv) / color.w);
+            return color.xyz * (lum * att);
         }
     #endif
 
@@ -183,16 +204,10 @@ varying vec2 vTexCoord;
             discard;
         
         #ifdef PASS_SHADOW
-	        float dx = dFdx(gl_FragCoord.z);
-	        float dy = dFdy(gl_FragCoord.z);
-            float bias  = 4.0 * max(dx, dy);
-            float depth = gl_FragCoord.z + bias;
-	
             #ifdef SHADOW_COLOR
-                gl_FragColor = pack(depth);
+                gl_FragColor = pack(gl_FragCoord.z);
             #else
                 gl_FragColor = vec4(1.0);
-                gl_FragDepth = depth;
             #endif
         #else
             color.xyz *= uColor.xyz;
@@ -201,32 +216,33 @@ varying vec2 vTexCoord;
             color.xyz = pow(abs(color.xyz), vec3(2.2)); // to linear space
 
         // calc point lights
-            vec3 normal   = normalize(vNormal.xyz);
-            vec3 viewVec  = normalize(vViewVec);
-            vec3 light    = vec3(0.0);
-            for (int i = 0; i < MAX_LIGHTS; i++) {
-                vec3 lv = uLightPos[i] - vCoord.xyz;
-                vec4 lc = uLightColor[i];
-                float lum = max(0.0, dot(normal, normalize(lv)));
-                float att = max(0.0, 1.0 - dot(lv, lv) / lc.w);
-                light += lc.xyz * (lum * att);
-            }
+            if (uType != TYPE_FLASH) {
+                vec3 normal   = normalize(vNormal.xyz);
+                vec3 viewVec  = normalize(vViewVec);
+                vec3 light    = vec3(0.0);
+            
+                for (int i = 1; i < MAX_LIGHTS; i++) // additional lights
+                    light += calcLight(normal, uLightPos[i], uLightColor[i]);
 
-        // apply lighting
-            #ifdef SPRITE
-                color.xyz *= light + vColor.w;
-            #else
-                float shadow = getShadow(vLightProj);
+            // apply lighting
+                if (uType == TYPE_SPRITE) {
+                    light += vColor.w * uColor.w;
+                }
 
-                vec3 dlight = mix(vec3(uColor.w * uColor.w), light + uColor.w, shadow);
-                dlight *= dot(normal, viewVec) * 0.5 + 0.5; //  backlight
+                if (uType == TYPE_ROOM) {
+                    light += mix(min(uColor.w, vColor.w), vColor.w, getShadow(vLightProj));
+                }
 
-                vec3 slight = light + mix(uColor.w, vColor.w, shadow);
-                
-                light = mix(slight, dlight, vNormal.w);
-
+                if (uType == TYPE_ENTITY) {
+                    float shadow = getShadow(vLightProj);
+                    vec3 lum = calcLight(normal, uLightPos[0], uLightColor[0]) * shadow + uColor.w;
+                    light += lum;
+                    light *= dot(normal, viewVec) * 0.2 + 0.8; // apply backlight
+                }    
                 color.xyz *= light;
-            #endif
+            } else {
+                color.w = uColor.w;
+            }
 
             color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
 

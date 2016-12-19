@@ -407,7 +407,7 @@ double samples[28];
                 int res = decoder->decode(&frames[i], count - i);
                 if (res == 0) {
                     if (!(flags & Flags::LOOP)) {
-                        if (i == 0) isPlaying = false;
+                        isPlaying = false;
                         break;
                     } else
                         decoder->replay();

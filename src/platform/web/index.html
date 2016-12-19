@@ -9,7 +9,8 @@
 			<script type='text/javascript'>
 				var statusElement = document.getElementById('status');
 				var canvasElement = document.getElementById('canvas');
-
+                var proc;
+                
 				var Module = {
                 	TOTAL_MEMORY: 64*1024*1024,
 					preRun: [],
@@ -52,7 +53,7 @@
 					var rate   = 44100 / ctx.sampleRate;
 					var framesCount = Math.ceil(count * rate);
 					var frames = Module._malloc(framesCount * 4); // interleaved short L, R
-					var proc   = ctx.createScriptProcessor(count, 2, 2);
+					proc   = ctx.createScriptProcessor(count, 2, 2);
 					proc.onaudioprocess = function(e) {
 						var L = e.outputBuffer.getChannelData(0),
 							R = e.outputBuffer.getChannelData(1);

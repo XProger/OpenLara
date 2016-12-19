@@ -350,7 +350,7 @@ namespace Debug {
             }
         }
 
-        void lights(const TR::Level &level) {
+        void lights(const TR::Level &level, int room) {
         //    int roomIndex = level.entities[lara->entity].room;
         //    int lightIndex = getLightIndex(lara->pos, roomIndex);
 
@@ -361,10 +361,12 @@ namespace Debug {
                     float a = l.intensity / 8191.0f;
                     vec3 p = vec3(l.x, l.y, l.z);
                     vec4 color = vec4(a, a, a, 1);
+                    if (i == room) color.x = color.z = 0;
                     Debug::Draw::point(p, color);
                     //if (i == roomIndex && j == lightIndex)
                     //    color = vec4(0, 1, 0, 1);
-                    Debug::Draw::sphere(p, l.attenuation, color);
+                    Debug::Draw::sphere(p, l.radius, color);
+
                 }
         }
 

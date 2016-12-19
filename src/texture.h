@@ -4,11 +4,12 @@
 #include "core.h"
 
 struct Texture {
-    GLuint  ID;
+    GLuint  ID;    
     int     width, height;
     bool    depth;
+    Texture *dummy;
 
-    Texture(int width, int height, bool depth, void *data = NULL) : width(width), height(height) {
+    Texture(int width, int height, bool depth, void *data = NULL) : width(width), height(height), dummy(NULL) {
         glGenTextures(1, &ID);
         bind(0);
 
@@ -33,9 +34,13 @@ struct Texture {
 
         GLint format = depth ? GL_DEPTH_COMPONENT : GL_RGBA;
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, depth ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE, data);
+
+        if (depth)
+            dummy = new Texture(width, height, false, NULL); // some drivers can't render to texture without color target, create dummy color target for fix it
     }
 
     virtual ~Texture() {
+        delete dummy;
         glDeleteTextures(1, &ID);
     }
 

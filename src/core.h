@@ -67,6 +67,7 @@
     PFNGLGETSHADERINFOLOGPROC           glGetShaderInfoLog;
     PFNGLGETUNIFORMLOCATIONPROC         glGetUniformLocation;
     PFNGLUNIFORM1IVPROC                 glUniform1iv;
+    PFNGLUNIFORM1FVPROC                 glUniform1fv;
     PFNGLUNIFORM2FVPROC                 glUniform2fv;
     PFNGLUNIFORM3FVPROC                 glUniform3fv;
     PFNGLUNIFORM4FVPROC                 glUniform4fv;
@@ -86,9 +87,9 @@
 // Render to texture
     PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
     PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
-    PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
     PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
     PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
+    PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
     PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
     PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
     PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
@@ -190,6 +191,7 @@ namespace Core {
         GetProcOGL(glGetShaderInfoLog);
         GetProcOGL(glGetUniformLocation);
         GetProcOGL(glUniform1iv);
+        GetProcOGL(glUniform1fv);
         GetProcOGL(glUniform2fv);
         GetProcOGL(glUniform3fv);
         GetProcOGL(glUniform4fv);
@@ -209,9 +211,9 @@ namespace Core {
 
         GetProcOGL(glGenFramebuffers);
         GetProcOGL(glBindFramebuffer);
-        GetProcOGL(glFramebufferTexture2D);
         GetProcOGL(glGenRenderbuffers);
         GetProcOGL(glBindRenderbuffer);
+        GetProcOGL(glFramebufferTexture2D);
         GetProcOGL(glFramebufferRenderbuffer);
         GetProcOGL(glRenderbufferStorage);
         GetProcOGL(glCheckFramebufferStatus);
@@ -227,17 +229,21 @@ namespace Core {
         //LOG("%s\n", ext);
         support.depthTexture  = extSupport(ext, "_depth_texture");
         support.shadowSampler = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
-        support.VAO           = (void*)glBindVertexArray != NULL;
-        
-        LOG("Vendor   : %s\n", glGetString(GL_VENDOR));
+        support.VAO           = extSupport(ext, "_vertex_array_object");
+            
+        char *vendor = (char*)glGetString(GL_VENDOR);
+        LOG("Vendor   : %s\n", vendor);
         LOG("Renderer : %s\n", glGetString(GL_RENDERER));
         LOG("Version  : %s\n", glGetString(GL_VERSION));
 
         LOG("supports:\n");
-        LOG("  depth texture  : %s\n", support.depthTexture ? "true" : "false");
+        LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
-        LOG("  vertex arrays  : %s\n", support.VAO ? "true" : "false");
+        LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("\n");
+
+//        if (strcmp(vendor, "WebKit") == 0) // TODO: check for safari
+//            support.depthTexture = support.shadowSampler = false; // depth textures is not supported in Safari browser in fact :(
 
         glGenFramebuffers(1, &RT);
 
@@ -254,7 +260,7 @@ namespace Core {
 
     void clear(const vec4 &color) {
         glClearColor(color.x, color.y, color.z, color.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -303,15 +309,18 @@ namespace Core {
     void setTarget(Texture *target) {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glColorMask(true, true, true, true);
             return;
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, RT);
         glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->ID, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, 0, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, target->dummy ? target->dummy->ID : 0, 0);
 
-        GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
-        glDrawBuffers(target->depth ? 0 : 1, buffers);
+        bool mask = !target->depth;
+        glColorMask(mask, mask, mask, mask);
+    //    GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
+    //    glDrawBuffers(target->depth ? 0 : 1, buffers);
     }
 }
 

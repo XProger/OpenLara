@@ -5,22 +5,22 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sShadow, sMAX };
-enum UniformType    { uViewProj, uViewInv, uModel, uLightProj, uParam, uColor, uViewPos, uLightPos, uLightColor, uLightTarget, uAnimTexRanges, uAnimTexOffsets, uMAX };
+enum UniformType    { uType, uCaustics, uTime, uViewProj, uViewInv, uModel, uLightProj, uColor, uViewPos, uLightPos, uLightColor, uLightTarget, uAnimTexRanges, uAnimTexOffsets, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow" };
-const char *UniformName[uMAX]   = { "uViewProj", "uViewInv", "uModel", "uLightProj", "uParam", "uColor", "uViewPos", "uLightPos", "uLightColor", "uLightTarget", "uAnimTexRanges", "uAnimTexOffsets" };
+const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uTime", "uViewProj", "uViewInv", "uModel", "uLightProj", "uColor", "uViewPos", "uLightPos", "uLightColor", "uLightTarget", "uAnimTexRanges", "uAnimTexOffsets" };
 
 struct Shader {
     GLuint  ID;
     GLint   uID[uMAX];
 
+    enum : GLint { SPRITE, ROOM, ENTITY, FLASH };
+
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
-	        #define GLSL_DEFINE "#extension GL_EXT_frag_depth : enable\n"\
-                                "#extension GL_OES_standard_derivatives : enable\n"\
-                                "#define MOBILE\n"\
-                                "#define gl_FragDepth gl_FragDepthEXT\n"\
+	        #define GLSL_DEFINE "#define MOBILE\n"\
+                                "precision highp int;\n"\
                                 "precision highp float;\n"
         #else
 	        #define GLSL_DEFINE "#version 120\n"
@@ -72,6 +72,16 @@ struct Shader {
             Core::active.shader = this;
             glUseProgram(ID);
         }
+    }
+
+    void setParam(UniformType uType, const int &value, int count = 1) {
+        if (uID[uType] != -1)
+            glUniform1iv(uID[uType], count, (GLint*)&value);
+    }
+
+    void setParam(UniformType uType, const float &value, int count = 1) {
+        if (uID[uType] != -1)
+            glUniform1fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec2 &value, int count = 1) {
