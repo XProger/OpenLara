@@ -17,12 +17,16 @@ const char SHADER[] =
     #include "shader.glsl"
 ;
 
+const char FILTER[] =
+    #include "filter.glsl"
+;
+
 const char GUI[] =
     #include "gui.glsl"
 ;
 
 struct Level {
-    enum { shCompose, shShadow, shAmbient, shGUI, shMAX };
+    enum { shCompose, shShadow, shAmbient, shFilter, shGUI, shMAX };
 
     TR::Level   level;
     Shader      *shaders[shMAX];
@@ -226,6 +230,7 @@ struct Level {
         shaders[shShadow]   = new Shader(SHADER, def);
         sprintf(def, "%s#define PASS_AMBIENT\n", ext);
         shaders[shAmbient]  = new Shader(SHADER, def);
+        shaders[shFilter]   = new Shader(FILTER, "");
         shaders[shGUI]      = new Shader(GUI, "");
     }
 
@@ -637,9 +642,24 @@ struct Level {
             case Core::passCompose : sh = shaders[shCompose]; break;
             case Core::passShadow  : sh = shaders[shShadow];  break;
             case Core::passAmbient : sh = shaders[shAmbient]; break;
+            case Core::passFilter  : sh = shaders[shFilter];  break;
         }
         ASSERT(sh);
         sh->bind();
+    }
+
+
+    void readAmbientResult() {
+        Core::setTarget(ambient[0]);
+        TR::Color32 color;
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+    //    LOG("%d %d %d %d\n", (int)color.r, (int)color.g, (int)color.b, (int)color.a);
+        Core::setTarget(NULL);
     }
 
     void renderAmbient(int roomIndex, const vec3 &pos, vec3 *cube) {
@@ -652,7 +672,19 @@ struct Level {
 	    Core::setViewport(0, 0, ambient[0]->width, ambient[0]->height);
         Core::clear(vec4(0, 0, 0, 1));
         renderScene(roomIndex);
+
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_CULL_FACE);
+        setPassShader(Core::passFilter);
+        Core::active.shader->setParam(uType, Shader::DOWNSAMPLE);
+        ambient[0]->bind(sDiffuse);
+        Core::setTarget(ambient[1]);
+	    Core::setViewport(0, 0, ambient[1]->width, ambient[1]->height);
+        Core::clear(vec4(randf(), 0, 1, 1));        
+        mesh->renderQuad();
         Core::setTarget(NULL);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
     }
 
     void renderShadows(int roomIndex) {
@@ -685,9 +717,10 @@ struct Level {
         Core::resetStates();
 
         vec3 cube[6];
-    //    renderAmbient(lara->getRoomIndex(), lara->pos - vec3(0, 512, 0), cube);
+        renderAmbient(lara->getRoomIndex(), lara->pos - vec3(0, 512, 0), cube);
         renderShadows(lara->getRoomIndex());
         renderCompose(camera->getRoomIndex());
+        //readAmbientResult();
 
     #ifdef _DEBUG
         static int modelIndex = 0;
@@ -729,7 +762,7 @@ struct Level {
             glColor3f(1, 1, 1);
             glTranslatef(lara->pos.x, lara->pos.y, lara->pos.z);
             Texture::unbind(sShadow);
-            ambient[0]->bind(sDiffuse);
+            ambient[1]->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glBegin(GL_QUADS);

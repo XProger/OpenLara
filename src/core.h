@@ -139,7 +139,7 @@ namespace Core {
     vec4 lightColor[MAX_LIGHTS];
     vec4 color;
 
-    enum Pass { passCompose, passShadow, passAmbient } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passFilter } pass;
 
     GLuint RT, RB;
 

@@ -143,6 +143,7 @@ struct MeshBuilder {
     MeshRange *spriteSequences;
     MeshRange shadowBlob;
     MeshRange bar;
+    MeshRange quad;
 
 // indexed mesh
     Mesh *mesh;
@@ -236,6 +237,14 @@ struct MeshBuilder {
         bar.iCount = 2 * 3;
         aCount++;
         iCount += bar.iCount;
+        vCount += 4;
+
+    // quad (post effect filter)
+        quad.vStart = vCount;
+        quad.iStart = iCount;
+        quad.iCount = 2 * 3;
+        aCount++;
+        iCount += quad.iCount;
         vCount += 4;
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
@@ -381,7 +390,6 @@ struct MeshBuilder {
             indices[idx + 1] = 0;
             indices[idx + 2] = (i + 1) % 8;
         }
-        iCount += shadowBlob.iCount;
         vCount += 8;
 
     // white bar
@@ -397,8 +405,22 @@ struct MeshBuilder {
             v.color     = { 255, 255, 255, 255 };
             v.texCoord  = { 32688, 32688, 0, 0 };
         }
-        iCount += bar.iCount;
-        vCount += 8;
+        vCount += 4;
+
+    // quad
+        addQuad(indices, iCount, vCount, quad.vStart, vertices, &whiteTileQuad);
+        vertices[vCount + 0].coord = { -1, -1, 0, 0 };
+        vertices[vCount + 1].coord = {  1, -1, 1, 0 };
+        vertices[vCount + 2].coord = {  1,  1, 1, 1 };
+        vertices[vCount + 3].coord = { -1,  1, 0, 1 };
+
+        for (int i = 0; i < 4; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal    = { 0, 0, 0, 0 };
+            v.color     = { 255, 255, 255, 255 };
+            v.texCoord  = { 32688, 32688, 0, 0 };
+        }
+        vCount += 4;
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
@@ -421,6 +443,8 @@ struct MeshBuilder {
         for (int i = 0; i < level.meshesCount; i++)
             mesh->initRange(meshInfo[i]);
         mesh->initRange(shadowBlob);
+        mesh->initRange(bar);
+        mesh->initRange(quad);
     }
 
     ~MeshBuilder() {
@@ -609,6 +633,10 @@ struct MeshBuilder {
 
     void renderLine(const vec2 &pos, const vec2 &size, uint32 color) {
 
+    }
+
+    void renderQuad() {
+        mesh->render(quad);
     }
 
     void renderBar(const vec2 &size, float value) {

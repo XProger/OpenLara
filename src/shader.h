@@ -15,7 +15,7 @@ struct Shader {
     GLuint  ID;
     GLint   uID[uMAX];
 
-    enum : GLint { SPRITE, ROOM, ENTITY, FLASH };
+    enum : GLint { SPRITE = 0, ROOM = 1, ENTITY = 2, FLASH = 3, DOWNSAMPLE = 10 };
 
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
