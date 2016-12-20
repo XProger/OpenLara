@@ -139,9 +139,9 @@ namespace Core {
     vec4 lightColor[MAX_LIGHTS];
     vec4 color;
 
-    enum { passOpaque, passShadow } pass;
+    enum Pass { passCompose, passShadow, passAmbient } pass;
 
-    GLuint RT;
+    GLuint RT, RB;
 
     struct {
         Shader  *shader;
@@ -246,6 +246,10 @@ namespace Core {
 //            support.depthTexture = support.shadowSampler = false; // depth textures is not supported in Safari browser in fact :(
 
         glGenFramebuffers(1, &RT);
+        glGenRenderbuffers(1, &RB);
+        glBindRenderbuffer(GL_RENDERBUFFER, RB);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 64, 64);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         Sound::init();
 
@@ -256,6 +260,11 @@ namespace Core {
     void free() {
     //    glDeleteFrameBuffers(1, &RT);
         Sound::free();
+    }
+
+    void resetStates() {
+        memset(&active, 0, sizeof(active));
+        glEnable(GL_DEPTH_TEST);
     }
 
     void clear(const vec4 &color) {
@@ -316,6 +325,8 @@ namespace Core {
         glBindFramebuffer(GL_FRAMEBUFFER, RT);
         glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->ID, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, target->dummy ? target->dummy->ID : 0, 0);
+        if (!target->depth) 
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RB);
 
         bool mask = !target->depth;
         glColorMask(mask, mask, mask, mask);

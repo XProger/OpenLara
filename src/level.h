@@ -22,7 +22,7 @@ const char GUI[] =
 ;
 
 struct Level {
-    enum { shDefault, shShadow, shGUI, shMAX };
+    enum { shCompose, shShadow, shAmbient, shGUI, shMAX };
 
     TR::Level   level;
     Shader      *shaders[shMAX];
@@ -32,6 +32,7 @@ struct Level {
     Lara        *lara;
     Camera      *camera;
     Texture     *shadow;
+    Texture     *ambient[4]; // 64, 16, 4, 1 
 
     float       time;
 
@@ -42,6 +43,8 @@ struct Level {
         mesh = new MeshBuilder(level);
         
 	    shadow = new Texture(1024, 1024, true);
+        for (int i = 0; i < 4; i++)
+            ambient[i] = new Texture(64 >> (i << 1), 64 >> (i << 1), false);
 
         initAtlas();
         initShaders();
@@ -154,6 +157,9 @@ struct Level {
             delete shaders[i];
 
         delete shadow;
+        for (int i = 0; i < 4; i++)
+            delete ambient[i];
+
         delete atlas;
         delete mesh;
 
@@ -214,11 +220,12 @@ struct Level {
 			else
 				strcat(ext, "#define SHADOW_COLOR\n");
 
-        sprintf(def, "%s#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_SHADOW_DIST %d.0\n", ext, MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount, MAX_SHADOW_DIST);
-        shaders[shDefault]  = new Shader(SHADER, def);
+        sprintf(def, "%s#define PASS_COMPOSE\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_SHADOW_DIST %d.0\n", ext, MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount, MAX_SHADOW_DIST);
+        shaders[shCompose]  = new Shader(SHADER, def);
         sprintf(def, "%s#define PASS_SHADOW\n", ext);
         shaders[shShadow]   = new Shader(SHADER, def);
-        sprintf(ext, "%s#define SPRITE\n", def);
+        sprintf(def, "%s#define PASS_AMBIENT\n", ext);
+        shaders[shAmbient]  = new Shader(SHADER, def);
         shaders[shGUI]      = new Shader(GUI, "");
     }
 
@@ -323,13 +330,10 @@ struct Level {
     }
 #endif
 
-    void setRoomShader(const TR::Room &room, float intensity) {
-        if (Core::pass == Core::passShadow) {
-            shaders[shShadow]->bind();
+    void setRoomParams(const TR::Room &room, float intensity) {
+        if (Core::pass == Core::passShadow)
             return;
-        }
 
-        shaders[shDefault]->bind();
         if (room.flags.water) {
             Core::color = vec4(0.6f, 0.9f, 0.9f, intensity);
             Core::active.shader->setParam(uCaustics, 1);
@@ -347,7 +351,7 @@ struct Level {
         TR::Room &room = level.rooms[roomIndex];
         vec3 offset = vec3(float(room.info.x), 0.0f, float(room.info.z));
 
-        setRoomShader(room, intensityf(room.ambient));
+        setRoomParams(room, intensityf(room.ambient));
         Shader *sh = Core::active.shader;
 
         Core::lightColor[0] = vec4(0, 0, 0, 1);
@@ -396,7 +400,7 @@ struct Level {
             sh->setParam(uModel, Core::mModel);
 
         // render room geometry
-            if (Core::pass == Core::passOpaque) {
+            if (Core::pass == Core::passCompose || Core::pass == Core::passAmbient) {
                 mesh->renderRoomGeometry(roomIndex);
             }
 
@@ -493,7 +497,7 @@ struct Level {
             return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity; 
-        setRoomShader(room, intensityf(lum));
+        setRoomParams(room, intensityf(lum));
 
         if (entity.modelIndex > 0) { // model
             getLight(((Controller*)entity.controller)->pos, entity.room);
@@ -512,7 +516,6 @@ struct Level {
         ((Controller*)entity.controller)->render(camera->frustum, mesh);
     }
 
-
     void update() {
         time += Core::deltaTime;
 
@@ -529,7 +532,7 @@ struct Level {
     void setup() {
         PROFILE_MARKER("SETUP");
 
-        camera->setup(Core::pass != Core::passShadow);;
+        camera->setup(Core::pass == Core::passCompose);
 
         atlas->bind(0);
 
@@ -537,19 +540,16 @@ struct Level {
             mesh->bind();
 
         // set frame constants for all shaders
-        Core::active.shader = NULL;
-        for (int i = 0; i < shMAX; i++) {
-            shaders[i]->bind();
-            shaders[i]->setParam(uViewProj,         Core::mViewProj);
-            shaders[i]->setParam(uLightProj,        Core::mLightProj);
-            shaders[i]->setParam(uViewInv,          Core::mViewInv);
-            shaders[i]->setParam(uViewPos,          Core::viewPos);
-            shaders[i]->setParam(uTime,             time);
-            shaders[i]->setParam(uLightTarget,      lara->pos);
-            shaders[i]->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
-            shaders[i]->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
-        }
-        glEnable(GL_DEPTH_TEST);
+        Shader *sh = Core::active.shader;
+        sh->bind();
+        sh->setParam(uViewProj,         Core::mViewProj);
+        sh->setParam(uLightProj,        Core::mLightProj);
+        sh->setParam(uViewInv,          Core::mViewInv);
+        sh->setParam(uViewPos,          Core::viewPos);
+        sh->setParam(uTime,             time);
+        sh->setParam(uLightTarget,      lara->pos);
+        sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
+        sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
 
         Core::mModel.identity();
 
@@ -562,32 +562,50 @@ struct Level {
                 room.meshes[j].flags.rendered = false;     // clear visible flag for room static meshes
         }    
         
-        for (int i = 0; i < level.entitiesCount; i++)
-            level.entities[i].flags.rendered = false;
+        if (Core::pass != Core::passAmbient)
+            for (int i = 0; i < level.entitiesCount; i++)
+                level.entities[i].flags.rendered = false;
     }
 
-    void renderRooms() {
+    void renderRooms(int roomIndex) {
         PROFILE_MARKER("ROOMS");
     #ifdef LEVEL_EDITOR
         for (int i = 0; i < level.roomsCount; i++)
             renderRoom(i);
     #else
-        renderRoom(camera->getRoomIndex());
+        renderRoom(roomIndex);
     #endif
     }
 
     void renderEntities() {
         PROFILE_MARKER("ENTITIES");
-        shaders[Core::pass == Core::passShadow ? shShadow : shDefault]->bind();
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
     }
 
-    void renderScene() {
+    void renderScene(int roomIndex) {
         PROFILE_MARKER("SCENE");
         setup();
-        renderRooms();
-        renderEntities();
+        renderRooms(roomIndex);
+        if (Core::pass != Core::passAmbient)
+            renderEntities();
+    }
+
+    void setupCubeCamera(const vec3 &pos, int face) {
+        vec3 up  = vec3(0, 1, 0);
+        vec3 dir;
+        switch (face) {
+            case 0 : dir = vec3( 1,  0,  0); break;
+            case 1 : dir = vec3(-1,  0,  0); break;
+            case 2 : dir = vec3( 0,  1,  0); up = vec3(1, 0, 0); break;
+            case 3 : dir = vec3( 0, -1,  0); up = vec3(1, 0, 0); break;
+            case 4 : dir = vec3( 0,  0,  1); break;
+            case 5 : dir = vec3( 0,  0, -1); break;
+        }
+
+        Core::mViewInv = mat4(pos, pos + dir, up);
+	    Core::mView    = Core::mViewInv.inverse();
+	    Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
     }
     
     bool setupLightCamera() {
@@ -600,48 +618,76 @@ struct Level {
 
         TR::Room::Light &light = level.rooms[room].lights[idx];
         vec3 shadowLightPos = vec3(float(light.x), float(light.y), float(light.z)); 
-	    Core::mView = mat4(shadowLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0)).inverse();
-	    Core::mProj = mat4(120, 1.0f, camera->znear, camera->zfar);
-
-	    Core::mViewProj = Core::mProj * Core::mView;
+        Core::mViewInv = mat4(shadowLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0));
+	    Core::mView    = Core::mViewInv.inverse();
+	    Core::mProj    = mat4(120, 1.0f, camera->znear, camera->zfar);
 
 	    mat4 bias;
 	    bias.identity();
 	    bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-	    Core::mLightProj = bias * Core::mProj * Core::mView; //  * ( * ) ?
-
-        Shader *sh = shaders[shShadow];
-        sh->bind();
-        sh->setParam(uViewProj, Core::mViewProj);
-        sh->setParam(uLightProj, Core::mLightProj);
+	    Core::mLightProj = bias * Core::mProj * Core::mView;
 
         return true;
     }
 
-    void renderShadows() {
-        if (!setupLightCamera()) return;
+    void setPassShader(Core::Pass pass) {
+        Core::pass = pass;
+        Shader *sh = NULL;
+        switch (pass) {
+            case Core::passCompose : sh = shaders[shCompose]; break;
+            case Core::passShadow  : sh = shaders[shShadow];  break;
+            case Core::passAmbient : sh = shaders[shAmbient]; break;
+        }
+        ASSERT(sh);
+        sh->bind();
+    }
+
+    void renderAmbient(int roomIndex, const vec3 &pos, vec3 *cube) {
+        PROFILE_MARKER("PASS_AMBIENT");
+        setupCubeCamera(pos, 4);
+
+        setPassShader(Core::passAmbient);
+        Core::setBlending(bmAlpha);
+        Core::setTarget(ambient[0]);
+	    Core::setViewport(0, 0, ambient[0]->width, ambient[0]->height);
+        Core::clear(vec4(0, 0, 0, 1));
+        renderScene(roomIndex);
+        Core::setTarget(NULL);
+    }
+
+    void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
+        if (!setupLightCamera()) return;
         Texture::unbind(sShadow);
-        Core::pass = Core::passShadow;
-	    Core::setBlending(bmNone);
+        setPassShader(Core::passShadow);
+        Core::setBlending(bmNone);
 	    Core::setTarget(shadow);
 	    Core::setViewport(0, 0, shadow->width, shadow->height);
 	    Core::clear(vec4(1.0));
         Core::setCulling(cfBack);
-	    renderScene();
+	    renderScene(roomIndex);
         Core::setCulling(cfFront);
 	    Core::setTarget(NULL);
-        shadow->bind(sShadow);
     }
-    
-    void render() {
-        renderShadows();
-        
-        Core::pass = Core::passOpaque;
+
+    void renderCompose(int roomIndex) {
+        PROFILE_MARKER("PASS_COMPOSE");
+        setPassShader(Core::passCompose);
+
         Core::setBlending(bmAlpha);
         Core::clear(vec4(0.0f));
         Core::setViewport(0, 0, Core::width, Core::height);
-        renderScene();
+        shadow->bind(sShadow);
+        renderScene(roomIndex);
+    }
+    
+    void render() {
+        Core::resetStates();
+
+        vec3 cube[6];
+    //    renderAmbient(lara->getRoomIndex(), lara->pos - vec3(0, 512, 0), cube);
+        renderShadows(lara->getRoomIndex());
+        renderCompose(camera->getRoomIndex());
 
     #ifdef _DEBUG
         static int modelIndex = 0;
@@ -673,29 +719,29 @@ struct Level {
 
         Debug::begin();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-            Debug::Level::lights(level, lara->getRoomIndex());
+        //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-            /*
+            
             glPushMatrix();
             glColor3f(1, 1, 1);
             glTranslatef(lara->pos.x, lara->pos.y, lara->pos.z);
             Texture::unbind(sShadow);
-            shadow->bind(sDiffuse);
+            ambient[0]->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glBegin(GL_QUADS);
-                glTexCoord2f(0, 0); glVertex3f(   0,     0, 0);
-                glTexCoord2f(1, 0); glVertex3f(1024,     0, 0);
-                glTexCoord2f(1, 1); glVertex3f(1024, -1024, 0);
-                glTexCoord2f(0, 1); glVertex3f(   0, -1024, 0);
+                glTexCoord2f(1, 1); glVertex3f(   0,     0, 0);
+                glTexCoord2f(0, 1); glVertex3f(1024,     0, 0);
+                glTexCoord2f(0, 0); glVertex3f(1024, -1024, 0);
+                glTexCoord2f(1, 0); glVertex3f(   0, -1024, 0);
             glEnd();
             glPopMatrix();
             glDisable(GL_CULL_FACE);
             glDisable(GL_TEXTURE_2D);
-            */
+            
            /*
             shaders[shGUI]->bind();
             Core::mViewProj = mat4(0, (float)Core::width, (float)Core::height, 0, 0, 1);

@@ -1559,20 +1559,42 @@ struct Lara : Character {
     }
 
     void move() {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        
+        float f, c;
+        bool canPassGap = true;
+        /*
+        if (velocity != 0.0f) {
+            vec3 dir = velocity.normal() * 128.0f;
+            vec3 p = pos + dir;
+            level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
+            if (info.floor < p.y - (256 + 128)  || info.ceiling > p.y - 768) { // wall
+                vec3 axis   = dir.axisXZ();
+                vec3 normal = (p - vec3(int(p.x / 1024.0f) * 1024.0f + 512.0f, p.y, int(p.z / 1024.0f) * 1024.0f + 512.0f)).axisXZ();
+                LOG("%f %f = %f %f = %f\n", axis.x, axis.z, normal.x, normal.z, abs(axis.dot(normal)));
+                if (abs(axis.dot(normal)) > EPS) {
+                    canPassGap = false;
+                } else {
+                    updateEntity();
+                    checkRoom();
+                    return;
+                }
+            }
+        }
+        */
         vec3 offset = velocity * Core::deltaTime * 30.0f;
 
         vec3 p = pos;
         pos = pos + offset;
 
-        TR::Entity &e = getEntity();
-        TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, (int)pos.x, (int)pos.y, (int)pos.z, info);
+        if (canPassGap) {
+            level->getFloorInfo(e.room, (int)pos.x, (int)pos.y, (int)pos.z, info);
+            canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
+        }
 
-    // get frame to get height
-        bool canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
-        float f = info.floor - pos.y;
-        float c = pos.y - info.ceiling;
-
+        f = info.floor - pos.y;
+        c = pos.y - info.ceiling;
         /*
         TR::Animation *anim  = animation;
         Box eBox = Box(pos - vec3(128.0f, 0.0f, 128.0f), pos + vec3(128.0, getHeight(), 128.0f)); // getBoundingBox();

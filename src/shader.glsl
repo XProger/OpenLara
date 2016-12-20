@@ -2,12 +2,14 @@ R"====(
 varying vec2 vTexCoord;
 
 #ifndef PASS_SHADOW
-    varying vec3  vCoord;
-    varying vec4  vNormal;
-    varying vec3  vViewVec;
+    #ifndef PASS_AMBIENT
+        varying vec3  vCoord;
+        varying vec4  vNormal;
+        varying vec3  vViewVec;
+        varying vec4  vLightProj;
+        varying float vLightTargetDist;
+    #endif
     varying vec4  vColor;
-    varying vec4  vLightProj;
-    varying float vLightTargetDist;
 #endif
 
 #define TYPE_SPRITE 0
@@ -16,26 +18,34 @@ varying vec2 vTexCoord;
 #define TYPE_FLASH  3
 
 uniform int   uType;
-uniform int   uCaustics;
-uniform float uTime;
+
+#ifdef PASS_COMPOSE
+    uniform int   uCaustics;
+    uniform float uTime;
+#endif
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
     uniform mat4 uModel;
-    uniform mat4 uViewInv;
-    uniform mat4 uLightProj;
-    uniform vec3 uLightTarget;
 
-    #ifndef PASS_SHADOW
+    #ifndef PASS_AMBIENT
+        uniform mat4 uViewInv;
+        uniform mat4 uLightProj;
+        uniform vec3 uLightTarget;
+    #endif
+
+    #ifdef PASS_COMPOSE
         uniform vec3 uViewPos;
         uniform vec2 uAnimTexRanges[MAX_RANGES];
         uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
     #endif
-
     
     attribute vec4 aCoord;
     attribute vec4 aTexCoord;
-    attribute vec4 aNormal;
+
+    #ifndef PASS_AMBIENT
+        attribute vec4 aNormal;
+    #endif
 
     #ifndef PASS_SHADOW
         attribute vec4 aColor;
@@ -45,32 +55,31 @@ uniform float uTime;
     
     void main() {
         vec4 coord  = uModel * vec4(aCoord.xyz, 1.0);
-
         
-        if (uType != TYPE_SPRITE) {
-            #ifndef PASS_SHADOW
+        #ifdef PASS_COMPOSE
+            if (uType != TYPE_SPRITE) {
                 // animated texture coordinates
                 vec2 range  = uAnimTexRanges[int(aTexCoord.z)]; // x - start index, y - count
 
                 float f = fract((aTexCoord.w + uTime * 4.0 - range.x) / range.y) * range.y;
                 vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
-                vTexCoord   = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
-                vNormal     = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz, aNormal.w);
-            #else
-                vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
-            #endif
-        } else {
-            coord.xyz  += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
-            #ifndef PASS_SHADOW
-                vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
-                vNormal     = vec4(uViewPos.xyz - coord.xyz, 0.0);
-            #endif
-        }
+                vTexCoord  = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
+                vNormal    = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz, aNormal.w);
+            } else {
+                coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
+                vTexCoord  = aTexCoord.xy * TEXCOORD_SCALE;
+                vNormal    = vec4(uViewPos.xyz - coord.xyz, 0.0);
+            }
+        #else
+            vTexCoord = aTexCoord.xy * TEXCOORD_SCALE;
+        #endif
 
         #ifndef PASS_SHADOW
             vColor = aColor;
+        #endif
 
+        #ifdef PASS_COMPOSE
             if (uCaustics != 0) {
                 float sum = coord.x + coord.y + coord.z;
                 vColor.xyz *= abs(sin(sum / 512.0 + uTime)) * 1.5 + 0.5; // color dodge
@@ -91,7 +100,7 @@ uniform float uTime;
 #else
     uniform sampler2D   sDiffuse;
     uniform vec4        uColor;
-    #ifndef PASS_SHADOW
+    #ifdef PASS_COMPOSE
         uniform vec3    uLightPos[MAX_LIGHTS];
         uniform vec4    uLightColor[MAX_LIGHTS];
     #endif
@@ -106,7 +115,9 @@ uniform float uTime;
                 return res;
             }
         #endif
-    #else
+    #endif
+
+    #ifdef PASS_COMPOSE
         #ifdef AMBIENT_CUBE
             uniform vec3 uAmbientCube[6];
 
@@ -180,7 +191,7 @@ uniform float uTime;
             poissonDisk[13] = vec2( -0.81409955,  0.91437590 );
             poissonDisk[14] = vec2(  0.19984126,  0.78641367 );
             poissonDisk[15] = vec2(  0.14383161, -0.14100790 );
-//return SHADOW(p);
+
             float rShadow = 0.0;
             for (int i = 0; i < 16; i += 1)
                 rShadow += SHADOW(p + vec3(poissonDisk[i] * 1.5, 0.0) * (1.0 / 1024.0));
@@ -215,34 +226,38 @@ uniform float uTime;
 
             color.xyz = pow(abs(color.xyz), vec3(2.2)); // to linear space
 
-        // calc point lights
-            if (uType != TYPE_FLASH) {
-                vec3 normal   = normalize(vNormal.xyz);
-                vec3 viewVec  = normalize(vViewVec);
-                vec3 light    = vec3(0.0);
+            #ifdef PASS_AMBIENT
+                color.xyz *= vColor.w;
+            #else
+            // calc point lights
+                if (uType != TYPE_FLASH) {
+                    vec3 normal   = normalize(vNormal.xyz);
+                    vec3 viewVec  = normalize(vViewVec);
+                    vec3 light    = vec3(0.0);
             
-                for (int i = 1; i < MAX_LIGHTS; i++) // additional lights
-                    light += calcLight(normal, uLightPos[i], uLightColor[i]);
+                    for (int i = 1; i < MAX_LIGHTS; i++) // additional lights
+                        light += calcLight(normal, uLightPos[i], uLightColor[i]);
 
-            // apply lighting
-                if (uType == TYPE_SPRITE) {
-                    light += vColor.w * uColor.w;
+                // apply lighting
+                    if (uType == TYPE_SPRITE) {
+                        light += vColor.w * uColor.w;
+                    }
+
+                    if (uType == TYPE_ROOM) {
+                        light += mix(min(uColor.w, vColor.w), vColor.w, getShadow(vLightProj));
+                    }
+
+                    if (uType == TYPE_ENTITY) {
+                        float shadow = getShadow(vLightProj);
+                        vec3 lum = calcLight(normal, uLightPos[0], uLightColor[0]) * shadow + uColor.w;
+                        light += lum;
+                        light *= dot(normal, viewVec) * 0.2 + 0.8; // apply backlight
+                    }    
+                    color.xyz *= light;
+                } else {
+                    color.w = uColor.w;
                 }
-
-                if (uType == TYPE_ROOM) {
-                    light += mix(min(uColor.w, vColor.w), vColor.w, getShadow(vLightProj));
-                }
-
-                if (uType == TYPE_ENTITY) {
-                    float shadow = getShadow(vLightProj);
-                    vec3 lum = calcLight(normal, uLightPos[0], uLightColor[0]) * shadow + uColor.w;
-                    light += lum;
-                    light *= dot(normal, viewVec) * 0.2 + 0.8; // apply backlight
-                }    
-                color.xyz *= light;
-            } else {
-                color.w = uColor.w;
-            }
+            #endif
 
             color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
 
