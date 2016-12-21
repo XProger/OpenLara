@@ -211,6 +211,7 @@
     <ClInclude Include="..\..\utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\filter.glsl" />
     <None Include="..\..\gui.glsl" />
     <None Include="..\..\shader.glsl" />
   </ItemGroup>

@@ -63,8 +63,8 @@ struct Camera : Controller {
             Input::mouse.start.R = Input::mouse.pos;
         }
 
-        angleAdv.x -= Input::joy.L.y * 2.0f * Core::deltaTime;
-        angleAdv.y += Input::joy.L.x * 2.0f * Core::deltaTime;
+        angleAdv.x -= Input::joy.R.y * 2.0f * Core::deltaTime;
+        angleAdv.y += Input::joy.R.x * 2.0f * Core::deltaTime;
  
         angle = owner->angle + angleAdv;
         angle.z = 0.0f;        
@@ -177,6 +177,10 @@ struct Camera : Controller {
             Core::mViewInv = mViewInv;
             Core::mView    = Core::mViewInv.inverse();
             Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+        // TODO: camera shake
+        // TODO: temporal anti-aliasing
+        //    Core::mProj.e02 = (randf() - 0.5f) * 32.0f / Core::width;
+        //    Core::mProj.e12 = (randf() - 0.5f) * 32.0f / Core::height;
         }
         Core::mViewProj = Core::mProj * Core::mView;        
         Core::viewPos   = Core::mViewInv.offset.xyz;

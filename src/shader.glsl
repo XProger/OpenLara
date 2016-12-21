@@ -118,23 +118,15 @@ uniform int   uType;
     #endif
 
     #ifdef PASS_COMPOSE
-        #ifdef AMBIENT_CUBE
-            uniform vec3 uAmbientCube[6];
+        uniform vec3 uAmbient[6];
 
-            vec3 getAmbientLight(vec3 n) {
-                vec3 sqr = n * n;
-                vec3 pos = step(0.0, n);
-                return sqr.x * mix(uAmbientCube[0], uAmbientCube[1], pos.x) + 
-                       sqr.y * mix(uAmbientCube[2], uAmbientCube[3], pos.y) +
-                       sqr.z * mix(uAmbientCube[4], uAmbientCube[5], pos.z);
-            }
-        #else
-            uniform vec3 uAmbient;
-
-            vec3 getAmbientLight(vec3 n) {
-                return vec3(vColor.w);
-            }
-        #endif
+        vec3 getAmbientLight(vec3 n) {
+            vec3 sqr = n * n;
+            vec3 pos = step(0.0, n);
+            return sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) + 
+                   sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
+                   sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+        }
 
         #ifdef SHADOW_SAMPLER
             uniform sampler2DShadow sShadow;
@@ -234,7 +226,7 @@ uniform int   uType;
                     vec3 normal   = normalize(vNormal.xyz);
                     vec3 viewVec  = normalize(vViewVec);
                     vec3 light    = vec3(0.0);
-            
+
                     for (int i = 1; i < MAX_LIGHTS; i++) // additional lights
                         light += calcLight(normal, uLightPos[i], uLightColor[i]);
 
@@ -248,11 +240,10 @@ uniform int   uType;
                     }
 
                     if (uType == TYPE_ENTITY) {
-                        float shadow = getShadow(vLightProj);
-                        vec3 lum = calcLight(normal, uLightPos[0], uLightColor[0]) * shadow + uColor.w;
-                        light += lum;
-                        light *= dot(normal, viewVec) * 0.2 + 0.8; // apply backlight
-                    }    
+                        vec3 rAmbient = pow(abs(getAmbientLight(normal)), vec3(2.2));
+                        float rShadow = getShadow(vLightProj);
+                        light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;
+                    }
                     color.xyz *= light;
                 } else {
                     color.w = uColor.w;

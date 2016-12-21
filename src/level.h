@@ -36,9 +36,11 @@ struct Level {
     Lara        *lara;
     Camera      *camera;
     Texture     *shadow;
-    Texture     *ambient[4]; // 64, 16, 4, 1 
+    Texture     *ambient[6 * 4]; // 64, 16, 4, 1 
 
     float       time;
+
+    vec3 cube[6];
 
     Level(const char *name, bool demo, bool home) : level(name, demo), lara(NULL), time(0.0f) {
         #ifdef _DEBUG
@@ -47,8 +49,9 @@ struct Level {
         mesh = new MeshBuilder(level);
         
 	    shadow = new Texture(1024, 1024, true);
-        for (int i = 0; i < 4; i++)
-            ambient[i] = new Texture(64 >> (i << 1), 64 >> (i << 1), false);
+        for (int j = 0; j < 6; j++)
+            for (int i = 0; i < 4; i++)
+                ambient[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), false);
 
         initAtlas();
         initShaders();
@@ -161,7 +164,7 @@ struct Level {
             delete shaders[i];
 
         delete shadow;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 6 * 4; i++)
             delete ambient[i];
 
         delete atlas;
@@ -555,6 +558,7 @@ struct Level {
         sh->setParam(uLightTarget,      lara->pos);
         sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
         sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
+        sh->setParam(uAmbient,          cube[0],                    6);
 
         Core::mModel.identity();
 
@@ -648,43 +652,54 @@ struct Level {
         sh->bind();
     }
 
-
-    void readAmbientResult() {
-        Core::setTarget(ambient[0]);
-        TR::Color32 color;
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-        glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-    //    LOG("%d %d %d %d\n", (int)color.r, (int)color.g, (int)color.b, (int)color.a);
-        Core::setTarget(NULL);
-    }
-
     void renderAmbient(int roomIndex, const vec3 &pos, vec3 *cube) {
         PROFILE_MARKER("PASS_AMBIENT");
-        setupCubeCamera(pos, 4);
 
-        setPassShader(Core::passAmbient);
-        Core::setBlending(bmAlpha);
-        Core::setTarget(ambient[0]);
-	    Core::setViewport(0, 0, ambient[0]->width, ambient[0]->height);
-        Core::clear(vec4(0, 0, 0, 1));
-        renderScene(roomIndex);
+    // first pass render level into cube faces
+        for (int j = 0; j < 6; j++) {
+            setupCubeCamera(pos, j);
+            setPassShader(Core::passAmbient);
+            Core::setBlending(bmAlpha);
+            Texture *target = ambient[j * 4 + 0];
+            Core::setTarget(target);
+	        Core::setViewport(0, 0, target->width, target->height);
+            Core::clear(vec4(0, 0, 0, 1));
+            renderScene(roomIndex);
+        }
 
+    // second pass - downsample
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         setPassShader(Core::passFilter);
         Core::active.shader->setParam(uType, Shader::DOWNSAMPLE);
-        ambient[0]->bind(sDiffuse);
-        Core::setTarget(ambient[1]);
-	    Core::setViewport(0, 0, ambient[1]->width, ambient[1]->height);
-        Core::clear(vec4(randf(), 0, 1, 1));        
-        mesh->renderQuad();
+
+        for (int i = 1; i < 4; i++) {
+            int size = 64 >> (i << 1);
+
+            Core::active.shader->setParam(uTime, float(size << 2));
+            Core::setViewport(0, 0, size, size);
+
+            for (int j = 0; j < 6; j++) {
+                Texture *src = ambient[j * 4 + i - 1];
+                Texture *dst = ambient[j * 4 + i];
+                Core::setTarget(dst);
+                src->bind(sDiffuse);
+                mesh->renderQuad();
+            }
+        }
+
+        // get result color from 1x1 textures
+        for (int j = 0; j < 6; j++) {
+            Core::setTarget(ambient[j * 4 + 3]);
+
+            TR::Color32 color;
+            glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
+            cube[j] = vec3(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f);
+        }
         Core::setTarget(NULL);
+
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
+        glEnable(GL_CULL_FACE);        
     }
 
     void renderShadows(int roomIndex) {
@@ -716,11 +731,10 @@ struct Level {
     void render() {
         Core::resetStates();
 
-        vec3 cube[6];
         renderAmbient(lara->getRoomIndex(), lara->pos - vec3(0, 512, 0), cube);
         renderShadows(lara->getRoomIndex());
         renderCompose(camera->getRoomIndex());
-        //readAmbientResult();
+   
 
     #ifdef _DEBUG
         static int modelIndex = 0;
@@ -747,32 +761,43 @@ struct Level {
             renderEntity(level.entities[lastEntity]);
 //        renderModel(level.models[modelIndex], level.entities[4]);
 
-
-
-
         Debug::begin();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
-        //    Debug::Level::portals(level);
+            Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-            
-            glPushMatrix();
-            glColor3f(1, 1, 1);
-            glTranslatef(lara->pos.x, lara->pos.y, lara->pos.z);
-            Texture::unbind(sShadow);
-            ambient[1]->bind(sDiffuse);
+            static int dbg_ambient = 0;
+            dbg_ambient = int(time * 2) % 4;
+
+
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
-            glBegin(GL_QUADS);
-                glTexCoord2f(1, 1); glVertex3f(   0,     0, 0);
-                glTexCoord2f(0, 1); glVertex3f(1024,     0, 0);
-                glTexCoord2f(0, 0); glVertex3f(1024, -1024, 0);
-                glTexCoord2f(1, 0); glVertex3f(   0, -1024, 0);
-            glEnd();
-            glPopMatrix();
-            glDisable(GL_CULL_FACE);
+            glColor3f(1, 1, 1);
+            for (int j = 0; j < 6; j++) {
+                glPushMatrix();
+                glTranslatef(lara->pos.x, lara->pos.y - 1024, lara->pos.z);
+                switch (j) {
+                    case 0 : glRotatef( 90, 0, 1, 0); break;
+                    case 1 : glRotatef(-90, 0, 1, 0); break;
+                    case 2 : glRotatef(-90, 1, 0, 0); glRotatef(-90, 0, 0, 1); break;
+                    case 3 : glRotatef( 90, 1, 0, 0); glRotatef(-90, 0, 0, 1); break;
+                    case 4 : glRotatef(  0, 0, 1, 0); break;
+                    case 5 : glRotatef(180, 0, 1, 0); break;
+                }
+                glTranslatef(0, 0, 256);
+                Texture::unbind(sShadow);
+                ambient[j * 4 + dbg_ambient]->bind(sDiffuse);
+                glBegin(GL_QUADS);
+                    glTexCoord2f(1, 1); glVertex3f(-256,  256, 0);
+                    glTexCoord2f(0, 1); glVertex3f( 256,  256, 0);
+                    glTexCoord2f(0, 0); glVertex3f( 256, -256, 0);
+                    glTexCoord2f(1, 0); glVertex3f(-256, -256, 0);
+                glEnd();
+                glPopMatrix();
+            }
+            glEnable(GL_CULL_FACE);
             glDisable(GL_TEXTURE_2D);
             
            /*

@@ -133,7 +133,7 @@ struct vec3 {
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
     vec3  normal()  const { float s = length(); return s == 0.0f ? (*this) : (*this)*(1.0f/s); }
-    vec3  axisXZ()  const { return (fabsf(x) > fabsf(z)) ? vec3(sign(x), 0, 0) : vec3(0, 0, sign(z)); }
+    vec3  axisXZ()  const { return (fabsf(x) > fabsf(z)) ? vec3(float(sign(x)), 0, 0) : vec3(0, 0, float(sign(z))); }
 
     vec3 lerp(const vec3 &v, const float t) const {
         if (t <= 0.0f) return *this;
@@ -638,6 +638,7 @@ struct Stream {
     }
 
     void raw(void *data, int count) {
+        if (!count) return;
         if (f)
             fread(data, 1, count, f);
         else

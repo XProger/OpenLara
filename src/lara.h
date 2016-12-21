@@ -71,6 +71,8 @@ struct Lara : Character {
 
         ANIM_SLIDE_BACK         = 105,
 
+        ANIM_UNDERWATER         = 108,
+
         ANIM_WATER_FALL         = 112,
         ANIM_TO_ONWATER         = 114,
         ANIM_TO_UNDERWATER      = 119,
@@ -292,6 +294,8 @@ struct Lara : Character {
         updateEntity();
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).getPos();
+        if (getRoom().flags.water)
+            animation.setAnim(ANIM_UNDERWATER);
     }
     
     void wpnSet(Weapon::Type wType) {

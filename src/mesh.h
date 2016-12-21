@@ -199,8 +199,6 @@ struct MeshBuilder {
         aCount += level.roomsCount;
 
     // get objects mesh info
-        #define OFFSET(bytes) (ptr = (TR::Mesh*)((char*)ptr + (bytes) - sizeof(char*)))
-
         for (int i = 0; i < level.meshesCount; i++) {
             TR::Mesh &mesh = level.meshes[i];
             iCount += mesh.rCount * 6 + mesh.tCount * 3;
@@ -391,6 +389,7 @@ struct MeshBuilder {
             indices[idx + 2] = (i + 1) % 8;
         }
         vCount += 8;
+        iCount += shadowBlob.iCount;
 
     // white bar
         addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTileQuad);

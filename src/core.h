@@ -242,9 +242,6 @@ namespace Core {
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("\n");
 
-//        if (strcmp(vendor, "WebKit") == 0) // TODO: check for safari
-//            support.depthTexture = support.shadowSampler = false; // depth textures is not supported in Safari browser in fact :(
-
         glGenFramebuffers(1, &RT);
         glGenRenderbuffers(1, &RB);
         glBindRenderbuffer(GL_RENDERBUFFER, RB);

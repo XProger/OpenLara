@@ -6,7 +6,7 @@
 #define MAX_RESERVED_ENTITIES 64
 #define MAX_SECRETS_COUNT     16
 #define MAX_TRIGGER_COMMANDS  32
-#define MAX_MESHES            256
+#define MAX_MESHES            512
 
 namespace TR {
 
@@ -929,7 +929,8 @@ namespace TR {
                     light.radius *= 2;
                 }
             // meshes
-                r.meshes = new Room::Mesh[stream.read(r.meshesCount)];
+                stream.read(r.meshesCount);
+                r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
                 for (int i = 0; i < r.meshesCount; i++)
                     stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - (version == VER_TR1_PC ? sizeof(r.meshes[i].align) : 0) - sizeof(r.meshes[i].flags));
             // misc flags
@@ -949,7 +950,8 @@ namespace TR {
             stream.read(nodesData,      stream.read(nodesDataSize));
             stream.read(frameData,      stream.read(frameDataSize));
         // models
-            models = new Model[stream.read(modelsCount)];
+            stream.read(modelsCount);
+            models = modelsCount ? new Model[modelsCount] : NULL;
             for (int i = 0; i < modelsCount; i++)
                 stream.raw(&models[i], sizeof(models[i]) - (version == VER_TR1_PC ? sizeof(models[i].align) : 0));
             stream.read(staticMeshes, stream.read(staticMeshesCount));
@@ -1137,8 +1139,11 @@ namespace TR {
                         stream.seek(stream.read(ctCount) * sizeof(Triangle));
                         stream.setPos(tmp);
 
-                        mesh.rectangles = new Rectangle[mesh.rCount = rCount + crCount];
-                        mesh.triangles  = new Triangle[mesh.tCount  = tCount + ctCount];
+                        mesh.rCount = rCount + crCount;
+                        mesh.tCount = tCount + ctCount;
+
+                        mesh.rectangles = mesh.rCount ? new Rectangle[mesh.rCount] : NULL;
+                        mesh.triangles  = mesh.tCount ? new Triangle[mesh.tCount]  : NULL;
 
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[0],      rCount  * sizeof(Rectangle));
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[0],       tCount  * sizeof(Triangle));

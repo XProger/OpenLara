@@ -7,17 +7,26 @@ uniform int uType;
 
 #ifdef VERTEX
     attribute vec4 aCoord;
-    
+
     void main() {
         vTexCoord   = aCoord.zw;
-        gl_Position = vec4(aCoord.xy, 1.0, 1.0);
+        gl_Position = vec4(aCoord.xy, 0.0, 1.0);
     }
 #else
     uniform sampler2D sDiffuse;
 
-    vec4 downsample() {
-        vec4 color = texture2D(sDiffuse, vTexCoord);
-        return vec4(vec3((color.x + color.y + color.z) / 3.0), color.w);
+    uniform float uTime; // texture size
+
+    vec4 downsample() {        
+        float k = 1.0 / uTime;
+
+        vec4 color = vec4(0.0);
+        for (float y = -1.5; y < 2.0; y++)
+            for (float x = -1.5; x < 2.0; x++)
+                color += texture2D(sDiffuse, vTexCoord + vec2(x, y) * k);
+        color /= 16.0;
+
+        return color;
     }
     
     vec4 filter() {
