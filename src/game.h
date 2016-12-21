@@ -44,6 +44,7 @@ namespace Game {
 
     void render() {
         level->render();
+        Core::frameIndex++;
     }
 }
 

@@ -23,6 +23,9 @@ struct Controller {
     int     *meshes;
     int     mCount;
 
+    mat4    *joints;
+    int     frameIndex;
+
     struct ActionCommand {
         int             emitter;
         TR::Action      action;
@@ -36,12 +39,16 @@ struct Controller {
 
     Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), meshes(NULL), mCount(0), actionCommand(NULL) {
         TR::Entity &e = getEntity();
-        pos       = vec3((float)e.x, (float)e.y, (float)e.z);
-        angle     = vec3(0.0f, e.rotation, 0.0f);
+        pos        = vec3((float)e.x, (float)e.y, (float)e.z);
+        angle      = vec3(0.0f, e.rotation, 0.0f);
+        TR::Model  *m = getModel();
+        joints     = m ? new mat4[m->mCount] : NULL;
+        frameIndex = -1;
     }
 
     virtual ~Controller() {
         delete[] meshes;
+        delete[] joints;
     }
 
     void initMeshOverrides() {
@@ -395,11 +402,9 @@ struct Controller {
         updateAnimation(true);
     }
     
-    void renderMesh(const mat4 &matrix, MeshBuilder *mesh, uint32 offsetIndex) {
+    void renderMesh(MeshBuilder *mesh, uint32 offsetIndex) {
         MeshBuilder::MeshInfo *mInfo = mesh->meshMap[offsetIndex];
         if (!mInfo) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
-        
-        Core::active.shader->setParam(uModel, matrix);
         mesh->renderMesh(mInfo);
     }
 
@@ -438,14 +443,19 @@ struct Controller {
 
         TR::Entity &entity = getEntity();
         TR::Model  *model  = getModel();
+        ASSERT(model);
+
         entity.flags.rendered = true;
 
-        mat4 joints[32]; // TODO: UBO heap
-        ASSERT(model->mCount <= 32);
+        if (Core::frameIndex != frameIndex)
+            animation.getJoints(matrix, -1, true, joints);
 
-        animation.getJoints(matrix, -1, true, joints);
+        Core::active.shader->setParam(uModel, joints[0], model->mCount);
+
         for (int i = 0; i < model->mCount; i++)
-            renderMesh(joints[i], mesh, meshes ? meshes[i] : (model->mStart + i));
+            renderMesh(mesh, meshes ? meshes[i] : (model->mStart + i));
+
+        frameIndex = Core::frameIndex;
 
     /* // blob shadow
         if (TR::castShadow(entity.type)) {

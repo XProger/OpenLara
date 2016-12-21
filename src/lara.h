@@ -1761,7 +1761,8 @@ struct Lara : Character {
         m.translate(offset);
         
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
-        renderMesh(m, mesh, level->extra.muzzleFlash->mStart);
+        Core::active.shader->setParam(uModel, m);
+        renderMesh(mesh, level->extra.muzzleFlash->mStart);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {

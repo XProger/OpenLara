@@ -132,6 +132,7 @@ struct Texture;
 
 namespace Core {
     int width, height;
+    int frameIndex;
     float deltaTime;
     mat4 mView, mProj, mViewProj, mViewInv, mModel, mLightProj;
     vec3 viewPos;
@@ -252,6 +253,8 @@ namespace Core {
 
         for (int i = 0; i < MAX_LIGHTS; i++)
             lightColor[i] = vec4(0, 0, 0, 1);
+
+        frameIndex = 0;
     }
 
     void free() {

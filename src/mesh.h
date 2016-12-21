@@ -323,6 +323,17 @@ struct MeshBuilder {
                     if (info.offset == level.meshOffsets[j])
                         meshMap[j] = &info;
 
+            int16 joint = 0;
+            for (int j = 0; j < level.modelsCount; j++) {
+                TR::Model &m = level.models[j];
+                for (int k = m.mStart; k < m.mStart + m.mCount; k++) {
+                    if (mesh.offset == level.meshOffsets[k]) {
+                        joint = k - m.mStart;
+                        break;
+                    }
+                }
+            }
+
             int vStart = vCount;
             for (int j = 0; j < mesh.rCount; j++) {
                 TR::Rectangle &f = mesh.rectangles[j];
@@ -335,7 +346,7 @@ struct MeshBuilder {
                 for (int k = 0; k < 4; k++) {
                     TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
 
-                    vertices[vCount].coord  = v.coord;
+                    vertices[vCount].coord  = { v.coord.x, v.coord.y, v.coord.z, joint };
                     vertices[vCount].normal = v.normal;
                     vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
 
@@ -354,7 +365,7 @@ struct MeshBuilder {
                 for (int k = 0; k < 3; k++) {
                     TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
 
-                    vertices[vCount].coord  = v.coord;
+                    vertices[vCount].coord  = { v.coord.x, v.coord.y, v.coord.z, joint };
                     vertices[vCount].normal = v.normal;
                     vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
 

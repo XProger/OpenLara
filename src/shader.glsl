@@ -26,7 +26,7 @@ uniform int   uType;
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
-    uniform mat4 uModel;
+    uniform mat4 uModel[32];
 
     #ifndef PASS_AMBIENT
         uniform mat4 uViewInv;
@@ -54,7 +54,9 @@ uniform int   uType;
     #define TEXCOORD_SCALE (1.0 / 32767.0)
     
     void main() {
-        vec4 coord  = uModel * vec4(aCoord.xyz, 1.0);
+        mat4 rJoint = uModel[int(aCoord.w)];
+
+        vec4 coord  = rJoint * vec4(aCoord.xyz, 1.0);
         
         #ifdef PASS_COMPOSE
             if (uType != TYPE_SPRITE) {
@@ -65,7 +67,7 @@ uniform int   uType;
                 vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
                 vTexCoord  = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
-                vNormal    = vec4((uModel * vec4(aNormal.xyz, 0.0)).xyz, aNormal.w);
+                vNormal    = vec4((rJoint * vec4(aNormal.xyz, 0.0)).xyz, aNormal.w);
             } else {
                 coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
                 vTexCoord  = aTexCoord.xy * TEXCOORD_SCALE;
