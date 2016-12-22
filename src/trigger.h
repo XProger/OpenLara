@@ -1,6 +1,7 @@
 #ifndef H_TRIGGER
 #define H_TRIGGER
 
+#include "core.h"
 #include "controller.h"
 #include "sprite.h"
 
@@ -284,6 +285,28 @@ struct Bridge : Trigger {
 
     Bridge(TR::Level *level, int entity) : Trigger(level, entity, true) {
         getEntity().flags.collision = true;
+    }
+};
+
+struct Crystal : Controller {
+    Texture *environment;
+
+    Crystal(TR::Level *level, int entity) : Controller(level, entity) {
+        environment = new Texture(128, 128, false, true);
+    }
+
+    virtual ~Crystal() {
+        delete environment;
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
+        Shader *sh = Core::active.shader;
+        sh->setParam(uType,  Shader::MIRROR);
+        sh->setParam(uColor, vec4(0.4f, 0.4f, 16.0f, 1.0f)); // blue color dodge
+        environment->bind(sEnvironment);
+        Controller::render(frustum, mesh);
+        environment->unbind(sEnvironment);
+        sh->setParam(uType, Shader::ENTITY);
     }
 };
 

@@ -48,10 +48,10 @@ struct Level {
         #endif
         mesh = new MeshBuilder(level);
         
-	    shadow = new Texture(1024, 1024, true);
+	    shadow = new Texture(1024, 1024, true, false);
         for (int j = 0; j < 6; j++)
             for (int i = 0; i < 4; i++)
-                ambient[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), false);
+                ambient[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), false, false);
 
         initAtlas();
         initShaders();
@@ -119,6 +119,9 @@ struct Level {
                 case TR::Entity::TRAP_FLOOR            :
                     entity.controller = new TrapFloor(&level, i);
                     break;
+                case TR::Entity::CRYSTAL               :
+                    entity.controller = new Crystal(&level, i);
+                    break;
                 case TR::Entity::TRAP_BLADE            :
                 case TR::Entity::TRAP_SPIKES           :
                     entity.controller = new Trigger(&level, i, true);
@@ -151,6 +154,8 @@ struct Level {
         camera = new Camera(&level, lara);
 
         level.cameraController = camera;
+
+        initReflections();
     }
 
     ~Level() {
@@ -204,7 +209,7 @@ struct Level {
         fclose(f);
 */
 
-        atlas = new Texture(1024, 1024, false, data);
+        atlas = new Texture(1024, 1024, false, false, data);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
         delete[] data;
@@ -272,6 +277,17 @@ struct Level {
             }
         }
     */
+    }
+
+    void initReflections() {
+        Core::resetStates();
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.type == TR::Entity::CRYSTAL) {
+                Crystal *c = (Crystal*)e.controller;
+                renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
+            }
+        }
     }
 
 #ifdef LEVEL_EDITOR
@@ -601,20 +617,20 @@ struct Level {
     }
 
     void setupCubeCamera(const vec3 &pos, int face) {
-        vec3 up  = vec3(0, 1, 0);
+        vec3 up  = vec3(0, -1, 0);
         vec3 dir;
         switch (face) {
             case 0 : dir = vec3( 1,  0,  0); break;
             case 1 : dir = vec3(-1,  0,  0); break;
-            case 2 : dir = vec3( 0,  1,  0); up = vec3(1, 0, 0); break;
-            case 3 : dir = vec3( 0, -1,  0); up = vec3(1, 0, 0); break;
+            case 2 : dir = vec3( 0,  1,  0); up = vec3(0, 0,  1); break;
+            case 3 : dir = vec3( 0, -1,  0); up = vec3(0, 0, -1); break;
             case 4 : dir = vec3( 0,  0,  1); break;
             case 5 : dir = vec3( 0,  0, -1); break;
         }
 
         Core::mViewInv = mat4(pos, pos + dir, up);
-	    Core::mView    = Core::mViewInv.inverse();
-	    Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
+        Core::mView    = Core::mViewInv.inverse();
+        Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
     }
     
     bool setupLightCamera() {
@@ -628,13 +644,13 @@ struct Level {
         TR::Room::Light &light = level.rooms[room].lights[idx];
         vec3 shadowLightPos = vec3(float(light.x), float(light.y), float(light.z)); 
         Core::mViewInv = mat4(shadowLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0));
-	    Core::mView    = Core::mViewInv.inverse();
-	    Core::mProj    = mat4(120, 1.0f, camera->znear, camera->zfar);
+        Core::mView    = Core::mViewInv.inverse();
+        Core::mProj    = mat4(120, 1.0f, camera->znear, camera->zfar);
 
-	    mat4 bias;
-	    bias.identity();
-	    bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-	    Core::mLightProj = bias * Core::mProj * Core::mView;
+        mat4 bias;
+        bias.identity();
+        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
+        Core::mLightProj = bias * Core::mProj * Core::mView;
 
         return true;
     }
@@ -652,20 +668,25 @@ struct Level {
         sh->bind();
     }
 
-    void renderAmbient(int roomIndex, const vec3 &pos, vec3 *cube) {
-        PROFILE_MARKER("PASS_AMBIENT");
-
+    void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
+        PROFILE_MARKER("ENVIRONMENT");
     // first pass render level into cube faces
-        for (int j = 0; j < 6; j++) {
-            setupCubeCamera(pos, j);
+        for (int i = 0; i < 6; i++) {
+            setupCubeCamera(pos, i);
             setPassShader(Core::passAmbient);
             Core::setBlending(bmAlpha);
-            Texture *target = ambient[j * 4 + 0];
-            Core::setTarget(target);
-	        Core::setViewport(0, 0, target->width, target->height);
+            Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
+            Core::setTarget(target, i);
+            Core::setViewport(0, 0, target->width, target->height);
             Core::clear(vec4(0, 0, 0, 1));
             renderScene(roomIndex);
         }
+    }
+
+    void renderAmbient(int roomIndex, const vec3 &pos, vec3 *cube) {
+        PROFILE_MARKER("PASS_AMBIENT");
+
+        renderEnvironment(roomIndex, pos, ambient, 4);
 
     // second pass - downsample
         glDisable(GL_DEPTH_TEST);
@@ -705,7 +726,7 @@ struct Level {
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
         if (!setupLightCamera()) return;
-        Texture::unbind(sShadow);
+        shadow->unbind(sShadow);
         setPassShader(Core::passShadow);
         Core::setBlending(bmNone);
 	    Core::setTarget(shadow);
@@ -734,7 +755,6 @@ struct Level {
         renderAmbient(lara->getRoomIndex(), lara->pos - vec3(0, 512, 0), cube);
         renderShadows(lara->getRoomIndex());
         renderCompose(camera->getRoomIndex());
-   
 
     #ifdef _DEBUG
         static int modelIndex = 0;
@@ -765,7 +785,7 @@ struct Level {
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
-            Debug::Level::portals(level);
+        //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
             static int dbg_ambient = 0;
@@ -781,19 +801,19 @@ struct Level {
                 switch (j) {
                     case 0 : glRotatef( 90, 0, 1, 0); break;
                     case 1 : glRotatef(-90, 0, 1, 0); break;
-                    case 2 : glRotatef(-90, 1, 0, 0); glRotatef(-90, 0, 0, 1); break;
-                    case 3 : glRotatef( 90, 1, 0, 0); glRotatef(-90, 0, 0, 1); break;
+                    case 2 : glRotatef(-90, 1, 0, 0); break;
+                    case 3 : glRotatef( 90, 1, 0, 0); break;
                     case 4 : glRotatef(  0, 0, 1, 0); break;
                     case 5 : glRotatef(180, 0, 1, 0); break;
                 }
                 glTranslatef(0, 0, 256);
-                Texture::unbind(sShadow);
+                shadow->unbind(sShadow);
                 ambient[j * 4 + dbg_ambient]->bind(sDiffuse);
                 glBegin(GL_QUADS);
-                    glTexCoord2f(1, 1); glVertex3f(-256,  256, 0);
-                    glTexCoord2f(0, 1); glVertex3f( 256,  256, 0);
-                    glTexCoord2f(0, 0); glVertex3f( 256, -256, 0);
-                    glTexCoord2f(1, 0); glVertex3f(-256, -256, 0);
+                    glTexCoord2f(0, 0); glVertex3f(-256,  256, 0);
+                    glTexCoord2f(1, 0); glVertex3f( 256,  256, 0);
+                    glTexCoord2f(1, 1); glVertex3f( 256, -256, 0);
+                    glTexCoord2f(0, 1); glVertex3f(-256, -256, 0);
                 glEnd();
                 glPopMatrix();
             }
@@ -813,7 +833,7 @@ struct Level {
             glEnable(GL_DEPTH_TEST);
             */
 
-            Debug::Level::info(level, lara->getEntity(), lara->animation);
+//            Debug::Level::info(level, lara->getEntity(), lara->animation);
         Debug::end();
     #endif
     }

@@ -246,7 +246,7 @@ namespace Core {
         glGenFramebuffers(1, &RT);
         glGenRenderbuffers(1, &RB);
         glBindRenderbuffer(GL_RENDERBUFFER, RB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 64, 64);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 128, 128);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         Sound::init();
@@ -260,11 +260,6 @@ namespace Core {
     void free() {
     //    glDeleteFrameBuffers(1, &RT);
         Sound::free();
-    }
-
-    void resetStates() {
-        memset(&active, 0, sizeof(active));
-        glEnable(GL_DEPTH_TEST);
     }
 
     void clear(const vec4 &color) {
@@ -315,16 +310,20 @@ namespace Core {
             glEnable(GL_BLEND);
     }
 
-    void setTarget(Texture *target) {
+    void setTarget(Texture *target, int face = 0) {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glColorMask(true, true, true, true);
             return;
         }
 
+        GLenum texTarget = GL_TEXTURE_2D;
+        if (target->cube) 
+            texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+
         glBindFramebuffer(GL_FRAMEBUFFER, RT);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->ID, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, target->dummy ? target->dummy->ID : 0, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget, target->ID, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  texTarget, target->dummy ? target->dummy->ID : 0, 0);
         if (!target->depth) 
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RB);
 
@@ -332,6 +331,13 @@ namespace Core {
         glColorMask(mask, mask, mask, mask);
     //    GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
     //    glDrawBuffers(target->depth ? 0 : 1, buffers);
+    }
+
+    void resetStates() {
+        memset(&active, 0, sizeof(active));
+        glEnable(GL_DEPTH_TEST);
+        setCulling(cfFront);
+        setBlending(bmAlpha);
     }
 }
 

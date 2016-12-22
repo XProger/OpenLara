@@ -13,9 +13,10 @@ varying vec2 vTexCoord;
 #endif
 
 #define TYPE_SPRITE 0
-#define TYPE_ROOM   1
-#define TYPE_ENTITY 2
-#define TYPE_FLASH  3
+#define TYPE_FLASH  1
+#define TYPE_ROOM   2
+#define TYPE_ENTITY 3
+#define TYPE_MIRROR 4
 
 uniform int   uType;
 
@@ -103,8 +104,10 @@ uniform int   uType;
     uniform sampler2D   sDiffuse;
     uniform vec4        uColor;
     #ifdef PASS_COMPOSE
-        uniform vec3    uLightPos[MAX_LIGHTS];
-        uniform vec4    uLightColor[MAX_LIGHTS];
+        uniform samplerCube sEnvironment;
+        uniform vec3        uLightPos[MAX_LIGHTS];
+        uniform vec4        uLightColor[MAX_LIGHTS];
+        uniform vec3        uAmbient[6];
     #endif
 
     #ifdef PASS_SHADOW
@@ -120,15 +123,6 @@ uniform int   uType;
     #endif
 
     #ifdef PASS_COMPOSE
-        uniform vec3 uAmbient[6];
-
-        vec3 getAmbientLight(vec3 n) {
-            vec3 sqr = n * n;
-            vec3 pos = step(0.0, n);
-            return sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) + 
-                   sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
-                   sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
-        }
 
         #ifdef SHADOW_SAMPLER
             uniform sampler2DShadow sShadow;
@@ -201,6 +195,14 @@ uniform int   uType;
             float att = max(0.0, 1.0 - dot(lv, lv) / color.w);
             return color.xyz * (lum * att);
         }
+
+        vec3 calcAmbient(vec3 n) {
+            vec3 sqr = n * n;
+            vec3 pos = step(0.0, n);
+            return sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) + 
+                   sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
+                   sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+        }
     #endif
 
     void main() {
@@ -242,10 +244,17 @@ uniform int   uType;
                     }
 
                     if (uType == TYPE_ENTITY) {
-                        vec3 rAmbient = pow(abs(getAmbientLight(normal)), vec3(2.2));
+                        vec3 rAmbient = pow(abs(calcAmbient(normal)), vec3(2.2));
                         float rShadow = getShadow(vLightProj);
-                        light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;
+                        light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;            
                     }
+
+                    if (uType == TYPE_MIRROR) {
+                        vec3 rv = reflect(-viewVec, normal);
+                        color.xyz = uColor.xyz * pow(abs(textureCube(sEnvironment, normalize(rv)).xyz), vec3(2.2));
+                        light.xyz = vec3(1.0);
+                    }
+
                     color.xyz *= light;
                 } else {
                     color.w = uColor.w;

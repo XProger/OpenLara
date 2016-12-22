@@ -4,18 +4,18 @@
 #include "core.h"
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
-enum SamplerType    { sDiffuse, sShadow, sMAX };
+enum SamplerType    { sDiffuse, sShadow, sEnvironment, sMAX };
 enum UniformType    { uType, uCaustics, uTime, uViewProj, uViewInv, uModel, uLightProj, uColor, uAmbient, uViewPos, uLightPos, uLightColor, uLightTarget, uAnimTexRanges, uAnimTexOffsets, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
-const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow" };
+const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow", "sEnvironment" };
 const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uTime", "uViewProj", "uViewInv", "uModel", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightPos", "uLightColor", "uLightTarget", "uAnimTexRanges", "uAnimTexOffsets" };
 
 struct Shader {
     GLuint  ID;
     GLint   uID[uMAX];
 
-    enum : GLint { SPRITE = 0, ROOM = 1, ENTITY = 2, FLASH = 3, DOWNSAMPLE = 10 };
+    enum : GLint { SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, DOWNSAMPLE = 10 };
 
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
