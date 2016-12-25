@@ -31,7 +31,7 @@
 
 #define DESCENT_SPEED       2048.0f
 #define MUZZLE_FLASH_TIME   0.1f
-#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 2048 * 2048)
+#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 3584 * 3584)
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
 struct Lara : Character {
@@ -217,7 +217,7 @@ struct Lara : Character {
             weapons[Weapon::UZIS   ].ammo = 9000;
             wpnSet(Weapon::PISTOLS);
         } else
-            meshSwap(&level->models[TR::MODEL_LARA_SPEC], BODY_UPPER | BODY_LOWER);
+            meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
     #ifdef _DEBUG
 /*
     // gym 
@@ -366,22 +366,25 @@ struct Lara : Character {
         if (wpnState == Weapon::IS_HIDDEN && wState == Weapon::IS_ARMED)  playSound(TR::SND_UNHOLSTER, pos, Sound::Flags::PAN);
         if (wpnState == Weapon::IS_ARMED  && wState == Weapon::IS_HIDDEN) playSound(TR::SND_HOLSTER,   pos, Sound::Flags::PAN);
 
-        int resetMask = BODY_HEAD | BODY_UPPER | BODY_LOWER;
-        if (wpnCurrent == Weapon::SHOTGUN)
-            resetMask &= ~(BODY_LEG_L1 | BODY_LEG_R1);
+    // swap layers
+    // 0 - body (full)
+    // 1 - legs (hands, legs)
+    // 2 - shotgun (hands, chest)
+    // 3 - angry (head)
 
-        // restore original meshes first
-        meshSwap(&level->models[Weapon::EMPTY], resetMask);
-        // replace some parts
-        meshSwap(&level->models[wpnCurrent], mask);
-        // have a shotgun in inventory place it on the back if another weapon is in use
-        if (wpnCurrent != Weapon::SHOTGUN && weapons[Weapon::SHOTGUN].ammo != -1) 
-            meshSwap(&level->models[Weapon::SHOTGUN], BODY_CHEST);
+        // swap weapon parts        
+        if (wpnCurrent != Weapon::SHOTGUN) {
+            meshSwap(1, wpnCurrent, mask);
+            // have a shotgun in inventory place it on the back if another weapon is in use
+            meshSwap(2, Weapon::SHOTGUN, (weapons[Weapon::SHOTGUN].ammo != -1) ? BODY_CHEST : 0);
+        } else {
+            meshSwap(2, wpnCurrent, mask);
+        }
+
         // mesh swap to angry Lara's head while firing (from uzis model)
-        if (wState == Weapon::IS_FIRING)                                        
-            meshSwap(&level->models[Weapon::UZIS], BODY_HEAD);
-
-        wpnState   = wState;
+        meshSwap(3, Weapon::UZIS, (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
+            
+        wpnState = wState;
     }
 
     bool emptyHands() {
@@ -1119,7 +1122,7 @@ struct Lara : Character {
 
             vec3 p = pos + getDir() * 128.0f;
             TR::Level::FloorInfo info;
-            
+        // TODO: use brain
             info.roomAbove = getRoomIndex();
             level->getFloorInfo(info.roomAbove, (int)pos.x, (int)pos.y, (int)pos.z, info);
             if (info.roomAbove == 0xFF)
@@ -1129,7 +1132,7 @@ struct Lara : Character {
                 level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.y, (int)p.z, info);
             } while (info.ceiling > p.y - LARA_HANG_OFFSET && info.roomAbove != 0xFF);
 
-            if (abs(int(info.floor - (p.y - LARA_HANG_OFFSET))) < 16) {
+            if (abs(int(info.floor - (p.y - LARA_HANG_OFFSET))) < 32) {
                 alignToWall();
                 pos = pos - getDir() * 96.0f; // TODO: collision wall offset
                 pos.y = info.floor + LARA_HANG_OFFSET;
@@ -1425,7 +1428,7 @@ struct Lara : Character {
             case STATE_USE_PUZZLE : {
                 TR::Entity &item = level->entities[lastPickUp];
                 if (animation.isFrameActive(PUZZLE_FRAME))
-                    ((Controller*)item.controller)->meshSwap(level->extra.puzzleSet);
+                    ((Controller*)item.controller)->meshSwap(0, level->extra.puzzleSet);
                 break;
             }
         }
@@ -1762,7 +1765,7 @@ struct Lara : Character {
         
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
         Core::active.shader->setParam(uModel, m);
-        renderMesh(mesh, level->extra.muzzleFlash->mStart);
+        mesh->renderModel(level->extra.muzzleFlash);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {

@@ -102,8 +102,8 @@
     #endif
 #endif
 
-#define MAX_LIGHTS      3
-#define MAX_SHADOW_DIST 4096
+#define MAX_LIGHTS          3
+#define MAX_RENDER_BUFFERS  11
 
 struct Shader;
 struct Texture;
@@ -142,11 +142,13 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passFilter } pass;
 
-    GLuint RT, RB;
+    GLuint FBO;
+    GLuint renderBuffers[2][MAX_RENDER_BUFFERS];
 
     struct {
         Shader  *shader;
         Texture *testures[8];
+        GLuint  VAO;
     } active;
 
     struct {
@@ -243,10 +245,15 @@ namespace Core {
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("\n");
 
-        glGenFramebuffers(1, &RT);
-        glGenRenderbuffers(1, &RB);
-        glBindRenderbuffer(GL_RENDERBUFFER, RB);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 128, 128);
+        glGenFramebuffers(1, &FBO);
+
+        glGenRenderbuffers(MAX_RENDER_BUFFERS * 2, &renderBuffers[0][0]);
+
+        for (int j = 0; j < 2; j++)
+            for (int i = 0; i < MAX_RENDER_BUFFERS; i++) {
+                glBindRenderbuffer(GL_RENDERBUFFER, renderBuffers[j][i]);
+                glRenderbufferStorage(GL_RENDERBUFFER, j ? GL_RGB565 : GL_DEPTH_COMPONENT16, 1 << i, 1 << i);
+            }
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         Sound::init();
@@ -258,7 +265,8 @@ namespace Core {
     }
 
     void free() {
-    //    glDeleteFrameBuffers(1, &RT);
+    //    glDeleteRenderBuffers(MAX_RENDER_BUFFERS * 2, &renderBuffers[0][0]);
+    //    glDeleteFrameBuffers(1, &FBO);
         Sound::free();
     }
 
@@ -321,16 +329,19 @@ namespace Core {
         if (target->cube) 
             texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-        glBindFramebuffer(GL_FRAMEBUFFER, RT);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget, target->ID, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  texTarget, target->dummy ? target->dummy->ID : 0, 0);
-        if (!target->depth) 
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, RB);
+        int i = target->width, dummyBuffer = 0;
+        while (i > 1) {
+            dummyBuffer++;
+            i >>= 1;
+        }
 
-        bool mask = !target->depth;
-        glColorMask(mask, mask, mask, mask);
-    //    GLenum  buffers[] = { GL_COLOR_ATTACHMENT0 };
-    //    glDrawBuffers(target->depth ? 0 : 1, buffers);
+        ASSERT(target->width == (1 << dummyBuffer) )
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+        glFramebufferTexture2D    (GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
+        glFramebufferRenderbuffer (GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, renderBuffers[target->depth][dummyBuffer]);
+
+        if (target->depth)
+            glColorMask(false, false, false, false);
     }
 
     void resetStates() {

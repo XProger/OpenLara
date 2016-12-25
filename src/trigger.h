@@ -292,7 +292,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(TR::Level *level, int entity) : Controller(level, entity) {
-        environment = new Texture(128, 128, false, true);
+        environment = new Texture(64, 64, false, true);
     }
 
     virtual ~Crystal() {
@@ -305,7 +305,6 @@ struct Crystal : Controller {
         sh->setParam(uColor, vec4(0.4f, 0.4f, 16.0f, 1.0f)); // blue color dodge
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh);
-        environment->unbind(sEnvironment);
         sh->setParam(uType, Shader::ENTITY);
     }
 };

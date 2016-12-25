@@ -30,9 +30,11 @@ struct MeshRange {
     }
 
     void bind(GLuint *VAO) const {
-        if (aIndex > -1)
-            glBindVertexArray(VAO[aIndex]);
-        else
+        if (aIndex > -1) {
+            if (Core::active.VAO != VAO[aIndex]) {
+                glBindVertexArray(Core::active.VAO = VAO[aIndex]);
+            }
+        } else
             setup();        
     }
 };
@@ -126,27 +128,19 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
-// rooms
+    Mesh *mesh;
+// level
     struct RoomRange {
         MeshRange geometry;
-        MeshRange sprites;     
-    } *roomRanges;
-
-// objects meshes
-    struct MeshInfo : MeshRange {
-        int          offset;
-        TR::Vertex   center;
-        TR::Collider collider;
-    }   *meshInfo;
-    MeshInfo **meshMap;  // meshInfo by meshOffsetIndex
-
-    MeshRange *spriteSequences;
+        MeshRange sprites;
+        MeshRange **meshes;
+    } *rooms;
+    MeshRange *models;
+    MeshRange *sequences;
+// procedured
     MeshRange shadowBlob;
     MeshRange bar;
     MeshRange quad;
-
-// indexed mesh
-    Mesh *mesh;
 
     vec2 *animTexRanges;
     vec2 *animTexOffsets;
@@ -155,67 +149,82 @@ struct MeshBuilder {
     int animTexOffsetsCount;
 
     TR::Level *level;
+    TR::ObjectTexture whiteTile;
 
     MeshBuilder(TR::Level &level) : level(&level) {
         initAnimTextures(level);
 
-    // create dummy white object textures for non-textured (colored) geometry
-        TR::ObjectTexture whiteTileQuad;
-        whiteTileQuad.attribute = 0;
-        whiteTileQuad.tile.index = 15;
-        whiteTileQuad.tile.triangle = 0;
-        whiteTileQuad.texCoord[0] = 
-        whiteTileQuad.texCoord[1] = 
-        whiteTileQuad.texCoord[2] = 
-        whiteTileQuad.texCoord[3] = { 253, 253 };
-
-        TR::ObjectTexture whiteTileTri = whiteTileQuad;
-        whiteTileTri.tile.triangle = 1;
+    // create dummy white object textures for non-textured (colored) geometry        
+        whiteTile.attribute = 0;
+        whiteTile.tile.index = 15;
+        whiteTile.tile.triangle = 0;
+        whiteTile.texCoord[0] = 
+        whiteTile.texCoord[1] = 
+        whiteTile.texCoord[2] = 
+        whiteTile.texCoord[3] = { 253, 253 };
 
     // allocate room geometry ranges
-        roomRanges = new RoomRange[level.roomsCount];
+        rooms = new RoomRange[level.roomsCount];
 
         int iCount = 0, vCount = 0, aCount = 0;
 
     // get size of mesh for rooms (geometry & sprites)
         for (int i = 0; i < level.roomsCount; i++) {
-            TR::Room::Data &d = level.rooms[i].data;
-            RoomRange &r = roomRanges[i];
+            TR::Room       &r = level.rooms[i];
+            TR::Room::Data &d = r.data;
 
-            r.geometry.vStart = vCount;
-            r.geometry.iStart = iCount;
+            RoomRange &range = rooms[i];
+
+            range.geometry.vStart = vCount;
+            range.geometry.iStart = iCount;
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
-            r.geometry.iCount = iCount - r.geometry.iStart;
             
-            r.sprites.vStart = vCount;
-            r.sprites.iStart = iCount;
+            for (int j = 0; j < r.meshesCount; j++) {
+                TR::Room::Mesh &m = r.meshes[j];
+                TR::StaticMesh *s = level.getMeshByID(m.meshID);
+                if (!level.meshOffsets[s->mesh]) continue;
+                TR::Mesh &mesh = level.meshes[level.meshOffsets[s->mesh]];
+
+                iCount += mesh.rCount * 6 + mesh.tCount * 3;
+                vCount += mesh.rCount * 4 + mesh.tCount * 3;
+            }
+
+            range.geometry.iCount = iCount - range.geometry.iStart;
+            ASSERT(vCount - range.geometry.vStart < 0xFFFF);
+
+            range.sprites.vStart = vCount;
+            range.sprites.iStart = iCount;
             iCount += d.sCount * 6;
             vCount += d.sCount * 4;
-            r.sprites.iCount = iCount - r.sprites.iStart;
-            if (r.sprites.iCount)
+            range.sprites.iCount = iCount - range.sprites.iStart;
+            if (range.sprites.iCount)
                 aCount++;
+
+            ASSERT(vCount - range.sprites.vStart < 0xFFFF);
         }
         aCount += level.roomsCount;
 
-    // get objects mesh info
-        for (int i = 0; i < level.meshesCount; i++) {
-            TR::Mesh &mesh = level.meshes[i];
-            iCount += mesh.rCount * 6 + mesh.tCount * 3;
-            vCount += mesh.rCount * 4 + mesh.tCount * 3;
+    // get models info
+        models = new MeshRange[level.modelsCount];
+        for (int i = 0; i < level.modelsCount; i++) {
+            TR::Model &model = level.models[i];
+            for (int j = 0; j < model.mCount; j++) {
+                int index = level.meshOffsets[model.mStart + j];
+                if (!index && model.mCount == 1) continue;
+                aCount++;
+                TR::Mesh &mesh = level.meshes[index];
+                iCount += mesh.rCount * 6 + mesh.tCount * 3;
+                vCount += mesh.rCount * 4 + mesh.tCount * 3;
+            }
         }
-        aCount += level.meshesCount;
-        meshInfo = new MeshInfo[level.meshesCount];
-        meshMap  = new MeshInfo*[level.meshOffsetsCount];
-        memset(meshMap, 0, sizeof(meshMap[0]) * level.meshOffsetsCount); 
-        
+
     // get size of mesh for sprite sequences
-        spriteSequences = new MeshRange[level.spriteSequencesCount];
+        sequences = new MeshRange[level.spriteSequencesCount];
         for (int i = 0; i < level.spriteSequencesCount; i++) {
-        // TODO: sequences not only first frame
-            spriteSequences[i].vStart = vCount;
-            spriteSequences[i].iStart = iCount;
-            spriteSequences[i].iCount = level.spriteSequences[i].sCount * 6;
+            sequences[i].vStart = vCount;
+            sequences[i].iStart = iCount;
+            sequences[i].iCount = level.spriteSequences[i].sCount * 6;
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
         }
@@ -252,7 +261,8 @@ struct MeshBuilder {
 
     // build rooms
         for (int i = 0; i < level.roomsCount; i++) {
-            TR::Room::Data &d = level.rooms[i].data;
+            TR::Room       &r = level.rooms[i];
+            TR::Room::Data &d = r.data;
 
         // rooms geometry
             int vStart = vCount;
@@ -292,6 +302,20 @@ struct MeshBuilder {
                 }
             }
 
+        // static meshes
+            for (int j = 0; j < r.meshesCount; j++) {
+                TR::Room::Mesh &m = r.meshes[j];
+                TR::StaticMesh *s = level.getMeshByID(m.meshID);
+                if (!level.meshOffsets[s->mesh]) continue;
+                TR::Mesh &mesh = level.meshes[level.meshOffsets[s->mesh]];
+
+                int x = m.x - r.info.x;
+                int y = m.y;
+                int z = m.z - r.info.z;
+                int d = m.rotation.value / 0x4000;
+                buildMesh(mesh, level, indices, vertices, iCount, vCount, vStart, 0, x, y, z, d);
+            }
+
         // rooms sprites
             vStart = vCount;
             for (int j = 0; j < d.sCount; j++) {
@@ -303,83 +327,30 @@ struct MeshBuilder {
             }
         }
 
-    // build objects geometry
-        TR::Color24 COLOR_WHITE = { 255, 255, 255 };
-
-        for (int i = 0; i < level.meshesCount; i++) {
-            TR::Mesh &mesh = level.meshes[i];
-
-            MeshInfo &info = meshInfo[i];
-            info.offset   = mesh.offset;
-            info.vStart   = vCount;
-            info.iStart   = iCount;
-            info.center   = mesh.center;
-            info.collider = mesh.collider;
-
-            if (!info.offset)
-                meshMap[0] = &info;
-            else
-                for (int j = 0; j < level.meshOffsetsCount; j++)
-                    if (info.offset == level.meshOffsets[j])
-                        meshMap[j] = &info;
-
-            int16 joint = 0;
-            for (int j = 0; j < level.modelsCount; j++) {
-                TR::Model &m = level.models[j];
-                for (int k = m.mStart; k < m.mStart + m.mCount; k++) {
-                    if (mesh.offset == level.meshOffsets[k]) {
-                        joint = k - m.mStart;
-                        break;
-                    }
-                }
-            }
-
+    // build models geometry
+        for (int i = 0; i < level.modelsCount; i++) {
+            TR::Model &model = level.models[i];
+            MeshRange &range = models[i];
             int vStart = vCount;
-            for (int j = 0; j < mesh.rCount; j++) {
-                TR::Rectangle &f = mesh.rectangles[j];
-                bool textured = !(f.texture & 0x8000);
-                TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
-                TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
+            range.vStart = vStart;
+            range.iStart = iCount;
 
-                addQuad(indices, iCount, vCount, vStart, vertices, &t);
+            for (int j = 0; j < model.mCount; j++) {
+                int index = level.meshOffsets[model.mStart + j];
+                if (!index && model.mCount == 1) continue;
 
-                for (int k = 0; k < 4; k++) {
-                    TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
-
-                    vertices[vCount].coord  = { v.coord.x, v.coord.y, v.coord.z, joint };
-                    vertices[vCount].normal = v.normal;
-                    vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
-
-                    vCount++;
-                }
+                TR::Mesh &mesh = level.meshes[index];
+                buildMesh(mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
             }
 
-            for (int j = 0; j < mesh.tCount; j++) {
-                TR::Triangle &f = mesh.triangles[j];
-                bool textured = !(f.texture & 0x8000);
-                TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTileQuad;
-                TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
-
-                addTriangle(indices, iCount, vCount, vStart, vertices, &t);
-
-                for (int k = 0; k < 3; k++) {
-                    TR::Mesh::Vertex &v  = mesh.vertices[f.vertices[k]];
-
-                    vertices[vCount].coord  = { v.coord.x, v.coord.y, v.coord.z, joint };
-                    vertices[vCount].normal = v.normal;
-                    vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
-
-                    vCount++;
-                }
-            }
-            info.iCount = iCount - info.iStart;
+            range.iCount = iCount - range.iStart;
         }
 
     // build sprite sequences
         for (int i = 0; i < level.spriteSequencesCount; i++) 
             for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
                 TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
-                addSprite(indices, vertices, iCount, vCount, spriteSequences[i].vStart, 0, 0, 0, sprite, 255);
+                addSprite(indices, vertices, iCount, vCount, sequences[i].vStart, 0, 0, 0, sprite, 255);
             }
 
     // build shadow spot
@@ -403,7 +374,7 @@ struct MeshBuilder {
         iCount += shadowBlob.iCount;
 
     // white bar
-        addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTileQuad);
+        addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTile);
         vertices[vCount + 0].coord = { 0, 0, 0, 0 };
         vertices[vCount + 1].coord = { 1, 0, 0, 0 };
         vertices[vCount + 2].coord = { 1, 1, 0, 0 };
@@ -418,11 +389,11 @@ struct MeshBuilder {
         vCount += 4;
 
     // quad
-        addQuad(indices, iCount, vCount, quad.vStart, vertices, &whiteTileQuad);
-        vertices[vCount + 0].coord = { -1, -1, 0, 0 };
-        vertices[vCount + 1].coord = {  1, -1, 1, 0 };
-        vertices[vCount + 2].coord = {  1,  1, 1, 1 };
-        vertices[vCount + 3].coord = { -1,  1, 0, 1 };
+        addQuad(indices, iCount, vCount, quad.vStart, vertices, &whiteTile);
+        vertices[vCount + 3].coord = { -1, -1, 0, 0 };
+        vertices[vCount + 2].coord = {  1, -1, 1, 0 };
+        vertices[vCount + 1].coord = {  1,  1, 1, 1 };
+        vertices[vCount + 0].coord = { -1,  1, 0, 1 };
 
         for (int i = 0; i < 4; i++) {
             Vertex &v = vertices[vCount + i];
@@ -442,16 +413,16 @@ struct MeshBuilder {
 
         // initialize Vertex Arrays
         for (int i = 0; i < level.roomsCount; i++) {
-            RoomRange &r = roomRanges[i];
+            RoomRange &r = rooms[i];
             mesh->initRange(r.geometry);
             if (r.sprites.iCount)
                 mesh->initRange(r.sprites);
         }
 
         for (int i = 0; i < level.spriteSequencesCount; i++)
-            mesh->initRange(spriteSequences[i]);       
-        for (int i = 0; i < level.meshesCount; i++)
-            mesh->initRange(meshInfo[i]);
+            mesh->initRange(sequences[i]);     
+        for (int i = 0; i < level.modelsCount; i++)
+            mesh->initRange(models[i]);
         mesh->initRange(shadowBlob);
         mesh->initRange(bar);
         mesh->initRange(quad);
@@ -460,12 +431,76 @@ struct MeshBuilder {
     ~MeshBuilder() {
         delete[] animTexRanges;
         delete[] animTexOffsets;
-        delete[] roomRanges;
-        delete[] meshInfo;
-        delete[] meshMap;
-        delete[] spriteSequences;
+        delete[] rooms;
+        delete[] models;
+        delete[] sequences;
         delete mesh;
     }
+
+    inline short4 rotate(const short4 &v, int dir) {
+        if (dir == 0) return v;
+        short4 res = v;
+
+        switch (dir) {
+            case 1  : res.x =  v.z, res.z = -v.x; break;
+            case 2  : res.x = -v.x, res.z = -v.z; break;
+            case 3  : res.x = -v.z, res.z =  v.x; break;
+            default : ASSERT(false);
+        }
+        return res;
+    }
+
+    inline short4 transform(const short4 &v, int joint, int x, int y, int z, int dir) {
+        short4 res = rotate(v, dir);
+        res.x += x;
+        res.y += y;
+        res.z += z;
+        res.w = joint;
+        return res;
+    }
+
+    void buildMesh(const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir) {
+        TR::Color24 COLOR_WHITE = { 255, 255, 255 };
+
+        for (int j = 0; j < mesh.rCount; j++) {
+            TR::Rectangle &f = mesh.rectangles[j];
+            bool textured = !(f.texture & 0x8000);
+            TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
+            TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
+
+            addQuad(indices, iCount, vCount, vStart, vertices, &t);
+
+            for (int k = 0; k < 4; k++) {
+                TR::Mesh::Vertex &v = mesh.vertices[f.vertices[k]];
+
+                vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
+                vertices[vCount].normal = rotate(v.normal, dir);
+                vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
+
+                vCount++;
+            }
+        }
+
+        for (int j = 0; j < mesh.tCount; j++) {
+            TR::Triangle &f = mesh.triangles[j];
+            bool textured = !(f.texture & 0x8000);
+            TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
+            TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
+
+            addTriangle(indices, iCount, vCount, vStart, vertices, &t);
+
+            for (int k = 0; k < 3; k++) {
+                TR::Mesh::Vertex &v = mesh.vertices[f.vertices[k]];
+
+                vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
+                vertices[vCount].normal = rotate(v.normal, dir);
+                vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
+
+                vCount++;
+            }
+        }
+    }
+
 
     vec2 getTexCoord(const TR::ObjectTexture &tex) {
         int  tile = tex.tile.index;
@@ -611,27 +646,23 @@ struct MeshBuilder {
     }
 
     void renderRoomGeometry(int roomIndex) {
-        mesh->render(roomRanges[roomIndex].geometry);
+        mesh->render(rooms[roomIndex].geometry);
     }
 
     void renderRoomSprites(int roomIndex) {
-        mesh->render(roomRanges[roomIndex].sprites);
+        mesh->render(rooms[roomIndex].sprites);
     }
 
     bool hasRoomSprites(int roomIndex) {
-        return roomRanges[roomIndex].sprites.iCount > 0;
+        return rooms[roomIndex].sprites.iCount > 0;
     }
 
-    void renderMesh(MeshInfo *meshInfo) {
-        mesh->render(*meshInfo);
-    }
-
-    void renderMesh(int meshIndex) {
-        renderMesh(&meshInfo[meshIndex]);
+    void renderModel(int modelIndex) {
+        mesh->render(models[modelIndex]);
     }
 
     void renderSprite(int sequenceIndex, int frame) {
-        MeshRange range = spriteSequences[sequenceIndex];
+        MeshRange range = sequences[sequenceIndex];
         range.iCount  = 6;
         range.iStart += frame * 6;
         mesh->render(range);

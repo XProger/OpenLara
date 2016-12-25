@@ -8,9 +8,8 @@ struct Texture {
     int     width, height;
     bool    depth;
     bool    cube;
-    Texture *dummy;
 
-    Texture(int width, int height, bool depth, bool cube, void *data = NULL) : width(width), height(height), cube(cube), dummy(NULL) {
+    Texture(int width, int height, bool depth, bool cube, void *data = NULL) : width(width), height(height), cube(cube) {
         glGenTextures(1, &ID);
         bind(0);
 
@@ -39,13 +38,9 @@ struct Texture {
             glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, format, width, height, 0, format, depth ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE, data);
             if (!cube) break;
         }
-
-        if (depth)
-            dummy = new Texture(width, height, false, false, NULL); // some drivers can't render to texture without color target, create dummy color target for fix it
     }
 
     virtual ~Texture() {
-        delete dummy;
         glDeleteTextures(1, &ID);
     }
 

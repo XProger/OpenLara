@@ -7,7 +7,6 @@ varying vec2 vTexCoord;
         varying vec4  vNormal;
         varying vec3  vViewVec;
         varying vec4  vLightProj;
-        varying float vLightTargetDist;
     #endif
     varying vec4  vColor;
 #endif
@@ -32,7 +31,6 @@ uniform int   uType;
     #ifndef PASS_AMBIENT
         uniform mat4 uViewInv;
         uniform mat4 uLightProj;
-        uniform vec3 uLightTarget;
     #endif
 
     #ifdef PASS_COMPOSE
@@ -88,11 +86,7 @@ uniform int   uType;
                 vColor.xyz *= abs(sin(sum / 512.0 + uTime)) * 1.5 + 0.5; // color dodge
             }
 
-            vViewVec = uViewPos - coord.xyz;
-
-            vec2 dist = (uLightTarget - coord.xyz).xz;
-            vLightTargetDist = dot(dist, dist) / (MAX_SHADOW_DIST * MAX_SHADOW_DIST);
-          
+            vViewVec   = uViewPos - coord.xyz;          
             vLightProj = uLightProj * coord;
 
             vCoord = coord.xyz;
@@ -185,7 +179,9 @@ uniform int   uType;
                 rShadow += SHADOW(p + vec3(poissonDisk[i] * 1.5, 0.0) * (1.0 / 1024.0));
             rShadow /= 16.0;
 
-            float fade = min(1.0, vLightTargetDist);
+            vec3 lv = uLightPos[0].xyz - vCoord.xyz;
+            float fade = clamp(dot(lv, lv) / uLightColor[0].w, 0.0, 1.0);
+
             return mix(rShadow, 1.0, fade);
         }
 

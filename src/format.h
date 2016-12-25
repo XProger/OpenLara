@@ -280,9 +280,6 @@ namespace TR {
             int16   intensity;
             uint16  meshID;
             uint16  align; // PSX
-            struct { // ! not exists in file !
-                uint16 unused:15, rendered:1;
-            } flags;
         } *meshes;
     };
 
@@ -817,8 +814,8 @@ namespace TR {
         void    *cameraController;
 
         struct {
-            Model *muzzleFlash;
-            Model *puzzleSet;
+            uint16 muzzleFlash;
+            uint16 puzzleSet;
         } extra;
 
         Level(const char *name, bool demo) {            
@@ -932,7 +929,7 @@ namespace TR {
                 stream.read(r.meshesCount);
                 r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
                 for (int i = 0; i < r.meshesCount; i++)
-                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - (version == VER_TR1_PC ? sizeof(r.meshes[i].align) : 0) - sizeof(r.meshes[i].flags));
+                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - (version == VER_TR1_PC ? sizeof(r.meshes[i].align) : 0));
             // misc flags
                 stream.read(r.alternateRoom);
                 stream.read(r.flags);
@@ -1019,8 +1016,8 @@ namespace TR {
             memset(&extra, 0, sizeof(extra));
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
-                    case Entity::MUZZLE_FLASH    : extra.muzzleFlash = &models[i]; break;
-                    case Entity::HOLE_PUZZLE_SET : extra.puzzleSet   = &models[i]; break;
+                    case Entity::MUZZLE_FLASH    : extra.muzzleFlash = i; break;
+                    case Entity::HOLE_PUZZLE_SET : extra.puzzleSet   = i; break;
                     default : ;
                 }
         }
@@ -1229,6 +1226,20 @@ namespace TR {
             ASSERT(stream.pos - start == meshDataSize * 2);
 
             stream.read(meshOffsets, stream.read(meshOffsetsCount));
+
+        // remap offsets to mesh index
+            for (int i = 0; i < meshOffsetsCount; i++) {
+                int index = -1;
+//                if (!meshOffsets[i] && i)
+//                    index = -1;
+//                else
+                for (int j = 0; j < meshesCount; j++)
+                    if (meshes[j].offset == meshOffsets[i]) {                       
+                        index = j;
+                        break;
+                    }
+                meshOffsets[i] = index;
+            }
         }
 
         void readObjectTex(Stream &stream) {
@@ -1403,7 +1414,7 @@ namespace TR {
         }
 
     // common methods
-        Color24 getColor(int texture) {
+        Color24 getColor(int texture) const {
             switch (version) {
                 case VER_TR1_PC  : return palette[texture & 0xFF];
                 case VER_TR1_PSX : {

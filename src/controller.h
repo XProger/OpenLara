@@ -10,6 +10,8 @@
 #define NO_OVERLAP  0x7FFFFFFF
 #define SPRITE_FPS  10.0f
 
+#define MAX_LAYERS  4
+
 struct Controller {
     TR::Level   *level;
     int         entity;
@@ -20,11 +22,15 @@ struct Controller {
     vec3    pos;
     vec3    angle;
 
-    int     *meshes;
-    int     mCount;
-
     mat4    *joints;
     int     frameIndex;
+
+    vec3    ambient[6];
+
+    struct MeshLayer {
+        uint32   model;
+        uint32   mask;
+    } *layers;
 
     struct ActionCommand {
         int             emitter;
@@ -37,7 +43,7 @@ struct Controller {
         ActionCommand(int emitter, TR::Action action, int value, float timer, ActionCommand *next = NULL) : emitter(emitter), action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), meshes(NULL), mCount(0), actionCommand(NULL) {
+    Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL), actionCommand(NULL) {
         TR::Entity &e = getEntity();
         pos        = vec3((float)e.x, (float)e.y, (float)e.z);
         angle      = vec3(0.0f, e.rotation, 0.0f);
@@ -47,26 +53,28 @@ struct Controller {
     }
 
     virtual ~Controller() {
-        delete[] meshes;
         delete[] joints;
+        delete[] layers;
     }
 
     void initMeshOverrides() {
-        TR::Model *model = getModel();
-        mCount = model->mCount;
-        meshes = mCount ? new int[mCount] : NULL;
-        for (int i = 0; i < mCount; i++)
-            meshes[i] = model->mStart + i;
+        layers = new MeshLayer[MAX_LAYERS];
+        memset(layers, 0, sizeof(MeshLayer) * MAX_LAYERS);
+        layers[0].model = getEntity().modelIndex - 1;
+        layers[0].mask  = 0xFFFFFFFF;
     }
 
-    void meshSwap(TR::Model *model, int mask = 0xFFFFFFFF) {
-        if (!meshes) initMeshOverrides();
+    void meshSwap(int layer, uint32 model, uint32 mask = 0xFFFFFFFF) {        
+        if (!layers) initMeshOverrides();
 
-        for (int i = 0; i < model->mCount; i++) {
-            int index = model->mStart + i;
-            if (((1 << i) & mask) && level->meshOffsets[index])
-                meshes[i] = index;
+        TR::Model &m = level->models[model];
+        for (int i = 0; i < m.mCount; i++) {
+            if (((1 << i) & mask) && !level->meshOffsets[m.mStart + i] && m.mStart + i > 0)
+                mask &= ~(1 << i);
         }
+
+        layers[layer].model = model;
+        layers[layer].mask  = mask;
     }
 
     bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
@@ -401,13 +409,14 @@ struct Controller {
     virtual void update() {
         updateAnimation(true);
     }
-    
+/*
     void renderMesh(MeshBuilder *mesh, uint32 offsetIndex) {
+        return;
         MeshBuilder::MeshInfo *mInfo = mesh->meshMap[offsetIndex];
         if (!mInfo) return; // invisible mesh (offsetIndex > 0 && level.meshOffsets[offsetIndex] == 0) camera target entity etc.
         mesh->renderMesh(mInfo);
     }
-
+*/
     mat4 getMatrix() {
         mat4 matrix;
         matrix.identity();
@@ -450,14 +459,28 @@ struct Controller {
         if (Core::frameIndex != frameIndex)
             animation.getJoints(matrix, -1, true, joints);
 
-        Core::active.shader->setParam(uModel, joints[0], model->mCount);
+        if (layers) {
+            int mask = 0;
 
-        for (int i = 0; i < model->mCount; i++)
-            renderMesh(mesh, meshes ? meshes[i] : (model->mStart + i));
+            for (int i = MAX_LAYERS - 1; i >= 0; i--) {
+                int vmask = layers[i].mask & ~mask;
+                if (!vmask) continue;
+                mask |= layers[i].mask;
+            // set meshes visibility
+                for (int j = 0; j < model->mCount; j++)
+                    joints[j].e33 = (vmask & (1 << j)) ? 1.0f : -1.0f;
+            // render
+                Core::active.shader->setParam(uModel, joints[0], model->mCount);
+                mesh->renderModel(layers[i].model);
+            }
+        } else {
+            Core::active.shader->setParam(uModel, joints[0], model->mCount);
+            mesh->renderModel(entity.modelIndex - 1);
+        }
 
         frameIndex = Core::frameIndex;
 
-    /* // blob shadow
+    /* // blob shadow // TODO: fake AO
         if (TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;
             level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);

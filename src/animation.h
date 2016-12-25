@@ -34,6 +34,7 @@ struct Animation {
     inline operator TR::Animation* () const { return anims + index; }
 
     void initOverrides() {
+        ASSERT(model);
         overrides    = new quat[model->mCount];
         overrideMask = 0;
     }
@@ -48,6 +49,7 @@ struct Animation {
     }
 
     int setAnim(int animIndex, int animFrame = 0, bool lerpToNext = true) {
+        ASSERT(model);
         TR::Animation *anim = anims + animIndex;
         isEnded     = isPrepareToNext = false;
         offset      = jump = vec3(0.0f);
@@ -127,6 +129,7 @@ struct Animation {
     }
 
     bool setState(int state) {
+        ASSERT(model);
         TR::Animation *anim = anims + index;
 
         if (state == anim->state)
@@ -198,6 +201,7 @@ struct Animation {
     }
 
     mat4 getJoints(mat4 matrix, int joint, bool postRot = false, mat4 *joints = NULL) {
+        ASSERT(model);
         vec3 offset = isPrepareToNext ? this->offset : vec3(0.0f);
         matrix.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
 
@@ -239,6 +243,8 @@ struct Animation {
     }
 
     Box getBoundingBox(const vec3 &pos, int dir) {
+        if (!model)
+            return Box(pos, pos);       
         vec3 min = frameA->box.min().lerp(frameB->box.min(), delta);
         vec3 max = frameA->box.max().lerp(frameB->box.max(), delta);
         Box box(min, max);
