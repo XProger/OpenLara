@@ -67,7 +67,7 @@
 					proc.connect(ctx.destination);
 				}
 
-				var gl = canvasElement.getContext("webgl") || canvasElement.getContext("experimental-webgl");
+				var gl = canvasElement.getContext("webgl", {antialias:false}) || canvasElement.getContext("experimental-webgl", {antialias:false});
 
 				Module.setStatus('Downloading...');
 				window.onerror = function(event) {
