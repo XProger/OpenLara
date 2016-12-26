@@ -31,7 +31,7 @@
 
 #define DESCENT_SPEED       2048.0f
 #define MUZZLE_FLASH_TIME   0.1f
-#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 3584 * 3584)
+#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 3072 * 3072)
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
 struct Lara : Character {
@@ -289,7 +289,11 @@ struct Lara : Character {
         pos = vec3(20215, 6656, 52942);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 14;
-        
+
+    // level 8c
+        pos = vec3(40913, -1012, 42252);
+        angle = vec3(0.0f, PI, 0.0f);
+        getEntity().room = 0;
 */
         updateEntity();
     #endif
@@ -462,7 +466,7 @@ struct Lara : Character {
     }
 
     void wpnChange(Weapon::Type wType) {
-        if (wpnCurrent == wType) return;
+        if (wpnCurrent == wType || home) return;
         wpnNext = wType;
         wpnHide();
     }

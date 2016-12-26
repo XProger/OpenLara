@@ -22,9 +22,15 @@ uniform int uType;
 
         vec4 color = vec4(0.0);
         for (float y = -1.5; y < 2.0; y++)
-            for (float x = -1.5; x < 2.0; x++)
-                color += texture2D(sDiffuse, vTexCoord + vec2(x, y) * k);
-        color /= 16.0;
+            for (float x = -1.5; x < 2.0; x++) {
+                vec4 p;
+                p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * k).xyz;
+                p.w    = dot(p.xyz, vec3(0.299, 0.587, 0.114));
+                p.xyz *= p.w;
+                color += p;
+            }
+        color.xyz /= color.w;
+        color.w = 1.0;
 
         return color;
     }

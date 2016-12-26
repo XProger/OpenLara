@@ -855,18 +855,18 @@ struct Level {
 
         Debug::begin();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-            Debug::Level::lights(level, lara->getRoomIndex());
+        //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-
+        
             static int dbg_ambient = 0;
             dbg_ambient = int(time * 2) % 4;
 
             shadow->unbind(sShadow);
             cube->unbind(sEnvironment);
-
+            atlas->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glColor3f(1, 1, 1);
@@ -884,17 +884,19 @@ struct Level {
                 glTranslatef(0, 0, 256);
                 
                 ambientCache->textures[j * 4 + dbg_ambient]->bind(sDiffuse);
+                
                 glBegin(GL_QUADS);
                     glTexCoord2f(0, 0); glVertex3f(-256,  256, 0);
                     glTexCoord2f(1, 0); glVertex3f( 256,  256, 0);
                     glTexCoord2f(1, 1); glVertex3f( 256, -256, 0);
                     glTexCoord2f(0, 1); glVertex3f(-256, -256, 0);
                 glEnd();
+
                 glPopMatrix();
             }
             glEnable(GL_CULL_FACE);
             glDisable(GL_TEXTURE_2D);
-
+             
             glLineWidth(4);
             glBegin(GL_LINES);
             float S = 64.0f;
@@ -937,7 +939,7 @@ struct Level {
             glEnd();
             glLineWidth(1);
 
- 
+
            /*
             shaders[shGUI]->bind();
             Core::mViewProj = mat4(0, (float)Core::width, (float)Core::height, 0, 0, 1);

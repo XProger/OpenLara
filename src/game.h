@@ -13,7 +13,7 @@ namespace Game {
     void init() {
         Core::init();
         //level = new Level("LEVEL2_DEMO.PHD", true, false);
-        //level = new Level("GYM.PHD", false, true);
+        //level = new Level("GYM.PSX", false, true);
         //level = new Level("LEVEL3A.PHD", false, false);
         level = new Level("LEVEL2.PSX", false, false);
 
