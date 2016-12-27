@@ -103,6 +103,7 @@
 #endif
 
 #define MAX_LIGHTS          3
+#define MAX_CACHED_LIGHTS   3
 #define MAX_RENDER_BUFFERS  11
 
 struct Shader;

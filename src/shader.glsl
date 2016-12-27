@@ -99,6 +99,7 @@ uniform int   uType;
     uniform vec4        uColor;
     #ifdef PASS_COMPOSE
         uniform samplerCube sEnvironment;
+        uniform int         uLightsCount;
         uniform vec3        uLightPos[MAX_LIGHTS];
         uniform vec4        uLightColor[MAX_LIGHTS];
         uniform vec3        uAmbient[6];
@@ -192,6 +193,13 @@ uniform int   uType;
             return color.xyz * (lum * att);
         }
 
+        vec3 calcSpecular(vec3 normal, vec3 viewVec, vec3 pos, vec4 color, float intensity) {
+            vec3 rv = reflect(-viewVec, normal);            
+            vec3 lv = normalize(pos - vCoord.xyz);
+            float spec = pow(max(0.0, dot(rv, lv)), 8.0) * intensity;
+            return vec3(spec);
+        }
+
         vec3 calcAmbient(vec3 n) {
             vec3 sqr = n * n;
             vec3 pos = step(0.0, n);
@@ -242,7 +250,8 @@ uniform int   uType;
                     if (uType == TYPE_ENTITY) {
                         vec3 rAmbient = pow(abs(calcAmbient(normal)), vec3(2.2));
                         float rShadow = getShadow(vLightProj);
-                        light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;            
+                        light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;
+                        color.xyz += calcSpecular(normal, viewVec, uLightPos[0], uLightColor[0], uColor.w * rShadow + 0.03);
                     }
 
                     if (uType == TYPE_MIRROR) {

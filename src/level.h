@@ -176,6 +176,46 @@ struct Level {
         }
     } *ambientCache;
 
+    /*
+    struct LightCache {
+
+        struct Item {
+            int     room;
+            int     index;
+            float   intensity;
+        } items[MAX_CACHED_LIGHTS];
+
+        void updateLightCache(const TR::Level &level, const vec3 &pos, int room) {
+        // update intensity
+            for (int i = 0; i < MAX_CACHED_LIGHTS; i++) {
+                Item &item = items[i];
+                if (c.intensity < 0.0f) continue;
+                TR::Room::Light &light = level.rooms[c.room].lights[i];
+                c.intensity = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
+            }
+
+        // check for new lights
+            int index = getLightIndex(pos, room);
+
+            if (index >= 0 && (items[0].room != room || items[0].index != index)) [
+                TR::Room::Light &light = level.rooms[room].lights[index];
+                float intensity = max(0.0f, 1.0f - (lara->pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
+
+                int i = 0;
+                while (i < MAX_CACHED_LIGHTS && lightCache[i].intensity > intensity) // get sorted place
+                    i++;
+                if (i < MAX_CACHED_LIGHTS) { // insert light
+                    for (int j = MAX_CACHED_LIGHTS - 1; j > i; j--)
+                         lightCache[j] = lightCache[j - 1];
+                    lightCache[i].room      = room;
+                    lightCache[i].index     = index;
+                    lightCache[i].intensity = intensity;
+                }
+
+            }
+        }
+    } lightCache;
+    */
     Level(const char *name, bool demo, bool home) : level(name, demo), lara(NULL), time(0.0f) {
         #ifdef _DEBUG
             Debug::init();
@@ -613,21 +653,23 @@ struct Level {
 
     void renderEntity(const TR::Entity &entity) {
         //if (entity.room != lara->getRoomIndex()) return;
-        if (entity.type == TR::Entity::NONE) return;
+        if (entity.type == TR::Entity::NONE || !entity.modelIndex) return;
         if (Core::pass == Core::passShadow && !TR::castShadow(entity.type)) return;
 
         ASSERT(entity.controller);
+
+        bool isModel = entity.modelIndex > 0;
+
+        Controller *controller = (Controller*)entity.controller;
 
         TR::Room &room = level.rooms[entity.room];
         if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
             return;
 
-        int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity; 
-        setRoomParams(room, intensityf(lum));
+        int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
+        setRoomParams(room, isModel ? controller->specular : intensityf(lum));
 
-        Controller *controller = (Controller*)entity.controller;
-
-        if (entity.modelIndex > 0) { // model
+        if (isModel) { // model
             vec3 pos = controller->pos;
             AmbientCache::Cube cube;
             if (Core::frameIndex != controller->frameIndex) {
@@ -638,9 +680,7 @@ struct Level {
             getLight(pos, entity.room);
             Core::active.shader->setParam(uType, Shader::ENTITY);
             Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
-        }
-
-        if (entity.modelIndex < 0) { // sprite
+        } else { // sprite
             Core::active.shader->setParam(uType, Shader::SPRITE);
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
@@ -684,6 +724,7 @@ struct Level {
         sh->setParam(uViewInv,          Core::mViewInv);
         sh->setParam(uViewPos,          Core::viewPos);
         sh->setParam(uTime,             time);
+        sh->setParam(uLightsCount,      3);
         sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
         sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
 
@@ -743,7 +784,7 @@ struct Level {
         Core::mView    = Core::mViewInv.inverse();
         Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
     }
-    
+
     bool setupLightCamera() {
         vec3 pos = (lara->animation.getJoints(lara->getMatrix(), 0, false, NULL)).getPos();
     

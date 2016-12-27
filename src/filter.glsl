@@ -29,10 +29,8 @@ uniform int uType;
                 p.xyz *= p.w;
                 color += p;
             }
-        color.xyz /= color.w;
-        color.w = 1.0;
 
-        return color;
+        return vec4(color.xyz / color.w, 1.0);
     }
     
     vec4 filter() {

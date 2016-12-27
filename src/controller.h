@@ -26,6 +26,7 @@ struct Controller {
     int     frameIndex;
 
     vec3    ambient[6];
+    float   specular;
 
     struct MeshLayer {
         uint32   model;
@@ -50,6 +51,7 @@ struct Controller {
         TR::Model  *m = getModel();
         joints     = m ? new mat4[m->mCount] : NULL;
         frameIndex = -1;
+        specular   = 0.0f;
     }
 
     virtual ~Controller() {

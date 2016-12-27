@@ -23,6 +23,9 @@
 
 #define LARA_HANG_OFFSET    735.0f
 
+#define LARA_WET_SPECULAR   0.5f
+#define LARA_WET_TIMER      (LARA_WET_SPECULAR / 16.0f)   // 4 sec
+
 #define PICKUP_FRAME_GROUND     40
 #define PICKUP_FRAME_UNDERWATER 16
 #define PUZZLE_FRAME            80
@@ -889,6 +892,8 @@ struct Lara : Character {
             alignToWall();
             dst.y  -= pos.y - infoDst.floor;
             pos     = dst;  // set new position
+            
+            specular = LARA_WET_SPECULAR;
 
             getEntity().room = infoCur.roomAbove;
             updateEntity();
@@ -1441,6 +1446,11 @@ struct Lara : Character {
     virtual void updateAnimation(bool commands) {
         Controller::updateAnimation(commands);
         updateWeapon();
+        if (stand == STAND_UNDERWATER)
+            specular = 0.0f;
+        else
+            if (specular > 0.0f)
+                specular = max(0.0f, specular - LARA_WET_TIMER * Core::deltaTime);
     }
 
     virtual void updateVelocity() {
