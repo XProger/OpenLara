@@ -5,11 +5,11 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sShadow, sEnvironment, sMAX };
-enum UniformType    { uType, uCaustics, uTime, uViewProj, uViewInv, uModel, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
+enum UniformType    { uType, uCaustics, uTime, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow", "sEnvironment" };
-const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uTime", "uViewProj", "uViewInv", "uModel", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
+const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uTime", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
 
 struct Shader {
     GLuint  ID;
@@ -102,6 +102,11 @@ struct Shader {
     void setParam(UniformType uType, const mat4 &value, int count = 1) {
         if (uID[uType] != -1)
             glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
+    }
+
+    void setParam(UniformType uType, const Basis &value, int count = 1) {
+        if (uID[uType] != -1)
+            glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
     }
 };
 

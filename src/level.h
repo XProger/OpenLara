@@ -557,14 +557,13 @@ struct Level {
 
             if (Core::pass != Core::passShadow) {
                 setRoomParams(room, intensityf(room.ambient));
+
+                Basis qTemp = Core::basis;
+                Core::basis.translate(offset);
+
                 Shader *sh = Core::active.shader;
-
                 sh->setParam(uType, Shader::ROOM);
-
-                mat4 mTemp = Core::mModel;
-                Core::mModel.translate(offset);
-
-                sh->setParam(uModel, Core::mModel);
+                sh->setParam(uBasis, Core::basis);
 
             // render room geometry
                 mesh->renderRoomGeometry(roomIndex);
@@ -577,7 +576,7 @@ struct Level {
                     mesh->renderRoomSprites(roomIndex);
                 }
 
-                Core::mModel = mTemp;
+                Core::basis = qTemp;
             }
         }
 
@@ -728,7 +727,7 @@ struct Level {
         sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
         sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
 
-        Core::mModel.identity();
+        Core::basis.identity();
 
         // clear visibility flag for rooms
         for (int i = 0; i < level.roomsCount; i++)
@@ -786,7 +785,7 @@ struct Level {
     }
 
     bool setupLightCamera() {
-        vec3 pos = (lara->animation.getJoints(lara->getMatrix(), 0, false, NULL)).getPos();
+        vec3 pos = (lara->animation.getJoints(lara->getMatrix(), 0, false, NULL)).pos;
     
     // omni-spot light shadows
         int room = lara->getRoomIndex();

@@ -211,7 +211,8 @@ struct MeshBuilder {
             TR::Model &model = level.models[i];
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
-                if (!index && model.mCount == 1) continue;
+                if (!index && model.mStart + j > 0) 
+                    continue;
                 aCount++;
                 TR::Mesh &mesh = level.meshes[index];
                 iCount += mesh.rCount * 6 + mesh.tCount * 3;
@@ -337,7 +338,7 @@ struct MeshBuilder {
 
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
-                if (!index && model.mCount == 1) continue;
+                if (!index && model.mStart + j > 0) continue;
 
                 TR::Mesh &mesh = level.meshes[index];
                 buildMesh(mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
@@ -725,9 +726,9 @@ struct MeshBuilder {
         
         Core::active.shader->setParam(uColor, color);
         //text = "a: b";
-        mat4 m;
-        m.identity();
-        m.translate(vec3(pos.x, pos.y, 0.0f));
+        Basis basis;
+        basis.identity();
+        basis.translate(vec3(pos.x, pos.y, 0.0f));
        // text = "A";
         while (char c = *text++) {
             
@@ -749,13 +750,13 @@ struct MeshBuilder {
             }
             */
             if (c == ' ' || c == '_') {
-                m.translate(vec3(char_width[0], 0.0f, 0.0f));
+                basis.translate(vec3(char_width[0], 0.0f, 0.0f));
                 continue;
             }
 
-            Core::active.shader->setParam(uModel, m);
+            Core::active.shader->setParam(uBasis, basis);
             renderSprite(15, frame);
-            m.translate(vec3(char_width[frame], 0.0f, 0.0f));
+            basis.translate(vec3(char_width[frame], 0.0f, 0.0f));
         }
     }
 };

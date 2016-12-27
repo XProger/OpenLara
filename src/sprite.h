@@ -60,9 +60,9 @@ struct Sprite : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
-        mat4 m(Core::mModel);
-        m.translate(pos);
-        Core::active.shader->setParam(uModel, m);
+        Basis basis(Core::basis);
+        basis.translate(pos);
+        Core::active.shader->setParam(uBasis, basis);
         mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
     }
 };

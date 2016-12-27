@@ -135,7 +135,8 @@ namespace Core {
     int width, height;
     int frameIndex;
     float deltaTime;
-    mat4 mView, mProj, mViewProj, mViewInv, mModel, mLightProj;
+    mat4 mView, mProj, mViewProj, mViewInv, mLightProj;
+    Basis basis;
     vec3 viewPos;
     vec3 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];

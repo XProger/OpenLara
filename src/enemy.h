@@ -211,7 +211,7 @@ struct Wolf : Enemy {
         if ((state == STATE_JUMP || state == STATE_BITE) && !bitten) {
             float dist;
             if (getTargetInfo(0, NULL, NULL, NULL, &dist) && dist < 256.0f)
-                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).getPos(), state == STATE_BITE ? 100 : 50);                
+                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).pos, state == STATE_BITE ? 100 : 50);                
         }
 
         if (state == STATE_JUMP)
@@ -300,7 +300,7 @@ struct Bear : Enemy {
         if ((state == STATE_ATTACK || state == STATE_BITE) && !bitten) {
             float dist;
             if (getTargetInfo(0, NULL, NULL, NULL, &dist) && dist < 256.0f)
-                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).getPos(), state == STATE_BITE ? 100 : 50);                
+                bite(animation.getJoints(getMatrix(), JOINT_HEAD, true).pos, state == STATE_BITE ? 100 : 50);                
         }
 
         return state;

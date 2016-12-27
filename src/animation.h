@@ -200,46 +200,46 @@ struct Animation {
         return lerpAngle(frameA->getAngle(joint), frameB->getAngle(joint), delta);
     }
 
-    mat4 getJoints(mat4 matrix, int joint, bool postRot = false, mat4 *joints = NULL) {
+    Basis getJoints(Basis basis, int joint, bool postRot = false, Basis *joints = NULL) {
         ASSERT(model);
         vec3 offset = isPrepareToNext ? this->offset : vec3(0.0f);
-        matrix.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
+        basis.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
 
         TR::Node *node = (int)model->node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model->node] : NULL;
 
         int sIndex = 0;
-        mat4 stack[16];
+        Basis stack[16];
 
         for (int i = 0; i < model->mCount; i++) {
 
             if (i > 0 && node) {
                 TR::Node &t = node[i - 1];
 
-                if (t.flags & 0x01) matrix = stack[--sIndex];
-                if (t.flags & 0x02) stack[sIndex++] = matrix;
+                if (t.flags & 0x01) basis = stack[--sIndex];
+                if (t.flags & 0x02) stack[sIndex++] = basis;
 
                 ASSERT(sIndex >= 0 && sIndex < 16);
 
-                matrix.translate(vec3((float)t.x, (float)t.y, (float)t.z));
+                basis.translate(vec3((float)t.x, (float)t.y, (float)t.z));
             }
 
             if (i == joint && !postRot)
-                return matrix;
+                return basis;
 
             quat q;
             if (overrideMask & (1 << i))
                 q = overrides[i];
             else
                 q = getJointRot(i);
-            matrix = matrix * mat4(q, vec3(0.0f));
+            basis.rotate(q);
 
             if (i == joint && postRot)
-                return matrix;
+                return basis;
 
             if (joints)
-                joints[i] = matrix;
+                joints[i] = basis;
         }
-        return matrix;
+        return basis;
     }
 
     Box getBoundingBox(const vec3 &pos, int dir) {

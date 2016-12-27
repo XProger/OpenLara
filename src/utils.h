@@ -126,7 +126,8 @@ struct vec3 {
     vec3 operator + (const vec3 &v) const { return vec3(x+v.x, y+v.y, z+v.z); }
     vec3 operator - (const vec3 &v) const { return vec3(x-v.x, y-v.y, z-v.z); }
     vec3 operator * (const vec3 &v) const { return vec3(x*v.x, y*v.y, z*v.z); }
-    vec3 operator * (float s) const { return vec3(x*s, y*s, z*s); }
+    vec3 operator * (float s)       const { return vec3(x*s, y*s, z*s); }
+    vec3 operator - ()              const { return vec3(-x, -y, -z); }
 
     float dot(const vec3 &v) const { return x*v.x + y*v.y + z*v.z; }
     vec3  cross(const vec3 &v) const { return vec3(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x); }
@@ -506,6 +507,43 @@ struct mat4 {
 
     void setPos(const vec3 &pos) {
         offset.xyz = pos;
+    }
+};
+
+struct Basis {
+	quat    rot;
+    vec3    pos;
+    float   w;
+
+    Basis() {}
+    Basis(const quat &rot, const vec3 &pos) : rot(rot), pos(pos), w(1.0f) {}
+    Basis(const mat4 &matrix) : rot(matrix.getRot()), pos(matrix.getPos()), w(1.0f) {}
+
+    void identity() {
+        rot = quat(0, 0, 0, 1);
+        pos = vec3(0, 0, 0);
+        w   = 1.0f;
+    }
+
+	Basis operator * (const Basis &basis) const {
+        return Basis(rot * basis.rot, pos + rot * basis.pos);
+    }
+
+	vec3 operator * (const vec3 &v) const {
+        return rot * v + pos;
+    }
+
+	Basis inverse() const {
+        quat q = rot.conjugate();
+        return Basis(q, -(q * pos));
+    }
+
+    void translate(const vec3 &v) {
+        pos += rot * v;
+    }
+
+    void rotate(const quat &q) {
+        rot = rot * q;
     }
 };
 

@@ -300,7 +300,7 @@ struct Lara : Character {
 */
         updateEntity();
     #endif
-        chestOffset = animation.getJoints(getMatrix(), 7).getPos();
+        chestOffset = animation.getJoints(getMatrix(), 7).pos;
         if (getRoom().flags.water)
             animation.setAnim(ANIM_UNDERWATER);
     }
@@ -561,7 +561,7 @@ struct Lara : Character {
 
             int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
 
-            vec3 p = animation.getJoints(getMatrix(), joint, false).getPos();
+            vec3 p = animation.getJoints(getMatrix(), joint, false).pos;
             vec3 d = arm->rotAbs * vec3(0, 0, 1);
             vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
 
@@ -582,7 +582,7 @@ struct Lara : Character {
                 }
             }
 
-            Core::lightPos[1 + armIndex]   = animation.getJoints(getMatrix(), armIndex == 0 ? 10 : 13, false).getPos();
+            Core::lightPos[1 + armIndex]   = animation.getJoints(getMatrix(), armIndex == 0 ? 10 : 13, false).pos;
             Core::lightColor[1 + armIndex] = FLASH_LIGHT_COLOR;
         }
 
@@ -1050,7 +1050,7 @@ struct Lara : Character {
     }
 
     vec3 getViewPoint() {
-        vec3 offset = chestOffset = animation.getJoints(getMatrix(), 7).getPos();
+        vec3 offset = chestOffset = animation.getJoints(getMatrix(), 7).pos;
         if (stand != STAND_UNDERWATER)
             offset.y -= 256.0f;
         if (!emptyHands())
@@ -1768,23 +1768,23 @@ struct Lara : Character {
     }
 
 
-    void renderMuzzleFlash(MeshBuilder *mesh, const mat4 &matrix, const vec3 &offset, float time) {
+    void renderMuzzleFlash(MeshBuilder *mesh, const Basis &basis, const vec3 &offset, float time) {
         ASSERT(level->extra.muzzleFlash);
         if (time > MUZZLE_FLASH_TIME) return;
         float alpha = min(1.0f, (0.1f - time) * 20.0f);
         float lum   = 3.0f;
-        mat4 m(matrix);
-        m.rotateX(-PI * 0.5f);
-        m.translate(offset);
+        Basis b(basis);
+        b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
+        b.translate(offset);
         
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
-        Core::active.shader->setParam(uModel, m);
+        Core::active.shader->setParam(uBasis, b);
         mesh->renderModel(level->extra.muzzleFlash);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
         Controller::render(frustum, mesh);
-        chestOffset = animation.getJoints(getMatrix(), 7).getPos(); // TODO: move to update func
+        chestOffset = animation.getJoints(getMatrix(), 7).pos; // TODO: move to update func
 
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();

@@ -22,7 +22,7 @@ struct Controller {
     vec3    pos;
     vec3    angle;
 
-    mat4    *joints;
+    Basis   *joints;
     int     frameIndex;
 
     vec3    ambient[6];
@@ -49,7 +49,7 @@ struct Controller {
         pos        = vec3((float)e.x, (float)e.y, (float)e.z);
         angle      = vec3(0.0f, e.rotation, 0.0f);
         TR::Model  *m = getModel();
-        joints     = m ? new mat4[m->mCount] : NULL;
+        joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
         specular   = 0.0f;
     }
@@ -85,8 +85,8 @@ struct Controller {
             Box box = ((Controller*)e.controller)->getBoundingBox();
             vec3 t = (box.min + box.max) * 0.5f;
 
-            mat4 m = animation.getJoints(getMatrix(), joint);
-            vec3 delta = (m.inverse() * t).normal();
+            Basis b = animation.getJoints(Basis(getMatrix()), joint);
+            vec3 delta = (b.inverse() * t).normal();
 
             float angleY = clampAngle(atan2f(delta.x, delta.z));
             float angleX = clampAngle(asinf(delta.y));
@@ -99,7 +99,7 @@ struct Controller {
 
                 rot = ay * ax;
                 if (rotAbs)
-                    *rotAbs = m.getRot() * rot;
+                    *rotAbs = b.rot * rot;
                 return true;
             }
         }
@@ -470,13 +470,13 @@ struct Controller {
                 mask |= layers[i].mask;
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
-                    joints[j].e33 = (vmask & (1 << j)) ? 1.0f : -1.0f;
+                    joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // AHAHA
             // render
-                Core::active.shader->setParam(uModel, joints[0], model->mCount);
+                Core::active.shader->setParam(uBasis, joints[0], model->mCount);
                 mesh->renderModel(layers[i].model);
             }
         } else {
-            Core::active.shader->setParam(uModel, joints[0], model->mCount);
+            Core::active.shader->setParam(uBasis, joints[0], model->mCount);
             mesh->renderModel(entity.modelIndex - 1);
         }
 
