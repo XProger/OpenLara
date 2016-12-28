@@ -66,7 +66,9 @@ struct Controller {
         layers[0].mask  = 0xFFFFFFFF;
     }
 
-    void meshSwap(int layer, uint32 model, uint32 mask = 0xFFFFFFFF) {        
+    void meshSwap(int layer, int16 model, uint32 mask = 0xFFFFFFFF) {
+        if (model < 0) return;
+
         if (!layers) initMeshOverrides();
 
         TR::Model &m = level->models[model];
@@ -146,6 +148,10 @@ struct Controller {
 
     virtual int getRoomIndex() const {
         return getEntity().room;
+    }
+
+    virtual vec3& getPos() {
+        return pos;
     }
 
     int getOverlap(int fromX, int fromY, int fromZ, int toX, int toZ) const {
@@ -357,7 +363,7 @@ struct Controller {
     virtual void  cmdJump(const vec3 &vel)      {}
     virtual void  cmdKill()                     {}
     virtual void  cmdEmpty()                    {}
-
+    virtual void  cmdEffect(int fx)             { ASSERT(false); } // not implemented
 
     virtual void updateAnimation(bool commands) {
         animation.update();
@@ -384,8 +390,7 @@ struct Controller {
                                 switch (fx) {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI; break;
                                     case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
-                                    case TR::EFFECT_LARA_HANDSFREE : break;
-                                    default : LOG("unknown special cmd %d (anim %d)\n", fx, animation.index);
+                                    default                        : cmdEffect(fx); break;
                                 }
                             } else
                                 playSound(fx, pos, Sound::Flags::PAN);

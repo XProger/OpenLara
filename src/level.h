@@ -669,7 +669,7 @@ struct Level {
         setRoomParams(room, isModel ? controller->specular : intensityf(lum));
 
         if (isModel) { // model
-            vec3 pos = controller->pos;
+            vec3 pos = controller->getPos();
             AmbientCache::Cube cube;
             if (Core::frameIndex != controller->frameIndex) {
                 ambientCache->getAmbient(entity.room, pos, cube);
@@ -875,8 +875,8 @@ struct Level {
         if (Input::down[ikM]) {
             if (!lastStateK) {
                 lastStateK = true;
-            //    modelIndex = (modelIndex + 1) % level.modelsCount;
-                modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
+                modelIndex = (modelIndex + 1) % level.modelsCount;
+            //    modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
                 LOG("model: %d %d\n", modelIndex, level.spriteSequences[modelIndex].type);
                 if (lastEntity > -1) {
                     delete level.entities[lastEntity].controller;
@@ -912,7 +912,8 @@ struct Level {
             glColor3f(1, 1, 1);
             for (int j = 0; j < 6; j++) {
                 glPushMatrix();
-                glTranslatef(lara->pos.x, lara->pos.y - 1024, lara->pos.z);
+                vec3 p = lara->getPos();
+                glTranslatef(p.x, p.y - 1024, p.z);
                 switch (j) {
                     case 0 : glRotatef( 90, 0, 1, 0); break;
                     case 1 : glRotatef(-90, 0, 1, 0); break;

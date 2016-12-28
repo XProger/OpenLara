@@ -356,6 +356,10 @@ namespace TR {
         enum Type : int16 {
             NONE                     = -1,
             LARA                     = 0,
+            LARA_PISTOLS             = 1,
+            LARA_SHOTGUN             = 2,
+            LARA_MAGNUMS             = 3,
+            LARA_UZIS                = 4,
 
             ENEMY_TWIN               = 6,
             ENEMY_WOLF               = 7,
@@ -814,8 +818,9 @@ namespace TR {
         void    *cameraController;
 
         struct {
-            uint16 muzzleFlash;
-            uint16 puzzleSet;
+            int16 muzzleFlash;
+            int16 puzzleSet;
+            int16 weapons[4];
         } extra;
 
         Level(Stream &stream, bool demo) {            
@@ -1012,10 +1017,17 @@ namespace TR {
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
         // get special models indices
             memset(&extra, 0, sizeof(extra));
+            for (int i = 0; i < 4; i++)
+                extra.weapons[i] = -1;
+
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
                     case Entity::MUZZLE_FLASH    : extra.muzzleFlash = i; break;
                     case Entity::HOLE_PUZZLE_SET : extra.puzzleSet   = i; break;
+                    case Entity::LARA_PISTOLS    : extra.weapons[0]  = i; break;
+                    case Entity::LARA_SHOTGUN    : extra.weapons[1]  = i; break;
+                    case Entity::LARA_MAGNUMS    : extra.weapons[2]  = i; break;
+                    case Entity::LARA_UZIS       : extra.weapons[3]  = i; break;
                     default : ;
                 }
         }

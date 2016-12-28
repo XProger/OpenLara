@@ -176,7 +176,7 @@ struct Lara : Character {
     bool home;
 
     struct Weapon {
-        enum Type  { EMPTY, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
+        enum Type  { EMPTY = -1, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
         enum State { IS_HIDDEN, IS_ARMED, IS_FIRING };
         enum Anim  { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
 
@@ -203,14 +203,16 @@ struct Lara : Character {
     int viewTarget;
 
     Lara(TR::Level *level, int entity, bool home) : Character(level, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1) {
-        animation.setAnim(ANIM_STAND);
+        
+        if (getEntity().type == TR::Entity::LARA) {
+            if (getRoom().flags.water)
+                animation.setAnim(ANIM_UNDERWATER);
+            else
+                animation.setAnim(ANIM_STAND);
+        }
+
         getEntity().flags.active = 1;
         initMeshOverrides();
-        for (int i = 0; i < 2; i++) {
-            arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
-            arms[i].rot       = quat(0, 0, 0, 1);
-            arms[i].rotAbs    = quat(0, 0, 0, 1);
-        }
 
         memset(weapons, -1, sizeof(weapons));
         if (!home) {
@@ -221,6 +223,13 @@ struct Lara : Character {
             wpnSet(Weapon::PISTOLS);
         } else
             meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+
+        for (int i = 0; i < 2; i++) {
+            arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
+            arms[i].rot       = quat(0, 0, 0, 1);
+            arms[i].rotAbs    = quat(0, 0, 0, 1);
+        }
+
     #ifdef _DEBUG
 /*
     // gym 
@@ -301,8 +310,6 @@ struct Lara : Character {
         updateEntity();
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
-        if (getRoom().flags.water)
-            animation.setAnim(ANIM_UNDERWATER);
     }
     
     void wpnSet(Weapon::Type wType) {
@@ -346,7 +353,7 @@ struct Lara : Character {
     }
 
     void wpnSetState(Weapon::State wState) {
-        if (wpnState == wState) return;
+        if (wpnState == wState || !layers) return;
 
         int mask = 0;
         switch (wpnCurrent) {
@@ -381,15 +388,15 @@ struct Lara : Character {
 
         // swap weapon parts        
         if (wpnCurrent != Weapon::SHOTGUN) {
-            meshSwap(1, wpnCurrent, mask);
+            meshSwap(1, level->extra.weapons[wpnCurrent], mask);
             // have a shotgun in inventory place it on the back if another weapon is in use
-            meshSwap(2, Weapon::SHOTGUN, (weapons[Weapon::SHOTGUN].ammo != -1) ? BODY_CHEST : 0);
+            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], (weapons[Weapon::SHOTGUN].ammo != -1) ? BODY_CHEST : 0);
         } else {
-            meshSwap(2, wpnCurrent, mask);
+            meshSwap(2, level->extra.weapons[wpnCurrent], mask);
         }
 
         // mesh swap to angry Lara's head while firing (from uzis model)
-        meshSwap(3, Weapon::UZIS, (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
+        meshSwap(3, level->extra.weapons[Weapon::UZIS], (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
             
         wpnState = wState;
     }
@@ -870,6 +877,23 @@ struct Lara : Character {
     
     virtual void cmdEmpty() {
         wpnHide();
+    }
+
+    void drawGun(int right) {
+        int mask = right ? BODY_ARM_R3 : BODY_ARM_L3; // unholster
+        if (layers[1].mask & mask)
+            mask = right ? BODY_LEG_R1 : BODY_LEG_L1; // holster
+        meshSwap(1, level->extra.weapons[wpnCurrent], mask);
+    }
+
+    virtual void cmdEffect(int fx) {
+
+        switch (fx) {
+            case TR::EFFECT_LARA_HANDSFREE : meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
+            case TR::EFFECT_DRAW_RIGHTGUN  : 
+            case TR::EFFECT_DRAW_LEFTGUN   : drawGun(fx == TR::EFFECT_DRAW_RIGHTGUN); break;
+            default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index);
+        }
     }
 
     virtual void hit(int damage, Controller *enemy = NULL) {
@@ -1577,6 +1601,20 @@ struct Lara : Character {
 
         if (velocity.length() >= 0.001f) 
             move();
+
+        if (getEntity().type != TR::Entity::LARA) {
+            TR::Entity &e = getEntity();
+            vec3 &p = getPos();
+            e.x = int(p.x);
+            e.y = int(p.y);
+            e.z = int(p.z);
+            checkRoom();
+            updateEntity();
+        }
+    }
+
+    virtual vec3& getPos() {
+        return getEntity().type == TR::Entity::LARA ? pos : chestOffset;
     }
 
     void move() {
