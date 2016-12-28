@@ -16,6 +16,11 @@ extern "C" {
     void EMSCRIPTEN_KEEPALIVE snd_fill(Sound::Frame *frames, int count) {
 		Sound::fill(frames, count);		
     }
+    
+    void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size, int home) {
+        Stream stream(data, size);
+        Game::startLevel(stream, false, home);
+    }    
 }
 
 InputKey joyToInputKey(int code) {

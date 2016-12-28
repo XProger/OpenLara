@@ -10,23 +10,34 @@
 namespace Game {
     Level *level;
 
-    void init() {
-        Core::init();
-        //level = new Level("LEVEL2_DEMO.PHD", true, false);
-        //level = new Level("GYM.PSX", false, true);
-        //level = new Level("LEVEL3A.PHD", false, false);
-        level = new Level("LEVEL2.PSX", false, false);
+    void startLevel(Stream &stream, bool demo, bool home) {
+        delete level;
+        level = new Level(stream, demo, home);
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
             Sound::play(new Stream("05.ogg"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
             //Sound::play(new Stream("03.mp3"), 1, 1, 0);
-        #endif
+        #endif            
     }
 
+    void startLevel(const char *name, bool demo, bool home) {
+        Stream stream(name);
+        startLevel(stream, demo, home);
+    }
+    
+    void init() {
+        Core::init();
+        level = NULL;
+        
+        //lstartLevel("LEVEL2_DEMO.PHD", true, false);
+        //lstartLevel("GYM.PSX", false, true);
+        //lstartLevel("LEVEL3A.PHD", false, false);
+        startLevel("LEVEL2.PSX", false, false);
+    }
+        
     void free() {
         delete level;
-
         Core::free();
     }
 

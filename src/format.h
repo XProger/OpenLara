@@ -818,9 +818,7 @@ namespace TR {
             uint16 puzzleSet;
         } extra;
 
-        Level(const char *name, bool demo) {            
-            Stream stream(name);
-
+        Level(Stream &stream, bool demo) {            
             tiles4  = NULL;
             Tile8    *tiles8  = NULL;
             cluts   = NULL;

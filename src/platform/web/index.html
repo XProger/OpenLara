@@ -4,7 +4,6 @@
 		<body>
 			<span id="status">Starting...</span>
 			<canvas id="canvas" width="854" height="480" oncontextmenu="event.preventDefault()"></canvas><br>
-			<span id="info"><a target="_blank" href="https://github.com/XProger/OpenLara">OpenLara on github</a><br>controls:<br>keyboad: move - WASD / arrows, jump - Space, action - E/Ctrl, draw weapon - Q, change weapon - 1-4, walk - Shift, side steps - ZX/walk+direction, camera - MouseR)<br>gamepad: PSX controls on XBox controller<br>FullScreen: Alt + Enter</span>
 
 			<script type='text/javascript'>
 				var statusElement = document.getElementById('status');
@@ -101,8 +100,31 @@
 					return "Really want to quit the game?";
 				};
 
+                function readLevel(event, home) {
+                    var reader = new FileReader();
+                    reader.onload = function(){
+                        var size = reader.result.byteLength;
+                        var data = Module._malloc(size);
+                        Module.writeArrayToMemory(new Uint8Array(reader.result), data);
+                        Module.ccall('game_level_load', 'null', ['number', 'number', 'number'], [data, size, home]);
+                    };
+                    reader.readAsArrayBuffer(event.target.files[0]);
+                }
 			</script>
 
 			<audio autoplay loop><source src="05.ogg" type="audio/ogg"></audio>
+            
+			<span id="info">                
+                <input type="file" id="browseFile" style="display:none" accept=".phd,.psx" onchange="readLevel(event, document.getElementById('isHome').checked)" />
+                <!-- <label for="browseFile">Browse Level</label> -->
+                <input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX)                
+                <input type="checkbox" id="isHome"><label>alternative model (home suit, gold etc.)</label>
+                <br><br>
+                <a target="_blank" href="https://github.com/XProger/OpenLara">OpenLara on github</a><br>
+                controls:<br>
+                keyboad: move - WASD / arrows, jump - Space, action - E/Ctrl, draw weapon - Q, change weapon - 1-4, walk - Shift, side steps - ZX/walk+direction, camera - MouseR)<br>
+                gamepad: PSX controls on XBox controller<br>
+                FullScreen: Alt + Enter
+            </span>            
 		</body>
 </html>

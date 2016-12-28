@@ -216,7 +216,7 @@ struct Level {
         }
     } lightCache;
     */
-    Level(const char *name, bool demo, bool home) : level(name, demo), lara(NULL), time(0.0f) {
+    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL), time(0.0f) {
         #ifdef _DEBUG
             Debug::init();
         #endif
