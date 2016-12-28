@@ -889,7 +889,7 @@ struct Lara : Character {
     virtual void cmdEffect(int fx) {
 
         switch (fx) {
-            case TR::EFFECT_LARA_HANDSFREE : meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
+            case TR::EFFECT_LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::EFFECT_DRAW_RIGHTGUN  : 
             case TR::EFFECT_DRAW_LEFTGUN   : drawGun(fx == TR::EFFECT_DRAW_RIGHTGUN); break;
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index);
