@@ -1601,7 +1601,7 @@ struct Lara : Character {
 
         if (velocity.length() >= 0.001f) 
             move();
-
+    /*
         if (getEntity().type != TR::Entity::LARA) {
             TR::Entity &e = getEntity();
             vec3 &p = getPos();
@@ -1611,6 +1611,7 @@ struct Lara : Character {
             checkRoom();
             updateEntity();
         }
+    */
     }
 
     virtual vec3& getPos() {

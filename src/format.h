@@ -630,14 +630,10 @@ namespace TR {
     };
 
     struct CameraFrame {
-        int16   rotY;
-        int16   rotZ;
-        int16   unused1;
-        int16   posZ;
-        int16   posY;
-        int16   posX;
-        int16   unknown;
-        int16   rotX;
+        Vertex  target;
+        Vertex  pos;
+        int16   fov;
+        int16   roll;
     };
 
     struct SoundSource {

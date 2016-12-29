@@ -749,7 +749,11 @@ struct Level {
         for (int i = 0; i < level.roomsCount; i++)
             renderRoom(i);
     #else
-        renderRoom(roomIndex);
+        if (!camera->cutscene)
+            renderRoom(roomIndex);
+        else // TODO: use brain
+            for (int i = 0; i < level.roomsCount; i++)
+                renderRoom(i);
     #endif
     }
 

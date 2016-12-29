@@ -33,7 +33,7 @@ namespace Game {
         //lstartLevel("LEVEL2_DEMO.PHD", true, false);
         //lstartLevel("GYM.PSX", false, true);
         //lstartLevel("LEVEL3A.PHD", false, false);
-        startLevel("LEVEL2.PSX", false, false);
+        startLevel("CUT1.PHD", false, false);
     }
         
     void free() {
