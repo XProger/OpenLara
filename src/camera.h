@@ -61,7 +61,7 @@ struct Camera : Controller {
     virtual void update() {
     #ifndef LEVEL_EDITOR
         if (cutscene) { // cutscene
-
+            /*
             vec3  orig = owner->pos;
             float rotY = 0.0f;
 
@@ -83,14 +83,29 @@ struct Camera : Controller {
                     rotY = PI * 0.5f;
                     break;
             }
-
+            */
             timer += Core::deltaTime * 30;
+            float t = timer - int(timer);
             int indexA = int(timer) % level->cameraFramesCount;
-            TR::CameraFrame *frame = &level->cameraFrames[indexA];
+            int indexB = min(indexA + 1, level->cameraFramesCount - 1);
+            TR::CameraFrame *frameA = &level->cameraFrames[indexA];
+            TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
-            pos    = orig + vec3(frame->pos).rotateY(-rotY);
-            target = orig + vec3(frame->target).rotateY(-rotY);
-            //fov    = float(frame->fov) / 32767.0f * 120.0f;
+            const int eps = 128;
+
+            if (abs(frameA->pos.x - frameB->pos.x) > eps || abs(frameA->pos.y - frameB->pos.y) > eps || abs(frameA->pos.z - frameB->pos.z) > eps) {
+                pos    = frameA->pos;
+                target = frameA->target;
+                fov    = frameA->fov / 32767.0f * 120.0f;
+            } else {
+                pos    = vec3(frameA->pos).lerp(frameB->pos, t);
+                target = vec3(frameA->target).lerp(frameB->target, t);
+                fov    = lerp(frameA->fov / 32767.0f * 120.0f, frameB->fov / 32767.0f * 120.0f, t);
+            }
+
+            pos    = level->cutMatrix * pos;
+            target = level->cutMatrix * target;
+
             // TODO: frame->roll
         } else
     #endif        
@@ -181,29 +196,29 @@ struct Camera : Controller {
                 room = destRoom;
             }
             pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
-        }
 
-        if (actCamera <= -1) {
-            TR::Level::FloorInfo info;
-            level->getFloorInfo(room, (int)pos.x, (int)pos.y, (int)pos.z, info);
+            if (actCamera <= -1) {
+                TR::Level::FloorInfo info;
+                level->getFloorInfo(room, (int)pos.x, (int)pos.y, (int)pos.z, info);
 
-            if (info.roomNext != 255) 
-                room = info.roomNext;
+                if (info.roomNext != 255) 
+                    room = info.roomNext;
         
-            if (pos.y < info.roomCeiling) {
-                if (info.roomAbove != 255)
-                    room = info.roomAbove;
-                else
-                    if (info.roomCeiling != 0xffff8100)
-                        pos.y = (float)info.roomCeiling;
-            }
+                if (pos.y < info.roomCeiling) {
+                    if (info.roomAbove != 255)
+                        room = info.roomAbove;
+                    else
+                        if (info.roomCeiling != 0xffff8100)
+                            pos.y = (float)info.roomCeiling;
+                }
 
-            if (pos.y > info.roomFloor) {
-                if (info.roomBelow != 255)
-                    room = info.roomBelow;
-                else
-                    if (info.roomFloor != 0xffff8100)
-                        pos.y = (float)info.roomFloor;
+                if (pos.y > info.roomFloor) {
+                    if (info.roomBelow != 255)
+                        room = info.roomBelow;
+                    else
+                        if (info.roomFloor != 0xffff8100)
+                            pos.y = (float)info.roomFloor;
+                }
             }
         }
 

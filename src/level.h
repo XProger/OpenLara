@@ -161,9 +161,9 @@ struct Level {
         void getAmbient(int room, const vec3 &pos, Cube &value) {
             TR::Room &r = level->level.rooms[room];
             
-            int sx = (int(pos.x) - r.info.x) / 1024;
-            int sz = (int(pos.z) - r.info.z) / 1024;
-
+            int sx = clamp((int(pos.x) - r.info.x) / 1024, 0, r.xSectors - 1);
+            int sz = clamp((int(pos.z) - r.info.z) / 1024, 0, r.zSectors - 1);
+            
             int sector = sx * r.zSectors + sz;
             Cube *a = getAmbient(room, sector);
             if (a) {
@@ -232,10 +232,8 @@ struct Level {
             TR::Entity &entity = level.entities[i];
             switch (entity.type) {
                 case TR::Entity::LARA                  : 
+                case TR::Entity::CUT_1                 :
                     entity.controller = (lara = new Lara(&level, i, home));
-                    break;
-                case TR::Entity::LARA_CUT              :
-                    entity.controller = (lara = new Lara(&level, i, false));
                     break;
                 case TR::Entity::ENEMY_WOLF            :   
                     entity.controller = new Wolf(&level, i);
@@ -789,7 +787,7 @@ struct Level {
     }
 
     bool setupLightCamera() {
-        vec3 pos = (lara->animation.getJoints(lara->getMatrix(), 0, false, NULL)).pos;
+        vec3 pos = lara->getPos();
     
     // omni-spot light shadows
         int room = lara->getRoomIndex();
@@ -903,7 +901,7 @@ struct Level {
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
-        //    Debug::Level::entities(level);
+            Debug::Level::entities(level);
         
             static int dbg_ambient = 0;
             dbg_ambient = int(time * 2) % 4;
@@ -916,7 +914,7 @@ struct Level {
             glColor3f(1, 1, 1);
             for (int j = 0; j < 6; j++) {
                 glPushMatrix();
-                vec3 p = lara->getPos();
+                vec3 p = lara->pos;//getPos();
                 glTranslatef(p.x, p.y - 1024, p.z);
                 switch (j) {
                     case 0 : glRotatef( 90, 0, 1, 0); break;

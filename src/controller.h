@@ -426,11 +426,17 @@ struct Controller {
 */
     mat4 getMatrix() {
         mat4 matrix;
-        matrix.identity();
-        matrix.translate(pos);
-        if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
-        if (angle.x != 0.0f) matrix.rotateX(angle.x);
-        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+
+        TR::Entity &e = getEntity();
+        if (e.type < TR::Entity::CUT_1 || e.type > TR::Entity::CUT_3) { // TODO: move to ctor
+            matrix.identity();
+            matrix.translate(pos);
+            if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
+            if (angle.x != 0.0f) matrix.rotateX(angle.x);
+            if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+        } else
+            matrix = level->cutMatrix;
+
         return matrix;
     }
 

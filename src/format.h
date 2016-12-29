@@ -412,7 +412,9 @@ namespace TR {
             GEARS_2                  = 75,
             GEARS_3                  = 76,
 
-            LARA_CUT                 = 77,
+            CUT_1                    = 77,
+            CUT_2                    = 78,
+            CUT_3                    = 79,
 
             CRYSTAL                  = 83,       // sprite
             WEAPON_PISTOLS           = 84,       // sprite
@@ -813,13 +815,16 @@ namespace TR {
         bool    secrets[MAX_SECRETS_COUNT];
         void    *cameraController;
 
+        int     cutEntity;
+        mat4    cutMatrix;
+
         struct {
             int16 muzzleFlash;
             int16 puzzleSet;
             int16 weapons[4];
         } extra;
 
-        Level(Stream &stream, bool demo) {            
+        Level(Stream &stream, bool demo) : cutEntity(-1) {            
             tiles4  = NULL;
             Tile8    *tiles8  = NULL;
             cluts   = NULL;
@@ -975,6 +980,8 @@ namespace TR {
                 e.align = 0;
                 e.controller = NULL;
                 e.modelIndex = getModelIndex(e.type);
+                if (e.type == Entity::CUT_1)
+                    cutEntity = i;
             }
             for (int i = entitiesBaseCount; i < entitiesCount; i++) {
                 entities[i].type = Entity::NONE;
@@ -1026,6 +1033,26 @@ namespace TR {
                     case Entity::LARA_UZIS       : extra.weapons[3]  = i; break;
                     default : ;
                 }
+        // init cutscene transform
+            cutMatrix.identity();
+            if (cutEntity > -1) {
+                Entity &e = entities[cutEntity];
+                switch (cameraFramesCount) { // HACK to detect cutscene level number
+                    case 1600 : // CUT1
+                        cutMatrix.translate(vec3(36668, float(e.y), 63180));
+                        cutMatrix.rotateY(-23312.0f / float(0x4000) * PI * 0.5f);
+                        break;
+                    case 1000 : // CUT2
+                        cutMatrix.translate(vec3(51962, float(e.y), 53760));
+                        cutMatrix.rotateY(16380.0f / float(0x4000) * PI * 0.5f);
+                        break;
+                    case 400  : // CUT3
+                    case 1890 : // CUT4
+                        cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
+                        cutMatrix.rotateY(PI * 0.5f);
+                        break;
+                }
+            }
         }
 
         ~Level() {
@@ -1669,7 +1696,7 @@ namespace TR {
     }; // struct Level
 
     bool castShadow(Entity::Type type) {
-        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_LARSON) || type == Entity::LARA || type == Entity::LARA_CUT;
+        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_LARSON) || type == Entity::LARA || (type >= Entity::CUT_1 && type <= Entity::CUT_3);
     }
 }
 

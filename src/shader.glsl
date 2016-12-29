@@ -217,8 +217,26 @@ uniform int   uType;
                    sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
                    sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
         }
-    #endif
 
+    #endif
+/*
+        float getLuminance(vec3 color) {
+            return dot(color.xyz, vec3(0.299, 0.587, 0.114));
+        }
+
+        vec3 getNormal() {
+            const vec2 size = vec2(2.0, 0.0);
+            const vec3 off = vec3(-1, 0, 1) / 1024.0;
+
+            float s01 = getLuminance(texture2D(sDiffuse, vTexCoord + off.xy).xyz);
+            float s21 = getLuminance(texture2D(sDiffuse, vTexCoord + off.zy).xyz);
+            float s10 = getLuminance(texture2D(sDiffuse, vTexCoord + off.yx).xyz);
+            float s12 = getLuminance(texture2D(sDiffuse, vTexCoord + off.yz).xyz);
+            vec3 va = vec3(size.xy * 0.25, s21-s01);
+            vec3 vb = vec3(size.yx * 0.25, s12-s10);
+            return normalize(cross(va, vb));
+        }
+*/
     void main() {
         vec4 color = texture2D(sDiffuse, vTexCoord);
         if (color.w < 0.6)
@@ -242,8 +260,15 @@ uniform int   uType;
             // calc point lights
                 if (uType != TYPE_FLASH) {
                     vec3 normal   = normalize(vNormal.xyz);
+
+                    //vec3 n = getNormal();;
+	                //vec3 b = normalize(cross(n, vec3(.0, -1.0, 0.0)));
+	                //vec3 t = normalize(cross(b, n));
+                    //normal = normalize(normal.x * t + normal.y * b + normal.z * n);
+
                     vec3 viewVec  = normalize(vViewVec);
                     vec3 light    = vec3(0.0);
+
 
                     for (int i = 1; i < MAX_LIGHTS; i++) // additional lights
                         light += calcLight(normal, uLightPos[i], uLightColor[i]);
@@ -254,7 +279,9 @@ uniform int   uType;
                     }
 
                     if (uType == TYPE_ROOM) {
-                        light += mix(min(uColor.w, vColor.w), vColor.w, getShadow(vLightProj));
+                        float rShadow = dot(normal, uLightPos[0].xyz - vCoord) > 0.0 ? getShadow(vLightProj) : 1.0;
+                        //light += calcLight(normal, uLightPos[0], uLightColor[0]);
+                        light += mix(min(uColor.w, vColor.w), vColor.w, rShadow);
                     }
 
                     if (uType == TYPE_ENTITY) {
@@ -271,6 +298,7 @@ uniform int   uType;
                     }
 
                     color.xyz *= light;
+//color.xyz = normal * 0.5 + 0.5;
                 } else {
                     color.w = uColor.w;
                 }

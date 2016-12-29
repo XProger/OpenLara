@@ -600,6 +600,8 @@ struct Lara : Character {
     }
 
     void updateWeapon() {
+        if (level->cutEntity > -1) return;
+
         if (input & DEATH) {
             arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
             animation.overrideMask = 0;
@@ -889,6 +891,7 @@ struct Lara : Character {
     virtual void cmdEffect(int fx) {
 
         switch (fx) {
+            case TR::EFFECT_FLIP_MAP       : break; // TODO
             case TR::EFFECT_LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::EFFECT_DRAW_RIGHTGUN  : 
             case TR::EFFECT_DRAW_LEFTGUN   : drawGun(fx == TR::EFFECT_DRAW_RIGHTGUN); break;
@@ -1419,6 +1422,7 @@ struct Lara : Character {
     }
 
     virtual int getInput() { // TODO: updateInput
+        if (level->cutEntity > -1) return 0;
         input = Character::getInput();
         if (input & DEATH) return input;
 
@@ -1601,7 +1605,7 @@ struct Lara : Character {
 
         if (velocity.length() >= 0.001f) 
             move();
-    /*
+    
         if (getEntity().type != TR::Entity::LARA) {
             TR::Entity &e = getEntity();
             vec3 &p = getPos();
@@ -1611,7 +1615,7 @@ struct Lara : Character {
             checkRoom();
             updateEntity();
         }
-    */
+    
     }
 
     virtual vec3& getPos() {
