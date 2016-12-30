@@ -61,29 +61,6 @@ struct Camera : Controller {
     virtual void update() {
     #ifndef LEVEL_EDITOR
         if (cutscene) { // cutscene
-            /*
-            vec3  orig = owner->pos;
-            float rotY = 0.0f;
-
-            switch (level->cameraFramesCount) {
-                case 1600 : // CUT1
-                    orig.x = 36668;
-                    orig.z = 63180;
-                    rotY = -23312.0f / float(0x4000) * PI * 0.5f;
-                    break;
-                case 1000 : // CUT2
-                    orig.x = 51962;
-                    orig.z = 53760;
-                    rotY = 16380.0f / float(0x4000) * PI * 0.5f;
-                    break;
-                case 400  : // CUT3
-                    rotY = PI * 0.5f;
-                    break;
-                case 1890 : // CUT4
-                    rotY = PI * 0.5f;
-                    break;
-            }
-            */
             timer += Core::deltaTime * 30;
             float t = timer - int(timer);
             int indexA = int(timer) % level->cameraFramesCount;
