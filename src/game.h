@@ -1,8 +1,6 @@
 #ifndef H_GAME_TR
 #define H_GAME_TR
 
-//#define FREE_CAMERA
-
 #include "core.h"
 #include "format.h"
 #include "level.h"
@@ -17,7 +15,6 @@ namespace Game {
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
             Sound::play(new Stream(sndName), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
-            //Sound::play(new Stream("03.mp3"), 1, 1, 0);
         #endif            
     }
 
@@ -32,9 +29,6 @@ namespace Game {
         
         if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
         if (!sndName) sndName = (char*)"05.ogg";
-        //lstartLevel("LEVEL2_DEMO.PHD", true, false);
-        //lstartLevel("GYM.PSX", false, true);
-        //lstartLevel("LEVEL3A.PHD", false, false);
         startLevel(lvlName, sndName, false, false);
     }
         

@@ -824,11 +824,10 @@ namespace TR {
             int16 weapons[4];
         } extra;
 
-        Level(Stream &stream, bool demo) : cutEntity(-1) {            
-            tiles4  = NULL;
-            Tile8    *tiles8  = NULL;
-            cluts   = NULL;
-            palette = NULL;
+        Level(Stream &stream, bool demo) {
+            memset(this, 0, sizeof(*this));
+            cutEntity = -1;
+            Tile8 *tiles8 = NULL;
 
             int soundOffset = 0;
 
@@ -837,8 +836,8 @@ namespace TR {
                 soundOffset = version;
                 stream.read(version);
             }
-            
-            if (version != VER_TR1_PC && version != VER_TR1_PSX) {
+
+            if (version && version != VER_TR1_PC && version != VER_TR1_PSX) {
                 LOG("unsupported level format\n"); 
                 ASSERT(false); 
                 memset(this, 0, sizeof(*this)); 
@@ -868,17 +867,19 @@ namespace TR {
             // sound data
                 stream.setPos(2600 + numSounds * 512);
                 stream.read(soundData, soundDataSize);
-            // tiles
-                stream.setPos(offsetTexTiles + 8);                
-                stream.read(tiles4, tilesCount = 13);
-                stream.read(cluts, 512);
-                
-                stream.seek(0x4000 + 4);
-            } else {
-                soundSize = NULL;
+                stream.setPos(offsetTexTiles + 8);
+            } else if (version == VER_TR1_PC) {
             // tiles
                 stream.read(tiles8, stream.read(tilesCount));
                 stream.read(unused);
+            }
+
+            if (!version /*PSX cutscene*/ || version == VER_TR1_PSX) {
+                version = VER_TR1_PSX;
+            // tiles
+                stream.read(tiles4, tilesCount = 13);
+                stream.read(cluts, 512);                
+                stream.seek(0x4000 + 4);
             }
 
         // rooms
@@ -994,11 +995,10 @@ namespace TR {
                 if (!demo) 
                     stream.read(palette, 256);
             // cinematic frames for cameras (PC)
-                    stream.read(cameraFrames,   stream.read(cameraFramesCount));
+                stream.read(cameraFrames,   stream.read(cameraFramesCount));
             // demo data
-                    stream.read(demoData,       stream.read(demoDataSize));
-            } else
-                demoData = NULL;
+                stream.read(demoData,       stream.read(demoDataSize));
+            }
 
         // sounds
             stream.read(soundsMap,      256);
@@ -1008,8 +1008,10 @@ namespace TR {
                 stream.read(soundOffsets,   stream.read(soundOffsetsCount));
             }
         // cinematic frames for cameras (PSX)
-            if (version == VER_TR1_PSX)
-                stream.read(cameraFrames,   stream.read(cameraFramesCount));
+            if (version == VER_TR1_PSX) {
+                stream.seek(4); // unknown 4 bytes always == 6
+                stream.read(cameraFrames, stream.read(cameraFramesCount));
+            }
 
             initTiles(tiles4, tiles8, palette, cluts);
 
