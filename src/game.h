@@ -30,8 +30,8 @@ namespace Game {
         Core::init();
         level = NULL;
         
-        if (!lvlName) lvlName = "LEVEL2.PSX";
-        if (!sndName) sndName = "05.ogg";
+        if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
+        if (!sndName) sndName = (char*)"05.ogg";
         //lstartLevel("LEVEL2_DEMO.PHD", true, false);
         //lstartLevel("GYM.PSX", false, true);
         //lstartLevel("LEVEL3A.PHD", false, false);
