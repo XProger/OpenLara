@@ -91,7 +91,7 @@ struct Camera : Controller {
             TR::CameraFrame *frameA = &level->cameraFrames[indexA];
             TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
-            const int eps = 128;
+            const int eps = 512;
 
             if (abs(frameA->pos.x - frameB->pos.x) > eps || abs(frameA->pos.y - frameB->pos.y) > eps || abs(frameA->pos.z - frameB->pos.z) > eps) {
                 pos    = frameA->pos;
