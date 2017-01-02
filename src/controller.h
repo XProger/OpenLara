@@ -326,6 +326,8 @@ struct Controller {
                 return;
             case TR::Action::FLOW            :
                 applyFlow(level->cameras[next->value]);
+                actionCommand = next;
+                activateNext();
                 break;
             case TR::Action::FLIP_MAP        :
             case TR::Action::FLIP_ON         :

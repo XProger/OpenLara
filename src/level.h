@@ -613,6 +613,7 @@ struct Level {
 
         for (int i = 0; i < r.lightsCount; i++) {
             TR::Room::Light &light = r.lights[i];
+            if (light.intensity > 0x1FFF) continue;
             float att = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
             if (att > maxAtt) {
                 maxAtt = att;
@@ -924,15 +925,15 @@ struct Level {
                     case 4 : glRotatef(  0, 0, 1, 0); break;
                     case 5 : glRotatef(180, 0, 1, 0); break;
                 }
-                glTranslatef(0, 0, 256);
+                glTranslatef(0, 0, 128);
                 
                 ambientCache->textures[j * 4 + dbg_ambient]->bind(sDiffuse);
                 
                 glBegin(GL_QUADS);
-                    glTexCoord2f(0, 0); glVertex3f(-256,  256, 0);
-                    glTexCoord2f(1, 0); glVertex3f( 256,  256, 0);
-                    glTexCoord2f(1, 1); glVertex3f( 256, -256, 0);
-                    glTexCoord2f(0, 1); glVertex3f(-256, -256, 0);
+                    glTexCoord2f(0, 0); glVertex3f(-128,  128, 0);
+                    glTexCoord2f(1, 0); glVertex3f( 128,  128, 0);
+                    glTexCoord2f(1, 1); glVertex3f( 128, -128, 0);
+                    glTexCoord2f(0, 1); glVertex3f(-128, -128, 0);
                 glEnd();
 
                 glPopMatrix();

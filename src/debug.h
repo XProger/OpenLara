@@ -339,7 +339,7 @@ namespace Debug {
                 TR::Entity &e = level.entities[i];
           
                 sprintf(buf, "%d", (int)e.type);
-                Debug::Draw::text(vec3(e.x, e.y, e.z), vec4(0.8, 0, 0, 1), buf);
+                Debug::Draw::text(vec3(e.x, e.y, e.z), e.flags.active ? vec4(0, 0, 0.8, 1) : vec4(0.8, 0, 0, 1), buf);
             }
 
             for (int i = 0; i < level.camerasCount; i++) {
@@ -405,23 +405,19 @@ namespace Debug {
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
                 Controller *controller = (Controller*)e.controller;
+                if (!controller) continue;
 
-                mat4 matrix;
-                matrix.identity();
-                matrix.translate(vec3(e.x, e.y, e.z));
-                if (controller) {
-                    matrix.rotateY(controller->angle.y);
-                    matrix.rotateX(controller->angle.x);
-                    matrix.rotateZ(controller->angle.z);
-                } else
-                    matrix.rotateY(e.rotation);
+                mat4 matrix = controller->getMatrix();
+                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
+                Debug::Draw::box(matrix, box.min, box.max, vec4(1.0));
+
+/*
 
                 for (int j = 0; j < level.modelsCount; j++) {
                     TR::Model &m = level.models[j];
                     TR::Node *node = m.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[m.node] : NULL;
 
                     if (!node) continue; // ???
-/*
                     if (e.type == m.type) {
                         ASSERT(m.animation < 0xFFFF);
 
@@ -479,9 +475,9 @@ namespace Debug {
 
                         break;
                     }
-*/
                 
                 }
+*/
 
             }
         }

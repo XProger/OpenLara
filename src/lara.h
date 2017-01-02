@@ -21,7 +21,7 @@
 #define GLIDE_SPEED         35.0f
 #define SWIM_SPEED          45.0f
 
-#define LARA_HANG_OFFSET    735.0f
+#define LARA_HANG_OFFSET    724.0f
 
 #define LARA_WET_SPECULAR   0.5f
 #define LARA_WET_TIMER      (LARA_WET_SPECULAR / 16.0f)   // 4 sec
@@ -252,10 +252,15 @@ struct Lara : Character {
         angle = vec3(0.0f, -PI * 0.25f, 0.0f);
         getEntity().room = 13;
         
-    // level 2 (room 1)
+    // level 2 (room 43)
         pos = vec3(31400, -2560, 25200);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 43;   
+        
+    // level 2 (room 16)
+        pos = vec3(60907, 0, 39642);
+        angle = vec3(0.0f, PI * 3 / 2, 0.0f);
+        getEntity().room = 16;
         
     // level 2 (medikit)
         pos = vec3(30800, -7936, 22131);
@@ -417,6 +422,8 @@ struct Lara : Character {
     bool canDrawWeapon() {
         return wpnCurrent != Weapon::EMPTY
                && emptyHands()
+               && animation.index != ANIM_CLIMB_3
+               && animation.index != ANIM_CLIMB_2
                && state != STATE_DEATH 
                && state != STATE_HANG
                && state != STATE_REACH
@@ -984,7 +991,15 @@ struct Lara : Character {
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
         if (!info.trigCmdCount) return; // has no trigger
-        bool isActive = level->entities[info.trigCmd[0].args].flags.active != 0;
+
+        TR::FloorData::TriggerCommand &cmd = info.trigCmd[0];
+        bool isActive = false;
+        switch (cmd.action) {
+            case TR::Action::SECRET   : isActive = level->secrets[cmd.args]; break;
+            case TR::Action::ACTIVATE : isActive = level->entities[cmd.args].flags.active != 0; break;
+            default : isActive = false;
+        }
+
         if (info.trigInfo.once == 1 && isActive) return; // once trigger is already activated
 
         int actionState = state;
@@ -1156,6 +1171,8 @@ struct Lara : Character {
             if (state == STATE_REACH && velocity.y < 0.0f)
                 return state;
 
+            Box bounds = animation.getBoundingBox(pos, 0);
+
             vec3 p = pos + getDir() * 128.0f;
             TR::Level::FloorInfo info;
         // TODO: use brain
@@ -1166,12 +1183,11 @@ struct Lara : Character {
 
             do {
                 level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.y, (int)p.z, info);
-            } while (info.ceiling > p.y - LARA_HANG_OFFSET && info.roomAbove != 0xFF);
-
-            if (abs(int(info.floor - (p.y - LARA_HANG_OFFSET))) < 32) {
-                alignToWall();
-                pos = pos - getDir() * 96.0f; // TODO: collision wall offset
-                pos.y = info.floor + LARA_HANG_OFFSET;
+            } while (info.ceiling > bounds.min.y && info.roomAbove != 0xFF);
+           
+            if (abs(info.floor - int(bounds.min.y)) < 16) { // reach fall
+                alignToWall(96.0f);
+                pos.y = info.floor + 724.0f;
                 updateEntity();
 
                 stand = STAND_HANG;
@@ -1244,7 +1260,7 @@ struct Lara : Character {
                 aIndex = ANIM_CLIMB_JUMP;            
 
             if (aIndex != animation.index) {
-                alignToWall();
+                alignToWall(96.0f);
                 return animation.setAnim(aIndex);
             }
         }
