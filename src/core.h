@@ -142,7 +142,7 @@ namespace Core {
     vec4 lightColor[MAX_LIGHTS];
     vec4 color;
 
-    enum Pass { passCompose, passShadow, passAmbient, passFilter } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater } pass;
 
     GLuint FBO;
     GLuint renderBuffers[2][MAX_RENDER_BUFFERS];
@@ -162,6 +162,8 @@ namespace Core {
         bool depthTexture;
         bool shadowSampler;
         bool VAO;
+        bool texFloat, texFloatLinear;
+        bool texHalf,  texHalfLinear;
     } support;
 }
 
@@ -232,10 +234,14 @@ namespace Core {
     #endif
         char *ext = (char*)glGetString(GL_EXTENSIONS);
         //LOG("%s\n", ext);
-        support.depthTexture  = extSupport(ext, "_depth_texture");
-        support.shadowSampler = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
-        support.VAO           = extSupport(ext, "_vertex_array_object");
-            
+        support.depthTexture   = extSupport(ext, "_depth_texture");
+        support.shadowSampler  = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        support.VAO            = extSupport(ext, "_vertex_array_object");
+        support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
+        support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
+        support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
+        support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+        
         char *vendor = (char*)glGetString(GL_VENDOR);
         LOG("Vendor   : %s\n", vendor);
         LOG("Renderer : %s\n", glGetString(GL_RENDERER));
@@ -245,6 +251,9 @@ namespace Core {
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
+        LOG("  float textures : float = %s, half = %s\n", 
+            support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
+            support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
         LOG("\n");
 
         glGenFramebuffers(1, &FBO);
@@ -339,10 +348,11 @@ namespace Core {
 
         ASSERT(target->width == (1 << dummyBuffer) )
         glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-        glFramebufferTexture2D    (GL_FRAMEBUFFER, target->depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-        glFramebufferRenderbuffer (GL_FRAMEBUFFER, target->depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, renderBuffers[target->depth][dummyBuffer]);
+        bool depth = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+        glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
+        glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, renderBuffers[depth][dummyBuffer]);
 
-        if (target->depth)
+        if (depth)
             glColorMask(false, false, false, false);
     }
 

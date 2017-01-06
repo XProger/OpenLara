@@ -5,17 +5,21 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sShadow, sEnvironment, sMAX };
-enum UniformType    { uType, uCaustics, uTime, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
+enum UniformType    { uType, uCaustics, uParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow", "sEnvironment" };
-const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uTime", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
+const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
 
 struct Shader {
     GLuint  ID;
     GLint   uID[uMAX];
 
-    enum : GLint { SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, DOWNSAMPLE = 10 };
+    enum : GLint { 
+        /* shader */ SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, 
+        /* filter */ FILTER_DOWNSAMPLE = 0, 
+        /* water  */ WATER_DROP = 0, WATER_STEP = 1, WATER_NORMAL = 2, WATER_TEST = 3 
+    };
 
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE

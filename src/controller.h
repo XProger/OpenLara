@@ -52,6 +52,7 @@ struct Controller {
         joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
         specular   = 0.0f;
+        ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
     }
 
     virtual ~Controller() {
@@ -338,7 +339,7 @@ struct Controller {
             case TR::Action::CLEAR           :
             case TR::Action::CAMERA_FLYBY    :
             case TR::Action::CUTSCENE        :
-                LOG("! action is not implemented\n");
+                //LOG("! action is not implemented\n");
                 actionCommand = next;
                 activateNext();
                 break;
@@ -430,7 +431,7 @@ struct Controller {
         mat4 matrix;
 
         TR::Entity &e = getEntity();
-        if (e.type < TR::Entity::CUT_1 || e.type > TR::Entity::CUT_3) { // TODO: move to ctor
+        if (e.type < TR::Entity::CUT_1 || e.type > TR::Entity::CUT_4) { // TODO: move to ctor
             matrix.identity();
             matrix.translate(pos);
             if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));

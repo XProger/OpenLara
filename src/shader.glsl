@@ -20,8 +20,8 @@ varying vec2 vTexCoord;
 uniform int   uType;
 
 #ifdef PASS_COMPOSE
-    uniform int   uCaustics;
-    uniform float uTime;
+    uniform int  uCaustics;
+    uniform vec4 uParam;
 #endif
 
 #ifdef VERTEX
@@ -72,7 +72,7 @@ uniform int   uType;
                 // animated texture coordinates
                 vec2 range  = uAnimTexRanges[int(aTexCoord.z)]; // x - start index, y - count
 
-                float f = fract((aTexCoord.w + uTime * 4.0 - range.x) / range.y) * range.y;
+                float f = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
                 vec2 offset = uAnimTexOffsets[int(range.x + f)]; // texCoord offset from first frame
 
                 vTexCoord  = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
@@ -93,7 +93,7 @@ uniform int   uType;
         #ifdef PASS_COMPOSE
             if (uCaustics != 0) {
                 float sum = coord.x + coord.y + coord.z;
-                vColor.xyz *= abs(sin(sum / 512.0 + uTime)) * 1.5 + 0.5; // color dodge
+                vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
             }
 
             vViewVec   = uViewPos - coord.xyz;          
@@ -285,7 +285,7 @@ uniform int   uType;
                     }
 
                     if (uType == TYPE_ENTITY) {
-                        vec3 rAmbient = pow(abs(calcAmbient(normal)), vec3(2.2));
+                        vec3 rAmbient = calcAmbient(normal);
                         float rShadow = getShadow(vLightProj);
                         light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;
                         color.xyz += calcSpecular(normal, viewVec, uLightPos[0], uLightColor[0], uColor.w * rShadow + 0.03);
@@ -298,6 +298,7 @@ uniform int   uType;
                     }
 
                     color.xyz *= light;
+
 //color.xyz = normal * 0.5 + 0.5;
                 } else {
                     color.w = uColor.w;

@@ -292,7 +292,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(TR::Level *level, int entity) : Controller(level, entity) {
-        environment = new Texture(64, 64, false, true);
+        environment = new Texture(64, 64, Texture::RGBA, true);
     }
 
     virtual ~Crystal() {

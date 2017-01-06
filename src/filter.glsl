@@ -1,24 +1,24 @@
 R"====(
 varying vec2 vTexCoord;
 
-#define TYPE_DOWNSAMPLE 10
+#define FILTER_DOWNSAMPLE 0
 
 uniform int uType;
 
 #ifdef VERTEX
     attribute vec4 aCoord;
 
-    void main() {
-        vTexCoord   = aCoord.zw;
+    void main() {        
+        vTexCoord = aCoord.zw;
         gl_Position = vec4(aCoord.xy, 0.0, 1.0);
+
     }
 #else
     uniform sampler2D sDiffuse;
-
-    uniform float uTime; // texture size
+    uniform vec4 uParam; // texture size
 
     vec4 downsample() {        
-        float k = 1.0 / uTime;
+        float k = 1.0 / uParam.x;
 
         vec4 color = vec4(0.0);
         for (float y = -1.5; y < 2.0; y++)
@@ -34,9 +34,7 @@ uniform int uType;
     }
     
     vec4 filter() {
-        if (uType == TYPE_DOWNSAMPLE) {
-            return downsample();
-        }
+        if (uType == FILTER_DOWNSAMPLE) return downsample();
         return vec4(1.0, 0.0, 0.0, 1.0);
     }
     

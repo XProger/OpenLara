@@ -236,7 +236,14 @@ struct Lara : Character {
         pos = vec3(43182, 2473, 51556);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 12;
-        
+        */
+    // gym (pool)
+        pos = vec3(40448, 3584, 60928);
+        angle = vec3(0.0f, PI * 0.5f, 0.0f);
+        getEntity().room = 14;
+        stand = STAND_ONWATER;
+        animation.setAnim(ANIM_TO_ONWATER);
+        /*
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);

@@ -415,6 +415,7 @@ namespace TR {
             CUT_1                    = 77,
             CUT_2                    = 78,
             CUT_3                    = 79,
+            CUT_4                    = 79,
 
             CRYSTAL                  = 83,       // sprite
             WEAPON_PISTOLS           = 84,       // sprite
@@ -1228,10 +1229,15 @@ namespace TR {
                 }
 
                 #define RECALC_ZERO_NORMALS(mesh, face, count)\
+                    int fn = -1;\
                     for (int j = 0; j < count; j++) {\
                         Mesh::Vertex &v = mesh.vertices[face.vertices[j]];\
                         short4 &n = v.normal;\
                         if (!(n.x | n.y | n.z)) {\
+                            if (fn > -1) {\
+                                n = mesh.vertices[face.vertices[fn]].normal;\
+                                continue;\
+                            }\
                             vec3 o(mesh.vertices[face.vertices[0]].coord);\
                             vec3 a = o - mesh.vertices[face.vertices[1]].coord;\
                             vec3 b = o - mesh.vertices[face.vertices[2]].coord;\
@@ -1239,6 +1245,7 @@ namespace TR {
                             n.x = (int)o.x;\
                             n.y = (int)o.y;\
                             n.z = (int)o.z;\
+                            fn = j;\
                         }\
                     }
 
