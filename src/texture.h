@@ -4,7 +4,7 @@
 #include "core.h"
 
 struct Texture {
-    enum Format : uint32 { RGBA, RGBA_FLOAT, RGBA_HALF, DEPTH, SHADOW, MAX };
+    enum Format : uint32 { RGBA, RGBA_FLOAT, RGBA_HALF, RED, DEPTH, SHADOW, MAX };
 
     GLuint  ID;
     int     width, height;
@@ -64,6 +64,7 @@ struct Texture {
             { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE  },    // RGBA
             { GL_RGBA32F,         GL_RGBA,            GL_FLOAT          },    // RGBA_FLOAT
             { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT     },    // RGBA_HALF
+            { GL_RED,             GL_RED,             GL_UNSIGNED_BYTE  },    // RED
             { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },    // DEPTH
             { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },    // SHADOW
         };

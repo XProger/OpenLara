@@ -337,6 +337,19 @@ struct mat4 {
         this->offset    = vec4(from, 1.0f);
     }
 
+    mat4(const vec4 &reflectPlane) {
+        float a = reflectPlane.x, 
+              b = reflectPlane.y, 
+              c = reflectPlane.z, 
+              d = reflectPlane.w;
+
+        right  = vec4(1 - 2*a*a,   - 2*b*a,   - 2*c*a, 0);
+        up     = vec4(  - 2*a*b, 1 - 2*b*b,   - 2*c*b, 0);
+        dir    = vec4(  - 2*a*c,   - 2*b*c, 1 - 2*c*c, 0);
+        offset = vec4(  - 2*a*d,   - 2*b*d,   - 2*c*d, 1);
+    }
+
+
     void identity() {
         e10 = e20 = e30 = e01 = e21 = e31 = e02 = e12 = e32 = e03 = e13 = e23 = 0.0f;
         e00 = e11 = e22 = e33 = 1.0f;

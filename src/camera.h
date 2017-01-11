@@ -21,7 +21,9 @@ struct Camera : Controller {
     int     actTargetEntity, actCamera;
     bool    cutscene;
 
-    Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1) {
+    vec4    *reflectPlane;
+
+    Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL) {
         fov         = 65.0f;
         znear       = 16;
         zfar        = 32.0f * 1024.0f;
@@ -205,7 +207,11 @@ struct Camera : Controller {
 
     virtual void setup(bool calcMatrices) {
         if (calcMatrices) {
-            Core::mViewInv = mViewInv;
+            if (reflectPlane)
+                Core::mViewInv = mat4(*reflectPlane) * mViewInv;
+            else
+                Core::mViewInv = mViewInv;
+
             Core::mView    = Core::mViewInv.inverse();
             Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
         // TODO: camera shake

@@ -229,7 +229,14 @@ struct Lara : Character {
             arms[i].rot       = quat(0, 0, 0, 1);
             arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
-
+        
+        pos = vec3(40448, 3584, 60928);
+        angle = vec3(0.0f, PI * 0.5f, 0.0f);
+        getEntity().room = 14;
+        stand = STAND_ONWATER;
+        animation.setAnim(ANIM_TO_ONWATER);
+        updateEntity();
+        
     #ifdef _DEBUG
 /*
     // gym 
@@ -242,7 +249,7 @@ struct Lara : Character {
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 14;
         stand = STAND_ONWATER;
-        animation.setAnim(ANIM_TO_ONWATER);
+        animation.setAnim(ANIM_TO_ONWATER);        
         /*
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
@@ -930,9 +937,9 @@ struct Lara : Character {
         int h = int(pos.y - infoDst.floor);
 
         if (h > 0 && h <= 256 && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) { // possibility check
-            alignToWall();
-            dst.y  -= pos.y - infoDst.floor;
-            pos     = dst;  // set new position
+            alignToWall(-96.0f);
+            pos.y = infoDst.floor;
+            //pos     = dst;  // set new position
             
             specular = LARA_WET_SPECULAR;
 

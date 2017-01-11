@@ -32,6 +32,14 @@
     #include <html5.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
+    
+    #undef GL_RGBA32F
+    #undef GL_RGBA16F
+    #undef GL_HALF_FLOAT
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 #endif
 
 #include "utils.h"

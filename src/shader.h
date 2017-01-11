@@ -4,12 +4,12 @@
 #include "core.h"
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
-enum SamplerType    { sDiffuse, sShadow, sEnvironment, sMAX };
-enum UniformType    { uType, uCaustics, uParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uMAX };
+enum SamplerType    { sDiffuse, sNormal, sReflect, sShadow, sEnvironment, sMAX };
+enum UniformType    { uType, uCaustics, uParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uRoomSize, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
-const char *SamplerName[sMAX]   = { "sDiffuse", "sShadow", "sEnvironment" };
-const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets" };
+const char *SamplerName[sMAX]   = { "sDiffuse", "sNormal", "sReflect", "sShadow", "sEnvironment" };
+const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets", "uRoomSize" };
 
 struct Shader {
     GLuint  ID;
@@ -18,14 +18,12 @@ struct Shader {
     enum : GLint { 
         /* shader */ SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, 
         /* filter */ FILTER_DOWNSAMPLE = 0, 
-        /* water  */ WATER_DROP = 0, WATER_STEP = 1, WATER_NORMAL = 2, WATER_TEST = 3 
+        /* water  */ WATER_DROP = 0, WATER_STEP = 1, WATER_NORMAL = 2, WATER_CAUSTICS = 3, WATER_MASK = 4, WATER_COMPOSE = 5,
     };
 
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
-	        #define GLSL_DEFINE "#define MOBILE\n"\
-                                "precision highp int;\n"\
-                                "precision highp float;\n"
+	        #define GLSL_DEFINE "precision highp int;\nprecision highp float;\n"
         #else
 	        #define GLSL_DEFINE "#version 120\n"
         #endif

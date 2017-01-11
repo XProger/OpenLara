@@ -35,18 +35,22 @@ struct Level {
     TR::Level   level;
     Shader      *shaders[shMAX];
     Texture     *atlas;
+    Texture     *cube;
     MeshBuilder *mesh;
 
     Lara        *lara;
     Camera      *camera;
     Texture     *shadow;
 
-#ifdef _DEBUG
     Texture     *water[2];
-    Texture     *waterCube;
-#endif
 
-    float       time;
+    Texture     *waterRefract;
+    Texture     *waterReflect;
+    Texture     *waterCaustics;
+
+    float   time;
+    float   clipHeight;
+    float   clipSign;
 
     struct AmbientCache {
         Level *level;
@@ -345,12 +349,16 @@ struct Level {
 
         delete shadow;
         delete ambientCache;
-#ifdef _DEBUG
+
         delete water[0];
         delete water[1];
-        delete waterCube;
-#endif
+
+        delete waterRefract;
+        delete waterReflect;
+        delete waterCaustics;
+
         delete atlas;
+        delete cube;
         delete mesh;
 
         delete camera;        
@@ -359,19 +367,12 @@ struct Level {
     void initTextures() {
         shadow = new Texture(1024, 1024, Texture::SHADOW, false);
 
-        float *ddd = NULL;//new float[4 * 256 * 256];
-//        memset(ddd, 0, sizeof(float) * 4 * 256 * 256);
-//        for (int i = 0; i < 512 * 512 * 2; i += 2)
-//            ddd[i] = randf();
-//        ddd[(128 * 256 + 128) * 4] = 50.0f;
-//        ddd[(192 * 256 + 192) * 4] = 100.0f;
-//        ddd[(64 * 256 + 128) * 4]  = 20.0f;
+        water[0] = new Texture(256, 256, Texture::RGBA_HALF, false);
+        water[1] = new Texture(256, 256, Texture::RGBA_HALF, false);
 
-    #ifdef _DEBUG
-        water[0] = new Texture(256, 256, Texture::RGBA_FLOAT, false, ddd);
-        water[1] = new Texture(256, 256, Texture::RGBA_FLOAT, false, ddd);
-    #endif
-        delete[] ddd;
+        waterRefract  = new Texture(1024, 1024, Texture::RGBA, false);
+        waterReflect  = new Texture(1024, 1024, Texture::RGBA, false);
+        waterCaustics = new Texture(1024, 1024, Texture::RGBA, false);
 
         if (!level.tilesCount) {
             atlas = NULL;
@@ -405,6 +406,9 @@ struct Level {
 
         atlas = new Texture(1024, 1024, Texture::RGBA, false, data);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
+
+        uint32 whitePix = 0xFFFFFFFF;
+        cube = new Texture(1, 1, Texture::RGBA, true, &whitePix);
 
         delete[] data;
         delete[] level.tiles;
@@ -483,11 +487,6 @@ struct Level {
                 renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
             }
         }
-
-    #ifdef _DEBUG
-        waterCube = new Texture(512, 512, Texture::RGBA, true);
-        renderEnvironment(14, vec3(40448, 3584, 60928), &waterCube);
-    #endif
     }
 
 #ifdef LEVEL_EDITOR
@@ -566,6 +565,10 @@ struct Level {
             Core::active.shader->setParam(uCaustics, 0);
         }
         Core::active.shader->setParam(uColor, Core::color);
+
+        waterCaustics->bind(sReflect);
+        vec4 roomSize = vec4(room.info.x, room.info.z, room.info.x + room.xSectors * 1024, room.info.z + room.zSectors * 1024);
+        Core::active.shader->setParam(uRoomSize, roomSize);
     }
 
     void renderRoom(int roomIndex, int from = -1) {
@@ -735,6 +738,7 @@ struct Level {
         camera->setup(Core::pass == Core::passCompose);
 
         atlas->bind(sDiffuse);
+        cube->bind(sEnvironment);
 
         if (!Core::support.VAO)
             mesh->bind();
@@ -746,7 +750,7 @@ struct Level {
         sh->setParam(uLightProj,        Core::mLightProj);
         sh->setParam(uViewInv,          Core::mViewInv);
         sh->setParam(uViewPos,          Core::viewPos);
-        sh->setParam(uParam,            vec4(time, 0.0f, 0.0f, 0.0f));
+        sh->setParam(uParam,            vec4(time, 0.0f, clipSign, clipHeight));
         sh->setParam(uLightsCount,      3);
         sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
         sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
@@ -884,41 +888,105 @@ struct Level {
 
         Core::setBlending(bmAlpha);
         Core::clear(vec4(0.0f));
-        Core::setViewport(0, 0, Core::width, Core::height);
         shadow->bind(sShadow);
         renderScene(roomIndex);
     }
     
+    void renderWater() {
+
+
+    }
+
     void render() {
+        clipHeight = 1000000.0f;
+        clipSign   = 1.0f;
         Core::resetStates();
         
         ambientCache->precessQueue();
         renderShadows(lara->getRoomIndex());
+        Core::setViewport(0, 0, Core::width, Core::height);
         renderCompose(camera->getRoomIndex());
 
-    #ifdef _DEBUG
+   
+        Core::setViewport(0, 0, waterRefract->width, waterRefract->height);
+
+        bool underwater = level.rooms[camera->getRoomIndex()].flags.water;
+
+        Core::setTarget(waterRefract);
+        renderCompose(camera->getRoomIndex());
+
+        setPassShader(Core::passWater);
+        atlas->bind(sNormal);
+        atlas->bind(sReflect);
+
+        Core::active.shader->setParam(uType, Shader::WATER_MASK);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+        Core::setBlending(bmNone);
+        Core::setCulling(cfNone);
+        glColorMask(false, false, false, true);
+        mesh->renderQuad();
+        glColorMask(true, true, true, true);
+
+        Core::setTarget(waterReflect);
+        vec3 p = vec3(40448, 3584, 60928);
+        vec3 n = vec3(0, 1, 0);
+
+        vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
+
+        camera->reflectPlane = &reflectPlane;
+        Core::setCulling(cfBack);
+        clipSign   = underwater ? -1.0f : 1.0f;
+        clipHeight = 3584.0 * clipSign;
+        renderCompose(underwater ? 13 : lara->getRoomIndex());
+        clipHeight = 1000000.0f;
+        clipSign   = 1.0f;
+        Core::setCulling(cfFront);
+        camera->reflectPlane = NULL;
+
+        Core::setTarget(NULL);
+        Core::setViewport(0, 0, Core::width, Core::height);
+        
+        camera->setup(true);
+
+//        Core::mViewInv = camera->mViewInv;
+//        Core::mView = Core::mViewInv.inverse();
+
+        
         glDisable(GL_BLEND);
         glDisable(GL_DEPTH_TEST);
         Core::setViewport(0, 0, water[0]->width, water[0]->height);
         setPassShader(Core::passWater);
 
         static vec3 lastPos = vec3(0.0);
-        bool flag = (lara->pos - lastPos).length() > 16.0f;
-        bool flag2 = lara->animation.frameIndex == 20;//isFrameActive(22) || lara->animation.isFrameActive(21);
+        vec3 head = lara->animation.getJoints(lara->getMatrix(), 14).pos;
+        bool flag = (head - lastPos).length() > 16.0f;
+        bool fall = (lara->animation.index == Lara::ANIM_WATER_FALL || lara->animation.index == 152) && lara->animation.frameIndex == 0;
+        bool flag2 = lara->animation.frameIndex == 20 || fall;
+        flag  &= lara->stand == Lara::STAND_ONWATER || fall;
+        flag2 &= lara->stand == Lara::STAND_ONWATER || fall;
 
         if (Input::down[ikU] || flag || flag2) {
             vec2 p(randf(), randf());
             if (flag || flag2) {
                 vec3 c(40448, 0.0, 60928);
-                p.x = (lara->pos.x - c.x) / 5120.0f + 0.5;
-                p.y = (lara->pos.z - c.z) / 5120.0f + 0.5;
-                lastPos = lara->pos;
+                p.x = (head.x - c.x) / 5120.0f + 0.5;
+                p.y = (head.z - c.z) / 5120.0f + 0.5;
+                lastPos = head;
             }
+            float radius = (flag2 ? 1.0f : randf() + 0.2f);
+            float strength = flag2 ? 0.01f : randf() * 0.03f;
+
+            if (fall) {
+                radius = 1.5f;
+                strength = 0.05f;
+            }
+
+
 
             water[0]->bind(sDiffuse);
             Core::setTarget(water[1]);
             Core::active.shader->setParam(uType, Shader::WATER_DROP);
-            Core::active.shader->setParam(uParam, vec4(p.x, p.y, 128.0f / 5120.0f * (flag2 ? 1.0f : randf() + 0.2f), flag2 ? 0.001f : randf() * 0.05f));
+            Core::active.shader->setParam(uParam, vec4(p.x, p.y, 128.0f / 5120.0f * radius, strength));
             mesh->renderQuad();
             swap(water[0], water[1]);
             Input::down[ikU] = false;
@@ -938,15 +1006,18 @@ struct Level {
         Core::active.shader->setParam(uType, Shader::WATER_NORMAL);
         mesh->renderQuad();
         swap(water[0], water[1]);
+
+        Core::setViewport(0, 0, waterCaustics->width, waterCaustics->height);
+
+        water[0]->bind(sDiffuse);
+        Core::setTarget(waterCaustics);
+        Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
+        mesh->renderQuad();
+        swap(water[0], water[1]);
+
+
         Core::setTarget(NULL);
 
-/*
-        waterCube->bind(sEnvironment);
-        Core::setViewport(Core::width - water[0]->width - 16, Core::height - water[0]->height - 16, water[0]->width, water[0]->height);
-        water[0]->bind(sDiffuse);
-        Core::active.shader->setParam(uType, Shader::WATER_TEST);
-        mesh->renderQuad();
-*/
         Core::setViewport(0, 0, Core::width, Core::height);
 
         glEnable(GL_BLEND);
@@ -961,17 +1032,20 @@ struct Level {
             Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
         }
 
-        Core::active.shader->setParam(uType, Shader::WATER_TEST);
+        Core::active.shader->setParam(uType, Shader::WATER_COMPOSE);
         Core::active.shader->setParam(uViewProj,         Core::mViewProj);
         Core::active.shader->setParam(uViewPos,          Core::viewPos);
         Core::active.shader->setParam(uLightPos,         Core::lightPos[0],   1);
         Core::active.shader->setParam(uLightColor,       Core::lightColor[0], 1);
 
-        water[0]->bind(sDiffuse);
-        waterCube->bind(sEnvironment);
-
+        waterRefract->bind(sDiffuse);
+        waterReflect->bind(sReflect);
+        water[0]->bind(sNormal);
+        Core::setCulling(cfNone);
         mesh->renderQuad();
+        Core::setCulling(cfFront);
 
+    #ifdef _DEBUG
 
         static int modelIndex = 0;
         static bool lastStateK = false;
@@ -998,6 +1072,39 @@ struct Level {
 //        renderModel(level.models[modelIndex], level.entities[4]);
 
         Debug::begin();
+        
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(0, Core::width, 0, Core::height, 0, 1);
+
+
+            waterCaustics->bind(sDiffuse);
+            glEnable(GL_TEXTURE_2D);
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_DEPTH_TEST);
+
+            glColor3f(1, 1, 1);
+            glBegin(GL_QUADS);
+                glTexCoord2f(0, 0); glVertex2f(0, 0);
+                glTexCoord2f(1, 0); glVertex2f(256, 0);
+                glTexCoord2f(1, 1); glVertex2f(256, 256);
+                glTexCoord2f(0, 1); glVertex2f(0, 256);
+            glEnd();
+
+            glDisable(GL_TEXTURE_2D);
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            glPopMatrix();
+            
+
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
@@ -1099,7 +1206,7 @@ struct Level {
             */
 
 
-            //Debug::Level::info(level, lara->getEntity(), lara->animation);
+       //     Debug::Level::info(level, lara->getEntity(), lara->animation);
 
 
         Debug::end();
