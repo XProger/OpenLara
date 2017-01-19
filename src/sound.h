@@ -144,10 +144,7 @@ namespace Sound {
         }
     };
 #endif
-	
 
-
-double samples[28];
 #ifdef DECODE_VAG
     struct VAG : Decoder {
         uint8 pred, shift, flags;
@@ -311,10 +308,9 @@ double samples[28];
     enum Flags {
         LOOP            = 1,
         PAN             = 2,
-        REPLAY          = 4,
-        REVERB_NEAR     = 8,
-        REVERB_MIDDLE   = 16,
-        REVERB_FAR      = 32,
+        UNIQUE          = 4,
+        REPLAY          = 8,
+        SYNC            = 16,
     };
 
     struct Sample {
@@ -350,7 +346,7 @@ double samples[28];
                         stream->read(waveFmt);
                         stream->seek(size - sizeof(waveFmt));
                     } else if (type == FOURCC("data")) {
-                        if (waveFmt.format == 1) decoder = new   PCM(stream, waveFmt.channels, waveFmt.samplesPerSec, size, waveFmt.sampleBits);
+                        if (waveFmt.format == 1) decoder = new PCM(stream, waveFmt.channels, waveFmt.samplesPerSec, size, waveFmt.sampleBits);
                         #ifdef DECODE_ADPCM
                         if (waveFmt.format == 2) decoder = new ADPCM(stream, waveFmt.channels, size, waveFmt.block);
                         #endif
@@ -450,16 +446,28 @@ double samples[28];
         FrameHI *result = new FrameHI[count];
         memset(result, 0, sizeof(FrameHI) * count);
 
-        Frame *buffer = new Frame[count];
+        int bufSize = count + count / 2;
+        Frame *buffer = new Frame[bufSize]; // + 50% for pitch
 
         for (int i = 0; i < channelsCount; i++) {
             
-            memset(buffer, 0, sizeof(Frame) * count);
-            channels[i]->render(buffer, count);
+            memset(buffer, 0, sizeof(Frame) * bufSize);
+            channels[i]->render(buffer, int(count * channels[i]->pitch));
 
-            for (int j = 0; j < count; j++) {
-                result[j].L += buffer[j].L;
-                result[j].R += buffer[j].R;
+            if (channels[i]->pitch == 1.0f) { // no pitch
+                for (int j = 0; j < count; j++) {
+                    result[j].L += buffer[j].L;
+                    result[j].R += buffer[j].R;
+                }
+            } else { // has pitch (interpolate values for smooth wave)
+                float t = 0.0f;
+                for (int j = 0; j < count; j++, t += channels[i]->pitch) {
+                    int idxA = int(t);
+                    int idxB = (j == (count - 1)) ? idxA : (idxA + 1);
+                    float k = t - idxA;
+                    result[j].L += lerp(buffer[idxA].L, buffer[idxB].L, k);
+                    result[j].R += lerp(buffer[idxA].R, buffer[idxB].R, k);
+                }
             }
         }
 
@@ -502,23 +510,23 @@ double samples[28];
 
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         if (!stream) return NULL;
+        if (volume > 0.001f) {
+            if (flags & (REPLAY | SYNC | UNIQUE))
+                for (int i = 0; i < channelsCount; i++)
+                    if (channels[i]->id == id) {
+                        channels[i]->pos   = pos;
+                        channels[i]->pitch = pitch;
+                        if (flags & (REPLAY | UNIQUE))
+                            channels[i]->decoder->replay();
+                        delete stream;
+                        return channels[i];
+                    }
 
-        if (flags & REPLAY)
-            for (int i = 0; i < channelsCount; i++)
-                if (channels[i]->id == id) {
-                    channels[i]->pos = pos;
-                    // channels[i]->pitch = pitch; // TODO
-                    // channels[i]->gain = gain; // TODO
-                    channels[i]->decoder->replay();
-                    delete stream;
-                    return channels[i];
-                }
+            if (channelsCount < SND_CHANNELS_MAX)
+                return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags, id);
 
-
-        if (channelsCount < SND_CHANNELS_MAX)
-            return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags, id);
-
-        LOG("! no free channels\n");  
+            LOG("! no free channels\n");
+        }
         delete stream;
         return NULL;
     }

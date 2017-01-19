@@ -193,8 +193,15 @@ struct Controller {
 
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-            int index = b.offset + rand() % b.flags.count;
-            Sound::play(level->getSampleStream(index), pos, (float)b.volume / 0xFFFF, 0.0f, flags | ((b.flags.replay == 1) ? Sound::REPLAY : 0), entity * 1000 + index);
+            int   index  = b.offset + rand() % b.flags.count;
+            float volume = (float)b.volume / 0x7FFF;
+            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f; 
+            if (b.flags.mode == 1) flags |= Sound::UNIQUE;
+            if (b.flags.mode == 2) flags |= Sound::REPLAY;
+            if (b.flags.mode == 3) flags |= Sound::SYNC;
+            if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
+            if (b.flags.fixed) flags &= ~Sound::PAN;
+            Sound::play(level->getSampleStream(index), pos, volume, pitch, flags, entity * 1000 + index);
         }
     }
 
