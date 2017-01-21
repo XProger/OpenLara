@@ -155,7 +155,7 @@ namespace Sound {
         VAG(Stream *stream) : Decoder(stream, 1), s1(0), s2(0), bufferSize(0) {}
 
         void predicate(short value) {
-            int inc[] = { 0, 60, 115,  90, 122 };
+            int inc[] = { 0, 60, 115,  98, 122 };
             int dec[] = { 0,  0, -52, -55, -60 };
 
             int s = (s1 * inc[pred] + s2 * dec[pred]) >> 6;
