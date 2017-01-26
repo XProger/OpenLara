@@ -1,4 +1,9 @@
 R"====(
+#ifdef GL_ES
+    precision highp int;
+    precision highp float;
+#endif
+
 varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 #ifndef PASS_SHADOW
@@ -78,10 +83,6 @@ uniform int   uType;
 
                 vTexCoord.xy = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
                 vNormal      = vec4(mulQuat(rBasisRot, aNormal.xyz), aNormal.w);
-
-                if (aTexCoord.z > 0.0)
-                    coord.w = -1.0;
-
             } else {
                 coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
                 vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;

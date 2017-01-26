@@ -39,6 +39,8 @@ struct MeshRange {
     }
 };
 
+#define PLANE_DETAIL 100
+
 struct Mesh {
     GLuint  ID[2];
     GLuint  *VAO;
@@ -142,6 +144,7 @@ struct MeshBuilder {
     MeshRange shadowBlob;
     MeshRange bar;
     MeshRange quad;
+    MeshRange plane;
 
     vec2 *animTexRanges;
     vec2 *animTexOffsets;
@@ -180,6 +183,9 @@ struct MeshBuilder {
             range.geometry.iStart = iCount;
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
+
+            if (roomCheckWaterPortal(r))
+                roomRemoveWaterSurfaces(r, iCount, vCount);           
             
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
@@ -236,25 +242,33 @@ struct MeshBuilder {
         shadowBlob.vStart = vCount;
         shadowBlob.iStart = iCount;
         shadowBlob.iCount = 8 * 3;
-        aCount++;
         iCount += shadowBlob.iCount;
         vCount += 8;
+        aCount++;
 
     // bar (health, oxygen)
         bar.vStart = vCount;
         bar.iStart = iCount;
         bar.iCount = 2 * 3;
-        aCount++;
         iCount += bar.iCount;
         vCount += 4;
+        aCount++;
 
     // quad (post effect filter)
         quad.vStart = vCount;
         quad.iStart = iCount;
         quad.iCount = 2 * 3;
-        aCount++;
         iCount += quad.iCount;
         vCount += 4;
+        aCount++;
+
+    // detailed plane
+        plane.vStart = vCount;
+        plane.iStart = iCount;
+        plane.iCount = PLANE_DETAIL * 2 * PLANE_DETAIL * 2 * (2 * 3);
+        iCount += plane.iCount;
+        vCount += (PLANE_DETAIL * 2 + 1) * (PLANE_DETAIL * 2 + 1);
+        aCount++;
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
         Index  *indices  = new Index[iCount];
@@ -271,6 +285,8 @@ struct MeshBuilder {
             for (int j = 0; j < d.rCount; j++) {
                 TR::Rectangle     &f = d.rectangles[j];
                 TR::ObjectTexture &t = level.objectTextures[f.texture];
+
+                if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
                 addQuad(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -289,6 +305,8 @@ struct MeshBuilder {
             for (int j = 0; j < d.tCount; j++) {
                 TR::Triangle      &f = d.triangles[j];
                 TR::ObjectTexture &t = level.objectTextures[f.texture];
+
+                if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
                 addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -405,6 +423,22 @@ struct MeshBuilder {
         }
         vCount += 4;
 
+    // plane
+        for (int16 j = -PLANE_DETAIL; j <= PLANE_DETAIL; j++)
+            for (int16 i = -PLANE_DETAIL; i <= PLANE_DETAIL; i++) {
+                vertices[vCount++].coord = { i, j, 0, 0 };
+                if (j < PLANE_DETAIL && i < PLANE_DETAIL) {
+                    int idx = (j + PLANE_DETAIL) * (PLANE_DETAIL * 2 + 1) + i + PLANE_DETAIL;
+                    indices[iCount + 0] = idx + PLANE_DETAIL * 2 + 1;
+                    indices[iCount + 1] = idx + 1;
+                    indices[iCount + 2] = idx;
+                    indices[iCount + 3] = idx + PLANE_DETAIL * 2 + 2;
+                    indices[iCount + 4] = idx + 1;
+                    indices[iCount + 5] = idx + PLANE_DETAIL * 2 + 1;
+                    iCount += 6;
+                }
+            }
+
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
         delete[] indices;
@@ -428,6 +462,7 @@ struct MeshBuilder {
         mesh->initRange(shadowBlob);
         mesh->initRange(bar);
         mesh->initRange(quad);
+        mesh->initRange(plane);
     }
 
     ~MeshBuilder() {
@@ -459,6 +494,70 @@ struct MeshBuilder {
         res.z += z;
         res.w = joint;
         return res;
+    }
+
+    bool roomCheckWaterPortal(TR::Room room) {
+        for (int i = 0; i < room.portalsCount; i++)
+            if (room.flags.water ^ level->rooms[room.portals[i].roomIndex].flags.water)
+                return true;
+        return false;
+    }
+
+    void roomRemoveWaterSurfaces(TR::Room room, int &iCount, int &vCount) {
+    // remove animated water polygons from room geometry
+        for (int j = 0; j < room.portalsCount; j++) {
+            TR::Room::Portal &p = room.portals[j];
+            if (!(room.flags.water ^ level->rooms[p.roomIndex].flags.water)) // check if portal is not on water surface
+                continue;
+
+            TR::Vertex pMin, pMax;
+            pMin.x = min(min(min(p.vertices[0].x, p.vertices[1].x), p.vertices[2].x), p.vertices[3].x);
+            pMin.z = min(min(min(p.vertices[0].z, p.vertices[1].z), p.vertices[2].z), p.vertices[3].z);
+            pMax.x = max(max(max(p.vertices[0].x, p.vertices[1].x), p.vertices[2].x), p.vertices[3].x);
+            pMax.z = max(max(max(p.vertices[0].z, p.vertices[1].z), p.vertices[2].z), p.vertices[3].z);
+            pMin.y = pMax.y = p.vertices[0].y;
+
+            for (int i = 0; i < room.data.rCount; i++) {
+                TR::Rectangle &f = room.data.rectangles[i];
+                TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
+                TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
+                TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
+                TR::Vertex &d = room.data.vertices[f.vertices[3]].vertex;
+
+                if (abs(a.y - pMin.y) > 1 || a.y != b.y || a.y != c.y || a.y != d.y) // skip non-horizontal or not in portal plane primitive
+                    continue;
+
+                int cx = (int(a.x) + int(b.x) + int(c.x) + int(d.x)) / 4;
+                int cz = (int(a.z) + int(b.z) + int(c.z) + int(d.z)) / 4;
+
+                if (c.x < pMin.x || c.x > pMax.x || c.z < pMin.z || c.z > pMax.z) // check for portal borders
+                    continue;
+
+                f.vertices[0] = 0xFFFF; // mark it as unused
+                iCount -= 3 * 2;
+                vCount -= 4;
+            }
+
+            for (int i = 0; i < room.data.tCount; i++) {
+                TR::Triangle &f = room.data.triangles[i];
+                TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
+                TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
+                TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
+
+                if (abs(a.y - pMin.y) > 1 || a.y != b.y || a.y != c.y) // skip non-horizontal or not in portal plane primitive
+                    continue;
+
+                int cx = (int(a.x) + int(b.x) + int(c.x)) / 3;
+                int cz = (int(a.z) + int(b.z) + int(c.z)) / 3;
+
+                if (c.x < pMin.x || c.x > pMax.x || c.z < pMin.z || c.z > pMax.z) // check for portal borders
+                    continue;
+
+                f.vertices[0] = 0xFFFF; // mark it as unused
+                iCount -= 3;
+                vCount -= 3;
+            }
+        }
     }
 
     void buildMesh(const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir) {
@@ -502,7 +601,6 @@ struct MeshBuilder {
             }
         }
     }
-
 
     vec2 getTexCoord(const TR::ObjectTexture &tex) {
         int  tile = tex.tile.index;
@@ -680,6 +778,10 @@ struct MeshBuilder {
 
     void renderQuad() {
         mesh->render(quad);
+    }
+
+    void renderPlane() {
+        mesh->render(plane);
     }
 
     void renderBar(const vec2 &size, float value) {

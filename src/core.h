@@ -341,6 +341,7 @@ namespace Core {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glColorMask(true, true, true, true);
+            setViewport(0, 0, Core::width, Core::height);
             return;
         }
 
@@ -362,6 +363,7 @@ namespace Core {
 
         if (depth)
             glColorMask(false, false, false, false);
+        setViewport(0, 0, target->width, target->height);
     }
 
     void resetStates() {

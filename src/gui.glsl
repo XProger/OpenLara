@@ -1,4 +1,9 @@
 R"====(
+#ifdef GL_ES
+    precision highp int;
+    precision highp float;
+#endif
+
 varying vec2 vTexCoord;
 
 #ifdef VERTEX

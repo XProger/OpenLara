@@ -320,10 +320,10 @@ namespace TR {
         uint16 boxIndex:15, end:1;
     };
 
-    struct Collider {
-        uint16 radius:10, info:6;
-        uint16 flags:16;
-    };
+    //struct Collider {
+    //    uint16 radius:10, info:6;
+    //    uint16 flags:16;
+    //};
 
     // internal mesh structure
     struct Mesh {
@@ -333,8 +333,9 @@ namespace TR {
             short4 normal;
         };
 
-        Collider    collider;
         TR::Vertex  center;
+        uint16      radius;
+        uint16      flags;
         int16       vCount;
         int16       rCount;
         int16       tCount;
@@ -669,7 +670,7 @@ namespace TR {
         uint16 volume;
         uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
         union {
-            struct { uint16 replay:2, count:6, unknown:5, pitch:1, gain:1, :1; };
+            struct { uint16 mode:2, count:4, unused:6, fixed:1, pitch:1, gain:1, :1; };
             uint16 value;
         } flags;
     };
@@ -872,7 +873,6 @@ namespace TR {
             } else if (version == VER_TR1_PC) {
             // tiles
                 stream.read(tiles8, stream.read(tilesCount));
-                stream.read(unused);
             }
 
             if (!version /*PSX cutscene*/ || version == VER_TR1_PSX) {
@@ -880,8 +880,9 @@ namespace TR {
             // tiles
                 stream.read(tiles4, tilesCount = 13);
                 stream.read(cluts, 512);                
-                stream.seek(0x4000 + 4);
+                stream.seek(0x4000);
             }
+            stream.read(unused);
 
         // rooms
             rooms = new Room[stream.read(roomsCount)];
@@ -1116,7 +1117,8 @@ namespace TR {
                 mesh.offset = stream.pos - start;
 
                 stream.read(mesh.center);
-                stream.read(mesh.collider);
+                stream.read(mesh.radius);
+                stream.read(mesh.flags);
                 stream.read(mesh.vCount);
 
                 switch (version) {

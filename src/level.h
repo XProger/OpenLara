@@ -47,6 +47,7 @@ struct Level {
     Texture     *waterRefract;
     Texture     *waterReflect;
     Texture     *waterCaustics;
+    float       waterTimer;
 
     float   time;
     float   clipHeight;
@@ -130,7 +131,6 @@ struct Level {
                 int size = 64 >> (i << 1);
 
                 Core::active.shader->setParam(uParam, vec4(float(size << 2), 0.0f, 0.0f, 0.0f));
-                Core::setViewport(0, 0, size, size);
 
                 for (int j = 0; j < 6; j++) {
                     Texture *src = textures[j * 4 + i - 1];
@@ -364,15 +364,23 @@ struct Level {
         delete camera;        
     }
 
+    #define WATER_SIMULATE_TIMESTEP (1.0f / 40.0f)
+
     void initTextures() {
         shadow = new Texture(1024, 1024, Texture::SHADOW, false);
 
         water[0] = new Texture(256, 256, Texture::RGBA_HALF, false);
         water[1] = new Texture(256, 256, Texture::RGBA_HALF, false);
 
-        waterRefract  = new Texture(1024, 1024, Texture::RGBA, false);
-        waterReflect  = new Texture(1024, 1024, Texture::RGBA, false);
-        waterCaustics = new Texture(1024, 1024, Texture::RGBA, false);
+        waterRefract  = NULL;
+        waterReflect  = new Texture( 512, 512, Texture::RGBA, false);
+        waterCaustics = new Texture( 256, 256, Texture::RGBA, false);
+
+        waterTimer = WATER_SIMULATE_TIMESTEP;
+
+        Core::setTarget(waterRefract); // clear refract mask (frame borders)
+        Core::clear(vec4(0.0f));
+        Core::setTarget(NULL);
 
         if (!level.tilesCount) {
             atlas = NULL;
@@ -413,6 +421,12 @@ struct Level {
         delete[] data;
         delete[] level.tiles;
         level.tiles = NULL;
+    }
+
+    void checkRefractTexture() {
+        if (waterRefract && Core::width <= waterRefract->width && Core::height <= waterRefract->height) return;
+        delete waterRefract;
+        waterRefract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
     }
 
     void initShaders() {
@@ -721,6 +735,7 @@ struct Level {
 
     void update() {
         time += Core::deltaTime;
+        waterTimer += Core::deltaTime;
 
         for (int i = 0; i < level.entitiesCount; i++) 
             if (level.entities[i].type != TR::Entity::NONE) {
@@ -861,10 +876,10 @@ struct Level {
             Core::setBlending(bmAlpha);
             Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
             Core::setTarget(target, i);
-            Core::setViewport(0, 0, target->width, target->height);
             Core::clear(vec4(0, 0, 0, 1));
             renderScene(roomIndex);
         }
+        Core::setTarget(NULL);
     }
 
     void renderShadows(int roomIndex) {
@@ -874,7 +889,6 @@ struct Level {
         setPassShader(Core::passShadow);
         Core::setBlending(bmNone);
 	    Core::setTarget(shadow);
-	    Core::setViewport(0, 0, shadow->width, shadow->height);
 	    Core::clear(vec4(1.0));
         Core::setCulling(cfBack);
 	    renderScene(roomIndex);
@@ -891,72 +905,40 @@ struct Level {
         shadow->bind(sShadow);
         renderScene(roomIndex);
     }
-    
-    void renderWater() {
 
+    void waterSimulate() {
+        if (waterTimer < WATER_SIMULATE_TIMESTEP) return;
 
+        Core::active.shader->setParam(uParam, vec4(1.0f / water[0]->width, 1.0f / water[0]->height, 0.0f, 0.0f));
+        Core::active.shader->setParam(uType, Shader::WATER_STEP);
+
+        while (waterTimer >= WATER_SIMULATE_TIMESTEP) {
+        // water step
+            water[0]->bind(sDiffuse);
+            Core::setTarget(water[1]);
+            mesh->renderQuad();
+            swap(water[0], water[1]);
+            waterTimer -= WATER_SIMULATE_TIMESTEP;
+        }
+        
+    // calc normals
+        //water[0]->bind(sDiffuse);
+        //Core::setTarget(water[1]);
+        //Core::active.shader->setParam(uType, Shader::WATER_NORMAL);
+        //mesh->renderQuad();
+        //swap(water[0], water[1]);
+        
+    // calc caustics
+        Core::active.shader->setParam(uScale, 1.0f / PLANE_DETAIL);
+        water[0]->bind(sNormal);
+        waterCaustics->unbind(sReflect);
+        Core::setTarget(waterCaustics);
+        Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
+        mesh->renderPlane();
+        Core::active.shader->setParam(uScale, 1.0f);
     }
 
-    void render() {
-        clipHeight = 1000000.0f;
-        clipSign   = 1.0f;
-        Core::resetStates();
-        
-        ambientCache->precessQueue();
-        renderShadows(lara->getRoomIndex());
-        Core::setViewport(0, 0, Core::width, Core::height);
-        renderCompose(camera->getRoomIndex());
-
-   
-        Core::setViewport(0, 0, waterRefract->width, waterRefract->height);
-
-        bool underwater = level.rooms[camera->getRoomIndex()].flags.water;
-
-        Core::setTarget(waterRefract);
-        renderCompose(camera->getRoomIndex());
-
-        setPassShader(Core::passWater);
-        atlas->bind(sNormal);
-        atlas->bind(sReflect);
-
-        Core::active.shader->setParam(uType, Shader::WATER_MASK);
-        Core::active.shader->setParam(uViewProj, Core::mViewProj);
-        Core::setBlending(bmNone);
-        Core::setCulling(cfNone);
-        glColorMask(false, false, false, true);
-        mesh->renderQuad();
-        glColorMask(true, true, true, true);
-
-        Core::setTarget(waterReflect);
-        vec3 p = vec3(40448, 3584, 60928);
-        vec3 n = vec3(0, 1, 0);
-
-        vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
-
-        camera->reflectPlane = &reflectPlane;
-        Core::setCulling(cfBack);
-        clipSign   = underwater ? -1.0f : 1.0f;
-        clipHeight = 3584.0 * clipSign;
-        renderCompose(underwater ? 13 : lara->getRoomIndex());
-        clipHeight = 1000000.0f;
-        clipSign   = 1.0f;
-        Core::setCulling(cfFront);
-        camera->reflectPlane = NULL;
-
-        Core::setTarget(NULL);
-        Core::setViewport(0, 0, Core::width, Core::height);
-        
-        camera->setup(true);
-
-//        Core::mViewInv = camera->mViewInv;
-//        Core::mView = Core::mViewInv.inverse();
-
-        
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        Core::setViewport(0, 0, water[0]->width, water[0]->height);
-        setPassShader(Core::passWater);
-
+    void waterDrop() {
         static vec3 lastPos = vec3(0.0);
         vec3 head = lara->animation.getJoints(lara->getMatrix(), 14).pos;
         bool flag = (head - lastPos).length() > 16.0f;
@@ -981,8 +963,6 @@ struct Level {
                 strength = 0.05f;
             }
 
-
-
             water[0]->bind(sDiffuse);
             Core::setTarget(water[1]);
             Core::active.shader->setParam(uType, Shader::WATER_DROP);
@@ -991,38 +971,63 @@ struct Level {
             swap(water[0], water[1]);
             Input::down[ikU] = false;
         }
+    }
 
+    void renderWater() {
+        bool underwater = level.rooms[camera->getRoomIndex()].flags.water;
 
-        Core::active.shader->setParam(uParam, vec4(1.0f / water[0]->width, 1.0f / water[0]->height, Core::deltaTime * 4.0f, 0.0f));
+    // mask underwater geometry by zero alpha
+        setPassShader(Core::passWater);
+        atlas->bind(sNormal);
+        atlas->bind(sReflect);
 
-        water[0]->bind(sDiffuse);
-        Core::setTarget(water[1]);
-        Core::active.shader->setParam(uType, Shader::WATER_STEP);
+        Core::active.shader->setParam(uType,     Shader::WATER_MASK);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+        Core::active.shader->setParam(uScale,    1.0f);
+        Core::setBlending(bmNone);
+        Core::setCulling(cfNone);
+        glDepthMask(false);
+        glColorMask(false, false, false, true);
         mesh->renderQuad();
-        swap(water[0], water[1]);
+        glColorMask(true, true, true, true);
+        glDepthMask(true);
 
-        water[0]->bind(sDiffuse);
-        Core::setTarget(water[1]);
-        Core::active.shader->setParam(uType, Shader::WATER_NORMAL);
-        mesh->renderQuad();
-        swap(water[0], water[1]);
+    // get refraction texture
+        checkRefractTexture();
+        waterRefract->bind(sDiffuse);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, Core::width, Core::height);
 
-        Core::setViewport(0, 0, waterCaustics->width, waterCaustics->height);
+    // render mirror reflection
+        Core::setTarget(waterReflect);
+        vec3 p = vec3(40448, 3584, 60928);
+        vec3 n = vec3(0, 1, 0);
 
-        water[0]->bind(sDiffuse);
-        Core::setTarget(waterCaustics);
-        Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
-        mesh->renderQuad();
-        swap(water[0], water[1]);
+        vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
+
+        camera->reflectPlane = &reflectPlane;
+        Core::setCulling(cfBack);
+        clipSign   = underwater ? -1.0f : 1.0f;
+        clipHeight = 3584.0 * clipSign;
+        renderCompose(underwater ? 13 : lara->getRoomIndex());
+        clipHeight = 1000000.0f;
+        clipSign   = 1.0f;
+        Core::setCulling(cfFront);
+        camera->reflectPlane = NULL;
 
 
+    // simulate water
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+
+        setPassShader(Core::passWater);
+        waterDrop();
+        waterSimulate();
         Core::setTarget(NULL);
-
-        Core::setViewport(0, 0, Core::width, Core::height);
 
         glEnable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
 
+    // render water plane
         int dx, dz;
         TR::Room::Sector &s = level.getSector(lara->getRoomIndex(), int(lara->pos.x), int(lara->pos.z), dx, dz);
         if (s.roomAbove != 0xFF && level.rooms[s.roomAbove].lightsCount) {
@@ -1032,11 +1037,14 @@ struct Level {
             Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
         }
 
-        Core::active.shader->setParam(uType, Shader::WATER_COMPOSE);
-        Core::active.shader->setParam(uViewProj,         Core::mViewProj);
-        Core::active.shader->setParam(uViewPos,          Core::viewPos);
-        Core::active.shader->setParam(uLightPos,         Core::lightPos[0],   1);
-        Core::active.shader->setParam(uLightColor,       Core::lightColor[0], 1);
+        Core::active.shader->setParam(uType,        Shader::WATER_COMPOSE);
+        Core::active.shader->setParam(uViewProj,    Core::mViewProj);
+        Core::active.shader->setParam(uViewPos,     Core::viewPos);
+        Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
+        Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
+        Core::active.shader->setParam(uParam, vec4(float(Core::width) / waterRefract->width, float(Core::height) / waterRefract->height, 0.075f, 0.02f));
+//        Core::active.shader->setParam(uParam, vec4(1.0f, 1.0f, 0.075f, 0.02f));
+        Core::active.shader->setParam(uScale, 1.0f);
 
         waterRefract->bind(sDiffuse);
         waterReflect->bind(sReflect);
@@ -1044,9 +1052,25 @@ struct Level {
         Core::setCulling(cfNone);
         mesh->renderQuad();
         Core::setCulling(cfFront);
+    }
+
+    void render() {
+        clipHeight = 1000000.0f;
+        clipSign   = 1.0f;
+        Core::resetStates();
+        
+        ambientCache->precessQueue();
+        renderShadows(lara->getRoomIndex());
+        Core::setViewport(0, 0, Core::width, Core::height);
+        renderCompose(camera->getRoomIndex());
+
+        renderWater();
+
+//        Core::mViewInv = camera->mViewInv;
+//        Core::mView = Core::mViewInv.inverse();
 
     #ifdef _DEBUG
-
+        camera->setup(true);
         static int modelIndex = 0;
         static bool lastStateK = false;
         static int lastEntity = -1;
@@ -1072,7 +1096,7 @@ struct Level {
 //        renderModel(level.models[modelIndex], level.entities[4]);
 
         Debug::begin();
-        
+            
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -1080,7 +1104,6 @@ struct Level {
             glPushMatrix();
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
-
 
             waterCaustics->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
@@ -1108,7 +1131,7 @@ struct Level {
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
-        //    Debug::Level::portals(level);
+            Debug::Level::portals(level);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
         /*
@@ -1206,7 +1229,7 @@ struct Level {
             */
 
 
-       //     Debug::Level::info(level, lara->getEntity(), lara->animation);
+            Debug::Level::info(level, lara->getEntity(), lara->animation);
 
 
         Debug::end();

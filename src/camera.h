@@ -89,11 +89,11 @@ struct Camera : Controller {
         } else
     #endif        
         {
-            if (Input::down[ikMouseR]) {
-                vec2 delta = Input::mouse.pos - Input::mouse.start.R;
+            if (Input::down[ikMouseL]) {
+                vec2 delta = Input::mouse.pos - Input::mouse.start.L;
                 angleAdv.x -= delta.y * 0.01f;
                 angleAdv.y += delta.x * 0.01f;
-                Input::mouse.start.R = Input::mouse.pos;
+                Input::mouse.start.L = Input::mouse.pos;
             }
 
             angleAdv.x -= Input::joy.R.y * 2.0f * Core::deltaTime;

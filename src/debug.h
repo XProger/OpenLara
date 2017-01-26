@@ -411,7 +411,6 @@ namespace Debug {
                 Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
                 Debug::Draw::box(matrix, box.min, box.max, vec4(1.0));
 
-/*
 
                 for (int j = 0; j < level.modelsCount; j++) {
                     TR::Model &m = level.models[j];
@@ -424,7 +423,7 @@ namespace Debug {
                         int fSize = sizeof(TR::AnimFrame) + m.mCount * sizeof(uint16) * 2;
 
                         TR::Animation *anim  = controller->animation;
-                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + (controller ? int((controller->animTime * 30.0f / anim->frameRate)) * fSize : 0) >> 1)];
+                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + (controller ? int((controller->animation.time * 30.0f / anim->frameRate)) * fSize : 0) >> 1)];
 
                         //mat4 m;
                         //m.identity();
@@ -461,12 +460,13 @@ namespace Debug {
                             joint = joint * rot;
 
                             int offset = level.meshOffsets[m.mStart + k];
-                            TR::Mesh *mesh = (TR::Mesh*)&level.meshData[offset / 2];
-                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->collider.radius, mesh->collider.info ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
+                            TR::Mesh *mesh = (TR::Mesh*)&level.meshes[offset];
+                            if (!mesh->flags) continue;
+                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius, vec4(0, 1, 1, 0.5f));
                             
                             { //if (e.id != 0) {
                                 char buf[255];
-                                sprintf(buf, "(%d) radius %d info %d flags %d", e.id, (int)mesh->collider.radius, (int)mesh->collider.info, (int)mesh->collider.flags);
+                                sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags);
                                 Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
                             }
                             
@@ -477,7 +477,6 @@ namespace Debug {
                     }
                 
                 }
-*/
 
             }
         }

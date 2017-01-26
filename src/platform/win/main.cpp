@@ -330,6 +330,9 @@ int main(int argc, char** argv) {
             Core::stats.tris = 0;
             Game::render();
             SwapBuffers(hDC);
+            #ifdef _DEBUG
+                Sleep(20);
+            #endif
 
             if (fpsTime < getTime()) {
                 LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);

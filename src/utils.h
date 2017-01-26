@@ -95,6 +95,17 @@ float decrease(float delta, float &value, float &speed) {
         return 0.0f;
 }
 
+int nextPow2(uint32 x) {
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x++;
+    return x;
+}
+
 struct vec2 {
     float x, y;
     vec2() {}
