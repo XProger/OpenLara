@@ -3,7 +3,7 @@
 
 #include "utils.h"
 
-#define MAX_RESERVED_ENTITIES 64
+#define MAX_RESERVED_ENTITIES 128
 #define MAX_SECRETS_COUNT     16
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
@@ -12,6 +12,7 @@ namespace TR {
 
     enum {
         FLOOR_BLOCK = -127,
+        NO_ROOM     = 0xFF,
     };
 
     enum {
@@ -256,6 +257,18 @@ namespace TR {
             uint16  roomIndex;
             Vertex  normal;
             Vertex  vertices[4];
+
+            vec3 getCenter() const {
+                return vec3(float( (int(vertices[0].x) + int(vertices[1].x) + int(vertices[2].x) + int(vertices[3].x)) / 4 ),
+                            float( (int(vertices[0].y) + int(vertices[1].y) + int(vertices[2].y) + int(vertices[3].y)) / 4 ),
+                            float( (int(vertices[0].z) + int(vertices[1].z) + int(vertices[2].z) + int(vertices[3].z)) / 4 ));
+            }
+
+            vec3 getSize() const {
+                return vec3(float( abs(int(vertices[0].x) - int(vertices[2].x)) / 2 ),
+                            float( abs(int(vertices[0].y) - int(vertices[2].y)) / 2 ),
+                            float( abs(int(vertices[0].z) - int(vertices[2].z)) / 2 ));
+            }
         } *portals;
 
         struct Sector {
@@ -461,8 +474,8 @@ namespace TR {
 
             MUZZLE_FLASH             = 166,
 
-            VIEW_TARGET              = 169,
-            SOURCE_WATER             = 170,
+            VIEW_TARGET              = 169,      // invisible
+            WATERFALL                = 170,      // invisible (water splash generator)
 
             GLYPH                    = 190,      // sprite
 
@@ -897,14 +910,14 @@ namespace TR {
                 stream.read(d.vertices, stream.read(d.vCount));
 
                 if (version == VER_TR1_PSX)
-                    for (int i = 0; i < d.vCount; i++) // convert vertex luminance from PSX to PC format
-                        d.vertices[i].lighting = 0x1FFF - (d.vertices[i].lighting << 5);               
+                    for (int j = 0; j < d.vCount; j++) // convert vertex luminance from PSX to PC format
+                        d.vertices[j].lighting = 0x1FFF - (d.vertices[j].lighting << 5);               
 
                 stream.read(d.rectangles, stream.read(d.rCount));
                 
                 if (version == VER_TR1_PSX)
-                    for (int i = 0; i < d.rCount; i++) // swap indices (quad strip -> quad list)
-                        swap(d.rectangles[i].vertices[2], d.rectangles[i].vertices[3]);
+                    for (int j = 0; j < d.rCount; j++) // swap indices (quad strip -> quad list)
+                        swap(d.rectangles[j].vertices[2], d.rectangles[j].vertices[3]);
                         
                 stream.read(d.triangles,    stream.read(d.tCount));
                 stream.read(d.sprites,      stream.read(d.sCount));

@@ -26,7 +26,7 @@ struct Camera : Controller {
     Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL) {
         fov         = 65.0f;
         znear       = 16;
-        zfar        = 32.0f * 1024.0f;
+        zfar        = 40.0f * 1024.0f;
         angleAdv    = vec3(0.0f);
         
         if (owner) {
@@ -207,13 +207,15 @@ struct Camera : Controller {
 
     virtual void setup(bool calcMatrices) {
         if (calcMatrices) {
-            if (reflectPlane)
+            if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * mViewInv;
-            else
+                Core::mViewInv.scale(vec3(1.0f, -1.0f, 1.0f));
+            } else
                 Core::mViewInv = mViewInv;
 
             Core::mView    = Core::mViewInv.inverse();
             Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+
         // TODO: camera shake
         // TODO: temporal anti-aliasing
         //    Core::mProj.e02 = (randf() - 0.5f) * 32.0f / Core::width;

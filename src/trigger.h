@@ -309,4 +309,39 @@ struct Crystal : Controller {
     }
 };
 
+struct Waterfall : Trigger {
+    #define SPLASH_TIMESTEP (1.0f / 30.0f)
+
+    float timer;
+    bool  drop;
+    float dropRadius;
+    float dropStrength;
+    vec3  dropPos;
+
+    Waterfall(TR::Level *level, int entity) : Trigger(level, entity, true), timer(0.0f) {}
+
+    virtual void update() {
+        drop = false;
+        Trigger::update();
+        if (!getEntity().flags.active) return;
+
+        vec3 delta = (((Controller*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
+        if (delta.length2() > 100.0f)
+            return;
+
+        timer -= Core::deltaTime;
+        if (timer > 0.0f) return;
+        timer += SPLASH_TIMESTEP * (1.0f + randf() * 0.25f);
+
+        drop         = true;
+        dropPos      = pos + vec3(randf() * 1024.0f - 512.0f, 0.0f, randf() * 1024.0f - 512.0f);
+        dropRadius   = randf() + 0.5f;
+        dropStrength = randf() * 0.25f;
+
+        Sprite::add(level, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
+    } 
+
+    #undef SPLASH_TIMESTEP
+};
+
 #endif

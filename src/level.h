@@ -42,13 +42,6 @@ struct Level {
     Camera      *camera;
     Texture     *shadow;
 
-    Texture     *water[2];
-
-    Texture     *waterRefract;
-    Texture     *waterReflect;
-    Texture     *waterCaustics;
-    float       waterTimer;
-
     float   time;
     float   clipHeight;
     float   clipSign;
@@ -186,6 +179,348 @@ struct Level {
         }
     } *ambientCache;
 
+    struct WaterCache {
+        #define MAX_SURFACES       5
+        #define MAX_INVISIBLE_TIME 5.0f
+        #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
+        #define DETAIL             (64.0f / 1024.0f)
+        #define MAX_DROPS          32
+
+        Level   *level;
+        Texture *refract;
+        Texture *reflect;
+
+        struct Item {
+            int     from, to;
+            float   timer;
+            bool    visible;
+            bool    blank;
+            vec3    pos, size;
+            Texture *data[2];
+            Texture *caustics;
+
+            Item() {
+                data[0] = data[1] = caustics = NULL;
+            }
+
+            Item(int from, int to, const vec3 &pos, const vec3 &size) : from(from), to(to), timer(SIMULATE_TIMESTEP), visible(true), blank(true), pos(pos), size(size) {
+                data[0] = data[1] = caustics = NULL;
+            }
+
+            void init() {
+                data[0]  = new Texture(nextPow2(int(size.x * DETAIL * 2.0f) - 1), nextPow2(int(size.z * DETAIL * 2.0f) - 1), Texture::RGBA_HALF, false);
+                data[1]  = new Texture(data[0]->width, data[0]->height, Texture::RGBA_HALF, false);
+                caustics = new Texture(256, 256, Texture::RGBA, false);
+                blank = false;
+            }
+
+            void free() {
+                delete data[0];
+                delete data[1];
+                delete caustics;
+                data[0] = data[1] = caustics = NULL;
+            }
+
+        } items[MAX_SURFACES];
+        int count, visible;
+        bool checkVisibility;
+
+        int dropCount;
+        struct Drop {
+            vec3  pos;
+            float radius;
+            float strength;
+            Drop() {}
+            Drop(const vec3 &pos, float radius, float strength) : pos(pos), radius(radius), strength(strength) {}
+        } drops[MAX_DROPS];
+
+        WaterCache(Level *level) : level(level), refract(NULL), count(0), checkVisibility(false), dropCount(0) {
+            reflect = new Texture(512, 512, Texture::RGBA, false);
+        }
+
+        ~WaterCache() { 
+            delete refract;
+            delete reflect;
+            for (int i = 0; i < count; i++)
+                items[i].free();
+        }
+
+        void update() {
+            int i = 0;
+            while (i < count) {
+                Item &item = items[i];
+                if (item.timer > MAX_INVISIBLE_TIME) {
+                    items[i].free();
+                    items[i] = items[--count];
+                    continue;
+                }
+                item.timer += Core::deltaTime;
+                i++;
+            }
+        }
+
+        void reset() {
+            for (int i = 0; i < count; i++)
+                items[i].visible = false;
+            visible = 0;
+        }
+
+        void setVisible(int roomIndex, int nextRoom) {
+            if (!checkVisibility) return;
+
+            int from, to; // from surface room to underwater room
+            if (level->level.rooms[roomIndex].flags.water) {
+                from = nextRoom;
+                to   = roomIndex;
+            } else {
+                from = roomIndex;
+                to   = nextRoom;
+            }
+
+            for (int i = 0; i < count; i++) {
+                Item &item = items[i];
+                if (item.from == from && item.to == to) {
+                    if (!item.visible) {
+                        visible++;
+                        item.visible = true;
+                    }
+                    return;
+                }
+            }
+            if (count == MAX_SURFACES) return;
+
+
+            TR::Room &r = level->level.rooms[to]; // underwater room
+
+            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0;
+
+            for (int z = 0; z < r.zSectors; z++)
+                for (int x = 0; x < r.xSectors; x++) {
+                    int above = r.sectors[x * r.zSectors + z].roomAbove;
+                    if (above != TR::NO_ROOM && !level->level.rooms[above].flags.water) {
+                        minX = min(minX, x);
+                        minZ = min(minZ, z);
+                        maxX = max(maxX, x);
+                        maxZ = max(maxZ, z);
+                    }
+                }
+            maxX++;
+            maxZ++;
+
+            vec3 size(float((maxX - minX) * 512), 0.0f, float((maxZ - minZ) * 512)); // half size
+            vec3 pos(r.info.x + minX * 1024 + size.x, r.info.yTop, r.info.z + minZ * 1024 + size.z);
+
+            items[count++] = Item(from, to, pos, size);
+            visible++;
+        }
+
+        void bindCaustics(int roomIndex) {
+            Item *item = NULL;
+            for (int i = 0; i < count; i++)
+                if (items[i].to == roomIndex) {
+                    item = &items[i];
+                    break;
+                }
+
+            if (!item || !item->caustics) {                
+                Core::blackTex->bind(sReflect);
+                Core::active.shader->setParam(uRoomSize, vec4(0.0f));
+            } else {
+                item->caustics->bind(sReflect);
+                Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
+            }
+        }
+
+        void simulate(Item &item) {
+            if (item.timer < SIMULATE_TIMESTEP) return;
+
+            Core::active.shader->setParam(uParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 0.0f, 0.0f));
+            Core::active.shader->setParam(uType, Shader::WATER_STEP);
+
+            while (item.timer >= SIMULATE_TIMESTEP) {
+            // water step
+                item.data[0]->bind(sDiffuse);
+                Core::setTarget(item.data[1]);
+                level->mesh->renderQuad();
+                swap(item.data[0], item.data[1]);
+                item.timer -= SIMULATE_TIMESTEP;
+            }
+        
+        // calc caustics
+            vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f / PLANE_DETAIL) };
+            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+            item.data[0]->bind(sNormal);
+            item.caustics->unbind(sReflect);
+            Core::setTarget(item.caustics);
+            Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
+            level->mesh->renderPlane();
+        }
+
+        void addDrop(const vec3 &pos, float radius, float strength) {
+            if (dropCount >= MAX_DROPS) return;
+            drops[dropCount++] = Drop(pos, radius, strength);
+        }
+
+        void drop(Item &item) { 
+            static vec3 lastPos = vec3(0.0);
+            Lara *lara = level->lara;
+            vec3 head = lara->animation.getJoints(lara->getMatrix(), 14).pos;
+            bool flag = (head - lastPos).length() > 16.0f;
+            bool fall = (lara->animation.index == Lara::ANIM_WATER_FALL || lara->animation.index == 152) && lara->animation.frameIndex == 0;
+            bool flag2 = lara->animation.frameIndex == 20 || fall;
+            flag  &= lara->stand == Lara::STAND_ONWATER || fall;
+            flag2 &= lara->stand == Lara::STAND_ONWATER || fall;
+
+            if (Input::down[ikU] || flag || flag2) {
+                vec3 p(randf(), 0.0f, randf());
+                if (flag || flag2) {
+                    p = head;
+                    lastPos = head;
+                }
+                float radius = (flag2 ? 1.0f : randf() + 0.2f);
+                float strength = flag2 ? 0.01f : randf() * 0.03f;
+
+                if (fall) {
+                    radius = 1.5f;
+                    strength = 0.05f;
+                }
+
+                addDrop(p, radius, strength);
+
+                Input::down[ikU] = false;
+            }            
+
+            if (!dropCount) return;
+
+            item.data[0]->bind(sDiffuse);
+            Core::setTarget(item.data[1]);
+            vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f) };
+            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+            Core::active.shader->setParam(uType, Shader::WATER_DROP);
+
+            for (int i = 0; i < dropCount; i++) {
+                Drop &drop = drops[i];
+
+                vec3 p;
+                p.x = (drop.pos.x - item.pos.x) / (item.size.x * 2.0f) + 0.5;
+                p.z = (drop.pos.z - item.pos.z) / (item.size.z * 2.0f) + 0.5;
+                Core::active.shader->setParam(uParam, vec4(p.x, p.z, 128.0f / (item.size.x * 2.0f) * drop.radius, drop.strength));
+                level->mesh->renderQuad();
+            }
+            dropCount = 0;
+
+            swap(item.data[0], item.data[1]);
+        }
+
+        void render() {
+            if (!visible) return;
+
+        // mask underwater geometry by zero alpha
+            level->setPassShader(Core::passWater);
+            level->atlas->bind(sNormal);
+            level->atlas->bind(sReflect);
+
+            Core::active.shader->setParam(uType, Shader::WATER_MASK);
+            Core::setBlending(bmNone);
+            Core::setCulling(cfNone);
+            Core::setDepthWrite(false);
+            Core::setColorWrite(false, false, false, true);
+
+            for (int i = 0; i < count; i++) {
+                Item &item = items[i];
+                if (!item.visible) continue;
+
+                Core::active.shader->setParam(uPosScale, item.pos, 2);
+
+                level->mesh->renderQuad();
+            }
+
+            Core::setColorWrite(true, true, true, true);
+            Core::setDepthWrite(true);
+            Core::setCulling(cfFront);
+
+        // get refraction texture
+            if (!refract || Core::width > refract->width || Core::height > refract->height) {
+                delete refract;
+                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
+            }
+            Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
+
+            for (int i = 0; i < count; i++) {
+                Item &item = items[i];
+                if (!item.visible) continue;
+
+                if (item.blank) {
+                    item.init();
+                    item.blank = false;
+                }
+
+            // render mirror reflection
+                Core::setTarget(reflect);
+                vec3 p = item.pos;
+                vec3 n = vec3(0, 1, 0);
+
+                vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
+
+                bool underwater = level->level.rooms[level->camera->getRoomIndex()].flags.water;
+
+                //bool underwater = level->camera->pos.y > item.pos.y;
+
+                level->camera->reflectPlane = &reflectPlane;
+                level->clipSign   = underwater ? -1.0f : 1.0f;
+                level->clipHeight = item.pos.y * level->clipSign;
+                level->renderCompose(underwater ? item.from : item.to);
+                level->clipHeight = 1000000.0f;
+                level->clipSign   = 1.0f;
+                
+                level->camera->reflectPlane = NULL;
+                level->camera->setup(true);
+
+            // simulate water
+                Core::setBlending(bmNone);
+                Core::setDepthTest(false);
+
+                level->setPassShader(Core::passWater);
+                drop(item);
+                simulate(item);
+                Core::setTarget(NULL);
+
+                Core::setBlending(bmAlpha);
+                Core::setDepthTest(true);
+
+            // render water plane
+                int dx, dz;
+                TR::Room::Sector &s = level->level.getSector(item.from, int(item.pos.x), int(item.pos.z), dx, dz);
+                if (s.roomAbove != TR::NO_ROOM && level->level.rooms[s.roomAbove].lightsCount) {
+                    TR::Room::Light &light = level->level.rooms[s.roomAbove].lights[0];
+                    Core::lightPos[0] = vec3(float(light.x), float(light.y), float(light.z));
+                    float lum = intensityf(light.intensity);
+                    Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
+                }
+
+                Core::active.shader->setParam(uType,        Shader::WATER_COMPOSE);
+                Core::active.shader->setParam(uViewProj,    Core::mViewProj);
+                Core::active.shader->setParam(uPosScale,    item.pos, 2);
+                Core::active.shader->setParam(uViewPos,     Core::viewPos);
+                Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
+                Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
+                Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.075f, 0.02f));
+
+                refract->bind(sDiffuse);
+                reflect->bind(sReflect);
+                item.data[0]->bind(sNormal);
+                Core::setCulling(cfNone);
+                level->mesh->renderQuad();
+                Core::setCulling(cfFront);
+            }
+        }
+
+        #undef MAX_WATER_SURFACES
+        #undef MAX_WATER_INVISIBLE_TIME
+        #undef WATER_SIMULATE_TIMESTEP
+        #undef DETAIL
+    } *waterCache;
+
     /*
     struct LightCache {
 
@@ -319,6 +654,9 @@ struct Level {
                 case TR::Entity::HOLE_KEY              :
                     entity.controller = new Trigger(&level, i, false);
                     break;
+                case TR::Entity::WATERFALL             :
+                    entity.controller = new Waterfall(&level, i);
+                    break;
                 default                                : 
                     if (entity.modelIndex > 0)
                         entity.controller = new Controller(&level, i);
@@ -332,9 +670,10 @@ struct Level {
 
         level.cameraController = camera;
 
-        initReflections();
-
         ambientCache = new AmbientCache(this);
+        waterCache   = new WaterCache(this);
+
+        initReflections();
     }
 
     ~Level() {
@@ -349,13 +688,7 @@ struct Level {
 
         delete shadow;
         delete ambientCache;
-
-        delete water[0];
-        delete water[1];
-
-        delete waterRefract;
-        delete waterReflect;
-        delete waterCaustics;
+        delete waterCache;
 
         delete atlas;
         delete cube;
@@ -364,23 +697,8 @@ struct Level {
         delete camera;        
     }
 
-    #define WATER_SIMULATE_TIMESTEP (1.0f / 40.0f)
-
     void initTextures() {
         shadow = new Texture(1024, 1024, Texture::SHADOW, false);
-
-        water[0] = new Texture(256, 256, Texture::RGBA_HALF, false);
-        water[1] = new Texture(256, 256, Texture::RGBA_HALF, false);
-
-        waterRefract  = NULL;
-        waterReflect  = new Texture( 512, 512, Texture::RGBA, false);
-        waterCaustics = new Texture( 256, 256, Texture::RGBA, false);
-
-        waterTimer = WATER_SIMULATE_TIMESTEP;
-
-        Core::setTarget(waterRefract); // clear refract mask (frame borders)
-        Core::clear(vec4(0.0f));
-        Core::setTarget(NULL);
 
         if (!level.tilesCount) {
             atlas = NULL;
@@ -421,12 +739,6 @@ struct Level {
         delete[] data;
         delete[] level.tiles;
         level.tiles = NULL;
-    }
-
-    void checkRefractTexture() {
-        if (waterRefract && Core::width <= waterRefract->width && Core::height <= waterRefract->height) return;
-        delete waterRefract;
-        waterRefract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
     }
 
     void initShaders() {
@@ -567,25 +879,24 @@ struct Level {
     }
 #endif
 
-    void setRoomParams(const TR::Room &room, float intensity) {
+    void setRoomParams(int roomIndex, float intensity) {
         if (Core::pass == Core::passShadow)
             return;
+
+        TR::Room &room = level.rooms[roomIndex];
 
         if (room.flags.water) {
             Core::color = vec4(0.6f, 0.9f, 0.9f, intensity);
             Core::active.shader->setParam(uCaustics, 1);
+            waterCache->bindCaustics(roomIndex);
         } else {
             Core::color = vec4(1.0f, 1.0f, 1.0f, intensity);
             Core::active.shader->setParam(uCaustics, 0);
         }
         Core::active.shader->setParam(uColor, Core::color);
-
-        waterCaustics->bind(sReflect);
-        vec4 roomSize = vec4(room.info.x, room.info.z, room.info.x + room.xSectors * 1024, room.info.z + room.zSectors * 1024);
-        Core::active.shader->setParam(uRoomSize, roomSize);
     }
 
-    void renderRoom(int roomIndex, int from = -1) {
+    void renderRoom(int roomIndex, int from = TR::NO_ROOM) {
         ASSERT(roomIndex >= 0 && roomIndex < level.roomsCount);
         PROFILE_MARKER("ROOM");
 
@@ -597,7 +908,7 @@ struct Level {
             room.flags.rendered = true;
 
             if (Core::pass != Core::passShadow) {
-                setRoomParams(room, intensityf(room.ambient));
+                setRoomParams(roomIndex, intensityf(room.ambient));
 
                 Basis qTemp = Core::basis;
                 Core::basis.translate(offset);
@@ -643,8 +954,11 @@ struct Level {
             };
 
             frustum = *camFrustum;
-            if (frustum.clipByPortal(v, 4, p.normal))
+            if (frustum.clipByPortal(v, 4, p.normal)) {
+                if ((level.rooms[roomIndex].flags.water ^ level.rooms[p.roomIndex].flags.water) && v[0].y == v[1].y && v[0].y == v[2].y)
+                    waterCache->setVisible(roomIndex, p.roomIndex);
                 renderRoom(p.roomIndex, roomIndex);
+            }
         }
         camera->frustum = camFrustum;    // pop camera frustum
     }
@@ -708,7 +1022,7 @@ struct Level {
             return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
-        setRoomParams(room, isModel ? controller->specular : intensityf(lum));
+        setRoomParams(entity.room, isModel ? controller->specular : intensityf(lum));
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -735,16 +1049,24 @@ struct Level {
 
     void update() {
         time += Core::deltaTime;
-        waterTimer += Core::deltaTime;
 
-        for (int i = 0; i < level.entitiesCount; i++) 
-            if (level.entities[i].type != TR::Entity::NONE) {
-                Controller *controller = (Controller*)level.entities[i].controller;
-                if (controller) 
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.type != TR::Entity::NONE) {
+                Controller *controller = (Controller*)e.controller;
+                if (controller) {
                     controller->update();
+
+                    if (e.type == TR::Entity::WATERFALL && ((Waterfall*)controller)->drop) { // add water drops for waterfalls
+                        Waterfall *w = (Waterfall*)controller;
+                        waterCache->addDrop(w->dropPos, w->dropRadius, w->dropStrength);
+                    }
+                }
             }
+        }
         
         camera->update();
+        waterCache->update();
     }
 
     void setup() {
@@ -906,165 +1228,22 @@ struct Level {
         renderScene(roomIndex);
     }
 
-    void waterSimulate() {
-        if (waterTimer < WATER_SIMULATE_TIMESTEP) return;
-
-        Core::active.shader->setParam(uParam, vec4(1.0f / water[0]->width, 1.0f / water[0]->height, 0.0f, 0.0f));
-        Core::active.shader->setParam(uType, Shader::WATER_STEP);
-
-        while (waterTimer >= WATER_SIMULATE_TIMESTEP) {
-        // water step
-            water[0]->bind(sDiffuse);
-            Core::setTarget(water[1]);
-            mesh->renderQuad();
-            swap(water[0], water[1]);
-            waterTimer -= WATER_SIMULATE_TIMESTEP;
-        }
-        
-    // calc normals
-        //water[0]->bind(sDiffuse);
-        //Core::setTarget(water[1]);
-        //Core::active.shader->setParam(uType, Shader::WATER_NORMAL);
-        //mesh->renderQuad();
-        //swap(water[0], water[1]);
-        
-    // calc caustics
-        Core::active.shader->setParam(uScale, 1.0f / PLANE_DETAIL);
-        water[0]->bind(sNormal);
-        waterCaustics->unbind(sReflect);
-        Core::setTarget(waterCaustics);
-        Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
-        mesh->renderPlane();
-        Core::active.shader->setParam(uScale, 1.0f);
-    }
-
-    void waterDrop() {
-        static vec3 lastPos = vec3(0.0);
-        vec3 head = lara->animation.getJoints(lara->getMatrix(), 14).pos;
-        bool flag = (head - lastPos).length() > 16.0f;
-        bool fall = (lara->animation.index == Lara::ANIM_WATER_FALL || lara->animation.index == 152) && lara->animation.frameIndex == 0;
-        bool flag2 = lara->animation.frameIndex == 20 || fall;
-        flag  &= lara->stand == Lara::STAND_ONWATER || fall;
-        flag2 &= lara->stand == Lara::STAND_ONWATER || fall;
-
-        if (Input::down[ikU] || flag || flag2) {
-            vec2 p(randf(), randf());
-            if (flag || flag2) {
-                vec3 c(40448, 0.0, 60928);
-                p.x = (head.x - c.x) / 5120.0f + 0.5;
-                p.y = (head.z - c.z) / 5120.0f + 0.5;
-                lastPos = head;
-            }
-            float radius = (flag2 ? 1.0f : randf() + 0.2f);
-            float strength = flag2 ? 0.01f : randf() * 0.03f;
-
-            if (fall) {
-                radius = 1.5f;
-                strength = 0.05f;
-            }
-
-            water[0]->bind(sDiffuse);
-            Core::setTarget(water[1]);
-            Core::active.shader->setParam(uType, Shader::WATER_DROP);
-            Core::active.shader->setParam(uParam, vec4(p.x, p.y, 128.0f / 5120.0f * radius, strength));
-            mesh->renderQuad();
-            swap(water[0], water[1]);
-            Input::down[ikU] = false;
-        }
-    }
-
-    void renderWater() {
-        bool underwater = level.rooms[camera->getRoomIndex()].flags.water;
-
-    // mask underwater geometry by zero alpha
-        setPassShader(Core::passWater);
-        atlas->bind(sNormal);
-        atlas->bind(sReflect);
-
-        Core::active.shader->setParam(uType,     Shader::WATER_MASK);
-        Core::active.shader->setParam(uViewProj, Core::mViewProj);
-        Core::active.shader->setParam(uScale,    1.0f);
-        Core::setBlending(bmNone);
-        Core::setCulling(cfNone);
-        glDepthMask(false);
-        glColorMask(false, false, false, true);
-        mesh->renderQuad();
-        glColorMask(true, true, true, true);
-        glDepthMask(true);
-
-    // get refraction texture
-        checkRefractTexture();
-        waterRefract->bind(sDiffuse);
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, Core::width, Core::height);
-
-    // render mirror reflection
-        Core::setTarget(waterReflect);
-        vec3 p = vec3(40448, 3584, 60928);
-        vec3 n = vec3(0, 1, 0);
-
-        vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
-
-        camera->reflectPlane = &reflectPlane;
-        Core::setCulling(cfBack);
-        clipSign   = underwater ? -1.0f : 1.0f;
-        clipHeight = 3584.0 * clipSign;
-        renderCompose(underwater ? 13 : lara->getRoomIndex());
-        clipHeight = 1000000.0f;
-        clipSign   = 1.0f;
-        Core::setCulling(cfFront);
-        camera->reflectPlane = NULL;
-
-
-    // simulate water
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-
-        setPassShader(Core::passWater);
-        waterDrop();
-        waterSimulate();
-        Core::setTarget(NULL);
-
-        glEnable(GL_BLEND);
-        glEnable(GL_DEPTH_TEST);
-
-    // render water plane
-        int dx, dz;
-        TR::Room::Sector &s = level.getSector(lara->getRoomIndex(), int(lara->pos.x), int(lara->pos.z), dx, dz);
-        if (s.roomAbove != 0xFF && level.rooms[s.roomAbove].lightsCount) {
-            TR::Room::Light &light = level.rooms[s.roomAbove].lights[0];
-            Core::lightPos[0] = vec3(float(light.x), float(light.y), float(light.z));
-            float lum = intensityf(light.intensity);
-            Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
-        }
-
-        Core::active.shader->setParam(uType,        Shader::WATER_COMPOSE);
-        Core::active.shader->setParam(uViewProj,    Core::mViewProj);
-        Core::active.shader->setParam(uViewPos,     Core::viewPos);
-        Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
-        Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-        Core::active.shader->setParam(uParam, vec4(float(Core::width) / waterRefract->width, float(Core::height) / waterRefract->height, 0.075f, 0.02f));
-//        Core::active.shader->setParam(uParam, vec4(1.0f, 1.0f, 0.075f, 0.02f));
-        Core::active.shader->setParam(uScale, 1.0f);
-
-        waterRefract->bind(sDiffuse);
-        waterReflect->bind(sReflect);
-        water[0]->bind(sNormal);
-        Core::setCulling(cfNone);
-        mesh->renderQuad();
-        Core::setCulling(cfFront);
-    }
-
     void render() {
         clipHeight = 1000000.0f;
         clipSign   = 1.0f;
         Core::resetStates();
         
         ambientCache->precessQueue();
+        waterCache->reset();
+
         renderShadows(lara->getRoomIndex());
         Core::setViewport(0, 0, Core::width, Core::height);
-        renderCompose(camera->getRoomIndex());
 
-        renderWater();
+        waterCache->checkVisibility = true;
+        renderCompose(camera->getRoomIndex());
+        waterCache->checkVisibility = false;
+
+        waterCache->render();
 
 //        Core::mViewInv = camera->mViewInv;
 //        Core::mView = Core::mViewInv.inverse();
@@ -1105,10 +1284,11 @@ struct Level {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-            waterCaustics->bind(sDiffuse);
+            waterCache->reflect->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glDisable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
 
             glColor3f(1, 1, 1);
             glBegin(GL_QUADS);
@@ -1121,6 +1301,7 @@ struct Level {
             glDisable(GL_TEXTURE_2D);
             glEnable(GL_CULL_FACE);
             glEnable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
 
             glMatrixMode(GL_PROJECTION);
             glPopMatrix();
@@ -1131,7 +1312,9 @@ struct Level {
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
-            Debug::Level::portals(level);
+        //    Core::setDepthTest(false);
+        //    Debug::Level::portals(level);
+        //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
         /*

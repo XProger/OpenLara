@@ -22,6 +22,7 @@ varying vec3 vRefPos2;
 uniform int   uType;
 uniform vec3  uViewPos;
 uniform mat4  uViewProj;
+uniform vec3  uPosScale[2];
 uniform float uScale;
 
 uniform sampler2D sNormal;
@@ -33,12 +34,11 @@ uniform sampler2D sNormal;
     attribute vec4 aCoord;
 
     void main() {
-        vec4 rCoord = aCoord * uScale;
+        vTexCoord = aCoord.xy * 0.5 + 0.5;
 
         if (uType >= WATER_MASK) {
         // hardcoded pool geometry
-            vec2 p = rCoord.xy * 2560.0;
-            vCoord = vec3(p.x + 40448.0, 3584.0, p.y + 60928.0);
+            vCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1] + uPosScale[0];
             vec4 cp = uViewProj * vec4(vCoord, 1.0);
 
             vProjCoord  = cp;
@@ -46,26 +46,27 @@ uniform sampler2D sNormal;
         } else {
             vProjCoord = vec4(0.0);
             if (uType == WATER_CAUSTICS) {
-                vec4 info = texture2D(sNormal, rCoord.xy * 0.5 + 0.5);
+                vec3 rCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1];
+
+                vec4 info = texture2D(sNormal, rCoord.xz * 0.5 + 0.5);
                 info.ba *= 0.5;
                 vec3 normal = vec3(info.b, -sqrt(1.0 - dot(info.ba, info.ba)), info.a);
 
                 vec3 light = vec3(0.0, -1.0, 0.0);
                 vec3 refractedLight = refract(-light, vec3(0.0, 1.0, 0.0), ETA_AIR / ETA_WATER);
                 vec3 ray = refract(-light, normal, ETA_AIR / ETA_WATER);
-                vRefPos1 = rCoord.xzy + vec3(0.0, 1.0, 0.0);
-                vRefPos2 = rCoord.xzy + vec3(0.0, info.r, 0.0) + ray / ray.y;
+                
+                vRefPos1 = rCoord + vec3(0.0, 1.0, 0.0);
+                vRefPos2 = rCoord + vec3(0.0, info.r, 0.0) + ray / ray.y;
       
                 gl_Position = vec4((vRefPos2.xz + 0.0 * refractedLight.xz / refractedLight.y), 0.0, 1.0);
             } else {
                 vRefPos1 = vRefPos2 = vec3(0.0);
-                vCoord = vec3(rCoord.xy, 0.0);
+                vCoord = vec3(aCoord.xy, 0.0);
                 
-                gl_Position = vec4(rCoord.xyz, 1.0);   
+                gl_Position = vec4(aCoord.xyz, 1.0);   
             }
-        }
-        
-        vTexCoord = rCoord.xy * 0.5 + 0.5;
+        }        
     }
 #else
     uniform sampler2D sDiffuse;
@@ -153,15 +154,15 @@ uniform sampler2D sNormal;
         vec3 rv = reflect(-viewVec, normal);
         vec3 lv = normalize(uLightPos - vCoord.xyz);
 
-        float spec = pow(max(0.0, dot(rv, -lv)), 64.0) * 0.5;
+        float spec = pow(max(0.0, dot(rv, lv)), 64.0) * 0.5;
 
         vec4 refrA = texture2D(sDiffuse, uParam.xy * clamp(tc + dudv * uParam.z, 0.0, 0.999) );
         vec4 refrB = texture2D(sDiffuse, uParam.xy * (tc) );
         vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
-        vec4 refl  = texture2D(sReflect, tc + dudv * uParam.w);
+        vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 
         float fresnel = calcFresnel(dot(normal, viewVec), 0.1, 2.0);
-        return mix(refr, refl, fresnel) + spec; 
+        return mix(refr, refl, fresnel) + spec;
     }   
     
     vec4 pass() {

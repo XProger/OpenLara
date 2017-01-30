@@ -150,6 +150,8 @@ namespace Core {
     vec4 lightColor[MAX_LIGHTS];
     vec4 color;
 
+    Texture *blackTex, *whiteTex;
+
     enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater } pass;
 
     GLuint FBO;
@@ -281,9 +283,16 @@ namespace Core {
             lightColor[i] = vec4(0, 0, 0, 1);
 
         frameIndex = 0;
+
+        uint32 data = 0xFF000000;
+        blackTex = new Texture(1, 1, Texture::RGBA, false, &data);
+        data = 0xFFFFFFFF;
+        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data);
     }
 
     void free() {
+        delete blackTex;
+        delete whiteTex;
     //    glDeleteRenderBuffers(MAX_RENDER_BUFFERS * 2, &renderBuffers[0][0]);
     //    glDeleteFrameBuffers(1, &FBO);
         Sound::free();
@@ -337,6 +346,21 @@ namespace Core {
             glEnable(GL_BLEND);
     }
 
+    void setColorWrite(bool r, bool g, bool b, bool a) {
+        glColorMask(r, g, b, a);
+    }
+
+    void setDepthWrite(bool write) {
+        glDepthMask(write);
+    }
+
+    void setDepthTest(bool test) {
+        if (test)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+    }
+
     void setTarget(Texture *target, int face = 0) {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -364,6 +388,11 @@ namespace Core {
         if (depth)
             glColorMask(false, false, false, false);
         setViewport(0, 0, target->width, target->height);
+    }
+
+    void copyTarget(Texture *texture, int xOffset, int yOffset, int x, int y, int width, int height) {
+        texture->bind(sDiffuse);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
     }
 
     void resetStates() {

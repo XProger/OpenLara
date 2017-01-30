@@ -627,7 +627,7 @@ namespace Debug {
                 case_name(TR::Entity, KEY_4                ); 
                 case_name(TR::Entity, HOLE_KEY             ); 
                 case_name(TR::Entity, VIEW_TARGET          );
-                case_name(TR::Entity, SOURCE_WATER         ); 
+                case_name(TR::Entity, WATERFALL            ); 
             }
             return "UNKNOWN";
         }

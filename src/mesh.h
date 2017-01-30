@@ -184,8 +184,7 @@ struct MeshBuilder {
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
 
-            if (roomCheckWaterPortal(r))
-                roomRemoveWaterSurfaces(r, iCount, vCount);           
+            roomRemoveWaterSurfaces(r, iCount, vCount);
             
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
@@ -503,57 +502,64 @@ struct MeshBuilder {
         return false;
     }
 
-    void roomRemoveWaterSurfaces(TR::Room room, int &iCount, int &vCount) {
+    void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
+        if (!roomCheckWaterPortal(room)) return;
+
     // remove animated water polygons from room geometry
-        for (int j = 0; j < room.portalsCount; j++) {
-            TR::Room::Portal &p = room.portals[j];
-            if (!(room.flags.water ^ level->rooms[p.roomIndex].flags.water)) // check if portal is not on water surface
+        for (int i = 0; i < room.data.rCount; i++) {
+            TR::Rectangle &f = room.data.rectangles[i];
+            if (f.vertices[0] == 0xFFFF) continue;
+
+            TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
+            TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
+            TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
+            TR::Vertex &d = room.data.vertices[f.vertices[3]].vertex;
+
+            if (a.y != b.y || a.y != c.y || a.y != d.y) // skip non-horizontal or non-portal plane primitive
                 continue;
 
-            TR::Vertex pMin, pMax;
-            pMin.x = min(min(min(p.vertices[0].x, p.vertices[1].x), p.vertices[2].x), p.vertices[3].x);
-            pMin.z = min(min(min(p.vertices[0].z, p.vertices[1].z), p.vertices[2].z), p.vertices[3].z);
-            pMax.x = max(max(max(p.vertices[0].x, p.vertices[1].x), p.vertices[2].x), p.vertices[3].x);
-            pMax.z = max(max(max(p.vertices[0].z, p.vertices[1].z), p.vertices[2].z), p.vertices[3].z);
-            pMin.y = pMax.y = p.vertices[0].y;
+            int yt = abs(a.y - room.info.yTop);
+            int yb = abs(room.info.yBottom - a.y);
 
-            for (int i = 0; i < room.data.rCount; i++) {
-                TR::Rectangle &f = room.data.rectangles[i];
-                TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
-                TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
-                TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
-                TR::Vertex &d = room.data.vertices[f.vertices[3]].vertex;
+            if (yt > 0 && yb > 0) continue;
+            
+            int sx = (int(a.x) + int(b.x) + int(c.x) + int(d.x)) / 4 / 1024;
+            int sz = (int(a.z) + int(b.z) + int(c.z) + int(d.z)) / 4 / 1024;
 
-                if (abs(a.y - pMin.y) > 1 || a.y != b.y || a.y != c.y || a.y != d.y) // skip non-horizontal or not in portal plane primitive
-                    continue;
+            TR::Room::Sector &s = room.sectors[sx * room.zSectors + sz];
 
-                int cx = (int(a.x) + int(b.x) + int(c.x) + int(d.x)) / 4;
-                int cz = (int(a.z) + int(b.z) + int(c.z) + int(d.z)) / 4;
-
-                if (c.x < pMin.x || c.x > pMax.x || c.z < pMin.z || c.z > pMax.z) // check for portal borders
-                    continue;
-
-                f.vertices[0] = 0xFFFF; // mark it as unused
-                iCount -= 3 * 2;
+            if ((yt == 0 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
+                (yb == 0 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+                f.vertices[0] = 0xFFFF; // mark as unused
+                iCount -= 6;
                 vCount -= 4;
             }
+        }
 
-            for (int i = 0; i < room.data.tCount; i++) {
-                TR::Triangle &f = room.data.triangles[i];
-                TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
-                TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
-                TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
+        for (int i = 0; i < room.data.tCount; i++) {
+            TR::Triangle &f = room.data.triangles[i];
+            if (f.vertices[0] == 0xFFFF) continue;
 
-                if (abs(a.y - pMin.y) > 1 || a.y != b.y || a.y != c.y) // skip non-horizontal or not in portal plane primitive
-                    continue;
+            TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
+            TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
+            TR::Vertex &c = room.data.vertices[f.vertices[2]].vertex;
 
-                int cx = (int(a.x) + int(b.x) + int(c.x)) / 3;
-                int cz = (int(a.z) + int(b.z) + int(c.z)) / 3;
+            if (a.y != b.y || a.y != c.y) // skip non-horizontal or non-portal plane primitive
+                continue;
 
-                if (c.x < pMin.x || c.x > pMax.x || c.z < pMin.z || c.z > pMax.z) // check for portal borders
-                    continue;
+            int yt = abs(a.y - room.info.yTop);
+            int yb = abs(room.info.yBottom - a.y);
 
-                f.vertices[0] = 0xFFFF; // mark it as unused
+            if (yt > 1 && yb > 1) continue;
+            
+            int sx = (int(a.x) + int(b.x) + int(c.x)) / 3 / 1024;
+            int sz = (int(a.z) + int(b.z) + int(c.z)) / 3 / 1024;
+
+            TR::Room::Sector &s = room.sectors[sx * room.zSectors + sz];
+
+            if ((yt <= 1 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
+                (yb <= 1 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+                f.vertices[0] = 0xFFFF; // mark as unused
                 iCount -= 3;
                 vCount -= 3;
             }

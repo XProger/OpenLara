@@ -16,7 +16,6 @@ uniform int uType;
     void main() {        
         vTexCoord = aCoord.zw;
         gl_Position = vec4(aCoord.xy, 0.0, 1.0);
-
     }
 #else
     uniform sampler2D sDiffuse;

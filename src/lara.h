@@ -229,28 +229,28 @@ struct Lara : Character {
             arms[i].rot       = quat(0, 0, 0, 1);
             arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
-        
+        /*
         pos = vec3(40448, 3584, 60928);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 14;
         stand = STAND_ONWATER;
         animation.setAnim(ANIM_TO_ONWATER);
         updateEntity();
-        
+        */
     #ifdef _DEBUG
 /*
     // gym 
         pos = vec3(43182, 2473, 51556);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 12;
-        */
+        
     // gym (pool)
         pos = vec3(40448, 3584, 60928);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 14;
         stand = STAND_ONWATER;
-        animation.setAnim(ANIM_TO_ONWATER);        
-        /*
+        animation.setAnim(ANIM_TO_ONWATER);
+        
     // level 2 (pool)
         pos = vec3(70067, -256, 29104);
         angle = vec3(0.0f, -0.68f, 0.0f);
@@ -936,7 +936,7 @@ struct Lara : Character {
 
         int h = int(pos.y - infoDst.floor);
 
-        if (h > 0 && h <= 256 && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) { // possibility check
+        if (h >= 0 && h <= 356 && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) { // possibility check
             alignToWall(-96.0f);
             pos.y = infoDst.floor;
             //pos     = dst;  // set new position
@@ -1394,7 +1394,7 @@ struct Lara : Character {
             return STATE_PICK_UP;
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
-            Sprite::add(level, TR::Entity::Type::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
+            Sprite::add(level, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
         
