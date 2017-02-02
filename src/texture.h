@@ -11,11 +11,9 @@ struct Texture {
     Format  format;
     bool    cube;
 
-    Texture(int width, int height, Format format, bool cube, void *data = NULL) : width(width), height(height), cube(cube) {
+    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true) : width(width), height(height), cube(cube) {
         glGenTextures(1, &ID);
         bind(0);
-
-        bool filter = true;
 
         GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
 

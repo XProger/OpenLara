@@ -5,11 +5,11 @@
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
 enum SamplerType    { sDiffuse, sNormal, sReflect, sShadow, sEnvironment, sMAX };
-enum UniformType    { uType, uCaustics, uParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uRoomSize, uPosScale, uMAX };
+enum UniformType    { uType, uCaustics, uParam, uTexParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uRoomSize, uPosScale, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
 const char *SamplerName[sMAX]   = { "sDiffuse", "sNormal", "sReflect", "sShadow", "sEnvironment" };
-const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets", "uRoomSize", "uPosScale" };
+const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uTexParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets", "uRoomSize", "uPosScale" };
 
 struct Shader {
     GLuint  ID;

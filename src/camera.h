@@ -23,7 +23,7 @@ struct Camera : Controller {
 
     vec4    *reflectPlane;
 
-    Camera(TR::Level *level, Lara *owner) : Controller(level, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL) {
+    Camera(IGame *game, Lara *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL) {
         fov         = 65.0f;
         znear       = 16;
         zfar        = 40.0f * 1024.0f;

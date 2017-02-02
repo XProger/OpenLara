@@ -6,7 +6,7 @@
 struct Enemy : Character {
     bool bitten;
 
-    Enemy(TR::Level *level, int entity, int health) : Character(level, entity, health), bitten(false) {}
+    Enemy(IGame *game, int entity, int health) : Character(game, entity, health), bitten(false) {}
 
     virtual bool activate(ActionCommand *cmd) {
     #ifdef LEVEL_EDITOR
@@ -134,7 +134,7 @@ struct Enemy : Character {
         ASSERT(target > -1);
         Character *c = (Character*)level->entities[target].controller;
         c->hit(damage, this);
-        Sprite::add(level, TR::Entity::BLOOD, c->getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
+        Sprite::add(game, TR::Entity::BLOOD, c->getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
     }
 };
 
@@ -171,7 +171,7 @@ struct Wolf : Enemy {
         JOINT_HEAD     = 3
     };
 
-    Wolf(TR::Level *level, int entity) : Enemy(level, entity, 6) {}
+    Wolf(IGame *game, int entity) : Enemy(game, entity, 6) {}
 
     virtual int getStateGround() {
         TR::Entity &e = getEntity();
@@ -268,7 +268,7 @@ struct Bear : Enemy {
         JOINT_HEAD     = 3
     };
 
-    Bear(TR::Level *level, int entity) : Enemy(level, entity, 20) {}
+    Bear(IGame *game, int entity) : Enemy(game, entity, 20) {}
 
     virtual int getStateGround() {
         switch (state) {
@@ -343,7 +343,7 @@ struct Bat : Enemy {
         STATE_DEATH    = 5,
     };
 
-    Bat(TR::Level *level, int entity) : Enemy(level, entity, 1) { stand = STAND_AIR; }
+    Bat(IGame *game, int entity) : Enemy(game, entity, 1) { stand = STAND_AIR; }
 
     virtual int getStateAir() {
         if (!getEntity().flags.active) {

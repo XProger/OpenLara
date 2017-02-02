@@ -465,8 +465,8 @@ namespace Sound {
                     int idxA = int(t);
                     int idxB = (j == (count - 1)) ? idxA : (idxA + 1);
                     float k = t - idxA;
-                    result[j].L += lerp(buffer[idxA].L, buffer[idxB].L, k);
-                    result[j].R += lerp(buffer[idxA].R, buffer[idxB].R, k);
+                    result[j].L += int(lerp(buffer[idxA].L, buffer[idxB].L, k));
+                    result[j].R += int(lerp(buffer[idxA].R, buffer[idxB].R, k));
                 }
             }
         }

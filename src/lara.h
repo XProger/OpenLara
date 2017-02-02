@@ -202,7 +202,7 @@ struct Lara : Character {
     int lastPickUp;
     int viewTarget;
 
-    Lara(TR::Level *level, int entity, bool home) : Character(level, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1) {
+    Lara(IGame *game, int entity, bool home) : Character(game, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1) {
         
         if (getEntity().type == TR::Entity::LARA) {
             if (getRoom().flags.water)
@@ -598,10 +598,10 @@ struct Lara : Character {
             if (target > -1 && checkHit(target, p, hit, hit)) {
                 ((Character*)level->entities[target].controller)->hit(wpnGetDamage());
                 hit -= d * 64.0f;
-                Sprite::add(level, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
+                Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
                 hit -= d * 64.0f;
-                Sprite::add(level, TR::Entity::SPARK, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
+                Sprite::add(game, TR::Entity::SPARK, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
 
                 float dist = (hit - p).length();
                 if (dist < nearDist) {
@@ -938,7 +938,7 @@ struct Lara : Character {
 
         if (h >= 0 && h <= 356 && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) { // possibility check
             alignToWall(-96.0f);
-            pos.y = infoDst.floor;
+            pos.y = float(infoDst.floor);
             //pos     = dst;  // set new position
             
             specular = LARA_WET_SPECULAR;
@@ -1394,7 +1394,7 @@ struct Lara : Character {
             return STATE_PICK_UP;
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
-            Sprite::add(level, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
+            Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
         
@@ -1416,13 +1416,25 @@ struct Lara : Character {
         if (state != STATE_SURF_TREAD && state != STATE_SURF_LEFT && state != STATE_SURF_RIGHT && state != STATE_SURF_SWIM && state != STATE_SURF_BACK && state != STATE_STOP)
             return animation.setAnim(ANIM_TO_ONWATER);
 
+        if (state == STATE_SURF_TREAD) {
+            if (animation.isFrameActive(0))
+                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.01f);
+        } else {
+            if (animation.frameIndex % 4 == 0)
+                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 128.0f, 0.05f);
+        }
+
         if (input & FORTH) {
             if (input & JUMP) { 
                 angle.x = -PI * 0.25f;
+                game->waterDrop(pos, 256.0f, 0.2f);
                 return animation.setAnim(ANIM_TO_UNDERWATER);
             }
 
-            if ((input & ACTION) && waterOut()) return state;
+            if ((input & ACTION) && waterOut()) {
+                game->waterDrop(pos, 128.0f, 0.2f);
+                return state;
+            }
 
             return STATE_SURF_SWIM;
         }

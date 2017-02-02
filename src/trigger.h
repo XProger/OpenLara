@@ -11,7 +11,7 @@ struct Trigger : Controller {
     float timer;
     int   baseState;
 
-    Trigger(TR::Level *level, int entity, bool immediate) : Controller(level, entity), immediate(immediate), timer(0.0f) {
+    Trigger(IGame *game, int entity, bool immediate) : Controller(game, entity), immediate(immediate), timer(0.0f) {
         baseState = state;
         getEntity().flags.collision = false;
     }
@@ -65,7 +65,7 @@ struct Dart : Controller {
     vec3 dir;
     bool inWall;    // dart starts from wall
 
-    Dart(TR::Level *level, int entity) : Controller(level, entity), inWall(true) {
+    Dart(IGame *game, int entity) : Controller(game, entity), inWall(true) {
         dir = vec3(sinf(angle.y), 0, cosf(angle.y));
     }
 
@@ -80,7 +80,7 @@ struct Dart : Controller {
                 TR::Entity &e = getEntity();
                 
                 vec3 p = pos - dir * 64.0f; // wall offset = 64
-                Sprite::add(level, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
+                Sprite::add(game, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
 
                 level->entityRemove(entity);
                 delete this;
@@ -93,7 +93,7 @@ struct Dart : Controller {
 struct Dartgun : Trigger {
     vec3 origin;
 
-    Dartgun(TR::Level *level, int entity) : Trigger(level, entity, true), origin(pos) {}
+    Dartgun(IGame *game, int entity) : Trigger(game, entity, true), origin(pos) {}
 
     virtual bool activate(ActionCommand *cmd) {
         if (!Trigger::activate(cmd))
@@ -106,9 +106,9 @@ struct Dartgun : Trigger {
 
         int dartIndex = level->entityAdd(TR::Entity::TRAP_DART, entity.room, (int)p.x, (int)p.y, (int)p.z, entity.rotation, entity.intensity);
         if (dartIndex > -1)
-            level->entities[dartIndex].controller = new Dart(level, dartIndex);
+            level->entities[dartIndex].controller = new Dart(game, dartIndex);
 
-        Sprite::add(level, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
+        Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
 
         playSound(TR::SND_DART, pos, Sound::Flags::PAN);
 
@@ -119,7 +119,7 @@ struct Dartgun : Trigger {
 
 struct Boulder : Trigger {
 
-    Boulder(TR::Level *level, int entity) : Trigger(level, entity, true) {}
+    Boulder(IGame *game, int entity) : Trigger(game, entity, true) {}
 
     virtual void update() {
         if (getEntity().flags.active) {
@@ -138,7 +138,7 @@ struct Block : Controller {
         STATE_PULL,
     };
 
-    Block(TR::Level *level, int entity) : Controller(level, entity) {
+    Block(IGame *game, int entity) : Controller(game, entity) {
         updateFloor(true);
     }
 
@@ -181,7 +181,7 @@ struct Block : Controller {
 struct Door : Trigger {
     int8 *floor[2], orig[2];
 
-    Door(TR::Level *level, int entity) : Trigger(level, entity, true) {
+    Door(IGame *game, int entity) : Trigger(game, entity, true) {
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
         vec3 p = pos - getDir() * 1024.0f;
@@ -222,7 +222,7 @@ struct Door : Trigger {
 
 struct TrapDoor : Trigger {
 
-    TrapDoor(TR::Level *level, int entity) : Trigger(level, entity, true) {
+    TrapDoor(IGame *game, int entity) : Trigger(game, entity, true) {
         getEntity().flags.collision = true;
     }
 
@@ -245,7 +245,7 @@ struct TrapFloor : Trigger {
     };
     float velocity;
 
-    TrapFloor(TR::Level *level, int entity) : Trigger(level, entity, true), velocity(0) {
+    TrapFloor(IGame *game, int entity) : Trigger(game, entity, true), velocity(0) {
         TR::Entity &e = getEntity();
         e.flags.collision = true;
     }
@@ -283,7 +283,7 @@ struct TrapFloor : Trigger {
 
 struct Bridge : Trigger {
 
-    Bridge(TR::Level *level, int entity) : Trigger(level, entity, true) {
+    Bridge(IGame *game, int entity) : Trigger(game, entity, true) {
         getEntity().flags.collision = true;
     }
 };
@@ -291,7 +291,7 @@ struct Bridge : Trigger {
 struct Crystal : Controller {
     Texture *environment;
 
-    Crystal(TR::Level *level, int entity) : Controller(level, entity) {
+    Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, Texture::RGBA, true);
     }
 
@@ -318,7 +318,7 @@ struct Waterfall : Trigger {
     float dropStrength;
     vec3  dropPos;
 
-    Waterfall(TR::Level *level, int entity) : Trigger(level, entity, true), timer(0.0f) {}
+    Waterfall(IGame *game, int entity) : Trigger(game, entity, true), timer(0.0f) {}
 
     virtual void update() {
         drop = false;
@@ -335,10 +335,10 @@ struct Waterfall : Trigger {
 
         drop         = true;
         dropPos      = pos + vec3(randf() * 1024.0f - 512.0f, 0.0f, randf() * 1024.0f - 512.0f);
-        dropRadius   = randf() + 0.5f;
-        dropStrength = randf() * 0.25f;
+        dropRadius   = randf() * 256.0f + 128.0f;
+        dropStrength = randf() * 0.1f + 0.1f;
 
-        Sprite::add(level, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
+        Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
     } 
 
     #undef SPLASH_TIMESTEP

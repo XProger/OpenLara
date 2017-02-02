@@ -14,7 +14,7 @@ struct Sprite : Controller {
     int   frame, flag;
     float time;
 
-    Sprite(TR::Level *level, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(level, entity), instant(instant), flag(frame), time(0.0f) {
+    Sprite(IGame *game, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(game, entity), instant(instant), flag(frame), time(0.0f) {
         if (frame >= 0) { // specific frame
             this->frame = frame;
         } else if (frame == FRAME_RANDOM) { // random frame
@@ -24,11 +24,12 @@ struct Sprite : Controller {
         }
     }
 
-    static void add(TR::Level *level, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1) {
+    static void add(IGame *game, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1) {
+        TR::Level *level = game->getLevel();
         int index = level->entityAdd(type, room, x, y, z, 0, -1);
         if (index > -1) {
             level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
-            level->entities[index].controller = new Sprite(level, index, true, frame);
+            level->entities[index].controller = new Sprite(game, index, true, frame);
         }
     }
 

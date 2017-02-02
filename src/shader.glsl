@@ -27,6 +27,7 @@ uniform int   uType;
 #ifdef PASS_COMPOSE
     uniform int  uCaustics;
     uniform vec4 uParam;
+    uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 #endif
 
 #ifdef VERTEX
@@ -42,7 +43,6 @@ uniform int   uType;
         uniform vec3 uViewPos;
         uniform vec2 uAnimTexRanges[MAX_RANGES];
         uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-        uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
     #endif
     
     attribute vec4 aCoord;
@@ -102,7 +102,7 @@ uniform int   uType;
                 float sum = coord.x + coord.y + coord.z;
                 vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
             }
-            vTexCoord.zw = smoothstep(uRoomSize.xy, uRoomSize.zw, coord.xz);
+            vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 
             vViewVec   = uViewPos - coord.xyz;          
             vLightProj = uLightProj * coord;
@@ -228,7 +228,11 @@ uniform int   uType;
         }
 
         float calcCaustics(vec3 n) {
-            return texture2D(sReflect, vTexCoord.zw).r * (float(uCaustics) * max(0.0, -n.y));
+            if (uCaustics != 0) {
+                vec2 fade = smoothstep(uRoomSize.xy, uRoomSize.xy + vec2(256.0), vCoord.xz) * (1.0f - smoothstep(uRoomSize.zw - vec2(256.0), uRoomSize.zw, vCoord.xz));
+                return texture2D(sReflect, vTexCoord.zw).r * (max(0.0, -n.y)) * fade.x * fade.y;
+            } else
+                return 0.0;
         }
 
     #endif

@@ -517,16 +517,16 @@ struct MeshBuilder {
 
             if (a.y != b.y || a.y != c.y || a.y != d.y) // skip non-horizontal or non-portal plane primitive
                 continue;
-
-            int yt = abs(a.y - room.info.yTop);
-            int yb = abs(room.info.yBottom - a.y);
-
-            if (yt > 0 && yb > 0) continue;
             
             int sx = (int(a.x) + int(b.x) + int(c.x) + int(d.x)) / 4 / 1024;
             int sz = (int(a.z) + int(b.z) + int(c.z) + int(d.z)) / 4 / 1024;
 
             TR::Room::Sector &s = room.sectors[sx * room.zSectors + sz];
+
+            int yt = abs(a.y - s.ceiling * 256);
+            int yb = abs(s.floor * 256 - a.y);
+
+            if (yt > 0 && yb > 0) continue;
 
             if ((yt == 0 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
                 (yb == 0 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
@@ -546,16 +546,16 @@ struct MeshBuilder {
 
             if (a.y != b.y || a.y != c.y) // skip non-horizontal or non-portal plane primitive
                 continue;
-
-            int yt = abs(a.y - room.info.yTop);
-            int yb = abs(room.info.yBottom - a.y);
-
-            if (yt > 1 && yb > 1) continue;
             
             int sx = (int(a.x) + int(b.x) + int(c.x)) / 3 / 1024;
             int sz = (int(a.z) + int(b.z) + int(c.z)) / 3 / 1024;
 
             TR::Room::Sector &s = room.sectors[sx * room.zSectors + sz];
+
+            int yt = abs(a.y - s.ceiling * 256);
+            int yb = abs(s.floor * 256 - a.y);
+
+            if (yt > 0 && yb > 0) continue;
 
             if ((yt <= 1 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
                 (yb <= 1 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {

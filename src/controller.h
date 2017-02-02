@@ -12,7 +12,13 @@
 
 #define MAX_LAYERS  4
 
+struct IGame {
+    virtual TR::Level* getLevel() { return NULL; }
+    virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
+};
+
 struct Controller {
+    IGame       *game;
     TR::Level   *level;
     int         entity;
     
@@ -44,7 +50,7 @@ struct Controller {
         ActionCommand(int emitter, TR::Action action, int value, float timer, ActionCommand *next = NULL) : emitter(emitter), action(action), value(value), timer(timer), next(next) {}
     } *actionCommand;
 
-    Controller(TR::Level *level, int entity) : level(level), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL), actionCommand(NULL) {
+    Controller(IGame *game, int entity) : game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL), actionCommand(NULL) {
         TR::Entity &e = getEntity();
         pos        = vec3((float)e.x, (float)e.y, (float)e.z);
         angle      = vec3(0.0f, e.rotation, 0.0f);
