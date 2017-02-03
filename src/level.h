@@ -313,11 +313,13 @@ struct Level : IGame {
                 for (int i = 0; i < count; i++)
                     if (items[i].to == roomIndex) {
                         nextRoom = items[i].from;
+                        if (!items[i].visible) {
+                            items[i].visible = true;
+                            visible++;
+                        }
                         break;
                     }
-
-                if (nextRoom == TR::NO_ROOM)
-                    return;
+                return;
             }
 
             int from, to; // from surface room to underwater room
@@ -342,7 +344,6 @@ struct Level : IGame {
             if (count == MAX_SURFACES) return;
 
             items[count++] = Item(from, to);
-
             visible++;
         }
 
@@ -398,7 +399,7 @@ struct Level : IGame {
 
             Core::active.shader->setParam(uType,  Shader::WATER_STEP);
             Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, 0));
-
+            
             while (item.timer >= SIMULATE_TIMESTEP) {
             // water step
                 item.data[0]->bind(sDiffuse);
@@ -409,6 +410,7 @@ struct Level : IGame {
                 item.timer -= SIMULATE_TIMESTEP;
             }
         
+
         // calc caustics
             vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f / PLANE_DETAIL) };
             Core::active.shader->setParam(uType, Shader::WATER_CAUSTICS);
@@ -419,8 +421,8 @@ struct Level : IGame {
 
             Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
 
-            item.data[0]->bind(sNormal);
             item.caustics->unbind(sReflect);
+            item.data[0]->bind(sNormal);
             Core::setTarget(item.caustics);
             level->mesh->renderPlane();
         }
@@ -493,20 +495,22 @@ struct Level : IGame {
             // simulate water
                 level->setPassShader(Core::passWater);
 
+                Core::setBlending(bmNone);
+                Core::setDepthTest(false);
+                item.mask->bind(sMask);
+
                 if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
-                    Core::setBlending(bmNone);
-                    Core::setDepthTest(false);
 
                     Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
 
-                    item.mask->bind(sEnvironment);
                     drop(item);
                     step(item);
 
-                    Core::setBlending(bmAlpha);
-                    Core::setDepthTest(true);
                 }
                 Core::setTarget(NULL);
+
+                Core::setBlending(bmAlpha);
+                Core::setDepthTest(true);
 
             // render water plane
                 if (level->level.rooms[item.from].lightsCount) {
@@ -529,17 +533,16 @@ struct Level : IGame {
 
                 Core::active.shader->setParam(uTexParam,    vec4(1.0f, 1.0f, sx, sz));
 
-
                 refract->bind(sDiffuse);
                 reflect->bind(sReflect);
                 item.data[0]->bind(sNormal);
                 Core::setCulling(cfNone);
-                //vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 1.0f, 1.0f / PLANE_DETAIL) };
-                //Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-                //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                level->mesh->renderQuad();
-                //level->mesh->renderPlane();
-                //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
+                Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+             //   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                //level->mesh->renderQuad();
+                level->mesh->renderPlane();
+              //  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
                 Core::setCulling(cfFront);
             }
@@ -1119,6 +1122,7 @@ struct Level : IGame {
 
         atlas->bind(sDiffuse);
         cube->bind(sEnvironment);
+        Core::whiteTex->bind(sMask);
 
         if (!Core::support.VAO)
             mesh->bind();
@@ -1357,7 +1361,7 @@ struct Level : IGame {
             
 
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-            Debug::Level::lights(level, lara->getRoomIndex());
+        //    Debug::Level::lights(level, lara->getRoomIndex());
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);

@@ -4,11 +4,11 @@
 #include "core.h"
 
 enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
-enum SamplerType    { sDiffuse, sNormal, sReflect, sShadow, sEnvironment, sMAX };
+enum SamplerType    { sDiffuse, sNormal, sReflect, sShadow, sEnvironment, sMask, sMAX };
 enum UniformType    { uType, uCaustics, uParam, uTexParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightsCount, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uRoomSize, uPosScale, uMAX };
 
 const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
-const char *SamplerName[sMAX]   = { "sDiffuse", "sNormal", "sReflect", "sShadow", "sEnvironment" };
+const char *SamplerName[sMAX]   = { "sDiffuse", "sNormal", "sReflect", "sShadow", "sEnvironment", "sMask" };
 const char *UniformName[uMAX]   = { "uType", "uCaustics",  "uParam", "uTexParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightsCount", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets", "uRoomSize", "uPosScale" };
 
 struct Shader {

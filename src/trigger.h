@@ -335,8 +335,8 @@ struct Waterfall : Trigger {
 
         drop         = true;
         dropPos      = pos + vec3(randf() * 1024.0f - 512.0f, 0.0f, randf() * 1024.0f - 512.0f);
-        dropRadius   = randf() * 256.0f + 128.0f;
-        dropStrength = randf() * 0.1f + 0.1f;
+        dropRadius   = 256.0f;//randf() * 128.0f + 128.0f;
+        dropStrength = 0.15f;//randf() * 0.1f + 0.05f;
 
         Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
     } 

@@ -1421,7 +1421,7 @@ struct Lara : Character {
                 game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.01f);
         } else {
             if (animation.frameIndex % 4 == 0)
-                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 128.0f, 0.05f);
+                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.01f);
         }
 
         if (input & FORTH) {

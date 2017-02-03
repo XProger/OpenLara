@@ -39,7 +39,16 @@ uniform sampler2D sNormal;
         vTexCoord = (aCoord.xy * 0.5 + 0.5) * uTexParam.zw;
 
         if (uType >= WATER_MASK) {
-            vCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1] + uPosScale[0];
+
+            float height = 0.0;
+
+            if (uType == WATER_COMPOSE) {
+                vTexCoord = (aCoord.xy * 0.01 * 0.5 + 0.5) * uTexParam.zw;
+                height = texture2D(sNormal, vTexCoord).x;
+            }
+
+            vCoord = vec3(aCoord.x, height, aCoord.y) * uPosScale[1] + uPosScale[0];
+
             vec4 cp = uViewProj * vec4(vCoord, 1.0);
 
             vProjCoord  = cp;
@@ -50,7 +59,7 @@ uniform sampler2D sNormal;
                 vec3 rCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1];
 
                 vec4 info = texture2D(sNormal, (rCoord.xz * 0.5 + 0.5) * uTexParam.zw);
-                vec3 normal = vec3(info.b, -sqrt(1.0 - dot(info.ba, info.ba)), info.a);
+                vec3 normal = vec3(info.z, -sqrt(1.0 - dot(info.zw, info.zw)), info.w);
 
                 vec3 light = vec3(0.0, -1.0, 0.0);
                 vec3 refractedLight = refract(-light, vec3(0.0, 1.0, 0.0), ETA_AIR / ETA_WATER);
@@ -71,7 +80,7 @@ uniform sampler2D sNormal;
 #else
     uniform sampler2D sDiffuse;
     uniform sampler2D sReflect;
-    uniform sampler2D sEnvironment;
+    uniform sampler2D sMask;
 
     uniform vec3 uLightPos;
     uniform vec4 uLightColor;
@@ -91,54 +100,34 @@ uniform sampler2D sNormal;
         drop = 0.5 - cos(drop * PI) * 0.5;
         v.x += drop * uParam.w;
 
-        return v * texture2D(sEnvironment, tc).x; // apply coast mask
-    }
-
-
-    float getHeight(float ref, vec2 tc) {
-        return mix(ref, texture2D(sDiffuse, tc).x, texture2D(sEnvironment, tc).x);
+        return v;
     }
 
     vec4 step() {
         vec2 tc = gl_FragCoord.xy * uTexParam.xy;
 
+        if (texture2D(sMask, tc).x == 0.0)
+            return vec4(0.0);
+
         vec4 v = texture2D(sDiffuse, tc); // height, speed, normal.xz
 
-/*
-        vec4 dx = vec4(0.25, 0.96, -0.25, -0.96) * uTexParam.xyxy + tc.xyxy;
-        vec4 dy = vec4(0.25, 0.96, -0.25, -0.96) * uTexParam.yxyx + tc.yxyx;
-        float average = (texture2D(sDiffuse, dy.yx).x +
-                         texture2D(sDiffuse, dx.zy).x +
-                         texture2D(sDiffuse, dy.wz).x +
-                         texture2D(sDiffuse, dx.xw).x) * 0.25;
-
         vec3 d = vec3(uTexParam.xy, 0.0);
-        vec2 f = vec2(texture2D(sDiffuse, tc + d.xz).x, texture2D(sDiffuse, tc + d.zy).x);
-*/
-
-        vec3 d = vec3(uTexParam.xy, 0.0);
-        vec4 f = vec4(getHeight(v.x, tc + d.xz), getHeight(v.x, tc + d.zy),
-                      getHeight(v.x, tc - d.xz), getHeight(v.x, tc - d.zy));
-
-//        vec4 f = vec4(texture2D(sDiffuse, tc + d.xz).x, texture2D(sDiffuse, tc + d.zy).x,
-//                      texture2D(sDiffuse, tc - d.xz).x, texture2D(sDiffuse, tc - d.zy).x);
-
+        vec4 f = vec4(texture2D(sDiffuse, tc + d.xz).x, texture2D(sDiffuse, tc + d.zy).x,
+                      texture2D(sDiffuse, tc - d.xz).x, texture2D(sDiffuse, tc - d.zy).x);
         float average = dot(f, vec4(0.25));
 
     // normal
-        f.xy -= v.x;
-        vec3 nx = vec3(d.x, f.x, 0.0);
-        vec3 ny = vec3(0.0, f.y, d.y);
-        v.zw = normalize(cross(ny, nx)).xz * 0.5;
+        v.zw = normalize( vec3(f.x - f.z, 64.0 / (1024.0 * 2.0), f.y - f.w) ).xz;
 
-    // velocity
-        v.y += (average - v.x) * 1.9;
-        v.y *= uParam.x; // fadeout        
+    // integrate
+        const float vel = 1.8;
+        const float vis = 0.995;
 
-    // amplitude
-        v.x += v.y * uParam.y;
+        v.y *= vis;
+        v.y += (average - v.x) * vel;
+        v.x += v.y;
 
-        return v * texture2D(sEnvironment, tc).x; // apply coast mask
+        return v; 
     }
 
     vec4 caustics() {
@@ -156,7 +145,8 @@ uniform sampler2D sNormal;
 
         vec4 value  = texture2D(sNormal, vTexCoord);
 
-        vec3 normal = normalize(vec3(value.b, -sqrt(1.0 - dot(value.ba, value.ba)), value.a)); 
+        vec3 normal = vec3(value.z, -sqrt(1.0 - dot(value.zw, value.zw)), value.w);
+
         vec2 dudv   = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 
         vec3 viewVec = normalize(uViewPos - vCoord);
