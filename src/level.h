@@ -421,7 +421,7 @@ struct Level : IGame {
 
             Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
 
-            item.caustics->unbind(sReflect);
+            Core::whiteTex->bind(sReflect);
             item.data[0]->bind(sNormal);
             Core::setTarget(item.caustics);
             level->mesh->renderPlane();
@@ -1121,8 +1121,10 @@ struct Level : IGame {
         camera->setup(Core::pass == Core::passCompose);
 
         atlas->bind(sDiffuse);
-        cube->bind(sEnvironment);
+        Core::whiteTex->bind(sNormal);
         Core::whiteTex->bind(sMask);
+        Core::whiteTex->bind(sReflect);        
+        cube->bind(sEnvironment);
 
         if (!Core::support.VAO)
             mesh->bind();

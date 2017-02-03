@@ -229,7 +229,7 @@ uniform int   uType;
 
         float calcCaustics(vec3 n) {
             if (uCaustics != 0) {
-                vec2 fade = smoothstep(uRoomSize.xy, uRoomSize.xy + vec2(256.0), vCoord.xz) * (1.0f - smoothstep(uRoomSize.zw - vec2(256.0), uRoomSize.zw, vCoord.xz));
+                vec2 fade = smoothstep(uRoomSize.xy, uRoomSize.xy + vec2(256.0), vCoord.xz) * (1.0 - smoothstep(uRoomSize.zw - vec2(256.0), uRoomSize.zw, vCoord.xz));
                 return texture2D(sReflect, vTexCoord.zw).r * (max(0.0, -n.y)) * fade.x * fade.y;
             } else
                 return 0.0;
