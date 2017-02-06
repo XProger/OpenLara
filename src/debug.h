@@ -38,7 +38,7 @@ namespace Debug {
 
         glUseProgram(0);
         Core::active.shader = NULL;
-        Core::active.testures[0] = NULL;
+        Core::active.textures[0] = NULL;
     }
 
     void end() {

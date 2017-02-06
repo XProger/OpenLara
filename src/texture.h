@@ -4,7 +4,7 @@
 #include "core.h"
 
 struct Texture {
-    enum Format : uint32 { RGBA, RGBA_FLOAT, RGBA_HALF, RED, DEPTH, SHADOW, MAX };
+    enum Format : uint32 { RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, SHADOW, MAX };
 
     GLuint  ID;
     int     width, height;
@@ -58,13 +58,14 @@ struct Texture {
         struct FormatDesc {
             GLuint ifmt, fmt;
             GLenum type;
-        } formats[MAX] = {
-            { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE  },    // RGBA
-            { GL_RGBA32F,         GL_RGBA,            GL_FLOAT          },    // RGBA_FLOAT
-            { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT     },    // RGBA_HALF
-            { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE  },    // RED
-            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },    // DEPTH
-            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT },    // SHADOW
+        } formats[MAX] = {            
+            { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
+            { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
+            { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
+            { GL_RGBA32F,         GL_RGBA,            GL_FLOAT                  }, // RGBA_FLOAT
+            { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT             }, // RGBA_HALF
+            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
+            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
         };
 
         FormatDesc &desc = formats[format];
@@ -80,6 +81,7 @@ struct Texture {
     }
 
     void bind(int sampler) {
+        Core::active.textures[sampler] = this;
         glActiveTexture(GL_TEXTURE0 + sampler);
         glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
     }

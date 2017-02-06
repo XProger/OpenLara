@@ -1,8 +1,5 @@
 R"====(
 #ifdef GL_ES
-    #ifdef FRAGMENT
-        #extension GL_OES_standard_derivatives : enable
-    #endif
     precision highp int;
     precision highp float;
 #endif
@@ -43,7 +40,7 @@ uniform sampler2D sNormal;
             float height = 0.0;
 
             if (uType == WATER_COMPOSE) {
-                vTexCoord = (aCoord.xy * 0.01 * 0.5 + 0.5) * uTexParam.zw;
+                vTexCoord = (aCoord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
                 height = texture2D(sNormal, vTexCoord).x;
             }
 
@@ -120,11 +117,11 @@ uniform sampler2D sNormal;
         v.zw = normalize( vec3(f.x - f.z, 64.0 / (1024.0 * 2.0), f.y - f.w) ).xz;
 
     // integrate
-        const float vel = 1.8;
+        const float vel = 1.4;
         const float vis = 0.995;
 
-        v.y *= vis;
         v.y += (average - v.x) * vel;
+        v.y *= vis;
         v.x += v.y;
 
         return v; 

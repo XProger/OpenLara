@@ -112,7 +112,7 @@
 
 #define MAX_LIGHTS          3
 #define MAX_CACHED_LIGHTS   3
-#define MAX_RENDER_BUFFERS  11
+#define MAX_RENDER_BUFFERS  32
 
 struct Shader;
 struct Texture;
@@ -155,11 +155,18 @@ namespace Core {
     enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater } pass;
 
     GLuint FBO;
-    GLuint renderBuffers[2][MAX_RENDER_BUFFERS];
+    struct RenderTargetCache {
+        int count;
+        struct Item {
+            GLuint  ID;
+            int     width;
+            int     height;
+        } items[MAX_RENDER_BUFFERS];
+    } rtCache[2];
 
     struct {
         Shader  *shader;
-        Texture *testures[8];
+        Texture *textures[8];
         GLuint  VAO;
     } active;
 
@@ -267,15 +274,7 @@ namespace Core {
         LOG("\n");
 
         glGenFramebuffers(1, &FBO);
-
-        glGenRenderbuffers(MAX_RENDER_BUFFERS * 2, &renderBuffers[0][0]);
-
-        for (int j = 0; j < 2; j++)
-            for (int i = 0; i < MAX_RENDER_BUFFERS; i++) {
-                glBindRenderbuffer(GL_RENDERBUFFER, renderBuffers[j][i]);
-                glRenderbufferStorage(GL_RENDERBUFFER, j ? GL_RGB565 : GL_DEPTH_COMPONENT16, 1 << i, 1 << i);
-            }
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        memset(rtCache, 0, sizeof(rtCache));
 
         Sound::init();
 
@@ -293,9 +292,38 @@ namespace Core {
     void free() {
         delete blackTex;
         delete whiteTex;
-    //    glDeleteRenderBuffers(MAX_RENDER_BUFFERS * 2, &renderBuffers[0][0]);
-    //    glDeleteFrameBuffers(1, &FBO);
+    /*
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDeleteFrameBuffers(1, &FBO);
+
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        for (int b = 0; b < 2; b++)
+            for (int i = 0; i < rtCache[b].count; i++)
+                glDeleteRenderBuffers(1, &rtCache[b].items[i].ID);
+    */
         Sound::free();
+    }
+
+    int cacheRenderTarget(bool depth, int width, int height) {
+        RenderTargetCache &cache = rtCache[depth];
+
+        for (int i = 0; i < cache.count; i++)
+            if (cache.items[i].width == width && cache.items[i].height == height)
+                return i;
+
+        ASSERT(cache.count < MAX_RENDER_BUFFERS);
+
+        RenderTargetCache::Item &item = cache.items[cache.count];
+
+        glGenRenderbuffers(1, &item.ID);
+        item.width  = width;
+        item.height = height;
+
+        glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        
+        return cache.count++;
     }
 
     void clear(const vec4 &color) {
@@ -373,17 +401,12 @@ namespace Core {
         if (target->cube) 
             texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-        int i = target->width, dummyBuffer = 0;
-        while (i > 1) {
-            dummyBuffer++;
-            i >>= 1;
-        }
+        bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+        int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
 
-        ASSERT(target->width == (1 << dummyBuffer) )
         glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-        bool depth = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
         glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-        glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, renderBuffers[depth][dummyBuffer]);
+        glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
 
         if (depth)
             glColorMask(false, false, false, false);

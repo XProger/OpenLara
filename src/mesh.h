@@ -39,7 +39,7 @@ struct MeshRange {
     }
 };
 
-#define PLANE_DETAIL 100
+#define PLANE_DETAIL 48
 
 struct Mesh {
     GLuint  ID[2];

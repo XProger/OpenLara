@@ -180,7 +180,7 @@ struct Level : IGame {
     } *ambientCache;
 
     struct WaterCache {
-        #define MAX_SURFACES       5
+        #define MAX_SURFACES       8
         #define MAX_INVISIBLE_TIME 5.0f
         #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
         #define DETAIL             (64.0f / 1024.0f)
@@ -191,7 +191,7 @@ struct Level : IGame {
         Texture *reflect;
 
         struct Item {
-            int     from, to;
+            int     from, to, caust;
             float   timer;
             bool    visible;
             bool    blank;
@@ -204,7 +204,7 @@ struct Level : IGame {
                 mask = caustics = data[0] = data[1] = NULL;
             }
 
-            Item(int from, int to) : from(from), to(to), timer(SIMULATE_TIMESTEP), visible(true), blank(true) {
+            Item(int from, int to) : from(from), to(to), caust(to), timer(SIMULATE_TIMESTEP), visible(true), blank(true) {
                 mask = caustics = data[0] = data[1] = NULL;
             }
 
@@ -222,6 +222,8 @@ struct Level : IGame {
                             maxX = max(maxX, x);
                             maxZ = max(maxZ, z);
                             posY = s.ceiling * 256;
+                            if (s.roomBelow != TR::NO_ROOM)
+                                caust = s.roomBelow;
                         }
                     }
                 maxX++;
@@ -230,15 +232,29 @@ struct Level : IGame {
                 int w = nextPow2(maxX - minX);
                 int h = nextPow2(maxZ - minZ);
 
-                uint8 *m = new uint8[w * h];
-                memset(m, 0, w * h);
+                uint16 *m = new uint16[w * h];
+                memset(m, 0, w * h * sizeof(m[0]));
 
                 for (int z = minZ; z < maxZ; z++)
                     for (int x = minX; x < maxX; x++) {
                         TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
-                        m[(x - minX) + w * (z - minZ)] = (s.roomAbove != TR::NO_ROOM && !level->level.rooms[s.roomAbove].flags.water) ? 255 : 0;
+
+                        bool hasWater = (s.roomAbove != TR::NO_ROOM && !level->level.rooms[s.roomAbove].flags.water);
+                        bool hasFlow  = false;
+                        if (hasWater) {
+                            TR::Level::FloorInfo info;
+                            level->level.getFloorInfo(to, x + r.info.x, r.info.yBottom, z + r.info.z, info);
+                            if (info.trigCmdCount && info.trigger == TR::Level::Trigger::ACTIVATE)
+                                for (int i = 0; i < info.trigCmdCount; i++)
+                                    if (info.trigCmd[i].action == TR::Action::FLOW) {
+                                        hasFlow = true;
+                                        break;
+                                    }
+                        }
+                        
+                        m[(x - minX) + w * (z - minZ)] = hasWater ? (hasFlow ? 0xFFFF : 0xFF00) : 0;
                     }
-                mask = new Texture(w, h, Texture::RED, false, m, false);
+                mask = new Texture(w, h, Texture::RGB16, false, m, false);
                 delete[] m;
 
                 size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -246,7 +262,7 @@ struct Level : IGame {
 
                 data[0]  = new Texture(nextPow2(w * 64), nextPow2(h * 64), Texture::RGBA_HALF, false);
                 data[1]  = new Texture(data[0]->width, data[0]->height, Texture::RGBA_HALF, false);
-                caustics = new Texture(512, 512, Texture::RGBA, false);
+                caustics = new Texture(512, 512, Texture::RGB16, false);
                 blank = false;
 
                 Core::setTarget(data[0]);
@@ -276,7 +292,7 @@ struct Level : IGame {
         } drops[MAX_DROPS];
 
         WaterCache(Level *level) : level(level), refract(NULL), count(0), checkVisibility(false), dropCount(0) {
-            reflect = new Texture(512, 512, Texture::RGBA, false);
+            reflect = new Texture(512, 512, Texture::RGB16, false);
         }
 
         ~WaterCache() { 
@@ -309,9 +325,9 @@ struct Level : IGame {
         void setVisible(int roomIndex, int nextRoom = TR::NO_ROOM) {
             if (!checkVisibility) return;
 
-            if (nextRoom == TR::NO_ROOM) { // setVisible(underwaterRoom) 
+            if (nextRoom == TR::NO_ROOM) { // setVisible(underwaterRoom) for caustics update
                 for (int i = 0; i < count; i++)
-                    if (items[i].to == roomIndex) {
+                    if (items[i].caust == roomIndex) {
                         nextRoom = items[i].from;
                         if (!items[i].visible) {
                             items[i].visible = true;
@@ -350,7 +366,7 @@ struct Level : IGame {
         void bindCaustics(int roomIndex) {
             Item *item = NULL;
             for (int i = 0; i < count; i++)
-                if (items[i].to == roomIndex) {
+                if (items[i].caust == roomIndex) {
                     item = &items[i];
                     break;
                 }
@@ -390,8 +406,6 @@ struct Level : IGame {
                 level->mesh->renderQuad();
                 swap(item.data[0], item.data[1]);
             }
-            dropCount = 0;
-
         }
     
         void step(Item &item) {
@@ -458,7 +472,7 @@ struct Level : IGame {
         // get refraction texture
             if (!refract || Core::width > refract->width || Core::height > refract->height) {
                 delete refract;
-                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
+                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA16, false);
             }
             Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
 
@@ -500,12 +514,11 @@ struct Level : IGame {
                 item.mask->bind(sMask);
 
                 if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
-
                     Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
-
-                    drop(item);
+                // add water drops
+                    drop(item);                    
+                // simulation step
                     step(item);
-
                 }
                 Core::setTarget(NULL);
 
@@ -526,7 +539,7 @@ struct Level : IGame {
                 Core::active.shader->setParam(uViewPos,     Core::viewPos);
                 Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
                 Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-                Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.075f, 0.02f));
+                Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.05f, 0.02f));
 
                 float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
                 float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
@@ -546,6 +559,7 @@ struct Level : IGame {
 
                 Core::setCulling(cfFront);
             }
+            dropCount = 0;
         }
 
         #undef MAX_WATER_SURFACES
@@ -717,9 +731,13 @@ struct Level : IGame {
         waterCache   = new WaterCache(this);
 
         initReflections();
+        for (int i = 0; i < level.soundSourcesCount; i++) {
+            TR::SoundSource &src = level.soundSources[i];
+            lara->playSound(src.id, vec3(src.x, src.y, src.z), Sound::PAN | Sound::LOOP);
+        }
     }
 
-    ~Level() {
+    virtual ~Level() {
         #ifdef _DEBUG
             Debug::free();
         #endif
@@ -931,6 +949,14 @@ struct Level : IGame {
         if (room.flags.water) {
             Core::color = vec4(0.6f, 0.9f, 0.9f, intensity);
             Core::active.shader->setParam(uCaustics, 1);
+            /*
+        // trace to water surface room
+            int wrIndex = roomIndex;
+
+            room.sectors[sx * room.zSectors + sz];
+
+            int sx = room.xSectors
+            */
             waterCache->bindCaustics(roomIndex);
         } else {
             Core::color = vec4(1.0f, 1.0f, 1.0f, intensity);
@@ -1299,6 +1325,15 @@ struct Level : IGame {
 
     #ifdef _DEBUG
         camera->setup(true);
+
+        static int snd_index = 0;
+        if (Input::down[ikG]) {
+            snd_index = (snd_index + 1) % level.soundsInfoCount;
+            LOG("play sound: %d\n", snd_index);
+            lara->playSound(snd_index, lara->pos, 0);
+            Input::down[ikG] = false;
+        }
+        /*
         static int modelIndex = 0;
         static bool lastStateK = false;
         static int lastEntity = -1;
@@ -1322,7 +1357,7 @@ struct Level : IGame {
         if (lastEntity > -1)
             renderEntity(level.entities[lastEntity]);
 //        renderModel(level.models[modelIndex], level.entities[4]);
-
+*/
         Debug::begin();
             
             glMatrixMode(GL_MODELVIEW);
@@ -1343,11 +1378,13 @@ struct Level : IGame {
             glDisable(GL_BLEND);
 
             glColor3f(10, 10, 10);
+            int w = Core::active.textures[sDiffuse]->width / 2;
+            int h = Core::active.textures[sDiffuse]->height / 2;
             glBegin(GL_QUADS);
                 glTexCoord2f(0, 0); glVertex2f(0, 0);
-                glTexCoord2f(1, 0); glVertex2f(256, 0);
-                glTexCoord2f(1, 1); glVertex2f(256, 256);
-                glTexCoord2f(0, 1); glVertex2f(0, 256);
+                glTexCoord2f(1, 0); glVertex2f(w, 0);
+                glTexCoord2f(1, 1); glVertex2f(w, h);
+                glTexCoord2f(0, 1); glVertex2f(0, h);
             glEnd();
             glColor3f(1, 1, 1);
 
@@ -1369,7 +1406,7 @@ struct Level : IGame {
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
-        //    Debug::Level::entities(level);
+            Debug::Level::entities(level);
         /*
             static int dbg_ambient = 0;
             dbg_ambient = int(time * 2) % 4;

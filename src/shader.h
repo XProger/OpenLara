@@ -24,14 +24,18 @@ struct Shader {
     Shader(const char *text, const char *defines = "") {
         #ifdef MOBILE
             #define GLSL_DEFINE ""
+            #define GLSL_VERT   ""
+            #define GLSL_FRAG   "#extension GL_OES_standard_derivatives : enable\n"
         #else
             #define GLSL_DEFINE "#version 120\n"
+            #define GLSL_VERT   ""
+            #define GLSL_FRAG   ""
         #endif
 
         const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
         const char *code[2][3] = {
-                { GLSL_DEFINE "#define VERTEX\n",   defines, text },
-                { GLSL_DEFINE "#define FRAGMENT\n", defines, text }
+                { GLSL_DEFINE GLSL_VERT "#define VERTEX\n",   defines, text },
+                { GLSL_DEFINE GLSL_FRAG "#define FRAGMENT\n", defines, text }
             };
 
         GLchar info[256];

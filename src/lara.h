@@ -923,7 +923,7 @@ struct Lara : Character {
     virtual void hit(int damage, Controller *enemy = NULL) {
         health -= damage;
         if (enemy && health > 0)
-            playSound(TR::SND_HIT, pos, Sound::PAN);
+            playSound(TR::SND_HIT, pos, Sound::PAN | Sound::REPLAY);
     };
 
     bool waterOut() {
@@ -1394,12 +1394,15 @@ struct Lara : Character {
             return STATE_PICK_UP;
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
+            game->waterDrop(pos, 256.0f, 0.2f);
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
         
         if (state == STATE_SWAN_DIVE) {
             angle.x = -PI * 0.5f;
+            game->waterDrop(pos, 128.0f, 0.2f);
+            Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return STATE_DIVE;
         }
             
@@ -1413,15 +1416,17 @@ struct Lara : Character {
 
         if (state == STATE_WATER_OUT) return state;
 
-        if (state != STATE_SURF_TREAD && state != STATE_SURF_LEFT && state != STATE_SURF_RIGHT && state != STATE_SURF_SWIM && state != STATE_SURF_BACK && state != STATE_STOP)
+        if (state != STATE_SURF_TREAD && state != STATE_SURF_LEFT && state != STATE_SURF_RIGHT && state != STATE_SURF_SWIM && state != STATE_SURF_BACK && state != STATE_STOP) {
+            game->waterDrop(pos, 128.0f, 0.2f);
             return animation.setAnim(ANIM_TO_ONWATER);
+        }
 
         if (state == STATE_SURF_TREAD) {
             if (animation.isFrameActive(0))
-                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.01f);
+                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.03f);
         } else {
             if (animation.frameIndex % 4 == 0)
-                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.01f);
+                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.02f);
         }
 
         if (input & FORTH) {

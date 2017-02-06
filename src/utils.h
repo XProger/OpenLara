@@ -112,11 +112,29 @@ struct vec2 {
     vec2(float s) : x(s), y(s) {}
     vec2(float x, float y) : x(x), y(y) {}
 
-    vec2 operator + (const vec2 &v) const { return vec2(x+v.x, y+v.y); }
-    vec2 operator - (const vec2 &v) const { return vec2(x-v.x, y-v.y); }
-    vec2 operator * (float s) const { return vec2(x*s, y*s); }
-    float dot(const vec2 &v) const { return x*v.x + y*v.y; }
-    float cross(const vec2 &v) const { return x*v.y - y*v.x; }
+    float& operator [] (int index) const { ASSERT(index >= 0 && index <= 1); return ((float*)this)[index]; }
+
+    bool operator == (float s) const { return x == s && y == s; }
+    bool operator != (float s) const { return !(*this == s); }
+    vec2 operator -  ()        const { return vec2(-x, -y); }
+
+    vec2& operator += (const vec2 &v) { x += v.x; y += v.y; return *this; }
+    vec2& operator -= (const vec2 &v) { x -= v.x; y -= v.y; return *this; }
+    vec2& operator *= (const vec2 &v) { x *= v.x; y *= v.y; return *this; }
+    vec2& operator += (float s)       { x += s;   y += s;   return *this; }
+    vec2& operator -= (float s)       { x -= s;   y -= s;   return *this; }
+    vec2& operator *= (float s)       { x *= s;   y *= s;   return *this; }
+
+    vec2 operator + (const vec2 &v) const { return vec2(x + v.x, y + v.y); }
+    vec2 operator - (const vec2 &v) const { return vec2(x - v.x, y - v.y); }
+    vec2 operator * (const vec2 &v) const { return vec2(x * v.x, y * v.y); }
+    vec2 operator + (float s)       const { return vec2(x + s,   y + s  ); }
+    vec2 operator - (float s)       const { return vec2(x - s,   y - s  ); }
+    vec2 operator * (float s)       const { return vec2(x * s,   y * s  ); }
+
+    float dot(const vec2 &v)   const { return x * v.x + y * v.y; }
+    float cross(const vec2 &v) const { return x * v.y - y * v.x; }
+
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
@@ -130,24 +148,29 @@ struct vec3 {
     vec3(const vec2 &xy, float z = 0.0f) : x(xy.x), y(xy.y), z(z) {}
     vec3(float lng, float lat) : x(sinf(lat) * cosf(lng)), y(-sinf(lng)), z(cosf(lat) * cosf(lng)) {}
 
-    float& operator [] (int index) const { return ((float*)this)[index]; }
+    float& operator [] (int index) const { ASSERT(index >= 0 && index <= 2); return ((float*)this)[index]; }
 
     bool operator == (float s) const { return x == s && y == s && z == s; }
     bool operator != (float s) const { return !(*this == s); }
+    vec3 operator -  ()        const { return vec3(-x, -y, -z); }
 
     vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
     vec3& operator -= (const vec3 &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
     vec3& operator *= (const vec3 &v) { x *= v.x; y *= v.y; z *= v.z; return *this; }
+    vec3& operator += (float s)       { x += s;   y += s;   z += s;   return *this; }
+    vec3& operator -= (float s)       { x -= s;   y -= s;   z -= s;   return *this; }
     vec3& operator *= (float s)       { x *= s;   y *= s;   z *= s;   return *this; }
 
-    vec3 operator + (const vec3 &v) const { return vec3(x+v.x, y+v.y, z+v.z); }
-    vec3 operator - (const vec3 &v) const { return vec3(x-v.x, y-v.y, z-v.z); }
-    vec3 operator * (const vec3 &v) const { return vec3(x*v.x, y*v.y, z*v.z); }
-    vec3 operator * (float s)       const { return vec3(x*s, y*s, z*s); }
-    vec3 operator - ()              const { return vec3(-x, -y, -z); }
+    vec3 operator + (const vec3 &v) const { return vec3(x + v.x, y + v.y, z + v.z); }
+    vec3 operator - (const vec3 &v) const { return vec3(x - v.x, y - v.y, z - v.z); }
+    vec3 operator * (const vec3 &v) const { return vec3(x * v.x, y * v.y, z * v.z); }
+    vec3 operator + (float s)       const { return vec3(x + s,   y + s,   z + s);   }
+    vec3 operator - (float s)       const { return vec3(x - s,   y - s,   z - s);   }
+    vec3 operator * (float s)       const { return vec3(x * s,   y * s,   z * s);   }
 
-    float dot(const vec3 &v) const { return x*v.x + y*v.y + z*v.z; }
-    vec3  cross(const vec3 &v) const { return vec3(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x); }
+    float dot(const vec3 &v)   const { return x * v.x + y * v.y + z * v.z; }
+    vec3  cross(const vec3 &v) const { return vec3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x); }
+
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
     vec3  normal()  const { float s = length(); return s == 0.0f ? (*this) : (*this)*(1.0f/s); }

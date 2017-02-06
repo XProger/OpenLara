@@ -48,8 +48,7 @@ struct Camera : Controller {
 
     virtual bool activate(ActionCommand *cmd) {
         Controller::activate(cmd);
-        if (cmd->timer)
-            this->timer = cmd->timer;
+        this->timer = max(max(1.0f, this->timer), cmd->timer);
         if (cmd->action == TR::Action::CAMERA_TARGET)
             actTargetEntity = cmd->value;
         if (cmd->action == TR::Action::CAMERA_SWITCH) {
