@@ -195,6 +195,9 @@ struct Controller {
     }
 
     void playSound(int id, const vec3 &pos, int flags) const {
+        if (level->version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
+            return;
+
         int16 a = level->soundsMap[id];
         if (a == -1) return;
 
