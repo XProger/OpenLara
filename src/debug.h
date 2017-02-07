@@ -329,7 +329,7 @@ namespace Debug {
             glEnd();
 
             glDepthMask(GL_TRUE);
-            Core::setBlending(bmAlpha);
+            Core::setBlending(bmNone);
         }
 
         void entities(const TR::Level &level) {

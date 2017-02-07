@@ -25,6 +25,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 uniform int   uType;
 
 #ifdef PASS_COMPOSE
+    uniform vec3 uViewPos;
     uniform int  uCaustics;
     uniform vec4 uParam;
     uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
@@ -40,7 +41,6 @@ uniform int   uType;
     #endif
 
     #ifdef PASS_COMPOSE
-        uniform vec3 uViewPos;
         uniform vec2 uAnimTexRanges[MAX_RANGES];
         uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
     #endif
@@ -235,6 +235,11 @@ uniform int   uType;
                 return 0.0;
         }
 
+        vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
+            float fog = clamp(1.0 / exp(factor), 0.0, 1.0);
+            return mix(fogColor, color, fog);
+//                return color.xyz * exp(factor);
+        }
     #endif
 /*
         float getLuminance(vec3 color) {
@@ -323,8 +328,6 @@ uniform int   uType;
                     }
 
                     color.xyz *= light;
-
-//color.xyz = normal * 0.5 + 0.5;
                 } else {
                     color.w = uColor.w;
                 }
@@ -332,9 +335,14 @@ uniform int   uType;
 
             color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
 
-        // apply fog
-            float fog = clamp(1.0 / exp(gl_FragCoord.z / gl_FragCoord.w * 0.000025), 0.0, 1.0);
-            color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, fog);
+        #ifdef PASS_COMPOSE
+            color.xyz = applyFog(color.xyz, vec3(0.0), length(vViewVec) * FOG_DIST);
+            if (uCaustics != 0) {
+                float d = abs((vCoord.y - max(uViewPos.y, uParam.y)) / normalize(vViewVec).y);
+                d *= step(0.0, vCoord.y - uParam.y);
+                color.xyz = applyFog(color.xyz, uColor.xyz * 0.2, d * WATER_FOG_DIST);
+            } 
+        #endif
 
             gl_FragColor = color;
         #endif

@@ -29,6 +29,9 @@ const char GUI[] =
     #include "gui.glsl"
 ;
 
+#define FOG_DIST       (18 * 1024)
+#define WATER_FOG_DIST (8 * 1024)
+
 struct Level : IGame {
     enum { shCompose, shShadow, shAmbient, shFilter, shWater, shGUI, shMAX };
 
@@ -42,9 +45,14 @@ struct Level : IGame {
     Camera      *camera;
     Texture     *shadow;
 
-    float   time;
-    float   clipHeight;
-    float   clipSign;
+    vec3        waterColor;
+
+    struct {
+        float   time;
+        float   waterHeight;
+        float   clipSign;
+        float   clipHeight;
+    } params;
 
     struct AmbientCache {
         Level *level;
@@ -374,10 +382,13 @@ struct Level : IGame {
             if (!item || !item->caustics) {                
                 Core::blackTex->bind(sReflect);
                 Core::active.shader->setParam(uRoomSize, vec4(0.0f));
+                level->params.waterHeight = -10000000.0f;
             } else {
                 item->caustics->bind(sReflect);
                 Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
+                level->params.waterHeight = item->pos.y;
             }
+            Core::active.shader->setParam(uParam, *((vec4*)&level->params));
         }
 
         void addDrop(const vec3 &pos, float radius, float strength) {
@@ -497,11 +508,11 @@ struct Level : IGame {
                 //bool underwater = level->camera->pos.y > item.pos.y;
 
                 level->camera->reflectPlane = &reflectPlane;
-                level->clipSign   = underwater ? -1.0f : 1.0f;
-                level->clipHeight = item.pos.y * level->clipSign;
+                level->params.clipSign   = underwater ? -1.0f : 1.0f;
+                level->params.clipHeight = item.pos.y * level->params.clipSign;
                 level->renderCompose(underwater ? item.from : item.to);
-                level->clipHeight = 1000000.0f;
-                level->clipSign   = 1.0f;
+                level->params.clipHeight = 1000000.0f;
+                level->params.clipSign   = 1.0f;
                 
                 level->camera->reflectPlane = NULL;
                 level->camera->setup(true);
@@ -509,7 +520,6 @@ struct Level : IGame {
             // simulate water
                 level->setPassShader(Core::passWater);
 
-                Core::setBlending(bmNone);
                 Core::setDepthTest(false);
                 item.mask->bind(sMask);
 
@@ -522,7 +532,6 @@ struct Level : IGame {
                 }
                 Core::setTarget(NULL);
 
-                Core::setBlending(bmAlpha);
                 Core::setDepthTest(true);
 
             // render water plane
@@ -540,6 +549,7 @@ struct Level : IGame {
                 Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
                 Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
                 Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.05f, 0.02f));
+                Core::active.shader->setParam(uColor,       vec4(level->waterColor * 0.2f, 1.0f));
 
                 float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
                 float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
@@ -618,7 +628,9 @@ struct Level : IGame {
     }
 
 
-    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL), time(0.0f) {
+    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL), waterColor(0.6f, 0.9f, 0.9f) {
+        params.time = 0.0f;
+
         #ifdef _DEBUG
             Debug::init();
         #endif
@@ -817,14 +829,15 @@ struct Level : IGame {
 			else
 				strcat(ext, "#define SHADOW_COLOR\n");
 
-        sprintf(def, "%s#define PASS_COMPOSE\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n", ext, MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount);
+        sprintf(def, "%s#define PASS_COMPOSE\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, MAX_LIGHTS, mesh->animTexRangesCount, mesh->animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
         shaders[shCompose]  = new Shader(SHADER, def);
         sprintf(def, "%s#define PASS_SHADOW\n", ext);
         shaders[shShadow]   = new Shader(SHADER, def);
         sprintf(def, "%s#define PASS_AMBIENT\n", ext);
         shaders[shAmbient]  = new Shader(SHADER, def);
         shaders[shFilter]   = new Shader(FILTER, "");
-        shaders[shWater]    = new Shader(WATER, "");
+        sprintf(def, "#define WATER_FOG_DIST (1.0/%d.0)\n", WATER_FOG_DIST);
+        shaders[shWater]    = new Shader(WATER, def);
         shaders[shGUI]      = new Shader(GUI, "");
     }
 
@@ -947,7 +960,7 @@ struct Level : IGame {
         TR::Room &room = level.rooms[roomIndex];
 
         if (room.flags.water) {
-            Core::color = vec4(0.6f, 0.9f, 0.9f, intensity);
+            Core::color = vec4(waterColor, intensity);
             Core::active.shader->setParam(uCaustics, 1);
             /*
         // trace to water surface room
@@ -1120,7 +1133,7 @@ struct Level : IGame {
     }
 
     void update() {
-        time += Core::deltaTime;
+        params.time += Core::deltaTime;
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
@@ -1162,7 +1175,7 @@ struct Level : IGame {
         sh->setParam(uLightProj,        Core::mLightProj);
         sh->setParam(uViewInv,          Core::mViewInv);
         sh->setParam(uViewPos,          Core::viewPos);
-        sh->setParam(uParam,            vec4(time, 0.0f, clipSign, clipHeight));
+        sh->setParam(uParam,            *((vec4*)&params));
         sh->setParam(uLightsCount,      3);
         sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
         sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
@@ -1270,7 +1283,6 @@ struct Level : IGame {
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             setPassShader(Core::passAmbient);
-            Core::setBlending(bmAlpha);
             Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
             Core::setTarget(target, i);
             Core::clear(vec4(0, 0, 0, 1));
@@ -1297,15 +1309,16 @@ struct Level : IGame {
         PROFILE_MARKER("PASS_COMPOSE");
         setPassShader(Core::passCompose);
 
-        Core::setBlending(bmAlpha);
+        Core::setBlending(bmNone);
         Core::clear(vec4(0.0f));
         shadow->bind(sShadow);
         renderScene(roomIndex);
     }
 
     void render() {
-        clipHeight = 1000000.0f;
-        clipSign   = 1.0f;
+        params.clipHeight  = 1000000.0f;
+        params.clipSign    = 1.0f;
+        params.waterHeight = params.clipHeight;
         Core::resetStates();
         
         ambientCache->precessQueue();
@@ -1359,7 +1372,7 @@ struct Level : IGame {
 //        renderModel(level.models[modelIndex], level.entities[4]);
 */
         Debug::begin();
-            
+            /*            
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -1397,6 +1410,7 @@ struct Level : IGame {
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
+            */
             
 
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
@@ -1406,7 +1420,7 @@ struct Level : IGame {
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
-            Debug::Level::entities(level);
+        //    Debug::Level::entities(level);
         /*
             static int dbg_ambient = 0;
             dbg_ambient = int(time * 2) % 4;

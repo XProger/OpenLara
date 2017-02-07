@@ -422,7 +422,7 @@ namespace Core {
         memset(&active, 0, sizeof(active));
         glEnable(GL_DEPTH_TEST);
         setCulling(cfFront);
-        setBlending(bmAlpha);
+        setBlending(bmNone);
     }
 }
 

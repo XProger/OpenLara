@@ -9,6 +9,8 @@ varying vec2 vTexCoord;
 varying vec4 vProjCoord;
 varying vec3 vRefPos1;
 varying vec3 vRefPos2;
+varying vec3 vViewVec;
+varying vec3 vLightVec;
 
 #define WATER_DROP      0
 #define WATER_STEP      1
@@ -19,10 +21,12 @@ varying vec3 vRefPos2;
 uniform int   uType;
 uniform vec3  uViewPos;
 uniform mat4  uViewProj;
+uniform vec3  uLightPos;
 uniform vec3  uPosScale[2];
 
 uniform vec4  uTexParam;
 uniform vec4  uParam;
+uniform vec4  uColor;
 
 uniform sampler2D sNormal;
 
@@ -72,14 +76,15 @@ uniform sampler2D sNormal;
                 
                 gl_Position = vec4(aCoord.xyz, 1.0);
             }
-        }        
+        }
+        vViewVec  = uViewPos  - vCoord.xyz;
+        vLightVec = uLightPos - vCoord.xyz;
     }
 #else
     uniform sampler2D sDiffuse;
     uniform sampler2D sReflect;
     uniform sampler2D sMask;
 
-    uniform vec3 uLightPos;
     uniform vec4 uLightColor;
 
     #define PI   3.141592653589793
@@ -87,6 +92,11 @@ uniform sampler2D sNormal;
     float calcFresnel(float NdotL, float fbias, float fpow) {
         float f = 1.0 - abs(NdotL);
         return clamp(fbias + (1.0 - fbias) * pow(f, fpow), 0.0, 1.0);
+    }
+
+    vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
+        float fog = clamp(1.0 / exp(factor), 0.0, 1.0);
+        return mix(fogColor, color, fog);
     }
 
     vec4 drop() {
@@ -146,9 +156,9 @@ uniform sampler2D sNormal;
 
         vec2 dudv   = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 
-        vec3 viewVec = normalize(uViewPos - vCoord);
+        vec3 viewVec = normalize(vViewVec);
         vec3 rv = reflect(-viewVec, normal);
-        vec3 lv = normalize(uLightPos - vCoord.xyz);
+        vec3 lv = normalize(vLightVec);
 
         float spec = pow(max(0.0, dot(rv, lv)), 64.0) * 0.5;
 
@@ -158,7 +168,14 @@ uniform sampler2D sNormal;
         vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 
         float fresnel = calcFresnel(dot(normal, viewVec), 0.1, 2.0);
-        return mix(refr, refl, fresnel) + spec;
+
+        vec4 color = mix(refr, refl, fresnel) + spec;
+
+        float d = abs((vCoord.y - uViewPos.y) / normalize(vViewVec).y);
+        d *= step(0.0, uViewPos.y - vCoord.y); // apply fog only when camera is underwater
+        color.xyz = applyFog(color.xyz, uColor.xyz, d * WATER_FOG_DIST);
+
+        return color;
     }   
     
     vec4 pass() {
