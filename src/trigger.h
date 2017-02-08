@@ -338,12 +338,45 @@ struct Waterfall : Trigger {
         dropStrength = randf() * 0.1f + 0.05f;
 
         vec2 p = (vec2(randf(), randf()) * 2.0f - 1.0f) * (512.0f - dropRadius);
-        dropPos      = pos + vec3(p.x, 0.0f, p.y);
+        dropPos = pos + vec3(p.x, 0.0f, p.y);
 
         Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
     } 
 
     #undef SPLASH_TIMESTEP
+};
+
+struct Bubble : Sprite {
+    float speed;
+
+    Bubble(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_RANDOM) {
+        speed = (10.0f + randf() * 6.0) * 30.0f;
+    // get water height => bubble life time
+        TR::Entity &e = getEntity();
+        int dx, dz;
+        int room = getRoomIndex();
+        int h = e.y;
+        while (room != TR::NO_ROOM && level->rooms[room].flags.water) {
+            TR::Room::Sector &s = level->getSector(room, e.x, e.z, dx, dz);
+            h = s.ceiling * 256;
+            room = s.roomAbove;
+        }
+        time -= (e.y - h) / speed - (1.0f / SPRITE_FPS);
+    }
+
+    virtual ~Bubble() {
+        game->waterDrop(pos, 64.0f, 0.01f);
+    }
+
+    virtual void update() {
+        pos.y -= speed * Core::deltaTime;
+        angle.x += 30.0f * 13.0f * DEG2RAD * Core::deltaTime;
+        angle.y += 30.0f *  9.0f * DEG2RAD * Core::deltaTime;
+	    pos.x += sin(angle.y) * 11.0f * 30.0f * Core::deltaTime;
+	    pos.z += cos(angle.x) * 8.0f  * 30.0f * Core::deltaTime;
+        updateEntity();
+        Sprite::update();
+    }
 };
 
 #endif

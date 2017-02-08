@@ -2,6 +2,7 @@
 #define H_CHARACTER
 
 #include "controller.h"
+#include "trigger.h"
 
 struct Character : Controller {
     int     target;
@@ -139,6 +140,18 @@ struct Character : Controller {
         velocity.y = vel.y;
         velocity.z = cosf(angleExt) * vel.z;
         stand = STAND_AIR;
+    }
+
+    virtual void doBubbles() {
+        int count = rand() % 3;
+        if (!count) return;
+        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
+        vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
+        for (int i = 0; i < count; i++) {
+            int index = Sprite::add(game, TR::Entity::BUBBLE, getRoomIndex(), int(head.x), int(head.y), int(head.z), Sprite::FRAME_RANDOM, true);
+            if (index > -1)
+                level->entities[index].controller = new Bubble(game, index);
+        }
     }
 };
 

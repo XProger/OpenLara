@@ -24,20 +24,21 @@ struct Sprite : Controller {
         }
     }
 
-    static void add(IGame *game, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1) {
+    static int add(IGame *game, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) {
         TR::Level *level = game->getLevel();
         int index = level->entityAdd(type, room, x, y, z, 0, -1);
         if (index > -1) {
             level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
-            level->entities[index].controller = new Sprite(game, index, true, frame);
+            level->entities[index].controller = empty ? NULL : new Sprite(game, index, true, frame);
         }
+        return index;
     }
 
     TR::SpriteSequence& getSequence() {
         return level->spriteSequences[-(getEntity().modelIndex + 1)];
     }
 
-    void update() {
+    virtual void update() {
         if (flag >= 0) return;
 
         bool remove = false;

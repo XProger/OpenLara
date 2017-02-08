@@ -483,7 +483,7 @@ struct Level : IGame {
         // get refraction texture
             if (!refract || Core::width > refract->width || Core::height > refract->height) {
                 delete refract;
-                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA16, false);
+                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
             }
             Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
 
@@ -1309,10 +1309,13 @@ struct Level : IGame {
         PROFILE_MARKER("PASS_COMPOSE");
         setPassShader(Core::passCompose);
 
-        Core::setBlending(bmNone);
-        Core::clear(vec4(0.0f));
+        Core::setBlending(bmAlpha);
+        Core::setDepthTest(true);
+        Core::setDepthWrite(true);
+        Core::clear(vec4(0.0f, 0.0f, 0.0f, 1.0f));
         shadow->bind(sShadow);
         renderScene(roomIndex);
+        Core::setBlending(bmNone);
     }
 
     void render() {

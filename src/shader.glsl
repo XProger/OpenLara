@@ -73,6 +73,10 @@ uniform int   uType;
 
         vec4 coord = vec4(mulBasis(rBasisRot, rBasisPos, aCoord.xyz), rBasisPos.w);
         
+        #ifndef PASS_SHADOW
+            vColor = aColor;
+        #endif
+
         #ifdef PASS_COMPOSE
             if (uType != TYPE_SPRITE) {
                 // animated texture coordinates
@@ -83,31 +87,27 @@ uniform int   uType;
 
                 vTexCoord.xy = (aTexCoord.xy + offset) * TEXCOORD_SCALE; // first frame + offset * isAnimated
                 vNormal      = vec4(mulQuat(rBasisRot, aNormal.xyz), aNormal.w);
+
+                if (uCaustics != 0) {
+                    float sum = coord.x + coord.y + coord.z;
+                    vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
+                }
+
             } else {
                 coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
                 vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;
                 vNormal    = vec4(uViewPos.xyz - coord.xyz, 0.0);
             }
-        #else
-            vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;
-            vTexCoord.zw = vec2(0.0);
-        #endif
 
-        #ifndef PASS_SHADOW
-            vColor = aColor;
-        #endif
-
-        #ifdef PASS_COMPOSE
-            if (uCaustics != 0) {
-                float sum = coord.x + coord.y + coord.z;
-                vColor.xyz *= abs(sin(sum / 512.0 + uParam.x)) * 1.5 + 0.5; // color dodge
-            }
             vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 
             vViewVec   = uViewPos - coord.xyz;          
             vLightProj = uLightProj * coord;
 
             vCoord = coord.xyz;
+        #else
+            vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;
+            vTexCoord.zw = vec2(0.0);
         #endif
 
         gl_Position = uViewProj * coord;
@@ -268,8 +268,9 @@ uniform int   uType;
         #endif
 
         vec4 color = texture2D(sDiffuse, vTexCoord.xy);
-        if (color.w < 0.6)
+        if (color.w <= 0.6) {
             discard;
+        }
         
         #ifdef PASS_SHADOW
             #ifdef SHADOW_COLOR
@@ -281,7 +282,7 @@ uniform int   uType;
             color.xyz *= uColor.xyz;
             color.xyz *= vColor.xyz;
 
-            color.xyz = pow(abs(color.xyz), vec3(2.2)); // to linear space
+            color *= color; // to "linear" space
 
             #ifdef PASS_AMBIENT
                 color.xyz *= vColor.w;
@@ -333,16 +334,16 @@ uniform int   uType;
                 }
             #endif
 
-            color.xyz = pow(abs(color.xyz), vec3(1.0/2.2)); // back to gamma space
+            color = sqrt(color); // back to "gamma" space
 
-        #ifdef PASS_COMPOSE
-            color.xyz = applyFog(color.xyz, vec3(0.0), length(vViewVec) * FOG_DIST);
-            if (uCaustics != 0) {
-                float d = abs((vCoord.y - max(uViewPos.y, uParam.y)) / normalize(vViewVec).y);
-                d *= step(0.0, vCoord.y - uParam.y);
-                color.xyz = applyFog(color.xyz, uColor.xyz * 0.2, d * WATER_FOG_DIST);
-            } 
-        #endif
+            #ifdef PASS_COMPOSE
+                color.xyz = applyFog(color.xyz, vec3(0.0), length(vViewVec) * FOG_DIST);
+                if (uCaustics != 0) {
+                    float d = abs((vCoord.y - max(uViewPos.y, uParam.y)) / normalize(vViewVec).y);
+                    d *= step(0.0, vCoord.y - uParam.y);
+                    color.xyz = applyFog(color.xyz, uColor.xyz * 0.2, d * WATER_FOG_DIST);
+                } 
+            #endif
 
             gl_FragColor = color;
         #endif

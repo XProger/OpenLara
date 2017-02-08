@@ -313,9 +313,8 @@ struct Controller {
         return pos;
     }
 
-    void doBubbles() {
-        if (rand() % 10 <= 6) return;
-        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
+    virtual void doBubbles() {
+        //
     }
 
     void activateNext() { // activate next entity (for triggers)
