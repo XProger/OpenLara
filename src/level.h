@@ -148,7 +148,8 @@ struct Level : IGame {
 
                 TR::Color32 color;
                 glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-                colors[j] = vec3(powf(color.r / 255.0f, 2.2f), powf(color.g / 255.0f, 2.2f), powf(color.b / 255.0f, 2.2f)); // to linear space
+                colors[j] = vec3(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f);
+                colors[j] *= colors[j]; // to "linear" space
             }
             Core::setTarget(NULL);
 
@@ -1425,7 +1426,7 @@ struct Level : IGame {
         //    Debug::Level::entities(level);
         /*
             static int dbg_ambient = 0;
-            dbg_ambient = int(time * 2) % 4;
+            dbg_ambient = int(params.time * 2) % 4;
 
             shadow->unbind(sShadow);
             atlas->bind(sDiffuse);

@@ -41,6 +41,9 @@ struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
     enum {
+        ANIM_STAND_LEFT         = 2,
+        ANIM_STAND_RIGHT        = 3,
+
         ANIM_STAND              = 11,
         
         ANIM_CLIMB_JUMP         = 26,
@@ -259,7 +262,7 @@ struct Lara : Character {
             float DAMPING  = 1.5f;
 
             if (lara->getRoom().flags.water) {
-                ACCEL *= -1.0f;               
+                ACCEL *= -0.5f;               
                 DAMPING = 4.0f;
             }
         
@@ -1957,7 +1960,11 @@ struct Lara : Character {
                 default : ;
             }
 
-        bool isLeftFoot = animation.framesCount / 2 > animation.frameIndex;
+        int rightStart = 0;
+        if (state == STATE_RUN)  rightStart = 6;
+        if (state == STATE_WALK) rightStart = 13;
+        if (state == STATE_BACK) rightStart = 28;
+        bool isLeftFoot = animation.frameIndex < rightStart || animation.frameIndex > (rightStart + animation.framesCount / 2);
 
         if (!canPassGap) {
             pos = p; // TODO: use smart ejection
@@ -1988,7 +1995,7 @@ struct Lara : Character {
                     else if (stand == STAND_HANG)
                         animation.setAnim(ANIM_HANG, -21);
                     else if (state != STATE_ROLL_1 && state != STATE_ROLL_2)
-                        animation.setAnim(ANIM_STAND);
+                        animation.setAnim((state == STATE_RUN || state == STATE_WALK) ? (isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT) : ANIM_STAND);
                     velocity.x = velocity.z = 0.0f;
                     break;
                 default : ;// no smash animation

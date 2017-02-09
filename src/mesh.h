@@ -123,7 +123,7 @@ float intensityf(int lighting) {
     if (lighting < 0) return 1.0f;
     float lum = 1.0f - (lighting >> 5) / 255.0f;
     //return powf(lum, 2.2f); // gamma to linear space
-    return lum * lum;
+    return lum * lum; // gamma to "linear" space
 }
 
 uint8 intensity(int lighting) {
