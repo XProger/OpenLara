@@ -171,6 +171,7 @@ struct Lara : Character {
         BODY_LEG_R      = BODY_LEG_R1 | BODY_LEG_R2 | BODY_LEG_R3,
         BODY_UPPER      = BODY_CHEST  | BODY_ARM_L  | BODY_ARM_R,       // without head
         BODY_LOWER      = BODY_HIP    | BODY_LEG_L  | BODY_LEG_R,
+        BODY_BRAID_MASK = BODY_HEAD   | BODY_CHEST  | BODY_ARM_L1 | BODY_ARM_L2 | BODY_ARM_R1 | BODY_ARM_R2,
     };
 
     bool home;
@@ -202,7 +203,168 @@ struct Lara : Character {
     int lastPickUp;
     int viewTarget;
 
-    Lara(IGame *game, int entity, bool home) : Character(game, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1) {
+    struct Braid {
+        Lara *lara;
+        vec3 offset;
+
+        Basis *basis;
+        struct Joint {
+            vec3 posPrev, pos;
+            float length;
+        } *joints;
+        int jointsCount;
+        float time;
+
+        Braid(Lara *lara, const vec3 &offset) : lara(lara), offset(offset), time(0.0f) {
+            TR::Level *level = lara->level;
+            TR::Model *model = getModel();
+            jointsCount = model->mCount + 1;
+            joints      = new Joint[jointsCount];
+            basis       = new Basis[jointsCount - 1];
+
+            Basis basis = getBasis();
+            basis.translate(offset);
+
+            TR::Node *node = (int)model->node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model->node] : NULL;
+            for (int i = 0; i < jointsCount - 1; i++) {
+                TR::Node &t = node[min(i, model->mCount - 2)];
+                joints[i].posPrev = joints[i].pos = basis.pos;
+                joints[i].length  = t.z;
+                basis.translate(vec3(0.0f, 0.0f, -t.z));
+            }
+            joints[jointsCount - 1].posPrev = joints[jointsCount - 1].pos = basis.pos;
+            joints[jointsCount - 1].length  = 1.0f;
+        }
+
+        ~Braid() {
+            delete[] joints;
+            delete[] basis;
+        }
+
+        TR::Model* getModel() const {
+            return &lara->level->models[lara->level->extra.braid];
+        }
+
+        Basis getBasis() {
+            return lara->animation.getJoints(lara->getMatrix(), 14, true);
+        }
+
+        vec3 getPos() {
+            return getBasis() * offset;
+        }
+
+        void integrate() {
+            float TIMESTEP = Core::deltaTime;
+            float ACCEL    = 6.0f * GRAVITY * TIMESTEP * TIMESTEP;
+            float DAMPING  = 1.5f;
+
+            if (lara->getRoom().flags.water) {
+                ACCEL *= -1.0f;               
+                DAMPING = 4.0f;
+            }
+        
+            DAMPING = 1.0f / (1.0f + DAMPING * TIMESTEP); // Pade approximation
+
+            for (int i = 1; i < jointsCount; i++) {
+                Joint &j = joints[i];
+                vec3 delta = j.pos - j.posPrev;
+                delta = delta.normal() * (min(delta.length(), 2048.0f * Core::deltaTime) * DAMPING); // speed limit
+                j.posPrev  = j.pos;
+                j.pos     += delta;
+                if (lara->stand == STAND_ONWATER) {
+                    if (j.pos.y > lara->pos.y)
+                        j.pos.y += ACCEL;
+                    else
+                        j.pos.y -= ACCEL;
+                } else
+                    j.pos.y += ACCEL;
+            }
+        }
+
+        void collide() {
+            TR::Level *level = lara->level;
+            TR::Model *model = lara->getModel();
+
+            #define BRAID_RADIUS 16.0f
+
+            for (int i = 0; i < model->mCount; i++) {
+                if (!(BODY_BRAID_MASK & (1 << i))) continue;
+
+                int offset = level->meshOffsets[model->mStart + i];
+                TR::Mesh *mesh = (TR::Mesh*)&level->meshes[offset];
+
+                vec3 center    = lara->animation.getJoints(lara->getMatrix(), i, true) * mesh->center;
+                float radiusSq = mesh->radius + BRAID_RADIUS;
+                radiusSq *= radiusSq;
+
+                for (int j = 1; j < jointsCount; j++) {
+                    vec3 dir = joints[j].pos - center;
+                    float len = dir.length2() + EPS;
+                    if (len < radiusSq) {
+                        len = sqrtf(len);
+                        dir *= (mesh->radius + BRAID_RADIUS- len) / len;
+                        joints[j].pos += dir * 0.9f;
+                    }
+                }
+            }
+
+            #undef BRAID_RADIUS
+        }
+
+        void solve() {
+            for (int i = 0; i < jointsCount - 1; i++) {
+                Joint &a = joints[i];
+                Joint &b = joints[i + 1];
+
+                vec3 dir = b.pos - a.pos;
+                float len = dir.length() + EPS;
+                dir *= 1.0f / len;
+
+                float d = a.length - len;
+
+                if (i > 0) {
+                    dir *= d * (0.5f * 1.0f);
+                    a.pos -= dir;
+                    b.pos += dir;
+                } else
+                    b.pos += dir * (d * 1.0f);                
+            }
+        }
+
+        void update() {
+            joints[0].pos = getPos();
+            integrate(); // Verlet integration step
+            collide();   // check collision with Lara's mesh
+            for (int i = 0; i < jointsCount; i++) // solve connections (springs)
+                solve();     
+
+            vec3 headDir = getBasis().rot * vec3(0.0f, 0.0f, -1.0f);
+
+            for (int i = 0; i < jointsCount - 1; i++) {
+                vec3 d = (joints[i + 1].pos - joints[i].pos).normal();
+                vec3 r = d.cross(headDir).normal();
+                vec3 u = d.cross(r).normal();
+                
+                mat4 m;
+                m.up     = vec4(u, 0.0f);
+                m.dir    = vec4(d, 0.0f);
+                m.right  = vec4(r, 0.0f);
+                m.offset = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                
+                basis[i].identity();
+                basis[i].translate(joints[i].pos);
+                basis[i].rotate(m.getRot());
+            }
+        }
+
+        void render(MeshBuilder *mesh) {
+            Core::active.shader->setParam(uBasis, basis[0], jointsCount);
+            mesh->renderModel(lara->level->extra.braid);
+        }
+        
+    } *braid;
+
+    Lara(IGame *game, int entity, bool home) : Character(game, entity, 1000), home(home), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1), braid(NULL) {
         
         if (getEntity().type == TR::Entity::LARA) {
             if (getRoom().flags.water)
@@ -229,6 +391,9 @@ struct Lara : Character {
             arms[i].rot       = quat(0, 0, 0, 1);
             arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
+
+        if (level->extra.braid > -1)
+            braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
         /*
         pos = vec3(40448, 3584, 60928);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
@@ -236,7 +401,7 @@ struct Lara : Character {
         stand = STAND_ONWATER;
         animation.setAnim(ANIM_TO_ONWATER);
         updateEntity();
-      */
+  */
     #ifdef _DEBUG
 /*
     // gym 
@@ -329,6 +494,10 @@ struct Lara : Character {
         updateEntity();
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
+    }
+
+    virtual ~Lara() {
+        delete braid;
     }
     
     void wpnSet(Weapon::Type wType) {
@@ -1663,6 +1832,8 @@ struct Lara : Character {
             updateEntity();
         }
     
+        if (braid)
+            braid->update();       
     }
 
     virtual vec3& getPos() {
@@ -1866,15 +2037,19 @@ struct Lara : Character {
         Basis b(basis);
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
         b.translate(offset);
-        
+        Core::setBlending(bmAlpha);
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
         Core::active.shader->setParam(uBasis, b);
         mesh->renderModel(level->extra.muzzleFlash);
+        Core::setBlending(bmNone);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh) {
         Controller::render(frustum, mesh);
         chestOffset = animation.getJoints(getMatrix(), 7).pos; // TODO: move to update func
+
+        if (braid)
+            braid->render(mesh);
 
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();

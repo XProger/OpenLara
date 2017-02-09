@@ -123,8 +123,8 @@ struct Level : IGame {
             level->renderEnvironment(room, pos, textures, 4);
 
             // second pass - downsample it
-            glDisable(GL_DEPTH_TEST);
-//            glDisable(GL_CULL_FACE);
+            Core::setDepthTest(false);
+
             level->setPassShader(Core::passFilter);
             Core::active.shader->setParam(uType, Shader::FILTER_DOWNSAMPLE);
 
@@ -152,8 +152,7 @@ struct Level : IGame {
             }
             Core::setTarget(NULL);
 
-            glEnable(GL_DEPTH_TEST);
-//            glEnable(GL_CULL_FACE);
+            Core::setDepthTest(true);
         }
 
         void precessQueue() {
@@ -745,7 +744,7 @@ struct Level : IGame {
         initReflections();
         for (int i = 0; i < level.soundSourcesCount; i++) {
             TR::SoundSource &src = level.soundSources[i];
-            lara->playSound(src.id, vec3(src.x, src.y, src.z), Sound::PAN | Sound::LOOP);
+            lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP);
         }
     }
 

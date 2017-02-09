@@ -477,6 +477,7 @@ namespace TR {
             VIEW_TARGET              = 169,      // invisible
             WATERFALL                = 170,      // invisible (water splash generator)
 
+            BRAID                    = 189,      // Lara's ponytail
             GLYPH                    = 190,      // sprite
 
         }       type;
@@ -837,6 +838,7 @@ namespace TR {
             int16 muzzleFlash;
             int16 puzzleSet;
             int16 weapons[4];
+            int16 braid;
         } extra;
 
         Level(Stream &stream, bool demo) {
@@ -1039,6 +1041,7 @@ namespace TR {
             memset(&extra, 0, sizeof(extra));
             for (int i = 0; i < 4; i++)
                 extra.weapons[i] = -1;
+            extra.braid = -1;
 
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
@@ -1048,6 +1051,7 @@ namespace TR {
                     case Entity::LARA_SHOTGUN    : extra.weapons[1]  = i; break;
                     case Entity::LARA_MAGNUMS    : extra.weapons[2]  = i; break;
                     case Entity::LARA_UZIS       : extra.weapons[3]  = i; break;
+                    case Entity::BRAID           : extra.braid       = i; break;
                     default : ;
                 }
         // init cutscene transform

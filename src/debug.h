@@ -461,15 +461,15 @@ namespace Debug {
 
                             int offset = level.meshOffsets[m.mStart + k];
                             TR::Mesh *mesh = (TR::Mesh*)&level.meshes[offset];
-                            if (!mesh->flags) continue;
+                            //if (!mesh->flags) continue;
                             Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius, vec4(0, 1, 1, 0.5f));
-                            
+                            /*
                             { //if (e.id != 0) {
                                 char buf[255];
                                 sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags);
                                 Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
                             }
-                            
+                            */
                         }
                         Debug::Draw::box(matrix, frame->box.min(), frame->box.max(), vec4(1.0));
 

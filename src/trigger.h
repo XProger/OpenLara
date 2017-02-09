@@ -350,7 +350,7 @@ struct Bubble : Sprite {
     float speed;
 
     Bubble(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_RANDOM) {
-        speed = (10.0f + randf() * 6.0) * 30.0f;
+        speed = (10.0f + randf() * 6.0f) * 30.0f;
     // get water height => bubble life time
         TR::Entity &e = getEntity();
         int dx, dz;
