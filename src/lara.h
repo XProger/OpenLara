@@ -406,110 +406,38 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-      /*
-        pos = vec3(40448, 3584, 60928);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 14;
-        stand = STAND_ONWATER;
-        animation.setAnim(ANIM_TO_ONWATER);
-        updateEntity();
-  */
-    #ifdef _DEBUG
-/*
-    // gym 
-        pos = vec3(43182, 2473, 51556);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 12;
-        
-    // gym (pool)
-        pos = vec3(40448, 3584, 60928);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 14;
-        stand = STAND_ONWATER;
-        animation.setAnim(ANIM_TO_ONWATER);
-        
-    // level 2 (pool)
-        pos = vec3(70067, -256, 29104);
-        angle = vec3(0.0f, -0.68f, 0.0f);
-        getEntity().room = 15;
-        
-    // level 2 (blade)
-        pos = vec3(27221, -1024, 29205);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 61;
-        
-    // level 2 (wolf)
-        pos = vec3(75671, -1024, 22862);
-        angle = vec3(0.0f, -PI * 0.25f, 0.0f);
-        getEntity().room = 13;
-        
-    // level 2 (reach)
-        pos = vec3(31400, -2560, 25200);
-        angle = vec3(0.0f, PI, 0.0f);
-        getEntity().room = 43;   
-        
-    // level 2 (hang & climb)
-        pos = vec3(60907, 0, 39642);
-        angle = vec3(0.0f, PI * 3 / 2, 0.0f);
-        getEntity().room = 16;
-        
-    // level 2 (medikit)
-        pos = vec3(30800, -7936, 22131);
-        angle = vec3(0.0f, 0.0f, 0.0f);
-        getEntity().room = 58;   
-        
-    // level 2 (block)
-        pos = vec3(60843, 1024, 30557);
-        angle = vec3(0.0f, PI, 0.0f);
-        getEntity().room = 19;   
-        
-    // level 2 (bat trigger)
-        pos = vec3(64108, -512, 16514);
-        angle = vec3(0.0f, -PI * 0.5f, 0.0f);
-        getEntity().room = 7;   
-        
-    // level 2 (bear)
-        pos = vec3(70082, -512, 26935);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 15;   
-        
-    // level 2 (trap floor)
-        pos = vec3(31390, -2048, 33472);
-        angle = vec3(0.0f, 0.0f, 0.0f);
-        getEntity().room = 63;
-        
-    // level 2 (trap door)
-        pos = vec3(21987, -1024, 29144);
-        angle = vec3(0.0f, PI * 3.0f * 0.5f, 0.0f);
-        getEntity().room = 61;
-        
-    // level 3a (t-rex)
-        pos = vec3(41015, 3584, 34494);
-        angle = vec3(0.0f, -PI, 0.0f);
-        getEntity().room = 51;
-        
-    // level 3a (gears)
-        pos = vec3(38643, -3072, 92370);
-        angle = vec3(0.0f, PI * 0.5f, 0.0f);
-        getEntity().room = 5;
-        
-    // level 1
-        pos = vec3(20215, 6656, 52942);
-        angle = vec3(0.0f, PI, 0.0f);
-        getEntity().room = 14;
 
-    // level 8c
-        pos = vec3(40913, -1012, 42252);
-        angle = vec3(0.0f, PI, 0.0f);
-        getEntity().room = 0;
-*/
-        updateEntity();
+    #ifdef _DEBUG            
+        //reset(14, vec3(40448, 3584, 60928), PI * 0.5f);  // gym (pool)
+        //stand = STAND_ONWATER;
+        //animation.setAnim(ANIM_TO_ONWATER);
+
+        //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
+        //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
+        //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
+        reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
+        //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
+        //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
+        //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
+        //reset(61, vec3(21987, -1024, 29144), PI * 3.0f * 0.5f); // level 2 (trap door)
+        //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
+        //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
+        //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
 
     virtual ~Lara() {
         delete braid;
+    }
+
+    void reset(int room, const vec3 &pos, float angle) {
+        getEntity().room = room;
+        this->pos        = pos;
+        this->angle      = vec3(0.0f, angle, 0.0f);
+        updateEntity();
     }
     
     void wpnSet(Weapon::Type wType) {
@@ -1435,26 +1363,37 @@ struct Lara : Character {
         return state;
     }
 
+    int entityQuadrant(const TR::Entity &entity) {
+        int ix = int(pos.x) / 1024;
+        int iz = int(pos.z) / 1024;
+
+        int bx = entity.x / 1024;
+        int bz = entity.z / 1024;
+
+        int q = -1;
+        if (abs(bx - ix) ^ abs(bz - iz)) {
+            if (bx > ix) q = 1;
+            if (bx < ix) q = 3;
+            if (bz > iz) q = 0;
+            if (bz < iz) q = 2;
+        }
+
+        return q;
+    }
+
     Block* getBlock() {
-        int x = (int)pos.x;
-        int y = (int)pos.y;
-        int z = (int)pos.z;
+        int y = int(pos.y);
 
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (e.isBlock() && e.y == y) {
-                int dx = abs(e.x - x);
-                int dz = abs(e.z - z);
-                if ((dx <= (512 + 128) && dz <= (512 - 128)) ||
-                    (dx <= (512 - 128) && dz <= (512 + 128))) {
-                    
-                    alignToWall(-LARA_RADIUS);
 
-                    Block *block = (Block*)e.controller;
-                    block->angle.y = angle.y;
-                    block->updateEntity();
-                    return block;
-                }
+            int q = entityQuadrant(e);
+
+            if (q > -1 && e.isBlock() && e.y == y && alignToWall(-LARA_RADIUS, q, 64 + LARA_RADIUS, 512 - LARA_RADIUS)) {
+                Block *block = (Block*)e.controller;
+                block->angle.y = angle.y;
+                block->updateEntity();
+                return block;
             }
         }
         return NULL;

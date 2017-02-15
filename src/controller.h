@@ -221,10 +221,33 @@ struct Controller {
         return vec3(angle.x, angle.y);
     }
 
-    void alignToWall(float offset = 0.0f) {
-        int q = angleQuadrant(angle.y);        
-        int x = int(pos.x) & ~1023;
-        int z = int(pos.z) & ~1023;
+    bool alignToWall(float offset = 0.0f, int quadrant = -1, int maxDist = 0, int maxWidth = 0) {
+        int q  = angleQuadrant(angle.y);
+        int ix = int(pos.x);
+        int iz = int(pos.z);
+        int x  = ix & ~1023;
+        int z  = iz & ~1023;
+
+        if (quadrant > -1 && quadrant != q)
+            return false;
+
+        if (maxDist) { // check dist
+            int dist = 0;
+            switch (q) {
+                case 0 : dist = z + 1024 - iz; break;
+                case 1 : dist = x + 1024 - ix; break;
+                case 2 : dist = iz - z;        break;
+                case 3 : dist = ix - x;        break;
+            }
+            if (dist > maxDist)
+                return false;
+        }
+
+        if (maxWidth) {
+            int width = abs( ((q % 2) ? (iz - z) : (ix - x)) - 512);
+            if (width > maxWidth)
+                return false;
+        }
 
         switch (q) {
             case 0 : pos.z = z + 1024 + offset; break;
@@ -235,6 +258,7 @@ struct Controller {
 
         angle.y = q * (PI * 0.5f);
         updateEntity();
+        return true;
     }
 
     virtual Box getBoundingBox() {
