@@ -1551,8 +1551,8 @@ namespace TR {
             int sx = x - room.info.x;
             int sz = z - room.info.z;
 
-            sx = clamp(sx, 0, (room.xSectors - 1) * 1024);
-            sz = clamp(sz, 0, (room.zSectors - 1) * 1024);
+            sx = clamp(sx, 0, room.xSectors * 1024 - 1);
+            sz = clamp(sz, 0, room.zSectors * 1024 - 1);
 
             dx = sx % 1024;
             dz = sz % 1024;
@@ -1584,13 +1584,13 @@ namespace TR {
                 return;
 
             Room::Sector *sBelow = &s;
-            while (sBelow->roomBelow != 0xFF) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
+            while (sBelow->roomBelow != TR::NO_ROOM) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
             info.floor = 256 * sBelow->floor;
             parseFloorData(info, sBelow->floorIndex, dx, dz);
 
-            if (info.roomNext == 0xFF) {
+            if (info.roomNext == TR::NO_ROOM) {
                 Room::Sector *sAbove = &s;
-                while (sAbove->roomAbove != 0xFF) sAbove = &getSector(sAbove->roomAbove, x, z, dx, dz);
+                while (sAbove->roomAbove != TR::NO_ROOM) sAbove = &getSector(sAbove->roomAbove, x, z, dx, dz);
                 if (sAbove != sBelow) {
                     info.ceiling = 256 * sAbove->ceiling;
                     parseFloorData(info, sAbove->floorIndex, dx, dz);

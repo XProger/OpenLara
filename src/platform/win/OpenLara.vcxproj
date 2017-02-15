@@ -189,6 +189,7 @@
     <ClInclude Include="..\..\animation.h" />
     <ClInclude Include="..\..\camera.h" />
     <ClInclude Include="..\..\character.h" />
+    <ClInclude Include="..\..\collision.h" />
     <ClInclude Include="..\..\controller.h" />
     <ClInclude Include="..\..\core.h" />
     <ClInclude Include="..\..\debug.h" />

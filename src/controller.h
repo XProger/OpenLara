@@ -5,6 +5,7 @@
 #include "frustum.h"
 #include "mesh.h"
 #include "animation.h"
+#include "collision.h"
 
 #define GRAVITY     (6.0f * 30.0f)
 #define NO_OVERLAP  0x7FFFFFFF
@@ -119,13 +120,14 @@ struct Controller {
         return false;
     }
 
+
+
     void updateEntity() {
         TR::Entity &e = getEntity();
         e.x = int(pos.x);
         e.y = int(pos.y);
         e.z = int(pos.z);
-        while (angle.y < 0.0f)   angle.y += 2 * PI;
-        while (angle.y > 2 * PI) angle.y -= 2 * PI;
+        angle.y = normalizeAngle(angle.y);
         e.rotation = angle.y;
     }
 
@@ -220,26 +222,18 @@ struct Controller {
     }
 
     void alignToWall(float offset = 0.0f) {
-        float fx = pos.x / 1024.0f;
-        float fz = pos.z / 1024.0f;
-        fx -= (int)fx;
-        fz -= (int)fz;
+        int q = angleQuadrant(angle.y);        
+        int x = int(pos.x) & ~1023;
+        int z = int(pos.z) & ~1023;
 
-        int k;
-        if (fx > 1.0f - fz)
-            k = fx < fz ? 0 : 1;
-        else
-            k = fx < fz ? 3 : 2;
-
-        angle.y = k * PI * 0.5f;  // clamp angle to n*PI/2
-
-        if (offset != 0.0f) {
-            vec3 dir = getDir() * (512.0f - offset);
-            if (k % 2)
-                pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f + dir.x;
-            else
-                pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f + dir.z;
+        switch (q) {
+            case 0 : pos.z = z + 1024 + offset; break;
+            case 1 : pos.x = x + 1024 + offset; break;
+            case 2 : pos.z = z - offset;        break;
+            case 3 : pos.x = x - offset;        break;
         }
+
+        angle.y = q * (PI * 0.5f);
         updateEntity();
     }
 
@@ -264,7 +258,7 @@ struct Controller {
 
             if (lr != room || lx != sx || lz != sz) {
                 level->getFloorInfo(room, sx, py, sz, info);
-                if (info.roomNext != 0xFF) {
+                if (info.roomNext != TR::NO_ROOM) {
                     room = info.roomNext;
                     level->getFloorInfo(room, sx, py, sz, info);
                 }
@@ -274,9 +268,9 @@ struct Controller {
             }
 
             if (isCamera) {
-                if (py > info.floor && info.roomBelow != 0xFF)
+                if (py > info.floor && info.roomBelow != TR::NO_ROOM)
                     room = info.roomBelow;
-                else if (py < info.ceiling && info.roomAbove != 0xFF)
+                else if (py < info.ceiling && info.roomAbove != TR::NO_ROOM)
                     room = info.roomAbove;
                 else if (py > info.floor || py < info.ceiling) {
                     int minX = px / 1024 * 1024;
@@ -289,14 +283,14 @@ struct Controller {
                 }
             } else {
                 if (py > info.floor) {
-                    if (info.roomBelow != 0xFF) 
+                    if (info.roomBelow != TR::NO_ROOM) 
                         room = info.roomBelow;
                     else
                         break;
                 }
 
                 if (py < info.ceiling) {
-                    if (info.roomAbove != 0xFF)
+                    if (info.roomAbove != TR::NO_ROOM)
                         room = info.roomAbove;
                     else
                         break;

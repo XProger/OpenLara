@@ -767,7 +767,8 @@ struct Level : IGame {
         delete cube;
         delete mesh;
 
-        delete camera;        
+        delete camera;
+        Sound::stopAll();
     }
 
     void initTextures() {
@@ -1148,7 +1149,7 @@ struct Level : IGame {
                     }
                 }
             }
-        }    
+        }
 
         camera->update();
         waterCache->update();
@@ -1375,6 +1376,40 @@ struct Level : IGame {
 //        renderModel(level.models[modelIndex], level.entities[4]);
 */
         Debug::begin();
+
+        lara->updateEntity(); // TODO clip angle while rotating
+
+        int q = int(normalizeAngle(lara->angleExt + PI * 0.25f) / (PI * 0.5f));
+        float radius = 256.0f;
+
+        const vec2 v[] = {
+            { -radius,  radius },
+            {  radius,  radius },
+            {  radius, -radius },
+            { -radius, -radius },
+        };
+
+        const vec2 &l = v[q],
+                   &r = v[(q + 1) % 4],
+                   &f = (q %= 2) ? vec2(l.x, radius * cosf(lara->angleExt)) : vec2(radius * sinf(lara->angleExt), l.y);
+
+        vec3 F = vec3(f.x, 0.0f, f.y);
+        vec3 L = vec3(l.x, 0.0f, l.y);
+        vec3 R = vec3(r.x, 0.0f, r.y);
+
+        vec3 p, n = lara->pos + vec3(0.0f, -512.0f, 0.0f);
+        
+        Core::setDepthTest(false);
+        glBegin(GL_LINES);
+            glColor3f(0, 0, 1); p = n; glVertex3fv((GLfloat*)&p); p += F; glVertex3fv((GLfloat*)&p);
+            glColor3f(1, 0, 0); p = n; glVertex3fv((GLfloat*)&p); p += L; glVertex3fv((GLfloat*)&p);
+            glColor3f(0, 1, 0); p = n; glVertex3fv((GLfloat*)&p); p += R; glVertex3fv((GLfloat*)&p);
+            glColor3f(1, 1, 0); p = lara->pos; glVertex3fv((GLfloat*)&p); p -= vec3(0.0f, LARA_HANG_OFFSET, 0.0f); glVertex3fv((GLfloat*)&p);
+        glEnd();
+        Core::setDepthTest(true);
+
+
+
             /*            
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
@@ -1415,15 +1450,17 @@ struct Level : IGame {
             glPopMatrix();
             */
             
-
+            Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex());
-        //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
+            Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
+            Core::setBlending(bmNone);
+
         /*
             static int dbg_ambient = 0;
             dbg_ambient = int(params.time * 2) % 4;

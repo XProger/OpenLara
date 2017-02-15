@@ -530,6 +530,12 @@ namespace Sound {
         delete stream;
         return NULL;
     }
+
+    void stopAll() {
+        for (int i = 0; i < channelsCount; i++)
+            delete channels[i];
+        channelsCount = 0;
+    }
 }
 
 #endif

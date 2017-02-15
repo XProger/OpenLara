@@ -12,16 +12,25 @@
 #define TURN_FAST_BACK      PI * 3.0f / 4.0f
 #define TURN_NORMAL         PI / 2.0f
 #define TURN_SLOW           PI / 3.0f
-#define TURN_WATER_FAST     PI * 3.0f / 4.0f
-#define TURN_WATER_SLOW     PI * 2.0f / 3.0f
+#define TURN_WATER_FAST     (DEG2RAD * 150.0f)
+#define TURN_WATER_SLOW     (DEG2RAD * 60.0f)
+#define TURN_WALL_Y         (DEG2RAD * 150.0f)
+#define TURN_WALL_X         (DEG2RAD * 60.0f)
+#define TURN_WALL_X_CLAMP   (DEG2RAD * 35.0f)
 
-#define TILT_MAX            (PI / 18.0f)
-#define TILT_SPEED          TILT_MAX
+#define LARA_TILT_SPEED     (DEG2RAD * 37.5f)
+#define LARA_TILT_MAX       (DEG2RAD * 10.0f)
 
-#define GLIDE_SPEED         35.0f
-#define SWIM_SPEED          45.0f
+#define LARA_HANG_OFFSET    724
+#define LARA_HEIGHT         762
+#define LARA_HEIGHT_WATER   400
+#define LARA_RADIUS         100.0f
+#define LARA_RADIUS_WATER   300.0f
 
-#define LARA_HANG_OFFSET    724.0f
+#define LARA_WATER_ACCEL    2.0f
+#define LARA_SURF_SPEED     15.0f
+#define LARA_SWIM_SPEED     50.0f
+#define LARA_SWIM_FRICTION  1.0f
 
 #define LARA_WET_SPECULAR   0.5f
 #define LARA_WET_TIMER      (LARA_WET_SPECULAR / 16.0f)   // 4 sec
@@ -232,8 +241,8 @@ struct Lara : Character {
             for (int i = 0; i < jointsCount - 1; i++) {
                 TR::Node &t = node[min(i, model->mCount - 2)];
                 joints[i].posPrev = joints[i].pos = basis.pos;
-                joints[i].length  = t.z;
-                basis.translate(vec3(0.0f, 0.0f, -t.z));
+                joints[i].length  = float(t.z);
+                basis.translate(vec3(0.0f, 0.0f, -joints[i].length));
             }
             joints[jointsCount - 1].posPrev = joints[jointsCount - 1].pos = basis.pos;
             joints[jointsCount - 1].length  = 1.0f;
@@ -397,7 +406,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-        /*
+      /*
         pos = vec3(40448, 3584, 60928);
         angle = vec3(0.0f, PI * 0.5f, 0.0f);
         getEntity().room = 14;
@@ -434,12 +443,12 @@ struct Lara : Character {
         angle = vec3(0.0f, -PI * 0.25f, 0.0f);
         getEntity().room = 13;
         
-    // level 2 (room 43)
+    // level 2 (reach)
         pos = vec3(31400, -2560, 25200);
         angle = vec3(0.0f, PI, 0.0f);
         getEntity().room = 43;   
         
-    // level 2 (room 16)
+    // level 2 (hang & climb)
         pos = vec3(60907, 0, 39642);
         angle = vec3(0.0f, PI * 3 / 2, 0.0f);
         getEntity().room = 16;
@@ -1074,6 +1083,13 @@ struct Lara : Character {
         wpnHide();
     }
 
+    virtual void cmdJump(const vec3 &vel) {
+        vec3 v = vel;
+        if (state == STATE_HANG_UP)
+            v.y = (3.0f - sqrtf(-2.0f * GRAVITY / 30.0f * (collision.info[Collision::FRONT].floor - pos.y + 800.0f)));
+        Character::cmdJump(v);
+    }
+
     void drawGun(int right) {
         int mask = right ? BODY_ARM_R3 : BODY_ARM_L3; // unholster
         if (layers[1].mask & mask)
@@ -1100,22 +1116,21 @@ struct Lara : Character {
 
     bool waterOut() {
         // TODO: playSound 36
-        vec3 dst = pos + getDir() * 32.0f;
+        if (collision.side != Collision::FRONT || pos.y - collision.info[Collision::FRONT].floor > 256 + 128)
+            return false;
 
-        TR::Level::FloorInfo infoCur, infoDst;
-        level->getFloorInfo(getEntity().room,  (int)pos.x, (int)pos.y, (int)pos.z, infoCur),
-        level->getFloorInfo(infoCur.roomAbove, (int)dst.x, (int)dst.y, (int)dst.z, infoDst);
+        vec3 dst = pos + getDir() * (LARA_RADIUS + 32.0f);
 
-        int h = int(pos.y - infoDst.floor);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(collision.info[Collision::NONE].roomAbove, int(dst.x), int(dst.y), int(dst.z), info);
 
-        if (h >= 0 && h <= 356 && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) { // possibility check
-            alignToWall(-96.0f);
-            pos.y = float(infoDst.floor);
-            //pos     = dst;  // set new position
-            
+        int h = int(pos.y - info.floor);
+
+        if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
+            alignToWall(LARA_RADIUS);
+            getEntity().room = collision.info[Collision::NONE].roomAbove;
+            pos.y    = float(info.floor);
             specular = LARA_WET_SPECULAR;
-
-            getEntity().room = infoCur.roomAbove;
             updateEntity();
             return true;
         }
@@ -1353,11 +1368,34 @@ struct Lara : Character {
             velocity.x = velocity.z = 0.0f;
 
         if ((state == STATE_REACH || state == STATE_UP_JUMP) && (input & ACTION) && emptyHands()) {
-
             if (state == STATE_REACH && velocity.y < 0.0f)
                 return state;
 
+            vec3 p = pos;
+            Collision c = Collision(level, getRoomIndex(), p, getDir() * 32.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
+            
+            if (c.side != Collision::FRONT)
+                return state;
+
             Box bounds = animation.getBoundingBox(pos, 0);
+
+            int floor = c.info[Collision::FRONT].floor;
+            int hands = int(bounds.min.y);
+
+            if (abs(floor - hands) < 32) {
+                alignToWall(-LARA_RADIUS);
+                pos.y = float(floor + LARA_HANG_OFFSET);
+                stand = STAND_HANG;
+                updateEntity();
+
+                if (state == STATE_REACH) {
+                    return STATE_HANG; // TODO: ANIM_HANG_WALL / ANIM_HANG_NOWALL
+                } else
+                    return animation.setAnim(ANIM_HANG, -15);
+            }
+
+            /*
+
 
             vec3 p = pos + getDir() * 128.0f;
             TR::Level::FloorInfo info;
@@ -1372,7 +1410,7 @@ struct Lara : Character {
             } while (info.ceiling > bounds.min.y && info.roomAbove != 0xFF);
            
             if (abs(info.floor - int(bounds.min.y)) < 16) { // reach fall
-                alignToWall(96.0f);
+                alignToWall(LARA_RADIUS);
                 pos.y = info.floor + 724.0f;
                 updateEntity();
 
@@ -1382,6 +1420,7 @@ struct Lara : Character {
                 } else
                     return animation.setAnim(ANIM_HANG, -15);
             }
+            */
         }
 
         if (state == STATE_FORWARD_JUMP) {
@@ -1409,7 +1448,7 @@ struct Lara : Character {
                 if ((dx <= (512 + 128) && dz <= (512 - 128)) ||
                     (dx <= (512 - 128) && dz <= (512 + 128))) {
                     
-                    alignToWall();
+                    alignToWall(-LARA_RADIUS);
 
                     Block *block = (Block*)e.controller;
                     block->angle.y = angle.y;
@@ -1427,26 +1466,22 @@ struct Lara : Character {
         if ((input & ACTION) && emptyHands() && doPickUp())
             return STATE_PICK_UP;
 
-        if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands()) { // TODO: get rid of animation.index 
-            vec3 p = pos + getDir() * 64.0f;
-            TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.y, (int)p.z, info);
-            int h = (int)pos.y - info.floor;
+        if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index 
+            int floor = collision.info[Collision::FRONT].floor;
+            int h = (int)pos.y - floor;
             
             int aIndex = animation.index;
-            if (info.floor == info.ceiling || h < 256 + 128) {
-                ; // do nothing
-            } else if (h <= 2 * 256 + 128) {
+            if (h <= 2 * 256 + 128) {
                 aIndex = ANIM_CLIMB_2;
-                pos.y  = info.floor + 512.0f;
+                pos.y  = floor + 512.0f;
             } else if (h <= 3 * 256 + 128) {
                 aIndex = ANIM_CLIMB_3;
-                pos.y  = info.floor + 768.0f;
+                pos.y  = floor + 768.0f;
             } else if (h <= 7 * 256 + 128)
                 aIndex = ANIM_CLIMB_JUMP;            
 
             if (aIndex != animation.index) {
-                alignToWall(96.0f);
+                alignToWall(-LARA_RADIUS);
                 return animation.setAnim(aIndex);
             }
         }
@@ -1490,7 +1525,7 @@ struct Lara : Character {
                 int pushState = (input & FORTH) ? STATE_PUSH_BLOCK : STATE_PULL_BLOCK;
                 Block *block = getBlock();                
                 if (animation.canSetState(pushState) && block->doMove((input & FORTH) != 0)) {
-                    alignToWall(128.0f);
+                    alignToWall(-LARA_RADIUS);
                     return pushState;
                 }
             }
@@ -1553,9 +1588,9 @@ struct Lara : Character {
         if (input & FORTH) {
             // possibility check
             TR::Level::FloorInfo info;
-            vec3 p = pos + getDir() * 128.0f;
+            vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
             level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.y, (int)p.z, info);
-            if (info.floor - info.ceiling >= 768)
+            if (info.floor - info.ceiling >= LARA_HEIGHT)
                 return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;          
         }
         return STATE_HANG;
@@ -1568,6 +1603,8 @@ struct Lara : Character {
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
             game->waterDrop(pos, 256.0f, 0.2f);
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
+            pos.y += 100.0f;
+            angle.x = -45.0f * DEG2RAD;
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
         
@@ -1577,10 +1614,13 @@ struct Lara : Character {
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             return STATE_DIVE;
         }
-            
+        
         if (input & JUMP) return STATE_SWIM;
+       
+        if (state == STATE_GLIDE && speed < LARA_SWIM_SPEED * 2.0f / 3.0f)
+            return STATE_TREAD;
 
-        return (state == STATE_SWIM || velocity.y > GLIDE_SPEED) ? STATE_GLIDE : STATE_TREAD;
+        return STATE_GLIDE;
     }
 
     virtual int getStateOnwater() {
@@ -1709,9 +1749,9 @@ struct Lara : Character {
         if (state == STATE_SWIM || state == STATE_GLIDE)
             w *= TURN_WATER_FAST;
         else if (state == STATE_TREAD || state == STATE_SURF_TREAD || state == STATE_SURF_SWIM || state == STATE_SURF_BACK)
-            w *= TURN_WATER_SLOW;
+            w *= TURN_WATER_FAST;
         else if (state == STATE_RUN)
-            w  *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / TILT_MAX;
+            w  *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / LARA_TILT_MAX;
         else if (state == STATE_FAST_TURN)
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
@@ -1723,17 +1763,12 @@ struct Lara : Character {
         else 
             w = 0.0f;
 
-        if (w != 0.0f) {
-            w *= Core::deltaTime;
-            angle.y += w; 
-            velocity = velocity.rotateY(-w); // in-air velocity rotation control
-        }
+        if (w != 0.0f)
+            rotateY(w * Core::deltaTime);
 
     // pitch (underwater only)
-        if (stand == STAND_UNDERWATER && (input & (FORTH | BACK)) ) {
-            angle.x += ((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * 0.5f * Core::deltaTime;
-            angle.x = clamp(angle.x, -PI * 0.5f, PI * 0.5f);
-        }
+        if (stand == STAND_UNDERWATER && (input & (FORTH | BACK)))
+            rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * Core::deltaTime);
 
     // get animation direction
         angleExt = angle.y;
@@ -1743,6 +1778,7 @@ struct Lara : Character {
             case STATE_BACK_JUMP  :
             case STATE_FAST_BACK  :
             case STATE_SLIDE_BACK :
+            case STATE_ROLL_1     : 
                 angleExt += PI;
                 break;
             case STATE_LEFT_JUMP  :
@@ -1768,18 +1804,15 @@ struct Lara : Character {
             case STAND_HANG    :
             case STAND_ONWATER : {
 
-                float speed = 0.0f;
                 switch (state) {
                     case STATE_SURF_SWIM  :
                     case STATE_SURF_BACK  :
                     case STATE_SURF_LEFT  :
-                    case STATE_SURF_RIGHT :
-                        speed = 15.0f;
+                    case STATE_SURF_RIGHT :  
+                        speed = min(speed + 30.0f * LARA_WATER_ACCEL * Core::deltaTime, LARA_SURF_SPEED);
                         break;
                     default :
                         speed = animation.getSpeed();
-                        if (animation.index == ANIM_STAND_ROLL_END) 
-                            speed = -speed;
                 }
 
                 if (stand == STAND_ONWATER) {
@@ -1790,9 +1823,9 @@ struct Lara : Character {
                     TR::Entity &e = getEntity();
                     TR::Level::FloorInfo info;
                     if (stand == STAND_HANG) {
-                        vec3 p = pos + getDir() * 128.0f;
+                        vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
                         level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
-                        if (info.roomAbove != 0xFF && info.floor >= e.y - LARA_HANG_OFFSET)
+                        if (info.roomAbove != TR::NO_ROOM && info.floor >= e.y - LARA_HANG_OFFSET)
                             level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.y, (int)p.z, info);
                     } else
                         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
@@ -1803,16 +1836,13 @@ struct Lara : Character {
                 break;
             }
             case STAND_UNDERWATER : {
-                float speed = 0.0f;
                 if (animation.index == ANIM_TO_UNDERWATER)
                     speed = 15.0f;
                 if (state == STATE_SWIM)
-                    speed = SWIM_SPEED;
-
-                if (speed != 0.0f)
-                    velocity = vec3(angle.x, angle.y) * speed;
-                else 
-                    velocity = velocity - velocity * min(1.0f, Core::deltaTime * 2.0f);
+                    speed = min(speed + 30.0f * LARA_WATER_ACCEL * Core::deltaTime, LARA_SWIM_SPEED);
+                if (state == STATE_TREAD || state == STATE_GLIDE)
+                    speed = max(speed - 30.0f * LARA_SWIM_FRICTION * Core::deltaTime, 0.0f);
+                velocity = vec3(angle.x, angle.y) * speed;
                 // TODO: apply flow velocity
                 break;
             }
@@ -1820,9 +1850,13 @@ struct Lara : Character {
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
-        updateTilt(state == STATE_RUN, TILT_SPEED, TILT_MAX);
+        // tilt control
+        vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
+        if (stand == STAND_UNDERWATER)
+            vTilt *= 2.0f;
+        updateTilt(state == STATE_RUN || stand == STAND_UNDERWATER, vTilt.x, vTilt.y);
 
-        if (velocity.length() >= 0.001f) 
+        if (velocity.length() >= 1.0f)
             move();
     
         if (getEntity().type != TR::Entity::LARA) {
@@ -1844,11 +1878,11 @@ struct Lara : Character {
     }
 
     void move() {
-        TR::Entity &e = getEntity();
-        TR::Level::FloorInfo info;
+        //TR::Entity &e = getEntity();
+        //TR::Level::FloorInfo info;
         
-        float f, c;
-        bool canPassGap = true;
+        //float f, c;
+        //bool canPassGap = true;
         /*
         if (velocity != 0.0f) {
             vec3 dir = velocity.normal() * 128.0f;
@@ -1868,11 +1902,53 @@ struct Lara : Character {
             }
         }
         */
-        vec3 offset = velocity * Core::deltaTime * 30.0f;
+        vec3 vel = velocity * Core::deltaTime * 30.0f;
+        vec3 opos(pos), offset(0.0f);
 
-        vec3 p = pos;
-        pos = pos + offset;
+        float radius   = stand == STAND_UNDERWATER ? LARA_RADIUS_WATER : LARA_RADIUS;
+        int maxHeight  = stand == STAND_UNDERWATER ? LARA_HEIGHT_WATER : LARA_HEIGHT;
+        int minHeight  = 0;
+        int maxAscent  = 256 + 128;
+        int maxDescent = 0xFFFFFF;
 
+        if (state == STATE_WALK || state == STATE_BACK)
+            maxDescent = maxAscent;
+        if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
+            maxAscent = maxDescent = 64;
+        if (stand == STAND_ONWATER)
+            maxAscent = -1;
+        if (stand == STAND_HANG) {
+            maxHeight = 0;
+            maxAscent = maxDescent = 64;
+            offset    = getDir() * (LARA_RADIUS + 32.0f);
+            offset.y  -= LARA_HANG_OFFSET;
+        }
+        if (stand == STAND_UNDERWATER) {
+            offset.y += LARA_HEIGHT_WATER * 0.5f;
+        }
+
+        int room = getRoomIndex();
+
+        collision = Collision(level, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
+
+        if (stand != STAND_HANG && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
+            float rot = TURN_WALL_Y * Core::deltaTime;
+            rotateY((collision.side == Collision::LEFT) ? rot : -rot);
+        }
+
+        if (stand == STAND_HANG && collision.side != Collision::FRONT) {
+            offset.x = offset.z = 0.0f;            
+            minHeight  = LARA_HANG_OFFSET;
+            maxDescent = 0xFFFFFF;
+            maxAscent  = -LARA_HANG_OFFSET;
+            vec3 p = pos;
+            collision  = Collision(level, room, p, offset, vec3(0.0f), radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
+            if (collision.side == Collision::FRONT)
+                pos = opos;
+        }
+
+
+        /*
         if (canPassGap) {
             level->getFloorInfo(e.room, (int)pos.x, (int)pos.y, (int)pos.z, info);
             canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
@@ -1880,6 +1956,8 @@ struct Lara : Character {
 
         f = info.floor - pos.y;
         c = pos.y - info.ceiling;
+        */
+
         /*
         TR::Animation *anim  = animation;
         Box eBox = Box(pos - vec3(128.0f, 0.0f, 128.0f), pos + vec3(128.0, getHeight(), 128.0f)); // getBoundingBox();
@@ -1915,6 +1993,7 @@ struct Lara : Character {
                     }
                 }
         */
+        /*
         if (canPassGap)
             switch (stand) {
                 case STAND_AIR : {
@@ -1959,38 +2038,46 @@ struct Lara : Character {
                     break;
                 default : ;
             }
+        */
 
+    // get current leading foot in animation
         int rightStart = 0;
         if (state == STATE_RUN)  rightStart = 6;
         if (state == STATE_WALK) rightStart = 13;
         if (state == STATE_BACK) rightStart = 28;
         bool isLeftFoot = animation.frameIndex < rightStart || animation.frameIndex > (rightStart + animation.framesCount / 2);
+        
 
-        if (!canPassGap) {
-            pos = p; // TODO: use smart ejection
+        if (stand == STAND_UNDERWATER) {
+            if (collision.side == Collision::TOP)
+                rotateX(-TURN_WALL_X * Core::deltaTime);
+            if (collision.side == Collision::BOTTOM)
+                rotateX( TURN_WALL_X * Core::deltaTime);
+        }
+
+        if (stand == STAND_AIR && collision.side == Collision::TOP && velocity.y < 0.0f)
+            velocity.y = 30.0f;
+
+        if (collision.side == Collision::FRONT) {            
+            int floor = collision.info[Collision::FRONT].floor;
 
         // hit the wall
             switch (stand) {
                 case STAND_AIR :
-                    if (state == STATE_UP_JUMP || state == STATE_REACH) {
+                    if (state == STATE_UP_JUMP || state == STATE_REACH)
                         velocity.x = velocity.z = 0.0f;
-                        if (c <= 0 && offset.y < 0.0f) offset.y = velocity.y = 0.0f;
-                    }
 
                     if (velocity.x != 0.0f || velocity.z != 0.0f) {
                         animation.setAnim(ANIM_SMASH_JUMP);
-                        velocity.x = -velocity.x * 0.5f;
-                        velocity.z = -velocity.z * 0.5f;
-                        if (offset.y < 0.0f)
-                            offset.y = velocity.y = 0.0f;
+                        velocity.x = -velocity.x * 0.25f;
+                        velocity.z = -velocity.z * 0.25f;
+                        if (velocity.y < 0.0f)
+                            velocity.y = 30.0f;
                     }
-
-                    pos.y = p.y + offset.y;
-
                     break;
                 case STAND_GROUND :
                 case STAND_HANG   :
-                    if (f <= -(256 * 3 - 128) && state == STATE_RUN)
+                    if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN)
                         animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
                     else if (stand == STAND_HANG)
                         animation.setAnim(ANIM_HANG, -21);
@@ -1998,11 +2085,18 @@ struct Lara : Character {
                         animation.setAnim((state == STATE_RUN || state == STATE_WALK) ? (isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT) : ANIM_STAND);
                     velocity.x = velocity.z = 0.0f;
                     break;
+                case STAND_UNDERWATER :
+                    if (fabsf(angle.x) > TURN_WALL_X_CLAMP)
+                        rotateX(TURN_WALL_X * Core::deltaTime * sign(angle.x));
+                    else
+                        pos.y = opos.y;
+                    break;
                 default : ;// no smash animation
             }                     
-        } else
+        } else {
             if (stand == STAND_GROUND) {
-                int h = int(info.floor - pos.y);
+                int floor = collision.info[Collision::NONE].floor;
+                int h = int(floor - opos.y);
 
                 if (h >= 256 && state == STATE_FAST_BACK) {
                     stand = STAND_AIR;
@@ -2010,18 +2104,20 @@ struct Lara : Character {
                 } else if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
                     if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
                     if (state == STATE_BACK) animation.setAnim(isLeftFoot ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
-                    pos.y = float(info.floor);
+                    pos.y = float(floor);
                 } else if (h > -1.0f) {
-                    pos.y = min((float)info.floor, pos.y += DESCENT_SPEED * Core::deltaTime);
+                    pos.y = min(float(floor), pos.y += DESCENT_SPEED * Core::deltaTime);
                 } else if (h > -128) {
-                    pos.y = float(info.floor);
+                    pos.y = float(floor);
                 } else if (h >= -(256 + 128) && (state == STATE_RUN || state == STATE_WALK)) { // ascend
                     if (state == STATE_RUN)  animation.setAnim(isLeftFoot ? ANIM_RUN_ASCEND_LEFT  : ANIM_RUN_ASCEND_RIGHT);
                     if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_ASCEND_LEFT : ANIM_WALK_ASCEND_RIGHT);
-                    pos.y = float(info.floor);
+                    pos.y = float(floor);
                 } else
-                    pos.y = float(info.floor);
+                    pos.y = float(floor);
             }
+            collision.side = Collision::NONE;
+        }
 
         updateEntity();
         checkRoom();

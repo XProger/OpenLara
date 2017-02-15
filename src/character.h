@@ -29,10 +29,22 @@ struct Character : Controller {
 
     vec3    velocity;
     float   angleExt;
+    float   speed;
+
+    Collision collision;
 
     Character(IGame *game, int entity, int health) : Controller(game, entity), target(-1), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f) {
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
+    }
+
+    void rotateY(float delta) {
+        angle.y += delta; 
+        velocity = velocity.rotateY(-delta);
+    }
+
+    void rotateX(float delta) {
+        angle.x = clamp(angle.x + delta, -PI * 0.49f, PI * 0.49f);
     }
 
     virtual void hit(int damage, Controller *enemy = NULL) {
@@ -44,13 +56,13 @@ struct Character : Controller {
         TR::Entity &e = getEntity();
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
-        if (info.roomNext != 0xFF)
+        if (info.roomNext != TR::NO_ROOM)
             e.room = info.roomNext;        
 
-        if (info.roomBelow != 0xFF && e.y > info.roomFloor)
+        if (info.roomBelow != TR::NO_ROOM && e.y > info.roomFloor)
             e.room = info.roomBelow;
 
-        if (info.roomAbove != 0xFF && e.y <= info.roomCeiling) {
+        if (info.roomAbove != TR::NO_ROOM && e.y <= info.roomCeiling) {
             if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
                 stand = STAND_ONWATER;
                 velocity.y = 0;
@@ -106,18 +118,13 @@ struct Character : Controller {
     virtual void updateTilt(bool active, float tiltSpeed, float tiltMax) {
     // calculate turning tilt
         if (active && (input & (LEFT | RIGHT)) && (tilt == 0.0f || (tilt < 0.0f && (input & LEFT)) || (tilt > 0.0f && (input & RIGHT)))) {
-            if (input & LEFT)  tilt -= tiltSpeed * Core::deltaTime;
-            if (input & RIGHT) tilt += tiltSpeed * Core::deltaTime;
-        } else
-            if (fabsf(tilt) > 0.01f) {
-                if (tilt > 0.0f)
-                    tilt -= min(tilt,  tiltSpeed * 4.0f * Core::deltaTime);
-                else
-                    tilt -= max(tilt, -tiltSpeed * 4.0f * Core::deltaTime);
-            } else
-                tilt = 0.0f;
-        tilt = clamp(tilt, -tiltMax, tiltMax);
-        
+            if (input & LEFT)  tilt -= tiltSpeed;
+            if (input & RIGHT) tilt += tiltSpeed;
+            tilt = clamp(tilt, -tiltMax, +tiltMax);
+        } else {
+            if (tilt > 0.0f) tilt = max(0.0f, tilt - tiltSpeed);
+            if (tilt < 0.0f) tilt = min(0.0f, tilt + tiltSpeed);
+        }
         angle.z = tilt;
     }
 

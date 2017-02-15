@@ -145,7 +145,7 @@ struct Animation {
                     TR::AnimRange &range = level->ranges[s.rangesOffset + j];
                     if (anim->frameStart + frameIndex >= range.low && anim->frameStart + frameIndex <= range.high) {
                         setAnim(range.nextAnimation - model->animation, range.nextFrame);
-                        break;
+                        return true;
                     }
                 }
             }

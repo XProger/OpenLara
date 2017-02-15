@@ -179,7 +179,7 @@ struct Wolf : Enemy {
             return (state == STATE_STOP || state == STATE_SLEEP) ? STATE_SLEEP : STATE_STOP;
 
         switch (state) {
-            case STATE_SLEEP    : return target > -1 ? STATE_STOP : state;
+            case STATE_SLEEP    : return (target > -1 && level->entities[target].room == getRoomIndex()) ? STATE_STOP : state;
             case STATE_STOP     : return target > -1 ? STATE_HOWL : STATE_SLEEP;
             case STATE_HOWL     : return state;
             case STATE_GROWL    : return target > -1 ? (randf() > 0.5f ? STATE_STALKING : STATE_RUN) : STATE_STOP;

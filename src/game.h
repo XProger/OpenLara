@@ -39,12 +39,20 @@ namespace Game {
 
     void update() {
         float dt = Core::deltaTime;
+        if (Input::down[ikV]) { // third <-> first person view
+            level->camera->changeView(!level->camera->firstPerson);
+            Input::down[ikV] = false;
+        }
+
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;
-        if (Input::down[ikT])
-            Core::deltaTime *= 10.0f;
+
+        if (Input::down[ikT]) // fast motion
+            for (int i = 0; i < 9; i++)
+                level->update();
 
         level->update();
+
 
         Core::deltaTime = dt;
     }

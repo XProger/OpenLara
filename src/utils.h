@@ -85,6 +85,16 @@ float shortAngle(float a, float b) {
     return clampAngle(n - int(n / PI2) * PI2);
 }
 
+float normalizeAngle(float angle) {
+    while (angle < 0.0f) angle += PI2;
+    while (angle > PI2)  angle -= PI2;
+    return angle;
+}
+
+int angleQuadrant(float angle) {
+    return int(normalizeAngle(angle + PI * 0.25f) / (PI * 0.5f));
+}
+
 float decrease(float delta, float &value, float &speed) {
     if (speed > 0.0f && fabsf(delta) > 0.01f) {
         if (delta > 0) speed = min(delta,  speed);
@@ -112,11 +122,13 @@ struct vec2 {
     vec2(float s) : x(s), y(s) {}
     vec2(float x, float y) : x(x), y(y) {}
 
-    float& operator [] (int index) const { ASSERT(index >= 0 && index <= 1); return ((float*)this)[index]; }
+    inline float& operator [] (int index) const { ASSERT(index >= 0 && index <= 1); return ((float*)this)[index]; }
 
-    bool operator == (float s) const { return x == s && y == s; }
-    bool operator != (float s) const { return !(*this == s); }
-    vec2 operator -  ()        const { return vec2(-x, -y); }
+    inline bool operator == (const vec2 &v) const { return x == v.x && y == v.y; }
+    inline bool operator != (const vec2 &v) const { return !(*this == v); }
+    inline bool operator == (float s)       const { return x == s && y == s; }
+    inline bool operator != (float s)       const { return !(*this == s); }
+    inline vec2 operator -  ()              const { return vec2(-x, -y); }
 
     vec2& operator += (const vec2 &v) { x += v.x; y += v.y; return *this; }
     vec2& operator -= (const vec2 &v) { x -= v.x; y -= v.y; return *this; }
@@ -138,6 +150,7 @@ struct vec2 {
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
+    float angle()   const { return atan2(y, x); }
 };
 
 struct vec3 {
@@ -148,11 +161,13 @@ struct vec3 {
     vec3(const vec2 &xy, float z = 0.0f) : x(xy.x), y(xy.y), z(z) {}
     vec3(float lng, float lat) : x(sinf(lat) * cosf(lng)), y(-sinf(lng)), z(cosf(lat) * cosf(lng)) {}
 
-    float& operator [] (int index) const { ASSERT(index >= 0 && index <= 2); return ((float*)this)[index]; }
+    inline float& operator [] (int index) const { ASSERT(index >= 0 && index <= 2); return ((float*)this)[index]; }
 
-    bool operator == (float s) const { return x == s && y == s && z == s; }
-    bool operator != (float s) const { return !(*this == s); }
-    vec3 operator -  ()        const { return vec3(-x, -y, -z); }
+    inline bool operator == (const vec3 &v) const { return x == v.x && y == v.y && z == v.z; }
+    inline bool operator != (const vec3 &v) const { return !(*this == v); }
+    inline bool operator == (float s)       const { return x == s && y == s && z == s; }
+    inline bool operator != (float s)       const { return !(*this == s); }
+    inline vec3 operator -  ()              const { return vec3(-x, -y, -z); }
 
     vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
     vec3& operator -= (const vec3 &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
@@ -597,6 +612,13 @@ struct Basis {
 
     void rotate(const quat &q) {
         rot = rot * q;
+    }
+
+    Basis lerp(const Basis &basis, float t) {
+        Basis b;
+        b.rot = rot.lerp(basis.rot, t);
+        b.pos = pos.lerp(basis.pos, t);
+        return b;
     }
 };
 
