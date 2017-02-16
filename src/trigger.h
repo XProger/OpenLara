@@ -372,8 +372,8 @@ struct Bubble : Sprite {
         pos.y -= speed * Core::deltaTime;
         angle.x += 30.0f * 13.0f * DEG2RAD * Core::deltaTime;
         angle.y += 30.0f *  9.0f * DEG2RAD * Core::deltaTime;
-	    pos.x += sin(angle.y) * 11.0f * 30.0f * Core::deltaTime;
-	    pos.z += cos(angle.x) * 8.0f  * 30.0f * Core::deltaTime;
+	    pos.x += sinf(angle.y) * 11.0f * 30.0f * Core::deltaTime;
+	    pos.z += cosf(angle.x) * 8.0f  * 30.0f * Core::deltaTime;
         updateEntity();
         Sprite::update();
     }
