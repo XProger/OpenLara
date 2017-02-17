@@ -14,7 +14,7 @@ struct Collision {
 
     Collision() : side(NONE) {}
 
-    Collision(TR::Level *level, int room, vec3 &pos, const vec3 &offset, const vec3 &velocity, float radius, float angle, int minHeight, int maxHeight, int maxAscent, int maxDescent) {
+    Collision(TR::Level *level, int roomIndex, vec3 &pos, const vec3 &offset, const vec3 &velocity, float radius, float angle, int minHeight, int maxHeight, int maxAscent, int maxDescent) {
         if (velocity.x > 0.0f || velocity.z > 0.0f)
             angle = normalizeAngle(PI2 + vec2(velocity.z, velocity.x).angle());
         pos += velocity;
@@ -38,7 +38,9 @@ struct Collision {
 
         int height = maxHeight - minHeight;
 
-        if (checkHeight(level, room, hpos, vec2(0.0f), height, 0xFFFFFF, 0xFFFFFF, side = NONE)) {
+        getFloor(level, roomIndex, vec3(pos.x, hpos.y, pos.z));
+
+        if (checkHeight(level, roomIndex, hpos, vec2(0.0f), height, 0xFFFFFF, 0xFFFFFF, side = NONE)) {
             pos -= velocity;
             side = FRONT;
             return;
@@ -54,13 +56,13 @@ struct Collision {
             side  = BOTTOM;
         }
 
-        if (checkHeight(level, room, hpos, f, height, maxAscent, maxDescent, FRONT)) {
+        if (checkHeight(level, roomIndex, hpos, f, height, maxAscent, maxDescent, FRONT)) {
             d = vec2(-velocity.x, -velocity.z);
             q ^= 1;
             d[q] = getOffset(p[q] + f[q], p[q]);
-        } else if (checkHeight(level, room, hpos, l, height, maxAscent, maxDescent, LEFT)) {
+        } else if (checkHeight(level, roomIndex, hpos, l, height, maxAscent, maxDescent, LEFT)) {
             d[q] = getOffset(p[q] + l[q], p[q] + f[q]);
-        } else if (checkHeight(level, room, hpos, r, height, maxAscent, maxDescent, RIGHT)) {
+        } else if (checkHeight(level, roomIndex, hpos, r, height, maxAscent, maxDescent, RIGHT)) {
             d[q] = getOffset(p[q] + r[q], p[q] + f[q]);
         } else
             return;
@@ -68,13 +70,13 @@ struct Collision {
         pos += vec3(d.x, 0.0f, d.y);
     }
 
-    inline bool checkHeight(TR::Level *level, int room, const vec3 &pos, const vec2 &offset, int height, int maxAscent, int maxDescent, Side side) {
+    inline bool checkHeight(TR::Level *level, int roomIndex, const vec3 &pos, const vec2 &offset, int height, int maxAscent, int maxDescent, Side side) {
         TR::Level::FloorInfo info;
         int py = int(pos.y);
-        level->getFloorInfo(room, int(pos.x + offset.x), py, int(pos.z + offset.y), info);
+        level->getFloorInfo(roomIndex, int(pos.x + offset.x), py, int(pos.z + offset.y), info);
 
         Info &inf = this->info[side];
-        inf.room      = info.roomNext != TR::NO_ROOM ? info.roomNext : room;
+        inf.room      = info.roomNext != TR::NO_ROOM ? info.roomNext : roomIndex;
         inf.roomAbove = info.roomAbove;
         inf.roomBelow = info.roomBelow;
         inf.floor     = info.floor;
@@ -98,6 +100,18 @@ struct Collision {
         else if (b > a)
 		    return -from + 1025.0f;
 		return -from - 1.0f;
+    }
+
+    static int getFloor(TR::Level *level, int &roomIndex, const vec3 &pos) {
+        int dx, dz, x = int(pos.x), z = int(pos.z);
+
+        TR::Room::Sector *s = &level->getSector(roomIndex, x, z, dx, dz);
+        while (s->ceiling * 256 > pos.y && s->roomAbove != TR::NO_ROOM) {
+            roomIndex = s->roomAbove;
+            s = &level->getSector(roomIndex, x, z, dx, dz);
+        }
+
+        return s->floor * 256;
     }
 };
 

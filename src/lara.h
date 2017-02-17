@@ -58,7 +58,6 @@ struct Lara : Character {
         ANIM_CLIMB_JUMP         = 26,
 
         ANIM_HANG_FALL          = 28,
-        ANIM_HANG_WALL          = 29,
 
         ANIM_FALL               = 34,
         ANIM_SMASH_JUMP         = 32,
@@ -98,7 +97,7 @@ struct Lara : Character {
         ANIM_STAND_ROLL_BEGIN   = 146,
         ANIM_STAND_ROLL_END     = 147,
 
-        ANIM_HANG_NOWALL        = 150,
+        ANIM_HANG_SWING         = 150,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -417,7 +416,7 @@ struct Lara : Character {
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
-        reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
+        //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -1299,56 +1298,33 @@ struct Lara : Character {
             if (state == STATE_REACH && velocity.y < 0.0f)
                 return state;
 
-            vec3 p = pos;
+            Box bounds = animation.getBoundingBox(pos, 0);
+
+            vec3 p = vec3(pos.x, bounds.min.y, pos.z);
+
             Collision c = Collision(level, getRoomIndex(), p, getDir() * 32.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
             
             if (c.side != Collision::FRONT)
                 return state;
 
-            Box bounds = animation.getBoundingBox(pos, 0);
-
             int floor = c.info[Collision::FRONT].floor;
             int hands = int(bounds.min.y);
 
-            if (abs(floor - hands) < 32) {
+            if (abs(floor - hands) < 128) {
                 alignToWall(-LARA_RADIUS);
                 pos.y = float(floor + LARA_HANG_OFFSET);
                 stand = STAND_HANG;
                 updateEntity();
 
                 if (state == STATE_REACH) {
-                    return STATE_HANG; // TODO: ANIM_HANG_WALL / ANIM_HANG_NOWALL
+                    vec3 p = pos + getDir() * 256.0f;
+                    TR::Level::FloorInfo info;
+                    level->getFloorInfo(getRoomIndex(), int(p.x), int(p.y), int(p.z), info);
+                    int h = info.ceiling - floor;
+                    return animation.setAnim((h > 0 && h < 400) ? ANIM_HANG_SWING : ANIM_HANG);
                 } else
                     return animation.setAnim(ANIM_HANG, -15);
             }
-
-            /*
-
-
-            vec3 p = pos + getDir() * 128.0f;
-            TR::Level::FloorInfo info;
-        // TODO: use brain
-            info.roomAbove = getRoomIndex();
-            level->getFloorInfo(info.roomAbove, (int)pos.x, (int)pos.y, (int)pos.z, info);
-            if (info.roomAbove == 0xFF)
-                info.roomAbove = getRoomIndex();
-
-            do {
-                level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.y, (int)p.z, info);
-            } while (info.ceiling > bounds.min.y && info.roomAbove != 0xFF);
-           
-            if (abs(info.floor - int(bounds.min.y)) < 16) { // reach fall
-                alignToWall(LARA_RADIUS);
-                pos.y = info.floor + 724.0f;
-                updateEntity();
-
-                stand = STAND_HANG;
-                if (state == STATE_REACH) {
-                    return STATE_HANG; // TODO: ANIM_HANG_WALL / ANIM_HANG_NOWALL
-                } else
-                    return animation.setAnim(ANIM_HANG, -15);
-            }
-            */
         }
 
         if (state == STATE_FORWARD_JUMP) {
@@ -1850,6 +1826,8 @@ struct Lara : Character {
         int maxAscent  = 256 + 128;
         int maxDescent = 0xFFFFFF;
 
+        int room = getRoomIndex();
+
         if (state == STATE_WALK || state == STATE_BACK)
             maxDescent = maxAscent;
         if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
@@ -1860,13 +1838,11 @@ struct Lara : Character {
             maxHeight = 0;
             maxAscent = maxDescent = 64;
             offset    = getDir() * (LARA_RADIUS + 32.0f);
-            offset.y  -= LARA_HANG_OFFSET;
+            offset.y  -= LARA_HANG_OFFSET + 32;
         }
         if (stand == STAND_UNDERWATER) {
             offset.y += LARA_HEIGHT_WATER * 0.5f;
         }
-
-        int room = getRoomIndex();
 
         collision = Collision(level, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
 

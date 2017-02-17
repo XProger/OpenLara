@@ -1572,7 +1572,7 @@ namespace TR {
             info.ceiling      = info.roomCeiling;
             info.slantX       = 0;
             info.slantZ       = 0;
-            info.roomNext     = 0xFF;
+            info.roomNext     = NO_ROOM;
             info.roomBelow    = s.roomBelow;
             info.roomAbove    = s.roomAbove;
             info.floorIndex   = s.floorIndex;
@@ -1581,16 +1581,17 @@ namespace TR {
             info.trigCmdCount = 0;
 
             if (s.floor == -127) 
-                return;
+                return;          
 
             Room::Sector *sBelow = &s;
-            while (sBelow->roomBelow != TR::NO_ROOM) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
+            while (sBelow->roomBelow != NO_ROOM) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
             info.floor = 256 * sBelow->floor;
+
             parseFloorData(info, sBelow->floorIndex, dx, dz);
 
-            if (info.roomNext == TR::NO_ROOM) {
+            if (info.roomNext == NO_ROOM) {
                 Room::Sector *sAbove = &s;
-                while (sAbove->roomAbove != TR::NO_ROOM) sAbove = &getSector(sAbove->roomAbove, x, z, dx, dz);
+                while (sAbove->roomAbove != NO_ROOM) sAbove = &getSector(sAbove->roomAbove, x, z, dx, dz);
                 if (sAbove != sBelow) {
                     info.ceiling = 256 * sAbove->ceiling;
                     parseFloorData(info, sAbove->floorIndex, dx, dz);
@@ -1600,6 +1601,7 @@ namespace TR {
                 getFloorInfo(tmp, x, y, z, info);
                 info.roomNext = tmp;
             }
+
 
         // entities collide
             if (info.trigCmdCount) {
