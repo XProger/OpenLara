@@ -20,7 +20,7 @@
     #include "libs/stb_vorbis/stb_vorbis.c"
 #endif
 
-#define SND_CHANNELS_MAX    32
+#define SND_CHANNELS_MAX    128
 #define SND_FADEOFF_DIST    (1024.0f * 8.0f)
 
 namespace Sound {
@@ -311,6 +311,7 @@ namespace Sound {
         UNIQUE          = 4,
         REPLAY          = 8,
         SYNC            = 16,
+        STATIC          = 32,
     };
 
     struct Sample {
@@ -450,7 +451,12 @@ namespace Sound {
         Frame *buffer = new Frame[bufSize]; // + 50% for pitch
 
         for (int i = 0; i < channelsCount; i++) {
-            
+            if (channels[i]->flags & STATIC) {
+                vec3 d = channels[i]->pos - listener.matrix.getPos();
+                if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST)
+                    continue;
+            }
+
             memset(buffer, 0, sizeof(Frame) * bufSize);
             channels[i]->render(buffer, int(count * channels[i]->pitch));
 

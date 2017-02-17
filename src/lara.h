@@ -1365,7 +1365,7 @@ struct Lara : Character {
 
             int q = entityQuadrant(e);
 
-            if (q > -1 && e.isBlock() && e.y == y && alignToWall(-LARA_RADIUS, q, 64 + LARA_RADIUS, 512 - LARA_RADIUS)) {
+            if (q > -1 && e.isBlock() && e.y == y && alignToWall(-LARA_RADIUS, q, 64 + int(LARA_RADIUS), 512 - int(LARA_RADIUS))) {
                 Block *block = (Block*)e.controller;
                 block->angle.y = angle.y;
                 block->updateEntity();

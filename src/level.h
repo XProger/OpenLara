@@ -745,7 +745,7 @@ struct Level : IGame {
         initReflections();
         for (int i = 0; i < level.soundSourcesCount; i++) {
             TR::SoundSource &src = level.soundSources[i];
-            lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP);
+            lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
         }
     }
 
