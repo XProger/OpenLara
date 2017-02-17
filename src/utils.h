@@ -150,7 +150,7 @@ struct vec2 {
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
-    float angle()   const { return atan2(y, x); }
+    float angle()   const { return atan2f(y, x); }
 };
 
 struct vec3 {

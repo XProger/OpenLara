@@ -56,6 +56,7 @@ uniform sampler2D sNormal;
             gl_Position = cp;
         } else {
             vProjCoord = vec4(0.0);
+			vCoord     = vec3(aCoord.xy, 0.0);
             if (uType == WATER_CAUSTICS) {
                 vec3 rCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1];
 
@@ -72,8 +73,6 @@ uniform sampler2D sNormal;
                 gl_Position = vec4((vRefPos2.xz + 0.0 * refractedLight.xz / refractedLight.y), 0.0, 1.0);
             } else {
                 vRefPos1 = vRefPos2 = vec3(0.0);
-                vCoord = vec3(aCoord.xy, 0.0);
-                
                 gl_Position = vec4(aCoord.xyz, 1.0);
             }
         }
@@ -110,7 +109,7 @@ uniform sampler2D sNormal;
         return v;
     }
 
-    vec4 step() {
+    vec4 calc() {
         vec2 tc = gl_FragCoord.xy * uTexParam.xy;
 
         if (texture2D(sMask, tc).x == 0.0)
@@ -180,7 +179,7 @@ uniform sampler2D sNormal;
     
     vec4 pass() {
         if (uType == WATER_DROP)       return drop();
-        if (uType == WATER_STEP)       return step();
+        if (uType == WATER_STEP)       return calc();
         if (uType == WATER_CAUSTICS)   return caustics();
         if (uType == WATER_MASK)       return mask();
         if (uType == WATER_COMPOSE)    return compose();
