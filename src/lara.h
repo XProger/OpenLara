@@ -1049,13 +1049,18 @@ struct Lara : Character {
         vec3 dst = pos + getDir() * (LARA_RADIUS + 32.0f);
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(collision.info[Collision::NONE].roomAbove, int(dst.x), int(dst.y), int(dst.z), info);
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        int roomAbove = info.roomAbove;
+        if (roomAbove == TR::NO_ROOM)
+            return false;
+
+        level->getFloorInfo(roomAbove, int(dst.x), int(dst.y), int(dst.z), info);
 
         int h = int(pos.y - info.floor);
 
         if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
             alignToWall(LARA_RADIUS);
-            getEntity().room = collision.info[Collision::NONE].roomAbove;
+            getEntity().room = roomAbove;
             pos.y    = float(info.floor);
             specular = LARA_WET_SPECULAR;
             updateEntity();
@@ -1832,8 +1837,10 @@ struct Lara : Character {
             maxDescent = maxAscent;
         if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
             maxAscent = maxDescent = 64;
-        if (stand == STAND_ONWATER)
+        if (stand == STAND_ONWATER) {
             maxAscent = -1;
+            offset.y  = -64;
+        }
         if (stand == STAND_HANG) {
             maxHeight = 0;
             maxAscent = maxDescent = 64;
@@ -1861,7 +1868,6 @@ struct Lara : Character {
             if (collision.side == Collision::FRONT)
                 pos = opos;
         }
-
 
         /*
         if (canPassGap) {
