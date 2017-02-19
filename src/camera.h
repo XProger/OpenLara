@@ -205,7 +205,7 @@ struct Camera : Controller {
 
                 pos = mViewInv.getPos();
                 checkRoom();
-                Sound::listener.matrix = mViewInv;
+                updateListener();
                 return;
             }
 
