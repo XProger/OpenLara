@@ -407,9 +407,7 @@ struct Lara : Character {
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
 
     #ifdef _DEBUG            
-        //reset(14, vec3(40448, 3584, 60928), PI * 0.5f);  // gym (pool)
-        //stand = STAND_ONWATER;
-        //animation.setAnim(ANIM_TO_ONWATER);
+        //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
@@ -424,6 +422,7 @@ struct Lara : Character {
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
+        //reset(10, vec3(90443, 11264 - 256, 114614), PI, true);   // villa mortal 2
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
@@ -432,10 +431,14 @@ struct Lara : Character {
         delete braid;
     }
 
-    void reset(int room, const vec3 &pos, float angle) {
+    void reset(int room, const vec3 &pos, float angle, bool onwater) {
         getEntity().room = room;
         this->pos        = pos;
         this->angle      = vec3(0.0f, angle, 0.0f);
+        if (onwater) {
+            stand = STAND_ONWATER;
+            animation.setAnim(ANIM_TO_ONWATER);
+        }
         updateEntity();
     }
     
@@ -1263,7 +1266,7 @@ struct Lara : Character {
         if (stand == STAND_SLIDE || (stand == STAND_AIR && velocity.y > 0) || stand == STAND_GROUND) {
             if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
                 if (stand == STAND_AIR)
-                    playSound(TR::SND_LANDING, pos, Sound::Flags::PAN);
+                    playSound(TR::SND_LANDING, pos, Sound::Flags::PAN);                
                 pos.y = float(info.floor);
                 updateEntity();
 
@@ -1520,7 +1523,7 @@ struct Lara : Character {
         if (input == ACTION && doPickUp())
             return STATE_PICK_UP;
 
-        if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH) {
+        if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH || state == STATE_SLIDE || state == STATE_SLIDE_BACK) {
             game->waterDrop(pos, 256.0f, 0.2f);
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
             pos.y += 100.0f;
@@ -1839,7 +1842,8 @@ struct Lara : Character {
             maxAscent = maxDescent = 64;
         if (stand == STAND_ONWATER) {
             maxAscent = -1;
-            offset.y  = -64;
+            maxHeight = 0;
+            offset.y  = -1;
         }
         if (stand == STAND_HANG) {
             maxHeight = 0;
@@ -1868,16 +1872,6 @@ struct Lara : Character {
             if (collision.side == Collision::FRONT)
                 pos = opos;
         }
-
-        /*
-        if (canPassGap) {
-            level->getFloorInfo(e.room, (int)pos.x, (int)pos.y, (int)pos.z, info);
-            canPassGap = (info.floor - info.ceiling) >= (stand == STAND_GROUND ? 768 : 512);
-        }
-
-        f = info.floor - pos.y;
-        c = pos.y - info.ceiling;
-        */
 
         /*
         TR::Animation *anim  = animation;
@@ -1913,52 +1907,6 @@ struct Lara : Character {
                         break;
                     }
                 }
-        */
-        /*
-        if (canPassGap)
-            switch (stand) {
-                case STAND_AIR : {
-                    f = info.floor - (pos.y + animation.frameA->box.maxY);
-                    c = (pos.y + animation.frameA->box.minY) - info.ceiling;
-                    canPassGap = f >= -256;
-                    if (canPassGap && c < 0) {
-                        if (c > -256) { // position correction for ceiling step (less than 256)
-                            pos.y -= c;
-                            if (velocity.y < 0.0f) {
-                                velocity.y = 0.0f;
-                            }
-                        } else
-                            canPassGap = false;
-                    }
-                    break;
-                }
-                case STAND_GROUND : {                    
-                    if (state == STATE_WALK || state == STATE_BACK) 
-                        canPassGap = fabsf(f) <= (256.0f + 128.0f);
-                    else
-                        if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
-                            canPassGap = fabsf(f) <= (128.0f + 64.0f);
-                        else
-                            canPassGap = f >= -(256 + 128);
-                    break;
-                }
-                case STAND_HANG : {
-                    canPassGap = f >= 220.0f; // check dist to floor
-                    if (canPassGap) { // check end of hang layer
-                        vec3 d = pos + getDir() * 128.0f;
-                        level->getFloorInfo(info.roomAbove != 0xFF ? info.roomAbove : getRoomIndex(), (int)d.x, (int)d.y, (int)d.z, info);
-                        canPassGap = fabsf((pos.y - LARA_HANG_OFFSET) - info.floor) < 64.0f;
-                    }
-                    break;
-                }
-                case STAND_UNDERWATER : 
-                    canPassGap = f > 0.0f && c > 0.0f;
-                    break;
-                case STAND_ONWATER :
-                    canPassGap = (info.floor - p.y) >= 1.0f && c >= 1.0f;
-                    break;
-                default : ;
-            }
         */
 
     // get current leading foot in animation

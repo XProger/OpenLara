@@ -151,7 +151,7 @@ struct Camera : Controller {
                 angle.x -= 60.0f * DEG2RAD;
 
         #ifdef LEVEL_EDITOR
-            angle   = angleAdv;
+            angle   = advAngle;
             angle.x = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
 
             vec3 d = vec3(sinf(angle.y) * cosf(angle.x), -sinf(angle.x), cosf(angle.y) * cosf(angle.x));
