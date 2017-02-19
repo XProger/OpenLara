@@ -29,6 +29,105 @@ namespace Sound {
         short L, R;
     };
 
+    namespace Filter {
+        #define MAX_FDN     32
+        #define MAX_DELAY   2048
+
+        static const short FDN[MAX_FDN] = {281,331,373,419,461,503,547,593,641,683,727,769,811,853,907,953,997,1039,1087,1129,1171,1213,1259,1301,1361,1409,1451,1493,1543,1597,1657,1699};
+
+        struct Delay {
+            int     index;
+            float   out[MAX_DELAY];
+
+            float process(float x, int delay) {
+                index = (index + 1) % delay;
+                float y = out[index];
+                return out[index] = x, y;
+            }
+        };
+
+        struct Absorption {
+            float   out;
+
+            float process(float x, float gain, float damping) {
+                return out = out * damping + x * gain * (1.0f - damping);
+            }
+        };
+
+        struct Reverberation {
+            Delay       df[MAX_FDN];
+            Absorption  af[MAX_FDN];
+
+            float       output[MAX_FDN];
+            float       panCoeff[MAX_FDN][2];
+            float       absCoeff[MAX_FDN][2];   // absorption gain & damping
+
+            Reverberation() {
+                float k = 1.0f / MAX_FDN;
+
+                for (int i = 0; i < MAX_FDN; i++) {
+                    output[i]      = 0.0f;
+                    panCoeff[i][0] = (i % 2) ? -k : k;
+                }
+
+                for (int i = 0; i < MAX_FDN; i += 2) {
+                    if ((i / 2) % 2)
+                        panCoeff[i][1] = panCoeff[i + 1][1] = -k;
+                    else
+                        panCoeff[i][1] = panCoeff[i + 1][1] =  k;
+                }
+
+                setRoomSize(vec3(1.0f));
+            }
+
+            void setRoomSize(const vec3 &size) {
+                float S = (size.x * size.z + size.x * size.y + size.z * size.y) * 2;
+                float V = size.x * size.y * size.z;
+                float f = 0.07f; // brick absorption
+                float rt60 = 0.161f * (V / (S * f));
+                float k = -10.0f / (44100.0f * rt60);
+
+                for (int i = 0; i < MAX_FDN; i++) {
+                    absCoeff[i][0] = pow(10.0f, FDN[i] * k);
+                    absCoeff[i][1] = 1.0f - (2.0f / (1.0f + pow(absCoeff[i][0], 1.0f - 1.0f / 0.15f)));
+                }
+            };
+
+            void process(Frame *frames, int count) {
+                float buffer[MAX_FDN];
+
+                for (int i = 0; i < count; i++) {
+                    Frame &frame = frames[i];
+                    float L   = float(frame.L);
+                    float R   = float(frame.R);
+                    float in  = (L + R) * 0.5f;
+                    float out = 0.0f;
+
+                // apply delay & absorption filters
+                    for (int j = 0; j < MAX_FDN; j++) {
+                        buffer[j] = in + output[j];
+                        buffer[j] = df[j].process(buffer[j], FDN[j]);
+                        buffer[j] = af[j].process(buffer[j], absCoeff[j][0], absCoeff[j][1]);
+                        out += buffer[j] * (2.0f / MAX_FDN);
+                    }
+
+                // apply pan
+                    for (int j = 0; j < MAX_FDN; j++) {
+                        output[j] = out - buffer[(j + MAX_FDN - 1) % MAX_FDN];
+                        L += buffer[j] * panCoeff[j][0];
+                        R += buffer[j] * panCoeff[j][1];
+                    }
+
+                    frame.L = clamp(int(L), -32768, 32767);
+                    frame.R = clamp(int(R), -32768, 32767);
+                }
+            }
+        };
+
+        #undef MAX_FDN
+        #undef MAX_DELAY
+    };
+
     struct Decoder {
         Stream  *stream;
         int     channels, offset;
@@ -424,6 +523,8 @@ namespace Sound {
     } *channels[SND_CHANNELS_MAX];
     int channelsCount;
 
+    Filter::Reverberation reverb;
+
     void init() {
         channelsCount = 0;
     #ifdef DECODE_MP3
@@ -440,6 +541,12 @@ namespace Sound {
     }
 
     void fill(Frame *frames, int count) {
+        if (!channelsCount) {
+            memset(frames, 0, sizeof(frames[0]) * count);
+            reverb.process(frames, count);
+            return;
+        }
+
         struct FrameHI {
             int L, R;
         };
@@ -481,6 +588,8 @@ namespace Sound {
             frames[i].L = clamp(result[i].L, -32768, 32767);
             frames[i].R = clamp(result[i].R, -32768, 32767);
         }
+
+        reverb.process(frames, count);
 
         delete[] buffer;
         delete[] result;

@@ -291,6 +291,8 @@ int main(int argc, char** argv) {
     HDC hDC = GetDC(hWnd);
     HGLRC hRC = initGL(hDC);
     
+    Sound::channelsCount = 0;
+
     joyInit();
     sndInit(hWnd);
 

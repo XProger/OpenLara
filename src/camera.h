@@ -76,6 +76,13 @@ struct Camera : Controller {
         return true;
     }
 
+    void updateListener() {
+        Sound::listener.matrix = mViewInv;
+        TR::Room &r = level->rooms[getRoomIndex()];
+        int h = (r.info.yBottom - r.info.yTop) / 1024;
+        Sound::reverb.setRoomSize(vec3(float(r.xSectors), float(h), float(r.zSectors)) * 2.419f); // convert cells size into meters
+    }
+
     virtual void update() {
     #ifndef LEVEL_EDITOR
         if (cutscene) { // cutscene
@@ -162,7 +169,7 @@ struct Camera : Controller {
             mViewInv.rotateX(-angle.x);
             mViewInv.rotateZ(PI);
 
-            Sound::listener.matrix = mViewInv;
+            updateListener();
 
             return;
         #endif
@@ -240,7 +247,7 @@ struct Camera : Controller {
         }
 
         mViewInv = mat4(pos, target, vec3(0, -1, 0));
-        Sound::listener.matrix = mViewInv;
+        updateListener();
     }
 
     virtual void setup(bool calcMatrices) {
