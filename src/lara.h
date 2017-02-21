@@ -414,7 +414,7 @@ struct Lara : Character {
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
-        //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
+        reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -431,7 +431,7 @@ struct Lara : Character {
         delete braid;
     }
 
-    void reset(int room, const vec3 &pos, float angle, bool onwater) {
+    void reset(int room, const vec3 &pos, float angle, bool onwater = false) {
         getEntity().room = room;
         this->pos        = pos;
         this->angle      = vec3(0.0f, angle, 0.0f);
@@ -1370,10 +1370,12 @@ struct Lara : Character {
 
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-
+            
             int q = entityQuadrant(e);
+            int dx = abs(int(pos.x) - e.x);
+            int dz = abs(int(pos.z) - e.z);
 
-            if (q > -1 && e.isBlock() && e.y == y && alignToWall(-LARA_RADIUS, q, 64 + int(LARA_RADIUS), 512 - int(LARA_RADIUS))) {
+            if (q > -1 && e.isBlock() && dx < 1024 && dz < 1024 && e.y == y && alignToWall(-LARA_RADIUS, q, 64 + int(LARA_RADIUS), 512 - int(LARA_RADIUS))) {
                 Block *block = (Block*)e.controller;
                 block->angle.y = angle.y;
                 block->updateEntity();
@@ -1842,7 +1844,7 @@ struct Lara : Character {
             maxAscent = maxDescent = 64;
         if (stand == STAND_ONWATER) {
             maxAscent = -1;
-            maxHeight = 0;
+            maxHeight =  0;
             offset.y  = -1;
         }
         if (stand == STAND_HANG) {
