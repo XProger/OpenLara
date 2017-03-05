@@ -299,13 +299,11 @@ struct Crystal : Controller {
         delete environment;
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Shader *sh = Core::active.shader;
-        sh->setParam(uType,  Shader::MIRROR);
         sh->setParam(uColor, vec4(0.4f, 0.4f, 16.0f, 1.0f)); // blue color dodge
         environment->bind(sEnvironment);
-        Controller::render(frustum, mesh);
-        sh->setParam(uType, Shader::ENTITY);
+        Controller::render(frustum, mesh, type, caustics);
     }
 };
 

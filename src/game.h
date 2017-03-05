@@ -8,30 +8,29 @@
 namespace Game {
     Level *level;
 
-    void startLevel(Stream &stream, const char *sndName, bool demo, bool home) {
+    void startLevel(Stream *lvl, Stream *snd, bool demo, bool home) {
         delete level;
-        level = new Level(stream, demo, home);
+        level = new Level(*lvl, demo, home);
+        delete lvl;
 
         #ifndef __EMSCRIPTEN__    
             //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
-            Sound::play(new Stream(sndName), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
-        #endif            
+            Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
+        #endif
     }
 
-    void startLevel(const char *lvlName, const char *sndName, bool demo, bool home) {
-        Stream stream(lvlName);
-        startLevel(stream, sndName, demo, home);
-    }
-    
-    void init(char *lvlName = NULL, char *sndName = NULL) {
+    void init(Stream *lvl, Stream *snd) {
         Core::init();
         level = NULL;
-        
+        startLevel(lvl, snd, false, false);
+    }
+
+    void init(char *lvlName = NULL, char *sndName = NULL) {
         if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
         if (!sndName) sndName = (char*)"05.ogg";
-        startLevel(lvlName, sndName, false, false);
+        init(new Stream(lvlName), new Stream(sndName));
     }
-        
+
     void free() {
         delete level;
         Core::free();

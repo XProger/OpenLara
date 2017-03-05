@@ -491,7 +491,7 @@ namespace TR {
         } flags;
     // not exists in file
         uint16  align;
-        int16   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
+        int32   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
         void    *controller;    // Controller implementation or NULL 
 
         bool isEnemy() {
@@ -842,6 +842,7 @@ namespace TR {
         } extra;
 
         Level(Stream &stream, bool demo) {
+            int startPos = stream.pos;
             memset(this, 0, sizeof(*this));
             cutEntity = -1;
             Tile8 *tiles8 = NULL;
@@ -863,14 +864,13 @@ namespace TR {
 
             if (version == VER_TR1_PSX) {
                 uint32 offsetTexTiles;
-
                 stream.seek(8);
                 stream.read(offsetTexTiles);
             // sound offsets
                 uint16 numSounds;
-                stream.setPos(22);
+                stream.setPos(startPos + 22);
                 stream.read(numSounds);
-                stream.setPos(2086 + numSounds * 512);
+                stream.setPos(startPos + 2086 + numSounds * 512);
                 soundOffsetsCount = numSounds;
                 soundOffsets = new uint32[soundOffsetsCount];
                 soundSize    = new uint32[soundOffsetsCount];
@@ -882,9 +882,9 @@ namespace TR {
                     soundDataSize += soundSize[i] = size * 8;
                 }           
             // sound data
-                stream.setPos(2600 + numSounds * 512);
+                stream.setPos(startPos + 2600 + numSounds * 512);
                 stream.read(soundData, soundDataSize);
-                stream.setPos(offsetTexTiles + 8);
+                stream.setPos(startPos + offsetTexTiles + 8);
             } else if (version == VER_TR1_PC) {
             // tiles
                 stream.read(tiles8, stream.read(tilesCount));
@@ -1580,8 +1580,8 @@ namespace TR {
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
-            if (s.floor == -127) 
-                return;          
+            if (uint8(s.floor) == TR::NO_ROOM) 
+                return;
 
             Room::Sector *sBelow = &s;
             while (sBelow->roomBelow != NO_ROOM) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
@@ -1610,7 +1610,7 @@ namespace TR {
                 int dx = x % 1024;
                 int dz = z % 1024;
 
-                for (int i = 0; i < info.trigCmdCount; i++) {                    
+                for (int i = 0; i < info.trigCmdCount; i++) {
                     FloorData::TriggerCommand cmd = info.trigCmd[i];
                     if (cmd.action != Action::ACTIVATE) continue;
                     

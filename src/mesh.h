@@ -437,6 +437,7 @@ struct MeshBuilder {
                     iCount += 6;
                 }
             }
+        LOG("MegaMesh: %d %d %d\n", iCount, vCount, aCount);
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);

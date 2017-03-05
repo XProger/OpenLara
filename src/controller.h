@@ -17,6 +17,7 @@ struct IGame {
     virtual ~IGame() {}
     virtual TR::Level* getLevel() { return NULL; }
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
+    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics) {}
 };
 
 struct Controller {
@@ -54,7 +55,7 @@ struct Controller {
 
     Controller(IGame *game, int entity) : game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL), actionCommand(NULL) {
         TR::Entity &e = getEntity();
-        pos        = vec3((float)e.x, (float)e.y, (float)e.z);
+        pos        = vec3(float(e.x), float(e.y), float(e.z));
         angle      = vec3(0.0f, e.rotation, 0.0f);
         TR::Model  *m = getModel();
         joints     = m ? new Basis[m->mCount] : NULL;
@@ -493,7 +494,7 @@ struct Controller {
     }
 */
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh) { // TODO: animation.calcJoints
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO: animation.calcJoints
         mat4 matrix = getMatrix();
 
         Box box = animation.getBoundingBox(vec3(0, 0, 0), 0);

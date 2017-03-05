@@ -61,7 +61,7 @@ struct Sprite : Controller {
         }
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Basis basis(Core::basis);
         basis.translate(pos);
         Core::active.shader->setParam(uBasis, basis);

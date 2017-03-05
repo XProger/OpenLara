@@ -1,24 +1,23 @@
 R"====(
 #ifdef GL_ES
-    precision highp int;
+    precision lowp  int;
     precision highp float;
 #endif
 
 varying vec3 vCoord;
 varying vec2 vTexCoord;
 varying vec4 vProjCoord;
-varying vec3 vRefPos1;
-varying vec3 vRefPos2;
+varying vec4 vOldPos;
+varying vec4 vNewPos;
 varying vec3 vViewVec;
 varying vec3 vLightVec;
-
+/*
 #define WATER_DROP      0
 #define WATER_STEP      1
 #define WATER_CAUSTICS  2
 #define WATER_MASK      3
 #define WATER_COMPOSE   4
-
-uniform int   uType;
+*/
 uniform vec3  uViewPos;
 uniform mat4  uViewProj;
 uniform vec3  uLightPos;
@@ -39,14 +38,14 @@ uniform sampler2D sNormal;
     void main() {
         vTexCoord = (aCoord.xy * 0.5 + 0.5) * uTexParam.zw;
 
-        if (uType >= WATER_MASK) {
+        #if defined(WATER_MASK) || defined(WATER_COMPOSE)
 
             float height = 0.0;
 
-            if (uType == WATER_COMPOSE) {
+            #ifdef WATER_COMPOSE
                 vTexCoord = (aCoord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
                 height = texture2D(sNormal, vTexCoord).x;
-            }
+            #endif
 
             vCoord = vec3(aCoord.x, height, aCoord.y) * uPosScale[1] + uPosScale[0];
 
@@ -54,28 +53,28 @@ uniform sampler2D sNormal;
 
             vProjCoord  = cp;
             gl_Position = cp;
-        } else {
+        #else
             vProjCoord = vec4(0.0);
 			vCoord     = vec3(aCoord.xy, 0.0);
-            if (uType == WATER_CAUSTICS) {
-                vec3 rCoord = vec3(aCoord.x, 0.0, aCoord.y) * uPosScale[1];
+            #ifdef WATER_CAUSTICS
+                vec3 rCoord = vec3(aCoord.x, aCoord.y, 0.0) * uPosScale[1].xzy;
 
-                vec4 info = texture2D(sNormal, (rCoord.xz * 0.5 + 0.5) * uTexParam.zw);
-                vec3 normal = vec3(info.z, -sqrt(1.0 - dot(info.zw, info.zw)), info.w);
+                vec4 info = texture2D(sNormal, (rCoord.xy  * 0.5 + 0.5) * uTexParam.zw);
+                vec3 normal = vec3(info.z, info.w, sqrt(1.0 - dot(info.zw, info.zw)));
 
-                vec3 light = vec3(0.0, -1.0, 0.0);
-                vec3 refractedLight = refract(-light, vec3(0.0, 1.0, 0.0), ETA_AIR / ETA_WATER);
-                vec3 ray = refract(-light, normal, ETA_AIR / ETA_WATER);
+                vec3 light = vec3(0.0, 0.0, 1.0);
+                vec3 refOld = refract(-light, vec3(0.0, 0.0, 1.0), 0.75);
+                vec3 refNew = refract(-light, normal, 0.75);
                 
-                vRefPos1 = rCoord + vec3(0.0, 0.0, 0.0);
-                vRefPos2 = rCoord + vec3(0.0, info.r, 0.0) + ray / ray.y;
+                vOldPos = vec4(rCoord + refOld * (-0.25 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z), 1.0);              
+                vNewPos = vec4(rCoord + refNew * ((info.r - 0.25) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z), 1.0);
       
-                gl_Position = vec4((vRefPos2.xz + 0.0 * refractedLight.xz / refractedLight.y), 0.0, 1.0);
-            } else {
-                vRefPos1 = vRefPos2 = vec3(0.0);
+                gl_Position = vec4(vNewPos.xy + refOld.xy / refOld.z, 0.0, 1.0);
+            #else
+                vOldPos = vNewPos = vec4(0.0);
                 gl_Position = vec4(aCoord.xyz, 1.0);
-            }
-        }
+            #endif
+        #endif
         vViewVec  = uViewPos  - vCoord.xyz;
         vLightVec = uLightPos - vCoord.xyz;
     }
@@ -137,9 +136,10 @@ uniform sampler2D sNormal;
     }
 
     vec4 caustics() {
-        float area1 = length(dFdx(vRefPos1)) * length(dFdy(vRefPos1));
-        float area2 = length(dFdx(vRefPos2)) * length(dFdy(vRefPos2));
-        return vec4(vec3(area1 / area2 * 0.2), 1.0);
+        float rOldArea = length(dFdx(vOldPos.xyz)) * length(dFdy(vOldPos.xyz));
+        float rNewArea = length(dFdx(vNewPos.xyz)) * length(dFdy(vNewPos.xyz));
+        float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0) * vOldPos.w;
+        return vec4(vec3(value), 1.0);
     }
 
     vec4 mask() {
@@ -178,12 +178,28 @@ uniform sampler2D sNormal;
     }   
     
     vec4 pass() {
-        if (uType == WATER_DROP)       return drop();
-        if (uType == WATER_STEP)       return calc();
-        if (uType == WATER_CAUSTICS)   return caustics();
-        if (uType == WATER_MASK)       return mask();
-        if (uType == WATER_COMPOSE)    return compose();
-        return vec4(1.0, 0.0, 0.0, 1.0);
+        return
+        #ifdef WATER_DROP
+            drop();
+        #endif
+
+        #ifdef WATER_STEP
+            calc();
+        #endif
+
+        #ifdef WATER_CAUSTICS 
+            caustics();
+        #endif
+
+        #ifdef WATER_MASK
+            mask();
+        #endif
+
+        #ifdef WATER_COMPOSE
+            compose();
+        #endif
+
+        vec4(1.0, 0.0, 0.0, 1.0);
     }
     
     void main() {

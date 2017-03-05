@@ -18,9 +18,8 @@ extern "C" {
     }
     
     void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size, int home) {
-        Stream stream(data, size);
-        Game::startLevel(stream, NULL, false, home);
-    }    
+        Game::startLevel(new Stream(data, size), NULL, false, home);
+    }
 }
 
 InputKey joyToInputKey(int code) {

@@ -12,9 +12,6 @@
 
     #ifndef ANDROID
         #define LOG(...) printf(__VA_ARGS__)
-    #else
-        #include <android/log.h>
-        #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"X5",__VA_ARGS__)
     #endif
 
 #else
@@ -26,6 +23,13 @@
 //    #endif
 #endif
 
+#ifdef ANDROID
+        #include <android/log.h>
+        #undef LOG
+        #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
+#endif
+
+
 #define EPS     FLT_EPSILON
 #define INF		INFINITY
 #define PI      3.14159265358979323846f
@@ -34,9 +38,9 @@
 #define RAD2DEG (180.0f / PI)
 #define randf() ((float)rand()/RAND_MAX)
 
-typedef char            int8;
-typedef short           int16;
-typedef int             int32;
+typedef signed char     int8;
+typedef signed short    int16;
+typedef signed int      int32;
 typedef unsigned char   uint8;
 typedef unsigned short  uint16;
 typedef unsigned int    uint32;

@@ -119,6 +119,44 @@ void joyUpdate() {
         joyFree();
 }
 
+// touch
+typedef BOOL (__stdcall *PREGISTERTOUCHWINDOW)(HWND, ULONG);
+typedef BOOL (__stdcall *PGETTOUCHINPUTINFO)(HTOUCHINPUT, UINT, PTOUCHINPUT, int);
+typedef BOOL (__stdcall *PCLOSETOUCHINPUTHANDLE)(HTOUCHINPUT);
+
+PREGISTERTOUCHWINDOW    RegisterTouchWindowX;
+PGETTOUCHINPUTINFO      GetTouchInputInfoX;
+PCLOSETOUCHINPUTHANDLE  CloseTouchInputHandleX;
+
+#define MAX_TOUCH_COUNT 10
+
+void touchInit(HWND hWnd) {
+    int value = GetSystemMetrics(SM_DIGITIZER);
+    if (value) {
+        HMODULE hUser32 = LoadLibrary("user32.dll");
+        RegisterTouchWindowX     =   (PREGISTERTOUCHWINDOW)GetProcAddress(hUser32, "RegisterTouchWindow");
+        GetTouchInputInfoX       =     (PGETTOUCHINPUTINFO)GetProcAddress(hUser32, "GetTouchInputInfo");
+        CloseTouchInputHandleX   = (PCLOSETOUCHINPUTHANDLE)GetProcAddress(hUser32, "CloseTouchInputHandle");
+        if (RegisterTouchWindowX && GetTouchInputInfoX && CloseTouchInputHandleX)
+            RegisterTouchWindowX(hWnd, 0);
+    }
+}
+
+void touchUpdate(HTOUCHINPUT hTouch, int count) {
+    TOUCHINPUT touches[MAX_TOUCH_COUNT];
+    count = min(count, MAX_TOUCH_COUNT);
+
+    if (!GetTouchInputInfoX(hTouch, count, touches, sizeof(TOUCHINPUT)))
+        return;
+
+    LOG("touch [ ", count);
+    for (int i = 0; i < count; i++)
+        LOG("%d (%d, %d) ", i, touches[i].x, touches[i].y);
+    LOG("]\n");
+
+    CloseTouchInputHandleX(hTouch);
+}
+
 // sound
 #define SND_SIZE 4704*2
 
@@ -182,7 +220,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             Input::reset();
             break;
         case WM_SIZE:
-            Core::width = LOWORD(lParam);
+            Core::width  = LOWORD(lParam);
             Core::height = HIWORD(lParam);
             break;
         case WM_DESTROY:
@@ -242,6 +280,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             joyInit();
             return 1;
         // touch
+        case WM_TOUCH :
+            touchUpdate((HTOUCHINPUT)lParam, wParam);
+            break;
         // TODO
         // sound
         default :
@@ -293,6 +334,7 @@ int main(int argc, char** argv) {
     
     Sound::channelsCount = 0;
 
+    touchInit(hWnd);
     joyInit();
     sndInit(hWnd);
 

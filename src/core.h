@@ -6,6 +6,30 @@
     #include <windows.h>
     #include <gl/GL.h>
     #include <gl/glext.h>
+#elif ANDROID
+    #define MOBILE
+	#include <GLES2/gl2.h>
+	#include <GLES2/gl2ext.h>
+    #include <dlfcn.h>
+
+	#define GL_TEXTURE_COMPARE_MODE		0x884C
+	#define GL_TEXTURE_COMPARE_FUNC		0x884D
+	#define GL_COMPARE_REF_TO_TEXTURE	0x884E
+
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
+    #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
+    #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
+    #define glGenVertexArrays            glGenVertexArraysOES
+    #define glDeleteVertexArrays         glDeleteVertexArraysOES
+    #define glBindVertexArray            glBindVertexArrayOES
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -18,16 +42,11 @@
     #include <OpenGL/gl.h>
     #include <OpenGL/glext.h>
     #include <AGL/agl.h>
-/*
- * In compatibility mode, Mac OS X only supports OpenGL 2 (no VAO), but it does 
- * support the Apple-specific VAO extension which is older and in all relevant 
- * parts 100% compatible. So use those functions instead.
- */
-#define glBindVertexArray glBindVertexArrayAPPLE
-#define glGenVertexArrays glGenVertexArraysAPPLE
-#define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+    #define glGenVertexArrays    glGenVertexArraysAPPLE
+    #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+    #define glBindVertexArray    glBindVertexArrayAPPLE
 #elif __EMSCRIPTEN__
-    #define MOBILE 1
+    #define MOBILE
     #include <emscripten.h>
     #include <html5.h>
     #include <GLES3/gl3.h>
@@ -46,68 +65,80 @@
 #include "input.h"
 #include "sound.h"
 
-#if defined(WIN32) || defined(LINUX)
-    void* GetProc(const char *name) {
-        #ifdef WIN32
-            return (void*)wglGetProcAddress(name);
-        #elif LINUX
-            return (void*)glXGetProcAddress((GLubyte*)name);
-        #endif
-    }
+#if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+
+    #ifdef ANDROID
+        #define GetProc(x) dlsym(libGL, x);
+    #else
+        void* GetProc(const char *name) {
+            #ifdef WIN32
+                return (void*)wglGetProcAddress(name);
+            #elif LINUX
+                return (void*)glXGetProcAddress((GLubyte*)name);
+            #endif
+        }
+    #endif
 
     #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
 
 // Texture
     #ifdef WIN32
-    PFNGLACTIVETEXTUREPROC              glActiveTexture;
+        PFNGLACTIVETEXTUREPROC              glActiveTexture;
     #endif
-// Shader
-    PFNGLCREATEPROGRAMPROC              glCreateProgram;
-    PFNGLDELETEPROGRAMPROC              glDeleteProgram;
-    PFNGLLINKPROGRAMPROC                glLinkProgram;
-    PFNGLUSEPROGRAMPROC                 glUseProgram;
-    PFNGLGETPROGRAMINFOLOGPROC          glGetProgramInfoLog;
-    PFNGLCREATESHADERPROC               glCreateShader;
-    PFNGLDELETESHADERPROC               glDeleteShader;
-    PFNGLSHADERSOURCEPROC               glShaderSource;
-    PFNGLATTACHSHADERPROC               glAttachShader;
-    PFNGLCOMPILESHADERPROC              glCompileShader;
-    PFNGLGETSHADERINFOLOGPROC           glGetShaderInfoLog;
-    PFNGLGETUNIFORMLOCATIONPROC         glGetUniformLocation;
-    PFNGLUNIFORM1IVPROC                 glUniform1iv;
-    PFNGLUNIFORM1FVPROC                 glUniform1fv;
-    PFNGLUNIFORM2FVPROC                 glUniform2fv;
-    PFNGLUNIFORM3FVPROC                 glUniform3fv;
-    PFNGLUNIFORM4FVPROC                 glUniform4fv;
-    PFNGLUNIFORMMATRIX4FVPROC           glUniformMatrix4fv;
-    PFNGLBINDATTRIBLOCATIONPROC         glBindAttribLocation;
-    PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
-    PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
-    PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
-// Mesh
-    PFNGLGENBUFFERSARBPROC              glGenBuffers;
-    PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
-    PFNGLBINDBUFFERARBPROC              glBindBuffer;
-    PFNGLBUFFERDATAARBPROC              glBufferData;
+
+    #if defined(WIN32) || defined(LINUX)
+    // Profiling
+        #ifdef PROFILE
+            PFNGLOBJECTLABELPROC                glObjectLabel;
+            PFNGLPUSHDEBUGGROUPPROC             glPushDebugGroup;
+            PFNGLPOPDEBUGGROUPPROC              glPopDebugGroup;
+        #endif
+    // Shader
+        PFNGLCREATEPROGRAMPROC              glCreateProgram;
+        PFNGLDELETEPROGRAMPROC              glDeleteProgram;
+        PFNGLLINKPROGRAMPROC                glLinkProgram;
+        PFNGLUSEPROGRAMPROC                 glUseProgram;
+        PFNGLGETPROGRAMINFOLOGPROC          glGetProgramInfoLog;
+        PFNGLCREATESHADERPROC               glCreateShader;
+        PFNGLDELETESHADERPROC               glDeleteShader;
+        PFNGLSHADERSOURCEPROC               glShaderSource;
+        PFNGLATTACHSHADERPROC               glAttachShader;
+        PFNGLCOMPILESHADERPROC              glCompileShader;
+        PFNGLGETSHADERINFOLOGPROC           glGetShaderInfoLog;
+        PFNGLGETUNIFORMLOCATIONPROC         glGetUniformLocation;
+        PFNGLUNIFORM1IVPROC                 glUniform1iv;
+        PFNGLUNIFORM1FVPROC                 glUniform1fv;
+        PFNGLUNIFORM2FVPROC                 glUniform2fv;
+        PFNGLUNIFORM3FVPROC                 glUniform3fv;
+        PFNGLUNIFORM4FVPROC                 glUniform4fv;
+        PFNGLUNIFORMMATRIX4FVPROC           glUniformMatrix4fv;
+        PFNGLBINDATTRIBLOCATIONPROC         glBindAttribLocation;
+        PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
+        PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
+        PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
+    // Render to texture
+        PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
+        PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
+        PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
+        PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
+        PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
+        PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
+        PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
+        PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
+    // Mesh
+        PFNGLGENBUFFERSARBPROC              glGenBuffers;
+        PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
+        PFNGLBINDBUFFERARBPROC              glBindBuffer;
+        PFNGLBUFFERDATAARBPROC              glBufferData;
+    #endif
+
     PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
     PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
     PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
-// Render to texture
-    PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
-    PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
-    PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
-    PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
-    PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
-    PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
-    PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
-    PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
-    PFNGLDRAWBUFFERSPROC                glDrawBuffers;
-// Profiling
-    #ifdef PROFILE
-        PFNGLOBJECTLABELPROC                glObjectLabel;
-        PFNGLPUSHDEBUGGROUPPROC             glPushDebugGroup;
-        PFNGLPOPDEBUGGROUPPROC              glPopDebugGroup;
-    #endif
+#endif
+
+#ifdef MOBILE
+    PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
 #define MAX_LIGHTS          3
@@ -152,7 +183,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater, passMAX } pass;
 
     GLuint FBO;
     struct RenderTargetCache {
@@ -167,6 +198,7 @@ namespace Core {
     struct {
         Shader  *shader;
         Texture *textures[8];
+        Texture *target;
         GLuint  VAO;
     } active;
 
@@ -176,9 +208,10 @@ namespace Core {
     } stats;
 
     struct {
+        bool VAO;
         bool depthTexture;
         bool shadowSampler;
-        bool VAO;
+        bool discardFrame;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
     } support;
@@ -198,62 +231,76 @@ namespace Core {
     }
 
     void init() {
-    #if defined(WIN32) || defined(LINUX)
-        #ifdef WIN32
-        GetProcOGL(glActiveTexture);
+        #ifdef ANDROID
+            void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
-        GetProcOGL(glCreateProgram);
-        GetProcOGL(glDeleteProgram);
-        GetProcOGL(glLinkProgram);
-        GetProcOGL(glUseProgram);
-        GetProcOGL(glGetProgramInfoLog);
-        GetProcOGL(glCreateShader);
-        GetProcOGL(glDeleteShader);
-        GetProcOGL(glShaderSource);
-        GetProcOGL(glAttachShader);
-        GetProcOGL(glCompileShader);
-        GetProcOGL(glGetShaderInfoLog);
-        GetProcOGL(glGetUniformLocation);
-        GetProcOGL(glUniform1iv);
-        GetProcOGL(glUniform1fv);
-        GetProcOGL(glUniform2fv);
-        GetProcOGL(glUniform3fv);
-        GetProcOGL(glUniform4fv);
-        GetProcOGL(glUniformMatrix4fv);
-        GetProcOGL(glBindAttribLocation);
-        GetProcOGL(glEnableVertexAttribArray);
-        GetProcOGL(glDisableVertexAttribArray);
-        GetProcOGL(glVertexAttribPointer);
 
-        GetProcOGL(glGenBuffers);
-        GetProcOGL(glDeleteBuffers);
-        GetProcOGL(glBindBuffer);
-        GetProcOGL(glBufferData);
-        GetProcOGL(glGenVertexArrays);
-        GetProcOGL(glDeleteVertexArrays);
-        GetProcOGL(glBindVertexArray);
+        #if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+            #ifdef WIN32
+                GetProcOGL(glActiveTexture);
+            #endif
 
-        GetProcOGL(glGenFramebuffers);
-        GetProcOGL(glBindFramebuffer);
-        GetProcOGL(glGenRenderbuffers);
-        GetProcOGL(glBindRenderbuffer);
-        GetProcOGL(glFramebufferTexture2D);
-        GetProcOGL(glFramebufferRenderbuffer);
-        GetProcOGL(glRenderbufferStorage);
-        GetProcOGL(glCheckFramebufferStatus);
-        GetProcOGL(glDrawBuffers);
+            #if defined(WIN32) || defined(LINUX)
+                #ifdef PROFILE
+                    GetProcOGL(glObjectLabel);
+                    GetProcOGL(glPushDebugGroup);
+                    GetProcOGL(glPopDebugGroup);
+                #endif
 
-        #ifdef PROFILE
-            GetProcOGL(glObjectLabel);
-            GetProcOGL(glPushDebugGroup);
-            GetProcOGL(glPopDebugGroup);
+                GetProcOGL(glCreateProgram);
+                GetProcOGL(glDeleteProgram);
+                GetProcOGL(glLinkProgram);
+                GetProcOGL(glUseProgram);
+                GetProcOGL(glGetProgramInfoLog);
+                GetProcOGL(glCreateShader);
+                GetProcOGL(glDeleteShader);
+                GetProcOGL(glShaderSource);
+                GetProcOGL(glAttachShader);
+                GetProcOGL(glCompileShader);
+                GetProcOGL(glGetShaderInfoLog);
+                GetProcOGL(glGetUniformLocation);
+                GetProcOGL(glUniform1iv);
+                GetProcOGL(glUniform1fv);
+                GetProcOGL(glUniform2fv);
+                GetProcOGL(glUniform3fv);
+                GetProcOGL(glUniform4fv);
+                GetProcOGL(glUniformMatrix4fv);
+                GetProcOGL(glBindAttribLocation);
+                GetProcOGL(glEnableVertexAttribArray);
+                GetProcOGL(glDisableVertexAttribArray);
+                GetProcOGL(glVertexAttribPointer);
+
+                GetProcOGL(glGenFramebuffers);
+                GetProcOGL(glBindFramebuffer);
+                GetProcOGL(glGenRenderbuffers);
+                GetProcOGL(glBindRenderbuffer);
+                GetProcOGL(glFramebufferTexture2D);
+                GetProcOGL(glFramebufferRenderbuffer);
+                GetProcOGL(glRenderbufferStorage);
+                GetProcOGL(glCheckFramebufferStatus);
+
+                GetProcOGL(glGenBuffers);
+                GetProcOGL(glDeleteBuffers);
+                GetProcOGL(glBindBuffer);
+                GetProcOGL(glBufferData);
+            #endif
+
+            #ifdef MOBILE
+                GetProcOGL(glDiscardFramebufferEXT);
+            #endif
+
+            GetProcOGL(glGenVertexArrays);
+            GetProcOGL(glDeleteVertexArrays);
+            GetProcOGL(glBindVertexArray);
         #endif
-    #endif
+
+
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-        //LOG("%s\n", ext);
-        support.depthTexture   = extSupport(ext, "_depth_texture");
-        support.shadowSampler  = extSupport(ext, "EXT_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+
         support.VAO            = extSupport(ext, "_vertex_array_object");
+        support.depthTexture   = extSupport(ext, "_depth_texture");
+        support.shadowSampler  = false;//extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
@@ -265,9 +312,10 @@ namespace Core {
         LOG("Version  : %s\n", glGetString(GL_VERSION));
 
         LOG("supports:\n");
+        LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
-        LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
+        LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");        
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
@@ -282,11 +330,11 @@ namespace Core {
             lightColor[i] = vec4(0, 0, 0, 1);
 
         frameIndex = 0;
-
+      
         uint32 data = 0xFF000000;
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data);
         data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data);
+        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data);       
     }
 
     void free() {
@@ -326,9 +374,10 @@ namespace Core {
         return cache.count++;
     }
 
-    void clear(const vec4 &color) {
+    void clear(bool clearColor, bool clearDepth, const vec4 &color) {
         glClearColor(color.x, color.y, color.z, color.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        if (GLbitfield mask = (clearColor ? GL_COLOR_BUFFER_BIT : 0) | (clearDepth ? GL_DEPTH_BUFFER_BIT : 0))
+            glClear(mask);
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -352,6 +401,7 @@ namespace Core {
     }
 
     void setBlending(BlendMode mode) {
+        mode = bmNone;
         switch (mode) {
             case bmNone :
                 glDisable(GL_BLEND);
@@ -389,28 +439,43 @@ namespace Core {
             glDisable(GL_DEPTH_TEST);
     }
 
-    void setTarget(Texture *target, int face = 0) {
+    void invalidateTarget(bool color, bool depth) {
+    #ifdef MOBILE
+        if (support.discardFrame && (color || depth)) {
+            int count = 0;
+            GLenum discard[2];
+            if (color) discard[count++] = active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
+            if (depth) discard[count++] = active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
+            glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
+        }
+    #endif
+    }
+
+    void setTarget(Texture *target, bool clear = false, int face = 0) {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glColorMask(true, true, true, true);
             setViewport(0, 0, Core::width, Core::height);
-            return;
+        } else {
+            GLenum texTarget = GL_TEXTURE_2D;
+            if (target->cube) 
+                texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+
+            bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+            int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+            glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
+            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
+
+            if (depth)
+                glColorMask(false, false, false, false);
+            setViewport(0, 0, target->width, target->height);
         }
+        active.target = target;
 
-        GLenum texTarget = GL_TEXTURE_2D;
-        if (target->cube) 
-            texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
-
-        bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
-        int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-        glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-        glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
-
-        if (depth)
-            glColorMask(false, false, false, false);
-        setViewport(0, 0, target->width, target->height);
+        if (clear)
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
 
     void copyTarget(Texture *texture, int xOffset, int yOffset, int x, int y, int width, int height) {

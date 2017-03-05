@@ -405,7 +405,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
     #ifdef _DEBUG            
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
@@ -414,7 +414,7 @@ struct Lara : Character {
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
-        reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
+        //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -2018,8 +2018,8 @@ struct Lara : Character {
         Core::setBlending(bmNone);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh) {
-        Controller::render(frustum, mesh);
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        Controller::render(frustum, mesh, type, caustics);
         chestOffset = animation.getJoints(getMatrix(), 7).pos; // TODO: move to update func
 
         if (braid)
@@ -2027,10 +2027,9 @@ struct Lara : Character {
 
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();
-            Core::active.shader->setParam(uType, Shader::FLASH);
+            game->setShader(Core::pass, Shader::FLASH, false);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
-            Core::active.shader->setParam(uType, Shader::ENTITY);
         }
     }
 };
