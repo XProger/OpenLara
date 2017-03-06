@@ -213,7 +213,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
             vec3 lv = uLightPos[0].xyz - vCoord.xyz;
             float fade = clamp(dot(lv, lv) / uLightColor[0].w, 0.0, 1.0);
 
-            return clamp(mix(rShadow, 1.0, fade), -lightProj.w, 1.0);
+            return mix(rShadow, 1.0, fade);
+        }
+
+        float getShadow() {
+            return min(dot(vNormal.xyz, uLightPos[0].xyz - vCoord), vLightProj.w) > 0.0 ? getShadow(vLightProj) : 1.0;
         }
 
         vec3 calcLight(vec3 normal, vec3 pos, vec4 color) {
@@ -272,16 +276,19 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     void main() {
         #ifndef PASS_SHADOW
             #ifndef PASS_AMBIENT
-                if (vCoord.y * uParam.z > uParam.w)
-                    discard;
+                #if defined(TYPE_ENTITY) && defined(CAUSTICS)
+                    if (vCoord.y * uParam.z > uParam.w)
+                        discard;
+                #endif
             #endif
         #endif
 
         vec4 color = texture2D(sDiffuse, vTexCoord.xy);
 
-//        if (color.w <= 0.6) {
-//            discard;
-//        }
+        #ifdef ALPHA_TEST
+            if (color.w <= 0.6)
+                discard;
+        #endif
         
         #ifdef PASS_SHADOW
             #ifdef SHADOW_COLOR
@@ -320,26 +327,20 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                     #endif
 
                     #ifdef TYPE_ROOM
-                        float rShadow = dot(normal, uLightPos[0].xyz - vCoord) > 0.0 ? getShadow(vLightProj) : 1.0;
-                        //light += calcLight(normal, uLightPos[0], uLightColor[0]);
-                        light += mix(min(uColor.w, vColor.w), vColor.w, rShadow);
+                        light += mix(min(uColor.w, vColor.w), vColor.w, getShadow());
                         #ifdef CAUSTICS
                             light += calcCaustics(normal);
                         #endif
-//color.xyz = vec3(rShadow);
-//light.xyz = vec3(1.0);
                     #endif
 
                     #ifdef TYPE_ENTITY    
                         vec3 rAmbient = calcAmbient(normal);
-                        float rShadow = getShadow(vLightProj);
+                        float rShadow = getShadow();
                         light += calcLight(normal, uLightPos[0], uLightColor[0]) * rShadow + rAmbient;
                         color.xyz += calcSpecular(normal, viewVec, uLightPos[0], uLightColor[0], uColor.w * rShadow + 0.03);
                         #ifdef CAUSTICS
                             light += calcCaustics(normal);
                         #endif
-//color.xyz = vec3(rShadow);
-//light.xyz = vec3(1.0);
                     #endif
 
                     #ifdef TYPE_MIRROR

@@ -31,6 +31,7 @@ const char GUI[] =
 
 #define FOG_DIST       (18 * 1024)
 #define WATER_FOG_DIST (8 * 1024)
+//#define WATER_USE_GRID
 
 struct Level : IGame {
     TR::Level   level;
@@ -89,6 +90,9 @@ struct Level : IGame {
 
                 for (int type = Shader::WATER_DROP; type <= Shader::WATER_COMPOSE; type++) {
                     sprintf(def, "%s#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, typeNames[type], WATER_FOG_DIST);
+                    #ifdef WATER_USE_GRID
+                        strcat(def, "#define WATER_USE_GRID %d\n");
+                    #endif
                     shaders[getIndex(Core::passWater, Shader::Type(type), false)] = new Shader(WATER, def);
                 }
             }
@@ -327,7 +331,7 @@ struct Level : IGame {
                 size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
                 pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
 
-                data[0]  = new Texture(nextPow2(w * 64), nextPow2(h * 64), Texture::RGBA_HALF, false);
+                data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
                 data[1]  = new Texture(data[0]->width, data[0]->height, Texture::RGBA_HALF, false);
                 caustics = new Texture(512, 512, Texture::RGB16, false);
                 blank = false;
@@ -458,6 +462,8 @@ struct Level : IGame {
             if (!dropCount) return;
 
             level->setShader(Core::passWater, Shader::WATER_DROP, false);
+            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
+
             vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f) };
             Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
             
@@ -482,6 +488,7 @@ struct Level : IGame {
             if (item.timer < SIMULATE_TIMESTEP) return;
 
             level->setShader(Core::passWater, Shader::WATER_STEP, false);
+            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
             Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, 0));
             
             while (item.timer >= SIMULATE_TIMESTEP) {
@@ -522,7 +529,6 @@ struct Level : IGame {
 
             level->setShader(Core::passWater, Shader::WATER_MASK, false);
             Core::active.shader->setParam(uTexParam, vec4(1.0f));
-            Core::setBlending(bmNone);
             Core::setCulling(cfNone);
             Core::setDepthWrite(false);
             Core::setColorWrite(false, false, false, true);
@@ -543,7 +549,7 @@ struct Level : IGame {
         // get refraction texture
             if (!refract || Core::width > refract->width || Core::height > refract->height) {
                 delete refract;
-                refract = new Texture(nextPow2(Core::width), nextPow2(Core::height), Texture::RGBA, false);
+                refract = new Texture(Core::width, Core::height, Texture::RGB16, false);
             }
             Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
 
@@ -583,7 +589,6 @@ struct Level : IGame {
                 item.mask->bind(sMask);
 
                 if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
-                    Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
                 // add water drops
                     drop(item);                    
                 // simulation step
@@ -603,7 +608,6 @@ struct Level : IGame {
 
                 level->setShader(Core::passWater, Shader::WATER_COMPOSE, false);
                 Core::active.shader->setParam(uViewProj,    Core::mViewProj);
-                Core::active.shader->setParam(uPosScale,    item.pos, 2);
                 Core::active.shader->setParam(uViewPos,     Core::viewPos);
                 Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
                 Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
@@ -613,19 +617,20 @@ struct Level : IGame {
                 float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
                 float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
-                Core::active.shader->setParam(uTexParam,    vec4(1.0f, 1.0f, sx, sz));
+                Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
 
                 refract->bind(sDiffuse);
                 reflect->bind(sReflect);
                 item.data[0]->bind(sNormal);
                 Core::setCulling(cfNone);
-                vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
-                Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-             //   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                //level->mesh->renderQuad();
-                level->mesh->renderPlane();
-              //  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
+                #ifdef WATER_USE_GRID
+                    vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
+                    Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+                    level->mesh->renderPlane();
+                #else
+                    Core::active.shader->setParam(uPosScale,    item.pos, 2);
+                    level->mesh->renderQuad();
+                #endif
                 Core::setCulling(cfFront);
             }
             dropCount = 0;
@@ -1150,6 +1155,7 @@ struct Level : IGame {
         Shader::Type type = isModel ? Shader::ENTITY : Shader::SPRITE;
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
+
         setRoomParams(entity.room, isModel ? controller->specular : intensityf(lum), type);
 
         if (isModel) { // model
@@ -1196,9 +1202,6 @@ struct Level : IGame {
         camera->update();
         waterCache->update();
     }
-
-
-
 
     void setup() {
         PROFILE_MARKER("SETUP");
@@ -1326,7 +1329,6 @@ struct Level : IGame {
         Core::pass = Core::passShadow;
         if (!setupLightCamera()) return;
         shadow->unbind(sShadow);
-        Core::setBlending(bmNone);
         bool colorShadow = shadow->format == Texture::Format::RGBA ? true : false;
         if (colorShadow)
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1343,12 +1345,10 @@ struct Level : IGame {
         PROFILE_MARKER("PASS_COMPOSE");
         Core::pass = Core::passCompose;
 
-        Core::setBlending(bmAlpha);
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
         shadow->bind(sShadow);
         renderScene(roomIndex);
-        Core::setBlending(bmNone);
     }
 
     void render() {
@@ -1443,7 +1443,7 @@ struct Level : IGame {
         Core::setDepthTest(true);
 
 
-
+        /*
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -1452,7 +1452,10 @@ struct Level : IGame {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-            shadow->bind(sDiffuse);
+            if (waterCache->count)
+                waterCache->refract->bind(sDiffuse);
+            else
+                atlas->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glDisable(GL_DEPTH_TEST);
@@ -1478,7 +1481,7 @@ struct Level : IGame {
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
-        
+        */
             
             Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);

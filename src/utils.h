@@ -733,7 +733,7 @@ struct Stream {
     #else
         f = fopen(name, "rb");
     #endif
-        if (!f) LOG("error loading file\n");
+        if (!f) LOG("error loading file \"%s\"\n", name);
         fseek(f, 0, SEEK_END);
         size = ftell(f);
         fseek(f, 0, SEEK_SET);

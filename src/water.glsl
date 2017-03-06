@@ -11,13 +11,7 @@ varying vec4 vOldPos;
 varying vec4 vNewPos;
 varying vec3 vViewVec;
 varying vec3 vLightVec;
-/*
-#define WATER_DROP      0
-#define WATER_STEP      1
-#define WATER_CAUSTICS  2
-#define WATER_MASK      3
-#define WATER_COMPOSE   4
-*/
+
 uniform vec3  uViewPos;
 uniform mat4  uViewProj;
 uniform vec3  uLightPos;
@@ -43,8 +37,10 @@ uniform sampler2D sNormal;
             float height = 0.0;
 
             #ifdef WATER_COMPOSE
-                vTexCoord = (aCoord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
-                height = texture2D(sNormal, vTexCoord).x;
+                #ifdef WATER_USE_GRID
+                    vTexCoord = (aCoord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
+                    height = texture2D(sNormal, vTexCoord).x;
+                #endif
             #endif
 
             vCoord = vec3(aCoord.x, height, aCoord.y) * uPosScale[1] + uPosScale[0];
@@ -177,29 +173,28 @@ uniform sampler2D sNormal;
         return color;
     }   
     
-    vec4 pass() {
-        return
+    vec4 pass() {        
         #ifdef WATER_DROP
-            drop();
+            return drop();
         #endif
 
         #ifdef WATER_STEP
-            calc();
+            return calc();
         #endif
 
         #ifdef WATER_CAUSTICS 
-            caustics();
+            return caustics();
         #endif
 
         #ifdef WATER_MASK
-            mask();
+            return mask();
         #endif
 
         #ifdef WATER_COMPOSE
-            compose();
+            return compose();
         #endif
 
-        vec4(1.0, 0.0, 0.0, 1.0);
+        return vec4(1.0, 0.0, 1.0, 1.0);
     }
     
     void main() {

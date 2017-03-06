@@ -11,7 +11,14 @@ struct Texture {
     Format  format;
     bool    cube;
 
-    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true) : width(width), height(height), cube(cube) {
+    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true) : cube(cube) {
+        if (!Core::support.texNPOT) {
+            width  = nextPow2(width);
+            height = nextPow2(height);
+        }
+        this->width  = width;
+        this->height = height;
+
         glGenTextures(1, &ID);
         bind(0);
 

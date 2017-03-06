@@ -13,10 +13,9 @@ namespace Game {
         level = new Level(*lvl, demo, home);
         delete lvl;
 
-        #ifndef __EMSCRIPTEN__    
-            //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
-            Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
-        #endif
+          
+        //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
+        Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
     }
 
     void init(Stream *lvl, Stream *snd) {
@@ -27,8 +26,10 @@ namespace Game {
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
         if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
-        if (!sndName) sndName = (char*)"05.ogg";
-        init(new Stream(lvlName), new Stream(sndName));
+        #ifndef __EMSCRIPTEN__  
+            if (!sndName) sndName = (char*)"05.ogg";
+        #endif
+        init(new Stream(lvlName), sndName ? new Stream(sndName) : NULL);
     }
 
     void free() {

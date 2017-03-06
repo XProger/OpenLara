@@ -212,6 +212,7 @@ namespace Core {
         bool depthTexture;
         bool shadowSampler;
         bool discardFrame;
+        bool texNPOT;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
     } support;
@@ -296,11 +297,12 @@ namespace Core {
 
 
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-
+        LOG("%s\n", ext);
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
-        support.shadowSampler  = false;//extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
+        support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
@@ -316,6 +318,7 @@ namespace Core {
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
         LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");        
+        LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");        
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
@@ -401,7 +404,6 @@ namespace Core {
     }
 
     void setBlending(BlendMode mode) {
-        mode = bmNone;
         switch (mode) {
             case bmNone :
                 glDisable(GL_BLEND);
