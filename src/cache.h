@@ -6,6 +6,8 @@
 #include "controller.h"
 #include "camera.h"
 
+#define NO_CLIP_PLANE  1000000.0f
+
 #define FOG_DIST       (18 * 1024)
 #define WATER_FOG_DIST (8 * 1024)
 //#define WATER_USE_GRID
@@ -27,10 +29,12 @@ const char GUI[] =
 ;
 
 struct ShaderCache {
-    Shader  *shaders[int(Core::passMAX) * Shader::MAX * 2];
+    IGame  *game;
+    Shader *shaders[Core::passMAX][Shader::MAX][2][2][2];
 
-    ShaderCache(IGame *game) {
+    ShaderCache(IGame *game) : game(game) {
         memset(shaders, 0, sizeof(shaders));
+        /*
         char def[255], ext[255];
 
         ext[0] = 0;
@@ -58,7 +62,7 @@ struct ShaderCache {
                         sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typeNames[type], MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
                         if (caustics)
                             strcat(def, "#define CAUSTICS\n");                    
-                        shaders[getIndex(Core::Pass(pass), Shader::Type(type), caustics == 1)]  = new Shader(SHADER, def);
+                        shaders[pass][Shader::MAX * caustics + type]  = new Shader(SHADER, def);
                     }
         }
 
@@ -70,28 +74,84 @@ struct ShaderCache {
                 #ifdef WATER_USE_GRID
                     strcat(def, "#define WATER_USE_GRID %d\n");
                 #endif
-                shaders[getIndex(Core::passWater, Shader::Type(type), false)] = new Shader(WATER, def);
+                shaders[Core::passWater][type] = new Shader(WATER, def);
             }
         }
-        shaders[getIndex(Core::passFilter, Shader::FILTER_DOWNSAMPLE, false)]  = new Shader(FILTER, "");
+        shaders[Core::passFilter][Shader::FILTER_DOWNSAMPLE]  = new Shader(FILTER, "");
+        */
     }
 
     ~ShaderCache() {
-        for (int i = 0; i < sizeof(shaders) / sizeof(shaders[0]); i++)
-            delete shaders[i];
+        for (int pass = 0; pass < Core::passMAX; pass++)
+            for (int type = 0; type < Shader::MAX; type++)
+                for (int caustics = 0; caustics < 2; caustics++)
+                    for (int alphaTest = 0; alphaTest < 2; alphaTest++)
+                        for (int clipPlane = 0; clipPlane < 2; clipPlane++)
+                            delete shaders[pass][type][caustics][alphaTest][clipPlane];
     }
 
-    int getIndex(Core::Pass pass, Shader::Type type, bool caustics) {
-        int index = int(pass) * Shader::MAX * 2 + type * 2 + int(caustics);
-        ASSERT(index < sizeof(shaders) / sizeof(shaders[0]));
-        return index;
+    Shader* compile(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false, bool clipPlane = false) {
+        char def[255], ext[255];
+        ext[0] = 0;
+		if (Core::support.shadowSampler) {
+			#ifdef MOBILE
+				strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
+			#endif
+			strcat(ext, "#define SHADOW_SAMPLER\n");
+		} else
+			if (Core::support.depthTexture)
+				strcat(ext, "#define SHADOW_DEPTH\n");
+			else
+				strcat(ext, "#define SHADOW_COLOR\n");
+
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "FILTER", "WATER" };
+        const char *src = NULL;
+        const char *typ = NULL;
+        switch (pass) {
+            case Core::passCompose :
+            case Core::passShadow  :
+            case Core::passAmbient : {
+                static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
+                src = SHADER;
+                typ = typeNames[type];
+                int animTexRangesCount  = game->getMesh()->animTexRangesCount;
+                int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
+                if (caustics)  strcat(def, "#define CAUSTICS\n");
+                if (alphaTest) strcat(def, "#define ALPHA_TEST\n");
+                if (clipPlane) strcat(def, "#define CLIP_PLANE\n");
+                break;
+            }
+            case Core::passWater   : {
+                static const char *typeNames[] = { "DROP", "STEP", "CAUSTICS", "MASK", "COMPOSE" };
+                src = WATER;
+                typ = typeNames[type];
+                sprintf(def, "%s#define PASS_%s\n#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, WATER_FOG_DIST);
+                #ifdef WATER_USE_GRID
+                    strcat(def, "#define WATER_USE_GRID\n");
+                #endif
+                break;
+            }
+            case Core::passFilter  : {
+                static const char *typeNames[] = { "DOWNSAMPLE" };
+                src = FILTER;
+                typ = typeNames[type];
+                sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
+                break;
+            }
+            default : ASSERT(false);
+        }
+        LOG("shader: compile %s -> %s %s%s%s\n", passNames[pass], typ, caustics ? "caustics " : "", alphaTest ? "alphaTest " : "", clipPlane ? "clipPlane" : "");
+        return shaders[pass][type][caustics][alphaTest][clipPlane] = new Shader(src, def);
     }
 
-    void bind(Core::Pass pass, Shader::Type type, bool caustics = false) {
+    void bind(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false, bool clipPlane = false) {
         Core::pass = pass;
-        int index = getIndex(pass, type, caustics);
-        ASSERT(shaders[index] != NULL);
-        shaders[index]->bind();
+        Shader *shader = shaders[pass][type][caustics][alphaTest][clipPlane];
+        if (!shader)
+            shader = compile(pass, type, caustics, alphaTest, clipPlane);
+        ASSERT(shader != NULL);
+        shader->bind();
     }
 
 };
@@ -425,7 +485,7 @@ struct WaterCache {
         if (!item || !item->caustics) {                
             Core::blackTex->bind(sReflect);
             Core::active.shader->setParam(uRoomSize, vec4(0.0f));
-            game->setWaterParams(-10000000.0f);
+            game->setWaterParams(-NO_CLIP_PLANE);
         } else {
             item->caustics->bind(sReflect);
             Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
@@ -559,7 +619,7 @@ struct WaterCache {
             game->updateParams();
             game->renderCompose(underwater ? item.from : item.to);
             Core::invalidateTarget(false, true);
-            game->setClipParams(1.0f, 1000000.0f);
+            game->setClipParams(1.0f, NO_CLIP_PLANE);
             game->updateParams();
 
             camera->reflectPlane = NULL;

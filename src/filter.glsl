@@ -6,15 +6,13 @@ R"====(
 
 varying vec2 vTexCoord;
 
-#define FILTER_DOWNSAMPLE 0
-
 uniform int uType;
 
 #ifdef VERTEX
     attribute vec4 aCoord;
 
     void main() {        
-        vTexCoord = aCoord.zw;
+        vTexCoord   = aCoord.zw;
         gl_Position = vec4(aCoord.xy, 0.0, 1.0);
     }
 #else
@@ -38,8 +36,10 @@ uniform int uType;
     }
     
     vec4 filter() {
-        if (uType == FILTER_DOWNSAMPLE) return downsample();
-        return vec4(1.0, 0.0, 0.0, 1.0);
+        #ifdef FILTER_DOWNSAMPLE
+            return downsample();
+        #endif
+        return vec4(1.0, 0.0, 1.0, 1.0);
     }
     
     void main() {

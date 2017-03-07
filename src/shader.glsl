@@ -276,7 +276,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     void main() {
         #ifndef PASS_SHADOW
             #ifndef PASS_AMBIENT
-                #if defined(TYPE_ENTITY) && defined(CAUSTICS)
+                #ifdef CLIP_PLANE
                     if (vCoord.y * uParam.z > uParam.w)
                         discard;
                 #endif
@@ -353,7 +353,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
                 #else // ifndef TYPE_FLASH
 
-                    color.w = uColor.w;
+                    color.w *= uColor.w;
 
                 #endif
             #endif

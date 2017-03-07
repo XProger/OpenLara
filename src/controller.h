@@ -24,7 +24,7 @@ struct IGame {
     virtual void setWaterParams(float height) {}
     virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics) {}
+    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex) {}
 };

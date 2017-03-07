@@ -65,8 +65,8 @@ struct Level : IGame {
         waterCache->addDrop(pos, radius, strength);
     }
 
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics) {
-        shaderCache->bind(pass, type, caustics);
+    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false) {
+        shaderCache->bind(pass, type, caustics, alphaTest, params.clipHeight != NO_CLIP_PLANE);
     }
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
@@ -391,7 +391,7 @@ struct Level : IGame {
     }
 #endif
 
-    void setRoomParams(int roomIndex, float intensity, Shader::Type type) {
+    void setRoomParams(int roomIndex, float intensity, Shader::Type type, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
             setShader(Core::pass, type, false);
             return;
@@ -399,7 +399,7 @@ struct Level : IGame {
 
         TR::Room &room = level.rooms[roomIndex];
 
-        setShader(Core::pass, type, room.flags.water);
+        setShader(Core::pass, type, room.flags.water, alphaTest);
 
         if (room.flags.water) {
             Core::color = vec4(waterCache->color, intensity);
@@ -447,7 +447,7 @@ struct Level : IGame {
 
             // render room sprites
                 if (mesh->hasRoomSprites(roomIndex)) {
-                    setRoomParams(roomIndex, 1.0, Shader::SPRITE);
+                    setRoomParams(roomIndex, 1.0, Shader::SPRITE, true);
                     sh = Core::active.shader;
                     sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                     sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
@@ -554,7 +554,7 @@ struct Level : IGame {
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
-        setRoomParams(entity.room, isModel ? controller->specular : intensityf(lum), type);
+        setRoomParams(entity.room, isModel ? controller->specular : intensityf(lum), type, !isModel);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -615,18 +615,21 @@ struct Level : IGame {
         if (!Core::support.VAO)
             mesh->bind();
         //Core::mViewProj = Core::mLightProj;
-        // set frame constants for all shaders
-        for (int i = 0; i < sizeof(shaderCache->shaders) / sizeof(shaderCache->shaders[0]); i++) {
-            Shader *sh = shaderCache->shaders[i];
-            if (!sh) continue;
-            sh->bind();
-            sh->setParam(uViewProj,         Core::mViewProj);
-            sh->setParam(uLightProj,        Core::mLightProj);
-            sh->setParam(uViewInv,          Core::mViewInv);
-            sh->setParam(uViewPos,          Core::viewPos);
-            sh->setParam(uParam,            *((vec4*)&params));
-            sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
-            sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
+        // set frame constants for all shaders        
+        for (int i = 0; i < sizeof(shaderCache->shaders[Core::pass]) / sizeof(shaderCache->shaders[Core::pass][0]); i++) {
+            Shader **ptr = &shaderCache->shaders[Core::pass][i][0][0][0];
+            for (int j = 0; j < 8; j++) {
+                Shader *sh = *ptr++;
+                if (!sh) continue;
+                sh->bind();
+                sh->setParam(uViewProj,         Core::mViewProj);
+                sh->setParam(uLightProj,        Core::mLightProj);
+                sh->setParam(uViewInv,          Core::mViewInv);
+                sh->setParam(uViewPos,          Core::viewPos);
+                sh->setParam(uParam,            *((vec4*)&params));
+                sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
+                sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
+            }
         }
         Core::basis.identity();
 
@@ -728,7 +731,7 @@ struct Level : IGame {
 
     void render() {
         Core::invalidateTarget(true, true);
-        params.clipHeight  = 1000000.0f;
+        params.clipHeight  = NO_CLIP_PLANE;
         params.clipSign    = 1.0f;
         params.waterHeight = params.clipHeight;
         Core::resetStates();

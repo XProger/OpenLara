@@ -2011,11 +2011,9 @@ struct Lara : Character {
         Basis b(basis);
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
         b.translate(offset);
-        Core::setBlending(bmAlpha);
         Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
         Core::active.shader->setParam(uBasis, b);
         mesh->renderModel(level->extra.muzzleFlash);
-        Core::setBlending(bmNone);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
@@ -2028,8 +2026,12 @@ struct Lara : Character {
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();
             game->setShader(Core::pass, Shader::FLASH, false);
+            Core::setBlending(bmAlpha);
+            Core::setDepthWrite(false);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
+            Core::setBlending(bmNone);
+            Core::setDepthWrite(true);
         }
     }
 };

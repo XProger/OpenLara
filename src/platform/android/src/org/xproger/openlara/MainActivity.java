@@ -44,7 +44,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         super.onCreate(savedInstanceState);
 
         view = new GLSurfaceView(this);
-        view.setEGLConfigChooser(5, 6, 5, 0, 16, 0);
+        view.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
         view.setEGLContextClientVersion(2);
         view.setRenderer(wrapper = new Wrapper());
 
