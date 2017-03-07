@@ -13,11 +13,20 @@
 
 #define MAX_LAYERS  4
 
+struct Controller;
+
 struct IGame {
     virtual ~IGame() {}
-    virtual TR::Level* getLevel() { return NULL; }
+    virtual TR::Level*   getLevel()  { return NULL; }
+    virtual MeshBuilder* getMesh()   { return NULL; }
+    virtual Controller*  getCamera() { return NULL; }
+    virtual void setClipParams(float clipSign, float clipHeight) {}
+    virtual void setWaterParams(float height) {}
+    virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics) {}
+    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
+    virtual void renderCompose(int roomIndex) {}
 };
 
 struct Controller {

@@ -295,9 +295,8 @@ namespace Core {
             GetProcOGL(glBindVertexArray);
         #endif
 
-
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-        LOG("%s\n", ext);
+        //LOG("%s\n", ext);
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
         support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");

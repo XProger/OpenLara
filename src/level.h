@@ -4,6 +4,7 @@
 #include "core.h"
 #include "utils.h"
 #include "format.h"
+#include "cache.h"
 #include "lara.h"
 #include "enemy.h"
 #include "camera.h"
@@ -12,26 +13,6 @@
 #ifdef _DEBUG
     #include "debug.h"
 #endif
-
-const char SHADER[] =
-    #include "shader.glsl"
-;
-
-const char FILTER[] =
-    #include "filter.glsl"
-;
-
-const char WATER[] =
-    #include "water.glsl"
-;
-
-const char GUI[] =
-    #include "gui.glsl"
-;
-
-#define FOG_DIST       (18 * 1024)
-#define WATER_FOG_DIST (8 * 1024)
-//#define WATER_USE_GRID
 
 struct Level : IGame {
     TR::Level   level;
@@ -43,8 +24,6 @@ struct Level : IGame {
     Camera      *camera;
     Texture     *shadow;
 
-    vec3        waterColor;
-
     struct {
         float   time;
         float   waterHeight;
@@ -52,639 +31,34 @@ struct Level : IGame {
         float   clipHeight;
     } params;
 
-    struct ShaderCache {
-        Shader  *shaders[int(Core::passMAX) * Shader::MAX * 2];
-
-        ShaderCache(int animTexRangesCount, int animTexOffsetsCount) {
-            memset(shaders, 0, sizeof(shaders));
-            char def[255], ext[255];
-
-            ext[0] = 0;
-		    if (Core::support.shadowSampler) {
-			    #ifdef MOBILE
-				    strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
-			    #endif
-			    strcat(ext, "#define SHADOW_SAMPLER\n");
-		    } else
-			    if (Core::support.depthTexture)
-				    strcat(ext, "#define SHADOW_DEPTH\n");
-			    else
-				    strcat(ext, "#define SHADOW_COLOR\n");
-
-            {
-                const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT" };
-                const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
-
-                for (int pass = Core::passCompose; pass <= Core::passAmbient; pass++)
-                    for (int caustics = 0; caustics < 2; caustics++)
-                        for (int type = Shader::SPRITE; type <= Shader::MIRROR; type++) {
-                            sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typeNames[type], MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
-                            if (caustics)
-                                strcat(def, "#define CAUSTICS\n");                    
-                            shaders[getIndex(Core::Pass(pass), Shader::Type(type), caustics == 1)]  = new Shader(SHADER, def);
-                        }
-            }
-
-            {
-                const char *typeNames[] = { "DROP", "STEP", "CAUSTICS", "MASK", "COMPOSE" };
-
-                for (int type = Shader::WATER_DROP; type <= Shader::WATER_COMPOSE; type++) {
-                    sprintf(def, "%s#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, typeNames[type], WATER_FOG_DIST);
-                    #ifdef WATER_USE_GRID
-                        strcat(def, "#define WATER_USE_GRID %d\n");
-                    #endif
-                    shaders[getIndex(Core::passWater, Shader::Type(type), false)] = new Shader(WATER, def);
-                }
-            }
-            shaders[getIndex(Core::passFilter, Shader::FILTER_DOWNSAMPLE, false)]  = new Shader(FILTER, "");
-        }
-
-        ~ShaderCache() {
-            for (int i = 0; i < sizeof(shaders) / sizeof(shaders[0]); i++)
-                delete shaders[i];
-        }
-
-        int getIndex(Core::Pass pass, Shader::Type type, bool caustics) {
-            int index = int(pass) * Shader::MAX * 2 + type * 2 + int(caustics);
-            ASSERT(index < sizeof(shaders) / sizeof(shaders[0]));
-            return index;
-        }
-
-        void bind(Core::Pass pass, Shader::Type type, bool caustics = false) {
-            Core::pass = pass;
-            int index = getIndex(pass, type, caustics);
-            ASSERT(shaders[index] != NULL);
-            shaders[index]->bind();
-        }
-
-    } *shaderCache;
-
-    struct AmbientCache {
-        Level *level;
-
-        struct Cube {
-            enum int32 {
-                BLANK, WAIT, READY
-            }    status;
-            vec3 colors[6];
-        } *items;
-        int *offsets;
-
-        struct Task {
-            int  room;
-            int  sector;
-            Cube *cube;
-        } tasks[32];
-        int tasksCount;
-
-        Texture *textures[6 * 4]; // 64, 16, 4, 1 
-
-        AmbientCache(Level *level) : level(level), tasksCount(0) {
-            items   = NULL;
-            offsets = new int[level->level.roomsCount];
-            int sectors = 0;
-            for (int i = 0; i < level->level.roomsCount; i++) {
-                TR::Room &r = level->level.rooms[i];
-                offsets[i] = sectors;
-                sectors += r.xSectors * r.zSectors;
-            }
-        // init cache buffer
-            items = new Cube[sectors];
-            memset(items, 0, sizeof(Cube) * sectors);
-        // init downsample textures
-            for (int j = 0; j < 6; j++)
-                for (int i = 0; i < 4; i++)
-                    textures[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), Texture::RGBA, false);
-        }
-
-        ~AmbientCache() {
-            delete[] items;
-            delete[] offsets;
-            for (int i = 0; i < 6 * 4; i++)
-                delete textures[i];
-        }
-
-        void addTask(int room, int sector) {
-            if (tasksCount >= 32) return;
-
-            Task &task  = tasks[tasksCount++];
-            task.room   = room;
-            task.sector = sector;
-            task.cube   = &items[offsets[room] + sector];
-            task.cube->status = Cube::WAIT;
-        }
-
-        void renderAmbient(int room, int sector, vec3 *colors) {
-            PROFILE_MARKER("PASS_AMBIENT");
-                
-            TR::Room &r = level->level.rooms[room];
-            TR::Room::Sector &s = r.sectors[sector];
-            
-            vec3 pos = vec3(float((sector / r.zSectors) * 1024 + 512 + r.info.x), 
-                            float(max((s.floor - 2) * 256, (s.floor + s.ceiling) * 256 / 2)),
-                            float((sector % r.zSectors) * 1024 + 512 + r.info.z));
-
-            // first pass - render environment from position (room geometry & static meshes)
-            level->renderEnvironment(room, pos, textures, 4);
-
-            // second pass - downsample it
-            Core::setDepthTest(false);
-
-            level->shaderCache->bind(Core::passFilter, Shader::FILTER_DOWNSAMPLE, false);
-
-            for (int i = 1; i < 4; i++) {
-                int size = 64 >> (i << 1);
-
-                Core::active.shader->setParam(uParam, vec4(float(size << 2), 0.0f, 0.0f, 0.0f));
-
-                for (int j = 0; j < 6; j++) {
-                    Texture *src = textures[j * 4 + i - 1];
-                    Texture *dst = textures[j * 4 + i];
-                    Core::setTarget(dst, true);
-                    src->bind(sDiffuse);
-                    level->mesh->renderQuad();
-                }
-            }
-
-            // get result color from 1x1 textures
-            for (int j = 0; j < 6; j++) {
-                Core::setTarget(textures[j * 4 + 3]);
-
-                TR::Color32 color;
-                glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-                colors[j] = vec3(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f);
-                colors[j] *= colors[j]; // to "linear" space
-            }
-
-            Core::setDepthTest(true);
-        }
-
-        void precessQueue() {
-            for (int i = 0; i < tasksCount; i++) {
-                Task &task = tasks[i];
-                renderAmbient(task.room, task.sector, &task.cube->colors[0]);
-                task.cube->status = Cube::READY;
-            }
-            tasksCount = 0;
-        }
-
-        Cube* getAmbient(int room, int sector) {
-            Cube *cube = &items[offsets[room] + sector];
-            if (cube->status == Cube::BLANK)
-                addTask(room, sector);            
-            return cube->status == Cube::READY ? cube : NULL;
-        }
-
-        void getAmbient(int room, const vec3 &pos, Cube &value) {
-            TR::Room &r = level->level.rooms[room];
-            
-            int sx = clamp((int(pos.x) - r.info.x) / 1024, 0, r.xSectors - 1);
-            int sz = clamp((int(pos.z) - r.info.z) / 1024, 0, r.zSectors - 1);
-            
-            int sector = sx * r.zSectors + sz;
-            Cube *a = getAmbient(room, sector);
-            if (a)
-                value = *a;
-            else
-                value.status = Cube::BLANK;
-        }
-    } *ambientCache;
-
-    struct WaterCache {
-        #define MAX_SURFACES       8
-        #define MAX_INVISIBLE_TIME 5.0f
-        #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
-        #define DETAIL             (64.0f / 1024.0f)
-        #define MAX_DROPS          32
-
-        Level   *level;
-        Texture *refract;
-        Texture *reflect;
-
-        struct Item {
-            int     from, to, caust;
-            float   timer;
-            bool    visible;
-            bool    blank;
-            vec3    pos, size;
-            Texture *mask;
-            Texture *caustics;
-            Texture *data[2];
-
-            Item() {
-                mask = caustics = data[0] = data[1] = NULL;
-            }
-
-            Item(int from, int to) : from(from), to(to), caust(to), timer(SIMULATE_TIMESTEP), visible(true), blank(true) {
-                mask = caustics = data[0] = data[1] = NULL;
-            }
-
-            void init(Level *level) {
-                TR::Room &r = level->level.rooms[to]; // underwater room
-
-                int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY;
-
-                for (int z = 0; z < r.zSectors; z++)
-                    for (int x = 0; x < r.xSectors; x++) {
-                        TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
-                        if (s.roomAbove != TR::NO_ROOM && !level->level.rooms[s.roomAbove].flags.water) {
-                            minX = min(minX, x);
-                            minZ = min(minZ, z);
-                            maxX = max(maxX, x);
-                            maxZ = max(maxZ, z);
-                            posY = s.ceiling * 256;
-                            if (s.roomBelow != TR::NO_ROOM)
-                                caust = s.roomBelow;
-                        }
-                    }
-                maxX++;
-                maxZ++;
-
-                int w = nextPow2(maxX - minX);
-                int h = nextPow2(maxZ - minZ);
-
-                uint16 *m = new uint16[w * h];
-                memset(m, 0, w * h * sizeof(m[0]));
-
-                for (int z = minZ; z < maxZ; z++)
-                    for (int x = minX; x < maxX; x++) {
-                        TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
-
-                        bool hasWater = (s.roomAbove != TR::NO_ROOM && !level->level.rooms[s.roomAbove].flags.water);
-                        bool hasFlow  = false;
-                        if (hasWater) {
-                            TR::Level::FloorInfo info;
-                            level->level.getFloorInfo(to, x + r.info.x, r.info.yBottom, z + r.info.z, info);
-                            if (info.trigCmdCount && info.trigger == TR::Level::Trigger::ACTIVATE)
-                                for (int i = 0; i < info.trigCmdCount; i++)
-                                    if (info.trigCmd[i].action == TR::Action::FLOW) {
-                                        hasFlow = true;
-                                        break;
-                                    }
-                        }
-                        
-                        m[(x - minX) + w * (z - minZ)] = hasWater ? (hasFlow ? 0xFFFF : 0xFF00) : 0;
-                    }
-                mask = new Texture(w, h, Texture::RGB16, false, m, false);
-                delete[] m;
-
-                size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
-                pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
-
-                data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-                data[1]  = new Texture(data[0]->width, data[0]->height, Texture::RGBA_HALF, false);
-                caustics = new Texture(512, 512, Texture::RGB16, false);
-                blank = false;
-
-                Core::setTarget(data[0], true);
-                Core::invalidateTarget(false, true);
-            }
-
-            void free() {
-                delete data[0];
-                delete data[1];
-                delete caustics;
-                delete mask;
-                mask = caustics = data[0] = data[1] = NULL;
-            }
-
-        } items[MAX_SURFACES];
-        int count, visible;
-        bool checkVisibility;
-
-        int dropCount;
-        struct Drop {
-            vec3  pos;
-            float radius;
-            float strength;
-            Drop() {}
-            Drop(const vec3 &pos, float radius, float strength) : pos(pos), radius(radius), strength(strength) {}
-        } drops[MAX_DROPS];
-
-        WaterCache(Level *level) : level(level), refract(NULL), count(0), checkVisibility(false), dropCount(0) {
-            reflect = new Texture(512, 512, Texture::RGB16, false);
-        }
-
-        ~WaterCache() { 
-            delete refract;
-            delete reflect;
-            for (int i = 0; i < count; i++)
-                items[i].free();
-        }
-
-        void update() {
-            int i = 0;
-            while (i < count) {
-                Item &item = items[i];
-                if (item.timer > MAX_INVISIBLE_TIME) {
-                    items[i].free();
-                    items[i] = items[--count];
-                    continue;
-                }
-                item.timer += Core::deltaTime;
-                i++;
-            }
-        }
-
-        void reset() {
-            for (int i = 0; i < count; i++)
-                items[i].visible = false;
-            visible = 0;
-        }
-
-        void setVisible(int roomIndex, int nextRoom = TR::NO_ROOM) {
-            if (!checkVisibility) return;
-
-            if (nextRoom == TR::NO_ROOM) { // setVisible(underwaterRoom) for caustics update
-                for (int i = 0; i < count; i++)
-                    if (items[i].caust == roomIndex) {
-                        nextRoom = items[i].from;
-                        if (!items[i].visible) {
-                            items[i].visible = true;
-                            visible++;
-                        }
-                        break;
-                    }
-                return;
-            }
-
-            int from, to; // from surface room to underwater room
-            if (level->level.rooms[roomIndex].flags.water) {
-                from = nextRoom;
-                to   = roomIndex;
-            } else {
-                from = roomIndex;
-                to   = nextRoom;
-            }
-
-            for (int i = 0; i < count; i++) {
-                Item &item = items[i];
-                if (item.from == from && item.to == to) {
-                    if (!item.visible) {
-                        visible++;
-                        item.visible = true;
-                    }
-                    return;
-                }
-            }
-            if (count == MAX_SURFACES) return;
-
-            items[count++] = Item(from, to);
-            visible++;
-        }
-
-        void bindCaustics(int roomIndex) {
-            Item *item = NULL;
-            for (int i = 0; i < count; i++)
-                if (items[i].caust == roomIndex) {
-                    item = &items[i];
-                    break;
-                }
-
-            if (!item || !item->caustics) {                
-                Core::blackTex->bind(sReflect);
-                Core::active.shader->setParam(uRoomSize, vec4(0.0f));
-                level->params.waterHeight = -10000000.0f;
-            } else {
-                item->caustics->bind(sReflect);
-                Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
-                level->params.waterHeight = item->pos.y;
-            }
-            Core::active.shader->setParam(uParam, *((vec4*)&level->params));
-        }
-
-        void addDrop(const vec3 &pos, float radius, float strength) {
-            if (dropCount >= MAX_DROPS) return;
-            drops[dropCount++] = Drop(pos, radius, strength);
-        }
-
-        void drop(Item &item) { 
-            if (!dropCount) return;
-
-            level->setShader(Core::passWater, Shader::WATER_DROP, false);
-            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
-
-            vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f) };
-            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-            
-            for (int i = 0; i < dropCount; i++) {
-                Drop &drop = drops[i];
-
-                vec3 p;
-                p.x = (drop.pos.x - (item.pos.x - item.size.x)) * DETAIL;
-                p.z = (drop.pos.z - (item.pos.z - item.size.z)) * DETAIL;
-                Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, drop.strength));
-
-                item.data[0]->bind(sDiffuse);
-                Core::setTarget(item.data[1], true);
-                Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
-                level->mesh->renderQuad();
-                Core::invalidateTarget(false, true);
-                swap(item.data[0], item.data[1]);
-            }
-        }
-    
-        void step(Item &item) {
-            if (item.timer < SIMULATE_TIMESTEP) return;
-
-            level->setShader(Core::passWater, Shader::WATER_STEP, false);
-            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
-            Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, 0));
-            
-            while (item.timer >= SIMULATE_TIMESTEP) {
-            // water step
-                item.data[0]->bind(sDiffuse);
-                Core::setTarget(item.data[1], 0, true);
-                Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
-                level->mesh->renderQuad();
-                Core::invalidateTarget(false, true);
-                swap(item.data[0], item.data[1]);
-                item.timer -= SIMULATE_TIMESTEP;
-            }
-        
-
-        // calc caustics
-            level->setShader(Core::passWater, Shader::WATER_CAUSTICS, false);
-            vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f / PLANE_DETAIL) };
-            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-
-            float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
-            float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
-
-            Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
-
-            Core::whiteTex->bind(sReflect);
-            item.data[0]->bind(sNormal);
-            Core::setTarget(item.caustics, true);
-            level->mesh->renderPlane();
-            Core::invalidateTarget(false, true);
-        }
-
-        void render() {
-            if (!visible) return;
-
-        // mask underwater geometry by zero alpha
-            level->atlas->bind(sNormal);
-            level->atlas->bind(sReflect);
-
-            level->setShader(Core::passWater, Shader::WATER_MASK, false);
-            Core::active.shader->setParam(uTexParam, vec4(1.0f));
-            Core::setCulling(cfNone);
-            Core::setDepthWrite(false);
-            Core::setColorWrite(false, false, false, true);
-
-            for (int i = 0; i < count; i++) {
-                Item &item = items[i];
-                if (!item.visible) continue;
-
-                Core::active.shader->setParam(uPosScale, item.pos, 2);
-
-                level->mesh->renderQuad();
-            }
-
-            Core::setColorWrite(true, true, true, true);
-            Core::setDepthWrite(true);
-            Core::setCulling(cfFront);
-
-        // get refraction texture
-            if (!refract || Core::width > refract->width || Core::height > refract->height) {
-                delete refract;
-                refract = new Texture(Core::width, Core::height, Texture::RGB16, false);
-            }
-            Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
-
-            for (int i = 0; i < count; i++) {
-                Item &item = items[i];
-                if (!item.visible) continue;
-
-                if (item.blank) {
-                    item.init(level);
-                    item.blank = false;
-                }
-
-            // render mirror reflection
-                Core::setTarget(reflect, true);
-                vec3 p = item.pos;
-                vec3 n = vec3(0, 1, 0);
-
-                vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
-
-                bool underwater = level->level.rooms[level->camera->getRoomIndex()].flags.water;
-
-                //bool underwater = level->camera->pos.y > item.pos.y;
-
-                level->camera->reflectPlane = &reflectPlane;
-                level->params.clipSign   = underwater ? -1.0f : 1.0f;
-                level->params.clipHeight = item.pos.y * level->params.clipSign;
-                level->renderCompose(underwater ? item.from : item.to);
-                Core::invalidateTarget(false, true);
-                level->params.clipHeight = 1000000.0f;
-                level->params.clipSign   = 1.0f;
-
-                level->camera->reflectPlane = NULL;
-                level->camera->setup(true);
-
-            // simulate water
-                Core::setDepthTest(false);
-                item.mask->bind(sMask);
-
-                if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
-                // add water drops
-                    drop(item);                    
-                // simulation step
-                    step(item);
-                }
-                Core::setTarget(NULL);
-
-                Core::setDepthTest(true);
-
-            // render water plane
-                if (level->level.rooms[item.from].lightsCount) {
-                    TR::Room::Light &light = level->level.rooms[item.from].lights[0];
-                    Core::lightPos[0] = vec3(float(light.x), float(light.y), float(light.z));
-                    float lum = intensityf(light.intensity);
-                    Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
-                }
-
-                level->setShader(Core::passWater, Shader::WATER_COMPOSE, false);
-                Core::active.shader->setParam(uViewProj,    Core::mViewProj);
-                Core::active.shader->setParam(uViewPos,     Core::viewPos);
-                Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
-                Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-                Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.05f, 0.02f));
-                Core::active.shader->setParam(uColor,       vec4(level->waterColor * 0.2f, 1.0f));
-
-                float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
-                float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
-
-                Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
-
-                refract->bind(sDiffuse);
-                reflect->bind(sReflect);
-                item.data[0]->bind(sNormal);
-                Core::setCulling(cfNone);
-                #ifdef WATER_USE_GRID
-                    vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
-                    Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-                    level->mesh->renderPlane();
-                #else
-                    Core::active.shader->setParam(uPosScale,    item.pos, 2);
-                    level->mesh->renderQuad();
-                #endif
-                Core::setCulling(cfFront);
-            }
-            dropCount = 0;
-        }
-
-        #undef MAX_WATER_SURFACES
-        #undef MAX_WATER_INVISIBLE_TIME
-        #undef WATER_SIMULATE_TIMESTEP
-        #undef DETAIL
-    } *waterCache;
-
-    /*
-    struct LightCache {
-
-        struct Item {
-            int     room;
-            int     index;
-            float   intensity;
-        } items[MAX_CACHED_LIGHTS];
-
-        void updateLightCache(const TR::Level &level, const vec3 &pos, int room) {
-        // update intensity
-            for (int i = 0; i < MAX_CACHED_LIGHTS; i++) {
-                Item &item = items[i];
-                if (c.intensity < 0.0f) continue;
-                TR::Room::Light &light = level.rooms[c.room].lights[i];
-                c.intensity = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
-            }
-
-        // check for new lights
-            int index = getLightIndex(pos, room);
-
-            if (index >= 0 && (items[0].room != room || items[0].index != index)) [
-                TR::Room::Light &light = level.rooms[room].lights[index];
-                float intensity = max(0.0f, 1.0f - (lara->pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
-
-                int i = 0;
-                while (i < MAX_CACHED_LIGHTS && lightCache[i].intensity > intensity) // get sorted place
-                    i++;
-                if (i < MAX_CACHED_LIGHTS) { // insert light
-                    for (int j = MAX_CACHED_LIGHTS - 1; j > i; j--)
-                         lightCache[j] = lightCache[j - 1];
-                    lightCache[i].room      = room;
-                    lightCache[i].index     = index;
-                    lightCache[i].intensity = intensity;
-                }
-
-            }
-        }
-    } lightCache;
-    */
-
+    ShaderCache  *shaderCache;
+    AmbientCache *ambientCache;
+    WaterCache   *waterCache;
+
+// IGame implementation ========
     virtual TR::Level* getLevel() {
         return &level;
+    }
+
+    virtual MeshBuilder* getMesh()  {
+        return mesh;
+    }
+
+    virtual Controller* getCamera() {
+        return camera;    
+    }
+
+    virtual void setClipParams(float clipSign, float clipHeight) {
+        params.clipSign   = clipSign;
+        params.clipHeight = clipHeight;
+    }
+
+    virtual void setWaterParams(float height) {
+        params.waterHeight = height;
+    }
+
+    virtual void updateParams() {
+        Core::active.shader->setParam(uParam, *((vec4*)&params));
     }
 
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {
@@ -695,7 +69,31 @@ struct Level : IGame {
         shaderCache->bind(pass, type, caustics);
     }
 
-    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL), waterColor(0.6f, 0.9f, 0.9f) {
+    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
+        PROFILE_MARKER("ENVIRONMENT");
+    // first pass render level into cube faces
+        for (int i = 0; i < 6; i++) {
+            setupCubeCamera(pos, i);
+            Core::pass = Core::passAmbient;
+            Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
+            Core::setTarget(target, true, i);
+            renderScene(roomIndex);
+            Core::invalidateTarget(false, true);
+        }
+    }
+
+    virtual void renderCompose(int roomIndex) {
+        PROFILE_MARKER("PASS_COMPOSE");
+        Core::pass = Core::passCompose;
+
+        Core::setDepthTest(true);
+        Core::setDepthWrite(true);
+        shadow->bind(sShadow);
+        renderScene(roomIndex);
+    }
+//==============================
+
+    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL) {
         params.time = 0.0f;
 
         #ifdef _DEBUG
@@ -704,7 +102,7 @@ struct Level : IGame {
         mesh = new MeshBuilder(level);
         
         initTextures();
-        shaderCache = new ShaderCache(mesh->animTexRangesCount, mesh->animTexOffsetsCount);
+        shaderCache = new ShaderCache(this);
         initOverrides();
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
@@ -1004,7 +402,7 @@ struct Level : IGame {
         setShader(Core::pass, type, room.flags.water);
 
         if (room.flags.water) {
-            Core::color = vec4(waterColor, intensity);
+            Core::color = vec4(waterCache->color, intensity);
             /*
         // trace to water surface room
             int wrIndex = roomIndex;
@@ -1311,19 +709,6 @@ struct Level : IGame {
         return true;
     }
 
-    void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
-        PROFILE_MARKER("ENVIRONMENT");
-    // first pass render level into cube faces
-        for (int i = 0; i < 6; i++) {
-            setupCubeCamera(pos, i);
-            Core::pass = Core::passAmbient;
-            Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
-            Core::setTarget(target, true, i);
-            renderScene(roomIndex);
-            Core::invalidateTarget(false, true);
-        }
-    }
-
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
         Core::pass = Core::passShadow;
@@ -1339,16 +724,6 @@ struct Level : IGame {
         Core::setCulling(cfFront);	    
         if (colorShadow)
             glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-
-    void renderCompose(int roomIndex) {
-        PROFILE_MARKER("PASS_COMPOSE");
-        Core::pass = Core::passCompose;
-
-        Core::setDepthTest(true);
-        Core::setDepthWrite(true);
-        shadow->bind(sShadow);
-        renderScene(roomIndex);
     }
 
     void render() {

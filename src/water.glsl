@@ -62,8 +62,8 @@ uniform sampler2D sNormal;
                 vec3 refOld = refract(-light, vec3(0.0, 0.0, 1.0), 0.75);
                 vec3 refNew = refract(-light, normal, 0.75);
                 
-                vOldPos = vec4(rCoord + refOld * (-0.25 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z), 1.0);              
-                vNewPos = vec4(rCoord + refNew * ((info.r - 0.25) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z), 1.0);
+                vOldPos = vec4(rCoord + refOld * (-1.0 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z), 1.0);              
+                vNewPos = vec4(rCoord + refNew * ((info.r - 1.0) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z), 1.0);
       
                 gl_Position = vec4(vNewPos.xy + refOld.xy / refOld.z, 0.0, 1.0);
             #else

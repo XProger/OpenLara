@@ -188,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\animation.h" />
+    <ClInclude Include="..\..\cache.h" />
     <ClInclude Include="..\..\camera.h" />
     <ClInclude Include="..\..\character.h" />
     <ClInclude Include="..\..\collision.h" />

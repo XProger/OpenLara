@@ -1580,7 +1580,7 @@ namespace TR {
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
-            if (uint8(s.floor) == TR::NO_ROOM) 
+            if (s.floor == -127) 
                 return;
 
             Room::Sector *sBelow = &s;
