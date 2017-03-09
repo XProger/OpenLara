@@ -91,7 +91,7 @@ struct ShaderCache {
     }
 
     Shader* compile(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false, bool clipPlane = false) {
-        char def[255], ext[255];
+        char def[1024], ext[255];
         ext[0] = 0;
 		if (Core::support.shadowSampler) {
 			#ifdef MOBILE

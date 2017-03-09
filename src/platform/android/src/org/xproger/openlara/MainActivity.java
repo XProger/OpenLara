@@ -61,7 +61,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
             AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.level2);
             AssetFileDescriptor fMusic = this.getResources().openRawResourceFd(R.raw.music);
 
-            wrapper.onCreate(packName, (int)fLevel.getStartOffset(), (int)fMusic.getStartOffset());
+            wrapper.onCreate(packName, getCacheDir().getAbsolutePath() + "/", (int)fLevel.getStartOffset(), (int)fMusic.getStartOffset());
         } catch (Exception e) {
             e.printStackTrace();
             finish();
@@ -165,6 +165,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
 
     static {
         System.loadLibrary("game");
+//        System.load("/storage/emulated/0/libMGD.so");
     }
 }
 
@@ -232,7 +233,7 @@ class Touch {
 }
 
 class Wrapper implements Renderer {
-    public static native void nativeInit(String packName, int levelOffset, int musicOffset);
+    public static native void nativeInit(String packName, String cacheDir, int levelOffset, int musicOffset);
     public static native void nativeFree();
     public static native void nativeReset();
     public static native void nativeResize(int w, int h);
@@ -243,13 +244,15 @@ class Wrapper implements Renderer {
 
     public Boolean ready = false;
     private String packName;
+    private String cacheDir;
     private int levelOffset;
     private int musicOffset;
     private ArrayList<Touch> touch = new ArrayList<Touch>();
     private Sound sound;
 
-    public void onCreate(String packName, int levelOffset, int musicOffset) {
+    public void onCreate(String packName, String cacheDir, int levelOffset, int musicOffset) {
         this.packName = packName;
+        this.cacheDir = cacheDir;
         this.levelOffset = levelOffset;
         this.musicOffset = musicOffset;
 
@@ -298,7 +301,7 @@ class Wrapper implements Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         if (!ready) {
-            nativeInit(packName, levelOffset, musicOffset);
+            nativeInit(packName, cacheDir, levelOffset, musicOffset);
             sound.play();
             ready = true;
         }

@@ -120,6 +120,12 @@ int nextPow2(uint32 x) {
     return x;
 }
 
+uint32 fnv32(const char *data, int32 size, uint32 hash = 0x811c9dc5) {
+	for (int i = 0; i < size; i++)
+		hash = (hash ^ data[i]) * 0x01000193;
+	return hash;
+}
+
 struct vec2 {
     float x, y;
     vec2() {}
@@ -717,6 +723,9 @@ struct Box {
 };
 
 struct Stream {
+    static char cacheDir[255];
+    static char contentDir[255];
+
     FILE        *f;
     const char	*data;
     int         size, pos;
@@ -724,16 +733,18 @@ struct Stream {
     Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
 
     Stream(const char *name) : data(NULL), size(-1), pos(0) {
-    #ifdef __APPLE__
-        extern char *contentPath;
-        int len = strlen(contentPath);
-        strcat(contentPath, name);
-        f = fopen(contentPath, "rb");
-        contentPath[len] = '\0';
-    #else
-        f = fopen(name, "rb");
-    #endif
+        if (contentDir[0]) {
+            char path[255];
+            path[0] = 0;
+            strcat(path, contentDir);
+            strcat(path, name);
+            f = fopen(path, "rb");
+        } else
+            f = fopen(name, "rb");
+
         if (!f) LOG("error loading file \"%s\"\n", name);
+        ASSERT(f != NULL);
+
         fseek(f, 0, SEEK_END);
         size = ftell(f);
         fseek(f, 0, SEEK_SET);
@@ -741,6 +752,22 @@ struct Stream {
 
     ~Stream() {
         if (f) fclose(f);
+    }
+
+    static bool fileExists(const char *name) {
+        FILE *f = fopen(name, "rb");
+        if (!f)
+            return false;
+        else
+            fclose(f);
+        return true;
+    }
+
+    static void write(const char *name, const void *data, int size) {
+        FILE *f = fopen(name, "wb");
+        if (!f) return;
+        fwrite(data, size, 1, f);
+        fclose(f);
     }
 
     void setPos(int pos) {

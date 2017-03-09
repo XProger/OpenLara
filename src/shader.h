@@ -23,7 +23,35 @@ struct Shader {
         MAX = 5
     };
 
-    Shader(const char *text, const char *defines = "") {
+    Shader(const char *source, const char *defines = "") {
+        char fileName[255];
+
+    // generate shader file path
+        if (Core::support.shaderBinary) {
+            uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
+            sprintf(fileName, "%s%08X.xsh", Stream::cacheDir, hash);
+        }
+
+        ID = glCreateProgram();
+    
+        if (!(Core::support.shaderBinary && linkBinary(fileName))) // try to load cached shader     
+            if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
+            #ifndef __EMSCRIPTEN__
+                GLenum format, size;
+                glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, (GLsizei*)&size);
+                char *data = new char[8 + size];
+                glGetProgramBinary(ID, size, NULL, &format, &data[8]);
+                *(int*)(&data[0]) = format;
+                *(int*)(&data[4]) = size;
+                Stream::write(fileName, data, 8 + size);
+                delete[] data;
+            #endif
+            }
+
+        init();
+    }
+
+    bool linkSource(const char *text, const char *defines = "") {
         #ifdef MOBILE
             #define GLSL_DEFINE ""
             #define GLSL_VERT   ""
@@ -42,7 +70,6 @@ struct Shader {
 
         GLchar info[256];
 
-        ID = glCreateProgram();
         for (int i = 0; i < 2; i++) {
             GLuint obj = glCreateShader(type[i]);
             glShaderSource(obj, 3, code[i], NULL);
@@ -63,16 +90,42 @@ struct Shader {
         glGetProgramInfoLog(ID, sizeof(info), NULL, info);
         if (info[0]) LOG("! program: %s\n", info);
 
+        return checkLink();
+    }
+    
+    bool linkBinary(const char *fileName) {
+        if (!Stream::fileExists(fileName))
+            return false;
+
+        GLenum size, format;
+        Stream stream(fileName);
+        stream.read(format);
+        stream.read(size);
+        char *data = new char[size];
+        stream.raw(data, size);
+        glProgramBinary(ID, format, data, size);
+        delete[] data;
+
+        return checkLink();
+    }
+
+    bool checkLink() {
+        GLint success;
+        glGetProgramiv(ID, GL_LINK_STATUS, &success);
+        return success != 0;
+    }
+
+    virtual ~Shader() {
+        glDeleteProgram(ID);
+    }
+
+    void init() {
         bind();
         for (int st = 0; st < sMAX; st++)
             glUniform1iv(glGetUniformLocation(ID, (GLchar*)SamplerName[st]), 1, &st);
 
         for (int ut = 0; ut < uMAX; ut++)
             uID[ut] = glGetUniformLocation(ID, (GLchar*)UniformName[ut]);
-    }
-
-    virtual ~Shader() {
-        glDeleteProgram(ID);
     }
 
     void bind() {

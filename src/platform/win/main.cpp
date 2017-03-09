@@ -312,6 +312,9 @@ void freeGL(HGLRC hRC) {
     wglDeleteContext(hRC);
 }
 
+char Stream::cacheDir[255];
+char Stream::contentDir[255];
+
 #ifdef _DEBUG
 int main(int argc, char** argv) {
     _CrtMemState _ms;
@@ -324,6 +327,12 @@ int main(int argc, char** argv) {
 //#else
 //int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 #endif
+    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+
+    strcat(Stream::cacheDir, getenv("APPDATA"));
+    strcat(Stream::cacheDir, "\\OpenLara\\");
+    CreateDirectory(Stream::cacheDir, NULL);
+
     RECT r = { 0, 0, 1280, 720 };
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
 

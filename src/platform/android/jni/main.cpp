@@ -17,23 +17,30 @@ extern "C" {
 
 int lastTime, fpsTime, fps;
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeInit(JNIEnv* env, jobject obj, jstring packName, jint levelOffset, jint musicOffset) {
-    LOG("native init");
-    const char* pack = env->GetStringUTFChars(packName, NULL);
-    Stream *level = new Stream(pack);
-    Stream *music = new Stream(pack);
+char Stream::cacheDir[255];
+char Stream::contentDir[255];
+
+JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeInit(JNIEnv* env, jobject obj, jstring packName, jstring cacheDir, jint levelOffset, jint musicOffset) {
+	const char* str;
+
+	Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    str = env->GetStringUTFChars(cacheDir, NULL);
+    strcat(Stream::cacheDir, str);
+    env->ReleaseStringUTFChars(cacheDir, str);
+
+	str = env->GetStringUTFChars(packName, NULL);
+    Stream *level = new Stream(str);
+    Stream *music = new Stream(str);
+    env->ReleaseStringUTFChars(packName, str);
+
     level->seek(levelOffset);
     music->seek(musicOffset);
-    env->ReleaseStringUTFChars(packName, pack);
-    LOG("game init");
 
     Game::init(level, music);
-    LOG("done");
 
     lastTime    = getTime();
     fpsTime     = lastTime + 1000;
     fps         = 0;
-    LOG("init");
 }
 
 JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeFree(JNIEnv* env) {

@@ -30,6 +30,13 @@
     #define glGenVertexArrays            glGenVertexArraysOES
     #define glDeleteVertexArrays         glDeleteVertexArraysOES
     #define glBindVertexArray            glBindVertexArrayOES
+
+    #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
+    #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
+    #define glGetProgramBinary           glGetProgramBinaryOES
+    #define glProgramBinary              glProgramBinaryOES
+
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -59,6 +66,9 @@
     #define GL_RGBA32F      GL_RGBA
     #define GL_RGBA16F      GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define glGetProgramBinary(...)  0
+    #define glProgramBinary(...)     0
 #endif
 
 #include "utils.h"
@@ -116,6 +126,7 @@
         PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
         PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
         PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
+        PFNGLGETPROGRAMIVPROC               glGetProgramiv;
     // Render to texture
         PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
         PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
@@ -135,6 +146,8 @@
     PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
     PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
     PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+    PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
+    PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
 #ifdef MOBILE
@@ -215,6 +228,7 @@ namespace Core {
         bool texNPOT;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
+        bool shaderBinary;
     } support;
 }
 
@@ -270,6 +284,7 @@ namespace Core {
                 GetProcOGL(glEnableVertexAttribArray);
                 GetProcOGL(glDisableVertexAttribArray);
                 GetProcOGL(glVertexAttribPointer);
+                GetProcOGL(glGetProgramiv);
 
                 GetProcOGL(glGenFramebuffers);
                 GetProcOGL(glBindFramebuffer);
@@ -293,10 +308,14 @@ namespace Core {
             GetProcOGL(glGenVertexArrays);
             GetProcOGL(glDeleteVertexArrays);
             GetProcOGL(glBindVertexArray);
+            GetProcOGL(glGetProgramBinary);
+            GetProcOGL(glProgramBinary);
         #endif
 
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-        //LOG("%s\n", ext);
+//        LOG("%s\n", ext);
+
+        support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
         support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
@@ -311,8 +330,9 @@ namespace Core {
         LOG("Vendor   : %s\n", vendor);
         LOG("Renderer : %s\n", glGetString(GL_RENDERER));
         LOG("Version  : %s\n", glGetString(GL_VERSION));
-
-        LOG("supports:\n");
+        LOG("cache    : %s\n", Stream::cacheDir);
+        LOG("supports :\n");
+        LOG("  binary shaders : %s\n", support.shaderBinary  ? "true" : "false");
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
