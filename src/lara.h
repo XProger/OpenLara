@@ -405,7 +405,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
     #ifdef _DEBUG            
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
@@ -2025,13 +2025,11 @@ struct Lara : Character {
 
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();
-            game->setShader(Core::pass, Shader::FLASH, false);
+            game->setShader(Core::pass, Shader::FLASH, false, true);
             Core::setBlending(bmAlpha);
-            Core::setDepthWrite(false);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
             renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
             Core::setBlending(bmNone);
-            Core::setDepthWrite(true);
         }
     }
 };

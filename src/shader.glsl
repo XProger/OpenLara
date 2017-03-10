@@ -22,14 +22,20 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 #ifdef PASS_COMPOSE
     uniform vec3 uViewPos;
-    uniform int  uCaustics;
     uniform vec4 uParam;
-    uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
+    #ifdef CAUSTICS
+        uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
+    #endif
 #endif
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
-    uniform vec4 uBasis[32 * 2];
+    
+    #ifdef TYPE_ENTITY
+        uniform vec4 uBasis[32 * 2];
+    #else
+        uniform vec4 uBasis[2];
+    #endif
 
     #ifndef PASS_AMBIENT
         uniform mat4 uViewInv;
@@ -63,9 +69,14 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     }
     
     void main() {
-        int index = int(aCoord.w) * 2;
-        vec4 rBasisRot = uBasis[index];
-        vec4 rBasisPos = uBasis[index + 1];
+        #ifdef TYPE_ENTITY
+            int index = int(aCoord.w) * 2;
+            vec4 rBasisRot = uBasis[index];
+            vec4 rBasisPos = uBasis[index + 1];
+        #else
+            vec4 rBasisRot = uBasis[0];
+            vec4 rBasisPos = uBasis[1];
+        #endif
 
         vec4 coord = vec4(mulBasis(rBasisRot, rBasisPos, aCoord.xyz), rBasisPos.w);
         
@@ -94,7 +105,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 vNormal    = vec4(uViewPos.xyz - coord.xyz, 0.0);
             #endif
 
-            vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
+            #ifdef CAUSTICS
+                vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
+            #else
+                vTexCoord.zw = vec2(1.0);
+            #endif
 
             vViewVec   = uViewPos - coord.xyz;          
             vLightProj = uLightProj * coord;
@@ -252,27 +267,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
         vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
             float fog = clamp(1.0 / exp(factor), 0.0, 1.0);
             return mix(fogColor, color, fog);
-//                return color.xyz * exp(factor);
         }
     #endif
-/*
-        float getLuminance(vec3 color) {
-            return dot(color.xyz, vec3(0.299, 0.587, 0.114));
-        }
 
-        vec3 getNormal() {
-            const vec2 size = vec2(2.0, 0.0);
-            const vec3 off = vec3(-1, 0, 1) / 1024.0;
-
-            float s01 = getLuminance(texture2D(sDiffuse, vTexCoord.xy + off.xy).xyz);
-            float s21 = getLuminance(texture2D(sDiffuse, vTexCoord.xy + off.zy).xyz);
-            float s10 = getLuminance(texture2D(sDiffuse, vTexCoord.xy + off.yx).xyz);
-            float s12 = getLuminance(texture2D(sDiffuse, vTexCoord.xy + off.yz).xyz);
-            vec3 va = vec3(size.xy * 0.25, s21-s01);
-            vec3 vb = vec3(size.yx * 0.25, s12-s10);
-            return normalize(cross(va, vb));
-        }
-*/
     void main() {
         #ifndef PASS_SHADOW
             #ifndef PASS_AMBIENT
@@ -286,7 +283,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
         vec4 color = texture2D(sDiffuse, vTexCoord.xy);
 
         #ifdef ALPHA_TEST
-            if (color.w <= 0.6)
+            if (color.w <= 0.1)
                 discard;
         #endif
         
@@ -300,7 +297,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
             color.xyz *= uColor.xyz;
             color.xyz *= vColor.xyz;
 
-            color *= color; // to "linear" space
+            color.xyz *= color.xyz; // to "linear" space
 
             #ifdef PASS_AMBIENT
                 color.xyz *= vColor.w;
@@ -308,18 +305,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
             // calc point lights
                 #ifndef TYPE_FLASH
                     vec3 normal   = normalize(vNormal.xyz);
-
-                    //vec3 n = getNormal();;
-	                //vec3 b = normalize(cross(n, vec3(.0, -1.0, 0.0)));
-	                //vec3 t = normalize(cross(b, n));
-                    //normal = normalize(normal.x * t + normal.y * b + normal.z * n);
-
                     vec3 viewVec  = normalize(vViewVec);
                     vec3 light    = vec3(0.0);
 
-//                    for (int i = 1; i < 3; i++) // additional lights
-                        light += calcLight(normal, uLightPos[1], uLightColor[1]);
-                        light += calcLight(normal, uLightPos[2], uLightColor[2]);
+                    light += calcLight(normal, uLightPos[1], uLightColor[1]);
+                    light += calcLight(normal, uLightPos[2], uLightColor[2]);
 
                 // apply lighting
                     #ifdef TYPE_SPRITE
@@ -358,7 +348,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 #endif
             #endif
 
-            color = sqrt(color); // back to "gamma" space
+            color.xyz = sqrt(color.xyz); // back to "gamma" space
 
             #ifdef PASS_COMPOSE
                 color.xyz = applyFog(color.xyz, vec3(0.0), length(vViewVec) * FOG_DIST);

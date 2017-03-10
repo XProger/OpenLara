@@ -34,51 +34,43 @@ struct ShaderCache {
 
     ShaderCache(IGame *game) : game(game) {
         memset(shaders, 0, sizeof(shaders));
-        /*
-        char def[255], ext[255];
 
-        ext[0] = 0;
-		if (Core::support.shadowSampler) {
-			#ifdef MOBILE
-				strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
-			#endif
-			strcat(ext, "#define SHADOW_SAMPLER\n");
-		} else
-			if (Core::support.depthTexture)
-				strcat(ext, "#define SHADOW_DEPTH\n");
-			else
-				strcat(ext, "#define SHADOW_COLOR\n");
+        LOG("shader: cache warm up...\n");
+        compile(Core::passShadow , Shader::ENTITY, false, false, false);
 
-        {
-            const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT" };
-            const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
+        compile(Core::passAmbient, Shader::ROOM,   false, false, false);
+        compile(Core::passAmbient, Shader::ROOM,   false,  true, false);
+        compile(Core::passAmbient, Shader::ROOM,   false, false,  true);
+        compile(Core::passAmbient, Shader::ROOM,   false,  true,  true);
+        compile(Core::passAmbient, Shader::ROOM,    true, false, false);
+        compile(Core::passAmbient, Shader::SPRITE, false,  true, false);
+        compile(Core::passAmbient, Shader::SPRITE, false,  true,  true);
 
-            int animTexRangesCount  = game->getMesh()->animTexRangesCount;
-            int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
+        compile(Core::passCompose, Shader::ROOM,   false, false, false);
+        compile(Core::passCompose, Shader::ROOM,   false,  true, false);
+        compile(Core::passCompose, Shader::ROOM,   false,  true,  true);
+        compile(Core::passCompose, Shader::ROOM,   false, false,  true);
+        compile(Core::passCompose, Shader::ROOM,    true, false, false);
+        compile(Core::passCompose, Shader::ROOM,    true, false,  true);
+        compile(Core::passCompose, Shader::ENTITY, false, false, false);
+        compile(Core::passCompose, Shader::ENTITY, false, false,  true);
+        compile(Core::passCompose, Shader::ENTITY,  true, false, false);
+        compile(Core::passCompose, Shader::ENTITY,  true, false,  true);
+        compile(Core::passCompose, Shader::SPRITE, false,  true, false);
+        compile(Core::passCompose, Shader::SPRITE, false,  true,  true);
+        compile(Core::passCompose, Shader::SPRITE,  true,  true, false);
+        compile(Core::passCompose, Shader::SPRITE,  true,  true,  true);
+        compile(Core::passCompose, Shader::FLASH,  false,  true, false);
 
-            for (int pass = Core::passCompose; pass <= Core::passAmbient; pass++)
-                for (int caustics = 0; caustics < 2; caustics++)
-                    for (int type = Shader::SPRITE; type <= Shader::MIRROR; type++) {
-                        sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typeNames[type], MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
-                        if (caustics)
-                            strcat(def, "#define CAUSTICS\n");                    
-                        shaders[pass][Shader::MAX * caustics + type]  = new Shader(SHADER, def);
-                    }
-        }
+        compile(Core::passFilter , Shader::FILTER_DOWNSAMPLE, false, false, false);
 
-        {
-            const char *typeNames[] = { "DROP", "STEP", "CAUSTICS", "MASK", "COMPOSE" };
+        compile(Core::passWater  , Shader::WATER_MASK,     false, false, false);
+        compile(Core::passWater  , Shader::WATER_STEP,     false, false, false);
+        compile(Core::passWater  , Shader::WATER_CAUSTICS, false, false, false);
+        compile(Core::passWater  , Shader::WATER_COMPOSE,  false, false, false);
+        compile(Core::passWater  , Shader::WATER_DROP,     false, false, false);
 
-            for (int type = Shader::WATER_DROP; type <= Shader::WATER_COMPOSE; type++) {
-                sprintf(def, "%s#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, typeNames[type], WATER_FOG_DIST);
-                #ifdef WATER_USE_GRID
-                    strcat(def, "#define WATER_USE_GRID %d\n");
-                #endif
-                shaders[Core::passWater][type] = new Shader(WATER, def);
-            }
-        }
-        shaders[Core::passFilter][Shader::FILTER_DOWNSAMPLE]  = new Shader(FILTER, "");
-        */
+        LOG("shader: cache is ready\n");
     }
 
     ~ShaderCache() {

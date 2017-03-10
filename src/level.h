@@ -433,22 +433,33 @@ struct Level : IGame {
             room.flags.rendered = true;
 
             if (Core::pass != Core::passShadow) {
-                setRoomParams(roomIndex, intensityf(room.ambient), Shader::ROOM);
-                Shader *sh = Core::active.shader;
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
                 Basis qTemp = Core::basis;
                 Core::basis.translate(offset);
-                sh->setParam(uBasis, Core::basis);
 
-            // render room geometry
-                mesh->renderRoomGeometry(roomIndex);
+                MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
+
+                for (int transp = 0; transp < 2; transp++) {
+                    if (!range.geometry[transp].iCount)
+                        continue;
+
+                    Core::setBlending(transp ? bmAlpha : bmNone);
+
+                    setRoomParams(roomIndex, intensityf(room.ambient), Shader::ROOM, transp > 0);
+                    Shader *sh = Core::active.shader;
+                    sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                    sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                    sh->setParam(uBasis,      Core::basis);
+
+                // render room geometry
+                    mesh->renderRoomGeometry(roomIndex, transp > 0);
+                }
 
             // render room sprites
-                if (mesh->hasRoomSprites(roomIndex)) {
+                if (range.sprites.iCount) {
+                    Core::setBlending(bmAlpha);
                     setRoomParams(roomIndex, 1.0, Shader::SPRITE, true);
-                    sh = Core::active.shader;
+                    Shader *sh = Core::active.shader;
                     sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                     sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
                     sh->setParam(uBasis, Core::basis);
@@ -457,6 +468,7 @@ struct Level : IGame {
 
                 Core::basis = qTemp;
             }
+            Core::setBlending(bmNone);
         }
 
     #ifdef LEVEL_EDITOR
