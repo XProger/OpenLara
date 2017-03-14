@@ -10,12 +10,8 @@ namespace Game {
 
     void startLevel(Stream *lvl, Stream *snd, bool demo, bool home) {
         delete level;
-        level = new Level(*lvl, demo, home);
+        level = new Level(*lvl, snd, demo, home);
         delete lvl;
-
-          
-        //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
-        Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
     }
 
     void init(Stream *lvl, Stream *snd) {

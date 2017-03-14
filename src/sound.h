@@ -564,6 +564,9 @@ namespace Sound {
                     continue;
             }
 
+            if ((channels[i]->flags & LOOP) && channels[i]->volume < EPS)
+                continue;
+
             memset(buffer, 0, sizeof(Frame) * bufSize);
             channels[i]->render(buffer, int(count * channels[i]->pitch));
 

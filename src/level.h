@@ -35,6 +35,9 @@ struct Level : IGame {
     AmbientCache *ambientCache;
     WaterCache   *waterCache;
 
+    Sound::Sample *sndAmbient;
+    Sound::Sample *sndUnderwater;
+
 // IGame implementation ========
     virtual TR::Level* getLevel() {
         return &level;
@@ -95,7 +98,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL) {
+    Level(Stream &stream, Stream *snd, bool demo, bool home) : level(stream, demo), lara(NULL) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
@@ -211,6 +214,15 @@ struct Level : IGame {
         shadow       = Core::settings.shadows ? new Texture(1024, 1024, Texture::SHADOW, false) : NULL;
 
         initReflections();
+
+        // init sounds
+        //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
+        sndAmbient = Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
+
+        sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
+        if (sndUnderwater)
+            sndUnderwater->volume = 0.0f;
+
         for (int i = 0; i < level.soundSourcesCount; i++) {
             TR::SoundSource &src = level.soundSources[i];
             lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
@@ -549,6 +561,10 @@ struct Level : IGame {
         }
 
         camera->update();
+        float ambientVolume =  camera->isUnderwater() ? 0.0f : 1.0f;
+        if (sndAmbient) sndAmbient->volume = ambientVolume;
+        if (sndUnderwater) sndUnderwater->volume = 1.0f - ambientVolume;
+
         if (waterCache) 
             waterCache->update();
     }

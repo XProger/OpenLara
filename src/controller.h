@@ -206,12 +206,12 @@ struct Controller {
         return b.floor - floor;
     }
 
-    void playSound(int id, const vec3 &pos, int flags) const {
+    Sound::Sample* playSound(int id, const vec3 &pos, int flags) const {
         if (level->version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
-            return;
+            return NULL;
 
         int16 a = level->soundsMap[id];
-        if (a == -1) return;
+        if (a == -1) return NULL;
 
         TR::SoundInfo &b = level->soundsInfo[a];
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
@@ -223,8 +223,9 @@ struct Controller {
             if (b.flags.mode == 3) flags |= Sound::SYNC;
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
             if (b.flags.fixed) flags |= Sound::LOOP;
-            Sound::play(level->getSampleStream(index), pos, volume, pitch, flags, entity * 1000 + index);
+            return Sound::play(level->getSampleStream(index), pos, volume, pitch, flags, entity * 1000 + index);
         }
+        return NULL;
     }
 
     vec3 getDir() const {

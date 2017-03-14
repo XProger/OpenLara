@@ -83,6 +83,10 @@ struct Camera : Controller {
         Sound::reverb.setRoomSize(vec3(float(r.xSectors), float(h), float(r.zSectors)) * 2.419f); // convert cells size into meters
     }
 
+    bool isUnderwater() {
+        return level->rooms[getRoomIndex()].flags.water;
+    }
+
     virtual void update() {
     #ifndef LEVEL_EDITOR
         if (cutscene) { // cutscene
