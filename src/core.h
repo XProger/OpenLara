@@ -183,6 +183,9 @@ struct Texture;
     #define PROFILE_LABEL(id, name, label)
 #endif
 
+enum CullMode  { cfNone, cfBack, cfFront };
+enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
+
 namespace Core {
     int width, height;
     int frameIndex;
@@ -192,7 +195,7 @@ namespace Core {
     vec3 viewPos;
     vec3 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];
-    vec4 color;
+    vec4 params;
 
     Texture *blackTex, *whiteTex;
 
@@ -209,10 +212,13 @@ namespace Core {
     } rtCache[2];
 
     struct {
-        Shader  *shader;
-        Texture *textures[8];
-        Texture *target;
-        GLuint  VAO;
+        Shader      *shader;
+        Texture     *textures[8];
+        Texture     *target;
+        int         targetFace;
+        GLuint      VAO;
+        BlendMode   blendMode;
+        CullMode    cullMode;
     } active;
 
     struct {
@@ -230,14 +236,18 @@ namespace Core {
         bool texHalf,  texHalfLinear;
         bool shaderBinary;
     } support;
+
+    struct {
+        bool ambient;
+        bool lighting;
+        bool shadows;
+        bool water;
+    } settings;
 }
 
 #include "texture.h"
 #include "shader.h"
 #include "mesh.h"
-
-enum CullMode  { cfNone, cfBack, cfFront };
-enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 
 namespace Core {
 
@@ -336,8 +346,8 @@ namespace Core {
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
-        LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");        
-        LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");        
+        LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");
+        LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
@@ -353,10 +363,10 @@ namespace Core {
 
         frameIndex = 0;
       
-        uint32 data = 0xFF000000;
-        blackTex = new Texture(1, 1, Texture::RGBA, false, &data);
+        uint32 data = 0x00000000;
+        blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
         data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data);       
+        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false); 
     }
 
     void free() {
@@ -396,10 +406,13 @@ namespace Core {
         return cache.count++;
     }
 
-    void clear(bool clearColor, bool clearDepth, const vec4 &color) {
-        glClearColor(color.x, color.y, color.z, color.w);
+    void clear(bool clearColor, bool clearDepth) {        
         if (GLbitfield mask = (clearColor ? GL_COLOR_BUFFER_BIT : 0) | (clearDepth ? GL_DEPTH_BUFFER_BIT : 0))
             glClear(mask);
+    }
+
+    void setClearColor(const vec4 &color) {
+        glClearColor(color.x, color.y, color.z, color.w);
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -407,6 +420,9 @@ namespace Core {
     }
 
     void setCulling(CullMode mode) {
+        if (active.cullMode == mode)
+            return;
+
         switch (mode) {
             case cfNone :
                 glDisable(GL_CULL_FACE);
@@ -418,11 +434,16 @@ namespace Core {
                 break;
         }
 
-        if (mode != cfNone)
+        if (mode != cfNone && active.cullMode == cfNone)
             glEnable(GL_CULL_FACE);
+
+        active.cullMode = mode;
     }
 
     void setBlending(BlendMode mode) {
+        if (active.blendMode == mode)
+            return;
+
         switch (mode) {
             case bmNone :
                 glDisable(GL_BLEND);
@@ -441,8 +462,10 @@ namespace Core {
                 break;
         }
 
-        if (mode != bmNone)
+        if (mode != bmNone && active.blendMode == bmNone)
             glEnable(GL_BLEND);
+
+        active.blendMode = mode;
     }
 
     void setColorWrite(bool r, bool g, bool b, bool a) {
@@ -473,6 +496,9 @@ namespace Core {
     }
 
     void setTarget(Texture *target, bool clear = false, int face = 0) {
+        if (target == active.target && face == active.targetFace)
+            return;
+
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glColorMask(true, true, true, true);
@@ -493,10 +519,12 @@ namespace Core {
                 glColorMask(false, false, false, false);
             setViewport(0, 0, target->width, target->height);
         }
-        active.target = target;
 
         if (clear)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        active.target     = target;
+        active.targetFace = face;
     }
 
     void copyTarget(Texture *texture, int xOffset, int yOffset, int x, int y, int width, int height) {
@@ -506,7 +534,9 @@ namespace Core {
 
     void resetStates() {
         memset(&active, 0, sizeof(active));
-        glEnable(GL_DEPTH_TEST);
+        setDepthTest(true);
+        active.blendMode = bmAlpha;
+        active.cullMode  = cfNone;
         setCulling(cfFront);
         setBlending(bmNone);
     }

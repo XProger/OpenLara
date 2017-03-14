@@ -138,7 +138,10 @@ struct MeshBuilder {
         MeshRange sprites;
         MeshRange **meshes;
     } *rooms;
-    MeshRange *models;
+    struct ModelRange {
+        MeshRange geometry;
+        bool      opaque;
+    } *models;
     MeshRange *sequences;
 // procedured
     MeshRange shadowBlob;
@@ -180,7 +183,8 @@ struct MeshBuilder {
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
 
-            roomRemoveWaterSurfaces(r, iCount, vCount);
+            if (Core::settings.water)
+                roomRemoveWaterSurfaces(r, iCount, vCount);
             
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
@@ -203,7 +207,7 @@ struct MeshBuilder {
         }
 
     // get models info
-        models = new MeshRange[level.modelsCount];
+        models = new ModelRange[level.modelsCount];
         for (int i = 0; i < level.modelsCount; i++) {
             TR::Model &model = level.models[i];
             for (int j = 0; j < model.mCount; j++) {
@@ -311,21 +315,23 @@ struct MeshBuilder {
     // build models geometry
         for (int i = 0; i < level.modelsCount; i++) {
             TR::Model &model = level.models[i];
-            MeshRange &range = models[i];
+            ModelRange &range = models[i];
             int vStart = vCount;
-            range.vStart = vStart;
-            range.iStart = iCount;
+            range.geometry.vStart = vStart;
+            range.geometry.iStart = iCount;
+            range.opaque = true;
 
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
                 if (!index && model.mStart + j > 0) continue;
                 aCount++;
                 TR::Mesh &mesh = level.meshes[index];
-                buildMesh( true, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
-                buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                if (!opaque)
+                    buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                range.opaque &= opaque;
             }
-
-            range.iCount = iCount - range.iStart;
+            range.geometry.iCount = iCount - range.geometry.iStart;
         }
 
     // build sprite sequences
@@ -429,7 +435,7 @@ struct MeshBuilder {
         for (int i = 0; i < level.spriteSequencesCount; i++)
             mesh->initRange(sequences[i]);     
         for (int i = 0; i < level.modelsCount; i++)
-            mesh->initRange(models[i]);
+            mesh->initRange(models[i].geometry);
         mesh->initRange(shadowBlob);
         mesh->initRange(bar);
         mesh->initRange(quad);
@@ -538,14 +544,18 @@ struct MeshBuilder {
         }
     }
 
-    void buildRoom(bool opaque, const TR::Room &room, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart) {
+    bool buildRoom(bool opaque, const TR::Room &room, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart) {
         const TR::Room::Data &d = room.data;
+        bool isOpaque = true;
 
         for (int j = 0; j < d.rCount; j++) {
             TR::Rectangle     &f = d.rectangles[j];
             TR::ObjectTexture &t = level.objectTextures[f.texture];
 
             if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
+
+            if (t.attribute != 0)
+                isOpaque = false;
 
             if (opaque != (t.attribute == 0))
                 continue;
@@ -570,6 +580,9 @@ struct MeshBuilder {
 
             if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
+            if (t.attribute != 0)
+                isOpaque = false;
+
             if (opaque != (t.attribute == 0))
                 continue;
 
@@ -586,15 +599,21 @@ struct MeshBuilder {
                 vCount++;
             }
         }
+
+        return isOpaque;
     }
 
-    void buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir) {
+    bool buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir) {
         TR::Color24 COLOR_WHITE = { 255, 255, 255 };
+        bool isOpaque = true;
 
         for (int j = 0; j < mesh.rCount; j++) {
             TR::Rectangle &f = mesh.rectangles[j];
             bool textured = !(f.texture & 0x8000);
             TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
+
+            if (t.attribute != 0)
+                isOpaque = false;
 
             if (opaque != (t.attribute == 0))
                 continue;
@@ -619,6 +638,9 @@ struct MeshBuilder {
             bool textured = !(f.texture & 0x8000);
             TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
 
+            if (t.attribute != 0)
+                isOpaque = false;
+
             if (opaque != (t.attribute == 0))
                 continue;
 
@@ -636,6 +658,8 @@ struct MeshBuilder {
                 vCount++;
             }
         }
+
+        return isOpaque;
     }
 
     vec2 getTexCoord(const TR::ObjectTexture &tex) {
@@ -791,7 +815,7 @@ struct MeshBuilder {
     }
 
     void renderModel(int modelIndex) {
-        mesh->render(models[modelIndex]);
+        mesh->render(models[modelIndex].geometry);
     }
 
     void renderSprite(int sequenceIndex, int frame) {
@@ -860,7 +884,7 @@ struct MeshBuilder {
         
         if (!text) return;
         
-        Core::active.shader->setParam(uColor, color);
+        Core::active.shader->setParam(uMaterial, vec4(1.0, 0.0, 0.0, 1.0));
         //text = "a: b";
         Basis basis;
         basis.identity();

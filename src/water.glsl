@@ -19,7 +19,6 @@ uniform vec3  uPosScale[2];
 
 uniform vec4  uTexParam;
 uniform vec4  uParam;
-uniform vec4  uColor;
 
 uniform sampler2D sNormal;
 
@@ -107,7 +106,7 @@ uniform sampler2D sNormal;
     vec4 calc() {
         vec2 tc = gl_FragCoord.xy * uTexParam.xy;
 
-        if (texture2D(sMask, tc).x == 0.0)
+        if (texture2D(sMask, tc).x < 0.5)
             return vec4(0.0);
 
         vec4 v = texture2D(sDiffuse, tc); // height, speed, normal.xz
@@ -135,11 +134,11 @@ uniform sampler2D sNormal;
         float rOldArea = length(dFdx(vOldPos.xyz)) * length(dFdy(vOldPos.xyz));
         float rNewArea = length(dFdx(vNewPos.xyz)) * length(dFdy(vNewPos.xyz));
         float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0) * vOldPos.w;
-        return vec4(vec3(value), 1.0);
+        return vec4(0.0, value, 0.0, 0.0);
     }
 
     vec4 mask() {
-        return vec4(0.0);
+        return vec4(1.0, 1.0, 1.0, 0.0);
     }
 
     vec4 compose() {
@@ -164,11 +163,11 @@ uniform sampler2D sNormal;
 
         float fresnel = calcFresnel(dot(normal, viewVec), 0.1, 2.0);
 
-        vec4 color = mix(refr, refl, fresnel) + spec;
+        vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
 
         float d = abs((vCoord.y - uViewPos.y) / normalize(vViewVec).y);
         d *= step(0.0, uViewPos.y - vCoord.y); // apply fog only when camera is underwater
-        color.xyz = applyFog(color.xyz, uColor.xyz, d * WATER_FOG_DIST);
+        color.xyz = applyFog(color.xyz, UNDERWATER_COLOR * 0.2, d * WATER_FOG_DIST);
 
         return color;
     }   

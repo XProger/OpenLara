@@ -24,12 +24,12 @@ struct Level : IGame {
     Camera      *camera;
     Texture     *shadow;
 
-    struct {
+    struct Params {
         float   time;
         float   waterHeight;
         float   clipSign;
         float   clipHeight;
-    } params;
+    } *params = (Params*)&Core::params;
 
     ShaderCache  *shaderCache;
     AmbientCache *ambientCache;
@@ -49,24 +49,25 @@ struct Level : IGame {
     }
 
     virtual void setClipParams(float clipSign, float clipHeight) {
-        params.clipSign   = clipSign;
-        params.clipHeight = clipHeight;
+        params->clipSign   = clipSign;
+        params->clipHeight = clipHeight;
     }
 
     virtual void setWaterParams(float height) {
-        params.waterHeight = height;
+        params->waterHeight = height;
     }
 
     virtual void updateParams() {
-        Core::active.shader->setParam(uParam, *((vec4*)&params));
+        Core::active.shader->setParam(uParam, Core::params);
     }
 
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {
-        waterCache->addDrop(pos, radius, strength);
+        if (waterCache)
+            waterCache->addDrop(pos, radius, strength);
     }
 
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, caustics, alphaTest, params.clipHeight != NO_CLIP_PLANE);
+    virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
+        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | (params->clipHeight != NO_CLIP_PLANE ? ShaderCache::FX_CLIP_PLANE : 0));
     }
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
@@ -88,13 +89,14 @@ struct Level : IGame {
 
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
-        shadow->bind(sShadow);
+        if (shadow)
+            shadow->bind(sShadow);
         renderScene(roomIndex);
     }
 //==============================
 
     Level(Stream &stream, bool demo, bool home) : level(stream, demo), lara(NULL) {
-        params.time = 0.0f;
+        params->time = 0.0f;
 
         #ifdef _DEBUG
             Debug::init();
@@ -204,8 +206,9 @@ struct Level : IGame {
 
         level.cameraController = camera;
 
-        ambientCache = new AmbientCache(this);
-        waterCache   = new WaterCache(this);
+        ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
+        waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
+        shadow       = Core::settings.shadows ? new Texture(1024, 1024, Texture::SHADOW, false) : NULL;
 
         initReflections();
         for (int i = 0; i < level.soundSourcesCount; i++) {
@@ -236,8 +239,6 @@ struct Level : IGame {
     }
 
     void initTextures() {
-        shadow = new Texture(1024, 1024, Texture::SHADOW, false);
-
         if (!level.tilesCount) {
             atlas = NULL;
             return;
@@ -327,95 +328,28 @@ struct Level : IGame {
         }
     }
 
-#ifdef LEVEL_EDITOR
-    struct Light {
-        vec3    pos;
-        float   radius;
-        float   intensity;
-    } lights[255];
-    int lightsCount    = 0;
-    int lightIntensity = 0.5f;
-    float lightRadius  = 4096.0f;
-
-    int findLight(const vec3 &pos, float maxDist) const {
-        int index = 0;
-        for (int i = 0; i < lightsCount; i++) {
-            float d = (lights[i].pos - pos).length();
-            if (d < maxDist) {
-                maxDist = d;
-                index   = i;
-            }
-        }
-        return index;
-    }
-
-    void addLight(const vec3 &pos, float radius) {
-        int index = findLight(pos, 1024.0f);
-        if (index > -1) {
-            lightRadius    = lights[index].radius;
-            lightIntensity = lights[index].intensity;
-        } else
-            index = lightsCount++;
-        
-        lights[index].pos    = pos;
-        lights[index].radius = radius;
-    }
-
-    void removeLight(const vec3 &pos) {
-        int index = findLight(pos, 1024.0f);
-        if (index > -1)
-            lights[index] = lights[--lightsCount];
-    }
-
-    void updateLight(const vec3 &pos, float addRadius, float addIntensity) {
-        int index = findLight(pos, 1024.0f);
-        if (index > -1) {            
-            lights[index].radius    = max(lights[index].radius + addRadius, 256.0f);
-            lights[index].intensity = clamp(lights[index].intensity + addIntensity, 0.0f, 1.0f);
-            lightRadius    = lights[index].radius;
-            lightIntensity = lights[index].intensity;
-        }
-    }
-
-    void updateEditor() {
-
-
-    }
-
-    void renderEditor() {
-    #ifdef _DEBUG
-        Debug::begin();
-
-        Debug::end();
-    #endif
-    }
-#endif
-
-    void setRoomParams(int roomIndex, float intensity, Shader::Type type, bool alphaTest = false) {
+    void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
-            setShader(Core::pass, type, false);
+            setShader(Core::pass, type);
             return;
         }
 
         TR::Room &room = level.rooms[roomIndex];
 
+        if (room.flags.water)
+            setWaterParams(float(room.info.yTop));
+        else
+            setWaterParams(NO_CLIP_PLANE);
+
         setShader(Core::pass, type, room.flags.water, alphaTest);
 
         if (room.flags.water) {
-            Core::color = vec4(waterCache->color, intensity);
-            /*
-        // trace to water surface room
-            int wrIndex = roomIndex;
+            if (waterCache)
+                waterCache->bindCaustics(roomIndex);
+            setWaterParams(float(room.info.yTop));
+        }
 
-            room.sectors[sx * room.zSectors + sz];
-
-            int sx = room.xSectors
-            */
-            waterCache->bindCaustics(roomIndex);
-        } else
-            Core::color = vec4(1.0f, 1.0f, 1.0f, intensity);
-        
-        Core::active.shader->setParam(uColor, Core::color);
+        Core::active.shader->setParam(uMaterial, vec4(diffuse, ambient, specular, alpha));
     }
 
     void renderRoom(int roomIndex, int from = TR::NO_ROOM) {
@@ -427,7 +361,7 @@ struct Level : IGame {
 
     // room geometry & sprites
         if (!room.flags.rendered) { // skip if already rendered
-            if (room.flags.water)
+            if (waterCache && room.flags.water)
                 waterCache->setVisible(roomIndex);
 
             room.flags.rendered = true;
@@ -445,7 +379,7 @@ struct Level : IGame {
 
                     Core::setBlending(transp ? bmAlpha : bmNone);
 
-                    setRoomParams(roomIndex, intensityf(room.ambient), Shader::ROOM, transp > 0);
+                    setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(room.ambient), 0.0f, 1.0f, transp > 0);
                     Shader *sh = Core::active.shader;
                     sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                     sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
@@ -458,7 +392,7 @@ struct Level : IGame {
             // render room sprites
                 if (range.sprites.iCount) {
                     Core::setBlending(bmAlpha);
-                    setRoomParams(roomIndex, 1.0, Shader::SPRITE, true);
+                    setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
                     Shader *sh = Core::active.shader;
                     sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                     sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
@@ -494,7 +428,7 @@ struct Level : IGame {
 
             frustum = *camFrustum;
             if (frustum.clipByPortal(v, 4, p.normal)) {
-                if ((level.rooms[roomIndex].flags.water ^ level.rooms[p.roomIndex].flags.water) && v[0].y == v[1].y && v[0].y == v[2].y)
+                if (waterCache &&(level.rooms[roomIndex].flags.water ^ level.rooms[p.roomIndex].flags.water) && v[0].y == v[1].y && v[0].y == v[2].y)
                     waterCache->setVisible(roomIndex, p.roomIndex);
                 renderRoom(p.roomIndex, roomIndex);
             }
@@ -556,6 +490,7 @@ struct Level : IGame {
 
         Controller *controller = (Controller*)entity.controller;
 
+
         TR::Room &room = level.rooms[entity.room];
         if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
             return;
@@ -566,25 +501,29 @@ struct Level : IGame {
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
-        setRoomParams(entity.room, isModel ? controller->specular : intensityf(lum), type, !isModel);
+        int roomIndex = entity.room;
+//        if (entity.type == TR::Entity::LARA && ((Lara*)entity.controller)->state == Lara::STATE_WATER_OUT)
+//            roomIndex = ((Lara*)entity.controller)->roomPrev;
+
+        setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? mesh->models[entity.modelIndex].opaque : true);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
-            AmbientCache::Cube cube;
-            if (Core::frameIndex != controller->frameIndex) {
-                ambientCache->getAmbient(entity.room, pos, cube);
-                if (cube.status == AmbientCache::Cube::READY)
-                    memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
+            if (Core::settings.ambient) {
+                AmbientCache::Cube cube;
+                if (Core::frameIndex != controller->frameIndex) {
+                    ambientCache->getAmbient(entity.room, pos, cube);
+                    if (cube.status == AmbientCache::Cube::READY)
+                        memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
+                }
+                Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
             getLight(pos, entity.room);
-            Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
         } else { // sprite
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
         }        
         
-        Core::active.shader->setParam(uViewProj,   Core::mViewProj);
-        Core::active.shader->setParam(uLightProj,  Core::mLightProj);
         Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
         Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
 
@@ -592,7 +531,7 @@ struct Level : IGame {
     }
 
     void update() {
-        params.time += Core::deltaTime;
+        params->time += Core::deltaTime;
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
@@ -601,7 +540,7 @@ struct Level : IGame {
                 if (controller) {
                     controller->update();
 
-                    if (e.type == TR::Entity::WATERFALL && ((Waterfall*)controller)->drop) { // add water drops for waterfalls
+                    if (waterCache && e.type == TR::Entity::WATERFALL && ((Waterfall*)controller)->drop) { // add water drops for waterfalls
                         Waterfall *w = (Waterfall*)controller;
                         waterCache->addDrop(w->dropPos, w->dropRadius, w->dropStrength);
                     }
@@ -610,7 +549,8 @@ struct Level : IGame {
         }
 
         camera->update();
-        waterCache->update();
+        if (waterCache) 
+            waterCache->update();
     }
 
     void setup() {
@@ -627,22 +567,6 @@ struct Level : IGame {
         if (!Core::support.VAO)
             mesh->bind();
         //Core::mViewProj = Core::mLightProj;
-        // set frame constants for all shaders        
-        for (int i = 0; i < sizeof(shaderCache->shaders[Core::pass]) / sizeof(shaderCache->shaders[Core::pass][0]); i++) {
-            Shader **ptr = &shaderCache->shaders[Core::pass][i][0][0][0];
-            for (int j = 0; j < 8; j++) {
-                Shader *sh = *ptr++;
-                if (!sh) continue;
-                sh->bind();
-                sh->setParam(uViewProj,         Core::mViewProj);
-                sh->setParam(uLightProj,        Core::mLightProj);
-                sh->setParam(uViewInv,          Core::mViewInv);
-                sh->setParam(uViewPos,          Core::viewPos);
-                sh->setParam(uParam,            *((vec4*)&params));
-                sh->setParam(uAnimTexRanges,    mesh->animTexRanges[0],     mesh->animTexRangesCount);
-                sh->setParam(uAnimTexOffsets,   mesh->animTexOffsets[0],    mesh->animTexOffsetsCount);
-            }
-        }
         Core::basis.identity();
 
         // clear visibility flag for rooms
@@ -731,35 +655,42 @@ struct Level : IGame {
         shadow->unbind(sShadow);
         bool colorShadow = shadow->format == Texture::Format::RGBA ? true : false;
         if (colorShadow)
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            Core::setClearColor(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	    Core::setTarget(shadow, true);
         Core::setCulling(cfBack);
 	    renderScene(roomIndex);
         Core::invalidateTarget(!colorShadow, colorShadow);
         Core::setCulling(cfFront);	    
         if (colorShadow)
-            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            Core::setClearColor(vec4(0.0f, 0.0f, 0.0f, 0.0f));
     }
 
     void render() {
         Core::invalidateTarget(true, true);
-        params.clipHeight  = NO_CLIP_PLANE;
-        params.clipSign    = 1.0f;
-        params.waterHeight = params.clipHeight;
+        params->clipHeight  = NO_CLIP_PLANE;
+        params->clipSign    = 1.0f;
+        params->waterHeight = params->clipHeight;
         Core::resetStates();
         
-        ambientCache->precessQueue();
-        waterCache->reset();
+        if (ambientCache)
+            ambientCache->precessQueue();
+        if (waterCache)
+            waterCache->reset();
+        if (shadow)
+            renderShadows(lara->getRoomIndex());
 
-        renderShadows(lara->getRoomIndex());
         Core::setTarget(NULL, true);
         Core::setViewport(0, 0, Core::width, Core::height);
 
-        waterCache->checkVisibility = true;
-        renderCompose(camera->getRoomIndex());
-        waterCache->checkVisibility = false;
+        if (waterCache)
+            waterCache->checkVisibility = true;
 
-        waterCache->render();
+        renderCompose(camera->getRoomIndex());
+
+        if (waterCache) {
+            waterCache->checkVisibility = false;
+            waterCache->render();
+        }
 
 //        Core::mViewInv = camera->mViewInv;
 //        Core::mView = Core::mViewInv.inverse();
@@ -832,8 +763,8 @@ struct Level : IGame {
         glEnd();
         Core::setDepthTest(true);
 
-
         /*
+        
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -871,7 +802,7 @@ struct Level : IGame {
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
-        */
+        
             
             Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
@@ -886,7 +817,7 @@ struct Level : IGame {
 
         /*
             static int dbg_ambient = 0;
-            dbg_ambient = int(params.time * 2) % 4;
+            dbg_ambient = int(params->time * 2) % 4;
 
             shadow->unbind(sShadow);
             atlas->bind(sDiffuse);

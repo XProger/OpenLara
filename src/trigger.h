@@ -301,7 +301,7 @@ struct Crystal : Controller {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Shader *sh = Core::active.shader;
-        sh->setParam(uColor, vec4(0.4f, 0.4f, 16.0f, 1.0f)); // blue color dodge
+        sh->setParam(uMaterial, vec4(1.0f));
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
     }

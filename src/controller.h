@@ -24,7 +24,7 @@ struct IGame {
     virtual void setWaterParams(float height) {}
     virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false) {}
+    virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex) {}
 };
@@ -487,21 +487,45 @@ struct Controller {
         return matrix;
     }
 
-/*
     void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
+        /*
         mat4 m;
         m.identity();
         m.translate(pos);
         m.rotateY(angle);
         m.translate(vec3(offset.x, 0.0f, offset.z));
-        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));
+        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));        
 
-        Core::active.shader->setParam(uModel, m);
-        Core::active.shader->setParam(uColor, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::active.shader->setParam(uBasis, Basis(m));
+        Core::active.shader->setParam(uColor, vec4(0.5f, 0.5f, 0.5f, 1.0f));
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
+
+        Core::setBlending(bmMultiply);
         mesh->renderShadowSpot();
+        Core::setBlending(bmNone);
+        */
+        mat4 m = Core::mViewProj;
+        m.translate(pos);
+        m.rotateY(angle);
+        m.translate(vec3(offset.x, 0.0f, offset.z));
+        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));        
+
+        Basis b;
+        b.identity();
+
+        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::active.shader->setParam(uViewProj, m);
+        Core::active.shader->setParam(uBasis, b);
+        Core::active.shader->setParam(uMaterial, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        Core::active.shader->setParam(uAmbient, vec3(0.0f));
+
+        Core::setBlending(bmAlpha);
+        mesh->renderShadowSpot();
+        Core::setBlending(bmNone);
+
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
     }
-*/
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO: animation.calcJoints
         mat4 matrix = getMatrix();
@@ -540,13 +564,12 @@ struct Controller {
 
         frameIndex = Core::frameIndex;
 
-    /* // blob shadow // TODO: fake AO
-        if (TR::castShadow(entity.type)) {
+     // blob shadow // TODO: fake AO
+        if (!Core::settings.shadows && Core::pass == Core::passCompose && TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;
             level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
             renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size() * 0.8f, angle.y);
-        }
-    */
+        }    
     }
 };
 

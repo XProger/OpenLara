@@ -213,6 +213,7 @@ struct Lara : Character {
     Inventory inventory;
     int lastPickUp;
     int viewTarget;
+    int roomPrev; // water out from room
 
     struct Braid {
         Lara *lara;
@@ -405,7 +406,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+
     #ifdef _DEBUG            
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
@@ -1063,6 +1064,7 @@ struct Lara : Character {
 
         if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
             alignToWall(LARA_RADIUS);
+            roomPrev = getRoomIndex();
             getEntity().room = roomAbove;
             pos.y    = float(info.floor);
             specular = LARA_WET_SPECULAR;
@@ -1555,6 +1557,7 @@ struct Lara : Character {
 
         if (state != STATE_SURF_TREAD && state != STATE_SURF_LEFT && state != STATE_SURF_RIGHT && state != STATE_SURF_SWIM && state != STATE_SURF_BACK && state != STATE_STOP) {
             game->waterDrop(pos, 128.0f, 0.2f);
+            specular = LARA_WET_SPECULAR;
             return animation.setAnim(ANIM_TO_ONWATER);
         }
 
@@ -2011,7 +2014,7 @@ struct Lara : Character {
         Basis b(basis);
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
         b.translate(offset);
-        Core::active.shader->setParam(uColor, vec4(lum, lum, lum, alpha));
+        Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
         Core::active.shader->setParam(uBasis, b);
         mesh->renderModel(level->extra.muzzleFlash);
     }

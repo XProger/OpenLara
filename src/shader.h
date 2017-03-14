@@ -3,13 +3,53 @@
 
 #include "core.h"
 
-enum AttribType     { aCoord, aTexCoord, aNormal, aColor, aMAX };
-enum SamplerType    { sDiffuse, sNormal, sReflect, sShadow, sEnvironment, sMask, sMAX };
-enum UniformType    { uParam, uTexParam, uViewProj, uViewInv, uBasis, uLightProj, uColor, uAmbient, uViewPos, uLightPos, uLightColor, uAnimTexRanges, uAnimTexOffsets, uRoomSize, uPosScale, uMAX };
+#define SHADER_ATTRIBS(E) \
+    E( aCoord           ) \
+    E( aTexCoord        ) \
+    E( aNormal          ) \
+    E( aColor           )
 
-const char *AttribName[aMAX]    = { "aCoord", "aTexCoord", "aNormal", "aColor" };
-const char *SamplerName[sMAX]   = { "sDiffuse", "sNormal", "sReflect", "sShadow", "sEnvironment", "sMask" };
-const char *UniformName[uMAX]   = {  "uParam", "uTexParam", "uViewProj", "uViewInv", "uBasis", "uLightProj", "uColor", "uAmbient", "uViewPos", "uLightPos", "uLightColor", "uAnimTexRanges", "uAnimTexOffsets", "uRoomSize", "uPosScale" };
+#define SHADER_SAMPLERS(E) \
+    E( sDiffuse         ) \
+    E( sNormal          ) \
+    E( sReflect         ) \
+    E( sShadow          ) \
+    E( sEnvironment     ) \
+    E( sMask            )
+
+#define SHADER_UNIFORMS(E) \
+    E( uParam           ) \
+    E( uTexParam        ) \
+    E( uViewProj        ) \
+    E( uViewInv         ) \
+    E( uBasis           ) \
+    E( uLightProj       ) \
+    E( uMaterial        ) \
+    E( uAmbient         ) \
+    E( uViewPos         ) \
+    E( uLightPos        ) \
+    E( uLightColor      ) \
+    E( uAnimTexRanges   ) \
+    E( uAnimTexOffsets  ) \
+    E( uRoomSize        ) \
+    E( uPosScale        )
+
+#define ENUM(v) v,
+#define STR(v)  #v,
+
+enum AttribType  { SHADER_ATTRIBS(ENUM)  aMAX };
+enum SamplerType { SHADER_SAMPLERS(ENUM) sMAX };
+enum UniformType { SHADER_UNIFORMS(ENUM) uMAX };
+
+const char *AttribName[aMAX]  = { SHADER_ATTRIBS(STR)  };
+const char *SamplerName[sMAX] = { SHADER_SAMPLERS(STR) };
+const char *UniformName[uMAX] = { SHADER_UNIFORMS(STR) };
+
+#undef SHADER_ATTRIBS
+#undef SHADER_SAMPLERS
+#undef SHADER_UNIFORMS
+#undef ENUM
+#undef STR
 
 struct Shader {
     GLuint  ID;
@@ -26,7 +66,7 @@ struct Shader {
 
     Shader(const char *source, const char *defines = "") {
         char fileName[255];
-
+        //LOG(hello[0]);
     // generate shader file path
         if (Core::support.shaderBinary) {
             uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
@@ -131,11 +171,13 @@ struct Shader {
         memset(params, 0, sizeof(params));
     }
 
-    void bind() {
+    bool bind() {
         if (Core::active.shader != this) {
             Core::active.shader = this;
             glUseProgram(ID);
+            return true;
         }
+        return false;
     }
 
     inline bool checkParam(UniformType uType, const void *value, int size) {

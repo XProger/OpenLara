@@ -161,7 +161,7 @@ struct Camera : Controller {
             if (Input::down[ikS]) v = v - d;
             if (Input::down[ikA]) v = v + d.cross(vec3(0, 1, 0));
             if (Input::down[ikD]) v = v - d.cross(vec3(0, 1, 0));
-            pos = pos + v.normal() * (Core::deltaTime * 512.0 * 10.0f);
+            pos = pos + v.normal() * (Core::deltaTime * 512.0f * 10.0f);
 
             mViewInv.identity();
             mViewInv.translate(pos);

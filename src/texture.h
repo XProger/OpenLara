@@ -4,7 +4,7 @@
 #include "core.h"
 
 struct Texture {
-    enum Format : uint32 { RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, SHADOW, MAX };
+    enum Format : uint32 { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, SHADOW, MAX };
 
     GLuint  ID;
     int     width, height;
@@ -38,14 +38,14 @@ struct Texture {
 
         if (format == RGBA_HALF) {
             if (Core::support.texHalf)
-                filter = Core::support.texHalfLinear;
+                filter = filter && Core::support.texHalfLinear;
             else
                 format = RGBA_FLOAT;
         }
 
         if (format == RGBA_FLOAT) {
             if (Core::support.texFloat)
-                filter = Core::support.texFloatLinear;
+                filter = filter && Core::support.texFloatLinear;
             else
                 format = RGBA;
         }
@@ -66,6 +66,7 @@ struct Texture {
             GLuint ifmt, fmt;
             GLenum type;
         } formats[MAX] = {            
+            { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
             { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
             { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
             { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
@@ -88,14 +89,19 @@ struct Texture {
     }
 
     void bind(int sampler) {
-        Core::active.textures[sampler] = this;
-        glActiveTexture(GL_TEXTURE0 + sampler);
-        glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
+        if (Core::active.textures[sampler] != this) {
+            Core::active.textures[sampler] = this;
+            glActiveTexture(GL_TEXTURE0 + sampler);
+            glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
+        }
     }
 
     void unbind(int sampler) {
-        glActiveTexture(GL_TEXTURE0 + sampler);
-        glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
+        if (Core::active.textures[sampler]) {
+            Core::active.textures[sampler] = NULL;
+            glActiveTexture(GL_TEXTURE0 + sampler);
+            glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
+        }
     }
 };
 

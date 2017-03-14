@@ -11,6 +11,7 @@
 #define FOG_DIST       (18 * 1024)
 #define WATER_FOG_DIST (8 * 1024)
 //#define WATER_USE_GRID
+#define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
 
 const char SHADER[] =
     #include "shader.glsl"
@@ -29,46 +30,55 @@ const char GUI[] =
 ;
 
 struct ShaderCache {
+    enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
+
     IGame  *game;
-    Shader *shaders[Core::passMAX][Shader::MAX][2][2][2];
+    Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE) + 1];
 
     ShaderCache(IGame *game) : game(game) {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
-        compile(Core::passShadow , Shader::ENTITY, false, false, false);
+        if (Core::settings.shadows)
+            compile(Core::passShadow, Shader::ENTITY, FX_NONE);
 
-        compile(Core::passAmbient, Shader::ROOM,   false, false, false);
-        compile(Core::passAmbient, Shader::ROOM,   false,  true, false);
-        compile(Core::passAmbient, Shader::ROOM,   false, false,  true);
-        compile(Core::passAmbient, Shader::ROOM,   false,  true,  true);
-        compile(Core::passAmbient, Shader::ROOM,    true, false, false);
-        compile(Core::passAmbient, Shader::SPRITE, false,  true, false);
-        compile(Core::passAmbient, Shader::SPRITE, false,  true,  true);
+        if (Core::settings.ambient) {
+            compile(Core::passAmbient, Shader::ROOM,   FX_NONE);
+            compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST);
+            compile(Core::passAmbient, Shader::ROOM,   FX_CLIP_PLANE);
+            compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
+            compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER);
+            compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
+            compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST);
+            compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
+        }
 
-        compile(Core::passCompose, Shader::ROOM,   false, false, false);
-        compile(Core::passCompose, Shader::ROOM,   false,  true, false);
-        compile(Core::passCompose, Shader::ROOM,   false,  true,  true);
-        compile(Core::passCompose, Shader::ROOM,   false, false,  true);
-        compile(Core::passCompose, Shader::ROOM,    true, false, false);
-        compile(Core::passCompose, Shader::ROOM,    true, false,  true);
-        compile(Core::passCompose, Shader::ENTITY, false, false, false);
-        compile(Core::passCompose, Shader::ENTITY, false, false,  true);
-        compile(Core::passCompose, Shader::ENTITY,  true, false, false);
-        compile(Core::passCompose, Shader::ENTITY,  true, false,  true);
-        compile(Core::passCompose, Shader::SPRITE, false,  true, false);
-        compile(Core::passCompose, Shader::SPRITE, false,  true,  true);
-        compile(Core::passCompose, Shader::SPRITE,  true,  true, false);
-        compile(Core::passCompose, Shader::SPRITE,  true,  true,  true);
-        compile(Core::passCompose, Shader::FLASH,  false,  true, false);
+        if (Core::settings.water) {
+            compile(Core::passWater, Shader::WATER_MASK,     FX_NONE);
+            compile(Core::passWater, Shader::WATER_STEP,     FX_NONE);
+            compile(Core::passWater, Shader::WATER_CAUSTICS, FX_NONE);
+            compile(Core::passWater, Shader::WATER_COMPOSE,  FX_NONE);
+            compile(Core::passWater, Shader::WATER_DROP,     FX_NONE);
+        }
 
-        compile(Core::passFilter , Shader::FILTER_DOWNSAMPLE, false, false, false);
+        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, FX_NONE);
 
-        compile(Core::passWater  , Shader::WATER_MASK,     false, false, false);
-        compile(Core::passWater  , Shader::WATER_STEP,     false, false, false);
-        compile(Core::passWater  , Shader::WATER_CAUSTICS, false, false, false);
-        compile(Core::passWater  , Shader::WATER_COMPOSE,  false, false, false);
-        compile(Core::passWater  , Shader::WATER_DROP,     false, false, false);
+        compile(Core::passCompose, Shader::ROOM,   FX_NONE);
+        compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ROOM,   FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ENTITY, FX_NONE);
+        compile(Core::passCompose, Shader::ENTITY, FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::FLASH,  FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::MIRROR, FX_NONE);
 
         LOG("shader: cache is ready\n");
     }
@@ -76,25 +86,26 @@ struct ShaderCache {
     ~ShaderCache() {
         for (int pass = 0; pass < Core::passMAX; pass++)
             for (int type = 0; type < Shader::MAX; type++)
-                for (int caustics = 0; caustics < 2; caustics++)
-                    for (int alphaTest = 0; alphaTest < 2; alphaTest++)
-                        for (int clipPlane = 0; clipPlane < 2; clipPlane++)
-                            delete shaders[pass][type][caustics][alphaTest][clipPlane];
+                for (int fx = 0; fx < sizeof(shaders[Core::passMAX][Shader::MAX]) / sizeof(shaders[Core::passMAX][Shader::MAX][FX_NONE]); fx++)
+                    delete shaders[pass][type][fx];
     }
 
-    Shader* compile(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false, bool clipPlane = false) {
+    Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
         char def[1024], ext[255];
         ext[0] = 0;
-		if (Core::support.shadowSampler) {
-			#ifdef MOBILE
-				strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
-			#endif
-			strcat(ext, "#define SHADOW_SAMPLER\n");
-		} else
-			if (Core::support.depthTexture)
-				strcat(ext, "#define SHADOW_DEPTH\n");
-			else
-				strcat(ext, "#define SHADOW_COLOR\n");
+        if (Core::settings.shadows) {
+		    if (Core::support.shadowSampler) {
+			    #ifdef MOBILE
+				    strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
+			    #endif
+			    strcat(ext, "#define SHADOW_SAMPLER\n");
+		    } else {
+			    if (Core::support.depthTexture)
+				    strcat(ext, "#define SHADOW_DEPTH\n");
+			    else
+				    strcat(ext, "#define SHADOW_COLOR\n");
+            }
+        }
 
         const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "FILTER", "WATER" };
         const char *src = NULL;
@@ -109,16 +120,20 @@ struct ShaderCache {
                 int animTexRangesCount  = game->getMesh()->animTexRangesCount;
                 int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
                 sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
-                if (caustics)  strcat(def, "#define CAUSTICS\n");
-                if (alphaTest) strcat(def, "#define ALPHA_TEST\n");
-                if (clipPlane) strcat(def, "#define CLIP_PLANE\n");
+                if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
+                if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
+                if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
+                if (Core::settings.ambient)  strcat(def, "#define OPT_AMBIENT\n");
+                if (Core::settings.lighting) strcat(def, "#define OPT_LIGHTING\n");
+                if (Core::settings.shadows)  strcat(def, "#define OPT_SHADOW\n");
+                if (Core::settings.water)    strcat(def, "#define OPT_WATER\n");
                 break;
             }
             case Core::passWater   : {
                 static const char *typeNames[] = { "DROP", "STEP", "CAUSTICS", "MASK", "COMPOSE" };
                 src = WATER;
                 typ = typeNames[type];
-                sprintf(def, "%s#define PASS_%s\n#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, WATER_FOG_DIST);
+                sprintf(def, "%s#define PASS_%s\n#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n" UNDERWATER_COLOR, ext, passNames[pass], typ, WATER_FOG_DIST);
                 #ifdef WATER_USE_GRID
                     strcat(def, "#define WATER_USE_GRID\n");
                 #endif
@@ -133,17 +148,26 @@ struct ShaderCache {
             }
             default : ASSERT(false);
         }
-        LOG("shader: compile %s -> %s %s%s%s\n", passNames[pass], typ, caustics ? "caustics " : "", alphaTest ? "alphaTest " : "", clipPlane ? "clipPlane" : "");
-        return shaders[pass][type][caustics][alphaTest][clipPlane] = new Shader(src, def);
+        LOG("shader: compile %s -> %s %s%s%s\n", passNames[pass], typ, (fx & FX_UNDERWATER) ? "underwater " : "", (fx & FX_ALPHA_TEST) ? "alphaTest " : "", (fx & FX_CLIP_PLANE) ? "clipPlane" : "");
+        return shaders[pass][type][fx] = new Shader(src, def);
     }
 
-    void bind(Core::Pass pass, Shader::Type type, bool caustics = false, bool alphaTest = false, bool clipPlane = false) {
+    void bind(Core::Pass pass, Shader::Type type, int fx) {
         Core::pass = pass;
-        Shader *shader = shaders[pass][type][caustics][alphaTest][clipPlane];
+        Shader *shader = shaders[pass][type][fx];
         if (!shader)
-            shader = compile(pass, type, caustics, alphaTest, clipPlane);
+            shader = compile(pass, type, fx);
         ASSERT(shader != NULL);
         shader->bind();
+        // TODO: bindable uniform block
+        shader->setParam(uViewProj,       Core::mViewProj);
+        shader->setParam(uLightProj,      Core::mLightProj);
+        shader->setParam(uViewInv,        Core::mViewInv);
+        shader->setParam(uViewPos,        Core::viewPos);
+        shader->setParam(uParam,          Core::params);
+        MeshBuilder *mesh = game->getMesh();
+        shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
+        shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
     }
 
 };
@@ -220,7 +244,7 @@ struct AmbientCache {
         // second pass - downsample it
         Core::setDepthTest(false);
 
-        game->setShader(Core::passFilter, Shader::FILTER_DOWNSAMPLE, false);
+        game->setShader(Core::passFilter, Shader::FILTER_DOWNSAMPLE);
 
         for (int i = 1; i < 4; i++) {
             int size = 64 >> (i << 1);
@@ -291,7 +315,6 @@ struct WaterCache {
     TR::Level *level;
     Texture   *refract;
     Texture   *reflect;
-    vec3      color;
 
     struct Item {
         int     from, to, caust;
@@ -312,6 +335,7 @@ struct WaterCache {
         }
 
         void init(IGame *game) {
+
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
 
@@ -356,21 +380,22 @@ struct WaterCache {
                                 }
                     }
                         
-                    m[(x - minX) + w * (z - minZ)] = hasWater ? (hasFlow ? 0xFFFF : 0xFF00) : 0;
+                    m[(x - minX) + w * (z - minZ)] = hasWater ? (hasFlow ? 0xF81F : 0xF800) : 0;
                 }
-            mask = new Texture(w, h, Texture::RGB16, false, m, false);
-            delete[] m;
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
             pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
 
             data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-            data[1]  = new Texture(data[0]->width, data[0]->height, Texture::RGBA_HALF, false);
+            data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
             caustics = new Texture(512, 512, Texture::RGB16, false);
+            mask     = new Texture(w, h, Texture::RGB16, false, m, false);
+            delete[] m;
+
             blank = false;
 
-            Core::setTarget(data[0], true);
-            Core::invalidateTarget(false, true);
+        //    Core::setTarget(data[0], true);
+        //    Core::invalidateTarget(false, true);
         }
 
         void free() {
@@ -394,7 +419,7 @@ struct WaterCache {
         Drop(const vec3 &pos, float radius, float strength) : pos(pos), radius(radius), strength(strength) {}
     } drops[MAX_DROPS];
 
-    WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), color(0.6f, 0.9f, 0.9f), count(0), checkVisibility(false), dropCount(0) {
+    WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), checkVisibility(false), dropCount(0) {
         reflect = new Texture(512, 512, Texture::RGB16, false);
     }
 
@@ -494,7 +519,7 @@ struct WaterCache {
     void drop(Item &item) { 
         if (!dropCount) return;
 
-        game->setShader(Core::passWater, Shader::WATER_DROP, false);
+        game->setShader(Core::passWater, Shader::WATER_DROP);
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
 
         vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f) };
@@ -520,7 +545,7 @@ struct WaterCache {
     void step(Item &item) {
         if (item.timer < SIMULATE_TIMESTEP) return;
 
-        game->setShader(Core::passWater, Shader::WATER_STEP, false);
+        game->setShader(Core::passWater, Shader::WATER_STEP);
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
         Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, 0));
             
@@ -537,7 +562,7 @@ struct WaterCache {
         
 
     // calc caustics
-        game->setShader(Core::passWater, Shader::WATER_CAUSTICS, false);
+        game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
         vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f / PLANE_DETAIL) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
 
@@ -557,11 +582,19 @@ struct WaterCache {
         if (!visible) return;
 
     // mask underwater geometry by zero alpha
-        game->setShader(Core::passWater, Shader::WATER_MASK, false);
+        for (int i = 0; i < count; i++) {
+            Item &item = items[i];
+            if (item.visible && item.blank)
+                item.init(game);
+        }
+        Core::setTarget(NULL);
+
+        game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
-        Core::setCulling(cfNone);
-        Core::setDepthWrite(false);
+
         Core::setColorWrite(false, false, false, true);
+        Core::setDepthWrite(false);
+        Core::setCulling(cfNone);
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -586,11 +619,6 @@ struct WaterCache {
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
-
-            if (item.blank) {
-                item.init(game);
-                item.blank = false;
-            }
 
         // render mirror reflection
             Core::setTarget(reflect, true);
@@ -639,13 +667,10 @@ struct WaterCache {
                 Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
             }
 
-            game->setShader(Core::passWater, Shader::WATER_COMPOSE, false);
-            Core::active.shader->setParam(uViewProj,    Core::mViewProj);
-            Core::active.shader->setParam(uViewPos,     Core::viewPos);
+            game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
             Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.05f, 0.02f));
-            Core::active.shader->setParam(uColor,       vec4(color * 0.2f, 1.0f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
@@ -659,9 +684,9 @@ struct WaterCache {
             #ifdef WATER_USE_GRID
                 vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
                 Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-                level->mesh->renderPlane();
+                game->getMesh()->renderPlane();
             #else
-                Core::active.shader->setParam(uPosScale,    item.pos, 2);
+                Core::active.shader->setParam(uPosScale, item.pos, 2);
                 game->getMesh()->renderQuad();
             #endif
             Core::setCulling(cfFront);
@@ -715,5 +740,7 @@ struct LightCache {
     }
 };
 */
+
+#undef UNDERWATER_COLOR
 
 #endif
