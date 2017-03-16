@@ -176,13 +176,8 @@ int main() {
             if (time <= lastTime)
                 continue;
 
-            float delta = (time - lastTime) * 0.001f;
             pthread_mutex_lock(&sndMutex);
-            while (delta > EPS) {
-                Core::deltaTime = min(delta, 1.0f / 30.0f);
-                Game::update();
-                delta -= Core::deltaTime;
-            }
+            Game::update((time - lastTime) * 0.001f);
             pthread_mutex_unlock(&sndMutex);
             lastTime = time;
 

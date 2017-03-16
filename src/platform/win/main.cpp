@@ -371,13 +371,8 @@ int main(int argc, char** argv) {
             if (time <= lastTime)
                 continue;
 
-            float delta = min(1.0f, (time - lastTime) * 0.001f);
             EnterCriticalSection(&sndCS);
-            while (delta > EPS) {
-                Core::deltaTime = min(delta, 1.0f / 30.0f);
-                Game::update();
-                delta -= Core::deltaTime;
-            }
+            Game::update((time - lastTime) * 0.001f);
             LeaveCriticalSection(&sndCS);
             lastTime = time;
 

@@ -1,11 +1,16 @@
 #include <jni.h>
 #include <android/log.h>
+//#include "vr/gvr/capi/include/gvr.h"
 #include <sys/time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
 
 #include "game.h"
+
+#define JNI_METHOD(return_type, method_name) \
+  JNIEXPORT return_type JNICALL              \
+      Java_org_xproger_openlara_Wrapper_##method_name
 
 int getTime() {
     timeval time;
@@ -20,7 +25,7 @@ int lastTime, fpsTime, fps;
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeInit(JNIEnv* env, jobject obj, jstring packName, jstring cacheDir, jint levelOffset, jint musicOffset) {
+JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring packName, jstring cacheDir, jint levelOffset, jint musicOffset) {
 	const char* str;
 
 	Stream::contentDir[0] = Stream::cacheDir[0] = 0;
@@ -43,29 +48,23 @@ JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeInit(JNIEnv* env,
     fps         = 0;
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeFree(JNIEnv* env) {
+JNI_METHOD(void, nativeFree)(JNIEnv* env) {
     Game::free();
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeReset(JNIEnv* env) {
+JNI_METHOD(void, nativeReset)(JNIEnv* env) {
 //  core->reset();
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeUpdate(JNIEnv* env) {
+JNI_METHOD(void, nativeUpdate)(JNIEnv* env) {
     int time = getTime();
     if (time == lastTime)
         return;
-
-    float delta = min(1.0f, (time - lastTime) * 0.001f);
-    while (delta > EPS) {
-        Core::deltaTime = min(delta, 1.0f / 30.0f);
-        Game::update();
-        delta -= Core::deltaTime;
-    }
+    Game::update((time - lastTime) * 0.001f);
     lastTime = time;
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeRender(JNIEnv* env) {
+JNI_METHOD(void, nativeRender)(JNIEnv* env) {
     Core::stats.dips = 0;
     Core::stats.tris = 0;
     Game::render();
@@ -77,7 +76,7 @@ JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeRender(JNIEnv* en
         fps++;
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeResize(JNIEnv* env, jobject obj, jint w, jint h) {
+JNI_METHOD(void, nativeResize)(JNIEnv* env, jobject obj, jint w, jint h) {
     Core::width  = w;
     Core::height = h;
 }
@@ -86,7 +85,7 @@ float DeadZone(float x) {
     return x = fabsf(x) < 0.2f ? 0.0f : x;
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeTouch(JNIEnv* env, jobject obj, jint id, jint state, jfloat x, jfloat y) {
+JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfloat x, jfloat y) {
     if (id > 1) return;
 /* gamepad
     if (state < 0) {
@@ -140,7 +139,7 @@ JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeTouch(JNIEnv* env
     }
 }
 
-JNIEXPORT void JNICALL Java_org_xproger_openlara_Wrapper_nativeSoundFill(JNIEnv* env, jobject obj, jshortArray buffer) {
+JNI_METHOD(void, nativeSoundFill)(JNIEnv* env, jobject obj, jshortArray buffer) {
     jshort *frames = env->GetShortArrayElements(buffer, NULL);
     jsize count = env->GetArrayLength(buffer) / 2;
     Sound::fill((Sound::Frame*)frames, count);

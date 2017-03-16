@@ -203,26 +203,11 @@ int main() {
             int time = getTime();
             if (time <= lastTime)
                 continue;
-
-            float delta = (time - lastTime) * 0.001f;
-            while (delta > EPS) {
-                Core::deltaTime = min(delta, 1.0f / 30.0f);
-                Game::update();
-                delta -= Core::deltaTime;
-            }
+            Game::update((time - lastTime) * 0.001f);
             lastTime = time;
 
-            Core::stats.dips = 0;
-            Core::stats.tris = 0;
             Game::render();
             aglSwapBuffers(context);
-
-            if (fpsTime < getTime()) {
-                LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
-                fps = 0;
-                fpsTime = getTime() + 1000;
-            } else
-                fps++;
         }
 
     Game::free();

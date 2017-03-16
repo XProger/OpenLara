@@ -96,16 +96,9 @@ void main_loop() {
     joyUpdate();
 
     int time = getTime();
-
     if (time - lastTime <= 0)
         return;
-
-    float delta = (time - lastTime) * 0.001f;
-    while (delta > EPS) {
-        Core::deltaTime = min(delta, 1.0f / 30.0f);
-        Game::update();
-        delta -= Core::deltaTime;
-    }
+    Game::update((time - lastTime) * 0.001f);
     lastTime = time;
     
     Game::render();
@@ -148,7 +141,6 @@ void freeGL() {
 EM_BOOL resize() {
     int f;
     emscripten_get_canvas_size(&Core::width, &Core::height, &f);
-    LOG("resize %d x %d\n", Core::width, Core::height);
     return 1;
 }
 

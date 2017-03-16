@@ -39,7 +39,7 @@ namespace Game {
         Core::free();
     }
 
-    void update() {
+    void updateTick() {
         float dt = Core::deltaTime;
         if (Input::down[ikV]) { // third <-> first person view
             level->camera->changeView(!level->camera->firstPerson);
@@ -55,8 +55,16 @@ namespace Game {
 
         level->update();
 
-
         Core::deltaTime = dt;
+    }
+
+    void update(float delta) {
+        delta = min(1.0f, delta);
+        while (delta > EPS) {
+            Core::deltaTime = min(delta, 1.0f / 30.0f);
+            Game::updateTick();
+            delta -= Core::deltaTime;
+        }
     }
 
     void render() {
