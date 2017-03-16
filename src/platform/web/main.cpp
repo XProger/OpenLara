@@ -3,7 +3,7 @@
 
 #include "game.h"
 
-int lastTime;
+int lastTime, lastJoy = -1;
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
@@ -65,11 +65,14 @@ void joyUpdate() {
         return;
     
     EmscriptenGamepadEvent state;
-    for (int i = 0; i < count; i++)
-        if (emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12)
-            break;
+    if (lastJoy == -1 || emscripten_get_gamepad_status(lastJoy, &state) != EMSCRIPTEN_RESULT_SUCCESS)
+        for (int i = 0; i < count; i++)
+            if (i != lastJoy && emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12) {
+                lastJoy = i;
+                break;
+            }
         
-    if (state.numButtons < 12)
+    if (lastJoy == -1)
         return;
 
     for (int i = 0; i < max(state.numButtons, 12); i++) {
