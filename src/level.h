@@ -330,7 +330,7 @@ struct Level : IGame {
     }
 
     void initReflections() {
-        Core::resetStates();        
+        Core::beginFrame();
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
@@ -338,6 +338,7 @@ struct Level : IGame {
                 renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
             }
         }
+        Core::endFrame();
     }
 
     void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
@@ -523,7 +524,7 @@ struct Level : IGame {
             vec3 pos = controller->getPos();
             if (Core::settings.ambient) {
                 AmbientCache::Cube cube;
-                if (Core::frameIndex != controller->frameIndex) {
+                if (Core::stats.frame != controller->frameIndex) {
                     ambientCache->getAmbient(entity.room, pos, cube);
                     if (cube.status == AmbientCache::Cube::READY)
                         memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
@@ -642,6 +643,29 @@ struct Level : IGame {
         Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
     }
 
+
+    mat4 calcCromMatrix(const mat4 &lightViewProj, const Box *boxes, int count) {
+        mat4 cameraViewProjInv = (mat4(camera->fov, float(Core::width) / Core::height, 512.0f, 4096.0f) * camera->mViewInv.inverse()).inverse();
+        Box frustumBox = Box(vec3(-1.0f), vec3(1.0f)) * cameraViewProjInv;
+
+        Box casterBox(vec3(+INF), vec3(-INF));
+
+        for (int i = 0; i < count; i++)
+            casterBox += boxes[i] * lightViewProj;
+
+        casterBox -= frustumBox * lightViewProj;
+
+        vec3 scale  = vec3(2.0f, 2.0f, 1.0f) / casterBox.size();
+        vec3 center = casterBox.center();
+        vec3 offset = vec3(center.x, center.y, casterBox.min.z) * scale;
+        
+        return mat4(scale.x, 0.0f, 0.0f, 0.0f,  
+                    0.0f, scale.y, 0.0f, 0.0f,  
+                    0.0f, 0.0f, scale.z, 0.0f,  
+                    -offset.x, -offset.y, -offset.z, 1.0f);  
+    }
+
+
     bool setupLightCamera() {
         vec3 pos = lara->getPos();
     
@@ -654,12 +678,32 @@ struct Level : IGame {
         vec3 shadowLightPos = vec3(float(light.x), float(light.y), float(light.z)); 
         Core::mViewInv = mat4(shadowLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(120, 1.0f, camera->znear, camera->zfar);
+        Core::mProj    = mat4(120.0f, 1.0f, camera->znear, camera->zfar);
 
         mat4 bias;
         bias.identity();
         bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-        Core::mLightProj = bias * Core::mProj * Core::mView;
+        /*
+        Box boxes[32];        
+        int bCount = 0;
+        
+        float rq = light.radius * light.radius;
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            Controller *controller = (Controller*)e.controller;           
+            if (controller && TR::castShadow(e.type) && rq > (shadowLightPos - controller->pos).length2())
+                boxes[bCount++] = controller->getBoundingBox();
+        }
+        */
+        /*
+        vec3 shadowBox(1024.0f, 0.0f, 1024.0f);
+        boxes[0] = lara->getBoundingBox();
+        boxes[0] += Box(lara->pos - shadowBox, lara->pos + shadowBox);
+        bCount++;
+        Core::mProj = calcCromMatrix(Core::mProj * Core::mView, &boxes[0], bCount) * Core::mProj;
+        */
+
+        Core::mLightProj =  bias * (Core::mProj * Core::mView);
 
         return true;
     }
@@ -672,7 +716,8 @@ struct Level : IGame {
         bool colorShadow = shadow->format == Texture::Format::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	    Core::setTarget(shadow, true);
+	    Core::setTarget(shadow);
+        Core::clear(true, true);
         Core::setCulling(cfBack);
 	    renderScene(roomIndex);
         Core::invalidateTarget(!colorShadow, colorShadow);
@@ -686,7 +731,6 @@ struct Level : IGame {
         params->clipHeight  = NO_CLIP_PLANE;
         params->clipSign    = 1.0f;
         params->waterHeight = params->clipHeight;
-        Core::resetStates();
         
         if (ambientCache)
             ambientCache->precessQueue();
@@ -695,7 +739,8 @@ struct Level : IGame {
         if (shadow)
             renderShadows(lara->getRoomIndex());
 
-        Core::setTarget(NULL, true);
+        Core::setTarget(NULL);
+        Core::clear(true, true);
         Core::setViewport(0, 0, Core::width, Core::height);
 
         if (waterCache)
@@ -789,10 +834,10 @@ struct Level : IGame {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-            if (waterCache->count)
-                waterCache->refract->bind(sDiffuse);
-            else
-                atlas->bind(sDiffuse);
+//            if (waterCache->count)
+//                waterCache->refract->bind(sDiffuse);
+//            else
+                shadow->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glDisable(GL_DEPTH_TEST);

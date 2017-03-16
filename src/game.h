@@ -60,8 +60,9 @@ namespace Game {
     }
 
     void render() {
+        Core::beginFrame();
         level->render();
-        Core::frameIndex++;
+        Core::endFrame();
     }
 }
 

@@ -254,6 +254,10 @@ struct Camera : Controller {
         updateListener();
     }
 
+    mat4 getProjMatrix() {
+        return mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+    }
+
     virtual void setup(bool calcMatrices) {
         if (calcMatrices) {
             if (reflectPlane) {
@@ -263,7 +267,7 @@ struct Camera : Controller {
                 Core::mViewInv = mViewInv;
 
             Core::mView    = Core::mViewInv.inverse();
-            Core::mProj    = mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+            Core::mProj    = getProjMatrix();
 
         // TODO: camera shake
         // TODO: temporal anti-aliasing

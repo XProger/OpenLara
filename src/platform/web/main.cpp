@@ -3,7 +3,7 @@
 
 #include "game.h"
 
-int lastTime, fpsTime, fps;
+int lastTime;
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
@@ -23,7 +23,7 @@ extern "C" {
 }
 
 InputKey joyToInputKey(int code) {
-    static const int codes[] = { 0, 1, 2, 3, 4, 5, 10, 11, 8, 9, 6, 7 };
+    static const int codes[] = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 6, 7 };
 
     for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
         if (codes[i] == code)
@@ -63,9 +63,13 @@ void joyUpdate() {
     int count = emscripten_get_num_gamepads();
     if (count <= 0)
         return;
-
+    
     EmscriptenGamepadEvent state;
-    if (emscripten_get_gamepad_status(0, &state) != EMSCRIPTEN_RESULT_SUCCESS)
+    for (int i = 0; i < count; i++)
+        if (emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12)
+            break;
+        
+    if (state.numButtons < 12)
         return;
 
     for (int i = 0; i < max(state.numButtons, 12); i++) {
@@ -101,17 +105,8 @@ void main_loop() {
     }
     lastTime = time;
     
-    Core::stats.dips = 0;
-    Core::stats.tris = 0;
     Game::render();
     eglSwapBuffers(display, surface);
-
-    if (fpsTime < getTime()) {
-        LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
-        fps = 0;
-        fpsTime = getTime() + 1000;
-    } else
-        fps++;
 }
 
 bool initGL() {
@@ -291,8 +286,6 @@ int main() {
     resize();
 
     lastTime = getTime();
-    fpsTime  = lastTime + 1000;
-    fps      = 0;
 
     emscripten_set_main_loop(main_loop, 0, true);
 

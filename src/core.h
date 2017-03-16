@@ -186,9 +186,10 @@ struct Texture;
 enum CullMode  { cfNone, cfBack, cfFront };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
 
+extern int getTime();
+
 namespace Core {
     int width, height;
-    int frameIndex;
     float deltaTime;
     mat4 mView, mProj, mViewProj, mViewInv, mLightProj;
     Basis basis;
@@ -221,9 +222,24 @@ namespace Core {
         CullMode    cullMode;
     } active;
 
-    struct {
-        int dips;
-        int tris;
+    struct Stats {
+        int dips, tris, frame, fps, fpsTime;
+
+        Stats() : frame(0), fps(0), fpsTime(0) {}
+
+        void start() {
+            dips = tris = 0;
+        }
+
+        void stop() {
+            if (fpsTime < getTime()) {
+                LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
+                fps     = frame;
+                frame   = 0;
+                fpsTime = getTime() + 1000;
+            } else
+                frame++;        
+        }
     } stats;
 
     struct {
@@ -360,8 +376,6 @@ namespace Core {
 
         for (int i = 0; i < MAX_LIGHTS; i++)
             lightColor[i] = vec4(0, 0, 0, 1);
-
-        frameIndex = 0;
       
         uint32 data = 0x00000000;
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
@@ -532,13 +546,18 @@ namespace Core {
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
     }
 
-    void resetStates() {
+    void beginFrame() {
         memset(&active, 0, sizeof(active));
         setDepthTest(true);
         active.blendMode = bmAlpha;
         active.cullMode  = cfNone;
         setCulling(cfFront);
         setBlending(bmNone);
+        Core::stats.start();
+    }
+
+    void endFrame() {
+        Core::stats.stop();
     }
 }
 

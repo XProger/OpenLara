@@ -33,7 +33,7 @@ void sndInit() {
         .rate     = 44100,
         .channels = 2
     };
-    
+
     static const pa_buffer_attr attr = {
         .maxlength  = SND_DATA_SIZE * 2,
         .tlength    = 0xFFFFFFFF,
@@ -44,20 +44,20 @@ void sndInit() {
 
     pthread_mutex_init(&sndMutex, NULL);
 
-    int error;    
+    int error;
     if (!(sndOut = pa_simple_new(NULL, WND_TITLE, PA_STREAM_PLAYBACK, NULL, "game", &spec, NULL, &attr, &error))) {
         LOG("pa_simple_new() failed: %s\n", pa_strerror(error));
         sndData = NULL;
         return;
     }
-    
-    sndData = new Sound::Frame[SND_DATA_SIZE / SND_FRAME_SIZE];     
-    pthread_create(&sndThread, NULL, sndFill, NULL);  
+
+    sndData = new Sound::Frame[SND_DATA_SIZE / SND_FRAME_SIZE];
+    pthread_create(&sndThread, NULL, sndFill, NULL);
 }
 
 void sndFree() {
     if (sndOut) {
-        pthread_cancel(sndThread);    
+        pthread_cancel(sndThread);
         pthread_mutex_lock(&sndMutex);
     //    pa_simple_flush(sndOut, NULL);
     //    pa_simple_free(sndOut);
@@ -102,7 +102,7 @@ void WndProc(const XEvent &e) {
             Core::width  = e.xconfigure.width;
             Core::height = e.xconfigure.height;
             break;
-        case KeyPress   : 
+        case KeyPress   :
         case KeyRelease :
             if (e.type == KeyPress && (e.xkey.state & Mod1Mask) && e.xkey.keycode == 36) {
                 // TODO: windowed <-> fullscreen switch
@@ -120,10 +120,15 @@ void WndProc(const XEvent &e) {
         case MotionNotify :
             Input::setPos(ikMouseL, vec2((float)e.xmotion.x, (float)e.xmotion.y));
             break;
-    }    
+    }
 }
 
+char Stream::cacheDir[255];
+char Stream::contentDir[255];
+
 int main() {
+    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+
     static int XGLAttr[] = {
         GLX_RGBA,
         GLX_DOUBLEBUFFER,
@@ -142,8 +147,8 @@ int main() {
                       ButtonMotionMask | PointerMotionMask;
 
     Window wnd = XCreateWindow(dpy, RootWindow(dpy, vis->screen),
-                               0, 0, 1280, 720, 0, 
-                               vis->depth, InputOutput, vis->visual, 
+                               0, 0, 1280, 720, 0,
+                               vis->depth, InputOutput, vis->visual,
                                CWColormap | CWBorderPixel | CWEventMask, &attr);
     XStoreName(dpy, wnd, WND_TITLE);
 
@@ -156,9 +161,9 @@ int main() {
 
     sndInit();
     Game::init();
-    
-    int lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
-    
+
+    int lastTime = getTime();
+
     while (1) {
         if (XPending(dpy)) {
             XEvent event;
@@ -181,20 +186,11 @@ int main() {
             pthread_mutex_unlock(&sndMutex);
             lastTime = time;
 
-            Core::stats.dips = 0;
-            Core::stats.tris = 0;
             Game::render();
             glXSwapBuffers(dpy, wnd);
-
-            if (fpsTime < getTime()) {
-                LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
-                fps = 0;
-                fpsTime = getTime() + 1000;
-            } else
-                fps++;
         }
     };
-    
+
     sndFree();
     Game::free();
 

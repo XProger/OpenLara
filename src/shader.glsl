@@ -204,26 +204,28 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 }
             #endif
 
+            #define SHADOW_TEXEL (1.5 / 1024.0)
+
             float getShadow(vec4 lightProj) {
                 vec3 p = lightProj.xyz / lightProj.w;
 
                 float rShadow = 0.0;
-                rShadow += SHADOW(p + (vec3(-0.94201624, -0.39906216, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.94558609, -0.76890725, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.09418410, -0.92938870, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.34495938,  0.29387760, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.91588581,  0.45771432, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.81544232, -0.87912464, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.38277543,  0.27676845, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.97484398,  0.75648379, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.44323325, -0.97511554, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.53742981, -0.47373420, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.26496911, -0.41893023, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.79197514,  0.19090188, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.24188840,  0.99706507, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3(-0.81409955,  0.91437590, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.19984126,  0.78641367, 0.0) * (1.5 / 1024.0)));
-                rShadow += SHADOW(p + (vec3( 0.14383161, -0.14100790, 0.0) * (1.5 / 1024.0)));
+                rShadow += SHADOW(p + (vec3(-0.94201624, -0.39906216, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.94558609, -0.76890725, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.09418410, -0.92938870, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.34495938,  0.29387760, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.91588581,  0.45771432, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.81544232, -0.87912464, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.38277543,  0.27676845, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.97484398,  0.75648379, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.44323325, -0.97511554, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.53742981, -0.47373420, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.26496911, -0.41893023, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.79197514,  0.19090188, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.24188840,  0.99706507, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3(-0.81409955,  0.91437590, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.19984126,  0.78641367, 0.0) * SHADOW_TEXEL));
+                rShadow += SHADOW(p + (vec3( 0.14383161, -0.14100790, 0.0) * SHADOW_TEXEL));
 
                 rShadow /= 16.0;
 

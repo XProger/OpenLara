@@ -13,15 +13,15 @@
 
 #include "game.h"
 
-DWORD getTime() {
+int getTime() {
 #ifdef DEBUG
     LARGE_INTEGER Freq, Count;
     QueryPerformanceFrequency(&Freq);
     QueryPerformanceCounter(&Count);
-    return (DWORD)(Count.QuadPart * 1000L / Freq.QuadPart);
+    return int(Count.QuadPart * 1000L / Freq.QuadPart);
 #else
     timeBeginPeriod(0);
-    return timeGetTime();
+    return int(timeGetTime());
 #endif
 }
 
@@ -232,8 +232,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         case WM_KEYDOWN    :
         case WM_KEYUP      :
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
+        case WM_SYSKEYDOWN :
+        case WM_SYSKEYUP   :
             if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN) { // switch to fullscreen or window
                 static WINDOWPLACEMENT pLast;
                 DWORD style = GetWindowLong(hWnd, GWL_STYLE);
@@ -262,6 +262,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_MBUTTONDOWN   :
         case WM_MBUTTONUP     :
         case WM_MBUTTONDBLCLK : {
+            if ((GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700) break;
             InputKey key = mouseToInputKey(msg);
             Input::setPos(key, vec2((float)(short)LOWORD(lParam), (float)(short)HIWORD(lParam)));
             bool down = msg != WM_LBUTTONUP && msg != WM_RBUTTONUP && msg != WM_MBUTTONUP;
@@ -273,6 +274,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         }
         case WM_MOUSEMOVE :
+            if ((GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700) break;
             Input::setPos(ikMouseL, vec2((float)(short)LOWORD(lParam), (float)(short)HIWORD(lParam)));
             break;
         // joystick
@@ -355,7 +357,7 @@ int main(int argc, char** argv) {
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
-    DWORD lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
+    DWORD lastTime = getTime();
     MSG msg;
 
     do {
@@ -379,20 +381,11 @@ int main(int argc, char** argv) {
             LeaveCriticalSection(&sndCS);
             lastTime = time;
 
-            Core::stats.dips = 0;
-            Core::stats.tris = 0;
             Game::render();
             SwapBuffers(hDC);
             #ifdef _DEBUG
                 Sleep(20);
             #endif
-
-            if (fpsTime < getTime()) {
-                LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
-                fps = 0;
-                fpsTime = getTime() + 1000;
-            } else
-                fps++;
         }
     } while (msg.message != WM_QUIT);
 

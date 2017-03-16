@@ -143,16 +143,20 @@ struct vec2 {
     vec2& operator += (const vec2 &v) { x += v.x; y += v.y; return *this; }
     vec2& operator -= (const vec2 &v) { x -= v.x; y -= v.y; return *this; }
     vec2& operator *= (const vec2 &v) { x *= v.x; y *= v.y; return *this; }
+    vec2& operator /= (const vec2 &v) { x /= v.x; y /= v.y; return *this; }
     vec2& operator += (float s)       { x += s;   y += s;   return *this; }
     vec2& operator -= (float s)       { x -= s;   y -= s;   return *this; }
     vec2& operator *= (float s)       { x *= s;   y *= s;   return *this; }
+    vec2& operator /= (float s)       { x /= s;   y /= s;   return *this; }
 
     vec2 operator + (const vec2 &v) const { return vec2(x + v.x, y + v.y); }
     vec2 operator - (const vec2 &v) const { return vec2(x - v.x, y - v.y); }
     vec2 operator * (const vec2 &v) const { return vec2(x * v.x, y * v.y); }
+    vec2 operator / (const vec2 &v) const { return vec2(x / v.x, y / v.y); }
     vec2 operator + (float s)       const { return vec2(x + s,   y + s  ); }
     vec2 operator - (float s)       const { return vec2(x - s,   y - s  ); }
     vec2 operator * (float s)       const { return vec2(x * s,   y * s  ); }
+    vec2 operator / (float s)       const { return vec2(x / s,   y / s  ); }
 
     float dot(const vec2 &v)   const { return x * v.x + y * v.y; }
     float cross(const vec2 &v) const { return x * v.y - y * v.x; }
@@ -164,7 +168,11 @@ struct vec2 {
 };
 
 struct vec3 {
-    float x, y, z;
+    union {
+        struct { vec2 xy; };
+        struct { float x, y, z; };
+    };
+
     vec3() {}
     vec3(float s) : x(s), y(s), z(s) {}
     vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -182,16 +190,20 @@ struct vec3 {
     vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
     vec3& operator -= (const vec3 &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
     vec3& operator *= (const vec3 &v) { x *= v.x; y *= v.y; z *= v.z; return *this; }
+    vec3& operator /= (const vec3 &v) { x /= v.x; y /= v.y; z /= v.z; return *this; }
     vec3& operator += (float s)       { x += s;   y += s;   z += s;   return *this; }
     vec3& operator -= (float s)       { x -= s;   y -= s;   z -= s;   return *this; }
     vec3& operator *= (float s)       { x *= s;   y *= s;   z *= s;   return *this; }
+    vec3& operator /= (float s)       { x /= s;   y /= s;   z /= s;   return *this; }
 
     vec3 operator + (const vec3 &v) const { return vec3(x + v.x, y + v.y, z + v.z); }
     vec3 operator - (const vec3 &v) const { return vec3(x - v.x, y - v.y, z - v.z); }
     vec3 operator * (const vec3 &v) const { return vec3(x * v.x, y * v.y, z * v.z); }
+    vec3 operator / (const vec3 &v) const { return vec3(x / v.x, y / v.y, z / v.z); }
     vec3 operator + (float s)       const { return vec3(x + s,   y + s,   z + s);   }
     vec3 operator - (float s)       const { return vec3(x - s,   y - s,   z - s);   }
     vec3 operator * (float s)       const { return vec3(x * s,   y * s,   z * s);   }
+    vec3 operator / (float s)       const { return vec3(x / s,   y / s,   z / s);   }
 
     float dot(const vec3 &v)   const { return x * v.x + y * v.y + z * v.z; }
     vec3  cross(const vec3 &v) const { return vec3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x); }
@@ -219,6 +231,7 @@ struct vec3 {
 
 struct vec4 {
     union {
+        struct { vec2 xy; };
         struct { vec3 xyz; };
         struct { float x, y, z, w; };
     };
@@ -355,6 +368,15 @@ struct mat4 {
     };
 
     mat4() {}
+
+    mat4(float e00, float e10, float e20, float e30,
+         float e01, float e11, float e21, float e31,
+         float e02, float e12, float e22, float e32,
+         float e03, float e13, float e23, float e33) : 
+         e00(e00), e10(e10), e20(e20), e30(e30),
+         e01(e01), e11(e11), e21(e21), e31(e31),
+         e02(e02), e12(e12), e22(e22), e32(e32),
+         e03(e03), e13(e13), e23(e23), e33(e33) {}
 
     mat4(const quat &rot, const vec3 &pos) {
         setRot(rot);
@@ -682,6 +704,60 @@ struct Box {
 
     Box() {}
     Box(const vec3 &min, const vec3 &max) : min(min), max(max) {}
+
+    vec3 operator [] (int index) const {        
+        ASSERT(index >= 0 && index <= 7);
+        switch (index) {
+            case 0 : return min;
+            case 1 : return max;
+            case 2 : return vec3(min.x, max.y, max.z);
+            case 3 : return vec3(max.x, min.y, max.z);
+            case 4 : return vec3(min.x, min.y, max.z);
+            case 5 : return vec3(max.x, max.y, min.z);
+            case 6 : return vec3(min.x, max.y, min.z);
+            case 7 : return vec3(max.x, min.y, min.z);
+        }
+        return min;
+    }
+
+    Box& operator += (const Box &box) {
+        min.x = ::min(min.x, box.min.x);
+        min.y = ::min(min.y, box.min.y);
+        min.z = ::min(min.z, box.min.z);
+        max.x = ::max(max.x, box.max.x);
+        max.y = ::max(max.y, box.max.y);
+        max.z = ::max(max.z, box.max.z);
+        return *this; 
+    }
+
+    Box& operator += (const vec3 &v) {
+        min.x = ::min(min.x, v.x);
+        min.y = ::min(min.y, v.y);
+        min.z = ::min(min.z, v.z);
+        max.x = ::max(max.x, v.x);
+        max.y = ::max(max.y, v.y);
+        max.z = ::max(max.z, v.z);
+        return *this; 
+    }
+
+    Box& operator -= (const Box &box) {
+        min.x = ::max(min.x, box.min.x);
+        min.y = ::max(min.y, box.min.y);
+        min.z = ::max(min.z, box.min.z);
+        max.x = ::min(max.x, box.max.x);
+        max.y = ::min(max.y, box.max.y);
+        max.z = ::min(max.z, box.max.z);
+        return *this; 
+    }
+
+    Box operator * (const mat4 &m) const {
+        Box res(vec3(+INF), vec3(-INF));
+        for (int i = 0; i < 8; i++) {
+            vec4 v = m * vec4((*this)[i], 1.0f);            
+            res += v.xyz /= v.w;
+        }
+        return res;
+    }
 
     vec3 center() const {
         return (min + max) * 0.5f;

@@ -541,7 +541,7 @@ struct Controller {
 
         entity.flags.rendered = true;
 
-        if (Core::frameIndex != frameIndex)
+        if (Core::stats.frame != frameIndex)
             animation.getJoints(matrix, -1, true, joints);
 
         if (layers) {
@@ -563,7 +563,7 @@ struct Controller {
             mesh->renderModel(entity.modelIndex - 1);
         }
 
-        frameIndex = Core::frameIndex;
+        frameIndex = Core::stats.frame;
 
      // blob shadow // TODO: fake AO
         if (!Core::settings.shadows && Core::pass == Core::passCompose && TR::castShadow(entity.type)) {
