@@ -738,8 +738,8 @@ struct MeshBuilder {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
-            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 8;
-            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 8;
+            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 16;
+            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 16;
             v.texCoord.z = range;
             v.texCoord.w = frame;
         }
@@ -788,10 +788,10 @@ struct MeshBuilder {
         int  tx = (sprite.tile % 4) * 256;
         int  ty = (sprite.tile / 4) * 256;
 
-        int16 u0 = ((tx + sprite.texCoord[0].x) << 5) + 8;
-        int16 v0 = ((ty + sprite.texCoord[0].y) << 5) + 8;
-        int16 u1 = ((tx + sprite.texCoord[1].x) << 5) + 8;
-        int16 v1 = ((ty + sprite.texCoord[1].y) << 5) + 8;
+        int16 u0 = ((tx + sprite.texCoord[0].x + 1) << 5);
+        int16 v0 = ((ty + sprite.texCoord[0].y + 1) << 5);
+        int16 u1 = ((tx + sprite.texCoord[1].x - 1) << 5);
+        int16 v1 = ((ty + sprite.texCoord[1].y - 1) << 5);
 
         quad[0].texCoord = { u0, v0, sprite.l, sprite.t };
         quad[1].texCoord = { u1, v0, sprite.r, sprite.t };
