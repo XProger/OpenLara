@@ -1,5 +1,8 @@
 #include <string.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
 #include <pthread.h>
 #include <pulse/pulseaudio.h>
 #include <pulse/simple.h>
@@ -128,6 +131,16 @@ char Stream::contentDir[255];
 
 int main() {
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+
+    const char *home;
+    if (!(home = getenv("HOME")))
+        home = getpwuid(getuid())->pw_dir;
+    strcat(Stream::cacheDir, home);
+    strcat(Stream::cacheDir, "/.OpenLara/");
+    
+    struct stat st = {0};    
+    if (stat(Stream::cacheDir, &st) == -1 && mkdir(Stream::cacheDir, 0777) == -1)
+        Stream::cacheDir[0] = 0;
 
     static int XGLAttr[] = {
         GLX_RGBA,
