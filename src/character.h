@@ -33,7 +33,7 @@ struct Character : Controller {
 
     Collision collision;
 
-    Character(IGame *game, int entity, int health) : Controller(game, entity), target(-1), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f) {
+    Character(IGame *game, int entity, int health) : Controller(game, entity), target(-1), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
     }

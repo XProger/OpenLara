@@ -14,7 +14,7 @@ enum InputKey { ikNone,
     // touch
         ikTouchA, ikTouchB,
     // gamepad
-        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoyL, ikJoyR, ikJoySelect, ikJoyStart, ikJoyLT, ikJoyRT, ikJoyPOV,
+        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoySelect, ikJoyStart, ikJoyL, ikJoyR, ikJoyLT, ikJoyRT, ikJoyPOV,
         ikMAX };
 
 namespace Input {

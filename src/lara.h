@@ -214,6 +214,7 @@ struct Lara : Character {
     int lastPickUp;
     int viewTarget;
     int roomPrev; // water out from room
+    vec2 rotFactor;
 
     struct Braid {
         Lara *lara;
@@ -1593,6 +1594,7 @@ struct Lara : Character {
     }
 
     virtual int getStateDeath() {
+        velocity = vec3(0.0f);
         return STATE_DEATH;
     }
 
@@ -1633,6 +1635,35 @@ struct Lara : Character {
         if (Input::down[ikShift] || Input::down[ikJoyLB])                   input |= WALK;
         if (Input::down[ikE] || Input::down[ikCtrl] || Input::down[ikJoyA]) input |= ACTION;
         if (Input::down[ikQ] || Input::down[ikAlt]  || Input::down[ikJoyY]) input |= WEAPON;
+
+	// analog control
+		rotFactor = vec2(1.0f);
+
+		if (Input::down[ikJoyL]) input = FORTH | BACK;
+
+		if ((state == STATE_STOP || stand == STATE_SURF_TREAD) && fabsf(Input::joy.L.x) < 0.5f && fabsf(Input::joy.L.y) < 0.5f)
+			return input;
+
+        bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK;
+
+		if (!moving)
+			if (fabsf(Input::joy.L.x) < fabsf(Input::joy.L.y))
+				Input::joy.L.x = 0.0f;
+			else
+				Input::joy.L.y = 0.0f;
+
+		if (Input::joy.L.x != 0.0f) {
+			input |= (Input::joy.L.x < 0.0f) ? LEFT : RIGHT;
+			if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+				rotFactor.y = min(fabsf(Input::joy.L.x) / 0.75f, 1.0f);
+		}
+
+		if (Input::joy.L.y != 0.0f) {
+			input |= (Input::joy.L.y < 0.0f) ? FORTH : BACK;
+			if (stand == STAND_UNDERWATER)
+				rotFactor.x = min(fabsf(Input::joy.L.y) / 0.75f, 1.0f);
+        }
+
         return input;
     }
 
@@ -1692,11 +1723,10 @@ struct Lara : Character {
             w = 0.0f;
 
         if (w != 0.0f)
-            rotateY(w * Core::deltaTime);
-
+            rotateY(w * rotFactor.y * Core::deltaTime);
     // pitch (underwater only)
         if (stand == STAND_UNDERWATER && (input & (FORTH | BACK)))
-            rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * Core::deltaTime);
+            rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * rotFactor.x * Core::deltaTime);
 
     // get animation direction
         angleExt = angle.y;
@@ -1782,6 +1812,7 @@ struct Lara : Character {
         vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
         if (stand == STAND_UNDERWATER)
             vTilt *= 2.0f;
+        vTilt *= rotFactor.y;
         updateTilt(state == STATE_RUN || stand == STAND_UNDERWATER, vTilt.x, vTilt.y);
 
         if (velocity.length() >= 1.0f)
