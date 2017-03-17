@@ -68,6 +68,7 @@ namespace Game {
     }
 
     void render() {
+        PROFILE_TIMING(Core::stats.tFrame);
         Core::beginFrame();
         level->render();
         Core::endFrame();

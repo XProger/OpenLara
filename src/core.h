@@ -102,6 +102,11 @@
             PFNGLOBJECTLABELPROC                glObjectLabel;
             PFNGLPUSHDEBUGGROUPPROC             glPushDebugGroup;
             PFNGLPOPDEBUGGROUPPROC              glPopDebugGroup;
+            PFNGLGENQUERIESPROC                 glGenQueries;
+            PFNGLDELETEQUERIESPROC              glDeleteQueries;
+            PFNGLGETQUERYOBJECTIVPROC           glGetQueryObjectiv;
+            PFNGLBEGINQUERYPROC                 glBeginQuery;
+            PFNGLENDQUERYPROC                   glEndQuery;
         #endif
     // Shader
         PFNGLCREATEPROGRAMPROC              glCreateProgram;
@@ -161,26 +166,63 @@
 struct Shader;
 struct Texture;
 
+namespace Core {
+    struct {
+        bool VAO;
+        bool depthTexture;
+        bool shadowSampler;
+        bool discardFrame;
+        bool texNPOT;
+        bool texFloat, texFloatLinear;
+        bool texHalf,  texHalfLinear;
+        bool shaderBinary;
+    #ifdef PROFILE
+        bool profMarker;
+        bool profTiming;
+    #endif
+    } support;
+}
+
 #ifdef PROFILE
     struct Marker {
         Marker(const char *title) {
-            if (glPushDebugGroup) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
+            if (Core::support.profMarker) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
         }
 
         ~Marker() {
-            if (glPopDebugGroup) glPopDebugGroup();
+            if (Core::support.profMarker) glPopDebugGroup();
         }
 
         static void setLabel(GLenum id, GLuint name, const char *label) {
-            if (glObjectLabel) glObjectLabel(id, name, -1, label);
+            if (Core::support.profMarker) glObjectLabel(id, name, -1, label);
+        }
+    };
+
+    struct Timing {
+        GLuint  ID;
+        int     &result;
+
+        Timing(int &result) : result(result) {
+            if (!Core::support.profTiming) return;
+            glGenQueries(1, &ID);
+            glBeginQuery(GL_TIME_ELAPSED, ID);
+        }
+
+        ~Timing() {
+            if (!Core::support.profTiming) return;
+            glEndQuery(GL_TIME_ELAPSED);
+            glGetQueryObjectiv(ID, GL_QUERY_RESULT, (GLint*)&result);
+            glDeleteQueries(1, &ID);
         }
     };
 
     #define PROFILE_MARKER(title)               Marker marker(title)
     #define PROFILE_LABEL(id, name, label)      Marker::setLabel(GL_##id, name, label)
+    #define PROFILE_TIMING(result)              Timing timing(result)
 #else
     #define PROFILE_MARKER(title)
     #define PROFILE_LABEL(id, name, label)
+    #define PROFILE_TIMING(time)
 #endif
 
 enum CullMode  { cfNone, cfBack, cfFront };
@@ -224,6 +266,9 @@ namespace Core {
 
     struct Stats {
         int dips, tris, frame, fps, fpsTime;
+    #ifdef PROFILE
+        int tFrame;
+    #endif
 
         Stats() : frame(0), fps(0), fpsTime(0) {}
 
@@ -234,6 +279,9 @@ namespace Core {
         void stop() {
             if (fpsTime < getTime()) {
                 LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
+            #ifdef PROFILE
+                LOG("frame time: %d mcs\n", tFrame / 1000);
+            #endif
                 fps     = frame;
                 frame   = 0;
                 fpsTime = getTime() + 1000;
@@ -241,17 +289,6 @@ namespace Core {
                 frame++;        
         }
     } stats;
-
-    struct {
-        bool VAO;
-        bool depthTexture;
-        bool shadowSampler;
-        bool discardFrame;
-        bool texNPOT;
-        bool texFloat, texFloatLinear;
-        bool texHalf,  texHalfLinear;
-        bool shaderBinary;
-    } support;
 
     struct {
         bool ambient;
@@ -286,6 +323,11 @@ namespace Core {
                     GetProcOGL(glObjectLabel);
                     GetProcOGL(glPushDebugGroup);
                     GetProcOGL(glPopDebugGroup);
+                    GetProcOGL(glGenQueries);
+                    GetProcOGL(glDeleteQueries);
+                    GetProcOGL(glGetQueryObjectiv);
+                    GetProcOGL(glBeginQuery);
+                    GetProcOGL(glEndQuery);
                 #endif
 
                 GetProcOGL(glCreateProgram);
@@ -351,6 +393,10 @@ namespace Core {
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+    #ifdef PROFILE
+        support.profMarker     = extSupport(ext, "_KHR_debug");
+        support.profTiming     = extSupport(ext, "_timer_query");
+    #endif
         
         char *vendor = (char*)glGetString(GL_VENDOR);
         LOG("Vendor   : %s\n", vendor);
