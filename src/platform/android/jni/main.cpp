@@ -26,14 +26,14 @@ char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
 JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring packName, jstring cacheDir, jint levelOffset, jint musicOffset) {
-	const char* str;
+    const char* str;
 
-	Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
     str = env->GetStringUTFChars(cacheDir, NULL);
     strcat(Stream::cacheDir, str);
     env->ReleaseStringUTFChars(cacheDir, str);
 
-	str = env->GetStringUTFChars(packName, NULL);
+    str = env->GetStringUTFChars(packName, NULL);
     Stream *level = new Stream(str);
     Stream *music = new Stream(str);
     env->ReleaseStringUTFChars(packName, str);
@@ -85,38 +85,45 @@ float DeadZone(float x) {
     return x = fabsf(x) < 0.2f ? 0.0f : x;
 }
 
+int getPOV(int x, int y) {
+    switch (x) {
+        case -1 : {
+            if (y == -1) return 8;
+            if (y ==  0) return 7;
+            if (y == +1) return 6;
+        }
+        case 0 : {
+            if (y == -1) return 1;
+            if (y ==  0) return 0;
+            if (y == +1) return 5;
+        }
+        case +1 : {
+            if (y == -1) return 2;
+            if (y ==  0) return 3;
+            if (y == +1) return 4;
+        }
+    }
+    return 0;
+}
+
 JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfloat x, jfloat y) {
     if (id > 1) return;
-/* gamepad
+// gamepad
     if (state < 0) {
-        state = -state;
-        Input::Joystick &joy = Input::joy;
-
         switch (state) {
-            case 3 :
-                joy.L.x = DeadZone(x);
-                joy.L.y = DeadZone(y);
-                break;
-            case 4 :
-                joy.R.x = DeadZone(x);
-                joy.R.y = DeadZone(y);
-                break;
-            default:
-                joy.down[(int)x] = state != 1;
+            case -3 : Input::setPos(ikJoyL, vec2(DeadZone(x), DeadZone(y))); break;
+            case -4 : Input::setPos(ikJoyR, vec2(DeadZone(x), DeadZone(y))); break;
+            case -5 : Input::setPos(ikJoyPOV, vec2(float(getPOV(sign(x), sign(y))), 0.0f)); break;
+            default : Input::setDown(InputKey(ikJoyA + (int)x), state != -1);
         }
         return;
     }
-*/
+
     if (state == 3 && x < Core::width / 2) {
         vec2 center(Core::width * 0.25f, Core::height * 0.6f);
         vec2 pos(x, y);
         vec2 d = pos - center;
-
-        float angle = atan2(d.x, -d.y) + PI * 0.125f;
-        if (angle < 0.0f) angle += PI2;
-        int pov = int(angle / (PI * 0.25f));
-
-        Input::setPos(ikJoyPOV, vec2(float(1 + pov), 0.0f));
+        Input::setPos(ikJoyL, d.normal());
     };
 
     if (state == 2 && x > Core::width / 2) {
@@ -132,7 +139,7 @@ JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfl
     }
 
     if (state == 1) {
-        Input::setPos(ikJoyPOV, vec2(0.0f));
+        Input::setPos(ikJoyL, vec2(0.0f));
         Input::setDown(ikJoyA, false);
         Input::setDown(ikJoyX, false);
         Input::setDown(ikJoyY, false);

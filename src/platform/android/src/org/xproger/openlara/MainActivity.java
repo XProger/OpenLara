@@ -10,6 +10,8 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.Renderer;
+//import com.google.vr.ndk.base.AndroidCompat;
+//import com.google.vr.ndk.base.GvrLayout;
 import android.os.Bundle;
 import android.app.Activity;
 import android.content.res.AssetFileDescriptor;
@@ -27,6 +29,7 @@ import android.view.WindowManager;
 
 public class MainActivity extends Activity implements OnTouchListener, OnGenericMotionListener, OnKeyListener {
     private GLSurfaceView view;
+    //private GvrLayout gvrLayout;
     private Wrapper wrapper;
     private SparseIntArray joys = new SparseIntArray();
 
@@ -34,18 +37,19 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
     protected void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                             WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+                             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+                             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         super.onCreate(savedInstanceState);
 
         view = new GLSurfaceView(this);
-        view.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
         view.setEGLContextClientVersion(2);
+        view.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
+        view.setPreserveEGLContextOnPause(true);
         view.setRenderer(wrapper = new Wrapper());
 
         view.setFocusable(true);
@@ -54,8 +58,15 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         view.setOnTouchListener(this);
         view.setOnGenericMotionListener(this);
         view.setOnKeyListener(this);
-
+/*
+        gvrLayout = new GvrLayout(this);
+        gvrLayout.setPresentationView(view);
+        if (gvrLayout.setAsyncReprojectionEnabled(true))
+            AndroidCompat.setSustainedPerformanceMode(this, true);        
+        setContentView(gvrLayout);
+*/
         setContentView(view);
+        
         try {
             String packName = getPackageManager().getPackageInfo(getPackageName(), 1).applicationInfo.sourceDir;
             AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.level2);
@@ -113,7 +124,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
     private int getJoyIndex(InputDevice dev) {
         int src = dev.getSources();
         if ((src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-                (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+            (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
 
             int id = dev.getId();
             int index = joys.get(id, -1);
@@ -133,27 +144,39 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         if (index == -1) return false;
 
         wrapper.onTouch(index, -3, event.getAxisValue(MotionEvent.AXIS_X),
-                event.getAxisValue(MotionEvent.AXIS_Y));
+                                   event.getAxisValue(MotionEvent.AXIS_Y));
 
         wrapper.onTouch(index, -4, event.getAxisValue(MotionEvent.AXIS_Z),
-                event.getAxisValue(MotionEvent.AXIS_RZ));
-
+                                   event.getAxisValue(MotionEvent.AXIS_RZ));
+        
+        wrapper.onTouch(index, -5, event.getAxisValue(MotionEvent.AXIS_HAT_X),
+                                   event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+        
         return true;
     }
 
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
         int index = getJoyIndex(event.getDevice());
-        if (index == -1) return false;
+        if (index == -1)
+            return false;
 
         int btn;
 
         switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_A : btn = 0; break;
-            case KeyEvent.KEYCODE_BUTTON_B : btn = 1; break;
-            case KeyEvent.KEYCODE_BUTTON_X : btn = 2; break;
-            case KeyEvent.KEYCODE_BUTTON_Y : btn = 3; break;
-            default : btn = -1;
+            case KeyEvent.KEYCODE_BUTTON_A      : btn = 0;  break;
+            case KeyEvent.KEYCODE_BUTTON_B      : btn = 1;  break;
+            case KeyEvent.KEYCODE_BUTTON_X      : btn = 2;  break;
+            case KeyEvent.KEYCODE_BUTTON_Y      : btn = 3;  break;
+            case KeyEvent.KEYCODE_BUTTON_L1     : btn = 4;  break;
+            case KeyEvent.KEYCODE_BUTTON_R1     : btn = 5;  break;
+            case KeyEvent.KEYCODE_BUTTON_SELECT : btn = 6;  break;
+            case KeyEvent.KEYCODE_BUTTON_START  : btn = 7;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBL : btn = 8;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = 9;  break;
+            case KeyEvent.KEYCODE_BUTTON_L2     : btn = 10; break;
+            case KeyEvent.KEYCODE_BUTTON_R2     : btn = 11; break;
+            default                             : btn = -1;
         }
 
         if (btn != -1) {
@@ -165,6 +188,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
 
     static {
         System.loadLibrary("game");
+//      System.loadLibrary("gvr");
 //        System.load("/storage/emulated/0/libMGD.so");
     }
 }
@@ -175,7 +199,6 @@ class Sound {
 
     public void start(final Wrapper wrapper) {
         int bufferSize = AudioTrack.getMinBufferSize(22050, AudioFormat.CHANNEL_CONFIGURATION_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-        System.out.println(String.format("sound buffer size: %d", bufferSize));
 
         buffer = new short [bufferSize / 2];
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
