@@ -144,9 +144,19 @@ int getTime() {
     return int(t / 1000);
 }
 
-char *contentPath;
+char Stream::contentDir[255];
+char Stream::cacheDir[255];
 
 int main() {
+    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+
+    // get path to game content
+    CFBundleRef bundle  = CFBundleGetMainBundle();
+    CFURLRef bundleURL  = CFBundleCopyBundleURL(bundle);
+    CFStringRef pathStr = CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
+    CFStringGetFileSystemRepresentation(pathStr, Stream::contentDir, 230);
+    strcat(Stream::contentDir, "/Contents/Resources/");
+
 // init window
     Rect rect = {0, 0, 720, 1280};
     CreateNewWindow(kDocumentWindowClass, kWindowCloseBoxAttribute | kWindowCollapseBoxAttribute | kWindowFullZoomAttribute | kWindowResizableAttribute | kWindowStandardHandlerAttribute, &rect, &window);
@@ -167,14 +177,6 @@ int main() {
 
     aglSetDrawable(context, GetWindowPort(window));
     aglSetCurrentContext(context);
-
-    // get path to game content
-    CFBundleRef bundle  = CFBundleGetMainBundle();
-    CFURLRef bundleURL  = CFBundleCopyBundleURL(bundle);
-    CFStringRef pathStr = CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
-    contentPath = new char[1024];
-    CFStringGetFileSystemRepresentation(pathStr, contentPath, 1024);
-    strcat(contentPath, "/Contents/Resources/");
 
     soundInit();
     Game::init();
@@ -211,7 +213,6 @@ int main() {
         }
 
     Game::free();
-    delete[] contentPath;
 	// TODO: sndFree
 
     aglSetCurrentContext(NULL);

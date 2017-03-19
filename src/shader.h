@@ -66,7 +66,6 @@ struct Shader {
 
     Shader(const char *source, const char *defines = "") {
         char fileName[255];
-        //LOG(hello[0]);
     // generate shader file path
         if (Core::support.shaderBinary) {
             uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
