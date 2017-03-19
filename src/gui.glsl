@@ -1,6 +1,6 @@
 R"====(
 #ifdef GL_ES
-    precision highp int;
+    precision lowp  int;
     precision highp float;
 #endif
 
@@ -8,7 +8,7 @@ varying vec2 vTexCoord;
 
 #ifdef VERTEX
     uniform mat4 uViewProj;
-    uniform mat4 uModel;
+    uniform vec4 uPosScale;
 
     attribute vec4 aCoord;
     attribute vec4 aTexCoord;
@@ -16,17 +16,15 @@ varying vec2 vTexCoord;
     #define TEXCOORD_SCALE (1.0 / 32767.0)
     
     void main() {
-        vec4 coord  = uModel * vec4(aCoord.xyz, 1.0);
         vTexCoord   = aTexCoord.xy * TEXCOORD_SCALE;
-        coord.xy   += aTexCoord.zw;
-        gl_Position = uViewProj * coord;
+        gl_Position = uViewProj * vec4(aCoord.xy * uPosScale.zw + uPosScale.xy, 0.0, 1.0);
     }
 #else
     uniform sampler2D   sDiffuse;
-    uniform vec4        uColor;
+    uniform vec4        uMaterial;
 
     void main() {
-        gl_FragColor = texture2D(sDiffuse, vTexCoord) * uColor;
+        gl_FragColor = /* texture2D(sDiffuse, vTexCoord) * */ uMaterial;
     }
 #endif
 )===="

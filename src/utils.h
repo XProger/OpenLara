@@ -47,6 +47,8 @@ typedef unsigned int    uint32;
 
 #define FOURCC(str)     (*((uint32*)str))
 
+#define COUNT(arr)      (sizeof(arr) / sizeof(arr[0]))
+
 template <typename T>
 inline const T& min(const T &a, const T &b) {
     return a < b ? a : b;
@@ -231,7 +233,7 @@ struct vec3 {
 
 struct vec4 {
     union {
-        struct { vec2 xy; };
+        struct { vec2 xy, zw; };
         struct { vec3 xyz; };
         struct { float x, y, z, w; };
     };
@@ -240,6 +242,7 @@ struct vec4 {
     vec4(float s) : x(s), y(s), z(s), w(s) {}
     vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
     vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
+    vec4(const vec2 &xy, const vec2 &zw) : x(xy.x), y(xy.y), z(zw.x), w(zw.y) {}
 
     vec4 operator * (const vec4 &v) const { return vec4(x*v.x, y*v.y, z*v.z, w*v.w); }
     vec4& operator *= (const vec4 &v) { x*=v.x; y*=v.y; z*=v.z; w*=v.w; return *this; }

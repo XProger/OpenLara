@@ -4,13 +4,17 @@
 #include "core.h"
 #include "format.h"
 #include "level.h"
+#include "ui.h"
 
 namespace Game {
     Level *level;
+    UI    *ui;
 
     void startLevel(Stream *lvl, Stream *snd, bool demo, bool home) {
+        delete ui;
         delete level;
         level = new Level(*lvl, snd, demo, home);
+        ui    = new UI(level);
         delete lvl;
     }
 
@@ -23,6 +27,7 @@ namespace Game {
         Core::settings.water    = Core::support.texFloat || Core::support.texHalf;
 
         level = NULL;
+        ui    = NULL;
         startLevel(lvl, snd, false, false);
     }
 
@@ -35,17 +40,13 @@ namespace Game {
     }
 
     void free() {
+        delete ui;
         delete level;
         Core::free();
     }
 
     void updateTick() {
         float dt = Core::deltaTime;
-        if (Input::down[ikV]) { // third <-> first person view
-            level->camera->changeView(!level->camera->firstPerson);
-            Input::down[ikV] = false;
-        }
-
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;
 
@@ -59,7 +60,14 @@ namespace Game {
     }
 
     void update(float delta) {
-        delta = min(1.0f, delta);
+        if (Input::down[ikV]) { // third <-> first person view
+            level->camera->changeView(!level->camera->firstPerson);
+            Input::down[ikV] = false;
+        }
+
+        Core::deltaTime = delta = min(1.0f, delta);
+        ui->update();
+
         while (delta > EPS) {
             Core::deltaTime = min(delta, 1.0f / 30.0f);
             Game::updateTick();
@@ -68,8 +76,10 @@ namespace Game {
     }
 
     void render() {
+        PROFILE_TIMING(Core::stats.tFrame);
         Core::beginFrame();
         level->render();
+        ui->renderTouch();
         Core::endFrame();
     }
 }

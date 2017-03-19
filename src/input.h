@@ -12,7 +12,7 @@ enum InputKey { ikNone,
     // mouse
         ikMouseL, ikMouseR, ikMouseM,
     // touch
-        ikTouchA, ikTouchB,
+        ikTouchA, ikTouchB, ikTouchC, ikTouchD, ikTouchE, ikTouchF,
     // gamepad
         ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoySelect, ikJoyStart, ikJoyL, ikJoyR, ikJoyLT, ikJoyRT, ikJoyPOV,
         ikMAX };
@@ -34,13 +34,11 @@ namespace Input {
 		int   POV;
     } joy;
 
-    struct {
-        vec2 A, B;
-
-        struct {
-            vec2 A, B;
-        } start;
-    } touch;
+    struct Touch {
+        int  id;
+        vec2 start;
+        vec2 pos;
+    } touch[6];
 
     void reset() {
         memset(down,    0, sizeof(down));
@@ -58,8 +56,12 @@ namespace Input {
                 case ikMouseL : mouse.start.L = mouse.pos;  break;
                 case ikMouseR : mouse.start.R = mouse.pos;  break;
                 case ikMouseM : mouse.start.M = mouse.pos;  break;
-                case ikTouchA : touch.start.A = touch.A;    break;
-                case ikTouchB : touch.start.B = touch.B;    break;                
+                case ikTouchA :
+                case ikTouchB :
+                case ikTouchC :
+                case ikTouchD :
+                case ikTouchE :
+                case ikTouchF : touch[key - ikTouchA].start = touch[key - ikTouchA].pos; break;
                 default       : ;
             }
         down[key] = value;
@@ -72,14 +74,32 @@ namespace Input {
             case ikMouseM : mouse.pos = pos;         return;
             case ikJoyL   : joy.L     = pos;         return;
             case ikJoyR   : joy.R     = pos;         return;
-            case ikTouchA : touch.A   = pos;         return;
-            case ikTouchB : touch.B   = pos;         return;
             case ikJoyLT  : joy.LT    = pos.x;       break;
             case ikJoyRT  : joy.RT    = pos.x;       break;
             case ikJoyPOV : joy.POV   = (int)pos.x;  break;
+            case ikTouchA :
+            case ikTouchB :
+            case ikTouchC :
+            case ikTouchD :
+            case ikTouchE :
+            case ikTouchF : touch[key - ikTouchA].pos = pos; return;
             default       : return;
         }
-        setDown(key, pos.x > 0.0f);
+        setDown(key, pos.x > 0.0f); // gamepad LT, RT, POV auto-down state
+    }
+
+    InputKey getTouch(int id) {
+        for (int i = 0; i < COUNT(touch); i++) 
+            if (down[ikTouchA + i] && touch[i].id == id)
+                return InputKey(ikTouchA + i);
+
+        for (int i = 0; i < COUNT(touch); i++) 
+            if (!down[ikTouchA + i]) {
+                touch[i].id = id;
+                return InputKey(ikTouchA + i);
+            }
+
+        return ikNone;        
     }
 }
 

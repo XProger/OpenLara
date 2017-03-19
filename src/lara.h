@@ -1656,13 +1656,13 @@ struct Lara : Character {
         if (Input::joy.L.x != 0.0f) {
             input |= (Input::joy.L.x < 0.0f) ? LEFT : RIGHT;
             if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
-                rotFactor.y = min(fabsf(Input::joy.L.x) / 0.75f, 1.0f);
+                rotFactor.y = min(fabsf(Input::joy.L.x) / 0.9f, 1.0f);
         }
 
         if (Input::joy.L.y != 0.0f) {
             input |= (Input::joy.L.y < 0.0f) ? FORTH : BACK;
             if (stand == STAND_UNDERWATER)
-                rotFactor.x = min(fabsf(Input::joy.L.y) / 0.75f, 1.0f);
+                rotFactor.x = min(fabsf(Input::joy.L.y) / 0.9f, 1.0f);
         }
 
         return input;

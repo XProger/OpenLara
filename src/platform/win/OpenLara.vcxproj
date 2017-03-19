@@ -198,6 +198,7 @@
     <ClInclude Include="..\..\enemy.h" />
     <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
+    <ClInclude Include="..\..\ui.h" />
     <ClInclude Include="..\..\input.h" />
     <ClInclude Include="..\..\inventory.h" />
     <ClInclude Include="..\..\lara.h" />

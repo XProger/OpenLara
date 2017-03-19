@@ -199,44 +199,16 @@ EM_BOOL keyCallback(int eventType, const EmscriptenKeyboardEvent *e, void *userD
 }
 
 EM_BOOL touchCallback(int eventType, const EmscriptenTouchEvent *e, void *userData) {
-    bool flag = false;
-    /*
-    for (int i = 0; i < e->numTouches; i++) {
-        long x = e->touches[i].canvasX;
-        long y = e->touches[i].canvasY;
-        if (x < 0 || y < 0 || x >= Core::width || y >= Core::height) continue;
-        flag = true;
+    for (int i = 0; i < e->numTouches; i++) {      
+        InputKey key = Input::getTouch(e->touches[i].identifier);
+        if (key == ikNone) continue;
+        Input::setPos(key, vec2(e->touches[i].canvasX, e->touches[i].canvasY));
 
-        switch (eventType) {
-            case EMSCRIPTEN_EVENT_TOUCHSTART :
-                if (x > Core::width / 2)
-                    Input::joy.down[(y > Core::height / 2) ? 1 : 4] = true;
-                break;
-            case EMSCRIPTEN_EVENT_TOUCHMOVE :
-                if (x < Core::width / 2) {
-                    vec2 center(Core::width * 0.25f, Core::height * 0.6f);
-                    vec2 pos(x, y);
-                    vec2 d = pos - center;
-
-                    Input::Joystick &joy = Input::joy;
-
-                    joy.L.x = d.x;
-                    joy.L.y = d.y;
-                    if (joy.L != vec2(0.0f))
-                        joy.L.normalize();
-                }
-                break;
-            case EMSCRIPTEN_EVENT_TOUCHEND :
-            case EMSCRIPTEN_EVENT_TOUCHCANCEL : {
-                Input::joy.L = vec2(0.0f);
-                Input::joy.down[1] = false;
-                Input::joy.down[4] = false;
-                break;
-            }
-        }
+        if (eventType == EMSCRIPTEN_EVENT_TOUCHSTART || eventType == EMSCRIPTEN_EVENT_TOUCHEND || eventType == EMSCRIPTEN_EVENT_TOUCHCANCEL) 
+            Input::setDown(key, eventType == EMSCRIPTEN_EVENT_TOUCHSTART);
     }
-    */
-    return flag;
+
+    return 1;
 }
 
 EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userData) {
@@ -267,10 +239,10 @@ int main() {
     emscripten_set_keyup_callback(0, 0, 1, keyCallback);
     emscripten_set_resize_callback(0, 0, 1, resizeCallback);
 
-    emscripten_set_touchstart_callback(0, 0, 1, touchCallback);
-    emscripten_set_touchend_callback(0, 0, 1, touchCallback);
-    emscripten_set_touchmove_callback(0, 0, 1, touchCallback);
-    emscripten_set_touchcancel_callback(0, 0, 1, touchCallback);
+    emscripten_set_touchstart_callback(0, 0, 0, touchCallback);
+    emscripten_set_touchend_callback(0, 0, 0, touchCallback);
+    emscripten_set_touchmove_callback(0, 0, 0, touchCallback);
+    emscripten_set_touchcancel_callback(0, 0, 0, touchCallback);
 
     emscripten_set_mousedown_callback(0, 0, 1, mouseCallback);
     emscripten_set_mouseup_callback(0, 0, 1, mouseCallback);

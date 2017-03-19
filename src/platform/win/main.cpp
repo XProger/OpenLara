@@ -128,7 +128,7 @@ PREGISTERTOUCHWINDOW    RegisterTouchWindowX;
 PGETTOUCHINPUTINFO      GetTouchInputInfoX;
 PCLOSETOUCHINPUTHANDLE  CloseTouchInputHandleX;
 
-#define MAX_TOUCH_COUNT 10
+#define MAX_TOUCH_COUNT 6
 
 void touchInit(HWND hWnd) {
     int value = GetSystemMetrics(SM_DIGITIZER);
@@ -142,17 +142,23 @@ void touchInit(HWND hWnd) {
     }
 }
 
-void touchUpdate(HTOUCHINPUT hTouch, int count) {
-    TOUCHINPUT touches[MAX_TOUCH_COUNT];
+void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
+    TOUCHINPUT touch[MAX_TOUCH_COUNT];
     count = min(count, MAX_TOUCH_COUNT);
 
-    if (!GetTouchInputInfoX(hTouch, count, touches, sizeof(TOUCHINPUT)))
+    if (!GetTouchInputInfoX(hTouch, count, touch, sizeof(TOUCHINPUT)))
         return;
 
-    LOG("touch [ ", count);
-    for (int i = 0; i < count; i++)
-        LOG("%d (%d, %d) ", i, touches[i].x, touches[i].y);
-    LOG("]\n");
+    for (int i = 0; i < count; i++) {
+        InputKey key = Input::getTouch(touch[i].dwID);
+        if (key == ikNone) continue;
+        POINT pos = { touch[i].x / 100, touch[i].y / 100 };
+        ScreenToClient(hWnd, &pos);
+        Input::setPos(key, vec2(float(pos.x), float(pos.y)));
+
+        if (touch[i].dwFlags & (TOUCHEVENTF_DOWN | TOUCHEVENTF_UP))
+            Input::setDown(key, (touch[i].dwFlags & TOUCHEVENTF_DOWN) != 0);
+    }
 
     CloseTouchInputHandleX(hTouch);
 }
@@ -283,10 +289,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 1;
         // touch
         case WM_TOUCH :
-            touchUpdate((HTOUCHINPUT)lParam, wParam);
+            touchUpdate(hWnd, (HTOUCHINPUT)lParam, wParam);
             break;
-        // TODO
-        // sound
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
