@@ -242,7 +242,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passFilter, passWater, passMAX } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
     GLuint FBO;
     struct RenderTargetCache {

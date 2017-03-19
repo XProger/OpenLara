@@ -73,6 +73,8 @@ struct ShaderCache {
         compile(Core::passCompose, Shader::ENTITY, FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER);
         compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST);
@@ -107,7 +109,7 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "FILTER", "WATER" };
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
@@ -144,6 +146,13 @@ struct ShaderCache {
                 src = FILTER;
                 typ = typeNames[type];
                 sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
+                break;
+            }
+            case Core::passGUI : {
+                static const char *typeNames[] = { "DEFAULT" };
+                src = GUI;
+                typ = typeNames[type];
+                sprintf(def, "%s#define PASS_%s\n", ext, passNames[pass]);
                 break;
             }
             default : ASSERT(false);
@@ -610,7 +619,7 @@ struct WaterCache {
         Core::setCulling(cfFront);
 
     // get refraction texture
-        if (!refract || Core::width > refract->width || Core::height > refract->height) {
+        if (!refract || Core::width != refract->width || Core::height != refract->height) {
             delete refract;
             refract = new Texture(Core::width, Core::height, Texture::RGBA, false);
         }

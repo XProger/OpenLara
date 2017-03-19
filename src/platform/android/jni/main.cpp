@@ -107,7 +107,6 @@ int getPOV(int x, int y) {
 }
 
 JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfloat x, jfloat y) {
-    if (id > 1) return;
 // gamepad
     if (state < 0) {
         switch (state) {
@@ -118,32 +117,12 @@ JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfl
         }
         return;
     }
-
-    if (state == 3 && x < Core::width / 2) {
-        vec2 center(Core::width * 0.25f, Core::height * 0.6f);
-        vec2 pos(x, y);
-        vec2 d = pos - center;
-        Input::setPos(ikJoyL, d.normal());
-    };
-
-    if (state == 2 && x > Core::width / 2) {
-        int i = y / (Core::height / 3);
-        InputKey key;
-        if (i == 0)
-            key = ikJoyX;
-        else if (i == 1)
-            key = ikJoyA;
-        else
-            key = ikJoyY;
-        Input::setDown(key, true);
-    }
-
-    if (state == 1) {
-        Input::setPos(ikJoyL, vec2(0.0f));
-        Input::setDown(ikJoyA, false);
-        Input::setDown(ikJoyX, false);
-        Input::setDown(ikJoyY, false);
-    }
+// touch
+    InputKey key = Input::getTouch(id);
+    if (key == ikNone) return;
+    Input::setPos(key, vec2(x, y));
+    if (state == 1 || state == 2)
+        Input::setDown(key, state == 2);
 }
 
 JNI_METHOD(void, nativeSoundFill)(JNIEnv* env, jobject obj, jshortArray buffer) {

@@ -70,7 +70,7 @@ struct Level : IGame {
     }
 
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | (params->clipHeight != NO_CLIP_PLANE ? ShaderCache::FX_CLIP_PLANE : 0));
+        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0));
     }
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
@@ -824,7 +824,7 @@ struct Level : IGame {
         glEnd();
         Core::setDepthTest(true);
 
-        /*
+        
         
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
@@ -834,9 +834,9 @@ struct Level : IGame {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-//            if (waterCache->count)
-//                waterCache->refract->bind(sDiffuse);
-//            else
+            if (waterCache->count)
+                waterCache->refract->bind(sDiffuse);
+            else
                 shadow->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
