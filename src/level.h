@@ -485,7 +485,7 @@ struct Level : IGame {
             TR::Room::Light &light = level.rooms[room].lights[idx];
             float c = 1.0f - intensityf(level.rooms[room].lights[idx].intensity);
             Core::lightPos[0]   = vec3(float(light.x), float(light.y), float(light.z));
-            Core::lightColor[0] = vec4(c, c, c, (float)light.radius * (float)light.radius);
+            Core::lightColor[0] = vec4(c, c, c, 1.0f / (float)light.radius);
         } else {
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);

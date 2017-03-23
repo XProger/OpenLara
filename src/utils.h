@@ -167,6 +167,8 @@ struct vec2 {
     float length()  const { return sqrtf(length2()); }
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
     float angle()   const { return atan2f(y, x); }
+    vec2& rotate(const vec2 &cs) { *this = vec2(x*cs.x - y*cs.y, x*cs.y + y*cs.x); return *this; }
+    vec2& rotate(float angle)    { return rotate(vec2(cosf(angle), sinf(angle))); }
 };
 
 struct vec3 {

@@ -45,12 +45,14 @@ struct ShaderCache {
         if (Core::settings.ambient) {
             compile(Core::passAmbient, Shader::ROOM,   FX_NONE);
             compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST);
-            compile(Core::passAmbient, Shader::ROOM,   FX_CLIP_PLANE);
-            compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
             compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER);
-            compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
             compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST);
-            compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
+            if (Core::settings.water) {
+                compile(Core::passAmbient, Shader::ROOM,   FX_CLIP_PLANE);
+                compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
+                compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
+                compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
+            }
         }
 
         if (Core::settings.water) {
@@ -65,21 +67,23 @@ struct ShaderCache {
 
         compile(Core::passCompose, Shader::ROOM,   FX_NONE);
         compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
-        compile(Core::passCompose, Shader::ROOM,   FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ENTITY, FX_NONE);
-        compile(Core::passCompose, Shader::ENTITY, FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::FLASH,  FX_ALPHA_TEST);
+        if (Core::settings.water) {
+            compile(Core::passCompose, Shader::ROOM,   FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST | FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::ENTITY, FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER | FX_CLIP_PLANE);
+            compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
+        }
         compile(Core::passCompose, Shader::MIRROR, FX_NONE);
 
         LOG("shader: cache is ready\n");
@@ -276,7 +280,7 @@ struct AmbientCache {
             TR::Color32 color;
             glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
             colors[j] = vec3(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f);
-            colors[j] *= colors[j]; // to "linear" space
+        //    colors[j] *= colors[j]; // to "linear" space
         }
 
         Core::setDepthTest(true);

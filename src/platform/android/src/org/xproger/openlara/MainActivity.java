@@ -21,13 +21,13 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnGenericMotionListener;
+//import android.view.View.OnGenericMotionListener;
 import android.view.View.OnKeyListener;
 import android.view.View.OnTouchListener;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class MainActivity extends Activity implements OnTouchListener, OnGenericMotionListener, OnKeyListener {
+public class MainActivity extends Activity implements OnTouchListener/*, OnGenericMotionListener, OnKeyListener*/ {
     private GLSurfaceView view;
     //private GvrLayout gvrLayout;
     private Wrapper wrapper;
@@ -49,15 +49,15 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         view = new GLSurfaceView(this);
         view.setEGLContextClientVersion(2);
         view.setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-        view.setPreserveEGLContextOnPause(true);
+//        view.setPreserveEGLContextOnPause(true);
         view.setRenderer(wrapper = new Wrapper());
 
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
 
         view.setOnTouchListener(this);
-        view.setOnGenericMotionListener(this);
-        view.setOnKeyListener(this);
+//        view.setOnGenericMotionListener(this);
+//        view.setOnKeyListener(this);
 /*
         gvrLayout = new GvrLayout(this);
         gvrLayout.setPresentationView(view);
@@ -120,7 +120,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         }
         return true;
     }
-
+/*
     private int getJoyIndex(InputDevice dev) {
         int src = dev.getSources();
         if ((src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
@@ -185,6 +185,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         }
         return false;
     }
+*/
 
     static {
         System.loadLibrary("game");
@@ -198,8 +199,10 @@ class Sound {
     private static AudioTrack audioTrack;
 
     public void start(final Wrapper wrapper) {
-        int bufferSize = AudioTrack.getMinBufferSize(22050, AudioFormat.CHANNEL_CONFIGURATION_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-
+        int bufSize = AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_CONFIGURATION_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        System.out.println(String.format("sound buffer size: %d", bufSize));
+        int bufferSize = AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        System.out.println(String.format("sound buffer size: %d", bufferSize));
         buffer = new short [bufferSize / 2];
         audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 44100,
@@ -220,7 +223,7 @@ class Sound {
                         audioTrack.flush();
                     } else
                         try {
-                            Thread.sleep(100);
+                            Thread.sleep(10);
                         } catch(Exception e) {
                             //
                         };

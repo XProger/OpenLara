@@ -291,7 +291,7 @@ struct Camera : Controller {
         advTimer = 0.0f;
 
         fov   = firstPerson ? 90.0f : 65.0f;
-        znear = firstPerson ? 8.0f : 16.0f;
+        znear = firstPerson ? 8.0f  : 128.0f;
         zfar  = 40.0f * 1024.0f;
     }
 };

@@ -43,7 +43,7 @@
 
 #define DESCENT_SPEED       2048.0f
 #define MUZZLE_FLASH_TIME   0.1f
-#define FLASH_LIGHT_COLOR   vec4(0.8f, 0.7f, 0.3f, 3072 * 3072)
+#define FLASH_LIGHT_COLOR   vec4(0.6f, 0.5f, 0.1f, 1.0f / 3072.0f)
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
 struct Lara : Character {
@@ -417,6 +417,7 @@ struct Lara : Character {
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
         //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
+        reset(1,  vec3(62630, -1280, 19633), 0);         // level 2 (dark medikit)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -783,8 +784,8 @@ struct Lara : Character {
                 arms[i].animation.update();
                 arms[i].shotTimer += Core::deltaTime;
 
-                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, 0.0f, 1.0f);
-                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, sqrtf(intensity));
+                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, EPS, 1.0f);
+                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
             }
 
             if (isRifle)
@@ -1644,7 +1645,7 @@ struct Lara : Character {
         if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(Input::joy.L.x) < 0.5f && fabsf(Input::joy.L.y) < 0.5f)
             return input;
 
-        bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK;
+        bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
 
         if (!moving) {
             if (fabsf(Input::joy.L.x) < fabsf(Input::joy.L.y))

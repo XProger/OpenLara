@@ -9,7 +9,7 @@ typedef unsigned short Index;
 struct Vertex {
     short4  coord;      // xyz  - position, w - unused
     short4  texCoord;   // xy   - texture coordinates, z - anim tex range index, w - anim tex frame index
-    short4  normal;     // xyz  - vertex normal, w - disable lighting (0, 1)
+    short4  normal;     // xyz  - vertex normalá w - unused
     ubyte4  color;      // xyz  - color, w - intensity
 };
 
@@ -25,7 +25,7 @@ struct MeshRange {
         Vertex *v = (Vertex*)(vStart * sizeof(Vertex));
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
         glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
-        glVertexAttribPointer(aNormal,   4, GL_SHORT,         false, sizeof(Vertex), &v->normal);
+        glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(Vertex), &v->normal);
         glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
     }
 
@@ -40,6 +40,7 @@ struct MeshRange {
 };
 
 #define PLANE_DETAIL 48
+#define CIRCLE_SEGS  16
 
 struct Mesh {
     GLuint  ID[2];
@@ -123,7 +124,7 @@ float intensityf(int lighting) {
     if (lighting < 0) return 1.0f;
     float lum = 1.0f - (lighting >> 5) / 255.0f;
     //return powf(lum, 2.2f); // gamma to linear space
-    return lum * lum; // gamma to "linear" space
+    return lum;// * lum; // gamma to "linear" space
 }
 
 uint8 intensity(int lighting) {
@@ -146,7 +147,7 @@ struct MeshBuilder {
 // procedured
     MeshRange shadowBlob;
     MeshRange bar;
-    MeshRange quad;
+    MeshRange quad, circle;
     MeshRange plane;
 
     vec2 *animTexRanges;
@@ -250,6 +251,13 @@ struct MeshBuilder {
         quad.iCount = 2 * 3;
         iCount += quad.iCount;
         vCount += 4;
+
+    // circle
+        circle.vStart = vCount;
+        circle.iStart = iCount;
+        circle.iCount = CIRCLE_SEGS * 3;
+        iCount += circle.iCount;
+        vCount += CIRCLE_SEGS + 1;
 
     // detailed plane
         plane.vStart = vCount;
@@ -395,6 +403,28 @@ struct MeshBuilder {
         vCount += 4;
         aCount++;
 
+    // circle
+        vec2 pos(32767.0f, 0.0f);
+        vec2 cs(cos(PI2 / CIRCLE_SEGS), sin(PI2 / CIRCLE_SEGS));
+
+        for (int i = 0; i < CIRCLE_SEGS; i++) {
+            Vertex &v = vertices[vCount + i];
+            pos.rotate(cs);
+            v.coord     = { short(pos.x), short(pos.y), 0, 0 };
+            v.normal    = { 0, 0, 0, 0 };
+            v.color     = { 255, 255, 255, 255 };
+            v.texCoord  = { 32688, 32688, 0, 0 };
+
+            indices[iCount++] = i;
+            indices[iCount++] = (i + 1) % CIRCLE_SEGS;
+            indices[iCount++] = CIRCLE_SEGS;
+        }
+        vertices[vCount + CIRCLE_SEGS] = vertices[vCount];
+        vertices[vCount + CIRCLE_SEGS].coord = { 0, 0, 0, 0 };
+
+        vCount += CIRCLE_SEGS + 1;
+        aCount++;
+
     // plane
         for (int16 j = -PLANE_DETAIL; j <= PLANE_DETAIL; j++)
             for (int16 i = -PLANE_DETAIL; i <= PLANE_DETAIL; i++) {
@@ -439,6 +469,7 @@ struct MeshBuilder {
         mesh->initRange(shadowBlob);
         mesh->initRange(bar);
         mesh->initRange(quad);
+        mesh->initRange(circle);
         mesh->initRange(plane);
     }
 
@@ -835,6 +866,10 @@ struct MeshBuilder {
 
     void renderQuad() {
         mesh->render(quad);
+    }
+
+    void renderCircle() {
+        mesh->render(circle);
     }
 
     void renderPlane() {
