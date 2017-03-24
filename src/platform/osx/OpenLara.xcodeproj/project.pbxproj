@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */ = {isa = PBXBuildFile; fileRef = 9971B72E1E7C239900F25790 /* LEVEL2.PSX */; };
 		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
-		99BFB6A51DCA872D00E2E997 /* LEVEL2_DEMO.PHD in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */; };
 		99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A41DCA872D00E2E997 /* 05.ogg */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
@@ -19,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		9971B72E1E7C239900F25790 /* LEVEL2.PSX */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2.PSX; path = ../../../bin/LEVEL2.PSX; sourceTree = SOURCE_ROOT; };
 		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
 		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
 		99BFB68F1DCA7F1700E2E997 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
@@ -38,7 +39,6 @@
 		99BFB69D1DCA7F1700E2E997 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
 		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
-		99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2_DEMO.PHD; path = ../../../bin/LEVEL2_DEMO.PHD; sourceTree = SOURCE_ROOT; };
 		99BFB6A41DCA872D00E2E997 /* 05.ogg */ = {isa = PBXFileReference; lastKnownFileType = file; name = 05.ogg; path = ../../../bin/05.ogg; sourceTree = SOURCE_ROOT; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
 		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
@@ -121,7 +121,7 @@
 		99C4C0A31796AACF0032DE85 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				99BFB6A31DCA872D00E2E997 /* LEVEL2_DEMO.PHD */,
+				9971B72E1E7C239900F25790 /* LEVEL2.PSX */,
 				99BFB6A41DCA872D00E2E997 /* 05.ogg */,
 				99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */,
 			);
@@ -181,7 +181,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */,
-				99BFB6A51DCA872D00E2E997 /* LEVEL2_DEMO.PHD in Resources */,
+				9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

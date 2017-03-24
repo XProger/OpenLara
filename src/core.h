@@ -49,9 +49,21 @@
     #include <OpenGL/gl.h>
     #include <OpenGL/glext.h>
     #include <AGL/agl.h>
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+
+    #define GL_TEXTURE_COMPARE_MODE		0x884C
+    #define GL_TEXTURE_COMPARE_FUNC		0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+
     #define glGenVertexArrays    glGenVertexArraysAPPLE
     #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
     #define glBindVertexArray    glBindVertexArrayAPPLE
+
+    #define GL_PROGRAM_BINARY_LENGTH 0
+    #define glGetProgramBinary(...)  0
+    #define glProgramBinary(...)     0
 #elif __EMSCRIPTEN__
     #define MOBILE
     #include <emscripten.h>
@@ -381,7 +393,7 @@ namespace Core {
         #endif
 
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-//        LOG("%s\n", ext);
+        //LOG("%s\n", ext);
 
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
@@ -460,7 +472,7 @@ namespace Core {
         item.height = height;
 
         glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
-        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB : GL_DEPTH_COMPONENT16, width, height);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         
         return cache.count++;
