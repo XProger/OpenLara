@@ -6,4 +6,4 @@ set FLAGS=-O3 -Wno-deprecated-register --llvm-opts 2 -fmax-type-align=2 -std=c++
 set PRELOAD=./LEVEL2.PSX
 echo.
 call em++ %SRC% %FLAGS% -o %PROJ%.js --preload-file %PRELOAD%
-ggzip.exe -9 -f %PROJ%.data %PROJ%.js %PROJ%.js.mem
+gzip.exe -9 -f %PROJ%.data %PROJ%.js %PROJ%.js.mem

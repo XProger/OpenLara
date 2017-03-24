@@ -413,14 +413,19 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
             #ifndef TYPE_FLASH
                 #ifdef OPT_SHADOW
                     #ifdef PASS_COMPOSE
+                        vec3 n = normalize(vNormal.xyz);
+
                         vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z;
 
                         #ifdef TYPE_ENTITY
-                            light += vAmbient + uLightColor[0].xyz * (vLight.x * getShadow());
+                            float rShadow = getShadow();
+                            light += vAmbient + uLightColor[0].xyz * (vLight.x * rShadow);
+                            #if defined(OPT_WATER) && defined(UNDERWATER)
+                                light += calcCaustics(n);
+                            #endif
                         #endif
 
                         #ifdef TYPE_ROOM
-                            vec3 n = normalize(vNormal.xyz);
                             light += mix(vAmbient.x, vLight.x, getShadow());
                             #if defined(OPT_WATER) && defined(UNDERWATER)
                                 light += calcCaustics(n);
@@ -433,6 +438,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
                         #ifndef TYPE_MIRROR
                             color.xyz *= light;
+                        #endif
+
+                        #ifdef TYPE_ENTITY
+                            color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec, uLightColor[0], uMaterial.z * rShadow + 0.03);
                         #endif
                     #endif
 

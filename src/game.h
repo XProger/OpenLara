@@ -23,8 +23,8 @@ namespace Game {
 
         Core::settings.ambient  = true;
         Core::settings.lighting = true;
-        Core::settings.shadows  = false;//true;
-        Core::settings.water    = false;//Core::support.texFloat || Core::support.texHalf;
+        Core::settings.shadows  = true;
+        Core::settings.water    = Core::support.texFloat || Core::support.texHalf;
 
         level = NULL;
         ui    = NULL;
