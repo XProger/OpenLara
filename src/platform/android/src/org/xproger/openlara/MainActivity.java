@@ -31,7 +31,6 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
     private GLSurfaceView view;
     //private GvrLayout gvrLayout;
     private Wrapper wrapper;
-    private SparseIntArray joys = new SparseIntArray();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,69 +120,55 @@ public class MainActivity extends Activity implements OnTouchListener, OnGeneric
         return true;
     }
 
-    private int getJoyIndex(InputDevice dev) {
-        int src = dev.getSources();
-        if ((src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-            (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-
-            int id = dev.getId();
-            int index = joys.get(id, -1);
-
-            if (index == -1) {
-                index = joys.size();
-                joys.append(id, index);
-            }
-            return index;
-        }
-        return -1;
-    }
-
     @Override
     public boolean onGenericMotion(View v, MotionEvent event) {
-        int index = getJoyIndex(event.getDevice());
-        if (index == -1) return false;
-
-        wrapper.onTouch(index, -3, event.getAxisValue(MotionEvent.AXIS_X),
-                                   event.getAxisValue(MotionEvent.AXIS_Y));
-
-        wrapper.onTouch(index, -4, event.getAxisValue(MotionEvent.AXIS_Z),
-                                   event.getAxisValue(MotionEvent.AXIS_RZ));
+        int src = event.getDevice().getSources();
         
-        wrapper.onTouch(index, -5, event.getAxisValue(MotionEvent.AXIS_HAT_X),
-                                   event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+        boolean isMouse = (src & (InputDevice.SOURCE_MOUSE)) != 0;
+        boolean isJoy   = (src & (InputDevice.SOURCE_GAMEPAD | InputDevice.SOURCE_JOYSTICK)) != 0;
+        
+        if (isMouse) {
+            return true;
+        }
+        
+        if (isJoy) {
+            wrapper.onTouch(0, -3, event.getAxisValue(MotionEvent.AXIS_X),
+                    event.getAxisValue(MotionEvent.AXIS_Y));
+
+            wrapper.onTouch(0, -4, event.getAxisValue(MotionEvent.AXIS_Z),
+                    event.getAxisValue(MotionEvent.AXIS_RZ));
+
+            wrapper.onTouch(0, -5, event.getAxisValue(MotionEvent.AXIS_HAT_X),
+                    event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+        }
         
         return true;
     }
 
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
-        int index = getJoyIndex(event.getDevice());
-        if (index == -1)
-            return false;
-
         int btn;
-
+        
         switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_A      : btn = 0;  break;
-            case KeyEvent.KEYCODE_BUTTON_B      : btn = 1;  break;
-            case KeyEvent.KEYCODE_BUTTON_X      : btn = 2;  break;
-            case KeyEvent.KEYCODE_BUTTON_Y      : btn = 3;  break;
-            case KeyEvent.KEYCODE_BUTTON_L1     : btn = 4;  break;
-            case KeyEvent.KEYCODE_BUTTON_R1     : btn = 5;  break;
-            case KeyEvent.KEYCODE_BUTTON_SELECT : btn = 6;  break;
-            case KeyEvent.KEYCODE_BUTTON_START  : btn = 7;  break;
-            case KeyEvent.KEYCODE_BUTTON_THUMBL : btn = 8;  break;
-            case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = 9;  break;
-            case KeyEvent.KEYCODE_BUTTON_L2     : btn = 10; break;
-            case KeyEvent.KEYCODE_BUTTON_R2     : btn = 11; break;
-            default                             : btn = -1;
+            case KeyEvent.KEYCODE_BUTTON_A      : btn = -0;  break;
+            case KeyEvent.KEYCODE_BUTTON_B      : btn = -1;  break;
+            case KeyEvent.KEYCODE_BUTTON_X      : btn = -2;  break;
+            case KeyEvent.KEYCODE_BUTTON_Y      : btn = -3;  break;
+            case KeyEvent.KEYCODE_BUTTON_L1     : btn = -4;  break;
+            case KeyEvent.KEYCODE_BUTTON_R1     : btn = -5;  break;
+            case KeyEvent.KEYCODE_BUTTON_SELECT : btn = -6;  break;
+            case KeyEvent.KEYCODE_BUTTON_START  : btn = -7;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBL : btn = -8;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = -9;  break;
+            case KeyEvent.KEYCODE_BUTTON_L2     : btn = -10; break;
+            case KeyEvent.KEYCODE_BUTTON_R2     : btn = -11; break;
+            case KeyEvent.KEYCODE_BACK          : btn = KeyEvent.KEYCODE_ESCAPE;
+            default                             : btn = keyCode;
         }
-
-        if (btn != -1) {
-            wrapper.onTouch(index, event.getAction() == KeyEvent.ACTION_DOWN ? -2 : -1, btn, 0);
-            return true;
-        }
-        return false;
+        
+        boolean isDown = event.getAction() == KeyEvent.ACTION_DOWN;
+        wrapper.onTouch(0, isDown ? -2 : -1, btn, 0);
+        return true;
     }
 
     static {

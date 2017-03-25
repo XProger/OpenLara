@@ -106,14 +106,32 @@ int getPOV(int x, int y) {
     return 0;
 }
 
+InputKey keyToInputKey(int code) {
+    int codes[] = {
+        21, 22, 19, 20, 62, 66, 111, 59, 113, 57,
+        7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+        29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+        42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
+    };
+
+    for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
+        if (codes[i] == code)
+            return (InputKey)(ikLeft + i);
+    return ikNone;
+}
+
 JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfloat x, jfloat y) {
-// gamepad
+// gamepad / keyboard
     if (state < 0) {
         switch (state) {
             case -3 : Input::setPos(ikJoyL, vec2(DeadZone(x), DeadZone(y))); break;
             case -4 : Input::setPos(ikJoyR, vec2(DeadZone(x), DeadZone(y))); break;
             case -5 : Input::setPos(ikJoyPOV, vec2(float(getPOV(sign(x), sign(y))), 0.0f)); break;
-            default : Input::setDown(InputKey(ikJoyA + (int)x), state != -1);
+            default : {
+                int btn = int(x);
+                InputKey key = btn <= 0 ? InputKey(ikJoyA - btn) : keyToInputKey(btn);
+                Input::setDown(key, state != -1);
+            }
         }
         return;
     }
