@@ -66,13 +66,12 @@ struct UI {
     }
 
     void update() {
-        if (touch[zMove] != ikNone || touch[zLook] != ikNone || touch[zButton] != ikNone) {
+        if (touchTimerTap > 0.0f)
+            touchTimerTap = max(0.0f, touchTimerTap - Core::deltaTime);
+
+        if (touch[zMove] != ikNone || touch[zLook] != ikNone || touch[zButton] != ikNone)
             touchTimerVis = 30.0f;
-
-            if (touchTimerTap > 0.0f)
-                touchTimerTap = max(0.0f, touchTimerTap - Core::deltaTime);
-
-        } else
+        else
             if (touchTimerVis > 0.0f)
                 touchTimerVis = max(0.0f, touchTimerVis - Core::deltaTime);
 
@@ -116,11 +115,11 @@ struct UI {
             if (t == ikNone) {
                 t = key;
                 if (zone == zMove) {
-                    if (touchTimerTap > 0.0f && touchTimerTap < 0.4f) { // 100 ms gap to reduce false positives (bad touch sensors)
+                    if (touchTimerTap > 0.0f && touchTimerTap < 0.3f) { // 100 ms gap to reduce false positives (bad touch sensors)
                         doubleTap = true;
                         touchTimerTap = 0.0f;
                     } else
-                        touchTimerTap = 0.5f;
+                        touchTimerTap = 0.3f;
                 }
             }
         }
@@ -151,7 +150,7 @@ struct UI {
 
         Core::mViewProj = mat4(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
         
-        game->setShader(Core::passGUI, Shader::NONE);
+        game->setShader(Core::passGUI, Shader::DEFAULT);
 
         float offset = Core::height * 0.25f;
 

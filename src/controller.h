@@ -26,7 +26,7 @@ struct IGame {
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
-    virtual void renderCompose(int roomIndex) {}
+    virtual void renderCompose(int roomIndex, bool genShadowMask = false) {}
 };
 
 struct Controller {
@@ -489,23 +489,6 @@ struct Controller {
     }
 
     void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
-        /*
-        mat4 m;
-        m.identity();
-        m.translate(pos);
-        m.rotateY(angle);
-        m.translate(vec3(offset.x, 0.0f, offset.z));
-        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));        
-
-        game->setShader(Core::pass, Shader::FLASH, false, false);
-        Core::active.shader->setParam(uBasis, Basis(m));
-        Core::active.shader->setParam(uColor, vec4(0.5f, 0.5f, 0.5f, 1.0f));
-        Core::active.shader->setParam(uAmbient, vec3(0.0f));
-
-        Core::setBlending(bmMultiply);
-        mesh->renderShadowSpot();
-        Core::setBlending(bmNone);
-        */
         mat4 m = Core::mViewProj;
         m.translate(pos);
         m.rotateY(angle);
@@ -522,7 +505,7 @@ struct Controller {
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
         Core::setBlending(bmAlpha);
-        mesh->renderShadowSpot();
+        mesh->renderShadowBlob();
         Core::setBlending(bmNone);
 
         Core::active.shader->setParam(uViewProj, Core::mViewProj);

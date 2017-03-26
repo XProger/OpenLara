@@ -218,6 +218,7 @@
     <None Include="..\..\filter.glsl" />
     <None Include="..\..\gui.glsl" />
     <None Include="..\..\shader.glsl" />
+    <None Include="..\..\volume.glsl" />
     <None Include="..\..\water.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

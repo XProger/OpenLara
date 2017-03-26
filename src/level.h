@@ -86,7 +86,7 @@ struct Level : IGame {
         }
     }
 
-    virtual void renderCompose(int roomIndex) {
+    virtual void renderCompose(int roomIndex, bool genShadowMask = false) {
         PROFILE_MARKER("PASS_COMPOSE");
         Core::pass = Core::passCompose;
 
@@ -95,6 +95,51 @@ struct Level : IGame {
         if (shadow)
             shadow->bind(sShadow);
         renderScene(roomIndex);
+
+        if (genShadowMask) {
+        //    renderShadowVolumes();
+        }
+    }
+
+    void renderShadowVolumes() {
+        getLight(lara->pos, lara->getRoomIndex());
+        
+        Core::setCulling(cfNone);
+        Core::setDepthWrite(false);
+        Core::setColorWrite(false, false, false, false);
+
+        Core::setStencilTest(true);
+        Core::setStencilTwoSide(128, true);
+        
+        setShader(Core::passVolume, Shader::DEFAULT, false, false);
+        vec4 lp(Core::lightPos[0], Core::lightColor[0].w);
+        Core::active.shader->setParam(uLightPos, lp);
+
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.flags.rendered && TR::castShadow(e.type)) {
+                Controller *controller = (Controller*)e.controller;
+
+                mat4 matrix = controller->getMatrix();
+                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
+                matrix.translate(box.center());
+
+                Core::active.shader->setParam(uBasis, Basis(matrix) );
+                Core::active.shader->setParam(uPosScale, box.size() * 0.5);
+
+                mesh->renderShadowBox();
+            }
+        }
+        
+        Core::setDepthWrite(true);
+        Core::setColorWrite(true, true, true, true);
+
+        Core::setStencilTwoSide(128, false);
+       
+        setShader(Core::passFilter, Shader::DEFAULT, false, false);
+        mesh->renderQuad();
+
+        Core::setStencilTest(false);
     }
 //==============================
 
@@ -739,14 +784,15 @@ struct Level : IGame {
         if (shadow)
             renderShadows(lara->getRoomIndex());
 
+        Core::setClearStencil(128);
         Core::setTarget(NULL);
-        Core::clear(true, true);
+        Core::clear(true, true, true);
         Core::setViewport(0, 0, Core::width, Core::height);
 
         if (waterCache)
             waterCache->checkVisibility = true;
 
-        renderCompose(camera->getRoomIndex());
+        renderCompose(camera->getRoomIndex(), true);
 
         if (waterCache) {
             waterCache->checkVisibility = false;
@@ -825,7 +871,7 @@ struct Level : IGame {
         Core::setDepthTest(true);
 
         
-        
+        /*
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();

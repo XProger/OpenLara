@@ -79,8 +79,10 @@
     #define GL_RGBA16F      GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
-    #define glGetProgramBinary(...)  0
-    #define glProgramBinary(...)     0
+    #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
+    #define glActiveStencilFaceEXT(...)
 #endif
 
 #include "utils.h"
@@ -158,6 +160,10 @@
         PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
         PFNGLBINDBUFFERARBPROC              glBindBuffer;
         PFNGLBUFFERDATAARBPROC              glBufferData;
+    // Stencil
+        PFNGLACTIVESTENCILFACEEXTPROC       glActiveStencilFaceEXT;
+        PFNGLSTENCILFUNCSEPARATEPROC        glStencilFuncSeparate;
+        PFNGLSTENCILOPSEPARATEPROC          glStencilOpSeparate;
     #endif
 
     PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
@@ -180,6 +186,7 @@ struct Texture;
 
 namespace Core {
     struct {
+        bool shaderBinary;
         bool VAO;
         bool depthTexture;
         bool shadowSampler;
@@ -187,7 +194,7 @@ namespace Core {
         bool texNPOT;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
-        bool shaderBinary;
+        char stencil;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -254,7 +261,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
 
     GLuint FBO;
     struct RenderTargetCache {
@@ -274,6 +281,7 @@ namespace Core {
         GLuint      VAO;
         BlendMode   blendMode;
         CullMode    cullMode;
+        bool        stencilTwoSide;
     } active;
 
     struct Stats {
@@ -312,7 +320,6 @@ namespace Core {
 
 #include "texture.h"
 #include "shader.h"
-#include "mesh.h"
 
 namespace Core {
 
@@ -379,6 +386,10 @@ namespace Core {
                 GetProcOGL(glDeleteBuffers);
                 GetProcOGL(glBindBuffer);
                 GetProcOGL(glBufferData);
+                
+                GetProcOGL(glActiveStencilFaceEXT);
+                GetProcOGL(glStencilFuncSeparate);
+                GetProcOGL(glStencilOpSeparate);
             #endif
 
             #ifdef MOBILE
@@ -395,7 +406,7 @@ namespace Core {
         char *ext = (char*)glGetString(GL_EXTENSIONS);
         //LOG("%s\n", ext);
 
-        support.shaderBinary   = extSupport(ext, "_program_binary");
+        support.shaderBinary   = false;//extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
         support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
@@ -405,6 +416,15 @@ namespace Core {
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+
+        if (extSupport(ext, "_ATI_separate_stencil"))
+            support.stencil = 2;
+        else
+            if (extSupport(ext, "_stencil_two_side"))
+                support.stencil = 1;
+            else
+                support.stencil = 0;
+        
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
         support.profTiming     = extSupport(ext, "_timer_query");
@@ -425,6 +445,7 @@ namespace Core {
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
+        LOG("  stencil        : %s\n", support.stencil == 2 ? "separate" : (support.stencil == 1 ? "two_side" : "false"));
         LOG("\n");
 
         glGenFramebuffers(1, &FBO);
@@ -472,19 +493,23 @@ namespace Core {
         item.height = height;
 
         glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
-        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB : GL_DEPTH_COMPONENT16, width, height);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         
         return cache.count++;
     }
 
-    void clear(bool clearColor, bool clearDepth) {        
-        if (GLbitfield mask = (clearColor ? GL_COLOR_BUFFER_BIT : 0) | (clearDepth ? GL_DEPTH_BUFFER_BIT : 0))
+    void clear(bool clearColor, bool clearDepth, bool clearStencil = false) {        
+        if (GLbitfield mask = (clearColor ? GL_COLOR_BUFFER_BIT : 0) | (clearDepth ? GL_DEPTH_BUFFER_BIT : 0) | (clearStencil ? GL_STENCIL_BUFFER_BIT : 0))
             glClear(mask);
     }
 
     void setClearColor(const vec4 &color) {
         glClearColor(color.x, color.y, color.z, color.w);
+    }
+
+    void setClearStencil(int value) {
+        glClearStencil(value);
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -555,6 +580,47 @@ namespace Core {
             glDisable(GL_DEPTH_TEST);
     }
 
+    void setStencilTest(bool test) {
+        if (test)
+            glEnable(GL_STENCIL_TEST);
+        else
+            glDisable(GL_STENCIL_TEST);
+    }
+
+    void setStencilTwoSide(int ref, bool test) { // preset for z-fail shadow volumes
+        active.stencilTwoSide = test;
+        if (test) {
+            switch (Core::support.stencil) {
+                case 0 :
+                    glStencilFunc(GL_ALWAYS, ref, ~0);
+                    break;
+                case 1 :
+                    setCulling(cfNone);
+                    glEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);
+                    glActiveStencilFaceEXT(GL_BACK);
+                    glStencilOp(GL_KEEP, GL_DECR, GL_KEEP);
+                    glStencilFunc(GL_ALWAYS, ref, ~0);
+                    glActiveStencilFaceEXT(GL_FRONT);
+                    glStencilOp(GL_KEEP, GL_INCR, GL_KEEP);
+                    glStencilFunc(GL_ALWAYS, ref, ~0);
+                    break;
+                case 2 :
+                    setCulling(cfNone);
+                    glStencilFuncSeparate(GL_FRONT, GL_ALWAYS, ref, ~0);
+                    glStencilFuncSeparate(GL_BACK,  GL_ALWAYS, ref, ~0);
+                    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_INCR, GL_KEEP);
+                    glStencilOpSeparate(GL_BACK,  GL_KEEP, GL_DECR, GL_KEEP);
+                    break;
+            }
+        } else {
+            if (Core::support.stencil == 1)
+                glDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+            glStencilFunc(GL_NOTEQUAL, ref, ~0);
+            setCulling(cfFront);
+        }
+    }
+
     void invalidateTarget(bool color, bool depth) {
     #ifdef MOBILE
         if (support.discardFrame && (color || depth)) {
@@ -618,5 +684,7 @@ namespace Core {
         Core::stats.stop();
     }
 }
+
+#include "mesh.h"
 
 #endif

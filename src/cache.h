@@ -17,12 +17,16 @@ const char SHADER[] =
     #include "shader.glsl"
 ;
 
+const char WATER[] =
+    #include "water.glsl"
+;
+
 const char FILTER[] =
     #include "filter.glsl"
 ;
 
-const char WATER[] =
-    #include "water.glsl"
+const char VOLUME[] =
+    #include "volume.glsl"
 ;
 
 const char GUI[] =
@@ -113,7 +117,7 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
@@ -146,10 +150,17 @@ struct ShaderCache {
                 break;
             }
             case Core::passFilter  : {
-                static const char *typeNames[] = { "DOWNSAMPLE" };
+                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE" };
                 src = FILTER;
                 typ = typeNames[type];
                 sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
+                break;
+            }
+            case Core::passVolume : {
+                static const char *typeNames[] = { "DEFAULT" };
+                src = VOLUME;
+                typ = typeNames[type];
+                sprintf(def, "%s#define PASS_%s\n", ext, passNames[pass]);
                 break;
             }
             case Core::passGUI : {

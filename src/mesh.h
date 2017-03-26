@@ -90,12 +90,24 @@ struct Mesh {
         glEnableVertexAttribArray(aColor);
     }
 
-    void render(const MeshRange &range) {
-        range.bind(VAO);
+    void DIP(const MeshRange &range) {
         glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(range.iStart * sizeof(Index)));
-
         Core::stats.dips++;
         Core::stats.tris += range.iCount / 3;
+    }
+
+    void render(const MeshRange &range) {
+        range.bind(VAO);
+
+        if (Core::active.stencilTwoSide && Core::support.stencil == 0) {
+            Core::setCulling(cfBack);
+            glStencilOp(GL_KEEP, GL_DECR, GL_KEEP);
+            DIP(range);
+            Core::setCulling(cfFront);
+            glStencilOp(GL_KEEP, GL_INCR, GL_KEEP);
+        }
+
+        DIP(range);
     }
 };
 
@@ -145,7 +157,7 @@ struct MeshBuilder {
     } *models;
     MeshRange *sequences;
 // procedured
-    MeshRange shadowBlob;
+    MeshRange shadowBlob, shadowBox;
     MeshRange bar;
     MeshRange quad, circle;
     MeshRange plane;
@@ -231,12 +243,19 @@ struct MeshBuilder {
             vCount += level.spriteSequences[i].sCount * 4;
         }
 
-    // get size of simple shadow spot mesh (8 triangles, 8 vertices)
+    // shadow blob mesh (8 triangles, 8 vertices)
         shadowBlob.vStart = vCount;
         shadowBlob.iStart = iCount;
         shadowBlob.iCount = 8 * 3;
         iCount += shadowBlob.iCount;
         vCount += 8;
+
+    // shadow box (for stencil shadow volumes with degenerate triangles)
+        shadowBox.vStart = vCount;
+        shadowBox.iStart = iCount;
+        shadowBox.iCount = (3 * (2 + 4)) * 6;
+        iCount += shadowBox.iCount;
+        vCount += 4 * 6;
 
     // bar (health, oxygen)
         bar.vStart = vCount;
@@ -350,7 +369,7 @@ struct MeshBuilder {
             }
         aCount += level.spriteSequencesCount;
 
-    // build shadow spot
+    // build shadow blob
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
             v.normal    = { 0, -1, 0, 1 };
@@ -370,6 +389,59 @@ struct MeshBuilder {
         vCount += 8;
         iCount += shadowBlob.iCount;
         aCount++;
+
+    // build shadow box volume
+        {
+            static const Index tmpIndices[] = {
+                0,1,2, 0,2,3, 0,7,1, 0,4,7, 
+                1,11,2, 1,8,11, 2,15,3, 2,12,15,
+                3,19,0, 3,16,19, 21,6,5, 21,20,6, 
+                20,10,9, 20,23,10, 23,14,13, 23,22,14,
+                22,18,17, 22,21,18, 20,21,22, 20,22,23,
+                7,6,9, 7,9,8, 11,10,13, 11,13,12,
+                15,14,17, 15,17,16, 19,5,4, 19,18,5,
+                4,6,7, 4,5,6, 8,9,10, 8,10,11,
+                12,14,15, 12,13,14, 16,18,19, 16,17,18
+            };
+            static const short4 tmpCoords[] = {
+                { -1, -1, -1, 0 }, {  1, -1, -1, 0 }, {  1,  1, -1, 0 }, { -1,  1, -1, 0 },
+                { -1, -1, -1, 0 }, { -1, -1,  1, 0 }, {  1, -1,  1, 0 }, {  1, -1, -1, 0 },
+                {  1, -1, -1, 0 }, {  1, -1,  1, 0 }, {  1,  1,  1, 0 }, {  1,  1, -1, 0 },
+                {  1,  1, -1, 0 }, {  1,  1,  1, 0 }, { -1,  1,  1, 0 }, { -1,  1, -1, 0 },
+                { -1,  1, -1, 0 }, { -1,  1,  1, 0 }, { -1, -1,  1, 0 }, { -1, -1, -1, 0 },
+                {  1, -1,  1, 0 }, { -1, -1,  1, 0 }, { -1,  1,  1, 0 }, {  1,  1,  1, 0 },
+            };
+
+            const short n = 32767;
+            static const short4 tmpNormals[] = {
+                {  0,  0, -n, 0 },
+                {  0, -n,  0, 0 },
+                {  n,  0,  0, 0 },
+                {  0,  n,  0, 0 },
+                { -n,  0,  0, 0 },
+                {  0,  0,  n, 0 },
+            };
+
+            static const ubyte4 tmpColors[] = {
+                {  255,   0,   0, 0 },
+                {    0, 255,   0, 0 },
+                {    0,   0, 255, 0 },
+                {  255,   0, 255, 0 },
+                {  255, 255,   0, 0 },
+                {    0, 255, 255, 0 },
+            };
+
+            memcpy(&indices[iCount], &tmpIndices[0], shadowBox.iCount * sizeof(Index));
+            memset(&vertices[vCount], 0, 4 * 6 * sizeof(Vertex));
+            for (int i = 0; i < 4 * 6; i++) {
+                vertices[vCount + i].coord  = tmpCoords[i];
+                vertices[vCount + i].normal = tmpNormals[i / 4];
+                vertices[vCount + i].color  = tmpColors[i / 4];
+            }            
+            iCount += shadowBox.iCount;
+            vCount += 4 * 6;
+            aCount++;
+        }
 
     // white bar
         addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTile);
@@ -467,6 +539,7 @@ struct MeshBuilder {
         for (int i = 0; i < level.modelsCount; i++)
             mesh->initRange(models[i].geometry);
         mesh->initRange(shadowBlob);
+        mesh->initRange(shadowBox);
         mesh->initRange(bar);
         mesh->initRange(quad);
         mesh->initRange(circle);
@@ -856,12 +929,12 @@ struct MeshBuilder {
         mesh->render(range);
     }
 
-    void renderShadowSpot() {
+    void renderShadowBlob() {
         mesh->render(shadowBlob);
     }
 
-    void renderLine(const vec2 &pos, const vec2 &size, uint32 color) {
-
+    void renderShadowBox() {
+        mesh->render(shadowBox);
     }
 
     void renderQuad() {

@@ -57,9 +57,9 @@ struct Shader {
     vec4    params[uMAX][4];
 
     enum Type : GLint { 
-        NONE = 0,
+        DEFAULT = 0,
         /* shader */ SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, 
-        /* filter */ FILTER_DOWNSAMPLE = 0, 
+        /* filter */ FILTER_DOWNSAMPLE = 1, 
         /* water  */ WATER_DROP = 0, WATER_STEP = 1, WATER_CAUSTICS = 2, WATER_MASK = 3, WATER_COMPOSE = 4,
         MAX = 5
     };
