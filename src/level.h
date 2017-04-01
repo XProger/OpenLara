@@ -22,7 +22,7 @@ struct Level : IGame {
 
     Lara        *lara;
     Camera      *camera;
-    Texture     *shadow;
+    Texture     *shadow, *shadowMask;
 
     struct Params {
         float   time;
@@ -75,6 +75,7 @@ struct Level : IGame {
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
         PROFILE_MARKER("ENVIRONMENT");
+        Core::eye = 0.0f;
     // first pass render level into cube faces
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
@@ -85,61 +86,42 @@ struct Level : IGame {
             Core::invalidateTarget(false, true);
         }
     }
-
+    
     virtual void renderCompose(int roomIndex, bool genShadowMask = false) {
         PROFILE_MARKER("PASS_COMPOSE");
-        Core::pass = Core::passCompose;
 
+        if (shadow) shadow->bind(sShadow);
+
+        glDepthFunc(GL_LEQUAL);
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
-        if (shadow)
-            shadow->bind(sShadow);
+//        Core::setColorWrite(false, false, false, false);
+        Core::pass = Core::passCompose;
         renderScene(roomIndex);
+  //      Core::setColorWrite(true, true, true, true);
+        /*
+        if (genShadowMask && false) {
+            renderShadowVolumes();
 
-        if (genShadowMask) {
-        //    renderShadowVolumes();
+            Core::setDepthWrite(false);
+            Core::setStencilTest(true); 
+
+            glDepthFunc(GL_EQUAL);
+
+            Core::pass = Core::passShadowMask;
+            glStencilFunc(GL_NOTEQUAL, 128, ~0);            
+            renderScene(roomIndex);
+
+            Core::pass = Core::passCompose;
+            glStencilFunc(GL_EQUAL, 128, ~0);
+            renderScene(roomIndex);
+
+            glDepthFunc(GL_LEQUAL);
+
+            Core::setStencilTest(false);
+            Core::setDepthWrite(true);
         }
-    }
-
-    void renderShadowVolumes() {
-        getLight(lara->pos, lara->getRoomIndex());
-        
-        Core::setCulling(cfNone);
-        Core::setDepthWrite(false);
-        Core::setColorWrite(false, false, false, false);
-
-        Core::setStencilTest(true);
-        Core::setStencilTwoSide(128, true);
-        
-        setShader(Core::passVolume, Shader::DEFAULT, false, false);
-        vec4 lp(Core::lightPos[0], Core::lightColor[0].w);
-        Core::active.shader->setParam(uLightPos, lp);
-
-        for (int i = 0; i < level.entitiesCount; i++) {
-            TR::Entity &e = level.entities[i];
-            if (e.flags.rendered && TR::castShadow(e.type)) {
-                Controller *controller = (Controller*)e.controller;
-
-                mat4 matrix = controller->getMatrix();
-                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
-                matrix.translate(box.center());
-
-                Core::active.shader->setParam(uBasis, Basis(matrix) );
-                Core::active.shader->setParam(uPosScale, box.size() * 0.5);
-
-                mesh->renderShadowBox();
-            }
-        }
-        
-        Core::setDepthWrite(true);
-        Core::setColorWrite(true, true, true, true);
-
-        Core::setStencilTwoSide(128, false);
-       
-        setShader(Core::passFilter, Shader::DEFAULT, false, false);
-        mesh->renderQuad();
-
-        Core::setStencilTest(false);
+        */
     }
 //==============================
 
@@ -230,7 +212,16 @@ struct Level : IGame {
                     break;
                 case TR::Entity::BLOCK_1               :
                 case TR::Entity::BLOCK_2               :
+                case TR::Entity::BLOCK_3               :
+                case TR::Entity::BLOCK_4               :
                     entity.controller = new Block(this, i);
+                    break;                     
+                case TR::Entity::MOVING_BLOCK          :
+                    entity.controller = new MovingBlock(this, i);                    
+                    break;
+                case TR::Entity::FALLING_CEILING       :
+                case TR::Entity::FALLING_SWORD         :
+                    entity.controller = new Trigger(this, i, true);
                     break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :
@@ -257,6 +248,7 @@ struct Level : IGame {
         ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
         waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
         shadow       = Core::settings.shadows ? new Texture(1024, 1024, Texture::SHADOW, false) : NULL;
+        shadowMask   = NULL;
 
         initReflections();
 
@@ -284,6 +276,7 @@ struct Level : IGame {
         delete shaderCache;
 
         delete shadow;
+        delete shadowMask;
         delete ambientCache;
         delete waterCache;
 
@@ -618,7 +611,7 @@ struct Level : IGame {
     void setup() {
         PROFILE_MARKER("SETUP");
 
-        camera->setup(Core::pass == Core::passCompose);
+        camera->setup(Core::pass == Core::passDepth || Core::pass == Core::passCompose || Core::pass == Core::passShadowMask);
 
         atlas->bind(sDiffuse);
         Core::whiteTex->bind(sNormal);
@@ -755,6 +748,7 @@ struct Level : IGame {
 
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
+        Core::eye = 0.0f;
         Core::pass = Core::passShadow;
         if (!setupLightCamera()) return;
         shadow->unbind(sShadow);
@@ -771,6 +765,47 @@ struct Level : IGame {
             Core::setClearColor(vec4(0.0f, 0.0f, 0.0f, 0.0f));
     }
 
+    void renderShadowVolumes() {
+        getLight(lara->pos, lara->getRoomIndex());
+        
+        Core::setCulling(cfNone);
+        Core::setDepthWrite(false);
+        Core::setColorWrite(false, false, false, false);
+
+        Core::setStencilTest(true);
+        Core::setStencilTwoSide(128, true);
+        
+        setShader(Core::passVolume, Shader::DEFAULT, false, false);
+        vec4 lp(Core::lightPos[0], 1.0f / Core::lightColor[0].w);
+        Core::active.shader->setParam(uLightPos, lp);
+
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.flags.rendered && TR::castShadow(e.type)) {
+                Controller *controller = (Controller*)e.controller;
+
+                mat4 matrix = controller->getMatrix();
+                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
+                matrix.translate(box.center());
+
+                Core::active.shader->setParam(uBasis, Basis(matrix) );
+                Core::active.shader->setParam(uPosScale, box.size() * 0.5);
+
+                mesh->renderShadowBox();
+            }
+        }
+        
+        Core::setDepthWrite(true);
+        Core::setColorWrite(true, true, true, true);
+
+        Core::setStencilTwoSide(128, false);
+       
+//        setShader(Core::passFilter, Shader::DEFAULT, false, false);
+//        mesh->renderQuad();
+
+        Core::setStencilTest(false);
+    }
+
     void render() {
         Core::invalidateTarget(true, true);
         params->clipHeight  = NO_CLIP_PLANE;
@@ -784,20 +819,55 @@ struct Level : IGame {
         if (shadow)
             renderShadows(lara->getRoomIndex());
 
-        Core::setClearStencil(128);
-        Core::setTarget(NULL);
-        Core::clear(true, true, true);
         Core::setViewport(0, 0, Core::width, Core::height);
 
+        Core::setClearStencil(128);
+        Core::setTarget(NULL, false);
+        
         if (waterCache)
             waterCache->checkVisibility = true;
+            
+        Core::clear(true, true, true);
+        camera->fov = 90.0f;
 
+        Core::setViewport(0, 0, Core::width / 2, Core::height);
+        Core::eye = -1.0f;
+        renderCompose(camera->getRoomIndex(), true);
+        Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
+        Core::eye =  1.0f;
         renderCompose(camera->getRoomIndex(), true);
 
         if (waterCache) {
             waterCache->checkVisibility = false;
-            waterCache->render();
+            if (waterCache->visible) {
+                Core::setViewport(0, 0, Core::width / 2, Core::height);
+                Core::eye =  -1.0f;
+                camera->setup(true);
+                waterCache->renderMask();
+
+                Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
+                Core::eye =  1.0f;
+                camera->setup(true);
+                waterCache->renderMask();
+
+                Core::setViewport(0, 0, Core::width, Core::height);
+                waterCache->getRefract();
+                waterCache->simulate();
+
+                Core::setViewport(0, 0, Core::width / 2, Core::height);
+                Core::eye = -1.0f;
+                camera->setup(true);
+                waterCache->render();
+
+                Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
+                Core::eye =  1.0f;
+                camera->setup(true);
+                waterCache->render();
+            }
         }
+        Core::eye = 0.0f;
+
+        Core::setViewport(0, 0, Core::width, Core::height);
 
 //        Core::mViewInv = camera->mViewInv;
 //        Core::mView = Core::mViewInv.inverse();
@@ -869,8 +939,6 @@ struct Level : IGame {
             glColor3f(1, 1, 0); p = lara->pos; glVertex3fv((GLfloat*)&p); p -= vec3(0.0f, LARA_HANG_OFFSET, 0.0f); glVertex3fv((GLfloat*)&p);
         glEnd();
         Core::setDepthTest(true);
-
-        
         /*
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
@@ -880,10 +948,10 @@ struct Level : IGame {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-            if (waterCache->count)
-                waterCache->refract->bind(sDiffuse);
+            if (waterCache->visible)
+                waterCache->reflect->bind(sDiffuse);
             else
-                shadow->bind(sDiffuse);
+                atlas->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_CULL_FACE);
             glDisable(GL_DEPTH_TEST);

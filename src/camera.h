@@ -250,12 +250,13 @@ struct Camera : Controller {
                 checkRoom();
         }
 
-        mViewInv = mat4(pos, target, vec3(0, -1, 0));
+        mat4 head = Input::head.getMatrix();
+        mViewInv = mat4(pos, target, vec3(0, -1, 0)) * head;
         updateListener();
     }
 
     mat4 getProjMatrix() {
-        return mat4(fov, (float)Core::width / (float)Core::height, znear, zfar);
+        return mat4(fov, Core::viewport.z / Core::viewport.w, znear, zfar);
     }
 
     virtual void setup(bool calcMatrices) {
@@ -266,15 +267,17 @@ struct Camera : Controller {
             } else
                 Core::mViewInv = mViewInv;
 
-            Core::mView    = Core::mViewInv.inverse();
-            Core::mProj    = getProjMatrix();
+            Core::mView = Core::mViewInv.inverse();
+            Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * 32.0f));
+
+            Core::mProj = getProjMatrix();
 
         // TODO: camera shake
         // TODO: temporal anti-aliasing
         //    Core::mProj.e02 = (randf() - 0.5f) * 32.0f / Core::width;
         //    Core::mProj.e12 = (randf() - 0.5f) * 32.0f / Core::height;
         }
-        Core::mViewProj = Core::mProj * Core::mView;        
+        Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset.xyz;
 
         frustum->pos = Core::viewPos;

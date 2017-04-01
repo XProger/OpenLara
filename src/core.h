@@ -24,6 +24,9 @@
     #define GL_RGBA16F      GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
+    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+
     #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
     #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
     #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
@@ -37,6 +40,8 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
+    #define glActiveStencilFaceEXT(...)
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -177,7 +182,7 @@
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
-#define MAX_LIGHTS          3
+#define MAX_LIGHTS          4
 #define MAX_CACHED_LIGHTS   3
 #define MAX_RENDER_BUFFERS  32
 
@@ -192,6 +197,7 @@ namespace Core {
         bool shadowSampler;
         bool discardFrame;
         bool texNPOT;
+        bool texRG;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
         char stencil;
@@ -252,6 +258,9 @@ extern int getTime();
 namespace Core {
     int width, height;
     float deltaTime;
+    float eye;
+    vec4 viewport, viewportDef;
+    vec4 scissor;
     mat4 mView, mProj, mViewProj, mViewInv, mLightProj;
     Basis basis;
     vec3 viewPos;
@@ -261,7 +270,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
+    enum Pass { passDepth, passCompose, passShadow, passShadowMask, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
 
     GLuint FBO;
     struct RenderTargetCache {
@@ -328,6 +337,7 @@ namespace Core {
     }
 
     void init() {
+        Input::reset();
         #ifdef ANDROID
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
@@ -409,9 +419,10 @@ namespace Core {
         support.shaderBinary   = false;//extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
-        support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        support.shadowSampler  = support.depthTexture && (extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow"));
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
+        support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
@@ -442,6 +453,7 @@ namespace Core {
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
         LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
+        LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
@@ -514,6 +526,12 @@ namespace Core {
 
     void setViewport(int x, int y, int width, int height) {
         glViewport(x, y, width, height);
+        viewport = vec4(float(x), float(y), float(width), float(height));
+    }
+
+    void setScissor(int x, int y, int width, int height) {
+        glScissor(x, y, width, height);
+        scissor = vec4(float(x), float(y), float(width), float(height));
     }
 
     void setCulling(CullMode mode) {
@@ -587,6 +605,13 @@ namespace Core {
             glDisable(GL_STENCIL_TEST);
     }
 
+    void setScissorTest(bool test) {
+        if (test)
+            glEnable(GL_SCISSOR_TEST);
+        else
+            glDisable(GL_SCISSOR_TEST);
+    }
+
     void setStencilTwoSide(int ref, bool test) { // preset for z-fail shadow volumes
         active.stencilTwoSide = test;
         if (test) {
@@ -615,7 +640,7 @@ namespace Core {
         } else {
             if (Core::support.stencil == 1)
                 glDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);
-            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
             glStencilFunc(GL_NOTEQUAL, ref, ~0);
             setCulling(cfFront);
         }
@@ -640,8 +665,10 @@ namespace Core {
         if (!target)  {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glColorMask(true, true, true, true);
-            setViewport(0, 0, Core::width, Core::height);
+
+            setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
         } else {
+            viewportDef = viewport;
             GLenum texTarget = GL_TEXTURE_2D;
             if (target->cube) 
                 texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;

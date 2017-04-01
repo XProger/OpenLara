@@ -2,10 +2,6 @@ R"====(
 #ifdef GL_ES
     precision lowp   int;
     precision highp  float;
-#else
-    #define lowp
-    #define mediump
-    #define highp
 #endif
 
 varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
@@ -24,8 +20,8 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 varying vec3 vAmbient;
             #endif
 
-            uniform vec3 uLightPos[MAX_LIGHTS];
-            uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
+            uniform vec3 uLightPos[4];
+            uniform vec4 uLightColor[4]; // xyz - color, w - radius * intensity
         #endif
 
         varying vec4 vDiffuse;
@@ -155,7 +151,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 vec3 lv0 = (uLightPos[0].xyz - coord) * uLightColor[0].w;
                 vec3 lv1 = (uLightPos[1].xyz - coord) * uLightColor[1].w;
                 vec3 lv2 = (uLightPos[2].xyz - coord) * uLightColor[2].w;
-                vec3 lv3 = vec3(0.0);
+                vec3 lv3 = (uLightPos[3].xyz - coord) * uLightColor[3].w;
                 
                 vLightVec = lv0;
 

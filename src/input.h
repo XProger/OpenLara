@@ -40,11 +40,40 @@ namespace Input {
         vec2 pos;
     } touch[6];
 
+    struct {
+        Basis pivot;
+        Basis basis;
+        bool  ready;
+
+        void set() {
+            if (!ready) {
+                pivot = basis;
+                ready = true;
+            }
+        }
+
+        void reset() {
+            pivot.identity();
+            basis.identity();
+            ready = false;
+        }
+
+        mat4 getMatrix() {
+            Basis b = pivot.inverse() * basis;
+            mat4 m;
+            m.identity();
+            m.setRot(b.rot);
+            m.setPos(b.pos);
+            return m;
+        }
+    } head;
+
     void reset() {
         memset(down,    0, sizeof(down));
         memset(&mouse,  0, sizeof(mouse));
         memset(&joy,    0, sizeof(joy));
         memset(&touch,  0, sizeof(touch));
+        head.reset();
     }
 
     void setDown(InputKey key, bool value) {

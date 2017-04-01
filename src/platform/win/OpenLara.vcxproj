@@ -215,11 +215,13 @@
     <ClInclude Include="..\..\utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\filter.glsl" />
-    <None Include="..\..\gui.glsl" />
-    <None Include="..\..\shader.glsl" />
-    <None Include="..\..\volume.glsl" />
-    <None Include="..\..\water.glsl" />
+    <None Include="..\..\shaders\depth.glsl" />
+    <None Include="..\..\shaders\filter.glsl" />
+    <None Include="..\..\shaders\gui.glsl" />
+    <None Include="..\..\shaders\shader.glsl" />
+    <None Include="..\..\shaders\shadow.glsl" />
+    <None Include="..\..\shaders\volume.glsl" />
+    <None Include="..\..\shaders\water.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

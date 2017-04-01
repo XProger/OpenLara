@@ -11,7 +11,7 @@ uniform int uType;
 #ifdef VERTEX
     attribute vec4 aCoord;
 
-    void main() {        
+    void main() {
         vTexCoord   = aCoord.zw;
         gl_Position = vec4(aCoord.xy, 0.0, 1.0);
     }
@@ -39,7 +39,7 @@ uniform int uType;
         #ifdef FILTER_DOWNSAMPLE
             return downsample();
         #endif
-        return vec4(1.0, 0.0, 1.0, 1.0);
+        return texture2D(sDiffuse, vTexCoord);
     }
     
     void main() {

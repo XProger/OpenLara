@@ -159,6 +159,12 @@ struct Animation {
         return anim->speed + anim->accel * (time * 30.0f);
     }
 
+    float getDist() {
+        TR::Animation *anim = anims + index;
+        float t = time * anim->frameRate * 30.0f;
+        return anim->speed + anim->accel * t * t * 0.5f;
+    }
+
     void getCommand(TR::Animation *anim, int frameIndex, vec3 *offset, vec3 *jump, bool *flip) {
         int16 *ptr = &level->commands[anim->animCommand];
 

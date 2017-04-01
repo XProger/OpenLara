@@ -31,7 +31,7 @@ varying vec3 color;
         vec3 lv = uLightPos.xyz - c.xyz;
 
         if (dot(lv, n) < 0.0)
-            c.xyz -= normalize(lv) * 3000.0;//uLightPos.w;
+            c.xyz -= normalize(lv) * uLightPos.w;
 
         color = aColor.xyz;
 

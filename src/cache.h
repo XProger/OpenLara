@@ -13,24 +13,32 @@
 //#define WATER_USE_GRID
 #define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
 
+const char DEPTH[] =
+    #include "shaders/depth.glsl"
+;
+
+const char SHADOW_MASK[] =
+    #include "shaders/shadow.glsl"
+;
+
 const char SHADER[] =
-    #include "shader.glsl"
+    #include "shaders/shader.glsl"
 ;
 
 const char WATER[] =
-    #include "water.glsl"
+    #include "shaders/water.glsl"
 ;
 
 const char FILTER[] =
-    #include "filter.glsl"
+    #include "shaders/filter.glsl"
 ;
 
 const char VOLUME[] =
-    #include "volume.glsl"
+    #include "shaders/volume.glsl"
 ;
 
 const char GUI[] =
-    #include "gui.glsl"
+    #include "shaders/gui.glsl"
 ;
 
 struct ShaderCache {
@@ -117,15 +125,18 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
+        const char *passNames[] = { "DEPTH", "COMPOSE", "SHADOW", "COMPOSE", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
-            case Core::passCompose :
-            case Core::passShadow  :
-            case Core::passAmbient : {
+            case Core::passDepth      : 
+            case Core::passCompose    :
+            case Core::passShadow     :
+            case Core::passShadowMask :
+            case Core::passAmbient    : {
                 static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
-                src = SHADER;
+
+                src = (pass == Core::passDepth) ? DEPTH : SHADER;
                 typ = typeNames[type];
                 int animTexRangesCount  = game->getMesh()->animTexRangesCount;
                 int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
@@ -602,9 +613,7 @@ struct WaterCache {
         Core::invalidateTarget(false, true);
     }
 
-    void render() {
-        if (!visible) return;
-
+    void renderMask() {
     // mask underwater geometry by zero alpha
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -632,17 +641,45 @@ struct WaterCache {
         Core::setColorWrite(true, true, true, true);
         Core::setDepthWrite(true);
         Core::setCulling(cfFront);
+    }
+
+    void getRefract() {
+        int w = int(Core::viewport.z);
+        int h = int(Core::viewport.w);
 
     // get refraction texture
-        if (!refract || Core::width != refract->width || Core::height != refract->height) {
+        if (!refract || w != refract->width || h != refract->height) {
             delete refract;
-            refract = new Texture(Core::width, Core::height, Texture::RGBA, false);
+            refract = new Texture(w, h, Texture::RGBA, false);
         }
-        Core::copyTarget(refract, 0, 0, 0, 0, Core::width, Core::height); // copy framebuffer into refraction texture
+        Core::copyTarget(refract, 0, 0, int(Core::viewport.x), int(Core::viewport.y), w, h); // copy framebuffer into refraction texture
+    }
 
+    void simulate() {
+    // simulate water
+        Core::setDepthTest(false);
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
+
+            item.mask->bind(sMask);
+
+            if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
+            // add water drops
+                drop(item);                    
+            // simulation step
+                step(item);
+            }
+        }
+        Core::setDepthTest(true);
+        Core::setTarget(NULL);
+    }
+
+    void render() {
+        for (int i = 0; i < count; i++) {
+            Item &item = items[i];
+            if (!item.visible) continue;
+
 
         // render mirror reflection
             Core::setTarget(reflect, true);
@@ -669,19 +706,7 @@ struct WaterCache {
             camera->reflectPlane = NULL;
             camera->setup(true);
 
-        // simulate water
-            Core::setDepthTest(false);
-            item.mask->bind(sMask);
-
-            if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
-            // add water drops
-                drop(item);                    
-            // simulation step
-                step(item);
-            }
             Core::setTarget(NULL);
-
-            Core::setDepthTest(true);
 
         // render water plane
             if (level->rooms[item.from].lightsCount) {
@@ -698,8 +723,17 @@ struct WaterCache {
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
+            float offset, scale;
 
-            Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
+            if (Core::eye != 0.0f) {
+                offset = -Core::eye * 0.25f + 0.25f;
+                scale  = 0.5f;
+            } else {
+                offset = 0.0f;
+                scale  = 1.0f;
+            }
+
+            Core::active.shader->setParam(uTexParam, vec4(offset, scale, sx, sz));
 
             refract->bind(sDiffuse);
             reflect->bind(sReflect);

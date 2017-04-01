@@ -404,7 +404,11 @@ namespace TR {
 
             BLOCK_1                  = 48,
             BLOCK_2                  = 49,
-
+            BLOCK_3                  = 50,
+            BLOCK_4                  = 51,
+            MOVING_BLOCK             = 52,
+            FALLING_CEILING          = 53,
+            FALLING_SWORD            = 54,
             SWITCH                   = 55,
             SWITCH_WATER             = 56,
             DOOR_1                   = 57,

@@ -53,7 +53,7 @@ struct Trigger : Controller {
         }
 
         if (!inState() && entity.type != TR::Entity::HOLE_KEY && entity.type != TR::Entity::HOLE_PUZZLE)
-            animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));
+            animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));        
 
         updateAnimation(true);
         updateEntity();
@@ -177,6 +177,40 @@ struct Block : Controller {
     }
 };
 
+
+struct MovingBlock : Trigger {
+    int lastState;
+
+    MovingBlock(IGame *game, int entity) : Trigger(game, entity, true) {
+        lastState = state;
+        updateFloor(true);
+    }
+
+    void updateFloor(bool rise) {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        if (info.roomNext != 0xFF)
+            e.room = info.roomNext;
+        int dx, dz;
+        TR::Room::Sector &s = level->getSector(e.room, e.x, e.z, dx, dz);
+        s.floor += rise ? -8 : 8;
+    }
+    
+    virtual void updateAnimation(bool commands) {
+        Trigger::updateAnimation(commands);
+
+        if (state != lastState) {
+            switch (lastState = state) {
+                case 0 :
+                case 1 : updateFloor(true);  break;
+                case 2 : updateFloor(false); break;
+            }
+        }
+
+        pos += getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
+    }
+};
 
 struct Door : Trigger {
     int8 *floor[2], orig[2];

@@ -537,6 +537,9 @@ struct Controller {
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
                     joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // AHAHA
+
+            //    if (entity.type == TR::Entity::LARA && Core::eye != 0)
+            //        joints[14].w = -1.0f;
             // render
                 Core::active.shader->setParam(uBasis, joints[0], model->mCount);
                 mesh->renderModel(layers[i].model);
