@@ -38,7 +38,6 @@
 		996585CA160A3A8B0097B128 /* ViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ViewController.mm; sourceTree = "<group>"; };
 		996585FA160A3B500097B128 /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
 		996585FC160A3C620097B128 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
-		99C2D3CD178B2DCE002E6F09 /* icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon.png; sourceTree = "<group>"; };
 		99CF06021E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
 		99CF06031E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
 		99CF06061E9140630072E389 /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
@@ -134,7 +133,6 @@
 				996585BA160A31450097B128 /* openlara-Prefix.pch */,
 				996585B4160A31450097B128 /* openlara-Info.plist */,
 				996585B5160A31450097B128 /* InfoPlist.strings */,
-				99C2D3CD178B2DCE002E6F09 /* icon.png */,
 				99CF06231E9143C60072E389 /* Default-568h@2x.png */,
 			);
 			name = "Supporting Files";
