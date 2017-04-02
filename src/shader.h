@@ -108,7 +108,7 @@ struct Shader {
                 { GLSL_DEFINE GLSL_FRAG "#define FRAGMENT\n", defines, text }
             };
 
-        GLchar info[256];
+        GLchar info[1024];
 
         for (int i = 0; i < 2; i++) {
             GLuint obj = glCreateShader(type[i]);
