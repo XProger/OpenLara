@@ -13,14 +13,6 @@
 //#define WATER_USE_GRID
 #define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
 
-const char DEPTH[] =
-    #include "shaders/depth.glsl"
-;
-
-const char SHADOW_MASK[] =
-    #include "shaders/shadow.glsl"
-;
-
 const char SHADER[] =
     #include "shaders/shader.glsl"
 ;
@@ -125,18 +117,16 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "DEPTH", "COMPOSE", "SHADOW", "COMPOSE", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
-            case Core::passDepth      : 
             case Core::passCompose    :
             case Core::passShadow     :
-            case Core::passShadowMask :
             case Core::passAmbient    : {
                 static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
 
-                src = (pass == Core::passDepth) ? DEPTH : SHADER;
+                src = SHADER;
                 typ = typeNames[type];
                 int animTexRangesCount  = game->getMesh()->animTexRangesCount;
                 int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
@@ -680,9 +670,9 @@ struct WaterCache {
             Item &item = items[i];
             if (!item.visible) continue;
 
-
         // render mirror reflection
             Core::setTarget(reflect, true);
+            Core::viewport = Core::viewportDef;
             vec3 p = item.pos;
             vec3 n = vec3(0, 1, 0);
 
@@ -704,9 +694,9 @@ struct WaterCache {
             game->updateParams();
 
             camera->reflectPlane = NULL;
-            camera->setup(true);
-
             Core::setTarget(NULL);
+
+            camera->setup(true);
 
         // render water plane
             if (level->rooms[item.from].lightsCount) {
@@ -723,17 +713,8 @@ struct WaterCache {
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
-            float offset, scale;
 
-            if (Core::eye != 0.0f) {
-                offset = -Core::eye * 0.25f + 0.25f;
-                scale  = 0.5f;
-            } else {
-                offset = 0.0f;
-                scale  = 1.0f;
-            }
-
-            Core::active.shader->setParam(uTexParam, vec4(offset, scale, sx, sz));
+            Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
 
             refract->bind(sDiffuse);
             reflect->bind(sReflect);

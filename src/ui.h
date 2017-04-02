@@ -5,7 +5,7 @@
 #include "controller.h"
 
 struct UI {
-    enum TouchButton { bWeapon, bWalk, bAction, bJump, bMAX };
+    enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bMAX };
     enum TouchZone   { zMove, zLook, zButton, zMAX };
 
     IGame       *game;
@@ -93,8 +93,10 @@ struct UI {
         if (checkTouchZone(zLook))
             Input::joy.R = vec2(0.0f);
 
-        if (checkTouchZone(zButton))
+        if (checkTouchZone(zButton)) {
             touchSetDown(false);
+            btn = bNone;
+        }
 
         if (doubleTap) {
             doubleTap = false;
@@ -127,7 +129,7 @@ struct UI {
     // set active touches as gamepad controls
         getTouchDir(touch[zMove], Input::joy.L);
         getTouchDir(touch[zLook], Input::joy.R);
-        if (touch[zButton] != ikNone) {
+        if (touch[zButton] != ikNone && btn == bNone) {
             getTouchButton(Input::touch[touch[zButton] - ikTouchA].pos);
             touchSetDown(true);
         }
@@ -135,9 +137,9 @@ struct UI {
             Input::setDown(ikJoyB, true);
     }
 
-    void renderControl(const vec2 &pos, const vec2 &size, const vec4 &color) {
-        Core::active.shader->setParam(uPosScale, vec4(pos, size * vec2(1.0f / 32767.0f)));
-        Core::active.shader->setParam(uMaterial, color);
+    void renderControl(const vec2 &pos, float size, bool active) {
+        Core::active.shader->setParam(uPosScale, vec4(pos, vec2(size * (active ? 2.0f : 1.0f) / 32767.0f)));
+        Core::active.shader->setParam(uMaterial, vec4(active ? 0.7f : 0.5f));
         game->getMesh()->renderCircle();
     }
 
@@ -157,13 +159,13 @@ struct UI {
         vec2 pos = vec2(offset, Core::height - offset);
         if (Input::down[touch[zMove]]) {
             Input::Touch &t = Input::touch[touch[zMove] - ikTouchA];
-            renderControl(t.pos, vec2(btnRadius), vec4(0.5f));
+            renderControl(t.pos, btnRadius, true);
             pos = t.start;
         }
-        renderControl(pos, vec2(btnRadius), vec4(0.5f));
+        renderControl(pos, btnRadius, false);
 
-        for (int i = 0; i < bMAX; i++)
-            renderControl(btnPos[i], vec2(btnRadius), vec4(0.5f));
+        for (int i = bWeapon; i < bMAX; i++)
+            renderControl(btnPos[i], btnRadius, btn == i);
 
         Core::setCulling(cfFront);
         Core::setBlending(bmNone);

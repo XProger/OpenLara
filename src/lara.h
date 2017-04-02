@@ -407,12 +407,12 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-
+                reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
-        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
@@ -424,7 +424,7 @@ struct Lara : Character {
         //reset(61, vec3(21987, -1024, 29144), PI * 3.0f * 0.5f); // level 2 (trap door)
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
-        reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
+        //reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, true);   // villa mortal 2
     #endif

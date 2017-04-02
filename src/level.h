@@ -92,36 +92,10 @@ struct Level : IGame {
 
         if (shadow) shadow->bind(sShadow);
 
-        glDepthFunc(GL_LEQUAL);
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
-//        Core::setColorWrite(false, false, false, false);
         Core::pass = Core::passCompose;
         renderScene(roomIndex);
-  //      Core::setColorWrite(true, true, true, true);
-        /*
-        if (genShadowMask && false) {
-            renderShadowVolumes();
-
-            Core::setDepthWrite(false);
-            Core::setStencilTest(true); 
-
-            glDepthFunc(GL_EQUAL);
-
-            Core::pass = Core::passShadowMask;
-            glStencilFunc(GL_NOTEQUAL, 128, ~0);            
-            renderScene(roomIndex);
-
-            Core::pass = Core::passCompose;
-            glStencilFunc(GL_EQUAL, 128, ~0);
-            renderScene(roomIndex);
-
-            glDepthFunc(GL_LEQUAL);
-
-            Core::setStencilTest(false);
-            Core::setDepthWrite(true);
-        }
-        */
     }
 //==============================
 
@@ -611,7 +585,7 @@ struct Level : IGame {
     void setup() {
         PROFILE_MARKER("SETUP");
 
-        camera->setup(Core::pass == Core::passDepth || Core::pass == Core::passCompose || Core::pass == Core::passShadowMask);
+        camera->setup(Core::pass == Core::passCompose);
 
         atlas->bind(sDiffuse);
         Core::whiteTex->bind(sNormal);
@@ -764,7 +738,7 @@ struct Level : IGame {
         if (colorShadow)
             Core::setClearColor(vec4(0.0f, 0.0f, 0.0f, 0.0f));
     }
-
+/*
     void renderShadowVolumes() {
         getLight(lara->pos, lara->getRoomIndex());
         
@@ -805,13 +779,13 @@ struct Level : IGame {
 
         Core::setStencilTest(false);
     }
-
+*/
     void render() {
         Core::invalidateTarget(true, true);
         params->clipHeight  = NO_CLIP_PLANE;
         params->clipSign    = 1.0f;
         params->waterHeight = params->clipHeight;
-        
+
         if (ambientCache)
             ambientCache->precessQueue();
         if (waterCache)
@@ -819,60 +793,29 @@ struct Level : IGame {
         if (shadow)
             renderShadows(lara->getRoomIndex());
 
-        Core::setViewport(0, 0, Core::width, Core::height);
-
         Core::setClearStencil(128);
-        Core::setTarget(NULL, false);
+        Core::setTarget(NULL, true);
+        Core::setViewport(0, 0, Core::width, Core::height);
         
         if (waterCache)
-            waterCache->checkVisibility = true;
-            
-        Core::clear(true, true, true);
-        camera->fov = 90.0f;
+            waterCache->checkVisibility = true;           
 
-        Core::setViewport(0, 0, Core::width / 2, Core::height);
-        Core::eye = -1.0f;
-        renderCompose(camera->getRoomIndex(), true);
-        Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
-        Core::eye =  1.0f;
         renderCompose(camera->getRoomIndex(), true);
 
         if (waterCache) {
             waterCache->checkVisibility = false;
             if (waterCache->visible) {
-                Core::setViewport(0, 0, Core::width / 2, Core::height);
-                Core::eye =  -1.0f;
-                camera->setup(true);
                 waterCache->renderMask();
-
-                Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
-                Core::eye =  1.0f;
-                camera->setup(true);
-                waterCache->renderMask();
-
-                Core::setViewport(0, 0, Core::width, Core::height);
                 waterCache->getRefract();
                 waterCache->simulate();
-
-                Core::setViewport(0, 0, Core::width / 2, Core::height);
-                Core::eye = -1.0f;
-                camera->setup(true);
-                waterCache->render();
-
-                Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
-                Core::eye =  1.0f;
-                camera->setup(true);
                 waterCache->render();
             }
         }
-        Core::eye = 0.0f;
-
-        Core::setViewport(0, 0, Core::width, Core::height);
-
-//        Core::mViewInv = camera->mViewInv;
-//        Core::mView = Core::mViewInv.inverse();
 
     #ifdef _DEBUG
+//        Core::mViewInv = camera->mViewInv;
+//        Core::mView = Core::mViewInv.inverse();
+        Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
 
         static int snd_index = 0;

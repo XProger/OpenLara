@@ -142,7 +142,6 @@ uniform sampler2D sNormal;
     }
 
     vec4 compose() {
-return vec4(0.0);
         vec4 value  = texture2D(sNormal, vTexCoord);
 
         vec3 normal = vec3(value.z, -sqrt(1.0 - dot(value.zw, value.zw)), value.w);
@@ -156,11 +155,9 @@ return vec4(0.0);
         float spec = pow(max(0.0, dot(rv, lv)), 64.0) * 0.5;
         
         vec2 tc  = vProjCoord.xy / vProjCoord.w * 0.5 + 0.5;
-//        vec2 rtc = vec2(tc.x * uTexParam.y + uTexParam.x, tc.y);
-        vec2 rtc  = vProjCoord.xy / vProjCoord.w * 0.5 + 0.5;
 
-        vec4 refrA = texture2D(sDiffuse, uParam.xy * clamp(rtc + dudv * uParam.z, 0.0, 0.999) );
-        vec4 refrB = texture2D(sDiffuse, uParam.xy * (rtc) );
+        vec4 refrA = texture2D(sDiffuse, uParam.xy * clamp(tc + dudv * uParam.z, 0.0, 0.999) );
+        vec4 refrB = texture2D(sDiffuse, uParam.xy * tc );
         vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
         vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 

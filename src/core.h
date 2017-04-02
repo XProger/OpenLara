@@ -270,7 +270,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passDepth, passCompose, passShadow, passShadowMask, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
 
     GLuint FBO;
     struct RenderTargetCache {
@@ -467,7 +467,8 @@ namespace Core {
 
         for (int i = 0; i < MAX_LIGHTS; i++)
             lightColor[i] = vec4(0, 0, 0, 1);
-      
+        eye = 0.0f;
+
         uint32 data = 0x00000000;
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
         data = 0xFFFFFFFF;
@@ -668,7 +669,8 @@ namespace Core {
 
             setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
         } else {
-            viewportDef = viewport;
+            if (active.target == NULL)
+                viewportDef = viewport;
             GLenum texTarget = GL_TEXTURE_2D;
             if (target->cube) 
                 texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
@@ -699,6 +701,8 @@ namespace Core {
 
     void beginFrame() {
         memset(&active, 0, sizeof(active));
+        setViewport(0, 0, Core::width, Core::height);
+        viewportDef = viewport;
         setDepthTest(true);
         active.blendMode = bmAlpha;
         active.cullMode  = cfNone;
