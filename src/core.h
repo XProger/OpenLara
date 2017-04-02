@@ -48,10 +48,6 @@
     #include <GL/glx.h>
     #include <GL/glext.h>
 #elif __APPLE__
-    #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
-    #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
-    #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
-
     #include "TargetConditionals.h"
 
     #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
@@ -67,6 +63,10 @@
         #define glDeleteVertexArrays        glDeleteVertexArraysOES
         #define glBindVertexArray           glBindVertexArrayOES
 
+        #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
+        #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
+        #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
+
         #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
         #define glActiveStencilFaceEXT(...)
     #else
@@ -79,6 +79,11 @@
 
         #define GL_RGBA32F                  GL_RGBA
         #define GL_RGBA16F                  GL_RGBA
+
+        #define GL_RGB565                   GL_RGBA
+        #define GL_TEXTURE_COMPARE_MODE		0x884C
+        #define GL_TEXTURE_COMPARE_FUNC		0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE	0x884E
 
         #define glGenVertexArrays    glGenVertexArraysAPPLE
         #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
