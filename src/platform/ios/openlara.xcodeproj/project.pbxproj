@@ -1,0 +1,373 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		99266D7E160A568B003FFEBA /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99266D7D160A568B003FFEBA /* AudioToolbox.framework */; };
+		99266D81160A5E7C003FFEBA /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99266D80160A5E7C003FFEBA /* UIKit.framework */; };
+		996585AF160A31450097B128 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 996585AE160A31450097B128 /* Foundation.framework */; };
+		996585CB160A3A8B0097B128 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 996585C8160A3A8B0097B128 /* AppDelegate.mm */; };
+		996585CC160A3A8B0097B128 /* ViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 996585CA160A3A8B0097B128 /* ViewController.mm */; };
+		996585FB160A3B500097B128 /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 996585FA160A3B500097B128 /* OpenGLES.framework */; };
+		996585FD160A3C620097B128 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 996585FC160A3C620097B128 /* GLKit.framework */; };
+		99CF06251E9145830072E389 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 996585B8160A31450097B128 /* main.m */; };
+		99CF06301E91505D0072E389 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99CF062E1E91505D0072E389 /* minimp3.cpp */; };
+		99CF06311E91505D0072E389 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99CF062F1E91505D0072E389 /* stb_vorbis.c */; };
+		99CF06351E9154170072E389 /* LEVEL2.PSX in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06331E9154170072E389 /* LEVEL2.PSX */; };
+		99CF06361E9154170072E389 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06341E9154170072E389 /* 05.ogg */; };
+		99CF06381E9193370072E389 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06231E9143C60072E389 /* Default-568h@2x.png */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		99266D7D160A568B003FFEBA /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		99266D80160A5E7C003FFEBA /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		996585A8160A31450097B128 /* OpenLara.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenLara.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		996585AE160A31450097B128 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		996585B0160A31450097B128 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		996585B4160A31450097B128 /* openlara-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "openlara-Info.plist"; sourceTree = "<group>"; };
+		996585B6160A31450097B128 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		996585B8160A31450097B128 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		996585BA160A31450097B128 /* openlara-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "openlara-Prefix.pch"; sourceTree = "<group>"; };
+		996585BB160A31450097B128 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		996585C8160A3A8B0097B128 /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AppDelegate.mm; sourceTree = "<group>"; };
+		996585C9160A3A8B0097B128 /* ViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
+		996585CA160A3A8B0097B128 /* ViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ViewController.mm; sourceTree = "<group>"; };
+		996585FA160A3B500097B128 /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
+		996585FC160A3C620097B128 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
+		99CF06021E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
+		99CF06031E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
+		99CF06061E9140630072E389 /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
+		99CF06071E9140630072E389 /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
+		99CF06081E9140630072E389 /* camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = camera.h; path = ../../camera.h; sourceTree = "<group>"; };
+		99CF06091E9140630072E389 /* character.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = character.h; path = ../../character.h; sourceTree = "<group>"; };
+		99CF060A1E9140630072E389 /* collision.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = collision.h; path = ../../collision.h; sourceTree = "<group>"; };
+		99CF060B1E9140630072E389 /* controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = controller.h; path = ../../controller.h; sourceTree = "<group>"; };
+		99CF060C1E9140630072E389 /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = core.h; path = ../../core.h; sourceTree = "<group>"; };
+		99CF060D1E9140630072E389 /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debug.h; path = ../../debug.h; sourceTree = "<group>"; };
+		99CF060E1E9140630072E389 /* enemy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = enemy.h; path = ../../enemy.h; sourceTree = "<group>"; };
+		99CF060F1E9140630072E389 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
+		99CF06101E9140630072E389 /* frustum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = frustum.h; path = ../../frustum.h; sourceTree = "<group>"; };
+		99CF06111E9140630072E389 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
+		99CF06121E9140630072E389 /* input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = input.h; path = ../../input.h; sourceTree = "<group>"; };
+		99CF06131E9140630072E389 /* inventory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inventory.h; path = ../../inventory.h; sourceTree = "<group>"; };
+		99CF06141E9140630072E389 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
+		99CF06151E9140630072E389 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
+		99CF06171E9140630072E389 /* mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mesh.h; path = ../../mesh.h; sourceTree = "<group>"; };
+		99CF06181E9140630072E389 /* shader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shader.h; path = ../../shader.h; sourceTree = "<group>"; };
+		99CF061A1E9140630072E389 /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../sound.h; sourceTree = "<group>"; };
+		99CF061B1E9140630072E389 /* sprite.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sprite.h; path = ../../sprite.h; sourceTree = "<group>"; };
+		99CF061C1E9140630072E389 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
+		99CF061D1E9140630072E389 /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
+		99CF061E1E9140630072E389 /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../../ui.h; sourceTree = "<group>"; };
+		99CF061F1E9140630072E389 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
+		99CF06231E9143C60072E389 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
+		99CF06281E9145EC0072E389 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
+		99CF062E1E91505D0072E389 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
+		99CF062F1E91505D0072E389 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
+		99CF06331E9154170072E389 /* LEVEL2.PSX */ = {isa = PBXFileReference; lastKnownFileType = file; path = LEVEL2.PSX; sourceTree = "<group>"; };
+		99CF06341E9154170072E389 /* 05.ogg */ = {isa = PBXFileReference; lastKnownFileType = file; path = 05.ogg; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		996585A5160A31450097B128 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99266D81160A5E7C003FFEBA /* UIKit.framework in Frameworks */,
+				99266D7E160A568B003FFEBA /* AudioToolbox.framework in Frameworks */,
+				996585FD160A3C620097B128 /* GLKit.framework in Frameworks */,
+				996585FB160A3B500097B128 /* OpenGLES.framework in Frameworks */,
+				996585AF160A31450097B128 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9965859D160A31450097B128 = {
+			isa = PBXGroup;
+			children = (
+				996585CD160A3AC50097B128 /* src */,
+				996585B8160A31450097B128 /* main.m */,
+				996585C8160A3A8B0097B128 /* AppDelegate.mm */,
+				996585C9160A3A8B0097B128 /* ViewController.h */,
+				996585CA160A3A8B0097B128 /* ViewController.mm */,
+				996585BB160A31450097B128 /* AppDelegate.h */,
+				996585B3160A31450097B128 /* Supporting Files */,
+				996585FE160A3C960097B128 /* data */,
+				996585AB160A31450097B128 /* Frameworks */,
+				996585A9160A31450097B128 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		996585A9160A31450097B128 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				996585A8160A31450097B128 /* OpenLara.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		996585AB160A31450097B128 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				99266D80160A5E7C003FFEBA /* UIKit.framework */,
+				99266D7D160A568B003FFEBA /* AudioToolbox.framework */,
+				996585FC160A3C620097B128 /* GLKit.framework */,
+				996585FA160A3B500097B128 /* OpenGLES.framework */,
+				996585AE160A31450097B128 /* Foundation.framework */,
+				996585B0160A31450097B128 /* CoreGraphics.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		996585B3160A31450097B128 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				99CF06331E9154170072E389 /* LEVEL2.PSX */,
+				99CF06341E9154170072E389 /* 05.ogg */,
+				996585BA160A31450097B128 /* openlara-Prefix.pch */,
+				996585B4160A31450097B128 /* openlara-Info.plist */,
+				996585B5160A31450097B128 /* InfoPlist.strings */,
+				99CF06231E9143C60072E389 /* Default-568h@2x.png */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		996585CD160A3AC50097B128 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				99CF062E1E91505D0072E389 /* minimp3.cpp */,
+				99CF062F1E91505D0072E389 /* stb_vorbis.c */,
+				99CF06281E9145EC0072E389 /* shaders */,
+				99CF06061E9140630072E389 /* animation.h */,
+				99CF06071E9140630072E389 /* cache.h */,
+				99CF06081E9140630072E389 /* camera.h */,
+				99CF06091E9140630072E389 /* character.h */,
+				99CF060A1E9140630072E389 /* collision.h */,
+				99CF060B1E9140630072E389 /* controller.h */,
+				99CF060C1E9140630072E389 /* core.h */,
+				99CF060D1E9140630072E389 /* debug.h */,
+				99CF060E1E9140630072E389 /* enemy.h */,
+				99CF060F1E9140630072E389 /* format.h */,
+				99CF06101E9140630072E389 /* frustum.h */,
+				99CF06111E9140630072E389 /* game.h */,
+				99CF06121E9140630072E389 /* input.h */,
+				99CF06131E9140630072E389 /* inventory.h */,
+				99CF06141E9140630072E389 /* lara.h */,
+				99CF06151E9140630072E389 /* level.h */,
+				99CF06171E9140630072E389 /* mesh.h */,
+				99CF06181E9140630072E389 /* shader.h */,
+				99CF061A1E9140630072E389 /* sound.h */,
+				99CF061B1E9140630072E389 /* sprite.h */,
+				99CF061C1E9140630072E389 /* texture.h */,
+				99CF061D1E9140630072E389 /* trigger.h */,
+				99CF061E1E9140630072E389 /* ui.h */,
+				99CF061F1E9140630072E389 /* utils.h */,
+			);
+			name = src;
+			path = ../src;
+			sourceTree = "<group>";
+		};
+		996585FE160A3C960097B128 /* data */ = {
+			isa = PBXGroup;
+			children = (
+				99CF06021E913FE90072E389 /* bin */,
+				99CF06031E913FE90072E389 /* bin */,
+			);
+			path = data;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		996585A7160A31450097B128 /* OpenLara */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 996585C0160A31450097B128 /* Build configuration list for PBXNativeTarget "OpenLara" */;
+			buildPhases = (
+				996585A4160A31450097B128 /* Sources */,
+				996585A5160A31450097B128 /* Frameworks */,
+				996585A6160A31450097B128 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenLara;
+			productName = OpenLara;
+			productReference = 996585A8160A31450097B128 /* OpenLara.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9965859F160A31450097B128 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+			};
+			buildConfigurationList = 996585A2160A31450097B128 /* Build configuration list for PBXProject "openlara" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 9965859D160A31450097B128;
+			productRefGroup = 996585A9160A31450097B128 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				996585A7160A31450097B128 /* OpenLara */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		996585A6160A31450097B128 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99CF06381E9193370072E389 /* Default-568h@2x.png in Resources */,
+				99CF06351E9154170072E389 /* LEVEL2.PSX in Resources */,
+				99CF06361E9154170072E389 /* 05.ogg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		996585A4160A31450097B128 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99CF06301E91505D0072E389 /* minimp3.cpp in Sources */,
+				99CF06311E91505D0072E389 /* stb_vorbis.c in Sources */,
+				99CF06251E9145830072E389 /* main.m in Sources */,
+				996585CB160A3A8B0097B128 /* AppDelegate.mm in Sources */,
+				996585CC160A3A8B0097B128 /* ViewController.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		996585B5160A31450097B128 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				996585B6160A31450097B128 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		996585BE160A31450097B128 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = "";
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				ONLY_ACTIVE_ARCH = NO;
+				PROVISIONING_PROFILE = "";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		996585BF160A31450097B128 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_VERSION = "";
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
+				PROVISIONING_PROFILE = "";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		996585C1160A31450097B128 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
+				INFOPLIST_FILE = "openlara-Info.plist";
+				PRODUCT_NAME = "${TARGET_NAME}";
+				PROVISIONING_PROFILE = "";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		996585C2160A31450097B128 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
+				INFOPLIST_FILE = "openlara-Info.plist";
+				PRODUCT_NAME = "${TARGET_NAME}";
+				PROVISIONING_PROFILE = "";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		996585A2160A31450097B128 /* Build configuration list for PBXProject "openlara" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				996585BE160A31450097B128 /* Debug */,
+				996585BF160A31450097B128 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		996585C0160A31450097B128 /* Build configuration list for PBXNativeTarget "OpenLara" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				996585C1160A31450097B128 /* Debug */,
+				996585C2160A31450097B128 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9965859F160A31450097B128 /* Project object */;
+}

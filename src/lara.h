@@ -407,7 +407,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-                reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+//reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 

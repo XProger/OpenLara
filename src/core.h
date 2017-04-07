@@ -48,27 +48,51 @@
     #include <GL/glx.h>
     #include <GL/glext.h>
 #elif __APPLE__
-    #include <Carbon/Carbon.h>
-    #include <AudioToolbox/AudioQueue.h>
-    #include <OpenGL/OpenGL.h>
-    #include <OpenGL/gl.h>
-    #include <OpenGL/glext.h>
-    #include <AGL/agl.h>
+    #include "TargetConditionals.h"
 
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
+    #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+        #define MOBILE
+        #include <OpenGLES/ES2/gl.h>
+        #include <OpenGLES/ES2/glext.h>
+        #include <OpenGLES/ES3/glext.h>
 
-    #define GL_TEXTURE_COMPARE_MODE		0x884C
-    #define GL_TEXTURE_COMPARE_FUNC		0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+        #define PFNGLGENVERTEXARRAYSPROC    PFNGLGENVERTEXARRAYSOESPROC
+        #define PFNGLDELETEVERTEXARRAYSPROC PFNGLDELETEVERTEXARRAYSOESPROC
+        #define PFNGLBINDVERTEXARRAYPROC    PFNGLBINDVERTEXARRAYOESPROC
+        #define glGenVertexArrays           glGenVertexArraysOES
+        #define glDeleteVertexArrays        glDeleteVertexArraysOES
+        #define glBindVertexArray           glBindVertexArrayOES
 
-    #define glGenVertexArrays    glGenVertexArraysAPPLE
-    #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
-    #define glBindVertexArray    glBindVertexArrayAPPLE
+        #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
+        #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
+        #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
 
-    #define GL_PROGRAM_BINARY_LENGTH 0
-    #define glGetProgramBinary(...)  0
-    #define glProgramBinary(...)     0
+        #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
+        #define glActiveStencilFaceEXT(...)
+    #else
+        #include <Carbon/Carbon.h>
+        #include <AudioToolbox/AudioQueue.h>
+        #include <OpenGL/OpenGL.h>
+        #include <OpenGL/gl.h>
+        #include <OpenGL/glext.h>
+        #include <AGL/agl.h>
+
+        #define GL_RGBA32F                  GL_RGBA
+        #define GL_RGBA16F                  GL_RGBA
+
+        #define GL_RGB565                   GL_RGBA
+        #define GL_TEXTURE_COMPARE_MODE		0x884C
+        #define GL_TEXTURE_COMPARE_FUNC		0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+
+        #define glGenVertexArrays    glGenVertexArraysAPPLE
+        #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+        #define glBindVertexArray    glBindVertexArrayAPPLE
+
+        #define GL_PROGRAM_BINARY_LENGTH 0
+        #define glGetProgramBinary(...)  0
+        #define glProgramBinary(...)     0
+    #endif
 #elif __EMSCRIPTEN__
     #define MOBILE
     #include <emscripten.h>
@@ -178,7 +202,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#ifdef MOBILE
+#if defined(ANDROID) || defined(__EMSCRIPTEN__)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -272,7 +296,7 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
 
-    GLuint FBO;
+    GLuint FBO, defaultFBO;
     struct RenderTargetCache {
         int count;
         struct Item {
@@ -402,7 +426,7 @@ namespace Core {
                 GetProcOGL(glStencilOpSeparate);
             #endif
 
-            #ifdef MOBILE
+            #if defined(ANDROID) || defined(__EMSCRIPTEN__)
                 GetProcOGL(glDiscardFramebufferEXT);
             #endif
 
@@ -416,7 +440,7 @@ namespace Core {
         char *ext = (char*)glGetString(GL_EXTENSIONS);
         //LOG("%s\n", ext);
 
-        support.shaderBinary   = false;//extSupport(ext, "_program_binary");
+        support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
         support.shadowSampler  = support.depthTexture && (extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow"));
@@ -460,6 +484,7 @@ namespace Core {
         LOG("  stencil        : %s\n", support.stencil == 2 ? "separate" : (support.stencil == 1 ? "two_side" : "false"));
         LOG("\n");
 
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
         glGenFramebuffers(1, &FBO);
         memset(rtCache, 0, sizeof(rtCache));
 
@@ -664,7 +689,7 @@ namespace Core {
             return;
 
         if (!target)  {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
             glColorMask(true, true, true, true);
 
             setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));

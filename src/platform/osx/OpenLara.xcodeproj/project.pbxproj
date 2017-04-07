@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		995C97F01E91A857003825B2 /* shaders in Resources */ = {isa = PBXBuildFile; fileRef = 995C97EF1E91A857003825B2 /* shaders */; };
 		9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */ = {isa = PBXBuildFile; fileRef = 9971B72E1E7C239900F25790 /* LEVEL2.PSX */; };
 		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
 		99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A41DCA872D00E2E997 /* 05.ogg */; };
@@ -19,6 +20,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
 		9971B72E1E7C239900F25790 /* LEVEL2.PSX */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2.PSX; path = ../../../bin/LEVEL2.PSX; sourceTree = SOURCE_ROOT; };
 		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
 		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
@@ -32,7 +34,6 @@
 		99BFB6961DCA7F1700E2E997 /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = core.h; path = ../../core.h; sourceTree = "<group>"; };
 		99BFB6971DCA7F1700E2E997 /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
 		99BFB6981DCA7F1700E2E997 /* shader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shader.h; path = ../../shader.h; sourceTree = "<group>"; };
-		99BFB6991DCA7F1700E2E997 /* shader.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = shader.glsl; path = ../../shader.glsl; sourceTree = "<group>"; };
 		99BFB69A1DCA7F1700E2E997 /* input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = input.h; path = ../../input.h; sourceTree = "<group>"; };
 		99BFB69B1DCA7F1700E2E997 /* enemy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = enemy.h; path = ../../enemy.h; sourceTree = "<group>"; };
 		99BFB69C1DCA7F1700E2E997 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
@@ -70,6 +71,7 @@
 		99C4C0771796A8230032DE85 = {
 			isa = PBXGroup;
 			children = (
+				995C97EF1E91A857003825B2 /* shaders */,
 				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,
 				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
 				99BFB69E1DCA7F1700E2E997 /* libs */,
@@ -86,7 +88,6 @@
 				99BFB6961DCA7F1700E2E997 /* core.h */,
 				99BFB6971DCA7F1700E2E997 /* trigger.h */,
 				99BFB6981DCA7F1700E2E997 /* shader.h */,
-				99BFB6991DCA7F1700E2E997 /* shader.glsl */,
 				99BFB69A1DCA7F1700E2E997 /* input.h */,
 				99BFB69B1DCA7F1700E2E997 /* enemy.h */,
 				99BFB69C1DCA7F1700E2E997 /* game.h */,
@@ -180,6 +181,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				995C97F01E91A857003825B2 /* shaders in Resources */,
 				99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */,
 				9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */,
 			);
