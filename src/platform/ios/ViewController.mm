@@ -31,7 +31,7 @@ int getTime() {
     return (int)((mach_absolute_time() * info.numer) / (kOneMillion * info.denom));
 }
 
-#define SND_BUF_SIZE 4096
+#define SND_BUF_SIZE 8192
 
 static AudioQueueRef audioQueue;
 
@@ -92,14 +92,15 @@ void soundInit() {
         return;
     }
 
-	GLKView *view = (GLKView *)self.view;
-	view.context = self.context;
-	self.preferredFramesPerSecond = 60;
+    self.preferredFramesPerSecond = 60;
+
+    GLKView *view = (GLKView *)self.view;
+    view.multipleTouchEnabled = YES;
+    view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat16;
 	view.drawableColorFormat = GLKViewDrawableColorFormatRGBA8888;
 	[EAGLContext setCurrentContext:self.context];
 	
-	self.view.multipleTouchEnabled = YES;
 
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
 
@@ -147,13 +148,14 @@ void soundInit() {
 	Game::render();
 }
 
-enum { TOUCH_DOWN, TOUCH_UP, TOUCH_MOVE };
-
 - (void) doTouch:(UIEvent*)event {
     float scale = [[UIScreen mainScreen] scale];
 
     NSSet* touchSet = [event allTouches];
     for (UITouch *touch in touchSet) {
+        if (touch.phase == UITouchPhaseStationary)
+            continue;
+
         CGPoint   pos = [touch locationInView:self.view];
         NSUInteger id = int(touch);
 
@@ -161,8 +163,9 @@ enum { TOUCH_DOWN, TOUCH_UP, TOUCH_MOVE };
         if (key == ikNone) return;
         Input::setPos(key, vec2(pos.x, pos.y) * scale);
 
-        if (touch.phase != UITouchPhaseMoved)
+        if (touch.phase != UITouchPhaseMoved) {
             Input::setDown(key, touch.phase == UITouchPhaseBegan);
+        }
     }
 }
 

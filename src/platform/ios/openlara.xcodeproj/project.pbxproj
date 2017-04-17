@@ -209,6 +209,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0430;
+				TargetAttributes = {
+					996585A7160A31450097B128 = {
+						DevelopmentTeam = L49L654K86;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 996585A2160A31450097B128 /* Build configuration list for PBXProject "openlara" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -324,9 +330,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = L49L654K86;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
 				INFOPLIST_FILE = "openlara-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = app;
@@ -337,9 +346,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = L49L654K86;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
 				INFOPLIST_FILE = "openlara-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = app;
