@@ -175,8 +175,8 @@ namespace TR {
     struct Color16 {
         uint16 r:5, g:5, b:5, a:1;
 
-        operator Color24() const { return Color24(r << 3, g << 3, b << 3); }
-        operator Color32() const { return Color32(r << 3, g << 3, b << 3, -a); }
+        operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
+        operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
     };
 
     struct Vertex {
