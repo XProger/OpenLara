@@ -8,6 +8,8 @@
 
 #define NO_CLIP_PLANE  1000000.0f
 
+#define SHADOW_TEX_SIZE 1024
+
 #define FOG_DIST       (18 * 1024)
 #define WATER_FOG_DIST (8 * 1024)
 //#define WATER_USE_GRID
@@ -130,7 +132,7 @@ struct ShaderCache {
                 typ = typeNames[type];
                 int animTexRangesCount  = game->getMesh()->animTexRangesCount;
                 int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST);
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");

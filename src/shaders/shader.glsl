@@ -281,7 +281,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 #endif
             #else
                 uniform sampler2D sShadow;
-                #define CMP(a,b) step(b, a)
+                #define CMP(a,b) step(min(1.0, b), a)
 
                 #ifdef SHADOW_DEPTH
                     #define compare(p, z) CMP(texture2D(sShadow, (p)).x, (z));
@@ -298,7 +298,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 }
             #endif
 
-            #define SHADOW_TEXEL (2.0 / 1024.0)
+            #define SHADOW_TEXEL (2.0 / SHADOW_TEX_SIZE)
 
             float random(vec3 seed, float freq) {
                float dt = dot(floor(seed * freq), vec3(53.1215, 21.1352, 9.1322));
@@ -338,14 +338,17 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 } else
                     rShadow /= 4.0;
 
-                vec3 lv = vLightVec;
-                float fade = clamp(dot(lv, lv), 0.0, 1.0);
-
-                return mix(rShadow, 1.0, fade);
+                return rShadow;
             }
 
             float getShadow() {
-                return min(dot(vNormal.xyz, vLightVec), vLightProj.w) > 0.0 ? getShadow(vLightProj) : 1.0;
+                vec3 p = vLightProj.xyz / vLightProj.w;
+                float fade = smoothstep(0.0, 0.9, p.z);// * (p.z < 1.0 ? 1.0 : 0.0);
+                float k = max(abs(p.x), abs(p.y));
+                fade *= 1.0 - smoothstep(0.5, 1.0, k);
+                fade *= 1.0 - smoothstep(0.999, 1.0, max(0.0, p.z));
+
+                return ( fade > 0.0001 && min(dot(vNormal.xyz, vLightVec), vLightProj.w) > 0.0) ? mix(1.0, getShadow(vLightProj), fade) : 1.0;
             }
         #endif
 

@@ -133,6 +133,7 @@ struct Character : Controller {
     }
 
     virtual void update() {
+        vec3 p = pos;
         lastInput = input;
         input = getInput();
         stand = getStand();
@@ -140,6 +141,8 @@ struct Character : Controller {
         Controller::update();
         updateVelocity();
         updatePosition();
+        if (p != pos)
+            updateLights();
     }
 
     virtual void cmdJump(const vec3 &vel) {

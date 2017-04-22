@@ -725,6 +725,17 @@ struct Box {
         return min;
     }
 
+    Box intersection2D(const Box &b) const {
+        Box r(vec3(0.0f), vec3(0.0f));
+        if (max.x < b.min.x || min.x > b.max.x) return r;
+        if (max.y < b.min.y || min.y > b.max.y) return r;
+        r.max.x = ::min(max.x, b.max.x);
+        r.max.y = ::min(max.y, b.max.y);
+        r.min.x = ::max(min.x, b.min.x);
+        r.min.y = ::max(min.y, b.min.y);
+        return r;
+    }
+
     Box& operator += (const Box &box) {
         min.x = ::min(min.x, box.min.x);
         min.y = ::min(min.y, box.min.y);
@@ -770,6 +781,11 @@ struct Box {
 
     vec3 size() const {
         return max - min;
+    }
+
+    void expand(const vec3 &v) {
+        min -= v;
+        max += v;
     }
 
     void rotate90(int n) {

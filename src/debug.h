@@ -350,18 +350,24 @@ namespace Debug {
             }
         }
 
-        void lights(const TR::Level &level, int room) {
+        void lights(const TR::Level &level, int room, Controller *lara) {
         //    int roomIndex = level.entities[lara->entity].room;
         //    int lightIndex = getLightIndex(lara->pos, roomIndex);
-
+            lara->updateLights();
             glPointSize(8);
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
-                    float a = l.intensity / 8191.0f;
+                    float a = intensityf(l.intensity);
                     vec3 p = vec3(l.x, l.y, l.z);
                     vec4 color = vec4(a, a, a, 1);
-                    if (i == room) color.x = color.z = 0;
+
+                    if (&l == lara->lights[0]) color.y = color.z = 0;   // r
+                    if (&l == lara->lights[1]) color.x = color.z = 0;   // g
+                    if (&l == lara->lights[2]) color.x = color.y = 0;   // b
+                    if (&l == lara->lights[3]) color.y = 0;             // a
+
+//                    if (i == room) color.x = color.z = 0;
                     Debug::Draw::point(p, color);
                     //if (i == roomIndex && j == lightIndex)
                     //    color = vec4(0, 1, 0, 1);

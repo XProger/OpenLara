@@ -46,6 +46,10 @@ struct Controller {
     vec3    ambient[6];
     float   specular;
 
+    TR::Room::Light *lights[MAX_LIGHTS];
+    vec3  mainLightPos;
+    float mainLightRadius;
+
     struct MeshLayer {
         uint32   model;
         uint32   mask;
@@ -71,6 +75,7 @@ struct Controller {
         frameIndex = -1;
         specular   = 0.0f;
         ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
+        updateLights();
     }
 
     virtual ~Controller() {
@@ -129,8 +134,6 @@ struct Controller {
             *rotAbs = rotYXZ(angle);
         return false;
     }
-
-
 
     void updateEntity() {
         TR::Entity &e = getEntity();
@@ -273,7 +276,11 @@ struct Controller {
     }
 
     virtual Box getBoundingBox() {
-        return animation.getBoundingBox(pos, getEntity().rotation.value / 0x4000);
+        return getBoundingBoxLocal() * getMatrix();
+    }
+
+    virtual Box getBoundingBoxLocal() {
+        return animation.getBoundingBox(vec3(0, 0, 0), 0);
     }
 
     vec3 trace(int fromRoom, const vec3 &from, const vec3 &to, int &room, bool isCamera) { // TODO: use Bresenham
@@ -463,6 +470,85 @@ struct Controller {
     
     virtual void update() {
         updateAnimation(true);
+    }
+
+    struct MaxLight {
+        TR::Room::Light *light;
+        float           att;
+    };
+
+    void checkRoomLights(int roomIndex, int fromRoom, const vec3 &from, MaxLight *maxLights, vec3 &mainDir, float &mainRad, float &attSum, int deep) {
+        TR::Room &room = level->rooms[roomIndex];
+
+        for (int i = 0; i < room.lightsCount; i++) {
+            TR::Room::Light &light = room.lights[i];
+            
+            bool exists = false;
+            for (int m = 0; m < MAX_LIGHTS; m++)
+                if (maxLights[m].light == &light) {
+                    exists = true;
+                    break;
+                }
+            if (exists) continue;
+
+            vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - from;
+            float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * intensityf(light.intensity);
+
+            for (int m = 0; m < MAX_LIGHTS; m++) {
+                if (maxLights[m].att < att) {
+                    for (int n = MAX_LIGHTS - 1; n > m; n--) 
+                        maxLights[n] = maxLights[n - 1];
+                    maxLights[m].light = &light;
+                    maxLights[m].att   = att;
+                    break;
+                }
+            }
+
+            if (att > 0.0f) {
+            //    if (dir.y > 0.0f)
+            //        att *= 1.0f - dir.y / float(light.radius);                    
+                att = max(0.0f, att - dir.y / 8192.0f);
+                attSum += att;
+                mainDir += dir * att;
+                mainRad += float(light.radius) * att;
+            }
+        }
+
+        if (--deep > 0)
+            for (int i = 0; i < room.portalsCount; i++)
+                if (room.portals[i].roomIndex != fromRoom)
+                    checkRoomLights(room.portals[i].roomIndex, roomIndex, from, maxLights, mainDir, mainRad, attSum, deep);
+    }
+
+    void updateLights() {
+        if (!getModel()) {
+            for (int i = 0; i < MAX_LIGHTS; i++)
+                lights[i] = NULL;
+            return;
+        }
+
+        MaxLight maxLights[MAX_LIGHTS];
+
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            maxLights[i].light = NULL;
+            maxLights[i].att   = 0.0f;
+        }
+        
+        vec3 p = getBoundingBox().center();
+        vec3 mainDir(0.0f);
+        float mainRad = 0.0f;
+        float attSum  = 0.0f;
+
+        checkRoomLights(getRoomIndex(), -1, p, maxLights, mainDir, mainRad, attSum, 1);
+
+        if (attSum > 0.0f) {
+            attSum = 1.0f / attSum;
+            mainLightPos    = mainDir * attSum + p;
+            mainLightRadius = mainRad * attSum;
+        }
+
+        for (int i = 0; i < MAX_LIGHTS; i++)
+            lights[i] = maxLights[i].light; 
     }
 /*
     void renderMesh(MeshBuilder *mesh, uint32 offsetIndex) {

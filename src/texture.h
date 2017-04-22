@@ -23,6 +23,7 @@ struct Texture {
         bind(0);
 
         GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+        bool   isShadow = format == SHADOW;
 
         if (format == SHADOW && !Core::support.shadowSampler) {
             format = DEPTH;
@@ -57,8 +58,12 @@ struct Texture {
             glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
 
-        glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_WRAP_S, isShadow ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_WRAP_T, isShadow ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+        if (isShadow) {
+            float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
+        }
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? GL_LINEAR : GL_NEAREST);
         

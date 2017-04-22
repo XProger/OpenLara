@@ -1808,6 +1808,9 @@ struct Lara : Character {
                 break;
             }
         }
+
+        if (state == STATE_DEATH || state == STATE_UNDERWATER_DEATH)
+            velocity.x = velocity.z = 0.0f;
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
