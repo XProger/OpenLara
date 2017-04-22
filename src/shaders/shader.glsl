@@ -338,17 +338,13 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 } else
                     rShadow /= 4.0;
 
-                return rShadow;
+                return rShadow; 
             }
 
             float getShadow() {
-                vec3 p = vLightProj.xyz / vLightProj.w;
-                float fade = smoothstep(0.0, 0.9, p.z);// * (p.z < 1.0 ? 1.0 : 0.0);
-                float k = max(abs(p.x), abs(p.y));
-                fade *= 1.0 - smoothstep(0.5, 1.0, k);
-                fade *= 1.0 - smoothstep(0.999, 1.0, max(0.0, p.z));
-
-                return ( fade > 0.0001 && min(dot(vNormal.xyz, vLightVec), vLightProj.w) > 0.0) ? mix(1.0, getShadow(vLightProj), fade) : 1.0;
+                // min(dot(vNormal.xyz, lv), vLightProj.w) > 0.0
+                // clamp(dot(lv, lv), 2.0), 0.0, 1.0);
+                return vLightProj.w > 0.0 ? getShadow(vLightProj) : 1.0;
             }
         #endif
 

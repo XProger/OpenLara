@@ -949,7 +949,7 @@ namespace TR {
                         stream.read(light.intensity);
                     stream.read(light.radius);
 
-                //    light.radius *= 2;
+                    light.radius *= 2;
                 }
             // meshes
                 stream.read(r.meshesCount);

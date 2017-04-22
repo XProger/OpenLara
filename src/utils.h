@@ -246,8 +246,16 @@ struct vec4 {
     vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
     vec4(const vec2 &xy, const vec2 &zw) : x(xy.x), y(xy.y), z(zw.x), w(zw.y) {}
 
+    vec4 operator + (const vec4 &v) const { return vec4(x + v.x, y + v.y, z + v.z, w + v.w); }
+    vec4 operator - (const vec4 &v) const { return vec4(x - v.x, y - v.y, z - v.z, w - v.w); }
     vec4 operator * (const vec4 &v) const { return vec4(x*v.x, y*v.y, z*v.z, w*v.w); }
     vec4& operator *= (const vec4 &v) { x*=v.x; y*=v.y; z*=v.z; w*=v.w; return *this; }
+
+    vec4 lerp(const vec4 &v, const float t) const {
+        if (t <= 0.0f) return *this;
+        if (t >= 1.0f) return v;
+        return *this + (v - *this) * t; 
+    }
 };
 
 struct quat {

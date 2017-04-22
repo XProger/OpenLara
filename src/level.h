@@ -459,25 +459,9 @@ struct Level : IGame {
         camera->frustum = camFrustum;    // pop camera frustum
     }
     
-    void setLights(Controller *controller, bool onlyFlashes = false) {
-        for (int i = 0; i < MAX_LIGHTS; i++) {
-            TR::Room::Light *light = controller->lights[i];
-            if (onlyFlashes && i && light && light->radius > 0.0f)
-                light = NULL;
-
-            if (light) {
-                float c = 1.0f - intensityf(light->intensity);
-                Core::lightPos[i]   = vec3(float(light->x), float(light->y), float(light->z));
-                Core::lightColor[i] = vec4(c, c, c, 1.0f / float(light->radius));
-            } else {
-                Core::lightPos[i]   = vec3(0);
-                Core::lightColor[i] = vec4(0, 0, 0, 1);
-            }
-        }
-
-        Core::lightPos[0] = lara->mainLightPos;
-        if (lara->mainLightRadius > 0.0f)
-            Core::lightColor[0].w = 1.0f / lara->mainLightRadius;
+    void setMainLight(Controller *controller) {
+        Core::lightPos[0]   = controller->mainLightPos;
+        Core::lightColor[0] = vec4(controller->mainLightColor.xyz, 1.0f / controller->mainLightColor.w);
     }
 
     void renderEntity(const TR::Entity &entity) {
@@ -520,7 +504,7 @@ struct Level : IGame {
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
 
-            setLights(controller);
+            setMainLight(controller);
         } else { // sprite
             Core::lightPos[0]   = vec3(0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
@@ -587,7 +571,7 @@ struct Level : IGame {
     void renderRooms(int roomIndex) {
         PROFILE_MARKER("ROOMS");
 
-        setLights(lara, true);
+        setMainLight(lara);
 
     #ifdef LEVEL_EDITOR
         for (int i = 0; i < level.roomsCount; i++)
@@ -632,262 +616,12 @@ struct Level : IGame {
         Core::mProj    = mat4(90, 1.0f, camera->znear, camera->zfar);
     }
 
-
-    Box bRec, bCast, bCrop, bSplit;
-/*
-    mat4 calcCropMatrix(const mat4 &viewProj, const Box &receivers, const Box &casters) {
-        mat4 cameraViewProjInv = (camera->getProjMatrix() * camera->mViewInv.inverse()).inverse();
-    //        camera->mViewInv (mat4(camera->fov, float(Core::width) / Core::height, camera->znear, camera->zfar) * camera->mViewInv.inverse()).inverse();
-        Box frustumBox = Box(vec3(-1.0f), vec3(1.0f)) * cameraViewProjInv;
-
-        Box caster   = casters;//    * viewProj;
-        Box receiver = receivers  * viewProj;
-        Box split    = frustumBox * viewProj;
-
-        Box crop;
-        crop.min.x = max(max(caster.min.x, receiver.min.x), split.min.x);
-        crop.max.x = min(min(caster.max.x, receiver.max.x), split.max.x);
-        crop.min.y = max(max(caster.min.y, receiver.min.y), split.min.y);
-        crop.max.y = min(min(caster.max.y, receiver.max.y), split.max.y);  
-        crop.min.z = min(caster.min.z, split.min.z);  
-        crop.max.z = min(receiver.max.z, split.max.z);
-
-        mat4 m = camera->getProjMatrix();
-        Box cc = receivers * m;
-        cc = cc * m.inverse();
-
-        if (!Input::down[ikShift]) {
-            mat4 m = viewProj.inverse();
-            bRec = receivers;// * m;
-            bCast = casters;// * m;
-            bCrop = crop * m;
-            bSplit = split * m;
-        }
-
-//        casterBox -= frustumBox * viewProj;
-//        crop.min.z = 0.0f;
-
-        vec3 scale  = vec3(2.0f, 2.0f, 1.0f) / crop.size();
-        vec3 center = crop.center();
-        vec3 offset = vec3(center.x, center.y, crop.min.z) * scale;
-        
-        return mat4(scale.x, 0.0f, 0.0f, 0.0f,  
-                    0.0f, scale.y, 0.0f, 0.0f,  
-                    0.0f, 0.0f, scale.z, 0.0f,  
-                    -offset.x, -offset.y, -offset.z, 1.0f);  
-    }
-
-
     bool setupLightCamera() {
-        lara->updateLights();
-        vec3 pos = lara->getBoundingBox().center();
-
-        Core::mViewInv = mat4(lara->mainLightPos, pos - vec3(0, 256, 0), vec3(0, -1, 0));
-        Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(1.0f, 1.0f, camera->znear, camera->zfar);//lara->mainLightRadius * 2.0f);
-
-        mat4 mLightProj = Core::mProj * Core::mView;
-
-        Box casters = lara->getBoundingBox() * mLightProj;
-
-        float rq = lara->mainLightRadius * lara->mainLightRadius;
-        for (int i = 0; i < level.entitiesCount; i++) {
-            TR::Entity &e = level.entities[i];
-            Controller *controller = (Controller*)e.controller;           
-            if (controller && TR::castShadow(e.type) && rq > (lara->mainLightPos - controller->pos).length2())
-                casters += controller->getBoundingBox() * mLightProj;
-        }
-        //casters.expand(vec3(128.0f));
-        
-        Box lightBox = Box(lara->mainLightPos - vec3(lara->mainLightRadius), lara->mainLightPos + vec3(lara->mainLightRadius));
-
-        Core::mProj = calcCropMatrix(mLightProj, lightBox, casters) * Core::mProj;
-
-        mat4 bias;
-        bias.identity();
-        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-
-        Core::mLightProj =  bias * (Core::mProj * Core::mView);
-
-        return true;
-    }
-*/
-
-/* // --> XPSM 
-    Box transformPointsBox(const vec3 *points, int count, const mat4 &matrix, float eps) {
-        Box box(vec3(+INF), vec3(-INF));
-        for (int i = 0; i < count; i++) {
-            vec4 p = matrix * vec4(points[i], 1.0f);
-            if (p.w > eps)
-                box += p.xyz / p.w;
-        }
-        return box;
-    }
-
-    bool setupLightCamera() {
-        lara->updateLights();
-        vec3 pos = lara->getBoundingBox().center();
-
-        mat4 mViewCamera = camera->mViewInv.inverse();
-
-        // get shadow casters (bbox corner points)
-        #define MAX_CASTER_POINTS (32 * 8)
-
-        vec3 cPoints[32 * 8];
-        int cPointsCount = 0;
-
-        vec3 rPoints[1 * 8];
-        int rPointsCount = 0;
-
-        float rq = lara->mainLightRadius * lara->mainLightRadius;
-        for (int i = 0; i < level.entitiesCount; i++) {
-            if (cPointsCount >= MAX_CASTER_POINTS)
-                break;
-
-            TR::Entity &e = level.entities[i];
-            Controller *controller = (Controller*)e.controller;
-            if (!controller || !TR::castShadow(e.type) || rq < (lara->mainLightPos - controller->pos).length2())
-                continue;
-
-            Box box = controller->getBoundingBoxLocal();
-            mat4 m  = mViewCamera * controller->getMatrix();
-
-            for (int j = 0; j < 8; j++)
-                cPoints[cPointsCount++] = m * box[j];
-        }
-        #undef MAX_CASTER_POINTS
-
-        {
-            mat4 cameraViewProjInv = (camera->getProjMatrix() * mViewCamera).inverse();
-            Box box(vec3(-1.0f), vec3(1.0f));
-
-            for (int i = 0; i < 8; i++) {
-                vec4 p = cameraViewProjInv * vec4(box[i], 1.0f);
-                rPoints[rPointsCount++] = mViewCamera * (p.xyz / p.w);
-            }
-        }
-
-        mat4 mViewLight = mat4(mViewCamera * pos, mViewCamera * lara->mainLightPos, vec3(0, -1, 0)).inverse();
-
-        vec2 uP = mViewLight.dir.xy.normal();
-
-        float minCastersProj = 1.0f;
-        for (int i = 0; i < cPointsCount; i++) {
-            vec3 p = mViewLight * cPoints[i];
-            minCastersProj = min(minCastersProj, uP.dot(p.xy));
-        }
-
-        float minReceiversProj = 1.0f;
-        for (int i = 0; i < rPointsCount; i++) {
-            vec3 p = mViewLight * rPoints[i];
-            minReceiversProj = min(minReceiversProj, uP.dot(p.xy));
-        }
-
-        float eps        = 0.85f;
-        float maxLengthP = (eps - 1.0f) / minCastersProj; //max(minCastersProj, minReceiversProj);
-        float lengthP    = (0.05f * 0.06f) / uP.dot(mViewLight.dir.xy);
-
-        if (maxLengthP > 0.0f && lengthP > maxLengthP)
-            lengthP = maxLengthP;
-
-        mat4 mLProj(1, 0, 0, uP.x * lengthP,
-                    0, 1, 0, uP.y * lengthP,
-                    0, 0, 1, 0,
-                    0, 0, 0, 1);
-
-        mat4 mLZRot(uP.x,  uP.y, 0, 0,
-                    uP.y, -uP.x, 0, 0,
-                    0,     0,    1, 0,
-                    0,     0,    0, 1);
-
-        mat4 mProjLight = mLZRot * mLProj * mViewLight;
-
-        Box casters   = transformPointsBox(cPoints, cPointsCount, mProjLight, eps);
-        Box receivers = transformPointsBox(rPoints, rPointsCount, mProjLight, eps);
-        Box focus     = casters;//.intersection2D(receivers);
-
-        //focus.min.z = min(casters.min.z, receivers.min.z);
-        //focus.max.z = max(casters.max.z, receivers.max.z);
-
-        vec3 size = focus.size();
-
-        if (size.x < EPS || size.y < EPS || size.z < EPS)
-            return false;
-
-        vec3 u = vec3(1.0f) / size;
-
-        mat4 mUnitCube(u.x, 0,   0,   0,
-                       0,   u.y, 0,   0,
-                       0,   0,   u.z, 0,
-                       -focus.min.x * u.x, -focus.min.y * u.y, -focus.min.z * u.z, 1);
-
-        mat4 mUnitSpace( 2,  0,  0, 0,
-                         0,  2,  0, 0,
-                         0,  0,  2, 0,
-                        -1, -1, -1, 1);
-
-        Core::mView = mViewLight * mViewCamera;
-        Core::mProj = mUnitSpace * mUnitCube * mLZRot * mLProj;
-        Core::mViewProj = Core::mProj * Core::mView;
-
-        mat4 bias;
-        bias.identity();
-        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-
-        Core::mLightProj = bias * Core::mViewProj;
-        return true;
-    }
-<-- */
-
-    mat4 calcCropMatrix(const mat4 &viewProj, const Box &receivers, const Box &casters) {
-        mat4 cameraViewProjInv = (camera->getProjMatrix() * camera->mViewInv.inverse()).inverse();
-    //        camera->mViewInv (mat4(camera->fov, float(Core::width) / Core::height, camera->znear, camera->zfar) * camera->mViewInv.inverse()).inverse();
-        Box frustumBox = Box(vec3(-1.0f), vec3(1.0f)) * cameraViewProjInv;
-
-        Box caster   = casters;//    * viewProj;
-        Box receiver = receivers  * viewProj;
-        Box split    = frustumBox * viewProj;
-
-        Box crop;
-        crop.min.x = max(max(caster.min.x, receiver.min.x), split.min.x);
-        crop.max.x = min(min(caster.max.x, receiver.max.x), split.max.x);
-        crop.min.y = max(max(caster.min.y, receiver.min.y), split.min.y);
-        crop.max.y = min(min(caster.max.y, receiver.max.y), split.max.y);  
-        crop.min.z = min(caster.min.z, split.min.z);  
-        crop.max.z = min(receiver.max.z, split.max.z);
-
-        mat4 m = camera->getProjMatrix();
-        Box cc = receivers * m;
-        cc = cc * m.inverse();
-
-        if (!Input::down[ikShift]) {
-            mat4 m = viewProj.inverse();
-            bRec = receivers;// * m;
-            bCast = casters;// * m;
-            bCrop = crop * m;
-            bSplit = split * m;
-        }
-
-//        casterBox -= frustumBox * viewProj;
-//        crop.min.z = 0.0f;
-
-        vec3 scale  = vec3(2.0f, 2.0f, 1.0f) / crop.size();
-        vec3 center = crop.center();
-        vec3 offset = vec3(center.x, center.y, crop.min.z) * scale;
-        
-        return mat4(scale.x, 0.0f, 0.0f, 0.0f,  
-                    0.0f, scale.y, 0.0f, 0.0f,  
-                    0.0f, 0.0f, scale.z, 0.0f,  
-                    -offset.x, -offset.y, -offset.z, 1.0f);  
-    }
-
-    bool setupLightCamera() {
-        lara->updateLights();
         vec3 pos = lara->getBoundingBox().center();
 
         Core::mViewInv = mat4(lara->mainLightPos, pos, vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(120.0f, 1.0f, camera->znear, lara->mainLightRadius);
+        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, lara->mainLightColor.w * 1.5f);
 
         mat4 bias;
         bias.identity();
@@ -897,7 +631,6 @@ struct Level : IGame {
 
         return true;
     }
-
 
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
@@ -917,48 +650,7 @@ struct Level : IGame {
         if (colorShadow)
             Core::setClearColor(vec4(0.0f, 0.0f, 0.0f, 0.0f));
     }
-/*
-    void renderShadowVolumes() {
-        getLight(lara->pos, lara->getRoomIndex());
-        
-        Core::setCulling(cfNone);
-        Core::setDepthWrite(false);
-        Core::setColorWrite(false, false, false, false);
 
-        Core::setStencilTest(true);
-        Core::setStencilTwoSide(128, true);
-        
-        setShader(Core::passVolume, Shader::DEFAULT, false, false);
-        vec4 lp(Core::lightPos[0], 1.0f / Core::lightColor[0].w);
-        Core::active.shader->setParam(uLightPos, lp);
-
-        for (int i = 0; i < level.entitiesCount; i++) {
-            TR::Entity &e = level.entities[i];
-            if (e.flags.rendered && TR::castShadow(e.type)) {
-                Controller *controller = (Controller*)e.controller;
-
-                mat4 matrix = controller->getMatrix();
-                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
-                matrix.translate(box.center());
-
-                Core::active.shader->setParam(uBasis, Basis(matrix) );
-                Core::active.shader->setParam(uPosScale, box.size() * 0.5);
-
-                mesh->renderShadowBox();
-            }
-        }
-        
-        Core::setDepthWrite(true);
-        Core::setColorWrite(true, true, true, true);
-
-        Core::setStencilTwoSide(128, false);
-       
-//        setShader(Core::passFilter, Shader::DEFAULT, false, false);
-//        mesh->renderQuad();
-
-        Core::setStencilTest(false);
-    }
-*/
     void render() {
         Core::invalidateTarget(true, true);
         params->clipHeight  = NO_CLIP_PLANE;
@@ -1062,6 +754,8 @@ struct Level : IGame {
         glEnd();
         Core::setDepthTest(true);
         */
+
+        /*
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -1099,7 +793,7 @@ struct Level : IGame {
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
-        
+        */
            
 
         Core::setDepthTest(false);
@@ -1110,15 +804,10 @@ struct Level : IGame {
         glEnd();
         Core::setDepthTest(true);
 
-            Debug::Draw::sphere(lara->mainLightPos, lara->mainLightRadius, vec4(1, 1, 0, 1));
+            Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, vec4(1, 1, 0, 1));
 
             Box bbox = lara->getBoundingBox();
-            Debug::Draw::box(bbox.min, bbox.max  , vec4(1, 0, 1, 1));
-            Debug::Draw::box(bRec.min, bRec.max  , vec4(1, 0, 0, 1));
-            Debug::Draw::box(bCast.min, bCast.max, vec4(0, 0, 1, 1));
-            Debug::Draw::box(bSplit.min, bSplit.max, vec4(0, 1, 1, 1));
-            Debug::Draw::box(bCrop.min, bCrop.max, vec4(0, 1, 0, 1));
-
+            Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
             Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
