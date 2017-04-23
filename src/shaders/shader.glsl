@@ -343,13 +343,18 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
                 } else
                     rShadow /= 4.0;
 
-                return rShadow; 
+                float fade = clamp(dot(vLightVec, vLightVec), 0.0, 1.0);
+                return rShadow + (1.0 - rShadow) * fade;
             }
 
             float getShadow() {
-                // min(dot(vNormal.xyz, lv), vLightProj.w) > 0.0
                 // clamp(dot(lv, lv), 2.0), 0.0, 1.0);
-                return vLightProj.w > 0.0 ? getShadow(vLightProj) : 1.0;
+                #ifdef TYPE_ROOM
+                    float vis = min(dot(vNormal.xyz, vLightVec), vLightProj.w);
+                #else
+                    float vis = vLightProj.w;
+                #endif
+                return vis > 0.0 ? getShadow(vLightProj) : 1.0;
             }
         #endif
 
