@@ -246,9 +246,9 @@ struct MeshBuilder {
     // shadow blob mesh (8 triangles, 8 vertices)
         shadowBlob.vStart = vCount;
         shadowBlob.iStart = iCount;
-        shadowBlob.iCount = 8 * 3;
+        shadowBlob.iCount = 8 * 3 * 3;
         iCount += shadowBlob.iCount;
-        vCount += 8;
+        vCount += 8 * 2 + 1;
 
     // shadow box (for stencil shadow volumes with degenerate triangles)
         shadowBox.vStart = vCount;
@@ -370,23 +370,46 @@ struct MeshBuilder {
         aCount += level.spriteSequencesCount;
 
     // build shadow blob
-        for (int i = 0; i < 8; i++) {
-            Vertex &v = vertices[vCount + i];
-            v.normal    = { 0, -1, 0, 1 };
-            v.color     = { 255, 255, 255, 0 };
-            v.texCoord  = { 32688, 32688, 0, 0 };
+        for (int i = 0; i < 9; i++) {
+            Vertex &v0 = vertices[vCount + i * 2 + 0];
+            v0.normal    = { 0, -1, 0, 1 };
+            v0.texCoord  = { 32688, 32688, 0, 0 };
+            v0.color     = { 0, 0, 0, 0 };
+
+            if (i == 8) {
+                v0.coord = { 0, 0, 0, 0 };
+                break;
+            }
 
             float a = i * (PI / 4.0f) + (PI / 8.0f);
-            short c = short(cosf(a) * 512.0f);
-            short s = short(sinf(a) * 512.0f);
-            v.coord = { c, 0, s, 0 };
+            float c = cosf(a);
+            float s = sinf(a);
+            short c0 = short(c * 256.0f);
+            short s0 = short(s * 256.0f);
+            short c1 = short(c * 512.0f);
+            short s1 = short(s * 512.0f);
+            v0.coord = { c0, 0, s0, 0 };
 
-            int idx = iCount + i * 3;
-            indices[idx + 0] = i;
-            indices[idx + 1] = 0;
-            indices[idx + 2] = (i + 1) % 8;
+            Vertex &v1 = vertices[vCount + i * 2 + 1];
+            v1 = v0;
+            v1.coord = { c1, 0, s1, 0 };
+            v1.color = { 255, 255, 255, 0 };
+
+            int idx = iCount + i * 3 * 3;
+            int j = ((i + 1) % 8) * 2;
+            indices[idx++] = i * 2;
+            indices[idx++] = 8 * 2;
+            indices[idx++] = j;
+
+            indices[idx++] = i * 2 + 1;
+            indices[idx++] = i * 2;
+            indices[idx++] = j;
+
+            indices[idx++] = i * 2 + 1;
+            indices[idx++] = j;
+            indices[idx++] = j + 1;
         }
-        vCount += 8;
+        vCount += 8 * 2 + 1;
         iCount += shadowBlob.iCount;
         aCount++;
 

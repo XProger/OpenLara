@@ -490,8 +490,10 @@ namespace Core {
 
         Sound::init();
 
-        for (int i = 0; i < MAX_LIGHTS; i++)
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            lightPos[i]   = vec3(0.0);
             lightColor[i] = vec4(0, 0, 0, 1);
+        }
         eye = 0.0f;
 
         uint32 data = 0x00000000;

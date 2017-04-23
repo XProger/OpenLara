@@ -10,6 +10,8 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
     uniform vec3 uViewPos;
 
+    varying vec4 vDiffuse;
+
     #ifndef TYPE_FLASH
         #ifdef PASS_COMPOSE
             varying vec4 vNormal;       // xyz - normal dir, w - fog factor
@@ -24,7 +26,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
             uniform vec4 uLightColor[4]; // xyz - color, w - radius * intensity
         #endif
 
-        varying vec4 vDiffuse;
         varying vec4 vLight;    // 4 lights intensity
 
         #if defined(OPT_WATER) && defined(UNDERWATER)
@@ -132,7 +133,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     }
 
     void _diffuse() {
-        #if !defined(PASS_SHADOW) && !defined(TYPE_FLASH)
+        #if !defined(PASS_SHADOW)
             vDiffuse = vec4(aColor.xyz * (uMaterial.x * 2.0), uMaterial.w);
 
             #ifdef UNDERWATER
@@ -141,6 +142,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
     
             #ifdef TYPE_MIRROR
                 vDiffuse.xyz *= vec3(0.3, 0.3, 2.0); // blue color dodge for crystal
+            #endif
+
+            #ifdef TYPE_FLASH
+                vDiffuse.xyz += uMaterial.w;
             #endif
         #endif
     }
@@ -388,11 +393,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
         #endif
 
         #ifndef PASS_SHADOW
-            #ifdef TYPE_FLASH
-                color *= uMaterial.xxxw;
-            #else
-                color *= vDiffuse;
-            #endif
+            color *= vDiffuse;
         #endif
 
         #ifdef PASS_SHADOW

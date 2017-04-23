@@ -543,10 +543,11 @@ struct Controller {
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uViewProj, m);
         Core::active.shader->setParam(uBasis, b);
-        Core::active.shader->setParam(uMaterial, vec4(0.0f, 0.0f, 0.0f, 0.5f));
+        float alpha = lerp(0.7f, 0.90f, clamp((pos.y - this->pos.y) / 1024.0f, 0.0f, 1.0f) );
+        Core::active.shader->setParam(uMaterial, vec4(vec3(0.5f * (1.0f - alpha)), alpha));
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
-        Core::setBlending(bmAlpha);
+        Core::setBlending(bmMultiply);
         mesh->renderShadowBlob();
         Core::setBlending(bmNone);
 
@@ -594,10 +595,10 @@ struct Controller {
         frameIndex = Core::stats.frame;
 
      // blob shadow // TODO: fake AO
-        if (!Core::settings.shadows && Core::pass == Core::passCompose && TR::castShadow(entity.type)) {
+        if (Core::pass == Core::passCompose && TR::castShadow(entity.type)) {
             TR::Level::FloorInfo info;
             level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
-            renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size() * 0.8f, angle.y);
+            renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size(), angle.y);
         }    
     }
 };
