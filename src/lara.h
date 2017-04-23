@@ -412,7 +412,7 @@ struct Lara : Character {
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
-        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
@@ -1018,6 +1018,11 @@ struct Lara : Character {
         wpnHide();
     }
 
+    virtual void cmdOffset(const vec3 &offset) {
+        Character::cmdOffset(offset);
+        move();
+    }
+
     virtual void cmdJump(const vec3 &vel) {
         vec3 v = vel;
         if (state == STATE_HANG_UP)
@@ -1073,6 +1078,7 @@ struct Lara : Character {
             pos.y    = float(info.floor);
             specular = LARA_WET_SPECULAR;
             updateEntity();
+            move();
             return true;
         }
 
@@ -1522,7 +1528,7 @@ struct Lara : Character {
             vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
             level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.y, (int)p.z, info);
             if (info.floor - info.ceiling >= LARA_HEIGHT)
-                return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;
+                return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;            
         }
         return STATE_HANG;
     }
@@ -1888,7 +1894,10 @@ struct Lara : Character {
             maxHeight =  0;
             offset.y  = -1;
         }
-        if (stand == STAND_HANG) {
+
+        bool standHang = stand == STAND_HANG && state != STATE_HANG_UP && state != STATE_HANDSTAND;
+
+        if (standHang) {
             maxHeight = 0;
             maxAscent = maxDescent = 64;
             offset    = getDir() * (LARA_RADIUS + 32.0f);
@@ -1900,12 +1909,12 @@ struct Lara : Character {
 
         collision = Collision(level, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
 
-        if (stand != STAND_HANG && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
+        if (!standHang && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
             float rot = TURN_WALL_Y * Core::deltaTime;
             rotateY((collision.side == Collision::LEFT) ? rot : -rot);
         }
 
-        if (stand == STAND_HANG && collision.side != Collision::FRONT) {
+        if (standHang && collision.side != Collision::FRONT) {
             offset.x = offset.z = 0.0f;
             minHeight  = LARA_HANG_OFFSET;
             maxDescent = 0xFFFFFF;
