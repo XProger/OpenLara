@@ -58,9 +58,10 @@ struct Texture {
             glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
 
-        glTexParameteri(target, GL_TEXTURE_WRAP_S, isShadow ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
-        glTexParameteri(target, GL_TEXTURE_WRAP_T, isShadow ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
-        if (isShadow) {
+        bool border = isShadow && Core::support.texBorder;
+        glTexParameteri(target, GL_TEXTURE_WRAP_S, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_WRAP_T, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+        if (border) {
             float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
             glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
         }

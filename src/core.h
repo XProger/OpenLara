@@ -108,6 +108,9 @@
     #define GL_RGBA16F      GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
+    #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
+    #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
+
     #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
@@ -222,6 +225,7 @@ namespace Core {
         bool discardFrame;
         bool texNPOT;
         bool texRG;
+        bool texBorder;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
         char stencil;
@@ -447,6 +451,7 @@ namespace Core {
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texBorder      = extSupport(ext, "_texture_border_clamp");
         support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
@@ -478,6 +483,7 @@ namespace Core {
         LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
+        LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
