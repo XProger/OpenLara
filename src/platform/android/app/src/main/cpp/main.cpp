@@ -1,8 +1,6 @@
 #include <jni.h>
 #include <android/log.h>
-//#include "vr/gvr/capi/include/gvr.h"
 #include <sys/time.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <math.h>
 
@@ -20,7 +18,7 @@ int getTime() {
 
 extern "C" {
 
-int lastTime, fpsTime, fps;
+int lastTime;
 
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
@@ -44,8 +42,6 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring packName, jstring
     Game::init(level, music);
 
     lastTime    = getTime();
-    fpsTime     = lastTime + 1000;
-    fps         = 0;
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {
@@ -68,12 +64,6 @@ JNI_METHOD(void, nativeRender)(JNIEnv* env) {
     Core::stats.dips = 0;
     Core::stats.tris = 0;
     Game::render();
-    if (fpsTime < getTime()) {
-        LOG("FPS: %d DIP: %d TRI: %d\n", fps, Core::stats.dips, Core::stats.tris);
-        fps = 0;
-        fpsTime = getTime() + 1000;
-    } else
-        fps++;
 }
 
 JNI_METHOD(void, nativeResize)(JNIEnv* env, jobject obj, jint w, jint h) {
@@ -137,11 +127,11 @@ JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfl
     }
 
     if (id == -100) {
-    	switch (state) {
-			case 0 : Input::head.basis.rot.x = x; Input::head.basis.rot.y = y; break;
-			case 1 : Input::head.basis.rot.z = x; Input::head.basis.rot.w = y; Input::head.set(); break;
-    	}
-    	return;
+        switch (state) {
+            case 0 : Input::head.basis.rot.x = x; Input::head.basis.rot.y = y; break;
+            case 1 : Input::head.basis.rot.z = x; Input::head.basis.rot.w = y; Input::head.set(); break;
+        }
+        return;
     }
 
 // touch

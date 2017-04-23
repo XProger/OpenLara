@@ -20,13 +20,15 @@ struct Camera : Controller {
 
     float   timer;
     int     actTargetEntity, actCamera;
-    bool    cutscene;
-    bool    firstPerson;
-    Basis   prevBasis;
 
+    Basis   prevBasis;
     vec4    *reflectPlane;
 
-    Camera(IGame *game, Lara *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL) {
+    bool    cutscene;
+    bool    firstPerson;
+    bool    isVR;
+
+    Camera(IGame *game, Lara *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL), isVR(false) {
         changeView(false);
         cutscene = owner->getEntity().type != TR::Entity::LARA && level->cameraFrames;
     }
@@ -250,8 +252,11 @@ struct Camera : Controller {
                 checkRoom();
         }
 
-        mat4 head = Input::head.getMatrix();
-        mViewInv = mat4(pos, target, vec3(0, -1, 0)) * head;
+        mViewInv = mat4(pos, target, vec3(0, -1, 0));
+        if (isVR) {
+            mat4 head = Input::head.getMatrix();
+            mViewInv = mViewInv * head;
+        }
         updateListener();
     }
 
@@ -268,7 +273,9 @@ struct Camera : Controller {
                 Core::mViewInv = mViewInv;
 
             Core::mView = Core::mViewInv.inverse();
-            Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * 32.0f));
+
+            if (isVR)
+                Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * 32.0f));
 
             Core::mProj = getProjMatrix();
 

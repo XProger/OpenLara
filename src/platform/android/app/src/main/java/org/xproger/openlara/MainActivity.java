@@ -58,12 +58,13 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         //setAsyncReprojectionEnabled(true);
         //setSustainedPerformanceMode(this, true);
         setContentView(view);
-
+/*
         SensorManager sm = (SensorManager)getSystemService(SENSOR_SERVICE);
         sm.registerListener(this, sm.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_FASTEST);
-
+*/
         try {
             String packName = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_ACTIVITIES).applicationInfo.sourceDir;
+            // hardcoded demo level and music
             AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.level2);
             AssetFileDescriptor fMusic = this.getResources().openRawResourceFd(R.raw.music);
 
@@ -122,8 +123,6 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-//        wrapper.onTouch(-100, 0, event.values[0],  event.values[1]);
-//        wrapper.onTouch(-100, 1, event.values[2],  event.values[3]);
         wrapper.onTouch(-100, 0, -event.values[1], event.values[0]);
         wrapper.onTouch(-100, 1,  event.values[2], event.values[3]);
     }
@@ -186,6 +185,7 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
     }
 }
 
+// @TODO: use native OpenSL ES
 class Sound {
     private short buffer[];
     private static AudioTrack audioTrack;

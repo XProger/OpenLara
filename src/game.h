@@ -1,5 +1,5 @@
-#ifndef H_GAME_TR
-#define H_GAME_TR
+#ifndef H_GAME
+#define H_GAME
 
 #include "core.h"
 #include "format.h"

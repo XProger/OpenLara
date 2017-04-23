@@ -8,13 +8,16 @@
     #include <gl/glext.h>
 #elif ANDROID
     #define MOBILE
-	#include <GLES2/gl2.h>
-	#include <GLES2/gl2ext.h>
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
     #include <dlfcn.h>
 
-	#define GL_TEXTURE_COMPARE_MODE		0x884C
-	#define GL_TEXTURE_COMPARE_FUNC		0x884D
-	#define GL_COMPARE_REF_TO_TEXTURE	0x884E
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE		0x884C
+    #define GL_TEXTURE_COMPARE_FUNC		0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
 
     #undef  GL_RGBA32F
     #undef  GL_RGBA16F
@@ -62,6 +65,9 @@
         #define glGenVertexArrays           glGenVertexArraysOES
         #define glDeleteVertexArrays        glDeleteVertexArraysOES
         #define glBindVertexArray           glBindVertexArrayOES
+
+        #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
+        #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
 
         #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
         #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
