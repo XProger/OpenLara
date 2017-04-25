@@ -357,7 +357,7 @@ namespace Debug {
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
-                    float a = intensityf(l.intensity);
+                    float a = 1.0f - intensityf(l.intensity);
                     vec3 p = vec3(l.x, l.y, l.z);
                     vec4 color = vec4(a, a, a, 1);
 

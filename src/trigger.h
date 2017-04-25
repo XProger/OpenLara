@@ -174,6 +174,7 @@ struct Block : Controller {
             updateEntity();
             updateFloor(true);
         }
+        updateLights();
     }
 };
 

@@ -485,7 +485,7 @@ struct Controller {
                 if (light.intensity > 0x1FFF) continue;
 
                 vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * (intensityf(light.intensity));
+                float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * (1.0f - intensityf(light.intensity));
 
                 if (att > maxAtt) {
                     maxAtt = att;
@@ -502,7 +502,7 @@ struct Controller {
         }
 
         vec3 tpos   = vec3(float(targetLight->x), float(targetLight->y), float(targetLight->z));
-        vec4 tcolor = vec4(vec3(intensityf(targetLight->intensity)), float(targetLight->radius));
+        vec4 tcolor = vec4(vec3(1.0f - intensityf(targetLight->intensity)), float(targetLight->radius));
 
         if (lerp) {
             float t = Core::deltaTime * 2.0f;
