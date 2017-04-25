@@ -589,6 +589,12 @@ struct Level : IGame {
         PROFILE_MARKER("ENTITIES");
         for (int i = 0; i < level.entitiesCount; i++)
             renderEntity(level.entities[i]);
+
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &entity = level.entities[i];
+            if (entity.flags.rendered)
+                ((Controller*)entity.controller)->renderShadow(mesh);
+        }
     }
 
     void renderScene(int roomIndex) {

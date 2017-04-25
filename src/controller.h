@@ -530,10 +530,24 @@ struct Controller {
         return matrix;
     }
 
-    void renderShadow(MeshBuilder *mesh, const vec3 &pos, const vec3 &offset, const vec3 &size, float angle) {
+    void renderShadow(MeshBuilder *mesh) {
+        TR::Entity &entity = getEntity();
+
+        if (Core::pass != Core::passCompose || !TR::castShadow(entity.type))
+            return;
+
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
+
+        Box box = animation.getBoundingBox(vec3(0, 0, 0), 0);
+
+        const vec3 fpos   = vec3(float(entity.x), info.floor - 16.0f, float(entity.z));
+        const vec3 offset = box.center();
+        const vec3 size   = box.size();
+
         mat4 m = Core::mViewProj;
-        m.translate(pos);
-        m.rotateY(angle);
+        m.translate(fpos);
+        m.rotateY(angle.y);
         m.translate(vec3(offset.x, 0.0f, offset.z));
         m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));        
 
@@ -543,7 +557,7 @@ struct Controller {
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uViewProj, m);
         Core::active.shader->setParam(uBasis, b);
-        float alpha = lerp(0.7f, 0.90f, clamp((pos.y - this->pos.y) / 1024.0f, 0.0f, 1.0f) );
+        float alpha = lerp(0.7f, 0.90f, clamp((fpos.y - pos.y) / 1024.0f, 0.0f, 1.0f) );
         Core::active.shader->setParam(uMaterial, vec4(vec3(0.5f * (1.0f - alpha)), alpha));
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
@@ -593,13 +607,6 @@ struct Controller {
         }
 
         frameIndex = Core::stats.frame;
-
-     // blob shadow // TODO: fake AO
-        if (Core::pass == Core::passCompose && TR::castShadow(entity.type)) {
-            TR::Level::FloorInfo info;
-            level->getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
-            renderShadow(mesh, vec3(float(entity.x), info.floor - 16.0f, float(entity.z)), box.center(), box.size(), angle.y);
-        }    
     }
 };
 
