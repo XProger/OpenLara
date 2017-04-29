@@ -1429,11 +1429,13 @@ struct Lara : Character {
         // ready to jump
         if (state == STATE_COMPRESS) {
             switch (input & (RIGHT | LEFT | FORTH | BACK)) {
-                case RIGHT  : return STATE_RIGHT_JUMP;
-                case LEFT   : return STATE_LEFT_JUMP;
-                case FORTH  : return STATE_FORWARD_JUMP;
-                case BACK   : return STATE_BACK_JUMP;
-                default     : return STATE_UP_JUMP;
+                case RIGHT         : return STATE_RIGHT_JUMP;
+                case LEFT          : return STATE_LEFT_JUMP;
+                case FORTH | LEFT  :
+                case FORTH | RIGHT :
+                case FORTH         : return STATE_FORWARD_JUMP;
+                case BACK          : return STATE_BACK_JUMP;
+                default            : return STATE_UP_JUMP;
             }
         }
 
