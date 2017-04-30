@@ -185,7 +185,14 @@ namespace Debug {
 
     namespace Level {
 
-        void debugFloor(const TR::Level &level, int roomIndex, int x, int y, int z) {
+        void debugFloor(const TR::Level &level, int roomIndex, int x, int y, int z, int zone = -1) {            
+            if (zone != -1) {
+                int dx, dz;
+                TR::Room::Sector &s = level.getSector(roomIndex, x, z, dx, dz);
+                if (zone != level.zones[0].ground1[s.boxIndex])
+                    return;                
+            }
+            
             TR::Level::FloorInfo info;
 
             vec3 rf[4], rc[4], f[4], c[4];
@@ -270,23 +277,47 @@ namespace Debug {
             glEnd();
         }
 
+        void blocks(const TR::Level &level) {
+            Core::setDepthTest(false);
+            char buf[64];
+
+            for (int j = 0; j < level.roomsCount; j++) {
+                TR::Room &r = level.rooms[j];
+
+                for (int z = 0; z < r.zSectors; z++)
+                    for (int x = 0; x < r.xSectors; x++) {
+                        TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
+                        if (s.boxIndex != 0xFFFF) {
+                            bool blockable = level.boxes[s.boxIndex].overlap.value & 0x8000;
+                            bool block     = level.boxes[s.boxIndex].overlap.value & 0x4000;
+                            int  floor     = level.boxes[s.boxIndex].floor;
+
+                            if (blockable || block) {                                
+                                sprintf(buf, "blocked: %s", block ? "true" : "false");
+                                Debug::Draw::text(vec3(r.info.x + x * 1024 + 512, floor, r.info.z + z * 1024 + 512), vec4(1, 1, 0, 1), buf);
+                            }
+                        }
+                    }
+            }
+
+            Core::setDepthTest(true);
+        }
+
         void debugOverlaps(const TR::Level &level, int boxIndex) {
             glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
-            TR::Overlap *o = &level.overlaps[level.boxes[boxIndex].overlap & 0x7FFF];
+            TR::Overlap *o = &level.overlaps[level.boxes[boxIndex].overlap.index];
             do {
                 TR::Box &b = level.boxes[o->boxIndex];
                 debugBox(b);
             } while (!(o++)->end);
         }
 
-        void sectors(const TR::Level &level, int roomIndex, int y) {
+        void sectors(const TR::Level &level, int roomIndex, int y, int zone = -1) {
             TR::Room &room = level.rooms[roomIndex];
 
-        //    glDisable(GL_DEPTH_TEST);
             for (int z = 0; z < room.zSectors; z++)
                 for (int x = 0; x < room.xSectors; x++)
-                    debugFloor(level, roomIndex, room.info.x + x * 1024, y, room.info.z + z * 1024);
-        //    glEnable(GL_DEPTH_TEST);
+                    debugFloor(level, roomIndex, room.info.x + x * 1024, y, room.info.z + z * 1024, zone);
         }
 
         void rooms(const TR::Level &level, const vec3 &pos, int roomIndex) {
@@ -350,6 +381,24 @@ namespace Debug {
             }
         }
 
+        void zones(const TR::Level &level, Lara *lara) {
+            Core::setDepthTest(false);
+            for (int i = 0; i < level.roomsCount; i++)
+                sectors(level, i, int(lara->pos.y), lara->zone);
+            Core::setDepthTest(true);
+
+            char buf[64];
+            for (int i = 0; i < level.entitiesCount; i++) {
+                TR::Entity &e = level.entities[i];
+          
+                if (e.type < TR::Entity::LARA || e.type > TR::Entity::ENEMY_GIANT_MUTANT)
+                    continue;
+
+                sprintf(buf, "zone: %d", ((Character*)e.controller)->zone );
+                Debug::Draw::text(vec3(e.x, e.y - 128, e.z), vec4(0, 1.0, 0.8, 1), buf);
+            }
+        }
+
         void lights(const TR::Level &level, int room, Controller *lara) {
         //    int roomIndex = level.entities[lara->entity].room;
         //    int lightIndex = getLightIndex(lara->pos, roomIndex);
@@ -394,14 +443,16 @@ namespace Debug {
                         sm->getBox(true, m.rotation, box);
                         Debug::Draw::box(offset + box.min - vec3(10.0f), offset + box.max + vec3(10.0f), vec4(1, 0, 0, 0.50));
                     }
-                    /*
-                    TR::Mesh *mesh = (TR::Mesh*)&level.meshData[level.meshOffsets[sm->mesh] / 2];
-                    { //if (mesh->collider.info || mesh->collider.flags) {
+                    
+                    if (!level.meshOffsets[sm->mesh]) continue;
+                    const TR::Mesh &mesh = level.meshes[level.meshOffsets[sm->mesh]];
+
+                    {
                         char buf[255];
-                        sprintf(buf, "radius %d info %d flags %d", (int)mesh->collider.radius, (int)mesh->collider.info, (int)mesh->collider.flags);
-                        Debug::Draw::text(offset + (min + max) * 0.5f, vec4(0.5, 0.5, 0.5, 1), buf);
+                        sprintf(buf, "flags %d", (int)mesh.flags.value);
+                        Debug::Draw::text(offset + (box.min + box.max) * 0.5f, vec4(0.5, 0.5, 1.0, 1), buf);
                     }
-                    */
+                    
                 }
             }
         // dynamic objects            
@@ -466,13 +517,13 @@ namespace Debug {
                             TR::Mesh *mesh = (TR::Mesh*)&level.meshes[offset];
                             //if (!mesh->flags) continue;
                             Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius, vec4(0, 1, 1, 0.5f));
-                            /*
+                            
                             { //if (e.id != 0) {
                                 char buf[255];
-                                sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags);
+                                sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags.value);
                                 Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
                             }
-                            */
+                            
                         }
                         Debug::Draw::box(matrix, frame->box.min(), frame->box.max(), vec4(1.0));
 
@@ -587,7 +638,7 @@ namespace Debug {
                 case_name(TR::Entity, ENEMY_RAT_WATER      ); 
                 case_name(TR::Entity, ENEMY_REX            ); 
                 case_name(TR::Entity, ENEMY_RAPTOR         ); 
-                case_name(TR::Entity, ENEMY_MUTANT         ); 
+                case_name(TR::Entity, ENEMY_MUTANT_1       ); 
                 case_name(TR::Entity, ENEMY_CENTAUR        ); 
                 case_name(TR::Entity, ENEMY_MUMMY          ); 
                 case_name(TR::Entity, ENEMY_LARSON         ); 

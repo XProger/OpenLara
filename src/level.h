@@ -138,7 +138,9 @@ struct Level : IGame {
                 case TR::Entity::ENEMY_RAT_WATER       :   
                 case TR::Entity::ENEMY_REX             :   
                 case TR::Entity::ENEMY_RAPTOR          :   
-                case TR::Entity::ENEMY_MUTANT          :   
+                case TR::Entity::ENEMY_MUTANT_1        :
+                case TR::Entity::ENEMY_MUTANT_2        :
+                case TR::Entity::ENEMY_MUTANT_3        :
                 case TR::Entity::ENEMY_CENTAUR         :   
                 case TR::Entity::ENEMY_MUMMY           :   
                 case TR::Entity::ENEMY_LARSON          :
@@ -490,7 +492,7 @@ struct Level : IGame {
 //        if (entity.type == TR::Entity::LARA && ((Lara*)entity.controller)->state == Lara::STATE_WATER_OUT)
 //            roomIndex = ((Lara*)entity.controller)->roomPrev;
 
-        setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? mesh->models[entity.modelIndex].opaque : true);
+        setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -517,6 +519,12 @@ struct Level : IGame {
     }
 
     void update() {
+    #ifdef LEVEL_EDITOR
+        if (Input::down[ikCtrl]) {
+            Input::down[ikCtrl] = false;
+            lara->reset(TR::NO_ROOM, camera->pos, camera->angle.y, false);
+        }
+    #endif
         params->time += Core::deltaTime;
 
         for (int i = 0; i < level.entitiesCount; i++) {
@@ -810,20 +818,23 @@ struct Level : IGame {
         glEnd();
         Core::setDepthTest(true);
 
-            Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, vec4(1, 1, 0, 1));
+        //    Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, vec4(1, 1, 0, 1));
 
             Box bbox = lara->getBoundingBox();
             Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
             Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-            Debug::Level::lights(level, lara->getRoomIndex(), lara);
+        //    Debug::Level::lights(level, lara->getRoomIndex(), lara);
         //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
+            Debug::Level::zones(level, lara);
+            Debug::Level::blocks(level);
+
             Core::setBlending(bmNone);
 
         /*

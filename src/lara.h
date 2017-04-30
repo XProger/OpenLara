@@ -435,7 +435,35 @@ struct Lara : Character {
         delete braid;
     }
 
+    int getRoomByPos(const vec3 &pos) {
+        int x = int(pos.x),
+            y = int(pos.y),
+            z = int(pos.z);
+
+        for (int i = 0; i < level->roomsCount; i++) {
+            TR::Room &r = level->rooms[i];
+            int mx = r.info.x + r.xSectors * 1024;
+            int mz = r.info.z + r.zSectors * 1024;
+            if (x >= r.info.x && x < mx && z >= r.info.z && z < mz && y >= r.info.yTop && y < r.info.yBottom)
+                return i;
+        }
+        return TR::NO_ROOM;
+    }
+
     void reset(int room, const vec3 &pos, float angle, bool onwater = false) {
+        if (room == TR::NO_ROOM) {
+            stand = STAND_AIR;
+            room  = getRoomByPos(pos);
+        }
+
+        if (room == TR::NO_ROOM)
+            return;
+
+        if (level->rooms[room].flags.water)
+            stand = STAND_UNDERWATER;
+
+        velocity = vec3(0.0f);
+
         getEntity().room = room;
         this->pos        = pos;
         this->angle      = vec3(0.0f, angle, 0.0f);
