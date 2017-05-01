@@ -392,7 +392,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 		#endif
 
 		#ifdef ALPHA_TEST
-			if (color.w <= 0.5)
+			if (color.w <= 0.8)
 				discard;
 		#endif
 
