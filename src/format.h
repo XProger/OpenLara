@@ -526,7 +526,13 @@ namespace TR {
         }
 
         static void fixOpaque(Type type, bool &opaque) {
-            if (type >= LARA && type <= ENEMY_GIANT_MUTANT && type != ENEMY_MUMMY && type != ENEMY_CENTAUR && type != ENEMY_MUTANT_1 && type != ENEMY_NATLA && type != DOOR_BIG_1 && type != DOOR_BIG_2)
+            if (type >= LARA && type <= ENEMY_GIANT_MUTANT
+                && type != ENEMY_REX
+                && type != ENEMY_RAPTOR
+                && type != ENEMY_MUTANT_1
+                && type != ENEMY_CENTAUR
+                && type != ENEMY_MUMMY
+                && type != ENEMY_NATLA)
                 opaque = true;
             if (type == SWITCH || type == SWITCH_WATER)
                 opaque = true;
