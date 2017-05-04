@@ -192,7 +192,7 @@ struct Controller {
         int floor = NO_OVERLAP;
         int delta = NO_OVERLAP;
 
-        TR::Overlap *o = &level->overlaps[b.overlap & 0x7FFF];
+        TR::Overlap *o = &level->overlaps[b.overlap.index];
         do {
             TR::Box &ob = level->boxes[o->boxIndex];
             if (ob.contains(toX, toZ)) { // get min delta

@@ -31,11 +31,26 @@ struct Character : Controller {
     float   angleExt;
     float   speed;
 
+    int     zone;
+    int     box;
+
+    bool    flying;
+
     Collision collision;
 
     Character(IGame *game, int entity, int health) : Controller(game, entity), target(-1), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
+
+        flying = getEntity().type == TR::Entity::ENEMY_BAT;
+        updateZone();
+    }
+
+    void updateZone() {
+        TR::Level *level = game->getLevel();
+        int dx, dz;
+        box  = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz).boxIndex;       
+        zone = flying ? level->zones[0].fly[box] : level->zones[0].ground1[box];
     }
 
     void rotateY(float delta) {
@@ -141,8 +156,10 @@ struct Character : Controller {
         Controller::update();
         updateVelocity();
         updatePosition();
-        if (p != pos)
+        if (p != pos) {
             updateLights();
+            updateZone();
+        }
     }
 
     virtual void cmdJump(const vec3 &vel) {

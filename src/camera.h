@@ -142,11 +142,13 @@ struct Camera : Controller {
             if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
                 advTimer = -advTimer;
 
+        #ifndef LEVEL_EDITOR
             if (advTimer == 0.0f && advAngle != 0.0f) {
                 float t = 10.0f * Core::deltaTime;
                 advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
                 advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
             }
+        #endif
 
             angle = owner->angle + advAngle;
             angle.z = 0.0f;
