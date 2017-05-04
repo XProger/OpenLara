@@ -348,7 +348,12 @@ namespace TR {
 
         TR::Vertex  center;
         uint16      radius;
-        uint16      flags;
+        union {
+            struct {
+                uint16 transparent:1, reserved:15;
+            };
+            uint16 value;
+        }           flags;
         int16       vCount;
         int16       rCount;
         int16       tCount;
@@ -374,7 +379,7 @@ namespace TR {
             LARA_SHOTGUN             = 2,
             LARA_MAGNUMS             = 3,
             LARA_UZIS                = 4,
-
+            LARA_SPEC                = 5,
             ENEMY_TWIN               = 6,
             ENEMY_WOLF               = 7,
             ENEMY_BEAR               = 8,
@@ -389,12 +394,19 @@ namespace TR {
             ENEMY_RAT_WATER          = 17,
             ENEMY_REX                = 18,
             ENEMY_RAPTOR             = 19,
-            ENEMY_MUTANT             = 20,
-
+            ENEMY_MUTANT_1           = 20,
+            ENEMY_MUTANT_2           = 21,
+            ENEMY_MUTANT_3           = 22,
             ENEMY_CENTAUR            = 23,
             ENEMY_MUMMY              = 24,
             ENEMY_LARSON             = 27,
-
+            ENEMY_PIERRE             = 28,
+            ENEMY_SKATEBOARD         = 29,
+            ENEMY_SKATEBOY           = 30,
+            ENEMY_COWBOY             = 31,
+            ENEMY_MR_T               = 32,
+            ENEMY_NATLA              = 33,
+            ENEMY_GIANT_MUTANT       = 34,
             TRAP_FLOOR               = 35,
             TRAP_BLADE               = 36,
             TRAP_SPIKES              = 37,
@@ -511,6 +523,13 @@ namespace TR {
 
         bool isBlock() {
             return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_2;
+        }
+
+        static void fixOpaque(Type type, bool &opaque) {
+            if (type >= LARA && type <= ENEMY_GIANT_MUTANT && type != ENEMY_MUMMY && type != ENEMY_CENTAUR && type != ENEMY_MUTANT_1 && type != ENEMY_NATLA && type != DOOR_BIG_1 && type != DOOR_BIG_2)
+                opaque = true;
+            if (type == SWITCH || type == SWITCH_WATER)
+                opaque = true;
         }
     };
 
@@ -668,7 +687,12 @@ namespace TR {
         uint32  minZ, maxZ; // Horizontal dimensions in global units
         uint32  minX, maxX;
         int16   floor;      // Height value in global units
-        uint16  overlap;    // Index into Overlaps[].
+        union {
+            struct {
+                uint16 index:14, block:1, blockable:1;    // Index into Overlaps[].
+            };
+            uint16 value;
+        } overlap;
 
         bool contains(uint32 x, uint32 z) {
             return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
@@ -676,11 +700,9 @@ namespace TR {
     };
 
     struct Zone {
-        struct {
-            uint16  groundZone1;
-            uint16  groundZone2;
-            uint16  flyZone;
-        } normal, alternate;
+        uint16  *ground1;
+        uint16  *ground2;
+        uint16  *fly;
     };
 
     struct SoundInfo {
@@ -761,7 +783,7 @@ namespace TR {
         Box             *boxes;
         int32           overlapsCount;
         Overlap         *overlaps;
-        Zone            *zones;
+        Zone            zones[2];   // default and alternative
 
         int32           animTexturesDataSize;
         uint16          *animTexturesData;
@@ -989,8 +1011,13 @@ namespace TR {
             stream.read(soundSources,   stream.read(soundSourcesCount));
         // AI
             stream.read(boxes,          stream.read(boxesCount));
+
             stream.read(overlaps,       stream.read(overlapsCount));
-            stream.read(zones,          boxesCount);
+            for (int i = 0; i < 2; i++) {
+                stream.read(zones[i].ground1, boxesCount);
+                stream.read(zones[i].ground2, boxesCount);
+                stream.read(zones[i].fly,     boxesCount);
+            }
         // animated textures
             stream.read(animTexturesData,   stream.read(animTexturesDataSize));
         // entities (enemies, items, lara etc.)
@@ -1112,7 +1139,11 @@ namespace TR {
             delete[] soundSources;
             delete[] boxes;
             delete[] overlaps;
-            delete[] zones;
+            for (int i = 0; i < 2; i++) {
+                delete[] zones[i].ground1;
+                delete[] zones[i].ground2;
+                delete[] zones[i].fly;
+            }
             delete[] animTexturesData;
             delete[] entities;
             delete[] palette;
