@@ -189,6 +189,9 @@ namespace Debug {
             if (zone != -1) {
                 int dx, dz;
                 TR::Room::Sector &s = level.getSector(roomIndex, x, z, dx, dz);
+				
+                if (s.boxIndex == 0xFFFF) return;
+				
                 if (zone != level.zones[0].ground1[s.boxIndex])
                     return;                
             }
