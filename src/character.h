@@ -49,7 +49,11 @@ struct Character : Controller {
     void updateZone() {
         TR::Level *level = game->getLevel();
         int dx, dz;
-        box  = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz).boxIndex;       
+        box  = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz).boxIndex;
+
+        //Invalid box index, most likely this character is in an out of bound sector.
+        if (box == 0xFFFF) return;
+
         zone = flying ? level->zones[0].fly[box] : level->zones[0].ground1[box];
     }
 
