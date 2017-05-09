@@ -34,6 +34,7 @@ struct Level : IGame {
     ShaderCache  *shaderCache;
     AmbientCache *ambientCache;
     WaterCache   *waterCache;
+    ZoneCache    *zoneCache;
 
     Sound::Sample *sndAmbient;
     Sound::Sample *sndUnderwater;
@@ -49,6 +50,15 @@ struct Level : IGame {
 
     virtual Controller* getCamera() {
         return camera;    
+    }
+
+    virtual uint16 getRandomBox(uint16 zone, uint16 *zones) { 
+        ZoneCache::Item *item = zoneCache->getBoxes(zone, zones);
+        return item->boxes[int(randf() * item->count)];
+    }
+    
+    virtual uint16 findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
+        return zoneCache->findPath(ascend, descend, boxStart, boxEnd, zones, boxes);
     }
 
     virtual void setClipParams(float clipSign, float clipHeight) {
@@ -144,7 +154,7 @@ struct Level : IGame {
                 case TR::Entity::ENEMY_CENTAUR         :   
                 case TR::Entity::ENEMY_MUMMY           :   
                 case TR::Entity::ENEMY_LARSON          :
-                    entity.controller = new Enemy(this, i, 100);
+                    entity.controller = new Enemy(this, i, 100, 10, 0.0f);
                     break;
                 case TR::Entity::DOOR_1                :
                 case TR::Entity::DOOR_2                :
@@ -223,6 +233,7 @@ struct Level : IGame {
 
         ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
         waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
+        zoneCache    = new ZoneCache(this);
         shadow       = Core::settings.shadows ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
 
         initReflections();
@@ -253,6 +264,7 @@ struct Level : IGame {
         delete shadow;
         delete ambientCache;
         delete waterCache;
+        delete zoneCache;
 
         delete atlas;
         delete cube;
@@ -809,7 +821,7 @@ struct Level : IGame {
             glPopMatrix();
         */
            
-
+        /*
         Core::setDepthTest(false);
         glBegin(GL_LINES);
             glColor3f(1, 1, 1);
@@ -817,11 +829,11 @@ struct Level : IGame {
             glVertex3fv((GLfloat*)&lara->mainLightPos);
         glEnd();
         Core::setDepthTest(true);
-
+        */
         //    Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, vec4(1, 1, 0, 1));
 
-            Box bbox = lara->getBoundingBox();
-            Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
+        //    Box bbox = lara->getBoundingBox();
+        //    Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
             Core::setBlending(bmAlpha);
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
@@ -832,8 +844,10 @@ struct Level : IGame {
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-            Debug::Level::zones(level, lara);
-            Debug::Level::blocks(level);
+        //    Debug::Level::zones(level, lara);
+        //    Debug::Level::blocks(level);
+        //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
+        //    Debug::Level::debugOverlaps(level, lara->box);
 
             Core::setBlending(bmNone);
 

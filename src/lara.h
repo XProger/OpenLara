@@ -216,6 +216,10 @@ struct Lara : Character {
     int roomPrev; // water out from room
     vec2 rotFactor;
 
+    float       hitTime;
+    int         hitDir;
+    vec3        collisionOffset;
+
     struct Braid {
         Lara *lara;
         vec3 offset;
@@ -385,6 +389,9 @@ struct Lara : Character {
             else
                 animation.setAnim(ANIM_STAND);
         }
+
+        hitDir  = -1;
+        hitTime = 0.0f;
 
         getEntity().flags.active = 1;
         initMeshOverrides();
@@ -888,8 +895,9 @@ struct Lara : Character {
     }
 
     void updateOverrides() {
+        int overrideMask = 0;
         // head & chest
-        animation.overrideMask |= BODY_CHEST | BODY_HEAD;
+        overrideMask |= BODY_CHEST | BODY_HEAD;
 
         animation.overrides[ 7] = animation.getJointRot( 7);
         animation.overrides[14] = animation.getJointRot(14);
@@ -902,6 +910,7 @@ struct Lara : Character {
         }
     */
 
+    // arms
         if (!emptyHands()) {
             // right arm
             Arm *arm = &arms[0];
@@ -914,10 +923,38 @@ struct Lara : Character {
             animation.overrides[12] = arm->animation.getJointRot(12);
             animation.overrides[13] = arm->animation.getJointRot(13);
 
-            animation.overrideMask |=  (BODY_ARM_R | BODY_ARM_L);
+            overrideMask |=  (BODY_ARM_R | BODY_ARM_L);
         } else
-            animation.overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
+            overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
 
+    // update hit anim
+        if (hitDir >= 0) {
+            Animation hitAnim = Animation(level, getModel());
+            switch (hitDir) {
+                case 0 : hitAnim.setAnim(ANIM_HIT_FRONT, 0, false); break;
+                case 1 : hitAnim.setAnim(ANIM_HIT_LEFT,  0, false); break;
+                case 2 : hitAnim.setAnim(ANIM_HIT_BACK , 0, false); break;
+                case 3 : hitAnim.setAnim(ANIM_HIT_RIGHT, 0, false); break;
+            }
+            hitTime = min(hitTime, hitAnim.timeMax - EPS);
+            hitAnim.time = hitTime;
+            hitAnim.updateInfo();
+            
+            overrideMask &= ~(BODY_CHEST | BODY_HEAD);
+            int hitMask = (BODY_UPPER | BODY_LOWER | BODY_HEAD) & ~overrideMask;
+            int index    = 0;
+            while (hitMask) {
+                if (hitMask & 1)
+                    animation.overrides[index] = hitAnim.getJointRot(index);
+                index++;
+                hitMask >>= 1;
+            }
+
+            hitTime += Core::deltaTime;
+            overrideMask = BODY_UPPER | BODY_LOWER | BODY_HEAD;
+        }
+
+        animation.overrideMask = overrideMask;
 
         lookAt(viewTarget);
 
@@ -1000,16 +1037,16 @@ struct Lara : Character {
 
     int getTarget() {
         vec3 dir = getDir().normal();
-        float dist = TARGET_MAX_DIST;// * TARGET_MAX_DIST;
+        float dist = TARGET_MAX_DIST;
 
         int index = -1;
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
             if (!e.flags.active || !e.isEnemy()) continue;
-            Character *controller = (Character*)e.controller;
-            if (controller->health <= 0) continue;
+            Character *enemy = (Character*)e.controller;
+            if (enemy->health <= 0) continue;
 
-            vec3 p = controller->pos;
+            vec3 p = enemy->getBoundingBox().center();
             vec3 v = p - pos;
             if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sight -60..+60 degrees
 
@@ -1078,8 +1115,6 @@ struct Lara : Character {
 
     virtual void hit(int damage, Controller *enemy = NULL) {
         health -= damage;
-        if (enemy && health > 0)
-            playSound(TR::SND_HIT, pos, Sound::PAN | Sound::REPLAY);
     };
 
     bool waterOut() {
@@ -1729,6 +1764,12 @@ struct Lara : Character {
         }
     }
 
+    virtual void update() {
+        collisionOffset = vec3(0.0f);
+        checkCollisions();
+        Character::update();
+    }
+
     virtual void updateAnimation(bool commands) {
         Controller::updateAnimation(commands);
         updateWeapon();
@@ -1858,7 +1899,7 @@ struct Lara : Character {
         vTilt *= rotFactor.y;
         updateTilt(state == STATE_RUN || stand == STAND_UNDERWATER, vTilt.x, vTilt.y);
 
-        if (velocity.length() >= 1.0f)
+        if ((velocity + collisionOffset).length2() >= 1.0f)
             move();
 
         if (getEntity().type != TR::Entity::LARA) {
@@ -1879,32 +1920,47 @@ struct Lara : Character {
         return getEntity().type == TR::Entity::LARA ? pos : chestOffset;
     }
 
-    void move() {
-        //TR::Entity &e = getEntity();
-        //TR::Level::FloorInfo info;
-
-        //float f, c;
-        //bool canPassGap = true;
-        /*
-        if (velocity != 0.0f) {
-            vec3 dir = velocity.normal() * 128.0f;
-            vec3 p = pos + dir;
-            level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
-            if (info.floor < p.y - (256 + 128)  || info.ceiling > p.y - 768) { // wall
-                vec3 axis   = dir.axisXZ();
-                vec3 normal = (p - vec3(int(p.x / 1024.0f) * 1024.0f + 512.0f, p.y, int(p.z / 1024.0f) * 1024.0f + 512.0f)).axisXZ();
-                LOG("%f %f = %f %f = %f\n", axis.x, axis.z, normal.x, normal.z, abs(axis.dot(normal)));
-                if (abs(axis.dot(normal)) > EPS) {
-                    canPassGap = false;
-                } else {
-                    updateEntity();
-                    checkRoom();
-                    return;
-                }
-            }
+    void checkCollisions() {
+        if (state == STATE_DEATH || stand != STAND_GROUND) {
+            hitDir = -1;
+            return;
         }
-        */
-        vec3 vel = velocity * Core::deltaTime * 30.0f;
+
+    // check enemies
+        for (int i = 0; i < level->entitiesCount; i++) {
+            TR::Entity &e = level->entities[i];
+            if (!e.flags.active || !e.isEnemy()) continue;
+            Character *enemy = (Character*)e.controller;
+            if (enemy->health <= 0) continue;
+
+            vec3 dir = pos - enemy->pos;
+            vec3 p   = dir.rotateY(-enemy->angle.y);
+
+            Box enemyBox = enemy->getBoundingBoxLocal();
+            if (!enemyBox.contains(p))
+                continue;
+
+        // get shift
+            p = enemyBox.closestPoint2D(p);
+            p = (p.rotateY(enemy->angle.y) + enemy->pos) - pos;
+            collisionOffset += vec3(p.x, 0.0f, p.z);
+
+        // get hit dir
+            if (hitDir == -1) {
+                if (health > 0)
+                    playSound(TR::SND_HIT, pos, Sound::PAN);
+                hitTime = 0.0f;
+            }
+
+            hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
+            return;
+        }
+
+        hitDir = -1;
+    }
+
+    void move() {
+        vec3 vel = velocity * Core::deltaTime * 30.0f + collisionOffset;
         vec3 opos(pos), offset(0.0f);
 
         float radius   = stand == STAND_UNDERWATER ? LARA_RADIUS_WATER : LARA_RADIUS;

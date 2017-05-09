@@ -46,11 +46,18 @@ struct Character : Controller {
         updateZone();
     }
 
-    void updateZone() {
-        TR::Level *level = game->getLevel();
+    bool updateZone() {
         int dx, dz;
-        box  = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz).boxIndex;       
-        zone = flying ? level->zones[0].fly[box] : level->zones[0].ground1[box];
+        TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
+        if (s.boxIndex == 0xFFFF)
+            return false;
+        box  = s.boxIndex;
+        zone = getZones()[box];
+        return true;
+    }
+
+    uint16* getZones() {
+        return flying ? level->zones[0].fly : level->zones[0].ground1;
     }
 
     void rotateY(float delta) {
@@ -130,6 +137,11 @@ struct Character : Controller {
             animation.setState(getStateDefault());
     }
 
+    virtual void updateTilt(float value, float tiltSpeed, float tiltMax) {
+        value = clamp(value, -tiltMax, +tiltMax);
+        decrease(value - angle.z, angle.z, tiltSpeed);
+    }
+
     virtual void updateTilt(bool active, float tiltSpeed, float tiltMax) {
     // calculate turning tilt
         if (active && (input & (LEFT | RIGHT)) && (tilt == 0.0f || (tilt < 0.0f && (input & LEFT)) || (tilt > 0.0f && (input & RIGHT)))) {
@@ -154,11 +166,16 @@ struct Character : Controller {
         stand = getStand();
         updateState();
         Controller::update();
-        updateVelocity();
-        updatePosition();
-        if (p != pos) {
-            updateLights();
-            updateZone();
+
+        if (getEntity().flags.active) {
+            updateVelocity();
+            updatePosition();
+            if (p != pos) {
+                if (updateZone())
+                    updateLights();
+                else
+                    pos = p;
+            }
         }
     }
 
