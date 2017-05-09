@@ -356,6 +356,7 @@ struct MeshBuilder {
                 bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
                 if (!opaque)
                     buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                TR::Entity::fixOpaque(model.type, opaque);
                 range.opaque &= opaque;
             }
             range.geometry.iCount = iCount - range.geometry.iStart;

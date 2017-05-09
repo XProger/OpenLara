@@ -741,46 +741,144 @@ struct WaterCache {
     #undef DETAIL
 };
 
-/*
-struct LightCache {
+struct ZoneCache {
 
     struct Item {
-        int     room;
-        int     index;
-        float   intensity;
-    } items[MAX_CACHED_LIGHTS];
+        uint16 zone;
+        uint16 count;
+        uint16 *zones;
+        uint16 *boxes;
+        Item   *next;
 
-    void updateLightCache(const TR::Level &level, const vec3 &pos, int room) {
-    // update intensity
-        for (int i = 0; i < MAX_CACHED_LIGHTS; i++) {
-            Item &item = items[i];
-            if (c.intensity < 0.0f) continue;
-            TR::Room::Light &light = level.rooms[c.room].lights[i];
-            c.intensity = max(0.0f, 1.0f - (pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
+        Item(uint16 zone, uint16 count, uint16 *zones, uint16 *boxes, Item *next) :
+            zone(zone), count(count), zones(zones), boxes(boxes), next(next) {}
+
+        ~Item() {
+            delete[] boxes;
+            delete next;
+        }
+    } *items;
+
+    IGame  *game;
+    // dummy arrays for path search
+    uint16 *nodes;
+    uint16 *parents;
+    uint16 *weights;
+
+    ZoneCache(IGame *game) : items(NULL), game(game) {
+        TR::Level *level = game->getLevel();
+        nodes   = new uint16[level->boxesCount * 3];
+        parents = nodes + level->boxesCount;
+        weights = nodes + level->boxesCount * 2;
+    }
+
+    ~ZoneCache() {
+        delete   items;
+        delete[] nodes;
+    }
+
+    Item *getBoxes(uint16 zone, uint16 *zones) {
+        Item *item = items;
+        while (item) {
+            if (item->zone == zone && item->zones == zones) 
+                return item;
+            item = item->next;
         }
 
-    // check for new lights
-        int index = getLightIndex(pos, room);
+        int count = 0;
+        TR::Level *level = game->getLevel();
+        for (int i = 0; i < level->boxesCount; i++)
+            if (zones[i] == zone)
+                nodes[count++] = i;
 
-        if (index >= 0 && (items[0].room != room || items[0].index != index)) [
-            TR::Room::Light &light = level.rooms[room].lights[index];
-            float intensity = max(0.0f, 1.0f - (lara->pos - vec3(float(light.x), float(light.y), float(light.z))).length2() / ((float)light.radius * (float)light.radius));
+        ASSERT(count > 0);
+        uint16 *boxes = new uint16[count];
+        memcpy(boxes, nodes, sizeof(uint16) * count);
 
-            int i = 0;
-            while (i < MAX_CACHED_LIGHTS && lightCache[i].intensity > intensity) // get sorted place
-                i++;
-            if (i < MAX_CACHED_LIGHTS) { // insert light
-                for (int j = MAX_CACHED_LIGHTS - 1; j > i; j--)
-                        lightCache[j] = lightCache[j - 1];
-                lightCache[i].room      = room;
-                lightCache[i].index     = index;
-                lightCache[i].intensity = intensity;
+        return items = new Item(zone, count, zones, boxes, items);
+    }
+
+    uint16 findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
+        if (boxStart == 0xFFFF || boxEnd == 0xFFFF)
+            return 0;
+
+        TR::Level *level = game->getLevel();
+        memset(parents, 0xFF, sizeof(uint16) * level->boxesCount); // fill parents by 0xFFFF
+        memset(weights, 0x00, sizeof(uint16) * level->boxesCount); // zeroes weights
+
+        uint16 count = 0;
+        nodes[count++] = boxEnd;
+
+        uint16 zone = zones[boxStart];
+
+        if (zone != zones[boxEnd])
+            return 0;
+
+        TR::Box &b = level->boxes[boxStart];
+
+        int sx = (b.minX + b.maxX) >> 11; // box center / 1024
+        int sz = (b.minZ + b.maxZ) >> 11;
+
+        while (count) {
+            // get min weight
+            int minI  = 0;
+            int minW = weights[nodes[minI]];
+            for (int i = 1; i < count; i++)
+                if (weights[nodes[i]] < minW) {
+                    minI = i;
+                    minW = weights[nodes[i]];
+                }
+            int cur = nodes[minI];
+
+            // peek min weight item from array
+            count--;
+            for (int i = minI; i < count; i++)
+                nodes[i] = nodes[i + 1];
+
+            // check for end of path
+            if (cur == boxStart) {
+                count = 0;
+                while (cur != boxEnd) {
+                    nodes[count++] = cur;
+                    cur = parents[cur];
+                }
+                nodes[count++] = cur;
+                *boxes = nodes;
+                return count;
             }
 
+            // add overlap boxes
+            TR::Box &b = game->getLevel()->boxes[cur];
+            TR::Overlap *overlap = &level->overlaps[b.overlap.index];
+
+            do {
+                uint16 index = overlap->boxIndex;
+                // unvisited yet
+                if (parents[index] != 0xFFFF)
+                    continue;
+                // has same zone
+                if (zones[index] != zone)
+                    continue;
+                // check for height difference
+                int d = level->boxes[index].floor - b.floor;
+                if (d > ascend || d < descend)
+                    continue;
+                
+                int dx = sx - ((b.minX + b.maxX) >> 11);
+                int dz = sz - ((b.minZ + b.maxZ) >> 11);
+                int w = abs(dx) + abs(dz);
+
+                ASSERT(count < level->boxesCount);
+                nodes[count++] = index;
+                parents[index] = cur;
+                weights[index] = weights[cur] + w;
+
+            } while (!(overlap++)->end);
         }
+
+        return 0;
     }
 };
-*/
 
 #undef UNDERWATER_COLOR
 

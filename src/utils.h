@@ -102,7 +102,7 @@ int angleQuadrant(float angle) {
 }
 
 float decrease(float delta, float &value, float &speed) {
-    if (speed > 0.0f && fabsf(delta) > 0.01f) {
+    if (speed > 0.0f && fabsf(delta) > 0.001f) {
         if (delta > 0) speed = min(delta,  speed);
         if (delta < 0) speed = max(delta, -speed);
         value += speed;
@@ -228,9 +228,11 @@ struct vec3 {
         return vec3(x*c - z*s, y, x*s + z*c);
     }
 
-    float angle(const vec3 &v) {
+    float angle(const vec3 &v) const {
         return dot(v) / (length() * v.length());
     }
+
+    float angleY() const { return atan2f(z, x); }
 };
 
 struct vec4 {
@@ -806,24 +808,61 @@ struct Box {
         }
     }
 
+    bool contains(const vec3 &v) const {
+        return v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.x && v.z >= min.z && v.z <= max.z;
+    }
+
+    vec3 closestPoint2D(const vec3 &v) const {
+        float ax = v.x - min.x;
+        float bx = max.x - v.x;
+        float az = v.z - min.z;
+        float bz = max.z - v.z;
+
+        vec3 p = v;
+        if (ax <= bx && ax <= az && ax <= bz)
+            p.x -= ax;
+        else if (bx <= ax && bx <= az && bx <= bz)
+            p.x += bx;
+        else if (az <= ax && az <= bx && az <= bz)
+            p.z -= az;
+        else
+            p.z += bz;
+
+        return p;
+    }
+
     bool intersect(const Box &box) const {
         return !((max.x < box.min.x || min.x > box.max.x) || (max.y < box.min.y || min.y > box.max.y) || (max.z < box.min.z || min.z > box.max.z));
     }
 
     bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
-	    float t1 = INF, t0 = -t1;
+        float t1 = INF, t0 = -t1;
 
-	    for (int i = 0; i < 3; i++) 
-		    if (rayDir[i] != 0) {
-			    float lo = (min[i] - rayPos[i]) / rayDir[i];
-			    float hi = (max[i] - rayPos[i]) / rayDir[i];
-			    t0 = ::max(t0, ::min(lo, hi));
-			    t1 = ::min(t1, ::max(lo, hi));
-		    } else
-			    if (rayPos[i] < min[i] || rayPos[i] > max[i])
-				    return false;
-	    t = t0;
-	    return (t0 <= t1) && (t1 > 0);
+        for (int i = 0; i < 3; i++) 
+            if (rayDir[i] != 0) {
+                float lo = (min[i] - rayPos[i]) / rayDir[i];
+                float hi = (max[i] - rayPos[i]) / rayDir[i];
+                t0 = ::max(t0, ::min(lo, hi));
+                t1 = ::min(t1, ::max(lo, hi));
+            } else
+                if (rayPos[i] < min[i] || rayPos[i] > max[i])
+                    return false;
+        t = t0;
+        return (t0 <= t1) && (t1 > 0);
+    }
+};
+
+struct Sphere {
+    vec3  center;
+    float radius;
+
+    Sphere() {}
+    Sphere(const vec3 &center, float radius) : center(center), radius(radius) {}
+
+    bool intersect(const Sphere &s) {
+        float d = (center - s.center).length2();
+        float r = (radius + s.radius);
+        return d < r * r;
     }
 };
 

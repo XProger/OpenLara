@@ -288,11 +288,11 @@ namespace Debug {
                     for (int x = 0; x < r.xSectors; x++) {
                         TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
                         if (s.boxIndex != 0xFFFF) {
-                            bool blockable = level.boxes[s.boxIndex].overlap.value & 0x8000;
-                            bool block     = level.boxes[s.boxIndex].overlap.value & 0x4000;
+                            bool blockable = level.boxes[s.boxIndex].overlap.blockable;
+                            bool block     = level.boxes[s.boxIndex].overlap.block;
                             int  floor     = level.boxes[s.boxIndex].floor;
 
-                            if (blockable || block) {                                
+                            if (blockable || block) {
                                 sprintf(buf, "blocked: %s", block ? "true" : "false");
                                 Debug::Draw::text(vec3(r.info.x + x * 1024 + 512, floor, r.info.z + z * 1024 + 512), vec4(1, 1, 0, 1), buf);
                             }
@@ -304,10 +304,22 @@ namespace Debug {
         }
 
         void debugOverlaps(const TR::Level &level, int boxIndex) {
-            glColor4f(1.0f, 1.0f, 0.0f, 0.25f);
+            char str[64];
+
+            TR::Box &b = level.boxes[boxIndex];
+            sprintf(str, "%d", boxIndex);
+            Draw::text(vec3((b.maxX + b.minX) * 0.5, b.floor, (b.maxZ + b.minZ) * 0.5), vec4(0, 1, 0, 1), str);
+            glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
+            Core::setBlending(bmAlpha);
+            debugBox(b);
+
             TR::Overlap *o = &level.overlaps[level.boxes[boxIndex].overlap.index];
             do {
                 TR::Box &b = level.boxes[o->boxIndex];
+                sprintf(str, "%d", o->boxIndex);
+                Draw::text(vec3((b.maxX + b.minX) * 0.5, b.floor, (b.maxZ + b.minZ) * 0.5), vec4(0, 0, 1, 1), str);
+                glColor4f(0.0f, 0.0f, 1.0f, 0.25f);
+                Core::setBlending(bmAlpha);
                 debugBox(b);
             } while (!(o++)->end);
         }
@@ -369,7 +381,7 @@ namespace Debug {
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
           
-                sprintf(buf, "%d", (int)e.type);
+                sprintf(buf, "%d (%d)", (int)e.type, i);
                 Debug::Draw::text(vec3(e.x, e.y, e.z), e.flags.active ? vec4(0, 0, 0.8, 1) : vec4(0.8, 0, 0, 1), buf);
             }
 
@@ -379,6 +391,24 @@ namespace Debug {
                 sprintf(buf, "%d (%d)", i, c.room);
                 Debug::Draw::text(vec3(c.x, c.y, c.z), vec4(0, 0.8, 0, 1), buf);
             }
+        }
+
+        void path(TR::Level &level, Enemy *enemy) {
+            Enemy::Path *path = enemy->path;
+
+            if (!path || !enemy->target) return;
+            for (int i = 0; i < path->count; i++) {
+                TR::Box &b = level.boxes[path->boxes[i]];
+                if (i == path->index)
+                    glColor4f(0.5, 0.5, 0.0, 0.5);
+                else
+                    glColor4f(0.0, 0.5, 0.0, 0.5);
+                debugBox(b);
+            }
+
+            Core::setDepthTest(false);
+            Draw::point(enemy->waypoint, vec4(1.0));
+            Core::setDepthTest(true);
         }
 
         void zones(const TR::Level &level, Lara *lara) {
@@ -446,12 +476,13 @@ namespace Debug {
                     
                     if (!level.meshOffsets[sm->mesh]) continue;
                     const TR::Mesh &mesh = level.meshes[level.meshOffsets[sm->mesh]];
-
+                    /*
                     {
                         char buf[255];
                         sprintf(buf, "flags %d", (int)mesh.flags.value);
                         Debug::Draw::text(offset + (box.min + box.max) * 0.5f, vec4(0.5, 0.5, 1.0, 1), buf);
                     }
+                    */
                     
                 }
             }
@@ -462,76 +493,29 @@ namespace Debug {
                 if (!controller) continue;
 
                 mat4 matrix = controller->getMatrix();
-                Box box = controller->animation.getBoundingBox(vec3(0.0f), 0);
+                Basis basis(matrix);
+
+                TR::Model *m = controller->getModel();
+                if (!m) continue;
+
+                Box box = controller->getBoundingBoxLocal();
                 Debug::Draw::box(matrix, box.min, box.max, vec4(1.0));
 
+                Sphere spheres[34];
+                ASSERT(m->mCount <= 34);
+                controller->getSpheres(spheres);
 
-                for (int j = 0; j < level.modelsCount; j++) {
-                    TR::Model &m = level.models[j];
-                    TR::Node *node = m.node < level.nodesDataSize ? (TR::Node*)&level.nodesData[m.node] : NULL;
-
-                    if (!node) continue; // ???
-                    if (e.type == m.type) {
-                        ASSERT(m.animation < 0xFFFF);
-
-                        int fSize = sizeof(TR::AnimFrame) + m.mCount * sizeof(uint16) * 2;
-
-                        TR::Animation *anim  = controller->animation;
-                        TR::AnimFrame *frame = (TR::AnimFrame*)&level.frameData[(anim->frameOffset + (controller ? int((controller->animation.time * 30.0f / anim->frameRate)) * fSize : 0) >> 1)];
-
-                        //mat4 m;
-                        //m.identity();
-                        //m.translate(vec3(frame->x, frame->y, frame->z).lerp(vec3(frameB->x, frameB->y, frameB->z), k));
-
-                        int  sIndex = 0;
-                        mat4 stack[20];
-                        mat4 joint;
-
-                        joint.identity();
-                        if (frame) joint.translate(frame->pos);
-
-                        for (int k = 0; k < m.mCount; k++) {
-
-                            if (k > 0 && node) {
-                                TR::Node &t = node[k - 1];
-
-                                if (t.flags & 0x01) joint = stack[--sIndex];
-                                if (t.flags & 0x02) stack[sIndex++] = joint;
-
-                                ASSERT(sIndex >= 0 && sIndex < 20);
-
-                                joint.translate(vec3(t.x, t.y, t.z));
-                            }
-
-                            vec3 a = frame ? frame->getAngle(k) : vec3(0.0f);
-
-                            mat4 rot;
-                            rot.identity();
-                            rot.rotateY(a.y);
-                            rot.rotateX(a.x);
-                            rot.rotateZ(a.z);
-
-                            joint = joint * rot;
-
-                            int offset = level.meshOffsets[m.mStart + k];
-                            TR::Mesh *mesh = (TR::Mesh*)&level.meshes[offset];
-                            //if (!mesh->flags) continue;
-                            Debug::Draw::sphere(matrix * joint * mesh->center, mesh->radius, vec4(0, 1, 1, 0.5f));
-                            
-                            { //if (e.id != 0) {
-                                char buf[255];
-                                sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags.value);
-                                Debug::Draw::text(matrix * joint * mesh->center, vec4(0.5, 1, 0.5, 1), buf);
-                            }
-                            
-                        }
-                        Debug::Draw::box(matrix, frame->box.min(), frame->box.max(), vec4(1.0));
-
-                        break;
+                for (int joint = 0; joint < m->mCount; joint++) {
+                    Sphere &sphere = spheres[joint];
+                    Debug::Draw::sphere(sphere.center, sphere.radius, vec4(0, 1, 1, 0.5f));
+                    /*
+                    { //if (e.id != 0) {
+                        char buf[255];
+                        sprintf(buf, "(%d) radius %d flags %d", (int)e.type, (int)mesh->radius, (int)mesh->flags.value);
+                        Debug::Draw::text(sphere.center, vec4(0.5, 1, 0.5, 1), buf);
                     }
-                
+                    */
                 }
-
             }
         }
 
