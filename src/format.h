@@ -292,7 +292,7 @@ namespace TR {
             angle   rotation;
             int16   intensity;
             uint16  meshID;
-            uint16  align; // PSX
+            uint16  meshIndex; // index into static meshes array
         } *meshes;
     };
 
@@ -983,8 +983,17 @@ namespace TR {
             // meshes
                 stream.read(r.meshesCount);
                 r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
-                for (int i = 0; i < r.meshesCount; i++)
-                    stream.raw(&r.meshes[i], sizeof(r.meshes[i]) - (version == VER_TR1_PC ? sizeof(r.meshes[i].align) : 0));
+                for (int i = 0; i < r.meshesCount; i++) {
+                    Room::Mesh &m = r.meshes[i];
+                    stream.read(m.x);
+                    stream.read(m.y);
+                    stream.read(m.z);
+                    stream.read(m.rotation);
+                    stream.read(m.intensity);
+                    stream.read(m.meshID);
+                    if (version == VER_TR1_PSX)
+                        stream.read(m.meshIndex); // just an align for PSX version
+                }
             // misc flags
                 stream.read(r.alternateRoom);
                 stream.read(r.flags);
@@ -1068,6 +1077,7 @@ namespace TR {
                 stream.read(cameraFrames, stream.read(cameraFramesCount));
             }
 
+            initRoomMeshes();
             initTiles(tiles4, tiles8, palette, cluts);
 
             //delete[] tiles4;   tiles4 = NULL;
@@ -1447,6 +1457,14 @@ namespace TR {
                 spriteSequences[i].sCount = -spriteSequences[i].sCount;
         }
 
+        void initRoomMeshes() {
+            for (int i = 0; i < roomsCount; i++) {
+                Room &room = rooms[i];
+                for (int j = 0; j < room.meshesCount; j++)
+                    room.meshes[j].meshIndex = getMeshByID(room.meshes[j].meshID);
+            }
+        }
+
         void initTiles(Tile4 *tiles4, Tile8 *tiles8, Color24 *palette, CLUT *cluts) {
             tiles = new Tile32[tilesCount];
 
@@ -1542,11 +1560,12 @@ namespace TR {
             return new Stream(data, size);
         }
 
-        StaticMesh* getMeshByID(int id) const { // TODO: map this
+        int getMeshByID(int id) const {
             for (int i = 0; i < staticMeshesCount; i++)
                 if (staticMeshes[i].id == id)
-                    return &staticMeshes[i];
-            return NULL;
+                    return i;
+            ASSERT(false);
+            return 0;
         }
 
         int16 getModelIndex(Entity::Type type) const {

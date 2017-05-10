@@ -201,7 +201,7 @@ struct MeshBuilder {
             
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
-                TR::StaticMesh *s = level.getMeshByID(m.meshID);
+                TR::StaticMesh *s = &level.staticMeshes[m.meshIndex];
                 if (!level.meshOffsets[s->mesh]) continue;
                 TR::Mesh &mesh = level.meshes[level.meshOffsets[s->mesh]];
 
@@ -310,7 +310,7 @@ struct MeshBuilder {
             // static meshes
                 for (int j = 0; j < room.meshesCount; j++) {
                     TR::Room::Mesh &m = room.meshes[j];
-                    TR::StaticMesh *s = level.getMeshByID(m.meshID);
+                    TR::StaticMesh *s = &level.staticMeshes[m.meshIndex];
                     if (!level.meshOffsets[s->mesh]) continue;
                     TR::Mesh &mesh = level.meshes[level.meshOffsets[s->mesh]];
 

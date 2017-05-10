@@ -148,10 +148,7 @@ struct Enemy : Character {
         TR::Level::FloorInfo info;
         level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
 
-        
-        int dx, dz;
-        TR::Room::Sector &s = level->getSector(info.roomNext != TR::NO_ROOM ? info.roomNext : getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
-        if (s.boxIndex != 0xFFFF && zone == getZones()[s.boxIndex]) {
+        if (info.boxIndex != 0xFFFF && zone == getZones()[info.boxIndex] && !level->boxes[info.boxIndex].overlap.block) {
             switch (stand) {
                 case STAND_GROUND : {
                     float fallSpeed = 2048.0f * Core::deltaTime;
@@ -409,6 +406,9 @@ struct Enemy : Character {
         TR::Entity &e = getEntity();
         TR::Box    &b = game->getLevel()->boxes[box];
         TR::Entity::Type type = e.type;
+
+        if (b.overlap.block)
+            return false;
 
         if (type == TR::Entity::ENEMY_REX || type == TR::Entity::ENEMY_MUTANT_1 || type == TR::Entity::ENEMY_CENTAUR) {
             if (b.overlap.blockable)
