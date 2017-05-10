@@ -215,6 +215,7 @@ struct MovingBlock : Trigger {
 
 struct Door : Trigger {
     int8 *floor[2], orig[2];
+    uint16 box;
 
     Door(IGame *game, int entity) : Trigger(game, entity, true) {
         TR::Entity &e = getEntity();
@@ -222,6 +223,8 @@ struct Door : Trigger {
         vec3 p = pos - getDir() * 1024.0f;
 
         level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
+        box = info.boxIndex;
+
         int dx, dz;
         TR::Room::Sector *s = &level->getSector(e.room, (int)p.x, (int)p.z, dx, dz);
 
@@ -243,6 +246,12 @@ struct Door : Trigger {
             v[1] = orig[1];
         } else
             v[0] = v[1] = TR::FLOOR_BLOCK;
+
+        if (box != 0xFFFF) {
+            TR::Box &b = level->boxes[box];
+            if (b.overlap.blockable)
+                b.overlap.block = !getEntity().flags.active;
+        }
 
         if (floor[0]) *floor[0] = v[0];
         if (floor[1]) *floor[1] = v[1];

@@ -859,6 +859,9 @@ struct ZoneCache {
                 // has same zone
                 if (zones[index] != zone)
                     continue;
+                // check blocking (doors)
+                if (level->boxes[index].overlap.block)
+                    continue;
                 // check for height difference
                 int d = level->boxes[index].floor - b.floor;
                 if (d > ascend || d < descend)

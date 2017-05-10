@@ -840,6 +840,7 @@ namespace TR {
             int floor, ceiling;
             int slantX, slantZ;
             int floorIndex;
+            int boxIndex;
             int kill;
             int trigCmdCount;
             Trigger trigger;
@@ -1617,6 +1618,7 @@ namespace TR {
             info.roomBelow    = s.roomBelow;
             info.roomAbove    = s.roomAbove;
             info.floorIndex   = s.floorIndex;
+            info.boxIndex     = s.boxIndex;
             info.kill         = 0;
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
