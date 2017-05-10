@@ -621,6 +621,19 @@ struct Lara : Character {
                && state != STATE_WATER_OUT;
     }
 
+    bool canHitAnim() {
+        return    state == STATE_WALK
+               || state == STATE_RUN
+               || state == STATE_STOP
+               || state == STATE_FAST_BACK
+               || state == STATE_TURN_RIGHT
+               || state == STATE_TURN_LEFT
+               || state == STATE_BACK
+               || state == STATE_FAST_TURN
+               || state == STATE_STEP_RIGHT
+               || state == STATE_STEP_LEFT;
+    }
+
     bool wpnReady() {
         return arms[0].anim != Weapon::Anim::PREPARE && arms[0].anim != Weapon::Anim::UNHOLSTER && arms[0].anim != Weapon::Anim::HOLSTER;
     }
@@ -1526,7 +1539,7 @@ struct Lara : Character {
             if (state == STATE_PUSH_PULL_READY && (input & (FORTH | BACK))) {
                 int pushState = (input & FORTH) ? STATE_PUSH_BLOCK : STATE_PULL_BLOCK;
                 Block *block = getBlock();
-                if (animation.canSetState(pushState) && block->doMove((input & FORTH) != 0)) {
+                if (block && animation.canSetState(pushState) && block->doMove((input & FORTH) != 0)) {
                     alignToWall(-LARA_RADIUS);
                     return pushState;
                 }
@@ -1921,7 +1934,23 @@ struct Lara : Character {
     }
 
     void checkCollisions() {
-        if (state == STATE_DEATH || stand != STAND_GROUND) {
+    // check static objects (TODO: check linked rooms?)
+        TR::Room &room = getRoom();
+        Box box(pos - vec3(LARA_RADIUS, LARA_HEIGHT, LARA_RADIUS), pos + vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
+
+        for (int i = 0; i < room.meshesCount; i++) {
+            TR::Room::Mesh &m  = room.meshes[i];
+            TR::StaticMesh &sm = level->staticMeshes[m.meshIndex];
+            if (sm.flags != 2) continue;
+            Box meshBox;
+            sm.getBox(true, m.rotation, meshBox);
+            meshBox.translate(vec3(float(m.x), float(m.y), float(m.z)));
+            if (!box.intersect(meshBox)) continue;
+
+            collisionOffset += meshBox.pushOut2D(box);
+        }
+
+        if (!canHitAnim()) {
             hitDir = -1;
             return;
         }
@@ -1941,7 +1970,7 @@ struct Lara : Character {
                 continue;
 
         // get shift
-            p = enemyBox.closestPoint2D(p);
+            p += enemyBox.pushOut2D(p);
             p = (p.rotateY(enemy->angle.y) + enemy->pos) - pos;
             collisionOffset += vec3(p.x, 0.0f, p.z);
 

@@ -808,17 +808,41 @@ struct Box {
         }
     }
 
+    void translate(const vec3 &offset) {
+        min += offset;
+        max += offset;
+    }
+
     bool contains(const vec3 &v) const {
         return v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.x && v.z >= min.z && v.z <= max.z;
     }
 
-    vec3 closestPoint2D(const vec3 &v) const {
+    vec3 pushOut2D(const vec3 &v) const {
         float ax = v.x - min.x;
         float bx = max.x - v.x;
         float az = v.z - min.z;
         float bz = max.z - v.z;
 
-        vec3 p = v;
+        vec3 p = vec3(0.0f);
+        if (ax <= bx && ax <= az && ax <= bz)
+            p.x = -ax;
+        else if (bx <= ax && bx <= az && bx <= bz)
+            p.x =  bx;
+        else if (az <= ax && az <= bx && az <= bz)
+            p.z = -az;
+        else
+            p.z =  bz;
+
+        return p;
+    }
+
+    vec3 pushOut2D(const Box &b) const {
+        float ax = b.max.x - min.x;
+        float bx = max.x - b.min.x;
+        float az = b.max.z - min.z;
+        float bz = max.z - b.min.z;
+
+        vec3 p = vec3(0.0f);
         if (ax <= bx && ax <= az && ax <= bz)
             p.x -= ax;
         else if (bx <= ax && bx <= az && bx <= bz)

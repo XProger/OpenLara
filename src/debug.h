@@ -458,10 +458,8 @@ namespace Debug {
                 TR::Room &r = level.rooms[i];
  
                 for (int j = 0; j < r.meshesCount; j++) {
-                    TR::Room::Mesh &m = r.meshes[j];
-                                        
-                    TR::StaticMesh *sm = level.getMeshByID(m.meshID);
-                    ASSERT(sm != NULL);
+                    TR::Room::Mesh &m  = r.meshes[j];
+                    TR::StaticMesh *sm = &level.staticMeshes[m.meshIndex];
 
                     Box box;
                     vec3 offset = vec3(m.x, m.y, m.z);
