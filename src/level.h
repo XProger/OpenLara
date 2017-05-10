@@ -440,7 +440,8 @@ struct Level : IGame {
                 Core::basis = qTemp;
             }
             Core::setBlending(bmNone);
-        }
+		} else
+			return;
 
     #ifdef LEVEL_EDITOR
         return;
