@@ -767,7 +767,7 @@ struct Lara : Character {
                 Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
                 hit -= d * 64.0f;
-                Sprite::add(game, TR::Entity::SPARK, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
+                Sprite::add(game, TR::Entity::RICOCHET, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
 
                 float dist = (hit - p).length();
                 if (dist < nearDist) {
@@ -1203,8 +1203,8 @@ struct Lara : Character {
     bool useItem(TR::Entity::Type item, TR::Entity::Type slot) {
         if (item == TR::Entity::NONE) {
             switch (slot) {
-                case TR::Entity::HOLE_KEY    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4
-                case TR::Entity::HOLE_PUZZLE : item = TR::Entity::PUZZLE_1; break;
+                case TR::Entity::KEY_HOLE_1    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4
+                case TR::Entity::PUZZLE_HOLE_1 : item = TR::Entity::PUZZLE_1; break;
                 default : return false;
             }
         }
@@ -1286,7 +1286,7 @@ struct Lara : Character {
             case TR::Level::Trigger::KEY :
                 if (level->entities[info.trigCmd[0].args].flags.active)
                     return;
-                actionState = level->entities[info.trigCmd[0].args].type == TR::Entity::HOLE_KEY ? STATE_USE_KEY : STATE_USE_PUZZLE;
+                actionState = level->entities[info.trigCmd[0].args].type == TR::Entity::KEY_HOLE_1 ? STATE_USE_KEY : STATE_USE_PUZZLE;
                 if (!animation.canSetState(actionState))
                     return;
                 limit = actionState == STATE_USE_KEY ? &TR::Limits::KEY_HOLE : &TR::Limits::PUZZLE_HOLE;

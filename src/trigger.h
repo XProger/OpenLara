@@ -52,7 +52,7 @@ struct Trigger : Controller {
             }
         }
 
-        if (!inState() && entity.type != TR::Entity::HOLE_KEY && entity.type != TR::Entity::HOLE_PUZZLE)
+        if (!inState() && entity.type != TR::Entity::KEY_HOLE_1 && entity.type != TR::Entity::PUZZLE_HOLE_1)
             animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));        
 
         updateAnimation(true);
@@ -80,7 +80,7 @@ struct Dart : Controller {
                 TR::Entity &e = getEntity();
                 
                 vec3 p = pos - dir * 64.0f; // wall offset = 64
-                Sprite::add(game, TR::Entity::SPARK, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
+                Sprite::add(game, TR::Entity::RICOCHET, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
 
                 level->entityRemove(entity);
                 delete this;

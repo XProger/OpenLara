@@ -29,6 +29,8 @@
         #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
 
+#define DECL_ENUM(v) v,
+#define DECL_STR(v)  #v,
 
 #define EPS     FLT_EPSILON
 #define INF     INFINITY

@@ -34,16 +34,13 @@
     E( uRoomSize        ) \
     E( uPosScale        )
 
-#define ENUM(v) v,
-#define STR(v)  #v,
+enum AttribType  { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
+enum SamplerType { SHADER_SAMPLERS(DECL_ENUM) sMAX };
+enum UniformType { SHADER_UNIFORMS(DECL_ENUM) uMAX };
 
-enum AttribType  { SHADER_ATTRIBS(ENUM)  aMAX };
-enum SamplerType { SHADER_SAMPLERS(ENUM) sMAX };
-enum UniformType { SHADER_UNIFORMS(ENUM) uMAX };
-
-const char *AttribName[aMAX]  = { SHADER_ATTRIBS(STR)  };
-const char *SamplerName[sMAX] = { SHADER_SAMPLERS(STR) };
-const char *UniformName[uMAX] = { SHADER_UNIFORMS(STR) };
+const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
+const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
+const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 
 #undef SHADER_ATTRIBS
 #undef SHADER_SAMPLERS
