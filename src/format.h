@@ -139,6 +139,42 @@ namespace TR {
         CUTSCENE        ,   // play cutscene
     };
 
+    namespace Limits {
+
+        struct Limit {
+            float  dy, dz, ay;
+            ::Box  box;
+        };
+
+        Limit SWITCH = {
+            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit SWITCH_UNDERWATER = {
+            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}} 
+        };
+
+        Limit PICKUP = {
+            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}
+        };
+
+        Limit PICKUP_UNDERWATER = {
+            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}
+        };
+
+        Limit KEY_HOLE = { 
+            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit PUZZLE_HOLE = { 
+            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit BLOCK = { 
+            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}
+        };
+    }
+
     #pragma pack(push, 1)
 
     struct fixed {
