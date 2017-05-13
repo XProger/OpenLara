@@ -2136,7 +2136,7 @@ struct Lara : Character {
         if (collision.side == Collision::FRONT) {
             int floor = collision.info[Collision::FRONT].floor;
 
-            if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT) 
+            if (velocity.dot(getDir()) <= EPS) 
                 collision.side = Collision::NONE;
 
         // hit the wall
@@ -2155,7 +2155,7 @@ struct Lara : Character {
                     break;
                 case STAND_GROUND :
                 case STAND_HANG   :
-                    if (stand == STAND_GROUND && (pos - opos).length2() < 16)
+                    if (stand == STAND_GROUND && state != STATE_ROLL_1 && state != STATE_ROLL_2 && (pos - opos).length2() < 16)
                         animation.setAnim(ANIM_STAND_NORMAL);
                     else if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN)
                         animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
