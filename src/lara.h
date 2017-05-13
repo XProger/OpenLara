@@ -1523,7 +1523,7 @@ struct Lara : Character {
             int h = (int)pos.y - floor;
 
             int aIndex = animation.index;
-            if (floor == ceiling) 
+            if (floor == ceiling || h < 256)
                 ;// do nothing
             else if (h <= 2 * 256 + 128) {
                 aIndex = ANIM_CLIMB_2;
@@ -2135,6 +2135,9 @@ struct Lara : Character {
 
         if (collision.side == Collision::FRONT) {
             int floor = collision.info[Collision::FRONT].floor;
+
+            if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT) 
+                collision.side = Collision::NONE;
 
         // hit the wall
             switch (stand) {
