@@ -53,6 +53,8 @@ struct Lara : Character {
         ANIM_STAND_LEFT         = 2,
         ANIM_STAND_RIGHT        = 3,
 
+        ANIM_RUN_START          = 6,
+
         ANIM_STAND              = 11,
 
         ANIM_CLIMB_JUMP         = 26,
@@ -1579,7 +1581,7 @@ struct Lara : Character {
         }
 
         // walk button is pressed
-        if (input & WALK) {
+        if ((input & WALK) && animation.index != ANIM_RUN_START) {
             if (input & FORTH) return STATE_WALK;
             if (input & BACK)  return STATE_BACK;
             if (input & LEFT)  return STATE_STEP_LEFT;
