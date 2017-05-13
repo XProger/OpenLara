@@ -1540,20 +1540,31 @@ struct Lara : Character {
             }
         }
 
-        if ( (input & (FORTH | BACK)) == (FORTH | BACK) && (state == STATE_STOP || state == STATE_RUN) )
+        if ( (input & (FORTH | BACK)) == (FORTH | BACK) && (animation.index == ANIM_STAND_NORMAL || state == STATE_RUN) )
             return animation.setAnim(ANIM_STAND_ROLL_BEGIN);
 
         // ready to jump
         if (state == STATE_COMPRESS) {
+            int     res;
+            float   ext = angle.y;
             switch (input & (RIGHT | LEFT | FORTH | BACK)) {
-                case RIGHT         : return STATE_RIGHT_JUMP;
-                case LEFT          : return STATE_LEFT_JUMP;
+                case RIGHT         : res = STATE_RIGHT_JUMP;    ext +=  PI * 0.5f; break;
+                case LEFT          : res = STATE_LEFT_JUMP;     ext -=  PI * 0.5f; break;
                 case FORTH | LEFT  :
                 case FORTH | RIGHT :
-                case FORTH         : return STATE_FORWARD_JUMP;
-                case BACK          : return STATE_BACK_JUMP;
-                default            : return STATE_UP_JUMP;
+                case FORTH         : res = STATE_FORWARD_JUMP;  break;
+                case BACK          : res = STATE_BACK_JUMP;     ext +=  PI;        break;
+                default            : res = STATE_UP_JUMP;       break;
             }
+
+            if (res != STATE_UP_JUMP) {
+                vec3 p = pos;
+                collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 2.5f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
+                if (collision.side == Collision::FRONT)
+                    res = STATE_UP_JUMP;
+            }
+
+            return res;
         }
 
         // jump button is pressed
@@ -2135,7 +2146,14 @@ struct Lara : Character {
 
         if (collision.side == Collision::FRONT) {
             int floor = collision.info[Collision::FRONT].floor;
-
+/*
+            switch (angleQuadrant(angleExt - angle.y)) {
+                case 0 : collision.side = Collision::FRONT; LOG("FRONT\n"); break;
+                case 1 : collision.side = Collision::RIGHT; LOG("RIGHT\n"); break;
+                case 2 : collision.side = Collision::BACK;  LOG("BACK\n");  break;
+                case 3 : collision.side = Collision::LEFT;  LOG("LEFT\n");  break;
+            }
+*/
             if (velocity.dot(getDir()) <= EPS) 
                 collision.side = Collision::NONE;
 
