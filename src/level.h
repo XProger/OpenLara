@@ -492,8 +492,9 @@ struct Level : IGame {
 
 
         TR::Room &room = level.rooms[entity.room];
-        if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
-            return;
+        if (entity.type != TR::Entity::LARA) // TODO: remove this hack (collect conjugate room entities)
+            if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
+                return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
 
