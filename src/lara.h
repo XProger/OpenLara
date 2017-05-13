@@ -1171,7 +1171,6 @@ struct Lara : Character {
             return false;
 
         int room = getRoomIndex();
-        TR::Entity &e = getEntity();
         TR::Limits::Limit limit = state == STATE_STOP ? TR::Limits::PICKUP : TR::Limits::PICKUP_UNDERWATER;
 
         for (int i = 0; i < level->entitiesCount; i++) {
@@ -1490,8 +1489,6 @@ struct Lara : Character {
     }
 
     Block* getBlock() {
-        int y = int(pos.y);
-
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
             if (!e.isBlock())
@@ -2004,7 +2001,7 @@ struct Lara : Character {
             Character *enemy = (Character*)e.controller;
             if (enemy->health <= 0) continue;
 
-            vec3 dir = pos - enemy->pos;
+            vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - enemy->pos;
             vec3 p   = dir.rotateY(-enemy->angle.y);
 
             Box enemyBox = enemy->getBoundingBoxLocal();
