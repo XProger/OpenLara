@@ -1513,6 +1513,7 @@ struct Lara : Character {
     }
 
     virtual int getStateGround() {
+        int res = STATE_STOP;
         angle.x = 0.0f;
 
         if ((state == STATE_STOP || state == STATE_TREAD) && (input & ACTION) && emptyHands() && doPickUp())
@@ -1547,7 +1548,6 @@ struct Lara : Character {
 
         // ready to jump
         if (state == STATE_COMPRESS) {
-            int     res;
             float   ext = angle.y;
             switch (input & (RIGHT | LEFT | FORTH | BACK)) {
                 case RIGHT         : res = STATE_RIGHT_JUMP;    ext +=  PI * 0.5f; break;
@@ -1582,11 +1582,35 @@ struct Lara : Character {
 
         // walk button is pressed
         if ((input & WALK) && animation.index != ANIM_RUN_START) {
-            if (input & FORTH) return STATE_WALK;
-            if (input & BACK)  return STATE_BACK;
-            if (input & LEFT)  return STATE_STEP_LEFT;
-            if (input & RIGHT) return STATE_STEP_RIGHT;
-            return STATE_STOP;
+            float ext = angle.y;
+
+            if (input & FORTH) { 
+                res = STATE_WALK;
+            } else if (input & BACK) {
+                res = STATE_BACK;
+                ext += PI;
+            } else if (input & LEFT) {
+                res = STATE_STEP_LEFT;
+                ext -= PI * 0.5f;
+            } else if (input & RIGHT) {
+                res = STATE_STEP_RIGHT;
+                ext += PI * 0.5f;
+            }
+
+            int maxAscent  = 256 + 128;
+            int maxDescent = maxAscent;
+
+            if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
+                maxAscent = maxDescent = 64;
+
+            if (state == STATE_STOP && res != STATE_STOP) {
+                vec3 p = pos;
+                collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, maxAscent, maxDescent);
+                if (collision.side == Collision::FRONT)
+                    res = STATE_STOP;
+            }
+
+            return res;
         }
 
         if ((input & ACTION) && emptyHands()) {
@@ -1602,9 +1626,11 @@ struct Lara : Character {
         }
 
         // only dpad buttons pressed
-        if (input & FORTH) return STATE_RUN;
-        if (input & BACK)  return STATE_FAST_BACK;
-        if (input & (LEFT | RIGHT)) {
+        if (input & FORTH)
+            res = STATE_RUN;
+        else if (input & BACK)
+            res = STATE_FAST_BACK;
+        else if (input & (LEFT | RIGHT)) {
             if (state == STATE_FAST_TURN)
                 return state;
 
@@ -1612,7 +1638,15 @@ struct Lara : Character {
             if (input & RIGHT) return (state == STATE_TURN_RIGHT && animation.prev == animation.index) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
         }
 
-        return STATE_STOP;
+        if (state == STATE_STOP && res != STATE_STOP) {
+            float ext = angle.y + (res == STATE_RUN ? 0.0f : PI);
+            vec3 p = pos;
+            collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
+            if (collision.side == Collision::FRONT)
+                res = STATE_STOP;
+        }
+
+        return res;
     }
 
     void slideStart() {
