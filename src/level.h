@@ -205,14 +205,22 @@ struct Level : IGame {
                 case TR::Entity::MOVING_BLOCK          :
                     entity.controller = new MovingBlock(this, i);                    
                     break;
-                case TR::Entity::FALLING_CEILING       :
+                case 1592 :
+                case TR::Entity::FALLING_CEILING_1     :
+                case TR::Entity::FALLING_CEILING_2     :
                 case TR::Entity::FALLING_SWORD         :
                     entity.controller = new Trigger(this, i, true);
                     break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :
-                case TR::Entity::HOLE_PUZZLE           :
-                case TR::Entity::HOLE_KEY              :
+                case TR::Entity::PUZZLE_HOLE_1         :
+                case TR::Entity::PUZZLE_HOLE_2         :
+                case TR::Entity::PUZZLE_HOLE_3         :
+                case TR::Entity::PUZZLE_HOLE_4         :
+                case TR::Entity::KEY_HOLE_1            :
+                case TR::Entity::KEY_HOLE_2            :
+                case TR::Entity::KEY_HOLE_3            :
+                case TR::Entity::KEY_HOLE_4            :
                     entity.controller = new Trigger(this, i, false);
                     break;
                 case TR::Entity::WATERFALL             :
@@ -492,8 +500,9 @@ struct Level : IGame {
 
 
         TR::Room &room = level.rooms[entity.room];
-        if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
-            return;
+        if (entity.type != TR::Entity::LARA) // TODO: remove this hack (collect conjugate room entities)
+            if (!room.flags.rendered || entity.flags.invisible || entity.flags.rendered)
+                return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
 

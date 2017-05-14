@@ -29,6 +29,8 @@
         #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
 
+#define DECL_ENUM(v) v,
+#define DECL_STR(v)  #v,
 
 #define EPS     FLT_EPSILON
 #define INF     INFINITY
@@ -140,6 +142,8 @@ struct vec2 {
     inline bool operator != (const vec2 &v) const { return !(*this == v); }
     inline bool operator == (float s)       const { return x == s && y == s; }
     inline bool operator != (float s)       const { return !(*this == s); }
+    inline bool operator <  (const vec2 &v) const { return x < v.x && y < v.y; }
+    inline bool operator >  (const vec2 &v) const { return x > v.x && y > v.y; }
     inline vec2 operator -  ()              const { return vec2(-x, -y); }
 
     vec2& operator += (const vec2 &v) { x += v.x; y += v.y; return *this; }
@@ -165,6 +169,7 @@ struct vec2 {
 
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
+    vec2  abs()     const { return vec2(fabsf(x), fabsf(y)); }
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
     float angle()   const { return atan2f(y, x); }
     vec2& rotate(const vec2 &cs) { *this = vec2(x*cs.x - y*cs.y, x*cs.y + y*cs.x); return *this; }
@@ -189,6 +194,8 @@ struct vec3 {
     inline bool operator != (const vec3 &v) const { return !(*this == v); }
     inline bool operator == (float s)       const { return x == s && y == s && z == s; }
     inline bool operator != (float s)       const { return !(*this == s); }
+    inline bool operator <  (const vec3 &v) const { return x < v.x && y < v.y && z < v.z; }
+    inline bool operator >  (const vec3 &v) const { return x > v.x && y > v.y && z > v.z; }
     inline vec3 operator -  ()              const { return vec3(-x, -y, -z); }
 
     vec3& operator += (const vec3 &v) { x += v.x; y += v.y; z += v.z; return *this; }
@@ -214,6 +221,7 @@ struct vec3 {
 
     float length2() const { return dot(*this); }
     float length()  const { return sqrtf(length2()); }
+    vec3  abs()     const { return vec3(fabsf(x), fabsf(y), fabsf(z)); }
     vec3  normal()  const { float s = length(); return s == 0.0f ? (*this) : (*this)*(1.0f/s); }
     vec3  axisXZ()  const { return (fabsf(x) > fabsf(z)) ? vec3(float(sign(x)), 0, 0) : vec3(0, 0, float(sign(z))); }
 
@@ -814,7 +822,7 @@ struct Box {
     }
 
     bool contains(const vec3 &v) const {
-        return v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.x && v.z >= min.z && v.z <= max.z;
+        return v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y && v.z >= min.z && v.z <= max.z;
     }
 
     vec3 pushOut2D(const vec3 &v) const {

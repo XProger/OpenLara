@@ -8,6 +8,199 @@
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
 
+#define TR1_TYPES(E) \
+    E( LARA                  ) \
+    E( LARA_PISTOLS          ) \
+    E( LARA_SHOTGUN          ) \
+    E( LARA_MAGNUMS          ) \
+    E( LARA_UZIS             ) \
+    E( LARA_SPEC             ) \
+    E( ENEMY_TWIN            ) \
+    E( ENEMY_WOLF            ) \
+    E( ENEMY_BEAR            ) \
+    E( ENEMY_BAT             ) \
+    E( ENEMY_CROCODILE_LAND  ) \
+    E( ENEMY_CROCODILE_WATER ) \
+    E( ENEMY_LION_MALE       ) \
+    E( ENEMY_LION_FEMALE     ) \
+    E( ENEMY_PUMA            ) \
+    E( ENEMY_GORILLA         ) \
+    E( ENEMY_RAT_LAND        ) \
+    E( ENEMY_RAT_WATER       ) \
+    E( ENEMY_REX             ) \
+    E( ENEMY_RAPTOR          ) \
+    E( ENEMY_MUTANT_1        ) \
+    E( ENEMY_MUTANT_2        ) \
+    E( ENEMY_MUTANT_3        ) \
+    E( ENEMY_CENTAUR         ) \
+    E( ENEMY_MUMMY           ) \
+    E( UNUSED_1              ) \
+    E( UNUSED_2              ) \
+    E( ENEMY_LARSON          ) \
+    E( ENEMY_PIERRE          ) \
+    E( ENEMY_SKATEBOARD      ) \
+    E( ENEMY_SKATEBOY        ) \
+    E( ENEMY_COWBOY          ) \
+    E( ENEMY_MR_T            ) \
+    E( ENEMY_NATLA           ) \
+    E( ENEMY_GIANT_MUTANT    ) \
+    E( TRAP_FLOOR            ) \
+    E( TRAP_BLADE            ) \
+    E( TRAP_SPIKES           ) \
+    E( TRAP_BOULDER          ) \
+    E( TRAP_DART             ) \
+    E( TRAP_DARTGUN          ) \
+    E( DOOR_LIFT             ) \
+    E( TRAP_SLAM             ) \
+    E( FALLING_SWORD         ) \
+    E( HAMMER_HANDLE         ) \
+    E( HAMMER_BLOCK          ) \
+    E( LIGHTNING_BALL        ) \
+    E( BARRICADE             ) \
+    E( BLOCK_1               ) \
+    E( BLOCK_2               ) \
+    E( BLOCK_3               ) \
+    E( BLOCK_4               ) \
+    E( MOVING_BLOCK          ) \
+    E( FALLING_CEILING_1     ) \
+    E( FALLING_CEILING_2     ) \
+    E( SWITCH                ) \
+    E( SWITCH_WATER          ) \
+    E( DOOR_1                ) \
+    E( DOOR_2                ) \
+    E( DOOR_3                ) \
+    E( DOOR_4                ) \
+    E( DOOR_BIG_1            ) \
+    E( DOOR_BIG_2            ) \
+    E( DOOR_5                ) \
+    E( DOOR_6                ) \
+    E( TRAP_DOOR_1           ) \
+    E( TRAP_DOOR_2           ) \
+    E( UNUSED_3              ) \
+    E( BRIDGE_0              ) \
+    E( BRIDGE_1              ) \
+    E( BRIDGE_2              ) \
+    E( INV_GAME              ) \
+    E( INV_COMPASS           ) \
+    E( INV_HOME              ) \
+    E( GEARS_1               ) \
+    E( GEARS_2               ) \
+    E( GEARS_3               ) \
+    E( CUT_1                 ) \
+    E( CUT_2                 ) \
+    E( CUT_3                 ) \
+    E( CUT_4                 ) \
+    E( INV_GAME_CLOSED       ) \
+    E( INV_MAP               ) \
+    E( CRYSTAL               ) \
+    E( WEAPON_PISTOLS        ) \
+    E( WEAPON_SHOTGUN        ) \
+    E( WEAPON_MAGNUMS        ) \
+    E( WEAPON_UZIS           ) \
+    E( AMMO_PISTOLS          ) \
+    E( AMMO_SHOTGUN          ) \
+    E( AMMO_MAGNUMS          ) \
+    E( AMMO_UZIS             ) \
+    E( AMMO_EXPLOSIVE        ) \
+    E( MEDIKIT_SMALL         ) \
+    E( MEDIKIT_BIG           ) \
+    E( INV_DETAIL            ) \
+    E( INV_SOUND             ) \
+    E( INV_CONTROLS          ) \
+    E( INV_FLASHLIGHT        ) \
+    E( INV_PISTOLS           ) \
+    E( INV_SHOTGUN           ) \
+    E( INV_MAGNUMS           ) \
+    E( INV_UZIS              ) \
+    E( INV_AMMO_POSTOLS      ) \
+    E( INV_AMMO_SHOTGUN      ) \
+    E( INV_AMMO_MAGNUMS      ) \
+    E( INV_AMMO_UZIS         ) \
+    E( INV_AMMO_EXPLOSIVE    ) \
+    E( INV_MEDIKIT_SMALL     ) \
+    E( INV_MEDIKIT_BIG       ) \
+    E( PUZZLE_1              ) \
+    E( PUZZLE_2              ) \
+    E( PUZZLE_3              ) \
+    E( PUZZLE_4              ) \
+    E( INV_PUZZLE_1          ) \
+    E( INV_PUZZLE_2          ) \
+    E( INV_PUZZLE_3          ) \
+    E( INV_PUZZLE_4          ) \
+    E( PUZZLE_HOLE_1         ) \
+    E( PUZZLE_HOLE_2         ) \
+    E( PUZZLE_HOLE_3         ) \
+    E( PUZZLE_HOLE_4         ) \
+    E( PUZZLE_DONE_1         ) \
+    E( PUZZLE_DONE_2         ) \
+    E( PUZZLE_DONE_3         ) \
+    E( PUZZLE_DONE_4         ) \
+    E( LEADBAR               ) \
+    E( INV_LEADBAR           ) \
+    E( MIDAS_TOUCH           ) \
+    E( KEY_1                 ) \
+    E( KEY_2                 ) \
+    E( KEY_3                 ) \
+    E( KEY_4                 ) \
+    E( INV_KEY_1             ) \
+    E( INV_KEY_2             ) \
+    E( INV_KEY_3             ) \
+    E( INV_KEY_4             ) \
+    E( KEY_HOLE_1            ) \
+    E( KEY_HOLE_2            ) \
+    E( KEY_HOLE_3            ) \
+    E( KEY_HOLE_4            ) \
+    E( UNUSED_4              ) \
+    E( UNUSED_5              ) \
+    E( SCION_1               ) \
+    E( SCION_2               ) \
+    E( SCION_3               ) \
+    E( SCION_TARGET          ) \
+    E( SCION_HOLDER          ) \
+    E( UNUSED_6              ) \
+    E( UNUSED_7              ) \
+    E( INV_SCION             ) \
+    E( EXPLOSION             ) \
+    E( UNUSED_8              ) \
+    E( WATER_SPLASH          ) \
+    E( UNUSED_9              ) \
+    E( BUBBLE                ) \
+    E( UNUSED_10             ) \
+    E( UNUSED_11             ) \
+    E( BLOOD                 ) \
+    E( UNUSED_12             ) \
+    E( SMOKE                 ) \
+    E( STATUE                ) \
+    E( SHACK                 ) \
+    E( MUTANT_EGG_SMALL      ) \
+    E( RICOCHET              ) \
+    E( SPARKLES              ) \
+    E( MUZZLE_FLASH          ) \
+    E( UNUSED_13             ) \
+    E( UNUSED_14             ) \
+    E( VIEW_TARGET           ) \
+    E( WATERFALL             ) \
+    E( UNUSED_15             ) \
+    E( MUTANT_BULLET         ) \
+    E( MUTANT_GRENADE        ) \
+    E( UNUSED_16             ) \
+    E( UNUSED_17             ) \
+    E( LAVA_PARTICLE         ) \
+    E( LAVA_EMITTER          ) \
+    E( FLAME                 ) \
+    E( FLAME_EMITTER         ) \
+    E( LAVA_FLOW             ) \
+    E( MUTANT_EGG_BIG        ) \
+    E( BOAT                  ) \
+    E( EARTHQUAKE            ) \
+    E( UNUSED_18             ) \
+    E( UNUSED_19             ) \
+    E( UNUSED_20             ) \
+    E( UNUSED_21             ) \
+    E( UNUSED_22             ) \
+    E( BRAID                 ) \
+    E( GLYPH                 )
+
 namespace TR {
 
     enum {
@@ -138,6 +331,42 @@ namespace TR {
         CAMERA_FLYBY    ,   // flyby camera sequence
         CUTSCENE        ,   // play cutscene
     };
+
+    namespace Limits {
+
+        struct Limit {
+            float  dy, dz, ay;
+            ::Box  box;
+        };
+
+        Limit SWITCH = {
+            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit SWITCH_UNDERWATER = {
+            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}} 
+        };
+
+        Limit PICKUP = {
+            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}
+        };
+
+        Limit PICKUP_UNDERWATER = {
+            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}
+        };
+
+        Limit KEY_HOLE = { 
+            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit PUZZLE_HOLE = { 
+            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}
+        };
+
+        Limit BLOCK = { 
+            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}
+        };
+    }
 
     #pragma pack(push, 1)
 
@@ -372,131 +601,12 @@ namespace TR {
     };
 
     struct Entity {
-        enum Type : int16 {
-            NONE                     = -1,
-            LARA                     = 0,
-            LARA_PISTOLS             = 1,
-            LARA_SHOTGUN             = 2,
-            LARA_MAGNUMS             = 3,
-            LARA_UZIS                = 4,
-            LARA_SPEC                = 5,
-            ENEMY_TWIN               = 6,
-            ENEMY_WOLF               = 7,
-            ENEMY_BEAR               = 8,
-            ENEMY_BAT                = 9,
-            ENEMY_CROCODILE_LAND     = 10,
-            ENEMY_CROCODILE_WATER    = 11,
-            ENEMY_LION_MALE          = 12,
-            ENEMY_LION_FEMALE        = 13,
-            ENEMY_PUMA               = 14,
-            ENEMY_GORILLA            = 15,
-            ENEMY_RAT_LAND           = 16,
-            ENEMY_RAT_WATER          = 17,
-            ENEMY_REX                = 18,
-            ENEMY_RAPTOR             = 19,
-            ENEMY_MUTANT_1           = 20,
-            ENEMY_MUTANT_2           = 21,
-            ENEMY_MUTANT_3           = 22,
-            ENEMY_CENTAUR            = 23,
-            ENEMY_MUMMY              = 24,
-            ENEMY_LARSON             = 27,
-            ENEMY_PIERRE             = 28,
-            ENEMY_SKATEBOARD         = 29,
-            ENEMY_SKATEBOY           = 30,
-            ENEMY_COWBOY             = 31,
-            ENEMY_MR_T               = 32,
-            ENEMY_NATLA              = 33,
-            ENEMY_GIANT_MUTANT       = 34,
-            TRAP_FLOOR               = 35,
-            TRAP_BLADE               = 36,
-            TRAP_SPIKES              = 37,
-            TRAP_BOULDER             = 38,
-            TRAP_DART                = 39,
-            TRAP_DARTGUN             = 40,
 
-            BLOCK_1                  = 48,
-            BLOCK_2                  = 49,
-            BLOCK_3                  = 50,
-            BLOCK_4                  = 51,
-            MOVING_BLOCK             = 52,
-            FALLING_CEILING          = 53,
-            FALLING_SWORD            = 54,
-            SWITCH                   = 55,
-            SWITCH_WATER             = 56,
-            DOOR_1                   = 57,
-            DOOR_2                   = 58,
-            DOOR_3                   = 59,
-            DOOR_4                   = 60,
-            DOOR_BIG_1               = 61,
-            DOOR_BIG_2               = 62,
-            DOOR_5                   = 63,
-            DOOR_6                   = 64,
-            TRAP_DOOR_1              = 65,
-            TRAP_DOOR_2              = 66,
+        typedef int16 Type;
 
-            BRIDGE_0                 = 68,
-            BRIDGE_1                 = 69,
-            BRIDGE_2                 = 70,
+        enum { NONE = -1, TR1_TYPES(DECL_ENUM) };
 
-            GEARS_1                  = 74,
-            GEARS_2                  = 75,
-            GEARS_3                  = 76,
-
-            CUT_1                    = 77,
-            CUT_2                    = 78,
-            CUT_3                    = 79,
-            CUT_4                    = 79,
-
-            CRYSTAL                  = 83,       // sprite
-            WEAPON_PISTOLS           = 84,       // sprite
-            WEAPON_SHOTGUN           = 85,       // sprite
-            WEAPON_MAGNUMS           = 86,       // sprite
-            WEAPON_UZIS              = 87,       // sprite
-            AMMO_SHOTGUN             = 89,       // sprite
-            AMMO_MAGNUMS             = 90,       // sprite
-            AMMO_UZIS                = 91,       // sprite
-
-            MEDIKIT_SMALL            = 93,       // sprite
-            MEDIKIT_BIG              = 94,       // sprite
-
-            PUZZLE_1                 = 110,      // sprite
-            PUZZLE_2                 = 111,      // sprite
-            PUZZLE_3                 = 112,      // sprite
-            PUZZLE_4                 = 113,      // sprite
-
-            HOLE_PUZZLE              = 118,
-            HOLE_PUZZLE_SET          = 122,
-
-            PICKUP                   = 126,      // sprite
-
-            KEY_1                    = 129,      // sprite
-            KEY_2                    = 130,      // sprite
-            KEY_3                    = 131,      // sprite
-            KEY_4                    = 132,      // sprite
-
-            HOLE_KEY                 = 137,
-
-            ARTIFACT                 = 143,      // sprite
-
-            WATER_SPLASH             = 153,      // sprite
-
-            BUBBLE                   = 155,      // sprite
-
-            BLOOD                    = 158,      // sprite
-
-            SMOKE                    = 160,      // sprite
-
-            SPARK                    = 164,      // sprite
-
-            MUZZLE_FLASH             = 166,
-
-            VIEW_TARGET              = 169,      // invisible
-            WATERFALL                = 170,      // invisible (water splash generator)
-
-            BRAID                    = 189,      // Lara's ponytail
-            GLYPH                    = 190,      // sprite
-
-        }       type;
+        int16   type;
         int16   room;
         int32   x, y, z;
         angle   rotation;
@@ -518,7 +628,7 @@ namespace TR {
             return (type >= WEAPON_PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_1 && type <= KEY_4) ||
-                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == ARTIFACT || type == PICKUP);
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
         }
 
         bool isBlock() {
@@ -1094,7 +1204,7 @@ namespace TR {
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
                     case Entity::MUZZLE_FLASH    : extra.muzzleFlash = i; break;
-                    case Entity::HOLE_PUZZLE_SET : extra.puzzleSet   = i; break;
+                    case Entity::PUZZLE_DONE_1   : extra.puzzleSet   = i; break;
                     case Entity::LARA_PISTOLS    : extra.weapons[0]  = i; break;
                     case Entity::LARA_SHOTGUN    : extra.weapons[1]  = i; break;
                     case Entity::LARA_MAGNUMS    : extra.weapons[2]  = i; break;
@@ -1788,7 +1898,7 @@ namespace TR {
     }; // struct Level
 
     bool castShadow(Entity::Type type) {
-        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_LARSON) || type == Entity::LARA || (type >= Entity::CUT_1 && type <= Entity::CUT_3);
+        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_GIANT_MUTANT) || type == Entity::LARA || (type >= Entity::CUT_1 && type <= Entity::CUT_4);
     }
 }
 

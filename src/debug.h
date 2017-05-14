@@ -603,69 +603,14 @@ namespace Debug {
             return "UNKNOWN";
         }
 
+        const char *TR1_TYPE_NAMES[] = { TR1_TYPES(DECL_STR) };
+
         const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
-            switch (entity.type) {
-                case_name(TR::Entity, LARA                 ); 
-                case_name(TR::Entity, ENEMY_TWIN           ); 
-                case_name(TR::Entity, ENEMY_WOLF           ); 
-                case_name(TR::Entity, ENEMY_BEAR           ); 
-                case_name(TR::Entity, ENEMY_BAT            ); 
-                case_name(TR::Entity, ENEMY_CROCODILE_LAND ); 
-                case_name(TR::Entity, ENEMY_CROCODILE_WATER); 
-                case_name(TR::Entity, ENEMY_LION_MALE      ); 
-                case_name(TR::Entity, ENEMY_LION_FEMALE    ); 
-                case_name(TR::Entity, ENEMY_PUMA           ); 
-                case_name(TR::Entity, ENEMY_GORILLA        ); 
-                case_name(TR::Entity, ENEMY_RAT_LAND       ); 
-                case_name(TR::Entity, ENEMY_RAT_WATER      ); 
-                case_name(TR::Entity, ENEMY_REX            ); 
-                case_name(TR::Entity, ENEMY_RAPTOR         ); 
-                case_name(TR::Entity, ENEMY_MUTANT_1       ); 
-                case_name(TR::Entity, ENEMY_CENTAUR        ); 
-                case_name(TR::Entity, ENEMY_MUMMY          ); 
-                case_name(TR::Entity, ENEMY_LARSON         ); 
-                case_name(TR::Entity, TRAP_FLOOR           ); 
-                case_name(TR::Entity, TRAP_BLADE           ); 
-                case_name(TR::Entity, TRAP_SPIKES          ); 
-                case_name(TR::Entity, TRAP_BOULDER         ); 
-                case_name(TR::Entity, TRAP_DART            ); 
-                case_name(TR::Entity, TRAP_DARTGUN         ); 
-                case_name(TR::Entity, BLOCK_1              ); 
-                case_name(TR::Entity, BLOCK_2              ); 
-                case_name(TR::Entity, SWITCH               ); 
-                case_name(TR::Entity, SWITCH_WATER         ); 
-                case_name(TR::Entity, DOOR_1               ); 
-                case_name(TR::Entity, DOOR_2               ); 
-                case_name(TR::Entity, DOOR_3               ); 
-                case_name(TR::Entity, DOOR_4               ); 
-                case_name(TR::Entity, DOOR_BIG_1           ); 
-                case_name(TR::Entity, DOOR_BIG_2           ); 
-                case_name(TR::Entity, DOOR_5               ); 
-                case_name(TR::Entity, DOOR_6               ); 
-                case_name(TR::Entity, TRAP_DOOR_1          ); 
-                case_name(TR::Entity, TRAP_DOOR_2          );
-                case_name(TR::Entity, BRIDGE_0             );
-                case_name(TR::Entity, BRIDGE_1             );
-                case_name(TR::Entity, BRIDGE_2             );
-                case_name(TR::Entity, GEARS_1              );
-                case_name(TR::Entity, GEARS_2              );
-                case_name(TR::Entity, GEARS_3              );
-                case_name(TR::Entity, PUZZLE_1             ); 
-                case_name(TR::Entity, PUZZLE_2             ); 
-                case_name(TR::Entity, PUZZLE_3             ); 
-                case_name(TR::Entity, PUZZLE_4             ); 
-                case_name(TR::Entity, HOLE_PUZZLE          ); 
-                case_name(TR::Entity, HOLE_PUZZLE_SET      ); 
-                case_name(TR::Entity, PICKUP               ); 
-                case_name(TR::Entity, KEY_1                ); 
-                case_name(TR::Entity, KEY_2                ); 
-                case_name(TR::Entity, KEY_3                ); 
-                case_name(TR::Entity, KEY_4                ); 
-                case_name(TR::Entity, HOLE_KEY             ); 
-                case_name(TR::Entity, VIEW_TARGET          );
-                case_name(TR::Entity, WATERFALL            ); 
-            }
-            return "UNKNOWN";
+            if (entity.type == TR::Entity::NONE)
+                return "NONE";
+            if (entity.type < 0 || entity.type >= COUNT(TR1_TYPE_NAMES))
+                return "UNKNOWN";
+            return TR1_TYPE_NAMES[entity.type];
         }
 
         void info(const TR::Level &level, const TR::Entity &entity, Animation &anim) {

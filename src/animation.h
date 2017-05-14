@@ -250,9 +250,18 @@ struct Animation {
 
     Box getBoundingBox(const vec3 &pos, int dir) {
         if (!model)
-            return Box(pos, pos);       
-        vec3 min = frameA->box.min().lerp(frameB->box.min(), delta);
-        vec3 max = frameA->box.max().lerp(frameB->box.max(), delta);
+            return Box(pos, pos);
+
+        vec3 nextMin = frameB->box.min();
+        vec3 nextMax = frameB->box.max();
+
+        if (isPrepareToNext) {
+            nextMin += offset;
+            nextMax += offset;
+        }
+
+        vec3 min = frameA->box.min().lerp(nextMin, delta);
+        vec3 max = frameA->box.max().lerp(nextMax, delta);
         Box box(min, max);
         box.rotate90(dir);
         box.min += pos;
