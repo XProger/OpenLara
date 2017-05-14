@@ -67,7 +67,7 @@ struct Collision {
         } else
             return;
 
-        pos += vec3(d.x, -velocity.y, d.y);
+        pos += vec3(d.x, 0.0f, d.y);
     }
 
     inline bool checkHeight(TR::Level *level, int roomIndex, const vec3 &pos, const vec2 &offset, int height, int maxAscent, int maxDescent, Side side) {
