@@ -155,12 +155,37 @@ struct Block : Controller {
 
     bool doMove(bool push) {
     // check floor height of next floor
-        vec3 dir = getDir() * (push ? 1024.0f : -2048.0f);
+        vec3 dir = getDir() * (push ? 1024.0f : -1024.0f);
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x + (int)dir.x, e.y, e.z + (int)dir.z, info);
-        if ((info.slantX | info.slantZ) || info.floor != e.y)
-            return false;        
+
+        int px = e.x + (int)dir.x;
+        int pz = e.z + (int)dir.z;
+        level->getFloorInfo(e.room, px, e.y, pz, info);
+
+        if ((info.slantX | info.slantZ) || info.floor != e.y || info.floor - info.ceiling < 1024)
+            return false;
+
+        // check for trapdoor
+        px /= 1024;
+        pz /= 1024;
+        for (int i = 0; i < info.trigCmdCount; i++)
+            if (info.trigCmd[i].action == TR::Action::ACTIVATE) {
+                TR::Entity &obj = level->entities[info.trigCmd[i].args];
+                if ((obj.type == TR::Entity::TRAP_DOOR_1 || obj.type == TR::Entity::TRAP_DOOR_2) && px == obj.x / 1024 && pz == obj.z / 1024)
+                    return false;
+            }
+
+        // check Laras destination position
+        if (!push) {
+            dir = getDir() * (-2048.0f);
+            px = e.x + (int)dir.x;
+            pz = e.z + (int)dir.z;
+            level->getFloorInfo(e.room, px, e.y, pz, info);
+            if ((info.slantX | info.slantZ) || info.floor != e.y || info.floor - info.ceiling < 1024)
+                return false;
+        }
+
         if (!animation.setState(push ? STATE_PUSH : STATE_PULL))
             return false;
         updateFloor(false);
