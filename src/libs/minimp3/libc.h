@@ -44,6 +44,8 @@
     #ifdef _MSC_VER
         typedef unsigned __int64 uint64_t;
         typedef   signed __int64  int64_t;
+    #elif defined(__x86_64__) && defined(__linux__)
+        #include <sys/types.h>
     #else
         typedef unsigned long long uint64_t;
         typedef   signed long long  int64_t;
