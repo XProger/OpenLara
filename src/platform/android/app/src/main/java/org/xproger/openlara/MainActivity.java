@@ -194,10 +194,22 @@ class Sound {
         int rate = 44100;
         int size = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
         //System.out.println(String.format("sound buffer size: %d", bufSize));
-        buffer = new short [size / 2];
-        audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO,
-                                    AudioFormat.ENCODING_PCM_16BIT, size, AudioTrack.MODE_STREAM);
-        audioTrack.play();
+        buffer = new short[size / 2];
+
+        try {
+            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO,
+                    AudioFormat.ENCODING_PCM_16BIT, size, AudioTrack.MODE_STREAM);
+        }catch (IllegalArgumentException e){
+            System.out.println("Error: buffer size is zero");
+            return;
+        }
+
+        try {
+            audioTrack.play();
+        }catch (NullPointerException e){
+            System.out.println("Error: audioTrack null pointer on start()");
+            return;
+        }
 
         new Thread( new Runnable() {
             public void run() {
@@ -220,17 +232,29 @@ class Sound {
     }
 
     void stop() {
-        audioTrack.flush();
-        audioTrack.stop();
-        audioTrack.release();
+        try {
+            audioTrack.flush();
+            audioTrack.stop();
+            audioTrack.release();
+        }catch (NullPointerException e){
+            System.out.println("Error: audioTrack null pointer on stop()");
+        }
     }
 
     void play() {
-        audioTrack.play();
+        try {
+            audioTrack.play();
+        }catch (NullPointerException e){
+            System.out.println("Error: audioTrack null pointer on play()");
+        }
     }
 
     void pause() {
-        audioTrack.pause();
+        try {
+            audioTrack.pause();
+        }catch (NullPointerException e){
+            System.out.println("Error: audioTrack null pointer on pause()");
+        };
     }
 }
 
