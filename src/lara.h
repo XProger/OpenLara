@@ -2209,9 +2209,7 @@ struct Lara : Character {
                     break;
                 case STAND_GROUND :
                 case STAND_HANG   :
-                    if (stand == STAND_GROUND && state != STATE_ROLL_1 && state != STATE_ROLL_2 && (pos - opos).length2() < 16)
-                        animation.setAnim(ANIM_STAND_NORMAL);
-                    else if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN)
+                    if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN)
                         animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
                     else if (stand == STAND_HANG)
                         animation.setAnim(ANIM_HANG, -21);
