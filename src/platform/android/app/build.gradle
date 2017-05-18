@@ -10,7 +10,7 @@ android {
         versionCode 1
         versionName "0.1"
         ndk {
-            abiFilters 'armeabi-v7a'
+            abiFilters 'armeabi-v7a','x86','x86_64'
         }
         externalNativeBuild {
             cmake {
