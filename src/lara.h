@@ -1135,6 +1135,16 @@ struct Lara : Character {
 
     virtual void hit(int damage, Controller *enemy = NULL) {
         health -= damage;
+        if (damage == 10000) { // T-Rex attack (fatal)
+            pos   = enemy->pos;
+            angle = enemy->angle;
+
+            meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], 0);
+            meshSwap(3, level->extra.weapons[Weapon::UZIS],    0);
+
+            animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
+        }
     };
 
     bool waterOut() {
@@ -1864,8 +1874,6 @@ struct Lara : Character {
     }
 
     virtual void update() {
-        collisionOffset = vec3(0.0f);
-        checkCollisions();
         Character::update();
     }
 
@@ -1998,7 +2006,9 @@ struct Lara : Character {
         vTilt *= rotFactor.y;
         updateTilt(state == STATE_RUN || stand == STAND_UNDERWATER, vTilt.x, vTilt.y);
 
-        if ((velocity + collisionOffset).length2() >= 1.0f)
+        collisionOffset = vec3(0.0f);
+
+        if (checkCollisions() || (velocity + collisionOffset).length2() >= 1.0f)
             move();
 
         if (getEntity().type != TR::Entity::LARA) {
@@ -2019,7 +2029,7 @@ struct Lara : Character {
         return getEntity().type == TR::Entity::LARA ? pos : chestOffset;
     }
 
-    void checkCollisions() {
+    bool checkCollisions() {
     // check static objects (TODO: check linked rooms?)
         TR::Room &room = getRoom();
         Box box(pos - vec3(LARA_RADIUS, LARA_HEIGHT, LARA_RADIUS), pos + vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
@@ -2038,27 +2048,40 @@ struct Lara : Character {
 
         if (!canHitAnim()) {
             hitDir = -1;
-            return;
+            return false;
         }
 
-    // check enemies
+    // check enemies & doors
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (!e.flags.active || !e.isEnemy()) continue;
-            Character *enemy = (Character*)e.controller;
-            if (enemy->health <= 0) continue;
+            Controller *controller = (Controller*)e.controller;
 
-            vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - enemy->pos;
-            vec3 p   = dir.rotateY(-enemy->angle.y);
+            if (e.isEnemy()) {
+                if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)e.controller)->health <= 0)) continue;
+            } else 
+                if (!e.isDoor()) continue;
 
-            Box enemyBox = enemy->getBoundingBoxLocal();
-            if (!enemyBox.contains(p))
+            vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
+            vec3 p   = dir.rotateY(controller->angle.y);
+
+            Box box = controller->getBoundingBoxLocal();
+            if (!box.contains(p))
                 continue;
 
-        // get shift
-            p += enemyBox.pushOut2D(p);
-            p = (p.rotateY(enemy->angle.y) + enemy->pos) - pos;
-            collisionOffset += vec3(p.x, 0.0f, p.z);
+            if (e.isEnemy()) { // enemy collision
+                if (!collide(controller, false))
+                    continue;
+                velocity.x = velocity.y = 0.0f;
+            } else { // door collision
+                p += box.pushOut2D(p);
+                p = (p.rotateY(-controller->angle.y) + controller->pos) - pos;
+                collisionOffset += vec3(p.x, 0.0f, p.z);
+            }
+
+            if (e.type == TR::Entity::ENEMY_REX && ((Character*)e.controller)->health <= 0)
+                return true;
+            if (e.isDoor())
+                return true;
 
         // get hit dir
             if (hitDir == -1) {
@@ -2068,10 +2091,11 @@ struct Lara : Character {
             }
 
             hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
-            return;
+            return true;
         }
 
         hitDir = -1;
+        return false;
     }
 
     void move() {
@@ -2125,42 +2149,6 @@ struct Lara : Character {
             if (collision.side == Collision::FRONT)
                 pos = opos;
         }
-
-        /*
-        TR::Animation *anim  = animation;
-        Box eBox = Box(pos - vec3(128.0f, 0.0f, 128.0f), pos + vec3(128.0, getHeight(), 128.0f)); // getBoundingBox();
-        // check static meshes in the room
-        if (canPassGap) {
-            TR::Room &r = level->rooms[e.room];
-            for (int i = 0; i < r.meshesCount; i++) {
-                TR::Room::Mesh &m = r.meshes[i];
-                TR::StaticMesh *sm = level->getMeshByID(m.meshID);
-                if (sm->flags != 2) continue; // no have collision box
-
-                Box  mBox;
-                vec3 offset(m.x, m.y, m.z);
-                sm->getBox(true, m.rotation, mBox);
-                mBox.min += offset;
-                mBox.max += offset;
-
-                if (eBox.intersect(mBox)) {
-                    canPassGap = false;
-                    break;
-                }
-            }
-        }
-
-        // check entities in the room
-        if (canPassGap)
-            for (int i = 0; i < level->entitiesCount; i++)
-                if (i != entity && level->entities[i].room == e.room && level->entities[i].controller) {
-                    Box mBox = ((Controller*)level->entities[i].controller)->getBoundingBox();
-                    if (eBox.intersect(mBox)) {
-                        canPassGap = false;
-                        break;
-                    }
-                }
-        */
 
     // get current leading foot in animation
         int rightStart = 0;

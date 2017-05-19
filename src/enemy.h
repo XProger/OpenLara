@@ -54,6 +54,7 @@ struct Enemy : Character {
     vec3  waypoint;
 
     float thinkTime;
+    float length;       // dist from center to head (jaws)
     float aggression;
     int   radius;
     int   stepHeight;
@@ -65,11 +66,20 @@ struct Enemy : Character {
     int jointChest;
     int jointHead;
 
-    Enemy(IGame *game, int entity, int health, int radius, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(0.0f), aggression(aggression), radius(radius), target(NULL), path(NULL) {
+    float targetDist;
+    bool  targetDead;
+    bool  targetInView;     // target in enemy view zone
+    bool  targetFromView;   // enemy in target view zone
+    bool  targetCanAttack;
+
+    Enemy(IGame *game, int entity, int health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
         stepHeight =  256;
         dropHeight = -256;
 
         jointChest = jointHead = -1;
+
+        targetDist   = +INF;
+        targetInView = targetFromView = targetCanAttack = false;
     }
 
     virtual ~Enemy() {
@@ -105,10 +115,13 @@ struct Enemy : Character {
         if (a.contains(x, z))
             return true;
 
+        bool big = getEntity().isBigEnemy();
         TR::Overlap *o = &level->overlaps[a.overlap.index];
         do {
             TR::Box &b = level->boxes[o->boxIndex];
             if (!b.contains(x, z))
+                continue;
+            if (big && b.overlap.blockable)
                 continue;
             if (getZones()[o->boxIndex] == zone) {
                 int d = a.floor - b.floor;
@@ -181,12 +194,12 @@ struct Enemy : Character {
             animation.overrideMask &= ~(1 << chest);
     }
 
-    void lookAt(int target, int chest, int head) {
+    void lookAt(int target, int chest, int head, bool rotate = false) {
         float speed = 8.0f * Core::deltaTime;
         quat rot;
 
         if (chest > -1) {
-            if (aim(target, chest, vec4(-PI * 0.8f, PI * 0.8f, -PI * 0.75f, PI * 0.75f), rot))
+            if (rotate && aim(target, chest, vec4(-PI * 0.8f, PI * 0.8f, -PI * 0.75f, PI * 0.75f), rot))
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
             else 
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
@@ -194,7 +207,7 @@ struct Enemy : Character {
         }
 
         if (head > -1) {
-            if (aim(target, head, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
+            if (rotate && aim(target, head, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
                 rotHead = rotHead.slerp(rot, speed);
             else
                 rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
@@ -243,7 +256,6 @@ struct Enemy : Character {
         }
         return 0;
     }
-
 
     virtual void hit(int damage, Controller *enemy = NULL) {
         Character::hit(damage, enemy);
@@ -301,8 +313,17 @@ struct Enemy : Character {
 
         if (!target) {
             mood = MOOD_SLEEP;
+            targetDist  = +INF;
+            targetInView = targetFromView = targetCanAttack = false;
             return true;
         }
+
+        vec3 targetVec  = target->pos - pos - getDir() * length;
+        targetDist      = targetVec.length();
+        targetDead      = target->health <= 0;
+        targetInView    = targetVec.dot(getDir()) > 0;
+        targetFromView  = targetVec.dot(target->getDir()) < 0;
+        targetCanAttack = targetInView && fabsf(targetVec.y) <= 256.0f;
 
         int targetBoxOld = targetBox;
 
@@ -364,7 +385,7 @@ struct Enemy : Character {
             targetBoxOld = -1;
 
         if (targetBoxOld != targetBox) {
-            if (findPath(stepHeight, dropHeight))
+            if (findPath(stepHeight, dropHeight, getEntity().isBigEnemy()))
                 nextWaypoint();
             else
                 targetBox = -1;
@@ -449,12 +470,12 @@ struct Enemy : Character {
         return !((e.x > t.x) ^ (x > 0)) || !((e.z > t.z) ^ (z > 0));
     }
 
-    bool findPath(int ascend, int descend) {
+    bool findPath(int ascend, int descend, bool big) {
         delete path;
         path = NULL;
 
         uint16 *boxes;
-        uint16 count = game->findPath(ascend, descend, box, targetBox, getZones(), &boxes);
+        uint16 count = game->findPath(ascend, descend, big, box, targetBox, getZones(), &boxes);
         if (count) {
             path = new Path(level, boxes, count);
             return true;
@@ -473,6 +494,10 @@ struct Enemy : Character {
 
 
 struct Wolf : Enemy {
+
+    enum {
+        HIT_MASK = 0x774F,  // body, head, front legs
+    };
 
     enum {
         ANIM_DEATH      = 20,
@@ -496,7 +521,7 @@ struct Wolf : Enemy {
         STATE_BITE   ,
     };
 
-    Wolf(IGame *game, int entity) : Enemy(game, entity, 6, 341, 0.25f) {
+    Wolf(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
         dropHeight = -1024;
         jointChest = 2;
         jointHead  = 3;
@@ -511,11 +536,9 @@ struct Wolf : Enemy {
         if (!think(false))
             return state;
 
-        float angle, dist;
+        float angle;
         getTargetInfo(0, NULL, NULL, &angle, NULL);
 
-        dist = (target && target->health > 0) ? (pos - target->pos).length() : +INF;
-        
         bool inZone = target ? target->zone == zone : false;
 
         if (nextState == state)
@@ -546,15 +569,18 @@ struct Wolf : Enemy {
             case STATE_GROWL    :
                 if (nextState != STATE_NONE) return nextState;
                 if (mood == MOOD_ESCAPE)     return STATE_RUN;
-                if (dist < WOLF_DIST_BITE)   return STATE_BITE;
+                if (targetDist < WOLF_DIST_BITE && targetCanAttack) return STATE_BITE;
                 if (mood == MOOD_STALK)      return STATE_STALK;
                 if (mood == MOOD_SLEEP)      return STATE_STOP;
                 return STATE_RUN;
             case STATE_STALK    : 
-                if (mood == MOOD_ESCAPE)    return STATE_RUN;
-                if (dist < WOLF_DIST_BITE)  return STATE_BITE;
-                if (dist > WOLF_DIST_STALK) return STATE_RUN;
-                if (mood == MOOD_ATTACK)    return STATE_RUN;
+                if (mood == MOOD_ESCAPE)            return STATE_RUN;
+                if (targetDist < WOLF_DIST_BITE && targetCanAttack) return STATE_BITE;
+                if (targetDist > WOLF_DIST_STALK)   return STATE_RUN;
+                if (mood == MOOD_ATTACK) {
+                    if (!targetInView || targetFromView || targetDist > WOLF_DIST_ATTACK)
+                        return STATE_RUN;
+                }
                 if (randf() < 0.012f) {
                     nextState = STATE_HOWL;
                     return STATE_GROWL;
@@ -562,15 +588,15 @@ struct Wolf : Enemy {
                 if (mood == MOOD_SLEEP)     return STATE_GROWL;
                 break;
             case STATE_RUN      :
-                if (dist < WOLF_DIST_ATTACK) {
-                    if (dist < WOLF_DIST_ATTACK * 0.5f && fabsf(angle) < PI * 0.5f) {
+                if (targetDist < WOLF_DIST_ATTACK && targetInView) {
+                    if (targetDist < WOLF_DIST_ATTACK * 0.5f && targetFromView) {
                         nextState = STATE_NONE;
                         return STATE_ATTACK;
                     }
                     nextState = STATE_STALK;
                     return STATE_GROWL;
                 }
-                if (mood == MOOD_STALK && dist < WOLF_DIST_STALK) {
+                if (mood == MOOD_STALK && targetDist < WOLF_DIST_STALK) {
                     nextState = STATE_STALK;
                     return STATE_GROWL;
                 }
@@ -578,7 +604,7 @@ struct Wolf : Enemy {
                 break;
             case STATE_ATTACK :
             case STATE_BITE   :
-                if (nextState == STATE_NONE && target->health > 0 && collide(target)) {
+                if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
                     bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_ATTACK ? 50 : 100);
                     nextState = state == STATE_ATTACK ? STATE_RUN : STATE_GROWL;
                 }
@@ -599,6 +625,7 @@ struct Wolf : Enemy {
 
     virtual void updatePosition() {
         float angleY = 0.0f;
+
         if (state == STATE_RUN || state == STATE_WALK || state == STATE_STALK)
             getTargetInfo(0, NULL, NULL, &angleY, NULL);
 
@@ -610,7 +637,7 @@ struct Wolf : Enemy {
         }
 
         Enemy::updatePosition();
-        setOverrides(state == STATE_RUN || state == STATE_WALK || state == STATE_STALK, jointChest, jointHead);
+        setOverrides(state != STATE_DEATH, jointChest, jointHead);
         lookAt(target ? target->entity : -1, jointChest, jointHead);
     }
 };
@@ -624,6 +651,10 @@ struct Wolf : Enemy {
 #define BEAR_TURN_SLOW   (DEG2RAD * 60)
 
 struct Bear : Enemy {
+
+    enum {
+        HIT_MASK = 0x2406C, // front legs and head
+    };
 
     enum {
         ANIM_DEATH_HIND = 19,
@@ -644,7 +675,7 @@ struct Bear : Enemy {
         STATE_DEATH  ,
     };
 
-    Bear(IGame *game, int entity) : Enemy(game, entity, 20, 341, 0.5f) {
+    Bear(IGame *game, int entity) : Enemy(game, entity, 20, 341, 500.0f, 0.5f) {
         jointChest = 13;
         jointHead  = 14;    
         nextState  = STATE_NONE;
@@ -654,73 +685,74 @@ struct Bear : Enemy {
         if (!getEntity().flags.active)
             return state;
 
-        if (!think(false))
+        if (!think(true))
             return state;
 
         if (nextState == state)
             nextState = STATE_NONE;
 
-        float dist = target ? (pos - target->pos).length() : +INF;
-
-        bool targetDead = target->health <= 0;
-
         switch (state) {
             case STATE_WALK     :
-                if (targetDead && collide(target))
-                    return STATE_STOP; // eat lara! >:E
-                else
-                    if (mood != MOOD_SLEEP) {
-                        if (mood == MOOD_ESCAPE)
-                            nextState = STATE_NONE;
-                        return STATE_STOP;
-                    } else if (randf() < 0.003f) {
-                        nextState = STATE_GROWL;
-                        return STATE_STOP;
-                    }
+                if (nextState != STATE_NONE) return STATE_STOP;
+                if (targetDead && targetInView && (collide(target) & HIT_MASK))
+                    return nextState = STATE_STOP; // eat lara! >:E
+                if (mood != MOOD_SLEEP) {
+                    if (mood == MOOD_ESCAPE)
+                        nextState = STATE_NONE;
+                    return STATE_STOP;
+                } else if (randf() < 0.003f) {
+                    nextState = STATE_GROWL;
+                    return STATE_STOP;
+                }
                 break;
             case STATE_STOP     :
                 if (targetDead)
-                    return dist <= BEAR_DIST_EAT ? STATE_EAT : STATE_WALK;
+                    return (targetDist < BEAR_DIST_EAT && targetCanAttack) ? STATE_EAT : STATE_WALK;
                 else
                     return nextState != STATE_NONE ? nextState : (mood == MOOD_SLEEP ? STATE_WALK : STATE_RUN);
             case STATE_HIND     :
-                if (collide(target)) {
-                    return STATE_HOWL;
-                }
-                if (mood == MOOD_ESCAPE) {
+                if (wound) {
                     nextState = STATE_NONE;
                     return STATE_HOWL;
                 }
-                if (mood == MOOD_SLEEP || randf() < 0.003f) {
+
+                if (targetInView && (collide(target) & HIT_MASK)) return STATE_HOWL;
+
+                if (mood == MOOD_ESCAPE)
+                    nextState = STATE_NONE;
+                else if (mood == MOOD_SLEEP || randf() < 0.003f)
                     nextState = STATE_GROWL;
-                    return STATE_HOWL;
-                }
-                if (dist > BEAR_DIST_HOWL || randf() < 0.05f) {
+                else if (targetDist > BEAR_DIST_HOWL || randf() < 0.05f)
                     nextState = STATE_STOP;
-                    return STATE_HOWL;
-                }
+
+                return STATE_HOWL;
                 break;
             case STATE_RUN      :
-                if (collide(target))
+                if (collide(target) & HIT_MASK)
                     target->hit(3, this);                
                 if (targetDead || mood == MOOD_SLEEP)
                     return STATE_STOP;
-                if (dist < BEAR_DIST_HOWL && randf() < 0.025f) {
-                    nextState = STATE_HOWL;
-                    return STATE_STOP;
-                } else if (dist < BEAR_DIST_BITE) {
-                    nextState = STATE_NONE;
-                    return STATE_BITE;
+                if (nextState != STATE_NONE) return STATE_STOP;
+                if (targetInView) {
+                    if (!wound && targetDist < BEAR_DIST_HOWL && randf() < 0.025f) {
+                        nextState = STATE_HOWL;
+                        return STATE_STOP;
+                    } 
+                    if (targetDist < BEAR_DIST_BITE) return STATE_BITE;
                 }
                 break;
             case STATE_HOWL     :
+                if (wound) {
+                    nextState = STATE_NONE;
+                    return STATE_STOP;
+                }
                 if (nextState != STATE_NONE) return nextState;
                 if (mood == MOOD_SLEEP || mood == MOOD_ESCAPE) return STATE_STOP;
-                if (dist < BEAR_DIST_ATTACK) return STATE_ATTACK;
+                if (targetDist < BEAR_DIST_ATTACK) return STATE_ATTACK;
                 return STATE_HIND;
             case STATE_BITE     :
             case STATE_ATTACK   :
-                if (nextState == STATE_NONE && collide(target)) {
+                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
                     bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_BITE ? 200 : 400);
                     nextState = state == STATE_BITE ? STATE_STOP : STATE_HOWL;
                 }
@@ -778,7 +810,7 @@ struct Bat : Enemy {
         STATE_DEATH,
     };
 
-    Bat(IGame *game, int entity) : Enemy(game, entity, 1, 102, 0.03f) {
+    Bat(IGame *game, int entity) : Enemy(game, entity, 1, 102, 0.0f, 0.03f) {
         stand = STAND_AIR;
         stepHeight =  20 * 1024;
         dropHeight = -20 * 1024;
@@ -834,6 +866,238 @@ struct Bat : Enemy {
         if (flying)
             lift(waypoint.y - pos.y, BAT_LIFT_SPEED);
         Enemy::updatePosition();
+    }
+};
+
+
+#define REX_DIST_BITE       1500
+#define REX_DIST_BITE_MAX   4096
+#define REX_DIST_WALK       5120
+#define REX_TURN_FAST       (DEG2RAD * 120)
+#define REX_TURN_SLOW       (DEG2RAD * 60)
+
+struct Rex : Enemy {
+
+    enum {
+        HIT_MASK = (1 << 12) | (1 << 13),  // head
+    };
+
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_UNUSED,
+        STATE_DEATH,
+        STATE_BAWL,
+        STATE_BITE,
+        STATE_FATAL,
+    };
+
+    Rex(IGame *game, int entity) : Enemy(game, entity, 100, 341, 2000.0f, 1.0f) {
+        jointChest = 10;
+        jointHead  = 12;    
+        nextState  = STATE_NONE;
+    }
+
+    virtual int getStateGround() {
+        if (!getEntity().flags.active)
+            return state;
+
+        if (!think(true))
+            return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (targetDead) {
+            return (state == STATE_STOP || state == STATE_WALK) ? STATE_WALK : STATE_STOP;
+            if (state != STATE_STOP) return STATE_STOP;
+            return STATE_WALK;
+        }
+
+        int mask = collide(target);
+
+        // if Lara is behind and watching Rex we need to rotate
+        bool walk = targetFromView && !targetInView && mood != MOOD_ESCAPE;
+        if (!walk && targetCanAttack && targetDist > REX_DIST_BITE && targetDist < REX_DIST_BITE_MAX)
+            walk = true;
+
+        switch (state) {
+            case STATE_STOP : 
+                if (nextState != STATE_NONE)                        return nextState;
+                if (targetCanAttack && targetDist < REX_DIST_BITE)  return STATE_BITE;
+                if (mood == MOOD_SLEEP || walk)                     return STATE_WALK;
+                return STATE_RUN;
+            case STATE_WALK :
+                if (mask) target->hit(1, this);
+                if (mood != MOOD_SLEEP && !walk)    return STATE_STOP;
+                if (targetInView && randf() < 0.015f) {
+                    nextState = STATE_BAWL;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_RUN :
+                if (mask) target->hit(10, this);
+                if ((targetCanAttack && targetDist < REX_DIST_WALK) || walk)
+                    return STATE_STOP;
+                if (targetInView && mood != MOOD_ESCAPE && randf() < 0.015f) {
+                    nextState = STATE_BAWL;
+                    return STATE_STOP;
+                }
+                if (mood == MOOD_SLEEP)
+                    return STATE_STOP;
+                break;
+            case STATE_BITE :
+                if (mask & HIT_MASK) {
+                    target->hit(10000, this);
+                    return STATE_FATAL;
+                }
+                nextState = STATE_WALK;
+                break;
+        }
+
+        return state;
+    }
+
+    virtual int getStateDeath() {
+        return state == STATE_STOP ? STATE_DEATH : STATE_STOP;
+    }
+
+    virtual void updatePosition() {
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            angle.z = 0.0f;
+            return;
+        }
+
+        float angleY = 0.0f;
+        getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        if (state == STATE_RUN || state == STATE_WALK)
+            turn(angleY, state == STATE_RUN ? REX_TURN_FAST : REX_TURN_SLOW);
+
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target ? target->entity : -1, jointChest, jointHead, targetInView && state != STATE_DEATH && state != STATE_FATAL);
+    }
+};
+
+#define RAPTOR_DIST_BITE        680
+#define RAPTOR_DIST_ATTACK      (1024 + 512)
+
+#define RAPTOR_TURN_FAST        (DEG2RAD * 120)
+#define RAPTOR_TURN_SLOW        (DEG2RAD * 30)
+
+struct Raptor : Enemy {
+
+    enum {
+        HIT_MASK = 0xFF7C00,  // hands and head
+    };
+
+    enum {
+        ANIM_DEATH_1 = 9,
+        ANIM_DEATH_2 = 10,
+    };
+
+    enum {
+        STATE_NONE = -1,
+        STATE_DEATH,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_ATTACK_1,
+        STATE_UNUSED,
+        STATE_BAWL,
+        STATE_ATTACK_2,
+        STATE_BITE,
+    };
+
+    Raptor(IGame *game, int entity) : Enemy(game, entity, 20, 341, 400.0f, 0.5f) {
+        jointChest = -1;
+        jointHead  = 21;    
+        nextState  = STATE_NONE;
+    }
+
+    virtual int getStateGround() {
+        if (!getEntity().flags.active)
+            return state;
+
+        if (!think(true))
+            return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (targetDead) {
+            return (state == STATE_STOP || state == STATE_WALK) ? STATE_WALK : STATE_STOP;
+            if (state != STATE_STOP) return STATE_STOP;
+            return STATE_WALK;
+        }
+
+        int mask = collide(target);
+
+        switch (state) {
+            case STATE_STOP : 
+                if (nextState != STATE_NONE) return nextState;
+                if ((mask & HIT_MASK) || (targetCanAttack && targetDist < RAPTOR_DIST_BITE)) return STATE_BITE;
+                if (targetCanAttack && targetDist < RAPTOR_DIST_ATTACK) return STATE_ATTACK_1;
+                if (mood == MOOD_SLEEP) return STATE_WALK;
+                return STATE_RUN;
+            case STATE_WALK :
+                if (nextState != STATE_NONE) return STATE_STOP;
+                if (mood != MOOD_SLEEP) return STATE_STOP;
+                if (targetInView && randf() < 0.01f) {
+                    nextState = STATE_BAWL;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_RUN :
+                if (nextState != STATE_NONE) return STATE_STOP;
+                if (mask & HIT_MASK) return STATE_STOP;
+                if (targetCanAttack && targetDist < RAPTOR_DIST_ATTACK)
+                    return (randf() < 0.25) ? STATE_STOP : STATE_ATTACK_2;
+                if (mood == MOOD_ESCAPE && targetInView) {
+                    nextState = STATE_BAWL;
+                    return STATE_STOP;
+                }
+                if (mood == MOOD_SLEEP)
+                    return STATE_STOP;
+                break;
+            case STATE_ATTACK_1 :
+            case STATE_ATTACK_2 :
+            case STATE_BITE     :
+                if (nextState == STATE_NONE && targetInView && (mask & HIT_MASK)) {
+                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, 100);                    
+                    nextState = state == STATE_ATTACK_2 ? STATE_RUN : STATE_STOP;
+                }
+                break;
+        }
+
+        return state;
+    }
+
+    virtual int getStateDeath() {
+        if (state == STATE_DEATH) return state;
+        return animation.setAnim((rand() % 2) ? ANIM_DEATH_1 : ANIM_DEATH_2);
+    }
+
+    virtual void updatePosition() {
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            angle.z = 0.0f;
+            return;
+        }
+
+        float angleY = 0.0f;
+        getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        if (state == STATE_RUN || state == STATE_WALK)
+            turn(angleY, state == STATE_RUN ? RAPTOR_TURN_FAST : RAPTOR_TURN_SLOW);
+        
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target ? target->entity : -1, jointChest, jointHead, targetInView && state != STATE_DEATH);
     }
 };
 

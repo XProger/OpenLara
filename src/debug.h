@@ -496,16 +496,29 @@ namespace Debug {
                 TR::Model *m = controller->getModel();
                 if (!m) continue;
 
-                Box box = controller->getBoundingBoxLocal();
-                Debug::Draw::box(matrix, box.min, box.max, vec4(1.0));
+                bool bboxIntersect = false;
 
                 Sphere spheres[34];
                 ASSERT(m->mCount <= 34);
                 controller->getSpheres(spheres);
+                int mask = 0;
+                for (int j = 0; j < level.entitiesCount; j++) {
+                    TR::Entity &t = level.entities[j];
+                    if (j == i || ((!t.isEnemy() || !t.flags.active) && t.type != TR::Entity::LARA)) continue;
+                    Controller *enemy = (Controller*)t.controller;
+                    if (!controller->getBoundingBox().intersect(enemy->getBoundingBox()))
+                        continue;
+                    bboxIntersect = true;
+                    mask |= controller->collide(enemy);
+                }
+
+                Box box = controller->getBoundingBoxLocal();
+                Debug::Draw::box(matrix, box.min, box.max, bboxIntersect ? vec4(1, 0, 0, 1): vec4(1));
+
 
                 for (int joint = 0; joint < m->mCount; joint++) {
                     Sphere &sphere = spheres[joint];
-                    Debug::Draw::sphere(sphere.center, sphere.radius, vec4(0, 1, 1, 0.5f));
+                    Debug::Draw::sphere(sphere.center, sphere.radius, (mask & (1 << joint)) ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
                     /*
                     { //if (e.id != 0) {
                         char buf[255];

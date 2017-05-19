@@ -602,11 +602,8 @@ namespace TR {
 
     struct Entity {
 
-        typedef int16 Type;
+        enum Type : int16 { NONE = -1, TR1_TYPES(DECL_ENUM) } type;
 
-        enum { NONE = -1, TR1_TYPES(DECL_ENUM) };
-
-        int16   type;
         int16   room;
         int32   x, y, z;
         angle   rotation;
@@ -622,6 +619,14 @@ namespace TR {
 
         bool isEnemy() {
             return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
+        }
+
+        bool isBigEnemy() {
+            return type == ENEMY_REX || type == ENEMY_MUTANT_1 || type == ENEMY_CENTAUR;
+        }
+
+        bool isDoor() {
+            return (type >= DOOR_1 && type <= DOOR_6) || type == DOOR_LIFT;
         }
 
         int isItem() {

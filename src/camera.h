@@ -28,6 +28,8 @@ struct Camera : Controller {
     bool    firstPerson;
     bool    isVR;
 
+    float   shake;
+
     Camera(IGame *game, Lara *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL), isVR(false) {
         changeView(false);
         cutscene = owner->getEntity().type != TR::Entity::LARA && level->cameraFrames;
@@ -90,6 +92,9 @@ struct Camera : Controller {
     }
 
     virtual void update() {
+        if (shake > 0.0f)
+            shake = max(0.0f, shake - Core::deltaTime);
+
     #ifndef LEVEL_EDITOR
         if (cutscene) { // cutscene
             timer += Core::deltaTime * 30;
@@ -149,8 +154,8 @@ struct Camera : Controller {
                 advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
             }
         #endif
-
-            angle = owner->angle + advAngle;
+            if (owner->health > 0)
+                angle = owner->angle + advAngle;
             angle.z = 0.0f;
 
             if (owner->stand == Lara::STAND_ONWATER)
@@ -275,13 +280,14 @@ struct Camera : Controller {
                 Core::mViewInv = mViewInv;
 
             Core::mView = Core::mViewInv.inverse();
+            if (shake > 0.0f)
+                Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
             if (isVR)
                 Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * 32.0f));
 
             Core::mProj = getProjMatrix();
 
-        // TODO: camera shake
         // TODO: temporal anti-aliasing
         //    Core::mProj.e02 = (randf() - 0.5f) * 32.0f / Core::width;
         //    Core::mProj.e12 = (randf() - 0.5f) * 32.0f / Core::height;

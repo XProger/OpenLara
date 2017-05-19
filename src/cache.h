@@ -798,7 +798,7 @@ struct ZoneCache {
         return items = new Item(zone, count, zones, boxes, items);
     }
 
-    uint16 findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
+    uint16 findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
         if (boxStart == 0xFFFF || boxEnd == 0xFFFF)
             return 0;
 
@@ -858,6 +858,9 @@ struct ZoneCache {
                     continue;
                 // has same zone
                 if (zones[index] != zone)
+                    continue;
+                // check passability
+                if (big && level->boxes[index].overlap.blockable)
                     continue;
                 // check blocking (doors)
                 if (level->boxes[index].overlap.block)

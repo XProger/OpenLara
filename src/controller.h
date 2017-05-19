@@ -20,7 +20,7 @@ struct IGame {
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Controller*  getCamera()    { return NULL; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
-    virtual uint16       findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
+    virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
     virtual void updateParams() {}
@@ -28,6 +28,7 @@ struct IGame {
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex, bool genShadowMask = false) {}
+    virtual void fxQuake(float time) {}
 };
 
 struct Controller {
@@ -265,14 +266,14 @@ struct Controller {
 
     }
 
-    bool collide(Controller *controller) {
+    int collide(Controller *controller, bool checkBoxes = true) {
         TR::Model *a = getModel();
-        TR::Model *b = getModel();
+        TR::Model *b = controller->getModel();
         if (!a || !b) 
-            return false;
+            return 0;
 
-        if (!getBoundingBox().intersect(controller->getBoundingBox()))
-            return false;
+        if (checkBoxes && !getBoundingBox().intersect(controller->getBoundingBox()))
+            return 0;
 
         ASSERT(a->mCount <= 34);
         ASSERT(b->mCount <= 34);
@@ -283,12 +284,15 @@ struct Controller {
         getSpheres(aSpheres);
         controller->getSpheres(bSpheres);
 
-        for (int i = 0; i < a->mCount; i++)        
-            for (int j = 0; j < b->mCount; j++)
-                if (aSpheres[i].intersect(bSpheres[j]))
-                    return true;
-
-        return false;
+        int mask = 0;
+        for (int i = 0; i < a->mCount; i++) 
+            if (aSpheres[i].radius > 0.0f)
+                for (int j = 0; j < b->mCount; j++)
+                    if (bSpheres[j].radius > 0.0f && bSpheres[j].intersect(aSpheres[i])) {
+                        mask |= (1 << i);
+                        break;
+                    }
+        return mask;
     }
 
     vec3 trace(int fromRoom, const vec3 &from, const vec3 &to, int &room, bool isCamera) { // TODO: use Bresenham
@@ -452,6 +456,7 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI; break;
+                                    case TR::EFFECT_FLOOR_SHAKE    : game->fxQuake(0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
                                     case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
                                     default                        : cmdEffect(fx); break;
                                 }
