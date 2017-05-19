@@ -498,9 +498,8 @@ namespace Debug {
 
                 bool bboxIntersect = false;
 
-                Sphere spheres[34];
                 ASSERT(m->mCount <= 34);
-                controller->getSpheres(spheres);
+
                 int mask = 0;
                 for (int j = 0; j < level.entitiesCount; j++) {
                     TR::Entity &t = level.entities[j];
@@ -515,8 +514,11 @@ namespace Debug {
                 Box box = controller->getBoundingBoxLocal();
                 Debug::Draw::box(matrix, box.min, box.max, bboxIntersect ? vec4(1, 0, 0, 1): vec4(1));
 
+                Sphere spheres[34];
+                int count;
+                controller->getSpheres(spheres, count);
 
-                for (int joint = 0; joint < m->mCount; joint++) {
+                for (int joint = 0; joint < count; joint++) {
                     Sphere &sphere = spheres[joint];
                     Debug::Draw::sphere(sphere.center, sphere.radius, (mask & (1 << joint)) ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
                     /*

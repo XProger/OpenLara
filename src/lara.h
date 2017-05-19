@@ -1088,15 +1088,26 @@ struct Lara : Character {
 
     bool checkHit(int target, const vec3 &from, const vec3 &to, vec3 &point) {
         TR::Entity &e = level->entities[target];
-        Box box = ((Controller*)e.controller)->getBoundingBox();
+        Controller *controller = (Controller*)e.controller;
+
+        Box box = controller->getBoundingBoxLocal();
+        mat4 m  = controller->getMatrix();
+
         float t;
-        vec3 v = (to - from);
-        vec3 dir = v.normal();
-        if (box.intersect(from, dir, t) && v.length() > t) {
-            point = from + dir * t;
-            return true;
-        } else
-            return false;
+        vec3 v = to - from;
+        
+        if (box.intersect(m, from, v, t)) {
+            v = v.normal();
+            Sphere spheres[34];
+            int count;
+            controller->getSpheres(spheres, count);
+            for (int i = 0; i < count; i++) 
+                if (spheres[i].intersect(from, v, t)) {
+                    point = from + v * t;
+                    return true;
+                }
+        }
+        return false;
     }
 
     virtual void cmdEmpty() {
@@ -1145,6 +1156,9 @@ struct Lara : Character {
 
             animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
         }
+
+        if (health <= 0)
+            Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
     };
 
     bool waterOut() {

@@ -254,16 +254,17 @@ struct Controller {
         return animation.getBoundingBox(vec3(0, 0, 0), oriented ? getEntity().rotation.value / 0x4000 : 0);
     }
 
-    void getSpheres(Sphere *spheres) {
+    void getSpheres(Sphere *spheres, int &count) {
         TR::Model *m = getModel();
         Basis basis(getMatrix());
 
+        count = 0;
         for (int i = 0; i < m->mCount; i++) {
             TR::Mesh &aMesh = level->meshes[level->meshOffsets[m->mStart + i]];
+            if (aMesh.radius <= 0) continue;
             vec3 center = animation.getJoints(basis, i, true) * aMesh.center;
-            spheres[i] = Sphere(center, aMesh.radius);
+            spheres[count++] = Sphere(center, aMesh.radius);
         }
-
     }
 
     int collide(Controller *controller, bool checkBoxes = true) {
@@ -280,18 +281,18 @@ struct Controller {
 
         Sphere aSpheres[34];
         Sphere bSpheres[34];
+        int aCount, bCount;
 
-        getSpheres(aSpheres);
-        controller->getSpheres(bSpheres);
+        getSpheres(aSpheres, aCount);
+        controller->getSpheres(bSpheres, bCount);
 
         int mask = 0;
-        for (int i = 0; i < a->mCount; i++) 
-            if (aSpheres[i].radius > 0.0f)
-                for (int j = 0; j < b->mCount; j++)
-                    if (bSpheres[j].radius > 0.0f && bSpheres[j].intersect(aSpheres[i])) {
-                        mask |= (1 << i);
-                        break;
-                    }
+        for (int i = 0; i < aCount; i++) 
+            for (int j = 0; j < bCount; j++)
+                if (bSpheres[j].intersect(aSpheres[i])) {
+                    mask |= (1 << i);
+                    break;
+                }
         return mask;
     }
 
