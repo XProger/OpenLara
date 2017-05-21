@@ -203,7 +203,8 @@ struct Lara : Character {
     vec3            chestOffset;
 
     struct Arm {
-        int             target;
+        int             tracking;       // tracking target (main target)
+        int             target;         // target for shooting
         float           shotTimer;
         quat            rot, rotAbs;
         Weapon::Anim    anim;
@@ -707,15 +708,16 @@ struct Lara : Character {
     void wpnFire() {
         bool armShot[2] = { false, false };
         for (int i = 0; i < 2; i++) {
-            if (arms[i].anim == Weapon::Anim::FIRE) {
-                Animation &anim = arms[i].animation;
+            Arm &arm = arms[i];
+            if (arm.anim == Weapon::Anim::FIRE) {
+                Animation &anim = arm.animation;
                 //int realFrameIndex = int(arms[i].animation.time * 30.0f / anim->frameRate) % ((anim->frameEnd - anim->frameStart) / anim->frameRate + 1);
                 if (anim.frameIndex != anim.framePrev) {
                     if (anim.frameIndex == 0) { //realFrameIndex < arms[i].animation.framePrev) {
-                        if ((input & ACTION) && (target == -1 || (target > -1 && arms[i].target > -1))) {
+                        if ((input & ACTION) && (arm.tracking == -1 || arm.target > -1)) {
                             armShot[i] = true;
                         } else
-                            wpnSetAnim(arms[i], Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, target == -1);
+                            wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == -1);
                     }
                 // shotgun reload sound
                     if (wpnCurrent == Weapon::SHOTGUN) {
@@ -723,9 +725,8 @@ struct Lara : Character {
                             playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::Flags::PAN);
                     }
                 }
-
             }
-            arms[i].animation.framePrev = arms[i].animation.frameIndex;
+            arm.animation.framePrev = arm.animation.frameIndex;
 
             if (wpnCurrent == Weapon::SHOTGUN) break;
         }
@@ -763,8 +764,8 @@ struct Lara : Character {
 
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
-            if (target > -1 && checkHit(target, p, hit, hit)) {
-                ((Character*)level->entities[target].controller)->hit(wpnGetDamage());
+            if (arm->target > -1 && checkHit(arm->target, p, hit, hit)) {
+                ((Character*)level->entities[arm->target].controller)->hit(wpnGetDamage());
                 hit -= d * 64.0f;
                 Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
@@ -793,8 +794,9 @@ struct Lara : Character {
 
         if (input & DEATH) {
             arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
+            arms[0].tracking  = arms[1].tracking  = -1;
+            arms[0].target    = arms[1].target    = -1;
             animation.overrideMask = 0;
-            target = -1;
             return;
         }
 
@@ -824,12 +826,14 @@ struct Lara : Character {
             bool isRifle = wpnCurrent == Weapon::SHOTGUN;
 
             for (int i = 0; i < 2; i++) {
-                if (arms[i].target > -1 || ((input & ACTION) && target == -1)) {
-                    if (arms[i].anim == Weapon::Anim::HOLD)
-                        wpnSetAnim(arms[i], wpnState, Weapon::Anim::AIM, 0.0f, 1.0f);
+                Arm &arm = arms[i];
+
+                if (arm.target > -1 || ((input & ACTION) && arm.tracking == -1)) {
+                    if (arm.anim == Weapon::Anim::HOLD)
+                        wpnSetAnim(arm, wpnState, Weapon::Anim::AIM, 0.0f, 1.0f);
                 } else
-                    if (arms[i].anim == Weapon::Anim::AIM)
-                        arms[i].animation.dir = -1.0f;
+                    if (arm.anim == Weapon::Anim::AIM)
+                        arm.animation.dir = -1.0f;
 
                 if (isRifle) break;
             }
@@ -1003,22 +1007,32 @@ struct Lara : Character {
 
     void aimShotgun() {
         quat rot;
-        if (!aim(target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arms[0].rotAbs))
-            arms[0].target = -1;
+
+        Arm &arm = arms[0];
+        arm.target = aim(arm.target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs) ? arm.target : -1;
     }
 
     void aimPistols() {
         float speed = 8.0f * Core::deltaTime;
 
-        for (int i = 0; i < 2; i++) {
-            int joint  = i ? 11 : 8;
-            vec4 range = i ? vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.5f, PI * 0.2f) : vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.2f, PI * 0.5f);
+        int joints[2] = { 8, 11 };
 
-            Arm &arm = arms[i];
+        vec4 ranges[2] = {
+            vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.2f, PI * 0.5f),
+            vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.5f, PI * 0.2f),
+        };
+        
+        for (int i = 0; i < 2; i++) {
             quat rot;
-            if (!aim(target, joint, range, rot, &arm.rotAbs)) {
-                arm.target = -1;
-                rot = quat(0, 0, 0, 1);
+            Arm &arm = arms[i];
+            int j = joints[i];
+
+            if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {                
+                arm.target = arms[i^1].target;
+                if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
+                    rot = quat(0, 0, 0, 1);
+                    arm.target = -1;
+                }
             }
 
             float t;
@@ -1030,33 +1044,81 @@ struct Lara : Character {
                 t = 0.0f;
 
             arm.rot = arm.rot.slerp(rot, speed);
-            animation.overrides[joint] = animation.overrides[joint].slerp(arm.rot * animation.overrides[joint], t);
+            animation.overrides[j] = animation.overrides[j].slerp(arm.rot * animation.overrides[j], t);
         }
     }
 
     void updateTargets() {
+        arms[0].target = arms[1].target = -1;
+
         if (emptyHands() || !wpnReady()) {
-            target = arms[0].target = arms[1].target = -1;
+            arms[0].tracking = arms[1].tracking = -1;
             return;
         }
 
+        int count = wpnCurrent != Weapon::SHOTGUN ? 2 : 1;
         if (!(input & ACTION)) {
-            target = getTarget();
-            arms[0].target = arms[1].target = target;
-        } else
-            if (target > -1) {
-                TR::Entity &e = level->entities[target];
-                vec3 to   = ((Controller*)e.controller)->pos;
-                vec3 from = pos - vec3(0, 512, 0);
-                arms[0].target = arms[1].target = checkOcclusion(from, to, (to - from).length()) ? target : -1;
+            getTargets(arms[0].tracking, arms[1].tracking);
+            if (count == 1)
+                arms[1].tracking = -1;
+            else if (arms[0].tracking == -1 && arms[1].tracking != -1)
+                arms[0].tracking = arms[1].tracking;
+            else if (arms[1].tracking == -1 && arms[0].tracking != -1)
+                arms[1].tracking = arms[0].tracking;
+            arms[0].target = arms[0].tracking;
+            arms[1].target = arms[1].tracking;
+        } else {
+            if (arms[0].tracking == -1 && arms[1].tracking == -1)
+                return;
+
+        // flip left and right by relative target direction
+            if (count > 1) {
+                int side[2] = { 0, 0 };
+                vec3 dir = getDir();
+                dir.y = 0.0f;
+
+                for (int i = 0; i < count; i++)
+                    if (arms[i].tracking != -1) {
+                        vec3 v = ((Controller*)level->entities[arms[i].tracking].controller)->pos - pos;
+                        v.y = 0;
+                        side[i] = sign(v.cross(dir).y);
+                    }
+
+                if (side[0] > 0 && side[1] < 0)
+                    swap(arms[0].tracking, arms[1].tracking);
             }
+
+        // check occlusion for tracking targets
+            for (int i = 0; i < count; i++)
+                if (arms[i].tracking > -1) {
+                    TR::Entity &e = level->entities[arms[i].tracking];
+                    Controller *enemy = (Controller*)e.controller;
+
+                    Box box = enemy->getBoundingBox();
+                    vec3 to = box.center();
+                    to.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
+
+                    vec3 from = pos - vec3(0, 650, 0);
+                    arms[i].target = checkOcclusion(from, to, (to - from).length()) ? arms[i].tracking : -1;
+                }
+
+            if (count == 1)
+                arms[1].target = -1;
+            else if (arms[0].target == -1 && arms[1].target != -1)
+                arms[0].target = arms[1].target;
+            else if (arms[1].target == -1 && arms[0].target != -1)
+                arms[1].target = arms[0].target;
+        }
     }
 
-    int getTarget() {
+    void getTargets(int &target1, int &target2) {
         vec3 dir = getDir().normal();
-        float dist = TARGET_MAX_DIST;
+        float dist[2]  = { TARGET_MAX_DIST, TARGET_MAX_DIST };
 
-        int index = -1;
+        target1 = target2 = -1;
+
+        vec3 from = pos - vec3(0, 650, 0);
+
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
             if (!e.flags.active || !e.isEnemy()) continue;
@@ -1071,13 +1133,23 @@ struct Lara : Character {
             if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sight -60..+60 degrees
 
             float d = v.length();
-            if (d < dist && checkOcclusion(pos - vec3(0, 650, 0), p, d) ) {
-                index = i;
-                dist  = d;
+
+            if ((d > dist[0] && d > dist[1]) || !checkOcclusion(from, p, d)) 
+                continue;
+
+            if (d < dist[0]) {
+                target2 = target1;
+                dist[1] = dist[0];
+                target1 = i;
+                dist[0] = d;
+            } else if (d < dist[1]) {
+                target2 = i;
+                dist[1] = d;
             }
         }
 
-        return index;
+        if (target2 == -1 || dist[1] > dist[0] * 4)
+            target2 = target1;
     }
 
     bool checkOcclusion(const vec3 &from, const vec3 &to, float dist) {

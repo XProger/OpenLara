@@ -188,7 +188,12 @@ struct Camera : Controller {
         #endif
             int lookAt = -1;
             if (actTargetEntity > -1)   lookAt = actTargetEntity;
-            if (owner->target > -1)     lookAt = owner->target;
+            if (owner->arms[0].target > -1 && owner->arms[1].target > -1 && owner->arms[0].target != owner->arms[1].target) {
+                // two diff targets
+            } else if (owner->arms[0].target > -1)
+                lookAt = owner->arms[0].target;
+            else if (owner->arms[1].target > -1)
+                lookAt = owner->arms[1].target;
 
             owner->viewTarget = lookAt;
 
