@@ -194,6 +194,10 @@ struct Camera : Controller {
                 lookAt = owner->arms[0].target;
             else if (owner->arms[1].target > -1)
                 lookAt = owner->arms[1].target;
+            else if (owner->arms[0].tracking > -1)
+                lookAt = owner->arms[0].tracking;
+            else if (owner->arms[1].tracking > -1)
+                lookAt = owner->arms[1].tracking;
 
             owner->viewTarget = lookAt;
 
