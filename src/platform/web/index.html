@@ -1,17 +1,40 @@
 <!DOCTYPE html>
 <html>
-		<head><title>OpenLara</title></head>
+		<head>
+			<title>OpenLara</title>
+			<style>
+			html {
+				overflow: hidden;
+			}
+			body {
+				margin: 0px;
+			}
+			.game_fs {
+				position: absolute;
+				top: 0px;
+				left: 0px;
+				margin: 0px;
+				width: 100%;
+				height: 100%;
+				border: 0;
+				display: block;
+			}
+			</style>
+			<meta charset="utf-8">
+			<meta name="apple-mobile-web-app-capable" content="yes">
+			<meta name="viewport" content="width=854px, user-scalable=no">
+			
+		</head>
 		<body>
-			<span id="status">Starting...</span>
-			<canvas id="canvas" width="854" height="480" oncontextmenu="event.preventDefault()"></canvas><br>
-
+			<canvas class="game" id="canvas" width="854px" height="480px" oncontextmenu="event.preventDefault()"></canvas><br>
+			<div id="status">Starting...</div>
 			<script type='text/javascript'>
 				var statusElement = document.getElementById('status');
 				var canvasElement = document.getElementById('canvas');
-                var proc;
-                
+				var proc;
+				
 				var Module = {
-                	TOTAL_MEMORY: 64*1024*1024,
+					TOTAL_MEMORY: 64*1024*1024,
 					preRun: [],
 					postRun: [],
 					print: (function() {
@@ -59,7 +82,7 @@
 						Module.ccall('snd_fill', 'null', ['number', 'number'], [frames, framesCount]);
 						for (var i = 0; i < count; i++) {
 							var index = frames + Math.floor(i * rate) * 4; // 4 is sample frame stride in bytes
-							L[i] = Module.getValue(index	, 'i16') / 0x8000;
+							L[i] = Module.getValue(index    , 'i16') / 0x8000;
 							R[i] = Module.getValue(index + 2, 'i16') / 0x8000;
 						}
 					}
@@ -100,36 +123,36 @@
 					return "Really want to quit the game?";
 				};
 
-                function readLevel(event, home) {
-                    var reader = new FileReader();
-                    reader.onload = function(){
-                        var size = reader.result.byteLength;
-                        var data = Module._malloc(size);
-                        Module.writeArrayToMemory(new Uint8Array(reader.result), data);
-                        Module.ccall('game_level_load', 'null', ['number', 'number', 'number'], [data, size, home]);
-                    };
-                    reader.readAsArrayBuffer(event.target.files[0]);
-                }
+				function readLevel(event, home) {
+					var reader = new FileReader();
+					reader.onload = function(){
+						var size = reader.result.byteLength;
+						var data = Module._malloc(size);
+						Module.writeArrayToMemory(new Uint8Array(reader.result), data);
+						Module.ccall('game_level_load', 'null', ['number', 'number', 'number'], [data, size, home]);
+					};
+					reader.readAsArrayBuffer(event.target.files[0]);
+				}
 			</script>
 
 			<audio autoplay loop><source src="05.ogg" type="audio/ogg"></audio>
-            
-			<span id="info">                
-                <input type="file" id="browseFile" style="display:none" accept=".phd,.psx" onchange="readLevel(event, document.getElementById('isHome').checked)" />
-                <!-- <label for="browseFile">Browse Level</label> -->
-                <input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX)                
-                <input type="checkbox" id="isHome"><label>alternative model (home suit, gold etc.)</label>
-                <br><br>
-                OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-                controls:<br>
-                keyboad: move - WASD / arrows, jump - Space, action - E/Ctrl, draw weapon - Q, change weapon - 1-4, walk - Shift, side steps - ZX/walk+direction, camera - MouseR)<br>
-                gamepad: PSX controls for Xbox controller<br>
-                Change view: V<br>
-                Time Control: R - slow motion, T - fast motion<br>
-                FullScreen: Alt + Enter
-            </span>
+			
+			<span id="info">
+				<input type="file" id="browseFile" style="display:none" accept=".phd,.psx" onchange="readLevel(event, document.getElementById('isHome').checked)" />
+				<!-- <label for="browseFile">Browse Level</label> -->
+				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX)				  
+				<input type="checkbox" id="isHome"><label>alternative model (home suit, gold etc.)</label>
+				<br><br>
+				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
+				controls:<br>
+				keyboad: move - WASD / arrows, jump - Space, action - E/Ctrl, draw weapon - Q, change weapon - 1-4, walk - Shift, side steps - ZX/walk+direction, camera - MouseR)<br>
+				gamepad: PSX controls for Xbox controller<br>
+				Change view: V<br>
+				Time Control: R - slow motion, T - fast motion<br>
+				FullScreen: Alt + Enter
+			</span>
 
-            <script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','//www.google-analytics.com/analytics.js','ga');ga('create', 'UA-60009035-1', 'auto');ga('send', 'pageview');</script>
-        
+			<script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','//www.google-analytics.com/analytics.js','ga');ga('create', 'UA-60009035-1', 'auto');ga('send', 'pageview');</script>
+		
 		</body>
 </html>
