@@ -99,7 +99,25 @@ InputKey mouseToInputKey(int btn) {
     return ikNone;
 }
 
-void WndProc(const XEvent &e) {
+void toggle_fullscreen(Display* dpy, Window win) {
+    const size_t _NET_WM_STATE_TOGGLE=2;
+
+    XEvent xev;
+    Atom wm_state  =  XInternAtom(dpy, "_NET_WM_STATE", False);
+    Atom scr_full  =  XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+
+    memset(&xev, 0, sizeof(xev));
+    xev.type = ClientMessage;
+    xev.xclient.window = win;
+    xev.xclient.message_type = wm_state;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = _NET_WM_STATE_TOGGLE;
+    xev.xclient.data.l[1] = scr_full;
+
+    XSendEvent(dpy, DefaultRootWindow(dpy), False, SubstructureNotifyMask, &xev);
+}
+
+void WndProc(const XEvent &e,Display*dpy,Window wnd) {
     switch (e.type) {
         case ConfigureNotify :
             Core::width  = e.xconfigure.width;
@@ -108,7 +126,7 @@ void WndProc(const XEvent &e) {
         case KeyPress   :
         case KeyRelease :
             if (e.type == KeyPress && (e.xkey.state & Mod1Mask) && e.xkey.keycode == 36) {
-                // TODO: windowed <-> fullscreen switch
+                toggle_fullscreen(dpy,wnd);
                 break;
             }
             Input::setDown(keyToInputKey(e.xkey.keycode), e.type == KeyPress);
@@ -183,7 +201,7 @@ int main() {
             XNextEvent(dpy, &event);
             if (event.type == ClientMessage && *event.xclient.data.l == WM_DELETE_WINDOW)
                 break;
-            WndProc(event);
+            WndProc(event,dpy,wnd);
         } else {
             int time = getTime();
             if (time <= lastTime)
