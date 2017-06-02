@@ -557,10 +557,10 @@ namespace Debug {
                     uint32 data;
                     uint32 dataSize;
                 } header = {
-                        FOURCC("RIFF"), sizeof(Header) - 8 + dataSize,
+                        FOURCC("RIFF"), (uint32) sizeof(Header) - 8 + dataSize,
                         FOURCC("WAVE"), FOURCC("fmt "), 16,
                         { 1, 1, 44100, 44100 * 16 / 8, 0, 16 },
-                        FOURCC("data"), dataSize
+                        FOURCC("data"), (uint32) dataSize
                     };
 
                 fwrite(&header, sizeof(header), 1, f);
