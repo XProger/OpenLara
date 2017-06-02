@@ -7,7 +7,12 @@
 #include <float.h>
 
 #ifdef _DEBUG
-    #define debugBreak() _asm { int 3 }
+    #ifdef LINUX
+        #define debugBreak() raise(SIGTRAP);
+    #else
+        #define debugBreak() _asm { int 3 }
+    #endif
+
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT %s in %s:%d\n", #expr, __FILE__, __LINE__); debugBreak(); }
 
     #ifndef ANDROID
