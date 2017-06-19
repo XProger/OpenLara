@@ -11,15 +11,36 @@ namespace Debug {
     static GLuint font;
 
     void init() {
-        font = glGenLists(256);
-        HDC hdc = GetDC(0); 
-        HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
-                                 0, 0, FW_BOLD, 0, 0, 0,
-                                 ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                 ANTIALIASED_QUALITY, DEFAULT_PITCH, "Courier New");
-        SelectObject(hdc, hfont);
-        wglUseFontBitmaps(hdc, 0, 256, font);
-        DeleteObject(hfont);
+        #ifdef WIN32
+            font = glGenLists(256);
+            HDC hdc = GetDC(0);
+            HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
+                                     0, 0, FW_BOLD, 0, 0, 0,
+                                     ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                     ANTIALIASED_QUALITY, DEFAULT_PITCH, "Courier New");
+            SelectObject(hdc, hfont);
+            wglUseFontBitmaps(hdc, 0, 256, font);
+            DeleteObject(hfont);
+        #elif LINUX
+            XFontStruct *fontInfo;
+            Font id;
+            unsigned int first, last;
+            fontInfo = XLoadQueryFont(glXGetCurrentDisplay(), "-adobe-times-medium-r-normal--17-120-100-100-p-88-iso8859-1");
+
+            if (fontInfo == NULL) {
+                LOG("no font found\n");
+            }
+
+            id = fontInfo->fid;
+            first = fontInfo->min_char_or_byte2;
+            last = fontInfo->max_char_or_byte2;
+
+            font = glGenLists(last + 1);
+            if (font == 0) {
+                LOG("out of display lists\n");
+            }
+            glXUseXFont(id, first, last - first + 1, font + first);
+        #endif
     }
 
     void free() {
@@ -557,10 +578,10 @@ namespace Debug {
                     uint32 data;
                     uint32 dataSize;
                 } header = {
-                        FOURCC("RIFF"), sizeof(Header) - 8 + dataSize,
+                        FOURCC("RIFF"), (uint32) sizeof(Header) - 8 + dataSize,
                         FOURCC("WAVE"), FOURCC("fmt "), 16,
                         { 1, 1, 44100, 44100 * 16 / 8, 0, 16 },
-                        FOURCC("data"), dataSize
+                        FOURCC("data"), (uint32) dataSize
                     };
 
                 fwrite(&header, sizeof(header), 1, f);
