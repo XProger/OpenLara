@@ -34,7 +34,7 @@ namespace UI {
         return width - 1;
     }
 
-    #define MAX_CHARS 1024
+    #define MAX_CHARS DYN_MESH_QUADS
 
     struct {
         Vertex  vertices[MAX_CHARS * 4];
@@ -49,7 +49,7 @@ namespace UI {
 
     void textEnd(IGame *game) {
         if (buffer.iCount > 0) {
-            game->getMesh()->renderBuffer(buffer.indices, buffer.vertices, buffer.iCount);
+            game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
             buffer.iCount = buffer.vCount = 0;
         }
     }

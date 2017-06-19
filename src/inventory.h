@@ -140,11 +140,11 @@ struct Inventory {
         add(TR::Entity::INV_CONTROLS);
         add(TR::Entity::INV_COMPASS);
 
-        if (level->extra.inv.map)
+        if (level->extra.inv.map != -1)
             add(TR::Entity::INV_MAP);
-        if (level->extra.inv.gamma)
+        if (level->extra.inv.gamma != -1)
             add(TR::Entity::INV_GAMMA);
-        
+
         add(TR::Entity::INV_PISTOLS, 999);
         add(TR::Entity::INV_SHOTGUN, 999);
         add(TR::Entity::INV_MAGNUMS, 999);

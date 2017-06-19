@@ -21,13 +21,13 @@ struct MeshRange {
 
     MeshRange() : aIndex(-1) {}
 
-    void setup(Vertex *offset) const {
+    void setup() const {
         glEnableVertexAttribArray(aCoord);
         glEnableVertexAttribArray(aTexCoord);
         glEnableVertexAttribArray(aNormal);
         glEnableVertexAttribArray(aColor);
 
-        Vertex *v = (Vertex*)(offset + vStart);
+        Vertex *v = (Vertex*)NULL + vStart;
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
         glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
         glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(Vertex), &v->normal);
@@ -44,6 +44,8 @@ struct MeshRange {
 #define PLANE_DETAIL 48
 #define CIRCLE_SEGS  16
 
+#define DYN_MESH_QUADS 1024
+
 struct Mesh {
     GLuint  ID[2];
     GLuint  *VAO;
@@ -53,6 +55,9 @@ struct Mesh {
     int     aIndex;
 
     Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount) : VAO(NULL), iCount(iCount), vCount(vCount), aCount(aCount), aIndex(0) {
+        if (Core::support.VAO)
+            glBindVertexArray(Core::active.VAO = 0);
+
         glGenBuffers(2, ID);
         bind(true);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
@@ -61,6 +66,20 @@ struct Mesh {
         if (Core::support.VAO && aCount) {
             VAO = new GLuint[aCount];
             glGenVertexArrays(aCount, VAO);
+        }
+    }
+
+    void update(Index *indices, int iCount, Vertex *vertices, int vCount) {
+        if (Core::support.VAO)
+            glBindVertexArray(Core::active.VAO = 0);
+
+        if (indices && iCount) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
+            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, iCount * sizeof(Index), indices);
+        }
+        if (vertices && vCount) {
+            glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(Vertex), vertices);
         }
     }
 
@@ -77,7 +96,7 @@ struct Mesh {
             range.aIndex = aIndex++;
             range.bind(VAO);
             bind(true);
-            range.setup(NULL);
+            range.setup();
         } else
             range.aIndex = -1;
     }
@@ -89,37 +108,29 @@ struct Mesh {
             glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
     }
 
-    void unbind() {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = 0);
-        glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = 0);
-    }
-
-    void DIP(const MeshRange &range, Index *iOffset = 0) {
-        glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (GLvoid*)(iOffset + range.iStart) );
+    void DIP(const MeshRange &range) {
+        glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, (Index*)NULL + range.iStart);
         Core::stats.dips++;
         Core::stats.tris += range.iCount / 3;
     }
 
-    void render(const MeshRange &range, Index *iOffset = NULL, Vertex *vOffset = NULL) {
+    void render(const MeshRange &range) {
         range.bind(VAO);
 
-        if (vOffset) {
-            unbind();
-            range.setup(vOffset);
-        } else if (range.aIndex == -1) {
+        if (range.aIndex == -1) {
             bind();
-            range.setup(NULL);
+            range.setup();
         };
 
         if (Core::active.stencilTwoSide && Core::support.stencil == 0) {
             Core::setCulling(cfBack);
             glStencilOp(GL_KEEP, GL_DECR, GL_KEEP);
-            DIP(range, iOffset);
+            DIP(range);
             Core::setCulling(cfFront);
             glStencilOp(GL_KEEP, GL_INCR, GL_KEEP);
         }
 
-        DIP(range, iOffset);
+        DIP(range);
     }
 };
 
@@ -156,6 +167,9 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
+    MeshRange dynRange;
+    Mesh      *dynMesh;
+
     Mesh *mesh;
 // level
     struct RoomRange {
@@ -184,6 +198,11 @@ struct MeshBuilder {
     TR::ObjectTexture whiteTile;
 
     MeshBuilder(TR::Level &level) : level(&level) {
+        dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1);
+        dynRange.vStart = 0;
+        dynRange.iStart = 0;
+        dynMesh->initRange(dynRange);
+
         initAnimTextures(level);
 
     // create dummy white object textures for non-textured (colored) geometry        
@@ -589,6 +608,7 @@ struct MeshBuilder {
         delete[] models;
         delete[] sequences;
         delete mesh;
+        delete dynMesh;
     }
 
     inline short4 rotate(const short4 &v, int dir) {
@@ -962,13 +982,12 @@ struct MeshBuilder {
         mesh->bind();
     }
     
-    void renderBuffer(Index *indices, Vertex *vertices, int iCount) {
-        MeshRange range;
-        range.iStart = 0;
-        range.vStart = 0;
-        range.iCount = iCount;
+    void renderBuffer(Index *indices, int iCount, Vertex *vertices, int vCount) {
+        dynRange.iStart = 0;
+        dynRange.iCount = iCount;
 
-        mesh->render(range, indices, vertices);
+        dynMesh->update(indices, iCount, vertices, vCount);
+        dynMesh->render(dynRange);
     }
 
     void renderRoomGeometry(int roomIndex, bool transparent) {

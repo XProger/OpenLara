@@ -203,6 +203,7 @@ namespace Core {
         PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
         PFNGLBINDBUFFERARBPROC              glBindBuffer;
         PFNGLBUFFERDATAARBPROC              glBufferData;
+        PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
     // Stencil
         PFNGLACTIVESTENCILFACEEXTPROC       glActiveStencilFaceEXT;
         PFNGLSTENCILFUNCSEPARATEPROC        glStencilFuncSeparate;
@@ -437,7 +438,8 @@ namespace Core {
                 GetProcOGL(glDeleteBuffers);
                 GetProcOGL(glBindBuffer);
                 GetProcOGL(glBufferData);
-                
+                GetProcOGL(glBufferSubData);
+
                 GetProcOGL(glActiveStencilFaceEXT);
                 GetProcOGL(glStencilFuncSeparate);
                 GetProcOGL(glStencilOpSeparate);
