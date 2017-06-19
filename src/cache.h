@@ -70,6 +70,9 @@ struct ShaderCache {
         }
 
         compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_BLUR,       FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_MIXER,      FX_NONE);
 
         compile(Core::passCompose, Shader::ROOM,   FX_NONE);
         compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST);
@@ -106,16 +109,16 @@ struct ShaderCache {
         char def[1024], ext[255];
         ext[0] = 0;
         if (Core::settings.shadows) {
-		    if (Core::support.shadowSampler) {
-			    #ifdef MOBILE
-				    strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
-			    #endif
-			    strcat(ext, "#define SHADOW_SAMPLER\n");
-		    } else {
-			    if (Core::support.depthTexture)
-				    strcat(ext, "#define SHADOW_DEPTH\n");
-			    else
-				    strcat(ext, "#define SHADOW_COLOR\n");
+            if (Core::support.shadowSampler) {
+                #ifdef MOBILE
+                    strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
+                #endif
+                strcat(ext, "#define SHADOW_SAMPLER\n");
+            } else {
+                if (Core::support.depthTexture)
+                    strcat(ext, "#define SHADOW_DEPTH\n");
+                else
+                    strcat(ext, "#define SHADOW_COLOR\n");
             }
         }
 
@@ -153,7 +156,7 @@ struct ShaderCache {
                 break;
             }
             case Core::passFilter  : {
-                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE" };
+                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE", "GRAYSCALE", "BLUR", "MIXER" };
                 src = FILTER;
                 typ = typeNames[type];
                 sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
@@ -654,9 +657,8 @@ struct WaterCache {
             Item &item = items[i];
             if (!item.visible) continue;
 
-            item.mask->bind(sMask);
-
             if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
+                item.mask->bind(sMask);
             // add water drops
                 drop(item);                    
             // simulation step
@@ -798,7 +800,7 @@ struct ZoneCache {
         return items = new Item(zone, count, zones, boxes, items);
     }
 
-    uint16 findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
+    uint16 findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
         if (boxStart == 0xFFFF || boxEnd == 0xFFFF)
             return 0;
 
@@ -858,6 +860,9 @@ struct ZoneCache {
                     continue;
                 // has same zone
                 if (zones[index] != zone)
+                    continue;
+                // check passability
+                if (big && level->boxes[index].overlap.blockable)
                     continue;
                 // check blocking (doors)
                 if (level->boxes[index].overlap.block)

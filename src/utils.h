@@ -7,7 +7,12 @@
 #include <float.h>
 
 #ifdef _DEBUG
-    #define debugBreak() _asm { int 3 }
+    #ifdef LINUX
+        #define debugBreak() raise(SIGTRAP);
+    #else
+        #define debugBreak() _asm { int 3 }
+    #endif
+
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT %s in %s:%d\n", #expr, __FILE__, __LINE__); debugBreak(); }
 
     #ifndef ANDROID
@@ -78,12 +83,6 @@ inline void swap(T &a, T &b) {
     b = tmp;
 }
 
-float lerp(float a, float b, float t) {
-    if (t <= 0.0f) return a;
-    if (t >= 1.0f) return b;
-    return a + (b - a) * t; 
-}
-
 float clampAngle(float a) {
     return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
 }
@@ -111,6 +110,22 @@ float decrease(float delta, float &value, float &speed) {
         return speed;
     } else
         return 0.0f;
+}
+
+float hermite(float x) {
+    return x * x * (3.0f - 2.0f * x);
+}
+
+float lerp(float a, float b, float t) {
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+    return a + (b - a) * t; 
+}
+
+float lerpAngle(float a, float b, float t) {
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+    return a + shortAngle(a, b) * t; 
 }
 
 int nextPow2(uint32 x) {
@@ -421,8 +436,13 @@ struct mat4 {
     mat4(float fov, float aspect, float znear, float zfar) {
         float k = 1.0f / tanf(fov * 0.5f * DEG2RAD);
         identity();
-        e00 = k / aspect;
-        e11 = k;
+        if (aspect >= 1.0f) {
+            e00 = k / aspect;
+            e11 = k;
+        } else {
+            e00 = k;
+            e11 = k * aspect;
+        }
         e22 = (znear + zfar) / (znear - zfar);
         e33 = 0.0f;
         e32 = -1.0f;
@@ -868,19 +888,24 @@ struct Box {
     }
 
     bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
-        float t1 = INF, t0 = -t1;
+        float tMax = INF, tMin = -tMax;
 
         for (int i = 0; i < 3; i++) 
             if (rayDir[i] != 0) {
                 float lo = (min[i] - rayPos[i]) / rayDir[i];
                 float hi = (max[i] - rayPos[i]) / rayDir[i];
-                t0 = ::max(t0, ::min(lo, hi));
-                t1 = ::min(t1, ::max(lo, hi));
+                tMin = ::max(tMin, ::min(lo, hi));
+                tMax = ::min(tMax, ::max(lo, hi));
             } else
                 if (rayPos[i] < min[i] || rayPos[i] > max[i])
                     return false;
-        t = t0;
-        return (t0 <= t1) && (t1 > 0);
+        t = tMin;
+        return (tMin <= tMax) && (tMax > 0.0f);
+    }
+
+    bool intersect(const mat4 &matrix, const vec3 &rayPos, const vec3 &rayDir, float &t) const {
+        mat4 mInv = matrix.inverse();
+        return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz, t);
     }
 };
 
@@ -891,10 +916,29 @@ struct Sphere {
     Sphere() {}
     Sphere(const vec3 &center, float radius) : center(center), radius(radius) {}
 
-    bool intersect(const Sphere &s) {
+    bool intersect(const Sphere &s) const {
         float d = (center - s.center).length2();
         float r = (radius + s.radius);
         return d < r * r;
+    }
+
+    bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
+        vec3 v = rayPos - center;
+        float h = -v.dot(rayDir);
+        float d = h * h + radius * radius - v.length2();
+
+        if (d > 0.0f) {
+            d = sqrtf(d);
+            float tMin = h - d;
+            float tMax = h + d;
+            if (tMax > 0.0f) {
+                if (tMin < 0.0f)
+                    tMin = 0.0f;
+                t = tMin;
+                return true;
+            }
+        }
+        return false;
     }
 };
 

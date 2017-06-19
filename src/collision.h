@@ -90,16 +90,16 @@ struct Collision {
     }
 
     inline float getOffset(float from, float to) {
-	    int a = int(from) / 1024;
-	    int b = int(to)   / 1024;
+        int a = int(from) / 1024;
+        int b = int(to)   / 1024;
 
-	    from -= float(a * 1024.0f);
+        from -= float(a * 1024.0f);
 
-	    if (b == a)
-		    return 0.0f;
+        if (b == a)
+            return 0.0f;
         else if (b > a)
-		    return -from + 1025.0f;
-		return -from - 1.0f;
+            return -from + 1025.0f;
+        return -from - 1.0f;
     }
 
     static int getFloor(TR::Level *level, int &roomIndex, const vec3 &pos) {

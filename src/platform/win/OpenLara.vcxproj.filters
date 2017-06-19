@@ -1,9 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="..\..\libs\minimp3\minimp3.cpp" />
-    <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\libs\minimp3\minimp3.cpp">
+      <Filter>libs\minimp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c">
+      <Filter>libs\stb_vorbis</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\animation.h" />
@@ -22,8 +26,6 @@
     <ClInclude Include="..\..\inventory.h" />
     <ClInclude Include="..\..\lara.h" />
     <ClInclude Include="..\..\level.h" />
-    <ClInclude Include="..\..\libs\minimp3\libc.h" />
-    <ClInclude Include="..\..\libs\minimp3\minimp3.h" />
     <ClInclude Include="..\..\mesh.h" />
     <ClInclude Include="..\..\shader.h" />
     <ClInclude Include="..\..\sound.h" />
@@ -32,6 +34,12 @@
     <ClInclude Include="..\..\format.h" />
     <ClInclude Include="..\..\trigger.h" />
     <ClInclude Include="..\..\utils.h" />
+    <ClInclude Include="..\..\libs\minimp3\minimp3.h">
+      <Filter>libs\minimp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libs\minimp3\libc.h">
+      <Filter>libs\minimp3</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\depth.glsl">
@@ -59,6 +67,15 @@
   <ItemGroup>
     <Filter Include="shaders">
       <UniqueIdentifier>{3fcb6c00-268a-4570-b6ca-3bf1cf1e10d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs">
+      <UniqueIdentifier>{0400c04a-7900-49a2-9b9d-6667d815168c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\minimp3">
+      <UniqueIdentifier>{bc55e021-2a62-4bc1-8b80-0fd900f20b2b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\stb_vorbis">
+      <UniqueIdentifier>{f26df5a9-d32a-4e5e-948c-e632c42be9fa}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

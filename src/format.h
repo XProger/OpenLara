@@ -80,7 +80,7 @@
     E( BRIDGE_0              ) \
     E( BRIDGE_1              ) \
     E( BRIDGE_2              ) \
-    E( INV_GAME              ) \
+    E( INV_PASSPORT          ) \
     E( INV_COMPASS           ) \
     E( INV_HOME              ) \
     E( GEARS_1               ) \
@@ -90,7 +90,7 @@
     E( CUT_2                 ) \
     E( CUT_3                 ) \
     E( CUT_4                 ) \
-    E( INV_GAME_CLOSED       ) \
+    E( INV_PASSPORT_CLOSED   ) \
     E( INV_MAP               ) \
     E( CRYSTAL               ) \
     E( WEAPON_PISTOLS        ) \
@@ -107,12 +107,12 @@
     E( INV_DETAIL            ) \
     E( INV_SOUND             ) \
     E( INV_CONTROLS          ) \
-    E( INV_FLASHLIGHT        ) \
+    E( INV_GAMMA             ) \
     E( INV_PISTOLS           ) \
     E( INV_SHOTGUN           ) \
     E( INV_MAGNUMS           ) \
     E( INV_UZIS              ) \
-    E( INV_AMMO_POSTOLS      ) \
+    E( INV_AMMO_PISTOLS      ) \
     E( INV_AMMO_SHOTGUN      ) \
     E( INV_AMMO_MAGNUMS      ) \
     E( INV_AMMO_UZIS         ) \
@@ -291,14 +291,14 @@ namespace TR {
         
         SND_UNDERWATER      = 60,
         
-        SND_MENU_SPIN       = 108,
-        SND_MENU_HOME       = 109,
-        SND_MENU_CONTROLS   = 110,
-        SND_MENU_SHOW       = 111,
-        SND_MENU_HIDE       = 112,
-        SND_MENU_COMPASS    = 113,
-        SND_MENU_WEAPON     = 114,
-        SND_MENU_PAGE       = 115,
+        SND_INV_SPIN        = 108,
+        SND_INV_HOME        = 109,
+        SND_INV_CONTROLS    = 110,
+        SND_INV_SHOW        = 111,
+        SND_INV_HIDE        = 112,
+        SND_INV_COMPASS     = 113,
+        SND_INV_WEAPON      = 114,
+        SND_INV_PAGE        = 115,
         SND_HEALTH          = 116,
         
         SND_DART            = 151,
@@ -602,11 +602,8 @@ namespace TR {
 
     struct Entity {
 
-        typedef int16 Type;
+        enum Type : int16 { NONE = -1, TR1_TYPES(DECL_ENUM) } type;
 
-        enum { NONE = -1, TR1_TYPES(DECL_ENUM) };
-
-        int16   type;
         int16   room;
         int32   x, y, z;
         angle   rotation;
@@ -622,6 +619,14 @@ namespace TR {
 
         bool isEnemy() {
             return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
+        }
+
+        bool isBigEnemy() {
+            return type == ENEMY_REX || type == ENEMY_MUTANT_1 || type == ENEMY_CENTAUR;
+        }
+
+        bool isDoor() {
+            return (type >= DOOR_1 && type <= DOOR_6) || type == DOOR_LIFT;
         }
 
         int isItem() {
@@ -982,6 +987,29 @@ namespace TR {
             int16 puzzleSet;
             int16 weapons[4];
             int16 braid;
+
+            struct {
+                int16 passport;
+                int16 passport_closed;
+                int16 map;
+                int16 compass;
+                int16 home;
+                int16 detail;
+                int16 sound;
+                int16 controls;
+                int16 gamma;
+
+                int16 weapon[4];
+                int16 ammo[4];
+                int16 medikit[2];
+                int16 puzzle[4];
+                int16 key[4];
+
+                int16 leadbar;
+                int16 scion;
+            } inv;
+
+            int16 glyphSeq;
         } extra;
 
         Level(Stream &stream, bool demo) {
@@ -1196,22 +1224,64 @@ namespace TR {
         // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
         // get special models indices
-            memset(&extra, 0, sizeof(extra));
-            for (int i = 0; i < 4; i++)
-                extra.weapons[i] = -1;
-            extra.braid = -1;
+            memset(&extra, 0xFF, sizeof(extra));
 
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
-                    case Entity::MUZZLE_FLASH    : extra.muzzleFlash = i; break;
-                    case Entity::PUZZLE_DONE_1   : extra.puzzleSet   = i; break;
-                    case Entity::LARA_PISTOLS    : extra.weapons[0]  = i; break;
-                    case Entity::LARA_SHOTGUN    : extra.weapons[1]  = i; break;
-                    case Entity::LARA_MAGNUMS    : extra.weapons[2]  = i; break;
-                    case Entity::LARA_UZIS       : extra.weapons[3]  = i; break;
-                    case Entity::BRAID           : extra.braid       = i; break;
+                    case Entity::MUZZLE_FLASH        : extra.muzzleFlash     = i; break;
+                    case Entity::PUZZLE_DONE_1       : extra.puzzleSet       = i; break;
+                    case Entity::LARA_PISTOLS        : extra.weapons[0]      = i; break;
+                    case Entity::LARA_SHOTGUN        : extra.weapons[1]      = i; break;
+                    case Entity::LARA_MAGNUMS        : extra.weapons[2]      = i; break;
+                    case Entity::LARA_UZIS           : extra.weapons[3]      = i; break;
+                    case Entity::BRAID               : extra.braid           = i; break;
+
+                    case Entity::INV_PASSPORT        : extra.inv.passport    = i; break;
+                    case Entity::INV_PASSPORT_CLOSED : extra.inv.passport_closed = i; break;
+                    case Entity::INV_MAP             : extra.inv.map         = i; break;
+                    case Entity::INV_COMPASS         : extra.inv.compass     = i; break;
+                    case Entity::INV_HOME            : extra.inv.home        = i; break;
+                    case Entity::INV_DETAIL          : extra.inv.detail      = i; break;
+                    case Entity::INV_SOUND           : extra.inv.sound       = i; break;
+                    case Entity::INV_CONTROLS        : extra.inv.controls    = i; break;
+                    case Entity::INV_GAMMA           : extra.inv.gamma       = i; break;
+
+                    case Entity::INV_PISTOLS         : extra.inv.weapon[0]   = i; break;
+                    case Entity::INV_SHOTGUN         : extra.inv.weapon[1]   = i; break;
+                    case Entity::INV_MAGNUMS         : extra.inv.weapon[2]   = i; break;
+                    case Entity::INV_UZIS            : extra.inv.weapon[3]   = i; break;
+
+                    case Entity::INV_AMMO_PISTOLS    : extra.inv.ammo[0]     = i; break;
+                    case Entity::INV_AMMO_SHOTGUN    : extra.inv.ammo[1]     = i; break;
+                    case Entity::INV_AMMO_MAGNUMS    : extra.inv.ammo[2]     = i; break;
+                    case Entity::INV_AMMO_UZIS       : extra.inv.ammo[3]     = i; break;
+
+                    case Entity::INV_MEDIKIT_SMALL   : extra.inv.medikit[0]  = i; break;
+                    case Entity::INV_MEDIKIT_BIG     : extra.inv.medikit[1]  = i; break;
+
+                    case Entity::INV_PUZZLE_1        : extra.inv.puzzle[0]   = i; break;
+                    case Entity::INV_PUZZLE_2        : extra.inv.puzzle[1]   = i; break;
+                    case Entity::INV_PUZZLE_3        : extra.inv.puzzle[2]   = i; break;
+                    case Entity::INV_PUZZLE_4        : extra.inv.puzzle[3]   = i; break;
+
+                    case Entity::INV_KEY_1           : extra.inv.key[0]      = i; break;
+                    case Entity::INV_KEY_2           : extra.inv.key[1]      = i; break;
+                    case Entity::INV_KEY_3           : extra.inv.key[2]      = i; break;
+                    case Entity::INV_KEY_4           : extra.inv.key[3]      = i; break;
+                                                                         
+                    case Entity::INV_LEADBAR         : extra.inv.leadbar     = i; break;
+                    case Entity::INV_SCION           : extra.inv.scion       = i; break;
+
                     default : ;
                 }
+                
+            for (int i = 0; i < spriteSequencesCount; i++) 
+                if (spriteSequences[i].type == TR::Entity::GLYPH) {
+                    extra.glyphSeq = i;
+                    break;
+                }
+            ASSERT(extra.glyphSeq != -1);
+
         // init cutscene transform
             cutMatrix.identity();
             if (cutEntity > -1) {
@@ -1660,7 +1730,7 @@ namespace TR {
             return Color24(255, 0, 255);
         }
 
-        Stream* getSampleStream(int index) {
+        Stream* getSampleStream(int index) const {
             uint8 *data = &soundData[soundOffsets[index]];
             uint32 size = 0;
             switch (version) {

@@ -20,14 +20,21 @@ struct IGame {
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Controller*  getCamera()    { return NULL; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
-    virtual uint16       findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
+    virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
     virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
+    virtual void setupBinding() {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex, bool genShadowMask = false) {}
+    virtual void fxQuake(float time) {}
+
+    virtual bool invUse(TR::Entity::Type item, TR::Entity::Type slot) { return false; }
+    virtual void invAdd(TR::Entity::Type type, int count = 1) {}
+
+    virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const { return NULL; }
 };
 
 struct Controller {
@@ -180,25 +187,7 @@ struct Controller {
     }
 
     Sound::Sample* playSound(int id, const vec3 &pos, int flags) const {
-        if (level->version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
-            return NULL;
-
-        int16 a = level->soundsMap[id];
-        if (a == -1) return NULL;
-
-        TR::SoundInfo &b = level->soundsInfo[a];
-        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-            int   index  = b.offset + rand() % b.flags.count;
-            float volume = (float)b.volume / 0x7FFF;
-            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f; 
-            if (b.flags.mode == 1) flags |= Sound::UNIQUE;
-            //if (b.flags.mode == 2) flags |= Sound::REPLAY;
-            if (b.flags.mode == 3) flags |= Sound::SYNC;
-            if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
-            if (b.flags.fixed) flags |= Sound::LOOP;
-            return Sound::play(level->getSampleStream(index), pos, volume, pitch, flags, entity * 1000 + index);
-        }
-        return NULL;
+        return game->playSound(id, pos, flags, entity);
     }
 
     vec3 getDir() const {
@@ -253,42 +242,46 @@ struct Controller {
         return animation.getBoundingBox(vec3(0, 0, 0), oriented ? getEntity().rotation.value / 0x4000 : 0);
     }
 
-    void getSpheres(Sphere *spheres) {
+    void getSpheres(Sphere *spheres, int &count) {
         TR::Model *m = getModel();
         Basis basis(getMatrix());
 
+        count = 0;
         for (int i = 0; i < m->mCount; i++) {
             TR::Mesh &aMesh = level->meshes[level->meshOffsets[m->mStart + i]];
+            if (aMesh.radius <= 0) continue;
             vec3 center = animation.getJoints(basis, i, true) * aMesh.center;
-            spheres[i] = Sphere(center, aMesh.radius);
+            spheres[count++] = Sphere(center, aMesh.radius);
         }
-
     }
 
-    bool collide(Controller *controller) {
+    int collide(Controller *controller, bool checkBoxes = true) {
         TR::Model *a = getModel();
-        TR::Model *b = getModel();
+        TR::Model *b = controller->getModel();
         if (!a || !b) 
-            return false;
+            return 0;
 
-        if (!getBoundingBox().intersect(controller->getBoundingBox()))
-            return false;
+        if (checkBoxes && !getBoundingBox().intersect(controller->getBoundingBox()))
+            return 0;
 
         ASSERT(a->mCount <= 34);
         ASSERT(b->mCount <= 34);
 
         Sphere aSpheres[34];
         Sphere bSpheres[34];
+        int aCount, bCount;
 
-        getSpheres(aSpheres);
-        controller->getSpheres(bSpheres);
+        getSpheres(aSpheres, aCount);
+        controller->getSpheres(bSpheres, bCount);
 
-        for (int i = 0; i < a->mCount; i++)        
-            for (int j = 0; j < b->mCount; j++)
-                if (aSpheres[i].intersect(bSpheres[j]))
-                    return true;
-
-        return false;
+        int mask = 0;
+        for (int i = 0; i < aCount; i++) 
+            for (int j = 0; j < bCount; j++)
+                if (bSpheres[j].intersect(aSpheres[i])) {
+                    mask |= (1 << i);
+                    break;
+                }
+        return mask;
     }
 
     vec3 trace(int fromRoom, const vec3 &from, const vec3 &to, int &room, bool isCamera) { // TODO: use Bresenham
@@ -452,6 +445,7 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI; break;
+                                    case TR::EFFECT_FLOOR_SHAKE    : game->fxQuake(0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
                                     case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
                                     default                        : cmdEffect(fx); break;
                                 }

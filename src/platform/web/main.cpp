@@ -14,7 +14,7 @@ int getTime() {
 
 extern "C" {
     void EMSCRIPTEN_KEEPALIVE snd_fill(Sound::Frame *frames, int count) {
-		Sound::fill(frames, count);		
+        Sound::fill(frames, count);
     }
     
     void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size, int home) {
@@ -139,8 +139,14 @@ void freeGL() {
 }
 
 EM_BOOL resize() {
-    int f;
-    emscripten_get_canvas_size(&Core::width, &Core::height, &f);
+    //int f;
+    //emscripten_get_canvas_size(&Core::width, &Core::height, &f);
+	double w, h;
+	emscripten_get_element_css_size(NULL, &w, &h);
+	Core::width  = int(w);
+	Core::height = int(h);
+	emscripten_set_canvas_size(Core::width, Core::height);
+	LOG("resize %d %d\n", Core::width, Core::height);
     return 1;
 }
 
@@ -172,7 +178,7 @@ void changeWindowMode() {
 
 InputKey keyToInputKey(int code) {
     static const int codes[] = {
-        0x25, 0x27, 0x26, 0x28, 0x20, 0x0D, 0x1B, 0x10, 0x11, 0x12,
+        0x25, 0x27, 0x26, 0x28, 0x20, 0x09, 0x0D, 0x1B, 0x10, 0x11, 0x12,
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
         'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
@@ -199,7 +205,8 @@ EM_BOOL keyCallback(int eventType, const EmscriptenKeyboardEvent *e, void *userD
 }
 
 EM_BOOL touchCallback(int eventType, const EmscriptenTouchEvent *e, void *userData) {
-    for (int i = 0; i < e->numTouches; i++) {      
+    for (int i = 0; i < e->numTouches; i++) {
+        if (!e->touches[i].isChanged) continue;
         InputKey key = Input::getTouch(e->touches[i].identifier);
         if (key == ikNone) continue;
         Input::setPos(key, vec2(e->touches[i].canvasX, e->touches[i].canvasY));
@@ -207,7 +214,6 @@ EM_BOOL touchCallback(int eventType, const EmscriptenTouchEvent *e, void *userDa
         if (eventType == EMSCRIPTEN_EVENT_TOUCHSTART || eventType == EMSCRIPTEN_EVENT_TOUCHEND || eventType == EMSCRIPTEN_EVENT_TOUCHCANCEL) 
             Input::setDown(key, eventType == EMSCRIPTEN_EVENT_TOUCHSTART);
     }
-
     return 1;
 }
 
@@ -237,7 +243,7 @@ int main() {
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);
     emscripten_set_keyup_callback(0, 0, 1, keyCallback);
-    emscripten_set_resize_callback(0, 0, 1, resizeCallback);
+    emscripten_set_resize_callback(0, 0, 0, resizeCallback);
 
     emscripten_set_touchstart_callback(0, 0, 0, touchCallback);
     emscripten_set_touchend_callback(0, 0, 0, touchCallback);

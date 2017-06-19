@@ -9,6 +9,7 @@
 #include "enemy.h"
 #include "camera.h"
 #include "trigger.h"
+#include "inventory.h"
 
 #ifdef _DEBUG
     #include "debug.h"
@@ -16,6 +17,7 @@
 
 struct Level : IGame {
     TR::Level   level;
+    Inventory   inventory;
     Texture     *atlas;
     Texture     *cube;
     MeshBuilder *mesh;
@@ -36,8 +38,11 @@ struct Level : IGame {
     WaterCache   *waterCache;
     ZoneCache    *zoneCache;
 
-    Sound::Sample *sndAmbient;
+    Sound::Sample *sndSoundtrack;
     Sound::Sample *sndUnderwater;
+    Sound::Sample *sndCurrent;
+
+    bool lastTitle;
 
 // IGame implementation ========
     virtual TR::Level* getLevel() {
@@ -57,8 +62,8 @@ struct Level : IGame {
         return item->boxes[int(randf() * item->count)];
     }
     
-    virtual uint16 findPath(int ascend, int descend, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
-        return zoneCache->findPath(ascend, descend, boxStart, boxEnd, zones, boxes);
+    virtual uint16 findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
+        return zoneCache->findPath(ascend, descend, big, boxStart, boxEnd, zones, boxes);
     }
 
     virtual void setClipParams(float clipSign, float clipHeight) {
@@ -82,6 +87,16 @@ struct Level : IGame {
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
         shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0));
     }
+
+    virtual void setupBinding() {
+        atlas->bind(sDiffuse);
+        Core::whiteTex->bind(sNormal);
+        Core::whiteTex->bind(sMask);
+        Core::whiteTex->bind(sReflect);        
+        cube->bind(sEnvironment);
+        Core::basis.identity();
+    }
+
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
         PROFILE_MARKER("ENVIRONMENT");
@@ -107,9 +122,44 @@ struct Level : IGame {
         Core::pass = Core::passCompose;
         renderScene(roomIndex);
     }
+
+    virtual void fxQuake(float time) {
+        camera->shake = time;
+    }
+
+    virtual bool invUse(TR::Entity::Type item, TR::Entity::Type slot) {
+        lara->useItem(item);
+        return inventory.use(item, slot);
+    }
+
+    virtual void invAdd(TR::Entity::Type type, int count) {
+        inventory.add(type, count);
+    }
+
+    virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const {
+        if (level.version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
+            return NULL;
+
+        int16 a = level.soundsMap[id];
+        if (a == -1) return NULL;
+
+        TR::SoundInfo &b = level.soundsInfo[a];
+        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
+            int   index  = b.offset + rand() % b.flags.count;
+            float volume = (float)b.volume / 0x7FFF;
+            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f; 
+            if (b.flags.mode == 1) flags |= Sound::UNIQUE;
+            //if (b.flags.mode == 2) flags |= Sound::REPLAY;
+            if (b.flags.mode == 3) flags |= Sound::SYNC;
+            if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
+            if (b.flags.fixed) flags |= Sound::LOOP;
+            return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, group * 1000 + index);
+        }
+        return NULL;
+    }
 //==============================
 
-    Level(Stream &stream, Stream *snd, bool demo, bool home) : level(stream, demo), lara(NULL) {
+    Level(Stream &stream, Stream *snd, bool demo, bool home) : level(stream, demo), inventory(this), lara(NULL) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
@@ -137,24 +187,28 @@ struct Level : IGame {
                 case TR::Entity::ENEMY_BAT             :   
                     entity.controller = new Bat(this, i);
                     break;
-                case TR::Entity::ENEMY_TWIN            :   
-                case TR::Entity::ENEMY_CROCODILE_LAND  :   
-                case TR::Entity::ENEMY_CROCODILE_WATER :   
-                case TR::Entity::ENEMY_LION_MALE       :   
-                case TR::Entity::ENEMY_LION_FEMALE     :   
-                case TR::Entity::ENEMY_PUMA            :   
-                case TR::Entity::ENEMY_GORILLA         :   
-                case TR::Entity::ENEMY_RAT_LAND        :   
-                case TR::Entity::ENEMY_RAT_WATER       :   
-                case TR::Entity::ENEMY_REX             :   
-                case TR::Entity::ENEMY_RAPTOR          :   
+                case TR::Entity::ENEMY_TWIN            :
+                case TR::Entity::ENEMY_CROCODILE_LAND  :
+                case TR::Entity::ENEMY_CROCODILE_WATER :
+                case TR::Entity::ENEMY_LION_MALE       :
+                case TR::Entity::ENEMY_LION_FEMALE     :
+                case TR::Entity::ENEMY_PUMA            :
+                case TR::Entity::ENEMY_GORILLA         :
+                case TR::Entity::ENEMY_RAT_LAND        :
+                case TR::Entity::ENEMY_RAT_WATER       :
+                case TR::Entity::ENEMY_REX             :
+                    entity.controller = new Rex(this, i);
+                    break;
+                case TR::Entity::ENEMY_RAPTOR          :
+                    entity.controller = new Raptor(this, i);
+                    break;
                 case TR::Entity::ENEMY_MUTANT_1        :
                 case TR::Entity::ENEMY_MUTANT_2        :
                 case TR::Entity::ENEMY_MUTANT_3        :
-                case TR::Entity::ENEMY_CENTAUR         :   
-                case TR::Entity::ENEMY_MUMMY           :   
+                case TR::Entity::ENEMY_CENTAUR         :
+                case TR::Entity::ENEMY_MUMMY           :
                 case TR::Entity::ENEMY_LARSON          :
-                    entity.controller = new Enemy(this, i, 100, 10, 0.0f);
+                    entity.controller = new Enemy(this, i, 100, 10, 0.0f, 0.0f);
                     break;
                 case TR::Entity::DOOR_1                :
                 case TR::Entity::DOOR_2                :
@@ -205,7 +259,6 @@ struct Level : IGame {
                 case TR::Entity::MOVING_BLOCK          :
                     entity.controller = new MovingBlock(this, i);                    
                     break;
-                case 1592 :
                 case TR::Entity::FALLING_CEILING_1     :
                 case TR::Entity::FALLING_CEILING_2     :
                 case TR::Entity::FALLING_SWORD         :
@@ -234,29 +287,44 @@ struct Level : IGame {
             }
         }
 
-        ASSERT(lara != NULL);
-        camera = new Camera(this, lara);
+        lastTitle = false;
 
-        level.cameraController = camera;
+        if (!isTitle()) {
+            ASSERT(lara != NULL);
+            camera = new Camera(this, lara);
 
-        ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
-        waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
-        zoneCache    = new ZoneCache(this);
-        shadow       = Core::settings.shadows ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
+            level.cameraController = camera;
 
-        initReflections();
+            ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
+            waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
+            zoneCache    = new ZoneCache(this);
+            shadow       = Core::settings.shadows ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
 
-        // init sounds
-        //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
-        sndAmbient = Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
+            initReflections();
 
-        sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
-        if (sndUnderwater)
-            sndUnderwater->volume = 0.0f;
+            // init sounds
+            //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
+            sndSoundtrack = Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
-        for (int i = 0; i < level.soundSourcesCount; i++) {
-            TR::SoundSource &src = level.soundSources[i];
-            lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
+            sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
+            if (sndUnderwater)
+                sndUnderwater->volume = 0.0f;
+
+            sndCurrent = sndSoundtrack;
+
+            for (int i = 0; i < level.soundSourcesCount; i++) {
+                TR::SoundSource &src = level.soundSources[i];
+                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
+            }
+        } else {
+            camera          = NULL;
+            ambientCache    = NULL;
+            waterCache      = NULL;
+            zoneCache       = NULL;
+            shadow          = NULL;
+            sndSoundtrack   = NULL;
+            sndUnderwater   = NULL;
+            sndCurrent      = NULL;
         }
     }
 
@@ -280,6 +348,10 @@ struct Level : IGame {
 
         delete camera;
         Sound::stopAll();
+    }
+
+    bool isTitle() {
+        return lara == NULL || inventory.isActive();
     }
 
     void initTextures() {
@@ -547,6 +619,13 @@ struct Level : IGame {
             lara->reset(TR::NO_ROOM, camera->pos, camera->angle.y, false);
         }
     #endif
+        if (isTitle()) {
+            sndCurrent->volume = 0.0f;
+            Sound::reverb.setRoomSize(vec3(1.0f));
+            inventory.update();
+            return;
+        }
+
         params->time += Core::deltaTime;
 
         for (int i = 0; i < level.entitiesCount; i++) {
@@ -565,9 +644,14 @@ struct Level : IGame {
         }
 
         camera->update();
-        float ambientVolume =  camera->isUnderwater() ? 0.0f : 1.0f;
-        if (sndAmbient) sndAmbient->volume = ambientVolume;
-        if (sndUnderwater) sndUnderwater->volume = 1.0f - ambientVolume;
+
+        sndCurrent = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
+
+        if (sndCurrent) {
+            if (sndSoundtrack && sndCurrent != sndSoundtrack) sndSoundtrack->volume = 0.0f;
+            if (sndUnderwater && sndCurrent != sndUnderwater) sndUnderwater->volume = 0.0f;
+            sndCurrent->volume = 1.0f;
+        }
 
         if (waterCache) 
             waterCache->update();
@@ -578,16 +662,7 @@ struct Level : IGame {
 
         camera->setup(Core::pass == Core::passCompose);
 
-        atlas->bind(sDiffuse);
-        Core::whiteTex->bind(sNormal);
-        Core::whiteTex->bind(sMask);
-        Core::whiteTex->bind(sReflect);        
-        cube->bind(sEnvironment);
-
-        if (!Core::support.VAO)
-            mesh->bind();
-        //Core::mViewProj = Core::mLightProj;
-        Core::basis.identity();
+        setupBinding();
 
         // clear visibility flag for rooms
         for (int i = 0; i < level.roomsCount; i++)
@@ -687,39 +762,8 @@ struct Level : IGame {
             Core::setClearColor(vec4(0.0f, 0.0f, 0.0f, 0.0f));
     }
 
-    void render() {
-        Core::invalidateTarget(true, true);
-        params->clipHeight  = NO_CLIP_PLANE;
-        params->clipSign    = 1.0f;
-        params->waterHeight = params->clipHeight;
-
-        if (ambientCache)
-            ambientCache->precessQueue();
-        if (waterCache)
-            waterCache->reset();
-        if (shadow)
-            renderShadows(lara->getRoomIndex());
-
-        Core::setClearStencil(128);
-        Core::setTarget(NULL, true);
-        Core::setViewport(0, 0, Core::width, Core::height);
-        
-        if (waterCache)
-            waterCache->checkVisibility = true;           
-
-        renderCompose(camera->getRoomIndex(), true);
-
-        if (waterCache) {
-            waterCache->checkVisibility = false;
-            if (waterCache->visible) {
-                waterCache->renderMask();
-                waterCache->getRefract();
-                waterCache->simulate();
-                waterCache->render();
-            }
-        }
-
     #ifdef _DEBUG
+    void renderDebug() {
 //        Core::mViewInv = camera->mViewInv;
 //        Core::mView = Core::mViewInv.inverse();
         Core::setViewport(0, 0, Core::width, Core::height);
@@ -861,107 +905,74 @@ struct Level : IGame {
 
             Core::setBlending(bmNone);
 
-        /*
-            static int dbg_ambient = 0;
-            dbg_ambient = int(params->time * 2) % 4;
-
-            shadow->unbind(sShadow);
-            atlas->bind(sDiffuse);
-            glEnable(GL_TEXTURE_2D);
-            glDisable(GL_CULL_FACE);
-            glColor3f(1, 1, 1);
-            for (int j = 0; j < 6; j++) {
-                glPushMatrix();
-                vec3 p = lara->pos;//getPos();
-                glTranslatef(p.x, p.y - 1024, p.z);
-                switch (j) {
-                    case 0 : glRotatef( 90, 0, 1, 0); break;
-                    case 1 : glRotatef(-90, 0, 1, 0); break;
-                    case 2 : glRotatef(-90, 1, 0, 0); break;
-                    case 3 : glRotatef( 90, 1, 0, 0); break;
-                    case 4 : glRotatef(  0, 0, 1, 0); break;
-                    case 5 : glRotatef(180, 0, 1, 0); break;
-                }
-                glTranslatef(0, 0, 128);
-                
-                ambientCache->textures[j * 4 + dbg_ambient]->bind(sDiffuse);
-                
-                glBegin(GL_QUADS);
-                    glTexCoord2f(0, 0); glVertex3f(-128,  128, 0);
-                    glTexCoord2f(1, 0); glVertex3f( 128,  128, 0);
-                    glTexCoord2f(1, 1); glVertex3f( 128, -128, 0);
-                    glTexCoord2f(0, 1); glVertex3f(-128, -128, 0);
-                glEnd();
-
-                glPopMatrix();
-            }
-
-            glEnable(GL_CULL_FACE);
-            glDisable(GL_TEXTURE_2D);
-             
-            glLineWidth(4);
-            glBegin(GL_LINES);
-            float S = 64.0f;
-            for (int i = 0; i < level.roomsCount; i++) {
-                TR::Room &r = level.rooms[i];                
-                for (int j = 0; j < r.xSectors * r.zSectors; j++) {
-                    TR::Room::Sector &s = r.sectors[j];
-                    vec3 p = vec3(float((j / r.zSectors) * 1024 + 512 + r.info.x),
-                                  float(max((s.floor - 2) * 256, (s.floor + s.ceiling) * 256 / 2)),
-                                  float((j % r.zSectors) * 1024 + 512 + r.info.z));
-
-                    AmbientCache::Cube &cube = ambientCache->items[ambientCache->offsets[i] + j];
-                    if (cube.status == AmbientCache::Cube::READY) {
-                        glColor3f(powf(cube.colors[0].x, 1.0f / 2.2f), powf(cube.colors[0].y, 1.0f / 2.2f), powf(cube.colors[0].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x + S, p.y + 0, p.z + 0);
-
-                        glColor3f(powf(cube.colors[1].x, 1.0f / 2.2f), powf(cube.colors[1].y, 1.0f / 2.2f), powf(cube.colors[1].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x - S, p.y + 0, p.z + 0);
-
-                        glColor3f(powf(cube.colors[2].x, 1.0f / 2.2f), powf(cube.colors[2].y, 1.0f / 2.2f), powf(cube.colors[2].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x + 0, p.y + S, p.z + 0);
-
-                        glColor3f(powf(cube.colors[3].x, 1.0f / 2.2f), powf(cube.colors[3].y, 1.0f / 2.2f), powf(cube.colors[3].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x + 0, p.y - S, p.z + 0);
-
-                        glColor3f(powf(cube.colors[4].x, 1.0f / 2.2f), powf(cube.colors[4].y, 1.0f / 2.2f), powf(cube.colors[4].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x + 0, p.y + 0, p.z + S);
-
-                        glColor3f(powf(cube.colors[5].x, 1.0f / 2.2f), powf(cube.colors[5].y, 1.0f / 2.2f), powf(cube.colors[5].z, 1.0f / 2.2f));
-                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
-                        glVertex3f(p.x + 0, p.y + 0, p.z - S);
-                    }
-                }
-            }
-            glEnd();
-            glLineWidth(1);
-
-            */
-           /*
-            shaders[shGUI]->bind();
-            Core::mViewProj = mat4(0, (float)Core::width, (float)Core::height, 0, 0, 1);
-            Core::active.shader->setParam(uViewProj, Core::mViewProj);            
-            atlas->bind(0);
-
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_CULL_FACE);
-            
-            glEnable(GL_CULL_FACE);
-            glEnable(GL_DEPTH_TEST);
-            */
-
-
             Debug::Level::info(level, lara->getEntity(), lara->animation);
 
 
         Debug::end();
-    #endif
     }
+    #endif
+
+    void renderGame() {
+        Core::invalidateTarget(true, true);
+        params->clipHeight  = NO_CLIP_PLANE;
+        params->clipSign    = 1.0f;
+        params->waterHeight = params->clipHeight;
+
+        if (ambientCache)
+            ambientCache->precessQueue();
+        if (waterCache)
+            waterCache->reset();
+        if (shadow)
+            renderShadows(lara->getRoomIndex());
+
+        Core::setClearStencil(128);
+        Core::setTarget(NULL, true);
+        
+        if (waterCache)
+            waterCache->checkVisibility = true;
+
+        renderCompose(camera->getRoomIndex(), true);
+
+        if (waterCache) {
+            waterCache->checkVisibility = false;
+            if (waterCache->visible) {
+                waterCache->renderMask();
+                waterCache->getRefract();
+                waterCache->simulate();
+                waterCache->render();
+            }
+        }
+    }
+
+    void renderInventory() {
+        Core::setTarget(NULL, true);
+        inventory.render();
+    }
+
+    void render() {
+        bool title  = isTitle();
+        bool copyBg = title && lastTitle != title;
+
+        if (copyBg) {
+            vec4 vp = Core::viewportDef;
+            Core::defaultTarget = inventory.background[0];
+            Core::setTarget(Core::defaultTarget, true);
+            renderGame();
+            Core::viewportDef = vp;
+            Core::defaultTarget = NULL;
+
+            inventory.prepareBackground();
+        }
+
+        if (!title)
+            renderGame();
+
+        if (title)
+            renderInventory();
+
+        lastTitle = title;
+    }
+
 };
 
 #endif

@@ -11,15 +11,36 @@ namespace Debug {
     static GLuint font;
 
     void init() {
-        font = glGenLists(256);
-        HDC hdc = GetDC(0); 
-        HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
-                                 0, 0, FW_BOLD, 0, 0, 0,
-                                 ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                 ANTIALIASED_QUALITY, DEFAULT_PITCH, "Courier New");
-        SelectObject(hdc, hfont);
-        wglUseFontBitmaps(hdc, 0, 256, font);
-        DeleteObject(hfont);
+        #ifdef WIN32
+            font = glGenLists(256);
+            HDC hdc = GetDC(0);
+            HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
+                                     0, 0, FW_BOLD, 0, 0, 0,
+                                     ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                     ANTIALIASED_QUALITY, DEFAULT_PITCH, "Courier New");
+            SelectObject(hdc, hfont);
+            wglUseFontBitmaps(hdc, 0, 256, font);
+            DeleteObject(hfont);
+        #elif LINUX
+            XFontStruct *fontInfo;
+            Font id;
+            unsigned int first, last;
+            fontInfo = XLoadQueryFont(glXGetCurrentDisplay(), "-adobe-times-medium-r-normal--17-120-100-100-p-88-iso8859-1");
+
+            if (fontInfo == NULL) {
+                LOG("no font found\n");
+            }
+
+            id = fontInfo->fid;
+            first = fontInfo->min_char_or_byte2;
+            last = fontInfo->max_char_or_byte2;
+
+            font = glGenLists(last + 1);
+            if (font == 0) {
+                LOG("out of display lists\n");
+            }
+            glXUseXFont(id, first, last - first + 1, font + first);
+        #endif
     }
 
     void free() {
@@ -173,13 +194,13 @@ namespace Debug {
         }
 
         void text(const vec3 &pos, const vec4 &color, const char *str) {
-			vec4 p = Core::mViewProj * vec4(pos, 1);
-			if (p.w > 0) {
-				p.xyz = p.xyz * (1.0f / p.w);
-				p.y = -p.y;	
-				p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
+            vec4 p = Core::mViewProj * vec4(pos, 1);
+            if (p.w > 0) {
+                p.xyz = p.xyz * (1.0f / p.w);
+                p.y = -p.y;	
+                p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
                 text(vec2(p.x, p.y), color, str);
-			}
+            }
         }
     }
 
@@ -496,16 +517,31 @@ namespace Debug {
                 TR::Model *m = controller->getModel();
                 if (!m) continue;
 
+                bool bboxIntersect = false;
+
+                ASSERT(m->mCount <= 34);
+
+                int mask = 0;
+                for (int j = 0; j < level.entitiesCount; j++) {
+                    TR::Entity &t = level.entities[j];
+                    if (j == i || ((!t.isEnemy() || !t.flags.active) && t.type != TR::Entity::LARA)) continue;
+                    Controller *enemy = (Controller*)t.controller;
+                    if (!controller->getBoundingBox().intersect(enemy->getBoundingBox()))
+                        continue;
+                    bboxIntersect = true;
+                    mask |= controller->collide(enemy);
+                }
+
                 Box box = controller->getBoundingBoxLocal();
-                Debug::Draw::box(matrix, box.min, box.max, vec4(1.0));
+                Debug::Draw::box(matrix, box.min, box.max, bboxIntersect ? vec4(1, 0, 0, 1): vec4(1));
 
                 Sphere spheres[34];
-                ASSERT(m->mCount <= 34);
-                controller->getSpheres(spheres);
+                int count;
+                controller->getSpheres(spheres, count);
 
-                for (int joint = 0; joint < m->mCount; joint++) {
+                for (int joint = 0; joint < count; joint++) {
                     Sphere &sphere = spheres[joint];
-                    Debug::Draw::sphere(sphere.center, sphere.radius, vec4(0, 1, 1, 0.5f));
+                    Debug::Draw::sphere(sphere.center, sphere.radius, (mask & (1 << joint)) ? vec4(1, 0, 0, 0.5f) : vec4(0, 1, 1, 0.5f));
                     /*
                     { //if (e.id != 0) {
                         char buf[255];
@@ -542,10 +578,10 @@ namespace Debug {
                     uint32 data;
                     uint32 dataSize;
                 } header = {
-                        FOURCC("RIFF"), sizeof(Header) - 8 + dataSize,
+                        FOURCC("RIFF"), (uint32) sizeof(Header) - 8 + dataSize,
                         FOURCC("WAVE"), FOURCC("fmt "), 16,
                         { 1, 1, 44100, 44100 * 16 / 8, 0, 16 },
-                        FOURCC("data"), dataSize
+                        FOURCC("data"), (uint32) dataSize
                     };
 
                 fwrite(&header, sizeof(header), 1, f);

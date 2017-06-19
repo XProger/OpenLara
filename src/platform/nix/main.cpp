@@ -78,7 +78,7 @@ int getTime() {
 
 InputKey keyToInputKey(int code) {
     int codes[] = {
-        113, 114, 111, 116, 65, 36, 9, 50, 37, 64,
+        113, 114, 111, 116, 65, 23, 36, 9, 50, 37, 64,
         19, 10, 11, 12, 13, 14, 15, 16, 17, 18,
         38, 56, 54, 40, 26, 41, 42, 43, 31, 44, 45, 46, 58,
         57, 32, 33, 24, 27, 39, 28, 30, 55, 25, 53, 29, 52,
@@ -99,7 +99,25 @@ InputKey mouseToInputKey(int btn) {
     return ikNone;
 }
 
-void WndProc(const XEvent &e) {
+void toggle_fullscreen(Display* dpy, Window win) {
+    const size_t _NET_WM_STATE_TOGGLE=2;
+
+    XEvent xev;
+    Atom wm_state  =  XInternAtom(dpy, "_NET_WM_STATE", False);
+    Atom scr_full  =  XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+
+    memset(&xev, 0, sizeof(xev));
+    xev.type = ClientMessage;
+    xev.xclient.window = win;
+    xev.xclient.message_type = wm_state;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = _NET_WM_STATE_TOGGLE;
+    xev.xclient.data.l[1] = scr_full;
+
+    XSendEvent(dpy, DefaultRootWindow(dpy), False, SubstructureNotifyMask, &xev);
+}
+
+void WndProc(const XEvent &e,Display*dpy,Window wnd) {
     switch (e.type) {
         case ConfigureNotify :
             Core::width  = e.xconfigure.width;
@@ -108,7 +126,7 @@ void WndProc(const XEvent &e) {
         case KeyPress   :
         case KeyRelease :
             if (e.type == KeyPress && (e.xkey.state & Mod1Mask) && e.xkey.keycode == 36) {
-                // TODO: windowed <-> fullscreen switch
+                toggle_fullscreen(dpy,wnd);
                 break;
             }
             Input::setDown(keyToInputKey(e.xkey.keycode), e.type == KeyPress);
@@ -183,7 +201,7 @@ int main() {
             XNextEvent(dpy, &event);
             if (event.type == ClientMessage && *event.xclient.data.l == WM_DELETE_WINDOW)
                 break;
-            WndProc(event);
+            WndProc(event,dpy,wnd);
         } else {
             int time = getTime();
             if (time <= lastTime)
