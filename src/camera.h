@@ -277,7 +277,8 @@ struct Camera : Controller {
     }
 
     mat4 getProjMatrix() {
-        return mat4(fov, Core::viewport.z / Core::viewport.w, znear, zfar);
+        return mat4(fov, float(Core::width) / float(Core::height), znear, zfar);
+        //return mat4(fov, Core::viewport.z / Core::viewport.w, znear, zfar);
     }
 
     virtual void setup(bool calcMatrices) {

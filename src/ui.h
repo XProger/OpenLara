@@ -4,137 +4,100 @@
 #include "core.h"
 #include "controller.h"
 
-struct UI {
-    enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bMAX };
-    enum TouchZone   { zMove, zLook, zButton, zMAX };
+namespace UI {
+    IGame *game;
 
-    IGame       *game;
-    float       touchTimerVis, touchTimerTap;
-    InputKey    touch[zMAX];
-    TouchButton btn;
-    vec2        btnPos[bMAX];
-    float       btnRadius;
-    bool        doubleTap;
+    const static uint8 char_width[110] = {
+        14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
+        12, 11, 9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, 12, 8,
+        10, 10, 10, 10, 10, 9, 10, 10, 5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 11, 8, 13, 16, 9, 4, 12, 12, 
+        7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
+        
+    static const uint8 char_map[102] = {
+            0, 64, 66, 78, 77, 74, 78, 79, 69, 70, 92, 72, 63, 71, 62, 68, 52, 53, 54, 55, 56, 57, 58, 59, 
+        60, 61, 73, 73, 66, 74, 75, 65, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 
+        18, 19, 20, 21, 22, 23, 24, 25, 80, 76, 81, 97, 98, 77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 
+        37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0 };
 
-    UI(IGame *game) : game(game), touchTimerVis(0.0f), touchTimerTap(0.0f), doubleTap(false) {
-        touch[zMove] = touch[zLook] = touch[zButton] = ikNone;
+    enum Align  { aLeft, aRight, aCenter };
+
+    inline int charRemap(char c) {
+        return c > 10 ? (c > 15 ? char_map[c - 32] : c + 91) : c + 81; 
     }
 
-    bool checkTouchZone(TouchZone zone) {
-        InputKey &t = touch[zone];
-        if (t != ikNone && !Input::down[t]) {
-            t = ikNone;
-            return true;
+    int getTextWidth(const char *text) {
+        int width = 0;
+
+        while (char c = *text++)
+            width += (c == ' ' || c == '_') ? 6 : (char_width[charRemap(c)] + 1);
+
+        return width - 1;
+    }
+
+    #define MAX_CHARS 1024
+
+    struct {
+        Vertex  vertices[MAX_CHARS * 4];
+        Index   indices[MAX_CHARS * 6];
+        int     iCount;
+        int     vCount;
+    } buffer;
+
+    void textBegin() {
+        buffer.iCount = buffer.vCount = 0;
+    }
+
+    void textEnd(IGame *game) {
+        if (buffer.iCount > 0) {
+            game->getMesh()->renderBuffer(buffer.indices, buffer.vertices, buffer.iCount);
+            buffer.iCount = buffer.vCount = 0;
         }
-        return false;
     }
 
-    void getTouchDir(InputKey touch, vec2 &dir) {
-        vec2 delta = vec2(0.0f);
-        if (touch == ikNone)
-            return;
+    void textOut(IGame *game, const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
+        if (!text) return;
+       
+        TR::Level *level = game->getLevel();
+        MeshBuilder *mesh = game->getMesh();
 
-        Input::Touch &t = Input::touch[touch - ikTouchA];
-        vec2 d = t.pos - t.start;                
-        float len = d.length();
-        if (len > EPS)
-            delta = d * (min(len / 100.0f, 1.0f) / len);
+        int seq = level->extra.glyphSeq;
 
-        dir = delta;
-    }
+        int x = int(pos.x);
+        int y = int(pos.y);
 
-    void getTouchButton(const vec2 &pos) {
-        btn = bMAX;
-        float minDist = 1000.0f;
-        for (int i = 0; i < bMAX; i++) {
-            float d = (pos - btnPos[i]).length();
-            if (d < minDist) {
-                minDist = d;
-                btn = TouchButton(i);
+        if (align == aCenter)
+            x += (int(width) - getTextWidth(text)) / 2;
+
+        if (align == aRight)
+            x += int(width) - getTextWidth(text);
+
+        while (char c = *text++) {
+            if (c == ' ' || c == '_') {
+                x += 6;
+                continue;
             }
+
+            int frame = charRemap(c);
+
+            if (buffer.iCount == MAX_CHARS * 6)
+                textEnd(game);
+
+            TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
+            mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, x, y, 0, sprite, 255, true);
+
+            x += char_width[frame] + 1;
         }
     }
 
-    void touchSetDown(bool down) {
-        switch (btn) {
-            case bWeapon : Input::setDown(ikJoyY,  down); break;
-            case bWalk   : Input::setDown(ikJoyLB, down); break;
-            case bAction : Input::setDown(ikJoyA,  down); break;
-            case bJump   : Input::setDown(ikJoyX,  down); break;
-            default      : ;
-        }        
+    #undef MAX_CHARS
+
+
+    void init(IGame *game) {
+        UI::game = game;
     }
 
     void update() {
-        if (touchTimerTap > 0.0f)
-            touchTimerTap = max(0.0f, touchTimerTap - Core::deltaTime);
-
-        if (touch[zMove] != ikNone || touch[zLook] != ikNone || touch[zButton] != ikNone)
-            touchTimerVis = 30.0f;
-        else
-            if (touchTimerVis > 0.0f)
-                touchTimerVis = max(0.0f, touchTimerVis - Core::deltaTime);
-
-    // update buttons
-        float offset = Core::height * 0.25f;
-        float radius = offset; 
-        vec2  center = vec2(Core::width - offset * 0.7f, Core::height - offset * 0.7f);
-
-        btnPos[bWeapon] = center;
-        btnPos[bJump]   = center + vec2(cos(-PI * 0.5f), sin(-PI * 0.5f)) * radius;
-        btnPos[bAction] = center + vec2(cos(-PI * 3.0f / 4.0f), sin(-PI * 3.0f / 4.0f)) * radius;
-        btnPos[bWalk]   = center + vec2(cos(-PI), sin(-PI)) * radius;
-        btnRadius       = Core::height * (25.0f / 1080.0f);
-
-    // touch update
-        if (checkTouchZone(zMove))
-            Input::joy.L = vec2(0.0f);
-
-        if (checkTouchZone(zLook))
-            Input::joy.R = vec2(0.0f);
-
-        if (checkTouchZone(zButton)) {
-            touchSetDown(false);
-            btn = bNone;
-        }
-
-        if (doubleTap) {
-            doubleTap = false;
-            Input::setDown(ikJoyB, false);
-        }
-
-        float zoneSize = Core::width / 3.0f;
-
-        for (int i = 0; i < COUNT(Input::touch); i++) {
-            InputKey key = InputKey(i + ikTouchA);
-
-            if (!Input::down[key]) continue;
-            if (key == touch[zMove] || key == touch[zLook] || key == touch[zButton]) continue;
-
-            int zone = clamp(int(Input::touch[i].pos.x / zoneSize), 0, 2);
-            InputKey &t = touch[zone];
-
-            if (t == ikNone) {
-                t = key;
-                if (zone == zMove) {
-                    if (touchTimerTap > 0.0f && touchTimerTap < 0.3f) { // 100 ms gap to reduce false positives (bad touch sensors)
-                        doubleTap = true;
-                        touchTimerTap = 0.0f;
-                    } else
-                        touchTimerTap = 0.3f;
-                }
-            }
-        }
-
-    // set active touches as gamepad controls
-        getTouchDir(touch[zMove], Input::joy.L);
-        getTouchDir(touch[zLook], Input::joy.R);
-        if (touch[zButton] != ikNone && btn == bNone) {
-            getTouchButton(Input::touch[touch[zButton] - ikTouchA].pos);
-            touchSetDown(true);
-        }
-        if (doubleTap)
-            Input::setDown(ikJoyB, true);
+        //
     }
 
     void renderControl(const vec2 &pos, float size, bool active) {
@@ -144,7 +107,9 @@ struct UI {
     }
 
     void renderTouch() {
-        if (touchTimerVis <= 0.0f) return;
+        game->setupBinding();
+
+        if (Input::touchTimerVis <= 0.0f) return;
 
         Core::setDepthTest(false);
         Core::setBlending(bmAlpha);
@@ -157,15 +122,15 @@ struct UI {
         float offset = Core::height * 0.25f;
 
         vec2 pos = vec2(offset, Core::height - offset);
-        if (Input::down[touch[zMove]]) {
-            Input::Touch &t = Input::touch[touch[zMove] - ikTouchA];
-            renderControl(t.pos, btnRadius, true);
+        if (Input::down[Input::touchKey[Input::zMove]]) {
+            Input::Touch &t = Input::touch[Input::touchKey[Input::zMove] - ikTouchA];
+            renderControl(t.pos, Input::btnRadius, true);
             pos = t.start;
         }
-        renderControl(pos, btnRadius, false);
+        renderControl(pos, Input::btnRadius, false);
 
-        for (int i = bWeapon; i < bMAX; i++)
-            renderControl(btnPos[i], btnRadius, btn == i);
+        for (int i = Input::bWeapon; i < Input::bMAX; i++)
+            renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
 
         Core::setCulling(cfFront);
         Core::setBlending(bmNone);

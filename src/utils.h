@@ -78,12 +78,6 @@ inline void swap(T &a, T &b) {
     b = tmp;
 }
 
-float lerp(float a, float b, float t) {
-    if (t <= 0.0f) return a;
-    if (t >= 1.0f) return b;
-    return a + (b - a) * t; 
-}
-
 float clampAngle(float a) {
     return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
 }
@@ -111,6 +105,22 @@ float decrease(float delta, float &value, float &speed) {
         return speed;
     } else
         return 0.0f;
+}
+
+float hermite(float x) {
+    return x * x * (3.0f - 2.0f * x);
+}
+
+float lerp(float a, float b, float t) {
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+    return a + (b - a) * t; 
+}
+
+float lerpAngle(float a, float b, float t) {
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+    return a + shortAngle(a, b) * t; 
 }
 
 int nextPow2(uint32 x) {
@@ -421,8 +431,13 @@ struct mat4 {
     mat4(float fov, float aspect, float znear, float zfar) {
         float k = 1.0f / tanf(fov * 0.5f * DEG2RAD);
         identity();
-        e00 = k / aspect;
-        e11 = k;
+        if (aspect >= 1.0f) {
+            e00 = k / aspect;
+            e11 = k;
+        } else {
+            e00 = k;
+            e11 = k * aspect;
+        }
         e22 = (znear + zfar) / (znear - zfar);
         e33 = 0.0f;
         e32 = -1.0f;

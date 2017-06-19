@@ -26,9 +26,15 @@ struct IGame {
     virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
+    virtual void setupBinding() {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex, bool genShadowMask = false) {}
     virtual void fxQuake(float time) {}
+
+    virtual bool invUse(TR::Entity::Type item, TR::Entity::Type slot) { return false; }
+    virtual void invAdd(TR::Entity::Type type, int count = 1) {}
+
+    virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const { return NULL; }
 };
 
 struct Controller {
@@ -181,25 +187,7 @@ struct Controller {
     }
 
     Sound::Sample* playSound(int id, const vec3 &pos, int flags) const {
-        if (level->version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
-            return NULL;
-
-        int16 a = level->soundsMap[id];
-        if (a == -1) return NULL;
-
-        TR::SoundInfo &b = level->soundsInfo[a];
-        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-            int   index  = b.offset + rand() % b.flags.count;
-            float volume = (float)b.volume / 0x7FFF;
-            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f; 
-            if (b.flags.mode == 1) flags |= Sound::UNIQUE;
-            //if (b.flags.mode == 2) flags |= Sound::REPLAY;
-            if (b.flags.mode == 3) flags |= Sound::SYNC;
-            if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
-            if (b.flags.fixed) flags |= Sound::LOOP;
-            return Sound::play(level->getSampleStream(index), pos, volume, pitch, flags, entity * 1000 + index);
-        }
-        return NULL;
+        return game->playSound(id, pos, flags, entity);
     }
 
     vec3 getDir() const {

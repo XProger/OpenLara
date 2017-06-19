@@ -173,13 +173,13 @@ namespace Debug {
         }
 
         void text(const vec3 &pos, const vec4 &color, const char *str) {
-			vec4 p = Core::mViewProj * vec4(pos, 1);
-			if (p.w > 0) {
-				p.xyz = p.xyz * (1.0f / p.w);
-				p.y = -p.y;	
-				p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
+            vec4 p = Core::mViewProj * vec4(pos, 1);
+            if (p.w > 0) {
+                p.xyz = p.xyz * (1.0f / p.w);
+                p.y = -p.y;	
+                p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
                 text(vec2(p.x, p.y), color, str);
-			}
+            }
         }
     }
 
