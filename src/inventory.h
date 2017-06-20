@@ -280,7 +280,7 @@ struct Inventory {
     void update() {
         doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
-        doPhase(chosen, 1.0f, phaseChoose);
+        doPhase(chosen, 4.0f, phaseChoose);
         doPhase(true,   2.5f, phaseSelect);
 
         if (page != targetPage && phasePage == 1.0f) {
