@@ -280,7 +280,7 @@ struct Inventory {
     void update() {
         doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
-        doPhase(chosen, 4.0f, phaseChoose);
+        doPhase(chosen, 1.0f, phaseChoose);
         doPhase(true,   2.5f, phaseSelect);
 
         if (page != targetPage && phasePage == 1.0f) {
@@ -338,24 +338,30 @@ struct Inventory {
 
         for (int i = 0; i < itemsCount; i++) {
             items[i].update();
-            float &angle = items[i].angle;
 
-            if (itemIndex != i || chosen) {
-                if (angle == 0.0f) {
-                    continue;
-                } else if (angle < 0.0f) {
-                    angle += w;
-                    if (angle > 0.0f)
-                        angle = 0.0f;
-                } else if (angle > 0.0f) {
-                    angle -= w;
-                    if (angle < 0.0f)
-                        angle = 0.0f;
-                }
-            } else
-                angle += w;
+			if (!Input::state[cLeft] && !Input::state[cRight]) {
+				float &angle = items[i].angle;
 
-            angle = clampAngle(angle);
+				if (itemIndex != i || chosen) {
+					if (angle == 0.0f) {
+						continue;
+					}
+					else if (angle < 0.0f) {
+						angle += w;
+						if (angle > 0.0f)
+							angle = 0.0f;
+					}
+					else if (angle > 0.0f) {
+						angle -= w;
+						if (angle < 0.0f)
+							angle = 0.0f;
+					}
+				}
+				else
+					angle += w;
+
+				angle = clampAngle(angle);
+			}
         }
 
         if (ready && chosen && phaseChoose == 1.0f && item.anim->isEnded) {
@@ -452,7 +458,7 @@ struct Inventory {
         float angle         = getAngle(pageItemIndex[page], count);
 
         if (phaseSelect < 1.0f)
-            angle = lerpAngle(angle, getAngle(targetIndex, count), hermite(phaseSelect));
+            angle = lerpAngle(angle, getAngle(targetIndex, count), phaseSelect);
         
         int itemIndex = 0;
         for (int i = 0; i < itemsCount; i++) {
