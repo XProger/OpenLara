@@ -11,7 +11,7 @@
 #define SHADOW_TEX_SIZE 1024
 
 #define FOG_DIST       (18 * 1024)
-#define WATER_FOG_DIST (8 * 1024)
+#define WATER_FOG_DIST (6 * 1024)
 //#define WATER_USE_GRID
 #define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
 
