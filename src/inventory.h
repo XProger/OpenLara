@@ -277,6 +277,26 @@ struct Inventory {
         return 0;
     }
 
+    float getAngle(int index, int count) {
+        return PI * 2.0f / float(count) * index;
+    }
+
+    int getItemsCount(int page) {
+        int count = 0;
+
+        for (int i = 0; i < itemsCount; i++)
+            if (items[i].desc.page == page)
+                count++;
+
+        return count;
+    }
+
+    bool showHealthBar() {
+        int idx = getItemIndex(page, index);
+        TR::Entity::Type type = items[idx].type;
+        return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
+    }
+
     void update() {
         doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
@@ -334,7 +354,7 @@ struct Inventory {
 
         float w = 90.0f * DEG2RAD * Core::deltaTime;
 
-        int itemIndex = getItemIndex(page, index);
+        int itemIndex = index == targetIndex ? getItemIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
             items[i].update();
@@ -420,20 +440,6 @@ struct Inventory {
         }
     }
 
-    float getAngle(int index, int count) {
-        return PI * 2.0f / float(count) * index;
-    }
-
-    int getItemsCount(int page) {
-        int count = 0;
-
-        for (int i = 0; i < itemsCount; i++)
-            if (items[i].desc.page == page)
-                count++;
-
-        return count;
-    }
-
     void renderPage(int page) {
         float phase = page == targetPage ? phasePage : (1.0f - phasePage);
 
@@ -465,15 +471,16 @@ struct Inventory {
             float ia = item.angle;
             float ra = ringTilt;
             float rd = radius;
+            float rh = ringHeight;
 
             if (itemIndex == pageItemIndex[page] && (chosen || phaseChoose > 0.0f)) {
                 ia *= 1.0f - phaseChoose;
-                ra *= 1.0f - phaseChoose;
+                rh -=  128 * phaseChoose;
                 rd +=  296 * phaseChoose;
             }
 
             Basis basis = Basis(quat(vec3(1, 0, 0), ra), vec3(0.0f));
-            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item.desc.page * INVENTORY_HEIGHT - ringHeight, 0));
+            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item.desc.page * INVENTORY_HEIGHT - rh, 0));
 
             item.render(game, basis);
 
@@ -531,46 +538,27 @@ struct Inventory {
         renderPage(page);
         if (page != targetPage)
             renderPage(targetPage);
+    }
 
-        if (phaseRing < 1.0f)
-            return;
-
-        Core::setDepthTest(false);
-        Core::setBlending(bmAlpha);
-        Core::setCulling(cfNone);
-        game->setupBinding();
-
-        float w = 480 * aspect;
-        Core::mViewProj = mat4(0.0f, w, 480, 0.0f, 0.0f, 1.0f);
-
-        game->setShader(Core::passGUI, Shader::DEFAULT);
-        Core::active.shader->setParam(uMaterial, vec4(1.0f));
-        Core::active.shader->setParam(uPosScale, vec4(0.0f, 0.0f, 1.0f, 1.0f));
-
-        UI::textBegin();
+    void renderUI() {
+        if (!active || phaseRing < 1.0f) return;
 
         static const char* pageTitle[PAGE_MAX] = { "OPTION", "INVENTORY", "ITEMS" };
 
-        UI::textOut(game, vec2( 0, 32), pageTitle[page], UI::aCenter, w);
+        UI::textOut(game, vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (page < PAGE_ITEMS && getItemsCount(page + 1)) {
-            UI::textOut(game, vec2(16, 32), "\x5B", UI::aLeft, w);
-            UI::textOut(game, vec2( 0, 32), "\x5B", UI::aRight, w - 20);
+            UI::textOut(game, vec2(16, 32), "\x5B", UI::aLeft, UI::width);
+            UI::textOut(game, vec2( 0, 32), "\x5B", UI::aRight, UI::width - 20);
         }
 
         if (page > PAGE_OPTION && getItemsCount(page - 1)) {
-            UI::textOut(game, vec2(16, 480 - 16), "\x5D", UI::aLeft, w);
-            UI::textOut(game, vec2(0,  480 - 16), "\x5D", UI::aRight, w - 20);
+            UI::textOut(game, vec2(16, 480 - 16), "\x5D", UI::aLeft, UI::width);
+            UI::textOut(game, vec2(0,  480 - 16), "\x5D", UI::aRight, UI::width - 20);
         }
 
         if (index == targetIndex)
-            renderItemText(items[getItemIndex(page, index)], w);
-
-        UI::textEnd(game);
-
-        Core::setCulling(cfFront);
-        Core::setBlending(bmNone);
-        Core::setDepthTest(true);
+            renderItemText(items[getItemIndex(page, index)], UI::width);
     }
 };
 

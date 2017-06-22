@@ -19,10 +19,12 @@ namespace Game {
     void init(Stream *lvl, Stream *snd) {
         Core::init();
 
-        Core::settings.ambient  = true;
-        Core::settings.lighting = true;
-        Core::settings.shadows  = true;
-        Core::settings.water    = Core::support.texFloat || Core::support.texHalf;
+        Core::settings.detail.ambient       = true;
+        Core::settings.detail.lighting      = true;
+        Core::settings.detail.shadows       = true;
+        Core::settings.detail.water         = Core::support.texFloat || Core::support.texHalf;
+
+        Core::settings.controls.retarget    = true;
 
         level = NULL;
         startLevel(lvl, snd, false, false);

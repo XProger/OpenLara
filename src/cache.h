@@ -27,10 +27,6 @@ const char FILTER[] =
     #include "shaders/filter.glsl"
 ;
 
-const char VOLUME[] =
-    #include "shaders/volume.glsl"
-;
-
 const char GUI[] =
     #include "shaders/gui.glsl"
 ;
@@ -45,15 +41,15 @@ struct ShaderCache {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
-        if (Core::settings.shadows)
+        if (Core::settings.detail.shadows)
             compile(Core::passShadow, Shader::ENTITY, FX_NONE);
 
-        if (Core::settings.ambient) {
+        if (Core::settings.detail.ambient) {
             compile(Core::passAmbient, Shader::ROOM,   FX_NONE);
             compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST);
             compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER);
             compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST);
-            if (Core::settings.water) {
+            if (Core::settings.detail.water) {
                 compile(Core::passAmbient, Shader::ROOM,   FX_CLIP_PLANE);
                 compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
                 compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
@@ -61,7 +57,7 @@ struct ShaderCache {
             }
         }
 
-        if (Core::settings.water) {
+        if (Core::settings.detail.water) {
             compile(Core::passWater, Shader::WATER_MASK,     FX_NONE);
             compile(Core::passWater, Shader::WATER_STEP,     FX_NONE);
             compile(Core::passWater, Shader::WATER_CAUSTICS, FX_NONE);
@@ -83,7 +79,7 @@ struct ShaderCache {
         compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::FLASH,  FX_ALPHA_TEST);
-        if (Core::settings.water) {
+        if (Core::settings.detail.water) {
             compile(Core::passCompose, Shader::ROOM,   FX_CLIP_PLANE);
             compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
             compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
@@ -108,7 +104,7 @@ struct ShaderCache {
     Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
         char def[1024], ext[255];
         ext[0] = 0;
-        if (Core::settings.shadows) {
+        if (Core::settings.detail.shadows) {
             if (Core::support.shadowSampler) {
                 #ifdef MOBILE
                     strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
@@ -139,10 +135,10 @@ struct ShaderCache {
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
-                if (Core::settings.ambient)  strcat(def, "#define OPT_AMBIENT\n");
-                if (Core::settings.lighting) strcat(def, "#define OPT_LIGHTING\n");
-                if (Core::settings.shadows)  strcat(def, "#define OPT_SHADOW\n");
-                if (Core::settings.water)    strcat(def, "#define OPT_WATER\n");
+                if (Core::settings.detail.ambient)  strcat(def, "#define OPT_AMBIENT\n");
+                if (Core::settings.detail.lighting) strcat(def, "#define OPT_LIGHTING\n");
+                if (Core::settings.detail.shadows)  strcat(def, "#define OPT_SHADOW\n");
+                if (Core::settings.detail.water)    strcat(def, "#define OPT_WATER\n");
                 break;
             }
             case Core::passWater   : {
@@ -160,13 +156,6 @@ struct ShaderCache {
                 src = FILTER;
                 typ = typeNames[type];
                 sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
-                break;
-            }
-            case Core::passVolume : {
-                static const char *typeNames[] = { "DEFAULT" };
-                src = VOLUME;
-                typ = typeNames[type];
-                sprintf(def, "%s#define PASS_%s\n", ext, passNames[pass]);
                 break;
             }
             case Core::passGUI : {

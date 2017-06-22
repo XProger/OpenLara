@@ -295,10 +295,10 @@ struct Level : IGame {
 
             level.cameraController = camera;
 
-            ambientCache = Core::settings.ambient ? new AmbientCache(this) : NULL;
-            waterCache   = Core::settings.water   ? new WaterCache(this)   : NULL;
+            ambientCache = Core::settings.detail.ambient ? new AmbientCache(this) : NULL;
+            waterCache   = Core::settings.detail.water   ? new WaterCache(this)   : NULL;
             zoneCache    = new ZoneCache(this);
-            shadow       = Core::settings.shadows ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
+            shadow       = Core::settings.detail.shadows ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
 
             initReflections();
 
@@ -379,11 +379,29 @@ struct Level : IGame {
                 int i = y * 1024 + x;
                 data[i].r = data[i].g = data[i].b = data[i].a = 255;    // white texel for colored triangles
             }
-/*
+
+//        uint32 healthBar[1+5+1] = { 0xFF2C5C70, 0xFF2C5C70, 0xFF4878A4, 0xFF2C5C70, 0xFF004458, 0xFF143050, 0xFF143050 };
+        uint32 healthBar[1+5+1] = { 0xFF2C5D71, 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F, 0xFF16304F };
+
+        for (int y = 0; y < COUNT(healthBar); y++)
+            for (int x = 0; x < 2; x++) {
+                int i = (TEX_HEALTH_BAR_Y + y) * 1024 + (TEX_HEALTH_BAR_X + x);
+                *((uint32*)&data[i]) = healthBar[y];
+            }
+
+        uint32 oxygenBar[1+5+1] = { 0xFF647464, 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030, 0xFF303030 };
+        for (int y = 0; y < COUNT(oxygenBar); y++)
+            for (int x = 0; x < 2; x++) {
+                int i = (TEX_OXYGEN_BAR_Y + y) * 1024 + (TEX_OXYGEN_BAR_X + x);
+                *((uint32*)&data[i]) = oxygenBar[y];
+            }
+
+
+        /*
         FILE *f = fopen("atlas.raw", "wb");
         fwrite(data, 1024 * 1024 * 4, 1, f);
         fclose(f);
-*/
+        */
 
         atlas = new Texture(1024, 1024, Texture::RGBA, false, data);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
@@ -590,7 +608,7 @@ struct Level : IGame {
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
-            if (Core::settings.ambient) {
+            if (Core::settings.detail.ambient) {
                 AmbientCache::Cube cube;
                 if (Core::stats.frame != controller->frameIndex) {
                     ambientCache->getAmbient(entity.room, pos, cube);
@@ -647,11 +665,9 @@ struct Level : IGame {
 
         sndCurrent = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
 
-        if (sndCurrent) {
-            if (sndSoundtrack && sndCurrent != sndSoundtrack) sndSoundtrack->volume = 0.0f;
-            if (sndUnderwater && sndCurrent != sndUnderwater) sndUnderwater->volume = 0.0f;
-            sndCurrent->volume = 1.0f;
-        }
+        if (sndSoundtrack && sndCurrent != sndSoundtrack) sndSoundtrack->volume = 0.0f;
+        if (sndUnderwater && sndCurrent != sndUnderwater) sndUnderwater->volume = 0.0f;
+        if (sndCurrent) sndCurrent->volume = 1.0f;
 
         if (waterCache) 
             waterCache->update();
@@ -949,6 +965,31 @@ struct Level : IGame {
         inventory.render();
     }
 
+    void renderUI() {
+        UI::begin();
+
+    // render health & oxygen bars
+        vec2 size = vec2(180, 10);
+
+        float health = lara->health / float(LARA_MAX_HEALTH);
+        float oxygen = lara->oxygen / float(LARA_MAX_OXYGEN);
+
+        if ((params->time - int(params->time)) < 0.5f) { // blinking
+            if (health <= 0.2f) health = 0.0f;
+            if (oxygen <= 0.2f) oxygen = 0.0f;
+        }
+
+        if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f)))
+            UI::renderBar(0, vec2(32, 32), size, health);
+
+        if (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER)
+            UI::renderBar(1, vec2(UI::width - 32 - size.x, 32), size, oxygen);
+
+        inventory.renderUI();
+
+        UI::end();
+    }
+
     void render() {
         bool title  = isTitle();
         bool copyBg = title && lastTitle != title;
@@ -969,6 +1010,8 @@ struct Level : IGame {
 
         if (title)
             renderInventory();
+
+        renderUI();
 
         lastTitle = title;
     }

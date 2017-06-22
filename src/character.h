@@ -5,7 +5,7 @@
 #include "trigger.h"
 
 struct Character : Controller {
-    int     health;
+    float   health;
     float   tilt;
     quat    rotHead, rotChest;
 
@@ -37,7 +37,7 @@ struct Character : Controller {
 
     Collision collision;
 
-    Character(IGame *game, int entity, int health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
+    Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
@@ -68,8 +68,8 @@ struct Character : Controller {
         angle.x = clamp(angle.x + delta, -PI * 0.49f, PI * 0.49f);
     }
 
-    virtual void hit(int damage, Controller *enemy = NULL) {
-        health -= damage;
+    virtual void hit(float damage, Controller *enemy = NULL) {
+        health = max(0.0f, health - damage);
     };
 
     virtual void checkRoom() {

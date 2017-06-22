@@ -4,6 +4,12 @@
 #include "core.h"
 #include "format.h"
 
+#define TEX_HEALTH_BAR_X 1000
+#define TEX_HEALTH_BAR_Y 1000
+
+#define TEX_OXYGEN_BAR_X 1002
+#define TEX_OXYGEN_BAR_Y 1000
+
 typedef unsigned short Index;
 
 struct Vertex {
@@ -184,7 +190,6 @@ struct MeshBuilder {
     MeshRange *sequences;
 // procedured
     MeshRange shadowBlob, shadowBox;
-    MeshRange bar;
     MeshRange quad, circle;
     MeshRange plane;
 
@@ -227,7 +232,7 @@ struct MeshBuilder {
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
 
-            if (Core::settings.water)
+            if (Core::settings.detail.water)
                 roomRemoveWaterSurfaces(r, iCount, vCount);
             
             for (int j = 0; j < r.meshesCount; j++) {
@@ -287,13 +292,6 @@ struct MeshBuilder {
         shadowBox.iCount = (3 * (2 + 4)) * 6;
         iCount += shadowBox.iCount;
         vCount += 4 * 6;
-
-    // bar (health, oxygen)
-        bar.vStart = vCount;
-        bar.iStart = iCount;
-        bar.iCount = 2 * 3;
-        iCount += bar.iCount;
-        vCount += 4;
 
     // quad (post effect filter)
         quad.vStart = vCount;
@@ -498,22 +496,6 @@ struct MeshBuilder {
             aCount++;
         }
 
-    // white bar
-        addQuad(indices, iCount, vCount, bar.vStart, vertices, &whiteTile);
-        vertices[vCount + 0].coord = { 0, 0, 0, 0 };
-        vertices[vCount + 1].coord = { 1, 0, 0, 0 };
-        vertices[vCount + 2].coord = { 1, 1, 0, 0 };
-        vertices[vCount + 3].coord = { 0, 1, 0, 0 };
-
-        for (int i = 0; i < 4; i++) {
-            Vertex &v = vertices[vCount + i];
-            v.normal    = { 0, 0, 0, 0 };
-            v.color     = { 255, 255, 255, 255 };
-            v.texCoord  = { 32688, 32688, 0, 0 };
-        }
-        vCount += 4;
-        aCount++;
-
     // quad
         addQuad(indices, iCount, vCount, quad.vStart, vertices, &whiteTile);
         vertices[vCount + 3].coord = { -1, -1, 0, 0 };
@@ -595,7 +577,6 @@ struct MeshBuilder {
             mesh->initRange(models[i].geometry);
         mesh->initRange(shadowBlob);
         mesh->initRange(shadowBox);
-        mesh->initRange(bar);
         mesh->initRange(quad);
         mesh->initRange(circle);
         mesh->initRange(plane);
@@ -978,6 +959,93 @@ struct MeshBuilder {
         vCount += 4;
     }
 
+    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, int type, const vec2 &pos, const vec2 &size, uint32 color) {
+        addQuad(indices, iCount, vCount, 0, vertices, NULL);
+
+        int16 minX = int16(pos.x);
+        int16 minY = int16(pos.y);
+        int16 maxX = int16(size.x) + minX;
+        int16 maxY = int16(size.y) + minY;
+
+        vertices[vCount + 0].coord = { minX, minY, 0, 0 };
+        vertices[vCount + 1].coord = { maxX, minY, 0, 0 };
+        vertices[vCount + 2].coord = { maxX, maxY, 0, 0 };
+        vertices[vCount + 3].coord = { minX, maxY, 0, 0 };
+
+        for (int i = 0; i < 4; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal  = { 0, 0, 0, 0 };
+            v.color   = *((ubyte4*)&color);
+
+            int16 s, t;
+
+            if (type == 0) { // health bar
+                s = TEX_HEALTH_BAR_X + 1;
+                t = TEX_HEALTH_BAR_Y + 1;
+            } else {         // oxygen bar
+                s = TEX_OXYGEN_BAR_X + 1;
+                t = TEX_OXYGEN_BAR_Y + 1;
+            }
+
+            if (i > 1) t += 5;
+            
+            s = int(s) * 32767 / 1024;
+            t = int(t) * 32767 / 1024;
+
+            v.texCoord = { s, t, 0, 0 };
+        }
+
+        vCount += 4;
+    }
+
+    void addFrame(Index *indices, Vertex *vertices, int &iCount, int &vCount, const vec2 &pos, const vec2 &size, uint32 color1, uint32 color2) {
+        int16 minX = int16(pos.x);
+        int16 minY = int16(pos.y);
+        int16 maxX = int16(size.x) + minX;
+        int16 maxY = int16(size.y) + minY;
+
+        vertices[vCount + 0].coord = { minX, minY, 0, 0 };
+        vertices[vCount + 1].coord = { maxX, minY, 0, 0 };
+        vertices[vCount + 2].coord = { maxX, int16(minY + 1), 0, 0 };
+        vertices[vCount + 3].coord = { minX, int16(minY + 1), 0, 0 };
+
+        vertices[vCount + 4].coord = { minX, minY, 0, 0 };
+        vertices[vCount + 5].coord = { int16(minX + 1), minY, 0, 0 };
+        vertices[vCount + 6].coord = { int16(minX + 1), maxY, 0, 0 };
+        vertices[vCount + 7].coord = { minX, maxY, 0, 0 };
+
+        for (int i = 0; i < 8; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal   = { 0, 0, 0, 0 };
+            v.color    = *((ubyte4*)&color1);
+            v.texCoord = { 32688, 32688, 0, 0 };
+        }
+
+        addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
+
+        vertices[vCount + 0].coord = { minX, int16(maxY - 1), 0, 0 };
+        vertices[vCount + 1].coord = { maxX, int16(maxY - 1), 0, 0 };
+        vertices[vCount + 2].coord = { maxX, maxY, 0, 0 };
+        vertices[vCount + 3].coord = { minX, maxY, 0, 0 };
+
+        vertices[vCount + 4].coord = { int16(maxX - 1), minY, 0, 0 };
+        vertices[vCount + 5].coord = { maxX, minY, 0, 0 };
+        vertices[vCount + 6].coord = { maxX, maxY, 0, 0 };
+        vertices[vCount + 7].coord = { int16(maxX - 1), maxY, 0, 0 };
+
+        for (int i = 0; i < 8; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.normal   = { 0, 0, 0, 0 };
+            v.color    = *((ubyte4*)&color2);
+            v.texCoord = { 32688, 32688, 0, 0 };
+        }
+
+        addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
+    }
+
+
     void bind() {
         mesh->bind();
     }
@@ -1028,34 +1096,6 @@ struct MeshBuilder {
 
     void renderPlane() {
         mesh->render(plane);
-    }
-
-    void renderBar(const vec2 &size, float value) {
-        /*
-        float w = size.y / 9.0f;
-        // health bar
-        enum Colors {
-            clBlack = 0xFF000000,
-            clGrayL = 0xFF748474,
-            clGrayD = 0xFF4C504C,
-            clRed1  = 0xFF705C2C,
-            clRed2  = 0xFFA47848,
-            clRed3  = 0xFF705C2C,
-            clRed4  = 0xFF584400,
-            clRed5  = 0xFF503014,
-        };
-
-        uint32 *d = (uint32*)&data[0];
-        d[0] = clGrayD; d[1] = clGrayD; d[2] = clGrayD; d[3] = clGrayD; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clBlack; d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed1;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed2;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed3;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed4;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clRed5;  d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clBlack; d[2] = clBlack; d[3] = clBlack; d[4] = clGrayL; d+= 1024;
-        d[0] = clGrayD; d[1] = clGrayL; d[2] = clGrayL; d[3] = clGrayL; d[4] = clGrayL; d+= 1024;
-        */
     }
 };
 

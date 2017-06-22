@@ -6,6 +6,7 @@
 
 namespace UI {
     IGame *game;
+    float width;
 
     const static uint8 char_width[110] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
@@ -43,15 +44,35 @@ namespace UI {
         int     vCount;
     } buffer;
 
-    void textBegin() {
+    void begin() {
+        Core::setDepthTest(false);
+        Core::setBlending(bmAlpha);
+        Core::setCulling(cfNone);
+        game->setupBinding();
+
+        float aspect = float(Core::width) / float(Core::height);
+        width = 480 * aspect;
+        Core::mViewProj = mat4(0.0f, width, 480, 0.0f, 0.0f, 1.0f);
+
+        game->setShader(Core::passGUI, Shader::DEFAULT);
+        Core::active.shader->setParam(uMaterial, vec4(1));
+        Core::active.shader->setParam(uPosScale, vec4(0, 0, 1, 1));
+
         buffer.iCount = buffer.vCount = 0;
     }
 
-    void textEnd(IGame *game) {
+    void flush() {
         if (buffer.iCount > 0) {
             game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
             buffer.iCount = buffer.vCount = 0;
         }
+    }
+
+    void end() {
+        flush();
+        Core::setCulling(cfFront);
+        Core::setBlending(bmNone);
+        Core::setDepthTest(true);
     }
 
     void textOut(IGame *game, const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
@@ -80,7 +101,7 @@ namespace UI {
             int frame = charRemap(c);
 
             if (buffer.iCount == MAX_CHARS * 6)
-                textEnd(game);
+                flush();
 
             TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
             mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, x, y, 0, sprite, 255, true);
@@ -137,8 +158,13 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void renderBar(const vec2 &pos, const vec2 &size, float value) {
-        //
+    void renderBar(int type, const vec2 &pos, const vec2 &size, float value) {
+        MeshBuilder *mesh = game->getMesh();
+
+        mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, 0xFF4C504C, 0xFF748474);
+        mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos - 1.0f, size + 2.0f, 0x80000000);
+        if (value > 0.0f)
+            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos, vec2(size.x * value, size.y), 0xFFFFFFFF);
     }
 };
 

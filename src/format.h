@@ -393,12 +393,13 @@ namespace TR {
         Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
     };
 
-
     struct Color24 {
         uint8 r, g, b;
 
         Color24() {}
         Color24(uint8 r, uint8 g, uint8 b) : r(r), g(g), b(b) {}
+
+        operator Color32() const { return Color32(r, g, b, 255); }
     };
 
     struct Color16 {
