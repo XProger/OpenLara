@@ -410,6 +410,9 @@ struct WaterCache {
             caustics = new Texture(512, 512, Texture::RGB16, false);
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
+            
+            Core::setTarget(data[0], true);
+            Core::setTarget(NULL);
 
             blank = false;
 
@@ -571,7 +574,7 @@ struct WaterCache {
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             item.data[0]->bind(sDiffuse);
-            Core::setTarget(item.data[1], 0, true);
+            Core::setTarget(item.data[1], true);
             Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
             game->getMesh()->renderQuad();
             Core::invalidateTarget(false, true);
