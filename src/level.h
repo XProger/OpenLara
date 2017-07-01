@@ -136,6 +136,10 @@ struct Level : IGame {
         inventory.add(type, count);
     }
 
+    virtual int* invCount(TR::Entity::Type type) { 
+        return inventory.getCountPtr(type);
+    }
+
     virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const {
         if (level.version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
@@ -979,11 +983,18 @@ struct Level : IGame {
             if (oxygen <= 0.2f) oxygen = 0.0f;
         }
 
-        if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f)))
-            UI::renderBar(0, vec2(32, 32), size, health);
+        if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
+            UI::renderBar(0, vec2(UI::width - 32 - size.x, 32), size, health);
+
+            if (!inventory.active && !lara->emptyHands()) { // ammo
+                int index = inventory.contains(lara->getCurrentWeaponInv());
+                if (index > -1)
+                    inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x, 64), size.x);
+            }
+        }
 
         if (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER)
-            UI::renderBar(1, vec2(UI::width - 32 - size.x, 32), size, oxygen);
+            UI::renderBar(1, vec2(32, 32), size, oxygen);
 
         inventory.renderUI();
 

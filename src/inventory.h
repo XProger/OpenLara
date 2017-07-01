@@ -129,7 +129,7 @@ struct Inventory {
             if (anim) anim->setAnim(0, 0, false);
         }
 
-    } items[INVENTORY_MAX_ITEMS];
+    } *items[INVENTORY_MAX_ITEMS];
 
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
         TR::Level *level = game->getLevel();
@@ -145,16 +145,16 @@ struct Inventory {
         if (level->extra.inv.gamma != -1)
             add(TR::Entity::INV_GAMMA);
 
-        add(TR::Entity::INV_PISTOLS, 999);
+        add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
         add(TR::Entity::INV_SHOTGUN, 999);
         add(TR::Entity::INV_MAGNUMS, 999);
-        add(TR::Entity::INV_UZIS, 999);
-        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
-        add(TR::Entity::INV_MEDIKIT_BIG, 999);
+        add(TR::Entity::INV_UZIS, 10);
+//        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
+//        add(TR::Entity::INV_MEDIKIT_BIG, 999);
 
-        add(TR::Entity::INV_SCION, 1);
-        add(TR::Entity::INV_KEY_1, 1);
-        add(TR::Entity::INV_PUZZLE_1, 1);
+//        add(TR::Entity::INV_SCION, 1);
+//        add(TR::Entity::INV_KEY_1, 1);
+//        add(TR::Entity::INV_PUZZLE_1, 1);
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
         memset(pageItemIndex, 0, sizeof(pageItemIndex));
@@ -164,6 +164,9 @@ struct Inventory {
     }
 
     ~Inventory() {
+        for (int i = 0; i < itemsCount; i++)
+            delete items[i];
+
         for (int i = 0; i < COUNT(background); i++)
             delete background[i];
     }
@@ -172,9 +175,41 @@ struct Inventory {
         return active || phaseRing > 0.0f;
     }
 
+    TR::Entity::Type convToInv(TR::Entity::Type type) {
+        switch (type) {
+            case TR::Entity::PISTOLS       : return TR::Entity::INV_PISTOLS;
+            case TR::Entity::SHOTGUN       : return TR::Entity::INV_SHOTGUN;
+            case TR::Entity::MAGNUMS       : return TR::Entity::INV_MAGNUMS;
+            case TR::Entity::UZIS          : return TR::Entity::INV_UZIS;
+ 
+            case TR::Entity::AMMO_PISTOLS  : return TR::Entity::INV_AMMO_PISTOLS;
+            case TR::Entity::AMMO_SHOTGUN  : return TR::Entity::INV_AMMO_SHOTGUN;
+            case TR::Entity::AMMO_MAGNUMS  : return TR::Entity::INV_AMMO_MAGNUMS;
+            case TR::Entity::AMMO_UZIS     : return TR::Entity::INV_AMMO_UZIS;
+
+            case TR::Entity::MEDIKIT_SMALL : return TR::Entity::INV_MEDIKIT_SMALL;
+            case TR::Entity::MEDIKIT_BIG   : return TR::Entity::INV_MEDIKIT_BIG;
+
+            case TR::Entity::PUZZLE_1      : return TR::Entity::INV_PUZZLE_1;
+            case TR::Entity::PUZZLE_2      : return TR::Entity::INV_PUZZLE_2;
+            case TR::Entity::PUZZLE_3      : return TR::Entity::INV_PUZZLE_3;
+            case TR::Entity::PUZZLE_4      : return TR::Entity::INV_PUZZLE_4;
+
+            case TR::Entity::KEY_1         : return TR::Entity::INV_KEY_1;
+            case TR::Entity::KEY_2         : return TR::Entity::INV_KEY_2;
+            case TR::Entity::KEY_3         : return TR::Entity::INV_KEY_3;
+            case TR::Entity::KEY_4         : return TR::Entity::INV_KEY_4;
+
+            case TR::Entity::LEADBAR       : return TR::Entity::INV_LEADBAR;
+            //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
+        }
+        return type;
+    }
+
     int contains(TR::Entity::Type type) {
+        type = convToInv(type);
         for (int i = 0; i < itemsCount; i++)
-            if (items[i].type == type)
+            if (items[i]->type == type)
                 return i;
         return -1;
     }
@@ -182,15 +217,17 @@ struct Inventory {
     void add(TR::Entity::Type type, int count = 1) {
         int i = contains(type);
         if (i > -1) {
-            items[i].count += count;
+            items[i]->count += count;
             return;
         }
 
         ASSERT(itemsCount < INVENTORY_MAX_ITEMS);
 
+        type = convToInv(type);
+
         int pos = 0;
         for (int pos = 0; pos < itemsCount; pos++)
-            if (items[pos].type > type)
+            if (items[pos]->type > type)
                 break;
 
         if (pos - itemsCount) {
@@ -198,36 +235,52 @@ struct Inventory {
                 items[i] = items[i - 1];
         }
 
-        Item it(game->getLevel(), type, count);
-        items[pos] = it;
+        items[pos] = new Item(game->getLevel(), type, count);
         itemsCount++;
     }
 
-    int getCount(TR::Entity::Type type) {
+    int* getCountPtr(TR::Entity::Type type) {
         int i = contains(type);
-        if (i < 0) return 0;
-        return items[i].count;
+        if (i < 0) return NULL;
+        return &items[i]->count;
     }
 
     void remove(TR::Entity::Type type, int count = 1) {
-        int i = contains(type);
-        if (i > -1)
-            items[i].count -= count;
+        int idx = contains(type);
+        if (idx > -1) {
+            items[idx]->count -= count;
+            if (!items[idx]->count) {
+                delete items[idx];
+                for (int i = idx; i < itemsCount - 1; i++) {
+                    items[i] = items[i + 1];
+                }
+                itemsCount--;
+            }
+        }
     }
 
     bool use(TR::Entity::Type item, TR::Entity::Type slot) {
-        if (item == TR::Entity::NONE) {
-            switch (slot) {
-                case TR::Entity::KEY_HOLE_1    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4
-                case TR::Entity::PUZZLE_HOLE_1 : item = TR::Entity::PUZZLE_1; break;
-                default : return false;
-            }
+        switch (slot) {
+            case TR::Entity::PUZZLE_HOLE_1 : item = TR::Entity::INV_PUZZLE_1; break;
+            case TR::Entity::PUZZLE_HOLE_2 : item = TR::Entity::INV_PUZZLE_2; break;
+            case TR::Entity::PUZZLE_HOLE_3 : item = TR::Entity::INV_PUZZLE_3; break;
+            case TR::Entity::PUZZLE_HOLE_4 : item = TR::Entity::INV_PUZZLE_4; break;
+            case TR::Entity::KEY_HOLE_1    : item = TR::Entity::INV_KEY_1;    break;
+            case TR::Entity::KEY_HOLE_2    : item = TR::Entity::INV_KEY_2;    break;
+            case TR::Entity::KEY_HOLE_3    : item = TR::Entity::INV_KEY_3;    break;
+            case TR::Entity::KEY_HOLE_4    : item = TR::Entity::INV_KEY_4;    break;
+            case TR::Entity::INV_PISTOLS   :
+            case TR::Entity::INV_SHOTGUN   :
+            case TR::Entity::INV_MAGNUMS   :
+            case TR::Entity::INV_UZIS      : return false;
+            default : return false;
         }
 
-        if (getCount(item) > 0) {
+        if (getCountPtr(item)) {
             remove(item);
             return true;
         }
+
         return false;
     }
 
@@ -240,7 +293,7 @@ struct Inventory {
 
             if (active) {
                 for (int i = 0; i < itemsCount; i++)
-                    items[i].reset();
+                    items[i]->reset();
 
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
@@ -269,7 +322,7 @@ struct Inventory {
 
     int getItemIndex(Page page, int index) {
         for (int i = 0; i < itemsCount; i++)
-            if (items[i].desc.page == page) {
+            if (items[i]->desc.page == page) {
                 if (!index)
                     return i;
                 index--;
@@ -285,7 +338,7 @@ struct Inventory {
         int count = 0;
 
         for (int i = 0; i < itemsCount; i++)
-            if (items[i].desc.page == page)
+            if (items[i]->desc.page == page)
                 count++;
 
         return count;
@@ -293,7 +346,7 @@ struct Inventory {
 
     bool showHealthBar() {
         int idx = getItemIndex(page, index);
-        TR::Entity::Type type = items[idx].type;
+        TR::Entity::Type type = items[idx]->type;
         return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
     }
 
@@ -329,15 +382,15 @@ struct Inventory {
 
         vec3 p;
         
-        Item &item = items[getItemIndex(page, index)];
+        Item *item = items[getItemIndex(page, index)];
 
         if (index == targetIndex && ready) {
-            if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item.anim->isEnded))) {
+            if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item->anim->isEnded))) {
                 chosen = !chosen;
                 if (!chosen) {
-                    item.angle = 0.0f;
+                    item->angle = 0.0f;
                 } else {
-                    switch (item.type) {
+                    switch (item->type) {
                         case TR::Entity::INV_COMPASS  : game->playSound(TR::SND_INV_COMPASS, p, 0, 0);   break;
                         case TR::Entity::INV_HOME     : game->playSound(TR::SND_INV_HOME, p, 0, 0);      break;
                         case TR::Entity::INV_CONTROLS : game->playSound(TR::SND_INV_CONTROLS, p, 0, 0);  break;
@@ -347,7 +400,7 @@ struct Inventory {
                         case TR::Entity::INV_UZIS     : game->playSound(TR::SND_INV_WEAPON, p, 0, 0);    break;
                         default                       : game->playSound(TR::SND_INV_SHOW, p, 0, 0);      break;
                     }
-                    item.choose();
+                    item->choose();
                 }
             }
         }
@@ -357,8 +410,8 @@ struct Inventory {
         int itemIndex = index == targetIndex ? getItemIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
-            items[i].update();
-            float &angle = items[i].angle;
+            items[i]->update();
+            float &angle = items[i]->angle;
 
             if (itemIndex != i || chosen) {
                 if (angle == 0.0f) {
@@ -378,8 +431,8 @@ struct Inventory {
             angle = clampAngle(angle);
         }
 
-        if (ready && chosen && phaseChoose == 1.0f && item.anim->isEnded) {
-            TR::Entity::Type type = item.type;
+        if (ready && chosen && phaseChoose == 1.0f && item->anim->isEnded) {
+            TR::Entity::Type type = item->type;
             
             if (type == TR::Entity::INV_PISTOLS || type == TR::Entity::INV_SHOTGUN || type == TR::Entity::INV_MAGNUMS || type == TR::Entity::INV_UZIS ||
                 type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG) {
@@ -420,24 +473,27 @@ struct Inventory {
         Core::setDepthTest(true);
     }
 
-    void renderItemText(const Item &item, float width) {
-        UI::textOut(game, vec2(0, 480 - 16), item.desc.name, UI::aCenter, width);
+    void renderItemCount(const Item *item, const vec2 &pos, float width) {
+        char spec;
+        switch (item->type) {
+            case TR::Entity::INV_SHOTGUN : spec = 12; break;
+            case TR::Entity::INV_MAGNUMS : spec = 13; break;
+            case TR::Entity::INV_UZIS    : spec = 14; break;
+            default                      : spec = 0;
+        }
 
-        if (item.count > 1) {
-            char spec;
-            switch (item.type) {
-                case TR::Entity::INV_SHOTGUN : spec = 12; break;
-                case TR::Entity::INV_MAGNUMS : spec = 13; break;
-                case TR::Entity::INV_UZIS    : spec = 14; break;
-                default                      : spec = 0;
-            }
-
+        if ((item->count > 1 || spec) && item->count < UNLIMITED_AMMO) {
             char buf[16];
-            sprintf(buf, "%d %c", item.count, spec);
+            sprintf(buf, "%d %c", item->count, spec);
             for (int i = 0; buf[i] != ' '; i++)
                 buf[i] -= 47;
-            UI::textOut(game, vec2(width / 2 - 160, 480 - 96), buf, UI::aRight, 320);
+            UI::textOut(game, pos, buf, UI::aRight, width);
         }
+    }
+
+    void renderItemText(const Item *item, float width) {
+        UI::textOut(game, vec2(0, 480 - 16), item->desc.name, UI::aCenter, width);
+        renderItemCount(item, vec2(width / 2 - 160, 480 - 96), 320);
     }
 
     void renderPage(int page) {
@@ -462,13 +518,13 @@ struct Inventory {
         
         int itemIndex = 0;
         for (int i = 0; i < itemsCount; i++) {
-            Item &item = items[i];
+            Item *item = items[i];
 
-            if (item.desc.page != page)
+            if (item->desc.page != page)
                 continue;
 
             float a  = getAngle(itemIndex, count) - angle - collapseAngle;
-            float ia = item.angle;
+            float ia = item->angle;
             float ra = ringTilt;
             float rd = radius;
             float rh = ringHeight;
@@ -480,9 +536,9 @@ struct Inventory {
             }
 
             Basis basis = Basis(quat(vec3(1, 0, 0), ra), vec3(0.0f));
-            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item.desc.page * INVENTORY_HEIGHT - rh, 0));
+            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item->desc.page * INVENTORY_HEIGHT - rh, 0));
 
-            item.render(game, basis);
+            item->render(game, basis);
 
             itemIndex++;
         }

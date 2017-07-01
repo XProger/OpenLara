@@ -12,6 +12,8 @@
 
 #define MAX_LAYERS  4
 
+#define UNLIMITED_AMMO  10000
+
 struct Controller;
 
 struct IGame {
@@ -33,6 +35,7 @@ struct IGame {
 
     virtual bool invUse(TR::Entity::Type item, TR::Entity::Type slot) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
+    virtual int* invCount(TR::Entity::Type type) { return NULL; }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const { return NULL; }
 };

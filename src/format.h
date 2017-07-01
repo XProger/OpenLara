@@ -93,10 +93,10 @@
     E( INV_PASSPORT_CLOSED   ) \
     E( INV_MAP               ) \
     E( CRYSTAL               ) \
-    E( WEAPON_PISTOLS        ) \
-    E( WEAPON_SHOTGUN        ) \
-    E( WEAPON_MAGNUMS        ) \
-    E( WEAPON_UZIS           ) \
+    E( PISTOLS               ) \
+    E( SHOTGUN               ) \
+    E( MAGNUMS               ) \
+    E( UZIS                  ) \
     E( AMMO_PISTOLS          ) \
     E( AMMO_SHOTGUN          ) \
     E( AMMO_MAGNUMS          ) \
@@ -631,7 +631,7 @@ namespace TR {
         }
 
         int isItem() {
-            return (type >= WEAPON_PISTOLS && type <= AMMO_UZIS) ||
+            return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_1 && type <= KEY_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items

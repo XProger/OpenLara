@@ -197,13 +197,12 @@ struct Lara : Character {
         enum Type  { EMPTY = -1, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
         enum State { IS_HIDDEN, IS_ARMED, IS_FIRING };
         enum Anim  { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
-
-        int ammo;   // if -1 weapon is not available
-    } weapons[Weapon::MAX];
+    };
 
     Weapon::Type    wpnCurrent;
     Weapon::Type    wpnNext;
     Weapon::State   wpnState;
+    int             *wpnAmmo;
     vec3            chestOffset;
 
     struct Arm {
@@ -406,18 +405,9 @@ struct Lara : Character {
         getEntity().flags.active = 1;
         initMeshOverrides();
 
-        weapons[Weapon::PISTOLS].ammo = -1;
-        weapons[Weapon::SHOTGUN].ammo = -1;
-        weapons[Weapon::MAGNUMS].ammo = -1;
-        weapons[Weapon::UZIS   ].ammo = -1;
-
-        if (!home) {
-            weapons[Weapon::PISTOLS].ammo = 0;
-            weapons[Weapon::SHOTGUN].ammo = 9000;
-            weapons[Weapon::MAGNUMS].ammo = 9000;
-            weapons[Weapon::UZIS   ].ammo = 9000;
+        if (!home)
             wpnSet(Weapon::PISTOLS);
-        } else
+        else
             meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
 
         for (int i = 0; i < 2; i++) {
@@ -433,12 +423,12 @@ struct Lara : Character {
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
-        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
         //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
-        //reset(1,  vec3(62630, -1280, 19633), 0);         // level 2 (dark medikit)
+        reset(1,  vec3(62630, -1280, 19633), 0);         // level 2 (dark medikit)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -498,9 +488,23 @@ struct Lara : Character {
         updateLights(false);
     }
 
+    TR::Entity::Type getCurrentWeaponInv() {
+        switch (wpnCurrent) {
+            case Weapon::Type::PISTOLS : return TR::Entity::PISTOLS;
+            case Weapon::Type::SHOTGUN : return TR::Entity::SHOTGUN;
+            case Weapon::Type::MAGNUMS : return TR::Entity::MAGNUMS;
+            case Weapon::Type::UZIS    : return TR::Entity::UZIS;
+            default                    : return TR::Entity::NONE;
+        }
+    }
+
     void wpnSet(Weapon::Type wType) {
         wpnCurrent = wType;
         wpnState   = Weapon::IS_FIRING;
+
+        TR::Entity::Type invType = getCurrentWeaponInv();
+
+        wpnAmmo = game->invCount(invType);
 
         arms[0].animation = arms[1].animation = Animation(level, &level->models[wType == Weapon::SHOTGUN ? TR::MODEL_SHOTGUN : TR::MODEL_PISTOLS]);
 
@@ -576,7 +580,7 @@ struct Lara : Character {
         if (wpnCurrent != Weapon::SHOTGUN) {
             meshSwap(1, level->extra.weapons[wpnCurrent], mask);
             // have a shotgun in inventory place it on the back if another weapon is in use
-            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], (weapons[Weapon::SHOTGUN].ammo != -1) ? BODY_CHEST : 0);
+            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], game->invCount(TR::Entity::INV_SHOTGUN) ? BODY_CHEST : 0);
         } else {
             meshSwap(2, level->extra.weapons[wpnCurrent], mask);
         }
@@ -755,7 +759,7 @@ struct Lara : Character {
 
         float nearDist = 32.0f * 1024.0f;
         vec3  nearPos;
-        bool  hasShot = false;
+        int   shots = 0;
 
         for (int i = 0; i < count; i++) {
             int armIndex;
@@ -768,8 +772,15 @@ struct Lara : Character {
             }
             Arm *arm = &arms[armIndex];
 
+            if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO) {
+                if (*wpnAmmo <= 0)
+                    continue;
+                if (wpnCurrent != Weapon::SHOTGUN)
+                    *wpnAmmo -= 1;
+            }
+
             arm->shotTimer = 0.0f;
-            hasShot = true;
+            shots++;
 
             int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
 
@@ -798,9 +809,16 @@ struct Lara : Character {
             Core::lightColor[1 + armIndex] = FLASH_LIGHT_COLOR;
         }
 
-        if (hasShot) {
+        if (shots) {
             playSound(wpnGetSound(), pos, Sound::Flags::PAN);
             playSound(TR::SND_RICOCHET, nearPos, Sound::Flags::PAN);
+
+             if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == Weapon::SHOTGUN)
+                *wpnAmmo -= 1;
+        }
+
+        if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && *wpnAmmo <= 0) {
+            wpnChange(Weapon::PISTOLS);
         }
     }
 
