@@ -26,13 +26,22 @@ namespace UI {
         return c > 10 ? (c > 15 ? char_map[c - 32] : c + 91) : c + 81; 
     }
 
-    int getTextWidth(const char *text) {
-        int width = 0;
+    vec2 getTextSize(const char *text) {
+        int x = 0, w = 0, h = 16;
 
-        while (char c = *text++)
-            width += (c == ' ' || c == '_') ? 6 : (char_width[charRemap(c)] + 1);
+        while (char c = *text++) {
+            if (c == ' ' || c == '_') {
+                x += 6;
+            } else if (c == '@') {
+                w = max(w, x);
+                h += 16;
+                x = 0;
+            } else 
+                x += char_width[charRemap(c)] + 1;
+        }
+        w = max(w, x);
 
-        return width - 1;
+        return vec2(float(w), float(h));
     }
 
     #define MAX_CHARS DYN_MESH_QUADS
@@ -87,14 +96,20 @@ namespace UI {
         int y = int(pos.y);
 
         if (align == aCenter)
-            x += (int(width) - getTextWidth(text)) / 2;
+            x += int((width - getTextSize(text).x) / 2);
 
         if (align == aRight)
-            x += int(width) - getTextWidth(text);
+            x += int(width - getTextSize(text).x);
 
         while (char c = *text++) {
             if (c == ' ' || c == '_') {
                 x += 6;
+                continue;
+            }
+
+            if (c == '@') {
+                x = int(pos.x);
+                y += 16;
                 continue;
             }
 

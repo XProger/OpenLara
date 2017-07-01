@@ -5,7 +5,7 @@
 #include "controller.h"
 #include "ui.h"
 
-#define INVENTORY_MAX_ITEMS  64
+#define INVENTORY_MAX_ITEMS  32
 #define INVENTORY_MAX_RADIUS 688.0f
 #define INVENTORY_BG_SIZE    512
 #define INVENTORY_HEIGHT     2048.0f
@@ -138,17 +138,17 @@ struct Inventory {
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
+        /*
         add(TR::Entity::INV_COMPASS);
-
         if (level->extra.inv.map != -1)
             add(TR::Entity::INV_MAP);
         if (level->extra.inv.gamma != -1)
             add(TR::Entity::INV_GAMMA);
-
+        */
         add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
-        add(TR::Entity::INV_SHOTGUN, 999);
-        add(TR::Entity::INV_MAGNUMS, 999);
-        add(TR::Entity::INV_UZIS, 10);
+        add(TR::Entity::INV_SHOTGUN, 10);
+        add(TR::Entity::INV_MAGNUMS, 10);
+        add(TR::Entity::INV_UZIS, 50);
 //        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
 //        add(TR::Entity::INV_MEDIKIT_BIG, 999);
 
@@ -214,7 +214,38 @@ struct Inventory {
         return -1;
     }
 
+    void addAmmo(TR::Entity::Type &type, int &count, int clip, TR::Entity::Type wpnType, TR::Entity::Type ammoType) {
+        count *= clip;
+        if (type == wpnType) {
+            int index = contains(ammoType);
+            if (index > -1) {
+                count += items[index]->count;
+                remove(index);
+            }
+        } else {
+            if (contains(wpnType) > -1)
+                type = wpnType;
+        }
+    }
+
     void add(TR::Entity::Type type, int count = 1) {
+        type = convToInv(type);
+
+        switch (type) {
+            case TR::Entity::INV_SHOTGUN      :
+            case TR::Entity::INV_AMMO_SHOTGUN : 
+                addAmmo(type, count, 12, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
+                break;
+            case TR::Entity::INV_MAGNUMS      :
+            case TR::Entity::INV_AMMO_MAGNUMS :
+                addAmmo(type, count, 50, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
+                break;
+            case TR::Entity::INV_UZIS         :
+            case TR::Entity::INV_AMMO_UZIS    : 
+                addAmmo(type, count, 100, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
+                break;
+        }
+
         int i = contains(type);
         if (i > -1) {
             items[i]->count += count;
@@ -222,8 +253,6 @@ struct Inventory {
         }
 
         ASSERT(itemsCount < INVENTORY_MAX_ITEMS);
-
-        type = convToInv(type);
 
         int pos = 0;
         for (int pos = 0; pos < itemsCount; pos++)
@@ -246,17 +275,19 @@ struct Inventory {
     }
 
     void remove(TR::Entity::Type type, int count = 1) {
-        int idx = contains(type);
-        if (idx > -1) {
-            items[idx]->count -= count;
-            if (!items[idx]->count) {
-                delete items[idx];
-                for (int i = idx; i < itemsCount - 1; i++) {
-                    items[i] = items[i + 1];
-                }
-                itemsCount--;
-            }
-        }
+        int index = contains(type);
+        if (index == -1) return;
+
+        items[index]->count -= count;
+        if (items[index]->count <= 0)
+            remove(index);
+    }
+
+    void remove(int index) {
+        delete items[index];
+        for (int i = index; i < itemsCount - 1; i++)
+            items[i] = items[i + 1];
+        itemsCount--;
     }
 
     bool use(TR::Entity::Type item, TR::Entity::Type slot) {
