@@ -65,8 +65,8 @@ struct Lara : Character {
 
         ANIM_HANG_FALL          = 28,
 
-        ANIM_FALL               = 34,
         ANIM_SMASH_JUMP         = 32,
+        ANIM_FALL               = 34,
 
         ANIM_CLIMB_3            = 42,
 
@@ -1642,7 +1642,7 @@ struct Lara : Character {
         if (state == STATE_FORWARD_JUMP) {
             if (emptyHands()) {
                 if (input & ACTION) return STATE_REACH;
-                if ((input & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
+                if ((input & (JUMP | FORTH | WALK)) == (JUMP | FORTH | WALK)) return STATE_SWAN_DIVE;
             }
         } else
             if (state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
@@ -1974,6 +1974,8 @@ struct Lara : Character {
 
         if (!dozy && Input::state[cAction] && Input::state[cJump] && Input::state[cLook] && Input::state[cStepRight]) {
             dozy = true;
+            health = LARA_MAX_HEALTH;
+            oxygen = LARA_MAX_OXYGEN;
             reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
             return input;
         }
