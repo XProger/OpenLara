@@ -514,7 +514,7 @@ struct MeshBuilder {
 
     // circle
         vec2 pos(32767.0f, 0.0f);
-        vec2 cs(cos(PI2 / CIRCLE_SEGS), sin(PI2 / CIRCLE_SEGS));
+        vec2 cs(cosf(PI2 / CIRCLE_SEGS), sinf(PI2 / CIRCLE_SEGS));
 
         for (int i = 0; i < CIRCLE_SEGS; i++) {
             Vertex &v = vertices[vCount + i];

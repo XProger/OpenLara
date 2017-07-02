@@ -88,8 +88,8 @@ namespace Sound {
                 float k = -10.0f / (44100.0f * rt60);
 
                 for (int i = 0; i < MAX_FDN; i++) {
-                    absCoeff[i][0] = pow(10.0f, FDN[i] * k);
-                    absCoeff[i][1] = 1.0f - (2.0f / (1.0f + pow(absCoeff[i][0], 1.0f - 1.0f / 0.15f)));
+                    absCoeff[i][0] = powf(10.0f, FDN[i] * k);
+                    absCoeff[i][1] = 1.0f - (2.0f / (1.0f + powf(absCoeff[i][0], 1.0f - 1.0f / 0.15f)));
                 }
             };
 

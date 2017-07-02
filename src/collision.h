@@ -82,7 +82,8 @@ struct Collision {
         inf.floor     = info.floor;
         inf.ceiling   = info.ceiling;
 
-        if ((info.ceiling == info.floor) ||  (info.floor - info.ceiling < height) || (py - info.floor > maxAscent) || (info.floor - py > maxDescent) || (info.ceiling > py)) {
+        if ((info.ceiling == info.floor) ||  (info.floor - info.ceiling < height) || (py - info.floor > maxAscent) || (info.floor - py > maxDescent) || (info.ceiling > py) ||
+            (maxAscent == maxDescent && (maxAscent <= 256 + 128) && (abs(info.slantX) > 2 || abs(info.slantZ) > 2))) {
             this->side = side;
             return true;
         }
