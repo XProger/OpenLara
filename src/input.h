@@ -246,9 +246,9 @@ namespace Input {
         vec2  center = vec2(Core::width - offset * 0.7f, Core::height - offset * 0.7f);
 
         btnPos[bWeapon] = center;
-        btnPos[bJump]   = center + vec2(cos(-PI * 0.5f), sin(-PI * 0.5f)) * radius;
-        btnPos[bAction] = center + vec2(cos(-PI * 3.0f / 4.0f), sin(-PI * 3.0f / 4.0f)) * radius;
-        btnPos[bWalk]   = center + vec2(cos(-PI), sin(-PI)) * radius;
+        btnPos[bJump]   = center + vec2(cosf(-PI * 0.5f), sinf(-PI * 0.5f)) * radius;
+        btnPos[bAction] = center + vec2(cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * radius;
+        btnPos[bWalk]   = center + vec2(cosf(-PI), sinf(-PI)) * radius;
         btnRadius       = Core::height * (25.0f / 1080.0f);
 
     // touch update

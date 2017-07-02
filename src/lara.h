@@ -422,7 +422,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-//reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
 
@@ -432,7 +432,7 @@ struct Lara : Character {
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
         //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
-        reset(1,  vec3(62630, -1280, 19633), 0);         // level 2 (dark medikit)
+        //reset(1,  vec3(62630, -1280, 19633), 0);         // level 2 (dark medikit)
         //reset(7,  vec3(64108, -512, 16514), -PI * 0.5f); // level 2 (bat trigger)
         //reset(15, vec3(70082, -512, 26935), PI * 0.5f);  // level 2 (bear)
         //reset(63, vec3(31390, -2048, 33472), 0.0f);      // level 2 (trap floor)
@@ -1645,8 +1645,11 @@ struct Lara : Character {
                 if ((input & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
             }
         } else
-            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
+            if (state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
                 return animation.setAnim(ANIM_FALL);
+
+        if (state == STATE_SWAN_DIVE)
+            return STATE_FAST_DIVE;
 
         return state;
     }
@@ -1764,7 +1767,10 @@ struct Lara : Character {
             float ext = angle.y;
 
             if (input & FORTH) { 
-                res = STATE_WALK;
+                if (state == STATE_BACK)
+                    res = STATE_STOP;
+                else
+                    res = STATE_WALK;
             } else if (input & BACK) {
                 res = STATE_BACK;
                 ext += PI;
@@ -1888,7 +1894,7 @@ struct Lara : Character {
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
 
-        if (state == STATE_SWAN_DIVE) {
+        if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
             angle.x = -PI * 0.5f;
             game->waterDrop(pos, 128.0f, 0.2f);
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
