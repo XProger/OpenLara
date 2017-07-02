@@ -194,32 +194,32 @@ namespace UI {
             mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos, vec2(size.x * value, size.y), 0xFFFFFFFF);
     }
 
-const char *helpText = \
-"Controls gamepad, touch and keyboard:@"\
-" H - Show or hide this help@"\
-" TAB - Inventory@"\
-" LEFT - Left@"\
-" RIGHT - Right@"\
-" UP - Run@"\
-" DOWN - Back@"\
-" SHIFT - Walk@"\
-" SPACE - Draw Weapon@"\
-" CTRL - Action@"\
-" ALT - Jump@"\
-" Z - Step Left@"\
-" X - Step Right@"\
-" A - Roll@"\
-" C - Look # not implemented #@"\
-" V - First Person View@"
-" R - slow motion@"\
-" T - fast motion@"\
-" ALT + ENTER - Fullscreen@@"\
-"Actions:@"\
-" Out of water - Run + Action@"\
-" Handstand - Run + Walk@"\
-" Swan dive - Run + Walk + jump@"\
-" DOZY on - Look + Step Right + Action + Jump@"\
-" DOZY off - Walk@";
+    const char *helpText = 
+        "Controls gamepad, touch and keyboard:@"
+        " H - Show or hide this help@"
+        " TAB - Inventory@"
+        " LEFT - Left@"
+        " RIGHT - Right@"
+        " UP - Run@"
+        " DOWN - Back@"
+        " SHIFT - Walk@"
+        " SPACE - Draw Weapon@"
+        " CTRL - Action@"
+        " ALT - Jump@"
+        " Z - Step Left@"
+        " X - Step Right@"
+        " A - Roll@"
+        " C - Look # not implemented #@"
+        " V - First Person View@"
+        " R - slow motion@"
+        " T - fast motion@"
+        " ALT + ENTER - Fullscreen@@"
+        "Actions:@"
+        " Out of water - Run + Action@"
+        " Handstand - Run + Walk@"
+        " Swan dive - Run + Walk + jump@"
+        " DOZY on - Look + Step Right + Action + Jump@"
+        " DOZY off - Walk@";
 
     void renderHelp() {
         if (showHelp)

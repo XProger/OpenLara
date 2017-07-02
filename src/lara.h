@@ -1764,7 +1764,10 @@ struct Lara : Character {
             float ext = angle.y;
 
             if (input & FORTH) { 
-                res = STATE_WALK;
+                if (state == STATE_BACK)
+                    res = STATE_STOP;
+                else
+                    res = STATE_WALK;
             } else if (input & BACK) {
                 res = STATE_BACK;
                 ext += PI;
