@@ -210,7 +210,10 @@ const char *helpText = \
 " X - Step Right@"\
 " A - Roll@"\
 " C - Look # not implemented #@"\
-" V - First Person View@@"
+" V - First Person View@"
+" R - slow motion@"\
+" T - fast motion@"\
+" ALT + ENTER - Fullscreen@@"\
 "Actions:@"\
 " Out of water - Run + Action@"\
 " Handstand - Run + Walk@"\
