@@ -5,7 +5,7 @@
 #include "controller.h"
 #include "ui.h"
 
-#define INVENTORY_MAX_ITEMS  64
+#define INVENTORY_MAX_ITEMS  32
 #define INVENTORY_MAX_RADIUS 688.0f
 #define INVENTORY_BG_SIZE    512
 #define INVENTORY_HEIGHT     2048.0f
@@ -37,7 +37,7 @@ struct Inventory {
 
         struct Desc {
             const char *name;
-            int         page;
+            Page        page;
             int         model;
         } desc;
 
@@ -45,42 +45,42 @@ struct Inventory {
 
         Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f) {
             switch (type) {
-                case TR::Entity::INV_PASSPORT        : desc = { "Game",            0, level->extra.inv.passport        }; break;
-                case TR::Entity::INV_PASSPORT_CLOSED : desc = { "Game",            0, level->extra.inv.passport_closed }; break;
-                case TR::Entity::INV_MAP             : desc = { "Map",             1, level->extra.inv.map             }; break;
-                case TR::Entity::INV_COMPASS         : desc = { "Compass",         1, level->extra.inv.compass         }; break;
-                case TR::Entity::INV_HOME            : desc = { "Lara's Home",     0, level->extra.inv.home            }; break;
-                case TR::Entity::INV_DETAIL          : desc = { "Detail Levels",   0, level->extra.inv.detail          }; break;
-                case TR::Entity::INV_SOUND           : desc = { "Sound",           0, level->extra.inv.sound           }; break;
-                case TR::Entity::INV_CONTROLS        : desc = { "Controls",        0, level->extra.inv.controls        }; break;
-                case TR::Entity::INV_GAMMA           : desc = { "Gamma",           0, level->extra.inv.gamma           }; break;
+                case TR::Entity::INV_PASSPORT        : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport        }; break;
+                case TR::Entity::INV_PASSPORT_CLOSED : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
+                case TR::Entity::INV_MAP             : desc = { "Map",             PAGE_INVENTORY, level->extra.inv.map             }; break;
+                case TR::Entity::INV_COMPASS         : desc = { "Compass",         PAGE_INVENTORY, level->extra.inv.compass         }; break;
+                case TR::Entity::INV_HOME            : desc = { "Lara's Home",     PAGE_OPTION,    level->extra.inv.home            }; break;
+                case TR::Entity::INV_DETAIL          : desc = { "Detail Levels",   PAGE_OPTION,    level->extra.inv.detail          }; break;
+                case TR::Entity::INV_SOUND           : desc = { "Sound",           PAGE_OPTION,    level->extra.inv.sound           }; break;
+                case TR::Entity::INV_CONTROLS        : desc = { "Controls",        PAGE_OPTION,    level->extra.inv.controls        }; break;
+                case TR::Entity::INV_GAMMA           : desc = { "Gamma",           PAGE_OPTION,    level->extra.inv.gamma           }; break;
                                                                                    
-                case TR::Entity::INV_PISTOLS         : desc = { "Pistols",         1, level->extra.inv.weapon[0]       }; break;
-                case TR::Entity::INV_SHOTGUN         : desc = { "Shotgun",         1, level->extra.inv.weapon[1]       }; break;
-                case TR::Entity::INV_MAGNUMS         : desc = { "Magnums",         1, level->extra.inv.weapon[2]       }; break;
-                case TR::Entity::INV_UZIS            : desc = { "Uzis",            1, level->extra.inv.weapon[3]       }; break;
+                case TR::Entity::INV_PISTOLS         : desc = { "Pistols",         PAGE_INVENTORY, level->extra.inv.weapon[0]       }; break;
+                case TR::Entity::INV_SHOTGUN         : desc = { "Shotgun",         PAGE_INVENTORY, level->extra.inv.weapon[1]       }; break;
+                case TR::Entity::INV_MAGNUMS         : desc = { "Magnums",         PAGE_INVENTORY, level->extra.inv.weapon[2]       }; break;
+                case TR::Entity::INV_UZIS            : desc = { "Uzis",            PAGE_INVENTORY, level->extra.inv.weapon[3]       }; break;
                                                                                    
-                case TR::Entity::INV_AMMO_PISTOLS    : desc = { "Pistol Clips",    1, level->extra.inv.ammo[0]         }; break;
-                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { "Shotgun Shells",  1, level->extra.inv.ammo[1]         }; break;
-                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { "Magnum Clips",    1, level->extra.inv.ammo[2]         }; break;
-                case TR::Entity::INV_AMMO_UZIS       : desc = { "Uzi Clips",       1, level->extra.inv.ammo[3]         }; break;
+                case TR::Entity::INV_AMMO_PISTOLS    : desc = { "Pistol Clips",    PAGE_INVENTORY, level->extra.inv.ammo[0]         }; break;
+                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { "Shotgun Shells",  PAGE_INVENTORY, level->extra.inv.ammo[1]         }; break;
+                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { "Magnum Clips",    PAGE_INVENTORY, level->extra.inv.ammo[2]         }; break;
+                case TR::Entity::INV_AMMO_UZIS       : desc = { "Uzi Clips",       PAGE_INVENTORY, level->extra.inv.ammo[3]         }; break;
 
-                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { "Small Medi Pack", 1, level->extra.inv.medikit[0]      }; break;
-                case TR::Entity::INV_MEDIKIT_BIG     : desc = { "Large Medi Pack", 1, level->extra.inv.medikit[1]      }; break;
+                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { "Small Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[0]      }; break;
+                case TR::Entity::INV_MEDIKIT_BIG     : desc = { "Large Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[1]      }; break;
 
-                case TR::Entity::INV_PUZZLE_1        : desc = { "Puzzle",          2, level->extra.inv.puzzle[0]       }; break;
-                case TR::Entity::INV_PUZZLE_2        : desc = { "Puzzle",          2, level->extra.inv.puzzle[1]       }; break;
-                case TR::Entity::INV_PUZZLE_3        : desc = { "Puzzle",          2, level->extra.inv.puzzle[2]       }; break;
-                case TR::Entity::INV_PUZZLE_4        : desc = { "Puzzle",          2, level->extra.inv.puzzle[3]       }; break;
-
-                case TR::Entity::INV_KEY_1           : desc = { "Key",             2, level->extra.inv.key[0]          }; break;
-                case TR::Entity::INV_KEY_2           : desc = { "Key",             2, level->extra.inv.key[1]          }; break;
-                case TR::Entity::INV_KEY_3           : desc = { "Key",             2, level->extra.inv.key[2]          }; break;
-                case TR::Entity::INV_KEY_4           : desc = { "Key",             2, level->extra.inv.key[3]          }; break;
-
-                case TR::Entity::INV_LEADBAR         : desc = { "Lead Bar",        2, level->extra.inv.leadbar         }; break;
-                case TR::Entity::INV_SCION           : desc = { "Scion",           2, level->extra.inv.scion           }; break;
-                default                              : desc = { "unknown",         2, -1                               }; break;
+                case TR::Entity::INV_PUZZLE_1        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[0]       }; break;
+                case TR::Entity::INV_PUZZLE_2        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[1]       }; break;
+                case TR::Entity::INV_PUZZLE_3        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[2]       }; break;
+                case TR::Entity::INV_PUZZLE_4        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[3]       }; break;
+                                                                                                   
+                case TR::Entity::INV_KEY_1           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[0]          }; break;
+                case TR::Entity::INV_KEY_2           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[1]          }; break;
+                case TR::Entity::INV_KEY_3           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[2]          }; break;
+                case TR::Entity::INV_KEY_4           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[3]          }; break;
+                                                                                                   
+                case TR::Entity::INV_LEADBAR         : desc = { "Lead Bar",        PAGE_ITEMS,     level->extra.inv.leadbar         }; break;
+                case TR::Entity::INV_SCION           : desc = { "Scion",           PAGE_ITEMS,     level->extra.inv.scion           }; break;
+                default                              : desc = { "unknown",         PAGE_ITEMS,     -1                               }; break;
             }
 
             if (desc.model > -1) {
@@ -129,32 +129,30 @@ struct Inventory {
             if (anim) anim->setAnim(0, 0, false);
         }
 
-    } items[INVENTORY_MAX_ITEMS];
+    } *items[INVENTORY_MAX_ITEMS];
 
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
-        TR::Level *level = game->getLevel();
-
         add(TR::Entity::INV_PASSPORT);
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
+        /*
         add(TR::Entity::INV_COMPASS);
-
         if (level->extra.inv.map != -1)
             add(TR::Entity::INV_MAP);
         if (level->extra.inv.gamma != -1)
             add(TR::Entity::INV_GAMMA);
+        */
+        add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
+        add(TR::Entity::INV_SHOTGUN, 10);
+        add(TR::Entity::INV_MAGNUMS, 10);
+        add(TR::Entity::INV_UZIS, 50);
+//        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
+//        add(TR::Entity::INV_MEDIKIT_BIG, 999);
 
-        add(TR::Entity::INV_PISTOLS, 999);
-        add(TR::Entity::INV_SHOTGUN, 999);
-        add(TR::Entity::INV_MAGNUMS, 999);
-        add(TR::Entity::INV_UZIS, 999);
-        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
-        add(TR::Entity::INV_MEDIKIT_BIG, 999);
-
-        add(TR::Entity::INV_SCION, 1);
-        add(TR::Entity::INV_KEY_1, 1);
-        add(TR::Entity::INV_PUZZLE_1, 1);
+//        add(TR::Entity::INV_SCION, 1);
+//        add(TR::Entity::INV_KEY_1, 1);
+//        add(TR::Entity::INV_PUZZLE_1, 1);
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
         memset(pageItemIndex, 0, sizeof(pageItemIndex));
@@ -164,6 +162,9 @@ struct Inventory {
     }
 
     ~Inventory() {
+        for (int i = 0; i < itemsCount; i++)
+            delete items[i];
+
         for (int i = 0; i < COUNT(background); i++)
             delete background[i];
     }
@@ -173,16 +174,51 @@ struct Inventory {
     }
 
     int contains(TR::Entity::Type type) {
+        type = TR::Entity::convToInv(type);
         for (int i = 0; i < itemsCount; i++)
-            if (items[i].type == type)
+            if (items[i]->type == type)
                 return i;
         return -1;
     }
 
+    void addAmmo(TR::Entity::Type &type, int &count, int clip, TR::Entity::Type wpnType, TR::Entity::Type ammoType) {
+        if (type == wpnType) {
+            count *= clip;
+            int index = contains(ammoType);
+            if (index > -1) {
+                count += items[index]->count * clip;
+                remove(index);
+            }
+        } else {
+            if (contains(wpnType) > -1) {
+                type = wpnType;
+                count *= clip;
+            }
+        }
+    }
+
     void add(TR::Entity::Type type, int count = 1) {
+        type = TR::Entity::convToInv(type);
+
+        switch (type) {
+            case TR::Entity::INV_SHOTGUN      :
+            case TR::Entity::INV_AMMO_SHOTGUN : 
+                addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
+                break;
+            case TR::Entity::INV_MAGNUMS      :
+            case TR::Entity::INV_AMMO_MAGNUMS :
+                addAmmo(type, count, 25, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
+                break;
+            case TR::Entity::INV_UZIS         :
+            case TR::Entity::INV_AMMO_UZIS    : 
+                addAmmo(type, count, 50, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
+                break;
+            default : ;
+        }
+
         int i = contains(type);
         if (i > -1) {
-            items[i].count += count;
+            items[i]->count += count;
             return;
         }
 
@@ -190,7 +226,7 @@ struct Inventory {
 
         int pos = 0;
         for (int pos = 0; pos < itemsCount; pos++)
-            if (items[pos].type > type)
+            if (items[pos]->type > type)
                 break;
 
         if (pos - itemsCount) {
@@ -198,40 +234,52 @@ struct Inventory {
                 items[i] = items[i - 1];
         }
 
-        Item it(game->getLevel(), type, count);
-        items[pos] = it;
+        items[pos] = new Item(game->getLevel(), type, count);
         itemsCount++;
     }
 
-    int getCount(TR::Entity::Type type) {
+    int* getCountPtr(TR::Entity::Type type) {
         int i = contains(type);
-        if (i < 0) return 0;
-        return items[i].count;
+        if (i < 0) return NULL;
+        return &items[i]->count;
     }
 
     void remove(TR::Entity::Type type, int count = 1) {
-        int i = contains(type);
-        if (i > -1)
-            items[i].count -= count;
+        int index = contains(type);
+        if (index == -1) return;
+
+        items[index]->count -= count;
+        if (items[index]->count <= 0)
+            remove(index);
     }
 
-    bool use(TR::Entity::Type item, TR::Entity::Type slot) {
-        if (item == TR::Entity::NONE) {
-            switch (slot) {
-                case TR::Entity::KEY_HOLE_1    : item = TR::Entity::KEY_1;    break;      // TODO: 1-4
-                case TR::Entity::PUZZLE_HOLE_1 : item = TR::Entity::PUZZLE_1; break;
-                default : return false;
-            }
-        }
+    void remove(int index) {
+        delete items[index];
+        for (int i = index; i < itemsCount - 1; i++)
+            items[i] = items[i + 1];
+        itemsCount--;
+    }
+    
+    bool chooseKey(TR::Entity::Type hole) {
+        TR::Entity::Type type = TR::Entity::getKeyForHole(hole);
+        if (type == TR::Entity::NONE)
+            return false;
+        int index = contains(type);
+        if (index < 0)
+            return false;
+        toggle(items[index]->desc.page, type);
+        return true;
+    }
 
-        if (getCount(item) > 0) {
-            remove(item);
+    bool use(TR::Entity::Type type) {
+        if (contains(type) > -1) {
+            remove(type);
             return true;
         }
         return false;
     }
 
-    bool toggle(Page curPage = PAGE_INVENTORY) {
+    bool toggle(Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
@@ -240,11 +288,18 @@ struct Inventory {
 
             if (active) {
                 for (int i = 0; i < itemsCount; i++)
-                    items[i].reset();
+                    items[i]->reset();
 
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
                 page      = targetPage  = curPage;
+
+                if (type != TR::Entity::NONE) {
+                    int i = contains(type);
+                    if (i >= 0)
+                        pageItemIndex[page] = getItemIndex(page, i);
+                }
+
                 index     = targetIndex = pageItemIndex[page];
             }
         }
@@ -269,7 +324,7 @@ struct Inventory {
 
     int getItemIndex(Page page, int index) {
         for (int i = 0; i < itemsCount; i++)
-            if (items[i].desc.page == page) {
+            if (items[i]->desc.page == page) {
                 if (!index)
                     return i;
                 index--;
@@ -277,8 +332,29 @@ struct Inventory {
         return 0;
     }
 
+    float getAngle(int index, int count) {
+        return PI * 2.0f / float(count) * index;
+    }
+
+    int getItemsCount(int page) {
+        int count = 0;
+
+        for (int i = 0; i < itemsCount; i++)
+            if (items[i]->desc.page == page)
+                count++;
+
+        return count;
+    }
+
+    bool showHealthBar() {
+        int idx = getItemIndex(page, index);
+        TR::Entity::Type type = items[idx]->type;
+        return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
+    }
+
     void update() {
-        doPhase(active, 2.0f, phaseRing);
+        if (phaseChoose == 0.0f)
+            doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
         doPhase(chosen, 4.0f, phaseChoose);
         doPhase(true,   2.5f, phaseSelect);
@@ -309,15 +385,15 @@ struct Inventory {
 
         vec3 p;
         
-        Item &item = items[getItemIndex(page, index)];
+        Item *item = items[getItemIndex(page, index)];
 
         if (index == targetIndex && ready) {
-            if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item.anim->isEnded))) {
+            if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item->anim->isEnded))) {
                 chosen = !chosen;
                 if (!chosen) {
-                    item.angle = 0.0f;
+                    item->angle = 0.0f;
                 } else {
-                    switch (item.type) {
+                    switch (item->type) {
                         case TR::Entity::INV_COMPASS  : game->playSound(TR::SND_INV_COMPASS, p, 0, 0);   break;
                         case TR::Entity::INV_HOME     : game->playSound(TR::SND_INV_HOME, p, 0, 0);      break;
                         case TR::Entity::INV_CONTROLS : game->playSound(TR::SND_INV_CONTROLS, p, 0, 0);  break;
@@ -327,18 +403,18 @@ struct Inventory {
                         case TR::Entity::INV_UZIS     : game->playSound(TR::SND_INV_WEAPON, p, 0, 0);    break;
                         default                       : game->playSound(TR::SND_INV_SHOW, p, 0, 0);      break;
                     }
-                    item.choose();
+                    item->choose();
                 }
             }
         }
 
         float w = 90.0f * DEG2RAD * Core::deltaTime;
 
-        int itemIndex = getItemIndex(page, index);
+        int itemIndex = index == targetIndex ? getItemIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
-            items[i].update();
-            float &angle = items[i].angle;
+            items[i]->update();
+            float &angle = items[i]->angle;
 
             if (itemIndex != i || chosen) {
                 if (angle == 0.0f) {
@@ -358,16 +434,27 @@ struct Inventory {
             angle = clampAngle(angle);
         }
 
-        if (ready && chosen && phaseChoose == 1.0f && item.anim->isEnded) {
-            TR::Entity::Type type = item.type;
+        if (ready && chosen && phaseChoose == 1.0f && item->anim->isEnded) {
+            TR::Entity::Type type = item->type;
             
-            if (type == TR::Entity::INV_PISTOLS || type == TR::Entity::INV_SHOTGUN || type == TR::Entity::INV_MAGNUMS || type == TR::Entity::INV_UZIS ||
-                type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG) {
-
-                game->invUse(type, TR::Entity::NONE);
-                toggle();
+            switch (type) {
+                case TR::Entity::INV_PASSPORT        :
+                case TR::Entity::INV_PASSPORT_CLOSED :
+                case TR::Entity::INV_MAP             :
+                case TR::Entity::INV_COMPASS         :
+                case TR::Entity::INV_HOME            :
+                case TR::Entity::INV_DETAIL          :
+                case TR::Entity::INV_SOUND           :
+                case TR::Entity::INV_CONTROLS        :
+                case TR::Entity::INV_GAMMA           :
+                case TR::Entity::INV_AMMO_PISTOLS    :
+                case TR::Entity::INV_AMMO_SHOTGUN    :
+                case TR::Entity::INV_AMMO_MAGNUMS    :
+                case TR::Entity::INV_AMMO_UZIS       : break;
+                default :
+                    game->invUse(type);
+                    toggle();
             }
-
         }
     }
 
@@ -400,38 +487,41 @@ struct Inventory {
         Core::setDepthTest(true);
     }
 
-    void renderItemText(const Item &item, float width) {
-        UI::textOut(game, vec2(0, 480 - 16), item.desc.name, UI::aCenter, width);
+    void renderItemCount(const Item *item, const vec2 &pos, float width) {
+        char spec;
+        switch (item->type) {
+            case TR::Entity::INV_SHOTGUN : spec = 12; break;
+            case TR::Entity::INV_MAGNUMS : spec = 13; break;
+            case TR::Entity::INV_UZIS    : spec = 14; break;
+            default                      : spec = 0;
+        }
 
-        if (item.count > 1) {
-            char spec;
-            switch (item.type) {
-                case TR::Entity::INV_SHOTGUN : spec = 12; break;
-                case TR::Entity::INV_MAGNUMS : spec = 13; break;
-                case TR::Entity::INV_UZIS    : spec = 14; break;
-                default                      : spec = 0;
-            }
-
+        if ((item->count > 1 || spec) && item->count < UNLIMITED_AMMO) {
             char buf[16];
-            sprintf(buf, "%d %c", item.count, spec);
+            sprintf(buf, "%d %c", item->count, spec);
             for (int i = 0; buf[i] != ' '; i++)
                 buf[i] -= 47;
-            UI::textOut(game, vec2(width / 2 - 160, 480 - 96), buf, UI::aRight, 320);
+            UI::textOut(pos, buf, UI::aRight, width);
         }
     }
 
-    float getAngle(int index, int count) {
-        return PI * 2.0f / float(count) * index;
-    }
+    void renderItemText(const Item *item, float width) {
+        UI::textOut(vec2(0, 480 - 16), item->desc.name, UI::aCenter, width);
+        renderItemCount(item, vec2(width / 2 - 160, 480 - 96), 320);
 
-    int getItemsCount(int page) {
-        int count = 0;
-
-        for (int i = 0; i < itemsCount; i++)
-            if (items[i].desc.page == page)
-                count++;
-
-        return count;
+        if (phaseChoose == 1.0f) {
+            if (item->type == TR::Entity::INV_PASSPORT ||
+                item->type == TR::Entity::INV_MAP      || 
+                item->type == TR::Entity::INV_COMPASS  || 
+                item->type == TR::Entity::INV_HOME     || 
+                item->type == TR::Entity::INV_DETAIL   || 
+                item->type == TR::Entity::INV_SOUND    || 
+                item->type == TR::Entity::INV_CONTROLS || 
+                item->type == TR::Entity::INV_GAMMA)
+            {
+                UI::textOut(vec2(0, 240), "Not implemented yet!", UI::aCenter, width);
+            }
+        }
     }
 
     void renderPage(int page) {
@@ -456,26 +546,27 @@ struct Inventory {
         
         int itemIndex = 0;
         for (int i = 0; i < itemsCount; i++) {
-            Item &item = items[i];
+            Item *item = items[i];
 
-            if (item.desc.page != page)
+            if (item->desc.page != page)
                 continue;
 
             float a  = getAngle(itemIndex, count) - angle - collapseAngle;
-            float ia = item.angle;
+            float ia = item->angle;
             float ra = ringTilt;
             float rd = radius;
+            float rh = ringHeight;
 
             if (itemIndex == pageItemIndex[page] && (chosen || phaseChoose > 0.0f)) {
                 ia *= 1.0f - phaseChoose;
-                ra *= 1.0f - phaseChoose;
+                rh -=  128 * phaseChoose;
                 rd +=  296 * phaseChoose;
             }
 
             Basis basis = Basis(quat(vec3(1, 0, 0), ra), vec3(0.0f));
-            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item.desc.page * INVENTORY_HEIGHT - ringHeight, 0));
+            basis = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item->desc.page * INVENTORY_HEIGHT - rh, 0));
 
-            item.render(game, basis);
+            item->render(game, basis);
 
             itemIndex++;
         }
@@ -531,46 +622,27 @@ struct Inventory {
         renderPage(page);
         if (page != targetPage)
             renderPage(targetPage);
+    }
 
-        if (phaseRing < 1.0f)
-            return;
-
-        Core::setDepthTest(false);
-        Core::setBlending(bmAlpha);
-        Core::setCulling(cfNone);
-        game->setupBinding();
-
-        float w = 480 * aspect;
-        Core::mViewProj = mat4(0.0f, w, 480, 0.0f, 0.0f, 1.0f);
-
-        game->setShader(Core::passGUI, Shader::DEFAULT);
-        Core::active.shader->setParam(uMaterial, vec4(1.0f));
-        Core::active.shader->setParam(uPosScale, vec4(0.0f, 0.0f, 1.0f, 1.0f));
-
-        UI::textBegin();
+    void renderUI() {
+        if (!active || phaseRing < 1.0f) return;
 
         static const char* pageTitle[PAGE_MAX] = { "OPTION", "INVENTORY", "ITEMS" };
 
-        UI::textOut(game, vec2( 0, 32), pageTitle[page], UI::aCenter, w);
+        UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (page < PAGE_ITEMS && getItemsCount(page + 1)) {
-            UI::textOut(game, vec2(16, 32), "\x5B", UI::aLeft, w);
-            UI::textOut(game, vec2( 0, 32), "\x5B", UI::aRight, w - 20);
+            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);
+            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20);
         }
 
         if (page > PAGE_OPTION && getItemsCount(page - 1)) {
-            UI::textOut(game, vec2(16, 480 - 16), "\x5D", UI::aLeft, w);
-            UI::textOut(game, vec2(0,  480 - 16), "\x5D", UI::aRight, w - 20);
+            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width);
+            UI::textOut(vec2(0,  480 - 16), "]", UI::aRight, UI::width - 20);
         }
 
         if (index == targetIndex)
-            renderItemText(items[getItemIndex(page, index)], w);
-
-        UI::textEnd(game);
-
-        Core::setCulling(cfFront);
-        Core::setBlending(bmNone);
-        Core::setDepthTest(true);
+            renderItemText(items[getItemIndex(page, index)], UI::width);
     }
 };
 

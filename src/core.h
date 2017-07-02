@@ -308,7 +308,7 @@ namespace Core {
 
     Texture *blackTex, *whiteTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passVolume, passGUI, passMAX } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
     GLuint FBO, defaultFBO;
     Texture *defaultTarget;
@@ -362,10 +362,16 @@ namespace Core {
     } stats;
 
     struct {
-        bool ambient;
-        bool lighting;
-        bool shadows;
-        bool water;
+        struct {
+            bool ambient;
+            bool lighting;
+            bool shadows;
+            bool water;
+        } detail;
+
+        struct {
+            bool retarget;
+        } controls;
     } settings;
 }
 

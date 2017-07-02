@@ -42,9 +42,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\shaders\depth.glsl">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="..\..\shaders\filter.glsl">
       <Filter>shaders</Filter>
     </None>
@@ -52,12 +49,6 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\..\shaders\shader.glsl">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\..\shaders\shadow.glsl">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\..\shaders\volume.glsl">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\..\shaders\water.glsl">

@@ -93,10 +93,10 @@
     E( INV_PASSPORT_CLOSED   ) \
     E( INV_MAP               ) \
     E( CRYSTAL               ) \
-    E( WEAPON_PISTOLS        ) \
-    E( WEAPON_SHOTGUN        ) \
-    E( WEAPON_MAGNUMS        ) \
-    E( WEAPON_UZIS           ) \
+    E( PISTOLS               ) \
+    E( SHOTGUN               ) \
+    E( MAGNUMS               ) \
+    E( UZIS                  ) \
     E( AMMO_PISTOLS          ) \
     E( AMMO_SHOTGUN          ) \
     E( AMMO_MAGNUMS          ) \
@@ -393,12 +393,13 @@ namespace TR {
         Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
     };
 
-
     struct Color24 {
         uint8 r, g, b;
 
         Color24() {}
         Color24(uint8 r, uint8 g, uint8 b) : r(r), g(g), b(b) {}
+
+        operator Color32() const { return Color32(r, g, b, 255); }
     };
 
     struct Color16 {
@@ -629,15 +630,64 @@ namespace TR {
             return (type >= DOOR_1 && type <= DOOR_6) || type == DOOR_LIFT;
         }
 
-        int isItem() {
-            return (type >= WEAPON_PISTOLS && type <= AMMO_UZIS) ||
+        bool isItem() {
+            return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_1 && type <= KEY_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
         }
 
+        bool isKeyHole() {
+            return type >= KEY_HOLE_1 && type <= KEY_HOLE_2;
+        }
+
         bool isBlock() {
             return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_2;
+        }
+
+        static Type convToInv(Type type) {
+            switch (type) {
+                case PISTOLS       : return INV_PISTOLS;
+                case SHOTGUN       : return INV_SHOTGUN;
+                case MAGNUMS       : return INV_MAGNUMS;
+                case UZIS          : return INV_UZIS;
+ 
+                case AMMO_PISTOLS  : return INV_AMMO_PISTOLS;
+                case AMMO_SHOTGUN  : return INV_AMMO_SHOTGUN;
+                case AMMO_MAGNUMS  : return INV_AMMO_MAGNUMS;
+                case AMMO_UZIS     : return INV_AMMO_UZIS;
+
+                case MEDIKIT_SMALL : return INV_MEDIKIT_SMALL;
+                case MEDIKIT_BIG   : return INV_MEDIKIT_BIG;
+
+                case PUZZLE_1      : return INV_PUZZLE_1;
+                case PUZZLE_2      : return INV_PUZZLE_2;
+                case PUZZLE_3      : return INV_PUZZLE_3;
+                case PUZZLE_4      : return INV_PUZZLE_4;
+
+                case KEY_1         : return INV_KEY_1;
+                case KEY_2         : return INV_KEY_2;
+                case KEY_3         : return INV_KEY_3;
+                case KEY_4         : return INV_KEY_4;
+
+                case LEADBAR       : return INV_LEADBAR;
+                //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
+                default            : return type;
+            }
+        }
+
+        static Type getKeyForHole(Type hole) {
+            switch (hole) {
+                case PUZZLE_HOLE_1 : return PUZZLE_1; break;
+                case PUZZLE_HOLE_2 : return PUZZLE_2; break;
+                case PUZZLE_HOLE_3 : return PUZZLE_3; break;
+                case PUZZLE_HOLE_4 : return PUZZLE_4; break;
+                case KEY_HOLE_1    : return KEY_1;    break;
+                case KEY_HOLE_2    : return KEY_2;    break;
+                case KEY_HOLE_3    : return KEY_3;    break;
+                case KEY_HOLE_4    : return KEY_4;    break;
+                default            : return NONE;
+            }
         }
 
         static void fixOpaque(Type type, bool &opaque) {
@@ -984,7 +1034,7 @@ namespace TR {
 
         struct {
             int16 muzzleFlash;
-            int16 puzzleSet;
+            int16 puzzleDone[4];
             int16 weapons[4];
             int16 braid;
 
@@ -1229,7 +1279,10 @@ namespace TR {
             for (int i = 0; i < modelsCount; i++)
                 switch (models[i].type) {
                     case Entity::MUZZLE_FLASH        : extra.muzzleFlash     = i; break;
-                    case Entity::PUZZLE_DONE_1       : extra.puzzleSet       = i; break;
+                    case Entity::PUZZLE_DONE_1       : extra.puzzleDone[0]   = i; break;
+                    case Entity::PUZZLE_DONE_2       : extra.puzzleDone[1]   = i; break;
+                    case Entity::PUZZLE_DONE_3       : extra.puzzleDone[2]   = i; break;
+                    case Entity::PUZZLE_DONE_4       : extra.puzzleDone[3]   = i; break;
                     case Entity::LARA_PISTOLS        : extra.weapons[0]      = i; break;
                     case Entity::LARA_SHOTGUN        : extra.weapons[1]      = i; break;
                     case Entity::LARA_MAGNUMS        : extra.weapons[2]      = i; break;

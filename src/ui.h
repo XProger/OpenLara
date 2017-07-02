@@ -6,6 +6,9 @@
 
 namespace UI {
     IGame *game;
+    float width;
+    float helpTipTime;
+    bool  showHelp;
 
     const static uint8 char_width[110] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
@@ -25,13 +28,22 @@ namespace UI {
         return c > 10 ? (c > 15 ? char_map[c - 32] : c + 91) : c + 81; 
     }
 
-    int getTextWidth(const char *text) {
-        int width = 0;
+    vec2 getTextSize(const char *text) {
+        int x = 0, w = 0, h = 16;
 
-        while (char c = *text++)
-            width += (c == ' ' || c == '_') ? 6 : (char_width[charRemap(c)] + 1);
+        while (char c = *text++) {
+            if (c == ' ' || c == '_') {
+                x += 6;
+            } else if (c == '@') {
+                w = max(w, x);
+                h += 16;
+                x = 0;
+            } else 
+                x += char_width[charRemap(c)] + 1;
+        }
+        w = max(w, x);
 
-        return width - 1;
+        return vec2(float(w), float(h));
     }
 
     #define MAX_CHARS DYN_MESH_QUADS
@@ -43,18 +55,38 @@ namespace UI {
         int     vCount;
     } buffer;
 
-    void textBegin() {
+    void begin() {
+        Core::setDepthTest(false);
+        Core::setBlending(bmAlpha);
+        Core::setCulling(cfNone);
+        game->setupBinding();
+
+        float aspect = float(Core::width) / float(Core::height);
+        width = 480 * aspect;
+        Core::mViewProj = mat4(0.0f, width, 480, 0.0f, 0.0f, 1.0f);
+
+        game->setShader(Core::passGUI, Shader::DEFAULT);
+        Core::active.shader->setParam(uMaterial, vec4(1));
+        Core::active.shader->setParam(uPosScale, vec4(0, 0, 1, 1));
+
         buffer.iCount = buffer.vCount = 0;
     }
 
-    void textEnd(IGame *game) {
+    void flush() {
         if (buffer.iCount > 0) {
             game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
             buffer.iCount = buffer.vCount = 0;
         }
     }
 
-    void textOut(IGame *game, const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
+    void end() {
+        flush();
+        Core::setCulling(cfFront);
+        Core::setBlending(bmNone);
+        Core::setDepthTest(true);
+    }
+
+    void textOut(const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
         if (!text) return;
        
         TR::Level *level = game->getLevel();
@@ -66,10 +98,12 @@ namespace UI {
         int y = int(pos.y);
 
         if (align == aCenter)
-            x += (int(width) - getTextWidth(text)) / 2;
+            x += int((width - getTextSize(text).x) / 2);
 
         if (align == aRight)
-            x += int(width) - getTextWidth(text);
+            x += int(width - getTextSize(text).x);
+
+        int left = x;
 
         while (char c = *text++) {
             if (c == ' ' || c == '_') {
@@ -77,10 +111,16 @@ namespace UI {
                 continue;
             }
 
+            if (c == '@') {
+                x = left;
+                y += 16;
+                continue;
+            }
+
             int frame = charRemap(c);
 
             if (buffer.iCount == MAX_CHARS * 6)
-                textEnd(game);
+                flush();
 
             TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
             mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, x, y, 0, sprite, 255, true);
@@ -94,10 +134,18 @@ namespace UI {
 
     void init(IGame *game) {
         UI::game = game;
+        showHelp = false;
+        helpTipTime = 5.0f;
     }
 
     void update() {
-        //
+        if (Input::down[ikH]) {
+            Input::down[ikH] = false;
+            showHelp = !showHelp;
+            helpTipTime = 0.0f;
+        }
+        if (helpTipTime > 0.0f)
+            helpTipTime -= Core::deltaTime;
     }
 
     void renderControl(const vec2 &pos, float size, bool active) {
@@ -137,8 +185,48 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void renderBar(const vec2 &pos, const vec2 &size, float value) {
-        //
+    void renderBar(int type, const vec2 &pos, const vec2 &size, float value) {
+        MeshBuilder *mesh = game->getMesh();
+
+        mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, 0xFF4C504C, 0xFF748474);
+        mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos - 1.0f, size + 2.0f, 0x80000000);
+        if (value > 0.0f)
+            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos, vec2(size.x * value, size.y), 0xFFFFFFFF);
+    }
+
+const char *helpText = \
+"Controls gamepad, touch and keyboard:@"\
+" H - Show or hide this help@"\
+" TAB - Inventory@"\
+" LEFT - Left@"\
+" RIGHT - Right@"\
+" UP - Run@"\
+" DOWN - Back@"\
+" SHIFT - Walk@"\
+" SPACE - Draw Weapon@"\
+" CTRL - Action@"\
+" ALT - Jump@"\
+" Z - Step Left@"\
+" X - Step Right@"\
+" A - Roll@"\
+" C - Look # not implemented #@"\
+" V - First Person View@"
+" R - slow motion@"\
+" T - fast motion@"\
+" ALT + ENTER - Fullscreen@@"\
+"Actions:@"\
+" Out of water - Run + Action@"\
+" Handstand - Run + Walk@"\
+" Swan dive - Run + Walk + jump@"\
+" DOZY on - Look + Step Right + Action + Jump@"\
+" DOZY off - Walk@";
+
+    void renderHelp() {
+        if (showHelp)
+            textOut(vec2(0, 64), helpText, aRight, width - 32);
+        else
+            if (helpTipTime > 0.0f)
+                textOut(vec2(0, 480 - 32), "Press H for help", aCenter, width);
     }
 };
 

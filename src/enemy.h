@@ -72,7 +72,7 @@ struct Enemy : Character {
     bool  targetFromView;   // enemy in target view zone
     bool  targetCanAttack;
 
-    Enemy(IGame *game, int entity, int health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
+    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
         stepHeight =  256;
         dropHeight = -256;
 
@@ -257,12 +257,12 @@ struct Enemy : Character {
         return 0;
     }
 
-    virtual void hit(int damage, Controller *enemy = NULL) {
+    virtual void hit(float damage, Controller *enemy = NULL) {
         Character::hit(damage, enemy);
         wound = true;
     };
 
-    void bite(const vec3 &pos, int damage) {
+    void bite(const vec3 &pos, float damage) {
         ASSERT(target);
         target->hit(damage, this);
         Sprite::add(game, TR::Entity::BLOOD, target->getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
@@ -605,7 +605,7 @@ struct Wolf : Enemy {
             case STATE_ATTACK :
             case STATE_BITE   :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_ATTACK ? 50 : 100);
+                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_ATTACK ? 50.0f : 100.0f);
                     nextState = state == STATE_ATTACK ? STATE_RUN : STATE_GROWL;
                 }
                 return state == STATE_ATTACK ? STATE_RUN : state;
@@ -753,7 +753,7 @@ struct Bear : Enemy {
             case STATE_BITE     :
             case STATE_ATTACK   :
                 if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_BITE ? 200 : 400);
+                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_BITE ? 200.0f : 400.0f);
                     nextState = state == STATE_BITE ? STATE_STOP : STATE_HOWL;
                 }
                 break;

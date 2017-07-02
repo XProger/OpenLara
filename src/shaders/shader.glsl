@@ -119,14 +119,17 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 			float fog;
 			#ifdef UNDERWATER
-				float d = abs((vViewVec.w - max(uViewPos.y, uParam.y)) / normalize(vViewVec.xyz).y);
-				d *= step(0.0, vViewVec.w - uParam.y);
+				float d;
+				if (uViewPos.y < uParam.y)
+					d = abs((coord.y - uParam.y) / normalize(vViewVec.xyz).y);
+				else
+					d = length(uViewPos - coord.xyz);
 				fog = d * WATER_FOG_DIST;
 			#else
 				fog = length(vViewVec.xyz);
 			#endif
 
-			vNormal.w = 1.0 - clamp(1.0 / exp(fog), 0.0, 1.0);
+			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
 		return coord;
@@ -457,9 +460,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 				#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 					#ifdef UNDERWATER
-						color.xyz = mix(color.xyz, UNDERWATER_COLOR * 0.2, vNormal.w);
+						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vNormal.w);
 					#else
-						color.xyz = mix(color.xyz, vec3(0.0), vNormal.w);
+						color.xyz = mix(vec3(0.0), color.xyz, vNormal.w);
 					#endif
 				#endif
 
