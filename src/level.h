@@ -127,9 +127,10 @@ struct Level : IGame {
         camera->shake = time;
     }
 
-    virtual bool invUse(TR::Entity::Type item, TR::Entity::Type slot) {
-        lara->useItem(item);
-        return inventory.use(item, slot);
+    virtual bool invUse(TR::Entity::Type type) {
+        if (!lara->useItem(type))
+            return inventory.use(type);
+        return true;
     }
 
     virtual void invAdd(TR::Entity::Type type, int count) {
@@ -138,6 +139,10 @@ struct Level : IGame {
 
     virtual int* invCount(TR::Entity::Type type) { 
         return inventory.getCountPtr(type);
+    }
+
+    virtual bool invChooseKey(TR::Entity::Type hole) {
+        return inventory.chooseKey(hole);
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const {
@@ -636,8 +641,8 @@ struct Level : IGame {
 
     void update() {
     #ifdef LEVEL_EDITOR
-        if (Input::down[ikCtrl]) {
-            Input::down[ikCtrl] = false;
+        if (Input::down[ik0]) {
+            Input::down[ik0] = false;
             lara->reset(TR::NO_ROOM, camera->pos, camera->angle.y, false);
         }
     #endif
@@ -993,10 +998,12 @@ struct Level : IGame {
             }
         }
 
-        if (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER)
+        if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
             UI::renderBar(1, vec2(32, 32), size, oxygen);
 
         inventory.renderUI();
+
+        UI::renderHelp();
 
         UI::end();
     }

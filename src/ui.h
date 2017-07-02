@@ -7,6 +7,8 @@
 namespace UI {
     IGame *game;
     float width;
+    float helpTipTime;
+    bool  showHelp;
 
     const static uint8 char_width[110] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
@@ -84,7 +86,7 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void textOut(IGame *game, const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
+    void textOut(const vec2 &pos, const char *text, Align align = aLeft, float width = 0) {        
         if (!text) return;
        
         TR::Level *level = game->getLevel();
@@ -101,6 +103,8 @@ namespace UI {
         if (align == aRight)
             x += int(width - getTextSize(text).x);
 
+        int left = x;
+
         while (char c = *text++) {
             if (c == ' ' || c == '_') {
                 x += 6;
@@ -108,7 +112,7 @@ namespace UI {
             }
 
             if (c == '@') {
-                x = int(pos.x);
+                x = left;
                 y += 16;
                 continue;
             }
@@ -130,10 +134,18 @@ namespace UI {
 
     void init(IGame *game) {
         UI::game = game;
+        showHelp = false;
+        helpTipTime = 5.0f;
     }
 
     void update() {
-        //
+        if (Input::down[ikH]) {
+            Input::down[ikH] = false;
+            showHelp = !showHelp;
+            helpTipTime = 0.0f;
+        }
+        if (helpTipTime > 0.0f)
+            helpTipTime -= Core::deltaTime;
     }
 
     void renderControl(const vec2 &pos, float size, bool active) {
@@ -180,6 +192,38 @@ namespace UI {
         mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos - 1.0f, size + 2.0f, 0x80000000);
         if (value > 0.0f)
             mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos, vec2(size.x * value, size.y), 0xFFFFFFFF);
+    }
+
+const char *helpText = \
+"Controls gamepad, touch and keyboard:@"\
+" H - Show or hide this help@"\
+" TAB - Inventory@"\
+" LEFT - Left@"\
+" RIGHT - Right@"\
+" UP - Run@"\
+" DOWN - Back@"\
+" SHIFT - Walk@"\
+" SPACE - Draw Weapon@"\
+" CTRL - Action@"\
+" ALT - Jump@"\
+" Z - Step Left@"\
+" X - Step Right@"\
+" A - Roll@"\
+" C - Look # not implemented #@"\
+" V - First Person View@@"
+"Actions:@"\
+" Out of water - Run + Action@"\
+" Handstand - Run + Walk@"\
+" Swan dive - Run + Walk + jump@"\
+" DOZY on - Look + Step Right + Action + Jump@"\
+" DOZY off - Walk@";
+
+    void renderHelp() {
+        if (showHelp)
+            textOut(vec2(0, 64), helpText, aRight, width - 32);
+        else
+            if (helpTipTime > 0.0f)
+                textOut(vec2(0, 480 - 32), "Press H for help", aCenter, width);
     }
 };
 

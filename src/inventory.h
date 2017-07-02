@@ -37,7 +37,7 @@ struct Inventory {
 
         struct Desc {
             const char *name;
-            int         page;
+            Page        page;
             int         model;
         } desc;
 
@@ -45,42 +45,42 @@ struct Inventory {
 
         Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f) {
             switch (type) {
-                case TR::Entity::INV_PASSPORT        : desc = { "Game",            0, level->extra.inv.passport        }; break;
-                case TR::Entity::INV_PASSPORT_CLOSED : desc = { "Game",            0, level->extra.inv.passport_closed }; break;
-                case TR::Entity::INV_MAP             : desc = { "Map",             1, level->extra.inv.map             }; break;
-                case TR::Entity::INV_COMPASS         : desc = { "Compass",         1, level->extra.inv.compass         }; break;
-                case TR::Entity::INV_HOME            : desc = { "Lara's Home",     0, level->extra.inv.home            }; break;
-                case TR::Entity::INV_DETAIL          : desc = { "Detail Levels",   0, level->extra.inv.detail          }; break;
-                case TR::Entity::INV_SOUND           : desc = { "Sound",           0, level->extra.inv.sound           }; break;
-                case TR::Entity::INV_CONTROLS        : desc = { "Controls",        0, level->extra.inv.controls        }; break;
-                case TR::Entity::INV_GAMMA           : desc = { "Gamma",           0, level->extra.inv.gamma           }; break;
+                case TR::Entity::INV_PASSPORT        : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport        }; break;
+                case TR::Entity::INV_PASSPORT_CLOSED : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
+                case TR::Entity::INV_MAP             : desc = { "Map",             PAGE_INVENTORY, level->extra.inv.map             }; break;
+                case TR::Entity::INV_COMPASS         : desc = { "Compass",         PAGE_INVENTORY, level->extra.inv.compass         }; break;
+                case TR::Entity::INV_HOME            : desc = { "Lara's Home",     PAGE_OPTION,    level->extra.inv.home            }; break;
+                case TR::Entity::INV_DETAIL          : desc = { "Detail Levels",   PAGE_OPTION,    level->extra.inv.detail          }; break;
+                case TR::Entity::INV_SOUND           : desc = { "Sound",           PAGE_OPTION,    level->extra.inv.sound           }; break;
+                case TR::Entity::INV_CONTROLS        : desc = { "Controls",        PAGE_OPTION,    level->extra.inv.controls        }; break;
+                case TR::Entity::INV_GAMMA           : desc = { "Gamma",           PAGE_OPTION,    level->extra.inv.gamma           }; break;
                                                                                    
-                case TR::Entity::INV_PISTOLS         : desc = { "Pistols",         1, level->extra.inv.weapon[0]       }; break;
-                case TR::Entity::INV_SHOTGUN         : desc = { "Shotgun",         1, level->extra.inv.weapon[1]       }; break;
-                case TR::Entity::INV_MAGNUMS         : desc = { "Magnums",         1, level->extra.inv.weapon[2]       }; break;
-                case TR::Entity::INV_UZIS            : desc = { "Uzis",            1, level->extra.inv.weapon[3]       }; break;
+                case TR::Entity::INV_PISTOLS         : desc = { "Pistols",         PAGE_INVENTORY, level->extra.inv.weapon[0]       }; break;
+                case TR::Entity::INV_SHOTGUN         : desc = { "Shotgun",         PAGE_INVENTORY, level->extra.inv.weapon[1]       }; break;
+                case TR::Entity::INV_MAGNUMS         : desc = { "Magnums",         PAGE_INVENTORY, level->extra.inv.weapon[2]       }; break;
+                case TR::Entity::INV_UZIS            : desc = { "Uzis",            PAGE_INVENTORY, level->extra.inv.weapon[3]       }; break;
                                                                                    
-                case TR::Entity::INV_AMMO_PISTOLS    : desc = { "Pistol Clips",    1, level->extra.inv.ammo[0]         }; break;
-                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { "Shotgun Shells",  1, level->extra.inv.ammo[1]         }; break;
-                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { "Magnum Clips",    1, level->extra.inv.ammo[2]         }; break;
-                case TR::Entity::INV_AMMO_UZIS       : desc = { "Uzi Clips",       1, level->extra.inv.ammo[3]         }; break;
+                case TR::Entity::INV_AMMO_PISTOLS    : desc = { "Pistol Clips",    PAGE_INVENTORY, level->extra.inv.ammo[0]         }; break;
+                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { "Shotgun Shells",  PAGE_INVENTORY, level->extra.inv.ammo[1]         }; break;
+                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { "Magnum Clips",    PAGE_INVENTORY, level->extra.inv.ammo[2]         }; break;
+                case TR::Entity::INV_AMMO_UZIS       : desc = { "Uzi Clips",       PAGE_INVENTORY, level->extra.inv.ammo[3]         }; break;
 
-                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { "Small Medi Pack", 1, level->extra.inv.medikit[0]      }; break;
-                case TR::Entity::INV_MEDIKIT_BIG     : desc = { "Large Medi Pack", 1, level->extra.inv.medikit[1]      }; break;
+                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { "Small Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[0]      }; break;
+                case TR::Entity::INV_MEDIKIT_BIG     : desc = { "Large Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[1]      }; break;
 
-                case TR::Entity::INV_PUZZLE_1        : desc = { "Puzzle",          2, level->extra.inv.puzzle[0]       }; break;
-                case TR::Entity::INV_PUZZLE_2        : desc = { "Puzzle",          2, level->extra.inv.puzzle[1]       }; break;
-                case TR::Entity::INV_PUZZLE_3        : desc = { "Puzzle",          2, level->extra.inv.puzzle[2]       }; break;
-                case TR::Entity::INV_PUZZLE_4        : desc = { "Puzzle",          2, level->extra.inv.puzzle[3]       }; break;
-
-                case TR::Entity::INV_KEY_1           : desc = { "Key",             2, level->extra.inv.key[0]          }; break;
-                case TR::Entity::INV_KEY_2           : desc = { "Key",             2, level->extra.inv.key[1]          }; break;
-                case TR::Entity::INV_KEY_3           : desc = { "Key",             2, level->extra.inv.key[2]          }; break;
-                case TR::Entity::INV_KEY_4           : desc = { "Key",             2, level->extra.inv.key[3]          }; break;
-
-                case TR::Entity::INV_LEADBAR         : desc = { "Lead Bar",        2, level->extra.inv.leadbar         }; break;
-                case TR::Entity::INV_SCION           : desc = { "Scion",           2, level->extra.inv.scion           }; break;
-                default                              : desc = { "unknown",         2, -1                               }; break;
+                case TR::Entity::INV_PUZZLE_1        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[0]       }; break;
+                case TR::Entity::INV_PUZZLE_2        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[1]       }; break;
+                case TR::Entity::INV_PUZZLE_3        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[2]       }; break;
+                case TR::Entity::INV_PUZZLE_4        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[3]       }; break;
+                                                                                                   
+                case TR::Entity::INV_KEY_1           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[0]          }; break;
+                case TR::Entity::INV_KEY_2           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[1]          }; break;
+                case TR::Entity::INV_KEY_3           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[2]          }; break;
+                case TR::Entity::INV_KEY_4           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[3]          }; break;
+                                                                                                   
+                case TR::Entity::INV_LEADBAR         : desc = { "Lead Bar",        PAGE_ITEMS,     level->extra.inv.leadbar         }; break;
+                case TR::Entity::INV_SCION           : desc = { "Scion",           PAGE_ITEMS,     level->extra.inv.scion           }; break;
+                default                              : desc = { "unknown",         PAGE_ITEMS,     -1                               }; break;
             }
 
             if (desc.model > -1) {
@@ -132,8 +132,6 @@ struct Inventory {
     } *items[INVENTORY_MAX_ITEMS];
 
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
-        TR::Level *level = game->getLevel();
-
         add(TR::Entity::INV_PASSPORT);
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
@@ -175,39 +173,8 @@ struct Inventory {
         return active || phaseRing > 0.0f;
     }
 
-    TR::Entity::Type convToInv(TR::Entity::Type type) {
-        switch (type) {
-            case TR::Entity::PISTOLS       : return TR::Entity::INV_PISTOLS;
-            case TR::Entity::SHOTGUN       : return TR::Entity::INV_SHOTGUN;
-            case TR::Entity::MAGNUMS       : return TR::Entity::INV_MAGNUMS;
-            case TR::Entity::UZIS          : return TR::Entity::INV_UZIS;
- 
-            case TR::Entity::AMMO_PISTOLS  : return TR::Entity::INV_AMMO_PISTOLS;
-            case TR::Entity::AMMO_SHOTGUN  : return TR::Entity::INV_AMMO_SHOTGUN;
-            case TR::Entity::AMMO_MAGNUMS  : return TR::Entity::INV_AMMO_MAGNUMS;
-            case TR::Entity::AMMO_UZIS     : return TR::Entity::INV_AMMO_UZIS;
-
-            case TR::Entity::MEDIKIT_SMALL : return TR::Entity::INV_MEDIKIT_SMALL;
-            case TR::Entity::MEDIKIT_BIG   : return TR::Entity::INV_MEDIKIT_BIG;
-
-            case TR::Entity::PUZZLE_1      : return TR::Entity::INV_PUZZLE_1;
-            case TR::Entity::PUZZLE_2      : return TR::Entity::INV_PUZZLE_2;
-            case TR::Entity::PUZZLE_3      : return TR::Entity::INV_PUZZLE_3;
-            case TR::Entity::PUZZLE_4      : return TR::Entity::INV_PUZZLE_4;
-
-            case TR::Entity::KEY_1         : return TR::Entity::INV_KEY_1;
-            case TR::Entity::KEY_2         : return TR::Entity::INV_KEY_2;
-            case TR::Entity::KEY_3         : return TR::Entity::INV_KEY_3;
-            case TR::Entity::KEY_4         : return TR::Entity::INV_KEY_4;
-
-            case TR::Entity::LEADBAR       : return TR::Entity::INV_LEADBAR;
-            //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
-        }
-        return type;
-    }
-
     int contains(TR::Entity::Type type) {
-        type = convToInv(type);
+        type = TR::Entity::convToInv(type);
         for (int i = 0; i < itemsCount; i++)
             if (items[i]->type == type)
                 return i;
@@ -215,35 +182,38 @@ struct Inventory {
     }
 
     void addAmmo(TR::Entity::Type &type, int &count, int clip, TR::Entity::Type wpnType, TR::Entity::Type ammoType) {
-        count *= clip;
         if (type == wpnType) {
+            count *= clip;
             int index = contains(ammoType);
             if (index > -1) {
-                count += items[index]->count;
+                count += items[index]->count * clip;
                 remove(index);
             }
         } else {
-            if (contains(wpnType) > -1)
+            if (contains(wpnType) > -1) {
                 type = wpnType;
+                count *= clip;
+            }
         }
     }
 
     void add(TR::Entity::Type type, int count = 1) {
-        type = convToInv(type);
+        type = TR::Entity::convToInv(type);
 
         switch (type) {
             case TR::Entity::INV_SHOTGUN      :
             case TR::Entity::INV_AMMO_SHOTGUN : 
-                addAmmo(type, count, 12, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
+                addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
                 break;
             case TR::Entity::INV_MAGNUMS      :
             case TR::Entity::INV_AMMO_MAGNUMS :
-                addAmmo(type, count, 50, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
+                addAmmo(type, count, 25, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
                 break;
             case TR::Entity::INV_UZIS         :
             case TR::Entity::INV_AMMO_UZIS    : 
-                addAmmo(type, count, 100, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
+                addAmmo(type, count, 50, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
                 break;
+            default : ;
         }
 
         int i = contains(type);
@@ -289,33 +259,27 @@ struct Inventory {
             items[i] = items[i + 1];
         itemsCount--;
     }
+    
+    bool chooseKey(TR::Entity::Type hole) {
+        TR::Entity::Type type = TR::Entity::getKeyForHole(hole);
+        if (type == TR::Entity::NONE)
+            return false;
+        int index = contains(type);
+        if (index < 0)
+            return false;
+        toggle(items[index]->desc.page, type);
+        return true;
+    }
 
-    bool use(TR::Entity::Type item, TR::Entity::Type slot) {
-        switch (slot) {
-            case TR::Entity::PUZZLE_HOLE_1 : item = TR::Entity::INV_PUZZLE_1; break;
-            case TR::Entity::PUZZLE_HOLE_2 : item = TR::Entity::INV_PUZZLE_2; break;
-            case TR::Entity::PUZZLE_HOLE_3 : item = TR::Entity::INV_PUZZLE_3; break;
-            case TR::Entity::PUZZLE_HOLE_4 : item = TR::Entity::INV_PUZZLE_4; break;
-            case TR::Entity::KEY_HOLE_1    : item = TR::Entity::INV_KEY_1;    break;
-            case TR::Entity::KEY_HOLE_2    : item = TR::Entity::INV_KEY_2;    break;
-            case TR::Entity::KEY_HOLE_3    : item = TR::Entity::INV_KEY_3;    break;
-            case TR::Entity::KEY_HOLE_4    : item = TR::Entity::INV_KEY_4;    break;
-            case TR::Entity::INV_PISTOLS   :
-            case TR::Entity::INV_SHOTGUN   :
-            case TR::Entity::INV_MAGNUMS   :
-            case TR::Entity::INV_UZIS      : return false;
-            default : return false;
-        }
-
-        if (getCountPtr(item)) {
-            remove(item);
+    bool use(TR::Entity::Type type) {
+        if (contains(type) > -1) {
+            remove(type);
             return true;
         }
-
         return false;
     }
 
-    bool toggle(Page curPage = PAGE_INVENTORY) {
+    bool toggle(Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
@@ -329,6 +293,13 @@ struct Inventory {
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
                 page      = targetPage  = curPage;
+
+                if (type != TR::Entity::NONE) {
+                    int i = contains(type);
+                    if (i >= 0)
+                        pageItemIndex[page] = getItemIndex(page, i);
+                }
+
                 index     = targetIndex = pageItemIndex[page];
             }
         }
@@ -382,7 +353,8 @@ struct Inventory {
     }
 
     void update() {
-        doPhase(active, 2.0f, phaseRing);
+        if (phaseChoose == 0.0f)
+            doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
         doPhase(chosen, 4.0f, phaseChoose);
         doPhase(true,   2.5f, phaseSelect);
@@ -465,13 +437,24 @@ struct Inventory {
         if (ready && chosen && phaseChoose == 1.0f && item->anim->isEnded) {
             TR::Entity::Type type = item->type;
             
-            if (type == TR::Entity::INV_PISTOLS || type == TR::Entity::INV_SHOTGUN || type == TR::Entity::INV_MAGNUMS || type == TR::Entity::INV_UZIS ||
-                type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG) {
-
-                game->invUse(type, TR::Entity::NONE);
-                toggle();
+            switch (type) {
+                case TR::Entity::INV_PASSPORT        :
+                case TR::Entity::INV_PASSPORT_CLOSED :
+                case TR::Entity::INV_MAP             :
+                case TR::Entity::INV_COMPASS         :
+                case TR::Entity::INV_HOME            :
+                case TR::Entity::INV_DETAIL          :
+                case TR::Entity::INV_SOUND           :
+                case TR::Entity::INV_CONTROLS        :
+                case TR::Entity::INV_GAMMA           :
+                case TR::Entity::INV_AMMO_PISTOLS    :
+                case TR::Entity::INV_AMMO_SHOTGUN    :
+                case TR::Entity::INV_AMMO_MAGNUMS    :
+                case TR::Entity::INV_AMMO_UZIS       : break;
+                default :
+                    game->invUse(type);
+                    toggle();
             }
-
         }
     }
 
@@ -518,13 +501,27 @@ struct Inventory {
             sprintf(buf, "%d %c", item->count, spec);
             for (int i = 0; buf[i] != ' '; i++)
                 buf[i] -= 47;
-            UI::textOut(game, pos, buf, UI::aRight, width);
+            UI::textOut(pos, buf, UI::aRight, width);
         }
     }
 
     void renderItemText(const Item *item, float width) {
-        UI::textOut(game, vec2(0, 480 - 16), item->desc.name, UI::aCenter, width);
+        UI::textOut(vec2(0, 480 - 16), item->desc.name, UI::aCenter, width);
         renderItemCount(item, vec2(width / 2 - 160, 480 - 96), 320);
+
+        if (phaseChoose == 1.0f) {
+            if (item->type == TR::Entity::INV_PASSPORT ||
+                item->type == TR::Entity::INV_MAP      || 
+                item->type == TR::Entity::INV_COMPASS  || 
+                item->type == TR::Entity::INV_HOME     || 
+                item->type == TR::Entity::INV_DETAIL   || 
+                item->type == TR::Entity::INV_SOUND    || 
+                item->type == TR::Entity::INV_CONTROLS || 
+                item->type == TR::Entity::INV_GAMMA)
+            {
+                UI::textOut(vec2(0, 240), "Not implemented yet!", UI::aCenter, width);
+            }
+        }
     }
 
     void renderPage(int page) {
@@ -632,16 +629,16 @@ struct Inventory {
 
         static const char* pageTitle[PAGE_MAX] = { "OPTION", "INVENTORY", "ITEMS" };
 
-        UI::textOut(game, vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
+        UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (page < PAGE_ITEMS && getItemsCount(page + 1)) {
-            UI::textOut(game, vec2(16, 32), "\x5B", UI::aLeft, UI::width);
-            UI::textOut(game, vec2( 0, 32), "\x5B", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);
+            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20);
         }
 
         if (page > PAGE_OPTION && getItemsCount(page - 1)) {
-            UI::textOut(game, vec2(16, 480 - 16), "\x5D", UI::aLeft, UI::width);
-            UI::textOut(game, vec2(0,  480 - 16), "\x5D", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width);
+            UI::textOut(vec2(0,  480 - 16), "]", UI::aRight, UI::width - 20);
         }
 
         if (index == targetIndex)
