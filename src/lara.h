@@ -1645,8 +1645,11 @@ struct Lara : Character {
                 if ((input & (FORTH | WALK)) == (FORTH | WALK)) return STATE_SWAN_DIVE;
             }
         } else
-            if (state != STATE_SWAN_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
+            if (state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
                 return animation.setAnim(ANIM_FALL);
+
+        if (state == STATE_SWAN_DIVE)
+            return STATE_FAST_DIVE;
 
         return state;
     }
@@ -1891,7 +1894,7 @@ struct Lara : Character {
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
 
-        if (state == STATE_SWAN_DIVE) {
+        if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
             angle.x = -PI * 0.5f;
             game->waterDrop(pos, 128.0f, 0.2f);
             Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
