@@ -63,10 +63,11 @@ struct Lara : Character {
 
         ANIM_CLIMB_JUMP         = 26,
 
-        ANIM_HANG_FALL          = 28,
+        ANIM_FALL_HANG          = 28,
 
         ANIM_SMASH_JUMP         = 32,
-        ANIM_FALL               = 34,
+
+        ANIM_FALL_FORTH         = 34,
 
         ANIM_CLIMB_3            = 42,
 
@@ -84,6 +85,8 @@ struct Lara : Character {
         ANIM_BACK_DESCEND_RIGHT = 62,
 
         ANIM_SLIDE_FORTH        = 70,
+
+        ANIM_FALL_BACK          = 93,
 
         ANIM_HANG               = 96,
 
@@ -1544,7 +1547,7 @@ struct Lara : Character {
         if (state == STATE_HANG || state == STATE_HANG_LEFT || state == STATE_HANG_RIGHT) {
             if (input & ACTION)
                 return STAND_HANG;
-            animation.setAnim(ANIM_HANG_FALL);
+            animation.setAnim(ANIM_FALL_HANG);
             velocity = vec3(0.0f);
             pos.y += 128.0f;
             updateEntity();
@@ -1559,6 +1562,8 @@ struct Lara : Character {
 
         if (getRoom().flags.water) {
             wpnHide();
+            if (stand != STAND_UNDERWATER && (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
+                animation.setAnim(ANIM_FALL_FORTH);
             return STAND_UNDERWATER;
         }
 
@@ -1645,8 +1650,8 @@ struct Lara : Character {
                 if ((input & (JUMP | FORTH | WALK)) == (JUMP | FORTH | WALK)) return STATE_SWAN_DIVE;
             }
         } else
-            if (state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_FALL && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
-                return animation.setAnim(ANIM_FALL);
+            if (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
+                return animation.setAnim( (state == STATE_FAST_BACK || state == STATE_SLIDE_BACK || state == STATE_ROLL_2) ? ANIM_FALL_BACK :  ANIM_FALL_FORTH);
 
         if (state == STATE_SWAN_DIVE)
             return STATE_FAST_DIVE;
@@ -2413,10 +2418,7 @@ struct Lara : Character {
                 int floor = collision.info[Collision::NONE].floor;
                 int h = int(floor - opos.y);
 
-                if (h >= 256 && state == STATE_FAST_BACK) {
-                    stand = STAND_AIR;
-                    animation.setAnim(ANIM_FALL);
-                } else if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
+                if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
                     if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
                     if (state == STATE_BACK) animation.setAnim(isLeftFoot ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
                     pos.y = float(floor);
