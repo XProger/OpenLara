@@ -13,9 +13,10 @@
 typedef unsigned short Index;
 
 struct Vertex {
-    short4  coord;      // xyz  - position, w - unused
-    short4  texCoord;   // xy   - texture coordinates, z - anim tex range index, w - anim tex frame index
+    short4  coord;      // xyz  - position, w - joint index (for entities only)
     short4  normal;     // xyz  - vertex normalá w - unused
+    short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
+    ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
     ubyte4  color;      // xyz  - color, w - intensity
 };
 
@@ -29,14 +30,16 @@ struct MeshRange {
 
     void setup() const {
         glEnableVertexAttribArray(aCoord);
-        glEnableVertexAttribArray(aTexCoord);
         glEnableVertexAttribArray(aNormal);
+        glEnableVertexAttribArray(aTexCoord);
+        glEnableVertexAttribArray(aParam);
         glEnableVertexAttribArray(aColor);
 
         Vertex *v = (Vertex*)NULL + vStart;
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
-        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         false, sizeof(Vertex), &v->texCoord);
         glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(Vertex), &v->normal);
+        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(Vertex), &v->texCoord);
+        glVertexAttribPointer(aParam,    4, GL_UNSIGNED_BYTE, false, sizeof(Vertex), &v->param);
         glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
     }
 
@@ -234,7 +237,7 @@ struct MeshBuilder {
 
             if (Core::settings.detail.water)
                 roomRemoveWaterSurfaces(r, iCount, vCount);
-            
+
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
                 TR::StaticMesh *s = &level.staticMeshes[m.meshIndex];
@@ -402,8 +405,9 @@ struct MeshBuilder {
     // build shadow blob
         for (int i = 0; i < 9; i++) {
             Vertex &v0 = vertices[vCount + i * 2 + 0];
-            v0.normal    = { 0, -1, 0, 1 };
-            v0.texCoord  = { 32688, 32688, 0, 0 };
+            v0.normal    = { 0, -1, 0, 0 };
+            v0.texCoord  = { 32688, 32688, 32767, 32767 };
+            v0.param     = { 0, 0, 0, 0 };
             v0.color     = { 0, 0, 0, 0 };
 
             if (i == 8) {
@@ -507,7 +511,8 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
-            v.texCoord  = { 32688, 32688, 0, 0 };
+            v.texCoord  = { 32688, 32688, 32767, 32767 };
+            v.param     = { 0, 0, 0, 0 };
         }
         vCount += 4;
         aCount++;
@@ -522,7 +527,8 @@ struct MeshBuilder {
             v.coord     = { short(pos.x), short(pos.y), 0, 0 };
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
-            v.texCoord  = { 32688, 32688, 0, 0 };
+            v.texCoord  = { 32688, 32688, 32767, 32767 };
+            v.param     = { 0, 0, 0, 0 };
 
             indices[iCount++] = i;
             indices[iCount++] = (i + 1) % CIRCLE_SEGS;
@@ -700,8 +706,11 @@ struct MeshBuilder {
 
             if (opaque != (t.attribute == 0))
                 continue;
-
-            addQuad(indices, iCount, vCount, vStart, vertices, &t);
+            addQuad(indices, iCount, vCount, vStart, vertices, &t,
+                    d.vertices[f.vertices[0]].vertex, 
+                    d.vertices[f.vertices[1]].vertex, 
+                    d.vertices[f.vertices[2]].vertex, 
+                    d.vertices[f.vertices[3]].vertex);
 
             TR::Vertex n;
             CHECK_ROOM_NORMAL(n);
@@ -761,7 +770,11 @@ struct MeshBuilder {
 
             TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
 
-            addQuad(indices, iCount, vCount, vStart, vertices, &t);
+            addQuad(indices, iCount, vCount, vStart, vertices, &t,
+                    mesh.vertices[f.vertices[0]].coord, 
+                    mesh.vertices[f.vertices[1]].coord, 
+                    mesh.vertices[f.vertices[2]].coord, 
+                    mesh.vertices[f.vertices[3]].coord);
 
             for (int k = 0; k < 4; k++) {
                 TR::Mesh::Vertex &v = mesh.vertices[f.vertices[k]];
@@ -808,7 +821,7 @@ struct MeshBuilder {
         int  tx = (tile % 4) * 256;
         int  ty = (tile / 4) * 256;
         return vec2( (float)(((tx + tex.texCoord[0].x) << 5) + 16),
-                     (float)(((ty + tex.texCoord[0].y) << 5) + 16) );
+                     (float)(((ty + tex.texCoord[0].y) << 5) + 16) ) * (1.0f / 32767.0f);
     }
 
     void initAnimTextures(TR::Level &level) {
@@ -846,7 +859,7 @@ struct MeshBuilder {
         }
     }
 
-    TR::ObjectTexture* getAnimTexture(TR::ObjectTexture *tex, int &range, int &frame) {
+    TR::ObjectTexture* getAnimTexture(TR::ObjectTexture *tex, uint8 &range, uint8 &frame) {
         range = frame = 0;
         if (!level->animTexturesDataSize)
             return tex;
@@ -869,28 +882,41 @@ struct MeshBuilder {
     }
 
     void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex, bool triangle) {
-        int range, frame;
+        uint8 range, frame;
         tex = getAnimTexture(tex, range, frame);
 
         int  tile = tex->tile.index;
         int  tx = (tile % 4) * 256;
         int  ty = (tile / 4) * 256;
 
+
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
             v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 16;
             v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 16;
-            v.texCoord.z = range;
-            v.texCoord.w = frame;
+            v.texCoord.z = 32767;
+            v.texCoord.w = 32767;
+            v.param      = { range, frame, 0, 0 };
         }
 
         if (level->version == TR::Level::VER_TR1_PSX && !triangle)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
+        /*
+        short2 uv[4] = {
+            {0, 0}, {32767, 0}, {32767, 32767}, {0, 32767}
+        };
+
+        for (int i = 0; i < count; i++) {
+            Vertex &v = vertices[vCount + i];
+            v.texCoord.x = uv[i].x;
+            v.texCoord.y = uv[i].y;
+        }
+        */
     }
 
     void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
-        int  vIndex = vCount - vStart;
+        int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
         indices[iCount + 1] = vIndex + 1;
@@ -902,7 +928,7 @@ struct MeshBuilder {
     }
 
     void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
-        int  vIndex = vCount - vStart;
+        int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
         indices[iCount + 1] = vIndex + 1;
@@ -915,6 +941,43 @@ struct MeshBuilder {
         iCount += 6;
 
         if (tex) addTexCoord(vertices, vCount, tex, false);
+    }
+
+    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex,
+                 const short3 &c0, const short3 &c1, const short3 &c2, const short3 &c3) {
+        addQuad(indices, iCount, vCount, vStart, vertices, tex);
+
+        vec3 a = c0 - c1;
+        vec3 b = c3 - c2;
+        vec3 c = c0 - c3;
+        vec3 d = c1 - c2;
+
+        float aL = a.length();
+        float bL = b.length();
+        float cL = c.length();
+        float dL = d.length();
+
+        float ab = a.dot(b) / (aL * bL);
+        float cd = c.dot(d) / (cL * dL);
+
+        int16 tx = abs(vertices[vCount + 0].texCoord.x - vertices[vCount + 3].texCoord.x);
+        int16 ty = abs(vertices[vCount + 0].texCoord.y - vertices[vCount + 3].texCoord.y);
+
+        if (ab > cd) {
+            int k = (tx > ty) ? 3 : 2;
+
+            if (aL > bL)
+                vertices[vCount + 2].texCoord[k] = vertices[vCount + 3].texCoord[k] = int16(bL / aL * 32767.0f);
+            else
+                vertices[vCount + 0].texCoord[k] = vertices[vCount + 1].texCoord[k] = int16(aL / bL * 32767.0f);
+        } else {
+            int k = (tx > ty) ? 2 : 3;
+
+            if (cL > dL) {
+                vertices[vCount + 1].texCoord[k] = vertices[vCount + 2].texCoord[k] = int16(dL / cL * 32767.0f);
+            } else
+                vertices[vCount + 0].texCoord[k] = vertices[vCount + 3].texCoord[k] = int16(cL / dL * 32767.0f);
+        }
     }
 
     void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, uint8 intensity, bool expand = false) {
@@ -939,12 +1002,12 @@ struct MeshBuilder {
         quad[2].coord = { x1, y1, z, 0 };
         quad[3].coord = { x0, y1, z, 0 };
 
-
         quad[0].normal = quad[1].normal = quad[2].normal = quad[3].normal = { 0, 0, 0, 0 };
         quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { 255, 255, 255, intensity };
+        quad[0].param  = quad[1].param  = quad[2].param  = quad[3].param  = { 0, 0, 0, 0 };
 
-        int  tx = (sprite.tile % 4) * 256;
-        int  ty = (sprite.tile / 4) * 256;
+        int tx = (sprite.tile % 4) * 256;
+        int ty = (sprite.tile / 4) * 256;
 
         int16 u0 = (((tx + sprite.texCoord[0].x) << 5));
         int16 v0 = (((ty + sprite.texCoord[0].y) << 5));
@@ -992,7 +1055,8 @@ struct MeshBuilder {
             s = int(s) * 32767 / 1024;
             t = int(t) * 32767 / 1024;
 
-            v.texCoord = { s, t, 0, 0 };
+            v.texCoord = { s, t, 32767, 32767 };
+            v.param    = { 0, 0, 0, 0 };
         }
 
         vCount += 4;
@@ -1018,7 +1082,7 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal   = { 0, 0, 0, 0 };
             v.color    = *((ubyte4*)&color1);
-            v.texCoord = { 32688, 32688, 0, 0 };
+            v.texCoord = { 32688, 32688, 32767, 32767 };
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
@@ -1038,7 +1102,7 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal   = { 0, 0, 0, 0 };
             v.color    = *((ubyte4*)&color2);
-            v.texCoord = { 32688, 32688, 0, 0 };
+            v.texCoord = { 32688, 32688, 32767, 32767 };
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;

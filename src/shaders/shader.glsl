@@ -4,19 +4,23 @@ R"====(
 	precision highp  float;
 #endif
 
-varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
+varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
+
+#if defined(OPT_WATER) && defined(UNDERWATER)
+	varying vec2 vCausticsCoord; // - xy caustics texture coord
+#endif
 
 #ifndef PASS_SHADOW
-	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
 	uniform vec3 uViewPos;
 
+	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
 	varying vec4 vDiffuse;
 
 	#ifndef TYPE_FLASH
 		#ifdef PASS_COMPOSE
-			varying vec4 vNormal;       // xyz - normal dir, w - fog factor
+			varying vec3 vNormal;		// xyz - normal dir
 			varying vec4 vLightProj;
-			varying vec3 vLightVec;
+			varying vec4 vLightVec;		// xyz - dir, w - fog factor
 
 			#ifdef OPT_SHADOW
 				varying vec3 vAmbient;
@@ -26,7 +30,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 			uniform vec4 uLightColor[4]; // xyz - color, w - radius * intensity
 		#endif
 
-		varying vec4 vLight;    // 4 lights intensity
+		varying vec4 vLight;	// 4 lights intensity
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
 			uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
@@ -38,15 +42,15 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 			vec3 calcAmbient(vec3 n) {
 				vec3 sqr = n * n;
 				vec3 pos = step(0.0, n);
-				return sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
-					   sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
-					   sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+				return	sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
+						sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
+						sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
 			}
 		#endif
 	#endif
 
-	uniform vec4 uParam;    // x - time, y - water height, z - clip plane sign, w - clip plane height
-	uniform vec4 uMaterial; // x - diffuse, y - ambient, z - specular, w - alpha
+	uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
+	uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 #endif
 
 #ifdef VERTEX
@@ -71,6 +75,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
+	attribute vec4 aParam;
 
 	#ifndef PASS_AMBIENT
 		attribute vec4 aNormal;
@@ -80,7 +85,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 		attribute vec4 aColor;
 	#endif
 
-	#define TEXCOORD_SCALE (1.0 / 32767.0)
+	#define TEXCOORD_SCALE 32767.0
 
 	vec3 mulQuat(vec4 q, vec3 v) {
 		return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + v * q.w);
@@ -103,7 +108,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 		vec4 coord = vec4(mulBasis(rBasisRot, rBasisPos, aCoord.xyz), rBasisPos.w);
 
 		#ifdef TYPE_SPRITE
-			coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
+			coord.xyz += (uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w) * TEXCOORD_SCALE;
 		#endif
 
 		#ifndef PASS_SHADOW
@@ -129,7 +134,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				fog = length(vViewVec.xyz);
 			#endif
 
-			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
+			vLightVec.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
 		return coord;
@@ -161,22 +166,24 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				vec3 lv2 = (uLightPos[2].xyz - coord) * uLightColor[2].w;
 				vec3 lv3 = (uLightPos[3].xyz - coord) * uLightColor[3].w;
 
-				vLightVec = lv0;
+				vLightVec.xyz = lv0;
 
 				vec4 lum, att;
 				#ifdef TYPE_ENTITY
-					lum.x = dot(vNormal.xyz, normalize(lv0));    att.x = dot(lv0, lv0);
+					lum.x = dot(vNormal.xyz, normalize(lv0));
+					att.x = dot(lv0, lv0);
 				#else
-					lum.x = aColor.w;                        att.x = 0.0;
+					lum.x = aColor.w;
+					att.x = 0.0;
 
 					#ifdef TYPE_SPRITE
 						lum.x *= uMaterial.y;
 					#endif
 
 				#endif
-				lum.y = dot(vNormal.xyz, normalize(lv1));    att.y = dot(lv1, lv1);
-				lum.z = dot(vNormal.xyz, normalize(lv2));    att.z = dot(lv2, lv2);
-				lum.w = dot(vNormal.xyz, normalize(lv3));    att.w = dot(lv3, lv3);
+				lum.y = dot(vNormal.xyz, normalize(lv1));	att.y = dot(lv1, lv1);
+				lum.z = dot(vNormal.xyz, normalize(lv2));	att.z = dot(lv2, lv2);
+				lum.w = dot(vNormal.xyz, normalize(lv3));	att.w = dot(lv3, lv3);
 				vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
 				#ifdef UNDERWATER
@@ -219,20 +226,18 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 	}
 
 	void _uv(vec3 coord) {
+		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
 			// animated texture coordinates
-			vec2 range  = uAnimTexRanges[int(aTexCoord.z)];         // x - start index, y - count
-			float frame = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
-			vec2 offset = uAnimTexOffsets[int(range.x + frame)];    // texCoord offset from first frame
-			vTexCoord.xy = (aTexCoord.xy + offset) * TEXCOORD_SCALE;
-		#else
-			vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;
+			vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
+			float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
+			vec2 offset = uAnimTexOffsets[int(range.x + frame)];	// texCoord offset from first frame
+			vTexCoord.xy += offset;
+			vTexCoord.xy *= vTexCoord.zw;
 		#endif
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
-			vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
-		#else
-			vTexCoord.zw = vec2(1.0);
+			vCausticsCoord.xy = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 		#endif
 	}
 
@@ -346,13 +351,13 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				} else
 					rShadow /= 4.0;
 
-				float fade = clamp(dot(vLightVec, vLightVec), 0.0, 1.0);
+				float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
 				return rShadow + (1.0 - rShadow) * fade;
 			}
 
 			float getShadow() {
 				#ifdef TYPE_ROOM
-					float vis = min(dot(vNormal.xyz, vLightVec), vLightProj.w);
+					float vis = min(dot(vNormal.xyz, vLightVec.xyz), vLightProj.w);
 				#else
 					float vis = vLightProj.w;
 				#endif
@@ -369,9 +374,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
 			float calcCaustics(vec3 n) {
+                vec2 cc     = vCausticsCoord.xy;
 				vec2 border = vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
-				vec2 fade   = smoothstep(vec2(0.0), border, vTexCoord.zw) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), vTexCoord.zw));
-				return texture2D(sReflect, vTexCoord.zw).g * max(0.0, -n.y) * fade.x * fade.y;
+				vec2 fade   = smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
+				return texture2D(sReflect, cc).g * max(0.0, -n.y) * fade.x * fade.y;
 			}
 		#endif
 	#endif
@@ -391,7 +397,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				color = textureCube(sEnvironment, normalize(rv));
 			#endif
 		#else
-			color = texture2D(sDiffuse, vTexCoord.xy);
+			#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
+				color = texture2D(sDiffuse, vTexCoord.xy / vTexCoord.zw);
+			#else
+				color = texture2D(sDiffuse, vTexCoord.xy);
+			#endif
 		#endif
 
 		#ifdef ALPHA_TEST
@@ -444,7 +454,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 						#endif
 
 						#ifdef TYPE_ENTITY
-							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec, uLightColor[0], uMaterial.z * rShadow + 0.03);
+							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], uMaterial.z * rShadow + 0.03);
 						#endif
 					#endif
 
@@ -460,9 +470,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 				#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 					#ifdef UNDERWATER
-						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vNormal.w);
+						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vLightVec.w);
 					#else
-						color.xyz = mix(vec3(0.0), color.xyz, vNormal.w);
+						color.xyz = mix(vec3(0.0), color.xyz, vLightVec.w);
 					#endif
 				#endif
 

@@ -411,6 +411,12 @@ struct Level : IGame {
         fwrite(data, 1024 * 1024 * 4, 1, f);
         fclose(f);
         */
+        /*
+        memset(data, 255, 4 * 1024 * 1024);
+        for (int i = 0; i < 1024; i++)
+            for (int j = 0; j < 1024; j++)
+                data[i * 1024 + j].b = data[i * 1024 + j].g = ((i % 8 == 0) || (j % 8 == 0)) ? 0 : 255;
+        */
 
         atlas = new Texture(1024, 1024, Texture::RGBA, false, data);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");

@@ -412,7 +412,8 @@ namespace TR {
     struct Vertex {
         int16 x, y, z;
 
-        operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+        operator vec3()   const { return vec3((float)x, (float)y, (float)z); }
+        operator short3() const { return *((short3*)this); }
     };
 
     struct Rectangle {

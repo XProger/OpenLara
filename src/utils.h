@@ -140,9 +140,9 @@ int nextPow2(uint32 x) {
 }
 
 uint32 fnv32(const char *data, int32 size, uint32 hash = 0x811c9dc5) {
-	for (int i = 0; i < size; i++)
-		hash = (hash ^ data[i]) * 0x01000193;
-	return hash;
+    for (int i = 0; i < size; i++)
+        hash = (hash ^ data[i]) * 0x01000193;
+    return hash;
 }
 
 struct vec2 {
@@ -711,12 +711,23 @@ struct short2 {
 
 struct short3 {
     int16 x, y, z;
+
+    short3() {}
+    short3(int16 x, int16 y, int16 z) : x(x), y(y), z(z) {}
+
+    operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+
+    short3 operator + (const short3 &v) const { return short3(x + v.x, y + v.y, z + v.z); }
+    short3 operator - (const short3 &v) const { return short3(x - v.x, y - v.y, z - v.z); }
 };
 
 struct short4 {
     int16 x, y, z, w;
 
-    operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+    operator vec3()   const { return vec3((float)x, (float)y, (float)z); };
+    operator short3() const { return *((short3*)this); }
+
+    inline int16& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((int16*)this)[index]; }
 };
 
 quat rotYXZ(const vec3 &a) {

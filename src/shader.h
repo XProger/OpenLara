@@ -5,8 +5,9 @@
 
 #define SHADER_ATTRIBS(E) \
     E( aCoord           ) \
-    E( aTexCoord        ) \
     E( aNormal          ) \
+    E( aTexCoord        ) \
+    E( aParam           ) \
     E( aColor           )
 
 #define SHADER_SAMPLERS(E) \
