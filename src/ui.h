@@ -205,7 +205,7 @@ namespace UI {
         " SHIFT - Walk@"
         " SPACE - Draw Weapon@"
         " CTRL - Action@"
-        " ALT - Jump@"
+        " D - Jump@"
         " Z - Step Left@"
         " X - Step Right@"
         " A - Roll@"

@@ -33,7 +33,7 @@ namespace Input {
             { ikRight,  ikJoyRight  },
             { ikUp,     ikJoyUp     },
             { ikDown,   ikJoyDown   },
-            { ikAlt,    ikJoyX      },
+            { ikD,      ikJoyX      },
             { ikShift,  ikJoyRB     },
             { ikCtrl,   ikJoyA      },
             { ikSpace,  ikJoyY      },
