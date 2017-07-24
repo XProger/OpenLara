@@ -9,15 +9,8 @@ struct Frustum {
     vec3 pos;
     vec4 planes[MAX_CLIP_PLANES * 2];   // + buffer for OBB visibility test
     int  start, count;
-#ifdef _DEBUG
-    int dbg;
-    Poly debugPoly;
-#endif
 
     void calcPlanes(const mat4 &m) {
-    #ifdef _DEBUG
-        dbg = 0;
-    #endif
         start = 0;
         count = 5;
         planes[0] = vec4(m.e30 - m.e20, m.e31 - m.e21, m.e32 - m.e22, m.e33 - m.e23); // near
