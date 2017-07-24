@@ -30,7 +30,8 @@ struct IGame {
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void setupBinding() {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
-    virtual void renderCompose(int roomIndex, bool genShadowMask = false) {}
+    virtual void renderCompose(int roomIndex) {}
+    virtual void renderView(int roomIndex, bool water) {}
     virtual void fxQuake(float time) {}
 
     virtual bool invUse(TR::Entity::Type type) { return false; }

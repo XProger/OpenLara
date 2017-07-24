@@ -43,8 +43,6 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-    #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
-    #define glActiveStencilFaceEXT(...)
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -72,9 +70,6 @@
         #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
         #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
         #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
-
-        #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
-        #define glActiveStencilFaceEXT(...)
     #else
         #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
@@ -117,10 +112,8 @@
     #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
     #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
 
-    #define GL_STENCIL_TEST_TWO_SIDE_EXT 0
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
-    #define glActiveStencilFaceEXT(...)
 #endif
 
 namespace Core {
@@ -204,10 +197,6 @@ namespace Core {
         PFNGLBINDBUFFERARBPROC              glBindBuffer;
         PFNGLBUFFERDATAARBPROC              glBufferData;
         PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
-    // Stencil
-        PFNGLACTIVESTENCILFACEEXTPROC       glActiveStencilFaceEXT;
-        PFNGLSTENCILFUNCSEPARATEPROC        glStencilFuncSeparate;
-        PFNGLSTENCILOPSEPARATEPROC          glStencilOpSeparate;
     #endif
 
     PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
@@ -228,6 +217,36 @@ namespace Core {
 struct Shader;
 struct Texture;
 
+enum RenderState : int32 {
+    RS_TARGET           = 1 << 0,
+    RS_VIEWPORT         = 1 << 1,
+    RS_DEPTH_TEST       = 1 << 2,
+    RS_DEPTH_WRITE      = 1 << 3,
+    RS_COLOR_WRITE_R    = 1 << 4,
+    RS_COLOR_WRITE_G    = 1 << 5,
+    RS_COLOR_WRITE_B    = 1 << 6,
+    RS_COLOR_WRITE_A    = 1 << 7,
+    RS_COLOR_WRITE      = RS_COLOR_WRITE_R | RS_COLOR_WRITE_G | RS_COLOR_WRITE_B | RS_COLOR_WRITE_A,
+    RS_CULL_BACK        = 1 << 8,
+    RS_CULL_FRONT       = 1 << 9,
+    RS_CULL             = RS_CULL_BACK | RS_CULL_FRONT,
+    RS_BLEND_ALPHA      = 1 << 10,
+    RS_BLEND_ADD        = 1 << 11,
+    RS_BLEND_MULTIPLY   = 1 << 12,
+    RS_BLEND_SCREEN     = 1 << 13,
+    RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULTIPLY | RS_BLEND_SCREEN,
+};
+
+typedef unsigned short Index;
+
+struct Vertex {
+    short4  coord;      // xyz  - position, w - joint index (for entities only)
+    short4  normal;     // xyz  - vertex normalá w - unused
+    short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
+    ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
+    ubyte4  color;      // xyz  - color, w - intensity
+};
+
 namespace Core {
     struct {
         bool shaderBinary;
@@ -240,7 +259,6 @@ namespace Core {
         bool texBorder;
         bool texFloat, texFloatLinear;
         bool texHalf,  texHalfLinear;
-        char stencil;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -298,7 +316,6 @@ extern int getTime();
 namespace Core {
     float eye;
     vec4 viewport, viewportDef;
-    vec4 scissor;
     mat4 mView, mProj, mViewProj, mViewInv, mLightProj;
     Basis basis;
     vec3 viewPos;
@@ -322,18 +339,25 @@ namespace Core {
         } items[MAX_RENDER_BUFFERS];
     } rtCache[2];
 
+    int32 renderState;
+
     struct {
         Shader      *shader;
         Texture     *textures[8];
         Texture     *target;
         int         targetFace;
+        vec4        viewport;
         GLuint      VAO;
         GLuint      iBuffer;
         GLuint      vBuffer;
-        BlendMode   blendMode;
-        CullMode    cullMode;
-        bool        stencilTwoSide;
+        int32       renderState;
     } active;
+    
+    struct {
+        Texture *texture;
+        bool    clear;
+        uint8   face;
+    } reqTarget;
 
     struct Stats {
         int dips, tris, frame, fps, fpsTime;
@@ -445,10 +469,6 @@ namespace Core {
                 GetProcOGL(glBindBuffer);
                 GetProcOGL(glBufferData);
                 GetProcOGL(glBufferSubData);
-
-                GetProcOGL(glActiveStencilFaceEXT);
-                GetProcOGL(glStencilFuncSeparate);
-                GetProcOGL(glStencilOpSeparate);
             #endif
 
             #if defined(ANDROID) || defined(__EMSCRIPTEN__)
@@ -478,14 +498,6 @@ namespace Core {
         support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
 
-        if (extSupport(ext, "_ATI_separate_stencil"))
-            support.stencil = 2;
-        else
-            if (extSupport(ext, "_stencil_two_side"))
-                support.stencil = 1;
-            else
-                support.stencil = 0;
-        
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
         support.profTiming     = extSupport(ext, "_timer_query");
@@ -508,7 +520,6 @@ namespace Core {
         LOG("  float textures : float = %s, half = %s\n", 
             support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
             support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
-        LOG("  stencil        : %s\n", support.stencil == 2 ? "separate" : (support.stencil == 1 ? "two_side" : "false"));
         LOG("\n");
 
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
@@ -567,143 +578,142 @@ namespace Core {
         return cache.count++;
     }
 
-    void clear(bool clearColor, bool clearDepth, bool clearStencil = false) {        
-        if (GLbitfield mask = (clearColor ? GL_COLOR_BUFFER_BIT : 0) | (clearDepth ? GL_DEPTH_BUFFER_BIT : 0) | (clearStencil ? GL_STENCIL_BUFFER_BIT : 0))
-            glClear(mask);
+    void validateRenderState() {
+        int32 mask = renderState ^ active.renderState;
+        if (!mask) return;
+
+        if (mask & RS_TARGET) {
+            Texture *target = reqTarget.texture;
+            uint8   face    = reqTarget.face;
+
+            if (target != active.target || face != active.targetFace) {
+                
+                if (!target) { // may be a null
+                    glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
+                } else {
+                    GLenum texTarget = GL_TEXTURE_2D;
+                    if (target->cube) 
+                        texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+
+                    bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+                    int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
+
+                    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+                    glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
+                    glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
+                }
+
+                active.target     = target;
+                active.targetFace = face;
+            }
+        }
+
+        if (mask & RS_VIEWPORT) {
+            if (viewport != active.viewport) {
+                active.viewport = viewport;
+                glViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
+            }
+            renderState &= ~RS_VIEWPORT;
+        }
+
+        if (mask & RS_DEPTH_TEST) {
+            if (renderState & RS_DEPTH_TEST)
+                glEnable(GL_DEPTH_TEST);
+            else
+                glDisable(GL_DEPTH_TEST);
+        }
+        
+        if (mask & RS_DEPTH_WRITE) {
+            glDepthMask((renderState & RS_DEPTH_WRITE) != 0);
+        }
+
+        if (mask & RS_COLOR_WRITE) {
+            glColorMask((renderState & RS_COLOR_WRITE_R) != 0,
+                        (renderState & RS_COLOR_WRITE_G) != 0,
+                        (renderState & RS_COLOR_WRITE_B) != 0,
+                        (renderState & RS_COLOR_WRITE_A) != 0);
+        }
+
+        if (mask & RS_CULL) {
+            if (!(active.renderState & RS_CULL))
+                glEnable(GL_CULL_FACE);
+            switch (renderState & RS_CULL) {
+                case RS_CULL_BACK  : glCullFace(GL_BACK);  break;
+                case RS_CULL_FRONT : glCullFace(GL_FRONT); break;
+                default            : glDisable(GL_CULL_FACE);
+            }
+        }
+
+        if (mask & RS_BLEND) {
+            if (!(active.renderState & RS_BLEND))
+                glEnable(GL_BLEND);
+            switch (renderState & RS_BLEND) {
+                case RS_BLEND_ALPHA    : glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+                case RS_BLEND_ADD      : glBlendFunc(GL_ONE, GL_ONE);                       break;
+                case RS_BLEND_MULTIPLY : glBlendFunc(GL_DST_COLOR, GL_ZERO);                break;
+                case RS_BLEND_SCREEN   : glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);       break;
+                default                : glDisable(GL_BLEND);
+            }
+        }
+
+        if (mask & RS_TARGET) { // for cler the RT & reset mask
+            if (reqTarget.clear)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            renderState &= ~RS_TARGET;
+        }
+
+        active.renderState = renderState;
     }
 
     void setClearColor(const vec4 &color) {
         glClearColor(color.x, color.y, color.z, color.w);
     }
 
-    void setClearStencil(int value) {
-        glClearStencil(value);
-    }
-
-    void setViewport(const vec4 &vp) {
-        glViewport(int(vp.x), int(vp.y), int(vp.z), int(vp.w));
-        viewport = vp;
-    }
-
     void setViewport(int x, int y, int width, int height) {
-        setViewport(vec4(float(x), float(y), float(width), float(height)));
-    }
-
-    void setScissor(int x, int y, int width, int height) {
-        glScissor(x, y, width, height);
-        scissor = vec4(float(x), float(y), float(width), float(height));
+        viewport = vec4(float(x), float(y), float(width), float(height));
+        renderState |= RS_VIEWPORT;
     }
 
     void setCulling(CullMode mode) {
-        if (active.cullMode == mode)
-            return;
-
+        renderState &= ~RS_CULL;
         switch (mode) {
-            case cfNone :
-                glDisable(GL_CULL_FACE);
-            case cfBack :
-                glCullFace(GL_BACK);
-                break;
-            case cfFront :
-                glCullFace(GL_FRONT);
-                break;
+            case cfNone  : break;
+            case cfBack  : renderState |= RS_CULL_BACK;  break;
+            case cfFront : renderState |= RS_CULL_FRONT; break;
         }
-
-        if (mode != cfNone && active.cullMode == cfNone)
-            glEnable(GL_CULL_FACE);
-
-        active.cullMode = mode;
     }
 
     void setBlending(BlendMode mode) {
-        if (active.blendMode == mode)
-            return;
-
+        renderState &= ~RS_BLEND;
         switch (mode) {
-            case bmNone :
-                glDisable(GL_BLEND);
-                break;
-            case bmAlpha :
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                break;
-            case bmAdd :
-                glBlendFunc(GL_ONE, GL_ONE);
-                break;
-            case bmMultiply :
-                glBlendFunc(GL_DST_COLOR, GL_ZERO);
-                break;
-            case bmScreen :
-                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
-                break;
+            case bmNone     : break;
+            case bmAlpha    : renderState |= RS_BLEND_ALPHA;    break;
+            case bmAdd      : renderState |= RS_BLEND_ADD;      break;
+            case bmMultiply : renderState |= RS_BLEND_MULTIPLY; break;
+            case bmScreen   : renderState |= RS_BLEND_SCREEN;   break;
         }
-
-        if (mode != bmNone && active.blendMode == bmNone)
-            glEnable(GL_BLEND);
-
-        active.blendMode = mode;
     }
 
     void setColorWrite(bool r, bool g, bool b, bool a) {
-        glColorMask(r, g, b, a);
+        renderState &= ~RS_COLOR_WRITE;
+        if (r) renderState |= RS_COLOR_WRITE_R;
+        if (g) renderState |= RS_COLOR_WRITE_G;
+        if (b) renderState |= RS_COLOR_WRITE_B;
+        if (a) renderState |= RS_COLOR_WRITE_A;
     }
 
     void setDepthWrite(bool write) {
-        glDepthMask(write);
+        if (write)
+            renderState |= RS_DEPTH_WRITE;
+        else
+            renderState &= ~RS_DEPTH_WRITE;
     }
 
     void setDepthTest(bool test) {
         if (test)
-            glEnable(GL_DEPTH_TEST);
+            renderState |= RS_DEPTH_TEST;
         else
-            glDisable(GL_DEPTH_TEST);
-    }
-
-    void setStencilTest(bool test) {
-        if (test)
-            glEnable(GL_STENCIL_TEST);
-        else
-            glDisable(GL_STENCIL_TEST);
-    }
-
-    void setScissorTest(bool test) {
-        if (test)
-            glEnable(GL_SCISSOR_TEST);
-        else
-            glDisable(GL_SCISSOR_TEST);
-    }
-
-    void setStencilTwoSide(int ref, bool test) { // preset for z-fail shadow volumes
-        active.stencilTwoSide = test;
-        if (test) {
-            switch (Core::support.stencil) {
-                case 0 :
-                    glStencilFunc(GL_ALWAYS, ref, ~0);
-                    break;
-                case 1 :
-                    setCulling(cfNone);
-                    glEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);
-                    glActiveStencilFaceEXT(GL_BACK);
-                    glStencilOp(GL_KEEP, GL_DECR, GL_KEEP);
-                    glStencilFunc(GL_ALWAYS, ref, ~0);
-                    glActiveStencilFaceEXT(GL_FRONT);
-                    glStencilOp(GL_KEEP, GL_INCR, GL_KEEP);
-                    glStencilFunc(GL_ALWAYS, ref, ~0);
-                    break;
-                case 2 :
-                    setCulling(cfNone);
-                    glStencilFuncSeparate(GL_FRONT, GL_ALWAYS, ref, ~0);
-                    glStencilFuncSeparate(GL_BACK,  GL_ALWAYS, ref, ~0);
-                    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_INCR, GL_KEEP);
-                    glStencilOpSeparate(GL_BACK,  GL_KEEP, GL_DECR, GL_KEEP);
-                    break;
-            }
-        } else {
-            if (Core::support.stencil == 1)
-                glDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);
-            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-            glStencilFunc(GL_NOTEQUAL, ref, ~0);
-            setCulling(cfFront);
-        }
+            renderState &= ~RS_DEPTH_TEST;
     }
 
     void invalidateTarget(bool color, bool depth) {
@@ -719,63 +729,58 @@ namespace Core {
     }
 
     void setTarget(Texture *target, bool clear = false, int face = 0) {
-        if (!target && defaultTarget)
+        if (!target)
             target = defaultTarget;
 
-        if (target != active.target || face != active.targetFace) {
-            if (!target)  {
-                glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
-                glColorMask(true, true, true, true);
+        bool color = !target || (target->format != Texture::DEPTH && target->format != Texture::SHADOW);
+        setColorWrite(color, color, color, color);
 
-                setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
-            } else {
-                if (active.target == NULL || active.target == defaultTarget)
-                    viewportDef = viewport;
-                GLenum texTarget = GL_TEXTURE_2D;
-                if (target->cube) 
-                    texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+        if (!target) // backbuffer
+            setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
+        else
+            setViewport(0, 0, target->width, target->height);
 
-                bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
-                int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
-
-                glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-                glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-                glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
-
-                if (depth)
-                    glColorMask(false, false, false, false);
-                else
-                    glColorMask(true, true, true, true);
-                setViewport(0, 0, target->width, target->height);
-            }
-        }
-
-        if (clear)
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        active.target     = target;
-        active.targetFace = face;
+        reqTarget.texture = target;
+        reqTarget.clear   = clear;
+        reqTarget.face    = face;
+        renderState |= RS_TARGET;
     }
 
-    void copyTarget(Texture *texture, int xOffset, int yOffset, int x, int y, int width, int height) {
-        texture->bind(sDiffuse);
+    void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
+        validateRenderState();
+        dst->bind(sDiffuse);
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
     }
 
+    vec4 copyPixel(int x, int y) { // GPU sync!
+        validateRenderState();
+        ubyte4 c;
+        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
+        return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);
+    }
+
     void beginFrame() {
-        memset(&active, 0, sizeof(active));
+        //memset(&active, 0, sizeof(active));        
         setViewport(0, 0, Core::width, Core::height);
         viewportDef = viewport;
-        setDepthTest(true);
-        active.blendMode = bmAlpha;
-        active.cullMode  = cfNone;
         setCulling(cfFront);
-        setBlending(bmNone);
+        setBlending(bmAlpha);
+        setDepthTest(true);
+        setDepthWrite(true);
+        setColorWrite(true, true, true, true);
+
         Core::stats.start();
     }
 
     void endFrame() {
         Core::stats.stop();
+    }
+
+    void DIP(int iStart, int iCount) {
+        validateRenderState();
+        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)NULL + iStart);
+        stats.dips++;
+        stats.tris += iCount / 3;
     }
 }
 

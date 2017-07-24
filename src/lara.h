@@ -1299,6 +1299,7 @@ struct Lara : Character {
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 playSound(TR::SND_HEALTH, pos, Sound::PAN);
+                //TODO: remove medikit item
                 break;
             case TR::Entity::INV_PUZZLE_1 :
             case TR::Entity::INV_PUZZLE_2 :
@@ -1555,12 +1556,16 @@ struct Lara : Character {
         if (state == STATE_HANDSTAND || state == STATE_HANG_UP)
             return STAND_HANG;
 
-        if (stand == STAND_ONWATER && state != STATE_DIVE && state != STATE_STOP)
-            return stand;
+        if (stand == STAND_ONWATER && state != STATE_STOP) {
+            if (!getRoom().flags.water && state != STATE_WATER_OUT)
+                return STAND_AIR;
+            if (state != STATE_DIVE)
+                return stand;
+        }
 
         if (getRoom().flags.water) {
             wpnHide();
-            if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
+            if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
                 animation.setAnim(ANIM_FALL_FORTH);
             return STAND_UNDERWATER;
         }

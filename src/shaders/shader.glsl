@@ -26,11 +26,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 				varying vec3 vAmbient;
 			#endif
 
-			uniform vec3 uLightPos[4];
-			uniform vec4 uLightColor[4]; // xyz - color, w - radius * intensity
+			uniform vec3 uLightPos[MAX_LIGHTS];
+			uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
 		#endif
 
-		varying vec4 vLight;	// 4 lights intensity
+		varying vec4 vLight;	// lights intensity (MAX_LIGHTS == 4)
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
 			uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
