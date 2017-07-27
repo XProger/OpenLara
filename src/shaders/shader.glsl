@@ -4,15 +4,32 @@ R"====(
 	precision highp  float;
 #endif
 
+#ifdef OPT_CONTACT
+	varying vec3 vCoord;
+#endif
+
 varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 #if defined(OPT_WATER) && defined(UNDERWATER)
 	varying vec2 vCausticsCoord; // - xy caustics texture coord
 #endif
 
-#ifndef PASS_SHADOW
-	uniform vec3 uViewPos;
+//uniform vec4 data[MAX_RANGES + MAX_OFFSETS + 4 + 4 + 1 + 1 + MAX_LIGHTS + MAX_LIGHTS + 1 + 6 + 1 + 32 * 2];
 
+uniform vec2 uAnimTexRanges[MAX_RANGES];
+uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+uniform mat4 uLightProj;
+uniform mat4 uViewProj;
+uniform vec3 uViewPos;
+uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
+uniform vec3 uLightPos[MAX_LIGHTS];
+uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
+uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
+uniform vec3 uAmbient[6];
+uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
+uniform vec4 uBasis[32 * 2];
+
+#ifndef PASS_SHADOW
 	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
 	varying vec4 vDiffuse;
 
@@ -25,20 +42,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			#ifdef OPT_SHADOW
 				varying vec3 vAmbient;
 			#endif
-
-			uniform vec3 uLightPos[MAX_LIGHTS];
-			uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
 		#endif
 
 		varying vec4 vLight;	// lights intensity (MAX_LIGHTS == 4)
 
-		#if defined(OPT_WATER) && defined(UNDERWATER)
-			uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
-		#endif
-
 		#if defined(OPT_AMBIENT) && defined(TYPE_ENTITY)
-			uniform vec3 uAmbient[6];
-
 			vec3 calcAmbient(vec3 n) {
 				vec3 sqr = n * n;
 				vec3 pos = step(0.0, n);
@@ -48,31 +56,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			}
 		#endif
 	#endif
-
-	uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
-	uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 #endif
 
 #ifdef VERTEX
-	uniform mat4 uViewProj;
-
-	uniform mat4 uViewInv;
-
-	#ifndef PASS_AMBIENT
-		uniform mat4 uLightProj;
-	#endif
-
-	#ifdef PASS_COMPOSE
-		uniform vec2 uAnimTexRanges[MAX_RANGES];
-		uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-	#endif
-
-	#ifdef TYPE_ENTITY
-		uniform vec4 uBasis[32 * 2];
-	#else
-		uniform vec4 uBasis[2];
-	#endif
-
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
 	attribute vec4 aParam;
@@ -84,8 +70,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	#ifndef PASS_SHADOW
 		attribute vec4 aColor;
 	#endif
-
-	#define TEXCOORD_SCALE 32767.0
 
 	vec3 mulQuat(vec4 q, vec3 v) {
 		return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + v * q.w);
@@ -105,10 +89,12 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			vec4 rBasisPos = uBasis[1];
 		#endif
 
-		vec4 coord = vec4(mulBasis(rBasisRot, rBasisPos, aCoord.xyz), rBasisPos.w);
-
+		vec4 coord;
+		coord.w = rBasisPos.w; // visible flag
 		#ifdef TYPE_SPRITE
-			coord.xyz += (uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w) * TEXCOORD_SCALE;
+			coord.xyz = mulBasis(rBasisRot, rBasisPos + aCoord.xyz, vec3(aTexCoord.z, -aTexCoord.w, 0.0) * 32767.0);
+		#else
+			coord.xyz = mulBasis(rBasisRot, rBasisPos, aCoord.xyz);
 		#endif
 
 		#ifndef PASS_SHADOW
@@ -137,6 +123,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			vLightVec.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
+		#ifdef OPT_CONTACT
+			vCoord = coord.xyz;
+		#endif
 		return coord;
 	}
 
@@ -374,13 +363,28 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
 			float calcCaustics(vec3 n) {
-                vec2 cc     = vCausticsCoord.xy;
+				vec2 cc     = vCausticsCoord.xy;
 				vec2 border = vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
 				vec2 fade   = smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
 				return texture2D(sReflect, cc).g * max(0.0, -n.y) * fade.x * fade.y;
 			}
 		#endif
 	#endif
+
+#ifdef OPT_CONTACT
+	uniform vec4 uContacts[MAX_CONTACTS];
+
+	float getContactAO(vec3 p, vec3 n) {
+		float res = 1.0;
+		for (int i = 0; i < MAX_CONTACTS; i++) {
+			vec3  v = uContacts[i].xyz - p;
+			float a = uContacts[i].w;
+			float o = a * clamp(dot(n, v), 0.0, 1.0) / dot(v, v);
+			res *= clamp(1.0 - o, 0.0, 1.0);
+		}
+		return res;
+	}
+#endif
 
 	void main() {
 		#ifdef PASS_COMPOSE
@@ -439,10 +443,16 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 						#endif
 
 						#ifdef TYPE_ROOM
+
 							light += mix(vAmbient.x, vLight.x, getShadow());
 							#if defined(OPT_WATER) && defined(UNDERWATER)
 								light += calcCaustics(n);
 							#endif
+
+							#ifdef OPT_CONTACT
+								light *= getContactAO(vCoord, n) * 0.5 + 0.5;
+							#endif
+
 						#endif
 
 						#ifdef TYPE_SPRITE

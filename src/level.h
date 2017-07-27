@@ -408,7 +408,7 @@ struct Level : IGame {
                 data[i * 1024 + j].b = data[i * 1024 + j].g = ((i % 8 == 0) || (j % 8 == 0)) ? 0 : 255;
         */
 
-        atlas = new Texture(1024, 1024, Texture::RGBA, false, data);
+        atlas = new Texture(1024, 1024, Texture::RGBA, false, data, true, false); // TODO: generate mips
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
         uint32 whitePix = 0xFFFFFFFF;
@@ -490,59 +490,95 @@ struct Level : IGame {
         }
 
         Core::active.shader->setParam(uMaterial, vec4(diffuse, ambient, specular, alpha));
+        if (Core::settings.detail.contact)
+            Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
     }
 
-    void renderRoom(int roomIndex) {
-        ASSERT(roomIndex >= 0 && roomIndex < level.roomsCount);
-        PROFILE_MARKER("ROOM");
-
-        TR::Room &room = level.rooms[roomIndex];
-        vec3 offset = vec3(float(room.info.x), 0.0f, float(room.info.z));
-
-        room.flags.visible = true;
-
-    // room geometry & sprites
-        if (Core::pass != Core::passShadow) {
-            Basis qTemp = Core::basis;
-            Core::basis.translate(offset);
-
-            MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
-
-            for (int transp = 0; transp < 2; transp++) {
-                if (!range.geometry[transp].iCount)
-                    continue;
-
-                Core::setBlending(transp ? bmAlpha : bmNone);
-
-                setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(room.ambient), 0.0f, 1.0f, transp > 0);
-                Shader *sh = Core::active.shader;
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-                sh->setParam(uBasis,      Core::basis);
-
-            // render room geometry
-                mesh->renderRoomGeometry(roomIndex, transp > 0);
-            }
-
-        // render room sprites
-            if (range.sprites.iCount) {
-                Core::setBlending(bmAlpha);
-                setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
-                Shader *sh = Core::active.shader;
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-                sh->setParam(uBasis, Core::basis);
-                mesh->renderRoomSprites(roomIndex);
-            }
-
-            Core::basis = qTemp;
-        }
-        Core::setBlending(bmNone);
-    }
-    
     void setMainLight(Controller *controller) {
         Core::lightPos[0]   = controller->mainLightPos;
         Core::lightColor[0] = vec4(controller->mainLightColor.xyz, 1.0f / controller->mainLightColor.w);
+    }
+
+    void renderRooms(int *roomsList, int roomsCount) {
+        PROFILE_MARKER("ROOMS");
+
+        for (int i = 0; i < level.roomsCount; i++)
+            level.rooms[i].flags.visible = false;
+
+        for (int i = 0; i < roomsCount; i++)
+            level.rooms[roomsList[i]].flags.visible = true;
+
+        if (Core::pass == Core::passShadow)
+            return;
+
+        if (Core::settings.detail.contact) {
+            Sphere spheres[MAX_CONTACTS];
+            int spheresCount;
+            lara->getSpheres(spheres, spheresCount);
+
+            for (int i = 0; i < MAX_CONTACTS; i++)
+                if (i < spheresCount)
+                    Core::contacts[i] = vec4(spheres[i].center, PI * spheres[i].radius * spheres[i].radius * 0.25f);
+                else
+                    Core::contacts[i] = vec4(0.0f);
+        }
+
+        setMainLight(lara);
+
+        bool hasGeom[2], hasSprite;
+        hasGeom[0] = hasGeom[1] = hasSprite = false;
+
+        Basis basis;
+        basis.identity();
+
+        Core::setBlending(bmNone);
+        for (int transp = 0; transp < 2; transp++) {
+            for (int i = 0; i < roomsCount; i++) {
+                int roomIndex = roomsList[i];
+                MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
+
+                if (!range.geometry[transp].iCount)
+                    continue;
+
+                setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp > 0);
+                Shader *sh = Core::active.shader;
+
+                if (!hasGeom[transp]) {
+                    hasGeom[transp] = true;
+                    sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                    sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                }
+
+                basis.pos = level.rooms[roomIndex].getOffset();
+                sh->setParam(uBasis, basis);
+                mesh->renderRoomGeometry(roomIndex, transp > 0);
+            }
+            Core::setBlending(bmAlpha);
+        }
+ 
+        basis.rot = Core::mViewInv.getRot();
+        for (int i = 0; i < roomsCount; i++) {
+            level.rooms[roomsList[i]].flags.visible = true;
+
+            int roomIndex = roomsList[i];
+            MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
+
+            if (!range.sprites.iCount)
+                continue;
+
+            setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
+            Shader *sh = Core::active.shader;
+            if (!hasSprite) {
+                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+            }
+
+            basis.pos = level.rooms[roomIndex].getOffset();
+            sh->setParam(uBasis, basis);
+            mesh->renderRoomSprites(roomIndex);
+        }
+
+        Core::setBlending(bmNone);
     }
 
     void renderEntity(const TR::Entity &entity) {
@@ -568,8 +604,6 @@ struct Level : IGame {
             type = Shader::MIRROR;
 
         int roomIndex = entity.room;
-//        if (entity.type == TR::Entity::LARA && ((Lara*)entity.controller)->state == Lara::STATE_WATER_OUT)
-//            roomIndex = ((Lara*)entity.controller)->roomPrev;
 
         setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
@@ -646,27 +680,6 @@ struct Level : IGame {
         camera->setup(Core::pass == Core::passCompose);
 
         setupBinding();
-    }
-
-    void renderRooms(int *roomsList, int roomsCount) {
-        PROFILE_MARKER("ROOMS");
-
-        for (int i = 0; i < level.roomsCount; i++)
-            level.rooms[i].flags.visible = false;
-
-        setMainLight(lara);
-
-    #ifdef LEVEL_EDITOR
-        for (int i = 0; i < level.roomsCount; i++)
-            renderRoom(i);
-    #else
-        if (!camera->cutscene) {
-            for (int i = 0; i < roomsCount; i++)
-                renderRoom(roomsList[i]);
-        } else // TODO: use brain (track the camera room)
-            for (int i = 0; i < level.roomsCount; i++)
-                renderRoom(i);
-    #endif
     }
 
     void renderEntities() {
@@ -756,6 +769,13 @@ struct Level : IGame {
     }
 
     void getVisibleRooms(int *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {
+        if (camera->cutscene) {
+            roomsCount = level.roomsCount;
+            for (int i = 0; i < roomsCount; i++)
+                roomsList[i] = i;
+            return;
+        }
+
         if (count > 16) {
             ASSERT(false);
             return;

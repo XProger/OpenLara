@@ -213,6 +213,7 @@ namespace Core {
 #define MAX_LIGHTS          4
 #define MAX_CACHED_LIGHTS   3
 #define MAX_RENDER_BUFFERS  32
+#define MAX_CONTACTS        15
 
 struct Shader;
 struct Texture;
@@ -322,6 +323,7 @@ namespace Core {
     vec3 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];
     vec4 params;
+    vec4 contacts[MAX_CONTACTS];
 
     Texture *blackTex, *whiteTex;
 
@@ -391,6 +393,7 @@ namespace Core {
             bool lighting;
             bool shadows;
             bool water;
+            bool contact;
         } detail;
 
         struct {

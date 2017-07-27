@@ -602,7 +602,7 @@ struct mat4 {
     quat getRot() const {
         float t, s;
         t = 1.0f + e00 + e11 + e22;
-        if (t > EPS) {
+        if (t > 0.0001f) {
             s = 0.5f / sqrtf(t);
             return quat((e21 - e12) * s, (e02 - e20) * s, (e10 - e01) * s, 0.25f / s);
         } else
@@ -657,7 +657,7 @@ struct mat4 {
 };
 
 struct Basis {
-	quat    rot;
+    quat    rot;
     vec3    pos;
     float   w;
 

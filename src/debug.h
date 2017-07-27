@@ -60,6 +60,7 @@ namespace Debug {
         glUseProgram(0);
         Core::active.shader = NULL;
         Core::active.textures[0] = NULL;
+        Core::validateRenderState();
     }
 
     void end() {

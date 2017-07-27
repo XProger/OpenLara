@@ -383,10 +383,12 @@ struct Inventory {
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
         if (index == targetIndex && targetPage == page && ready && !chosen) {
-            if (Input::state[cLeft])  { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; }
-            if (Input::state[cRight]) { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         }
-            if (Input::state[cUp]   && page < PAGE_ITEMS  && getItemsCount(page + 1)) { phasePage = 0.0f; targetPage = Page(page + 1); }
-            if (Input::state[cDown] && page > PAGE_OPTION && getItemsCount(page - 1)) { phasePage = 0.0f; targetPage = Page(page - 1); }
+            float s = Input::touchTimerVis > 0.0f ? -1.0f : 1.0f;
+
+            if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; }
+            if (Input::state[cRight] || Input::joy.L.x >  0.5f || Input::joy.R.x < -0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         }
+            if ((Input::state[cUp]   || Input::joy.L.y < -0.5f || Input::joy.R.y >  0.5f) && page < PAGE_ITEMS  && getItemsCount(page + 1)) { phasePage = 0.0f; targetPage = Page(page + 1); }
+            if ((Input::state[cDown] || Input::joy.L.y >  0.5f || Input::joy.R.y < -0.5f) && page > PAGE_OPTION && getItemsCount(page - 1)) { phasePage = 0.0f; targetPage = Page(page - 1); }
 
             if (index != targetIndex) {
                 vec3 p;
