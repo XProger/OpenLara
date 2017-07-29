@@ -75,8 +75,8 @@ uniform vec4 uBasis[32 * 2];
 		return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + v * q.w);
 	}
 
-	vec3 mulBasis(vec4 rot, vec4 pos, vec3 v) {
-		return mulQuat(rot, v) + pos.xyz;
+	vec3 mulBasis(vec4 rot, vec3 pos, vec3 v) {
+		return mulQuat(rot, v) + pos;
 	}
 
 	vec4 _transform() {
@@ -92,9 +92,9 @@ uniform vec4 uBasis[32 * 2];
 		vec4 coord;
 		coord.w = rBasisPos.w; // visible flag
 		#ifdef TYPE_SPRITE
-			coord.xyz = mulBasis(rBasisRot, rBasisPos + aCoord.xyz, vec3(aTexCoord.z, -aTexCoord.w, 0.0) * 32767.0);
+			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz + aCoord.xyz, vec3(aTexCoord.z, -aTexCoord.w, 0.0) * 32767.0);
 		#else
-			coord.xyz = mulBasis(rBasisRot, rBasisPos, aCoord.xyz);
+			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
 		#endif
 
 		#ifndef PASS_SHADOW
