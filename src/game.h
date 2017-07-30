@@ -19,11 +19,16 @@ namespace Game {
     void init(Stream *lvl, Stream *snd) {
         Core::init();
 
-        Core::settings.detail.ambient       = false;
+        Core::settings.detail.ambient       = true;
         Core::settings.detail.lighting      = true;
-        Core::settings.detail.shadows       = false;
+        Core::settings.detail.shadows       = true;
         Core::settings.detail.water         = Core::support.texFloat || Core::support.texHalf;
         Core::settings.detail.contact       = false;
+
+#ifdef __RPI__
+        Core::settings.detail.ambient       = false;
+        Core::settings.detail.shadows       = false;
+#endif
 
         Core::settings.controls.retarget    = true;
 

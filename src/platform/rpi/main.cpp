@@ -161,7 +161,7 @@ bool eglInit(EGL_DISPMANX_WINDOW_T &window, EGLDisplay &display, EGLSurface &sur
 
     if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE)
         return false;
-        
+
     //eglSwapInterval(display, 0); // turn off vsync
 
     return true;
@@ -288,7 +288,7 @@ bool inputInit() {
 
     for (int i = 0; i < MAX_INPUT_DEVICES; i++)
         inputDevices[i] = -1;
-         
+
     udevObj = udev_new();
     if (!udevObj)
         return false;
@@ -341,7 +341,7 @@ void inputUpdate() {
             switch (e->type) {
                 case EV_KEY : {
                     InputKey key = codeToInputKey(e->code);
-                    if (key == ikMouseL || key == ikMouseR || key == ikMouseM) 
+                    if (key == ikMouseL || key == ikMouseR || key == ikMouseM)
                         Input::setPos(key, Input::mouse.pos);
                     Input::setDown(key, e->value != 0);
                     break;
@@ -425,8 +425,8 @@ int main() {
         home = getpwuid(getuid())->pw_dir;
     strcat(Stream::cacheDir, home);
     strcat(Stream::cacheDir, "/.OpenLara/");
-    
-    struct stat st = {0};    
+
+    struct stat st = {0};
     if (stat(Stream::cacheDir, &st) == -1 && mkdir(Stream::cacheDir, 0777) == -1)
         Stream::cacheDir[0] = 0;
 
