@@ -43,6 +43,38 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+#elif __RPI__
+    #define MOBILE
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
+    #include <EGL/egl.h>
+    #include <EGL/eglext.h>
+    
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE		0x884C
+    #define GL_TEXTURE_COMPARE_FUNC		0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+    
+    #define glGenVertexArrays(...)
+    #define glDeleteVertexArrays(...)
+    #define glBindVertexArray(...)
+    
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -125,7 +157,8 @@ namespace Core {
 #include "input.h"
 #include "sound.h"
 
-#if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+
+#if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
 
     #ifdef ANDROID
         #define GetProc(x) dlsym(libGL, x);
@@ -133,6 +166,8 @@ namespace Core {
         void* GetProc(const char *name) {
             #ifdef WIN32
                 return (void*)wglGetProcAddress(name);
+            #elif __RPI__
+                return (void*)eglGetProcAddress(name);
             #elif LINUX
                 return (void*)glXGetProcAddress((GLubyte*)name);
             #endif
@@ -417,7 +452,7 @@ namespace Core {
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+        #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
             #ifdef WIN32
                 GetProcOGL(glActiveTexture);
             #endif
@@ -485,8 +520,9 @@ namespace Core {
             GetProcOGL(glProgramBinary);
         #endif
 
+
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-        //LOG("%s\n", ext);
+        LOG("%s\n", ext);
 
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
@@ -505,7 +541,6 @@ namespace Core {
         support.profMarker     = extSupport(ext, "_KHR_debug");
         support.profTiming     = extSupport(ext, "_timer_query");
     #endif
-        
         char *vendor = (char*)glGetString(GL_VENDOR);
         LOG("Vendor   : %s\n", vendor);
         LOG("Renderer : %s\n", glGetString(GL_RENDERER));
@@ -527,6 +562,7 @@ namespace Core {
 
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
         glGenFramebuffers(1, &FBO);
+        
         memset(rtCache, 0, sizeof(rtCache));
         defaultTarget = NULL;
 
@@ -541,7 +577,7 @@ namespace Core {
         uint32 data = 0x00000000;
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
         data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false); 
+        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
     }
 
     void free() {

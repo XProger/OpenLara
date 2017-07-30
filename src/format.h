@@ -138,10 +138,10 @@
     E( LEADBAR               ) \
     E( INV_LEADBAR           ) \
     E( MIDAS_TOUCH           ) \
-    E( KEY_1                 ) \
-    E( KEY_2                 ) \
-    E( KEY_3                 ) \
-    E( KEY_4                 ) \
+    E( KEY_ITEM_1            ) \
+    E( KEY_ITEM_2            ) \
+    E( KEY_ITEM_3            ) \
+    E( KEY_ITEM_4            ) \
     E( INV_KEY_1             ) \
     E( INV_KEY_2             ) \
     E( INV_KEY_3             ) \
@@ -638,7 +638,7 @@ namespace TR {
         bool isItem() {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
-                   (type >= KEY_1 && type <= KEY_4) ||
+                   (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
         }
 
@@ -670,10 +670,10 @@ namespace TR {
                 case PUZZLE_3      : return INV_PUZZLE_3;
                 case PUZZLE_4      : return INV_PUZZLE_4;
 
-                case KEY_1         : return INV_KEY_1;
-                case KEY_2         : return INV_KEY_2;
-                case KEY_3         : return INV_KEY_3;
-                case KEY_4         : return INV_KEY_4;
+                case KEY_ITEM_1    : return INV_KEY_1;
+                case KEY_ITEM_2    : return INV_KEY_2;
+                case KEY_ITEM_3    : return INV_KEY_3;
+                case KEY_ITEM_4    : return INV_KEY_4;
 
                 case LEADBAR       : return INV_LEADBAR;
                 //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
@@ -683,14 +683,14 @@ namespace TR {
 
         static Type getKeyForHole(Type hole) {
             switch (hole) {
-                case PUZZLE_HOLE_1 : return PUZZLE_1; break;
-                case PUZZLE_HOLE_2 : return PUZZLE_2; break;
-                case PUZZLE_HOLE_3 : return PUZZLE_3; break;
-                case PUZZLE_HOLE_4 : return PUZZLE_4; break;
-                case KEY_HOLE_1    : return KEY_1;    break;
-                case KEY_HOLE_2    : return KEY_2;    break;
-                case KEY_HOLE_3    : return KEY_3;    break;
-                case KEY_HOLE_4    : return KEY_4;    break;
+                case PUZZLE_HOLE_1 : return PUZZLE_1;   break;
+                case PUZZLE_HOLE_2 : return PUZZLE_2;   break;
+                case PUZZLE_HOLE_3 : return PUZZLE_3;   break;
+                case PUZZLE_HOLE_4 : return PUZZLE_4;   break;
+                case KEY_HOLE_1    : return KEY_ITEM_1; break;
+                case KEY_HOLE_2    : return KEY_ITEM_2; break;
+                case KEY_HOLE_3    : return KEY_ITEM_3; break;
+                case KEY_HOLE_4    : return KEY_ITEM_4; break;
                 default            : return NONE;
             }
         }

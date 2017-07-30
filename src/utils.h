@@ -21,11 +21,12 @@
 
 #else
     #define ASSERT(expr)
-//    #ifdef PROFILE
+    #ifdef LINUX
+        #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
+    #else
         #define LOG(...) printf(__VA_ARGS__)
-//    #else
-//        #define LOG(...) 0
-//    #endif
+    //    #define LOG(...) 0
+    #endif
 #endif
 
 #ifdef ANDROID
