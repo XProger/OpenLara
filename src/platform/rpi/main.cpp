@@ -9,72 +9,13 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <libudev.h>
-#include <pulse/pulseaudio.h>
-#include <pulse/simple.h>
+#include <alsa/asoundlib.h>
 
 #include "game.h"
 
 #define WND_TITLE    "OpenLara"
 
-#define SND_FRAME_SIZE  4
-#define SND_DATA_SIZE   (1024 * SND_FRAME_SIZE)
-
-pa_simple *sndOut;
-pthread_t sndThread;
-pthread_mutex_t sndMutex;
-
-Sound::Frame *sndData;
-
-void* sndFill(void *arg) {
-    while (1) {
-        pthread_mutex_lock(&sndMutex);
-        Sound::fill(sndData, SND_DATA_SIZE / SND_FRAME_SIZE);
-        pthread_mutex_unlock(&sndMutex);
-		pa_simple_write(sndOut, sndData, SND_DATA_SIZE, NULL);
-    }
-    return NULL;
-}
-
-void sndInit() {
-    static const pa_sample_spec spec = {
-        .format   = PA_SAMPLE_S16LE,
-        .rate     = 44100,
-        .channels = 2
-    };
-
-    static const pa_buffer_attr attr = {
-        .maxlength  = SND_DATA_SIZE * 2,
-        .tlength    = 0xFFFFFFFF,
-        .prebuf     = 0xFFFFFFFF,
-        .minreq     = SND_DATA_SIZE,
-        .fragsize   = 0xFFFFFFFF,
-    };
-
-    pthread_mutex_init(&sndMutex, NULL);
-
-    int error;
-    if (!(sndOut = pa_simple_new(NULL, WND_TITLE, PA_STREAM_PLAYBACK, NULL, "game", &spec, NULL, &attr, &error))) {
-        LOG("! sound: pa_simple_new() %s\n", pa_strerror(error));
-        sndData = NULL;
-        return;
-	}
-
-    sndData = new Sound::Frame[SND_DATA_SIZE / SND_FRAME_SIZE];
-    pthread_create(&sndThread, NULL, sndFill, NULL);
-}
-
-void sndFree() {
-    if (sndOut) {
-        pthread_cancel(sndThread);
-        pthread_mutex_lock(&sndMutex);
-    //    pa_simple_flush(sndOut, NULL);
-    //    pa_simple_free(sndOut);
-        pthread_mutex_unlock(&sndMutex);
-		delete[] sndData;
-    }
-    pthread_mutex_destroy(&sndMutex);
-}
-
+// Time
 unsigned int startTime;
 
 int getTime() {
@@ -83,6 +24,90 @@ int getTime() {
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
+// Sound
+snd_pcm_uframes_t   SND_FRAMES = 512;
+snd_pcm_t           *sndOut;
+Sound::Frame        *sndData;
+pthread_t           sndThread;
+pthread_mutex_t     sndMutex;
+
+void* sndFill(void *arg) {
+    while (sndOut) {
+        pthread_mutex_lock(&sndMutex);
+        Sound::fill(sndData, SND_FRAMES);
+        pthread_mutex_unlock(&sndMutex);
+
+        int err = snd_pcm_writei(sndOut, sndData, SND_FRAMES);
+        if (err < 0) {
+            LOG("! sound: write %s\n", snd_strerror(err));;
+            if (err != -EPIPE)
+                break;
+
+            err = snd_pcm_recover(sndOut, err, 0);
+            if (err < 0) {
+                LOG("! sound: failed to recover\n");
+                break;
+            }
+            snd_pcm_prepare(sndOut);
+        }
+    }
+    return NULL;
+}
+
+bool sndInit() {
+    unsigned int freq = 44100;
+
+    pthread_mutex_init(&sndMutex, NULL);
+
+    int err;
+    if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        LOG("! sound: open %s\n", snd_strerror(err));\
+        sndOut = NULL;
+        return false;
+    }
+
+    snd_pcm_hw_params_t *params;
+
+    snd_pcm_hw_params_alloca(&params);
+    snd_pcm_hw_params_any(sndOut, params);
+    snd_pcm_hw_params_set_access(sndOut, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+
+    snd_pcm_hw_params_set_channels(sndOut, params, 2);
+    snd_pcm_hw_params_set_format(sndOut, params, SND_PCM_FORMAT_S16_LE);
+    snd_pcm_hw_params_set_rate_near(sndOut, params, &freq, NULL);
+
+    snd_pcm_hw_params_set_periods(sndOut, params, 4, 0);
+    snd_pcm_hw_params_set_period_size_near(sndOut, params, &SND_FRAMES, NULL);
+    snd_pcm_hw_params_get_period_size(params, &SND_FRAMES, 0);
+
+    snd_pcm_hw_params(sndOut, params);
+    snd_pcm_prepare(sndOut);
+
+    sndData = new Sound::Frame[SND_FRAMES];
+    memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
+    if ((err = snd_pcm_writei(sndOut, sndData, SND_FRAMES)) < 0) {
+        LOG("! sound: write %s\n", snd_strerror(err));\
+        sndOut = NULL;
+    }
+
+    snd_pcm_start(sndOut);
+    pthread_create(&sndThread, NULL, sndFill, NULL);
+
+    return true;
+}
+
+void sndFree() {
+    pthread_cancel(sndThread);
+    pthread_mutex_lock(&sndMutex);
+    snd_pcm_drop(sndOut);
+    snd_pcm_drain(sndOut);
+    snd_pcm_close(sndOut);
+    pthread_mutex_unlock(&sndMutex);
+    pthread_mutex_destroy(&sndMutex);
+    delete[] sndData;
+}
+
+// Window
 bool wndInit(DISPMANX_DISPLAY_HANDLE_T &display, EGL_DISPMANX_WINDOW_T &window) {
     if (graphics_get_display_size(0, (uint32_t*)&window.width, (uint32_t*)&window.height) < 0) {
         LOG("! can't get display size\n");
@@ -270,8 +295,8 @@ void inputDevAdd(const char *node) {
     int index = inputDevIndex(node);
     if (index != -1) {
         inputDevices[index] = open(node, O_RDONLY | O_NONBLOCK);
-        //ioctl(inputDevices[index], EVIOCGRAB, (void*)1);
-        LOG("input: add %s\n", node);
+        ioctl(inputDevices[index], EVIOCGRAB, 1);
+        //LOG("input: add %s\n", node);
     }
 }
 
@@ -279,7 +304,7 @@ void inputDevRemove(const char *node) {
     int index = inputDevIndex(node);
     if (index != -1 && inputDevices[index] != -1) {
         close(inputDevices[index]);
-        LOG("input: remove %s\n", node);
+        //LOG("input: remove %s\n", node);
     }
 }
 
@@ -398,7 +423,7 @@ void inputUpdate() {
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-int main() {
+int main(int argc, char **argv) {
     bcm_host_init();
 
     DISPMANX_DISPLAY_HANDLE_T dmDisplay;
@@ -415,8 +440,6 @@ int main() {
         LOG("! can't initialize EGL context\n");
         return 1;
     }
-
-    inputInit();
 
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
 
@@ -435,7 +458,13 @@ int main() {
     startTime = t.tv_sec;
 
     sndInit();
-    Game::init();
+
+    char *lvlName = argc > 1 ? argv[1] : NULL;
+    char *sndName = argc > 2 ? argv[2] : NULL;
+
+    Game::init(lvlName, sndName);
+
+    inputInit(); // initialize and grab input devices
 
     int lastTime = getTime();
 
