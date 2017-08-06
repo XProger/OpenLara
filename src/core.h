@@ -19,16 +19,12 @@
     #define GL_TEXTURE_COMPARE_FUNC		0x884D
     #define GL_COMPARE_REF_TO_TEXTURE	0x884E
 
-    #undef  GL_RGBA32F
-    #undef  GL_RGBA16F
-    #undef  GL_HALF_FLOAT
+    #define GL_RGBA16F                  0x881A
+    #define GL_RGBA32F                  0x8814
+    #define GL_HALF_FLOAT               0x140B
 
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
-
-    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+    #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
 
     #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
     #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
@@ -110,9 +106,6 @@
         #include <OpenGL/glext.h>
         #include <AGL/agl.h>
 
-        #define GL_RGBA32F                  GL_RGBA
-        #define GL_RGBA16F                  GL_RGBA
-
         #define GL_RGB565                   GL_RGBA
         #define GL_TEXTURE_COMPARE_MODE		0x884C
         #define GL_TEXTURE_COMPARE_FUNC		0x884D
@@ -132,14 +125,6 @@
     #include <html5.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
-    
-    #undef GL_RGBA32F
-    #undef GL_RGBA16F
-    #undef GL_HALF_FLOAT
-
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
     #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
     #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
@@ -293,8 +278,8 @@ namespace Core {
         bool texNPOT;
         bool texRG;
         bool texBorder;
-        bool texFloat, texFloatLinear;
-        bool texHalf,  texHalfLinear;
+        bool colorFloat, texFloat, texFloatLinear;
+        bool colorHalf, texHalf,  texHalfLinear;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -409,6 +394,7 @@ namespace Core {
         }
 
         void stop() {
+            glFlush();
             if (fpsTime < getTime()) {
                 LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
             #ifdef PROFILE
@@ -522,8 +508,20 @@ namespace Core {
 
 
         char *ext = (char*)glGetString(GL_EXTENSIONS);
-        LOG("%s\n", ext);
-
+/*
+        if (ext != NULL) {
+            char buf[255];
+            int len = strlen(ext);
+            int start = 0;
+            for (int i = 0; i < len; i++)
+                if (ext[i] == ' ' || (i == len - 1)) {
+                    memcpy(buf, &ext[start], i - start);
+                    buf[i - start] = 0;
+                    LOG("%s\n", buf);
+                    start = i + 1;
+                }
+        }
+*/
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
@@ -532,9 +530,11 @@ namespace Core {
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
+        support.colorFloat     = extSupport(ext, "_color_buffer_float");
+        support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
+        support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
-        support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
+        support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
 
     #ifdef PROFILE
@@ -556,8 +556,8 @@ namespace Core {
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
         LOG("  float textures : float = %s, half = %s\n", 
-            support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
-            support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
+            support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
+            support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
         LOG("\n");
 
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);

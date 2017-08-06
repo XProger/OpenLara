@@ -402,9 +402,9 @@ struct WaterCache {
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
             pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
 
-            data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-            data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-            caustics = new Texture(512, 512, Texture::RGB16, false);
+            data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
+            data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
+            caustics = new Texture(512, 512, Texture::RGB16);
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
             
@@ -413,6 +413,7 @@ struct WaterCache {
             // texture may be initialized with trash, so...
             Core::setTarget(data[0], true);
             Core::validateRenderState(); // immediate clear
+            Core::invalidateTarget(false, true);
         }
 
         void free() {
@@ -614,21 +615,31 @@ struct WaterCache {
         Core::setCulling(cfFront);
     }
 
-    void getRefract() {
-        int w = int(Core::viewportDef.z);
-        int h = int(Core::viewportDef.w);
+    void getTargetSize(int &w, int &h) {
+        if (Core::active.target != NULL) {
+            w = Core::active.target->width;
+            h = Core::active.target->height;
+        } else {
+            w = int(Core::viewportDef.z);
+            h = int(Core::viewportDef.w);
+        }
+    }
 
+    void getRefract() {
+        int w, h;
+        getTargetSize(w, h);
     // get refraction texture
         if (!refract || w != refract->width || h != refract->height) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
         }
-        Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
+        Core::copyTarget(refract, 0, 0, 0, 0, w, h); // copy framebuffer into refraction texture
     }
 
     void simulate() {
     // simulate water
         Core::setDepthTest(false);
+        Core::setBlending(bmNone);
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -702,7 +713,10 @@ struct WaterCache {
             game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-            Core::active.shader->setParam(uParam,       vec4(Core::viewportDef.z / refract->width, Core::viewportDef.w / refract->height, 0.05f, 0.02f));
+
+            int w, h;
+            getTargetSize(w, h);
+            Core::active.shader->setParam(uParam, vec4(float(w) / refract->width, float(h) / refract->height, 0.05f, 0.02f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);

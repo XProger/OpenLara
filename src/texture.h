@@ -11,7 +11,7 @@ struct Texture {
     Format  format;
     bool    cube;
 
-    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true, bool mips = false) : cube(cube) {
+    Texture(int width, int height, Format format, bool cube = false, void *data = NULL, bool filter = true, bool mips = false) : cube(cube) {
         if (!Core::support.texNPOT) {
             width  = nextPow2(width);
             height = nextPow2(height);
@@ -84,8 +84,16 @@ struct Texture {
             { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
         };
 
-        FormatDesc &desc = formats[format];
+        FormatDesc desc = formats[format];
+        if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
+            desc.ifmt = GL_RGBA;
+            #ifdef MOBILE
+                if (format == RGBA_HALF)
+                    desc.type = GL_HALF_FLOAT_OES;
+            #endif
+        }
         
+
         for (int i = 0; i < 6; i++) {
             glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);
             if (!cube) break;
