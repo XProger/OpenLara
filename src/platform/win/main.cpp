@@ -372,8 +372,8 @@ int main(int argc, char** argv) {
             joyUpdate();
 
             DWORD time = getTime();
-            if (time <= lastTime)
-                continue;
+            //if (time <= lastTime)
+            //    continue;
 
             EnterCriticalSection(&sndCS);
             Game::update((time - lastTime) * 0.001f);

@@ -288,13 +288,41 @@ namespace Core {
 }
 
 #ifdef PROFILE
+   #define USE_CV_MARKERS
+
+   #ifdef USE_CV_MARKERS
+       #include <libs/cvmarkers/cvmarkersobj.h>  
+       using namespace Concurrency::diagnostic;
+
+       marker_series *series[256];
+       int seriesIndex;
+   #endif
+
     struct Marker {
+        #ifdef USE_CV_MARKERS
+            span *cvSpan;
+        #endif
+
         Marker(const char *title) {
             if (Core::support.profMarker) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
+            #ifdef USE_CV_MARKERS
+                marker_series *&s = series[seriesIndex];
+                if (s == NULL) {
+                   char seriesTitle[64];
+                   sprintf(seriesTitle, "events - %d", seriesIndex);
+                   s = new marker_series(seriesTitle);
+                }
+                cvSpan = new span(*s, normal_importance, _T(title));
+                seriesIndex++;
+            #endif
         }
 
         ~Marker() {
             if (Core::support.profMarker) glPopDebugGroup();
+            #ifdef USE_CV_MARKERS
+                delete cvSpan;
+                seriesIndex--;
+            #endif
         }
 
         static void setLabel(GLenum id, GLuint name, const char *label) {

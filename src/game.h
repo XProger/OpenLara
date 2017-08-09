@@ -67,6 +67,7 @@ namespace Game {
     }
 
     void update(float delta) {
+        PROFILE_MARKER("UPDATE");
         Input::update();
 
         if (Input::down[ikV]) { // third <-> first person view
@@ -85,6 +86,7 @@ namespace Game {
     }
 
     void render() {
+        PROFILE_MARKER("RENDER");
         PROFILE_TIMING(Core::stats.tFrame);
         Core::beginFrame();
         level->render();

@@ -593,6 +593,8 @@ struct WaterCache {
     }
 
     void renderMask() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_RENDER_MASK");
     // mask underwater geometry by zero alpha
         game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
@@ -626,6 +628,8 @@ struct WaterCache {
     }
 
     void getRefract() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_REFRACT");
         int w, h;
         getTargetSize(w, h);
     // get refraction texture
@@ -637,6 +641,7 @@ struct WaterCache {
     }
 
     void simulate() {
+       PROFILE_MARKER("WATER_SIMULATE");
     // simulate water
         Core::setDepthTest(false);
         Core::setBlending(bmNone);
@@ -657,6 +662,7 @@ struct WaterCache {
 
     void renderReflect() {
         if (!visible) return;
+        PROFILE_MARKER("WATER_REFLECT");
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -698,6 +704,8 @@ struct WaterCache {
     }
 
     void render() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_RENDER");
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
