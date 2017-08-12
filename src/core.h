@@ -92,8 +92,8 @@
         #define glDeleteVertexArrays        glDeleteVertexArraysOES
         #define glBindVertexArray           glBindVertexArrayOES
 
-        #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
-        #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
 
         #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
         #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
@@ -105,6 +105,10 @@
         #include <OpenGL/gl.h>
         #include <OpenGL/glext.h>
         #include <AGL/agl.h>
+
+        #define GL_RGBA16F                  0x881A
+        #define GL_RGBA32F                  0x8814
+        #define GL_HALF_FLOAT               0x140B
 
         #define GL_RGB565                   GL_RGBA
         #define GL_TEXTURE_COMPARE_MODE		0x884C
@@ -816,7 +820,7 @@ namespace Core {
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
         dst->bind(sDiffuse);
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height); // TODO: too bad for iOS devices!
     }
 
     vec4 copyPixel(int x, int y) { // GPU sync!
