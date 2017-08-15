@@ -259,16 +259,16 @@ namespace Sound {
 
             int s = (s1 * inc[pred] + s2 * dec[pred]) >> 6;
             s = clamp((value >> shift) + s, -32768, 32767);
-			s2 = s1;
+            s2 = s1;
             s1 = s;
         }
 
         void resample(Frame *frames, short value) {
             predicate(value);
-			frames[0].L = frames[0].R = s2 + (s1 - s2) / 4;     // 0.25
-			frames[1].L = frames[1].R = s2 + (s1 - s2) / 2;     // 0.50
-			frames[2].L = frames[2].R = s2 + (s1 - s2) * 3 / 4; // 0.75
-			frames[3].L = frames[3].R = s1;                     // 1.00
+            frames[0].L = frames[0].R = s2 + (s1 - s2) / 4;     // 0.25
+            frames[1].L = frames[1].R = s2 + (s1 - s2) / 2;     // 0.50
+            frames[2].L = frames[2].R = s2 + (s1 - s2) * 3 / 4; // 0.75
+            frames[3].L = frames[3].R = s1;                     // 1.00
         }
 
         int processBlock() {
@@ -472,7 +472,7 @@ namespace Sound {
                 decoder = new VAG(stream);
             }
             #endif
-			
+
             isPlaying = decoder != NULL;
             ASSERT(isPlaying);
         }

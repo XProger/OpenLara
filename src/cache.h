@@ -118,7 +118,7 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
