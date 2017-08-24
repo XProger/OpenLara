@@ -4,6 +4,7 @@
 #include "utils.h"
 
 #define MAX_RESERVED_ENTITIES 128
+#define MAX_FLIPMAP_COUNT     16
 #define MAX_SECRETS_COUNT     16
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
@@ -327,9 +328,6 @@ namespace TR {
         SOUNDTRACK      ,   // play soundtrack
         HARDCODE        ,   // special hadrdcode trigger
         SECRET          ,   // secret found
-        CLEAR           ,   // clear bodies
-        CAMERA_FLYBY    ,   // flyby camera sequence
-        CUTSCENE        ,   // play cutscene
     };
 
     namespace Limits {
@@ -337,34 +335,36 @@ namespace TR {
         struct Limit {
             float  dy, dz, ay;
             ::Box  box;
+            bool   alignAngle;
+            bool   alignHoriz;
         };
 
         Limit SWITCH = {
-            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, false
         };
 
         Limit SWITCH_UNDERWATER = {
-            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}} 
+            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}}, true, true
         };
 
         Limit PICKUP = {
-            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}
+            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}, false, true
         };
 
         Limit PICKUP_UNDERWATER = {
-            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}
+            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}, false, true
         };
 
         Limit KEY_HOLE = { 
-            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
         };
 
         Limit PUZZLE_HOLE = { 
-            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
         };
 
         Limit BLOCK = { 
-            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}
+            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}, true, false
         };
     }
 
@@ -418,12 +418,12 @@ namespace TR {
 
     struct Rectangle {
         uint16 vertices[4];
-        uint16 texture;
+        uint16 texture:15, color:1;
     };
 
     struct Triangle {
         uint16 vertices[3];
-        uint16 texture;
+        uint16 texture:15, color:1;
     };
 
     struct Tile4 {
@@ -437,7 +437,7 @@ namespace TR {
     };
 
     struct Tile32 {
-        Color32 color[256 * 256];
+        Color32 color[256 * 256]; // + 128 for mips data
     };
 
     struct CLUT {
@@ -550,7 +550,7 @@ namespace TR {
                 uint16 end:1;
             };
             struct {
-                uint16 delay:8, once:1, timer:7;
+                uint16 timer:8, once:1, speed:5, :2;
             };
         } triggerCmd;
 
@@ -566,6 +566,10 @@ namespace TR {
 
     struct Overlap {
         uint16 boxIndex:15, end:1;
+    };
+
+    struct Flipmap {
+        uint16 :8, once:1, active:5, :2;
     };
 
     //struct Collider {
@@ -614,14 +618,14 @@ namespace TR {
         int32   x, y, z;
         angle   rotation;
         int16   intensity;
-        union {
-            struct { uint16 unused:7, clear:1, invisible:1, active:5, collision:1, rendered:1; };
+        union Flags {
+            struct { uint16 unused:6, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1; };
             uint16 value;
         } flags;
     // not exists in file
         uint16  align;
         int32   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
-        void    *controller;    // Controller implementation or NULL 
+        void    *controller;    // Controller implementation or NULL
 
         bool isEnemy() {
             return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
@@ -642,8 +646,8 @@ namespace TR {
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
         }
 
-        bool isKeyHole() {
-            return type >= KEY_HOLE_1 && type <= KEY_HOLE_2;
+        bool isPuzzleHole() {
+            return type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_2;
         }
 
         bool isBlock() {
@@ -681,7 +685,7 @@ namespace TR {
             }
         }
 
-        static Type getKeyForHole(Type hole) {
+        static Type getItemForHole(Type hole) {
             switch (hole) {
                 case PUZZLE_HOLE_1 : return PUZZLE_1;   break;
                 case PUZZLE_HOLE_2 : return PUZZLE_2;   break;
@@ -695,7 +699,7 @@ namespace TR {
             }
         }
 
-        static void fixOpaque(Type type, bool &opaque) {
+        static void fixOpaque(Type type, bool &opaque) { // to boost performance on mobile devices
             if (type >= LARA && type <= ENEMY_GIANT_MUTANT
                 && type != ENEMY_REX
                 && type != ENEMY_RAPTOR
@@ -706,6 +710,8 @@ namespace TR {
                 opaque = true;
             if (type == SWITCH || type == SWITCH_WATER)
                 opaque = true;
+            if (type == PUZZLE_HOLE_1) // LEVEL3A cogs
+                opaque = false;
         }
     };
 
@@ -818,16 +824,29 @@ namespace TR {
 
     struct ObjectTexture {
         uint16  clut;
-        Tile    tile;           // tile or palette index
-        uint16  attribute;      // 0 - opaque, 1 - transparent, 2 - blend additive 
-        ubyte2  texCoord[4];
+        Tile    tile;                        // tile or palette index
+        uint16  attribute:15, repeat:1;      // 0 - opaque, 1 - transparent, 2 - blend additive, 
+        short2  texCoord[4];
+
+        short4 getMinMax() const {
+            return {
+                min(min(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                min(min(texCoord[0].y, texCoord[1].y), texCoord[2].y),
+                max(max(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                max(max(texCoord[0].y, texCoord[1].y), texCoord[2].y),
+            };
+        }
     };
 
     struct SpriteTexture {
         uint16  clut;
         uint16  tile;
         int16   l, t, r, b;
-        ubyte2  texCoord[2];
+        short2  texCoord[2];
+
+        short4 getMinMax() const {
+            return { texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y };
+        }
     };
 
     struct SpriteSequence {
@@ -843,7 +862,9 @@ namespace TR {
             int16   room;   // for camera
             int16   speed;  // for sink (underwater current)
         };
-        uint16  flags;
+        struct {
+            uint16 :8, once:1, :5, :2;
+        } flags;
     };
 
     struct CameraFrame {
@@ -1001,7 +1022,6 @@ namespace TR {
             ANTIPAD     ,
             COMBAT      ,
             DUMMY       ,
-            ANTI        ,
         };
     
         struct FloorInfo {
@@ -1031,11 +1051,14 @@ namespace TR {
             }
         };
 
+        Flipmap flipmap[MAX_FLIPMAP_COUNT];
         bool    secrets[MAX_SECRETS_COUNT];
         void    *cameraController;
+        void    *laraController;
 
         int     cutEntity;
         mat4    cutMatrix;
+        bool    isFlipped;
 
         struct {
             int16 muzzleFlash;
@@ -1206,8 +1229,18 @@ namespace TR {
         // models
             stream.read(modelsCount);
             models = modelsCount ? new Model[modelsCount] : NULL;
-            for (int i = 0; i < modelsCount; i++)
-                stream.raw(&models[i], sizeof(models[i]) - (version == VER_TR1_PC ? sizeof(models[i].align) : 0));
+            for (int i = 0; i < modelsCount; i++) {
+                Model &m = models[i];
+                stream.read(m.type);
+                stream.read(m.unused);
+                stream.read(m.mCount);
+                stream.read(m.mStart);
+                stream.read(m.node);
+                stream.read(m.frame);
+                stream.read(m.animation);
+                if (version == VER_TR1_PSX)
+                    stream.seek(sizeof(m.align));
+            }
             stream.read(staticMeshes, stream.read(staticMeshesCount));
         // textures & UV
             readObjectTex(stream);
@@ -1234,10 +1267,19 @@ namespace TR {
             entities = new Entity[entitiesCount];
             for (int i = 0; i < entitiesBaseCount; i++) {
                 Entity &e = entities[i];
-                stream.raw(&e, sizeof(e) - sizeof(e.align) - sizeof(e.controller) - sizeof(e.modelIndex));
+                stream.read(e.type);
+                stream.read(e.room);
+                stream.read(e.x);
+                stream.read(e.y);
+                stream.read(e.z);
+                stream.read(e.rotation);
+                stream.read(e.intensity);
+                stream.read(e.flags);
+
                 e.align = 0;
                 e.controller = NULL;
                 e.modelIndex = getModelIndex(e.type);
+
                 if (e.type == Entity::CUT_1)
                     cutEntity = i;
             }
@@ -1276,6 +1318,9 @@ namespace TR {
             //delete[] tiles4;   tiles4 = NULL;
             delete[] tiles8;   tiles8 = NULL;
 
+        // init flipmap states
+            memset(flipmap, 0, MAX_FLIPMAP_COUNT * sizeof(flipmap[0]));
+            isFlipped = false;
         // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
         // get special models indices
@@ -1492,8 +1537,8 @@ namespace TR {
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[rCount], crCount * sizeof(Rectangle));
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[tCount],  ctCount * sizeof(Triangle));
                     // add "use palette color" flags
-                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].texture |= 0x8000;
-                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].texture  |= 0x8000;
+                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].color = true;
+                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].color  = true;
                         break;
                     }
                     case VER_TR1_PSX : {
@@ -1531,8 +1576,8 @@ namespace TR {
 
                         stream.read(mesh.rectangles, stream.read(mesh.rCount));
                         stream.read(mesh.triangles,  stream.read(mesh.tCount));   
-                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 300) mesh.rectangles[i].texture |= 0x8000;
-                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 300) mesh.triangles[i].texture  |= 0x8000;
+                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 300) mesh.rectangles[i].color = true;
+                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 300) mesh.triangles[i].color  = true;
                         break;
                     }
                 }
@@ -1598,6 +1643,7 @@ namespace TR {
                     t.clut        = c;\
                     t.tile        = d.tile;\
                     t.attribute   = d.attribute;\
+                    t.repeat      = false;\
                     t.texCoord[0] = { d.x0, d.y0 };\
                     t.texCoord[1] = { d.x1, d.y1 };\
                     t.texCoord[2] = { d.x2, d.y2 };\
@@ -1627,7 +1673,7 @@ namespace TR {
                             uint8   x0, y0;
                             uint16  clut;
                             uint8   x1, y1;
-                            Tile    tile;       
+                            Tile    tile;
                             uint8   x2, y2;
                             uint16  unknown;
                             uint8   x3, y3;
@@ -1658,7 +1704,7 @@ namespace TR {
             for (int i = 0; i < spriteTexturesCount; i++) {
                 SpriteTexture &t = spriteTextures[i];
                 switch (version) {
-                    case VER_TR1_PC : {                        
+                    case VER_TR1_PC : {
                         struct {
                             uint16  tile;
                             uint8   u, v;
@@ -1705,7 +1751,7 @@ namespace TR {
 
         void initTiles(Tile4 *tiles4, Tile8 *tiles8, Color24 *palette, CLUT *cluts) {
             tiles = new Tile32[tilesCount];
-
+        // convert to RGBA
             switch (version) {
                 case VER_TR1_PC : {
                     ASSERT(tiles8);
@@ -1750,7 +1796,7 @@ namespace TR {
                         int maxY = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
 
                         for (int y = minY; y <= maxY; y++)
-                            for (int x = minX; x <= maxX; x++)                          
+                            for (int x = minX; x <= maxX; x++)
                                 dst.color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
                     }
 
@@ -1760,8 +1806,8 @@ namespace TR {
                         Tile32 &dst  = tiles[t.tile];
                         Tile4  &src  = tiles4[t.tile];
                         
-                        for (int y = t.texCoord[0].y; y < t.texCoord[1].y; y++)
-                            for (int x = t.texCoord[0].x; x < t.texCoord[1].x; x += 2) {                           
+                        for (int y = t.texCoord[0].y; y <= t.texCoord[1].y; y++)
+                            for (int x = t.texCoord[0].x; x <= t.texCoord[1].x; x += 2) {                           
                                 dst.color[y * 256 + x + 0] = clut.color[src.index[(y * 256 + x) / 2].a];
                                 dst.color[y * 256 + x + 1] = clut.color[src.index[(y * 256 + x) / 2].b];
                             }
@@ -1845,6 +1891,10 @@ namespace TR {
 
         Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
+
+            if (isFlipped && rooms[roomIndex].alternateRoom > -1)
+                roomIndex = rooms[roomIndex].alternateRoom;
+
             Room &room = rooms[roomIndex];
 
             int sx = x - room.info.x;

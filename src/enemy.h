@@ -86,24 +86,12 @@ struct Enemy : Character {
         delete path;
     }
 
-    virtual bool activate(ActionCommand *cmd) {
-    #ifdef LEVEL_EDITOR
-        return true;
-    #endif
-
-        Controller::activate(cmd);
-
-        getEntity().flags.active = true;
-        activateNext();
-
-        for (int i = 0; i < level->entitiesCount; i++)
-            if (level->entities[i].type == TR::Entity::LARA) {
-                target = (Character*)level->entities[i].controller;
-                break;
-            }
-        ASSERT(target);
-
-        return true;
+    virtual bool activate() {
+        if (Character::activate()) {
+            target = (Character*)game->getLara();
+            return true;
+        }
+        return false;
     }
 
     virtual void updateVelocity() {
@@ -875,6 +863,7 @@ struct Bat : Enemy {
 #define REX_DIST_WALK       5120
 #define REX_TURN_FAST       (DEG2RAD * 120)
 #define REX_TURN_SLOW       (DEG2RAD * 60)
+#define REX_DAMAGE          10000
 
 struct Rex : Enemy {
 
@@ -950,7 +939,7 @@ struct Rex : Enemy {
                 break;
             case STATE_BITE :
                 if (mask & HIT_MASK) {
-                    target->hit(10000, this);
+                    target->hit(REX_DAMAGE, this);
                     return STATE_FATAL;
                 }
                 nextState = STATE_WALK;

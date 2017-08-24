@@ -30,6 +30,8 @@ struct Sprite : Controller {
         if (index > -1) {
             level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
             level->entities[index].controller = empty ? NULL : new Sprite(game, index, true, frame);
+            if (level->entities[index].controller)
+                ((Controller*)level->entities[index].controller)->activate();
         }
         return index;
     }

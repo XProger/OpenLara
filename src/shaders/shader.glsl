@@ -464,7 +464,7 @@ uniform vec4 uBasis[32 * 2];
 						#endif
 
 						#ifdef TYPE_ENTITY
-							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], uMaterial.z * rShadow + 0.03);
+							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], (uMaterial.z + 0.03) * rShadow);
 						#endif
 					#endif
 

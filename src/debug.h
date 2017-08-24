@@ -382,7 +382,6 @@ namespace Debug {
 
             glBegin(GL_QUADS);
             for (int i = 0; i < level.roomsCount; i++) {
-            //    if (level.entities[91].room != i) continue;
                 TR::Room &r = level.rooms[i];
                 for (int j = 0; j < r.portalsCount; j++) {
                     TR::Room::Portal &p = r.portals[j];
@@ -453,8 +452,6 @@ namespace Debug {
         }
 
         void lights(const TR::Level &level, int room, Controller *lara) {
-        //    int roomIndex = level.entities[lara->entity].room;
-        //    int lightIndex = getLightIndex(lara->pos, roomIndex);
             glPointSize(8);
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
@@ -616,7 +613,6 @@ namespace Debug {
                 case_name(TR::Level::Trigger, ANTIPAD  );
                 case_name(TR::Level::Trigger, COMBAT   );
                 case_name(TR::Level::Trigger, DUMMY    );
-                case_name(TR::Level::Trigger, ANTI     );
             }
             return "UNKNOWN";
         }
@@ -634,9 +630,6 @@ namespace Debug {
                 case_name(TR::Action, SOUNDTRACK    );
                 case_name(TR::Action, HARDCODE      );
                 case_name(TR::Action, SECRET        );
-                case_name(TR::Action, CLEAR         );
-                case_name(TR::Action, CAMERA_FLYBY  );
-                case_name(TR::Action, CUTSCENE      );
             }
             return "UNKNOWN";
         }
@@ -654,8 +647,15 @@ namespace Debug {
         void info(const TR::Level &level, const TR::Entity &entity, Animation &anim) {
             float y = 0.0f;
 
+            int activeCount = 0;
+            Controller *c = Controller::first;
+            while (c) {
+                activeCount++;
+                c = c->next;
+            }
+
             char buf[255];
-            sprintf(buf, "DIP = %d, TRI = %d, SND = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount);
+            sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = ((Controller*)entity.controller)->angle * RAD2DEG;
             sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, entity.room);
@@ -665,13 +665,13 @@ namespace Debug {
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
-            level.getFloorInfo(entity.room, entity.x, entity.y, entity.z, info);
+            level.getFloorInfo(((Controller*)entity.controller)->getRoomIndex(), entity.x, entity.y, entity.z, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
           
             if (info.trigCmdCount > 0) {
                 y += 16;
-                sprintf(buf, "trigger: %s%s mask: %d", getTriggerType(level, info.trigger), info.trigInfo.once ? " (once)" : "", info.trigInfo.mask);
+                sprintf(buf, "trigger: %s%s mask: %d timer: %d", getTriggerType(level, info.trigger), info.trigInfo.once ? " (once)" : "", info.trigInfo.mask, info.trigInfo.timer);
                 Debug::Draw::text(vec2(16, y += 16), vec4(0.5f, 0.8f, 0.5f, 1.0f), buf);
 
                 for (int i = 0; i < info.trigCmdCount; i++) {
@@ -679,6 +679,9 @@ namespace Debug {
                     
                     const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? getEntityName(level, level.entities[cmd.args]) : "";
                     sprintf(buf, "%s -> %s (%d)", getTriggerAction(level, cmd.action), ent, cmd.args);
+                    if (cmd.action == TR::Action::CAMERA_SWITCH)
+                        sprintf(buf, "%s delay: %d", buf, (int)info.trigCmd[++i].timer);
+
                     Debug::Draw::text(vec2(16, y += 16), vec4(0.1f, 0.6f, 0.1f, 1.0f), buf);
                 }
             }

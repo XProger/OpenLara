@@ -21,6 +21,7 @@ struct IGame {
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Controller*  getCamera()    { return NULL; }
+    virtual Controller*  getLara()      { return NULL; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void setClipParams(float clipSign, float clipHeight) {}
@@ -43,6 +44,10 @@ struct IGame {
 };
 
 struct Controller {
+    static Controller *first;
+    Controller  *next;
+    enum ActiveState { asNone, asActive, asInactive } activeState;
+
     IGame       *game;
     TR::Level   *level;
     int         entity;
@@ -59,6 +64,8 @@ struct Controller {
     vec3    ambient[6];
     float   specular;
 
+    float   timer;
+
     TR::Room::Light *targetLight;
     vec3 mainLightPos;
     vec4 mainLightColor;
@@ -68,18 +75,7 @@ struct Controller {
         uint32   mask;
     } *layers;
 
-    struct ActionCommand {
-        int             emitter;
-        TR::Action      action;
-        int             value;
-        float           timer;
-        ActionCommand   *next;
-
-        ActionCommand() {}
-        ActionCommand(int emitter, TR::Action action, int value, float timer, ActionCommand *next = NULL) : emitter(emitter), action(action), value(value), timer(timer), next(next) {}
-    } *actionCommand;
-
-    Controller(IGame *game, int entity) : game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL), actionCommand(NULL) {
+    Controller(IGame *game, int entity) : next(NULL), activeState(asNone), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL) {
         TR::Entity &e = getEntity();
         pos        = vec3(float(e.x), float(e.y), float(e.z));
         angle      = vec3(0.0f, e.rotation, 0.0f);
@@ -87,14 +83,93 @@ struct Controller {
         joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
         specular   = 0.0f;
+        timer      = 0.0f;
         ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
         targetLight = NULL;
         updateLights(false);
+
+        if (e.flags.once) {
+            e.flags.invisible = true;
+            e.flags.once      = false;
+        }
+
+        if (e.flags.active == 0x1F) {
+            e.flags.active  = 0;
+            e.flags.reverse = true;
+            activate();
+        }
     }
 
     virtual ~Controller() {
         delete[] joints;
         delete[] layers;
+        deactivate(true);
+    }
+
+    bool isActive() {
+        TR::Entity &e = getEntity();
+
+        if (e.flags.active != 0x1F)
+            return e.flags.reverse;
+
+        if (timer == 0.0f)
+            return !e.flags.reverse;
+
+        if (timer == -1.0f)
+            return e.flags.reverse;
+
+        timer = max(0.0f, timer - Core::deltaTime);
+
+        if (timer == 0.0f)
+            timer = -1.0f;
+
+        return !e.flags.reverse;
+    }
+
+    virtual bool activate() {
+        if (activeState != asNone)
+            return false;
+        getEntity().flags.invisible = false;
+        activeState = asActive;
+        next = first;
+        first = this;
+        return true;
+    }
+
+    virtual void deactivate(bool removeFromList = false) {
+        activeState = asInactive;
+        if (removeFromList) {
+            Controller *prev = NULL;
+            Controller *c = first;
+            while (c) {
+                if (c == this) {
+                    if (prev)
+                        prev->next = c->next;
+                    else
+                        first = c->next;
+                    c->activeState = asNone;
+                    break;
+                } else
+                    prev = c;
+                c = c->next;
+            }
+        }
+    }
+
+    static void clearInactive() {
+        Controller *prev = NULL;
+        Controller *c = first;
+        while (c) {
+            if (c->activeState == asInactive) {
+                if (prev)
+                    prev->next = c->next;
+                else
+                    first = c->next;
+                c->activeState = asNone;
+            } else
+                prev = c;
+            c = c->next;
+        }
     }
 
     void initMeshOverrides() {
@@ -184,7 +259,10 @@ struct Controller {
     }
 
     virtual int getRoomIndex() const {
-        return getEntity().room;
+        int index = getEntity().room;
+        if (level->isFlipped && level->rooms[index].alternateRoom > -1)
+            index = level->rooms[index].alternateRoom;
+        return index;
     }
 
     virtual vec3& getPos() {
@@ -359,58 +437,8 @@ struct Controller {
         //
     }
 
-    void activateNext() { // activate next entity (for triggers)
-        if (!actionCommand || !actionCommand->next) {
-            actionCommand = NULL;
-            return;
-        }
-        ActionCommand *next = actionCommand->next;
+    virtual void hit(float damage, Controller *enemy = NULL) {}
 
-        Controller *controller = NULL;
-        switch (next->action) {
-            case TR::Action::ACTIVATE        :
-                controller = (Controller*)level->entities[next->value].controller;
-                break;
-            case TR::Action::CAMERA_SWITCH   :
-            case TR::Action::CAMERA_TARGET   :
-                controller = (Controller*)level->cameraController;
-                break;
-            case TR::Action::SECRET          :
-                if (!level->secrets[next->value]) {
-                    level->secrets[next->value] = true;
-                    playSound(TR::SND_SECRET, pos, 0);
-                }
-                actionCommand = next;
-                activateNext();
-                return;
-            case TR::Action::FLOW            :
-                applyFlow(level->cameras[next->value]);
-                actionCommand = next;
-                activateNext();
-                break;
-            case TR::Action::FLIP_MAP        :
-            case TR::Action::FLIP_ON         :
-            case TR::Action::FLIP_OFF        :
-            case TR::Action::END             :
-            case TR::Action::SOUNDTRACK      :
-            case TR::Action::HARDCODE        :
-            case TR::Action::CLEAR           :
-            case TR::Action::CAMERA_FLYBY    :
-            case TR::Action::CUTSCENE        :
-                //LOG("! action is not implemented\n");
-                actionCommand = next;
-                activateNext();
-                break;
-        }
-
-        if (controller) {
-            if (controller->activate(next))
-                actionCommand = NULL;
-        } else
-            actionCommand = NULL;
-    }
-
-    virtual bool  activate(ActionCommand *cmd)  { actionCommand = cmd; return true; } 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
     virtual void  checkRoom()                   {}
     virtual void  applyFlow(TR::Camera &sink)   {}
@@ -422,7 +450,6 @@ struct Controller {
     }
 
     virtual void  cmdJump(const vec3 &vel)      {}
-    virtual void  cmdKill()                     {}
     virtual void  cmdEmpty()                    {}
     virtual void  cmdEffect(int fx)             { ASSERT(false); } // not implemented
 
@@ -441,7 +468,10 @@ struct Controller {
                     case TR::ANIM_CMD_OFFSET : ptr += 3;   break;
                     case TR::ANIM_CMD_JUMP   : ptr += 2;   break;      
                     case TR::ANIM_CMD_EMPTY  : cmdEmpty(); break;
-                    case TR::ANIM_CMD_KILL   : cmdKill();  break;
+                    case TR::ANIM_CMD_KILL   : 
+                        if (animation.isEnded)
+                            deactivate();
+                        break;
                     case TR::ANIM_CMD_SOUND  :
                     case TR::ANIM_CMD_EFFECT : {
                         int frame = (*ptr++) - anim->frameStart;
@@ -470,7 +500,6 @@ struct Controller {
             if (animation.offset != 0.0f) cmdOffset(animation.offset);
             if (animation.jump   != 0.0f) cmdJump(animation.jump);
             animation.playNext();
-            activateNext();
         } else
             animation.framePrev = animation.frameIndex;
     }
@@ -615,5 +644,7 @@ struct Controller {
         frameIndex = Core::stats.frame;
     }
 };
+
+Controller *Controller::first = NULL;
 
 #endif

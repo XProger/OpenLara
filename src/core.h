@@ -15,9 +15,9 @@
     #define GL_CLAMP_TO_BORDER          0x812D
     #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-    #define GL_TEXTURE_COMPARE_MODE		0x884C
-    #define GL_TEXTURE_COMPARE_FUNC		0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
     #define GL_RGBA16F                  0x881A
     #define GL_RGBA32F                  0x8814
@@ -49,9 +49,9 @@
     #define GL_CLAMP_TO_BORDER          0x812D
     #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-    #define GL_TEXTURE_COMPARE_MODE		0x884C
-    #define GL_TEXTURE_COMPARE_FUNC		0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
     #undef  GL_RGBA32F
     #undef  GL_RGBA16F
@@ -95,9 +95,9 @@
         #define GL_CLAMP_TO_BORDER          0x812D
         #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-        #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
-        #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
-        #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
+        #define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
+        #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
+        #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
         #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
@@ -111,9 +111,9 @@
         #define GL_HALF_FLOAT               0x140B
 
         #define GL_RGB565                   GL_RGBA
-        #define GL_TEXTURE_COMPARE_MODE		0x884C
-        #define GL_TEXTURE_COMPARE_FUNC		0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
         #define glGenVertexArrays    glGenVertexArraysAPPLE
         #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
@@ -168,6 +168,7 @@ namespace Core {
 // Texture
     #ifdef WIN32
         PFNGLACTIVETEXTUREPROC              glActiveTexture;
+        PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
     #endif
 
     #if defined(WIN32) || defined(LINUX)
@@ -282,6 +283,7 @@ namespace Core {
         bool texNPOT;
         bool texRG;
         bool texBorder;
+        int8 texAniso;
         bool colorFloat, texFloat, texFloatLinear;
         bool colorHalf, texHalf,  texHalfLinear;
     #ifdef PROFILE
@@ -473,6 +475,7 @@ namespace Core {
         #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
             #ifdef WIN32
                 GetProcOGL(glActiveTexture);
+                GetProcOGL(glGenerateMipmap);
             #endif
 
             #if defined(WIN32) || defined(LINUX)
@@ -562,12 +565,19 @@ namespace Core {
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texBorder      = extSupport(ext, "_texture_border_clamp");
+        support.texAniso       = extSupport(ext, "_texture_filter_anisotropic");
         support.colorFloat     = extSupport(ext, "_color_buffer_float");
         support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
         support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+
+        if (support.texAniso) {
+            int maxAniso;
+            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+            support.texAniso = maxAniso;
+        }
 
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
@@ -587,6 +597,7 @@ namespace Core {
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
+        LOG("  anisotropic    : %d\n", support.texAniso);
         LOG("  float textures : float = %s, half = %s\n", 
             support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
             support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));

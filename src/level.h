@@ -57,6 +57,10 @@ struct Level : IGame {
         return camera;    
     }
 
+    virtual Controller* getLara() {
+        return lara;
+    }
+
     virtual uint16 getRandomBox(uint16 zone, uint16 *zones) { 
         ZoneCache::Item *item = zoneCache->getBoxes(zone, zones);
         return item->boxes[int(randf() * item->count)];
@@ -164,9 +168,10 @@ struct Level : IGame {
         #ifdef _DEBUG
             Debug::init();
         #endif
-        mesh = new MeshBuilder(level);
         
         initTextures();
+        mesh = new MeshBuilder(level);
+
         shaderCache = new ShaderCache(this);
         initOverrides();
 
@@ -231,7 +236,7 @@ struct Level : IGame {
                 case TR::Entity::GEARS_1               :
                 case TR::Entity::GEARS_2               :
                 case TR::Entity::GEARS_3               :
-                    entity.controller = new Boulder(this, i);
+                    entity.controller = new Gear(this, i);
                     break;
                 case TR::Entity::TRAP_FLOOR            :
                     entity.controller = new TrapFloor(this, i);
@@ -240,8 +245,10 @@ struct Level : IGame {
                     entity.controller = new Crystal(this, i);
                     break;
                 case TR::Entity::TRAP_BLADE            :
+                    entity.controller = new TrapBlade(this, i);
+                    break;
                 case TR::Entity::TRAP_SPIKES           :
-                    entity.controller = new Trigger(this, i, true);
+                    entity.controller = new TrapSpikes(this, i);
                     break;
                 case TR::Entity::TRAP_BOULDER          :
                     entity.controller = new Boulder(this, i);
@@ -260,11 +267,15 @@ struct Level : IGame {
                     break;
                 case TR::Entity::FALLING_CEILING_1     :
                 case TR::Entity::FALLING_CEILING_2     :
+                    entity.controller = new FallingCeiling(this, i);
+                    break;
                 case TR::Entity::FALLING_SWORD         :
-                    entity.controller = new Trigger(this, i, true);
+                    entity.controller = new FallingSword(this, i);
                     break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :
+                    entity.controller = new Switch(this, i);
+                    break;
                 case TR::Entity::PUZZLE_HOLE_1         :
                 case TR::Entity::PUZZLE_HOLE_2         :
                 case TR::Entity::PUZZLE_HOLE_3         :
@@ -273,7 +284,7 @@ struct Level : IGame {
                 case TR::Entity::KEY_HOLE_2            :
                 case TR::Entity::KEY_HOLE_3            :
                 case TR::Entity::KEY_HOLE_4            :
-                    entity.controller = new Trigger(this, i, false);
+                    entity.controller = new KeyHole(this, i);
                     break;
                 case TR::Entity::WATERFALL             :
                     entity.controller = new Waterfall(this, i);
@@ -293,6 +304,7 @@ struct Level : IGame {
             camera = new Camera(this, lara);
 
             level.cameraController = camera;
+            level.laraController   = lara;
 
             ambientCache = Core::settings.detail.ambient ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water   ? new WaterCache(this)   : NULL;
@@ -302,7 +314,7 @@ struct Level : IGame {
             initReflections();
 
             // init sounds
-            //Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), 1, 1, 0);
+            //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
             sndSoundtrack = Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
             sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
@@ -315,6 +327,8 @@ struct Level : IGame {
                 TR::SoundSource &src = level.soundSources[i];
                 lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
             }
+
+            lara->activate();
         } else {
             camera          = NULL;
             ambientCache    = NULL;
@@ -353,68 +367,169 @@ struct Level : IGame {
         return lara == NULL || inventory.isActive();
     }
 
+    static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
+        static const uint32 whiteColor     = 0xFFFFFFFF;
+        static const uint32 healthColor[5] = { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F };
+        static const uint32 oxygenColor[5] = { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 };
+
+        int stride = 256, uvCount;
+        short2 *uv = NULL;
+
+        TR::Level *level = (TR::Level*)userData;
+        TR::Color32 *src, *dst = (TR::Color32*)data;
+        short4 mm;
+
+        if (id < level->objectTexturesCount) { // textures
+            TR::ObjectTexture &t = level->objectTextures[id];
+            mm      = t.getMinMax();
+            src     = level->tiles[t.tile.index].color;
+            uv      = t.texCoord;
+            uvCount = 4;
+        } else {
+            id -= level->objectTexturesCount;
+
+            if (id < level->spriteTexturesCount) { // sprites
+                TR::SpriteTexture &t = level->spriteTextures[id];
+                mm      = t.getMinMax();
+                src     = level->tiles[t.tile].color;
+                uv      = t.texCoord;
+                uvCount = 2;
+            } else { // common (generated) textures
+                id -= level->spriteTexturesCount;
+                TR::ObjectTexture *tex;
+                mm.x = mm.y = mm.z = mm.w = 0;
+                stride  = 1;
+                uvCount = 4;
+
+                switch (id) {
+                    case 0 : // white color
+                        src  = (TR::Color32*)&whiteColor;
+                        tex  = &whiteTile;
+                        break;
+                    case 1 : // health bar
+                        src  = (TR::Color32*)&healthColor[0];
+                        tex  = &healthTile;
+                        mm.w = 4; // height - 1
+                        break;
+                    case 2 : // oxygen bar
+                        src  = (TR::Color32*)&oxygenColor[0];
+                        tex  = &oxygenTile;
+                        mm.w = 4; // height - 1
+                        break;
+                    default : return;
+                }
+
+                memset(tex, 0, sizeof(*tex));
+                uv = tex->texCoord;
+                uv[2].y += mm.w;
+                uv[3].y += mm.w;
+            }
+        }
+
+        int cx = -mm.x, cy = -mm.y;
+
+        if (data) {
+            int w = mm.z - mm.x + 1;
+            int h = mm.w - mm.y + 1;
+            int dstIndex = tileY * width + tileX;
+            for (int y = -ATLAS_BORDER; y < h + ATLAS_BORDER; y++) {
+                for (int x = -ATLAS_BORDER; x < w + ATLAS_BORDER; x++) {
+                    TR::Color32 *p = &src[mm.y * stride + mm.x];
+                    p += clamp(x, 0, w - 1);
+                    p += clamp(y, 0, h - 1) * stride;
+                    dst[dstIndex++] = *p;
+                }
+                dstIndex += width - ATLAS_BORDER * 2 - w;
+            }
+
+            cx += tileX + ATLAS_BORDER;
+            cy += tileY + ATLAS_BORDER;
+        }
+
+        for (int i = 0; i < uvCount; i++) {
+            if (uv[i].x == mm.z) uv[i].x++;
+            if (uv[i].y == mm.w) uv[i].y++;
+            uv[i].x += cx;
+            uv[i].y += cy;
+
+            uv[i].x = int32(uv[i].x) * 32767 / width;
+            uv[i].y = int32(uv[i].y) * 32767 / height;
+        }
+
+    // apply ref for instanced tile
+        if (data) return;
+
+        int ref = tileX;
+        if (ref < level->objectTexturesCount) { // textures
+            mm = level->objectTextures[ref].getMinMax();
+        } else {
+            ref -= level->objectTexturesCount;
+            if (ref < level->spriteTexturesCount) // sprites
+                mm = level->spriteTextures[ref].getMinMax();
+            else
+                ASSERT(false); // only object textures and sprites may be instanced
+        }
+
+        for (int i = 0; i < uvCount; i++) {
+            uv[i].x += mm.x;
+            uv[i].y += mm.y;
+        }
+    }
+
     void initTextures() {
         if (!level.tilesCount) {
             atlas = NULL;
             return;
         }
 
-        // merge all tiles into one 1024x1024 32bpp 
-        TR::Color32 *data = new TR::Color32[1024 * 1024];
-        for (int i = 0; i < level.tilesCount; i++) {
-            int tx = (i % 4) * 256;
-            int ty = (i / 4) * 256;
+    // repack texture tiles
+        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount, &level, fillCallback);
+        // add textures
+        int startIdx = level.version == TR::Level::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
+        for (int i = startIdx; i < level.objectTexturesCount; i++) {
+            TR::ObjectTexture &t = level.objectTextures[i];
+            int16 tx = (t.tile.index % 4) * 256;
+            int16 ty = (t.tile.index / 4) * 256;
 
-            TR::Color32 *ptr = &data[ty * 1024 + tx];
-            for (int y = 0; y < 256; y++) {
-                memcpy(ptr, &level.tiles[i].color[y * 256], 256 * sizeof(TR::Color32));
-                ptr += 1024;
-            }
+            short4 uv;
+            uv.x = tx + min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
+            uv.y = ty + min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
+            uv.z = tx + max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
+            uv.w = ty + max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
+
+            tiles->add(uv, i);
         }
+        // add sprites
+        for (int i = 0; i < level.spriteTexturesCount; i++) {
+            TR::SpriteTexture &t = level.spriteTextures[i];
+            int16 tx = (t.tile % 4) * 256;
+            int16 ty = (t.tile / 4) * 256;
 
-        // white texture
-        for (int y = 1020; y < 1024; y++)
-            for (int x = 1020; x < 1024; x++) {
-                int i = y * 1024 + x;
-                data[i].r = data[i].g = data[i].b = data[i].a = 255;    // white texel for colored triangles
-            }
+            short4 uv;
+            uv.x = tx + t.texCoord[0].x;
+            uv.y = ty + t.texCoord[0].y;
+            uv.z = tx + t.texCoord[1].x + 1;
+            uv.w = ty + t.texCoord[1].y + 1;
 
-//        uint32 healthBar[1+5+1] = { 0xFF2C5C70, 0xFF2C5C70, 0xFF4878A4, 0xFF2C5C70, 0xFF004458, 0xFF143050, 0xFF143050 };
-        uint32 healthBar[1+5+1] = { 0xFF2C5D71, 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F, 0xFF16304F };
+            tiles->add(uv, level.objectTexturesCount + i);
+        }
+        // add white color
+        tiles->add(short4(2048, 2048, 2048, 2048), level.objectTexturesCount + level.spriteTexturesCount);
+        // add health bar
+        tiles->add(short4(2048, 2048, 2048, 2048 + 4), level.objectTexturesCount + level.spriteTexturesCount + 1);
+        // add oxygen bar
+        tiles->add(short4(4096, 4096, 4096, 4096 + 4), level.objectTexturesCount + level.spriteTexturesCount + 2);
+        // get result texture
+        atlas = tiles->pack();
 
-        for (int y = 0; y < COUNT(healthBar); y++)
-            for (int x = 0; x < 2; x++) {
-                int i = (TEX_HEALTH_BAR_Y + y) * 1024 + (TEX_HEALTH_BAR_X + x);
-                *((uint32*)&data[i]) = healthBar[y];
-            }
+        delete tiles;
 
-        uint32 oxygenBar[1+5+1] = { 0xFF647464, 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030, 0xFF303030 };
-        for (int y = 0; y < COUNT(oxygenBar); y++)
-            for (int x = 0; x < 2; x++) {
-                int i = (TEX_OXYGEN_BAR_Y + y) * 1024 + (TEX_OXYGEN_BAR_X + x);
-                *((uint32*)&data[i]) = oxygenBar[y];
-            }
-
-
-        /*
-        FILE *f = fopen("atlas.raw", "wb");
-        fwrite(data, 1024 * 1024 * 4, 1, f);
-        fclose(f);
-        */
-        /*
-        memset(data, 255, 4 * 1024 * 1024);
-        for (int i = 0; i < 1024; i++)
-            for (int j = 0; j < 1024; j++)
-                data[i * 1024 + j].b = data[i * 1024 + j].g = ((i % 8 == 0) || (j % 8 == 0)) ? 0 : 255;
-        */
-
-        atlas = new Texture(1024, 1024, Texture::RGBA, false, data, true, false); // TODO: generate mips
+        LOG("atlas: %d x %d\n", atlas->width, atlas->height);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
         uint32 whitePix = 0xFFFFFFFF;
         cube = new Texture(1, 1, Texture::RGBA, true, &whitePix);
 
-        delete[] data;
         delete[] level.tiles;
         level.tiles = NULL;
     }
@@ -592,7 +707,9 @@ struct Level : IGame {
 
         Controller *controller = (Controller*)entity.controller;
 
-        TR::Room &room = level.rooms[entity.room];
+        int roomIndex = controller->getRoomIndex();
+        TR::Room &room = level.rooms[roomIndex];
+
         if (entity.type != TR::Entity::LARA) // TODO: remove this hack (collect conjugate room entities)
             if (!room.flags.visible || entity.flags.invisible || entity.flags.rendered)
                 return;
@@ -603,7 +720,6 @@ struct Level : IGame {
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
-        int roomIndex = entity.room;
 
         setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
@@ -612,7 +728,7 @@ struct Level : IGame {
             if (Core::settings.detail.ambient) {
                 AmbientCache::Cube cube;
                 if (Core::stats.frame != controller->frameIndex) {
-                    ambientCache->getAmbient(entity.room, pos, cube);
+                    ambientCache->getAmbient(roomIndex, pos, cube);
                     if (cube.status == AmbientCache::Cube::READY)
                         memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
                 }
@@ -647,21 +763,12 @@ struct Level : IGame {
 
         params->time += Core::deltaTime;
 
-        for (int i = 0; i < level.entitiesCount; i++) {
-            TR::Entity &e = level.entities[i];
-            if (e.type != TR::Entity::NONE) {
-                Controller *controller = (Controller*)e.controller;
-                if (controller) {
-                    controller->update();
-
-                    if (waterCache && e.type == TR::Entity::WATERFALL && ((Waterfall*)controller)->drop) { // add water drops for waterfalls
-                        Waterfall *w = (Waterfall*)controller;
-                        waterCache->addDrop(w->dropPos, w->dropRadius, w->dropStrength);
-                    }
-                }
-            }
+        Controller *c = Controller::first;
+        while (c) {
+            Controller *next = c->next;
+            c->update();
+            c = next;
         }
-
         camera->update();
 
         sndCurrent = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
@@ -672,6 +779,8 @@ struct Level : IGame {
 
         if (waterCache) 
             waterCache->update();
+
+        Controller::clearInactive();
     }
 
     void setup() {
@@ -777,9 +886,12 @@ struct Level : IGame {
         }
 
         if (count > 16) {
-            ASSERT(false);
+            //ASSERT(false);
             return;
         }
+
+        if (level.rooms[to].alternateRoom > -1 && level.isFlipped)
+            to = level.rooms[to].alternateRoom;
 
         TR::Room &room = level.rooms[to];
 
@@ -1043,7 +1155,86 @@ struct Level : IGame {
         //    Debug::Level::debugOverlaps(level, lara->box);
 
         //    Core::setBlending(bmNone);
-           
+        /*
+            static int dbg_ambient = 0;
+            dbg_ambient = int(params->time * 2) % 4;
+
+            shadow->unbind(sShadow);
+            cube->unbind(sEnvironment);
+
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glDisable(GL_CULL_FACE);
+            glColor3f(1, 1, 1);
+            for (int j = 0; j < 6; j++) {
+                glPushMatrix();
+                glTranslatef(lara->pos.x, lara->pos.y - 1024, lara->pos.z);
+                switch (j) {
+                    case 0 : glRotatef( 90, 0, 1, 0); break;
+                    case 1 : glRotatef(-90, 0, 1, 0); break;
+                    case 2 : glRotatef(-90, 1, 0, 0); break;
+                    case 3 : glRotatef( 90, 1, 0, 0); break;
+                    case 4 : glRotatef(  0, 0, 1, 0); break;
+                    case 5 : glRotatef(180, 0, 1, 0); break;
+                }
+                glTranslatef(0, 0, 256);
+                
+                ambientCache->textures[j * 4 + dbg_ambient]->bind(sDiffuse);
+                glBegin(GL_QUADS);
+                    glTexCoord2f(0, 0); glVertex3f(-256,  256, 0);
+                    glTexCoord2f(1, 0); glVertex3f( 256,  256, 0);
+                    glTexCoord2f(1, 1); glVertex3f( 256, -256, 0);
+                    glTexCoord2f(0, 1); glVertex3f(-256, -256, 0);
+                glEnd();
+                glPopMatrix();
+            }
+            glEnable(GL_CULL_FACE);
+            glDisable(GL_TEXTURE_2D);
+
+
+            glLineWidth(4);
+            glBegin(GL_LINES);
+            float S = 64.0f;
+            for (int i = 0; i < level.roomsCount; i++) {
+                TR::Room &r = level.rooms[i];                
+                for (int j = 0; j < r.xSectors * r.zSectors; j++) {
+                    TR::Room::Sector &s = r.sectors[j];
+                    vec3 p = vec3(float((j / r.zSectors) * 1024 + 512 + r.info.x),
+                                  float(max((s.floor - 2) * 256, (s.floor + s.ceiling) * 256 / 2)),
+                                  float((j % r.zSectors) * 1024 + 512 + r.info.z));
+
+                    AmbientCache::Cube &cube = ambientCache->items[ambientCache->offsets[i] + j];
+                    if (cube.status == AmbientCache::Cube::READY) {
+                        glColor3fv((GLfloat*)&cube.colors[0]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x + S, p.y + 0, p.z + 0);
+
+                        glColor3fv((GLfloat*)&cube.colors[1]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x - S, p.y + 0, p.z + 0);
+
+                        glColor3fv((GLfloat*)&cube.colors[2]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x + 0, p.y + S, p.z + 0);
+
+                        glColor3fv((GLfloat*)&cube.colors[3]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x + 0, p.y - S, p.z + 0);
+
+                        glColor3fv((GLfloat*)&cube.colors[4]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + S);
+
+                        glColor3fv((GLfloat*)&cube.colors[5]);
+                        glVertex3f(p.x + 0, p.y + 0, p.z + 0);
+                        glVertex3f(p.x + 0, p.y + 0, p.z - S);
+                    }
+                }
+            }
+            glEnd();
+            glLineWidth(1);           
+        */
+
             Debug::Level::info(level, lara->getEntity(), lara->animation);
 
 

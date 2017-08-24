@@ -97,7 +97,7 @@ struct ShaderCache {
     ~ShaderCache() {
         for (int pass = 0; pass < Core::passMAX; pass++)
             for (int type = 0; type < Shader::MAX; type++)
-                for (int fx = 0; fx < sizeof(shaders[Core::passMAX][Shader::MAX]) / sizeof(shaders[Core::passMAX][Shader::MAX][FX_NONE]); fx++)
+                for (int fx = 0; fx < sizeof(shaders[pass][Shader::MAX]) / sizeof(shaders[pass][Shader::MAX][FX_NONE]); fx++)
                     delete shaders[pass][type][fx];
     }
 
@@ -355,7 +355,7 @@ struct WaterCache {
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
 
-            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY;
+            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY = 0;
 
             for (int z = 0; z < r.zSectors; z++)
                 for (int x = 0; x < r.xSectors; x++) {

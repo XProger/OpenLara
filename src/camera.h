@@ -4,13 +4,12 @@
 #include "core.h"
 #include "frustum.h"
 #include "controller.h"
-#include "lara.h"
 
 #define CAMERA_OFFSET (1024.0f + 256.0f)
 
 struct Camera : Controller {
-    Lara    *owner;
-    Frustum *frustum;
+    Controller *owner;
+    Frustum    *frustum;
 
     float   fov, znear, zfar;
     vec3    target, destPos, lastDest, advAngle;
@@ -30,7 +29,7 @@ struct Camera : Controller {
 
     float   shake;
 
-    Camera(IGame *game, Lara *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL), isVR(false) {
+    Camera(IGame *game, Controller *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL), isVR(false) {
         changeView(false);
         cutscene = owner->getEntity().type != TR::Entity::LARA && level->cameraFrames;
     }
@@ -66,7 +65,7 @@ struct Camera : Controller {
                     pos.y = (float)info.roomFloor;
         }
     }
-
+    /*
     virtual bool activate(ActionCommand *cmd) {
         Controller::activate(cmd);
         this->timer = max(max(1.0f, this->timer), cmd->timer);
@@ -79,7 +78,7 @@ struct Camera : Controller {
         activateNext();
         return true;
     }
-
+    */
     void updateListener() {
         Sound::listener.matrix = mViewInv;
         TR::Room &r = level->rooms[getRoomIndex()];
@@ -144,9 +143,10 @@ struct Camera : Controller {
             } else
                 advTimer = -1.0f;
 
+/* toto
             if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
                 advTimer = -advTimer;
-
+*/
         #ifndef LEVEL_EDITOR
             if (advTimer == 0.0f && advAngle != 0.0f) {
                 float t = 10.0f * Core::deltaTime;
@@ -154,15 +154,14 @@ struct Camera : Controller {
                 advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
             }
         #endif
-            if (owner->health > 0)
-                angle = owner->angle + advAngle;
+            angle = owner->angle + advAngle;
             angle.z = 0.0f;
-
+/* toto
             if (owner->stand == Lara::STAND_ONWATER)
                 angle.x -= 22.0f * DEG2RAD;
             if (owner->state == Lara::STATE_HANG || owner->state == Lara::STATE_HANG_LEFT || owner->state == Lara::STATE_HANG_RIGHT)
                 angle.x -= 60.0f * DEG2RAD;
-
+*/
         #ifdef LEVEL_EDITOR
             angle   = advAngle;
             angle.x = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
@@ -187,7 +186,8 @@ struct Camera : Controller {
             return;
         #endif
             int lookAt = -1;
-            if (actTargetEntity > -1)   lookAt = actTargetEntity;
+            if (actTargetEntity > -1) lookAt = actTargetEntity;
+/* todo
             if (owner->arms[0].target > -1 && owner->arms[1].target > -1 && owner->arms[0].target != owner->arms[1].target) {
                 // two diff targets
             } else if (owner->arms[0].target > -1)
@@ -200,7 +200,7 @@ struct Camera : Controller {
                 lookAt = owner->arms[1].tracking;
 
             owner->viewTarget = lookAt;
-
+*/
             if (timer > 0.0f) {
                 timer -= Core::deltaTime;
                 if (timer <= 0.0f) {
@@ -208,7 +208,9 @@ struct Camera : Controller {
                     if (room != getRoomIndex())
                         pos = lastDest;
                     actTargetEntity = actCamera = -1;
+/* todo
                     target = owner->getViewPoint();
+*/
                 }
             }
 
@@ -233,7 +235,10 @@ struct Camera : Controller {
 
             float lerpFactor = (lookAt == -1) ? 6.0f : 10.0f;
             vec3 dir;
+/* todo
             target = target.lerp(owner->getViewPoint(), lerpFactor * Core::deltaTime);
+*/
+            target = owner->animation.getJoints(owner->getMatrix(), 7).pos;
 
             if (actCamera > -1) {
                 TR::Camera &c = level->cameras[actCamera];
@@ -252,14 +257,18 @@ struct Camera : Controller {
                     dir = getDir();
 
                 int destRoom;
+/* todo
                 if ((!owner->emptyHands() || owner->state != Lara::STATE_BACK_JUMP) || lookAt > -1) {
+*/                
                     vec3 eye = target - dir * CAMERA_OFFSET;
                     destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
                     lastDest = destPos;
+/*
                 } else {
                     vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
                     destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
-                }                
+                }
+*/
                 room = destRoom;
             }
             pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
@@ -314,7 +323,10 @@ struct Camera : Controller {
 
         room     = owner->getRoomIndex();
         pos      = owner->pos - owner->getDir() * 1024.0f;
+/* todo
         target   = owner->getViewPoint();
+*/
+        target   = owner->animation.getJoints(owner->getMatrix(), 7).pos;
         advAngle = vec3(0.0f);
         advTimer = 0.0f;
 

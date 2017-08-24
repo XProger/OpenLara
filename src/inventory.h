@@ -136,6 +136,11 @@ struct Inventory {
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
+/*
+        add(TR::Entity::INV_PUZZLE_1, 3);
+        add(TR::Entity::INV_KEY_1, 3);
+*/
+
         /*
         add(TR::Entity::INV_COMPASS);
         if (level->extra.inv.map != -1)
@@ -261,7 +266,7 @@ struct Inventory {
     }
     
     bool chooseKey(TR::Entity::Type hole) {
-        TR::Entity::Type type = TR::Entity::getKeyForHole(hole);
+        TR::Entity::Type type = TR::Entity::getItemForHole(hole);
         if (type == TR::Entity::NONE)
             return false;
         int index = contains(type);

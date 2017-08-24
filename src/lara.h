@@ -6,6 +6,7 @@
 #include "character.h"
 #include "trigger.h"
 #include "sprite.h"
+#include "enemy.h"
 
 #define TURN_FAST           PI
 #define TURN_FAST_BACK      PI * 3.0f / 4.0f
@@ -42,6 +43,7 @@
 #define PICKUP_FRAME_GROUND     40
 #define PICKUP_FRAME_UNDERWATER 18
 #define PUZZLE_FRAME            80
+#define KEY_FRAME               110
 
 #define MAX_TRIGGER_ACTIONS 64
 
@@ -218,11 +220,9 @@ struct Lara : Character {
         Animation       animation;
     } arms[2];
 
-    ActionCommand actionList[MAX_TRIGGER_ACTIONS];
-
     TR::Entity::Type  usedKey;
-    TR::Entity        *puzzleEntity;
     TR::Entity        *pickupEntity;
+    KeyHole           *keyHole;
 
     int viewTarget;
     int roomPrev; // water out from room
@@ -425,10 +425,17 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
+        //reset(19, vec3(41418, -3707, 58863), 270 * DEG2RAD);        // level 5 (triangle)
+        //reset(9, vec3(63008, 0, 37787), 0);     // level 2 (switch)
+        //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(0, vec3(74858, 3072, 20795), 0);     // level 1 (dart)
+        //reset(26, vec3(24475, 6912, 83505), 90 * DEG2RAD);     // level 1 (switch timer)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
@@ -1273,7 +1280,7 @@ struct Lara : Character {
         damageTime = LARA_DAMAGE_TIME;
 
         Character::hit(damage, enemy);
-        if (damage == 10000) { // T-Rex attack (fatal)
+        if (damage == REX_DAMAGE) { // T-Rex attack (fatal)
             pos   = enemy->pos;
             angle = enemy->angle;
 
@@ -1371,8 +1378,6 @@ struct Lara : Character {
                 if (!checkInteraction(controller, limit, (input & ACTION) != 0))
                     continue;
 
-                alignByItem(controller, limit, true, false);
-
                 if (stand == STAND_UNDERWATER)
                     angle.x = -25 * DEG2RAD;
 
@@ -1383,151 +1388,260 @@ struct Lara : Character {
         return false;
     }
 
-    void alignByItem(Controller *item, const TR::Limits::Limit &limit, bool dx, bool ay) {
-        if (ay)
-            angle = item->angle;
-        else
-            angle.x = angle.z = 0.0f;
-
-        mat4 m = item->getMatrix();
-
-        float fx = 0.0f;
-        if (!dx)
-            fx = (m.transpose() * vec4(pos - item->pos, 0.0f)).x;
-
-        pos      = item->pos + (m * vec4(fx, limit.dy, limit.dz, 0.0f)).xyz;
-        velocity = vec3(0.0f);
-        speed    = 0.0f;
-        updateEntity();
-    }
-
     bool checkInteraction(Controller *controller, const TR::Limits::Limit &limit, bool action) {
         if ((state != STATE_STOP && state != STATE_TREAD && state != STATE_PUSH_PULL_READY) || !action || !emptyHands())
             return false;
 
-        vec3 delta = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
+        mat4 m = controller->getMatrix();
+
+        float fx = 0.0f;
+        if (!limit.alignHoriz)
+            fx = (m.transpose() * vec4(pos - controller->pos, 0.0f)).x;
+
+        vec3 targetPos = controller->pos + (m * vec4(fx, limit.dy, limit.dz, 0.0f)).xyz;
+
+        vec3 deltaAbs = pos - targetPos;
+        vec3 deltaRel = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
         
-        return limit.box.contains(delta) && fabsf(shortAngle(angle.y, controller->angle.y)) <= limit.ay * DEG2RAD;
+        if (limit.box.contains(deltaRel)) {
+            float deltaAngY = shortAngle(angle.y, controller->angle.y);
+
+            if (stand == STAND_UNDERWATER) {
+                float deltaAngX = shortAngle(angle.x, controller->angle.x);
+
+                if (deltaAbs.length() > 64.0f || max(fabs(deltaAngX), fabs(deltaAngY)) > (10.0f * DEG2RAD)) {
+                    pos     -= deltaAbs.normal() * min(deltaAbs.length(), Core::deltaTime * 512.0f);
+                    angle.x += sign(deltaAngX)   * min(fabsf(deltaAngX), Core::deltaTime * (90.0f * DEG2RAD));
+                    angle.y += sign(deltaAngY)   * min(fabsf(deltaAngY), Core::deltaTime * (90.0f * DEG2RAD));
+                    return false;
+                }
+            }
+
+            if (fabsf(deltaAngY) <= limit.ay * DEG2RAD) {
+            // align
+                if (limit.alignAngle)
+                    angle = controller->angle;
+                else
+                    angle.x = angle.z = 0.0f;
+
+                pos      = targetPos;
+                velocity = vec3(0.0f);
+                speed    = 0.0f;
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void checkTrigger() {
-        if (actionCommand) return;
-
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
         if (!info.trigCmdCount) return; // has no trigger
 
-        TR::FloorData::TriggerCommand &cmd = info.trigCmd[0];
-        bool isActive = false;
-        switch (cmd.action) {
-            case TR::Action::SECRET   : isActive = level->secrets[cmd.args]; break;
-            case TR::Action::ACTIVATE : isActive = level->entities[cmd.args].flags.active != 0; break;
-            default : isActive = false;
-        }
-
-        if (info.trigInfo.once == 1 && isActive) return; // once trigger is already activated
-
         TR::Limits::Limit *limit = NULL;
+        bool switchIsDown = -1;
+        bool skipFirst = false;
+        float timer = info.trigInfo.timer == 1 ? EPS : float(info.trigInfo.timer);
 
         int actionState = state;
         switch (info.trigger) {
-            case TR::Level::Trigger::ACTIVATE :
-                if (isActive) return;
-                break;
-            case TR::Level::Trigger::PAD :
-                if (stand != STAND_GROUND || isActive) return;
-                break;
-            case TR::Level::Trigger::SWITCH :
-                actionState = (isActive && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
-                if (!animation.canSetState(actionState))
+            case TR::Level::Trigger::ACTIVATE : break;
+
+            case TR::Level::Trigger::SWITCH : {
+                skipFirst = true;
+                Switch *controller = (Switch*)level->entities[info.trigCmd[0].args].controller;
+
+                if (controller->activeState == asNone) {
+                    limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
+                    if (checkInteraction(controller, *limit, Input::state[cAction])) {
+                        actionState = (controller->state == Switch::STATE_DOWN && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
+                        if (animation.setState(actionState)) 
+                            controller->activate();
+                    }
+                }
+
+                if (!controller->setTimer(timer))
                     return;
-                limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
-                {
-                    Trigger *controller = (Trigger*)level->entities[info.trigCmd[0].args].controller;
-                    if (!controller->inState() || !checkInteraction(controller, *limit, isPressed(ACTION)))
+
+                switchIsDown = controller->state == Switch::STATE_DOWN;
+                break;
+            }
+
+            case TR::Level::Trigger::KEY : {
+                skipFirst = true;
+
+                TR::Entity &entity = level->entities[info.trigCmd[0].args];
+                KeyHole *controller = (KeyHole*)entity.controller;
+
+                if (controller->activeState == asNone) {
+                    if (entity.flags.active == 0x1F || state != STATE_STOP)
                         return;
+
+                    actionState = entity.isPuzzleHole() ? STATE_USE_PUZZLE : STATE_USE_KEY;
+                    if (!animation.canSetState(actionState))
+                        return;
+
+                    limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
+                    if (!checkInteraction(controller, *limit, isPressed(ACTION) || usedKey != TR::Entity::NONE))
+                        return;
+
+                    if (usedKey == TR::Entity::NONE) {
+                        if (isPressed(ACTION) && !game->invChooseKey(entity.type))
+                            playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
+                        return;
+                    }
+
+                    if (TR::Entity::convToInv(TR::Entity::getItemForHole(entity.type)) != usedKey) { // check compatibility if user select other
+                        playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
+                        return;
+                    }
+
+                    keyHole = controller;
+                    game->invUse(usedKey);
+
+                    animation.setState(actionState);
                 }
+
+                if (controller->activeState != asInactive)
+                    return;
+
                 break;
-            case TR::Level::Trigger::KEY :
-                if (level->entities[info.trigCmd[0].args].flags.active || state != STATE_STOP)
-                    return;
-
-                actionState = level->entities[info.trigCmd[0].args].isKeyHole() ? STATE_USE_KEY : STATE_USE_PUZZLE;
-                if (!animation.canSetState(actionState))
-                    return;
-
-                limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
-                if (!checkInteraction((Controller*)level->entities[info.trigCmd[0].args].controller, *limit, isPressed(ACTION) || usedKey != TR::Entity::NONE))
-                    return;
-
-                if (!animation.canSetState(actionState))
-                    return;
-
-                if (usedKey == TR::Entity::NONE) {
-                    if (isPressed(ACTION) && !game->invChooseKey(level->entities[info.trigCmd[0].args].type))
-                        playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
-                    return;
-                }
-
-                if (TR::Entity::convToInv(TR::Entity::getKeyForHole(level->entities[info.trigCmd[0].args].type)) != usedKey) { // check compatibility if user select other
-                    playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
-                    return;
-                }
-
-                puzzleEntity = actionState == STATE_USE_PUZZLE ? &level->entities[info.trigCmd[0].args] : NULL;
-                game->invUse(usedKey);
-                break;
+            }
             case TR::Level::Trigger::PICKUP :
-                if (!isActive)  // check if item is not picked up
+                skipFirst = true;
+
+                if (!level->entities[info.trigCmd[0].args].flags.invisible)
                     return;
                 break;
-            default :
-                LOG("unsupported trigger type %d\n", info.trigger);
+
+            case TR::Level::Trigger::COMBAT :
+                if (emptyHands())
+                    return;
+                break;
+
+            case TR::Level::Trigger::PAD :
+            case TR::Level::Trigger::ANTIPAD :
+                if (e.y != info.floor) return;
+                break;
+
+            case TR::Level::Trigger::HEAVY :
+            case TR::Level::Trigger::DUMMY :
                 return;
         }
 
-        // try to activate Lara state
-        if (!animation.setState(actionState)) return;
-
-        if (info.trigger == TR::Level::Trigger::KEY)
-            level->entities[info.trigCmd[0].args].flags.active = true;
-
-        if (limit)
-            alignByItem((Controller*)level->entities[info.trigCmd[0].args].controller, *limit, stand != STAND_GROUND || info.trigger != TR::Level::Trigger::SWITCH, true);
-
-        // build trigger activation chain
-        ActionCommand *actionItem = &actionList[1];
-
-        Controller *controller = this;
-        for (int i = 0; i < info.trigCmdCount; i++) {
-            if (!controller) {
-                LOG("! next activation entity %d has no controller\n", level->entities[info.trigCmd[i].args].type);
-                playSound(TR::SND_NO, pos, 0);
-                return;
-            }
-
-            if (info.trigger == TR::Level::Trigger::KEY && i == 0) continue; // skip key שך puzzle hole
-
+        bool needFlip = false;
+        for (int i = skipFirst; i < info.trigCmdCount; i++) {
             TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
-            switch (cmd.action) {
-                case TR::Action::CAMERA_SWITCH :
-                    *actionItem = ActionCommand(entity, cmd.action, cmd.args, (float)info.trigCmd[++i].delay);    // camera switch uses next command for delay timer
-                    break;
-                default :
-                    *actionItem = ActionCommand(entity, cmd.action, cmd.args, info.trigInfo.timer);
-            }
 
-            actionItem->next = (i < info.trigCmdCount - 1) ? actionItem + 1 : NULL;
-            actionItem++;
+            switch (cmd.action) {
+                case TR::Action::ACTIVATE : {
+                    TR::Entity &e = level->entities[cmd.args];
+                    TR::Entity::Flags &flags = e.flags;
+
+                    if (flags.once)
+                        break;
+                    ((Controller*)e.controller)->timer = timer;
+
+                    if (info.trigger == TR::Level::Trigger::SWITCH)
+                        flags.active ^= info.trigInfo.mask;
+                    else if (info.trigger == TR::Level::Trigger::ANTIPAD)
+                        flags.active &= ~info.trigInfo.mask;
+                    else
+                        flags.active |= info.trigInfo.mask;
+
+                    if (flags.active != 0x1F)
+                        break;
+
+                    flags.once |= info.trigInfo.once;
+                    
+                    ((Controller*)e.controller)->activate();
+                    break;
+                }
+                case TR::Action::CAMERA_SWITCH : {
+                    Camera *camera = (Camera*)level->cameraController;
+
+                    TR::FloorData::TriggerCommand &cam = info.trigCmd[++i];
+                    if (level->cameras[cmd.args].flags.once)
+                        break;
+                    /*
+                    camera->current = level->entity[cmd.args].controller;
+
+                    if (info.trigger == TR::Level::Trigger::COMBAT)
+                        break;
+                    if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && switchIsDown)
+                        break;
+
+                    if (info.trigger == TR::Level::Trigger::SWITCH || camera->curIndex != camera->prevIndex) {
+
+                        controller->timer = cam.timer == 1 ? EPS : float(cam.timer);
+
+                        if (cam.once)
+                            level->cameras[cmd.args].flags.once = true;
+
+                        camera->speed = cam.speed * 8;
+                    }
+                    */
+                    break;
+                }
+                case TR::Action::CAMERA_TARGET :
+                    // camera->target = level->entity[cmd.args].controller;
+                    break;
+                case TR::Action::FLOW :
+                    break;
+                case TR::Action::FLIP_MAP : {
+                    TR::Flipmap &flip = level->flipmap[cmd.args];
+
+                    if (flip.once)
+                        break;
+
+                    if (info.trigger == TR::Level::Trigger::SWITCH)
+                        flip.active ^= info.trigInfo.mask;
+                    else
+                        flip.active |= info.trigInfo.mask;
+
+                    if (flip.active == 0x1F)
+                        flip.once |= info.trigInfo.once;
+
+                    if ((flip.active == 0x1F) ^ level->isFlipped)
+                         needFlip = true;
+
+                    LOG("FLIP_MAP\n");
+                    break;
+                }
+                case TR::Action::FLIP_ON :
+                    if (level->flipmap[cmd.args].active == 0x1F && !level->isFlipped)
+                        needFlip = true;
+                    LOG("FLIP_ON\n");
+                    break;
+                case TR::Action::FLIP_OFF :
+                    if (level->flipmap[cmd.args].active == 0x1F && level->isFlipped)
+                        needFlip = true;
+                    LOG("FLIP_OFF\n");
+                    break;
+                case TR::Action::END :
+                    LOG("END\n");
+                    break;
+                case TR::Action::SOUNDTRACK :
+                    LOG("SOUNDTRACK\n");
+                    break;
+                case TR::Action::HARDCODE :
+                    LOG("HARDCODE\n");
+                    break;
+                case TR::Action::SECRET :
+                    if (!level->secrets[cmd.args]) {
+                        level->secrets[cmd.args] = true;
+                        playSound(TR::SND_SECRET, pos, 0);
+                    }
+                    break;
+            }
         }
 
-        actionList[0].next = &actionList[1];
-        actionCommand = &actionList[0];
-
-        if (info.trigger != TR::Level::Trigger::KEY)
-            activateNext();
+        if (needFlip)
+            level->isFlipped = !level->isFlipped;
     }
 
     vec3 getViewPoint() {
@@ -1694,8 +1808,6 @@ struct Lara : Character {
                 block->angle.y = oldAngle;
                 continue;
             }
-
-            alignByItem(block, TR::Limits::BLOCK, false, true);
 
             return block;
         }
@@ -2051,11 +2163,11 @@ struct Lara : Character {
                 }
                 break;
             }
+            case STATE_USE_KEY    :                                  
             case STATE_USE_PUZZLE : {
-                if (puzzleEntity && animation.isFrameActive(PUZZLE_FRAME)) {
-                    int doneIdx = TR::Entity::convToInv(TR::Entity::getKeyForHole(puzzleEntity->type)) - TR::Entity::INV_PUZZLE_1;
-                    ((Controller*)puzzleEntity->controller)->meshSwap(0, level->extra.puzzleDone[doneIdx]);
-                    puzzleEntity = NULL;
+                if (keyHole && animation.isFrameActive(state == STATE_USE_PUZZLE ? PUZZLE_FRAME : KEY_FRAME)) {
+                    keyHole->activate();
+                    keyHole = NULL;
                 }
                 break;
             }
@@ -2091,7 +2203,8 @@ struct Lara : Character {
     }
 
     virtual void updateVelocity() {
-        checkTrigger();
+        if (!(input & DEATH))
+            checkTrigger();
 
     // get turning angle
         float w = (input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f);

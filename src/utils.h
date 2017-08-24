@@ -728,8 +728,14 @@ struct short3 {
 struct short4 {
     int16 x, y, z, w;
 
+    short4() {}
+    short4(int16 x, int16 y, int16 z, int16 w) : x(x), y(y), z(z), w(w) {}
+
     operator vec3()   const { return vec3((float)x, (float)y, (float)z); };
     operator short3() const { return *((short3*)this); }
+
+    inline bool operator == (const short4 &v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
+    inline bool operator != (const short4 &v) const { return !(*this == v); }
 
     inline int16& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((int16*)this)[index]; }
 };

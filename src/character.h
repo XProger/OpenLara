@@ -70,7 +70,7 @@ struct Character : Controller {
 
     virtual void hit(float damage, Controller *enemy = NULL) {
         health = max(0.0f, health - damage);
-    };
+    }
 
     virtual void checkRoom() {
         TR::Level::FloorInfo info;
@@ -93,10 +93,6 @@ struct Character : Controller {
                 if (stand != STAND_ONWATER)
                     e.room = info.roomAbove;
         }
-    }
-
-    virtual void cmdKill() {
-        health = 0;
     }
 
     virtual void  updateVelocity()      {}

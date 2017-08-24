@@ -5,58 +5,53 @@
 #include "controller.h"
 #include "sprite.h"
 
-struct Trigger : Controller {
+struct Switch : Controller {
+    enum {
+        STATE_DOWN,
+        STATE_UP,
+    };
 
-    bool  immediate;
-    float timer;
-    int   baseState;
-
-    Trigger(IGame *game, int entity, bool immediate) : Controller(game, entity), immediate(immediate), timer(0.0f) {
-        baseState = state;
-        getEntity().flags.collision = false;
+    Switch(IGame *game, int entity) : Controller(game, entity) {}
+    
+    bool setTimer(float t) {
+        if (activeState == asInactive) {
+            if (state == STATE_DOWN && t > 0.0f) {
+                timer = t;
+                activeState = asActive;
+            } else
+                deactivate(true);
+           return true;
+        }
+        return false;
     }
-
-    bool inState() {
-        return (state != baseState) == (getEntity().flags.active != 0);
-    }
-
-    virtual bool activate(ActionCommand *cmd) {
-        if (this->timer != 0.0f || !inState() || actionCommand) return false;
-        Controller::activate(cmd);
-        this->timer = cmd->timer;
-
-        getEntity().flags.active ^= 0x1F;
-        
-        if (immediate)
-            activateNext();
-
-        return true;
+    
+    virtual bool activate() {
+        if (Controller::activate()) {
+            animation.setState(state == STATE_UP ? STATE_DOWN : STATE_UP);
+            return true;
+        }
+        return false;
     }
 
     virtual void update() {
-        TR::Entity &entity = getEntity();
-
-        if (timer > 0.0f) {
-            timer -= Core::deltaTime;
-            if (timer <= 0.0f) {
-                timer = 0.0f;
-                entity.flags.active ^= 0x1F;
-            }
-        }
-
-        if (timer < 0.0f) {
-            timer += Core::deltaTime;
-            if (timer >= 0.0f) {
-                timer = 0.0f;
-                entity.flags.active ^= 0x1F;
-            }
-        }
-
-        if (!inState() && entity.type != TR::Entity::KEY_HOLE_1 && entity.type != TR::Entity::PUZZLE_HOLE_1)
-            animation.setState(state != baseState ? baseState : (entity.type == TR::Entity::TRAP_BLADE ? 2 : (baseState ^ 1)));        
-
         updateAnimation(true);
-        updateEntity();
+        getEntity().flags.active = 0x1F;
+        if (!isActive())
+            animation.setState(STATE_UP);
+    }
+};
+
+struct Gear : Controller {
+    enum {
+        STATE_STATIC,
+        STATE_ROTATE,
+    };
+
+    Gear(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        updateAnimation(true);
+        animation.setState(isActive() ? STATE_ROTATE : STATE_STATIC);
     }
 };
 
@@ -64,8 +59,9 @@ struct Dart : Controller {
     vec3 velocity;
     vec3 dir;
     bool inWall;    // dart starts from wall
+    bool armed;
 
-    Dart(IGame *game, int entity) : Controller(game, entity), inWall(true) {
+    Dart(IGame *game, int entity) : Controller(game, entity), inWall(true), armed(true) {
         dir = vec3(sinf(angle.y), 0, cosf(angle.y));
     }
 
@@ -73,6 +69,14 @@ struct Dart : Controller {
         velocity = dir * animation.getSpeed();
         pos = pos + velocity * (Core::deltaTime * 30.0f);
         updateEntity();
+
+        Controller *lara = (Controller*)level->laraController;
+        if (armed && collide(lara)) {
+            Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
+            lara->hit(50.0f, this);
+            armed = false;
+        }
+
         TR::Level::FloorInfo info;
         level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
         if (pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())) {
@@ -90,23 +94,31 @@ struct Dart : Controller {
     }
 };
 
-struct Dartgun : Trigger {
-    vec3 origin;
+struct Dartgun : Controller {
+    enum {
+        STATE_IDLE,
+        STATE_FIRE
+    };
 
-    Dartgun(IGame *game, int entity) : Trigger(game, entity, true), origin(pos) {}
-
-    virtual bool activate(ActionCommand *cmd) {
-        if (!Trigger::activate(cmd))
+    Dartgun(IGame *game, int entity) : Controller(game, entity) {}
+    
+    virtual bool activate() {
+        if (!Controller::activate())
             return false;
         
+        animation.setState(STATE_FIRE);
+
         // add dart (bullet)
         TR::Entity &entity = getEntity();
 
         vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
 
         int dartIndex = level->entityAdd(TR::Entity::TRAP_DART, entity.room, (int)p.x, (int)p.y, (int)p.z, entity.rotation, entity.intensity);
-        if (dartIndex > -1)
-            level->entities[dartIndex].controller = new Dart(game, dartIndex);
+        if (dartIndex > -1) {
+            Dart *dart = new Dart(game, dartIndex);
+            dart->activate();
+            level->entities[dartIndex].controller = dart; 
+        }
 
         Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
 
@@ -115,14 +127,21 @@ struct Dartgun : Trigger {
         return true;
     }
 
+    void virtual update() {
+        updateAnimation(true);
+        if (animation.canSetState(STATE_IDLE)) {
+            animation.setState(STATE_IDLE);
+            deactivate();
+        }
+    }
 };
 
-struct Boulder : Trigger {
+struct Boulder : Controller {
 
-    Boulder(IGame *game, int entity) : Trigger(game, entity, true) {}
+    Boulder(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
-        if (getEntity().flags.active) {
+        if (getEntity().flags.active == 0x1F) {
             updateAnimation(true);
             updateEntity();
         }
@@ -131,7 +150,6 @@ struct Boulder : Trigger {
 
 // not a trigger
 struct Block : Controller {
-
     enum {
         STATE_STAND = 1,
         STATE_PUSH,
@@ -189,6 +207,7 @@ struct Block : Controller {
         if (!animation.setState(push ? STATE_PUSH : STATE_PULL))
             return false;
         updateFloor(false);
+        activate();
         return true;
     }
 
@@ -198,18 +217,22 @@ struct Block : Controller {
         if (state == STATE_STAND) {
             updateEntity();
             updateFloor(true);
+            deactivate();
         }
         updateLights();
     }
 };
 
 
-struct MovingBlock : Trigger {
-    int lastState;
+struct MovingBlock : Controller {
+    enum {
+        STATE_STOP,
+        STATE_MOVE,
+    };
 
-    MovingBlock(IGame *game, int entity) : Trigger(game, entity, true) {
-        lastState = state;
-        updateFloor(true);
+    MovingBlock(IGame *game, int entity) : Controller(game, entity) {
+        if (!getEntity().flags.invisible)
+            updateFloor(true);
     }
 
     void updateFloor(bool rise) {
@@ -222,27 +245,41 @@ struct MovingBlock : Trigger {
         TR::Room::Sector &s = level->getSector(e.room, e.x, e.z, dx, dz);
         s.floor += rise ? -8 : 8;
     }
-    
-    virtual void updateAnimation(bool commands) {
-        Trigger::updateAnimation(commands);
 
-        if (state != lastState) {
-            switch (lastState = state) {
-                case 0 :
-                case 1 : updateFloor(true);  break;
-                case 2 : updateFloor(false); break;
-            }
+    virtual bool activate() {
+        if (Controller::activate()) {
+            updateFloor(false);
+            animation.setState(STATE_MOVE);
+            return true;
+        }
+        return false;
+    }
+
+    virtual void update() {
+        updateAnimation(true);
+
+        if (activeState == asInactive) {
+            pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f;
+            pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f;
+            animation.setState(STATE_STOP);
+            updateFloor(true);
+            return;
         }
 
         pos += getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
     }
 };
 
-struct Door : Trigger {
+struct Door : Controller {
+    enum {
+        STATE_CLOSE,
+        STATE_OPEN,
+    };
+
     int8 *floor[2], orig[2];
     uint16 box;
 
-    Door(IGame *game, int entity) : Trigger(game, entity, true) {
+    Door(IGame *game, int entity) : Controller(game, entity) {
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
         vec3 p = pos - getDir() * 1024.0f;
@@ -261,12 +298,12 @@ struct Door : Trigger {
         } else
             floor[1] = NULL;
 
-        updateBlock();
+        updateBlock(false);
     }
 
-    void updateBlock() {
+    void updateBlock(bool open) {
         int8 v[2];
-        if (getEntity().flags.active) {
+        if (open) {
             v[0] = orig[0];
             v[1] = orig[1];
         } else
@@ -275,37 +312,47 @@ struct Door : Trigger {
         if (box != 0xFFFF) {
             TR::Box &b = level->boxes[box];
             if (b.overlap.blockable)
-                b.overlap.block = !getEntity().flags.active;
+                b.overlap.block = !open;
         }
 
         if (floor[0]) *floor[0] = v[0];
         if (floor[1]) *floor[1] = v[1];
     }
+    
+    virtual void update() {
+        updateAnimation(true);
+        int targetState = isActive() ? STATE_OPEN : STATE_CLOSE;
 
-    virtual bool activate(ActionCommand *cmd) {
-        bool res = Trigger::activate(cmd);
-        updateBlock();
-        return res;
+        if (state == targetState)
+            updateBlock(targetState == STATE_OPEN);
+        else
+            animation.setState(targetState);
     }
 };
 
-struct TrapDoor : Trigger {
+struct TrapDoor : Controller {
+    enum {
+        STATE_CLOSE,
+        STATE_OPEN,
+    };
 
-    TrapDoor(IGame *game, int entity) : Trigger(game, entity, true) {
+    TrapDoor(IGame *game, int entity) : Controller(game, entity) {
         getEntity().flags.collision = true;
     }
+    
+    virtual void update() {
+        updateAnimation(true);
+        int targetState = isActive() ? STATE_OPEN : STATE_CLOSE;
 
-    virtual bool activate(ActionCommand *cmd) {
-        bool res = Trigger::activate(cmd);
-        getEntity().flags.collision = !getEntity().flags.active;
-        return res;
+        if (state == targetState)
+            getEntity().flags.collision = targetState == STATE_CLOSE;
+        else
+            animation.setState(targetState);
     }
-
 };
 
 
-struct TrapFloor : Trigger {
-
+struct TrapFloor : Controller {
     enum {
         STATE_STATIC,
         STATE_SHAKE,
@@ -314,20 +361,23 @@ struct TrapFloor : Trigger {
     };
     float velocity;
 
-    TrapFloor(IGame *game, int entity) : Trigger(game, entity, true), velocity(0) {
-        TR::Entity &e = getEntity();
-        e.flags.collision = true;
+    TrapFloor(IGame *game, int entity) : Controller(game, entity), velocity(0) {
+        getEntity().flags.collision = true;
     }
 
-    virtual bool activate(ActionCommand *cmd) {
-        TR::Entity &e = level->entities[cmd->emitter];
-        if (e.type != TR::Entity::LARA) return true;
-        int ey = (int)pos.y - 512; // real floor object position
-        return (abs(e.y - ey) <= 8) ? Trigger::activate(cmd) : true;
+    virtual bool activate() {
+        if (state != STATE_STATIC) return false;
+        TR::Entity &e = ((Controller*)level->laraController)->getEntity();
+        int ey = getEntity().y - 512; // real floor object position
+        if (abs(e.y - ey) <= 8 && Controller::activate()) {
+            animation.setState(STATE_SHAKE);
+            return true;
+        }
+        return false;
     }
 
     virtual void update() {
-        Trigger::update();
+        updateAnimation(true);
         if (state == STATE_FALL) {
             TR::Entity &e = getEntity();
             e.flags.collision = false;
@@ -349,10 +399,8 @@ struct TrapFloor : Trigger {
     }
 };
 
-
-struct Bridge : Trigger {
-
-    Bridge(IGame *game, int entity) : Trigger(game, entity, true) {
+struct Bridge : Controller {
+    Bridge(IGame *game, int entity) : Controller(game, entity) {
         getEntity().flags.collision = true;
     }
 };
@@ -362,10 +410,15 @@ struct Crystal : Controller {
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, Texture::RGBA, true);
+        activate();
     }
 
     virtual ~Crystal() {
         delete environment;
+    }
+
+    virtual void update() {
+        updateAnimation(false);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
@@ -376,21 +429,64 @@ struct Crystal : Controller {
     }
 };
 
-struct Waterfall : Trigger {
+struct TrapBlade : Controller {
+    TrapBlade(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        updateAnimation(true);
+    }
+};
+
+struct TrapSpikes : Controller {
+    TrapSpikes(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        updateAnimation(true);
+    }
+};
+
+struct FallingCeiling : Controller {
+    FallingCeiling(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        updateAnimation(true);
+    }
+};
+
+struct FallingSword : Controller {
+    FallingSword(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        updateAnimation(true);
+    }
+};
+
+struct KeyHole : Controller {
+    KeyHole(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual bool activate() {
+        if (!Controller::activate()) return false;
+        getEntity().flags.active = 0x1F;
+        if (getEntity().isPuzzleHole()) {
+            int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
+            meshSwap(0, level->extra.puzzleDone[doneIdx]);
+        }
+        deactivate();
+        return true;
+    }
+
+    virtual void update() {}
+};
+
+struct Waterfall : Controller {
     #define SPLASH_TIMESTEP (1.0f / 30.0f)
 
     float timer;
-    bool  drop;
-    float dropRadius;
-    float dropStrength;
-    vec3  dropPos;
 
-    Waterfall(IGame *game, int entity) : Trigger(game, entity, true), timer(0.0f) {}
+    Waterfall(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
 
     virtual void update() {
-        drop = false;
-        Trigger::update();
-        if (!getEntity().flags.active) return;
+        updateAnimation(true);
 
         vec3 delta = (((Controller*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
         if (delta.length2() > 100.0f)
@@ -400,12 +496,12 @@ struct Waterfall : Trigger {
         if (timer > 0.0f) return;
         timer += SPLASH_TIMESTEP * (1.0f + randf() * 0.25f);
 
-        drop         = true;
-        dropRadius   = randf() * 128.0f + 128.0f;
-        dropStrength = randf() * 0.1f + 0.05f;
+        float dropRadius   = randf() * 128.0f + 128.0f;
+        float dropStrength = randf() * 0.1f + 0.05f;
 
         vec2 p = (vec2(randf(), randf()) * 2.0f - 1.0f) * (512.0f - dropRadius);
-        dropPos = pos + vec3(p.x, 0.0f, p.y);
+        vec3 dropPos = pos + vec3(p.x, 0.0f, p.y);
+        game->waterDrop(dropPos, dropRadius, dropStrength);
 
         Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
     } 
@@ -429,6 +525,7 @@ struct Bubble : Sprite {
             room = s.roomAbove;
         }
         time -= (e.y - h) / speed - (1.0f / SPRITE_FPS);
+        activate();
     }
 
     virtual ~Bubble() {
@@ -439,8 +536,8 @@ struct Bubble : Sprite {
         pos.y -= speed * Core::deltaTime;
         angle.x += 30.0f * 13.0f * DEG2RAD * Core::deltaTime;
         angle.y += 30.0f *  9.0f * DEG2RAD * Core::deltaTime;
-	    pos.x += sinf(angle.y) * 11.0f * 30.0f * Core::deltaTime;
-	    pos.z += cosf(angle.x) * 8.0f  * 30.0f * Core::deltaTime;
+        pos.x += sinf(angle.y) * (11.0f * 30.0f * Core::deltaTime);
+        pos.z += cosf(angle.x) * (8.0f  * 30.0f * Core::deltaTime);
         updateEntity();
         Sprite::update();
     }
