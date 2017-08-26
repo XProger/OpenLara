@@ -418,12 +418,14 @@ namespace Sound {
         vec3    pos;
         vec3    velocity;
         float   volume;
+        float   volumeTarget;
+        float   volumeDelta;
         float   pitch;
         int     flags;
         int     id;
         bool    isPlaying;
 
-        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags, int id) : decoder(NULL), pos(pos), volume(volume), pitch(pitch), flags(flags), id(id) {
+        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags, int id) : decoder(NULL), pos(pos), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
             uint32 fourcc; 
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
@@ -481,6 +483,13 @@ namespace Sound {
             delete decoder;
         }
 
+        void setVolume(float value, float time) {
+            volumeTarget = value;
+            volumeDelta  = volumeTarget - volume;
+            if (time > 0.0f)
+                volumeDelta /= 44100.0f * time;
+        }
+
         vec3 getPan() {
             if (!(flags & PAN))
                 return vec3(1.0f);
@@ -498,6 +507,7 @@ namespace Sound {
 
         bool render(Frame *frames, int count) {
             if (!isPlaying) return 0;
+        // decode
             int i = 0;
             while (i < count) {
                 int res = decoder->decode(&frames[i], count - i);
@@ -510,14 +520,26 @@ namespace Sound {
                 }
                 i += res;
             }
-
-            vec3 pan = getPan() * volume;
-
+        // apply pan
+            vec3 pan = getPan();
             if (pan.x < 1.0f || pan.y < 1.0f)
                 for (int j = 0; j < i; j++) {
                     frames[j].L = int(frames[j].L * pan.x);
                     frames[j].R = int(frames[j].R * pan.y);
                 }
+        // apply volume
+            for (int j = 0; j < i; j++) {
+                if (volumeDelta != 0.0f) { // increase / decrease channel volume
+                    volume += volumeDelta;
+                    if ((volumeDelta < 0.0f && volume < volumeTarget) ||
+                        (volumeDelta > 0.0f && volume > volumeTarget)) {
+                        volume = volumeTarget;
+                        volumeDelta = 0.0f;
+                    }
+                }
+                frames[j].L *= volume;
+                frames[j].R *= volume;
+            }
             return true;
         }
     } *channels[SND_CHANNELS_MAX];
@@ -564,7 +586,7 @@ namespace Sound {
                     continue;
             }
 
-            if ((channels[i]->flags & LOOP) && channels[i]->volume < EPS)
+            if ((channels[i]->flags & LOOP) && channels[i]->volume < EPS && channels[i]->volumeTarget < EPS)
                 continue;
 
             memset(buffer, 0, sizeof(Frame) * bufSize);

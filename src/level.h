@@ -319,7 +319,7 @@ struct Level : IGame {
 
             sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
             if (sndUnderwater)
-                sndUnderwater->volume = 0.0f;
+                sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
 
             sndCurrent = sndSoundtrack;
 
@@ -755,7 +755,7 @@ struct Level : IGame {
         }
     #endif
         if (isTitle()) {
-            sndCurrent->volume = 0.0f;
+            sndCurrent->setVolume(0.0f, 0.5f);
             Sound::reverb.setRoomSize(vec3(1.0f));
             inventory.update();
             return;
@@ -771,11 +771,12 @@ struct Level : IGame {
         }
         camera->update();
 
-        sndCurrent = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
-
-        if (sndSoundtrack && sndCurrent != sndSoundtrack) sndSoundtrack->volume = 0.0f;
-        if (sndUnderwater && sndCurrent != sndUnderwater) sndUnderwater->volume = 0.0f;
-        if (sndCurrent) sndCurrent->volume = 1.0f;
+        Sound::Sample *sndChanged = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
+        if (sndChanged != sndCurrent) {
+            if (sndCurrent) sndCurrent->setVolume(0.0f, 0.2f);
+            if (sndChanged) sndChanged->setVolume(1.0f, 0.2f);
+            sndCurrent = sndChanged;
+        }
 
         if (waterCache) 
             waterCache->update();
@@ -959,6 +960,7 @@ struct Level : IGame {
         if (water && waterCache && waterCache->visible) {
             waterCache->renderMask();
             waterCache->getRefract();
+            setMainLight(lara);
             waterCache->render();
         }
     }
@@ -1022,7 +1024,13 @@ struct Level : IGame {
 //        Core::mView = Core::mViewInv.inverse();
         Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
+        
+        if (Input::down[ikF]) {
+            level.isFlipped = !level.isFlipped;
+            Input::down[ikF] = false;
+        }
 
+        /*        
         static int snd_index = 0;
         if (Input::down[ikG]) {
             snd_index = (snd_index + 1) % level.soundsInfoCount;
@@ -1030,7 +1038,7 @@ struct Level : IGame {
             lara->playSound(snd_index, lara->pos, 0);
             Input::down[ikG] = false;
         }
-        /*
+        
         static int modelIndex = 0;
         static bool lastStateK = false;
         static int lastEntity = -1;
@@ -1153,8 +1161,8 @@ struct Level : IGame {
         //    Debug::Level::blocks(level);
         //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
         //    Debug::Level::debugOverlaps(level, lara->box);
-
         //    Core::setBlending(bmNone);
+
         /*
             static int dbg_ambient = 0;
             dbg_ambient = int(params->time * 2) % 4;
