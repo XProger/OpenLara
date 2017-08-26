@@ -448,6 +448,7 @@ struct Lara : Character {
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
+        //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     #endif
@@ -1365,12 +1366,11 @@ struct Lara : Character {
 
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &item = level->entities[i];
-            if (item.room == room && !item.flags.invisible) {
-                if (!item.isItem())
-                    continue;
-                
-                Controller *controller = (Controller*)item.controller;
-                
+            if (!item.isItem())
+                continue;
+
+            Controller *controller = (Controller*)item.controller;
+            if (controller->getRoomIndex() == room && !item.flags.invisible) {
                 if (stand == STAND_UNDERWATER)
                     controller->angle.x = -25 * DEG2RAD;
                 controller->angle.y = angle.y;
@@ -1443,7 +1443,7 @@ struct Lara : Character {
         if (!info.trigCmdCount) return; // has no trigger
 
         TR::Limits::Limit *limit = NULL;
-        bool switchIsDown = -1;
+        bool switchIsDown = false;
         bool skipFirst = false;
         float timer = info.trigInfo.timer == 1 ? EPS : float(info.trigInfo.timer);
 
