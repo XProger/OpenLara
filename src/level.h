@@ -483,7 +483,7 @@ struct Level : IGame {
         }
 
     // repack texture tiles
-        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount, &level, fillCallback);
+        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + 3, &level, fillCallback);
         // add textures
         int startIdx = level.version == TR::Level::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
         for (int i = startIdx; i < level.objectTexturesCount; i++) {
@@ -754,34 +754,37 @@ struct Level : IGame {
             lara->reset(TR::NO_ROOM, camera->pos, camera->angle.y, false);
         }
     #endif
+        Sound::Sample *sndChanged = sndCurrent;
+
         if (isTitle()) {
-            sndCurrent->setVolume(0.0f, 0.5f);
             Sound::reverb.setRoomSize(vec3(1.0f));
             inventory.update();
-            return;
+
+            sndChanged = NULL;
+        } else {
+            params->time += Core::deltaTime;
+
+            Controller *c = Controller::first;
+            while (c) {
+                Controller *next = c->next;
+                c->update();
+                c = next;
+            }
+            camera->update();
+
+            if (waterCache) 
+                waterCache->update();
+
+            Controller::clearInactive();
+
+            sndChanged = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
         }
 
-        params->time += Core::deltaTime;
-
-        Controller *c = Controller::first;
-        while (c) {
-            Controller *next = c->next;
-            c->update();
-            c = next;
-        }
-        camera->update();
-
-        Sound::Sample *sndChanged = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
         if (sndChanged != sndCurrent) {
             if (sndCurrent) sndCurrent->setVolume(0.0f, 0.2f);
             if (sndChanged) sndChanged->setVolume(1.0f, 0.2f);
             sndCurrent = sndChanged;
         }
-
-        if (waterCache) 
-            waterCache->update();
-
-        Controller::clearInactive();
     }
 
     void setup() {
