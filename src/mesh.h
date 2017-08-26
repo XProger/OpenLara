@@ -535,16 +535,18 @@ struct MeshBuilder {
         return res;
     }
 
-    bool roomCheckWaterPortal(TR::Room room) {
-        for (int i = 0; i < room.portalsCount; i++)
-            if (room.flags.water ^ level->rooms[room.portals[i].roomIndex].flags.water)
+    bool isWaterSurface(int delta, int roomIndex, bool fromWater) {
+        if (roomIndex != TR::NO_ROOM && delta == 0) {
+            TR::Room &r = level->rooms[roomIndex];
+            if (r.flags.water ^ fromWater)
                 return true;
+            if (r.alternateRoom > -1 && level->rooms[r.alternateRoom].flags.water ^ fromWater)
+                return true;
+        }
         return false;
     }
 
     void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
-        if (!roomCheckWaterPortal(room)) return;
-
     // remove animated water polygons from room geometry
         for (int i = 0; i < room.data.rCount; i++) {
             TR::Rectangle &f = room.data.rectangles[i];
@@ -568,8 +570,8 @@ struct MeshBuilder {
 
             if (yt > 0 && yb > 0) continue;
 
-            if ((yt == 0 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
-                (yb == 0 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+            if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
+                isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
                 iCount -= 6;
                 vCount -= 4;
@@ -597,8 +599,8 @@ struct MeshBuilder {
 
             if (yt > 0 && yb > 0) continue;
 
-            if ((yt <= 1 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
-                (yb <= 1 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+            if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
+                isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
                 iCount -= 3;
                 vCount -= 3;

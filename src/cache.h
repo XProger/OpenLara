@@ -321,7 +321,7 @@ struct AmbientCache {
 };
 
 struct WaterCache {
-    #define MAX_SURFACES       8
+    #define MAX_SURFACES       16
     #define MAX_INVISIBLE_TIME 5.0f
     #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
     #define DETAIL             (64.0f / 1024.0f)
@@ -711,13 +711,6 @@ struct WaterCache {
             if (!item.visible) continue;
 
         // render water plane
-            if (level->rooms[item.from].lightsCount) {
-                TR::Room::Light &light = level->rooms[item.from].lights[0];
-                Core::lightPos[0] = vec3(float(light.x), float(light.y), float(light.z));
-                float lum = intensityf(light.intensity);
-                Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
-            }
-
             game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
