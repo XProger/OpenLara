@@ -29,6 +29,8 @@ struct Character : Controller {
     vec3    velocity;
     float   angleExt;
     float   speed;
+    int     stepHeight;
+    int     dropHeight;
 
     int     zone;
     int     box;
@@ -38,6 +40,9 @@ struct Character : Controller {
     Collision collision;
 
     Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
+        stepHeight =  256;
+        dropHeight = -256;
+
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
@@ -56,7 +61,7 @@ struct Character : Controller {
     }
 
     uint16* getZones() {
-        return flying ? level->zones[0].fly : level->zones[0].ground1;
+        return flying ? level->zones[level->isFlipped].fly : (stepHeight == 256 ? level->zones[level->isFlipped].ground1 : level->zones[level->isFlipped].ground2);
     }
 
     void rotateY(float delta) {

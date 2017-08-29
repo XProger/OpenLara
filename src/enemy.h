@@ -57,8 +57,6 @@ struct Enemy : Character {
     float length;       // dist from center to head (jaws)
     float aggression;
     int   radius;
-    int   stepHeight;
-    int   dropHeight;
 
     Character *target;
     Path      *path;
@@ -73,9 +71,6 @@ struct Enemy : Character {
     bool  targetCanAttack;
 
     Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
-        stepHeight =  256;
-        dropHeight = -256;
-
         jointChest = jointHead = -1;
 
         targetDist   = +INF;
