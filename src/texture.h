@@ -125,6 +125,71 @@ struct Texture {
             glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
         }
     }
+
+    static Texture* LoadPCX(const char *fileName) {
+        Stream stream(fileName);
+
+        struct Color24 {
+            uint8 r, g, b;
+        };
+
+        struct Color32 {
+            uint8 r, g, b, a;
+        };
+
+        struct PCX {
+            uint8  magic;
+            uint8  version;
+            uint8  compression;
+            uint8  bpp;
+            uint16 rect[4];
+            uint16 width;
+            uint16 height;
+            uint8  other[48 + 64];
+        } pcx;
+
+        stream.raw(&pcx, sizeof(PCX));
+
+        ASSERT(pcx.bpp == 8);
+        ASSERT(pcx.compression == 1);
+
+        int i = 0;
+        int size = pcx.width * pcx.height;
+        uint8 *buffer = new uint8[size + 256 * 3 + size * 4];
+
+        while (i < size) {
+            uint8 n;
+            stream.read(n);
+            if ((n & 0xC0) == 0xC0) {
+                uint8 count = n & 0x3F;
+                stream.read(n);
+                memset(&buffer[i], n, count);
+                i += count;
+            } else
+                buffer[i++] = n;
+        }
+
+        uint8 flag;
+        stream.read(flag);
+        ASSERT(flag == 0x0C);
+
+        Color24 *palette = (Color24*)&buffer[size];
+        stream.raw(palette, 256 * 3);
+
+        Color32 *data = (Color32*)&palette[256];
+        for (i = 0; i < size; i++) {
+            Color24 &c = palette[buffer[i]];
+            data[i].r = c.r;
+            data[i].g = c.g;
+            data[i].b = c.b;
+            data[i].a = 255;
+        }
+
+        Texture *tex = new Texture(pcx.width, pcx.height, Texture::RGBA, false, data);
+        delete[] buffer;
+
+        return tex;
+    }
 };
 
 #define ATLAS_BORDER 8

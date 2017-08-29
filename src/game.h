@@ -9,15 +9,20 @@
 namespace Game {
     Level *level;
 
-    void startLevel(Stream *lvl, Stream *snd, bool demo, bool home) {
+    void startLevel(Stream *lvl) {
         delete level;
-        level = new Level(*lvl, snd, demo, home);
+        level = new Level(*lvl);
         UI::init(level);
         delete lvl;
     }
 
-    void init(Stream *lvl, Stream *snd) {
+    void stopChannel(Sound::Sample *channel) {
+        if (level) level->stopChannel(channel);
+    }
+
+    void init(Stream *lvl) {
         Core::init();
+        Sound::callback = stopChannel;
 
         Core::settings.detail.ambient       = true;
         Core::settings.detail.lighting      = true;
@@ -33,15 +38,12 @@ namespace Game {
         Core::settings.controls.retarget    = true;
 
         level = NULL;
-        startLevel(lvl, snd, false, false);
+        startLevel(lvl);
     }
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
         if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
-        #ifndef __EMSCRIPTEN__  
-            if (!sndName) sndName = (char*)"05.ogg";
-        #endif
-        init(new Stream(lvlName), sndName ? new Stream(sndName) : NULL);
+        init(new Stream(lvlName));
     }
 
     void free() {

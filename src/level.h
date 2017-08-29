@@ -42,6 +42,7 @@ struct Level : IGame {
     Sound::Sample *sndUnderwater;
     Sound::Sample *sndCurrent;
 
+    int  curTrack;
     bool lastTitle;
 
 // IGame implementation ========
@@ -59,6 +60,11 @@ struct Level : IGame {
 
     virtual Controller* getLara() {
         return lara;
+    }
+
+    virtual bool isCutscene() {
+        if (level.id == TR::TITLE) return false;
+        return camera->state == Camera::STATE_CUTSCENE;
     }
 
     virtual uint16 getRandomBox(uint16 zone, uint16 *zones) { 
@@ -101,7 +107,6 @@ struct Level : IGame {
         Core::basis.identity();
     }
 
-
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
         PROFILE_MARKER("ENVIRONMENT");
         Core::eye = 0.0f;
@@ -140,7 +145,7 @@ struct Level : IGame {
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const {
-        if (level.version == TR::Level::VER_TR1_PSX && id == TR::SND_SECRET)
+        if (level.version == TR::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
 
         int16 a = level.soundsMap[id];
@@ -160,9 +165,52 @@ struct Level : IGame {
         }
         return NULL;
     }
+
+    void stopChannel(Sound::Sample *channel) {
+        if (channel == sndSoundtrack) {
+            if (sndCurrent == sndSoundtrack)
+                sndCurrent = NULL;
+            sndSoundtrack = NULL;
+            playTrack(0);
+        }
+    }
+
+    virtual void playTrack(int track, bool restart = false) {
+        if (track == 0)
+            track = TR::LEVEL_INFO[level.id].ambientTrack;
+
+        if (curTrack == track) {
+            if (restart && sndSoundtrack) {
+                sndSoundtrack->replay();
+                sndSoundtrack->setVolume(1.0f, 0.2f);
+            }
+            return;
+        }
+        curTrack = track;
+
+        if (track == 0) return;
+
+        if (sndSoundtrack) {
+            sndSoundtrack->setVolume(-1.0f, 0.2f);
+            if (sndCurrent == sndSoundtrack)
+                sndCurrent = NULL;
+            sndSoundtrack = NULL;
+        }
+
+        char title[32];
+        sprintf(title, "audio/track_%02d.ogg", track);
+
+        sndSoundtrack = Sound::play(new Stream(title), vec3(0.0f), 0.01f, 1.0f, track == TR::LEVEL_INFO[level.id].ambientTrack ? Sound::Flags::LOOP : 0);
+        if (sndSoundtrack)
+            sndSoundtrack->setVolume(1.0f, 0.2f);
+    }
+
+    virtual void stopTrack() {
+        playTrack(0);
+    }
 //==============================
 
-    Level(Stream &stream, Stream *snd, bool demo, bool home) : level(stream, demo), inventory(this), lara(NULL) {
+    Level(Stream &stream) : level(stream), inventory(this), lara(NULL) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
@@ -180,7 +228,7 @@ struct Level : IGame {
             switch (entity.type) {
                 case TR::Entity::LARA                  : 
                 case TR::Entity::CUT_1                 :
-                    entity.controller = (lara = new Lara(this, i, home));
+                    entity.controller = (lara = new Lara(this, i));
                     break;
                 case TR::Entity::ENEMY_WOLF            :   
                     entity.controller = new Wolf(this, i);
@@ -297,9 +345,7 @@ struct Level : IGame {
             }
         }
 
-        lastTitle = false;
-
-        if (!isTitle()) {
+        if (level.id != TR::TITLE) {
             ASSERT(lara != NULL);
             camera = new Camera(this, lara);
 
@@ -313,22 +359,19 @@ struct Level : IGame {
 
             initReflections();
 
-            // init sounds
+        // init sounds
             //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
-            sndSoundtrack = Sound::play(snd, vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
             sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
             if (sndUnderwater)
                 sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
-
-            sndCurrent = sndSoundtrack;
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
                 lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
             }
 
-            lara->activate();
+            lastTitle       = false;
         } else {
             camera          = NULL;
             ambientCache    = NULL;
@@ -338,7 +381,13 @@ struct Level : IGame {
             sndSoundtrack   = NULL;
             sndUnderwater   = NULL;
             sndCurrent      = NULL;
+            lastTitle       = true;
+            inventory.toggle(Inventory::PAGE_OPTION);
         }
+
+        sndSoundtrack = NULL;
+        playTrack(curTrack = 0);
+        sndCurrent = sndSoundtrack;
     }
 
     virtual ~Level() {
@@ -361,10 +410,6 @@ struct Level : IGame {
 
         delete camera;
         Sound::stopAll();
-    }
-
-    bool isTitle() {
-        return lara == NULL || inventory.isActive();
     }
 
     static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
@@ -485,7 +530,7 @@ struct Level : IGame {
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + 3, &level, fillCallback);
         // add textures
-        int startIdx = level.version == TR::Level::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
+        int startIdx = level.version == TR::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
         for (int i = startIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
             int16 tx = (t.tile.index % 4) * 256;
@@ -699,7 +744,7 @@ struct Level : IGame {
     void renderEntity(const TR::Entity &entity) {
         //if (entity.room != lara->getRoomIndex()) return;
         if (entity.type == TR::Entity::NONE || !entity.modelIndex) return;
-        if (Core::pass == Core::passShadow && !TR::castShadow(entity.type)) return;
+        if (Core::pass == Core::passShadow && !entity.castShadow()) return;
 
         ASSERT(entity.controller);
 
@@ -710,7 +755,7 @@ struct Level : IGame {
         int roomIndex = controller->getRoomIndex();
         TR::Room &room = level.rooms[roomIndex];
 
-        if (entity.type != TR::Entity::LARA) // TODO: remove this hack (collect conjugate room entities)
+        if (!entity.isLara() && !entity.isActor())
             if (!room.flags.visible || entity.flags.invisible || entity.flags.rendered)
                 return;
 
@@ -719,7 +764,6 @@ struct Level : IGame {
         Shader::Type type = isModel ? Shader::ENTITY : Shader::SPRITE;
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
-
 
         setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
@@ -748,19 +792,13 @@ struct Level : IGame {
     }
 
     void update() {
-    #ifdef LEVEL_EDITOR
-        if (Input::down[ik0]) {
-            Input::down[ik0] = false;
-            lara->reset(TR::NO_ROOM, camera->pos, camera->angle.y, false);
-        }
-    #endif
         Sound::Sample *sndChanged = sndCurrent;
 
-        if (isTitle()) {
+        if (inventory.isActive() || level.id == TR::TITLE) {
             Sound::reverb.setRoomSize(vec3(1.0f));
             inventory.update();
-
-            sndChanged = NULL;
+            if (level.id != TR::TITLE)
+                sndChanged = NULL;
         } else {
             params->time += Core::deltaTime;
 
@@ -882,13 +920,6 @@ struct Level : IGame {
     }
 
     void getVisibleRooms(int *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {
-        if (camera->cutscene) {
-            roomsCount = level.roomsCount;
-            for (int i = 0; i < roomsCount; i++)
-                roomsList[i] = i;
-            return;
-        }
-
         if (count > 16) {
             //ASSERT(false);
             return;
@@ -911,10 +942,8 @@ struct Level : IGame {
         for (int i = 0; i < room.portalsCount; i++) {
             TR::Room::Portal &p = room.portals[i];
 
-            if (from == room.portals[i].roomIndex || !checkPortal(room, p, viewPort, clipPort))
-                continue;
-
-            getVisibleRooms(roomsList, roomsCount, to, p.roomIndex, clipPort, water, count + 1);
+            if (from != room.portals[i].roomIndex && checkPortal(room, p, viewPort, clipPort))
+                getVisibleRooms(roomsList, roomsCount, to, p.roomIndex, clipPort, water, count + 1);
         }
     }
 
@@ -1023,6 +1052,8 @@ struct Level : IGame {
 
     #ifdef _DEBUG
     void renderDebug() {
+        if (level.id == TR::TITLE) return;
+
 //        Core::mViewInv = camera->mViewInv;
 //        Core::mView = Core::mViewInv.inverse();
         Core::setViewport(0, 0, Core::width, Core::height);
@@ -1277,41 +1308,46 @@ struct Level : IGame {
     }
 
     void renderUI() {
+        if (isCutscene()) return;
+
         UI::begin();
 
-    // render health & oxygen bars
-        vec2 size = vec2(180, 10);
+        if (level.id != TR::TITLE) {
+        // render health & oxygen bars
+            vec2 size = vec2(180, 10);
 
-        float health = lara->health / float(LARA_MAX_HEALTH);
-        float oxygen = lara->oxygen / float(LARA_MAX_OXYGEN);
+            float health = lara->health / float(LARA_MAX_HEALTH);
+            float oxygen = lara->oxygen / float(LARA_MAX_OXYGEN);
 
-        if ((params->time - int(params->time)) < 0.5f) { // blinking
-            if (health <= 0.2f) health = 0.0f;
-            if (oxygen <= 0.2f) oxygen = 0.0f;
-        }
-
-        if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
-            UI::renderBar(0, vec2(UI::width - 32 - size.x, 32), size, health);
-
-            if (!inventory.active && !lara->emptyHands()) { // ammo
-                int index = inventory.contains(lara->getCurrentWeaponInv());
-                if (index > -1)
-                    inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x, 64), size.x);
+            if ((params->time - int(params->time)) < 0.5f) { // blinking
+                if (health <= 0.2f) health = 0.0f;
+                if (oxygen <= 0.2f) oxygen = 0.0f;
             }
-        }
 
-        if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
-            UI::renderBar(1, vec2(32, 32), size, oxygen);
+            if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
+                UI::renderBar(0, vec2(UI::width - 32 - size.x, 32), size, health);
+
+                if (!inventory.active && !lara->emptyHands()) { // ammo
+                    int index = inventory.contains(lara->getCurrentWeaponInv());
+                    if (index > -1)
+                        inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x, 64), size.x);
+                }
+            }
+
+            if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
+                UI::renderBar(1, vec2(32, 32), size, oxygen);
+        }
 
         inventory.renderUI();
 
-        UI::renderHelp();
+        if (level.id != TR::TITLE)
+            UI::renderHelp();
 
         UI::end();
     }
 
     void render() {
-        bool title  = isTitle();
+        bool title  = inventory.isActive() || level.id == TR::TITLE;
         bool copyBg = title && lastTitle != title;
 
         if (copyBg) {

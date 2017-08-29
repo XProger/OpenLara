@@ -424,6 +424,7 @@ namespace Sound {
         int     flags;
         int     id;
         bool    isPlaying;
+        bool    stopAfterFade;
 
         Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags, int id) : decoder(NULL), pos(pos), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
             uint32 fourcc; 
@@ -484,15 +485,21 @@ namespace Sound {
         }
 
         void setVolume(float value, float time) {
+            if (value < 0.0f) {
+                stopAfterFade = true;
+                value = 0.0f;
+            } else
+                stopAfterFade = false;
+
             volumeTarget = value;
             volumeDelta  = volumeTarget - volume;
             if (time > 0.0f)
                 volumeDelta /= 44100.0f * time;
         }
 
-        vec3 getPan() {
+        vec2 getPan() {
             if (!(flags & PAN))
-                return vec3(1.0f);
+                return vec2(1.0f);
             mat4  m = Sound::listener.matrix;
             vec3  v = pos - m.offset.xyz;
 
@@ -502,11 +509,11 @@ namespace Sound {
             float l = min(1.0f, 1.0f - pan);
             float r = min(1.0f, 1.0f + pan);
 
-            return vec3(l, r, 1.0f) * dist;
+            return vec2(l, r) * dist;
         }
 
         bool render(Frame *frames, int count) {
-            if (!isPlaying) return 0;
+            if (!isPlaying) return false;
         // decode
             int i = 0;
             while (i < count) {
@@ -520,14 +527,9 @@ namespace Sound {
                 }
                 i += res;
             }
-        // apply pan
-            vec3 pan = getPan();
-            if (pan.x < 1.0f || pan.y < 1.0f)
-                for (int j = 0; j < i; j++) {
-                    frames[j].L = int(frames[j].L * pan.x);
-                    frames[j].R = int(frames[j].R * pan.y);
-                }
         // apply volume
+            vec2 pan = getPan();
+            vec2 vol = vec2(1.0f);//pan * volume;
             for (int j = 0; j < i; j++) {
                 if (volumeDelta != 0.0f) { // increase / decrease channel volume
                     volume += volumeDelta;
@@ -535,20 +537,35 @@ namespace Sound {
                         (volumeDelta > 0.0f && volume > volumeTarget)) {
                         volume = volumeTarget;
                         volumeDelta = 0.0f;
+                        if (stopAfterFade)
+                            isPlaying = false;
                     }
+                    vol = pan * volume;
                 }
-                frames[j].L *= volume;
-                frames[j].R *= volume;
+                frames[j].L = int(frames[j].L * vol.x);
+                frames[j].R = int(frames[j].R * vol.y);
             }
             return true;
         }
+
+        void stop() {
+            isPlaying = false;
+        }
+
+        void replay() {
+            decoder->replay();
+        }
     } *channels[SND_CHANNELS_MAX];
     int channelsCount;
+
+    typedef void (Callback)(Sample *channel);
+    Callback *callback;
 
     Filter::Reverberation reverb;
 
     void init() {
         channelsCount = 0;
+        callback = NULL;
     #ifdef DECODE_MP3
         mp3_decode_init();
     #endif
@@ -621,6 +638,7 @@ namespace Sound {
 
         for (int i = 0; i < channelsCount; i++) 
             if (!channels[i]->isPlaying) {
+                if (callback) callback(channels[i]);
                 delete channels[i];
                 channels[i] = channels[--channelsCount];
                 i--;
@@ -657,7 +675,7 @@ namespace Sound {
                         channels[i]->pos   = pos;
                         channels[i]->pitch = pitch;
                         if (flags & (REPLAY | UNIQUE))
-                            channels[i]->decoder->replay();
+                            channels[i]->replay();
                         delete stream;
                         return channels[i];
                     }

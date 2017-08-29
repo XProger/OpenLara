@@ -8,30 +8,46 @@
 #define CAMERA_OFFSET (1024.0f + 256.0f)
 
 struct Camera : Controller {
+
+    enum {
+        STATE_FOLLOW,
+        STATE_STATIC,
+        STATE_LOOK,
+        STATE_COMBAT,
+        STATE_CUTSCENE,
+        STATE_HEAVY
+    };
+
     Controller *owner;
     Frustum    *frustum;
 
     float   fov, znear, zfar;
-    vec3    target, destPos, lastDest, advAngle;
+    vec3    target, destPos, advAngle;
     float   advTimer;
     mat4    mViewInv;
     int     room;
 
     float   timer;
-    int     actTargetEntity, actCamera;
+    float   shake;
 
     Basis   prevBasis;
     vec4    *reflectPlane;
 
-    bool    cutscene;
+    int         viewIndex;
+    int         viewIndexLast;
+    Controller* viewTarget;
+    float       speed;
+
     bool    firstPerson;
     bool    isVR;
 
-    float   shake;
-
-    Camera(IGame *game, Controller *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(0.0f), actTargetEntity(-1), actCamera(-1), reflectPlane(NULL), isVR(false) {
+    Camera(IGame *game, Controller *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), reflectPlane(NULL), isVR(false) {
         changeView(false);
-        cutscene = owner->getEntity().type != TR::Entity::LARA && level->cameraFrames;
+        if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
+            state = STATE_CUTSCENE;
+            room  = level->entities[level->cutEntity].room;
+        } else
+            state = STATE_FOLLOW;
     }
 
     virtual ~Camera() {
@@ -39,14 +55,23 @@ struct Camera : Controller {
     }
     
     virtual int getRoomIndex() const {
-        return actCamera > -1 ? level->cameras[actCamera].room : room;
+        return viewIndex > -1 ? level->cameras[viewIndex].room : room;
     }
 
     virtual void checkRoom() {
-        TR::Level::FloorInfo info;
-        level->getFloorInfo(room, (int)pos.x, (int)pos.y, (int)pos.z, info);
+        if (state == STATE_CUTSCENE) {
+            for (int i = 0; i < level->roomsCount; i++)
+                if (insideRoom(pos, i)) {
+                    room = i;
+                    break;
+                }
+            return;
+        }
 
-        if (info.roomNext != TR::NO_ROOM) 
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
+
+        if (info.roomNext != TR::NO_ROOM)
             room = info.roomNext;
         
         if (pos.y < info.roomCeiling) {
@@ -65,20 +90,7 @@ struct Camera : Controller {
                     pos.y = (float)info.roomFloor;
         }
     }
-    /*
-    virtual bool activate(ActionCommand *cmd) {
-        Controller::activate(cmd);
-        this->timer = max(max(1.0f, this->timer), cmd->timer);
-        if (cmd->action == TR::Action::CAMERA_TARGET)
-            actTargetEntity = cmd->value;
-        if (cmd->action == TR::Action::CAMERA_SWITCH) {
-            actCamera = cmd->value;
-            lastDest = pos;
-        }
-        activateNext();
-        return true;
-    }
-    */
+
     void updateListener() {
         Sound::listener.matrix = mViewInv;
         TR::Room &r = level->rooms[getRoomIndex()];
@@ -90,18 +102,33 @@ struct Camera : Controller {
         return level->rooms[getRoomIndex()].flags.water;
     }
 
+    void setView(int viewIndex, float timer, float speed) {
+        if (viewIndex == viewIndexLast) return;
+        viewIndexLast = viewIndex;
+
+        state           = STATE_STATIC;
+        this->viewIndex = viewIndex;
+        this->timer     = timer;
+        this->speed     = speed;
+    }
+
     virtual void update() {
         if (shake > 0.0f)
             shake = max(0.0f, shake - Core::deltaTime);
 
-    #ifndef LEVEL_EDITOR
-        if (cutscene) { // cutscene
-            timer += Core::deltaTime * 30;
+        if (state == STATE_CUTSCENE) {
+            timer += Core::deltaTime * 15.0f;
             float t = timer - int(timer);
             int indexA = int(timer) % level->cameraFramesCount;
-            int indexB = min(indexA + 1, level->cameraFramesCount - 1);
+            int indexB = (indexA + 1) % level->cameraFramesCount;
             TR::CameraFrame *frameA = &level->cameraFrames[indexA];
             TR::CameraFrame *frameB = &level->cameraFrames[indexB];
+
+            if (indexB < indexA) {
+                level->initCutscene();
+                game->playTrack(0, true);
+                timer = 0.0f;
+            }
 
             const int eps = 512;
 
@@ -118,10 +145,8 @@ struct Camera : Controller {
             pos    = level->cutMatrix * pos;
             target = level->cutMatrix * target;
 
-            // TODO: frame->roll
-        } else
-    #endif        
-        {
+            checkRoom();
+        } else {
             vec3 advAngleOld = advAngle;
 
             if (Input::down[ikMouseL]) {
@@ -147,13 +172,6 @@ struct Camera : Controller {
             if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
                 advTimer = -advTimer;
 */
-        #ifndef LEVEL_EDITOR
-            if (advTimer == 0.0f && advAngle != 0.0f) {
-                float t = 10.0f * Core::deltaTime;
-                advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
-                advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
-            }
-        #endif
             angle = owner->angle + advAngle;
             angle.z = 0.0f;
 /* toto
@@ -162,31 +180,7 @@ struct Camera : Controller {
             if (owner->state == Lara::STATE_HANG || owner->state == Lara::STATE_HANG_LEFT || owner->state == Lara::STATE_HANG_RIGHT)
                 angle.x -= 60.0f * DEG2RAD;
 */
-        #ifdef LEVEL_EDITOR
-            angle   = advAngle;
-            angle.x = min(max(angle.x, -80 * DEG2RAD), 80 * DEG2RAD);
-
-            vec3 d = vec3(sinf(angle.y) * cosf(angle.x), -sinf(angle.x), cosf(angle.y) * cosf(angle.x));
-            vec3 v = vec3(0);
-
-            if (Input::down[ikW]) v = v + d;
-            if (Input::down[ikS]) v = v - d;
-            if (Input::down[ikA]) v = v + d.cross(vec3(0, 1, 0));
-            if (Input::down[ikD]) v = v - d.cross(vec3(0, 1, 0));
-            pos = pos + v.normal() * (Core::deltaTime * 512.0f * 10.0f);
-
-            mViewInv.identity();
-            mViewInv.translate(pos);
-            mViewInv.rotateY(angle.y - PI);
-            mViewInv.rotateX(-angle.x);
-            mViewInv.rotateZ(PI);
-
-            updateListener();
-
-            return;
-        #endif
-            int lookAt = -1;
-            if (actTargetEntity > -1) lookAt = actTargetEntity;
+            Controller *lookAt = viewTarget;
 /* todo
             if (owner->arms[0].target > -1 && owner->arms[1].target > -1 && owner->arms[0].target != owner->arms[1].target) {
                 // two diff targets
@@ -204,17 +198,21 @@ struct Camera : Controller {
             if (timer > 0.0f) {
                 timer -= Core::deltaTime;
                 if (timer <= 0.0f) {
-                    timer = 0.0f;
-                    if (room != getRoomIndex())
-                        pos = lastDest;
-                    actTargetEntity = actCamera = -1;
+                    timer      = -1.0f;
+                    state      = STATE_FOLLOW;
+                    viewTarget = NULL;
+                    viewIndex  = -1;
 /* todo
                     target = owner->getViewPoint();
 */
                 }
             }
 
-            if (firstPerson && actCamera == -1) {
+            if (timer < 0.0f) {
+                viewTarget = NULL;
+            }
+
+            if (firstPerson && viewIndex == -1) {
                 Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
                 Basis eye(quat(0.0f, 0.0f, 0.0f, 1.0f), vec3(0.0f, -40.0f, 10.0f));
                 eye = head * eye;
@@ -233,26 +231,23 @@ struct Camera : Controller {
                 return;
             }
 
-            float lerpFactor = (lookAt == -1) ? 6.0f : 10.0f;
+            float lerpFactor = lookAt ? 10.0f : 6.0f;
             vec3 dir;
 /* todo
             target = target.lerp(owner->getViewPoint(), lerpFactor * Core::deltaTime);
 */
             target = owner->animation.getJoints(owner->getMatrix(), 7).pos;
 
-            if (actCamera > -1) {
-                TR::Camera &c = level->cameras[actCamera];
-                destPos = vec3(float(c.x), float(c.y), float(c.z));
+            if (viewIndex > -1) {
+                TR::Camera &cam = level->cameras[viewIndex];
+                destPos = vec3(float(cam.x), float(cam.y), float(cam.z));
                 if (room != getRoomIndex()) 
                     pos = destPos;
-                if (lookAt > -1) {
-                    TR::Entity &e = level->entities[lookAt];
-                    target = ((Controller*)e.controller)->pos;
-                }
+                if (lookAt)
+                    target = lookAt->pos;
             } else {
-                if (lookAt > -1) {
-                    TR::Entity &e = level->entities[lookAt];
-                    dir = (((Controller*)e.controller)->pos - target).normal();
+                if (lookAt) {
+                    dir = (lookAt->pos - target).normal();
                 } else
                     dir = getDir();
 
@@ -262,7 +257,6 @@ struct Camera : Controller {
 */                
                     vec3 eye = target - dir * CAMERA_OFFSET;
                     destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
-                    lastDest = destPos;
 /*
                 } else {
                     vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
@@ -273,7 +267,7 @@ struct Camera : Controller {
             }
             pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
 
-            if (actCamera <= -1)
+            if (viewIndex == -1)
                 checkRoom();
         }
 

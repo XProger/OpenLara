@@ -803,7 +803,7 @@ struct MeshBuilder {
             v.param    = { range, frame, 0, 0 };
         }
 
-        if (level->version == TR::Level::VER_TR1_PSX && !triangle)
+        if (level->version == TR::VER_TR1_PSX && !triangle)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
     }
 

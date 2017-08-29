@@ -196,7 +196,6 @@ struct Lara : Character {
         BODY_BRAID_MASK = BODY_HEAD   | BODY_CHEST  | BODY_ARM_L1 | BODY_ARM_L2 | BODY_ARM_R1 | BODY_ARM_R2,
     };
 
-    bool home;
     bool dozy;
 
     struct Weapon {
@@ -395,7 +394,7 @@ struct Lara : Character {
 
     } *braid;
 
-    Lara(IGame *game, int entity, bool home) : Character(game, entity, LARA_MAX_HEALTH), home(home), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1), braid(NULL) {
 
         if (getEntity().type == TR::Entity::LARA) {
             if (getRoom().flags.water)
@@ -412,10 +411,10 @@ struct Lara : Character {
         getEntity().flags.active = 1;
         initMeshOverrides();
 
-        if (!home)
-            wpnSet(Weapon::PISTOLS);
-        else
+        if (level->isHomeLevel)
             meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+        else
+            wpnSet(Weapon::PISTOLS);
 
         for (int i = 0; i < 2; i++) {
             arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
@@ -434,6 +433,7 @@ struct Lara : Character {
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
+        //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
@@ -702,7 +702,7 @@ struct Lara : Character {
     }
 
     void wpnChange(Weapon::Type wType) {
-        if (wpnCurrent == wType || home) {
+        if (wpnCurrent == wType || level->isHomeLevel) {
             if (emptyHands())
                 wpnDraw();
             return;
@@ -1265,13 +1265,11 @@ struct Lara : Character {
     }
 
     virtual void cmdEffect(int fx) {
-
         switch (fx) {
-            case TR::EFFECT_FLIP_MAP       : break; // TODO
             case TR::EFFECT_LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::EFFECT_DRAW_RIGHTGUN  :
             case TR::EFFECT_DRAW_LEFTGUN   : drawGun(fx == TR::EFFECT_DRAW_RIGHTGUN); break;
-            default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index);
+            default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
     }
 
@@ -1388,6 +1386,25 @@ struct Lara : Character {
         return false;
     }
 
+    int doTutorial(int track) {
+        switch (track) { // GYM tutorial routine
+            case 28 : if (level->tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
+            case 37 : 
+            case 41 : if (state != STATE_HANG) return 0; break;
+            case 42 : if (level->tracks[track].once && state == STATE_HANG) track = 43; break;
+            case 49 : if (state != STATE_SURF_TREAD) return 0; break;
+            case 50 : // end of GYM
+                if (level->tracks[track].once) {
+                    // back to title
+                } else
+                    if (state != STATE_WATER_OUT)
+                        return 0;
+                break;
+        }
+        return track;
+    }
+
+
     bool checkInteraction(Controller *controller, const TR::Limits::Limit &limit, bool action) {
         if ((state != STATE_STOP && state != STATE_TREAD && state != STATE_PUSH_PULL_READY) || !action || !emptyHands())
             return false;
@@ -1444,16 +1461,15 @@ struct Lara : Character {
 
         TR::Limits::Limit *limit = NULL;
         bool switchIsDown = false;
-        bool skipFirst = false;
         float timer = info.trigInfo.timer == 1 ? EPS : float(info.trigInfo.timer);
-
+        int cmdIndex = 0;
         int actionState = state;
+
         switch (info.trigger) {
             case TR::Level::Trigger::ACTIVATE : break;
 
             case TR::Level::Trigger::SWITCH : {
-                skipFirst = true;
-                Switch *controller = (Switch*)level->entities[info.trigCmd[0].args].controller;
+                Switch *controller = (Switch*)level->entities[info.trigCmd[cmdIndex++].args].controller;
 
                 if (controller->activeState == asNone) {
                     limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
@@ -1472,9 +1488,7 @@ struct Lara : Character {
             }
 
             case TR::Level::Trigger::KEY : {
-                skipFirst = true;
-
-                TR::Entity &entity = level->entities[info.trigCmd[0].args];
+                TR::Entity &entity = level->entities[info.trigCmd[cmdIndex++].args];
                 KeyHole *controller = (KeyHole*)entity.controller;
 
                 if (controller->activeState == asNone) {
@@ -1512,9 +1526,7 @@ struct Lara : Character {
                 break;
             }
             case TR::Level::Trigger::PICKUP :
-                skipFirst = true;
-
-                if (!level->entities[info.trigCmd[0].args].flags.invisible)
+                if (!level->entities[info.trigCmd[cmdIndex++].args].flags.invisible)
                     return;
                 break;
 
@@ -1529,13 +1541,14 @@ struct Lara : Character {
                 break;
 
             case TR::Level::Trigger::HEAVY :
+                break;
             case TR::Level::Trigger::DUMMY :
                 return;
         }
 
         bool needFlip = false;
-        for (int i = skipFirst; i < info.trigCmdCount; i++) {
-            TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
+        while (cmdIndex < info.trigCmdCount) {
+            TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
 
             switch (cmd.action) {
                 case TR::Action::ACTIVATE : {
@@ -1564,36 +1577,26 @@ struct Lara : Character {
                 case TR::Action::CAMERA_SWITCH : {
                     Camera *camera = (Camera*)level->cameraController;
 
-                    TR::FloorData::TriggerCommand &cam = info.trigCmd[++i];
+                    TR::FloorData::TriggerCommand &cam = info.trigCmd[cmdIndex++];
                     if (level->cameras[cmd.args].flags.once)
                         break;
-                    /*
-                    camera->current = level->entity[cmd.args].controller;
 
                     if (info.trigger == TR::Level::Trigger::COMBAT)
                         break;
                     if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && switchIsDown)
                         break;
-
-                    if (info.trigger == TR::Level::Trigger::SWITCH || camera->curIndex != camera->prevIndex) {
-
-                        controller->timer = cam.timer == 1 ? EPS : float(cam.timer);
-
-                        if (cam.once)
-                            level->cameras[cmd.args].flags.once = true;
-
-                        camera->speed = cam.speed * 8;
+ 
+                    if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
+                        level->cameras[cmd.args].flags.once |= cam.once;
+                        camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed * 8.0f);
                     }
-                    */
+
                     break;
                 }
-                case TR::Action::CAMERA_TARGET :
-                    // camera->target = level->entity[cmd.args].controller;
-                    break;
                 case TR::Action::FLOW :
                     break;
                 case TR::Action::FLIP_MAP : {
-                    TR::Flipmap &flip = level->flipmap[cmd.args];
+                    TR::Flags &flip = level->flipmap[cmd.args];
 
                     if (flip.once)
                         break;
@@ -1609,32 +1612,56 @@ struct Lara : Character {
                     if ((flip.active == 0x1F) ^ level->isFlipped)
                          needFlip = true;
 
-                    LOG("FLIP_MAP\n");
                     break;
                 }
                 case TR::Action::FLIP_ON :
                     if (level->flipmap[cmd.args].active == 0x1F && !level->isFlipped)
                         needFlip = true;
-                    LOG("FLIP_ON\n");
                     break;
                 case TR::Action::FLIP_OFF :
                     if (level->flipmap[cmd.args].active == 0x1F && level->isFlipped)
                         needFlip = true;
-                    LOG("FLIP_OFF\n");
+                    break;
+                case TR::Action::CAMERA_TARGET :
+                    ((Camera*)level->cameraController)->viewTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
                     LOG("END\n");
                     break;
-                case TR::Action::SOUNDTRACK :
-                    LOG("SOUNDTRACK\n");
+                case TR::Action::SOUNDTRACK : {
+                    int track = doTutorial(cmd.args);
+
+                    if (track == 0) break;
+
+                // check trigger
+                    TR::Flags &flags = level->tracks[track];
+
+                    if (flags.once)
+                        break;
+
+                    if (info.trigger == TR::Level::Trigger::SWITCH)
+                        flags.active ^= info.trigInfo.mask;
+                    else if (info.trigger == TR::Level::Trigger::ANTIPAD)
+                        flags.active &= ~info.trigInfo.mask;
+                    else
+                        flags.active |= info.trigInfo.mask;
+
+                    if (flags.active == 0x1F) {
+                        flags.once |= info.trigInfo.once;
+                        game->playTrack(track);
+                    } else
+                        game->stopTrack();
+
                     break;
-                case TR::Action::HARDCODE :
-                    LOG("HARDCODE\n");
+                }
+                case TR::Action::EFFECT :
+                    LOG("EFFECT\n");
                     break;
                 case TR::Action::SECRET :
                     if (!level->secrets[cmd.args]) {
                         level->secrets[cmd.args] = true;
-                        playSound(TR::SND_SECRET, pos, 0);
+                        if (!playSound(TR::SND_SECRET, pos, 0))
+                            game->playTrack(TR::TRACK_SECRET);
                     }
                     break;
             }
@@ -2176,6 +2203,9 @@ struct Lara : Character {
 
     virtual void update() {
         Character::update();
+        
+        if (getEntity().type != TR::Entity::LARA)
+            return;
 
         if (damageTime > 0.0f)
             damageTime = max(0.0f, damageTime - Core::deltaTime);
@@ -2203,6 +2233,9 @@ struct Lara : Character {
     }
 
     virtual void updateVelocity() {
+        if (getEntity().type != TR::Entity::LARA)
+            return;
+
         if (!(input & DEATH))
             checkTrigger();
 
@@ -2315,6 +2348,8 @@ struct Lara : Character {
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
+        if (getEntity().type != TR::Entity::LARA)
+            return;
         // tilt control
         vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
         if (stand == STAND_UNDERWATER)

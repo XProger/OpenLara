@@ -6,20 +6,21 @@ R"====(
 
 varying vec2 vTexCoord;
 
-uniform int uType;
+uniform vec4 uParam;
 
 #ifdef VERTEX
 	attribute vec4 aCoord;
 
 	void main() {
 		vTexCoord	= aCoord.zw;
+		#ifdef FILTER_DEFAULT
+			vTexCoord = ((vTexCoord * 2.0 - 1.0) * uParam.xy) * 0.5 + 0.5;
+		#endif
 		gl_Position = vec4(aCoord.xy, 0.0, 1.0);
 	}
 #else
 	uniform sampler2D sDiffuse;
 	uniform sampler2D sNormal;
-
-	uniform vec4 uParam;
 
 	vec4 downsample() { // uParam (textureSize, unused, unused, unused)
 		float k = 1.0 / uParam.x; // inverted texture size
@@ -29,7 +30,7 @@ uniform int uType;
 			for (float x = -1.5; x < 2.0; x++) {
 				vec4 p;
 				p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * k).xyz;
-				p.w	   = dot(p.xyz, vec3(0.299, 0.587, 0.114));
+				p.w    = dot(p.xyz, vec3(0.299, 0.587, 0.114));
 				p.xyz *= p.w;
 				color += p;
 			}

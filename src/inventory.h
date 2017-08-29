@@ -132,38 +132,42 @@ struct Inventory {
     } *items[INVENTORY_MAX_ITEMS];
 
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
+        TR::LevelID id = game->getLevel()->id;
+
         add(TR::Entity::INV_PASSPORT);
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
+
+        if (id != TR::TITLE) {
 /*
-        add(TR::Entity::INV_PUZZLE_1, 3);
-        add(TR::Entity::INV_KEY_1, 3);
+            add(TR::Entity::INV_COMPASS);
+            if (level->extra.inv.map != -1)
+                add(TR::Entity::INV_MAP);
+            if (level->extra.inv.gamma != -1)
+                add(TR::Entity::INV_GAMMA);
 */
+            add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
+            add(TR::Entity::INV_SHOTGUN, 10);
+            add(TR::Entity::INV_MAGNUMS, 10);
+            add(TR::Entity::INV_UZIS, 50);
+//              add(TR::Entity::INV_MEDIKIT_SMALL, 999);
+//              add(TR::Entity::INV_MEDIKIT_BIG, 999);
+//              add(TR::Entity::INV_SCION, 1);
+//              add(TR::Entity::INV_KEY_1, 1);
+//              add(TR::Entity::INV_PUZZLE_1, 1);
 
-        /*
-        add(TR::Entity::INV_COMPASS);
-        if (level->extra.inv.map != -1)
-            add(TR::Entity::INV_MAP);
-        if (level->extra.inv.gamma != -1)
-            add(TR::Entity::INV_GAMMA);
-        */
-        add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
-        add(TR::Entity::INV_SHOTGUN, 10);
-        add(TR::Entity::INV_MAGNUMS, 10);
-        add(TR::Entity::INV_UZIS, 50);
-//        add(TR::Entity::INV_MEDIKIT_SMALL, 999);
-//        add(TR::Entity::INV_MEDIKIT_BIG, 999);
+            for (int i = 0; i < COUNT(background); i++)
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
+        } else {
+            add(TR::Entity::INV_HOME);
 
-//        add(TR::Entity::INV_SCION, 1);
-//        add(TR::Entity::INV_KEY_1, 1);
-//        add(TR::Entity::INV_PUZZLE_1, 1);
+            memset(background, 0, sizeof(background));
+            background[0] = Texture::LoadPCX("data/TITLEH.PCX");
+        }
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
         memset(pageItemIndex, 0, sizeof(pageItemIndex));
-
-        for (int i = 0; i < COUNT(background); i++)
-            background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
     }
 
     ~Inventory() {
@@ -592,14 +596,25 @@ struct Inventory {
     // background
         Core::setDepthTest(false);
 
-        game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
-        Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
         background[0]->bind(sDiffuse);  // orignal image
-        background[1]->bind(sNormal);   // blured grayscale image
+        if (background[1]) {
+            game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
+            Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
+            background[1]->bind(sNormal);   // blured grayscale image
+        } else {
+            game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
+
+            float aspect1 = float(background[0]->width) / float(background[0]->height);
+            float aspect2 = float(Core::width) / float(Core::height);
+            Core::active.shader->setParam(uParam, vec4(aspect2 / aspect1, -1.0f, 0, 0));;
+        }
         game->getMesh()->renderQuad();
 
         Core::setDepthTest(true);
         Core::setBlending(bmAlpha);
+
+        if (game->isCutscene())
+            return;
 
     // items
         game->setupBinding();
@@ -645,7 +660,8 @@ struct Inventory {
 
         static const char* pageTitle[PAGE_MAX] = { "OPTION", "INVENTORY", "ITEMS" };
 
-        UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
+        if (game->getLevel()->id != TR::TITLE)
+            UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (page < PAGE_ITEMS && getItemsCount(page + 1)) {
             UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);

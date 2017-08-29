@@ -22,6 +22,7 @@ struct IGame {
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Controller*  getCamera()    { return NULL; }
     virtual Controller*  getLara()      { return NULL; }
+    virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void setClipParams(float clipSign, float clipHeight) {}
@@ -41,6 +42,8 @@ struct IGame {
     virtual bool invChooseKey(TR::Entity::Type hole) { return false; }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const { return NULL; }
+    virtual void playTrack(int track, bool restart = false) {}
+    virtual void stopTrack()                                {}
 };
 
 struct Controller {
@@ -98,6 +101,9 @@ struct Controller {
             e.flags.reverse = true;
             activate();
         }
+
+        if (e.isLara() || e.isActor()) // Lara and cutscene entities is active by default
+            activate();
     }
 
     virtual ~Controller() {
@@ -235,8 +241,8 @@ struct Controller {
 
     bool insideRoom(const vec3 &pos, int room) const {
         TR::Room &r = level->rooms[room];
-        vec3 min = vec3((float)r.info.x, (float)r.info.yTop, (float)r.info.z);
-        vec3 max = min + vec3(float(r.xSectors * 1024), float(r.info.yBottom - r.info.yTop), float(r.zSectors * 1024));
+        vec3 min = vec3((float)r.info.x + 1024, (float)r.info.yTop, (float)r.info.z + 1024);
+        vec3 max = min + vec3(float((r.xSectors - 1) * 1024), float(r.info.yBottom - r.info.yTop), float((r.zSectors - 1) * 1024));
 
         return  pos.x >= min.x && pos.x <= max.x &&
                 pos.y >= min.y && pos.y <= max.y &&
@@ -482,6 +488,7 @@ struct Controller {
                                     case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI; break;
                                     case TR::EFFECT_FLOOR_SHAKE    : game->fxQuake(0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
                                     case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
+                                    case TR::EFFECT_FLIP_MAP       : level->isFlipped = !level->isFlipped; break;
                                     default                        : cmdEffect(fx); break;
                                 }
                             } else
@@ -553,7 +560,7 @@ struct Controller {
         mat4 matrix;
 
         TR::Entity &e = getEntity();
-        if (e.type < TR::Entity::CUT_1 || e.type > TR::Entity::CUT_4) { // TODO: move to ctor
+        if (!e.isActor()) {
             matrix.identity();
             matrix.translate(pos);
             if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
@@ -568,7 +575,10 @@ struct Controller {
     void renderShadow(MeshBuilder *mesh) {
         TR::Entity &entity = getEntity();
 
-        if (Core::pass != Core::passCompose || !TR::castShadow(entity.type))
+        if (Core::pass != Core::passCompose || !entity.castShadow())
+            return;
+
+        if (entity.isActor()) // cutscene entities have no blob shadow
             return;
 
         Box box = animation.getBoundingBox(pos, 0);

@@ -557,7 +557,7 @@ namespace Debug {
             sprintf(buf, "samples_PSX/%03d.wav", index);
             FILE *f = fopen(buf, "wb");
 
-            if (level->version == TR::Level::VER_TR1_PSX) {
+            if (level->version == TR::VER_TR1_PSX) {
                 int dataSize = level->soundSize[index] / 16 * 28 * 2 * 4;
 
                 struct Header {
@@ -592,7 +592,7 @@ namespace Debug {
                         fwrite(&frames[i].L, 2, 1, f);                
             }
 
-            if (level->version == TR::Level::VER_TR1_PC) {
+            if (level->version == TR::VER_TR1_PC) {
                 uint32 *data = (uint32*)&level->soundData[level->soundOffsets[index]];
                 fwrite(data, data[1] + 8, 1, f);
             }
@@ -628,7 +628,7 @@ namespace Debug {
                 case_name(TR::Action, CAMERA_TARGET );
                 case_name(TR::Action, END           );
                 case_name(TR::Action, SOUNDTRACK    );
-                case_name(TR::Action, HARDCODE      );
+                case_name(TR::Action, EFFECT        );
                 case_name(TR::Action, SECRET        );
             }
             return "UNKNOWN";
@@ -658,7 +658,7 @@ namespace Debug {
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = ((Controller*)entity.controller)->angle * RAD2DEG;
-            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, entity.room);
+            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, ((Controller*)entity.controller)->getRoomIndex());
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
