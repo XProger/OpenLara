@@ -792,6 +792,9 @@ struct Level : IGame {
     }
 
     void update() {
+        if (Input::state[cInventory] && level.id != TR::TITLE)
+            inventory.toggle();
+
         Sound::Sample *sndChanged = sndCurrent;
 
         if (inventory.isActive() || level.id == TR::TITLE) {

@@ -52,9 +52,6 @@ namespace Game {
     }
 
     void updateTick() {
-        if (Input::state[cInventory])
-            level->inventory.toggle();
-
         float dt = Core::deltaTime;
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;

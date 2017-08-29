@@ -1412,8 +1412,10 @@ namespace TR {
             initRoomMeshes();
             initTiles(tiles4, tiles8, palette, cluts);
 
-            //delete[] tiles4;   tiles4 = NULL;
-            delete[] tiles8;   tiles8 = NULL;
+            //delete[] tiles4;
+            //tiles4 = NULL;
+            delete[] tiles8;
+            tiles8 = NULL;
 
         // init flipmap states
             isFlipped = false;
@@ -1737,8 +1739,8 @@ namespace TR {
 
                         stream.read(mesh.rectangles, stream.read(mesh.rCount));
                         stream.read(mesh.triangles,  stream.read(mesh.tCount));   
-                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 300) mesh.rectangles[i].color = true;
-                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 300) mesh.triangles[i].color  = true;
+                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 256) mesh.rectangles[i].color = true;
+                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 256) mesh.triangles[i].color  = true;
                         break;
                     }
                 }
@@ -1984,6 +1986,7 @@ namespace TR {
             switch (version) {
                 case VER_TR1_PC  : return palette[texture & 0xFF];
                 case VER_TR1_PSX : {
+                    ASSERT((texture & 0x7FFF) < 256);
                     ObjectTexture &t = objectTextures[texture & 0x7FFF];
                     int idx  = (t.texCoord[0].y * 256 + t.texCoord[0].x) / 2;
                     int part = t.texCoord[0].x % 2;

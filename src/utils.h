@@ -13,7 +13,7 @@
         #define debugBreak() _asm { int 3 }
     #endif
 
-    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT %s in %s:%d\n", #expr, __FILE__, __LINE__); debugBreak(); }
+    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
 
     #ifndef ANDROID
         #define LOG(...) printf(__VA_ARGS__)

@@ -337,14 +337,11 @@ struct Atlas {
         delete[] indices;
 
         uint32 *data = new uint32[width * height];
+        memset(data, 0, width * height * sizeof(data[0]));
         fill(root, data);
         fillInstances();
 
         Texture *atlas = new Texture(width, height, Texture::RGBA, false, data, true, true);
-        
-        FILE *f = fopen("atlas.raw", "wb");
-        fwrite(&data[0], width * height * 4, 1, f);
-        fclose(f);
         
         delete[] data;
         return atlas;
