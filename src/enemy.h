@@ -61,9 +61,6 @@ struct Enemy : Character {
     Character *target;
     Path      *path;
 
-    int jointChest;
-    int jointHead;
-
     float targetDist;
     bool  targetDead;
     bool  targetInView;     // target in enemy view zone
@@ -71,8 +68,6 @@ struct Enemy : Character {
     bool  targetCanAttack;
 
     Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
-        jointChest = jointHead = -1;
-
         targetDist   = +INF;
         targetInView = targetFromView = targetCanAttack = false;
     }
@@ -175,27 +170,6 @@ struct Enemy : Character {
             animation.overrideMask |=  (1 << chest);
         } else
             animation.overrideMask &= ~(1 << chest);
-    }
-
-    void lookAt(int target, int chest, int head, bool rotate = false) {
-        float speed = 8.0f * Core::deltaTime;
-        quat rot;
-
-        if (chest > -1) {
-            if (rotate && aim(target, chest, vec4(-PI * 0.8f, PI * 0.8f, -PI * 0.75f, PI * 0.75f), rot))
-                rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
-            else 
-                rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
-            animation.overrides[chest] = rotChest * animation.overrides[chest];
-        }
-
-        if (head > -1) {
-            if (rotate && aim(target, head, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
-                rotHead = rotHead.slerp(rot, speed);
-            else
-                rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
-            animation.overrides[head] = rotHead * animation.overrides[head];
-        }
     }
 
     bool getTargetInfo(int height, vec3 *pos, float *angleX, float *angleY, float *dist) {
@@ -621,7 +595,7 @@ struct Wolf : Enemy {
 
         Enemy::updatePosition();
         setOverrides(state != STATE_DEATH, jointChest, jointHead);
-        lookAt(target ? target->entity : -1, jointChest, jointHead);
+        lookAt(target);
     }
 };
 
@@ -770,7 +744,7 @@ struct Bear : Enemy {
 
         Enemy::updatePosition();
         setOverrides(state == STATE_RUN || state == STATE_WALK || state == STATE_HIND, jointChest, jointHead);
-        lookAt(target ? target->entity : -1, jointChest, jointHead);
+        lookAt(target);
     }
 };
 
@@ -963,7 +937,7 @@ struct Rex : Enemy {
 
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
-        lookAt(target ? target->entity : -1, jointChest, jointHead, targetInView && state != STATE_DEATH && state != STATE_FATAL);
+        lookAt(target);
     }
 };
 
@@ -1081,7 +1055,7 @@ struct Raptor : Enemy {
         
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
-        lookAt(target ? target->entity : -1, jointChest, jointHead, targetInView && state != STATE_DEATH);
+        lookAt(target);
     }
 };
 

@@ -211,19 +211,20 @@ struct Lara : Character {
     vec3            chestOffset;
 
     struct Arm {
-        int             tracking;       // tracking target (main target)
-        int             target;         // target for shooting
+        Controller      *tracking;       // tracking target (main target)
+        Controller      *target;         // target for shooting
         float           shotTimer;
         quat            rot, rotAbs;
         Weapon::Anim    anim;
         Animation       animation;
+
+        Arm() : tracking(NULL), target(NULL) {}
     } arms[2];
 
     TR::Entity::Type  usedKey;
     TR::Entity        *pickupEntity;
     KeyHole           *keyHole;
 
-    int viewTarget;
     int roomPrev; // water out from room
     vec2 rotFactor;
 
@@ -394,7 +395,7 @@ struct Lara : Character {
 
     } *braid;
 
-    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), viewTarget(-1), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), braid(NULL) {
 
         if (getEntity().type == TR::Entity::LARA) {
             if (getRoom().flags.water)
@@ -403,6 +404,8 @@ struct Lara : Character {
                 animation.setAnim(ANIM_STAND);
         }
 
+        jointChest = 7;
+        jointHead  = 14;
         oxygen     = LARA_MAX_OXYGEN;
         hitDir     = -1;
         damageTime = LARA_DAMAGE_TIME;
@@ -754,10 +757,10 @@ struct Lara : Character {
                 //int realFrameIndex = int(arms[i].animation.time * 30.0f / anim->frameRate) % ((anim->frameEnd - anim->frameStart) / anim->frameRate + 1);
                 if (anim.frameIndex != anim.framePrev) {
                     if (anim.frameIndex == 0) { //realFrameIndex < arms[i].animation.framePrev) {
-                        if ((input & ACTION) && (arm.tracking == -1 || arm.target > -1)) {
+                        if ((input & ACTION) && (!arm.tracking || arm.target)) {
                             armShot[i] = true;
                         } else
-                            wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == -1);
+                            wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == NULL);
                     }
                 // shotgun reload sound
                     if (wpnCurrent == Weapon::SHOTGUN) {
@@ -811,8 +814,8 @@ struct Lara : Character {
 
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
-            if (arm->target > -1 && checkHit(arm->target, p, hit, hit)) {
-                ((Character*)level->entities[arm->target].controller)->hit(wpnGetDamage());
+            if (arm->target && checkHit(arm->target, p, hit, hit)) {
+                ((Character*)arm->target)->hit(wpnGetDamage());
                 hit -= d * 64.0f;
                 Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
@@ -848,8 +851,8 @@ struct Lara : Character {
 
         if (input & DEATH) {
             arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
-            arms[0].tracking  = arms[1].tracking  = -1;
-            arms[0].target    = arms[1].target    = -1;
+            arms[0].tracking  = arms[1].tracking  = NULL;
+            arms[0].target    = arms[1].target    = NULL;
             animation.overrideMask = 0;
             return;
         }
@@ -877,7 +880,7 @@ struct Lara : Character {
             for (int i = 0; i < 2; i++) {
                 Arm &arm = arms[i];
 
-                if (arm.target > -1 || ((input & ACTION) && arm.tracking == -1)) {
+                if (arm.target || ((input & ACTION) && !arm.tracking)) {
                     if (arm.anim == Weapon::Anim::HOLD)
                         wpnSetAnim(arm, wpnState, Weapon::Anim::AIM, 0.0f, 1.0f);
                 } else
@@ -1025,8 +1028,10 @@ struct Lara : Character {
         }
 
         animation.overrideMask = overrideMask;
+    }
 
-        lookAt(viewTarget);
+    virtual void lookAt(Controller *target) {
+        Character::lookAt(canLookAt() ? target : NULL);
 
         if (wpnCurrent == Weapon::SHOTGUN)
             aimShotgun();
@@ -1034,31 +1039,11 @@ struct Lara : Character {
             aimPistols();
     }
 
-    void lookAt(int target) { // TODO: character lookAt
-        float speed = 8.0f * Core::deltaTime;
-        quat rot;
-
-        bool can = canLookAt();
-        // chest
-        if (can && aim(target, 7, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.9f, PI * 0.9f), rot))
-            rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
-        else
-            rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
-        animation.overrides[7] = rotChest * animation.overrides[7];
-
-        // head
-        if (can && aim(target, 14, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
-            rotHead = rotHead.slerp(rot, speed);
-        else
-            rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
-        animation.overrides[14] = rotHead * animation.overrides[14];
-    }
-
     void aimShotgun() {
         quat rot;
 
         Arm &arm = arms[0];
-        arm.target = aim(arm.target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs) ? arm.target : -1;
+        arm.target = aim(arm.target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs) ? arm.target : NULL;
     }
 
     void aimPistols() {
@@ -1080,7 +1065,7 @@ struct Lara : Character {
                 arm.target = arms[i^1].target;
                 if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                     rot = quat(0, 0, 0, 1);
-                    arm.target = -1;
+                    arm.target = NULL;
                 }
             }
 
@@ -1098,10 +1083,11 @@ struct Lara : Character {
     }
 
     void updateTargets() {
-        arms[0].target = arms[1].target = -1;
+        arms[0].target = arms[1].target = NULL;
+        viewTarget = NULL;
 
         if (emptyHands() || !wpnReady()) {
-            arms[0].tracking = arms[1].tracking = -1;
+            arms[0].tracking = arms[1].tracking = NULL;
             return;
         }
 
@@ -1109,7 +1095,7 @@ struct Lara : Character {
         bool retarget = false;
         if (Core::settings.controls.retarget) {
             for (int i = 0; i < 2; i++)
-                if (arms[i].tracking == -1 || ((Character*)level->entities[arms[i].tracking].controller)->health <= 0.0f) {
+                if (!arms[i].tracking || ((Character*)arms[i].tracking)->health <= 0.0f) {
                     retarget = true;
                     break;
                 }
@@ -1119,15 +1105,15 @@ struct Lara : Character {
         if (!(input & ACTION) || retarget) {
             getTargets(arms[0].tracking, arms[1].tracking);
             if (count == 1)
-                arms[1].tracking = -1;
-            else if (arms[0].tracking == -1 && arms[1].tracking != -1)
+                arms[1].tracking = NULL;
+            else if (!arms[0].tracking && arms[1].tracking)
                 arms[0].tracking = arms[1].tracking;
-            else if (arms[1].tracking == -1 && arms[0].tracking != -1)
+            else if (!arms[1].tracking && arms[0].tracking)
                 arms[1].tracking = arms[0].tracking;
             arms[0].target = arms[0].tracking;
             arms[1].target = arms[1].tracking;
         } else {
-            if (arms[0].tracking == -1 && arms[1].tracking == -1)
+            if (!arms[0].tracking && !arms[1].tracking)
                 return;
 
         // flip left and right by relative target direction
@@ -1137,8 +1123,8 @@ struct Lara : Character {
                 dir.y = 0.0f;
 
                 for (int i = 0; i < count; i++)
-                    if (arms[i].tracking != -1) {
-                        vec3 v = ((Controller*)level->entities[arms[i].tracking].controller)->pos - pos;
+                    if (arms[i].tracking) {
+                        vec3 v = arms[i].tracking->pos - pos;
                         v.y = 0;
                         side[i] = sign(v.cross(dir).y);
                     }
@@ -1149,32 +1135,42 @@ struct Lara : Character {
 
         // check occlusion for tracking targets
             for (int i = 0; i < count; i++)
-                if (arms[i].tracking > -1) {
-                    TR::Entity &e = level->entities[arms[i].tracking];
-                    Controller *enemy = (Controller*)e.controller;
+                if (arms[i].tracking) {
+                    Controller *enemy = (Controller*)arms[i].tracking;
 
                     Box box = enemy->getBoundingBox();
                     vec3 to = box.center();
                     to.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
 
                     vec3 from = pos - vec3(0, 650, 0);
-                    arms[i].target = checkOcclusion(from, to, (to - from).length()) ? arms[i].tracking : -1;
+                    arms[i].target = checkOcclusion(from, to, (to - from).length()) ? arms[i].tracking : NULL;
                 }
 
             if (count == 1)
-                arms[1].target = -1;
-            else if (arms[0].target == -1 && arms[1].target != -1)
+                arms[1].target = NULL;
+            else if (!arms[0].target && arms[1].target)
                 arms[0].target = arms[1].target;
-            else if (arms[1].target == -1 && arms[0].target != -1)
+            else if (!arms[1].target && arms[0].target)
                 arms[1].target = arms[0].target;
         }
+
+        if (arms[0].target && arms[1].target && arms[0].target != arms[1].target) {
+            viewTarget = NULL; //arms[0].target;
+        } else if (arms[0].target)
+            viewTarget = arms[0].target;
+        else if (arms[1].target)
+            viewTarget = arms[1].target;
+        else if (arms[0].tracking)
+            viewTarget = arms[0].tracking;
+        else if (arms[1].tracking)
+            viewTarget = arms[1].tracking;
     }
 
-    void getTargets(int &target1, int &target2) {
+    void getTargets(Controller *&target1, Controller *&target2) {
         vec3 dir = getDir().normal();
         float dist[2]  = { TARGET_MAX_DIST, TARGET_MAX_DIST };
 
-        target1 = target2 = -1;
+        target1 = target2 = NULL;
 
         vec3 from = pos - vec3(0, 650, 0);
 
@@ -1199,15 +1195,15 @@ struct Lara : Character {
             if (d < dist[0]) {
                 target2 = target1;
                 dist[1] = dist[0];
-                target1 = i;
+                target1 = enemy;
                 dist[0] = d;
             } else if (d < dist[1]) {
-                target2 = i;
+                target2 = enemy;
                 dist[1] = d;
             }
         }
 
-        if (target2 == -1 || dist[1] > dist[0] * 4)
+        if (!target2 || dist[1] > dist[0] * 4)
             target2 = target1;
     }
 
@@ -1217,12 +1213,9 @@ struct Lara : Character {
         return ((d - from).length() > (dist - 512.0f));
     }
 
-    bool checkHit(int target, const vec3 &from, const vec3 &to, vec3 &point) {
-        TR::Entity &e = level->entities[target];
-        Controller *controller = (Controller*)e.controller;
-
-        Box box = controller->getBoundingBoxLocal();
-        mat4 m  = controller->getMatrix();
+    bool checkHit(Controller *target, const vec3 &from, const vec3 &to, vec3 &point) {
+        Box box = target->getBoundingBoxLocal();
+        mat4 m  = target->getMatrix();
 
         float t;
         vec3 v = to - from;
@@ -1231,7 +1224,7 @@ struct Lara : Character {
             v = v.normal();
             Sphere spheres[34];
             int count;
-            controller->getSpheres(spheres, count);
+            target->getSpheres(spheres, count);
             for (int i = 0; i < count; i++) 
                 if (spheres[i].intersect(from, v, t)) {
                     point = from + v * t;
@@ -1671,16 +1664,6 @@ struct Lara : Character {
             level->isFlipped = !level->isFlipped;
     }
 
-    vec3 getViewPoint() {
-        vec3 offset = chestOffset = animation.getJoints(getMatrix(), 7).pos;
-        if (stand != STAND_UNDERWATER)
-            offset.y -= 256.0f;
-        if (!emptyHands())
-            offset.y -= 256.0f;
-
-        return offset;
-    }
-
     virtual Stand getStand() {
         if (dozy) return STAND_UNDERWATER;
 
@@ -1694,7 +1677,7 @@ struct Lara : Character {
             return STAND_AIR;
         }
 
-        if (state == STATE_HANDSTAND || state == STATE_HANG_UP)
+        if (state == STATE_HANDSTAND || (state == STATE_HANG_UP && animation.index != ANIM_CLIMB_JUMP))
             return STAND_HANG;
 
         if (stand == STAND_ONWATER && state != STATE_STOP) {
@@ -1788,14 +1771,14 @@ struct Lara : Character {
             }
         }
 
-        if (state == STATE_FORWARD_JUMP) {
+        if (state == STATE_FORWARD_JUMP || state == STATE_FALL_BACK) {
             if (emptyHands()) {
                 if (input & ACTION) return STATE_REACH;
                 if ((input & (JUMP | FORTH | WALK)) == (JUMP | FORTH | WALK)) return STATE_SWAN_DIVE;
             }
         } else
             if (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
-                return animation.setAnim( (state == STATE_FAST_BACK || state == STATE_SLIDE_BACK || state == STATE_ROLL_2) ? ANIM_FALL_BACK :  ANIM_FALL_FORTH);
+                return animation.setAnim(ANIM_FALL_FORTH);// (state == STATE_FAST_BACK || state == STATE_SLIDE_BACK || state == STATE_ROLL_2) ? ANIM_FALL_BACK :  ANIM_FALL_FORTH);
 
         if (state == STATE_SWAN_DIVE)
             return STATE_FAST_DIVE;
@@ -2535,7 +2518,7 @@ struct Lara : Character {
         // hit the wall
             switch (stand) {
                 case STAND_AIR :
-                    if (state == STATE_UP_JUMP || state == STATE_REACH)
+                    if (state == STATE_UP_JUMP || state == STATE_REACH || state == STATE_FALL_BACK)
                         velocity.x = velocity.z = 0.0f;
 
                     if (velocity.x != 0.0f || velocity.z != 0.0f) {

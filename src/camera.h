@@ -4,6 +4,7 @@
 #include "core.h"
 #include "frustum.h"
 #include "controller.h"
+#include "character.h"
 
 #define CAMERA_OFFSET (1024.0f + 256.0f)
 
@@ -18,11 +19,11 @@ struct Camera : Controller {
         STATE_HEAVY
     };
 
-    Controller *owner;
+    Character  *owner;
     Frustum    *frustum;
 
     float   fov, znear, zfar;
-    vec3    target, destPos, advAngle;
+    vec3    target, destPos, lastDest, advAngle;
     float   advTimer;
     mat4    mViewInv;
     int     room;
@@ -41,7 +42,7 @@ struct Camera : Controller {
     bool    firstPerson;
     bool    isVR;
 
-    Camera(IGame *game, Controller *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), reflectPlane(NULL), isVR(false) {
+    Camera(IGame *game, Character *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), reflectPlane(NULL), isVR(false) {
         changeView(false);
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;
@@ -110,6 +111,16 @@ struct Camera : Controller {
         this->viewIndex = viewIndex;
         this->timer     = timer;
         this->speed     = speed;
+        lastDest        = pos;
+    }
+
+    vec3 getViewPoint() {
+        vec3 p = owner->getViewPoint();
+        if (owner->stand != Character::STAND_UNDERWATER)
+            p.y -= 256.0f;
+        if (state == STATE_COMBAT)
+            p.y -= 256.0f;
+        return p;
     }
 
     virtual void update() {
@@ -168,49 +179,45 @@ struct Camera : Controller {
             } else
                 advTimer = -1.0f;
 
-/* toto
             if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
                 advTimer = -advTimer;
-*/
+
             angle = owner->angle + advAngle;
             angle.z = 0.0f;
-/* toto
-            if (owner->stand == Lara::STAND_ONWATER)
-                angle.x -= 22.0f * DEG2RAD;
-            if (owner->state == Lara::STATE_HANG || owner->state == Lara::STATE_HANG_LEFT || owner->state == Lara::STATE_HANG_RIGHT)
-                angle.x -= 60.0f * DEG2RAD;
-*/
-            Controller *lookAt = viewTarget;
-/* todo
-            if (owner->arms[0].target > -1 && owner->arms[1].target > -1 && owner->arms[0].target != owner->arms[1].target) {
-                // two diff targets
-            } else if (owner->arms[0].target > -1)
-                lookAt = owner->arms[0].target;
-            else if (owner->arms[1].target > -1)
-                lookAt = owner->arms[1].target;
-            else if (owner->arms[0].tracking > -1)
-                lookAt = owner->arms[0].tracking;
-            else if (owner->arms[1].tracking > -1)
-                lookAt = owner->arms[1].tracking;
 
-            owner->viewTarget = lookAt;
-*/
+            if (owner->stand == Character::STAND_ONWATER)
+                angle.x -= 22.0f * DEG2RAD;
+            if (owner->stand == Character::STAND_HANG)
+                angle.x -= 60.0f * DEG2RAD;
+
+
+            Controller *lookAt = viewTarget;
+            
+            if (state != STATE_STATIC) {
+                if (owner->viewTarget)
+                    owner->lookAt(lookAt = owner->viewTarget);
+                else
+                    owner->lookAt(lookAt = viewTarget);
+            }
+
+            vec3 viewPoint = getViewPoint();
+
             if (timer > 0.0f) {
                 timer -= Core::deltaTime;
                 if (timer <= 0.0f) {
                     timer      = -1.0f;
                     state      = STATE_FOLLOW;
-                    viewTarget = NULL;
+                    viewTarget = owner->viewTarget = NULL;
                     viewIndex  = -1;
-/* todo
-                    target = owner->getViewPoint();
-*/
+                    target     = viewPoint;
+                    if (room != getRoomIndex())
+                        pos = lastDest;
                 }
-            }
+            } else 
+                viewIndex = -1;
 
-            if (timer < 0.0f) {
+            if (timer < 0.0f)
                 viewTarget = NULL;
-            }
 
             if (firstPerson && viewIndex == -1) {
                 Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
@@ -233,10 +240,8 @@ struct Camera : Controller {
 
             float lerpFactor = lookAt ? 10.0f : 6.0f;
             vec3 dir;
-/* todo
-            target = target.lerp(owner->getViewPoint(), lerpFactor * Core::deltaTime);
-*/
-            target = owner->animation.getJoints(owner->getMatrix(), 7).pos;
+
+            target = target.lerp(viewPoint, lerpFactor * Core::deltaTime);
 
             if (viewIndex > -1) {
                 TR::Camera &cam = level->cameras[viewIndex];
@@ -252,17 +257,15 @@ struct Camera : Controller {
                     dir = getDir();
 
                 int destRoom;
-/* todo
-                if ((!owner->emptyHands() || owner->state != Lara::STATE_BACK_JUMP) || lookAt > -1) {
-*/                
+                if ((state == STATE_COMBAT || owner->state != 25) || lookAt) { // TODO: FUUU! 25 == Lara::STATE_BACK_JUMP
                     vec3 eye = target - dir * CAMERA_OFFSET;
                     destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
-/*
+                    lastDest = destPos;
                 } else {
                     vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
                     destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
                 }
-*/
+
                 room = destRoom;
             }
             pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
@@ -317,10 +320,7 @@ struct Camera : Controller {
 
         room     = owner->getRoomIndex();
         pos      = owner->pos - owner->getDir() * 1024.0f;
-/* todo
-        target   = owner->getViewPoint();
-*/
-        target   = owner->animation.getJoints(owner->getMatrix(), 7).pos;
+        target   = getViewPoint();
         advAngle = vec3(0.0f);
         advTimer = 0.0f;
 

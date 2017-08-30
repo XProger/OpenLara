@@ -811,6 +811,10 @@ struct Level : IGame {
                 c->update();
                 c = next;
             }
+
+            if (camera->state != Camera::STATE_STATIC)
+                camera->state = lara->emptyHands() ? Camera::STATE_FOLLOW : Camera::STATE_COMBAT;
+
             camera->update();
 
             if (waterCache) 

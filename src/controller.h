@@ -200,10 +200,9 @@ struct Controller {
         layers[layer].mask  = mask;
     }
 
-    bool aim(int target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
-        if (target > -1) {
-            TR::Entity &e = level->entities[target];
-            Box box = ((Controller*)e.controller)->getBoundingBox();
+    bool aim(Controller *target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
+        if (target) {
+            Box box = target->getBoundingBox();
             vec3 t = (box.min + box.max) * 0.5f;
 
             Basis b = animation.getJoints(Basis(getMatrix()), joint);
