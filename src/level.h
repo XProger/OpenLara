@@ -45,6 +45,10 @@ struct Level : IGame {
     int  curTrack;
     bool lastTitle;
 
+    TR::Effect effect;
+    float      effectTimer;
+    int        flickerIdx;
+
 // IGame implementation ========
     virtual TR::Level* getLevel() {
         return &level;
@@ -122,8 +126,20 @@ struct Level : IGame {
         }
     }
     
-    virtual void fxQuake(float time) {
-        camera->shake = time;
+    virtual void setEffect(TR::Effect effect, float param) {
+        if (effect == TR::Effect::NONE)
+            return;
+
+        if (effect == TR::Effect::FLOOR_SHAKE) {
+            camera->shake = param;
+            return;
+        }
+
+        if (effect == TR::Effect::FLICKER)
+            flickerIdx = 0;
+
+        this->effect      = effect;
+        this->effectTimer = 0.0f;
     }
 
     virtual bool invUse(TR::Entity::Type type) {
@@ -388,6 +404,8 @@ struct Level : IGame {
         sndSoundtrack = NULL;
         playTrack(curTrack = 0);
         sndCurrent = sndSoundtrack;
+
+        effect = TR::Effect::NONE;
     }
 
     virtual ~Level() {
@@ -805,6 +823,8 @@ struct Level : IGame {
         } else {
             params->time += Core::deltaTime;
 
+            updateEffect();
+
             Controller *c = Controller::first;
             while (c) {
                 Controller *next = c->next;
@@ -829,6 +849,30 @@ struct Level : IGame {
             if (sndCurrent) sndCurrent->setVolume(0.0f, 0.2f);
             if (sndChanged) sndChanged->setVolume(1.0f, 0.2f);
             sndCurrent = sndChanged;
+        }
+    }
+
+    void updateEffect() {
+        if (effect == TR::Effect::NONE)
+            return;
+
+        effectTimer += Core::deltaTime;
+
+        switch (effect) {
+            case TR::Effect::FLICKER : {
+                int idx = flickerIdx;
+                switch (flickerIdx) {
+                    case 0 : if (effectTimer > 3.0f) flickerIdx++; break;
+                    case 1 : if (effectTimer > 3.1f) flickerIdx++; break;
+                    case 2 : if (effectTimer > 3.5f) flickerIdx++; break;
+                    case 3 : if (effectTimer > 3.6f) flickerIdx++; break;
+                    case 4 : if (effectTimer > 4.1f) { flickerIdx++; effect = TR::Effect::NONE; } break;
+                }
+                if (idx != flickerIdx)
+                    level.isFlipped = !level.isFlipped;
+                break;
+            }
+            default : return;
         }
     }
 
@@ -1298,7 +1342,7 @@ struct Level : IGame {
         params->waterHeight = params->clipHeight;
 
         if (ambientCache)
-            ambientCache->precessQueue();
+            ambientCache->processQueue();
         if (shadow)
             renderShadows(lara->getRoomIndex());
 

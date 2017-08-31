@@ -1257,11 +1257,23 @@ struct Lara : Character {
         meshSwap(1, level->extra.weapons[wpnCurrent], mask);
     }
 
+    void doBubbles() {
+        int count = rand() % 3;
+        if (!count) return;
+        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
+        vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
+        for (int i = 0; i < count; i++) {
+            int index = Sprite::add(game, TR::Entity::BUBBLE, getRoomIndex(), int(head.x), int(head.y), int(head.z), Sprite::FRAME_RANDOM, true);
+            if (index > -1)
+                level->entities[index].controller = new Bubble(game, index);
+        }
+    }
+
     virtual void cmdEffect(int fx) {
         switch (fx) {
-            case TR::EFFECT_LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
-            case TR::EFFECT_DRAW_RIGHTGUN  :
-            case TR::EFFECT_DRAW_LEFTGUN   : drawGun(fx == TR::EFFECT_DRAW_RIGHTGUN); break;
+            case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
+            case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
+            case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
     }
@@ -1540,6 +1552,8 @@ struct Lara : Character {
         }
 
         bool needFlip = false;
+        TR::Effect effect = TR::Effect::NONE;
+
         while (cmdIndex < info.trigCmdCount) {
             TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
 
@@ -1588,7 +1602,7 @@ struct Lara : Character {
                 }
                 case TR::Action::FLOW :
                     break;
-                case TR::Action::FLIP_MAP : {
+                case TR::Action::FLIP : {
                     TR::Flags &flip = level->flipmap[cmd.args];
 
                     if (flip.once)
@@ -1648,7 +1662,7 @@ struct Lara : Character {
                     break;
                 }
                 case TR::Action::EFFECT :
-                    LOG("EFFECT\n");
+                    effect = TR::Effect(cmd.args);
                     break;
                 case TR::Action::SECRET :
                     if (!level->secrets[cmd.args]) {
@@ -1660,8 +1674,10 @@ struct Lara : Character {
             }
         }
 
-        if (needFlip)
+        if (needFlip) {
             level->isFlipped = !level->isFlipped;
+            game->setEffect(effect, 0);
+        }
     }
 
     virtual Stand getStand() {

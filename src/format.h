@@ -206,8 +206,9 @@
 namespace TR {
 
     enum {
-        FLOOR_BLOCK = -127,
-        NO_ROOM     = 0xFF,
+        NO_FLOOR = -127,
+        NO_ROOM  = 0xFF,
+        NO_BOX   = 0xFFFF,
     };
 
     enum {
@@ -220,56 +221,26 @@ namespace TR {
         ANIM_CMD_EFFECT     ,
     };
 
-    // https://dl.dropboxusercontent.com/u/62482708/Secret/TR4%26TR5%20PSX%20Stuff.zip
-    enum {
-        EFFECT_ROTATE_180       ,
-        EFFECT_FLOOR_SHAKE      ,
-        EFFECT_LARA_NORMAL      ,
-        EFFECT_LARA_BUBBLES     ,
-        EFFECT_FINISH_LEVEL     ,
-        EFFECT_ACTIVATE_CAMERA  ,
-        EFFECT_ACTIVATE_KEY     ,
-        EFFECT_RUBBLEFX         ,
-        EFFECT_CROWBAR          ,
-        EFFECT_CURTAINFX        ,
-        EFFECT_SETCHANGEFX      ,
-        EFFECT_EXPLOSION_FX     ,
-        EFFECT_LARA_HANDSFREE   ,
-        EFFECT_FLIP_MAP         ,
-        EFFECT_DRAW_RIGHTGUN    ,
-        EFFECT_DRAW_LEFTGUN     ,
-        EFFECT_SHOOT_RIGHTGUN   ,
-        EFFECT_SHOOT_LEFTGUN    ,
-        EFFECT_MESH_SWAP1       ,
-        EFFECT_MESH_SWAP2       ,
-        EFFECT_MESH_SWAP3       ,
-        EFFECT_INV_ON           ,
-        EFFECT_INV_OFF          ,
-        EFFECT_DYN_ON           ,
-        EFFECT_DYN_OFF          ,
-        EFFECT_STATUEFX         ,
-        EFFECT_RESET_HAIR       ,
-        EFFECT_BOILERFX         ,
-        EFFECT_SETFOG           ,
-        EFFECT_GHOSTTRAP        ,
-        EFFECT_LARALOCATION     ,
-        EFFECT_CLEARSCARABS     ,
-        EFFECT_FOOTPRINT_FX     ,
-        EFFECT_FLIP_MAP0        ,
-        EFFECT_FLIP_MAP1        ,
-        EFFECT_FLIP_MAP2        ,
-        EFFECT_FLIP_MAP3        ,
-        EFFECT_FLIP_MAP4        ,
-        EFFECT_FLIP_MAP5        ,
-        EFFECT_FLIP_MAP6        ,
-        EFFECT_FLIP_MAP7        ,
-        EFFECT_FLIP_MAP8        ,
-        EFFECT_FLIP_MAP9        ,
-        EFFECT_POURSWAP1        ,
-        EFFECT_POURSWAP2        ,
-        EFFECT_LARALOCATIONPAD  ,
-        EFFECT_KILLACTIVEBADDIES,
-	};
+    enum Effect : uint32 {
+        NONE           = -1,
+        ROTATE_180     ,
+        FLOOR_SHAKE    ,
+        LARA_NORMAL    ,
+        LARA_BUBBLES   ,
+        FINISH_LEVEL   ,
+        EARTHQUAKE     ,
+        FLOOD          ,
+        UNK1           ,
+        UNK2           ,
+        UNK3           ,
+        UNK4           ,
+        EXPLOSION      ,
+        LARA_HANDSFREE ,
+        FLIP_MAP       ,
+        DRAW_RIGHTGUN  ,
+        UNK5           ,
+        FLICKER        ,
+    };
 
     enum {
         SND_NO              = 2,
@@ -334,7 +305,7 @@ namespace TR {
         ACTIVATE        ,   // activate item
         CAMERA_SWITCH   ,   // switch to camera
         FLOW            ,   // underwater flow
-        FLIP_MAP        ,   // flip map
+        FLIP            ,   // flip map
         FLIP_ON         ,   // flip on
         FLIP_OFF        ,   // flip off
         CAMERA_TARGET   ,   // look at item
@@ -2084,6 +2055,16 @@ namespace TR {
             sz /= 1024;
 
             return room.sectors[sx * room.zSectors + sz];
+        }
+
+        Room::Sector& getSector(uint8 roomIndex, int x, int z, int &sectorIndex) {
+            ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
+            Room &room = rooms[roomIndex];
+            x -= room.info.x;
+            z -= room.info.z;
+            x /= 1024;
+            z /= 1024;
+            return room.sectors[sectorIndex = (x * room.zSectors + z)];
         }
 
         Room::Sector* getSector(int &roomIndex, int x, int y, int z) const {

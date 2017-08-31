@@ -622,7 +622,7 @@ namespace Debug {
                 case_name(TR::Action, ACTIVATE      );
                 case_name(TR::Action, CAMERA_SWITCH );
                 case_name(TR::Action, FLOW          );
-                case_name(TR::Action, FLIP_MAP      );
+                case_name(TR::Action, FLIP          );
                 case_name(TR::Action, FLIP_ON       );
                 case_name(TR::Action, FLIP_OFF      );
                 case_name(TR::Action, CAMERA_TARGET );
@@ -679,8 +679,10 @@ namespace Debug {
                     
                     const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? getEntityName(level, level.entities[cmd.args]) : "";
                     sprintf(buf, "%s -> %s (%d)", getTriggerAction(level, cmd.action), ent, cmd.args);
-                    if (cmd.action == TR::Action::CAMERA_SWITCH)
-                        sprintf(buf, "%s delay: %d", buf, (int)info.trigCmd[++i].timer);
+                    if (cmd.action == TR::Action::CAMERA_SWITCH) {
+                        sprintf(buf, "%s delay: %d speed: %d", buf, int(info.trigCmd[i].timer), int(info.trigCmd[i].speed) * 8 + 1);
+                        i++;
+                    }
 
                     Debug::Draw::text(vec2(16, y += 16), vec4(0.1f, 0.6f, 0.1f, 1.0f), buf);
                 }

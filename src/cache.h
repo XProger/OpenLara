@@ -205,6 +205,7 @@ struct AmbientCache {
 
     struct Task {
         int  room;
+        int  flip;
         int  sector;
         Cube *cube;
     } tasks[32];
@@ -242,6 +243,7 @@ struct AmbientCache {
 
         Task &task  = tasks[tasksCount++];
         task.room   = room;
+        task.flip   = level->isFlipped;
         task.sector = sector;
         task.cube   = &items[offsets[room] + sector];
         task.cube->status = Cube::WAIT;
@@ -288,11 +290,16 @@ struct AmbientCache {
         Core::setDepthTest(true);
     }
 
-    void precessQueue() {
+    void processQueue() {
         game->setupBinding();
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
+            
+            bool oldFlip = level->isFlipped;
+            level->isFlipped = task.flip;
             renderAmbient(task.room, task.sector, &task.cube->colors[0]);
+            level->isFlipped = oldFlip;
+
             task.cube->status = Cube::READY;
         }
         tasksCount = 0;

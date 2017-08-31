@@ -34,7 +34,7 @@ struct IGame {
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water) {}
-    virtual void fxQuake(float time) {}
+    virtual void setEffect(TR::Effect effect, float param) {}
 
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
@@ -438,10 +438,6 @@ struct Controller {
         return pos;
     }
 
-    virtual void doBubbles() {
-        //
-    }
-
     virtual void hit(float damage, Controller *enemy = NULL) {}
 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
@@ -484,11 +480,10 @@ struct Controller {
                         if (animation.isFrameActive(frame)) {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
-                                    case TR::EFFECT_ROTATE_180     : angle.y = angle.y + PI; break;
-                                    case TR::EFFECT_FLOOR_SHAKE    : game->fxQuake(0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
-                                    case TR::EFFECT_LARA_BUBBLES   : doBubbles(); break;
-                                    case TR::EFFECT_FLIP_MAP       : level->isFlipped = !level->isFlipped; break;
-                                    default                        : cmdEffect(fx); break;
+                                    case TR::Effect::ROTATE_180  : angle.y = angle.y + PI; break;
+                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(TR::Effect(fx), 0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
+                                    case TR::Effect::FLIP_MAP    : level->isFlipped = !level->isFlipped; break;
+                                    default                      : cmdEffect(fx); break;
                                 }
                             } else
                                 playSound(fx, pos, Sound::Flags::PAN);

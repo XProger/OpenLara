@@ -276,47 +276,84 @@ struct Door : Controller {
         STATE_OPEN,
     };
 
-    int8 *floor[2], orig[2];
-    uint16 box;
+    struct BlockInfo {
+        uint8            roomIndex[2];
+        int              sectorIndex[2];
+        TR::Room::Sector sectors[2];
+
+        BlockInfo() {}
+        BlockInfo(TR::Level *level, uint8 room, int nx, int nz, int x, int z, bool flip) {
+        // front
+            roomIndex[0] = room;
+            roomIndex[1] = TR::NO_ROOM;
+
+            if (roomIndex[0] == TR::NO_ROOM)
+                return;
+            if (flip && level->rooms[roomIndex[0]].alternateRoom != -1)
+                roomIndex[0] = level->rooms[roomIndex[0]].alternateRoom;
+
+            sectors[0] = level->getSector(roomIndex[0], x, z, sectorIndex[0]);
+
+        // behind
+            roomIndex[1] = level->getNextRoom(sectors[0].floorIndex);
+
+            if (roomIndex[1] == TR::NO_ROOM)
+                return;
+            if (flip && level->rooms[roomIndex[1]].alternateRoom != -1)
+                roomIndex[1] = level->rooms[roomIndex[1]].alternateRoom;
+
+            sectors[1] = level->getSector(roomIndex[1], nx, nz, sectorIndex[1]);
+        }
+
+        void set(TR::Level *level) {
+            for (int i = 0; i < 2; i++)
+                if (roomIndex[i] != TR::NO_ROOM) {
+                    TR::Room::Sector &s = level->rooms[roomIndex[i]].sectors[sectorIndex[i]];
+                    s.floorIndex = 0;
+                    s.boxIndex   = TR::NO_BOX;
+                    s.roomBelow  = TR::NO_ROOM;
+                    s.floor      = TR::NO_FLOOR;
+                    s.roomAbove  = TR::NO_ROOM;
+                    s.ceiling    = TR::NO_FLOOR;
+
+                    if (sectors[i].boxIndex != TR::NO_BOX) {
+                        TR::Box &box = level->boxes[sectors[i].boxIndex];
+                        if (box.overlap.blockable)
+                            box.overlap.block = true;
+                    }
+                }
+        }
+
+        void reset(TR::Level *level) {
+            for (int i = 0; i < 2; i++)
+                if (roomIndex[i] != TR::NO_ROOM) {
+                    level->rooms[roomIndex[i]].sectors[sectorIndex[i]] = sectors[i];
+                    if (sectors[i].boxIndex != TR::NO_BOX) {
+                        TR::Box &box = level->boxes[sectors[i].boxIndex];
+                        if (box.overlap.blockable)
+                            box.overlap.block = false;
+                    }
+                }
+        }
+
+    } block[2];
 
     Door(IGame *game, int entity) : Controller(game, entity) {
         TR::Entity &e = getEntity();
-        TR::Level::FloorInfo info;
         vec3 p = pos - getDir() * 1024.0f;
-
-        level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
-        box = info.boxIndex;
-
-        int dx, dz;
-        TR::Room::Sector *s = &level->getSector(e.room, (int)p.x, (int)p.z, dx, dz);
-
-        orig[0] = *(floor[0] = &s->floor);
-
-        if (info.roomNext != 0xFF) {
-            s = &level->getSector(info.roomNext, e.x, e.z, dx, dz);
-            orig[1] = *(floor[1] = &s->floor);
-        } else
-            floor[1] = NULL;
-
+        block[0] = BlockInfo(level, e.room, e.x, e.z, int(p.x), int(p.z), false);
+        block[1] = BlockInfo(level, e.room, e.x, e.z, int(p.x), int(p.z), true);
         updateBlock(false);
     }
 
     void updateBlock(bool open) {
-        int8 v[2];
         if (open) {
-            v[0] = orig[0];
-            v[1] = orig[1];
-        } else
-            v[0] = v[1] = TR::FLOOR_BLOCK;
-
-        if (box != 0xFFFF) {
-            TR::Box &b = level->boxes[box];
-            if (b.overlap.blockable)
-                b.overlap.block = !open;
+            block[0].reset(level);
+            block[1].reset(level);
+        } else {
+            block[0].set(level);
+            block[1].set(level);
         }
-
-        if (floor[0]) *floor[0] = v[0];
-        if (floor[1]) *floor[1] = v[1];
     }
     
     virtual void update() {
