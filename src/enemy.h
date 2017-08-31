@@ -189,6 +189,10 @@ struct Enemy : Character {
         return true;
     }
 
+    virtual void lookAt(Controller *target) {
+        Character::lookAt(targetInView ? target : NULL);
+    }
+
     int turn(float delta, float speed) {
         float w = speed * Core::deltaTime;
 
