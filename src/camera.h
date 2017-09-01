@@ -49,6 +49,7 @@ struct Camera : Controller {
             room  = level->entities[level->cutEntity].room;
         } else
             state = STATE_FOLLOW;
+        advTimer = -1.0f;
     }
 
     virtual ~Camera() {
@@ -172,15 +173,19 @@ struct Camera : Controller {
 
             if (advAngleOld == advAngle) {
                 if (advTimer > 0.0f) {
-                    advTimer -= Core::deltaTime;
-                    if (advTimer <= 0.0f)
-                        advTimer = 0.0f;
+                    advTimer = max(0.0f, advTimer - Core::deltaTime);
                 }
             } else
                 advTimer = -1.0f;
 
             if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
                 advTimer = -advTimer;
+
+            if (advTimer == 0.0f && advAngle != 0.0f) {
+                float t = 10.0f * Core::deltaTime;
+                advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
+                advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
+            }
 
             angle = owner->angle + advAngle;
             angle.z = 0.0f;
