@@ -233,6 +233,35 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
     return 1;
 }
 
+const char *IDB = "db";
+
+void onError(void *str) {
+	LOG("! IDB error: %s\n", str);
+}
+
+void onLoad(void *arg, void *data, int size) {
+	Stream *stream = (Stream*)arg;
+	stream->data = (char*)data;
+	stream->size = size;
+	stream->callback(stream, stream->userData);	
+}
+
+void onLoadAndStore(void *arg, void *data, int size) {
+	onLoad(arg, data, size);
+	emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
+}
+
+void onExists(void *arg, int exists) {
+	if (exists)
+		emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
+	else
+		emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
+}
+
+void osDownload(Stream *stream) {
+	emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
+}
+
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 

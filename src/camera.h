@@ -203,7 +203,8 @@ struct Camera : Controller {
                     owner->lookAt(lookAt = owner->viewTarget);
                 else
                     owner->lookAt(lookAt = viewTarget);
-            }
+            } else 
+                 owner->lookAt(NULL);
 
             vec3 viewPoint = getViewPoint();
 

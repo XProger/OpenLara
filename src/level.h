@@ -191,10 +191,16 @@ struct Level : IGame {
         }
     }
 
+    static void playAsync(Stream *stream, void *userData) {
+        if (!stream) return;
+        Level *level = (Level*)userData;
+
+        level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, 0);
+        if (level->sndSoundtrack)
+            level->sndSoundtrack->setVolume(1.0f, 0.2f);
+    }
+
     virtual void playTrack(int track, bool restart = false) {
-        #ifndef WIN32
-            return;
-        #endif
         if (track == 0)
             track = TR::LEVEL_INFO[level.id].ambientTrack;
 
@@ -219,9 +225,7 @@ struct Level : IGame {
         char title[32];
         sprintf(title, "audio/track_%02d.ogg", track);
 
-        sndSoundtrack = Sound::play(new Stream(title), vec3(0.0f), 0.01f, 1.0f, track == TR::LEVEL_INFO[level.id].ambientTrack ? Sound::Flags::LOOP : 0);
-        if (sndSoundtrack)
-            sndSoundtrack->setVolume(1.0f, 0.2f);
+        new Stream(title, playAsync, this);
     }
 
     virtual void stopTrack() {

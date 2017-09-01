@@ -131,6 +131,14 @@ struct Inventory {
 
     } *items[INVENTORY_MAX_ITEMS];
 
+    static void loadTitleBG(Stream *stream, void *userData) {
+        if (!stream) return;
+        Inventory *inv = (Inventory*)userData;
+
+        inv->background[0] = Texture::LoadPCX(*stream);
+        delete stream;
+    }
+
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
         TR::LevelID id = game->getLevel()->id;
 
@@ -163,7 +171,8 @@ struct Inventory {
             add(TR::Entity::INV_HOME);
 
             memset(background, 0, sizeof(background));
-            background[0] = Texture::LoadPCX("data/TITLEH.PCX");
+
+            new Stream("data/TITLEH.PCX", loadTitleBG, this);
         }
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
@@ -596,19 +605,21 @@ struct Inventory {
     // background
         Core::setDepthTest(false);
 
-        background[0]->bind(sDiffuse);  // orignal image
-        if (background[1]) {
-            game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
-            Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
-            background[1]->bind(sNormal);   // blured grayscale image
-        } else {
-            game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
+        if (background[0]) {
+            background[0]->bind(sDiffuse);  // orignal image
+            if (background[1]) {
+                game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
+                Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
+                background[1]->bind(sNormal);   // blured grayscale image
+            } else {
+                game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
 
-            float aspect1 = float(background[0]->width) / float(background[0]->height);
-            float aspect2 = float(Core::width) / float(Core::height);
-            Core::active.shader->setParam(uParam, vec4(aspect2 / aspect1, -1.0f, 0, 0));;
+                float aspect1 = float(background[0]->width) / float(background[0]->height);
+                float aspect2 = float(Core::width) / float(Core::height);
+                Core::active.shader->setParam(uParam, vec4(aspect2 / aspect1, -1.0f, 0, 0));
+            }
+            game->getMesh()->renderQuad();
         }
-        game->getMesh()->renderQuad();
 
         Core::setDepthTest(true);
         Core::setBlending(bmAlpha);

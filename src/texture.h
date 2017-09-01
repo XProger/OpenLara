@@ -126,9 +126,7 @@ struct Texture {
         }
     }
 
-    static Texture* LoadPCX(const char *fileName) {
-        Stream stream(fileName);
-
+    static Texture* LoadPCX(Stream &stream) {
         struct Color24 {
             uint8 r, g, b;
         };
@@ -155,7 +153,10 @@ struct Texture {
 
         int i = 0;
         int size = pcx.width * pcx.height;
-        uint8 *buffer = new uint8[size + 256 * 3 + size * 4];
+        int dw = Core::support.texNPOT ? pcx.width  : nextPow2(pcx.width);
+        int dh = Core::support.texNPOT ? pcx.height : nextPow2(pcx.height);
+
+        uint8 *buffer = new uint8[size + 256 * 3 + dw * dh * 4];
 
         while (i < size) {
             uint8 n;
@@ -177,15 +178,32 @@ struct Texture {
         stream.raw(palette, 256 * 3);
 
         Color32 *data = (Color32*)&palette[256];
-        for (i = 0; i < size; i++) {
+        memset(data, 0, dw * dh * 4);
+        
+        Color32 *ptr = data;
+        /*
+        for (i = 0; i < pcx.height * pcx.width; i++) {
             Color24 &c = palette[buffer[i]];
-            data[i].r = c.r;
-            data[i].g = c.g;
-            data[i].b = c.b;
-            data[i].a = 255;
+            ptr[i].r = c.r;
+            ptr[i].g = c.g;
+            ptr[i].b = c.b;
+            ptr[i].a = 255;
+        }
+        */
+
+        i = 0;
+        for (int y = 0; y < pcx.height; y++) {
+            for (int x = 0; x < pcx.width; x++) {
+                Color24 &c = palette[buffer[i++]];
+                ptr[x].r = c.r;
+                ptr[x].g = c.g;
+                ptr[x].b = c.b;
+                ptr[x].a = 255;
+            }
+            ptr += dw;
         }
 
-        Texture *tex = new Texture(pcx.width, pcx.height, Texture::RGBA, false, data);
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data);
         delete[] buffer;
 
         return tex;

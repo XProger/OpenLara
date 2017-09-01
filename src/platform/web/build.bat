@@ -1,6 +1,6 @@
 @echo off
 cls
-set SRC=main.cpp
+set SRC=main.cpp ../../libs/stb_vorbis/stb_vorbis.c
 set PROJ=OpenLara
 set FLAGS=-O3 -Wno-deprecated-register --llvm-opts 2 -fmax-type-align=2 -std=c++11 -Wall -I../../
 set PRELOAD=./LEVEL2.PSX

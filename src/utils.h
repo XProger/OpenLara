@@ -967,13 +967,18 @@ struct Stream {
     static char cacheDir[255];
     static char contentDir[255];
 
+    typedef void (Callback)(Stream *stream, void *userData);
+    Callback    *callback;
+    void        *userData;
+
     FILE        *f;
-    const char	*data;
+    char        *data;
     int         size, pos;
+    char        *name;
 
-    Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0), name(NULL) {}
 
-    Stream(const char *name) : data(NULL), size(-1), pos(0) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0), name(NULL) {
         if (contentDir[0]) {
             char path[255];
             path[0] = 0;
@@ -983,15 +988,30 @@ struct Stream {
         } else
             f = fopen(name, "rb");
 
-        if (!f) LOG("error loading file \"%s\"\n", name);
+        if (!f) {
+            #ifdef __EMSCRIPTEN__
+                this->name = new char[64];
+                strcpy(this->name, name);
+
+                extern void osDownload(Stream *stream);
+                osDownload(this);
+                return;
+            #else
+                LOG("error loading file \"%s\"\n", name);
+            #endif
+        }
         ASSERT(f != NULL);
 
         fseek(f, 0, SEEK_END);
         size = ftell(f);
         fseek(f, 0, SEEK_SET);
+
+        if (callback)
+            callback(this, userData);
     }
 
     ~Stream() {
+        delete[] name;
         if (f) fclose(f);
     }
 

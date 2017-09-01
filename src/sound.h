@@ -8,7 +8,6 @@
 
 #ifdef __EMSCRIPTEN__ // TODO: http streaming
     #undef DECODE_MP3
-    #undef DECODE_OGG
 #endif
 
 #include "utils.h"
