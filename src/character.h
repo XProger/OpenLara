@@ -29,6 +29,8 @@ struct Character : Controller {
     Controller  *viewTarget;
     int         jointChest;
     int         jointHead;
+    vec4        rangeChest;
+    vec4        rangeHead;
 
     vec3    velocity;
     float   angleExt;
@@ -46,6 +48,9 @@ struct Character : Controller {
     Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), viewTarget(NULL), jointChest(-1), jointHead(-1), velocity(0.0f), angleExt(0.0f) {
         stepHeight =  256;
         dropHeight = -256;
+
+        rangeChest = vec4(-0.80f, 0.80f, -0.75f, 0.75f) * PI;
+        rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
 
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
@@ -202,7 +207,7 @@ struct Character : Controller {
         quat rot;
 
         if (jointChest > -1) {
-            if (aim(target, jointChest, vec4(-PI * 0.8f, PI * 0.8f, -PI * 0.75f, PI * 0.75f), rot))
+            if (aim(target, jointChest, rangeChest, rot))
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
             else 
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
@@ -210,7 +215,7 @@ struct Character : Controller {
         }
 
         if (jointHead > -1) {
-            if (aim(target, jointHead, vec4(-PI * 0.25f, PI * 0.25f, -PI * 0.5f, PI * 0.5f), rot))
+            if (aim(target, jointHead, rangeHead, rot))
                 rotHead = rotHead.slerp(rot, speed);
             else
                 rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);

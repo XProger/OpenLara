@@ -221,7 +221,7 @@ namespace TR {
         ANIM_CMD_EFFECT     ,
     };
 
-    enum Effect : uint32 {
+    enum Effect : int32 {
         NONE           = -1,
         ROTATE_180     ,
         FLOOR_SHAKE    ,

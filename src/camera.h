@@ -42,7 +42,7 @@ struct Camera : Controller {
     bool    firstPerson;
     bool    isVR;
 
-    Camera(IGame *game, Character *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), reflectPlane(NULL), isVR(false) {
+    Camera(IGame *game, Character *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), reflectPlane(NULL), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
         changeView(false);
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;

@@ -406,6 +406,9 @@ struct Lara : Character {
 
         jointChest = 7;
         jointHead  = 14;
+        rangeChest = vec4(-0.40f, 0.40f, -0.90f, 0.90f) * PI;
+        rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
+
         oxygen     = LARA_MAX_OXYGEN;
         hitDir     = -1;
         damageTime = LARA_DAMAGE_TIME;
@@ -437,7 +440,7 @@ struct Lara : Character {
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
-        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)

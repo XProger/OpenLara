@@ -192,6 +192,9 @@ struct Level : IGame {
     }
 
     virtual void playTrack(int track, bool restart = false) {
+        #ifndef WIN32
+            return;
+        #endif
         if (track == 0)
             track = TR::LEVEL_INFO[level.id].ambientTrack;
 
