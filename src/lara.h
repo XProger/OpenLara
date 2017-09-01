@@ -437,7 +437,7 @@ struct Lara : Character {
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
-        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
@@ -1761,7 +1761,7 @@ struct Lara : Character {
 
             vec3 p = vec3(pos.x, bounds.min.y, pos.z);
 
-            Collision c = Collision(level, getRoomIndex(), p, getDir() * 32.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
+            Collision c = Collision(level, getRoomIndex(), p, getDir() * 128.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
 
             if (c.side != Collision::FRONT)
                 return state;
@@ -1777,6 +1777,7 @@ struct Lara : Character {
                 updateEntity();
 
                 if (state == STATE_REACH) {
+                    velocity = vec3(0.0f);
                     vec3 p = pos + getDir() * 256.0f;
                     TR::Level::FloorInfo info;
                     level->getFloorInfo(getRoomIndex(), int(p.x), int(p.y), int(p.z), info);

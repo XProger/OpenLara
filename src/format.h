@@ -2127,7 +2127,7 @@ namespace TR {
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
-            if (s.floor == -127) 
+            if (s.floor == NO_FLOOR) 
                 return;
 
             Room::Sector *sBelow = &s;
