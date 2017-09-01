@@ -17,8 +17,8 @@ extern "C" {
         Sound::fill(frames, count);
     }
     
-    void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size, int home) {
-        Game::startLevel(new Stream(data, size), NULL, false, home);
+    void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size) {
+        Game::startLevel(new Stream(data, size));
     }
 }
 

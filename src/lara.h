@@ -760,9 +760,9 @@ struct Lara : Character {
                 //int realFrameIndex = int(arms[i].animation.time * 30.0f / anim->frameRate) % ((anim->frameEnd - anim->frameStart) / anim->frameRate + 1);
                 if (anim.frameIndex != anim.framePrev) {
                     if (anim.frameIndex == 0) { //realFrameIndex < arms[i].animation.framePrev) {
-                        if ((input & ACTION) && (!arm.tracking || arm.target)) {
+                        if ((input & ACTION) && (!arm.tracking || arm.target))
                             armShot[i] = true;
-                        } else
+                        else
                             wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == NULL);
                     }
                 // shotgun reload sound
@@ -783,7 +783,6 @@ struct Lara : Character {
 
     void doShot(bool rightHand, bool leftHand) {
         int count = wpnCurrent == Weapon::SHOTGUN ? 6 : 2;
-
         float nearDist = 32.0f * 1024.0f;
         vec3  nearPos;
         int   shots = 0;
@@ -859,9 +858,6 @@ struct Lara : Character {
             animation.overrideMask = 0;
             return;
         }
-
-        updateTargets();
-        updateOverrides();
 
         if (wpnNext != Weapon::EMPTY && emptyHands()) {
             wpnSet(wpnNext);
@@ -1034,12 +1030,18 @@ struct Lara : Character {
     }
 
     virtual void lookAt(Controller *target) {
+        updateOverrides();
+
         Character::lookAt(canLookAt() ? target : NULL);
 
-        if (wpnCurrent == Weapon::SHOTGUN)
-            aimShotgun();
-        else
-            aimPistols();
+        if (!emptyHands()) {
+            updateTargets();
+
+            if (wpnCurrent == Weapon::SHOTGUN)
+                aimShotgun();
+            else
+                aimPistols();
+        }
     }
 
     void aimShotgun() {
@@ -1177,33 +1179,38 @@ struct Lara : Character {
 
         vec3 from = pos - vec3(0, 650, 0);
 
-        for (int i = 0; i < level->entitiesCount; i++) {
-            TR::Entity &e = level->entities[i];
-            if (!e.flags.active || !e.isEnemy()) continue;
-            Character *enemy = (Character*)e.controller;
-            if (enemy->health <= 0) continue;
+        Controller *c = Controller::first;
+        while (c) {
+            if (level->entities[c->entity].isEnemy()) {
+                Character *enemy = (Character*)c;
+                if (enemy->health > 0) {
 
-            Box box = enemy->getBoundingBox();
-            vec3 p = box.center();
-            p.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
+                    Box box = enemy->getBoundingBox();
+                    vec3 p = box.center();
+                    p.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
             
-            vec3 v = p - pos;
-            if (dir.dot(v.normal()) <= 0.5f) continue; // target is out of sight -60..+60 degrees
+                    vec3 v = p - pos;
+                    if (dir.dot(v.normal()) > 0.5f) { // target is on sight -60..+60 degrees
 
-            float d = v.length();
+                        float d = v.length();
 
-            if ((d > dist[0] && d > dist[1]) || !checkOcclusion(from, p, d)) 
-                continue;
+                        if ((d < dist[0] || d < dist[1]) && checkOcclusion(from, p, d)) {
 
-            if (d < dist[0]) {
-                target2 = target1;
-                dist[1] = dist[0];
-                target1 = enemy;
-                dist[0] = d;
-            } else if (d < dist[1]) {
-                target2 = enemy;
-                dist[1] = d;
+                            if (d < dist[0]) {
+                                target2 = target1;
+                                dist[1] = dist[0];
+                                target1 = enemy;
+                                dist[0] = d;
+                            } else if (d < dist[1]) {
+                                target2 = enemy;
+                                dist[1] = d;
+                            }
+                        }
+                    }
+                }
             }
+
+            c = c->next;
         }
 
         if (!target2 || dist[1] > dist[0] * 4)

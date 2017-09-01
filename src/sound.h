@@ -529,7 +529,7 @@ namespace Sound {
             }
         // apply volume
             vec2 pan = getPan();
-            vec2 vol = vec2(1.0f);//pan * volume;
+            vec2 vol = pan * volume;
             for (int j = 0; j < i; j++) {
                 if (volumeDelta != 0.0f) { // increase / decrease channel volume
                     volume += volumeDelta;
