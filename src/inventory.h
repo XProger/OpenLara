@@ -604,6 +604,7 @@ struct Inventory {
     void render() {
     // background
         Core::setDepthTest(false);
+        Core::setBlending(bmNone);
 
         if (background[0]) {
             background[0]->bind(sDiffuse);  // orignal image

@@ -643,6 +643,10 @@ struct WaterCache {
         if (!refract || w != refract->width || h != refract->height) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
+            Core::setTarget(refract, true);
+            Core::validateRenderState(); // immediate clear
+            Core::invalidateTarget(false, true);
+            Core::setTarget(NULL);
         }
         Core::copyTarget(refract, 0, 0, 0, 0, w, h); // copy framebuffer into refraction texture
     }

@@ -454,6 +454,7 @@ struct Lara : Character {
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
+        //reset(5, vec3(73394, 3840, 60758), 0);         // level 3b (scion)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
@@ -1388,6 +1389,9 @@ struct Lara : Character {
                     controller->angle.x = -25 * DEG2RAD;
                 controller->angle.y = angle.y;
 
+                if (item.type == TR::Entity::SCION_1)
+                    limit = TR::Limits::SCION;
+
                 if (!checkInteraction(controller, limit, (input & ACTION) != 0))
                     continue;
 
@@ -1395,6 +1399,15 @@ struct Lara : Character {
                     angle.x = -25 * DEG2RAD;
 
                 pickupEntity = &item;
+
+                if (item.type == TR::Entity::SCION_1) {
+                    animation.setAnim(level->models[level->entities[TR::MODEL_LARA_SPEC].modelIndex].animation);
+                    ((Controller*)level->cameraController)->state = Camera::STATE_CUTSCENE;
+                    level->cutMatrix.identity();
+                    level->cutMatrix.setPos(pos);
+                } else
+                    state = STATE_PICK_UP;
+
                 return true;
             }
         }
@@ -1507,7 +1520,7 @@ struct Lara : Character {
                 KeyHole *controller = (KeyHole*)entity.controller;
 
                 if (controller->activeState == asNone) {
-                    if (entity.flags.active == 0x1F || state != STATE_STOP)
+                    if (entity.flags.active == TR::ACTIVE || state != STATE_STOP)
                         return;
 
                     actionState = entity.isPuzzleHole() ? STATE_USE_PUZZLE : STATE_USE_KEY;
@@ -1583,7 +1596,7 @@ struct Lara : Character {
                     else
                         flags.active |= info.trigInfo.mask;
 
-                    if (flags.active != 0x1F)
+                    if (flags.active != TR::ACTIVE)
                         break;
 
                     flags.once |= info.trigInfo.once;
@@ -1603,7 +1616,7 @@ struct Lara : Character {
                     if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && switchIsDown)
                         break;
  
-                    if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
+                    {//if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
                         level->cameras[cmd.args].flags.once |= cam.once;
                         camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed * 8.0f);
                     }
@@ -1623,20 +1636,20 @@ struct Lara : Character {
                     else
                         flip.active |= info.trigInfo.mask;
 
-                    if (flip.active == 0x1F)
+                    if (flip.active == TR::ACTIVE)
                         flip.once |= info.trigInfo.once;
 
-                    if ((flip.active == 0x1F) ^ level->isFlipped)
+                    if ((flip.active == TR::ACTIVE) ^ level->isFlipped)
                          needFlip = true;
 
                     break;
                 }
                 case TR::Action::FLIP_ON :
-                    if (level->flipmap[cmd.args].active == 0x1F && !level->isFlipped)
+                    if (level->flipmap[cmd.args].active == TR::ACTIVE && !level->isFlipped)
                         needFlip = true;
                     break;
                 case TR::Action::FLIP_OFF :
-                    if (level->flipmap[cmd.args].active == 0x1F && level->isFlipped)
+                    if (level->flipmap[cmd.args].active == TR::ACTIVE && level->isFlipped)
                         needFlip = true;
                     break;
                 case TR::Action::CAMERA_TARGET :
@@ -1663,7 +1676,7 @@ struct Lara : Character {
                     else
                         flags.active |= info.trigInfo.mask;
 
-                    if (flags.active == 0x1F) {
+                    if (flags.active == TR::ACTIVE) {
                         flags.once |= info.trigInfo.once;
                         game->playTrack(track);
                     } else
@@ -1856,7 +1869,7 @@ struct Lara : Character {
         angle.x = 0.0f;
 
         if ((state == STATE_STOP || state == STATE_TREAD) && (input & ACTION) && emptyHands() && doPickUp())
-            return STATE_PICK_UP;
+            return state;
 
         if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
             int floor   = collision.info[Collision::FRONT].floor;
@@ -2041,7 +2054,7 @@ struct Lara : Character {
 
     virtual int getStateUnderwater() {
         if (input == ACTION && doPickUp())
-            return STATE_PICK_UP;
+            return state;
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH || state == STATE_SLIDE || state == STATE_SLIDE_BACK) {
             game->waterDrop(pos, 256.0f, 0.2f);

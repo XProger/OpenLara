@@ -85,6 +85,7 @@ struct Texture {
         };
 
         FormatDesc desc = formats[format];
+/*
         if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
             desc.ifmt = GL_RGBA;
             #ifdef MOBILE
@@ -92,6 +93,22 @@ struct Texture {
                     desc.type = GL_HALF_FLOAT_OES;
             #endif
         }
+*/
+    #ifdef MOBILE
+        if (format == RGBA_FLOAT) {
+            if (Core::support.texFloat) {
+                desc.ifmt = GL_RGBA;
+                desc.type = GL_FLOAT;
+            }
+        }
+
+        if (format == RGBA_HALF) {
+            if (Core::support.texHalf) {
+                desc.ifmt = GL_RGBA;
+                desc.type = GL_HALF_FLOAT_OES;
+            }
+        }
+    #endif
 
         for (int i = 0; i < 6; i++) {
             glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);

@@ -209,6 +209,7 @@ namespace TR {
         NO_FLOOR = -127,
         NO_ROOM  = 0xFF,
         NO_BOX   = 0xFFFF,
+        ACTIVE   = 0x1F,
     };
 
     enum {
@@ -351,9 +352,11 @@ namespace TR {
         Limit BLOCK = { 
             0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}, true, false
         };
-    }
 
-    #pragma pack(push, 1)
+        Limit SCION = { 
+            640, 310, 30,     {{-256, 540, -350}, {256, 740, -200}}, true, false
+        };
+    }
 
     struct fixed {
         uint16  L;
@@ -556,11 +559,6 @@ namespace TR {
     struct Flags {
         uint16 :8, once:1, active:5, :2;
     };
-
-    //struct Collider {
-    //    uint16 radius:10, info:6;
-    //    uint16 flags:16;
-    //};
 
     // internal mesh structure
     struct Mesh {
@@ -908,8 +906,6 @@ namespace TR {
             uint16 value;
         } flags;
     };
-
-    #pragma pack(pop)
 
     enum Version : uint32 {
         VER_TR1_PC  = 0x00000020,
@@ -1777,7 +1773,6 @@ namespace TR {
                     t.clut        = c;\
                     t.tile        = d.tile;\
                     t.attribute   = d.attribute;\
-                    t.repeat      = false;\
                     t.texCoord[0] = { d.x0, d.y0 };\
                     t.texCoord[1] = { d.x1, d.y1 };\
                     t.texCoord[2] = { d.x2, d.y2 };\

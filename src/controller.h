@@ -16,11 +16,19 @@
 
 struct Controller;
 
+struct ICamera {
+    vec4 *reflectPlane;
+
+    ICamera() : reflectPlane(NULL) {}
+
+    virtual void setup(bool calcMatrices) {}
+};
+
 struct IGame {
     virtual ~IGame() {}
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
-    virtual Controller*  getCamera()    { return NULL; }
+    virtual ICamera*     getCamera()    { return NULL; }
     virtual Controller*  getLara()      { return NULL; }
     virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
@@ -96,7 +104,7 @@ struct Controller {
             e.flags.once      = false;
         }
 
-        if (e.flags.active == 0x1F) {
+        if (e.flags.active == TR::ACTIVE) {
             e.flags.active  = 0;
             e.flags.reverse = true;
             activate();
@@ -115,7 +123,7 @@ struct Controller {
     bool isActive() {
         TR::Entity &e = getEntity();
 
-        if (e.flags.active != 0x1F)
+        if (e.flags.active != TR::ACTIVE)
             return e.flags.reverse;
 
         if (timer == 0.0f)
@@ -603,8 +611,6 @@ struct Controller {
         Core::setBlending(bmMultiply);
         mesh->renderShadowBlob();
         Core::setBlending(bmNone);
-
-        Core::active.shader->setParam(uViewProj, Core::mViewProj);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO: animation.calcJoints

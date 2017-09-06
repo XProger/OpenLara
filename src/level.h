@@ -54,12 +54,12 @@ struct Level : IGame {
         return &level;
     }
 
-    virtual MeshBuilder* getMesh()  {
+    virtual MeshBuilder* getMesh() {
         return mesh;
     }
 
-    virtual Controller* getCamera() {
-        return camera;    
+    virtual ICamera* getCamera() {
+        return camera;
     }
 
     virtual Controller* getLara() {
@@ -555,8 +555,8 @@ struct Level : IGame {
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + 3, &level, fillCallback);
         // add textures
-        int startIdx = level.version == TR::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
-        for (int i = startIdx; i < level.objectTexturesCount; i++) {
+        int texIdx = level.version == TR::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
+        for (int i = texIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
             int16 tx = (t.tile.index % 4) * 256;
             int16 ty = (t.tile.index / 4) * 256;
@@ -567,7 +567,7 @@ struct Level : IGame {
             uv.z = tx + max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
             uv.w = ty + max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
 
-            tiles->add(uv, i);
+            tiles->add(uv, texIdx++);
         }
         // add sprites
         for (int i = 0; i < level.spriteTexturesCount; i++) {
@@ -581,14 +581,14 @@ struct Level : IGame {
             uv.z = tx + t.texCoord[1].x + 1;
             uv.w = ty + t.texCoord[1].y + 1;
 
-            tiles->add(uv, level.objectTexturesCount + i);
+            tiles->add(uv, texIdx++);
         }
         // add white color
-        tiles->add(short4(2048, 2048, 2048, 2048), level.objectTexturesCount + level.spriteTexturesCount);
+        tiles->add(short4(2048, 2048, 2048, 2048), texIdx++);
         // add health bar
-        tiles->add(short4(2048, 2048, 2048, 2048 + 4), level.objectTexturesCount + level.spriteTexturesCount + 1);
+        tiles->add(short4(2048, 2048, 2048, 2048 + 4), texIdx++);
         // add oxygen bar
-        tiles->add(short4(4096, 4096, 4096, 4096 + 4), level.objectTexturesCount + level.spriteTexturesCount + 2);
+        tiles->add(short4(4096, 4096, 4096, 4096 + 4), texIdx++);
         // get result texture
         atlas = tiles->pack();
 
@@ -817,6 +817,9 @@ struct Level : IGame {
     }
 
     void update() {
+        if (isCutscene() && !sndSoundtrack)
+            return;
+
         if (Input::state[cInventory] && level.id != TR::TITLE)
             inventory.toggle();
 
@@ -839,7 +842,7 @@ struct Level : IGame {
                 c = next;
             }
 
-            if (camera->state != Camera::STATE_STATIC)
+            if (!isCutscene() && camera->state != Camera::STATE_STATIC)
                 camera->state = lara->emptyHands() ? Camera::STATE_FOLLOW : Camera::STATE_COMBAT;
 
             camera->update();
@@ -898,7 +901,7 @@ struct Level : IGame {
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &entity = level.entities[i];
-            if (entity.flags.rendered)
+            if (entity.controller && entity.flags.rendered)
                 ((Controller*)entity.controller)->renderShadow(mesh);
         }
     }

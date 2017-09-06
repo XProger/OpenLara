@@ -8,7 +8,7 @@
 
 #define CAMERA_OFFSET (1024.0f + 256.0f)
 
-struct Camera : Controller {
+struct Camera : ICamera {
 
     enum {
         STATE_FOLLOW,
@@ -17,13 +17,15 @@ struct Camera : Controller {
         STATE_COMBAT,
         STATE_CUTSCENE,
         STATE_HEAVY
-    };
+    } state;
 
+    IGame      *game;
+    TR::Level  *level;
     Character  *owner;
     Frustum    *frustum;
 
     float   fov, znear, zfar;
-    vec3    target, destPos, lastDest, advAngle;
+    vec3    target, pos, destPos, lastDest, angle, advAngle;
     float   advTimer;
     mat4    mViewInv;
     int     room;
@@ -32,7 +34,6 @@ struct Camera : Controller {
     float   shake;
 
     Basis   prevBasis;
-    vec4    *reflectPlane;
 
     int         viewIndex;
     int         viewIndexLast;
@@ -42,7 +43,7 @@ struct Camera : Controller {
     bool    firstPerson;
     bool    isVR;
 
-    Camera(IGame *game, Character *owner) : Controller(game, owner ? owner->entity : 0), owner(owner), frustum(new Frustum()), timer(-1.0f), reflectPlane(NULL), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
+    Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), shake(0.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
         changeView(false);
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;
@@ -63,7 +64,7 @@ struct Camera : Controller {
     virtual void checkRoom() {
         if (state == STATE_CUTSCENE) {
             for (int i = 0; i < level->roomsCount; i++)
-                if (insideRoom(pos, i)) {
+                if (owner->insideRoom(pos, i)) {
                     room = i;
                     break;
                 }
@@ -105,7 +106,7 @@ struct Camera : Controller {
     }
 
     void setView(int viewIndex, float timer, float speed) {
-        if (viewIndex == viewIndexLast) return;
+//        if (viewIndex == viewIndexLast) return;
         viewIndexLast = viewIndex;
 
         state           = STATE_STATIC;
@@ -129,7 +130,7 @@ struct Camera : Controller {
             shake = max(0.0f, shake - Core::deltaTime);
 
         if (state == STATE_CUTSCENE) {
-            timer += Core::deltaTime * 15.0f;
+            timer += Core::deltaTime * 30.0f;
             float t = timer - int(timer);
             int indexA = int(timer) % level->cameraFramesCount;
             int indexB = (indexA + 1) % level->cameraFramesCount;
@@ -260,16 +261,16 @@ struct Camera : Controller {
                 if (lookAt) {
                     dir = (lookAt->pos - target).normal();
                 } else
-                    dir = getDir();
+                    dir = vec3(angle.x, angle.y);
 
                 int destRoom;
                 if ((state == STATE_COMBAT || owner->state != 25) || lookAt) { // TODO: FUUU! 25 == Lara::STATE_BACK_JUMP
                     vec3 eye = target - dir * CAMERA_OFFSET;
-                    destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
+                    destPos = owner->trace(owner->getRoomIndex(), target, eye, destRoom, true);
                     lastDest = destPos;
                 } else {
                     vec3 eye = lastDest + dir.cross(vec3(0, 1, 0)).normal() * 2048.0f - vec3(0.0f, 512.0f, 0.0f);
-                    destPos = trace(owner->getRoomIndex(), target, eye, destRoom, true);
+                    destPos = owner->trace(owner->getRoomIndex(), target, eye, destRoom, true);
                 }
 
                 room = destRoom;

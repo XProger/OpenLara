@@ -35,7 +35,7 @@ struct Switch : Controller {
 
     virtual void update() {
         updateAnimation(true);
-        getEntity().flags.active = 0x1F;
+        getEntity().flags.active = TR::ACTIVE;
         if (!isActive())
             animation.setState(STATE_UP);
     }
@@ -141,7 +141,7 @@ struct Boulder : Controller {
     Boulder(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
-        if (getEntity().flags.active == 0x1F) {
+        if (getEntity().flags.active == TR::ACTIVE) {
             updateAnimation(true);
             updateEntity();
         }
@@ -226,7 +226,8 @@ struct Block : Controller {
 
 struct MovingBlock : Controller {
     enum {
-        STATE_STOP,
+        STATE_BEGIN,
+        STATE_END,
         STATE_MOVE,
     };
 
@@ -236,6 +237,7 @@ struct MovingBlock : Controller {
     }
 
     void updateFloor(bool rise) {
+        updateEntity();
         TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
@@ -246,22 +248,26 @@ struct MovingBlock : Controller {
         s.floor += rise ? -8 : 8;
     }
 
-    virtual bool activate() {
-        if (Controller::activate()) {
-            updateFloor(false);
-            animation.setState(STATE_MOVE);
-            return true;
-        }
-        return false;
-    }
-
     virtual void update() {
         updateAnimation(true);
 
+        if (isActive()) {
+            if (state == STATE_BEGIN) {
+                updateFloor(false);
+                animation.setState(STATE_END);
+            }
+        } else {
+            if (state == STATE_END) {
+                updateFloor(false);
+                animation.setState(STATE_BEGIN);
+            }
+        }
+
         if (activeState == asInactive) {
+            if (getEntity().flags.active == TR::ACTIVE)
+                activeState = asActive; // stay in active items list
             pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f;
             pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f;
-            animation.setState(STATE_STOP);
             updateFloor(true);
             return;
         }
@@ -503,7 +509,7 @@ struct KeyHole : Controller {
 
     virtual bool activate() {
         if (!Controller::activate()) return false;
-        getEntity().flags.active = 0x1F;
+        getEntity().flags.active = TR::ACTIVE;
         if (getEntity().isPuzzleHole()) {
             int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
             meshSwap(0, level->extra.puzzleDone[doneIdx]);
