@@ -322,10 +322,10 @@ struct Level : IGame {
                     entity.controller = new TrapSpikes(this, i);
                     break;
                 case TR::Entity::TRAP_BOULDER          :
-                    entity.controller = new Boulder(this, i);
+                    entity.controller = new TrapBoulder(this, i);
                     break;
                 case TR::Entity::TRAP_DARTGUN          :
-                    entity.controller = new Dartgun(this, i);
+                    entity.controller = new TrapDartgun(this, i);
                     break;
                 case TR::Entity::BLOCK_1               :
                 case TR::Entity::BLOCK_2               :

@@ -454,7 +454,8 @@ struct Lara : Character {
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
-        //reset(5, vec3(73394, 3840, 60758), 0);         // level 3b (scion)
+        //reset(5, vec3(73394, 3840, 60758), 0);           // level 3b (scion)
+        //reset(20, vec3(57724, 6656, 61941), 90 * DEG2RAD); // level 3b (boulder)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
@@ -1181,38 +1182,37 @@ struct Lara : Character {
         vec3 from = pos - vec3(0, 650, 0);
 
         Controller *c = Controller::first;
-        while (c) {
-            if (level->entities[c->entity].isEnemy()) {
-                Character *enemy = (Character*)c;
-                if (enemy->health > 0) {
+        do {
+            if (!level->entities[c->entity].isEnemy())
+                continue;
 
-                    Box box = enemy->getBoundingBox();
-                    vec3 p = box.center();
-                    p.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
+            Character *enemy = (Character*)c;
+            if (enemy->health <= 0)
+                continue;
+
+            Box box = enemy->getBoundingBox();
+            vec3 p = box.center();
+            p.y = box.min.y + (box.max.y - box.min.y) / 3.0f;
             
-                    vec3 v = p - pos;
-                    if (dir.dot(v.normal()) > 0.5f) { // target is on sight -60..+60 degrees
+            vec3 v = p - pos;
+            if (dir.dot(v.normal()) <= 0.5f)
+                continue; // target is out of view range -60..+60 degrees
 
-                        float d = v.length();
+            float d = v.length();
 
-                        if ((d < dist[0] || d < dist[1]) && checkOcclusion(from, p, d)) {
+            if ((d > dist[0] && d > dist[1]) || !checkOcclusion(from, p, d)) 
+                continue;
 
-                            if (d < dist[0]) {
-                                target2 = target1;
-                                dist[1] = dist[0];
-                                target1 = enemy;
-                                dist[0] = d;
-                            } else if (d < dist[1]) {
-                                target2 = enemy;
-                                dist[1] = d;
-                            }
-                        }
-                    }
-                }
+            if (d < dist[0]) {
+                target2 = target1;
+                dist[1] = dist[0];
+                target1 = enemy;
+                dist[0] = d;
+            } else if (d < dist[1]) {
+                target2 = enemy;
+                dist[1] = d;
             }
-
-            c = c->next;
-        }
+        } while ((c = c->next));
 
         if (!target2 || dist[1] > dist[0] * 4)
             target2 = target1;
@@ -1295,16 +1295,42 @@ struct Lara : Character {
 
         damageTime = LARA_DAMAGE_TIME;
 
-        Character::hit(damage, enemy);
-        if (damage == REX_DAMAGE) { // T-Rex attack (fatal)
-            pos   = enemy->pos;
-            angle = enemy->angle;
+        if (health > 0.0f) {
+            if (damage == BOULDER_DAMAGE_GROUND) {
+                if (stand == STAND_GROUND) {
+                    animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 2);
+                    angle = enemy->angle;
+                    TR::Level::FloorInfo info;
+                    level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+                    vec3 d = getDir();
+                    vec3 v = info.getSlant(d);
+                    angle.x = -acos(d.dot(v));
+                    int roomIndex = getRoomIndex();
+                    v = ((TrapBoulder*)enemy)->velocity * 60.0f;
+                    for (int i = 0; i < 15; i++) {
+                        vec3 p = pos + vec3(randf() * 512.0f - 256.0f, -randf() * 512.0f, randf() * 512.0f - 256.0f);
+                        int index = Sprite::add(game, TR::Entity::BLOOD, roomIndex, int(p.x), int(p.y), int(p.z), Sprite::FRAME_ANIMATED);
+                        if (index > -1)
+                            ((Sprite*)level->entities[index].controller)->velocity = v;
+                    }
+                } else if (stand == STAND_AIR) {
+                    damage = BOULDER_DAMAGE_AIR * 30.0f * Core::deltaTime;
+                } else
+                    damage = 0;
+            }
 
-            meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
-            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], 0);
-            meshSwap(3, level->extra.weapons[Weapon::UZIS],    0);
+            if (damage == REX_DAMAGE) { // T-Rex attack (fatal)
+                pos   = enemy->pos;
+                angle = enemy->angle;
 
-            animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
+                meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+                meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], 0);
+                meshSwap(3, level->extra.weapons[Weapon::UZIS],    0);
+
+                animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
+            }
+
+            Character::hit(damage, enemy);
         }
 
         if (health <= 0)
@@ -2428,12 +2454,12 @@ struct Lara : Character {
         }
 
     // check enemies & doors
-        for (int i = 0; i < level->entitiesCount; i++) {
-            TR::Entity &e = level->entities[i];
-            Controller *controller = (Controller*)e.controller;
+        Controller *controller = Controller::first;
+        do {
+            TR::Entity &e = controller->getEntity();
 
             if (e.isEnemy()) {
-                if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)e.controller)->health <= 0)) continue;
+                if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)controller)->health <= 0)) continue;
             } else 
                 if (!e.isDoor()) continue;
 
@@ -2454,7 +2480,7 @@ struct Lara : Character {
                 collisionOffset += vec3(p.x, 0.0f, p.z);
             }
 
-            if (e.type == TR::Entity::ENEMY_REX && ((Character*)e.controller)->health <= 0)
+            if (e.type == TR::Entity::ENEMY_REX && ((Character*)controller)->health <= 0)
                 return true;
             if (e.isDoor())
                 return true;
@@ -2468,7 +2494,7 @@ struct Lara : Character {
 
             hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
             return true;
-        }
+        } while ((controller = controller->next));
 
         hitDir = -1;
         return false;

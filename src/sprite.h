@@ -13,8 +13,9 @@ struct Sprite : Controller {
     bool  instant;
     int   frame, flag;
     float time;
+    vec3  velocity;
 
-    Sprite(IGame *game, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(game, entity), instant(instant), flag(frame), time(0.0f) {
+    Sprite(IGame *game, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(game, entity), instant(instant), flag(frame), time(0), velocity(0) {
         if (frame >= 0) { // specific frame
             this->frame = frame;
         } else if (frame == FRAME_RANDOM) { // random frame
@@ -56,6 +57,8 @@ struct Sprite : Controller {
         } else
             if (instant && time >= (1.0f / SPRITE_FPS))
                 remove = true;
+
+        pos += velocity * Core::deltaTime;
 
         if (remove) {
             level->entityRemove(entity);

@@ -23,6 +23,7 @@ struct ICamera {
     ICamera() : reflectPlane(NULL) {}
 
     virtual void setup(bool calcMatrices) {}
+    virtual int  getRoomIndex() const { return TR::NO_ROOM; }
 };
 
 struct IGame {
@@ -247,8 +248,8 @@ struct Controller {
         e.rotation = angle.y;
     }
 
-    bool insideRoom(const vec3 &pos, int room) const {
-        TR::Room &r = level->rooms[room];
+    bool insideRoom(const vec3 &pos, int roomIndex) const {
+        TR::Room &r = level->rooms[roomIndex];
         vec3 min = vec3((float)r.info.x + 1024, (float)r.info.yTop, (float)r.info.z + 1024);
         vec3 max = min + vec3(float((r.xSectors - 1) * 1024), float(r.info.yBottom - r.info.yTop), float((r.zSectors - 1) * 1024));
 

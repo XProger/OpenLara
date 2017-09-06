@@ -58,7 +58,7 @@ struct Camera : ICamera {
     }
     
     virtual int getRoomIndex() const {
-        return viewIndex > -1 ? level->cameras[viewIndex].room : room;
+        return room;
     }
 
     virtual void checkRoom() {
@@ -114,6 +114,9 @@ struct Camera : ICamera {
         this->timer     = timer;
         this->speed     = speed;
         lastDest        = pos;
+
+        if (viewIndex > -1)
+            room = level->cameras[viewIndex].room;
     }
 
     vec3 getViewPoint() {
@@ -123,6 +126,14 @@ struct Camera : ICamera {
         if (state == STATE_COMBAT)
             p.y -= 256.0f;
         return p;
+    }
+
+    void resetTarget(const vec3 &viewPoint) {
+        timer      = -1.0f;
+        state      = STATE_FOLLOW;
+        viewTarget = NULL;
+        viewIndex  = -1;
+        target     = viewPoint;
     }
 
     virtual void update() {
@@ -214,23 +225,6 @@ struct Camera : ICamera {
 
             vec3 viewPoint = getViewPoint();
 
-            if (timer > 0.0f) {
-                timer -= Core::deltaTime;
-                if (timer <= 0.0f) {
-                    timer      = -1.0f;
-                    state      = STATE_FOLLOW;
-                    viewTarget = owner->viewTarget = NULL;
-                    viewIndex  = -1;
-                    target     = viewPoint;
-                    if (room != getRoomIndex())
-                        pos = lastDest;
-                }
-            } else 
-                viewIndex = -1;
-
-            if (timer < 0.0f)
-                viewTarget = NULL;
-
             if (firstPerson && viewIndex == -1) {
                 Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
                 Basis eye(quat(0.0f, 0.0f, 0.0f, 1.0f), vec3(0.0f, -40.0f, 10.0f));
@@ -281,6 +275,13 @@ struct Camera : ICamera {
                 room = destRoom;
             }
             pos = pos.lerp(destPos, Core::deltaTime * lerpFactor);
+
+            if (timer > 0.0f) {
+                timer -= Core::deltaTime;
+                if (timer <= 0.0f)
+                    resetTarget(viewPoint);
+            } else
+                resetTarget(target);
 
             if (viewIndex == -1)
                 checkRoom();

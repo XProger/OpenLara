@@ -94,13 +94,13 @@ struct Dart : Controller {
     }
 };
 
-struct Dartgun : Controller {
+struct TrapDartgun : Controller {
     enum {
         STATE_IDLE,
         STATE_FIRE
     };
 
-    Dartgun(IGame *game, int entity) : Controller(game, entity) {}
+    TrapDartgun(IGame *game, int entity) : Controller(game, entity) {}
     
     virtual bool activate() {
         if (!Controller::activate())
@@ -136,15 +136,59 @@ struct Dartgun : Controller {
     }
 };
 
-struct Boulder : Controller {
+#define BOULDER_DAMAGE_GROUND 1001
+#define BOULDER_DAMAGE_AIR    100
 
-    Boulder(IGame *game, int entity) : Controller(game, entity) {}
+struct TrapBoulder : Controller {
+    enum {
+        STATE_FALL,
+        STATE_ROLL,
+    };
+
+    vec3 velocity;
+
+    TrapBoulder(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
 
     virtual void update() {
-        if (getEntity().flags.active == TR::ACTIVE) {
-            updateAnimation(true);
-            updateEntity();
+        if (activeState != asActive) return;
+
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+
+        vec3 dir = getDir();
+
+        if (pos.y >= info.floor - 256) {
+            pos.y = info.floor;
+            velocity = dir * animation.getSpeed();
+            if (state != STATE_ROLL)
+                animation.setState(STATE_ROLL);
+        } else {
+            if (velocity.y == 0.0f)
+                velocity.y = 10.0f;
+            velocity.y += GRAVITY * Core::deltaTime;
+            animation.setState(STATE_FALL);
         }
+
+        vec3 p = pos;
+        pos += velocity * (30.0f * Core::deltaTime);
+
+        if (info.roomNext != TR::NO_ROOM)
+            getEntity().room = info.roomNext;
+
+        vec3 v = pos + getDir() * 512.0f;
+        level->getFloorInfo(getRoomIndex(), int(v.x), int(v.y), int(v.z), info);
+        if (pos.y > info.floor) {
+            pos = p;
+            deactivate();
+            return;
+        }
+
+        Controller *lara = (Controller*)level->laraController;
+        if (collide(lara))
+            lara->hit(BOULDER_DAMAGE_GROUND, this);
+
+        updateAnimation(true);
+        updateEntity();
     }
 };
 

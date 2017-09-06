@@ -658,7 +658,7 @@ namespace Debug {
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = ((Controller*)entity.controller)->angle * RAD2DEG;
-            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, ((Controller*)entity.controller)->getRoomIndex());
+            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d)", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, ((Controller*)entity.controller)->getRoomIndex(), ((ICamera*)level.cameraController)->getRoomIndex());
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
