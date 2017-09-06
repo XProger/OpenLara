@@ -581,7 +581,8 @@ namespace Sound {
     void fill(Frame *frames, int count) {
         if (!channelsCount) {
             memset(frames, 0, sizeof(frames[0]) * count);
-            reverb.process(frames, count);
+            if (Core::settings.audio.reverb)
+                reverb.process(frames, count);
             return;
         }
 
@@ -630,7 +631,8 @@ namespace Sound {
             frames[i].R = clamp(result[i].R, -32768, 32767);
         }
 
-        reverb.process(frames, count);
+        if (Core::settings.audio.reverb)
+            reverb.process(frames, count);
 
         delete[] buffer;
         delete[] result;

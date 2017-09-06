@@ -2052,7 +2052,7 @@ namespace TR {
             return room.sectors[sx * room.zSectors + sz];
         }
 
-        Room::Sector& getSector(uint8 roomIndex, int x, int z, int &sectorIndex) {
+        Room::Sector& getSector(int roomIndex, int x, int z, int &sectorIndex) {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
             Room &room = rooms[roomIndex];
             x -= room.info.x;

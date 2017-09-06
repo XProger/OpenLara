@@ -296,7 +296,7 @@ struct AmbientCache {
             Task &task = tasks[i];
             
             bool oldFlip = level->isFlipped;
-            level->isFlipped = task.flip;
+            level->isFlipped = task.flip != 0;
             renderAmbient(task.room, task.sector, &task.cube->colors[0]);
             level->isFlipped = oldFlip;
 

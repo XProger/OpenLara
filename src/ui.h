@@ -130,12 +130,31 @@ namespace UI {
     }
 
     #undef MAX_CHARS
+/*
+    Texture *texInv, *texAction;
 
-
+    Texture* loadRAW(int width, int height, const char *name) {
+        FILE *f = fopen(name, "rb");
+        ASSERT(f);
+        uint8 *data = new uint8[width * height * 4];
+        fread(data, 1, width * height * 4, f);
+        fclose(f);
+        Texture *tex = new Texture(width, height, Texture::RGBA, false, data);
+        delete[] data;
+        return tex;
+    }
+*/
     void init(IGame *game) {
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
+//        texInv = loadRAW(64, 64, "btn_inv.raw");
+//        texAction = loadRAW(64, 64, "btn_action.raw");
+    }
+
+    void free() {
+//        delete texInv;
+//        delete texAction;
     }
 
     void update() {

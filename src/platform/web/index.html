@@ -88,7 +88,7 @@
 					proc.connect(ctx.destination);
 				}
 
-				var gl = canvasElement.getContext("webgl", {antialias:false}) || canvasElement.getContext("experimental-webgl", {antialias:false});
+				var gl = canvasElement.getContext("webgl", {antialias:false, premultipliedAlpha: false}) || canvasElement.getContext("experimental-webgl", {antialias:false, premultipliedAlpha: false});
 
 				Module.setStatus('Downloading...');
 				window.onerror = function(event) {
@@ -107,7 +107,7 @@
 				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX)				  
 				<p style="margin:8px">
 				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-				<br><i>last update: 1.09.2017</i><br>
+				<br><i>last update: 6.09.2017</i><br>
 				</p>
 			</span>
 

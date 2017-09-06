@@ -12,7 +12,7 @@ namespace Game {
     void startLevel(Stream *lvl) {
         delete level;
         level = new Level(*lvl);
-        UI::init(level);
+        UI::game = level;
         delete lvl;
     }
 
@@ -22,6 +22,8 @@ namespace Game {
 
     void init(Stream *lvl) {
         Core::init();
+        UI::init(level);
+
         Sound::callback = stopChannel;
 
         Core::settings.detail.ambient       = true;
@@ -29,25 +31,25 @@ namespace Game {
         Core::settings.detail.shadows       = true;
         Core::settings.detail.water         = Core::support.texFloat || Core::support.texHalf;
         Core::settings.detail.contact       = false;
-
 #ifdef __RPI__
         Core::settings.detail.ambient       = false;
         Core::settings.detail.shadows       = false;
 #endif
-
         Core::settings.controls.retarget    = true;
+        Core::settings.audio.reverb         = true;
 
         level = NULL;
         startLevel(lvl);
     }
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
-        if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
+        if (!lvlName) lvlName = (char*)"level/LEVEL2.PSX";
         init(new Stream(lvlName));
     }
 
     void free() {
         delete level;
+        UI::free();
         Core::free();
     }
 

@@ -47,7 +47,7 @@ struct Collision {
             return;
         }
 
-        int hCell = info[NONE].ceiling - (hpos.y - maxHeight);
+        int hCell = info[NONE].ceiling - (int(hpos.y) - maxHeight);
         if (hCell > 0) {
             if (hCell > 128) {
                 pos.x -= velocity.x;
@@ -59,7 +59,7 @@ struct Collision {
             }
         }
 
-        int hFloor = info[NONE].floor - (hpos.y + minHeight);
+        int hFloor = info[NONE].floor - (int(hpos.y) + minHeight);
         if (hFloor < 0 && hFloor > -256) {
             pos.y = info[NONE].floor - minHeight - offset.y;
             side  = BOTTOM;

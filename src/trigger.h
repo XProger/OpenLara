@@ -158,7 +158,7 @@ struct TrapBoulder : Controller {
         vec3 dir = getDir();
 
         if (pos.y >= info.floor - 256) {
-            pos.y = info.floor;
+            pos.y = float(info.floor);
             velocity = dir * animation.getSpeed();
             if (state != STATE_ROLL)
                 animation.setState(STATE_ROLL);
@@ -328,12 +328,12 @@ struct Door : Controller {
     };
 
     struct BlockInfo {
-        uint8            roomIndex[2];
+        int              roomIndex[2];
         int              sectorIndex[2];
         TR::Room::Sector sectors[2];
 
         BlockInfo() {}
-        BlockInfo(TR::Level *level, uint8 room, int nx, int nz, int x, int z, bool flip) {
+        BlockInfo(TR::Level *level, int room, int nx, int nz, int x, int z, bool flip) {
         // front
             roomIndex[0] = room;
             roomIndex[1] = TR::NO_ROOM;

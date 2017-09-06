@@ -140,6 +140,24 @@
 namespace Core {
     float deltaTime;
     int width, height;
+
+    struct {
+        struct {
+            bool ambient;
+            bool lighting;
+            bool shadows;
+            bool water;
+            bool contact;
+        } detail;
+
+        struct {
+            bool retarget;
+        } controls;
+
+        struct {
+            bool reverb;
+        } audio;
+    } settings;
 }
 
 #include "utils.h"
@@ -441,20 +459,6 @@ namespace Core {
                 frame++;        
         }
     } stats;
-
-    struct {
-        struct {
-            bool ambient;
-            bool lighting;
-            bool shadows;
-            bool water;
-            bool contact;
-        } detail;
-
-        struct {
-            bool retarget;
-        } controls;
-    } settings;
 }
 
 #include "texture.h"
