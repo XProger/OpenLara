@@ -276,6 +276,7 @@ struct MovingBlock : Controller {
     }
 };
 
+
 struct Door : Controller {
     enum {
         STATE_CLOSE,
@@ -402,9 +403,9 @@ struct TrapFloor : Controller {
         STATE_FALL,
         STATE_DOWN,
     };
-    float velocity;
+    float speed;
 
-    TrapFloor(IGame *game, int entity) : Controller(game, entity), velocity(0) {
+    TrapFloor(IGame *game, int entity) : Controller(game, entity), speed(0) {
         getEntity().flags.collision = true;
     }
 
@@ -422,16 +423,15 @@ struct TrapFloor : Controller {
     virtual void update() {
         updateAnimation(true);
         if (state == STATE_FALL) {
-            TR::Entity &e = getEntity();
-            e.flags.collision = false;
-            velocity += GRAVITY * 30 * Core::deltaTime;
-            pos.y += velocity * Core::deltaTime;
+            getEntity().flags.collision = false;
+            speed += GRAVITY * 30 * Core::deltaTime;
+            pos.y += speed * Core::deltaTime;
 
             TR::Level::FloorInfo info;
-            level->getFloorInfo(e.room, e.x, (int)pos.y, e.z, info);
+            level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
 
             if (pos.y > info.roomFloor && info.roomBelow != 0xFF)
-                e.room = info.roomBelow;
+                getEntity().room = info.roomBelow;
 
             if (pos.y > info.floor) {
                 pos.y = (float)info.floor;
@@ -489,12 +489,45 @@ struct TrapSpikes : Controller {
 };
 
 struct FallingCeiling : Controller {
-    FallingCeiling(IGame *game, int entity) : Controller(game, entity) {}
+    enum {
+        STATE_STATIC,
+        STATE_FALL,
+        STATE_DOWN,
+    };
+
+    float speed;
+
+    FallingCeiling(IGame *game, int entity) : Controller(game, entity), speed(0) {}
 
     virtual void update() {
         updateAnimation(true);
+
+        if (state == STATE_STATIC)
+            animation.setState(STATE_FALL);
+       
+        if (state == STATE_FALL) {
+            speed += GRAVITY * 30 * Core::deltaTime;
+            pos.y += speed * Core::deltaTime;
+
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+
+            if (pos.y > info.roomFloor && info.roomBelow != 0xFF)
+                getEntity().room = info.roomBelow;
+
+            if (pos.y > info.floor) {
+                pos.y = (float)info.floor;
+                animation.setState(STATE_DOWN);
+            }
+            updateEntity();
+
+            Controller *lara = (Controller*)level->laraController;
+            if (collide(lara))
+                lara->hit(1000);
+        }
     }
 };
+
 
 struct FallingSword : Controller {
     FallingSword(IGame *game, int entity) : Controller(game, entity) {}

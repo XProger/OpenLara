@@ -18,6 +18,7 @@ struct Controller;
 
 struct ICamera {
     vec4 *reflectPlane;
+    vec3 pos;
 
     ICamera() : reflectPlane(NULL) {}
 
@@ -489,7 +490,7 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
                                     case TR::Effect::ROTATE_180  : angle.y = angle.y + PI; break;
-                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(TR::Effect(fx), 0.5f * max(0.0f, 1.0f - (pos - ((Controller*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
+                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(TR::Effect(fx), 0.5f * max(0.0f, 1.0f - (pos - ((ICamera*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
                                     case TR::Effect::FLIP_MAP    : level->isFlipped = !level->isFlipped; break;
                                     default                      : cmdEffect(fx); break;
                                 }

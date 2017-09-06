@@ -1282,6 +1282,7 @@ struct Lara : Character {
 
     virtual void cmdEffect(int fx) {
         switch (fx) {
+            case TR::Effect::LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
             case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
             case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
@@ -1401,9 +1402,10 @@ struct Lara : Character {
                 pickupEntity = &item;
 
                 if (item.type == TR::Entity::SCION_1) {
-                    animation.setAnim(level->models[level->entities[TR::MODEL_LARA_SPEC].modelIndex].animation);
-                    ((Controller*)level->cameraController)->state = Camera::STATE_CUTSCENE;
+                    animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
+                    ((Camera*)level->cameraController)->state = Camera::STATE_CUTSCENE;
                     level->cutMatrix.identity();
+                    level->cutMatrix.rotateY(angle.y);
                     level->cutMatrix.setPos(pos);
                 } else
                     state = STATE_PICK_UP;

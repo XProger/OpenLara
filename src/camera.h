@@ -25,7 +25,7 @@ struct Camera : ICamera {
     Frustum    *frustum;
 
     float   fov, znear, zfar;
-    vec3    target, pos, destPos, lastDest, angle, advAngle;
+    vec3    target, destPos, lastDest, angle, advAngle;
     float   advTimer;
     mat4    mViewInv;
     int     room;
@@ -138,9 +138,14 @@ struct Camera : ICamera {
             TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
             if (indexB < indexA) {
-                level->initCutscene();
-                game->playTrack(0, true);
-                timer = 0.0f;
+                indexB = indexA;
+                timer  = 0.0f;
+                if (level->cutEntity != -1) {
+                    // TODO: level end
+                    level->initCutscene();
+                    game->playTrack(0, true);
+                } else
+                    state = STATE_FOLLOW;
             }
 
             const int eps = 512;
