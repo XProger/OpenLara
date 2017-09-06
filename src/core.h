@@ -125,8 +125,8 @@
     #endif
 #elif __EMSCRIPTEN__
     #define MOBILE
-    #include <emscripten.h>
-    #include <html5.h>
+    #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
 
@@ -856,6 +856,12 @@ namespace Core {
 
     void endFrame() {
         Core::stats.stop();
+    #ifdef __EMSCRIPTEN__
+        glColorMask(false, false, false, true);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glColorMask(true, true, true, true);
+    #endif
     }
 
     void DIP(int iStart, int iCount) {
