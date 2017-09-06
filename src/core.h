@@ -186,10 +186,10 @@ namespace Core {
 // Texture
     #ifdef WIN32
         PFNGLACTIVETEXTUREPROC              glActiveTexture;
-        PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
     #endif
 
     #if defined(WIN32) || defined(LINUX)
+        PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
     // Profiling
         #ifdef PROFILE
             PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -285,7 +285,7 @@ typedef unsigned short Index;
 
 struct Vertex {
     short4  coord;      // xyz  - position, w - joint index (for entities only)
-    short4  normal;     // xyz  - vertex normalá w - unused
+    short4  normal;     // xyz  - vertex normal, w - unused
     short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
     ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
     ubyte4  color;      // xyz  - color, w - intensity
@@ -479,10 +479,11 @@ namespace Core {
         #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
             #ifdef WIN32
                 GetProcOGL(glActiveTexture);
-                GetProcOGL(glGenerateMipmap);
             #endif
 
             #if defined(WIN32) || defined(LINUX)
+                GetProcOGL(glGenerateMipmap);
+
                 #ifdef PROFILE
                     GetProcOGL(glObjectLabel);
                     GetProcOGL(glPushDebugGroup);
