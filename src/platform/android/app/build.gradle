@@ -10,7 +10,7 @@ android {
         versionCode 1
         versionName "0.1"
         ndk {
-            abiFilters 'armeabi-v7a','x86','x86_64'
+            abiFilters 'armeabi-v7a', 'x86', 'x86_64'
         }
         externalNativeBuild {
             cmake {
@@ -28,6 +28,9 @@ android {
         cmake {
             path "CMakeLists.txt"
         }
+    }
+    aaptOptions {
+        noCompress 'psx', 'phd', 'pcx', 'mp3', 'ogg'
     }
 }
 

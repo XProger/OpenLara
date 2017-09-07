@@ -66,9 +66,8 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
             String packName = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_ACTIVITIES).applicationInfo.sourceDir;
             // hardcoded demo level and music
             AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.level2);
-            AssetFileDescriptor fMusic = this.getResources().openRawResourceFd(R.raw.music);
 
-            wrapper.onCreate(packName, getCacheDir().getAbsolutePath() + "/", (int)fLevel.getStartOffset(), (int)fMusic.getStartOffset());
+            wrapper.onCreate(System.getenv("EXTERNAL_STORAGE") + "/OpenLara/", getCacheDir().getAbsolutePath() + "/", packName, (int)fLevel.getStartOffset());
         } catch (Exception e) {
             e.printStackTrace();
             finish();
@@ -215,9 +214,9 @@ class Sound {
             public void run() {
                 while ( audioTrack.getPlayState() != AudioTrack.PLAYSTATE_STOPPED ) {
                     if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING && wrapper.ready) {
-                        synchronized (wrapper) {
+                        //synchronized (wrapper) {
                             Wrapper.nativeSoundFill(buffer);
-                        }
+                        //}
                         audioTrack.write(buffer, 0, buffer.length);
                         audioTrack.flush();
                     } else
@@ -270,7 +269,7 @@ class Touch {
 }
 
 class Wrapper implements Renderer {
-    public static native void nativeInit(String packName, String cacheDir, int levelOffset, int musicOffset);
+    public static native void nativeInit(String contentDir, String cacheDir, String packName, int levelOffset);
     public static native void nativeFree();
     public static native void nativeReset();
     public static native void nativeResize(int w, int h);
@@ -280,18 +279,18 @@ class Wrapper implements Renderer {
     public static native void nativeSoundFill(short buffer[]);
 
     Boolean ready = false;
-    private String packName;
+    private String contentDir;
     private String cacheDir;
+    private String packName;
     private int levelOffset;
-    private int musicOffset;
     private ArrayList<Touch> touch = new ArrayList<>();
     private Sound sound;
 
-    void onCreate(String packName, String cacheDir, int levelOffset, int musicOffset) {
-        this.packName = packName;
-        this.cacheDir = cacheDir;
+    void onCreate(String contentDir, String cacheDir, String packName, int levelOffset) {
+        this.contentDir  = contentDir;
+        this.cacheDir    = cacheDir;
+        this.packName    = packName;
         this.levelOffset = levelOffset;
-        this.musicOffset = musicOffset;
 
         sound = new Sound();
         sound.start(this);
@@ -325,8 +324,8 @@ class Wrapper implements Renderer {
                 nativeTouch(t.id, t.state, t.x, t.y);
             }
             touch.clear();
-            nativeUpdate();
         }
+        nativeUpdate();
         nativeRender();
     }
 
@@ -338,7 +337,7 @@ class Wrapper implements Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         if (!ready) {
-            nativeInit(packName, cacheDir, levelOffset, musicOffset);
+            nativeInit(contentDir, cacheDir, packName, levelOffset);
             sound.play();
             ready = true;
         }

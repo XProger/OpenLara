@@ -979,7 +979,7 @@ struct Stream {
     Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0), name(NULL) {}
 
     Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0), name(NULL) {
-        if (contentDir[0]) {
+        if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
             strcat(path, contentDir);
@@ -998,16 +998,21 @@ struct Stream {
                 return;
             #else
                 LOG("error loading file \"%s\"\n", name);
+                if (callback) {
+                    callback(NULL, userData);
+                    return;
+                } else {
+                    ASSERT(false);
+                }
             #endif
+        } else {
+            fseek(f, 0, SEEK_END);
+            size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+
+            if (callback)
+                callback(this, userData);
         }
-        ASSERT(f != NULL);
-
-        fseek(f, 0, SEEK_END);
-        size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-
-        if (callback)
-            callback(this, userData);
     }
 
     ~Stream() {
