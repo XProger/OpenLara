@@ -7,10 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		995C97F01E91A857003825B2 /* shaders in Resources */ = {isa = PBXBuildFile; fileRef = 995C97EF1E91A857003825B2 /* shaders */; };
-		9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */ = {isa = PBXBuildFile; fileRef = 9971B72E1E7C239900F25790 /* LEVEL2.PSX */; };
+		99714F651F621E1000960AA7 /* level in Resources */ = {isa = PBXBuildFile; fileRef = 99714F641F621E1000960AA7 /* level */; };
+		99714F671F621E5E00960AA7 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99714F661F621E5E00960AA7 /* audio */; };
 		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
-		99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99BFB6A41DCA872D00E2E997 /* 05.ogg */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
 		99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0951796A9730032DE85 /* AGL.framework */; };
@@ -21,7 +20,8 @@
 
 /* Begin PBXFileReference section */
 		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
-		9971B72E1E7C239900F25790 /* LEVEL2.PSX */ = {isa = PBXFileReference; lastKnownFileType = file; name = LEVEL2.PSX; path = ../../../bin/LEVEL2.PSX; sourceTree = SOURCE_ROOT; };
+		99714F641F621E1000960AA7 /* level */ = {isa = PBXFileReference; lastKnownFileType = folder; name = level; path = ../../../../bin/level; sourceTree = "<group>"; };
+		99714F661F621E5E00960AA7 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../../bin/audio; sourceTree = "<group>"; };
 		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
 		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
 		99BFB68F1DCA7F1700E2E997 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
@@ -40,7 +40,6 @@
 		99BFB69D1DCA7F1700E2E997 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
 		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
-		99BFB6A41DCA872D00E2E997 /* 05.ogg */ = {isa = PBXFileReference; lastKnownFileType = file; name = 05.ogg; path = ../../../bin/05.ogg; sourceTree = SOURCE_ROOT; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
 		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
 		99C4C0931796A96F0032DE85 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
@@ -122,8 +121,8 @@
 		99C4C0A31796AACF0032DE85 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				9971B72E1E7C239900F25790 /* LEVEL2.PSX */,
-				99BFB6A41DCA872D00E2E997 /* 05.ogg */,
+				99714F661F621E5E00960AA7 /* audio */,
+				99714F641F621E1000960AA7 /* level */,
 				99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */,
 			);
 			name = "Supporting Files";
@@ -181,9 +180,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				995C97F01E91A857003825B2 /* shaders in Resources */,
-				99BFB6A61DCA872D00E2E997 /* 05.ogg in Resources */,
-				9971B72F1E7C239900F25790 /* LEVEL2.PSX in Resources */,
+				99714F651F621E1000960AA7 /* level in Resources */,
+				99714F671F621E5E00960AA7 /* audio in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
