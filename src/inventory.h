@@ -172,7 +172,7 @@ struct Inventory {
 
             memset(background, 0, sizeof(background));
 
-            new Stream("data/TITLEH.PCX", loadTitleBG, this);
+            new Stream("level/TITLEH.PCX", loadTitleBG, this);
         }
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
@@ -614,10 +614,14 @@ struct Inventory {
                 background[1]->bind(sNormal);   // blured grayscale image
             } else {
                 game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
+                
+                float aspectSrc = float(640.0f) / float(480.0f);
+                float aspectDst = float(Core::width) / float(Core::height);
+                float aspectImg = aspectDst / aspectSrc;
+                float ax = 640.0f / float(background[0]->width);
+                float ay = 480.0f / float(background[0]->height);
 
-                float aspect1 = float(background[0]->width) / float(background[0]->height);
-                float aspect2 = float(Core::width) / float(Core::height);
-                Core::active.shader->setParam(uParam, vec4(aspect2 / aspect1, -1.0f, 0, 0));
+                Core::active.shader->setParam(uParam, vec4(ax * aspectImg, -ay, (0.5f - aspectImg * 0.5f) * ax, ay));
             }
             game->getMesh()->renderQuad();
         }

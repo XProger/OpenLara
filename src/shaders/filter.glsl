@@ -12,9 +12,10 @@ uniform vec4 uParam;
 	attribute vec4 aCoord;
 
 	void main() {
-		vTexCoord	= aCoord.zw;
 		#ifdef FILTER_DEFAULT
-			vTexCoord = ((vTexCoord * 2.0 - 1.0) * uParam.xy) * 0.5 + 0.5;
+			vTexCoord = aCoord.zw * uParam.xy + uParam.zw;
+		#else
+			vTexCoord = aCoord.zw;
 		#endif
 		gl_Position = vec4(aCoord.xy, 0.0, 1.0);
 	}

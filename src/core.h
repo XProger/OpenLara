@@ -446,7 +446,6 @@ namespace Core {
         }
 
         void stop() {
-            glFlush();
             if (fpsTime < getTime()) {
                 LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
             #ifdef PROFILE
@@ -860,13 +859,13 @@ namespace Core {
     }
 
     void endFrame() {
-        Core::stats.stop();
     #ifdef __EMSCRIPTEN__
         glColorMask(false, false, false, true);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glColorMask(true, true, true, true);
     #endif
+        Core::stats.stop();
     }
 
     void DIP(int iStart, int iCount) {

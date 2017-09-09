@@ -199,17 +199,9 @@ struct Texture {
         Color32 *data = (Color32*)&palette[256];
         memset(data, 0, dw * dh * 4);
         
-        Color32 *ptr = data;
-        /*
-        for (i = 0; i < pcx.height * pcx.width; i++) {
-            Color24 &c = palette[buffer[i]];
-            ptr[i].r = c.r;
-            ptr[i].g = c.g;
-            ptr[i].b = c.b;
-            ptr[i].a = 255;
-        }
-        */
+        // TODO: color bleeding
 
+        Color32 *ptr = data;
         i = 0;
         for (int y = 0; y < pcx.height; y++) {
             for (int x = 0; x < pcx.width; x++) {
