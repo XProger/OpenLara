@@ -67,8 +67,17 @@ struct Sprite : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        Core::setBlending(bmAlpha);
+
+        TR::Entity::Type eType = getEntity().type;
+        if (eType == TR::Entity::SMOKE || eType == TR::Entity::WATER_SPLASH)
+            Core::active.shader->setParam(uMaterial, vec4(0.5f, 1.0f, 0.0f, 0.75f));
+        else
+            Core::active.shader->setParam(uMaterial, vec4(0.5f, 1.0f, 0.0f, 1.0f));
+
         Core::active.shader->setParam(uBasis, Basis(Core::mViewInv.getRot(), pos));
         mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
+        Core::setBlending(bmNone);
     }
 };
 

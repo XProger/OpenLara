@@ -608,7 +608,7 @@ struct Waterfall : Controller {
     virtual void update() {
         updateAnimation(true);
 
-        vec3 delta = (((Controller*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
+        vec3 delta = (((ICamera*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
         if (delta.length2() > 100.0f)
             return;
 
