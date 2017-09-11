@@ -336,12 +336,12 @@ struct Level : IGame {
                 case TR::Entity::MOVING_BLOCK          :
                     entity.controller = new MovingBlock(this, i);                    
                     break;
-                case TR::Entity::FALLING_CEILING_1     :
-                case TR::Entity::FALLING_CEILING_2     :
-                    entity.controller = new FallingCeiling(this, i);
+                case TR::Entity::TRAP_CEILING_1     :
+                case TR::Entity::TRAP_CEILING_2     :
+                    entity.controller = new TrapCeiling(this, i);
                     break;
-                case TR::Entity::FALLING_SWORD         :
-                    entity.controller = new FallingSword(this, i);
+                case TR::Entity::TRAP_SWORD         :
+                    entity.controller = new TrapSword(this, i);
                     break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :

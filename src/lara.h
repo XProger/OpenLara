@@ -108,6 +108,7 @@ struct Lara : Character {
         ANIM_STAND_ROLL_BEGIN   = 146,
         ANIM_STAND_ROLL_END     = 147,
 
+        ANIM_DEATH_SPIKES       = 149,
         ANIM_HANG_SWING         = 150,
     };
 
@@ -434,10 +435,10 @@ struct Lara : Character {
         //reset(9, vec3(63008, 0, 37787), 0);     // level 2 (switch)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
-        //reset(0, vec3(74858, 3072, 20795), 0);     // level 1 (dart)
         //reset(26, vec3(24475, 6912, 83505), 90 * DEG2RAD);     // level 1 (switch timer)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
+        //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
@@ -454,6 +455,7 @@ struct Lara : Character {
         //reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
         //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
         //reset(43, vec3(64037, 6656, 48229), PI);         // level 3b (movingblock)
+        //reset(27, vec3(72372, 8704, 46547), PI * 0.5f);  // level 3b (spikes)
         //reset(5, vec3(73394, 3840, 60758), 0);           // level 3b (scion)
         //reset(20, vec3(57724, 6656, 61941), 90 * DEG2RAD); // level 3b (boulder)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
@@ -1290,36 +1292,55 @@ struct Lara : Character {
         }
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL) {
+    void addBlood(float radius, const vec3 &spriteVelocity) {
+        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * 512.0f, (randf() * 2.0f - 1.0f) * radius);
+        int index = Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), int(p.x), int(p.y), int(p.z), Sprite::FRAME_ANIMATED);
+        if (index > -1)
+            ((Sprite*)level->entities[index].controller)->velocity = spriteVelocity;
+    }
+
+    void addBloodSpikes() {
+        float ang = randf() * PI * 2.0f;
+        addBlood(64.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * 20.0f);
+    }
+
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy) return;
+
+        if (health <= 0.0f) return;
 
         damageTime = LARA_DAMAGE_TIME;
 
-        if (health > 0.0f) {
-            if (damage == BOULDER_DAMAGE_GROUND) {
-                if (stand == STAND_GROUND) {
-                    animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 2);
-                    angle = enemy->angle;
-                    TR::Level::FloorInfo info;
-                    level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
-                    vec3 d = getDir();
-                    vec3 v = info.getSlant(d);
-                    angle.x = -acos(d.dot(v));
-                    int roomIndex = getRoomIndex();
-                    v = ((TrapBoulder*)enemy)->velocity * 60.0f;
-                    for (int i = 0; i < 15; i++) {
-                        vec3 p = pos + vec3(randf() * 512.0f - 256.0f, -randf() * 512.0f, randf() * 512.0f - 256.0f);
-                        int index = Sprite::add(game, TR::Entity::BLOOD, roomIndex, int(p.x), int(p.y), int(p.z), Sprite::FRAME_ANIMATED);
-                        if (index > -1)
-                            ((Sprite*)level->entities[index].controller)->velocity = v;
-                    }
-                } else if (stand == STAND_AIR) {
-                    damage = BOULDER_DAMAGE_AIR * 30.0f * Core::deltaTime;
-                } else
-                    damage = 0;
-            }
+        Character::hit(damage, enemy, hitType);
 
-            if (damage == REX_DAMAGE) { // T-Rex attack (fatal)
+        if (health > 0.0f) {
+            if (hitType == TR::HIT_SPIKES)
+                addBloodSpikes();
+            return;
+        }
+
+        switch (hitType) {
+            case TR::HIT_BOULDER : {
+                animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 2);
+                angle = enemy->angle;
+                TR::Level::FloorInfo info;
+                level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+                vec3 d = getDir();
+                vec3 v = info.getSlant(d);
+                angle.x = -acos(d.dot(v));
+                v = ((TrapBoulder*)enemy)->velocity * 2.0f;
+                for (int i = 0; i < 15; i++)
+                    addBlood(256.0f, v);
+                break;
+            }
+            case TR::HIT_SPIKES : {
+                pos.y = enemy->pos.y;
+                animation.setAnim(ANIM_DEATH_SPIKES);
+                for (int i = 0; i < 20; i++)
+                    addBloodSpikes();
+                break;
+            }
+            case TR::HIT_REX : {
                 pos   = enemy->pos;
                 angle = enemy->angle;
 
@@ -1328,13 +1349,12 @@ struct Lara : Character {
                 meshSwap(3, level->extra.weapons[Weapon::UZIS],    0);
 
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
+                break;
             }
-
-            Character::hit(damage, enemy);
+            default : ;
         }
 
-        if (health <= 0)
-            Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
+        Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
     };
 
     bool useItem(TR::Entity::Type item) {

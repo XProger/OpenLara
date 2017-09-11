@@ -2,7 +2,6 @@
 #define H_CHARACTER
 
 #include "controller.h"
-#include "trigger.h"
 
 struct Character : Controller {
     float   health;
@@ -82,7 +81,7 @@ struct Character : Controller {
         angle.x = clamp(angle.x + delta, -PI * 0.49f, PI * 0.49f);
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL) {
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         health = max(0.0f, health - damage);
     }
 

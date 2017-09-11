@@ -54,7 +54,7 @@
     E( TRAP_DARTGUN          ) \
     E( DOOR_LIFT             ) \
     E( TRAP_SLAM             ) \
-    E( FALLING_SWORD         ) \
+    E( TRAP_SWORD            ) \
     E( HAMMER_HANDLE         ) \
     E( HAMMER_BLOCK          ) \
     E( LIGHTNING_BALL        ) \
@@ -64,8 +64,8 @@
     E( BLOCK_3               ) \
     E( BLOCK_4               ) \
     E( MOVING_BLOCK          ) \
-    E( FALLING_CEILING_1     ) \
-    E( FALLING_CEILING_2     ) \
+    E( TRAP_CEILING_1        ) \
+    E( TRAP_CEILING_2        ) \
     E( SWITCH                ) \
     E( SWITCH_WATER          ) \
     E( DOOR_1                ) \
@@ -300,6 +300,13 @@ namespace TR {
         MODEL_MAGNUMS       = 3,
         MODEL_UZIS          = 4,
         MODEL_LARA_SPEC     = 5,
+    };
+
+    enum HitType {
+        HIT_DEFAULT,
+        HIT_BOULDER,
+        HIT_SPIKES,
+        HIT_REX,
     };
 
     enum Action : uint16 {

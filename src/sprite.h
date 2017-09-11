@@ -58,7 +58,7 @@ struct Sprite : Controller {
             if (instant && time >= (1.0f / SPRITE_FPS))
                 remove = true;
 
-        pos += velocity * Core::deltaTime;
+        pos += velocity * (30.0f * Core::deltaTime);
 
         if (remove) {
             level->entityRemove(entity);

@@ -218,8 +218,8 @@ struct Enemy : Character {
         return 0;
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL) {
-        Character::hit(damage, enemy);
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        Character::hit(damage, enemy, hitType);
         wound = true;
     };
 
@@ -836,7 +836,7 @@ struct Bat : Enemy {
 #define REX_DIST_WALK       5120
 #define REX_TURN_FAST       (DEG2RAD * 120)
 #define REX_TURN_SLOW       (DEG2RAD * 60)
-#define REX_DAMAGE          10000
+#define REX_DAMAGE          1000
 
 struct Rex : Enemy {
 
@@ -912,7 +912,7 @@ struct Rex : Enemy {
                 break;
             case STATE_BITE :
                 if (mask & HIT_MASK) {
-                    target->hit(REX_DAMAGE, this);
+                    target->hit(REX_DAMAGE, this, TR::HIT_REX);
                     return STATE_FATAL;
                 }
                 nextState = STATE_WALK;

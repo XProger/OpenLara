@@ -448,7 +448,7 @@ struct Controller {
         return pos;
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL) {}
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {}
 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
     virtual void  checkRoom()                   {}

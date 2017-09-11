@@ -3,6 +3,7 @@
 
 #include "core.h"
 #include "controller.h"
+#include "character.h"
 #include "sprite.h"
 
 struct Switch : Controller {
@@ -136,7 +137,7 @@ struct TrapDartgun : Controller {
     }
 };
 
-#define BOULDER_DAMAGE_GROUND 1001
+#define BOULDER_DAMAGE_GROUND 1000
 #define BOULDER_DAMAGE_AIR    100
 
 struct TrapBoulder : Controller {
@@ -183,9 +184,13 @@ struct TrapBoulder : Controller {
             return;
         }
 
-        Controller *lara = (Controller*)level->laraController;
-        if (collide(lara))
-            lara->hit(BOULDER_DAMAGE_GROUND, this);
+        Character *lara = (Character*)level->laraController;
+        if (lara->health > 0.0f && collide(lara)) {
+            if (lara->stand == Character::STAND_GROUND)
+                lara->hit(BOULDER_DAMAGE_GROUND, this, TR::HIT_BOULDER);
+            if (lara->stand == Character::STAND_AIR)
+                lara->hit(BOULDER_DAMAGE_AIR * 30.0f * Core::deltaTime, this);
+        }
 
         updateAnimation(true);
         updateEntity();
@@ -524,15 +529,31 @@ struct TrapBlade : Controller {
     }
 };
 
+#define SPIKES_DAMAGE_FALL      1000
+#define SPIKES_DAMAGE_RUN       15
+
 struct TrapSpikes : Controller {
-    TrapSpikes(IGame *game, int entity) : Controller(game, entity) {}
+    TrapSpikes(IGame *game, int entity) : Controller(game, entity) {
+        activate();
+    }
 
     virtual void update() {
-        updateAnimation(true);
+        Character *lara = (Character*)level->laraController;
+        if (lara->health <= 0.0f) return;
+
+        if (!collide(lara))
+            return;
+
+        if (lara->stand != Character::STAND_AIR || lara->velocity.y <= 0.0f || (pos.y - lara->pos.y) > 128.0f) {
+            if (lara->speed < 30.0f)
+                return;
+            lara->hit(SPIKES_DAMAGE_RUN * 30.0f * Core::deltaTime, this, TR::HIT_SPIKES);
+        } else
+            lara->hit(SPIKES_DAMAGE_FALL, this, TR::HIT_SPIKES);
     }
 };
 
-struct FallingCeiling : Controller {
+struct TrapCeiling : Controller {
     enum {
         STATE_STATIC,
         STATE_FALL,
@@ -541,7 +562,7 @@ struct FallingCeiling : Controller {
 
     float speed;
 
-    FallingCeiling(IGame *game, int entity) : Controller(game, entity), speed(0) {}
+    TrapCeiling(IGame *game, int entity) : Controller(game, entity), speed(0) {}
 
     virtual void update() {
         updateAnimation(true);
@@ -573,8 +594,8 @@ struct FallingCeiling : Controller {
 };
 
 
-struct FallingSword : Controller {
-    FallingSword(IGame *game, int entity) : Controller(game, entity) {}
+struct TrapSword : Controller {
+    TrapSword(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
         updateAnimation(true);
