@@ -521,16 +521,46 @@ struct Crystal : Controller {
     }
 };
 
+#define BLADE_DAMAGE    100
+#define BLADE_RANGE     1024
+
 struct TrapBlade : Controller {
+    enum {
+        STATE_STATIC = 0,
+        STATE_SWING  = 2,
+    };
+
     TrapBlade(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
         updateAnimation(true);
+
+        if (isActive()) {
+            if (state == STATE_STATIC)
+                animation.setState(STATE_SWING);
+        } else {
+            if (state == STATE_SWING)
+                animation.setState(STATE_STATIC);
+        }
+
+        if (state != STATE_SWING)
+            return;
+
+        int f = animation.frameIndex;
+        if ((f <= 8 || f >= 20) && (f <= 42 || f >= 57))
+            return;
+
+        Character* lara = (Character*)level->laraController;
+        if (!checkRange(lara, BLADE_RANGE) || !collide(lara))
+            return;
+
+        lara->hit(BLADE_DAMAGE * 30.0f * Core::deltaTime, this, TR::HIT_BLADE);
     }
 };
 
 #define SPIKES_DAMAGE_FALL      1000
 #define SPIKES_DAMAGE_RUN       15
+#define SPIKES_RANGE            1024
 
 struct TrapSpikes : Controller {
     TrapSpikes(IGame *game, int entity) : Controller(game, entity) {
@@ -541,10 +571,10 @@ struct TrapSpikes : Controller {
         Character *lara = (Character*)level->laraController;
         if (lara->health <= 0.0f) return;
 
-        if (!collide(lara))
+        if (!checkRange(lara, SPIKES_RANGE) || !collide(lara))
             return;
 
-        if (lara->stand != Character::STAND_AIR || lara->velocity.y <= 0.0f || (pos.y - lara->pos.y) > 128.0f) {
+        if (lara->stand != Character::STAND_AIR || lara->velocity.y <= 0.0f || (pos.y - lara->pos.y) > 256.0f) {
             if (lara->speed < 30.0f)
                 return;
             lara->hit(SPIKES_DAMAGE_RUN * 30.0f * Core::deltaTime, this, TR::HIT_SPIKES);

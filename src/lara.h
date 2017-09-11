@@ -443,7 +443,7 @@ struct Lara : Character {
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
-        //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
+        //reset(61, vec3(27221, -1024, 29205), -PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
         //reset(16, vec3(60907, 0, 39642), PI * 3 / 2);    // level 2 (hang & climb)
         //reset(19, vec3(60843, 1024, 30557), PI);         // level 2 (block)
@@ -1292,8 +1292,8 @@ struct Lara : Character {
         }
     }
 
-    void addBlood(float radius, const vec3 &spriteVelocity) {
-        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * 512.0f, (randf() * 2.0f - 1.0f) * radius);
+    void addBlood(float radius, float height, const vec3 &spriteVelocity) {
+        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * height, (randf() * 2.0f - 1.0f) * radius);
         int index = Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), int(p.x), int(p.y), int(p.z), Sprite::FRAME_ANIMATED);
         if (index > -1)
             ((Sprite*)level->entities[index].controller)->velocity = spriteVelocity;
@@ -1301,8 +1301,14 @@ struct Lara : Character {
 
     void addBloodSpikes() {
         float ang = randf() * PI * 2.0f;
-        addBlood(64.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * 20.0f);
+        addBlood(64.0f,  512.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * 20.0f);
     }
+
+    void addBloodBlade() {
+        float ang = angle.y + (randf() - 0.5f) * 30.0f * DEG2RAD;
+        addBlood(64.0f, 744.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * speed);
+    }
+
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy) return;
@@ -1313,11 +1319,14 @@ struct Lara : Character {
 
         Character::hit(damage, enemy, hitType);
 
-        if (health > 0.0f) {
-            if (hitType == TR::HIT_SPIKES)
-                addBloodSpikes();
+        if (hitType == TR::HIT_BLADE)
+            addBloodBlade();
+
+        if (hitType == TR::HIT_SPIKES)
+            addBloodSpikes();
+
+        if (health > 0.0f)
             return;
-        }
 
         switch (hitType) {
             case TR::HIT_BOULDER : {
@@ -1330,13 +1339,13 @@ struct Lara : Character {
                 angle.x = -acos(d.dot(v));
                 v = ((TrapBoulder*)enemy)->velocity * 2.0f;
                 for (int i = 0; i < 15; i++)
-                    addBlood(256.0f, v);
+                    addBlood(256.0f, 512.0f, v);
                 break;
             }
             case TR::HIT_SPIKES : {
                 pos.y = enemy->pos.y;
                 animation.setAnim(ANIM_DEATH_SPIKES);
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < 19; i++)
                     addBloodSpikes();
                 break;
             }

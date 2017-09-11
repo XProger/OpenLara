@@ -448,6 +448,11 @@ struct Controller {
         return pos;
     }
 
+    bool checkRange(Controller *target, float range) {
+        vec3 d = target->pos - pos;
+        return fabsf(d.x) < range && fabsf(d.z) < range && fabsf(d.y) < range;
+    }
+
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {}
 
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}

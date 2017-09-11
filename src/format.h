@@ -304,6 +304,7 @@ namespace TR {
 
     enum HitType {
         HIT_DEFAULT,
+        HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
         HIT_REX,
