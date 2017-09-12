@@ -195,7 +195,7 @@ struct Level : IGame {
         if (!stream) return;
         Level *level = (Level*)userData;
 
-        level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, 0);
+        level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, Sound::MUSIC);
         if (level->sndSoundtrack)
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
     }
@@ -385,7 +385,7 @@ struct Level : IGame {
         // init sounds
             //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
-            sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP);
+            sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
             if (sndUnderwater)
                 sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
 
@@ -790,7 +790,11 @@ struct Level : IGame {
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
-        setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+        if (type == Shader::SPRITE) {
+            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0f;                
+            setRoomParams(roomIndex, type, 0.5f, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+        } else
+            setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
