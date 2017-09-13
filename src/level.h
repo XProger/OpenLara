@@ -15,6 +15,8 @@
     #include "debug.h"
 #endif
 
+extern void loadAsync(Stream *stream, void *userData);
+
 struct Level : IGame {
     TR::Level   level;
     Inventory   inventory;
@@ -44,12 +46,25 @@ struct Level : IGame {
 
     int  curTrack;
     bool lastTitle;
+    bool isEnded;
 
     TR::Effect effect;
     float      effectTimer;
     int        flickerIdx;
 
 // IGame implementation ========
+    virtual void loadLevel(TR::LevelID id) {
+        if (isEnded) return;
+
+        isEnded = true;
+        char buf[64];
+        buf[0] = 0;
+        strcat(buf, "level/");
+        strcat(buf, TR::LEVEL_INFO[id].name);
+        strcat(buf, ".PSX");
+        new Stream(buf, loadAsync);
+    }
+
     virtual TR::Level* getLevel() {
         return &level;
     }
@@ -233,7 +248,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), lara(NULL) {
+    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
@@ -439,8 +454,18 @@ struct Level : IGame {
 
     static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
         static const uint32 whiteColor     = 0xFFFFFFFF;
-        static const uint32 healthColor[5] = { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F };
-        static const uint32 oxygenColor[5] = { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 };
+        static const uint32 barColor[UI::BAR_MAX][25] = {
+            // health bar
+                { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F },
+            // oxygen bar
+                { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 },
+            // option bar
+                { 0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF,
+                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
+                  0x00FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x00FFFFFF,
+                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
+                  0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF },
+            };
 
         int stride = 256, uvCount;
         short2 *uv = NULL;
@@ -472,19 +497,20 @@ struct Level : IGame {
                 uvCount = 4;
 
                 switch (id) {
-                    case 0 : // white color
+                    case UI::BAR_HEALTH :
+                    case UI::BAR_OXYGEN : 
+                    case UI::BAR_OPTION : 
+                        src  = (TR::Color32*)&barColor[id][0];
+                        tex  = &barTile[id];
+                        mm.w = 4; // height - 1
+                        if (id == UI::BAR_OPTION) {
+                            stride = 5;
+                            mm.z = 4;
+                        }
+                        break;
+                    case 3 : // white color
                         src  = (TR::Color32*)&whiteColor;
                         tex  = &whiteTile;
-                        break;
-                    case 1 : // health bar
-                        src  = (TR::Color32*)&healthColor[0];
-                        tex  = &healthTile;
-                        mm.w = 4; // height - 1
-                        break;
-                    case 2 : // oxygen bar
-                        src  = (TR::Color32*)&oxygenColor[0];
-                        tex  = &oxygenTile;
-                        mm.w = 4; // height - 1
                         break;
                     default : return;
                 }
@@ -493,6 +519,8 @@ struct Level : IGame {
                 uv = tex->texCoord;
                 uv[2].y += mm.w;
                 uv[3].y += mm.w;
+                uv[1].x += mm.z;
+                uv[2].x += mm.z;
             }
         }
 
@@ -583,12 +611,14 @@ struct Level : IGame {
 
             tiles->add(uv, texIdx++);
         }
-        // add white color
-        tiles->add(short4(2048, 2048, 2048, 2048), texIdx++);
         // add health bar
         tiles->add(short4(2048, 2048, 2048, 2048 + 4), texIdx++);
         // add oxygen bar
         tiles->add(short4(4096, 4096, 4096, 4096 + 4), texIdx++);
+        // add option bar
+        tiles->add(short4(8192, 8192, 8192 + 4, 8192 + 4), texIdx++);
+        // add white color
+        tiles->add(short4(2048, 2048, 2048, 2048), texIdx++);
         // get result texture
         atlas = tiles->pack();
 
@@ -1390,7 +1420,7 @@ struct Level : IGame {
             }
 
             if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
-                UI::renderBar(0, vec2(UI::width - 32 - size.x, 32), size, health);
+                UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x, 32), size, health);
 
                 if (!inventory.active && !lara->emptyHands()) { // ammo
                     int index = inventory.contains(lara->getCurrentWeaponInv());
@@ -1400,7 +1430,7 @@ struct Level : IGame {
             }
 
             if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
-                UI::renderBar(1, vec2(32, 32), size, oxygen);
+                UI::renderBar(UI::BAR_OXYGEN, vec2(32, 32), size, oxygen);
         }
 
         inventory.renderUI();
@@ -1414,6 +1444,14 @@ struct Level : IGame {
     void render() {
         bool title  = inventory.isActive() || level.id == TR::TITLE;
         bool copyBg = title && lastTitle != title;
+        lastTitle = title;
+
+        if (isEnded) {
+            UI::begin();
+            UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
+            UI::end();
+            return;
+        }
 
         if (copyBg) {
             Core::defaultTarget = inventory.background[0];
@@ -1430,8 +1468,6 @@ struct Level : IGame {
             renderInventory();
 
         renderUI();
-
-        lastTitle = title;
     }
 
 };

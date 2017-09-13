@@ -29,58 +29,62 @@ struct Inventory {
     Page    page, targetPage;
     int     itemsCount;
 
+    TR::LevelID nextLevel; // toggle result
+
     struct Item {
         TR::Entity::Type    type;
         int                 count;
         float               angle;
         Animation           *anim;
 
+        int                 value;
+
         struct Desc {
-            const char *name;
+            StringID    str;
             Page        page;
             int         model;
         } desc;
 
         Item() : anim(NULL) {}
 
-        Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f) {
+        Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f), value(0) {
             switch (type) {
-                case TR::Entity::INV_PASSPORT        : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport        }; break;
-                case TR::Entity::INV_PASSPORT_CLOSED : desc = { "Game",            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
-                case TR::Entity::INV_MAP             : desc = { "Map",             PAGE_INVENTORY, level->extra.inv.map             }; break;
-                case TR::Entity::INV_COMPASS         : desc = { "Compass",         PAGE_INVENTORY, level->extra.inv.compass         }; break;
-                case TR::Entity::INV_HOME            : desc = { "Lara's Home",     PAGE_OPTION,    level->extra.inv.home            }; break;
-                case TR::Entity::INV_DETAIL          : desc = { "Detail Levels",   PAGE_OPTION,    level->extra.inv.detail          }; break;
-                case TR::Entity::INV_SOUND           : desc = { "Sound",           PAGE_OPTION,    level->extra.inv.sound           }; break;
-                case TR::Entity::INV_CONTROLS        : desc = { "Controls",        PAGE_OPTION,    level->extra.inv.controls        }; break;
-                case TR::Entity::INV_GAMMA           : desc = { "Gamma",           PAGE_OPTION,    level->extra.inv.gamma           }; break;
+                case TR::Entity::INV_PASSPORT        : desc = { STR_GAME,            PAGE_OPTION,    level->extra.inv.passport        }; break;
+                case TR::Entity::INV_PASSPORT_CLOSED : desc = { STR_GAME,            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
+                case TR::Entity::INV_MAP             : desc = { STR_MAP,             PAGE_INVENTORY, level->extra.inv.map             }; break;
+                case TR::Entity::INV_COMPASS         : desc = { STR_COMPASS,         PAGE_INVENTORY, level->extra.inv.compass         }; break;
+                case TR::Entity::INV_HOME            : desc = { STR_HOME,            PAGE_OPTION,    level->extra.inv.home            }; break;
+                case TR::Entity::INV_DETAIL          : desc = { STR_DETAIL,          PAGE_OPTION,    level->extra.inv.detail          }; break;
+                case TR::Entity::INV_SOUND           : desc = { STR_SOUND,           PAGE_OPTION,    level->extra.inv.sound           }; break;
+                case TR::Entity::INV_CONTROLS        : desc = { STR_CONTROLS,        PAGE_OPTION,    level->extra.inv.controls        }; break;
+                case TR::Entity::INV_GAMMA           : desc = { STR_GAMMA,           PAGE_OPTION,    level->extra.inv.gamma           }; break;
                                                                                    
-                case TR::Entity::INV_PISTOLS         : desc = { "Pistols",         PAGE_INVENTORY, level->extra.inv.weapon[0]       }; break;
-                case TR::Entity::INV_SHOTGUN         : desc = { "Shotgun",         PAGE_INVENTORY, level->extra.inv.weapon[1]       }; break;
-                case TR::Entity::INV_MAGNUMS         : desc = { "Magnums",         PAGE_INVENTORY, level->extra.inv.weapon[2]       }; break;
-                case TR::Entity::INV_UZIS            : desc = { "Uzis",            PAGE_INVENTORY, level->extra.inv.weapon[3]       }; break;
+                case TR::Entity::INV_PISTOLS         : desc = { STR_PISTOLS,         PAGE_INVENTORY, level->extra.inv.weapon[0]       }; break;
+                case TR::Entity::INV_SHOTGUN         : desc = { STR_SHOTGUN,         PAGE_INVENTORY, level->extra.inv.weapon[1]       }; break;
+                case TR::Entity::INV_MAGNUMS         : desc = { STR_MAGNUMS,         PAGE_INVENTORY, level->extra.inv.weapon[2]       }; break;
+                case TR::Entity::INV_UZIS            : desc = { STR_UZIS,            PAGE_INVENTORY, level->extra.inv.weapon[3]       }; break;
                                                                                    
-                case TR::Entity::INV_AMMO_PISTOLS    : desc = { "Pistol Clips",    PAGE_INVENTORY, level->extra.inv.ammo[0]         }; break;
-                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { "Shotgun Shells",  PAGE_INVENTORY, level->extra.inv.ammo[1]         }; break;
-                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { "Magnum Clips",    PAGE_INVENTORY, level->extra.inv.ammo[2]         }; break;
-                case TR::Entity::INV_AMMO_UZIS       : desc = { "Uzi Clips",       PAGE_INVENTORY, level->extra.inv.ammo[3]         }; break;
+                case TR::Entity::INV_AMMO_PISTOLS    : desc = { STR_AMMO_PISTOLS,    PAGE_INVENTORY, level->extra.inv.ammo[0]         }; break;
+                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { STR_AMMO_SHOTGUN,    PAGE_INVENTORY, level->extra.inv.ammo[1]         }; break;
+                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { STR_AMMO_MAGNUMS,    PAGE_INVENTORY, level->extra.inv.ammo[2]         }; break;
+                case TR::Entity::INV_AMMO_UZIS       : desc = { STR_AMMO_UZIS,       PAGE_INVENTORY, level->extra.inv.ammo[3]         }; break;
 
-                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { "Small Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[0]      }; break;
-                case TR::Entity::INV_MEDIKIT_BIG     : desc = { "Large Medi Pack", PAGE_INVENTORY, level->extra.inv.medikit[1]      }; break;
+                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { STR_MEDI_SMALL,      PAGE_INVENTORY, level->extra.inv.medikit[0]      }; break;
+                case TR::Entity::INV_MEDIKIT_BIG     : desc = { STR_MEDI_BIG,        PAGE_INVENTORY, level->extra.inv.medikit[1]      }; break;
 
-                case TR::Entity::INV_PUZZLE_1        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[0]       }; break;
-                case TR::Entity::INV_PUZZLE_2        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[1]       }; break;
-                case TR::Entity::INV_PUZZLE_3        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[2]       }; break;
-                case TR::Entity::INV_PUZZLE_4        : desc = { "Puzzle",          PAGE_ITEMS,     level->extra.inv.puzzle[3]       }; break;
+                case TR::Entity::INV_PUZZLE_1        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[0]       }; break;
+                case TR::Entity::INV_PUZZLE_2        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[1]       }; break;
+                case TR::Entity::INV_PUZZLE_3        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[2]       }; break;
+                case TR::Entity::INV_PUZZLE_4        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[3]       }; break;
                                                                                                    
-                case TR::Entity::INV_KEY_1           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[0]          }; break;
-                case TR::Entity::INV_KEY_2           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[1]          }; break;
-                case TR::Entity::INV_KEY_3           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[2]          }; break;
-                case TR::Entity::INV_KEY_4           : desc = { "Key",             PAGE_ITEMS,     level->extra.inv.key[3]          }; break;
+                case TR::Entity::INV_KEY_1           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[0]          }; break;
+                case TR::Entity::INV_KEY_2           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[1]          }; break;
+                case TR::Entity::INV_KEY_3           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[2]          }; break;
+                case TR::Entity::INV_KEY_4           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[3]          }; break;
                                                                                                    
-                case TR::Entity::INV_LEADBAR         : desc = { "Lead Bar",        PAGE_ITEMS,     level->extra.inv.leadbar         }; break;
-                case TR::Entity::INV_SCION           : desc = { "Scion",           PAGE_ITEMS,     level->extra.inv.scion           }; break;
-                default                              : desc = { "unknown",         PAGE_ITEMS,     -1                               }; break;
+                case TR::Entity::INV_LEADBAR         : desc = { STR_LEAD_BAR,        PAGE_ITEMS,     level->extra.inv.leadbar         }; break;
+                case TR::Entity::INV_SCION           : desc = { STR_SCION,           PAGE_ITEMS,     level->extra.inv.scion           }; break;
+                default                              : desc = { STR_UNKNOWN,         PAGE_ITEMS,     -1                               }; break;
             }
 
             if (desc.model > -1) {
@@ -108,7 +112,19 @@ struct Inventory {
         }
 
         void update() {
-            if (anim) anim->update();
+            if (!anim) return;
+            anim->update();
+
+            if (type == TR::Entity::INV_PASSPORT) {
+                float t = (14 + value * 5) / 30.0f;
+                
+                if ( (anim->dir > 0.0f && anim->time > t) ||
+                     (anim->dir < 0.0f && anim->time < t)) {
+                    anim->dir = 0.0f;
+                    anim->time = t;
+                    anim->updateInfo();
+                } 
+            }
         }
 
         void render(IGame *game, const Basis &basis) {
@@ -126,7 +142,8 @@ struct Inventory {
         }
 
         void choose() {
-            if (anim) anim->setAnim(0, 0, false);
+            if (!anim) return;            
+            anim->setAnim(0, 0, false);
         }
 
     } *items[INVENTORY_MAX_ITEMS];
@@ -139,7 +156,7 @@ struct Inventory {
         delete stream;
     }
 
-    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0) {
+    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), nextLevel(TR::LEVEL_MAX) {
         TR::LevelID id = game->getLevel()->id;
 
         add(TR::Entity::INV_PASSPORT);
@@ -147,9 +164,8 @@ struct Inventory {
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
 
-        if (id != TR::TITLE) {
+        if (id != TR::TITLE && id != TR::GYM) {
 /*
-            add(TR::Entity::INV_COMPASS);
             if (level->extra.inv.map != -1)
                 add(TR::Entity::INV_MAP);
             if (level->extra.inv.gamma != -1)
@@ -164,15 +180,19 @@ struct Inventory {
 //              add(TR::Entity::INV_SCION, 1);
 //              add(TR::Entity::INV_KEY_1, 1);
 //              add(TR::Entity::INV_PUZZLE_1, 1);
+        } 
 
-            for (int i = 0; i < COUNT(background); i++)
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
-        } else {
+        if (id == TR::TITLE) {
             add(TR::Entity::INV_HOME);
 
             memset(background, 0, sizeof(background));
 
             new Stream("level/TITLEH.PCX", loadTitleBG, this);
+        } else {
+            add(TR::Entity::INV_COMPASS);
+
+            for (int i = 0; i < COUNT(background); i++)
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
         }
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
@@ -308,6 +328,7 @@ struct Inventory {
                 for (int i = 0; i < itemsCount; i++)
                     items[i]->reset();
 
+                nextLevel   = TR::LEVEL_MAX;
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
                 page      = targetPage  = curPage;
@@ -381,12 +402,28 @@ struct Inventory {
         return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
     }
 
+    void onChoose(Item *item) {
+        if (item->type == TR::Entity::INV_PASSPORT) {
+            game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
+            item->value = 1;
+            passportSlot = 0;
+            passportSlotCount = 2;
+            passportSlots[0] = TR::LEVEL_1;
+            passportSlots[1] = TR::LEVEL_2;
+        }
+    }
+
     void update() {
+        float lastChoose = phaseChoose;
+
         if (phaseChoose == 0.0f)
             doPhase(active, 2.0f, phaseRing);
         doPhase(true,   1.6f, phasePage);
         doPhase(chosen, 4.0f, phaseChoose);
         doPhase(true,   2.5f, phaseSelect);
+
+        if (phaseChoose == 1.0f && lastChoose != 1.0f)
+            onChoose(items[getGlobalIndex(page, index)]);
 
         if (page != targetPage && phasePage == 1.0f) {
             page  = targetPage;
@@ -400,17 +437,81 @@ struct Inventory {
 
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
-        if (index == targetIndex && targetPage == page && ready && !chosen) {
-            if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; }
-            if (Input::state[cRight] || Input::joy.L.x >  0.5f || Input::joy.R.x < -0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         }
-            if ((Input::state[cUp]   || Input::joy.L.y < -0.5f || Input::joy.R.y >  0.5f) && page < PAGE_ITEMS  && getItemsCount(page + 1)) { phasePage = 0.0f; targetPage = Page(page + 1); }
-            if ((Input::state[cDown] || Input::joy.L.y >  0.5f || Input::joy.R.y < -0.5f) && page > PAGE_OPTION && getItemsCount(page - 1)) { phasePage = 0.0f; targetPage = Page(page - 1); }
+        enum KeyDir { NONE, LEFT, RIGHT, UP, DOWN } dir;
 
-            if (index != targetIndex) {
-                vec3 p;
-                game->playSound(TR::SND_INV_SPIN, p, 0, 0);
+        if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f)
+            dir = LEFT;
+        else if (Input::state[cRight] || Input::joy.L.x >  0.5f || Input::joy.R.x < -0.5f)
+            dir = RIGHT;
+        else if (Input::state[cUp]   || Input::joy.L.y < -0.5f || Input::joy.R.y >  0.5f)
+            dir = UP;
+        else if (Input::state[cDown] || Input::joy.L.y >  0.5f || Input::joy.R.y < -0.5f)
+            dir = DOWN;
+        else
+            dir = NONE;
+
+        static KeyDir lastDir = NONE; 
+
+        if (index == targetIndex && targetPage == page && ready) {
+            if (!chosen) {
+                if (dir == UP   && !(page < PAGE_ITEMS  && getItemsCount(page + 1))) dir = NONE;
+                if (dir == DOWN && !(page > PAGE_OPTION && getItemsCount(page - 1))) dir = NONE;
+
+                switch (dir) {
+                    case LEFT  : { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; } break;
+                    case RIGHT : { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         } break;
+                    case UP    : { phasePage = 0.0f; targetPage = Page(page + 1); } break;
+                    case DOWN  : { phasePage = 0.0f; targetPage = Page(page - 1); } break;
+                    default : ;
+                }
+
+                if (index != targetIndex) {
+                    vec3 p;
+                    game->playSound(TR::SND_INV_SPIN, p, 0, 0);
+                }
+            } else {
+                Item *item = items[getGlobalIndex(page, index)];
+
+                if (item->type == TR::Entity::INV_PASSPORT && passportSlotCount) {
+                    if (lastDir != dir) {
+                    // passport slots
+                        if (item->value == 0 && item->anim->dir == 0.0f) { // slot select
+                            if (dir == UP)   { passportSlot = (passportSlot - 1 + passportSlotCount) % passportSlotCount; };
+                            if (dir == DOWN) { passportSlot = (passportSlot + 1) % passportSlotCount; };
+                        }
+                    // passport pages
+                        if (dir == LEFT  && item->value > 0) { item->value--; item->anim->dir = -1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
+                        if (dir == RIGHT && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
+                        lastDir = dir;
+                    }
+
+                    if (Input::state[cAction] && phaseChoose == 1.0f) {
+                        TR::LevelID id = game->getLevel()->id;
+                        switch (item->value) {
+                            case 0 : nextLevel = passportSlots[passportSlot]; break;
+                            case 1 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_1 : game->getLevel()->id; break;
+                            case 2 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_MAX : TR::TITLE; break;
+                        }
+
+                        if (nextLevel != TR::LEVEL_MAX) {
+                            item->anim->dir = -1.0f;
+                            item->value = -100;
+                            toggle();
+                        }
+                    }
+                }
+
+                if (item->type == TR::Entity::INV_HOME) {
+                    if (Input::state[cAction] && phaseChoose == 1.0f) {
+                        nextLevel = TR::GYM;
+                        toggle();
+                    }
+                }
+
             }
         }
+
+        ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
         vec3 p;
         
@@ -485,6 +586,9 @@ struct Inventory {
                     toggle();
             }
         }
+
+        if (!isActive() && nextLevel != TR::LEVEL_MAX)
+            game->loadLevel(nextLevel);
     }
 
     void prepareBackground() {
@@ -534,21 +638,66 @@ struct Inventory {
         }
     }
 
-    void renderItemText(const Item *item, float width) {
-        UI::textOut(vec2(0, 480 - 16), item->desc.name, UI::aCenter, width);
-        renderItemCount(item, vec2(width / 2 - 160, 480 - 96), 320);
+    int passportSlot, passportSlotCount;
+    TR::LevelID passportSlots[32];
+
+    void renderPassport(Item *item) {
+        if (item->value != 0 || item->anim->dir != 0.0f) return; // check for "Load Game" page
+
+        float y = 120.0f;
+        float h = 20.0f;
+        float w = 320.0f;
+        
+    // background
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w - 16.0f) * 0.5f, y - 16.0f), vec2(w + 16.0f, h * 16.0f), 0.0f, 0, 0xC0000000);
+    // title
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
+        UI::textOut(vec2(0, y), STR_SELECT_LEVEL, UI::aCenter, UI::width);
+
+        y += h * 2;
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + passportSlot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
+
+        for (int i = 0; i < passportSlotCount; i++)
+            if (passportSlots[i] == TR::LEVEL_MAX)
+                UI::textOut(vec2(0, y + i * h), STR_AUTOSAVE, UI::aCenter, UI::width);
+            else
+                UI::textOut(vec2(0, y + i * h), TR::LEVEL_INFO[passportSlots[i]].title, UI::aCenter, UI::width);
+    }
+
+    void renderItemText(Item *item) {
+        if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
+            StringID str = STR_LOAD_GAME;
+
+            if (game->getLevel()->id == TR::TITLE) {
+                if (item->value == 1) str = STR_START_GAME;
+                if (item->value == 2) str = STR_EXIT_GAME;
+            } else {
+                if (item->value == 1) str = STR_RESTART_LEVEL;
+                if (item->value == 2) str = STR_EXIT_TO_TITLE;
+            }
+
+            UI::textOut(vec2(0, 480 - 16), str, UI::aCenter, UI::width);
+        } else
+            UI::textOut(vec2(0, 480 - 16), item->desc.str, UI::aCenter, UI::width);
+
+        renderItemCount(item, vec2(UI::width / 2 - 160, 480 - 96), 320);
 
         if (phaseChoose == 1.0f) {
-            if (item->type == TR::Entity::INV_PASSPORT ||
-                item->type == TR::Entity::INV_MAP      || 
-                item->type == TR::Entity::INV_COMPASS  || 
-                item->type == TR::Entity::INV_HOME     || 
-                item->type == TR::Entity::INV_DETAIL   || 
-                item->type == TR::Entity::INV_SOUND    || 
-                item->type == TR::Entity::INV_CONTROLS || 
-                item->type == TR::Entity::INV_GAMMA)
-            {
-                UI::textOut(vec2(0, 240), "Not implemented yet!", UI::aCenter, width);
+            switch (item->type) {
+                case TR::Entity::INV_PASSPORT :
+                    renderPassport(item);
+                    break;
+                case TR::Entity::INV_HOME :
+                    break;
+                case TR::Entity::INV_COMPASS :
+                case TR::Entity::INV_MAP :
+                case TR::Entity::INV_DETAIL : 
+                case TR::Entity::INV_SOUND :
+                case TR::Entity::INV_CONTROLS :
+                case TR::Entity::INV_GAMMA :
+                    UI::textOut(vec2(0, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
+                    break;
+                default : ;
             }
         }
     }
@@ -674,7 +823,7 @@ struct Inventory {
     void renderUI() {
         if (!active || phaseRing < 1.0f) return;
 
-        static const char* pageTitle[PAGE_MAX] = { "OPTION", "INVENTORY", "ITEMS" };
+        static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS };
 
         if (game->getLevel()->id != TR::TITLE)
             UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
@@ -690,7 +839,7 @@ struct Inventory {
         }
 
         if (index == targetIndex)
-            renderItemText(items[getGlobalIndex(page, index)], UI::width);
+            renderItemText(items[getGlobalIndex(page, index)]);
     }
 };
 

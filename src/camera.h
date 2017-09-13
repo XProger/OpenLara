@@ -143,21 +143,18 @@ struct Camera : ICamera {
         if (state == STATE_CUTSCENE) {
             timer += Core::deltaTime * 30.0f;
             float t = timer - int(timer);
-            int indexA = int(timer) % level->cameraFramesCount;
-            int indexB = (indexA + 1) % level->cameraFramesCount;
-            TR::CameraFrame *frameA = &level->cameraFrames[indexA];
-            TR::CameraFrame *frameB = &level->cameraFrames[indexB];
+            int indexA = min(int(timer), level->cameraFramesCount - 1);
+            int indexB = min((indexA + 1), level->cameraFramesCount - 1);
 
-            if (indexB < indexA) {
-                indexB = indexA;
-                timer  = 0.0f;
-                if (level->cutEntity != -1) {
-                    // TODO: level end
-                    level->initCutscene();
-                    game->playTrack(0, true);
-                } else
+            if (indexA == level->cameraFramesCount - 1) {
+                if (level->cutEntity != -1)
+                    game->loadLevel(TR::LevelID(level->id + 1));
+                else
                     state = STATE_FOLLOW;
             }
+
+            TR::CameraFrame *frameA = &level->cameraFrames[indexA];
+            TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
             const int eps = 512;
 

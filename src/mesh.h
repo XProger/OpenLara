@@ -5,7 +5,7 @@
 #include "format.h"
 
 
-TR::ObjectTexture whiteTile, healthTile, oxygenTile;
+TR::ObjectTexture whiteTile, barTile[3];
 
 struct MeshRange {
     int iStart;
@@ -906,7 +906,7 @@ struct MeshBuilder {
         vCount += 4;
     }
 
-    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, int type, const vec2 &pos, const vec2 &size, uint32 color) {
+    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color) {
         addQuad(indices, iCount, vCount, 0, vertices, NULL);
 
         int16 minX = int16(pos.x);
@@ -924,8 +924,8 @@ struct MeshBuilder {
             v.normal  = { 0, 0, 0, 0 };
             v.color   = *((ubyte4*)&color);
 
-            short2 uv = type == 0 ? healthTile.texCoord[i] : oxygenTile.texCoord[i];
-            
+            short2 uv = tile.texCoord[i];
+
             v.texCoord = { uv.x, uv.y, 32767, 32767 };
             v.param    = { 0, 0, 0, 0 };
         }

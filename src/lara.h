@@ -1480,10 +1480,14 @@ struct Lara : Character {
             case 49 : if (state != STATE_SURF_TREAD) return 0; break;
             case 50 : // end of GYM
                 if (level->tracks[track].once) {
-                    // back to title
-                } else
+                    timer += Core::deltaTime;
+                    if (timer > 3.0f)
+                        game->loadLevel(TR::TITLE);
+                } else {
                     if (state != STATE_WATER_OUT)
                         return 0;
+                    timer = 0.0f;
+                }
                 break;
         }
         return track;
@@ -1713,7 +1717,7 @@ struct Lara : Character {
                     ((Camera*)level->cameraController)->viewTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
-                    LOG("END\n");
+                    game->loadLevel(level->id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level->id + 1));
                     break;
                 case TR::Action::SOUNDTRACK : {
                     int track = doTutorial(cmd.args);

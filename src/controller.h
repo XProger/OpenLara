@@ -28,6 +28,7 @@ struct ICamera {
 
 struct IGame {
     virtual ~IGame() {}
+    virtual void         loadLevel(TR::LevelID id) {}
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual ICamera*     getCamera()    { return NULL; }

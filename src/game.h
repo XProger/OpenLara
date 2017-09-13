@@ -8,7 +8,18 @@
 
 namespace Game {
     Level *level;
+    Stream *nextLevel;
+}
 
+void loadAsync(Stream *stream, void *userData) {
+    if (!stream) {
+        if (Game::level) Game::level->isEnded = false;
+        return;
+    }
+    Game::nextLevel = stream;
+}
+
+namespace Game {
     void startLevel(Stream *lvl) {
         delete level;
         level = new Level(*lvl);
@@ -21,6 +32,8 @@ namespace Game {
     }
 
     void init(Stream *lvl) {
+        nextLevel = NULL;
+
         Core::init();
         UI::init(level);
 
@@ -43,7 +56,7 @@ namespace Game {
     }
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
-        if (!lvlName) lvlName = (char*)"level/LEVEL2.PSX";
+        if (!lvlName) lvlName = (char*)"level/TITLE.PSX";
         init(new Stream(lvlName));
     }
 
@@ -69,6 +82,15 @@ namespace Game {
 
     void update(float delta) {
         PROFILE_MARKER("UPDATE");
+
+        if (nextLevel) {
+            startLevel(nextLevel);
+            nextLevel = NULL;
+        }
+
+        if (level->isEnded)
+            return;
+
         Input::update();
 
         if (Input::down[ikV]) { // third <-> first person view

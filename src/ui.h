@@ -4,6 +4,125 @@
 #include "core.h"
 #include "controller.h"
 
+enum StringID {
+      STR_NOT_IMPLEMENTED
+// help
+    , STR_LOADING
+    , STR_HELP_PRESS
+    , STR_HELP_TEXT
+// inventory pages
+    , STR_OPTION
+    , STR_INVENTORY
+    , STR_ITEMS
+// inventory option
+    , STR_GAME
+    , STR_MAP
+    , STR_COMPASS
+    , STR_HOME
+    , STR_DETAIL
+    , STR_SOUND
+    , STR_CONTROLS
+    , STR_GAMMA
+// passport menu
+    , STR_AUTOSAVE
+    , STR_LOAD_GAME
+    , STR_START_GAME
+    , STR_RESTART_LEVEL
+    , STR_EXIT_TO_TITLE
+    , STR_EXIT_GAME
+    , STR_SELECT_LEVEL
+// inventory items
+    , STR_UNKNOWN
+    , STR_PISTOLS
+    , STR_SHOTGUN
+    , STR_MAGNUMS
+    , STR_UZIS
+    , STR_AMMO_PISTOLS
+    , STR_AMMO_SHOTGUN
+    , STR_AMMO_MAGNUMS
+    , STR_AMMO_UZIS
+    , STR_MEDI_SMALL
+    , STR_MEDI_BIG
+    , STR_PUZZLE
+    , STR_KEY
+    , STR_LEAD_BAR
+    , STR_SCION
+    , STR_MAX
+};
+
+const char *helpText = 
+    "Controls gamepad, touch and keyboard:@"
+    " H - Show or hide this help@"
+    " TAB - Inventory@"
+    " LEFT - Left@"
+    " RIGHT - Right@"
+    " UP - Run@"
+    " DOWN - Back@"
+    " SHIFT - Walk@"
+    " SPACE - Draw Weapon@"
+    " CTRL - Action@"
+    " D - Jump@"
+    " Z - Step Left@"
+    " X - Step Right@"
+    " A - Roll@"
+    " C - Look # not implemented #@"
+    " V - First Person View@"
+    " R - slow motion@"
+    " T - fast motion@"
+    " ALT + ENTER - Fullscreen@@"
+    "Actions:@"
+    " Out of water - Run + Action@"
+    " Handstand - Run + Walk@"
+    " Swan dive - Run + Walk + jump@"
+    " DOZY on - Look + Step Right + Action + Jump@"
+    " DOZY off - Walk@";
+
+
+const char *STR[STR_MAX] = {
+      "Not implemented yet!"
+// help
+    , "Loading..."
+    , "Press H for help"
+    , helpText
+// inventory pages
+    , "OPTION"
+    , "INVENTORY"
+    , "ITEMS"
+// inventory option
+    , "Game"
+    , "Map"
+    , "Compass"
+    , "Lara's Home"
+    , "Detail Levels"
+    , "Sound"
+    , "Controls"
+    , "Gamma"
+// passport options
+    , "Autosave"
+    , "Load Game"
+    , "Start Game"
+    , "Restart Level"
+    , "Exit to Title"
+    , "Exit Game"
+    , "Select Level"
+// inventory items
+    , "Unknown"
+    , "Pistols"
+    , "Shotgun"
+    , "Magnums"
+    , "Uzis"
+    , "Pistol Clips"
+    , "Shotgun Shells"
+    , "Magnum Clips"
+    , "Uzi Clips"
+    , "Small Medi Pack"
+    , "Large Medi Pack"
+    , "Puzzle"
+    , "Key"
+    , "Lead Bar"
+    , "Scion"
+};
+
 namespace UI {
     IGame *game;
     float width;
@@ -47,6 +166,13 @@ namespace UI {
     }
 
     #define MAX_CHARS DYN_MESH_QUADS
+
+    enum BarType {
+        BAR_HEALTH,
+        BAR_OXYGEN,
+        BAR_OPTION,
+        BAR_MAX,
+    };
 
     struct {
         Vertex  vertices[MAX_CHARS * 4];
@@ -129,6 +255,10 @@ namespace UI {
         }
     }
 
+    void textOut(const vec2 &pos, StringID str, Align align = aLeft, float width = 0) {
+        textOut(pos, STR[str], align, width);
+    }
+
     #undef MAX_CHARS
 /*
     Texture *texInv, *texAction;
@@ -204,48 +334,23 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void renderBar(int type, const vec2 &pos, const vec2 &size, float value) {
+    void renderBar(BarType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474) {
         MeshBuilder *mesh = game->getMesh();
 
-        mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, 0xFF4C504C, 0xFF748474);
-        mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos - 1.0f, size + 2.0f, 0x80000000);
-        if (value > 0.0f)
-            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, type, pos, vec2(size.x * value, size.y), 0xFFFFFFFF);
+        if (brColor1 != 0 || brColor2 != 0)
+            mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, brColor1, brColor2);
+        if (bgColor != 0)
+            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, whiteTile, pos - 1.0f, size + 2.0f, bgColor);
+        if (fgColor != 0 && value > 0.0f)
+            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, barTile[type], pos, vec2(size.x * value, size.y), fgColor);
     }
-
-    const char *helpText = 
-        "Controls gamepad, touch and keyboard:@"
-        " H - Show or hide this help@"
-        " TAB - Inventory@"
-        " LEFT - Left@"
-        " RIGHT - Right@"
-        " UP - Run@"
-        " DOWN - Back@"
-        " SHIFT - Walk@"
-        " SPACE - Draw Weapon@"
-        " CTRL - Action@"
-        " D - Jump@"
-        " Z - Step Left@"
-        " X - Step Right@"
-        " A - Roll@"
-        " C - Look # not implemented #@"
-        " V - First Person View@"
-        " R - slow motion@"
-        " T - fast motion@"
-        " ALT + ENTER - Fullscreen@@"
-        "Actions:@"
-        " Out of water - Run + Action@"
-        " Handstand - Run + Walk@"
-        " Swan dive - Run + Walk + jump@"
-        " DOZY on - Look + Step Right + Action + Jump@"
-        " DOZY off - Walk@";
 
     void renderHelp() {
         if (showHelp)
-            textOut(vec2(0, 64), helpText, aRight, width - 32);
+            textOut(vec2(0, 64), STR_HELP_TEXT, aRight, width - 32);
         else
             if (helpTipTime > 0.0f)
-                textOut(vec2(0, 480 - 32), "Press H for help", aCenter, width);
+                textOut(vec2(0, 480 - 32), STR_HELP_PRESS, aCenter, width);
     }
 };
 
