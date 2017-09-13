@@ -253,10 +253,12 @@ namespace Core {
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
-#define MAX_LIGHTS          4
-#define MAX_CACHED_LIGHTS   3
-#define MAX_RENDER_BUFFERS  32
-#define MAX_CONTACTS        15
+#define MAX_LIGHTS           4
+#define MAX_CACHED_LIGHTS    3
+#define MAX_RENDER_BUFFERS   32
+#define MAX_CONTACTS         15
+#define MAX_ANIM_TEX_RANGES  16
+#define MAX_ANIM_TEX_OFFSETS 32
 
 struct Shader;
 struct Texture;

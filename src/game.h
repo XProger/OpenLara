@@ -3,11 +3,14 @@
 
 #include "core.h"
 #include "format.h"
+#include "cache.h"
 #include "level.h"
 #include "ui.h"
 
+ShaderCache *shaderCache;
+
 namespace Game {
-    Level *level;
+    Level  *level;
     Stream *nextLevel;
 }
 
@@ -35,9 +38,6 @@ namespace Game {
         nextLevel = NULL;
 
         Core::init();
-        UI::init(level);
-
-        Sound::callback = stopChannel;
 
         Core::settings.detail.ambient       = true;
         Core::settings.detail.lighting      = true;
@@ -51,6 +51,12 @@ namespace Game {
         Core::settings.controls.retarget    = true;
         Core::settings.audio.reverb         = true;
 
+        shaderCache = new ShaderCache();
+
+        UI::init(level);
+
+        Sound::callback = stopChannel;
+
         level = NULL;
         startLevel(lvl);
     }
@@ -63,6 +69,7 @@ namespace Game {
     void free() {
         delete level;
         UI::free();
+        delete shaderCache;
         Core::free();
     }
 

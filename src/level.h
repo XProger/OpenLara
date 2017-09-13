@@ -15,6 +15,7 @@
     #include "debug.h"
 #endif
 
+extern ShaderCache *shaderCache;
 extern void loadAsync(Stream *stream, void *userData);
 
 struct Level : IGame {
@@ -35,7 +36,6 @@ struct Level : IGame {
         float   clipHeight;
     } *params = (Params*)&Core::params;
 
-    ShaderCache  *shaderCache;
     AmbientCache *ambientCache;
     WaterCache   *waterCache;
     ZoneCache    *zoneCache;
@@ -115,7 +115,7 @@ struct Level : IGame {
     }
 
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0));
+        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0), this);
     }
 
     virtual void setupBinding() {
@@ -259,7 +259,6 @@ struct Level : IGame {
         initTextures();
         mesh = new MeshBuilder(level);
 
-        shaderCache = new ShaderCache(mesh);
         initOverrides();
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
@@ -437,8 +436,6 @@ struct Level : IGame {
         #endif
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
-
-        delete shaderCache;
 
         delete shadow;
         delete ambientCache;

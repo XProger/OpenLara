@@ -34,10 +34,9 @@ const char GUI[] =
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
 
-    MeshBuilder *mesh;
     Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE) + 1];
 
-    ShaderCache(MeshBuilder *mesh) : mesh(mesh) {
+    ShaderCache() {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
@@ -128,10 +127,8 @@ struct ShaderCache {
                 static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
 
                 src = SHADER;
-                typ = typeNames[type];
-                int animTexRangesCount  = mesh->animTexRangesCount;
-                int animTexOffsetsCount = mesh->animTexOffsetsCount;
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                typ = typeNames[type];          
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
@@ -172,7 +169,7 @@ struct ShaderCache {
         return shaders[pass][type][fx] = new Shader(src, def);
     }
 
-    void bind(Core::Pass pass, Shader::Type type, int fx) {
+    void bind(Core::Pass pass, Shader::Type type, int fx, IGame *game) {
         Core::pass = pass;
         Shader *shader = shaders[pass][type][fx];
         if (!shader)
@@ -184,6 +181,9 @@ struct ShaderCache {
         shader->setParam(uLightProj,      Core::mLightProj);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
+        MeshBuilder *mesh = game->getMesh();
+        ASSERT(mesh->animTexRangesCount  <= MAX_ANIM_TEX_RANGES);
+        ASSERT(mesh->animTexOffsetsCount <= MAX_ANIM_TEX_OFFSETS);
         shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
         shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
     }
