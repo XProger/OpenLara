@@ -55,6 +55,7 @@ struct Level : IGame {
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         if (isEnded) return;
+        Sound::stopAll();
 
         isEnded = true;
         char buf[64];
@@ -258,7 +259,7 @@ struct Level : IGame {
         initTextures();
         mesh = new MeshBuilder(level);
 
-        shaderCache = new ShaderCache(this);
+        shaderCache = new ShaderCache(mesh);
         initOverrides();
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
@@ -1447,6 +1448,7 @@ struct Level : IGame {
         lastTitle = title;
 
         if (isEnded) {
+            Core::setTarget(NULL, true);
             UI::begin();
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();

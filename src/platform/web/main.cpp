@@ -236,30 +236,34 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 const char *IDB = "db";
 
 void onError(void *str) {
-	LOG("! IDB error: %s\n", str);
+    LOG("! IDB error: %s\n", str);
 }
 
 void onLoad(void *arg, void *data, int size) {
-	Stream *stream = (Stream*)arg;
-	stream->data = (char*)data;
-	stream->size = size;
-	stream->callback(stream, stream->userData);	
+    Stream *stream = (Stream*)arg;
+
+    FILE *f = fopen(stream->name, "wb");
+    fwrite(data, size, 1, f);
+    fclose(f);
+
+    stream->callback(new Stream(stream->name), stream->userData);	
+    delete stream;
 }
 
 void onLoadAndStore(void *arg, void *data, int size) {
-	onLoad(arg, data, size);
-	emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
+    emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
+    onLoad(arg, data, size);
 }
 
 void onExists(void *arg, int exists) {
-	if (exists)
-		emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
-	else
-		emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
+    if (exists)
+        emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
+    else
+        emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
 }
 
 void osDownload(Stream *stream) {
-	emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
+    emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
 }
 
 char Stream::cacheDir[255];

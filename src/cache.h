@@ -34,10 +34,10 @@ const char GUI[] =
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
 
-    IGame  *game;
+    MeshBuilder *mesh;
     Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE) + 1];
 
-    ShaderCache(IGame *game) : game(game) {
+    ShaderCache(MeshBuilder *mesh) : mesh(mesh) {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
@@ -129,8 +129,8 @@ struct ShaderCache {
 
                 src = SHADER;
                 typ = typeNames[type];
-                int animTexRangesCount  = game->getMesh()->animTexRangesCount;
-                int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
+                int animTexRangesCount  = mesh->animTexRangesCount;
+                int animTexOffsetsCount = mesh->animTexOffsetsCount;
                 sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
@@ -184,7 +184,6 @@ struct ShaderCache {
         shader->setParam(uLightProj,      Core::mLightProj);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
-        MeshBuilder *mesh = game->getMesh();
         shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
         shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
     }
