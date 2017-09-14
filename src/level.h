@@ -62,7 +62,10 @@ struct Level : IGame {
         buf[0] = 0;
         strcat(buf, "level/");
         strcat(buf, TR::LEVEL_INFO[id].name);
-        strcat(buf, ".PSX");
+        switch (level.version) {
+            case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
+            case TR::VER_TR1_PSX : strcat(buf, ".PSX"); break;
+        }
         new Stream(buf, loadAsync);
     }
 
@@ -585,7 +588,7 @@ struct Level : IGame {
         }
 
     // repack texture tiles
-        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + 3, &level, fillCallback);
+        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + 4, &level, fillCallback);
         // add textures
         int texIdx = level.version == TR::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
