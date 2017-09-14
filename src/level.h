@@ -154,6 +154,12 @@ struct Level : IGame {
         if (effect == TR::Effect::FLICKER)
             flickerIdx = 0;
 
+        if (effect == TR::Effect::FLOOD) {
+            Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
+            if (sample)
+                sample->setVolume(0.0f, 4.0f);
+        }
+
         this->effect      = effect;
         this->effectTimer = 0.0f;
     }
@@ -451,7 +457,7 @@ struct Level : IGame {
     }
 
     static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
-        static const uint32 whiteColor     = 0xFFFFFFFF;
+        static const uint32 whiteColor = 0xFFFFFFFF;
         static const uint32 barColor[UI::BAR_MAX][25] = {
             // health bar
                 { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F },

@@ -264,6 +264,8 @@ namespace TR {
         SND_SHOTGUN_SHOT    = 45,
         
         SND_UNDERWATER      = 60,
+
+        SND_FLOOD           = 81,
         
         SND_INV_SPIN        = 108,
         SND_INV_HOME        = 109,
@@ -2163,6 +2165,10 @@ namespace TR {
 
                 for (int i = 0; i < info.trigCmdCount; i++) {
                     FloorData::TriggerCommand cmd = info.trigCmd[i];
+                    if (cmd.action == Action::CAMERA_SWITCH) {
+                        i++;
+                        continue;
+                    }
                     if (cmd.action != Action::ACTIVATE) continue;
                     
                     Entity &e = entities[cmd.args];
