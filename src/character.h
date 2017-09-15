@@ -2,7 +2,6 @@
 #define H_CHARACTER
 
 #include "controller.h"
-#include "trigger.h"
 
 struct Character : Controller {
     float   health;
@@ -26,9 +25,17 @@ struct Character : Controller {
         DEATH       = 1 << 9
     };
 
+    Controller  *viewTarget;
+    int         jointChest;
+    int         jointHead;
+    vec4        rangeChest;
+    vec4        rangeHead;
+
     vec3    velocity;
     float   angleExt;
     float   speed;
+    int     stepHeight;
+    int     dropHeight;
 
     int     zone;
     int     box;
@@ -37,7 +44,13 @@ struct Character : Controller {
 
     Collision collision;
 
-    Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), velocity(0.0f), angleExt(0.0f) {
+    Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), viewTarget(NULL), jointChest(-1), jointHead(-1), velocity(0.0f), angleExt(0.0f), speed(0.0f) {
+        stepHeight =  256;
+        dropHeight = -256;
+
+        rangeChest = vec4(-0.80f, 0.80f, -0.75f, 0.75f) * PI;
+        rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
+
         animation.initOverrides();
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
@@ -56,7 +69,7 @@ struct Character : Controller {
     }
 
     uint16* getZones() {
-        return flying ? level->zones[0].fly : level->zones[0].ground1;
+        return flying ? level->zones[level->isFlipped].fly : (stepHeight == 256 ? level->zones[level->isFlipped].ground1 : level->zones[level->isFlipped].ground2);
     }
 
     void rotateY(float delta) {
@@ -68,9 +81,9 @@ struct Character : Controller {
         angle.x = clamp(angle.x + delta, -PI * 0.49f, PI * 0.49f);
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL) {
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         health = max(0.0f, health - damage);
-    };
+    }
 
     virtual void checkRoom() {
         TR::Level::FloorInfo info;
@@ -93,10 +106,6 @@ struct Character : Controller {
                 if (stand != STAND_ONWATER)
                     e.room = info.roomAbove;
         }
-    }
-
-    virtual void cmdKill() {
-        health = 0;
     }
 
     virtual void  updateVelocity()      {}
@@ -185,15 +194,31 @@ struct Character : Controller {
         stand = STAND_AIR;
     }
 
-    virtual void doBubbles() {
-        int count = rand() % 3;
-        if (!count) return;
-        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
-        vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
-        for (int i = 0; i < count; i++) {
-            int index = Sprite::add(game, TR::Entity::BUBBLE, getRoomIndex(), int(head.x), int(head.y), int(head.z), Sprite::FRAME_RANDOM, true);
-            if (index > -1)
-                level->entities[index].controller = new Bubble(game, index);
+    vec3 getViewPoint() {
+        return animation.getJoints(getMatrix(), jointChest).pos;
+    }
+
+    virtual void lookAt(Controller *target) {
+        if (health <= 0.0f)
+            target = NULL;
+
+        float speed = 8.0f * Core::deltaTime;
+        quat rot;
+
+        if (jointChest > -1) {
+            if (aim(target, jointChest, rangeChest, rot))
+                rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
+            else 
+                rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
+            animation.overrides[jointChest] = rotChest * animation.overrides[jointChest];
+        }
+
+        if (jointHead > -1) {
+            if (aim(target, jointHead, rangeHead, rot))
+                rotHead = rotHead.slerp(rot, speed);
+            else
+                rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
+            animation.overrides[jointHead] = rotHead * animation.overrides[jointHead];
         }
     }
 };

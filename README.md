@@ -10,3 +10,9 @@ inspired by OpenTomb project http://opentomb.github.io/
 ## Links
 * [Discord channel](https://discord.gg/EF8JaQB)
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
+
+## Screenshots
+![Waterfall](http://xproger.info/projects/OpenLara/shots/waterfall.jpg)
+![Double-aim](http://xproger.info/projects/OpenLara/shots/multi-aim.jpg)
+![Cutscene](http://xproger.info/projects/OpenLara/shots/cut1.jpg)
+![Cistern](http://xproger.info/projects/OpenLara/shots/flipmap.jpg)

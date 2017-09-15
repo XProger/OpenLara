@@ -4,11 +4,8 @@
 #include "core.h"
 #include "format.h"
 
-#define TEX_HEALTH_BAR_X 1000
-#define TEX_HEALTH_BAR_Y 1000
 
-#define TEX_OXYGEN_BAR_X 1002
-#define TEX_OXYGEN_BAR_Y 1000
+TR::ObjectTexture whiteTile, barTile[3];
 
 struct MeshRange {
     int iStart;
@@ -16,7 +13,7 @@ struct MeshRange {
     int vStart;
     int aIndex;
 
-    MeshRange() : aIndex(-1) {}
+    MeshRange() : iStart(0), iCount(0), vStart(0), aIndex(-1) {}
 
     void setup() const {
         glEnableVertexAttribArray(aCoord);
@@ -179,7 +176,6 @@ struct MeshBuilder {
     int animTexOffsetsCount;
 
     TR::Level *level;
-    TR::ObjectTexture whiteTile;
 
     MeshBuilder(TR::Level &level) : level(&level) {
         dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1);
@@ -188,15 +184,6 @@ struct MeshBuilder {
         dynMesh->initRange(dynRange);
 
         initAnimTextures(level);
-
-    // create dummy white object textures for non-textured (colored) geometry        
-        whiteTile.attribute = 0;
-        whiteTile.tile.index = 15;
-        whiteTile.tile.triangle = 0;
-        whiteTile.texCoord[0] = 
-        whiteTile.texCoord[1] = 
-        whiteTile.texCoord[2] = 
-        whiteTile.texCoord[3] = { 253, 253 };
 
     // allocate room geometry ranges
         rooms = new RoomRange[level.roomsCount];
@@ -224,14 +211,8 @@ struct MeshBuilder {
                 vCount += mesh.rCount * 4 + mesh.tCount * 3;
             }
 
-            RoomRange &range = rooms[i];
-            range.sprites.vStart = vCount;
-            range.sprites.iStart = iCount;
             iCount += d.sCount * 6;
             vCount += d.sCount * 4;
-            range.sprites.iCount = iCount - range.sprites.iStart;
-
-            ASSERT(vCount - range.sprites.vStart < 0xFFFF);
         }
 
     // get models info
@@ -251,39 +232,24 @@ struct MeshBuilder {
     // get size of mesh for sprite sequences
         sequences = new MeshRange[level.spriteSequencesCount];
         for (int i = 0; i < level.spriteSequencesCount; i++) {
-            sequences[i].vStart = vCount;
-            sequences[i].iStart = iCount;
-            sequences[i].iCount = level.spriteSequences[i].sCount * 6;
             iCount += level.spriteSequences[i].sCount * 6;
             vCount += level.spriteSequences[i].sCount * 4;
         }
 
     // shadow blob mesh (8 triangles, 8 vertices)
-        shadowBlob.vStart = vCount;
-        shadowBlob.iStart = iCount;
-        shadowBlob.iCount = 8 * 3 * 3;
-        iCount += shadowBlob.iCount;
+        iCount += 8 * 3 * 3;
         vCount += 8 * 2 + 1;
 
     // quad (post effect filter)
-        quad.vStart = vCount;
-        quad.iStart = iCount;
-        quad.iCount = 2 * 3;
-        iCount += quad.iCount;
+        iCount += 2 * 3;
         vCount += 4;
 
     // circle
-        circle.vStart = vCount;
-        circle.iStart = iCount;
-        circle.iCount = CIRCLE_SEGS * 3;
-        iCount += circle.iCount;
+        iCount += CIRCLE_SEGS * 3;
         vCount += CIRCLE_SEGS + 1;
 
     // detailed plane
-        plane.vStart = vCount;
-        plane.iStart = iCount;
-        plane.iCount = PLANE_DETAIL * 2 * PLANE_DETAIL * 2 * (2 * 3);
-        iCount += plane.iCount;
+        iCount += PLANE_DETAIL * 2 * PLANE_DETAIL * 2 * (2 * 3);
         vCount += (PLANE_DETAIL * 2 + 1) * (PLANE_DETAIL * 2 + 1);
 
     // make meshes buffer (single vertex buffer object for all geometry & sprites on level)
@@ -293,20 +259,20 @@ struct MeshBuilder {
         int aCount = 0;
 
     // build rooms
+        int vStartRoom = vCount;
+        aCount++;
+
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room &room = level.rooms[i];
             TR::Room::Data &d = room.data;
             RoomRange &range = rooms[i];
 
-            int vStart;
-
             for (int transp = 0; transp < 2; transp++) { // opaque, opacity
-                range.geometry[transp].vStart = vCount;
+                range.geometry[transp].vStart = vStartRoom;
                 range.geometry[transp].iStart = iCount;
 
-                vStart = vCount;
             // rooms geometry
-                buildRoom(!transp, room, level, indices, vertices, iCount, vCount, vStart);
+                buildRoom(!transp, room, level, indices, vertices, iCount, vCount, vStartRoom);
 
             // static meshes
                 for (int j = 0; j < room.meshesCount; j++) {
@@ -319,44 +285,44 @@ struct MeshBuilder {
                     int y = m.y;
                     int z = m.z - room.info.z;
                     int d = m.rotation.value / 0x4000;
-                    buildMesh(!transp, mesh, level, indices, vertices, iCount, vCount, vStart, 0, x, y, z, d);
+                    buildMesh(!transp, mesh, level, indices, vertices, iCount, vCount, vStartRoom, 0, x, y, z, d);
                 }
                 range.geometry[transp].iCount = iCount - range.geometry[transp].iStart;
-
-                if (range.geometry[transp].iCount)
-                    aCount++;
             }
 
         // rooms sprites
-            vStart = vCount;
+            range.sprites.vStart = vStartRoom;
+            range.sprites.iStart = iCount;
             for (int j = 0; j < d.sCount; j++) {
                 TR::Room::Data::Sprite &f = d.sprites[j];
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
                 TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
 
-                addSprite(indices, vertices, iCount, vCount, vStart, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity(v.lighting));
+                addSprite(indices, vertices, iCount, vCount, vStartRoom, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity(v.lighting));
             }
-
-            if (d.sCount) aCount++;
+            range.sprites.iCount = iCount - range.sprites.iStart;
         }
 
     // build models geometry
+        int vStartModel = vCount;
+        aCount++;
+
         for (int i = 0; i < level.modelsCount; i++) {
             TR::Model &model = level.models[i];
             ModelRange &range = models[i];
-            int vStart = vCount;
-            range.geometry.vStart = vStart;
+
+            range.geometry.vStart = vStartModel;
             range.geometry.iStart = iCount;
             range.opaque = true;
 
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
                 if (!index && model.mStart + j > 0) continue;
-                aCount++;
+
                 TR::Mesh &mesh = level.meshes[index];
-                bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0);
                 if (!opaque)
-                    buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStart, j, 0, 0, 0, 0);
+                    buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0);
                 TR::Entity::fixOpaque(model.type, opaque);
                 range.opaque &= opaque;
             }
@@ -364,18 +330,31 @@ struct MeshBuilder {
         }
 
     // build sprite sequences
-        for (int i = 0; i < level.spriteSequencesCount; i++) 
+        int vStartSprite = vCount;
+        aCount++;
+
+        for (int i = 0; i < level.spriteSequencesCount; i++) {
+            MeshRange &range = sequences[i];
+            range.vStart = vStartSprite;
+            range.iStart = iCount;
             for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
                 TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
-                addSprite(indices, vertices, iCount, vCount, sequences[i].vStart, 0, 0, 0, sprite, 255);
+                addSprite(indices, vertices, iCount, vCount, vStartSprite, 0, 0, 0, sprite, 255);
             }
-        aCount += level.spriteSequencesCount;
+            range.iCount = iCount - range.iStart;
+        }
 
-    // build shadow blob
+    // build common primitives
+        int vStartCommon = vCount;
+        aCount++;
+
+        shadowBlob.vStart = vStartCommon;
+        shadowBlob.iStart = iCount;
+        shadowBlob.iCount = 8 * 3 * 3;
         for (int i = 0; i < 9; i++) {
             Vertex &v0 = vertices[vCount + i * 2 + 0];
             v0.normal    = { 0, -1, 0, 0 };
-            v0.texCoord  = { 32688, 32688, 32767, 32767 };
+            v0.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v0.param     = { 0, 0, 0, 0 };
             v0.color     = { 0, 0, 0, 0 };
 
@@ -414,10 +393,13 @@ struct MeshBuilder {
         }
         vCount += 8 * 2 + 1;
         iCount += shadowBlob.iCount;
-        aCount++;
 
     // quad
-        addQuad(indices, iCount, vCount, quad.vStart, vertices, &whiteTile);
+        quad.vStart = vStartCommon;
+        quad.iStart = iCount;
+        quad.iCount = 2 * 3;
+
+        addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteTile);
         vertices[vCount + 3].coord = { -1, -1, 0, 0 };
         vertices[vCount + 2].coord = {  1, -1, 1, 0 };
         vertices[vCount + 1].coord = {  1,  1, 1, 1 };
@@ -427,41 +409,48 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
-            v.texCoord  = { 32688, 32688, 32767, 32767 };
+            v.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v.param     = { 0, 0, 0, 0 };
         }
         vCount += 4;
-        aCount++;
 
     // circle
+        circle.vStart = vStartCommon;
+        circle.iStart = iCount;
+        circle.iCount = CIRCLE_SEGS * 3;
+
         vec2 pos(32767.0f, 0.0f);
         vec2 cs(cosf(PI2 / CIRCLE_SEGS), sinf(PI2 / CIRCLE_SEGS));
 
+        int baseIdx = vCount - vStartCommon;
         for (int i = 0; i < CIRCLE_SEGS; i++) {
             Vertex &v = vertices[vCount + i];
             pos.rotate(cs);
             v.coord     = { short(pos.x), short(pos.y), 0, 0 };
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
-            v.texCoord  = { 32688, 32688, 32767, 32767 };
+            v.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v.param     = { 0, 0, 0, 0 };
 
-            indices[iCount++] = i;
-            indices[iCount++] = (i + 1) % CIRCLE_SEGS;
-            indices[iCount++] = CIRCLE_SEGS;
+            indices[iCount++] = baseIdx + i;
+            indices[iCount++] = baseIdx + (i + 1) % CIRCLE_SEGS;
+            indices[iCount++] = baseIdx + CIRCLE_SEGS;
         }
         vertices[vCount + CIRCLE_SEGS] = vertices[vCount];
         vertices[vCount + CIRCLE_SEGS].coord = { 0, 0, 0, 0 };
-
         vCount += CIRCLE_SEGS + 1;
-        aCount++;
 
     // plane
+        plane.vStart = vStartCommon;
+        plane.iStart = iCount;
+        plane.iCount = PLANE_DETAIL * 2 * PLANE_DETAIL * 2 * (2 * 3);
+
+        baseIdx = vCount - vStartCommon;
         for (int16 j = -PLANE_DETAIL; j <= PLANE_DETAIL; j++)
             for (int16 i = -PLANE_DETAIL; i <= PLANE_DETAIL; i++) {
                 vertices[vCount++].coord = { i, j, 0, 0 };
                 if (j < PLANE_DETAIL && i < PLANE_DETAIL) {
-                    int idx = (j + PLANE_DETAIL) * (PLANE_DETAIL * 2 + 1) + i + PLANE_DETAIL;
+                    int idx = baseIdx + (j + PLANE_DETAIL) * (PLANE_DETAIL * 2 + 1) + i + PLANE_DETAIL;
                     indices[iCount + 0] = idx + PLANE_DETAIL * 2 + 1;
                     indices[iCount + 1] = idx + 1;
                     indices[iCount + 2] = idx;
@@ -471,7 +460,7 @@ struct MeshBuilder {
                     iCount += 6;
                 }
             }
-        aCount++;
+
         LOG("MegaMesh: %d %d %d\n", iCount, vCount, aCount);
 
     // compile buffer and ranges
@@ -483,24 +472,35 @@ struct MeshBuilder {
         PROFILE_LABEL(BUFFER, mesh->ID[1], "Geometry vertices");
 
         // initialize Vertex Arrays
+        MeshRange rangeRoom;
+        rangeRoom.vStart = vStartRoom;
+        mesh->initRange(rangeRoom);
         for (int i = 0; i < level.roomsCount; i++) {
             RoomRange &r = rooms[i];
-            if (r.geometry[0].iCount)
-                mesh->initRange(r.geometry[0]);
-            if (r.geometry[1].iCount)
-                mesh->initRange(r.geometry[1]);
-            if (r.sprites.iCount)
-                mesh->initRange(r.sprites);
+            r.geometry[0].aIndex = rangeRoom.aIndex;
+            r.geometry[1].aIndex = rangeRoom.aIndex;
+            r.sprites.aIndex     = rangeRoom.aIndex;
         }
 
-        for (int i = 0; i < level.spriteSequencesCount; i++)
-            mesh->initRange(sequences[i]);     
+        MeshRange rangeModel;
+        rangeModel.vStart = vStartModel;
+        mesh->initRange(rangeModel);
         for (int i = 0; i < level.modelsCount; i++)
-            mesh->initRange(models[i].geometry);
-        mesh->initRange(shadowBlob);
-        mesh->initRange(quad);
-        mesh->initRange(circle);
-        mesh->initRange(plane);
+            models[i].geometry.aIndex = rangeModel.aIndex;
+
+        MeshRange rangeSprite;
+        rangeSprite.vStart = vStartSprite;
+        mesh->initRange(rangeSprite);
+        for (int i = 0; i < level.spriteSequencesCount; i++)
+            sequences[i].aIndex = rangeSprite.aIndex;
+
+        MeshRange rangeCommon;
+        rangeCommon.vStart = vStartCommon;
+        mesh->initRange(rangeCommon);
+        shadowBlob.aIndex = rangeCommon.aIndex;
+        quad.aIndex       = rangeCommon.aIndex;
+        circle.aIndex     = rangeCommon.aIndex;
+        plane.aIndex      = rangeCommon.aIndex;
     }
 
     ~MeshBuilder() {
@@ -535,16 +535,18 @@ struct MeshBuilder {
         return res;
     }
 
-    bool roomCheckWaterPortal(TR::Room room) {
-        for (int i = 0; i < room.portalsCount; i++)
-            if (room.flags.water ^ level->rooms[room.portals[i].roomIndex].flags.water)
+    bool isWaterSurface(int delta, int roomIndex, bool fromWater) {
+        if (roomIndex != TR::NO_ROOM && delta == 0) {
+            TR::Room &r = level->rooms[roomIndex];
+            if (r.flags.water ^ fromWater)
                 return true;
+            if (r.alternateRoom > -1 && level->rooms[r.alternateRoom].flags.water ^ fromWater)
+                return true;
+        }
         return false;
     }
 
     void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
-        if (!roomCheckWaterPortal(room)) return;
-
     // remove animated water polygons from room geometry
         for (int i = 0; i < room.data.rCount; i++) {
             TR::Rectangle &f = room.data.rectangles[i];
@@ -568,8 +570,8 @@ struct MeshBuilder {
 
             if (yt > 0 && yb > 0) continue;
 
-            if ((yt == 0 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
-                (yb == 0 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+            if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
+                isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
                 iCount -= 6;
                 vCount -= 4;
@@ -597,8 +599,8 @@ struct MeshBuilder {
 
             if (yt > 0 && yb > 0) continue;
 
-            if ((yt <= 1 && s.roomAbove != TR::NO_ROOM && (level->rooms[s.roomAbove].flags.water ^ room.flags.water)) ||
-                (yb <= 1 && s.roomBelow != TR::NO_ROOM && (level->rooms[s.roomBelow].flags.water ^ room.flags.water))) {
+            if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
+                isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
                 iCount -= 3;
                 vCount -= 3;
@@ -674,8 +676,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < mesh.rCount; j++) {
             TR::Rectangle &f = mesh.rectangles[j];
-            bool textured = !(f.texture & 0x8000);
-            TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
+            TR::ObjectTexture &t = f.color ? whiteTile : level.objectTextures[f.texture];
 
             if (t.attribute != 0)
                 isOpaque = false;
@@ -683,7 +684,7 @@ struct MeshBuilder {
             if (opaque != (t.attribute == 0))
                 continue;
 
-            TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
+            TR::Color24 c = f.color ? level.getColor(f.texture) : COLOR_WHITE;
 
             addQuad(indices, iCount, vCount, vStart, vertices, &t,
                     mesh.vertices[f.vertices[0]].coord, 
@@ -704,8 +705,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < mesh.tCount; j++) {
             TR::Triangle &f = mesh.triangles[j];
-            bool textured = !(f.texture & 0x8000);
-            TR::ObjectTexture &t = textured ? level.objectTextures[f.texture] : whiteTile;
+            TR::ObjectTexture &t = f.color ? whiteTile : level.objectTextures[f.texture];
 
             if (t.attribute != 0)
                 isOpaque = false;
@@ -713,7 +713,7 @@ struct MeshBuilder {
             if (opaque != (t.attribute == 0))
                 continue;
 
-            TR::Color24 c = textured ? COLOR_WHITE : level.getColor(f.texture);
+            TR::Color24 c = f.color ? level.getColor(f.texture) : COLOR_WHITE;
 
             addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -732,11 +732,7 @@ struct MeshBuilder {
     }
 
     vec2 getTexCoord(const TR::ObjectTexture &tex) {
-        int  tile = tex.tile.index;
-        int  tx = (tile % 4) * 256;
-        int  ty = (tile / 4) * 256;
-        return vec2( (float)(((tx + tex.texCoord[0].x) << 5) + 16),
-                     (float)(((ty + tex.texCoord[0].y) << 5) + 16) ) * (1.0f / 32767.0f);
+        return vec2(tex.texCoord[0].x / 32767.0f, tex.texCoord[0].y / 32767.0f);
     }
 
     void initAnimTextures(TR::Level &level) {
@@ -800,34 +796,15 @@ struct MeshBuilder {
         uint8 range, frame;
         tex = getAnimTexture(tex, range, frame);
 
-        int  tile = tex->tile.index;
-        int  tx = (tile % 4) * 256;
-        int  ty = (tile / 4) * 256;
-
-
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
-            v.texCoord.x = ((tx + tex->texCoord[i].x) << 5) + 16;
-            v.texCoord.y = ((ty + tex->texCoord[i].y) << 5) + 16;
-            v.texCoord.z = 32767;
-            v.texCoord.w = 32767;
-            v.param      = { range, frame, 0, 0 };
+            v.texCoord = { tex->texCoord[i].x, tex->texCoord[i].y, 32767, 32767 };
+            v.param    = { range, frame, 0, 0 };
         }
 
-        if (level->version == TR::Level::VER_TR1_PSX && !triangle)
+        if (level->version == TR::VER_TR1_PSX && !triangle)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
-        /*
-        short2 uv[4] = {
-            {0, 0}, {32767, 0}, {32767, 32767}, {0, 32767}
-        };
-
-        for (int i = 0; i < count; i++) {
-            Vertex &v = vertices[vCount + i];
-            v.texCoord.x = uv[i].x;
-            v.texCoord.y = uv[i].y;
-        }
-        */
     }
 
     void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex) {
@@ -921,23 +898,15 @@ struct MeshBuilder {
         quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { 255, 255, 255, intensity };
         quad[0].param  = quad[1].param  = quad[2].param  = quad[3].param  = { 0, 0, 0, 0 };
 
-        int tx = (sprite.tile % 4) * 256;
-        int ty = (sprite.tile / 4) * 256;
-
-        int16 u0 = (((tx + sprite.texCoord[0].x) << 5));
-        int16 v0 = (((ty + sprite.texCoord[0].y) << 5));
-        int16 u1 = (((tx + sprite.texCoord[1].x) << 5));
-        int16 v1 = (((ty + sprite.texCoord[1].y) << 5));
-
-        quad[0].texCoord = { u0, v0, sprite.l, sprite.t };
-        quad[1].texCoord = { u1, v0, sprite.r, sprite.t };
-        quad[2].texCoord = { u1, v1, sprite.r, sprite.b };
-        quad[3].texCoord = { u0, v1, sprite.l, sprite.b };
+        quad[0].texCoord = { sprite.texCoord[0].x, sprite.texCoord[0].y, sprite.l, sprite.t };
+        quad[1].texCoord = { sprite.texCoord[1].x, sprite.texCoord[0].y, sprite.r, sprite.t };
+        quad[2].texCoord = { sprite.texCoord[1].x, sprite.texCoord[1].y, sprite.r, sprite.b };
+        quad[3].texCoord = { sprite.texCoord[0].x, sprite.texCoord[1].y, sprite.l, sprite.b };
 
         vCount += 4;
     }
 
-    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, int type, const vec2 &pos, const vec2 &size, uint32 color) {
+    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color) {
         addQuad(indices, iCount, vCount, 0, vertices, NULL);
 
         int16 minX = int16(pos.x);
@@ -955,22 +924,9 @@ struct MeshBuilder {
             v.normal  = { 0, 0, 0, 0 };
             v.color   = *((ubyte4*)&color);
 
-            int16 s, t;
+            short2 uv = tile.texCoord[i];
 
-            if (type == 0) { // health bar
-                s = TEX_HEALTH_BAR_X + 1;
-                t = TEX_HEALTH_BAR_Y + 1;
-            } else {         // oxygen bar
-                s = TEX_OXYGEN_BAR_X + 1;
-                t = TEX_OXYGEN_BAR_Y + 1;
-            }
-
-            if (i > 1) t += 5;
-            
-            s = int(s) * 32767 / 1024;
-            t = int(t) * 32767 / 1024;
-
-            v.texCoord = { s, t, 32767, 32767 };
+            v.texCoord = { uv.x, uv.y, 32767, 32767 };
             v.param    = { 0, 0, 0, 0 };
         }
 
@@ -978,6 +934,8 @@ struct MeshBuilder {
     }
 
     void addFrame(Index *indices, Vertex *vertices, int &iCount, int &vCount, const vec2 &pos, const vec2 &size, uint32 color1, uint32 color2) {
+        short4 uv = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
+
         int16 minX = int16(pos.x);
         int16 minY = int16(pos.y);
         int16 maxX = int16(size.x) + minX;
@@ -997,7 +955,7 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal   = { 0, 0, 0, 0 };
             v.color    = *((ubyte4*)&color1);
-            v.texCoord = { 32688, 32688, 32767, 32767 };
+            v.texCoord = uv;
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
@@ -1017,13 +975,12 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal   = { 0, 0, 0, 0 };
             v.color    = *((ubyte4*)&color2);
-            v.texCoord = { 32688, 32688, 32767, 32767 };
+            v.texCoord = uv;
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
         addQuad(indices, iCount, vCount, 0, vertices, NULL); vCount += 4;
     }
-
 
     void bind() {
         mesh->bind();

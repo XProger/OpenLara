@@ -3,20 +3,40 @@
 
 #include "core.h"
 #include "format.h"
+#include "cache.h"
 #include "level.h"
 #include "ui.h"
 
-namespace Game {
-    Level *level;
+ShaderCache *shaderCache;
 
-    void startLevel(Stream *lvl, Stream *snd, bool demo, bool home) {
+namespace Game {
+    Level  *level;
+    Stream *nextLevel;
+}
+
+void loadAsync(Stream *stream, void *userData) {
+    if (!stream) {
+        if (Game::level) Game::level->isEnded = false;
+        return;
+    }
+    Game::nextLevel = stream;
+}
+
+namespace Game {
+    void startLevel(Stream *lvl) {
         delete level;
-        level = new Level(*lvl, snd, demo, home);
-        UI::init(level);
+        level = new Level(*lvl);
+        UI::game = level;
         delete lvl;
     }
 
-    void init(Stream *lvl, Stream *snd) {
+    void stopChannel(Sound::Sample *channel) {
+        if (level) level->stopChannel(channel);
+    }
+
+    void init(Stream *lvl) {
+        nextLevel = NULL;
+
         Core::init();
 
         Core::settings.detail.ambient       = true;
@@ -24,30 +44,36 @@ namespace Game {
         Core::settings.detail.shadows       = true;
         Core::settings.detail.water         = Core::support.texFloat || Core::support.texHalf;
         Core::settings.detail.contact       = false;
-
+#ifdef __RPI__
+        Core::settings.detail.ambient       = false;
+        Core::settings.detail.shadows       = false;
+#endif
         Core::settings.controls.retarget    = true;
+        Core::settings.audio.reverb         = true;
+
+        shaderCache = new ShaderCache();
+
+        UI::init(level);
+
+        Sound::callback = stopChannel;
 
         level = NULL;
-        startLevel(lvl, snd, false, false);
+        startLevel(lvl);
     }
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
-        if (!lvlName) lvlName = (char*)"LEVEL2.PSX";
-        #ifndef __EMSCRIPTEN__  
-            if (!sndName) sndName = (char*)"05.ogg";
-        #endif
-        init(new Stream(lvlName), sndName ? new Stream(sndName) : NULL);
+        if (!lvlName) lvlName = (char*)"level/TITLE.PSX";
+        init(new Stream(lvlName));
     }
 
     void free() {
         delete level;
+        UI::free();
+        delete shaderCache;
         Core::free();
     }
 
     void updateTick() {
-        if (Input::state[cInventory])
-            level->inventory.toggle();
-
         float dt = Core::deltaTime;
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;
@@ -62,6 +88,16 @@ namespace Game {
     }
 
     void update(float delta) {
+        PROFILE_MARKER("UPDATE");
+
+        if (nextLevel) {
+            startLevel(nextLevel);
+            nextLevel = NULL;
+        }
+
+        if (level->isEnded)
+            return;
+
         Input::update();
 
         if (Input::down[ikV]) { // third <-> first person view
@@ -80,6 +116,7 @@ namespace Game {
     }
 
     void render() {
+        PROFILE_MARKER("RENDER");
         PROFILE_TIMING(Core::stats.tFrame);
         Core::beginFrame();
         level->render();

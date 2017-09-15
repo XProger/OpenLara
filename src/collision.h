@@ -41,17 +41,26 @@ struct Collision {
         getFloor(level, roomIndex, vec3(pos.x, hpos.y, pos.z));
 
         if (checkHeight(level, roomIndex, hpos, vec2(0.0f), height, 0xFFFFFF, 0xFFFFFF, side = NONE)) {
-            pos -= velocity;
+            pos.x -= velocity.x;
+            pos.z -= velocity.z;
             side = FRONT;
             return;
         }
 
-        if (info[NONE].ceiling > hpos.y - maxHeight) {
-            pos.y = info[NONE].ceiling + maxHeight - offset.y;
-            side  = TOP;
+        int hCell = info[NONE].ceiling - (int(hpos.y) - maxHeight);
+        if (hCell > 0) {
+            if (hCell > 128) {
+                pos.x -= velocity.x;
+                pos.z -= velocity.z;
+                side = FRONT;
+            } else {
+                pos.y = info[NONE].ceiling + maxHeight - offset.y;
+                side  = TOP;
+            }
         }
 
-        if (info[NONE].floor < hpos.y + minHeight) {
+        int hFloor = info[NONE].floor - (int(hpos.y) + minHeight);
+        if (hFloor < 0 && hFloor > -256) {
             pos.y = info[NONE].floor - minHeight - offset.y;
             side  = BOTTOM;
         }

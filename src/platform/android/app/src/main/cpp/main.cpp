@@ -10,10 +10,12 @@
   JNIEXPORT return_type JNICALL              \
       Java_org_xproger_openlara_Wrapper_##method_name
 
+time_t startTime;
+
 int getTime() {
-    timeval time;
-    gettimeofday(&time, NULL);
-    return (time.tv_sec * 1000) + (time.tv_usec / 1000);
+    timeval t;
+    gettimeofday(&t, NULL);
+    return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
 extern "C" {
@@ -23,25 +25,31 @@ int lastTime;
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring packName, jstring cacheDir, jint levelOffset, jint musicOffset) {
+JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstring cacheDir, jstring packName, jint levelOffset) {
+    timeval t;
+    gettimeofday(&t, NULL);
+    startTime = t.tv_sec;	
+
     const char* str;
 
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+
+    str = env->GetStringUTFChars(packName, NULL);
+    Stream *level = new Stream(str);
+    env->ReleaseStringUTFChars(packName, str);
+    level->seek(levelOffset);
+
+    str = env->GetStringUTFChars(contentDir, NULL);
+    strcat(Stream::contentDir, str);
+    env->ReleaseStringUTFChars(contentDir, str);
+
     str = env->GetStringUTFChars(cacheDir, NULL);
     strcat(Stream::cacheDir, str);
     env->ReleaseStringUTFChars(cacheDir, str);
 
-    str = env->GetStringUTFChars(packName, NULL);
-    Stream *level = new Stream(str);
-    Stream *music = new Stream(str);
-    env->ReleaseStringUTFChars(packName, str);
+    Game::init(level);
 
-    level->seek(levelOffset);
-    music->seek(musicOffset);
-
-    Game::init(level, music);
-
-    lastTime    = getTime();
+    lastTime = getTime();
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {

@@ -4,7 +4,9 @@
 #include "utils.h"
 
 #define MAX_RESERVED_ENTITIES 128
+#define MAX_FLIPMAP_COUNT     16
 #define MAX_SECRETS_COUNT     16
+#define MAX_TRACKS_COUNT      64
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
 
@@ -52,7 +54,7 @@
     E( TRAP_DARTGUN          ) \
     E( DOOR_LIFT             ) \
     E( TRAP_SLAM             ) \
-    E( FALLING_SWORD         ) \
+    E( TRAP_SWORD            ) \
     E( HAMMER_HANDLE         ) \
     E( HAMMER_BLOCK          ) \
     E( LIGHTNING_BALL        ) \
@@ -62,8 +64,8 @@
     E( BLOCK_3               ) \
     E( BLOCK_4               ) \
     E( MOVING_BLOCK          ) \
-    E( FALLING_CEILING_1     ) \
-    E( FALLING_CEILING_2     ) \
+    E( TRAP_CEILING_1        ) \
+    E( TRAP_CEILING_2        ) \
     E( SWITCH                ) \
     E( SWITCH_WATER          ) \
     E( DOOR_1                ) \
@@ -138,10 +140,10 @@
     E( LEADBAR               ) \
     E( INV_LEADBAR           ) \
     E( MIDAS_TOUCH           ) \
-    E( KEY_1                 ) \
-    E( KEY_2                 ) \
-    E( KEY_3                 ) \
-    E( KEY_4                 ) \
+    E( KEY_ITEM_1            ) \
+    E( KEY_ITEM_2            ) \
+    E( KEY_ITEM_3            ) \
+    E( KEY_ITEM_4            ) \
     E( INV_KEY_1             ) \
     E( INV_KEY_2             ) \
     E( INV_KEY_3             ) \
@@ -204,8 +206,10 @@
 namespace TR {
 
     enum {
-        FLOOR_BLOCK = -127,
-        NO_ROOM     = 0xFF,
+        NO_FLOOR = -127,
+        NO_ROOM  = 0xFF,
+        NO_BOX   = 0xFFFF,
+        ACTIVE   = 0x1F,
     };
 
     enum {
@@ -218,56 +222,26 @@ namespace TR {
         ANIM_CMD_EFFECT     ,
     };
 
-    // https://dl.dropboxusercontent.com/u/62482708/Secret/TR4%26TR5%20PSX%20Stuff.zip
-    enum {
-        EFFECT_ROTATE_180       ,
-        EFFECT_FLOOR_SHAKE      ,
-        EFFECT_LARA_NORMAL      ,
-        EFFECT_LARA_BUBBLES     ,
-        EFFECT_FINISH_LEVEL     ,
-        EFFECT_ACTIVATE_CAMERA  ,
-        EFFECT_ACTIVATE_KEY     ,
-        EFFECT_RUBBLEFX         ,
-        EFFECT_CROWBAR          ,
-        EFFECT_CURTAINFX        ,
-        EFFECT_SETCHANGEFX      ,
-        EFFECT_EXPLOSION_FX     ,
-        EFFECT_LARA_HANDSFREE   ,
-        EFFECT_FLIP_MAP         ,
-        EFFECT_DRAW_RIGHTGUN    ,
-        EFFECT_DRAW_LEFTGUN     ,
-        EFFECT_SHOOT_RIGHTGUN   ,
-        EFFECT_SHOOT_LEFTGUN    ,
-        EFFECT_MESH_SWAP1       ,
-        EFFECT_MESH_SWAP2       ,
-        EFFECT_MESH_SWAP3       ,
-        EFFECT_INV_ON           ,
-        EFFECT_INV_OFF          ,
-        EFFECT_DYN_ON           ,
-        EFFECT_DYN_OFF          ,
-        EFFECT_STATUEFX         ,
-        EFFECT_RESET_HAIR       ,
-        EFFECT_BOILERFX         ,
-        EFFECT_SETFOG           ,
-        EFFECT_GHOSTTRAP        ,
-        EFFECT_LARALOCATION     ,
-        EFFECT_CLEARSCARABS     ,
-        EFFECT_FOOTPRINT_FX     ,
-        EFFECT_FLIP_MAP0        ,
-        EFFECT_FLIP_MAP1        ,
-        EFFECT_FLIP_MAP2        ,
-        EFFECT_FLIP_MAP3        ,
-        EFFECT_FLIP_MAP4        ,
-        EFFECT_FLIP_MAP5        ,
-        EFFECT_FLIP_MAP6        ,
-        EFFECT_FLIP_MAP7        ,
-        EFFECT_FLIP_MAP8        ,
-        EFFECT_FLIP_MAP9        ,
-        EFFECT_POURSWAP1        ,
-        EFFECT_POURSWAP2        ,
-        EFFECT_LARALOCATIONPAD  ,
-        EFFECT_KILLACTIVEBADDIES,
-	};
+    enum Effect : int32 {
+        NONE           = -1,
+        ROTATE_180     ,
+        FLOOR_SHAKE    ,
+        LARA_NORMAL    ,
+        LARA_BUBBLES   ,
+        FINISH_LEVEL   ,
+        EARTHQUAKE     ,
+        FLOOD          ,
+        UNK1           ,
+        UNK2           ,
+        UNK3           ,
+        UNK4           ,
+        EXPLOSION      ,
+        LARA_HANDSFREE ,
+        FLIP_MAP       ,
+        DRAW_RIGHTGUN  ,
+        UNK5           ,
+        FLICKER        ,
+    };
 
     enum {
         SND_NO              = 2,
@@ -290,6 +264,8 @@ namespace TR {
         SND_SHOTGUN_SHOT    = 45,
         
         SND_UNDERWATER      = 60,
+
+        SND_FLOOD           = 81,
         
         SND_INV_SPIN        = 108,
         SND_INV_HOME        = 109,
@@ -307,6 +283,19 @@ namespace TR {
     };
 
     enum {
+        TRACK_TITLE   = 2,
+        TRACK_CAVES   = 5,
+        TRACK_SECRET  = 13,
+        TRACK_CISTERN = 57,
+        TRACK_EGYPT   = 58,
+        TRACK_MINE    = 59,
+        TRACK_CUT1    = 23,
+        TRACK_CUT2    = 25,
+        TRACK_CUT3    = 24,
+        TRACK_CUT4    = 22,
+    };
+
+    enum {
         MODEL_LARA          = 0,
         MODEL_PISTOLS       = 1,
         MODEL_SHOTGUN       = 2,
@@ -315,21 +304,26 @@ namespace TR {
         MODEL_LARA_SPEC     = 5,
     };
 
+    enum HitType {
+        HIT_DEFAULT,
+        HIT_BLADE,
+        HIT_BOULDER,
+        HIT_SPIKES,
+        HIT_REX,
+    };
+
     enum Action : uint16 {
         ACTIVATE        ,   // activate item
         CAMERA_SWITCH   ,   // switch to camera
         FLOW            ,   // underwater flow
-        FLIP_MAP        ,   // flip map
+        FLIP            ,   // flip map
         FLIP_ON         ,   // flip on
         FLIP_OFF        ,   // flip off
         CAMERA_TARGET   ,   // look at item
         END             ,   // end level
         SOUNDTRACK      ,   // play soundtrack
-        HARDCODE        ,   // special hadrdcode trigger
+        EFFECT          ,   // special effect trigger
         SECRET          ,   // secret found
-        CLEAR           ,   // clear bodies
-        CAMERA_FLYBY    ,   // flyby camera sequence
-        CUTSCENE        ,   // play cutscene
     };
 
     namespace Limits {
@@ -337,38 +331,42 @@ namespace TR {
         struct Limit {
             float  dy, dz, ay;
             ::Box  box;
+            bool   alignAngle;
+            bool   alignHoriz;
         };
 
         Limit SWITCH = {
-            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, false
         };
 
         Limit SWITCH_UNDERWATER = {
-            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}} 
+            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}}, true, true
         };
 
         Limit PICKUP = {
-            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}
+            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}, false, true
         };
 
         Limit PICKUP_UNDERWATER = {
-            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}
+            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}, false, true
         };
 
         Limit KEY_HOLE = { 
-            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
         };
 
         Limit PUZZLE_HOLE = { 
-            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}
+            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
         };
 
         Limit BLOCK = { 
-            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}
+            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}, true, false
+        };
+
+        Limit SCION = { 
+            640, -202, 30,   {{-256, 540, -350}, {256, 740, -200}}, false, false
         };
     }
-
-    #pragma pack(push, 1)
 
     struct fixed {
         uint16  L;
@@ -418,12 +416,12 @@ namespace TR {
 
     struct Rectangle {
         uint16 vertices[4];
-        uint16 texture;
+        uint16 texture:15, color:1;
     };
 
     struct Triangle {
         uint16 vertices[3];
-        uint16 texture;
+        uint16 texture:15, color:1;
     };
 
     struct Tile4 {
@@ -437,7 +435,7 @@ namespace TR {
     };
 
     struct Tile32 {
-        Color32 color[256 * 256];
+        Color32 color[256 * 256]; // + 128 for mips data
     };
 
     struct CLUT {
@@ -550,7 +548,7 @@ namespace TR {
                 uint16 end:1;
             };
             struct {
-                uint16 delay:8, once:1, timer:7;
+                uint16 timer:8, once:1, speed:5, :2;
             };
         } triggerCmd;
 
@@ -568,10 +566,9 @@ namespace TR {
         uint16 boxIndex:15, end:1;
     };
 
-    //struct Collider {
-    //    uint16 radius:10, info:6;
-    //    uint16 flags:16;
-    //};
+    struct Flags {
+        uint16 :8, once:1, active:5, :2;
+    };
 
     // internal mesh structure
     struct Mesh {
@@ -614,40 +611,52 @@ namespace TR {
         int32   x, y, z;
         angle   rotation;
         int16   intensity;
-        union {
-            struct { uint16 unused:7, clear:1, invisible:1, active:5, collision:1, rendered:1; };
+        union Flags {
+            struct { uint16 unused:6, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1; };
             uint16 value;
         } flags;
     // not exists in file
         uint16  align;
         int32   modelIndex;     // index of representation in models (index + 1) or spriteSequences (-(index + 1)) arrays
-        void    *controller;    // Controller implementation or NULL 
+        void    *controller;    // Controller implementation or NULL
 
-        bool isEnemy() {
-            return type >= ENEMY_TWIN && type <= ENEMY_LARSON;
+        bool isEnemy() const {
+            return type >= ENEMY_TWIN && type <= ENEMY_GIANT_MUTANT;
         }
 
-        bool isBigEnemy() {
+        bool isBigEnemy() const {
             return type == ENEMY_REX || type == ENEMY_MUTANT_1 || type == ENEMY_CENTAUR;
         }
 
-        bool isDoor() {
+        bool isDoor() const {
             return (type >= DOOR_1 && type <= DOOR_6) || type == DOOR_LIFT;
         }
 
-        bool isItem() {
+        bool isItem() const {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
-                   (type >= KEY_1 && type <= KEY_4) ||
+                   (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
         }
 
-        bool isKeyHole() {
-            return type >= KEY_HOLE_1 && type <= KEY_HOLE_2;
+        bool isActor() const {
+            return type >= CUT_1 && type <= CUT_4;
         }
 
-        bool isBlock() {
+        bool isPuzzleHole() const {
+            return type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_2;
+        }
+
+        bool isBlock() const {
             return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_2;
+        }
+
+        bool isLara() const {
+            return type == LARA;
+        }
+
+        bool castShadow() const {
+            return isLara() || isEnemy() || isActor();
         }
 
         static Type convToInv(Type type) {
@@ -670,10 +679,10 @@ namespace TR {
                 case PUZZLE_3      : return INV_PUZZLE_3;
                 case PUZZLE_4      : return INV_PUZZLE_4;
 
-                case KEY_1         : return INV_KEY_1;
-                case KEY_2         : return INV_KEY_2;
-                case KEY_3         : return INV_KEY_3;
-                case KEY_4         : return INV_KEY_4;
+                case KEY_ITEM_1    : return INV_KEY_1;
+                case KEY_ITEM_2    : return INV_KEY_2;
+                case KEY_ITEM_3    : return INV_KEY_3;
+                case KEY_ITEM_4    : return INV_KEY_4;
 
                 case LEADBAR       : return INV_LEADBAR;
                 //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
@@ -681,21 +690,21 @@ namespace TR {
             }
         }
 
-        static Type getKeyForHole(Type hole) {
+        static Type getItemForHole(Type hole) {
             switch (hole) {
-                case PUZZLE_HOLE_1 : return PUZZLE_1; break;
-                case PUZZLE_HOLE_2 : return PUZZLE_2; break;
-                case PUZZLE_HOLE_3 : return PUZZLE_3; break;
-                case PUZZLE_HOLE_4 : return PUZZLE_4; break;
-                case KEY_HOLE_1    : return KEY_1;    break;
-                case KEY_HOLE_2    : return KEY_2;    break;
-                case KEY_HOLE_3    : return KEY_3;    break;
-                case KEY_HOLE_4    : return KEY_4;    break;
+                case PUZZLE_HOLE_1 : return PUZZLE_1;   break;
+                case PUZZLE_HOLE_2 : return PUZZLE_2;   break;
+                case PUZZLE_HOLE_3 : return PUZZLE_3;   break;
+                case PUZZLE_HOLE_4 : return PUZZLE_4;   break;
+                case KEY_HOLE_1    : return KEY_ITEM_1; break;
+                case KEY_HOLE_2    : return KEY_ITEM_2; break;
+                case KEY_HOLE_3    : return KEY_ITEM_3; break;
+                case KEY_HOLE_4    : return KEY_ITEM_4; break;
                 default            : return NONE;
             }
         }
 
-        static void fixOpaque(Type type, bool &opaque) {
+        static void fixOpaque(Type type, bool &opaque) { // to boost performance on mobile devices
             if (type >= LARA && type <= ENEMY_GIANT_MUTANT
                 && type != ENEMY_REX
                 && type != ENEMY_RAPTOR
@@ -706,6 +715,8 @@ namespace TR {
                 opaque = true;
             if (type == SWITCH || type == SWITCH_WATER)
                 opaque = true;
+            if (type == PUZZLE_HOLE_1) // LEVEL3A cogs
+                opaque = false;
         }
     };
 
@@ -818,16 +829,29 @@ namespace TR {
 
     struct ObjectTexture {
         uint16  clut;
-        Tile    tile;           // tile or palette index
-        uint16  attribute;      // 0 - opaque, 1 - transparent, 2 - blend additive 
-        ubyte2  texCoord[4];
+        Tile    tile;                        // tile or palette index
+        uint16  attribute:15, repeat:1;      // 0 - opaque, 1 - transparent, 2 - blend additive, 
+        short2  texCoord[4];
+
+        short4 getMinMax() const {
+            return {
+                min(min(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                min(min(texCoord[0].y, texCoord[1].y), texCoord[2].y),
+                max(max(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                max(max(texCoord[0].y, texCoord[1].y), texCoord[2].y),
+            };
+        }
     };
 
     struct SpriteTexture {
         uint16  clut;
         uint16  tile;
         int16   l, t, r, b;
-        ubyte2  texCoord[2];
+        short2  texCoord[2];
+
+        short4 getMinMax() const {
+            return { texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y };
+        }
     };
 
     struct SpriteSequence {
@@ -843,7 +867,9 @@ namespace TR {
             int16   room;   // for camera
             int16   speed;  // for sink (underwater current)
         };
-        uint16  flags;
+        struct {
+            uint16 :8, once:1, :5, :2;
+        } flags;
     };
 
     struct CameraFrame {
@@ -891,13 +917,77 @@ namespace TR {
         } flags;
     };
 
-    #pragma pack(pop)
+    enum Version : uint32 {
+        VER_TR1_PC  = 0x00000020,
+        VER_TR1_PSX = 0x56414270,
+    };
+
+    enum LevelID : uint32 {
+        LEVEL_CUSTOM,
+        TITLE,
+        GYM,
+        LEVEL_1,
+        LEVEL_2,
+        LEVEL_3A,
+        LEVEL_3B,
+        CUTSCENE_1,
+        LEVEL_4,
+        LEVEL_5,
+        LEVEL_6,
+        LEVEL_7A,
+        LEVEL_7B,
+        CUTSCENE_2,
+        LEVEL_8A,
+        LEVEL_8B,
+        LEVEL_8C,
+        LEVEL_10A,
+        CUTSCENE_3,
+        LEVEL_10B,
+        CUTSCENE_4,
+        LEVEL_10C,
+        LEVEL_EGYPT,
+        LEVEL_CAT,
+        LEVEL_END,
+        LEVEL_END2,
+        LEVEL_MAX,
+    };
+
+    struct {
+        const char *name;
+        const char *title;
+        int        ambientTrack;
+    } LEVEL_INFO[LEVEL_MAX] = {
+        { ""         , "Custom Level",              TRACK_CAVES },
+        { "TITLE"    , "",                          TRACK_TITLE },
+        { "GYM"      , "Lara's Home",               0 },
+        { "LEVEL1"   , "Caves",                     TRACK_CAVES },
+        { "LEVEL2"   , "City of Vilcabamba",        TRACK_CAVES },
+        { "LEVEL3A"  , "Lost Valley",               TRACK_CAVES },
+        { "LEVEL3B"  , "Tomb of Qualopec",          TRACK_CAVES },
+        { "CUT1"     , "",                          TRACK_CUT1  },
+        { "LEVEL4"   , "St. Francis' Folly",        TRACK_CAVES },
+        { "LEVEL5"   , "Colosseum",                 TRACK_CAVES },
+        { "LEVEL6"   , "Palace Midas",              TRACK_CAVES },
+        { "LEVEL7A"  , "The Cistern",               TRACK_CISTERN },
+        { "LEVEL7B"  , "Tomb of Tihocan",           TRACK_CISTERN },
+        { "CUT2"     , "",                          TRACK_CUT2  },
+        { "LEVEL8A"  , "City of Khamoon",           TRACK_EGYPT },
+        { "LEVEL8B"  , "Obelisk of Khamoon",        TRACK_EGYPT },
+        { "LEVEL8C"  , "Sanctuary of the Scion",    TRACK_EGYPT },
+        { "LEVEL10A" , "Natla's Mines",             TRACK_MINE  },
+        { "CUT3"     , "",                          TRACK_CUT3  },
+        { "LEVEL10B" , "Atlantis",                  TRACK_MINE  },
+        { "CUT4"     , "",                          TRACK_CUT4  },
+        { "LEVEL10C" , "The Great Pyramid",         TRACK_MINE  },
+        { "EGYPT"    , "Return to Egypt",           TRACK_EGYPT },
+        { "CAT"      , "Temple of the Cat",         TRACK_EGYPT },
+        { "END"      , "Atlantean Stronghold",      TRACK_EGYPT },
+        { "END2"     , "The Hive",                  TRACK_EGYPT },
+    };
 
     struct Level {
-        enum : uint32 {
-            VER_TR1_PC  = 0x00000020,
-            VER_TR1_PSX = 0x56414270,
-        }               version;
+        Version         version;
+        LevelID         id;
 
         int32           tilesCount;
         Tile32          *tiles;
@@ -1001,7 +1091,6 @@ namespace TR {
             ANTIPAD     ,
             COMBAT      ,
             DUMMY       ,
-            ANTI        ,
         };
     
         struct FloorInfo {
@@ -1031,11 +1120,18 @@ namespace TR {
             }
         };
 
+        Flags   flipmap[MAX_FLIPMAP_COUNT];
         bool    secrets[MAX_SECRETS_COUNT];
+        Flags   tracks[MAX_TRACKS_COUNT];
+
         void    *cameraController;
+        void    *laraController;
 
         int     cutEntity;
         mat4    cutMatrix;
+        bool    isDemoLevel;
+        bool    isHomeLevel;
+        bool    isFlipped;
 
         struct {
             int16 muzzleFlash;
@@ -1067,7 +1163,7 @@ namespace TR {
             int16 glyphSeq;
         } extra;
 
-        Level(Stream &stream, bool demo) {
+        Level(Stream &stream) {
             int startPos = stream.pos;
             memset(this, 0, sizeof(*this));
             cutEntity = -1;
@@ -1087,6 +1183,8 @@ namespace TR {
                 memset(this, 0, sizeof(*this)); 
                 return;
             }
+
+            id = getLevelID(stream.size);
 
             if (version == VER_TR1_PSX) {
                 uint32 offsetTexTiles;
@@ -1206,14 +1304,24 @@ namespace TR {
         // models
             stream.read(modelsCount);
             models = modelsCount ? new Model[modelsCount] : NULL;
-            for (int i = 0; i < modelsCount; i++)
-                stream.raw(&models[i], sizeof(models[i]) - (version == VER_TR1_PC ? sizeof(models[i].align) : 0));
+            for (int i = 0; i < modelsCount; i++) {
+                Model &m = models[i];
+                stream.read(m.type);
+                stream.read(m.unused);
+                stream.read(m.mCount);
+                stream.read(m.mStart);
+                stream.read(m.node);
+                stream.read(m.frame);
+                stream.read(m.animation);
+                if (version == VER_TR1_PSX)
+                    stream.seek(sizeof(m.align));
+            }
             stream.read(staticMeshes, stream.read(staticMeshesCount));
         // textures & UV
             readObjectTex(stream);
             readSpriteTex(stream);
         // palette for demo levels
-            if (version == VER_TR1_PC && demo) stream.read(palette, 256);
+            if (version == VER_TR1_PC && isDemoLevel) stream.read(palette, 256);
         // cameras
             stream.read(cameras,        stream.read(camerasCount));
         // sound sources
@@ -1234,10 +1342,19 @@ namespace TR {
             entities = new Entity[entitiesCount];
             for (int i = 0; i < entitiesBaseCount; i++) {
                 Entity &e = entities[i];
-                stream.raw(&e, sizeof(e) - sizeof(e.align) - sizeof(e.controller) - sizeof(e.modelIndex));
+                stream.read(e.type);
+                stream.read(e.room);
+                stream.read(e.x);
+                stream.read(e.y);
+                stream.read(e.z);
+                stream.read(e.rotation);
+                stream.read(e.intensity);
+                stream.read(e.flags);
+
                 e.align = 0;
                 e.controller = NULL;
                 e.modelIndex = getModelIndex(e.type);
+
                 if (e.type == Entity::CUT_1)
                     cutEntity = i;
             }
@@ -1249,7 +1366,7 @@ namespace TR {
             if (version == VER_TR1_PC) {
                 stream.seek(32 * 256);
             // palette for release levels
-                if (!demo) 
+                if (!isDemoLevel) 
                     stream.read(palette, 256);
             // cinematic frames for cameras (PC)
                 stream.read(cameraFrames,   stream.read(cameraFramesCount));
@@ -1273,11 +1390,19 @@ namespace TR {
             initRoomMeshes();
             initTiles(tiles4, tiles8, palette, cluts);
 
-            //delete[] tiles4;   tiles4 = NULL;
-            delete[] tiles8;   tiles8 = NULL;
+            //delete[] tiles4;
+            //tiles4 = NULL;
+            delete[] tiles8;
+            tiles8 = NULL;
 
+        // init flipmap states
+            isFlipped = false;
+            memset(flipmap, 0, MAX_FLIPMAP_COUNT * sizeof(flipmap[0]));
         // init secrets states
             memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
+        // init soundtracks states
+            memset(tracks, 0, MAX_TRACKS_COUNT * sizeof(tracks[0]));
+
         // get special models indices
             memset(&extra, 0xFF, sizeof(extra));
 
@@ -1340,26 +1465,7 @@ namespace TR {
                 }
             ASSERT(extra.glyphSeq != -1);
 
-        // init cutscene transform
-            cutMatrix.identity();
-            if (cutEntity > -1) {
-                Entity &e = entities[cutEntity];
-                switch (cameraFramesCount) { // HACK to detect cutscene level number
-                    case 1600 : // CUT1
-                        cutMatrix.translate(vec3(36668, float(e.y), 63180));
-                        cutMatrix.rotateY(-23312.0f / float(0x4000) * PI * 0.5f);
-                        break;
-                    case 1000 : // CUT2
-                        cutMatrix.translate(vec3(51962, float(e.y), 53760));
-                        cutMatrix.rotateY(16380.0f / float(0x4000) * PI * 0.5f);
-                        break;
-                    case 400  : // CUT3
-                    case 1890 : // CUT4
-                        cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
-                        cutMatrix.rotateY(PI * 0.5f);
-                        break;
-                }
-            }
+            initCutscene();
         }
 
         ~Level() {
@@ -1411,6 +1517,86 @@ namespace TR {
             delete[] soundData;
             delete[] soundOffsets;
             delete[] soundSize;
+        }
+
+        LevelID getLevelID(int size) {
+            isDemoLevel = false;
+            isHomeLevel = false;
+            switch (size) {
+                case 508614  :
+                case 316460  : return TITLE;
+                case 1074234 :
+                case 3237128 : isHomeLevel = true; return GYM;
+                case 1448896 :
+                case 2533634 : return LEVEL_1;
+                case 2873406 : isDemoLevel = true; return LEVEL_2;
+                case 1535734 :
+                case 2873450 : return LEVEL_2;
+                case 1630560 :
+                case 2934730 : return LEVEL_3A;
+                case 1506614 :
+                case 2738258 : return LEVEL_3B;
+                case 722402  :
+                case 599840  : return CUTSCENE_1;
+                case 1621970 :
+                case 3030872 : return LEVEL_4;
+                case 1585942 :
+                case 2718540 : return LEVEL_5;
+                case 1708464 :
+                case 3074376 : return LEVEL_6;
+                case 1696664 :
+                case 2817612 : return LEVEL_7A;
+                case 1733274 :
+                case 3389096 : return LEVEL_7B;
+                case 542960  :
+                case 354320  : return CUTSCENE_2;
+                case 1563356 :
+                case 2880564 : return LEVEL_8A;
+                case 1565630 :
+                case 2886756 : return LEVEL_8B;
+                case 1619360 :
+                case 3105450 : return LEVEL_8C;
+                case 1678018 :
+                case 3224138 : return LEVEL_10A;
+                case 636660  :
+                case 512104  : return CUTSCENE_3;
+                case 1686748 :
+                case 3094020 : return LEVEL_10B;
+                case 940398  :
+                case 879582  : return CUTSCENE_4;
+                case 1814278 :
+                case 3532024 : return LEVEL_10C;
+                case 3279242 : return LEVEL_EGYPT;
+                case 3270998 : return LEVEL_CAT;
+                case 3208018 : return LEVEL_END;
+                case 3153300 : return LEVEL_END2;
+            }
+            return LEVEL_CUSTOM;
+        }
+
+        void initCutscene() {
+        // init cutscene transform
+            cutMatrix.identity();
+            if (cutEntity > -1) {
+                Entity &e = entities[cutEntity];
+                switch (id) { // HACK to detect cutscene level number
+                    case CUTSCENE_1 :
+                        cutMatrix.translate(vec3(36668, float(e.y), 63180));
+                        cutMatrix.rotateY(-23312.0f / float(0x4000) * PI * 0.5f);
+                        break;
+                    case CUTSCENE_2 :
+                        cutMatrix.translate(vec3(51962, float(e.y), 53760));
+                        cutMatrix.rotateY(16380.0f / float(0x4000) * PI * 0.5f);
+                        break;
+                    case CUTSCENE_3 :
+                        isFlipped = true;
+                    case CUTSCENE_4 :
+                        cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
+                        cutMatrix.rotateY(PI * 0.5f);
+                        break;
+                    default : ;
+                }
+            }
         }
 
         void readMeshes(Stream &stream) {
@@ -1492,8 +1678,8 @@ namespace TR {
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[rCount], crCount * sizeof(Rectangle));
                         stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[tCount],  ctCount * sizeof(Triangle));
                     // add "use palette color" flags
-                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].texture |= 0x8000;
-                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].texture  |= 0x8000;
+                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].color = true;
+                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].color  = true;
                         break;
                     }
                     case VER_TR1_PSX : {
@@ -1531,8 +1717,8 @@ namespace TR {
 
                         stream.read(mesh.rectangles, stream.read(mesh.rCount));
                         stream.read(mesh.triangles,  stream.read(mesh.tCount));   
-                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 300) mesh.rectangles[i].texture |= 0x8000;
-                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 300) mesh.triangles[i].texture  |= 0x8000;
+                        for (int i = 0; i < mesh.rCount; i++) if (mesh.rectangles[i].texture < 256) mesh.rectangles[i].color = true;
+                        for (int i = 0; i < mesh.tCount; i++) if (mesh.triangles[i].texture  < 256) mesh.triangles[i].color  = true;
                         break;
                     }
                 }
@@ -1627,7 +1813,7 @@ namespace TR {
                             uint8   x0, y0;
                             uint16  clut;
                             uint8   x1, y1;
-                            Tile    tile;       
+                            Tile    tile;
                             uint8   x2, y2;
                             uint16  unknown;
                             uint8   x3, y3;
@@ -1658,7 +1844,7 @@ namespace TR {
             for (int i = 0; i < spriteTexturesCount; i++) {
                 SpriteTexture &t = spriteTextures[i];
                 switch (version) {
-                    case VER_TR1_PC : {                        
+                    case VER_TR1_PC : {
                         struct {
                             uint16  tile;
                             uint8   u, v;
@@ -1705,7 +1891,7 @@ namespace TR {
 
         void initTiles(Tile4 *tiles4, Tile8 *tiles8, Color24 *palette, CLUT *cluts) {
             tiles = new Tile32[tilesCount];
-
+        // convert to RGBA
             switch (version) {
                 case VER_TR1_PC : {
                     ASSERT(tiles8);
@@ -1750,7 +1936,7 @@ namespace TR {
                         int maxY = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
 
                         for (int y = minY; y <= maxY; y++)
-                            for (int x = minX; x <= maxX; x++)                          
+                            for (int x = minX; x <= maxX; x++)
                                 dst.color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
                     }
 
@@ -1760,8 +1946,8 @@ namespace TR {
                         Tile32 &dst  = tiles[t.tile];
                         Tile4  &src  = tiles4[t.tile];
                         
-                        for (int y = t.texCoord[0].y; y < t.texCoord[1].y; y++)
-                            for (int x = t.texCoord[0].x; x < t.texCoord[1].x; x += 2) {                           
+                        for (int y = t.texCoord[0].y; y <= t.texCoord[1].y; y++)
+                            for (int x = t.texCoord[0].x; x <= t.texCoord[1].x; x += 2) {                           
                                 dst.color[y * 256 + x + 0] = clut.color[src.index[(y * 256 + x) / 2].a];
                                 dst.color[y * 256 + x + 1] = clut.color[src.index[(y * 256 + x) / 2].b];
                             }
@@ -1777,6 +1963,7 @@ namespace TR {
             switch (version) {
                 case VER_TR1_PC  : return palette[texture & 0xFF];
                 case VER_TR1_PSX : {
+                    ASSERT((texture & 0x7FFF) < 256);
                     ObjectTexture &t = objectTextures[texture & 0x7FFF];
                     int idx  = (t.texCoord[0].y * 256 + t.texCoord[0].x) / 2;
                     int part = t.texCoord[0].x % 2;
@@ -1789,6 +1976,7 @@ namespace TR {
         }
 
         Stream* getSampleStream(int index) const {
+            if (!soundOffsets) return NULL;
             uint8 *data = &soundData[soundOffsets[index]];
             uint32 size = 0;
             switch (version) {
@@ -1843,8 +2031,22 @@ namespace TR {
             entities[entityIndex].controller = NULL;
         }
 
+        int getNextRoom(int floorIndex) const {
+            if (!floorIndex) return NO_ROOM;
+            FloorData *fd = &floors[floorIndex];
+        // floor data always in this order and can't be less than uint16 x 3
+            if (fd->cmd.func == FloorData::FLOOR)   fd += 2; // skip floor slant info
+            if (fd->cmd.func == FloorData::CEILING) fd += 2; // skip ceiling slant info
+            if (fd->cmd.func == FloorData::PORTAL)  return (++fd)->data;
+            return NO_ROOM;
+        }
+
         Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
+
+            if (isFlipped && rooms[roomIndex].alternateRoom > -1)
+                roomIndex = rooms[roomIndex].alternateRoom;
+
             Room &room = rooms[roomIndex];
 
             int sx = x - room.info.x;
@@ -1859,6 +2061,57 @@ namespace TR {
             sz /= 1024;
 
             return room.sectors[sx * room.zSectors + sz];
+        }
+
+        Room::Sector& getSector(int roomIndex, int x, int z, int &sectorIndex) {
+            ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
+            Room &room = rooms[roomIndex];
+            x -= room.info.x;
+            z -= room.info.z;
+            x /= 1024;
+            z /= 1024;
+            return room.sectors[sectorIndex = (x * room.zSectors + z)];
+        }
+
+        Room::Sector* getSector(int &roomIndex, int x, int y, int z) const {
+            ASSERT(roomIndex >= 0 && roomIndex <= roomsCount);
+
+            Room::Sector *sector = NULL;
+
+        // check horizontal
+            while (1) { // Let's Rock!
+                TR::Room &room = rooms[roomIndex];
+
+                int sx = (x - room.info.x) >> 10;
+                int sz = (z - room.info.z) >> 10;
+
+                if (sz <= 0 || sz >= room.xSectors - 1) {
+                    sx = clamp(sx, 1, room.xSectors - 2);
+                    sz = clamp(sz, 0, room.zSectors - 1);
+                } else
+                    sx = clamp(sx, 0, room.xSectors - 1);
+
+                sector = room.sectors + sx * room.zSectors + sz;
+
+                int nextRoom = getNextRoom(sector->floorIndex);
+                if (nextRoom == NO_ROOM)
+                    break;
+
+                roomIndex = nextRoom;
+            };
+
+        // check vertical
+            while (sector->roomAbove != NO_ROOM && y < sector->ceiling * 256) {
+                TR::Room &room = rooms[roomIndex = sector->roomAbove];
+                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+            }
+
+            while (sector->roomBelow != NO_ROOM && y >= sector->floor * 256) {
+                TR::Room &room = rooms[roomIndex = sector->roomBelow];
+                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+            }
+
+            return sector;
         }
 
         void getFloorInfo(int roomIndex, int x, int y, int z, FloorInfo &info) const {
@@ -1880,7 +2133,7 @@ namespace TR {
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
-            if (s.floor == -127) 
+            if (s.floor == NO_FLOOR) 
                 return;
 
             Room::Sector *sBelow = &s;
@@ -1912,6 +2165,10 @@ namespace TR {
 
                 for (int i = 0; i < info.trigCmdCount; i++) {
                     FloorData::TriggerCommand cmd = info.trigCmd[i];
+                    if (cmd.action == Action::CAMERA_SWITCH) {
+                        i++;
+                        continue;
+                    }
                     if (cmd.action != Action::ACTIVATE) continue;
                     
                     Entity &e = entities[cmd.args];
@@ -2024,10 +2281,6 @@ namespace TR {
 
 
     }; // struct Level
-
-    bool castShadow(Entity::Type type) {
-        return (type >= Entity::ENEMY_TWIN && type <= Entity::ENEMY_GIANT_MUTANT) || type == Entity::LARA || (type >= Entity::CUT_1 && type <= Entity::CUT_4);
-    }
 }
 
 #endif

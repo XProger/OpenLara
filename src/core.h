@@ -15,20 +15,16 @@
     #define GL_CLAMP_TO_BORDER          0x812D
     #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-    #define GL_TEXTURE_COMPARE_MODE		0x884C
-    #define GL_TEXTURE_COMPARE_FUNC		0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-    #undef  GL_RGBA32F
-    #undef  GL_RGBA16F
-    #undef  GL_HALF_FLOAT
+    #define GL_RGBA16F                  0x881A
+    #define GL_RGBA32F                  0x8814
+    #define GL_HALF_FLOAT               0x140B
 
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
-
-    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+    #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
 
     #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
     #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
@@ -43,6 +39,38 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+#elif __RPI__
+    #define MOBILE
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
+    #include <EGL/egl.h>
+    #include <EGL/eglext.h>
+    
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+    
+    #define glGenVertexArrays(...)
+    #define glDeleteVertexArrays(...)
+    #define glBindVertexArray(...)
+    
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -64,12 +92,12 @@
         #define glDeleteVertexArrays        glDeleteVertexArraysOES
         #define glBindVertexArray           glBindVertexArrayOES
 
-        #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
-        #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-        #define GL_TEXTURE_COMPARE_MODE		GL_TEXTURE_COMPARE_MODE_EXT
-        #define GL_TEXTURE_COMPARE_FUNC		GL_TEXTURE_COMPARE_FUNC_EXT
-        #define GL_COMPARE_REF_TO_TEXTURE	GL_COMPARE_REF_TO_TEXTURE_EXT
+        #define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
+        #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
+        #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
         #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
@@ -78,13 +106,14 @@
         #include <OpenGL/glext.h>
         #include <AGL/agl.h>
 
-        #define GL_RGBA32F                  GL_RGBA
-        #define GL_RGBA16F                  GL_RGBA
+        #define GL_RGBA16F                  0x881A
+        #define GL_RGBA32F                  0x8814
+        #define GL_HALF_FLOAT               0x140B
 
         #define GL_RGB565                   GL_RGBA
-        #define GL_TEXTURE_COMPARE_MODE		0x884C
-        #define GL_TEXTURE_COMPARE_FUNC		0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE	0x884E
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
         #define glGenVertexArrays    glGenVertexArraysAPPLE
         #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
@@ -96,18 +125,10 @@
     #endif
 #elif __EMSCRIPTEN__
     #define MOBILE
-    #include <emscripten.h>
-    #include <html5.h>
+    #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
-    
-    #undef GL_RGBA32F
-    #undef GL_RGBA16F
-    #undef GL_HALF_FLOAT
-
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
     #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
     #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
@@ -119,13 +140,32 @@
 namespace Core {
     float deltaTime;
     int width, height;
+
+    struct {
+        struct {
+            bool ambient;
+            bool lighting;
+            bool shadows;
+            bool water;
+            bool contact;
+        } detail;
+
+        struct {
+            bool retarget;
+        } controls;
+
+        struct {
+            bool reverb;
+        } audio;
+    } settings;
 }
 
 #include "utils.h"
 #include "input.h"
 #include "sound.h"
 
-#if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+
+#if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
 
     #ifdef ANDROID
         #define GetProc(x) dlsym(libGL, x);
@@ -133,6 +173,8 @@ namespace Core {
         void* GetProc(const char *name) {
             #ifdef WIN32
                 return (void*)wglGetProcAddress(name);
+            #elif __RPI__
+                return (void*)eglGetProcAddress(name);
             #elif LINUX
                 return (void*)glXGetProcAddress((GLubyte*)name);
             #endif
@@ -147,6 +189,7 @@ namespace Core {
     #endif
 
     #if defined(WIN32) || defined(LINUX)
+        PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
     // Profiling
         #ifdef PROFILE
             PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -210,10 +253,12 @@ namespace Core {
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
-#define MAX_LIGHTS          4
-#define MAX_CACHED_LIGHTS   3
-#define MAX_RENDER_BUFFERS  32
-#define MAX_CONTACTS        15
+#define MAX_LIGHTS           4
+#define MAX_CACHED_LIGHTS    3
+#define MAX_RENDER_BUFFERS   32
+#define MAX_CONTACTS         15
+#define MAX_ANIM_TEX_RANGES  16
+#define MAX_ANIM_TEX_OFFSETS 32
 
 struct Shader;
 struct Texture;
@@ -242,7 +287,7 @@ typedef unsigned short Index;
 
 struct Vertex {
     short4  coord;      // xyz  - position, w - joint index (for entities only)
-    short4  normal;     // xyz  - vertex normalá w - unused
+    short4  normal;     // xyz  - vertex normal, w - unused
     short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
     ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
     ubyte4  color;      // xyz  - color, w - intensity
@@ -258,8 +303,9 @@ namespace Core {
         bool texNPOT;
         bool texRG;
         bool texBorder;
-        bool texFloat, texFloatLinear;
-        bool texHalf,  texHalfLinear;
+        int8 texAniso;
+        bool colorFloat, texFloat, texFloatLinear;
+        bool colorHalf, texHalf,  texHalfLinear;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -268,13 +314,41 @@ namespace Core {
 }
 
 #ifdef PROFILE
+   #define USE_CV_MARKERS
+
+   #ifdef USE_CV_MARKERS
+       #include <libs/cvmarkers/cvmarkersobj.h>  
+       using namespace Concurrency::diagnostic;
+
+       marker_series *series[256];
+       int seriesIndex;
+   #endif
+
     struct Marker {
+        #ifdef USE_CV_MARKERS
+            span *cvSpan;
+        #endif
+
         Marker(const char *title) {
             if (Core::support.profMarker) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
+            #ifdef USE_CV_MARKERS
+                marker_series *&s = series[seriesIndex];
+                if (s == NULL) {
+                   char seriesTitle[64];
+                   sprintf(seriesTitle, "events - %d", seriesIndex);
+                   s = new marker_series(seriesTitle);
+                }
+                cvSpan = new span(*s, normal_importance, _T(title));
+                seriesIndex++;
+            #endif
         }
 
         ~Marker() {
             if (Core::support.profMarker) glPopDebugGroup();
+            #ifdef USE_CV_MARKERS
+                delete cvSpan;
+                seriesIndex--;
+            #endif
         }
 
         static void setLabel(GLenum id, GLuint name, const char *label) {
@@ -386,20 +460,6 @@ namespace Core {
                 frame++;        
         }
     } stats;
-
-    struct {
-        struct {
-            bool ambient;
-            bool lighting;
-            bool shadows;
-            bool water;
-            bool contact;
-        } detail;
-
-        struct {
-            bool retarget;
-        } controls;
-    } settings;
 }
 
 #include "texture.h"
@@ -417,12 +477,14 @@ namespace Core {
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(WIN32) || defined(LINUX) || defined(ANDROID)
+        #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
             #ifdef WIN32
                 GetProcOGL(glActiveTexture);
             #endif
 
             #if defined(WIN32) || defined(LINUX)
+                GetProcOGL(glGenerateMipmap);
+
                 #ifdef PROFILE
                     GetProcOGL(glObjectLabel);
                     GetProcOGL(glPushDebugGroup);
@@ -485,9 +547,22 @@ namespace Core {
             GetProcOGL(glProgramBinary);
         #endif
 
-        char *ext = (char*)glGetString(GL_EXTENSIONS);
-        //LOG("%s\n", ext);
 
+        char *ext = (char*)glGetString(GL_EXTENSIONS);
+/*
+        if (ext != NULL) {
+            char buf[255];
+            int len = strlen(ext);
+            int start = 0;
+            for (int i = 0; i < len; i++)
+                if (ext[i] == ' ' || (i == len - 1)) {
+                    memcpy(buf, &ext[start], i - start);
+                    buf[i - start] = 0;
+                    LOG("%s\n", buf);
+                    start = i + 1;
+                }
+        }
+*/
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
@@ -496,16 +571,24 @@ namespace Core {
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.texFloatLinear = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
+        support.texAniso       = extSupport(ext, "_texture_filter_anisotropic");
+        support.colorFloat     = extSupport(ext, "_color_buffer_float");
+        support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
+        support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
-        support.texHalfLinear  = extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear");
+        support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+
+        if (support.texAniso) {
+            int maxAniso;
+            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+            support.texAniso = maxAniso;
+        }
 
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
         support.profTiming     = extSupport(ext, "_timer_query");
     #endif
-        
         char *vendor = (char*)glGetString(GL_VENDOR);
         LOG("Vendor   : %s\n", vendor);
         LOG("Renderer : %s\n", glGetString(GL_RENDERER));
@@ -520,13 +603,15 @@ namespace Core {
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
+        LOG("  anisotropic    : %d\n", support.texAniso);
         LOG("  float textures : float = %s, half = %s\n", 
-            support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false",
-            support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false");
+            support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
+            support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
         LOG("\n");
 
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
         glGenFramebuffers(1, &FBO);
+        
         memset(rtCache, 0, sizeof(rtCache));
         defaultTarget = NULL;
 
@@ -541,7 +626,7 @@ namespace Core {
         uint32 data = 0x00000000;
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
         data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false); 
+        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
     }
 
     void free() {
@@ -752,7 +837,7 @@ namespace Core {
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
         dst->bind(sDiffuse);
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height); // TODO: too bad for iOS devices!
     }
 
     vec4 copyPixel(int x, int y) { // GPU sync!
@@ -776,6 +861,12 @@ namespace Core {
     }
 
     void endFrame() {
+    #ifdef __EMSCRIPTEN__
+        glColorMask(false, false, false, true);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glColorMask(true, true, true, true);
+    #endif
         Core::stats.stop();
     }
 

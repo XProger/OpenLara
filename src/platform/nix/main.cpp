@@ -11,6 +11,16 @@
 
 #define WND_TITLE       "OpenLara"
 
+// Time
+unsigned int startTime;
+
+int getTime() {
+    timeval t;
+    gettimeofday(&t, NULL);
+    return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
+}
+
+// Sound
 #define SND_FRAME_SIZE  4
 #define SND_DATA_SIZE   (1024 * SND_FRAME_SIZE)
 
@@ -70,12 +80,7 @@ void sndFree() {
     pthread_mutex_destroy(&sndMutex);
 }
 
-int getTime() {
-    timeval t;
-    gettimeofday(&t, NULL);
-    return (t.tv_sec * 1000 + t.tv_usec / 1000);
-}
-
+// Input
 InputKey keyToInputKey(int code) {
     int codes[] = {
         113, 114, 111, 116, 65, 23, 36, 9, 50, 37, 64,
@@ -147,7 +152,7 @@ void WndProc(const XEvent &e,Display*dpy,Window wnd) {
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-int main() {
+int main(int argc, char **argv) {
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
 
     const char *home;
@@ -190,8 +195,12 @@ int main() {
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, wnd, &WM_DELETE_WINDOW, 1);
 
+    timeval t;
+    gettimeofday(&t, NULL);
+    startTime = t.tv_sec;
+
     sndInit();
-    Game::init();
+    Game::init(argc > 1 ? argv[1] : NULL);
 
     int lastTime = getTime();
 

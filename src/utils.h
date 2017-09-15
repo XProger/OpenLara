@@ -13,7 +13,7 @@
         #define debugBreak() _asm { int 3 }
     #endif
 
-    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT %s in %s:%d\n", #expr, __FILE__, __LINE__); debugBreak(); }
+    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
 
     #ifndef ANDROID
         #define LOG(...) printf(__VA_ARGS__)
@@ -21,11 +21,12 @@
 
 #else
     #define ASSERT(expr)
-//    #ifdef PROFILE
+    #ifdef LINUX
+        #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
+    #else
         #define LOG(...) printf(__VA_ARGS__)
-//    #else
-//        #define LOG(...) 0
-//    #endif
+    //    #define LOG(...) 0
+    #endif
 #endif
 
 #ifdef ANDROID
@@ -727,8 +728,14 @@ struct short3 {
 struct short4 {
     int16 x, y, z, w;
 
+    short4() {}
+    short4(int16 x, int16 y, int16 z, int16 w) : x(x), y(y), z(z), w(w) {}
+
     operator vec3()   const { return vec3((float)x, (float)y, (float)z); };
     operator short3() const { return *((short3*)this); }
+
+    inline bool operator == (const short4 &v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
+    inline bool operator != (const short4 &v) const { return !(*this == v); }
 
     inline int16& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((int16*)this)[index]; }
 };
@@ -960,14 +967,19 @@ struct Stream {
     static char cacheDir[255];
     static char contentDir[255];
 
+    typedef void (Callback)(Stream *stream, void *userData);
+    Callback    *callback;
+    void        *userData;
+
     FILE        *f;
-    const char	*data;
+    char        *data;
     int         size, pos;
+    char        *name;
 
-    Stream(const void *data, int size) : f(NULL), data((char*)data), size(size), pos(0) {}
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0), name(NULL) {}
 
-    Stream(const char *name) : data(NULL), size(-1), pos(0) {
-        if (contentDir[0]) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0), name(NULL) {
+        if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
             strcat(path, contentDir);
@@ -976,15 +988,35 @@ struct Stream {
         } else
             f = fopen(name, "rb");
 
-        if (!f) LOG("error loading file \"%s\"\n", name);
-        ASSERT(f != NULL);
+        if (!f) {
+            #ifdef __EMSCRIPTEN__
+                this->name = new char[64];
+                strcpy(this->name, name);
 
-        fseek(f, 0, SEEK_END);
-        size = ftell(f);
-        fseek(f, 0, SEEK_SET);
+                extern void osDownload(Stream *stream);
+                osDownload(this);
+                return;
+            #else
+                LOG("error loading file \"%s\"\n", name);
+                if (callback) {
+                    callback(NULL, userData);
+                    return;
+                } else {
+                    ASSERT(false);
+                }
+            #endif
+        } else {
+            fseek(f, 0, SEEK_END);
+            size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+
+            if (callback)
+                callback(this, userData);
+        }
     }
 
     ~Stream() {
+        delete[] name;
         if (f) fclose(f);
     }
 

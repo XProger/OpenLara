@@ -34,10 +34,9 @@ const char GUI[] =
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
 
-    IGame  *game;
     Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE) + 1];
 
-    ShaderCache(IGame *game) : game(game) {
+    ShaderCache() {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
@@ -97,7 +96,7 @@ struct ShaderCache {
     ~ShaderCache() {
         for (int pass = 0; pass < Core::passMAX; pass++)
             for (int type = 0; type < Shader::MAX; type++)
-                for (int fx = 0; fx < sizeof(shaders[Core::passMAX][Shader::MAX]) / sizeof(shaders[Core::passMAX][Shader::MAX][FX_NONE]); fx++)
+                for (int fx = 0; fx < sizeof(shaders[pass][Shader::MAX]) / sizeof(shaders[pass][Shader::MAX][FX_NONE]); fx++)
                     delete shaders[pass][type][fx];
     }
 
@@ -118,7 +117,7 @@ struct ShaderCache {
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "VOLUME", "GUI" };
+        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
         const char *src = NULL;
         const char *typ = NULL;
         switch (pass) {
@@ -128,10 +127,8 @@ struct ShaderCache {
                 static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
 
                 src = SHADER;
-                typ = typeNames[type];
-                int animTexRangesCount  = game->getMesh()->animTexRangesCount;
-                int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                typ = typeNames[type];          
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
@@ -172,7 +169,7 @@ struct ShaderCache {
         return shaders[pass][type][fx] = new Shader(src, def);
     }
 
-    void bind(Core::Pass pass, Shader::Type type, int fx) {
+    void bind(Core::Pass pass, Shader::Type type, int fx, IGame *game) {
         Core::pass = pass;
         Shader *shader = shaders[pass][type][fx];
         if (!shader)
@@ -185,6 +182,8 @@ struct ShaderCache {
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
         MeshBuilder *mesh = game->getMesh();
+        ASSERT(mesh->animTexRangesCount  <= MAX_ANIM_TEX_RANGES);
+        ASSERT(mesh->animTexOffsetsCount <= MAX_ANIM_TEX_OFFSETS);
         shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
         shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
     }
@@ -205,6 +204,7 @@ struct AmbientCache {
 
     struct Task {
         int  room;
+        int  flip;
         int  sector;
         Cube *cube;
     } tasks[32];
@@ -242,6 +242,7 @@ struct AmbientCache {
 
         Task &task  = tasks[tasksCount++];
         task.room   = room;
+        task.flip   = level->isFlipped;
         task.sector = sector;
         task.cube   = &items[offsets[room] + sector];
         task.cube->status = Cube::WAIT;
@@ -288,11 +289,16 @@ struct AmbientCache {
         Core::setDepthTest(true);
     }
 
-    void precessQueue() {
+    void processQueue() {
         game->setupBinding();
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
+            
+            bool oldFlip = level->isFlipped;
+            level->isFlipped = task.flip != 0;
             renderAmbient(task.room, task.sector, &task.cube->colors[0]);
+            level->isFlipped = oldFlip;
+
             task.cube->status = Cube::READY;
         }
         tasksCount = 0;
@@ -321,7 +327,7 @@ struct AmbientCache {
 };
 
 struct WaterCache {
-    #define MAX_SURFACES       8
+    #define MAX_SURFACES       16
     #define MAX_INVISIBLE_TIME 5.0f
     #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
     #define DETAIL             (64.0f / 1024.0f)
@@ -355,7 +361,7 @@ struct WaterCache {
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
 
-            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY;
+            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY = 0;
 
             for (int z = 0; z < r.zSectors; z++)
                 for (int x = 0; x < r.xSectors; x++) {
@@ -402,9 +408,9 @@ struct WaterCache {
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
             pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
 
-            data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-            data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF, false);
-            caustics = new Texture(512, 512, Texture::RGB16, false);
+            data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
+            data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
+            caustics = new Texture(512, 512, Texture::RGB16);
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
             
@@ -413,6 +419,7 @@ struct WaterCache {
             // texture may be initialized with trash, so...
             Core::setTarget(data[0], true);
             Core::validateRenderState(); // immediate clear
+            Core::invalidateTarget(false, true);
         }
 
         void free() {
@@ -592,6 +599,8 @@ struct WaterCache {
     }
 
     void renderMask() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_RENDER_MASK");
     // mask underwater geometry by zero alpha
         game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
@@ -614,21 +623,38 @@ struct WaterCache {
         Core::setCulling(cfFront);
     }
 
-    void getRefract() {
-        int w = int(Core::viewportDef.z);
-        int h = int(Core::viewportDef.w);
+    void getTargetSize(int &w, int &h) {
+        if (Core::active.target != NULL) {
+            w = Core::active.target->width;
+            h = Core::active.target->height;
+        } else {
+            w = int(Core::viewportDef.z);
+            h = int(Core::viewportDef.w);
+        }
+    }
 
+    void getRefract() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_REFRACT");
+        int w, h;
+        getTargetSize(w, h);
     // get refraction texture
         if (!refract || w != refract->width || h != refract->height) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
+            Core::setTarget(refract, true);
+            Core::validateRenderState(); // immediate clear
+            Core::invalidateTarget(false, true);
+            Core::setTarget(NULL);
         }
-        Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
+        Core::copyTarget(refract, 0, 0, 0, 0, w, h); // copy framebuffer into refraction texture
     }
 
     void simulate() {
+       PROFILE_MARKER("WATER_SIMULATE");
     // simulate water
         Core::setDepthTest(false);
+        Core::setBlending(bmNone);
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -646,6 +672,7 @@ struct WaterCache {
 
     void renderReflect() {
         if (!visible) return;
+        PROFILE_MARKER("WATER_REFLECT");
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -687,22 +714,20 @@ struct WaterCache {
     }
 
     void render() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_RENDER");
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
 
         // render water plane
-            if (level->rooms[item.from].lightsCount) {
-                TR::Room::Light &light = level->rooms[item.from].lights[0];
-                Core::lightPos[0] = vec3(float(light.x), float(light.y), float(light.z));
-                float lum = intensityf(light.intensity);
-                Core::lightColor[0] = vec4(lum, lum, lum, float(light.radius) * float(light.radius));
-            }
-
             game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-            Core::active.shader->setParam(uParam,       vec4(Core::viewportDef.z / refract->width, Core::viewportDef.w / refract->height, 0.05f, 0.02f));
+
+            int w, h;
+            getTargetSize(w, h);
+            Core::active.shader->setParam(uParam, vec4(float(w) / refract->width, float(h) / refract->height, 0.05f, 0.02f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);

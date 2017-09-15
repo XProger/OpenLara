@@ -194,7 +194,7 @@ struct Animation {
                     if (flip) {
                         int frame = (*ptr++) - anim->frameStart;
                         int fx    = (*ptr++) & 0x3FFF;
-                        *flip     = fx == TR::EFFECT_ROTATE_180 && frame == frameIndex;
+                        *flip     = fx == TR::Effect::ROTATE_180 && frame == frameIndex;
                     } else
                         ptr += 2;
                     break;
