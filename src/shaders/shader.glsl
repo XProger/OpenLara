@@ -14,10 +14,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	varying vec2 vCausticsCoord; // - xy caustics texture coord
 #endif
 
-//uniform vec4 data[MAX_RANGES + MAX_OFFSETS + 4 + 4 + 1 + 1 + MAX_LIGHTS + MAX_LIGHTS + 1 + 6 + 1 + 32 * 2];
-
-uniform vec2 uAnimTexRanges[MAX_RANGES];
-uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
 uniform mat4 uLightProj;
 uniform mat4 uViewProj;
 uniform vec3 uViewPos;
@@ -25,9 +21,8 @@ uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - cli
 uniform vec3 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
 uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
-uniform vec3 uAmbient[6];
+
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
-uniform vec4 uBasis[32 * 2];
 
 #ifndef PASS_SHADOW
 	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
@@ -45,7 +40,21 @@ uniform vec4 uBasis[32 * 2];
 		#endif
 
 		varying vec4 vLight;	// lights intensity (MAX_LIGHTS == 4)
+	#endif
+#endif
 
+#ifdef VERTEX
+
+#ifdef TYPE_ENTITY
+	#if defined(OPT_AMBIENT)
+		uniform vec3 uAmbient[6];
+	#endif
+	uniform vec4 uBasis[32 * 2];
+#else
+	uniform vec4 uBasis[2];
+#endif
+
+#ifndef PASS_SHADOW
 		#if defined(OPT_AMBIENT) && defined(TYPE_ENTITY)
 			vec3 calcAmbient(vec3 n) {
 				vec3 sqr = n * n;
@@ -55,10 +64,13 @@ uniform vec4 uBasis[32 * 2];
 						sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
 			}
 		#endif
-	#endif
 #endif
 
-#ifdef VERTEX
+#if defined(PASS_COMPOSE) && defined(TYPE_ROOM)
+	uniform vec2 uAnimTexRanges[MAX_RANGES];
+	uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+#endif
+
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
 	attribute vec4 aParam;
@@ -138,7 +150,7 @@ uniform vec4 uBasis[32 * 2];
 			#endif
 
 			#ifdef TYPE_MIRROR
-				vDiffuse.xyz *= vec3(0.3, 0.3, 2.0); // blue color dodge for crystal
+				vDiffuse.xyz = vec3(0.5, 0.5, 2.0); // blue color dodge for crystal
 			#endif
 
 			#ifdef TYPE_FLASH
@@ -217,11 +229,13 @@ uniform vec4 uBasis[32 * 2];
 	void _uv(vec3 coord) {
 		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
-			// animated texture coordinates
-			vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
-			float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
-			vec2 offset = uAnimTexOffsets[int(range.x + frame)];	// texCoord offset from first frame
-			vTexCoord.xy += offset;
+			#ifdef TYPE_ROOM
+				// animated texture coordinates
+				vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
+				float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
+				vec2 offset = uAnimTexOffsets[int(range.x + frame)];	// texCoord offset from first frame
+				vTexCoord.xy += offset;
+			#endif
 			vTexCoord.xy *= vTexCoord.zw;
 		#endif
 
