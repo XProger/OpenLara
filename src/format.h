@@ -648,7 +648,7 @@ namespace TR {
         }
 
         bool isBlock() const {
-            return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_2;
+            return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_4;
         }
 
         bool isLara() const {
