@@ -11,7 +11,7 @@ struct Texture {
     Format  format;
     bool    cube;
 
-    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true) : cube(cube) {
+    Texture(int width, int height, Format format, bool cube, void *data = NULL, bool filter = true, bool mips = false) : cube(cube) {
         if (!Core::support.texNPOT) {
             width  = nextPow2(width);
             height = nextPow2(height);
@@ -65,8 +65,9 @@ struct Texture {
             float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
             glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
         }
+
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
-        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? GL_LINEAR : GL_NEAREST);
         
         struct FormatDesc {
             GLuint ifmt, fmt;

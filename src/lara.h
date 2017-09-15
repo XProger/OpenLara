@@ -425,10 +425,8 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-
     #ifdef _DEBUG
-        //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, true);  // gym (pool)
-
+        //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(61, vec3(27221, -1024, 29205), PI * 0.5f); // level 2 (blade)
@@ -1301,6 +1299,7 @@ struct Lara : Character {
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 playSound(TR::SND_HEALTH, pos, Sound::PAN);
+                //TODO: remove medikit item
                 break;
             case TR::Entity::INV_PUZZLE_1 :
             case TR::Entity::INV_PUZZLE_2 :
@@ -1557,12 +1556,16 @@ struct Lara : Character {
         if (state == STATE_HANDSTAND || state == STATE_HANG_UP)
             return STAND_HANG;
 
-        if (stand == STAND_ONWATER && state != STATE_DIVE && state != STATE_STOP)
-            return stand;
+        if (stand == STAND_ONWATER && state != STATE_STOP) {
+            if (!getRoom().flags.water && state != STATE_WATER_OUT)
+                return STAND_AIR;
+            if (state != STATE_DIVE)
+                return stand;
+        }
 
         if (getRoom().flags.water) {
             wpnHide();
-            if (stand != STAND_UNDERWATER && (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
+            if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
                 animation.setAnim(ANIM_FALL_FORTH);
             return STAND_UNDERWATER;
         }

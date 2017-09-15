@@ -4,73 +4,64 @@ R"====(
 	precision highp  float;
 #endif
 
-varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
+#ifdef OPT_CONTACT
+	varying vec3 vCoord;
+#endif
+
+varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
+
+#if defined(OPT_WATER) && defined(UNDERWATER)
+	varying vec2 vCausticsCoord; // - xy caustics texture coord
+#endif
+
+//uniform vec4 data[MAX_RANGES + MAX_OFFSETS + 4 + 4 + 1 + 1 + MAX_LIGHTS + MAX_LIGHTS + 1 + 6 + 1 + 32 * 2];
+
+uniform vec2 uAnimTexRanges[MAX_RANGES];
+uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+uniform mat4 uLightProj;
+uniform mat4 uViewProj;
+uniform vec3 uViewPos;
+uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
+uniform vec3 uLightPos[MAX_LIGHTS];
+uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
+uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
+uniform vec3 uAmbient[6];
+uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
+uniform vec4 uBasis[32 * 2];
 
 #ifndef PASS_SHADOW
 	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
-	uniform vec3 uViewPos;
-
 	varying vec4 vDiffuse;
 
 	#ifndef TYPE_FLASH
 		#ifdef PASS_COMPOSE
-			varying vec4 vNormal;       // xyz - normal dir, w - fog factor
+			varying vec3 vNormal;		// xyz - normal dir
 			varying vec4 vLightProj;
-			varying vec3 vLightVec;
+			varying vec4 vLightVec;		// xyz - dir, w - fog factor
 
 			#ifdef OPT_SHADOW
 				varying vec3 vAmbient;
 			#endif
-
-			uniform vec3 uLightPos[4];
-			uniform vec4 uLightColor[4]; // xyz - color, w - radius * intensity
 		#endif
 
-		varying vec4 vLight;    // 4 lights intensity
-
-		#if defined(OPT_WATER) && defined(UNDERWATER)
-			uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
-		#endif
+		varying vec4 vLight;	// lights intensity (MAX_LIGHTS == 4)
 
 		#if defined(OPT_AMBIENT) && defined(TYPE_ENTITY)
-			uniform vec3 uAmbient[6];
-
 			vec3 calcAmbient(vec3 n) {
 				vec3 sqr = n * n;
 				vec3 pos = step(0.0, n);
-				return sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
-					   sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
-					   sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+				return	sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
+						sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
+						sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
 			}
 		#endif
 	#endif
-
-	uniform vec4 uParam;    // x - time, y - water height, z - clip plane sign, w - clip plane height
-	uniform vec4 uMaterial; // x - diffuse, y - ambient, z - specular, w - alpha
 #endif
 
 #ifdef VERTEX
-	uniform mat4 uViewProj;
-
-	uniform mat4 uViewInv;
-
-	#ifndef PASS_AMBIENT
-		uniform mat4 uLightProj;
-	#endif
-
-	#ifdef PASS_COMPOSE
-		uniform vec2 uAnimTexRanges[MAX_RANGES];
-		uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-	#endif
-
-	#ifdef TYPE_ENTITY
-		uniform vec4 uBasis[32 * 2];
-	#else
-		uniform vec4 uBasis[2];
-	#endif
-
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
+	attribute vec4 aParam;
 
 	#ifndef PASS_AMBIENT
 		attribute vec4 aNormal;
@@ -79,8 +70,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 	#ifndef PASS_SHADOW
 		attribute vec4 aColor;
 	#endif
-
-	#define TEXCOORD_SCALE (1.0 / 32767.0)
 
 	vec3 mulQuat(vec4 q, vec3 v) {
 		return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + v * q.w);
@@ -100,10 +89,12 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 			vec4 rBasisPos = uBasis[1];
 		#endif
 
-		vec4 coord = vec4(mulBasis(rBasisRot, rBasisPos, aCoord.xyz), rBasisPos.w);
-
+		vec4 coord;
+		coord.w = rBasisPos.w; // visible flag
 		#ifdef TYPE_SPRITE
-			coord.xyz += uViewInv[0].xyz * aTexCoord.z - uViewInv[1].xyz * aTexCoord.w;
+			coord.xyz = mulBasis(rBasisRot, rBasisPos + aCoord.xyz, vec3(aTexCoord.z, -aTexCoord.w, 0.0) * 32767.0);
+		#else
+			coord.xyz = mulBasis(rBasisRot, rBasisPos, aCoord.xyz);
 		#endif
 
 		#ifndef PASS_SHADOW
@@ -129,9 +120,12 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				fog = length(vViewVec.xyz);
 			#endif
 
-			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
+			vLightVec.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
+		#ifdef OPT_CONTACT
+			vCoord = coord.xyz;
+		#endif
 		return coord;
 	}
 
@@ -161,22 +155,24 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				vec3 lv2 = (uLightPos[2].xyz - coord) * uLightColor[2].w;
 				vec3 lv3 = (uLightPos[3].xyz - coord) * uLightColor[3].w;
 
-				vLightVec = lv0;
+				vLightVec.xyz = lv0;
 
 				vec4 lum, att;
 				#ifdef TYPE_ENTITY
-					lum.x = dot(vNormal.xyz, normalize(lv0));    att.x = dot(lv0, lv0);
+					lum.x = dot(vNormal.xyz, normalize(lv0));
+					att.x = dot(lv0, lv0);
 				#else
-					lum.x = aColor.w;                        att.x = 0.0;
+					lum.x = aColor.w;
+					att.x = 0.0;
 
 					#ifdef TYPE_SPRITE
 						lum.x *= uMaterial.y;
 					#endif
 
 				#endif
-				lum.y = dot(vNormal.xyz, normalize(lv1));    att.y = dot(lv1, lv1);
-				lum.z = dot(vNormal.xyz, normalize(lv2));    att.z = dot(lv2, lv2);
-				lum.w = dot(vNormal.xyz, normalize(lv3));    att.w = dot(lv3, lv3);
+				lum.y = dot(vNormal.xyz, normalize(lv1));	att.y = dot(lv1, lv1);
+				lum.z = dot(vNormal.xyz, normalize(lv2));	att.z = dot(lv2, lv2);
+				lum.w = dot(vNormal.xyz, normalize(lv3));	att.w = dot(lv3, lv3);
 				vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
 				#ifdef UNDERWATER
@@ -219,20 +215,18 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 	}
 
 	void _uv(vec3 coord) {
+		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
 			// animated texture coordinates
-			vec2 range  = uAnimTexRanges[int(aTexCoord.z)];         // x - start index, y - count
-			float frame = fract((aTexCoord.w + uParam.x * 4.0 - range.x) / range.y) * range.y;
-			vec2 offset = uAnimTexOffsets[int(range.x + frame)];    // texCoord offset from first frame
-			vTexCoord.xy = (aTexCoord.xy + offset) * TEXCOORD_SCALE;
-		#else
-			vTexCoord.xy = aTexCoord.xy * TEXCOORD_SCALE;
+			vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
+			float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
+			vec2 offset = uAnimTexOffsets[int(range.x + frame)];	// texCoord offset from first frame
+			vTexCoord.xy += offset;
+			vTexCoord.xy *= vTexCoord.zw;
 		#endif
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
-			vTexCoord.zw = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
-		#else
-			vTexCoord.zw = vec2(1.0);
+			vCausticsCoord.xy = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 		#endif
 	}
 
@@ -346,13 +340,13 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				} else
 					rShadow /= 4.0;
 
-				float fade = clamp(dot(vLightVec, vLightVec), 0.0, 1.0);
+				float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
 				return rShadow + (1.0 - rShadow) * fade;
 			}
 
 			float getShadow() {
 				#ifdef TYPE_ROOM
-					float vis = min(dot(vNormal.xyz, vLightVec), vLightProj.w);
+					float vis = min(dot(vNormal.xyz, vLightVec.xyz), vLightProj.w);
 				#else
 					float vis = vLightProj.w;
 				#endif
@@ -369,12 +363,28 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 		#if defined(OPT_WATER) && defined(UNDERWATER)
 			float calcCaustics(vec3 n) {
+				vec2 cc     = vCausticsCoord.xy;
 				vec2 border = vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
-				vec2 fade   = smoothstep(vec2(0.0), border, vTexCoord.zw) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), vTexCoord.zw));
-				return texture2D(sReflect, vTexCoord.zw).g * max(0.0, -n.y) * fade.x * fade.y;
+				vec2 fade   = smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
+				return texture2D(sReflect, cc).g * max(0.0, -n.y) * fade.x * fade.y;
 			}
 		#endif
 	#endif
+
+#ifdef OPT_CONTACT
+	uniform vec4 uContacts[MAX_CONTACTS];
+
+	float getContactAO(vec3 p, vec3 n) {
+		float res = 1.0;
+		for (int i = 0; i < MAX_CONTACTS; i++) {
+			vec3  v = uContacts[i].xyz - p;
+			float a = uContacts[i].w;
+			float o = a * clamp(dot(n, v), 0.0, 1.0) / dot(v, v);
+			res *= clamp(1.0 - o, 0.0, 1.0);
+		}
+		return res;
+	}
+#endif
 
 	void main() {
 		#ifdef PASS_COMPOSE
@@ -391,7 +401,11 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 				color = textureCube(sEnvironment, normalize(rv));
 			#endif
 		#else
-			color = texture2D(sDiffuse, vTexCoord.xy);
+			#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
+				color = texture2D(sDiffuse, vTexCoord.xy / vTexCoord.zw);
+			#else
+				color = texture2D(sDiffuse, vTexCoord.xy);
+			#endif
 		#endif
 
 		#ifdef ALPHA_TEST
@@ -429,10 +443,16 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 						#endif
 
 						#ifdef TYPE_ROOM
+
 							light += mix(vAmbient.x, vLight.x, getShadow());
 							#if defined(OPT_WATER) && defined(UNDERWATER)
 								light += calcCaustics(n);
 							#endif
+
+							#ifdef OPT_CONTACT
+								light *= getContactAO(vCoord, n) * 0.5 + 0.5;
+							#endif
+
 						#endif
 
 						#ifdef TYPE_SPRITE
@@ -444,7 +464,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 						#endif
 
 						#ifdef TYPE_ENTITY
-							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec, uLightColor[0], uMaterial.z * rShadow + 0.03);
+							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], uMaterial.z * rShadow + 0.03);
 						#endif
 					#endif
 
@@ -460,9 +480,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - caustics coords
 
 				#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 					#ifdef UNDERWATER
-						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vNormal.w);
+						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vLightVec.w);
 					#else
-						color.xyz = mix(vec3(0.0), color.xyz, vNormal.w);
+						color.xyz = mix(vec3(0.0), color.xyz, vLightVec.w);
 					#endif
 				#endif
 

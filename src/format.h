@@ -412,7 +412,8 @@ namespace TR {
     struct Vertex {
         int16 x, y, z;
 
-        operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+        operator vec3()   const { return vec3((float)x, (float)y, (float)z); }
+        operator short3() const { return *((short3*)this); }
     };
 
     struct Rectangle {
@@ -480,7 +481,7 @@ namespace TR {
         uint16  meshesCount;
         int16   alternateRoom;
         struct {
-            uint16 water:1, unused:14, rendered:1;
+            uint16 water:1, unused:14, visible:1;
         } flags;
 
         struct Portal {
@@ -524,6 +525,10 @@ namespace TR {
             uint16  meshID;
             uint16  meshIndex; // index into static meshes array
         } *meshes;
+
+        vec3 getOffset() const {
+            return vec3(float(info.x), 0.0f, float(info.z));
+        }
     };
 
     union FloorData {

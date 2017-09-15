@@ -5,8 +5,9 @@
 
 #define SHADER_ATTRIBS(E) \
     E( aCoord           ) \
-    E( aTexCoord        ) \
     E( aNormal          ) \
+    E( aTexCoord        ) \
+    E( aParam           ) \
     E( aColor           )
 
 #define SHADER_SAMPLERS(E) \
@@ -21,7 +22,6 @@
     E( uParam           ) \
     E( uTexParam        ) \
     E( uViewProj        ) \
-    E( uViewInv         ) \
     E( uBasis           ) \
     E( uLightProj       ) \
     E( uMaterial        ) \
@@ -32,7 +32,8 @@
     E( uAnimTexRanges   ) \
     E( uAnimTexOffsets  ) \
     E( uRoomSize        ) \
-    E( uPosScale        )
+    E( uPosScale        ) \
+    E( uContacts        )
 
 enum AttribType  { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
 enum SamplerType { SHADER_SAMPLERS(DECL_ENUM) sMAX };

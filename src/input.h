@@ -33,7 +33,7 @@ namespace Input {
             { ikRight,  ikJoyRight  },
             { ikUp,     ikJoyUp     },
             { ikDown,   ikJoyDown   },
-            { ikAlt,    ikJoyX      },
+            { ikD,      ikJoyX      },
             { ikShift,  ikJoyRB     },
             { ikCtrl,   ikJoyA      },
             { ikSpace,  ikJoyY      },
@@ -111,7 +111,7 @@ namespace Input {
         }
     } head;
 
-    enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bMAX };
+    enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bInventory, bMAX };
     enum TouchZone   { zMove, zLook, zButton, zMAX };
 
     float       touchTimerVis, touchTimerTap;
@@ -245,11 +245,12 @@ namespace Input {
         float radius = offset; 
         vec2  center = vec2(Core::width - offset * 0.7f, Core::height - offset * 0.7f);
 
-        btnPos[bWeapon] = center;
-        btnPos[bJump]   = center + vec2(cosf(-PI * 0.5f), sinf(-PI * 0.5f)) * radius;
-        btnPos[bAction] = center + vec2(cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * radius;
-        btnPos[bWalk]   = center + vec2(cosf(-PI), sinf(-PI)) * radius;
-        btnRadius       = Core::height * (25.0f / 1080.0f);
+        btnRadius          = Core::height * (25.0f / 1080.0f);
+        btnPos[bWeapon]    = center;
+        btnPos[bJump]      = center + vec2(cosf(-PI * 0.5f), sinf(-PI * 0.5f)) * radius;
+        btnPos[bAction]    = center + vec2(cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * radius;
+        btnPos[bWalk]      = center + vec2(cosf(-PI), sinf(-PI)) * radius;
+        btnPos[bInventory] = vec2(Core::width - btnRadius * 2.0f, btnRadius * 2.0f);
 
     // touch update
         if (checkTouchZone(zMove))
@@ -305,11 +306,12 @@ namespace Input {
             }
 
             switch (btn) {
-                case bWeapon : state[cWeapon] = true; break;
-                case bWalk   : state[cWalk]   = true; break;
-                case bAction : state[cAction] = true; break;
-                case bJump   : state[cJump]   = true; break;
-                default      : ;
+                case bWeapon    : state[cWeapon]    = true; break;
+                case bWalk      : state[cWalk]      = true; break;
+                case bAction    : state[cAction]    = true; break;
+                case bJump      : state[cJump]      = true; break;
+                case bInventory : state[cInventory] = true; break;
+                default         : ;
             }
         }
 

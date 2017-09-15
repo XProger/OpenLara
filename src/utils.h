@@ -140,9 +140,9 @@ int nextPow2(uint32 x) {
 }
 
 uint32 fnv32(const char *data, int32 size, uint32 hash = 0x811c9dc5) {
-	for (int i = 0; i < size; i++)
-		hash = (hash ^ data[i]) * 0x01000193;
-	return hash;
+    for (int i = 0; i < size; i++)
+        hash = (hash ^ data[i]) * 0x01000193;
+    return hash;
 }
 
 struct vec2 {
@@ -270,6 +270,9 @@ struct vec4 {
     vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
     vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
     vec4(const vec2 &xy, const vec2 &zw) : x(xy.x), y(xy.y), z(zw.x), w(zw.y) {}
+
+    inline bool operator == (const vec4 &v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
+    inline bool operator != (const vec4 &v) const { return !(*this == v); }
 
     vec4 operator + (const vec4 &v) const { return vec4(x + v.x, y + v.y, z + v.z, w + v.w); }
     vec4 operator - (const vec4 &v) const { return vec4(x - v.x, y - v.y, z - v.z, w - v.w); }
@@ -599,7 +602,7 @@ struct mat4 {
     quat getRot() const {
         float t, s;
         t = 1.0f + e00 + e11 + e22;
-        if (t > EPS) {
+        if (t > 0.0001f) {
             s = 0.5f / sqrtf(t);
             return quat((e21 - e12) * s, (e02 - e20) * s, (e10 - e01) * s, 0.25f / s);
         } else
@@ -654,7 +657,7 @@ struct mat4 {
 };
 
 struct Basis {
-	quat    rot;
+    quat    rot;
     vec3    pos;
     float   w;
 
@@ -711,12 +714,23 @@ struct short2 {
 
 struct short3 {
     int16 x, y, z;
+
+    short3() {}
+    short3(int16 x, int16 y, int16 z) : x(x), y(y), z(z) {}
+
+    operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+
+    short3 operator + (const short3 &v) const { return short3(x + v.x, y + v.y, z + v.z); }
+    short3 operator - (const short3 &v) const { return short3(x - v.x, y - v.y, z - v.z); }
 };
 
 struct short4 {
     int16 x, y, z, w;
 
-    operator vec3() const { return vec3((float)x, (float)y, (float)z); };
+    operator vec3()   const { return vec3((float)x, (float)y, (float)z); };
+    operator short3() const { return *((short3*)this); }
+
+    inline int16& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((int16*)this)[index]; }
 };
 
 quat rotYXZ(const vec3 &a) {

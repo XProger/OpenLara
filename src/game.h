@@ -23,6 +23,7 @@ namespace Game {
         Core::settings.detail.lighting      = true;
         Core::settings.detail.shadows       = true;
         Core::settings.detail.water         = Core::support.texFloat || Core::support.texHalf;
+        Core::settings.detail.contact       = false;
 
         Core::settings.controls.retarget    = true;
 

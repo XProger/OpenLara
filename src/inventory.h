@@ -297,10 +297,10 @@ struct Inventory {
                 if (type != TR::Entity::NONE) {
                     int i = contains(type);
                     if (i >= 0)
-                        pageItemIndex[page] = getItemIndex(page, i);
+                        pageItemIndex[page] = getLocalIndex(i);
                 }
 
-                index     = targetIndex = pageItemIndex[page];
+                index = targetIndex = pageItemIndex[page];
             }
         }
         return active;
@@ -322,14 +322,25 @@ struct Inventory {
         }
     }
 
-    int getItemIndex(Page page, int index) {
+    int getGlobalIndex(Page page, int localIndex) {
         for (int i = 0; i < itemsCount; i++)
             if (items[i]->desc.page == page) {
-                if (!index)
+                if (!localIndex)
                     return i;
-                index--;
+                localIndex--;
             }
         return 0;
+    }
+
+    int getLocalIndex(int globalIndex) {
+        Page page = items[globalIndex]->desc.page;
+
+        int idx = 0;
+        for (int i = 0; i < globalIndex; i++)
+            if (items[i]->desc.page == page)
+                idx++;
+
+        return idx;
     }
 
     float getAngle(int index, int count) {
@@ -347,7 +358,7 @@ struct Inventory {
     }
 
     bool showHealthBar() {
-        int idx = getItemIndex(page, index);
+        int idx = getGlobalIndex(page, index);
         TR::Entity::Type type = items[idx]->type;
         return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
     }
@@ -372,10 +383,12 @@ struct Inventory {
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
         if (index == targetIndex && targetPage == page && ready && !chosen) {
-            if (Input::state[cLeft])  { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; }
-            if (Input::state[cRight]) { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         }
-            if (Input::state[cUp]   && page < PAGE_ITEMS  && getItemsCount(page + 1)) { phasePage = 0.0f; targetPage = Page(page + 1); }
-            if (Input::state[cDown] && page > PAGE_OPTION && getItemsCount(page - 1)) { phasePage = 0.0f; targetPage = Page(page - 1); }
+            float s = Input::touchTimerVis > 0.0f ? -1.0f : 1.0f;
+
+            if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; }
+            if (Input::state[cRight] || Input::joy.L.x >  0.5f || Input::joy.R.x < -0.5f) { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         }
+            if ((Input::state[cUp]   || Input::joy.L.y < -0.5f || Input::joy.R.y >  0.5f) && page < PAGE_ITEMS  && getItemsCount(page + 1)) { phasePage = 0.0f; targetPage = Page(page + 1); }
+            if ((Input::state[cDown] || Input::joy.L.y >  0.5f || Input::joy.R.y < -0.5f) && page > PAGE_OPTION && getItemsCount(page - 1)) { phasePage = 0.0f; targetPage = Page(page - 1); }
 
             if (index != targetIndex) {
                 vec3 p;
@@ -385,7 +398,7 @@ struct Inventory {
 
         vec3 p;
         
-        Item *item = items[getItemIndex(page, index)];
+        Item *item = items[getGlobalIndex(page, index)];
 
         if (index == targetIndex && ready) {
             if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item->anim->isEnded))) {
@@ -410,7 +423,7 @@ struct Inventory {
 
         float w = 90.0f * DEG2RAD * Core::deltaTime;
 
-        int itemIndex = index == targetIndex ? getItemIndex(page, index) : -1;
+        int itemIndex = index == targetIndex ? getGlobalIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
             items[i]->update();
@@ -610,10 +623,10 @@ struct Inventory {
             vec3(0.4f), vec3(0.2f), vec3(0.4f), vec3(0.5f), vec3(0.4f), vec3(0.6f)
         };
 
-        Core::lightPos[0]   = vec3(1000, 2000, 1000);
-        Core::lightColor[0] = vec4(1, 1, 1, 8192);
-        for (int i = 1; i < MAX_LIGHTS; i++)
-            Core::lightColor[1] = vec4(0, 0, 0, 1);
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            Core::lightPos[i]   = vec3(0, 0, 0);
+            Core::lightColor[i] = vec4(0, 0, 0, 1);
+        }
         
         Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
         Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
@@ -642,7 +655,7 @@ struct Inventory {
         }
 
         if (index == targetIndex)
-            renderItemText(items[getItemIndex(page, index)], UI::width);
+            renderItemText(items[getGlobalIndex(page, index)], UI::width);
     }
 };
 

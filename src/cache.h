@@ -131,7 +131,7 @@ struct ShaderCache {
                 typ = typeNames[type];
                 int animTexRangesCount  = game->getMesh()->animTexRangesCount;
                 int animTexOffsetsCount = game->getMesh()->animTexOffsetsCount;
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, animTexRangesCount, animTexOffsetsCount, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
@@ -139,6 +139,7 @@ struct ShaderCache {
                 if (Core::settings.detail.lighting) strcat(def, "#define OPT_LIGHTING\n");
                 if (Core::settings.detail.shadows)  strcat(def, "#define OPT_SHADOW\n");
                 if (Core::settings.detail.water)    strcat(def, "#define OPT_WATER\n");
+                if (Core::settings.detail.contact)  strcat(def, "#define OPT_CONTACT\n");
                 break;
             }
             case Core::passWater   : {
@@ -181,7 +182,6 @@ struct ShaderCache {
         // TODO: bindable uniform block
         shader->setParam(uViewProj,       Core::mViewProj);
         shader->setParam(uLightProj,      Core::mLightProj);
-        shader->setParam(uViewInv,        Core::mViewInv);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
         MeshBuilder *mesh = game->getMesh();
@@ -282,17 +282,14 @@ struct AmbientCache {
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
             Core::setTarget(textures[j * 4 + 3]);
-
-            TR::Color32 color;
-            glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &color);
-            colors[j] = vec3(color.r / 255.0f, color.g / 255.0f, color.b / 255.0f);
-        //    colors[j] *= colors[j]; // to "linear" space
+            colors[j] = Core::copyPixel(0, 0).xyz;
         }
 
         Core::setDepthTest(true);
     }
 
     void precessQueue() {
+        game->setupBinding();
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
             renderAmbient(task.room, task.sector, &task.cube->colors[0]);
@@ -411,13 +408,11 @@ struct WaterCache {
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
             
-            Core::setTarget(data[0], true);
-            Core::setTarget(NULL);
-
             blank = false;
 
-        //    Core::setTarget(data[0], true);
-        //    Core::invalidateTarget(false, true);
+            // texture may be initialized with trash, so...
+            Core::setTarget(data[0], true);
+            Core::validateRenderState(); // immediate clear
         }
 
         void free() {
@@ -430,7 +425,6 @@ struct WaterCache {
 
     } items[MAX_SURFACES];
     int count, visible;
-    bool checkVisibility;
 
     int dropCount;
     struct Drop {
@@ -441,7 +435,7 @@ struct WaterCache {
         Drop(const vec3 &pos, float radius, float strength) : pos(pos), radius(radius), strength(strength) {}
     } drops[MAX_DROPS];
 
-    WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), checkVisibility(false), dropCount(0) {
+    WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), dropCount(0) {
         reflect = new Texture(512, 512, Texture::RGB16, false);
     }
 
@@ -473,8 +467,6 @@ struct WaterCache {
     }
 
     void setVisible(int roomIndex, int nextRoom = TR::NO_ROOM) {
-        if (!checkVisibility) return;
-
         if (nextRoom == TR::NO_ROOM) { // setVisible(underwaterRoom) for caustics update
             for (int i = 0; i < count; i++)
                 if (items[i].caust == roomIndex) {
@@ -569,7 +561,7 @@ struct WaterCache {
 
         game->setShader(Core::passWater, Shader::WATER_STEP);
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
-        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, 0));
+        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, Core::params.x));
             
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
@@ -581,7 +573,6 @@ struct WaterCache {
             swap(item.data[0], item.data[1]);
             item.timer -= SIMULATE_TIMESTEP;
         }
-        
 
     // calc caustics
         game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
@@ -602,13 +593,6 @@ struct WaterCache {
 
     void renderMask() {
     // mask underwater geometry by zero alpha
-        for (int i = 0; i < count; i++) {
-            Item &item = items[i];
-            if (item.visible && item.blank)
-                item.init(game);
-        }
-        Core::setTarget(NULL);
-
         game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
 
@@ -631,15 +615,15 @@ struct WaterCache {
     }
 
     void getRefract() {
-        int w = int(Core::viewport.z);
-        int h = int(Core::viewport.w);
+        int w = int(Core::viewportDef.z);
+        int h = int(Core::viewportDef.w);
 
     // get refraction texture
         if (!refract || w != refract->width || h != refract->height) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
         }
-        Core::copyTarget(refract, 0, 0, int(Core::viewport.x), int(Core::viewport.y), w, h); // copy framebuffer into refraction texture
+        Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }
 
     void simulate() {
@@ -658,41 +642,54 @@ struct WaterCache {
             }
         }
         Core::setDepthTest(true);
-        Core::setTarget(NULL);
+    }
+
+    void renderReflect() {
+        if (!visible) return;
+
+        for (int i = 0; i < count; i++) {
+            Item &item = items[i];
+            if (item.visible && item.blank)
+                item.init(game);
+        }
+
+    // render mirror reflection
+        Core::setTarget(reflect, true);
+        Camera *camera = (Camera*)game->getCamera();
+        game->setupBinding();
+
+        for (int i = 0; i < count; i++) {
+            Item &item = items[i];
+            if (!item.visible) continue;
+
+            vec3 p = item.pos;
+            vec3 n = vec3(0, 1, 0);
+
+            vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
+            bool underwater = level->rooms[camera->getRoomIndex()].flags.water;
+
+            //bool underwater = level->camera->pos.y > item.pos.y;
+
+            camera->reflectPlane = &reflectPlane;
+            camera->setup(true);
+
+            float sign = underwater ? -1.0f : 1.0f;
+            game->setClipParams(sign, item.pos.y * sign);
+            game->updateParams();
+            game->renderView(underwater ? item.from : item.to, false);
+        }
+        Core::invalidateTarget(false, true);
+        game->setClipParams(1.0f, NO_CLIP_PLANE);
+        game->updateParams();
+
+        camera->reflectPlane = NULL;
+        camera->setup(true);
     }
 
     void render() {
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
-
-        // render mirror reflection
-            Core::setTarget(reflect, true);
-            Core::viewport = Core::viewportDef;
-            vec3 p = item.pos;
-            vec3 n = vec3(0, 1, 0);
-
-            vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
-
-            Camera *camera = (Camera*)game->getCamera();
-
-            bool underwater = level->rooms[camera->getRoomIndex()].flags.water;
-
-            //bool underwater = level->camera->pos.y > item.pos.y;
-
-            camera->reflectPlane = &reflectPlane;
-            float sign = underwater ? -1.0f : 1.0f;
-            game->setClipParams(sign, item.pos.y * sign);
-            game->updateParams();
-            game->renderCompose(underwater ? item.from : item.to);
-            Core::invalidateTarget(false, true);
-            game->setClipParams(1.0f, NO_CLIP_PLANE);
-            game->updateParams();
-
-            camera->reflectPlane = NULL;
-            Core::setTarget(NULL);
-
-            camera->setup(true);
 
         // render water plane
             if (level->rooms[item.from].lightsCount) {
@@ -705,7 +702,7 @@ struct WaterCache {
             game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
-            Core::active.shader->setParam(uParam,       vec4(float(Core::width) / refract->width, float(Core::height) / refract->height, 0.05f, 0.02f));
+            Core::active.shader->setParam(uParam,       vec4(Core::viewportDef.z / refract->width, Core::viewportDef.w / refract->height, 0.05f, 0.02f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);

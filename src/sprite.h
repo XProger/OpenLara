@@ -62,9 +62,7 @@ struct Sprite : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Basis basis(Core::basis);
-        basis.translate(pos);
-        Core::active.shader->setParam(uBasis, basis);
+        Core::active.shader->setParam(uBasis, Basis(Core::mViewInv.getRot(), pos));
         mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
     }
 };

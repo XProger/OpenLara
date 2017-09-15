@@ -60,6 +60,7 @@ namespace Debug {
         glUseProgram(0);
         Core::active.shader = NULL;
         Core::active.textures[0] = NULL;
+        Core::validateRenderState();
     }
 
     void end() {
@@ -178,15 +179,16 @@ namespace Debug {
             glLoadIdentity();
             glOrtho(0, Core::width, Core::height, 0, 0, 1);
 
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_CULL_FACE);
-            glDisable(GL_TEXTURE_2D);
+            Core::setDepthTest(false);
+            Core::setCulling(cfNone);
+            Core::validateRenderState();
+
             glColor4fv((GLfloat*)&color);
             glRasterPos2f(pos.x, pos.y);
             glListBase(font);
             glCallLists(strlen(str), GL_UNSIGNED_BYTE, str);
-            glEnable(GL_CULL_FACE);
-            glEnable(GL_DEPTH_TEST);
+            Core::setDepthTest(true);
+            Core::setCulling(cfFront);
 
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
