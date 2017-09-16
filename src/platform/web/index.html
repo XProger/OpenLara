@@ -66,15 +66,17 @@
 					},
 				};
 
+				var audioContext = null;
+
 				function snd_init() {
 					var AudioContext = window.AudioContext || window.webkitAudioContext;
 					if (!AudioContext) return;
-					var ctx	   = new (window.AudioContext || window.webkitAudioContext)();
+					audioContext = new (window.AudioContext || window.webkitAudioContext)();
 					var count  = 2048;
-					var rate   = 44100 / ctx.sampleRate;
+					var rate   = 44100 / audioContext.sampleRate;
 					var framesCount = Math.ceil(count * rate);
 					var frames = Module._malloc(framesCount * 4); // interleaved short L, R
-					proc   = ctx.createScriptProcessor(count, 2, 2);
+					proc = audioContext.createScriptProcessor(count, 2, 2);
 					proc.onaudioprocess = function(e) {
 						var L = e.outputBuffer.getChannelData(0),
 							R = e.outputBuffer.getChannelData(1);
@@ -85,8 +87,17 @@
 							R[i] = Module.getValue(index + 2, 'i16') / 0x8000;
 						}
 					}
-					proc.connect(ctx.destination);
+					proc.connect(audioContext.destination);
 				}
+
+			// for iOS to unlock audio context after user interaction
+				var userAction = function() {
+					if (audioContext) {
+						audioContext.resume();
+						window.removeEventListener('touchstart', userAction, false);
+					}
+				};
+				window.addEventListener('touchstart', userAction, false);
 
 				var gl = canvasElement.getContext("webgl", {antialias:false, premultipliedAlpha: false}) || canvasElement.getContext("experimental-webgl", {antialias:false, premultipliedAlpha: false});
 
@@ -106,7 +117,7 @@
 				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX)				  
 				<p style="margin:8px">
 				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-				<br><i>last update: 14.09.2017</i><br>
+				<br><i>last update: 16.09.2017</i><br>
 				</p>
 			</span>
 
