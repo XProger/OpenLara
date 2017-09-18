@@ -1030,10 +1030,15 @@ struct Stream {
     }
 
     static void write(const char *name, const void *data, int size) {
+    #ifdef __EMSCRIPTEN__
+        extern void osSave(const char *name, const void *data, int size);
+        osSave(name, data, size);
+    #else
         FILE *f = fopen(name, "wb");
         if (!f) return;
         fwrite(data, size, 1, f);
         fclose(f);
+    #endif
     }
 
     void setPos(int pos) {

@@ -29,6 +29,10 @@ struct ICamera {
 struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
+    virtual void         loadGame(int slot) {}
+    virtual void         saveGame(int slot) {}
+    virtual void         applySettings(const Core::Settings &settings)  {}
+
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual ICamera*     getCamera()    { return NULL; }
@@ -38,7 +42,6 @@ struct IGame {
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
-    virtual void updateParams() {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void setupBinding() {}

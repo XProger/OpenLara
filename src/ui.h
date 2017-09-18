@@ -6,10 +6,16 @@
 
 enum StringID {
       STR_NOT_IMPLEMENTED
-// help
+// common
     , STR_LOADING
     , STR_HELP_PRESS
     , STR_HELP_TEXT
+    , STR_OFF
+    , STR_ON
+    , STR_QUALITY_LOW
+    , STR_QUALITY_MEDIUM
+    , STR_QUALITY_HIGH
+    , STR_APPLY
 // inventory pages
     , STR_OPTION
     , STR_INVENTORY
@@ -31,6 +37,15 @@ enum StringID {
     , STR_EXIT_TO_TITLE
     , STR_EXIT_GAME
     , STR_SELECT_LEVEL
+// detail options
+    , STR_SELECT_DETAIL
+    , STR_OPT_DETAIL_FILTER
+    , STR_OPT_DETAIL_LIGHTING
+    , STR_OPT_DETAIL_SHADOWS
+    , STR_OPT_DETAIL_WATER
+// sound options
+    , STR_SET_VOLUMES
+    , STR_REVERBERATION
 // inventory items
     , STR_UNKNOWN
     , STR_PISTOLS
@@ -84,6 +99,12 @@ const char *STR[STR_MAX] = {
     , "Loading..."
     , "Press H for help"
     , helpText
+    , "Off"
+    , "On"
+    , "Low"
+    , "Medium"
+    , "High"
+    , "Apply"
 // inventory pages
     , "OPTION"
     , "INVENTORY"
@@ -97,7 +118,7 @@ const char *STR[STR_MAX] = {
     , "Sound"
     , "Controls"
     , "Gamma"
-// passport options
+// passport menu
     , "Autosave"
     , "Load Game"
     , "Start Game"
@@ -105,6 +126,15 @@ const char *STR[STR_MAX] = {
     , "Exit to Title"
     , "Exit Game"
     , "Select Level"
+// detail options
+    , "Select Detail"
+    , "Filtering"
+    , "Lighting"
+    , "Shadows"
+    , "Water"
+// sound options
+    , "Set Volumes"
+    , "Reverberation"
 // inventory items
     , "Unknown"
     , "Pistols"
@@ -144,7 +174,13 @@ namespace UI {
     enum Align  { aLeft, aRight, aCenter };
 
     inline int charRemap(char c) {
-        return c > 10 ? (c > 15 ? char_map[c - 32] : c + 91) : c + 81; 
+        ASSERT(c <= 126);
+        if (c < 11)
+            return c + 81;
+        if (c < 16)
+            return c + 91;
+        ASSERT(c >= 32)
+        return char_map[c - 32];
     }
 
     vec2 getTextSize(const char *text) {
@@ -171,6 +207,7 @@ namespace UI {
         BAR_HEALTH,
         BAR_OXYGEN,
         BAR_OPTION,
+        BAR_WHITE,
         BAR_MAX,
     };
 
@@ -259,6 +296,19 @@ namespace UI {
         textOut(pos, STR[str], align, width);
     }
 
+    void specOut(const vec2 &pos, char specChar) {
+        TR::Level *level = game->getLevel();
+        MeshBuilder *mesh = game->getMesh();
+
+        int seq = level->extra.glyphSeq;
+
+        if (buffer.iCount == MAX_CHARS * 6)
+            flush();
+
+        TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
+        mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, int(pos.x), int(pos.y), 0, sprite, 255, true);
+    }
+
     #undef MAX_CHARS
 /*
     Texture *texInv, *texAction;
@@ -334,15 +384,15 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void renderBar(BarType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474) {
+    void renderBar(BarType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474, uint32 fgColor2 = 0) {
         MeshBuilder *mesh = game->getMesh();
 
         if (brColor1 != 0 || brColor2 != 0)
             mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, brColor1, brColor2);
         if (bgColor != 0)
             mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, whiteTile, pos - 1.0f, size + 2.0f, bgColor);
-        if (fgColor != 0 && value > 0.0f)
-            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, barTile[type], pos, vec2(size.x * value, size.y), fgColor);
+        if ((fgColor != 0 || fgColor2 != 0) && value > 0.0f)
+            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
 
     void renderHelp() {

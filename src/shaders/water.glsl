@@ -165,7 +165,7 @@ uniform sampler2D sNormal;
 		float rOldArea = length(dFdx(vOldPos.xyz)) * length(dFdy(vOldPos.xyz));
 		float rNewArea = length(dFdx(vNewPos.xyz)) * length(dFdy(vNewPos.xyz));
 		float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0) * vOldPos.w;
-		return vec4(0.0, value, 0.0, 0.0);
+		return vec4(value, 0.0, 0.0, 0.0);
 	}
 
 	vec4 mask() {

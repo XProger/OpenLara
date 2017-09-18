@@ -531,8 +531,12 @@ namespace Sound {
                 i += res;
             }
         // apply volume
+            #define VOL_CONV(x) (1.0f - sqrtf(1.0f - x * x));
+
+            float m = ((flags & Flags::MUSIC) ? Core::settings.audio.music : Core::settings.audio.sound);
+            float v = volume * m;
             vec2 pan = getPan();
-            vec2 vol = pan * volume;
+            vec2 vol = pan * VOL_CONV(v);
             for (int j = 0; j < i; j++) {
                 if (volumeDelta != 0.0f) { // increase / decrease channel volume
                     volume += volumeDelta;
@@ -543,11 +547,14 @@ namespace Sound {
                         if (stopAfterFade)
                             isPlaying = false;
                     }
-                    vol = pan * volume;
+                    v   = volume * m;
+                    vol = pan * VOL_CONV(v);
                 }
                 frames[j].L = int(frames[j].L * vol.x);
                 frames[j].R = int(frames[j].R * vol.y);
             }
+            #undef VOL_CONV
+
             return true;
         }
 

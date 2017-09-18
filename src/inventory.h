@@ -29,7 +29,9 @@ struct Inventory {
     Page    page, targetPage;
     int     itemsCount;
 
+    float       changeTimer;
     TR::LevelID nextLevel; // toggle result
+    ControlKey  lastKey;
 
     struct Item {
         TR::Entity::Type    type;
@@ -156,7 +158,7 @@ struct Inventory {
         delete stream;
     }
 
-    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), nextLevel(TR::LEVEL_MAX) {
+    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), changeTimer(0.0f), nextLevel(TR::LEVEL_MAX), lastKey(cMAX) {
         TR::LevelID id = game->getLevel()->id;
 
         add(TR::Entity::INV_PASSPORT);
@@ -331,7 +333,7 @@ struct Inventory {
                 nextLevel   = TR::LEVEL_MAX;
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
-                page      = targetPage  = curPage;
+                page        = targetPage  = curPage;
 
                 if (type != TR::Entity::NONE) {
                     int i = contains(type);
@@ -403,13 +405,110 @@ struct Inventory {
     }
 
     void onChoose(Item *item) {
-        if (item->type == TR::Entity::INV_PASSPORT) {
-            game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
-            item->value = 1;
-            passportSlot = 0;
-            passportSlotCount = 2;
-            passportSlots[0] = TR::LEVEL_1;
-            passportSlots[1] = TR::LEVEL_2;
+        slot = 0;
+
+        switch (item->type) {
+            case TR::Entity::INV_PASSPORT : {
+                game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
+                item->value = 1;
+                passportSlotCount = 2;
+                passportSlots[0] = TR::LEVEL_1;
+                passportSlots[1] = TR::LEVEL_2;
+                break;
+            }
+            case TR::Entity::INV_DETAIL : {
+                settings = Core::settings;
+                break;
+            }
+            default : ;
+        }
+    }
+
+    void controlItem(Item *item, ControlKey key) {
+        if (item->type == TR::Entity::INV_PASSPORT && passportSlotCount) {
+        // passport slots
+            if (item->value == 0 && item->anim->dir == 0.0f) { // slot select
+                if (key == cUp   ) { slot = (slot - 1 + passportSlotCount) % passportSlotCount; };
+                if (key == cDown ) { slot = (slot + 1) % passportSlotCount; };
+            }
+        // passport pages
+            if (key == cLeft  && item->value > 0) { item->value--; item->anim->dir = -1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
+            if (key == cRight && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
+
+            if (key == cAction && phaseChoose == 1.0f) {
+                TR::LevelID id = game->getLevel()->id;
+                switch (item->value) {
+                    case 0 : nextLevel = passportSlots[slot]; break;
+                    case 1 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_1 : game->getLevel()->id; break;
+                    case 2 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_MAX : TR::TITLE; break;
+                }
+
+                if (nextLevel != TR::LEVEL_MAX) {
+                    item->anim->dir = -1.0f;
+                    item->value = -100;
+                    toggle();
+                }
+            }
+        }
+
+        if (item->type == TR::Entity::INV_DETAIL) {
+            int count = 5;
+            if (key == cUp   ) { slot = (slot - 1 + count) % count; };
+            if (key == cDown ) { slot = (slot + 1) % count;         };
+            if (slot < count - 1) {
+                Core::Settings::Quality q = settings.detail.quality[slot];
+                if (key == cLeft  && q > Core::Settings::LOW  ) { q = Core::Settings::Quality(q - 1); }
+                if (key == cRight && q < Core::Settings::HIGH ) { q = Core::Settings::Quality(q + 1); }
+                if (q != settings.detail.quality[slot]) {
+                    switch (slot) {
+                        case 0 : settings.detail.setFilter(q);   break;
+                        case 1 : settings.detail.setLighting(q); break;
+                        case 2 : settings.detail.setShadows(q);  break;
+                        case 3 : settings.detail.setWater(q);    break;
+                    }
+                    if (q == settings.detail.quality[slot])
+                        game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
+                }
+            }
+
+            if (slot == count -1 && key == cAction) {
+                game->applySettings(settings);
+                chosen = false;
+            }
+        }
+
+        if (item->type == TR::Entity::INV_SOUND) {
+            int count = 3;
+            if (key == cUp   ) { slot = (slot - 1 + count) % count; };
+            if (key == cDown ) { slot = (slot + 1) % count;         };
+
+            if (slot == 0 || slot == 1) { // music
+                float &v = slot == 0 ? Core::settings.audio.music : Core::settings.audio.sound;
+                if ((key == cLeft  && v > 0.0f) || (key == cRight && v < 1.0f)) {
+                    v = key == cLeft ? max(0.0f, v - 0.05f) : min(1.0f, v + 0.05f);
+                    changeTimer = 0.2f;
+                    if (slot == 1)
+                        game->playSound(TR::SND_PISTOLS_SHOT, vec3(), 0, 0);
+                    game->applySettings(Core::settings);
+                }
+            }
+
+            if (slot == 2 && (key == cLeft || key == cRight)) {
+                Core::settings.audio.reverb = !Core::settings.audio.reverb;
+                game->applySettings(Core::settings);
+            }
+        }
+
+        if (item->type == TR::Entity::INV_HOME && phaseChoose == 1.0f && key == cAction) {
+            nextLevel = TR::GYM;
+            toggle();
+        }
+
+        if ((key == cInventory || key == cJump) && phaseChoose == 1.0f) {
+            chosen = false;
+            item->anim->dir = 1.0f;
+            item->value     = 1000;
+            item->angle     = 0.0f;
         }
     }
 
@@ -437,31 +536,32 @@ struct Inventory {
 
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
-        enum KeyDir { NONE, LEFT, RIGHT, UP, DOWN } dir;
-
-        if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f)
-            dir = LEFT;
+        ControlKey key = cMAX;
+        if (Input::state[cAction])
+            key = cAction;
+        else if (Input::state[cInventory] || Input::state[cJump])
+            key = cInventory;
+        else if (Input::state[cLeft]  || Input::joy.L.x < -0.5f || Input::joy.R.x >  0.5f)
+            key = cLeft;
         else if (Input::state[cRight] || Input::joy.L.x >  0.5f || Input::joy.R.x < -0.5f)
-            dir = RIGHT;
+            key = cRight;
         else if (Input::state[cUp]   || Input::joy.L.y < -0.5f || Input::joy.R.y >  0.5f)
-            dir = UP;
+            key = cUp;
         else if (Input::state[cDown] || Input::joy.L.y >  0.5f || Input::joy.R.y < -0.5f)
-            dir = DOWN;
-        else
-            dir = NONE;
+            key = cDown;
 
-        static KeyDir lastDir = NONE; 
+        Item *item = items[getGlobalIndex(page, index)];
 
         if (index == targetIndex && targetPage == page && ready) {
             if (!chosen) {
-                if (dir == UP   && !(page < PAGE_ITEMS  && getItemsCount(page + 1))) dir = NONE;
-                if (dir == DOWN && !(page > PAGE_OPTION && getItemsCount(page - 1))) dir = NONE;
+                if (key == cUp   && !(page < PAGE_ITEMS  && getItemsCount(page + 1))) key = cMAX;
+                if (key == cDown && !(page > PAGE_OPTION && getItemsCount(page - 1))) key = cMAX;
 
-                switch (dir) {
-                    case LEFT  : { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; } break;
-                    case RIGHT : { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         } break;
-                    case UP    : { phasePage = 0.0f; targetPage = Page(page + 1); } break;
-                    case DOWN  : { phasePage = 0.0f; targetPage = Page(page - 1); } break;
+                switch (key) {
+                    case cLeft  : { phaseSelect = 0.0f; targetIndex = (targetIndex - 1 + count) % count; } break;
+                    case cRight : { phaseSelect = 0.0f; targetIndex = (targetIndex + 1) % count;         } break;
+                    case cUp    : { phasePage = 0.0f; targetPage = Page(page + 1); } break;
+                    case cDown  : { phasePage = 0.0f; targetPage = Page(page - 1); } break;
                     default : ;
                 }
 
@@ -469,60 +569,10 @@ struct Inventory {
                     vec3 p;
                     game->playSound(TR::SND_INV_SPIN, p, 0, 0);
                 }
-            } else {
-                Item *item = items[getGlobalIndex(page, index)];
 
-                if (item->type == TR::Entity::INV_PASSPORT && passportSlotCount) {
-                    if (lastDir != dir) {
-                    // passport slots
-                        if (item->value == 0 && item->anim->dir == 0.0f) { // slot select
-                            if (dir == UP)   { passportSlot = (passportSlot - 1 + passportSlotCount) % passportSlotCount; };
-                            if (dir == DOWN) { passportSlot = (passportSlot + 1) % passportSlotCount; };
-                        }
-                    // passport pages
-                        if (dir == LEFT  && item->value > 0) { item->value--; item->anim->dir = -1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
-                        if (dir == RIGHT && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
-                        lastDir = dir;
-                    }
-
-                    if (Input::state[cAction] && phaseChoose == 1.0f) {
-                        TR::LevelID id = game->getLevel()->id;
-                        switch (item->value) {
-                            case 0 : nextLevel = passportSlots[passportSlot]; break;
-                            case 1 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_1 : game->getLevel()->id; break;
-                            case 2 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_MAX : TR::TITLE; break;
-                        }
-
-                        if (nextLevel != TR::LEVEL_MAX) {
-                            item->anim->dir = -1.0f;
-                            item->value = -100;
-                            toggle();
-                        }
-                    }
-                }
-
-                if (item->type == TR::Entity::INV_HOME) {
-                    if (Input::state[cAction] && phaseChoose == 1.0f) {
-                        nextLevel = TR::GYM;
-                        toggle();
-                    }
-                }
-
-            }
-        }
-
-        ready = active && phaseRing == 1.0f && phasePage == 1.0f;
-
-        vec3 p;
-        
-        Item *item = items[getGlobalIndex(page, index)];
-
-        if (index == targetIndex && ready) {
-            if (Input::state[cAction] && (phaseChoose == 0.0f || (phaseChoose == 1.0f && item->anim->isEnded))) {
-                chosen = !chosen;
-                if (!chosen) {
-                    item->angle = 0.0f;
-                } else {
+                if (lastKey != key && key == cAction && phaseChoose == 0.0f) {
+                    vec3 p;
+                    chosen = true;
                     switch (item->type) {
                         case TR::Entity::INV_COMPASS  : game->playSound(TR::SND_INV_COMPASS, p, 0, 0);   break;
                         case TR::Entity::INV_HOME     : game->playSound(TR::SND_INV_HOME, p, 0, 0);      break;
@@ -535,8 +585,22 @@ struct Inventory {
                     }
                     item->choose();
                 }
+            } else {
+                if (changeTimer > 0.0f) {
+                    changeTimer -= Core::deltaTime;
+                    if (changeTimer <= 0.0f) {
+                        changeTimer = 0.0f;
+                        lastKey = cMAX;
+                    }
+                }
+
+                if (key != cMAX && lastKey != key && changeTimer == 0.0f)
+                    controlItem(item, key);
             }
         }
+        lastKey = key;
+
+        ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
         float w = 90.0f * DEG2RAD * Core::deltaTime;
 
@@ -638,16 +702,35 @@ struct Inventory {
         }
     }
 
-    int passportSlot, passportSlotCount;
+    int slot, passportSlotCount;
     TR::LevelID passportSlots[32];
+    Core::Settings settings;
 
     void renderPassport(Item *item) {
-        if (item->value != 0 || item->anim->dir != 0.0f) return; // check for "Load Game" page
+        if (item->anim->dir != 0.0f) return; // check for "Load Game" page
 
         float y = 120.0f;
         float h = 20.0f;
         float w = 320.0f;
-        
+
+        StringID str = STR_LOAD_GAME;
+
+        if (game->getLevel()->id == TR::TITLE) {
+            if (item->value == 1) str = STR_START_GAME;
+            if (item->value == 2) str = STR_EXIT_GAME;
+        } else {
+            if (item->value == 1) str = STR_RESTART_LEVEL;
+            if (item->value == 2) str = STR_EXIT_TO_TITLE;
+        }
+
+        UI::textOut(vec2(0, 480 - 32), str, UI::aCenter, UI::width);
+        float tw = UI::getTextSize(STR[str]).x;
+
+        if (item->value > 0) UI::specOut(vec2((UI::width - tw) * 0.5f - 32.0f, 480 - 32), 108);
+        if (item->value < 2) UI::specOut(vec2((UI::width + tw) * 0.5f + 16.0f, 480 - 32), 109);
+
+        if (item->value != 0) return;
+
     // background
         UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w - 16.0f) * 0.5f, y - 16.0f), vec2(w + 16.0f, h * 16.0f), 0.0f, 0, 0xC0000000);
     // title
@@ -655,7 +738,7 @@ struct Inventory {
         UI::textOut(vec2(0, y), STR_SELECT_LEVEL, UI::aCenter, UI::width);
 
         y += h * 2;
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + passportSlot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
 
         for (int i = 0; i < passportSlotCount; i++)
             if (passportSlots[i] == TR::LEVEL_MAX)
@@ -664,21 +747,101 @@ struct Inventory {
                 UI::textOut(vec2(0, y + i * h), TR::LEVEL_INFO[passportSlots[i]].title, UI::aCenter, UI::width);
     }
 
+    float printBool(float x, float y, float w, StringID oStr, bool active, bool value) {
+        StringID vStr = StringID(STR_OFF + int(value));
+
+        UI::textOut(vec2(x, y), oStr);
+        UI::textOut(vec2(x + w - 96.0f, y), vStr, UI::aCenter, 96.0f);
+        if (active) {
+            UI::specOut(vec2(x + w - 96.0f, y), 108);
+            UI::specOut(vec2(x + w - 12.0f, y), 109);
+        }
+        return y + 20.0f;
+    }
+
+    float printQuality(float x, float y, float w, StringID oStr, bool active, Core::Settings::Quality value) {
+        StringID vStr = StringID(STR_QUALITY_LOW + int(value));
+
+        float d = x + w * 0.5f;
+        UI::textOut(vec2(x + 32.0f, y), oStr);
+        UI::textOut(vec2(d, y), vStr, UI::aCenter, w * 0.5f - 32.0f);
+        if (active) {
+            if (value > Core::Settings::LOW)  UI::specOut(vec2(d, y), 108);
+            if (value < Core::Settings::HIGH) UI::specOut(vec2(d + w * 0.5f - 32.0f - 16.0f, y), 109);
+        }
+        return y + 20.0f;
+    }
+
+    float printBar(float x, float y, float w, uint32 color, char icon, bool active, float value) {
+        float h = 20.0f;
+        UI::renderBar(UI::BAR_WHITE, vec2(x + (32.0f + 2.0f), y - h + 6 + 2), vec2(w - (64.0f + 4.0f), h - 6 - 4), value, color, 0xFF000000, 0xFFA0A0A0, 0xFFA0A0A0, 0xFF000000);
+        UI::specOut(vec2(x + 16.0f, y), icon);
+        if (active) {
+            if (value > 0.0f) UI::specOut(vec2(x, y), 108);
+            if (value < 1.0f) UI::specOut(vec2(x + w - 12.0f, y), 109);
+        }
+        return y + 20.0f;
+    }
+
+    void renderDetail(Item *item) {
+        float w = 320.0f;
+        float h = 20.0f;
+
+        float x = (UI::width - w) * 0.5f;
+        float y = 192.0f;
+        
+    // background
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 8.0f + 8.0f), 0.0f, 0, 0xC0000000);
+    // title
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
+        UI::textOut(vec2(0, y), STR_SELECT_DETAIL, UI::aCenter, UI::width);
+
+        y += h * 2;
+        x += 8.0f;
+        w -= 16.0f;
+        float aw = slot == 4 ? (w - 128.0f) : w;
+        
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - aw) * 0.5f, y + (slot > 3 ? 5 : slot) * h + 6 - h), vec2(aw, h - 6), 1.0f, 0xFFD8377C, 0);
+        y = printQuality(x, y, w, STR_OPT_DETAIL_FILTER,   slot == 0, settings.detail.filter);
+        y = printQuality(x, y, w, STR_OPT_DETAIL_LIGHTING, slot == 1, settings.detail.lighting);
+        y = printQuality(x, y, w, STR_OPT_DETAIL_SHADOWS,  slot == 2, settings.detail.shadows);
+        y = printQuality(x, y, w, STR_OPT_DETAIL_WATER,    slot == 3, settings.detail.water);
+        y += h;
+        UI::textOut(vec2(x + 64.0f, y), STR_APPLY, UI::aCenter, w - 128.0f);
+    }
+
+    void renderSound(Item *item) {
+        float w = 320.0f;
+        float h = 20.0f;
+
+        float x = (UI::width - w) * 0.5f;
+        float y = 192.0f;
+        
+    // background
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 5.0f + 8.0f), 0.0f, 0, 0xC0000000);
+    // title
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
+        UI::textOut(vec2(0, y), STR_SET_VOLUMES, UI::aCenter, UI::width);
+
+        y += h * 2;
+        x += 8.0f;
+        w -= 16.0f;
+
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
+
+        float aw = w - 64.0f;
+        aw -= 4.0f;
+ 
+        y = printBar((UI::width - w) * 0.5f, y, w, 0xFF0080FF, 101, slot == 0, Core::settings.audio.music);
+        y = printBar((UI::width - w) * 0.5f, y, w, 0xFFFF8000, 102, slot == 1, Core::settings.audio.sound);
+        y = printBool(x + 32.0f, y, w - 64.0f, STR_REVERBERATION, slot == 2, Core::settings.audio.reverb);
+    }
+
     void renderItemText(Item *item) {
         if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
-            StringID str = STR_LOAD_GAME;
-
-            if (game->getLevel()->id == TR::TITLE) {
-                if (item->value == 1) str = STR_START_GAME;
-                if (item->value == 2) str = STR_EXIT_GAME;
-            } else {
-                if (item->value == 1) str = STR_RESTART_LEVEL;
-                if (item->value == 2) str = STR_EXIT_TO_TITLE;
-            }
-
-            UI::textOut(vec2(0, 480 - 16), str, UI::aCenter, UI::width);
+            //
         } else
-            UI::textOut(vec2(0, 480 - 16), item->desc.str, UI::aCenter, UI::width);
+            UI::textOut(vec2(0, 480 - 32), item->desc.str, UI::aCenter, UI::width);
 
         renderItemCount(item, vec2(UI::width / 2 - 160, 480 - 96), 320);
 
@@ -688,11 +851,15 @@ struct Inventory {
                     renderPassport(item);
                     break;
                 case TR::Entity::INV_HOME :
-                    break;
                 case TR::Entity::INV_COMPASS :
                 case TR::Entity::INV_MAP :
-                case TR::Entity::INV_DETAIL : 
+                    break;
+                case TR::Entity::INV_DETAIL :
+                    renderDetail(item);
+                    break;
                 case TR::Entity::INV_SOUND :
+                    renderSound(item);
+                    break;
                 case TR::Entity::INV_CONTROLS :
                 case TR::Entity::INV_GAMMA :
                     UI::textOut(vec2(0, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);

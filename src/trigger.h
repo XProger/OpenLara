@@ -373,6 +373,7 @@ struct Door : Controller {
                     s.ceiling    = TR::NO_FLOOR;
 
                     if (sectors[i].boxIndex != TR::NO_BOX) {
+                        ASSERT(sectors[i].boxIndex < level->boxesCount);
                         TR::Box &box = level->boxes[sectors[i].boxIndex];
                         if (box.overlap.blockable)
                             box.overlap.block = true;

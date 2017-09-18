@@ -5,7 +5,8 @@
 #include "format.h"
 
 
-TR::ObjectTexture whiteTile, barTile[3];
+TR::ObjectTexture barTile[4 /* UI::BAR_MAX */];
+TR::ObjectTexture &whiteTile = barTile[3];
 
 struct MeshRange {
     int iStart;
@@ -198,7 +199,7 @@ struct MeshBuilder {
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
 
-            if (Core::settings.detail.water)
+            if (Core::settings.detail.water > Core::Settings::LOW)
                 roomRemoveWaterSurfaces(r, iCount, vCount);
 
             for (int j = 0; j < r.meshesCount; j++) {
@@ -906,7 +907,7 @@ struct MeshBuilder {
         vCount += 4;
     }
 
-    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color) {
+    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color, uint32 color2 = 0) {
         addQuad(indices, iCount, vCount, 0, vertices, NULL);
 
         int16 minX = int16(pos.x);
@@ -922,7 +923,10 @@ struct MeshBuilder {
         for (int i = 0; i < 4; i++) {
             Vertex &v = vertices[vCount + i];
             v.normal  = { 0, 0, 0, 0 };
-            v.color   = *((ubyte4*)&color);
+            if (color2 != 0 && (i == 0 || i == 3))
+                v.color = *((ubyte4*)&color2);
+            else
+                v.color = *((ubyte4*)&color);
 
             short2 uv = tile.texCoord[i];
 

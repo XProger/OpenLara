@@ -487,6 +487,8 @@ struct Wolf : Enemy {
         jointChest = 2;
         jointHead  = 3;
         nextState  = STATE_NONE;
+        animation.time = animation.timeMax;
+        updateAnimation(false);
     }
 
     virtual int getStateGround() {

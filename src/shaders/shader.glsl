@@ -1,7 +1,7 @@
 R"====(
 #ifdef GL_ES
-	precision lowp   int;
-	precision highp  float;
+	precision lowp		int;
+	precision highp		float;
 #endif
 
 #ifdef OPT_CONTACT
@@ -10,8 +10,9 @@ R"====(
 
 varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
-#if defined(OPT_WATER) && defined(UNDERWATER)
+#ifdef OPT_CAUSTICS
 	varying vec2 vCausticsCoord; // - xy caustics texture coord
+	uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 #endif
 
 uniform mat4 uLightProj;
@@ -20,7 +21,6 @@ uniform vec3 uViewPos;
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
 uniform vec3 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
-uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
@@ -45,31 +45,28 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 #ifdef VERTEX
 
-#ifdef TYPE_ENTITY
-	#if defined(OPT_AMBIENT)
-		uniform vec3 uAmbient[6];
+	#ifdef TYPE_ENTITY
+		uniform vec4 uBasis[32 * 2];
+	#else
+		uniform vec4 uBasis[2];
 	#endif
-	uniform vec4 uBasis[32 * 2];
-#else
-	uniform vec4 uBasis[2];
-#endif
 
-#ifndef PASS_SHADOW
-		#if defined(OPT_AMBIENT) && defined(TYPE_ENTITY)
-			vec3 calcAmbient(vec3 n) {
-				vec3 sqr = n * n;
-				vec3 pos = step(0.0, n);
-				return	sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
-						sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
-						sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
-			}
-		#endif
-#endif
-
-#if defined(PASS_COMPOSE) && defined(TYPE_ROOM)
-	uniform vec2 uAnimTexRanges[MAX_RANGES];
-	uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-#endif
+	#ifdef OPT_AMBIENT
+		uniform vec3 uAmbient[6];
+	
+		vec3 calcAmbient(vec3 n) {
+			vec3 sqr = n * n;
+			vec3 pos = step(0.0, n);
+			return	sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
+					sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
+					sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+		}
+	#endif
+	
+	#ifdef OPT_ANIMTEX
+		uniform vec2 uAnimTexRanges[MAX_RANGES];
+		uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
+	#endif
 
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
@@ -142,7 +139,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 	}
 
 	void _diffuse() {
-		#if !defined(PASS_SHADOW)
+		#ifndef PASS_SHADOW
 			vDiffuse = vec4(aColor.xyz * (uMaterial.x * 2.0), uMaterial.w);
 
 			#ifdef UNDERWATER
@@ -182,6 +179,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					#endif
 
 				#endif
+
 				lum.y = dot(vNormal.xyz, normalize(lv1));	att.y = dot(lv1, lv1);
 				lum.z = dot(vNormal.xyz, normalize(lv2));	att.z = dot(lv2, lv2);
 				lum.w = dot(vNormal.xyz, normalize(lv3));	att.w = dot(lv3, lv3);
@@ -193,13 +191,11 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 				vec3 ambient;
 				#ifdef TYPE_ENTITY
-
 					#ifdef OPT_AMBIENT
 						ambient = calcAmbient(vNormal.xyz);
 					#else
 						ambient = vec3(uMaterial.y);
 					#endif
-
 				#else
 					ambient = vec3(min(uMaterial.y, light.x));
 				#endif
@@ -216,8 +212,8 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					#else
 						vLight.xyz += light.x;
 					#endif
-
 				#endif
+
 			#endif
 
 			#ifdef PASS_AMBIENT
@@ -229,7 +225,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 	void _uv(vec3 coord) {
 		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
-			#ifdef TYPE_ROOM
+			#ifdef OPT_ANIMTEX
 				// animated texture coordinates
 				vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
 				float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
@@ -239,7 +235,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			vTexCoord.xy *= vTexCoord.zw;
 		#endif
 
-		#if defined(OPT_WATER) && defined(UNDERWATER)
+		#ifdef OPT_CAUSTICS
 			vCausticsCoord.xy = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 		#endif
 	}
@@ -263,149 +259,138 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 #else
 	uniform sampler2D sDiffuse;
 
-	#if defined(UNDERWATER) && defined(OPT_WATER)
-		uniform sampler2D sReflect;
+	#if defined(PASS_COMPOSE) && defined(TYPE_MIRROR)
+		uniform samplerCube sEnvironment;
 	#endif
 
-	#ifdef PASS_COMPOSE
-		#ifdef TYPE_MIRROR
-			uniform samplerCube sEnvironment;
-		#endif
+	#if defined(PASS_SHADOW) && defined(SHADOW_COLOR)
+		vec4 pack(in float value) {
+			vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+			vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+			vec4 res = fract(value * bitSh);
+			res -= res.xxyz * bitMsk;
+			return res;
+		}
 	#endif
 
-	#ifdef PASS_SHADOW
-		#ifdef SHADOW_COLOR
-			vec4 pack(in float value) {
-				vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
-				vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
-				vec4 res = fract(value * bitSh);
-				res -= res.xxyz * bitMsk;
-				return res;
-			}
-		#endif
-	#endif
-
-	#ifdef PASS_COMPOSE
-
-		#if defined(OPT_SHADOW) && !defined(TYPE_FLASH)
-			#ifdef SHADOW_SAMPLER
-				uniform sampler2DShadow sShadow;
-				#ifdef GL_ES
-					#define SHADOW(V) (shadow2DEXT(sShadow, V))
-				#else
-					#define SHADOW(V) (shadow2D(sShadow, V).x)
-				#endif
+	#ifdef OPT_SHADOW
+		#ifdef SHADOW_SAMPLER
+			uniform sampler2DShadow sShadow;
+			#ifdef GL_ES
+				#define SHADOW(V) (shadow2DEXT(sShadow, V))
 			#else
-				uniform sampler2D sShadow;
-				#define CMP(a,b) step(min(1.0, b), a)
+				#define SHADOW(V) (shadow2D(sShadow, V).x)
+			#endif
+		#else
+			uniform sampler2D sShadow;
+			#define CMP(a,b) step(min(1.0, b), a)
 
-				#ifdef SHADOW_DEPTH
-					#define compare(p, z) CMP(texture2D(sShadow, (p)).x, (z));
-				#elif defined(SHADOW_COLOR)
-					float unpack(vec4 value) {
-						vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-						return dot(value, bitSh);
-					}
-					#define compare(p, z) CMP(unpack(texture2D(sShadow, (p))), (z));
-				#endif
-
-				float SHADOW(vec3 p) {
-					return compare(p.xy, p.z);
+			#ifdef SHADOW_DEPTH
+				#define compare(p, z) CMP(texture2D(sShadow, (p)).x, (z));
+			#elif defined(SHADOW_COLOR)
+				float unpack(vec4 value) {
+					vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+					return dot(value, bitSh);
 				}
+				#define compare(p, z) CMP(unpack(texture2D(sShadow, (p))), (z));
 			#endif
 
-			#define SHADOW_TEXEL (2.0 / SHADOW_TEX_SIZE)
-
-			float random(vec3 seed, float freq) {
-			   float dt = dot(floor(seed * freq), vec3(53.1215, 21.1352, 9.1322));
-			   return fract(sin(dt) * 2105.2354);
-			}
-
-			float randomAngle(vec3 seed, float freq) {
-			   return random(seed, freq) * 6.283285;
-			}
-
-			vec3 rotate(vec2 sc, vec2 v) {
-				return vec3(v.x * sc.y + v.y * sc.x, v.x * -sc.x + v.y * sc.y, 0.0);
-			}
-
-			float getShadow(vec4 lightProj) {
-				vec3 p = lightProj.xyz / lightProj.w;
-
-				float rShadow = SHADOW(SHADOW_TEXEL * vec3(-0.93289, -0.03146, 0.0) + p) +
-								SHADOW(SHADOW_TEXEL * vec3( 0.81628, -0.05965, 0.0) + p) +
-								SHADOW(SHADOW_TEXEL * vec3(-0.18455,  0.97225, 0.0) + p) +
-								SHADOW(SHADOW_TEXEL * vec3( 0.04032, -0.85898, 0.0) + p);
-
-				if (rShadow > 0.1 && rShadow < 3.9) {
-					float angle = randomAngle(vTexCoord.xyy, 15.0);
-					vec2 sc = vec2(sin(angle), cos(angle));
-
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54316,  0.21186)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.03925, -0.34345)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.07695,  0.40667)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.66378, -0.54068)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54130,  0.66730)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.69301,  0.46990)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.37228,  0.03811)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.28597,  0.80228)) + p);
-					rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.44801, -0.43844)) + p);
-					rShadow /= 13.0;
-				} else
-					rShadow /= 4.0;
-
-				float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
-				return rShadow + (1.0 - rShadow) * fade;
-			}
-
-			float getShadow() {
-				#ifdef TYPE_ROOM
-					float vis = min(dot(vNormal.xyz, vLightVec.xyz), vLightProj.w);
-				#else
-					float vis = vLightProj.w;
-				#endif
-				return vis > 0.0 ? getShadow(vLightProj) : 1.0;
+			float SHADOW(vec3 p) {
+				return compare(p.xy, p.z);
 			}
 		#endif
 
-		float calcSpecular(vec3 normal, vec3 viewVec, vec3 lightVec, vec4 color, float intensity) {
-			vec3 vv = normalize(viewVec);
-			vec3 rv = reflect(-vv, normal);
-			vec3 lv = normalize(lightVec);
-			return pow(max(0.0, dot(rv, lv)), 8.0) * intensity;
+		#define SHADOW_TEXEL (2.0 / SHADOW_TEX_SIZE)
+
+		float random(vec3 seed, float freq) {
+			float dt = dot(floor(seed * freq), vec3(53.1215, 21.1352, 9.1322));
+			return fract(sin(dt) * 2105.2354);
 		}
 
-		#if defined(OPT_WATER) && defined(UNDERWATER)
-			float calcCaustics(vec3 n) {
-				vec2 cc     = vCausticsCoord.xy;
-				vec2 border = vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
-				vec2 fade   = smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
-				return texture2D(sReflect, cc).g * max(0.0, -n.y) * fade.x * fade.y;
-			}
-		#endif
+		float randomAngle(vec3 seed, float freq) {
+			return random(seed, freq) * 6.283285;
+		}
+
+		vec3 rotate(vec2 sc, vec2 v) {
+			return vec3(v.x * sc.y + v.y * sc.x, v.x * -sc.x + v.y * sc.y, 0.0);
+		}
+
+		float getShadow(vec4 lightProj) {
+			vec3 p = lightProj.xyz / lightProj.w;
+
+			float rShadow = SHADOW(SHADOW_TEXEL * vec3(-0.93289, -0.03146, 0.0) + p) +
+							SHADOW(SHADOW_TEXEL * vec3( 0.81628, -0.05965, 0.0) + p) +
+							SHADOW(SHADOW_TEXEL * vec3(-0.18455,  0.97225, 0.0) + p) +
+							SHADOW(SHADOW_TEXEL * vec3( 0.04032, -0.85898, 0.0) + p);
+
+			if (rShadow > 0.1 && rShadow < 3.9) {
+				float angle = randomAngle(vTexCoord.xyy, 15.0);
+				vec2 sc = vec2(sin(angle), cos(angle));
+
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54316,  0.21186)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.03925, -0.34345)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.07695,  0.40667)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.66378, -0.54068)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54130,  0.66730)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.69301,  0.46990)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.37228,  0.03811)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.28597,  0.80228)) + p);
+				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.44801, -0.43844)) + p);
+				rShadow /= 13.0;
+			} else
+				rShadow /= 4.0;
+
+			float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
+			return rShadow + (1.0 - rShadow) * fade;
+		}
+
+		float getShadow() {
+			#ifdef TYPE_ROOM
+				float vis = min(dot(vNormal.xyz, vLightVec.xyz), vLightProj.w);
+			#else
+				float vis = vLightProj.w;
+			#endif
+			return vis > 0.0 ? getShadow(vLightProj) : 1.0;
+		}
 	#endif
 
-#ifdef OPT_CONTACT
-	uniform vec4 uContacts[MAX_CONTACTS];
+	#ifdef OPT_CAUSTICS
+		uniform sampler2D sReflect;
 
-	float getContactAO(vec3 p, vec3 n) {
-		float res = 1.0;
-		for (int i = 0; i < MAX_CONTACTS; i++) {
-			vec3  v = uContacts[i].xyz - p;
-			float a = uContacts[i].w;
-			float o = a * clamp(dot(n, v), 0.0, 1.0) / dot(v, v);
-			res *= clamp(1.0 - o, 0.0, 1.0);
+		float calcCaustics(vec3 n) {
+			vec2 cc		= vCausticsCoord.xy;
+			vec2 border	= vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
+			vec2 fade	= smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
+			return texture2D(sReflect, cc).x * max(0.0, -n.y) * fade.x * fade.y;
 		}
-		return res;
+	#endif
+
+	#ifdef OPT_CONTACT
+		uniform vec4 uContacts[MAX_CONTACTS];
+	
+		float getContactAO(vec3 p, vec3 n) {
+			float res = 1.0;
+			for (int i = 0; i < MAX_CONTACTS; i++) {
+				vec3  v = uContacts[i].xyz - p;
+				float a = uContacts[i].w;
+				float o = a * clamp(dot(n, v), 0.0, 1.0) / dot(v, v);
+				res *= clamp(1.0 - o, 0.0, 1.0);
+			}
+			return res;
+		}
+	#endif
+
+	float calcSpecular(vec3 normal, vec3 viewVec, vec3 lightVec, vec4 color, float intensity) {
+		vec3 vv = normalize(viewVec);
+		vec3 rv = reflect(-vv, normal);
+		vec3 lv = normalize(lightVec);
+		return pow(max(0.0, dot(rv, lv)), 8.0) * intensity;
 	}
-#endif
 
 	void main() {
-		#ifdef PASS_COMPOSE
-			#ifdef CLIP_PLANE
-				if (vViewVec.w * uParam.z > uParam.w)
-					discard;
-			#endif
+		#ifdef CLIP_PLANE
+			if (vViewVec.w * uParam.z > uParam.w)
+				discard;
 		#endif
 
 		vec4 color;
@@ -442,57 +427,56 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#else
 
 			#ifndef TYPE_FLASH
-				#ifdef OPT_SHADOW
-					#ifdef PASS_COMPOSE
-						vec3 n = normalize(vNormal.xyz);
 
+				#ifdef PASS_AMBIENT
+					color.xyz *= vLight.x;
+				#endif
+
+				#ifdef PASS_COMPOSE
+
+					vec3 n = normalize(vNormal.xyz);
+
+					#ifdef TYPE_ENTITY
+						float rSpecular = uMaterial.z + 0.03;
+					#endif
+
+					#ifdef OPT_SHADOW
 						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z;
 
-						#ifdef TYPE_ENTITY
+						#if defined(TYPE_ENTITY) || defined(TYPE_ROOM)
 							float rShadow = getShadow();
+						#endif
+
+						#ifdef TYPE_ENTITY
+							rSpecular *= rShadow;
 							light += vAmbient + uLightColor[0].xyz * (vLight.x * rShadow);
-							#if defined(OPT_WATER) && defined(UNDERWATER)
-								light += calcCaustics(n);
-							#endif
 						#endif
-
+                    	
 						#ifdef TYPE_ROOM
-
-							light += mix(vAmbient.x, vLight.x, getShadow());
-							#if defined(OPT_WATER) && defined(UNDERWATER)
-								light += calcCaustics(n);
-							#endif
-
-							#ifdef OPT_CONTACT
-								light *= getContactAO(vCoord, n) * 0.5 + 0.5;
-							#endif
-
+							light += mix(vAmbient.x, vLight.x, rShadow);
 						#endif
-
+                    	
 						#ifdef TYPE_SPRITE
 							light += vLight.x;
 						#endif
-
-						#ifndef TYPE_MIRROR
-							color.xyz *= light;
-						#endif
-
-						#ifdef TYPE_ENTITY
-							color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], (uMaterial.z + 0.03) * rShadow);
-						#endif
+					#else
+						vec3 light = vLight.xyz;
 					#endif
 
-					#ifdef PASS_AMBIENT
-						color.xyz *= vLight.x;
+					#ifdef OPT_CAUSTICS
+						light += calcCaustics(n);
 					#endif
 
-				#else
-					#ifndef TYPE_MIRROR
-						color.xyz *= vLight.xyz;
+					#ifdef OPT_CONTACT
+						light *= getContactAO(vCoord, n) * 0.5 + 0.5;
 					#endif
-				#endif
 
-				#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
+					color.xyz *= light;
+
+					#ifdef TYPE_ENTITY
+						color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], rSpecular);
+					#endif
+
 					#ifdef UNDERWATER
 						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vLightVec.w);
 					#else

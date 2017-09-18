@@ -137,33 +137,107 @@
     #define glProgramBinary(...)
 #endif
 
+#include "utils.h"
+
+enum ControlKey { cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cMAX };
+
+enum InputKey { ikNone,
+    // keyboard
+        ikLeft, ikRight, ikUp, ikDown, ikSpace, ikTab, ikEnter, ikEscape, ikShift, ikCtrl, ikAlt,
+        ik0, ik1, ik2, ik3, ik4, ik5, ik6, ik7, ik8, ik9,
+        ikA, ikB, ikC, ikD, ikE, ikF, ikG, ikH, ikI, ikJ, ikK, ikL, ikM,
+        ikN, ikO, ikP, ikQ, ikR, ikS, ikT, ikU, ikV, ikW, ikX, ikY, ikZ,
+    // mouse
+        ikMouseL, ikMouseR, ikMouseM,
+    // touch
+        ikTouchA, ikTouchB, ikTouchC, ikTouchD, ikTouchE, ikTouchF,
+    // gamepad
+        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoySelect, ikJoyStart, ikJoyL, ikJoyR, ikJoyLT, ikJoyRT, ikJoyPOV,
+        ikJoyLeft, ikJoyRight, ikJoyUp, ikJoyDown,
+        ikMAX };
+
+struct KeySet {
+    InputKey key, joy;
+};
+
 namespace Core {
     float deltaTime;
     int width, height;
 
     struct {
-        struct {
-            bool ambient;
-            bool lighting;
-            bool shadows;
-            bool water;
-            bool contact;
+        int  maxVectors;
+        int  maxAniso;
+        bool shaderBinary;
+        bool VAO;
+        bool depthTexture;
+        bool shadowSampler;
+        bool discardFrame;
+        bool texNPOT;
+        bool texRG;
+        bool texBorder;
+        bool colorFloat, texFloat, texFloatLinear;
+        bool colorHalf, texHalf,  texHalfLinear;
+    #ifdef PROFILE
+        bool profMarker;
+        bool profTiming;
+    #endif
+    } support;
+
+    struct Settings {
+        enum Quality : uint8 { LOW, MEDIUM, HIGH };
+
+        union {
+            struct {
+                Quality filter;
+                Quality lighting;
+                Quality shadows;
+                Quality water;
+            };
+            Quality quality[4];
+
+            void setFilter(Quality value) {
+                if (value > MEDIUM && !(support.maxAniso > 1))
+                    value = MEDIUM;
+                filter = value;
+            }
+
+            void setLighting(Quality value) {
+                lighting = value;
+            }
+
+            void setShadows(Quality value) {
+                if (value > MEDIUM && !(support.maxVectors > 8))
+                    value = MEDIUM;
+                shadows = value;
+            }
+
+            void setWater(Quality value) {
+                if (value > LOW && !(support.texFloat || support.texHalf))
+                    value = LOW;
+                else
+                    if (value > MEDIUM && !(support.maxVectors > 8))
+                        value = MEDIUM;
+                water = value;
+            }
         } detail;
 
         struct {
+            KeySet keys[cMAX];
             bool retarget;
+            bool multitarget;
+            bool vibration;
         } controls;
 
         struct {
+            float music;
+            float sound;
             bool reverb;
         } audio;
     } settings;
 }
 
-#include "utils.h"
 #include "input.h"
 #include "sound.h"
-
 
 #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
 
@@ -292,26 +366,6 @@ struct Vertex {
     ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
     ubyte4  color;      // xyz  - color, w - intensity
 };
-
-namespace Core {
-    struct {
-        bool shaderBinary;
-        bool VAO;
-        bool depthTexture;
-        bool shadowSampler;
-        bool discardFrame;
-        bool texNPOT;
-        bool texRG;
-        bool texBorder;
-        int8 texAniso;
-        bool colorFloat, texFloat, texFloatLinear;
-        bool colorHalf, texHalf,  texHalfLinear;
-    #ifdef PROFILE
-        bool profMarker;
-        bool profTiming;
-    #endif
-    } support;
-}
 
 #ifdef PROFILE
    #define USE_CV_MARKERS
@@ -563,6 +617,8 @@ namespace Core {
                 }
         }
 */
+        glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
+
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
@@ -571,7 +627,7 @@ namespace Core {
         support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.texAniso       = extSupport(ext, "_texture_filter_anisotropic");
+        support.maxAniso       = extSupport(ext, "_texture_filter_anisotropic");
         support.colorFloat     = extSupport(ext, "_color_buffer_float");
         support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
         support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
@@ -579,11 +635,8 @@ namespace Core {
         support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
 
-        if (support.texAniso) {
-            int maxAniso;
-            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
-            support.texAniso = maxAniso;
-        }
+        if (support.maxAniso)
+            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &support.maxAniso);
 
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
@@ -595,6 +648,7 @@ namespace Core {
         LOG("Version  : %s\n", glGetString(GL_VERSION));
         LOG("cache    : %s\n", Stream::cacheDir);
         LOG("supports :\n");
+        LOG("  variyngs count : %d\n", support.maxVectors);
         LOG("  binary shaders : %s\n", support.shaderBinary  ? "true" : "false");
         LOG("  vertex arrays  : %s\n", support.VAO           ? "true" : "false");
         LOG("  depth texture  : %s\n", support.depthTexture  ? "true" : "false");
@@ -603,7 +657,7 @@ namespace Core {
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
-        LOG("  anisotropic    : %d\n", support.texAniso);
+        LOG("  anisotropic    : %d\n", support.maxAniso);
         LOG("  float textures : float = %s, half = %s\n", 
             support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
             support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
@@ -627,6 +681,38 @@ namespace Core {
         blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
         data = 0xFFFFFFFF;
         whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
+
+    // init settings
+        settings.detail.setFilter   (Core::Settings::HIGH);
+        settings.detail.setLighting (Core::Settings::HIGH);
+        settings.detail.setShadows  (Core::Settings::MEDIUM);
+        settings.detail.setWater    (Core::Settings::HIGH);
+
+        settings.audio.music          = 0.7f;
+        settings.audio.sound          = 0.7f;
+        settings.audio.reverb         = true;
+
+        settings.controls.retarget    = true;
+        settings.controls.multitarget = true;
+        settings.controls.vibration   = true;
+
+        settings.controls.keys[ cLeft      ] = { ikLeft,   ikJoyLeft   };
+        settings.controls.keys[ cRight     ] = { ikRight,  ikJoyRight  };
+        settings.controls.keys[ cUp        ] = { ikUp,     ikJoyUp     };
+        settings.controls.keys[ cDown      ] = { ikDown,   ikJoyDown   };
+        settings.controls.keys[ cJump      ] = { ikD,      ikJoyX      };
+        settings.controls.keys[ cWalk      ] = { ikShift,  ikJoyRB     };
+        settings.controls.keys[ cAction    ] = { ikCtrl,   ikJoyA      };
+        settings.controls.keys[ cWeapon    ] = { ikSpace,  ikJoyY      };
+        settings.controls.keys[ cLook      ] = { ikC,      ikJoyLB     };
+        settings.controls.keys[ cStepLeft  ] = { ikZ,      ikJoyLT     };
+        settings.controls.keys[ cStepRight ] = { ikX,      ikJoyRT     };
+        settings.controls.keys[ cRoll      ] = { ikA,      ikJoyB      };
+        settings.controls.keys[ cInventory ] = { ikTab,    ikJoySelect };
+
+#ifdef __RPI__
+        settings.detail.setShadows(Core::Settings::LOW);
+#endif
     }
 
     void free() {

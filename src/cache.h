@@ -40,55 +40,20 @@ struct ShaderCache {
         memset(shaders, 0, sizeof(shaders));
 
         LOG("shader: cache warm up...\n");
-        if (Core::settings.detail.shadows)
-            compile(Core::passShadow, Shader::ENTITY, FX_NONE);
+        prepareCompose(FX_NONE);
+        if (Core::settings.detail.water > Core::Settings::LOW)
+            prepareCompose(FX_CLIP_PLANE);
 
-        if (Core::settings.detail.ambient) {
-            compile(Core::passAmbient, Shader::ROOM,   FX_NONE);
-            compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST);
-            compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER);
-            compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST);
-            if (Core::settings.detail.water) {
-                compile(Core::passAmbient, Shader::ROOM,   FX_CLIP_PLANE);
-                compile(Core::passAmbient, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
-                compile(Core::passAmbient, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
-                compile(Core::passAmbient, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
-            }
-        }
+        prepareAmbient(FX_NONE);
 
-        if (Core::settings.detail.water) {
-            compile(Core::passWater, Shader::WATER_MASK,     FX_NONE);
-            compile(Core::passWater, Shader::WATER_STEP,     FX_NONE);
-            compile(Core::passWater, Shader::WATER_CAUSTICS, FX_NONE);
-            compile(Core::passWater, Shader::WATER_COMPOSE,  FX_NONE);
-            compile(Core::passWater, Shader::WATER_DROP,     FX_NONE);
-        }
+        if (Core::settings.detail.shadows > Core::Settings::LOW)
+            prepareShadows(FX_NONE);
 
-        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, FX_NONE);
-        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  FX_NONE);
-        compile(Core::passFilter, Shader::FILTER_BLUR,       FX_NONE);
-        compile(Core::passFilter, Shader::FILTER_MIXER,      FX_NONE);
+        if (Core::settings.detail.water > Core::Settings::LOW)
+            prepareWater(FX_NONE);
 
-        compile(Core::passCompose, Shader::ROOM,   FX_NONE);
-        compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ENTITY, FX_NONE);
-        compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::FLASH,  FX_ALPHA_TEST);
-        if (Core::settings.detail.water) {
-            compile(Core::passCompose, Shader::ROOM,   FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::ROOM,   FX_ALPHA_TEST | FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::ROOM,   FX_UNDERWATER | FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::SPRITE, FX_ALPHA_TEST | FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::ENTITY, FX_ALPHA_TEST | FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::ENTITY, FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::ENTITY, FX_UNDERWATER | FX_CLIP_PLANE);
-            compile(Core::passCompose, Shader::SPRITE, FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
-        }
-        compile(Core::passCompose, Shader::MIRROR, FX_NONE);
+        prepareFilter(FX_NONE);
+        prepareGUI(FX_NONE);
 
         LOG("shader: cache is ready\n");
     }
@@ -98,6 +63,54 @@ struct ShaderCache {
             for (int type = 0; type < Shader::MAX; type++)
                 for (int fx = 0; fx < sizeof(shaders[pass][Shader::MAX]) / sizeof(shaders[pass][Shader::MAX][FX_NONE]); fx++)
                     delete shaders[pass][type][fx];
+    }
+
+    void prepareCompose(int fx) {
+        compile(Core::passCompose, Shader::MIRROR, fx | FX_NONE);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_NONE);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER | FX_ALPHA_TEST);
+
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_NONE);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::SPRITE, fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::FLASH,  fx | FX_NONE);
+        compile(Core::passCompose, Shader::FLASH,  fx | FX_ALPHA_TEST);
+    }
+
+    void prepareAmbient(int fx) {
+        compile(Core::passAmbient, Shader::ROOM,   fx | FX_NONE);
+        compile(Core::passAmbient, Shader::ROOM,   fx | FX_ALPHA_TEST);
+        compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER);
+        compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER | FX_ALPHA_TEST);
+        compile(Core::passAmbient, Shader::SPRITE, fx | FX_ALPHA_TEST);
+    }
+
+    void prepareShadows(int fx) {
+        compile(Core::passShadow, Shader::ENTITY, fx | FX_NONE);
+    }
+
+    void prepareWater(int fx) {
+        compile(Core::passWater, Shader::WATER_MASK,     fx | FX_NONE);
+        compile(Core::passWater, Shader::WATER_STEP,     fx | FX_NONE);
+        compile(Core::passWater, Shader::WATER_CAUSTICS, fx | FX_NONE);
+        compile(Core::passWater, Shader::WATER_COMPOSE,  fx | FX_NONE);
+        compile(Core::passWater, Shader::WATER_DROP,     fx | FX_NONE);
+    }
+
+    void prepareFilter(int fx) {
+        compile(Core::passFilter, Shader::DEFAULT,           fx | FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx | FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx | FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_BLUR,       fx | FX_NONE);
+        compile(Core::passFilter, Shader::FILTER_MIXER,      fx | FX_NONE);
+    }
+
+    void prepareGUI(int fx) {
+        compile(Core::passGUI, Shader::DEFAULT, fx | FX_NONE);
     }
 
     Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
@@ -131,12 +144,22 @@ struct ShaderCache {
                 sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
-                if (fx & FX_CLIP_PLANE) strcat(def, "#define CLIP_PLANE\n");
-                if (Core::settings.detail.ambient)  strcat(def, "#define OPT_AMBIENT\n");
-                if (Core::settings.detail.lighting) strcat(def, "#define OPT_LIGHTING\n");
-                if (Core::settings.detail.shadows)  strcat(def, "#define OPT_SHADOW\n");
-                if (Core::settings.detail.water)    strcat(def, "#define OPT_WATER\n");
-                if (Core::settings.detail.contact)  strcat(def, "#define OPT_CONTACT\n");
+                if (pass == Core::passCompose) {
+                    if (fx & FX_CLIP_PLANE)
+                        strcat(def, "#define CLIP_PLANE\n");
+                    if (type == Shader::ROOM)
+                        strcat(def, "#define OPT_ANIMTEX\n");
+                    if (Core::settings.detail.lighting > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
+                        strcat(def, "#define OPT_LIGHTING\n");
+                    if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
+                        strcat(def, "#define OPT_AMBIENT\n");
+                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
+                        strcat(def, "#define OPT_SHADOW\n");
+                    if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (type == Shader::ROOM))
+                        strcat(def, "#define OPT_CONTACT\n");
+                    if (Core::settings.detail.water    > Core::Settings::MEDIUM && (type == Shader::ENTITY || type == Shader::ROOM) && (fx & FX_UNDERWATER))
+                        strcat(def, "#define OPT_CAUSTICS\n");
+                }
                 break;
             }
             case Core::passWater   : {
@@ -410,7 +433,7 @@ struct WaterCache {
 
             data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
             data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
-            caustics = new Texture(512, 512, Texture::RGB16);
+            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
             
@@ -520,16 +543,11 @@ struct WaterCache {
                 break;
             }
 
-        if (!item || !item->caustics) {                
-            Core::blackTex->bind(sReflect);
-            Core::active.shader->setParam(uRoomSize, vec4(0.0f));
-            game->setWaterParams(-NO_CLIP_PLANE);
-        } else {
+        if (item && item->caustics) {
             item->caustics->bind(sReflect);
             Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
             game->setWaterParams(item->pos.y);
         }
-        game->updateParams();
     }
 
     void addDrop(const vec3 &pos, float radius, float strength) {
@@ -702,12 +720,10 @@ struct WaterCache {
 
             float sign = underwater ? -1.0f : 1.0f;
             game->setClipParams(sign, item.pos.y * sign);
-            game->updateParams();
             game->renderView(underwater ? item.from : item.to, false);
         }
         Core::invalidateTarget(false, true);
         game->setClipParams(1.0f, NO_CLIP_PLANE);
-        game->updateParams();
 
         camera->reflectPlane = NULL;
         camera->setup(true);

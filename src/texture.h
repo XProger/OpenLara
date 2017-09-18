@@ -68,7 +68,7 @@ struct Texture {
 
         glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
-        
+
         struct FormatDesc {
             GLuint ifmt, fmt;
             GLenum type;
@@ -119,14 +119,26 @@ struct Texture {
 
         if (mips) {
             glGenerateMipmap(target);
-            if (!cube && filter && Core::support.texAniso)
-                glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.texAniso), 8));
+            if (!cube && filter && (Core::support.maxAniso > 0))
+                glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
             //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
         }
     }
 
     virtual ~Texture() {
         glDeleteTextures(1, &ID);
+    }
+
+    void setFilterQuality(Core::Settings::Quality value) {
+        bool filter = value > Core::Settings::LOW;
+        bool mips   = value > Core::Settings::MEDIUM;
+
+        Core::active.textures[0] = NULL;
+        bind(0);
+        if (Core::support.maxAniso > 0)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, value > Core::Settings::MEDIUM ? min(int(Core::support.maxAniso), 8) : 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? (mips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
     }
 
     void bind(int sampler) {

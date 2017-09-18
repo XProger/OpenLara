@@ -1,68 +1,13 @@
 #ifndef H_INPUT
 #define H_INPUT
 
+#include "core.h"
 #include "utils.h"
-
-enum InputKey { ikNone,
-    // keyboard
-        ikLeft, ikRight, ikUp, ikDown, ikSpace, ikTab, ikEnter, ikEscape, ikShift, ikCtrl, ikAlt,
-        ik0, ik1, ik2, ik3, ik4, ik5, ik6, ik7, ik8, ik9,
-        ikA, ikB, ikC, ikD, ikE, ikF, ikG, ikH, ikI, ikJ, ikK, ikL, ikM,
-        ikN, ikO, ikP, ikQ, ikR, ikS, ikT, ikU, ikV, ikW, ikX, ikY, ikZ,
-    // mouse
-        ikMouseL, ikMouseR, ikMouseM,
-    // touch
-        ikTouchA, ikTouchB, ikTouchC, ikTouchD, ikTouchE, ikTouchF,
-    // gamepad
-        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoySelect, ikJoyStart, ikJoyL, ikJoyR, ikJoyLT, ikJoyRT, ikJoyPOV,
-        ikJoyLeft, ikJoyRight, ikJoyUp, ikJoyDown,
-        ikMAX };
-
-enum ControlKey { cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cMAX };
 
 namespace Input {
 
     bool down[ikMAX];
-
-    struct KeySet {
-        InputKey key, joy;
-    };
-
-    static const KeySet presets[1][cMAX] = {
-        {   { ikLeft,   ikJoyLeft   },
-            { ikRight,  ikJoyRight  },
-            { ikUp,     ikJoyUp     },
-            { ikDown,   ikJoyDown   },
-            { ikD,      ikJoyX      },
-            { ikShift,  ikJoyRB     },
-            { ikCtrl,   ikJoyA      },
-            { ikSpace,  ikJoyY      },
-            { ikC,      ikJoyLB     },
-            { ikZ,      ikJoyLT     },
-            { ikX,      ikJoyRT     },
-            { ikA,      ikJoyB      },
-            { ikTab,    ikJoySelect },
-        },
-        /*
-        {   { ikA,      ikJoyLeft   },
-            { ikD,      ikJoyRight  },
-            { ikW,      ikJoyUp     },
-            { ikS,      ikJoyDown   },
-            { ikSpace,  ikJoyX      },
-            { ikShift,  ikJoyRB     },
-            { ikP,      ikJoyA      },
-            { ikMouseM, ikJoyY      },
-            { ikMouseR, ikJoyLB     },
-            { ikLeft,   ikJoyLT     },
-            { ikRight,  ikJoyRT     },
-            { ikUp,     ikJoyB      },
-            { ikTab,    ikJoySelect },
-        },
-        */
-    };
-
-    KeySet  controls[cMAX];
-    bool    state[cMAX];
+    bool state[cMAX];
 
     struct {
         vec2 pos;
@@ -186,9 +131,6 @@ namespace Input {
 
     void init() {
         reset();
-        for (int i = 0; i < cMAX; i++)
-            controls[i] = presets[0][i];
-
         touchTimerVis    = 0.0f;
         touchTimerTap    = 0.0f;
         doubleTap        = false;
@@ -226,7 +168,7 @@ namespace Input {
         setDown(ikJoyLeft,  p == 6 || p == 7 || p == 8);
 
         for (int i = 0; i < cMAX; i++) {
-            KeySet &c = controls[i];
+            KeySet &c = Core::settings.controls.keys[i];
             state[i] = (c.key != ikNone && down[c.key]) || (c.joy != ikNone && down[c.joy]);
         }
 
