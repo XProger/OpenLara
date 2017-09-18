@@ -633,11 +633,22 @@ namespace Sound {
         }
     }
 
+    void convFrames(FrameHI *from, Frame *to, int count) {
+        for (int i = 0; i < count; i++) {
+            to[i].L = clamp(from[i].L, -32768, 32767);
+            to[i].R = clamp(from[i].R, -32768, 32767);
+        }
+    }
+
     void fill(Frame *frames, int count) {
         if (!channelsCount) {
-            memset(frames, 0, sizeof(frames[0]) * count);
-            //if (Core::settings.audio.reverb)
-            //    reverb.process(frames, count);
+            if (result) {
+                memset(result, 0, sizeof(FrameHI) * count);
+                if (Core::settings.audio.reverb)
+                    reverb.process(result, count);
+                convFrames(result, frames, count);
+            } else
+                memset(frames, 0, sizeof(frames[0]) * count);
             return;
         }
 
@@ -651,10 +662,7 @@ namespace Sound {
 
         renderChannels(result, count, true);
 
-        for (int i = 0; i < count; i++) {
-            frames[i].L = clamp(result[i].L, -32768, 32767);
-            frames[i].R = clamp(result[i].R, -32768, 32767);
-        }
+        convFrames(result, frames, count);
 
         for (int i = 0; i < channelsCount; i++) 
             if (!channels[i]->isPlaying) {
