@@ -35,10 +35,11 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
 
     str = env->GetStringUTFChars(packName, NULL);
+/*
     Stream *level = new Stream(str);
     env->ReleaseStringUTFChars(packName, str);
     level->seek(levelOffset);
-
+*/
     str = env->GetStringUTFChars(contentDir, NULL);
     strcat(Stream::contentDir, str);
     env->ReleaseStringUTFChars(contentDir, str);
@@ -47,7 +48,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
     strcat(Stream::cacheDir, str);
     env->ReleaseStringUTFChars(cacheDir, str);
 
-    Game::init(level);
+    Game::init();
 
     lastTime = getTime();
 }

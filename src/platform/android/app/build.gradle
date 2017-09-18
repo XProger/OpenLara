@@ -6,7 +6,7 @@ android {
     defaultConfig {
         applicationId "com.xproger.openlara"
         minSdkVersion 18
-        targetSdkVersion 25
+        targetSdkVersion 18
         versionCode 1
         versionName "0.1"
         ndk {
@@ -35,5 +35,5 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile fileTree(include: ['*.jar'], dir: 'libs')
 }

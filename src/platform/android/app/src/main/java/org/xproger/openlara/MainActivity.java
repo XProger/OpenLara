@@ -16,6 +16,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Environment;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -65,9 +66,10 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         try {
             String packName = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_ACTIVITIES).applicationInfo.sourceDir;
             // hardcoded demo level and music
-            AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.level2);
+            //AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.title);
 
-            wrapper.onCreate(System.getenv("EXTERNAL_STORAGE") + "/OpenLara/", getCacheDir().getAbsolutePath() + "/", packName, (int)fLevel.getStartOffset());
+            String content = Environment.getExternalStorageDirectory().getAbsolutePath(); // System.getenv("EXTERNAL_STORAGE")
+            wrapper.onCreate(content + "/OpenLara/", getCacheDir().getAbsolutePath() + "/", packName, 0);//(int)fLevel.getStartOffset());
         } catch (Exception e) {
             e.printStackTrace();
             finish();
@@ -168,7 +170,10 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
             case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = -9;  break;
             case KeyEvent.KEYCODE_BUTTON_L2     : btn = -10; break;
             case KeyEvent.KEYCODE_BUTTON_R2     : btn = -11; break;
-            case KeyEvent.KEYCODE_BACK          : btn = KeyEvent.KEYCODE_ESCAPE; break;
+            case KeyEvent.KEYCODE_BACK          : btn = KeyEvent.KEYCODE_TAB; break;
+            case KeyEvent.KEYCODE_VOLUME_UP     :
+            case KeyEvent.KEYCODE_VOLUME_DOWN   :
+            case KeyEvent.KEYCODE_VOLUME_MUTE   : return false;
             default                             : btn = keyCode;
         }
 
