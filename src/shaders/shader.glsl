@@ -412,10 +412,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 				discard;
 		#endif
 
-		#ifndef PASS_SHADOW
-			color *= vDiffuse;
-		#endif
-
 		#ifdef PASS_SHADOW
 
 			#ifdef SHADOW_COLOR
@@ -425,8 +421,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			#endif
 
 		#else
+			color *= vDiffuse;
 
-			#ifndef TYPE_FLASH
+			#if !defined(TYPE_FLASH) && !defined(TYPE_MIRROR)
 
 				#ifdef PASS_AMBIENT
 					color.xyz *= vLight.x;
