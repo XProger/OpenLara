@@ -460,6 +460,8 @@ struct Lara : Character {
         //reset(5, vec3(73394, 3840, 60758), 0);           // level 3b (scion)
         //reset(20, vec3(57724, 6656, 61941), 90 * DEG2RAD); // level 3b (boulder)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
+        //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
+        //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     #endif
@@ -1639,6 +1641,10 @@ struct Lara : Character {
         bool needFlip = false;
         TR::Effect effect = TR::Effect::NONE;
 
+        int         cameraIndex  = -1;
+        Controller *cameraTarget = NULL;
+        Camera *camera = (Camera*)level->cameraController;
+
         while (cmdIndex < info.trigCmdCount) {
             TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
 
@@ -1667,8 +1673,6 @@ struct Lara : Character {
                     break;
                 }
                 case TR::Action::CAMERA_SWITCH : {
-                    Camera *camera = (Camera*)level->cameraController;
-
                     TR::FloorData::TriggerCommand &cam = info.trigCmd[cmdIndex++];
                     if (level->cameras[cmd.args].flags.once)
                         break;
@@ -1678,10 +1682,13 @@ struct Lara : Character {
                     if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && switchIsDown)
                         break;
  
-                    {//if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
+                    if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
                         level->cameras[cmd.args].flags.once |= cam.once;
                         camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed * 8.0f);
                     }
+
+                    if (cmd.args == camera->viewIndexLast)
+                        cameraIndex = cmd.args;
 
                     break;
                 }
@@ -1715,7 +1722,7 @@ struct Lara : Character {
                         needFlip = true;
                     break;
                 case TR::Action::CAMERA_TARGET :
-                    ((Camera*)level->cameraController)->viewTarget = (Controller*)level->entities[cmd.args].controller;
+                    cameraTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
                     game->loadLevel(level->id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level->id + 1));
@@ -1759,6 +1766,12 @@ struct Lara : Character {
             }
         }
 
+        if (cameraTarget && (camera->state == Camera::STATE_STATIC || cameraIndex == -1))
+           camera->viewTarget = cameraTarget;
+
+        if (!cameraTarget && cameraIndex > -1)
+            camera->viewIndex = cameraIndex;
+
         if (needFlip) {
             level->isFlipped = !level->isFlipped;
             game->setEffect(effect, 0);
@@ -1799,7 +1812,7 @@ struct Lara : Character {
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
-        if (stand == STAND_SLIDE || (stand == STAND_AIR && velocity.y > 0) || stand == STAND_GROUND) {
+        if (stand == STAND_SLIDE || stand == STAND_AIR || stand == STAND_GROUND) {
             if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
                 if (stand == STAND_AIR)
                     playSound(TR::SND_LANDING, pos, Sound::Flags::PAN);
@@ -2444,7 +2457,7 @@ struct Lara : Character {
 
         collisionOffset = vec3(0.0f);
 
-        if (checkCollisions() || (velocity + collisionOffset).length2() >= 1.0f)
+        if (checkCollisions() || (velocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
             move();
 
         if (getEntity().type != TR::Entity::LARA) {
@@ -2482,25 +2495,27 @@ struct Lara : Character {
             collisionOffset += meshBox.pushOut2D(box);
         }
 
-        if (!canHitAnim()) {
-            hitDir = -1;
-            return false;
-        }
-
     // check enemies & doors
-        Controller *controller = Controller::first;
-        do {
-            TR::Entity &e = controller->getEntity();
+        for (int i = 0; i < level->entitiesBaseCount; i++) {
+            TR::Entity &e = level->entities[i];
+            Controller *controller = (Controller*)e.controller;
 
             if (e.isEnemy()) {
                 if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)controller)->health <= 0)) continue;
-            } else 
-                if (!e.isDoor()) continue;
+            } else {
+                if (!e.isDoor() && !(e.type == TR::Entity::DRAWBRIDGE && e.flags.active != TR::ACTIVE)) continue;
+
+                TR::Entity &entity = getEntity();
+                if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
+            }
+
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
             vec3 p   = dir.rotateY(controller->angle.y);
 
             Box box = controller->getBoundingBoxLocal();
+            box.expand(vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
+
             if (!box.contains(p))
                 continue;
 
@@ -2516,19 +2531,21 @@ struct Lara : Character {
 
             if (e.type == TR::Entity::ENEMY_REX && ((Character*)controller)->health <= 0)
                 return true;
-            if (e.isDoor())
+            if (e.isDoor() || e.type == TR::Entity::DRAWBRIDGE)
                 return true;
 
-        // get hit dir
-            if (hitDir == -1) {
-                if (health > 0)
-                    playSound(TR::SND_HIT, pos, Sound::PAN);
-                hitTime = 0.0f;
-            }
+            if (canHitAnim()) {
+            // get hit dir
+                if (hitDir == -1) {
+                    if (health > 0)
+                        playSound(TR::SND_HIT, pos, Sound::PAN);
+                    hitTime = 0.0f;
+                }
 
-            hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
-            return true;
-        } while ((controller = controller->next));
+                hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
+                return true;
+            }
+        };
 
         hitDir = -1;
         return false;

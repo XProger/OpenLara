@@ -205,6 +205,10 @@ struct Level : IGame {
                 sample->setVolume(0.0f, 4.0f);
         }
 
+        if (effect == TR::Effect::STAIRS2SLOPE) {
+            playSound(TR::SND_EFFECT_8, vec3(), 0);
+        }
+
         this->effect      = effect;
         this->effectTimer = 0.0f;
     }
@@ -393,6 +397,9 @@ struct Level : IGame {
                 case TR::Entity::TRAP_DARTGUN          :
                     entity.controller = new TrapDartgun(this, i);
                     break;
+                case TR::Entity::DRAWBRIDGE            :
+                    entity.controller = new Drawbridge(this, i);
+                    break;
                 case TR::Entity::BLOCK_1               :
                 case TR::Entity::BLOCK_2               :
                 case TR::Entity::BLOCK_3               :
@@ -400,7 +407,7 @@ struct Level : IGame {
                     entity.controller = new Block(this, i);
                     break;                     
                 case TR::Entity::MOVING_BLOCK          :
-                    entity.controller = new MovingBlock(this, i);                    
+                    entity.controller = new MovingBlock(this, i);
                     break;
                 case TR::Entity::TRAP_CEILING_1     :
                 case TR::Entity::TRAP_CEILING_2     :
@@ -873,8 +880,9 @@ struct Level : IGame {
             type = Shader::MIRROR;
 
         if (type == Shader::SPRITE) {
-            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0f;                
-            setRoomParams(roomIndex, type, 0.5f, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0;
+            float diffuse = entity.isItem() ? 1.0f : 0.5f;
+            setRoomParams(roomIndex, type, diffuse, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
         } else
             setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 

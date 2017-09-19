@@ -498,6 +498,22 @@ struct Bridge : Controller {
     }
 };
 
+struct Drawbridge : Controller {
+    enum {
+        STATE_UP,
+        STATE_DOWN,
+    };
+
+    Drawbridge(IGame *game, int entity) : Controller(game, entity) {
+        getEntity().flags.collision = true;
+    }
+
+    virtual void update() {
+        updateAnimation(true);
+        animation.setState(isActive() ? STATE_DOWN : STATE_UP);
+    }
+};
+
 struct Crystal : Controller {
     Texture *environment;
 

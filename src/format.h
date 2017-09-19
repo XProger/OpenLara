@@ -52,7 +52,7 @@
     E( TRAP_BOULDER          ) \
     E( TRAP_DART             ) \
     E( TRAP_DARTGUN          ) \
-    E( DOOR_LIFT             ) \
+    E( DRAWBRIDGE            ) \
     E( TRAP_SLAM             ) \
     E( TRAP_SWORD            ) \
     E( HAMMER_HANDLE         ) \
@@ -232,7 +232,7 @@ namespace TR {
         EARTHQUAKE     ,
         FLOOD          ,
         UNK1           ,
-        UNK2           ,
+        STAIRS2SLOPE   ,
         UNK3           ,
         UNK4           ,
         EXPLOSION      ,
@@ -277,6 +277,7 @@ namespace TR {
         SND_INV_PAGE        = 115,
         SND_HEALTH          = 116,
         
+        SND_EFFECT_8        = 119,
         SND_DART            = 151,
         
         SND_SECRET          = 173,
@@ -629,7 +630,7 @@ namespace TR {
         }
 
         bool isDoor() const {
-            return (type >= DOOR_1 && type <= DOOR_6) || type == DOOR_LIFT;
+            return type >= DOOR_1 && type <= DOOR_6;
         }
 
         bool isItem() const {
@@ -657,6 +658,16 @@ namespace TR {
 
         bool castShadow() const {
             return isLara() || isEnemy() || isActor();
+        }
+
+        void getAxis(int &dx, int &dz) {
+            switch (rotation.value / 0x4000) {
+                case 0  : dx =  0; dz = -1; break;
+                case 1  : dx = -1; dz =  0; break;
+                case 2  : dx =  0, dz =  1; break;
+                case 3  : dx =  1, dz =  0; break;
+                default : dx =  0; dz =  0; break;
+            }
         }
 
         static Type convToInv(Type type) {
@@ -2174,12 +2185,12 @@ namespace TR {
                     Entity &e = entities[cmd.args];
                     if (!e.flags.collision) continue;
 
-                    if (sx != e.x / 1024 || sz != e.z / 1024) continue;
-
                     switch (e.type) {
                         case Entity::TRAP_DOOR_1 :
                         case Entity::TRAP_DOOR_2 :
                         case Entity::TRAP_FLOOR  : {
+                            if (sx != e.x / 1024 || sz != e.z / 1024) 
+                                break;
                             int ey = e.y - (e.type == Entity::TRAP_FLOOR ? 512 : 0);
                             if (ey >= y - 128 && ey < info.floor)
                                 info.floor = ey;
@@ -2187,9 +2198,26 @@ namespace TR {
                                 info.ceiling = ey + (e.type == Entity::TRAP_FLOOR ? 0 : 256);
                             break;
                         }
+                        case Entity::DRAWBRIDGE  : {
+                            if (e.flags.active != TR::ACTIVE) continue;
+                            int dirX, dirZ;
+                            e.getAxis(dirX, dirZ);
+                            if ((e.x / 1024 + dirX * 1 == sx && e.z / 1024 + dirZ * 1 == sz) ||
+                                (e.x / 1024 + dirX * 2 == sx && e.z / 1024 + dirZ * 2 == sz)) {
+                                int ey = e.y;
+                                if (ey >= y - 128 && ey < info.floor)
+                                    info.floor = ey;
+                                if (ey  < y - 128 && ey > info.ceiling)
+                                    info.ceiling = ey + 256;
+                            }
+                            break;
+                        }
                         case Entity::BRIDGE_0    : 
                         case Entity::BRIDGE_1    : 
                         case Entity::BRIDGE_2    : {
+                            if (sx != e.x / 1024 || sz != e.z / 1024) 
+                                break;
+
                             int s = (e.type == Entity::BRIDGE_1) ? 1 :
                                     (e.type == Entity::BRIDGE_2) ? 2 : 0;
 
