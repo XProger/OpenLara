@@ -649,6 +649,35 @@ struct TrapSword : Controller {
     }
 };
 
+
+struct TrapLava : Controller {
+    bool done;
+
+    TrapLava(IGame *game, int entity) : Controller(game, entity), done(false) {}
+
+    virtual void update() {
+        Character *lara = (Character*)level->laraController;
+        if (lara->health > 0.0f && collide(lara))
+            lara->hit(1000.0f, this, TR::HIT_FLAME);
+
+        if (done) {
+            deactivate();
+            return;
+        }
+
+        vec3 dir = getDir();
+        pos += dir * (25.0f * 30.0f * Core::deltaTime);
+
+        updateEntity();
+        int roomIndex = getRoomIndex();
+        TR::Room::Sector *s = level->getSector(roomIndex, int(pos.x + dir.x * 2048.0f), int(pos.y), int(pos.z + dir.z * 2048.0f));
+        if (!s || s->floor * 256 != int(pos.y))
+            done = true;
+        getEntity().room = roomIndex;
+    }
+};
+
+
 struct KeyHole : Controller {
     KeyHole(IGame *game, int entity) : Controller(game, entity) {}
 
@@ -665,6 +694,7 @@ struct KeyHole : Controller {
 
     virtual void update() {}
 };
+
 
 struct Waterfall : Controller {
     #define SPLASH_TIMESTEP (1.0f / 30.0f)

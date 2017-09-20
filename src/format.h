@@ -191,7 +191,7 @@
     E( LAVA_EMITTER          ) \
     E( FLAME                 ) \
     E( FLAME_EMITTER         ) \
-    E( LAVA_FLOW             ) \
+    E( TRAP_LAVA             ) \
     E( MUTANT_EGG_BIG        ) \
     E( BOAT                  ) \
     E( EARTHQUAKE            ) \
@@ -310,6 +310,7 @@ namespace TR {
         HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
+        HIT_FLAME,
         HIT_REX,
     };
 

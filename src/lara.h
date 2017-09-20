@@ -105,6 +105,9 @@ struct Lara : Character {
         ANIM_HIT_BACK           = 126,
         ANIM_HIT_LEFT           = 127,
         ANIM_HIT_RIGHT          = 128,
+
+        ANIM_DEATH_BOULDER      = 139,
+
         ANIM_STAND_ROLL_BEGIN   = 146,
         ANIM_STAND_ROLL_END     = 147,
 
@@ -464,6 +467,8 @@ struct Lara : Character {
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
+        //reset(50, vec3(53703, -18688, -13769), PI);      // Level 10c (scion holder)
+        //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lave flow)
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
@@ -1333,7 +1338,7 @@ struct Lara : Character {
 
         switch (hitType) {
             case TR::HIT_BOULDER : {
-                animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 2);
+                animation.setAnim(ANIM_DEATH_BOULDER);
                 angle = enemy->angle;
                 TR::Level::FloorInfo info;
                 level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);

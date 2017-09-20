@@ -433,6 +433,9 @@ struct Level : IGame {
                 case TR::Entity::WATERFALL             :
                     entity.controller = new Waterfall(this, i);
                     break;
+                case TR::Entity::TRAP_LAVA             :
+                    entity.controller = new TrapLava(this, i);
+                    break;
                 default                                : 
                     if (entity.modelIndex > 0)
                         entity.controller = new Controller(this, i);

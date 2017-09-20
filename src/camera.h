@@ -50,6 +50,8 @@ struct Camera : ICamera {
             room  = level->entities[level->cutEntity].room;
         } else
             state = STATE_FOLLOW;
+        destPos  = owner->pos - owner->getDir() * 1024.0f;
+        pos      = destPos;
         advTimer = -1.0f;
     }
 
