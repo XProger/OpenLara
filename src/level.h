@@ -66,6 +66,9 @@ struct Level : IGame {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
             case TR::VER_TR1_PSX : strcat(buf, ".PSX"); break;
         }
+    #ifdef __EMSCRIPTEN__
+        strcat(buf, ".gz");
+    #endif
         new Stream(buf, loadAsync);
     }
 
