@@ -469,6 +469,7 @@ struct Lara : Character {
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
         //reset(50, vec3(53703, -18688, 13769), PI);      // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lava flow)
+        //reset(9, vec3(69074, -14592, 25192), 0);  // Level 10c (trap slam)
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
@@ -1300,11 +1301,15 @@ struct Lara : Character {
         }
     }
 
-    void addBlood(float radius, float height, const vec3 &spriteVelocity) {
-        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * height, (randf() * 2.0f - 1.0f) * radius);
-        int index = Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), int(p.x), int(p.y), int(p.z), Sprite::FRAME_ANIMATED);
+    void addBlood(const vec3 &sprPos, const vec3 &sprVel) {
+        int index = Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), int(sprPos.x), int(sprPos.y), int(sprPos.z), Sprite::FRAME_ANIMATED);
         if (index > -1)
-            ((Sprite*)level->entities[index].controller)->velocity = spriteVelocity;
+            ((Sprite*)level->entities[index].controller)->velocity = sprVel;
+    }
+
+    void addBlood(float radius, float height, const vec3 &sprVel) {
+        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * height, (randf() * 2.0f - 1.0f) * radius);
+        addBlood(p, sprVel);
     }
 
     void addBloodSpikes() {
@@ -1317,6 +1322,10 @@ struct Lara : Character {
         addBlood(64.0f, 744.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * speed);
     }
 
+    void addBloodSlam(Controller *trapSlam) {
+        for (int i = 0; i < 6; i++)
+            addBloodSpikes();
+    }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy) return;
@@ -1327,11 +1336,12 @@ struct Lara : Character {
 
         Character::hit(damage, enemy, hitType);
 
-        if (hitType == TR::HIT_BLADE)
-            addBloodBlade();
-
-        if (hitType == TR::HIT_SPIKES)
-            addBloodSpikes();
+        switch (hitType) {
+            case TR::HIT_BLADE  : addBloodBlade(); break;
+            case TR::HIT_SPIKES : addBloodSpikes(); break;
+            case TR::HIT_SLAM   : addBloodSlam(enemy); break;
+            default             : ;
+        }
 
         if (health > 0.0f)
             return;

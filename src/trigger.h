@@ -640,6 +640,38 @@ struct TrapCeiling : Controller {
     }
 };
 
+#define SLAM_DAMAGE 400
+
+struct TrapSlam : Controller {
+    enum {
+        STATE_OPEN,
+        STATE_SLAM,
+    };
+    
+    bool bite;
+
+    TrapSlam(IGame *game, int entity) : Controller(game, entity), bite(false) {}
+
+    virtual void update() {
+        if (isActive()) {
+            animation.setState(STATE_SLAM);
+
+            if (animation.frameIndex >= 20)
+                bite = false;
+
+            Character *lara = (Character*)level->laraController;
+            if (animation.state == STATE_SLAM && !bite && collide(lara)) {
+                lara->hit(SLAM_DAMAGE, this, TR::HIT_SLAM);
+                bite = true;
+            }
+
+        } else
+            animation.setState(STATE_OPEN);
+
+        updateAnimation(true);
+    }
+};
+
 
 struct TrapSword : Controller {
     TrapSword(IGame *game, int entity) : Controller(game, entity) {}

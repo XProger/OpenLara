@@ -413,6 +413,9 @@ struct Level : IGame {
                 case TR::Entity::TRAP_CEILING_2     :
                     entity.controller = new TrapCeiling(this, i);
                     break;
+                case TR::Entity::TRAP_SLAM          :
+                    entity.controller = new TrapSlam(this, i);
+                    break;
                 case TR::Entity::TRAP_SWORD         :
                     entity.controller = new TrapSword(this, i);
                     break;

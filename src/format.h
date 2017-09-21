@@ -311,6 +311,7 @@ namespace TR {
         HIT_BOULDER,
         HIT_SPIKES,
         HIT_FLAME,
+        HIT_SLAM,
         HIT_REX,
     };
 
