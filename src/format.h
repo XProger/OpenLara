@@ -634,6 +634,13 @@ namespace TR {
             return type >= DOOR_1 && type <= DOOR_6;
         }
 
+        bool isCollider() const {
+            return isEnemy() ||
+                   isDoor() ||
+                   (type == DRAWBRIDGE && flags.active != ACTIVE) ||
+                   (type == SCION_HOLDER);
+        }
+
         bool isItem() const {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
@@ -663,10 +670,10 @@ namespace TR {
 
         void getAxis(int &dx, int &dz) {
             switch (rotation.value / 0x4000) {
-                case 0  : dx =  0; dz = -1; break;
-                case 1  : dx = -1; dz =  0; break;
-                case 2  : dx =  0, dz =  1; break;
-                case 3  : dx =  1, dz =  0; break;
+                case 0  : dx =  0; dz =  1; break;
+                case 1  : dx =  1; dz =  0; break;
+                case 2  : dx =  0, dz = -1; break;
+                case 3  : dx = -1, dz =  0; break;
                 default : dx =  0; dz =  0; break;
             }
         }
@@ -2188,23 +2195,39 @@ namespace TR {
 
                     switch (e.type) {
                         case Entity::TRAP_DOOR_1 :
-                        case Entity::TRAP_DOOR_2 :
+                        case Entity::TRAP_DOOR_2 : {
+                            int dirX, dirZ;
+                            e.getAxis(dirX, dirZ);
+
+                            int ex = e.x / 1024;
+                            int ez = e.z / 1024;
+                            if ((ex == sx && ez == sz) || (ex + dirX == sx && ez + dirZ == sz)) {
+                                if (e.y >= y - 128 && e.y < info.floor)
+                                    info.floor = e.y;
+                                if (e.y  < y - 128 && e.y > info.ceiling)
+                                    info.ceiling = e.y + 256;
+                            }
+                            break;
+                        }
                         case Entity::TRAP_FLOOR  : {
                             if (sx != e.x / 1024 || sz != e.z / 1024) 
                                 break;
-                            int ey = e.y - (e.type == Entity::TRAP_FLOOR ? 512 : 0);
+                            int ey = e.y - 512;
                             if (ey >= y - 128 && ey < info.floor)
                                 info.floor = ey;
                             if (ey  < y - 128 && ey > info.ceiling)
-                                info.ceiling = ey + (e.type == Entity::TRAP_FLOOR ? 0 : 256);
+                                info.ceiling = ey;
                             break;
                         }
                         case Entity::DRAWBRIDGE  : {
                             if (e.flags.active != TR::ACTIVE) continue;
                             int dirX, dirZ;
                             e.getAxis(dirX, dirZ);
-                            if ((e.x / 1024 + dirX * 1 == sx && e.z / 1024 + dirZ * 1 == sz) ||
-                                (e.x / 1024 + dirX * 2 == sx && e.z / 1024 + dirZ * 2 == sz)) {
+                            int ex = e.x / 1024;
+                            int ez = e.z / 1024;
+
+                            if ((ex - dirX * 1 == sx && ez - dirZ * 1 == sz) ||
+                                (ex - dirX * 2 == sx && ez - dirZ * 2 == sz)) {
                                 int ey = e.y;
                                 if (ey >= y - 128 && ey < info.floor)
                                     info.floor = ey;

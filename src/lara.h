@@ -467,8 +467,8 @@ struct Lara : Character {
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
-        //reset(50, vec3(53703, -18688, -13769), PI);      // Level 10c (scion holder)
-        //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lave flow)
+        //reset(50, vec3(53703, -18688, 13769), PI);      // Level 10c (scion holder)
+        //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lava flow)
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
@@ -2503,17 +2503,18 @@ struct Lara : Character {
     // check enemies & doors
         for (int i = 0; i < level->entitiesBaseCount; i++) {
             TR::Entity &e = level->entities[i];
+            
+            if (!e.isCollider()) continue;
+
             Controller *controller = (Controller*)e.controller;
 
             if (e.isEnemy()) {
                 if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)controller)->health <= 0)) continue;
             } else {
-                if (!e.isDoor() && !(e.type == TR::Entity::DRAWBRIDGE && e.flags.active != TR::ACTIVE)) continue;
-
-                TR::Entity &entity = getEntity();
+            // fast distance check for object
+                TR::Entity &entity = getEntity(); 
                 if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
             }
-
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
             vec3 p   = dir.rotateY(controller->angle.y);
@@ -2536,7 +2537,7 @@ struct Lara : Character {
 
             if (e.type == TR::Entity::ENEMY_REX && ((Character*)controller)->health <= 0)
                 return true;
-            if (e.isDoor() || e.type == TR::Entity::DRAWBRIDGE)
+            if (!e.isEnemy())
                 return true;
 
             if (canHitAnim()) {
