@@ -1,0 +1,16 @@
+AddEncoding gzip .gz
+
+<FilesMatch "\.PCX$">
+  ForceType application/octet-stream
+  Header set Content-Encoding: gzip
+</FilesMatch>
+
+<FilesMatch "\.PSX$">
+  ForceType application/octet-stream
+  Header set Content-Encoding: gzip
+</FilesMatch>
+
+<FilesMatch "\.PHD$">
+  ForceType application/octet-stream
+  Header set Content-Encoding: gzip
+</FilesMatch>
