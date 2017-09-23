@@ -48,7 +48,7 @@ void sndInit() {
     };
 
     static const pa_buffer_attr attr = {
-        .maxlength  = SND_DATA_SIZE * 2,
+        .maxlength  = SND_DATA_SIZE * 4,
         .tlength    = 0xFFFFFFFF,
         .prebuf     = 0xFFFFFFFF,
         .minreq     = SND_DATA_SIZE,
@@ -169,6 +169,10 @@ int main(int argc, char **argv) {
         GLX_RGBA,
         GLX_DOUBLEBUFFER,
         GLX_DEPTH_SIZE, 24,
+        GLX_RED_SIZE, 8,
+        GLX_GREEN_SIZE, 8,
+        GLX_BLUE_SIZE, 8,
+        GLX_ALPHA_SIZE, 8,
         0
     };
 
