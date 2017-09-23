@@ -48,7 +48,7 @@ void sndInit() {
     };
 
     static const pa_buffer_attr attr = {
-        .maxlength  = SND_DATA_SIZE * 2,
+        .maxlength  = SND_DATA_SIZE * 4,
         .tlength    = 0xFFFFFFFF,
         .prebuf     = 0xFFFFFFFF,
         .minreq     = SND_DATA_SIZE,
