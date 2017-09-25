@@ -710,6 +710,37 @@ struct TrapLava : Controller {
 };
 
 
+struct Cabin : Controller {
+    enum {
+        STATE_UP,
+        STATE_DOWN_1,
+        STATE_DOWN_2,
+        STATE_DOWN_3,
+        STATE_GROUND,
+    };
+
+    Cabin(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        TR::Entity &e = getEntity();
+
+        if (e.flags.active == TR::ACTIVE) {
+            if (state >= STATE_UP && state <= STATE_DOWN_2)
+                animation.setState(state + 1);
+            e.flags.active = 0;
+        }
+
+        if (state == STATE_GROUND) {
+            e.flags.invisible        = true;
+            level->flipmap[3].active = TR::ACTIVE;
+            level->isFlipped         = !level->isFlipped;
+            deactivate(true);
+        }
+
+        updateAnimation(true);
+    }
+};
+
 struct KeyHole : Controller {
     KeyHole(IGame *game, int entity) : Controller(game, entity) {}
 

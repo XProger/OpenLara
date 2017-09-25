@@ -173,7 +173,7 @@
     E( UNUSED_12             ) \
     E( SMOKE                 ) \
     E( STATUE                ) \
-    E( SHACK                 ) \
+    E( CABIN                 ) \
     E( MUTANT_EGG_SMALL      ) \
     E( RICOCHET              ) \
     E( SPARKLES              ) \
