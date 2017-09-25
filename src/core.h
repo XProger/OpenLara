@@ -700,7 +700,11 @@ namespace Core {
         settings.controls.keys[ cRight     ] = { ikRight,  ikJoyRight  };
         settings.controls.keys[ cUp        ] = { ikUp,     ikJoyUp     };
         settings.controls.keys[ cDown      ] = { ikDown,   ikJoyDown   };
+    #ifdef __EMSCRIPTEN__
         settings.controls.keys[ cJump      ] = { ikD,      ikJoyX      };
+    #else
+        settings.controls.keys[ cJump      ] = { ikAlt,    ikJoyX      };
+    #endif
         settings.controls.keys[ cWalk      ] = { ikShift,  ikJoyRB     };
         settings.controls.keys[ cAction    ] = { ikCtrl,   ikJoyA      };
         settings.controls.keys[ cWeapon    ] = { ikSpace,  ikJoyY      };
