@@ -710,6 +710,23 @@ struct TrapLava : Controller {
 };
 
 
+struct DoorLatch : Controller {
+    enum {
+        STATE_CLOSE,
+        STATE_OPEN,
+    };
+
+    DoorLatch(IGame *game, int entity) : Controller(game, entity) {
+        getEntity().flags.collision = true;
+    }
+
+    virtual void update() {
+        updateAnimation(true);
+        animation.setState(isActive() ? STATE_OPEN : STATE_CLOSE);
+    }
+};
+
+
 struct Cabin : Controller {
     enum {
         STATE_UP,

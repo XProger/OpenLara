@@ -419,6 +419,9 @@ struct Level : IGame {
                 case TR::Entity::TRAP_SWORD         :
                     entity.controller = new TrapSword(this, i);
                     break;
+                case TR::Entity::DOOR_LATCH         :
+                    entity.controller = new DoorLatch(this, i);
+                    break;
                 case TR::Entity::SWITCH                :
                 case TR::Entity::SWITCH_WATER          :
                     entity.controller = new Switch(this, i);

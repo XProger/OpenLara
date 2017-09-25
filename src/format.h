@@ -58,7 +58,7 @@
     E( HAMMER_HANDLE         ) \
     E( HAMMER_BLOCK          ) \
     E( LIGHTNING_BALL        ) \
-    E( BARRICADE             ) \
+    E( DOOR_LATCH            ) \
     E( BLOCK_1               ) \
     E( BLOCK_2               ) \
     E( BLOCK_3               ) \
