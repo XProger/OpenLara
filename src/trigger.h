@@ -176,6 +176,8 @@ struct TrapBoulder : Controller {
         if (info.roomNext != TR::NO_ROOM)
             getEntity().room = info.roomNext;
 
+        game->checkTrigger(this, true);
+
         vec3 v = pos + getDir() * 512.0f;
         level->getFloorInfo(getRoomIndex(), int(v.x), int(v.y), int(v.z), info);
         if (pos.y > info.floor) {
@@ -267,6 +269,7 @@ struct Block : Controller {
             updateEntity();
             updateFloor(true);
             deactivate();
+            game->checkTrigger(this, true);
         }
         updateLights();
     }
@@ -318,6 +321,7 @@ struct MovingBlock : Controller {
             pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f;
             pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f;
             updateFloor(true);
+            game->checkTrigger(this, true);
             return;
         }
 

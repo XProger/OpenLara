@@ -1354,13 +1354,14 @@ struct Lara : Character {
         switch (hitType) {
             case TR::HIT_BOULDER : {
                 animation.setAnim(ANIM_DEATH_BOULDER);
-                angle = enemy->angle;
+                if (enemy)
+                    angle = enemy->angle;
                 TR::Level::FloorInfo info;
                 level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
                 vec3 d = getDir();
                 vec3 v = info.getSlant(d);
                 angle.x = -acos(d.dot(v));
-                v = ((TrapBoulder*)enemy)->velocity * 2.0f;
+                v = enemy ? ((TrapBoulder*)enemy)->velocity * 2.0f : vec3(0.0f);
                 for (int i = 0; i < 15; i++)
                     addBlood(256.0f, 512.0f, v);
                 break;
@@ -1564,8 +1565,8 @@ struct Lara : Character {
         return false;
     }
 
-    void checkTrigger() {
-        TR::Entity &e = getEntity();
+    void checkTrigger(Controller *controller, bool heavy) {
+        TR::Entity &e = controller->getEntity();
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
@@ -1653,6 +1654,7 @@ struct Lara : Character {
                 break;
 
             case TR::Level::Trigger::HEAVY :
+                if (!heavy) return;
                 break;
             case TR::Level::Trigger::DUMMY :
                 return;
@@ -2353,7 +2355,7 @@ struct Lara : Character {
             return;
 
         if (!(input & DEATH))
-            checkTrigger();
+            checkTrigger(this, false);
 
     // get turning angle
         float w = (input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f);

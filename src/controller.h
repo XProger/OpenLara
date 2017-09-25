@@ -50,6 +50,8 @@ struct IGame {
     virtual void renderView(int roomIndex, bool water) {}
     virtual void setEffect(TR::Effect effect, float param) {}
 
+    virtual void checkTrigger(Controller *controller, bool heavy) {}
+
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
     virtual int* invCount(TR::Entity::Type type) { return NULL; }

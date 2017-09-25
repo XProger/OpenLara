@@ -213,6 +213,10 @@ struct Level : IGame {
         this->effectTimer = 0.0f;
     }
 
+    virtual void checkTrigger(Controller *controller, bool heavy) {
+        lara->checkTrigger(controller, heavy);
+    }
+
     virtual bool invUse(TR::Entity::Type type) {
         if (!lara->useItem(type))
             return inventory.use(type);
