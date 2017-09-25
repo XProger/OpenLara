@@ -466,10 +466,12 @@ struct Lara : Character {
         //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
-        //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
+        //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
+        //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (drill)
         //reset(50, vec3(53703, -18688, 13769), PI);      // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);  // Level 10c (trap slam)
+        //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     #endif
         chestOffset = animation.getJoints(getMatrix(), 7).pos;
     }
@@ -1827,14 +1829,12 @@ struct Lara : Character {
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
-        if (stand == STAND_SLIDE || stand == STAND_AIR || stand == STAND_GROUND) {
+        if ((stand == STAND_SLIDE || stand == STAND_GROUND) && (state != STATE_FORWARD_JUMP && state != STATE_BACK_JUMP)) {
             if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
-                if (stand == STAND_AIR)
-                    playSound(TR::SND_LANDING, pos, Sound::Flags::PAN);
                 pos.y = float(info.floor);
                 updateEntity();
 
-                if (stand == STAND_GROUND || stand == STAND_AIR)
+                if (stand == STAND_GROUND)
                     slideStart();
 
                 return STAND_SLIDE;
