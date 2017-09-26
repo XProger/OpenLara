@@ -277,9 +277,10 @@ namespace TR {
         SND_INV_PAGE        = 115,
         SND_HEALTH          = 116,
         
-        SND_EFFECT_8        = 119,
+        SND_STAIRS2SLOPE    = 119,
         SND_DART            = 151,
         
+        SND_EXPLOSION       = 170,
         SND_SECRET          = 173,
     };
 

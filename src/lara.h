@@ -466,11 +466,13 @@ struct Lara : Character {
         //reset(19, vec3(33368, 19968, 45643), 270 * DEG2RAD); // level 4 (damocles)
         //reset(24, vec3(45609, 18176, 41500), 90 * DEG2RAD); // level 4 (thor)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
+        //reset(90,  vec3(19438, 3840, 78341), 90 * DEG2RAD); // level 7a (statues)
         //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
         //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (drill)
+        //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
         //reset(50, vec3(53703, -18688, 13769), PI);      // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);  // Level 10c (trap slam)

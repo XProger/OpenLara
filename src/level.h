@@ -188,29 +188,31 @@ struct Level : IGame {
     }
     
     virtual void setEffect(TR::Effect effect, float param) {
-        if (effect == TR::Effect::NONE)
-            return;
-
-        if (effect == TR::Effect::FLOOR_SHAKE) {
-            camera->shake = param;
-            return;
-        }
-
-        if (effect == TR::Effect::FLICKER)
-            flickerIdx = 0;
-
-        if (effect == TR::Effect::FLOOD) {
-            Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
-            if (sample)
-                sample->setVolume(0.0f, 4.0f);
-        }
-
-        if (effect == TR::Effect::STAIRS2SLOPE) {
-            playSound(TR::SND_EFFECT_8, vec3(), 0);
-        }
-
         this->effect      = effect;
         this->effectTimer = 0.0f;
+
+        switch (effect) {
+            case TR::Effect::NONE : return;
+            case TR::Effect::FLOOR_SHAKE :
+                camera->shake = param;
+                return;
+            case TR::Effect::FLICKER :
+                flickerIdx = 0;
+                break;
+            case TR::Effect::FLOOD : {
+                Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
+                if (sample)
+                    sample->setVolume(0.0f, 4.0f);
+                break;
+            }
+            case TR::Effect::STAIRS2SLOPE :
+                playSound(TR::SND_STAIRS2SLOPE, vec3(), 0);
+                break;
+            case TR::Effect::EXPLOSION :
+                playSound(TR::SND_EXPLOSION, vec3(0), 0);
+                camera->shake = 1.0f;
+                break;
+        }
     }
 
     virtual void checkTrigger(Controller *controller, bool heavy) {
@@ -448,6 +450,9 @@ struct Level : IGame {
                     break;
                 case TR::Entity::CABIN                 :
                     entity.controller = new Cabin(this, i);
+                    break;
+                case TR::Entity::BOAT                  :
+                    entity.controller = new Boat(this, i);
                     break;
                 default                                : 
                     if (entity.modelIndex > 0)

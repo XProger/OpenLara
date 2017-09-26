@@ -762,6 +762,28 @@ struct Cabin : Controller {
     }
 };
 
+
+struct Boat : Controller {
+    enum {
+        STATE_IDLE = 1,
+        STATE_MOVE,
+        STATE_STOP,
+    };
+
+    Boat(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        switch (state) {
+            case STATE_IDLE : animation.setState(STATE_MOVE); break;
+            case STATE_MOVE : animation.setState(STATE_STOP); break;
+            case STATE_STOP : deactivate(true); getEntity().flags.invisible = true; break;
+        }
+        updateAnimation(true);
+        pos = pos + getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
+    }
+};
+
+
 struct KeyHole : Controller {
     KeyHole(IGame *game, int entity) : Controller(game, entity) {}
 
