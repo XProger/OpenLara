@@ -108,7 +108,7 @@ struct Controller {
     ActiveState activeState;
     bool invertAim;
 
-    Controller(IGame *game, int entity) : next(NULL), activeState(asNone), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), invertAim(false) {
+    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), activeState(asNone), invertAim(false) {
         TR::Entity &e = getEntity();
         pos        = vec3(float(e.x), float(e.y), float(e.z));
         angle      = vec3(0.0f, e.rotation, 0.0f);
