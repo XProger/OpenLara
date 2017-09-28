@@ -17,10 +17,11 @@
 struct Controller;
 
 struct ICamera {
-    vec4 *reflectPlane;
-    vec3 pos;
+    vec4  *reflectPlane;
+    vec3  pos;
+    float shake;
 
-    ICamera() : reflectPlane(NULL) {}
+    ICamera() : reflectPlane(NULL), pos(0.0f), shake(0.0f) {}
 
     virtual void setup(bool calcMatrices) {}
     virtual int  getRoomIndex() const { return TR::NO_ROOM; }
@@ -52,6 +53,9 @@ struct IGame {
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
+    virtual int  addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) { return -1; }
+    virtual int  addEnemy(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return -1; }
+
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
     virtual int* invCount(TR::Entity::Type type) { return NULL; }
@@ -65,7 +69,7 @@ struct IGame {
 struct Controller {
     static Controller *first;
     Controller  *next;
-    enum ActiveState { asNone, asActive, asInactive } activeState;
+    enum ActiveState { asNone, asActive, asInactive };
 
     IGame       *game;
     TR::Level   *level;
@@ -94,7 +98,17 @@ struct Controller {
         uint32   mask;
     } *layers;
 
-    Controller(IGame *game, int entity) : next(NULL), activeState(asNone), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(NULL) {
+    uint32 explodeMask;
+    struct ExplodePart {
+        Basis basis;
+        vec3  velocity;
+        int   roomIndex;
+    } *explodeParts;
+
+    ActiveState activeState;
+    bool invertAim;
+
+    Controller(IGame *game, int entity) : next(NULL), activeState(asNone), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), invertAim(false) {
         TR::Entity &e = getEntity();
         pos        = vec3(float(e.x), float(e.y), float(e.z));
         angle      = vec3(0.0f, e.rotation, 0.0f);
@@ -125,6 +139,7 @@ struct Controller {
     virtual ~Controller() {
         delete[] joints;
         delete[] layers;
+        delete[] explodeParts;
         deactivate(true);
     }
 
@@ -195,6 +210,7 @@ struct Controller {
     }
 
     void initMeshOverrides() {
+        if (layers) return;
         layers = new MeshLayer[MAX_LAYERS];
         memset(layers, 0, sizeof(MeshLayer) * MAX_LAYERS);
         layers[0].model = getEntity().modelIndex - 1;
@@ -223,6 +239,8 @@ struct Controller {
 
             Basis b = animation.getJoints(Basis(getMatrix()), joint);
             vec3 delta = (b.inverse() * t).normal();
+            if (invertAim)
+                delta = -delta;
 
             float angleY = clampAngle(atan2f(delta.x, delta.z));
             float angleX = clampAngle(asinf(delta.y));
@@ -526,8 +544,37 @@ struct Controller {
             animation.framePrev = animation.frameIndex;
     }
     
+    void updateExplosion() {
+        if (!explodeMask) return;
+        TR::Model *model = getModel();
+        for (int i = 0; i < model->mCount; i++)
+            if (explodeMask & (1 << i)) {
+                ExplodePart &part = explodeParts[i];
+                part.velocity.y += GRAVITY * Core::deltaTime;
+
+                quat q = quat(vec3(1, 0, 0), PI * Core::deltaTime) * quat(vec3(0, 0, 1), PI * 2.0f * Core::deltaTime);
+                part.basis = Basis(part.basis.rot * q, part.basis.pos + explodeParts[i].velocity * (Core::deltaTime * 30.0f));
+
+                vec3 p = part.basis.pos;
+                TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));
+
+                if (s && s->floor * 256.0f < p.y) {
+                    explodeMask &= ~(1 << i);
+                   
+                    game->addSprite(TR::Entity::EXPLOSION, part.roomIndex, int(p.x), int(p.y), int(p.z));
+                    game->playSound(TR::SND_EXPLOSION, pos, 0); // Sound::Flags::PAN ?
+                }
+            }
+
+        if (!explodeMask) {
+            delete[] explodeParts;
+            explodeParts = NULL;
+        }
+    }
+
     virtual void update() {
         updateAnimation(true);
+        updateExplosion();
     }
 
     void updateLights(bool lerp = true) {
@@ -587,6 +634,34 @@ struct Controller {
         return matrix;
     }
 
+    void explode(int32 mask) {
+        TR::Model *model = getModel();
+
+        if (!layers) initMeshOverrides();
+
+        mask &= layers[0].mask;
+        layers[0].mask &= ~mask;
+        
+        explodeParts = new ExplodePart[model->mCount];
+        explodeMask  = 0;
+       
+        animation.getJoints(getMatrix(), -1, true, joints);
+        int roomIndex = getRoomIndex();
+        for (int i = 0; i < model->mCount; i++) {
+            if (!(mask & (1 << i)))
+                continue;
+            explodeMask |= (1 << i);
+            float angle = randf() * PI * 2.0f;
+            float speed = randf() * 256.0f;
+
+            ExplodePart &part = explodeParts[i];
+            part.basis     = joints[i];
+            part.basis.w   = 1.0f;
+            part.velocity  = vec3(cosf(angle), (randf() - 0.5f) * 0.25f, sinf(angle)) * speed;
+            part.roomIndex = roomIndex;
+        }
+    }
+
     void renderShadow(MeshBuilder *mesh) {
         TR::Entity &entity = getEntity();
 
@@ -621,16 +696,18 @@ struct Controller {
         Core::active.shader->setParam(uMaterial, vec4(vec3(0.5f * (1.0f - alpha)), alpha));
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
+        Core::setDepthWrite(false);
         Core::setBlending(bmMultiply);
         mesh->renderShadowBlob();
         Core::setBlending(bmNone);
+        Core::setDepthWrite(true);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO: animation.calcJoints
         mat4 matrix = getMatrix();
 
         Box box = animation.getBoundingBox(vec3(0, 0, 0), 0);
-        if (frustum && !frustum->isVisible(matrix, box.min, box.max))
+        if (!explodeMask && frustum && !frustum->isVisible(matrix, box.min, box.max))
             return;
 
         TR::Entity &entity = getEntity();
@@ -643,15 +720,22 @@ struct Controller {
             animation.getJoints(matrix, -1, true, joints);
 
         if (layers) {
-            int mask = 0;
+            uint32 mask = 0;
 
             for (int i = MAX_LAYERS - 1; i >= 0; i--) {
-                int vmask = layers[i].mask & ~mask;
+                uint32 vmask = (layers[i].mask & ~mask) | (!i ? explodeMask : 0);
                 if (!vmask) continue;
                 mask |= layers[i].mask;
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
                     joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // AHAHA
+
+                if (explodeMask) {
+                    TR::Model *model = getModel();
+                    for (int i = 0; i < model->mCount; i++)
+                        if (explodeMask & (1 << i))
+                            joints[i] = explodeParts[i].basis;
+                }
 
             //    if (entity.type == TR::Entity::LARA && Core::eye != 0)
             //        joints[14].w = -1.0f;

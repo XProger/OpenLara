@@ -180,8 +180,17 @@ struct Inventory {
 //              add(TR::Entity::INV_MEDIKIT_SMALL, 999);
 //              add(TR::Entity::INV_MEDIKIT_BIG, 999);
 //              add(TR::Entity::INV_SCION, 1);
-//              add(TR::Entity::INV_KEY_1, 1);
-//              add(TR::Entity::INV_PUZZLE_1, 1);
+        #ifdef _DEBUG
+            add(TR::Entity::INV_KEY_1, 3);
+            add(TR::Entity::INV_KEY_2, 3);
+            add(TR::Entity::INV_KEY_3, 3);
+            add(TR::Entity::INV_KEY_4, 3);
+
+            add(TR::Entity::INV_PUZZLE_1, 3);
+            add(TR::Entity::INV_PUZZLE_2, 3);
+            add(TR::Entity::INV_PUZZLE_3, 3);
+            add(TR::Entity::INV_PUZZLE_4, 3);
+        #endif
         } 
 
         if (id == TR::TITLE) {

@@ -209,14 +209,47 @@ struct Level : IGame {
                 playSound(TR::SND_STAIRS2SLOPE, vec3(), 0);
                 break;
             case TR::Effect::EXPLOSION :
-                playSound(TR::SND_EXPLOSION, vec3(0), 0);
+                playSound(TR::SND_TNT, vec3(0), 0);
                 camera->shake = 1.0f;
                 break;
+            default : ;
         }
     }
 
     virtual void checkTrigger(Controller *controller, bool heavy) {
         lara->checkTrigger(controller, heavy);
+    }
+
+    virtual int addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) {
+        return Sprite::add(this, type, room, x, y, z, frame, empty);
+    }
+
+    virtual int addEnemy(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
+        int index = level.entityAdd(type, room, int(pos.x), int(pos.y), int(pos.z), TR::angle(angle), -1);
+        if (index > -1) {
+            TR::Entity &e = level.entities[index];
+            Enemy *enemy = NULL;
+            switch (type) {
+                case TR::Entity::ENEMY_MUTANT_1 : 
+                case TR::Entity::ENEMY_MUTANT_2 : 
+                case TR::Entity::ENEMY_MUTANT_3 :
+                    enemy = new Mutant(this, index);
+                    break;
+                case TR::Entity::ENEMY_CENTAUR : 
+                    enemy = new Centaur(this, index);
+                    break;               
+                case TR::Entity::ENEMY_GIANT_MUTANT :
+                    enemy = new GiantMutant(this, index);
+                    break;               
+                default : ;
+            }
+
+            ASSERT(enemy); 
+            e.controller = enemy;
+            e.flags.active = TR::ACTIVE;
+            enemy->activate();
+        }
+        return index;
     }
 
     virtual bool invUse(TR::Entity::Type type) {
@@ -338,15 +371,14 @@ struct Level : IGame {
                 case TR::Entity::ENEMY_BAT             :   
                     entity.controller = new Bat(this, i);
                     break;
-                case TR::Entity::ENEMY_TWIN            :
-                case TR::Entity::ENEMY_CROCODILE_LAND  :
-                case TR::Entity::ENEMY_CROCODILE_WATER :
                 case TR::Entity::ENEMY_LION_MALE       :
                 case TR::Entity::ENEMY_LION_FEMALE     :
-                case TR::Entity::ENEMY_PUMA            :
-                case TR::Entity::ENEMY_GORILLA         :
+                    entity.controller = new Lion(this, i);
+                    break;
                 case TR::Entity::ENEMY_RAT_LAND        :
                 case TR::Entity::ENEMY_RAT_WATER       :
+                    entity.controller = new Rat(this, i);
+                    break;
                 case TR::Entity::ENEMY_REX             :
                     entity.controller = new Rex(this, i);
                     break;
@@ -356,9 +388,23 @@ struct Level : IGame {
                 case TR::Entity::ENEMY_MUTANT_1        :
                 case TR::Entity::ENEMY_MUTANT_2        :
                 case TR::Entity::ENEMY_MUTANT_3        :
+                    entity.controller = new Mutant(this, i); 
+                    break;
                 case TR::Entity::ENEMY_CENTAUR         :
+                    entity.controller = new Centaur(this, i);
+                    break;
                 case TR::Entity::ENEMY_MUMMY           :
+                case TR::Entity::ENEMY_TWIN            :
+                case TR::Entity::ENEMY_CROCODILE_LAND  :
+                case TR::Entity::ENEMY_CROCODILE_WATER :
+                case TR::Entity::ENEMY_PUMA            :
+                case TR::Entity::ENEMY_GORILLA         :
                 case TR::Entity::ENEMY_LARSON          :
+                case TR::Entity::ENEMY_PIERRE          :
+                case TR::Entity::ENEMY_SKATEBOY        :
+                case TR::Entity::ENEMY_COWBOY          :
+                case TR::Entity::ENEMY_MR_T            :
+                case TR::Entity::ENEMY_NATLA           :
                     entity.controller = new Enemy(this, i, 100, 10, 0.0f, 0.0f);
                     break;
                 case TR::Entity::DOOR_1                :
@@ -453,6 +499,10 @@ struct Level : IGame {
                     break;
                 case TR::Entity::BOAT                  :
                     entity.controller = new Boat(this, i);
+                    break;
+                case TR::Entity::MUTANT_EGG_SMALL      :
+                case TR::Entity::MUTANT_EGG_BIG        :
+                    entity.controller = new MutantEgg(this, i);
                     break;
                 default                                : 
                     if (entity.modelIndex > 0)

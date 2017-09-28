@@ -57,6 +57,7 @@ struct Enemy : Character {
     float length;       // dist from center to head (jaws)
     float aggression;
     int   radius;
+    int   hitSound;
 
     Character *target;
     Path      *path;
@@ -85,7 +86,13 @@ struct Enemy : Character {
     }
 
     virtual void updateVelocity() {
-        velocity = getDir() * animation.getSpeed();
+        if (stand == STAND_AIR && (!flying || health <= 0.0f))
+            velocity.y += GRAVITY * Core::deltaTime;
+        else
+            velocity = getDir() * animation.getSpeed();
+
+        if (health <= 0.0f) 
+            velocity.x = velocity.y = 0.0f;
     }
 
     bool checkPoint(int x, int z) {
@@ -126,7 +133,7 @@ struct Enemy : Character {
 
         if (px != nx) pos.x = float(nx);
         if (pz != nz) pos.z = float(nz);
-   }
+    }
 
     virtual void updatePosition() {
         if (!getEntity().flags.active) return;
@@ -137,7 +144,11 @@ struct Enemy : Character {
         clipByBox(pos);
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        if (stand == STAND_AIR && !flying && info.floor < pos.y) {
+            stand = STAND_GROUND;
+            pos.y = info.floor;
+        }
 
         if (info.boxIndex != 0xFFFF && zone == getZones()[info.boxIndex] && !level->boxes[info.boxIndex].overlap.block) {
             switch (stand) {
@@ -221,6 +232,8 @@ struct Enemy : Character {
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         Character::hit(damage, enemy, hitType);
         wound = true;
+        if (hitSound > -1) 
+            game->playSound(hitSound, pos, Sound::PAN);
     };
 
     void bite(const vec3 &pos, float damage) {
@@ -486,6 +499,7 @@ struct Wolf : Enemy {
         dropHeight = -1024;
         jointChest = 2;
         jointHead  = 3;
+        hitSound   = TR::SND_HIT_WOLF;
         nextState  = STATE_NONE;
         animation.time = animation.timeMax;
         updateAnimation(false);
@@ -605,6 +619,18 @@ struct Wolf : Enemy {
     }
 };
 
+struct Lion : Enemy {
+    Lion(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
+        hitSound = TR::SND_HIT_LION;
+    }
+};
+
+struct Rat : Enemy {
+    Rat(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
+        hitSound = TR::SND_HIT_RAT;
+    }
+};
+
 #define BEAR_DIST_EAT    768
 #define BEAR_DIST_HOWL   2048
 #define BEAR_DIST_BITE   1024
@@ -640,7 +666,8 @@ struct Bear : Enemy {
 
     Bear(IGame *game, int entity) : Enemy(game, entity, 20, 341, 500.0f, 0.5f) {
         jointChest = 13;
-        jointHead  = 14;    
+        jointHead  = 14;
+        hitSound   = TR::SND_HIT_BEAR;
         nextState  = STATE_NONE;
     }
 
@@ -812,13 +839,6 @@ struct Bat : Enemy {
 
     virtual int getStateDeath() {
         return state == STATE_DEATH ? state : animation.setAnim(ANIM_DEATH);
-    }
-
-    virtual void updateVelocity() {
-        if (state != STATE_DEATH)
-            Enemy::updateVelocity();
-        else
-            velocity = vec3(0.0f, velocity.y + GRAVITY * Core::deltaTime, 0.0f);
     }
 
     virtual void updatePosition() {
@@ -1064,5 +1084,122 @@ struct Raptor : Enemy {
         lookAt(target);
     }
 };
+
+struct Mutant : Enemy {
+    Mutant(IGame *game, int entity) : Enemy(game, entity, 50, 341, 150.0f, 1.0f) {
+        TR::Entity &e = getEntity();
+        if (e.type != TR::Entity::ENEMY_MUTANT_1) {
+            initMeshOverrides();
+            layers[0].mask = 0xffe07fff;
+            aggression     = 0.25f;
+        }
+
+        jointChest = 1;
+        jointHead  = 2;    
+        nextState  = 0;
+    }
+
+    virtual void update() {
+        bool exploded = explodeMask != 0;
+
+        if (health <= 0.0f && !exploded) {
+            game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
+            explode(0xffffffff);
+        }
+
+        Enemy::update();
+
+        if (exploded && !explodeMask) {
+            deactivate(true);
+            getEntity().flags.invisible = true;
+        }
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    virtual void updatePosition() {
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
+struct GiantMutant : Enemy {
+    enum {
+        STATE_STOP = 1,
+        STATE_BORN = 8,
+        STATE_FALL = 9,
+    };
+
+    GiantMutant(IGame *game, int entity) : Enemy(game, entity, 500, 341, 375.0f, 1.0f) {
+        hitSound = TR::SND_HIT_MUTANT;
+        stand = STAND_AIR;
+        jointChest = -1;
+        jointHead  = 3;
+        rangeHead  = vec4(-0.5f, 0.5f, -0.5f, 0.5f) * PI;
+        invertAim  = true;
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    void update() {
+        bool exploded = explodeMask != 0;
+
+        if (health <= 0.0f && !exploded) {
+            game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
+            explode(0xffffffff);
+        }
+
+        switch (state) {
+            case STATE_BORN : animation.setState(STATE_FALL); break;
+            case STATE_FALL : 
+                if (stand == STAND_GROUND) {
+                    animation.setState(STATE_STOP);
+                    game->getCamera()->shake = 5.0f;
+                }
+                break;
+        }
+
+        Enemy::update();
+
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+
+        if (exploded && !explodeMask) {
+            game->checkTrigger(this, true);
+            deactivate(true);
+            getEntity().flags.invisible = true;
+        }
+    }
+};
+
+
+struct Centaur : Enemy {
+    Centaur(IGame *game, int entity) : Enemy(game, entity, 20, 341, 400.0f, 0.5f) {
+        jointChest = 10;
+        jointHead  = 17;
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    virtual void updatePosition() {
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
 
 #endif

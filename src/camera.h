@@ -31,7 +31,6 @@ struct Camera : ICamera {
     int     room;
 
     float   timer;
-    float   shake;
 
     Basis   prevBasis;
 
@@ -43,7 +42,7 @@ struct Camera : ICamera {
     bool    firstPerson;
     bool    isVR;
 
-    Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), shake(0.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
+    Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
         changeView(false);
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;

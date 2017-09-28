@@ -254,6 +254,9 @@ namespace TR {
         SND_SHOTGUN_RELOAD  = 9,
         SND_RICOCHET        = 10,
         
+        SND_HIT_BEAR        = 16,
+        SND_HIT_WOLF        = 20,
+
         SND_SCREAM          = 30,
         SND_HIT             = 31,
         
@@ -266,7 +269,13 @@ namespace TR {
         SND_UNDERWATER      = 60,
 
         SND_FLOOD           = 81,
+
+        SND_HIT_LION        = 85,
+
+        SND_HIT_RAT         = 95,
         
+        SND_EXPLOSION       = 104,
+
         SND_INV_SPIN        = 108,
         SND_INV_HOME        = 109,
         SND_INV_CONTROLS    = 110,
@@ -278,9 +287,15 @@ namespace TR {
         SND_HEALTH          = 116,
         
         SND_STAIRS2SLOPE    = 119,
+
+        SND_HIT_SKATEBOY    = 132,
+
+        SND_HIT_MUTANT      = 142,
+
         SND_DART            = 151,
         
-        SND_EXPLOSION       = 170,
+        SND_TNT             = 170,
+        SND_MUTANT_DEATH    = 171,
         SND_SECRET          = 173,
     };
 
@@ -730,7 +745,10 @@ namespace TR {
                 && type != ENEMY_REX
                 && type != ENEMY_RAPTOR
                 && type != ENEMY_MUTANT_1
+                && type != ENEMY_MUTANT_2
+                && type != ENEMY_MUTANT_3
                 && type != ENEMY_CENTAUR
+                && type != ENEMY_GIANT_MUTANT
                 && type != ENEMY_MUMMY
                 && type != ENEMY_NATLA)
                 opaque = true;
@@ -2016,6 +2034,9 @@ namespace TR {
         }
 
         int16 getModelIndex(Entity::Type type) const {
+            if (type == TR::Entity::ENEMY_MUTANT_2 || type == TR::Entity::ENEMY_MUTANT_3)
+                type = TR::Entity::ENEMY_MUTANT_1; // hardcoded mutant models remapping
+
             for (int i = 0; i < modelsCount; i++)
                 if (type == models[i].type)
                     return i + 1;
@@ -2107,8 +2128,8 @@ namespace TR {
                 int sz = (z - room.info.z) >> 10;
 
                 if (sz <= 0 || sz >= room.xSectors - 1) {
-                    sx = clamp(sx, 1, room.xSectors - 2);
-                    sz = clamp(sz, 0, room.zSectors - 1);
+                    sx = clamp(sx, 0, room.xSectors - 1);
+                    sz = clamp(sz, 1, room.zSectors - 2);
                 } else
                     sx = clamp(sx, 0, room.xSectors - 1);
 

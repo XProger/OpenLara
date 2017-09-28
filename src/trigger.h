@@ -784,6 +784,44 @@ struct Boat : Controller {
 };
 
 
+#define MUTANT_EGG_RANGE 4096
+
+struct MutantEgg : Controller {
+    enum {
+        STATE_IDLE,
+        STATE_EXPLOSION,
+    };
+
+    TR::Entity::Type enemy;
+    
+    MutantEgg(IGame *game, int entity) : Controller(game, entity) {
+        initMeshOverrides();
+        layers[0].mask = 0xff0001ff; // hide dynamic meshes
+
+        switch (getEntity().flags.active) {
+            case 1  : enemy = TR::Entity::ENEMY_MUTANT_2;     break;
+            case 2  : enemy = TR::Entity::ENEMY_CENTAUR;      break;
+            case 4  : enemy = TR::Entity::ENEMY_GIANT_MUTANT; break;
+            case 8  : enemy = TR::Entity::ENEMY_MUTANT_3;     break;
+            default : enemy = TR::Entity::ENEMY_MUTANT_1;
+        }
+    }
+
+    virtual void update() {
+        if (state != STATE_EXPLOSION) {
+            Box box = Box(pos + vec3(-MUTANT_EGG_RANGE), pos + vec3(MUTANT_EGG_RANGE));
+            TR::Entity &e = getEntity();
+            if ( e.flags.once || e.type == TR::Entity::MUTANT_EGG_BIG || box.contains((((Controller*)level->laraController)->pos)) ) {
+                animation.setState(STATE_EXPLOSION);
+                layers[0].mask = 0xffffffff & ~(1 << 24);
+                explode(0x00fffe00);
+                game->addEnemy(enemy, getRoomIndex(), pos, angle.y);
+            }
+        }
+        Controller::update();
+    }
+};
+
 struct KeyHole : Controller {
     KeyHole(IGame *game, int entity) : Controller(game, entity) {}
 
