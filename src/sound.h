@@ -412,9 +412,8 @@ namespace Sound {
         PAN             = 2,
         UNIQUE          = 4,
         REPLAY          = 8,
-        SYNC            = 16,
-        STATIC          = 32,
-        MUSIC           = 64,
+        STATIC          = 16,
+        MUSIC           = 32,
     };
 
     struct Sample {
@@ -602,7 +601,7 @@ namespace Sound {
         for (int i = 0; i < channelsCount; i++) {
             if (music != ((channels[i]->flags & MUSIC) != 0))
                 continue;
-
+            
             if (channels[i]->flags & STATIC) {
                 vec3 d = channels[i]->pos - listener.matrix.getPos();
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST)
@@ -697,13 +696,14 @@ namespace Sound {
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         if (!stream) return NULL;
         if (volume > 0.001f) {
-            if (flags & (REPLAY | SYNC | UNIQUE))
+            if (flags & (UNIQUE | REPLAY))
                 for (int i = 0; i < channelsCount; i++)
                     if (channels[i]->id == id) {
-                        channels[i]->pos   = pos;
-                        channels[i]->pitch = pitch;
-                        if (flags & (REPLAY | UNIQUE))
+                        if (!(flags & UNIQUE)) {
+                            channels[i]->pos   = pos;
+                            channels[i]->pitch = pitch;
                             channels[i]->replay();
+                        }
                         delete stream;
                         return channels[i];
                     }

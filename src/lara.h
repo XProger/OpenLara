@@ -1354,6 +1354,10 @@ struct Lara : Character {
             return;
 
         switch (hitType) {
+            case TR::HIT_FALL : {
+                animation.setState(STATE_DEATH);
+                break;
+            }
             case TR::HIT_BOULDER : {
                 animation.setAnim(ANIM_DEATH_BOULDER);
                 if (enemy)
@@ -1854,6 +1858,19 @@ struct Lara : Character {
             if (stand != STAND_GROUND) {
                 pos.y = float(info.floor);
                 updateEntity();
+            // get damage from falling
+                if (velocity.y > 0.0f) {
+                    if (state == STATE_FAST_DIVE && velocity.y > 133.0f) {
+                        hit(health + 1.0f, NULL, TR::HIT_FALL);
+                    } else {
+                        float v = velocity.y - 140.0f;
+                        if (v > 14.0f)
+                            hit(health + 1.0f, NULL, TR::HIT_FALL);
+                        else
+                            if (v > 0.0f)
+                                hit(v * v * LARA_MAX_HEALTH / 196.0f, NULL, TR::HIT_FALL);
+                    }
+                }
             }
             return STAND_GROUND;
         }
@@ -1869,6 +1886,9 @@ struct Lara : Character {
 
     virtual int getStateAir() {
         angle.x = 0.0f;
+
+        if (velocity.y > 131.0f && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE)
+            return STATE_FALL;
 
         if (state == STATE_REACH && getDir().dot(vec3(velocity.x, 0.0f, velocity.z)) < 0)
             velocity.x = velocity.z = 0.0f;
@@ -2412,7 +2432,15 @@ struct Lara : Character {
 
         switch (stand) {
             case STAND_AIR :
-                velocity.y += GRAVITY * Core::deltaTime;
+                velocity.y += (velocity.y >= 128.0f ? 30.0f : GRAVITY) * Core::deltaTime;
+                if (velocity.y >= 154.0f)
+                    playSound(TR::SND_SCREAM, pos, Sound::PAN);
+                /*
+                if (state == STATE_FALL || state == STATE_FAST_DIVE) {
+                    velocity.x *= 0.95 * Core::deltaTime;
+                    velocity.z *= 0.95 * Core::deltaTime;
+                }
+                */
                 break;
             case STAND_GROUND  :
             case STAND_SLIDE   :

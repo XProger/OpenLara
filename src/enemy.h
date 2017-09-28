@@ -92,7 +92,7 @@ struct Enemy : Character {
             velocity = getDir() * animation.getSpeed();
 
         if (health <= 0.0f) 
-            velocity.x = velocity.y = 0.0f;
+            velocity.x = velocity.z = 0.0f;
     }
 
     bool checkPoint(int x, int z) {
@@ -147,7 +147,7 @@ struct Enemy : Character {
         level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
         if (stand == STAND_AIR && !flying && info.floor < pos.y) {
             stand = STAND_GROUND;
-            pos.y = info.floor;
+            pos.y = float(info.floor);
         }
 
         if (info.boxIndex != 0xFFFF && zone == getZones()[info.boxIndex] && !level->boxes[info.boxIndex].overlap.block) {

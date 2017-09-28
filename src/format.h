@@ -323,6 +323,7 @@ namespace TR {
 
     enum HitType {
         HIT_DEFAULT,
+        HIT_FALL,
         HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
@@ -951,7 +952,7 @@ namespace TR {
         uint16 volume;
         uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
         union {
-            struct { uint16 mode:2, count:4, unused:6, fixed:1, pitch:1, gain:1, :1; };
+            struct { uint16 mode:2, count:4, unused:6, camera:1, pitch:1, gain:1, :1; };
             uint16 value;
         } flags;
     };

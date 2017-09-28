@@ -281,12 +281,16 @@ struct Level : IGame {
         if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
             int   index  = b.offset + rand() % b.flags.count;
             float volume = (float)b.volume / 0x7FFF;
-            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f; 
-            if (b.flags.mode == 1) flags |= Sound::UNIQUE;
-            //if (b.flags.mode == 2) flags |= Sound::REPLAY;
-            if (b.flags.mode == 3) flags |= Sound::SYNC;
+            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f;
+            if (!(flags & Sound::MUSIC)) {
+                switch (b.flags.mode) {
+                    case 0 : flags |= Sound::UNIQUE; break;
+                    case 1 : flags |= Sound::REPLAY; break;
+                    case 2 : flags |= Sound::STATIC | Sound::LOOP; break;
+                }
+            }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
-            if (b.flags.fixed) flags |= Sound::LOOP;
+            if (b.flags.camera) flags &= ~Sound::PAN;
             return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, group * 1000 + index);
         }
         return NULL;
@@ -535,7 +539,7 @@ struct Level : IGame {
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
-                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | Sound::LOOP | Sound::STATIC);
+                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN);
             }
 
             lastTitle       = false;
@@ -951,7 +955,7 @@ struct Level : IGame {
             type = Shader::MIRROR;
 
         if (type == Shader::SPRITE) {
-            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0;
+            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0f;
             float diffuse = entity.isItem() ? 1.0f : 0.5f;
             setRoomParams(roomIndex, type, diffuse, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
         } else
