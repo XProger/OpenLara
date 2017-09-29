@@ -871,14 +871,6 @@ struct Lara : Character {
     void updateWeapon() {
         if (level->cutEntity > -1) return;
 
-        if (input & DEATH) {
-            arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
-            arms[0].tracking  = arms[1].tracking  = NULL;
-            arms[0].target    = arms[1].target    = NULL;
-            animation.overrideMask = 0;
-            return;
-        }
-
         if (wpnNext != Weapon::EMPTY && emptyHands()) {
             wpnSet(wpnNext);
             wpnDraw();
@@ -1050,6 +1042,9 @@ struct Lara : Character {
     }
 
     virtual void lookAt(Controller *target) {
+        if (health <= 0.0f)
+            return;
+
         updateOverrides();
 
         Character::lookAt(canLookAt() ? target : NULL);
@@ -1356,6 +1351,13 @@ struct Lara : Character {
         Sound::stop(TR::SND_SCREAM);
         game->stopTrack();
 
+        Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
+        arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
+        arms[0].tracking  = arms[1].tracking  = NULL;
+        arms[0].target    = arms[1].target    = NULL;
+        viewTarget        = NULL;
+        animation.overrideMask = 0;
+
         switch (hitType) {
             case TR::HIT_FALL : {
                 animation.setState(STATE_DEATH);
@@ -1395,8 +1397,6 @@ struct Lara : Character {
             }
             default : ;
         }
-
-        Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
     };
 
     bool useItem(TR::Entity::Type item) {
