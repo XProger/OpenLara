@@ -270,7 +270,7 @@ struct Level : IGame {
         return inventory.chooseKey(hole);
     }
 
-    virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const {
+    virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
         if (level.version == TR::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
 
@@ -291,7 +291,7 @@ struct Level : IGame {
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
             //if (b.flags.camera) flags &= ~Sound::PAN;
-            return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, group * 1000 + index);
+            return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, id);
         }
         return NULL;
     }
@@ -327,14 +327,14 @@ struct Level : IGame {
         }
         curTrack = track;
 
-        if (track == 0) return;
-
         if (sndSoundtrack) {
             sndSoundtrack->setVolume(-1.0f, 0.2f);
             if (sndCurrent == sndSoundtrack)
                 sndCurrent = NULL;
             sndSoundtrack = NULL;
         }
+
+        if (track <= 0) return;
 
         char title[32];
         sprintf(title, "audio/track_%02d.ogg", track);
@@ -343,7 +343,7 @@ struct Level : IGame {
     }
 
     virtual void stopTrack() {
-        playTrack(0);
+        playTrack(-1);
     }
 //==============================
 
@@ -533,13 +533,13 @@ struct Level : IGame {
         // init sounds
             //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
-            sndUnderwater = lara->playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
+            sndUnderwater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
             if (sndUnderwater)
                 sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
-                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | src.flags);
+                playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | src.flags);
             }
 
             lastTitle       = false;

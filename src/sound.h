@@ -704,6 +704,14 @@ namespace Sound {
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         if (!stream) return NULL;
         if (volume > 0.001f) {
+            if (!(flags & (STATIC | MUSIC)) && (flags & PAN)) {
+                vec3 d = pos - listener.matrix.getPos();
+                if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST) {
+                    delete stream;
+                    return NULL;
+                }
+            }
+
             if (flags & (UNIQUE | REPLAY))
                 for (int i = 0; i < channelsCount; i++)
                     if (channels[i]->id == id) {
@@ -723,6 +731,12 @@ namespace Sound {
         }
         delete stream;
         return NULL;
+    }
+
+    void stop(int id = -1) {
+        for (int i = 0; i < channelsCount; i++)
+            if (id == -1 || channels[i]->id == id)
+                channels[i]->stop();
     }
 
     void stopAll() {

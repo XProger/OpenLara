@@ -612,8 +612,8 @@ struct Lara : Character {
             default : ;
         }
 
-        if (wpnState == Weapon::IS_HIDDEN && wState == Weapon::IS_ARMED)  playSound(TR::SND_UNHOLSTER, pos, Sound::Flags::PAN);
-        if (wpnState == Weapon::IS_ARMED  && wState == Weapon::IS_HIDDEN) playSound(TR::SND_HOLSTER,   pos, Sound::Flags::PAN);
+        if (wpnState == Weapon::IS_HIDDEN && wState == Weapon::IS_ARMED)  game->playSound(TR::SND_UNHOLSTER, pos, Sound::Flags::PAN);
+        if (wpnState == Weapon::IS_ARMED  && wState == Weapon::IS_HIDDEN) game->playSound(TR::SND_HOLSTER,   pos, Sound::Flags::PAN);
 
     // swap layers
     // 0 - body (full)
@@ -788,7 +788,7 @@ struct Lara : Character {
                 // shotgun reload sound
                     if (wpnCurrent == Weapon::SHOTGUN) {
                         if (anim.frameIndex == 10)
-                            playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::Flags::PAN);
+                            game->playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::Flags::PAN);
                     }
                 }
             }
@@ -856,8 +856,8 @@ struct Lara : Character {
         }
 
         if (shots) {
-            playSound(wpnGetSound(), pos, Sound::Flags::PAN);
-            playSound(TR::SND_RICOCHET, nearPos, Sound::Flags::PAN);
+            game->playSound(wpnGetSound(), pos, Sound::Flags::PAN);
+            game->playSound(TR::SND_RICOCHET, nearPos, Sound::Flags::PAN);
 
              if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == Weapon::SHOTGUN)
                 *wpnAmmo -= 1;
@@ -1289,7 +1289,7 @@ struct Lara : Character {
     void doBubbles() {
         int count = rand() % 3;
         if (!count) return;
-        playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
+        game->playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
         vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
         for (int i = 0; i < count; i++) {
             int index = Sprite::add(game, TR::Entity::BUBBLE, getRoomIndex(), int(head.x), int(head.y), int(head.z), Sprite::FRAME_RANDOM, true);
@@ -1353,6 +1353,9 @@ struct Lara : Character {
         if (health > 0.0f)
             return;
 
+        Sound::stop(TR::SND_SCREAM);
+        game->stopTrack();
+
         switch (hitType) {
             case TR::HIT_FALL : {
                 animation.setState(STATE_DEATH);
@@ -1406,7 +1409,7 @@ struct Lara : Character {
             case TR::Entity::INV_MEDIKIT_BIG   :
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
-                playSound(TR::SND_HEALTH, pos, Sound::PAN);
+                game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
                 //TODO: remove medikit item
                 break;
             case TR::Entity::INV_PUZZLE_1 :
@@ -1624,12 +1627,12 @@ struct Lara : Character {
 
                     if (usedKey == TR::Entity::NONE) {
                         if (isPressed(ACTION) && !game->invChooseKey(entity.type))
-                            playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
+                            game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
                     }
 
                     if (TR::Entity::convToInv(TR::Entity::getItemForHole(entity.type)) != usedKey) { // check compatibility if user select other
-                        playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
+                        game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
                         return;
                     }
 
@@ -1787,7 +1790,7 @@ struct Lara : Character {
                 case TR::Action::SECRET :
                     if (!level->secrets[cmd.args]) {
                         level->secrets[cmd.args] = true;
-                        if (!playSound(TR::SND_SECRET, pos, 0))
+                        if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_SECRET);
                     }
                     break;
@@ -2434,7 +2437,7 @@ struct Lara : Character {
             case STAND_AIR :
                 velocity.y += (velocity.y >= 128.0f ? 30.0f : GRAVITY) * Core::deltaTime;
                 if (velocity.y >= 154.0f)
-                    playSound(TR::SND_SCREAM, pos, Sound::PAN);
+                    game->playSound(TR::SND_SCREAM, pos, Sound::PAN);
                 /*
                 if (state == STATE_FALL || state == STATE_FAST_DIVE) {
                     velocity.x *= 0.95 * Core::deltaTime;
@@ -2589,7 +2592,7 @@ struct Lara : Character {
             // get hit dir
                 if (hitDir == -1) {
                     if (health > 0)
-                        playSound(TR::SND_HIT, pos, Sound::PAN);
+                        game->playSound(TR::SND_HIT, pos, Sound::PAN);
                     hitTime = 0.0f;
                 }
 

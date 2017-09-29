@@ -123,7 +123,7 @@ struct TrapDartgun : Controller {
 
         Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
 
-        playSound(TR::SND_DART, pos, Sound::Flags::PAN);
+        game->playSound(TR::SND_DART, pos, Sound::Flags::PAN);
 
         return true;
     }

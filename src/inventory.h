@@ -332,7 +332,7 @@ struct Inventory {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
-            game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p, 0, 0);
+            game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p);
             chosen = false;
 
             if (active) {
@@ -418,7 +418,7 @@ struct Inventory {
 
         switch (item->type) {
             case TR::Entity::INV_PASSPORT : {
-                game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
+                game->playSound(TR::SND_INV_PAGE);
                 item->value = 1;
                 passportSlotCount = 2;
                 passportSlots[0] = TR::LEVEL_1;
@@ -441,8 +441,8 @@ struct Inventory {
                 if (key == cDown ) { slot = (slot + 1) % passportSlotCount; };
             }
         // passport pages
-            if (key == cLeft  && item->value > 0) { item->value--; item->anim->dir = -1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
-            if (key == cRight && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0); }
+            if (key == cLeft  && item->value > 0) { item->value--; item->anim->dir = -1.0f; game->playSound(TR::SND_INV_PAGE); }
+            if (key == cRight && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE); }
 
             if (key == cAction && phaseChoose == 1.0f) {
                 TR::LevelID id = game->getLevel()->id;
@@ -476,7 +476,7 @@ struct Inventory {
                         case 3 : settings.detail.setWater(q);    break;
                     }
                     if (q == settings.detail.quality[slot])
-                        game->playSound(TR::SND_INV_PAGE, vec3(), 0, 0);
+                        game->playSound(TR::SND_INV_PAGE);
                 }
             }
 
@@ -497,7 +497,7 @@ struct Inventory {
                     v = key == cLeft ? max(0.0f, v - 0.05f) : min(1.0f, v + 0.05f);
                     changeTimer = 0.2f;
                     if (slot == 1)
-                        game->playSound(TR::SND_PISTOLS_SHOT, vec3(), 0, 0);
+                        game->playSound(TR::SND_PISTOLS_SHOT);
                     game->applySettings(Core::settings);
                 }
             }
@@ -574,23 +574,21 @@ struct Inventory {
                     default : ;
                 }
 
-                if (index != targetIndex) {
-                    vec3 p;
-                    game->playSound(TR::SND_INV_SPIN, p, 0, 0);
-                }
+                if (index != targetIndex)
+                    game->playSound(TR::SND_INV_SPIN);
 
                 if (lastKey != key && key == cAction && phaseChoose == 0.0f) {
                     vec3 p;
                     chosen = true;
                     switch (item->type) {
-                        case TR::Entity::INV_COMPASS  : game->playSound(TR::SND_INV_COMPASS, p, 0, 0);   break;
-                        case TR::Entity::INV_HOME     : game->playSound(TR::SND_INV_HOME, p, 0, 0);      break;
-                        case TR::Entity::INV_CONTROLS : game->playSound(TR::SND_INV_CONTROLS, p, 0, 0);  break;
+                        case TR::Entity::INV_COMPASS  : game->playSound(TR::SND_INV_COMPASS);   break;
+                        case TR::Entity::INV_HOME     : game->playSound(TR::SND_INV_HOME);      break;
+                        case TR::Entity::INV_CONTROLS : game->playSound(TR::SND_INV_CONTROLS);  break;
                         case TR::Entity::INV_PISTOLS  :
                         case TR::Entity::INV_SHOTGUN  :
                         case TR::Entity::INV_MAGNUMS  :
-                        case TR::Entity::INV_UZIS     : game->playSound(TR::SND_INV_WEAPON, p, 0, 0);    break;
-                        default                       : game->playSound(TR::SND_INV_SHOW, p, 0, 0);      break;
+                        case TR::Entity::INV_UZIS     : game->playSound(TR::SND_INV_WEAPON);    break;
+                        default                       : game->playSound(TR::SND_INV_SHOW);      break;
                     }
                     item->choose();
                 }

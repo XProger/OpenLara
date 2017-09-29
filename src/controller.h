@@ -61,7 +61,7 @@ struct IGame {
     virtual int* invCount(TR::Entity::Type type) { return NULL; }
     virtual bool invChooseKey(TR::Entity::Type hole) { return false; }
 
-    virtual Sound::Sample* playSound(int id, const vec3 &pos, int flags, int group = -1) const { return NULL; }
+    virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const { return NULL; }
     virtual void playTrack(int track, bool restart = false) {}
     virtual void stopTrack()                                {}
 };
@@ -308,10 +308,6 @@ struct Controller {
         return pos;
     }
 
-    Sound::Sample* playSound(int id, const vec3 &pos, int flags) const {
-        return game->playSound(id, pos, flags, entity);
-    }
-
     vec3 getDir() const {
         return vec3(angle.x, angle.y);
     }
@@ -525,7 +521,7 @@ struct Controller {
                                     default                      : cmdEffect(fx); break;
                                 }
                             } else
-                                playSound(fx, pos, Sound::Flags::PAN);
+                                game->playSound(fx, pos, Sound::Flags::PAN);
                         }
                         break;
                     }
