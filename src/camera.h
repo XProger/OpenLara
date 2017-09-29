@@ -96,6 +96,7 @@ struct Camera : ICamera {
     }
 
     void updateListener() {
+        Sound::flipped = level->isFlipped;
         Sound::listener.matrix = mViewInv;
         TR::Room &r = level->rooms[getRoomIndex()];
         int h = (r.info.yBottom - r.info.yTop) / 1024;

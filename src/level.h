@@ -290,7 +290,7 @@ struct Level : IGame {
                 }
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
-            if (b.flags.camera) flags &= ~Sound::PAN;
+            //if (b.flags.camera) flags &= ~Sound::PAN;
             return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, group * 1000 + index);
         }
         return NULL;
@@ -539,7 +539,7 @@ struct Level : IGame {
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
-                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN);
+                lara->playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | src.flags);
             }
 
             lastTitle       = false;

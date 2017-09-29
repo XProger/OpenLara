@@ -414,7 +414,11 @@ namespace Sound {
         REPLAY          = 8,
         STATIC          = 16,
         MUSIC           = 32,
+        FLIPPED         = 64,
+        UNFLIPPED       = 128,
     };
+
+    bool flipped;
 
     struct Sample {
         Decoder *decoder;
@@ -505,7 +509,7 @@ namespace Sound {
             mat4  m = Sound::listener.matrix;
             vec3  v = pos - m.offset.xyz;
 
-            float dist = max(0.0f, 1.0f - (v.length2() / (SND_FADEOFF_DIST * SND_FADEOFF_DIST)));
+            float dist = max(0.0f, 1.0f - (v.length() / SND_FADEOFF_DIST));
             float pan  = m.right.xyz.dot(v.normal());
 
             float l = min(1.0f, 1.0f - pan);
@@ -575,6 +579,7 @@ namespace Sound {
     Filter::Reverberation reverb;
 
     void init() {
+        flipped = false;
         channelsCount = 0;
         callback = NULL;
         buffer = NULL;
@@ -603,6 +608,9 @@ namespace Sound {
                 continue;
             
             if (channels[i]->flags & STATIC) {
+                if (!(channels[i]->flags & (flipped ? FLIPPED : UNFLIPPED)))
+                    continue;
+
                 vec3 d = channels[i]->pos - listener.matrix.getPos();
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST)
                     continue;
