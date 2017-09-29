@@ -1348,7 +1348,6 @@ struct Lara : Character {
         if (health > 0.0f)
             return;
 
-        Sound::stop(TR::SND_SCREAM);
         game->stopTrack();
 
         Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
@@ -1836,6 +1835,7 @@ struct Lara : Character {
             wpnHide();
             if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
                 animation.setAnim(ANIM_FALL_FORTH);
+            stopScreaming();
             return STAND_UNDERWATER;
         }
 
@@ -1863,6 +1863,7 @@ struct Lara : Character {
                 updateEntity();
             // get damage from falling
                 if (velocity.y > 0.0f) {
+                    stopScreaming();
                     if (state == STATE_FAST_DIVE && velocity.y > 133.0f) {
                         hit(health + 1.0f, NULL, TR::HIT_FALL);
                     } else {
@@ -1879,6 +1880,11 @@ struct Lara : Character {
         }
 
         return STAND_AIR;
+    }
+
+    void stopScreaming() {
+        if (velocity.y >= 154.0f)
+            Sound::stop(TR::SND_SCREAM);
     }
 
     virtual int getHeight() {
