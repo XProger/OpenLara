@@ -400,14 +400,6 @@ struct Lara : Character {
     } *braid;
 
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), braid(NULL) {
-
-        if (getEntity().type == TR::Entity::LARA) {
-            if (getRoom().flags.water)
-                animation.setAnim(ANIM_UNDERWATER);
-            else
-                animation.setAnim(ANIM_STAND);
-        }
-
         jointChest = 7;
         jointHead  = 14;
         rangeChest = vec4(-0.40f, 0.40f, -0.90f, 0.90f) * PI;
@@ -465,6 +457,9 @@ struct Lara : Character {
         //reset(18, vec3(34914, 11008, 41315), 90 * DEG2RAD); // level 4 (main hall)
         //reset(19, vec3(33368, 19968, 45643), 270 * DEG2RAD); // level 4 (damocles)
         //reset(24, vec3(45609, 18176, 41500), 90 * DEG2RAD); // level 4 (thor)
+        //reset(21, vec3(24106, -4352, 52089), 0);              // level 6 (flame traps)
+        //reset(73, vec3(73372, -122, 51687), PI * 0.5f);       // level 6 (midas hand)
+        //reset(64, vec3(36839, -2560, 48769), 270 * DEG2RAD);  // level 6 (flipmap effect)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(90,  vec3(19438, 3840, 78341), 90 * DEG2RAD); // level 7a (statues)
         //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
@@ -473,12 +468,20 @@ struct Lara : Character {
         //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
         //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (drill)
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
-        //reset(50, vec3(53703, -18688, 13769), PI);      // Level 10c (scion holder)
-        //reset(19, vec3(35364, -512, 40199), PI * 0.5f);  // Level 10c (lava flow)
+        //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
+        //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);  // Level 10c (trap slam)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     #endif
-        chestOffset = animation.getJoints(getMatrix(), 7).pos;
+
+        if (getEntity().type == TR::Entity::LARA) {
+            if (getRoom().flags.water)
+                animation.setAnim(ANIM_UNDERWATER);
+            else
+                animation.setAnim(ANIM_STAND);
+        }
+
+        chestOffset = animation.getJoints(getMatrix(), jointChest).pos;
     }
 
     virtual ~Lara() {
@@ -983,8 +986,8 @@ struct Lara : Character {
         // head & chest
         overrideMask |= BODY_CHEST | BODY_HEAD;
 
-        animation.overrides[ 7] = animation.getJointRot( 7);
-        animation.overrides[14] = animation.getJointRot(14);
+        animation.overrides[jointChest] = animation.getJointRot(jointChest);
+        animation.overrides[jointHead]  = animation.getJointRot(jointHead);
 
     /* TODO: shotgun full body animation
         if (wpnCurrent == Weapon::SHOTGUN) {
@@ -1396,6 +1399,20 @@ struct Lara : Character {
             }
             default : ;
         }
+
+        if (hitType != TR::HIT_LAVA) {
+            TR::Entity &e = getEntity();
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+
+            if (info.lava && info.floor == e.y)
+                hitType = TR::HIT_LAVA;
+        }
+
+        if (hitType == TR::HIT_LAVA) {
+            for (int i = 0; i < 10; i++)
+                Flame::add(game, this, int(randf() * 24.0f));
+        }
     };
 
     bool useItem(TR::Entity::Type item) {
@@ -1577,6 +1594,11 @@ struct Lara : Character {
         TR::Entity &e = controller->getEntity();
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+
+        if (info.lava && info.floor == e.y) {
+            hit(LARA_MAX_HEALTH + 1, NULL, TR::HIT_LAVA);
+            return;
+        }
 
         if (!info.trigCmdCount) return; // has no trigger
 
@@ -2218,10 +2240,10 @@ struct Lara : Character {
 
         if (state == STATE_SURF_TREAD) {
             if (animation.isFrameActive(0))
-                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.03f);
+                game->waterDrop(animation.getJoints(getMatrix(), jointHead).pos, 96.0f, 0.03f);
         } else {
             if (animation.frameIndex % 4 == 0)
-                game->waterDrop(animation.getJoints(getMatrix(), 14).pos, 96.0f, 0.02f);
+                game->waterDrop(animation.getJoints(getMatrix(), jointHead).pos, 96.0f, 0.02f);
         }
 
         if (input & FORTH) {
@@ -2779,7 +2801,7 @@ struct Lara : Character {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Controller::render(frustum, mesh, type, caustics);
-        chestOffset = animation.getJoints(getMatrix(), 7).pos; // TODO: move to update func
+        chestOffset = animation.getJoints(getMatrix(), jointChest).pos; // TODO: move to update func
 
         if (braid)
             braid->render(mesh);

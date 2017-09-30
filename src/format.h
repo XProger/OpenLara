@@ -51,7 +51,7 @@
     E( TRAP_SPIKES           ) \
     E( TRAP_BOULDER          ) \
     E( TRAP_DART             ) \
-    E( TRAP_DARTGUN          ) \
+    E( TRAP_DART_EMITTER     ) \
     E( DRAWBRIDGE            ) \
     E( TRAP_SLAM             ) \
     E( TRAP_SWORD            ) \
@@ -187,10 +187,10 @@
     E( MUTANT_GRENADE        ) \
     E( UNUSED_16             ) \
     E( UNUSED_17             ) \
-    E( LAVA_PARTICLE         ) \
-    E( LAVA_EMITTER          ) \
-    E( FLAME                 ) \
-    E( FLAME_EMITTER         ) \
+    E( TRAP_LAVA_PARTICLE    ) \
+    E( TRAP_LAVA_EMITTER     ) \
+    E( TRAP_FLAME            ) \
+    E( TRAP_FLAME_EMITTER    ) \
     E( TRAP_LAVA             ) \
     E( MUTANT_EGG_BIG        ) \
     E( BOAT                  ) \
@@ -268,12 +268,16 @@ namespace TR {
         
         SND_UNDERWATER      = 60,
 
+        SND_BOULDER         = 70,
+
         SND_FLOOD           = 81,
 
         SND_HIT_LION        = 85,
 
         SND_HIT_RAT         = 95,
         
+        SND_ROCK            = 99,
+
         SND_EXPLOSION       = 104,
 
         SND_INV_SPIN        = 108,
@@ -291,7 +295,9 @@ namespace TR {
         SND_HIT_SKATEBOY    = 132,
 
         SND_HIT_MUTANT      = 142,
-
+        SND_STOMP           = 147,
+        
+        SND_FLAME           = 150,
         SND_DART            = 151,
         
         SND_TNT             = 170,
@@ -327,7 +333,7 @@ namespace TR {
         HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
-        HIT_FLAME,
+        HIT_LAVA,
         HIT_SLAM,
         HIT_REX,
     };
@@ -578,7 +584,7 @@ namespace TR {
             FLOOR   ,
             CEILING ,
             TRIGGER ,
-            KILL    ,
+            LAVA    ,
         };
     };
 
@@ -663,7 +669,7 @@ namespace TR {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
-                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1); // TODO: recheck all items
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1 || type == LEADBAR); // TODO: recheck all items
         }
 
         bool isActor() const {
@@ -1140,7 +1146,7 @@ namespace TR {
             int slantX, slantZ;
             int floorIndex;
             int boxIndex;
-            int kill;
+            int lava;
             int trigCmdCount;
             Trigger trigger;
             FloorData::TriggerInfo trigInfo;
@@ -2172,7 +2178,7 @@ namespace TR {
             info.roomAbove    = s.roomAbove;
             info.floorIndex   = s.floorIndex;
             info.boxIndex     = s.boxIndex;
-            info.kill         = 0;
+            info.lava         = false;
             info.trigger      = Trigger::ACTIVATE;
             info.trigCmdCount = 0;
 
@@ -2344,8 +2350,8 @@ namespace TR {
                         break;
                     }
 
-                    case FloorData::KILL :
-                        info.kill = 1;
+                    case FloorData::LAVA :
+                        info.lava = true;
                         break;
 
                     default : LOG("unknown func: %d\n", cmd.func);

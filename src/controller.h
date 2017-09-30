@@ -402,6 +402,10 @@ struct Controller {
         return mask;
     }
 
+    bool collide(const Sphere &sphere) {
+        return getBoundingBoxLocal().intersect(Sphere(getMatrix().inverse() * sphere.center, sphere.radius));
+    }
+
     vec3 trace(int fromRoom, const vec3 &from, const vec3 &to, int &room, bool isCamera) { // TODO: use Bresenham
         room = fromRoom;
 

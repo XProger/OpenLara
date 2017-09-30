@@ -283,7 +283,7 @@ struct Level : IGame {
                 switch (b.flags.mode) {
                     case 0 : flags |= Sound::UNIQUE; break;
                     case 1 : flags |= Sound::REPLAY; break;
-                    case 2 : flags |= Sound::STATIC | Sound::LOOP; break;
+                    case 2 : flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP; break;
                 }
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
@@ -447,8 +447,8 @@ struct Level : IGame {
                 case TR::Entity::TRAP_BOULDER          :
                     entity.controller = new TrapBoulder(this, i);
                     break;
-                case TR::Entity::TRAP_DARTGUN          :
-                    entity.controller = new TrapDartgun(this, i);
+                case TR::Entity::TRAP_DART_EMITTER     :
+                    entity.controller = new TrapDartEmitter(this, i);
                     break;
                 case TR::Entity::DRAWBRIDGE            :
                     entity.controller = new Drawbridge(this, i);
@@ -497,6 +497,9 @@ struct Level : IGame {
                     break;
                 case TR::Entity::CABIN                 :
                     entity.controller = new Cabin(this, i);
+                    break;
+                case TR::Entity::TRAP_FLAME_EMITTER    :
+                    entity.controller = new TrapFlameEmitter(this, i);
                     break;
                 case TR::Entity::BOAT                  :
                     entity.controller = new Boat(this, i);

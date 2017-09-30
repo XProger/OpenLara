@@ -412,10 +412,9 @@ namespace Sound {
         PAN             = 2,
         UNIQUE          = 4,
         REPLAY          = 8,
-        STATIC          = 16,
-        MUSIC           = 32,
-        FLIPPED         = 64,
-        UNFLIPPED       = 128,
+        MUSIC           = 16,
+        FLIPPED         = 32,
+        UNFLIPPED       = 64,
     };
 
     bool flipped;
@@ -607,7 +606,7 @@ namespace Sound {
             if (music != ((channels[i]->flags & MUSIC) != 0))
                 continue;
             
-            if (channels[i]->flags & STATIC) {
+            if (channels[i]->flags & (FLIPPED | UNFLIPPED)) {
                 if (!(channels[i]->flags & (flipped ? FLIPPED : UNFLIPPED)))
                     continue;
 
@@ -704,7 +703,7 @@ namespace Sound {
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         if (!stream) return NULL;
         if (volume > 0.001f) {
-            if (!(flags & (STATIC | MUSIC)) && (flags & PAN)) {
+            if (!(flags & (FLIPPED | UNFLIPPED | MUSIC)) && (flags & PAN)) {
                 vec3 d = pos - listener.matrix.getPos();
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST) {
                     delete stream;
@@ -712,17 +711,23 @@ namespace Sound {
                 }
             }
 
-            if (flags & (UNIQUE | REPLAY))
+            if (flags & (UNIQUE | REPLAY)) {
                 for (int i = 0; i < channelsCount; i++)
                     if (channels[i]->id == id) {
-                        if (!(flags & UNIQUE)) {
-                            channels[i]->pos   = pos;
+                        vec3 p = listener.matrix.getPos();
+
+                        if ((p - channels[i]->pos).length2() > (p - pos).length2()) {
+                            channels[i]->pos = pos;
                             channels[i]->pitch = pitch;
-                            channels[i]->replay();
                         }
+
+                        if (flags & REPLAY)
+                            channels[i]->replay();
+
                         delete stream;
                         return channels[i];
                     }
+            }
 
             if (channelsCount < SND_CHANNELS_MAX)
                 return channels[channelsCount++] = new Sample(stream, pos, volume, pitch, flags, id);

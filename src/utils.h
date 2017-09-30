@@ -773,6 +773,41 @@ vec3 boxNormal(int x, int z) {
         return x < z ? vec3(-1, 0, 0) : vec3(0, 0, -1);
 }
 
+
+struct Sphere {
+    vec3  center;
+    float radius;
+
+    Sphere() {}
+    Sphere(const vec3 &center, float radius) : center(center), radius(radius) {}
+
+    bool intersect(const Sphere &s) const {
+        float d = (center - s.center).length2();
+        float r = (radius + s.radius);
+        return d < r * r;
+    }
+
+    bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
+        vec3 v = rayPos - center;
+        float h = -v.dot(rayDir);
+        float d = h * h + radius * radius - v.length2();
+
+        if (d > 0.0f) {
+            d = sqrtf(d);
+            float tMin = h - d;
+            float tMax = h + d;
+            if (tMax > 0.0f) {
+                if (tMin < 0.0f)
+                    tMin = 0.0f;
+                t = tMin;
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+
 struct Box {
     vec3 min, max;
 
@@ -872,6 +907,12 @@ struct Box {
         max += offset;
     }
 
+    vec3 closestPoint(const vec3 &p) const {
+        return vec3(clamp(p.x, min.x, max.x),
+                    clamp(p.y, min.y, max.y),
+                    clamp(p.z, min.z, max.z));
+    }
+
     bool contains(const vec3 &v) const {
         return v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y && v.z >= min.z && v.z <= max.z;
     }
@@ -918,6 +959,13 @@ struct Box {
         return !((max.x < box.min.x || min.x > box.max.x) || (max.y < box.min.y || min.y > box.max.y) || (max.z < box.min.z || min.z > box.max.z));
     }
 
+    bool intersect(const Sphere &sphere) const {
+        if (contains(sphere.center))
+            return true;
+        vec3 dir = sphere.center - closestPoint(sphere.center);
+        return (dir.length2() < sphere.radius * sphere.radius);
+    }
+
     bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
         float tMax = INF, tMin = -tMax;
 
@@ -940,38 +988,6 @@ struct Box {
     }
 };
 
-struct Sphere {
-    vec3  center;
-    float radius;
-
-    Sphere() {}
-    Sphere(const vec3 &center, float radius) : center(center), radius(radius) {}
-
-    bool intersect(const Sphere &s) const {
-        float d = (center - s.center).length2();
-        float r = (radius + s.radius);
-        return d < r * r;
-    }
-
-    bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
-        vec3 v = rayPos - center;
-        float h = -v.dot(rayDir);
-        float d = h * h + radius * radius - v.length2();
-
-        if (d > 0.0f) {
-            d = sqrtf(d);
-            float tMin = h - d;
-            float tMax = h + d;
-            if (tMax > 0.0f) {
-                if (tMin < 0.0f)
-                    tMin = 0.0f;
-                t = tMin;
-                return true;
-            }
-        }
-        return false;
-    }
-};
 
 struct Stream {
     static char cacheDir[255];

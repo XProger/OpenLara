@@ -668,9 +668,12 @@ namespace Debug {
             level.getFloorInfo(((Controller*)entity.controller)->getRoomIndex(), entity.x, entity.y, entity.z, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
-          
+
+            y += 16;
+            if (info.lava)
+                Debug::Draw::text(vec2(16, y += 16), vec4(1.0f, 0.5f, 0.3f, 1.0f), "LAVA");
+
             if (info.trigCmdCount > 0) {
-                y += 16;
                 sprintf(buf, "trigger: %s%s mask: %d timer: %d", getTriggerType(level, info.trigger), info.trigInfo.once ? " (once)" : "", info.trigInfo.mask, info.trigInfo.timer);
                 Debug::Draw::text(vec2(16, y += 16), vec4(0.5f, 0.8f, 0.5f, 1.0f), buf);
 

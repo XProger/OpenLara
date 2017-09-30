@@ -56,6 +56,8 @@ struct Gear : Controller {
     }
 };
 
+#define DART_DAMAGE 50
+
 struct Dart : Controller {
     vec3 velocity;
     vec3 dir;
@@ -74,7 +76,7 @@ struct Dart : Controller {
         Controller *lara = (Controller*)level->laraController;
         if (armed && collide(lara)) {
             Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
-            lara->hit(50.0f, this);
+            lara->hit(DART_DAMAGE, this);
             armed = false;
         }
 
@@ -95,13 +97,13 @@ struct Dart : Controller {
     }
 };
 
-struct TrapDartgun : Controller {
+struct TrapDartEmitter : Controller {
     enum {
         STATE_IDLE,
         STATE_FIRE
     };
 
-    TrapDartgun(IGame *game, int entity) : Controller(game, entity) {}
+    TrapDartEmitter(IGame *game, int entity) : Controller(game, entity) {}
     
     virtual bool activate() {
         if (!Controller::activate())
@@ -114,11 +116,11 @@ struct TrapDartgun : Controller {
 
         vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
 
-        int dartIndex = level->entityAdd(TR::Entity::TRAP_DART, entity.room, (int)p.x, (int)p.y, (int)p.z, entity.rotation, entity.intensity);
-        if (dartIndex > -1) {
-            Dart *dart = new Dart(game, dartIndex);
+        int index = level->entityAdd(TR::Entity::TRAP_DART, getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), entity.rotation, entity.intensity);
+        if (index > -1) {
+            Dart *dart = new Dart(game, index);
             dart->activate();
-            level->entities[dartIndex].controller = dart; 
+            level->entities[index].controller = dart; 
         }
 
         Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
@@ -134,6 +136,91 @@ struct TrapDartgun : Controller {
             animation.setState(STATE_IDLE);
             deactivate();
         }
+    }
+};
+
+#define FLAME_HEAT_DAMAGE 90
+#define FLAME_BURN_DAMAGE 150
+
+struct Flame : Sprite {
+
+    static Flame* add(IGame *game, Controller *controller, int jointIndex) {
+        Flame *flame = NULL;
+
+        TR::Level *level = game->getLevel();
+        int  roomIndex   = controller->getRoomIndex();
+        vec3 pos         = controller->pos;
+
+        int index = level->entityAdd(TR::Entity::TRAP_FLAME, roomIndex, int(pos.x), int(pos.y), int(pos.z), 0, 0);
+        if (index > -1) {
+            flame = new Flame(game, index, jointIndex);
+            level->entities[index].controller = flame; 
+        }
+        return flame;
+    }
+
+    int jointIndex;
+    float sleep;
+
+    Flame(IGame *game, int entity, int jointIndex) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), jointIndex(jointIndex), sleep(0.0f) {
+        time = randf() * 3.0f;
+        activate();
+    }
+
+    virtual void update() {
+        Sprite::update();
+        game->playSound(TR::SND_FLAME, pos, Sound::PAN);
+
+        Character *lara = (Character*)level->laraController;
+
+        if (jointIndex > -1) {
+            if (lara->stand == Character::STAND_UNDERWATER) {
+                level->entityRemove(entity);
+                delete this;
+                return;
+            }
+
+            pos = lara->animation.getJoints(lara->getMatrix(), jointIndex).pos;
+            if (jointIndex == 0)
+                pos.y += 100.0f;
+
+            lara->hit(FLAME_BURN_DAMAGE * Core::deltaTime, this);
+        } else 
+            if (lara->health > 0.0f) {
+                if (sleep > 0.0f)
+                    sleep = max(0.0f, sleep - Core::deltaTime);
+
+                if (sleep == 0.0f && lara->collide(Sphere(pos, 600.0f))) {
+                    lara->hit(FLAME_HEAT_DAMAGE * Core::deltaTime, this);
+
+                    if (lara->collide(Sphere(pos, 300.0f))) {
+                        Flame::add(game, lara, 0);
+                        sleep = 3.0f; // stay inactive for 3 seconds
+                    }
+                }
+            }
+    }
+};
+
+struct TrapFlameEmitter : Controller {
+    Flame *flame;
+
+    TrapFlameEmitter(IGame *game, int entity) : Controller(game, entity), flame(NULL) {}
+
+    void virtual update() {
+        if (!isActive()) {
+            if (flame) {
+                level->entityRemove(flame->entity);
+                delete flame;
+                flame = NULL;
+                Sound::stop(TR::SND_FLAME);
+            }
+            return;
+        }
+
+        if (flame) return;
+
+        flame = Flame::add(game, this, -1);
     }
 };
 
@@ -694,7 +781,7 @@ struct TrapLava : Controller {
     virtual void update() {
         Character *lara = (Character*)level->laraController;
         if (lara->health > 0.0f && collide(lara))
-            lara->hit(1000.0f, this, TR::HIT_FLAME);
+            lara->hit(1001.0f, this, TR::HIT_LAVA);
 
         if (done) {
             deactivate();
