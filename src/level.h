@@ -50,7 +50,7 @@ struct Level : IGame {
 
     TR::Effect effect;
     float      effectTimer;
-    int        flickerIdx;
+    int        effectIdx;
 
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
@@ -190,15 +190,12 @@ struct Level : IGame {
     virtual void setEffect(TR::Effect effect, float param) {
         this->effect      = effect;
         this->effectTimer = 0.0f;
+        this->effectIdx   = 0;
 
         switch (effect) {
-            case TR::Effect::NONE : return;
             case TR::Effect::FLOOR_SHAKE :
                 camera->shake = param;
                 return;
-            case TR::Effect::FLICKER :
-                flickerIdx = 0;
-                break;
             case TR::Effect::FLOOD : {
                 Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
                 if (sample)
@@ -1039,19 +1036,30 @@ struct Level : IGame {
 
         switch (effect) {
             case TR::Effect::FLICKER : {
-                int idx = flickerIdx;
-                switch (flickerIdx) {
-                    case 0 : if (effectTimer > 3.0f) flickerIdx++; break;
-                    case 1 : if (effectTimer > 3.1f) flickerIdx++; break;
-                    case 2 : if (effectTimer > 3.5f) flickerIdx++; break;
-                    case 3 : if (effectTimer > 3.6f) flickerIdx++; break;
-                    case 4 : if (effectTimer > 4.1f) { flickerIdx++; effect = TR::Effect::NONE; } break;
+                int idx = effectIdx;
+                switch (effectIdx) {
+                    case 0 : if (effectTimer > 3.0f) effectIdx++; break;
+                    case 1 : if (effectTimer > 3.1f) effectIdx++; break;
+                    case 2 : if (effectTimer > 3.5f) effectIdx++; break;
+                    case 3 : if (effectTimer > 3.6f) effectIdx++; break;
+                    case 4 : if (effectTimer > 4.1f) { effectIdx++; effect = TR::Effect::NONE; } break;
                 }
-                if (idx != flickerIdx)
+                if (idx != effectIdx)
                     level.isFlipped = !level.isFlipped;
                 break;
             }
-            default : return;
+            case TR::Effect::EARTHQUAKE : {
+                switch (effectIdx) {
+                    case 0 : if (effectTimer > 0.0f) { playSound(TR::SND_ROCK);     effectIdx++; camera->shake = 1.0f; } break;
+                    case 1 : if (effectTimer > 0.1f) { playSound(TR::SND_STOMP);    effectIdx++; } break;
+                    case 2 : if (effectTimer > 0.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
+                    case 3 : if (effectTimer > 1.1f) { playSound(TR::SND_ROCK);     effectIdx++; } break;
+                    case 4 : if (effectTimer > 1.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
+                    case 5 : if (effectTimer > 2.3f) { playSound(TR::SND_BOULDER);  camera->shake += 0.5f; effect = TR::Effect::NONE; } break;
+                }
+                break;
+            }
+            default : effect = TR::Effect::NONE; return;
         }
     }
 
