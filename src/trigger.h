@@ -61,10 +61,9 @@ struct Gear : Controller {
 struct Dart : Controller {
     vec3 velocity;
     vec3 dir;
-    bool inWall;    // dart starts from wall
     bool armed;
 
-    Dart(IGame *game, int entity) : Controller(game, entity), inWall(true), armed(true) {
+    Dart(IGame *game, int entity) : Controller(game, entity), armed(true) {
         dir = vec3(sinf(angle.y), 0, cosf(angle.y));
     }
 
@@ -83,17 +82,14 @@ struct Dart : Controller {
         TR::Level::FloorInfo info;
         level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
         if (pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())) {
-            if (!inWall) {
-                TR::Entity &e = getEntity();
+            TR::Entity &e = getEntity();
                 
-                vec3 p = pos - dir * 64.0f; // wall offset = 64
-                Sprite::add(game, TR::Entity::RICOCHET, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
+            vec3 p = pos - dir * 64.0f; // wall offset = 64
+            Sprite::add(game, TR::Entity::RICOCHET, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
 
-                level->entityRemove(entity);
-                delete this;
-            }
-        } else
-            inWall = false;
+            level->entityRemove(entity);
+            delete this;
+        }
     }
 };
 
@@ -105,37 +101,30 @@ struct TrapDartEmitter : Controller {
 
     TrapDartEmitter(IGame *game, int entity) : Controller(game, entity) {}
     
-    virtual bool activate() {
-        if (!Controller::activate())
-            return false;
-        
-        animation.setState(STATE_FIRE);
-
-        // add dart (bullet)
-        TR::Entity &entity = getEntity();
-
-        vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
-
-        int index = level->entityAdd(TR::Entity::TRAP_DART, getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), entity.rotation, entity.intensity);
-        if (index > -1) {
-            Dart *dart = new Dart(game, index);
-            dart->activate();
-            level->entities[index].controller = dart; 
-        }
-
-        Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
-
-        game->playSound(TR::SND_DART, pos, Sound::Flags::PAN);
-
-        return true;
-    }
-
     void virtual update() {
-        updateAnimation(true);
-        if (animation.canSetState(STATE_IDLE)) {
-            animation.setState(STATE_IDLE);
-            deactivate();
+        if (state == STATE_IDLE || state == STATE_FIRE)
+            animation.setState(isActive() ? STATE_FIRE : STATE_IDLE);
+        else
+            ASSERT(false);
+
+        if (state == STATE_FIRE && animation.framePrev == -1) {
+            TR::Entity &entity = getEntity();
+
+            vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
+
+            int index = level->entityAdd(TR::Entity::TRAP_DART, getRoomIndex(), int(p.x), int(p.y), int(p.z), entity.rotation, -1);
+            if (index > -1) {
+                Dart *dart = new Dart(game, index);
+                dart->activate();
+                level->entities[index].controller = dart; 
+            }
+
+            Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
+
+            game->playSound(TR::SND_DART, p, Sound::Flags::PAN);
         }
+
+        updateAnimation(true);
     }
 };
 
@@ -909,6 +898,7 @@ struct MutantEgg : Controller {
     }
 };
 
+
 struct KeyHole : Controller {
     KeyHole(IGame *game, int entity) : Controller(game, entity) {}
 
@@ -924,6 +914,33 @@ struct KeyHole : Controller {
     }
 
     virtual void update() {}
+};
+
+
+struct Earthquake : Controller {
+    float timer;
+
+    Earthquake(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
+
+    virtual void update() {
+        if (!isActive()) return;
+
+        if (timer < (1.0f / 30.0f)){
+            timer += Core::deltaTime;
+            return;
+        }
+
+        float p = randf();
+        if (p < 0.001f) {
+            game->playSound(TR::SND_STOMP);
+            game->getCamera()->shake = 1.0f;
+        } else if (p < 0.04f) {
+            game->playSound(TR::SND_BOULDER);
+            game->getCamera()->shake = 0.3f;
+        }
+
+        timer = 0.0f;
+    }
 };
 
 

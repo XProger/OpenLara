@@ -363,7 +363,7 @@ struct Controller {
     void getSpheres(Sphere *spheres, int &count) {
         TR::Model *m = getModel();
         Basis basis(getMatrix());
-
+    // TODO: optimize (check frame index for animation updates, use joints array)
         count = 0;
         for (int i = 0; i < m->mCount; i++) {
             TR::Mesh &aMesh = level->meshes[level->meshOffsets[m->mStart + i]];
@@ -556,9 +556,36 @@ struct Controller {
                 part.basis = Basis(part.basis.rot * q, part.basis.pos + explodeParts[i].velocity * (Core::deltaTime * 30.0f));
 
                 vec3 p = part.basis.pos;
-                TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));
+                //TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));
+                TR::Level::FloorInfo info;
+                level->getFloorInfo(part.roomIndex, int(p.x), int(p.y), int(p.z), info);
 
-                if (s && s->floor * 256.0f < p.y) {
+                if (info.roomNext != TR::NO_ROOM)
+                    part.roomIndex = info.roomNext;
+
+                bool explode = false;
+
+                if (p.y < info.roomCeiling) {
+                    if (info.roomAbove != TR::NO_ROOM)
+                        part.roomIndex = info.roomAbove;
+                    else {
+                        if (info.roomCeiling != 0xffff8100)
+                            p.y = (float)info.roomCeiling;
+                        explode = true;
+                    }
+                }
+
+                if (p.y > info.roomFloor) {
+                    if (info.roomBelow != TR::NO_ROOM)
+                        part.roomIndex = info.roomBelow;
+                    else {
+                        if (info.roomFloor != 0xffff8100)
+                            p.y = (float)info.roomFloor;
+                        explode = true;
+                    }
+                }
+
+                if (explode) {
                     explodeMask &= ~(1 << i);
                    
                     game->addSprite(TR::Entity::EXPLOSION, part.roomIndex, int(p.x), int(p.y), int(p.z));

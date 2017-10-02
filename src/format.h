@@ -17,7 +17,7 @@
     E( LARA_MAGNUMS          ) \
     E( LARA_UZIS             ) \
     E( LARA_SPEC             ) \
-    E( ENEMY_TWIN            ) \
+    E( ENEMY_DOPPELGANGER    ) \
     E( ENEMY_WOLF            ) \
     E( ENEMY_BEAR            ) \
     E( ENEMY_BAT             ) \
@@ -154,10 +154,10 @@
     E( KEY_HOLE_4            ) \
     E( UNUSED_4              ) \
     E( UNUSED_5              ) \
-    E( SCION_1               ) \
-    E( SCION_2               ) \
-    E( SCION_3               ) \
+    E( SCION_QUALOPEC        ) \
+    E( SCION_DROP            ) \
     E( SCION_TARGET          ) \
+    E( SCION_NATLA           ) \
     E( SCION_HOLDER          ) \
     E( UNUSED_6              ) \
     E( UNUSED_7              ) \
@@ -647,7 +647,7 @@ namespace TR {
         void    *controller;    // Controller implementation or NULL
 
         bool isEnemy() const {
-            return type >= ENEMY_TWIN && type <= ENEMY_GIANT_MUTANT;
+            return (type >= ENEMY_DOPPELGANGER && type <= ENEMY_GIANT_MUTANT) || type == SCION_TARGET;
         }
 
         bool isBigEnemy() const {
@@ -669,7 +669,7 @@ namespace TR {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
-                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_1 || type == LEADBAR); // TODO: recheck all items
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_QUALOPEC || type == SCION_DROP || type == SCION_NATLA || type == LEADBAR); // TODO: recheck all items
         }
 
         bool isActor() const {

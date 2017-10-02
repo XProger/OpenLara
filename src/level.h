@@ -225,23 +225,7 @@ struct Level : IGame {
         int index = level.entityAdd(type, room, int(pos.x), int(pos.y), int(pos.z), TR::angle(angle), -1);
         if (index > -1) {
             TR::Entity &e = level.entities[index];
-            Enemy *enemy = NULL;
-            switch (type) {
-                case TR::Entity::ENEMY_MUTANT_1 : 
-                case TR::Entity::ENEMY_MUTANT_2 : 
-                case TR::Entity::ENEMY_MUTANT_3 :
-                    enemy = new Mutant(this, index);
-                    break;
-                case TR::Entity::ENEMY_CENTAUR : 
-                    enemy = new Centaur(this, index);
-                    break;               
-                case TR::Entity::ENEMY_GIANT_MUTANT :
-                    enemy = new GiantMutant(this, index);
-                    break;               
-                default : ;
-            }
-
-            ASSERT(enemy); 
+            Controller *enemy = initController(index);
             e.controller = enemy;
             e.flags.active = TR::ACTIVE;
             enemy->activate();
@@ -357,163 +341,10 @@ struct Level : IGame {
         initOverrides();
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
-            TR::Entity &entity = level.entities[i];
-            switch (entity.type) {
-                case TR::Entity::LARA                  : 
-                case TR::Entity::CUT_1                 :
-                    entity.controller = (lara = new Lara(this, i));
-                    break;
-                case TR::Entity::ENEMY_WOLF            :   
-                    entity.controller = new Wolf(this, i);
-                    break;
-                case TR::Entity::ENEMY_BEAR            : 
-                    entity.controller = new Bear(this, i);
-                    break;
-                case TR::Entity::ENEMY_BAT             :   
-                    entity.controller = new Bat(this, i);
-                    break;
-                case TR::Entity::ENEMY_LION_MALE       :
-                case TR::Entity::ENEMY_LION_FEMALE     :
-                    entity.controller = new Lion(this, i);
-                    break;
-                case TR::Entity::ENEMY_RAT_LAND        :
-                case TR::Entity::ENEMY_RAT_WATER       :
-                    entity.controller = new Rat(this, i);
-                    break;
-                case TR::Entity::ENEMY_REX             :
-                    entity.controller = new Rex(this, i);
-                    break;
-                case TR::Entity::ENEMY_RAPTOR          :
-                    entity.controller = new Raptor(this, i);
-                    break;
-                case TR::Entity::ENEMY_MUTANT_1        :
-                case TR::Entity::ENEMY_MUTANT_2        :
-                case TR::Entity::ENEMY_MUTANT_3        :
-                    entity.controller = new Mutant(this, i); 
-                    break;
-                case TR::Entity::ENEMY_CENTAUR         :
-                    entity.controller = new Centaur(this, i);
-                    break;
-                case TR::Entity::ENEMY_MUMMY           :
-                case TR::Entity::ENEMY_TWIN            :
-                case TR::Entity::ENEMY_CROCODILE_LAND  :
-                case TR::Entity::ENEMY_CROCODILE_WATER :
-                case TR::Entity::ENEMY_PUMA            :
-                case TR::Entity::ENEMY_GORILLA         :
-                case TR::Entity::ENEMY_LARSON          :
-                case TR::Entity::ENEMY_PIERRE          :
-                case TR::Entity::ENEMY_SKATEBOY        :
-                case TR::Entity::ENEMY_COWBOY          :
-                case TR::Entity::ENEMY_MR_T            :
-                case TR::Entity::ENEMY_NATLA           :
-                    entity.controller = new Enemy(this, i, 100, 10, 0.0f, 0.0f);
-                    break;
-                case TR::Entity::DOOR_1                :
-                case TR::Entity::DOOR_2                :
-                case TR::Entity::DOOR_3                :
-                case TR::Entity::DOOR_4                :
-                case TR::Entity::DOOR_5                :
-                case TR::Entity::DOOR_6                :
-                case TR::Entity::DOOR_BIG_1            :
-                case TR::Entity::DOOR_BIG_2            :
-                    entity.controller = new Door(this, i);
-                    break;
-                case TR::Entity::TRAP_DOOR_1           :
-                case TR::Entity::TRAP_DOOR_2           :
-                    entity.controller = new TrapDoor(this, i);
-                    break;
-                case TR::Entity::BRIDGE_0              :
-                case TR::Entity::BRIDGE_1              :
-                case TR::Entity::BRIDGE_2              :
-                    entity.controller = new Bridge(this, i);
-                    break;
-                case TR::Entity::GEARS_1               :
-                case TR::Entity::GEARS_2               :
-                case TR::Entity::GEARS_3               :
-                    entity.controller = new Gear(this, i);
-                    break;
-                case TR::Entity::TRAP_FLOOR            :
-                    entity.controller = new TrapFloor(this, i);
-                    break;
-                case TR::Entity::CRYSTAL               :
-                    entity.controller = new Crystal(this, i);
-                    break;
-                case TR::Entity::TRAP_BLADE            :
-                    entity.controller = new TrapBlade(this, i);
-                    break;
-                case TR::Entity::TRAP_SPIKES           :
-                    entity.controller = new TrapSpikes(this, i);
-                    break;
-                case TR::Entity::TRAP_BOULDER          :
-                    entity.controller = new TrapBoulder(this, i);
-                    break;
-                case TR::Entity::TRAP_DART_EMITTER     :
-                    entity.controller = new TrapDartEmitter(this, i);
-                    break;
-                case TR::Entity::DRAWBRIDGE            :
-                    entity.controller = new Drawbridge(this, i);
-                    break;
-                case TR::Entity::BLOCK_1               :
-                case TR::Entity::BLOCK_2               :
-                case TR::Entity::BLOCK_3               :
-                case TR::Entity::BLOCK_4               :
-                    entity.controller = new Block(this, i);
-                    break;                     
-                case TR::Entity::MOVING_BLOCK          :
-                    entity.controller = new MovingBlock(this, i);
-                    break;
-                case TR::Entity::TRAP_CEILING_1     :
-                case TR::Entity::TRAP_CEILING_2     :
-                    entity.controller = new TrapCeiling(this, i);
-                    break;
-                case TR::Entity::TRAP_SLAM          :
-                    entity.controller = new TrapSlam(this, i);
-                    break;
-                case TR::Entity::TRAP_SWORD         :
-                    entity.controller = new TrapSword(this, i);
-                    break;
-                case TR::Entity::DOOR_LATCH         :
-                    entity.controller = new DoorLatch(this, i);
-                    break;
-                case TR::Entity::SWITCH                :
-                case TR::Entity::SWITCH_WATER          :
-                    entity.controller = new Switch(this, i);
-                    break;
-                case TR::Entity::PUZZLE_HOLE_1         :
-                case TR::Entity::PUZZLE_HOLE_2         :
-                case TR::Entity::PUZZLE_HOLE_3         :
-                case TR::Entity::PUZZLE_HOLE_4         :
-                case TR::Entity::KEY_HOLE_1            :
-                case TR::Entity::KEY_HOLE_2            :
-                case TR::Entity::KEY_HOLE_3            :
-                case TR::Entity::KEY_HOLE_4            :
-                    entity.controller = new KeyHole(this, i);
-                    break;
-                case TR::Entity::WATERFALL             :
-                    entity.controller = new Waterfall(this, i);
-                    break;
-                case TR::Entity::TRAP_LAVA             :
-                    entity.controller = new TrapLava(this, i);
-                    break;
-                case TR::Entity::CABIN                 :
-                    entity.controller = new Cabin(this, i);
-                    break;
-                case TR::Entity::TRAP_FLAME_EMITTER    :
-                    entity.controller = new TrapFlameEmitter(this, i);
-                    break;
-                case TR::Entity::BOAT                  :
-                    entity.controller = new Boat(this, i);
-                    break;
-                case TR::Entity::MUTANT_EGG_SMALL      :
-                case TR::Entity::MUTANT_EGG_BIG        :
-                    entity.controller = new MutantEgg(this, i);
-                    break;
-                default                                : 
-                    if (entity.modelIndex > 0)
-                        entity.controller = new Controller(this, i);
-                    else
-                        entity.controller = new Sprite(this, i, 0);
-            }
+            TR::Entity &e = level.entities[i];
+            e.controller = initController(i);
+            if (e.type == TR::Entity::LARA || e.type == TR::Entity::CUT_1)
+                lara = (Lara*)e.controller;
         }
 
         if (level.id != TR::TITLE) {
@@ -581,6 +412,92 @@ struct Level : IGame {
 
         delete camera;
         Sound::stopAll();
+    }
+
+    Controller* initController(int index) {
+        switch (level.entities[index].type) {
+            case TR::Entity::LARA                  :
+            case TR::Entity::CUT_1                 : return new Lara(this, index);
+            case TR::Entity::ENEMY_DOPPELGANGER    : return new Doppelganger(this, index);
+            case TR::Entity::ENEMY_WOLF            : return new Wolf(this, index);
+            case TR::Entity::ENEMY_BEAR            : return new Bear(this, index);
+            case TR::Entity::ENEMY_BAT             : return new Bat(this, index);
+            case TR::Entity::ENEMY_LION_MALE       :
+            case TR::Entity::ENEMY_LION_FEMALE     : return new Lion(this, index);
+            case TR::Entity::ENEMY_RAT_LAND        :
+            case TR::Entity::ENEMY_RAT_WATER       : return new Rat(this, index);
+            case TR::Entity::ENEMY_REX             : return new Rex(this, index);
+            case TR::Entity::ENEMY_RAPTOR          : return new Raptor(this, index);
+            case TR::Entity::ENEMY_MUTANT_1        :
+            case TR::Entity::ENEMY_MUTANT_2        :
+            case TR::Entity::ENEMY_MUTANT_3        : return new Mutant(this, index);
+            case TR::Entity::ENEMY_CENTAUR         : return new Centaur(this, index);
+            case TR::Entity::ENEMY_MUMMY           : return new Mummy(this, index);
+            case TR::Entity::ENEMY_CROCODILE_LAND  :
+            case TR::Entity::ENEMY_CROCODILE_WATER :
+            case TR::Entity::ENEMY_PUMA            :
+            case TR::Entity::ENEMY_GORILLA         :
+            case TR::Entity::ENEMY_LARSON          :
+            case TR::Entity::ENEMY_PIERRE          :
+            case TR::Entity::ENEMY_SKATEBOY        :
+            case TR::Entity::ENEMY_COWBOY          :
+            case TR::Entity::ENEMY_MR_T            :
+            case TR::Entity::ENEMY_NATLA           : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+            case TR::Entity::ENEMY_GIANT_MUTANT    : return new GiantMutant(this, index);
+            case TR::Entity::DOOR_1                :
+            case TR::Entity::DOOR_2                :
+            case TR::Entity::DOOR_3                :
+            case TR::Entity::DOOR_4                :
+            case TR::Entity::DOOR_5                :
+            case TR::Entity::DOOR_6                :
+            case TR::Entity::DOOR_BIG_1            :
+            case TR::Entity::DOOR_BIG_2            : return new Door(this, index);
+            case TR::Entity::TRAP_DOOR_1           :
+            case TR::Entity::TRAP_DOOR_2           : return new TrapDoor(this, index);
+            case TR::Entity::BRIDGE_0              :
+            case TR::Entity::BRIDGE_1              :
+            case TR::Entity::BRIDGE_2              : return new Bridge(this, index);
+            case TR::Entity::GEARS_1               :
+            case TR::Entity::GEARS_2               :
+            case TR::Entity::GEARS_3               : return new Gear(this, index);
+            case TR::Entity::TRAP_FLOOR            : return new TrapFloor(this, index);
+            case TR::Entity::CRYSTAL               : return new Crystal(this, index);
+            case TR::Entity::TRAP_BLADE            : return new TrapBlade(this, index);
+            case TR::Entity::TRAP_SPIKES           : return new TrapSpikes(this, index);
+            case TR::Entity::TRAP_BOULDER          : return new TrapBoulder(this, index);
+            case TR::Entity::TRAP_DART_EMITTER     : return new TrapDartEmitter(this, index);
+            case TR::Entity::DRAWBRIDGE            : return new Drawbridge(this, index);
+            case TR::Entity::BLOCK_1               :
+            case TR::Entity::BLOCK_2               :
+            case TR::Entity::BLOCK_3               :
+            case TR::Entity::BLOCK_4               : return new Block(this, index);
+            case TR::Entity::MOVING_BLOCK          : return new MovingBlock(this, index);
+            case TR::Entity::TRAP_CEILING_1        :
+            case TR::Entity::TRAP_CEILING_2        : return new TrapCeiling(this, index);
+            case TR::Entity::TRAP_SLAM             : return new TrapSlam(this, index);
+            case TR::Entity::TRAP_SWORD            : return new TrapSword(this, index);
+            case TR::Entity::DOOR_LATCH            : return new DoorLatch(this, index);
+            case TR::Entity::SWITCH                :
+            case TR::Entity::SWITCH_WATER          : return new Switch(this, index);
+            case TR::Entity::PUZZLE_HOLE_1         :
+            case TR::Entity::PUZZLE_HOLE_2         :
+            case TR::Entity::PUZZLE_HOLE_3         :
+            case TR::Entity::PUZZLE_HOLE_4         :
+            case TR::Entity::KEY_HOLE_1            :
+            case TR::Entity::KEY_HOLE_2            :
+            case TR::Entity::KEY_HOLE_3            :
+            case TR::Entity::KEY_HOLE_4            : return new KeyHole(this, index);
+            case TR::Entity::SCION_TARGET          : return new ScionTarget(this, index);
+            case TR::Entity::WATERFALL             : return new Waterfall(this, index);
+            case TR::Entity::TRAP_LAVA             : return new TrapLava(this, index);
+            case TR::Entity::CABIN                 : return new Cabin(this, index);
+            case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
+            case TR::Entity::BOAT                  : return new Boat(this, index);
+            case TR::Entity::EARTHQUAKE            : return new Earthquake(this, index);
+            case TR::Entity::MUTANT_EGG_SMALL      :
+            case TR::Entity::MUTANT_EGG_BIG        : return new MutantEgg(this, index);
+            default                                : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
+        }
     }
 
     static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {

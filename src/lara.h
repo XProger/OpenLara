@@ -426,17 +426,14 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
-        //reset(19, vec3(41418, -3707, 58863), 270 * DEG2RAD);        // level 5 (triangle)
-        //reset(9, vec3(63008, 0, 37787), 0);     // level 2 (switch)
-        //reset(5,  vec3(38643, -3072, 92370), PI * 0.5f); // level 3a (gears)
-        //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
-        //reset(26, vec3(24475, 6912, 83505), 90 * DEG2RAD);     // level 1 (switch timer)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
         //reset(20, vec3(8952, 3840, 68071), PI);          // level 1 (crystal)
+        //reset(26, vec3(24475, 6912, 83505), 90 * DEG2RAD);     // level 1 (switch timer)
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
+        //reset(9, vec3(63008, 0, 37787), 0);              // level 2 (switch)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), -PI * 0.5f); // level 2 (blade)
@@ -457,6 +454,7 @@ struct Lara : Character {
         //reset(18, vec3(34914, 11008, 41315), 90 * DEG2RAD); // level 4 (main hall)
         //reset(19, vec3(33368, 19968, 45643), 270 * DEG2RAD); // level 4 (damocles)
         //reset(24, vec3(45609, 18176, 41500), 90 * DEG2RAD); // level 4 (thor)
+        //reset(19, vec3(41418, -3707, 58863), 270 * DEG2RAD);  // level 5 (triangle)
         //reset(21, vec3(24106, -4352, 52089), 0);              // level 6 (flame traps)
         //reset(73, vec3(73372, -122, 51687), PI * 0.5f);       // level 6 (midas hand)
         //reset(64, vec3(36839, -2560, 48769), 270 * DEG2RAD);  // level 6 (flipmap effect)
@@ -842,7 +840,8 @@ struct Lara : Character {
             if (arm->target && checkHit(arm->target, p, hit, hit)) {
                 ((Character*)arm->target)->hit(wpnGetDamage());
                 hit -= d * 64.0f;
-                Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
+                if (arm->target->getEntity().type != TR::Entity::SCION_TARGET)
+                    Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
                 hit -= d * 64.0f;
                 Sprite::add(game, TR::Entity::RICOCHET, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
@@ -1494,7 +1493,7 @@ struct Lara : Character {
                     controller->angle.x = -25 * DEG2RAD;
                 controller->angle.y = angle.y;
 
-                if (item.type == TR::Entity::SCION_1)
+                if (item.type == TR::Entity::SCION_QUALOPEC)
                     limit = TR::Limits::SCION;
 
                 if (!checkInteraction(controller, limit, (input & ACTION) != 0))
@@ -1505,7 +1504,7 @@ struct Lara : Character {
 
                 pickupEntity = &item;
 
-                if (item.type == TR::Entity::SCION_1) {
+                if (item.type == TR::Entity::SCION_QUALOPEC) {
                     animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
                     ((Camera*)level->cameraController)->state = Camera::STATE_CUTSCENE;
                     level->cutMatrix.identity();

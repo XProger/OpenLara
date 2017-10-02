@@ -68,7 +68,7 @@ struct Enemy : Character {
     bool  targetFromView;   // enemy in target view zone
     bool  targetCanAttack;
 
-    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), target(NULL), path(NULL) {
+    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
         targetDist   = +INF;
         targetInView = targetFromView = targetCanAttack = false;
     }
@@ -78,7 +78,7 @@ struct Enemy : Character {
     }
 
     virtual bool activate() {
-        if (Character::activate()) {
+        if (health > 0.0f && Character::activate()) {
             target = (Character*)game->getLara();
             return true;
         }
@@ -1198,6 +1198,78 @@ struct Centaur : Enemy {
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
+    }
+};
+
+
+struct Mummy : Enemy {
+    enum {
+        STATE_NONE,
+        STATE_IDLE,
+        STATE_FALL,
+    };
+
+    Mummy(IGame *game, int entity) : Enemy(game, entity, 18, 341, 150.0f, 0.0f) {
+        jointHead = 2;
+    }
+
+    virtual void update() {
+        if (state == STATE_IDLE && (health <= 0.0f || collide((Controller*)level->laraController))) {
+            animation.setState(STATE_FALL);
+            health = 0.0f;
+        }
+        Enemy::update();
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    virtual void updatePosition() {
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
+
+struct Doppelganger : Enemy {
+    Doppelganger(IGame *game, int entity) : Enemy(game, entity, 1000, 341, 150.0f, 0.0f) {
+        jointChest = 1;
+        jointHead  = 2;
+    }
+
+    virtual void update() {
+        Enemy::update();
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    virtual void updatePosition() {
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
+
+struct ScionTarget : Enemy {
+    ScionTarget(IGame *game, int entity) : Enemy(game, entity, 5, 0, 0, 0) {}
+
+    virtual void update() {
+        Controller::update();
+
+        if (health <= 0.0f) {
+            getEntity().flags.invisible = true;
+            game->checkTrigger(this, true);
+            deactivate();
+        }
     }
 };
 
