@@ -1506,10 +1506,7 @@ struct Lara : Character {
 
                 if (item.type == TR::Entity::SCION_QUALOPEC) {
                     animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
-                    ((Camera*)level->cameraController)->state = Camera::STATE_CUTSCENE;
-                    level->cutMatrix.identity();
-                    level->cutMatrix.rotateY(angle.y);
-                    level->cutMatrix.setPos(pos);
+                    ((Camera*)level->cameraController)->doCutscene(pos, angle.y);
                 } else
                     state = STATE_PICK_UP;
 

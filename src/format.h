@@ -681,7 +681,7 @@ namespace TR {
         }
 
         bool isBlock() const {
-            return type >= TR::Entity::BLOCK_1 && type <= TR::Entity::BLOCK_4;
+            return type >= BLOCK_1 && type <= BLOCK_4;
         }
 
         bool isLara() const {
@@ -689,7 +689,7 @@ namespace TR {
         }
 
         bool castShadow() const {
-            return isLara() || isEnemy() || isActor();
+            return isLara() || isEnemy() || isActor() || type == TRAP_DART;
         }
 
         void getAxis(int &dx, int &dz) {
@@ -1505,7 +1505,7 @@ namespace TR {
                 }
                 
             for (int i = 0; i < spriteSequencesCount; i++) 
-                if (spriteSequences[i].type == TR::Entity::GLYPH) {
+                if (spriteSequences[i].type == Entity::GLYPH) {
                     extra.glyphSeq = i;
                     break;
                 }
@@ -2041,8 +2041,8 @@ namespace TR {
         }
 
         int16 getModelIndex(Entity::Type type) const {
-            if (type == TR::Entity::ENEMY_MUTANT_2 || type == TR::Entity::ENEMY_MUTANT_3)
-                type = TR::Entity::ENEMY_MUTANT_1; // hardcoded mutant models remapping
+            if (type == Entity::ENEMY_MUTANT_2 || type == Entity::ENEMY_MUTANT_3)
+                type = Entity::ENEMY_MUTANT_1; // hardcoded mutant models remapping
 
             for (int i = 0; i < modelsCount; i++)
                 if (type == models[i].type)
@@ -2056,7 +2056,7 @@ namespace TR {
             return 0;
         }
 
-        int entityAdd(TR::Entity::Type type, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
+        int entityAdd(Entity::Type type, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
             for (int i = entitiesBaseCount; i < entitiesCount; i++) 
                 if (entities[i].type == Entity::NONE) {
                     Entity &e = entities[i];

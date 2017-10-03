@@ -47,6 +47,7 @@ struct Camera : ICamera {
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;
             room  = level->entities[level->cutEntity].room;
+            timer = 0.0f;
         } else
             state = STATE_FOLLOW;
         destPos  = owner->pos - owner->getDir() * 1024.0f;
@@ -142,6 +143,14 @@ struct Camera : ICamera {
         viewTarget = NULL;
         viewIndex  = -1;
         target     = viewPoint;
+    }
+
+    virtual void doCutscene(const vec3 &pos, float rotation) {
+        state = Camera::STATE_CUTSCENE;
+        level->cutMatrix.identity();
+        level->cutMatrix.rotateY(angle.y);
+        level->cutMatrix.setPos(pos);
+        timer = 0.0f;
     }
 
     virtual void update() {
