@@ -187,14 +187,14 @@ struct Level : IGame {
         }
     }
     
-    virtual void setEffect(TR::Effect effect, float param) {
+    virtual void setEffect(Controller *controller, TR::Effect effect) {
         this->effect      = effect;
         this->effectTimer = 0.0f;
         this->effectIdx   = 0;
 
         switch (effect) {
             case TR::Effect::FLOOR_SHAKE :
-                camera->shake = param;
+                camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - camera->pos).length2() / (15 * 1024 * 15 * 1024));
                 return;
             case TR::Effect::FLOOD : {
                 Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
@@ -476,6 +476,7 @@ struct Level : IGame {
             case TR::Entity::TRAP_CEILING_2        : return new TrapCeiling(this, index);
             case TR::Entity::TRAP_SLAM             : return new TrapSlam(this, index);
             case TR::Entity::TRAP_SWORD            : return new TrapSword(this, index);
+            case TR::Entity::HAMMER_HANDLE         : return new ThorHammer(this, index);
             case TR::Entity::DOOR_LATCH            : return new DoorLatch(this, index);
             case TR::Entity::SWITCH                :
             case TR::Entity::SWITCH_WATER          : return new Switch(this, index);

@@ -1366,14 +1366,20 @@ struct Lara : Character {
             }
             case TR::HIT_BOULDER : {
                 animation.setAnim(ANIM_DEATH_BOULDER);
-                if (enemy)
+
+                vec3 v(0.0f);
+                if (enemy && enemy->getEntity().type == TR::Entity::TRAP_BOULDER) {
                     angle = enemy->angle;
-                TR::Level::FloorInfo info;
-                level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
-                vec3 d = getDir();
-                vec3 v = info.getSlant(d);
-                angle.x = -acos(d.dot(v));
-                v = enemy ? ((TrapBoulder*)enemy)->velocity * 2.0f : vec3(0.0f);
+                    TR::Level::FloorInfo info;
+                    level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+                    vec3 d = getDir();
+                    v = info.getSlant(d);
+                    float dp = d.dot(v);
+                    if (fabsf(dp) < 0.999)
+                        angle.x = -acosf(dp);
+                    v = ((TrapBoulder*)enemy)->velocity * 2.0f;
+                }
+
                 for (int i = 0; i < 15; i++)
                     addBlood(256.0f, 512.0f, v);
                 break;
@@ -1822,7 +1828,7 @@ struct Lara : Character {
 
         if (needFlip) {
             level->isFlipped = !level->isFlipped;
-            game->setEffect(effect, 0);
+            game->setEffect(this, effect);
         }
     }
 
@@ -2573,7 +2579,7 @@ struct Lara : Character {
         }
 
     // check enemies & doors
-        for (int i = 0; i < level->entitiesBaseCount; i++) {
+        for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
             
             if (!e.isCollider()) continue;
@@ -2581,11 +2587,12 @@ struct Lara : Character {
             Controller *controller = (Controller*)e.controller;
 
             if (e.isEnemy()) {
-                if (e.type != TR::Entity::ENEMY_REX && (!e.flags.active || ((Character*)controller)->health <= 0)) continue;
+                if (e.type != TR::Entity::ENEMY_REX && (e.flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;
             } else {
             // fast distance check for object
                 TR::Entity &entity = getEntity(); 
-                if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
+                if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK)
+                    if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
             }
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
@@ -2594,7 +2601,7 @@ struct Lara : Character {
             Box box = controller->getBoundingBoxLocal();
             box.expand(vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
 
-            if (!box.contains(p))
+            if (!box.contains(p)) // TODO: Box vs Box or check Lara's head point? (check thor hammer handle)
                 continue;
 
             if (e.isEnemy()) { // enemy collision

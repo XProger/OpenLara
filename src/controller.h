@@ -49,7 +49,7 @@ struct IGame {
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water) {}
-    virtual void setEffect(TR::Effect effect, float param) {}
+    virtual void setEffect(Controller *controller, TR::Effect effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
@@ -520,7 +520,7 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
                                     case TR::Effect::ROTATE_180  : angle.y = angle.y + PI; break;
-                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(TR::Effect(fx), 0.5f * max(0.0f, 1.0f - (pos - ((ICamera*)level->cameraController)->pos).length2() / (15 * 1024 * 15 * 1024) )); break;
+                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(this, TR::Effect(fx)); break;
                                     case TR::Effect::FLIP_MAP    : level->isFlipped = !level->isFlipped; break;
                                     default                      : cmdEffect(fx); break;
                                 }
@@ -698,28 +698,35 @@ struct Controller {
         if (entity.isActor()) // cutscene entities have no blob shadow
             return;
 
-        Box box = animation.getBoundingBox(pos, 0);
-        vec3 center = box.center();
+        Box boxL = getBoundingBoxLocal();
+        Box boxA = boxL * getMatrix();
+
+        vec3 center = boxA.center();
 
         TR::Level::FloorInfo info;
         level->getFloorInfo(entity.room, int(center.x), int(center.y), int(center.z), info);
 
-        const vec3 fpos = vec3(pos.x, info.floor - 16.0f, pos.z);
-        const vec3 size = box.size();
+        const vec3 size = boxL.size() * (1.0f / 1024.0f);
 
-        mat4 m = Core::mViewProj;
-        m.translate(fpos);
-        m.rotateY(angle.y);
-        m.translate(vec3(center.x - pos.x, 0.0f, center.z - pos.z));
-        m.scale(vec3(size.x, 0.0f, size.z) * (1.0f / 1024.0f));        
+        vec3 dir   = getDir();
+        vec3 up    = info.getNormal();
+        vec3 right = dir.cross(up).normal();
+        dir = up.cross(right).normal();
+
+        mat4 m;
+        m.identity();
+        m.dir    = vec4(dir * size.z, 0.0f);
+        m.up     = vec4(up, 0.0f);
+        m.right  = vec4(right * size.x, 0.0f);
+        m.offset = vec4(center.x, info.floor - 8.0f, center.z, 1.0f);
 
         Basis b;
         b.identity();
 
         game->setShader(Core::pass, Shader::FLASH, false, false);
-        Core::active.shader->setParam(uViewProj, m);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj * m);
         Core::active.shader->setParam(uBasis, b);
-        float alpha = lerp(0.7f, 0.90f, clamp((fpos.y - box.max.y) / 1024.0f, 0.0f, 1.0f) );
+        float alpha = lerp(0.7f, 0.90f, clamp((info.floor - boxA.max.y) / 1024.0f, 0.0f, 1.0f) );
         Core::active.shader->setParam(uMaterial, vec4(vec3(0.5f * (1.0f - alpha)), alpha));
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 

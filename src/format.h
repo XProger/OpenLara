@@ -662,7 +662,8 @@ namespace TR {
             return isEnemy() ||
                    isDoor() ||
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
-                   (type == SCION_HOLDER);
+                   (type == SCION_HOLDER) ||
+                   ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision);
         }
 
         bool isItem() const {
@@ -2264,6 +2265,13 @@ namespace TR {
                                 if (ey  < y - 128 && ey > info.ceiling)
                                     info.ceiling = ey + 256;
                             }
+                            break;
+                        }
+                        case Entity::HAMMER_HANDLE : {
+                            int dirX, dirZ;
+                            e.getAxis(dirX, dirZ);
+                            if (abs(e.x + dirX * 1024 * 3 - x) < 512 && abs(e.z + dirZ * 1024 * 3 - z) < 512)
+                                info.floor -= 1024 * 3;
                             break;
                         }
                         case Entity::BRIDGE_0    : 

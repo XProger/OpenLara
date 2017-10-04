@@ -283,7 +283,9 @@ struct Block : Controller {
         STATE_PULL,
     };
 
-    Block(IGame *game, int entity) : Controller(game, entity) {
+    float velocity;
+
+    Block(IGame *game, int entity) : Controller(game, entity), velocity(0.0f) {
         updateFloor(true);
     }
 
@@ -339,13 +341,34 @@ struct Block : Controller {
     }
 
     virtual void update() {
-        if (state == STATE_STAND) return;
-        updateAnimation(true);
-        if (state == STATE_STAND) {
+        TR::Entity &e = getEntity();
+        TR::Level::FloorInfo info;        
+        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+
+        if (pos.y < info.floor) {
+            if (info.roomBelow != TR::NO_ROOM)
+                e.room = info.roomBelow;
+
+            velocity += Core::deltaTime * GRAVITY;
+            pos.y    += Core::deltaTime * velocity * 30.0f;
+            if (pos.y >= info.floor) {
+                velocity = 0.0f;
+                pos.y    = info.floor;
+                game->setEffect(this, TR::Effect::FLOOR_SHAKE);
+                game->playSound(TR::SND_BOULDER, pos, Sound::PAN);
+                deactivate(true);
+                updateFloor(true);
+            }
             updateEntity();
-            updateFloor(true);
-            deactivate();
-            game->checkTrigger(this, true);
+        } else {
+            if (state == STATE_STAND) return;
+            updateAnimation(true);
+            if (state == STATE_STAND) {
+                updateEntity();
+                updateFloor(true);
+                deactivate();
+                game->checkTrigger(this, true);
+            }
         }
         updateLights();
     }
@@ -758,6 +781,57 @@ struct TrapSword : Controller {
 
     virtual void update() {
         updateAnimation(true);
+    }
+};
+
+
+struct ThorHammer : Controller {
+    enum {
+        STATE_IDLE,
+        STATE_START,
+        STATE_FALL,
+        STATE_DOWN,
+    };
+
+    Controller *block;
+
+    ThorHammer(IGame *game, int entity) : Controller(game, entity) {
+        TR::Entity &e = getEntity();
+        int index = level->entityAdd(TR::Entity::HAMMER_BLOCK, getRoomIndex(), e.x, e.y, e.z, e.rotation, -1);
+        if (index > -1) {
+            block = new Controller(game, index);
+            level->entities[index].controller = block;
+        }
+        e.flags.collision = block->getEntity().flags.collision = false;
+    }
+
+    virtual void update() {
+        Character *lara = (Character*)game->getLara();
+
+        switch (state) {
+            case STATE_IDLE  : if (isActive()) animation.setState(STATE_START); break;
+            case STATE_START : animation.setState(isActive() ? STATE_FALL : STATE_IDLE); break;
+            case STATE_FALL  : {
+                if (animation.frameIndex > 30 && lara->health > 0.0f) {
+                    vec3 d = pos + getDir() * (3.0f * 1024.0f) - lara->pos;
+                    if (fabsf(d.x) < 520.0f && fabsf(d.z) < 520.0f)
+                        lara->hit(1001, this, TR::HIT_BOULDER);
+                }
+                break;
+            }
+            case STATE_DOWN : {
+                game->checkTrigger(this, 1); 
+                if (lara->health > 0.0f)
+                    getEntity().flags.collision = block->getEntity().flags.collision = true;
+                deactivate(true);
+                break;
+            }
+        }
+
+        updateAnimation(true);
+        block->animation.frameA = animation.frameA;
+        block->animation.frameB = animation.frameB;
+        block->animation.delta  = animation.delta;
     }
 };
 
