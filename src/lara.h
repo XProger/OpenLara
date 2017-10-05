@@ -2320,6 +2320,10 @@ struct Lara : Character {
         if (Input::state[cAction])    input |= ACTION;
         if (Input::state[cWeapon])    input |= WEAPON;
 
+    // scion debug (TODO: remove)
+        if (Input::down[ikP] && level->id == TR::LEVEL_3B)
+            reset(5, vec3(73394, 3840, 60758), 0); // level 3b (scion)
+
     // analog control
         rotFactor = vec2(1.0f);
 

@@ -57,7 +57,7 @@
     E( TRAP_SWORD            ) \
     E( HAMMER_HANDLE         ) \
     E( HAMMER_BLOCK          ) \
-    E( LIGHTNING_BALL        ) \
+    E( LIGHTNING             ) \
     E( DOOR_LATCH            ) \
     E( BLOCK_1               ) \
     E( BLOCK_2               ) \
@@ -276,6 +276,7 @@ namespace TR {
 
         SND_HIT_RAT         = 95,
         
+        SND_LIGHTNING       = 98,
         SND_ROCK            = 99,
 
         SND_EXPLOSION       = 104,
@@ -336,6 +337,7 @@ namespace TR {
         HIT_LAVA,
         HIT_SLAM,
         HIT_REX,
+        HIT_LIGHTNING,
     };
 
     enum Action : uint16 {

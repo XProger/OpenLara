@@ -1260,15 +1260,34 @@ struct Doppelganger : Enemy {
 
 
 struct ScionTarget : Enemy {
-    ScionTarget(IGame *game, int entity) : Enemy(game, entity, 5, 0, 0, 0) {}
+    float timer;
+
+    ScionTarget(IGame *game, int entity) : Enemy(game, entity, 5, 0, 0, 0), timer(0.0f) {}
 
     virtual void update() {
         Controller::update();
 
         if (health <= 0.0f) {
-            getEntity().flags.invisible = true;
-            game->checkTrigger(this, true);
-            deactivate();
+            if (timer == 0.0f) {
+                getEntity().flags.invisible = true;
+                game->checkTrigger(this, true);
+                timer = 3.0f;
+            }
+
+            if (timer > 0.0f) {
+                int index = int(timer / 0.3f);
+                timer -= Core::deltaTime;
+
+                if (index != int(timer / 0.3f)) {
+                    vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * 512.0f, (randf() * 2.0f - 1.0f) * 64.0f - 500.0f, (randf() * 2.0f - 1.0f) * 512.0f);
+                    game->addSprite(TR::Entity::EXPLOSION, getRoomIndex(), int(p.x), int(p.y), int(p.z));
+                    game->playSound(TR::SND_EXPLOSION, pos, 0);
+                    game->getCamera()->shake = 0.5f;
+                }
+
+                if (timer < 0.0f) 
+                    deactivate(true);
+            }
         }
     }
 };

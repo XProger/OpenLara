@@ -836,6 +836,60 @@ struct ThorHammer : Controller {
 };
 
 
+#define LIGHTNING_DAMAGE 400
+
+struct Lightning : Controller {
+    Basis target;
+    float timer;
+    bool  flash;
+    bool  armed;
+
+    Lightning(IGame *game, int entity) : Controller(game, entity), timer(0), flash(false) {}
+
+    virtual void update() {
+        if (isActive()) {
+            timer -= Core::deltaTime;
+
+            if (timer <= 0.0f) {
+                if (flash) {
+                    level->isFlipped = false;
+                    flash = false;
+                    armed = true;
+                    timer = (35.0f + randf() * 45.0f) / 30.0f;                    
+                } else {
+                    level->isFlipped = true;
+                    flash = true;
+                    timer = 20.0f / 30.0f;
+
+                    Character *lara = (Character*)level->laraController;
+
+                    bool hasTargets = getModel()->mCount > 1; // LEVEL4 has, LEVEL10C not
+
+                    if ((lara->pos - pos).length() < (hasTargets ? 2560.0f : 1024.0f)) {
+                        lara->hit(LIGHTNING_DAMAGE, this, TR::HIT_LIGHTNING);
+                        armed = false;
+                    } else if (!hasTargets) {
+                        //
+                    } else
+                        animation.getJoints(getMatrix(), int(randf() * 5), false, &target);
+                }
+                game->playSound(TR::SND_LIGHTNING, pos, Sound::PAN);
+            }
+        } else {
+            timer = 0.0f;
+            flash = false;
+            level->isFlipped = false;
+            deactivate(true);
+        }
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        Controller::render(frustum, mesh, type, caustics);
+        if (!flash) return;
+        // TODO
+    }
+};
+
 struct TrapLava : Controller {
     bool done;
 
