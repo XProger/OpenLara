@@ -1573,39 +1573,54 @@ namespace TR {
             isHomeLevel = false;
             switch (size) {
                 case 508614  :
+                case 316138  :
                 case 316460  : return TITLE;
                 case 1074234 :
+                case 3236806 :
                 case 3237128 : isHomeLevel = true; return GYM;
                 case 1448896 :
+                case 2533312 :
                 case 2533634 : return LEVEL_1;
                 case 2873406 : isDemoLevel = true; return LEVEL_2;
                 case 1535734 :
+                case 2873128 :
                 case 2873450 : return LEVEL_2;
                 case 1630560 :
+                case 2934408 :
                 case 2934730 : return LEVEL_3A;
                 case 1506614 :
+                case 2737936 :
                 case 2738258 : return LEVEL_3B;
                 case 722402  :
                 case 599840  : return CUTSCENE_1;
                 case 1621970 :
+                case 3030550 :
                 case 3030872 : return LEVEL_4;
                 case 1585942 :
+                case 2718218 :
                 case 2718540 : return LEVEL_5;
                 case 1708464 :
+                case 3139590 :
                 case 3074376 : return LEVEL_6;
                 case 1696664 :
+                case 2817290 :
                 case 2817612 : return LEVEL_7A;
                 case 1733274 :
+                case 3388774 :
                 case 3389096 : return LEVEL_7B;
                 case 542960  :
                 case 354320  : return CUTSCENE_2;
                 case 1563356 :
+                case 2880242 :
                 case 2880564 : return LEVEL_8A;
                 case 1565630 :
+                case 2886434 :
                 case 2886756 : return LEVEL_8B;
                 case 1619360 :
+                case 3105128 :
                 case 3105450 : return LEVEL_8C;
                 case 1678018 :
+                case 3223816 :
                 case 3224138 : return LEVEL_10A;
                 case 636660  :
                 case 512104  : return CUTSCENE_3;
@@ -1614,8 +1629,11 @@ namespace TR {
                 case 940398  :
                 case 879582  : return CUTSCENE_4;
                 case 1814278 :
+                case 3531702 :
                 case 3532024 : return LEVEL_10C;
+                case 3278614 :
                 case 3279242 : return LEVEL_EGYPT;
+                case 3270370 :
                 case 3270998 : return LEVEL_CAT;
                 case 3208018 : return LEVEL_END;
                 case 3153300 : return LEVEL_END2;

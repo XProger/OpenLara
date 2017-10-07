@@ -2297,7 +2297,7 @@ struct Lara : Character {
         if (level->cutEntity > -1) return 0;
         input = 0;
 
-        if (!dozy && Input::state[cAction] && Input::state[cJump] && Input::state[cLook] && Input::state[cStepRight]) {
+        if (!dozy && ((Input::state[cAction] && Input::state[cJump] && Input::state[cLook] && Input::state[cStepRight]) || Input::down[ikO])) {
             dozy = true;
             health = LARA_MAX_HEALTH;
             oxygen = LARA_MAX_OXYGEN;
