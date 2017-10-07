@@ -504,6 +504,8 @@ struct Level : IGame {
 
     static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
         static const uint32 barColor[UI::BAR_MAX][25] = {
+            // flash bar
+                { 0x00000000, 0xFFA20058, 0xFFFFFFFF, 0xFFA20058, 0x00000000 },
             // health bar
                 { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F },
             // oxygen bar
@@ -548,6 +550,7 @@ struct Level : IGame {
                 uvCount = 4;
 
                 switch (id) {
+                    case UI::BAR_FLASH    :
                     case UI::BAR_HEALTH   :
                     case UI::BAR_OXYGEN   : 
                     case UI::BAR_OPTION   :
@@ -661,14 +664,10 @@ struct Level : IGame {
 
             tiles->add(uv, texIdx++);
         }
-        // add health bar
-        tiles->add(short4(2048, 2048, 2048, 2048 + 4), texIdx++);
-        // add oxygen bar
-        tiles->add(short4(4096, 4096, 4096, 4096 + 4), texIdx++);
-        // add option bar
-        tiles->add(short4(8192, 8192, 8192 + 4, 8192 + 4), texIdx++);
-        // add white color
-        tiles->add(short4(2048, 2048, 2048, 2048), texIdx++);
+        // add common textures
+        const short2 bar[UI::BAR_MAX] = { {0, 4}, {0, 4}, {0, 4}, {4, 4}, {0, 0} };
+        for (int i = 0; i < UI::BAR_MAX; i++)
+            tiles->add(short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), texIdx++);
 
         // get result texture
         atlas = tiles->pack();
@@ -993,10 +992,19 @@ struct Level : IGame {
         setupBinding();
     }
 
+    // TODO: opqque/transparent pass for rooms and entities
+    void renderEntities(bool opaque) {
+        for (int i = 0; i < level.entitiesCount; i++) {
+            int modelIndex = level.entities[i].modelIndex;
+            if ((modelIndex < 0 && !opaque) || (modelIndex > 0 && mesh->models[modelIndex - 1].opaque == opaque))
+                renderEntity(level.entities[i]);
+        }
+    }
+
     void renderEntities() {
         PROFILE_MARKER("ENTITIES");
-        for (int i = 0; i < level.entitiesCount; i++)
-            renderEntity(level.entities[i]);
+        renderEntities(true);
+        renderEntities(false);
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &entity = level.entities[i];

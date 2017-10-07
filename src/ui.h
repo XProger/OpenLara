@@ -204,6 +204,7 @@ namespace UI {
     #define MAX_CHARS DYN_MESH_QUADS
 
     enum BarType {
+        BAR_FLASH,
         BAR_HEALTH,
         BAR_OXYGEN,
         BAR_OPTION,

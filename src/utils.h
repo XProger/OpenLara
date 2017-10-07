@@ -204,8 +204,8 @@ struct vec2 {
 
 struct vec3 {
     union {
-        struct { vec2 xy; };
         struct { float x, y, z; };
+        struct { vec2 xy; };
     };
 
     vec3() {}
@@ -271,9 +271,9 @@ struct vec3 {
 
 struct vec4 {
     union {
+        struct { float x, y, z, w; };
         struct { vec2 xy, zw; };
         struct { vec3 xyz; };
-        struct { float x, y, z, w; };
     };
 
     vec4() {}

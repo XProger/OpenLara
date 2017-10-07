@@ -5,8 +5,8 @@
 #include "format.h"
 
 
-TR::ObjectTexture barTile[4 /* UI::BAR_MAX */];
-TR::ObjectTexture &whiteTile = barTile[3];
+TR::ObjectTexture barTile[5 /* UI::BAR_MAX */];
+TR::ObjectTexture &whiteTile = barTile[4]; // BAR_WHITE
 
 struct MeshRange {
     int iStart;

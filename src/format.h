@@ -764,7 +764,7 @@ namespace TR {
                 opaque = true;
             if (type == SWITCH || type == SWITCH_WATER)
                 opaque = true;
-            if (type == PUZZLE_HOLE_1) // LEVEL3A cogs
+            if (type == PUZZLE_HOLE_1 || type == LIGHTNING) // LEVEL3A cogs
                 opaque = false;
         }
     };

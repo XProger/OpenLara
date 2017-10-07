@@ -60,7 +60,7 @@ struct Camera : ICamera {
     }
     
     virtual int getRoomIndex() const {
-        return room;
+        return (level->isFlipped && level->rooms[room].alternateRoom > -1) ? level->rooms[room].alternateRoom : room;
     }
 
     virtual void checkRoom() {

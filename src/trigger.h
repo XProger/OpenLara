@@ -353,7 +353,7 @@ struct Block : Controller {
             pos.y    += Core::deltaTime * velocity * 30.0f;
             if (pos.y >= info.floor) {
                 velocity = 0.0f;
-                pos.y    = info.floor;
+                pos.y    = float(info.floor);
                 game->setEffect(this, TR::Effect::FLOOR_SHAKE);
                 game->playSound(TR::SND_BOULDER, pos, Sound::PAN);
                 deactivate(true);
@@ -839,7 +839,7 @@ struct ThorHammer : Controller {
 #define LIGHTNING_DAMAGE 400
 
 struct Lightning : Controller {
-    Basis target;
+    vec3  target;
     float timer;
     bool  flash;
     bool  armed;
@@ -849,6 +849,8 @@ struct Lightning : Controller {
     virtual void update() {
         if (isActive()) {
             timer -= Core::deltaTime;
+
+            Character *lara = (Character*)level->laraController;
 
             if (timer <= 0.0f) {
                 if (flash) {
@@ -861,17 +863,15 @@ struct Lightning : Controller {
                     flash = true;
                     timer = 20.0f / 30.0f;
 
-                    Character *lara = (Character*)level->laraController;
-
                     bool hasTargets = getModel()->mCount > 1; // LEVEL4 has, LEVEL10C not
 
                     if ((lara->pos - pos).length() < (hasTargets ? 2560.0f : 1024.0f)) {
                         lara->hit(LIGHTNING_DAMAGE, this, TR::HIT_LIGHTNING);
                         armed = false;
                     } else if (!hasTargets) {
-                        //
+                        target = pos + vec3(0.0f, 1024.0f, 0.0f);
                     } else
-                        animation.getJoints(getMatrix(), int(randf() * 5), false, &target);
+                        target = animation.getJoints(getMatrix(), 1 + int(randf() * 5)).pos;
                 }
                 game->playSound(TR::SND_LIGHTNING, pos, Sound::PAN);
             }
@@ -883,10 +883,105 @@ struct Lightning : Controller {
         }
     }
 
+    void divide(vec3 *points, int L, int R, float spread) {
+        int M = (L + R) / 2;
+        if (M == L || M == R) return;
+        points[M] = (points[L] + points[R]) * 0.5f + (vec3(randf(), randf(), randf()) - 0.5f) * spread;
+        spread *= 0.5f;
+        divide(points, L, M, spread);
+        divide(points, M, R, spread);
+    }
+
+    short4 toCoord(const vec3 &v, int16 joint) {
+        return short4(int16(v.x), int16(v.y), int16(v.z), joint);
+    }
+
+    void setVertex(Vertex &v, const vec3 &coord, int16 joint, int idx) {
+        v.coord     = toCoord(coord, joint);
+        v.normal    = { 0, -1, 0, 0 };
+        v.texCoord  = { barTile[0].texCoord[idx].x, barTile[0].texCoord[idx].y, 32767, 32767 };
+        v.param     = { 0, 0, 0, 0 };
+        v.color     = { 255, 255, 255, 255 };
+    }
+
+    void renderPolyline(const vec3 &start, const vec3 &end, float width, float spread, int depth) {
+        vec3 points[9];
+        points[0] = start;
+        points[8] = end;
+        divide(points, 0, 8, spread);
+
+        Index  indices[(COUNT(points) - 1) * 6];
+        Vertex vertices[COUNT(points) * 2];
+        
+        int iCount = 0;
+        int vCount = 0;
+        int count = COUNT(points);
+    // build indices
+        for (int i = 0; i < count - 1; i++) {
+            indices[iCount++] = vCount;
+            indices[iCount++] = vCount + 1;
+            indices[iCount++] = vCount + 2;
+            indices[iCount++] = vCount + 1;
+            indices[iCount++] = vCount + 3;
+            indices[iCount++] = vCount + 2;
+            vCount += 2;
+        }
+        vCount += 2;
+        ASSERT(iCount == (count - 1) * 6);
+        ASSERT(vCount == count * 2);
+
+    // build vertices
+        vec3 dir = Core::mViewInv.dir.xyz;
+
+        vCount = 0;
+        vec3 n;
+        for (int i = 0; i < count; i++) {
+            if (i < count - 1)
+                n = dir.cross(points[i + 1] - points[i]).normal() * width;
+            setVertex(vertices[vCount++], points[i] - n, 0, 0);
+            setVertex(vertices[vCount++], points[i] + n, 0, 3);
+        }
+        ASSERT(vCount == count * 2);
+
+        game->getMesh()->renderBuffer(indices, iCount, vertices, vCount);
+
+        if (depth > 0) {
+            for (int i = 0; i < 2; i++) {
+                vec3 a = points[int(randf() * (count - 1))];
+                vec3 b = a;
+                b.x += (randf() - 0.5f) * spread;
+                b.y  = points[count - 1].y;
+                b.z += (randf() - 0.5f) * spread;
+
+                renderPolyline(a, b, width * 0.75f, spread * 0.5f, depth - 1);
+            }
+        }
+    }
+
+
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Controller::render(frustum, mesh, type, caustics);
         if (!flash) return;
-        // TODO
+
+        if (!armed)
+            target = game->getLara()->pos;
+
+        Basis b = animation.getJoints(getMatrix(), 0);
+        b.rot = quat(0, 0, 0, 1);
+
+        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::active.shader->setParam(uMaterial, vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        Core::active.shader->setParam(uBasis, b);
+
+        Core::setCulling(cfNone);
+        Core::setBlending(bmAdd);
+        Core::setDepthWrite(false);
+
+        renderPolyline(vec3(0.0f), target - b.pos, 64.0f, 512.0f, 1);
+
+        Core::setDepthWrite(true);
+        Core::setBlending(bmNone);
+        Core::setCulling(cfFront);
     }
 };
 

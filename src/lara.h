@@ -228,6 +228,7 @@ struct Lara : Character {
     TR::Entity::Type  usedKey;
     TR::Entity        *pickupEntity;
     KeyHole           *keyHole;
+    Lightning         *lightning;
 
     int roomPrev; // water out from room
     vec2 rotFactor;
@@ -409,6 +410,9 @@ struct Lara : Character {
         hitDir     = -1;
         damageTime = LARA_DAMAGE_TIME;
         hitTime    = 0.0f;
+
+        keyHole    = NULL;
+        lightning  = NULL;
 
         getEntity().flags.active = 1;
         initMeshOverrides();
@@ -1341,10 +1345,11 @@ struct Lara : Character {
         Character::hit(damage, enemy, hitType);
 
         switch (hitType) {
-            case TR::HIT_BLADE  : addBloodBlade(); break;
-            case TR::HIT_SPIKES : addBloodSpikes(); break;
-            case TR::HIT_SLAM   : addBloodSlam(enemy); break;
-            default             : ;
+            case TR::HIT_BLADE     : addBloodBlade(); break;
+            case TR::HIT_SPIKES    : addBloodSpikes(); break;
+            case TR::HIT_SLAM      : addBloodSlam(enemy); break;
+            case TR::HIT_LIGHTNING : lightning = (Lightning*)enemy; break;
+            default                : ;
         }
 
         if (health > 0.0f)
@@ -2321,8 +2326,17 @@ struct Lara : Character {
         if (Input::state[cWeapon])    input |= WEAPON;
 
     // scion debug (TODO: remove)
-        if (Input::down[ikP] && level->id == TR::LEVEL_3B)
-            reset(5, vec3(73394, 3840, 60758), 0); // level 3b (scion)
+        if (Input::down[ikP]) {
+            switch (level->id) {
+                case TR::LEVEL_3B :
+                    reset(5, vec3(73394, 3840, 60758), 0); // level 3b (scion)
+                    break;
+                case TR::LEVEL_4 :
+                    reset(18, vec3(34914, 11008, 41315), 90 * DEG2RAD); // main hall
+                    break;
+                default : game->playSound(TR::SND_NO, pos, Sound::PAN);
+            }
+        }
 
     // analog control
         rotFactor = vec2(1.0f);
@@ -2470,7 +2484,7 @@ struct Lara : Character {
         switch (stand) {
             case STAND_AIR :
                 velocity.y += (velocity.y >= 128.0f ? 30.0f : GRAVITY) * Core::deltaTime;
-                if (velocity.y >= 154.0f)
+                if (velocity.y >= 154.0f && state == STATE_FALL)
                     game->playSound(TR::SND_SCREAM, pos, Sound::PAN);
                 /*
                 if (state == STATE_FALL || state == STATE_FAST_DIVE) {
@@ -2636,7 +2650,14 @@ struct Lara : Character {
             }
         };
 
-        hitDir = -1;
+        if (lightning && lightning->flash && !lightning->armed) {
+            if (hitDir == -1)
+                hitTime = 0.0f;
+            hitDir = int(randf() * 4);
+        } else {
+            hitDir = -1;
+            lightning = NULL;
+        }
         return false;
     }
 
