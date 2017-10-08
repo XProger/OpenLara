@@ -1347,6 +1347,7 @@ struct Lara : Character {
         switch (hitType) {
             case TR::HIT_BLADE     : addBloodBlade(); break;
             case TR::HIT_SPIKES    : addBloodSpikes(); break;
+            case TR::HIT_SWORD     : addBloodBlade(); break;
             case TR::HIT_SLAM      : addBloodSlam(enemy); break;
             case TR::HIT_LIGHTNING : lightning = (Lightning*)enemy; break;
             default                : ;
@@ -2483,7 +2484,7 @@ struct Lara : Character {
 
         switch (stand) {
             case STAND_AIR :
-                velocity.y += (velocity.y >= 128.0f ? 30.0f : GRAVITY) * Core::deltaTime;
+                applyGravity(velocity.y);
                 if (velocity.y >= 154.0f && state == STATE_FALL)
                     game->playSound(TR::SND_SCREAM, pos, Sound::PAN);
                 /*

@@ -312,6 +312,10 @@ struct Controller {
         return vec3(angle.x, angle.y);
     }
 
+    static inline void applyGravity(float &speed) {
+        speed += (speed < 128.0f ? GRAVITY : 30.0f) * Core::deltaTime;
+    }
+
     bool alignToWall(float offset = 0.0f, int quadrant = -1, int maxDist = 0, int maxWidth = 0) {
         int q  = angleQuadrant(angle.y);
         int ix = int(pos.x);

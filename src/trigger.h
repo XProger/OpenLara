@@ -775,12 +775,44 @@ struct TrapSlam : Controller {
     }
 };
 
+#define SWORD_DAMAGE 100.0f
+#define SWORD_RANGE  1536.0f
 
 struct TrapSword : Controller {
-    TrapSword(IGame *game, int entity) : Controller(game, entity) {}
+    vec3  dir;
+    float rot;
+
+    TrapSword(IGame *game, int entity) : Controller(game, entity), dir(0) {
+        rot = (randf() * 2.0f - 1.0f) * PI;
+    }
 
     virtual void update() {
-        updateAnimation(true);
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+
+        Controller *lara = game->getLara();
+
+        if (dir.y == 0.0f) {
+            dir = lara->pos - pos;
+            if (dir.y > 0 && dir.y < 3072.0f && fabsf(dir.x) < SWORD_RANGE && fabsf(dir.z) < SWORD_RANGE) {
+                dir /= 32.0f;
+                dir.y = 50.0f;
+            } else
+                dir.y = 0.0f;
+        } else {
+            angle.y += rot * Core::deltaTime;
+            applyGravity(dir.y);
+            pos += dir * (30.0f * Core::deltaTime);
+            if (pos.y > info.floor) {
+                pos.y = info.floor;
+                game->playSound(TR::SND_SWORD, pos, Sound::PAN);
+                deactivate(true);
+            }
+            updateEntity();
+
+            if (collide(lara))
+                lara->hit(SWORD_DAMAGE * 30.0f * Core::deltaTime, this, TR::HIT_SWORD); // TODO: push lara
+        }
     }
 };
 

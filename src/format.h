@@ -279,6 +279,7 @@ namespace TR {
         SND_LIGHTNING       = 98,
         SND_ROCK            = 99,
 
+        SND_SWORD           = 103,
         SND_EXPLOSION       = 104,
 
         SND_INV_SPIN        = 108,
@@ -334,6 +335,7 @@ namespace TR {
         HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
+        HIT_SWORD,
         HIT_LAVA,
         HIT_SLAM,
         HIT_REX,
@@ -692,7 +694,7 @@ namespace TR {
         }
 
         bool castShadow() const {
-            return isLara() || isEnemy() || isActor() || type == TRAP_DART;
+            return isLara() || isEnemy() || isActor() || type == TRAP_DART || type == TRAP_SWORD;
         }
 
         void getAxis(int &dx, int &dz) {
