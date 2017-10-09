@@ -466,8 +466,8 @@ struct Lara : Character {
         //reset(73, vec3(73372, 122, 51687), PI * 0.5f);       // level 6 (midas hand)
         //reset(64, vec3(36839, -2560, 48769), 270 * DEG2RAD);  // level 6 (flipmap effect)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
-        //reset(90,  vec3(19438, 3840, 78341), 90 * DEG2RAD); // level 7a (statues)
         //reset(77,  vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
+        //reset(90,  vec3(19438, 3840, 78341), 90 * DEG2RAD); // level 7b (statues)
         //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c

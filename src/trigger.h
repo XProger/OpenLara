@@ -1101,6 +1101,33 @@ struct DoorLatch : Controller {
 };
 
 
+#define CENTAUR_STATUE_RANGE (3072 + 512)
+
+struct CentaurStatue : Controller {
+
+    CentaurStatue(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual void update() {
+        if (explodeMask) {
+            Controller::update();
+            if (!explodeMask)
+                deactivate(true);
+            return;
+        }
+
+        if ((pos - game->getLara()->pos).length() < CENTAUR_STATUE_RANGE) {
+            explode(0xFFFFFFFF);
+            game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
+            int index = game->addEnemy(TR::Entity::ENEMY_CENTAUR, getRoomIndex(), pos, angle.y);
+            if (index > -1) {
+                Controller *controller = (Controller*)level->entities[index].controller;
+                controller->animation.setAnim(7, -36);
+            }
+        }
+    }
+};
+
+
 struct Cabin : Controller {
     enum {
         STATE_UP,

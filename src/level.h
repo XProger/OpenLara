@@ -521,6 +521,7 @@ struct Level : IGame {
             case TR::Entity::SCION_TARGET          : return new ScionTarget(this, index);
             case TR::Entity::WATERFALL             : return new Waterfall(this, index);
             case TR::Entity::TRAP_LAVA             : return new TrapLava(this, index);
+            case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
             case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
             case TR::Entity::BOAT                  : return new Boat(this, index);

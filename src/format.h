@@ -172,7 +172,7 @@
     E( BLOOD                 ) \
     E( UNUSED_12             ) \
     E( SMOKE                 ) \
-    E( STATUE                ) \
+    E( CENTAUR_STATUE        ) \
     E( CABIN                 ) \
     E( MUTANT_EGG_SMALL      ) \
     E( RICOCHET              ) \
