@@ -25,6 +25,7 @@ struct ICamera {
 
     virtual void setup(bool calcMatrices) {}
     virtual int  getRoomIndex() const { return TR::NO_ROOM; }
+    virtual void doCutscene(const vec3 &pos, float rotation) {}
 };
 
 struct IGame {
@@ -45,6 +46,7 @@ struct IGame {
     virtual void setWaterParams(float height) {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
+    virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {}
     virtual void setupBinding() {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
     virtual void renderCompose(int roomIndex) {}
@@ -98,6 +100,7 @@ struct Controller {
         uint32   mask;
     } *layers;
 
+    uint32 visibleMask;
     uint32 explodeMask;
     struct ExplodePart {
         Basis basis;
@@ -120,6 +123,7 @@ struct Controller {
         ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
         targetLight = NULL;
         updateLights(false);
+        visibleMask = 0xFFFFFFFF;
 
         if (e.flags.once) {
             e.flags.invisible = true;
@@ -762,6 +766,7 @@ struct Controller {
 
             for (int i = MAX_LAYERS - 1; i >= 0; i--) {
                 uint32 vmask = (layers[i].mask & ~mask) | (!i ? explodeMask : 0);
+                vmask &= visibleMask;
                 if (!vmask) continue;
                 mask |= layers[i].mask;
             // set meshes visibility
@@ -769,6 +774,7 @@ struct Controller {
                     joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // AHAHA
 
                 if (explodeMask) {
+                    ASSERT(explodeParts);
                     TR::Model *model = getModel();
                     for (int i = 0; i < model->mCount; i++)
                         if (explodeMask & (1 << i))

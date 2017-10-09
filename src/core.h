@@ -668,6 +668,7 @@ namespace Core {
         
         memset(rtCache, 0, sizeof(rtCache));
         defaultTarget = NULL;
+        glDepthFunc(GL_LEQUAL);
 
         Sound::init();
 

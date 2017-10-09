@@ -10,8 +10,9 @@ struct Texture {
     int     width, height;
     Format  format;
     bool    cube;
+    bool    filter;
 
-    Texture(int width, int height, Format format, bool cube = false, void *data = NULL, bool filter = true, bool mips = false) : cube(cube) {
+    Texture(int width, int height, Format format, bool cube = false, void *data = NULL, bool filter = true, bool mips = false) : cube(cube), filter(filter) {
         if (!Core::support.texNPOT) {
             width  = nextPow2(width);
             height = nextPow2(height);
@@ -117,12 +118,20 @@ struct Texture {
             if (!cube) break;
         }
 
-        if (mips) {
-            glGenerateMipmap(target);
-            if (!cube && filter && (Core::support.maxAniso > 0))
-                glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
-        }
+        if (mips)
+            generateMipMap();
+
+        this->filter = filter;
+    }
+
+    void generateMipMap() {
+        bind(0);
+        GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+
+        glGenerateMipmap(target);
+        if (!cube && filter && (Core::support.maxAniso > 0))
+            glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
     }
 
     virtual ~Texture() {

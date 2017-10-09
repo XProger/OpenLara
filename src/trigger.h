@@ -621,7 +621,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, Texture::RGBA, true);
+        environment = new Texture(64, 64, Texture::RGBA, true, NULL, true, true);
         activate();
     }
 
@@ -634,8 +634,7 @@ struct Crystal : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Shader *sh = Core::active.shader;
-        sh->setParam(uMaterial, vec4(1.0f));
+        Core::active.shader->setParam(uMaterial, vec4(0.5, 0.5, 2.0, 1.0f)); // blue color dodge for crystal
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
     }
@@ -803,8 +802,8 @@ struct TrapSword : Controller {
             angle.y += rot * Core::deltaTime;
             applyGravity(dir.y);
             pos += dir * (30.0f * Core::deltaTime);
-            if (pos.y > info.floor) {
-                pos.y = info.floor;
+            if (pos.y > float(info.floor)) {
+                pos.y = float(info.floor);
                 game->playSound(TR::SND_SWORD, pos, Sound::PAN);
                 deactivate(true);
             }
@@ -1014,6 +1013,46 @@ struct Lightning : Controller {
         Core::setDepthWrite(true);
         Core::setBlending(bmNone);
         Core::setCulling(cfFront);
+    }
+};
+
+struct MidasHand : Controller {
+    TR::Entity::Type invItem;
+    bool interaction;
+
+    MidasHand(IGame *game, int entity) : Controller(game, entity), invItem(TR::Entity::NONE), interaction(false) {
+        activate();
+    }
+
+    virtual void update() {
+        Character *lara = (Character*)level->laraController;
+        
+        if (lara->health <= 0.0f || lara->stand != Character::STAND_GROUND || lara->getRoomIndex() != getRoomIndex())
+            return;
+
+        vec3 d = (pos - lara->pos).abs();
+
+        if (d.x < 512.0f && d.z < 512.0f) { // check for same sector
+            lara->hit(1001.0f, this, TR::HIT_MIDAS);
+            deactivate(true);
+            return;
+        }
+
+        interaction = (d.x < 700.0f && d.z < 700.0f) && lara->state == 2; // 2 = Lara::STATE_STOP
+
+        if (interaction) {
+            if (invItem != TR::Entity::NONE) {
+                if (invItem == TR::Entity::INV_LEADBAR) {
+                    lara->angle.y = PI * 0.5f;
+                    lara->pos.x   = pos.x - 612.0f;
+                    lara->animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
+                    game->invAdd(TR::Entity::PUZZLE_1);
+                } else
+                    game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
+                invItem = TR::Entity::NONE;
+            } else if (Input::state[cAction] && !game->invChooseKey(getEntity().type)) // TODO: add callback for useItem
+                game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
+        }
     }
 };
 

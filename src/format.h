@@ -139,7 +139,7 @@
     E( PUZZLE_DONE_4         ) \
     E( LEADBAR               ) \
     E( INV_LEADBAR           ) \
-    E( MIDAS_TOUCH           ) \
+    E( MIDAS_HAND            ) \
     E( KEY_ITEM_1            ) \
     E( KEY_ITEM_2            ) \
     E( KEY_ITEM_3            ) \
@@ -340,6 +340,7 @@ namespace TR {
         HIT_SLAM,
         HIT_REX,
         HIT_LIGHTNING,
+        HIT_MIDAS,
     };
 
     enum Action : uint16 {
@@ -393,8 +394,12 @@ namespace TR {
             0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}, true, false
         };
 
+        Limit MIDAS = { 
+            512, -612, 30,  {{-700, 284, -700}, {700, 996, 700}}, true, false
+        };
+
         Limit SCION = { 
-            640, -202, 30,   {{-256, 540, -350}, {256, 740, -200}}, false, false
+            640, -202, 30,  {{-256, 540, -350}, {256, 740, -200}}, false, false
         };
     }
 
@@ -667,14 +672,16 @@ namespace TR {
                    isDoor() ||
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
                    (type == SCION_HOLDER) ||
-                   ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision);
+                   ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
+                   (type == CRYSTAL);
         }
 
-        bool isItem() const {
+        bool isPickup() const {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
-                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG || type == SCION_QUALOPEC || type == SCION_DROP || type == SCION_NATLA || type == LEADBAR); // TODO: recheck all items
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
+                   (type == SCION_QUALOPEC || type == SCION_DROP || type == SCION_NATLA || type == LEADBAR); // TODO: recheck all items
         }
 
         bool isActor() const {
@@ -748,6 +755,7 @@ namespace TR {
                 case KEY_HOLE_2    : return KEY_ITEM_2; break;
                 case KEY_HOLE_3    : return KEY_ITEM_3; break;
                 case KEY_HOLE_4    : return KEY_ITEM_4; break;
+                case MIDAS_HAND    : return LEADBAR;    break;
                 default            : return NONE;
             }
         }
@@ -1666,6 +1674,10 @@ namespace TR {
                     default : ;
                 }
             }
+        }
+
+        bool isCutsceneLevel() {
+            return cutEntity > -1;
         }
 
         void readMeshes(Stream &stream) {

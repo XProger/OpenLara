@@ -166,8 +166,11 @@ struct Camera : ICamera {
             if (indexA == level->cameraFramesCount - 1) {
                 if (level->cutEntity != -1)
                     game->loadLevel(TR::LevelID(level->id + 1));
-                else
-                    state = STATE_FOLLOW;
+                else {
+                    Character *lara = (Character*)game->getLara();
+                    if (lara->health > 0.0f)
+                        state = STATE_FOLLOW;
+                }
             }
 
             TR::CameraFrame *frameA = &level->cameraFrames[indexA];

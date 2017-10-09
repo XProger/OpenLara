@@ -97,7 +97,11 @@ struct Character : Controller {
             e.room = info.roomBelow;
 
         if (info.roomAbove != TR::NO_ROOM && e.y <= info.roomCeiling) {
-            if (stand == STAND_UNDERWATER && !level->rooms[info.roomAbove].flags.water) {
+            TR::Room *room = &level->rooms[info.roomAbove];
+            if (level->isFlipped && room->alternateRoom > -1)
+                room = &level->rooms[room->alternateRoom];
+
+            if (stand == STAND_UNDERWATER && !room->flags.water) {
                 stand = STAND_ONWATER;
                 velocity.y = 0;
                 pos.y = float(info.roomCeiling);

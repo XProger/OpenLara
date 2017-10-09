@@ -45,7 +45,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 #ifdef VERTEX
 
-	#ifdef TYPE_ENTITY
+	#if defined(TYPE_ENTITY) || defined(TYPE_MIRROR)
 		uniform vec4 uBasis[32 * 2];
 	#else
 		uniform vec4 uBasis[2];
@@ -89,7 +89,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 	}
 
 	vec4 _transform() {
-		#ifdef TYPE_ENTITY
+		#if defined(TYPE_ENTITY) || defined(TYPE_MIRROR)
 			int index = int(aCoord.w * 2.0);
 			vec4 rBasisRot = uBasis[index];
 			vec4 rBasisPos = uBasis[index + 1];
@@ -147,7 +147,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			#endif
 
 			#ifdef TYPE_MIRROR
-				vDiffuse.xyz = vec3(0.5, 0.5, 2.0); // blue color dodge for crystal
+				vDiffuse.xyz = uMaterial.xyz;
 			#endif
 
 			#ifdef TYPE_FLASH

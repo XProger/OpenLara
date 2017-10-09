@@ -163,6 +163,34 @@ struct Level : IGame {
         shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0), this);
     }
 
+    virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
+        if (Core::pass == Core::passShadow) {
+            setShader(Core::pass, type);
+            return;
+        }
+
+        TR::Room &room = level.rooms[roomIndex];
+
+        if (room.flags.water)
+            setWaterParams(float(room.info.yTop));
+        else
+            setWaterParams(NO_CLIP_PLANE);
+
+        setShader(Core::pass, type, room.flags.water, alphaTest);
+
+        if (room.flags.water) {
+            if (waterCache)
+                waterCache->bindCaustics(roomIndex);
+            setWaterParams(float(room.info.yTop));
+        }
+
+        Core::active.shader->setParam(uParam, Core::params);
+        Core::active.shader->setParam(uMaterial, vec4(diffuse, ambient, specular, alpha));
+
+        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
+            Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
+    }
+
     virtual void setupBinding() {
         atlas->bind(sDiffuse);
         Core::whiteTex->bind(sNormal);
@@ -489,6 +517,7 @@ struct Level : IGame {
             case TR::Entity::KEY_HOLE_2            :
             case TR::Entity::KEY_HOLE_3            :
             case TR::Entity::KEY_HOLE_4            : return new KeyHole(this, index);
+            case TR::Entity::MIDAS_HAND            : return new MidasHand(this, index);
             case TR::Entity::SCION_TARGET          : return new ScionTarget(this, index);
             case TR::Entity::WATERFALL             : return new Waterfall(this, index);
             case TR::Entity::TRAP_LAVA             : return new TrapLava(this, index);
@@ -729,36 +758,10 @@ struct Level : IGame {
             if (e.type == TR::Entity::CRYSTAL) {
                 Crystal *c = (Crystal*)e.controller;
                 renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
+                c->environment->generateMipMap();
             }
         }
         Core::endFrame();
-    }
-
-    void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
-        if (Core::pass == Core::passShadow) {
-            setShader(Core::pass, type);
-            return;
-        }
-
-        TR::Room &room = level.rooms[roomIndex];
-
-        if (room.flags.water)
-            setWaterParams(float(room.info.yTop));
-        else
-            setWaterParams(NO_CLIP_PLANE);
-
-        setShader(Core::pass, type, room.flags.water, alphaTest);
-
-        if (room.flags.water) {
-            if (waterCache)
-                waterCache->bindCaustics(roomIndex);
-            setWaterParams(float(room.info.yTop));
-        }
-
-        Core::active.shader->setParam(uParam, Core::params);
-        Core::active.shader->setParam(uMaterial, vec4(diffuse, ambient, specular, alpha));
-        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
-            Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
     }
 
     void setMainLight(Controller *controller) {
@@ -874,7 +877,7 @@ struct Level : IGame {
 
         if (type == Shader::SPRITE) {
             float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH) ? 0.75f : 1.0f;
-            float diffuse = entity.isItem() ? 1.0f : 0.5f;
+            float diffuse = entity.isPickup() ? 1.0f : 0.5f;
             setRoomParams(roomIndex, type, diffuse, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
         } else
             setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
@@ -904,11 +907,15 @@ struct Level : IGame {
     }
 
     void update() {
-        if (isCutscene() && !sndSoundtrack)
+        if (isCutscene() && (lara->health > 0.0f && !sndSoundtrack))
             return;
 
-        if (Input::state[cInventory] && level.id != TR::TITLE)
-            inventory.toggle();
+        if (Input::state[cInventory] && level.id != TR::TITLE) {
+            if (lara->health <= 0.0f)
+                inventory.toggle(Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
+            else
+                inventory.toggle();
+        }
 
         Sound::Sample *sndChanged = sndCurrent;
 
@@ -1477,7 +1484,7 @@ struct Level : IGame {
     }
 
     void renderUI() {
-        if (isCutscene()) return;
+        if (level.isCutsceneLevel()) return;
 
         UI::begin();
 
