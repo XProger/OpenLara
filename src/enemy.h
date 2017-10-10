@@ -1293,4 +1293,114 @@ struct ScionTarget : Enemy {
 };
 
 
+struct Human : Enemy {
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_AIM,
+        STATE_DEATH,
+        STATE_UNKNOWN,
+        STATE_FIRE
+    };
+
+    int animDeath;
+
+    Human(IGame *game, int entity, float health) : Enemy(game, entity, health, 100, 375.0f, 1.0f), animDeath(-1) {
+        jointChest = 7;
+        jointHead  = 8;
+    }
+
+    virtual void deactivate(bool removeFromList = false) {
+        if (health <= 0.0f)
+            onDead();
+        Enemy::deactivate(removeFromList);
+    }
+
+    virtual int getStateDeath() {
+        return (animDeath == -1 || state == STATE_DEATH || state == STATE_NONE) ? STATE_DEATH : animation.setAnim(animDeath);
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+        return state;
+    }
+
+    virtual void updatePosition() {
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+
+    virtual void onDead() {}
+};
+
+
+struct Larson : Human {
+
+    Larson(IGame *game, int entity) : Human(game, entity, 50) {
+        animDeath = 15;
+    }
+};
+
+
+struct Pierre : Human {
+
+    Pierre(IGame *game, int entity) : Human(game, entity, 70) {
+        animDeath = 12;
+    }
+
+    virtual void onDead() {
+        if (level->id == TR::LEVEL_7B) {
+            game->addEntity(TR::Entity::MAGNUMS,    getRoomIndex(), pos, 0);
+            game->addEntity(TR::Entity::SCION_DROP, getRoomIndex(), pos, 0);
+            game->addEntity(TR::Entity::KEY_ITEM_1, getRoomIndex(), pos, 0);
+        }
+    }
+};
+
+
+struct SkaterBoy : Human {
+
+    SkaterBoy(IGame *game, int entity) : Human(game, entity, 125) {
+        animDeath = 13;
+    }
+
+    virtual void onDead() {
+        game->addEntity(TR::Entity::UZIS, getRoomIndex(), pos, 0);
+    }
+};
+
+
+struct Cowboy : Human {
+
+    Cowboy(IGame *game, int entity) : Human(game, entity, 150) {
+        animDeath = 7;
+    }
+
+    virtual void onDead() {
+        game->addEntity(TR::Entity::MAGNUMS, getRoomIndex(), pos, 0);
+    }
+};
+
+
+struct MrT : Human {
+
+    MrT(IGame *game, int entity) : Human(game, entity, 200) {
+        animDeath = 14;
+    }
+
+    virtual void onDead() {
+        game->addEntity(TR::Entity::SHOTGUN, getRoomIndex(), pos, 0);
+    }
+};
+
+
+struct Natla : Human {
+
+    Natla(IGame *game, int entity) : Human(game, entity, 400) {}
+};
+
 #endif

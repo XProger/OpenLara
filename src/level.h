@@ -69,6 +69,10 @@ struct Level : IGame {
         new Stream(buf, loadAsync);
     }
 
+    virtual void loadNextLevel() {
+        loadLevel(level.id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level.id + 1));
+    }
+
     virtual void loadGame(int slot) {
         //
     }
@@ -249,14 +253,18 @@ struct Level : IGame {
         return Sprite::add(this, type, room, x, y, z, frame, empty);
     }
 
-    virtual int addEnemy(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
+    virtual int addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
         int index = level.entityAdd(type, room, int(pos.x), int(pos.y), int(pos.z), TR::angle(angle), -1);
         if (index > -1) {
             TR::Entity &e = level.entities[index];
-            Controller *enemy = initController(index);
-            e.controller = enemy;
-            e.flags.active = TR::ACTIVE;
-            enemy->activate();
+            Controller *controller = initController(index);
+            e.controller = controller;
+            if (e.isEnemy()) {
+                e.flags.active = TR::ACTIVE;
+                controller->activate();
+            }
+            if (e.isPickup())
+                e.intensity = 4096;
         }
         return index;
     }
@@ -464,13 +472,13 @@ struct Level : IGame {
             case TR::Entity::ENEMY_CROCODILE_LAND  :
             case TR::Entity::ENEMY_CROCODILE_WATER :
             case TR::Entity::ENEMY_PUMA            :
-            case TR::Entity::ENEMY_GORILLA         :
-            case TR::Entity::ENEMY_LARSON          :
-            case TR::Entity::ENEMY_PIERRE          :
-            case TR::Entity::ENEMY_SKATEBOY        :
-            case TR::Entity::ENEMY_COWBOY          :
-            case TR::Entity::ENEMY_MR_T            :
-            case TR::Entity::ENEMY_NATLA           : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+            case TR::Entity::ENEMY_GORILLA         : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+            case TR::Entity::ENEMY_LARSON          : return new Larson(this, index);
+            case TR::Entity::ENEMY_PIERRE          : return new Pierre(this, index);
+            case TR::Entity::ENEMY_SKATEBOY        : return new SkaterBoy(this, index);
+            case TR::Entity::ENEMY_COWBOY          : return new Cowboy(this, index);
+            case TR::Entity::ENEMY_MR_T            : return new MrT(this, index);
+            case TR::Entity::ENEMY_NATLA           : return new Natla(this, index);
             case TR::Entity::ENEMY_GIANT_MUTANT    : return new GiantMutant(this, index);
             case TR::Entity::DOOR_1                :
             case TR::Entity::DOOR_2                :

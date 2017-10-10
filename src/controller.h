@@ -31,6 +31,7 @@ struct ICamera {
 struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
+    virtual void         loadNextLevel() {}
     virtual void         loadGame(int slot) {}
     virtual void         saveGame(int slot) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
@@ -56,7 +57,7 @@ struct IGame {
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
     virtual int  addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) { return -1; }
-    virtual int  addEnemy(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return -1; }
+    virtual int  addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return -1; }
 
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
@@ -527,10 +528,11 @@ struct Controller {
                         if (animation.isFrameActive(frame)) {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
-                                    case TR::Effect::ROTATE_180  : angle.y = angle.y + PI; break;
-                                    case TR::Effect::FLOOR_SHAKE : game->setEffect(this, TR::Effect(fx)); break;
-                                    case TR::Effect::FLIP_MAP    : level->isFlipped = !level->isFlipped; break;
-                                    default                      : cmdEffect(fx); break;
+                                    case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
+                                    case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect(fx)); break;
+                                    case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
+                                    case TR::Effect::FLIP_MAP     : level->isFlipped = !level->isFlipped; break;
+                                    default                       : cmdEffect(fx); break;
                                 }
                             } else
                                 game->playSound(fx, pos, Sound::Flags::PAN);

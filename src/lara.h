@@ -468,11 +468,13 @@ struct Lara : Character {
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(77,  vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
         //reset(90,  vec3(19438, 3840, 78341), 90 * DEG2RAD); // level 7b (statues)
-        //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch
+        //reset(90,  vec3(29000, 3840 - 512, 78341), 90 * DEG2RAD); // level 7b (statues)
+        //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
         //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (drill)
+        //reset(68, vec3(52458, -9984, 93724), 270 * DEG2RAD);      // Level 10a (MrT)
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
@@ -1841,7 +1843,7 @@ struct Lara : Character {
                     cameraTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
-                    game->loadLevel(level->id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level->id + 1));
+                    game->loadNextLevel();
                     break;
                 case TR::Action::SOUNDTRACK : {
                     int track = doTutorial(cmd.args);
