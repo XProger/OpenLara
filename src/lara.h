@@ -167,8 +167,8 @@ struct Lara : Character {
         STATE_SURF_BACK,
         STATE_SURF_LEFT,
         STATE_SURF_RIGHT,
-        STATE_USE_MIDAS,
-        STATE_DIE_MIDAS,
+        STATE_MIDAS_USE,
+        STATE_MIDAS_DEATH,
         STATE_SWAN_DIVE,
         STATE_FAST_DIVE,
         STATE_HANDSTAND,
@@ -513,6 +513,8 @@ struct Lara : Character {
     }
 
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
+        visibleMask = 0xFFFFFFFF;
+
         if (room == TR::NO_ROOM) {
             stand = STAND_AIR;
             room  = getRoomByPos(pos);
@@ -1262,7 +1264,7 @@ struct Lara : Character {
         
         if (box.intersect(m, from, v, t)) {
             v = v.normal();
-            Sphere spheres[34];
+            Sphere spheres[MAX_SPHERES];
             int count;
             target->getSpheres(spheres, count);
             for (int i = 0; i < count; i++) 
@@ -1317,6 +1319,17 @@ struct Lara : Character {
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
+    }
+
+    void addSparks(uint32 mask) {
+        Sphere spheres[MAX_SPHERES];
+        int count;
+        getSpheres(spheres, count);
+        for (int i = 0; i < count; i++)
+            if (mask & (1 << i)) {
+                vec3 sprPos = spheres[i].center + (vec3(randf(), randf(), randf()) * 2.0f - 1.0f) * spheres[i].radius;
+                Sprite::add(game, TR::Entity::SPARKLES, getRoomIndex(), int(sprPos.x), int(sprPos.y), int(sprPos.z), Sprite::FRAME_ANIMATED);
+            }
     }
 
     void addBlood(const vec3 &sprPos, const vec3 &sprVel) {
@@ -2337,7 +2350,7 @@ struct Lara : Character {
 
     virtual int getStateDeath() {
         velocity = vec3(0.0f);
-        return (stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? STATE_UNDERWATER_DEATH : STATE_DEATH;
+        return (stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? STATE_UNDERWATER_DEATH : (state == STATE_MIDAS_DEATH ? STATE_MIDAS_DEATH : STATE_DEATH);
     }
 
     virtual int getStateDefault() {
@@ -2486,6 +2499,19 @@ struct Lara : Character {
         else
             if (specular > 0.0f)
                 specular = max(0.0f, specular - LARA_WET_TIMER * Core::deltaTime);
+
+        if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
+            uint32 sparklesMask = getMidasMask();
+
+            if (state == STATE_MIDAS_DEATH)
+                visibleMask = sparklesMask ^ 0xFFFFFFFF;
+
+            timer += Core::deltaTime;
+            if (timer >= 1.0f / 30.0f) {
+                timer -= 1.0f / 30.0f;
+                addSparks(sparklesMask);
+            }
+        }
     }
 
     virtual void updateVelocity() {
@@ -2878,7 +2904,10 @@ struct Lara : Character {
         velocity = v * (sink.speed * 8.0f);
     }
 
-    uint32 getMidasDeathMask() {
+    uint32 getMidasMask() {
+        if (state == STATE_MIDAS_USE)
+            return BODY_ARM_L3 | BODY_ARM_R3;
+
         uint32 mask = 0;
         int frame = animation.frameIndex;
         if (frame > 4  ) mask |= BODY_LEG_L3 | BODY_LEG_R3;
@@ -2926,13 +2955,13 @@ struct Lara : Character {
             Core::setBlending(bmNone);
         }
 
-        if (state == STATE_DIE_MIDAS) {
+        if (state == STATE_MIDAS_DEATH) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);      
             environment->bind(sEnvironment);
             Core::setBlending(bmAlpha);
-            visibleMask = getMidasDeathMask();
+            visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
-            visibleMask = 0xFFFFFFFF;
+            visibleMask ^= 0xFFFFFFFF;
             Core::setBlending(bmNone);
         }
     }

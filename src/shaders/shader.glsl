@@ -448,11 +448,11 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 							rSpecular *= rShadow;
 							light += vAmbient + uLightColor[0].xyz * (vLight.x * rShadow);
 						#endif
-                    	
+
 						#ifdef TYPE_ROOM
 							light += mix(vAmbient.x, vLight.x, rShadow);
 						#endif
-                    	
+
 						#ifdef TYPE_SPRITE
 							light += vLight.x;
 						#endif

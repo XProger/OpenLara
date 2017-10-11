@@ -11,6 +11,7 @@
 #define SPRITE_FPS  10.0f
 
 #define MAX_LAYERS  4
+#define MAX_SPHERES 32
 
 #define UNLIMITED_AMMO  10000
 
@@ -371,6 +372,8 @@ struct Controller {
 
     void getSpheres(Sphere *spheres, int &count) {
         TR::Model *m = getModel();
+        ASSERT(m->mCount <= MAX_SPHERES);
+
         Basis basis(getMatrix());
     // TODO: optimize (check frame index for animation updates, use joints array)
         count = 0;
@@ -394,8 +397,8 @@ struct Controller {
         ASSERT(a->mCount <= 34);
         ASSERT(b->mCount <= 34);
 
-        Sphere aSpheres[34];
-        Sphere bSpheres[34];
+        Sphere aSpheres[MAX_SPHERES];
+        Sphere bSpheres[MAX_SPHERES];
         int aCount, bCount;
 
         getSpheres(aSpheres, aCount);

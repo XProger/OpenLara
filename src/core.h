@@ -686,7 +686,7 @@ namespace Core {
     // init settings
         settings.detail.setFilter   (Core::Settings::HIGH);
         settings.detail.setLighting (Core::Settings::HIGH);
-        settings.detail.setShadows  (Core::Settings::MEDIUM);
+        settings.detail.setShadows  (Core::Settings::HIGH);
         settings.detail.setWater    (Core::Settings::HIGH);
 
         settings.audio.music          = 0.7f;

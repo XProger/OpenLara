@@ -134,7 +134,7 @@ struct Inventory {
 
             TR::Level *level = game->getLevel();
             TR::Model &m     = level->models[desc.model];
-            Basis joints[34];
+            Basis joints[MAX_SPHERES];
 
             anim->getJoints(basis, -1, true, joints);
 

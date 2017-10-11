@@ -153,6 +153,29 @@ struct Camera : ICamera {
         timer = 0.0f;
     }
 
+    bool updateFirstPerson() {
+        if (!firstPerson || viewIndex != -1)
+            return false;
+
+        Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
+        Basis eye(quat(0.0f, 0.0f, 0.0f, 1.0f), vec3(0.0f, -40.0f, 10.0f));
+        eye = head * eye;
+        mViewInv.identity();
+
+        //prevBasis = prevBasis.lerp(eye, 15.0f * Core::deltaTime);
+
+        mViewInv.setRot(eye.rot);
+        mViewInv.setPos(eye.pos);
+        mViewInv.rotateY(advAngle.y);
+        mViewInv.rotateX(advAngle.x + PI);
+
+        pos = mViewInv.getPos();
+        checkRoom();
+        updateListener();
+        return true;
+    }
+
+
     virtual void update() {
         if (shake > 0.0f)
             shake = max(0.0f, shake - Core::deltaTime);
@@ -172,6 +195,9 @@ struct Camera : ICamera {
                         state = STATE_FOLLOW;
                 }
             }
+
+            if (updateFirstPerson())
+                return;
 
             TR::CameraFrame *frameA = &level->cameraFrames[indexA];
             TR::CameraFrame *frameB = &level->cameraFrames[indexB];
@@ -242,24 +268,8 @@ struct Camera : ICamera {
 
             vec3 viewPoint = getViewPoint();
 
-            if (firstPerson && viewIndex == -1) {
-                Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
-                Basis eye(quat(0.0f, 0.0f, 0.0f, 1.0f), vec3(0.0f, -40.0f, 10.0f));
-                eye = head * eye;
-                mViewInv.identity();
-
-                //prevBasis = prevBasis.lerp(eye, 15.0f * Core::deltaTime);
-
-                mViewInv.setRot(eye.rot);
-                mViewInv.setPos(eye.pos);
-                mViewInv.rotateY(advAngle.y);
-                mViewInv.rotateX(advAngle.x + PI);
-
-                pos = mViewInv.getPos();
-                checkRoom();
-                updateListener();
+            if (updateFirstPerson())
                 return;
-            }
 
             float lerpFactor = lookAt ? 10.0f : 6.0f;
             vec3 dir;
