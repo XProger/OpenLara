@@ -251,6 +251,10 @@ struct vec3 {
     vec3  normal()  const { float s = length(); return s == 0.0f ? (*this) : (*this)*(1.0f/s); }
     vec3  axisXZ()  const { return (fabsf(x) > fabsf(z)) ? vec3(float(sign(x)), 0, 0) : vec3(0, 0, float(sign(z))); }
 
+    vec3 reflect(const vec3 &n) const {
+        return *this - n * (dot(n) * 2.0f);
+    }
+
     vec3 lerp(const vec3 &v, const float t) const {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return v;

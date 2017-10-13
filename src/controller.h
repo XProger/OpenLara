@@ -58,7 +58,7 @@ struct IGame {
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
     virtual int  addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) { return -1; }
-    virtual int  addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return -1; }
+    virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return NULL; }
 
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}

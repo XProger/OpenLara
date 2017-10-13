@@ -473,12 +473,13 @@ struct Lara : Character {
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
         //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
-        //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (drill)
+        //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (TNT / Cowboy)
         //reset(68, vec3(52458, -9984, 93724), 270 * DEG2RAD);      // Level 10a (MrT)
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
-        //reset(9, vec3(69074, -14592, 25192), 0);  // Level 10c (trap slam)
+        //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
+        //reset(21, vec3(47668, -10752, 32163), 0);                 // Level 10c (lava emitter)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     #endif
 

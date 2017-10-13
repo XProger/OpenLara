@@ -50,7 +50,7 @@
     E( TRAP_BLADE            ) \
     E( TRAP_SPIKES           ) \
     E( TRAP_BOULDER          ) \
-    E( TRAP_DART             ) \
+    E( DART                  ) \
     E( TRAP_DART_EMITTER     ) \
     E( DRAWBRIDGE            ) \
     E( TRAP_SLAM             ) \
@@ -182,14 +182,14 @@
     E( UNUSED_14             ) \
     E( VIEW_TARGET           ) \
     E( WATERFALL             ) \
-    E( UNUSED_15             ) \
+    E( NATLA_BULLET          ) \
     E( MUTANT_BULLET         ) \
     E( MUTANT_GRENADE        ) \
     E( UNUSED_16             ) \
     E( UNUSED_17             ) \
-    E( TRAP_LAVA_PARTICLE    ) \
+    E( LAVA_PARTICLE         ) \
     E( TRAP_LAVA_EMITTER     ) \
-    E( TRAP_FLAME            ) \
+    E( FLAME                 ) \
     E( TRAP_FLAME_EMITTER    ) \
     E( TRAP_LAVA             ) \
     E( MUTANT_EGG_BIG        ) \
@@ -299,6 +299,7 @@ namespace TR {
         SND_HIT_MUTANT      = 142,
         SND_STOMP           = 147,
         
+        SND_LAVA            = 149,
         SND_FLAME           = 150,
         SND_DART            = 151,
         
@@ -701,7 +702,7 @@ namespace TR {
         }
 
         bool castShadow() const {
-            return isLara() || isEnemy() || isActor() || type == TRAP_DART || type == TRAP_SWORD;
+            return isLara() || isEnemy() || isActor() || type == DART || type == TRAP_SWORD;
         }
 
         void getAxis(int &dx, int &dz) {

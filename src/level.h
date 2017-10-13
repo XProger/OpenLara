@@ -253,7 +253,7 @@ struct Level : IGame {
         return Sprite::add(this, type, room, x, y, z, frame, empty);
     }
 
-    virtual int addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
+    virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
         int index = level.entityAdd(type, room, int(pos.x), int(pos.y), int(pos.z), TR::angle(angle), -1);
         if (index > -1) {
             TR::Entity &e = level.entities[index];
@@ -265,8 +265,11 @@ struct Level : IGame {
             }
             if (e.isPickup())
                 e.intensity = 4096;
+            if (e.type == TR::Entity::LAVA_PARTICLE || e.type == TR::Entity::FLAME)
+                e.intensity = 0; // emissive
+            return controller;
         }
-        return index;
+        return NULL;
     }
 
     virtual bool invUse(TR::Entity::Type type) {
@@ -501,6 +504,7 @@ struct Level : IGame {
             case TR::Entity::TRAP_BLADE            : return new TrapBlade(this, index);
             case TR::Entity::TRAP_SPIKES           : return new TrapSpikes(this, index);
             case TR::Entity::TRAP_BOULDER          : return new TrapBoulder(this, index);
+            case TR::Entity::DART                  : return new Dart(this, index);
             case TR::Entity::TRAP_DART_EMITTER     : return new TrapDartEmitter(this, index);
             case TR::Entity::DRAWBRIDGE            : return new Drawbridge(this, index);
             case TR::Entity::BLOCK_1               :
@@ -532,6 +536,8 @@ struct Level : IGame {
             case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
             case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
+            case TR::Entity::LAVA_PARTICLE         : return new LavaParticle(this, index);
+            case TR::Entity::TRAP_LAVA_EMITTER     : return new TrapLavaEmitter(this, index);
             case TR::Entity::BOAT                  : return new Boat(this, index);
             case TR::Entity::EARTHQUAKE            : return new Earthquake(this, index);
             case TR::Entity::MUTANT_EGG_SMALL      :

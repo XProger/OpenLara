@@ -65,6 +65,7 @@ struct Dart : Controller {
 
     Dart(IGame *game, int entity) : Controller(game, entity), armed(true) {
         dir = vec3(sinf(angle.y), 0, cosf(angle.y));
+        activate();
     }
 
     virtual void update() {
@@ -112,15 +113,8 @@ struct TrapDartEmitter : Controller {
 
             vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
 
-            int index = level->entityAdd(TR::Entity::TRAP_DART, getRoomIndex(), int(p.x), int(p.y), int(p.z), entity.rotation, -1);
-            if (index > -1) {
-                Dart *dart = new Dart(game, index);
-                dart->activate();
-                level->entities[index].controller = dart; 
-            }
-
+            game->addEntity(TR::Entity::DART, getRoomIndex(), p, entity.rotation);
             Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
-
             game->playSound(TR::SND_DART, p, Sound::Flags::PAN);
         }
 
@@ -140,7 +134,7 @@ struct Flame : Sprite {
         int  roomIndex   = controller->getRoomIndex();
         vec3 pos         = controller->pos;
 
-        int index = level->entityAdd(TR::Entity::TRAP_FLAME, roomIndex, int(pos.x), int(pos.y), int(pos.z), 0, 0);
+        int index = level->entityAdd(TR::Entity::FLAME, roomIndex, int(pos.x), int(pos.y), int(pos.z), 0, 0);
         if (index > -1) {
             flame = new Flame(game, index, jointIndex);
             level->entities[index].controller = flame; 
@@ -212,6 +206,73 @@ struct TrapFlameEmitter : Controller {
         flame = Flame::add(game, this, -1);
     }
 };
+
+
+#define LAVA_PARTICLE_DAMAGE 10
+#define LAVA_V_SPEED         -165
+#define LAVA_H_SPEED         32
+#define LAVA_EMITTER_RANGE   (1024 * 10)
+
+struct LavaParticle : Sprite {
+    int  bounces;
+
+    LavaParticle(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_RANDOM), bounces(0) {
+        float speed = randf() * LAVA_H_SPEED;
+        velocity = vec3(cosf(angle.y) * speed, randf() * LAVA_V_SPEED, sinf(angle.y) * speed);
+        blendMode = bmAdd;
+        activate();
+    }
+
+    virtual void update() {
+        applyGravity(velocity.y);
+        Sprite::update();
+
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+
+        bool hit = false;
+        if (!bounces) {
+            Controller *lara = (Controller*)game->getLara();
+            if ((hit = lara->collide(Sphere(pos, 0.0f))))
+                lara->hit(LAVA_PARTICLE_DAMAGE, this);
+        }
+
+        if (hit || pos.y > info.floor || pos.y < info.ceiling) {
+            if (hit || ++bounces > 4) {
+                level->entityRemove(entity);
+                delete this;
+                return;
+            }
+            getEntity().intensity = bounces * 2048 - 1;
+
+            if (pos.y > info.floor)   pos.y = float(info.floor);
+            if (pos.y < info.ceiling) pos.y = float(info.ceiling);
+
+            velocity = velocity.reflect(vec3(0, 1, 0)) * 0.5f;
+        }
+    }
+};
+
+struct TrapLavaEmitter : Controller {
+    float timer;
+
+    TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
+
+    void virtual update() {
+        vec3 d = (game->getLara()->pos - pos).abs();
+
+        if (!isActive() || max(d.x, d.y, d.z) > LAVA_EMITTER_RANGE) return;
+
+        if (timer <= 0.0f) {
+            game->addEntity(TR::Entity::LAVA_PARTICLE, getRoomIndex(), pos, PI * 2.0f * randf());
+            game->playSound(TR::SND_LAVA, pos, Sound::PAN);
+            timer += 1.0f / 30.0f;
+        } else
+            timer -= Core::deltaTime;
+    }
+};
+
+
 
 #define BOULDER_DAMAGE_GROUND 1000
 #define BOULDER_DAMAGE_AIR    100
@@ -1118,11 +1179,9 @@ struct CentaurStatue : Controller {
         if ((pos - game->getLara()->pos).length() < CENTAUR_STATUE_RANGE) {
             explode(0xFFFFFFFF);
             game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
-            int index = game->addEntity(TR::Entity::ENEMY_CENTAUR, getRoomIndex(), pos, angle.y);
-            if (index > -1) {
-                Controller *controller = (Controller*)level->entities[index].controller;
-                controller->animation.setAnim(7, -36);
-            }
+            Controller *enemy = game->addEntity(TR::Entity::ENEMY_CENTAUR, getRoomIndex(), pos, angle.y);
+            if (enemy)
+                enemy->animation.setAnim(7, -36);
         }
     }
 };
