@@ -678,8 +678,13 @@ struct Drawbridge : Controller {
     }
 };
 
+
+#define CRYSTAL_LIGHT_RADIUS 1024.0f
+#define CRYSTAL_LIGHT_COLOR  vec4(0.1, 0.1, 3.0, 1.0f / CRYSTAL_LIGHT_RADIUS)
+
 struct Crystal : Controller {
     Texture *environment;
+    vec3    lightPos;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, Texture::RGBA, true, NULL, true, true);
@@ -692,10 +697,11 @@ struct Crystal : Controller {
 
     virtual void update() {
         updateAnimation(false);
+        lightPos = animation.getJoints(getMatrix(), 0, false).pos - vec3(0, 256, 0);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Core::active.shader->setParam(uMaterial, vec4(0.5, 0.5, 2.0, 1.0f)); // blue color dodge for crystal
+        Core::active.shader->setParam(uMaterial, vec4(0.5, 0.5, 3.0, 1.0f)); // blue color dodge for crystal
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
     }

@@ -921,6 +921,38 @@ struct Level : IGame {
         controller->render(camera->frustum, mesh, type, room.flags.water);
     }
 
+    void updateLighting() {
+        camera->setup(true);
+
+    // update crystal lighting (TODO: make it per-room instead of global)
+        int   index   = -1;
+        float minDist = 1000000000.f;
+
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.type == TR::Entity::CRYSTAL) {
+                Crystal *crystal = (Crystal*)e.controller;
+                if (crystal->activeState != Controller::asActive && !level.rooms[crystal->getRoomIndex()].flags.visible)
+                    continue;
+
+                if (camera->frustum->isVisible(crystal->lightPos, CRYSTAL_LIGHT_RADIUS + 1024.0f)) { // 1024.0f because of vertex lighting
+                    float d = (lara->pos - crystal->pos).length();
+                    if (d < minDist) {
+                        index   = i;
+                        minDist = d;
+                    }
+                };
+            }
+        }
+
+        if (index > -1) {
+            Crystal *crystal = (Crystal*)level.entities[index].controller;
+            Core::lightPos[3]   = crystal->lightPos;
+            Core::lightColor[3] = CRYSTAL_LIGHT_COLOR;
+        } else
+            Core::lightColor[3] = Core::lightColor[3] = vec4(0, 0, 0, 1);
+    }
+
     void update() {
         if (isCutscene() && (lara->health > 0.0f && !sndSoundtrack))
             return;
@@ -955,6 +987,8 @@ struct Level : IGame {
                 camera->state = lara->emptyHands() ? Camera::STATE_FOLLOW : Camera::STATE_COMBAT;
 
             camera->update();
+
+            updateLighting();
 
             if (waterCache) 
                 waterCache->update();

@@ -180,9 +180,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 				#endif
 
-				lum.y = dot(vNormal.xyz, normalize(lv1));	att.y = dot(lv1, lv1);
-				lum.z = dot(vNormal.xyz, normalize(lv2));	att.z = dot(lv2, lv2);
-				lum.w = dot(vNormal.xyz, normalize(lv3));	att.w = dot(lv3, lv3);
+				lum.y = dot(vNormal.xyz, normalize(lv1)); att.y = dot(lv1, lv1);
+				lum.z = dot(vNormal.xyz, normalize(lv2)); att.z = dot(lv2, lv2);
+				lum.w = dot(vNormal.xyz, normalize(lv3)); att.w = dot(lv3, lv3);
 				vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
 				#ifdef UNDERWATER
@@ -205,7 +205,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					vLight   = light;
 				#else
 					vLight.w   = 0.0;
-					vLight.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z;
+					vLight.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 
 					#ifdef TYPE_ENTITY
 						vLight.xyz += ambient + uLightColor[0].xyz * light.x;
@@ -438,7 +438,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					#endif
 
 					#ifdef OPT_SHADOW
-						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z;
+						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z + uLightColor[3].xyz * vLight.w;
 
 						#if defined(TYPE_ENTITY) || defined(TYPE_ROOM)
 							float rShadow = getShadow();
