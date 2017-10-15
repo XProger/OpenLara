@@ -1145,19 +1145,26 @@ struct TrapLava : Controller {
 };
 
 
-struct DoorLatch : Controller {
+struct MovingObject : Controller {
     enum {
         STATE_CLOSE,
         STATE_OPEN,
     };
 
-    DoorLatch(IGame *game, int entity) : Controller(game, entity) {
+    MovingObject(IGame *game, int entity) : Controller(game, entity) {
         getEntity().flags.collision = true;
     }
 
     virtual void update() {
         updateAnimation(true);
         animation.setState(isActive() ? STATE_OPEN : STATE_CLOSE);
+        pos += getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
+
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        if (info.roomNext != TR::NO_ROOM)
+            getEntity().room = info.roomNext;
+        updateEntity();
     }
 };
 

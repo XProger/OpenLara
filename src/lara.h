@@ -240,6 +240,7 @@ struct Lara : Character {
     float       hitTime;
     int         hitDir;
     vec3        collisionOffset;
+    vec3        flowVelocity;
 
     struct Braid {
         Lara *lara;
@@ -1825,6 +1826,7 @@ struct Lara : Character {
                     break;
                 }
                 case TR::Action::FLOW :
+                    applyFlow(level->cameras[cmd.args]);
                     break;
                 case TR::Action::FLIP : {
                     TR::Flags &flip = level->flipmap[cmd.args];
@@ -2516,6 +2518,8 @@ struct Lara : Character {
     }
 
     virtual void updateVelocity() {
+        flowVelocity = vec3(0);
+
         if (getEntity().type != TR::Entity::LARA)
             return;
 
@@ -2650,7 +2654,7 @@ struct Lara : Character {
 
         collisionOffset = vec3(0.0f);
 
-        if (checkCollisions() || (velocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
+        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
             move();
 
         if (getEntity().type != TR::Entity::LARA) {
@@ -2754,7 +2758,7 @@ struct Lara : Character {
     }
 
     void move() {
-        vec3 vel = velocity * Core::deltaTime * 30.0f + collisionOffset;
+        vec3 vel = (velocity + flowVelocity) * Core::deltaTime * 30.0f + collisionOffset;
         vec3 opos(pos), offset(0.0f);
 
         float radius   = stand == STAND_UNDERWATER ? LARA_RADIUS_WATER : LARA_RADIUS;
@@ -2899,10 +2903,15 @@ struct Lara : Character {
 
     virtual void applyFlow(TR::Camera &sink) {
         if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;
-        vec3 v(0.0f);
-        v.x = (float)sign((sink.x / 1024 - (int)pos.x / 1024));
-        v.z = (float)sign((sink.z / 1024 - (int)pos.z / 1024));
-        velocity = v * (sink.speed * 8.0f);
+
+        vec3 target = vec3(sink.x, sink.y, sink.z);
+
+        flowVelocity = vec3(0);
+
+        float speed = sink.speed * 6.0f;
+        flowVelocity.x = clamp(target.x - pos.x, -speed, +speed);
+        flowVelocity.y = clamp(target.y - pos.y, -speed, +speed);
+        flowVelocity.z = clamp(target.z - pos.z, -speed, +speed);
     }
 
     uint32 getMidasMask() {

@@ -58,7 +58,7 @@
     E( HAMMER_HANDLE         ) \
     E( HAMMER_BLOCK          ) \
     E( LIGHTNING             ) \
-    E( DOOR_LATCH            ) \
+    E( MOVING_OBJECT         ) \
     E( BLOCK_1               ) \
     E( BLOCK_2               ) \
     E( BLOCK_3               ) \
@@ -674,7 +674,8 @@ namespace TR {
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
                    (type == SCION_HOLDER) ||
                    ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
-                   (type == CRYSTAL);
+                   (type == CRYSTAL) ||
+                   (type == MOVING_OBJECT);
         }
 
         bool isPickup() const {

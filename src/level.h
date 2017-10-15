@@ -518,7 +518,7 @@ struct Level : IGame {
             case TR::Entity::TRAP_SWORD            : return new TrapSword(this, index);
             case TR::Entity::HAMMER_HANDLE         : return new ThorHammer(this, index);
             case TR::Entity::LIGHTNING             : return new Lightning(this, index);
-            case TR::Entity::DOOR_LATCH            : return new DoorLatch(this, index);
+            case TR::Entity::MOVING_OBJECT         : return new MovingObject(this, index);
             case TR::Entity::SWITCH                :
             case TR::Entity::SWITCH_WATER          : return new Switch(this, index);
             case TR::Entity::PUZZLE_HOLE_1         :
