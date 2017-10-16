@@ -1420,6 +1420,7 @@ struct Level : IGame {
         //    Debug::Level::blocks(level);
         //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
         //    Debug::Level::debugOverlaps(level, lara->box);
+        //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
         //    Core::setBlending(bmNone);
 
         /*

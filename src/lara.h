@@ -241,7 +241,10 @@ struct Lara : Character {
     int         hitDir;
     vec3        collisionOffset;
     vec3        flowVelocity;
-
+#ifdef _DEBUG
+    uint16      *dbgBoxes;
+    int         dbgBoxesCount;
+#endif
     struct Braid {
         Lara *lara;
         vec3 offset;
@@ -482,6 +485,7 @@ struct Lara : Character {
         //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
         //reset(21, vec3(47668, -10752, 32163), 0);                 // Level 10c (lava emitter)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
+        dbgBoxes = NULL;
     #endif
 
         if (getEntity().type == TR::Entity::LARA) {
@@ -1360,6 +1364,15 @@ struct Lara : Character {
             addBloodSpikes();
     }
 
+    void bakeEnvironment() {
+        if (!environment)
+            environment = new Texture(256, 256, Texture::RGBA, true, NULL, true, true);
+        Core::beginFrame();
+        game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment);
+        environment->generateMipMap();
+        Core::endFrame();
+    }
+
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy) return;
 
@@ -1435,12 +1448,7 @@ struct Lara : Character {
             }
             case TR::HIT_MIDAS : {
             // generate environment map for reflections
-                if (!environment)
-                    environment = new Texture(256, 256, Texture::RGBA, true, NULL, true, true);
-                Core::beginFrame();
-                game->renderEnvironment(73, pos - vec3(0.0f, 384.0f, 0.0f), &environment);
-                environment->generateMipMap();
-                Core::endFrame();
+                bakeEnvironment();
             // set death animation
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
                 game->getCamera()->doCutscene(pos, angle.y);
@@ -1536,6 +1544,12 @@ struct Lara : Character {
         }
 
         return false;
+    }
+
+    int goUnderwater() {
+        angle.x = -PI * 0.25f;
+        game->waterDrop(pos, 256.0f, 0.2f);
+        return animation.setAnim(ANIM_TO_UNDERWATER);
     }
 
     bool doPickUp() {
@@ -2329,11 +2343,8 @@ struct Lara : Character {
         }
 
         if (input & FORTH) {
-            if (input & JUMP) {
-                angle.x = -PI * 0.25f;
-                game->waterDrop(pos, 256.0f, 0.2f);
-                return animation.setAnim(ANIM_TO_UNDERWATER);
-            }
+            if (input & JUMP) 
+                return goUnderwater();
 
             if ((input & ACTION) && waterOut()) {
                 game->waterDrop(pos, 128.0f, 0.2f);
@@ -2904,14 +2915,40 @@ struct Lara : Character {
     virtual void applyFlow(TR::Camera &sink) {
         if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;
 
-        vec3 target = vec3(sink.x, sink.y, sink.z);
+        vec3 target = vec3(float(sink.x), float(sink.y), float(sink.z));
+
+    #ifdef _DEBUG
+        delete[] dbgBoxes;
+        dbgBoxes = NULL;
+    #endif
+
+        if (box != sink.flags.boxIndex) {
+            uint16 *boxes;
+            uint16 count = game->findPath(0xFFFFFF, -0xFFFFFF, false, box, sink.flags.boxIndex, getZones(), &boxes);
+            if (count > 1) {
+            #ifdef _DEBUG
+                dbgBoxesCount = count;
+                dbgBoxes = new uint16[dbgBoxesCount];
+                memcpy(dbgBoxes, boxes, sizeof(uint16) * dbgBoxesCount);
+            #endif
+                TR::Box &b = level->boxes[boxes[1]];
+                target.x = (b.minX + b.maxX) * 0.5f;
+                if (target.y > b.floor)
+                    target.y = float(b.floor);
+                target.z = (b.minZ + b.maxZ) * 0.5f;
+            }
+        }
 
         flowVelocity = vec3(0);
+        if (!dozy) {
+            float speed = sink.speed * 6.0f;
+            flowVelocity.x = clamp(target.x - pos.x, -speed, +speed);
+            flowVelocity.y = clamp(target.y - pos.y, -speed, +speed);
+            flowVelocity.z = clamp(target.z - pos.z, -speed, +speed);
 
-        float speed = sink.speed * 6.0f;
-        flowVelocity.x = clamp(target.x - pos.x, -speed, +speed);
-        flowVelocity.y = clamp(target.y - pos.y, -speed, +speed);
-        flowVelocity.z = clamp(target.z - pos.z, -speed, +speed);
+            if (stand == STAND_ONWATER)
+                goUnderwater();
+        }
     }
 
     uint32 getMidasMask() {
@@ -2966,7 +3003,7 @@ struct Lara : Character {
         }
 
         if (state == STATE_MIDAS_DEATH) {
-            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);      
+            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
             environment->bind(sEnvironment);
             Core::setBlending(bmAlpha);
             visibleMask ^= 0xFFFFFFFF;

@@ -69,7 +69,7 @@ struct Character : Controller {
     }
 
     uint16* getZones() {
-        return flying ? level->zones[level->isFlipped].fly : (stepHeight == 256 ? level->zones[level->isFlipped].ground1 : level->zones[level->isFlipped].ground2);
+        return (flying || stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? level->zones[level->isFlipped].fly : (stepHeight == 256 ? level->zones[level->isFlipped].ground1 : level->zones[level->isFlipped].ground2);
     }
 
     void rotateY(float delta) {

@@ -928,8 +928,9 @@ namespace TR {
             int16   room;   // for camera
             int16   speed;  // for sink (underwater current)
         };
-        struct {
-            uint16 :8, once:1, :5, :2;
+        union {
+            struct { uint16 :8, once:1, :5, :2; };
+            uint16 boxIndex;
         } flags;
     };
 

@@ -347,6 +347,18 @@ namespace Debug {
             } while (!(o++)->end);
         }
 
+        void debugBoxes(const TR::Level &level, uint16 *boxes, int count) {
+            if (!boxes) return;
+
+            glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
+            Core::setBlending(bmAlpha);
+            Core::setDepthTest(false);
+            Core::validateRenderState();
+            for (int i = 0; i < count; i++)
+                debugBox(level.boxes[boxes[i]]);
+            Core::setDepthTest(true);
+        }
+
         void sectors(const TR::Level &level, int roomIndex, int y, int zone = -1) {
             TR::Room &room = level.rooms[roomIndex];
 
