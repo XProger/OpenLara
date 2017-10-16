@@ -680,7 +680,7 @@ struct Drawbridge : Controller {
 
 
 #define CRYSTAL_LIGHT_RADIUS 1024.0f
-#define CRYSTAL_LIGHT_COLOR  vec4(0.1, 0.1, 3.0, 1.0f / CRYSTAL_LIGHT_RADIUS)
+#define CRYSTAL_LIGHT_COLOR  vec4(0.1f, 0.1f, 3.0f, 1.0f / CRYSTAL_LIGHT_RADIUS)
 
 struct Crystal : Controller {
     Texture *environment;

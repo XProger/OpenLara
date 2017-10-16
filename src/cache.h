@@ -369,6 +369,9 @@ struct WaterCache {
         vec3    pos, size;
         Texture *mask;
         Texture *caustics;
+    #ifdef BLUR_CAUSTICS
+        Texture *caustics_tmp;
+    #endif
         Texture *data[2];
 
         Item() {
@@ -434,6 +437,9 @@ struct WaterCache {
             data[0]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
             data[1]  = new Texture(w * 64, h * 64, Texture::RGBA_HALF);
             caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
+            #ifdef BLUR_CAUSTICS
+                caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
+            #endif
             mask     = new Texture(w, h, Texture::RGB16, false, m, false);
             delete[] m;
             
@@ -449,6 +455,9 @@ struct WaterCache {
             delete data[0];
             delete data[1];
             delete caustics;
+        #ifdef BLUR_CAUSTICS
+            delete caustics_tmp;
+        #endif
             delete mask;
             mask = caustics = data[0] = data[1] = NULL;
         }
@@ -614,6 +623,23 @@ struct WaterCache {
         Core::setTarget(item.caustics, true);
         game->getMesh()->renderPlane();
         Core::invalidateTarget(false, true);
+    #ifdef BLUR_CAUSTICS
+        // v blur
+        Core::setTarget(item.caustics_tmp, true);
+        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
+        Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / item.caustics->width, 0));;
+        item.caustics->bind(sDiffuse);
+        game->getMesh()->renderQuad();
+        Core::invalidateTarget(false, true);
+
+        // h blur
+        Core::setTarget(item.caustics, true);
+        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
+        Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / item.caustics->width, 0));;
+        item.caustics_tmp->bind(sDiffuse);
+        game->getMesh()->renderQuad();
+        Core::invalidateTarget(false, true);
+    #endif
     }
 
     void renderMask() {

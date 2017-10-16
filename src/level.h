@@ -62,14 +62,24 @@ struct Level : IGame {
         buf[0] = 0;
         strcat(buf, "level/");
         strcat(buf, TR::LEVEL_INFO[id].name);
+    #ifdef __EMSCRIPTEN__
+        strcat(buf, ".PSX");
+    #else
         switch (level.version) {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
             case TR::VER_TR1_PSX : strcat(buf, ".PSX"); break;
         }
+    #endif
         new Stream(buf, loadAsync);
     }
 
     virtual void loadNextLevel() {
+    #ifdef __EMSCRIPTEN__
+        if (level.id == TR::LEVEL_2 && level.version != TR::VER_TR1_PC) {
+            loadLevel(TR::TITLE);
+            return;
+        }
+    #endif
         loadLevel(level.id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level.id + 1));
     }
 
