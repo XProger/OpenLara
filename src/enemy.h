@@ -139,7 +139,7 @@ struct Enemy : Character {
         if (!getEntity().flags.active) return;
 
         vec3 p = pos;
-        pos += velocity * Core::deltaTime * 30.0f;
+        pos += velocity * (30.0f * Core::deltaTime);
 
         clipByBox(pos);
 
@@ -1235,14 +1235,61 @@ struct Mummy : Enemy {
 };
 
 
+#define DOPPELGANGER_ROOM_CENTER (vec3(36, 0, 60) * 1024.0f)
+
 struct Doppelganger : Enemy {
+    enum {
+        ANIM_FALL = 32,
+    };
+
     Doppelganger(IGame *game, int entity) : Enemy(game, entity, 1000, 341, 150.0f, 0.0f) {
-        jointChest = 1;
-        jointHead  = 2;
+        jointChest = 7;
+        jointHead  = 14;
     }
 
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        Character *lara = (Character*)game->getLara();
+        lara->hit(damage * 10, this);
+    };
+
     virtual void update() {
-        Enemy::update();
+        Character *lara = (Character*)game->getLara();
+
+        if (stand != STAND_AIR) {
+            pos      = DOPPELGANGER_ROOM_CENTER * 2.0f - lara->pos;
+            pos.y    = lara->pos.y;
+            angle    = lara->angle;
+            angle.y -= PI;
+        }
+
+        updateEntity();
+        Enemy::checkRoom();
+
+        TR::Level::FloorInfo info;
+        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+
+        if (stand != STAND_AIR && lara->stand == Character::STAND_GROUND && pos.y < info.floor - 1024) {
+            animation = Animation(level, lara->getModel());
+            animation.setAnim(ANIM_FALL, 1);
+            stand = STAND_AIR;
+            velocity.x = velocity.y = 0.0f;
+        }
+
+        if (stand == STAND_AIR) {
+            if (pos.y > info.floor) {
+                game->checkTrigger(this, true);
+                getEntity().flags.invisible = true;
+                deactivate(true);
+            } else {
+                updateAnimation(true);
+                applyGravity(velocity.y);
+                pos += velocity * (30.0f * Core::deltaTime);
+            }
+        } else {
+            animation.frameA = lara->animation.frameA;
+            animation.frameB = lara->animation.frameB;
+            animation.delta  = lara->animation.delta;
+        }
     }
 
     virtual int getStateGround() {

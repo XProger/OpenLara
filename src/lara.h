@@ -480,6 +480,8 @@ struct Lara : Character {
         //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (TNT / Cowboy)
         //reset(68, vec3(52458, -9984, 93724), 270 * DEG2RAD);      // Level 10a (MrT)
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
+        //reset(47, vec3(50546, -13056, 53783), 270 * DEG2RAD);      // Level 10b (trap door slope)
+        //reset(59, vec3(42907, -13056, 63012), 270 * DEG2RAD);      // Level 10b (doppelganger)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
@@ -860,9 +862,10 @@ struct Lara : Character {
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
             if (arm->target && checkHit(arm->target, p, hit, hit)) {
+                TR::Entity::Type type = arm->target->getEntity().type;
                 ((Character*)arm->target)->hit(wpnGetDamage());
                 hit -= d * 64.0f;
-                if (arm->target->getEntity().type != TR::Entity::SCION_TARGET)
+                if (type != TR::Entity::SCION_TARGET)
                     Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
             } else {
                 hit -= d * 64.0f;

@@ -258,13 +258,22 @@ struct Camera : ICamera {
 
             Controller *lookAt = viewTarget;
             
+            lookAt = NULL;
+
             if (state != STATE_STATIC) {
-                if (owner->viewTarget)
-                    owner->lookAt(lookAt = owner->viewTarget);
-                else
-                    owner->lookAt(lookAt = viewTarget);
-            } else 
-                 owner->lookAt(NULL);
+                if (!owner->viewTarget) {
+
+                    if (viewTarget && !viewTarget->getEntity().flags.invisible) {
+                        vec3 targetVec = (viewTarget->pos - owner->pos).normal();
+                        if (targetVec.dot(owner->getDir()) > 0.5f)
+                            lookAt = viewTarget;
+                    }
+
+                } else
+                    lookAt = owner->viewTarget;
+            }
+
+            owner->lookAt(lookAt);
 
             vec3 viewPoint = getViewPoint();
 

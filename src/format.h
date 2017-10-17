@@ -2270,8 +2270,11 @@ namespace TR {
                             int ex = e.x / 1024;
                             int ez = e.z / 1024;
                             if ((ex == sx && ez == sz) || (ex + dirX == sx && ez + dirZ == sz)) {
-                                if (e.y >= y - 128 && e.y < info.floor)
+                                if (e.y >= y - 128 && e.y < info.floor) {
                                     info.floor = e.y;
+                                    info.slantX = info.slantZ = 0;
+                                    info.lava = false;
+                                }
                                 if (e.y  < y - 128 && e.y > info.ceiling)
                                     info.ceiling = e.y + 256;
                             }
@@ -2281,8 +2284,11 @@ namespace TR {
                             if (sx != e.x / 1024 || sz != e.z / 1024) 
                                 break;
                             int ey = e.y - 512;
-                            if (ey >= y - 128 && ey < info.floor)
+                            if (ey >= y - 128 && ey < info.floor) {
                                 info.floor = ey;
+                                info.slantX = info.slantZ = 0;
+                                info.lava = false;
+                            }
                             if (ey  < y - 128 && ey > info.ceiling)
                                 info.ceiling = ey;
                             break;
@@ -2297,8 +2303,11 @@ namespace TR {
                             if ((ex - dirX * 1 == sx && ez - dirZ * 1 == sz) ||
                                 (ex - dirX * 2 == sx && ez - dirZ * 2 == sz)) {
                                 int ey = e.y;
-                                if (ey >= y - 128 && ey < info.floor)
+                                if (ey >= y - 128 && ey < info.floor) {
                                     info.floor = ey;
+                                    info.slantX = info.slantZ = 0;
+                                    info.lava = false;
+                                }
                                 if (ey  < y - 128 && ey > info.ceiling)
                                     info.ceiling = ey + 256;
                             }
@@ -2338,6 +2347,7 @@ namespace TR {
                                 info.floor  = ey;
                                 info.slantX = sx;
                                 info.slantZ = sz;
+                                info.lava = false;
                             }
                             if (ey  < y - 128)
                                 info.ceiling = ey + 64;
