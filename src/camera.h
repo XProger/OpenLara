@@ -148,7 +148,7 @@ struct Camera : ICamera {
     virtual void doCutscene(const vec3 &pos, float rotation) {
         state = Camera::STATE_CUTSCENE;
         level->cutMatrix.identity();
-        level->cutMatrix.rotateY(angle.y);
+        level->cutMatrix.rotateY(rotation);
         level->cutMatrix.setPos(pos);
         timer = 0.0f;
     }
@@ -188,7 +188,7 @@ struct Camera : ICamera {
 
             if (indexA == level->cameraFramesCount - 1) {
                 if (level->cutEntity != -1)
-                    game->loadLevel(TR::LevelID(level->id + 1));
+                    game->loadNextLevel();
                 else {
                     Character *lara = (Character*)game->getLara();
                     if (lara->health > 0.0f)

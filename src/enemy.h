@@ -1239,7 +1239,7 @@ struct Mummy : Enemy {
 
 struct Doppelganger : Enemy {
     enum {
-        ANIM_FALL = 32,
+        ANIM_FALL = 34,
     };
 
     Doppelganger(IGame *game, int entity) : Enemy(game, entity, 1000, 341, 150.0f, 0.0f) {
@@ -1401,9 +1401,9 @@ struct Pierre : Human {
 
     virtual void onDead() {
         if (level->id == TR::LEVEL_7B) {
-            game->addEntity(TR::Entity::MAGNUMS,    getRoomIndex(), pos, 0);
-            game->addEntity(TR::Entity::SCION_DROP, getRoomIndex(), pos, 0);
-            game->addEntity(TR::Entity::KEY_ITEM_1, getRoomIndex(), pos, 0);
+            game->addEntity(TR::Entity::MAGNUMS,           getRoomIndex(), pos, 0);
+            game->addEntity(TR::Entity::SCION_PICKUP_DROP, getRoomIndex(), pos, 0);
+            game->addEntity(TR::Entity::KEY_ITEM_1,        getRoomIndex(), pos, 0);
         }
     }
 };

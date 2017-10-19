@@ -482,6 +482,7 @@ struct Lara : Character {
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
         //reset(47, vec3(50546, -13056, 53783), 270 * DEG2RAD);      // Level 10b (trap door slope)
         //reset(59, vec3(42907, -13056, 63012), 270 * DEG2RAD);      // Level 10b (doppelganger)
+        //reset(50, vec3(52122, -18688, 47313), 150 * DEG2RAD);      // Level 10b (scion holder pickup)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
@@ -1570,11 +1571,6 @@ struct Lara : Character {
 
             Controller *controller = (Controller*)entity.controller;
 
-            // set item orientation to hack limits check
-            if (stand == STAND_UNDERWATER)
-                controller->angle.x = -25 * DEG2RAD;
-            controller->angle.y = angle.y;
-
             if (controller->getRoomIndex() != room || entity.flags.invisible || !canPickup(controller))
                 continue;
 
@@ -1596,7 +1592,8 @@ struct Lara : Character {
         // get limits
         TR::Limits::Limit *limit;
         switch (entity.type) {
-            case TR::Entity::SCION_QUALOPEC : limit = &TR::Limits::SCION; break;
+            case TR::Entity::SCION_PICKUP_QUALOPEC : limit = &TR::Limits::SCION; break;
+            case TR::Entity::SCION_PICKUP_HOLDER   : limit = &TR::Limits::SCION_HOLDER; break;
             default : limit = level->rooms[getRoomIndex()].flags.water ? &TR::Limits::PICKUP_UNDERWATER : &TR::Limits::PICKUP;
         }
 
@@ -1608,9 +1605,17 @@ struct Lara : Character {
 
         // set new state
         switch (entity.type) {
-            case TR::Entity::SCION_QUALOPEC :
+            case TR::Entity::SCION_PICKUP_QUALOPEC :
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
                 game->getCamera()->doCutscene(pos, angle.y);
+                break;
+            case TR::Entity::SCION_PICKUP_HOLDER   :
+                animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
+                
+                angle = controller->angle;
+                pos   = controller->pos - vec3(0, -280, LARA_RADIUS + 512).rotateY(angle.y);
+
+                game->getCamera()->doCutscene(pos, angle.y - PI * 0.5f);
                 break;
             default : ; 
         }
@@ -1656,11 +1661,18 @@ struct Lara : Character {
         vec3 deltaAbs = pos - targetPos;
         vec3 deltaRel = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
         
+        // set item orientation to hack limits check
+        vec3 ctrlAngle = controller->angle;
+        if (stand == STAND_UNDERWATER)
+            ctrlAngle.x = -25 * DEG2RAD;
+        if (!limit->alignAngle)
+            ctrlAngle.y = angle.y;
+
         if (limit->box.contains(deltaRel)) {
-            float deltaAngY = shortAngle(angle.y, controller->angle.y);
+            float deltaAngY = shortAngle(angle.y, ctrlAngle.y);
 
             if (stand == STAND_UNDERWATER) {
-                float deltaAngX = shortAngle(angle.x, controller->angle.x);
+                float deltaAngX = shortAngle(angle.x, ctrlAngle.x);
 
                 if (deltaAbs.length() > 64.0f || max(fabs(deltaAngX), fabs(deltaAngY)) > (10.0f * DEG2RAD)) {
                     pos     -= deltaAbs.normal() * min(deltaAbs.length(), Core::deltaTime * 512.0f);
@@ -2469,6 +2481,8 @@ struct Lara : Character {
                 int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;
                 if (animation.isFrameActive(pickupFrame)) {
                     for (int i = 0; i < pickupListCount; i++) {
+                        if (pickupList[i]->type == TR::Entity::SCION_PICKUP_HOLDER)
+                            continue;
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->type, 1);
                     }
@@ -2719,7 +2733,7 @@ struct Lara : Character {
             } else {
             // fast distance check for object
                 TR::Entity &entity = getEntity(); 
-                if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK)
+                if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK && e.type != TR::Entity::SCION_HOLDER)
                     if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
             }
 
@@ -2727,7 +2741,8 @@ struct Lara : Character {
             vec3 p   = dir.rotateY(controller->angle.y);
 
             Box box = controller->getBoundingBoxLocal();
-            box.expand(vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
+            box.expand(vec3(LARA_RADIUS + 50.0f, 0.0f, LARA_RADIUS + 50.0f));
+            box.max.y += 768;
 
             if (!box.contains(p)) // TODO: Box vs Box or check Lara's head point? (check thor hammer handle)
                 continue;

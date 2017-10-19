@@ -154,10 +154,10 @@
     E( KEY_HOLE_4            ) \
     E( UNUSED_4              ) \
     E( UNUSED_5              ) \
-    E( SCION_QUALOPEC        ) \
-    E( SCION_DROP            ) \
+    E( SCION_PICKUP_QUALOPEC ) \
+    E( SCION_PICKUP_DROP     ) \
     E( SCION_TARGET          ) \
-    E( SCION_NATLA           ) \
+    E( SCION_PICKUP_HOLDER   ) \
     E( SCION_HOLDER          ) \
     E( UNUSED_6              ) \
     E( UNUSED_7              ) \
@@ -401,6 +401,10 @@ namespace TR {
 
         Limit SCION = { 
             640, -202, 30,  {{-256, 540, -350}, {256, 740, -200}}, false, false
+        };
+
+        Limit SCION_HOLDER = { 
+            640, -202, 10,  {{-256, 206, -862}, {256, 306, -200}}, true, false
         };
     }
 
@@ -672,10 +676,8 @@ namespace TR {
             return isEnemy() ||
                    isDoor() ||
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
-                   (type == SCION_HOLDER) ||
                    ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
-                   (type == CRYSTAL) ||
-                   (type == MOVING_OBJECT);
+                   type == CRYSTAL || type == MOVING_OBJECT || type == SCION_HOLDER;
         }
 
         bool isPickup() const {
@@ -683,7 +685,7 @@ namespace TR {
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
-                   (type == SCION_QUALOPEC || type == SCION_DROP || type == SCION_NATLA || type == LEADBAR); // TODO: recheck all items
+                   (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR); // TODO: recheck all items
         }
 
         bool isActor() const {
