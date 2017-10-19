@@ -1705,7 +1705,7 @@ struct Lara : Character {
         TR::Level::FloorInfo info;
         level->getFloorInfo(e.room, e.x, e.y, e.z, info);
 
-        if (info.lava && info.floor == e.y) {
+        if (e.type == TR::Entity::LARA && info.lava && info.floor == e.y) {
             hit(LARA_MAX_HEALTH + 1, NULL, TR::HIT_LAVA);
             return;
         }

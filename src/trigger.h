@@ -295,7 +295,10 @@ struct TrapBoulder : Controller {
 
         vec3 dir = getDir();
 
+        bool onGround = false;
+
         if (pos.y >= info.floor - 256) {
+            onGround = true;
             pos.y = float(info.floor);
             velocity = dir * animation.getSpeed();
             if (state != STATE_ROLL)
@@ -303,7 +306,7 @@ struct TrapBoulder : Controller {
         } else {
             if (velocity.y == 0.0f)
                 velocity.y = 10.0f;
-            velocity.y += GRAVITY * Core::deltaTime;
+            applyGravity(velocity.y);
             animation.setState(STATE_FALL);
         }
 
@@ -313,15 +316,24 @@ struct TrapBoulder : Controller {
         if (info.roomNext != TR::NO_ROOM)
             getEntity().room = info.roomNext;
 
-        game->checkTrigger(this, true);
+        if (onGround) {
+            game->checkTrigger(this, true);
+        }
 
         vec3 v = pos + getDir() * 512.0f;
         level->getFloorInfo(getRoomIndex(), int(v.x), int(v.y), int(v.z), info);
         if (pos.y > info.floor) {
-            pos = p;
-            deactivate();
-            return;
+            if (onGround) {
+                pos = p;
+                deactivate();
+                return;
+            } else {
+                pos.x = p.x;
+                pos.z = p.z;
+                velocity.x = velocity.z = 0.0f;
+            }
         }
+
 
         Character *lara = (Character*)level->laraController;
         if (lara->health > 0.0f && collide(lara)) {
