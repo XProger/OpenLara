@@ -476,6 +476,7 @@ struct Lara : Character {
         //reset(57,  vec3(54844, -3328, 53145), 0);        // level 8b (bridge switch)
         //reset(12,  vec3(34236, -2415, 14974), 0);        // level 8b (sphinx)
         //reset(0,  vec3(40913, -1012, 42252), PI);        // level 8c
+        //reset(56,  vec3(18541, 512, 52869), PI * 0.5f);        // level 8c
         //reset(30, vec3(69689, -8448, 34922), 330 * DEG2RAD);      // Level 10a (cabin)
         //reset(27, vec3(52631, -4352, 57893), 270 * DEG2RAD);      // Level 10a (TNT / Cowboy)
         //reset(68, vec3(52458, -9984, 93724), 270 * DEG2RAD);      // Level 10a (MrT)
@@ -1994,7 +1995,7 @@ struct Lara : Character {
             }
         }
 
-        int extra = stand != STAND_AIR ? 256 : 0;
+        int extra = (stand != STAND_AIR && stand != STAND_SLIDE) ? 256 : 0;
 
         if (e.y + extra >= info.floor && !(stand == STAND_AIR && velocity.y < 0)) {
             if (stand != STAND_GROUND) {
