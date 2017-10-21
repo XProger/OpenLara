@@ -1659,14 +1659,20 @@ struct Lara : Character {
         vec3 targetPos = controller->pos + (m * vec4(fx, limit->dy, limit->dz, 0.0f)).xyz;
 
         vec3 deltaAbs = pos - targetPos;
-        vec3 deltaRel = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
-        
-        // set item orientation to hack limits check
+
+        vec3 tmpAngle = controller->angle;
         vec3 ctrlAngle = controller->angle;
         if (stand == STAND_UNDERWATER)
             ctrlAngle.x = -25 * DEG2RAD;
         if (!limit->alignAngle)
             ctrlAngle.y = angle.y;
+        controller->angle = ctrlAngle;
+
+        vec3 deltaRel = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
+
+        controller->angle = tmpAngle;
+        
+        // set item orientation to hack limits check
 
         if (limit->box.contains(deltaRel)) {
             float deltaAngY = shortAngle(angle.y, ctrlAngle.y);
@@ -2429,6 +2435,9 @@ struct Lara : Character {
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
             switch (level->id) {
+                case TR::LEVEL_3A :
+                    reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
+                    break;
                 case TR::LEVEL_3B :
                     reset(5, vec3(73394, 3840, 60758), 0); // level 3b (scion)
                     break;

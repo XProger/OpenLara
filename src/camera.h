@@ -256,24 +256,23 @@ struct Camera : ICamera {
                 angle.x -= 60.0f * DEG2RAD;
 
 
-            Controller *lookAt = viewTarget;
-            
-            lookAt = NULL;
+            Controller *lookAt = NULL;
 
             if (state != STATE_STATIC) {
                 if (!owner->viewTarget) {
-
                     if (viewTarget && !viewTarget->getEntity().flags.invisible) {
                         vec3 targetVec = (viewTarget->pos - owner->pos).normal();
                         if (targetVec.dot(owner->getDir()) > 0.5f)
                             lookAt = viewTarget;
                     }
-
                 } else
                     lookAt = owner->viewTarget;
-            }
 
-            owner->lookAt(lookAt);
+                owner->lookAt(lookAt);
+            } else {
+                lookAt = viewTarget;
+                owner->lookAt(NULL);
+            }
 
             vec3 viewPoint = getViewPoint();
 

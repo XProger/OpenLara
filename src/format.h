@@ -693,7 +693,7 @@ namespace TR {
         }
 
         bool isPuzzleHole() const {
-            return type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_2;
+            return type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_4;
         }
 
         bool isBlock() const {

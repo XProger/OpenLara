@@ -673,7 +673,7 @@ struct Inventory {
     }
 
     bool canFlipPage(int dir) {
-        if (((Character*)game->getLara())->health <= 0.0f)
+        if (game->getLevel()->id == TR::TITLE || ((Character*)game->getLara())->health <= 0.0f)
             return false;
         if (dir == -1) return page < PAGE_ITEMS  && getItemsCount(page + 1);
         if (dir ==  1) return page > PAGE_OPTION && getItemsCount(page - 1);

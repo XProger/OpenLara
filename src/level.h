@@ -1061,9 +1061,11 @@ struct Level : IGame {
     // TODO: opqque/transparent pass for rooms and entities
     void renderEntities(bool opaque) {
         for (int i = 0; i < level.entitiesCount; i++) {
-            int modelIndex = level.entities[i].modelIndex;
+            TR::Entity &e = level.entities[i];
+            if (!e.controller) continue;
+            int modelIndex = e.modelIndex;
             if ((modelIndex < 0 && !opaque) || (modelIndex > 0 && mesh->models[modelIndex - 1].opaque == opaque))
-                renderEntity(level.entities[i]);
+                renderEntity(e);
         }
     }
 
