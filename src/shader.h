@@ -159,8 +159,11 @@ struct Shader {
 
     void init() {
         bind();
-        for (int st = 0; st < sMAX; st++)
-            glUniform1iv(glGetUniformLocation(ID, (GLchar*)SamplerName[st]), 1, &st);
+        for (int st = 0; st < sMAX; st++) {
+            GLint idx = glGetUniformLocation(ID, (GLchar*)SamplerName[st]);
+            if (idx != -1)
+                glUniform1iv(idx, 1, &st);
+        }
 
         for (int ut = 0; ut < uMAX; ut++)
             uID[ut] = glGetUniformLocation(ID, (GLchar*)UniformName[ut]);

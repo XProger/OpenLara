@@ -865,7 +865,7 @@ struct Lara : Character {
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
             if (arm->target && checkHit(arm->target, p, hit, hit)) {
                 TR::Entity::Type type = arm->target->getEntity().type;
-                ((Character*)arm->target)->hit(wpnGetDamage());
+                ((Character*)arm->target)->hit(wpnGetDamage(), this);
                 hit -= d * 64.0f;
                 if (type != TR::Entity::SCION_TARGET)
                     Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
@@ -1274,15 +1274,18 @@ struct Lara : Character {
         vec3 v = to - from;
         
         if (box.intersect(m, from, v, t)) {
+            t *= v.length();
             v = v.normal();
             Sphere spheres[MAX_SPHERES];
             int count;
             target->getSpheres(spheres, count);
-            for (int i = 0; i < count; i++) 
-                if (spheres[i].intersect(from, v, t)) {
-                    point = from + v * t;
+            for (int i = 0; i < count; i++) {
+                float st;
+                if (spheres[i].intersect(from, v, st)) {
+                    point = from + v * max(t, st);
                     return true;
                 }
+            }
         }
         return false;
     }
@@ -1651,7 +1654,15 @@ struct Lara : Character {
         if ((state != STATE_STOP && state != STATE_TREAD && state != STATE_PUSH_PULL_READY) || !action || !emptyHands())
             return false;
 
+        vec3 tmpAngle = controller->angle;
+        vec3 ctrlAngle = controller->angle;
+        if (stand == STAND_UNDERWATER)
+            ctrlAngle.x = -25 * DEG2RAD;
+        if (!limit->alignAngle)
+            ctrlAngle.y = angle.y;
+        controller->angle = ctrlAngle;
         mat4 m = controller->getMatrix();
+        controller->angle = tmpAngle;
 
         float fx = 0.0f;
         if (!limit->alignHoriz)
@@ -1661,20 +1672,9 @@ struct Lara : Character {
 
         vec3 deltaAbs = pos - targetPos;
 
-        vec3 tmpAngle = controller->angle;
-        vec3 ctrlAngle = controller->angle;
-        if (stand == STAND_UNDERWATER)
-            ctrlAngle.x = -25 * DEG2RAD;
-        if (!limit->alignAngle)
-            ctrlAngle.y = angle.y;
-        controller->angle = ctrlAngle;
-
-        vec3 deltaRel = (controller->getMatrix().transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
-
-        controller->angle = tmpAngle;
+        vec3 deltaRel = (m.transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
         
         // set item orientation to hack limits check
-
         if (limit->box.contains(deltaRel)) {
             float deltaAngY = shortAngle(angle.y, ctrlAngle.y);
 
@@ -2760,7 +2760,7 @@ struct Lara : Character {
             if (e.isEnemy()) { // enemy collision
                 if (!collide(controller, false))
                     continue;
-                velocity.x = velocity.y = 0.0f;
+            //    velocity.x = velocity.y = 0.0f;
             } else { // door collision
                 p += box.pushOut2D(p);
                 p = (p.rotateY(-controller->angle.y) + controller->pos) - pos;
@@ -2769,10 +2769,10 @@ struct Lara : Character {
 
             if (e.type == TR::Entity::ENEMY_REX && ((Character*)controller)->health <= 0)
                 return true;
-            if (!e.isEnemy())
+            if (!e.isEnemy() || e.type == TR::Entity::ENEMY_BAT)
                 return true;
 
-            if (canHitAnim()) {
+            if (canHitAnim()) { // TODO: check enemy type and health here
             // get hit dir
                 if (hitDir == -1) {
                     if (health > 0)
@@ -3015,7 +3015,12 @@ struct Lara : Character {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        uint32 visMask = visibleMask;
+        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson) // hide head from first person view
+            visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
+        visibleMask = visMask;
+
         chestOffset = animation.getJoints(getMatrix(), jointChest).pos; // TODO: move to update func
 
         if (braid)

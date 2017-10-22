@@ -466,10 +466,10 @@ struct Inventory {
         }
 
         if (item->type == TR::Entity::INV_DETAIL) {
-            int count = 5;
+            int count = 6;
             if (key == cUp   ) { slot = (slot - 1 + count) % count; };
             if (key == cDown ) { slot = (slot + 1) % count;         };
-            if (slot < count - 1) {
+            if (slot < count - 2) {
                 Core::Settings::Quality q = settings.detail.quality[slot];
                 if (key == cLeft  && q > Core::Settings::LOW  ) { q = Core::Settings::Quality(q - 1); }
                 if (key == cRight && q < Core::Settings::HIGH ) { q = Core::Settings::Quality(q + 1); }
@@ -485,7 +485,10 @@ struct Inventory {
                 }
             }
 
-            if (slot == count -1 && key == cAction) {
+            if (slot == count - 2 && (key == cLeft || key == cRight)) // stereo
+                settings.detail.stereo = !settings.detail.stereo;
+
+            if (slot == count - 1 && key == cAction) { // apply
                 game->applySettings(settings);
                 chosen = false;
             }
@@ -734,9 +737,12 @@ struct Inventory {
     void renderPassport(Item *item) {
         if (item->anim->dir != 0.0f) return; // check for "Load Game" page
 
-        float y = 120.0f;
+        float eye = UI::width * Core::eye * 0.02f;
         float h = 20.0f;
         float w = 320.0f;
+
+        float x = (UI::width - w) * 0.5f - eye;
+        float y = 120.0f;
 
         StringID str = STR_LOAD_GAME;
 
@@ -757,19 +763,19 @@ struct Inventory {
         if (item->value != 0) return;
 
     // background
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w - 16.0f) * 0.5f, y - 16.0f), vec2(w + 16.0f, h * 16.0f), 0.0f, 0, 0xC0000000);
+        UI::renderBar(UI::BAR_OPTION, vec2(x - 8.0f, y - 16.0f), vec2(w + 16.0f, h * 16.0f), 0.0f, 0, 0xC0000000);
     // title
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(0, y), STR_SELECT_LEVEL, UI::aCenter, UI::width);
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
+        UI::textOut(vec2(x, y), STR_SELECT_LEVEL, UI::aCenter, w);
 
         y += h * 2;
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
 
         for (int i = 0; i < passportSlotCount; i++)
             if (passportSlots[i] == TR::LEVEL_MAX)
-                UI::textOut(vec2(0, y + i * h), STR_AUTOSAVE, UI::aCenter, UI::width);
+                UI::textOut(vec2(x, y + i * h), STR_AUTOSAVE, UI::aCenter, w);
             else
-                UI::textOut(vec2(0, y + i * h), TR::LEVEL_INFO[passportSlots[i]].title, UI::aCenter, UI::width);
+                UI::textOut(vec2(x, y + i * h), TR::LEVEL_INFO[passportSlots[i]].title, UI::aCenter, w);
     }
 
     float printBool(float x, float y, float w, StringID oStr, bool active, bool value) {
@@ -812,25 +818,27 @@ struct Inventory {
         float w = 320.0f;
         float h = 20.0f;
 
-        float x = (UI::width - w) * 0.5f;
-        float y = 192.0f;
+        float eye = UI::width * Core::eye * 0.02f;
+        float x = (UI::width - w) * 0.5f - eye;
+        float y = 192.0f - h;
         
     // background
-        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 8.0f + 8.0f), 0.0f, 0, 0xC0000000);
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 9.0f + 8.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(0, y), STR_SELECT_DETAIL, UI::aCenter, UI::width);
+        UI::textOut(vec2(x, y), STR_SELECT_DETAIL, UI::aCenter, w);
 
         y += h * 2;
         x += 8.0f;
         w -= 16.0f;
-        float aw = slot == 4 ? (w - 128.0f) : w;
+        float aw = slot == 5 ? (w - 128.0f) : w;
         
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - aw) * 0.5f, y + (slot > 3 ? 5 : slot) * h + 6 - h), vec2(aw, h - 6), 1.0f, 0xFFD8377C, 0);
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - aw) * 0.5f - eye, y + (slot > 4 ? 6 : slot) * h + 6 - h), vec2(aw, h - 6), 1.0f, 0xFFD8377C, 0);
         y = printQuality(x, y, w, STR_OPT_DETAIL_FILTER,   slot == 0, settings.detail.filter);
         y = printQuality(x, y, w, STR_OPT_DETAIL_LIGHTING, slot == 1, settings.detail.lighting);
         y = printQuality(x, y, w, STR_OPT_DETAIL_SHADOWS,  slot == 2, settings.detail.shadows);
         y = printQuality(x, y, w, STR_OPT_DETAIL_WATER,    slot == 3, settings.detail.water);
+        y = printBool(x + 32.0f, y, w - 64.0f - 16.0f, STR_OPT_DETAIL_STEREO,  slot == 4, settings.detail.stereo);
         y += h;
         UI::textOut(vec2(x + 64.0f, y), STR_APPLY, UI::aCenter, w - 128.0f);
     }
@@ -839,26 +847,27 @@ struct Inventory {
         float w = 320.0f;
         float h = 20.0f;
 
-        float x = (UI::width - w) * 0.5f;
+        float eye = UI::width * Core::eye * 0.02f;
+        float x = (UI::width - w) * 0.5f - eye;
         float y = 192.0f;
         
     // background
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 5.0f + 8.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(0, y), STR_SET_VOLUMES, UI::aCenter, UI::width);
+        UI::textOut(vec2(x, y), STR_SET_VOLUMES, UI::aCenter, w);
 
         y += h * 2;
         x += 8.0f;
         w -= 16.0f;
 
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - w) * 0.5f - eye, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
 
         float aw = w - 64.0f;
         aw -= 4.0f;
  
-        y = printBar((UI::width - w) * 0.5f, y, w, 0xFF0080FF, 101, slot == 0, Core::settings.audio.music);
-        y = printBar((UI::width - w) * 0.5f, y, w, 0xFFFF8000, 102, slot == 1, Core::settings.audio.sound);
+        y = printBar((UI::width - w) * 0.5f - eye, y, w, 0xFF0080FF, 101, slot == 0, Core::settings.audio.music);
+        y = printBar((UI::width - w) * 0.5f - eye, y, w, 0xFFFF8000, 102, slot == 1, Core::settings.audio.sound);
         y = printBool(x + 32.0f, y, w - 64.0f, STR_REVERBERATION, slot == 2, Core::settings.audio.reverb);
     }
 
@@ -979,7 +988,7 @@ struct Inventory {
         Core::mLightProj.identity();
 
         Core::mView.identity();
-        Core::mView.translate(vec3(0, 0, -1286));   // y = -96 in title 
+        Core::mView.translate(vec3(-Core::eye * 8.0f, 0, -1286));   // y = -96 in title 
 
         Core::mView.up  *= -1.0f;
         Core::mView.dir *= -1.0f;

@@ -209,7 +209,7 @@ struct Level : IGame {
         atlas->bind(sDiffuse);
         Core::whiteTex->bind(sNormal);
         Core::whiteTex->bind(sMask);
-        Core::whiteTex->bind(sReflect);        
+        Core::whiteTex->bind(sReflect);
         cube->bind(sEnvironment);
         Core::basis.identity();
     }
@@ -964,7 +964,7 @@ struct Level : IGame {
     }
 
     void update() {
-        if (isCutscene() && (lara->health > 0.0f && !sndSoundtrack))
+        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack))
             return;
 
         if (Input::state[cInventory] && level.id != TR::TITLE) {
@@ -1185,8 +1185,6 @@ struct Level : IGame {
 
     virtual void renderView(int roomIndex, bool water) {
         PROFILE_MARKER("VIEW");
-        Core::Pass pass = Core::pass;
-
         if (water && waterCache) {
             waterCache->reset();
         }
@@ -1203,7 +1201,10 @@ struct Level : IGame {
             for (int i = 0; i < roomsCount; i++)
                 waterCache->setVisible(roomsList[i]);
             waterCache->renderReflect();
+
+            Core::Pass pass = Core::pass;
             waterCache->simulate();
+            Core::pass = pass;
         }
 
         // clear visibility flag for rooms
@@ -1212,13 +1213,11 @@ struct Level : IGame {
                 level.entities[i].flags.rendered = false;
 
         if (water) {
-            Core::setTarget(NULL, true); // render to back buffer
+            Core::setTarget(NULL, !Core::settings.detail.stereo); // render to back buffer
             setupBinding();
         }
 
         camera->setup(Core::pass == Core::passCompose);
-
-        Core::pass = pass;
 
         renderRooms(roomsList, roomsCount);
 
@@ -1226,10 +1225,12 @@ struct Level : IGame {
             renderEntities();
 
         if (water && waterCache && waterCache->visible) {
+            Core::Pass pass = Core::pass;
             waterCache->renderMask();
             waterCache->getRefract();
             setMainLight(lara);
             waterCache->render();
+            Core::pass = pass;
         }
     }
 
@@ -1536,13 +1537,43 @@ struct Level : IGame {
         if (shadow) shadow->bind(sShadow);
         Core::pass = Core::passCompose;
 
-        setup();
-        renderView(camera->getRoomIndex(), true);
+        if (Core::settings.detail.stereo) {
+            Core::setTarget(NULL, true);
+            Core::validateRenderState();
+        }
+
+        if (Core::settings.detail.stereo) {
+            Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width) * 0.5f, float(Core::height));
+            Core::eye = -1.0f;
+            setup();
+            renderView(camera->getRoomIndex(), true);
+
+            Core::viewportDef = vec4(float(Core::width) * 0.5f, 0.0f, float(Core::width) * 0.5f, float(Core::height));
+            Core::eye =  1.0f;
+            setup();
+            renderView(camera->getRoomIndex(), true);
+
+            Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width), float(Core::height));
+            Core::eye = 0.0f;
+        } else {
+            setup();
+            renderView(camera->getRoomIndex(), true);
+        }
     }
 
     void renderInventory() {
         Core::setTarget(NULL, true);
-        inventory.render();
+        if (Core::settings.detail.stereo) {
+            Core::setViewport(0, 0, Core::width / 2, Core::height);
+            Core::eye = -1.0f;
+            inventory.render();
+            Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
+            Core::eye =  1.0f;
+            inventory.render();
+            Core::setViewport(0, 0, Core::width, Core::height);
+            Core::eye = 0.0f;
+        } else
+            inventory.render();
     }
 
     void renderUI() {
@@ -1562,18 +1593,20 @@ struct Level : IGame {
                 if (oxygen <= 0.2f) oxygen = 0.0f;
             }
 
+            float eye = inventory.active ? 0.0f : UI::width * Core::eye * 0.02f;
+
             if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
-                UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x, 32), size, health);
+                UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x - eye, 32), size, health);
 
                 if (!inventory.active && !lara->emptyHands()) { // ammo
                     int index = inventory.contains(lara->getCurrentWeaponInv());
                     if (index > -1)
-                        inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x, 64), size.x);
+                        inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x - eye, 64), size.x);
                 }
             }
 
             if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
-                UI::renderBar(UI::BAR_OXYGEN, vec2(32, 32), size, oxygen);
+                UI::renderBar(UI::BAR_OXYGEN, vec2(32 - eye, 32), size, oxygen);
         }
 
         inventory.renderUI();
@@ -1599,7 +1632,10 @@ struct Level : IGame {
 
         if (copyBg) {
             Core::defaultTarget = inventory.background[0];
+            bool stereo = Core::settings.detail.stereo;
+            Core::settings.detail.stereo = false;
             renderGame();
+            Core::settings.detail.stereo = stereo;
             Core::defaultTarget = NULL;
 
             inventory.prepareBackground();
@@ -1611,7 +1647,17 @@ struct Level : IGame {
         if (title)
             renderInventory();
 
-        renderUI();
+        if (Core::settings.detail.stereo) {
+            Core::setViewport(0, 0, Core::width / 2, Core::height);
+            Core::eye = -1.0f;
+            renderUI();
+            Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
+            Core::eye =  1.0f;
+            renderUI();
+            Core::setViewport(0, 0, Core::width, Core::height);
+            Core::eye = 0.0f;
+        } else
+            renderUI();
     }
 
 };

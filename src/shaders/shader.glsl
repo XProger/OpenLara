@@ -19,7 +19,7 @@ uniform mat4 uLightProj;
 uniform mat4 uViewProj;
 uniform vec3 uViewPos;
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
-uniform vec3 uLightPos[MAX_LIGHTS];
+uniform vec4 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
 
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha

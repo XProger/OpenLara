@@ -39,10 +39,7 @@ struct Camera : ICamera {
     Controller* viewTarget;
     float       speed;
 
-    bool    firstPerson;
-    bool    isVR;
-
-    Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL), isVR(false) {
+    Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL) {
         changeView(false);
         if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
             state = STATE_CUTSCENE;
@@ -323,10 +320,12 @@ struct Camera : ICamera {
         }
 
         mViewInv = mat4(pos, target, vec3(0, -1, 0));
-        if (isVR) {
+    /*
+        if (Core::settings.detail.VR) {
             mat4 head = Input::head.getMatrix();
             mViewInv = mViewInv * head;
         }
+    */
         updateListener();
     }
 
@@ -347,8 +346,8 @@ struct Camera : ICamera {
             if (shake > 0.0f)
                 Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
-            if (isVR)
-                Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * 32.0f));
+            if (Core::settings.detail.stereo)
+                Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
 
             Core::mProj = getProjMatrix();
 

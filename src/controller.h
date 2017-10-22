@@ -21,6 +21,7 @@ struct ICamera {
     vec4  *reflectPlane;
     vec3  pos;
     float shake;
+    bool  firstPerson;
 
     ICamera() : reflectPlane(NULL), pos(0.0f), shake(0.0f) {}
 

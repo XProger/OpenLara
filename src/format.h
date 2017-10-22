@@ -619,7 +619,7 @@ namespace TR {
         };
 
         TR::Vertex  center;
-        uint16      radius;
+        int16       radius;
         union {
             struct {
                 uint16 transparent:1, reserved:15;

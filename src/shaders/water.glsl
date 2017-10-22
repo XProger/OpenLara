@@ -14,7 +14,7 @@ varying vec3 vLightVec;
 
 uniform vec3  uViewPos;
 uniform mat4  uViewProj;
-uniform vec3  uLightPos;
+uniform vec4  uLightPos;
 uniform vec3  uPosScale[2];
 
 uniform vec4  uTexParam;
@@ -71,7 +71,7 @@ uniform sampler2D sNormal;
 			#endif
 		#endif
 		vViewVec  = uViewPos  - vCoord.xyz;
-		vLightVec = uLightPos - vCoord.xyz;
+		vLightVec = uLightPos.xyz - vCoord.xyz;
 	}
 #else
 	uniform sampler2D sDiffuse;

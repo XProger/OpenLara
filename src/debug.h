@@ -537,7 +537,7 @@ namespace Debug {
                     TR::Entity &t = level.entities[j];
                     if (j == i || ((!t.isEnemy() || !t.flags.active) && t.type != TR::Entity::LARA)) continue;
                     Controller *enemy = (Controller*)t.controller;
-                    if (!controller->getBoundingBox().intersect(enemy->getBoundingBox()))
+                    if (!enemy || !controller->getBoundingBox().intersect(enemy->getBoundingBox()))
                         continue;
                     bboxIntersect = true;
                     mask |= controller->collide(enemy);

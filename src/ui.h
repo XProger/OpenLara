@@ -43,6 +43,7 @@ enum StringID {
     , STR_OPT_DETAIL_LIGHTING
     , STR_OPT_DETAIL_SHADOWS
     , STR_OPT_DETAIL_WATER
+    , STR_OPT_DETAIL_STEREO
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
@@ -132,6 +133,7 @@ const char *STR[STR_MAX] = {
     , "Lighting"
     , "Shadows"
     , "Water"
+    , "Stereo"
 // sound options
     , "Set Volumes"
     , "Reverberation"

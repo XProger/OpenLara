@@ -850,6 +850,17 @@ struct Bat : Enemy {
             lift(waypoint.y - pos.y, BAT_LIFT_SPEED);
         Enemy::updatePosition();
     }
+
+    virtual void deactivate(bool removeFromList = false) {
+        if (health <= 0.0f) {
+            TR::Level::FloorInfo info;
+            level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+            if (info.floor > pos.y)
+                return;
+            pos.y = float(info.floor);
+        }
+        Enemy::deactivate(removeFromList);
+    }
 };
 
 

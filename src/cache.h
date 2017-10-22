@@ -691,7 +691,7 @@ struct WaterCache {
             Core::invalidateTarget(false, true);
             Core::setTarget(NULL);
         }
-        Core::copyTarget(refract, 0, 0, 0, 0, w, h); // copy framebuffer into refraction texture
+        Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }
 
     void simulate() {
