@@ -11,6 +11,18 @@ inspired by OpenTomb project http://opentomb.github.io/
 * [Discord channel](https://discord.gg/EF8JaQB)
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
 
+## Roadmap
+- save game crystals
+- camera
+- alpha-3 release (November)
+- enemies
+- bug fixes
+- beta-1 release (January)
+- bug fixes
+- graphics improvements
+- release (February)
+- OpenLara 2...
+
 ## Screenshots
 ![Waterfall](http://xproger.info/projects/OpenLara/shots/waterfall.jpg)
 ![Double-aim](http://xproger.info/projects/OpenLara/shots/multi-aim.jpg)
