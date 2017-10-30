@@ -173,7 +173,7 @@ struct ShaderCache {
                 break;
             }
             case Core::passFilter  : {
-                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE", "GRAYSCALE", "BLUR", "MIXER" };
+                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE", "GRAYSCALE", "BLUR", "MIXER", "EQUIRECTANGULAR" };
                 src = FILTER;
                 typ = typeNames[type];
                 sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
@@ -729,6 +729,10 @@ struct WaterCache {
         Camera *camera = (Camera*)game->getCamera();
         game->setupBinding();
 
+        mat4 mProj     = Core::mProj;
+        mat4 mView     = Core::mView;
+        mat4 mViewInv  = Core::mViewInv;
+
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -751,8 +755,12 @@ struct WaterCache {
         Core::invalidateTarget(false, true);
         game->setClipParams(1.0f, NO_CLIP_PLANE);
 
+        Core::mProj     = mProj;
+        Core::mView     = mView;
+        Core::mViewInv  = mViewInv;
+
         camera->reflectPlane = NULL;
-        camera->setup(true);
+        camera->setup(false);
     }
 
     void render() {

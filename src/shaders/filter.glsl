@@ -62,6 +62,18 @@ uniform vec4 uParam;
 		return mix(texture2D(sDiffuse, vTexCoord), texture2D(sNormal, vTexCoord), uParam.x) * uParam.y;
 	}
 
+	#ifdef FILTER_EQUIRECTANGULAR
+		uniform samplerCube sEnvironment;
+
+		#define PI 3.14159265358979323846
+
+		vec4 equirectangular() {
+			vec2 a = (vTexCoord - 0.5) * vec2(PI * 2.0, PI);
+			vec3 v = vec3(sin(a.x) * cos(a.y), -sin(a.y), cos(a.x) * cos(a.y));
+			return textureCube(sEnvironment, normalize(v));
+		}
+	#endif
+
 	vec4 filter() {
 		#ifdef FILTER_DOWNSAMPLE
 			return downsample();
@@ -77,6 +89,10 @@ uniform vec4 uParam;
 
 		#ifdef FILTER_MIXER
 			return mixer();
+		#endif
+
+		#ifdef FILTER_EQUIRECTANGULAR
+			return equirectangular();
 		#endif
 
 		return texture2D(sDiffuse, vTexCoord);

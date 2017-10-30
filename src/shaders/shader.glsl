@@ -480,9 +480,12 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 						color.xyz = mix(vec3(0.0), color.xyz, vLightVec.w);
 					#endif
 				#endif
-
+/* catsuit test
+			#elif defined(TYPE_MIRROR)
+				color.xyz += calcSpecular(normalize(vNormal.xyz), vViewVec.xyz, vLightVec.xyz, uLightColor[0], 0.4);
+				color.w = 1.0;
+*/
 			#endif
-
 			gl_FragColor = color;
 		#endif
 	}

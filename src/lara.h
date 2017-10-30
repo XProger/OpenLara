@@ -1373,12 +1373,14 @@ struct Lara : Character {
     }
 
     void bakeEnvironment() {
+        getEntity().flags.invisible = true;
         if (!environment)
             environment = new Texture(256, 256, Texture::RGBA, true, NULL, true, true);
         Core::beginFrame();
-        game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment);
+        game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
         Core::endFrame();
+        getEntity().flags.invisible = false;
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
@@ -3035,8 +3037,13 @@ struct Lara : Character {
             Core::setBlending(bmNone);
         }
 
-        if (state == STATE_MIDAS_DEATH) {
+        if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
+        /* catsuit test
+            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
+            Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+            Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+        */
             environment->bind(sEnvironment);
             Core::setBlending(bmAlpha);
             visibleMask ^= 0xFFFFFFFF;

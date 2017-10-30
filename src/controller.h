@@ -51,7 +51,7 @@ struct IGame {
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {}
     virtual void setupBinding() {}
-    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {}
+    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water) {}
     virtual void setEffect(Controller *controller, TR::Effect effect) {}

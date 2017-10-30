@@ -52,6 +52,8 @@ struct Level : IGame {
     float      effectTimer;
     int        effectIdx;
 
+    Texture    *cube360;
+
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         if (isEnded) return;
@@ -214,19 +216,21 @@ struct Level : IGame {
         Core::basis.identity();
     }
 
-    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0) {
+    virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {
         PROFILE_MARKER("ENVIRONMENT");
         Core::eye = 0.0f;
         setupBinding();
+        Core::Pass tmpPass = Core::pass;
     // first pass render level into cube faces
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
-            Core::pass = Core::passAmbient;
+            Core::pass = pass;
             Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
             Core::setTarget(target, true, i);
             renderView(roomIndex, false);
             Core::invalidateTarget(false, true);
         }
+        Core::pass = tmpPass;
     }
     
     virtual void setEffect(Controller *controller, TR::Effect effect) {
@@ -441,9 +445,12 @@ struct Level : IGame {
         sndCurrent = sndSoundtrack;
 
         effect = TR::Effect::NONE;
+        cube360 = NULL;
     }
 
     virtual ~Level() {
+        delete cube360;
+
         #ifdef _DEBUG
             Debug::free();
         #endif
@@ -932,8 +939,6 @@ struct Level : IGame {
     }
 
     void updateLighting() {
-        camera->setup(true);
-
     // update crystal lighting (TODO: make it per-room instead of global)
         int   index   = -1;
         float minDist = 1000000000.f;
@@ -1051,10 +1056,7 @@ struct Level : IGame {
     }
 
     void setup() {
-        PROFILE_MARKER("SETUP");
-
         camera->setup(Core::pass == Core::passCompose);
-
         setupBinding();
     }
 
@@ -1141,9 +1143,6 @@ struct Level : IGame {
             }
         }
 
-        if (clipPort.x > clipPort.z || clipPort.y > clipPort.w)
-            return false;
-
         if (clipPort.x > viewPort.z || clipPort.y > viewPort.w || clipPort.z < viewPort.x || clipPort.w < viewPort.y)
             return false;
 
@@ -1217,8 +1216,6 @@ struct Level : IGame {
             setupBinding();
         }
 
-        camera->setup(Core::pass == Core::passCompose);
-
         renderRooms(roomsList, roomsCount);
 
         if (Core::pass != Core::passAmbient)
@@ -1250,6 +1247,7 @@ struct Level : IGame {
         Core::mView     = Core::mViewInv.inverse();
         Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
+        Core::viewPos   = Core::mViewInv.offset.xyz;
     }
 
     void setupLightCamera() {
@@ -1541,6 +1539,22 @@ struct Level : IGame {
             Core::setTarget(NULL, true);
             Core::validateRenderState();
         }
+/*  // catsuit test
+        lara->bakeEnvironment();
+        lara->visibleMask = Lara::BODY_HEAD | Lara::BODY_ARM_L3 | Lara::BODY_ARM_R3;
+*/
+
+/*
+    // EQUIRECTANGULAR PROJECTION test
+        if (!cube360)
+            cube360 = new Texture(1024, 1024, Texture::RGBA, true, NULL, true, false);
+        renderEnvironment(camera->getRoomIndex(), camera->pos, &cube360, 0, Core::passCompose);
+        Core::setTarget(NULL, true);
+        setShader(Core::passFilter, Shader::FILTER_EQUIRECTANGULAR);
+        cube360->bind(sEnvironment);
+        mesh->renderQuad();
+        return;
+*/
 
         if (Core::settings.detail.stereo) {
             Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width) * 0.5f, float(Core::height));
@@ -1559,6 +1573,8 @@ struct Level : IGame {
             setup();
             renderView(camera->getRoomIndex(), true);
         }
+
+        // lara->visibleMask = 0xFFFFFFFF; // catsuit test
     }
 
     void renderInventory() {
