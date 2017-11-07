@@ -647,7 +647,7 @@ namespace TR {
 
     struct Entity {
         enum ActiveState : uint16 { asNone, asActive, asInactive };
-        enum Type : int16 { NONE = -1, TR1_TYPES(DECL_ENUM) };
+        enum Type : uint16 { TR1_TYPES(DECL_ENUM) };
 
         Type    type;
         int16   room;
@@ -760,16 +760,16 @@ namespace TR {
 
         static Type getItemForHole(Type hole) {
             switch (hole) {
-                case PUZZLE_HOLE_1 : return PUZZLE_1;   break;
-                case PUZZLE_HOLE_2 : return PUZZLE_2;   break;
-                case PUZZLE_HOLE_3 : return PUZZLE_3;   break;
-                case PUZZLE_HOLE_4 : return PUZZLE_4;   break;
-                case KEY_HOLE_1    : return KEY_ITEM_1; break;
-                case KEY_HOLE_2    : return KEY_ITEM_2; break;
-                case KEY_HOLE_3    : return KEY_ITEM_3; break;
-                case KEY_HOLE_4    : return KEY_ITEM_4; break;
-                case MIDAS_HAND    : return LEADBAR;    break;
-                default            : return NONE;
+                case PUZZLE_HOLE_1 : return PUZZLE_1;
+                case PUZZLE_HOLE_2 : return PUZZLE_2;
+                case PUZZLE_HOLE_3 : return PUZZLE_3;
+                case PUZZLE_HOLE_4 : return PUZZLE_4;
+                case KEY_HOLE_1    : return KEY_ITEM_1;
+                case KEY_HOLE_2    : return KEY_ITEM_2;
+                case KEY_HOLE_3    : return KEY_ITEM_3;
+                case KEY_HOLE_4    : return KEY_ITEM_4;
+                case MIDAS_HAND    : return LEADBAR;
+                default            : return LARA;
             }
         }
 
@@ -1431,10 +1431,8 @@ namespace TR {
                 if (e.type == Entity::CUT_1)
                     cutEntity = i;
             }
-            for (int i = entitiesBaseCount; i < entitiesCount; i++) {
-                entities[i].type = Entity::NONE;
+            for (int i = entitiesBaseCount; i < entitiesCount; i++)
                 entities[i].controller = NULL;
-            }
 
             if (version == VER_TR1_PC) {
                 stream.seek(32 * 256);
@@ -2106,9 +2104,9 @@ namespace TR {
         }
 
         int entityAdd(Entity::Type type, int16 room, const vec3 &pos, float rotation, int16 intensity) {
-            for (int i = entitiesBaseCount; i < entitiesCount; i++) 
-                if (entities[i].type == Entity::NONE) {
-                    Entity &e = entities[i];
+            for (int i = entitiesBaseCount; i < entitiesCount; i++) {
+                Entity &e = entities[i];
+                if (!e.controller) {
                     e.type          = type;
                     e.room          = room;
                     e.x             = int(pos.x);
@@ -2118,14 +2116,13 @@ namespace TR {
                     e.intensity     = intensity;
                     e.flags.value   = 0;
                     e.modelIndex    = getModelIndex(e.type);
-                    e.controller    = NULL;
                     return i;
                 }
+            }
             return -1;
         }
 
         void entityRemove(int entityIndex) {
-            entities[entityIndex].type       = Entity::NONE;
             entities[entityIndex].controller = NULL;
         }
 

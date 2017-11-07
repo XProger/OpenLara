@@ -121,6 +121,7 @@ struct Controller {
 
     vec3    ambient[6];
     float   specular;
+    float   intensity;
 
     float   timer;
 
@@ -155,6 +156,7 @@ struct Controller {
         joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
         specular   = 0.0f;
+        intensity  = e.intensity == -1 ? -1.0f : intensityf(e.intensity);
         timer      = 0.0f;
         ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
         targetLight = NULL;
@@ -406,35 +408,52 @@ struct Controller {
     virtual void getSaveData(SaveData &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
-    // base
-        data.x           = e.x ^ int32(pos.x);
-        data.y           = e.y ^ int32(pos.y);
-        data.z           = e.z ^ int32(pos.z);
-        data.rotation    = e.rotation.value ^ TR::angle(normalizeAngle(angle.y)).value;
-        data.type        = entity >= level->entitiesBaseCount ? int16(e.type) : 0;
-        data.flags       = e.flags.value ^ flags.value;
-        data.timer       = timer == 0.0f ? 0 : (timer < 0.0f ? -1 : int16(timer * 30.0f));
+        if (entity < level->entitiesBaseCount) {
+            data.x        = e.x ^ int32(pos.x);
+            data.y        = e.y ^ int32(pos.y);
+            data.z        = e.z ^ int32(pos.z);
+            data.rotation = e.rotation.value ^ TR::angle(normalizeAngle(angle.y)).value;
+            data.type     = 0;
+            data.room     = e.room ^ roomIndex;
+        } else {
+            data.x        = int32(pos.x);
+            data.y        = int32(pos.y);
+            data.z        = int32(pos.z);
+            data.rotation = TR::angle(normalizeAngle(angle.y)).value;
+            data.type     = int16(e.type);
+            data.room     = uint8(roomIndex);
+        }
+
+        data.flags      = e.flags.value ^ flags.value;
+        data.timer      = timer == 0.0f ? 0 : (timer < 0.0f ? -1 : int16(timer * 30.0f));
     // animation
-        data.animIndex   = m ? (m->animation ^ animation.index) : 0;
-        data.animFrame   = m ? animation.frameIndex : 0;
-    // common
-        data.room        = e.room ^ roomIndex;
-        data.extraSize   = 0;
+        data.animIndex  = m ? (m->animation ^ animation.index) : 0;
+        data.animFrame  = m ? animation.frameIndex : 0;
+
+        data.extraSize  = 0;
     }
 
     virtual void setSaveData(const SaveData &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
-    // base
-        pos.x            = float(e.x ^ data.x);
-        pos.y            = float(e.y ^ data.y);
-        pos.z            = float(e.z ^ data.z);
-        angle.y          = TR::angle(uint16(e.rotation.value ^ data.rotation));
-        flags.value      = e.flags.value ^ data.flags;
-        timer            = data.timer == -1 ? -1.0f : (timer / 30.0f);
+        if (entity < level->entitiesBaseCount) {
+            pos.x       = float(e.x ^ data.x);
+            pos.y       = float(e.y ^ data.y);
+            pos.z       = float(e.z ^ data.z);
+            angle.y     = TR::angle(uint16(e.rotation.value ^ data.rotation));
+            roomIndex   = e.room ^ data.room;
+        } else {
+            pos.x       = float(data.x);
+            pos.y       = float(data.y);
+            pos.z       = float(data.z);
+            angle.y     = TR::angle(uint16(data.rotation));
+            flags.value = data.flags;
+            roomIndex   = data.room;
+        }
+        flags.value = e.flags.value ^ data.flags;
+        timer       = data.timer == -1 ? -1.0f : (timer / 30.0f);
     // animation
         if (m) animation.setAnim(m->animation ^ data.animIndex, -data.animFrame);
-        roomIndex        = e.room ^ data.room;
     }
 
     bool isActive() {
@@ -838,10 +857,10 @@ struct Controller {
         for (int i = 0; i < model->mCount; i++)
             if (explodeMask & (1 << i)) {
                 ExplodePart &part = explodeParts[i];
-                part.velocity.y += GRAVITY * Core::deltaTime;
+                applyGravity(part.velocity.y);
 
                 quat q = quat(vec3(1, 0, 0), PI * Core::deltaTime) * quat(vec3(0, 0, 1), PI * 2.0f * Core::deltaTime);
-                part.basis = Basis(part.basis.rot * q, part.basis.pos + explodeParts[i].velocity * (Core::deltaTime * 30.0f));
+                part.basis = Basis(part.basis.rot * q, part.basis.pos + part.velocity * (30.0f * Core::deltaTime));
 
                 vec3 p = part.basis.pos;
                 //TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));

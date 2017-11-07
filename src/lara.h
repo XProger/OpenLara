@@ -594,7 +594,7 @@ struct Lara : Character {
             case Weapon::Type::SHOTGUN : return TR::Entity::SHOTGUN;
             case Weapon::Type::MAGNUMS : return TR::Entity::MAGNUMS;
             case Weapon::Type::UZIS    : return TR::Entity::UZIS;
-            default                    : return TR::Entity::NONE;
+            default                    : return TR::Entity::LARA;
         }
     }
 
@@ -1535,15 +1535,17 @@ struct Lara : Character {
                 usedKey = item;
                 break;
             case TR::Entity::INV_LEADBAR  :
-                for (int i = 0; i < level->entitiesCount; i++)
-                    if (level->entities[i].type == TR::Entity::MIDAS_HAND) {
-                        MidasHand *controller = (MidasHand*)level->entities[i].controller;
+                for (int i = 0; i < level->entitiesCount; i++) {
+                    const TR::Entity &e = level->entities[i];
+                    if (e.controller && e.type == TR::Entity::MIDAS_HAND) {
+                        MidasHand *controller = (MidasHand*)e.controller;
                         if (controller->interaction) {
                             controller->invItem = item;
                             return false; // remove item from inventory
                         }
                         return true;
                     }
+                }
                 return false;
             default : return false;
         }
@@ -1596,11 +1598,10 @@ struct Lara : Character {
 
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &entity = level->entities[i];
-            if (!entity.isPickup())
+            if (!entity.controller || !entity.isPickup())
                 continue;
 
             Controller *controller = (Controller*)entity.controller;
-            if (!controller) continue;
 
             if (controller->getRoomIndex() != room || controller->flags.invisible || !canPickup(controller))
                 continue;
@@ -1786,10 +1787,10 @@ struct Lara : Character {
                         return;
 
                     limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
-                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedKey != TR::Entity::NONE))
+                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedKey != TR::Entity::LARA))
                         return;
 
-                    if (usedKey == TR::Entity::NONE) {
+                    if (usedKey == TR::Entity::LARA) {
                         if (isPressed(ACTION) && !game->invChooseKey(entity.type))
                             game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
@@ -2135,7 +2136,7 @@ struct Lara : Character {
     Block* getBlock() {
         for (int i = 0; i < level->entitiesCount; i++) {
             TR::Entity &e = level->entities[i];
-            if (!e.isBlock())
+            if (!e.controller || !e.isBlock())
                 continue;
 
             Block *block = (Block*)e.controller;
@@ -2547,7 +2548,7 @@ struct Lara : Character {
             if (oxygen < LARA_MAX_OXYGEN)
                 oxygen = min(LARA_MAX_OXYGEN, oxygen += Core::deltaTime * 10.0f);
 
-        usedKey = TR::Entity::NONE;
+        usedKey = TR::Entity::LARA;
     }
 
     virtual void updateAnimation(bool commands) {
@@ -2747,8 +2748,8 @@ struct Lara : Character {
     // check enemies & doors
         for (int i = 0; i < level->entitiesCount; i++) {
             const TR::Entity &e = level->entities[i];
-            
-            if (!e.isCollider()) continue;
+
+            if (!e.controller || !e.isCollider()) continue;
 
             Controller *controller = (Controller*)e.controller;
 

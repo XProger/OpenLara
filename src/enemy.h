@@ -96,7 +96,7 @@ struct Enemy : Character {
 
     virtual void updateVelocity() {
         if (stand == STAND_AIR && (!flying || health <= 0.0f))
-            velocity.y += GRAVITY * Core::deltaTime;
+            applyGravity(velocity.y);
         else
             velocity = getDir() * animation.getSpeed();
 

@@ -313,7 +313,7 @@ struct Inventory {
     
     bool chooseKey(TR::Entity::Type hole) {
         TR::Entity::Type type = TR::Entity::getItemForHole(hole);
-        if (type == TR::Entity::NONE)
+        if (type == TR::Entity::LARA)
             return false;
         int index = contains(type);
         if (index < 0)
@@ -330,7 +330,7 @@ struct Inventory {
         return false;
     }
 
-    bool toggle(Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
+    bool toggle(Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
@@ -346,7 +346,7 @@ struct Inventory {
                 phaseSelect = 1.0f;
                 page        = targetPage  = curPage;
 
-                if (type != TR::Entity::NONE) {
+                if (type != TR::Entity::LARA) {
                     int i = contains(type);
                     if (i >= 0)
                         pageItemIndex[page] = getLocalIndex(i);

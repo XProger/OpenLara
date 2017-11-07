@@ -656,9 +656,7 @@ namespace Debug {
         const char *TR1_TYPE_NAMES[] = { TR1_TYPES(DECL_STR) };
 
         const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
-            if (entity.type == TR::Entity::NONE)
-                return "NONE";
-            if (entity.type < 0 || entity.type >= COUNT(TR1_TYPE_NAMES))
+            if (entity.type >= COUNT(TR1_TYPE_NAMES))
                 return "UNKNOWN";
             return TR1_TYPE_NAMES[entity.type];
         }

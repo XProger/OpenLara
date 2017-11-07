@@ -206,7 +206,7 @@ struct TrapFlameEmitter : Controller {
 #define LAVA_EMITTER_RANGE   (1024 * 10)
 
 struct LavaParticle : Sprite {
-    int  bounces;
+    int bounces;
 
     LavaParticle(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_RANDOM), bounces(0) {
         float speed = randf() * LAVA_H_SPEED;
@@ -235,7 +235,7 @@ struct LavaParticle : Sprite {
                 delete this;
                 return;
             }
-            // getEntity().intensity = bounces * 2048 - 1; // TODO: updateEntity() 
+            intensity = max(0.0f, 1.0f - bounces * 0.25f);
  
             if (pos.y > info.floor)   pos.y = info.floor;
             if (pos.y < info.ceiling) pos.y = info.ceiling;
@@ -246,9 +246,7 @@ struct LavaParticle : Sprite {
 };
 
 struct TrapLavaEmitter : Controller {
-    float timer;
-
-    TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
+    TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity) {}
 
     void virtual update() {
         vec3 d = (game->getLara()->pos - pos).abs();
@@ -412,8 +410,9 @@ struct Block : Controller {
             if (info.roomBelow != TR::NO_ROOM)
                 roomIndex = info.roomBelow;
 
-            velocity += Core::deltaTime * GRAVITY;
-            pos.y    += Core::deltaTime * velocity * 30.0f;
+            applyGravity(velocity);
+            pos.y += velocity * (30.0f * Core::deltaTime);
+
             if (pos.y >= info.floor) {
                 velocity = 0.0f;
                 pos.y    = info.floor;
@@ -445,6 +444,13 @@ struct MovingBlock : Controller {
 
     MovingBlock(IGame *game, int entity) : Controller(game, entity) {
         if (!flags.invisible)
+            updateFloor(true);
+    }
+
+    virtual void setSaveData(const SaveData &data) {
+        updateFloor(false);
+        Controller::setSaveData(data);
+        if (flags.state == TR::Entity::asNone)
             updateFloor(true);
     }
 
@@ -614,9 +620,10 @@ struct TrapFloor : Controller {
         STATE_FALL,
         STATE_DOWN,
     };
-    float speed;
 
-    TrapFloor(IGame *game, int entity) : Controller(game, entity), speed(0) {
+    float velocity;
+
+    TrapFloor(IGame *game, int entity) : Controller(game, entity), velocity(0) {
         flags.collision = true;
     }
 
@@ -634,8 +641,9 @@ struct TrapFloor : Controller {
         updateAnimation(true);
         if (state == STATE_FALL) {
             flags.collision = false;
-            speed += GRAVITY * 30 * Core::deltaTime;
-            pos.y += speed * Core::deltaTime;
+
+            applyGravity(velocity);
+            pos.y += velocity * (30.0f * Core::deltaTime);
 
             TR::Level::FloorInfo info;
             getFloorInfo(getRoomIndex(), pos, info);
@@ -771,9 +779,9 @@ struct TrapCeiling : Controller {
         STATE_DOWN,
     };
 
-    float speed;
+    float velocity;
 
-    TrapCeiling(IGame *game, int entity) : Controller(game, entity), speed(0) {}
+    TrapCeiling(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
 
     virtual void update() {
         updateAnimation(true);
@@ -782,8 +790,8 @@ struct TrapCeiling : Controller {
             animation.setState(STATE_FALL);
        
         if (state == STATE_FALL) {
-            speed += GRAVITY * 30 * Core::deltaTime;
-            pos.y += speed * Core::deltaTime;
+            applyGravity(velocity);
+            pos.y += velocity * (30.0f * Core::deltaTime);
 
             TR::Level::FloorInfo info;
             getFloorInfo(getRoomIndex(), pos, info);
@@ -1079,7 +1087,7 @@ struct MidasHand : Controller {
     TR::Entity::Type invItem;
     bool interaction;
 
-    MidasHand(IGame *game, int entity) : Controller(game, entity), invItem(TR::Entity::NONE), interaction(false) {
+    MidasHand(IGame *game, int entity) : Controller(game, entity), invItem(TR::Entity::LARA), interaction(false) {
         activate();
     }
 
@@ -1100,7 +1108,7 @@ struct MidasHand : Controller {
         interaction = (d.x < 700.0f && d.z < 700.0f) && lara->state == 2; // 2 = Lara::STATE_STOP
 
         if (interaction) {
-            if (invItem != TR::Entity::NONE) {
+            if (invItem != TR::Entity::LARA) {
                 if (invItem == TR::Entity::INV_LEADBAR) {
                     lara->angle.y = PI * 0.5f;
                     lara->pos.x   = pos.x - 612.0f;
@@ -1108,7 +1116,7 @@ struct MidasHand : Controller {
                     game->invAdd(TR::Entity::PUZZLE_1);
                 } else
                     game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
-                invItem = TR::Entity::NONE;
+                invItem = TR::Entity::LARA;
             } else if (Input::state[cAction] && !game->invChooseKey(getEntity().type)) // TODO: add callback for useItem
                 game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
         }
@@ -1289,12 +1297,22 @@ struct KeyHole : Controller {
     virtual bool activate() {
         if (!Controller::activate()) return false;
         flags.active = TR::ACTIVE;
+        swap();
+        deactivate();
+        return true;
+    }
+
+    virtual void setSaveData(const SaveData &data) {
+        Controller::setSaveData(data);
+        if (flags.active == TR::ACTIVE)
+            swap();
+    }
+
+    void swap() {
         if (getEntity().isPuzzleHole()) {
             int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
             meshSwap(0, level->extra.puzzleDone[doneIdx]);
         }
-        deactivate();
-        return true;
     }
 
     virtual void update() {}

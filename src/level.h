@@ -90,23 +90,34 @@ struct Level : IGame {
         char *data;
         stream.read(data, stream.size);
         char *ptr = data;
+        int32 eCount = *((int32*)ptr);
+        ptr += 4;
 
         Controller::first = NULL;
-        for (int i = level.entitiesBaseCount; i < level.entitiesCount; i++) {
+        for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
-            if (e.controller) {
-                delete (Controller*)e.controller;
-                e.controller = NULL;
+            Controller *controller = (Controller*)e.controller;
+            if (controller) {
+                controller->next = NULL;
+                controller->flags.state = TR::Entity::asNone;
+                if (i >= level.entitiesBaseCount) {
+                    delete controller;
+                    e.controller = NULL;
+                }
             }
         }
 
-        for (int i = 0; i < level.entitiesBaseCount; i++) {
-            ASSERT(int(ptr - data) < stream.size);
-            Controller *controller = (Controller*)level.entities[i].controller;
-            ASSERT(controller);
+        for (int i = 0; i < eCount; i++) {
             Controller::SaveData *saveData = (Controller::SaveData*)ptr;
+
+            Controller *controller;
+            if (i >= level.entitiesBaseCount)
+                controller = addEntity(TR::Entity::Type(saveData->type), saveData->room, vec3(float(saveData->x), float(saveData->y), float(saveData->z)), TR::angle(saveData->rotation));
+            else
+                controller = (Controller*)level.entities[i].controller;
+
             controller->setSaveData(*saveData);
-            if (controller->flags.state != TR::Entity::asNone) {
+            if (Controller::first != controller && controller->flags.state != TR::Entity::asNone) {
                 controller->next = Controller::first;
                 Controller::first = controller;
             }
@@ -119,15 +130,19 @@ struct Level : IGame {
     }
 
     virtual void saveGame(int slot) {
-        char *data = new char[sizeof(Controller::SaveData) * level.entitiesBaseCount];
-        char *ptr = data;
+        char  *data = new char[4 + sizeof(Controller::SaveData) * level.entitiesCount];
+        char  *ptr = data;
+        int32 *eCount = (int32*)ptr;
+        ptr += 4;
 
-        for (int i = 0; i < level.entitiesBaseCount; i++) {
-            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
+        *eCount = 0;
+        for (int i = 0; i < level.entitiesCount; i++) {
             Controller *controller = (Controller*)level.entities[i].controller;
-            ASSERT(controller);
+            if (!controller || (controller->getEntity().isSprite() && !controller->getEntity().isPickup())) continue;
+            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
             controller->getSaveData(*saveData);
             ptr += (sizeof(Controller::SaveData) - sizeof(Controller::SaveData::Extra)) + saveData->extraSize;
+            (*eCount)++;
         }
         Stream::write("savegame.dat", data, int(ptr - data));
         delete[] data;
@@ -307,14 +322,6 @@ struct Level : IGame {
         int index = level.entityAdd(type, room, pos, angle, -1);
         if (index > -1) {
             TR::Entity &e = level.entities[index];
-            Controller *controller = initController(index);
-            e.controller = controller;
-
-            if (e.isEnemy() || e.isSprite()) {
-                controller->flags.active = TR::ACTIVE;
-                controller->activate();
-            }
-
             if (e.isPickup())
                 e.intensity = 4096;
             else
@@ -324,7 +331,15 @@ struct Level : IGame {
                    else
                         e.intensity = 0x1FFF - level.rooms[room].ambient;
                 }
-            
+
+            Controller *controller = initController(index);
+            e.controller = controller;
+
+            if (e.isEnemy() || e.isSprite()) {
+                controller->flags.active = TR::ACTIVE;
+                controller->activate();
+            }
+
             return controller;
         }
         return NULL;
@@ -936,7 +951,7 @@ struct Level : IGame {
 
     void renderEntity(const TR::Entity &entity) {
         //if (entity.room != lara->getRoomIndex()) return;
-        if (entity.type == TR::Entity::NONE || !entity.modelIndex) return;
+        if (!entity.controller || !entity.modelIndex) return;
         if (Core::pass == Core::passShadow && !entity.castShadow()) return;
 
         ASSERT(entity.controller);
@@ -952,7 +967,7 @@ struct Level : IGame {
             if (!room.flags.visible || controller->flags.invisible || controller->flags.rendered)
                 return;
 
-        int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
+        float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
 
         Shader::Type type = isModel ? Shader::ENTITY : Shader::SPRITE;
         if (entity.type == TR::Entity::CRYSTAL)
@@ -961,9 +976,9 @@ struct Level : IGame {
         if (type == Shader::SPRITE) {
             float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH || entity.type == TR::Entity::SPARKLES) ? 0.75f : 1.0f;
             float diffuse = entity.isPickup() ? 1.0f : 0.5f;
-            setRoomParams(roomIndex, type, diffuse, intensityf(lum), controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+            setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
         } else
-            setRoomParams(roomIndex, type, 1.0f, intensityf(lum), controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+            setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
