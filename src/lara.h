@@ -227,7 +227,7 @@ struct Lara : Character {
 
     TR::Entity::Type  usedKey;
     int               pickupListCount;
-    TR::Entity        *pickupList[32];
+    Controller        *pickupList[32];
     KeyHole           *keyHole;
     Lightning         *lightning;
     Texture           *environment;
@@ -325,7 +325,7 @@ struct Lara : Character {
 
         void collide() {
             TR::Level *level = lara->level;
-            TR::Model *model = lara->getModel();
+            const TR::Model *model = lara->getModel();
 
             #define BRAID_RADIUS 16.0f
 
@@ -421,7 +421,7 @@ struct Lara : Character {
         lightning   = NULL;
         environment = NULL;
 
-        getEntity().flags.active = 1;
+        flags.active = 1;
         initMeshOverrides();
 
         if (level->isHomeLevel)
@@ -492,7 +492,7 @@ struct Lara : Character {
         dbgBoxes = NULL;
     #endif
 
-        if (getEntity().type == TR::Entity::LARA) {
+        if (getEntity().isLara()) {
             if (getRoom().flags.water)
                 animation.setAnim(ANIM_UNDERWATER);
             else
@@ -505,6 +505,35 @@ struct Lara : Character {
     virtual ~Lara() {
         delete braid;
         delete environment;
+    }
+
+    virtual void getSaveData(SaveData &data) {
+        Character::getSaveData(data);
+        data.extraSize = sizeof(data.extra.lara);
+        data.extra.lara.velX       = velocity.x;
+        data.extra.lara.velY       = velocity.y;
+        data.extra.lara.velZ       = velocity.z;
+        data.extra.lara.angleX     = TR::angle(normalizeAngle(angle.x)).value;
+        data.extra.lara.health     = uint16(health);
+        data.extra.lara.oxygen     = uint16(oxygen);
+        data.extra.lara.curWeapon  = int8(wpnCurrent);
+        data.extra.lara.emptyHands = emptyHands();
+    }
+
+    virtual void setSaveData(const SaveData &data) {
+        Character::setSaveData(data);
+        velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
+        angle.x  = TR::angle(data.extra.lara.angleX);
+        health   = float(data.extra.lara.health);
+        oxygen   = float(data.extra.lara.oxygen);
+
+        layers[1].mask = layers[2].mask = layers[3].mask = 0;
+        wpnState   = Weapon::IS_HIDDEN;
+        wpnCurrent = Weapon::EMPTY;
+
+        wpnSet(Weapon::Type(data.extra.lara.curWeapon));
+        if (!data.extra.lara.emptyHands)
+            wpnDraw(true);
     }
 
     int getRoomByPos(const vec3 &pos) {
@@ -543,9 +572,9 @@ struct Lara : Character {
 
         velocity = vec3(0.0f);
 
-        getEntity().room = room;
-        this->pos        = pos;
-        this->angle      = vec3(0.0f, angle, 0.0f);
+        roomIndex   = room;
+        this->pos   = pos;
+        this->angle = vec3(0.0f, angle, 0.0f);
 
         if (forceStand != STAND_GROUND) {
             stand = forceStand;
@@ -556,7 +585,6 @@ struct Lara : Character {
             }
         }
 
-        updateEntity();
         updateLights(false);
     }
 
@@ -732,15 +760,15 @@ struct Lara : Character {
         return arms[0].anim != Weapon::Anim::PREPARE && arms[0].anim != Weapon::Anim::UNHOLSTER && arms[0].anim != Weapon::Anim::HOLSTER;
     }
 
-    void wpnDraw() {
+    void wpnDraw(bool instant = false) {
         if (!canDrawWeapon()) return;
 
         if (wpnReady() && emptyHands()) {
             if (wpnCurrent != Weapon::SHOTGUN) {
-                wpnSetAnim(arms[0], wpnState, Weapon::Anim::PREPARE, 0.0f, 1.0f);
-                wpnSetAnim(arms[1], wpnState, Weapon::Anim::PREPARE, 0.0f, 1.0f);
+                wpnSetAnim(arms[0], wpnState, instant ? Weapon::Anim::AIM : Weapon::Anim::PREPARE, 0.0f, 1.0f);
+                wpnSetAnim(arms[1], wpnState, instant ? Weapon::Anim::AIM : Weapon::Anim::PREPARE, 0.0f, 1.0f);
             } else
-                wpnSetAnim(arms[0], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, 1.0f);
+                wpnSetAnim(arms[0], wpnState, instant ? Weapon::Anim::AIM : Weapon::Anim::UNHOLSTER, 0.0f, 1.0f);
         }
     }
 
@@ -868,10 +896,10 @@ struct Lara : Character {
                 ((Character*)arm->target)->hit(wpnGetDamage(), this);
                 hit -= d * 64.0f;
                 if (type != TR::Entity::SCION_TARGET)
-                    Sprite::add(game, TR::Entity::BLOOD, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_ANIMATED);
+                    game->addEntity(TR::Entity::BLOOD, room, hit);
             } else {
                 hit -= d * 64.0f;
-                Sprite::add(game, TR::Entity::RICOCHET, room, (int)hit.x, (int)hit.y, (int)hit.z, Sprite::FRAME_RANDOM);
+                game->addEntity(TR::Entity::RICOCHET, room, hit);
 
                 float dist = (hit - p).length();
                 if (dist < nearDist) {
@@ -1225,7 +1253,7 @@ struct Lara : Character {
 
         Controller *c = Controller::first;
         do {
-            if (!level->entities[c->entity].isEnemy())
+            if (!c->getEntity().isEnemy())
                 continue;
 
             Character *enemy = (Character*)c;
@@ -1318,11 +1346,8 @@ struct Lara : Character {
         if (!count) return;
         game->playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
         vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
-        for (int i = 0; i < count; i++) {
-            int index = Sprite::add(game, TR::Entity::BUBBLE, getRoomIndex(), int(head.x), int(head.y), int(head.z), Sprite::FRAME_RANDOM, true);
-            if (index > -1)
-                level->entities[index].controller = new Bubble(game, index);
-        }
+        for (int i = 0; i < count; i++)
+            game->addEntity(TR::Entity::BUBBLE, getRoomIndex(), head, 0);
     }
 
     virtual void cmdEffect(int fx) {
@@ -1342,14 +1367,14 @@ struct Lara : Character {
         for (int i = 0; i < count; i++)
             if (mask & (1 << i)) {
                 vec3 sprPos = spheres[i].center + (vec3(randf(), randf(), randf()) * 2.0f - 1.0f) * spheres[i].radius;
-                Sprite::add(game, TR::Entity::SPARKLES, getRoomIndex(), int(sprPos.x), int(sprPos.y), int(sprPos.z), Sprite::FRAME_ANIMATED);
+                game->addEntity(TR::Entity::SPARKLES, getRoomIndex(), sprPos);
             }
     }
 
     void addBlood(const vec3 &sprPos, const vec3 &sprVel) {
-        int index = Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), int(sprPos.x), int(sprPos.y), int(sprPos.z), Sprite::FRAME_ANIMATED);
-        if (index > -1)
-            ((Sprite*)level->entities[index].controller)->velocity = sprVel;
+        Sprite *sprite = (Sprite*)game->addEntity(TR::Entity::BLOOD, getRoomIndex(), sprPos, 0);
+        if (sprite)
+            sprite->velocity = sprVel;
     }
 
     void addBlood(float radius, float height, const vec3 &sprVel) {
@@ -1373,14 +1398,14 @@ struct Lara : Character {
     }
 
     void bakeEnvironment() {
-        getEntity().flags.invisible = true;
+        flags.invisible = true;
         if (!environment)
             environment = new Texture(256, 256, Texture::RGBA, true, NULL, true, true);
         Core::beginFrame();
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
         Core::endFrame();
-        getEntity().flags.invisible = false;
+        flags.invisible = false;
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
@@ -1393,6 +1418,7 @@ struct Lara : Character {
         Character::hit(damage, enemy, hitType);
 
         switch (hitType) {
+            case TR::HIT_DART      : addBlood(enemy->pos, vec3(0));
             case TR::HIT_BLADE     : addBloodBlade(); break;
             case TR::HIT_SPIKES    : addBloodSpikes(); break;
             case TR::HIT_SWORD     : addBloodBlade(); break;
@@ -1425,7 +1451,7 @@ struct Lara : Character {
                 if (enemy && enemy->getEntity().type == TR::Entity::TRAP_BOULDER) {
                     angle = enemy->angle;
                     TR::Level::FloorInfo info;
-                    level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+                    getFloorInfo(getRoomIndex(), pos, info);
                     vec3 d = getDir();
                     v = info.getSlant(d);
                     float dp = d.dot(v);
@@ -1468,11 +1494,10 @@ struct Lara : Character {
         }
 
         if (hitType != TR::HIT_LAVA) {
-            TR::Entity &e = getEntity();
             TR::Level::FloorInfo info;
-            level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+            getFloorInfo(getRoomIndex(), pos, info);
 
-            if (info.lava && info.floor == e.y)
+            if (info.lava && info.floor == pos.y)
                 hitType = TR::HIT_LAVA;
         }
 
@@ -1533,22 +1558,21 @@ struct Lara : Character {
         vec3 dst = pos + getDir() * (LARA_RADIUS + 32.0f);
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        getFloorInfo(getRoomIndex(), pos, info);
         int roomAbove = info.roomAbove;
         if (roomAbove == TR::NO_ROOM)
             return false;
 
-        level->getFloorInfo(roomAbove, int(dst.x), int(dst.y), int(dst.z), info);
+        getFloorInfo(roomAbove, dst, info);
 
         int h = int(pos.y - info.floor);
 
         if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
             alignToWall(LARA_RADIUS);
             roomPrev = getRoomIndex();
-            getEntity().room = roomAbove;
-            pos.y    = float(info.floor);
+            roomIndex = roomAbove;
+            pos.y    = info.floor;
             specular = LARA_WET_SPECULAR;
-            updateEntity();
             move();
             return true;
         }
@@ -1576,12 +1600,13 @@ struct Lara : Character {
                 continue;
 
             Controller *controller = (Controller*)entity.controller;
+            if (!controller) continue;
 
-            if (controller->getRoomIndex() != room || entity.flags.invisible || !canPickup(controller))
+            if (controller->getRoomIndex() != room || controller->flags.invisible || !canPickup(controller))
                 continue;
 
             ASSERT(pickupListCount < COUNT(pickupList));
-            pickupList[pickupListCount++] = &entity;
+            pickupList[pickupListCount++] = controller;
         }
 
         if (pickupListCount > 0) {
@@ -1593,11 +1618,11 @@ struct Lara : Character {
     }
 
     bool canPickup(Controller *controller) {
-        TR::Entity &entity = controller->getEntity();
+        TR::Entity::Type type = controller->getEntity().type;
 
         // get limits
         TR::Limits::Limit *limit;
-        switch (entity.type) {
+        switch (type) {
             case TR::Entity::SCION_PICKUP_QUALOPEC : limit = &TR::Limits::SCION; break;
             case TR::Entity::SCION_PICKUP_HOLDER   : limit = &TR::Limits::SCION_HOLDER; break;
             default : limit = level->rooms[getRoomIndex()].flags.water ? &TR::Limits::PICKUP_UNDERWATER : &TR::Limits::PICKUP;
@@ -1610,7 +1635,7 @@ struct Lara : Character {
             angle.x = -25 * DEG2RAD;
 
         // set new state
-        switch (entity.type) {
+        switch (type) {
             case TR::Entity::SCION_PICKUP_QUALOPEC :
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
                 game->getCamera()->doCutscene(pos, angle.y);
@@ -1710,11 +1735,10 @@ struct Lara : Character {
     }
 
     void checkTrigger(Controller *controller, bool heavy) {
-        TR::Entity &e = controller->getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), controller->pos, info);
 
-        if (e.type == TR::Entity::LARA && info.lava && info.floor == e.y) {
+        if (getEntity().isLara() && info.lava && info.floor == pos.y) {
             hit(LARA_MAX_HEALTH + 1, NULL, TR::HIT_LAVA);
             return;
         }
@@ -1733,7 +1757,7 @@ struct Lara : Character {
             case TR::Level::Trigger::SWITCH : {
                 Switch *controller = (Switch*)level->entities[info.trigCmd[cmdIndex++].args].controller;
 
-                if (controller->activeState == asNone) {
+                if (controller->flags.state == TR::Entity::asNone) {
                     limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
                     if (checkInteraction(controller, limit, Input::state[cAction])) {
                         actionState = (controller->state == Switch::STATE_DOWN && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
@@ -1753,8 +1777,8 @@ struct Lara : Character {
                 TR::Entity &entity = level->entities[info.trigCmd[cmdIndex++].args];
                 KeyHole *controller = (KeyHole*)entity.controller;
 
-                if (controller->activeState == asNone) {
-                    if (entity.flags.active == TR::ACTIVE || state != STATE_STOP)
+                if (controller->flags.state == TR::Entity::asNone) {
+                    if (controller->flags.active == TR::ACTIVE || state != STATE_STOP)
                         return;
 
                     actionState = entity.isPuzzleHole() ? STATE_USE_PUZZLE : STATE_USE_KEY;
@@ -1782,7 +1806,7 @@ struct Lara : Character {
                     animation.setState(actionState);
                 }
 
-                if (controller->activeState != asInactive)
+                if (controller->flags.state != TR::Entity::asInactive)
                     return;
 
                 break;
@@ -1799,7 +1823,7 @@ struct Lara : Character {
 
             case TR::Level::Trigger::PAD :
             case TR::Level::Trigger::ANTIPAD :
-                if (e.y != info.floor) return;
+                if (pos.y != info.floor) return;
                 break;
 
             case TR::Level::Trigger::HEAVY :
@@ -1822,11 +1846,13 @@ struct Lara : Character {
             switch (cmd.action) {
                 case TR::Action::ACTIVATE : {
                     TR::Entity &e = level->entities[cmd.args];
-                    TR::Entity::Flags &flags = e.flags;
+                    Controller *controller = (Controller*)e.controller;
+                    ASSERT(controller);
+                    TR::Entity::Flags &flags = controller->flags;
 
                     if (flags.once)
                         break;
-                    ((Controller*)e.controller)->timer = timer;
+                    controller->timer = timer;
 
                     if (info.trigger == TR::Level::Trigger::SWITCH)
                         flags.active ^= info.trigInfo.mask;
@@ -1840,7 +1866,7 @@ struct Lara : Character {
 
                     flags.once |= info.trigInfo.once;
                     
-                    ((Controller*)e.controller)->activate();
+                    controller->activate();
                     break;
                 }
                 case TR::Action::CAMERA_SWITCH : {
@@ -1959,7 +1985,6 @@ struct Lara : Character {
             animation.setAnim(ANIM_FALL_HANG);
             velocity = vec3(0.0f);
             pos.y += 128.0f;
-            updateEntity();
             return STAND_AIR;
         }
 
@@ -1981,14 +2006,12 @@ struct Lara : Character {
             return STAND_UNDERWATER;
         }
 
-        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         if ((stand == STAND_SLIDE || stand == STAND_GROUND) && (state != STATE_FORWARD_JUMP && state != STATE_BACK_JUMP)) {
-            if (e.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
-                pos.y = float(info.floor);
-                updateEntity();
+            if (pos.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
+                pos.y = info.floor;
 
                 if (stand == STAND_GROUND)
                     slideStart();
@@ -1999,10 +2022,9 @@ struct Lara : Character {
 
         int extra = (stand != STAND_AIR && stand != STAND_SLIDE) ? 256 : 0;
 
-        if (e.y + extra >= info.floor && !(stand == STAND_AIR && velocity.y < 0)) {
+        if (pos.y + extra >= info.floor && !(stand == STAND_AIR && velocity.y < 0)) {
             if (stand != STAND_GROUND) {
-                pos.y = float(info.floor);
-                updateEntity();
+                pos.y = info.floor;
             // get damage from falling
                 if (velocity.y > 0.0f) {
                     stopScreaming();
@@ -2052,27 +2074,25 @@ struct Lara : Character {
 
             vec3 p = vec3(pos.x, bounds.min.y, pos.z);
 
-            Collision c = Collision(level, getRoomIndex(), p, getDir() * 128.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
+            Collision c = Collision(this, getRoomIndex(), p, getDir() * 128.0f, vec3(0.0f), LARA_RADIUS, angleExt, 0, 0, 0, 0);
 
             if (c.side != Collision::FRONT)
                 return state;
 
-            int floor   = c.info[Collision::FRONT].floor;
-            int ceiling = c.info[Collision::FRONT].ceiling;
-            int hands = int(bounds.min.y);
+            float floor   = c.info[Collision::FRONT].floor;
+            float ceiling = c.info[Collision::FRONT].ceiling;
+            float hands   = bounds.min.y;
 
             if (abs(floor - hands) < 64 && floor != ceiling) {
                 alignToWall(-LARA_RADIUS);
                 pos.y = float(floor + LARA_HANG_OFFSET);
                 stand = STAND_HANG;
-                updateEntity();
 
                 if (state == STATE_REACH) {
                     velocity = vec3(0.0f);
-                    vec3 p = pos + getDir() * 256.0f;
                     TR::Level::FloorInfo info;
-                    level->getFloorInfo(getRoomIndex(), int(p.x), int(p.y), int(p.z), info);
-                    int h = info.ceiling - floor;
+                    getFloorInfo(getRoomIndex(), pos + getDir() * 256.0f, info);
+                    int h = int(info.ceiling - floor);
                     return animation.setAnim((h > 0 && h < 400) ? ANIM_HANG_SWING : ANIM_HANG);
                 } else
                     return animation.setAnim(ANIM_HANG, -15);
@@ -2140,10 +2160,10 @@ struct Lara : Character {
             return state;
 
         if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
-            int floor   = collision.info[Collision::FRONT].floor;
-            int ceiling = collision.info[Collision::FRONT].ceiling; 
+            float floor   = collision.info[Collision::FRONT].floor;
+            float ceiling = collision.info[Collision::FRONT].ceiling; 
 
-            int h = (int)pos.y - floor;
+            float h = pos.y - floor;
 
             int aIndex = animation.index;
             if (floor == ceiling || h < 256)
@@ -2181,7 +2201,7 @@ struct Lara : Character {
 
             if (res != STATE_UP_JUMP) {
                 vec3 p = pos;
-                collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 2.5f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
+                collision  = Collision(this, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 2.5f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
                 if (collision.side == Collision::FRONT)
                     res = STATE_UP_JUMP;
             }
@@ -2228,7 +2248,7 @@ struct Lara : Character {
 
             if (state == STATE_STOP && res != STATE_STOP) {
                 vec3 p = pos;
-                collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, maxAscent, maxDescent);
+                collision  = Collision(this, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, maxAscent, maxDescent);
                 if (collision.side == Collision::FRONT)
                     res = STATE_STOP;
             }
@@ -2264,7 +2284,7 @@ struct Lara : Character {
         if (state == STATE_STOP && res != STATE_STOP) {
             float ext = angle.y + (res == STATE_RUN ? 0.0f : PI);
             vec3 p = pos;
-            collision  = Collision(level, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
+            collision  = Collision(this, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, 256 + 128, 0xFFFFFF);
             if (collision.side == Collision::FRONT)
                 res = STATE_STOP;
         }
@@ -2273,11 +2293,9 @@ struct Lara : Character {
     }
 
     void slideStart() {
-        TR::Entity &e = getEntity();
-
         if (state != STATE_SLIDE && state != STATE_SLIDE_BACK) {
             TR::Level::FloorInfo info;
-            level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+            getFloorInfo(getRoomIndex(), pos, info);
 
             int sx = abs(info.slantX), sz = abs(info.slantZ);
             // get direction
@@ -2295,7 +2313,6 @@ struct Lara : Character {
             }
 
             angle.y = dir;
-            updateEntity();
             animation.setAnim(aIndex);
         }
     }
@@ -2312,8 +2329,7 @@ struct Lara : Character {
         if (input & FORTH) {
             // possibility check
             TR::Level::FloorInfo info;
-            vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
-            level->getFloorInfo(getRoomIndex(), (int)p.x, (int)p.y, (int)p.z, info);
+            getFloorInfo(getRoomIndex(), pos + getDir() * (LARA_RADIUS + 2.0f), info);
             if (info.floor - info.ceiling >= LARA_HEIGHT)
                 return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;            
         }
@@ -2326,7 +2342,7 @@ struct Lara : Character {
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH || state == STATE_SLIDE || state == STATE_SLIDE_BACK) {
             game->waterDrop(pos, 256.0f, 0.2f);
-            Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
+            game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
             pos.y += 100.0f;
             angle.x = -45.0f * DEG2RAD;
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
@@ -2335,7 +2351,7 @@ struct Lara : Character {
         if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
             angle.x = -PI * 0.5f;
             game->waterDrop(pos, 128.0f, 0.2f);
-            Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z);
+            game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
             return STATE_DIVE;
         }
 
@@ -2493,10 +2509,10 @@ struct Lara : Character {
                 int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;
                 if (animation.isFrameActive(pickupFrame)) {
                     for (int i = 0; i < pickupListCount; i++) {
-                        if (pickupList[i]->type == TR::Entity::SCION_PICKUP_HOLDER)
+                        if (pickupList[i]->getEntity().type == TR::Entity::SCION_PICKUP_HOLDER)
                             continue;
                         pickupList[i]->flags.invisible = true;
-                        game->invAdd(pickupList[i]->type, 1);
+                        game->invAdd(pickupList[i]->getEntity().type, 1);
                     }
                     pickupListCount = 0;
                 }
@@ -2516,7 +2532,7 @@ struct Lara : Character {
     virtual void update() {
         Character::update();
         
-        if (getEntity().type != TR::Entity::LARA)
+        if (!getEntity().isLara())
             return;
 
         if (damageTime > 0.0f)
@@ -2560,7 +2576,7 @@ struct Lara : Character {
     virtual void updateVelocity() {
         flowVelocity = vec3(0);
 
-        if (getEntity().type != TR::Entity::LARA)
+        if (!getEntity().isLara())
             return;
 
         if (!(input & DEATH))
@@ -2650,15 +2666,14 @@ struct Lara : Character {
                     velocity.z = cosf(angleExt) * speed;
                     velocity.y = 0.0f;
                 } else {
-                    TR::Entity &e = getEntity();
                     TR::Level::FloorInfo info;
                     if (stand == STAND_HANG) {
                         vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
-                        level->getFloorInfo(e.room, (int)p.x, (int)p.y, (int)p.z, info);
-                        if (info.roomAbove != TR::NO_ROOM && info.floor >= e.y - LARA_HANG_OFFSET)
-                            level->getFloorInfo(info.roomAbove, (int)p.x, (int)p.y, (int)p.z, info);
+                        getFloorInfo(getRoomIndex(), p, info);
+                        if (info.roomAbove != TR::NO_ROOM && info.floor >= pos.y - LARA_HANG_OFFSET)
+                            getFloorInfo(info.roomAbove, p, info);
                     } else
-                        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+                        getFloorInfo(getRoomIndex(), pos, info);
 
                     vec3 v(sinf(angleExt), 0.0f, cosf(angleExt));
                     velocity = info.getSlant(v) * speed;
@@ -2683,7 +2698,7 @@ struct Lara : Character {
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
-        if (getEntity().type != TR::Entity::LARA)
+        if (!getEntity().isLara())
             return;
         // tilt control
         vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
@@ -2697,14 +2712,11 @@ struct Lara : Character {
         if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
             move();
 
-        if (getEntity().type != TR::Entity::LARA) {
-            TR::Entity &e = getEntity();
-            vec3 &p = getPos();
-            e.x = int(p.x);
-            e.y = int(p.y);
-            e.z = int(p.z);
+        if (!getEntity().isLara()) {
+            vec3 p = pos;
+            pos = chestOffset;
             checkRoom();
-            updateEntity();
+            pos = p;
         }
 
         if (braid)
@@ -2712,12 +2724,12 @@ struct Lara : Character {
     }
 
     virtual vec3& getPos() {
-        return getEntity().type == TR::Entity::LARA ? pos : chestOffset;
+        return getEntity().isLara() ? pos : chestOffset;
     }
 
     bool checkCollisions() {
     // check static objects (TODO: check linked rooms?)
-        TR::Room &room = getRoom();
+        const TR::Room &room = getRoom();
         Box box(pos - vec3(LARA_RADIUS, LARA_HEIGHT, LARA_RADIUS), pos + vec3(LARA_RADIUS, 0.0f, LARA_RADIUS));
 
         for (int i = 0; i < room.meshesCount; i++) {
@@ -2734,19 +2746,18 @@ struct Lara : Character {
 
     // check enemies & doors
         for (int i = 0; i < level->entitiesCount; i++) {
-            TR::Entity &e = level->entities[i];
+            const TR::Entity &e = level->entities[i];
             
             if (!e.isCollider()) continue;
 
             Controller *controller = (Controller*)e.controller;
 
             if (e.isEnemy()) {
-                if (e.type != TR::Entity::ENEMY_REX && (e.flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;
+                if (e.type != TR::Entity::ENEMY_REX && (controller->flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;
             } else {
             // fast distance check for object
-                TR::Entity &entity = getEntity(); 
                 if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK && e.type != TR::Entity::SCION_HOLDER)
-                    if (abs(entity.x - e.x) > 1024 || abs(entity.z - e.z) > 1024 || abs(entity.y - e.y) > 2048) continue;
+                    if (abs(pos.x - controller->pos.x) > 1024 || abs(pos.z - controller->pos.z) > 1024 || abs(pos.y - controller->pos.y) > 2048) continue;
             }
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
@@ -2832,7 +2843,7 @@ struct Lara : Character {
             offset.y += LARA_HEIGHT_WATER * 0.5f;
         }
 
-        collision = Collision(level, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
+        collision = Collision(this, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
 
         if (!standHang && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
             float rot = TURN_WALL_Y * Core::deltaTime;
@@ -2845,7 +2856,7 @@ struct Lara : Character {
             maxDescent = 0xFFFFFF;
             maxAscent  = -LARA_HANG_OFFSET;
             vec3 p = pos;
-            collision  = Collision(level, room, p, offset, vec3(0.0f), radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
+            collision  = Collision(this, room, p, offset, vec3(0.0f), radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
             if (collision.side == Collision::FRONT)
                 pos = opos;
         }
@@ -2869,7 +2880,7 @@ struct Lara : Character {
             velocity.y = 30.0f;
 
         if (collision.side == Collision::FRONT) {
-            int floor = collision.info[Collision::FRONT].floor;
+            float floor = collision.info[Collision::FRONT].floor;
 /*
             switch (angleQuadrant(angleExt - angle.y)) {
                 case 0 : collision.side = Collision::FRONT; LOG("FRONT\n"); break;
@@ -2915,8 +2926,8 @@ struct Lara : Character {
             }
         } else {
             if (stand == STAND_GROUND) {
-                int floor = collision.info[Collision::NONE].floor;
-                int h = int(floor - opos.y);
+                float floor = collision.info[Collision::NONE].floor;
+                float h = floor - opos.y;
 
                 if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
                     if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
@@ -2936,7 +2947,6 @@ struct Lara : Character {
             collision.side = Collision::NONE;
         }
 
-        updateEntity();
         if (dozy) stand = STAND_GROUND;
         checkRoom();
         if (dozy) stand = STAND_UNDERWATER;

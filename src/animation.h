@@ -6,7 +6,7 @@
 
 struct Animation {
     TR::Level       *level;
-    TR::Model       *model;
+    const TR::Model *model;
     TR::Animation   *anims;
     int             state;
     float           time, timeMax, delta, dir;
@@ -22,8 +22,8 @@ struct Animation {
 
     Animation() : overrides(NULL) {}
 
-    Animation(TR::Level *level, TR::Model *model) : level(level), model(model), anims(model ? &level->anims[model->animation] : NULL), time(0), delta(0), dir(1.0f),
-                                                    index(-1), prev(0), next(0), overrides(NULL), overrideMask(0) {
+    Animation(TR::Level *level, const TR::Model *model) : level(level), model(model), anims(model ? &level->anims[model->animation] : NULL), time(0), delta(0), dir(1.0f),
+                                                          index(-1), prev(0), next(0), overrides(NULL), overrideMask(0) {
         if (anims) setAnim(0);
     }
 

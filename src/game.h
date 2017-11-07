@@ -95,6 +95,16 @@ namespace Game {
             }
         }
 
+        if (Input::down[ikS]) {
+            level->saveGame(0);
+            Input::down[ikS] = false;
+        }
+
+        if (Input::down[ikL]) {
+            level->loadGame(0);
+            Input::down[ikL] = false;
+        }
+
         Core::deltaTime = delta = min(0.2f, delta);
         UI::update();
 

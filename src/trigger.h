@@ -15,10 +15,10 @@ struct Switch : Controller {
     Switch(IGame *game, int entity) : Controller(game, entity) {}
     
     bool setTimer(float t) {
-        if (activeState == asInactive) {
+        if (flags.state == TR::Entity::asInactive) {
             if (state == STATE_DOWN && t > 0.0f) {
                 timer = t;
-                activeState = asActive;
+                flags.state = TR::Entity::asActive;
             } else
                 deactivate(true);
            return true;
@@ -36,7 +36,7 @@ struct Switch : Controller {
 
     virtual void update() {
         updateAnimation(true);
-        getEntity().flags.active = TR::ACTIVE;
+        flags.active = TR::ACTIVE;
         if (!isActive())
             animation.setState(STATE_UP);
     }
@@ -71,23 +71,17 @@ struct Dart : Controller {
     virtual void update() {
         velocity = dir * animation.getSpeed();
         pos = pos + velocity * (Core::deltaTime * 30.0f);
-        updateEntity();
 
         Controller *lara = (Controller*)level->laraController;
         if (armed && collide(lara)) {
-            Sprite::add(game, TR::Entity::BLOOD, getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, Sprite::FRAME_ANIMATED);
-            lara->hit(DART_DAMAGE, this);
+            lara->hit(DART_DAMAGE, this, TR::HIT_DART);
             armed = false;
         }
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
         if (pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())) {
-            TR::Entity &e = getEntity();
-                
-            vec3 p = pos - dir * 64.0f; // wall offset = 64
-            Sprite::add(game, TR::Entity::RICOCHET, e.room, (int)p.x, (int)p.y, (int)p.z, Sprite::FRAME_RANDOM);
-
+            game->addEntity(TR::Entity::RICOCHET, getRoomIndex(), pos - dir * 64.0f); // with wall offset
             level->entityRemove(entity);
             delete this;
         }
@@ -109,12 +103,10 @@ struct TrapDartEmitter : Controller {
             ASSERT(false);
 
         if (state == STATE_FIRE && animation.framePrev == -1) {
-            TR::Entity &entity = getEntity();
+            vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - angle.y);
 
-            vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - entity.rotation);
-
-            game->addEntity(TR::Entity::DART, getRoomIndex(), p, entity.rotation);
-            Sprite::add(game, TR::Entity::SMOKE, entity.room, (int)p.x, (int)p.y, (int)p.z);
+            game->addEntity(TR::Entity::DART, getRoomIndex(), p, angle.y);
+            game->addEntity(TR::Entity::SMOKE, getRoomIndex(), p);
             game->playSound(TR::SND_DART, p, Sound::Flags::PAN);
         }
 
@@ -134,7 +126,7 @@ struct Flame : Sprite {
         int  roomIndex   = controller->getRoomIndex();
         vec3 pos         = controller->pos;
 
-        int index = level->entityAdd(TR::Entity::FLAME, roomIndex, int(pos.x), int(pos.y), int(pos.z), 0, 0);
+        int index = level->entityAdd(TR::Entity::FLAME, roomIndex, pos, 0, 0);
         if (index > -1) {
             flame = new Flame(game, index, jointIndex);
             level->entities[index].controller = flame; 
@@ -228,7 +220,7 @@ struct LavaParticle : Sprite {
         Sprite::update();
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         bool hit = false;
         if (!bounces) {
@@ -243,10 +235,10 @@ struct LavaParticle : Sprite {
                 delete this;
                 return;
             }
-            getEntity().intensity = bounces * 2048 - 1;
-
-            if (pos.y > info.floor)   pos.y = float(info.floor);
-            if (pos.y < info.ceiling) pos.y = float(info.ceiling);
+            // getEntity().intensity = bounces * 2048 - 1; // TODO: updateEntity() 
+ 
+            if (pos.y > info.floor)   pos.y = info.floor;
+            if (pos.y < info.ceiling) pos.y = info.ceiling;
 
             velocity = velocity.reflect(vec3(0, 1, 0)) * 0.5f;
         }
@@ -288,10 +280,8 @@ struct TrapBoulder : Controller {
     TrapBoulder(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
 
     virtual void update() {
-        if (activeState != asActive) return;
-
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         vec3 dir = getDir();
 
@@ -299,7 +289,7 @@ struct TrapBoulder : Controller {
 
         if (pos.y >= info.floor - 256) {
             onGround = true;
-            pos.y = float(info.floor);
+            pos.y = info.floor;
             velocity = dir * animation.getSpeed();
             if (state != STATE_ROLL)
                 animation.setState(STATE_ROLL);
@@ -314,18 +304,18 @@ struct TrapBoulder : Controller {
         pos += velocity * (30.0f * Core::deltaTime);
 
         if (info.roomNext != TR::NO_ROOM)
-            getEntity().room = info.roomNext;
+            roomIndex = info.roomNext;
 
         if (onGround) {
             game->checkTrigger(this, true);
         }
 
         vec3 v = pos + getDir() * 512.0f;
-        level->getFloorInfo(getRoomIndex(), int(v.x), int(v.y), int(v.z), info);
+        getFloorInfo(getRoomIndex(), v, info);
         if (pos.y > info.floor) {
             if (onGround) {
                 pos = p;
-                deactivate();
+                deactivate(true);
                 return;
             } else {
                 pos.x = p.x;
@@ -333,7 +323,6 @@ struct TrapBoulder : Controller {
                 velocity.x = velocity.z = 0.0f;
             }
         }
-
 
         Character *lara = (Character*)level->laraController;
         if (lara->health > 0.0f && collide(lara)) {
@@ -344,7 +333,6 @@ struct TrapBoulder : Controller {
         }
 
         updateAnimation(true);
-        updateEntity();
     }
 };
 
@@ -362,47 +350,50 @@ struct Block : Controller {
         updateFloor(true);
     }
 
+    virtual void setSaveData(const SaveData &data) {
+        updateFloor(false);
+        Controller::setSaveData(data);
+        if (state == STATE_STAND)
+            updateFloor(true);
+    }
+
     void updateFloor(bool rise) {
-        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
         if (info.roomNext != 0xFF)
-            e.room = info.roomNext;
+            roomIndex = info.roomNext;
         int dx, dz;
-        TR::Room::Sector &s = level->getSector(e.room, e.x, e.z, dx, dz);
+        TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
         s.floor += rise ? -4 : 4;
     }
 
     bool doMove(bool push) {
     // check floor height of next floor
         vec3 dir = getDir() * (push ? 1024.0f : -1024.0f);
-        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
 
-        int px = e.x + (int)dir.x;
-        int pz = e.z + (int)dir.z;
-        level->getFloorInfo(e.room, px, e.y, pz, info);
+        vec3 p = pos + dir;
+        getFloorInfo(getRoomIndex(), p, info);
 
-        if ((info.slantX | info.slantZ) || info.floor != e.y || info.floor - info.ceiling < 1024)
+        if ((info.slantX | info.slantZ) || info.floor != pos.y || info.floor - info.ceiling < 1024)
             return false;
 
         // check for trapdoor
-        px /= 1024;
-        pz /= 1024;
+        int px = int(p.x) / 1024;
+        int pz = int(p.z) / 1024;
         for (int i = 0; i < info.trigCmdCount; i++)
             if (info.trigCmd[i].action == TR::Action::ACTIVATE) {
-                TR::Entity &obj = level->entities[info.trigCmd[i].args];
-                if ((obj.type == TR::Entity::TRAP_DOOR_1 || obj.type == TR::Entity::TRAP_DOOR_2) && px == obj.x / 1024 && pz == obj.z / 1024)
+                TR::Entity &e = level->entities[info.trigCmd[i].args];
+                vec3 objPos = ((Controller*)e.controller)->pos;
+                if ((e.type == TR::Entity::TRAP_DOOR_1 || e.type == TR::Entity::TRAP_DOOR_2) && px == int(objPos.x) / 1024 && pz == int(objPos.z) / 1024)
                     return false;
             }
 
         // check Laras destination position
         if (!push) {
             dir = getDir() * (-2048.0f);
-            px = e.x + (int)dir.x;
-            pz = e.z + (int)dir.z;
-            level->getFloorInfo(e.room, px, e.y, pz, info);
-            if ((info.slantX | info.slantZ) || info.floor != e.y || info.floor - info.ceiling < 1024)
+            getFloorInfo(getRoomIndex(), pos + dir, info);
+            if ((info.slantX | info.slantZ) || info.floor != pos.y || info.floor - info.ceiling < 1024)
                 return false;
         }
 
@@ -414,30 +405,27 @@ struct Block : Controller {
     }
 
     virtual void update() {
-        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;        
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         if (pos.y < info.floor) {
             if (info.roomBelow != TR::NO_ROOM)
-                e.room = info.roomBelow;
+                roomIndex = info.roomBelow;
 
             velocity += Core::deltaTime * GRAVITY;
             pos.y    += Core::deltaTime * velocity * 30.0f;
             if (pos.y >= info.floor) {
                 velocity = 0.0f;
-                pos.y    = float(info.floor);
+                pos.y    = info.floor;
                 game->setEffect(this, TR::Effect::FLOOR_SHAKE);
                 game->playSound(TR::SND_BOULDER, pos, Sound::PAN);
                 deactivate(true);
                 updateFloor(true);
             }
-            updateEntity();
         } else {
             if (state == STATE_STAND) return;
             updateAnimation(true);
             if (state == STATE_STAND) {
-                updateEntity();
                 updateFloor(true);
                 deactivate();
                 game->checkTrigger(this, true);
@@ -456,19 +444,17 @@ struct MovingBlock : Controller {
     };
 
     MovingBlock(IGame *game, int entity) : Controller(game, entity) {
-        if (!getEntity().flags.invisible)
+        if (!flags.invisible)
             updateFloor(true);
     }
 
     void updateFloor(bool rise) {
-        updateEntity();
-        TR::Entity &e = getEntity();
         TR::Level::FloorInfo info;
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
         if (info.roomNext != 0xFF)
-            e.room = info.roomNext;
+            roomIndex = info.roomNext;
         int dx, dz;
-        TR::Room::Sector &s = level->getSector(e.room, e.x, e.z, dx, dz);
+        TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
         s.floor += rise ? -8 : 8;
     }
 
@@ -487,9 +473,9 @@ struct MovingBlock : Controller {
             }
         }
 
-        if (activeState == asInactive) {
-            if (getEntity().flags.active == TR::ACTIVE)
-                activeState = asActive; // stay in active items list
+        if (flags.state == TR::Entity::asInactive) {
+            if (flags.active == TR::ACTIVE)
+                flags.state = TR::Entity::asActive; // stay in active items list
             pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f;
             pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f;
             updateFloor(true);
@@ -572,10 +558,9 @@ struct Door : Controller {
     } block[2];
 
     Door(IGame *game, int entity) : Controller(game, entity) {
-        TR::Entity &e = getEntity();
         vec3 p = pos - getDir() * 1024.0f;
-        block[0] = BlockInfo(level, e.room, e.x, e.z, int(p.x), int(p.z), false);
-        block[1] = BlockInfo(level, e.room, e.x, e.z, int(p.x), int(p.z), true);
+        block[0] = BlockInfo(level, getRoomIndex(), int(pos.x), int(pos.z), int(p.x), int(p.z), false);
+        block[1] = BlockInfo(level, getRoomIndex(), int(pos.x), int(pos.z), int(p.x), int(p.z), true);
         updateBlock(false);
     }
 
@@ -607,7 +592,7 @@ struct TrapDoor : Controller {
     };
 
     TrapDoor(IGame *game, int entity) : Controller(game, entity) {
-        getEntity().flags.collision = true;
+        flags.collision = true;
     }
     
     virtual void update() {
@@ -615,7 +600,7 @@ struct TrapDoor : Controller {
         int targetState = isActive() ? STATE_OPEN : STATE_CLOSE;
 
         if (state == targetState)
-            getEntity().flags.collision = targetState == STATE_CLOSE;
+            flags.collision = targetState == STATE_CLOSE;
         else
             animation.setState(targetState);
     }
@@ -632,14 +617,13 @@ struct TrapFloor : Controller {
     float speed;
 
     TrapFloor(IGame *game, int entity) : Controller(game, entity), speed(0) {
-        getEntity().flags.collision = true;
+        flags.collision = true;
     }
 
     virtual bool activate() {
         if (state != STATE_STATIC) return false;
-        TR::Entity &e = ((Controller*)level->laraController)->getEntity();
-        int ey = getEntity().y - 512; // real floor object position
-        if (abs(e.y - ey) <= 8 && Controller::activate()) {
+        vec3 &p = ((Controller*)level->laraController)->pos;
+        if (abs(p.y - (pos.y - 512.0f)) <= 8 && Controller::activate()) {
             animation.setState(STATE_SHAKE);
             return true;
         }
@@ -649,28 +633,27 @@ struct TrapFloor : Controller {
     virtual void update() {
         updateAnimation(true);
         if (state == STATE_FALL) {
-            getEntity().flags.collision = false;
+            flags.collision = false;
             speed += GRAVITY * 30 * Core::deltaTime;
             pos.y += speed * Core::deltaTime;
 
             TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+            getFloorInfo(getRoomIndex(), pos, info);
 
             if (pos.y > info.roomFloor && info.roomBelow != 0xFF)
-                getEntity().room = info.roomBelow;
+                roomIndex = info.roomBelow;
 
             if (pos.y > info.floor) {
                 pos.y = (float)info.floor;
                 animation.setState(STATE_DOWN);
             }
-            updateEntity();
         }
     }
 };
 
 struct Bridge : Controller {
     Bridge(IGame *game, int entity) : Controller(game, entity) {
-        getEntity().flags.collision = true;
+        flags.collision = true;
     }
 };
 
@@ -681,7 +664,7 @@ struct Drawbridge : Controller {
     };
 
     Drawbridge(IGame *game, int entity) : Controller(game, entity) {
-        getEntity().flags.collision = true;
+        flags.collision = true;
     }
 
     virtual void update() {
@@ -803,16 +786,15 @@ struct TrapCeiling : Controller {
             pos.y += speed * Core::deltaTime;
 
             TR::Level::FloorInfo info;
-            level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+            getFloorInfo(getRoomIndex(), pos, info);
 
             if (pos.y > info.roomFloor && info.roomBelow != 0xFF)
-                getEntity().room = info.roomBelow;
+                roomIndex = info.roomBelow;
 
             if (pos.y > info.floor) {
                 pos.y = (float)info.floor;
                 animation.setState(STATE_DOWN);
             }
-            updateEntity();
 
             Controller *lara = (Controller*)level->laraController;
             if (collide(lara))
@@ -866,7 +848,7 @@ struct TrapSword : Controller {
 
     virtual void update() {
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         Controller *lara = game->getLara();
 
@@ -881,12 +863,11 @@ struct TrapSword : Controller {
             angle.y += rot * Core::deltaTime;
             applyGravity(dir.y);
             pos += dir * (30.0f * Core::deltaTime);
-            if (pos.y > float(info.floor)) {
-                pos.y = float(info.floor);
+            if (pos.y > info.floor) {
+                pos.y = info.floor;
                 game->playSound(TR::SND_SWORD, pos, Sound::PAN);
                 deactivate(true);
             }
-            updateEntity();
 
             if (collide(lara))
                 lara->hit(SWORD_DAMAGE * 30.0f * Core::deltaTime, this, TR::HIT_SWORD); // TODO: push lara
@@ -906,13 +887,12 @@ struct ThorHammer : Controller {
     Controller *block;
 
     ThorHammer(IGame *game, int entity) : Controller(game, entity) {
-        TR::Entity &e = getEntity();
-        int index = level->entityAdd(TR::Entity::HAMMER_BLOCK, getRoomIndex(), e.x, e.y, e.z, e.rotation, -1);
+        int index = level->entityAdd(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y, -1);
         if (index > -1) {
             block = new Controller(game, index);
             level->entities[index].controller = block;
         }
-        e.flags.collision = block->getEntity().flags.collision = false;
+        flags.collision = block->flags.collision = false;
     }
 
     virtual void update() {
@@ -932,7 +912,7 @@ struct ThorHammer : Controller {
             case STATE_DOWN : {
                 game->checkTrigger(this, 1); 
                 if (lara->health > 0.0f)
-                    getEntity().flags.collision = block->getEntity().flags.collision = true;
+                    flags.collision = block->flags.collision = true;
                 deactivate(true);
                 break;
             }
@@ -1153,12 +1133,10 @@ struct TrapLava : Controller {
         vec3 dir = getDir();
         pos += dir * (25.0f * 30.0f * Core::deltaTime);
 
-        updateEntity();
-        int roomIndex = getRoomIndex();
+        roomIndex = getRoomIndex();
         TR::Room::Sector *s = level->getSector(roomIndex, int(pos.x + dir.x * 2048.0f), int(pos.y), int(pos.z + dir.z * 2048.0f));
         if (!s || s->floor * 256 != int(pos.y))
             done = true;
-        getEntity().room = roomIndex;
     }
 };
 
@@ -1170,7 +1148,7 @@ struct MovingObject : Controller {
     };
 
     MovingObject(IGame *game, int entity) : Controller(game, entity) {
-        getEntity().flags.collision = true;
+        flags.collision = true;
     }
 
     virtual void update() {
@@ -1179,10 +1157,9 @@ struct MovingObject : Controller {
         pos += getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), int(pos.x), int(pos.y), int(pos.z), info);
+        getFloorInfo(getRoomIndex(), pos, info);
         if (info.roomNext != TR::NO_ROOM)
-            getEntity().room = info.roomNext;
-        updateEntity();
+            roomIndex = info.roomNext;
     }
 };
 
@@ -1224,16 +1201,14 @@ struct Cabin : Controller {
     Cabin(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
-        TR::Entity &e = getEntity();
-
-        if (e.flags.active == TR::ACTIVE) {
+        if (flags.active == TR::ACTIVE) {
             if (state >= STATE_UP && state <= STATE_DOWN_2)
                 animation.setState(state + 1);
-            e.flags.active = 0;
+            flags.active = 0;
         }
 
         if (state == STATE_GROUND) {
-            e.flags.invisible        = true;
+            flags.invisible        = true;
             level->flipmap[3].active = TR::ACTIVE;
             level->isFlipped         = !level->isFlipped;
             deactivate(true);
@@ -1257,7 +1232,7 @@ struct Boat : Controller {
         switch (state) {
             case STATE_IDLE : animation.setState(STATE_MOVE); break;
             case STATE_MOVE : animation.setState(STATE_STOP); break;
-            case STATE_STOP : deactivate(true); getEntity().flags.invisible = true; break;
+            case STATE_STOP : deactivate(true); flags.invisible = true; break;
         }
         updateAnimation(true);
         pos = pos + getDir() * (animation.getSpeed() * Core::deltaTime * 30.0f);
@@ -1279,7 +1254,7 @@ struct MutantEgg : Controller {
         initMeshOverrides();
         layers[0].mask = 0xff0001ff; // hide dynamic meshes
 
-        switch (getEntity().flags.active) {
+        switch (flags.active) {
             case 1  : enemy = TR::Entity::ENEMY_MUTANT_2;     break;
             case 2  : enemy = TR::Entity::ENEMY_CENTAUR;      break;
             case 4  : enemy = TR::Entity::ENEMY_GIANT_MUTANT; break;
@@ -1291,8 +1266,7 @@ struct MutantEgg : Controller {
     virtual void update() {
         if (state != STATE_EXPLOSION) {
             Box box = Box(pos + vec3(-MUTANT_EGG_RANGE), pos + vec3(MUTANT_EGG_RANGE));
-            TR::Entity &e = getEntity();
-            if ( e.flags.once || e.type == TR::Entity::MUTANT_EGG_BIG || box.contains((((Controller*)level->laraController)->pos)) ) {
+            if ( flags.once || getEntity().type == TR::Entity::MUTANT_EGG_BIG || box.contains((((Controller*)level->laraController)->pos)) ) {
                 animation.setState(STATE_EXPLOSION);
                 layers[0].mask = 0xffffffff & ~(1 << 24);
                 explode(0x00fffe00);
@@ -1300,6 +1274,11 @@ struct MutantEgg : Controller {
             }
         }
         Controller::update();
+    }
+
+    virtual void setSaveData(const SaveData &data) {
+        Controller::setSaveData(data);
+        visibleMask = (state == STATE_IDLE) ? 0xff0001ff : (0xffffffff & ~(1 << 24));
     }
 };
 
@@ -1309,7 +1288,7 @@ struct KeyHole : Controller {
 
     virtual bool activate() {
         if (!Controller::activate()) return false;
-        getEntity().flags.active = TR::ACTIVE;
+        flags.active = TR::ACTIVE;
         if (getEntity().isPuzzleHole()) {
             int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
             meshSwap(0, level->extra.puzzleDone[doneIdx]);
@@ -1373,8 +1352,7 @@ struct Waterfall : Controller {
         vec2 p = (vec2(randf(), randf()) * 2.0f - 1.0f) * (512.0f - dropRadius);
         vec3 dropPos = pos + vec3(p.x, 0.0f, p.y);
         game->waterDrop(dropPos, dropRadius, dropStrength);
-
-        Sprite::add(game, TR::Entity::WATER_SPLASH, getRoomIndex(), (int)dropPos.x, (int)dropPos.y, (int)dropPos.z);
+        game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), dropPos);
     } 
 
     #undef SPLASH_TIMESTEP
@@ -1386,16 +1364,15 @@ struct Bubble : Sprite {
     Bubble(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_RANDOM) {
         speed = (10.0f + randf() * 6.0f) * 30.0f;
     // get water height => bubble life time
-        TR::Entity &e = getEntity();
         int dx, dz;
         int room = getRoomIndex();
-        int h = e.y;
+        int h = int(pos.y);
         while (room != TR::NO_ROOM && level->rooms[room].flags.water) {
-            TR::Room::Sector &s = level->getSector(room, e.x, e.z, dx, dz);
+            TR::Room::Sector &s = level->getSector(room, int(pos.x), int(pos.z), dx, dz);
             h = s.ceiling * 256;
             room = s.roomAbove;
         }
-        time -= (e.y - h) / speed - (1.0f / SPRITE_FPS);
+        time -= (pos.y - h) / speed - (1.0f / SPRITE_FPS);
         activate();
     }
 
@@ -1409,9 +1386,17 @@ struct Bubble : Sprite {
         angle.y += 30.0f *  9.0f * DEG2RAD * Core::deltaTime;
         pos.x += sinf(angle.y) * (11.0f * 30.0f * Core::deltaTime);
         pos.z += cosf(angle.x) * (8.0f  * 30.0f * Core::deltaTime);
-        updateEntity();
         Sprite::update();
     }
 };
+
+
+struct Explosion : Sprite {
+
+    Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
+        game->playSound(TR::SND_EXPLOSION, pos, 0);
+    }
+};
+
 
 #endif

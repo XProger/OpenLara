@@ -383,7 +383,6 @@ struct WaterCache {
         }
 
         void init(IGame *game) {
-
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
 
@@ -419,7 +418,7 @@ struct WaterCache {
                     bool hasFlow  = false;
                     if (hasWater) {
                         TR::Level::FloorInfo info;
-                        level->getFloorInfo(to, x + r.info.x, r.info.yBottom, z + r.info.z, info);
+                        game->getLara()->getFloorInfo(to, vec3(float(x + r.info.x), float(r.info.yBottom), float(z + r.info.z)), info);
                         if (info.trigCmdCount && info.trigger == TR::Level::Trigger::ACTIVATE)
                             for (int i = 0; i < info.trigCmdCount; i++)
                                 if (info.trigCmd[i].action == TR::Action::FLOW) {

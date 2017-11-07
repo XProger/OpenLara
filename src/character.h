@@ -2,6 +2,7 @@
 #define H_CHARACTER
 
 #include "controller.h"
+#include "collision.h"
 
 struct Character : Controller {
     float   health;
@@ -87,16 +88,15 @@ struct Character : Controller {
 
     virtual void checkRoom() {
         TR::Level::FloorInfo info;
-        TR::Entity &e = getEntity();
-        level->getFloorInfo(e.room, e.x, e.y, e.z, info);
+        getFloorInfo(getRoomIndex(), pos, info);
 
         if (info.roomNext != TR::NO_ROOM)
-            e.room = info.roomNext;        
+            roomIndex = info.roomNext;        
 
-        if (info.roomBelow != TR::NO_ROOM && e.y > info.roomFloor)
-            e.room = info.roomBelow;
+        if (info.roomBelow != TR::NO_ROOM && pos.y > info.roomFloor)
+            roomIndex = info.roomBelow;
 
-        if (info.roomAbove != TR::NO_ROOM && e.y <= info.roomCeiling) {
+        if (info.roomAbove != TR::NO_ROOM && pos.y <= info.roomCeiling) {
             TR::Room *room = &level->rooms[info.roomAbove];
             if (level->isFlipped && room->alternateRoom > -1)
                 room = &level->rooms[room->alternateRoom];
@@ -104,11 +104,10 @@ struct Character : Controller {
             if (stand == STAND_UNDERWATER && !room->flags.water) {
                 stand = STAND_ONWATER;
                 velocity.y = 0;
-                pos.y = float(info.roomCeiling);
-                updateEntity();
+                pos.y = info.roomCeiling;
             } else
                 if (stand != STAND_ONWATER)
-                    e.room = info.roomAbove;
+                    roomIndex = info.roomAbove;
         }
     }
 
@@ -179,7 +178,7 @@ struct Character : Controller {
         updateState();
         Controller::update();
 
-        if (getEntity().flags.active) {
+        if (flags.active) {
             updateVelocity();
             updatePosition();
             if (p != pos) {

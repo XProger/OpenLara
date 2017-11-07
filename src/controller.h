@@ -5,7 +5,6 @@
 #include "frustum.h"
 #include "mesh.h"
 #include "animation.h"
-#include "collision.h"
 
 #define GRAVITY     (6.0f * 30.0f)
 #define SPRITE_FPS  10.0f
@@ -58,8 +57,7 @@ struct IGame {
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
-    virtual int  addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) { return -1; }
-    virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) { return NULL; }
+    virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle = 0.0f) { return NULL; }
 
     virtual bool invUse(TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
@@ -72,9 +70,38 @@ struct IGame {
 };
 
 struct Controller {
+
+    struct SaveData {
+    // base
+        int32  x, y, z;
+        uint16 rotation;
+        uint16 type;
+        uint16 flags;
+        int16  timer;
+    // animation
+        uint16 animIndex;
+        uint16 animFrame;
+    // common
+        uint8  room;
+        uint8  extraSize;
+        union Extra {
+            struct {
+                float  velX, velY, velZ;
+                uint16 angleX;
+                uint16 health;
+                uint16 oxygen;
+                int8   curWeapon;
+                uint8  emptyHands; 
+            } lara;
+            struct {
+                uint16 health;
+                uint16 mood;
+            } enemy;
+        } extra;
+    };
+
     static Controller *first;
     Controller  *next;
-    enum ActiveState { asNone, asActive, asInactive };
 
     IGame       *game;
     TR::Level   *level;
@@ -85,6 +112,9 @@ struct Controller {
 
     vec3    pos;
     vec3    angle;
+
+    int16             roomIndex;
+    TR::Entity::Flags flags;
 
     Basis   *joints;
     int     frameIndex;
@@ -111,14 +141,17 @@ struct Controller {
         int   roomIndex;
     } *explodeParts;
 
-    ActiveState activeState;
     bool invertAim;
 
-    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), activeState(asNone), invertAim(false) {
-        TR::Entity &e = getEntity();
-        pos        = vec3(float(e.x), float(e.y), float(e.z));
-        angle      = vec3(0.0f, e.rotation, 0.0f);
-        TR::Model  *m = getModel();
+    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), invertAim(false) {
+        const TR::Entity &e = getEntity();
+        pos         = vec3(float(e.x), float(e.y), float(e.z));
+        angle       = vec3(0.0f, e.rotation, 0.0f);
+        roomIndex   = e.room;
+        flags       = e.flags;
+        flags.state = TR::Entity::asNone;
+
+        const TR::Model *m = getModel();
         joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
         specular   = 0.0f;
@@ -128,14 +161,14 @@ struct Controller {
         updateLights(false);
         visibleMask = 0xFFFFFFFF;
 
-        if (e.flags.once) {
-            e.flags.invisible = true;
-            e.flags.once      = false;
+        if (flags.once) {
+            flags.invisible = true;
+            flags.once      = false;
         }
 
-        if (e.flags.active == TR::ACTIVE) {
-            e.flags.active  = 0;
-            e.flags.reverse = true;
+        if (flags.active == TR::ACTIVE) {
+            flags.active  = 0;
+            flags.reverse = true;
             activate();
         }
 
@@ -150,39 +183,292 @@ struct Controller {
         deactivate(true);
     }
 
-    bool isActive() {
-        TR::Entity &e = getEntity();
+    void getFloorInfo(int roomIndex, const vec3 &pos, TR::Level::FloorInfo &info) const {
+        int x = int(pos.x);
+        int y = int(pos.y);
+        int z = int(pos.z);
 
-        if (e.flags.active != TR::ACTIVE)
-            return e.flags.reverse;
+        int dx, dz;
+        TR::Room::Sector &s = level->getSector(roomIndex, x, z, dx, dz);
+
+        info.roomFloor    = float(256 * s.floor);
+        info.roomCeiling  = float(256 * s.ceiling);
+        info.floor        = info.roomFloor;
+        info.ceiling      = info.roomCeiling;
+        info.slantX       = 0;
+        info.slantZ       = 0;
+        info.roomNext     = TR::NO_ROOM;
+        info.roomBelow    = s.roomBelow;
+        info.roomAbove    = s.roomAbove;
+        info.floorIndex   = s.floorIndex;
+        info.boxIndex     = s.boxIndex;
+        info.lava         = false;
+        info.trigger      = TR::Level::Trigger::ACTIVATE;
+        info.trigCmdCount = 0;
+
+        if (s.floor == TR::NO_FLOOR) 
+            return;
+
+        TR::Room::Sector *sBelow = &s;
+        while (sBelow->roomBelow != TR::NO_ROOM) sBelow = &level->getSector(sBelow->roomBelow, x, z, dx, dz);
+        info.floor = float(256 * sBelow->floor);
+
+        parseFloorData(info, sBelow->floorIndex, dx, dz);
+
+        if (info.roomNext == TR::NO_ROOM) {
+            TR::Room::Sector *sAbove = &s;
+            while (sAbove->roomAbove != TR::NO_ROOM) sAbove = &level->getSector(sAbove->roomAbove, x, z, dx, dz);
+            if (sAbove != sBelow) {
+                info.ceiling = float(256 * sAbove->ceiling);
+                parseFloorData(info, sAbove->floorIndex, dx, dz);
+            }
+        } else {
+            int tmp = info.roomNext;
+            getFloorInfo(tmp, pos, info);
+            info.roomNext = tmp;
+        }
+
+    // entities collide
+        if (info.trigCmdCount) {
+            int sx = x / 1024;
+            int sz = z / 1024;
+            int dx = x % 1024;
+            int dz = z % 1024;
+
+            for (int i = 0; i < info.trigCmdCount; i++) {
+                TR::FloorData::TriggerCommand cmd = info.trigCmd[i];
+                if (cmd.action == TR::Action::CAMERA_SWITCH) {
+                    i++;
+                    continue;
+                }
+                if (cmd.action != TR::Action::ACTIVATE) continue;
+                    
+                TR::Entity &e = level->entities[cmd.args];
+                Controller *controller = (Controller*)e.controller;
+                if (!controller) continue; // Block UpdateFloor issue while entities initialization
+                if (!controller->flags.collision) continue;
+
+                switch (e.type) {
+                    case TR::Entity::TRAP_DOOR_1 :
+                    case TR::Entity::TRAP_DOOR_2 : {
+                        int dirX, dirZ;
+                        e.getAxis(dirX, dirZ);
+
+                        int ex = int(controller->pos.x) / 1024;
+                        int ey = int(controller->pos.y);
+                        int ez = int(controller->pos.z) / 1024;
+                        if ((ex == sx && ez == sz) || (ex + dirX == sx && ez + dirZ == sz)) {
+                            if (ey >= y - 128 && controller->pos.y < info.floor) {
+                                info.floor  = controller->pos.y;
+                                info.slantX = info.slantZ = 0;
+                                info.lava   = false;
+                            }
+                            if (ey < y - 128 && controller->pos.y > info.ceiling)
+                                info.ceiling = controller->pos.y + 256;
+                        }
+                        break;
+                    }
+                    case TR::Entity::TRAP_FLOOR  : {
+                        if (sx != int(controller->pos.x) / 1024 || sz != int(controller->pos.z) / 1024) 
+                            break;
+                        int ey = int(controller->pos.y) - 512;
+                        if (ey >= y - 128 && ey < info.floor) {
+                            info.floor  = float(ey);
+                            info.slantX = info.slantZ = 0;
+                            info.lava   = false;
+                        }
+                        if (ey < y - 128 && ey > info.ceiling)
+                            info.ceiling = float(ey);
+                        break;
+                    }
+                    case TR::Entity::DRAWBRIDGE  : {
+                        if (controller->flags.active != TR::ACTIVE) continue;
+                        int dirX, dirZ;
+                        e.getAxis(dirX, dirZ);
+                        int ex = int(controller->pos.x) / 1024;
+                        int ez = int(controller->pos.z) / 1024;
+
+                        if ((ex - dirX * 1 == sx && ez - dirZ * 1 == sz) ||
+                            (ex - dirX * 2 == sx && ez - dirZ * 2 == sz)) {
+                            int ey = int(controller->pos.y);
+                            if (ey >= y - 128 && controller->pos.y < info.floor) {
+                                info.floor  = controller->pos.y;
+                                info.slantX = info.slantZ = 0;
+                                info.lava   = false;
+                            }
+                            if (ey < y - 128 && controller->pos.y > info.ceiling)
+                                info.ceiling = controller->pos.y + 256;
+                        }
+                        break;
+                    }
+                    case TR::Entity::HAMMER_HANDLE : {
+                        int dirX, dirZ;
+                        e.getAxis(dirX, dirZ);
+                        if (abs(int(controller->pos.x) + dirX * 1024 * 3 - x) < 512 && abs(int(controller->pos.z) + dirZ * 1024 * 3 - z) < 512)
+                            info.floor -= 1024 * 3;
+                        break;
+                    }
+                    case TR::Entity::BRIDGE_0    : 
+                    case TR::Entity::BRIDGE_1    : 
+                    case TR::Entity::BRIDGE_2    : {
+                        if (sx != int(controller->pos.x) / 1024 || sz != int(controller->pos.z) / 1024) 
+                            break;
+
+                        int s = (e.type == TR::Entity::BRIDGE_1) ? 1 :
+                                (e.type == TR::Entity::BRIDGE_2) ? 2 : 0;
+
+                        int ey = int(controller->pos.y), sx = 0, sz = 0; 
+
+                        if (s > 0) {
+                            switch (e.rotation.value / 0x4000) { // get slantXZ by direction
+                                case 0 : sx =  s; break;
+                                case 1 : sz = -s; break;
+                                case 2 : sx = -s; break;
+                                case 3 : sz =  s; break;
+                            }
+
+                            ey -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
+                            ey -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                        }
+
+                        if (y - 128 <= ey) {
+                            info.floor  = float(ey);
+                            info.slantX = sx;
+                            info.slantZ = sz;
+                            info.lava   = false;
+                        }
+                        if (ey  < y - 128)
+                            info.ceiling = float(ey + 64);
+                        break;
+                    }
+
+                    default : ;
+                }
+            }
+        }
+    }
+
+    void parseFloorData(TR::Level::FloorInfo &info, int floorIndex, int dx, int dz) const {
+        if (!floorIndex) return;
+
+        TR::FloorData *fd = &level->floors[floorIndex];
+        TR::FloorData::Command cmd;
+
+        do {
+            cmd = (*fd++).cmd;
+                
+            switch (cmd.func) {
+
+                case TR::FloorData::PORTAL  :
+                    info.roomNext = (*fd++).data;
+                    break;
+
+                case TR::FloorData::FLOOR   : // floor & ceiling
+                case TR::FloorData::CEILING : { 
+                    TR::FloorData::Slant slant = (*fd++).slant;
+                    int sx = (int)slant.x;
+                    int sz = (int)slant.z;
+                    if (cmd.func == TR::FloorData::FLOOR) {
+                        info.slantX = sx;
+                        info.slantZ = sz;
+                        info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
+                        info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                    } else {
+                        info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
+                        info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
+                    }
+                    break;
+                }
+
+                case TR::FloorData::TRIGGER :  {
+                    info.trigger        = (TR::Level::Trigger)cmd.sub;
+                    info.trigCmdCount   = 0;
+                    info.trigInfo       = (*fd++).triggerInfo;
+                    TR::FloorData::TriggerCommand trigCmd;
+                    do {
+                        ASSERT(info.trigCmdCount < MAX_TRIGGER_COMMANDS);
+                        trigCmd = (*fd++).triggerCmd; // trigger action
+                        info.trigCmd[info.trigCmdCount++] = trigCmd;
+                    } while (!trigCmd.end);
+                    break;
+                }
+
+                case TR::FloorData::LAVA :
+                    info.lava = true;
+                    break;
+
+                default : LOG("unknown func: %d\n", cmd.func);
+            }
+
+        } while (!cmd.end);
+    }
+
+    virtual void getSaveData(SaveData &data) {
+        const TR::Entity &e = getEntity();
+        const TR::Model  *m = getModel();
+    // base
+        data.x           = e.x ^ int32(pos.x);
+        data.y           = e.y ^ int32(pos.y);
+        data.z           = e.z ^ int32(pos.z);
+        data.rotation    = e.rotation.value ^ TR::angle(normalizeAngle(angle.y)).value;
+        data.type        = entity >= level->entitiesBaseCount ? int16(e.type) : 0;
+        data.flags       = e.flags.value ^ flags.value;
+        data.timer       = timer == 0.0f ? 0 : (timer < 0.0f ? -1 : int16(timer * 30.0f));
+    // animation
+        data.animIndex   = m ? (m->animation ^ animation.index) : 0;
+        data.animFrame   = m ? animation.frameIndex : 0;
+    // common
+        data.room        = e.room ^ roomIndex;
+        data.extraSize   = 0;
+    }
+
+    virtual void setSaveData(const SaveData &data) {
+        const TR::Entity &e = getEntity();
+        const TR::Model  *m = getModel();
+    // base
+        pos.x            = float(e.x ^ data.x);
+        pos.y            = float(e.y ^ data.y);
+        pos.z            = float(e.z ^ data.z);
+        angle.y          = TR::angle(uint16(e.rotation.value ^ data.rotation));
+        flags.value      = e.flags.value ^ data.flags;
+        timer            = data.timer == -1 ? -1.0f : (timer / 30.0f);
+    // animation
+        if (m) animation.setAnim(m->animation ^ data.animIndex, -data.animFrame);
+        roomIndex        = e.room ^ data.room;
+    }
+
+    bool isActive() {
+        if (flags.active != TR::ACTIVE)
+            return flags.reverse;
 
         if (timer == 0.0f)
-            return !e.flags.reverse;
+            return !flags.reverse;
 
         if (timer == -1.0f)
-            return e.flags.reverse;
+            return flags.reverse;
 
         timer = max(0.0f, timer - Core::deltaTime);
 
         if (timer == 0.0f)
             timer = -1.0f;
 
-        return !e.flags.reverse;
+        return !flags.reverse;
     }
 
     virtual bool activate() {
-        if (activeState != asNone)
+        if (flags.state != TR::Entity::asNone)
             return false;
-        getEntity().flags.invisible = false;
-        activeState = asActive;
+        flags.invisible = false;
+        flags.state = TR::Entity::asActive;
         next = first;
         first = this;
         return true;
     }
 
     virtual void deactivate(bool removeFromList = false) {
-        activeState = asInactive;
+        flags.state = TR::Entity::asInactive;
         if (removeFromList) {
+            flags.state = TR::Entity::asNone;
             Controller *prev = NULL;
             Controller *c = first;
             while (c) {
@@ -191,7 +477,6 @@ struct Controller {
                         prev->next = c->next;
                     else
                         first = c->next;
-                    c->activeState = asNone;
                     break;
                 } else
                     prev = c;
@@ -204,12 +489,12 @@ struct Controller {
         Controller *prev = NULL;
         Controller *c = first;
         while (c) {
-            if (c->activeState == asInactive) {
+            if (c->flags.state == TR::Entity::asInactive) {
                 if (prev)
                     prev->next = c->next;
                 else
                     first = c->next;
-                c->activeState = asNone;
+                c->flags.state = TR::Entity::asNone;
             } else
                 prev = c;
             c = c->next;
@@ -270,15 +555,6 @@ struct Controller {
         return false;
     }
 
-    void updateEntity() {
-        TR::Entity &e = getEntity();
-        e.x = int(pos.x);
-        e.y = int(pos.y);
-        e.z = int(pos.z);
-        angle.y = normalizeAngle(angle.y);
-        e.rotation = angle.y;
-    }
-
     bool insideRoom(const vec3 &pos, int roomIndex) const {
         TR::Room &r = level->rooms[roomIndex];
         vec3 min = vec3((float)r.info.x + 1024, (float)r.info.yTop, (float)r.info.z + 1024);
@@ -289,23 +565,23 @@ struct Controller {
                 pos.z >= min.z && pos.z <= max.z;
     }
 
-    TR::Model* getModel() const {
+    const TR::Model* getModel() const {
         int index = getEntity().modelIndex;
         return index > 0 ? &level->models[index - 1] : NULL;
     }
 
-    TR::Entity& getEntity() const {
+    const TR::Entity& getEntity() const {
         return level->entities[entity];
     }
 
-    TR::Room& getRoom() const {
+    const TR::Room& getRoom() const {
         int index = getRoomIndex();
         ASSERT(index >= 0 && index < level->roomsCount);
         return level->rooms[index];
     }
 
     virtual int getRoomIndex() const {
-        int index = getEntity().room;
+        int index = roomIndex;
         if (level->isFlipped && level->rooms[index].alternateRoom > -1)
             index = level->rooms[index].alternateRoom;
         return index;
@@ -359,7 +635,6 @@ struct Controller {
         }
 
         angle.y = q * (PI * 0.5f);
-        updateEntity();
         return true;
     }
 
@@ -372,7 +647,7 @@ struct Controller {
     }
 
     void getSpheres(Sphere *spheres, int &count) {
-        TR::Model *m = getModel();
+        const TR::Model *m = getModel();
         ASSERT(m->mCount <= MAX_SPHERES);
 
         Basis basis(getMatrix());
@@ -387,8 +662,8 @@ struct Controller {
     }
 
     int collide(Controller *controller, bool checkBoxes = true) {
-        TR::Model *a = getModel();
-        TR::Model *b = controller->getModel();
+        const TR::Model *a = getModel();
+        const TR::Model *b = controller->getModel();
         if (!a || !b) 
             return 0;
 
@@ -435,10 +710,10 @@ struct Controller {
                 sz = pz / 1024 * 1024 + 512;
 
             if (lr != room || lx != sx || lz != sz) {
-                level->getFloorInfo(room, sx, py, sz, info);
+                getFloorInfo(room, vec3(float(sx), float(py), float(sz)), info);
                 if (info.roomNext != TR::NO_ROOM) {
                     room = info.roomNext;
-                    level->getFloorInfo(room, sx, py, sz, info);
+                    getFloorInfo(room, vec3(float(sx), float(py), float(sz)), info);
                 }
                 lr = room;
                 lx = sx;
@@ -498,7 +773,6 @@ struct Controller {
 
     virtual void  cmdOffset(const vec3 &offset) {
         pos = pos + offset.rotateY(-angle.y);
-        updateEntity();
         checkRoom();
     }
 
@@ -560,7 +834,7 @@ struct Controller {
     
     void updateExplosion() {
         if (!explodeMask) return;
-        TR::Model *model = getModel();
+        const TR::Model *model = getModel();
         for (int i = 0; i < model->mCount; i++)
             if (explodeMask & (1 << i)) {
                 ExplodePart &part = explodeParts[i];
@@ -572,7 +846,7 @@ struct Controller {
                 vec3 p = part.basis.pos;
                 //TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));
                 TR::Level::FloorInfo info;
-                level->getFloorInfo(part.roomIndex, int(p.x), int(p.y), int(p.z), info);
+                getFloorInfo(part.roomIndex, p, info);
 
                 if (info.roomNext != TR::NO_ROOM)
                     part.roomIndex = info.roomNext;
@@ -601,9 +875,7 @@ struct Controller {
 
                 if (explode) {
                     explodeMask &= ~(1 << i);
-                   
-                    game->addSprite(TR::Entity::EXPLOSION, part.roomIndex, int(p.x), int(p.y), int(p.z));
-                    game->playSound(TR::SND_EXPLOSION, pos, 0); // Sound::Flags::PAN ?
+                    game->addEntity(TR::Entity::EXPLOSION, part.roomIndex, p);
                 }
             }
 
@@ -620,7 +892,7 @@ struct Controller {
 
     void updateLights(bool lerp = true) {
         if (getModel()) {
-            TR::Room &room = getRoom();
+            const TR::Room &room = getRoom();
 
             vec3 center = getBoundingBox().center();
             float maxAtt = 0.0f;
@@ -662,8 +934,7 @@ struct Controller {
     mat4 getMatrix() {
         mat4 matrix;
 
-        TR::Entity &e = getEntity();
-        if (!e.isActor()) {
+        if (!getEntity().isActor()) {
             matrix.identity();
             matrix.translate(pos);
             if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
@@ -676,7 +947,7 @@ struct Controller {
     }
 
     void explode(int32 mask) {
-        TR::Model *model = getModel();
+        const TR::Model *model = getModel();
 
         if (!layers) initMeshOverrides();
 
@@ -704,12 +975,9 @@ struct Controller {
     }
 
     void renderShadow(MeshBuilder *mesh) {
-        TR::Entity &entity = getEntity();
+        const TR::Entity &entity = getEntity();
 
-        if (Core::pass != Core::passCompose || !entity.castShadow())
-            return;
-
-        if (entity.isActor()) // cutscene entities have no blob shadow
+        if (Core::pass != Core::passCompose || !entity.castShadow() || entity.isActor())
             return;
 
         Box boxL = getBoundingBoxLocal();
@@ -718,7 +986,7 @@ struct Controller {
         vec3 center = boxA.center();
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(entity.room, int(center.x), int(center.y), int(center.z), info);
+        getFloorInfo(getRoomIndex(), center, info);
 
         const vec3 size = boxL.size() * (1.0f / 1024.0f);
 
@@ -758,11 +1026,10 @@ struct Controller {
         if (!explodeMask && frustum && !frustum->isVisible(matrix, box.min, box.max))
             return;
 
-        TR::Entity &entity = getEntity();
-        TR::Model  *model  = getModel();
+        const TR::Model  *model  = getModel();
         ASSERT(model);
 
-        entity.flags.rendered = true;
+        flags.rendered = true;
 
         if (Core::stats.frame != frameIndex)
             animation.getJoints(matrix, -1, true, joints);
@@ -781,7 +1048,7 @@ struct Controller {
 
                 if (explodeMask) {
                     ASSERT(explodeParts);
-                    TR::Model *model = getModel();
+                    const TR::Model *model = getModel();
                     for (int i = 0; i < model->mCount; i++)
                         if (explodeMask & (1 << i))
                             joints[i] = explodeParts[i].basis;
@@ -795,7 +1062,7 @@ struct Controller {
             }
         } else {
             Core::active.shader->setParam(uBasis, joints[0], model->mCount);
-            mesh->renderModel(entity.modelIndex - 1);
+            mesh->renderModel(getEntity().modelIndex - 1);
         }
 
         frameIndex = Core::stats.frame;

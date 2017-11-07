@@ -27,18 +27,6 @@ struct Sprite : Controller {
         }
     }
 
-    static int add(IGame *game, TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) {
-        TR::Level *level = game->getLevel();
-        int index = level->entityAdd(type, room, x, y, z, 0, -1);
-        if (index > -1) {
-            level->entities[index].intensity  = 0x1FFF - level->rooms[room].ambient;
-            level->entities[index].controller = empty ? NULL : new Sprite(game, index, true, frame);
-            if (level->entities[index].controller)
-                ((Controller*)level->entities[index].controller)->activate();
-        }
-        return index;
-    }
-
     TR::SpriteSequence& getSequence() {
         return level->spriteSequences[-(getEntity().modelIndex + 1)];
     }

@@ -200,7 +200,7 @@ namespace Debug {
             if (p.w > 0) {
                 p.xyz = p.xyz * (1.0f / p.w);
                 p.y = -p.y;	
-                p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(Core::width, Core::height, 1.0f);	
+                p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(float(Core::width), float(Core::height), 1.0f);	
                 text(vec2(p.x, p.y), color, str);
             }
         }
@@ -208,11 +208,13 @@ namespace Debug {
 
     namespace Level {
 
-        void debugFloor(const TR::Level &level, int roomIndex, int x, int y, int z, int zone = -1) {            
+        void debugFloor(IGame *game, int roomIndex, int x, int y, int z, int zone = -1) {
+            TR::Level *level = game->getLevel();
+
             if (zone != -1) {
                 int dx, dz;
-                TR::Room::Sector &s = level.getSector(roomIndex, x, z, dx, dz);
-                if (zone != level.zones[0].ground1[s.boxIndex])
+                TR::Room::Sector &s = level->getSector(roomIndex, x, z, dx, dz);
+                if (zone != level->zones[0].ground1[s.boxIndex])
                     return;                
             }
             
@@ -220,10 +222,10 @@ namespace Debug {
 
             vec3 rf[4], rc[4], f[4], c[4];
 
-            int offsets[4][2] = { { 1, 1 }, { 1023, 1 }, { 1023, 1023 }, { 1, 1023 } };
+            float offsets[4][2] = { { 1, 1 }, { 1023, 1 }, { 1023, 1023 }, { 1, 1023 } };
 
             for (int i = 0; i < 4; i++) {
-                level.getFloorInfo(roomIndex, x + offsets[i][0], y, z + offsets[i][1], info);
+                game->getLara()->getFloorInfo(roomIndex, vec3(float(x + offsets[i][0]), float(y), float(z + offsets[i][1])), info);
                 rf[i] = vec3( x + offsets[i][0], info.roomFloor - 4,   z + offsets[i][1] );
                 rc[i] = vec3( x + offsets[i][0], info.roomCeiling + 4, z + offsets[i][1] );
                 f[i]  = vec3( x + offsets[i][0], info.floor - 4,       z + offsets[i][1] );
@@ -293,10 +295,10 @@ namespace Debug {
         void debugBox(const TR::Box &b) {
             glBegin(GL_QUADS);
                 float y = b.floor - 16.0f;
-                glVertex3f(b.minX, y, b.maxZ);
-                glVertex3f(b.maxX, y, b.maxZ);
-                glVertex3f(b.maxX, y, b.minZ);
-                glVertex3f(b.minX, y, b.minZ);
+                glVertex3f(float(b.minX), y, float(b.maxZ));
+                glVertex3f(float(b.maxX), y, float(b.maxZ));
+                glVertex3f(float(b.maxX), y, float(b.minZ));
+                glVertex3f(float(b.minX), y, float(b.minZ));
             glEnd();
         }
 
@@ -317,7 +319,7 @@ namespace Debug {
 
                             if (blockable || block) {
                                 sprintf(buf, "blocked: %s", block ? "true" : "false");
-                                Debug::Draw::text(vec3(r.info.x + x * 1024 + 512, floor, r.info.z + z * 1024 + 512), vec4(1, 1, 0, 1), buf);
+                                Debug::Draw::text(vec3(float(r.info.x + x * 1024 + 512), float(floor), float(r.info.z + z * 1024 + 512)), vec4(1, 1, 0, 1), buf);
                             }
                         }
                     }
@@ -331,7 +333,7 @@ namespace Debug {
 
             TR::Box &b = level.boxes[boxIndex];
             sprintf(str, "%d", boxIndex);
-            Draw::text(vec3((b.maxX + b.minX) * 0.5, b.floor, (b.maxZ + b.minZ) * 0.5), vec4(0, 1, 0, 1), str);
+            Draw::text(vec3((b.maxX + b.minX) * 0.5f, b.floor, (b.maxZ + b.minZ) * 0.5f), vec4(0, 1, 0, 1), str);
             glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
             Core::setBlending(bmAlpha);
             debugBox(b);
@@ -340,7 +342,7 @@ namespace Debug {
             do {
                 TR::Box &b = level.boxes[o->boxIndex];
                 sprintf(str, "%d", o->boxIndex);
-                Draw::text(vec3((b.maxX + b.minX) * 0.5, b.floor, (b.maxZ + b.minZ) * 0.5), vec4(0, 0, 1, 1), str);
+                Draw::text(vec3((b.maxX + b.minX) * 0.5f, b.floor, (b.maxZ + b.minZ) * 0.5f), vec4(0, 0, 1, 1), str);
                 glColor4f(0.0f, 0.0f, 1.0f, 0.25f);
                 Core::setBlending(bmAlpha);
                 debugBox(b);
@@ -359,12 +361,12 @@ namespace Debug {
             Core::setDepthTest(true);
         }
 
-        void sectors(const TR::Level &level, int roomIndex, int y, int zone = -1) {
-            TR::Room &room = level.rooms[roomIndex];
+        void sectors(IGame *game, int roomIndex, int y, int zone = -1) {
+            TR::Room &room = game->getLevel()->rooms[roomIndex];
 
             for (int z = 0; z < room.zSectors; z++)
                 for (int x = 0; x < room.xSectors; x++)
-                    debugFloor(level, roomIndex, room.info.x + x * 1024, y, room.info.z + z * 1024, zone);
+                    debugFloor(game, roomIndex, room.info.x + x * 1024, y, room.info.z + z * 1024, zone);
         }
 
         void rooms(const TR::Level &level, const vec3 &pos, int roomIndex) {
@@ -372,7 +374,7 @@ namespace Debug {
 
             for (int i = 0; i < level.roomsCount; i++) {
                 TR::Room &r = level.rooms[i];
-                vec3 p = vec3(r.info.x, r.info.yTop, r.info.z);
+                vec3 p = vec3(float(r.info.x), float(r.info.yTop), float(r.info.z));
 
                 if (i == roomIndex) {
                 //if (lara->insideRoom(Core::viewPos, i)) {
@@ -399,7 +401,7 @@ namespace Debug {
                     TR::Room::Portal &p = r.portals[j];
                     for (int k = 0; k < 4; k++) {
                         TR::Vertex &v = p.vertices[k];
-                        glVertex3f(v.x + r.info.x, v.y, v.z + r.info.z);
+                        glVertex3f(float(v.x + r.info.x), float(v.y), float(v.z + r.info.z));
                     }
                 }
             }
@@ -414,16 +416,18 @@ namespace Debug {
 
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
+                Controller *controller = (Controller*)e.controller;
+                if (!controller) return;
           
                 sprintf(buf, "%d (%d)", (int)e.type, i);
-                Debug::Draw::text(vec3(e.x, e.y, e.z), e.flags.active ? vec4(0, 0, 0.8, 1) : vec4(0.8, 0, 0, 1), buf);
+                Debug::Draw::text(controller->pos, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 
             for (int i = 0; i < level.camerasCount; i++) {
                 TR::Camera &c = level.cameras[i];
           
                 sprintf(buf, "%d (%d)", i, c.room);
-                Debug::Draw::text(vec3(c.x, c.y, c.z), vec4(0, 0.8, 0, 1), buf);
+                Debug::Draw::text(vec3(float(c.x), float(c.y), float(c.z)), vec4(0, 0.8f, 0, 1), buf);
             }
         }
 
@@ -445,21 +449,23 @@ namespace Debug {
             Core::setDepthTest(true);
         }
 
-        void zones(const TR::Level &level, Lara *lara) {
+        void zones(IGame *game, Lara *lara) {
+            TR::Level *level = game->getLevel();
+
             Core::setDepthTest(false);
-            for (int i = 0; i < level.roomsCount; i++)
-                sectors(level, i, int(lara->pos.y), lara->zone);
+            for (int i = 0; i < level->roomsCount; i++)
+                sectors(game, i, int(lara->pos.y), lara->zone);
             Core::setDepthTest(true);
 
             char buf[64];
-            for (int i = 0; i < level.entitiesCount; i++) {
-                TR::Entity &e = level.entities[i];
+            for (int i = 0; i < level->entitiesCount; i++) {
+                TR::Entity &e = level->entities[i];
           
-                if (e.type < TR::Entity::LARA || e.type > TR::Entity::ENEMY_GIANT_MUTANT)
-                    continue;
+                if (!e.controller || !e.isEnemy()) continue;
 
-                sprintf(buf, "zone: %d", ((Character*)e.controller)->zone );
-                Debug::Draw::text(vec3(e.x, e.y - 128, e.z), vec4(0, 1.0, 0.8, 1), buf);
+                Character *controller = (Character*)e.controller;
+                sprintf(buf, "zone: %d", controller->zone);
+                Debug::Draw::text(controller->pos - vec3(0, 128, 0), vec4(0, 1, 0.8f, 1), buf);
             }
         }
 
@@ -469,14 +475,14 @@ namespace Debug {
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
                     float a = 1.0f - intensityf(l.intensity);
-                    vec3 p = vec3(l.x, l.y, l.z);
+                    vec3 p = vec3(float(l.x), float(l.y), float(l.z));
                     vec4 color = vec4(a, a, a, 1);
 
 //                    if (i == room) color.x = color.z = 0;
                     Debug::Draw::point(p, color);
                     //if (i == roomIndex && j == lightIndex)
                     //    color = vec4(0, 1, 0, 1);
-                    Debug::Draw::sphere(p, l.radius, color);
+                    Debug::Draw::sphere(p, float(l.radius), color);
                 }
 
             vec4 color = vec4(lara->mainLightColor.x, 0.0f, 0.0f, 1.0f);
@@ -494,7 +500,7 @@ namespace Debug {
                     TR::StaticMesh *sm = &level.staticMeshes[m.meshIndex];
 
                     Box box;
-                    vec3 offset = vec3(m.x, m.y, m.z);
+                    vec3 offset = vec3(float(m.x), float(m.y), float(m.z));
                     sm->getBox(false, m.rotation, box); // visible box
 
                     Debug::Draw::box(offset + box.min, offset + box.max, vec4(1, 1, 0, 0.25));
@@ -525,7 +531,7 @@ namespace Debug {
                 mat4 matrix = controller->getMatrix();
                 Basis basis(matrix);
 
-                TR::Model *m = controller->getModel();
+                const TR::Model *m = controller->getModel();
                 if (!m) continue;
 
                 bool bboxIntersect = false;
@@ -535,8 +541,9 @@ namespace Debug {
                 int mask = 0;
                 for (int j = 0; j < level.entitiesCount; j++) {
                     TR::Entity &t = level.entities[j];
-                    if (j == i || ((!t.isEnemy() || !t.flags.active) && t.type != TR::Entity::LARA)) continue;
                     Controller *enemy = (Controller*)t.controller;
+                    if (!enemy) continue;
+                    if (j == i || ((!t.isEnemy() || !enemy->flags.active) && !t.isLara())) continue;
                     if (!enemy || !controller->getBoundingBox().intersect(enemy->getBoundingBox()))
                         continue;
                     bboxIntersect = true;
@@ -677,7 +684,8 @@ namespace Debug {
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
-            level.getFloorInfo(((Controller*)entity.controller)->getRoomIndex(), entity.x, entity.y, entity.z, info);
+            Controller *controller = (Controller*)entity.controller;
+            controller->getFloorInfo(controller->getRoomIndex(), controller->pos, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
 

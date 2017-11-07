@@ -41,7 +41,7 @@ struct Camera : ICamera {
 
     Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL) {
         changeView(false);
-        if (owner->getEntity().type != TR::Entity::LARA && level->cameraFrames) {
+        if (!owner->getEntity().isLara() && level->cameraFrames) {
             state = STATE_CUTSCENE;
             room  = level->entities[level->cutEntity].room;
             timer = 0.0f;
@@ -71,7 +71,7 @@ struct Camera : ICamera {
         }
 
         TR::Level::FloorInfo info;
-        level->getFloorInfo(getRoomIndex(), (int)pos.x, (int)pos.y, (int)pos.z, info);
+        owner->getFloorInfo(getRoomIndex(), pos, info);
 
         if (info.roomNext != TR::NO_ROOM)
             room = info.roomNext;
@@ -257,7 +257,7 @@ struct Camera : ICamera {
 
             if (state != STATE_STATIC) {
                 if (!owner->viewTarget) {
-                    if (viewTarget && !viewTarget->getEntity().flags.invisible) {
+                    if (viewTarget && !viewTarget->flags.invisible) {
                         vec3 targetVec = (viewTarget->pos - owner->pos).normal();
                         if (targetVec.dot(owner->getDir()) > 0.5f)
                             lookAt = viewTarget;

@@ -333,6 +333,7 @@ namespace TR {
     enum HitType {
         HIT_DEFAULT,
         HIT_FALL,
+        HIT_DART,
         HIT_BLADE,
         HIT_BOULDER,
         HIT_SPIKES,
@@ -420,6 +421,7 @@ namespace TR {
         uint16 value;
 
         angle() {}
+        angle(uint16 value) : value(value) {}
         angle(float value) : value(uint16(value / (PI * 0.5f) * 16384.0f)) {}
         operator float() const { return value / 16384.0f * PI * 0.5f; };
     };
@@ -644,15 +646,16 @@ namespace TR {
     };
 
     struct Entity {
+        enum ActiveState : uint16 { asNone, asActive, asInactive };
+        enum Type : int16 { NONE = -1, TR1_TYPES(DECL_ENUM) };
 
-        enum Type : int16 { NONE = -1, TR1_TYPES(DECL_ENUM) } type;
-
+        Type    type;
         int16   room;
         int32   x, y, z;
         angle   rotation;
         int16   intensity;
         union Flags {
-            struct { uint16 unused:6, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1; };
+            struct { ActiveState state:2; uint16 unused:4, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1; };
             uint16 value;
         } flags;
     // not exists in file
@@ -702,6 +705,12 @@ namespace TR {
 
         bool isLara() const {
             return type == LARA;
+        }
+
+        bool isSprite() const {
+            return type == EXPLOSION || type == WATER_SPLASH || type == BUBBLE || 
+                   type == BLOOD || type == SMOKE || type == FLAME || 
+                   type == RICOCHET || type == SPARKLES || type == LAVA_PARTICLE;
         }
 
         bool castShadow() const {
@@ -1158,9 +1167,9 @@ namespace TR {
         };
     
         struct FloorInfo {
-            int roomFloor, roomCeiling;
+            float roomFloor, roomCeiling;
             int roomNext, roomBelow, roomAbove;
-            int floor, ceiling;
+            float floor, ceiling;
             int slantX, slantZ;
             int floorIndex;
             int boxIndex;
@@ -2096,16 +2105,16 @@ namespace TR {
             return 0;
         }
 
-        int entityAdd(Entity::Type type, int16 room, int32 x, int32 y, int32 z, angle rotation, int16 intensity) {
+        int entityAdd(Entity::Type type, int16 room, const vec3 &pos, float rotation, int16 intensity) {
             for (int i = entitiesBaseCount; i < entitiesCount; i++) 
                 if (entities[i].type == Entity::NONE) {
                     Entity &e = entities[i];
                     e.type          = type;
                     e.room          = room;
-                    e.x             = x;
-                    e.y             = y;
-                    e.z             = z;
-                    e.rotation      = rotation;
+                    e.x             = int(pos.x);
+                    e.y             = int(pos.y);
+                    e.z             = int(pos.z);
+                    e.rotation      = angle(normalizeAngle(rotation));
                     e.intensity     = intensity;
                     e.flags.value   = 0;
                     e.modelIndex    = getModelIndex(e.type);
@@ -2162,7 +2171,7 @@ namespace TR {
             return room.sectors[sectorIndex = (x * room.zSectors + z)];
         }
 
-        Room::Sector* getSector(int &roomIndex, int x, int y, int z) const {
+        Room::Sector* getSector(int16 &roomIndex, int x, int y, int z) const {
             ASSERT(roomIndex >= 0 && roomIndex <= roomsCount);
 
             Room::Sector *sector = NULL;
@@ -2202,223 +2211,6 @@ namespace TR {
 
             return sector;
         }
-
-        void getFloorInfo(int roomIndex, int x, int y, int z, FloorInfo &info) const {
-            int dx, dz;
-            Room::Sector &s = getSector(roomIndex, x, z, dx, dz);
-
-            info.roomFloor    = 256 * s.floor;
-            info.roomCeiling  = 256 * s.ceiling;
-            info.floor        = info.roomFloor;
-            info.ceiling      = info.roomCeiling;
-            info.slantX       = 0;
-            info.slantZ       = 0;
-            info.roomNext     = NO_ROOM;
-            info.roomBelow    = s.roomBelow;
-            info.roomAbove    = s.roomAbove;
-            info.floorIndex   = s.floorIndex;
-            info.boxIndex     = s.boxIndex;
-            info.lava         = false;
-            info.trigger      = Trigger::ACTIVATE;
-            info.trigCmdCount = 0;
-
-            if (s.floor == NO_FLOOR) 
-                return;
-
-            Room::Sector *sBelow = &s;
-            while (sBelow->roomBelow != NO_ROOM) sBelow = &getSector(sBelow->roomBelow, x, z, dx, dz);
-            info.floor = 256 * sBelow->floor;
-
-            parseFloorData(info, sBelow->floorIndex, dx, dz);
-
-            if (info.roomNext == NO_ROOM) {
-                Room::Sector *sAbove = &s;
-                while (sAbove->roomAbove != NO_ROOM) sAbove = &getSector(sAbove->roomAbove, x, z, dx, dz);
-                if (sAbove != sBelow) {
-                    info.ceiling = 256 * sAbove->ceiling;
-                    parseFloorData(info, sAbove->floorIndex, dx, dz);
-                }
-            } else {
-                int tmp = info.roomNext;
-                getFloorInfo(tmp, x, y, z, info);
-                info.roomNext = tmp;
-            }
-
-
-        // entities collide
-            if (info.trigCmdCount) {
-                int sx = x / 1024;
-                int sz = z / 1024;
-                int dx = x % 1024;
-                int dz = z % 1024;
-
-                for (int i = 0; i < info.trigCmdCount; i++) {
-                    FloorData::TriggerCommand cmd = info.trigCmd[i];
-                    if (cmd.action == Action::CAMERA_SWITCH) {
-                        i++;
-                        continue;
-                    }
-                    if (cmd.action != Action::ACTIVATE) continue;
-                    
-                    Entity &e = entities[cmd.args];
-                    if (!e.flags.collision) continue;
-
-                    switch (e.type) {
-                        case Entity::TRAP_DOOR_1 :
-                        case Entity::TRAP_DOOR_2 : {
-                            int dirX, dirZ;
-                            e.getAxis(dirX, dirZ);
-
-                            int ex = e.x / 1024;
-                            int ez = e.z / 1024;
-                            if ((ex == sx && ez == sz) || (ex + dirX == sx && ez + dirZ == sz)) {
-                                if (e.y >= y - 128 && e.y < info.floor) {
-                                    info.floor = e.y;
-                                    info.slantX = info.slantZ = 0;
-                                    info.lava = false;
-                                }
-                                if (e.y  < y - 128 && e.y > info.ceiling)
-                                    info.ceiling = e.y + 256;
-                            }
-                            break;
-                        }
-                        case Entity::TRAP_FLOOR  : {
-                            if (sx != e.x / 1024 || sz != e.z / 1024) 
-                                break;
-                            int ey = e.y - 512;
-                            if (ey >= y - 128 && ey < info.floor) {
-                                info.floor = ey;
-                                info.slantX = info.slantZ = 0;
-                                info.lava = false;
-                            }
-                            if (ey  < y - 128 && ey > info.ceiling)
-                                info.ceiling = ey;
-                            break;
-                        }
-                        case Entity::DRAWBRIDGE  : {
-                            if (e.flags.active != TR::ACTIVE) continue;
-                            int dirX, dirZ;
-                            e.getAxis(dirX, dirZ);
-                            int ex = e.x / 1024;
-                            int ez = e.z / 1024;
-
-                            if ((ex - dirX * 1 == sx && ez - dirZ * 1 == sz) ||
-                                (ex - dirX * 2 == sx && ez - dirZ * 2 == sz)) {
-                                int ey = e.y;
-                                if (ey >= y - 128 && ey < info.floor) {
-                                    info.floor = ey;
-                                    info.slantX = info.slantZ = 0;
-                                    info.lava = false;
-                                }
-                                if (ey  < y - 128 && ey > info.ceiling)
-                                    info.ceiling = ey + 256;
-                            }
-                            break;
-                        }
-                        case Entity::HAMMER_HANDLE : {
-                            int dirX, dirZ;
-                            e.getAxis(dirX, dirZ);
-                            if (abs(e.x + dirX * 1024 * 3 - x) < 512 && abs(e.z + dirZ * 1024 * 3 - z) < 512)
-                                info.floor -= 1024 * 3;
-                            break;
-                        }
-                        case Entity::BRIDGE_0    : 
-                        case Entity::BRIDGE_1    : 
-                        case Entity::BRIDGE_2    : {
-                            if (sx != e.x / 1024 || sz != e.z / 1024) 
-                                break;
-
-                            int s = (e.type == Entity::BRIDGE_1) ? 1 :
-                                    (e.type == Entity::BRIDGE_2) ? 2 : 0;
-
-                            int ey = e.y, sx = 0, sz = 0; 
-
-                            if (s > 0) {
-                                switch (e.rotation.value / 0x4000) { // get slantXZ by direction
-                                    case 0 : sx =  s; break;
-                                    case 1 : sz = -s; break;
-                                    case 2 : sx = -s; break;
-                                    case 3 : sz =  s; break;
-                                }
-
-                                ey -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
-                                ey -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
-                            }
-
-                            if (y - 128 <= ey) {
-                                info.floor  = ey;
-                                info.slantX = sx;
-                                info.slantZ = sz;
-                                info.lava = false;
-                            }
-                            if (ey  < y - 128)
-                                info.ceiling = ey + 64;
-                            break;
-                        }
-
-                        default : ;
-                    }
-                }
-            }
-        }
-
-        void parseFloorData(FloorInfo &info, int floorIndex, int dx, int dz) const {
-            if (!floorIndex) return;
-
-            FloorData *fd = &floors[floorIndex];
-            FloorData::Command cmd;
-
-            do {
-                cmd = (*fd++).cmd;
-                
-                switch (cmd.func) {
-
-                    case FloorData::PORTAL  :
-                        info.roomNext = (*fd++).data;
-                        break;
-
-                    case FloorData::FLOOR   : // floor & ceiling
-                    case FloorData::CEILING : { 
-                        FloorData::Slant slant = (*fd++).slant;
-                        int sx = (int)slant.x;
-                        int sz = (int)slant.z;
-                        if (cmd.func == FloorData::FLOOR) {
-                            info.slantX = sx;
-                            info.slantZ = sz;
-                            info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
-                            info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
-                        } else {
-                            info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
-                            info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
-                        }
-                        break;
-                    }
-
-                    case FloorData::TRIGGER :  {
-                        info.trigger        = (Trigger)cmd.sub;
-                        info.trigCmdCount   = 0;
-                        info.trigInfo       = (*fd++).triggerInfo;
-                        FloorData::TriggerCommand trigCmd;
-                        do {
-                            ASSERT(info.trigCmdCount < MAX_TRIGGER_COMMANDS);
-                            trigCmd = (*fd++).triggerCmd; // trigger action
-                            info.trigCmd[info.trigCmdCount++] = trigCmd;
-                        } while (!trigCmd.end);
-                        break;
-                    }
-
-                    case FloorData::LAVA :
-                        info.lava = true;
-                        break;
-
-                    default : LOG("unknown func: %d\n", cmd.func);
-                }
-
-            } while (!cmd.end);
-
-        }
-
-
     }; // struct Level
 }
 

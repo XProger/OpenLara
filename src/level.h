@@ -86,11 +86,51 @@ struct Level : IGame {
     }
 
     virtual void loadGame(int slot) {
-        //
+        Stream stream("savegame.dat");
+        char *data;
+        stream.read(data, stream.size);
+        char *ptr = data;
+
+        Controller::first = NULL;
+        for (int i = level.entitiesBaseCount; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            if (e.controller) {
+                delete (Controller*)e.controller;
+                e.controller = NULL;
+            }
+        }
+
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            ASSERT(int(ptr - data) < stream.size);
+            Controller *controller = (Controller*)level.entities[i].controller;
+            ASSERT(controller);
+            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
+            controller->setSaveData(*saveData);
+            if (controller->flags.state != TR::Entity::asNone) {
+                controller->next = Controller::first;
+                Controller::first = controller;
+            }
+            ptr += (sizeof(Controller::SaveData) - sizeof(Controller::SaveData::Extra)) + saveData->extraSize;
+        }
+        delete[] data;
+
+    //    camera->room = lara->getRoomIndex();
+    //    camera->pos  = camera->destPos = lara->pos;
     }
 
     virtual void saveGame(int slot) {
-        //
+        char *data = new char[sizeof(Controller::SaveData) * level.entitiesBaseCount];
+        char *ptr = data;
+
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
+            Controller *controller = (Controller*)level.entities[i].controller;
+            ASSERT(controller);
+            controller->getSaveData(*saveData);
+            ptr += (sizeof(Controller::SaveData) - sizeof(Controller::SaveData::Extra)) + saveData->extraSize;
+        }
+        Stream::write("savegame.dat", data, int(ptr - data));
+        delete[] data;
     }
 
     virtual void applySettings(const Core::Settings &settings) {
@@ -263,24 +303,28 @@ struct Level : IGame {
         lara->checkTrigger(controller, heavy);
     }
 
-    virtual int addSprite(TR::Entity::Type type, int room, int x, int y, int z, int frame = -1, bool empty = false) {
-        return Sprite::add(this, type, room, x, y, z, frame, empty);
-    }
-
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
-        int index = level.entityAdd(type, room, int(pos.x), int(pos.y), int(pos.z), TR::angle(angle), -1);
+        int index = level.entityAdd(type, room, pos, angle, -1);
         if (index > -1) {
             TR::Entity &e = level.entities[index];
             Controller *controller = initController(index);
             e.controller = controller;
-            if (e.isEnemy()) {
-                e.flags.active = TR::ACTIVE;
+
+            if (e.isEnemy() || e.isSprite()) {
+                controller->flags.active = TR::ACTIVE;
                 controller->activate();
             }
+
             if (e.isPickup())
                 e.intensity = 4096;
-            if (e.type == TR::Entity::LAVA_PARTICLE || e.type == TR::Entity::FLAME)
-                e.intensity = 0; // emissive
+            else
+                if (e.isSprite()) {
+                   if (e.type == TR::Entity::LAVA_PARTICLE || e.type == TR::Entity::FLAME)
+                        e.intensity = 0; // emissive
+                   else
+                        e.intensity = 0x1FFF - level.rooms[room].ambient;
+                }
+            
             return controller;
         }
         return NULL;
@@ -550,6 +594,13 @@ struct Level : IGame {
             case TR::Entity::SCION_TARGET          : return new ScionTarget(this, index);
             case TR::Entity::WATERFALL             : return new Waterfall(this, index);
             case TR::Entity::TRAP_LAVA             : return new TrapLava(this, index);
+            case TR::Entity::BUBBLE                : return new Bubble(this, index);
+            case TR::Entity::EXPLOSION             : return new Explosion(this, index);
+            case TR::Entity::WATER_SPLASH          :
+            case TR::Entity::BLOOD                 :
+            case TR::Entity::SMOKE                 :
+            case TR::Entity::SPARKLES              : return new Sprite(this, index, true, Sprite::FRAME_ANIMATED);
+            case TR::Entity::RICOCHET              : return new Sprite(this, index, true, Sprite::FRAME_RANDOM);
             case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
             case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
@@ -898,7 +949,7 @@ struct Level : IGame {
         TR::Room &room = level.rooms[roomIndex];
 
         if (!entity.isLara() && !entity.isActor())
-            if (!room.flags.visible || entity.flags.invisible || entity.flags.rendered)
+            if (!room.flags.visible || controller->flags.invisible || controller->flags.rendered)
                 return;
 
         int16 lum = entity.intensity == -1 ? room.ambient : entity.intensity;
@@ -947,7 +998,7 @@ struct Level : IGame {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
                 Crystal *crystal = (Crystal*)e.controller;
-                if (crystal->activeState != Controller::asActive && !level.rooms[crystal->getRoomIndex()].flags.visible)
+                if (crystal->flags.state != TR::Entity::asActive && !level.rooms[crystal->getRoomIndex()].flags.visible)
                     continue;
 
                 if (camera->frustum->isVisible(crystal->lightPos, CRYSTAL_LIGHT_RADIUS + 1024.0f)) { // 1024.0f because of vertex lighting
@@ -1078,8 +1129,9 @@ struct Level : IGame {
 
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &entity = level.entities[i];
-            if (entity.controller && entity.flags.rendered)
-                ((Controller*)entity.controller)->renderShadow(mesh);
+            Controller *controller = (Controller*)entity.controller;
+            if (controller && controller->flags.rendered)
+                controller->renderShadow(mesh);
         }
     }
 
@@ -1208,8 +1260,11 @@ struct Level : IGame {
 
         // clear visibility flag for rooms
         if (Core::pass != Core::passAmbient)
-            for (int i = 0; i < level.entitiesCount; i++)
-                level.entities[i].flags.rendered = false;
+            for (int i = 0; i < level.entitiesCount; i++) {
+                Controller *controller = (Controller*)level.entities[i].controller;
+                if (controller)
+                    controller->flags.rendered = false;
+            }
 
         if (water) {
             Core::setTarget(NULL, !Core::settings.detail.stereo); // render to back buffer
