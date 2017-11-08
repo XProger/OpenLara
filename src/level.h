@@ -319,30 +319,51 @@ struct Level : IGame {
     }
 
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
-        int index = level.entityAdd(type, room, pos, angle, -1);
-        if (index > -1) {
+        int index;
+        for (index = level.entitiesBaseCount; index < level.entitiesCount; index++) {
             TR::Entity &e = level.entities[index];
-            if (e.isPickup())
-                e.intensity = 4096;
-            else
-                if (e.isSprite()) {
-                   if (e.type == TR::Entity::LAVA_PARTICLE || e.type == TR::Entity::FLAME)
-                        e.intensity = 0; // emissive
-                   else
-                        e.intensity = 0x1FFF - level.rooms[room].ambient;
-                }
+            if (!e.controller) {
+                e.type          = type;
+                e.room          = room;
+                e.x             = int(pos.x);
+                e.y             = int(pos.y);
+                e.z             = int(pos.z);
+                e.rotation      = TR::angle(normalizeAngle(angle));
+                e.intensity     = -1;
+                e.flags.value   = 0;
+                e.modelIndex    = level.getModelIndex(e.type);
+                break;
+            }
+        }
 
-            Controller *controller = initController(index);
-            e.controller = controller;
+        if (index == level.entitiesCount)
+            return NULL;
 
-            if (e.isEnemy() || e.isSprite()) {
-                controller->flags.active = TR::ACTIVE;
-                controller->activate();
+        TR::Entity &e = level.entities[index];
+        if (e.isPickup())
+            e.intensity = 4096;
+        else
+            if (e.isSprite()) {
+                if (e.type == TR::Entity::LAVA_PARTICLE || e.type == TR::Entity::FLAME)
+                    e.intensity = 0; // emissive
+                else
+                    e.intensity = 0x1FFF - level.rooms[room].ambient;
             }
 
-            return controller;
+        Controller *controller = initController(index);
+        e.controller = controller;
+
+        if (e.isEnemy() || e.isSprite()) {
+            controller->flags.active = TR::ACTIVE;
+            controller->activate();
         }
-        return NULL;
+
+        return controller;
+    }
+
+    virtual void removeEntity(Controller *controller) {
+        level.entities[controller->entity].controller = NULL;
+        delete controller;
     }
 
     virtual bool invUse(TR::Entity::Type type) {
@@ -618,9 +639,10 @@ struct Level : IGame {
             case TR::Entity::RICOCHET              : return new Sprite(this, index, true, Sprite::FRAME_RANDOM);
             case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
-            case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
             case TR::Entity::LAVA_PARTICLE         : return new LavaParticle(this, index);
             case TR::Entity::TRAP_LAVA_EMITTER     : return new TrapLavaEmitter(this, index);
+            case TR::Entity::FLAME                 : return new Flame(this, index);
+            case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
             case TR::Entity::BOAT                  : return new Boat(this, index);
             case TR::Entity::EARTHQUAKE            : return new Earthquake(this, index);
             case TR::Entity::MUTANT_EGG_SMALL      :
@@ -1359,8 +1381,6 @@ struct Level : IGame {
     void renderDebug() {
         if (level.id == TR::TITLE) return;
 
-//        Core::mViewInv = camera->mViewInv;
-//        Core::mView = Core::mViewInv.inverse();
         Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
         
@@ -1369,39 +1389,6 @@ struct Level : IGame {
             Input::down[ikF] = false;
         }
 
-        /*        
-        static int snd_index = 0;
-        if (Input::down[ikG]) {
-            snd_index = (snd_index + 1) % level.soundsInfoCount;
-            LOG("play sound: %d\n", snd_index);
-            lara->playSound(snd_index, lara->pos, 0);
-            Input::down[ikG] = false;
-        }
-        
-        static int modelIndex = 0;
-        static bool lastStateK = false;
-        static int lastEntity = -1;
-        if (Input::down[ikM]) {
-            if (!lastStateK) {
-                lastStateK = true;
-                modelIndex = (modelIndex + 1) % level.modelsCount;
-            //    modelIndex = (modelIndex + 1) % level.spriteSequencesCount;
-                LOG("model: %d %d\n", modelIndex, level.spriteSequences[modelIndex].type);
-                if (lastEntity > -1) {
-                    delete level.entities[lastEntity].controller;
-                    level.entityRemove(lastEntity);
-                }
-                vec3 p = lara->pos + lara->getDir() * 256.0f;
-                lastEntity = level.entityAdd(level.models[modelIndex].type, lara->getRoomIndex(), p.x, p.y - 512, p.z, lara->getEntity().rotation, -1);
-                level.entities[lastEntity].controller = new Controller(this, lastEntity);
-            }
-        } else
-            lastStateK = false;
-
-        if (lastEntity > -1)
-            renderEntity(level.entities[lastEntity]);
-//        renderModel(level.models[modelIndex], level.entities[4]);
-*/
         Debug::begin();
         /*
         lara->updateEntity(); // TODO clip angle while rotating

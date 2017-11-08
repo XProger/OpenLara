@@ -177,7 +177,7 @@ uniform sampler2D sNormal;
 
 		vec3 normal = vec3(value.z, -sqrt(1.0 - dot(value.zw, value.zw)), value.w);
 
-		vec2 dudv	= (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
+		vec2 dudv   = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 
 		vec3 viewVec = normalize(vViewVec);
 		vec3 rv = reflect(-viewVec, normal);
@@ -185,7 +185,7 @@ uniform sampler2D sNormal;
 
 		float spec = pow(max(0.0, dot(rv, lv)), 64.0) * 0.5;
 
-		vec2 tc	 = vProjCoord.xy / vProjCoord.w * 0.5 + 0.5;
+		vec2 tc = vProjCoord.xy / vProjCoord.w * 0.5 + 0.5;
 
 		vec4 refrA = texture2D(sDiffuse, uParam.xy * clamp(tc + dudv * uParam.z, 0.0, 0.999) );
 		vec4 refrB = texture2D(sDiffuse, uParam.xy * tc );
@@ -199,7 +199,7 @@ uniform sampler2D sNormal;
 		float d = abs((vCoord.y - uViewPos.y) / normalize(vViewVec).y);
 		d *= step(0.0, uViewPos.y - vCoord.y); // apply fog only when camera is underwater
 		color.xyz = applyFog(color.xyz, UNDERWATER_COLOR * 0.2, d * WATER_FOG_DIST);
-
+		color.w *= texture2D(sMask, vTexCoord).x;
 		return color;
 	}
 

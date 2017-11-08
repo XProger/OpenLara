@@ -2103,29 +2103,6 @@ namespace TR {
             return 0;
         }
 
-        int entityAdd(Entity::Type type, int16 room, const vec3 &pos, float rotation, int16 intensity) {
-            for (int i = entitiesBaseCount; i < entitiesCount; i++) {
-                Entity &e = entities[i];
-                if (!e.controller) {
-                    e.type          = type;
-                    e.room          = room;
-                    e.x             = int(pos.x);
-                    e.y             = int(pos.y);
-                    e.z             = int(pos.z);
-                    e.rotation      = angle(normalizeAngle(rotation));
-                    e.intensity     = intensity;
-                    e.flags.value   = 0;
-                    e.modelIndex    = getModelIndex(e.type);
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        void entityRemove(int entityIndex) {
-            entities[entityIndex].controller = NULL;
-        }
-
         int getNextRoom(int floorIndex) const {
             if (!floorIndex) return NO_ROOM;
             FloorData *fd = &floors[floorIndex];

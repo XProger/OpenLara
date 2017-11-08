@@ -50,10 +50,8 @@ struct Sprite : Controller {
 
         pos += velocity * (30.0f * Core::deltaTime);
 
-        if (remove) {
-            level->entityRemove(entity);
-            delete this;
-        }
+        if (remove)
+            game->removeEntity(this);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {

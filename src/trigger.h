@@ -82,8 +82,7 @@ struct Dart : Controller {
         getFloorInfo(getRoomIndex(), pos, info);
         if (pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())) {
             game->addEntity(TR::Entity::RICOCHET, getRoomIndex(), pos - dir * 64.0f); // with wall offset
-            level->entityRemove(entity);
-            delete this;
+            game->removeEntity(this);
         }
     }
 };
@@ -120,24 +119,16 @@ struct TrapDartEmitter : Controller {
 struct Flame : Sprite {
 
     static Flame* add(IGame *game, Controller *controller, int jointIndex) {
-        Flame *flame = NULL;
-
-        TR::Level *level = game->getLevel();
-        int  roomIndex   = controller->getRoomIndex();
-        vec3 pos         = controller->pos;
-
-        int index = level->entityAdd(TR::Entity::FLAME, roomIndex, pos, 0, 0);
-        if (index > -1) {
-            flame = new Flame(game, index, jointIndex);
-            level->entities[index].controller = flame; 
-        }
+        Flame *flame = (Flame*)game->addEntity(TR::Entity::FLAME, controller->getRoomIndex(), controller->pos);
+        if (flame)
+            flame->jointIndex = jointIndex;
         return flame;
     }
 
     int jointIndex;
     float sleep;
 
-    Flame(IGame *game, int entity, int jointIndex) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), jointIndex(jointIndex), sleep(0.0f) {
+    Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), jointIndex(0), sleep(0.0f) {
         time = randf() * 3.0f;
         activate();
     }
@@ -150,8 +141,7 @@ struct Flame : Sprite {
 
         if (jointIndex > -1) {
             if (lara->stand == Character::STAND_UNDERWATER) {
-                level->entityRemove(entity);
-                delete this;
+                game->removeEntity(this);
                 return;
             }
 
@@ -185,10 +175,9 @@ struct TrapFlameEmitter : Controller {
     void virtual update() {
         if (!isActive()) {
             if (flame) {
-                level->entityRemove(flame->entity);
-                delete flame;
-                flame = NULL;
                 Sound::stop(TR::SND_FLAME);
+                game->removeEntity(flame);
+                flame = NULL;
             }
             return;
         }
@@ -231,8 +220,7 @@ struct LavaParticle : Sprite {
 
         if (hit || pos.y > info.floor || pos.y < info.ceiling) {
             if (hit || ++bounces > 4) {
-                level->entityRemove(entity);
-                delete this;
+                game->removeEntity(this);
                 return;
             }
             intensity = max(0.0f, 1.0f - bounces * 0.25f);
@@ -379,13 +367,15 @@ struct Block : Controller {
         // check for trapdoor
         int px = int(p.x) / 1024;
         int pz = int(p.z) / 1024;
-        for (int i = 0; i < info.trigCmdCount; i++)
+        for (int i = 0; i < info.trigCmdCount; i++) {
             if (info.trigCmd[i].action == TR::Action::ACTIVATE) {
                 TR::Entity &e = level->entities[info.trigCmd[i].args];
                 vec3 objPos = ((Controller*)e.controller)->pos;
                 if ((e.type == TR::Entity::TRAP_DOOR_1 || e.type == TR::Entity::TRAP_DOOR_2) && px == int(objPos.x) / 1024 && pz == int(objPos.z) / 1024)
                     return false;
-            }
+            } else if (info.trigCmd[i].action == TR::Action::CAMERA_SWITCH)
+                i++; // skip camera switch delay info
+        }
 
         // check Laras destination position
         if (!push) {
@@ -895,11 +885,8 @@ struct ThorHammer : Controller {
     Controller *block;
 
     ThorHammer(IGame *game, int entity) : Controller(game, entity) {
-        int index = level->entityAdd(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y, -1);
-        if (index > -1) {
-            block = new Controller(game, index);
-            level->entities[index].controller = block;
-        }
+        block = game->addEntity(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y);
+        ASSERT(block);
         flags.collision = block->flags.collision = false;
     }
 

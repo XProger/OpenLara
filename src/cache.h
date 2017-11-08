@@ -414,20 +414,14 @@ struct WaterCache {
                 for (int x = minX; x < maxX; x++) {
                     TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
 
-                    bool hasWater = (s.roomAbove != TR::NO_ROOM && !level->rooms[s.roomAbove].flags.water);
-                    bool hasFlow  = false;
+                    bool hasWater = s.roomAbove != TR::NO_ROOM && !level->rooms[s.roomAbove].flags.water;
                     if (hasWater) {
-                        TR::Level::FloorInfo info;
-                        game->getLara()->getFloorInfo(to, vec3(float(x + r.info.x), float(r.info.yBottom), float(z + r.info.z)), info);
-                        if (info.trigCmdCount && info.trigger == TR::Level::Trigger::ACTIVATE)
-                            for (int i = 0; i < info.trigCmdCount; i++)
-                                if (info.trigCmd[i].action == TR::Action::FLOW) {
-                                    hasFlow = true;
-                                    break;
-                                }
+                        TR::Room &rt = level->rooms[s.roomAbove];
+                        TR::Room::Sector &st = rt.sectors[x * rt.zSectors + z];
+                        hasWater = s.ceiling > st.ceiling;
                     }
-                        
-                    m[(x - minX) + w * (z - minZ)] = hasWater ? (hasFlow ? 0xF81F : 0xF800) : 0;
+
+                    m[(x - minX) + w * (z - minZ)] = hasWater ? 0xF800 : 0;
                 }
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -785,8 +779,10 @@ struct WaterCache {
 
             refract->bind(sDiffuse);
             reflect->bind(sReflect);
+            item.mask->bind(sMask);
             item.data[0]->bind(sNormal);
             Core::setCulling(cfNone);
+            Core::setBlending(bmAlpha);
             #ifdef WATER_USE_GRID
                 vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
                 Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
@@ -796,6 +792,7 @@ struct WaterCache {
                 game->getMesh()->renderQuad();
             #endif
             Core::setCulling(cfFront);
+            Core::setBlending(bmNone);
         }
         dropCount = 0;
     }
