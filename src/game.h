@@ -96,7 +96,8 @@ namespace Game {
         }
 
         if (Input::down[ikS]) {
-            level->saveGame(0);
+            if (level->lara->canSaveGame())
+                level->saveGame(0);
             Input::down[ikS] = false;
         }
 

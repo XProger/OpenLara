@@ -70,7 +70,8 @@ struct Character : Controller {
     }
 
     uint16* getZones() {
-        return (flying || stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? level->zones[level->isFlipped].fly : (stepHeight == 256 ? level->zones[level->isFlipped].ground1 : level->zones[level->isFlipped].ground2);
+        TR::Zone &zones = level->zones[level->state.flags.flipped];
+        return (flying || stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? zones.fly : (stepHeight == 256 ? zones.ground1 : zones.ground2);
     }
 
     void rotateY(float delta) {
@@ -98,7 +99,7 @@ struct Character : Controller {
 
         if (info.roomAbove != TR::NO_ROOM && pos.y <= info.roomCeiling) {
             TR::Room *room = &level->rooms[info.roomAbove];
-            if (level->isFlipped && room->alternateRoom > -1)
+            if (level->state.flags.flipped && room->alternateRoom > -1)
                 room = &level->rooms[room->alternateRoom];
 
             if (stand == STAND_UNDERWATER && !room->flags.water) {

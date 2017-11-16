@@ -265,7 +265,7 @@ struct AmbientCache {
 
         Task &task  = tasks[tasksCount++];
         task.room   = room;
-        task.flip   = level->isFlipped;
+        task.flip   = level->state.flags.flipped;
         task.sector = sector;
         task.cube   = &items[offsets[room] + sector];
         task.cube->status = Cube::WAIT;
@@ -317,10 +317,10 @@ struct AmbientCache {
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
             
-            bool oldFlip = level->isFlipped;
-            level->isFlipped = task.flip != 0;
+            bool oldFlip = level->state.flags.flipped;
+            level->state.flags.flipped = task.flip != 0;
             renderAmbient(task.room, task.sector, &task.cube->colors[0]);
-            level->isFlipped = oldFlip;
+            level->state.flags.flipped = oldFlip;
 
             task.cube->status = Cube::READY;
         }

@@ -66,40 +66,11 @@ struct IGame {
     virtual bool invChooseKey(TR::Entity::Type hole) { return false; }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const { return NULL; }
-    virtual void playTrack(int track, bool restart = false) {}
+    virtual void playTrack(uint8 track, bool restart = false) {}
     virtual void stopTrack()                                {}
 };
 
 struct Controller {
-
-    struct SaveData {
-    // base
-        int32  x, y, z;
-        uint16 rotation;
-        uint16 type;
-        uint16 flags;
-        int16  timer;
-    // animation
-        uint16 animIndex;
-        uint16 animFrame;
-    // common
-        uint8  room;
-        uint8  extraSize;
-        union Extra {
-            struct {
-                float  velX, velY, velZ;
-                uint16 angleX;
-                uint16 health;
-                uint16 oxygen;
-                int8   curWeapon;
-                uint8  emptyHands; 
-            } lara;
-            struct {
-                uint16 health;
-                uint16 mood;
-            } enemy;
-        } extra;
-    };
 
     static Controller *first;
     Controller  *next;
@@ -406,7 +377,7 @@ struct Controller {
         } while (!cmd.end);
     }
 
-    virtual void getSaveData(SaveData &data) {
+    virtual void getSaveData(TR::SaveGame::Entity &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
         if (entity < level->entitiesBaseCount) {
@@ -428,13 +399,13 @@ struct Controller {
         data.flags      = e.flags.value ^ flags.value;
         data.timer      = timer == 0.0f ? 0 : (timer < 0.0f ? -1 : int16(timer * 30.0f));
     // animation
-        data.animIndex  = m ? (m->animation ^ animation.index) : 0;
+        data.animIndex  = m ? animation.index : 0;
         data.animFrame  = m ? animation.frameIndex : 0;
 
         data.extraSize  = 0;
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
         if (entity < level->entitiesBaseCount) {
@@ -454,7 +425,7 @@ struct Controller {
         flags.value = e.flags.value ^ data.flags;
         timer       = data.timer == -1 ? -1.0f : (timer / 30.0f);
     // animation
-        if (m) animation.setAnim(m->animation ^ data.animIndex, -data.animFrame);
+        if (m) animation.setAnim(data.animIndex, -data.animFrame);
     }
 
     bool isActive() {
@@ -602,7 +573,7 @@ struct Controller {
 
     virtual int getRoomIndex() const {
         int index = roomIndex;
-        if (level->isFlipped && level->rooms[index].alternateRoom > -1)
+        if (level->state.flags.flipped && level->rooms[index].alternateRoom > -1)
             index = level->rooms[index].alternateRoom;
         return index;
     }
@@ -829,7 +800,7 @@ struct Controller {
                                     case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
                                     case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect(fx)); break;
                                     case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
-                                    case TR::Effect::FLIP_MAP     : level->isFlipped = !level->isFlipped; break;
+                                    case TR::Effect::FLIP_MAP     : level->state.flags.flipped = !level->state.flags.flipped; break;
                                     default                       : cmdEffect(fx); break;
                                 }
                             } else

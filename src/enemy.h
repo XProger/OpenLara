@@ -77,14 +77,14 @@ struct Enemy : Character {
         delete path;
     }
 
-    virtual void getSaveData(SaveData &data) {
+    virtual void getSaveData(TR::SaveGame::Entity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.enemy);
         data.extra.enemy.health = uint16(health);
         data.extra.enemy.mood   = uint16(mood);
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Character::setSaveData(data);
         health = float(data.extra.enemy.health);
         mood   = Mood(data.extra.enemy.mood);

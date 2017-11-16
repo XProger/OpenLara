@@ -57,7 +57,7 @@ struct Camera : ICamera {
     }
     
     virtual int getRoomIndex() const {
-        return (level->isFlipped && level->rooms[room].alternateRoom > -1) ? level->rooms[room].alternateRoom : room;
+        return (level->state.flags.flipped && level->rooms[room].alternateRoom > -1) ? level->rooms[room].alternateRoom : room;
     }
 
     virtual void checkRoom() {
@@ -94,7 +94,7 @@ struct Camera : ICamera {
     }
 
     void updateListener() {
-        Sound::flipped = level->isFlipped;
+        Sound::flipped = level->state.flags.flipped;
         Sound::listener.matrix = mViewInv;
         TR::Room &r = level->rooms[getRoomIndex()];
         int h = (r.info.yBottom - r.info.yTop) / 1024;

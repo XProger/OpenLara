@@ -248,23 +248,25 @@ struct Inventory {
         }
     }
 
-    void add(TR::Entity::Type type, int count = 1) {
+    void add(TR::Entity::Type type, int count = 1, bool smart = true) {
         type = TR::Entity::convToInv(type);
 
-        switch (type) {
-            case TR::Entity::INV_SHOTGUN      :
-            case TR::Entity::INV_AMMO_SHOTGUN : 
-                addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
-                break;
-            case TR::Entity::INV_MAGNUMS      :
-            case TR::Entity::INV_AMMO_MAGNUMS :
-                addAmmo(type, count, 25, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
-                break;
-            case TR::Entity::INV_UZIS         :
-            case TR::Entity::INV_AMMO_UZIS    : 
-                addAmmo(type, count, 50, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
-                break;
-            default : ;
+        if (smart) {
+            switch (type) {
+                case TR::Entity::INV_SHOTGUN      :
+                case TR::Entity::INV_AMMO_SHOTGUN : 
+                    addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
+                    break;
+                case TR::Entity::INV_MAGNUMS      :
+                case TR::Entity::INV_AMMO_MAGNUMS :
+                    addAmmo(type, count, 25, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
+                    break;
+                case TR::Entity::INV_UZIS         :
+                case TR::Entity::INV_AMMO_UZIS    : 
+                    addAmmo(type, count, 50, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
+                    break;
+                default : ;
+            }
         }
 
         int i = contains(type);
@@ -274,6 +276,12 @@ struct Inventory {
         }
 
         ASSERT(itemsCount < INVENTORY_MAX_ITEMS);
+
+        Item *newItem = new Item(game->getLevel(), type, count);
+        if (newItem->desc.model == -1) {
+            delete newItem;
+            return;
+        }
 
         int pos = 0;
         for (int pos = 0; pos < itemsCount; pos++)
@@ -285,7 +293,7 @@ struct Inventory {
                 items[i] = items[i - 1];
         }
 
-        items[pos] = new Item(game->getLevel(), type, count);
+        items[pos] = newItem;
         itemsCount++;
     }
 

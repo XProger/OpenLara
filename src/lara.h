@@ -507,7 +507,11 @@ struct Lara : Character {
         delete environment;
     }
 
-    virtual void getSaveData(SaveData &data) {
+    bool canSaveGame() {
+        return health > 0.0f && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
+    }
+
+    virtual void getSaveData(TR::SaveGame::Entity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.lara);
         data.extra.lara.velX       = velocity.x;
@@ -516,11 +520,16 @@ struct Lara : Character {
         data.extra.lara.angleX     = TR::angle(normalizeAngle(angle.x)).value;
         data.extra.lara.health     = uint16(health);
         data.extra.lara.oxygen     = uint16(oxygen);
-        data.extra.lara.curWeapon  = int8(wpnCurrent);
-        data.extra.lara.emptyHands = emptyHands();
+//        data.extra.lara.curWeapon  = int8(wpnCurrent);
+//        data.extra.lara.emptyHands = emptyHands();
+/*
+            uint16 itemHands;
+            uint16 itemBack;
+            uint16 itemHolster;
+*/
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Character::setSaveData(data);
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
@@ -530,10 +539,11 @@ struct Lara : Character {
         layers[1].mask = layers[2].mask = layers[3].mask = 0;
         wpnState   = Weapon::IS_HIDDEN;
         wpnCurrent = Weapon::EMPTY;
-
+/*
         wpnSet(Weapon::Type(data.extra.lara.curWeapon));
         if (!data.extra.lara.emptyHands)
             wpnDraw(true);
+*/
     }
 
     int getRoomByPos(const vec3 &pos) {
@@ -1657,13 +1667,13 @@ struct Lara : Character {
 
     int doTutorial(int track) {
         switch (track) { // GYM tutorial routine
-            case 28 : if (level->tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
+            case 28 : if (level->state.tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
             case 37 : 
             case 41 : if (state != STATE_HANG) return 0; break;
-            case 42 : if (level->tracks[track].once && state == STATE_HANG) track = 43; break;
+            case 42 : if (level->state.tracks[track].once && state == STATE_HANG) track = 43; break;
             case 49 : if (state != STATE_SURF_TREAD) return 0; break;
             case 50 : // end of GYM
-                if (level->tracks[track].once) {
+                if (level->state.tracks[track].once) {
                     timer += Core::deltaTime;
                     if (timer > 3.0f)
                         game->loadLevel(TR::TITLE);
@@ -1894,7 +1904,7 @@ struct Lara : Character {
                     applyFlow(level->cameras[cmd.args]);
                     break;
                 case TR::Action::FLIP : {
-                    TR::Flags &flip = level->flipmap[cmd.args];
+                    TR::ByteFlags &flip = level->state.flipmaps[cmd.args];
 
                     if (flip.once)
                         break;
@@ -1907,17 +1917,17 @@ struct Lara : Character {
                     if (flip.active == TR::ACTIVE)
                         flip.once |= info.trigInfo.once;
 
-                    if ((flip.active == TR::ACTIVE) ^ level->isFlipped)
+                    if ((flip.active == TR::ACTIVE) ^ level->state.flags.flipped)
                          needFlip = true;
 
                     break;
                 }
                 case TR::Action::FLIP_ON :
-                    if (level->flipmap[cmd.args].active == TR::ACTIVE && !level->isFlipped)
+                    if (level->state.flipmaps[cmd.args].active == TR::ACTIVE && !level->state.flags.flipped)
                         needFlip = true;
                     break;
                 case TR::Action::FLIP_OFF :
-                    if (level->flipmap[cmd.args].active == TR::ACTIVE && level->isFlipped)
+                    if (level->state.flipmaps[cmd.args].active == TR::ACTIVE && level->state.flags.flipped)
                         needFlip = true;
                     break;
                 case TR::Action::CAMERA_TARGET :
@@ -1932,7 +1942,7 @@ struct Lara : Character {
                     if (track == 0) break;
 
                 // check trigger
-                    TR::Flags &flags = level->tracks[track];
+                    TR::ByteFlags &flags = level->state.tracks[track];
 
                     if (flags.once)
                         break;
@@ -1956,8 +1966,8 @@ struct Lara : Character {
                     effect = TR::Effect(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!level->secrets[cmd.args]) {
-                        level->secrets[cmd.args] = true;
+                    if (!(level->state.secrets & (1 << cmd.args))) {
+                        level->state.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_SECRET);
                     }
@@ -1972,7 +1982,7 @@ struct Lara : Character {
             camera->viewIndex = cameraIndex;
 
         if (needFlip) {
-            level->isFlipped = !level->isFlipped;
+            level->state.flags.flipped = !level->state.flags.flipped;
             game->setEffect(this, effect);
         }
     }

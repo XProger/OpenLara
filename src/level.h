@@ -44,7 +44,6 @@ struct Level : IGame {
     Sound::Sample *sndUnderwater;
     Sound::Sample *sndCurrent;
 
-    int  curTrack;
     bool lastTitle;
     bool isEnded;
 
@@ -85,14 +84,125 @@ struct Level : IGame {
         loadLevel(level.id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level.id + 1));
     }
 
+    virtual void saveGame(int slot) {
+        LOG("Save Game... ");
+
+        char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory.itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
+        char  *ptr = data;
+
+        TR::SaveGame *save = (TR::SaveGame*)ptr;
+
+    // global stats
+        *save = level.save;
+        ptr += sizeof(*save);
+
+    // inventory items
+        save->itemsCount = 0;
+        for (int i = 0; i < inventory.itemsCount; i++) {
+            TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
+            Inventory::Item *invItem = inventory.items[i];
+            
+            if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+
+            item->type  = invItem->type;
+            item->count = invItem->count;
+
+            ptr += sizeof(*item);
+            save->itemsCount++;
+        }
+
+    // level entities
+        save->entitiesCount = 0;
+        for (int i = 0; i < level.entitiesCount; i++) {
+            Controller *controller = (Controller*)level.entities[i].controller;
+            if (!controller || (controller->getEntity().isSprite() && !controller->getEntity().isPickup())) continue;
+            TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
+            controller->getSaveData(*entity);
+            ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
+            save->entitiesCount++;
+        }
+
+    // current level state
+        if (save->entitiesCount) {
+            TR::SaveGame::CurrentState *state = (TR::SaveGame::CurrentState*)ptr;
+            *state = level.state;
+            ptr += sizeof(*state);
+        }
+
+        Stream::write("savegame.dat", data, int(ptr - data));
+        delete[] data;
+
+        LOG("Ok\n");
+    }
+
     virtual void loadGame(int slot) {
+        LOG("Lave Game... ");
+
+        clearInventory();
+        clearEntities();
+
         Stream stream("savegame.dat");
         char *data;
         stream.read(data, stream.size);
         char *ptr = data;
-        int32 eCount = *((int32*)ptr);
-        ptr += 4;
 
+        TR::SaveGame *save = (TR::SaveGame*)ptr;
+
+        level.save = *save;
+        ptr += sizeof(*save);
+
+        for (int i = 0; i < save->itemsCount; i++) {
+            TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
+            inventory.add(TR::Entity::Type(item->type), item->count, false);
+            ptr += sizeof(*item);
+        }
+
+        if (save->entitiesCount) {
+
+            for (int i = 0; i < save->entitiesCount; i++) {
+                TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
+
+                Controller *controller;
+                if (i >= level.entitiesBaseCount)
+                    controller = addEntity(TR::Entity::Type(entity->type), entity->room, vec3(float(entity->x), float(entity->y), float(entity->z)), TR::angle(entity->rotation));
+                else
+                    controller = (Controller*)level.entities[i].controller;
+
+                controller->setSaveData(*entity);
+                if (Controller::first != controller && controller->flags.state != TR::Entity::asNone) {
+                    controller->next = Controller::first;
+                    Controller::first = controller;
+                }
+
+                ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
+            }
+
+            TR::SaveGame::CurrentState *state = (TR::SaveGame::CurrentState*)ptr;
+            level.state = *state;
+            ptr += sizeof(*state);
+
+            delete[] data;
+
+            uint8 track = level.state.flags.track;
+            level.state.flags.track = 0;
+            playTrack(track, true);
+        }
+
+    //    camera->room = lara->getRoomIndex();
+    //    camera->pos  = camera->destPos = lara->pos;
+        LOG("Ok\n");
+    }
+
+    void clearInventory() {
+        int i = inventory.itemsCount;
+
+        while (i--) {
+            if (TR::Entity::isPickup(TR::Entity::convFromInv(inventory.items[i]->type)))
+                inventory.remove(i);
+        }
+    }
+
+    void clearEntities() {
         Controller::first = NULL;
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
@@ -106,46 +216,6 @@ struct Level : IGame {
                 }
             }
         }
-
-        for (int i = 0; i < eCount; i++) {
-            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
-
-            Controller *controller;
-            if (i >= level.entitiesBaseCount)
-                controller = addEntity(TR::Entity::Type(saveData->type), saveData->room, vec3(float(saveData->x), float(saveData->y), float(saveData->z)), TR::angle(saveData->rotation));
-            else
-                controller = (Controller*)level.entities[i].controller;
-
-            controller->setSaveData(*saveData);
-            if (Controller::first != controller && controller->flags.state != TR::Entity::asNone) {
-                controller->next = Controller::first;
-                Controller::first = controller;
-            }
-            ptr += (sizeof(Controller::SaveData) - sizeof(Controller::SaveData::Extra)) + saveData->extraSize;
-        }
-        delete[] data;
-
-    //    camera->room = lara->getRoomIndex();
-    //    camera->pos  = camera->destPos = lara->pos;
-    }
-
-    virtual void saveGame(int slot) {
-        char  *data = new char[4 + sizeof(Controller::SaveData) * level.entitiesCount];
-        char  *ptr = data;
-        int32 *eCount = (int32*)ptr;
-        ptr += 4;
-
-        *eCount = 0;
-        for (int i = 0; i < level.entitiesCount; i++) {
-            Controller *controller = (Controller*)level.entities[i].controller;
-            if (!controller || (controller->getEntity().isSprite() && !controller->getEntity().isPickup())) continue;
-            Controller::SaveData *saveData = (Controller::SaveData*)ptr;
-            controller->getSaveData(*saveData);
-            ptr += (sizeof(Controller::SaveData) - sizeof(Controller::SaveData::Extra)) + saveData->extraSize;
-            (*eCount)++;
-        }
-        Stream::write("savegame.dat", data, int(ptr - data));
-        delete[] data;
     }
 
     virtual void applySettings(const Core::Settings &settings) {
@@ -428,18 +498,18 @@ struct Level : IGame {
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
     }
 
-    virtual void playTrack(int track, bool restart = false) {
+    virtual void playTrack(uint8 track, bool restart = false) {
         if (track == 0)
             track = TR::LEVEL_INFO[level.id].ambientTrack;
 
-        if (curTrack == track) {
+        if (level.state.flags.track == track) {
             if (restart && sndSoundtrack) {
                 sndSoundtrack->replay();
                 sndSoundtrack->setVolume(1.0f, 0.2f);
             }
             return;
         }
-        curTrack = track;
+        level.state.flags.track = track;
 
         if (sndSoundtrack) {
             sndSoundtrack->setVolume(-1.0f, 0.2f);
@@ -448,7 +518,7 @@ struct Level : IGame {
             sndSoundtrack = NULL;
         }
 
-        if (track <= 0) return;
+        if (track == 0xFF) return;
 
         char title[32];
         sprintf(title, "audio/track_%02d.ogg", track);
@@ -457,7 +527,7 @@ struct Level : IGame {
     }
 
     virtual void stopTrack() {
-        playTrack(-1);
+        playTrack(0xFF);
     }
 //==============================
 
@@ -521,7 +591,7 @@ struct Level : IGame {
         }
 
         sndSoundtrack = NULL;
-        playTrack(curTrack = 0);
+        playTrack(0);
         sndCurrent = sndSoundtrack;
 
         effect = TR::Effect::NONE;
@@ -1125,7 +1195,7 @@ struct Level : IGame {
                     case 4 : if (effectTimer > 4.1f) { effectIdx++; effect = TR::Effect::NONE; } break;
                 }
                 if (idx != effectIdx)
-                    level.isFlipped = !level.isFlipped;
+                    level.state.flags.flipped = !level.state.flags.flipped;
                 break;
             }
             case TR::Effect::EARTHQUAKE : {
@@ -1249,7 +1319,7 @@ struct Level : IGame {
             return;
         }
 
-        if (level.rooms[to].alternateRoom > -1 && level.isFlipped)
+        if (level.rooms[to].alternateRoom > -1 && level.state.flags.flipped)
             to = level.rooms[to].alternateRoom;
 
         TR::Room &room = level.rooms[to];
@@ -1385,7 +1455,7 @@ struct Level : IGame {
         camera->setup(true);
         
         if (Input::down[ikF]) {
-            level.isFlipped = !level.isFlipped;
+            level.state.flags.flipped = !level.state.flags.flipped;
             Input::down[ikF] = false;
         }
 

@@ -4,9 +4,8 @@
 #include "utils.h"
 
 #define MAX_RESERVED_ENTITIES 128
-#define MAX_FLIPMAP_COUNT     16
-#define MAX_SECRETS_COUNT     16
-#define MAX_TRACKS_COUNT      64
+#define MAX_FLIPMAP_COUNT     32
+#define MAX_TRACKS_COUNT      256
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
 
@@ -612,6 +611,10 @@ namespace TR {
         uint16 :8, once:1, active:5, :2;
     };
 
+    struct ByteFlags {
+        uint16 once:1, active:5, :2;
+    };
+
     // internal mesh structure
     struct Mesh {
 
@@ -683,12 +686,16 @@ namespace TR {
                    type == CRYSTAL || type == MOVING_OBJECT || type == SCION_HOLDER;
         }
 
-        bool isPickup() const {
+        static bool isPickup(Type type) {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
                    (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR); // TODO: recheck all items
+        }
+
+        bool isPickup() const {
+            return isPickup(type);
         }
 
         bool isActor() const {
@@ -758,6 +765,37 @@ namespace TR {
             }
         }
 
+        static Type convFromInv(Type type) {
+            switch (type) {
+                case INV_PISTOLS       : return PISTOLS;
+                case INV_SHOTGUN       : return SHOTGUN;
+                case INV_MAGNUMS       : return MAGNUMS;
+                case INV_UZIS          : return UZIS;
+ 
+                case INV_AMMO_PISTOLS  : return AMMO_PISTOLS;
+                case INV_AMMO_SHOTGUN  : return AMMO_SHOTGUN;
+                case INV_AMMO_MAGNUMS  : return AMMO_MAGNUMS;
+                case INV_AMMO_UZIS     : return AMMO_UZIS;
+
+                case INV_MEDIKIT_SMALL : return MEDIKIT_SMALL;
+                case INV_MEDIKIT_BIG   : return MEDIKIT_BIG;
+
+                case INV_PUZZLE_1      : return PUZZLE_1;
+                case INV_PUZZLE_2      : return PUZZLE_2;
+                case INV_PUZZLE_3      : return PUZZLE_3;
+                case INV_PUZZLE_4      : return PUZZLE_4;
+
+                case INV_KEY_1         : return KEY_ITEM_1;
+                case INV_KEY_2         : return KEY_ITEM_2;
+                case INV_KEY_3         : return KEY_ITEM_3;
+                case INV_KEY_4         : return KEY_ITEM_4;
+
+                case INV_LEADBAR       : return LEADBAR;
+                //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
+                default            : return type;
+            }
+        }
+
         static Type getItemForHole(Type hole) {
             switch (hole) {
                 case PUZZLE_HOLE_1 : return PUZZLE_1;
@@ -787,7 +825,7 @@ namespace TR {
                 opaque = true;
             if (type == SWITCH || type == SWITCH_WATER)
                 opaque = true;
-            if (type == PUZZLE_HOLE_1 || type == LIGHTNING) // LEVEL3A cogs
+            if ((type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_4) || type == LIGHTNING)
                 opaque = false;
         }
     };
@@ -1058,6 +1096,82 @@ namespace TR {
         { "END2"     , "The Hive",                  TRACK_EGYPT },
     };
 
+
+    struct SaveGame {
+
+        struct Entity {
+        // base
+            int32  x, y, z;
+            uint16 rotation;
+            uint16 type;
+            uint16 flags;
+            int16  timer;
+        // animation
+            uint16 animIndex;
+            uint16 animFrame;
+        // common
+            uint8  room;
+            uint8  extraSize;
+            union Extra {
+                struct {
+                    float  velX, velY, velZ;
+                    uint16 angleX;
+                    uint16 health;
+                    uint16 oxygen;
+                    uint16 stamina;
+                    uint8  itemHands;
+                    uint8  itemBack;
+                    uint8  itemHolster;
+                    union {
+                        struct { uint8 wet:1, burn:1; };
+                        uint8 value;
+                    } flags;
+                } lara;
+                struct {
+                    uint16 health;
+                    uint16 mood;
+                } enemy;
+            } extra;
+        };
+
+        struct Item {
+            uint16 type;
+            uint16 count;
+        };
+
+        struct CurrentState {
+            // EntityState entities[entitiesCount];
+
+            uint32 fogColor;
+            uint16 secrets;
+            union {
+                struct { uint16 track:8, flipped:1; };
+                uint16 value;
+            } flags;
+
+            ByteFlags flipmaps[MAX_FLIPMAP_COUNT];
+            ByteFlags tracks[MAX_TRACKS_COUNT];
+        };
+
+        uint32 size;
+        uint16 levelID;
+    // full game stats
+        uint16 mediUsed;
+        uint16 pickups;
+        uint16 secrets;
+        uint32 kills;
+        uint32 ammoUsed;
+        uint32 distance;
+        uint32 time;
+
+        uint16 itemsCount;    // 0 -> skip inventory items array
+        uint16 entitiesCount; // 0 -> skip current state
+
+        // Item items[itemsCount]
+        // CurrentState currentState;
+    };
+
+
     struct Level {
         Version         version;
         LevelID         id;
@@ -1153,6 +1267,9 @@ namespace TR {
         uint32          *soundOffsets;
         uint32          *soundSize;
 
+        SaveGame                save;
+        SaveGame::CurrentState  state;
+
    // common
         enum Trigger : uint32 {
             ACTIVATE    ,
@@ -1193,10 +1310,6 @@ namespace TR {
             }
         };
 
-        Flags   flipmap[MAX_FLIPMAP_COUNT];
-        bool    secrets[MAX_SECRETS_COUNT];
-        Flags   tracks[MAX_TRACKS_COUNT];
-
         void    *cameraController;
         void    *laraController;
 
@@ -1204,7 +1317,6 @@ namespace TR {
         mat4    cutMatrix;
         bool    isDemoLevel;
         bool    isHomeLevel;
-        bool    isFlipped;
 
         struct {
             int16 muzzleFlash;
@@ -1466,13 +1578,7 @@ namespace TR {
             delete[] tiles8;
             tiles8 = NULL;
 
-        // init flipmap states
-            isFlipped = false;
-            memset(flipmap, 0, MAX_FLIPMAP_COUNT * sizeof(flipmap[0]));
-        // init secrets states
-            memset(secrets, 0, MAX_SECRETS_COUNT * sizeof(secrets[0]));
-        // init soundtracks states
-            memset(tracks, 0, MAX_TRACKS_COUNT * sizeof(tracks[0]));
+            memset(&state, 0, sizeof(state));
 
         // get special models indices
             memset(&extra, 0xFF, sizeof(extra));
@@ -1678,7 +1784,7 @@ namespace TR {
                         cutMatrix.rotateY(16380.0f / float(0x4000) * PI * 0.5f);
                         break;
                     case CUTSCENE_3 :
-                        isFlipped = true;
+                        state.flags.flipped = true;
                     case CUTSCENE_4 :
                         cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
                         cutMatrix.rotateY(PI * 0.5f);
@@ -2116,7 +2222,7 @@ namespace TR {
         Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
 
-            if (isFlipped && rooms[roomIndex].alternateRoom > -1)
+            if (state.flags.flipped && rooms[roomIndex].alternateRoom > -1)
                 roomIndex = rooms[roomIndex].alternateRoom;
 
             Room &room = rooms[roomIndex];

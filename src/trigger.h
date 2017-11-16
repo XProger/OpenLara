@@ -336,7 +336,7 @@ struct Block : Controller {
         updateFloor(true);
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         updateFloor(false);
         Controller::setSaveData(data);
         if (state == STATE_STAND)
@@ -437,7 +437,7 @@ struct MovingBlock : Controller {
             updateFloor(true);
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         updateFloor(false);
         Controller::setSaveData(data);
         if (flags.state == TR::Entity::asNone)
@@ -939,12 +939,12 @@ struct Lightning : Controller {
 
             if (timer <= 0.0f) {
                 if (flash) {
-                    level->isFlipped = false;
+                    level->state.flags.flipped = false;
                     flash = false;
                     armed = true;
                     timer = (35.0f + randf() * 45.0f) / 30.0f;                    
                 } else {
-                    level->isFlipped = true;
+                    level->state.flags.flipped = true;
                     flash = true;
                     timer = 20.0f / 30.0f;
 
@@ -963,7 +963,7 @@ struct Lightning : Controller {
         } else {
             timer = 0.0f;
             flash = false;
-            level->isFlipped = false;
+            level->state.flags.flipped = false;
             deactivate(true);
         }
     }
@@ -1204,8 +1204,8 @@ struct Cabin : Controller {
 
         if (state == STATE_GROUND) {
             flags.invisible        = true;
-            level->flipmap[3].active = TR::ACTIVE;
-            level->isFlipped         = !level->isFlipped;
+            level->state.flipmaps[3].active = TR::ACTIVE;
+            level->state.flags.flipped      = !level->state.flags.flipped;
             deactivate(true);
         }
 
@@ -1271,7 +1271,7 @@ struct MutantEgg : Controller {
         Controller::update();
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Controller::setSaveData(data);
         visibleMask = (state == STATE_IDLE) ? 0xff0001ff : (0xffffffff & ~(1 << 24));
     }
@@ -1289,7 +1289,7 @@ struct KeyHole : Controller {
         return true;
     }
 
-    virtual void setSaveData(const SaveData &data) {
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Controller::setSaveData(data);
         if (flags.active == TR::ACTIVE)
             swap();
