@@ -70,6 +70,15 @@ struct Animation {
         setAnim(next, anims[index].nextFrame);
     }
 
+    TR::AnimFrame* getFrame(TR::Animation *anim, int index) {
+        int frameSize = anim->frameSize;
+        if (!frameSize) {
+            ASSERT(level->version & TR::VER_TR1);
+            frameSize = sizeof(TR::AnimFrame) / 2 + model->mCount * 2;
+        }
+        return (TR::AnimFrame*)&level->frameData[anim->frameOffset / 2 + index * frameSize]; // >> 1 (div 2) because frameData is array of shorts
+    }
+
     void updateInfo() {
         ASSERT(model);
         ASSERT(anims);
@@ -85,11 +94,11 @@ struct Animation {
         int k = fIndex * anim->frameRate;
         delta = (time * 30.0f - k) / min((int)anim->frameRate, framesCount - k); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
 
-    // size of frame (in bytes)
-        int fSize = sizeof(TR::AnimFrame) + model->mCount * sizeof(uint16) * 2;
+    // size of frame (in bytes)        
+        int fIndexA =  fIndex % fCount, 
+            fIndexB = (fIndex + 1) % fCount;
 
-        int fIndexA = fIndex % fCount, fIndexB = (fIndex + 1) % fCount;
-        frameA = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexA * fSize) >> 1]; // >> 1 (div 2) because frameData is array of shorts
+        frameA = getFrame(anim, fIndexA);
  
         int frameNext = frameIndex + 1;
         isPrepareToNext = !fIndexB;
@@ -97,12 +106,12 @@ struct Animation {
             frameNext  = anim->nextFrame;
             anim       = &level->anims[anim->nextAnimation];
             frameNext -= anim->frameStart;
-            fIndexB    = frameNext / anim->frameRate;            
+            fIndexB    = frameNext / anim->frameRate;
         }
 
         getCommand(anim, frameNext, NULL, NULL, &flip);
 
-        frameB = (TR::AnimFrame*)&level->frameData[(anim->frameOffset + fIndexB * fSize) >> 1];
+        frameB = getFrame(anim, fIndexB);
     }
 
     bool isFrameActive(int index) {
@@ -128,7 +137,7 @@ struct Animation {
         return false;
     }
 
-    bool setState(int state) {
+    bool setState(int state, int animIndex = -1) {
         ASSERT(model);
         TR::Animation *anim = anims + index;
 
@@ -144,7 +153,10 @@ struct Animation {
                 for (int j = 0; j < s.rangesCount; j++) {
                     TR::AnimRange &range = level->ranges[s.rangesOffset + j];
                     if (anim->frameStart + frameIndex >= range.low && anim->frameStart + frameIndex <= range.high) {
-                        setAnim(range.nextAnimation - model->animation, range.nextFrame);
+                        if (animIndex != -1)
+                            setAnim(animIndex);
+                        else
+                            setAnim(range.nextAnimation - model->animation, range.nextFrame);
                         return true;
                     }
                 }
@@ -203,7 +215,7 @@ struct Animation {
     }
 
     quat getJointRot(int joint) {
-        return lerpAngle(frameA->getAngle(joint), frameB->getAngle(joint), delta);
+        return lerpAngle(frameA->getAngle(level->version, joint), frameB->getAngle(level->version, joint), delta);
     }
 
     Basis getJoints(Basis basis, int joint, bool postRot = false, Basis *joints = NULL) {

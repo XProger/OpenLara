@@ -158,7 +158,7 @@ struct Inventory {
         delete stream;
     }
 
-    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), changeTimer(0.0f), nextLevel(TR::LEVEL_MAX), lastKey(cMAX) {
+    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), changeTimer(0.0f), nextLevel(TR::LVL_MAX), lastKey(cMAX) {
         TR::LevelID id = game->getLevel()->id;
 
         add(TR::Entity::INV_PASSPORT);
@@ -166,7 +166,7 @@ struct Inventory {
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
 
-        if (id != TR::TITLE && id != TR::GYM) {
+        if (!game->getLevel()->isTitle() && id != TR::LVL_TR1_GYM && id != TR::LVL_TR2_ASSAULT) {
 /*
             if (level->extra.inv.map != -1)
                 add(TR::Entity::INV_MAP);
@@ -195,7 +195,7 @@ struct Inventory {
         #endif
         } 
 
-        if (id == TR::TITLE) {
+        if (game->getLevel()->isTitle()) {
             add(TR::Entity::INV_HOME);
 
             memset(background, 0, sizeof(background));
@@ -349,7 +349,7 @@ struct Inventory {
                 for (int i = 0; i < itemsCount; i++)
                     items[i]->reset();
 
-                nextLevel   = TR::LEVEL_MAX;
+                nextLevel   = TR::LVL_MAX;
                 phasePage   = 1.0f;
                 phaseSelect = 1.0f;
                 page        = targetPage  = curPage;
@@ -421,6 +421,7 @@ struct Inventory {
     }
 
     bool showHealthBar() {
+        if (!itemsCount) return false;
         int idx = getGlobalIndex(page, index);
         TR::Entity::Type type = items[idx]->type;
         return active && phaseRing == 1.0f && index == targetIndex && phasePage == 1.0f && (type == TR::Entity::INV_MEDIKIT_SMALL || type == TR::Entity::INV_MEDIKIT_BIG);
@@ -434,8 +435,8 @@ struct Inventory {
                 game->playSound(TR::SND_INV_PAGE);
                 item->value = 1;
                 passportSlotCount = 2;
-                passportSlots[0] = TR::LEVEL_1;
-                passportSlots[1] = TR::LEVEL_2;
+                passportSlots[0] = TR::LVL_TR1_1;
+                passportSlots[1] = TR::LVL_TR1_2;
                 break;
             }
             case TR::Entity::INV_DETAIL : {
@@ -461,11 +462,11 @@ struct Inventory {
                 TR::LevelID id = game->getLevel()->id;
                 switch (item->value) {
                     case 0 : nextLevel = passportSlots[slot]; break;
-                    case 1 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_1 : game->getLevel()->id; break;
-                    case 2 : nextLevel = (id == TR::TITLE) ? TR::LEVEL_MAX : TR::TITLE; break;
+                    case 1 : nextLevel = id == TR::LVL_TR1_TITLE ? TR::LVL_TR1_1 : (id == TR::LVL_TR2_TITLE ? TR::LVL_TR2_WALL : id); break;
+                    case 2 : nextLevel = game->getLevel()->isTitle() ? TR::LVL_MAX : game->getLevel()->titleId(); break;
                 }
 
-                if (nextLevel != TR::LEVEL_MAX) {
+                if (nextLevel != TR::LVL_MAX) {
                     item->anim->dir = -1.0f;
                     item->value = -100;
                     toggle();
@@ -525,7 +526,7 @@ struct Inventory {
         }
 
         if (item->type == TR::Entity::INV_HOME && phaseChoose == 1.0f && key == cAction) {
-            nextLevel = TR::GYM;
+            nextLevel = TR::LVL_TR1_GYM;
             toggle();
         }
 
@@ -661,7 +662,7 @@ struct Inventory {
             }
         }
 
-        if (!isActive() && nextLevel != TR::LEVEL_MAX)
+        if (!isActive() && nextLevel != TR::LVL_MAX)
             game->loadLevel(nextLevel);
     }
 
@@ -684,7 +685,7 @@ struct Inventory {
     }
 
     bool canFlipPage(int dir) {
-        if (game->getLevel()->id == TR::TITLE || ((Character*)game->getLara())->health <= 0.0f)
+        if (game->getLevel()->isTitle() || ((Character*)game->getLara())->health <= 0.0f)
             return false;
         if (dir == -1) return page < PAGE_ITEMS  && getItemsCount(page + 1);
         if (dir ==  1) return page > PAGE_OPTION && getItemsCount(page - 1);
@@ -754,7 +755,7 @@ struct Inventory {
 
         StringID str = STR_LOAD_GAME;
 
-        if (game->getLevel()->id == TR::TITLE) {
+        if (game->getLevel()->isTitle()) {
             if (item->value == 1) str = STR_START_GAME;
             if (item->value == 2) str = STR_EXIT_GAME;
         } else {
@@ -780,7 +781,7 @@ struct Inventory {
         UI::renderBar(UI::BAR_OPTION, vec2(x, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
 
         for (int i = 0; i < passportSlotCount; i++)
-            if (passportSlots[i] == TR::LEVEL_MAX)
+            if (passportSlots[i] == TR::LVL_MAX)
                 UI::textOut(vec2(x, y + i * h), STR_AUTOSAVE, UI::aCenter, w);
             else
                 UI::textOut(vec2(x, y + i * h), TR::LEVEL_INFO[passportSlots[i]].title, UI::aCenter, w);
@@ -1034,7 +1035,7 @@ struct Inventory {
 
         static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS };
 
-        if (game->getLevel()->id != TR::TITLE)
+        if (!game->getLevel()->isTitle())
             UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {

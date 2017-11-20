@@ -53,7 +53,7 @@ typedef unsigned char   uint8;
 typedef unsigned short  uint16;
 typedef unsigned int    uint32;
 
-#define FOURCC(str)     (*((uint32*)str))
+#define FOURCC(str)     (((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
 #define COUNT(arr)      (sizeof(arr) / sizeof(arr[0]))
 

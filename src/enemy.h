@@ -1413,7 +1413,7 @@ struct Pierre : Human {
     }
 
     virtual void onDead() {
-        if (level->id == TR::LEVEL_7B) {
+        if (level->id == TR::LVL_TR1_7B) {
             game->addEntity(TR::Entity::MAGNUMS,           getRoomIndex(), pos, 0);
             game->addEntity(TR::Entity::SCION_PICKUP_DROP, getRoomIndex(), pos, 0);
             game->addEntity(TR::Entity::KEY_ITEM_1,        getRoomIndex(), pos, 0);

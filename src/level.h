@@ -62,6 +62,8 @@ struct Level : IGame {
         char buf[64];
         buf[0] = 0;
         strcat(buf, "level/");
+        if (level.version & TR::VER_TR2)
+            strcat(buf, "2/");
         strcat(buf, TR::LEVEL_INFO[id].name);
     #ifdef __EMSCRIPTEN__
         strcat(buf, ".PSX");
@@ -69,6 +71,8 @@ struct Level : IGame {
         switch (level.version) {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
             case TR::VER_TR1_PSX : strcat(buf, ".PSX"); break;
+            case TR::VER_TR2_PC  : strcat(buf, ".TR2"); break;
+            case TR::VER_TR2_PSX : strcat(buf, ".PSX"); break;
         }
     #endif
         new Stream(buf, loadAsync);
@@ -81,7 +85,7 @@ struct Level : IGame {
             return;
         }
     #endif
-        loadLevel(level.id == TR::LEVEL_10C ? TR::TITLE : TR::LevelID(level.id + 1));
+        loadLevel(level.id == TR::LVL_TR1_10C || level.id == TR::LVL_TR2_HOUSE ? level.titleId() : TR::LevelID(level.id + 1));
     }
 
     virtual void saveGame(int slot) {
@@ -273,7 +277,7 @@ struct Level : IGame {
     }
 
     virtual bool isCutscene() {
-        if (level.id == TR::TITLE) return false;
+        if (level.isTitle()) return false;
         return camera->state == Camera::STATE_CUTSCENE;
     }
 
@@ -521,7 +525,17 @@ struct Level : IGame {
         if (track == 0xFF) return;
 
         char title[32];
-        sprintf(title, "audio/track_%02d.ogg", track);
+        switch (level.version) {
+            case TR::VER_TR1_PC  :
+            case TR::VER_TR1_PSX :
+                sprintf(title, "audio/track_%02d.ogg", int(track));
+                break;
+            case TR::VER_TR2_PC  :
+            case TR::VER_TR2_PSX :
+                sprintf(title, "audio/2/track_%02d.ogg", int(level.remapTrack(track)));
+                break;
+            default : return;
+        }
 
         new Stream(title, playAsync, this);
     }
@@ -550,7 +564,7 @@ struct Level : IGame {
                 lara = (Lara*)e.controller;
         }
 
-        if (level.id != TR::TITLE) {
+        if (!level.isTitle()) {
             ASSERT(lara != NULL);
             camera = new Camera(this, lara);
 
@@ -602,7 +616,7 @@ struct Level : IGame {
         delete cube360;
 
         #ifdef _DEBUG
-            Debug::free();
+            Debug::deinit();
         #endif
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
@@ -622,8 +636,8 @@ struct Level : IGame {
 
     Controller* initController(int index) {
         switch (level.entities[index].type) {
-            case TR::Entity::LARA                  :
-            case TR::Entity::CUT_1                 : return new Lara(this, index);
+            case TR::Entity::LARA                  : return new Lara(this, index);
+//            case TR::Entity::CUT_1                 : 
             case TR::Entity::ENEMY_DOPPELGANGER    : return new Doppelganger(this, index);
             case TR::Entity::ENEMY_WOLF            : return new Wolf(this, index);
             case TR::Entity::ENEMY_BEAR            : return new Bear(this, index);
@@ -656,19 +670,19 @@ struct Level : IGame {
             case TR::Entity::DOOR_4                :
             case TR::Entity::DOOR_5                :
             case TR::Entity::DOOR_6                :
-            case TR::Entity::DOOR_BIG_1            :
-            case TR::Entity::DOOR_BIG_2            : return new Door(this, index);
+            case TR::Entity::DOOR_7                :
+            case TR::Entity::DOOR_8                : return new Door(this, index);
             case TR::Entity::TRAP_DOOR_1           :
             case TR::Entity::TRAP_DOOR_2           : return new TrapDoor(this, index);
-            case TR::Entity::BRIDGE_0              :
             case TR::Entity::BRIDGE_1              :
-            case TR::Entity::BRIDGE_2              : return new Bridge(this, index);
+            case TR::Entity::BRIDGE_2              :
+            case TR::Entity::BRIDGE_3              : return new Bridge(this, index);
             case TR::Entity::GEARS_1               :
             case TR::Entity::GEARS_2               :
             case TR::Entity::GEARS_3               : return new Gear(this, index);
             case TR::Entity::TRAP_FLOOR            : return new TrapFloor(this, index);
             case TR::Entity::CRYSTAL               : return new Crystal(this, index);
-            case TR::Entity::TRAP_BLADE            : return new TrapBlade(this, index);
+            case TR::Entity::TRAP_SWING_BLADE      : return new TrapSwingBlade(this, index);
             case TR::Entity::TRAP_SPIKES           : return new TrapSpikes(this, index);
             case TR::Entity::TRAP_BOULDER          : return new TrapBoulder(this, index);
             case TR::Entity::DART                  : return new Dart(this, index);
@@ -687,7 +701,8 @@ struct Level : IGame {
             case TR::Entity::LIGHTNING             : return new Lightning(this, index);
             case TR::Entity::MOVING_OBJECT         : return new MovingObject(this, index);
             case TR::Entity::SWITCH                :
-            case TR::Entity::SWITCH_WATER          : return new Switch(this, index);
+            case TR::Entity::SWITCH_WATER          :
+            case TR::Entity::SWITCH_BUTTON         : return new Switch(this, index);
             case TR::Entity::PUZZLE_HOLE_1         :
             case TR::Entity::PUZZLE_HOLE_2         :
             case TR::Entity::PUZZLE_HOLE_3         :
@@ -855,7 +870,7 @@ struct Level : IGame {
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, &level, fillCallback);
         // add textures
-        int texIdx = level.version == TR::VER_TR1_PSX ? 256 : 0; // skip palette color for PSX version
+        int texIdx = (level.version == TR::VER_TR1_PSX || level.version == TR::VER_TR2_PSX) ? 256 : 0; // skip palette color for PSX version
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
             int16 tx = (t.tile.index % 4) * 256;
@@ -959,6 +974,29 @@ struct Level : IGame {
         Core::lightColor[0] = vec4(controller->mainLightColor.xyz, 1.0f / controller->mainLightColor.w);
     }
 
+    void renderSky() {
+        if (level.extra.sky == -1) return;
+
+        mat4 m = Core::mViewProj;
+        mat4 mView = Core::mView;
+        mView.setPos(vec3(0));
+        Core::mViewProj = Core::mProj * mView;
+
+        //Animation anim(&level, &level.models[level.extra.sky]);
+
+        Basis b = Basis(quat(vec3(1, 0, 0), PI * 0.5f), vec3(0));
+
+        Core::setDepthTest(false);
+        setShader(Core::pass, Shader::FLASH, false, false);
+        Core::active.shader->setParam(uMaterial, vec4(0.5f, 0.0f, 0.0f, 0.0f));
+        Core::active.shader->setParam(uBasis, b);// anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
+
+        getMesh()->renderModel(level.extra.sky);
+
+        Core::setDepthTest(true);
+        Core::mViewProj = m;
+    }
+
     void renderRooms(int *roomsList, int roomsCount) {
         PROFILE_MARKER("ROOMS");
 
@@ -992,6 +1030,9 @@ struct Level : IGame {
         basis.identity();
 
         Core::setBlending(bmNone);
+
+        renderSky();
+
         for (int transp = 0; transp < 2; transp++) {
             for (int i = 0; i < roomsCount; i++) {
                 int roomIndex = roomsList[i];
@@ -1130,7 +1171,7 @@ struct Level : IGame {
         if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack))
             return;
 
-        if (Input::state[cInventory] && level.id != TR::TITLE) {
+        if (Input::state[cInventory] && !level.isTitle()) {
             if (lara->health <= 0.0f)
                 inventory.toggle(Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
             else
@@ -1139,10 +1180,10 @@ struct Level : IGame {
 
         Sound::Sample *sndChanged = sndCurrent;
 
-        if (inventory.isActive() || level.id == TR::TITLE) {
+        if (inventory.isActive() || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
             inventory.update();
-            if (level.id != TR::TITLE)
+            if (!level.isTitle())
                 sndChanged = NULL;
         } else {
             params->time += Core::deltaTime;
@@ -1350,10 +1391,15 @@ struct Level : IGame {
         for (int i = 0; i < level.roomsCount; i++)
             level.rooms[i].flags.visible = false;
 
-        int roomsList[128];
+        int roomsList[256];
         int roomsCount = 0;
 
         getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
+        /* // show all rooms
+        for (int i = 0; i < level.roomsCount; i++)
+            roomsList[i] = i;
+        roomsCount = level.roomsCount;
+        */
 
         if (water && waterCache) {
             for (int i = 0; i < roomsCount; i++)
@@ -1449,7 +1495,7 @@ struct Level : IGame {
 
     #ifdef _DEBUG
     void renderDebug() {
-        if (level.id == TR::TITLE) return;
+        if (level.isTitle()) return;
 
         Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
@@ -1641,7 +1687,7 @@ struct Level : IGame {
             glLineWidth(1);           
         */
 
-            Debug::Level::info(level, lara->getEntity(), lara->animation);
+            Debug::Level::info(level, lara, lara->animation);
 
 
         Debug::end();
@@ -1724,7 +1770,7 @@ struct Level : IGame {
 
         UI::begin();
 
-        if (level.id != TR::TITLE) {
+        if (!level.isTitle()) {
         // render health & oxygen bars
             vec2 size = vec2(180, 10);
 
@@ -1754,14 +1800,14 @@ struct Level : IGame {
 
         inventory.renderUI();
 
-        if (level.id != TR::TITLE)
+        if (!level.isTitle())
             UI::renderHelp();
 
         UI::end();
     }
 
     void render() {
-        bool title  = inventory.isActive() || level.id == TR::TITLE;
+        bool title  = inventory.isActive() || level.isTitle();
         bool copyBg = title && lastTitle != title;
         lastTitle = title;
 

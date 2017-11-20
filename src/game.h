@@ -54,11 +54,11 @@ namespace Game {
         init(new Stream(lvlName));
     }
 
-    void free() {
+    void deinit() {
         delete level;
-        UI::free();
+        UI::deinit();
         delete shaderCache;
-        Core::free();
+        Core::deinit();
     }
 
     void updateTick() {

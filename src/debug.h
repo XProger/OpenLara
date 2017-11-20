@@ -43,7 +43,7 @@ namespace Debug {
         #endif
     }
 
-    void free() {
+    void deinit() {
         glDeleteLists(font, 256);
     }
 
@@ -653,15 +653,15 @@ namespace Debug {
             return "UNKNOWN";
         }
 
-        const char *TR1_TYPE_NAMES[] = { TR1_TYPES(DECL_STR) };
+        const char *TR_TYPE_NAMES[] = { TR_TYPES(DECL_STR) };
 
         const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
-            if (entity.type >= COUNT(TR1_TYPE_NAMES))
+            if (entity.type >= COUNT(TR_TYPE_NAMES))
                 return "UNKNOWN";
-            return TR1_TYPE_NAMES[entity.type];
+            return TR_TYPE_NAMES[entity.type];
         }
 
-        void info(const TR::Level &level, const TR::Entity &entity, Animation &anim) {
+        void info(const TR::Level &level, Controller *controller, Animation &anim) {
             float y = 0.0f;
 
             int activeCount = 0;
@@ -674,15 +674,14 @@ namespace Debug {
             char buf[255];
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
-            vec3 angle = ((Controller*)entity.controller)->angle * RAD2DEG;
-            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d)", entity.x, entity.y, entity.z, (int)angle.x, (int)angle.y, ((Controller*)entity.controller)->getRoomIndex(), ((ICamera*)level.cameraController)->getRoomIndex());
+            vec3 angle = controller->angle * RAD2DEG;
+            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d)", int(controller->pos.x), int(controller->pos.y), int(controller->pos.z), (int)angle.x, (int)angle.y, controller->getRoomIndex(), ((ICamera*)level.cameraController)->getRoomIndex());
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             
             TR::Level::FloorInfo info;
-            Controller *controller = (Controller*)entity.controller;
             controller->getFloorInfo(controller->getRoomIndex(), controller->pos, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);

@@ -41,7 +41,7 @@ struct Camera : ICamera {
 
     Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), owner(owner), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL) {
         changeView(false);
-        if (!owner->getEntity().isLara() && level->cameraFrames) {
+        if (level->isCutsceneLevel()) {
             state = STATE_CUTSCENE;
             room  = level->entities[level->cutEntity].room;
             timer = 0.0f;
@@ -373,7 +373,7 @@ struct Camera : ICamera {
 
         fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 8.0f  : 128.0f;
-        zfar  = 40.0f * 1024.0f;
+        zfar  = 40.0f * 1024.0f * 1024.0f;
     }
 };
 

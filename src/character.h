@@ -51,8 +51,8 @@ struct Character : Controller {
 
         rangeChest = vec4(-0.80f, 0.80f, -0.75f, 0.75f) * PI;
         rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
-
         animation.initOverrides();
+
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
         flying = getEntity().type == TR::Entity::ENEMY_BAT;

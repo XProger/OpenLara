@@ -303,6 +303,7 @@ struct MeshBuilder {
             }
             range.sprites.iCount = iCount - range.sprites.iStart;
         }
+        ASSERT(vCount - vStartRoom <= 0xFFFF);
 
     // build models geometry
         int vStartModel = vCount;
@@ -329,6 +330,7 @@ struct MeshBuilder {
             }
             range.geometry.iCount = iCount - range.geometry.iStart;
         }
+        ASSERT(vCount - vStartModel <= 0xFFFF);
 
     // build sprite sequences
         int vStartSprite = vCount;
@@ -344,6 +346,7 @@ struct MeshBuilder {
             }
             range.iCount = iCount - range.iStart;
         }
+        ASSERT(vCount - vStartSprite <= 0xFFFF);
 
     // build common primitives
         int vStartCommon = vCount;
@@ -461,8 +464,9 @@ struct MeshBuilder {
                     iCount += 6;
                 }
             }
+        ASSERT(vCount - vStartCommon <= 0xFFFF);
 
-        LOG("MegaMesh: %d %d %d\n", iCount, vCount, aCount);
+        LOG("MegaMesh (i:%d v:%d a:%d)\n", iCount, vCount, aCount);
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
@@ -615,7 +619,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < d.rCount; j++) {
             TR::Rectangle     &f = d.rectangles[j];
-            TR::ObjectTexture &t = level.objectTextures[f.texture];
+            TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
             if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
@@ -644,7 +648,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < d.tCount; j++) {
             TR::Triangle      &f = d.triangles[j];
-            TR::ObjectTexture &t = level.objectTextures[f.texture];
+            TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
             if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
@@ -677,7 +681,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < mesh.rCount; j++) {
             TR::Rectangle &f = mesh.rectangles[j];
-            TR::ObjectTexture &t = f.color ? whiteTile : level.objectTextures[f.texture];
+            TR::ObjectTexture &t = f.flags.color ? whiteTile : level.objectTextures[f.flags.texture];
 
             if (t.attribute != 0)
                 isOpaque = false;
@@ -685,7 +689,7 @@ struct MeshBuilder {
             if (opaque != (t.attribute == 0))
                 continue;
 
-            TR::Color24 c = f.color ? level.getColor(f.texture) : COLOR_WHITE;
+            TR::Color32 c = f.flags.color ? level.getColor(f.flags.texture) : COLOR_WHITE;
 
             addQuad(indices, iCount, vCount, vStart, vertices, &t,
                     mesh.vertices[f.vertices[0]].coord, 
@@ -706,7 +710,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < mesh.tCount; j++) {
             TR::Triangle &f = mesh.triangles[j];
-            TR::ObjectTexture &t = f.color ? whiteTile : level.objectTextures[f.texture];
+            TR::ObjectTexture &t = f.flags.color ? whiteTile : level.objectTextures[f.flags.texture];
 
             if (t.attribute != 0)
                 isOpaque = false;
@@ -714,7 +718,7 @@ struct MeshBuilder {
             if (opaque != (t.attribute == 0))
                 continue;
 
-            TR::Color24 c = f.color ? level.getColor(f.texture) : COLOR_WHITE;
+            TR::Color32 c = f.flags.color ? level.getColor(f.flags.texture) : COLOR_WHITE;
 
             addTriangle(indices, iCount, vCount, vStart, vertices, &t);
 
@@ -804,7 +808,7 @@ struct MeshBuilder {
             v.param    = { range, frame, 0, 0 };
         }
 
-        if (level->version == TR::VER_TR1_PSX && !triangle)
+        if ((level->version == TR::VER_TR1_PSX || level->version == TR::VER_TR2_PSX) && !triangle)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
     }
 

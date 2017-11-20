@@ -444,7 +444,7 @@ struct WaterCache {
             Core::invalidateTarget(false, true);
         }
 
-        void free() {
+        void deinit() {
             delete data[0];
             delete data[1];
             delete caustics;
@@ -475,7 +475,7 @@ struct WaterCache {
         delete refract;
         delete reflect;
         for (int i = 0; i < count; i++)
-            items[i].free();
+            items[i].deinit();
     }
 
     void update() {
@@ -483,7 +483,7 @@ struct WaterCache {
         while (i < count) {
             Item &item = items[i];
             if (item.timer > MAX_INVISIBLE_TIME) {
-                items[i].free();
+                items[i].deinit();
                 items[i] = items[--count];
                 continue;
             }

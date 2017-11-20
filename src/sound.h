@@ -588,7 +588,7 @@ namespace Sound {
     #endif
     }
 
-    void free() {
+    void deinit() {
         for (int i = 0; i < channelsCount; i++)
             delete channels[i];
     #ifdef DECODE_MP3

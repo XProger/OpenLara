@@ -1,5 +1,8 @@
 #ifdef _DEBUG
+    #define _CRTDBG_MAP_ALLOC
     #include "crtdbg.h"
+    #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+    #define new DEBUG_NEW
 #endif
 
 #ifdef MINIMAL
@@ -323,10 +326,10 @@ char Stream::contentDir[255];
 
 #ifdef _DEBUG
 int main(int argc, char** argv) {
-    _CrtMemState _ms;
-    _CrtMemCheckpoint(&_ms);
+    _CrtMemState _msBegin, _msEnd, _msDiff;
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+    _CrtMemCheckpoint(&_msBegin);
 //#elif PROFILE
 #else
 int main(int argc, char** argv) {
@@ -389,15 +392,19 @@ int main(int argc, char** argv) {
     } while (msg.message != WM_QUIT);
 
     sndFree();
-    Game::free();
+    Game::deinit();
 
     freeGL(hRC);
     ReleaseDC(hWnd, hDC);
 
     DestroyWindow(hWnd);
  #ifdef _DEBUG
-    _CrtMemDumpAllObjectsSince(&_ms);
-    system("pause");
+    _CrtMemCheckpoint(&_msEnd);
+
+    if (_CrtMemDifference(&_msDiff, &_msBegin, &_msEnd) > 0) {
+        _CrtDumpMemoryLeaks();
+        system("pause");
+    }
 #endif
 
     return 0;

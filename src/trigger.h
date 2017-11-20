@@ -105,7 +105,8 @@ struct TrapDartEmitter : Controller {
             vec3 p = pos + vec3(0.0f, -512.0f, 256.0f).rotateY(PI - angle.y);
 
             game->addEntity(TR::Entity::DART, getRoomIndex(), p, angle.y);
-            game->addEntity(TR::Entity::SMOKE, getRoomIndex(), p);
+            if (level->extra.smoke != -1)
+                game->addEntity(TR::Entity::SMOKE, getRoomIndex(), p);
             game->playSound(TR::SND_DART, p, Sound::Flags::PAN);
         }
 
@@ -703,13 +704,13 @@ struct Crystal : Controller {
 #define BLADE_DAMAGE    100
 #define BLADE_RANGE     1024
 
-struct TrapBlade : Controller {
+struct TrapSwingBlade : Controller {
     enum {
         STATE_STATIC = 0,
         STATE_SWING  = 2,
     };
 
-    TrapBlade(IGame *game, int entity) : Controller(game, entity) {}
+    TrapSwingBlade(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
         updateAnimation(true);

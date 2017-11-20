@@ -258,7 +258,7 @@ namespace UI {
         TR::Level *level = game->getLevel();
         MeshBuilder *mesh = game->getMesh();
 
-        int seq = level->extra.glyphSeq;
+        int seq = level->extra.glyphs;
 
         int x = int(pos.x);
         int y = int(pos.y);
@@ -303,7 +303,7 @@ namespace UI {
         TR::Level *level = game->getLevel();
         MeshBuilder *mesh = game->getMesh();
 
-        int seq = level->extra.glyphSeq;
+        int seq = level->extra.glyphs;
 
         if (buffer.iCount == MAX_CHARS * 6)
             flush();
@@ -335,7 +335,7 @@ namespace UI {
 //        texAction = loadRAW(64, 64, "btn_action.raw");
     }
 
-    void free() {
+    void deinit() {
 //        delete texInv;
 //        delete texAction;
     }

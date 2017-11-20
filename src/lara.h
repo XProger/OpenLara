@@ -113,6 +113,9 @@ struct Lara : Character {
 
         ANIM_DEATH_SPIKES       = 149,
         ANIM_HANG_SWING         = 150,
+
+        ANIM_PUSH_BUTTON_SMALL  = 197,
+        ANIM_PUSH_BUTTON_BIG    = 413,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -424,10 +427,15 @@ struct Lara : Character {
         flags.active = 1;
         initMeshOverrides();
 
-        if (level->isHomeLevel)
-            meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
-        else
-            wpnSet(Weapon::PISTOLS);
+        if (level->isHomeLevel) {
+            if (level->version & TR::VER_TR1)
+                meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+        } else {
+            if (level->id == TR::LVL_TR2_HOUSE)
+                wpnSet(Weapon::SHOTGUN);
+            else
+                wpnSet(Weapon::PISTOLS);
+        }
 
         for (int i = 0; i < 2; i++) {
             arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
@@ -436,7 +444,7 @@ struct Lara : Character {
         }
 
         if (level->extra.braid > -1)
-            braid = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
+            braid = new Braid(this, (level->version & TR::VER_TR2) ? vec3(0.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
@@ -1366,6 +1374,7 @@ struct Lara : Character {
             case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
             case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
+            case 26 : break; // TR2 TODO reset_hair
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
     }
@@ -1666,24 +1675,25 @@ struct Lara : Character {
     }
 
     int doTutorial(int track) {
-        switch (track) { // GYM tutorial routine
-            case 28 : if (level->state.tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
-            case 37 : 
-            case 41 : if (state != STATE_HANG) return 0; break;
-            case 42 : if (level->state.tracks[track].once && state == STATE_HANG) track = 43; break;
-            case 49 : if (state != STATE_SURF_TREAD) return 0; break;
-            case 50 : // end of GYM
-                if (level->state.tracks[track].once) {
-                    timer += Core::deltaTime;
-                    if (timer > 3.0f)
-                        game->loadLevel(TR::TITLE);
-                } else {
-                    if (state != STATE_WATER_OUT)
-                        return 0;
-                    timer = 0.0f;
-                }
-                break;
-        }
+        if (level->version == TR::VER_TR1_PC || level->version == TR::VER_TR1_PSX)
+            switch (track) { // GYM tutorial routine
+                case 28 : if (level->state.tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
+                case 37 : 
+                case 41 : if (state != STATE_HANG) return 0; break;
+                case 42 : if (level->state.tracks[track].once && state == STATE_HANG) track = 43; break;
+                case 49 : if (state != STATE_SURF_TREAD) return 0; break;
+                case 50 : // end of GYM
+                    if (level->state.tracks[track].once) {
+                        timer += Core::deltaTime;
+                        if (timer > 3.0f)
+                            game->loadLevel(level->titleId());
+                    } else {
+                        if (state != STATE_WATER_OUT)
+                            return 0;
+                        timer = 0.0f;
+                    }
+                    break;
+            }
         return track;
     }
 
@@ -1772,7 +1782,14 @@ struct Lara : Character {
                     limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
                     if (checkInteraction(controller, limit, Input::state[cAction])) {
                         actionState = (controller->state == Switch::STATE_DOWN && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
-                        if (animation.setState(actionState)) 
+
+                        int animIndex;
+                        switch (controller->getEntity().type) {
+                            case TR::Entity::SWITCH_BUTTON : animIndex = ANIM_PUSH_BUTTON_SMALL;   break;
+                            default : animIndex = -1;
+                        }
+
+                        if (animation.setState(actionState, animIndex)) 
                             controller->activate();
                     }
                 }
@@ -2465,20 +2482,24 @@ struct Lara : Character {
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
             switch (level->id) {
-                case TR::LEVEL_3A :
+                case TR::LVL_TR1_3A :
                     reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
                     break;
-                case TR::LEVEL_3B :
+                case TR::LVL_TR1_3B :
                     reset(5, vec3(73394, 3840, 60758), 0); // level 3b (scion)
                     break;
-                case TR::LEVEL_4 :
+                case TR::LVL_TR1_4 :
                     reset(18, vec3(34914, 11008, 41315), 90 * DEG2RAD); // main hall
                     break;
-                case TR::LEVEL_6 :
+                case TR::LVL_TR1_6 :
                     reset(73, vec3(73372, 122, 51687), PI * 0.5f);       // level 6 (midas hand)
                     break;
-                case TR::LEVEL_7B :
-                    reset(77,  vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
+                case TR::LVL_TR1_7B :
+                    reset(77, vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
+                    break;
+                case TR::LVL_TR2_WALL :
+                    //reset(44, vec3(62976, 1536, 23040), 0);
+                    reset(44, vec3(62976, 1536, 23040), 0);
                     break;
                 default : game->playSound(TR::SND_NO, pos, Sound::PAN);
             }

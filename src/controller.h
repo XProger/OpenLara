@@ -282,14 +282,14 @@ struct Controller {
                             info.floor -= 1024 * 3;
                         break;
                     }
-                    case TR::Entity::BRIDGE_0    : 
                     case TR::Entity::BRIDGE_1    : 
-                    case TR::Entity::BRIDGE_2    : {
+                    case TR::Entity::BRIDGE_2    : 
+                    case TR::Entity::BRIDGE_3    : {
                         if (sx != int(controller->pos.x) / 1024 || sz != int(controller->pos.z) / 1024) 
                             break;
 
-                        int s = (e.type == TR::Entity::BRIDGE_1) ? 1 :
-                                (e.type == TR::Entity::BRIDGE_2) ? 2 : 0;
+                        int s = (e.type == TR::Entity::BRIDGE_2) ? 1 :
+                                (e.type == TR::Entity::BRIDGE_3) ? 2 : 0;
 
                         int ey = int(controller->pos.y), sx = 0, sz = 0; 
 
@@ -769,7 +769,17 @@ struct Controller {
 
     virtual void  cmdJump(const vec3 &vel)      {}
     virtual void  cmdEmpty()                    {}
-    virtual void  cmdEffect(int fx)             { ASSERT(false); } // not implemented
+
+    virtual void  cmdEffect(int fx) { 
+        if (fx == 18) return; // TR2 TODO MESH_SWAP1
+        if (fx == 19) return; // TR2 TODO MESH_SWAP2
+        if (fx == 20) return; // TR2 TODO MESH_SWAP3
+        if (fx == 21) flags.invisible = true;  return; // TR2 TODO INV_ON visible = false
+        if (fx == 22) flags.invisible = false; return; // TR2 TODO INV_OFF visible = true
+        if (fx == 23) return; // TR2 TODO DYN_ON
+        if (fx == 24) return; // TR2 TODO DYN_OFF
+        ASSERT(false); // not implemented
+    }
 
     virtual void updateAnimation(bool commands) {
         animation.update();
@@ -793,7 +803,8 @@ struct Controller {
                     case TR::ANIM_CMD_SOUND  :
                     case TR::ANIM_CMD_EFFECT : {
                         int frame = (*ptr++) - anim->frameStart;
-                        int fx    = (*ptr++) & 0x3FFF;
+                        int16 sfx = (*ptr++);
+                        int fx    = sfx & 0x3FFF;
                         if (animation.isFrameActive(frame)) {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
@@ -803,8 +814,11 @@ struct Controller {
                                     case TR::Effect::FLIP_MAP     : level->state.flags.flipped = !level->state.flags.flipped; break;
                                     default                       : cmdEffect(fx); break;
                                 }
-                            } else
-                                game->playSound(fx, pos, Sound::Flags::PAN);
+                            } else {
+                                if (!(sfx & 0x8000)) { // TODO 0x4000 / 0x8000 for ground / water foot steps
+                                    game->playSound(fx, pos, Sound::Flags::PAN);
+                                }
+                            }
                         }
                         break;
                     }
@@ -1017,7 +1031,7 @@ struct Controller {
         if (!explodeMask && frustum && !frustum->isVisible(matrix, box.min, box.max))
             return;
 
-        const TR::Model  *model  = getModel();
+        const TR::Model *model = getModel();
         ASSERT(model);
 
         flags.rendered = true;

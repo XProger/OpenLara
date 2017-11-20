@@ -724,7 +724,7 @@ namespace Core {
 #endif
     }
 
-    void free() {
+    void deinit() {
         delete blackTex;
         delete whiteTex;
     /*
@@ -736,7 +736,7 @@ namespace Core {
             for (int i = 0; i < rtCache[b].count; i++)
                 glDeleteRenderBuffers(1, &rtCache[b].items[i].ID);
     */
-        Sound::free();
+        Sound::deinit();
     }
 
     int cacheRenderTarget(bool depth, int width, int height) {
