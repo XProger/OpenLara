@@ -2747,7 +2747,7 @@ namespace TR {
 
                         stream.read(mesh.rectangles, stream.read(mesh.rCount));
                         stream.read(mesh.triangles,  stream.read(mesh.tCount));
-                        if (mesh.rCount != 0 || mesh.tCount != 0)
+                        if (mesh.rCount == 0 && mesh.tCount == 0)
                             LOG("! warning: mesh %d has no geometry with %d vertices\n", meshesCount - 1, mesh.vCount);
                         //ASSERT(mesh.rCount != 0 || mesh.tCount != 0);
                         
