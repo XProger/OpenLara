@@ -55,6 +55,7 @@ struct Inventory {
                 case TR::Entity::INV_PASSPORT_CLOSED : desc = { STR_GAME,            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
                 case TR::Entity::INV_MAP             : desc = { STR_MAP,             PAGE_INVENTORY, level->extra.inv.map             }; break;
                 case TR::Entity::INV_COMPASS         : desc = { STR_COMPASS,         PAGE_INVENTORY, level->extra.inv.compass         }; break;
+                case TR::Entity::INV_STOPWATCH       : desc = { STR_STOPWATCH,       PAGE_INVENTORY, level->extra.inv.stopwatch       }; break;
                 case TR::Entity::INV_HOME            : desc = { STR_HOME,            PAGE_OPTION,    level->extra.inv.home            }; break;
                 case TR::Entity::INV_DETAIL          : desc = { STR_DETAIL,          PAGE_OPTION,    level->extra.inv.detail          }; break;
                 case TR::Entity::INV_SOUND           : desc = { STR_SOUND,           PAGE_OPTION,    level->extra.inv.sound           }; break;
@@ -89,7 +90,7 @@ struct Inventory {
                 default                              : desc = { STR_UNKNOWN,         PAGE_ITEMS,     -1                               }; break;
             }
 
-            if (desc.model > -1) {
+            if (desc.model > -1 && level->models[desc.model].animation != 0xFFFF) {
                 anim = new Animation(level, &level->models[desc.model]);
                 anim->isEnded = true;
             } else
@@ -203,6 +204,7 @@ struct Inventory {
             new Stream("level/TITLEH.PCX", loadTitleBG, this);
         } else {
             add(TR::Entity::INV_COMPASS);
+            add(TR::Entity::INV_STOPWATCH);
 
             for (int i = 0; i < COUNT(background); i++)
                 background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
@@ -647,6 +649,7 @@ struct Inventory {
                 case TR::Entity::INV_PASSPORT_CLOSED :
                 case TR::Entity::INV_MAP             :
                 case TR::Entity::INV_COMPASS         :
+                case TR::Entity::INV_STOPWATCH       :
                 case TR::Entity::INV_HOME            :
                 case TR::Entity::INV_DETAIL          :
                 case TR::Entity::INV_SOUND           :
@@ -894,7 +897,8 @@ struct Inventory {
                     renderPassport(item);
                     break;
                 case TR::Entity::INV_HOME :
-                case TR::Entity::INV_COMPASS :
+                case TR::Entity::INV_COMPASS   :
+                case TR::Entity::INV_STOPWATCH :
                 case TR::Entity::INV_MAP :
                     break;
                 case TR::Entity::INV_DETAIL :

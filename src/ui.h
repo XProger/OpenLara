@@ -24,6 +24,7 @@ enum StringID {
     , STR_GAME
     , STR_MAP
     , STR_COMPASS
+    , STR_STOPWATCH
     , STR_HOME
     , STR_DETAIL
     , STR_SOUND
@@ -114,6 +115,7 @@ const char *STR[STR_MAX] = {
     , "Game"
     , "Map"
     , "Compass"
+    , "Statistics"
     , "Lara's Home"
     , "Detail Levels"
     , "Sound"

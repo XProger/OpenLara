@@ -80,8 +80,8 @@ struct Level : IGame {
 
     virtual void loadNextLevel() {
     #ifdef __EMSCRIPTEN__
-        if (level.id == TR::LEVEL_2 && level.version != TR::VER_TR1_PC) {
-            loadLevel(TR::TITLE);
+        if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC) {
+            loadLevel(TR::LVL_TR1_TITLE);
             return;
         }
     #endif
@@ -133,7 +133,7 @@ struct Level : IGame {
             ptr += sizeof(*state);
         }
 
-        Stream::write("savegame.dat", data, int(ptr - data));
+        //Stream::write("savegame.dat", data, int(ptr - data));
         delete[] data;
 
         LOG("Ok\n");
@@ -472,9 +472,10 @@ struct Level : IGame {
             float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f;
             if (!(flags & Sound::MUSIC)) {
                 switch (b.flags.mode) {
-                    case 0 : flags |= Sound::UNIQUE; break;
+                    case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
                     case 1 : flags |= Sound::REPLAY; break;
-                    case 2 : flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP; break;
+                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
+                    case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
                 }
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
@@ -560,7 +561,7 @@ struct Level : IGame {
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
             e.controller = initController(i);
-            if (e.type == TR::Entity::LARA || e.type == TR::Entity::CUT_1)
+            if (e.type == TR::Entity::LARA || ((level.version & TR::VER_TR1) && e.type == TR::Entity::CUT_1))
                 lara = (Lara*)e.controller;
         }
 
@@ -684,7 +685,8 @@ struct Level : IGame {
             case TR::Entity::CRYSTAL               : return new Crystal(this, index);
             case TR::Entity::TRAP_SWING_BLADE      : return new TrapSwingBlade(this, index);
             case TR::Entity::TRAP_SPIKES           : return new TrapSpikes(this, index);
-            case TR::Entity::TRAP_BOULDER          : return new TrapBoulder(this, index);
+            case TR::Entity::TRAP_BOULDER          : 
+            case TR::Entity::TRAP_BOULDERS         : return new TrapBoulder(this, index);
             case TR::Entity::DART                  : return new Dart(this, index);
             case TR::Entity::TRAP_DART_EMITTER     : return new TrapDartEmitter(this, index);
             case TR::Entity::DRAWBRIDGE            : return new Drawbridge(this, index);
@@ -732,7 +734,47 @@ struct Level : IGame {
             case TR::Entity::EARTHQUAKE            : return new Earthquake(this, index);
             case TR::Entity::MUTANT_EGG_SMALL      :
             case TR::Entity::MUTANT_EGG_BIG        : return new MutantEgg(this, index);
-            default                                : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
+
+            case TR::Entity::ENEMY_DOG              : return new Dog(this, index);
+            case TR::Entity::ENEMY_GOON_MASK_1      :
+            case TR::Entity::ENEMY_GOON_MASK_2      :
+            case TR::Entity::ENEMY_GOON_MASK_3      :
+            case TR::Entity::ENEMY_GOON_KNIFE       :
+            case TR::Entity::ENEMY_GOON_SHOTGUN     :
+            case TR::Entity::ENEMY_RAT              :
+            case TR::Entity::ENEMY_DRAGON_FRONT     :
+            case TR::Entity::ENEMY_DRAGON_BACK      :
+            case TR::Entity::ENEMY_SHARK            :
+            case TR::Entity::ENEMY_MORAY_1          :
+            case TR::Entity::ENEMY_MORAY_2          :
+            case TR::Entity::ENEMY_BARACUDA         :
+            case TR::Entity::ENEMY_DIVER            :
+            case TR::Entity::ENEMY_GUNMAN_1         :
+            case TR::Entity::ENEMY_GUNMAN_2         :
+            case TR::Entity::ENEMY_GOON_STICK_1     :
+            case TR::Entity::ENEMY_GOON_STICK_2     :
+            case TR::Entity::ENEMY_GOON_FLAME       :
+            case TR::Entity::UNUSED_23              :
+            case TR::Entity::ENEMY_SPIDER           :
+            case TR::Entity::ENEMY_SPIDER_GIANT     :
+            case TR::Entity::ENEMY_CROW             :
+            case TR::Entity::ENEMY_TIGER            :
+            case TR::Entity::ENEMY_MARCO            :
+            case TR::Entity::ENEMY_GUARD_SPEAR        :
+            case TR::Entity::ENEMY_GUARD_SPEAR_STATUE :
+            case TR::Entity::ENEMY_GUARD_SWORD        :
+            case TR::Entity::ENEMY_GUARD_SWORD_STATUE :
+            case TR::Entity::ENEMY_YETI             :
+            case TR::Entity::ENEMY_BIRD_MONSTER     :
+            case TR::Entity::ENEMY_EAGLE            :
+            case TR::Entity::ENEMY_MERCENARY_1      :
+            case TR::Entity::ENEMY_MERCENARY_2      :
+            case TR::Entity::ENEMY_MERCENARY_3      :
+            case TR::Entity::ENEMY_MERCENARY_SNOWMOBILE :
+            case TR::Entity::ENEMY_MONK_1           :
+            case TR::Entity::ENEMY_MONK_2           : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+
+            default                                 : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
         }
     }
 
@@ -1000,11 +1042,16 @@ struct Level : IGame {
     void renderRooms(int *roomsList, int roomsCount) {
         PROFILE_MARKER("ROOMS");
 
+        bool hasSky = false;
+
         for (int i = 0; i < level.roomsCount; i++)
             level.rooms[i].flags.visible = false;
 
-        for (int i = 0; i < roomsCount; i++)
-            level.rooms[roomsList[i]].flags.visible = true;
+        for (int i = 0; i < roomsCount; i++) {
+            TR::Room &r = level.rooms[roomsList[i]];
+            hasSky |= r.flags.sky;
+            r.flags.visible = true;
+        }
 
         if (Core::pass == Core::passShadow)
             return;
@@ -1031,7 +1078,8 @@ struct Level : IGame {
 
         Core::setBlending(bmNone);
 
-        renderSky();
+        if (hasSky)
+            renderSky();
 
         for (int transp = 0; transp < 2; transp++) {
             for (int i = 0; i < roomsCount; i++) {
@@ -1395,7 +1443,8 @@ struct Level : IGame {
         int roomsCount = 0;
 
         getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
-        /* // show all rooms
+        // show all rooms
+        /*
         for (int i = 0; i < level.roomsCount; i++)
             roomsList[i] = i;
         roomsCount = level.roomsCount;

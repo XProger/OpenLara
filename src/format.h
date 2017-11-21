@@ -473,14 +473,24 @@
 namespace TR {
 
     enum Version : uint32 {
-        VER_UNKNOWN = 0,
-        VER_TR1_PC  = 1,
-        VER_TR1_PSX = 2,
-        VER_TR1_SAT = 4,
-        VER_TR1     = VER_TR1_PC | VER_TR1_PSX | VER_TR1_SAT,
-        VER_TR2_PC  = 16,
-        VER_TR2_PSX = 32,
-        VER_TR2     = VER_TR2_PC | VER_TR2_PSX,
+        VER_UNKNOWN  = 0,
+
+        VER_PC       = 256,
+        VER_PSX      = 512,
+        VER_SEGA     = 1024,
+
+        VER_TR1      = 1,
+        VER_TR2      = 2, 
+        VER_TR3      = 4,
+        VER_TR4      = 8,
+        VER_TR5      = 16,
+
+        VER_TR1_PC   = VER_TR1 | VER_PC,
+        VER_TR1_PSX  = VER_TR1 | VER_PSX,
+        VER_TR1_SEGA = VER_TR1 | VER_SEGA,
+
+        VER_TR2_PC   = VER_TR2 | VER_PC,
+        VER_TR2_PSX  = VER_TR2 | VER_PSX,
     };
 
     enum {
@@ -518,8 +528,16 @@ namespace TR {
         LARA_HANDSFREE ,
         FLIP_MAP       ,
         DRAW_RIGHTGUN  ,
-        UNK5           ,
+        DRAW_LEFTGUN   ,
         FLICKER        ,
+        UNKNOWN        ,
+        MESH_SWAP_1    ,
+        MESH_SWAP_2    ,
+        MESH_SWAP_3    ,
+        INV_ON         ,
+        INV_OFF        ,
+        DYN_ON         ,
+        DYN_OFF        ,
     };
 
     enum {
@@ -814,7 +832,7 @@ namespace TR {
         uint16  meshesCount;
         int16   alternateRoom;
         struct {
-            uint16 water:1, unused:14, visible:1;
+            uint16 water:1, :2, sky:1, :1, wind:1, unused:9, visible:1;
         } flags;
 
         struct Portal {
@@ -896,6 +914,7 @@ namespace TR {
             CEILING ,
             TRIGGER ,
             LAVA    ,
+            CLIMB   ,
         };
     };
 
@@ -1082,11 +1101,17 @@ namespace TR {
 
 
         bool isEnemy() const {
-            return (type >= ENEMY_DOPPELGANGER && type <= ENEMY_GIANT_MUTANT) || type == SCION_TARGET;
+            return (type >= ENEMY_DOPPELGANGER && type <= ENEMY_GIANT_MUTANT) || type == SCION_TARGET ||
+                   (type >= ENEMY_DOG && type <= ENEMY_DRAGON_BACK) ||
+                   (type >= ENEMY_SHARK && type <= ENEMY_MONK_2);
         }
 
         bool isBigEnemy() const {
             return type == ENEMY_REX || type == ENEMY_MUTANT_1 || type == ENEMY_CENTAUR;
+        }
+
+        bool isVehicle() const {
+            return type == VEHICLE_BOAT || type == VEHICLE_SNOWMOBILE_RED || type == VEHICLE_SNOWMOBILE_BLACK;
         }
 
         bool isDoor() const {
@@ -1095,6 +1120,7 @@ namespace TR {
 
         bool isCollider() const {
             return isEnemy() ||
+                   isVehicle() ||
                    isDoor() ||
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
                    ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
@@ -1137,7 +1163,7 @@ namespace TR {
         }
 
         bool castShadow() const {
-            return isLara() || isEnemy() || isActor() || type == DART || type == TRAP_SWORD;
+            return isLara() || isEnemy() || isVehicle() || isActor() || type == DART || type == TRAP_SWORD;
         }
 
         void getAxis(int &dx, int &dz) {
@@ -1573,10 +1599,10 @@ namespace TR {
         { "BOAT"      , "Venice",                   NO_TRACK },
         { "VENICE"    , "Bartoli's Hideout",        NO_TRACK },
         { "OPERA"     , "Opera House",              NO_TRACK },
-        { "CUT2"      , "",                         3 },
+        { "CUT2"      , "",                         4 },
         { "RIG"       , "Offshore Rig",             NO_TRACK },
         { "PLATFORM"  , "Diving Area",              NO_TRACK },
-        { "CUT3"      , "",                         4 },
+        { "CUT3"      , "",                         5 },
         { "UNWATER"   , "40 Fathoms",               NO_TRACK },
         { "KEEL"      , "Wreck of the Maria Doria", NO_TRACK },
         { "LIVING"    , "Living Quarters",          NO_TRACK },
@@ -1587,7 +1613,7 @@ namespace TR {
         { "ICECAVE"   , "Ice Palace",               NO_TRACK },
         { "EMPRTOMB"  , "Temple of Xian",           NO_TRACK },
         { "FLOATING"  , "Floating Islands",         NO_TRACK },
-        { "CUT4"      , "",                         2 },
+        { "CUT4"      , "",                         30 },
         { "XIAN"      , "The Dragon's Lair",        NO_TRACK },
         { "HOUSE"     , "Home Sweet Home",          NO_TRACK },
     };
@@ -1783,6 +1809,7 @@ namespace TR {
         };
     
         struct FloorInfo {
+        // TODO reduse type sizes
             float roomFloor, roomCeiling;
             int roomNext, roomBelow, roomAbove;
             float floor, ceiling;
@@ -1791,6 +1818,7 @@ namespace TR {
             int boxIndex;
             int lava;
             int trigCmdCount;
+            int climb;
             Trigger trigger;
             FloorData::TriggerInfo trigInfo;
             FloorData::TriggerCommand trigCmd[MAX_TRIGGER_COMMANDS];
@@ -1822,6 +1850,8 @@ namespace TR {
             int16 puzzleDone[4];
             int16 weapons[4];
             int16 braid;
+            int16 laraSpec;
+            int16 meshSwap[3];
             int16 sky;
             int16 smoke;
             int16 glyphs;
@@ -1831,6 +1861,7 @@ namespace TR {
                 int16 passport_closed;
                 int16 map;
                 int16 compass;
+                int16 stopwatch;
                 int16 home;
                 int16 detail;
                 int16 sound;
@@ -1868,7 +1899,7 @@ namespace TR {
 
             id = getLevelID(stream.size);
 
-            if (version == VER_UNKNOWN) {
+            if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
                 if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC) {
                     soundOffset = magic;
@@ -1879,7 +1910,7 @@ namespace TR {
                     case MAGIC_TR1_PC  : version = VER_TR1_PC;  break;
                     case MAGIC_TR1_PSX : version = VER_TR1_PSX; break;
                     case MAGIC_TR2_PC  : version = VER_TR2_PC;  break;
-                    default            : version = VER_UNKNOWN;
+                    default            : ;
                 }
             }
 
@@ -1907,7 +1938,7 @@ namespace TR {
                 stream.read(palette32, 256);
             }
 
-            if (version == VER_TR1_PSX) {
+            if (version == VER_TR1_PSX && !isCutsceneLevel()) {
                 uint32 offsetTexTiles;
                 stream.seek(8);
                 stream.read(offsetTexTiles);
@@ -1938,8 +1969,7 @@ namespace TR {
             if (version == VER_TR2_PC) 
                 stream.read(tiles16, tilesCount);
 
-            if (!version /*PSX cutscene*/ || version == VER_TR1_PSX) {
-                version = VER_TR1_PSX;
+            if (version == VER_TR1_PSX) {
             // tiles
                 stream.read(tiles4, tilesCount = 13);
                 stream.read(cluts, clutsCount = 512);                
@@ -1949,146 +1979,8 @@ namespace TR {
 
         // rooms
             rooms = new Room[stream.read(roomsCount)];
-            for (int i = 0; i < roomsCount; i++) {
-                Room &r = rooms[i];
-                Room::Data &d = r.data;
-            // room info
-                stream.read(r.info);
-            // room data
-                stream.read(d.size);
-                int startOffset = stream.pos;
-                if (version == VER_TR1_PSX) stream.seek(2);
-                d.vertices = stream.read(d.vCount) ? new Room::Data::Vertex[d.vCount] : NULL;
-                for (int i = 0; i < d.vCount; i++) {
-                    Room::Data::Vertex &v = d.vertices[i];
-
-                    if (version == VER_TR2_PSX) {
-                        union Compressed {
-                            struct { uint32 lighting:8, attributes:8, z:5, y:5, x:5, w:1; };
-                            uint32 value;
-                        } comp;
-                        stream.read(comp.value);
-                        v.vertex.x   = (comp.x << 10);
-                        v.vertex.y   = (comp.y << 8) + r.info.yTop;
-                        v.vertex.z   = (comp.z << 10);
-                        v.lighting   = comp.lighting;
-                        v.attributes = comp.attributes;
-                        ASSERT(comp.w == 0);
-                    } else {
-                        stream.read(v.vertex.x);
-                        stream.read(v.vertex.y);
-                        stream.read(v.vertex.z);
-                        stream.read(v.lighting);
-                        if (version == VER_TR2_PC) {
-                            stream.read(v.attributes);
-                            stream.read(v.lighting2);
-                        }
-                    }
-                }
-
-                if (version == VER_TR2_PSX)
-                    stream.seek(2);
-
-                if (version == VER_TR1_PSX || version == VER_TR2_PSX)
-                    for (int j = 0; j < d.vCount; j++) // convert vertex luminance from PSX to PC format
-                        d.vertices[j].lighting = 0x1FFF - (d.vertices[j].lighting << 5);               
-
-                d.rectangles = stream.read(d.rCount) ? new Rectangle[d.rCount] : NULL;
-                if (version == VER_TR2_PSX) {
-                    for (int i = 0; i < d.rCount; i++)
-                        stream.raw(&d.rectangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
-                    if ((stream.pos - startOffset) % 4) stream.seek(2);
-                    for (int i = 0; i < d.rCount; i++) {
-                        stream.raw(d.rectangles[i].vertices, sizeof(d.rectangles[i].vertices));
-                        d.rectangles[i].vertices[0] >>= 2;
-                        d.rectangles[i].vertices[1] >>= 2;
-                        d.rectangles[i].vertices[2] >>= 2;
-                        d.rectangles[i].vertices[3] >>= 2;
-                    }
-                } else
-                    stream.raw(d.rectangles, sizeof(Rectangle) * d.rCount);
-
-                if (version == VER_TR1_PSX || version == VER_TR2_PSX)
-                    for (int j = 0; j < d.rCount; j++) // swap indices (quad strip -> quad list)
-                        swap(d.rectangles[j].vertices[2], d.rectangles[j].vertices[3]);
-
-                d.triangles = stream.read(d.tCount) ? new Triangle[d.tCount] : NULL;
-                if (version == VER_TR2_PSX) {
-                    stream.seek(2);
-                    for (int i = 0; i < d.tCount; i++) {
-                        stream.raw(&d.triangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
-                        stream.raw(d.triangles[i].vertices, sizeof(d.triangles[i].vertices));
-                        d.triangles[i].vertices[0] >>= 2;
-                        d.triangles[i].vertices[1] >>= 2;
-                        d.triangles[i].vertices[2] >>= 2;
-                    }
-                } else
-                    stream.raw(d.triangles, sizeof(Triangle) * d.tCount);
-
-            // room sprites
-                if (version == VER_TR2_PSX) { // there is no room sprites
-                    d.sprites = NULL;
-                    d.sCount  = NULL;
-                } else
-                    stream.read(d.sprites, stream.read(d.sCount));
-
-            // portals
-                stream.read(r.portals, stream.read(r.portalsCount));
-            // sectors
-                stream.read(r.zSectors);
-                stream.read(r.xSectors);
-                stream.read(r.sectors, r.zSectors * r.xSectors);
-            // ambient light luminance
-                stream.read(r.ambient);
-                if (version & VER_TR2) {
-                    stream.read(r.ambient2);
-                    stream.read(r.lightMode);
-                }
-
-            // lights
-                r.lights = stream.read(r.lightsCount) ? new Room::Light[r.lightsCount] : NULL;
-                for (int i = 0; i < r.lightsCount; i++) {
-                    Room::Light &light = r.lights[i];
-                    stream.read(light.x);
-                    stream.read(light.y);
-                    stream.read(light.z);
-                    if (version == VER_TR1_PSX) {
-                        uint32 intensity;
-                        light.intensity = stream.read(intensity);
-                    } else
-                        stream.read(light.intensity);
-
-                    if (version & VER_TR2)
-                        stream.read(light.intensity2);
-
-                    stream.read(light.radius);
-
-                    if (version & VER_TR2)
-                        stream.read(light.radius2);
-
-                    light.radius *= 2;
-                }
-            // meshes
-                stream.read(r.meshesCount);
-                r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
-                for (int i = 0; i < r.meshesCount; i++) {
-                    Room::Mesh &m = r.meshes[i];
-                    stream.read(m.x);
-                    stream.read(m.y);
-                    stream.read(m.z);
-                    stream.read(m.rotation);
-                    stream.read(m.intensity);
-                    if (version & VER_TR2)
-                        stream.read(m.intensity2);
-                    stream.read(m.meshID);
-                    if (version == VER_TR1_PSX)
-                        stream.seek(2); // just an align for PSX version
-                }
-
-            // misc flags
-                stream.read(r.alternateRoom);
-                stream.read(r.flags);
-            }
+            for (int i = 0; i < roomsCount; i++) 
+                readRoom(stream, rooms[i]);
 
         // floors
             stream.read(floors,         stream.read(floorsCount));
@@ -2113,7 +2005,7 @@ namespace TR {
                 stream.read(m.node);
                 stream.read(m.frame);
                 stream.read(m.animation);
-                if (version == VER_TR1_PSX || version == VER_TR2_PSX)
+                if (version & VER_PSX)
                     stream.seek(2);
                 m.type = Entity::remap(version, m.type);
             }
@@ -2139,7 +2031,7 @@ namespace TR {
             boxes = stream.read(boxesCount) ? new Box[boxesCount] : NULL;
             for (int i = 0; i < boxesCount; i++) {
                 Box &b = boxes[i];
-                if (version == VER_TR1_PC || version == VER_TR1_PSX) {
+                if (version & VER_TR1) {
                     stream.read(b.minZ);
                     stream.read(b.maxZ);
                     stream.read(b.minX);
@@ -2162,14 +2054,14 @@ namespace TR {
             for (int i = 0; i < 2; i++) {
                 stream.read(zones[i].ground1, boxesCount);
                 stream.read(zones[i].ground2, boxesCount);
-                if (version & VER_TR2) {
+                if (!(version & VER_TR1)) {
                     stream.read(zones[i].ground3, boxesCount);
                     stream.read(zones[i].ground4, boxesCount);
                 } else {
                     zones[i].ground3 = NULL;
                     zones[i].ground4 = NULL;
                 }
-                stream.read(zones[i].fly,     boxesCount);
+                stream.read(zones[i].fly, boxesCount);
             }
         // animated textures
             stream.read(animTexturesData,   stream.read(animTexturesDataSize));
@@ -2200,7 +2092,8 @@ namespace TR {
             if (isCutsceneLevel()) {
                 for (int i = 0; i < entitiesBaseCount; i++) {
                     TR::Entity &e = entities[i];
-                    if (e.isActor()) {
+                    if ((((version & VER_TR1)) && e.isActor()) || 
+                        (((version & VER_TR2)) && e.isLara())) {
                         cutEntity = i;
                         break;
                     }
@@ -2251,7 +2144,7 @@ namespace TR {
             }
 
         // cinematic frames for cameras (PSX)
-            if (version == VER_TR1_PSX || version == VER_TR2_PSX) {
+            if (version & VER_PSX) {
                 stream.seek(4);
                 stream.read(cameraFrames, stream.read(cameraFramesCount));
             }
@@ -2329,68 +2222,68 @@ namespace TR {
             isHomeLevel = false;
             switch (size) {
             // TR1
-                case 508614  :
+                case 508614  : version = VER_TR1_PSX;
                 case 316138  :
                 case 316460  : return LVL_TR1_TITLE;
-                case 1074234 :
+                case 1074234 : version = VER_TR1_PSX;
                 case 3236806 :
                 case 3237128 : isHomeLevel = true; return LVL_TR1_GYM;
-                case 1448896 :
+                case 1448896 : version = VER_TR1_PSX;
                 case 2533312 :
                 case 2533634 : return LVL_TR1_1;
                 case 2873406 : isDemoLevel = true; return LVL_TR1_2;
-                case 1535734 :
+                case 1535734 : version = VER_TR1_PSX;
                 case 2873128 :
                 case 2873450 : return LVL_TR1_2;
-                case 1630560 :
+                case 1630560 : version = VER_TR1_PSX;
                 case 2934408 :
                 case 2934730 : return LVL_TR1_3A;
-                case 1506614 :
+                case 1506614 : version = VER_TR1_PSX;
                 case 2737936 :
                 case 2738258 : return LVL_TR1_3B;
-                case 722402  :
+                case 722402  : version = VER_TR1_PSX;
                 case 599840  : return LVL_TR1_CUT_1;
-                case 1621970 :
+                case 1621970 : version = VER_TR1_PSX;
                 case 3030550 :
                 case 3030872 : return LVL_TR1_4;
-                case 1585942 :
+                case 1585942 : version = VER_TR1_PSX;
                 case 2718218 :
                 case 2718540 : return LVL_TR1_5;
-                case 1708464 :
+                case 1708464 : version = VER_TR1_PSX;
                 case 3139590 :
                 case 3074376 : return LVL_TR1_6;
-                case 1696664 :
+                case 1696664 : version = VER_TR1_PSX;
                 case 2817290 :
                 case 2817612 : return LVL_TR1_7A;
-                case 1733274 :
+                case 1733274 : version = VER_TR1_PSX;
                 case 3388774 :
                 case 3389096 : return LVL_TR1_7B;
-                case 542960  :
+                case 542960  : version = VER_TR1_PSX;
                 case 354320  : return LVL_TR1_CUT_2;
-                case 1563356 :
+                case 1563356 : version = VER_TR1_PSX;
                 case 2880242 :
                 case 2880564 : return LVL_TR1_8A;
-                case 1565630 :
+                case 1565630 : version = VER_TR1_PSX;
                 case 2886434 :
                 case 2886756 : return LVL_TR1_8B;
-                case 1619360 :
+                case 1619360 : version = VER_TR1_PSX;
                 case 3105128 :
                 case 3105450 : return LVL_TR1_8C;
-                case 1678018 :
+                case 1678018 : version = VER_TR1_PSX;
                 case 3223816 :
                 case 3224138 : return LVL_TR1_10A;
-                case 636660  :
+                case 636660  : version = VER_TR1_PSX;
                 case 512104  : return LVL_TR1_CUT_3;
-                case 1686748 :
+                case 1686748 : version = VER_TR1_PSX;
                 case 3094020 : return LVL_TR1_10B;
-                case 940398  :
+                case 940398  : version = VER_TR1_PSX;
                 case 879582  : return LVL_TR1_CUT_4;
-                case 1814278 :
+                case 1814278 : version = VER_TR1_PSX;
                 case 3531702 :
                 case 3532024 : return LVL_TR1_10C;
-                case 3278614 :
+                case 3278614 : version = VER_TR1_PSX;
                 case 3279242 : return LVL_TR1_EGYPT;
-                case 3270370 :
+                case 3270370 : version = VER_TR1_PSX;
                 case 3270998 : return LVL_TR1_CAT;
                 case 3208018 : return LVL_TR1_END;
                 case 3153300 : return LVL_TR1_END2;
@@ -2454,13 +2347,11 @@ namespace TR {
                 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61
             };
 
-            switch (version) {
-                case VER_TR2_PC :
-                    ASSERT(track < COUNT(TR2_TRACK_MAPPING));
-                    return TR2_TRACK_MAPPING[track];
-                default : 
-                    return track;
+            if (version & VER_TR2) {
+                ASSERT(track < COUNT(TR2_TRACK_MAPPING));
+                return TR2_TRACK_MAPPING[track];
             }
+            return track;
         }
 
         void initExtra() {
@@ -2479,11 +2370,16 @@ namespace TR {
                     case Entity::LARA_MAGNUMS        : extra.weapons[2]      = i; break;
                     case Entity::LARA_UZIS           : extra.weapons[3]      = i; break;
                     case Entity::LARA_BRAID          : extra.braid           = i; break;
+                    case Entity::LARA_SPEC           : extra.laraSpec        = i; break;
+                    case Entity::CUT_1               : extra.meshSwap[0]     = i; break;
+                    case Entity::CUT_2               : extra.meshSwap[1]     = i; break;
+                    case Entity::CUT_3               : extra.meshSwap[2]     = i; break;
 
                     case Entity::INV_PASSPORT        : extra.inv.passport    = i; break;
                     case Entity::INV_PASSPORT_CLOSED : extra.inv.passport_closed = i; break;
                     case Entity::INV_MAP             : extra.inv.map         = i; break;
                     case Entity::INV_COMPASS         : extra.inv.compass     = i; break;
+                    case Entity::INV_STOPWATCH       : extra.inv.stopwatch   = i; break;
                     case Entity::INV_HOME            : extra.inv.home        = i; break;
                     case Entity::INV_DETAIL          : extra.inv.detail      = i; break;
                     case Entity::INV_SOUND           : extra.inv.sound       = i; break;
@@ -2551,7 +2447,9 @@ namespace TR {
                         cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
                         cutMatrix.rotateY(PI * 0.5f);
                         break;
-                    default : cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));;
+                    default :
+                        cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
+                        cutMatrix.rotateY(e.rotation);
                 }
             }
         }
@@ -2559,6 +2457,7 @@ namespace TR {
         LevelID titleId() {
             if (version & VER_TR1) return LVL_TR1_TITLE;
             if (version & VER_TR2) return LVL_TR2_TITLE;
+            return LVL_TR1_TITLE;
             ASSERT(false);
         }
 
@@ -2570,6 +2469,155 @@ namespace TR {
             return id == LVL_TR1_CUT_1 || id == LVL_TR1_CUT_2 || id == LVL_TR1_CUT_3 || id == LVL_TR1_CUT_4 ||
                    id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4;
         }
+
+        void readRoom(Stream &stream, Room &r) {
+            Room::Data &d = r.data;
+        // room info
+            stream.read(r.info);
+        // room data
+            stream.read(d.size);
+            int startOffset = stream.pos;
+            if (version == VER_TR1_PSX) stream.seek(2);
+            d.vertices = stream.read(d.vCount) ? new Room::Data::Vertex[d.vCount] : NULL;
+            for (int i = 0; i < d.vCount; i++) {
+                Room::Data::Vertex &v = d.vertices[i];
+
+                if (version == VER_TR2_PSX) {
+                    union Compressed {
+                        struct { uint32 lighting:8, attributes:8, z:5, y:5, x:5, w:1; };
+                        uint32 value;
+                    } comp;
+                    stream.read(comp.value);
+                    v.vertex.x   = (comp.x << 10);
+                    v.vertex.y   = (comp.y << 8) + r.info.yTop;
+                    v.vertex.z   = (comp.z << 10);
+                    v.lighting   = comp.lighting;
+                    v.attributes = comp.attributes;
+                    ASSERT(comp.w == 0);
+                } else {
+                    stream.read(v.vertex.x);
+                    stream.read(v.vertex.y);
+                    stream.read(v.vertex.z);
+                    stream.read(v.lighting);
+                    if (version == VER_TR2_PC) {
+                        stream.read(v.attributes);
+                        stream.read(v.lighting2);
+                    }
+                }
+
+                if (version & VER_PSX)
+                    v.lighting = 0x1FFF - (v.lighting << 5); // convert vertex luminance from PSX to PC format          
+            }
+
+            if (version == VER_TR2_PSX)
+                stream.seek(2);
+
+            d.rectangles = stream.read(d.rCount) ? new Rectangle[d.rCount] : NULL;
+            if (version == VER_TR2_PSX) {
+                for (int i = 0; i < d.rCount; i++)
+                    stream.raw(&d.rectangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
+                if ((stream.pos - startOffset) % 4) stream.seek(2);
+                for (int i = 0; i < d.rCount; i++) {
+                    stream.raw(d.rectangles[i].vertices, sizeof(d.rectangles[i].vertices));
+                    d.rectangles[i].vertices[0] >>= 2;
+                    d.rectangles[i].vertices[1] >>= 2;
+                    d.rectangles[i].vertices[2] >>= 2;
+                    d.rectangles[i].vertices[3] >>= 2;
+                }
+            } else
+                stream.raw(d.rectangles, sizeof(Rectangle) * d.rCount);
+
+            if (version == VER_TR1_PSX || version == VER_TR2_PSX)
+                for (int j = 0; j < d.rCount; j++) // swap indices (quad strip -> quad list)
+                    swap(d.rectangles[j].vertices[2], d.rectangles[j].vertices[3]);
+
+            d.triangles = stream.read(d.tCount) ? new Triangle[d.tCount] : NULL;
+            if (version == VER_TR2_PSX) {
+                stream.seek(2);
+                for (int i = 0; i < d.tCount; i++) {
+                    stream.raw(&d.triangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
+                    stream.raw(d.triangles[i].vertices, sizeof(d.triangles[i].vertices));
+                    d.triangles[i].vertices[0] >>= 2;
+                    d.triangles[i].vertices[1] >>= 2;
+                    d.triangles[i].vertices[2] >>= 2;
+                }
+            } else
+                stream.raw(d.triangles, sizeof(Triangle) * d.tCount);
+
+        // room sprites
+            if (version == VER_TR2_PSX) { // there is no room sprites
+                d.sprites = NULL;
+                d.sCount  = NULL;
+            } else
+                stream.read(d.sprites, stream.read(d.sCount));
+
+        // portals
+            stream.read(r.portals, stream.read(r.portalsCount));
+
+            if (version == VER_TR2_PSX)
+                for (int i = 0; i < r.portalsCount; i++) {
+                    r.portals[i].vertices[0].y += r.info.yTop;
+                    r.portals[i].vertices[1].y += r.info.yTop;
+                    r.portals[i].vertices[2].y += r.info.yTop;
+                    r.portals[i].vertices[3].y += r.info.yTop;
+                }
+
+        // sectors
+            stream.read(r.zSectors);
+            stream.read(r.xSectors);
+            stream.read(r.sectors, r.zSectors * r.xSectors);
+        // ambient light luminance
+            stream.read(r.ambient);
+            if (version & VER_TR2) {
+                stream.read(r.ambient2);
+                stream.read(r.lightMode);
+            }
+
+        // lights
+            r.lights = stream.read(r.lightsCount) ? new Room::Light[r.lightsCount] : NULL;
+            for (int i = 0; i < r.lightsCount; i++) {
+                Room::Light &light = r.lights[i];
+                stream.read(light.x);
+                stream.read(light.y);
+                stream.read(light.z);
+                if (version == VER_TR1_PSX) {
+                    uint32 intensity;
+                    light.intensity = stream.read(intensity);
+                } else
+                    stream.read(light.intensity);
+
+                if (version & VER_TR2)
+                    stream.read(light.intensity2);
+
+                stream.read(light.radius);
+
+                if (version & VER_TR2)
+                    stream.read(light.radius2);
+
+                light.radius *= 2;
+            }
+        // meshes
+            stream.read(r.meshesCount);
+            r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
+            for (int i = 0; i < r.meshesCount; i++) {
+                Room::Mesh &m = r.meshes[i];
+                stream.read(m.x);
+                stream.read(m.y);
+                stream.read(m.z);
+                stream.read(m.rotation);
+                stream.read(m.intensity);
+                if (version & VER_TR2)
+                    stream.read(m.intensity2);
+                stream.read(m.meshID);
+                if (version == VER_TR1_PSX)
+                    stream.seek(2); // just an align for PSX version
+            }
+
+        // misc flags
+            stream.read(r.alternateRoom);
+            stream.read(r.flags);
+        }
+
 
         void readMeshes(Stream &stream) {
             uint32 meshDataSize;
@@ -2689,9 +2737,8 @@ namespace TR {
                             }
                         }
 
-                        uint16 crCount = 0, ctCount = 0, rCount = 0, tCount = 0;
-
-                        if (version == VER_TR2_PSX && nCount > 0) {
+                        if (version == VER_TR2_PSX && nCount > 0) { // TODO probably for unused meshes only but need to check
+                            uint16 crCount = 0, ctCount = 0;
                             stream.read(crCount);
                             stream.seek((sizeof(Rectangle) + 2) * crCount);
                             stream.read(ctCount);
@@ -2700,8 +2747,9 @@ namespace TR {
 
                         stream.read(mesh.rectangles, stream.read(mesh.rCount));
                         stream.read(mesh.triangles,  stream.read(mesh.tCount));
-
-                        ASSERT(mesh.rCount != 0 || mesh.tCount != 0);
+                        if (mesh.rCount != 0 || mesh.tCount != 0)
+                            LOG("! warning: mesh %d has no geometry with %d vertices\n", meshesCount - 1, mesh.vCount);
+                        //ASSERT(mesh.rCount != 0 || mesh.tCount != 0);
                         
                         for (int i = 0; i < mesh.rCount; i++) {
                             if (mesh.rectangles[i].flags.texture < 256)
@@ -2728,6 +2776,7 @@ namespace TR {
                         
                         break;
                     }
+                    default : ASSERT(false);
                 }
 
                 #define RECALC_ZERO_NORMALS(mesh, face, count)\
@@ -2839,6 +2888,7 @@ namespace TR {
                         SET_PARAMS(t, d, d.clut);
                         break;
                     }
+                    default : ASSERT(false);
                 }
             }
 
@@ -2889,6 +2939,7 @@ namespace TR {
                         t.texCoord[1] = { d.u1, d.v1 };
                         break;
                     }
+                    default : ASSERT(false);
                 }
             }
 
@@ -2999,6 +3050,7 @@ namespace TR {
                     }
                     break;
                 }
+                default : ASSERT(false);
             }
         }
 
@@ -3017,6 +3069,7 @@ namespace TR {
                     CLUT  &clut = cluts[t.clut];
                     return clut.color[part ? tile.index[idx].b : tile.index[idx].a];
                 }
+                default : ASSERT(false);
             }
             return Color32(255, 0, 255, 255);
         }
@@ -3030,6 +3083,7 @@ namespace TR {
                 case VER_TR2_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
                 case VER_TR1_PSX :
                 case VER_TR2_PSX : size = soundSize[index]; break;
+                default          : ASSERT(false);
             }
             return new Stream(data, size);
         }

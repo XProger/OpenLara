@@ -348,8 +348,9 @@ struct Atlas {
     }
 
     Texture* pack() {
-        width  = nextPow2(int(sqrtf(float(size))));
-        height = (width * width / 2 > size) ? (width / 2) : width;
+    // TODO TR2 fix CUT2 AV
+        width  = 2048;//nextPow2(int(sqrtf(float(size))));
+        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
     // sort
         int *indices = new int[tilesCount];
         for (int i = 0; i < tilesCount; i++)

@@ -184,7 +184,7 @@ struct Camera : ICamera {
             int indexB = min((indexA + 1), level->cameraFramesCount - 1);
 
             if (indexA == level->cameraFramesCount - 1) {
-                if (level->cutEntity != -1)
+                if (level->isCutsceneLevel())
                     game->loadNextLevel();
                 else {
                     Character *lara = (Character*)game->getLara();
@@ -372,8 +372,8 @@ struct Camera : ICamera {
         advTimer = 0.0f;
 
         fov   = firstPerson ? 90.0f : 65.0f;
-        znear = firstPerson ? 8.0f  : 128.0f;
-        zfar  = 40.0f * 1024.0f * 1024.0f;
+        znear = firstPerson ? 8.0f  : 32.0f;
+        zfar  = 40.0f * 1024.0f;
     }
 };
 

@@ -500,7 +500,7 @@ struct Lara : Character {
         dbgBoxes = NULL;
     #endif
 
-        if (getEntity().isLara()) {
+        if (getEntity().isLara() && !level->isCutsceneLevel()) {
             if (getRoom().flags.water)
                 animation.setAnim(ANIM_UNDERWATER);
             else
@@ -1353,9 +1353,11 @@ struct Lara : Character {
     }
 
     void drawGun(int right) {
-        int mask = right ? BODY_ARM_R3 : BODY_ARM_L3; // unholster
+        int mask = (right ? BODY_ARM_R3 : BODY_ARM_L3); // unholster
         if (layers[1].mask & mask)
-            mask = right ? BODY_LEG_R1 : BODY_LEG_L1; // holster
+            mask = (layers[1].mask & ~mask) | (right ? BODY_LEG_R1 : BODY_LEG_L1); // holster
+        else
+            mask |= layers[1].mask;
         meshSwap(1, level->extra.weapons[wpnCurrent], mask);
     }
 
@@ -1374,6 +1376,10 @@ struct Lara : Character {
             case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
             case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
+            case TR::Effect::DRAW_LEFTGUN   : drawGun(false); break;
+            case TR::Effect::MESH_SWAP_1    : 
+            case TR::Effect::MESH_SWAP_2    : 
+            case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
             case 26 : break; // TR2 TODO reset_hair
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }

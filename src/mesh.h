@@ -90,6 +90,7 @@ struct Mesh {
 
     void initRange(MeshRange &range) {
         if (Core::support.VAO) {
+            ASSERT(aIndex < aCount);
             range.aIndex = aIndex++;
             range.bind(VAO);
             bind(true);
@@ -158,6 +159,7 @@ struct MeshBuilder {
     struct RoomRange {
         MeshRange geometry[2]; // opaque & transparent
         MeshRange sprites;
+        int       split;
         MeshRange **meshes;
     } *rooms;
     struct ModelRange {
@@ -192,9 +194,13 @@ struct MeshBuilder {
         int iCount = 0, vCount = 0;
 
     // get size of mesh for rooms (geometry & sprites)
+        int vStartRoom = vCount;
+
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room       &r = level.rooms[i];
             TR::Room::Data &d = r.data;
+
+            int vStartCount = vCount;
 
             iCount += d.rCount * 6 + d.tCount * 3;
             vCount += d.rCount * 4 + d.tCount * 3;
@@ -214,6 +220,12 @@ struct MeshBuilder {
 
             iCount += d.sCount * 6;
             vCount += d.sCount * 4;
+
+            if (vCount - vStartRoom > 0xFFFF) {
+                vStartRoom = vStartCount;
+                rooms[i].split = true;
+            } else
+                rooms[i].split = false;
         }
 
     // get models info
@@ -260,13 +272,18 @@ struct MeshBuilder {
         int aCount = 0;
 
     // build rooms
-        int vStartRoom = vCount;
+        vStartRoom = vCount;
         aCount++;
 
         for (int i = 0; i < level.roomsCount; i++) {
             TR::Room &room = level.rooms[i];
             TR::Room::Data &d = room.data;
             RoomRange &range = rooms[i];
+
+            if (range.split) {
+                vStartRoom = vCount;
+                aCount++;
+            }
 
             for (int transp = 0; transp < 2; transp++) { // opaque, opacity
                 range.geometry[transp].vStart = vStartRoom;
@@ -478,9 +495,13 @@ struct MeshBuilder {
 
         // initialize Vertex Arrays
         MeshRange rangeRoom;
-        rangeRoom.vStart = vStartRoom;
+        rangeRoom.vStart = 0;
         mesh->initRange(rangeRoom);
         for (int i = 0; i < level.roomsCount; i++) {
+            if (rooms[i].split) {
+                rangeRoom.vStart = rooms[i].geometry[0].vStart;
+                mesh->initRange(rangeRoom);
+            }
             RoomRange &r = rooms[i];
             r.geometry[0].aIndex = rangeRoom.aIndex;
             r.geometry[1].aIndex = rangeRoom.aIndex;

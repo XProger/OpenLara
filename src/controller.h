@@ -371,6 +371,10 @@ struct Controller {
                     info.lava = true;
                     break;
 
+                case TR::FloorData::CLIMB :
+                    info.climb = (*fd++).data; // climb mask
+                    break;
+
                 default : LOG("unknown func: %d\n", cmd.func);
             }
 
@@ -771,14 +775,21 @@ struct Controller {
     virtual void  cmdEmpty()                    {}
 
     virtual void  cmdEffect(int fx) { 
-        if (fx == 18) return; // TR2 TODO MESH_SWAP1
-        if (fx == 19) return; // TR2 TODO MESH_SWAP2
-        if (fx == 20) return; // TR2 TODO MESH_SWAP3
-        if (fx == 21) flags.invisible = true;  return; // TR2 TODO INV_ON visible = false
-        if (fx == 22) flags.invisible = false; return; // TR2 TODO INV_OFF visible = true
-        if (fx == 23) return; // TR2 TODO DYN_ON
-        if (fx == 24) return; // TR2 TODO DYN_OFF
-        ASSERT(false); // not implemented
+        switch (fx) {
+            case TR::Effect::MESH_SWAP_1    : 
+            case TR::Effect::MESH_SWAP_2    : 
+            case TR::Effect::MESH_SWAP_3    : {
+                if (!layers) initMeshOverrides();
+                uint32 mask = (layers[1].mask == 0xFFFFFFFF) ? 0 : 0xFFFFFFFF;
+                meshSwap(1, level->extra.meshSwap[fx - TR::Effect::MESH_SWAP_1], mask);
+                break;
+            }
+            case TR::Effect::INV_ON         : flags.invisible = true;  break;
+            case TR::Effect::INV_OFF        : flags.invisible = false; break;
+            case TR::Effect::DYN_ON         : break; // TODO TR2
+            case TR::Effect::DYN_OFF        : break; // TODO TR2
+            default : ASSERT(false);
+        }
     }
 
     virtual void updateAnimation(bool commands) {
@@ -896,22 +907,31 @@ struct Controller {
     }
 
     void updateLights(bool lerp = true) {
+        TR::Room::Light sunLight;
+
         if (getModel()) {
             const TR::Room &room = getRoom();
 
             vec3 center = getBoundingBox().center();
             float maxAtt = 0.0f;
 
-            for (int i = 0; i < room.lightsCount; i++) {
-                TR::Room::Light &light = room.lights[i];
-                if (light.intensity > 0x1FFF) continue;
+            if (room.flags.sky) { // TODO trace rooms up for sun light, add direct light projection
+                sunLight.x = int32(center.x);
+                sunLight.y = int32(center.y) - 8192;
+                sunLight.z = int32(center.z);
+                targetLight = &sunLight;
+            } else {
+                for (int i = 0; i < room.lightsCount; i++) {
+                    TR::Room::Light &light = room.lights[i];
+                    if (light.intensity > 0x1FFF) continue;
 
-                vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * (1.0f - intensityf(light.intensity));
+                    vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
+                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * (1.0f - intensityf(light.intensity));
 
-                if (att > maxAtt) {
-                    maxAtt = att;
-                    targetLight = &light;
+                    if (att > maxAtt) {
+                        maxAtt = att;
+                        targetLight = &light;
+                    }
                 }
             }
         } else 

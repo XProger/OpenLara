@@ -1463,4 +1463,28 @@ struct Natla : Human {
     Natla(IGame *game, int entity) : Human(game, entity, 400) {}
 };
 
+struct Dog : Enemy {
+
+    enum {
+        ANIM_SLEEP = 5,
+        ANIM_DEATH = 13,
+    };
+
+    enum {
+        STATE_DEATH = 10,
+    };
+
+    Dog(IGame *game, int entity) : Enemy(game, entity, 6, 10, 0.0f, 0.0f) {
+        jointChest = 19;
+        jointHead  = 20;
+        animation.setAnim(ANIM_SLEEP);
+    }
+
+    virtual int getStateDeath() {
+        if (state != STATE_DEATH)
+            return animation.setAnim(ANIM_DEATH);
+        return state;
+    }
+};
+
 #endif
