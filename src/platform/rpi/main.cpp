@@ -485,7 +485,7 @@ int main(int argc, char **argv) {
     };
 
     sndFree();
-    Game::free();
+    Game::deinit();
 
     inputFree();
     eglFree(display, surface, context);

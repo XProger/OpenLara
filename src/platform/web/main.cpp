@@ -295,7 +295,7 @@ int main() {
 
     emscripten_set_main_loop(main_loop, 0, true);
 
-    Game::free();
+    Game::deinit();
     freeGL();
 
     return 0;

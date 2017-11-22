@@ -212,7 +212,7 @@ int main() {
             aglSwapBuffers(context);
         }
 
-    Game::free();
+    Game::deinit();
 	// TODO: sndFree
 
     aglSetCurrentContext(NULL);

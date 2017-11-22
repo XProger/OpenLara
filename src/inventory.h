@@ -196,12 +196,18 @@ struct Inventory {
         #endif
         } 
 
-        if (game->getLevel()->isTitle()) {
+        TR::Level *level = game->getLevel();
+
+        if (level->isTitle()) {
             add(TR::Entity::INV_HOME);
 
             memset(background, 0, sizeof(background));
 
-            new Stream("level/TITLEH.PCX", loadTitleBG, this);
+            if (level->version & TR::VER_TR1)
+                new Stream("level/TITLEH.PCX", loadTitleBG, this);
+            if (level->version & TR::VER_TR2)
+                new Stream("level/2/TITLE.PCX", loadTitleBG, this);
+
         } else {
             add(TR::Entity::INV_COMPASS);
             add(TR::Entity::INV_STOPWATCH);
@@ -430,15 +436,24 @@ struct Inventory {
     }
 
     void onChoose(Item *item) {
+        TR::Level *level = game->getLevel();
+
         slot = 0;
 
         switch (item->type) {
             case TR::Entity::INV_PASSPORT : {
                 game->playSound(TR::SND_INV_PAGE);
                 item->value = 1;
+
                 passportSlotCount = 2;
-                passportSlots[0] = TR::LVL_TR1_1;
-                passportSlots[1] = TR::LVL_TR1_2;
+                if (level->version & TR::VER_TR1) {
+                    passportSlots[0] = TR::LVL_TR1_1;
+                    passportSlots[1] = TR::LVL_TR1_2;
+                } else {
+                    passportSlots[0] = TR::LVL_TR2_WALL;
+                    passportSlots[1] = TR::LVL_TR2_BOAT;
+                }
+
                 break;
             }
             case TR::Entity::INV_DETAIL : {
@@ -450,6 +465,8 @@ struct Inventory {
     }
 
     void controlItem(Item *item, ControlKey key) {
+        TR::Level *level = game->getLevel();
+
         if (item->type == TR::Entity::INV_PASSPORT && passportSlotCount) {
         // passport slots
             if (item->value == 0 && item->anim->dir == 0.0f) { // slot select
@@ -461,11 +478,11 @@ struct Inventory {
             if (key == cRight && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE); }
 
             if (key == cAction && phaseChoose == 1.0f) {
-                TR::LevelID id = game->getLevel()->id;
+                TR::LevelID id = level->id;
                 switch (item->value) {
                     case 0 : nextLevel = passportSlots[slot]; break;
                     case 1 : nextLevel = id == TR::LVL_TR1_TITLE ? TR::LVL_TR1_1 : (id == TR::LVL_TR2_TITLE ? TR::LVL_TR2_WALL : id); break;
-                    case 2 : nextLevel = game->getLevel()->isTitle() ? TR::LVL_MAX : game->getLevel()->titleId(); break;
+                    case 2 : nextLevel = level->isTitle() ? TR::LVL_MAX : level->titleId(); break;
                 }
 
                 if (nextLevel != TR::LVL_MAX) {
@@ -528,7 +545,10 @@ struct Inventory {
         }
 
         if (item->type == TR::Entity::INV_HOME && phaseChoose == 1.0f && key == cAction) {
-            nextLevel = TR::LVL_TR1_GYM;
+            if (level->version & TR::VER_TR1)
+                nextLevel = TR::LVL_TR1_GYM;
+            if (level->version & TR::VER_TR2)
+                nextLevel = TR::LVL_TR2_ASSAULT;
             toggle();
         }
 

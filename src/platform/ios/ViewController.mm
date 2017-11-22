@@ -121,7 +121,7 @@ void soundInit() {
 
 - (void)viewDidUnload {	
 	[super viewDidUnload];
-    Game::free();
+    Game::deinit();
 	if ([EAGLContext currentContext] == self.context)
 		[EAGLContext setCurrentContext:nil];
 	self.context = nil;

@@ -204,6 +204,7 @@
     E( UNUSED_22             ) \
     E( LARA_BRAID            ) \
     E( GLYPHS                ) \
+    E( TR1_TYPE_MAX          ) \
     E( _LARA                 = TR2_TYPES_START ) \
     E( _LARA_PISTOLS         ) \
     E( _LARA_BRAID           ) \
@@ -297,7 +298,7 @@
     E( WAKE_SNOWMOBILE       ) \
     E( SNOWMOBILE_BELT       ) \
     E( WHEEL_KNOB            ) \
-    E( SWITCH_WTF            ) \
+    E( SWITCH_BIG            ) \
     E( PROPELLER_WATER       ) \
     E( PROPELLER_AIR         ) \
     E( TRAP_SWING_BOX        ) \
@@ -468,7 +469,8 @@
     E( UNUSED_38             ) \
     E( LARA_END_PLACE        ) \
     E( LARA_END_SHOTGUN      ) \
-    E( DRAGON_EXPLSION_EMITTER )
+    E( DRAGON_EXPLSION_EMITTER ) \
+    E( TR2_TYPE_MAX          )
 
 namespace TR {
 
@@ -1592,7 +1594,7 @@ namespace TR {
         { "END"       , "Atlantean Stronghold",     TRACK_EGYPT },
         { "END2"      , "The Hive",                 TRACK_EGYPT },
     // TR2
-        { "TITLE"     , "",                         NO_TRACK },
+        { "TITLE"     , "",                         64 },
         { "ASSAULT"   , "Lara's Home",              NO_TRACK },
         { "WALL"      , "The Great Wall",           NO_TRACK },
         { "CUT1"      , "",                         2 },
@@ -2125,22 +2127,7 @@ namespace TR {
 
             if (version == VER_TR2_PC) {
                 stream.read(soundOffsets, stream.read(soundOffsetsCount));
-
-                Stream sfx("audio/2/main.sfx");
-                sfx.read(soundData, soundDataSize = sfx.size);
-
-                int32 dataOffsets[512];
-                int32 dataOffsetsCount = 0;
-                int32 dataOffset = 0;
-
-                while (dataOffset < soundDataSize) {
-                    ASSERT(FOURCC(soundData + dataOffset) == FOURCC("RIFF"));
-                    dataOffsets[dataOffsetsCount++] = dataOffset;
-                    dataOffset += FOURCC(soundData + dataOffset + 4) + 8; // add chunk size
-                }
-
-                for (int i = 0; i < soundOffsetsCount; i++)
-                    soundOffsets[i] = dataOffsets[soundOffsets[i]];
+                new Stream("audio/2/MAIN.SFX", sfxLoadAsync, this);
             }
 
         // cinematic frames for cameras (PSX)
@@ -2158,7 +2145,12 @@ namespace TR {
             delete[] tiles16;
 
             memset(&state, 0, sizeof(state));
-
+        /* TODO TR2 investigate (Lara::checkTrigger for SOUNDTRACK)
+            if (version & VER_TR2) { // some tracks in TR2 has activation mask == 1, here we fill other bits
+                for (int i = 0; i < MAX_TRACKS_COUNT; i++)
+                    state.tracks[i].active = 0x1E;
+            }
+        */
             initExtra();
             initCutscene();
         }
@@ -2295,6 +2287,7 @@ namespace TR {
                 case 1661622 : version = VER_TR2_PSX;
                 case 2986356 : return LVL_TR2_WALL;
                 case 2014880 : version = VER_TR2_PSX;
+                case 2010678 : version = VER_TR2_PSX; // PLAYABLE.PSX
                 case 3945738 : return LVL_TR2_BOAT;
                 case 2081402 : version = VER_TR2_PSX;
                 case 4213070 : return LVL_TR2_VENICE;
@@ -2353,6 +2346,32 @@ namespace TR {
             }
             return track;
         }
+
+        void readSamples(Stream &stream) {
+            stream.read(soundData, soundDataSize = stream.size);
+
+            int32 dataOffsets[512];
+            int32 dataOffsetsCount = 0;
+            int32 dataOffset = 0;
+
+            while (dataOffset < soundDataSize) {
+                ASSERT(FOURCC(soundData + dataOffset) == FOURCC("RIFF"));
+                dataOffsets[dataOffsetsCount++] = dataOffset;
+                dataOffset += FOURCC(soundData + dataOffset + 4) + 8; // add chunk size
+            }
+
+            for (int i = 0; i < soundOffsetsCount; i++)
+                soundOffsets[i] = dataOffsets[soundOffsets[i]];
+        }
+
+        static void sfxLoadAsync(Stream *stream, void *userData) {
+            if (!stream) {
+                LOG("! can't load MAIN.SFX\n");
+                return;
+            }
+            ((Level*)userData)->readSamples(*stream);
+        }
+
 
         void initExtra() {
         // get special models indices

@@ -89,6 +89,7 @@ struct Level : IGame {
     }
 
     virtual void saveGame(int slot) {
+        return;
         LOG("Save Game... ");
 
         char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory.itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
@@ -140,6 +141,7 @@ struct Level : IGame {
     }
 
     virtual void loadGame(int slot) {
+        return;
         LOG("Lave Game... ");
 
         clearInventory();
@@ -470,6 +472,10 @@ struct Level : IGame {
             int   index  = b.offset + rand() % b.flags.count;
             float volume = (float)b.volume / 0x7FFF;
             float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f;
+
+            if (level.version == TR::VER_TR2_PSX) // fix 8 kHz VAG in PSX TR2
+                pitch *= 8000.0f / 11025.0f;
+
             if (!(flags & Sound::MUSIC)) {
                 switch (b.flags.mode) {
                     case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
@@ -704,7 +710,8 @@ struct Level : IGame {
             case TR::Entity::MOVING_OBJECT         : return new MovingObject(this, index);
             case TR::Entity::SWITCH                :
             case TR::Entity::SWITCH_WATER          :
-            case TR::Entity::SWITCH_BUTTON         : return new Switch(this, index);
+            case TR::Entity::SWITCH_BUTTON         : 
+            case TR::Entity::SWITCH_BIG            : return new Switch(this, index);
             case TR::Entity::PUZZLE_HOLE_1         :
             case TR::Entity::PUZZLE_HOLE_2         :
             case TR::Entity::PUZZLE_HOLE_3         :

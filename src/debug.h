@@ -656,9 +656,12 @@ namespace Debug {
         const char *TR_TYPE_NAMES[] = { TR_TYPES(DECL_STR) };
 
         const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
-            if (entity.type >= COUNT(TR_TYPE_NAMES))
-                return "UNKNOWN";
-            return TR_TYPE_NAMES[entity.type];
+            if (entity.type < TR::Entity::TR1_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR1_TYPES_START];
+            else
+                if (entity.type < TR::Entity::TR2_TYPE_MAX)
+                    return TR_TYPE_NAMES[entity.type - TR2_TYPES_START + TR::Entity::TR1_TYPE_MAX + 1];
+            return "UNKNOWN";
         }
 
         void info(const TR::Level &level, Controller *controller, Animation &anim) {

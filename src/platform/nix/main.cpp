@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
     };
 
     sndFree();
-    Game::free();
+    Game::deinit();
 
     glXMakeCurrent(dpy, 0, 0);
     XCloseDisplay(dpy);

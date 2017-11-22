@@ -114,8 +114,9 @@ struct Lara : Character {
         ANIM_DEATH_SPIKES       = 149,
         ANIM_HANG_SWING         = 150,
 
-        ANIM_PUSH_BUTTON_SMALL  = 197,
-        ANIM_PUSH_BUTTON_BIG    = 413,
+        ANIM_SWITCH_BIG_DOWN    = 195,
+        ANIM_SWITCH_BIG_UP      = 196,
+        ANIM_PUSH_BUTTON        = 197,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -501,9 +502,10 @@ struct Lara : Character {
     #endif
 
         if (getEntity().isLara() && !level->isCutsceneLevel()) {
-            if (getRoom().flags.water)
+            if (getRoom().flags.water) {
+                stand = STAND_UNDERWATER;
                 animation.setAnim(ANIM_UNDERWATER);
-            else
+            } else
                 animation.setAnim(ANIM_STAND);
         }
 
@@ -1791,7 +1793,8 @@ struct Lara : Character {
 
                         int animIndex;
                         switch (controller->getEntity().type) {
-                            case TR::Entity::SWITCH_BUTTON : animIndex = ANIM_PUSH_BUTTON_SMALL;   break;
+                            case TR::Entity::SWITCH_BUTTON : animIndex = ANIM_PUSH_BUTTON; break;
+                            case TR::Entity::SWITCH_BIG    : animIndex = controller->state == Switch::STATE_DOWN ? ANIM_SWITCH_BIG_UP : ANIM_SWITCH_BIG_DOWN; break;
                             default : animIndex = -1;
                         }
 
@@ -1977,7 +1980,7 @@ struct Lara : Character {
                     else
                         flags.active |= info.trigInfo.mask;
 
-                    if (flags.active == TR::ACTIVE) {
+                    if ( (flags.active == TR::ACTIVE) || (((level->version & TR::VER_TR2)) && flags.active) ) {
                         flags.once |= info.trigInfo.once;
                         game->playTrack(track);
                     } else

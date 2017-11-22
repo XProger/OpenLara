@@ -54,7 +54,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {
-    Game::free();
+    Game::deinit();
 }
 
 JNI_METHOD(void, nativeReset)(JNIEnv* env) {
