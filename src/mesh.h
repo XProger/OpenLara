@@ -303,7 +303,7 @@ struct MeshBuilder {
                     int y = m.y;
                     int z = m.z - room.info.z;
                     int d = m.rotation.value / 0x4000;
-                    buildMesh(!transp, mesh, level, indices, vertices, iCount, vCount, vStartRoom, 0, x, y, z, d);
+                    buildMesh(!transp, mesh, level, indices, vertices, iCount, vCount, vStartRoom, 0, x, y, z, d, m.color);
                 }
                 range.geometry[transp].iCount = iCount - range.geometry[transp].iStart;
             }
@@ -326,6 +326,8 @@ struct MeshBuilder {
         int vStartModel = vCount;
         aCount++;
 
+        TR::Color32 COLOR_WHITE = { 255, 255, 255, 255 };
+
         for (int i = 0; i < level.modelsCount; i++) {
             TR::Model &model = level.models[i];
             ModelRange &range = models[i];
@@ -339,9 +341,9 @@ struct MeshBuilder {
                 if (!index && model.mStart + j > 0) continue;
 
                 TR::Mesh &mesh = level.meshes[index];
-                bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0);
+                bool opaque = buildMesh(true, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
                 if (!opaque)
-                    buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0);
+                    buildMesh(false, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
                 TR::Entity::fixOpaque(model.type, opaque);
                 range.opaque &= opaque;
             }
@@ -662,7 +664,8 @@ struct MeshBuilder {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];
                 vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
                 vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
+                TR::Color32 c = v.color;
+                vertices[vCount].color  = { c.b, c.g, c.r, intensity(v.lighting) };
                 vCount++;
             }
         }
@@ -688,7 +691,8 @@ struct MeshBuilder {
                 auto &v = d.vertices[f.vertices[k]];
                 vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
                 vertices[vCount].normal = { n.x, n.y, n.z, 0 };
-                vertices[vCount].color  = { 255, 255, 255, intensity(v.lighting) };
+                TR::Color32 c = v.color;
+                vertices[vCount].color  = { c.b, c.g, c.r, intensity(v.lighting) };
                 vCount++;
             }
         }
@@ -696,7 +700,7 @@ struct MeshBuilder {
         return isOpaque;
     }
 
-    bool buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir) {
+    bool buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const TR::Color32 &color) {
         TR::Color24 COLOR_WHITE = { 255, 255, 255 };
         bool isOpaque = true;
 
@@ -711,6 +715,9 @@ struct MeshBuilder {
                 continue;
 
             TR::Color32 c = f.flags.color ? level.getColor(f.flags.texture) : COLOR_WHITE;
+            c.r = int(( (c.r / 255.0f) * (color.b / 255.0f) ) * 255.0f);
+            c.g = int(( (c.g / 255.0f) * (color.g / 255.0f) ) * 255.0f);
+            c.b = int(( (c.b / 255.0f) * (color.r / 255.0f) ) * 255.0f);
 
             addQuad(indices, iCount, vCount, vStart, vertices, &t,
                     mesh.vertices[f.vertices[0]].coord, 
@@ -829,7 +836,7 @@ struct MeshBuilder {
             v.param    = { range, frame, 0, 0 };
         }
 
-        if ((level->version == TR::VER_TR1_PSX || level->version == TR::VER_TR2_PSX) && !triangle)
+        if (((level->version & TR::VER_PSX)) && !triangle)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
     }
 

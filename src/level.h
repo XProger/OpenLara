@@ -64,15 +64,19 @@ struct Level : IGame {
         strcat(buf, "level/");
         if (level.version & TR::VER_TR2)
             strcat(buf, "2/");
+        if (level.version & TR::VER_TR3)
+            strcat(buf, "3/");
         strcat(buf, TR::LEVEL_INFO[id].name);
     #ifdef __EMSCRIPTEN__
         strcat(buf, ".PSX");
     #else
         switch (level.version) {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
-            case TR::VER_TR1_PSX : strcat(buf, ".PSX"); break;
-            case TR::VER_TR2_PC  : strcat(buf, ".TR2"); break;
-            case TR::VER_TR2_PSX : strcat(buf, ".PSX"); break;
+            case TR::VER_TR2_PC  : 
+            case TR::VER_TR3_PC  : strcat(buf, ".TR2"); break;
+            case TR::VER_TR1_PSX :
+            case TR::VER_TR2_PSX : 
+            case TR::VER_TR3_PSX : strcat(buf, ".PSX"); break;
         }
     #endif
         new Stream(buf, loadAsync);
@@ -85,7 +89,7 @@ struct Level : IGame {
             return;
         }
     #endif
-        loadLevel(level.id == TR::LVL_TR1_10C || level.id == TR::LVL_TR2_HOUSE ? level.titleId() : TR::LevelID(level.id + 1));
+        loadLevel(level.isEnd() ? level.getTitleId() : TR::LevelID(level.id + 1));
     }
 
     virtual void saveGame(int slot) {
@@ -468,12 +472,12 @@ struct Level : IGame {
         if (a == -1) return NULL;
 
         TR::SoundInfo &b = level.soundsInfo[a];
-        if (b.chance == 0 || (rand() & 0x7fff) <= b.chance) {
-            int   index  = b.offset + rand() % b.flags.count;
-            float volume = (float)b.volume / 0x7FFF;
-            float pitch  = b.flags.pitch ? (0.9f + randf() * 0.2f) : 1.0f;
+        if (b.chance == 0 || randf() <= b.chance) {
+            int   index  = b.index + rand() % b.flags.count;
+            float volume = b.volume;
+            float pitch  = 1.0f + (b.flags.pitch ? ((randf() - 0.5f) * b.pitch) : 0.0f);
 
-            if (level.version == TR::VER_TR2_PSX) // fix 8 kHz VAG in PSX TR2
+            if (level.version == TR::VER_TR2_PSX) // fix for 8 kHz VAG in PSX TR2
                 pitch *= 8000.0f / 11025.0f;
 
             if (!(flags & Sound::MUSIC)) {
@@ -541,6 +545,12 @@ struct Level : IGame {
             case TR::VER_TR2_PSX :
                 sprintf(title, "audio/2/track_%02d.ogg", int(level.remapTrack(track)));
                 break;
+            case TR::VER_TR3_PC  :
+            case TR::VER_TR3_PSX :
+                #ifndef __EMSCRIPTEN__
+                    playAsync(Sound::openWAD(NULL, track), this);
+                #endif
+                return;
             default : return;
         }
 
@@ -588,9 +598,7 @@ struct Level : IGame {
         // init sounds
             //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
 
-            sndUnderwater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
-            if (sndUnderwater)
-                sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
+            sndUnderwater = NULL;
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
@@ -919,7 +927,7 @@ struct Level : IGame {
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, &level, fillCallback);
         // add textures
-        int texIdx = (level.version == TR::VER_TR1_PSX || level.version == TR::VER_TR2_PSX) ? 256 : 0; // skip palette color for PSX version
+        int texIdx = (level.version & TR::VER_PSX) ? 256 : 0; // skip palette color for PSX version
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
             int16 tx = (t.tile.index % 4) * 256;
@@ -1033,7 +1041,12 @@ struct Level : IGame {
 
         //Animation anim(&level, &level.models[level.extra.sky]);
 
-        Basis b = Basis(quat(vec3(1, 0, 0), PI * 0.5f), vec3(0));
+        // TODO TR2 TR3 use animation frame to get skydome rotation
+        Basis b;
+        if (level.version & TR::VER_TR2)
+            b = Basis(quat(vec3(1, 0, 0), PI * 0.5f), vec3(0));
+        else
+            b = Basis(quat(0, 0, 0, 1), vec3(0));
 
         Core::setDepthTest(false);
         setShader(Core::pass, Shader::FLASH, false, false);
@@ -1223,7 +1236,7 @@ struct Level : IGame {
     }
 
     void update() {
-        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack))
+        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK))
             return;
 
         if (Input::state[cInventory] && !level.isTitle()) {
@@ -1264,7 +1277,15 @@ struct Level : IGame {
 
             Controller::clearInactive();
 
-            sndChanged = camera->isUnderwater() ? sndUnderwater : sndSoundtrack;
+            if (camera->isUnderwater()) {
+                if (!sndUnderwater) {
+                    sndUnderwater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
+                    if (sndUnderwater)
+                        sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
+                }
+                sndChanged = sndUnderwater;
+            } else
+                sndChanged = sndSoundtrack;
         }
 
         if (sndChanged != sndCurrent) {
@@ -1450,12 +1471,11 @@ struct Level : IGame {
         int roomsCount = 0;
 
         getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
-        // show all rooms
-        /*
-        for (int i = 0; i < level.roomsCount; i++)
-            roomsList[i] = i;
-        roomsCount = level.roomsCount;
-        */
+        if (level.isCutsceneLevel()) {
+            for (int i = 0; i < level.roomsCount; i++)
+                roomsList[i] = i;
+            roomsCount = level.roomsCount;
+        }
 
         if (water && waterCache) {
             for (int i = 0; i < roomsCount; i++)

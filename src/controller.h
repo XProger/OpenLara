@@ -375,6 +375,24 @@ struct Controller {
                     info.climb = (*fd++).data; // climb mask
                     break;
 
+                case 0x07 :
+                case 0x08 :
+                case 0x09 :
+                case 0x0A :
+                case 0x0B :
+                case 0x0C :
+                case 0x0D :
+                case 0x0E :
+                case 0x0F :
+                case 0x10 :
+                case 0x11 :
+                case 0x12 : break; // TODO TR3 triangulation
+
+                case 0x13 : break; // TODO TR3 monkeyswing
+
+                case 0x14 : 
+                case 0x15 : break; // TODO TR3 minecart
+
                 default : LOG("unknown func: %d\n", cmd.func);
             }
 

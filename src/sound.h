@@ -2,7 +2,7 @@
 #define H_SOUND
 
 #define DECODE_VAG
-//#define DECODE_ADPCM
+#define DECODE_ADPCM
 //#define DECODE_MP3
 #define DECODE_OGG
 
@@ -210,7 +210,7 @@ namespace Sound {
 
             if (seek % block == 0) {
                 for (int i = 0; i < channels; i++) {
-                    char index;
+                    uint8 index;
                     stream->read(index);
                     channel[i].c1 = coeff1[index];
                     channel[i].c2 = coeff2[index];
@@ -679,7 +679,7 @@ namespace Sound {
             }
     }
 
-    Stream *openWAD(const char *name) {
+    Stream *openWAD(const char *name, int index = -1) {
         Stream *stream = new Stream("cdaudio.wad");
         if (stream->size) {
             struct Item {
@@ -690,7 +690,7 @@ namespace Sound {
 
             for (int i = 0; i < 130; i++) {
                 stream->read(entity);
-                if (strcmp(name, entity.name) == 0) {
+                if ((name && strcmp(name, entity.name) == 0) || index == i) {
                     stream->setPos(entity.offset);
                     return stream;
                 }
@@ -701,6 +701,7 @@ namespace Sound {
     }
 
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
+        ASSERT(pitch >= 0.0f);
         if (!stream) return NULL;
         if (volume > 0.001f) {
             if (!(flags & (FLIPPED | UNFLIPPED | MUSIC)) && (flags & PAN)) {

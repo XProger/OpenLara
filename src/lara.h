@@ -411,6 +411,9 @@ struct Lara : Character {
     } *braid;
 
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), braid(NULL) {
+        if (level->extra.laraSkin > -1)
+            level->entities[entity].modelIndex = level->extra.laraSkin + 1;
+
         jointChest = 7;
         jointHead  = 14;
         rangeChest = vec4(-0.40f, 0.40f, -0.90f, 0.90f) * PI;
@@ -445,7 +448,7 @@ struct Lara : Character {
         }
 
         if (level->extra.braid > -1)
-            braid = new Braid(this, (level->version & TR::VER_TR2) ? vec3(0.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
+            braid = new Braid(this, (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? vec3(0.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
@@ -1382,7 +1385,8 @@ struct Lara : Character {
             case TR::Effect::MESH_SWAP_1    : 
             case TR::Effect::MESH_SWAP_2    : 
             case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
-            case 26 : break; // TR2 TODO reset_hair
+            case 26 : break; // TODO TR2 reset_hair
+            case 32 : break; // TODO TR3 footprint
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
     }
@@ -1436,7 +1440,7 @@ struct Lara : Character {
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
-        if (dozy) return;
+        if (dozy || level->isCutsceneLevel()) return;
 
         if (health <= 0.0f) return;
 
@@ -1694,7 +1698,7 @@ struct Lara : Character {
                     if (level->state.tracks[track].once) {
                         timer += Core::deltaTime;
                         if (timer > 3.0f)
-                            game->loadLevel(level->titleId());
+                            game->loadLevel(level->getTitleId());
                     } else {
                         if (state != STATE_WATER_OUT)
                             return 0;
@@ -1980,7 +1984,7 @@ struct Lara : Character {
                     else
                         flags.active |= info.trigInfo.mask;
 
-                    if ( (flags.active == TR::ACTIVE) || (((level->version & TR::VER_TR2)) && flags.active) ) {
+                    if ( (flags.active == TR::ACTIVE) || (((level->version & (TR::VER_TR2 | TR::VER_TR3))) && flags.active) ) {
                         flags.once |= info.trigInfo.once;
                         game->playTrack(track);
                     } else
@@ -1995,7 +1999,7 @@ struct Lara : Character {
                     if (!(level->state.secrets & (1 << cmd.args))) {
                         level->state.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
-                            game->playTrack(TR::TRACK_SECRET);
+                            game->playTrack(TR::TRACK_TR1_SECRET);
                     }
                     break;
             }
@@ -2379,7 +2383,8 @@ struct Lara : Character {
 
         if (state == STATE_FORWARD_JUMP || state == STATE_UP_JUMP || state == STATE_BACK_JUMP || state == STATE_LEFT_JUMP || state == STATE_RIGHT_JUMP || state == STATE_FALL || state == STATE_REACH || state == STATE_SLIDE || state == STATE_SLIDE_BACK) {
             game->waterDrop(pos, 256.0f, 0.2f);
-            game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
+            if (level->extra.waterSplash > -1)
+                game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
             pos.y += 100.0f;
             angle.x = -45.0f * DEG2RAD;
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
@@ -2388,7 +2393,8 @@ struct Lara : Character {
         if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
             angle.x = -PI * 0.5f;
             game->waterDrop(pos, 128.0f, 0.2f);
-            game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
+            if (level->extra.waterSplash > -1)
+                game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), pos);
             return STATE_DIVE;
         }
 

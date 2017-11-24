@@ -334,8 +334,8 @@ namespace Core {
 #define MAX_CACHED_LIGHTS    3
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
-#define MAX_ANIM_TEX_RANGES  16
-#define MAX_ANIM_TEX_OFFSETS 32
+#define MAX_ANIM_TEX_RANGES  32
+#define MAX_ANIM_TEX_OFFSETS 130
 
 struct Shader;
 struct Texture;

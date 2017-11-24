@@ -166,15 +166,15 @@ struct Texture {
         }
     }
 
+    struct Color24 {
+        uint8 r, g, b;
+    };
+
+    struct Color32 {
+        uint8 r, g, b, a;
+    };
+
     static Texture* LoadPCX(Stream &stream) {
-        struct Color24 {
-            uint8 r, g, b;
-        };
-
-        struct Color32 {
-            uint8 r, g, b, a;
-        };
-
         struct PCX {
             uint8  magic;
             uint8  version;
@@ -239,6 +239,47 @@ struct Texture {
         delete[] buffer;
 
         return tex;
+    }
+
+    static Texture* LoadBMP(Stream &stream) {
+        int32 offset, width, height;
+        stream.seek(10);
+        stream.read(offset);
+        stream.seek(4);
+        stream.read(width);
+        stream.read(height);
+        stream.seek(offset - stream.pos);
+        Color24 *data24 = new Color24[width * height];
+        Color32 *data32 = new Color32[width * height];
+        stream.raw(data24, width * height * sizeof(Color24));
+
+        Color32 *dst = data32;
+        for (int y = 0; y < height; y++) {
+            Color24 *src = data24 + (height - y - 1) * width;
+            for (int x = 0; x < width; x++) {
+                dst->r = src->b;
+                dst->g = src->g;
+                dst->b = src->r;
+                dst->a = 255;
+                dst++;
+                src++;
+            }
+        }
+
+        Texture *tex = new Texture(width, height, Texture::RGBA, false, data32);
+
+        delete[] data24;
+        delete[] data32;
+        return tex;
+    }
+
+    static Texture* Load(Stream &stream) {
+        uint16 magic;
+        stream.read(magic);
+        stream.seek(-int(sizeof(magic)));
+        if (magic == 0x4D42)
+            return LoadBMP(stream);
+        return LoadPCX(stream);
     }
 };
 
@@ -349,7 +390,7 @@ struct Atlas {
 
     Texture* pack() {
     // TODO TR2 fix CUT2 AV
-        width  = 2048;//nextPow2(int(sqrtf(float(size))));
+        width  = 4096;//nextPow2(int(sqrtf(float(size))));
         height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
     // sort
         int *indices = new int[tilesCount];

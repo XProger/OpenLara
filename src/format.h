@@ -11,6 +11,7 @@
 
 #define TR1_TYPES_START       0
 #define TR2_TYPES_START       1000
+#define TR3_TYPES_START       2000
 
 #define TR_TYPES(E) \
     E( LARA                  = TR1_TYPES_START) \
@@ -357,7 +358,7 @@
     E( _MEDIKIT_SMALL        ) \
     E( _MEDIKIT_BIG          ) \
     E( FLARES                ) \
-    E( INV_FLARE             ) \
+    E( FLARE                 ) \
     E( _INV_DETAIL           ) \
     E( _INV_SOUND            ) \
     E( _INV_CONTROLS         ) \
@@ -470,7 +471,324 @@
     E( LARA_END_PLACE        ) \
     E( LARA_END_SHOTGUN      ) \
     E( DRAGON_EXPLSION_EMITTER ) \
-    E( TR2_TYPE_MAX          )
+    E( TR2_TYPE_MAX          ) \
+    E( __LARA                = TR3_TYPES_START ) \
+    E( __LARA_PISTOLS        ) \
+    E( __LARA_BRAID          ) \
+    E( __LARA_SHOTGUN        ) \
+    E( LARA_DESERT_EAGLE     ) \
+    E( __LARA_UZIS           ) \
+    E( LARA_MP5              ) \
+    E( LARA_ROCKET           ) \
+    E( __LARA_GRENADE        ) \
+    E( __LARA_HARPOON        ) \
+    E( __LARA_FLARE          ) \
+    E( LARA_UPV              ) \
+    E( VEHICLE_UPV           ) \
+    E( VEHICLE_KAYAK         ) \
+    E( __VEHICLE_BOAT        ) \
+    E( VEHICLE_QUADBIKE      ) \
+    E( VEHICLE_MINECART      ) \
+    E( BIG_GUN               ) \
+    E( ENEMY_TRIBESMAN_AXE   ) \
+    E( ENEMY_TRIBESMAN_DART  ) \
+    E( __ENEMY_DOG           ) \
+    E( __ENEMY_RAT           ) \
+    E( KILL_ALL_TRIGGERS     ) \
+    E( ENEMY_WHALE           ) \
+    E( __ENEMY_DIVER         ) \
+    E( __ENEMY_CROW          ) \
+    E( __ENEMY_TIGER         ) \
+    E( ENEMY_VULTURE         ) \
+\
+    E( __TRAP_FLOOR          = TR3_TYPES_START + 83 ) \
+    E( UNUSED_TR3_84         ) \
+    E( UNUSED_TR3_85         ) \
+    E( TRAP_SWING_THING      ) \
+    E( __TRAP_SPIKES         ) \
+    E( __TRAP_BOULDER        ) \
+    E( TRAP_BOULDER_GIANT    ) \
+    E( __DART                ) \
+    E( __TRAP_DART_EMITTER   ) \
+    E( UNUSED_TR3_92         ) \
+    E( UNUSED_TR3_93         ) \
+    E( TRAP_SKELETON         ) \
+    E( __BLOCK_1             ) \
+    E( __BLOCK_2             ) \
+    E( __BLOCK_3             ) \
+    E( __BLOCK_4             ) \
+    E( UNUSED_TR3_99         ) \
+    E( UNUSED_TR3_100        ) \
+    E( __WINDOW_1            ) \
+    E( __WINDOW_2            ) \
+    E( UNUSED_TR3_103        ) \
+    E( UNUSED_TR3_104        ) \
+    E( UNUSED_TR3_105        ) \
+    E( AREA51_SWINGER        ) \
+    E( __TRAP_CEILING_1      ) \
+    E( __TRAP_SPINDLE        ) \
+    E( UNUSED_TR3_109        ) \
+    E( SUBWAY_TRAIN          ) \
+    E( TRAP_WALL_KNIFE_BLADE ) \
+    E( UNUSED_TR3_112        ) \
+    E( __TRAP_ICICLES        ) \
+    E( __TRAP_SPIKES_WALL    ) \
+    E( UNUSED_TR3_115        ) \
+    E( TRAP_SPIKES_VERT      ) \
+    E( __WHEEL_KNOB          ) \
+    E( __SWITCH_BIG          ) \
+    E( __CUT_1               ) \
+    E( __CUT_2               ) \
+    E( __CUT_3               ) \
+    E( SHIVA_STATUE          ) \
+    E( MONKEY_MEDIPACK       ) \
+    E( MONKEY_KEY            ) \
+    E( __UI_FRAME            ) \
+    E( UNUSED_TR3_126        ) \
+    E( __ZIPLINE_HANDLE      ) \
+    E( __SWITCH_BUTTON       ) \
+    E( __SWITCH              ) \
+    E( __SWITCH_WATER        ) \
+    E( __DOOR_1              ) \
+    E( __DOOR_2              ) \
+    E( __DOOR_3              ) \
+    E( __DOOR_4              ) \
+    E( __DOOR_5              ) \
+    E( __DOOR_6              ) \
+    E( __DOOR_7              ) \
+    E( __DOOR_8              ) \
+    E( __TRAP_DOOR_1         ) \
+    E( __TRAP_DOOR_2         ) \
+    E( __TRAP_DOOR_3         ) \
+    E( __BRIDGE_1            ) \
+    E( __BRIDGE_2            ) \
+    E( __BRIDGE_3            ) \
+    E( __INV_PASSPORT        ) \
+    E( __INV_COMPASS         ) \
+    E( __INV_HOME            ) \
+    E( __CUT_4               ) \
+    E( __CUT_5               ) \
+    E( __CUT_6               ) \
+    E( __CUT_7               ) \
+    E( __CUT_8               ) \
+    E( __CUT_9               ) \
+    E( __CUT_10              ) \
+    E( __CUT_11              ) \
+    E( CUT_12                ) \
+    E( UNUSED_TR3_157        ) \
+    E( __INV_PASSPORT_CLOSED ) \
+    E( __INV_MAP             ) \
+    E( __PISTOLS             ) \
+    E( __SHOTGUN             ) \
+    E( DESERT_EAGLE          ) \
+    E( __UZIS                ) \
+    E( __HARPOON             ) \
+    E( MP5                   ) \
+    E( ROCKET                ) \
+    E( __GRENADE             ) \
+    E( __AMMO_PISTOLS        ) \
+    E( __AMMO_SHOTGUN        ) \
+    E( AMMO_DESERT_EAGLE     ) \
+    E( __AMMO_UZIS           ) \
+    E( __AMMO_HARPOON        ) \
+    E( AMMO_MP5              ) \
+    E( AMMO_ROCKET           ) \
+    E( __AMMO_GRENADE        ) \
+    E( __MEDIKIT_SMALL       ) \
+    E( __MEDIKIT_BIG         ) \
+    E( __FLARES              ) \
+    E( __FLARE               ) \
+    E( __CRYSTAL             ) \
+    E( __INV_DETAIL          ) \
+    E( __INV_SOUND           ) \
+    E( __INV_CONTROLS        ) \
+    E( INV_GLOBE             ) \
+    E( __INV_PISTOLS         ) \
+    E( __INV_SHOTGUN         ) \
+    E( INV_DESERT_EAGLE      ) \
+    E( __INV_UZIS            ) \
+    E( __INV_HARPOON         ) \
+    E( INV_MP5               ) \
+    E( INV_ROCKET            ) \
+    E( __INV_GRENADE         ) \
+    E( __INV_AMMO_PISTOLS    ) \
+    E( __INV_AMMO_SHOTGUN    ) \
+    E( INV_AMMO_DESERT_EAGLE ) \
+    E( __INV_AMMO_UZIS       ) \
+    E( __INV_AMMO_HARPOON    ) \
+    E( INV_AMMO_MP5          ) \
+    E( INV_AMMO_ROCKET       ) \
+    E( __INV_AMMO_GRENADE    ) \
+    E( __INV_MEDIKIT_SMALL   ) \
+    E( __INV_MEDIKIT_BIG     ) \
+    E( __INV_FLARES          ) \
+    E( INV_CRYSTAL           ) \
+    E( __PUZZLE_1            ) \
+    E( __PUZZLE_2            ) \
+    E( __PUZZLE_3            ) \
+    E( __PUZZLE_4            ) \
+    E( __INV_PUZZLE_1        ) \
+    E( __INV_PUZZLE_2        ) \
+    E( __INV_PUZZLE_3        ) \
+    E( __INV_PUZZLE_4        ) \
+    E( __PUZZLE_HOLE_1       ) \
+    E( __PUZZLE_HOLE_2       ) \
+    E( __PUZZLE_HOLE_3       ) \
+    E( __PUZZLE_HOLE_4       ) \
+    E( __PUZZLE_DONE_1       ) \
+    E( __PUZZLE_DONE_2       ) \
+    E( __PUZZLE_DONE_3       ) \
+    E( __PUZZLE_DONE_4       ) \
+    E( UNUSER_TR3_121        ) \
+    E( UNUSER_TR3_122        ) \
+    E( UNUSER_TR3_123        ) \
+    E( __KEY_ITEM_1          ) \
+    E( __KEY_ITEM_2          ) \
+    E( __KEY_ITEM_3          ) \
+    E( __KEY_ITEM_4          ) \
+    E( __INV_KEY_1           ) \
+    E( __INV_KEY_2           ) \
+    E( __INV_KEY_3           ) \
+    E( __INV_KEY_4           ) \
+    E( __KEY_HOLE_1          ) \
+    E( __KEY_HOLE_2          ) \
+    E( __KEY_HOLE_3          ) \
+    E( __KEY_HOLE_4          ) \
+    E( __QUEST_ITEM_1        ) \
+    E( __QUEST_ITEM_2        ) \
+    E( __INV_QUEST_ITEM_1    ) \
+    E( __INV_QUEST_ITEM_2    ) \
+    E( STONE_ITEM_1          ) \
+    E( STONE_ITEM_2          ) \
+    E( STONE_ITEM_3          ) \
+    E( STONE_ITEM_4          ) \
+    E( INV_STONE_ITEM_1      ) \
+    E( INV_STONE_ITEM_2      ) \
+    E( INV_STONE_ITEM_3      ) \
+    E( INV_STONE_ITEM_4      ) \
+    E( UNUSED_TR3_248        ) \
+    E( UNUSED_TR3_249        ) \
+    E( UNUSED_TR3_250        ) \
+    E( UNUSED_TR3_251        ) \
+    E( UNUSED_TR3_252        ) \
+    E( UNUSED_TR3_253        ) \
+    E( UNUSED_TR3_254        ) \
+    E( UNUSED_TR3_255        ) \
+    E( UNUSED_TR3_256        ) \
+    E( UNUSED_TR3_257        ) \
+    E( UNUSED_TR3_258        ) \
+    E( UNUSED_TR3_259        ) \
+    E( UNUSED_TR3_260        ) \
+    E( UNUSED_TR3_261        ) \
+    E( UNUSED_TR3_262        ) \
+    E( UNUSED_TR3_263        ) \
+    E( UNUSED_TR3_264        ) \
+    E( UNUSED_TR3_265        ) \
+    E( UNUSED_TR3_266        ) \
+    E( UNUSED_TR3_267        ) \
+    E( UNUSED_TR3_268        ) \
+    E( UNUSED_TR3_269        ) \
+    E( UNUSED_TR3_270        ) \
+    E( UNUSED_TR3_271        ) \
+    E( KEYS_SPRITE_1         ) \
+    E( KEYS_SPRITE_2         ) \
+    E( UNUSED_TR3_274        ) \
+    E( UNUSED_TR3_275        ) \
+    E( STONE_ITEM_PLACE_1    ) \
+    E( STONE_ITEM_PLACE_2    ) \
+    E( STONE_ITEM_PLACE_3    ) \
+    E( STONE_ITEM_PLACE_4    ) \
+    E( UNUSED_TR3_280        ) \
+    E( UNUSED_TR3_281        ) \
+    E( DRAGON_STATUE         ) \
+    E( UNUSED_TR3_283        ) \
+    E( UNUSED_TR3_284        ) \
+    E( UNKNOWN_VISIBLE       ) \
+    E( UNUSED_TR3_286        ) \
+    E( __ENEMY_REX           ) \
+    E( __ENEMY_RAPTOR        ) \
+    E( UNUSED_TR3_289        ) \
+    E( UNUSED_TR3_290        ) \
+    E( LASER_SWEEPER         ) \
+    E( ELECTRIC_FILER        ) \
+    E( UNUSED_TR3_293        ) \
+    E( SHADOW_SPRITE         ) \
+    E( __DETONATOR           ) \
+    E( MISC_SPRITES          ) \
+    E( __BUBBLE              ) \
+    E( UNUSED_TR3_298        ) \
+    E( __MUZZLE_GLOW         ) \
+    E( __MUZZLE_FLASH        ) \
+    E( MUZZLE_FLASH_MP5      ) \
+    E( UNUSED_TR3_302        ) \
+    E( UNUSED_TR3_303        ) \
+    E( __VIEW_TARGET         ) \
+    E( __WATERFALL           ) \
+    E( __HARPOON_WTF         ) \
+    E( UNUSED_TR3_307        ) \
+    E( UNUSED_TR3_308        ) \
+    E( BULLET_ROCKET         ) \
+    E( BULLET_HARPOON        ) \
+    E( BULLET_GRENADE        ) \
+    E( BIG_MISSILE           ) \
+    E( __SMOKE               ) \
+    E( MOVABLE_BOOM          ) \
+    E( LARA_SKIN             ) \
+    E( GLOW_2                ) \
+    E( UNKNONW_TR3_VISIBLE   ) \
+    E( LIGHT_1               ) \
+    E( LIGHT_2               ) \
+    E( LIGHT_3               ) \
+    E( LIGHT_4               ) \
+    E( LIGHT_5               ) \
+    E( LIGHT_6               ) \
+    E( LIGHT_7               ) \
+    E( LIGHT_8               ) \
+    E( LIGHT_9               ) \
+    E( LIGHT_10              ) \
+    E( LIGHT_11              ) \
+    E( UNUSED_TR3_329        ) \
+    E( PARTICLE_FIRE_1       ) \
+    E( PARTICLE_FIRE_2       ) \
+    E( PARTICLE_FIRE_3       ) \
+    E( PARTICLE_FIRE_4       ) \
+    E( PARTICLE_SMOKE_1      ) \
+    E( PARTICLE_SMOKE_2      ) \
+    E( PARTICLE_SMOKE_3      ) \
+    E( PARTICLE_SMOKE_4      ) \
+    E( ENEMY_PIRANHAS        ) \
+    E( ENEMY_FISH            ) \
+    E( UNUSED_TR3_340        ) \
+    E( UNUSED_TR3_341        ) \
+    E( UNUSED_TR3_342        ) \
+    E( UNUSED_TR3_343        ) \
+    E( UNUSED_TR3_344        ) \
+    E( UNUSED_TR3_345        ) \
+    E( UNUSED_TR3_346        ) \
+    E( ENEMY_BAT_SWARM       ) \
+    E( UNUSED_TR3_348        ) \
+    E( ANIMATING_1           ) \
+    E( ANIMATING_2           ) \
+    E( ANIMATING_3           ) \
+    E( ANIMATING_4           ) \
+    E( ANIMATING_5           ) \
+    E( ANIMATING_6           ) \
+    E( __SKY                 ) \
+    E( __GLYPHS              ) \
+    E( __SOUND_DOOR_BELL     ) \
+    E( UNUSED_TR3_358        ) \
+    E( UNUSED_TR3_359        ) \
+    E( __ENEMY_WINSTON       ) \
+    E( ENEMY_WINSTON_CAMO    ) \
+    E( GLYPHS_TIMER          ) \
+    E( UNUSED_TR3_363        ) \
+    E( UNUSED_TR3_364        ) \
+    E( __EARTHQUAKE          ) \
+    E( GUN_SHELL_1           ) \
+    E( GUN_SHELL_2           ) \
+    E( TINNOS_LIGHT_SHAFT    ) \
+    E( ELECTRIC_SWITCH       ) \
+    E( TR3_TYPE_MAX          )
 
 namespace TR {
 
@@ -487,12 +805,17 @@ namespace TR {
         VER_TR4      = 8,
         VER_TR5      = 16,
 
+        VER_VERSION  = VER_TR1 | VER_TR2 | VER_TR3 | VER_TR4 | VER_TR5,
+        VER_PLATFORM = VER_PC  | VER_PSX | VER_SEGA,
+
         VER_TR1_PC   = VER_TR1 | VER_PC,
         VER_TR1_PSX  = VER_TR1 | VER_PSX,
         VER_TR1_SEGA = VER_TR1 | VER_SEGA,
 
         VER_TR2_PC   = VER_TR2 | VER_PC,
         VER_TR2_PSX  = VER_TR2 | VER_PSX,
+        VER_TR3_PC   = VER_TR3 | VER_PC,
+        VER_TR3_PSX  = VER_TR3 | VER_PSX,
     };
 
     enum {
@@ -608,16 +931,60 @@ namespace TR {
     };
 
     enum {
-        TRACK_TITLE   = 2,
-        TRACK_CAVES   = 5,
-        TRACK_SECRET  = 13,
-        TRACK_CISTERN = 57,
-        TRACK_EGYPT   = 58,
-        TRACK_MINE    = 59,
-        TRACK_CUT1    = 23,
-        TRACK_CUT2    = 25,
-        TRACK_CUT3    = 24,
-        TRACK_CUT4    = 22,
+    // TR1
+        TRACK_TR1_TITLE     = 2,
+        TRACK_TR1_CAVES     = 5,
+        TRACK_TR1_SECRET    = 13,
+        TRACK_TR1_CISTERN   = 57,
+        TRACK_TR1_EGYPT     = 58,
+        TRACK_TR1_MINE      = 59,
+        TRACK_TR1_CUT_1     = 23,
+        TRACK_TR1_CUT_2     = 25,
+        TRACK_TR1_CUT_3     = 24,
+        TRACK_TR1_CUT_4     = 22,
+    // TR2
+        TRACK_TR2_TITLE     = 64,
+        TRACK_TR2_CHINA_1   = 33,
+        TRACK_TR2_CHINA_2   = 59,
+        TRACK_TR2_ITALY     = 31,
+        TRACK_TR2_RIG       = 58,
+        TRACK_TR2_UNWATER_1 = 34,
+        TRACK_TR2_UNWATER_2 = 31,
+        TRACK_TR2_TIBET_1   = 33,
+        TRACK_TR2_TIBET_2   = 31,
+        TRACK_TR2_CUT_1     = 3,
+        TRACK_TR2_CUT_2     = 4,
+        TRACK_TR2_CUT_3     = 5,
+        TRACK_TR2_CUT_4     = 30,
+    // TR3
+        TRACK_TR3_TITLE     = 5,
+        TRACK_TR3_HOUSE     = 2,
+        TRACK_TR3_CAVES     = 30,
+        TRACK_TR3_INDIA_1   = 34,
+        TRACK_TR3_INDIA_2   = 30,
+        TRACK_TR3_SOUTH_1   = 32,
+        TRACK_TR3_SOUTH_2   = 33,
+        TRACK_TR3_SOUTH_3   = 36,
+        TRACK_TR3_LONDON_1  = 73,
+        TRACK_TR3_LONDON_2  = 74,
+        TRACK_TR3_LONDON_3  = 31,
+        TRACK_TR3_LONDON_4  = 78,
+        TRACK_TR3_NEVADA_1  = 33,
+        TRACK_TR3_NEVADA_2  = 27,
+        TRACK_TR3_ANTARC_1  = 28,
+        TRACK_TR3_ANTARC_2  = 30,
+        TRACK_TR3_ANTARC_3  = 26,
+        TRACK_TR3_CUT_1     = 68,
+        TRACK_TR3_CUT_2     = 67,
+        TRACK_TR3_CUT_3     = 62,
+        TRACK_TR3_CUT_4     = 65,
+        TRACK_TR3_CUT_5     = 63,
+        TRACK_TR3_CUT_6     = 64,
+        TRACK_TR3_CUT_7     = 72,
+        TRACK_TR3_CUT_8     = 70,
+        TRACK_TR3_CUT_9     = 69,
+        TRACK_TR3_CUT_11    = 71,
+        TRACK_TR3_CUT_12    = 66,
     };
 
     enum {
@@ -741,8 +1108,9 @@ namespace TR {
         operator Color32() const { return Color32(r, g, b, 255); }
     };
 
-    struct Color16 {
-        uint16 r:5, g:5, b:5, a:1;
+    union Color16 {
+        struct { uint16 r:5, g:5, b:5, a:1; };
+        uint16 value;
 
         operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
         operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
@@ -812,7 +1180,7 @@ namespace TR {
                 TR::Vertex  vertex;
                 int16       lighting;   // 0 (bright) .. 0x1FFF (dark)
                 uint16      attributes;
-                int16       lighting2;
+                Color16     color;
             } *vertices;
 
             Rectangle   *rectangles;
@@ -836,6 +1204,10 @@ namespace TR {
         struct {
             uint16 water:1, :2, sky:1, :1, wind:1, unused:9, visible:1;
         } flags;
+        uint8   waterScheme;
+        uint8   reverbType;
+        uint8   filter;
+        uint8   align;
 
         struct Portal {
             uint16  roomIndex;
@@ -856,6 +1228,7 @@ namespace TR {
         } *portals;
 
         struct Sector {
+            uint32  material;
             uint16  floorIndex; // Index into FloorData[]
             uint16  boxIndex;   // Index into Boxes[] (-1 if none)
             uint8   roomBelow;  // 255 is none
@@ -870,13 +1243,14 @@ namespace TR {
             uint16  intensity2;
             uint32  radius;
             uint32  radius2;
+            Color32 color;
         } *lights;
 
         struct Mesh {
             int32   x, y, z;
             angle   rotation;
+            Color16 color;
             int16   intensity;
-            int16   intensity2;
             uint16  meshID;
             uint32  meshIndex; // index into static meshes array
         } *meshes;
@@ -990,111 +1364,262 @@ namespace TR {
             if (version & VER_TR2)
                 type = TR::Entity::Type(type + TR2_TYPES_START);
 
-            #define REMAP(TYPE) case _##TYPE : return TYPE
+            if (version & VER_TR3)
+                type = TR::Entity::Type(type + TR3_TYPES_START);
+
+            #define REMAP_2(TYPE) case _##TYPE  : return TYPE
+            #define REMAP_3(TYPE) case __##TYPE : return TYPE
 
             switch (type) {
-                REMAP( LARA                 );
-                REMAP( LARA_PISTOLS         );
-                REMAP( LARA_BRAID           );
-                REMAP( LARA_SHOTGUN         );
-                REMAP( LARA_UZIS            );
-                REMAP( LARA_SPEC            );
-                REMAP( TRAP_FLOOR           );
-                REMAP( TRAP_SPIKES          );
-                REMAP( TRAP_BOULDER         );
-                REMAP( DART                 );
-                REMAP( TRAP_DART_EMITTER    );
-                REMAP( DRAWBRIDGE           );
-                REMAP( TRAP_SLAM            );
-                REMAP( BLOCK_1              );
-                REMAP( BLOCK_2              );
-                REMAP( BLOCK_3              );
-                REMAP( BLOCK_4              );
-                REMAP( TRAP_CEILING_1       );
-                REMAP( CUT_1                );
-                REMAP( CUT_2                );
-                REMAP( CUT_3                );
-                REMAP( SWITCH               );
-                REMAP( SWITCH_WATER         );
-                REMAP( DOOR_1               );
-                REMAP( DOOR_2               );
-                REMAP( DOOR_3               );
-                REMAP( DOOR_4               );
-                REMAP( DOOR_5               );
-                REMAP( DOOR_6               );
-                REMAP( DOOR_7               );
-                REMAP( DOOR_8               );
-                REMAP( TRAP_DOOR_1          );
-                REMAP( TRAP_DOOR_2          );
-                REMAP( BRIDGE_1             );
-                REMAP( BRIDGE_2             );
-                REMAP( BRIDGE_3             );
-                REMAP( INV_PASSPORT         );
-                REMAP( INV_HOME             );
-                REMAP( CUT_4                );
-                REMAP( INV_PASSPORT_CLOSED  );
-                REMAP( INV_MAP              );
-                REMAP( PISTOLS              );
-                REMAP( SHOTGUN              );
-                REMAP( UZIS                 );
-                REMAP( AMMO_PISTOLS         );
-                REMAP( AMMO_SHOTGUN         );
-                REMAP( AMMO_UZIS            );
-                REMAP( MEDIKIT_SMALL        );
-                REMAP( MEDIKIT_BIG          );
-                REMAP( INV_DETAIL           );
-                REMAP( INV_SOUND            );
-                REMAP( INV_CONTROLS         );
-                REMAP( INV_PISTOLS          );
-                REMAP( INV_SHOTGUN          );
-                REMAP( INV_UZIS             );
-                REMAP( INV_AMMO_PISTOLS     );
-                REMAP( INV_AMMO_SHOTGUN     );
-                REMAP( INV_AMMO_UZIS        );
-                REMAP( INV_MEDIKIT_SMALL    );
-                REMAP( INV_MEDIKIT_BIG      );
-                REMAP( PUZZLE_1             );
-                REMAP( PUZZLE_2             );
-                REMAP( PUZZLE_3             );
-                REMAP( PUZZLE_4             );
-                REMAP( INV_PUZZLE_1         );
-                REMAP( INV_PUZZLE_2         );
-                REMAP( INV_PUZZLE_3         );
-                REMAP( INV_PUZZLE_4         );
-                REMAP( PUZZLE_HOLE_1        );
-                REMAP( PUZZLE_HOLE_2        );
-                REMAP( PUZZLE_HOLE_3        );
-                REMAP( PUZZLE_HOLE_4        );
-                REMAP( PUZZLE_DONE_1        );
-                REMAP( PUZZLE_DONE_2        );
-                REMAP( PUZZLE_DONE_3        );
-                REMAP( PUZZLE_DONE_4        );
-                REMAP( KEY_ITEM_1           );
-                REMAP( KEY_ITEM_2           );
-                REMAP( KEY_ITEM_3           );
-                REMAP( KEY_ITEM_4           );
-                REMAP( INV_KEY_1            );
-                REMAP( INV_KEY_2            );
-                REMAP( INV_KEY_3            );
-                REMAP( INV_KEY_4            );
-                REMAP( KEY_HOLE_1           );
-                REMAP( KEY_HOLE_2           );
-                REMAP( KEY_HOLE_3           );
-                REMAP( KEY_HOLE_4           );
-                REMAP( ENEMY_REX            );
-                REMAP( EXPLOSION            );
-                REMAP( WATER_SPLASH         );
-                REMAP( BUBBLE               );
-                REMAP( BLOOD                );
-                REMAP( RICOCHET             );
-                REMAP( MUZZLE_FLASH         );
-                REMAP( VIEW_TARGET          );
-                REMAP( WATERFALL            );
-                REMAP( LAVA_PARTICLE        );
-                REMAP( TRAP_LAVA_EMITTER    );
-                REMAP( FLAME                );
-                REMAP( TRAP_FLAME_EMITTER   );
-                REMAP( GLYPHS               );
+            // TR2
+                REMAP_2( LARA                 );
+                REMAP_2( LARA_PISTOLS         );
+                REMAP_2( LARA_BRAID           );
+                REMAP_2( LARA_SHOTGUN         );
+                REMAP_2( LARA_UZIS            );
+                REMAP_2( LARA_SPEC            );
+                REMAP_2( TRAP_FLOOR           );
+                REMAP_2( TRAP_SPIKES          );
+                REMAP_2( TRAP_BOULDER         );
+                REMAP_2( DART                 );
+                REMAP_2( TRAP_DART_EMITTER    );
+                REMAP_2( DRAWBRIDGE           );
+                REMAP_2( TRAP_SLAM            );
+                REMAP_2( BLOCK_1              );
+                REMAP_2( BLOCK_2              );
+                REMAP_2( BLOCK_3              );
+                REMAP_2( BLOCK_4              );
+                REMAP_2( TRAP_CEILING_1       );
+                REMAP_2( CUT_1                );
+                REMAP_2( CUT_2                );
+                REMAP_2( CUT_3                );
+                REMAP_2( SWITCH               );
+                REMAP_2( SWITCH_WATER         );
+                REMAP_2( DOOR_1               );
+                REMAP_2( DOOR_2               );
+                REMAP_2( DOOR_3               );
+                REMAP_2( DOOR_4               );
+                REMAP_2( DOOR_5               );
+                REMAP_2( DOOR_6               );
+                REMAP_2( DOOR_7               );
+                REMAP_2( DOOR_8               );
+                REMAP_2( TRAP_DOOR_1          );
+                REMAP_2( TRAP_DOOR_2          );
+                REMAP_2( BRIDGE_1             );
+                REMAP_2( BRIDGE_2             );
+                REMAP_2( BRIDGE_3             );
+                REMAP_2( INV_PASSPORT         );
+                REMAP_2( INV_HOME             );
+                REMAP_2( CUT_4                );
+                REMAP_2( INV_PASSPORT_CLOSED  );
+                REMAP_2( INV_MAP              );
+                REMAP_2( PISTOLS              );
+                REMAP_2( SHOTGUN              );
+                REMAP_2( UZIS                 );
+                REMAP_2( AMMO_PISTOLS         );
+                REMAP_2( AMMO_SHOTGUN         );
+                REMAP_2( AMMO_UZIS            );
+                REMAP_2( MEDIKIT_SMALL        );
+                REMAP_2( MEDIKIT_BIG          );
+                REMAP_2( INV_DETAIL           );
+                REMAP_2( INV_SOUND            );
+                REMAP_2( INV_CONTROLS         );
+                REMAP_2( INV_PISTOLS          );
+                REMAP_2( INV_SHOTGUN          );
+                REMAP_2( INV_UZIS             );
+                REMAP_2( INV_AMMO_PISTOLS     );
+                REMAP_2( INV_AMMO_SHOTGUN     );
+                REMAP_2( INV_AMMO_UZIS        );
+                REMAP_2( INV_MEDIKIT_SMALL    );
+                REMAP_2( INV_MEDIKIT_BIG      );
+                REMAP_2( PUZZLE_1             );
+                REMAP_2( PUZZLE_2             );
+                REMAP_2( PUZZLE_3             );
+                REMAP_2( PUZZLE_4             );
+                REMAP_2( INV_PUZZLE_1         );
+                REMAP_2( INV_PUZZLE_2         );
+                REMAP_2( INV_PUZZLE_3         );
+                REMAP_2( INV_PUZZLE_4         );
+                REMAP_2( PUZZLE_HOLE_1        );
+                REMAP_2( PUZZLE_HOLE_2        );
+                REMAP_2( PUZZLE_HOLE_3        );
+                REMAP_2( PUZZLE_HOLE_4        );
+                REMAP_2( PUZZLE_DONE_1        );
+                REMAP_2( PUZZLE_DONE_2        );
+                REMAP_2( PUZZLE_DONE_3        );
+                REMAP_2( PUZZLE_DONE_4        );
+                REMAP_2( KEY_ITEM_1           );
+                REMAP_2( KEY_ITEM_2           );
+                REMAP_2( KEY_ITEM_3           );
+                REMAP_2( KEY_ITEM_4           );
+                REMAP_2( INV_KEY_1            );
+                REMAP_2( INV_KEY_2            );
+                REMAP_2( INV_KEY_3            );
+                REMAP_2( INV_KEY_4            );
+                REMAP_2( KEY_HOLE_1           );
+                REMAP_2( KEY_HOLE_2           );
+                REMAP_2( KEY_HOLE_3           );
+                REMAP_2( KEY_HOLE_4           );
+                REMAP_2( ENEMY_REX            );
+                REMAP_2( EXPLOSION            );
+                REMAP_2( WATER_SPLASH         );
+                REMAP_2( BUBBLE               );
+                REMAP_2( BLOOD                );
+                REMAP_2( RICOCHET             );
+                REMAP_2( MUZZLE_FLASH         );
+                REMAP_2( VIEW_TARGET          );
+                REMAP_2( WATERFALL            );
+                REMAP_2( LAVA_PARTICLE        );
+                REMAP_2( TRAP_LAVA_EMITTER    );
+                REMAP_2( FLAME                );
+                REMAP_2( TRAP_FLAME_EMITTER   );
+                REMAP_2( GLYPHS               );
+            // TR3
+                REMAP_3( LARA                 );
+                REMAP_3( LARA_PISTOLS         );
+                REMAP_3( LARA_BRAID           );
+                REMAP_3( LARA_SHOTGUN         );
+                REMAP_3( LARA_UZIS            );
+                REMAP_3( LARA_GRENADE         );
+                REMAP_3( LARA_HARPOON         );
+                REMAP_3( LARA_FLARE           );
+                REMAP_3( VEHICLE_BOAT         );
+                REMAP_3( ENEMY_DOG            );
+                REMAP_3( ENEMY_RAT            );
+                REMAP_3( ENEMY_DIVER          );
+                REMAP_3( ENEMY_CROW           );
+                REMAP_3( ENEMY_TIGER          );
+                REMAP_3( TRAP_FLOOR           );
+                REMAP_3( TRAP_SPIKES          );
+                REMAP_3( TRAP_BOULDER         );
+                REMAP_3( DART                 );
+                REMAP_3( TRAP_DART_EMITTER    );
+                REMAP_3( BLOCK_1              );
+                REMAP_3( BLOCK_2              );
+                REMAP_3( BLOCK_3              );
+                REMAP_3( BLOCK_4              );
+                REMAP_3( WINDOW_1             );
+                REMAP_3( WINDOW_2             );
+                REMAP_3( TRAP_CEILING_1       );
+                REMAP_3( TRAP_SPINDLE         );
+                REMAP_3( TRAP_ICICLES         );
+                REMAP_3( TRAP_SPIKES_WALL     );
+                REMAP_3( WHEEL_KNOB           );
+                REMAP_3( SWITCH_BIG           );
+                REMAP_3( CUT_1                );
+                REMAP_3( CUT_2                );
+                REMAP_3( CUT_3                );
+                REMAP_3( UI_FRAME             );
+                REMAP_3( ZIPLINE_HANDLE       );
+                REMAP_3( SWITCH_BUTTON        );
+                REMAP_3( SWITCH               );
+                REMAP_3( SWITCH_WATER         );
+                REMAP_3( DOOR_1               );
+                REMAP_3( DOOR_2               );
+                REMAP_3( DOOR_3               );
+                REMAP_3( DOOR_4               );
+                REMAP_3( DOOR_5               );
+                REMAP_3( DOOR_6               );
+                REMAP_3( DOOR_7               );
+                REMAP_3( DOOR_8               );
+                REMAP_3( TRAP_DOOR_1          );
+                REMAP_3( TRAP_DOOR_2          );
+                REMAP_3( TRAP_DOOR_3          );
+                REMAP_3( BRIDGE_1             );
+                REMAP_3( BRIDGE_2             );
+                REMAP_3( BRIDGE_3             );
+                REMAP_3( INV_PASSPORT         );
+                REMAP_3( INV_COMPASS          );
+                REMAP_3( INV_HOME             );
+                REMAP_3( CUT_4                );
+                REMAP_3( CUT_5                );
+                REMAP_3( CUT_6                );
+                REMAP_3( CUT_7                );
+                REMAP_3( CUT_8                );
+                REMAP_3( CUT_9                );
+                REMAP_3( CUT_10               );
+                REMAP_3( CUT_11               );
+                REMAP_3( INV_PASSPORT_CLOSED  );
+                REMAP_3( INV_MAP              );
+                REMAP_3( PISTOLS              );
+                REMAP_3( SHOTGUN              );
+                REMAP_3( UZIS                 );
+                REMAP_3( HARPOON              );
+                REMAP_3( GRENADE              );
+                REMAP_3( AMMO_PISTOLS         );
+                REMAP_3( AMMO_SHOTGUN         );
+                REMAP_3( AMMO_UZIS            );
+                REMAP_3( AMMO_HARPOON         );
+                REMAP_3( AMMO_GRENADE         );
+                REMAP_3( MEDIKIT_SMALL        );
+                REMAP_3( MEDIKIT_BIG          );
+                REMAP_3( FLARES               );
+                REMAP_3( FLARE                );
+                REMAP_3( CRYSTAL              );
+                REMAP_3( INV_DETAIL           );
+                REMAP_3( INV_SOUND            );
+                REMAP_3( INV_CONTROLS         );
+                REMAP_3( INV_PISTOLS          );
+                REMAP_3( INV_SHOTGUN          );
+                REMAP_3( INV_UZIS             );
+                REMAP_3( INV_HARPOON          );
+                REMAP_3( INV_GRENADE          );
+                REMAP_3( INV_AMMO_PISTOLS     );
+                REMAP_3( INV_AMMO_SHOTGUN     );
+                REMAP_3( INV_AMMO_UZIS        );
+                REMAP_3( INV_AMMO_HARPOON     );
+                REMAP_3( INV_AMMO_GRENADE     );
+                REMAP_3( INV_MEDIKIT_SMALL    );
+                REMAP_3( INV_MEDIKIT_BIG      );
+                REMAP_3( INV_FLARES           );
+                REMAP_3( PUZZLE_1             );
+                REMAP_3( PUZZLE_2             );
+                REMAP_3( PUZZLE_3             );
+                REMAP_3( PUZZLE_4             );
+                REMAP_3( INV_PUZZLE_1         );
+                REMAP_3( INV_PUZZLE_2         );
+                REMAP_3( INV_PUZZLE_3         );
+                REMAP_3( INV_PUZZLE_4         );
+                REMAP_3( PUZZLE_HOLE_1        );
+                REMAP_3( PUZZLE_HOLE_2        );
+                REMAP_3( PUZZLE_HOLE_3        );
+                REMAP_3( PUZZLE_HOLE_4        );
+                REMAP_3( PUZZLE_DONE_1        );
+                REMAP_3( PUZZLE_DONE_2        );
+                REMAP_3( PUZZLE_DONE_3        );
+                REMAP_3( PUZZLE_DONE_4        );
+                REMAP_3( KEY_ITEM_1           );
+                REMAP_3( KEY_ITEM_2           );
+                REMAP_3( KEY_ITEM_3           );
+                REMAP_3( KEY_ITEM_4           );
+                REMAP_3( INV_KEY_1            );
+                REMAP_3( INV_KEY_2            );
+                REMAP_3( INV_KEY_3            );
+                REMAP_3( INV_KEY_4            );
+                REMAP_3( KEY_HOLE_1           );
+                REMAP_3( KEY_HOLE_2           );
+                REMAP_3( KEY_HOLE_3           );
+                REMAP_3( KEY_HOLE_4           );
+                REMAP_3( QUEST_ITEM_1         );
+                REMAP_3( QUEST_ITEM_2         );
+                REMAP_3( INV_QUEST_ITEM_1     );
+                REMAP_3( INV_QUEST_ITEM_2     );
+                REMAP_3( ENEMY_REX            );
+                REMAP_3( ENEMY_RAPTOR         );
+                REMAP_3( DETONATOR            );
+                REMAP_3( BUBBLE               );
+                REMAP_3( MUZZLE_GLOW          );
+                REMAP_3( MUZZLE_FLASH         );
+                REMAP_3( VIEW_TARGET          );
+                REMAP_3( WATERFALL            );
+                REMAP_3( HARPOON_WTF          );
+                REMAP_3( SMOKE                );
+                REMAP_3( SKY                  );
+                REMAP_3( GLYPHS               );
+                REMAP_3( SOUND_DOOR_BELL      );
+                REMAP_3( ENEMY_WINSTON        );
+                REMAP_3( EARTHQUAKE           );
+
                 default : return type;
             }
 
@@ -1143,7 +1668,7 @@ namespace TR {
         }
 
         bool isActor() const {
-            return (type >= CUT_1 && type <= CUT_4) || (type >= CUT_5 && type <= CUT_11);
+            return (type >= CUT_1 && type <= CUT_4) || (type >= CUT_5 && type <= CUT_11) || (type == CUT_12);
         }
 
         bool isPuzzleHole() const {
@@ -1339,7 +1864,7 @@ namespace TR {
                 return unpack(a, b);
             }
 
-            if (version & VER_TR2) {
+            if (version & (VER_TR2 | VER_TR3)) {
 
                 // TODO: remove this !!!
                 for (int i = 0; i < joint; i++)
@@ -1495,9 +2020,11 @@ namespace TR {
     };
 
     struct SoundInfo {
-        uint16 offset;
-        uint16 volume;
-        uint16 chance;   // If !=0 and ((rand()&0x7fff) > Chance), this sound is not played
+        float  volume;
+        float  chance;
+        float  range;
+        float  pitch;
+        uint16 index;
         union {
             struct { uint16 mode:2, count:4, unused:6, camera:1, pitch:1, gain:1, :1; };
             uint16 value;
@@ -1553,10 +2080,44 @@ namespace TR {
         LVL_TR2_CATACOMB,
         LVL_TR2_ICECAVE,
         LVL_TR2_EMPRTOMB,
-        LVL_TR2_FLOATING,
         LVL_TR2_CUT_4,
+        LVL_TR2_FLOATING,
         LVL_TR2_XIAN,
         LVL_TR2_HOUSE,
+    // TR3
+        LVL_TR3_TITLE,
+        LVL_TR3_HOUSE,
+        LVL_TR3_JUNGLE,
+        LVL_TR3_CUT_6,
+        LVL_TR3_TEMPLE,
+        LVL_TR3_CUT_9,
+        LVL_TR3_QUADCHAS,
+        LVL_TR3_TONYBOSS,
+        LVL_TR3_SHORE,
+        LVL_TR3_CUT_1,
+        LVL_TR3_CRASH,
+        LVL_TR3_CUT_4,
+        LVL_TR3_RAPIDS,
+        LVL_TR3_TRIBOSS,
+        LVL_TR3_ROOFS,
+        LVL_TR3_CUT_2,
+        LVL_TR3_SEWER,
+        LVL_TR3_CUT_5,
+        LVL_TR3_TOWER,
+        LVL_TR3_CUT_11,
+        LVL_TR3_OFFICE,
+        LVL_TR3_NEVADA,
+        LVL_TR3_CUT_7,
+        LVL_TR3_COMPOUND,
+        LVL_TR3_CUT_8,
+        LVL_TR3_AREA51,
+        LVL_TR3_ANTARC,
+        LVL_TR3_CUT_3,
+        LVL_TR3_MINES,
+        LVL_TR3_CITY,
+        LVL_TR3_CUT_12,
+        LVL_TR3_CHAMBER,
+        LVL_TR3_STPAUL,
 
         LVL_MAX,
     };
@@ -1567,57 +2128,91 @@ namespace TR {
         int        ambientTrack;
     } LEVEL_INFO[LVL_MAX] = {
     // TR1
-        { ""          , "Custom Level",             TRACK_CAVES },
-        { "TITLE"     , "",                         TRACK_TITLE },
-        { "GYM"       , "Lara's Home",              0 },
-        { "LEVEL1"    , "Caves",                    TRACK_CAVES },
-        { "LEVEL2"    , "City of Vilcabamba",       TRACK_CAVES },
-        { "LEVEL3A"   , "Lost Valley",              TRACK_CAVES },
-        { "LEVEL3B"   , "Tomb of Qualopec",         TRACK_CAVES },
-        { "CUT1"      , "",                         TRACK_CUT1  },
-        { "LEVEL4"    , "St. Francis' Folly",       TRACK_CAVES },
-        { "LEVEL5"    , "Colosseum",                TRACK_CAVES },
-        { "LEVEL6"    , "Palace Midas",             TRACK_CAVES },
-        { "LEVEL7A"   , "The Cistern",              TRACK_CISTERN },
-        { "LEVEL7B"   , "Tomb of Tihocan",          TRACK_CISTERN },
-        { "CUT2"      , "",                         TRACK_CUT2  },
-        { "LEVEL8A"   , "City of Khamoon",          TRACK_EGYPT },
-        { "LEVEL8B"   , "Obelisk of Khamoon",       TRACK_EGYPT },
-        { "LEVEL8C"   , "Sanctuary of the Scion",   TRACK_EGYPT },
-        { "LEVEL10A"  , "Natla's Mines",            TRACK_MINE  },
-        { "CUT3"      , "",                         TRACK_CUT3  },
-        { "LEVEL10B"  , "Atlantis",                 TRACK_MINE  },
-        { "CUT4"      , "",                         TRACK_CUT4  },
-        { "LEVEL10C"  , "The Great Pyramid",        TRACK_MINE  },
-        { "EGYPT"     , "Return to Egypt",          TRACK_EGYPT },
-        { "CAT"       , "Temple of the Cat",        TRACK_EGYPT },
-        { "END"       , "Atlantean Stronghold",     TRACK_EGYPT },
-        { "END2"      , "The Hive",                 TRACK_EGYPT },
+        { ""          , "Custom Level",             TRACK_TR1_CAVES     },
+        { "TITLE"     , "",                         TRACK_TR1_TITLE     },
+        { "GYM"       , "Lara's Home",              NO_TRACK            },
+        { "LEVEL1"    , "Caves",                    TRACK_TR1_CAVES     },
+        { "LEVEL2"    , "City of Vilcabamba",       TRACK_TR1_CAVES     },
+        { "LEVEL3A"   , "Lost Valley",              TRACK_TR1_CAVES     },
+        { "LEVEL3B"   , "Tomb of Qualopec",         TRACK_TR1_CAVES     },
+        { "CUT1"      , "",                         TRACK_TR1_CUT_1     },
+        { "LEVEL4"    , "St. Francis' Folly",       TRACK_TR1_CAVES     },
+        { "LEVEL5"    , "Colosseum",                TRACK_TR1_CAVES     },
+        { "LEVEL6"    , "Palace Midas",             TRACK_TR1_CAVES     },
+        { "LEVEL7A"   , "The Cistern",              TRACK_TR1_CISTERN   },
+        { "LEVEL7B"   , "Tomb of Tihocan",          TRACK_TR1_CISTERN   },
+        { "CUT2"      , "",                         TRACK_TR1_CUT_2     },
+        { "LEVEL8A"   , "City of Khamoon",          TRACK_TR1_EGYPT     },
+        { "LEVEL8B"   , "Obelisk of Khamoon",       TRACK_TR1_EGYPT     },
+        { "LEVEL8C"   , "Sanctuary of the Scion",   TRACK_TR1_EGYPT     },
+        { "LEVEL10A"  , "Natla's Mines",            TRACK_TR1_MINE      },
+        { "CUT3"      , "",                         TRACK_TR1_CUT_3     },
+        { "LEVEL10B"  , "Atlantis",                 TRACK_TR1_MINE      },
+        { "CUT4"      , "",                         TRACK_TR1_CUT_4     },
+        { "LEVEL10C"  , "The Great Pyramid",        TRACK_TR1_MINE      },
+        { "EGYPT"     , "Return to Egypt",          TRACK_TR1_EGYPT     },
+        { "CAT"       , "Temple of the Cat",        TRACK_TR1_EGYPT     },
+        { "END"       , "Atlantean Stronghold",     TRACK_TR1_EGYPT     },
+        { "END2"      , "The Hive",                 TRACK_TR1_EGYPT     },
     // TR2
-        { "TITLE"     , "",                         64 },
-        { "ASSAULT"   , "Lara's Home",              NO_TRACK },
-        { "WALL"      , "The Great Wall",           NO_TRACK },
-        { "CUT1"      , "",                         2 },
-        { "BOAT"      , "Venice",                   NO_TRACK },
-        { "VENICE"    , "Bartoli's Hideout",        NO_TRACK },
-        { "OPERA"     , "Opera House",              NO_TRACK },
-        { "CUT2"      , "",                         4 },
-        { "RIG"       , "Offshore Rig",             NO_TRACK },
-        { "PLATFORM"  , "Diving Area",              NO_TRACK },
-        { "CUT3"      , "",                         5 },
-        { "UNWATER"   , "40 Fathoms",               NO_TRACK },
-        { "KEEL"      , "Wreck of the Maria Doria", NO_TRACK },
-        { "LIVING"    , "Living Quarters",          NO_TRACK },
-        { "DECK"      , "The Deck",                 NO_TRACK },
-        { "SKIDOO"    , "Tibetan Foothills",        NO_TRACK },
-        { "MONASTRY"  , "Barkhang Monastery",       NO_TRACK },
-        { "CATACOMB"  , "Catacombs of the Talion",  NO_TRACK },
-        { "ICECAVE"   , "Ice Palace",               NO_TRACK },
-        { "EMPRTOMB"  , "Temple of Xian",           NO_TRACK },
-        { "FLOATING"  , "Floating Islands",         NO_TRACK },
-        { "CUT4"      , "",                         30 },
-        { "XIAN"      , "The Dragon's Lair",        NO_TRACK },
-        { "HOUSE"     , "Home Sweet Home",          NO_TRACK },
+        { "TITLE"     , "",                         TRACK_TR2_TITLE     },
+        { "ASSAULT"   , "Lara's Home",              NO_TRACK            },
+        { "WALL"      , "The Great Wall",           TRACK_TR2_CHINA_1   },
+        { "CUT1"      , "",                         TRACK_TR2_CUT_1     },
+        { "BOAT"      , "Venice",                   NO_TRACK            },
+        { "VENICE"    , "Bartoli's Hideout",        NO_TRACK            },
+        { "OPERA"     , "Opera House",              TRACK_TR2_ITALY     },
+        { "CUT2"      , "",                         TRACK_TR2_CUT_2     },
+        { "RIG"       , "Offshore Rig",             TRACK_TR2_RIG       },
+        { "PLATFORM"  , "Diving Area",              TRACK_TR2_RIG       },
+        { "CUT3"      , "",                         TRACK_TR2_CUT_3     },
+        { "UNWATER"   , "40 Fathoms",               TRACK_TR2_UNWATER_1 },
+        { "KEEL"      , "Wreck of the Maria Doria", TRACK_TR2_UNWATER_2 },
+        { "LIVING"    , "Living Quarters",          TRACK_TR2_UNWATER_1 },
+        { "DECK"      , "The Deck",                 TRACK_TR2_UNWATER_2 },
+        { "SKIDOO"    , "Tibetan Foothills",        TRACK_TR2_TIBET_1   },
+        { "MONASTRY"  , "Barkhang Monastery",       NO_TRACK            },
+        { "CATACOMB"  , "Catacombs of the Talion",  TRACK_TR2_TIBET_2   },
+        { "ICECAVE"   , "Ice Palace",               TRACK_TR2_TIBET_2   },
+        { "EMPRTOMB"  , "Temple of Xian",           TRACK_TR2_CHINA_2   },
+        { "CUT4"      , "",                         TRACK_TR2_CUT_4     },
+        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
+        { "XIAN"      , "The Dragon's Lair",        TRACK_TR2_CHINA_2   },
+        { "HOUSE"     , "Home Sweet Home",          NO_TRACK            },
+    // TR3
+        { "TITLE",      "",                         TRACK_TR3_TITLE     },
+        { "HOUSE",      "Lara's House",             NO_TRACK            },
+        { "JUNGLE",     "Jungle",                   TRACK_TR3_INDIA_1   },
+        { "CUT6",       "",                         TRACK_TR3_CUT_6     },
+        { "TEMPLE",     "Temple Ruins",             TRACK_TR3_INDIA_1   },
+        { "CUT9",       "",                         TRACK_TR3_CUT_9     },
+        { "QUADCHAS",   "The River Ganges",         TRACK_TR3_INDIA_1   },
+        { "TONYBOSS",   "Caves Of Kaliya",          TRACK_TR3_INDIA_2   },
+        { "SHORE",      "Coastal Village",          TRACK_TR3_SOUTH_1   },
+        { "CUT1",       "",                         TRACK_TR3_CUT_1     },
+        { "CRASH",      "Crash Site",               TRACK_TR3_SOUTH_2   },
+        { "CUT4",       "",                         TRACK_TR3_CUT_4     },
+        { "RAPIDS",     "Madubu Gorge",             TRACK_TR3_SOUTH_3   },
+        { "TRIBOSS",    "Temple Of Puna",           TRACK_TR3_CAVES     },
+        { "ROOFS",      "Thames Wharf",             TRACK_TR3_LONDON_1  },
+        { "CUT2",       "",                         TRACK_TR3_CUT_2     },
+        { "SEWER",      "Aldwych",                  TRACK_TR3_LONDON_2  },
+        { "CUT5",       "",                         TRACK_TR3_CUT_5     },
+        { "TOWER",      "Lud's Gate",               TRACK_TR3_LONDON_3  },
+        { "CUT11",      "",                         TRACK_TR3_CUT_11    },
+        { "OFFICE",     "City",                     TRACK_TR3_LONDON_4  },
+        { "NEVADA",     "Nevada Desert",            TRACK_TR3_NEVADA_1  },
+        { "CUT7",       "",                         TRACK_TR3_CUT_7     },
+        { "COMPOUND",   "High Security Compound",   TRACK_TR3_NEVADA_2  },
+        { "CUT8",       "",                         TRACK_TR3_CUT_8     },
+        { "AREA51",     "Area 51",                  TRACK_TR3_NEVADA_2  },
+        { "ANTARC",     "Antarctica",               TRACK_TR3_ANTARC_1  },
+        { "CUT3",       "",                         TRACK_TR3_CUT_3     },
+        { "MINES",      "RX-Tech Mines",            TRACK_TR3_ANTARC_2  },
+        { "CITY",       "Lost City Of Tinnos",      TRACK_TR3_ANTARC_3  },
+        { "CUT12",      "",                         TRACK_TR3_CUT_12    },
+        { "CHAMBER",    "Meteorite Cavern",         TRACK_TR3_ANTARC_3  },
+        { "STPAUL",     "All Hallows",              TRACK_TR3_CAVES     },
     };
 
 
@@ -1853,9 +2448,11 @@ namespace TR {
             int16 weapons[4];
             int16 braid;
             int16 laraSpec;
+            int16 laraSkin;
             int16 meshSwap[3];
             int16 sky;
             int16 smoke;
+            int16 waterSplash;
             int16 glyphs;
 
             struct {
@@ -1898,12 +2495,15 @@ namespace TR {
             #define MAGIC_TR1_PC  0x00000020
             #define MAGIC_TR1_PSX 0x56414270
             #define MAGIC_TR2_PC  0x0000002D
+            #define MAGIC_TR3_PC1 0xFF080038
+            #define MAGIC_TR3_PC2 0xFF180038
+            #define MAGIC_TR3_PC3 0xFF180034
 
             id = getLevelID(stream.size);
 
             if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
-                if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC) {
+                if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC && magic != MAGIC_TR3_PC1 && magic != MAGIC_TR3_PC2 && magic != MAGIC_TR3_PC3) {
                     soundOffset = magic;
                     stream.read(magic);
                 }
@@ -1912,6 +2512,9 @@ namespace TR {
                     case MAGIC_TR1_PC  : version = VER_TR1_PC;  break;
                     case MAGIC_TR1_PSX : version = VER_TR1_PSX; break;
                     case MAGIC_TR2_PC  : version = VER_TR2_PC;  break;
+                    case MAGIC_TR3_PC1 :
+                    case MAGIC_TR3_PC2 : 
+                    case MAGIC_TR3_PC3 : version = VER_TR3_PC;  break;
                     default            : ;
                 }
             }
@@ -1935,7 +2538,7 @@ namespace TR {
                 stream.read(soundData, soundDataSize);
             }
 
-            if (version == VER_TR2_PC) {
+            if (version == VER_TR2_PC || version == VER_TR3_PC) {
                 stream.read(palette,   256);
                 stream.read(palette32, 256);
             }
@@ -1963,45 +2566,46 @@ namespace TR {
                 stream.setPos(startPos + 2600 + numSounds * 512);
                 stream.read(soundData, soundDataSize);
                 stream.setPos(startPos + offsetTexTiles + 8);
-            } else if (version == VER_TR1_PC || version == VER_TR2_PC) {
+            }
+
+            if (version & VER_PC) {
             // tiles
                 stream.read(tiles8, stream.read(tilesCount));
             }
 
-            if (version == VER_TR2_PC) 
+            if (version == VER_TR2_PC || version == VER_TR3_PC) 
                 stream.read(tiles16, tilesCount);
 
             if (version == VER_TR1_PSX) {
             // tiles
                 stream.read(tiles4, tilesCount = 13);
-                stream.read(cluts, clutsCount = 512);                
+                stream.read(cluts,  clutsCount = 512);                
                 stream.seek(0x4000);
             }
             stream.read(unused);
 
         // rooms
-            rooms = new Room[stream.read(roomsCount)];
+            rooms = stream.read(roomsCount) ? new Room[roomsCount] : NULL;
             for (int i = 0; i < roomsCount; i++) 
                 readRoom(stream, rooms[i]);
 
         // floors
-            stream.read(floors,         stream.read(floorsCount));
+            stream.read(floors,    stream.read(floorsCount));
         // meshes
             readMeshes(stream);
         // animations
-            stream.read(anims,          stream.read(animsCount));
-            stream.read(states,         stream.read(statesCount));
-            stream.read(ranges,         stream.read(rangesCount));
-            stream.read(commands,       stream.read(commandsCount));
-            stream.read(nodesData,      stream.read(nodesDataSize));
-            stream.read(frameData,      stream.read(frameDataSize));
+            stream.read(anims,     stream.read(animsCount));
+            stream.read(states,    stream.read(statesCount));
+            stream.read(ranges,    stream.read(rangesCount));
+            stream.read(commands,  stream.read(commandsCount));
+            stream.read(nodesData, stream.read(nodesDataSize));
+            stream.read(frameData, stream.read(frameDataSize));
         // models
             models = stream.read(modelsCount) ? new Model[modelsCount] : NULL;
             for (int i = 0; i < modelsCount; i++) {
                 Model &m = models[i];
                 stream.read(m.type);
-                //if (version != VER_TR2_PSX)
-                    stream.read(m.unused);
+                stream.read(m.unused);
                 stream.read(m.mCount);
                 stream.read(m.mStart);
                 stream.read(m.node);
@@ -2021,7 +2625,8 @@ namespace TR {
             }
 
         // textures & UV
-            readObjectTex(stream);
+            if (version & (VER_TR1 | VER_TR2))
+                readObjectTex(stream);
             readSpriteTex(stream);
         // palette for demo levels
             if (version == VER_TR1_PC && isDemoLevel) stream.read(palette, 256);
@@ -2040,7 +2645,7 @@ namespace TR {
                     stream.read(b.maxX);
                 }
                 
-                if (version & VER_TR2) {
+                if (version & (VER_TR2 | VER_TR3)) {
                     uint8 value;
                     b.minZ = stream.read(value) * 1024;
                     b.maxZ = stream.read(value) * 1024;
@@ -2067,6 +2672,8 @@ namespace TR {
             }
         // animated textures
             stream.read(animTexturesData,   stream.read(animTexturesDataSize));
+            if (version & VER_TR3)
+                readObjectTex(stream);
         // entities (enemies, items, lara etc.)
             entitiesCount = stream.read(entitiesBaseCount) + MAX_RESERVED_ENTITIES;
             entities = new Entity[entitiesCount];
@@ -2079,7 +2686,7 @@ namespace TR {
                 stream.read(e.z);
                 stream.read(e.rotation);
                 stream.read(e.intensity);
-                if (version & VER_TR2)
+                if (version & (VER_TR2 | VER_TR3))
                     stream.read(e.intensity2);
                 stream.read(e.flags.value);
 
@@ -2095,17 +2702,17 @@ namespace TR {
                 for (int i = 0; i < entitiesBaseCount; i++) {
                     TR::Entity &e = entities[i];
                     if ((((version & VER_TR1)) && e.isActor()) || 
-                        (((version & VER_TR2)) && e.isLara())) {
+                        (((version & (VER_TR2 | VER_TR3))) && e.isLara())) {
                         cutEntity = i;
                         break;
                     }
                 }
             }
 
-            if (version == VER_TR1_PC || version == VER_TR2_PC) {
+            if (version & VER_PC) {
                 stream.seek(32 * 256);
             // palette for release levels
-                if ((version == VER_TR1_PC || version == VER_TR1_PSX) && !isDemoLevel) 
+                if ((version == VER_TR1_PC) && !isDemoLevel) 
                     stream.read(palette, 256);
             // cinematic frames for cameras (PC)
                 stream.read(cameraFrames,   stream.read(cameraFramesCount));
@@ -2118,16 +2725,38 @@ namespace TR {
 
         // sounds
             stream.read(soundsMap,  (version & VER_TR1) ? 256 : 370);
-            stream.read(soundsInfo, stream.read(soundsInfoCount));
+            soundsInfo = stream.read(soundsInfoCount) ? new SoundInfo[soundsInfoCount] : NULL;
+            for (int i = 0; i < soundsInfoCount; i++) {
+                SoundInfo &s = soundsInfo[i];
+
+                stream.read(s.index);
+                if (version & (VER_TR1 | VER_TR2)) {
+                    uint16 v;
+                    stream.read(v); s.volume = float(v) / 0x7FFF;
+                    stream.read(v); s.chance = float(v) / 0xFFFF;
+                    s.range = 8 * 1024;
+                    s.pitch = 0.2f;
+                } else {
+                    uint8 v;
+                    stream.read(v); s.volume = float(v) / 0xFF;
+                    stream.read(v); s.range  = float(v) * 1024;
+                    stream.read(v); s.chance = float(v) / 0xFF;
+                    stream.read(v); s.pitch  = float(v) / 0xFF;
+                }
+
+                stream.read(s.flags.value);
+
+                ASSERT(s.volume <= 1.0f);
+            }
 
             if (version == VER_TR1_PC) {
                 stream.read(soundData,    stream.read(soundDataSize));
                 stream.read(soundOffsets, stream.read(soundOffsetsCount));
             }
 
-            if (version == VER_TR2_PC) {
+            if (version == VER_TR2_PC || version == VER_TR3_PC) {
                 stream.read(soundOffsets, stream.read(soundOffsetsCount));
-                new Stream("audio/2/MAIN.SFX", sfxLoadAsync, this);
+                new Stream(version == VER_TR2_PC ? "audio/2/MAIN.SFX" : "audio/3/MAIN.SFX", sfxLoadAsync, this);
             }
 
         // cinematic frames for cameras (PSX)
@@ -2145,12 +2774,7 @@ namespace TR {
             delete[] tiles16;
 
             memset(&state, 0, sizeof(state));
-        /* TODO TR2 investigate (Lara::checkTrigger for SOUNDTRACK)
-            if (version & VER_TR2) { // some tracks in TR2 has activation mask == 1, here we fill other bits
-                for (int i = 0; i < MAX_TRACKS_COUNT; i++)
-                    state.tracks[i].active = 0x1E;
-            }
-        */
+
             initExtra();
             initCutscene();
         }
@@ -2329,6 +2953,41 @@ namespace TR {
                 case 2558286 : return LVL_TR2_CUT_3;
                 case 1116966 : version = VER_TR2_PSX;
                 case 1900230 : return LVL_TR2_CUT_4;
+            // TR3
+                case 1275266 : return LVL_TR3_TITLE;
+                case 3437855 : return LVL_TR3_HOUSE;
+                case 3360001 : return LVL_TR3_JUNGLE;
+                case 3180412 : return LVL_TR3_TEMPLE;
+                case 3131453 : return LVL_TR3_QUADCHAS;
+                case 2618437 : return LVL_TR3_TONYBOSS;
+                case 3365562 : return LVL_TR3_SHORE;
+                case 3331132 : return LVL_TR3_CRASH;
+                case 3148248 : return LVL_TR3_RAPIDS;
+                case 2276838 : return LVL_TR3_TRIBOSS;
+                case 3579476 : return LVL_TR3_ROOFS;
+                case 3670149 : return LVL_TR3_SEWER;
+                case 3523586 : return LVL_TR3_TOWER;
+                case 2504910 : return LVL_TR3_OFFICE;
+                case 3140417 : return LVL_TR3_NEVADA;
+                case 3554880 : return LVL_TR3_COMPOUND;
+                case 3530130 : return LVL_TR3_AREA51;
+                case 3515272 : return LVL_TR3_ANTARC;
+                case 3331087 : return LVL_TR3_MINES;
+                case 3575873 : return LVL_TR3_CITY;
+                case 3190736 : return LVL_TR3_CHAMBER;
+                case 3140028 : return LVL_TR3_STPAUL;
+                case 1547866 : return LVL_TR3_CUT_1;
+                case 1957327 : return LVL_TR3_CUT_2;
+                case 2020225 : return LVL_TR3_CUT_3;
+                case 1048466 : return LVL_TR3_CUT_4;
+                case 1580868 : return LVL_TR3_CUT_5;
+                case 2430940 : return LVL_TR3_CUT_6;
+                case 1253227 : return LVL_TR3_CUT_7;
+                case  944962 : return LVL_TR3_CUT_8;
+                case 1788075 : return LVL_TR3_CUT_9;
+                case 1402003 : return LVL_TR3_CUT_11;
+                case 2321393 : return LVL_TR3_CUT_12;
+
             }
             return LVL_CUSTOM;
         }
@@ -2370,6 +3029,7 @@ namespace TR {
                 return;
             }
             ((Level*)userData)->readSamples(*stream);
+            delete stream;
         }
 
 
@@ -2390,6 +3050,7 @@ namespace TR {
                     case Entity::LARA_UZIS           : extra.weapons[3]      = i; break;
                     case Entity::LARA_BRAID          : extra.braid           = i; break;
                     case Entity::LARA_SPEC           : extra.laraSpec        = i; break;
+                    case Entity::LARA_SKIN           : extra.laraSkin        = i; break;
                     case Entity::CUT_1               : extra.meshSwap[0]     = i; break;
                     case Entity::CUT_2               : extra.meshSwap[1]     = i; break;
                     case Entity::CUT_3               : extra.meshSwap[2]     = i; break;
@@ -2438,8 +3099,9 @@ namespace TR {
                 
             for (int i = 0; i < spriteSequencesCount; i++)
                 switch (spriteSequences[i].type) {
-                    case Entity::SMOKE  : extra.smoke  = i; break;
-                    case Entity::GLYPHS : extra.glyphs = i; break;
+                    case Entity::SMOKE        : extra.smoke        = i; break;
+                    case Entity::WATER_SPLASH : extra.waterSplash  = i; break;
+                    case Entity::GLYPHS       : extra.glyphs       = i; break;
                     default : ;
                 }
 
@@ -2473,20 +3135,64 @@ namespace TR {
             }
         }
 
-        LevelID titleId() {
-            if (version & VER_TR1) return LVL_TR1_TITLE;
-            if (version & VER_TR2) return LVL_TR2_TITLE;
+        LevelID getTitleId() {
+            switch (version & VER_VERSION) {
+                case VER_TR1 : return LVL_TR1_TITLE;
+                case VER_TR2 : return LVL_TR2_TITLE;
+                case VER_TR3 : return LVL_TR3_TITLE;
+            }
             return LVL_TR1_TITLE;
             ASSERT(false);
         }
 
+        LevelID getHomeId() {
+            switch (version & VER_VERSION) {
+                case VER_TR1 : return LVL_TR1_GYM;
+                case VER_TR2 : return LVL_TR2_ASSAULT;
+                case VER_TR3 : return LVL_TR3_HOUSE;
+            }
+            return LVL_TR1_TITLE;
+            ASSERT(false);
+        }
+
+        LevelID getStartId() {
+            switch (version & VER_VERSION) {
+                case VER_TR1 : return LVL_TR1_1;
+                case VER_TR2 : return LVL_TR2_WALL;
+                case VER_TR3 : return LVL_TR3_JUNGLE;
+            }
+            return LVL_MAX;
+            ASSERT(false);
+        }
+
+        LevelID getEndId() {
+            switch (version & VER_VERSION) {
+                case VER_TR1 : return LVL_TR1_10C;
+                case VER_TR2 : return LVL_TR2_HOUSE;
+                case VER_TR3 : return LVL_TR3_CHAMBER;
+            }
+            return LVL_MAX;
+            ASSERT(false);
+        }
+
         bool isTitle() {
-            return id == titleId();
+            return id == getTitleId();
+        }
+
+        bool isHome() {
+            return id == getHomeId();
+        }
+
+        bool isEnd() {
+            return id == getEndId();
         }
 
         bool isCutsceneLevel() {
             return id == LVL_TR1_CUT_1 || id == LVL_TR1_CUT_2 || id == LVL_TR1_CUT_3 || id == LVL_TR1_CUT_4 ||
-                   id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4;
+                   id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4 || 
+                   id == LVL_TR3_CUT_1 || id == LVL_TR3_CUT_2  || id == LVL_TR3_CUT_3  || id == LVL_TR3_CUT_4 ||
+                   id == LVL_TR3_CUT_5 || id == LVL_TR3_CUT_6  || id == LVL_TR3_CUT_7  || id == LVL_TR3_CUT_8 ||
+                   id == LVL_TR3_CUT_9 || id == LVL_TR3_CUT_11 || id == LVL_TR3_CUT_12;
         }
 
         void readRoom(Stream &stream, Room &r) {
@@ -2507,21 +3213,29 @@ namespace TR {
                         uint32 value;
                     } comp;
                     stream.read(comp.value);
-                    v.vertex.x   = (comp.x << 10);
-                    v.vertex.y   = (comp.y << 8) + r.info.yTop;
-                    v.vertex.z   = (comp.z << 10);
-                    v.lighting   = comp.lighting;
-                    v.attributes = comp.attributes;
+                    v.vertex.x    = (comp.x << 10);
+                    v.vertex.y    = (comp.y << 8) + r.info.yTop;
+                    v.vertex.z    = (comp.z << 10);
+                    v.lighting    = comp.lighting;
+                    v.attributes  = comp.attributes;
+                    v.color.value = 0xFFFF;
                     ASSERT(comp.w == 0);
                 } else {
                     stream.read(v.vertex.x);
                     stream.read(v.vertex.y);
                     stream.read(v.vertex.z);
                     stream.read(v.lighting);
-                    if (version == VER_TR2_PC) {
+
+                    if (version == VER_TR2_PC || version == VER_TR3_PC)
                         stream.read(v.attributes);
-                        stream.read(v.lighting2);
-                    }
+                   
+                    if (version == VER_TR2_PC)
+                        stream.read(v.lighting); // real lighting value
+
+                    if (version == VER_TR3_PC)
+                        stream.read(v.color.value);
+                    else
+                        v.color.value = 0xFFFF;
                 }
 
                 if (version & VER_PSX)
@@ -2546,9 +3260,10 @@ namespace TR {
             } else
                 stream.raw(d.rectangles, sizeof(Rectangle) * d.rCount);
 
-            if (version == VER_TR1_PSX || version == VER_TR2_PSX)
-                for (int j = 0; j < d.rCount; j++) // swap indices (quad strip -> quad list)
+            if (version & VER_PSX) { // swap indices (quad strip -> quad list) only for PSX version
+                for (int j = 0; j < d.rCount; j++)
                     swap(d.rectangles[j].vertices[2], d.rectangles[j].vertices[3]);
+            }
 
             d.triangles = stream.read(d.tCount) ? new Triangle[d.tCount] : NULL;
             if (version == VER_TR2_PSX) {
@@ -2573,24 +3288,46 @@ namespace TR {
         // portals
             stream.read(r.portals, stream.read(r.portalsCount));
 
-            if (version == VER_TR2_PSX)
+            if (version == VER_TR2_PSX) {
                 for (int i = 0; i < r.portalsCount; i++) {
                     r.portals[i].vertices[0].y += r.info.yTop;
                     r.portals[i].vertices[1].y += r.info.yTop;
                     r.portals[i].vertices[2].y += r.info.yTop;
                     r.portals[i].vertices[3].y += r.info.yTop;
                 }
+            }
 
         // sectors
             stream.read(r.zSectors);
             stream.read(r.xSectors);
-            stream.read(r.sectors, r.zSectors * r.xSectors);
+            r.sectors = (r.zSectors * r.xSectors) ? new TR::Room::Sector[r.zSectors * r.xSectors] : NULL;
+
+            for (int i = 0; i < r.zSectors * r.xSectors; i++) {
+                TR::Room::Sector &s = r.sectors[i];
+
+                stream.read(s.floorIndex);
+                stream.read(s.boxIndex);
+                stream.read(s.roomBelow);
+                stream.read(s.floor);
+                stream.read(s.roomAbove);
+                stream.read(s.ceiling);
+
+                if (version & (VER_TR1 | VER_TR2)) {
+                    s.material = 0;
+                } else {
+                    s.material = s.boxIndex & 0x0F; 
+                    s.boxIndex = s.boxIndex >> 4;
+                    if (s.boxIndex == 2047) 
+                        s.boxIndex = 0; // TODO TR3 slide box indices
+                }
+            }
         // ambient light luminance
             stream.read(r.ambient);
-            if (version & VER_TR2) {
+            if (version & (VER_TR2 | VER_TR3))
                 stream.read(r.ambient2);
+
+            if (version & VER_TR2)
                 stream.read(r.lightMode);
-            }
 
         // lights
             r.lights = stream.read(r.lightsCount) ? new Room::Light[r.lightsCount] : NULL;
@@ -2599,13 +3336,17 @@ namespace TR {
                 stream.read(light.x);
                 stream.read(light.y);
                 stream.read(light.z);
+
+                if (version == VER_TR3_PC)
+                    stream.read(light.color);
+
                 if (version == VER_TR1_PSX) {
                     uint32 intensity;
                     light.intensity = stream.read(intensity);
                 } else
                     stream.read(light.intensity);
 
-                if (version & VER_TR2)
+                if (version & (VER_TR2 | VER_TR3))
                     stream.read(light.intensity2);
 
                 stream.read(light.radius);
@@ -2624,9 +3365,11 @@ namespace TR {
                 stream.read(m.y);
                 stream.read(m.z);
                 stream.read(m.rotation);
+                if (version & (VER_TR2 | VER_TR3))
+                    stream.read(m.color.value);
+                if (!(version & VER_TR3))
+                    m.color.value = 0xFFFF;
                 stream.read(m.intensity);
-                if (version & VER_TR2)
-                    stream.read(m.intensity2);
                 stream.read(m.meshID);
                 if (version == VER_TR1_PSX)
                     stream.seek(2); // just an align for PSX version
@@ -2635,6 +3378,11 @@ namespace TR {
         // misc flags
             stream.read(r.alternateRoom);
             stream.read(r.flags);
+            if (version & VER_TR3) {
+                stream.read(r.waterScheme);
+                stream.read(r.reverbType);
+                stream.read(r.filter); // unused
+            }
         }
 
 
@@ -2655,7 +3403,8 @@ namespace TR {
 
                 switch (version) {
                     case VER_TR1_PC :
-                    case VER_TR2_PC : {
+                    case VER_TR2_PC :
+                    case VER_TR3_PC : {
                     /*  struct {
                             short3      center;
                             short2      collider;
@@ -2853,7 +3602,7 @@ namespace TR {
 //                    index = -1;
 //                else
                 for (int j = 0; j < meshesCount; j++)
-                    if (meshes[j].offset == meshOffsets[i]) {                       
+                    if (meshes[j].offset == meshOffsets[i]) {
                         index = j;
                         break;
                     }
@@ -2873,12 +3622,13 @@ namespace TR {
                     ASSERT(d.x0 < 256 && d.x1 < 256 && d.x2 < 256 && d.x3 < 256 && d.y0 < 256 && d.y1 < 256 && d.y2 < 256 && d.y3 < 256);\
                 }
 
-            objectTextures = new ObjectTexture[stream.read(objectTexturesCount)];
+            objectTextures = stream.read(objectTexturesCount) ? new ObjectTexture[objectTexturesCount] : NULL;
             for (int i = 0; i < objectTexturesCount; i++) {
                 ObjectTexture &t = objectTextures[i];
                 switch (version) {
                     case VER_TR1_PC :
-                    case VER_TR2_PC : {                   
+                    case VER_TR2_PC :
+                    case VER_TR3_PC : {                   
                         struct {
                             uint16  attribute;
                             Tile    tile;       
@@ -2924,13 +3674,13 @@ namespace TR {
                     t.b    = d.b;\
                 }
 
-            stream.read(spriteTexturesCount);
-            spriteTextures = new SpriteTexture[spriteTexturesCount];
+            spriteTextures = stream.read(spriteTexturesCount) ? new SpriteTexture[spriteTexturesCount] : NULL;
             for (int i = 0; i < spriteTexturesCount; i++) {
                 SpriteTexture &t = spriteTextures[i];
                 switch (version) {
                     case VER_TR1_PC :
-                    case VER_TR2_PC : {
+                    case VER_TR2_PC :
+                    case VER_TR3_PC : {
                         struct {
                             uint16  tile;
                             uint8   u, v;
@@ -3051,7 +3801,8 @@ namespace TR {
 
                     break;
                 }
-                case VER_TR2_PC : {
+                case VER_TR2_PC :
+                case VER_TR3_PC : {
                     ASSERT(tiles16);
 
                     for (int i = 0; i < tilesCount; i++) {
@@ -3077,7 +3828,8 @@ namespace TR {
         Color32 getColor(int texture) const {
             switch (version) {
                 case VER_TR1_PC  : return palette[texture & 0xFF];
-                case VER_TR2_PC  : return palette32[(texture >> 8) & 0xFF];
+                case VER_TR2_PC  :
+                case VER_TR3_PC  : return palette32[(texture >> 8) & 0xFF];
                 case VER_TR1_PSX : 
                 case VER_TR2_PSX : {
                     ASSERT((texture & 0x7FFF) < 256);
@@ -3094,12 +3846,13 @@ namespace TR {
         }
 
         Stream* getSampleStream(int index) const {
-            if (!soundOffsets) return NULL;
+            if (!soundOffsets || !soundData) return NULL;
             uint8 *data = &soundData[soundOffsets[index]];
             uint32 size = 0;
             switch (version) {
                 case VER_TR1_PC  : 
-                case VER_TR2_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
+                case VER_TR2_PC  :
+                case VER_TR3_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
                 case VER_TR1_PSX :
                 case VER_TR2_PSX : size = soundSize[index]; break;
                 default          : ASSERT(false);
@@ -3118,6 +3871,10 @@ namespace TR {
         int16 getModelIndex(Entity::Type type) const {
             if (type == Entity::ENEMY_MUTANT_2 || type == Entity::ENEMY_MUTANT_3)
                 type = Entity::ENEMY_MUTANT_1; // hardcoded mutant models remapping
+            
+            if (((version & VER_TR3)) && (type == Entity::RICOCHET || type == Entity::WATER_SPLASH || type == Entity::BLOOD || type == Entity::FLAME)) {
+                type = Entity::MISC_SPRITES; // TODO TR3
+            }
 
             for (int i = 0; i < modelsCount; i++)
                 if (type == models[i].type)

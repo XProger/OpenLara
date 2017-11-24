@@ -1358,7 +1358,8 @@ struct Waterfall : Controller {
         vec2 p = (vec2(randf(), randf()) * 2.0f - 1.0f) * (512.0f - dropRadius);
         vec3 dropPos = pos + vec3(p.x, 0.0f, p.y);
         game->waterDrop(dropPos, dropRadius, dropStrength);
-        game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), dropPos);
+        if (level->extra.waterSplash > -1)
+            game->addEntity(TR::Entity::WATER_SPLASH, getRoomIndex(), dropPos);
     } 
 
     #undef SPLASH_TIMESTEP
