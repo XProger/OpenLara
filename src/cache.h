@@ -396,7 +396,7 @@ struct WaterCache {
                         minZ = min(minZ, z);
                         maxX = max(maxX, x);
                         maxZ = max(maxZ, z);
-                        posY = s.ceiling * 256;
+                        posY = level->rooms[s.roomAbove].waterLevel;
                         if (s.roomBelow != TR::NO_ROOM)
                             caust = s.roomBelow;
                     }
@@ -417,8 +417,10 @@ struct WaterCache {
                     bool hasWater = s.roomAbove != TR::NO_ROOM && !level->rooms[s.roomAbove].flags.water;
                     if (hasWater) {
                         TR::Room &rt = level->rooms[s.roomAbove];
-                        TR::Room::Sector &st = rt.sectors[x * rt.zSectors + z];
-                        hasWater = s.ceiling > st.ceiling;
+                        int xt = int(r.info.x + x * 1024 - rt.info.x) / 1024;
+                        int zt = int(r.info.z + z * 1024 - rt.info.z) / 1024;
+                        TR::Room::Sector &st = rt.sectors[xt * rt.zSectors + zt];
+                        hasWater = s.ceiling > st.ceiling; // TODO fix for LEVEL10A, use slant
                     }
 
                     m[(x - minX) + w * (z - minZ)] = hasWater ? 0xF800 : 0;

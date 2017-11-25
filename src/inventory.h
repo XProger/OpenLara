@@ -766,7 +766,7 @@ struct Inventory {
             sprintf(buf, "%d %c", item->count, spec);
             for (int i = 0; buf[i] != ' '; i++)
                 buf[i] -= 47;
-            UI::textOut(pos, buf, UI::aRight, width);
+            UI::textOut(pos, buf, UI::aRight, width, UI::SHADE_NONE);
         }
     }
 
@@ -1071,13 +1071,13 @@ struct Inventory {
             UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {
-            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);
-            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width, UI::SHADE_NONE);
+            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20, UI::SHADE_NONE);
         }
 
         if (canFlipPage(1)) {
-            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width);
-            UI::textOut(vec2(0,  480 - 16), "]", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width, UI::SHADE_NONE);
+            UI::textOut(vec2(0,  480 - 16), "]", UI::aRight, UI::width - 20, UI::SHADE_NONE);
         }
 
         if (index == targetIndex)

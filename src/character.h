@@ -59,6 +59,17 @@ struct Character : Controller {
         updateZone();
     }
 
+    virtual int getRoomIndex() const {
+        int index = Controller::getRoomIndex();
+
+        TR::Level::FloorInfo info;
+        getFloorInfo(index, pos, info);
+
+        if (level->rooms[index].flags.water && info.roomAbove != TR::NO_ROOM && (info.floor - level->rooms[index].info.yTop) <= 512)
+            return info.roomAbove;
+        return index;
+    }
+
     bool updateZone() {
         int dx, dz;
         TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);

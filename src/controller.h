@@ -372,7 +372,7 @@ struct Controller {
                     break;
 
                 case TR::FloorData::CLIMB :
-                    info.climb = (*fd++).data; // climb mask
+                    info.climb = cmd.sub; // climb mask
                     break;
 
                 case 0x07 :
@@ -386,7 +386,7 @@ struct Controller {
                 case 0x0F :
                 case 0x10 :
                 case 0x11 :
-                case 0x12 : break; // TODO TR3 triangulation
+                case 0x12 : fd++; break; // TODO TR3 triangulation
 
                 case 0x13 : break; // TODO TR3 monkeyswing
 
@@ -934,17 +934,19 @@ struct Controller {
             float maxAtt = 0.0f;
 
             if (room.flags.sky) { // TODO trace rooms up for sun light, add direct light projection
-                sunLight.x = int32(center.x);
-                sunLight.y = int32(center.y) - 8192;
-                sunLight.z = int32(center.z);
-                targetLight = &sunLight;
+                sunLight.x      = int32(center.x);
+                sunLight.y      = int32(center.y) - 8192;
+                sunLight.z      = int32(center.z);
+                sunLight.color  = TR::Color32(255, 255, 255, 255);
+                sunLight.radius = 1000 * 1024;
+                targetLight     = &sunLight;
             } else {
                 for (int i = 0; i < room.lightsCount; i++) {
                     TR::Room::Light &light = room.lights[i];
-                    if (light.intensity > 0x1FFF) continue;
+                    if ((light.color.r | light.color.g | light.color.b) == 0) continue;
 
                     vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * (1.0f - intensityf(light.intensity));
+                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius));
 
                     if (att > maxAtt) {
                         maxAtt = att;
@@ -962,7 +964,7 @@ struct Controller {
         }
 
         vec3 tpos   = vec3(float(targetLight->x), float(targetLight->y), float(targetLight->z));
-        vec4 tcolor = vec4(vec3(1.0f - intensityf(targetLight->intensity)), float(targetLight->radius));
+        vec4 tcolor = vec4(vec3(targetLight->color.r, targetLight->color.g, targetLight->color.b) * (1.0f / 255.0f), float(targetLight->radius));
 
         if (lerp) {
             float t = Core::deltaTime * 2.0f;

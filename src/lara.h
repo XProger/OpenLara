@@ -949,7 +949,7 @@ struct Lara : Character {
     }
 
     void updateWeapon() {
-        if (level->cutEntity > -1) return;
+        if (level->isCutsceneLevel()) return;
 
         if (wpnNext != Weapon::EMPTY && emptyHands()) {
             wpnSet(wpnNext);
@@ -981,13 +981,8 @@ struct Lara : Character {
                 if (isRifle) break;
             }
 
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 2; i++)
                 arms[i].animation.update();
-                arms[i].shotTimer += Core::deltaTime;
-
-                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, EPS, 1.0f);
-                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
-            }
 
             if (isRifle)
                 animateShotgun();
@@ -1382,6 +1377,8 @@ struct Lara : Character {
             case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
             case TR::Effect::DRAW_LEFTGUN   : drawGun(false); break;
+            case TR::Effect::SHOT_RIGHTGUN  : arms[0].shotTimer = 0; break;
+            case TR::Effect::SHOT_LEFTGUN   : arms[1].shotTimer = 0; break;
             case TR::Effect::MESH_SWAP_1    : 
             case TR::Effect::MESH_SWAP_2    : 
             case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
@@ -1616,6 +1613,7 @@ struct Lara : Character {
     int goUnderwater() {
         angle.x = -PI * 0.25f;
         game->waterDrop(pos, 256.0f, 0.2f);
+        stand = STAND_UNDERWATER;
         return animation.setAnim(ANIM_TO_UNDERWATER);
     }
 
@@ -2039,16 +2037,23 @@ struct Lara : Character {
                 return stand;
         }
 
-        if (getRoom().flags.water) {
-            wpnHide();
-            if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
-                animation.setAnim(ANIM_FALL_FORTH);
-            stopScreaming();
-            return STAND_UNDERWATER;
-        }
-
         TR::Level::FloorInfo info;
         getFloorInfo(getRoomIndex(), pos, info);
+
+        if (getRoom().flags.water) {
+            if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+                return stand;
+            wpnHide();
+            if (stand == STAND_AIR) {
+                //if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
+                //    animation.setAnim(ANIM_FALL_FORTH);
+                stopScreaming();
+                return STAND_UNDERWATER;
+            } else {
+                pos.y = info.roomCeiling;
+                return STAND_ONWATER;
+            }
+        }
 
         if ((stand == STAND_SLIDE || stand == STAND_GROUND) && (state != STATE_FORWARD_JUMP && state != STATE_BACK_JUMP)) {
             if (pos.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
@@ -2081,6 +2086,8 @@ struct Lara : Character {
                     }
                 }
             }
+            if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+                animation.setAnim(ANIM_STAND);
             return STAND_GROUND;
         }
 
@@ -2516,6 +2523,9 @@ struct Lara : Character {
                     //reset(44, vec3(62976, 1536, 23040), 0);
                     reset(44, vec3(62976, 1536, 23040), 0);
                     break;
+                case TR::LVL_TR3_TEMPLE :
+                    reset(204, vec3(40562, 3584, 58694), 0);
+                    break;
                 default : game->playSound(TR::SND_NO, pos, Sound::PAN);
             }
         }
@@ -2597,9 +2607,23 @@ struct Lara : Character {
         usedKey = TR::Entity::LARA;
     }
 
+    void updateFlash() {
+        for (int i = 0; i < 2; i++) {
+            if (arms[i].shotTimer < MUZZLE_FLASH_TIME) {
+                arms[i].shotTimer += Core::deltaTime;
+                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, EPS, 1.0f);
+                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
+                Core::lightPos[1 + i]   = animation.getJoints(getMatrix(), i == 0 ? 10 : 13, false).pos;
+            } else {
+                Core::lightColor[1 + i] = vec4(0, 0, 0, 1);
+            }
+        }
+    }
+
     virtual void updateAnimation(bool commands) {
         Controller::updateAnimation(commands);
         updateWeapon();
+        updateFlash();
         if (stand == STAND_UNDERWATER)
             specular = 0.0f;
         else

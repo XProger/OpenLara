@@ -8,7 +8,8 @@
     E( aNormal          ) \
     E( aTexCoord        ) \
     E( aParam           ) \
-    E( aColor           )
+    E( aColor           ) \
+    E( aLight           )
 
 #define SHADER_SAMPLERS(E) \
     E( sDiffuse         ) \

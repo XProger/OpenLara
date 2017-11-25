@@ -335,7 +335,7 @@ namespace Core {
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
 #define MAX_ANIM_TEX_RANGES  32
-#define MAX_ANIM_TEX_OFFSETS 130
+#define MAX_ANIM_TEX_OFFSETS 170
 
 struct Shader;
 struct Texture;
@@ -367,7 +367,8 @@ struct Vertex {
     short4  normal;     // xyz  - vertex normal, w - unused
     short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
     ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
-    ubyte4  color;      // xyz  - color, w - intensity
+    ubyte4  color;      // for non-textured geometry
+    ubyte4  light;      // xyz  - color, w - use premultiplied alpha
 };
 
 #ifdef PROFILE

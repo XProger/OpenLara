@@ -1668,9 +1668,10 @@ struct Level : IGame {
         //    Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
         //    Core::setBlending(bmAlpha);
+        //    Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex(), lara);
-        //    Debug::Level::sectors(level, lara->getRoomIndex(), (int)lara->pos.y);
+        //    Debug::Level::sectors(this, lara->getRoomIndex(), (int)lara->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);

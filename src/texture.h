@@ -249,24 +249,32 @@ struct Texture {
         stream.read(width);
         stream.read(height);
         stream.seek(offset - stream.pos);
+
+        int dw = Core::support.texNPOT ? width  : nextPow2(width);
+        int dh = Core::support.texNPOT ? height : nextPow2(height);
         Color24 *data24 = new Color24[width * height];
-        Color32 *data32 = new Color32[width * height];
+        Color32 *data32 = new Color32[dw * dh];
         stream.raw(data24, width * height * sizeof(Color24));
 
         Color32 *dst = data32;
-        for (int y = 0; y < height; y++) {
+        for (int y = 0; y < dh; y++) {
             Color24 *src = data24 + (height - y - 1) * width;
-            for (int x = 0; x < width; x++) {
-                dst->r = src->b;
-                dst->g = src->g;
-                dst->b = src->r;
+            for (int x = 0; x < dw; x++) {
+                
+                if (x < width && y < height) {
+                    dst->r = src->b;
+                    dst->g = src->g;
+                    dst->b = src->r;
+                    src++;
+                } else
+                    dst->r = dst->g = dst->b = 0;
+
                 dst->a = 255;
                 dst++;
-                src++;
             }
         }
 
-        Texture *tex = new Texture(width, height, Texture::RGBA, false, data32);
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
 
         delete[] data24;
         delete[] data32;

@@ -22,6 +22,7 @@ struct MeshRange {
         glEnableVertexAttribArray(aTexCoord);
         glEnableVertexAttribArray(aParam);
         glEnableVertexAttribArray(aColor);
+        glEnableVertexAttribArray(aLight);
 
         Vertex *v = (Vertex*)NULL + vStart;
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(Vertex), &v->coord);
@@ -29,6 +30,7 @@ struct MeshRange {
         glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(Vertex), &v->texCoord);
         glVertexAttribPointer(aParam,    4, GL_UNSIGNED_BYTE, false, sizeof(Vertex), &v->param);
         glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->color);
+        glVertexAttribPointer(aLight,    4, GL_UNSIGNED_BYTE, true,  sizeof(Vertex), &v->light);
     }
 
     void bind(GLuint *VAO) const {
@@ -316,7 +318,7 @@ struct MeshBuilder {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
                 TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
 
-                addSprite(indices, vertices, iCount, vCount, vStartRoom, v.vertex.x, v.vertex.y, v.vertex.z, sprite, intensity(v.lighting));
+                addSprite(indices, vertices, iCount, vCount, vStartRoom, v.vertex.x, v.vertex.y, v.vertex.z, sprite, v.color, v.color);
             }
             range.sprites.iCount = iCount - range.sprites.iStart;
         }
@@ -361,7 +363,7 @@ struct MeshBuilder {
             range.iStart = iCount;
             for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
                 TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
-                addSprite(indices, vertices, iCount, vCount, vStartSprite, 0, 0, 0, sprite, 255);
+                addSprite(indices, vertices, iCount, vCount, vStartSprite, 0, 0, 0, sprite, TR::Color32(255, 255, 255, 255), TR::Color32(255, 255, 255, 255));
             }
             range.iCount = iCount - range.iStart;
         }
@@ -380,6 +382,7 @@ struct MeshBuilder {
             v0.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v0.param     = { 0, 0, 0, 0 };
             v0.color     = { 0, 0, 0, 0 };
+            v0.light     = { 255, 255, 255, 255 };
 
             if (i == 8) {
                 v0.coord = { 0, 0, 0, 0 };
@@ -399,6 +402,7 @@ struct MeshBuilder {
             v1 = v0;
             v1.coord = { c1, 0, s1, 0 };
             v1.color = { 255, 255, 255, 0 };
+            v1.light = { 255, 255, 255, 255 };
 
             int idx = iCount + i * 3 * 3;
             int j = ((i + 1) % 8) * 2;
@@ -432,6 +436,7 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
+            v.light     = { 255, 255, 255, 255 };
             v.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v.param     = { 0, 0, 0, 0 };
         }
@@ -452,6 +457,7 @@ struct MeshBuilder {
             v.coord     = { short(pos.x), short(pos.y), 0, 0 };
             v.normal    = { 0, 0, 0, 0 };
             v.color     = { 255, 255, 255, 255 };
+            v.light     = { 255, 255, 255, 255 };
             v.texCoord  = { whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 };
             v.param     = { 0, 0, 0, 0 };
 
@@ -575,6 +581,7 @@ struct MeshBuilder {
     }
 
     void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
+        room.waterLevel = -1;
     // remove animated water polygons from room geometry
         for (int i = 0; i < room.data.rCount; i++) {
             TR::Rectangle &f = room.data.rectangles[i];
@@ -601,6 +608,7 @@ struct MeshBuilder {
             if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
                 isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
+                room.waterLevel = a.y;
                 iCount -= 6;
                 vCount -= 4;
             }
@@ -630,6 +638,7 @@ struct MeshBuilder {
             if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
                 isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.vertices[0] = 0xFFFF; // mark as unused
+                room.waterLevel = a.y;
                 iCount -= 3;
                 vCount -= 3;
             }
@@ -664,8 +673,9 @@ struct MeshBuilder {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];
                 vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
                 vertices[vCount].normal = { n.x, n.y, n.z, 0 };
+                vertices[vCount].color  = { 255, 255, 255, 255 };
                 TR::Color32 c = v.color;
-                vertices[vCount].color  = { c.b, c.g, c.r, intensity(v.lighting) };
+                vertices[vCount].light  = { c.r, c.g, c.b, 255 };
                 vCount++;
             }
         }
@@ -691,8 +701,9 @@ struct MeshBuilder {
                 auto &v = d.vertices[f.vertices[k]];
                 vertices[vCount].coord  = { v.vertex.x, v.vertex.y, v.vertex.z, 0 };
                 vertices[vCount].normal = { n.x, n.y, n.z, 0 };
+                vertices[vCount].color  = { 255, 255, 255, 255 };
                 TR::Color32 c = v.color;
-                vertices[vCount].color  = { c.b, c.g, c.r, intensity(v.lighting) };
+                vertices[vCount].light  = { c.r, c.g, c.b, 255 };
                 vCount++;
             }
         }
@@ -700,7 +711,7 @@ struct MeshBuilder {
         return isOpaque;
     }
 
-    bool buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const TR::Color32 &color) {
+    bool buildMesh(bool opaque, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const TR::Color32 &light) {
         TR::Color24 COLOR_WHITE = { 255, 255, 255 };
         bool isOpaque = true;
 
@@ -715,9 +726,6 @@ struct MeshBuilder {
                 continue;
 
             TR::Color32 c = f.flags.color ? level.getColor(f.flags.texture) : COLOR_WHITE;
-            c.r = int(( (c.r / 255.0f) * (color.b / 255.0f) ) * 255.0f);
-            c.g = int(( (c.g / 255.0f) * (color.g / 255.0f) ) * 255.0f);
-            c.b = int(( (c.b / 255.0f) * (color.r / 255.0f) ) * 255.0f);
 
             addQuad(indices, iCount, vCount, vStart, vertices, &t,
                     mesh.vertices[f.vertices[0]].coord, 
@@ -730,7 +738,8 @@ struct MeshBuilder {
 
                 vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
                 vertices[vCount].normal = rotate(v.normal, dir);
-                vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
+                vertices[vCount].color  = { c.r, c.g, c.b, 255 };
+                vertices[vCount].light  = { light.r, light.g, light.b, 255 };
 
                 vCount++;
             }
@@ -755,7 +764,8 @@ struct MeshBuilder {
 
                 vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
                 vertices[vCount].normal = rotate(v.normal, dir);
-                vertices[vCount].color  = { c.r, c.g, c.b, intensity(v.coord.w) };
+                vertices[vCount].color  = { c.r, c.g, c.b, 255 };
+                vertices[vCount].light  = { light.r, light.g, light.b, 255 };
 
                 vCount++;
             }
@@ -905,7 +915,7 @@ struct MeshBuilder {
         }
     }
 
-    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, uint8 intensity, bool expand = false) {
+    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, const TR::Color32 &tColor, const TR::Color32 &bColor, bool expand = false) {
         addQuad(indices, iCount, vCount, vStart, NULL, NULL);
 
         Vertex *quad = &vertices[vCount];
@@ -928,7 +938,9 @@ struct MeshBuilder {
         quad[3].coord = { x0, y1, z, 0 };
 
         quad[0].normal = quad[1].normal = quad[2].normal = quad[3].normal = { 0, 0, 0, 0 };
-        quad[0].color  = quad[1].color  = quad[2].color  = quad[3].color  = { 255, 255, 255, intensity };
+        quad[0].color  = quad[1].color  = { tColor.r, tColor.g, tColor.b, tColor.a };
+        quad[2].color  = quad[3].color  = { bColor.r, bColor.g, bColor.b, bColor.a };
+        quad[0].light  = quad[1].light  = quad[2].light  = quad[3].light  = { 255, 255, 255, 255 };
         quad[0].param  = quad[1].param  = quad[2].param  = quad[3].param  = { 0, 0, 0, 0 };
 
         quad[0].texCoord = { sprite.texCoord[0].x, sprite.texCoord[0].y, sprite.l, sprite.t };

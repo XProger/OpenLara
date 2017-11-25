@@ -474,9 +474,8 @@ namespace Debug {
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
-                    float a = 1.0f - intensityf(l.intensity);
                     vec3 p = vec3(float(l.x), float(l.y), float(l.z));
-                    vec4 color = vec4(a, a, a, 1);
+                    vec4 color = vec4(l.color.r, l.color.g, l.color.b, 255) * (1.0f / 255.0f);
 
 //                    if (i == room) color.x = color.z = 0;
                     Debug::Draw::point(p, color);
@@ -485,7 +484,7 @@ namespace Debug {
                     Debug::Draw::sphere(p, float(l.radius), color);
                 }
 
-            vec4 color = vec4(lara->mainLightColor.x, 0.0f, 0.0f, 1.0f);
+            vec4 color = vec4(lara->mainLightColor.xyz, 1.0f);
             Debug::Draw::point(lara->mainLightPos, color);
             Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, color);
         }
@@ -658,9 +657,11 @@ namespace Debug {
         const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
             if (entity.type < TR::Entity::TR1_TYPE_MAX)
                 return TR_TYPE_NAMES[entity.type - TR1_TYPES_START];
-            else
-                if (entity.type < TR::Entity::TR2_TYPE_MAX)
-                    return TR_TYPE_NAMES[entity.type - TR2_TYPES_START + TR::Entity::TR1_TYPE_MAX + 1];
+            if (entity.type < TR::Entity::TR2_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR2_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + 1];
+            if (entity.type < TR::Entity::TR3_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR3_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + (TR::Entity::TR2_TYPE_MAX - TR2_TYPES_START) + 2];
+
             return "UNKNOWN";
         }
 

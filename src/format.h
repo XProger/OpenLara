@@ -485,11 +485,13 @@
     E( __LARA_FLARE          ) \
     E( LARA_UPV              ) \
     E( VEHICLE_UPV           ) \
+    E( UNUSED_TR3_13         ) \
     E( VEHICLE_KAYAK         ) \
     E( __VEHICLE_BOAT        ) \
     E( VEHICLE_QUADBIKE      ) \
     E( VEHICLE_MINECART      ) \
     E( BIG_GUN               ) \
+    E( HYDRO_PROPELLER       ) \
     E( ENEMY_TRIBESMAN_AXE   ) \
     E( ENEMY_TRIBESMAN_DART  ) \
     E( __ENEMY_DOG           ) \
@@ -500,8 +502,60 @@
     E( __ENEMY_CROW          ) \
     E( __ENEMY_TIGER         ) \
     E( ENEMY_VULTURE         ) \
-\
-    E( __TRAP_FLOOR          = TR3_TYPES_START + 83 ) \
+    E( ASSAULT_TARGET        ) \
+    E( ENEMY_CRAWLER_MUTANT_1  ) \
+    E( ENEMY_ALLIGATOR       ) \
+    E( UNUSED_TR3_33         ) \
+    E( ENEMY_COMPSOGNATHUS   ) \
+    E( ENEMY_LIZARD_MAN      ) \
+    E( ENEMY_PUNA            ) \
+    E( ENEMY_MERCENARY       ) \
+    E( ENEMY_RAPTOR_HUNG     ) \
+    E( ENEMY_RX_TECH_GUY_1   ) \
+    E( ENEMY_RX_TECH_GUY_2   ) \
+    E( ENEMY_ANTARC_DOG      ) \
+    E( ENEMY_CRAWLER_MUTANT_2  ) \
+    E( UNUSED_TR3_43         ) \
+    E( ENEMY_TINNOS_WASP     ) \
+    E( ENEMY_TINNOS_MONSTER  ) \
+    E( ENEMY_BRUTE_MUTANT    ) \
+    E( RESPAWN_TINNOS_WASP   ) \
+    E( RESPAWN_RAPTOR        ) \
+    E( ENEMY_WILLARD_SPIDER  ) \
+    E( ENEMY_RX_TECH_FLAME_GUY ) \
+    E( ENEMY_LONDON_MERCENARY  ) \
+    E( UNUSED_TR3_52         ) \
+    E( ENEMY_PUNK            ) \
+    E( UNUSED_TR3_54         ) \
+    E( UNUSED_TR3_55         ) \
+    E( ENEMY_LONDON_GUARD    ) \
+    E( ENEMY_SOPHIA          ) \
+    E( CLEANER_ROBOT         ) \
+    E( UNUSED_TR3_59         ) \
+    E( ENEMY_MILITARY_1      ) \
+    E( ENEMY_MILITARY_2      ) \
+    E( PRISONER              ) \
+    E( ENEMY_MILITARY_3      ) \
+    E( GUN_TURRET            ) \
+    E( ENEMY_DAM_GUARD       ) \
+    E( TRIPWIRE              ) \
+    E( ELECTRIC_WIRE         ) \
+    E( KILLER_TRIPWIRE       ) \
+    E( ENEMY_COBRA           ) \
+    E( ENEMY_SHIVA           ) \
+    E( ENEMY_MONKEY          ) \
+    E( UNUSED_TR3_72         ) \
+    E( ENEMY_TONY            ) \
+    E( AI_GUARD              ) \
+    E( AI_AMBUSH             ) \
+    E( AI_PATROL_1           ) \
+    E( AI_MODIFY             ) \
+    E( AI_FOLLOW             ) \
+    E( AI_PATROL_2           ) \
+    E( AI_PATH               ) \
+    E( AI_CHECK              ) \
+    E( UNUSED_TR3_82         ) \
+    E( __TRAP_FLOOR          ) \
     E( UNUSED_TR3_84         ) \
     E( UNUSED_TR3_85         ) \
     E( TRAP_SWING_THING      ) \
@@ -564,7 +618,7 @@
     E( __BRIDGE_2            ) \
     E( __BRIDGE_3            ) \
     E( __INV_PASSPORT        ) \
-    E( __INV_COMPASS         ) \
+    E( __INV_STOPWATCH       ) \
     E( __INV_HOME            ) \
     E( __CUT_4               ) \
     E( __CUT_5               ) \
@@ -598,7 +652,7 @@
     E( __MEDIKIT_BIG         ) \
     E( __FLARES              ) \
     E( __FLARE               ) \
-    E( __CRYSTAL             ) \
+    E( CRYSTAL_PICKUP        ) \
     E( __INV_DETAIL          ) \
     E( __INV_SOUND           ) \
     E( __INV_CONTROLS        ) \
@@ -786,7 +840,11 @@
     E( __EARTHQUAKE          ) \
     E( GUN_SHELL_1           ) \
     E( GUN_SHELL_2           ) \
+    E( UNUSED_TR3_368        ) \
+    E( UNUSED_TR3_369        ) \
     E( TINNOS_LIGHT_SHAFT    ) \
+    E( UNUSED_TR3_371        ) \
+    E( UNUSED_TR3_372        ) \
     E( ELECTRIC_SWITCH       ) \
     E( TR3_TYPE_MAX          )
 
@@ -854,7 +912,9 @@ namespace TR {
         FLIP_MAP       ,
         DRAW_RIGHTGUN  ,
         DRAW_LEFTGUN   ,
-        FLICKER        ,
+        SHOT_RIGHTGUN  ,
+        SHOT_LEFTGUN   ,
+        FLICKER        = 16,
         UNKNOWN        ,
         MESH_SWAP_1    ,
         MESH_SWAP_2    ,
@@ -1112,6 +1172,7 @@ namespace TR {
         struct { uint16 r:5, g:5, b:5, a:1; };
         uint16 value;
 
+        Color32  getBGR()  const { return Color32((b << 3) | (b >> 2), (g << 3) | (g >> 2), (r << 3) | (r >> 2), 255); }
         operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
         operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
     };
@@ -1178,9 +1239,9 @@ namespace TR {
 
             struct Vertex {
                 TR::Vertex  vertex;
-                int16       lighting;   // 0 (bright) .. 0x1FFF (dark)
+                int16       unused_lighting;   // 0 (bright) .. 0x1FFF (dark)
                 uint16      attributes;
-                Color16     color;
+                Color32     color;
             } *vertices;
 
             Rectangle   *rectangles;
@@ -1208,6 +1269,7 @@ namespace TR {
         uint8   reverbType;
         uint8   filter;
         uint8   align;
+        uint32  waterLevel;
 
         struct Portal {
             uint16  roomIndex;
@@ -1239,19 +1301,15 @@ namespace TR {
 
         struct Light {
             int32   x, y, z;
-            uint16  intensity;
-            uint16  intensity2;
             uint32  radius;
-            uint32  radius2;
             Color32 color;
         } *lights;
 
         struct Mesh {
             int32   x, y, z;
             angle   rotation;
-            Color16 color;
-            int16   intensity;
             uint16  meshID;
+            Color32 color;
             uint32  meshIndex; // index into static meshes array
         } *meshes;
 
@@ -1263,7 +1321,7 @@ namespace TR {
     union FloorData {
         uint16 data;
         struct Command {
-            uint16 func:8, sub:7, end:1;
+            uint16 func:5, tri:3, sub:7, end:1;
         } cmd;
         struct Slant {
             int8 x:8, z:8;
@@ -1529,7 +1587,7 @@ namespace TR {
                 REMAP_3( BRIDGE_2             );
                 REMAP_3( BRIDGE_3             );
                 REMAP_3( INV_PASSPORT         );
-                REMAP_3( INV_COMPASS          );
+                REMAP_3( INV_STOPWATCH        );
                 REMAP_3( INV_HOME             );
                 REMAP_3( CUT_4                );
                 REMAP_3( CUT_5                );
@@ -1555,7 +1613,6 @@ namespace TR {
                 REMAP_3( MEDIKIT_BIG          );
                 REMAP_3( FLARES               );
                 REMAP_3( FLARE                );
-                REMAP_3( CRYSTAL              );
                 REMAP_3( INV_DETAIL           );
                 REMAP_3( INV_SOUND            );
                 REMAP_3( INV_CONTROLS         );
@@ -1660,7 +1717,16 @@ namespace TR {
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
                    (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR) ||
-                   (type >= SECRET_1 && type <= SECRET_3); // TODO: recheck all items
+                   (type >= SECRET_1 && type <= SECRET_3) ||
+                   (type == M16 || type == AMMO_M16) ||
+                   (type == MP5 || type == AMMO_MP5) ||
+                   (type == AUTOPISTOLS || type == AMMO_AUTOPISTOLS) ||
+                   (type == DESERT_EAGLE || type == AMMO_DESERT_EAGLE) || 
+                   (type == GRENADE || type == AMMO_GRENADE) || 
+                   (type == ROCKET || type == AMMO_ROCKET) ||
+                   (type == HARPOON || type == AMMO_HARPOON) ||
+                   (type == FLARES || type == FLARE) || 
+                   (type >= STONE_ITEM_1 || type <= STONE_ITEM_4);
         }
 
         bool isPickup() const {
@@ -3207,6 +3273,8 @@ namespace TR {
             for (int i = 0; i < d.vCount; i++) {
                 Room::Data::Vertex &v = d.vertices[i];
 
+                uint16 lighting;
+
                 if (version == VER_TR2_PSX) {
                     union Compressed {
                         struct { uint32 lighting:8, attributes:8, z:5, y:5, x:5, w:1; };
@@ -3216,30 +3284,36 @@ namespace TR {
                     v.vertex.x    = (comp.x << 10);
                     v.vertex.y    = (comp.y << 8) + r.info.yTop;
                     v.vertex.z    = (comp.z << 10);
-                    v.lighting    = comp.lighting;
+                    lighting      = comp.lighting;
                     v.attributes  = comp.attributes;
-                    v.color.value = 0xFFFF;
                     ASSERT(comp.w == 0);
                 } else {
                     stream.read(v.vertex.x);
                     stream.read(v.vertex.y);
                     stream.read(v.vertex.z);
-                    stream.read(v.lighting);
+                    stream.read(lighting);
 
                     if (version == VER_TR2_PC || version == VER_TR3_PC)
                         stream.read(v.attributes);
                    
                     if (version == VER_TR2_PC)
-                        stream.read(v.lighting); // real lighting value
+                        stream.read(lighting); // real lighting value
 
-                    if (version == VER_TR3_PC)
-                        stream.read(v.color.value);
-                    else
-                        v.color.value = 0xFFFF;
+                    if (version == VER_TR3_PC) {
+                        Color16 color;
+                        stream.read(color.value);
+                        v.color = color.getBGR();
+                    }
                 }
 
                 if (version & VER_PSX)
-                    v.lighting = 0x1FFF - (v.lighting << 5); // convert vertex luminance from PSX to PC format          
+                    lighting = 0x1FFF - (lighting << 5); // convert vertex luminance from PSX to PC format
+
+                if ((version & VER_VERSION) < VER_TR3) { // lighting to color conversion
+                    int value = clamp((lighting > 0x1FFF) ? 255 : (255 - (lighting >> 5)), 0, 255);
+                    v.color.r = v.color.g = v.color.b = value;
+                    v.color.a = 255;
+                }
             }
 
             if (version == VER_TR2_PSX)
@@ -3337,22 +3411,29 @@ namespace TR {
                 stream.read(light.y);
                 stream.read(light.z);
 
+                uint16 intensity;
+
                 if (version == VER_TR3_PC)
                     stream.read(light.color);
 
-                if (version == VER_TR1_PSX) {
-                    uint32 intensity;
-                    light.intensity = stream.read(intensity);
-                } else
-                    stream.read(light.intensity);
+                stream.read(intensity);
+
+                if (version == VER_TR1_PSX)
+                    stream.seek(2);
 
                 if (version & (VER_TR2 | VER_TR3))
-                    stream.read(light.intensity2);
+                    stream.seek(2); // intensity2
 
                 stream.read(light.radius);
 
                 if (version & VER_TR2)
-                    stream.read(light.radius2);
+                    stream.seek(4); // radius2
+
+                if ((version & VER_VERSION) < VER_TR3) {
+                    int value = 2555 - clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
+                    light.color.r = light.color.g = light.color.b = value;
+                    light.color.a = 0;
+                }
 
                 light.radius *= 2;
             }
@@ -3365,11 +3446,23 @@ namespace TR {
                 stream.read(m.y);
                 stream.read(m.z);
                 stream.read(m.rotation);
-                if (version & (VER_TR2 | VER_TR3))
-                    stream.read(m.color.value);
-                if (!(version & VER_TR3))
-                    m.color.value = 0xFFFF;
-                stream.read(m.intensity);
+                if (version & VER_TR3) {
+                    Color16 color;
+                    stream.read(color.value);
+                    m.color = color.getBGR();
+                }
+
+                if (version & VER_TR2)
+                    stream.seek(2);
+
+                uint16 intensity;
+                stream.read(intensity);
+                if ((version & VER_VERSION) < VER_TR3) {
+                    int value = clamp((intensity > 0x1FFF) ? 255 : (255 - (intensity >> 5)), 0, 255);
+                    m.color.r = m.color.g = m.color.b = value;
+                    m.color.a = 0;
+                }
+
                 stream.read(m.meshID);
                 if (version == VER_TR1_PSX)
                     stream.seek(2); // just an align for PSX version
