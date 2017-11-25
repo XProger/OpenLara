@@ -621,7 +621,7 @@ struct TrapFloor : Controller {
     virtual bool activate() {
         if (state != STATE_STATIC) return false;
         vec3 &p = ((Controller*)level->laraController)->pos;
-        if (abs(p.y - (pos.y - 512.0f)) <= 8 && Controller::activate()) {
+        if (fabsf(p.y - (pos.y - 512.0f)) <= 8 && Controller::activate()) {
             animation.setState(STATE_SHAKE);
             return true;
         }

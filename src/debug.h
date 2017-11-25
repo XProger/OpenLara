@@ -577,7 +577,7 @@ namespace Debug {
             FILE *f = fopen(buf, "wb");
 
             if (level->version == TR::VER_TR1_PSX) {
-                int dataSize = level->soundSize[index] / 16 * 28 * 2 * 4;
+                uint32 dataSize = level->soundSize[index] / 16 * 28 * 2 * 4;
 
                 struct Header {
                     uint32 RIFF;
@@ -596,10 +596,10 @@ namespace Debug {
                     uint32 data;
                     uint32 dataSize;
                 } header = {
-                        FOURCC("RIFF"), (uint32) sizeof(Header) - 8 + dataSize,
+                        FOURCC("RIFF"), sizeof(Header) - 8 + dataSize,
                         FOURCC("WAVE"), FOURCC("fmt "), 16,
                         { 1, 1, 44100, 44100 * 16 / 8, 0, 16 },
-                        FOURCC("data"), (uint32) dataSize
+                        FOURCC("data"), dataSize
                     };
 
                 fwrite(&header, sizeof(header), 1, f);
@@ -686,7 +686,7 @@ namespace Debug {
             
             TR::Level::FloorInfo info;
             controller->getFloorInfo(controller->getRoomIndex(), controller->pos, info);
-            sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.floor - info.ceiling);
+            sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, int(info.floor - info.ceiling));
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
 
             y += 16;

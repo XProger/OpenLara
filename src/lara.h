@@ -2124,7 +2124,7 @@ struct Lara : Character {
             float ceiling = c.info[Collision::FRONT].ceiling;
             float hands   = bounds.min.y;
 
-            if (abs(floor - hands) < 64 && floor != ceiling) {
+            if (fabsf(floor - hands) < 64 && floor != ceiling) {
                 alignToWall(-LARA_RADIUS);
                 pos.y = float(floor + LARA_HANG_OFFSET);
                 stand = STAND_HANG;
@@ -2804,7 +2804,7 @@ struct Lara : Character {
             } else {
             // fast distance check for object
                 if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK && e.type != TR::Entity::SCION_HOLDER)
-                    if (abs(pos.x - controller->pos.x) > 1024 || abs(pos.z - controller->pos.z) > 1024 || abs(pos.y - controller->pos.y) > 2048) continue;
+                    if (fabsf(pos.x - controller->pos.x) > 1024 || fabsf(pos.z - controller->pos.z) > 1024 || fabsf(pos.y - controller->pos.y) > 2048) continue;
             }
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
