@@ -171,7 +171,6 @@ void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
 
 bool sndReady;
 char *sndData;
-CRITICAL_SECTION sndCS;
 HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 2, 44100, 44100 * 4, 4, 16, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
@@ -179,41 +178,30 @@ WAVEHDR waveBuf[2];
 void sndFree() {
     if (!sndReady) return;
     sndReady = false;
-    EnterCriticalSection(&sndCS);
     waveOutUnprepareHeader(waveOut, &waveBuf[0], sizeof(WAVEHDR));
     waveOutUnprepareHeader(waveOut, &waveBuf[1], sizeof(WAVEHDR));
     waveOutReset(waveOut);
     waveOutClose(waveOut);
     delete[] sndData;
-    LeaveCriticalSection(&sndCS);
-    DeleteCriticalSection(&sndCS);
 }
 
-void CALLBACK sndFill(HWAVEOUT waveOut, UINT uMsg, DWORD_PTR dwInstance, LPWAVEHDR waveBuf, DWORD dwParam2) {
+void sndFill(HWAVEOUT waveOut, LPWAVEHDR waveBuf) {
     if (!sndReady) return;
-    if (uMsg == MM_WOM_CLOSE) {
-        sndFree();
-        return;
-    }
-
-    EnterCriticalSection(&sndCS);
     waveOutUnprepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
     Sound::fill((Sound::Frame*)waveBuf->lpData, SND_SIZE / 4);
     waveOutPrepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
     waveOutWrite(waveOut, waveBuf, sizeof(WAVEHDR));
-    LeaveCriticalSection(&sndCS);
 }
 
 void sndInit(HWND hwnd) {
-    InitializeCriticalSection(&sndCS);
-    if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)sndFill, 0, CALLBACK_FUNCTION) == MMSYSERR_NOERROR) {
+    if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hwnd, 0, CALLBACK_WINDOW) == MMSYSERR_NOERROR) {
         sndReady = true;
         sndData  = new char[SND_SIZE * 2];
         memset(&waveBuf, 0, sizeof(waveBuf));
         for (int i = 0; i < 2; i++) {
             waveBuf[i].dwBufferLength = SND_SIZE;
             waveBuf[i].lpData = sndData + SND_SIZE * i;
-            sndFill(waveOut, 0, 0, &waveBuf[i], 0);
+            sndFill(waveOut, &waveBuf[i]);
         }
     } else {
         sndReady = false;
@@ -293,6 +281,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         // touch
         case WM_TOUCH :
             touchUpdate(hWnd, (HTOUCHINPUT)lParam, wParam);
+            break;
+        // sound
+        case MM_WOM_DONE :
+            sndFill((HWAVEOUT)wParam, (WAVEHDR*)lParam);
             break;
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -375,12 +367,10 @@ int main(int argc, char** argv) {
             joyUpdate();
 
             DWORD time = getTime();
-            //if (time <= lastTime)
-            //    continue;
+            if (time <= lastTime)
+                continue;
 
-            EnterCriticalSection(&sndCS);
             Game::update((time - lastTime) * 0.001f);
-            LeaveCriticalSection(&sndCS);
             lastTime = time;
 
             Game::render();
