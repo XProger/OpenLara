@@ -118,6 +118,8 @@ namespace Sound {
                 // apply pan
                     for (int j = 0; j < MAX_FDN; j++) {
                         output[j] = out - buffer[(j + MAX_FDN - 1) % MAX_FDN];
+                        if (output[j] < EPS)
+                            output[j] = 0.0f;
                         L += buffer[j] * panCoeff[j][0];
                         R += buffer[j] * panCoeff[j][1];
                     }
