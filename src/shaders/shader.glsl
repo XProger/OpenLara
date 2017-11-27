@@ -27,10 +27,10 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 #ifndef PASS_SHADOW
 	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
 	varying vec4 vDiffuse;
+	varying vec4 vNormal;	// xyz - normal dir, w - blend mode (0 - alpha, 1 - additive blend)
 
 	#ifndef TYPE_FLASH
 		#ifdef PASS_COMPOSE
-			varying vec3 vNormal;		// xyz - normal dir
 			varying vec4 vLightProj;
 			varying vec4 vLightVec;		// xyz - dir, w - fog factor
 
@@ -72,10 +72,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
 	attribute vec4 aParam;
-
-	#ifndef PASS_AMBIENT
-		attribute vec4 aNormal;
-	#endif
+	attribute vec4 aNormal;
 
 	#ifndef PASS_SHADOW
 		attribute vec4 aColor;
@@ -112,12 +109,17 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			vViewVec = vec4((uViewPos - coord.xyz) * FOG_DIST, coord.y);
 		#endif
 
+		#ifdef PASS_AMBIENT
+			vNormal = aNormal;
+		#endif
+
 		#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 			#ifdef TYPE_SPRITE
 				vNormal.xyz = normalize(vViewVec.xyz);
 			#else
 				vNormal.xyz = normalize(mulQuat(rBasisRot, aNormal.xyz));
 			#endif
+			vNormal.w = aNormal.w;
 
 			float fog;
 			#ifdef UNDERWATER
@@ -411,7 +413,8 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#endif
 
 		#ifdef ALPHA_TEST
-			if (color.w <= 0.8)
+//color = vec4(1, 0, 0, 1);
+			if (color.w <= 0.5)
 				discard;
 		#endif
 
@@ -490,7 +493,13 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 				color.w = 1.0;
 */
 			#endif
-			gl_FragColor = color;
+
+			#ifdef TYPE_PARTICLE_SPRITE
+				gl_FragColor = vec4(color.xyz * max(1.0 - vNormal.w, color.w), color.w * vNormal.w); // premultiplied
+			#else
+				gl_FragColor = color;
+			#endif
+
 		#endif
 	}
 #endif

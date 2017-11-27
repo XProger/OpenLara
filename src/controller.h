@@ -124,6 +124,9 @@ struct Controller {
         flags       = e.flags;
         flags.state = TR::Entity::asNone;
 
+        if (level->isCutsceneLevel())
+            fixRoomIndex();
+
         const TR::Model *m = getModel();
         joints     = m ? new Basis[m->mCount] : NULL;
         frameIndex = -1;
@@ -155,6 +158,16 @@ struct Controller {
         delete[] layers;
         delete[] explodeParts;
         deactivate(true);
+    }
+
+    bool fixRoomIndex() {
+        vec3 p = getPos();
+        for (int i = 0; i < level->roomsCount; i++)
+            if (insideRoom(p, i)) {
+                roomIndex = i;
+                return true;
+            }
+        return false;
     }
 
     void getFloorInfo(int roomIndex, const vec3 &pos, TR::Level::FloorInfo &info) const {
@@ -571,7 +584,7 @@ struct Controller {
     bool insideRoom(const vec3 &pos, int roomIndex) const {
         TR::Room &r = level->rooms[roomIndex];
         vec3 min = vec3((float)r.info.x + 1024, (float)r.info.yTop, (float)r.info.z + 1024);
-        vec3 max = min + vec3(float((r.xSectors - 1) * 1024), float(r.info.yBottom - r.info.yTop), float((r.zSectors - 1) * 1024));
+        vec3 max = min + vec3(float((r.xSectors - 2) * 1024), float(r.info.yBottom - r.info.yTop), float((r.zSectors - 2) * 1024));
 
         return  pos.x >= min.x && pos.x <= max.x &&
                 pos.y >= min.y && pos.y <= max.y &&
@@ -806,6 +819,7 @@ struct Controller {
             case TR::Effect::INV_OFF        : flags.invisible = false; break;
             case TR::Effect::DYN_ON         : break; // TODO TR2
             case TR::Effect::DYN_OFF        : break; // TODO TR2
+            case TR::Effect::FOOTPRINT      : break; // TODO TR3
             default : ASSERT(false);
         }
     }
@@ -946,7 +960,7 @@ struct Controller {
                     if ((light.color.r | light.color.g | light.color.b) == 0) continue;
 
                     vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius));
+                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * ((light.color.r + light.color.g + light.color.b) / (3.0f * 255.0f));
 
                     if (att > maxAtt) {
                         maxAtt = att;
@@ -977,17 +991,15 @@ struct Controller {
     }
 
     mat4 getMatrix() {
+        if (level->isCutsceneLevel() && (getEntity().isActor() || getEntity().isLara())) 
+            return level->cutMatrix;
+
         mat4 matrix;
-
-        if (!getEntity().isActor()) {
-            matrix.identity();
-            matrix.translate(pos);
-            if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
-            if (angle.x != 0.0f) matrix.rotateX(angle.x);
-            if (angle.z != 0.0f) matrix.rotateZ(angle.z);
-        } else
-            matrix = level->cutMatrix;
-
+        matrix.identity();
+        matrix.translate(pos);
+        if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
+        if (angle.x != 0.0f) matrix.rotateX(angle.x);
+        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
         return matrix;
     }
 
@@ -1058,9 +1070,7 @@ struct Controller {
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
         Core::setDepthWrite(false);
-        Core::setBlending(bmMultiply);
         mesh->renderShadowBlob();
-        Core::setBlending(bmNone);
         Core::setDepthWrite(true);
     }
 

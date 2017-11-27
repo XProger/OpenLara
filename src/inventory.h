@@ -133,6 +133,8 @@ struct Inventory {
         void render(IGame *game, const Basis &basis) {
             if (!anim) return;
 
+            MeshBuilder *mesh = game->getMesh();
+
             TR::Level *level = game->getLevel();
             TR::Model &m     = level->models[desc.model];
             Basis joints[MAX_SPHERES];
@@ -141,7 +143,21 @@ struct Inventory {
 
             Core::active.shader->setParam(uBasis, joints[0], m.mCount);
 
-            game->getMesh()->renderModel(desc.model);
+            Core::setBlending(bmNone);
+            mesh->transparent = 0;
+            mesh->renderModel(desc.model);
+            
+            Core::setBlending(bmAlpha);
+            mesh->transparent = 1;
+            mesh->renderModel(desc.model);
+
+            Core::setBlending(bmAdd);
+            Core::setDepthWrite(false);
+            mesh->transparent = 2;
+            mesh->renderModel(desc.model);
+            Core::setDepthWrite(true);
+
+            Core::setBlending(bmNone);
         }
 
         void choose() {
@@ -725,6 +741,7 @@ struct Inventory {
 
     void prepareBackground() {
         Core::setDepthTest(false);
+        Core::setBlending(bmNone);
 
         // vertical blur
         Core::setTarget(background[1], true);
@@ -806,7 +823,7 @@ struct Inventory {
         UI::renderBar(UI::BAR_OPTION, vec2(x - 8.0f, y - 16.0f), vec2(w + 16.0f, h * 16.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(x, y), STR_SELECT_LEVEL, UI::aCenter, w);
+        UI::textOut(vec2(x, y), STR_SELECT_LEVEL, UI::aCenter, w, UI::SHADE_GRAY);
 
         y += h * 2;
         UI::renderBar(UI::BAR_OPTION, vec2(x, y + slot * h + 6 - h), vec2(w, h - 6), 1.0f, 0xFFD8377C, 0);
@@ -837,6 +854,7 @@ struct Inventory {
         UI::textOut(vec2(x + 32.0f, y), oStr);
         UI::textOut(vec2(d, y), vStr, UI::aCenter, w * 0.5f - 32.0f);
         if (active) {
+            // d += 8.0f; TODO TR3
             if (value > Core::Settings::LOW)  UI::specOut(vec2(d, y), 108);
             if (value < Core::Settings::HIGH) UI::specOut(vec2(d + w * 0.5f - 32.0f - 16.0f, y), 109);
         }
@@ -866,7 +884,7 @@ struct Inventory {
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 9.0f + 8.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(x, y), STR_SELECT_DETAIL, UI::aCenter, w);
+        UI::textOut(vec2(x, y), STR_SELECT_DETAIL, UI::aCenter, w, UI::SHADE_GRAY);
 
         y += h * 2;
         x += 8.0f;
@@ -895,7 +913,7 @@ struct Inventory {
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 5.0f + 8.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
-        UI::textOut(vec2(x, y), STR_SET_VOLUMES, UI::aCenter, w);
+        UI::textOut(vec2(x, y), STR_SET_VOLUMES, UI::aCenter, w, UI::SHADE_GRAY);
 
         y += h * 2;
         x += 8.0f;
@@ -1014,6 +1032,7 @@ struct Inventory {
 
                 Core::active.shader->setParam(uParam, vec4(ax * aspectImg, -ay, (0.5f - aspectImg * 0.5f) * ax, ay));
             }
+            Core::setBlending(bmNone);
             game->getMesh()->renderQuad();
         }
 

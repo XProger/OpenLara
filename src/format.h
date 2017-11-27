@@ -884,6 +884,247 @@ namespace TR {
         ACTIVE   = 0x1F,
     };
 
+    enum LevelID : uint32 {
+        LVL_CUSTOM,
+    // TR1
+        LVL_TR1_TITLE,
+        LVL_TR1_GYM,
+        LVL_TR1_1,
+        LVL_TR1_2,
+        LVL_TR1_3A,
+        LVL_TR1_3B,
+        LVL_TR1_CUT_1,
+        LVL_TR1_4,
+        LVL_TR1_5,
+        LVL_TR1_6,
+        LVL_TR1_7A,
+        LVL_TR1_7B,
+        LVL_TR1_CUT_2,
+        LVL_TR1_8A,
+        LVL_TR1_8B,
+        LVL_TR1_8C,
+        LVL_TR1_10A,
+        LVL_TR1_CUT_3,
+        LVL_TR1_10B,
+        LVL_TR1_CUT_4,
+        LVL_TR1_10C,
+        LVL_TR1_EGYPT,
+        LVL_TR1_CAT,
+        LVL_TR1_END,
+        LVL_TR1_END2,
+    // TR2
+        LVL_TR2_TITLE,
+        LVL_TR2_ASSAULT,
+        LVL_TR2_WALL,
+        LVL_TR2_CUT_1,
+        LVL_TR2_BOAT,
+        LVL_TR2_VENICE,
+        LVL_TR2_OPERA,
+        LVL_TR2_CUT_2,
+        LVL_TR2_RIG,
+        LVL_TR2_PLATFORM,
+        LVL_TR2_CUT_3,
+        LVL_TR2_UNWATER,
+        LVL_TR2_KEEL,
+        LVL_TR2_LIVING,
+        LVL_TR2_DECK,
+        LVL_TR2_SKIDOO,
+        LVL_TR2_MONASTRY,
+        LVL_TR2_CATACOMB,
+        LVL_TR2_ICECAVE,
+        LVL_TR2_EMPRTOMB,
+        LVL_TR2_FLOATING,
+        LVL_TR2_CUT_4,
+        LVL_TR2_XIAN,
+        LVL_TR2_HOUSE,
+    // TR3
+        LVL_TR3_TITLE,
+        LVL_TR3_HOUSE,
+        LVL_TR3_JUNGLE,
+        LVL_TR3_CUT_6,
+        LVL_TR3_TEMPLE,
+        LVL_TR3_CUT_9,
+        LVL_TR3_QUADCHAS,
+        LVL_TR3_TONYBOSS,
+        LVL_TR3_SHORE,
+        LVL_TR3_CUT_1,
+        LVL_TR3_CRASH,
+        LVL_TR3_CUT_4,
+        LVL_TR3_RAPIDS,
+        LVL_TR3_TRIBOSS,
+        LVL_TR3_ROOFS,
+        LVL_TR3_CUT_2,
+        LVL_TR3_SEWER,
+        LVL_TR3_CUT_5,
+        LVL_TR3_TOWER,
+        LVL_TR3_CUT_11,
+        LVL_TR3_OFFICE,
+        LVL_TR3_NEVADA,
+        LVL_TR3_CUT_7,
+        LVL_TR3_COMPOUND,
+        LVL_TR3_CUT_8,
+        LVL_TR3_AREA51,
+        LVL_TR3_ANTARC,
+        LVL_TR3_CUT_3,
+        LVL_TR3_MINES,
+        LVL_TR3_CITY,
+        LVL_TR3_CUT_12,
+        LVL_TR3_CHAMBER,
+        LVL_TR3_STPAUL,
+
+        LVL_MAX,
+    };
+
+    enum {
+    // TR1
+        TRACK_TR1_TITLE     = 2,
+        TRACK_TR1_CAVES     = 5,
+        TRACK_TR1_SECRET    = 13,
+        TRACK_TR1_CISTERN   = 57,
+        TRACK_TR1_EGYPT     = 58,
+        TRACK_TR1_MINE      = 59,
+        TRACK_TR1_CUT_1     = 23,
+        TRACK_TR1_CUT_2     = 25,
+        TRACK_TR1_CUT_3     = 24,
+        TRACK_TR1_CUT_4     = 22,
+    // TR2
+        TRACK_TR2_TITLE     = 64,
+        TRACK_TR2_CHINA_1   = 33,
+        TRACK_TR2_CHINA_2   = 59,
+        TRACK_TR2_ITALY     = 31,
+        TRACK_TR2_RIG       = 58,
+        TRACK_TR2_UNWATER_1 = 34,
+        TRACK_TR2_UNWATER_2 = 31,
+        TRACK_TR2_TIBET_1   = 33,
+        TRACK_TR2_TIBET_2   = 31,
+        TRACK_TR2_CUT_1     = 3,
+        TRACK_TR2_CUT_2     = 4,
+        TRACK_TR2_CUT_3     = 5,
+        TRACK_TR2_CUT_4     = 30,
+    // TR3
+        TRACK_TR3_TITLE     = 5,
+        TRACK_TR3_HOUSE     = 2,
+        TRACK_TR3_CAVES     = 30,
+        TRACK_TR3_INDIA_1   = 34,
+        TRACK_TR3_INDIA_2   = 30,
+        TRACK_TR3_SOUTH_1   = 32,
+        TRACK_TR3_SOUTH_2   = 33,
+        TRACK_TR3_SOUTH_3   = 36,
+        TRACK_TR3_LONDON_1  = 73,
+        TRACK_TR3_LONDON_2  = 74,
+        TRACK_TR3_LONDON_3  = 31,
+        TRACK_TR3_LONDON_4  = 78,
+        TRACK_TR3_NEVADA_1  = 33,
+        TRACK_TR3_NEVADA_2  = 27,
+        TRACK_TR3_ANTARC_1  = 28,
+        TRACK_TR3_ANTARC_2  = 30,
+        TRACK_TR3_ANTARC_3  = 26,
+        TRACK_TR3_CUT_1     = 68,
+        TRACK_TR3_CUT_2     = 67,
+        TRACK_TR3_CUT_3     = 62,
+        TRACK_TR3_CUT_4     = 65,
+        TRACK_TR3_CUT_5     = 63,
+        TRACK_TR3_CUT_6     = 64,
+        TRACK_TR3_CUT_7     = 72,
+        TRACK_TR3_CUT_8     = 70,
+        TRACK_TR3_CUT_9     = 69,
+        TRACK_TR3_CUT_11    = 71,
+        TRACK_TR3_CUT_12    = 66,
+    };
+
+    struct {
+        const char *name;
+        const char *title;
+        int        ambientTrack;
+    } LEVEL_INFO[LVL_MAX] = {
+    // TR1
+        { ""          , "Custom Level",             TRACK_TR1_CAVES     },
+        { "TITLE"     , "",                         TRACK_TR1_TITLE     },
+        { "GYM"       , "Lara's Home",              NO_TRACK            },
+        { "LEVEL1"    , "Caves",                    TRACK_TR1_CAVES     },
+        { "LEVEL2"    , "City of Vilcabamba",       TRACK_TR1_CAVES     },
+        { "LEVEL3A"   , "Lost Valley",              TRACK_TR1_CAVES     },
+        { "LEVEL3B"   , "Tomb of Qualopec",         TRACK_TR1_CAVES     },
+        { "CUT1"      , "",                         TRACK_TR1_CUT_1     },
+        { "LEVEL4"    , "St. Francis' Folly",       TRACK_TR1_CAVES     },
+        { "LEVEL5"    , "Colosseum",                TRACK_TR1_CAVES     },
+        { "LEVEL6"    , "Palace Midas",             TRACK_TR1_CAVES     },
+        { "LEVEL7A"   , "The Cistern",              TRACK_TR1_CISTERN   },
+        { "LEVEL7B"   , "Tomb of Tihocan",          TRACK_TR1_CISTERN   },
+        { "CUT2"      , "",                         TRACK_TR1_CUT_2     },
+        { "LEVEL8A"   , "City of Khamoon",          TRACK_TR1_EGYPT     },
+        { "LEVEL8B"   , "Obelisk of Khamoon",       TRACK_TR1_EGYPT     },
+        { "LEVEL8C"   , "Sanctuary of the Scion",   TRACK_TR1_EGYPT     },
+        { "LEVEL10A"  , "Natla's Mines",            TRACK_TR1_MINE      },
+        { "CUT3"      , "",                         TRACK_TR1_CUT_3     },
+        { "LEVEL10B"  , "Atlantis",                 TRACK_TR1_MINE      },
+        { "CUT4"      , "",                         TRACK_TR1_CUT_4     },
+        { "LEVEL10C"  , "The Great Pyramid",        TRACK_TR1_MINE      },
+        { "EGYPT"     , "Return to Egypt",          TRACK_TR1_EGYPT     },
+        { "CAT"       , "Temple of the Cat",        TRACK_TR1_EGYPT     },
+        { "END"       , "Atlantean Stronghold",     TRACK_TR1_EGYPT     },
+        { "END2"      , "The Hive",                 TRACK_TR1_EGYPT     },
+    // TR2
+        { "TITLE"     , "",                         TRACK_TR2_TITLE     },
+        { "ASSAULT"   , "Lara's Home",              NO_TRACK            },
+        { "WALL"      , "The Great Wall",           TRACK_TR2_CHINA_1   },
+        { "CUT1"      , "",                         TRACK_TR2_CUT_1     },
+        { "BOAT"      , "Venice",                   NO_TRACK            },
+        { "VENICE"    , "Bartoli's Hideout",        NO_TRACK            },
+        { "OPERA"     , "Opera House",              TRACK_TR2_ITALY     },
+        { "CUT2"      , "",                         TRACK_TR2_CUT_2     },
+        { "RIG"       , "Offshore Rig",             TRACK_TR2_RIG       },
+        { "PLATFORM"  , "Diving Area",              TRACK_TR2_RIG       },
+        { "CUT3"      , "",                         TRACK_TR2_CUT_3     },
+        { "UNWATER"   , "40 Fathoms",               TRACK_TR2_UNWATER_1 },
+        { "KEEL"      , "Wreck of the Maria Doria", TRACK_TR2_UNWATER_2 },
+        { "LIVING"    , "Living Quarters",          TRACK_TR2_UNWATER_1 },
+        { "DECK"      , "The Deck",                 TRACK_TR2_UNWATER_2 },
+        { "SKIDOO"    , "Tibetan Foothills",        TRACK_TR2_TIBET_1   },
+        { "MONASTRY"  , "Barkhang Monastery",       NO_TRACK            },
+        { "CATACOMB"  , "Catacombs of the Talion",  TRACK_TR2_TIBET_2   },
+        { "ICECAVE"   , "Ice Palace",               TRACK_TR2_TIBET_2   },
+        { "EMPRTOMB"  , "Temple of Xian",           TRACK_TR2_CHINA_2   },
+        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
+        { "CUT4"      , "",                         TRACK_TR2_CUT_4     },
+        { "XIAN"      , "The Dragon's Lair",        TRACK_TR2_CHINA_2   },
+        { "HOUSE"     , "Home Sweet Home",          NO_TRACK            },
+    // TR3
+        { "TITLE",      "",                         TRACK_TR3_TITLE     },
+        { "HOUSE",      "Lara's House",             NO_TRACK            },
+        { "JUNGLE",     "Jungle",                   TRACK_TR3_INDIA_1   },
+        { "CUT6",       "",                         TRACK_TR3_CUT_6     },
+        { "TEMPLE",     "Temple Ruins",             TRACK_TR3_INDIA_1   },
+        { "CUT9",       "",                         TRACK_TR3_CUT_9     },
+        { "QUADCHAS",   "The River Ganges",         TRACK_TR3_INDIA_1   },
+        { "TONYBOSS",   "Caves Of Kaliya",          TRACK_TR3_INDIA_2   },
+        { "SHORE",      "Coastal Village",          TRACK_TR3_SOUTH_1   },
+        { "CUT1",       "",                         TRACK_TR3_CUT_1     },
+        { "CRASH",      "Crash Site",               TRACK_TR3_SOUTH_2   },
+        { "CUT4",       "",                         TRACK_TR3_CUT_4     },
+        { "RAPIDS",     "Madubu Gorge",             TRACK_TR3_SOUTH_3   },
+        { "TRIBOSS",    "Temple Of Puna",           TRACK_TR3_CAVES     },
+        { "ROOFS",      "Thames Wharf",             TRACK_TR3_LONDON_1  },
+        { "CUT2",       "",                         TRACK_TR3_CUT_2     },
+        { "SEWER",      "Aldwych",                  TRACK_TR3_LONDON_2  },
+        { "CUT5",       "",                         TRACK_TR3_CUT_5     },
+        { "TOWER",      "Lud's Gate",               TRACK_TR3_LONDON_3  },
+        { "CUT11",      "",                         TRACK_TR3_CUT_11    },
+        { "OFFICE",     "City",                     TRACK_TR3_LONDON_4  },
+        { "NEVADA",     "Nevada Desert",            TRACK_TR3_NEVADA_1  },
+        { "CUT7",       "",                         TRACK_TR3_CUT_7     },
+        { "COMPOUND",   "High Security Compound",   TRACK_TR3_NEVADA_2  },
+        { "CUT8",       "",                         TRACK_TR3_CUT_8     },
+        { "AREA51",     "Area 51",                  TRACK_TR3_NEVADA_2  },
+        { "ANTARC",     "Antarctica",               TRACK_TR3_ANTARC_1  },
+        { "CUT3",       "",                         TRACK_TR3_CUT_3     },
+        { "MINES",      "RX-Tech Mines",            TRACK_TR3_ANTARC_2  },
+        { "CITY",       "Lost City Of Tinnos",      TRACK_TR3_ANTARC_3  },
+        { "CUT12",      "",                         TRACK_TR3_CUT_12    },
+        { "CHAMBER",    "Meteorite Cavern",         TRACK_TR3_ANTARC_3  },
+        { "STPAUL",     "All Hallows",              TRACK_TR3_CAVES     },
+    };
+
     enum {
         ANIM_CMD_NONE       ,
         ANIM_CMD_OFFSET     ,
@@ -923,6 +1164,7 @@ namespace TR {
         INV_OFF        ,
         DYN_ON         ,
         DYN_OFF        ,
+        FOOTPRINT      = 32,
     };
 
     enum {
@@ -988,63 +1230,6 @@ namespace TR {
         SND_TNT             = 170,
         SND_MUTANT_DEATH    = 171,
         SND_SECRET          = 173,
-    };
-
-    enum {
-    // TR1
-        TRACK_TR1_TITLE     = 2,
-        TRACK_TR1_CAVES     = 5,
-        TRACK_TR1_SECRET    = 13,
-        TRACK_TR1_CISTERN   = 57,
-        TRACK_TR1_EGYPT     = 58,
-        TRACK_TR1_MINE      = 59,
-        TRACK_TR1_CUT_1     = 23,
-        TRACK_TR1_CUT_2     = 25,
-        TRACK_TR1_CUT_3     = 24,
-        TRACK_TR1_CUT_4     = 22,
-    // TR2
-        TRACK_TR2_TITLE     = 64,
-        TRACK_TR2_CHINA_1   = 33,
-        TRACK_TR2_CHINA_2   = 59,
-        TRACK_TR2_ITALY     = 31,
-        TRACK_TR2_RIG       = 58,
-        TRACK_TR2_UNWATER_1 = 34,
-        TRACK_TR2_UNWATER_2 = 31,
-        TRACK_TR2_TIBET_1   = 33,
-        TRACK_TR2_TIBET_2   = 31,
-        TRACK_TR2_CUT_1     = 3,
-        TRACK_TR2_CUT_2     = 4,
-        TRACK_TR2_CUT_3     = 5,
-        TRACK_TR2_CUT_4     = 30,
-    // TR3
-        TRACK_TR3_TITLE     = 5,
-        TRACK_TR3_HOUSE     = 2,
-        TRACK_TR3_CAVES     = 30,
-        TRACK_TR3_INDIA_1   = 34,
-        TRACK_TR3_INDIA_2   = 30,
-        TRACK_TR3_SOUTH_1   = 32,
-        TRACK_TR3_SOUTH_2   = 33,
-        TRACK_TR3_SOUTH_3   = 36,
-        TRACK_TR3_LONDON_1  = 73,
-        TRACK_TR3_LONDON_2  = 74,
-        TRACK_TR3_LONDON_3  = 31,
-        TRACK_TR3_LONDON_4  = 78,
-        TRACK_TR3_NEVADA_1  = 33,
-        TRACK_TR3_NEVADA_2  = 27,
-        TRACK_TR3_ANTARC_1  = 28,
-        TRACK_TR3_ANTARC_2  = 30,
-        TRACK_TR3_ANTARC_3  = 26,
-        TRACK_TR3_CUT_1     = 68,
-        TRACK_TR3_CUT_2     = 67,
-        TRACK_TR3_CUT_3     = 62,
-        TRACK_TR3_CUT_4     = 65,
-        TRACK_TR3_CUT_5     = 63,
-        TRACK_TR3_CUT_6     = 64,
-        TRACK_TR3_CUT_7     = 72,
-        TRACK_TR3_CUT_8     = 70,
-        TRACK_TR3_CUT_9     = 69,
-        TRACK_TR3_CUT_11    = 71,
-        TRACK_TR3_CUT_12    = 66,
     };
 
     enum {
@@ -1187,18 +1372,23 @@ namespace TR {
     struct Rectangle {
         uint16 vertices[4];
         union {
-            struct { uint16 texture:15, color:1; };
+            struct { uint16 texture:15, doubleSided:1; };
             uint16 value;
         } flags;
+        uint16 colored; // !!! not existing in file
     };
 
     struct Triangle {
         uint16 vertices[3];
         union {
-            struct { uint16 texture:15, color:1; };
+            struct { uint16 texture:15, doubleSided:1; };
             uint16 value;
         } flags;
+        uint32 colored; // !!! not existing in file
     };
+
+    #define FACE4_SIZE (sizeof(Rectangle) - sizeof(uint16))
+    #define FACE3_SIZE (sizeof(Triangle)  - sizeof(uint32))
 
     struct Tile4 {
         struct {
@@ -1726,7 +1916,7 @@ namespace TR {
                    (type == ROCKET || type == AMMO_ROCKET) ||
                    (type == HARPOON || type == AMMO_HARPOON) ||
                    (type == FLARES || type == FLARE) || 
-                   (type >= STONE_ITEM_1 || type <= STONE_ITEM_4);
+                   (type >= STONE_ITEM_1 && type <= STONE_ITEM_4);
         }
 
         bool isPickup() const {
@@ -2096,191 +2286,6 @@ namespace TR {
             uint16 value;
         } flags;
     };
-
-    enum LevelID : uint32 {
-        LVL_CUSTOM,
-    // TR1
-        LVL_TR1_TITLE,
-        LVL_TR1_GYM,
-        LVL_TR1_1,
-        LVL_TR1_2,
-        LVL_TR1_3A,
-        LVL_TR1_3B,
-        LVL_TR1_CUT_1,
-        LVL_TR1_4,
-        LVL_TR1_5,
-        LVL_TR1_6,
-        LVL_TR1_7A,
-        LVL_TR1_7B,
-        LVL_TR1_CUT_2,
-        LVL_TR1_8A,
-        LVL_TR1_8B,
-        LVL_TR1_8C,
-        LVL_TR1_10A,
-        LVL_TR1_CUT_3,
-        LVL_TR1_10B,
-        LVL_TR1_CUT_4,
-        LVL_TR1_10C,
-        LVL_TR1_EGYPT,
-        LVL_TR1_CAT,
-        LVL_TR1_END,
-        LVL_TR1_END2,
-    // TR2
-        LVL_TR2_TITLE,
-        LVL_TR2_ASSAULT,
-        LVL_TR2_WALL,
-        LVL_TR2_CUT_1,
-        LVL_TR2_BOAT,
-        LVL_TR2_VENICE,
-        LVL_TR2_OPERA,
-        LVL_TR2_CUT_2,
-        LVL_TR2_RIG,
-        LVL_TR2_PLATFORM,
-        LVL_TR2_CUT_3,
-        LVL_TR2_UNWATER,
-        LVL_TR2_KEEL,
-        LVL_TR2_LIVING,
-        LVL_TR2_DECK,
-        LVL_TR2_SKIDOO,
-        LVL_TR2_MONASTRY,
-        LVL_TR2_CATACOMB,
-        LVL_TR2_ICECAVE,
-        LVL_TR2_EMPRTOMB,
-        LVL_TR2_CUT_4,
-        LVL_TR2_FLOATING,
-        LVL_TR2_XIAN,
-        LVL_TR2_HOUSE,
-    // TR3
-        LVL_TR3_TITLE,
-        LVL_TR3_HOUSE,
-        LVL_TR3_JUNGLE,
-        LVL_TR3_CUT_6,
-        LVL_TR3_TEMPLE,
-        LVL_TR3_CUT_9,
-        LVL_TR3_QUADCHAS,
-        LVL_TR3_TONYBOSS,
-        LVL_TR3_SHORE,
-        LVL_TR3_CUT_1,
-        LVL_TR3_CRASH,
-        LVL_TR3_CUT_4,
-        LVL_TR3_RAPIDS,
-        LVL_TR3_TRIBOSS,
-        LVL_TR3_ROOFS,
-        LVL_TR3_CUT_2,
-        LVL_TR3_SEWER,
-        LVL_TR3_CUT_5,
-        LVL_TR3_TOWER,
-        LVL_TR3_CUT_11,
-        LVL_TR3_OFFICE,
-        LVL_TR3_NEVADA,
-        LVL_TR3_CUT_7,
-        LVL_TR3_COMPOUND,
-        LVL_TR3_CUT_8,
-        LVL_TR3_AREA51,
-        LVL_TR3_ANTARC,
-        LVL_TR3_CUT_3,
-        LVL_TR3_MINES,
-        LVL_TR3_CITY,
-        LVL_TR3_CUT_12,
-        LVL_TR3_CHAMBER,
-        LVL_TR3_STPAUL,
-
-        LVL_MAX,
-    };
-
-    struct {
-        const char *name;
-        const char *title;
-        int        ambientTrack;
-    } LEVEL_INFO[LVL_MAX] = {
-    // TR1
-        { ""          , "Custom Level",             TRACK_TR1_CAVES     },
-        { "TITLE"     , "",                         TRACK_TR1_TITLE     },
-        { "GYM"       , "Lara's Home",              NO_TRACK            },
-        { "LEVEL1"    , "Caves",                    TRACK_TR1_CAVES     },
-        { "LEVEL2"    , "City of Vilcabamba",       TRACK_TR1_CAVES     },
-        { "LEVEL3A"   , "Lost Valley",              TRACK_TR1_CAVES     },
-        { "LEVEL3B"   , "Tomb of Qualopec",         TRACK_TR1_CAVES     },
-        { "CUT1"      , "",                         TRACK_TR1_CUT_1     },
-        { "LEVEL4"    , "St. Francis' Folly",       TRACK_TR1_CAVES     },
-        { "LEVEL5"    , "Colosseum",                TRACK_TR1_CAVES     },
-        { "LEVEL6"    , "Palace Midas",             TRACK_TR1_CAVES     },
-        { "LEVEL7A"   , "The Cistern",              TRACK_TR1_CISTERN   },
-        { "LEVEL7B"   , "Tomb of Tihocan",          TRACK_TR1_CISTERN   },
-        { "CUT2"      , "",                         TRACK_TR1_CUT_2     },
-        { "LEVEL8A"   , "City of Khamoon",          TRACK_TR1_EGYPT     },
-        { "LEVEL8B"   , "Obelisk of Khamoon",       TRACK_TR1_EGYPT     },
-        { "LEVEL8C"   , "Sanctuary of the Scion",   TRACK_TR1_EGYPT     },
-        { "LEVEL10A"  , "Natla's Mines",            TRACK_TR1_MINE      },
-        { "CUT3"      , "",                         TRACK_TR1_CUT_3     },
-        { "LEVEL10B"  , "Atlantis",                 TRACK_TR1_MINE      },
-        { "CUT4"      , "",                         TRACK_TR1_CUT_4     },
-        { "LEVEL10C"  , "The Great Pyramid",        TRACK_TR1_MINE      },
-        { "EGYPT"     , "Return to Egypt",          TRACK_TR1_EGYPT     },
-        { "CAT"       , "Temple of the Cat",        TRACK_TR1_EGYPT     },
-        { "END"       , "Atlantean Stronghold",     TRACK_TR1_EGYPT     },
-        { "END2"      , "The Hive",                 TRACK_TR1_EGYPT     },
-    // TR2
-        { "TITLE"     , "",                         TRACK_TR2_TITLE     },
-        { "ASSAULT"   , "Lara's Home",              NO_TRACK            },
-        { "WALL"      , "The Great Wall",           TRACK_TR2_CHINA_1   },
-        { "CUT1"      , "",                         TRACK_TR2_CUT_1     },
-        { "BOAT"      , "Venice",                   NO_TRACK            },
-        { "VENICE"    , "Bartoli's Hideout",        NO_TRACK            },
-        { "OPERA"     , "Opera House",              TRACK_TR2_ITALY     },
-        { "CUT2"      , "",                         TRACK_TR2_CUT_2     },
-        { "RIG"       , "Offshore Rig",             TRACK_TR2_RIG       },
-        { "PLATFORM"  , "Diving Area",              TRACK_TR2_RIG       },
-        { "CUT3"      , "",                         TRACK_TR2_CUT_3     },
-        { "UNWATER"   , "40 Fathoms",               TRACK_TR2_UNWATER_1 },
-        { "KEEL"      , "Wreck of the Maria Doria", TRACK_TR2_UNWATER_2 },
-        { "LIVING"    , "Living Quarters",          TRACK_TR2_UNWATER_1 },
-        { "DECK"      , "The Deck",                 TRACK_TR2_UNWATER_2 },
-        { "SKIDOO"    , "Tibetan Foothills",        TRACK_TR2_TIBET_1   },
-        { "MONASTRY"  , "Barkhang Monastery",       NO_TRACK            },
-        { "CATACOMB"  , "Catacombs of the Talion",  TRACK_TR2_TIBET_2   },
-        { "ICECAVE"   , "Ice Palace",               TRACK_TR2_TIBET_2   },
-        { "EMPRTOMB"  , "Temple of Xian",           TRACK_TR2_CHINA_2   },
-        { "CUT4"      , "",                         TRACK_TR2_CUT_4     },
-        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
-        { "XIAN"      , "The Dragon's Lair",        TRACK_TR2_CHINA_2   },
-        { "HOUSE"     , "Home Sweet Home",          NO_TRACK            },
-    // TR3
-        { "TITLE",      "",                         TRACK_TR3_TITLE     },
-        { "HOUSE",      "Lara's House",             NO_TRACK            },
-        { "JUNGLE",     "Jungle",                   TRACK_TR3_INDIA_1   },
-        { "CUT6",       "",                         TRACK_TR3_CUT_6     },
-        { "TEMPLE",     "Temple Ruins",             TRACK_TR3_INDIA_1   },
-        { "CUT9",       "",                         TRACK_TR3_CUT_9     },
-        { "QUADCHAS",   "The River Ganges",         TRACK_TR3_INDIA_1   },
-        { "TONYBOSS",   "Caves Of Kaliya",          TRACK_TR3_INDIA_2   },
-        { "SHORE",      "Coastal Village",          TRACK_TR3_SOUTH_1   },
-        { "CUT1",       "",                         TRACK_TR3_CUT_1     },
-        { "CRASH",      "Crash Site",               TRACK_TR3_SOUTH_2   },
-        { "CUT4",       "",                         TRACK_TR3_CUT_4     },
-        { "RAPIDS",     "Madubu Gorge",             TRACK_TR3_SOUTH_3   },
-        { "TRIBOSS",    "Temple Of Puna",           TRACK_TR3_CAVES     },
-        { "ROOFS",      "Thames Wharf",             TRACK_TR3_LONDON_1  },
-        { "CUT2",       "",                         TRACK_TR3_CUT_2     },
-        { "SEWER",      "Aldwych",                  TRACK_TR3_LONDON_2  },
-        { "CUT5",       "",                         TRACK_TR3_CUT_5     },
-        { "TOWER",      "Lud's Gate",               TRACK_TR3_LONDON_3  },
-        { "CUT11",      "",                         TRACK_TR3_CUT_11    },
-        { "OFFICE",     "City",                     TRACK_TR3_LONDON_4  },
-        { "NEVADA",     "Nevada Desert",            TRACK_TR3_NEVADA_1  },
-        { "CUT7",       "",                         TRACK_TR3_CUT_7     },
-        { "COMPOUND",   "High Security Compound",   TRACK_TR3_NEVADA_2  },
-        { "CUT8",       "",                         TRACK_TR3_CUT_8     },
-        { "AREA51",     "Area 51",                  TRACK_TR3_NEVADA_2  },
-        { "ANTARC",     "Antarctica",               TRACK_TR3_ANTARC_1  },
-        { "CUT3",       "",                         TRACK_TR3_CUT_3     },
-        { "MINES",      "RX-Tech Mines",            TRACK_TR3_ANTARC_2  },
-        { "CITY",       "Lost City Of Tinnos",      TRACK_TR3_ANTARC_3  },
-        { "CUT12",      "",                         TRACK_TR3_CUT_12    },
-        { "CHAMBER",    "Meteorite Cavern",         TRACK_TR3_ANTARC_3  },
-        { "STPAUL",     "All Hallows",              TRACK_TR3_CAVES     },
-    };
-
 
     struct SaveGame {
 
@@ -3175,6 +3180,8 @@ namespace TR {
         }
 
         void initCutscene() {
+            if (id == LVL_TR3_CUT_2 || id == LVL_TR3_CUT_6)
+                cutEntity = 1; // TODO TR3
         // init cutscene transform
             cutMatrix.identity();
             if (cutEntity > -1) {
@@ -3201,7 +3208,7 @@ namespace TR {
             }
         }
 
-        LevelID getTitleId() {
+        LevelID getTitleId() const {
             switch (version & VER_VERSION) {
                 case VER_TR1 : return LVL_TR1_TITLE;
                 case VER_TR2 : return LVL_TR2_TITLE;
@@ -3211,7 +3218,7 @@ namespace TR {
             ASSERT(false);
         }
 
-        LevelID getHomeId() {
+        LevelID getHomeId() const {
             switch (version & VER_VERSION) {
                 case VER_TR1 : return LVL_TR1_GYM;
                 case VER_TR2 : return LVL_TR2_ASSAULT;
@@ -3221,7 +3228,7 @@ namespace TR {
             ASSERT(false);
         }
 
-        LevelID getStartId() {
+        LevelID getStartId() const {
             switch (version & VER_VERSION) {
                 case VER_TR1 : return LVL_TR1_1;
                 case VER_TR2 : return LVL_TR2_WALL;
@@ -3231,7 +3238,7 @@ namespace TR {
             ASSERT(false);
         }
 
-        LevelID getEndId() {
+        LevelID getEndId() const {
             switch (version & VER_VERSION) {
                 case VER_TR1 : return LVL_TR1_10C;
                 case VER_TR2 : return LVL_TR2_HOUSE;
@@ -3241,24 +3248,38 @@ namespace TR {
             ASSERT(false);
         }
 
-        bool isTitle() {
+        bool isTitle() const {
             return id == getTitleId();
         }
 
-        bool isHome() {
+        bool isHome() const {
             return id == getHomeId();
         }
 
-        bool isEnd() {
+        bool isEnd() const {
             return id == getEndId();
         }
 
-        bool isCutsceneLevel() {
+        bool isCutsceneLevel() const {
             return id == LVL_TR1_CUT_1 || id == LVL_TR1_CUT_2 || id == LVL_TR1_CUT_3 || id == LVL_TR1_CUT_4 ||
                    id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4 || 
                    id == LVL_TR3_CUT_1 || id == LVL_TR3_CUT_2  || id == LVL_TR3_CUT_3  || id == LVL_TR3_CUT_4 ||
                    id == LVL_TR3_CUT_5 || id == LVL_TR3_CUT_6  || id == LVL_TR3_CUT_7  || id == LVL_TR3_CUT_8 ||
                    id == LVL_TR3_CUT_9 || id == LVL_TR3_CUT_11 || id == LVL_TR3_CUT_12;
+        }
+
+        void readFace(Stream &stream, Rectangle &v, bool colored = false) {
+            for (int i = 0; i < COUNT(v.vertices); i++)
+                stream.read(v.vertices[i]);
+            stream.read(v.flags.value);
+            v.colored = colored;
+        }
+
+        void readFace(Stream &stream, Triangle &v, bool colored = false) {
+            for (int i = 0; i < COUNT(v.vertices); i++)
+                stream.read(v.vertices[i]);
+            stream.read(v.flags.value);
+            v.colored = colored;
         }
 
         void readRoom(Stream &stream, Room &r) {
@@ -3322,17 +3343,21 @@ namespace TR {
             d.rectangles = stream.read(d.rCount) ? new Rectangle[d.rCount] : NULL;
             if (version == VER_TR2_PSX) {
                 for (int i = 0; i < d.rCount; i++)
-                    stream.raw(&d.rectangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
+                    stream.raw(&d.rectangles[i].flags.value, sizeof(uint16));
                 if ((stream.pos - startOffset) % 4) stream.seek(2);
                 for (int i = 0; i < d.rCount; i++) {
-                    stream.raw(d.rectangles[i].vertices, sizeof(d.rectangles[i].vertices));
-                    d.rectangles[i].vertices[0] >>= 2;
-                    d.rectangles[i].vertices[1] >>= 2;
-                    d.rectangles[i].vertices[2] >>= 2;
-                    d.rectangles[i].vertices[3] >>= 2;
+                    Rectangle &v = d.rectangles[i];
+                    stream.raw(v.vertices, sizeof(v.vertices));
+                    v.vertices[0] >>= 2;
+                    v.vertices[1] >>= 2;
+                    v.vertices[2] >>= 2;
+                    v.vertices[3] >>= 2;
+                    v.colored = false;
                 }
-            } else
-                stream.raw(d.rectangles, sizeof(Rectangle) * d.rCount);
+            } else {
+                for (int i = 0; i < d.rCount; i++)
+                    readFace(stream, d.rectangles[i]);
+            }
 
             if (version & VER_PSX) { // swap indices (quad strip -> quad list) only for PSX version
                 for (int j = 0; j < d.rCount; j++)
@@ -3343,14 +3368,18 @@ namespace TR {
             if (version == VER_TR2_PSX) {
                 stream.seek(2);
                 for (int i = 0; i < d.tCount; i++) {
-                    stream.raw(&d.triangles[i].flags.value, sizeof(uint16)); // hack to read texture:15 color:1
-                    stream.raw(d.triangles[i].vertices, sizeof(d.triangles[i].vertices));
-                    d.triangles[i].vertices[0] >>= 2;
-                    d.triangles[i].vertices[1] >>= 2;
-                    d.triangles[i].vertices[2] >>= 2;
+                    Triangle &v = d.triangles[i];
+                    stream.raw(&v.flags.value, sizeof(uint16));
+                    stream.raw(v.vertices, sizeof(v.vertices));
+                    v.vertices[0] >>= 2;
+                    v.vertices[1] >>= 2;
+                    v.vertices[2] >>= 2;
+                    v.colored = false;
                 }
-            } else
-                stream.raw(d.triangles, sizeof(Triangle) * d.tCount);
+            } else {
+                for (int i = 0; i < d.tCount; i++)
+                    readFace(stream, d.triangles[i]);
+            }
 
         // room sprites
             if (version == VER_TR2_PSX) { // there is no room sprites
@@ -3543,10 +3572,10 @@ namespace TR {
                         uint16 rCount, crCount, tCount, ctCount;
 
                         int tmp = stream.pos;
-                        stream.seek(stream.read(rCount)  * sizeof(Rectangle));
-                        stream.seek(stream.read(tCount)  * sizeof(Triangle));
-                        stream.seek(stream.read(crCount) * sizeof(Rectangle));
-                        stream.seek(stream.read(ctCount) * sizeof(Triangle));
+                        stream.seek(stream.read(rCount)  * FACE4_SIZE); // uint32 colored (not existing in file)
+                        stream.seek(stream.read(tCount)  * FACE3_SIZE);
+                        stream.seek(stream.read(crCount) * FACE4_SIZE);
+                        stream.seek(stream.read(ctCount) * FACE3_SIZE);
                         stream.setPos(tmp);
 
                         mesh.rCount = rCount + crCount;
@@ -3555,13 +3584,10 @@ namespace TR {
                         mesh.rectangles = mesh.rCount ? new Rectangle[mesh.rCount] : NULL;
                         mesh.triangles  = mesh.tCount ? new Triangle[mesh.tCount]  : NULL;
 
-                        stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[0],      rCount  * sizeof(Rectangle));
-                        stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[0],       tCount  * sizeof(Triangle));
-                        stream.seek(sizeof(uint16)); stream.raw(&mesh.rectangles[rCount], crCount * sizeof(Rectangle));
-                        stream.seek(sizeof(uint16)); stream.raw(&mesh.triangles[tCount],  ctCount * sizeof(Triangle));
-                    // add "use palette color" flags
-                        for (int i = rCount; i < mesh.rCount; i++) mesh.rectangles[i].flags.color = true;
-                        for (int i = tCount; i < mesh.tCount; i++) mesh.triangles[i].flags.color  = true;
+                        stream.seek(sizeof(uint16)); for (int i = 0; i < rCount; i++)  readFace(stream, mesh.rectangles[i]);
+                        stream.seek(sizeof(uint16)); for (int i = 0; i < tCount; i++)  readFace(stream, mesh.triangles[i]);
+                        stream.seek(sizeof(uint16)); for (int i = 0; i < crCount; i++) readFace(stream, mesh.rectangles[rCount + i], true);
+                        stream.seek(sizeof(uint16)); for (int i = 0; i < ctCount; i++) readFace(stream, mesh.triangles[tCount + i], true);
                         break;
                     }
                     case VER_TR1_PSX : 
@@ -3601,37 +3627,41 @@ namespace TR {
                         if (version == VER_TR2_PSX && nCount > 0) { // TODO probably for unused meshes only but need to check
                             uint16 crCount = 0, ctCount = 0;
                             stream.read(crCount);
-                            stream.seek((sizeof(Rectangle) + 2) * crCount);
+                            stream.seek((FACE4_SIZE + 2) * crCount);
                             stream.read(ctCount);
-                            stream.seek((sizeof(Triangle) + 2) * ctCount);
+                            stream.seek((FACE3_SIZE + 2) * ctCount);
                         }
 
-                        stream.read(mesh.rectangles, stream.read(mesh.rCount));
-                        stream.read(mesh.triangles,  stream.read(mesh.tCount));
+                        mesh.rectangles = stream.read(mesh.rCount) ? new Rectangle[mesh.rCount] : NULL;
+                        for (int i = 0; i < mesh.rCount; i++) readFace(stream, mesh.rectangles[i]);
+
+                        mesh.triangles  = stream.read(mesh.tCount) ? new Triangle[mesh.tCount]  : NULL;
+                        for (int i = 0; i < mesh.tCount; i++) readFace(stream, mesh.triangles[i]);
+
                         if (mesh.rCount == 0 && mesh.tCount == 0)
                             LOG("! warning: mesh %d has no geometry with %d vertices\n", meshesCount - 1, mesh.vCount);
                         //ASSERT(mesh.rCount != 0 || mesh.tCount != 0);
                         
                         for (int i = 0; i < mesh.rCount; i++) {
-                            if (mesh.rectangles[i].flags.texture < 256)
-                                mesh.rectangles[i].flags.color = true;
+                            Rectangle &f = mesh.rectangles[i];
+                            f.colored = (f.flags.texture < 256) ? true : false;
 
                             if (version == VER_TR2_PSX) {
-                                mesh.rectangles[i].vertices[0] >>= 3;
-                                mesh.rectangles[i].vertices[1] >>= 3;
-                                mesh.rectangles[i].vertices[2] >>= 3;
-                                mesh.rectangles[i].vertices[3] >>= 3;
+                                f.vertices[0] >>= 3;
+                                f.vertices[1] >>= 3;
+                                f.vertices[2] >>= 3;
+                                f.vertices[3] >>= 3;
                             }
                         }
 
-                        for (int i = 0; i < mesh.tCount; i++) { 
-                            if (mesh.triangles[i].flags.texture < 256)
-                                mesh.triangles[i].flags.color  = true;
+                        for (int i = 0; i < mesh.tCount; i++) {
+                            Triangle &f = mesh.triangles[i];
+                            f.colored = (f.flags.texture < 256) ? true : false;
 
                             if (version == VER_TR2_PSX) {
-                                mesh.triangles[i].vertices[0] >>= 3;
-                                mesh.triangles[i].vertices[1] >>= 3;
-                                mesh.triangles[i].vertices[2] >>= 3;
+                                f.vertices[0] >>= 3;
+                                f.vertices[1] >>= 3;
+                                f.vertices[2] >>= 3;
                             }
                         }
                         
@@ -3962,6 +3992,11 @@ namespace TR {
         }
 
         int16 getModelIndex(Entity::Type type) const {
+        //#ifndef _DEBUG
+            if ((type >= Entity::AI_GUARD && type <= Entity::AI_CHECK) || (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) || type == Entity::WATERFALL || type == Entity::KILL_ALL_TRIGGERS || type == Entity::VIEW_TARGET || type == Entity::SOUND_DOOR_BELL || type == Entity::SOUND_ALARM_BELL)
+                return 0;
+        //#endif
+
             if (type == Entity::ENEMY_MUTANT_2 || type == Entity::ENEMY_MUTANT_3)
                 type = Entity::ENEMY_MUTANT_1; // hardcoded mutant models remapping
             

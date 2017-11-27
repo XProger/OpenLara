@@ -235,9 +235,7 @@ struct Lara : Character {
     KeyHole           *keyHole;
     Lightning         *lightning;
     Texture           *environment;
-
-    int roomPrev; // water out from room
-    vec2 rotFactor;
+    vec2              rotFactor;
 
     float       oxygen;
     float       damageTime;
@@ -246,8 +244,8 @@ struct Lara : Character {
     vec3        collisionOffset;
     vec3        flowVelocity;
 #ifdef _DEBUG
-    uint16      *dbgBoxes;
-    int         dbgBoxesCount;
+    //uint16      *dbgBoxes;
+    //int         dbgBoxesCount;
 #endif
     struct Braid {
         Lara *lara;
@@ -301,7 +299,7 @@ struct Lara : Character {
 
         void integrate() {
             float TIMESTEP = Core::deltaTime;
-            float ACCEL    = 6.0f * GRAVITY * TIMESTEP * TIMESTEP;
+            float ACCEL    = 16.0f * GRAVITY * TIMESTEP * TIMESTEP;
             float DAMPING  = 1.5f;
 
             if (lara->getRoom().flags.water) {
@@ -330,6 +328,13 @@ struct Lara : Character {
         void collide() {
             TR::Level *level = lara->level;
             const TR::Model *model = lara->getModel();
+
+            TR::Level::FloorInfo info;
+            lara->getFloorInfo(lara->getRoomIndex(), lara->getViewPoint(), info);
+
+            for (int j = 1; j < jointsCount; j++)
+                if (joints[j].pos.y > info.floor)
+                    joints[j].pos.y = info.floor;
 
             #define BRAID_RADIUS 16.0f
 
@@ -402,7 +407,7 @@ struct Lara : Character {
                 basis[i].rotate(m.getRot());
             }
         }
-
+        
         void render(MeshBuilder *mesh) {
             Core::active.shader->setParam(uBasis, basis[0], jointsCount);
             mesh->renderModel(lara->level->extra.braid);
@@ -501,10 +506,10 @@ struct Lara : Character {
         //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
         //reset(21, vec3(47668, -10752, 32163), 0);                 // Level 10c (lava emitter)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
-        dbgBoxes = NULL;
+        //dbgBoxes = NULL;
     #endif
 
-        if (getEntity().isLara() && !level->isCutsceneLevel()) {
+        if (!level->isCutsceneLevel()) {
             if (getRoom().flags.water) {
                 stand = STAND_UNDERWATER;
                 animation.setAnim(ANIM_UNDERWATER);
@@ -1599,7 +1604,6 @@ struct Lara : Character {
 
         if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
             alignToWall(LARA_RADIUS);
-            roomPrev = getRoomIndex();
             roomIndex = roomAbove;
             pos.y    = info.floor;
             specular = LARA_WET_SPECULAR;
@@ -2470,7 +2474,7 @@ struct Lara : Character {
     }
 
     virtual int getInput() { // TODO: updateInput
-        if (level->cutEntity > -1) return 0;
+        if (level->isCutsceneLevel()) return 0;
         input = 0;
 
         if (!dozy && ((Input::state[cAction] && Input::state[cJump] && Input::state[cLook] && Input::state[cStepRight]) || Input::down[ikO])) {
@@ -2587,9 +2591,22 @@ struct Lara : Character {
     }
 
     virtual void update() {
-        Character::update();
+        if (level->isCutsceneLevel()) {
+            updateAnimation(true);
+
+            vec3 p = getPos();
+            //checkRoom();
+            updateLights();
+            pos = p;
+            if (fixRoomIndex() && braid)
+                braid->update();
+        } else {
+            Character::update();
+            if (braid)
+                braid->update();
+        }
         
-        if (!getEntity().isLara())
+        if (level->isCutsceneLevel())
             return;
 
         if (damageTime > 0.0f)
@@ -2647,10 +2664,7 @@ struct Lara : Character {
     virtual void updateVelocity() {
         flowVelocity = vec3(0);
 
-        if (!getEntity().isLara())
-            return;
-
-        if (!(input & DEATH))
+        if (!(input & DEATH) && !level->isCutsceneLevel())
             checkTrigger(this, false);
 
     // get turning angle
@@ -2769,8 +2783,9 @@ struct Lara : Character {
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
-        if (!getEntity().isLara())
+        if (level->isCutsceneLevel())
             return;
+
         // tilt control
         vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
         if (stand == STAND_UNDERWATER)
@@ -2782,20 +2797,10 @@ struct Lara : Character {
 
         if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
             move();
-
-        if (!getEntity().isLara()) {
-            vec3 p = pos;
-            pos = chestOffset;
-            checkRoom();
-            pos = p;
-        }
-
-        if (braid)
-            braid->update();
     }
 
     virtual vec3& getPos() {
-        return getEntity().isLara() ? pos : chestOffset;
+        return level->isCutsceneLevel() ? chestOffset : pos;
     }
 
     bool checkCollisions() {
@@ -3029,8 +3034,8 @@ struct Lara : Character {
         vec3 target = vec3(float(sink.x), float(sink.y), float(sink.z));
 
     #ifdef _DEBUG
-        delete[] dbgBoxes;
-        dbgBoxes = NULL;
+        //delete[] dbgBoxes;
+        //dbgBoxes = NULL;
     #endif
 
         if (box != sink.flags.boxIndex) {
@@ -3038,9 +3043,9 @@ struct Lara : Character {
             uint16 count = game->findPath(0xFFFFFF, -0xFFFFFF, false, box, sink.flags.boxIndex, getZones(), &boxes);
             if (count > 1) {
             #ifdef _DEBUG
-                dbgBoxesCount = count;
-                dbgBoxes = new uint16[dbgBoxesCount];
-                memcpy(dbgBoxes, boxes, sizeof(uint16) * dbgBoxesCount);
+                //dbgBoxesCount = count;
+                //dbgBoxes = new uint16[dbgBoxesCount];
+                //memcpy(dbgBoxes, boxes, sizeof(uint16) * dbgBoxesCount);
             #endif
                 TR::Box &b = level->boxes[boxes[1]];
                 target.x = (b.minX + b.maxX) * 0.5f;
@@ -3092,12 +3097,14 @@ struct Lara : Character {
         Basis b(basis);
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
         b.translate(offset);
+        if (level->version & (TR::VER_TR2 | TR::VER_TR3))
+            lum = alpha;
         Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
         Core::active.shader->setParam(uBasis, b);
         mesh->renderModel(level->extra.muzzleFlash);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO TR3 render in additive pass
         uint32 visMask = visibleMask;
         if (Core::pass != Core::passShadow && game->getCamera()->firstPerson) // hide head from first person view
             visibleMask &= ~BODY_HEAD;
@@ -3112,10 +3119,27 @@ struct Lara : Character {
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
             mat4 matrix = getMatrix();
             game->setShader(Core::pass, Shader::FLASH, false, true);
-            Core::setBlending(bmAlpha);
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, 150), arms[0].shotTimer);
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, 150), arms[1].shotTimer);
-            Core::setBlending(bmNone);
+            
+            int meshTransp = mesh->transparent;
+            float zOffset;
+            if (level->version & (TR::VER_TR2 | TR::VER_TR3)) {
+                mesh->transparent = 2;
+                Core::setBlending(bmAdd);
+                zOffset = 180;
+            } else {
+                Core::setBlending(bmAlpha);
+                zOffset = 150;
+            }
+
+            renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, zOffset), arms[0].shotTimer);
+            renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, zOffset), arms[1].shotTimer);
+
+            mesh->transparent = meshTransp;
+            switch (mesh->transparent) {
+                case 0 : Core::setBlending(bmNone);  break;
+                case 1 : Core::setBlending(bmAlpha); break;
+                case 2 : Core::setBlending(bmAdd);   break;
+            }
         }
 
         if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {

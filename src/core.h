@@ -334,8 +334,8 @@ namespace Core {
 #define MAX_CACHED_LIGHTS    3
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
-#define MAX_ANIM_TEX_RANGES  32
-#define MAX_ANIM_TEX_OFFSETS 170
+#define MAX_ANIM_TEX_RANGES  60
+#define MAX_ANIM_TEX_OFFSETS 265
 
 struct Shader;
 struct Texture;
@@ -355,9 +355,9 @@ enum RenderState : int32 {
     RS_CULL             = RS_CULL_BACK | RS_CULL_FRONT,
     RS_BLEND_ALPHA      = 1 << 10,
     RS_BLEND_ADD        = 1 << 11,
-    RS_BLEND_MULTIPLY   = 1 << 12,
-    RS_BLEND_SCREEN     = 1 << 13,
-    RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULTIPLY | RS_BLEND_SCREEN,
+    RS_BLEND_MULT       = 1 << 12,
+    RS_BLEND_PREMULT    = 1 << 13,
+    RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULT | RS_BLEND_PREMULT,
 };
 
 typedef unsigned short Index;
@@ -372,7 +372,7 @@ struct Vertex {
 };
 
 #ifdef PROFILE
-   #define USE_CV_MARKERS
+   //#define USE_CV_MARKERS
 
    #ifdef USE_CV_MARKERS
        #include <libs/cvmarkers/cvmarkersobj.h>  
@@ -441,8 +441,8 @@ struct Vertex {
     #define PROFILE_TIMING(time)
 #endif
 
-enum CullMode  { cfNone, cfBack, cfFront };
-enum BlendMode { bmNone, bmAlpha, bmAdd, bmMultiply, bmScreen };
+enum CullFace  { cfNone, cfBack, cfFront };
+enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult };
 
 extern int getTime();
 
@@ -834,8 +834,8 @@ namespace Core {
             switch (renderState & RS_BLEND) {
                 case RS_BLEND_ALPHA    : glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
                 case RS_BLEND_ADD      : glBlendFunc(GL_ONE, GL_ONE);                       break;
-                case RS_BLEND_MULTIPLY : glBlendFunc(GL_DST_COLOR, GL_ZERO);                break;
-                case RS_BLEND_SCREEN   : glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);       break;
+                case RS_BLEND_MULT     : glBlendFunc(GL_DST_COLOR, GL_ZERO);                break;
+                case RS_BLEND_PREMULT  : glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);       break;
                 default                : glDisable(GL_BLEND);
             }
         }
@@ -858,7 +858,7 @@ namespace Core {
         renderState |= RS_VIEWPORT;
     }
 
-    void setCulling(CullMode mode) {
+    void setCulling(CullFace mode) {
         renderState &= ~RS_CULL;
         switch (mode) {
             case cfNone  : break;
@@ -871,10 +871,10 @@ namespace Core {
         renderState &= ~RS_BLEND;
         switch (mode) {
             case bmNone     : break;
-            case bmAlpha    : renderState |= RS_BLEND_ALPHA;    break;
-            case bmAdd      : renderState |= RS_BLEND_ADD;      break;
-            case bmMultiply : renderState |= RS_BLEND_MULTIPLY; break;
-            case bmScreen   : renderState |= RS_BLEND_SCREEN;   break;
+            case bmAlpha    : renderState |= RS_BLEND_ALPHA;   break;
+            case bmAdd      : renderState |= RS_BLEND_ADD;     break;
+            case bmMult     : renderState |= RS_BLEND_MULT;    break;
+            case bmPremult  : renderState |= RS_BLEND_PREMULT; break;
         }
     }
 

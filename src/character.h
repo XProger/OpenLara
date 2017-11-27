@@ -61,7 +61,10 @@ struct Character : Controller {
 
     virtual int getRoomIndex() const {
         int index = Controller::getRoomIndex();
-
+        
+        if (level->isCutsceneLevel())
+            return index;
+        
         TR::Level::FloorInfo info;
         getFloorInfo(index, pos, info);
 
@@ -71,6 +74,9 @@ struct Character : Controller {
     }
 
     bool updateZone() {
+        if (level->isCutsceneLevel())
+            return false;
+
         int dx, dz;
         TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
         if (s.boxIndex == 0xFFFF)

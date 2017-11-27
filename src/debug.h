@@ -208,6 +208,53 @@ namespace Debug {
 
     namespace Level {
 
+        #define case_name(a,b) case a::b : return #b
+
+        const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger &trigger) {
+            switch (trigger) {
+                case_name(TR::Level::Trigger, ACTIVATE );
+                case_name(TR::Level::Trigger, PAD      );
+                case_name(TR::Level::Trigger, SWITCH   );
+                case_name(TR::Level::Trigger, KEY      );
+                case_name(TR::Level::Trigger, PICKUP   );
+                case_name(TR::Level::Trigger, HEAVY    );
+                case_name(TR::Level::Trigger, ANTIPAD  );
+                case_name(TR::Level::Trigger, COMBAT   );
+                case_name(TR::Level::Trigger, DUMMY    );
+            }
+            return "UNKNOWN";
+        }
+
+        const char *getTriggerAction(const TR::Level &level, const TR::Action &action) {
+            switch (action) {
+                case_name(TR::Action, ACTIVATE      );
+                case_name(TR::Action, CAMERA_SWITCH );
+                case_name(TR::Action, FLOW          );
+                case_name(TR::Action, FLIP          );
+                case_name(TR::Action, FLIP_ON       );
+                case_name(TR::Action, FLIP_OFF      );
+                case_name(TR::Action, CAMERA_TARGET );
+                case_name(TR::Action, END           );
+                case_name(TR::Action, SOUNDTRACK    );
+                case_name(TR::Action, EFFECT        );
+                case_name(TR::Action, SECRET        );
+            }
+            return "UNKNOWN";
+        }
+
+        const char *TR_TYPE_NAMES[] = { TR_TYPES(DECL_STR) };
+
+        const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
+            if (entity.type < TR::Entity::TR1_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR1_TYPES_START];
+            if (entity.type < TR::Entity::TR2_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR2_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + 1];
+            if (entity.type < TR::Entity::TR3_TYPE_MAX)
+                return TR_TYPE_NAMES[entity.type - TR3_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + (TR::Entity::TR2_TYPE_MAX - TR2_TYPES_START) + 2];
+
+            return "UNKNOWN";
+        }
+
         void debugFloor(IGame *game, int roomIndex, int x, int y, int z, int zone = -1) {
             TR::Level *level = game->getLevel();
 
@@ -417,10 +464,10 @@ namespace Debug {
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
                 Controller *controller = (Controller*)e.controller;
-                if (!controller) return;
+                if (!controller || controller->flags.invisible) return;
           
-                sprintf(buf, "%d (%d)", (int)e.type, i);
-                Debug::Draw::text(controller->pos, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
+                sprintf(buf, "%s (%d)", getEntityName(level, e), (int)e.type, i);
+                Debug::Draw::text(controller->pos + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 
             for (int i = 0; i < level.camerasCount; i++) {
@@ -618,54 +665,9 @@ namespace Debug {
             fclose(f);
         }
 
-        #define case_name(a,b) case a::b : return #b
-
-        const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger &trigger) {
-            switch (trigger) {
-                case_name(TR::Level::Trigger, ACTIVATE );
-                case_name(TR::Level::Trigger, PAD      );
-                case_name(TR::Level::Trigger, SWITCH   );
-                case_name(TR::Level::Trigger, KEY      );
-                case_name(TR::Level::Trigger, PICKUP   );
-                case_name(TR::Level::Trigger, HEAVY    );
-                case_name(TR::Level::Trigger, ANTIPAD  );
-                case_name(TR::Level::Trigger, COMBAT   );
-                case_name(TR::Level::Trigger, DUMMY    );
-            }
-            return "UNKNOWN";
-        }
-
-        const char *getTriggerAction(const TR::Level &level, const TR::Action &action) {
-            switch (action) {
-                case_name(TR::Action, ACTIVATE      );
-                case_name(TR::Action, CAMERA_SWITCH );
-                case_name(TR::Action, FLOW          );
-                case_name(TR::Action, FLIP          );
-                case_name(TR::Action, FLIP_ON       );
-                case_name(TR::Action, FLIP_OFF      );
-                case_name(TR::Action, CAMERA_TARGET );
-                case_name(TR::Action, END           );
-                case_name(TR::Action, SOUNDTRACK    );
-                case_name(TR::Action, EFFECT        );
-                case_name(TR::Action, SECRET        );
-            }
-            return "UNKNOWN";
-        }
-
-        const char *TR_TYPE_NAMES[] = { TR_TYPES(DECL_STR) };
-
-        const char *getEntityName(const TR::Level &level, const TR::Entity &entity) {
-            if (entity.type < TR::Entity::TR1_TYPE_MAX)
-                return TR_TYPE_NAMES[entity.type - TR1_TYPES_START];
-            if (entity.type < TR::Entity::TR2_TYPE_MAX)
-                return TR_TYPE_NAMES[entity.type - TR2_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + 1];
-            if (entity.type < TR::Entity::TR3_TYPE_MAX)
-                return TR_TYPE_NAMES[entity.type - TR3_TYPES_START + (TR::Entity::TR1_TYPE_MAX - TR1_TYPES_START) + (TR::Entity::TR2_TYPE_MAX - TR2_TYPES_START) + 2];
-
-            return "UNKNOWN";
-        }
-
         void info(const TR::Level &level, Controller *controller, Animation &anim) {
+            if (level.isCutsceneLevel()) return;
+
             float y = 0.0f;
 
             int activeCount = 0;
@@ -687,7 +689,7 @@ namespace Debug {
             
             TR::Level::FloorInfo info;
             controller->getFloorInfo(controller->getRoomIndex(), controller->pos, info);
-            sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, int(info.floor - info.ceiling));
+            sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, roomNext = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.roomNext, int(info.floor - info.ceiling));
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
 
             y += 16;

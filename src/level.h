@@ -68,7 +68,10 @@ struct Level : IGame {
             strcat(buf, "3/");
         strcat(buf, TR::LEVEL_INFO[id].name);
     #ifdef __EMSCRIPTEN__
-        strcat(buf, ".PSX");
+        if (level.version & TR::VER_TR3)
+            strcat(buf, ".TR2");
+        else
+            strcat(buf, ".PSX");
     #else
         switch (level.version) {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
@@ -93,7 +96,6 @@ struct Level : IGame {
     }
 
     virtual void saveGame(int slot) {
-        return;
         LOG("Save Game... ");
 
         char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory.itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
@@ -145,7 +147,6 @@ struct Level : IGame {
     }
 
     virtual void loadGame(int slot) {
-        return;
         LOG("Lave Game... ");
 
         clearInventory();
@@ -549,6 +550,8 @@ struct Level : IGame {
             case TR::VER_TR3_PSX :
                 #ifndef __EMSCRIPTEN__
                     playAsync(Sound::openWAD(NULL, track), this);
+                #else
+                    sprintf(title, "audio/3/track_%02d.ogg", int(track));
                 #endif
                 return;
             default : return;
@@ -650,9 +653,11 @@ struct Level : IGame {
     }
 
     Controller* initController(int index) {
+        if (level.entities[index].type == TR::Entity::CUT_1 && (level.version & TR::VER_TR1))
+            return new Lara(this, index);
+
         switch (level.entities[index].type) {
             case TR::Entity::LARA                  : return new Lara(this, index);
-//            case TR::Entity::CUT_1                 : 
             case TR::Entity::ENEMY_DOPPELGANGER    : return new Doppelganger(this, index);
             case TR::Entity::ENEMY_WOLF            : return new Wolf(this, index);
             case TR::Entity::ENEMY_BEAR            : return new Bear(this, index);
@@ -1048,20 +1053,20 @@ struct Level : IGame {
         else
             b = Basis(quat(0, 0, 0, 1), vec3(0));
 
+        Core::setBlending(bmNone);
         Core::setDepthTest(false);
         setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uMaterial, vec4(0.5f, 0.0f, 0.0f, 0.0f));
         Core::active.shader->setParam(uBasis, b);// anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
 
-        getMesh()->renderModel(level.extra.sky);
+        mesh->transparent = 0;
+        mesh->renderModel(level.extra.sky);
 
         Core::setDepthTest(true);
         Core::mViewProj = m;
     }
 
-    void renderRooms(int *roomsList, int roomsCount) {
-        PROFILE_MARKER("ROOMS");
-
+    void prepareRooms(int *roomsList, int roomsCount) {
         bool hasSky = false;
 
         for (int i = 0; i < level.roomsCount; i++)
@@ -1090,61 +1095,90 @@ struct Level : IGame {
 
         setMainLight(lara);
 
-        bool hasGeom[2], hasSprite;
-        hasGeom[0] = hasGeom[1] = hasSprite = false;
+        if (hasSky)
+            renderSky();
+    }
+
+    void renderRooms(int *roomsList, int roomsCount, int transp) {
+        PROFILE_MARKER("ROOMS");
+
+        if (Core::pass == Core::passShadow)
+            return;
+
+        bool hasGeom = false, hasSprite = false;
 
         Basis basis;
         basis.identity();
 
-        Core::setBlending(bmNone);
-
-        if (hasSky)
-            renderSky();
-
-        for (int transp = 0; transp < 2; transp++) {
-            for (int i = 0; i < roomsCount; i++) {
-                int roomIndex = roomsList[i];
-                MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
-
-                if (!range.geometry[transp].iCount)
-                    continue;
-
-                setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp > 0);
-                Shader *sh = Core::active.shader;
-
-                if (!hasGeom[transp]) {
-                    hasGeom[transp] = true;
-                    sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                    sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-                }
-
-                basis.pos = level.rooms[roomIndex].getOffset();
-                sh->setParam(uBasis, basis);
-                mesh->renderRoomGeometry(roomIndex, transp > 0);
-            }
-            Core::setBlending(bmAlpha);
+        switch (transp) {
+            case 0 : Core::setBlending(bmNone);  break;
+            case 1 : Core::setBlending(bmAlpha); break;
+            case 2 : Core::setBlending(bmAdd);   Core::setDepthWrite(false); break;
         }
- 
-        basis.rot = Core::mViewInv.getRot();
-        for (int i = 0; i < roomsCount; i++) {
-            level.rooms[roomsList[i]].flags.visible = true;
 
+        int i     = 0;
+        int end   = roomsCount;
+        int dir   = 1;
+
+        if (transp) {
+            i   = roomsCount - 1;
+            end = -1;
+            dir = -1;
+        }
+
+        while (i != end) {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
 
-            if (!range.sprites.iCount)
+            if (!range.geometry[transp].iCount) {
+                i += dir;
                 continue;
+            }
 
-            setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
+            setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp == 1);
             Shader *sh = Core::active.shader;
-            if (!hasSprite) {
+
+            if (!hasGeom) {
+                hasGeom = true;
                 sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                 sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
             }
 
             basis.pos = level.rooms[roomIndex].getOffset();
             sh->setParam(uBasis, basis);
-            mesh->renderRoomSprites(roomIndex);
+
+            mesh->transparent = transp;
+            mesh->renderRoomGeometry(roomIndex);
+
+            i += dir;
+        }
+
+        Core::setDepthWrite(true);
+
+        if (transp == 1) {
+            Core::setBlending(bmAlpha);
+
+            basis.rot = Core::mViewInv.getRot();
+            for (int i = 0; i < roomsCount; i++) {
+                level.rooms[roomsList[i]].flags.visible = true;
+
+                int roomIndex = roomsList[i];
+                MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
+
+                if (!range.sprites.iCount)
+                    continue;
+
+                setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
+                Shader *sh = Core::active.shader;
+                if (!hasSprite) {
+                    sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                    sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                }
+
+                basis.pos = level.rooms[roomIndex].getOffset();
+                sh->setParam(uBasis, basis);
+                mesh->renderRoomSprites(roomIndex);
+            }
         }
 
         Core::setBlending(bmNone);
@@ -1152,12 +1186,14 @@ struct Level : IGame {
 
     void renderEntity(const TR::Entity &entity) {
         //if (entity.room != lara->getRoomIndex()) return;
-        if (!entity.controller || !entity.modelIndex) return;
         if (Core::pass == Core::passShadow && !entity.castShadow()) return;
-
-        ASSERT(entity.controller);
-
         bool isModel = entity.modelIndex > 0;
+
+        if (isModel) {
+            if (!mesh->models[entity.modelIndex - 1].geometry[mesh->transparent].iCount) return;
+        } else {
+            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent)   return;
+        }
 
         Controller *controller = (Controller*)entity.controller;
 
@@ -1165,7 +1201,7 @@ struct Level : IGame {
         TR::Room &room = level.rooms[roomIndex];
 
         if (!entity.isLara() && !entity.isActor())
-            if (!room.flags.visible || controller->flags.invisible || controller->flags.rendered)
+            if (!room.flags.visible || controller->flags.invisible)// || controller->flags.rendered)
                 return;
 
         float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
@@ -1177,9 +1213,9 @@ struct Level : IGame {
         if (type == Shader::SPRITE) {
             float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH || entity.type == TR::Entity::SPARKLES) ? 0.75f : 1.0f;
             float diffuse = entity.isPickup() ? 1.0f : 0.5f;
-            setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+            setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, mesh->transparent == 1);
         } else
-            setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, isModel ? !mesh->models[entity.modelIndex - 1].opaque : true);
+            setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -1236,8 +1272,11 @@ struct Level : IGame {
     }
 
     void update() {
-        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK))
+        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK)) {
+            if (camera->timer > 0.0f)
+                loadNextLevel();
             return;
+        }
 
         if (Input::state[cInventory] && !level.isTitle()) {
             if (lara->health <= 0.0f)
@@ -1336,26 +1375,47 @@ struct Level : IGame {
     }
 
     // TODO: opqque/transparent pass for rooms and entities
-    void renderEntities(bool opaque) {
+    void renderEntitiesTransp(int transp) {
+        mesh->transparent = transp;
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
             if (!e.controller) continue;
             int modelIndex = e.modelIndex;
-            if ((modelIndex < 0 && !opaque) || (modelIndex > 0 && mesh->models[modelIndex - 1].opaque == opaque))
+            if (modelIndex != 0)
                 renderEntity(e);
         }
     }
 
-    void renderEntities() {
-        PROFILE_MARKER("ENTITIES");
-        renderEntities(true);
-        renderEntities(false);
+    void renderEntities(int transp) {
+        if (Core::pass == Core::passAmbient) // TODO allow static entities
+            return;
 
-        for (int i = 0; i < level.entitiesCount; i++) {
-            TR::Entity &entity = level.entities[i];
-            Controller *controller = (Controller*)entity.controller;
-            if (controller && controller->flags.rendered)
-                controller->renderShadow(mesh);
+        PROFILE_MARKER("ENTITIES");
+
+        if (transp == 0) {
+            Core::setBlending(bmNone);
+            renderEntitiesTransp(transp);
+        }
+
+        if (transp == 1) {
+            Core::setBlending(bmAlpha);
+            renderEntitiesTransp(transp);
+
+            Core::setBlending(bmMult);
+            for (int i = 0; i < level.entitiesCount; i++) {
+                TR::Entity &entity = level.entities[i];
+                Controller *controller = (Controller*)entity.controller;
+                if (controller && controller->flags.rendered)
+                    controller->renderShadow(mesh);
+            }
+            Core::setBlending(bmNone);
+        }
+
+        if (transp == 2) {
+            Core::setDepthWrite(false);
+            Core::setBlending(bmAdd);
+            renderEntitiesTransp(transp);
+            Core::setDepthWrite(true);
         }
     }
 
@@ -1471,12 +1531,13 @@ struct Level : IGame {
         int roomsCount = 0;
 
         getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
+        /*
         if (level.isCutsceneLevel()) {
             for (int i = 0; i < level.roomsCount; i++)
                 roomsList[i] = i;
             roomsCount = level.roomsCount;
         }
-
+        */
         if (water && waterCache) {
             for (int i = 0; i < roomsCount; i++)
                 waterCache->setVisible(roomsList[i]);
@@ -1500,10 +1561,11 @@ struct Level : IGame {
             setupBinding();
         }
 
-        renderRooms(roomsList, roomsCount);
-
-        if (Core::pass != Core::passAmbient)
-            renderEntities();
+        prepareRooms(roomsList, roomsCount);
+        for (int transp = 0; transp < 3; transp++) {
+            renderRooms(roomsList, roomsCount, transp);
+            renderEntities(transp);
+        }
 
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;

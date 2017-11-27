@@ -94,7 +94,7 @@ namespace Game {
                 Input::down[ikV] = false;
             }
         }
-
+        /*
         if (Input::down[ikS]) {
             if (level->lara->canSaveGame())
                 level->saveGame(0);
@@ -105,7 +105,7 @@ namespace Game {
             level->loadGame(0);
             Input::down[ikL] = false;
         }
-
+        */
         Core::deltaTime = delta = min(0.2f, delta);
         UI::update();
 

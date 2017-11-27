@@ -1342,8 +1342,6 @@ struct Waterfall : Controller {
     Waterfall(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
 
     virtual void update() {
-        updateAnimation(true);
-
         vec3 delta = (((ICamera*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
         if (delta.length2() > 100.0f)
             return;
