@@ -946,7 +946,7 @@ struct Controller {
 
             vec3 center = getBoundingBox().center();
             float maxAtt = 0.0f;
-
+            /*
             if (room.flags.sky) { // TODO trace rooms up for sun light, add direct light projection
                 sunLight.x      = int32(center.x);
                 sunLight.y      = int32(center.y) - 8192;
@@ -955,6 +955,8 @@ struct Controller {
                 sunLight.radius = 1000 * 1024;
                 targetLight     = &sunLight;
             } else {
+            */
+            {
                 for (int i = 0; i < room.lightsCount; i++) {
                     TR::Room::Light &light = room.lights[i];
                     if ((light.color.r | light.color.g | light.color.b) == 0) continue;

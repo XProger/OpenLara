@@ -466,7 +466,7 @@ namespace Debug {
                 Controller *controller = (Controller*)e.controller;
                 if (!controller || controller->flags.invisible) return;
           
-                sprintf(buf, "%s (%d)", getEntityName(level, e), (int)e.type, i);
+                sprintf(buf, "%s (%d)", getEntityName(level, e), i);
                 Debug::Draw::text(controller->pos + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 

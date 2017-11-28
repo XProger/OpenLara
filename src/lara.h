@@ -409,7 +409,7 @@ struct Lara : Character {
         }
         
         void render(MeshBuilder *mesh) {
-            Core::active.shader->setParam(uBasis, basis[0], jointsCount);
+            Core::active.shader->setParam(uBasis, basis[0], jointsCount - 1);
             mesh->renderModel(lara->level->extra.braid);
         }
 
@@ -2594,7 +2594,8 @@ struct Lara : Character {
         if (level->isCutsceneLevel()) {
             updateAnimation(true);
 
-            vec3 p = getPos();
+            vec3 p = pos;
+            pos = getPos();
             //checkRoom();
             updateLights();
             pos = p;
