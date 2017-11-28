@@ -600,7 +600,7 @@ struct Controller {
         return level->entities[entity];
     }
 
-    const TR::Room& getRoom() const {
+    TR::Room& getRoom() {
         int index = getRoomIndex();
         ASSERT(index >= 0 && index < level->roomsCount);
         return level->rooms[index];

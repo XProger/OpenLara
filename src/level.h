@@ -323,6 +323,14 @@ struct Level : IGame {
 
         TR::Room &room = level.rooms[roomIndex];
 
+        if (room.dynLightsCount) {
+            Core::lightPos[3]   = room.dynLights[0].pos;
+            Core::lightColor[3] = room.dynLights[0].color;
+        } else {
+            Core::lightPos[3]   = vec4(0);
+            Core::lightColor[3] = vec4(0, 0, 0, 1);
+        }
+
         if (room.flags.water)
             setWaterParams(float(room.info.yTop));
         else
@@ -794,6 +802,12 @@ struct Level : IGame {
             case TR::Entity::ENEMY_MONK_1           :
             case TR::Entity::ENEMY_MONK_2           : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
 
+            case TR::Entity::CRYSTAL_PICKUP         : return new CrystalPickup(this, index);
+            case TR::Entity::STONE_ITEM_1           :
+            case TR::Entity::STONE_ITEM_2           :
+            case TR::Entity::STONE_ITEM_3           :
+            case TR::Entity::STONE_ITEM_4           : return new StoneItem(this, index);
+
             default                                 : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
         }
     }
@@ -1105,8 +1119,6 @@ struct Level : IGame {
         if (Core::pass == Core::passShadow)
             return;
 
-        bool hasGeom = false, hasSprite = false;
-
         Basis basis;
         basis.identity();
 
@@ -1138,11 +1150,8 @@ struct Level : IGame {
             setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp == 1);
             Shader *sh = Core::active.shader;
 
-            if (!hasGeom) {
-                hasGeom = true;
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-            }
+            sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+            sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
             basis.pos = level.rooms[roomIndex].getOffset();
             sh->setParam(uBasis, basis);
@@ -1170,10 +1179,9 @@ struct Level : IGame {
 
                 setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
                 Shader *sh = Core::active.shader;
-                if (!hasSprite) {
-                    sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                    sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-                }
+
+                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
                 basis.pos = level.rooms[roomIndex].getOffset();
                 sh->setParam(uBasis, basis);
@@ -1241,36 +1249,6 @@ struct Level : IGame {
         controller->render(camera->frustum, mesh, type, room.flags.water);
     }
 
-    void updateLighting() {
-    // update crystal lighting (TODO: make it per-room instead of global)
-        int   index   = -1;
-        float minDist = 1000000000.f;
-
-        for (int i = 0; i < level.entitiesBaseCount; i++) {
-            TR::Entity &e = level.entities[i];
-            if (e.type == TR::Entity::CRYSTAL) {
-                Crystal *crystal = (Crystal*)e.controller;
-                if (crystal->flags.state != TR::Entity::asActive && !level.rooms[crystal->getRoomIndex()].flags.visible)
-                    continue;
-
-                if (camera->frustum->isVisible(crystal->lightPos, CRYSTAL_LIGHT_RADIUS + 1024.0f)) { // 1024.0f because of vertex lighting
-                    float d = (lara->pos - crystal->pos).length();
-                    if (d < minDist) {
-                        index   = i;
-                        minDist = d;
-                    }
-                };
-            }
-        }
-
-        if (index > -1) {
-            Crystal *crystal = (Crystal*)level.entities[index].controller;
-            Core::lightPos[3]   = crystal->lightPos;
-            Core::lightColor[3] = CRYSTAL_LIGHT_COLOR;
-        } else
-            Core::lightColor[3] = Core::lightColor[3] = vec4(0, 0, 0, 1);
-    }
-
     void update() {
         if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK)) {
             if (camera->timer > 0.0f)
@@ -1308,8 +1286,6 @@ struct Level : IGame {
                 camera->state = lara->emptyHands() ? Camera::STATE_FOLLOW : Camera::STATE_COMBAT;
 
             camera->update();
-
-            updateLighting();
 
             if (waterCache) 
                 waterCache->update();
@@ -1730,6 +1706,7 @@ struct Level : IGame {
         //    Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
         //    Core::setBlending(bmAlpha);
+        //    Core::setDepthTest(false);
         //    Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex(), lara);
@@ -1744,6 +1721,7 @@ struct Level : IGame {
         //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
         //    Debug::Level::debugOverlaps(level, lara->box);
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
+        //    Core::setDepthTest(true);
         //    Core::setBlending(bmNone);
 
         /*

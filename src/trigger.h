@@ -678,7 +678,6 @@ struct Drawbridge : Controller {
 
 struct Crystal : Controller {
     Texture *environment;
-    vec3    lightPos;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, Texture::RGBA, true, NULL, true, true);
@@ -689,15 +688,42 @@ struct Crystal : Controller {
         delete environment;
     }
 
+    virtual void deactivate(bool removeFromList = false) {
+        Controller::deactivate(removeFromList);
+        getRoom().removeDynLight(entity);
+    }
+
     virtual void update() {
         updateAnimation(false);
-        lightPos = animation.getJoints(getMatrix(), 0, false).pos - vec3(0, 256, 0);
+        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos - vec3(0, 256, 0);
+        getRoom().addDynLight(entity, vec4(lightPos, 0.0f), CRYSTAL_LIGHT_COLOR);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Core::active.shader->setParam(uMaterial, vec4(0.5, 0.5, 3.0, 1.0f)); // blue color dodge for crystal
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
+    }
+};
+
+
+#define CRYSTAL_PICKUP_LIGHT_COLOR  vec4(0.1f, 0.5f, 0.1f, 1.0f / CRYSTAL_LIGHT_RADIUS)
+
+struct CrystalPickup : Controller {
+
+    CrystalPickup(IGame *game, int entity) : Controller(game, entity) {
+        activate();
+    }
+
+    virtual void deactivate(bool removeFromList = false) {
+        Controller::deactivate(removeFromList);
+        getRoom().removeDynLight(entity);
+    }
+
+    virtual void update() {
+        updateAnimation(false);
+        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos;
+        getRoom().addDynLight(entity, vec4(lightPos, 0.0f), CRYSTAL_PICKUP_LIGHT_COLOR);
     }
 };
 
@@ -1403,5 +1429,33 @@ struct Explosion : Sprite {
     }
 };
 
+
+#define STONE_ITEM_LIGHT_RADIUS 2048.0f
+
+struct StoneItem : Controller {
+    float phase;
+
+    StoneItem(IGame *game, int entity) : Controller(game, entity), phase(0) {
+        activate();
+    }
+
+    virtual void deactivate(bool removeFromList = false) {
+        Controller::deactivate(removeFromList);
+        getRoom().removeDynLight(entity);
+    }
+
+    virtual void update() {
+        updateAnimation(false);
+        
+        angle.y += Core::deltaTime * 2.0f;
+        phase += Core::deltaTime;
+        float s = 0.3f + (sinf(phase * PI2) * 0.5f + 0.5f) * 0.7f;
+
+        vec4 lightColor(0.1f * s, 1.0f * s, 1.0f * s, 1.0f / STONE_ITEM_LIGHT_RADIUS);
+        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos;
+
+        getRoom().addDynLight(entity, vec4(lightPos, 0.0f), lightColor);
+    }
+};
 
 #endif

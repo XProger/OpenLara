@@ -2572,6 +2572,7 @@ struct Lara : Character {
                     for (int i = 0; i < pickupListCount; i++) {
                         if (pickupList[i]->getEntity().type == TR::Entity::SCION_PICKUP_HOLDER)
                             continue;
+                        pickupList[i]->deactivate();
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->getEntity().type, 1);
                     }

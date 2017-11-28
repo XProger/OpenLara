@@ -363,7 +363,14 @@ struct MeshBuilder {
                 if (range.iCount && model.type == TR::Entity::SKY && ((level.version & TR::VER_TR3)))
                     range.iCount -= 16 * 3;
             }
-//            TR::Entity::fixOpaque(model.type, opaque);
+
+            //int transp = TR::Entity::fixTransp(model.type);
+
+            if (model.type == TR::Entity::SKY) {
+                models[i].geometry[0].iCount = iCount - models[i].geometry[0].iStart;
+                models[i].geometry[1].iCount = 0;
+                models[i].geometry[2].iCount = 0;
+            }
         }
         ASSERT(vCount - vStartModel <= 0xFFFF);
 

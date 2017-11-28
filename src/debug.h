@@ -277,12 +277,12 @@ namespace Debug {
                 rc[i] = vec3( x + offsets[i][0], info.roomCeiling + 4, z + offsets[i][1] );
                 f[i]  = vec3( x + offsets[i][0], info.floor - 4,       z + offsets[i][1] );
                 c[i]  = vec3( x + offsets[i][0], info.ceiling + 4,     z + offsets[i][1] );
-                if (info.roomBelow == 0xFF) rf[i].y = f[i].y;
-                if (info.roomAbove == 0xFF) rc[i].y = c[i].y;
+                if (info.roomBelow == TR::NO_ROOM) rf[i].y = f[i].y;
+                if (info.roomAbove == TR::NO_ROOM) rc[i].y = c[i].y;
             }
 
             if (info.roomNext != 0xFF) {
-                glColor4f(0.0f, 0.0f, 1.0f, 0.1f);
+                glColor4f(0.0f, 0.0f, 1.0f, 1.0f);
                 glBegin(GL_QUADS);
                     glVertex3fv((GLfloat*)&f[3]);
                     glVertex3fv((GLfloat*)&f[2]);

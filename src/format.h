@@ -1461,6 +1461,14 @@ namespace TR {
         uint8   align;
         uint32  waterLevel;
 
+        struct  DynLight {
+            int32 id;
+            vec4  pos;
+            vec4  color;
+        } dynLights[2];
+        
+        int32 dynLightsCount;
+
         struct Portal {
             uint16  roomIndex;
             Vertex  normal;
@@ -1505,6 +1513,36 @@ namespace TR {
 
         vec3 getOffset() const {
             return vec3(float(info.x), 0.0f, float(info.z));
+        }
+
+        void addDynLight(int32 id, const vec4 &pos, const vec4 &color) {
+            DynLight *light = NULL;
+            for (int i = 0; i < dynLightsCount; i++)
+                if (dynLights[i].id == id) {
+                    light = &dynLights[i];
+                    break;
+                }
+             // 1 is additional second light, can be overridden
+            if (!light) {
+                if (dynLightsCount < 2) {
+                    light = &dynLights[dynLightsCount];
+                    dynLightsCount = min(2, dynLightsCount + 1);
+                } else
+                    light = &dynLights[1];
+            }
+
+            light->id    = id;
+            light->pos   = pos;
+            light->color = color;
+        }
+
+        void removeDynLight(int32 id) {
+            for (int i = 0; i < dynLightsCount; i++)
+                if (dynLights[i].id == id) {
+                    if (i == 0) dynLights[0] = dynLights[1];
+                    dynLightsCount--;
+                    break;
+                }
         }
     };
 
@@ -3505,6 +3543,8 @@ namespace TR {
                 stream.read(r.reverbType);
                 stream.read(r.filter); // unused
             }
+
+            r.dynLightsCount = 0;
         }
 
 
