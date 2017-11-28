@@ -557,7 +557,7 @@ struct Level : IGame {
                     playAsync(Sound::openWAD(NULL, track), this);
                     return;
                 #else
-                    sprintf(title, "audio/3/track_%02d.ogg", int(track));
+                    sprintf(title, "audio/3/track_%02d.wav", int(track));
                 #endif
                 break;
             default : return;
