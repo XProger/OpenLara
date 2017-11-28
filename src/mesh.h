@@ -359,17 +359,18 @@ struct MeshBuilder {
                 }
 
                 range.iCount = iCount - range.iStart;
-            // remove bottom triangles from skybox
-                if (range.iCount && model.type == TR::Entity::SKY && ((level.version & TR::VER_TR3)))
-                    range.iCount -= 16 * 3;
             }
 
             //int transp = TR::Entity::fixTransp(model.type);
 
             if (model.type == TR::Entity::SKY) {
-                models[i].geometry[0].iCount = iCount - models[i].geometry[0].iStart;
-                models[i].geometry[1].iCount = 0;
-                models[i].geometry[2].iCount = 0;
+                ModelRange &m = models[i];
+                m.geometry[0].iCount = iCount - models[i].geometry[0].iStart;
+                m.geometry[1].iCount = 0;
+                m.geometry[2].iCount = 0;
+            // remove bottom triangles from skybox
+                if (m.geometry[0].iCount && ((level.version & TR::VER_TR3)))
+                    m.geometry[0].iCount -= 16 * 3;
             }
         }
         ASSERT(vCount - vStartModel <= 0xFFFF);
