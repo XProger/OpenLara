@@ -68,10 +68,7 @@ struct Level : IGame {
             strcat(buf, "3/");
         strcat(buf, TR::LEVEL_INFO[id].name);
     #ifdef __EMSCRIPTEN__
-        if (level.version & TR::VER_TR3)
-            strcat(buf, ".TR2");
-        else
-            strcat(buf, ".PSX");
+         strcat(buf, ".PSX");
     #else
         switch (level.version) {
             case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
@@ -558,10 +555,11 @@ struct Level : IGame {
             case TR::VER_TR3_PSX :
                 #ifndef __EMSCRIPTEN__
                     playAsync(Sound::openWAD(NULL, track), this);
+                    return;
                 #else
                     sprintf(title, "audio/3/track_%02d.ogg", int(track));
                 #endif
-                return;
+                break;
             default : return;
         }
 

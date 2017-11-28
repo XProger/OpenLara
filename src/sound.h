@@ -682,7 +682,7 @@ namespace Sound {
     }
 
     Stream *openWAD(const char *name, int index = -1) {
-        Stream *stream = new Stream("cdaudio.wad");
+        Stream *stream = new Stream("audio/3/cdaudio.wad");
         if (stream->size) {
             struct Item {
                 char name[260];

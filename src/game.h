@@ -106,7 +106,11 @@ namespace Game {
             Input::down[ikL] = false;
         }
         */
-        Core::deltaTime = delta = min(0.2f, delta);
+
+        if (!level->level.isCutsceneLevel())
+            delta = min(0.2f, delta);
+
+        Core::deltaTime = delta;
         UI::update();
 
         while (delta > EPS) {
