@@ -1541,6 +1541,7 @@ struct Level : IGame {
             renderEntities(transp);
         }
 
+        Core::setBlending(bmNone);
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
             waterCache->renderMask();

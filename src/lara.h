@@ -2595,11 +2595,8 @@ struct Lara : Character {
         if (level->isCutsceneLevel()) {
             updateAnimation(true);
 
-            vec3 p = pos;
-            pos = getPos();
-            //checkRoom();
             updateLights();
-            pos = p;
+
             if (fixRoomIndex() && braid)
                 braid->update();
         } else {
@@ -2801,7 +2798,7 @@ struct Lara : Character {
             move();
     }
 
-    virtual vec3& getPos() {
+    virtual vec3 getPos() {
         return level->isCutsceneLevel() ? chestOffset : pos;
     }
 

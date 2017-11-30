@@ -114,9 +114,10 @@ struct Controller {
         int   roomIndex;
     } *explodeParts;
 
+    vec3 lastPos;
     bool invertAim;
 
-    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), invertAim(false) {
+    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), lastPos(0), invertAim(false) {
         const TR::Entity &e = getEntity();
         pos         = vec3(float(e.x), float(e.y), float(e.z));
         angle       = vec3(0.0f, e.rotation, 0.0f);
@@ -193,8 +194,8 @@ struct Controller {
         info.trigger      = TR::Level::Trigger::ACTIVATE;
         info.trigCmdCount = 0;
 
-        if (s.floor == TR::NO_FLOOR) 
-            return;
+        //if (s.floor == TR::NO_FLOOR) 
+        //    return;
 
         TR::Room::Sector *sBelow = &s;
         while (sBelow->roomBelow != TR::NO_ROOM) sBelow = &level->getSector(sBelow->roomBelow, x, z, dx, dz);
@@ -613,8 +614,8 @@ struct Controller {
         return index;
     }
 
-    virtual vec3& getPos() {
-        return pos;
+    virtual vec3 getPos() {
+        return getEntity().isActor() ? animation.getJoints(getMatrix(), 0).pos : pos;
     }
 
     vec3 getDir() const {
@@ -826,7 +827,15 @@ struct Controller {
 
     virtual void updateAnimation(bool commands) {
         animation.update();
-        
+
+        if (level->isCutsceneLevel() && getEntity().isActor()) {
+            vec3 p = getPos();
+            if ((p - lastPos).length2() > 256 * 256) {
+                game->waterDrop(p, 96.0, 0.1f);
+                lastPos = p;
+            }
+        }
+
         TR::Animation *anim = animation;
 
     // apply animation commands

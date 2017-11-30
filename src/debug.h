@@ -467,7 +467,7 @@ namespace Debug {
                 if (!controller || controller->flags.invisible) return;
           
                 sprintf(buf, "%s (%d)", getEntityName(level, e), i);
-                Debug::Draw::text(controller->pos + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
+                Debug::Draw::text(controller->getPos() + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 
             for (int i = 0; i < level.camerasCount; i++) {
