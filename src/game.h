@@ -110,6 +110,11 @@ namespace Game {
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);
 
+        if (level->cutsceneFirstFrame) {
+            level->cutsceneFirstFrame = false;
+            delta = 1.0f / 30.0f;
+        }
+
         Core::deltaTime = delta;
         UI::update();
 

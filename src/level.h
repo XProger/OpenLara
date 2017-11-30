@@ -46,6 +46,7 @@ struct Level : IGame {
 
     bool lastTitle;
     bool isEnded;
+    bool cutsceneFirstFrame;
 
     TR::Effect effect;
     float      effectTimer;
@@ -517,6 +518,9 @@ struct Level : IGame {
         level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, Sound::MUSIC);
         if (level->sndSoundtrack)
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
+
+        if (level->level.isCutsceneLevel())
+            level->cutsceneFirstFrame = true;
     }
 
     virtual void playTrack(uint8 track, bool restart = false) {
@@ -571,7 +575,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false) {
+    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false), cutsceneFirstFrame(false) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
