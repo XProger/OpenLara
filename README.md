@@ -14,7 +14,7 @@ inspired by OpenTomb project http://opentomb.github.io/
 ## Roadmap
 - save game crystals
 - camera
-- alpha-3 release (November)
+- alpha-3 release (December)
 - enemies
 - bug fixes
 - beta-1 release (January)
