@@ -18,10 +18,18 @@
 // Time
 unsigned int startTime;
 
-int getTime() {
+int osGetTime() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
+}
+
+bool osSave(const char *name, const void *data, int size) {
+    FILE *f = fopen(name, "wb");
+    if (!f) return false;
+    fwrite(data, size, 1, f);
+    fclose(f);
+    return true;
 }
 
 // Sound
@@ -466,22 +474,16 @@ int main(int argc, char **argv) {
 
     inputInit(); // initialize and grab input devices
 
-    int lastTime = getTime();
-
     while (!Input::down[ikEscape]) {
         inputUpdate();
 
-        int time = getTime();
-        if (time <= lastTime)
-            continue;
-
         pthread_mutex_lock(&sndMutex);
-        Game::update((time - lastTime) * 0.001f);
+        bool updated = Game::update();
         pthread_mutex_unlock(&sndMutex);
-        lastTime = time;
-
-        Game::render();
-        eglSwapBuffers(display, surface);
+		if (updated) {
+			Game::render();
+			eglSwapBuffers(display, surface);
+		}
     };
 
     sndFree();

@@ -12,15 +12,17 @@
 
 time_t startTime;
 
-int getTime() {
+int osGetTime() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
-extern "C" {
+bool osSave(const char *name, const void *data, int size) {
+    return false;
+}
 
-int lastTime;
+extern "C" {
 
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
@@ -49,8 +51,6 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
     env->ReleaseStringUTFChars(cacheDir, str);
 
     Game::init();
-
-    lastTime = getTime();
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {
@@ -62,11 +62,7 @@ JNI_METHOD(void, nativeReset)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeUpdate)(JNIEnv* env) {
-    int time = getTime();
-    if (time == lastTime)
-        return;
-    Game::update((time - lastTime) * 0.001f);
-    lastTime = time;
+    Game::update();
 }
 
 JNI_METHOD(void, nativeRender)(JNIEnv* env) {

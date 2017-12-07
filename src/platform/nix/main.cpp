@@ -14,10 +14,18 @@
 // Time
 unsigned int startTime;
 
-int getTime() {
+int osGetTime() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
+}
+
+bool osSave(const char *name, const void *data, int size) {
+    FILE *f = fopen(name, "wb");
+    if (!f) return false;
+    fwrite(data, size, 1, f);
+    fclose(f);
+    return true;
 }
 
 // Sound
@@ -206,8 +214,6 @@ int main(int argc, char **argv) {
     sndInit();
     Game::init(argc > 1 ? argv[1] : NULL);
 
-    int lastTime = getTime();
-
     while (1) {
         if (XPending(dpy)) {
             XEvent event;
@@ -216,17 +222,13 @@ int main(int argc, char **argv) {
                 break;
             WndProc(event,dpy,wnd);
         } else {
-            int time = getTime();
-            if (time <= lastTime)
-                continue;
-
             pthread_mutex_lock(&sndMutex);
-            Game::update((time - lastTime) * 0.001f);
+			bool updated = Game::update();
             pthread_mutex_unlock(&sndMutex);
-            lastTime = time;
-
-            Game::render();
-            glXSwapBuffers(dpy, wnd);
+            if (updated) {
+				Game::render();
+				glXSwapBuffers(dpy, wnd);
+			}
         }
     };
 

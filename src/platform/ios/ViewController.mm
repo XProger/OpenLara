@@ -19,9 +19,7 @@
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-int lastTime;
-
-int getTime() {
+int osGetTime() {
     const int64_t kOneMillion = 1000 * 1000;
     static mach_timebase_info_data_t info;
 
@@ -29,6 +27,10 @@ int getTime() {
         mach_timebase_info(&info);
 
     return (int)((mach_absolute_time() * info.numer) / (kOneMillion * info.denom));
+}
+
+bool osSave(const char *name, const void *data, int size) {
+    return false;
 }
 
 #define SND_BUF_SIZE 8192
@@ -115,8 +117,6 @@ void soundInit() {
 
     soundInit();
     Input::reset();
-
-    lastTime = getTime() - 1;
 }
 
 - (void)viewDidUnload {	
@@ -139,12 +139,7 @@ void soundInit() {
     Core::width  = self.view.bounds.size.width * scale;
     Core::height = self.view.bounds.size.height * scale;
 
-    int time = getTime();
-    if (time == lastTime)
-        return;
-    Game::update((time - lastTime) * 0.001f);
-    lastTime = time;
-
+    Game::update();
 	Game::render();
 }
 

@@ -138,10 +138,14 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
     return CallNextEventHandler(handler, event);
 }
 
-int getTime() {
+int osGetTime() {
     UInt64 t;
     Microseconds((UnsignedWide*)&t);
     return int(t / 1000);
+}
+
+bool osSave(const char *name, const void *data, int size) {
+    return false;
 }
 
 char Stream::contentDir[255];
@@ -197,17 +201,9 @@ int main() {
     SelectWindow(window);
     ShowWindow(window);
 
-    int lastTime = getTime(), fpsTime = lastTime + 1000, fps = 0;
-
     EventRecord event;
     while (!isQuit)
-        if (!GetNextEvent(0xffff, &event)) {
-            int time = getTime();
-            if (time <= lastTime)
-                continue;
-            Game::update((time - lastTime) * 0.001f);
-            lastTime = time;
-
+        if (!GetNextEvent(0xffff, &event) && Game::update()) {
             Game::render();
             aglSwapBuffers(context);
         }
