@@ -16,7 +16,7 @@
 
 #include "game.h"
 
-int getTime() {
+int osGetTime() {
 #ifdef DEBUG
     LARGE_INTEGER Freq, Count;
     QueryPerformanceFrequency(&Freq);
@@ -26,6 +26,14 @@ int getTime() {
     timeBeginPeriod(0);
     return int(timeGetTime());
 #endif
+}
+
+bool osSave(const char *name, const void *data, int size) {
+    FILE *f = fopen(name, "wb");
+    if (!f) return false;
+    fwrite(data, size, 1, f);
+    fclose(f);
+    return true;
 }
 
 // common input functions
@@ -295,11 +303,16 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 HGLRC initGL(HDC hDC) {
     PIXELFORMATDESCRIPTOR pfd;
     memset(&pfd, 0, sizeof(pfd));
-    pfd.nSize      = sizeof(pfd);
-    pfd.nVersion   = 1;
-    pfd.dwFlags    = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfd.cColorBits = 32;
-    pfd.cDepthBits = 24;
+    pfd.nSize        = sizeof(pfd);
+    pfd.nVersion     = 1;
+    pfd.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.cColorBits   = 32;
+    pfd.cRedBits     = 8;
+    pfd.cGreenBits   = 8;
+    pfd.cBlueBits    = 8;
+    pfd.cAlphaBits   = 8;
+    pfd.cDepthBits   = 24;
+    pfd.cStencilBits = 8;
 
     int format = ChoosePixelFormat(hDC, &pfd);
     SetPixelFormat(hDC, format, &pfd);
@@ -356,7 +369,6 @@ int main(int argc, char** argv) {
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
-    DWORD lastTime = getTime();
     MSG msg;
 
     do {
@@ -365,16 +377,10 @@ int main(int argc, char** argv) {
             DispatchMessage(&msg);
         } else {
             joyUpdate();
-
-            DWORD time = getTime();
-            if (time <= lastTime)
-                continue;
-
-            Game::update((time - lastTime) * 0.001f);
-            lastTime = time;
-
-            Game::render();
-            SwapBuffers(hDC);
+            if (Game::update()) {
+                Game::render();
+                SwapBuffers(hDC);
+            }
             #ifdef _DEBUG
                 Sleep(20);
             #endif

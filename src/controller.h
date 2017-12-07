@@ -413,7 +413,7 @@ struct Controller {
         } while (!cmd.end);
     }
 
-    virtual void getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
         if (entity < level->entitiesBaseCount) {
@@ -439,6 +439,8 @@ struct Controller {
         data.animFrame  = m ? animation.frameIndex : 0;
 
         data.extraSize  = 0;
+
+        return true;
     }
 
     virtual void setSaveData(const TR::SaveGame::Entity &data) {
@@ -945,6 +947,7 @@ struct Controller {
     virtual void update() {
         updateAnimation(true);
         updateExplosion();
+        updateLights(true);
     }
 
     void updateLights(bool lerp = true) {
@@ -1043,9 +1046,7 @@ struct Controller {
     }
 
     void renderShadow(MeshBuilder *mesh) {
-        const TR::Entity &entity = getEntity();
-
-        if (Core::pass != Core::passCompose || !entity.castShadow() || entity.isActor())
+        if (Core::pass != Core::passCompose || level->isCutsceneLevel())
             return;
 
         Box boxL = getBoundingBoxLocal();

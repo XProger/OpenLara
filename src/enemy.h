@@ -77,17 +77,20 @@ struct Enemy : Character {
         delete path;
     }
 
-    virtual void getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.enemy);
-        data.extra.enemy.health = uint16(health);
-        data.extra.enemy.mood   = uint16(mood);
+        data.extra.enemy.health    = health;
+        data.extra.enemy.mood      = mood;
+        data.extra.enemy.targetBox = targetBox;
+        return true;
     }
 
     virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Character::setSaveData(data);
-        health = float(data.extra.enemy.health);
-        mood   = Mood(data.extra.enemy.mood);
+        health    = data.extra.enemy.health;
+        mood      = Mood(data.extra.enemy.mood);
+        targetBox = data.extra.enemy.targetBox;
     }
 
     virtual bool activate() {
@@ -1321,9 +1324,7 @@ struct Doppelganger : Enemy {
 
 
 struct ScionTarget : Enemy {
-    float timer;
-
-    ScionTarget(IGame *game, int entity) : Enemy(game, entity, 5, 0, 0, 0), timer(0.0f) {}
+    ScionTarget(IGame *game, int entity) : Enemy(game, entity, 5, 0, 0, 0) {}
 
     virtual void update() {
         Controller::update();

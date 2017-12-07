@@ -75,8 +75,13 @@ namespace Game {
         Core::deltaTime = dt;
     }
 
-    void update(float delta) {
+    bool update() {
         PROFILE_MARKER("UPDATE");
+
+        if (!Core::update())
+            return false;
+
+        float delta = Core::deltaTime;
 
         if (nextLevel) {
             startLevel(nextLevel);
@@ -84,7 +89,7 @@ namespace Game {
         }
 
         if (level->isEnded)
-            return;
+            return true;
 
         Input::update();
 
@@ -94,7 +99,7 @@ namespace Game {
                 Input::down[ikV] = false;
             }
         }
-        /*
+
         if (Input::down[ikS]) {
             if (level->lara->canSaveGame())
                 level->saveGame(0);
@@ -105,15 +110,9 @@ namespace Game {
             level->loadGame(0);
             Input::down[ikL] = false;
         }
-        */
 
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);
-
-        if (level->cutsceneFirstFrame) {
-            level->cutsceneFirstFrame = false;
-            delta = 1.0f / 30.0f;
-        }
 
         Core::deltaTime = delta;
         UI::update();
@@ -122,7 +121,11 @@ namespace Game {
             Core::deltaTime = min(delta, 1.0f / 30.0f);
             Game::updateTick();
             delta -= Core::deltaTime;
+            if (Core::resetState) // resetTime was called
+                break;
         }
+
+        return true;
     }
 
     void render() {

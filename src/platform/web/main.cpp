@@ -3,13 +3,22 @@
 
 #include "game.h"
 
-int lastTime, lastJoy = -1;
+int lastJoy = -1;
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
 
-int getTime() {
+int osGetTime() {
     return (int)emscripten_get_now();
+}
+
+bool osSave(const char *name, const void *data, int size) {
+// TODO cookie? idb?
+    FILE *f = fopen(name, "wb");
+    if (!f) return false;
+    fwrite(data, size, 1, f);
+    fclose(f);
+    return true;
 }
 
 extern "C" {
@@ -95,14 +104,10 @@ void joyUpdate() {
 void main_loop() {
     joyUpdate();
 
-    int time = getTime();
-    if (time - lastTime <= 0)
-        return;
-    Game::update((time - lastTime) * 0.001f);
-    lastTime = time;
-    
-    Game::render();
-    eglSwapBuffers(display, surface);
+    if (Game::update()) {
+		Game::render();
+		eglSwapBuffers(display, surface);
+	}
 }
 
 bool initGL() {
@@ -290,8 +295,6 @@ int main() {
     Game::init();
     emscripten_run_script("snd_init()");
     resize();
-
-    lastTime = getTime();
 
     emscripten_set_main_loop(main_loop, 0, true);
 

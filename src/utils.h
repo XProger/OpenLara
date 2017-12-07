@@ -35,6 +35,9 @@
         #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
 
+extern int osGetTime();
+extern bool osSave(const char *name, const void *data, int size);
+
 #define DECL_ENUM(v) v,
 #define DECL_STR(v)  #v,
 
@@ -1062,15 +1065,7 @@ struct Stream {
     }
 
     static void write(const char *name, const void *data, int size) {
-    #ifdef __EMSCRIPTEN__
-        extern void osSave(const char *name, const void *data, int size);
         osSave(name, data, size);
-    #else
-        FILE *f = fopen(name, "wb");
-        if (!f) return;
-        fwrite(data, size, 1, f);
-        fclose(f);
-    #endif
     }
 
     void setPos(int pos) {

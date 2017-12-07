@@ -529,30 +529,33 @@ struct Lara : Character {
         return health > 0.0f && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
     }
 
-    virtual void getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.lara);
-        data.extra.lara.velX       = velocity.x;
-        data.extra.lara.velY       = velocity.y;
-        data.extra.lara.velZ       = velocity.z;
-        data.extra.lara.angleX     = TR::angle(normalizeAngle(angle.x)).value;
-        data.extra.lara.health     = uint16(health);
-        data.extra.lara.oxygen     = uint16(oxygen);
-//        data.extra.lara.curWeapon  = int8(wpnCurrent);
-//        data.extra.lara.emptyHands = emptyHands();
-/*
-            uint16 itemHands;
-            uint16 itemBack;
-            uint16 itemHolster;
-*/
+        data.extra.lara.velX        = velocity.x;
+        data.extra.lara.velY        = velocity.y;
+        data.extra.lara.velZ        = velocity.z;
+        data.extra.lara.angleX      = angle.x;
+        data.extra.lara.health      = health;
+        data.extra.lara.oxygen      = oxygen;
+        data.extra.lara.stamina     = 0.0f;
+        data.extra.lara.poison      = 0.0f;
+        data.extra.lara.freeze      = 0.0f;
+        data.extra.lara.itemHands   = TR::Entity::LARA;
+        data.extra.lara.itemBack    = TR::Entity::SHOTGUN;
+        data.extra.lara.itemHolster = TR::Entity::PISTOLS;
+        data.extra.lara.flags.value = 0;
+        data.extra.lara.flags.burn  = 0; // TODO
+        data.extra.lara.flags.wet   = 0; // TODO
+        return true;
     }
 
     virtual void setSaveData(const TR::SaveGame::Entity &data) {
         Character::setSaveData(data);
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
-        health   = float(data.extra.lara.health);
-        oxygen   = float(data.extra.lara.oxygen);
+        health   = data.extra.lara.health;
+        oxygen   = data.extra.lara.oxygen;
 
         layers[1].mask = layers[2].mask = layers[3].mask = 0;
         wpnState   = Weapon::IS_HIDDEN;
@@ -1998,8 +2001,8 @@ struct Lara : Character {
                     effect = TR::Effect(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!(level->state.secrets & (1 << cmd.args))) {
-                        level->state.secrets |= 1 << cmd.args;
+                    if (!(level->state.progress.secrets & (1 << cmd.args))) {
+                        level->state.progress.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET);
                     }

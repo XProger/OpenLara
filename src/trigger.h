@@ -126,12 +126,26 @@ struct Flame : Sprite {
         return flame;
     }
 
-    int jointIndex;
+    int32 jointIndex;
     float sleep;
 
     Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), jointIndex(0), sleep(0.0f) {
         time = randf() * 3.0f;
         activate();
+    }
+
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+        Controller::getSaveData(data);
+        data.extraSize = sizeof(data.extra.flame);
+        data.extra.flame.jointIndex = jointIndex;
+        data.extra.flame.sleep      = sleep;
+        return true;
+    }
+
+    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+        Controller::setSaveData(data);
+        jointIndex = data.extra.flame.jointIndex;
+        sleep      = data.extra.flame.sleep;
     }
 
     virtual void update() {
@@ -201,8 +215,12 @@ struct LavaParticle : Sprite {
     LavaParticle(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_RANDOM), bounces(0) {
         float speed = randf() * LAVA_H_SPEED;
         velocity = vec3(cosf(angle.y) * speed, randf() * LAVA_V_SPEED, sinf(angle.y) * speed);
-        blendMode = bmAdd;
+        game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
         activate();
+    }
+
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+        return false;
     }
 
     virtual void update() {
@@ -1138,27 +1156,21 @@ struct MidasHand : Controller {
 };
 
 struct TrapLava : Controller {
-    bool done;
-
-    TrapLava(IGame *game, int entity) : Controller(game, entity), done(false) {}
+    TrapLava(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
         Character *lara = (Character*)level->laraController;
         if (lara->health > 0.0f && collide(lara))
             lara->hit(1001.0f, this, TR::HIT_LAVA);
 
-        if (done) {
-            deactivate();
-            return;
-        }
-
         vec3 dir = getDir();
-        pos += dir * (25.0f * 30.0f * Core::deltaTime);
 
         roomIndex = getRoomIndex();
         TR::Room::Sector *s = level->getSector(roomIndex, int(pos.x + dir.x * 2048.0f), int(pos.y), int(pos.z + dir.z * 2048.0f));
         if (!s || s->floor * 256 != int(pos.y))
-            done = true;
+            return;
+
+        pos += dir * (25.0f * 30.0f * Core::deltaTime);
     }
 };
 
@@ -1411,6 +1423,10 @@ struct Bubble : Sprite {
         game->waterDrop(pos, 64.0f, 0.01f);
     }
 
+    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+        return false;
+    }
+
     virtual void update() {
         pos.y -= speed * Core::deltaTime;
         angle.x += 30.0f * 13.0f * DEG2RAD * Core::deltaTime;
@@ -1426,6 +1442,7 @@ struct Explosion : Sprite {
 
     Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
         game->playSound(TR::SND_EXPLOSION, pos, 0);
+        game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
     }
 };
 

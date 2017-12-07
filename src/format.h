@@ -1648,10 +1648,10 @@ namespace TR {
                 return type;
 
             if (version & VER_TR2)
-                type = TR::Entity::Type(type + TR2_TYPES_START);
+                type = Type(type + TR2_TYPES_START);
 
             if (version & VER_TR3)
-                type = TR::Entity::Type(type + TR3_TYPES_START);
+                type = Type(type + TR3_TYPES_START);
 
             #define REMAP_2(TYPE) case _##TYPE  : return TYPE
             #define REMAP_3(TYPE) case __##TYPE : return TYPE
@@ -2327,6 +2327,25 @@ namespace TR {
 
     struct SaveGame {
 
+        struct Item {
+            uint16 type;
+            uint16 count;
+        };
+
+        struct Progress {
+            uint32 size;
+            uint32 time;
+            uint32 distance;
+            uint8  levelID;
+            uint8  mediUsed;
+            uint8  secrets;
+            uint8  pickups;
+            uint16 ammoUsed;
+            uint8  kills;
+            uint8  itemsCount;
+        // Item items[itemsCount]
+        };
+
         struct Entity {
         // base
             int32  x, y, z;
@@ -2338,64 +2357,56 @@ namespace TR {
             uint16 animIndex;
             uint16 animFrame;
         // common
-            uint8  room;
-            uint8  extraSize;
+            uint16 room;
+            uint16 extraSize;
             union Extra {
                 struct {
                     float  velX, velY, velZ;
-                    uint16 angleX;
-                    uint16 health;
-                    uint16 oxygen;
-                    uint16 stamina;
-                    uint8  itemHands;
-                    uint8  itemBack;
-                    uint8  itemHolster;
+                    float  angleX;
+                    float  health;
+                    float  oxygen;
+                    float  stamina;
+                    float  poison;
+                    float  freeze;
+                    uint16 itemHands;
+                    uint16 itemBack;
+                    uint16 itemHolster;
                     union {
-                        struct { uint8 wet:1, burn:1; };
-                        uint8 value;
+                        struct { uint16 wet:1, burn:1; };
+                        uint16 value;
                     } flags;
                 } lara;
                 struct {
-                    uint16 health;
+                    float  health;
                     uint16 mood;
+                    uint16 targetBox;
                 } enemy;
+
+                struct {
+                    int32 jointIndex;
+                    float sleep;
+                } flame;
             } extra;
         };
 
-        struct Item {
-            uint16 type;
-            uint16 count;
-        };
-
         struct CurrentState {
-            // EntityState entities[entitiesCount];
+            ByteFlags flipmaps[MAX_FLIPMAP_COUNT];
+            ByteFlags tracks[MAX_TRACKS_COUNT];
 
-            uint32 fogColor;
-            uint16 secrets;
+            uint16   fogColor;
             union {
                 struct { uint16 track:8, flipped:1; };
                 uint16 value;
             } flags;
-
-            ByteFlags flipmaps[MAX_FLIPMAP_COUNT];
-            ByteFlags tracks[MAX_TRACKS_COUNT];
+            uint16   entitiesCount;
+            Progress progress;
+            //Entity   entities[entitiesCount];
         };
 
-        uint32 size;
-        uint16 levelID;
-    // full game stats
-        uint16 mediUsed;
-        uint16 pickups;
-        uint16 secrets;
-        uint32 kills;
-        uint32 ammoUsed;
-        uint32 distance;
-        uint32 time;
-
-        uint16 itemsCount;    // 0 -> skip inventory items array
-        uint16 entitiesCount; // 0 -> skip current state
-
-        // Item items[itemsCount]
+        int32  size;
+        uint16 version;
+        uint16 progressCount;
+        // Progress     progress[levelsCount];
         // CurrentState currentState;
     };
 

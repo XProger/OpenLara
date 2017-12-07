@@ -162,7 +162,8 @@ struct KeySet {
 
 namespace Core {
     float deltaTime;
-    int width, height;
+    int   lastTime;
+    int   width, height;
 
     struct {
         int  maxVectors;
@@ -237,6 +238,17 @@ namespace Core {
             bool reverb;
         } audio;
     } settings;
+
+    bool resetState;
+
+    int getTime() {
+        return osGetTime();
+    }
+
+    void resetTime() {
+        lastTime = getTime();
+        resetState = true;
+    }
 }
 
 #include "input.h"
@@ -444,8 +456,6 @@ struct Vertex {
 enum CullFace  { cfNone, cfBack, cfFront };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult };
 
-extern int getTime();
-
 namespace Core {
     float eye;
     vec4 viewport, viewportDef;
@@ -506,16 +516,16 @@ namespace Core {
         }
 
         void stop() {
-            if (fpsTime < getTime()) {
+            if (fpsTime < Core::getTime()) {
                 LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
             #ifdef PROFILE
                 LOG("frame time: %d mcs\n", tFrame / 1000);
             #endif
                 fps     = frame;
                 frame   = 0;
-                fpsTime = getTime() + 1000;
+                fpsTime = Core::getTime() + 1000;
             } else
-                frame++;        
+                frame++;
         }
     } stats;
 }
@@ -723,6 +733,7 @@ namespace Core {
 #ifdef __RPI__
         settings.detail.setShadows(Core::Settings::LOW);
 #endif
+        resetTime();
     }
 
     void deinit() {
@@ -760,6 +771,16 @@ namespace Core {
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         
         return cache.count++;
+    }
+
+    bool update() {
+        resetState = false;
+        int time = getTime();
+        if (time - lastTime <= 0)
+            return false;
+        deltaTime = (time - lastTime) * 0.001f;
+        lastTime = time;
+        return true;
     }
 
     void validateRenderState() {

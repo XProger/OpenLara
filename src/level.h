@@ -46,11 +46,11 @@ struct Level : IGame {
 
     bool lastTitle;
     bool isEnded;
-    bool cutsceneFirstFrame;
 
     TR::Effect effect;
     float      effectTimer;
     int        effectIdx;
+    float      cutsceneWaitTimer;
 
     Texture    *cube360;
 
@@ -105,40 +105,50 @@ struct Level : IGame {
         *save = level.save;
         ptr += sizeof(*save);
 
-    // inventory items
-        save->itemsCount = 0;
-        for (int i = 0; i < inventory.itemsCount; i++) {
-            TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-            Inventory::Item *invItem = inventory.items[i];
+    // save levels progress
+        save->progressCount = 0;
+
+
+
+
+        bool saveCurrentState = true;
+
+        if (saveCurrentState) {
+            TR::SaveGame::CurrentState *currentState = (TR::SaveGame::CurrentState*)ptr;
+            ptr += sizeof(TR::SaveGame::CurrentState);
+
+            *currentState = level.state;
+
+        // inventory items
+            currentState->progress.itemsCount = 0;
+            for (int i = 0; i < inventory.itemsCount; i++) {
+                TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
+                Inventory::Item *invItem = inventory.items[i];
             
-            if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
 
-            item->type  = invItem->type;
-            item->count = invItem->count;
+                item->type  = invItem->type;
+                item->count = invItem->count;
 
-            ptr += sizeof(*item);
-            save->itemsCount++;
+                ptr += sizeof(*item);
+                currentState->progress.itemsCount++;
+            }
+
+        // level entities
+            currentState->entitiesCount = 0;
+            for (int i = 0; i < level.entitiesCount; i++) {
+                Controller *controller = (Controller*)level.entities[i].controller;
+                TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
+                if (!controller || !controller->getSaveData(*entity)) continue;
+                ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
+                currentState->entitiesCount++;
+            }
         }
 
-    // level entities
-        save->entitiesCount = 0;
-        for (int i = 0; i < level.entitiesCount; i++) {
-            Controller *controller = (Controller*)level.entities[i].controller;
-            if (!controller || (controller->getEntity().isSprite() && !controller->getEntity().isPickup())) continue;
-            TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
-            controller->getSaveData(*entity);
-            ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
-            save->entitiesCount++;
-        }
+        save->size      = ptr - data;
+        save->version   = level.version & TR::VER_VERSION;
 
-    // current level state
-        if (save->entitiesCount) {
-            TR::SaveGame::CurrentState *state = (TR::SaveGame::CurrentState*)ptr;
-            *state = level.state;
-            ptr += sizeof(*state);
-        }
-
-        //Stream::write("savegame.dat", data, int(ptr - data));
+        Stream::write("savegame.dat", data, int(ptr - data));
         delete[] data;
 
         LOG("Ok\n");
@@ -160,15 +170,19 @@ struct Level : IGame {
         level.save = *save;
         ptr += sizeof(*save);
 
-        for (int i = 0; i < save->itemsCount; i++) {
-            TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-            inventory.add(TR::Entity::Type(item->type), item->count, false);
-            ptr += sizeof(*item);
-        }
+        if (save->size > (ptr - data)) { // has current state
+            TR::SaveGame::CurrentState *currentState = (TR::SaveGame::CurrentState*)ptr;
+            ptr += sizeof(TR::SaveGame::CurrentState);
 
-        if (save->entitiesCount) {
+            level.state = *currentState;
 
-            for (int i = 0; i < save->entitiesCount; i++) {
+            for (int i = 0; i < currentState->progress.itemsCount; i++) {
+                TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
+                inventory.add(TR::Entity::Type(item->type), item->count, false);
+                ptr += sizeof(*item);
+            }
+
+            for (int i = 0; i < currentState->entitiesCount; i++) {
                 TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
 
                 Controller *controller;
@@ -186,16 +200,12 @@ struct Level : IGame {
                 ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
             }
 
-            TR::SaveGame::CurrentState *state = (TR::SaveGame::CurrentState*)ptr;
-            level.state = *state;
-            ptr += sizeof(*state);
-
-            delete[] data;
-
             uint8 track = level.state.flags.track;
             level.state.flags.track = 0;
             playTrack(track, true);
         }
+
+        delete[] data;
 
     //    camera->room = lara->getRoomIndex();
     //    camera->pos  = camera->destPos = lara->pos;
@@ -516,11 +526,15 @@ struct Level : IGame {
         Level *level = (Level*)userData;
 
         level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, Sound::MUSIC);
-        if (level->sndSoundtrack)
+        if (level->sndSoundtrack) {
+            if (level->level.isCutsceneLevel()) {
+            //    level->sndSoundtrack->setVolume(0.0f, 0.0f);
+            //    level->sndCurrent = level->sndSoundtrack;
+                Core::resetTime();
+            }
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
-
-        if (level->level.isCutsceneLevel())
-            level->cutsceneFirstFrame = true;
+        }
+        LOG("play soundtrack - %d\n", Core::getTime());
     }
 
     virtual void playTrack(uint8 track, bool restart = false) {
@@ -575,7 +589,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false), cutsceneFirstFrame(false) {
+    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false), cutsceneWaitTimer(0.0f) {
         params->time = 0.0f;
 
         #ifdef _DEBUG
@@ -632,12 +646,14 @@ struct Level : IGame {
             inventory.toggle(Inventory::PAGE_OPTION);
         }
 
+        effect  = TR::Effect::NONE;
+        cube360 = NULL;
+
         sndSoundtrack = NULL;
         playTrack(0);
         sndCurrent = sndSoundtrack;
 
-        effect = TR::Effect::NONE;
-        cube360 = NULL;
+        Core::resetTime();
     }
 
     virtual ~Level() {
@@ -1252,10 +1268,24 @@ struct Level : IGame {
     }
 
     void update() {
-        if (level.isCutsceneLevel() && (lara->health > 0.0f && !sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK)) {
-            if (camera->timer > 0.0f)
-                loadNextLevel();
-            return;
+        if (level.isCutsceneLevel()) {
+            if (!sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
+                if (camera->timer > 0.0f) // for the case that audio stops before animation ends
+                    loadNextLevel();
+                return;
+            }
+
+            if (cutsceneWaitTimer > 0.0f) {
+                cutsceneWaitTimer -= Core::deltaTime;
+                if (cutsceneWaitTimer > 0.0f)
+                    return;
+                if (sndSoundtrack)
+                    sndSoundtrack->setVolume(1.0f, 0.0f);
+                cutsceneWaitTimer = 0.0f;
+                Core::resetTime();
+                LOG("reset timer - %d\n", Core::getTime());
+                return;
+            }
         }
 
         if (Input::state[cInventory] && !level.isTitle()) {
@@ -1357,10 +1387,8 @@ struct Level : IGame {
         mesh->transparent = transp;
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
-            if (!e.controller) continue;
-            int modelIndex = e.modelIndex;
-            if (modelIndex != 0)
-                renderEntity(e);
+            if (!e.controller || e.modelIndex == 0) continue;
+            renderEntity(e);
         }
     }
 

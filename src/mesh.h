@@ -388,7 +388,7 @@ struct MeshBuilder {
                 addSprite(indices, vertices, iCount, vCount, vStartSprite, 0, 0, 0, sprite, TR::Color32(255, 255, 255, 255), TR::Color32(255, 255, 255, 255));
             }
             range.iCount = iCount - range.iStart;
-            sequences[i].transp = 2;
+            sequences[i].transp = 1; // alpha blending by default
         }
         ASSERT(vCount - vStartSprite <= 0xFFFF);
 

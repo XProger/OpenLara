@@ -15,8 +15,6 @@ struct Sprite : Controller {
     float time;
     vec3  velocity;
 
-    BlendMode blendMode;
-
     Sprite(IGame *game, int entity, bool instant = true, int frame = FRAME_ANIMATED) : Controller(game, entity), instant(instant), flag(frame), time(0), velocity(0) {
         if (frame >= 0) { // specific frame
             this->frame = frame;
