@@ -60,26 +60,9 @@ struct Level : IGame {
         Sound::stopAll();
 
         isEnded = true;
+
         char buf[64];
-        buf[0] = 0;
-        strcat(buf, "level/");
-        if (level.version & TR::VER_TR2)
-            strcat(buf, "2/");
-        if (level.version & TR::VER_TR3)
-            strcat(buf, "3/");
-        strcat(buf, TR::LEVEL_INFO[id].name);
-    #ifdef __EMSCRIPTEN__
-         strcat(buf, ".PSX");
-    #else
-        switch (level.version) {
-            case TR::VER_TR1_PC  : strcat(buf, ".PHD"); break;
-            case TR::VER_TR2_PC  : 
-            case TR::VER_TR3_PC  : strcat(buf, ".TR2"); break;
-            case TR::VER_TR1_PSX :
-            case TR::VER_TR2_PSX : 
-            case TR::VER_TR3_PSX : strcat(buf, ".PSX"); break;
-        }
-    #endif
+        TR::getGameLevelFile(buf, level.version, id);
         new Stream(buf, loadAsync);
     }
 
@@ -90,7 +73,7 @@ struct Level : IGame {
             return;
         }
     #endif
-        loadLevel(level.isEnd() ? level.getTitleId() : TR::LevelID(level.id + 1));
+        loadLevel((level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1));
     }
 
     virtual void saveGame(int slot) {
@@ -107,10 +90,6 @@ struct Level : IGame {
 
     // save levels progress
         save->progressCount = 0;
-
-
-
-
         bool saveCurrentState = true;
 
         if (saveCurrentState) {
@@ -559,29 +538,7 @@ struct Level : IGame {
 
         if (track == 0xFF) return;
 
-        char title[32];
-        switch (level.version) {
-            case TR::VER_TR1_PC  :
-            case TR::VER_TR1_PSX :
-                sprintf(title, "audio/track_%02d.ogg", int(track));
-                break;
-            case TR::VER_TR2_PC  :
-            case TR::VER_TR2_PSX :
-                sprintf(title, "audio/2/track_%02d.ogg", int(level.remapTrack(track)));
-                break;
-            case TR::VER_TR3_PC  :
-            case TR::VER_TR3_PSX :
-                #ifndef __EMSCRIPTEN__
-                    playAsync(Sound::openWAD(NULL, track), this);
-                    return;
-                #else
-                    sprintf(title, "audio/3/track_%02d.wav", int(track));
-                #endif
-                break;
-            default : return;
-        }
-
-        new Stream(title, playAsync, this);
+        getGameTrack(level.version, track, playAsync, this);
     }
 
     virtual void stopTrack() {

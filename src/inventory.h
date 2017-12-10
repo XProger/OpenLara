@@ -219,12 +219,9 @@ struct Inventory {
 
             memset(background, 0, sizeof(background));
 
-            if (level->version & TR::VER_TR1)
-                new Stream("level/TITLEH.PCX", loadTitleBG, this);
-            if (level->version & TR::VER_TR2)
-                new Stream("level/2/TITLE.PCX", loadTitleBG, this);
-            if (level->version & TR::VER_TR3)
-                new Stream("level/3/TITLEUK.BMP", loadTitleBG, this);
+            const char *titleBG = TR::getGameScreen(level->version, level->id);
+            if (titleBG)
+                new Stream(titleBG, loadTitleBG, this);
 
         } else {
             add(TR::Entity::INV_COMPASS);

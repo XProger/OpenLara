@@ -681,8 +681,11 @@ namespace Sound {
             }
     }
 
-    Stream *openWAD(const char *name, int index = -1) {
-        Stream *stream = new Stream("audio/3/cdaudio.wad");
+    Stream *openCDAudioWAD(const char *name, int index = -1) {
+        if (!Stream::existsContent(name))
+            return NULL;
+
+        Stream *stream = new Stream(name);
         if (stream->size) {
             struct Item {
                 char name[260];
@@ -690,15 +693,19 @@ namespace Sound {
                 int  offset;
             } entity;
 
-            for (int i = 0; i < 130; i++) {
-                stream->read(entity);
-                if ((name && strcmp(name, entity.name) == 0) || index == i) {
-                    stream->setPos(entity.offset);
-                    return stream;
-                }
-            }
+            stream->seek(sizeof(entity) * index);
+            stream->read(entity);
+            stream->setPos(entity.offset);
+            return stream;
         }
         delete stream;
+        return NULL;
+    }
+
+    Stream *openCDAudioMP3(const char *dat, const char *name, int index = -1) {
+        if (!Stream::existsContent(dat) || !Stream::existsContent(name))
+            return NULL;
+        // TODO
         return NULL;
     }
 

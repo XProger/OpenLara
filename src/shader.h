@@ -133,7 +133,7 @@ struct Shader {
     }
     
     bool linkBinary(const char *fileName) {
-        if (!Stream::fileExists(fileName))
+        if (!Stream::exists(fileName))
             return false;
 
         GLenum size, format;

@@ -50,7 +50,16 @@ namespace Game {
     }
 
     void init(char *lvlName = NULL, char *sndName = NULL) {
-        if (!lvlName) lvlName = (char*)"level/TITLE.PSX";
+        char fileName[255];
+
+        if (!lvlName) {
+            lvlName = fileName;
+            strcpy(lvlName, "level/1/TITLE.PSX");
+
+            TR::Version version = TR::getGameVersion();
+            if (version != TR::VER_UNKNOWN)
+                TR::getGameLevelFile(lvlName, version, TR::getTitleId(version));
+        }
         init(new Stream(lvlName));
     }
 

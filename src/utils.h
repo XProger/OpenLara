@@ -1008,11 +1008,10 @@ struct Stream {
     FILE        *f;
     char        *data;
     int         size, pos;
-    char        *name;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0), name(NULL) {}
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0) {}
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0), name(NULL) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
@@ -1051,17 +1050,23 @@ struct Stream {
     }
 
     ~Stream() {
-        delete[] name;
         if (f) fclose(f);
     }
 
-    static bool fileExists(const char *name) {
+    static bool exists(const char *name) {
         FILE *f = fopen(name, "rb");
         if (!f)
             return false;
         else
             fclose(f);
         return true;
+    }
+
+    static bool existsContent(const char *name) {
+        char fileName[1024];
+        strcpy(fileName, Stream::contentDir);
+        strcat(fileName, name);
+        return exists(fileName);
     }
 
     static void write(const char *name, const void *data, int size) {
@@ -1105,4 +1110,16 @@ struct Stream {
     }
 };
 
-#endif 
+namespace String {
+
+    void toLower(char *str) {
+        if (!str) return;
+        while (*str) {
+            *str = tolower(*str);
+            str++;
+        }
+    }
+
+}
+
+#endif

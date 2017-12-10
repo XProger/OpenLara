@@ -436,7 +436,7 @@ struct Lara : Character {
         flags.active = 1;
         initMeshOverrides();
 
-        if (level->isHomeLevel) {
+        if (level->isHome()) {
             if (level->version & TR::VER_TR1)
                 meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
         } else {
@@ -814,7 +814,7 @@ struct Lara : Character {
     }
 
     void wpnChange(Weapon::Type wType) {
-        if (wpnCurrent == wType || level->isHomeLevel) {
+        if (wpnCurrent == wType || level->isHome()) {
             if (emptyHands())
                 wpnDraw();
             return;
@@ -1703,7 +1703,7 @@ struct Lara : Character {
                     if (level->state.tracks[track].once) {
                         timer += Core::deltaTime;
                         if (timer > 3.0f)
-                            game->loadLevel(level->getTitleId());
+                            game->loadNextLevel();
                     } else {
                         if (state != STATE_WATER_OUT)
                             return 0;
