@@ -526,9 +526,9 @@ namespace TR {
                     } else if (id == LVL_TR2_TITLE) {
                         sprintf(dst, "DATA/%s.tr2", LEVEL_INFO[id].name);
                     } else if (id == LVL_TR2_EMPRTOMB) {
-                        dst = "DATA/Emprtomb.tr2";
+                        strcpy(dst, "DATA/Emprtomb.tr2");
                     } else {
-                        sprintf(dst, "DATA/%s.TR2", LEVEL_INFO[id]);
+                        sprintf(dst, "DATA/%s.TR2", LEVEL_INFO[id].name);
                     }
                     if (Stream::existsContent(dst)) break;
                     strcpy(dst, LEVEL_INFO[id].name);
@@ -536,7 +536,7 @@ namespace TR {
                     strcat(dst, ".TR2");
                     break;
                 }
-                case VER_TR2_PSX : sprintf(dst, "DATA/%s.PSX", LEVEL_INFO[id]); break;
+                case VER_TR2_PSX : sprintf(dst, "DATA/%s.PSX", LEVEL_INFO[id].name); break;
                 case VER_TR3_PC  : sprintf(dst, isCutsceneLevel(id) ? "cuts/%s.TR2" : "data/%s.TR2", LEVEL_INFO[id].name); break;
                 default          : ASSERT(false);
             }
@@ -548,7 +548,7 @@ namespace TR {
             strcat(dst, LEVEL_INFO[id].name);
 
             #ifdef __EMSCRIPTEN__
-                 strcat(buf, ".PSX");
+                 strcat(dst, ".PSX");
             #else
                 switch (version) {
                     case VER_TR1_PC  : strcat(dst, ".PHD"); break;

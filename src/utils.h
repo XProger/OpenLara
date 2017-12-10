@@ -1007,11 +1007,12 @@ struct Stream {
 
     FILE        *f;
     char        *data;
+    char        *name;
     int         size, pos;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), size(size), pos(0) {}
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0) {}
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), size(-1), pos(0) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
@@ -1050,6 +1051,7 @@ struct Stream {
     }
 
     ~Stream() {
+        delete[] name;
         if (f) fclose(f);
     }
 
@@ -1114,9 +1116,10 @@ namespace String {
 
     void toLower(char *str) {
         if (!str) return;
-        while (*str) {
-            *str = tolower(*str);
-            str++;
+
+        while (char &c = *str++) {
+            if (c >= 'A' && c <= 'Z')
+                c -= 'Z' - 'z';
         }
     }
 
