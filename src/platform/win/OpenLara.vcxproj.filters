@@ -40,6 +40,7 @@
     <ClInclude Include="..\..\libs\minimp3\libc.h">
       <Filter>libs\minimp3</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\gameflow.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">

@@ -1,0 +1,2 @@
+- cdaudio.wad
+- MAIN.SFX
