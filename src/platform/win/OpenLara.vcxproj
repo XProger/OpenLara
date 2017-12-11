@@ -184,6 +184,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\libs\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c" />
+    <ClCompile Include="..\..\libs\tinf\tinflate.c" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -199,6 +200,7 @@
     <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
     <ClInclude Include="..\..\gameflow.h" />
+    <ClInclude Include="..\..\libs\tinf\tinf.h" />
     <ClInclude Include="..\..\ui.h" />
     <ClInclude Include="..\..\input.h" />
     <ClInclude Include="..\..\inventory.h" />

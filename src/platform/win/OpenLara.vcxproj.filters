@@ -8,6 +8,9 @@
     <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c">
       <Filter>libs\stb_vorbis</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\libs\tinf\tinflate.c">
+      <Filter>libs\tinf</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\animation.h" />
@@ -41,6 +44,9 @@
       <Filter>libs\minimp3</Filter>
     </ClInclude>
     <ClInclude Include="..\..\gameflow.h" />
+    <ClInclude Include="..\..\libs\tinf\tinf.h">
+      <Filter>libs\tinf</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
@@ -68,6 +74,9 @@
     </Filter>
     <Filter Include="libs\stb_vorbis">
       <UniqueIdentifier>{f26df5a9-d32a-4e5e-948c-e632c42be9fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\tinf">
+      <UniqueIdentifier>{80edb27c-40cf-4f7a-a854-88eeba24a5fb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
