@@ -281,11 +281,224 @@ struct Texture {
         return tex;
     }
 
+#ifdef USE_INFLATE
+    static int pngPaeth(int a, int b, int c) {
+        int p = a + b - c;
+        int pa = abs(p - a);
+        int pb = abs(p - b);
+        int pc = abs(p - c);
+        if (pa <= pb && pa <= pc)
+            return a;
+        if (pb <= pc)
+            return b;
+        return c;
+    }
+
+    static void pngFilter(int id, int BPP, int BPL, const uint8 *src, uint8 *dst, const uint8 *prev) {
+        enum { NONE, SUB, UP, AVRG, PAETH };
+
+        switch (id) {
+            case NONE : 
+                memcpy(dst, src, BPL); 
+                break;
+            case SUB  : 
+                memcpy(dst, src, BPP);
+                for (int i = BPP; i < BPL; i++)
+                    dst[i] = src[i] + dst[i - BPP];
+                break;
+            case UP :
+                for (int i = 0; i < BPL; i++)
+                    dst[i] = src[i] + prev[i];
+                break;
+            case AVRG :
+                for (int i = 0; i < BPP; i++)
+                    dst[i] = src[i] + (prev[i] >> 1);
+                for (int i = BPP; i < BPL; i++)
+                    dst[i] = src[i] + ((dst[i - BPP] + prev[i]) >> 1);
+                break;
+            case PAETH :
+                for (int i = 0; i < BPP; i++)
+                    dst[i] = src[i] + pngPaeth(0, prev[i], 0);
+                for (int i = BPP; i < BPL; i++)
+                    dst[i] = src[i] + pngPaeth(dst[i - BPP], prev[i], prev[i - BPP]);
+                break;
+        };
+    }
+
+
+    static Texture* LoadPNG(Stream &stream) {
+        stream.seek(8);
+
+        uint8 bits, colorType, interlace;
+        int BPP, BPL;
+        uint32 width, height;
+
+        uint8 palette[256 * 3];
+        uint8 trans[256];
+
+        uint8 *cdata = NULL;
+        int offset = 0;
+
+    // read chunks
+        while (stream.pos < stream.size) {
+            uint32 chunkSize, chunkName;
+            chunkSize = swap32(stream.read(chunkSize));
+            stream.read(chunkName);
+            if (chunkName == FOURCC("IHDR")) { // Image Header
+                width  = swap32(stream.read(width));
+                height = swap32(stream.read(height));
+                stream.read(bits);
+                stream.read(colorType);
+                stream.seek(2);
+                stream.read(interlace);
+
+                ASSERT(interlace == 0);
+                ASSERT(bits <= 8);
+
+                int components;
+                switch (colorType) {
+                    case 2  : components = 3; break;
+                    case 4  : components = 2; break;
+                    case 6  : components = 4; break;
+                    default : components = 1;
+                }
+
+                BPP = (bits + 7) / 8 * components;
+                BPL = (width * bits + 7) / 8 * components;
+
+                cdata = new uint8[stream.size];
+                memset(trans, 0xFF, sizeof(trans));
+            } else if (chunkName == FOURCC("PLTE")) { // Palette
+                stream.raw(palette, chunkSize);
+            } else if (chunkName == FOURCC("tRNS")) { // Transparency info
+                stream.raw(trans, chunkSize);
+            } else if (chunkName == FOURCC("IDAT")) { // Compressed image data part
+                ASSERT(cdata);
+                stream.raw(cdata + offset, chunkSize);
+                offset += chunkSize;
+            } else if (chunkName == FOURCC("IEND")) {
+                break;
+            } else
+                stream.seek(chunkSize);
+            stream.seek(4); // skip chunk CRC
+        }
+
+        ASSERT(cdata);
+
+        uint8 *buffer = new uint8[(BPL + 1) * height];
+
+        uint32 cbytes;
+        tinf_uncompress(buffer, &cbytes, cdata + 2, 0);
+        delete[] cdata;
+
+        ASSERT(cbytes > 0);
+
+    // apply line filters to image
+        uint8 *data = new uint8[BPL * height];
+
+        uint8 *prev = new uint8[BPL];
+        memset(prev, 0, BPL);
+        for (uint32 i = 0; i < height; i++) {
+            pngFilter(buffer[(BPL + 1) * i], BPP, BPL, &buffer[(BPL + 1) * i + 1], &data[BPL * i], prev);
+            if (i == 0)
+                delete[] prev;
+            prev = &data[BPL * i];
+        }
+        delete[] buffer;
+
+
+    // convert to 32-bit image
+        uint8 *data32 = new uint8[width * height * 4];
+
+        uint8 *src = data;
+        uint8 *dst = data32;
+
+        switch (colorType) {
+            case 0 : // grayscale
+                for (uint32 i = 0; i < width * height; i += 4, dst += 4, src++) {
+                    dst[0] =
+                    dst[1] =
+                    dst[2] = src[0];
+                    dst[3] = trans[0];
+                }
+                break;
+            case 2 : // RGB
+                for (uint32 i = 0; i < width * height; i++, dst += 4, src += 3) {
+                    dst[0] = src[0];
+                    dst[1] = src[1];
+                    dst[2] = src[2];
+                    dst[3] = trans[0];
+                }
+                break;
+            case 3 : // indexed color with alpha
+                for (uint32 j = 0, palWord = 0; j < height; j++) {
+                    for (uint32 i = 0, curBit = 8; i < width; i++) {
+                        if (curBit > 7) {
+                            curBit -= 8;
+                            palWord = *src++;
+                            if (i < width - 1)
+                                palWord |= *src << 8;
+                        }
+                        uint16 palIdx = (palWord >> (8 - bits - curBit)) & ~(0xFFFF << bits);
+                        curBit += bits;
+
+                        dst[0] = palette[palIdx * 3 + 0];
+                        dst[1] = palette[palIdx * 3 + 1];
+                        dst[2] = palette[palIdx * 3 + 2];
+                        dst[3] = trans[palIdx];
+                        dst += 4;
+                    }
+                }
+                break;
+            case 4 : // grayscale with alpha
+                for (uint32 i = 0; i < width * height; i++, dst += 4, src += 2) {
+                    dst[0] =
+                    dst[1] =
+                    dst[2] = src[0];
+                    dst[3] = src[1];
+                }
+                break;
+            case 6 : // RGBA
+                memcpy(dst, src, width * height * 4);
+                break;
+        }
+
+    // convert to POT size if NPOT isn't supported
+        uint32 dw = Core::support.texNPOT ? width  : nextPow2(width);
+        uint32 dh = Core::support.texNPOT ? height : nextPow2(height);
+        if (dw != width || dh != height) {
+            uint8  *dataPOT = new uint8[dw * dh * 4];
+            uint32 *dst = (uint32*)dataPOT;
+            uint32 *src = (uint32*)data32;
+
+            for (uint32 j = 0; j < dh; j++)
+                for (uint32 i = 0; i < dw; i++)
+                    *dst++ = (i < width && j < height) ? *src++ : 0xFF000000;
+
+            width  = dw;
+            height = dh;
+            delete[] data32;
+            data32 = dataPOT;
+        }
+
+        Texture *tex = new Texture(width, height, Texture::RGBA, false, data32);
+
+        delete[] data32;
+        delete[] data;
+
+        return tex;
+    }
+#endif
+
     static Texture* Load(Stream &stream) {
-        uint16 magic;
+        uint32 magic;
         stream.read(magic);
         stream.seek(-int(sizeof(magic)));
-        if (magic == 0x4D42)
+        #ifdef USE_INFLATE
+            if (magic == 0x474E5089)
+                return LoadPNG(stream);
+        #endif
+        if ((magic & 0xFFFF) == 0x4D42)
             return LoadBMP(stream);
         return LoadPCX(stream);
     }

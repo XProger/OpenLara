@@ -1,6 +1,10 @@
 #ifndef H_CORE
 #define H_CORE
 
+#ifndef __EMSCRIPTEN__
+    #define USE_INFLATE
+#endif
+
 #include <stdio.h>
 #ifdef WIN32
     #include <windows.h>
@@ -135,6 +139,10 @@
 
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+#endif
+
+#ifdef USE_INFLATE
+    #include "libs/tinf/tinf.h"
 #endif
 
 #include "utils.h"
@@ -540,6 +548,10 @@ namespace Core {
     }
 
     void init() {
+        #ifdef USE_INFLATE
+            tinf_init();
+        #endif
+
         Input::init();
         #ifdef ANDROID
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);

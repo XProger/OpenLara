@@ -97,6 +97,14 @@ inline void swap(T &a, T &b) {
     b = tmp;
 }
 
+inline uint16 swap16(uint16 x) {
+    return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+}
+
+inline uint32 swap32(uint32 x) {
+    return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8) | ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+}
+
 float clampAngle(float a) {
     return a < -PI ? a + PI2 : (a >= PI ? a - PI2 : a);
 }
@@ -1010,9 +1018,11 @@ struct Stream {
     char        *name;
     int         size, pos;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0) {}
+    enum Endian { LITTLE_ENDIAN, BIG_ENDIAN } endian;
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0) {
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(LITTLE_ENDIAN) {}
+
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(LITTLE_ENDIAN) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
@@ -1098,6 +1108,12 @@ struct Stream {
     template <typename T>
     inline T& read(T &x) {
         raw(&x, sizeof(x));
+    /*
+        if (endian == BIG_ENDIAN) {
+            if (sizeof(T) == 2) x = T(swap16(x));
+            if (sizeof(T) == 4) x = T(swap32(x));
+        }
+    */
         return x;
     }
 

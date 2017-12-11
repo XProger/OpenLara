@@ -494,7 +494,7 @@ namespace TR {
         if (Stream::existsContent("DATA/GYM.SAT"))
             return VER_TR1_SEGA;
 
-        if (Stream::existsContent("data/ASSAULT.TR2") || Stream::existsContent("data/assault.TR2"))
+        if (Stream::existsContent("data/ASSAULT.TR2") || Stream::existsContent("assault.TR2"))
             return VER_TR2_PC;
         if (Stream::existsContent("DATA/ASSAULT.PSX"))
             return VER_TR2_PSX;
@@ -630,6 +630,7 @@ namespace TR {
                         callback(Sound::openCDAudioMP3("audio/cdaudio.dat", "audio/cdaudio.mp3", track), userData);
                         return;
                     }
+                    sprintf(title, "track_%02d", track);
                     if (!checkTrack("", title) && !checkTrack("audio/2/", title) && !checkTrack("audio/", title)) {
                         callback(NULL, userData);
                         return;
@@ -674,6 +675,7 @@ namespace TR {
                 switch (id) {
                     case LVL_TR1_TITLE :
                         if (Stream::existsContent("DATA/TITLEH.PCX")) return "DATA/TITLEH.PCX";
+                        if (Stream::existsContent("TITLEH.png"))      return "TITLEH.png";
                         break;
                     default : ;
                 }
@@ -683,6 +685,7 @@ namespace TR {
                     case LVL_TR2_TITLE :
                         if (Stream::existsContent("data/TITLE.PCX")) return "data/TITLE.PCX";
                         if (Stream::existsContent("pix/title.pcx"))  return "pix/title.pcx";
+                        if (Stream::existsContent("TITLE.png"))      return "TITLE.png";
                         break;
                     default : ;
                 }

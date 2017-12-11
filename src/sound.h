@@ -3,11 +3,10 @@
 
 #define DECODE_VAG
 #define DECODE_ADPCM
-//#define DECODE_MP3
 #define DECODE_OGG
 
-#ifdef __EMSCRIPTEN__ // TODO: http streaming
-    #undef DECODE_MP3
+#ifndef __EMSCRIPTEN
+    #define DECODE_MP3
 #endif
 
 #include "utils.h"
@@ -36,7 +35,7 @@ namespace Sound {
         #define MAX_FDN     16
         #define MAX_DELAY   1024
 
-        static const short FDN[MAX_FDN] = {281,331,373,419,461,503,547,593,641,683,727,769,811,853,907,953};
+        static const int16 FDN[MAX_FDN] = { 281, 331, 373, 419, 461, 503, 547, 593, 641, 683, 727, 769, 811, 853, 907, 953 };
 
         struct Delay {
             int     index;

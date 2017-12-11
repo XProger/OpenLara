@@ -1,1 +1,1 @@
-- track_XX.ogg, track_XX.ogg, track_XX.wav for *_EN, *_DE, *_FR, *_IT, *_JA, *_RU
+- track_XX.ogg, track_XX.mp3, track_XX.wav for *_EN, *_DE, *_FR, *_IT, *_JA, *_RU
