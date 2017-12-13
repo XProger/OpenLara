@@ -671,51 +671,36 @@ namespace TR {
     const char* getGameScreen(Version version, LevelID id) {
         if (useEasyStart) {
 
-            if (version == VER_TR1_PC)
-                switch (id) {
-                    case LVL_TR1_TITLE :
-                        if (Stream::existsContent("DATA/TITLEH.PCX")) return "DATA/TITLEH.PCX";
-                        if (Stream::existsContent("TITLEH.png"))      return "TITLEH.png";
-                        break;
-                    default : ;
-                }
+            switch (id) {
+                case LVL_TR1_TITLE :
+                    if (Stream::existsContent("TITLEH.png"))          return "TITLEH.png";
+                    if (Stream::existsContent("DATA/TITLEH.PCX"))     return "DATA/TITLEH.PCX";
+                    if (Stream::existsContent("DELDATA/AMERTIT.RAW")) return "DELDATA/AMERTIT.RAW";
+                    break;
 
-            if (version == VER_TR2_PC)
-                switch (id) {
-                    case LVL_TR2_TITLE :
-                        if (Stream::existsContent("data/TITLE.PCX")) return "data/TITLE.PCX";
-                        if (Stream::existsContent("pix/title.pcx"))  return "pix/title.pcx";
-                        if (Stream::existsContent("TITLE.png"))      return "TITLE.png";
-                        break;
-                    default : ;
-                }
+                case LVL_TR2_TITLE :
+                    if (Stream::existsContent("TITLE.png"))      return "TITLE.png";
+                    if (Stream::existsContent("data/TITLE.PCX")) return "data/TITLE.PCX";
+                    if (Stream::existsContent("pix/title.pcx"))  return "pix/title.pcx";
+                    break;
 
-            if (version == VER_TR3_PC)
-                switch (id) {
-                    case LVL_TR3_TITLE :
-                        if (Stream::existsContent("pix/TITLEUK.BMP")) return "pix/TITLEUK.BMP";
-                        break;
-                    default : ;
-                }
+                case LVL_TR3_TITLE :
+                    if (Stream::existsContent("pix/TITLEUK.BMP")) return "pix/TITLEUK.BMP";
+                    break;
+
+                default : ;
+            }
 
         } else {
-            if (version & VER_TR1)
-                switch (id) {
-                    case LVL_TR1_TITLE : return "level/1/TITLEH.PCX";
-                    default            : ;
-                }
+            switch (id) {
+                case LVL_TR1_TITLE : return "level/1/TITLEH.PCX";
 
-            if (version & VER_TR2)
-                switch (id) {
-                    case LVL_TR2_TITLE : return "level/2/TITLE.PCX";
-                    default            : ;
-                }
+                case LVL_TR2_TITLE : return "level/2/TITLE.PCX";
 
-            if (version & VER_TR3)
-                switch (id) {
-                    case LVL_TR3_TITLE : return "level/3/TITLEUK.BMP";
-                    default            : ;
-                }
+                case LVL_TR3_TITLE : return "level/3/TITLEUK.BMP";
+
+                default            : ;
+            }
         }
 
         return NULL;

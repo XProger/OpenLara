@@ -1128,6 +1128,47 @@ struct Stream {
     }
 };
 
+
+struct BitStream {
+    uint8 *data;
+    uint8 *end;
+    uint8 index;
+    uint8 value;
+
+    BitStream(uint8 *data, int size) : data(data), end(data + size), index(0), value(0) {}
+
+    uint8 readBits(int count) {
+        uint32 bits = 0;
+
+        while (count--) {
+            if (!index) {
+                ASSERT(data < end);
+                value = *data++;
+                index = 8;
+            }
+
+            bits <<= 1;
+
+            if (value & 0x80)
+                bits |= 1;
+
+            value <<= 1;
+            index--;
+        }
+
+        return bits;
+    }
+
+    uint8 readBit() {
+        return readBits(1);
+    }
+
+    uint8 readByte() {
+        return *data++;
+    }
+};
+
+
 namespace String {
 
     void toLower(char *str) {

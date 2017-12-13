@@ -1021,11 +1021,11 @@ struct Inventory {
             } else {
                 game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
                 
-                float aspectSrc = float(640.0f) / float(480.0f);
+                float aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
                 float aspectDst = float(Core::width) / float(Core::height);
                 float aspectImg = aspectDst / aspectSrc;
-                float ax = 640.0f / float(background[0]->width);
-                float ay = 480.0f / float(background[0]->height);
+                float ax = background[0]->origWidth  / float(background[0]->width);
+                float ay = background[0]->origHeight / float(background[0]->height);
 
                 Core::active.shader->setParam(uParam, vec4(ax * aspectImg, -ay, (0.5f - aspectImg * 0.5f) * ax, ay));
             }

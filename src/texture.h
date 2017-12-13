@@ -7,7 +7,7 @@ struct Texture {
     enum Format : uint32 { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, DEPTH_STENCIL, SHADOW, MAX };
 
     GLuint  ID;
-    int     width, height;
+    int     width, height, origWidth, origHeight;
     Format  format;
     bool    cube;
     bool    filter;
@@ -17,8 +17,8 @@ struct Texture {
             width  = nextPow2(width);
             height = nextPow2(height);
         }
-        this->width  = width;
-        this->height = height;
+        this->width  = origWidth  = width;
+        this->height = origHeight = height;
 
         glGenTextures(1, &ID);
         bind(0);
@@ -236,6 +236,8 @@ struct Texture {
         }
 
         Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data);
+        tex->origWidth  = pcx.width;
+        tex->origHeight = pcx.height;
         delete[] buffer;
 
         return tex;
@@ -275,6 +277,8 @@ struct Texture {
         }
 
         Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
+        tex->origWidth  = width;
+        tex->origHeight = height;
 
         delete[] data24;
         delete[] data32;
@@ -475,13 +479,13 @@ struct Texture {
                 for (uint32 i = 0; i < dw; i++)
                     *dst++ = (i < width && j < height) ? *src++ : 0xFF000000;
 
-            width  = dw;
-            height = dh;
             delete[] data32;
             data32 = dataPOT;
         }
 
-        Texture *tex = new Texture(width, height, Texture::RGBA, false, data32);
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
+        tex->origWidth  = width;
+        tex->origHeight = height;
 
         delete[] data32;
         delete[] data;
@@ -489,6 +493,119 @@ struct Texture {
         return tex;
     }
 #endif
+
+    static void rncGetOffset(BitStream &bs, uint16 &offset) {
+        offset = 0;
+        if (bs.readBit()) {
+            offset = bs.readBit();
+
+            if (bs.readBit()) {
+                offset = ((offset << 1) | bs.readBit()) | 4;
+
+                if (!bs.readBit())
+                    offset = (offset << 1) | bs.readBit();
+            } else if (!offset)
+                offset = bs.readBit() + 2;
+        }
+        offset = ((offset << 8) | bs.readByte()) + 1;
+    }
+
+    static Texture* LoadRNC(Stream &stream) { // https://github.com/lab313ru/rnc_propack_source
+        stream.seek(4); // skip MAGIC
+        uint32 size  = swap32(stream.read(size));
+        uint32 csize = swap32(stream.read(csize));
+        stream.seek(4); // skip CRC
+        uint8 chunks, fkey;
+        stream.read(fkey);
+        stream.read(chunks);
+
+        uint16 key = fkey;
+
+        uint8 *data  = new uint8[size];
+        uint8 *cdata = new uint8[csize];
+
+        stream.raw(cdata, csize);
+
+        BitStream bs(cdata, csize);
+        uint8 *dst = data;
+        uint8 *end = data + size;
+
+        uint32 length = 0;
+        uint16 offset = 0;
+
+        bs.readBits(2);
+        while (dst < end) {
+            if (!bs.readBit()) {
+                *dst++ = bs.readByte();
+            } else {
+                if (bs.readBit()) {
+                    if (bs.readBit()) {
+                        if (bs.readBit()) {
+                            length = bs.readByte() + 8;
+                            if (length == 8) {
+                                bs.readBit();
+                                continue;
+                            }
+                        } else
+                            length = 3;
+
+                        rncGetOffset(bs, offset);
+                    } else {
+                        length = 2;
+                        offset = bs.readByte() + 1;
+                    }
+
+                    while (length--)
+                        *dst++ = dst[-offset];
+                } else {
+                    length = bs.readBit() + 4;
+                    if (bs.readBit())
+                        length = ((length - 1) << 1) + bs.readBit();
+
+                    if (length != 9) {
+                        rncGetOffset(bs, offset);
+
+                        while (length--)
+                            *dst++ = dst[-offset];
+                    } else {
+                        length = (bs.readBits(4) << 2) + 12;
+                        while (length--)
+                            *dst++ = bs.readByte();
+                    }
+                }
+            }
+        }
+        delete[] cdata;
+
+        int width  = 384;
+        int height = 256;
+        int dw = Core::support.texNPOT ? width  : nextPow2(width);
+        int dh = Core::support.texNPOT ? height : nextPow2(height);
+
+        uint32 *data32 = new uint32[dw * dh];
+        {
+            uint32 *dst = data32;
+            uint16 *src = (uint16*)data;
+
+            for (int j = 0; j < dh; j++)
+                for (int i = 0; i < dw; i++) {
+                    if (i < width && j < height) {
+                        uint16 c = *src++;
+                        *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
+                    } else 
+                        *dst++ = 0xFF000000;
+                }
+
+            delete[] data;
+        }
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
+        tex->origWidth  = width;
+        tex->origHeight = height;
+
+        delete[] data32;
+
+        return tex;
+    }
 
     static Texture* Load(Stream &stream) {
         uint32 magic;
@@ -498,6 +615,8 @@ struct Texture {
             if (magic == 0x474E5089)
                 return LoadPNG(stream);
         #endif
+        if (magic == FOURCC("RNC\002"))
+            return LoadRNC(stream);
         if ((magic & 0xFFFF) == 0x4D42)
             return LoadBMP(stream);
         return LoadPCX(stream);
