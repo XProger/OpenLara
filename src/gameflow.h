@@ -675,20 +675,21 @@ namespace TR {
 
             switch (id) {
                 case LVL_TR1_TITLE :
-                    CHECK_FILE("TITLEH.png");
-                    CHECK_FILE("DATA/TITLEH.PCX");
-                    CHECK_FILE("DELDATA/AMERTIT.RAW");
+                    CHECK_FILE("TITLEH.png");           // Android
+                    CHECK_FILE("DATA/TITLEH.PCX");      // PC
+                    CHECK_FILE("DELDATA/AMERTIT.RAW");  // PSX
+                    CHECK_FILE("BINDATA/USATIT.BIN");   // SEGA
                     break;
 
                 case LVL_TR2_TITLE :
-                    CHECK_FILE("TITLE.png");
-                    CHECK_FILE("data/TITLE.PCX");
-                    CHECK_FILE("pix/title.pcx");
-                    CHECK_FILE("PIXUS/TITLEUS.RAW"); // TODO: add other languages
+                    CHECK_FILE("TITLE.png");            // Android
+                    CHECK_FILE("data/TITLE.PCX");       // PC
+                    CHECK_FILE("pix/title.pcx");        // PC
+                    CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
                     break;
 
                 case LVL_TR3_TITLE :
-                    CHECK_FILE("pix/TITLEUK.BMP"); // TODO: add other languages
+                    CHECK_FILE("pix/TITLEUK.BMP");      // PC (TODO: add other languages)
                     break;
 
                 default : ;

@@ -609,6 +609,39 @@ struct Texture {
         return tex;
     }
 
+    static Texture* LoadBIN(Stream &stream) {
+        int width  = 352;
+        int height = 224;
+        int dw = Core::support.texNPOT ? width  : nextPow2(width);
+        int dh = Core::support.texNPOT ? height : nextPow2(height);
+
+        uint8 *data = new uint8[stream.size];
+        stream.raw(data, stream.size);
+
+        uint32 *data32 = new uint32[dw * dh];
+        uint32 *dst = data32;
+        uint16 *src = (uint16*)data;
+
+        for (int j = 0; j < dh; j++)
+            for (int i = 0; i < dw; i++) {
+                if (i < width && j < height) {
+                    uint16 c = swap16(*src++);
+                    *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
+                } else 
+                    *dst++ = 0xFF000000;
+            }
+
+        delete[] data;
+
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
+        tex->origWidth  = width;
+        tex->origHeight = height;
+
+        delete[] data32;
+
+        return tex;
+    }
+
     static Texture* Load(Stream &stream) {
         uint32 magic;
         stream.read(magic);
@@ -621,6 +654,9 @@ struct Texture {
 
         if (stream.name && strstr(stream.name, ".RAW"))
             return LoadRNC(stream);
+
+        if (stream.name && strstr(stream.name, ".BIN"))
+            return LoadBIN(stream);
 
         if ((magic & 0xFFFF) == 0x4D42)
             return LoadBMP(stream);
