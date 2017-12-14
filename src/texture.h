@@ -557,8 +557,10 @@ struct Texture {
                         offset = bs.readByte() + 1;
                     }
 
-                    while (length--)
-                        *dst++ = dst[-offset];
+                    while (length--) {
+                        *dst = dst[-offset];
+                        dst++;
+                    }
                 } else {
                     length = bs.readBit() + 4;
                     if (bs.readBit())
@@ -567,8 +569,10 @@ struct Texture {
                     if (length != 9) {
                         rncGetOffset(bs, offset);
 
-                        while (length--)
-                            *dst++ = dst[-offset];
+                        while (length--) {
+                            *dst = dst[-offset];
+                            dst++;
+                        }
                     } else {
                         length = (bs.readBits(4) << 2) + 12;
                         while (length--)

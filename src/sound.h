@@ -5,7 +5,7 @@
 #define DECODE_ADPCM
 #define DECODE_OGG
 
-#ifndef __EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
     #define DECODE_MP3
 #endif
 
