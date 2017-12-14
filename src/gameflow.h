@@ -671,25 +671,30 @@ namespace TR {
     const char* getGameScreen(Version version, LevelID id) {
         if (useEasyStart) {
 
+            #define CHECK_FILE(name) if (Stream::existsContent(name)) return name
+
             switch (id) {
                 case LVL_TR1_TITLE :
-                    if (Stream::existsContent("TITLEH.png"))          return "TITLEH.png";
-                    if (Stream::existsContent("DATA/TITLEH.PCX"))     return "DATA/TITLEH.PCX";
-                    if (Stream::existsContent("DELDATA/AMERTIT.RAW")) return "DELDATA/AMERTIT.RAW";
+                    CHECK_FILE("TITLEH.png");
+                    CHECK_FILE("DATA/TITLEH.PCX");
+                    CHECK_FILE("DELDATA/AMERTIT.RAW");
                     break;
 
                 case LVL_TR2_TITLE :
-                    if (Stream::existsContent("TITLE.png"))      return "TITLE.png";
-                    if (Stream::existsContent("data/TITLE.PCX")) return "data/TITLE.PCX";
-                    if (Stream::existsContent("pix/title.pcx"))  return "pix/title.pcx";
+                    CHECK_FILE("TITLE.png");
+                    CHECK_FILE("data/TITLE.PCX");
+                    CHECK_FILE("pix/title.pcx");
+                    CHECK_FILE("PIXUS/TITLEUS.RAW"); // TODO: add other languages
                     break;
 
                 case LVL_TR3_TITLE :
-                    if (Stream::existsContent("pix/TITLEUK.BMP")) return "pix/TITLEUK.BMP";
+                    CHECK_FILE("pix/TITLEUK.BMP"); // TODO: add other languages
                     break;
 
                 default : ;
             }
+
+           #undef CHECK_FILE
 
         } else {
             switch (id) {

@@ -1055,6 +1055,9 @@ struct Stream {
             size = ftell(f);
             fseek(f, 0, SEEK_SET);
 
+            this->name = new char[strlen(name) + 1];
+            strcpy(this->name, name);
+
             if (callback)
                 callback(this, userData);
         }

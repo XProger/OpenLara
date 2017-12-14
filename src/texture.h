@@ -511,15 +511,18 @@ struct Texture {
     }
 
     static Texture* LoadRNC(Stream &stream) { // https://github.com/lab313ru/rnc_propack_source
-        stream.seek(4); // skip MAGIC
-        uint32 size  = swap32(stream.read(size));
-        uint32 csize = swap32(stream.read(csize));
-        stream.seek(4); // skip CRC
-        uint8 chunks, fkey;
-        stream.read(fkey);
-        stream.read(chunks);
+        uint32 magic, size, csize;
+        stream.read(magic);
 
-        uint16 key = fkey;
+        if (magic == FOURCC("RNC\002")) {
+            size  = swap32(stream.read(size));
+            csize = swap32(stream.read(csize));
+            stream.seek(6);
+        } else {
+            stream.seek(-4);
+            size  = 384 * 256 * 2;
+            csize = stream.size;
+        }
 
         uint8 *data  = new uint8[size];
         uint8 *cdata = new uint8[csize];
@@ -528,13 +531,12 @@ struct Texture {
 
         BitStream bs(cdata, csize);
         uint8 *dst = data;
-        uint8 *end = data + size;
 
         uint32 length = 0;
         uint16 offset = 0;
 
         bs.readBits(2);
-        while (dst < end) {
+        while (bs.data < bs.end || bs.index > 0) {
             if (!bs.readBit()) {
                 *dst++ = bs.readByte();
             } else {
@@ -578,7 +580,7 @@ struct Texture {
         delete[] cdata;
 
         int width  = 384;
-        int height = 256;
+        int height = size / width / 2;
         int dw = Core::support.texNPOT ? width  : nextPow2(width);
         int dh = Core::support.texNPOT ? height : nextPow2(height);
 
@@ -610,13 +612,16 @@ struct Texture {
     static Texture* Load(Stream &stream) {
         uint32 magic;
         stream.read(magic);
-        stream.seek(-int(sizeof(magic)));
+        stream.seek(-4);
+
         #ifdef USE_INFLATE
             if (magic == 0x474E5089)
                 return LoadPNG(stream);
         #endif
-        if (magic == FOURCC("RNC\002"))
+
+        if (stream.name && strstr(stream.name, ".RAW"))
             return LoadRNC(stream);
+
         if ((magic & 0xFFFF) == 0x4D42)
             return LoadBMP(stream);
         return LoadPCX(stream);
