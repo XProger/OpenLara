@@ -609,7 +609,12 @@ struct Level : IGame {
         sndSoundtrack = NULL;
         playTrack(0);
         sndCurrent = sndSoundtrack;
-
+        /*
+        if (level.id == TR::LVL_TR2_RIG) {
+            lara->animation.setAnim(level.models[level.extra.laraSpec].animation);
+            camera->doCutscene(lara->pos, lara->angle.y);
+        }
+        */
         Core::resetTime();
     }
 
@@ -1254,9 +1259,15 @@ struct Level : IGame {
 
         Sound::Sample *sndChanged = sndCurrent;
 
+        inventory.update();
+
+        if (inventory.titleTimer > 1.0f)
+            return;
+
+        UI::update();
+
         if (inventory.isActive() || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
-            inventory.update();
             if (!level.isTitle())
                 sndChanged = NULL;
         } else {
@@ -1855,8 +1866,8 @@ struct Level : IGame {
         // lara->visibleMask = 0xFFFFFFFF; // catsuit test
     }
 
-    void renderInventory() {
-        Core::setTarget(NULL, true);
+    void renderInventory(bool clear) {
+        Core::setTarget(NULL, clear);
         if (Core::settings.detail.stereo) {
             Core::setViewport(0, 0, Core::width / 2, Core::height);
             Core::eye = -1.0f;
@@ -1871,7 +1882,7 @@ struct Level : IGame {
     }
 
     void renderUI() {
-        if (level.isCutsceneLevel()) return;
+        if (level.isCutsceneLevel() || inventory.titleTimer > 1.0f) return;
 
         UI::begin();
 
@@ -1938,8 +1949,7 @@ struct Level : IGame {
         if (!title)
             renderGame();
 
-        if (title)
-            renderInventory();
+        renderInventory(title);
 
         if (Core::settings.detail.stereo) {
             Core::setViewport(0, 0, Core::width / 2, Core::height);

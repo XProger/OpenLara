@@ -173,7 +173,40 @@ struct Texture {
     struct Color32 {
         uint8 r, g, b, a;
     };
+/*
+    static void SaveBMP(const char *name, const char *data32, int width, int height) {
+        BITMAPINFOHEADER BMIH;
+        BMIH.biSize = sizeof(BITMAPINFOHEADER);
+        BMIH.biSizeImage = width * height * 4;
 
+        BMIH.biSize = sizeof(BITMAPINFOHEADER);
+        BMIH.biWidth = width;
+        BMIH.biHeight = height;
+        BMIH.biPlanes = 1;
+        BMIH.biBitCount = 32;
+        BMIH.biCompression = BI_RGB;
+        BMIH.biSizeImage = width * height * 4;
+
+        BITMAPFILEHEADER bmfh;
+        int nBitsOffset = sizeof(BITMAPFILEHEADER) + BMIH.biSize;
+        LONG lImageSize = BMIH.biSizeImage;
+        LONG lFileSize = nBitsOffset + lImageSize;
+        bmfh.bfType = 'B' + ('M' << 8);
+        bmfh.bfOffBits = nBitsOffset;
+        bmfh.bfSize = lFileSize;
+        bmfh.bfReserved1 = bmfh.bfReserved2 = 0;
+
+        char buf[256];
+        strcpy(buf, name);
+        strcat(buf, ".bmp");
+
+        FILE *f = fopen(buf, "wb");
+        fwrite(&bmfh, sizeof(bmfh), 1, f);
+        fwrite(&BMIH, sizeof(BMIH), 1, f);
+        fwrite(data32, width * height * 4, 1, f);
+        fclose(f);
+    }
+*/
     static Texture* LoadPCX(Stream &stream) {
         struct PCX {
             uint8  magic;
@@ -328,7 +361,6 @@ struct Texture {
                 break;
         };
     }
-
 
     static Texture* LoadPNG(Stream &stream) {
         stream.seek(8);
@@ -614,8 +646,8 @@ struct Texture {
     }
 
     static Texture* LoadBIN(Stream &stream) {
-        int width  = 352;
         int height = 224;
+        int width  = stream.size / height / 2;
         int dw = Core::support.texNPOT ? width  : nextPow2(width);
         int dh = Core::support.texNPOT ? height : nextPow2(height);
 
@@ -836,30 +868,8 @@ struct Atlas {
 
     void fillInstances() {
         for (int i = 0; i < tilesCount; i++)
-            if (tiles[i].uv.x == 0x7FFF) {
+            if (tiles[i].uv.x == 0x7FFF)
                 callback(tiles[i].id, width, height, tiles[i].uv.y, 0, userData, NULL);
-                /*
-                TR::ObjectTexture &r = level.objectTextures[ref];
-                int minXr = min(min(r.texCoord[0].x, r.texCoord[1].x), r.texCoord[2].x);
-                int minYr = min(min(r.texCoord[0].y, r.texCoord[1].y), r.texCoord[2].y);
-
-                TR::ObjectTexture &t = level.objectTextures[tiles[i].id];
-                int minX = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
-                int maxX = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
-                int minY = min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
-                int maxY = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
-
-                int cx = minXr - minX;
-                int cy = minYr - minY;
-
-                for (int i = 0; i < 4; i++) {
-                    if (t.texCoord[i].x == maxX) t.texCoord[i].x++;
-                    if (t.texCoord[i].y == maxY) t.texCoord[i].y++;
-                    t.texCoord[i].x += cx;
-                    t.texCoord[i].y += cy;
-                }
-                */
-            }
     }
 };
 

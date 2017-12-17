@@ -1,9 +1,7 @@
 #ifndef H_CORE
 #define H_CORE
 
-#ifndef __EMSCRIPTEN__
-    #define USE_INFLATE
-#endif
+#define USE_INFLATE
 
 #include <stdio.h>
 #ifdef WIN32

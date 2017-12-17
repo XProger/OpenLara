@@ -10,6 +10,8 @@
 #define INVENTORY_BG_SIZE    512
 #define INVENTORY_HEIGHT     2048.0f
 
+#define TITLE_LOADING        64.0f
+
 struct Inventory {
 
     enum Page {
@@ -29,6 +31,7 @@ struct Inventory {
     Page    page, targetPage;
     int     itemsCount;
 
+    float       titleTimer;
     float       changeTimer;
     TR::LevelID nextLevel; // toggle result
     ControlKey  lastKey;
@@ -168,8 +171,12 @@ struct Inventory {
     } *items[INVENTORY_MAX_ITEMS];
 
     static void loadTitleBG(Stream *stream, void *userData) {
-        if (!stream) return;
         Inventory *inv = (Inventory*)userData;
+        if (!stream) {
+            inv->titleTimer = 0.0f;
+            return;
+        }
+        inv->titleTimer = 3.0f;
 
         inv->background[0] = Texture::Load(*stream);
         delete stream;
@@ -214,21 +221,20 @@ struct Inventory {
 
         TR::Level *level = game->getLevel();
 
+        memset(background, 0, sizeof(background));
+
+        const char *titleBG = TR::getGameScreen(level->version, level->id);
+        if (titleBG) {
+            titleTimer = TITLE_LOADING;
+            new Stream(titleBG, loadTitleBG, this);
+        } else
+            titleTimer = 0.0f;
+
         if (level->isTitle()) {
             add(TR::Entity::INV_HOME);
-
-            memset(background, 0, sizeof(background));
-
-            const char *titleBG = TR::getGameScreen(level->version, level->id);
-            if (titleBG)
-                new Stream(titleBG, loadTitleBG, this);
-
         } else {
             add(TR::Entity::INV_COMPASS);
             add(TR::Entity::INV_STOPWATCH);
-
-            for (int i = 0; i < COUNT(background); i++)
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
         }
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
@@ -582,6 +588,15 @@ struct Inventory {
     }
 
     void update() {
+        if (titleTimer != TITLE_LOADING && titleTimer > 0.0f) {
+            titleTimer -= Core::deltaTime;
+            if (titleTimer < 0.0f)
+                titleTimer = 0.0f;
+        }
+
+        if (!isActive())
+            return;
+
         float lastChoose = phaseChoose;
 
         if (phaseChoose == 0.0f)
@@ -737,6 +752,15 @@ struct Inventory {
     }
 
     void prepareBackground() {
+        if (background[0]->origWidth != INVENTORY_BG_SIZE || background[0]->origHeight != INVENTORY_BG_SIZE) {
+            delete background[0];
+            background[0] = NULL;
+        }
+
+        for (int i = 0; i < COUNT(background); i++)
+            if (!background[i])
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
+
         Core::setDepthTest(false);
         Core::setBlending(bmNone);
 
@@ -1008,9 +1032,11 @@ struct Inventory {
     }
 
     void render() {
+        if (!isActive() && titleTimer == 0.0f)
+            return;
+
     // background
         Core::setDepthTest(false);
-        Core::setBlending(bmNone);
 
         if (background[0]) {
             background[0]->bind(sDiffuse);  // orignal image
@@ -1018,6 +1044,7 @@ struct Inventory {
                 game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
                 Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
                 background[1]->bind(sNormal);   // blured grayscale image
+                Core::setBlending(bmNone);
             } else {
                 game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
                 
@@ -1026,17 +1053,23 @@ struct Inventory {
                 float aspectImg = aspectDst / aspectSrc;
                 float ax = background[0]->origWidth  / float(background[0]->width);
                 float ay = background[0]->origHeight / float(background[0]->height);
-
                 Core::active.shader->setParam(uParam, vec4(ax * aspectImg, -ay, (0.5f - aspectImg * 0.5f) * ax, ay));
+
+                if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f) {
+                    Core::setBlending(bmAlpha);
+                    Core::active.shader->setParam(uMaterial, vec4(1, 1, 1, titleTimer));
+                } else {
+                    Core::setBlending(bmNone);
+                    Core::active.shader->setParam(uMaterial, vec4(1));
+                }
             }
-            Core::setBlending(bmNone);
             game->getMesh()->renderQuad();
         }
 
         Core::setDepthTest(true);
         Core::setBlending(bmAlpha);
 
-        if (game->getLevel()->isCutsceneLevel())
+        if (game->getLevel()->isCutsceneLevel() || !isActive())
             return;
 
     // items

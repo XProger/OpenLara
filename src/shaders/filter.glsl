@@ -5,7 +5,7 @@ R"====(
 #endif
 
 varying vec2 vTexCoord;
-
+uniform vec4 uMaterial;
 uniform vec4 uParam;
 
 #ifdef VERTEX
@@ -95,7 +95,7 @@ uniform vec4 uParam;
 			return equirectangular();
 		#endif
 
-		return texture2D(sDiffuse, vTexCoord);
+		return texture2D(sDiffuse, vTexCoord) * uMaterial;
 	}
 
 	void main() {

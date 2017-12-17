@@ -52,14 +52,17 @@ namespace Game {
     void init(char *lvlName = NULL, char *sndName = NULL) {
         char fileName[255];
 
+        TR::Version version = TR::getGameVersion();
+        if (!lvlName && version != TR::VER_UNKNOWN) {
+            lvlName = fileName;
+            TR::getGameLevelFile(lvlName, version, TR::getTitleId(version));
+        }
+
         if (!lvlName) {
             lvlName = fileName;
             strcpy(lvlName, "level/1/TITLE.PSX");
-
-            TR::Version version = TR::getGameVersion();
-            if (version != TR::VER_UNKNOWN)
-                TR::getGameLevelFile(lvlName, version, TR::getTitleId(version));
         }
+
         init(new Stream(lvlName));
     }
 
@@ -122,9 +125,6 @@ namespace Game {
 
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);
-
-        Core::deltaTime = delta;
-        UI::update();
 
         while (delta > EPS) {
             Core::deltaTime = min(delta, 1.0f / 30.0f);

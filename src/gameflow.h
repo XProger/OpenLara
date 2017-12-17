@@ -669,45 +669,127 @@ namespace TR {
     }
 
     const char* getGameScreen(Version version, LevelID id) {
-        if (useEasyStart) {
+        #define CHECK_FILE(name) if (Stream::existsContent(name)) return name
 
-            #define CHECK_FILE(name) if (Stream::existsContent(name)) return name
+        switch (id) {
+        // TR1
+            case LVL_TR1_TITLE :
+                CHECK_FILE("TITLEH.png");           // Android
+                CHECK_FILE("DATA/TITLEH.PCX");      // PC
+                CHECK_FILE("DELDATA/AMERTIT.RAW");  // PSX
+                CHECK_FILE("BINDATA/USATIT.BIN");   // SEGA
+                return "level/1/AMERTIT.PNG";       // WEB
+            case LVL_TR1_GYM :
+                CHECK_FILE("DELDATA/GYMLOAD.RAW");
+                CHECK_FILE("BINDATA/GYM224.BIN");
+                return "level/1/GYMLOAD.PNG";
+            case LVL_TR1_1  :
+            case LVL_TR1_2  :
+            case LVL_TR1_3A :
+            case LVL_TR1_3B :
+                CHECK_FILE("DELDATA/AZTECLOA.RAW");
+                CHECK_FILE("BINDATA/AZTEC224.BIN");
+                return "level/1/AZTECLOA.PNG";
+            case LVL_TR1_4  :
+            case LVL_TR1_5  :
+            case LVL_TR1_6  :
+            case LVL_TR1_7A :
+            case LVL_TR1_7B :
+                CHECK_FILE("DELDATA/GREEKLOA.RAW");
+                CHECK_FILE("BINDATA/GREEK224.BIN");
+                return "level/1/GREEKLOA.PNG";
+            case LVL_TR1_8A :
+            case LVL_TR1_8B :
+            case LVL_TR1_8C :
+                CHECK_FILE("DELDATA/EGYPTLOA.RAW");
+                CHECK_FILE("BINDATA/EGYPT224.BIN");
+                return "level/1/EGYPTLOA.PNG";
+            case LVL_TR1_10A :
+            case LVL_TR1_10B :
+            case LVL_TR1_10C :
+                CHECK_FILE("DELDATA/ATLANLOA.RAW");
+                CHECK_FILE("BINDATA/ATLAN224.BIN");
+                return "level/1/ATLANLOA.PNG";
+        // TR2
+            case LVL_TR2_TITLE :
+                CHECK_FILE("TITLE.png");            // Android
+                CHECK_FILE("data/TITLE.PCX");       // PC
+                CHECK_FILE("pix/title.pcx");        // PC
+                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
+                return "level/2/TITLEUS.PNG";       // WEB
+            case LVL_TR2_ASSAULT :
+            case LVL_TR2_HOUSE   :
+                CHECK_FILE("PIX/MANSION.RAW"); 
+                return "level/2/MANSION.PNG";
+            case LVL_TR2_WALL     :
+            case LVL_TR2_EMPRTOMB :
+            case LVL_TR2_FLOATING :
+            case LVL_TR2_XIAN     :
+                CHECK_FILE("PIX/CHINA.RAW"); 
+                return "level/2/CHINA.PNG";
+            case LVL_TR2_BOAT   :
+            case LVL_TR2_VENICE :
+            case LVL_TR2_OPERA  :
+                CHECK_FILE("PIX/VENICE.RAW"); 
+                return "level/2/VENICE.PNG";
+            case LVL_TR2_RIG      :
+            case LVL_TR2_PLATFORM :
+                CHECK_FILE("PIX/RIG.RAW"); 
+                return "level/2/RIG.PNG";
+            case LVL_TR2_UNWATER :
+            case LVL_TR2_KEEL    :
+            case LVL_TR2_LIVING  :
+            case LVL_TR2_DECK    :
+                CHECK_FILE("PIX/TITAN.RAW"); 
+                return "level/2/TITAN.PNG";
+            case LVL_TR2_SKIDOO   :
+            case LVL_TR2_MONASTRY :
+            case LVL_TR2_CATACOMB :
+            case LVL_TR2_ICECAVE  :
+                CHECK_FILE("PIX/TIBET.RAW");
+                return "level/2/TIBET.PNG";
+        // TR3
+            case LVL_TR3_TITLE :
+                CHECK_FILE("pix/TITLEUK.BMP");      // PC (TODO: add other languages)
+                return "level/3/TITLEUK.PNG";       // WEB
+            case LVL_TR3_HOUSE  :
+                CHECK_FILE("pix/HOUSE.BMP"); 
+                return "level/3/HOUSE.PNG";
+            case LVL_TR3_JUNGLE   :
+            case LVL_TR3_TEMPLE   :
+            case LVL_TR3_QUADCHAS :
+            case LVL_TR3_TONYBOSS :
+                CHECK_FILE("pix/INDIA.BMP"); 
+                return "level/3/INDIA.PNG";
+            case LVL_TR3_SHORE   :
+            case LVL_TR3_CRASH   :
+            case LVL_TR3_RAPIDS  :
+            case LVL_TR3_TRIBOSS :
+                CHECK_FILE("pix/SOUTHPAC.BMP"); 
+                return "level/3/SOUTHPAC.PNG";
+            case LVL_TR3_ROOFS  :
+            case LVL_TR3_SEWER  :
+            case LVL_TR3_TOWER  :
+            case LVL_TR3_OFFICE :
+            case LVL_TR3_STPAUL :
+                CHECK_FILE("pix/LONDON.BMP"); 
+                return "level/3/LONDON.PNG";
+            case LVL_TR3_NEVADA   :
+            case LVL_TR3_COMPOUND :
+            case LVL_TR3_AREA51   :
+                CHECK_FILE("pix/NEVADA.BMP"); 
+                return "level/3/NEVADA.PNG";
+            case LVL_TR3_ANTARC  :
+            case LVL_TR3_MINES   :
+            case LVL_TR3_CITY    :
+            case LVL_TR3_CHAMBER :
+                CHECK_FILE("pix/ANTARC.BMP"); 
+                return "level/3/ANTARC.PNG";
 
-            switch (id) {
-                case LVL_TR1_TITLE :
-                    CHECK_FILE("TITLEH.png");           // Android
-                    CHECK_FILE("DATA/TITLEH.PCX");      // PC
-                    CHECK_FILE("DELDATA/AMERTIT.RAW");  // PSX
-                    CHECK_FILE("BINDATA/USATIT.BIN");   // SEGA
-                    break;
-
-                case LVL_TR2_TITLE :
-                    CHECK_FILE("TITLE.png");            // Android
-                    CHECK_FILE("data/TITLE.PCX");       // PC
-                    CHECK_FILE("pix/title.pcx");        // PC
-                    CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
-                    break;
-
-                case LVL_TR3_TITLE :
-                    CHECK_FILE("pix/TITLEUK.BMP");      // PC (TODO: add other languages)
-                    break;
-
-                default : ;
-            }
-
-           #undef CHECK_FILE
-
-        } else {
-            switch (id) {
-                case LVL_TR1_TITLE : return "level/1/TITLEH.PCX";
-
-                case LVL_TR2_TITLE : return "level/2/TITLE.PCX";
-
-                case LVL_TR3_TITLE : return "level/3/TITLEUK.BMP";
-
-                default            : ;
-            }
+            default : ;
         }
+
+        #undef CHECK_FILE
 
         return NULL;
     }
