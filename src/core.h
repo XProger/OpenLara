@@ -246,6 +246,7 @@ namespace Core {
     } settings;
 
     bool resetState;
+    bool isQuit;
 
     int getTime() {
         return osGetTime();
@@ -254,6 +255,10 @@ namespace Core {
     void resetTime() {
         lastTime = getTime();
         resetState = true;
+    }
+
+    void quit() {
+        isQuit = true;
     }
 }
 
@@ -549,6 +554,8 @@ namespace Core {
         #ifdef USE_INFLATE
             tinf_init();
         #endif
+
+        isQuit = false;
 
         Input::init();
         #ifdef ANDROID

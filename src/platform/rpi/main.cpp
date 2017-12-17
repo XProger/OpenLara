@@ -468,13 +468,12 @@ int main(int argc, char **argv) {
     sndInit();
 
     char *lvlName = argc > 1 ? argv[1] : NULL;
-    char *sndName = argc > 2 ? argv[2] : NULL;
 
-    Game::init(lvlName, sndName);
+    Game::init(lvlName);
 
     inputInit(); // initialize and grab input devices
 
-    while (!Input::down[ikEscape]) {
+    while (!Core::isQuit) {
         inputUpdate();
 
         pthread_mutex_lock(&sndMutex);

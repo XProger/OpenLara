@@ -16,6 +16,8 @@
 
 #include "game.h"
 
+int osStartTime = 0;
+
 int osGetTime() {
 #ifdef DEBUG
     LARGE_INTEGER Freq, Count;
@@ -24,7 +26,7 @@ int osGetTime() {
     return int(Count.QuadPart * 1000L / Freq.QuadPart);
 #else
     timeBeginPeriod(0);
-    return int(timeGetTime());
+    return int(timeGetTime()) - osStartTime;
 #endif
 }
 
@@ -357,6 +359,8 @@ int main(int argc, char** argv) {
     
     Sound::channelsCount = 0;
 
+    osStartTime = osGetTime();
+
     touchInit(hWnd);
     joyInit();
     sndInit(hWnd);
@@ -371,10 +375,12 @@ int main(int argc, char** argv) {
 
     MSG msg;
 
-    do {
+    while (!Core::isQuit) {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            if (msg.message == WM_QUIT)
+                Core::quit();
         } else {
             joyUpdate();
             if (Game::update()) {
@@ -385,7 +391,7 @@ int main(int argc, char** argv) {
                 Sleep(20);
             #endif
         }
-    } while (msg.message != WM_QUIT);
+    };
 
     sndFree();
     Game::deinit();

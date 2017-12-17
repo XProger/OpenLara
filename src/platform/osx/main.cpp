@@ -1,6 +1,5 @@
 #include "game.h"
 
-bool isQuit = false;
 WindowRef window;
 AGLContext context;
 
@@ -71,7 +70,7 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
         case kEventClassWindow :
             switch (eventKind) {
                 case kEventWindowClosed :
-                    isQuit = true;
+                    Core::quit();
                     break;
                 case kEventWindowBoundsChanged : {
                     aglUpdateContext(context);
@@ -202,7 +201,7 @@ int main() {
     ShowWindow(window);
 
     EventRecord event;
-    while (!isQuit)
+    while (!Core::isQuit)
         if (!GetNextEvent(0xffff, &event) && Game::update()) {
             Game::render();
             aglSwapBuffers(context);

@@ -214,12 +214,12 @@ int main(int argc, char **argv) {
     sndInit();
     Game::init(argc > 1 ? argv[1] : NULL);
 
-    while (1) {
+    while (!Core::isQuit) {
         if (XPending(dpy)) {
             XEvent event;
             XNextEvent(dpy, &event);
             if (event.type == ClientMessage && *event.xclient.data.l == WM_DELETE_WINDOW)
-                break;
+                Core::quit();
             WndProc(event,dpy,wnd);
         } else {
             pthread_mutex_lock(&sndMutex);

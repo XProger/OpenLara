@@ -514,7 +514,12 @@ struct Inventory {
                 switch (item->value) {
                     case 0 : nextLevel = passportSlots[slot]; break;
                     case 1 : nextLevel = level->isTitle() ? level->getStartId() : id; break;
-                    case 2 : nextLevel = level->isTitle() ? TR::LVL_MAX : level->getTitleId(); break;
+                    case 2 : 
+                        if (!level->isTitle())
+                            nextLevel = level->getTitleId();
+                        else
+                            Core::quit(); // exit game
+                        break;
                 }
 
                 if (nextLevel != TR::LVL_MAX) {
