@@ -3,6 +3,8 @@
 
 #include "utils.h"
 
+#define CHECK_FILE(name) if (Stream::existsContent(name)) return name
+
 namespace TR {
 
     bool useEasyStart;
@@ -564,14 +566,17 @@ namespace TR {
     }
 
     const char* getGameSoundsFile(Version version) {
-        if (!useEasyStart) {
-            if (version == VER_TR2_PC)
-                return "audio/2/MAIN.SFX";
-            if (version == VER_TR3_PC)
-                return "audio/3/MAIN.SFX";
-        } else
-            if (version == VER_TR2_PC || version == VER_TR3_PC)
-                return "data/MAIN.SFX";
+        if (version == VER_TR2_PC) {
+            CHECK_FILE("data/MAIN.SFX");    // PC
+            CHECK_FILE("MAIN.SFX");         // Android
+            return "audio/2/MAIN.SFX";      // Web
+        }
+
+        if (version == VER_TR3_PC) {
+            CHECK_FILE("data/MAIN.SFX");    // PC
+            return "audio/3/MAIN.SFX";      // Web
+        }
+
         ASSERT(false);
         return NULL;
     }
@@ -669,8 +674,6 @@ namespace TR {
     }
 
     const char* getGameScreen(Version version, LevelID id) {
-        #define CHECK_FILE(name) if (Stream::existsContent(name)) return name
-
         switch (id) {
         // TR1
             case LVL_TR1_TITLE :
@@ -789,10 +792,10 @@ namespace TR {
             default : ;
         }
 
-        #undef CHECK_FILE
-
         return NULL;
     }
 }
+
+#undef CHECK_FILE
 
 #endif

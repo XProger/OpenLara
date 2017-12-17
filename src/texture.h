@@ -207,7 +207,7 @@ struct Texture {
         fclose(f);
     }
 */
-    static Texture* LoadPCX(Stream &stream) {
+    static uint8* LoadPCX(Stream &stream, uint32 &width, uint32 &height) {
         struct PCX {
             uint8  magic;
             uint8  version;
@@ -226,10 +226,8 @@ struct Texture {
 
         int i = 0;
         int size = pcx.width * pcx.height;
-        int dw = Core::support.texNPOT ? pcx.width  : nextPow2(pcx.width);
-        int dh = Core::support.texNPOT ? pcx.height : nextPow2(pcx.height);
 
-        uint8 *buffer = new uint8[size + 256 * 3 + dw * dh * 4];
+        uint8 *indices = new uint8[pcx.width * pcx.height];
 
         while (i < size) {
             uint8 n;
@@ -237,47 +235,41 @@ struct Texture {
             if ((n & 0xC0) == 0xC0) {
                 uint8 count = n & 0x3F;
                 stream.read(n);
-                memset(&buffer[i], n, count);
+                memset(&indices[i], n, count);
                 i += count;
             } else
-                buffer[i++] = n;
+                indices[i++] = n;
         }
 
         uint8 flag;
         stream.read(flag);
         ASSERT(flag == 0x0C);
 
-        Color24 *palette = (Color24*)&buffer[size];
-        stream.raw(palette, 256 * 3);
+        Color24 palette[256];
+        stream.raw(palette, sizeof(palette));
 
-        Color32 *data = (Color32*)&palette[256];
-        memset(data, 0, dw * dh * 4);
-        
-        // TODO: color bleeding
+        Color32 *data = new Color32[pcx.width * pcx.height];
+        Color32 *dst = data;
+        uint8   *src = indices;
 
-        Color32 *ptr = data;
-        i = 0;
-        for (int y = 0; y < pcx.height; y++) {
+        for (int y = 0; y < pcx.height; y++)
             for (int x = 0; x < pcx.width; x++) {
-                Color24 &c = palette[buffer[i++]];
-                ptr[x].r = c.r;
-                ptr[x].g = c.g;
-                ptr[x].b = c.b;
-                ptr[x].a = 255;
+                Color24 &c = palette[*src++];
+                dst->r = c.r;
+                dst->g = c.g;
+                dst->b = c.b;
+                dst->a = 255;
+                dst++;
             }
-            ptr += dw;
-        }
+        delete[] indices;
 
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data);
-        tex->origWidth  = pcx.width;
-        tex->origHeight = pcx.height;
-        delete[] buffer;
-
-        return tex;
+        width  = pcx.width;
+        height = pcx.height;
+        return (uint8*)data;
     }
 
-    static Texture* LoadBMP(Stream &stream) {
-        int32 offset, width, height;
+    static uint8* LoadBMP(Stream &stream, uint32 &width, uint32 &height) {
+        int32 offset;
         stream.seek(10);
         stream.read(offset);
         stream.seek(4);
@@ -285,37 +277,25 @@ struct Texture {
         stream.read(height);
         stream.seek(offset - stream.pos);
 
-        int dw = Core::support.texNPOT ? width  : nextPow2(width);
-        int dh = Core::support.texNPOT ? height : nextPow2(height);
         Color24 *data24 = new Color24[width * height];
-        Color32 *data32 = new Color32[dw * dh];
+        Color32 *data32 = new Color32[width * height];
         stream.raw(data24, width * height * sizeof(Color24));
 
         Color32 *dst = data32;
-        for (int y = 0; y < dh; y++) {
+        for (uint32 y = 0; y < height; y++) {
             Color24 *src = data24 + (height - y - 1) * width;
-            for (int x = 0; x < dw; x++) {
-                
-                if (x < width && y < height) {
-                    dst->r = src->b;
-                    dst->g = src->g;
-                    dst->b = src->r;
-                    src++;
-                } else
-                    dst->r = dst->g = dst->b = 0;
-
+            for (uint32 x = 0; x < width; x++) {
+                dst->r = src->b;
+                dst->g = src->g;
+                dst->b = src->r;
                 dst->a = 255;
+                src++;
                 dst++;
             }
         }
-
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
-        tex->origWidth  = width;
-        tex->origHeight = height;
-
         delete[] data24;
-        delete[] data32;
-        return tex;
+
+        return (uint8*)data32;
     }
 
 #ifdef USE_INFLATE
@@ -362,12 +342,11 @@ struct Texture {
         };
     }
 
-    static Texture* LoadPNG(Stream &stream) {
+    static uint8* LoadPNG(Stream &stream, uint32 &width, uint32 &height) {
         stream.seek(8);
 
         uint8 bits, colorType, interlace;
         int BPP, BPL;
-        uint32 width, height;
 
         uint8 palette[256 * 3];
         uint8 trans[256];
@@ -448,22 +427,27 @@ struct Texture {
 
         uint8 *src = data;
         uint8 *dst = data32;
+        uint8 *end = data32 + width * height * 4;
 
         switch (colorType) {
             case 0 : // grayscale
-                for (uint32 i = 0; i < width * height; i += 4, dst += 4, src++) {
+                while (dst < end) {
                     dst[0] =
                     dst[1] =
                     dst[2] = src[0];
                     dst[3] = trans[0];
+                    dst += 4;
+                    src++;
                 }
                 break;
             case 2 : // RGB
-                for (uint32 i = 0; i < width * height; i++, dst += 4, src += 3) {
+                while (dst < end) {
                     dst[0] = src[0];
                     dst[1] = src[1];
                     dst[2] = src[2];
                     dst[3] = trans[0];
+                    dst += 4;
+                    src += 3;
                 }
                 break;
             case 3 : // indexed color with alpha
@@ -487,42 +471,22 @@ struct Texture {
                 }
                 break;
             case 4 : // grayscale with alpha
-                for (uint32 i = 0; i < width * height; i++, dst += 4, src += 2) {
+                while (dst < end) {
                     dst[0] =
                     dst[1] =
                     dst[2] = src[0];
                     dst[3] = src[1];
+                    dst += 4;
+                    src += 2;
                 }
                 break;
             case 6 : // RGBA
                 memcpy(dst, src, width * height * 4);
                 break;
         }
-
-    // convert to POT size if NPOT isn't supported
-        uint32 dw = Core::support.texNPOT ? width  : nextPow2(width);
-        uint32 dh = Core::support.texNPOT ? height : nextPow2(height);
-        if (dw != width || dh != height) {
-            uint8  *dataPOT = new uint8[dw * dh * 4];
-            uint32 *dst = (uint32*)dataPOT;
-            uint32 *src = (uint32*)data32;
-
-            for (uint32 j = 0; j < dh; j++)
-                for (uint32 i = 0; i < dw; i++)
-                    *dst++ = (i < width && j < height) ? *src++ : 0xFF000000;
-
-            delete[] data32;
-            data32 = dataPOT;
-        }
-
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
-        tex->origWidth  = width;
-        tex->origHeight = height;
-
-        delete[] data32;
         delete[] data;
 
-        return tex;
+        return data32;
     }
 #endif
 
@@ -542,7 +506,7 @@ struct Texture {
         offset = ((offset << 8) | bs.readByte()) + 1;
     }
 
-    static Texture* LoadRNC(Stream &stream) { // https://github.com/lab313ru/rnc_propack_source
+    static uint8* LoadRNC(Stream &stream, uint32 &width, uint32 &height) { // https://github.com/lab313ru/rnc_propack_source
         uint32 magic, size, csize;
         stream.read(magic);
 
@@ -615,88 +579,103 @@ struct Texture {
         }
         delete[] cdata;
 
-        int width  = 384;
-        int height = size / width / 2;
-        int dw = Core::support.texNPOT ? width  : nextPow2(width);
-        int dh = Core::support.texNPOT ? height : nextPow2(height);
+        width  = 384;
+        height = size / width / 2;
 
-        uint32 *data32 = new uint32[dw * dh];
+        uint32 *data32 = new uint32[width * height];
         {
             uint32 *dst = data32;
             uint16 *src = (uint16*)data;
+            uint16 *end = src + width * height;
 
-            for (int j = 0; j < dh; j++)
-                for (int i = 0; i < dw; i++) {
-                    if (i < width && j < height) {
-                        uint16 c = *src++;
-                        *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
-                    } else 
-                        *dst++ = 0xFF000000;
-                }
-
-            delete[] data;
+            while (src < end) {
+                uint16 c = *src++;
+                *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
+            }
         }
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
-        tex->origWidth  = width;
-        tex->origHeight = height;
+        
+        delete[] data;
 
-        delete[] data32;
-
-        return tex;
+        return (uint8*)data32;
     }
 
-    static Texture* LoadBIN(Stream &stream) {
-        int height = 224;
-        int width  = stream.size / height / 2;
-        int dw = Core::support.texNPOT ? width  : nextPow2(width);
-        int dh = Core::support.texNPOT ? height : nextPow2(height);
+    static uint8* LoadBIN(Stream &stream, uint32 &width, uint32 &height) {
+        height = 224;
+        width  = stream.size / height / 2;
 
         uint8 *data = new uint8[stream.size];
         stream.raw(data, stream.size);
 
-        uint32 *data32 = new uint32[dw * dh];
+        uint32 *data32 = new uint32[width * height];
         uint32 *dst = data32;
         uint16 *src = (uint16*)data;
+        uint16 *end = src + width * height;
 
-        for (int j = 0; j < dh; j++)
-            for (int i = 0; i < dw; i++) {
-                if (i < width && j < height) {
-                    uint16 c = swap16(*src++);
-                    *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
-                } else 
-                    *dst++ = 0xFF000000;
-            }
+        while (src < end) {
+            uint16 c = swap16(*src++);
+            *dst++ = ((c & 0x001F) << 3) | ((c & 0x03E0) << 6) | (((c & 0x7C00) << 9)) | 0xFF000000;
+        }
 
         delete[] data;
 
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data32);
-        tex->origWidth  = width;
-        tex->origHeight = height;
-
-        delete[] data32;
-
-        return tex;
+        return (uint8*)data32;
     }
 
-    static Texture* Load(Stream &stream) {
+    static uint8* LoadDATA(Stream &stream, uint32 &width, uint32 &height) {
         uint32 magic;
         stream.read(magic);
         stream.seek(-4);
 
         #ifdef USE_INFLATE
             if (magic == 0x474E5089)
-                return LoadPNG(stream);
+                return LoadPNG(stream, width, height);
         #endif
 
         if (stream.name && strstr(stream.name, ".RAW"))
-            return LoadRNC(stream);
+            return LoadRNC(stream, width, height);
 
         if (stream.name && strstr(stream.name, ".BIN"))
-            return LoadBIN(stream);
+            return LoadBIN(stream, width, height);
 
         if ((magic & 0xFFFF) == 0x4D42)
-            return LoadBMP(stream);
-        return LoadPCX(stream);
+            return LoadBMP(stream, width, height);
+
+        return LoadPCX(stream, width, height);
+    }
+
+
+    static Texture* Load(Stream &stream, bool border = true) {
+        uint32 width, height;
+        uint8 *data = LoadDATA(stream, width, height);
+
+    // convert to POT size if NPOT isn't supported
+        uint32 dw = Core::support.texNPOT ? width  : nextPow2(width);
+        uint32 dh = Core::support.texNPOT ? height : nextPow2(height);
+        if (dw != width || dh != height) {
+            uint32 *dataPOT = new uint32[dw * dh];
+            uint32 *dst = (uint32*)dataPOT;
+            uint32 *src = (uint32*)data;
+
+            for (uint32 j = 0; j < dh; j++)
+                for (uint32 i = 0; i < dw; i++)
+                    *dst++ = (i < width && j < height) ? *src++ : 0xFF000000;
+
+            delete[] data;
+            data = (uint8*)dataPOT;
+        }
+
+        if (border) {
+            for (uint32 y = 0; y < height; y++)
+                ((uint32*)data)[y * dw] = ((uint32*)data)[y * dw + dw - 1] = 0xFF000000;
+        }
+
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data);
+        tex->origWidth  = width;
+        tex->origHeight = height;
+
+        delete[] data;
+
+        return tex;
     }
 };
 

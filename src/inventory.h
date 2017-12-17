@@ -752,7 +752,7 @@ struct Inventory {
     }
 
     void prepareBackground() {
-        if (background[0]->origWidth != INVENTORY_BG_SIZE || background[0]->origHeight != INVENTORY_BG_SIZE) {
+        if (background[0] && (background[0]->origWidth != INVENTORY_BG_SIZE || background[0]->origHeight != INVENTORY_BG_SIZE)) {
             delete background[0];
             background[0] = NULL;
         }
