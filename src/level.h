@@ -1250,7 +1250,7 @@ struct Level : IGame {
             }
         }
 
-        if (Input::state[cInventory] && !level.isTitle()) {
+        if (Input::state[cInventory] && !level.isTitle() && inventory.titleTimer < 1.0f) {
             if (lara->health <= 0.0f)
                 inventory.toggle(Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
             else
@@ -1936,7 +1936,7 @@ struct Level : IGame {
         }
 
         if (copyBg) {
-            Core::defaultTarget = inventory.background[0];
+            Core::defaultTarget = inventory.getBackgroundTarget();
             bool stereo = Core::settings.detail.stereo;
             Core::settings.detail.stereo = false;
             renderGame();

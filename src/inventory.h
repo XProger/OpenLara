@@ -368,6 +368,8 @@ struct Inventory {
     }
 
     bool toggle(Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+        titleTimer = 0.0f;
+
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
@@ -751,7 +753,7 @@ struct Inventory {
         return false;
     }
 
-    void prepareBackground() {
+    Texture* getBackgroundTarget() {
         if (background[0] && (background[0]->origWidth != INVENTORY_BG_SIZE || background[0]->origHeight != INVENTORY_BG_SIZE)) {
             delete background[0];
             background[0] = NULL;
@@ -761,6 +763,10 @@ struct Inventory {
             if (!background[i])
                 background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
 
+        return background[0];
+    }
+
+    void prepareBackground() {
         Core::setDepthTest(false);
         Core::setBlending(bmNone);
 
