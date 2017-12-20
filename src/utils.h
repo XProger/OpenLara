@@ -1018,11 +1018,11 @@ struct Stream {
     char        *name;
     int         size, pos;
 
-    enum Endian { LITTLE_ENDIAN, BIG_ENDIAN } endian;
+    enum Endian { eLittle, eBig } endian;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(LITTLE_ENDIAN) {}
+    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {}
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(LITTLE_ENDIAN) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
@@ -1112,7 +1112,7 @@ struct Stream {
     inline T& read(T &x) {
         raw(&x, sizeof(x));
     /*
-        if (endian == BIG_ENDIAN) {
+        if (endian == eBig) {
             if (sizeof(T) == 2) x = T(swap16(x));
             if (sizeof(T) == 4) x = T(swap32(x));
         }
