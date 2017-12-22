@@ -1774,7 +1774,7 @@ struct Lara : Character {
 
     void checkTrigger(Controller *controller, bool heavy) {
         TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), controller->pos, info);
+        getFloorInfo(controller->getRoomIndex(), controller->pos, info);
 
         if (getEntity().isLara() && info.lava && info.floor == pos.y) {
             hit(LARA_MAX_HEALTH + 1, NULL, TR::HIT_LAVA);
@@ -1857,10 +1857,13 @@ struct Lara : Character {
 
                 break;
             }
-            case TR::Level::Trigger::PICKUP :
-                if (!level->entities[info.trigCmd[cmdIndex++].args].flags.invisible)
+
+            case TR::Level::Trigger::PICKUP : {
+                Controller *controller = (Controller*)level->entities[info.trigCmd[cmdIndex++].args].controller;
+                if (!controller->flags.invisible)
                     return;
                 break;
+            }
 
             case TR::Level::Trigger::COMBAT :
                 if (emptyHands())
