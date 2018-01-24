@@ -30,10 +30,31 @@
 #endif
 
 #ifdef ANDROID
-        #include <android/log.h>
-        #undef LOG
-        #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
+    #include <android/log.h>
+    #undef LOG
+    #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
+
+#ifdef _PSP
+    extern "C" {
+    // pspmath.h
+        extern float vfpu_sinf(float x);
+        extern float vfpu_cosf(float x);
+        extern float vfpu_atan2f(float x, float y);
+        extern void  vfpu_sincos(float r, float *s, float *c);
+    }
+
+    #define sinf(x)         vfpu_sinf(x)
+    #define cosf(x)         vfpu_cosf(x)
+    #define atan2f(x, y)    vfpu_atan2f(x, y)
+    #define sincos(a, s, c) vfpu_sincos(a, s, c)
+#else
+    void sincos(float r, float *s, float *c) {
+        *s = sinf(r);
+        *c = cosf(r);
+    }
+#endif
+
 
 extern int osGetTime();
 extern bool osSave(const char *name, const void *data, int size);
@@ -167,6 +188,30 @@ uint32 fnv32(const char *data, int32 size, uint32 hash = 0x811c9dc5) {
     return hash;
 }
 
+template <class T>
+void qsort(T* v, int L, int R) {
+    int i = L;
+    int j = R;
+    const T m = v[(L + R) / 2];
+
+    while (i <= j) {
+        while (T::cmp(v[i], m) < 0) i++;
+        while (T::cmp(m, v[j]) < 0) j--;
+
+        if (i <= j)
+            swap(v[i++], v[j--]);
+    }
+
+    if (L < j) qsort(v, L, j);
+    if (i < R) qsort(v, i, R);
+}
+
+template <class T>
+void sort(T *items, int count) {
+    if (count)
+        qsort(items, 0, count - 1);
+}
+
 struct vec2 {
     float x, y;
     vec2() {}
@@ -210,20 +255,20 @@ struct vec2 {
     vec2  normal()  const { float s = length(); return s == 0.0 ? (*this) : (*this)*(1.0f/s); }
     float angle()   const { return atan2f(y, x); }
     vec2& rotate(const vec2 &cs) { *this = vec2(x*cs.x - y*cs.y, x*cs.y + y*cs.x); return *this; }
-    vec2& rotate(float angle)    { return rotate(vec2(cosf(angle), sinf(angle))); }
+    vec2& rotate(float angle)    { vec2 cs; sincos(angle, &cs.y, &cs.x); return rotate(cs); }
 };
 
 struct vec3 {
-    union {
-        struct { float x, y, z; };
-        struct { vec2 xy; };
-    };
+    float x, y, z;
 
     vec3() {}
     vec3(float s) : x(s), y(s), z(s) {}
     vec3(float x, float y, float z) : x(x), y(y), z(z) {}
     vec3(const vec2 &xy, float z = 0.0f) : x(xy.x), y(xy.y), z(z) {}
     vec3(float lng, float lat) : x(sinf(lat) * cosf(lng)), y(-sinf(lng)), z(cosf(lat) * cosf(lng)) {}
+
+    vec2& xy() const { return *((vec2*)&x); }
+    vec2& yz() const { return *((vec2*)&y); }
 
     inline float& operator [] (int index) const { ASSERT(index >= 0 && index <= 2); return ((float*)this)[index]; }
 
@@ -273,7 +318,8 @@ struct vec3 {
     }
 
     vec3 rotateY(float angle) const {
-        float s = sinf(angle), c = cosf(angle); 
+        float s, c;
+        sincos(angle, &s, &c);
         return vec3(x*c - z*s, y, x*s + z*c);
     }
 
@@ -285,11 +331,9 @@ struct vec3 {
 };
 
 struct vec4 {
-    union {
-        struct { float x, y, z, w; };
-        struct { vec2 xy, zw; };
-        struct { vec3 xyz; };
-    };
+    float x, y, z, w;
+
+    vec3& xyz() const { return *((vec3*)&x); }
 
     vec4() {}
     vec4(float s) : x(s), y(s), z(s), w(s) {}
@@ -314,21 +358,20 @@ struct vec4 {
 };
 
 struct quat {
-    union {
-        struct { float x, y, z, w; };
-        struct { vec3  xyz; };
-    };
+    float x, y, z, w;
+
+    vec3& xyz() const { return *((vec3*)&x); }
 
     quat() {}
     quat(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 
     quat(const vec3 &axis, float angle) {
-        angle *= 0.5f;
-        float s = sinf(angle);
+        float s, c;
+        sincos(angle * 0.5f, &s, &c);
         x = axis.x * s;
         y = axis.y * s;
         z = axis.z * s;
-        w = cosf(angle);
+        w = c;
     }
 
     quat operator - () const {
@@ -355,8 +398,8 @@ struct quat {
     }
 
     vec3 operator * (const vec3 &v) const {
-    //	return v + xyz.cross(xyz.cross(v) + v * w) * 2.0f;
-	    return (*this * quat(v.x, v.y, v.z, 0) * inverse()).xyz;
+        //return v + xyz.cross(xyz.cross(v) + v * w) * 2.0f;
+        return (*this * quat(v.x, v.y, v.z, 0) * inverse()).xyz();
     }
 
     float dot(const quat &q) const {
@@ -424,16 +467,15 @@ struct quat {
 };
 
 struct mat4 {
+    float e00, e10, e20, e30,
+          e01, e11, e21, e31,
+          e02, e12, e22, e32,
+          e03, e13, e23, e33;
 
-    union {
-        struct {
-            float e00, e10, e20, e30,
-                  e01, e11, e21, e31,
-                  e02, e12, e22, e32,
-                  e03, e13, e23, e33;
-        };
-        struct { vec4 right, up, dir, offset; };
-    };
+    vec4& right()  const { return *((vec4*)&e00); }
+    vec4& up()     const { return *((vec4*)&e01); }
+    vec4& dir()    const { return *((vec4*)&e02); }
+    vec4& offset() const { return *((vec4*)&e03); }
 
     mat4() {}
 
@@ -485,10 +527,10 @@ struct mat4 {
         r = up.cross(d).normal();
         u = d.cross(r);
 
-        this->right     = vec4(r, 0.0f);
-        this->up        = vec4(u, 0.0f);
-        this->dir       = vec4(d, 0.0f);
-        this->offset    = vec4(from, 1.0f);
+        this->right()   = vec4(r, 0.0f);
+        this->up()      = vec4(u, 0.0f);
+        this->dir()     = vec4(d, 0.0f);
+        this->offset()  = vec4(from, 1.0f);
     }
 
     mat4(const vec4 &reflectPlane) {
@@ -497,10 +539,10 @@ struct mat4 {
               c = reflectPlane.z, 
               d = reflectPlane.w;
 
-        right  = vec4(1 - 2*a*a,   - 2*b*a,   - 2*c*a, 0);
-        up     = vec4(  - 2*a*b, 1 - 2*b*b,   - 2*c*b, 0);
-        dir    = vec4(  - 2*a*c,   - 2*b*c, 1 - 2*c*c, 0);
-        offset = vec4(  - 2*a*d,   - 2*b*d,   - 2*c*d, 1);
+        right()  = vec4(1 - 2*a*a,   - 2*b*a,   - 2*c*a, 0);
+        up()     = vec4(  - 2*a*b, 1 - 2*b*b,   - 2*c*b, 0);
+        dir()    = vec4(  - 2*a*c,   - 2*b*c, 1 - 2*c*c, 0);
+        offset() = vec4(  - 2*a*d,   - 2*b*d,   - 2*c*d, 1);
     }
 
 
@@ -564,7 +606,8 @@ struct mat4 {
     void rotateX(float angle) {
         mat4 m;
         m.identity();
-        float s = sinf(angle), c = cosf(angle);
+        float s, c;
+        sincos(angle, &s, &c);
         m.e11 = c;  m.e21 = s;
         m.e12 = -s; m.e22 = c;
         *this = *this * m;
@@ -573,7 +616,8 @@ struct mat4 {
     void rotateY(float angle) {
         mat4 m;
         m.identity();
-        float s = sinf(angle), c = cosf(angle);
+        float s, c;
+        sincos(angle, &s, &c);
         m.e00 = c;  m.e20 = -s;
         m.e02 = s;  m.e22 = c;
         *this = *this * m;
@@ -582,10 +626,89 @@ struct mat4 {
     void rotateZ(float angle) {
         mat4 m;
         m.identity();
-        float s = sinf(angle), c = cosf(angle);
+        float s, c;
+        sincos(angle, &s, &c);
         m.e00 = c;  m.e01 = -s;
         m.e10 = s;  m.e11 = c;
         *this = *this * m;
+    }
+
+    void rotateYXZ(const vec3 &angle) {
+        float s, c, a, b;
+
+        if (angle.y != 0.0f) {
+            sincos(angle.y, &s, &c);
+
+            a = e00 * c - e02 * s;
+            b = e02 * c + e00 * s;
+            e00 = a;
+            e02 = b;
+
+            a = e10 * c - e12 * s;
+            b = e12 * c + e10 * s;
+            e10 = a;
+            e12 = b;
+
+            a = e20 * c - e22 * s;
+            b = e22 * c + e20 * s;
+            e20 = a;
+            e22 = b;
+        }
+
+        if (angle.x != 0.0f) {
+            sincos(angle.x, &s, &c);
+
+            a = e01 * c + e02 * s;
+            b = e02 * c - e01 * s;
+            e01 = a;
+            e02 = b;
+
+            a = e11 * c + e12 * s;
+            b = e12 * c - e11 * s;
+            e11 = a;
+            e12 = b;
+
+            a = e21 * c + e22 * s;
+            b = e22 * c - e21 * s;
+            e21 = a;
+            e22 = b;
+        }
+
+        if (angle.z != 0.0f) {
+            sincos(angle.z, &s, &c);
+
+            a = e00 * c + e01 * s;
+            b = e01 * c - e00 * s;
+            e00 = a;
+            e01 = b;
+
+            a = e10 * c + e11 * s;
+            b = e11 * c - e10 * s;
+            e10 = a;
+            e11 = b;
+
+            a = e20 * c + e21 * s;
+            b = e21 * c - e20 * s;
+            e20 = a;
+            e21 = b;
+        }
+    }
+
+    void lerp(const mat4 &m, float t) {
+        e00 += (m.e00 - e00) * t;
+        e01 += (m.e01 - e01) * t;
+        e02 += (m.e02 - e02) * t;
+        e03 += (m.e03 - e03) * t;
+
+        e10 += (m.e10 - e10) * t;
+        e11 += (m.e11 - e11) * t;
+        e12 += (m.e12 - e12) * t;
+        e13 += (m.e13 - e13) * t;
+
+        e20 += (m.e20 - e20) * t;
+        e21 += (m.e21 - e21) * t;
+        e22 += (m.e22 - e22) * t;
+        e23 += (m.e23 - e23) * t;
     }
 
     float det() const {
@@ -675,11 +798,11 @@ struct mat4 {
     }
 
     vec3 getPos() const {
-        return offset.xyz;
+        return offset().xyz();
     }
 
     void setPos(const vec3 &pos) {
-        offset.xyz = pos;
+        offset().xyz() = pos;
     }
 };
 
@@ -733,10 +856,16 @@ struct ubyte2 {
 
 struct ubyte4 {
     uint8 x, y, z, w;
+
+    ubyte4() {}
+    ubyte4(uint8 x, uint8 y, uint8 z, uint8 w) : x(x), y(y), z(z), w(w) {}
 };
 
 struct short2 {
     int16 x, y;
+
+    short2() {}
+    short2(int16 x, int16 y) : x(x), y(y) {}
 };
 
 struct short3 {
@@ -766,17 +895,16 @@ struct short4 {
     inline int16& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((int16*)this)[index]; }
 };
 
-quat rotYXZ(const vec3 &a) {
+quat rotYXZ(const vec3 &angle) {
     mat4 m;
     m.identity();
-    m.rotateY(a.y);
-    m.rotateX(a.x);
-    m.rotateZ(a.z);
+    m.rotateYXZ(angle);
     return m.getRot();
 }
 
 quat lerpAngle(const vec3 &a, const vec3 &b, float t) { // TODO: optimization
-    return rotYXZ(a).slerp(rotYXZ(b), t).normal();
+
+    return rotYXZ(a).lerp(rotYXZ(b), t);//.normal();
 }
 
 vec3 boxNormal(int x, int z) {
@@ -890,7 +1018,7 @@ struct Box {
         Box res(vec3(+INF), vec3(-INF));
         for (int i = 0; i < 8; i++) {
             vec4 v = m * vec4((*this)[i], 1.0f);            
-            res += v.xyz /= v.w;
+            res += v.xyz() /= v.w;
         }
         return res;
     }
@@ -1000,7 +1128,7 @@ struct Box {
 
     bool intersect(const mat4 &matrix, const vec3 &rayPos, const vec3 &rayDir, float &t) const {
         mat4 mInv = matrix.inverse();
-        return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz, t);
+        return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz(), t);
     }
 };
 

@@ -9,14 +9,14 @@ namespace Input {
     bool down[ikMAX];
     bool state[cMAX];
 
-    struct {
+    struct Mouse {
         vec2 pos;
         struct {
             vec2 L, R, M;
         } start;
     } mouse;
 
-    struct {
+    struct Joystick {
         vec2  L, R;
         float LT, RT;
         int   POV;
@@ -28,7 +28,7 @@ namespace Input {
         vec2 pos;
     } touch[6];
 
-    struct {
+    struct HMD {
         Basis pivot;
         Basis basis;
         bool  ready;

@@ -851,6 +851,8 @@
 
 namespace TR {
 
+    struct Level;
+
     enum {
         NO_FLOOR = -127,
         NO_ROOM  = 0xFF,
@@ -868,36 +870,38 @@ namespace TR {
         ANIM_CMD_EFFECT     ,
     };
 
-    enum Effect : int32 {
-        NONE           = -1,
-        ROTATE_180     ,
-        FLOOR_SHAKE    ,
-        LARA_NORMAL    ,
-        LARA_BUBBLES   ,
-        FINISH_LEVEL   ,
-        EARTHQUAKE     ,
-        FLOOD          ,
-        UNK1           ,
-        STAIRS2SLOPE   ,
-        UNK3           ,
-        UNK4           ,
-        EXPLOSION      ,
-        LARA_HANDSFREE ,
-        FLIP_MAP       ,
-        DRAW_RIGHTGUN  ,
-        DRAW_LEFTGUN   ,
-        SHOT_RIGHTGUN  ,
-        SHOT_LEFTGUN   ,
-        FLICKER        = 16,
-        UNKNOWN        ,
-        MESH_SWAP_1    ,
-        MESH_SWAP_2    ,
-        MESH_SWAP_3    ,
-        INV_ON         ,
-        INV_OFF        ,
-        DYN_ON         ,
-        DYN_OFF        ,
-        FOOTPRINT      = 32,
+    struct Effect {
+        enum Type {
+            NONE           = -1,
+            ROTATE_180     ,
+            FLOOR_SHAKE    ,
+            LARA_NORMAL    ,
+            LARA_BUBBLES   ,
+            FINISH_LEVEL   ,
+            EARTHQUAKE     ,
+            FLOOD          ,
+            UNK1           ,
+            STAIRS2SLOPE   ,
+            UNK3           ,
+            UNK4           ,
+            EXPLOSION      ,
+            LARA_HANDSFREE ,
+            FLIP_MAP       ,
+            DRAW_RIGHTGUN  ,
+            DRAW_LEFTGUN   ,
+            SHOT_RIGHTGUN  ,
+            SHOT_LEFTGUN   ,
+            FLICKER        = 16,
+            UNKNOWN        ,
+            MESH_SWAP_1    ,
+            MESH_SWAP_2    ,
+            MESH_SWAP_3    ,
+            INV_ON         ,
+            INV_OFF        ,
+            DYN_ON         ,
+            DYN_OFF        ,
+            FOOTPRINT      = 32,
+        };
     };
 
     enum {
@@ -989,18 +993,20 @@ namespace TR {
         HIT_MIDAS,
     };
 
-    enum Action : uint16 {
-        ACTIVATE        ,   // activate item
-        CAMERA_SWITCH   ,   // switch to camera
-        FLOW            ,   // underwater flow
-        FLIP            ,   // flip map
-        FLIP_ON         ,   // flip on
-        FLIP_OFF        ,   // flip off
-        CAMERA_TARGET   ,   // look at item
-        END             ,   // end level
-        SOUNDTRACK      ,   // play soundtrack
-        EFFECT          ,   // special effect trigger
-        SECRET          ,   // secret found
+    struct Action {
+        enum Type {
+            ACTIVATE        ,   // activate item
+            CAMERA_SWITCH   ,   // switch to camera
+            FLOW            ,   // underwater flow
+            FLIP            ,   // flip map
+            FLIP_ON         ,   // flip on
+            FLIP_OFF        ,   // flip off
+            CAMERA_TARGET   ,   // look at item
+            END             ,   // end level
+            SOUNDTRACK      ,   // play soundtrack
+            EFFECT          ,   // special effect trigger
+            SECRET          ,   // secret found
+        };
     };
 
     namespace Limits {
@@ -1013,43 +1019,43 @@ namespace TR {
         };
 
         Limit SWITCH = {
-            0, 376, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, false
+            0, 376, 30,     ::Box(vec3(-200, 0, 312), vec3(200, 0, 512)), true, false
         };
 
         Limit SWITCH_UNDERWATER = {
-            0, 100, 80,     {{-1024, -1024, -1024}, {1024, 1024, 512}}, true, true
+            0, 100, 80,     ::Box(vec3(-1024, -1024, -1024), vec3(1024, 1024, 512)), true, true
         };
 
         Limit PICKUP = {
-            0, -100, 180,   {{-256, -100, -256}, {256, 100, 100}}, false, true
+            0, -100, 180,   ::Box(vec3(-256, -100, -256), vec3(256, 100, 100)), false, true
         };
 
         Limit PICKUP_UNDERWATER = {
-            -200, -350, 45, {{-512, -512, -512}, {512, 512, 512}}, false, true
+            -200, -350, 45, ::Box(vec3(-512, -512, -512), vec3(512, 512, 512)), false, true
         };
 
         Limit KEY_HOLE = { 
-            0, 362, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
+            0, 362, 30,     ::Box(vec3(-200, 0, 312), vec3(200, 0, 512)), true, true
         };
 
         Limit PUZZLE_HOLE = { 
-            0, 327, 30,     {{-200, 0, 312}, {200, 0, 512}}, true, true
+            0, 327, 30,     ::Box(vec3(-200, 0, 312), vec3(200, 0, 512)), true, true
         };
 
         Limit BLOCK = { 
-            0, -612, 30,    {{-300, 0, -692}, {300, 0, -512}}, true, false
+            0, -612, 30,    ::Box(vec3(-300, 0, -692), vec3(300, 0, -512)), true, false
         };
 
         Limit MIDAS = { 
-            512, -612, 30,  {{-700, 284, -700}, {700, 996, 700}}, true, false
+            512, -612, 30,  ::Box(vec3(-700, 284, -700), vec3(700, 996, 700)), true, false
         };
 
         Limit SCION = { 
-            640, -202, 30,  {{-256, 540, -350}, {256, 740, -200}}, false, false
+            640, -202, 30,  ::Box(vec3(-256, 540, -350), vec3(256, 740, -200)), false, false
         };
 
         Limit SCION_HOLDER = { 
-            640, -202, 10,  {{-256, 206, -862}, {256, 306, -200}}, true, false
+            640, -202, 10,  ::Box(vec3(-256, 206, -862), vec3(256, 306, -200)), true, false
         };
     }
 
@@ -1102,26 +1108,80 @@ namespace TR {
         operator short3() const { return *((short3*)this); }
     };
 
-    struct Rectangle {
+    struct Tile {
+        uint16 index:14, undefined:1, triangle:1;
+    };
+
+    struct ObjectTexture {
+        uint16  clut;
+        Tile    tile;                        // tile or palette index
+        uint16  attribute:15, repeat:1;      // 0 - opaque, 1 - transparent, 2 - blend additive, 
+        short2  texCoord[4];
+
+        short4 getMinMax() const {
+            return short4(
+                min(min(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                min(min(texCoord[0].y, texCoord[1].y), texCoord[2].y),
+                max(max(texCoord[0].x, texCoord[1].x), texCoord[2].x),
+                max(max(texCoord[0].y, texCoord[1].y), texCoord[2].y)
+            );
+        }
+    };
+
+    struct SpriteTexture {
+        uint16  clut;
+        uint16  tile;
+        int16   l, t, r, b;
+        short2  texCoord[2];
+
+        short4 getMinMax() const {
+            return short4( texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y );
+        }
+    };
+
+    // used for access from ::cmp func
+    static SpriteTexture *gSpriteTextures = NULL;
+    static ObjectTexture *gObjectTextures = NULL;
+
+    struct Face {
+        union {
+            struct { uint16 texture:15, doubleSided:1; };
+            uint16 value;
+        } flags;
+        uint8  colored; // !!! not existing in file
+        uint8  vCount;  // !!! not existing in file
         uint16 vertices[4];
-        union {
-            struct { uint16 texture:15, doubleSided:1; };
-            uint16 value;
-        } flags;
-        uint16 colored; // !!! not existing in file
+
+        static int cmp(const Face &a, const Face &b) {
+            int aIndex = a.flags.texture;
+            int bIndex = b.flags.texture;
+
+            ObjectTexture &ta = gObjectTextures[aIndex];
+            ObjectTexture &tb = gObjectTextures[bIndex];
+
+            if (ta.tile.index < tb.tile.index)
+                return -1;
+            if (ta.tile.index > tb.tile.index)
+                return  1;
+
+            #ifdef SPLIT_BY_CLUT
+                if (ta.clut < tb.clut)
+                    return -1;
+                if (ta.clut > tb.clut)
+                    return  1;
+            #endif
+
+            if (aIndex < bIndex)
+                return -1;
+            if (aIndex > bIndex)
+                return  1;
+
+            return 0;
+        }
     };
 
-    struct Triangle {
-        uint16 vertices[3];
-        union {
-            struct { uint16 texture:15, doubleSided:1; };
-            uint16 value;
-        } flags;
-        uint32 colored; // !!! not existing in file
-    };
-
-    #define FACE4_SIZE (sizeof(Rectangle) - sizeof(uint16))
-    #define FACE3_SIZE (sizeof(Triangle)  - sizeof(uint32))
+    #define FACE4_SIZE (sizeof(Face) - sizeof(uint8) - sizeof(uint8))
+    #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
     struct Tile4 {
         struct {
@@ -1156,9 +1216,12 @@ namespace TR {
             uint32      size;       // Number of data words (uint16_t's)
 
             int16       vCount;
-            int16       rCount;
             int16       tCount;
+            int16       rCount;
+            int16       fCount;
             int16       sCount;
+
+            Face        *faces;
 
             struct Vertex {
                 TR::Vertex  vertex;
@@ -1167,12 +1230,34 @@ namespace TR {
                 Color32     color;
             } *vertices;
 
-            Rectangle   *rectangles;
-            Triangle    *triangles;
-
             struct Sprite {
                 int16       vertex;
                 int16       texture;
+
+                static int cmp(const Sprite &a, const Sprite &b) {
+                    SpriteTexture &ta = gSpriteTextures[a.texture];
+                    SpriteTexture &tb = gSpriteTextures[b.texture];
+
+                    if (ta.tile < tb.tile)
+                        return -1;
+                    if (ta.tile > tb.tile)
+                        return  1;
+
+                    #ifdef SPLIT_BY_CLUT
+                        if (ta.clut < tb.clut)
+                            return -1;
+                        if (ta.clut > tb.clut)
+                            return  1;
+                    #endif
+
+                    if (a.texture < b.texture)
+                        return -1;
+                    if (a.texture > b.texture)
+                        return  1;
+
+                    return 0;
+                }
+
             } *sprites;
         } data;
 
@@ -1185,8 +1270,11 @@ namespace TR {
         uint16  lightsCount;
         uint16  meshesCount;
         int16   alternateRoom;
-        struct {
-            uint16 water:1, :2, sky:1, :1, wind:1, unused:9, visible:1;
+        union {
+            struct {
+                uint16 water:1, :2, sky:1, :1, wind:1, unused:9, visible:1;
+            };
+            uint16 value;
         } flags;
         uint8   waterScheme;
         uint8   reverbType;
@@ -1293,9 +1381,7 @@ namespace TR {
         union TriggerCommand {
             uint16 value;
             struct {
-                uint16 args:10;
-                Action action:5;
-                uint16 end:1;
+                uint16 args:10, action:5, end:1;
             };
             struct {
                 uint16 timer:8, once:1, speed:5, :2;
@@ -1342,25 +1428,24 @@ namespace TR {
             uint16 value;
         }           flags;
         int16       vCount;
-        int16       rCount;
         int16       tCount;
+        int16       rCount;
+        int16       fCount;
 
         int32       offset;
         Vertex      *vertices;
-        Rectangle   *rectangles;
-        Triangle    *triangles;
+        Face        *faces;
 
-        Mesh() : vertices(0), rectangles(0), triangles(0) {}
+        Mesh() : vertices(0), faces(0) {}
         ~Mesh() {
             delete[] vertices;
-            delete[] rectangles;
-            delete[] triangles;
+            delete[] faces;
         }
     };
 
     struct Entity {
-        enum ActiveState : uint16 { asNone, asActive, asInactive };
-        enum Type : uint16 { TR_TYPES(DECL_ENUM) };
+        enum ActiveState { asNone, asActive, asInactive };
+        enum Type        { TR_TYPES(DECL_ENUM) TYPE_MAX = 0xFFFF };
 
         Type    type;
         int16   room;
@@ -1369,7 +1454,9 @@ namespace TR {
         int16   intensity;
         int16   intensity2;
         union Flags {
-            struct { ActiveState state:2; uint16 unused:4, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1; };
+            struct { 
+                uint16 state:2, unused:4, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1;
+            };
             uint16 value;
         } flags;
     // not exists in file
@@ -1928,19 +2015,19 @@ namespace TR {
     };
 
     struct Model {
-        Entity::Type    type;
-        uint16          unused;
-        uint16          mCount;    
-        uint16          mStart;    
-        uint32          node;      
-        uint32          frame;     
-        uint16          animation; 
-        uint16          align;     
+        Entity::Type type;
+        uint16       unused;
+        uint16       mCount;
+        uint16       mStart;
+        uint32       node;
+        uint32       frame;
+        uint16       animation;
+        uint16       align;
     };
 
     struct StaticMesh {
-        uint32  id;    
-        uint16  mesh;  
+        uint32  id;
+        uint16  mesh;
         MinMax  vbox;
         MinMax  cbox;
         uint16  flags;
@@ -1959,42 +2046,11 @@ namespace TR {
         }
     };
 
-    struct Tile {
-        uint16 index:14, undefined:1, triangle:1;
-    };
-
-    struct ObjectTexture {
-        uint16  clut;
-        Tile    tile;                        // tile or palette index
-        uint16  attribute:15, repeat:1;      // 0 - opaque, 1 - transparent, 2 - blend additive, 
-        short2  texCoord[4];
-
-        short4 getMinMax() const {
-            return {
-                min(min(texCoord[0].x, texCoord[1].x), texCoord[2].x),
-                min(min(texCoord[0].y, texCoord[1].y), texCoord[2].y),
-                max(max(texCoord[0].x, texCoord[1].x), texCoord[2].x),
-                max(max(texCoord[0].y, texCoord[1].y), texCoord[2].y),
-            };
-        }
-    };
-
-    struct SpriteTexture {
-        uint16  clut;
-        uint16  tile;
-        int16   l, t, r, b;
-        short2  texCoord[2];
-
-        short4 getMinMax() const {
-            return { texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y };
-        }
-    };
-
     struct SpriteSequence {
-        Entity::Type    type;
-        uint16          unused;
-        int16           sCount;
-        int16           sStart;
+        Entity::Type type;
+        uint16       unused;
+        int16        sCount;
+        int16        sStart;
     };
 
     struct Camera {
@@ -2023,9 +2079,15 @@ namespace TR {
     };
 
     struct Box {
-        uint32  minZ, maxZ; // Horizontal dimensions in global units
-        uint32  minX, maxX;
-        int16   floor;      // Height value in global units
+        union {
+            struct {
+                uint32 minZ, maxZ; // Horizontal dimensions in global units
+                uint32 minX, maxX;
+            };
+            int32 sides[4];
+        };
+
+        int16   floor; // Height value in global units
         union {
             struct {
                 uint16 index:14, block:1, blockable:1;    // Index into Overlaps[].
@@ -2033,8 +2095,22 @@ namespace TR {
             uint16 value;
         } overlap;
 
-        bool contains(uint32 x, uint32 z) {
-            return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+        bool contains(uint32 x, uint32 z) const {
+            return z >= minZ && z <= maxZ && x >= minX && x <= maxX;
+        }
+
+        void expand(uint32 value) {
+            minZ -= value;
+            minX -= value;
+            maxZ += value;
+            maxX += value;
+        }
+
+        void clip(const Box &box) {
+            minZ = max(minZ, box.minZ);
+            minX = max(minX, box.minX);
+            maxZ = min(maxZ, box.maxZ);
+            maxX = min(maxX, box.maxX);
         }
     };
 
@@ -2220,9 +2296,13 @@ namespace TR {
         int32           paletteSize;
         Color24         *palette;
         Color32         *palette32;
+
         int32           clutsCount;
         CLUT            *cluts;
+
         Tile4           *tiles4;
+        Tile8           *tiles8;
+        Tile16          *tiles16;
 
         uint16          cameraFramesCount;
         CameraFrame     *cameraFrames;
@@ -2246,16 +2326,18 @@ namespace TR {
         SaveGame::CurrentState  state;
 
    // common
-        enum Trigger : uint32 {
-            ACTIVATE    ,
-            PAD         ,
-            SWITCH      ,
-            KEY         ,
-            PICKUP      ,
-            HEAVY       ,
-            ANTIPAD     ,
-            COMBAT      ,
-            DUMMY       ,
+        struct Trigger {
+            enum Type {
+                ACTIVATE    ,
+                PAD         ,
+                SWITCH      ,
+                KEY         ,
+                PICKUP      ,
+                HEAVY       ,
+                ANTIPAD     ,
+                COMBAT      ,
+                DUMMY       ,
+            };
         };
     
         struct FloorInfo {
@@ -2269,7 +2351,7 @@ namespace TR {
             int lava;
             int trigCmdCount;
             int climb;
-            Trigger trigger;
+            Trigger::Type trigger;
             FloorData::TriggerInfo trigInfo;
             FloorData::TriggerCommand trigCmd[MAX_TRIGGER_COMMANDS];
 
@@ -2334,9 +2416,10 @@ namespace TR {
             int startPos = stream.pos;
             memset(this, 0, sizeof(*this));
             cutEntity = -1;
-            Tile8 *tiles8 = NULL;
-            Tile16 *tiles16 = NULL;
 
+            tiles4    = NULL;
+            tiles8    = NULL;
+            tiles16   = NULL;
             palette   = NULL;
             palette32 = NULL;
 
@@ -2431,8 +2514,8 @@ namespace TR {
             if (version == VER_TR1_PSX) {
             // tiles
                 stream.read(tiles4, tilesCount = 13);
-                stream.read(cluts,  clutsCount = 512);                
-                stream.seek(0x4000);
+                stream.read(cluts,  clutsCount = 1024);
+                //stream.seek(0x4000);
             }
             stream.read(unused);
 
@@ -2456,7 +2539,8 @@ namespace TR {
             models = stream.read(modelsCount) ? new Model[modelsCount] : NULL;
             for (int i = 0; i < modelsCount; i++) {
                 Model &m = models[i];
-                stream.read(m.type);
+                uint16 type;
+                m.type = Entity::Type(stream.read(type));
                 stream.read(m.unused);
                 stream.read(m.mCount);
                 stream.read(m.mStart);
@@ -2531,7 +2615,8 @@ namespace TR {
             entities = new Entity[entitiesCount];
             for (int i = 0; i < entitiesBaseCount; i++) {
                 Entity &e = entities[i];
-                stream.read(e.type);
+                uint16 type;
+                e.type = Entity::Type(stream.read(type));
                 stream.read(e.room);
                 stream.read(e.x);
                 stream.read(e.y);
@@ -2618,17 +2703,14 @@ namespace TR {
             }
 
             initRoomMeshes();
-            initTiles(tiles4, tiles8, tiles16, palette, palette32, cluts);
-
-            //delete[] tiles4;
-            //tiles4 = NULL;
-            delete[] tiles8;
-            delete[] tiles16;
 
             memset(&state, 0, sizeof(state));
 
             initExtra();
             initCutscene();
+
+            TR::gObjectTextures = objectTextures;
+            TR::gSpriteTextures = spriteTextures;
         }
 
         ~Level() {
@@ -2637,8 +2719,7 @@ namespace TR {
             for (int i = 0; i < roomsCount; i++) {
                 Room &r = rooms[i];
                 delete[] r.data.vertices;
-                delete[] r.data.rectangles;
-                delete[] r.data.triangles;
+                delete[] r.data.faces;
                 delete[] r.data.sprites;
                 delete[] r.portals;
                 delete[] r.sectors;
@@ -2676,6 +2757,8 @@ namespace TR {
             delete[] palette32;
             delete[] cluts;
             delete[] tiles4;
+            delete[] tiles8;
+            delete[] tiles16;
             delete[] cameraFrames;
             delete[] demoData;
             delete[] soundsMap;
@@ -2848,18 +2931,22 @@ namespace TR {
             return TR::isCutsceneLevel(id);
         }
 
-        void readFace(Stream &stream, Rectangle &v, bool colored = false) {
-            for (int i = 0; i < COUNT(v.vertices); i++)
-                stream.read(v.vertices[i]);
-            stream.read(v.flags.value);
-            v.colored = colored;
-        }
+        void readFace(Stream &stream, Face &f, bool colored, bool triangle) {
+            f.vCount = triangle ? 3 : 4;
 
-        void readFace(Stream &stream, Triangle &v, bool colored = false) {
-            for (int i = 0; i < COUNT(v.vertices); i++)
-                stream.read(v.vertices[i]);
-            stream.read(v.flags.value);
-            v.colored = colored;
+            for (int i = 0; i < f.vCount; i++)
+                stream.read(f.vertices[i]);
+
+            if (triangle)
+                f.vertices[3] = 0;
+
+            stream.read(f.flags.value);
+
+        #ifndef SPLIT_BY_TILE
+            f.colored = colored;
+        #else
+            f.colored = false;
+        #endif
         }
 
         void readRoom(Stream &stream, Room &r) {
@@ -2868,7 +2955,6 @@ namespace TR {
             stream.read(r.info);
         // room data
             stream.read(d.size);
-            int startOffset = stream.pos;
             if (version == VER_TR1_PSX) stream.seek(2);
             d.vertices = stream.read(d.vCount) ? new Room::Data::Vertex[d.vCount] : NULL;
             for (int i = 0; i < d.vCount; i++) {
@@ -2920,10 +3006,22 @@ namespace TR {
             if (version == VER_TR2_PSX)
                 stream.seek(2);
 
-            d.rectangles = stream.read(d.rCount) ? new Rectangle[d.rCount] : NULL;
+            int tmp = stream.pos;
+            stream.seek(stream.read(d.rCount) * FACE4_SIZE); // uint32 colored (not existing in file)
+            stream.seek(stream.read(d.tCount) * FACE3_SIZE);
+            stream.setPos(tmp);
+
+            d.fCount = d.rCount + d.tCount;
+            d.faces  = d.fCount ? new Face[d.fCount] : NULL;
+
+            int idx = 0;
+
+            stream.seek(sizeof(d.rCount));
             if (version == VER_TR2_PSX) {
-                for (int i = 0; i < d.rCount; i++)
-                    stream.raw(&d.rectangles[i].flags.value, sizeof(uint16));
+                ASSERT(false); // TODO
+                /*
+                for (int i = 0; i < d.fCount; i++)
+                    stream.read(d.rectangles[i].flags.value);
                 if ((stream.pos - startOffset) % 4) stream.seek(2);
                 for (int i = 0; i < d.rCount; i++) {
                     Rectangle &v = d.rectangles[i];
@@ -2934,18 +3032,19 @@ namespace TR {
                     v.vertices[3] >>= 2;
                     v.colored = false;
                 }
-            } else {
-                for (int i = 0; i < d.rCount; i++)
-                    readFace(stream, d.rectangles[i]);
-            }
+                */
+            } else
+                for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
 
             if (version & VER_PSX) { // swap indices (quad strip -> quad list) only for PSX version
                 for (int j = 0; j < d.rCount; j++)
-                    swap(d.rectangles[j].vertices[2], d.rectangles[j].vertices[3]);
+                    swap(d.faces[j].vertices[2], d.faces[j].vertices[3]);
             }
 
-            d.triangles = stream.read(d.tCount) ? new Triangle[d.tCount] : NULL;
+            stream.seek(sizeof(d.tCount));
             if (version == VER_TR2_PSX) {
+                ASSERT(false); // TODO
+                /*
                 stream.seek(2);
                 for (int i = 0; i < d.tCount; i++) {
                     Triangle &v = d.triangles[i];
@@ -2956,9 +3055,10 @@ namespace TR {
                     v.vertices[2] >>= 2;
                     v.colored = false;
                 }
+                */
             } else {
                 for (int i = 0; i < d.tCount; i++)
-                    readFace(stream, d.triangles[i]);
+                    readFace(stream, d.faces[idx++], false, true);
             }
 
         // room sprites
@@ -2983,10 +3083,10 @@ namespace TR {
         // sectors
             stream.read(r.zSectors);
             stream.read(r.xSectors);
-            r.sectors = (r.zSectors * r.xSectors) ? new TR::Room::Sector[r.zSectors * r.xSectors] : NULL;
+            r.sectors = (r.zSectors * r.xSectors) ? new Room::Sector[r.zSectors * r.xSectors] : NULL;
 
             for (int i = 0; i < r.zSectors * r.xSectors; i++) {
-                TR::Room::Sector &s = r.sectors[i];
+                Room::Sector &s = r.sectors[i];
 
                 stream.read(s.floorIndex);
                 stream.read(s.boxIndex);
@@ -3079,7 +3179,7 @@ namespace TR {
 
         // misc flags
             stream.read(r.alternateRoom);
-            stream.read(r.flags);
+            stream.read(r.flags.value);
             if (version & VER_TR3) {
                 stream.read(r.waterScheme);
                 stream.read(r.reverbType);
@@ -3102,7 +3202,7 @@ namespace TR {
 
                 stream.read(mesh.center);
                 stream.read(mesh.radius);
-                stream.read(mesh.flags);
+                stream.read(mesh.flags.value);
                 stream.read(mesh.vCount);
 
                 switch (version) {
@@ -3147,11 +3247,11 @@ namespace TR {
                                 c.w = 0x1FFF;
                             } else { // intensity
                                 stream.read(c.w);
-                                n = { 0, 0, 0, 0 };
+                                n = short4( 0, 0, 0, 0 );
                             }
                         }
 
-                        uint16 rCount, crCount, tCount, ctCount;
+                        uint16 rCount, tCount, crCount, ctCount;
 
                         int tmp = stream.pos;
                         stream.seek(stream.read(rCount)  * FACE4_SIZE); // uint32 colored (not existing in file)
@@ -3162,14 +3262,14 @@ namespace TR {
 
                         mesh.rCount = rCount + crCount;
                         mesh.tCount = tCount + ctCount;
+                        mesh.fCount = mesh.rCount + mesh.tCount;
+                        mesh.faces  = mesh.fCount ? new Face[mesh.fCount] : NULL;
 
-                        mesh.rectangles = mesh.rCount ? new Rectangle[mesh.rCount] : NULL;
-                        mesh.triangles  = mesh.tCount ? new Triangle[mesh.tCount]  : NULL;
-
-                        stream.seek(sizeof(uint16)); for (int i = 0; i < rCount; i++)  readFace(stream, mesh.rectangles[i]);
-                        stream.seek(sizeof(uint16)); for (int i = 0; i < tCount; i++)  readFace(stream, mesh.triangles[i]);
-                        stream.seek(sizeof(uint16)); for (int i = 0; i < crCount; i++) readFace(stream, mesh.rectangles[rCount + i], true);
-                        stream.seek(sizeof(uint16)); for (int i = 0; i < ctCount; i++) readFace(stream, mesh.triangles[tCount + i], true);
+                        int idx = 0;
+                        stream.seek(sizeof(rCount));  for (int i = 0; i < rCount; i++)  readFace(stream, mesh.faces[idx++], false, false);
+                        stream.seek(sizeof(tCount));  for (int i = 0; i < tCount; i++)  readFace(stream, mesh.faces[idx++], false,  true);
+                        stream.seek(sizeof(crCount)); for (int i = 0; i < crCount; i++) readFace(stream, mesh.faces[idx++],  true, false);
+                        stream.seek(sizeof(ctCount)); for (int i = 0; i < ctCount; i++) readFace(stream, mesh.faces[idx++],  true,  true);
                         break;
                     }
                     case VER_TR1_PSX : 
@@ -3202,7 +3302,7 @@ namespace TR {
                                 c.w = 0x1FFF;
                             } else { // intensity
                                 stream.read(c.w);
-                                n = { 0, 0, 0, 0 };
+                                n = short4( 0, 0, 0, 0 );
                             }
                         }
 
@@ -3214,19 +3314,27 @@ namespace TR {
                             stream.seek((FACE3_SIZE + 2) * ctCount);
                         }
 
-                        mesh.rectangles = stream.read(mesh.rCount) ? new Rectangle[mesh.rCount] : NULL;
-                        for (int i = 0; i < mesh.rCount; i++) readFace(stream, mesh.rectangles[i]);
+                        int tmp = stream.pos;
+                        stream.seek(stream.read(mesh.rCount) * FACE4_SIZE); // uint32 colored (not existing in file)
+                        stream.seek(stream.read(mesh.tCount) * FACE3_SIZE);
+                        stream.setPos(tmp);
 
-                        mesh.triangles  = stream.read(mesh.tCount) ? new Triangle[mesh.tCount]  : NULL;
-                        for (int i = 0; i < mesh.tCount; i++) readFace(stream, mesh.triangles[i]);
+                        mesh.fCount = mesh.rCount + mesh.tCount;
+                        mesh.faces  = mesh.fCount ? new Face[mesh.fCount] : NULL;
 
-                        if (mesh.rCount == 0 && mesh.tCount == 0)
+                        int idx = 0;
+                        stream.seek(sizeof(mesh.rCount)); for (int i = 0; i < mesh.rCount; i++) readFace(stream, mesh.faces[idx++], false, false);
+                        stream.seek(sizeof(mesh.tCount)); for (int i = 0; i < mesh.tCount; i++) readFace(stream, mesh.faces[idx++], false,  true);
+
+                        if (!mesh.fCount)
                             LOG("! warning: mesh %d has no geometry with %d vertices\n", meshesCount - 1, mesh.vCount);
                         //ASSERT(mesh.rCount != 0 || mesh.tCount != 0);
                         
-                        for (int i = 0; i < mesh.rCount; i++) {
-                            Rectangle &f = mesh.rectangles[i];
-                            f.colored = (f.flags.texture < 256) ? true : false;
+                        for (int i = 0; i < mesh.fCount; i++) {
+                            Face &f = mesh.faces[i];
+                            #ifndef SPLIT_BY_TILE
+                                f.colored = (f.flags.texture < 256) ? true : false;
+                            #endif
 
                             if (version == VER_TR2_PSX) {
                                 f.vertices[0] >>= 3;
@@ -3236,25 +3344,14 @@ namespace TR {
                             }
                         }
 
-                        for (int i = 0; i < mesh.tCount; i++) {
-                            Triangle &f = mesh.triangles[i];
-                            f.colored = (f.flags.texture < 256) ? true : false;
-
-                            if (version == VER_TR2_PSX) {
-                                f.vertices[0] >>= 3;
-                                f.vertices[1] >>= 3;
-                                f.vertices[2] >>= 3;
-                            }
-                        }
-                        
                         break;
                     }
                     default : ASSERT(false);
                 }
 
-                #define RECALC_ZERO_NORMALS(mesh, face, count)\
+                #define RECALC_ZERO_NORMALS(mesh, face)\
                     int fn = -1;\
-                    for (int j = 0; j < count; j++) {\
+                    for (int j = 0; j < face.vCount; j++) {\
                         Mesh::Vertex &v = mesh.vertices[face.vertices[j]];\
                         short4 &n = v.normal;\
                         if (!(n.x | n.y | n.z)) {\
@@ -3274,21 +3371,9 @@ namespace TR {
                     }
 
             // recalc zero normals
-                for (int i = 0; i < mesh.rCount; i++) {
-                    Rectangle &f = mesh.rectangles[i];
-                    ASSERT(f.vertices[0] < mesh.vCount);
-                    ASSERT(f.vertices[1] < mesh.vCount);
-                    ASSERT(f.vertices[2] < mesh.vCount);
-                    ASSERT(f.vertices[3] < mesh.vCount);
-                    RECALC_ZERO_NORMALS(mesh, f, 4);
-                }
-
-                for (int i = 0; i < mesh.tCount; i++) {
-                    Triangle &f = mesh.triangles[i];
-                    ASSERT(f.vertices[0] < mesh.vCount);
-                    ASSERT(f.vertices[1] < mesh.vCount);
-                    ASSERT(f.vertices[2] < mesh.vCount);
-                    RECALC_ZERO_NORMALS(mesh, f, 3);
+                for (int i = 0; i < mesh.fCount; i++) {
+                    Face &f = mesh.faces[i];
+                    RECALC_ZERO_NORMALS(mesh, f);
                 }
 
                 #undef RECALC_ZERO_NORMALS
@@ -3320,10 +3405,10 @@ namespace TR {
                     t.clut        = c;\
                     t.tile        = d.tile;\
                     t.attribute   = d.attribute;\
-                    t.texCoord[0] = { d.x0, d.y0 };\
-                    t.texCoord[1] = { d.x1, d.y1 };\
-                    t.texCoord[2] = { d.x2, d.y2 };\
-                    t.texCoord[3] = { d.x3, d.y3 };\
+                    t.texCoord[0] = short2( d.x0, d.y0 );\
+                    t.texCoord[1] = short2( d.x1, d.y1 );\
+                    t.texCoord[2] = short2( d.x2, d.y2 );\
+                    t.texCoord[3] = short2( d.x3, d.y3 );\
                     ASSERT(d.x0 < 256 && d.x1 < 256 && d.x2 < 256 && d.x3 < 256 && d.y0 < 256 && d.y1 < 256 && d.y2 < 256 && d.y3 < 256);\
                 }
 
@@ -3342,7 +3427,7 @@ namespace TR {
                             uint8   xh2, x2, yh2, y2;
                             uint8   xh3, x3, yh3, y3;
                         } d;
-                        stream.read(d);
+                        stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, 0);
                         break;
                     }
@@ -3358,7 +3443,7 @@ namespace TR {
                             uint8   x3, y3;
                             uint16  attribute; 
                         } d;
-                        stream.read(d);
+                        stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, d.clut);
                         break;
                     }
@@ -3392,10 +3477,10 @@ namespace TR {
                             uint16  w, h;
                             int16   l, t, r, b;
                         } d;
-                        stream.read(d);
+                        stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, 0);
-                        t.texCoord[0] = { d.u,                       d.v                       };
-                        t.texCoord[1] = { (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) };
+                        t.texCoord[0] = short2( d.u,                       d.v                       );
+                        t.texCoord[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
                         break;
                     }
                     case VER_TR1_PSX : 
@@ -3407,10 +3492,10 @@ namespace TR {
                             uint8   u0, v0;
                             uint8   u1, v1;
                         } d;
-                        stream.read(d);
+                        stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, d.clut);
-                        t.texCoord[0] = { d.u0, d.v0 };
-                        t.texCoord[1] = { d.u1, d.v1 };
+                        t.texCoord[0] = short2( d.u0, d.v0 );
+                        t.texCoord[1] = short2( d.u1, d.v1 );
                         break;
                     }
                     default : ASSERT(false);
@@ -3421,12 +3506,13 @@ namespace TR {
 
             spriteSequences = stream.read(spriteSequencesCount) ? new SpriteSequence[spriteSequencesCount] : NULL;
             for (int i = 0; i < spriteSequencesCount; i++) {
-                TR::SpriteSequence &s = spriteSequences[i];
-                stream.read(s.type);
+                SpriteSequence &s = spriteSequences[i];
+                uint16 type;
+                stream.read(type);
+                s.type = Entity::remap(version, Entity::Type(type));
                 stream.read(s.unused);
                 stream.read(s.sCount);
                 stream.read(s.sStart);
-                s.type = Entity::remap(version, s.type);
                 s.sCount = -s.sCount;
             }
         }
@@ -3439,7 +3525,7 @@ namespace TR {
             }
         }
 
-        void initTiles(Tile4 *tiles4, Tile8 *tiles8, Tile16 *tiles16, Color24 *palette, Color32 *palette32, CLUT *cluts) {
+        void initTiles() {
             tiles = new Tile32[tilesCount];
         // convert to RGBA
             switch (version) {
@@ -3514,7 +3600,7 @@ namespace TR {
                         Color32 *ptr = &tiles[i].color[0];
                         for (int y = 0; y < 256; y++) {
                             for (int x = 0; x < 256; x++) {
-                                TR::Color32 c = tiles16[i].color[y * 256 + x];
+                                Color32 c = tiles16[i].color[y * 256 + x];
                                 ptr[x].r = c.b;
                                 ptr[x].g = c.g;
                                 ptr[x].b = c.r;
@@ -3527,6 +3613,11 @@ namespace TR {
                 }
                 default : ASSERT(false);
             }
+
+            delete[] tiles8;
+            delete[] tiles16;
+            tiles8  = NULL;
+            tiles16 = NULL;
         }
 
     // common methods
@@ -3598,12 +3689,52 @@ namespace TR {
             return 0;
         }
 
-        int getNextRoom(int floorIndex) const {
-            if (!floorIndex) return NO_ROOM;
-            FloorData *fd = &floors[floorIndex];
-        // floor data always in this order and can't be less than uint16 x 3
-            if (fd->cmd.func == FloorData::FLOOR)   fd += 2; // skip floor slant info
-            if (fd->cmd.func == FloorData::CEILING) fd += 2; // skip ceiling slant info
+        void floorSkipCommand(FloorData* &fd, int func) {
+            switch (func) {
+                case FloorData::PORTAL      :
+                case FloorData::FLOOR   :
+                case FloorData::CEILING : 
+                    fd++;
+                    break;
+
+                case FloorData::TRIGGER :
+                    fd++;
+                    do {} while (!(*fd++).triggerCmd.end);
+                    break;
+
+                case FloorData::LAVA :
+                case FloorData::CLIMB :
+                    break;
+
+                case 0x07 :
+                case 0x08 :
+                case 0x09 :
+                case 0x0A :
+                case 0x0B :
+                case 0x0C :
+                case 0x0D :
+                case 0x0E :
+                case 0x0F :
+                case 0x10 :
+                case 0x11 :
+                case 0x12 : fd++; break; // TODO TR3 triangulation
+
+                case 0x13 : break; // TODO TR3 monkeyswing
+
+                case 0x14 : 
+                case 0x15 : break; // TODO TR3 minecart
+
+                default : LOG("unknown func to skip: %d\n", func);
+            }
+        }
+
+        int getNextRoom(const Room::Sector *sector) const {
+            ASSERT(sector);
+            if (!sector->floorIndex) return NO_ROOM;
+            FloorData *fd = &floors[sector->floorIndex];
+        // floor data always in this order
+            if (!fd->cmd.end && fd->cmd.func == FloorData::FLOOR)   fd += 2; // skip floor slant info
+            if (!fd->cmd.end && fd->cmd.func == FloorData::CEILING) fd += 2; // skip ceiling slant info
             if (fd->cmd.func == FloorData::PORTAL)  return (++fd)->data;
             return NO_ROOM;
         }
@@ -3629,7 +3760,7 @@ namespace TR {
 
             return room.sectors[sx * room.zSectors + sz];
         }
-
+        
         Room::Sector& getSector(int roomIndex, int x, int z, int &sectorIndex) {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
             Room &room = rooms[roomIndex];
@@ -3639,28 +3770,35 @@ namespace TR {
             z /= 1024;
             return room.sectors[sectorIndex = (x * room.zSectors + z)];
         }
-
-        Room::Sector* getSector(int16 &roomIndex, int x, int y, int z) const {
+        
+        Room::Sector* getSector(int16 &roomIndex, const vec3 &pos) {
             ASSERT(roomIndex >= 0 && roomIndex <= roomsCount);
 
             Room::Sector *sector = NULL;
 
+            int x = int(pos.x);
+            int y = int(pos.y);
+            int z = int(pos.z);
+
         // check horizontal
             while (1) { // Let's Rock!
-                TR::Room &room = rooms[roomIndex];
+                Room &room = rooms[roomIndex];
 
-                int sx = (x - room.info.x) >> 10;
-                int sz = (z - room.info.z) >> 10;
+                int sx = (x - room.info.x) / 1024;
+                int sz = (z - room.info.z) / 1024;
 
-                if (sz <= 0 || sz >= room.xSectors - 1) {
-                    sx = clamp(sx, 0, room.xSectors - 1);
-                    sz = clamp(sz, 1, room.zSectors - 2);
+//                sx = clamp(sx, 0, room.xSectors - 1);
+//                sz = clamp(sz, 0, room.zSectors - 1);
+
+                if (sz <= 0 || sz >= room.zSectors - 1) {
+                    sz = clamp(sz, 0, room.zSectors - 1);
+                    sx = clamp(sx, 1, room.xSectors - 2);
                 } else
                     sx = clamp(sx, 0, room.xSectors - 1);
 
                 sector = room.sectors + sx * room.zSectors + sz;
 
-                int nextRoom = getNextRoom(sector->floorIndex);
+                int nextRoom = getNextRoom(sector);
                 if (nextRoom == NO_ROOM)
                     break;
 
@@ -3669,17 +3807,110 @@ namespace TR {
 
         // check vertical
             while (sector->roomAbove != NO_ROOM && y < sector->ceiling * 256) {
-                TR::Room &room = rooms[roomIndex = sector->roomAbove];
+                Room &room = rooms[roomIndex = sector->roomAbove];
                 sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
             }
 
             while (sector->roomBelow != NO_ROOM && y >= sector->floor * 256) {
-                TR::Room &room = rooms[roomIndex = sector->roomBelow];
+                Room &room = rooms[roomIndex = sector->roomBelow];
                 sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
             }
 
             return sector;
         }
+
+        float getFloor(const Room::Sector *sector, const vec3 &pos) {
+            int x = int(pos.x);
+            int z = int(pos.z);
+
+            while (sector->roomBelow != NO_ROOM) {
+                Room &room = rooms[sector->roomBelow];
+                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+            }
+
+            int floor = sector->floor * 256;
+
+            if (!sector->floorIndex)
+                return float(floor);
+
+            FloorData *fd = &floors[sector->floorIndex];
+            FloorData::Command cmd;
+
+            do {
+                cmd = (*fd++).cmd;
+                
+                switch (cmd.func) {
+                    case FloorData::FLOOR   : {
+                        FloorData::Slant slant = (*fd++).slant;
+                        int sx = (int)slant.x;
+                        int sz = (int)slant.z;
+                        int dx = x % 1024;
+                        int dz = z % 1024;
+                        floor -= sx * (sx > 0 ? (dx - 1023) : dx) >> 2;
+                        floor -= sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
+                        break;
+                    }
+
+                    case FloorData::TRIGGER :  {
+                        fd++;
+                        FloorData::TriggerCommand trigCmd;
+                        do {
+                            trigCmd = (*fd++).triggerCmd;
+                            if (trigCmd.action != Action::ACTIVATE)
+                                continue;
+                            // TODO controller[trigCmd.args]->getFloor(&floor, x, y, z);
+                        } while (!trigCmd.end);
+                        break;
+                    }
+
+                    default : floorSkipCommand(fd, cmd.func);
+                }
+            } while (!cmd.end);
+
+            return float(floor);
+        }
+
+        float getCeiling(const Room::Sector *sector, const vec3 &pos) {
+            int x = int(pos.x);
+            int z = int(pos.z);
+
+            while (sector->roomAbove != NO_ROOM) {
+                Room &room = rooms[sector->roomAbove];
+                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+            }
+
+            int ceiling = sector->ceiling * 256;
+
+            if (!sector->floorIndex)
+                return float(ceiling);
+
+            FloorData *fd = &floors[sector->floorIndex];
+            
+            if (fd->cmd.func == FloorData::FLOOR) {
+                if (fd->cmd.end) return float(ceiling);
+                fd += 2; // skip floor slant
+            }
+
+            if (fd->cmd.func == FloorData::CEILING) {
+                FloorData::Slant slant = (++fd)->slant;
+                int sx = (int)slant.x;
+                int sz = (int)slant.z;
+                int dx = x % 1024;
+                int dz = z % 1024;
+                ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2;
+                ceiling += sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
+            }
+
+            // TODO parse triggers to collide with objects (bridges, trap doors/floors etc)
+
+            return float(ceiling);
+        }
+
+        bool isBlocked(int16 &roomIndex, const vec3 &pos) {
+            Room::Sector *sector = getSector(roomIndex, pos);
+            return pos.y >= getFloor(sector, pos) || pos.y <= getCeiling(sector, pos);
+        }
+
     }; // struct Level
 }
 

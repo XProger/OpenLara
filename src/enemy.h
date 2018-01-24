@@ -590,7 +590,7 @@ struct Wolf : Enemy {
             case STATE_ATTACK :
             case STATE_BITE   :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_ATTACK ? 50.0f : 100.0f);
+                    bite(getJoint(jointHead).pos, state == STATE_ATTACK ? 50.0f : 100.0f);
                     nextState = state == STATE_ATTACK ? STATE_RUN : STATE_GROWL;
                 }
                 return state == STATE_ATTACK ? STATE_RUN : state;
@@ -751,7 +751,7 @@ struct Bear : Enemy {
             case STATE_BITE     :
             case STATE_ATTACK   :
                 if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, state == STATE_BITE ? 200.0f : 400.0f);
+                    bite(getJoint(jointHead).pos, state == STATE_BITE ? 200.0f : 400.0f);
                     nextState = state == STATE_BITE ? STATE_STOP : STATE_HOWL;
                 }
                 break;
@@ -832,7 +832,7 @@ struct Bat : Enemy {
                     mood = MOOD_SLEEP;
                     return STATE_FLY;
                 } else
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, 2);
+                    bite(getJoint(jointHead).pos, 2);
                 break;
             case STATE_FLY    : 
                 if (collide(target)) {
@@ -1071,7 +1071,7 @@ struct Raptor : Enemy {
             case STATE_ATTACK_2 :
             case STATE_BITE     :
                 if (nextState == STATE_NONE && targetInView && (mask & HIT_MASK)) {
-                    bite(animation.getJoints(getMatrix(), jointHead, true).pos, 100);                    
+                    bite(getJoint(jointHead).pos, 100);                    
                     nextState = state == STATE_ATTACK_2 ? STATE_RUN : STATE_STOP;
                 }
                 break;

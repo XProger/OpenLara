@@ -19,7 +19,7 @@ struct Frustum {
         planes[3] = vec4(m.e30 + m.e10, m.e31 + m.e11, m.e32 + m.e12, m.e33 + m.e13); // bottom
         planes[4] = vec4(m.e30 + m.e00, m.e31 + m.e01, m.e32 + m.e02, m.e33 + m.e03); // left
         for (int i = 0; i < count; i++)
-            planes[i] *= 1.0f / planes[i].xyz.length();
+            planes[i] *= 1.0f / planes[i].xyz().length();
     }
 
     // AABB visibility check
@@ -27,7 +27,7 @@ struct Frustum {
         if (count < 4) return false;
 
         for (int i = start; i < start + count; i++) {
-            const vec3 &n =  planes[i].xyz;
+            const vec3 &n =  planes[i].xyz();
             const float d = -planes[i].w;
 
             if (n.dot(max) < d && 
@@ -50,9 +50,9 @@ struct Frustum {
         mat4 m = matrix.inverse();
         for (int i = 0; i < count; i++) {
             vec4 &p = planes[i];
-            vec4 o = m * vec4(p.xyz * (-p.w), 1.0f);
-            vec4 n = m * vec4(p.xyz, 0.0f);
-            planes[start + i] = vec4(n.xyz, -n.xyz.dot(o.xyz));
+            vec4 o = m * vec4(p.xyz() * (-p.w), 1.0f);
+            vec4 n = m * vec4(p.xyz(), 0.0f);
+            planes[start + i] = vec4(n.xyz(), -n.xyz().dot(o.xyz()));
         }
         bool visible = isVisible(min, max);
         start = 0;
@@ -64,7 +64,7 @@ struct Frustum {
         if (count < 4) return false;
 
         for (int i = 0; i < count; i++)
-            if (planes[i].xyz.dot(center) + planes[i].w < -radius)
+            if (planes[i].xyz().dot(center) + planes[i].w < -radius)
                 return false;
         return true;
     }

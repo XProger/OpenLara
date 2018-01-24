@@ -179,7 +179,7 @@ struct Lara : Character {
         STATE_WATER_OUT,
         STATE_MAX };
 
-    enum : int {
+    enum {
         BODY_HIP        = 0x0001,
         BODY_LEG_L1     = 0x0002,
         BODY_LEG_L2     = 0x0004,
@@ -209,22 +209,24 @@ struct Lara : Character {
     struct Weapon {
         enum Type  { EMPTY = -1, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
         enum State { IS_HIDDEN, IS_ARMED, IS_FIRING };
-        enum Anim  { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
+        struct Anim {
+            enum Type { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
+        };
     };
 
     Weapon::Type    wpnCurrent;
     Weapon::Type    wpnNext;
     Weapon::State   wpnState;
     int             *wpnAmmo;
-    vec3            chestOffset;
 
     struct Arm {
         Controller      *tracking;       // tracking target (main target)
         Controller      *target;         // target for shooting
         float           shotTimer;
         quat            rot, rotAbs;
-        Weapon::Anim    anim;
-        Animation       animation;
+
+        Weapon::Anim::Type anim;
+        Animation          animation;
 
         Arm() : tracking(NULL), target(NULL) {}
     } arms[2];
@@ -290,7 +292,7 @@ struct Lara : Character {
         }
 
         Basis getBasis() {
-            return lara->animation.getJoints(lara->getMatrix(), 14, true);
+            return lara->getJoint(lara->jointHead);
         }
 
         vec3 getPos() {
@@ -338,13 +340,15 @@ struct Lara : Character {
 
             #define BRAID_RADIUS 16.0f
 
+            lara->updateJoints();
+
             for (int i = 0; i < model->mCount; i++) {
                 if (!(BODY_BRAID_MASK & (1 << i))) continue;
 
                 int offset = level->meshOffsets[model->mStart + i];
                 TR::Mesh *mesh = (TR::Mesh*)&level->meshes[offset];
 
-                vec3 center    = lara->animation.getJoints(lara->getMatrix(), i, true) * mesh->center;
+                vec3 center    = lara->joints[i] * mesh->center;
                 float radiusSq = mesh->radius + BRAID_RADIUS;
                 radiusSq *= radiusSq;
 
@@ -397,10 +401,10 @@ struct Lara : Character {
                 vec3 u = d.cross(r).normal();
 
                 mat4 m;
-                m.up     = vec4(u, 0.0f);
-                m.dir    = vec4(d, 0.0f);
-                m.right  = vec4(r, 0.0f);
-                m.offset = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                m.up()     = vec4(u, 0.0f);
+                m.dir()    = vec4(d, 0.0f);
+                m.right()  = vec4(r, 0.0f);
+                m.offset() = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
                 basis[i].identity();
                 basis[i].translate(joints[i].pos);
@@ -409,13 +413,13 @@ struct Lara : Character {
         }
         
         void render(MeshBuilder *mesh) {
-            Core::active.shader->setParam(uBasis, basis[0], jointsCount - 1);
+            Core::setBasis(basis, jointsCount - 1);
             mesh->renderModel(lara->level->extra.braid);
         }
 
     } *braid;
 
-    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), chestOffset(pos), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
@@ -516,8 +520,6 @@ struct Lara : Character {
             } else
                 animation.setAnim(ANIM_STAND);
         }
-
-        chestOffset = animation.getJoints(getMatrix(), jointChest).pos;
     }
 
     virtual ~Lara() {
@@ -621,11 +623,11 @@ struct Lara : Character {
 
     TR::Entity::Type getCurrentWeaponInv() {
         switch (wpnCurrent) {
-            case Weapon::Type::PISTOLS : return TR::Entity::PISTOLS;
-            case Weapon::Type::SHOTGUN : return TR::Entity::SHOTGUN;
-            case Weapon::Type::MAGNUMS : return TR::Entity::MAGNUMS;
-            case Weapon::Type::UZIS    : return TR::Entity::UZIS;
-            default                    : return TR::Entity::LARA;
+            case Weapon::PISTOLS : return TR::Entity::PISTOLS;
+            case Weapon::SHOTGUN : return TR::Entity::SHOTGUN;
+            case Weapon::MAGNUMS : return TR::Entity::MAGNUMS;
+            case Weapon::UZIS    : return TR::Entity::UZIS;
+            default              : return TR::Entity::LARA;
         }
     }
 
@@ -643,7 +645,7 @@ struct Lara : Character {
         wpnSetAnim(arms[1], Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 0.0f);
     }
 
-    void wpnSetAnim(Arm &arm, Weapon::State wState, Weapon::Anim wAnim, float wAnimTime, float wAnimDir, bool playing = true) {
+    void wpnSetAnim(Arm &arm, Weapon::State wState, Weapon::Anim::Type wAnim, float wAnimTime, float wAnimDir, bool playing = true) {
         arm.animation.setAnim(wpnGetAnimIndex(wAnim), 0, wAnim == Weapon::Anim::FIRE);
         arm.animation.dir = playing ? wAnimDir : 0.0f;
 
@@ -698,8 +700,8 @@ struct Lara : Character {
             default : ;
         }
 
-        if (wpnState == Weapon::IS_HIDDEN && wState == Weapon::IS_ARMED)  game->playSound(TR::SND_UNHOLSTER, pos, Sound::Flags::PAN);
-        if (wpnState == Weapon::IS_ARMED  && wState == Weapon::IS_HIDDEN) game->playSound(TR::SND_HOLSTER,   pos, Sound::Flags::PAN);
+        if (wpnState == Weapon::IS_HIDDEN && wState == Weapon::IS_ARMED)  game->playSound(TR::SND_UNHOLSTER, pos, Sound::PAN);
+        if (wpnState == Weapon::IS_ARMED  && wState == Weapon::IS_HIDDEN) game->playSound(TR::SND_HOLSTER,   pos, Sound::PAN);
 
     // swap layers
     // 0 - body (full)
@@ -823,7 +825,7 @@ struct Lara : Character {
         wpnHide();
     }
 
-    int wpnGetAnimIndex(Weapon::Anim wAnim) {
+    int wpnGetAnimIndex(Weapon::Anim::Type wAnim) {
         if (wpnCurrent == Weapon::SHOTGUN) {
             switch (wAnim) {
                 case Weapon::Anim::PREPARE   : ASSERT(false); break;    // rifle has no prepare animation
@@ -874,7 +876,7 @@ struct Lara : Character {
                 // shotgun reload sound
                     if (wpnCurrent == Weapon::SHOTGUN) {
                         if (anim.frameIndex == 10)
-                            game->playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::Flags::PAN);
+                            game->playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::PAN);
                     }
                 }
             }
@@ -916,7 +918,7 @@ struct Lara : Character {
 
             int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
 
-            vec3 p = animation.getJoints(getMatrix(), joint, false).pos;
+            vec3 p = getJoint(joint).pos;
             vec3 d = arm->rotAbs * vec3(0, 0, 1);
             vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
 
@@ -939,13 +941,13 @@ struct Lara : Character {
                 }
             }
 
-            Core::lightPos[1 + armIndex]   = animation.getJoints(getMatrix(), armIndex == 0 ? 10 : 13, false).pos;
+            Core::lightPos[1 + armIndex]   = getJoint(armIndex == 0 ? 10 : 13).pos;
             Core::lightColor[1 + armIndex] = FLASH_LIGHT_COLOR;
         }
 
         if (shots) {
-            game->playSound(wpnGetSound(), pos, Sound::Flags::PAN);
-            game->playSound(TR::SND_RICOCHET, nearPos, Sound::Flags::PAN);
+            game->playSound(wpnGetSound(), pos, Sound::PAN);
+            game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
              if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == Weapon::SHOTGUN)
                 *wpnAmmo -= 1;
@@ -1122,6 +1124,7 @@ struct Lara : Character {
         }
 
         animation.overrideMask = overrideMask;
+        jointsFrame = -1;
     }
 
     virtual void lookAt(Controller *target) {
@@ -1164,7 +1167,7 @@ struct Lara : Character {
             Arm &arm = arms[i];
             int j = joints[i];
 
-            if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {                
+            if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                 arm.target = arms[i^1].target;
                 if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                     rot = quat(0, 0, 0, 1);
@@ -1182,6 +1185,7 @@ struct Lara : Character {
 
             arm.rot = arm.rot.slerp(rot, speed);
             animation.overrides[j] = animation.overrides[j].slerp(arm.rot * animation.overrides[j], t);
+            jointsFrame = -1;
         }
     }
 
@@ -1372,8 +1376,8 @@ struct Lara : Character {
     void doBubbles() {
         int count = rand() % 3;
         if (!count) return;
-        game->playSound(TR::SND_BUBBLE, pos, Sound::Flags::PAN);
-        vec3 head = animation.getJoints(getMatrix(), 14, true) * vec3(0.0f, 0.0f, 50.0f);
+        game->playSound(TR::SND_BUBBLE, pos, Sound::PAN);
+        vec3 head = getJoint(jointHead) * vec3(0.0f, 0.0f, 50.0f);
         for (int i = 0; i < count; i++)
             game->addEntity(TR::Entity::BUBBLE, getRoomIndex(), head, 0);
     }
@@ -1436,7 +1440,7 @@ struct Lara : Character {
     void bakeEnvironment() {
         flags.invisible = true;
         if (!environment)
-            environment = new Texture(256, 256, Texture::RGBA, true, NULL, true, true);
+            environment = new Texture(256, 256, Texture::RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
         Core::beginFrame();
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
@@ -1733,11 +1737,11 @@ struct Lara : Character {
         if (!limit->alignHoriz)
             fx = (m.transpose() * vec4(pos - controller->pos, 0.0f)).x;
 
-        vec3 targetPos = controller->pos + (m * vec4(fx, limit->dy, limit->dz, 0.0f)).xyz;
+        vec3 targetPos = controller->pos + (m * vec4(fx, limit->dy, limit->dz, 0.0f)).xyz();
 
         vec3 deltaAbs = pos - targetPos;
 
-        vec3 deltaRel = (m.transpose() * vec4(pos - controller->pos, 0.0f)).xyz; // inverse transform
+        vec3 deltaRel = (m.transpose() * vec4(pos - controller->pos, 0.0f)).xyz(); // inverse transform
         
         // set item orientation to hack limits check
         if (limit->box.contains(deltaRel)) {
@@ -1883,7 +1887,7 @@ struct Lara : Character {
         }
 
         bool needFlip = false;
-        TR::Effect effect = TR::Effect::NONE;
+        TR::Effect::Type effect = TR::Effect::NONE;
 
         int         cameraIndex  = -1;
         Controller *cameraTarget = NULL;
@@ -2001,7 +2005,7 @@ struct Lara : Character {
                     break;
                 }
                 case TR::Action::EFFECT :
-                    effect = TR::Effect(cmd.args);
+                    effect = TR::Effect::Type(cmd.args);
                     break;
                 case TR::Action::SECRET :
                     if (!(level->state.progress.secrets & (1 << cmd.args))) {
@@ -2436,10 +2440,10 @@ struct Lara : Character {
 
         if (state == STATE_SURF_TREAD) {
             if (animation.isFrameActive(0))
-                game->waterDrop(animation.getJoints(getMatrix(), jointHead).pos, 96.0f, 0.03f);
+                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.03f);
         } else {
             if (animation.frameIndex % 4 == 0)
-                game->waterDrop(animation.getJoints(getMatrix(), jointHead).pos, 96.0f, 0.02f);
+                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.02f);
         }
 
         if (input & FORTH) {
@@ -2635,7 +2639,7 @@ struct Lara : Character {
                 arms[i].shotTimer += Core::deltaTime;
                 float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, EPS, 1.0f);
                 Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
-                Core::lightPos[1 + i]   = animation.getJoints(getMatrix(), i == 0 ? 10 : 13, false).pos;
+                Core::lightPos[1 + i]   = getJoint(i == 0 ? 10 : 13).pos;
             } else {
                 Core::lightColor[1 + i] = vec4(0, 0, 0, 1);
             }
@@ -2805,7 +2809,7 @@ struct Lara : Character {
     }
 
     virtual vec3 getPos() {
-        return level->isCutsceneLevel() ? chestOffset : pos;
+        return level->isCutsceneLevel() ? getViewPoint() : pos;
     }
 
     bool checkCollisions() {
@@ -3100,29 +3104,27 @@ struct Lara : Character {
         float alpha = min(1.0f, (0.1f - time) * 20.0f);
         float lum   = 3.0f;
         Basis b(basis);
+        b.w = 1.0f;
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
         b.translate(offset);
         if (level->version & (TR::VER_TR2 | TR::VER_TR3))
             lum = alpha;
         Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
-        Core::active.shader->setParam(uBasis, b);
+        Core::setBasis(&b, 1);
         mesh->renderModel(level->extra.muzzleFlash);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO TR3 render in additive pass
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
-        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson) // hide head from first person view
+        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson) // hide head in first person view
             visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;
-
-        chestOffset = animation.getJoints(getMatrix(), jointChest).pos; // TODO: move to update func
 
         if (braid)
             braid->render(mesh);
 
         if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
-            mat4 matrix = getMatrix();
             game->setShader(Core::pass, Shader::FLASH, false, true);
             
             int meshTransp = mesh->transparent;
@@ -3136,8 +3138,8 @@ struct Lara : Character {
                 zOffset = 150;
             }
 
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 10, true), vec3(-10, -50, zOffset), arms[0].shotTimer);
-            renderMuzzleFlash(mesh, animation.getJoints(matrix, 13, true), vec3( 10, -50, zOffset), arms[1].shotTimer);
+            renderMuzzleFlash(mesh, joints[10], vec3(-10, -50, zOffset), arms[0].shotTimer);
+            renderMuzzleFlash(mesh, joints[13], vec3( 10, -50, zOffset), arms[1].shotTimer);
 
             mesh->transparent = meshTransp;
             switch (mesh->transparent) {

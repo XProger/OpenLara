@@ -13,7 +13,7 @@ namespace TR {
         NO_TRACK = 0xFF,
     };
 
-    enum Version : uint32 {
+    enum Version {
         VER_UNKNOWN  = 0,
 
         VER_PC       = 256,
@@ -38,9 +38,11 @@ namespace TR {
 
         VER_TR3_PC   = VER_TR3 | VER_PC,
         VER_TR3_PSX  = VER_TR3 | VER_PSX,
+		
+		VER_MAX      = 0xFFFFFFFF,
     };
 
-    enum LevelID : uint32 {
+    enum LevelID {
         LVL_CUSTOM,
     // TR1
         LVL_TR1_TITLE,
@@ -188,7 +190,7 @@ namespace TR {
         TRACK_TR3_CUT_12    = 66,
     };
 
-    struct {
+    struct LevelInfo {
         const char *name;
         const char *title;
         int        ambientTrack;

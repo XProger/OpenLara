@@ -39,6 +39,7 @@ struct IGame {
 
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
+    virtual Texture*     getAtlas()     { return NULL; }
     virtual ICamera*     getCamera()    { return NULL; }
     virtual Controller*  getLara()      { return NULL; }
     virtual bool         isCutscene()   { return false; }
@@ -53,7 +54,7 @@ struct IGame {
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water) {}
-    virtual void setEffect(Controller *controller, TR::Effect effect) {}
+    virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
 
@@ -89,7 +90,7 @@ struct Controller {
     TR::Entity::Flags flags;
 
     Basis   *joints;
-    int     frameIndex;
+    int     jointsFrame;
 
     vec3    ambient[6];
     float   specular;
@@ -129,8 +130,9 @@ struct Controller {
             fixRoomIndex();
 
         const TR::Model *m = getModel();
-        joints     = m ? new Basis[m->mCount] : NULL;
-        frameIndex = -1;
+        joints      = m ? new Basis[m->mCount] : NULL;
+        jointsFrame = -1;
+
         specular   = 0.0f;
         intensity  = e.intensity == -1 ? -1.0f : intensityf(e.intensity);
         timer      = 0.0f;
@@ -152,6 +154,7 @@ struct Controller {
 
         if (e.isLara() || e.isActor()) // Lara and cutscene entities is active by default
             activate();
+        updated = false;
     }
 
     virtual ~Controller() {
@@ -369,7 +372,7 @@ struct Controller {
                 }
 
                 case TR::FloorData::TRIGGER :  {
-                    info.trigger        = (TR::Level::Trigger)cmd.sub;
+                    info.trigger        = (TR::Level::Trigger::Type)cmd.sub;
                     info.trigCmdCount   = 0;
                     info.trigInfo       = (*fd++).triggerInfo;
                     TR::FloorData::TriggerCommand trigCmd;
@@ -558,7 +561,8 @@ struct Controller {
             Box box = target->getBoundingBox();
             vec3 t = (box.min + box.max) * 0.5f;
 
-            Basis b = animation.getJoints(Basis(getMatrix()), joint);
+            updateJoints();
+            Basis b = animation.getJoints(getMatrix(), joint);
             vec3 delta = (b.inverse() * t).normal();
             if (invertAim)
                 delta = -delta;
@@ -617,7 +621,7 @@ struct Controller {
     }
 
     virtual vec3 getPos() {
-        return getEntity().isActor() ? animation.getJoints(getMatrix(), 0).pos : pos;
+        return getEntity().isActor() ? getJoint(0).pos : pos;
     }
 
     vec3 getDir() const {
@@ -679,13 +683,13 @@ struct Controller {
         const TR::Model *m = getModel();
         ASSERT(m->mCount <= MAX_SPHERES);
 
-        Basis basis(getMatrix());
-    // TODO: optimize (check frame index for animation updates, use joints array)
+        updateJoints();
+
         count = 0;
         for (int i = 0; i < m->mCount; i++) {
             TR::Mesh &aMesh = level->meshes[level->meshOffsets[m->mStart + i]];
             if (aMesh.radius <= 0) continue;
-            vec3 center = animation.getJoints(basis, i, true) * aMesh.center;
+            vec3 center = joints[i] * aMesh.center;
             spheres[count++] = Sphere(center, aMesh.radius);
         }
     }
@@ -863,14 +867,14 @@ struct Controller {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
                                     case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
-                                    case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect(fx)); break;
+                                    case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect::Type(fx)); break;
                                     case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
                                     case TR::Effect::FLIP_MAP     : level->state.flags.flipped = !level->state.flags.flipped; break;
                                     default                       : cmdEffect(fx); break;
                                 }
                             } else {
                                 if (!(sfx & 0x8000)) { // TODO 0x4000 / 0x8000 for ground / water foot steps
-                                    game->playSound(fx, pos, Sound::Flags::PAN);
+                                    game->playSound(fx, pos, Sound::PAN);
                                 }
                             }
                         }
@@ -1028,7 +1032,8 @@ struct Controller {
         explodeParts = new ExplodePart[model->mCount];
         explodeMask  = 0;
        
-        animation.getJoints(getMatrix(), -1, true, joints);
+        updateJoints();
+
         int roomIndex = getRoomIndex();
         for (int i = 0; i < model->mCount; i++) {
             if (!(mask & (1 << i)))
@@ -1066,27 +1071,44 @@ struct Controller {
 
         mat4 m;
         m.identity();
-        m.dir    = vec4(dir * size.z, 0.0f);
-        m.up     = vec4(up, 0.0f);
-        m.right  = vec4(right * size.x, 0.0f);
-        m.offset = vec4(center.x, info.floor - 8.0f, center.z, 1.0f);
+        m.dir()    = vec4(dir * size.z, 0.0f);
+        m.up()     = vec4(up, 0.0f);
+        m.right()  = vec4(right * size.x, 0.0f);
+        m.offset() = vec4(center.x, info.floor - 8.0f, center.z, 1.0f);
+        Core::mModel = m;
 
         Basis b;
         b.identity();
 
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uViewProj, Core::mViewProj * m);
-        Core::active.shader->setParam(uBasis, b);
+        Core::setBasis(&b, 1);
+
         float alpha = lerp(0.7f, 0.90f, clamp((info.floor - boxA.max.y) / 1024.0f, 0.0f, 1.0f) );
-        Core::active.shader->setParam(uMaterial, vec4(vec3(0.5f * (1.0f - alpha)), alpha));
+        float lum   = 0.5f * (1.0f - alpha);
+        Core::setMaterial(lum, lum, lum, alpha);
         Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
         Core::setDepthWrite(false);
         mesh->renderShadowBlob();
         Core::setDepthWrite(true);
     }
+    bool updated;
+    void updateJoints() {
+        //if (updated) return;
+        if (Core::stats.frame == jointsFrame)
+            return;
+        animation.getJoints(getMatrix(), -1, true, joints);
+        jointsFrame = Core::stats.frame;
+        updated = true;
+    }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) { // TODO: animation.calcJoints
+    Basis& getJoint(int index) {
+        updateJoints();
+        return joints[index];
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         mat4 matrix = getMatrix();
 
         Box box = animation.getBoundingBox(vec3(0, 0, 0), 0);
@@ -1098,8 +1120,9 @@ struct Controller {
 
         flags.rendered = true;
 
-        if (Core::stats.frame != frameIndex)
-            animation.getJoints(matrix, -1, true, joints);
+        updateJoints();
+
+        Core::mModel = getMatrix();
 
         if (layers) {
             uint32 mask = 0;
@@ -1111,7 +1134,7 @@ struct Controller {
                 mask |= layers[i].mask;
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
-                    joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // AHAHA
+                    joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // hide invisible parts
 
                 if (explodeMask) {
                     ASSERT(explodeParts);
@@ -1121,18 +1144,14 @@ struct Controller {
                             joints[i] = explodeParts[i].basis;
                 }
 
-            //    if (entity.type == TR::Entity::LARA && Core::eye != 0)
-            //        joints[14].w = -1.0f;
             // render
-                Core::active.shader->setParam(uBasis, joints[0], model->mCount);
-                mesh->renderModel(layers[i].model);
+                Core::setBasis(joints, model->mCount);
+                mesh->renderModel(layers[i].model, caustics);
             }
         } else {
-            Core::active.shader->setParam(uBasis, joints[0], model->mCount);
-            mesh->renderModel(getEntity().modelIndex - 1);
+            Core::setBasis(joints, model->mCount);
+            mesh->renderModel(getEntity().modelIndex - 1, caustics);
         }
-
-        frameIndex = Core::stats.frame;
     }
 };
 

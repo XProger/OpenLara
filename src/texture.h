@@ -2,17 +2,89 @@
 #define H_TEXTURE
 
 #include "core.h"
+#include "format.h"
 
 struct Texture {
-    enum Format : uint32 { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, DEPTH_STENCIL, SHADOW, MAX };
+    enum Format { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, DEPTH_STENCIL, SHADOW, MAX };
+    enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
 
-    GLuint  ID;
     int     width, height, origWidth, origHeight;
     Format  format;
-    bool    cube;
-    bool    filter;
+    uint32  opt;
 
-    Texture(int width, int height, Format format, bool cube = false, void *data = NULL, bool filter = true, bool mips = false) : cube(cube), filter(filter) {
+#ifdef _PSP
+    TR::Tile4 *tiles;
+    TR::CLUT  *cluts;
+    uint8     *memory;
+
+    void swizzle(uint8* out, const uint8* in, uint32 width, uint32 height) {
+        int rowblocks = width / 16;
+
+        for (int j = 0; j < height; j++)
+            for (int i = 0; i < width; i++) {
+                int blockx = i / 16;
+                int blocky = j / 8;
+
+                int x = i - blockx * 16;
+                int y = j - blocky * 8;
+                int block_index   = blockx + blocky * rowblocks;
+                int block_address = block_index * 16 * 8;
+
+                out[block_address + x + y * 16] = in[i + j * width];
+            }
+    }
+
+#else
+    uint32  ID;
+    Texture *tiles[32];
+#endif
+
+    #ifdef SPLIT_BY_TILE
+
+        #ifdef _PSP
+            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : width(256), height(256), memory(0) {
+                #ifdef EDRAM_TEX
+                    this->tiles = (TR::Tile4*)Core::allocEDRAM(tilesCount * sizeof(tiles[0]));
+                    this->cluts =  (TR::CLUT*)Core::allocEDRAM(clutsCount * sizeof(cluts[0]));
+                    memcpy(this->cluts, cluts, clutsCount * sizeof(cluts[0]));
+                    #ifdef TEX_SWIZZLE
+                        for (int i = 0; i < tilesCount; i++)
+                            swizzle((uint8*)&this->tiles[i], (uint8*)&tiles[i], width / 2, height);
+                    #else
+                        memcpy(this->tiles, tiles, tilesCount * sizeof(tiles[0]));
+                    #endif
+                #else
+                    this->tiles = tiles;
+                    this->cluts = cluts;
+                #endif
+            }
+        #else
+            Texture(TR::Tile32 *tiles, int tilesCount) : width(256), height(256), ID(0) {
+                memset(this->tiles, 0, sizeof(this->tiles));
+
+                ASSERT(tilesCount < COUNT(this->tiles));
+                for (int i = 0; i < tilesCount; i++)
+                    this->tiles[i] = new Texture(width, height, RGBA, 0, tiles + i);
+            }
+        #endif
+
+        void bind(uint16 tile, uint16 clut) {
+        #ifdef _PSP
+            sceGuClutLoad(1, cluts + clut);
+            sceGuTexImage(0, width, height, width, tiles + tile);
+        #else
+            tiles[tile]->bind(0);
+        #endif
+        }
+    #endif
+
+    Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
+        #ifndef _PSP
+            #ifdef SPLIT_BY_TILE
+                memset(this->tiles, 0, sizeof(tiles));
+            #endif
+        #endif
+
         if (!Core::support.texNPOT) {
             width  = nextPow2(width);
             height = nextPow2(height);
@@ -20,10 +92,9 @@ struct Texture {
         this->width  = origWidth  = width;
         this->height = origHeight = height;
 
-        glGenTextures(1, &ID);
-        bind(0);
-
-        GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+        bool   filter   = (opt & NEAREST) == 0;
+        bool   cube     = (opt & CUBEMAP) != 0;
+        bool   mipmaps  = (opt & MIPMAPS) != 0;
         bool   isShadow = format == SHADOW;
 
         if (format == SHADOW && !Core::support.shadowSampler) {
@@ -54,6 +125,14 @@ struct Texture {
 
         this->format = format;
 
+    #ifdef _PSP
+        memory = NULL;//new uint8[width * height * 2];
+    #else
+        glGenTextures(1, &ID);
+        bind(0);
+
+        GLenum target = (opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+
         if (format == SHADOW) {
             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
             glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
@@ -67,7 +146,7 @@ struct Texture {
             glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
         }
 
-        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
 
         struct FormatDesc {
@@ -87,83 +166,127 @@ struct Texture {
 
         FormatDesc desc = formats[format];
 
-#ifdef __EMSCRIPTEN__ // fucking firefox!
-        if (format == RGBA_FLOAT) {
-            if (Core::support.texFloat) {
-                desc.ifmt = GL_RGBA;
-                desc.type = GL_FLOAT;
+        #ifdef __EMSCRIPTEN__ // fucking firefox!
+            if (format == RGBA_FLOAT) {
+                if (Core::support.texFloat) {
+                    desc.ifmt = GL_RGBA;
+                    desc.type = GL_FLOAT;
+                }
             }
-        }
 
-        if (format == RGBA_HALF) {
-            if (Core::support.texHalf) {
+            if (format == RGBA_HALF) {
+                if (Core::support.texHalf) {
+                    desc.ifmt = GL_RGBA;
+                    #ifdef MOBILE
+                        desc.type = GL_HALF_FLOAT_OES;
+                    #endif
+                }
+            }
+        #else
+            if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
                 desc.ifmt = GL_RGBA;
                 #ifdef MOBILE
-                    desc.type = GL_HALF_FLOAT_OES;
+                    if (format == RGBA_HALF)
+                        desc.type = GL_HALF_FLOAT_OES;
                 #endif
             }
-        }
-#else
-        if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
-            desc.ifmt = GL_RGBA;
-            #ifdef MOBILE
-                if (format == RGBA_HALF)
-                    desc.type = GL_HALF_FLOAT_OES;
-            #endif
-        }
-#endif
+        #endif
 
         for (int i = 0; i < 6; i++) {
             glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);
             if (!cube) break;
         }
+    #endif
 
-        if (mips)
+        if (mipmaps)
             generateMipMap();
 
-        this->filter = filter;
+        if (filter)
+            this->opt &= ~NEAREST;
+        else
+            this->opt |= NEAREST;
     }
 
     void generateMipMap() {
+    #ifdef _PSP
+        // TODO
+    #else
         bind(0);
-        GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+        GLenum target = (opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
 
         glGenerateMipmap(target);
-        if (!cube && filter && (Core::support.maxAniso > 0))
+        if (!(opt & CUBEMAP) && !(opt & NEAREST) && (Core::support.maxAniso > 0))
             glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
+    #endif
     }
 
     virtual ~Texture() {
-        glDeleteTextures(1, &ID);
+    #ifdef _PSP
+        delete[] memory;
+    #else
+        #ifdef SPLIT_BY_TILE
+            if (!ID) {
+                for (int i = 0; i < COUNT(tiles); i++)
+                    delete[] tiles[i];
+                return;
+            }
+        #endif
+            glDeleteTextures(1, &ID);
+    #endif
     }
 
     void setFilterQuality(Core::Settings::Quality value) {
-        bool filter = value > Core::Settings::LOW;
-        bool mips   = value > Core::Settings::MEDIUM;
+        bool filter  = value > Core::Settings::LOW;
+        bool mipmaps = value > Core::Settings::MEDIUM;
 
+    #ifdef _PSP
+        if (filter)
+            opt &= ~NEAREST;
+        else
+            opt |= NEAREST;
+
+        if (mipmaps)
+            opt |= MIPMAPS;
+        else
+            opt &= ~MIPMAPS;
+    #else
         Core::active.textures[0] = NULL;
         bind(0);
         if (Core::support.maxAniso > 0)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, value > Core::Settings::MEDIUM ? min(int(Core::support.maxAniso), 8) : 1);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? (mips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
+    #endif
     }
 
     void bind(int sampler) {
+    #ifdef _PSP
+        if (this && !sampler && memory)
+            sceGuTexImage(0, width, height, width, memory);
+    #else
+        #ifdef SPLIT_BY_TILE
+            if (sampler || !ID) return;
+        #endif
+
         if (Core::active.textures[sampler] != this) {
             Core::active.textures[sampler] = this;
             glActiveTexture(GL_TEXTURE0 + sampler);
-            glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
+            glBindTexture((opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
         }
+    #endif
     }
 
     void unbind(int sampler) {
+    #ifdef _PSP
+        //
+    #else
         if (Core::active.textures[sampler]) {
             Core::active.textures[sampler] = NULL;
             glActiveTexture(GL_TEXTURE0 + sampler);
-            glBindTexture(cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
+            glBindTexture((opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
         }
+    #endif
     }
 
     struct Color24 {
@@ -201,10 +324,14 @@ struct Texture {
         strcat(buf, ".bmp");
 
         FILE *f = fopen(buf, "wb");
-        fwrite(&bmfh, sizeof(bmfh), 1, f);
-        fwrite(&BMIH, sizeof(BMIH), 1, f);
-        fwrite(data32, width * height * 4, 1, f);
-        fclose(f);
+        if (f) {
+            fwrite(&bmfh, sizeof(bmfh), 1, f);
+            fwrite(&BMIH, sizeof(BMIH), 1, f);
+            int res = fwrite(data32, width * height * 4, 1, f);
+            LOG("Res %d\n", res);
+            fclose(f);
+        } else
+            ASSERT(false);
     }
 */
     static uint8* LoadPCX(Stream &stream, uint32 &width, uint32 &height) {
@@ -669,7 +796,7 @@ struct Texture {
                 ((uint32*)data)[y * dw] = ((uint32*)data)[y * dw + dw - 1] = 0xFF000000;
         }
 
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, false, data);
+        Texture *tex = new Texture(dw, dh, Texture::RGBA, 0, data);
         tex->origWidth  = width;
         tex->origHeight = height;
 
@@ -829,8 +956,7 @@ struct Atlas {
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, Texture::RGBA, false, data, true, true);
-        
+        Texture *atlas = new Texture(width, height, Texture::RGBA, Texture::MIPMAPS, data);
         delete[] data;
         return atlas;
     };

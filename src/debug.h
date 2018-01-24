@@ -48,6 +48,7 @@ namespace Debug {
     }
 
     void begin() {
+        glDisable(GL_TEXTURE_2D);
         glMatrixMode(GL_PROJECTION);
         glLoadMatrixf((GLfloat*)&Core::mProj);
         glMatrixMode(GL_MODELVIEW);
@@ -64,7 +65,7 @@ namespace Debug {
     }
 
     void end() {
-        //
+        glEnable(GL_TEXTURE_2D);
     }
 
     namespace Draw {
@@ -198,9 +199,9 @@ namespace Debug {
         void text(const vec3 &pos, const vec4 &color, const char *str) {
             vec4 p = Core::mViewProj * vec4(pos, 1);
             if (p.w > 0) {
-                p.xyz = p.xyz * (1.0f / p.w);
+                p.xyz() = p.xyz() * (1.0f / p.w);
                 p.y = -p.y;	
-                p.xyz = (p.xyz * 0.5f + vec3(0.5f)) * vec3(float(Core::width), float(Core::height), 1.0f);	
+                p.xyz() = (p.xyz() * 0.5f + vec3(0.5f)) * vec3(float(Core::width), float(Core::height), 1.0f);	
                 text(vec2(p.x, p.y), color, str);
             }
         }
@@ -210,7 +211,7 @@ namespace Debug {
 
         #define case_name(a,b) case a::b : return #b
 
-        const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger &trigger) {
+        const char *getTriggerType(const TR::Level &level, const TR::Level::Trigger::Type &trigger) {
             switch (trigger) {
                 case_name(TR::Level::Trigger, ACTIVATE );
                 case_name(TR::Level::Trigger, PAD      );
@@ -225,7 +226,7 @@ namespace Debug {
             return "UNKNOWN";
         }
 
-        const char *getTriggerAction(const TR::Level &level, const TR::Action &action) {
+        const char *getTriggerAction(const TR::Level &level, uint16 action) {
             switch (action) {
                 case_name(TR::Action, ACTIVATE      );
                 case_name(TR::Action, CAMERA_SWITCH );
@@ -269,14 +270,30 @@ namespace Debug {
 
             vec3 rf[4], rc[4], f[4], c[4];
 
-            float offsets[4][2] = { { 1, 1 }, { 1023, 1 }, { 1023, 1023 }, { 1, 1023 } };
+            int offsets[4][2] = { { 1, 1 }, { 1023, 1 }, { 1023, 1023 }, { 1, 1023 } };
 
             for (int i = 0; i < 4; i++) {
                 game->getLara()->getFloorInfo(roomIndex, vec3(float(x + offsets[i][0]), float(y), float(z + offsets[i][1])), info);
-                rf[i] = vec3( x + offsets[i][0], info.roomFloor - 4,   z + offsets[i][1] );
-                rc[i] = vec3( x + offsets[i][0], info.roomCeiling + 4, z + offsets[i][1] );
-                f[i]  = vec3( x + offsets[i][0], info.floor - 4,       z + offsets[i][1] );
-                c[i]  = vec3( x + offsets[i][0], info.ceiling + 4,     z + offsets[i][1] );
+                rf[i] = vec3( float(x + offsets[i][0]), info.roomFloor - 4,   float(z + offsets[i][1]) );
+                rc[i] = vec3( float(x + offsets[i][0]), info.roomCeiling + 4, float(z + offsets[i][1]) );
+                f[i]  = vec3( float(x + offsets[i][0]), info.floor - 4,       float(z + offsets[i][1]) );
+                c[i]  = vec3( float(x + offsets[i][0]), info.ceiling + 4,     float(z + offsets[i][1]) );
+
+                /*
+                int px = x + offsets[i][0];
+                int py = y;
+                int pz = z + offsets[i][1];
+
+                int dx, dz;
+
+                int16 ridx = roomIndex;
+                TR::Room::Sector *sector = game->getLevel()->getSectorNext(ridx, px, py, pz);
+                int floor = game->getLevel()->getFloor(sector, px, py, pz);
+                int ceiling = game->getLevel()->getCeiling(sector, px, py, pz);
+
+                f[i]  = vec3( px, floor - 4,   pz );
+                c[i]  = vec3( px, ceiling + 4, pz );
+                */
                 if (info.roomBelow == TR::NO_ROOM) rf[i].y = f[i].y;
                 if (info.roomAbove == TR::NO_ROOM) rc[i].y = c[i].y;
             }
@@ -531,7 +548,7 @@ namespace Debug {
                     Debug::Draw::sphere(p, float(l.radius), color);
                 }
 
-            vec4 color = vec4(lara->mainLightColor.xyz, 1.0f);
+            vec4 color = vec4(lara->mainLightColor.xyz(), 1.0f);
             Debug::Draw::point(lara->mainLightPos, color);
             Debug::Draw::sphere(lara->mainLightPos, lara->mainLightColor.w, color);
         }

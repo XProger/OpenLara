@@ -38,7 +38,6 @@ namespace Game {
         nextLevel = NULL;
 
         Core::init();
-
         shaderCache = new ShaderCache();
 
         UI::init(level);
@@ -49,21 +48,19 @@ namespace Game {
         startLevel(lvl);
     }
 
-    void init(char *lvlName = NULL, char *sndName = NULL) {
+    void init(const char *lvlName = NULL) {
         char fileName[255];
 
         TR::Version version = TR::getGameVersion();
-        if (!lvlName && version != TR::VER_UNKNOWN) {
-            lvlName = fileName;
-            TR::getGameLevelFile(lvlName, version, TR::getTitleId(version));
-        }
-
         if (!lvlName) {
-            lvlName = fileName;
-            strcpy(lvlName, "level/1/TITLE.PSX");
-        }
+            if (version != TR::VER_UNKNOWN)
+                TR::getGameLevelFile(fileName, version, TR::getTitleId(version));
+            else
+                strcpy(fileName, "level/1/TITLE.PSX");
+        } else
+            strcpy(fileName, lvlName);
 
-        init(new Stream(lvlName));
+        init(new Stream(fileName));
     }
 
     void deinit() {

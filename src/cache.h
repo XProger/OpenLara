@@ -15,6 +15,7 @@
 //#define WATER_USE_GRID
 #define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
 
+#ifndef FFP
 const char SHADER[] =
     #include "shaders/shader.glsl"
 ;
@@ -30,6 +31,7 @@ const char FILTER[] =
 const char GUI[] =
     #include "shaders/gui.glsl"
 ;
+#endif
 
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
@@ -114,6 +116,7 @@ struct ShaderCache {
     }
 
     Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
+    #ifndef FFP
         char def[1024], ext[255];
         ext[0] = 0;
         if (Core::settings.detail.shadows) {
@@ -142,6 +145,11 @@ struct ShaderCache {
                 src = SHADER;
                 typ = typeNames[type];          
                 sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                #ifdef MERGE_SPRITES
+                    if (type == Shader::SPRITE)
+                        strcat(def, "#define ALIGN_SPRITES 1\n");
+                #endif
+
                 if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
                 if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (pass == Core::passCompose) {
@@ -190,10 +198,14 @@ struct ShaderCache {
         }
         LOG("shader: compile %s -> %s %s%s%s\n", passNames[pass], typ, (fx & FX_UNDERWATER) ? "underwater " : "", (fx & FX_ALPHA_TEST) ? "alphaTest " : "", (fx & FX_CLIP_PLANE) ? "clipPlane" : "");
         return shaders[pass][type][fx] = new Shader(src, def);
+    #else
+        return NULL;
+    #endif
     }
 
     void bind(Core::Pass pass, Shader::Type type, int fx, IGame *game) {
         Core::pass = pass;
+    #ifndef FFP
         Shader *shader = shaders[pass][type][fx];
         if (!shader)
             shader = compile(pass, type, fx);
@@ -209,6 +221,7 @@ struct ShaderCache {
         ASSERT(mesh->animTexOffsetsCount <= MAX_ANIM_TEX_OFFSETS);
         shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
         shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
+    #endif
     }
 
 };
@@ -306,7 +319,7 @@ struct AmbientCache {
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
             Core::setTarget(textures[j * 4 + 3]);
-            colors[j] = Core::copyPixel(0, 0).xyz;
+            colors[j] = Core::copyPixel(0, 0).xyz();
         }
 
         Core::setDepthTest(true);
@@ -435,7 +448,7 @@ struct WaterCache {
             #ifdef BLUR_CAUSTICS
                 caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
             #endif
-            mask     = new Texture(w, h, Texture::RGB16, false, m, false);
+            mask     = new Texture(w, h, Texture::RGB16, Texture::NEAREST, m);
             delete[] m;
             
             blank = false;

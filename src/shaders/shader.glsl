@@ -99,8 +99,8 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 		vec4 coord;
 		coord.w = rBasisPos.w; // visible flag
-		#ifdef TYPE_SPRITE
-			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz + aCoord.xyz, vec3(aTexCoord.z, -aTexCoord.w, 0.0) * 32767.0);
+		#if defined(TYPE_SPRITE) && defined(ALIGN_SPRITES)
+			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz + aCoord.xyz, vec3(aTexCoord.z, aTexCoord.w, 0.0) * 32767.0);
 		#else
 			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
 		#endif

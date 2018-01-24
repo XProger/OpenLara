@@ -24,10 +24,10 @@ struct Collision {
         int q = angleQuadrant(angle);
 
         const vec2 v[] = {
-            { -radius,  radius },
-            {  radius,  radius },
-            {  radius, -radius },
-            { -radius, -radius },
+            vec2( -radius,  radius ),
+            vec2(  radius,  radius ),
+            vec2(  radius, -radius ),
+            vec2( -radius, -radius ),
         };
 
         const vec2 &l = v[q], &r = v[(q + 1) % 4];

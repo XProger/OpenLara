@@ -92,7 +92,7 @@ struct Animation {
     // real frame index & lerp delta
         int fIndex = int(time * 30.0f) / anim->frameRate;
         int k = fIndex * anim->frameRate;
-        delta = (time * 30.0f - k) / min((int)anim->frameRate, framesCount - k); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
+        delta = (time * 30.0f - k) / min((int)anim->frameRate, max(1, framesCount - k)); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
 
     // size of frame (in bytes)        
         int fIndexA =  fIndex % fCount, 
@@ -218,7 +218,9 @@ struct Animation {
         return lerpAngle(frameA->getAngle(level->version, joint), frameB->getAngle(level->version, joint), delta);
     }
 
-    Basis getJoints(Basis basis, int joint, bool postRot = false, Basis *joints = NULL) {
+    Basis getJoints(const mat4 &matrix, int joint, bool postRot = false, Basis *joints = NULL) {
+        mat4 basis = matrix;
+
         ASSERT(model);
         vec3 offset = isPrepareToNext ? this->offset : vec3(0.0f);
         basis.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
@@ -226,7 +228,7 @@ struct Animation {
         TR::Node *node = (int)model->node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model->node] : NULL;
 
         int sIndex = 0;
-        Basis stack[16];
+        mat4 stack[16];
 
         for (int i = 0; i < model->mCount; i++) {
 
@@ -236,7 +238,7 @@ struct Animation {
                 if (t.flags & 0x01) basis = stack[--sIndex];
                 if (t.flags & 0x02) stack[sIndex++] = basis;
 
-                ASSERT(sIndex >= 0 && sIndex < 16);
+                ASSERT(sIndex >= 0 && sIndex < COUNT(stack));
 
                 basis.translate(vec3((float)t.x, (float)t.y, (float)t.z));
             }
@@ -249,7 +251,8 @@ struct Animation {
                 q = overrides[i];
             else
                 q = getJointRot(i);
-            basis.rotate(q);
+
+            basis.setRot(basis.getRot() * q);
 
             if (i == joint && postRot)
                 return basis;
@@ -257,6 +260,7 @@ struct Animation {
             if (joints)
                 joints[i] = basis;
         }
+
         return basis;
     }
 

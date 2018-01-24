@@ -34,7 +34,7 @@ struct Level : IGame {
         float   waterHeight;
         float   clipSign;
         float   clipHeight;
-    } *params = (Params*)&Core::params;
+    } *params;
 
     ZoneCache    *zoneCache;
     AmbientCache *ambientCache;
@@ -47,7 +47,7 @@ struct Level : IGame {
     bool lastTitle;
     bool isEnded;
 
-    TR::Effect effect;
+    TR::Effect::Type effect;
     float      effectTimer;
     int        effectIdx;
     float      cutsceneWaitTimer;
@@ -235,7 +235,7 @@ struct Level : IGame {
 
         if (rebuildMesh) {
             delete mesh;
-            mesh = new MeshBuilder(level);
+            mesh = new MeshBuilder(level, atlas);
         }
 
         if (rebuildAmbient) {
@@ -260,6 +260,10 @@ struct Level : IGame {
 
     virtual MeshBuilder* getMesh() {
         return mesh;
+    }
+
+    virtual Texture* getAtlas() {
+        return atlas;
     }
 
     virtual ICamera* getCamera() {
@@ -332,7 +336,7 @@ struct Level : IGame {
         }
 
         Core::active.shader->setParam(uParam, Core::params);
-        Core::active.shader->setParam(uMaterial, vec4(diffuse, ambient, specular, alpha));
+        Core::setMaterial(diffuse, ambient, specular, alpha);
 
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
             Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
@@ -356,7 +360,7 @@ struct Level : IGame {
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
-            Texture *target = targets[0]->cube ? targets[0] : targets[i * stride];
+            Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, true, i);
             renderView(roomIndex, false);
             Core::invalidateTarget(false, true);
@@ -364,7 +368,7 @@ struct Level : IGame {
         Core::pass = tmpPass;
     }
     
-    virtual void setEffect(Controller *controller, TR::Effect effect) {
+    virtual void setEffect(Controller *controller, TR::Effect::Type effect) {
         this->effect      = effect;
         this->effectTimer = 0.0f;
         this->effectIdx   = 0;
@@ -461,6 +465,7 @@ struct Level : IGame {
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
+        //return NULL;
         if (level.version == TR::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
 
@@ -547,15 +552,18 @@ struct Level : IGame {
 //==============================
 
     Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false), cutsceneWaitTimer(0.0f) {
+    #ifdef _PSP
+        Core::freeEDRAM();
+    #endif
+        params = (Params*)&Core::params;
         params->time = 0.0f;
 
         #ifdef _DEBUG
             Debug::init();
         #endif
-        
-        initTextures();
-        mesh = new MeshBuilder(level);
 
+        initTextures();
+        mesh = new MeshBuilder(level, atlas);
         initOverrides();
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
@@ -918,15 +926,21 @@ struct Level : IGame {
     }
 
     void initTextures() {
-        if (!level.tilesCount) {
-            atlas = NULL;
-            return;
-        }
+        ASSERT(level.tilesCount);
+
+    #ifndef SPLIT_BY_TILE
+
+        #ifdef _PSP
+            #error atlas packing is not allowed for this platform
+        #endif
+
+        level.initTiles();
+
+        int texIdx = (level.version & TR::VER_PSX) ? 256 : 0; // skip palette color for PSX version
 
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, &level, fillCallback);
         // add textures
-        int texIdx = (level.version & TR::VER_PSX) ? 256 : 0; // skip palette color for PSX version
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
             int16 tx = (t.tile.index % 4) * 256;
@@ -955,7 +969,7 @@ struct Level : IGame {
             tiles->add(uv, texIdx++);
         }
         // add common textures
-        const short2 bar[UI::BAR_MAX] = { {0, 4}, {0, 4}, {0, 4}, {4, 4}, {0, 0} };
+        const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
         for (int i = 0; i < UI::BAR_MAX; i++)
             tiles->add(short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), texIdx++);
 
@@ -973,6 +987,57 @@ struct Level : IGame {
 
         delete[] level.tiles;
         level.tiles = NULL;
+    #else
+        cube = NULL;
+
+        #ifdef _PSP
+            atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
+        #else
+            level.initTiles();
+
+            atlas = new Texture(level.tiles, level.tilesCount);
+            
+            delete[] level.tiles;
+            level.tiles = NULL;
+        #endif
+
+        for (int i = 0; i < level.objectTexturesCount; i++) {
+            TR::ObjectTexture &t = level.objectTextures[i];
+
+            t.texCoord[0].x <<= 7;
+            t.texCoord[0].y <<= 7;
+            t.texCoord[1].x <<= 7;
+            t.texCoord[1].y <<= 7;
+            t.texCoord[2].x <<= 7;
+            t.texCoord[2].y <<= 7;
+            t.texCoord[3].x <<= 7;
+            t.texCoord[3].y <<= 7;
+
+            t.texCoord[0].x += 64;
+            t.texCoord[0].y += 64;
+            t.texCoord[1].x += 64;
+            t.texCoord[1].y += 64;
+            t.texCoord[2].x += 64;
+            t.texCoord[2].y += 64;
+            t.texCoord[3].x += 64;
+            t.texCoord[3].y += 64;
+        }
+
+        for (int i = 0; i < level.spriteTexturesCount; i++) {
+            TR::SpriteTexture &t = level.spriteTextures[i];
+
+            t.texCoord[0].x <<= 7;
+            t.texCoord[0].y <<= 7;
+            t.texCoord[1].x <<= 7;
+            t.texCoord[1].y <<= 7;
+            /*
+            t.texCoord[0].x += 16;
+            t.texCoord[0].y += 16;
+            t.texCoord[1].x += 16;
+            t.texCoord[1].y += 16;
+            */
+        }
+    #endif
     }
 
     void initOverrides() {
@@ -1027,7 +1092,7 @@ struct Level : IGame {
 
     void setMainLight(Controller *controller) {
         Core::lightPos[0]   = controller->mainLightPos;
-        Core::lightColor[0] = vec4(controller->mainLightColor.xyz, 1.0f / controller->mainLightColor.w);
+        Core::lightColor[0] = vec4(controller->mainLightColor.xyz(), 1.0f / controller->mainLightColor.w);
     }
 
     void renderSky() {
@@ -1051,7 +1116,8 @@ struct Level : IGame {
         Core::setDepthTest(false);
         setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uMaterial, vec4(0.5f, 0.0f, 0.0f, 0.0f));
-        Core::active.shader->setParam(uBasis, b);// anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
+        // anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
+        Core::setBasis(&b, 1);
 
         mesh->transparent = 0;
         mesh->renderModel(level.extra.sky);
@@ -1102,6 +1168,8 @@ struct Level : IGame {
         Basis basis;
         basis.identity();
 
+        Core::mModel.identity();
+
         switch (transp) {
             case 0 : Core::setBlending(bmNone);  break;
             case 1 : Core::setBlending(bmAlpha); break;
@@ -1122,7 +1190,7 @@ struct Level : IGame {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
 
-            if (!range.geometry[transp].iCount) {
+            if (!range.geometry[transp].count) {
                 i += dir;
                 continue;
             }
@@ -1134,7 +1202,9 @@ struct Level : IGame {
             sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
             basis.pos = level.rooms[roomIndex].getOffset();
-            sh->setParam(uBasis, basis);
+            Core::setBasis(&basis, 1);
+
+            Core::mModel.setPos(basis.pos);
 
             mesh->transparent = transp;
             mesh->renderRoomGeometry(roomIndex);
@@ -1147,7 +1217,12 @@ struct Level : IGame {
         if (transp == 1) {
             Core::setBlending(bmAlpha);
 
-            basis.rot = Core::mViewInv.getRot();
+            #ifdef MERGE_SPRITES
+                basis.rot = Core::mViewInv.getRot();
+            #else
+                basis.rot = quat(0, 0, 0, 1);
+            #endif
+
             for (int i = 0; i < roomsCount; i++) {
                 level.rooms[roomsList[i]].flags.visible = true;
 
@@ -1164,7 +1239,8 @@ struct Level : IGame {
                 sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
                 basis.pos = level.rooms[roomIndex].getOffset();
-                sh->setParam(uBasis, basis);
+                Core::setBasis(&basis, 1);
+
                 mesh->renderRoomSprites(roomIndex);
             }
         }
@@ -1178,9 +1254,9 @@ struct Level : IGame {
         bool isModel = entity.modelIndex > 0;
 
         if (isModel) {
-            if (!mesh->models[entity.modelIndex - 1].geometry[mesh->transparent].iCount) return;
+            if (!mesh->models[entity.modelIndex - 1].geometry[mesh->transparent].count) return;
         } else {
-            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent)   return;
+            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
         }
 
         Controller *controller = (Controller*)entity.controller;
@@ -1209,7 +1285,7 @@ struct Level : IGame {
             vec3 pos = controller->getPos();
             if (ambientCache) {
                 AmbientCache::Cube cube;
-                if (Core::stats.frame != controller->frameIndex) {
+                if (Core::stats.frame != controller->jointsFrame) {
                     ambientCache->getAmbient(roomIndex, pos, cube);
                     if (cube.status == AmbientCache::Cube::READY)
                         memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
@@ -1379,7 +1455,7 @@ struct Level : IGame {
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &entity = level.entities[i];
                 Controller *controller = (Controller*)entity.controller;
-                if (controller && controller->flags.rendered)
+                if (controller && controller->flags.rendered && controller->getEntity().castShadow())
                     controller->renderShadow(mesh);
             }
             Core::setBlending(bmNone);
@@ -1409,7 +1485,7 @@ struct Level : IGame {
             p[i] = Core::mViewProj * vec4(vec3(portal.vertices[i]) + room.getOffset(), 1.0f);
 
             if (p[i].w > 0.0f) {
-                p[i].xyz *= (1.0f / p[i].w);
+                p[i].xyz() *= (1.0f / p[i].w);
 
                 clipPort.x = min(clipPort.x, p[i].x);
                 clipPort.y = min(clipPort.y, p[i].y);
@@ -1568,7 +1644,7 @@ struct Level : IGame {
         Core::mView     = Core::mViewInv.inverse();
         Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
-        Core::viewPos   = Core::mViewInv.offset.xyz;
+        Core::viewPos   = Core::mViewInv.offset().xyz();
     }
 
     void setupLightCamera() {
@@ -1590,7 +1666,7 @@ struct Level : IGame {
         Core::eye = 0.0f;
         Core::pass = Core::passShadow;
         shadow->unbind(sShadow);
-        bool colorShadow = shadow->format == Texture::Format::RGBA ? true : false;
+        bool colorShadow = shadow->format == Texture::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
         Core::setTarget(shadow, true);
@@ -1704,9 +1780,9 @@ struct Level : IGame {
         //    Box bbox = lara->getBoundingBox();
         //    Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
-        //    Core::setBlending(bmAlpha);
-        //    Core::setDepthTest(false);
-        //    Core::validateRenderState();
+            Core::setBlending(bmAlpha);
+            Core::setDepthTest(false);
+            Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //    Debug::Level::lights(level, lara->getRoomIndex(), lara);
         //    Debug::Level::sectors(this, lara->getRoomIndex(), (int)lara->pos.y);
@@ -1720,8 +1796,8 @@ struct Level : IGame {
         //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
         //    Debug::Level::debugOverlaps(level, lara->box);
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
-        //    Core::setDepthTest(true);
-        //    Core::setBlending(bmNone);
+            Core::setDepthTest(true);
+            Core::setBlending(bmNone);
 
         /*
             static int dbg_ambient = 0;

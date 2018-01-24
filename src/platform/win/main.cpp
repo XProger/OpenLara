@@ -365,10 +365,7 @@ int main(int argc, char** argv) {
     joyInit();
     sndInit(hWnd);
 
-    char *lvlName = argc > 1 ? argv[1] : NULL;
-    char *sndName = argc > 2 ? argv[2] : NULL;
-
-    Game::init(lvlName, sndName);
+    Game::init(argc > 1 ? argv[1] : NULL);
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);

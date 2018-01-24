@@ -216,7 +216,16 @@ struct Character : Controller {
     }
 
     vec3 getViewPoint() {
-        return animation.getJoints(getMatrix(), jointChest).pos;
+        /*
+        Box box = getBoundingBoxLocal();
+        vec3 p = pos;
+        float delta = (box.max.z + box.min.z) * 0.5f;
+        p.x += sinf(angle.y) * delta;
+        p.z += cosf(angle.y) * delta;
+        p.y += box.max.y + (box.min.y - box.max.y) * 0.75f;
+        return p;
+        */
+        return getJoint(jointChest).pos;
     }
 
     virtual void lookAt(Controller *target) {

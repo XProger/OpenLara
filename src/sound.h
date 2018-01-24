@@ -3,10 +3,12 @@
 
 #define DECODE_VAG
 #define DECODE_ADPCM
-#define DECODE_OGG
 
-#ifndef __EMSCRIPTEN__
-    #define DECODE_MP3
+#ifndef _PSP
+    #define DECODE_OGG
+    #ifndef __EMSCRIPTEN__
+        #define DECODE_MP3
+    #endif
 #endif
 
 #include "utils.h"
@@ -436,7 +438,7 @@ namespace Sound {
             uint32 fourcc; 
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
-                
+
                 struct {
                     uint16  format;
                     uint16  channels;
@@ -452,7 +454,7 @@ namespace Sound {
                     stream->read(type);
                     stream->read(size);
                     if (type == FOURCC("fmt ")) {
-                        stream->read(waveFmt);
+                        stream->raw(&waveFmt, sizeof(waveFmt));
                         stream->seek(size - sizeof(waveFmt));
                     } else if (type == FOURCC("data")) {
                         if (waveFmt.format == 1) decoder = new PCM(stream, waveFmt.channels, waveFmt.samplesPerSec, size, waveFmt.sampleBits);
@@ -464,26 +466,28 @@ namespace Sound {
                         stream->seek(size);
                 }
             } 
-            #ifdef DECODE_OGG
             else if (fourcc == FOURCC("OggS")) { // ogg
                 stream->seek(-4);
-                decoder = new OGG(stream, 2);
+                #ifdef DECODE_OGG
+                    decoder = new OGG(stream, 2);
+                #endif 
             }
-            #endif 
-            #ifdef DECODE_MP3
             else if (fourcc == FOURCC("ID3\3")) { // mp3
-                decoder = new MP3(stream, 2);
+                #ifdef DECODE_MP3
+                    decoder = new MP3(stream, 2);
+                #endif
             }
-            #endif
-            #ifdef DECODE_VAG
             else { // vag
                 stream->setPos(0);
-                decoder = new VAG(stream);
+                #ifdef DECODE_VAG
+                    decoder = new VAG(stream);
+                #endif
             }
-            #endif
+
+            if (!decoder)
+                delete stream;
 
             isPlaying = decoder != NULL;
-            ASSERT(isPlaying);
         }
 
         ~Sample() {
@@ -507,10 +511,10 @@ namespace Sound {
             if (!(flags & PAN))
                 return vec2(1.0f);
             mat4  m = Sound::listener.matrix;
-            vec3  v = pos - m.offset.xyz;
+            vec3  v = pos - m.offset().xyz();
 
             float dist = max(0.0f, 1.0f - (v.length() / SND_FADEOFF_DIST));
-            float pan  = m.right.xyz.dot(v.normal());
+            float pan  = m.right().xyz().dot(v.normal());
 
             float l = min(1.0f, 1.0f - pan);
             float r = min(1.0f, 1.0f + pan);
@@ -525,7 +529,7 @@ namespace Sound {
             while (i < count) {
                 int res = decoder->decode(&frames[i], count - i);
                 if (res == 0) {
-                    if (!(flags & Flags::LOOP)) {
+                    if (!(flags & LOOP)) {
                         isPlaying = false;
                         break;
                     } else
@@ -536,7 +540,7 @@ namespace Sound {
         // apply volume
             #define VOL_CONV(x) (1.0f - sqrtf(1.0f - x * x));
 
-            float m = ((flags & Flags::MUSIC) ? Core::settings.audio.music : Core::settings.audio.sound);
+            float m = ((flags & MUSIC) ? Core::settings.audio.music : Core::settings.audio.sound);
             float v = volume * m;
             vec2 pan = getPan();
             vec2 vol = pan * VOL_CONV(v);
@@ -693,7 +697,7 @@ namespace Sound {
             } entity;
 
             stream->seek(sizeof(entity) * index);
-            stream->read(entity);
+            stream->raw(&entity, sizeof(entity));
             stream->setPos(entity.offset);
             return stream;
         }
@@ -704,8 +708,8 @@ namespace Sound {
     Stream *openCDAudioMP3(const char *dat, const char *name, int index = -1) {
         if (!Stream::existsContent(dat) || !Stream::existsContent(name))
             return NULL;
-        // TODO
-        return NULL;
+        Stream *stream = new Stream(name);
+        return stream;
     }
 
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {

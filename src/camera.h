@@ -6,7 +6,7 @@
 #include "controller.h"
 #include "character.h"
 
-#define CAMERA_OFFSET (1024.0f + 256.0f)
+#define CAMERA_OFFSET (1024.0f + 512.0f)
 
 struct Camera : ICamera {
 
@@ -154,7 +154,7 @@ struct Camera : ICamera {
         if (!firstPerson || viewIndex != -1)
             return false;
 
-        Basis head = owner->animation.getJoints(owner->getMatrix(), 14, true);
+        Basis head = owner->getJoint(owner->jointHead);
         Basis eye(quat(0.0f, 0.0f, 0.0f, 1.0f), vec3(0.0f, -40.0f, 10.0f));
         eye = head * eye;
         mViewInv.identity();
@@ -347,16 +347,14 @@ struct Camera : ICamera {
                 Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
             if (Core::settings.detail.stereo)
-                Core::mView.translate(Core::mViewInv.right.xyz * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
+                Core::mView.translate(Core::mViewInv.right().xyz() * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
 
             Core::mProj = getProjMatrix();
-
-        // TODO: temporal anti-aliasing
-        //    Core::mProj.e02 = (randf() - 0.5f) * 32.0f / Core::width;
-        //    Core::mProj.e12 = (randf() - 0.5f) * 32.0f / Core::height;
         }
-        Core::mViewProj = Core::mProj * Core::mView;
-        Core::viewPos   = Core::mViewInv.offset.xyz;
+
+        Core::setViewProj(Core::mView, Core::mProj);
+
+        Core::viewPos = Core::mViewInv.offset().xyz();
 
         frustum->pos = Core::viewPos;
         frustum->calcPlanes(Core::mViewProj);
@@ -373,6 +371,9 @@ struct Camera : ICamera {
 
         fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 8.0f  : 32.0f;
+        #ifdef _PSP
+            znear = 256.0f;
+        #endif
         zfar  = 45.0f * 1024.0f;
     }
 };

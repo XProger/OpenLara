@@ -1,7 +1,9 @@
 #ifndef H_CORE
 #define H_CORE
 
-#define USE_INFLATE
+#ifndef _PSP
+    #define USE_INFLATE
+#endif
 
 #include <stdio.h>
 #ifdef WIN32
@@ -137,10 +139,29 @@
 
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+#elif _PSP
+    #include <pspgu.h>
+    #include <pspgum.h>
+
+    #define FFP
+    //#define TEX_SWIZZLE
+    #define EDRAM_MESH
+    //#define EDRAM_TEX
 #endif
 
 #ifdef USE_INFLATE
     #include "libs/tinf/tinf.h"
+#endif
+
+#ifdef FFP
+    #define SPLIT_BY_TILE
+    #ifdef _PSP
+        #define SPLIT_BY_CLUT
+    #endif
+#else
+    #define MERGE_MODELS
+    #define MERGE_SPRITES
+    #define GENERATE_WATER_PLANE
 #endif
 
 #include "utils.h"
@@ -164,6 +185,9 @@ enum InputKey { ikNone,
 
 struct KeySet {
     InputKey key, joy;
+    
+    KeySet() {}
+    KeySet(InputKey key, InputKey joy) : key(key), joy(joy) {}
 };
 
 namespace Core {
@@ -171,7 +195,7 @@ namespace Core {
     int   lastTime;
     int   width, height;
 
-    struct {
+    struct Support {
         int  maxVectors;
         int  maxAniso;
         bool shaderBinary;
@@ -191,7 +215,7 @@ namespace Core {
     } support;
 
     struct Settings {
-        enum Quality : uint8 { LOW, MEDIUM, HIGH };
+        enum Quality { LOW, MEDIUM, HIGH };
 
         struct {
             union {
@@ -363,7 +387,7 @@ namespace Core {
 struct Shader;
 struct Texture;
 
-enum RenderState : int32 {
+enum RenderState {
     RS_TARGET           = 1 << 0,
     RS_VIEWPORT         = 1 << 1,
     RS_DEPTH_TEST       = 1 << 2,
@@ -383,7 +407,7 @@ enum RenderState : int32 {
     RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULT | RS_BLEND_PREMULT,
 };
 
-typedef unsigned short Index;
+typedef uint16 Index;
 
 struct Vertex {
     short4  coord;      // xyz  - position, w - joint index (for entities only)
@@ -393,6 +417,31 @@ struct Vertex {
     ubyte4  color;      // for non-textured geometry
     ubyte4  light;      // xyz  - color, w - use premultiplied alpha
 };
+
+#ifdef FFP
+    #ifdef _PSP
+        struct VertexGPU {
+            short2 texCoord;
+            ubyte4 color;
+            short3 normal;
+            short3 coord;
+        };
+    #else
+/*
+        struct VertexGPU {
+            short2 texCoord;
+            ubyte4 color;
+            short3 normal;
+            uint16 _alignN;
+            short3 coord;
+            uint16 _alignC;
+        };
+*/
+        typedef Vertex VertexGPU;
+    #endif
+#else
+    typedef Vertex VertexGPU;
+#endif
 
 #ifdef PROFILE
    //#define USE_CV_MARKERS
@@ -470,7 +519,7 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult };
 namespace Core {
     float eye;
     vec4 viewport, viewportDef;
-    mat4 mView, mProj, mViewProj, mViewInv, mLightProj;
+    mat4 mModel, mView, mProj, mViewProj, mViewInv, mLightProj;
     Basis basis;
     vec3 viewPos;
     vec4 lightPos[MAX_LIGHTS];
@@ -482,33 +531,46 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
-    GLuint FBO, defaultFBO;
+    #ifdef _PSP
+        void    *curBackBuffer;
+    #else
+        GLuint  FBO, defaultFBO;
+        struct RenderTargetCache {
+            int count;
+            struct Item {
+                GLuint  ID;
+                int     width;
+                int     height;
+            } items[MAX_RENDER_BUFFERS];
+        } rtCache[2];
+    #endif
+
     Texture *defaultTarget;
+    
+    int32   renderState;
 
-    struct RenderTargetCache {
-        int count;
-        struct Item {
-            GLuint  ID;
-            int     width;
-            int     height;
-        } items[MAX_RENDER_BUFFERS];
-    } rtCache[2];
-
-    int32 renderState;
-
-    struct {
+    struct Active {
         Shader      *shader;
         Texture     *textures[8];
         Texture     *target;
-        int         targetFace;
         vec4        viewport;
+        vec4        material;
+        uint32      targetFace;
+    #ifdef _PSP
+        Index       *iBuffer;
+        VertexGPU   *vBuffer;
+    #else
         GLuint      VAO;
         GLuint      iBuffer;
         GLuint      vBuffer;
+    #endif
         int32       renderState;
+
+        int32       basisCount;
+        Basis       *basis;
     } active;
     
-    struct {
+    struct ReqTarget {
         Texture *texture;
         bool    clear;
         uint8   face;
@@ -539,6 +601,45 @@ namespace Core {
                 frame++;
         }
     } stats;
+
+#ifdef _PSP
+    uint32 *cmdBuf = NULL;
+
+    static int EDRAM_OFFSET;
+    static int EDRAM_SIZE;
+
+    void* allocEDRAM(int size) {
+        LOG("EDRAM ALLOC: offset: %d size %d\n", Core::EDRAM_OFFSET, size);
+        if (Core::EDRAM_OFFSET + size > EDRAM_SIZE)
+            LOG("! EDRAM overflow !\n");
+
+        void *ptr = ((char*)sceGeEdramGetAddr()) + EDRAM_OFFSET;
+        EDRAM_OFFSET += (size + 15) / 16 * 16;
+        return ptr;
+    }
+
+    void freeEDRAM() {
+        EDRAM_OFFSET = (512 * 272 * 2 * 2) + (512 * 272 * 2);
+        LOG("EDRAM FREE: offset: %d\n", EDRAM_OFFSET);
+    }
+#endif
+
+    void beginCmdBuf() {
+    #ifdef _PSP
+         if (!cmdBuf)
+             cmdBuf = new uint32[262144];
+
+          sceGuStart(GU_DIRECT, cmdBuf);
+    #endif
+    }
+
+    void submitCmdBuf() {
+    #ifdef _PSP
+        ASSERT(cmdBuf);
+        sceGuFinish();
+        sceGuSync(GU_SYNC_WAIT, GU_SYNC_FINISH);
+    #endif
+    }
 }
 
 #include "texture.h"
@@ -632,6 +733,16 @@ namespace Core {
             GetProcOGL(glProgramBinary);
         #endif
 
+        const char *vendor, *renderer, *version;
+
+    #ifdef _PSP
+        vendor   = "Sony";
+        renderer = "SCE GU";
+        version  = "1.0";
+    #else
+        vendor   = (char*)glGetString(GL_VENDOR);
+        renderer = (char*)glGetString(GL_RENDERER);
+        version  = (char*)glGetString(GL_VERSION);
 
         char *ext = (char*)glGetString(GL_EXTENSIONS);
 /*
@@ -648,8 +759,27 @@ namespace Core {
                 }
         }
 */
-        glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
+    #endif
 
+    #ifdef FFP
+        support.maxAniso       = 1;
+        support.maxVectors     = 0;
+        support.shaderBinary   = false;
+        support.VAO            = false;
+        support.depthTexture   = false;
+        support.shadowSampler  = false;
+        support.discardFrame   = false;
+        support.texNPOT        = false;
+        support.texRG          = false;
+        support.texBorder      = false;
+        support.maxAniso       = false;
+        support.colorFloat     = false;
+        support.colorHalf      = false;
+        support.texFloatLinear = false;
+        support.texFloat       = false;
+        support.texHalfLinear  = false;
+        support.texHalf        = false;
+    #else
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = extSupport(ext, "_vertex_array_object");
         support.depthTexture   = extSupport(ext, "_depth_texture");
@@ -668,16 +798,22 @@ namespace Core {
 
         if (support.maxAniso)
             glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &support.maxAniso);
+        glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
+    #endif
 
     #ifdef PROFILE
         support.profMarker     = extSupport(ext, "_KHR_debug");
         support.profTiming     = extSupport(ext, "_timer_query");
     #endif
-        char *vendor = (char*)glGetString(GL_VENDOR);
+
         LOG("Vendor   : %s\n", vendor);
-        LOG("Renderer : %s\n", glGetString(GL_RENDERER));
-        LOG("Version  : %s\n", glGetString(GL_VERSION));
+        LOG("Renderer : %s\n", renderer);
+        LOG("Version  : %s\n", version);
         LOG("cache    : %s\n", Stream::cacheDir);
+    #ifdef _PSP
+        EDRAM_SIZE = sceGeEdramGetSize();
+        LOG("VRAM     : %d\n", EDRAM_SIZE);
+    #endif
         LOG("supports :\n");
         LOG("  variyngs count : %d\n", support.maxVectors);
         LOG("  binary shaders : %s\n", support.shaderBinary  ? "true" : "false");
@@ -694,12 +830,88 @@ namespace Core {
             support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
         LOG("\n");
 
+    #ifdef FFP
+        #ifdef _PSP
+            Core::width  = 480;
+            Core::height = 272;
+
+            sceGuDepthFunc(GU_LEQUAL);
+            sceGuDepthRange(0x0000, 0xFFFF);
+            sceGuClearDepth(0xFFFF);
+
+            sceGuShadeModel(GU_SMOOTH);
+            sceGuAlphaFunc(GU_GREATER, 127, 255);
+            sceGuEnable(GU_ALPHA_TEST);
+
+            int swizzle = GU_FALSE;
+            #ifdef TEX_SWIZZLE
+                swizzle = GU_TRUE;
+            #endif
+
+            sceGuClutMode(GU_PSM_5551, 0, 0xFF, 0);
+            sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
+            sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+            sceGuTexScale(1.0f, 1.0f);
+            sceGuTexOffset(0.0f, 0.0f);
+            sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+            //sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+            sceGuEnable(GU_CLIP_PLANES);
+
+            const ScePspIMatrix4 dith =
+              { {-4,  0, -3,  1},
+                { 2, -2,  3, -1},
+                {-3,  1, -4,  0},
+                { 3, -1,  2, -2} };
+            sceGuSetDither(&dith);
+            sceGuEnable(GU_DITHER);
+
+            sceGuEnable(GU_LIGHT0);
+            sceGuDisable(GU_LIGHT1);
+            sceGuDisable(GU_LIGHT2);
+            sceGuDisable(GU_LIGHT3);
+            sceGuAmbientColor(0xFFFFFFFF);
+            sceGuColor(0xFFFFFFFF);
+
+            freeEDRAM();
+        #else
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glEnableClientState(GL_COLOR_ARRAY);
+            glEnableClientState(GL_NORMAL_ARRAY);
+            glEnableClientState(GL_VERTEX_ARRAY);
+            
+            glClearColor(0.5, 0.5, 0.5, 1);
+            glAlphaFunc(GL_GREATER, 0.5f);
+            glEnable(GL_ALPHA_TEST);
+
+            glEnable(GL_LIGHT0);
+            glDisable(GL_LIGHT1);
+            glDisable(GL_LIGHT2);
+            glDisable(GL_LIGHT3);
+            glEnable(GL_NORMALIZE);
+
+            glMatrixMode(GL_TEXTURE);
+            glLoadIdentity();
+            glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
+        #endif
+    #endif
+
+    #ifndef _PSP
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
         glGenFramebuffers(1, &FBO);
-        
-        memset(rtCache, 0, sizeof(rtCache));
-        defaultTarget = NULL;
         glDepthFunc(GL_LEQUAL);
+
+        memset(rtCache, 0, sizeof(rtCache));
+    #endif
+
+    #if defined(FFP) && defined(SPLIT_BY_TILE)
+        #ifdef _PSP
+            sceGuEnable(GU_TEXTURE_2D);
+        #else
+            glEnable(GL_TEXTURE_2D);
+        #endif
+    #endif
+
+        defaultTarget = NULL;
 
         Sound::init();
 
@@ -710,9 +922,9 @@ namespace Core {
         eye = 0.0f;
 
         uint32 data = 0x00000000;
-        blackTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
+        blackTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
         data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, false, &data, false);
+        whiteTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
 
     // init settings
         settings.detail.setFilter   (Core::Settings::HIGH);
@@ -729,33 +941,45 @@ namespace Core {
         settings.controls.multitarget = true;
         settings.controls.vibration   = true;
 
-        settings.controls.keys[ cLeft      ] = { ikLeft,   ikJoyLeft   };
-        settings.controls.keys[ cRight     ] = { ikRight,  ikJoyRight  };
-        settings.controls.keys[ cUp        ] = { ikUp,     ikJoyUp     };
-        settings.controls.keys[ cDown      ] = { ikDown,   ikJoyDown   };
+        settings.controls.keys[ cLeft      ] = KeySet( ikLeft,   ikJoyLeft   );
+        settings.controls.keys[ cRight     ] = KeySet( ikRight,  ikJoyRight  );
+        settings.controls.keys[ cUp        ] = KeySet( ikUp,     ikJoyUp     );
+        settings.controls.keys[ cDown      ] = KeySet( ikDown,   ikJoyDown   );
     #ifdef __EMSCRIPTEN__
-        settings.controls.keys[ cJump      ] = { ikD,      ikJoyX      };
+        settings.controls.keys[ cJump      ] = KeySet( ikD,      ikJoyX      );
     #else
-        settings.controls.keys[ cJump      ] = { ikAlt,    ikJoyX      };
+        settings.controls.keys[ cJump      ] = KeySet( ikAlt,    ikJoyX      );
     #endif
-        settings.controls.keys[ cWalk      ] = { ikShift,  ikJoyRB     };
-        settings.controls.keys[ cAction    ] = { ikCtrl,   ikJoyA      };
-        settings.controls.keys[ cWeapon    ] = { ikSpace,  ikJoyY      };
-        settings.controls.keys[ cLook      ] = { ikC,      ikJoyLB     };
-        settings.controls.keys[ cStepLeft  ] = { ikZ,      ikJoyLT     };
-        settings.controls.keys[ cStepRight ] = { ikX,      ikJoyRT     };
-        settings.controls.keys[ cRoll      ] = { ikA,      ikJoyB      };
-        settings.controls.keys[ cInventory ] = { ikTab,    ikJoySelect };
+        settings.controls.keys[ cWalk      ] = KeySet( ikShift,  ikJoyRB     );
+        settings.controls.keys[ cAction    ] = KeySet( ikCtrl,   ikJoyA      );
+        settings.controls.keys[ cWeapon    ] = KeySet( ikSpace,  ikJoyY      );
+        settings.controls.keys[ cLook      ] = KeySet( ikC,      ikJoyLB     );
+        settings.controls.keys[ cStepLeft  ] = KeySet( ikZ,      ikJoyLT     );
+        settings.controls.keys[ cStepRight ] = KeySet( ikX,      ikJoyRT     );
+        settings.controls.keys[ cRoll      ] = KeySet( ikA,      ikJoyB      );
+        settings.controls.keys[ cInventory ] = KeySet( ikTab,    ikJoySelect );
 
-#ifdef __RPI__
+    #ifdef __RPI__
         settings.detail.setShadows(Core::Settings::LOW);
-#endif
+    #endif
+
+    #ifdef FFP
+        settings.detail.setFilter   (Core::Settings::MEDIUM);
+        settings.detail.setLighting (Core::Settings::LOW);
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setWater    (Core::Settings::LOW);
+        settings.audio.reverb = false;
+    #endif
+
         resetTime();
     }
 
     void deinit() {
         delete blackTex;
         delete whiteTex;
+    #ifdef _PSP
+        delete[] cmdBuf;
+    #else
     /*
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFrameBuffers(1, &FBO);
@@ -765,9 +989,11 @@ namespace Core {
             for (int i = 0; i < rtCache[b].count; i++)
                 glDeleteRenderBuffers(1, &rtCache[b].items[i].ID);
     */
+    #endif
         Sound::deinit();
     }
 
+#ifndef _PSP
     int cacheRenderTarget(bool depth, int width, int height) {
         RenderTargetCache &cache = rtCache[depth];
 
@@ -778,17 +1004,16 @@ namespace Core {
         ASSERT(cache.count < MAX_RENDER_BUFFERS);
 
         RenderTargetCache::Item &item = cache.items[cache.count];
-
-        glGenRenderbuffers(1, &item.ID);
         item.width  = width;
         item.height = height;
 
+        glGenRenderbuffers(1, &item.ID);
         glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
         glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        
         return cache.count++;
     }
+#endif
 
     bool update() {
         resetState = false;
@@ -809,12 +1034,19 @@ namespace Core {
             uint8   face    = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
-                
+            #ifdef _PSP
+/*
+                if (!target)
+                    sceGuDrawBufferList(GU_PSM_5650, curBackBuffer, 512);
+                else
+                    sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
+*/
+            #else
                 if (!target) { // may be a null
                     glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
                 } else {
                     GLenum texTarget = GL_TEXTURE_2D;
-                    if (target->cube) 
+                    if (target->opt & Texture::CUBEMAP) 
                         texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
                     bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
@@ -824,6 +1056,7 @@ namespace Core {
                     glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
                     glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
                 }
+            #endif
 
                 active.target     = target;
                 active.targetFace = face;
@@ -833,30 +1066,62 @@ namespace Core {
         if (mask & RS_VIEWPORT) {
             if (viewport != active.viewport) {
                 active.viewport = viewport;
+            #ifdef _PSP
+                sceGuOffset(2048 - int(viewport.z) / 2, 2048 - int(viewport.w) / 2);
+                sceGuViewport(2048 + int(viewport.x), 2048 + int(viewport.y), int(viewport.z), int(viewport.w));
+            #else
                 glViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
+            #endif
             }
             renderState &= ~RS_VIEWPORT;
         }
 
         if (mask & RS_DEPTH_TEST) {
+        #ifdef _PSP
+            if (renderState & RS_DEPTH_TEST)
+                sceGuEnable(GU_DEPTH_TEST);
+            else
+                sceGuDisable(GU_DEPTH_TEST);
+        #else
             if (renderState & RS_DEPTH_TEST)
                 glEnable(GL_DEPTH_TEST);
             else
                 glDisable(GL_DEPTH_TEST);
+        #endif
         }
         
         if (mask & RS_DEPTH_WRITE) {
-            glDepthMask((renderState & RS_DEPTH_WRITE) != 0);
+        #ifdef _PSP
+            sceGuDepthMask((renderState & RS_DEPTH_WRITE) != 0 ? GU_FALSE : GU_TRUE);
+        #else
+            glDepthMask((renderState & RS_DEPTH_WRITE) != 0 ? GL_TRUE : GL_FALSE);
+        #endif
         }
 
         if (mask & RS_COLOR_WRITE) {
+        #ifdef _PSP
+            sceGuPixelMask(~(((renderState & RS_COLOR_WRITE_R) != 0 ? 0x000000FF : 0) |
+                             ((renderState & RS_COLOR_WRITE_G) != 0 ? 0x0000FF00 : 0) |
+                             ((renderState & RS_COLOR_WRITE_B) != 0 ? 0x00FF0000 : 0) |
+                             ((renderState & RS_COLOR_WRITE_A) != 0 ? 0xFF000000 : 0)));
+        #else
             glColorMask((renderState & RS_COLOR_WRITE_R) != 0,
                         (renderState & RS_COLOR_WRITE_G) != 0,
                         (renderState & RS_COLOR_WRITE_B) != 0,
                         (renderState & RS_COLOR_WRITE_A) != 0);
+        #endif
         }
 
         if (mask & RS_CULL) {
+        #ifdef _PSP
+            if (!(active.renderState & RS_CULL))
+                sceGuEnable(GU_CULL_FACE);
+            switch (renderState & RS_CULL) {
+                case RS_CULL_BACK  : sceGuFrontFace(GU_CCW);  break;
+                case RS_CULL_FRONT : sceGuFrontFace(GU_CW); break;
+                default            : sceGuDisable(GU_CULL_FACE);
+            }
+        #else
             if (!(active.renderState & RS_CULL))
                 glEnable(GL_CULL_FACE);
             switch (renderState & RS_CULL) {
@@ -864,9 +1129,21 @@ namespace Core {
                 case RS_CULL_FRONT : glCullFace(GL_FRONT); break;
                 default            : glDisable(GL_CULL_FACE);
             }
+        #endif
         }
 
         if (mask & RS_BLEND) {
+        #ifdef _PSP
+            if (!(active.renderState & RS_BLEND))
+                sceGuEnable(GU_BLEND);
+            switch (renderState & RS_BLEND) {
+                case RS_BLEND_ALPHA    : sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);    break;
+                case RS_BLEND_ADD      : sceGuBlendFunc(GU_ADD, GU_FIX, GU_FIX, 0xffffffff, 0xffffffff);        break;
+                case RS_BLEND_MULT     : sceGuBlendFunc(GU_ADD, GU_DST_COLOR, GU_FIX, 0, 0);                    break;
+                case RS_BLEND_PREMULT  : sceGuBlendFunc(GU_ADD, GU_FIX, GU_ONE_MINUS_SRC_ALPHA, 0xffffffff, 0); break;
+                default                : sceGuDisable(GU_BLEND);
+            }
+        #else
             if (!(active.renderState & RS_BLEND))
                 glEnable(GL_BLEND);
             switch (renderState & RS_BLEND) {
@@ -876,11 +1153,17 @@ namespace Core {
                 case RS_BLEND_PREMULT  : glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);       break;
                 default                : glDisable(GL_BLEND);
             }
+        #endif
         }
 
-        if (mask & RS_TARGET) { // for cler the RT & reset mask
-            if (reqTarget.clear)
+        if (mask & RS_TARGET) {
+            if (reqTarget.clear) {
+            #ifdef _PSP
+                sceGuClear(GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT | GU_FAST_CLEAR_BIT);
+            #else
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            #endif
+            }
             renderState &= ~RS_TARGET;
         }
 
@@ -888,7 +1171,15 @@ namespace Core {
     }
 
     void setClearColor(const vec4 &color) {
+    #ifdef _PSP
+        ubyte4 c(clamp(int(color.x * 255), 0, 255),
+                 clamp(int(color.y * 255), 0, 255),
+                 clamp(int(color.z * 255), 0, 255),
+                 clamp(int(color.w * 255), 0, 255));
+        sceGuClearColor(*((uint32*)&c));
+    #else
         glClearColor(color.x, color.y, color.z, color.w);
+    #endif
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -968,17 +1259,38 @@ namespace Core {
         renderState |= RS_TARGET;
     }
 
+    void setBasis(Basis *basis, int count) {
+        Core::active.basis      = basis;
+        Core::active.basisCount = count;
+
+        Core::active.shader->setParam(uBasis, basis[0], count);
+    }
+
+    void setMaterial(float diffuse, float ambient, float specular, float alpha) {
+        Core::active.material = vec4(diffuse, ambient, specular, alpha);
+
+        Core::active.shader->setParam(uMaterial, Core::active.material);
+    }
+
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
         dst->bind(sDiffuse);
+    #ifdef _PSP
+    
+    #else
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height); // TODO: too bad for iOS devices!
+    #endif
     }
 
     vec4 copyPixel(int x, int y) { // GPU sync!
         validateRenderState();
+    #ifdef _PSP
+        return vec4(0.0f);
+    #else
         ubyte4 c;
         glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
         return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);
+    #endif
     }
 
     void beginFrame() {
@@ -1004,9 +1316,45 @@ namespace Core {
         Core::stats.stop();
     }
 
+    void setViewProj(const mat4 &mView, const mat4 &mProj) {
+        Core::mProj     = mProj;
+        Core::mView     = mView;
+        Core::mViewProj = mProj * mView;
+    #ifdef FFP
+        #ifdef _PSP
+            sceGumMatrixMode(GU_PROJECTION);
+            sceGumLoadMatrix((ScePspFMatrix4*)&mProj);
+            sceGumMatrixMode(GU_VIEW);
+            sceGumLoadMatrix((ScePspFMatrix4*)&mView);
+        #else
+            glMatrixMode(GL_PROJECTION);
+            glLoadMatrixf((float*)&mProj);
+        #endif
+    #endif
+    }
+
     void DIP(int iStart, int iCount) {
         validateRenderState();
+
+    #ifdef FFP
+        #ifdef _PSP
+            mat4 m = mModel;
+            m.scale(vec3(32767.0f));
+            sceGumMatrixMode(GU_MODEL);
+            sceGumLoadMatrix((ScePspFMatrix4*)&m);
+        #else
+            mat4 m = mView * mModel;
+            glMatrixMode(GL_MODELVIEW);
+            glLoadMatrixf((GLfloat*)&m);
+        #endif
+    #endif
+
+    #ifdef _PSP
+        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, iCount, active.iBuffer + iStart, active.vBuffer);
+    #else
         glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)NULL + iStart);
+    #endif
+
         stats.dips++;
         stats.tris += iCount / 3;
     }

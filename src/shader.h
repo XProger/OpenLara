@@ -51,17 +51,29 @@ const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 #undef STR
 
 struct Shader {
-    GLuint  ID;
-    GLint   uID[uMAX];
     vec4    params[uMAX][4];
 
-    enum Type : GLint { 
+    enum Type { 
         DEFAULT = 0,
         /* shader */ SPRITE = 0, FLASH = 1, ROOM = 2, ENTITY = 3, MIRROR = 4, 
         /* filter */ FILTER_DOWNSAMPLE = 1, FILTER_GRAYSCALE = 2, FILTER_BLUR = 3, FILTER_MIXER = 4, FILTER_EQUIRECTANGULAR = 5,
         /* water  */ WATER_DROP = 0, WATER_STEP = 1, WATER_CAUSTICS = 2, WATER_MASK = 3, WATER_COMPOSE = 4,
         MAX = 6
     };
+#ifdef FFP
+    Shader(const char *source, const char *defines = "") {}
+    virtual ~Shader() {}
+    bool bind() { return true; }
+    void setParam(UniformType uType, const int &value, int count = 1) {}
+    void setParam(UniformType uType, const float &value, int count = 1) {}
+    void setParam(UniformType uType, const vec2 &value, int count = 1) {}
+    void setParam(UniformType uType, const vec3 &value, int count = 1) {}
+    void setParam(UniformType uType, const vec4 &value, int count = 1) {}
+    void setParam(UniformType uType, const mat4 &value, int count = 1) {}
+    void setParam(UniformType uType, const Basis &value, int count = 1) {}
+#else
+    uint32  ID;
+    int32   uID[uMAX];
 
     Shader(const char *source, const char *defines = "") {
         char fileName[255];
@@ -227,6 +239,7 @@ struct Shader {
         if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
             glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
     }
+#endif
 };
 
 #endif

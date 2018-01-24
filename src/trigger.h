@@ -107,7 +107,7 @@ struct TrapDartEmitter : Controller {
             game->addEntity(TR::Entity::DART, getRoomIndex(), p, angle.y);
             if (level->extra.smoke != -1)
                 game->addEntity(TR::Entity::SMOKE, getRoomIndex(), p);
-            game->playSound(TR::SND_DART, p, Sound::Flags::PAN);
+            game->playSound(TR::SND_DART, p, Sound::PAN);
         }
 
         updateAnimation(true);
@@ -160,7 +160,7 @@ struct Flame : Sprite {
                 return;
             }
 
-            pos = lara->animation.getJoints(lara->getMatrix(), jointIndex).pos;
+            pos = lara->getJoint(jointIndex).pos;
             if (jointIndex == 0)
                 pos.y += 100.0f;
 
@@ -321,6 +321,7 @@ struct TrapBoulder : Controller {
             if (onGround) {
                 pos = p;
                 deactivate(true);
+                game->checkTrigger(this, true);
                 return;
             } else {
                 pos.x = p.x;
@@ -528,7 +529,7 @@ struct Door : Controller {
             sectors[0] = level->getSector(roomIndex[0], x, z, sectorIndex[0]);
 
         // behind
-            roomIndex[1] = level->getNextRoom(sectors[0].floorIndex);
+            roomIndex[1] = level->getNextRoom(&sectors[0]);
 
             if (roomIndex[1] == TR::NO_ROOM)
                 return;
@@ -698,7 +699,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, Texture::RGBA, true, NULL, true, true);
+        environment = new Texture(64, 64, Texture::RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
         activate();
     }
 
@@ -713,7 +714,7 @@ struct Crystal : Controller {
 
     virtual void update() {
         updateAnimation(false);
-        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos - vec3(0, 256, 0);
+        vec3 lightPos = getJoint(0).pos - vec3(0, 256, 0);
         getRoom().addDynLight(entity, vec4(lightPos, 0.0f), CRYSTAL_LIGHT_COLOR);
     }
 
@@ -740,7 +741,7 @@ struct CrystalPickup : Controller {
 
     virtual void update() {
         updateAnimation(false);
-        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos;
+        vec3 lightPos = getJoint(0).pos;
         getRoom().addDynLight(entity, vec4(lightPos, 0.0f), CRYSTAL_PICKUP_LIGHT_COLOR);
     }
 };
@@ -1001,7 +1002,7 @@ struct Lightning : Controller {
                     } else if (!hasTargets) {
                         target = pos + vec3(0.0f, 1024.0f, 0.0f);
                     } else
-                        target = animation.getJoints(getMatrix(), 1 + int(randf() * 5)).pos;
+                        target = getJoint(1 + int(randf() * 5)).pos;
                 }
                 game->playSound(TR::SND_LIGHTNING, pos, Sound::PAN);
             }
@@ -1028,10 +1029,10 @@ struct Lightning : Controller {
 
     void setVertex(Vertex &v, const vec3 &coord, int16 joint, int idx) {
         v.coord     = toCoord(coord, joint);
-        v.normal    = { 0, -1, 0, 0 };
-        v.texCoord  = { barTile[0].texCoord[idx].x, barTile[0].texCoord[idx].y, 32767, 32767 };
-        v.param     = { 0, 0, 0, 0 };
-        v.color     = { 255, 255, 255, 255 };
+        v.normal    = short4( 0, -1, 0, 0 );
+        v.texCoord  = short4( barTile[0].texCoord[idx].x, barTile[0].texCoord[idx].y, 32767, 32767 );
+        v.param     = ubyte4( 0, 0, 0, 0 );
+        v.color     = ubyte4( 255, 255, 255, 255 );
     }
 
     void renderPolyline(const vec3 &start, const vec3 &end, float width, float spread, int depth) {
@@ -1061,7 +1062,7 @@ struct Lightning : Controller {
         ASSERT(vCount == count * 2);
 
     // build vertices
-        vec3 dir = Core::mViewInv.dir.xyz;
+        vec3 dir = Core::mViewInv.dir().xyz();
 
         vCount = 0;
         vec3 n;
@@ -1096,7 +1097,7 @@ struct Lightning : Controller {
         if (!armed)
             target = game->getLara()->pos;
 
-        Basis b = animation.getJoints(getMatrix(), 0);
+        Basis b = getJoint(0);
         b.rot = quat(0, 0, 0, 1);
 
         game->setShader(Core::pass, Shader::FLASH, false, false);
@@ -1166,7 +1167,7 @@ struct TrapLava : Controller {
         vec3 dir = getDir();
 
         roomIndex = getRoomIndex();
-        TR::Room::Sector *s = level->getSector(roomIndex, int(pos.x + dir.x * 2048.0f), int(pos.y), int(pos.z + dir.z * 2048.0f));
+        TR::Room::Sector *s = level->getSector(roomIndex, pos + dir * 2048.0f);
         if (!s || s->floor * 256 != int(pos.y))
             return;
 
@@ -1469,7 +1470,7 @@ struct StoneItem : Controller {
         float s = 0.3f + (sinf(phase * PI2) * 0.5f + 0.5f) * 0.7f;
 
         vec4 lightColor(0.1f * s, 1.0f * s, 1.0f * s, 1.0f / STONE_ITEM_LIGHT_RADIUS);
-        vec3 lightPos = animation.getJoints(getMatrix(), 0, false).pos;
+        vec3 lightPos = getJoint(0).pos;
 
         getRoom().addDynLight(entity, vec4(lightPos, 0.0f), lightColor);
     }

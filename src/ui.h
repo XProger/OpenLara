@@ -164,9 +164,10 @@ namespace UI {
     bool  showHelp;
 
     const static uint8 char_width[110] = {
-        14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 
-        12, 11, 9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, 12, 8,
-        10, 10, 10, 10, 10, 9, 10, 10, 5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 11, 8, 13, 16, 9, 4, 12, 12, 
+        14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
+        9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
+        12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
+        5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 11, 8, 13, 16, 9, 4, 12, 12, 
         7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
         
     static const uint8 char_map[102] = {
@@ -216,12 +217,16 @@ namespace UI {
         BAR_MAX,
     };
 
-    struct {
+    struct Buffer {
         Vertex  vertices[MAX_CHARS * 4];
         Index   indices[MAX_CHARS * 6];
         int     iCount;
         int     vCount;
     } buffer;
+
+    #ifdef SPLIT_BY_TILE
+        uint16 curTile, curClut;
+    #endif
 
     void begin() {
         Core::setDepthTest(false);
@@ -231,17 +236,30 @@ namespace UI {
 
         float aspect = float(Core::width) / float(Core::height);
         width = 480 * aspect;
-        Core::mViewProj = mat4(0.0f, width, 480, 0.0f, 0.0f, 1.0f);
+
+        Core::mProj = mat4(0.0f, width, 480, 0.0f, 0.0f, 1.0f);
+        Core::mView.identity();
+        Core::mModel.identity();
+
+        Core::setViewProj(Core::mView, Core::mProj);
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
-        Core::active.shader->setParam(uMaterial, vec4(1));
+        Core::setMaterial(1, 1, 1, 1);
         Core::active.shader->setParam(uPosScale, vec4(0, 0, 1, 1));
 
         buffer.iCount = buffer.vCount = 0;
+
+        #ifdef SPLIT_BY_TILE
+            curTile = curClut = 0xFFFF;
+        #endif
     }
 
     void flush() {
         if (buffer.iCount > 0) {
+        #ifdef SPLIT_BY_TILE
+            if (curTile != 0xFFFF)
+                game->getAtlas()->bind(curTile, curClut);
+        #endif
             game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
             buffer.iCount = buffer.vCount = 0;
         }
@@ -319,6 +337,19 @@ namespace UI {
                 }
             }
 
+            #ifdef SPLIT_BY_TILE
+                if (sprite.tile != curTile
+                    #ifdef SPLIT_BY_CLUT
+                        || sprite.clut != curClut
+                    #endif
+                ) {
+                    flush();
+                    curTile = sprite.tile;
+                    curClut = sprite.clut;
+                }
+            #endif
+
+
             mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, x, y, 0, sprite, tColor, bColor, true);
 
             x += char_width[frame] + 1;
@@ -339,6 +370,19 @@ namespace UI {
             flush();
 
         TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
+
+        #ifdef SPLIT_BY_TILE
+            if (sprite.tile != curTile
+                #ifdef SPLIT_BY_CLUT
+                    || sprite.clut != curClut
+                #endif
+            ) {
+                flush();
+                curTile = sprite.tile;
+                curClut = sprite.clut;
+            }
+        #endif
+
         mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, int(pos.x), int(pos.y), 0, sprite, TR::Color32(255, 255, 255, 255), TR::Color32(255, 255, 255, 255), true);
     }
 

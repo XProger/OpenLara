@@ -7,7 +7,12 @@
 
 #define INVENTORY_MAX_ITEMS  32
 #define INVENTORY_MAX_RADIUS 688.0f
-#define INVENTORY_BG_SIZE    512
+#ifdef _PSP
+    #define INVENTORY_BG_SIZE    256
+#else
+    #define INVENTORY_BG_SIZE    512
+#endif
+
 #define INVENTORY_HEIGHT     2048.0f
 
 #define TITLE_LOADING        64.0f
@@ -48,49 +53,52 @@ struct Inventory {
             StringID    str;
             Page        page;
             int         model;
+            
+            Desc() {}
+            Desc(StringID str, Page page, int model) : str(str), page(page), model(model) {}
         } desc;
 
         Item() : anim(NULL) {}
 
         Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f), value(0) {
             switch (type) {
-                case TR::Entity::INV_PASSPORT        : desc = { STR_GAME,            PAGE_OPTION,    level->extra.inv.passport        }; break;
-                case TR::Entity::INV_PASSPORT_CLOSED : desc = { STR_GAME,            PAGE_OPTION,    level->extra.inv.passport_closed }; break;
-                case TR::Entity::INV_MAP             : desc = { STR_MAP,             PAGE_INVENTORY, level->extra.inv.map             }; break;
-                case TR::Entity::INV_COMPASS         : desc = { STR_COMPASS,         PAGE_INVENTORY, level->extra.inv.compass         }; break;
-                case TR::Entity::INV_STOPWATCH       : desc = { STR_STOPWATCH,       PAGE_INVENTORY, level->extra.inv.stopwatch       }; break;
-                case TR::Entity::INV_HOME            : desc = { STR_HOME,            PAGE_OPTION,    level->extra.inv.home            }; break;
-                case TR::Entity::INV_DETAIL          : desc = { STR_DETAIL,          PAGE_OPTION,    level->extra.inv.detail          }; break;
-                case TR::Entity::INV_SOUND           : desc = { STR_SOUND,           PAGE_OPTION,    level->extra.inv.sound           }; break;
-                case TR::Entity::INV_CONTROLS        : desc = { STR_CONTROLS,        PAGE_OPTION,    level->extra.inv.controls        }; break;
-                case TR::Entity::INV_GAMMA           : desc = { STR_GAMMA,           PAGE_OPTION,    level->extra.inv.gamma           }; break;
+                case TR::Entity::INV_PASSPORT        : desc = Desc( STR_GAME,            PAGE_OPTION,    level->extra.inv.passport        ); break;
+                case TR::Entity::INV_PASSPORT_CLOSED : desc = Desc( STR_GAME,            PAGE_OPTION,    level->extra.inv.passport_closed ); break;
+                case TR::Entity::INV_MAP             : desc = Desc( STR_MAP,             PAGE_INVENTORY, level->extra.inv.map             ); break;
+                case TR::Entity::INV_COMPASS         : desc = Desc( STR_COMPASS,         PAGE_INVENTORY, level->extra.inv.compass         ); break;
+                case TR::Entity::INV_STOPWATCH       : desc = Desc( STR_STOPWATCH,       PAGE_INVENTORY, level->extra.inv.stopwatch       ); break;
+                case TR::Entity::INV_HOME            : desc = Desc( STR_HOME,            PAGE_OPTION,    level->extra.inv.home            ); break;
+                case TR::Entity::INV_DETAIL          : desc = Desc( STR_DETAIL,          PAGE_OPTION,    level->extra.inv.detail          ); break;
+                case TR::Entity::INV_SOUND           : desc = Desc( STR_SOUND,           PAGE_OPTION,    level->extra.inv.sound           ); break;
+                case TR::Entity::INV_CONTROLS        : desc = Desc( STR_CONTROLS,        PAGE_OPTION,    level->extra.inv.controls        ); break;
+                case TR::Entity::INV_GAMMA           : desc = Desc( STR_GAMMA,           PAGE_OPTION,    level->extra.inv.gamma           ); break;
                                                                                    
-                case TR::Entity::INV_PISTOLS         : desc = { STR_PISTOLS,         PAGE_INVENTORY, level->extra.inv.weapon[0]       }; break;
-                case TR::Entity::INV_SHOTGUN         : desc = { STR_SHOTGUN,         PAGE_INVENTORY, level->extra.inv.weapon[1]       }; break;
-                case TR::Entity::INV_MAGNUMS         : desc = { STR_MAGNUMS,         PAGE_INVENTORY, level->extra.inv.weapon[2]       }; break;
-                case TR::Entity::INV_UZIS            : desc = { STR_UZIS,            PAGE_INVENTORY, level->extra.inv.weapon[3]       }; break;
+                case TR::Entity::INV_PISTOLS         : desc = Desc( STR_PISTOLS,         PAGE_INVENTORY, level->extra.inv.weapon[0]       ); break;
+                case TR::Entity::INV_SHOTGUN         : desc = Desc( STR_SHOTGUN,         PAGE_INVENTORY, level->extra.inv.weapon[1]       ); break;
+                case TR::Entity::INV_MAGNUMS         : desc = Desc( STR_MAGNUMS,         PAGE_INVENTORY, level->extra.inv.weapon[2]       ); break;
+                case TR::Entity::INV_UZIS            : desc = Desc( STR_UZIS,            PAGE_INVENTORY, level->extra.inv.weapon[3]       ); break;
                                                                                    
-                case TR::Entity::INV_AMMO_PISTOLS    : desc = { STR_AMMO_PISTOLS,    PAGE_INVENTORY, level->extra.inv.ammo[0]         }; break;
-                case TR::Entity::INV_AMMO_SHOTGUN    : desc = { STR_AMMO_SHOTGUN,    PAGE_INVENTORY, level->extra.inv.ammo[1]         }; break;
-                case TR::Entity::INV_AMMO_MAGNUMS    : desc = { STR_AMMO_MAGNUMS,    PAGE_INVENTORY, level->extra.inv.ammo[2]         }; break;
-                case TR::Entity::INV_AMMO_UZIS       : desc = { STR_AMMO_UZIS,       PAGE_INVENTORY, level->extra.inv.ammo[3]         }; break;
+                case TR::Entity::INV_AMMO_PISTOLS    : desc = Desc( STR_AMMO_PISTOLS,    PAGE_INVENTORY, level->extra.inv.ammo[0]         ); break;
+                case TR::Entity::INV_AMMO_SHOTGUN    : desc = Desc( STR_AMMO_SHOTGUN,    PAGE_INVENTORY, level->extra.inv.ammo[1]         ); break;
+                case TR::Entity::INV_AMMO_MAGNUMS    : desc = Desc( STR_AMMO_MAGNUMS,    PAGE_INVENTORY, level->extra.inv.ammo[2]         ); break;
+                case TR::Entity::INV_AMMO_UZIS       : desc = Desc( STR_AMMO_UZIS,       PAGE_INVENTORY, level->extra.inv.ammo[3]         ); break;
 
-                case TR::Entity::INV_MEDIKIT_SMALL   : desc = { STR_MEDI_SMALL,      PAGE_INVENTORY, level->extra.inv.medikit[0]      }; break;
-                case TR::Entity::INV_MEDIKIT_BIG     : desc = { STR_MEDI_BIG,        PAGE_INVENTORY, level->extra.inv.medikit[1]      }; break;
+                case TR::Entity::INV_MEDIKIT_SMALL   : desc = Desc( STR_MEDI_SMALL,      PAGE_INVENTORY, level->extra.inv.medikit[0]      ); break;
+                case TR::Entity::INV_MEDIKIT_BIG     : desc = Desc( STR_MEDI_BIG,        PAGE_INVENTORY, level->extra.inv.medikit[1]      ); break;
 
-                case TR::Entity::INV_PUZZLE_1        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[0]       }; break;
-                case TR::Entity::INV_PUZZLE_2        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[1]       }; break;
-                case TR::Entity::INV_PUZZLE_3        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[2]       }; break;
-                case TR::Entity::INV_PUZZLE_4        : desc = { STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[3]       }; break;
+                case TR::Entity::INV_PUZZLE_1        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[0]       ); break;
+                case TR::Entity::INV_PUZZLE_2        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[1]       ); break;
+                case TR::Entity::INV_PUZZLE_3        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[2]       ); break;
+                case TR::Entity::INV_PUZZLE_4        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[3]       ); break;
                                                                                                    
-                case TR::Entity::INV_KEY_1           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[0]          }; break;
-                case TR::Entity::INV_KEY_2           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[1]          }; break;
-                case TR::Entity::INV_KEY_3           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[2]          }; break;
-                case TR::Entity::INV_KEY_4           : desc = { STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[3]          }; break;
+                case TR::Entity::INV_KEY_1           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[0]          ); break;
+                case TR::Entity::INV_KEY_2           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[1]          ); break;
+                case TR::Entity::INV_KEY_3           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[2]          ); break;
+                case TR::Entity::INV_KEY_4           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[3]          ); break;
                                                                                                    
-                case TR::Entity::INV_LEADBAR         : desc = { STR_LEAD_BAR,        PAGE_ITEMS,     level->extra.inv.leadbar         }; break;
-                case TR::Entity::INV_SCION           : desc = { STR_SCION,           PAGE_ITEMS,     level->extra.inv.scion           }; break;
-                default                              : desc = { STR_UNKNOWN,         PAGE_ITEMS,     -1                               }; break;
+                case TR::Entity::INV_LEADBAR         : desc = Desc( STR_LEAD_BAR,        PAGE_ITEMS,     level->extra.inv.leadbar         ); break;
+                case TR::Entity::INV_SCION           : desc = Desc( STR_SCION,           PAGE_ITEMS,     level->extra.inv.scion           ); break;
+                default                              : desc = Desc( STR_UNKNOWN,         PAGE_ITEMS,     -1                               ); break;
             }
 
             if (desc.model > -1 && level->models[desc.model].animation != 0xFFFF) {
@@ -142,9 +150,14 @@ struct Inventory {
             TR::Model &m     = level->models[desc.model];
             Basis joints[MAX_SPHERES];
 
-            anim->getJoints(basis, -1, true, joints);
+            mat4 matrix;
+            matrix.identity();
+            matrix.setRot(basis.rot);
+            matrix.setPos(basis.pos);
 
-            Core::active.shader->setParam(uBasis, joints[0], m.mCount);
+            anim->getJoints(matrix, -1, true, joints);
+
+            Core::setBasis(joints, m.mCount);
 
             Core::setBlending(bmNone);
             mesh->transparent = 0;
@@ -775,6 +788,16 @@ struct Inventory {
         Core::setDepthTest(false);
         Core::setBlending(bmNone);
 
+    #ifdef FFP
+        mat4 m;
+        m.identity();
+        Core::setViewProj(m, m);
+        Core::mModel.identity();
+    #endif
+
+    #ifdef _PSP
+        //
+    #else
         // vertical blur
         Core::setTarget(background[1], true);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
@@ -792,9 +815,10 @@ struct Inventory {
         // grayscale
         Core::setTarget(background[1], true);
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
-        Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));;
+        Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));
         background[2]->bind(sDiffuse);
         game->getMesh()->renderQuad();
+    #endif
 
         Core::setTarget(NULL, true);
 
@@ -1050,6 +1074,14 @@ struct Inventory {
         Core::setDepthTest(false);
 
         if (background[0]) {
+            #ifdef FFP
+                mat4 m;
+                m.identity();
+                Core::setViewProj(m, m);
+                Core::mModel.identity();
+            //    Core::mModel.scale(vec3(0.9f));
+            #endif
+
             background[0]->bind(sDiffuse);  // orignal image
             if (background[1]) {
                 game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
@@ -1091,14 +1123,15 @@ struct Inventory {
         Core::mView.identity();
         Core::mView.translate(vec3(-Core::eye * 8.0f, 0, -1286));   // y = -96 in title 
 
-        Core::mView.up  *= -1.0f;
-        Core::mView.dir *= -1.0f;
+        Core::mView.up()  *= -1.0f;
+        Core::mView.dir() *= -1.0f;
         Core::mViewInv = Core::mView.inverse();
 
         float aspect = float(Core::width) / float(Core::height);
 
         Core::mProj     = mat4(70.0f, aspect, 32.0f, 2048.0f);
-        Core::mViewProj = Core::mProj * Core::mView;
+        Core::setViewProj(Core::mView, Core::mProj);
+
         Core::viewPos   = Core::mViewInv.getPos();
 
         Core::whiteTex->bind(sShadow);
