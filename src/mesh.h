@@ -53,6 +53,7 @@ struct MeshRange {
     }
 
     void bind(GLuint *VAO) const {
+        ASSERT(aIndex >= -1 && aIndex < 4);
         GLuint vao = aIndex == -1 ? 0 : VAO[aIndex];
         if (Core::support.VAO && Core::active.VAO != vao)
             glBindVertexArray(Core::active.VAO = vao);
@@ -584,9 +585,7 @@ struct MeshBuilder {
             Vertex &v0 = vertices[vCount + i * 2 + 0];
             v0.normal    = short4( 0, -1, 0, 32767 );
             v0.texCoord  = short4( whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 );
-            v0.param     = ubyte4( 0, 0, 0, 0 );
-            v0.color     = ubyte4( 255, 255, 255, 255 );
-            v0.light     = ubyte4( 0, 0, 0, 0 );
+            v0.param     = v0.color = v0.light = ubyte4( 0, 0, 0, 0 );
 
             if (i == 8) {
                 v0.coord = short4( 0, 0, 0, 0 );
@@ -605,8 +604,8 @@ struct MeshBuilder {
             Vertex &v1 = vertices[vCount + i * 2 + 1];
             v1 = v0;
             v1.coord = short4( c1, 0, s1, 0 );
-            v1.color = ubyte4( 255, 255, 255, 255 );
-            v1.light = ubyte4( 255, 255, 255, 0 );
+            v0.param = ubyte4( 0, 0, 0, 0 );
+            v1.color = v1.light = ubyte4( 255, 255, 255, 0 );
 
             int idx = iCount + i * 3 * 3;
             int j = ((i + 1) % 8) * 2;
@@ -957,7 +956,7 @@ struct MeshBuilder {
             animTexOffsetsCount += animTex->count + 1;
             animTexRanges[i] = vec2((float)start, (float)(animTexOffsetsCount - start));
 
-            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+            ptr += (sizeof(animTex->count) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
         }
         animTexOffsets = new vec2[animTexOffsetsCount];
         animTexOffsets[0] = vec2(0.0f);
@@ -973,7 +972,7 @@ struct MeshBuilder {
             for (int j = 1; j <= animTex->count; j++)
                 animTexOffsets[animTexOffsetsCount++] = getTexCoord(level.objectTextures[animTex->textures[j]]) - first;
 
-            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+            ptr += (sizeof(animTex->count) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
         }
     }
 
@@ -993,7 +992,7 @@ struct MeshBuilder {
                     return &level->objectTextures[animTex->textures[0]];
                 }
             
-            ptr += (sizeof(TR::AnimTexture) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
+            ptr += (sizeof(animTex->count) + sizeof(animTex->textures[0]) * (animTex->count + 1)) / sizeof(uint16);
         }
         
         return tex;
@@ -1381,7 +1380,12 @@ struct MeshBuilder {
         int part = 0;
 
         Geometry &geom = models[modelIndex].geometry[transparent];
-        for (int i = 0; i < level->models[modelIndex].mCount; i++) {
+    #ifdef MERGE_MODELS
+        int i = 0;
+    #else
+        for (int i = 0; i < level->models[modelIndex].mCount; i++)
+    #endif
+        {
             #ifndef MERGE_MODELS
                 Basis &basis = Core::active.basis[i];
                 if (basis.w == -1.0f) {
