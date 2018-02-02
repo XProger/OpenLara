@@ -15,13 +15,14 @@ inspired by OpenTomb project http://opentomb.github.io/
 ## Roadmap
 - save game crystals
 - camera
-- alpha-3 release (December)
+- RELEASE alpha-3 (February)
 - enemies
+- Wii port
 - bug fixes
-- beta-1 release (January)
+- RELEASE beta-1
 - bug fixes
 - graphics improvements
-- release (February)
+- RELEASE
 - OpenLara 2...
 
 ## Screenshots
