@@ -1102,8 +1102,7 @@ static int compute_codewords(Codebook *c, uint8 *len, int n, uint32 *values)
 static void compute_accelerated_huffman(Codebook *c)
 {
    int i, len;
-   for (i=0; i < FAST_HUFFMAN_TABLE_SIZE; ++i)
-      c->fast_huffman[i] = -1;
+   memset(c->fast_huffman, 0xFF, sizeof(c->fast_huffman)); // fill by -1
 
    len = c->sparse ? c->sorted_entries : c->entries;
    #ifdef STB_VORBIS_FAST_HUFFMAN_SHORT
@@ -1219,37 +1218,92 @@ static int lookup1_values(int entries, int dim)
 */
 static int lookup1_values(int a, int b)
 {
-	int r = 0, p = 0;
-	do {
-		r++;
-        p = (int)pow(r, b);
-	} while (p <= a);
-	return r - 1;
+   int r = 0, p = 0;
+      do {
+      r++;
+      p = (int)pow(r, b);
+   } while (p <= a);
+   return r - 1;
 }
+
+#ifdef _PSP
+// pspmath.h
+    extern float vfpu_sinf(float x);
+    extern float vfpu_cosf(float x);
+    extern void  vfpu_sincos(float r, float *s, float *c);
+
+    #define sinf(x)         vfpu_sinf(x)
+    #define cosf(x)         vfpu_cosf(x)
+    #define sincos(a, s, c) vfpu_sincos(a, s, c)
+#else
+    void sincos(float r, float *s, float *c) {
+        *s = sinf(r);
+        *c = cosf(r);
+    }
+#endif
+
+#define rotate(x, y, s, c) {\
+        float t = x*c - y*s;\
+        y = x*s + y*c;\
+        x = t;\
+    }
 
 // called twice per file
 static void compute_twiddle_factors(int n, float *A, float *B, float *C)
 {
    int n4 = n >> 2, n8 = n >> 3;
-   int k,k2;
+   int k, k2;
+   float sA, cA, sB, cB, sC, cC;
+   float xA, yA, xB, yB, xC, yC;
 
-   for (k=k2=0; k < n4; ++k,k2+=2) {
-      A[k2  ] = (float)  cos(4*k*M_PI/n);
-      A[k2+1] = (float) -sin(4*k*M_PI/n);
-      B[k2  ] = (float)  cos((k2+1)*M_PI/n/2) * 0.5f;
-      B[k2+1] = (float)  sin((k2+1)*M_PI/n/2) * 0.5f;
+   sincos(4*M_PI/n, &sA, &cA);
+   sincos(M_PI/n/2, &sB, &cB);
+   sincos(2*M_PI/n, &sC, &cC);
+
+   A[0] = xA = 1.0f;
+   A[1] = yA = 0.0f;
+   xB = cB;
+   yB = sB;
+   B[0] = xB * 0.5f;
+   B[1] = yB * 0.5f;
+   rotate(cB, sB, sB, cB);
+
+   for (k=1, k2=2; k < n4; ++k,k2+=2) {
+      rotate(xA, yA, sA, cA);
+      A[k2  ] =  xA;
+      A[k2+1] = -yA;
+      rotate(xB, yB, sB, cB);
+      B[k2  ] = xB * 0.5f;
+      B[k2+1] = yB * 0.5f;
    }
-   for (k=k2=0; k < n8; ++k,k2+=2) {
-      C[k2  ] = (float)  cos(2*(k2+1)*M_PI/n);
-      C[k2+1] = (float) -sin(2*(k2+1)*M_PI/n);
+
+   xC = cC;
+   yC = sC;
+   C[0] =  xC;
+   C[1] = -yC;
+
+   rotate(cC, sC, sC, cC);
+
+   for (k=1, k2=2; k < n8; ++k,k2+=2) {
+      rotate(xC, yC, sC, cC);
+      C[k2  ] =  xC;
+      C[k2+1] = -yC;
    }
 }
 
 static void compute_window(int n, float *window)
 {
    int n2 = n >> 1, i;
-   for (i=0; i < n2; ++i)
-      window[i] = (float) sin(0.5 * M_PI * square((float) sin((i - 0 + 0.5) / n2 * 0.5 * M_PI)));
+   float s, c, x, y;
+   sincos(0.5f / n2 * 0.5f * M_PI, &s, &c);
+   x = c;
+   y = s;
+   rotate(c, s, s, c);
+
+   for (i=0; i < n2; ++i) {
+      window[i] = sinf(0.5f * M_PI * (y * y));
+      rotate(x, y, s, c);
+   }
 }
 
 static void compute_bitreverse(int n, uint16 *rev)
@@ -4071,6 +4125,7 @@ static int start_decoder(vorb *f)
       f->previous_window[i] = (float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
       f->finalY[i]          = (int16 *) setup_malloc(f, sizeof(int16) * longest_floorlist);
       if (f->channel_buffers[i] == NULL || f->previous_window[i] == NULL || f->finalY[i] == NULL) return error(f, VORBIS_outofmem);
+      memset(f->channel_buffers[i], 0, sizeof(float) * f->blocksize_1);
       #ifdef STB_VORBIS_NO_DEFER_FLOOR
       f->floor_buffers[i]   = (float *) setup_malloc(f, sizeof(float) * f->blocksize_1/2);
       if (f->floor_buffers[i] == NULL) return error(f, VORBIS_outofmem);
