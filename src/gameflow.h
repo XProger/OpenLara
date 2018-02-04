@@ -457,8 +457,8 @@ namespace TR {
             case VER_TR2 : return LVL_TR2_ASSAULT;
             case VER_TR3 : return LVL_TR3_HOUSE;
         }
-        return LVL_TR1_TITLE;
         ASSERT(false);
+        return LVL_MAX;
     }
 
     LevelID getStartId(Version version) {
@@ -467,8 +467,8 @@ namespace TR {
             case VER_TR2 : return LVL_TR2_WALL;
             case VER_TR3 : return LVL_TR3_JUNGLE;
         }
-        return LVL_MAX;
         ASSERT(false);
+        return LVL_MAX;
     }
 
     LevelID getEndId(Version version) {
@@ -477,8 +477,8 @@ namespace TR {
             case VER_TR2 : return LVL_TR2_HOUSE;
             case VER_TR3 : return LVL_TR3_CHAMBER;
         }
-        return LVL_MAX;
         ASSERT(false);
+        return LVL_MAX;
     }
 
     bool isCutsceneLevel(LevelID id) {
@@ -546,7 +546,7 @@ namespace TR {
             }
         } else {
             strcpy(dst, "level/");
-            if (version & VER_TR1) strcat(dst, "1/");
+            if ((version & VER_TR1) || version == VER_UNKNOWN) strcat(dst, "1/");
             if (version & VER_TR2) strcat(dst, "2/");
             if (version & VER_TR3) strcat(dst, "3/");
             strcat(dst, LEVEL_INFO[id].name);
