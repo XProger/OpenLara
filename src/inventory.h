@@ -544,10 +544,10 @@ struct Inventory {
         }
 
         if (item->type == TR::Entity::INV_DETAIL) {
-            int count = 6;
+            int count = 7;
             if (key == cUp   ) { slot = (slot - 1 + count) % count; };
             if (key == cDown ) { slot = (slot + 1) % count;         };
-            if (slot < count - 2) {
+            if (slot < count - 3) {
                 Core::Settings::Quality q = settings.detail.quality[slot];
                 if (key == cLeft  && q > Core::Settings::LOW  ) { q = Core::Settings::Quality(q - 1); }
                 if (key == cRight && q < Core::Settings::HIGH ) { q = Core::Settings::Quality(q + 1); }
@@ -562,6 +562,9 @@ struct Inventory {
                         game->playSound(TR::SND_INV_PAGE);
                 }
             }
+
+            if (slot == count - 3 && (key == cLeft || key == cRight)) // vsync
+                settings.detail.vsync = !settings.detail.vsync;
 
             if (slot == count - 2 && (key == cLeft || key == cRight)) // stereo
                 settings.detail.stereo = !settings.detail.stereo;
@@ -785,6 +788,10 @@ struct Inventory {
     }
 
     void prepareBackground() {
+        Core::defaultTarget = getBackgroundTarget();
+        game->renderGame();
+        Core::defaultTarget = NULL;
+
         Core::setDepthTest(false);
         Core::setBlending(bmNone);
 
@@ -937,7 +944,7 @@ struct Inventory {
         float y = 192.0f - h;
         
     // background
-        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 9.0f + 8.0f), 0.0f, 0, 0xC0000000);
+        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(w, h * 10.0f + 8.0f), 0.0f, 0, 0xC0000000);
     // title
         UI::renderBar(UI::BAR_OPTION, vec2(x, y - h + 6), vec2(w, h - 6), 1.0f, 0x802288FF, 0, 0, 0);
         UI::textOut(vec2(x, y), STR_SELECT_DETAIL, UI::aCenter, w, UI::SHADE_GRAY);
@@ -945,14 +952,15 @@ struct Inventory {
         y += h * 2;
         x += 8.0f;
         w -= 16.0f;
-        float aw = slot == 5 ? (w - 128.0f) : w;
+        float aw = slot == 6 ? (w - 128.0f) : w;
         
-        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - aw) * 0.5f - eye, y + (slot > 4 ? 6 : slot) * h + 6 - h), vec2(aw, h - 6), 1.0f, 0xFFD8377C, 0);
+        UI::renderBar(UI::BAR_OPTION, vec2((UI::width - aw) * 0.5f - eye, y + (slot > 5 ? 7 : slot) * h + 6 - h), vec2(aw, h - 6), 1.0f, 0xFFD8377C, 0);
         y = printQuality(x, y, w, STR_OPT_DETAIL_FILTER,   slot == 0, settings.detail.filter);
         y = printQuality(x, y, w, STR_OPT_DETAIL_LIGHTING, slot == 1, settings.detail.lighting);
         y = printQuality(x, y, w, STR_OPT_DETAIL_SHADOWS,  slot == 2, settings.detail.shadows);
         y = printQuality(x, y, w, STR_OPT_DETAIL_WATER,    slot == 3, settings.detail.water);
-        y = printBool(x + 32.0f, y, w - 64.0f - 16.0f, STR_OPT_DETAIL_STEREO,  slot == 4, settings.detail.stereo);
+        y = printBool(x + 32.0f, y, w - 64.0f - 16.0f, STR_OPT_DETAIL_VSYNC,  slot == 4, settings.detail.vsync);
+        y = printBool(x + 32.0f, y, w - 64.0f - 16.0f, STR_OPT_DETAIL_STEREO, slot == 5, settings.detail.stereo);
         y += h;
         UI::textOut(vec2(x + 64.0f, y), STR_APPLY, UI::aCenter, w - 128.0f);
     }
@@ -986,12 +994,14 @@ struct Inventory {
     }
 
     void renderItemText(Item *item) {
+        float eye = UI::width * Core::eye * 0.01f;
+
         if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
             //
         } else
-            UI::textOut(vec2(0, 480 - 32), item->desc.str, UI::aCenter, UI::width);
+            UI::textOut(vec2(-eye, 480 - 32), item->desc.str, UI::aCenter, UI::width);
 
-        renderItemCount(item, vec2(UI::width / 2 - 160, 480 - 96), 320);
+        renderItemCount(item, vec2(UI::width / 2 - 160 - eye, 480 - 96), 320);
 
         if (phaseChoose == 1.0f) {
             switch (item->type) {
@@ -1011,7 +1021,7 @@ struct Inventory {
                     break;
                 case TR::Entity::INV_CONTROLS :
                 case TR::Entity::INV_GAMMA :
-                    UI::textOut(vec2(0, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
+                    UI::textOut(vec2(-eye, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
                     break;
                 default : ;
             }
@@ -1066,11 +1076,10 @@ struct Inventory {
         }
     }
 
-    void render() {
+    void renderBackground() {
         if (!isActive() && titleTimer == 0.0f)
             return;
 
-    // background
         Core::setDepthTest(false);
 
         if (background[0]) {
@@ -1111,6 +1120,11 @@ struct Inventory {
 
         Core::setDepthTest(true);
         Core::setBlending(bmAlpha);
+    }
+
+    void render() {
+        if (!isActive() && titleTimer == 0.0f)
+            return;
 
         if (game->getLevel()->isCutsceneLevel() || !isActive())
             return;
@@ -1160,17 +1174,19 @@ struct Inventory {
 
         static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS };
 
+        float eye = UI::width * Core::eye * 0.01f;
+
         if (!game->getLevel()->isTitle())
-            UI::textOut(vec2( 0, 32), pageTitle[page], UI::aCenter, UI::width);
+            UI::textOut(vec2(-eye, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {
-            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width, UI::SHADE_NONE);
-            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20, UI::SHADE_NONE);
+            UI::textOut(vec2(16 - eye, 32), "[", UI::aLeft, UI::width, UI::SHADE_NONE);
+            UI::textOut(vec2(-eye, 32), "[", UI::aRight, UI::width - 20, UI::SHADE_NONE);
         }
 
         if (canFlipPage(1)) {
-            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width, UI::SHADE_NONE);
-            UI::textOut(vec2(0,  480 - 16), "]", UI::aRight, UI::width - 20, UI::SHADE_NONE);
+            UI::textOut(vec2(16 - eye, 480 - 16), "]", UI::aLeft, UI::width, UI::SHADE_NONE);
+            UI::textOut(vec2(-eye,  480 - 16), "]", UI::aRight, UI::width - 20, UI::SHADE_NONE);
         }
 
         if (index == targetIndex)

@@ -42,7 +42,7 @@ struct Texture {
     #ifdef SPLIT_BY_TILE
 
         #ifdef _PSP
-            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : width(256), height(256), memory(0) {
+            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : width(256), height(256), memory(NULL) {
                 #ifdef EDRAM_TEX
                     this->tiles = (TR::Tile4*)Core::allocEDRAM(tilesCount * sizeof(tiles[0]));
                     this->cluts =  (TR::CLUT*)Core::allocEDRAM(clutsCount * sizeof(cluts[0]));
@@ -232,7 +232,7 @@ struct Texture {
                 return;
             }
         #endif
-            glDeleteTextures(1, &ID);
+        glDeleteTextures(1, &ID);
     #endif
     }
 
@@ -913,8 +913,10 @@ struct Atlas {
 
     Texture* pack() {
     // TODO TR2 fix CUT2 AV
-        width  = 4096;//nextPow2(int(sqrtf(float(size))));
-        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
+//        width  = 4096;//nextPow2(int(sqrtf(float(size))));
+//        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
+        width  = nextPow2(int(sqrtf(float(size))));
+        height = (width * width / 2 > size) ? (width / 2) : width;
     // sort
         int *indices = new int[tilesCount];
         for (int i = 0; i < tilesCount; i++)
@@ -957,6 +959,9 @@ struct Atlas {
         fillInstances();
 
         Texture *atlas = new Texture(width, height, Texture::RGBA, Texture::MIPMAPS, data);
+
+        //Texture::SaveBMP("atlas.bmp", (char*)data, width, height);
+
         delete[] data;
         return atlas;
     };

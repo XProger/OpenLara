@@ -15,7 +15,55 @@
 
 #define WND_TITLE    "OpenLara"
 
-// Time
+// multi-threading
+void* osMutexInit() {
+    pthread_mutex_t *mutex = new pthread_mutex_t();
+    pthread_mutex_init(mutex, NULL);
+    return mutex;
+}
+
+void osMutexFree(void *obj) {
+    pthread_mutex_destroy((pthread_mutex_t*)obj);
+    delete (pthread_mutex_t*)obj;
+}
+
+void osMutexLock(void *obj) {
+    pthread_mutex_lock((pthread_mutex_t*)obj);
+}
+
+void osMutexUnlock(void *obj) {
+    pthread_mutex_unlock((pthread_mutex_t*)obj);
+}
+
+void* osRWLockInit() {
+    pthread_rwlock_t *lock = new pthread_rwlock_t();
+    pthread_rwlock_init(lock, NULL);
+    return lock;
+}
+
+void osRWLockFree(void *obj) {
+    pthread_rwlock_destroy((pthread_rwlock_t*)obj);
+    delete (pthread_rwlock_t*)obj;
+}
+
+void osRWLockRead(void *obj) {
+    pthread_rwlock_rdlock((pthread_rwlock_t*)obj);
+}
+
+void osRWUnlockRead(void *obj) {
+    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
+}
+
+void osRWLockWrite(void *obj) {
+    pthread_rwlock_wrlock((pthread_rwlock_t*)obj);
+}
+
+void osRWUnlockWrite(void *obj) {
+    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
+}
+
+
+// timing
 unsigned int startTime;
 
 int osGetTime() {
@@ -37,13 +85,10 @@ snd_pcm_uframes_t   SND_FRAMES = 512;
 snd_pcm_t           *sndOut;
 Sound::Frame        *sndData;
 pthread_t           sndThread;
-pthread_mutex_t     sndMutex;
 
 void* sndFill(void *arg) {
     while (sndOut) {
-        pthread_mutex_lock(&sndMutex);
         Sound::fill(sndData, SND_FRAMES);
-        pthread_mutex_unlock(&sndMutex);
 
         int err = snd_pcm_writei(sndOut, sndData, SND_FRAMES);
         if (err < 0) {
@@ -64,8 +109,6 @@ void* sndFill(void *arg) {
 
 bool sndInit() {
     unsigned int freq = 44100;
-
-    pthread_mutex_init(&sndMutex, NULL);
 
     int err;
     if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
@@ -106,12 +149,9 @@ bool sndInit() {
 
 void sndFree() {
     pthread_cancel(sndThread);
-    pthread_mutex_lock(&sndMutex);
     snd_pcm_drop(sndOut);
     snd_pcm_drain(sndOut);
     snd_pcm_close(sndOut);
-    pthread_mutex_unlock(&sndMutex);
-    pthread_mutex_destroy(&sndMutex);
     delete[] sndData;
 }
 
@@ -476,10 +516,7 @@ int main(int argc, char **argv) {
     while (!Core::isQuit) {
         inputUpdate();
 
-        pthread_mutex_lock(&sndMutex);
-        bool updated = Game::update();
-        pthread_mutex_unlock(&sndMutex);
-		if (updated) {
+		if (Game::update()) {
 			Game::render();
 			eglSwapBuffers(display, surface);
 		}

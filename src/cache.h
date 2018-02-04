@@ -217,10 +217,8 @@ struct ShaderCache {
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
         MeshBuilder *mesh = game->getMesh();
-        ASSERT(mesh->animTexRangesCount  <= MAX_ANIM_TEX_RANGES);
-        ASSERT(mesh->animTexOffsetsCount <= MAX_ANIM_TEX_OFFSETS);
-        shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  mesh->animTexRangesCount);
-        shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], mesh->animTexOffsetsCount);
+        shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  min(mesh->animTexRangesCount, MAX_ANIM_TEX_RANGES));
+        shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], min(mesh->animTexOffsetsCount, MAX_ANIM_TEX_OFFSETS));
     #endif
     }
 

@@ -1,5 +1,5 @@
 TARGET = OpenLara
-OBJS   = main.o
+OBJS   = main.o ../../libs/stb_vorbis/stb_vorbis.o
 
 INCDIR   = ../../
 CFLAGS   = -G0 -O3
@@ -10,7 +10,7 @@ BUILD_PRX = 1
 
 LIBDIR  =
 LDFLAGS =
-LIBS    = -lpspgum -lpspgu -lpspaudiolib -lpspaudio -lpsprtc -lpspmath -lm -lstdc++
+LIBS    = -lpspgum -lpspgu -lpspaudiolib -lpspaudio -lpsprtc -lpsppower -lpspmath -lm -lstdc++
 
 COPY_DIR        = D:/Games/PSP/memstick/PSP/GAME/OL/
 EXTRA_TARGETS   = EBOOT.PBP

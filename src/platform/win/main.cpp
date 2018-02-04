@@ -16,6 +16,76 @@
 
 #include "game.h"
 
+
+// multi-threading
+void* osMutexInit() {
+    CRITICAL_SECTION *CS = new CRITICAL_SECTION();
+    InitializeCriticalSection(CS);
+    return CS;
+}
+
+void osMutexFree(void *obj) {
+    DeleteCriticalSection((CRITICAL_SECTION*)obj);
+    delete (CRITICAL_SECTION*)obj;
+}
+
+void osMutexLock(void *obj) {
+    EnterCriticalSection((CRITICAL_SECTION*)obj);
+}
+
+void osMutexUnlock(void *obj) {
+    LeaveCriticalSection((CRITICAL_SECTION*)obj);
+}
+
+/*
+void* osMutexInit() {
+    HANDLE *mutex = new HANDLE();
+    *mutex = CreateMutex(NULL, FALSE, NULL);
+    return mutex;
+}
+
+void osMutexFree(void *obj) {
+    CloseHandle(*(HANDLE*)obj);
+    delete (HANDLE*)obj;
+}
+
+void osMutexLock(void *obj) {
+    WaitForSingleObject(*(HANDLE*)obj, INFINITE);
+}
+
+void osMutexUnlock(void *obj) {
+    ReleaseMutex(*(HANDLE*)obj);
+}
+*/
+
+void* osRWLockInit() {
+    SRWLOCK *lock = new SRWLOCK();
+    InitializeSRWLock(lock);
+    return lock;
+}
+
+void osRWLockFree(void *obj) {
+    delete (SRWLOCK*)obj;
+}
+
+void osRWLockRead(void *obj) {
+    AcquireSRWLockShared((SRWLOCK*)obj);
+}
+
+void osRWUnlockRead(void *obj) {
+    ReleaseSRWLockShared((SRWLOCK*)obj);
+}
+
+void osRWLockWrite(void *obj) {
+    AcquireSRWLockExclusive((SRWLOCK*)obj);
+}
+
+void osRWUnlockWrite(void *obj) {
+    ReleaseSRWLockExclusive((SRWLOCK*)obj);
+}
+
+
+// timing
 int osStartTime = 0;
 
 int osGetTime() {
@@ -382,6 +452,7 @@ int main(int argc, char** argv) {
             joyUpdate();
             if (Game::update()) {
                 Game::render();
+                Core::waitVBlank();
                 SwapBuffers(hDC);
             }
             #ifdef _DEBUG

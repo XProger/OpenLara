@@ -135,10 +135,6 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         boolean isMouse = (src & (InputDevice.SOURCE_MOUSE)) != 0;
         boolean isJoy   = (src & (InputDevice.SOURCE_GAMEPAD | InputDevice.SOURCE_JOYSTICK)) != 0;
 
-        if (isMouse) {
-            return true;
-        }
-
         if (isJoy) {
             wrapper.onTouch(0, -3, event.getAxisValue(MotionEvent.AXIS_X),
                     event.getAxisValue(MotionEvent.AXIS_Y));
@@ -219,9 +215,7 @@ class Sound {
             public void run() {
                 while ( audioTrack.getPlayState() != AudioTrack.PLAYSTATE_STOPPED ) {
                     if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING && wrapper.ready) {
-                        //synchronized (wrapper) {
-                            Wrapper.nativeSoundFill(buffer);
-                        //}
+                        Wrapper.nativeSoundFill(buffer);
                         audioTrack.write(buffer, 0, buffer.length);
                         audioTrack.flush();
                     } else

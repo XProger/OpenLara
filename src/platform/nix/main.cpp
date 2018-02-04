@@ -11,7 +11,55 @@
 
 #define WND_TITLE       "OpenLara"
 
-// Time
+// multi-threading
+void* osMutexInit() {
+    pthread_mutex_t *mutex = new pthread_mutex_t();
+    pthread_mutex_init(mutex, NULL);
+    return mutex;
+}
+
+void osMutexFree(void *obj) {
+    pthread_mutex_destroy((pthread_mutex_t*)obj);
+    delete (pthread_mutex_t*)obj;
+}
+
+void osMutexLock(void *obj) {
+    pthread_mutex_lock((pthread_mutex_t*)obj);
+}
+
+void osMutexUnlock(void *obj) {
+    pthread_mutex_unlock((pthread_mutex_t*)obj);
+}
+
+void* osRWLockInit() {
+    pthread_rwlock_t *lock = new pthread_rwlock_t();
+    pthread_rwlock_init(lock, NULL);
+    return lock;
+}
+
+void osRWLockFree(void *obj) {
+    pthread_rwlock_destroy((pthread_rwlock_t*)obj);
+    delete (pthread_rwlock_t*)obj;
+}
+
+void osRWLockRead(void *obj) {
+    pthread_rwlock_rdlock((pthread_rwlock_t*)obj);
+}
+
+void osRWUnlockRead(void *obj) {
+    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
+}
+
+void osRWLockWrite(void *obj) {
+    pthread_rwlock_wrlock((pthread_rwlock_t*)obj);
+}
+
+void osRWUnlockWrite(void *obj) {
+    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
+}
+
+
+// timing
 unsigned int startTime;
 
 int osGetTime() {
@@ -34,15 +82,12 @@ bool osSave(const char *name, const void *data, int size) {
 
 pa_simple *sndOut;
 pthread_t sndThread;
-pthread_mutex_t sndMutex;
 
 Sound::Frame *sndData;
 
 void* sndFill(void *arg) {
     while (1) {
-        pthread_mutex_lock(&sndMutex);
         Sound::fill(sndData, SND_DATA_SIZE / SND_FRAME_SIZE);
-        pthread_mutex_unlock(&sndMutex);
         pa_simple_write(sndOut, sndData, SND_DATA_SIZE, NULL);
     }
     return NULL;
@@ -63,8 +108,6 @@ void sndInit() {
         .fragsize   = 0xFFFFFFFF,
     };
 
-    pthread_mutex_init(&sndMutex, NULL);
-
     int error;
     if (!(sndOut = pa_simple_new(NULL, WND_TITLE, PA_STREAM_PLAYBACK, NULL, "game", &spec, NULL, &attr, &error))) {
         LOG("pa_simple_new() failed: %s\n", pa_strerror(error));
@@ -79,13 +122,10 @@ void sndInit() {
 void sndFree() {
     if (sndOut) {
         pthread_cancel(sndThread);
-        pthread_mutex_lock(&sndMutex);
     //    pa_simple_flush(sndOut, NULL);
     //    pa_simple_free(sndOut);
-        pthread_mutex_unlock(&sndMutex);
         delete[] sndData;
     }
-    pthread_mutex_destroy(&sndMutex);
 }
 
 // Input
@@ -222,11 +262,10 @@ int main(int argc, char **argv) {
                 Core::quit();
             WndProc(event,dpy,wnd);
         } else {
-            pthread_mutex_lock(&sndMutex);
 			bool updated = Game::update();
-            pthread_mutex_unlock(&sndMutex);
             if (updated) {
 				Game::render();
+                Core::waitVBlank();
 				glXSwapBuffers(dpy, wnd);
 			}
         }

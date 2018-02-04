@@ -974,11 +974,6 @@ static unsigned int bit_reverse(unsigned int n)
   return (n >> 16) | (n << 16);
 }
 
-static float square(float x)
-{
-   return x*x;
-}
-
 // this is a weird definition of log2() for which log2(1) = 1, log2(2) = 2, log2(4) = 3
 // as required by the specification. fast(?) implementation from stb.h
 // @OPTIMIZE: called multiple times per-packet with "constants"; move to setup
@@ -1236,7 +1231,7 @@ static int lookup1_values(int a, int b)
     #define cosf(x)         vfpu_cosf(x)
     #define sincos(a, s, c) vfpu_sincos(a, s, c)
 #else
-    void sincos(float r, float *s, float *c) {
+    static void sincos(float r, float *s, float *c) {
         *s = sinf(r);
         *c = cosf(r);
     }

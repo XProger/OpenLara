@@ -49,21 +49,24 @@ namespace Game {
     }
 
     void init(const char *lvlName = NULL) {
+        #ifdef _DEBUG
+            Debug::init();
+        #endif
         char fileName[255];
 
         TR::Version version = TR::getGameVersion();
-        if (!lvlName) {
-            if (version != TR::VER_UNKNOWN)
-                TR::getGameLevelFile(fileName, version, TR::getTitleId(version));
-            else
-                strcpy(fileName, "level/1/TITLE.PSX");
-        } else
+        if (!lvlName)
+            TR::getGameLevelFile(fileName, version, TR::getTitleId(version));
+        else
             strcpy(fileName, lvlName);
 
         init(new Stream(fileName));
     }
 
     void deinit() {
+        #ifdef _DEBUG
+            Debug::deinit();
+        #endif
         delete level;
         UI::deinit();
         delete shaderCache;
@@ -110,7 +113,7 @@ namespace Game {
         }
 
         if (Input::down[ikS]) {
-            if (level->lara->canSaveGame())
+            if (level->players[0]->canSaveGame())
                 level->saveGame(0);
             Input::down[ikS] = false;
         }

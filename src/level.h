@@ -5,9 +5,9 @@
 #include "utils.h"
 #include "format.h"
 #include "cache.h"
-#include "lara.h"
 #include "enemy.h"
 #include "camera.h"
+#include "lara.h"
 #include "trigger.h"
 #include "inventory.h"
 
@@ -25,7 +25,7 @@ struct Level : IGame {
     Texture     *cube;
     MeshBuilder *mesh;
 
-    Lara        *lara;
+    Lara        *players[2], *player;
     Camera      *camera;
     Texture     *shadow;
 
@@ -43,6 +43,7 @@ struct Level : IGame {
     Sound::Sample *sndSoundtrack;
     Sound::Sample *sndUnderwater;
     Sound::Sample *sndCurrent;
+    bool playNextTrack;
 
     bool lastTitle;
     bool isEnded;
@@ -57,6 +58,8 @@ struct Level : IGame {
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         if (isEnded) return;
+
+        sndCurrent = sndUnderwater = sndSoundtrack = NULL;
         Sound::stopAll();
 
         isEnded = true;
@@ -226,6 +229,8 @@ struct Level : IGame {
         bool rebuildWater   = settings.detail.water != Core::settings.detail.water;
         bool rebuildShaders = rebuildWater || rebuildAmbient || rebuildShadows;
 
+        bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
+
         Core::settings = settings;
 
         if (rebuildShaders) {
@@ -252,6 +257,9 @@ struct Level : IGame {
             delete waterCache;
             waterCache = Core::settings.detail.water > Core::Settings::LOW ? new WaterCache(this) : NULL;
         }
+
+        if (redraw && inventory.active)
+            inventory.prepareBackground();
     }
 
     virtual TR::Level* getLevel() {
@@ -271,12 +279,12 @@ struct Level : IGame {
     }
 
     virtual Controller* getLara() {
-        return lara;
+        return player;
     }
 
     virtual bool isCutscene() {
         if (level.isTitle()) return false;
-        return camera->state == Camera::STATE_CUTSCENE;
+        return camera->mode == Camera::MODE_CUTSCENE;
     }
 
     virtual uint16 getRandomBox(uint16 zone, uint16 *zones) { 
@@ -375,7 +383,7 @@ struct Level : IGame {
 
         switch (effect) {
             case TR::Effect::FLOOR_SHAKE :
-                camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - camera->pos).length2() / (15 * 1024 * 15 * 1024));
+                camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
                 return;
             case TR::Effect::FLOOD : {
                 Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
@@ -395,7 +403,7 @@ struct Level : IGame {
     }
 
     virtual void checkTrigger(Controller *controller, bool heavy) {
-        lara->checkTrigger(controller, heavy);
+        players[0]->checkTrigger(controller, heavy);
     }
 
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
@@ -447,7 +455,7 @@ struct Level : IGame {
     }
 
     virtual bool invUse(TR::Entity::Type type) {
-        if (!lara->useItem(type))
+        if (!players[0]->useItem(type))
             return inventory.use(type);
         return true;
     }
@@ -501,7 +509,7 @@ struct Level : IGame {
             if (sndCurrent == sndSoundtrack)
                 sndCurrent = NULL;
             sndSoundtrack = NULL;
-            playTrack(0);
+            playNextTrack = true;
         }
     }
 
@@ -551,16 +559,15 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), lara(NULL), isEnded(false), cutsceneWaitTimer(0.0f) {
+    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f) {
     #ifdef _PSP
         Core::freeEDRAM();
     #endif
         params = (Params*)&Core::params;
         params->time = 0.0f;
 
-        #ifdef _DEBUG
-            Debug::init();
-        #endif
+        memset(players, 0, sizeof(players));
+        player = NULL;
 
         initTextures();
         mesh = new MeshBuilder(level, atlas);
@@ -570,15 +577,26 @@ struct Level : IGame {
             TR::Entity &e = level.entities[i];
             e.controller = initController(i);
             if (e.type == TR::Entity::LARA || ((level.version & TR::VER_TR1) && e.type == TR::Entity::CUT_1))
-                lara = (Lara*)e.controller;
+                players[0] = (Lara*)e.controller;
         }
 
-        if (!level.isTitle()) {
-            ASSERT(lara != NULL);
-            camera = new Camera(this, lara);
+        if (Core::settings.detail.splitscreen && !level.isTitle()) {
+            players[1] = (Lara*)addEntity(TR::Entity::LARA, players[0]->getRoomIndex(), players[0]->pos, players[0]->angle.y);
+            players[1]->playerIndex = players[1]->camera->cameraIndex = 1;
 
-            level.cameraController = camera;
-            level.laraController   = lara;
+            vec3 offset = players[0]->getDir().cross(vec3(0, 1, 0)).normal() * 128.0f;
+            players[1]->pos -= offset;
+            players[0]->pos += offset;
+
+            Sound::listenersCount = 2;
+        } else
+            Sound::listenersCount = 1;
+
+        if (!level.isTitle()) {
+            ASSERT(players[0] != NULL);
+            player = players[0];
+            camera = player->camera;
+
 
             zoneCache    = new ZoneCache(this);
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
@@ -615,7 +633,7 @@ struct Level : IGame {
         cube360 = NULL;
 
         sndSoundtrack = NULL;
-        playTrack(0);
+        playNextTrack = true;
         sndCurrent = sndSoundtrack;
         /*
         if (level.id == TR::LVL_TR2_RIG) {
@@ -629,9 +647,6 @@ struct Level : IGame {
     virtual ~Level() {
         delete cube360;
 
-        #ifdef _DEBUG
-            Debug::deinit();
-        #endif
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
 
@@ -644,7 +659,6 @@ struct Level : IGame {
         delete cube;
         delete mesh;
 
-        delete camera;
         Sound::stopAll();
     }
 
@@ -1144,7 +1158,7 @@ struct Level : IGame {
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM) {
             Sphere spheres[MAX_CONTACTS];
             int spheresCount;
-            lara->getSpheres(spheres, spheresCount);
+            player->getSpheres(spheres, spheresCount);
 
             for (int i = 0; i < MAX_CONTACTS; i++)
                 if (i < spheresCount)
@@ -1153,7 +1167,7 @@ struct Level : IGame {
                     Core::contacts[i] = vec4(0.0f);
         }
 
-        setMainLight(lara);
+        setMainLight(player);
 
         if (hasSky)
             renderSky();
@@ -1306,6 +1320,11 @@ struct Level : IGame {
     }
 
     void update() {
+        if (playNextTrack) {
+            playTrack(0);
+            playNextTrack = false;
+        }
+
         if (level.isCutsceneLevel()) {
             if (!sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
                 if (camera->timer > 0.0f) // for the case that audio stops before animation ends
@@ -1327,7 +1346,7 @@ struct Level : IGame {
         }
 
         if (Input::state[cInventory] && !level.isTitle() && inventory.titleTimer < 1.0f) {
-            if (lara->health <= 0.0f)
+            if (player->health <= 0.0f)
                 inventory.toggle(Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
             else
                 inventory.toggle();
@@ -1357,11 +1376,6 @@ struct Level : IGame {
                 c->update();
                 c = next;
             }
-
-            if (!isCutscene() && camera->state != Camera::STATE_STATIC)
-                camera->state = lara->emptyHands() ? Camera::STATE_FOLLOW : Camera::STATE_COMBAT;
-
-            camera->update();
 
             if (waterCache) 
                 waterCache->update();
@@ -1607,7 +1621,7 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setTarget(NULL, !Core::settings.detail.stereo); // render to back buffer
+            Core::setTarget(NULL, !Core::settings.detail.stereo && !Core::settings.detail.splitscreen); // render to back buffer
             setupBinding();
         }
 
@@ -1622,7 +1636,7 @@ struct Level : IGame {
             Core::Pass pass = Core::pass;
             waterCache->renderMask();
             waterCache->getRefract();
-            setMainLight(lara);
+            setMainLight(player);
             waterCache->render();
             Core::pass = pass;
         }
@@ -1645,20 +1659,25 @@ struct Level : IGame {
         Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
+
+        camera->setup(false);
     }
 
     void setupLightCamera() {
-        vec3 pos = lara->getBoundingBox().center();
+        vec3 pos = player->getBoundingBox().center();
 
-        Core::mViewInv = mat4(lara->mainLightPos, pos, vec3(0, -1, 0));
+        Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverse();
-        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, lara->mainLightColor.w * 1.5f);
+        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
 
         mat4 bias;
         bias.identity();
         bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
 
         Core::mLightProj =  bias * (Core::mProj * Core::mView);
+
+        camera->frustum->pos = Core::viewPos;
+        camera->frustum->calcPlanes(Core::mViewProj);
     }
 
     void renderShadows(int roomIndex) {
@@ -1879,7 +1898,7 @@ struct Level : IGame {
             glLineWidth(1);           
         */
 
-            Debug::Level::info(level, lara, lara->animation);
+            Debug::Level::info(this, player, player->animation);
 
 
         Debug::end();
@@ -1888,22 +1907,15 @@ struct Level : IGame {
 
     void renderGame() {
         Core::invalidateTarget(true, true);
-        params->clipHeight  = NO_CLIP_PLANE;
-        params->clipSign    = 1.0f;
-        params->waterHeight = params->clipHeight;
 
         if (ambientCache)
             ambientCache->processQueue();
-        if (shadow)
-            renderShadows(lara->getRoomIndex());
 
-        if (shadow) shadow->bind(sShadow);
-        Core::pass = Core::passCompose;
-
-        if (Core::settings.detail.stereo) {
+        //if (Core::settings.detail.stereo || Core::settings.detail.splitscreen) {
             Core::setTarget(NULL, true);
             Core::validateRenderState();
-        }
+        //}
+
 /*  // catsuit test
         lara->bakeEnvironment();
         lara->visibleMask = Lara::BODY_HEAD | Lara::BODY_ARM_L3 | Lara::BODY_ARM_R3;
@@ -1920,30 +1932,83 @@ struct Level : IGame {
         mesh->renderQuad();
         return;
 */
+        float vW = float(Core::width);
+        float vH = float(Core::height);
 
-        if (Core::settings.detail.stereo) {
-            Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width) * 0.5f, float(Core::height));
-            Core::eye = -1.0f;
-            setup();
-            renderView(camera->getRoomIndex(), true);
+        float aspect = vW / vH;
 
-            Core::viewportDef = vec4(float(Core::width) * 0.5f, 0.0f, float(Core::width) * 0.5f, float(Core::height));
-            Core::eye =  1.0f;
-            setup();
-            renderView(camera->getRoomIndex(), true);
-
-            Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width), float(Core::height));
-            Core::eye = 0.0f;
-        } else {
-            setup();
-            renderView(camera->getRoomIndex(), true);
+        if (Core::defaultTarget) {
+            vW = float(Core::defaultTarget->width);
+            vH = float(Core::defaultTarget->height);
         }
+
+        int viewsCount = Core::settings.detail.splitscreen ? 2 : 1;
+        for (int view = 0; view < viewsCount; view++) {
+            player = players[view];
+            camera = player->camera;
+            camera->aspect = aspect;
+
+            switch (Core::settings.detail.splitscreen) {
+            // no spli-screen
+                case Core::Settings::SPLIT_NONE : 
+                    Core::viewportDef = vec4(0.0f, 0.0f, vW, vH); 
+                    break;
+            // vertical
+                case Core::Settings::SPLIT_V :
+                    camera->aspect *= 0.5f;
+                case Core::Settings::SPLIT_V_FS :
+                    Core::viewportDef = vec4(vW * 0.5f * view, 0.0f, vW * 0.5f, vH);
+                    break;
+            // horizontal
+                case Core::Settings::SPLIT_H :
+                    camera->aspect *= 2.0f;
+                case Core::Settings::SPLIT_H_FS :
+                    Core::viewportDef = vec4(0.0f, vH * 0.5f * (view ^ 1), vW, vH * 0.5f);
+                    break;
+            }
+
+            params->clipHeight  = NO_CLIP_PLANE;
+            params->clipSign    = 1.0f;
+            params->waterHeight = params->clipHeight;
+
+            if (shadow)
+                renderShadows(player->getRoomIndex());
+
+            if (shadow) shadow->bind(sShadow);
+            Core::pass = Core::passCompose;
+
+            if (Core::settings.detail.stereo) { // left/right SBS stereo
+                vec4 vp = Core::viewportDef;
+                Core::viewportDef = vec4(vp.x - vp.x * 0.5f, vp.y, vp.z * 0.5f, vp.w);
+                Core::eye = -1.0f;
+                setup();
+                renderView(camera->getRoomIndex(), true);
+
+                Core::viewportDef = vec4(vW * 0.5f + vp.x / 2.0f, vp.y, vp.z * 0.5f, vp.w);
+                Core::eye =  1.0f;
+                setup();
+                renderView(camera->getRoomIndex(), true);
+
+                Core::eye = 0.0f;
+            } else {
+                setup();
+                renderView(camera->getRoomIndex(), true);
+            }
+        }
+
+        Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width), float(Core::height));
+
+        player = players[0];
+        camera = player->camera;
 
         // lara->visibleMask = 0xFFFFFFFF; // catsuit test
     }
 
     void renderInventory(bool clear) {
         Core::setTarget(NULL, clear);
+
+        inventory.renderBackground();
+
         if (Core::settings.detail.stereo) {
             Core::setViewport(0, 0, Core::width / 2, Core::height);
             Core::eye = -1.0f;
@@ -1966,8 +2031,8 @@ struct Level : IGame {
         // render health & oxygen bars
             vec2 size = vec2(180, 10);
 
-            float health = lara->health / float(LARA_MAX_HEALTH);
-            float oxygen = lara->oxygen / float(LARA_MAX_OXYGEN);
+            float health = player->health / float(LARA_MAX_HEALTH);
+            float oxygen = player->oxygen / float(LARA_MAX_OXYGEN);
 
             if ((params->time - int(params->time)) < 0.5f) { // blinking
                 if (health <= 0.2f) health = 0.0f;
@@ -1976,17 +2041,17 @@ struct Level : IGame {
 
             float eye = inventory.active ? 0.0f : UI::width * Core::eye * 0.02f;
 
-            if (inventory.showHealthBar() || (!inventory.active && (!lara->emptyHands() || lara->damageTime > 0.0f || health <= 0.2f))) {
+            if (inventory.showHealthBar() || (!inventory.active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
                 UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x - eye, 32), size, health);
 
-                if (!inventory.active && !lara->emptyHands()) { // ammo
-                    int index = inventory.contains(lara->getCurrentWeaponInv());
+                if (!inventory.active && !player->emptyHands()) { // ammo
+                    int index = inventory.contains(player->getCurrentWeaponInv());
                     if (index > -1)
                         inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x - eye, 64), size.x);
                 }
             }
 
-            if (!lara->dozy && (lara->stand == Lara::STAND_ONWATER || lara->stand == Character::STAND_UNDERWATER))
+            if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER))
                 UI::renderBar(UI::BAR_OXYGEN, vec2(32 - eye, 32), size, oxygen);
         }
 
@@ -2012,13 +2077,6 @@ struct Level : IGame {
         }
 
         if (copyBg) {
-            Core::defaultTarget = inventory.getBackgroundTarget();
-            bool stereo = Core::settings.detail.stereo;
-            Core::settings.detail.stereo = false;
-            renderGame();
-            Core::settings.detail.stereo = stereo;
-            Core::defaultTarget = NULL;
-
             inventory.prepareBackground();
         }
 

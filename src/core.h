@@ -78,8 +78,8 @@
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
-    #include <GL/glx.h>
     #include <GL/glext.h>
+    #include <GL/glx.h>
 #elif __APPLE__
     #include "TargetConditionals.h"
 
@@ -164,7 +164,69 @@
     #define GENERATE_WATER_PLANE
 #endif
 
+extern int osGetTime();
+extern bool osSave(const char *name, const void *data, int size);
+
 #include "utils.h"
+
+extern void* osMutexInit     ();
+extern void  osMutexFree     (void *obj);
+extern void  osMutexLock     (void *obj);
+extern void  osMutexUnlock   (void *obj);
+
+struct Mutex {
+    void *obj;
+
+    Mutex()       { obj = osMutexInit(); }
+    ~Mutex()      { osMutexFree(obj);    }
+    void lock()   { osMutexLock(obj);    }
+    void unlock() { osMutexUnlock(obj);  }
+};
+
+struct Lock {
+    Mutex &mutex;
+
+    Lock(Mutex &mutex) : mutex(mutex) { mutex.lock(); }
+    ~Lock() { mutex.unlock(); }
+};
+
+#define OS_LOCK(mutex) Lock _lock(mutex)
+
+extern void* osRWLockInit    ();
+extern void  osRWLockFree    (void *obj);
+extern void  osRWLockRead    (void *obj);
+extern void  osRWUnlockRead  (void *obj);
+extern void  osRWLockWrite   (void *obj);
+extern void  osRWUnlockWrite (void *obj);
+
+struct RWLock {
+    void *obj;
+
+    RWLock()           { obj = osRWLockInit(); }
+    ~RWLock()          { osRWLockFree(obj);    }
+    void lockRead()    { osRWLockRead(obj);    }
+    void unlockRead()  { osRWUnlockRead(obj);  }
+    void lockWrite()   { osRWLockWrite(obj);   }
+    void unlockWrite() { osRWUnlockWrite(obj); }
+};
+
+struct LockRead {
+    RWLock &lock;
+
+    LockRead(RWLock &lock) : lock(lock) { lock.lockRead(); }
+    ~LockRead() { lock.unlockRead(); }
+};
+
+struct LockWrite {
+    RWLock &lock;
+
+    LockWrite(RWLock &lock) : lock(lock) { lock.lockWrite(); }
+    ~LockWrite() { lock.unlockWrite(); }
+};
+
+#define OS_LOCK_READ(rwLock)  LockRead  _rLock(rwLock)
+#define OS_LOCK_WRITE(rwLock) LockWrite _wLock(rwLock)
+
 
 enum ControlKey { cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cMAX };
 
@@ -215,7 +277,8 @@ namespace Core {
     } support;
 
     struct Settings {
-        enum Quality { LOW, MEDIUM, HIGH };
+        enum Quality     { LOW, MEDIUM, HIGH };
+        enum SplitScreen { SPLIT_NONE, SPLIT_V, SPLIT_V_FS, SPLIT_H, SPLIT_H_FS };
 
         struct {
             union {
@@ -227,7 +290,9 @@ namespace Core {
                 };
                 Quality quality[4];
             };
+            bool vsync;
             bool stereo;
+            SplitScreen splitscreen;
 
             void setFilter(Quality value) {
                 if (value > MEDIUM && !(support.maxAniso > 1))
@@ -257,15 +322,15 @@ namespace Core {
 
         struct {
             KeySet keys[cMAX];
-            bool retarget;
-            bool multitarget;
-            bool vibration;
+            bool   retarget;
+            bool   multitarget;
+            bool   vibration;
         } controls;
 
         struct {
             float music;
             float sound;
-            bool reverb;
+            bool  reverb;
         } audio;
     } settings;
 
@@ -310,6 +375,15 @@ namespace Core {
 // Texture
     #ifdef WIN32
         PFNGLACTIVETEXTUREPROC              glActiveTexture;
+    #endif
+
+// VSync
+    #ifdef WIN32
+        typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC) (int interval);
+        PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
+    #elif LINUX
+        typedef int (*PFNGLXSWAPINTERVALSGIPROC) (int interval);
+        PFNGLXSWAPINTERVALSGIPROC glXSwapIntervalSGI;
     #endif
 
     #if defined(WIN32) || defined(LINUX)
@@ -358,6 +432,8 @@ namespace Core {
         PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
         PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
         PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
+        PFNGLDELETEFRAMEBUFFERSPROC         glDeleteFramebuffers;
+        PFNGLDELETERENDERBUFFERSPROC        glDeleteRenderbuffers;
     // Mesh
         PFNGLGENBUFFERSARBPROC              glGenBuffers;
         PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
@@ -527,7 +603,7 @@ namespace Core {
     vec4 params;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *blackTex, *whiteTex;
+    Texture *whiteTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -626,10 +702,10 @@ namespace Core {
 
     void beginCmdBuf() {
     #ifdef _PSP
-         if (!cmdBuf)
-             cmdBuf = new uint32[262144];
+        if (!cmdBuf)
+            cmdBuf = new uint32[262144];
 
-          sceGuStart(GU_DIRECT, cmdBuf);
+        sceGuStart(GU_DIRECT, cmdBuf);
     #endif
     }
 
@@ -666,6 +742,12 @@ namespace Core {
         #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
             #ifdef WIN32
                 GetProcOGL(glActiveTexture);
+            #endif
+
+            #ifdef WIN32
+                GetProcOGL(wglSwapIntervalEXT);
+            #elif LINUX
+                GetProcOGL(glXSwapIntervalSGI);
             #endif
 
             #if defined(WIN32) || defined(LINUX)
@@ -714,6 +796,8 @@ namespace Core {
                 GetProcOGL(glFramebufferRenderbuffer);
                 GetProcOGL(glRenderbufferStorage);
                 GetProcOGL(glCheckFramebufferStatus);
+                GetProcOGL(glDeleteFramebuffers);
+                GetProcOGL(glDeleteRenderbuffers);
 
                 GetProcOGL(glGenBuffers);
                 GetProcOGL(glDeleteBuffers);
@@ -879,7 +963,6 @@ namespace Core {
             glEnableClientState(GL_NORMAL_ARRAY);
             glEnableClientState(GL_VERTEX_ARRAY);
             
-            glClearColor(0.5, 0.5, 0.5, 1);
             glAlphaFunc(GL_GREATER, 0.5f);
             glEnable(GL_ALPHA_TEST);
 
@@ -921,9 +1004,7 @@ namespace Core {
         }
         eye = 0.0f;
 
-        uint32 data = 0x00000000;
-        blackTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
-        data = 0xFFFFFFFF;
+        uint32 data = 0xFFFFFFFF;
         whiteTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
 
     // init settings
@@ -931,7 +1012,9 @@ namespace Core {
         settings.detail.setLighting (Core::Settings::HIGH);
         settings.detail.setShadows  (Core::Settings::HIGH);
         settings.detail.setWater    (Core::Settings::HIGH);
+        settings.detail.vsync         = true;
         settings.detail.stereo        = false;
+        settings.detail.splitscreen   = Settings::SPLIT_NONE;
 
         settings.audio.music          = 0.7f;
         settings.audio.sound          = 0.7f;
@@ -975,20 +1058,17 @@ namespace Core {
     }
 
     void deinit() {
-        delete blackTex;
         delete whiteTex;
     #ifdef _PSP
         delete[] cmdBuf;
     #else
-    /*
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDeleteFrameBuffers(1, &FBO);
+        glDeleteFramebuffers(1, &FBO);
 
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         for (int b = 0; b < 2; b++)
             for (int i = 0; i < rtCache[b].count; i++)
-                glDeleteRenderBuffers(1, &rtCache[b].items[i].ID);
-    */
+                glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
     #endif
         Sound::deinit();
     }
@@ -1248,7 +1328,7 @@ namespace Core {
         bool color = !target || (target->format != Texture::DEPTH && target->format != Texture::SHADOW);
         setColorWrite(color, color, color, color);
 
-        if (!target) // backbuffer
+        if (target == defaultTarget) // backbuffer
             setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
         else
             setViewport(0, 0, target->width, target->height);
@@ -1314,6 +1394,24 @@ namespace Core {
         glColorMask(true, true, true, true);
     #endif
         Core::stats.stop();
+    }
+
+    void waitVBlank() {
+        if (Core::settings.detail.vsync) {
+        #ifdef WIN32
+            if (wglSwapIntervalEXT) wglSwapIntervalEXT(1);
+        #elif LINUX
+            if (glXSwapIntervalSGI) glXSwapIntervalSGI(1);
+        #elif _PSP
+            sceDisplayWaitVblankStart();
+        #endif
+        } else {
+        #ifdef WIN32
+            if (wglSwapIntervalEXT) wglSwapIntervalEXT(0);
+        #elif LINUX
+            if (glXSwapIntervalSGI) glXSwapIntervalSGI(0);
+        #endif
+        }
     }
 
     void setViewProj(const mat4 &mView, const mat4 &mProj) {

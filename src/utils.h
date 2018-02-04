@@ -2,7 +2,6 @@
 #define H_UTILS
 
 #include <stdlib.h>
-#include <cstring>
 #include <math.h>
 #include <float.h>
 
@@ -55,10 +54,6 @@
     }
 #endif
 
-
-extern int osGetTime();
-extern bool osSave(const char *name, const void *data, int size);
-
 #define DECL_ENUM(v) v,
 #define DECL_STR(v)  #v,
 
@@ -68,6 +63,7 @@ extern bool osSave(const char *name, const void *data, int size);
 #define PI2     (PI * 2.0f)
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
+#define SQR(x)  ((x)*(x))
 #define randf() ((float)rand()/RAND_MAX)
 
 typedef signed char     int8;
@@ -327,6 +323,7 @@ struct vec3 {
         return dot(v) / (length() * v.length());
     }
 
+    float angleX() const { return atan2f(sqrtf(x * x + z * z), y); }
     float angleY() const { return atan2f(z, x); }
 };
 
@@ -843,6 +840,8 @@ struct Basis {
     }
 
     Basis lerp(const Basis &basis, float t) {
+        if (t <= 0.0f) return *this;
+        if (t >= 1.0f) return basis;
         Basis b;
         b.rot = rot.lerp(basis.rot, t);
         b.pos = pos.lerp(basis.pos, t);

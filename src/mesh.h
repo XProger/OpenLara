@@ -152,7 +152,7 @@ struct Mesh {
 
     virtual ~Mesh() {
     #ifdef _PSP
-        #ifndef ERWAM_MESH
+        #ifndef EDRAM_MESH
             if (!cmdBufAlloc) {
                 delete[] iBuffer;
                 delete[] vBuffer;
@@ -239,8 +239,10 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
+#ifndef _PSP
     MeshRange dynRange;
     Mesh      *dynMesh;
+#endif
 
     Mesh      *mesh;
     Texture   *atlas;
@@ -334,10 +336,12 @@ struct MeshBuilder {
     };
 
     MeshBuilder(TR::Level &level, Texture *atlas) : atlas(atlas), level(&level) {
+    #ifndef _PSP
         dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1);
         dynRange.vStart = 0;
         dynRange.iStart = 0;
         dynMesh->initRange(dynRange);
+    #endif
 
         initAnimTextures(level);
 
@@ -772,7 +776,9 @@ struct MeshBuilder {
         delete[] models;
         delete[] sequences;
         delete mesh;
+    #ifndef _PSP
         delete dynMesh;
+    #endif
     }
 
     inline short4 rotate(const short4 &v, int dir) {
@@ -1246,13 +1252,14 @@ struct MeshBuilder {
     }
     
     void renderBuffer(Index *indices, int iCount, Vertex *vertices, int vCount) {
-        dynRange.iStart   = 0;
-        dynRange.iCount   = iCount;
-
         #ifdef _PSP
+            MeshRange dynRange;
             Mesh cmdBufMesh(iCount, vCount);
             Mesh *dynMesh = &cmdBufMesh;
         #endif
+        dynRange.iStart = 0;
+        dynRange.iCount = iCount;
+
         dynMesh->update(indices, iCount, vertices, vCount);
         dynMesh->render(dynRange);
     }

@@ -1140,8 +1140,10 @@ namespace TR {
     };
 
     // used for access from ::cmp func
-    static SpriteTexture *gSpriteTextures = NULL;
     static ObjectTexture *gObjectTextures = NULL;
+    static SpriteTexture *gSpriteTextures = NULL;
+    static int            gObjectTexturesCount;
+    static int            gSpriteTexturesCount;
 
     struct Face {
         union {
@@ -1155,6 +1157,13 @@ namespace TR {
         static int cmp(const Face &a, const Face &b) {
             int aIndex = a.flags.texture;
             int bIndex = b.flags.texture;
+            if (aIndex >= gObjectTexturesCount)
+                return 1;
+            if (bIndex >= gObjectTexturesCount)
+                return -1;
+
+            ASSERT(aIndex < gObjectTexturesCount);
+            ASSERT(bIndex < gObjectTexturesCount);
 
             ObjectTexture &ta = gObjectTextures[aIndex];
             ObjectTexture &tb = gObjectTextures[bIndex];
@@ -1235,6 +1244,9 @@ namespace TR {
                 int16       texture;
 
                 static int cmp(const Sprite &a, const Sprite &b) {
+                    ASSERT(a.texture < gSpriteTexturesCount);
+                    ASSERT(b.texture < gSpriteTexturesCount);
+
                     SpriteTexture &ta = gSpriteTextures[a.texture];
                     SpriteTexture &tb = gSpriteTextures[b.texture];
 
@@ -1334,6 +1346,11 @@ namespace TR {
 
         vec3 getOffset() const {
             return vec3(float(info.x), 0.0f, float(info.z));
+        }
+
+        Sector* getSector(int sx, int sz) {
+            ASSERT(sx >= 0 && sx < xSectors && sz >= 0 && sz < zSectors);
+            return sectors + sx * zSectors + sz;
         }
 
         void addDynLight(int32 id, const vec4 &pos, const vec4 &color) {
@@ -1955,8 +1972,6 @@ namespace TR {
         vec3 max() const { return vec3((float)maxX, (float)maxY, (float)maxZ); }
     };
 
-    #pragma warning( push )
-    #pragma warning( disable : 4200 ) // zero-sized array warning
     struct AnimFrame {
         MinMax  box;
         Vertex  pos;
@@ -2005,9 +2020,8 @@ namespace TR {
 
     struct AnimTexture {
         int16   count;        // number of texture offsets - 1 in group
-        int16   textures[0];  // offsets into objectTextures[]
+        int16   textures[1];  // offsets into objectTextures[]
     };
-    #pragma warning( push )
 
     struct Node {
         uint32  flags;
@@ -2081,8 +2095,8 @@ namespace TR {
     struct Box {
         union {
             struct {
-                uint32 minZ, maxZ; // Horizontal dimensions in global units
-                uint32 minX, maxX;
+                int32 minZ, maxZ; // Horizontal dimensions in global units
+                int32 minX, maxX;
             };
             int32 sides[4];
         };
@@ -2095,11 +2109,11 @@ namespace TR {
             uint16 value;
         } overlap;
 
-        bool contains(uint32 x, uint32 z) const {
+        bool contains(int32 x, int32 z) const {
             return z >= minZ && z <= maxZ && x >= minX && x <= maxX;
         }
 
-        void expand(uint32 value) {
+        void expand(int32 value) {
             minZ -= value;
             minX -= value;
             maxZ += value;
@@ -2219,6 +2233,11 @@ namespace TR {
         // CurrentState currentState;
     };
 
+    struct Location {
+        int16  room;
+        uint16 box;
+        vec3   pos;
+    };
 
     struct Level {
         Version         version;
@@ -2368,9 +2387,6 @@ namespace TR {
                 return n.cross(dir.cross(n)).normal();
             }
         };
-
-        void    *cameraController;
-        void    *laraController;
 
         int     cutEntity;
         mat4    cutMatrix;
@@ -2709,8 +2725,10 @@ namespace TR {
             initExtra();
             initCutscene();
 
-            TR::gObjectTextures = objectTextures;
-            TR::gSpriteTextures = spriteTextures;
+            gObjectTextures = objectTextures;
+            gSpriteTextures = spriteTextures;
+            gObjectTexturesCount = objectTexturesCount;
+            gSpriteTexturesCount = spriteTexturesCount;
         }
 
         ~Level() {
@@ -3546,10 +3564,13 @@ namespace TR {
                             for (int x = 0; x < 256; x++) {
                                 uint8 index = tiles8[i].index[y * 256 + x];
                                 Color24 &p = palette[index];
-                                ptr[x].r = p.r;
-                                ptr[x].g = p.g;
-                                ptr[x].b = p.b;
-                                ptr[x].a = index == 0 ? 0 : 255;
+                                if (index != 0) {
+                                    ptr[x].r = p.r;
+                                    ptr[x].g = p.g;
+                                    ptr[x].b = p.b;
+                                    ptr[x].a = 255;
+                                } else
+                                    ptr[x].r = ptr[x].g = ptr[x].b = ptr[x].a = 0;
                             }
                             ptr += 256;
                         }
@@ -3787,16 +3808,13 @@ namespace TR {
                 int sx = (x - room.info.x) / 1024;
                 int sz = (z - room.info.z) / 1024;
 
-//                sx = clamp(sx, 0, room.xSectors - 1);
-//                sz = clamp(sz, 0, room.zSectors - 1);
-
                 if (sz <= 0 || sz >= room.zSectors - 1) {
                     sz = clamp(sz, 0, room.zSectors - 1);
                     sx = clamp(sx, 1, room.xSectors - 2);
                 } else
                     sx = clamp(sx, 0, room.xSectors - 1);
 
-                sector = room.sectors + sx * room.zSectors + sz;
+                sector = room.getSector(sx, sz);
 
                 int nextRoom = getNextRoom(sector);
                 if (nextRoom == NO_ROOM)
@@ -3808,12 +3826,12 @@ namespace TR {
         // check vertical
             while (sector->roomAbove != NO_ROOM && y < sector->ceiling * 256) {
                 Room &room = rooms[roomIndex = sector->roomAbove];
-                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+                sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
             while (sector->roomBelow != NO_ROOM && y >= sector->floor * 256) {
                 Room &room = rooms[roomIndex = sector->roomBelow];
-                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+                sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
             return sector;
@@ -3825,7 +3843,7 @@ namespace TR {
 
             while (sector->roomBelow != NO_ROOM) {
                 Room &room = rooms[sector->roomBelow];
-                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+                sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
             int floor = sector->floor * 256;
@@ -3874,9 +3892,10 @@ namespace TR {
             int x = int(pos.x);
             int z = int(pos.z);
 
+            ASSERT(sector);
             while (sector->roomAbove != NO_ROOM) {
                 Room &room = rooms[sector->roomAbove];
-                sector = room.sectors + (x - room.info.x) / 1024 * room.zSectors + (z - room.info.z) / 1024;
+                sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
             int ceiling = sector->ceiling * 256;

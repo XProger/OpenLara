@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <pspkernel.h>
+#include <psppower.h>
 #include <pspdisplay.h>
 #include <pspctrl.h>
 #include <psprtc.h>
@@ -11,7 +12,7 @@
 
 PSP_MODULE_INFO("OpenLara", 0, 1, 1);
 PSP_HEAP_SIZE_KB(20480);
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_VFPU);
+PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_NO_FILLSTACK);
 
 #include "game.h"
 
@@ -37,6 +38,53 @@ int setupCallbacks(void) {
     return thid;
 }
 
+
+// multi-threading
+void* osMutexInit() {
+    SceUID *mutex = new SceUID();
+    *mutex = sceKernelCreateSema(NULL, 0, 1, 1, 0);
+    return mutex;
+}
+
+void osMutexFree(void *obj) {
+    sceKernelDeleteSema(*(SceUID*)obj);
+    delete (SceUID*)obj;
+}
+
+void osMutexLock(void *obj) {
+    sceKernelWaitSema(*(SceUID*)obj, 1, NULL);
+}
+
+void osMutexUnlock(void *obj) {
+    sceKernelSignalSema(*(SceUID*)obj, 1);
+}
+
+void* osRWLockInit() {
+    return osMutexInit();
+}
+
+void osRWLockFree(void *obj) {
+    osMutexFree(obj);
+}
+
+void osRWLockRead(void *obj) {
+    osMutexLock(obj);
+}
+
+void osRWUnlockRead(void *obj) {
+    osMutexUnlock(obj);
+}
+
+void osRWLockWrite(void *obj) {
+    osMutexLock(obj);
+}
+
+void osRWUnlockWrite(void *obj) {
+    osMutexUnlock(obj);
+}
+
+
+// timing
 int osStartTime = 0;
 int osTimerFreq;
 
@@ -107,6 +155,7 @@ char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
 int main() {
+    scePowerSetClockFrequency(333, 333, 166);
     setupCallbacks();
 
     sceGuInit();
@@ -126,7 +175,7 @@ int main() {
     osTimerFreq = sceRtcGetTickResolution();
     osStartTime = osGetTime();
 
-    Game::init("PSXDATA/LEVEL2.PSX");
+    Game::init();
 
     Core::submitCmdBuf();
 
@@ -141,10 +190,8 @@ int main() {
         joyUpdate();
         Game::update();
         Game::render();
-
         Core::submitCmdBuf();
-
-        //sceDisplayWaitVblankStart();
+        Core::waitVBlank();
         Core::curBackBuffer = sceGuSwapBuffers();
     }
 

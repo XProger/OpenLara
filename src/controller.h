@@ -17,16 +17,34 @@
 struct Controller;
 
 struct ICamera {
-    vec4  *reflectPlane;
-    vec3  pos;
-    float shake;
-    bool  firstPerson;
+    enum Mode {
+        MODE_FOLLOW,
+        MODE_STATIC,
+        MODE_LOOK,
+        MODE_COMBAT,
+        MODE_CUTSCENE,
+        MODE_HEAVY,
+    } mode;
 
-    ICamera() : reflectPlane(NULL), pos(0.0f), shake(0.0f) {}
+    int          cameraIndex;
+    vec4         *reflectPlane;
+    vec3         angle;
+    float        shake;
+    bool         firstPerson;
+    bool         centerView;
+    TR::Location eye, target;
+
+    ICamera() : cameraIndex(0), reflectPlane(NULL), angle(0.0f), shake(0.0f), centerView(false) {}
 
     virtual void setup(bool calcMatrices) {}
     virtual int  getRoomIndex() const { return TR::NO_ROOM; }
     virtual void doCutscene(const vec3 &pos, float rotation) {}
+    virtual Controller* getOwner() { return NULL; }
+
+    void setAngle(float x, float y) {
+        angle.x = x * DEG2RAD;
+        angle.y = y * DEG2RAD;
+    }
 };
 
 struct IGame {
@@ -54,6 +72,7 @@ struct IGame {
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water) {}
+    virtual void renderGame() {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
@@ -126,12 +145,12 @@ struct Controller {
         flags       = e.flags;
         flags.state = TR::Entity::asNone;
 
-        if (level->isCutsceneLevel())
-            fixRoomIndex();
-
         const TR::Model *m = getModel();
         joints      = m ? new Basis[m->mCount] : NULL;
         jointsFrame = -1;
+
+        if (level->isCutsceneLevel())
+            fixRoomIndex();
 
         specular   = 0.0f;
         intensity  = e.intensity == -1 ? -1.0f : intensityf(e.intensity);
@@ -154,7 +173,6 @@ struct Controller {
 
         if (e.isLara() || e.isActor()) // Lara and cutscene entities is active by default
             activate();
-        updated = false;
     }
 
     virtual ~Controller() {
@@ -561,7 +579,6 @@ struct Controller {
             Box box = target->getBoundingBox();
             vec3 t = (box.min + box.max) * 0.5f;
 
-            updateJoints();
             Basis b = animation.getJoints(getMatrix(), joint);
             vec3 delta = (b.inverse() * t).normal();
             if (invertAim)
@@ -1093,14 +1110,12 @@ struct Controller {
         mesh->renderShadowBlob();
         Core::setDepthWrite(true);
     }
-    bool updated;
+
     void updateJoints() {
-        //if (updated) return;
         if (Core::stats.frame == jointsFrame)
             return;
         animation.getJoints(getMatrix(), -1, true, joints);
         jointsFrame = Core::stats.frame;
-        updated = true;
     }
 
     Basis& getJoint(int index) {

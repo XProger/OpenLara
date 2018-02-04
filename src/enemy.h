@@ -412,7 +412,7 @@ struct Enemy : Character {
             return false;
 
         TR::Box    &b = game->getLevel()->boxes[box];
-        TR::Entity::Type type = getEntity().type;
+        uint16   type = getEntity().type;
 
         if (b.overlap.block)
             return false;
@@ -1232,7 +1232,7 @@ struct Mummy : Enemy {
     }
 
     virtual void update() {
-        if (state == STATE_IDLE && (health <= 0.0f || collide((Controller*)level->laraController))) {
+        if (state == STATE_IDLE && (health <= 0.0f || collide(game->getLara()))) {
             animation.setState(STATE_FALL);
             health = 0.0f;
         }

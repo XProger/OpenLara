@@ -561,6 +561,33 @@ namespace TR {
                     case VER_TR1_PSX :
                     case VER_TR2_PSX : 
                     case VER_TR3_PSX : strcat(dst, ".PSX"); break;
+                    case VER_UNKNOWN : 
+                        if (Stream::existsContent("level/1/TITLE.PSX")) {
+                            strcpy(dst, "level/1/TITLE.PSX");
+                            return;
+                        }
+                        if (Stream::existsContent("level/1/TITLE.PHD")) {
+                            strcpy(dst, "level/1/TITLE.PHD");
+                            return;
+                        }
+                        if (Stream::existsContent("level/2/TITLE.TR2")) {
+                            strcpy(dst, "level/2/TITLE.TR2");
+                            return;
+                        }
+                        if (Stream::existsContent("level/2/TITLE.PSX")) {
+                            strcpy(dst, "level/2/TITLE.PSX");
+                            return;
+                        }
+                        if (Stream::existsContent("level/3/TITLE.TR2")) {
+                            strcpy(dst, "level/3/TITLE.TR2");
+                            return;
+                        }
+                        if (Stream::existsContent("level/3/TITLE.PSX")) {
+                            strcpy(dst, "level/3/TITLE.PSX");
+                            return;
+                        }
+                        ASSERT(false); //
+                        break;
                     default : ASSERT(false);
                 }
             #endif

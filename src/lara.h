@@ -8,6 +8,10 @@
 #include "sprite.h"
 #include "enemy.h"
 
+// TODO: slide to slide in WALL
+// TODO: static sounds in LEVEL3A
+// TODO: fix enemy head rotation glitches
+
 #define TURN_FAST           PI
 #define TURN_FAST_BACK      PI * 3.0f / 4.0f
 #define TURN_NORMAL         PI / 2.0f
@@ -245,6 +249,11 @@ struct Lara : Character {
     int         hitDir;
     vec3        collisionOffset;
     vec3        flowVelocity;
+
+    int         playerIndex;
+
+    Camera      *camera;
+
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
     //int         dbgBoxesCount;
@@ -420,6 +429,10 @@ struct Lara : Character {
     } *braid;
 
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
+        camera = new Camera(game, this);
+
+        playerIndex = 0;
+
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
@@ -523,6 +536,7 @@ struct Lara : Character {
     }
 
     virtual ~Lara() {
+        delete camera;
         delete braid;
         delete environment;
     }
@@ -1127,6 +1141,10 @@ struct Lara : Character {
         jointsFrame = -1;
     }
 
+    vec3 getAngle(const vec3 &dir) {
+        return vec3(atan2(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)) - angle.x, atan2(dir.x, dir.z) - angle.y + PI, 0.0f);
+    }
+
     virtual void lookAt(Controller *target) {
         if (health <= 0.0f)
             return;
@@ -1142,6 +1160,21 @@ struct Lara : Character {
                 aimShotgun();
             else
                 aimPistols();
+        }
+
+        ICamera *cam = game->getCamera();
+        if (cam->getOwner() != this)
+            return;
+
+        if (target) {
+            Box box = target->getBoundingBox();
+            vec3 dir = getJoint(jointHead).pos - box.center();
+            vec3 angle = getAngle(dir) * RAD2DEG;
+            cam->setAngle(angle.x, angle.y);
+        } else {
+            if (cam->mode == ICamera::MODE_COMBAT) {
+                cam->setAngle(0, 0);
+            }
         }
     }
 
@@ -1485,6 +1518,7 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_BOULDER : {
+                game->getCamera()->setAngle(-25, 170);
                 animation.setAnim(ANIM_DEATH_BOULDER);
 
                 vec3 v(0.0f);
@@ -1512,6 +1546,7 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_REX : {
+                game->getCamera()->setAngle(-25, 170);
                 pos   = enemy->pos;
                 angle = enemy->angle;
 
@@ -1891,7 +1926,6 @@ struct Lara : Character {
 
         int         cameraIndex  = -1;
         Controller *cameraTarget = NULL;
-        Camera *camera = (Camera*)level->cameraController;
 
         while (cmdIndex < info.trigCmdCount) {
             TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
@@ -1934,7 +1968,7 @@ struct Lara : Character {
  
                     if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
                         level->cameras[cmd.args].flags.once |= cam.once;
-                        camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed * 8.0f);
+                        camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed);
                     }
 
                     if (cmd.args == camera->viewIndexLast)
@@ -2017,7 +2051,7 @@ struct Lara : Character {
             }
         }
 
-        if (cameraTarget && (camera->state == Camera::STATE_STATIC || cameraIndex == -1))
+        if (cameraTarget && (camera->mode == Camera::MODE_STATIC || cameraIndex == -1))
            camera->viewTarget = cameraTarget;
 
         if (!cameraTarget && cameraIndex > -1)
@@ -2382,6 +2416,7 @@ struct Lara : Character {
     virtual int getStateSlide() {
         if (input & JUMP)
             return state == STATE_SLIDE ? STATE_FORWARD_JUMP : STATE_BACK_JUMP;
+        // TODO: update slide direction
         return state;
     }
 
@@ -2483,6 +2518,73 @@ struct Lara : Character {
         return STATE_FALL;
     }
 
+    virtual void updateState() {
+        Character::updateState();
+
+        ICamera *cam = game->getCamera();
+        if (cam->getOwner() != this || cam->mode != ICamera::MODE_FOLLOW)
+            return;
+
+        cam->centerView = false;
+
+        switch (state) {
+            case STATE_WATER_OUT  :
+                cam->centerView = true;
+                break;
+            case STATE_DEATH      :
+            case STATE_UNDERWATER_DEATH :
+                cam->centerView = true;
+                break;
+            case STATE_REACH      :
+                cam->setAngle(0, 85);
+                break;
+            case STATE_BACK_JUMP  :
+                cam->setAngle(0, 135);
+                break;
+            case STATE_SURF_TREAD :
+            case STATE_SURF_SWIM  :
+            case STATE_SURF_BACK  :
+            case STATE_SURF_LEFT  :
+            case STATE_SURF_RIGHT :
+                cam->setAngle(-22, 0);
+                break;
+            case STATE_SLIDE      :
+            case STATE_SLIDE_BACK :
+                cam->setAngle(-45, 0);
+                break;
+            case STATE_HANG       :
+            case STATE_HANG_LEFT  :
+            case STATE_HANG_RIGHT :
+                cam->setAngle(-60, 0);
+                break;
+            case STATE_PUSH_BLOCK :
+            case STATE_PULL_BLOCK :
+                cam->setAngle(-25, 35);
+                cam->centerView = true;
+                break;
+            case STATE_PUSH_PULL_READY :
+                cam->setAngle(0, 75);
+                break;
+            case STATE_PICK_UP :
+                cam->setAngle(-15, -130);
+                break;
+            case STATE_SWITCH_DOWN :
+            case STATE_SWITCH_UP   :
+                cam->setAngle(-25, 80);
+                break;
+            case STATE_USE_KEY    :
+            case STATE_USE_PUZZLE :
+                cam->setAngle(-25, -80);
+                break;
+            case STATE_SPECIAL    :
+                cam->setAngle(-25, 170);
+                cam->centerView = true;
+                break;
+            default :
+                cam->setAngle(0, 0);
+        }
+    }
+
     virtual int getInput() { // TODO: updateInput
         if (level->isCutsceneLevel()) return 0;
         input = 0;
@@ -2574,6 +2676,24 @@ struct Lara : Character {
         return input;
     }
 
+    virtual bool useHeadAnimation() {
+        return state == STATE_WATER_OUT
+            || state == STATE_DEATH
+            || state == STATE_UNDERWATER_DEATH
+            || state == STATE_HANG
+            || state == STATE_HANG_LEFT
+            || state == STATE_HANG_RIGHT
+            || state == STATE_PUSH_BLOCK
+            || state == STATE_PULL_BLOCK
+            || state == STATE_PUSH_PULL_READY
+            || state == STATE_PICK_UP
+            || state == STATE_SWITCH_DOWN
+            || state == STATE_SWITCH_UP
+            || state == STATE_USE_KEY
+            || state == STATE_USE_PUZZLE
+            || state == STATE_SPECIAL;
+    }
+
     virtual void doCustomCommand(int curFrame, int prevFrame) {
         switch (state) {
             case STATE_PICK_UP : {
@@ -2615,6 +2735,8 @@ struct Lara : Character {
                 braid->update();
         }
         
+        camera->update();
+
         if (level->isCutsceneLevel())
             return;
 
@@ -2631,6 +2753,9 @@ struct Lara : Character {
                 oxygen = min(LARA_MAX_OXYGEN, oxygen += Core::deltaTime * 10.0f);
 
         usedKey = TR::Entity::LARA;
+
+        if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC)
+            camera->mode = emptyHands() ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
     }
 
     void updateFlash() {
@@ -3116,7 +3241,7 @@ struct Lara : Character {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
-        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson) // hide head in first person view
+        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson && game->getCamera()->getOwner() == this) // hide head in first person view
             visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;

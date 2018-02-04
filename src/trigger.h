@@ -72,7 +72,7 @@ struct Dart : Controller {
         velocity = dir * animation.getSpeed();
         pos = pos + velocity * (Core::deltaTime * 30.0f);
 
-        Controller *lara = (Controller*)level->laraController;
+        Controller *lara = game->getLara();
         if (armed && collide(lara)) {
             lara->hit(DART_DAMAGE, this, TR::HIT_DART);
             armed = false;
@@ -152,7 +152,7 @@ struct Flame : Sprite {
         Sprite::update();
         game->playSound(TR::SND_FLAME, pos, Sound::PAN);
 
-        Character *lara = (Character*)level->laraController;
+        Character *lara = (Character*)game->getLara();
 
         if (jointIndex > -1) {
             if (lara->stand == Character::STAND_UNDERWATER) {
@@ -232,7 +232,7 @@ struct LavaParticle : Sprite {
 
         bool hit = false;
         if (!bounces) {
-            Controller *lara = (Controller*)game->getLara();
+            Controller *lara = game->getLara();
             if ((hit = lara->collide(Sphere(pos, 0.0f))))
                 lara->hit(LAVA_PARTICLE_DAMAGE, this);
         }
@@ -330,7 +330,7 @@ struct TrapBoulder : Controller {
             }
         }
 
-        Character *lara = (Character*)level->laraController;
+        Character *lara = (Character*)game->getLara();
         if (lara->health > 0.0f && collide(lara)) {
             if (lara->stand == Character::STAND_GROUND)
                 lara->hit(BOULDER_DAMAGE_GROUND, this, TR::HIT_BOULDER);
@@ -639,7 +639,7 @@ struct TrapFloor : Controller {
 
     virtual bool activate() {
         if (state != STATE_STATIC) return false;
-        vec3 &p = ((Controller*)level->laraController)->pos;
+        vec3 &p = game->getLara()->pos;
         if (fabsf(p.y - (pos.y - 512.0f)) <= 8 && Controller::activate()) {
             animation.setState(STATE_SHAKE);
             return true;
@@ -775,7 +775,7 @@ struct TrapSwingBlade : Controller {
         if ((f <= 8 || f >= 20) && (f <= 42 || f >= 57))
             return;
 
-        Character* lara = (Character*)level->laraController;
+        Character* lara = (Character*)game->getLara();
         if (!checkRange(lara, BLADE_RANGE) || !collide(lara))
             return;
 
@@ -793,7 +793,7 @@ struct TrapSpikes : Controller {
     }
 
     virtual void update() {
-        Character *lara = (Character*)level->laraController;
+        Character *lara = (Character*)game->getLara();
         if (lara->health <= 0.0f) return;
 
         if (!checkRange(lara, SPIKES_RANGE) || !collide(lara))
@@ -840,7 +840,7 @@ struct TrapCeiling : Controller {
                 animation.setState(STATE_DOWN);
             }
 
-            Controller *lara = (Controller*)level->laraController;
+            Controller *lara = game->getLara();
             if (collide(lara))
                 lara->hit(1000);
         }
@@ -866,7 +866,7 @@ struct TrapSlam : Controller {
             if (animation.frameIndex >= 20)
                 bite = false;
 
-            Character *lara = (Character*)level->laraController;
+            Character *lara = (Character*)game->getLara();
             if (animation.state == STATE_SLAM && !bite && collide(lara)) {
                 lara->hit(SLAM_DAMAGE, this, TR::HIT_SLAM);
                 bite = true;
@@ -981,7 +981,7 @@ struct Lightning : Controller {
         if (isActive()) {
             timer -= Core::deltaTime;
 
-            Character *lara = (Character*)level->laraController;
+            Character *lara = (Character*)game->getLara();
 
             if (timer <= 0.0f) {
                 if (flash) {
@@ -1125,7 +1125,7 @@ struct MidasHand : Controller {
     }
 
     virtual void update() {
-        Character *lara = (Character*)level->laraController;
+        Character *lara = (Character*)game->getLara();
         
         if (lara->health <= 0.0f || lara->stand != Character::STAND_GROUND || lara->getRoomIndex() != getRoomIndex())
             return;
@@ -1160,7 +1160,7 @@ struct TrapLava : Controller {
     TrapLava(IGame *game, int entity) : Controller(game, entity) {}
 
     virtual void update() {
-        Character *lara = (Character*)level->laraController;
+        Character *lara = (Character*)game->getLara();
         if (lara->health > 0.0f && collide(lara))
             lara->hit(1001.0f, this, TR::HIT_LAVA);
 
@@ -1301,7 +1301,7 @@ struct MutantEgg : Controller {
     virtual void update() {
         if (state != STATE_EXPLOSION) {
             Box box = Box(pos + vec3(-MUTANT_EGG_RANGE), pos + vec3(MUTANT_EGG_RANGE));
-            if ( flags.once || getEntity().type == TR::Entity::MUTANT_EGG_BIG || box.contains((((Controller*)level->laraController)->pos)) ) {
+            if ( flags.once || getEntity().type == TR::Entity::MUTANT_EGG_BIG || box.contains(((game->getLara())->pos)) ) {
                 animation.setState(STATE_EXPLOSION);
                 layers[0].mask = 0xffffffff & ~(1 << 24);
                 explode(0x00fffe00);
@@ -1381,7 +1381,7 @@ struct Waterfall : Controller {
     Waterfall(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
 
     virtual void update() {
-        vec3 delta = (((ICamera*)level->cameraController)->pos - pos) * (1.0f / 1024.0f);
+        vec3 delta = (game->getCamera()->eye.pos - pos) * (1.0f / 1024.0f);
         if (delta.length2() > 100.0f)
             return;
 

@@ -4,17 +4,20 @@
 #define DECODE_VAG
 #define DECODE_ADPCM
 
+#define DECODE_OGG
+
 #ifndef _PSP
-    #define DECODE_OGG
     #ifndef __EMSCRIPTEN__
         #define DECODE_MP3
     #endif
 #endif
 
 #include "utils.h"
+
 #ifdef DECODE_MP3
     #include "libs/minimp3/minimp3.h"
 #endif
+
 #ifdef DECODE_OGG
     #define STB_VORBIS_HEADER_ONLY
     #include "libs/stb_vorbis/stb_vorbis.c"
@@ -370,23 +373,18 @@ namespace Sound {
         stb_vorbis       *ogg;
         stb_vorbis_alloc alloc;
 
-        char       *buffer;
-        int        size, pos;        
-
-        OGG(Stream *stream, int channels) : Decoder(stream, channels), size(stream->size), pos(0) {
-            buffer = new char[size]; // TODO: file streaming
-            stream->raw(buffer, size);
+        OGG(Stream *stream, int channels) : Decoder(stream, channels), ogg(NULL) {
             alloc.alloc_buffer_length_in_bytes = 256 * 1024;
             alloc.alloc_buffer = new char[alloc.alloc_buffer_length_in_bytes];
-            ogg = stb_vorbis_open_memory((unsigned char*)buffer, size, NULL, &alloc);
+            ogg = stb_vorbis_open_filename(stream->name, NULL, &alloc);
+            ASSERT(ogg);
             stb_vorbis_info info = stb_vorbis_get_info(ogg);
-            channels = info.channels;
+            this->channels = info.channels;
         }
 
         virtual ~OGG() {
             stb_vorbis_close(ogg);
             delete[] alloc.alloc_buffer;
-            delete[] buffer;
         }
 
         virtual int decode(Frame *frames, int count) {
@@ -400,15 +398,23 @@ namespace Sound {
         }
 
         virtual void replay() {
-            stb_vorbis_close(ogg);
-            ogg = stb_vorbis_open_memory((unsigned char*)buffer, size, NULL, &alloc);
+            stb_vorbis_seek_start(ogg);
         }
     };
 #endif
+    Mutex lock;
 
     struct Listener {
         mat4 matrix;
-    } listener;
+    } listener[2];
+
+    int listenersCount;
+
+    Listener& getListener(const vec3 &pos) {
+        if (listenersCount == 1 || (listener[0].matrix.getPos() - pos).length2() < (listener[1].matrix.getPos() - pos).length2())
+            return listener[0];
+        return listener[1];
+    }
 
     enum Flags {
         LOOP            = 1,
@@ -510,7 +516,7 @@ namespace Sound {
         vec2 getPan() {
             if (!(flags & PAN))
                 return vec2(1.0f);
-            mat4  m = Sound::listener.matrix;
+            mat4  m = Sound::getListener(pos).matrix;
             vec3  v = pos - m.offset().xyz();
 
             float dist = max(0.0f, 1.0f - (v.length() / SND_FADEOFF_DIST));
@@ -615,7 +621,7 @@ namespace Sound {
                 if (!(channels[i]->flags & (flipped ? FLIPPED : UNFLIPPED)))
                     continue;
 
-                vec3 d = channels[i]->pos - listener.matrix.getPos();
+                vec3 d = channels[i]->pos - getListener(channels[i]->pos).matrix.getPos();
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST)
                     continue;
             }
@@ -652,6 +658,8 @@ namespace Sound {
     }
 
     void fill(Frame *frames, int count) {
+        OS_LOCK(lock);
+
         if (!channelsCount) {
             if (result) {
                 memset(result, 0, sizeof(FrameHI) * count);
@@ -713,11 +721,15 @@ namespace Sound {
     }
 
     Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
+        OS_LOCK(lock);
+
         ASSERT(pitch >= 0.0f);
         if (!stream) return NULL;
         if (volume > 0.001f) {
+            vec3 listenerPos = getListener(pos).matrix.getPos();
+
             if (!(flags & (FLIPPED | UNFLIPPED | MUSIC)) && (flags & PAN)) {
-                vec3 d = pos - listener.matrix.getPos();
+                vec3 d = pos - listenerPos;
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST) {
                     delete stream;
                     return NULL;
@@ -727,7 +739,7 @@ namespace Sound {
             if (flags & (UNIQUE | REPLAY)) {
                 for (int i = 0; i < channelsCount; i++)
                     if (channels[i]->id == id) {
-                        vec3 p = listener.matrix.getPos();
+                        vec3 p = listenerPos;
 
                         if ((p - channels[i]->pos).length2() > (p - pos).length2()) {
                             channels[i]->pos = pos;
@@ -752,12 +764,16 @@ namespace Sound {
     }
 
     void stop(int id = -1) {
+        OS_LOCK(lock);
+
         for (int i = 0; i < channelsCount; i++)
             if (id == -1 || channels[i]->id == id)
                 channels[i]->stop();
     }
 
     void stopAll() {
+        OS_LOCK(lock);
+
         for (int i = 0; i < channelsCount; i++)
             delete channels[i];
         channelsCount = 0;
