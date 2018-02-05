@@ -581,10 +581,10 @@ struct Camera : ICamera {
                     traceClip(offset, to);
                 }
 
+                move(to);
+
                 if (timer <= 0.0f)
                     resetTarget();
-
-                move(to);
 
                 mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else

@@ -7,6 +7,7 @@ add_library( game SHARED
              src/main/cpp/main.cpp
              ../../../libs/stb_vorbis/stb_vorbis.c
              ../../../libs/minimp3/minimp3.cpp
+             ../../../libs/tinf/tinflate.c
              )
 
 include_directories(../../../)

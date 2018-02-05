@@ -1963,7 +1963,7 @@ struct Lara : Character {
 
                     if (info.trigger == TR::Level::Trigger::COMBAT)
                         break;
-                    if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && switchIsDown)
+                    if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && !switchIsDown)
                         break;
  
                     if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
