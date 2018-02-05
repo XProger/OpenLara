@@ -544,8 +544,11 @@ struct Camera : ICamera {
 
             if (!firstPerson || viewIndex != -1) {
 
-                if (timer > 0.0f)
+                if (timer > 0.0f) {
                     timer -= Core::deltaTime;
+                    if (timer <= 0.0f)
+                        resetTarget();
+                }
 
                 TR::Location to;
 
