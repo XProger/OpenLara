@@ -29,32 +29,23 @@ namespace Input {
     } touch[6];
 
     struct HMD {
-        Basis pivot;
-        Basis basis;
-        bool  ready;
+        mat4 eye[2];
+        mat4 proj[2];
+        mat4 controllers[2];
+        vec3 zero;
+        bool ready;
 
-        void set() {
-            if (!ready) {
-                pivot = basis;
-                ready = true;
-            }
+        void setView(const mat4 &pL, const mat4 &pR, const mat4 &vL, const mat4 &vR) {
+            proj[0] = pL;
+            proj[1] = pR;
+            eye[0]  = vL;
+            eye[1]  = vR;
         }
 
         void reset() {
-            pivot.identity();
-            basis.identity();
-            ready = false;
+            //
         }
-
-        mat4 getMatrix() {
-            Basis b = pivot.inverse() * basis;
-            mat4 m;
-            m.identity();
-            m.setRot(b.rot);
-            m.setPos(b.pos);
-            return m;
-        }
-    } head;
+    } hmd;
 
     enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bInventory, bMAX };
     enum TouchZone   { zMove, zLook, zButton, zMAX };
@@ -126,11 +117,13 @@ namespace Input {
         memset(&mouse,  0, sizeof(mouse));
         memset(&joy,    0, sizeof(joy));
         memset(&touch,  0, sizeof(touch));
-        head.reset();
+        hmd.reset();
     }
 
     void init() {
         reset();
+        hmd.ready        = false;
+        hmd.zero         = vec3(INF, INF, INF);
         touchTimerVis    = 0.0f;
         touchTimerTap    = 0.0f;
         doubleTap        = false;

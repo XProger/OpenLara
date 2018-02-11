@@ -1142,7 +1142,7 @@ struct Lara : Character {
     }
 
     vec3 getAngle(const vec3 &dir) {
-        return vec3(atan2(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)) - angle.x, atan2(dir.x, dir.z) - angle.y + PI, 0.0f);
+        return vec3(atan2f(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)) - angle.x, atan2f(dir.x, dir.z) - angle.y + PI, 0.0f);
     }
 
     virtual void lookAt(Controller *target) {

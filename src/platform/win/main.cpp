@@ -7,11 +7,23 @@
 
 #ifdef MINIMAL
     #if _MSC_VER >= 1900 // VS2015 (1900) VS2017 (1910)
+        #define _NO_CRT_STDIO_INLINE
         #include <malloc.h>
         void __cdecl operator delete(void *ptr, unsigned int size) { free(ptr); }
         // add "/d2noftol3" to compiler additional options
-        // add define _NO_CRT_STDIO_INLINE
     #endif
+#endif
+
+//#define VR_SUPPORT
+// TODO: fix depth precision
+// TODO: fix water surface rendering
+// TODO: fix clipping
+// TODO: add MSAA support for render targets
+// TODO: add IK for arms
+// TODO: controls
+
+#ifdef VR_SUPPORT
+   #include "libs/openvr/openvr.h"
 #endif
 
 #include "game.h"
@@ -372,7 +384,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
     return 0;
 }
 
-HGLRC initGL(HDC hDC) {
+HGLRC glInit(HDC hDC) {
     PIXELFORMATDESCRIPTOR pfd;
     memset(&pfd, 0, sizeof(pfd));
     pfd.nSize        = sizeof(pfd);
@@ -393,10 +405,118 @@ HGLRC initGL(HDC hDC) {
     return hRC;
 }
 
-void freeGL(HGLRC hRC) {
+void glFree(HGLRC hRC) {
     wglMakeCurrent(0, 0);
     wglDeleteContext(hRC);
 }
+
+#ifdef VR_SUPPORT
+vr::IVRSystem *hmd;
+vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
+
+void vrInit() {
+    vr::EVRInitError eError = vr::VRInitError_None;
+    hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
+
+    if (eError != vr::VRInitError_None) {
+        hmd = NULL;
+        LOG("! unable to init VR runtime: %s\n", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+        return;
+    }
+
+    if (!vr::VRCompositor()) {
+        vr::VR_Shutdown();
+        LOG("! compositor initialization failed\n");
+        return;
+    }
+}
+
+void vrInitTargets() {
+    uint32_t width, height;
+    hmd->GetRecommendedRenderTargetSize( &width, &height);
+    Core::initVR(width, height);
+}
+
+void vrFree() {
+    if (!hmd) return;
+    vr::VR_Shutdown();
+}
+
+mat4 convToMat4(const vr::HmdMatrix44_t &m) {
+    return mat4(m.m[0][0], m.m[1][0], m.m[2][0], m.m[3][0],
+                m.m[0][1], m.m[1][1], m.m[2][1], m.m[3][1], 
+                m.m[0][2], m.m[1][2], m.m[2][2], m.m[3][2], 
+                m.m[0][3], m.m[1][3], m.m[2][3], m.m[3][3]);
+}
+
+mat4 convToMat4(const vr::HmdMatrix34_t &m) {
+    return mat4(m.m[0][0], m.m[1][0], m.m[2][0], 0.0f, 
+                m.m[0][1], m.m[1][1], m.m[2][1], 0.0f,
+                m.m[0][2], m.m[1][2], m.m[2][2], 0.0f,
+                m.m[0][3], m.m[1][3], m.m[2][3], 1.0f);
+}
+
+void vrUpdateInput() {
+    if (!hmd) return;
+    vr::VREvent_t event;
+
+    while (hmd->PollNextEvent(&event, sizeof(event))) {
+        //ProcessVREvent( event );
+        switch (event.eventType) {
+            case vr::VREvent_TrackedDeviceActivated:
+                //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+                LOG( "Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
+                break;
+            case vr::VREvent_TrackedDeviceDeactivated:
+                LOG("Device %u detached.\n", event.trackedDeviceIndex);
+                break;
+            case vr::VREvent_TrackedDeviceUpdated:
+                LOG("Device %u updated.\n", event.trackedDeviceIndex);
+                break;
+        }
+    }
+
+    for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
+        vr::VRControllerState_t state;
+        if (hmd->GetControllerState(unDevice, &state, sizeof(state))) {
+            //m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
+        }
+    }
+}
+
+void vrUpdateView() {
+    if (!hmd) return;
+    vr::VRCompositor()->WaitGetPoses(tPose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+
+    if (!tPose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)
+        return;
+
+    mat4 pL = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Left,  8.0f, 45.0f * 1024.0f));
+    mat4 pR = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Right, 8.0f, 45.0f * 1024.0f));
+
+    mat4 head = convToMat4(tPose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking);
+    if (Input::hmd.zero.x == INF)
+        Input::hmd.zero = head.getPos();
+    head.setPos(head.getPos() - Input::hmd.zero);
+    
+    mat4 vL = head * convToMat4(hmd->GetEyeToHeadTransform(vr::Eye_Left));
+    mat4 vR = head * convToMat4(hmd->GetEyeToHeadTransform(vr::Eye_Right));
+
+    const float ONE_METER = 768.0f / 1.8f; // Lara's height in units / height in meters
+    vL.setPos(vL.getPos() * ONE_METER);
+    vR.setPos(vR.getPos() * ONE_METER);
+
+    Input::hmd.setView(pL, pR, vL, vR);
+}
+
+void vrCompose() {
+    if (!hmd) return;
+    vr::Texture_t LTex = {(void*)(uintptr_t)Core::eyeTex[0]->ID, vr::TextureType_OpenGL, vr::ColorSpace_Gamma};
+    vr::VRCompositor()->Submit(vr::Eye_Left, &LTex);
+    vr::Texture_t RTex = {(void*)(uintptr_t)Core::eyeTex[1]->ID, vr::TextureType_OpenGL, vr::ColorSpace_Gamma};
+    vr::VRCompositor()->Submit(vr::Eye_Right, &RTex);
+}
+#endif // #ifdef VR_SUPPORT
 
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
@@ -425,8 +545,12 @@ int main(int argc, char** argv) {
     HWND hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
 
     HDC hDC = GetDC(hWnd);
-    HGLRC hRC = initGL(hDC);
-    
+    HGLRC hRC = glInit(hDC);
+
+#ifdef VR_SUPPORT
+    vrInit();
+#endif
+
     Sound::channelsCount = 0;
 
     osStartTime = osGetTime();
@@ -436,6 +560,11 @@ int main(int argc, char** argv) {
     sndInit(hWnd);
 
     Game::init(argc > 1 ? argv[1] : NULL);
+
+#ifdef VR_SUPPORT
+    Input::hmd.ready = hmd != NULL;
+    vrInitTargets();
+#endif
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
     ShowWindow(hWnd, SW_SHOWDEFAULT);
@@ -450,8 +579,17 @@ int main(int argc, char** argv) {
                 Core::quit();
         } else {
             joyUpdate();
+        #ifdef VR_SUPPORT
+            vrUpdateInput();
+        #endif
             if (Game::update()) {
+            #ifdef VR_SUPPORT
+                vrUpdateView();
+            #endif
                 Game::render();
+            #ifdef VR_SUPPORT
+                vrCompose();
+            #endif
                 Core::waitVBlank();
                 SwapBuffers(hDC);
             }
@@ -464,7 +602,11 @@ int main(int argc, char** argv) {
     sndFree();
     Game::deinit();
 
-    freeGL(hRC);
+#ifdef VR_SUPPORT
+    vrFree();
+#endif
+
+    glFree(hRC);
     ReleaseDC(hWnd, hDC);
 
     DestroyWindow(hWnd);

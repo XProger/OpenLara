@@ -292,6 +292,7 @@ namespace Core {
             };
             bool vsync;
             bool stereo;
+            bool vr;
             SplitScreen splitscreen;
 
             void setFilter(Quality value) {
@@ -723,6 +724,8 @@ namespace Core {
 
 namespace Core {
 
+    Texture *eyeTex[2];
+
     bool extSupport(const char *str, const char *ext) {
         return strstr(str, ext) != NULL;
     }
@@ -1014,6 +1017,7 @@ namespace Core {
         settings.detail.setWater    (Core::Settings::HIGH);
         settings.detail.vsync         = true;
         settings.detail.stereo        = false;
+        settings.detail.vr            = false;
         settings.detail.splitscreen   = Settings::SPLIT_NONE;
 
         settings.audio.music          = 0.7f;
@@ -1054,10 +1058,14 @@ namespace Core {
         settings.audio.reverb = false;
     #endif
 
+        eyeTex[0] = eyeTex[1] = NULL;
+
         resetTime();
     }
 
     void deinit() {
+        delete eyeTex[0];
+        delete eyeTex[1];
         delete whiteTex;
     #ifdef _PSP
         delete[] cmdBuf;
@@ -1072,6 +1080,13 @@ namespace Core {
     #endif
         Sound::deinit();
     }
+
+#ifdef VR_SUPPORT
+    void initVR(int width, int height) {
+        eyeTex[0] = new Texture(width, height, Texture::RGBA);
+        eyeTex[1] = new Texture(width, height, Texture::RGBA);
+    }
+#endif
 
 #ifndef _PSP
     int cacheRenderTarget(bool depth, int width, int height) {

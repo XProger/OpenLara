@@ -593,13 +593,9 @@ struct Camera : ICamera {
             } else
                 updateFirstPerson();
 
-            
-        /*
-            if (Core::settings.detail.VR) {
-                mat4 head = Input::head.getMatrix();
-                mViewInv = mViewInv * head;
+            if (Core::settings.detail.vr) {
+                mViewInv = mViewInv * Input::hmd.eye[0];
             }
-        */
         }
         updateListener();
         
@@ -608,11 +604,15 @@ struct Camera : ICamera {
 
     virtual void setup(bool calcMatrices) {
         if (calcMatrices) {
+            Core::mViewInv = mViewInv;
+
+            if (Core::settings.detail.vr)
+                Core::mViewInv = Core::mViewInv * Input::hmd.eye[Core::eye == -1.0f ? 0 : 1];
+
             if (reflectPlane) {
-                Core::mViewInv = mat4(*reflectPlane) * mViewInv;
+                Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
                 Core::mViewInv.scale(vec3(1.0f, -1.0f, 1.0f));
-            } else
-                Core::mViewInv = mViewInv;
+            }
 
             Core::mView = Core::mViewInv.inverse();
             if (shake > 0.0f)
@@ -621,7 +621,10 @@ struct Camera : ICamera {
             if (Core::settings.detail.stereo)
                 Core::mView.translate(Core::mViewInv.right().xyz() * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
 
-            Core::mProj = mat4(fov, aspect, znear, zfar);
+            if (Core::settings.detail.vr)
+                Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
+            else
+                Core::mProj = mat4(fov, aspect, znear, zfar);
         }
 
         Core::setViewProj(Core::mView, Core::mProj);
