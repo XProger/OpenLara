@@ -150,33 +150,70 @@ namespace Sound {
 
     struct PCM : Decoder {
         int freq, size, bits;
+        Frame frameLast;
 
-        PCM(Stream *stream, int channels, int freq, int size, int bits) : Decoder(stream, channels), freq(freq), size(size), bits(bits) {}
+        PCM(Stream *stream, int channels, int freq, int size, int bits) : Decoder(stream, channels), freq(freq), size(size), bits(bits) { frameLast.L = frameLast.R = 0; }
 
         virtual int decode(Frame *frames, int count) {
             if (stream->pos - offset >= size) return 0;
+
+            // ! in the original game series only 11025 and 22050 Hz single channel samples were used ! //
+
+            Frame frame;
             if (bits == 16) {
                 int16 value;
                 if (channels == 2) {
-                    frames[0].L = stream->read(value);
-                    frames[0].R = stream->read(value);
+                    frame.L = stream->read(value);
+                    frame.R = stream->read(value);
                 } else
-                    frames[0].L = frames[0].R = stream->read(value);
+                    frame.L = frame.R = stream->read(value);
             } else if (bits == 8) {
                 uint8 value;
                 if (channels == 2) {
-                    frames[0].L = stream->read(value) * 257 - 32768;
-                    frames[0].R = stream->read(value) * 257 - 32768;
+                    frame.L = stream->read(value) * 257 - 32768;
+                    frame.R = stream->read(value) * 257 - 32768;
                 } else
-                    frames[0].L = frames[0].R = stream->read(value) * 257 - 32768;
+                    frame.L = frame.R = stream->read(value) * 257 - 32768;
             } else {
                 ASSERT(false);
                 return 0;
             }
 
-            int k = 44100 / freq;
-            for (int i = 1; i < k; i++) frames[i] = frames[0]; // TODO: lerp
-            return k;
+            int dL = int(frame.L) - int(frameLast.L);
+            int dR = int(frame.R) - int(frameLast.R);
+            switch (freq) {
+                case 11025 :
+                    if (channels == 2) {
+                        frames[0].L = frameLast.L + dL / 4;                   // 0.25 L
+                        frames[0].R = frameLast.R + dR / 4;                   // 0.25 R
+                        frames[1].L = frameLast.L + dL / 2;                   // 0.50 L
+                        frames[1].R = frameLast.R + dR / 2;                   // 0.50 R
+                        frames[2].L = frameLast.L + dL * 3 / 4;               // 0.75 L
+                        frames[2].R = frameLast.R + dR * 3 / 4;               // 0.75 R
+                    } else {
+                        frames[0].L = frames[0].R = frameLast.L + dL / 4;     // 0.25 LR
+                        frames[1].L = frames[1].R = frameLast.L + dL / 2;     // 0.50 LR
+                        frames[2].L = frames[2].R = frameLast.L + dL * 3 / 4; // 0.75 LR
+                    }
+                    frames[3] = frameLast = frame;                            // 1.00 LR
+                    return 4;
+                case 22050 :
+                    if (channels == 2) {
+                        frames[0].L = frameLast.L + dL / 2;                   // 0.50 L
+                        frames[0].R = frameLast.R + dR / 2;                   // 0.50 R
+                    } else
+                        frames[0].L = frames[0].R = frameLast.L + dL / 2;     // 0.50 LR
+                    frames[1] = frameLast = frame;                            // 1.00 LR
+                    return 2;
+                case 44100 : // not used
+                    frames[0] = frameLast = frame;
+                    return 1;
+                default    : // impossible
+                    ASSERT(false);
+                    int k = 44100 / freq;
+                    for (int i = 0; i < k; i++) frames[i] = frame; // no lerp
+                    return k;
+            }
         }
     };
 
