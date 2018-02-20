@@ -298,7 +298,7 @@ namespace Core {
             };
             uint8 vsync;
             uint8 stereo;
-
+            uint8 vr;
             void setFilter(Quality value) {
                 if (value > MEDIUM && !(support.maxAniso > 1))
                     value = MEDIUM;
@@ -729,6 +729,8 @@ namespace Core {
 
 namespace Core {
 
+    Texture *eyeTex[2];
+
     bool extSupport(const char *str, const char *ext) {
         return strstr(str, ext) != NULL;
     }
@@ -1020,7 +1022,6 @@ namespace Core {
         settings.detail.setWater    (Core::Settings::HIGH);
         settings.detail.vsync         = true;
         settings.detail.stereo        = Settings::STEREO_OFF;
-
         settings.audio.music          = 14;
         settings.audio.sound          = 14;
         settings.audio.reverb         = true;
@@ -1090,10 +1091,14 @@ namespace Core {
         settings.audio.reverb = false;
     #endif
 
+        eyeTex[0] = eyeTex[1] = NULL;
+
         resetTime();
     }
 
     void deinit() {
+        delete eyeTex[0];
+        delete eyeTex[1];
         delete whiteTex;
     #ifdef _PSP
         delete[] cmdBuf;
@@ -1108,6 +1113,13 @@ namespace Core {
     #endif
         Sound::deinit();
     }
+
+#ifdef VR_SUPPORT
+    void initVR(int width, int height) {
+        eyeTex[0] = new Texture(width, height, Texture::RGBA);
+        eyeTex[1] = new Texture(width, height, Texture::RGBA);
+    }
+#endif
 
 #ifndef _PSP
     int cacheRenderTarget(bool depth, int width, int height) {

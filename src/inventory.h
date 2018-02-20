@@ -657,7 +657,7 @@ struct Inventory {
                 game->playSound(TR::SND_INV_PAGE);
                 item->value = 1;
 
-                int passportSlotCount;
+                int passportSlotCount = 0;
                 TR::LevelID passportSlots[32];
 
                 switch (level->version & TR::VER_VERSION) {
@@ -1262,7 +1262,13 @@ struct Inventory {
         float dx = 32.0f - eye;
         UI::textOut(vec2(dx, 480 - 64), "Ctrl - Select", UI::aLeft, UI::width, UI::SHADE_NONE);
         if (chosen)
-            UI::textOut(vec2(0, 480 - 64), "Alt - Go Back", UI::aRight, UI::width - dx, UI::SHADE_NONE);
+            UI::textOut(vec2(0, 480 - 64),
+            #ifdef __EMSCRIPTEN__
+                "D"
+            #else
+                "Alt"
+            #endif
+            " - Go Back", UI::aRight, UI::width - dx, UI::SHADE_NONE);
     }
 };
 

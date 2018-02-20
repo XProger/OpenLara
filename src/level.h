@@ -2037,6 +2037,33 @@ struct Level : IGame {
             if (shadow) shadow->bind(sShadow);
             Core::pass = Core::passCompose;
 
+            if (view == 0 && Input::hmd.ready) {
+                Core::settings.detail.vr = true;
+
+                Texture *oldTarget = Core::defaultTarget;
+                vec4 vp = Core::viewportDef;
+
+                Core::defaultTarget = Core::eyeTex[0];
+                Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::setTarget(NULL, true);
+                Core::eye = -1.0f;
+                setup();
+                renderView(camera->getRoomIndex(), true, false);
+
+                Core::defaultTarget = Core::eyeTex[1];
+                Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::setTarget(NULL, true);
+                Core::eye =  1.0f;
+                setup();
+                renderView(camera->getRoomIndex(), true, false);
+
+                Core::settings.detail.vr = false;
+
+                Core::defaultTarget = oldTarget;
+                Core::setTarget(NULL, true);
+                Core::viewportDef = vp;
+            }   
+            
             if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
                 setViewport(view, -1, false);
                 setup();
