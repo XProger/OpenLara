@@ -518,8 +518,17 @@ struct Camera : ICamera {
             }
 
             // TODO: use player index
-            advAngle.x -= Input::joy[cameraIndex].R.y * 2.0f * Core::deltaTime;
-            advAngle.y += Input::joy[cameraIndex].R.x * 2.0f * Core::deltaTime;
+            if (Input::state[cameraIndex][cLook]) {
+                float d = 2.0f * Core::deltaTime;
+
+                advAngle.x -= Input::joy[cameraIndex].L.y * d;
+                advAngle.y += Input::joy[cameraIndex].L.x * d;
+
+                if (Input::state[cameraIndex][cUp])    advAngle.y += d;
+                if (Input::state[cameraIndex][cDown])  advAngle.y -= d;
+                if (Input::state[cameraIndex][cLeft])  advAngle.x += d;
+                if (Input::state[cameraIndex][cRight]) advAngle.x -= d;
+            }
 
             if (advAngleOld == advAngle) {
                 if (advTimer > 0.0f) {

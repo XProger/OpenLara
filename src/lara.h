@@ -2582,7 +2582,7 @@ struct Lara : Character {
         input = 0;
         int pid = camera->cameraIndex;
 
-        if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cStepRight]) || Input::down[ikO])) {
+        if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cDash]) || Input::down[ikO])) {
             dozy = true;
             health = LARA_MAX_HEALTH;
             oxygen = LARA_MAX_OXYGEN;
@@ -2598,13 +2598,16 @@ struct Lara : Character {
         input = Character::getInput();
         if (input & DEATH) return input;
 
-        if (Input::state[pid][cUp])        input |= FORTH;
-        if (Input::state[pid][cRight])     input |= RIGHT;
-        if (Input::state[pid][cDown])      input |= BACK;
-        if (Input::state[pid][cLeft])      input |= LEFT;
+        if (Input::state[pid][cLook])      input |= LOOK;
+        if (!(input & LOOK)) {
+            if (Input::state[pid][cUp])        input |= FORTH;
+            if (Input::state[pid][cRight])     input |= RIGHT;
+            if (Input::state[pid][cDown])      input |= BACK;
+            if (Input::state[pid][cLeft])      input |= LEFT;
+        }
         if (Input::state[pid][cRoll])      input  = FORTH | BACK;
-        if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
-        if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
+        //if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
+        //if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
         if (Input::state[pid][cJump])      input |= JUMP;
         if (Input::state[pid][cWalk])      input |= WALK;
         if (Input::state[pid][cAction])    input |= ACTION;
@@ -2641,6 +2644,9 @@ struct Lara : Character {
 
     // analog control
         rotFactor = vec2(1.0f);
+
+        if (input & LOOK)
+            return input;
 
         Input::Joystick &joy = Input::joy[pid];
 

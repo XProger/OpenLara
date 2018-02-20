@@ -810,13 +810,13 @@ struct Inventory {
             key = cAction;
         else if (Input::state[playerIndex][cInventory] || Input::state[playerIndex][cJump])
             key = cInventory;
-        else if (Input::state[playerIndex][cLeft]  || joy.L.x < -0.5f || joy.R.x >  0.5f)
+        else if (Input::state[playerIndex][cLeft]  || joy.L.x < -0.5f)
             key = cLeft;
-        else if (Input::state[playerIndex][cRight] || joy.L.x >  0.5f || joy.R.x < -0.5f)
+        else if (Input::state[playerIndex][cRight] || joy.L.x >  0.5f)
             key = cRight;
-        else if (Input::state[playerIndex][cUp]   || joy.L.y < -0.5f || joy.R.y >  0.5f)
+        else if (Input::state[playerIndex][cUp]    || joy.L.y < -0.5f)
             key = cUp;
-        else if (Input::state[playerIndex][cDown] || joy.L.y >  0.5f || joy.R.y < -0.5f)
+        else if (Input::state[playerIndex][cDown]  || joy.L.y >  0.5f)
             key = cDown;
 
         Item *item = items[getGlobalIndex(page, index)];

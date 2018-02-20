@@ -247,7 +247,7 @@ enum JoyKey {
 };
 
 enum ControlKey {
-    cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cStart, cMAX
+    cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cDuck, cDash, cRoll, cInventory, cStart, cMAX
 };
 
 struct KeySet {
@@ -1043,8 +1043,8 @@ namespace Core {
             ctrl.keys[ cAction    ] = KeySet( ikCtrl,   jkA      );
             ctrl.keys[ cWeapon    ] = KeySet( ikSpace,  jkY      );
             ctrl.keys[ cLook      ] = KeySet( ikC,      jkLB     );
-            ctrl.keys[ cStepLeft  ] = KeySet( ikZ,      jkLT     );
-            ctrl.keys[ cStepRight ] = KeySet( ikX,      jkRT     );
+            ctrl.keys[ cDuck      ] = KeySet( ikZ,      jkLT     );
+            ctrl.keys[ cDash      ] = KeySet( ikX,      jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikA,      jkB      );
             ctrl.keys[ cInventory ] = KeySet( ikTab,    jkSelect );
             ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
@@ -1067,8 +1067,8 @@ namespace Core {
             ctrl.keys[ cAction    ] = KeySet( ikNone,   jkA      );
             ctrl.keys[ cWeapon    ] = KeySet( ikNone,   jkY      );
             ctrl.keys[ cLook      ] = KeySet( ikNone,   jkLB     );
-            ctrl.keys[ cStepLeft  ] = KeySet( ikNone,   jkLT     );
-            ctrl.keys[ cStepRight ] = KeySet( ikNone,   jkRT     );
+            ctrl.keys[ cDuck      ] = KeySet( ikNone,   jkLT     );
+            ctrl.keys[ cDash      ] = KeySet( ikNone,   jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikNone,   jkB      );
             ctrl.keys[ cInventory ] = KeySet( ikNone,   jkSelect );
             ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
