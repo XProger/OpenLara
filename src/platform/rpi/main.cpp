@@ -310,26 +310,32 @@ InputKey codeToInputKey(int code) {
         case KEY_X          : return ikX;
         case KEY_Y          : return ikY;
         case KEY_Z          : return ikZ;
+        case KEY_HOMEPAGE   : return ikEscape;
     // mouse
         case BTN_LEFT       : return ikMouseL;
         case BTN_RIGHT      : return ikMouseR;
         case BTN_MIDDLE     : return ikMouseM;
-    // gamepad
-        case KEY_HOMEPAGE   : return ikEscape;
-        case BTN_A          : return ikJoyA;
-        case BTN_B          : return ikJoyB;
-        case BTN_X          : return ikJoyX;
-        case BTN_Y          : return ikJoyY;
-        case BTN_TL         : return ikJoyLB;
-        case BTN_TR         : return ikJoyRB;
-        case BTN_SELECT     : return ikJoySelect;
-        case BTN_START      : return ikJoyStart;
-        case BTN_THUMBL     : return ikJoyL;
-        case BTN_THUMBR     : return ikJoyR;
-        case BTN_TL2        : return ikJoyLT;
-        case BTN_TR2        : return ikJoyRT;
     }
     return ikNone;
+}
+
+JoyKey codeToJoyKey(int code) {
+    switch (code) {
+    // gamepad
+        case BTN_A          : return jkA;
+        case BTN_B          : return jkB;
+        case BTN_X          : return jkX;
+        case BTN_Y          : return jkY;
+        case BTN_TL         : return jkLB;
+        case BTN_TR         : return jkRB;
+        case BTN_SELECT     : return jkSelect;
+        case BTN_START      : return jkStart;
+        case BTN_THUMBL     : return jkL;
+        case BTN_THUMBR     : return jkR;
+        case BTN_TL2        : return jkLT;
+        case BTN_TR2        : return jkRT;
+    }
+    return jkNone;
 }
 
 int inputDevIndex(const char *node) {
@@ -414,9 +420,14 @@ void inputUpdate() {
             switch (e->type) {
                 case EV_KEY : {
                     InputKey key = codeToInputKey(e->code);
-                    if (key == ikMouseL || key == ikMouseR || key == ikMouseM)
-                        Input::setPos(key, Input::mouse.pos);
-                    Input::setDown(key, e->value != 0);
+                    if (key != ikNone) {
+                        if (key == ikMouseL || key == ikMouseR || key == ikMouseM)
+                            Input::setPos(key, Input::mouse.pos);
+                        Input::setDown(key, e->value != 0);
+                    } else {
+                        JoyKey key = codeToJoyKey(e->code);
+                        Input::setJoyDown(0, key, e->value != 0);
+                    }
                     break;
                 }
                 case EV_REL : {
@@ -440,8 +451,8 @@ void inputUpdate() {
             rb -= sizeof(events[0]);
         }
     }
-    Input::setPos(ikJoyL, joyL);
-    Input::setPos(ikJoyR, joyR);
+    Input::setJoyPos(0, jkL, joyL);
+    Input::setJoyPos(0, jkR, joyR);
 // monitoring plug and unplug input devices
     fd_set fds;
     FD_ZERO(&fds);
