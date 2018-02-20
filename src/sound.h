@@ -25,6 +25,7 @@
 
 #define SND_CHANNELS_MAX    128
 #define SND_FADEOFF_DIST    (1024.0f * 8.0f)
+#define SND_MAX_VOLUME      20
 
 namespace Sound {
 
@@ -583,7 +584,7 @@ namespace Sound {
         // apply volume
             #define VOL_CONV(x) (1.0f - sqrtf(1.0f - x * x));
 
-            float m = ((flags & MUSIC) ? Core::settings.audio.music : Core::settings.audio.sound);
+            float m = ((flags & MUSIC) ? Core::settings.audio.music : Core::settings.audio.sound) / float(SND_MAX_VOLUME);
             float v = volume * m;
             vec2 pan = getPan();
             vec2 vol = pan * VOL_CONV(v);

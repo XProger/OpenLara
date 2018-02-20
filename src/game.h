@@ -123,6 +123,11 @@ namespace Game {
             Input::down[ikL] = false;
         }
 
+        if (!level->level.isTitle()) {
+            if (Input::state[0][cStart]) level->addPlayer(0);
+            if (Input::state[1][cStart]) level->addPlayer(1);
+        }
+
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);
 

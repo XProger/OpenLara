@@ -149,12 +149,12 @@ struct Camera : ICamera {
     }
 
     void resetTarget() {
-        smooth     = speed > 0;
-        mode       = MODE_FOLLOW;
-        viewIndex  = -1;
-        viewTarget = NULL;
-        timer      = -1.0f;
-        speed      = CAM_SPEED_FOLLOW;
+        smooth        = speed > 0;
+        mode          = MODE_FOLLOW;
+        viewIndex     = -1;
+        viewTarget    = NULL;
+        timer         = -1.0f;
+        speed         = CAM_SPEED_FOLLOW;
     }
 
     virtual void doCutscene(const vec3 &pos, float rotation) {
@@ -517,8 +517,9 @@ struct Camera : ICamera {
                 Input::mouse.start.L = Input::mouse.pos;
             }
 
-            advAngle.x -= Input::joy.R.y * 2.0f * Core::deltaTime;
-            advAngle.y += Input::joy.R.x * 2.0f * Core::deltaTime;
+            // TODO: use player index
+            advAngle.x -= Input::joy[cameraIndex].R.y * 2.0f * Core::deltaTime;
+            advAngle.y += Input::joy[cameraIndex].R.x * 2.0f * Core::deltaTime;
 
             if (advAngleOld == advAngle) {
                 if (advTimer > 0.0f) {
@@ -618,7 +619,7 @@ struct Camera : ICamera {
             if (shake > 0.0f)
                 Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
-            if (Core::settings.detail.stereo)
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_ON)
                 Core::mView.translate(Core::mViewInv.right().xyz() * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
 
             Core::mProj = mat4(fov, aspect, znear, zfar);

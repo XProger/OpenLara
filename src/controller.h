@@ -59,7 +59,8 @@ struct IGame {
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Texture*     getAtlas()     { return NULL; }
     virtual ICamera*     getCamera()    { return NULL; }
-    virtual Controller*  getLara()      { return NULL; }
+    virtual Controller*  getLara(int index = 0)   { return NULL; }
+    virtual Controller*  getLara(const vec3 &pos) { return NULL; }
     virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
@@ -71,8 +72,8 @@ struct IGame {
     virtual void setupBinding() {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderCompose(int roomIndex) {}
-    virtual void renderView(int roomIndex, bool water) {}
-    virtual void renderGame() {}
+    virtual void renderView(int roomIndex, bool water, bool showUI) {}
+    virtual void renderGame(bool showUI) {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
@@ -80,10 +81,10 @@ struct IGame {
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle = 0.0f) { return NULL; }
     virtual void removeEntity(Controller *controller) {}
 
-    virtual bool invUse(TR::Entity::Type type) { return false; }
+    virtual bool invUse(int playerIndex, TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
     virtual int* invCount(TR::Entity::Type type) { return NULL; }
-    virtual bool invChooseKey(TR::Entity::Type hole) { return false; }
+    virtual bool invChooseKey(int playerIndex, TR::Entity::Type hole) { return false; }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const { return NULL; }
     virtual void playTrack(uint8 track, bool restart = false) {}

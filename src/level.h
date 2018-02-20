@@ -258,7 +258,7 @@ struct Level : IGame {
             waterCache = Core::settings.detail.water > Core::Settings::LOW ? new WaterCache(this) : NULL;
         }
 
-        if (redraw && inventory.active)
+        if (redraw && inventory.active && !level.isTitle())
             inventory.prepareBackground();
     }
 
@@ -278,8 +278,18 @@ struct Level : IGame {
         return camera;
     }
 
-    virtual Controller* getLara() {
-        return player;
+    virtual Controller* getLara(int index = 0) {
+        return players[index];
+    }
+
+    virtual Controller* getLara(const vec3 &pos) {
+        if (!players[1])
+            return players[0];
+        if (players[0]->health <= 0.0f)
+            return players[1];
+        if (players[1]->health <= 0.0f)
+            return players[0];
+        return (players[0]->pos - pos).length2() < (players[1]->pos - pos).length2() ? players[0] : players[1];
     }
 
     virtual bool isCutscene() {
@@ -370,7 +380,7 @@ struct Level : IGame {
             Core::pass = pass;
             Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, true, i);
-            renderView(roomIndex, false);
+            renderView(roomIndex, false, false);
             Core::invalidateTarget(false, true);
         }
         Core::pass = tmpPass;
@@ -454,8 +464,8 @@ struct Level : IGame {
         delete controller;
     }
 
-    virtual bool invUse(TR::Entity::Type type) {
-        if (!players[0]->useItem(type))
+    virtual bool invUse(int playerIndex, TR::Entity::Type type) {
+        if (!players[playerIndex]->useItem(type))
             return inventory.use(type);
         return true;
     }
@@ -468,8 +478,8 @@ struct Level : IGame {
         return inventory.getCountPtr(type);
     }
 
-    virtual bool invChooseKey(TR::Entity::Type hole) {
-        return inventory.chooseKey(hole);
+    virtual bool invChooseKey(int playerIndex, TR::Entity::Type hole) {
+        return inventory.chooseKey(playerIndex, hole);
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
@@ -580,17 +590,7 @@ struct Level : IGame {
                 players[0] = (Lara*)e.controller;
         }
 
-        if (Core::settings.detail.splitscreen && !level.isTitle()) {
-            players[1] = (Lara*)addEntity(TR::Entity::LARA, players[0]->getRoomIndex(), players[0]->pos, players[0]->angle.y);
-            players[1]->playerIndex = players[1]->camera->cameraIndex = 1;
-
-            vec3 offset = players[0]->getDir().cross(vec3(0, 1, 0)).normal() * 128.0f;
-            players[1]->pos -= offset;
-            players[0]->pos += offset;
-
-            Sound::listenersCount = 2;
-        } else
-            Sound::listenersCount = 1;
+        Sound::listenersCount = 1;
 
         if (!level.isTitle()) {
             ASSERT(players[0] != NULL);
@@ -626,7 +626,7 @@ struct Level : IGame {
             sndUnderwater   = NULL;
             sndCurrent      = NULL;
             lastTitle       = true;
-            inventory.toggle(Inventory::PAGE_OPTION);
+            inventory.toggle(0, Inventory::PAGE_OPTION);
         }
 
         effect  = TR::Effect::NONE;
@@ -660,6 +660,19 @@ struct Level : IGame {
         delete mesh;
 
         Sound::stopAll();
+    }
+
+    void addPlayer(int index) {
+        if (!players[index]) {
+            players[index] = (Lara*)addEntity(TR::Entity::LARA, 0, vec3(0.0f), 0.0f);
+            players[index]->camera->cameraIndex = index;
+            Sound::listenersCount = 2;
+        }
+
+        Lara *lead = players[index ^ 1];
+        if (!lead) return;
+
+        players[index]->reset(lead->getRoomIndex(), lead->pos, lead->angle.y, lead->stand);
     }
 
     Controller* initController(int index) {
@@ -938,7 +951,42 @@ struct Level : IGame {
             uv[i].y += mm.y;
         }
     }
+/*
+    void dumpGlyphs() {
+        TR::SpriteSequence &seq = level.spriteSequences[level.extra.glyphs];
+        short2 size = short2(0, 0);
+        for (int i = 0; i < seq.sCount; i++) {
+            TR::SpriteTexture &sprite = level.spriteTextures[seq.sStart + i];
+            short w = sprite.texCoord[1].x - sprite.texCoord[0].x + 1;
+            short h = sprite.texCoord[1].y - sprite.texCoord[0].y + 1;
+            size.y += h + 1;
+            size.x = max(size.x, w);
+        }
+        size.x += 1;
+        size.y += 1;
+        size.x = (size.x + 3) / 4 * 4;
+        TR::Color32 *data = new TR::Color32[int(size.x) * int(size.y)];
+        memset(data, 128, int(size.x) * int(size.y) * 4);
+        
+        short2 pos = short2(1, 1);
+        for (int i = 0; i < seq.sCount; i++) {
+            TR::SpriteTexture &sprite = level.spriteTextures[seq.sStart + i];
+            short w = sprite.texCoord[1].x - sprite.texCoord[0].x + 1;
+            short h = sprite.texCoord[1].y - sprite.texCoord[0].y + 1;
 
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) {
+                    TR::Tile32 &tile = level.tiles[sprite.tile];
+
+                    data[pos.x + x + (pos.y + y) * size.x] = tile.color[sprite.texCoord[0].x + x + (sprite.texCoord[0].y + y) * 256];
+                }
+            pos.y += h + 1;
+        }
+
+        Texture::SaveBMP("psx_glyph.bmp", (char*)data, size.x, size.y);
+        delete[] data;
+    }
+*/
     void initTextures() {
         ASSERT(level.tilesCount);
 
@@ -949,6 +997,8 @@ struct Level : IGame {
         #endif
 
         level.initTiles();
+
+        //dumpGlyphs();
 
         int texIdx = (level.version & TR::VER_PSX) ? 256 : 0; // skip palette color for PSX version
 
@@ -1345,11 +1395,13 @@ struct Level : IGame {
             }
         }
 
-        if (Input::state[cInventory] && !level.isTitle() && inventory.titleTimer < 1.0f) {
+        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f) {
+            int playerIndex = Input::state[0][cInventory] ? 0 : 1;
+
             if (player->health <= 0.0f)
-                inventory.toggle(Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
+                inventory.toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
             else
-                inventory.toggle();
+                inventory.toggle(playerIndex);
         }
 
         Sound::Sample *sndChanged = sndCurrent;
@@ -1440,7 +1492,6 @@ struct Level : IGame {
         setupBinding();
     }
 
-    // TODO: opqque/transparent pass for rooms and entities
     void renderEntitiesTransp(int transp) {
         mesh->transparent = transp;
         for (int i = 0; i < level.entitiesCount; i++) {
@@ -1582,7 +1633,7 @@ struct Level : IGame {
         }
     }
 
-    virtual void renderView(int roomIndex, bool water) {
+    virtual void renderView(int roomIndex, bool water, bool showUI) {
         PROFILE_MARKER("VIEW");
         if (water && waterCache) {
             waterCache->reset();
@@ -1621,7 +1672,7 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setTarget(NULL, !Core::settings.detail.stereo && !Core::settings.detail.splitscreen); // render to back buffer
+            Core::setTarget(NULL, Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL); // render to back buffer
             setupBinding();
         }
 
@@ -1638,6 +1689,12 @@ struct Level : IGame {
             waterCache->getRefract();
             setMainLight(player);
             waterCache->render();
+            Core::pass = pass;
+        }
+
+        if (showUI) {
+            Core::Pass pass = Core::pass;
+            renderUI();
             Core::pass = pass;
         }
     }
@@ -1693,7 +1750,7 @@ struct Level : IGame {
         Core::setCulling(cfBack);
 
         setup();
-        renderView(roomIndex, false);
+        renderView(roomIndex, false, false);
 
         Core::invalidateTarget(!colorShadow, colorShadow);
         Core::setCulling(cfFront);
@@ -1905,7 +1962,40 @@ struct Level : IGame {
     }
     #endif
 
-    void renderGame() {
+    void setViewport(int view, int eye, bool isUI) {
+        float vW = float(Core::width);
+        float vH = float(Core::height);
+
+        float aspect = vW / vH;
+
+        if (Core::defaultTarget) {
+            vW = float(Core::defaultTarget->width);
+            vH = float(Core::defaultTarget->height);
+        }
+
+        vec4 &vp = Core::viewportDef;
+        
+        if (players[1] != NULL) {
+            vp = vec4(vW * 0.5f * view, 0.0f, vW * 0.5f, vH);
+            if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT)
+                aspect *= 0.5f;
+        } else
+            vp = vec4(0.0f, 0.0f, vW, vH); 
+
+        switch (eye) {
+            case -1 : vp = vec4(vp.x - vp.x * 0.5f, vp.y, vp.z * 0.5f, vp.w);      break;
+            case +1 : vp = vec4(vW * 0.5f + vp.x / 2.0f, vp.y, vp.z * 0.5f, vp.w); break;
+        }
+
+        Core::eye = float(eye);
+
+        if (isUI)
+            UI::updateAspect(aspect);
+        else
+            camera->aspect = aspect;
+    }
+
+    void renderGame(bool showUI) {
         Core::invalidateTarget(true, true);
 
         if (ambientCache)
@@ -1932,40 +2022,10 @@ struct Level : IGame {
         mesh->renderQuad();
         return;
 */
-        float vW = float(Core::width);
-        float vH = float(Core::height);
-
-        float aspect = vW / vH;
-
-        if (Core::defaultTarget) {
-            vW = float(Core::defaultTarget->width);
-            vH = float(Core::defaultTarget->height);
-        }
-
-        int viewsCount = Core::settings.detail.splitscreen ? 2 : 1;
+        int viewsCount = players[1] ? 2 : 1;
         for (int view = 0; view < viewsCount; view++) {
             player = players[view];
             camera = player->camera;
-            camera->aspect = aspect;
-
-            switch (Core::settings.detail.splitscreen) {
-            // no spli-screen
-                case Core::Settings::SPLIT_NONE : 
-                    Core::viewportDef = vec4(0.0f, 0.0f, vW, vH); 
-                    break;
-            // vertical
-                case Core::Settings::SPLIT_V :
-                    camera->aspect *= 0.5f;
-                case Core::Settings::SPLIT_V_FS :
-                    Core::viewportDef = vec4(vW * 0.5f * view, 0.0f, vW * 0.5f, vH);
-                    break;
-            // horizontal
-                case Core::Settings::SPLIT_H :
-                    camera->aspect *= 2.0f;
-                case Core::Settings::SPLIT_H_FS :
-                    Core::viewportDef = vec4(0.0f, vH * 0.5f * (view ^ 1), vW, vH * 0.5f);
-                    break;
-            }
 
             params->clipHeight  = NO_CLIP_PLANE;
             params->clipSign    = 1.0f;
@@ -1977,25 +2037,22 @@ struct Level : IGame {
             if (shadow) shadow->bind(sShadow);
             Core::pass = Core::passCompose;
 
-            if (Core::settings.detail.stereo) { // left/right SBS stereo
-                vec4 vp = Core::viewportDef;
-                Core::viewportDef = vec4(vp.x - vp.x * 0.5f, vp.y, vp.z * 0.5f, vp.w);
-                Core::eye = -1.0f;
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
+                setViewport(view, -1, false);
                 setup();
-                renderView(camera->getRoomIndex(), true);
+                renderView(camera->getRoomIndex(), true, showUI);
 
-                Core::viewportDef = vec4(vW * 0.5f + vp.x / 2.0f, vp.y, vp.z * 0.5f, vp.w);
-                Core::eye =  1.0f;
+                setViewport(view,  1, false);
                 setup();
-                renderView(camera->getRoomIndex(), true);
-
-                Core::eye = 0.0f;
+                renderView(camera->getRoomIndex(), true, showUI);
             } else {
+                setViewport(view,  0, false);
                 setup();
-                renderView(camera->getRoomIndex(), true);
+                renderView(camera->getRoomIndex(), true, showUI);
             }
         }
 
+        Core::eye = 0;
         Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width), float(Core::height));
 
         player = players[0];
@@ -2004,28 +2061,11 @@ struct Level : IGame {
         // lara->visibleMask = 0xFFFFFFFF; // catsuit test
     }
 
-    void renderInventory(bool clear) {
-        Core::setTarget(NULL, clear);
-
-        inventory.renderBackground();
-
-        if (Core::settings.detail.stereo) {
-            Core::setViewport(0, 0, Core::width / 2, Core::height);
-            Core::eye = -1.0f;
-            inventory.render();
-            Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
-            Core::eye =  1.0f;
-            inventory.render();
-            Core::setViewport(0, 0, Core::width, Core::height);
-            Core::eye = 0.0f;
-        } else
-            inventory.render();
-    }
-
     void renderUI() {
         if (level.isCutsceneLevel() || inventory.titleTimer > 1.0f) return;
 
         UI::begin();
+        UI::updateAspect(camera->aspect);
 
         if (!level.isTitle()) {
         // render health & oxygen bars
@@ -2041,7 +2081,7 @@ struct Level : IGame {
 
             float eye = inventory.active ? 0.0f : UI::width * Core::eye * 0.02f;
 
-            if (inventory.showHealthBar() || (!inventory.active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
+            if ((!inventory.active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
                 UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x - eye, 32), size, health);
 
                 if (!inventory.active && !player->emptyHands()) { // ammo
@@ -2055,12 +2095,50 @@ struct Level : IGame {
                 UI::renderBar(UI::BAR_OXYGEN, vec2(32 - eye, 32), size, oxygen);
         }
 
-        inventory.renderUI();
-
         if (!level.isTitle())
             UI::renderHelp();
 
         UI::end();
+    }
+
+    void renderInventoryEye(int eye) {
+        float aspect = float(Core::width) / float(Core::height);
+
+        switch (eye) {
+            case -1 : Core::setViewport(0, 0, Core::width / 2, Core::height); break;
+            case  0 : Core::setViewport(0, 0, Core::width, Core::height); break;
+            case +1 : Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height); break;
+        }
+
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT)
+            eye = 0;
+
+        Core::eye = float(eye);
+
+        if (level.isTitle() || inventory.titleTimer > 0.0f)
+            inventory.renderBackground();
+        inventory.render(aspect);
+
+        UI::begin();
+        UI::updateAspect(aspect);
+        inventory.renderUI();
+        UI::end();
+    }
+
+    void renderInventory(bool clear) {
+        Core::setTarget(NULL, clear);
+
+        if (!(level.isTitle() || inventory.titleTimer > 0.0f))
+            inventory.renderBackground();
+
+        if ((Core::settings.detail.stereo == Core::Settings::STEREO_ON) || (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT && players[1])) {
+            renderInventoryEye(-1);
+            renderInventoryEye(+1);
+        } else
+            renderInventoryEye(0);
+
+        Core::setViewport(0, 0, Core::width, Core::height);
+        Core::eye = 0.0f;
     }
 
     void render() {
@@ -2081,21 +2159,9 @@ struct Level : IGame {
         }
 
         if (!title)
-            renderGame();
+            renderGame(true);
 
         renderInventory(title);
-
-        if (Core::settings.detail.stereo) {
-            Core::setViewport(0, 0, Core::width / 2, Core::height);
-            Core::eye = -1.0f;
-            renderUI();
-            Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height);
-            Core::eye =  1.0f;
-            renderUI();
-            Core::setViewport(0, 0, Core::width, Core::height);
-            Core::eye = 0.0f;
-        } else
-            renderUI();
     }
 
 };

@@ -83,14 +83,16 @@ extern "C" {
     }
 }
 
-InputKey joyToInputKey(int code) {
-    static const int codes[] = { 0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 6, 7 };
+JoyKey joyToInputKey(int code, int type) {
+    static const JoyKey keys[2][16] = {
+        { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone },
+        { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone },
+    };
 
-    for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
-        if (codes[i] == code)
-            return (InputKey)(ikJoyA + i);
+    if (code >= 0 && code < 16)
+        return keys[type][code];
     
-    return ikNone;
+    return jkNone;
 }
 
 int joyGetPOV(int mask) {
@@ -120,41 +122,64 @@ vec2 joyTrigger(float x) {
     return vec2(x > JOY_DEAD_ZONE_TRIGGER ? x : 0.0f, 0.0f);
 }
 
-void joyUpdate() {
-    int count = emscripten_get_num_gamepads();
-    if (count <= 0)
-        return;
-    
+int joyIndex[2] = { -1, -1 };
+int joyType[2]  = { 0, 0 };
+
+void joyUpdate(int index) {
     EmscriptenGamepadEvent state;
-    if (lastJoy == -1 || emscripten_get_gamepad_status(lastJoy, &state) != EMSCRIPTEN_RESULT_SUCCESS)
-        for (int i = 0; i < count; i++)
-            if (i != lastJoy && emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12) {
-                lastJoy = i;
+    
+    if (joyIndex[index] == -1) {
+        int count = emscripten_get_num_gamepads();
+        for (int i = 0; i < count; i++) {
+            if (emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12 && i != joyIndex[index ^ 1]) {
+
+                if (state.digitalButton[9]) {
+                    joyType[index] = 0;
+                } else if (state.digitalButton[11]) {
+                    joyType[index] = 1;
+                } else
+                    continue;
+                joyIndex[index] = i;
+                
+                LOG("using gamepad %d as joy%d type%d\n", i, index, joyType[index]);
                 break;
             }
-        
-    if (lastJoy == -1)
+        }
+    }
+    
+    if (joyIndex[index] == -1)
         return;
-
-    for (int i = 0; i < max(state.numButtons, 12); i++) {
-        InputKey key = joyToInputKey(i);
-        Input::setDown(key, state.digitalButton[i]);
-        if (key == ikJoyLT || key == ikJoyRT)
-            Input::setPos(key, joyTrigger(state.analogButton[i]));
+    
+    if (emscripten_get_gamepad_status(joyIndex[index], &state) != EMSCRIPTEN_RESULT_SUCCESS || state.numButtons < 12) {
+        joyIndex[index] = -1;
+        return;
     }
 
-    if (state.numButtons > 15) { // get POV
+    for (int i = 0; i < state.numButtons; i++) {
+        JoyKey key = joyToInputKey(i, joyType[index]);
+        Input::setJoyDown(index, key, state.digitalButton[i]);
+        if (key == jkLT || key == jkRT)
+            Input::setJoyPos(index, key, joyTrigger(state.analogButton[i]));
+    }
+
+    if (joyType[index] == 0 && state.numButtons > 15) { // get POV
         auto &b = state.digitalButton;
         int pov = joyGetPOV(b[12] | (b[13] << 1) | (b[14] << 2) | (b[15] << 3));
-        Input::setPos(ikJoyPOV, vec2((float)pov, 0.0f));
+        Input::setJoyPos(index, jkPOV, vec2((float)pov, 0.0f));
+    }
+    
+    if (joyType[index] == 1) {
+        // TODO
     }
 
-    if (state.numAxes > 1) Input::setPos(ikJoyL, joyAxis(state.axis[0], state.axis[1]));
-    if (state.numAxes > 3) Input::setPos(ikJoyR, joyAxis(state.axis[2], state.axis[3]));
+    if (state.numAxes > 1) Input::setJoyPos(index, jkL, joyAxis(state.axis[0], state.axis[1]));
+    if (state.numAxes > 3 && joyType[index] == 0) Input::setJoyPos(index, jkR, joyAxis(state.axis[2], state.axis[3]));
+    if (state.numAxes > 5 && joyType[index] == 1) Input::setJoyPos(index, jkR, joyAxis(state.axis[3], state.axis[5]));
 }
 
 void main_loop() {
-    joyUpdate();
+    joyUpdate(0);
+    joyUpdate(1);
 
     if (Game::update()) {
 		Game::render();
@@ -292,8 +317,11 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 
 const char *IDB = "db";
 
-void onError(void *str) {
-    LOG("! IDB error: %s\n", str);
+void onError(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("! IDB error for %s\n", stream->name);
+    stream->callback(NULL, stream->userData);
+    delete stream;
 }
 
 void onLoad(void *arg, void *data, int size) {

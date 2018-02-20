@@ -12,6 +12,7 @@ enum StringID {
     , STR_HELP_TEXT
     , STR_OFF
     , STR_ON
+    , STR_SPLIT
     , STR_QUALITY_LOW
     , STR_QUALITY_MEDIUM
     , STR_QUALITY_HIGH
@@ -70,6 +71,7 @@ enum StringID {
 
 const char *helpText = 
     "Controls gamepad, touch and keyboard:@"
+    " Enter, Start (gamepad) - add second player or restore Lara@"
     " H - Show or hide this help@"
     " TAB - Inventory@"
     " LEFT - Left@"
@@ -104,6 +106,7 @@ const char *STR[STR_MAX] = {
     , helpText
     , "Off"
     , "On"
+    , "Split Screen"
     , "Low"
     , "Medium"
     , "High"
@@ -161,7 +164,7 @@ const char *STR[STR_MAX] = {
 
 namespace UI {
     IGame *game;
-    float width;
+    float width, height;
     float helpTipTime;
     bool  showHelp;
 
@@ -230,20 +233,22 @@ namespace UI {
         uint16 curTile, curClut;
     #endif
 
+    void updateAspect(float aspect) {
+        height = 480.0f;
+        width  = height * aspect;
+        Core::mProj = mat4(0.0f, width, height, 0.0f, 0.0f, 1.0f);
+        Core::setViewProj(Core::mView, Core::mProj);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+    }
+
     void begin() {
         Core::setDepthTest(false);
         Core::setBlending(bmAlpha);
         Core::setCulling(cfNone);
         game->setupBinding();
 
-        float aspect = float(Core::width) / float(Core::height);
-        width = 480 * aspect;
-
-        Core::mProj = mat4(0.0f, width, 480, 0.0f, 0.0f, 1.0f);
         Core::mView.identity();
         Core::mModel.identity();
-
-        Core::setViewProj(Core::mView, Core::mProj);
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
         Core::setMaterial(1, 1, 1, 1);
@@ -475,11 +480,12 @@ namespace UI {
     }
 
     void renderHelp() {
+        // TODO: Core::eye offset
         if (showHelp)
-            textOut(vec2(0, 64), STR_HELP_TEXT, aRight, width - 32, UI::SHADE_GRAY);
+            textOut(vec2(0, 32), STR_HELP_TEXT, aRight, width - 32, UI::SHADE_GRAY);
         else
             if (helpTipTime > 0.0f)
-                textOut(vec2(0, 480 - 32), STR_HELP_PRESS, aCenter, width, UI::SHADE_ORANGE);
+                textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, UI::SHADE_ORANGE);
     }
 };
 

@@ -756,7 +756,7 @@ struct WaterCache {
 
             float sign = underwater ? -1.0f : 1.0f;
             game->setClipParams(sign, item.pos.y * sign);
-            game->renderView(underwater ? item.from : item.to, false);
+            game->renderView(underwater ? item.from : item.to, false, false);
         }
         Core::invalidateTarget(false, true);
         game->setClipParams(1.0f, NO_CLIP_PLANE);

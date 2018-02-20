@@ -236,7 +236,7 @@ struct Texture {
     #endif
     }
 
-    void setFilterQuality(Core::Settings::Quality value) {
+    void setFilterQuality(int value) {
         bool filter  = value > Core::Settings::LOW;
         bool mipmaps = value > Core::Settings::MEDIUM;
 

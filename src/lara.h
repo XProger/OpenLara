@@ -250,8 +250,6 @@ struct Lara : Character {
     vec3        collisionOffset;
     vec3        flowVelocity;
 
-    int         playerIndex;
-
     Camera      *camera;
 
 #ifdef _DEBUG
@@ -430,8 +428,6 @@ struct Lara : Character {
 
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
         camera = new Camera(game, this);
-
-        playerIndex = 0;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -632,6 +628,7 @@ struct Lara : Character {
             }
         }
 
+        updateZone();
         updateLights(false);
     }
 
@@ -954,12 +951,12 @@ struct Lara : Character {
                     nearDist = dist;
                 }
             }
-
-            Core::lightPos[1 + armIndex]   = getJoint(armIndex == 0 ? 10 : 13).pos;
-            Core::lightColor[1 + armIndex] = FLASH_LIGHT_COLOR;
         }
 
         if (shots) {
+            Core::lightPos[1 + camera->cameraIndex]   = (getJoint(10).pos + getJoint(13).pos) * 0.5f;
+            Core::lightColor[1 + camera->cameraIndex] = FLASH_LIGHT_COLOR;
+
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
@@ -1162,18 +1159,14 @@ struct Lara : Character {
                 aimPistols();
         }
 
-        ICamera *cam = game->getCamera();
-        if (cam->getOwner() != this)
-            return;
-
         if (target) {
             Box box = target->getBoundingBox();
             vec3 dir = getJoint(jointHead).pos - box.center();
             vec3 angle = getAngle(dir) * RAD2DEG;
-            cam->setAngle(angle.x, angle.y);
+            camera->setAngle(angle.x, angle.y);
         } else {
-            if (cam->mode == ICamera::MODE_COMBAT) {
-                cam->setAngle(0, 0);
+            if (camera->mode == ICamera::MODE_COMBAT) {
+                camera->setAngle(0, 0);
             }
         }
     }
@@ -1233,7 +1226,7 @@ struct Lara : Character {
 
         // auto retarget 
         bool retarget = false;
-        if (Core::settings.controls.retarget) {
+        if (Core::settings.controls[camera->cameraIndex].retarget) {
             for (int i = 0; i < 2; i++)
                 if (!arms[i].tracking || ((Character*)arms[i].tracking)->health <= 0.0f) {
                     retarget = true;
@@ -1518,7 +1511,7 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_BOULDER : {
-                game->getCamera()->setAngle(-25, 170);
+                camera->setAngle(-25, 170);
                 animation.setAnim(ANIM_DEATH_BOULDER);
 
                 vec3 v(0.0f);
@@ -1546,7 +1539,7 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_REX : {
-                game->getCamera()->setAngle(-25, 170);
+                camera->setAngle(-25, 170);
                 pos   = enemy->pos;
                 angle = enemy->angle;
 
@@ -1562,7 +1555,7 @@ struct Lara : Character {
                 bakeEnvironment();
             // set death animation
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
-                game->getCamera()->doCutscene(pos, angle.y);
+                camera->doCutscene(pos, angle.y);
                 break;
             }
             default : ;
@@ -1714,7 +1707,7 @@ struct Lara : Character {
         switch (type) {
             case TR::Entity::SCION_PICKUP_QUALOPEC :
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
-                game->getCamera()->doCutscene(pos, angle.y);
+                camera->doCutscene(pos, angle.y);
                 break;
             case TR::Entity::SCION_PICKUP_HOLDER   :
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
@@ -1722,7 +1715,7 @@ struct Lara : Character {
                 angle = controller->angle;
                 pos   = controller->pos - vec3(0, -280, LARA_RADIUS + 512).rotateY(angle.y);
 
-                game->getCamera()->doCutscene(pos, angle.y - PI * 0.5f);
+                camera->doCutscene(pos, angle.y - PI * 0.5f);
                 break;
             default : ; 
         }
@@ -1836,7 +1829,7 @@ struct Lara : Character {
 
                 if (controller->flags.state == TR::Entity::asNone) {
                     limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
-                    if (checkInteraction(controller, limit, Input::state[cAction])) {
+                    if (checkInteraction(controller, limit, Input::state[camera->cameraIndex][cAction])) {
                         actionState = (controller->state == Switch::STATE_DOWN && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
 
                         int animIndex;
@@ -1875,7 +1868,7 @@ struct Lara : Character {
                         return;
 
                     if (usedKey == TR::Entity::LARA) {
-                        if (isPressed(ACTION) && !game->invChooseKey(entity.type))
+                        if (isPressed(ACTION) && !game->invChooseKey(camera->cameraIndex, entity.type))
                             game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
                     }
@@ -1886,7 +1879,7 @@ struct Lara : Character {
                     }
 
                     keyHole = controller;
-                    game->invUse(usedKey);
+                    game->invUse(camera->cameraIndex, usedKey);
 
                     animation.setState(actionState);
                 }
@@ -2521,75 +2514,75 @@ struct Lara : Character {
     virtual void updateState() {
         Character::updateState();
 
-        ICamera *cam = game->getCamera();
-        if (cam->getOwner() != this || cam->mode != ICamera::MODE_FOLLOW)
+        if (camera->mode != ICamera::MODE_FOLLOW)
             return;
 
-        cam->centerView = false;
+        camera->centerView = false;
 
         switch (state) {
             case STATE_WATER_OUT  :
-                cam->centerView = true;
+                camera->centerView = true;
                 break;
             case STATE_DEATH      :
             case STATE_UNDERWATER_DEATH :
-                cam->centerView = true;
+                camera->centerView = true;
                 break;
             case STATE_REACH      :
-                cam->setAngle(0, 85);
+                camera->setAngle(0, 85);
                 break;
             case STATE_BACK_JUMP  :
-                cam->setAngle(0, 135);
+                camera->setAngle(0, 135);
                 break;
             case STATE_SURF_TREAD :
             case STATE_SURF_SWIM  :
             case STATE_SURF_BACK  :
             case STATE_SURF_LEFT  :
             case STATE_SURF_RIGHT :
-                cam->setAngle(-22, 0);
+                camera->setAngle(-22, 0);
                 break;
             case STATE_SLIDE      :
             case STATE_SLIDE_BACK :
-                cam->setAngle(-45, 0);
+                camera->setAngle(-45, 0);
                 break;
             case STATE_HANG       :
             case STATE_HANG_LEFT  :
             case STATE_HANG_RIGHT :
-                cam->setAngle(-60, 0);
+                camera->setAngle(-60, 0);
                 break;
             case STATE_PUSH_BLOCK :
             case STATE_PULL_BLOCK :
-                cam->setAngle(-25, 35);
-                cam->centerView = true;
+                camera->setAngle(-25, 35);
+                camera->centerView = true;
                 break;
             case STATE_PUSH_PULL_READY :
-                cam->setAngle(0, 75);
+                camera->setAngle(0, 75);
                 break;
             case STATE_PICK_UP :
-                cam->setAngle(-15, -130);
+                camera->setAngle(-15, -130);
                 break;
             case STATE_SWITCH_DOWN :
             case STATE_SWITCH_UP   :
-                cam->setAngle(-25, 80);
+                camera->setAngle(-25, 80);
                 break;
             case STATE_USE_KEY    :
             case STATE_USE_PUZZLE :
-                cam->setAngle(-25, -80);
+                camera->setAngle(-25, -80);
                 break;
             case STATE_SPECIAL    :
-                cam->setAngle(-25, 170);
-                cam->centerView = true;
+                camera->setAngle(-25, 170);
+                camera->centerView = true;
                 break;
             default :
-                cam->setAngle(0, 0);
+                camera->setAngle(0, 0);
         }
     }
 
     virtual int getInput() { // TODO: updateInput
         if (level->isCutsceneLevel()) return 0;
         input = 0;
+        int pid = camera->cameraIndex;
 
-        if (!dozy && ((Input::state[cAction] && Input::state[cJump] && Input::state[cLook] && Input::state[cStepRight]) || Input::down[ikO])) {
+        if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cStepRight]) || Input::down[ikO])) {
             dozy = true;
             health = LARA_MAX_HEALTH;
             oxygen = LARA_MAX_OXYGEN;
@@ -2597,7 +2590,7 @@ struct Lara : Character {
             return input;
         }
 
-        if (dozy && Input::state[cWalk]) {
+        if (dozy && Input::state[pid][cWalk]) {
             dozy = false;
             return input;
         }
@@ -2605,17 +2598,17 @@ struct Lara : Character {
         input = Character::getInput();
         if (input & DEATH) return input;
 
-        if (Input::state[cUp])        input |= FORTH;
-        if (Input::state[cRight])     input |= RIGHT;
-        if (Input::state[cDown])      input |= BACK;
-        if (Input::state[cLeft])      input |= LEFT;
-        if (Input::state[cRoll])      input  = FORTH | BACK;
-        if (Input::state[cStepRight]) input  = WALK  | RIGHT;
-        if (Input::state[cStepLeft])  input  = WALK  | LEFT;
-        if (Input::state[cJump])      input |= JUMP;
-        if (Input::state[cWalk])      input |= WALK;
-        if (Input::state[cAction])    input |= ACTION;
-        if (Input::state[cWeapon])    input |= WEAPON;
+        if (Input::state[pid][cUp])        input |= FORTH;
+        if (Input::state[pid][cRight])     input |= RIGHT;
+        if (Input::state[pid][cDown])      input |= BACK;
+        if (Input::state[pid][cLeft])      input |= LEFT;
+        if (Input::state[pid][cRoll])      input  = FORTH | BACK;
+        if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
+        if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
+        if (Input::state[pid][cJump])      input |= JUMP;
+        if (Input::state[pid][cWalk])      input |= WALK;
+        if (Input::state[pid][cAction])    input |= ACTION;
+        if (Input::state[pid][cWeapon])    input |= WEAPON;
 
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
@@ -2649,28 +2642,30 @@ struct Lara : Character {
     // analog control
         rotFactor = vec2(1.0f);
 
-        if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(Input::joy.L.x) < 0.5f && fabsf(Input::joy.L.y) < 0.5f)
+        Input::Joystick &joy = Input::joy[pid];
+
+        if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)
             return input;
 
         bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
 
         if (!moving) {
-            if (fabsf(Input::joy.L.x) < fabsf(Input::joy.L.y))
-                Input::joy.L.x = 0.0f;
+            if (fabsf(joy.L.x) < fabsf(joy.L.y))
+                joy.L.x = 0.0f;
             else
-                Input::joy.L.y = 0.0f;
+                joy.L.y = 0.0f;
         }
 
-        if (Input::joy.L.x != 0.0f) {
-            input |= (Input::joy.L.x < 0.0f) ? LEFT : RIGHT;
+        if (joy.L.x != 0.0f) {
+            input |= (joy.L.x < 0.0f) ? LEFT : RIGHT;
             if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
-                rotFactor.y = min(fabsf(Input::joy.L.x) / 0.9f, 1.0f);
+                rotFactor.y = min(fabsf(joy.L.x) / 0.9f, 1.0f);
         }
 
-        if (Input::joy.L.y != 0.0f) {
-            input |= (Input::joy.L.y < 0.0f) ? FORTH : BACK;
+        if (joy.L.y != 0.0f) {
+            input |= (joy.L.y < 0.0f) ? FORTH : BACK;
             if (stand == STAND_UNDERWATER)
-                rotFactor.x = min(fabsf(Input::joy.L.y) / 0.9f, 1.0f);
+                rotFactor.x = min(fabsf(joy.L.y) / 0.9f, 1.0f);
         }
 
         return input;
@@ -2691,7 +2686,8 @@ struct Lara : Character {
             || state == STATE_SWITCH_UP
             || state == STATE_USE_KEY
             || state == STATE_USE_PUZZLE
-            || state == STATE_SPECIAL;
+            || state == STATE_SPECIAL
+            || state == STATE_REACH;
     }
 
     virtual void doCustomCommand(int curFrame, int prevFrame) {
@@ -2759,16 +2755,21 @@ struct Lara : Character {
     }
 
     void updateFlash() {
-        for (int i = 0; i < 2; i++) {
+        float minTime = MUZZLE_FLASH_TIME;
+
+        for (int i = 0; i < 2; i++)
             if (arms[i].shotTimer < MUZZLE_FLASH_TIME) {
                 arms[i].shotTimer += Core::deltaTime;
-                float intensity = clamp((0.1f - arms[i].shotTimer) * 20.0f, EPS, 1.0f);
-                Core::lightColor[1 + i] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
-                Core::lightPos[1 + i]   = getJoint(i == 0 ? 10 : 13).pos;
-            } else {
-                Core::lightColor[1 + i] = vec4(0, 0, 0, 1);
+                minTime = min(minTime, arms[i].shotTimer);
             }
-        }
+
+        if (minTime < MUZZLE_FLASH_TIME) {
+            float intensity = clamp((0.1f - minTime) * 20.0f, EPS, 1.0f);
+
+            Core::lightColor[1 + camera->cameraIndex] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
+            Core::lightPos[1 + camera->cameraIndex]   = (getJoint(10).pos + getJoint(13).pos) * 0.5f;
+        } else
+            Core::lightColor[1 + camera->cameraIndex] = vec4(0, 0, 0, 1);
     }
 
     virtual void updateAnimation(bool commands) {
@@ -3241,7 +3242,7 @@ struct Lara : Character {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
-        if (Core::pass != Core::passShadow && game->getCamera()->firstPerson && game->getCamera()->getOwner() == this) // hide head in first person view
+        if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
             visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;

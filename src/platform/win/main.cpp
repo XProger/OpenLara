@@ -132,20 +132,18 @@ InputKey mouseToInputKey(int msg) {
 #define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
 
-bool joyReady;
+bool joyReady[2];
 
-void joyInit() {
+void joyInit(int index) {
     JOYINFOEX info;
     info.dwSize  = sizeof(info);
     info.dwFlags = JOY_RETURNALL;
-    joyReady = joyGetPosEx(0, &info) == JOYERR_NOERROR;
+    joyReady[index] = joyGetPosEx(index, &info) == JOYERR_NOERROR;
 }
 
-void joyFree() {
-    joyReady = false;
-    memset(&Input::joy, 0, sizeof(Input::joy));
-    for (int ik = ikJoyA; ik <= ikJoyPOV; ik++)
-        Input::down[ik] = false;
+void joyFree(int index) {
+    joyReady[index] = false;
+    memset(&Input::joy[index], 0, sizeof(Input::joy[index]));
 }
 
 float joyAxis(int x, int xMin, int xMax) {
@@ -160,46 +158,46 @@ vec2 joyDir(float ax, float ay) {
     return dir.normal() * dist;
 }
 
-void joyUpdate() {
-    if (!joyReady) return;
+void joyUpdate(int index) {
+    if (!joyReady[index]) return;
 
     JOYINFOEX info;
     info.dwSize  = sizeof(info);
     info.dwFlags = JOY_RETURNALL;
 
-    if (joyGetPosEx(0, &info) == JOYERR_NOERROR) {
+    if (joyGetPosEx(index, &info) == JOYERR_NOERROR) {
         JOYCAPS caps;
         joyGetDevCaps(0, &caps, sizeof(caps));
 
-        Input::setPos(ikJoyL, joyDir(joyAxis(info.dwXpos, caps.wXmin, caps.wXmax),
-                                     joyAxis(info.dwYpos, caps.wYmin, caps.wYmax)));
+        if (caps.wNumAxes > 0) {
+            Input::setJoyPos(index, jkL, joyDir(joyAxis(info.dwXpos, caps.wXmin, caps.wXmax),
+                                                joyAxis(info.dwYpos, caps.wYmin, caps.wYmax)));
 
-        if ((caps.wCaps & JOYCAPS_HASR) && (caps.wCaps & JOYCAPS_HASU))
-            Input::setPos(ikJoyR, joyDir(joyAxis(info.dwUpos, caps.wUmin, caps.wUmax),
-                                         joyAxis(info.dwRpos, caps.wRmin, caps.wRmax)));
+            if ((caps.wCaps & JOYCAPS_HASR) && (caps.wCaps & JOYCAPS_HASU))
+                Input::setJoyPos(index, jkR, joyDir(joyAxis(info.dwUpos, caps.wUmin, caps.wUmax),
+                                                    joyAxis(info.dwRpos, caps.wRmin, caps.wRmax)));
 
-        if (caps.wCaps & JOYCAPS_HASZ) {
-            float z  = joyAxis(info.dwZpos, caps.wZmin, caps.wZmax);
-            InputKey key = z > JOY_DEAD_ZONE_TRIGGER ? ikJoyLT : (z < -JOY_DEAD_ZONE_TRIGGER ? ikJoyRT : ikNone);
-            if (key != ikNone) {
-                Input::setPos(key, vec2(fabsf(z), 0.0f));
-                Input::setPos(key == ikJoyLT ? ikJoyRT : ikJoyLT, vec2(0.0f)); // release opposite trigger
-            } else {
-                Input::setPos(ikJoyLT, vec2(0.0f));
-                Input::setPos(ikJoyRT, vec2(0.0f));
+            if (caps.wCaps & JOYCAPS_HASZ) {
+                float z = joyAxis(info.dwZpos, caps.wZmin, caps.wZmax);
+                Input::setJoyPos(index, jkLT, vec2(0.0f));
+                Input::setJoyPos(index, jkRT, vec2(0.0f));
+
+                JoyKey key = z > JOY_DEAD_ZONE_TRIGGER ? jkLT : (z < -JOY_DEAD_ZONE_TRIGGER ? jkRT : jkNone);
+                if (key != jkNone)
+                    Input::setJoyPos(index, key, vec2(fabsf(z), 0.0f));
             }
         }
 
         if (caps.wCaps & JOYCAPS_HASPOV)
             if (info.dwPOV == JOY_POVCENTERED)
-                Input::setPos(ikJoyPOV, vec2(0.0f));
+                Input::setJoyPos(index, jkPOV, vec2(0.0f));
             else
-                Input::setPos(ikJoyPOV, vec2(float(1 + info.dwPOV / 4500), 0.0f));
+                Input::setJoyPos(index, jkPOV, vec2(float(1 + info.dwPOV / 4500), 0.0f));
 
         for (int i = 0; i < 10; i++)
-            Input::setDown((InputKey)(ikJoyA + i), (info.dwButtons & (1 << i)) > 0);
+            Input::setJoyDown(index, JoyKey(jkA + i), (info.dwButtons & (1 << i)) > 0);
     } else
-        joyFree();
+        joyFree(index);
 }
 
 // touch
@@ -356,7 +354,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         // joystick
         case WM_DEVICECHANGE :
-            joyInit();
+            joyFree(0);
+            joyFree(1);
+            joyInit(0);
+            joyInit(1);
             return 1;
         // touch
         case WM_TOUCH :
@@ -432,7 +433,8 @@ int main(int argc, char** argv) {
     osStartTime = osGetTime();
 
     touchInit(hWnd);
-    joyInit();
+    joyInit(0);
+    joyInit(1);
     sndInit(hWnd);
 
     Game::init(argc > 1 ? argv[1] : NULL);
@@ -449,7 +451,8 @@ int main(int argc, char** argv) {
             if (msg.message == WM_QUIT)
                 Core::quit();
         } else {
-            joyUpdate();
+            joyUpdate(0);
+            joyUpdate(1);
             if (Game::update()) {
                 Game::render();
                 Core::waitVBlank();

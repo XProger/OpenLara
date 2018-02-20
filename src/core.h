@@ -227,29 +227,35 @@ struct LockWrite {
 #define OS_LOCK_READ(rwLock)  LockRead  _rLock(rwLock)
 #define OS_LOCK_WRITE(rwLock) LockWrite _wLock(rwLock)
 
-
-enum ControlKey { cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cMAX };
-
 enum InputKey { ikNone,
-    // keyboard
-        ikLeft, ikRight, ikUp, ikDown, ikSpace, ikTab, ikEnter, ikEscape, ikShift, ikCtrl, ikAlt,
-        ik0, ik1, ik2, ik3, ik4, ik5, ik6, ik7, ik8, ik9,
-        ikA, ikB, ikC, ikD, ikE, ikF, ikG, ikH, ikI, ikJ, ikK, ikL, ikM,
-        ikN, ikO, ikP, ikQ, ikR, ikS, ikT, ikU, ikV, ikW, ikX, ikY, ikZ,
-    // mouse
-        ikMouseL, ikMouseR, ikMouseM,
-    // touch
-        ikTouchA, ikTouchB, ikTouchC, ikTouchD, ikTouchE, ikTouchF,
-    // gamepad
-        ikJoyA, ikJoyB, ikJoyX, ikJoyY, ikJoyLB, ikJoyRB, ikJoySelect, ikJoyStart, ikJoyL, ikJoyR, ikJoyLT, ikJoyRT, ikJoyPOV,
-        ikJoyLeft, ikJoyRight, ikJoyUp, ikJoyDown,
-        ikMAX };
+// keyboard
+    ikLeft, ikRight, ikUp, ikDown, ikSpace, ikTab, ikEnter, ikEscape, ikShift, ikCtrl, ikAlt,
+    ik0, ik1, ik2, ik3, ik4, ik5, ik6, ik7, ik8, ik9,
+    ikA, ikB, ikC, ikD, ikE, ikF, ikG, ikH, ikI, ikJ, ikK, ikL, ikM,
+    ikN, ikO, ikP, ikQ, ikR, ikS, ikT, ikU, ikV, ikW, ikX, ikY, ikZ,
+// mouse
+    ikMouseL, ikMouseR, ikMouseM,
+// touch
+    ikTouchA, ikTouchB, ikTouchC, ikTouchD, ikTouchE, ikTouchF,
+
+    ikMAX 
+};
+
+enum JoyKey {
+// gamepad
+    jkNone, jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkL, jkR, jkLT, jkRT, jkPOV, jkLeft, jkRight, jkUp, jkDown, jkMAX
+};
+
+enum ControlKey {
+    cLeft, cRight, cUp, cDown, cJump, cWalk, cAction, cWeapon, cLook, cStepLeft, cStepRight, cRoll, cInventory, cStart, cMAX
+};
 
 struct KeySet {
-    InputKey key, joy;
+    InputKey key;
+    JoyKey   joy;
     
     KeySet() {}
-    KeySet(InputKey key, InputKey joy) : key(key), joy(joy) {}
+    KeySet(InputKey key, JoyKey joy) : key(key), joy(joy) {}
 };
 
 namespace Core {
@@ -277,22 +283,21 @@ namespace Core {
     } support;
 
     struct Settings {
-        enum Quality     { LOW, MEDIUM, HIGH };
-        enum SplitScreen { SPLIT_NONE, SPLIT_V, SPLIT_V_FS, SPLIT_H, SPLIT_H_FS };
+        enum Quality  { LOW, MEDIUM, HIGH };
+        enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT };
 
         struct {
             union {
                 struct {
-                    Quality filter;
-                    Quality lighting;
-                    Quality shadows;
-                    Quality water;
+                    uint8 filter;
+                    uint8 lighting;
+                    uint8 shadows;
+                    uint8 water;
                 };
-                Quality quality[4];
+                uint8 quality[4];
             };
-            bool vsync;
-            bool stereo;
-            SplitScreen splitscreen;
+            uint8 vsync;
+            uint8 stereo;
 
             void setFilter(Quality value) {
                 if (value > MEDIUM && !(support.maxAniso > 1))
@@ -320,17 +325,18 @@ namespace Core {
             }
         } detail;
 
-        struct {
+        struct Controls {
             KeySet keys[cMAX];
-            bool   retarget;
-            bool   multitarget;
-            bool   vibration;
-        } controls;
+            uint8  joyIndex;
+            uint8  retarget;
+            uint8  multitarget;
+            uint8  vibration;
+        } controls[2];
 
         struct {
-            float music;
-            float sound;
-            bool  reverb;
+            uint8 music;
+            uint8 sound;
+            uint8 reverb;
         } audio;
     } settings;
 
@@ -1013,34 +1019,64 @@ namespace Core {
         settings.detail.setShadows  (Core::Settings::HIGH);
         settings.detail.setWater    (Core::Settings::HIGH);
         settings.detail.vsync         = true;
-        settings.detail.stereo        = false;
-        settings.detail.splitscreen   = Settings::SPLIT_NONE;
+        settings.detail.stereo        = Settings::STEREO_OFF;
 
-        settings.audio.music          = 0.7f;
-        settings.audio.sound          = 0.7f;
+        settings.audio.music          = 14;
+        settings.audio.sound          = 14;
         settings.audio.reverb         = true;
 
-        settings.controls.retarget    = true;
-        settings.controls.multitarget = true;
-        settings.controls.vibration   = true;
+    // player 1
+        {
+            Settings::Controls &ctrl   = settings.controls[0];
+            ctrl.retarget    = true;
+            ctrl.multitarget = true;
+            ctrl.vibration   = true;
+            ctrl.joyIndex    = 0;
 
-        settings.controls.keys[ cLeft      ] = KeySet( ikLeft,   ikJoyLeft   );
-        settings.controls.keys[ cRight     ] = KeySet( ikRight,  ikJoyRight  );
-        settings.controls.keys[ cUp        ] = KeySet( ikUp,     ikJoyUp     );
-        settings.controls.keys[ cDown      ] = KeySet( ikDown,   ikJoyDown   );
+            ctrl.keys[ cLeft      ] = KeySet( ikLeft,   jkLeft   );
+            ctrl.keys[ cRight     ] = KeySet( ikRight,  jkRight  );
+            ctrl.keys[ cUp        ] = KeySet( ikUp,     jkUp     );
+            ctrl.keys[ cDown      ] = KeySet( ikDown,   jkDown   );
+            ctrl.keys[ cJump      ] = KeySet( ikAlt,    jkX      );
+            ctrl.keys[ cWalk      ] = KeySet( ikShift,  jkRB     );
+            ctrl.keys[ cAction    ] = KeySet( ikCtrl,   jkA      );
+            ctrl.keys[ cWeapon    ] = KeySet( ikSpace,  jkY      );
+            ctrl.keys[ cLook      ] = KeySet( ikC,      jkLB     );
+            ctrl.keys[ cStepLeft  ] = KeySet( ikZ,      jkLT     );
+            ctrl.keys[ cStepRight ] = KeySet( ikX,      jkRT     );
+            ctrl.keys[ cRoll      ] = KeySet( ikA,      jkB      );
+            ctrl.keys[ cInventory ] = KeySet( ikTab,    jkSelect );
+            ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
+        }
+
+    // player 2
+        {
+            Settings::Controls &ctrl   = settings.controls[1];
+            ctrl.retarget    = true;
+            ctrl.multitarget = true;
+            ctrl.vibration   = true;
+            ctrl.joyIndex    = 1;
+
+            ctrl.keys[ cLeft      ] = KeySet( ikNone,   jkLeft   );
+            ctrl.keys[ cRight     ] = KeySet( ikNone,   jkRight  );
+            ctrl.keys[ cUp        ] = KeySet( ikNone,   jkUp     );
+            ctrl.keys[ cDown      ] = KeySet( ikNone,   jkDown   );
+            ctrl.keys[ cJump      ] = KeySet( ikNone,   jkX      );
+            ctrl.keys[ cWalk      ] = KeySet( ikNone,   jkRB     );
+            ctrl.keys[ cAction    ] = KeySet( ikNone,   jkA      );
+            ctrl.keys[ cWeapon    ] = KeySet( ikNone,   jkY      );
+            ctrl.keys[ cLook      ] = KeySet( ikNone,   jkLB     );
+            ctrl.keys[ cStepLeft  ] = KeySet( ikNone,   jkLT     );
+            ctrl.keys[ cStepRight ] = KeySet( ikNone,   jkRT     );
+            ctrl.keys[ cRoll      ] = KeySet( ikNone,   jkB      );
+            ctrl.keys[ cInventory ] = KeySet( ikNone,   jkSelect );
+            ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
+        }
+
+    // use D key for jump in browsers
     #ifdef __EMSCRIPTEN__
-        settings.controls.keys[ cJump      ] = KeySet( ikD,      ikJoyX      );
-    #else
-        settings.controls.keys[ cJump      ] = KeySet( ikAlt,    ikJoyX      );
+        settings.controls[0].keys[cJump].key = ikD;
     #endif
-        settings.controls.keys[ cWalk      ] = KeySet( ikShift,  ikJoyRB     );
-        settings.controls.keys[ cAction    ] = KeySet( ikCtrl,   ikJoyA      );
-        settings.controls.keys[ cWeapon    ] = KeySet( ikSpace,  ikJoyY      );
-        settings.controls.keys[ cLook      ] = KeySet( ikC,      ikJoyLB     );
-        settings.controls.keys[ cStepLeft  ] = KeySet( ikZ,      ikJoyLT     );
-        settings.controls.keys[ cStepRight ] = KeySet( ikX,      ikJoyRT     );
-        settings.controls.keys[ cRoll      ] = KeySet( ikA,      ikJoyB      );
-        settings.controls.keys[ cInventory ] = KeySet( ikTab,    ikJoySelect );
 
     #ifdef __RPI__
         settings.detail.setShadows(Core::Settings::LOW);

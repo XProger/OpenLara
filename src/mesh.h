@@ -53,7 +53,6 @@ struct MeshRange {
     }
 
     void bind(GLuint *VAO) const {
-        ASSERT(aIndex >= -1 && aIndex < 4);
         GLuint vao = aIndex == -1 ? 0 : VAO[aIndex];
         if (Core::support.VAO && Core::active.VAO != vao)
             glBindVertexArray(Core::active.VAO = vao);
