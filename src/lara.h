@@ -596,6 +596,7 @@ struct Lara : Character {
 
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
         visibleMask = 0xFFFFFFFF;
+        health = LARA_MAX_HEALTH;
 
         if (room == TR::NO_ROOM) {
             stand = STAND_AIR;

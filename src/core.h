@@ -1046,7 +1046,7 @@ namespace Core {
             ctrl.keys[ cDuck      ] = KeySet( ikZ,      jkLT     );
             ctrl.keys[ cDash      ] = KeySet( ikX,      jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikA,      jkB      );
-            ctrl.keys[ cInventory ] = KeySet( ikTab,    jkSelect );
+            ctrl.keys[ cInventory ] = KeySet( ikEscape, jkSelect );
             ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
         }
 
@@ -1076,7 +1076,8 @@ namespace Core {
 
     // use D key for jump in browsers
     #ifdef __EMSCRIPTEN__
-        settings.controls[0].keys[cJump].key = ikD;
+        settings.controls[0].keys[ cJump      ].key = ikD;
+        settings.controls[0].keys[ cInventory ].key = ikTab;
     #endif
 
     #ifdef __RPI__
