@@ -14,11 +14,8 @@
 #endif
 
 #define INVENTORY_HEIGHT     2048.0f
-
 #define TITLE_LOADING        64.0f
-
-
-#define LINE_HEIGHT 20.0f
+#define LINE_HEIGHT          20.0f
 
 struct OptionItem {
     enum Type {
@@ -37,16 +34,20 @@ struct OptionItem {
     OptionItem(Type type = TYPE_EMPTY, StringID title = STR_NOT_IMPLEMENTED, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(title), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
 
     float drawParam(float x, float y, float w, StringID oStr, bool active, uint8 value) const {
-        float d = x + w * 0.5f;
-        UI::textOut(vec2(x + 32.0f, y), oStr);
-        UI::textOut(vec2(d, y), StringID(color + int(value)), UI::aCenter, w * 0.5f - 32.0f); // color as StringID
+        if (oStr != STR_NOT_IMPLEMENTED) {
+            UI::textOut(vec2(x + 32.0f, y), oStr);
+            x = x + w * 0.5f;
+            w = w * 0.5f - 32.0f;
+        }
+
+        UI::textOut(vec2(x, y), StringID(color + int(value)), UI::aCenter, w); // color as StringID
         if (active) {
             float maxWidth = UI::getTextSize(STR[color + value]).x;
             maxWidth = maxWidth * 0.5f + 8.0f;
-            d = (d + d + w * 0.5f - 32.0f) * 0.5f;
+            x += w * 0.5f;
 
-            if (value > 0)        UI::specOut(vec2(d - maxWidth - 16.0f, y), 108);
-            if (value < maxValue) UI::specOut(vec2(d + maxWidth, y), 109);
+            if (value > 0)        UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
+            if (value < maxValue) UI::specOut(vec2(x + maxWidth, y), 109);
         }
         return y + LINE_HEIGHT;
     }
@@ -112,14 +113,17 @@ static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION,       SETTINGS( audio.reverb ), STR_OFF, 0, 1 ),
 };
 
-static OptionItem optControls[] = {
-    OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ),
+static const OptionItem optControls[] = {
+    OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED,        SETTINGS( playerIndex           ), STR_PLAYER_1,  0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD,   SETTINGS( controls[0].joyIndex  ), STR_GAMEPAD_1, 0, 3 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION, SETTINGS( controls[0].vibration ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET,  SETTINGS( controls[0].retarget  ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM,  SETTINGS( controls[0].multiaim  ), STR_OFF,       0, 1 ),
 };
+
+static OptionItem optControlsPlayer[COUNT(optControls)];
 
 static OptionItem optPassport[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ),
@@ -263,8 +267,14 @@ struct Inventory {
                     optCount = COUNT(optSound);
                     return optSound;
                 case TR::Entity::INV_CONTROLS :
-                    optCount = COUNT(optControls);
-                    return optControls;
+                    ASSERT(optControls[2].offset == SETTINGS( playerIndex) );
+                    for (int i = 0; i < COUNT(optControls); i++) {
+                        optControlsPlayer[i] = optControls[i];
+                        if (i > 2)
+                            optControlsPlayer[i].offset += sizeof(Core::Settings::Controls) * Core::settings.playerIndex;
+                    }
+                    optCount = COUNT(optControlsPlayer);
+                    return optControlsPlayer;
                 default :
                     optCount = 0;
                     return NULL;
@@ -702,10 +712,12 @@ struct Inventory {
 
                 break;
             }
-            case TR::Entity::INV_DETAIL : {
+            case TR::Entity::INV_CONTROLS :
+                Core::settings.playerIndex = 0;
+                break;
+            case TR::Entity::INV_DETAIL :
                 settings = Core::settings;
                 break;
-            }
             default : ;
         }
 

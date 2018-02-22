@@ -341,6 +341,8 @@ namespace Core {
             uint8  multiaim;
             KeySet keys[cMAX];
         } controls[2];
+
+        uint8 playerIndex; // temporary, used only for setting controls
     } settings;
 
     bool resetState;

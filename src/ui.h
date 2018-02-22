@@ -22,6 +22,8 @@ enum StringID {
     , STR_GAMEPAD_3
     , STR_GAMEPAD_4
     , STR_NOT_READY
+    , STR_PLAYER_1
+    , STR_PLAYER_2
 // inventory pages
     , STR_OPTION
     , STR_INVENTORY
@@ -56,6 +58,7 @@ enum StringID {
     , STR_SET_VOLUMES
     , STR_REVERBERATION
 // controls options
+    , STR_SET_CONTROLS
     , STR_OPT_CONTROLS_GAMEPAD
     , STR_OPT_CONTROLS_VIBRATION
     , STR_OPT_CONTROLS_RETARGET
@@ -126,6 +129,8 @@ const char *STR[STR_MAX] = {
     , "Gamepad 3"
     , "Gamepad 4"
     , "Not Ready"
+    , "Player 1"
+    , "Player 2"
 // inventory pages
     , "OPTION"
     , "INVENTORY"
@@ -160,6 +165,7 @@ const char *STR[STR_MAX] = {
     , "Set Volumes"
     , "Reverberation"
 // controls options
+    , "Set Controls"
     , "Gamepad"
     , "Vibration"
     , "Retargeting"
