@@ -17,6 +17,11 @@ enum StringID {
     , STR_QUALITY_MEDIUM
     , STR_QUALITY_HIGH
     , STR_APPLY
+    , STR_GAMEPAD_1
+    , STR_GAMEPAD_2
+    , STR_GAMEPAD_3
+    , STR_GAMEPAD_4
+    , STR_NOT_READY
 // inventory pages
     , STR_OPTION
     , STR_INVENTORY
@@ -50,6 +55,11 @@ enum StringID {
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
+// controls options
+    , STR_OPT_CONTROLS_GAMEPAD
+    , STR_OPT_CONTROLS_VIBRATION
+    , STR_OPT_CONTROLS_RETARGET
+    , STR_OPT_CONTROLS_MULTIAIM
 // inventory items
     , STR_UNKNOWN
     , STR_PISTOLS
@@ -111,6 +121,11 @@ const char *STR[STR_MAX] = {
     , "Medium"
     , "High"
     , "Apply"
+    , "Gamepad 1"
+    , "Gamepad 2"
+    , "Gamepad 3"
+    , "Gamepad 4"
+    , "Not Ready"
 // inventory pages
     , "OPTION"
     , "INVENTORY"
@@ -144,6 +159,11 @@ const char *STR[STR_MAX] = {
 // sound options
     , "Set Volumes"
     , "Reverberation"
+// controls options
+    , "Gamepad"
+    , "Vibration"
+    , "Retargeting"
+    , "Multi-aiming"
 // inventory items
     , "Unknown"
     , "Pistols"

@@ -167,6 +167,9 @@
 extern int osGetTime();
 extern bool osSave(const char *name, const void *data, int size);
 
+extern bool osJoyReady(int index);
+extern void osJoyVibrate(int index, float L, float R);
+
 #include "utils.h"
 
 extern void* osMutexInit     ();
@@ -243,7 +246,7 @@ enum InputKey { ikNone,
 
 enum JoyKey {
 // gamepad
-    jkNone, jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkL, jkR, jkLT, jkRT, jkPOV, jkLeft, jkRight, jkUp, jkDown, jkMAX
+    jkNone, jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkL, jkR, jkLT, jkRT, jkLeft, jkRight, jkUp, jkDown, jkMAX
 };
 
 enum ControlKey {
@@ -325,19 +328,19 @@ namespace Core {
             }
         } detail;
 
-        struct Controls {
-            KeySet keys[cMAX];
-            uint8  joyIndex;
-            uint8  retarget;
-            uint8  multitarget;
-            uint8  vibration;
-        } controls[2];
-
         struct {
             uint8 music;
             uint8 sound;
             uint8 reverb;
         } audio;
+
+        struct Controls {
+            uint8  joyIndex;
+            uint8  vibration;
+            uint8  retarget;
+            uint8  multiaim;
+            KeySet keys[cMAX];
+        } controls[2];
     } settings;
 
     bool resetState;
@@ -1028,11 +1031,11 @@ namespace Core {
 
     // player 1
         {
-            Settings::Controls &ctrl   = settings.controls[0];
-            ctrl.retarget    = true;
-            ctrl.multitarget = true;
-            ctrl.vibration   = true;
-            ctrl.joyIndex    = 0;
+            Settings::Controls &ctrl = settings.controls[0];
+            ctrl.joyIndex  = 0;
+            ctrl.vibration = true;
+            ctrl.retarget  = true;
+            ctrl.multiaim  = true;
 
             ctrl.keys[ cLeft      ] = KeySet( ikLeft,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikRight,  jkRight  );
@@ -1052,11 +1055,11 @@ namespace Core {
 
     // player 2
         {
-            Settings::Controls &ctrl   = settings.controls[1];
-            ctrl.retarget    = true;
-            ctrl.multitarget = true;
-            ctrl.vibration   = true;
-            ctrl.joyIndex    = 1;
+            Settings::Controls &ctrl = settings.controls[1];
+            ctrl.joyIndex  = 1;
+            ctrl.vibration = true;
+            ctrl.retarget  = true;
+            ctrl.multiaim  = true;
 
             ctrl.keys[ cLeft      ] = KeySet( ikNone,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikNone,   jkRight  );

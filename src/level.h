@@ -393,7 +393,9 @@ struct Level : IGame {
 
         switch (effect) {
             case TR::Effect::FLOOR_SHAKE :
-                camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
+                for (int i = 0; i < 2; i++)
+                    if (players[i] && players[i]->camera)
+                        players[i]->camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - players[i]->camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
                 return;
             case TR::Effect::FLOOD : {
                 Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
@@ -406,7 +408,7 @@ struct Level : IGame {
                 break;
             case TR::Effect::EXPLOSION :
                 playSound(TR::SND_TNT, vec3(0), 0);
-                camera->shake = 1.0f;
+                shakeCamera(1.0f);
                 break;
             default : ;
         }
@@ -415,6 +417,17 @@ struct Level : IGame {
     virtual void checkTrigger(Controller *controller, bool heavy) {
         players[0]->checkTrigger(controller, heavy);
     }
+
+    virtual void shakeCamera(float value, bool add = false) {
+        for (int i = 0; i < 2; i++)
+            if (players[i] && players[i]->camera) {
+                if (add)
+                    players[i]->camera->shake += value;
+                else
+                    players[i]->camera->shake  = value;
+            }
+    }
+
 
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
         int index;
@@ -1474,12 +1487,12 @@ struct Level : IGame {
             }
             case TR::Effect::EARTHQUAKE : {
                 switch (effectIdx) {
-                    case 0 : if (effectTimer > 0.0f) { playSound(TR::SND_ROCK);     effectIdx++; camera->shake = 1.0f; } break;
+                    case 0 : if (effectTimer > 0.0f) { playSound(TR::SND_ROCK);     effectIdx++; shakeCamera(1.0f); } break;
                     case 1 : if (effectTimer > 0.1f) { playSound(TR::SND_STOMP);    effectIdx++; } break;
-                    case 2 : if (effectTimer > 0.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
+                    case 2 : if (effectTimer > 0.6f) { playSound(TR::SND_BOULDER);  effectIdx++; shakeCamera(0.5f, true); } break;
                     case 3 : if (effectTimer > 1.1f) { playSound(TR::SND_ROCK);     effectIdx++; } break;
-                    case 4 : if (effectTimer > 1.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
-                    case 5 : if (effectTimer > 2.3f) { playSound(TR::SND_BOULDER);  camera->shake += 0.5f; effect = TR::Effect::NONE; } break;
+                    case 4 : if (effectTimer > 1.6f) { playSound(TR::SND_BOULDER);  effectIdx++; shakeCamera(0.5f, true); } break;
+                    case 5 : if (effectTimer > 2.3f) { playSound(TR::SND_BOULDER);  shakeCamera(0.5f, true); effect = TR::Effect::NONE; } break;
                 }
                 break;
             }

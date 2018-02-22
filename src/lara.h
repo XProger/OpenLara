@@ -252,6 +252,8 @@ struct Lara : Character {
 
     Camera      *camera;
 
+    float       hitTimer;
+
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
     //int         dbgBoxesCount;
@@ -428,6 +430,8 @@ struct Lara : Character {
 
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
         camera = new Camera(game, this);
+
+        hitTimer = 0.0f;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -1483,6 +1487,8 @@ struct Lara : Character {
         damageTime = LARA_DAMAGE_TIME;
 
         Character::hit(damage, enemy, hitType);
+
+        hitTimer = 0.2f;
 
         switch (hitType) {
             case TR::HIT_DART      : addBlood(enemy->pos, vec3(0));
@@ -2649,7 +2655,7 @@ struct Lara : Character {
         if (input & LOOK)
             return input;
 
-        Input::Joystick &joy = Input::joy[pid];
+        Input::Joystick &joy = Input::joy[Core::settings.controls[pid].joyIndex];
 
         if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)
             return input;
@@ -2739,6 +2745,14 @@ struct Lara : Character {
         }
         
         camera->update();
+
+        if (hitTimer > 0.0f) {
+            hitTimer -= Core::deltaTime;
+            if (hitTimer > 0.0f)
+                osJoyVibrate(Core::settings.controls[camera->cameraIndex].joyIndex, 0.5f, 0.5f);
+            else
+                osJoyVibrate(Core::settings.controls[camera->cameraIndex].joyIndex, 0, 0);
+        }
 
         if (level->isCutsceneLevel())
             return;

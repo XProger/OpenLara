@@ -4,6 +4,8 @@
 #include "core.h"
 #include "utils.h"
 
+#define INPUT_JOY_COUNT 4
+
 namespace Input {
 
     bool down[ikMAX];
@@ -19,9 +21,8 @@ namespace Input {
     struct Joystick {
         vec2  L, R;
         float LT, RT;
-        int   POV;
         bool  down[jkMAX];
-    } joy[2];
+    } joy[INPUT_JOY_COUNT];
 
     struct Touch {
         int  id;
@@ -103,10 +104,9 @@ namespace Input {
             case jkR   : joy[index].R   = pos;         return;
             case jkLT  : joy[index].LT  = pos.x;       break;
             case jkRT  : joy[index].RT  = pos.x;       break;
-            case jkPOV : joy[index].POV = (int)pos.x;  break;
             default    : return;
         }
-        setJoyDown(index, key, pos.x > 0.0f); // gamepad LT, RT, POV auto-down state
+        setJoyDown(index, key, pos.x > 0.0f); // gamepad LT, RT auto-down state
     }
 
     InputKey getTouch(int id) {
@@ -164,18 +164,7 @@ namespace Input {
         dir = delta;
     }
 
-    void updateJoyPOV(int index) {
-        int p = joy[index].POV;
-        setJoyDown(index, jkUp,    p == 8 || p == 1 || p == 2);
-        setJoyDown(index, jkRight, p == 2 || p == 3 || p == 4);
-        setJoyDown(index, jkDown,  p == 4 || p == 5 || p == 6);
-        setJoyDown(index, jkLeft,  p == 6 || p == 7 || p == 8);
-    }
-
     void update() {
-        updateJoyPOV(0);
-        updateJoyPOV(1);
-
         for (int j = 0; j < COUNT(Core::settings.controls); j++) {
             Core::Settings::Controls &ctrl = Core::settings.controls[j];
             for (int i = 0; i < cMAX; i++) {
@@ -207,11 +196,15 @@ namespace Input {
         btnPos[bInventory] = vec2(Core::width - btnRadius * 2.0f, btnRadius * 2.0f);
 
     // touch update
-        if (checkTouchZone(zMove))
-            joy[0].L = vec2(0.0f);
+        Joystick &joy = Input::joy[Core::settings.controls[0].joyIndex];
 
-        if (checkTouchZone(zLook))
-            joy[0].R = vec2(0.0f);
+        if (checkTouchZone(zMove))
+            joy.L = vec2(0.0f);
+
+        if (checkTouchZone(zLook)) {
+            joy.L = vec2(0.0f);
+            state[0][cLook] = false;
+        }
 
         if (checkTouchZone(zButton))
             btn = bNone;
@@ -239,12 +232,15 @@ namespace Input {
                     } else
                         touchTimerTap = 0.3f;
                 }
+
+                if (zone == zLook)
+                    state[0][cLook] = true;
             }
         }
 
     // set active touches as gamepad controls
-        getTouchDir(touchKey[zMove], joy[0].L);
-        getTouchDir(touchKey[zLook], joy[0].R);
+        getTouchDir(touchKey[zMove], joy.L);
+        getTouchDir(touchKey[zLook], joy.R);
 
         if (touchKey[zButton] != ikNone) {
             vec2 pos = touch[touchKey[zButton] - ikTouchA].pos;

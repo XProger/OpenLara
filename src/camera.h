@@ -446,8 +446,10 @@ struct Camera : ICamera {
     }
 
     virtual void update() {
-        if (shake > 0.0f)
+        if (shake > 0.0f) {
             shake = max(0.0f, shake - Core::deltaTime);
+            osJoyVibrate(Core::settings.controls[cameraIndex].joyIndex, clamp(shake, 0.0f, 1.0f), 0);
+        }
 
         if (mode == MODE_CUTSCENE) {
             timer += Core::deltaTime * 30.0f;
@@ -521,13 +523,13 @@ struct Camera : ICamera {
             if (Input::state[cameraIndex][cLook]) {
                 float d = 2.0f * Core::deltaTime;
 
-                advAngle.x -= Input::joy[cameraIndex].L.y * d;
+                advAngle.x += Input::joy[cameraIndex].L.y * d;
                 advAngle.y += Input::joy[cameraIndex].L.x * d;
 
-                if (Input::state[cameraIndex][cUp])    advAngle.y += d;
-                if (Input::state[cameraIndex][cDown])  advAngle.y -= d;
-                if (Input::state[cameraIndex][cLeft])  advAngle.x += d;
-                if (Input::state[cameraIndex][cRight]) advAngle.x -= d;
+                if (Input::state[cameraIndex][cUp])    advAngle.x -= d;
+                if (Input::state[cameraIndex][cDown])  advAngle.x += d;
+                if (Input::state[cameraIndex][cLeft])  advAngle.y += d;
+                if (Input::state[cameraIndex][cRight]) advAngle.y -= d;
             }
 
             if (advAngleOld == advAngle) {

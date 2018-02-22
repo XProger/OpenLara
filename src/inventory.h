@@ -112,6 +112,15 @@ static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION,       SETTINGS( audio.reverb ), STR_OFF, 0, 1 ),
 };
 
+static OptionItem optControls[] = {
+    OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ),
+    OptionItem( ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD,   SETTINGS( controls[0].joyIndex  ), STR_GAMEPAD_1, 0, 3 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION, SETTINGS( controls[0].vibration ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET,  SETTINGS( controls[0].retarget  ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM,  SETTINGS( controls[0].multiaim  ), STR_OFF,       0, 1 ),
+};
+
 static OptionItem optPassport[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ),
     OptionItem( ),
@@ -241,7 +250,7 @@ struct Inventory {
             }
         }
 
-        const OptionItem* getOptions(int &optCount) {
+        const OptionItem* getOptions(int &optCount) const {
             switch (type) {
                 case TR::Entity::INV_PASSPORT :
                     if (value != 0) return NULL;
@@ -253,10 +262,17 @@ struct Inventory {
                 case TR::Entity::INV_SOUND :
                     optCount = COUNT(optSound);
                     return optSound;
+                case TR::Entity::INV_CONTROLS :
+                    optCount = COUNT(optControls);
+                    return optControls;
                 default :
                     optCount = 0;
                     return NULL;
             }
+        }
+
+        Core::Settings& getSettings(Inventory *inv) const {
+            return (type == TR::Entity::INV_SOUND || type == TR::Entity::INV_CONTROLS) ? Core::settings : inv->settings;
         }
 
         void nextSlot(int &slot, int dir) {
@@ -731,7 +747,7 @@ struct Inventory {
             }
         }
 
-        Core::Settings &stg = item->type == TR::Entity::INV_SOUND ? Core::settings : settings;
+        Core::Settings &stg = item->getSettings(this);
 
         const OptionItem *opt = item->control(slot, key, changeTimer, &stg);
         if (opt)
@@ -803,7 +819,7 @@ struct Inventory {
 
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
-        Input::Joystick &joy = Input::joy[playerIndex];
+        Input::Joystick &joy = Input::joy[Core::settings.controls[playerIndex].joyIndex];
 
         ControlKey key = cMAX;
         if (Input::state[playerIndex][cAction])
@@ -1056,7 +1072,7 @@ struct Inventory {
         x     += 8.0f;
         width -= 16.0f;
 
-        Core::Settings &stg = item->type == TR::Entity::INV_SOUND ? Core::settings : settings;
+        Core::Settings &stg = item->getSettings(this);
         for (int i = 0; i < optionsCount; i++)
             y = options[i].render(x, y, width, slot == i, &stg);
     }
@@ -1076,19 +1092,15 @@ struct Inventory {
                 case TR::Entity::INV_PASSPORT :
                     renderPassport(item);
                     break;
-                case TR::Entity::INV_HOME :
+                case TR::Entity::INV_DETAIL    :
+                case TR::Entity::INV_SOUND     :
+                case TR::Entity::INV_CONTROLS  :
+                    renderOptions(item);
+                    break;
+                case TR::Entity::INV_GAMMA     :
                 case TR::Entity::INV_COMPASS   :
                 case TR::Entity::INV_STOPWATCH :
-                case TR::Entity::INV_MAP :
-                    break;
-                case TR::Entity::INV_DETAIL :
-                    renderOptions(item);
-                    break;
-                case TR::Entity::INV_SOUND :
-                    renderOptions(item);
-                    break;
-                case TR::Entity::INV_CONTROLS :
-                case TR::Entity::INV_GAMMA :
+                case TR::Entity::INV_MAP       :
                     UI::textOut(vec2(-eye, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
                     break;
                 default : ;

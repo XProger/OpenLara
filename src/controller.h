@@ -77,6 +77,7 @@ struct IGame {
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}
+    virtual void shakeCamera(float value, bool add = false) {}
 
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle = 0.0f) { return NULL; }
     virtual void removeEntity(Controller *controller) {}

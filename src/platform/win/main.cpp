@@ -173,52 +173,46 @@ DWORD (WINAPI *XInputSetState)(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 
 #define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
-#define JOY_MAX_COUNT            2
-#define JOY_NONE                 255
 
-uint8 joyIndex[JOY_MAX_COUNT];
+bool joyReady[INPUT_JOY_COUNT];
+
+bool osJoyReady(int index) {
+    return joyReady[index];
+}
 
 void osJoyVibrate(int index, float L, float R) {
-    if (XInputSetState && joyIndex[index] != JOY_NONE) {
+    if (XInputSetState && joyReady[index]) {
         XINPUT_VIBRATION vibration;
         vibration.wLeftMotorSpeed  = int(L * 65535.0f);
         vibration.wRightMotorSpeed = int(R * 65535.0f);
-        XInputSetState(joyIndex[index], &vibration);
+        XInputSetState(index, &vibration);
     }
 }
 
 void joyInit() {
-    memset(joyIndex, JOY_NONE, sizeof(joyIndex));
-    int index = 0;
+    memset(joyReady, 0, sizeof(joyReady));
 
-    HMODULE h = LoadLibrary("xinput9_1_0.dll");
+    HMODULE h = LoadLibrary("xinput1_3.dll");
 
     XInputGetState = (decltype(XInputGetState))GetProcAddress(h, "XInputGetState");
     XInputSetState = (decltype(XInputSetState))GetProcAddress(h, "XInputSetState");
 
-    for (int j = 0; j < 4; j++) {
+    for (int j = 0; j < INPUT_JOY_COUNT; j++) {
         if (XInputGetState) { // XInput
             XINPUT_STATE state;
-            if (XInputGetState(j, &state) == ERROR_SUCCESS)
-                joyIndex[index] = j;
+            int res = XInputGetState(j, &state);
+            joyReady[j] = (XInputGetState(j, &state) == ERROR_SUCCESS);
         } else { // mmSystem (legacy)
             JOYINFOEX info;
             info.dwSize  = sizeof(info);
             info.dwFlags = JOY_RETURNALL;
-            if (joyGetPosEx(j, &info) == JOYERR_NOERROR)
-                joyIndex[index] = j;
-        }
-
-        if (joyIndex[index] != JOY_NONE) {
-            index++;
-            if (index >= JOY_MAX_COUNT)
-                break;
+            joyReady[j] = (joyGetPosEx(j, &info) == JOYERR_NOERROR);
         }
     }
 }
 
 void joyFree() {
-    memset(joyIndex, JOY_NONE, sizeof(joyIndex));
+    memset(joyReady, 0, sizeof(joyReady));
     Input::reset();
 }
 
@@ -253,14 +247,13 @@ int joyDeadZone(int value, int zone) {
 }
 
 void joyUpdate() {
-    for (int j = 0; j < JOY_MAX_COUNT; j++) {
-        if (joyIndex[j] == JOY_NONE) break;
-        int index = joyIndex[j];
+    for (int j = 0; j < INPUT_JOY_COUNT; j++) {
+        if (!joyReady[j]) continue;
 
         if (XInputGetState) { // XInput
             XINPUT_STATE state;
-            if (XInputGetState(index, &state) == ERROR_SUCCESS) {
-                // osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
+            if (XInputGetState(j, &state) == ERROR_SUCCESS) {
+                //osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
 
                 Input::setJoyPos(j, jkL,   joyDir(joyAxis(joyDeadZone( state.Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE),  -32768, 32767),
                                                   joyAxis(joyDeadZone(-state.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE),  -32768, 32767)));
@@ -268,10 +261,9 @@ void joyUpdate() {
                                                   joyAxis(joyDeadZone(-state.Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE), -32768, 32767)));
                 Input::setJoyPos(j, jkLT,  vec2(joyDeadZone(state.Gamepad.bLeftTrigger,  XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / 255.0f, 0.0f));
                 Input::setJoyPos(j, jkRT,  vec2(joyDeadZone(state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / 255.0f, 0.0f));
-                Input::setJoyPos(j, jkPOV, vec2(joyGetPOV(state.Gamepad.wButtons & 15), 0));
 
                 static const JoyKey keys[] = { jkUp, jkDown, jkLeft, jkRight, jkStart, jkSelect, jkL, jkR, jkLB, jkRB, jkNone, jkNone, jkA, jkB, jkX, jkY };
-                for (int i = 4; i < 16; i++)
+                for (int i = 0; i < 16; i++)
                     Input::setJoyDown(j, keys[i], (state.Gamepad.wButtons & (1 << i)) != 0);
             } else {
                 joyFree();
@@ -283,37 +275,37 @@ void joyUpdate() {
             info.dwSize  = sizeof(info);
             info.dwFlags = JOY_RETURNALL;
 
-            if (joyGetPosEx(index, &info) == JOYERR_NOERROR) {
+            if (joyGetPosEx(j, &info) == JOYERR_NOERROR) {
                 JOYCAPS caps;
-                joyGetDevCaps(index, &caps, sizeof(caps));
+                joyGetDevCaps(j, &caps, sizeof(caps));
 
                 if (caps.wNumAxes > 0) {
-                    Input::setJoyPos(index, jkL, joyDir(joyAxis(info.dwXpos, caps.wXmin, caps.wXmax),
+                    Input::setJoyPos(j, jkL, joyDir(joyAxis(info.dwXpos, caps.wXmin, caps.wXmax),
                                                         joyAxis(info.dwYpos, caps.wYmin, caps.wYmax)));
 
                     if ((caps.wCaps & JOYCAPS_HASR) && (caps.wCaps & JOYCAPS_HASU))
-                        Input::setJoyPos(index, jkR, joyDir(joyAxis(info.dwUpos, caps.wUmin, caps.wUmax),
+                        Input::setJoyPos(j, jkR, joyDir(joyAxis(info.dwUpos, caps.wUmin, caps.wUmax),
                                                             joyAxis(info.dwRpos, caps.wRmin, caps.wRmax)));
 
                     if (caps.wCaps & JOYCAPS_HASZ) {
                         float z = joyAxis(info.dwZpos, caps.wZmin, caps.wZmax);
-                        Input::setJoyPos(index, jkLT, vec2(0.0f));
-                        Input::setJoyPos(index, jkRT, vec2(0.0f));
+                        Input::setJoyPos(j, jkLT, vec2(0.0f));
+                        Input::setJoyPos(j, jkRT, vec2(0.0f));
 
                         JoyKey key = z > JOY_DEAD_ZONE_TRIGGER ? jkLT : (z < -JOY_DEAD_ZONE_TRIGGER ? jkRT : jkNone);
                         if (key != jkNone)
-                            Input::setJoyPos(index, key, vec2(fabsf(z), 0.0f));
+                            Input::setJoyPos(j, key, vec2(fabsf(z), 0.0f));
                     }
                 }
 
-                if (caps.wCaps & JOYCAPS_HASPOV)
-                    if (info.dwPOV == JOY_POVCENTERED)
-                        Input::setJoyPos(index, jkPOV, vec2(0.0f));
-                    else
-                        Input::setJoyPos(index, jkPOV, vec2(float(1 + info.dwPOV / 4500), 0.0f));
+                int p = ((caps.wCaps & JOYCAPS_HASPOV) && (info.dwPOV != JOY_POVCENTERED)) ? (1 + info.dwPOV / 4500) : 0;
+                Input::setJoyDown(j, jkUp,    p == 8 || p == 1 || p == 2);
+                Input::setJoyDown(j, jkRight, p == 2 || p == 3 || p == 4);
+                Input::setJoyDown(j, jkDown,  p == 4 || p == 5 || p == 6);
+                Input::setJoyDown(j, jkLeft,  p == 6 || p == 7 || p == 8);
 
                 for (int i = 0; i < 10; i++)
-                    Input::setJoyDown(index, JoyKey(jkA + i), (info.dwButtons & (1 << i)) > 0);
+                    Input::setJoyDown(j, JoyKey(jkA + i), (info.dwButtons & (1 << i)) > 0);
             } else {
                 joyFree();
                 joyInit();

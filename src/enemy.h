@@ -1173,7 +1173,7 @@ struct GiantMutant : Enemy {
             case STATE_FALL : 
                 if (stand == STAND_GROUND) {
                     animation.setState(STATE_STOP);
-                    game->getCamera()->shake = 5.0f;
+                    game->shakeCamera(5.0f);
                 }
                 break;
         }
@@ -1335,7 +1335,7 @@ struct ScionTarget : Enemy {
                 if (index != int(timer / 0.3f)) {
                     vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * 512.0f, (randf() * 2.0f - 1.0f) * 64.0f - 500.0f, (randf() * 2.0f - 1.0f) * 512.0f);
                     game->addEntity(TR::Entity::EXPLOSION, getRoomIndex(), p);
-                    game->getCamera()->shake = 0.5f;
+                    game->shakeCamera(0.5f);
                 }
 
                 if (timer < 0.0f) 

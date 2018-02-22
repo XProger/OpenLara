@@ -1362,10 +1362,10 @@ struct Earthquake : Controller {
         float p = randf();
         if (p < 0.001f) {
             game->playSound(TR::SND_STOMP);
-            game->getCamera()->shake = 1.0f;
+            game->shakeCamera(1.0f);
         } else if (p < 0.04f) {
             game->playSound(TR::SND_BOULDER);
-            game->getCamera()->shake = 0.3f;
+            game->shakeCamera(0.3f);
         }
 
         timer = 0.0f;
