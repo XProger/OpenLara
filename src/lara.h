@@ -3263,7 +3263,7 @@ struct Lara : Character {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
-        if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
+        if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
             visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;
