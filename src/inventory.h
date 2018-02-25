@@ -136,7 +136,9 @@ static const OptionItem optControls[] = {
     OptionItem( ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
+#ifdef WIN32
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
+#endif
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM   , SETTINGS( controls[0].multiaim           ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
@@ -630,9 +632,6 @@ struct Inventory {
     }
 
     bool toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
-        if (!game->getLara(playerIndex))
-            return false;
-
         this->playerIndex = playerIndex;
         titleTimer = 0.0f;
 
@@ -962,7 +961,8 @@ struct Inventory {
                         item->angle     = 0.0f;
                     }
                 } else
-                    toggle();
+                    if (!game->getLevel()->isTitle())
+                        toggle();
             }
         }
         lastKey = key;
@@ -1042,7 +1042,7 @@ struct Inventory {
     }
 
     bool canFlipPage(int dir) {
-        if (game->getLevel()->isTitle() || ((Character*)game->getLara(playerIndex))->health <= 0.0f)
+        if (game->getLevel()->isTitle() || (game->getLara(playerIndex) && ((Character*)game->getLara(playerIndex))->health <= 0.0f))
             return false;
         if (dir == -1) return page < PAGE_ITEMS  && getItemsCount(page + 1);
         if (dir ==  1) return page > PAGE_OPTION && getItemsCount(page - 1);
