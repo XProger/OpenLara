@@ -94,7 +94,7 @@ struct Shader {
                 glGetProgramBinary(ID, size, NULL, &format, &data[8]);
                 *(int*)(&data[0]) = format;
                 *(int*)(&data[4]) = size;
-                osCacheWrite(fileName, data, 8 + size);
+                Stream::cacheWrite(fileName, data, 8 + size);
                 delete[] data;
             #endif
             }
@@ -144,8 +144,16 @@ struct Shader {
         return checkLink();
     }
     
-    bool linkBinary(const char *fileName) {
-        Stream *stream = osCacheRead(fileName);
+    bool linkBinary(const char *name) {
+        // non-async code!
+        char path[255];
+        strcpy(path, Stream::cacheDir);
+        strcat(path, name);
+
+        if (!Stream::exists(path))
+            return false;
+
+        Stream *stream = new Stream(path);
         if (!stream)
             return false;
 

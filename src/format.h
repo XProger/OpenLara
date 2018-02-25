@@ -3674,7 +3674,7 @@ namespace TR {
                 case VER_TR2_PSX : size = soundSize[index]; break;
                 default          : ASSERT(false);
             }
-            return new Stream(data, size);
+            return new Stream(NULL, data, size);
         }
 
         int getMeshByID(int id) const {

@@ -130,7 +130,7 @@ struct Level : IGame {
         save->size      = ptr - data;
         save->version   = level.version & TR::VER_VERSION;
 
-        osSaveGame(data, int(ptr - data));
+        //osSaveGame(new Stream("savegame", data, int(ptr - data)));
         delete[] data;
 
         LOG("Ok\n");
@@ -139,7 +139,7 @@ struct Level : IGame {
     virtual void loadGame(int slot) {
         LOG("Load Game... ");
 
-        Stream *stream = osLoadGame();
+        Stream *stream = NULL;//osLoadGame();
         if (!stream)
             return;
 
@@ -237,7 +237,7 @@ struct Level : IGame {
 
         Core::settings = settings;
 
-        osCacheWrite("settings", (char*)&settings, sizeof(settings));
+        Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
             delete shaderCache;

@@ -1131,6 +1131,17 @@ struct Box {
     }
 };
 
+struct Stream;
+
+extern void osCacheWrite (Stream *stream);
+extern void osCacheRead  (Stream *stream);
+
+extern void osSaveGame   (Stream *stream);
+extern void osLoadGame   (Stream *stream);
+
+#ifdef __EMSCRIPTEN__
+extern void osDownload   (Stream *stream);
+#endif
 
 struct Stream {
     static char cacheDir[255];
@@ -1147,7 +1158,12 @@ struct Stream {
 
     enum Endian { eLittle, eBig } endian;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {}
+    Stream(const char *name, const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {
+        if (name) {
+            this->name = new char[strlen(name) + 1];
+            strcpy(this->name, name);
+        }
+    }
 
     Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
@@ -1161,18 +1177,16 @@ struct Stream {
 
         if (!f) {
             #ifdef __EMSCRIPTEN__
-                this->name = new char[64];
-                strcpy(this->name, name);
-
-                extern void osDownload(Stream *stream);
+                if (name) {
+                    this->name = new char[strlen(name) + 1];
+                    strcpy(this->name, name);
+                }
                 osDownload(this);
-                return;
             #else
                 LOG("error loading file \"%s\"\n", name);
                 if (callback) {
                     callback(NULL, userData);
                     delete this;
-                    return;
                 } else {
                     ASSERT(false);
                 }
@@ -1182,8 +1196,10 @@ struct Stream {
             size = ftell(f);
             fseek(f, 0, SEEK_SET);
 
-            this->name = new char[strlen(name) + 1];
-            strcpy(this->name, name);
+            if (name) {
+                this->name = new char[strlen(name) + 1];
+                strcpy(this->name, name);
+            }
 
             if (callback)
                 callback(this, userData);
@@ -1193,6 +1209,20 @@ struct Stream {
     ~Stream() {
         delete[] name;
         if (f) fclose(f);
+    }
+
+    static void cacheRead(const char *name, Callback *callback = NULL, void *userData = NULL) {
+        Stream *stream = new Stream(name, NULL, 0);
+        stream->callback = callback;
+        stream->userData = userData;
+        osCacheRead(stream);
+    }
+
+    static void cacheWrite(const char *name, const char *data, int size, Callback *callback = NULL, void *userData = NULL) {
+        Stream *stream = new Stream(name, data, size);
+        stream->callback = callback;
+        stream->userData = userData;
+        osCacheWrite(stream);
     }
 
     static bool exists(const char *name) {

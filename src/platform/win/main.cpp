@@ -112,32 +112,50 @@ int osGetTime() {
 #endif
 }
 
-bool osCacheWrite(const char *name, const char *data, int size) {
+void osCacheWrite(Stream *stream) {
     char path[255];
     strcpy(path, Stream::cacheDir);
-    strcat(path, name);
+    strcat(path, stream->name);
     FILE *f = fopen(path, "wb");
-    if (!f) return false;
-    fwrite(data, size, 1, f);
-    fclose(f);
-    return true;
+    if (f) {
+        fwrite(stream->data, 1, stream->size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+
+    delete stream;
 }
 
-Stream* osCacheRead(const char *name) {
+void osCacheRead(Stream *stream) {
     char path[255];
     strcpy(path, Stream::cacheDir);
-    strcat(path, name);
-    if (!Stream::exists(path))
-        return NULL;
-    return new Stream(path);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        int size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = new char[size];
+        fread(data, 1, size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, data, size), stream->userData);
+        delete[] data;
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+    delete stream;
 }
 
-bool osSaveGame(const char *data, int size) {
-    return osCacheWrite("savegame", data, size);
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
 }
 
-Stream* osLoadGame() {
-    return osCacheRead("savegame");
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
 }
 
 // common input functions

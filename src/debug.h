@@ -667,7 +667,7 @@ namespace Debug {
 
                 fwrite(&header, sizeof(header), 1, f);
 
-                Sound::VAG vag(new Stream(&level->soundData[level->soundOffsets[index]], dataSize));        
+                Sound::VAG vag(new Stream(NULL, &level->soundData[level->soundOffsets[index]], dataSize));        
                 Sound::Frame frames[4 * 28];
                 while (int count = vag.decode(frames, 4 * 28))
                     for (int i = 0; i < count; i++)

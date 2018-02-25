@@ -176,13 +176,6 @@ extern int     osGetTime     ();
 extern bool    osJoyReady    (int index);
 extern void    osJoyVibrate  (int index, float L, float R);
 
-extern bool    osCacheWrite  (const char *name, const char *data, int size);
-extern Stream* osCacheRead   (const char *name);
-
-extern bool    osSaveGame    (const char *data, int size);
-extern Stream* osLoadGame    ();
-
-
 struct Mutex {
     void *obj;
 
@@ -292,6 +285,7 @@ namespace Core {
     } support;
 
 #define SETTINGS_VERSION 1
+#define SETTINGS_READING 0xFF
 
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };

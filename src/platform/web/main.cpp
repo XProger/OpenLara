@@ -64,13 +64,83 @@ int osGetTime() {
     return (int)emscripten_get_now();
 }
 
-bool osSave(const char *name, const void *data, int size) {
-// TODO cookie? idb?
-    FILE *f = fopen(name, "wb");
-    if (!f) return false;
+// cache & data
+const char *IDB = "db";
+
+void onError(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("! IDB error for %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void onLoad(void *arg, void *data, int size) {
+    Stream *stream = (Stream*)arg;
+
+    FILE *f = fopen(stream->name, "wb");
     fwrite(data, size, 1, f);
     fclose(f);
-    return true;
+
+    stream->callback(new Stream(stream->name), stream->userData);   
+    delete stream;
+}
+
+void onLoadAndStore(void *arg, void *data, int size) {
+    emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
+    onLoad(arg, data, size);
+}
+
+void onExists(void *arg, int exists) {
+    if (exists)
+        emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
+    else
+        emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
+}
+
+void osDownload(Stream *stream) {
+    emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
+}
+
+void onCacheStore(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("cache stored: %s\n", stream->name);
+    if (stream->callback)    
+        stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    delete stream;
+}
+
+void onCacheLoad(void *arg, void *data, int size) {
+    Stream *stream = (Stream*)arg;
+    LOG("cache loaded: %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(new Stream(stream->name, data, size), stream->userData);   
+    delete stream;
+}
+
+void onCacheError(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("! cache error: %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osCacheWrite(Stream *stream) {
+    emscripten_idb_async_store(IDB, stream->name, stream->data, stream->size, stream, onCacheStore, onCacheError);
+}
+
+void osCacheRead(Stream *stream) {
+    emscripten_idb_async_load(IDB, stream->name, stream, onCacheLoad, onCacheError);
+}
+
+// memory card
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
 }
 
 extern "C" {
@@ -79,7 +149,7 @@ extern "C" {
     }
     
     void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size) {
-        Game::startLevel(new Stream(data, size));
+        Game::startLevel(new Stream(NULL, data, size));
     }
 }
 
@@ -277,42 +347,6 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
             break;
     }
     return 1;
-}
-
-const char *IDB = "db";
-
-void onError(void *arg) {
-    Stream *stream = (Stream*)arg;
-    LOG("! IDB error for %s\n", stream->name);
-    stream->callback(NULL, stream->userData);
-    delete stream;
-}
-
-void onLoad(void *arg, void *data, int size) {
-    Stream *stream = (Stream*)arg;
-
-    FILE *f = fopen(stream->name, "wb");
-    fwrite(data, size, 1, f);
-    fclose(f);
-
-    stream->callback(new Stream(stream->name), stream->userData);   
-    delete stream;
-}
-
-void onLoadAndStore(void *arg, void *data, int size) {
-    emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
-    onLoad(arg, data, size);
-}
-
-void onExists(void *arg, int exists) {
-    if (exists)
-        emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
-    else
-        emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
-}
-
-void osDownload(Stream *stream) {
-    emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
 }
 
 char Stream::cacheDir[255];

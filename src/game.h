@@ -12,6 +12,13 @@ ShaderCache *shaderCache;
 namespace Game {
     Level  *level;
     Stream *nextLevel;
+
+    void startLevel(Stream *lvl) {
+        delete level;
+        level = new Level(*lvl);
+        UI::game = level;
+        delete lvl;
+    }
 }
 
 void loadAsync(Stream *stream, void *userData) {
@@ -22,42 +29,38 @@ void loadAsync(Stream *stream, void *userData) {
     Game::nextLevel = stream;
 }
 
-namespace Game {
-    void startLevel(Stream *lvl) {
-        delete level;
-        level = new Level(*lvl);
-        UI::game = level;
-        delete lvl;
-    }
-
-    void stopChannel(Sound::Sample *channel) {
-        if (level) level->stopChannel(channel);
-    }
-
-    void readSettings() {
-        Stream *stream = osCacheRead("settings");
-        if (!stream) return;
+void loadSettings(Stream *stream, void *userData) {
+    if (stream) {
         uint8 version;
         stream->read(version);
         if (version == SETTINGS_VERSION && stream->size == sizeof(Core::Settings))
             stream->raw((char*)&Core::settings + 1, stream->size - 1); // read settings data right after version number
         delete stream;
     }
+    
+    Core::settings.version = SETTINGS_VERSION;
+    shaderCache = new ShaderCache();
+    Game::startLevel((Stream*)userData);
+    UI::init(Game::level);
+}
+
+
+namespace Game {
+
+    void stopChannel(Sound::Sample *channel) {
+        if (level) level->stopChannel(channel);
+    }
 
     void init(Stream *lvl) {
-        nextLevel = NULL;
-
-        Core::init();
-        readSettings();
-
-        shaderCache = new ShaderCache();
-
-        UI::init(level);
+        nextLevel   = NULL;
+        shaderCache = NULL;
+        level       = NULL;
 
         Sound::callback = stopChannel;
 
-        level = NULL;
-        startLevel(lvl);
+        Core::init();
+        Core::settings.version = SETTINGS_READING;
+        Stream::cacheRead("settings", loadSettings, lvl);
     }
 
     void init(const char *lvlName = NULL) {
@@ -100,6 +103,10 @@ namespace Game {
     }
 
     bool update() {
+    // async load for settings
+        if (Core::settings.version == SETTINGS_READING)
+            return true;
+
         PROFILE_MARKER("UPDATE");
 
         if (!Core::update())
@@ -155,6 +162,9 @@ namespace Game {
     }
 
     void render() {
+        if (Core::settings.version == SETTINGS_READING)
+            return;
+
         PROFILE_MARKER("RENDER");
         PROFILE_TIMING(Core::stats.tFrame);
         Core::beginFrame();
