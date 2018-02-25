@@ -34,10 +34,22 @@ namespace Game {
         if (level) level->stopChannel(channel);
     }
 
+    void readSettings() {
+        Stream *stream = osCacheRead("settings");
+        if (!stream) return;
+        uint8 version;
+        stream->read(version);
+        if (version == SETTINGS_VERSION && stream->size == sizeof(Core::Settings))
+            stream->raw((char*)&Core::settings + 1, stream->size - 1); // read settings data right after version number
+        delete stream;
+    }
+
     void init(Stream *lvl) {
         nextLevel = NULL;
 
         Core::init();
+        readSettings();
+
         shaderCache = new ShaderCache();
 
         UI::init(level);
@@ -104,7 +116,7 @@ namespace Game {
             return true;
 
         Input::update();
-
+/*
         if (level->camera) {
             if (Input::down[ikV]) { // third <-> first person view
                 level->camera->changeView(!level->camera->firstPerson);
@@ -122,7 +134,7 @@ namespace Game {
             level->loadGame(0);
             Input::down[ikL] = false;
         }
-
+*/
         if (!level->level.isTitle()) {
             if (Input::state[0][cStart]) level->addPlayer(0);
             if (Input::state[1][cStart]) level->addPlayer(1);

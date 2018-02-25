@@ -80,7 +80,7 @@ struct Shader {
     // generate shader file path
         if (Core::support.shaderBinary) {
             uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
-            sprintf(fileName, "%s%08X.xsh", Stream::cacheDir, hash);
+            sprintf(fileName, "%08X.xsh", hash);
         }
 
         ID = glCreateProgram();
@@ -94,7 +94,7 @@ struct Shader {
                 glGetProgramBinary(ID, size, NULL, &format, &data[8]);
                 *(int*)(&data[0]) = format;
                 *(int*)(&data[4]) = size;
-                Stream::write(fileName, data, 8 + size);
+                osCacheWrite(fileName, data, 8 + size);
                 delete[] data;
             #endif
             }
@@ -145,17 +145,18 @@ struct Shader {
     }
     
     bool linkBinary(const char *fileName) {
-        if (!Stream::exists(fileName))
+        Stream *stream = osCacheRead(fileName);
+        if (!stream)
             return false;
 
         GLenum size, format;
-        Stream stream(fileName);
-        stream.read(format);
-        stream.read(size);
+        stream->read(format);
+        stream->read(size);
         char *data = new char[size];
-        stream.raw(data, size);
+        stream->raw(data, size);
         glProgramBinary(ID, format, data, size);
         delete[] data;
+        delete stream;
 
         return checkLink();
     }

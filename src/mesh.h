@@ -553,8 +553,8 @@ struct MeshBuilder {
                 m.geometry[1].ranges[0].iCount = 0;
                 m.geometry[2].ranges[0].iCount = 0;
             // remove bottom triangles from skybox
-                if (m.geometry[0].ranges[0].iCount && ((level.version & TR::VER_TR3)))
-                    m.geometry[0].ranges[0].iCount -= 16 * 3;
+                //if (m.geometry[0].ranges[0].iCount && ((level.version & TR::VER_TR3)))
+                //    m.geometry[0].ranges[0].iCount -= 16 * 3;
             }
         }
         ASSERT(vCount - vStartModel <= 0xFFFF);
@@ -1184,9 +1184,9 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal  = short4( 0, 0, 0, 0 );
             if (color2 != 0 && (i == 0 || i == 3))
-                v.color = *((ubyte4*)&color2);
+                v.light = *((ubyte4*)&color2);
             else
-                v.color = *((ubyte4*)&color);
+                v.light = *((ubyte4*)&color);
 
             short2 uv = tile.texCoord[i];
 
@@ -1218,7 +1218,7 @@ struct MeshBuilder {
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
             v.normal   = short4( 0, 0, 0, 0 );
-            v.color    = *((ubyte4*)&color1);
+            v.light    = *((ubyte4*)&color1);
             v.texCoord = uv;
         }
 
@@ -1238,7 +1238,7 @@ struct MeshBuilder {
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
             v.normal   = short4( 0, 0, 0, 0 );
-            v.color    = *((ubyte4*)&color2);
+            v.light    = *((ubyte4*)&color2);
             v.texCoord = uv;
         }
 

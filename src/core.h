@@ -164,18 +164,24 @@
     #define GENERATE_WATER_PLANE
 #endif
 
-extern int osGetTime();
-extern bool osSave(const char *name, const void *data, int size);
-
-extern bool osJoyReady(int index);
-extern void osJoyVibrate(int index, float L, float R);
-
 #include "utils.h"
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
+
+extern int     osGetTime     ();
+
+extern bool    osJoyReady    (int index);
+extern void    osJoyVibrate  (int index, float L, float R);
+
+extern bool    osCacheWrite  (const char *name, const char *data, int size);
+extern Stream* osCacheRead   (const char *name);
+
+extern bool    osSaveGame    (const char *data, int size);
+extern Stream* osLoadGame    ();
+
 
 struct Mutex {
     void *obj;
@@ -254,8 +260,8 @@ enum ControlKey {
 };
 
 struct KeySet {
-    InputKey key;
-    JoyKey   joy;
+    uint8 key;
+    uint8 joy;
     
     KeySet() {}
     KeySet(InputKey key, JoyKey joy) : key(key), joy(joy) {}
@@ -285,9 +291,13 @@ namespace Core {
     #endif
     } support;
 
+#define SETTINGS_VERSION 1
+
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };
         enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT };
+
+        uint8 version;
 
         struct {
             union {
@@ -342,7 +352,9 @@ namespace Core {
             KeySet keys[cMAX];
         } controls[2];
 
-        uint8 playerIndex; // temporary, used only for setting controls
+        // temporary, used only for setting controls
+        uint8 playerIndex;
+        uint8 ctrlIndex;
     } settings;
 
     bool resetState;
@@ -1021,6 +1033,8 @@ namespace Core {
         whiteTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
 
     // init settings
+        settings.version = SETTINGS_VERSION;
+
         settings.detail.setFilter   (Core::Settings::HIGH);
         settings.detail.setLighting (Core::Settings::HIGH);
         settings.detail.setShadows  (Core::Settings::HIGH);
@@ -1076,7 +1090,7 @@ namespace Core {
             ctrl.keys[ cDash      ] = KeySet( ikNone,   jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikNone,   jkB      );
             ctrl.keys[ cInventory ] = KeySet( ikNone,   jkSelect );
-            ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
+            ctrl.keys[ cStart     ] = KeySet( ikNone,   jkStart  );
         }
 
     // use D key for jump in browsers

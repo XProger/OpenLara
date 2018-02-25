@@ -17,12 +17,15 @@
 #define TITLE_LOADING        64.0f
 #define LINE_HEIGHT          20.0f
 
+static const struct OptionItem *waitForKey = NULL;
+
 struct OptionItem {
     enum Type {
         TYPE_TITLE,
         TYPE_EMPTY,
         TYPE_BUTTON,
         TYPE_PARAM,
+        TYPE_KEY,
     } type;
     StringID title;
     intptr_t offset;
@@ -31,7 +34,11 @@ struct OptionItem {
     uint8    maxValue;
     bool     bar;
         
-    OptionItem(Type type = TYPE_EMPTY, StringID title = STR_NOT_IMPLEMENTED, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(title), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
+    OptionItem(Type type = TYPE_EMPTY, int title = STR_NOT_IMPLEMENTED, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
+
+    void setValue(uint8 value, Core::Settings *settings) const {
+        *(uint8*)(intptr_t(settings) + offset) = value;
+    }
 
     float drawParam(float x, float y, float w, StringID oStr, bool active, uint8 value) const {
         if (oStr != STR_NOT_IMPLEMENTED) {
@@ -40,12 +47,22 @@ struct OptionItem {
             w = w * 0.5f - 32.0f;
         }
 
-        UI::textOut(vec2(x, y), StringID(color + int(value)), UI::aCenter, w); // color as StringID
-        if (active) {
+        StringID vStr = StringID(color + int(value));
+
+        uint8 alpha = 255;
+        if (type == TYPE_KEY && waitForKey == this) {
+            vStr = STR_PRESS_ANY_KEY;
+            float t = (Core::getTime() % 1000) / 1000.0f;
+            t = 0.2f + (sinf(t * PI * 2) * 0.5f + 0.5f) * 0.8f;
+            alpha = uint8(t * 255.0f);
+        }
+
+        UI::textOut(vec2(x, y), vStr, UI::aCenter, w, alpha, UI::SHADE_GRAY); // color as StringID
+
+        if (type == TYPE_PARAM && active) {
             float maxWidth = UI::getTextSize(STR[color + value]).x;
             maxWidth = maxWidth * 0.5f + 8.0f;
             x += w * 0.5f;
-
             if (value > 0)        UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
             if (value < maxValue) UI::specOut(vec2(x + maxWidth, y), 109);
         }
@@ -71,7 +88,7 @@ struct OptionItem {
         switch (type) {
             case TYPE_TITLE   : 
                 UI::renderBar(UI::BAR_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
-                UI::textOut(vec2(x, y), title, UI::aCenter, w, UI::SHADE_GRAY); 
+                UI::textOut(vec2(x, y), title, UI::aCenter, w, 255, UI::SHADE_GRAY); 
             case TYPE_EMPTY   : break;
             case TYPE_BUTTON  : {
                     const char *caption = offset ? (char*)offset : STR[title];
@@ -79,6 +96,7 @@ struct OptionItem {
                     break;
                 }
             case TYPE_PARAM : 
+            case TYPE_KEY :
                 return bar ? drawBar(x, y, w, active, value) : drawParam(x, y, w, title, active, value);
         }
 
@@ -116,11 +134,27 @@ static const OptionItem optSound[] = {
 static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED,        SETTINGS( playerIndex           ), STR_PLAYER_1,  0, 1 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD,   SETTINGS( controls[0].joyIndex  ), STR_GAMEPAD_1, 0, 3 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION, SETTINGS( controls[0].vibration ), STR_OFF,       0, 1 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET,  SETTINGS( controls[0].retarget  ), STR_OFF,       0, 1 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM,  SETTINGS( controls[0].multiaim  ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM   , SETTINGS( controls[0].multiaim           ), STR_OFF,       0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cUp        , SETTINGS( controls[0].keys[ cUp        ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDown      , SETTINGS( controls[0].keys[ cDown      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRight     , SETTINGS( controls[0].keys[ cRight     ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cLeft      , SETTINGS( controls[0].keys[ cLeft      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cWalk      , SETTINGS( controls[0].keys[ cWalk      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cJump      , SETTINGS( controls[0].keys[ cJump      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cAction    , SETTINGS( controls[0].keys[ cAction    ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cWeapon    , SETTINGS( controls[0].keys[ cWeapon    ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cLook      , SETTINGS( controls[0].keys[ cLook      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDuck      , SETTINGS( controls[0].keys[ cDuck      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDash      , SETTINGS( controls[0].keys[ cDash      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRoll      , SETTINGS( controls[0].keys[ cRoll      ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cInventory , SETTINGS( controls[0].keys[ cInventory ] ), STR_KEY_FIRST ),
+    OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cStart     , SETTINGS( controls[0].keys[ cStart     ] ), STR_KEY_FIRST ),
+
 };
 
 static OptionItem optControlsPlayer[COUNT(optControls)];
@@ -269,9 +303,19 @@ struct Inventory {
                 case TR::Entity::INV_CONTROLS :
                     ASSERT(optControls[2].offset == SETTINGS( playerIndex) );
                     for (int i = 0; i < COUNT(optControls); i++) {
-                        optControlsPlayer[i] = optControls[i];
-                        if (i > 2)
-                            optControlsPlayer[i].offset += sizeof(Core::Settings::Controls) * Core::settings.playerIndex;
+                        OptionItem &opt = optControlsPlayer[i];
+                        opt = optControls[i];
+
+                        if (i > 2 && i != 2 && i != 7)
+                            opt.offset += sizeof(Core::Settings::Controls) * Core::settings.playerIndex;
+
+                        if (i > 7) {
+                            if (Core::settings.ctrlIndex == 1) {
+                                opt.offset++; // add offset to joy
+                                opt.color = STR_JOY_FIRST;
+                            } else
+                                opt.color = STR_KEY_FIRST;
+                        }
                     }
                     optCount = COUNT(optControlsPlayer);
                     return optControlsPlayer;
@@ -305,7 +349,7 @@ struct Inventory {
             uint8 &value = *(uint8*)(intptr_t(settings) + opt->offset);
 
             switch (key) {
-                case cAction : return (opt->type == OptionItem::TYPE_BUTTON) ? opt : NULL;
+                case cAction : return (opt->type == OptionItem::TYPE_BUTTON || opt->type == OptionItem::TYPE_KEY) ? opt : NULL;
                 case cUp     : nextSlot(slot, -1); break;
                 case cDown   : nextSlot(slot, +1); break;
                 case cLeft   :
@@ -455,6 +499,8 @@ struct Inventory {
 
         phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
         memset(pageItemIndex, 0, sizeof(pageItemIndex));
+
+        waitForKey = NULL;
     }
 
     ~Inventory() {
@@ -584,6 +630,9 @@ struct Inventory {
     }
 
     bool toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+        if (!game->getLara(playerIndex))
+            return false;
+
         this->playerIndex = playerIndex;
         titleTimer = 0.0f;
 
@@ -714,6 +763,7 @@ struct Inventory {
             }
             case TR::Entity::INV_CONTROLS :
                 Core::settings.playerIndex = 0;
+                Core::settings.ctrlIndex   = 0;
                 break;
             case TR::Entity::INV_DETAIL :
                 settings = Core::settings;
@@ -769,13 +819,6 @@ struct Inventory {
             nextLevel = level->getHomeId();
             toggle();
         }
-
-        if ((key == cInventory || key == cJump) && phaseChoose == 1.0f) {
-            chosen = false;
-            item->anim->dir = 1.0f;
-            item->value     = 1000;
-            item->angle     = 0.0f;
-        }
     }
 
     void optionChanged(Item *item, const OptionItem *opt, Core::Settings &settings) {
@@ -792,7 +835,17 @@ struct Inventory {
                 game->playSound(TR::SND_PISTOLS_SHOT);
         }
 
-        if (opt->title == STR_APPLY) {
+        if (item->type == TR::Entity::INV_CONTROLS && opt->type == OptionItem::TYPE_KEY) {
+            waitForKey = opt;
+            Input::lastKey = ikNone;
+            Input::joy[Core::settings.controls[Core::settings.playerIndex].joyIndex].lastKey = jkNone;
+        }
+
+        if (item->type == TR::Entity::INV_SOUND || item->type == TR::Entity::INV_CONTROLS) {
+            game->applySettings(settings);
+        }
+
+        if (item->type == TR::Entity::INV_DETAIL && opt->title == STR_APPLY) {
             game->applySettings(settings);
             chosen = false;
         }
@@ -834,17 +887,17 @@ struct Inventory {
         Input::Joystick &joy = Input::joy[Core::settings.controls[playerIndex].joyIndex];
 
         ControlKey key = cMAX;
-        if (Input::state[playerIndex][cAction])
+        if (Input::down[ikCtrl] || Input::down[ikEnter] || joy.down[jkA])
             key = cAction;
-        else if (Input::state[playerIndex][cInventory] || Input::state[playerIndex][cJump])
+        else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::state[playerIndex][cInventory])
             key = cInventory;
-        else if (Input::state[playerIndex][cLeft]  || joy.L.x < -0.5f)
+        else if (Input::down[ikLeft]  || joy.down[jkLeft]  || joy.L.x < -0.5f)
             key = cLeft;
-        else if (Input::state[playerIndex][cRight] || joy.L.x >  0.5f)
+        else if (Input::down[ikRight] || joy.down[jkRight] || joy.L.x >  0.5f)
             key = cRight;
-        else if (Input::state[playerIndex][cUp]    || joy.L.y < -0.5f)
+        else if (Input::down[ikUp]    || joy.down[jkUp]    || joy.L.y < -0.5f)
             key = cUp;
-        else if (Input::state[playerIndex][cDown]  || joy.L.y >  0.5f)
+        else if (Input::down[ikDown]  || joy.down[jkDown]  || joy.L.y >  0.5f)
             key = cDown;
 
         Item *item = items[getGlobalIndex(page, index)];
@@ -876,8 +929,40 @@ struct Inventory {
                     }
                 }
 
-                if (key != cMAX && lastKey != key && changeTimer == 0.0f && phaseChoose == 1.0f)
+                if (waitForKey) {
+                    int newKey = -1;
+                    if (Core::settings.ctrlIndex == 0 && Input::lastKey != ikNone) {
+                        newKey = Input::lastKey;
+                    } else {
+                        JoyKey jk = Input::joy[Core::settings.controls[Core::settings.playerIndex].joyIndex].lastKey;
+                        if (Core::settings.ctrlIndex == 1 && jk != jkNone)
+                            newKey = jk;
+                    }
+
+                    if (newKey != -1) {
+                        waitForKey->setValue(newKey, &Core::settings);
+                        waitForKey = NULL;
+                        lastKey = key;
+                        game->applySettings(Core::settings);
+                    }
+                }
+
+                if (key != cMAX && lastKey != key && changeTimer == 0.0f && phaseChoose == 1.0f) {
                     controlItem(item, key);
+                }
+            }
+
+            if ((key == cInventory || key == cJump) && lastKey != key) {
+                lastKey = key;
+                if (chosen) {
+                    if (phaseChoose == 1.0f) {
+                        chosen  = false;
+                        item->anim->dir = 1.0f;
+                        item->value     = 1000;
+                        item->angle     = 0.0f;
+                    }
+                } else
+                    toggle();
             }
         }
         lastKey = key;
@@ -1036,7 +1121,7 @@ struct Inventory {
             sprintf(buf, "%d %c", item->count, spec);
             for (int i = 0; buf[i] != ' '; i++)
                 buf[i] -= 47;
-            UI::textOut(pos, buf, UI::aRight, width, UI::SHADE_NONE);
+            UI::textOut(pos, buf, UI::aRight, width, 255, UI::SHADE_NONE);
         }
     }
 
@@ -1270,13 +1355,13 @@ struct Inventory {
             UI::textOut(vec2(-eye, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {
-            UI::textOut(vec2(16 - eye, 32), "[", UI::aLeft, UI::width, UI::SHADE_NONE);
-            UI::textOut(vec2(-eye, 32), "[", UI::aRight, UI::width - 20, UI::SHADE_NONE);
+            UI::textOut(vec2(16 - eye, 32), "[", UI::aLeft, UI::width);
+            UI::textOut(vec2(-eye, 32), "[", UI::aRight, UI::width - 20);
         }
 
         if (canFlipPage(1)) {
-            UI::textOut(vec2(16 - eye, 480 - 16), "]", UI::aLeft, UI::width, UI::SHADE_NONE);
-            UI::textOut(vec2(-eye,  480 - 16), "]", UI::aRight, UI::width - 20, UI::SHADE_NONE);
+            UI::textOut(vec2(16 - eye, 480 - 16), "]", UI::aLeft, UI::width);
+            UI::textOut(vec2(-eye,  480 - 16), "]", UI::aRight, UI::width - 20);
         }
 
         if (index == targetIndex)
@@ -1284,15 +1369,13 @@ struct Inventory {
 
     // inventory controls help
         float dx = 32.0f - eye;
-        UI::textOut(vec2(dx, 480 - 64), "Ctrl - Select", UI::aLeft, UI::width, UI::SHADE_NONE);
-        if (chosen)
-            UI::textOut(vec2(0, 480 - 64),
-            #ifdef __EMSCRIPTEN__
-                "D"
-            #else
-                "Alt"
-            #endif
-            " - Go Back", UI::aRight, UI::width - dx, UI::SHADE_NONE);
+        char buf[64];
+        sprintf(buf, STR[STR_HELP_SELECT], STR[STR_KEY_FIRST + ikEnter] );
+        UI::textOut(vec2(dx, 480 - 64), buf, UI::aLeft, UI::width);
+        if (chosen) {
+            sprintf(buf, STR[STR_HELP_BACK], STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[ cInventory ].key] );
+            UI::textOut(vec2(0, 480 - 64), buf, UI::aRight, UI::width - dx);
+        }
     }
 };
 

@@ -14,11 +14,11 @@ varying vec4 vColor;
 
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
-	attribute vec4 aColor;
+	attribute vec4 aLight;
 
 	void main() {
 		vTexCoord	= aTexCoord.xy;
-		vColor		= aColor;
+		vColor		= aLight;
 		gl_Position = uViewProj * vec4(aCoord.xy * uPosScale.zw + uPosScale.xy, 0.0, 1.0);
 	}
 #else

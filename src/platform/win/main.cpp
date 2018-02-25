@@ -112,12 +112,32 @@ int osGetTime() {
 #endif
 }
 
-bool osSave(const char *name, const void *data, int size) {
-    FILE *f = fopen(name, "wb");
+bool osCacheWrite(const char *name, const char *data, int size) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, name);
+    FILE *f = fopen(path, "wb");
     if (!f) return false;
     fwrite(data, size, 1, f);
     fclose(f);
     return true;
+}
+
+Stream* osCacheRead(const char *name) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, name);
+    if (!Stream::exists(path))
+        return NULL;
+    return new Stream(path);
+}
+
+bool osSaveGame(const char *data, int size) {
+    return osCacheWrite("savegame", data, size);
+}
+
+Stream* osLoadGame() {
+    return osCacheRead("savegame");
 }
 
 // common input functions
@@ -168,8 +188,10 @@ typedef struct _XINPUT_VIBRATION
 #define XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE 8689
 #define XINPUT_GAMEPAD_TRIGGER_THRESHOLD    30
 
-DWORD (WINAPI *XInputGetState)(DWORD dwUserIndex, XINPUT_STATE* pState);
-DWORD (WINAPI *XInputSetState)(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+DWORD (WINAPI *XInputGetState) (DWORD dwUserIndex, XINPUT_STATE* pState) = NULL;
+DWORD (WINAPI *XInputSetState) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration) = NULL;
+void  (WINAPI *XInputEnable)   (BOOL enable) = NULL;
+#define XInputGetProc(x) (x = (decltype(x))GetProcAddress(h, #x))
 
 #define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
@@ -193,9 +215,12 @@ void joyInit() {
     memset(joyReady, 0, sizeof(joyReady));
 
     HMODULE h = LoadLibrary("xinput1_3.dll");
+    if (h == NULL)
+        h = LoadLibrary("xinput9_1_0.dll");
 
-    XInputGetState = (decltype(XInputGetState))GetProcAddress(h, "XInputGetState");
-    XInputSetState = (decltype(XInputSetState))GetProcAddress(h, "XInputSetState");
+    XInputGetProc(XInputGetState);
+    XInputGetProc(XInputSetState);
+    XInputGetProc(XInputEnable);
 
     for (int j = 0; j < INPUT_JOY_COUNT; j++) {
         if (XInputGetState) { // XInput
@@ -403,6 +428,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
         // window
         case WM_ACTIVATE :
+            if (XInputEnable)
+                XInputEnable(wParam != WA_INACTIVE);
             Input::reset();
             break;
         case WM_SIZE:

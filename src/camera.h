@@ -448,7 +448,7 @@ struct Camera : ICamera {
     virtual void update() {
         if (shake > 0.0f) {
             shake = max(0.0f, shake - Core::deltaTime);
-            osJoyVibrate(Core::settings.controls[cameraIndex].joyIndex, clamp(shake, 0.0f, 1.0f), 0);
+            Input::setJoyVibrate(cameraIndex,  clamp(shake, 0.0f, 1.0f), 0);
         }
 
         if (mode == MODE_CUTSCENE) {

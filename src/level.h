@@ -130,21 +130,24 @@ struct Level : IGame {
         save->size      = ptr - data;
         save->version   = level.version & TR::VER_VERSION;
 
-        Stream::write("savegame.dat", data, int(ptr - data));
+        osSaveGame(data, int(ptr - data));
         delete[] data;
 
         LOG("Ok\n");
     }
 
     virtual void loadGame(int slot) {
-        LOG("Lave Game... ");
+        LOG("Load Game... ");
+
+        Stream *stream = osLoadGame();
+        if (!stream)
+            return;
 
         clearInventory();
         clearEntities();
 
-        Stream stream("savegame.dat");
         char *data;
-        stream.read(data, stream.size);
+        stream->read(data, stream->size);
         char *ptr = data;
 
         TR::SaveGame *save = (TR::SaveGame*)ptr;
@@ -188,6 +191,7 @@ struct Level : IGame {
         }
 
         delete[] data;
+        delete stream;
 
     //    camera->room = lara->getRoomIndex();
     //    camera->pos  = camera->destPos = lara->pos;
@@ -232,6 +236,8 @@ struct Level : IGame {
         bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
 
         Core::settings = settings;
+
+        osCacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
             delete shaderCache;
@@ -516,7 +522,7 @@ struct Level : IGame {
                 switch (b.flags.mode) {
                     case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
                     case 1 : flags |= Sound::REPLAY; break;
-                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
+                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP; break;
                     case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
                 }
             }
@@ -549,7 +555,6 @@ struct Level : IGame {
             }
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
         }
-        LOG("play soundtrack - %d\n", Core::getTime());
     }
 
     virtual void playTrack(uint8 track, bool restart = false) {
@@ -1408,7 +1413,7 @@ struct Level : IGame {
             }
         }
 
-        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f) {
+        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f && !inventory.active && inventory.lastKey == cMAX) {
             int playerIndex = Input::state[0][cInventory] ? 0 : 1;
 
             if (player->health <= 0.0f)

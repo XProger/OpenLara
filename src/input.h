@@ -7,7 +7,7 @@
 #define INPUT_JOY_COUNT 4
 
 namespace Input {
-
+    InputKey lastKey;
     bool down[ikMAX];
     bool state[2][cMAX];
 
@@ -19,9 +19,10 @@ namespace Input {
     } mouse;
 
     struct Joystick {
-        vec2  L, R;
-        float LT, RT;
-        bool  down[jkMAX];
+        vec2   L, R;
+        float  LT, RT;
+        JoyKey lastKey;
+        bool   down[jkMAX];
     } joy[INPUT_JOY_COUNT];
 
     struct Touch {
@@ -77,6 +78,8 @@ namespace Input {
                 default       : ;
             }
         down[key] = value;
+
+        if (value && key <= ikZ) lastKey = key;
     }
 
     void setPos(InputKey key, const vec2 &pos) {
@@ -95,7 +98,12 @@ namespace Input {
     }
 
     void setJoyDown(int index, JoyKey key, bool value) {
+        if (joy[index].down[key] == value)
+            return;
+
         joy[index].down[key] = value;
+
+        if (value) joy[index].lastKey = key;
     }
 
     void setJoyPos(int index, JoyKey key, const vec2 &pos) {
@@ -107,6 +115,12 @@ namespace Input {
             default    : return;
         }
         setJoyDown(index, key, pos.x > 0.0f); // gamepad LT, RT auto-down state
+    }
+
+    void setJoyVibrate(int playerIndex, float L, float R) {
+        if (!Core::settings.controls[playerIndex].vibration)
+            return;
+        osJoyVibrate(Core::settings.controls[playerIndex].joyIndex, L, R);
     }
 
     InputKey getTouch(int id) {

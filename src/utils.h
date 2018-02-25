@@ -1211,10 +1211,6 @@ struct Stream {
         return exists(fileName);
     }
 
-    static void write(const char *name, const void *data, int size) {
-        osSave(name, data, size);
-    }
-
     void setPos(int pos) {
         this->pos = pos;
         if (f) fseek(f, pos, SEEK_SET);

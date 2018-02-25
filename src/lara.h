@@ -253,6 +253,7 @@ struct Lara : Character {
     Camera      *camera;
 
     float       hitTimer;
+    bool        camChanged; // hit key detection to go first person view mode
 
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
@@ -431,7 +432,8 @@ struct Lara : Character {
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
         camera = new Camera(game, this);
 
-        hitTimer = 0.0f;
+        hitTimer   = 0.0f;
+        camChanged = false;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -2652,6 +2654,14 @@ struct Lara : Character {
     // analog control
         rotFactor = vec2(1.0f);
 
+        if ((input & LOOK) && (input & ACTION)) {
+            if (!camChanged) {
+                camera->changeView(!camera->firstPerson);
+                camChanged = true;
+            }
+        } else
+            camChanged = false;
+
         if (input & LOOK)
             return input;
 
@@ -2700,7 +2710,14 @@ struct Lara : Character {
             || state == STATE_USE_KEY
             || state == STATE_USE_PUZZLE
             || state == STATE_SPECIAL
-            || state == STATE_REACH;
+            || state == STATE_REACH
+            || state == STATE_SWAN_DIVE
+            || state == STATE_HANDSTAND
+            || state == STATE_ROLL_1
+            || state == STATE_ROLL_2
+            || animation.index == ANIM_CLIMB_2
+            || animation.index == ANIM_CLIMB_3
+            || animation.index == ANIM_CLIMB_JUMP;
     }
 
     virtual void doCustomCommand(int curFrame, int prevFrame) {
@@ -2749,9 +2766,9 @@ struct Lara : Character {
         if (hitTimer > 0.0f) {
             hitTimer -= Core::deltaTime;
             if (hitTimer > 0.0f)
-                osJoyVibrate(Core::settings.controls[camera->cameraIndex].joyIndex, 0.5f, 0.5f);
+                Input::setJoyVibrate(camera->cameraIndex, 0.5f, 0.5f);
             else
-                osJoyVibrate(Core::settings.controls[camera->cameraIndex].joyIndex, 0, 0);
+                Input::setJoyVibrate(camera->cameraIndex, 0, 0);
         }
 
         if (level->isCutsceneLevel())
