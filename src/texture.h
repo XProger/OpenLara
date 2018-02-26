@@ -654,12 +654,13 @@ struct Texture {
 
         BitStream bs(cdata, csize);
         uint8 *dst = data;
+        uint8 *end = data + size;
 
         uint32 length = 0;
         uint16 offset = 0;
 
         bs.readBits(2);
-        while (bs.data < bs.end || bs.index > 0) {
+        while (bs.data < bs.end && dst < end) {
             if (!bs.readBit()) {
                 *dst++ = bs.readByte();
             } else {

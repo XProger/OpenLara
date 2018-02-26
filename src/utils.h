@@ -1320,6 +1320,7 @@ struct BitStream {
     }
 
     uint8 readByte() {
+        ASSERT(data < end);
         return *data++;
     }
 };
