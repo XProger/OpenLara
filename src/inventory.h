@@ -857,8 +857,10 @@ struct Inventory {
                 titleTimer = 0.0f;
         }
 
-        if (!isActive())
+        if (!isActive()) {
+            lastKey = cMAX;
             return;
+        }
 
         float lastChoose = phaseChoose;
 

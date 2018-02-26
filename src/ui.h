@@ -106,8 +106,8 @@ const char *helpText =
     "Step Left - Walk + Left@"
     "Step Right - Walk + Right@"
     "Out of water - Up + Action@"
-    "Handstand - Run + Walk@"
-    "Swan dive - Run + Walk + Jump@"
+    "Handstand - Up + Walk@"
+    "Swan dive - Up + Walk + Jump@"
     "First Person View - Look + Action@"
     "DOZY on - Look + Duck + Action + Jump@"
     "DOZY off - Walk";
