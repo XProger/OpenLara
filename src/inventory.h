@@ -308,10 +308,10 @@ struct Inventory {
                         OptionItem &opt = optControlsPlayer[i];
                         opt = optControls[i];
 
-                        if (i > 2 && i != 2 && i != 7)
+                        if (i > 2 && opt.offset != SETTINGS( playerIndex ) && opt.offset != SETTINGS( ctrlIndex ) )
                             opt.offset += sizeof(Core::Settings::Controls) * Core::settings.playerIndex;
 
-                        if (i > 7) {
+                        if (opt.type == OptionItem::TYPE_KEY) {
                             if (Core::settings.ctrlIndex == 1) {
                                 opt.offset++; // add offset to joy
                                 opt.color = STR_JOY_FIRST;
