@@ -176,6 +176,9 @@ static OptionItem optPassport[] = {
     OptionItem( ),
     OptionItem( ),
     OptionItem( ),
+    OptionItem( ),
+    OptionItem( ),
+    OptionItem( ),
 };
 
 struct Inventory {
@@ -736,9 +739,17 @@ struct Inventory {
 
                 switch (level->version & TR::VER_VERSION) {
                     case TR::VER_TR1 : 
+                    #ifdef __EMSCRIPTEN__
                         passportSlotCount = 2;
                         passportSlots[0]  = TR::LVL_TR1_1;
                         passportSlots[1]  = TR::LVL_TR1_2;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR1_1; i <= TR::LVL_TR1_10C; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
                         break;
                     case TR::VER_TR2 :
                         passportSlotCount = 2;
