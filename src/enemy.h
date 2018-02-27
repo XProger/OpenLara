@@ -240,10 +240,10 @@ struct Enemy : Character {
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        if (hitSound > -1 && health > 0.0f) 
+            game->playSound(hitSound, pos, Sound::PAN);
         Character::hit(damage, enemy, hitType);
         wound = true;
-        if (hitSound > -1) 
-            game->playSound(hitSound, pos, Sound::PAN);
     };
 
     void bite(const vec3 &pos, float damage) {
