@@ -703,6 +703,7 @@ struct Level : IGame {
             case TR::Entity::ENEMY_WOLF            : return new Wolf(this, index);
             case TR::Entity::ENEMY_BEAR            : return new Bear(this, index);
             case TR::Entity::ENEMY_BAT             : return new Bat(this, index);
+            case TR::Entity::ENEMY_PUMA            :
             case TR::Entity::ENEMY_LION_MALE       :
             case TR::Entity::ENEMY_LION_FEMALE     : return new Lion(this, index);
             case TR::Entity::ENEMY_RAT_LAND        :
@@ -716,7 +717,6 @@ struct Level : IGame {
             case TR::Entity::ENEMY_MUMMY           : return new Mummy(this, index);
             case TR::Entity::ENEMY_CROCODILE_LAND  :
             case TR::Entity::ENEMY_CROCODILE_WATER :
-            case TR::Entity::ENEMY_PUMA            :
             case TR::Entity::ENEMY_GORILLA         : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
             case TR::Entity::ENEMY_LARSON          : return new Larson(this, index);
             case TR::Entity::ENEMY_PIERRE          : return new Pierre(this, index);
