@@ -2654,14 +2654,6 @@ struct Lara : Character {
     // analog control
         rotFactor = vec2(1.0f);
 
-        if ((input & LOOK) && (input & ACTION)) {
-            if (!camChanged) {
-                camera->changeView(!camera->firstPerson);
-                camChanged = true;
-            }
-        } else
-            camChanged = false;
-
         if (input & LOOK)
             return input;
 
@@ -2715,6 +2707,10 @@ struct Lara : Character {
             || state == STATE_HANDSTAND
             || state == STATE_ROLL_1
             || state == STATE_ROLL_2
+            // make me sick!
+            // || state == STATE_BACK_JUMP
+            // || state == STATE_LEFT_JUMP
+            // || state == STATE_RIGHT_JUMP
             || animation.index == ANIM_CLIMB_2
             || animation.index == ANIM_CLIMB_3
             || animation.index == ANIM_CLIMB_JUMP;
@@ -2748,6 +2744,14 @@ struct Lara : Character {
     }
 
     virtual void update() {
+        if ((Input::state[camera->cameraIndex][cLook]) && (Input::state[camera->cameraIndex][cAction])) {
+            if (!camChanged) {
+                camera->changeView(!camera->firstPerson);
+                camChanged = true;
+            }
+        } else
+            camChanged = false;
+
         if (level->isCutsceneLevel()) {
             updateAnimation(true);
 

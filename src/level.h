@@ -1346,9 +1346,11 @@ struct Level : IGame {
         int roomIndex = controller->getRoomIndex();
         TR::Room &room = level.rooms[roomIndex];
 
-        if (!entity.isLara() && !entity.isActor())
-            if (!room.flags.visible || controller->flags.invisible)// || controller->flags.rendered)
-                return;
+        if (controller->flags.invisible)
+            return;
+
+        if (!entity.isLara() && !entity.isActor() && !room.flags.visible)
+            return;
 
         float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
 

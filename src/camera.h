@@ -162,6 +162,7 @@ struct Camera : ICamera {
         level->cutMatrix.identity();
         level->cutMatrix.rotateY(rotation);
         level->cutMatrix.setPos(pos);
+        owner->animation.overrideMask = 0;
         timer = 0.0f;
     }
 
@@ -485,10 +486,10 @@ struct Camera : ICamera {
 
                 eye.pos    = level->cutMatrix * eye.pos;
                 target.pos = level->cutMatrix * target.pos;
+
+                mViewInv   = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else
                 updateFirstPerson();
-
-            mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
 
             checkRoom();
         } else {
@@ -549,7 +550,7 @@ struct Camera : ICamera {
             }
 
             targetAngle = owner->angle + advAngle;
-            if (mode == MODE_FOLLOW || mode == MODE_COMBAT)
+            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
                 targetAngle += angle;
 
             targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);

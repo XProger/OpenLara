@@ -673,8 +673,6 @@ struct Lion : Enemy {
         float angle;
         getTargetInfo(0, NULL, NULL, &angle, NULL);
 
-        bool inZone = target ? target->zone == zone : false;
-
         if (nextState == state)
             nextState = STATE_NONE;
 
