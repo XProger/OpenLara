@@ -75,6 +75,8 @@
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+    
+    extern EGLDisplay display;
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -1095,6 +1097,7 @@ namespace Core {
 
     #ifdef __RPI__
         settings.detail.setShadows(Core::Settings::LOW);
+        settings.detail.setLighting(Core::Settings::MEDIUM);
     #endif
 
     #ifdef FFP
@@ -1464,6 +1467,8 @@ namespace Core {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(1);
         #elif LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(1);
+        #elif __RPI__
+            eglSwapInterval(display, 1);
         #elif _PSP
             sceDisplayWaitVblankStart();
         #endif
@@ -1472,6 +1477,8 @@ namespace Core {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(0);
         #elif LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(0);
+        #elif __RPI__
+            eglSwapInterval(display, 0);
         #endif
         }
     }

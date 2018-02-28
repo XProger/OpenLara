@@ -113,7 +113,7 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_LIGHTING, SETTINGS( detail.lighting ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows  ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water    ), STR_QUALITY_LOW, 0, 2 ),
-#if defined(WIN32) || defined(LINUX) || defined(_PSP)
+#if defined(WIN32) || defined(LINUX) || defined(_PSP) || defined(__RPI__)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync    ), STR_OFF, 0, 1 ),
 #endif
 #ifndef _PSP

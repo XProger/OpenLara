@@ -112,6 +112,8 @@ int osGetTime() {
 #endif
 }
 
+
+// storage
 void osCacheWrite(Stream *stream) {
     char path[255];
     strcpy(path, Stream::cacheDir);

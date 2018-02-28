@@ -72,13 +72,54 @@ int osGetTime() {
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
-bool osSave(const char *name, const void *data, int size) {
-    FILE *f = fopen(name, "wb");
-    if (!f) return false;
-    fwrite(data, size, 1, f);
-    fclose(f);
-    return true;
+
+// storage
+void osCacheWrite(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fwrite(stream->data, 1, stream->size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+
+    delete stream;
 }
+
+void osCacheRead(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        int size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = new char[size];
+        fread(data, 1, size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, data, size), stream->userData);
+        delete[] data;
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
+}
+
 
 // Sound
 snd_pcm_uframes_t   SND_FRAMES = 512;
@@ -235,8 +276,6 @@ bool eglInit(EGL_DISPMANX_WINDOW_T &window, EGLDisplay &display, EGLSurface &sur
     if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE)
         return false;
 
-    //eglSwapInterval(display, 0); // turn off vsync
-
     return true;
 }
 
@@ -256,6 +295,14 @@ udev_monitor *udevMon;
 int udevMon_fd;
 
 vec2 joyL, joyR;
+
+bool osJoyReady(int index) {
+    return true; // TODO
+}
+
+void osJoyVibrate(int index, float L, float R) {
+    // TODO
+}
 
 InputKey codeToInputKey(int code) {
     switch (code) {
@@ -482,6 +529,8 @@ void inputUpdate() {
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
+EGLDisplay display;
+
 int main(int argc, char **argv) {
     bcm_host_init();
 
@@ -492,7 +541,6 @@ int main(int argc, char **argv) {
     Core::width  = dmWindow.width;
     Core::height = dmWindow.height;
 
-    EGLDisplay display;
     EGLSurface surface;
     EGLContext context;
     if (!eglInit(dmWindow, display, context, surface)) {
@@ -527,10 +575,11 @@ int main(int argc, char **argv) {
     while (!Core::isQuit) {
         inputUpdate();
 
-		if (Game::update()) {
-			Game::render();
-			eglSwapBuffers(display, surface);
-		}
+        if (Game::update()) {
+            Game::render();
+            Core::waitVBlank();
+            eglSwapBuffers(display, surface);
+        }
     };
 
     sndFree();
