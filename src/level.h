@@ -1369,11 +1369,9 @@ struct Level : IGame {
             vec3 pos = controller->getPos();
             if (ambientCache) {
                 AmbientCache::Cube cube;
-                if (Core::stats.frame != controller->jointsFrame) {
-                    ambientCache->getAmbient(roomIndex, pos, cube);
-                    if (cube.status == AmbientCache::Cube::READY)
-                        memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
-                }
+                ambientCache->getAmbient(roomIndex, pos, cube);
+                if (cube.status == AmbientCache::Cube::READY)
+                    memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
 
