@@ -1329,7 +1329,7 @@ struct Inventory {
 
         Core::mView.up()  *= -1.0f;
         Core::mView.dir() *= -1.0f;
-        Core::mViewInv = Core::mView.inverse();
+        Core::mViewInv = Core::mView.inverseOrtho();
 
         Core::mProj     = mat4(70.0f, aspect, 32.0f, 2048.0f);
         Core::setViewProj(Core::mView, Core::mProj);

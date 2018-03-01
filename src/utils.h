@@ -737,6 +737,18 @@ struct mat4 {
         return r;
     }
 
+    mat4 inverseOrtho() const {
+        mat4 r;
+        r.e00 =  e00; r.e10 = e01; r.e20 = e02; r.e30 = 0;
+        r.e01 =  e10; r.e11 = e11; r.e21 = e12; r.e31 = 0;
+        r.e02 =  e20; r.e12 = e21; r.e22 = e22; r.e32 = 0;
+        r.e03 = -(e03 * e00 + e13 * e10 + e23 * e20); // -dot(pos, right)
+        r.e13 = -(e03 * e01 + e13 * e11 + e23 * e21); // -dot(pos, up)
+        r.e23 = -(e03 * e02 + e13 * e12 + e23 * e22); // -dot(pos, dir)
+        r.e33 = 1;
+        return r;
+    }
+
     mat4 transpose() const {
         mat4 r;
         r.e00 = e00; r.e10 = e01; r.e20 = e02; r.e30 = e03;
@@ -1126,7 +1138,7 @@ struct Box {
     }
 
     bool intersect(const mat4 &matrix, const vec3 &rayPos, const vec3 &rayDir, float &t) const {
-        mat4 mInv = matrix.inverse();
+        mat4 mInv = matrix.inverseOrtho();
         return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz(), t);
     }
 };

@@ -627,7 +627,7 @@ struct Camera : ICamera {
                 Core::mViewInv.scale(vec3(1.0f, -1.0f, 1.0f));
             }
 
-            Core::mView = Core::mViewInv.inverse();
+            Core::mView = Core::mViewInv.inverseOrtho();
             if (shake > 0.0f)
                 Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 

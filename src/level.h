@@ -1730,7 +1730,7 @@ struct Level : IGame {
         }
 
         Core::mViewInv  = mat4(pos, pos + dir, up);
-        Core::mView     = Core::mViewInv.inverse();
+        Core::mView     = Core::mViewInv.inverseOrtho();
         Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
@@ -1742,7 +1742,7 @@ struct Level : IGame {
         vec3 pos = player->getBoundingBox().center();
 
         Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
-        Core::mView    = Core::mViewInv.inverse();
+        Core::mView    = Core::mViewInv.inverseOrtho();
         Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
 
         mat4 bias;
@@ -1778,7 +1778,7 @@ struct Level : IGame {
 
     #ifdef _DEBUG
     void renderDebug() {
-        if (level.isTitle()) return;
+        if (level.isTitle() || inventory.titleTimer > 1.0f) return;
 
         Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
