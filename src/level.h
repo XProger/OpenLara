@@ -2203,7 +2203,7 @@ struct Level : IGame {
             inventory.prepareBackground();
         }
 
-        if (!title)
+        if (!title && inventory.titleTimer <= 1.0f)
             renderGame(true);
 
         renderInventory(title);

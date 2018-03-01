@@ -104,7 +104,7 @@ struct OptionItem {
     }
 };
 
-#define SETTINGS(x) intptr_t( &(((Core::Settings*)NULL)->x) )
+#define SETTINGS(x) offsetof(Core::Settings, x)
 
 static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_DETAIL ),
