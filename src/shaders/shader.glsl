@@ -63,15 +63,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
 		}
 	#endif
-	
-	#ifdef OPT_ANIMTEX
-		uniform vec2 uAnimTexRanges[MAX_RANGES];
-		uniform vec2 uAnimTexOffsets[MAX_OFFSETS];
-	#endif
 
 	attribute vec4 aCoord;
 	attribute vec4 aTexCoord;
-	attribute vec4 aParam;
 	attribute vec4 aNormal;
 
 	#ifndef PASS_SHADOW
@@ -230,13 +224,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 	void _uv(vec3 coord) {
 		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
-			#ifdef OPT_ANIMTEX
-				// animated texture coordinates
-				vec2 range  = uAnimTexRanges[int(aParam.x)];			// x - start index, y - count
-				float frame = fract((aParam.y + uParam.x * 4.0 - range.x) / range.y) * range.y;
-				vec2 offset = uAnimTexOffsets[int(range.x + frame)];	// texCoord offset from first frame
-				vTexCoord.xy += offset;
-			#endif
 			vTexCoord.xy *= vTexCoord.zw;
 		#endif
 

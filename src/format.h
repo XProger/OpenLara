@@ -1115,7 +1115,7 @@ namespace TR {
     struct ObjectTexture {
         uint16  clut;
         Tile    tile;                        // tile or palette index
-        uint16  attribute:15, repeat:1;      // 0 - opaque, 1 - transparent, 2 - blend additive, 
+        uint16  attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
         short2  texCoord[4];
 
         short4 getMinMax() const {
@@ -1152,6 +1152,7 @@ namespace TR {
         } flags;
         uint8  colored; // !!! not existing in file
         uint8  vCount;  // !!! not existing in file
+        short3 normal;  // !!! not existing in file
         uint16 vertices[4];
 
         static int cmp(const Face &a, const Face &b) {
@@ -1189,7 +1190,7 @@ namespace TR {
         }
     };
 
-    #define FACE4_SIZE (sizeof(Face) - sizeof(uint8) - sizeof(uint8))
+    #define FACE4_SIZE (sizeof(uint16) + sizeof(uint16) * 4) // flags + vertices[4]
     #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
     struct Tile4 {
@@ -2307,6 +2308,8 @@ namespace TR {
 
         int32           animTexturesDataSize;
         uint16          *animTexturesData;
+        int16           animTexturesCount;
+        AnimTexture     **animTextures;
 
         int32           entitiesBaseCount;
         int32           entitiesCount;
@@ -2622,45 +2625,15 @@ namespace TR {
                 }
                 stream.read(zones[i].fly, boxesCount);
             }
+
         // animated textures
-            stream.read(animTexturesData,   stream.read(animTexturesDataSize));
+            readAnimTex(stream);
+
             if (version & VER_TR3)
                 readObjectTex(stream);
+
         // entities (enemies, items, lara etc.)
-            entitiesCount = stream.read(entitiesBaseCount) + MAX_RESERVED_ENTITIES;
-            entities = new Entity[entitiesCount];
-            for (int i = 0; i < entitiesBaseCount; i++) {
-                Entity &e = entities[i];
-                uint16 type;
-                e.type = Entity::Type(stream.read(type));
-                stream.read(e.room);
-                stream.read(e.x);
-                stream.read(e.y);
-                stream.read(e.z);
-                stream.read(e.rotation);
-                stream.read(e.intensity);
-                if (version & (VER_TR2 | VER_TR3))
-                    stream.read(e.intensity2);
-                stream.read(e.flags.value);
-
-                e.type = Entity::remap(version, e.type);
-
-                e.controller = NULL;
-                e.modelIndex = getModelIndex(e.type);
-            }
-            for (int i = entitiesBaseCount; i < entitiesCount; i++)
-                entities[i].controller = NULL;
-
-            if (isCutsceneLevel()) {
-                for (int i = 0; i < entitiesBaseCount; i++) {
-                    TR::Entity &e = entities[i];
-                    if ((((version & VER_TR1)) && e.isActor()) || 
-                        (((version & (VER_TR2 | VER_TR3))) && e.isLara())) {
-                        cutEntity = i;
-                        break;
-                    }
-                }
-            }
+            readEntities(stream);
 
             if (version & VER_PC) {
                 stream.seek(32 * 256);
@@ -2719,6 +2692,7 @@ namespace TR {
             }
 
             initRoomMeshes();
+            initAnimTex();
 
             memset(&state, 0, sizeof(state));
 
@@ -2770,6 +2744,7 @@ namespace TR {
                 delete[] zones[i].fly;
             }
             delete[] animTexturesData;
+            delete[] animTextures;
             delete[] entities;
             delete[] palette;
             delete[] palette32;
@@ -3423,6 +3398,7 @@ namespace TR {
                     t.clut        = c;\
                     t.tile        = d.tile;\
                     t.attribute   = d.attribute;\
+                    t.animated    = false;\
                     t.texCoord[0] = short2( d.x0, d.y0 );\
                     t.texCoord[1] = short2( d.x1, d.y1 );\
                     t.texCoord[2] = short2( d.x2, d.y2 );\
@@ -3535,11 +3511,80 @@ namespace TR {
             }
         }
 
+        void readAnimTex(Stream &stream) {
+            stream.read(animTexturesData, stream.read(animTexturesDataSize));
+            uint16 *ptr = animTexturesData;
+            animTexturesCount = *ptr++;
+            if (!animTexturesCount) {
+                animTextures = NULL;
+                return;
+            }
+            animTextures = new AnimTexture*[animTexturesCount];
+            for (int i = 0; i < animTexturesCount; i++) {
+                animTextures[i] = (AnimTexture*)ptr;
+                animTextures[i]->count++; // count + 1
+                ptr += 1 + animTextures[i]->count; // skip count and texture indices
+            }
+        }
+
+        void readEntities(Stream &stream) {
+            entitiesCount = stream.read(entitiesBaseCount) + MAX_RESERVED_ENTITIES;
+            entities = new Entity[entitiesCount];
+            for (int i = 0; i < entitiesBaseCount; i++) {
+                Entity &e = entities[i];
+                uint16 type;
+                e.type = Entity::Type(stream.read(type));
+                stream.read(e.room);
+                stream.read(e.x);
+                stream.read(e.y);
+                stream.read(e.z);
+                stream.read(e.rotation);
+                stream.read(e.intensity);
+                if (version & (VER_TR2 | VER_TR3))
+                    stream.read(e.intensity2);
+                stream.read(e.flags.value);
+
+                e.type = Entity::remap(version, e.type);
+
+                e.controller = NULL;
+                e.modelIndex = getModelIndex(e.type);
+            }
+            for (int i = entitiesBaseCount; i < entitiesCount; i++)
+                entities[i].controller = NULL;
+
+            if (isCutsceneLevel()) {
+                for (int i = 0; i < entitiesBaseCount; i++) {
+                    TR::Entity &e = entities[i];
+                    if ((((version & VER_TR1)) && e.isActor()) || 
+                        (((version & (VER_TR2 | VER_TR3))) && e.isLara())) {
+                        cutEntity = i;
+                        break;
+                    }
+                }
+            }
+        }
+
         void initRoomMeshes() {
             for (int i = 0; i < roomsCount; i++) {
                 Room &room = rooms[i];
                 for (int j = 0; j < room.meshesCount; j++)
                     room.meshes[j].meshIndex = getMeshByID(room.meshes[j].meshID);
+            }
+        }
+
+        void initAnimTex() {
+            for (int i = 0; i < animTexturesCount; i++)
+                for (int j = 0; j < animTextures[i]->count; j++)
+                    objectTextures[animTextures[i]->textures[j]].animated = true;
+        }
+
+        void shiftAnimTex() {
+            for (int i = 0; i < animTexturesCount; i++) {
+                AnimTexture *at = animTextures[i];
+                ObjectTexture tmp = objectTextures[at->textures[0]];
+                for (int j = 0; j < at->count - 1; j++)
+                    objectTextures[at->textures[j]] = objectTextures[at->textures[j + 1]];
+                objectTextures[at->textures[at->count - 1]] = tmp;
             }
         }
 

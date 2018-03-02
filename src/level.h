@@ -15,6 +15,8 @@
     #include "debug.h"
 #endif
 
+#define ANIM_TEX_TIMESTEP (10.0f / 30.0f)
+
 extern ShaderCache *shaderCache;
 extern void loadAsync(Stream *stream, void *userData);
 
@@ -52,6 +54,7 @@ struct Level : IGame {
     float      effectTimer;
     int        effectIdx;
     float      cutsceneWaitTimer;
+    float      animTexTimer;
 
     Texture    *cube360;
 
@@ -587,7 +590,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f) {
+    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
     #ifdef _PSP
         Core::freeEDRAM();
     #endif
@@ -1272,7 +1275,7 @@ struct Level : IGame {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
 
-            if (!range.geometry[transp].count) {
+            if (!range.geometry[transp].count && !range.dynamic[transp].count) {
                 i += dir;
                 continue;
             }
@@ -1437,6 +1440,12 @@ struct Level : IGame {
                 sndChanged = NULL;
         } else {
             params->time += Core::deltaTime;
+            animTexTimer += Core::deltaTime;
+
+            if (animTexTimer > ANIM_TEX_TIMESTEP) {
+                level.shiftAnimTex();
+                animTexTimer -= ANIM_TEX_TIMESTEP;
+            }
 
             updateEffect();
 

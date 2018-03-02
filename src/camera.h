@@ -406,8 +406,8 @@ struct Camera : ICamera {
                 continue;
             }
 
-            int sx = (int(p.x) - room.info.x) / 1024;
-            int sz = (int(p.z) - room.info.z) / 1024;
+            int sx = clamp((int(p.x) - room.info.x) / 1024, 0, room.xSectors - 1);
+            int sz = clamp((int(p.z) - room.info.z) / 1024, 0, room.zSectors - 1);
 
             int boxIndex = room.sectors[sz + sx * room.zSectors].boxIndex;
         

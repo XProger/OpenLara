@@ -505,35 +505,20 @@ enum RenderState {
 typedef uint16 Index;
 
 struct Vertex {
-    short4  coord;      // xyz  - position, w - joint index (for entities only)
-    short4  normal;     // xyz  - vertex normal, w - unused
-    short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
-    ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
-    ubyte4  color;      // for non-textured geometry
-    ubyte4  light;      // xyz  - color, w - use premultiplied alpha
+    short4 coord;      // xyz  - position, w - joint index (for entities only)
+    short4 normal;     // xyz  - vertex normal, w - unused
+    short4 texCoord;   // xy   - texture coordinates, zw - trapezoid warping
+    ubyte4 color;      // for non-textured geometry
+    ubyte4 light;      // xyz  - color, w - use premultiplied alpha
 };
 
-#ifdef FFP
-    #ifdef _PSP
-        struct VertexGPU {
-            short2 texCoord;
-            ubyte4 color;
-            short3 normal;
-            short3 coord;
-        };
-    #else
-/*
-        struct VertexGPU {
-            short2 texCoord;
-            ubyte4 color;
-            short3 normal;
-            uint16 _alignN;
-            short3 coord;
-            uint16 _alignC;
-        };
-*/
-        typedef Vertex VertexGPU;
-    #endif
+#ifdef _PSP
+    struct VertexGPU {
+        short2 texCoord;
+        ubyte4 color;
+        short3 normal;
+        short3 coord;
+    };
 #else
     typedef Vertex VertexGPU;
 #endif
@@ -976,6 +961,7 @@ namespace Core {
             sceGuDisable(GU_LIGHT3);
             sceGuAmbientColor(0xFFFFFFFF);
             sceGuColor(0xFFFFFFFF);
+            sceGuClearColor(0xffff00ff);
 
             freeEDRAM();
         #else
@@ -996,6 +982,8 @@ namespace Core {
             glMatrixMode(GL_TEXTURE);
             glLoadIdentity();
             glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
+
+            glClearColor(1, 0, 1, 1);
         #endif
     #endif
 

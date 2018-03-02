@@ -7,7 +7,6 @@
     E( aCoord           ) \
     E( aNormal          ) \
     E( aTexCoord        ) \
-    E( aParam           ) \
     E( aColor           ) \
     E( aLight           )
 
@@ -84,7 +83,7 @@ struct Shader {
         }
 
         ID = glCreateProgram();
-    
+
         if (!(Core::support.shaderBinary && linkBinary(fileName))) // try to load cached shader     
             if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
             #ifndef __EMSCRIPTEN__
@@ -202,51 +201,32 @@ struct Shader {
         return false;
     }
 
-    inline bool checkParam(UniformType uType, const void *value, int size) {
-        return true;
-        /*
-        if (size > sizeof(vec4) * 4) return true;
-        if (memcmp(&params[uType], value, size) != 0) {
-            memcpy(&params[uType], value, size);
-            return true;
-        }
-        return false;
-        */
-    }
-
     void setParam(UniformType uType, const int &value, int count = 1) {
-        if (uID[uType] != -1)
-            glUniform1iv(uID[uType], count, (GLint*)&value);
+        if (uID[uType] != -1) glUniform1iv(uID[uType], count, (GLint*)&value);
     }
 
     void setParam(UniformType uType, const float &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform1fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform1fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec2 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform2fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform2fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec3 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform3fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform3fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec4 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform4fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform4fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const mat4 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const Basis &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
     }
 #endif
 };

@@ -126,7 +126,8 @@ struct Texture {
         this->format = format;
 
     #ifdef _PSP
-        memory = NULL;//new uint8[width * height * 2];
+        memory = new uint8[width * height * 4];
+        memcpy(memory, data, width * height * 4);
     #else
         glGenTextures(1, &ID);
         bind(0);
@@ -262,11 +263,19 @@ struct Texture {
 
     void bind(int sampler) {
     #ifdef _PSP
-        if (this && !sampler && memory)
+        if (this && !sampler && memory) {
+            int swizzle = GU_FALSE;
+            #ifdef TEX_SWIZZLE
+                swizzle = GU_TRUE;
+            #endif
+
+            sceGuTexMode(GU_PSM_8888, 0, 0, GU_FALSE);
             sceGuTexImage(0, width, height, width, memory);
+            sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
+        }
     #else
         #ifdef SPLIT_BY_TILE
-            if (sampler || !ID) return;
+            if (!this || sampler || !ID) return;
         #endif
 
         if (Core::active.textures[sampler] != this) {

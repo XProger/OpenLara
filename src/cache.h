@@ -155,8 +155,6 @@ struct ShaderCache {
                 if (pass == Core::passCompose) {
                     if (fx & FX_CLIP_PLANE)
                         strcat(def, "#define CLIP_PLANE\n");
-                    if (type == Shader::ROOM)
-                        strcat(def, "#define OPT_ANIMTEX\n");
                     if (Core::settings.detail.lighting > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
                         strcat(def, "#define OPT_LIGHTING\n");
                     if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
@@ -216,9 +214,6 @@ struct ShaderCache {
         shader->setParam(uLightProj,      Core::mLightProj);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
-        MeshBuilder *mesh = game->getMesh();
-        shader->setParam(uAnimTexRanges,  mesh->animTexRanges[0],  min(mesh->animTexRangesCount, MAX_ANIM_TEX_RANGES));
-        shader->setParam(uAnimTexOffsets, mesh->animTexOffsets[0], min(mesh->animTexOffsetsCount, MAX_ANIM_TEX_OFFSETS));
     #endif
     }
 
