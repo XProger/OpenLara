@@ -104,7 +104,7 @@ struct OptionItem {
     }
 };
 
-#define SETTINGS(x) offsetof(Core::Settings, x)
+#define SETTINGS(x) OFFSETOF(Core::Settings, x)
 
 static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_DETAIL ),
@@ -191,7 +191,7 @@ struct Inventory {
     };
 
     IGame   *game;
-    Texture *background[3];
+    Texture *background[2];
 
     bool    active;
     bool    chosen;
@@ -1097,28 +1097,30 @@ struct Inventory {
         //
     #else
         // vertical blur
-        Core::setTarget(background[1], true);
+        Core::setTarget(background[1], CLEAR_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // horizontal blur
-        Core::setTarget(background[2], true);
+        Core::setTarget(background[0], CLEAR_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[1]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // grayscale
-        Core::setTarget(background[1], true);
+        Core::setTarget(background[1], CLEAR_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));
-        background[2]->bind(sDiffuse);
+        background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
+
+        swap(background[0], background[1]);
     #endif
 
-        Core::setTarget(NULL, true);
+        Core::setTarget(NULL, CLEAR_ALL); // TODO: ???
 
         Core::setDepthTest(true);
     }
@@ -1274,6 +1276,7 @@ struct Inventory {
         float aspectDst = float(Core::width) / float(Core::height);
         float aspectImg = aspectSrc / aspectDst;
         float ax = background[0]->origWidth  / float(background[0]->width);
+        float ay = background[0]->origHeight / float(background[0]->height);
 
         #ifdef FFP
             mat4 m;
@@ -1325,6 +1328,8 @@ struct Inventory {
         }
 
         short tw = short(ax * 32767);
+        short th = short(ay * 32767);
+
         vertices[ 0].coord = short4(-size.x,  size.y, 0, 0);
         vertices[ 1].coord = short4( size.x,  size.y, 0, 0);
         vertices[ 2].coord = short4( size.x, -size.y, 0, 0);
@@ -1343,10 +1348,10 @@ struct Inventory {
         vertices[10].light = 
         vertices[11].light = ubyte4(0, 0, 0, alpha);
 
-        vertices[ 0].texCoord = short4( 0,     0, 0, 0);
-        vertices[ 1].texCoord = short4(tw,     0, 0, 0);
-        vertices[ 2].texCoord = short4(tw, 32767, 0, 0);
-        vertices[ 3].texCoord = short4( 0, 32767, 0, 0);
+        vertices[ 0].texCoord = short4( 0,  0, 0, 0);
+        vertices[ 1].texCoord = short4(tw,  0, 0, 0);
+        vertices[ 2].texCoord = short4(tw, th, 0, 0);
+        vertices[ 3].texCoord = short4( 0, th, 0, 0);
         vertices[ 4].texCoord =
         vertices[ 5].texCoord =
         vertices[ 6].texCoord =
@@ -1362,6 +1367,7 @@ struct Inventory {
     }
 
     void renderGameBG() {
+        Core::setTarget(NULL, CLEAR_DEPTH);
         #ifdef _PSP
             return;
         #endif
@@ -1383,7 +1389,7 @@ struct Inventory {
         game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
 
     // blured grayscale image
-        background[1]->bind(sDiffuse);
+        background[0]->bind(sDiffuse);
         Core::setBlending(phaseRing < 1.0f ? bmAlpha : bmNone);
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }

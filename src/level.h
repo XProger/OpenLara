@@ -388,7 +388,7 @@ struct Level : IGame {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setTarget(target, true, i);
+            Core::setTarget(target, CLEAR_ALL, i);
             renderView(roomIndex, false, false);
             Core::invalidateTarget(false, true);
         }
@@ -1785,7 +1785,7 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setTarget(NULL, Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL); // render to back buffer
+            Core::setTarget(NULL, (Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL) ? CLEAR_ALL : 0); // render to back buffer
             setupBinding();
         }
 
@@ -1860,7 +1860,7 @@ struct Level : IGame {
         bool colorShadow = shadow->format == Texture::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setTarget(shadow, true);
+        Core::setTarget(shadow, CLEAR_ALL);
         setupLightCamera();
         Core::setCulling(cfBack);
 
@@ -2117,7 +2117,7 @@ struct Level : IGame {
             ambientCache->processQueue();
 
         //if (Core::settings.detail.stereo || Core::settings.detail.splitscreen) {
-            Core::setTarget(NULL, true);
+            Core::setTarget(NULL, CLEAR_ALL);
             Core::validateRenderState();
         //}
 
@@ -2131,7 +2131,7 @@ struct Level : IGame {
         if (!cube360)
             cube360 = new Texture(1024, 1024, Texture::RGBA, true, NULL, true, false);
         renderEnvironment(camera->getRoomIndex(), camera->pos, &cube360, 0, Core::passCompose);
-        Core::setTarget(NULL, true);
+        Core::setTarget(NULL, Core::CLEAR_ALL);
         setShader(Core::passFilter, Shader::FILTER_EQUIRECTANGULAR);
         cube360->bind(sEnvironment);
         mesh->renderQuad();
@@ -2160,14 +2160,14 @@ struct Level : IGame {
 
                 Core::defaultTarget = Core::eyeTex[0];
                 Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye = -1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true, false);
 
                 Core::defaultTarget = Core::eyeTex[1];
                 Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye =  1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true, false);
@@ -2175,7 +2175,7 @@ struct Level : IGame {
                 Core::settings.detail.vr = false;
 
                 Core::defaultTarget = oldTarget;
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::viewportDef = vp;
             }   
             
@@ -2268,7 +2268,7 @@ struct Level : IGame {
     }
 
     void renderInventory(bool clear) {
-        Core::setTarget(NULL, clear);
+        Core::setTarget(NULL, clear ? CLEAR_ALL : 0);
 
         if (!(level.isTitle() || inventory.titleTimer > 0.0f))
             inventory.renderBackground();
@@ -2289,7 +2289,7 @@ struct Level : IGame {
         lastTitle = title;
 
         if (isEnded) {
-            Core::setTarget(NULL, true);
+            Core::setTarget(NULL, CLEAR_ALL);
             UI::begin();
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();

@@ -503,6 +503,12 @@ enum RenderState {
     RS_ALPHA_TEST       = 1 << 14,
 };
 
+enum ClearMode {
+    CLEAR_COLOR   = 1,
+    CLEAR_DEPTH   = 2,
+    CLEAR_ALL     = CLEAR_COLOR | CLEAR_DEPTH,
+};
+
 typedef uint16 Index;
 
 struct Vertex {
@@ -653,7 +659,7 @@ namespace Core {
     
     struct ReqTarget {
         Texture *texture;
-        bool    clear;
+        uint8   clear;
         uint8   face;
     } reqTarget;
 
@@ -1278,7 +1284,7 @@ namespace Core {
             }
         #endif
         }
-
+    #ifdef FFP
         if (mask & RS_ALPHA_TEST) {
         #ifdef _PSP
             if (renderState & RS_ALPHA_TEST)
@@ -1292,13 +1298,16 @@ namespace Core {
                 glDisable(GL_ALPHA_TEST);
         #endif
         }
-
+    #endif
         if (mask & RS_TARGET) {
             if (reqTarget.clear) {
             #ifdef _PSP
-                sceGuClear(GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT | GU_FAST_CLEAR_BIT);
+                sceGuClear(((reqTarget.clear & CLEAR_COLOR) ? GU_COLOR_BUFFER_BIT : 0) | 
+                           ((reqTarget.clear & CLEAR_DEPTH) ? GU_DEPTH_BUFFER_BIT : 0) | 
+                           GU_FAST_CLEAR_BIT);
             #else
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+                glClear(((reqTarget.clear & CLEAR_COLOR) ? GL_COLOR_BUFFER_BIT : 0) | 
+                        ((reqTarget.clear & CLEAR_DEPTH) ? GL_DEPTH_BUFFER_BIT : 0));
             #endif
             }
             renderState &= ~RS_TARGET;
@@ -1384,7 +1393,7 @@ namespace Core {
     #endif
     }
 
-    void setTarget(Texture *target, bool clear = false, int face = 0) {
+    void setTarget(Texture *target, uint8 clear = 0, uint8 face = 0) {
         if (!target)
             target = defaultTarget;
 

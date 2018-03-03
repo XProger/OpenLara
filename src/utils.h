@@ -76,6 +76,7 @@ typedef unsigned int    uint32;
 #define FOURCC(str)     uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
 #define COUNT(arr)      (sizeof(arr) / sizeof(arr[0]))
+#define OFFSETOF(T, E)  ((size_t)&(((T*)0)->E))
 
 template <typename T>
 inline const T& min(const T &a, const T &b) {

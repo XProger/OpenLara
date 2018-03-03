@@ -305,7 +305,7 @@ struct AmbientCache {
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
                 Texture *dst = textures[j * 4 + i];
-                Core::setTarget(dst, true);
+                Core::setTarget(dst, CLEAR_ALL);
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
             }
@@ -449,7 +449,7 @@ struct WaterCache {
             blank = false;
 
             // texture may be initialized with trash, so...
-            Core::setTarget(data[0], true);
+            Core::setTarget(data[0], CLEAR_ALL);
             Core::validateRenderState(); // immediate clear
             Core::invalidateTarget(false, true);
         }
@@ -585,7 +585,7 @@ struct WaterCache {
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, drop.strength));
 
             item.data[0]->bind(sDiffuse);
-            Core::setTarget(item.data[1], true);
+            Core::setTarget(item.data[1], CLEAR_ALL);
             Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
             game->getMesh()->renderQuad();
             Core::invalidateTarget(false, true);
@@ -603,7 +603,7 @@ struct WaterCache {
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             item.data[0]->bind(sDiffuse);
-            Core::setTarget(item.data[1], true);
+            Core::setTarget(item.data[1], CLEAR_ALL);
             Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
             game->getMesh()->renderQuad();
             Core::invalidateTarget(false, true);
@@ -623,12 +623,12 @@ struct WaterCache {
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
-        Core::setTarget(item.caustics, true);
+        Core::setTarget(item.caustics, CLEAR_ALL);
         game->getMesh()->renderPlane();
         Core::invalidateTarget(false, true);
     #ifdef BLUR_CAUSTICS
         // v blur
-        Core::setTarget(item.caustics_tmp, true);
+        Core::setTarget(item.caustics_tmp, CLEAR_ALL);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / item.caustics->width, 0));;
         item.caustics->bind(sDiffuse);
@@ -636,7 +636,7 @@ struct WaterCache {
         Core::invalidateTarget(false, true);
 
         // h blur
-        Core::setTarget(item.caustics, true);
+        Core::setTarget(item.caustics, CLEAR_ALL);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / item.caustics->width, 0));;
         item.caustics_tmp->bind(sDiffuse);
@@ -689,7 +689,7 @@ struct WaterCache {
         if (!refract || w != refract->width || h != refract->height) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
-            Core::setTarget(refract, true);
+            Core::setTarget(refract, CLEAR_ALL);
             Core::validateRenderState(); // immediate clear
             Core::invalidateTarget(false, true);
             Core::setTarget(NULL);
@@ -728,7 +728,7 @@ struct WaterCache {
         }
 
     // render mirror reflection
-        Core::setTarget(reflect, true);
+        Core::setTarget(reflect, CLEAR_ALL);
         Camera *camera = (Camera*)game->getCamera();
         game->setupBinding();
 
