@@ -68,10 +68,10 @@ struct MeshRange {
 struct Mesh {
     Index       *iBuffer;
     VertexGPU   *vBuffer;
-    #ifndef _PSP
-        GLuint      ID[2];
-        GLuint      *VAO;
-    #endif
+#ifndef _PSP
+    GLuint      ID[2];
+    GLuint      *VAO;
+#endif
 
     int     iCount;
     int     vCount;
@@ -191,7 +191,7 @@ struct Mesh {
 
     void initRange(MeshRange &range) {
     #ifndef _PSP
-        if (Core::support.VAO) {
+        if (Core::support.VAO && VAO) {
             ASSERT(aIndex < aCount);
             range.aIndex = aIndex++;
             range.bind(VAO);
@@ -219,10 +219,9 @@ struct Mesh {
         range.bind(VAO);
     #endif
 
-        if (range.aIndex == -1) {
-            bind();
+        bind();
+        if (range.aIndex == -1)
             range.setup(vBuffer);
-        };
 
         Core::DIP(range.iStart, range.iCount, iBuffer);
     }
