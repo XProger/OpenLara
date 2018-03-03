@@ -412,9 +412,13 @@ namespace Sound {
         stb_vorbis_alloc alloc;
 
         OGG(Stream *stream, int channels) : Decoder(stream, channels), ogg(NULL) {
+            char buf[255];
+            strcpy(buf, Stream::contentDir);
+            strcat(buf, stream->name);
+
             alloc.alloc_buffer_length_in_bytes = 256 * 1024;
             alloc.alloc_buffer = new char[alloc.alloc_buffer_length_in_bytes];
-            ogg = stb_vorbis_open_filename(stream->name, NULL, &alloc);
+            ogg = stb_vorbis_open_filename(buf, NULL, &alloc);
             ASSERT(ogg);
             stb_vorbis_info info = stb_vorbis_get_info(ogg);
             this->channels = info.channels;

@@ -169,23 +169,27 @@ JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfl
 // gamepad / keyboard
     if (state < 0) {
         switch (state) {
-            case -3 : Input::setPos(ikJoyL, vec2(DeadZone(x), DeadZone(y))); break;
-            case -4 : Input::setPos(ikJoyR, vec2(DeadZone(x), DeadZone(y))); break;
-            case -5 : Input::setPos(ikJoyPOV, vec2(float(getPOV(sign(x), sign(y))), 0.0f)); break;
+            case -3 : Input::setJoyPos(0, jkL, vec2(DeadZone(x), DeadZone(y))); break;
+            case -4 : Input::setJoyPos(0, jkR, vec2(DeadZone(x), DeadZone(y))); break;
+            //case -5 : Input::setJoyPos(ikJoyPOV, vec2(float(getPOV(sign(x), sign(y))), 0.0f)); break;
             default : {
                 int btn = int(x);
-                InputKey key = btn <= 0 ? InputKey(ikJoyA - btn) : keyToInputKey(btn);
-                Input::setDown(key, state != -1);
+                if (btn <= 0)
+                    Input::setJoyDown(0, JoyKey(jkA - btn), state != -1);
+                else
+                    Input::setDown(keyToInputKey(btn), state != -1);
             }
         }
         return;
     }
 
     if (id == -100) {
+        /*
         switch (state) {
             case 0 : Input::head.basis.rot.x = x; Input::head.basis.rot.y = y; break;
             case 1 : Input::head.basis.rot.z = x; Input::head.basis.rot.w = y; Input::head.set(); break;
         }
+        */
         return;
     }
 
