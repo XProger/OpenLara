@@ -726,7 +726,7 @@ struct MeshBuilder {
         plane.iCount = 0;
     #endif
 
-        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, iCount * sizeof(Index) + vCount * sizeof(VertexGPU));
+        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, int(iCount * sizeof(Index) + vCount * sizeof(VertexGPU)));
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
