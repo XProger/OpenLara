@@ -273,20 +273,6 @@ vec2 joyDir(float ax, float ay) {
     return dir.normal() * dist;
 }
 
-float joyGetPOV(int mask) {
-    switch (mask) {
-        case 0b0001 : return 1;
-        case 0b1001 : return 2;
-        case 0b1000 : return 3;
-        case 0b1010 : return 4;
-        case 0b0010 : return 5;
-        case 0b0110 : return 6;
-        case 0b0100 : return 7;
-        case 0b0101 : return 8;
-    }
-    return 0;
-}
-
 int joyDeadZone(int value, int zone) {
     return (value < -zone || value > zone) ? value : 0;
 }

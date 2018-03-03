@@ -30,6 +30,7 @@ import android.view.WindowManager;
 
 public class MainActivity extends Activity implements OnTouchListener, OnKeyListener, OnGenericMotionListener, SensorEventListener {
     private Wrapper wrapper;
+    private ArrayList joyList = new ArrayList();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,12 +65,8 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         sm.registerListener(this, sm.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_FASTEST);
 */
         try {
-            String packName = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_ACTIVITIES).applicationInfo.sourceDir;
-            // hardcoded demo level and music
-            //AssetFileDescriptor fLevel = this.getResources().openRawResourceFd(R.raw.title);
-
-            String content = Environment.getExternalStorageDirectory().getAbsolutePath(); // System.getenv("EXTERNAL_STORAGE")
-            wrapper.onCreate(content + "/OpenLara/", getCacheDir().getAbsolutePath() + "/", packName, 0);//(int)fLevel.getStartOffset());
+            String content = Environment.getExternalStorageDirectory().getAbsolutePath();
+            wrapper.onCreate(content + "/OpenLara/", getCacheDir().getAbsolutePath() + "/");
         } catch (Exception e) {
             e.printStackTrace();
             finish();
@@ -128,22 +125,38 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         wrapper.onTouch(-100, 1,  event.values[2], event.values[3]);
     }
 
+    boolean isGamepad(int src) {
+        return (src & (InputDevice.SOURCE_GAMEPAD | InputDevice.SOURCE_JOYSTICK)) != 0;
+    }
+
+    int getJoyIndex(int joyId) {
+        int joyIndex = joyList.indexOf(joyId);
+        if (joyIndex == -1) {
+            joyIndex = joyList.size();
+            joyList.add(joyId);
+        }
+        return joyIndex;
+    }
+
     @Override
     public boolean onGenericMotion(View v, MotionEvent event) {
         int src = event.getDevice().getSources();
 
-        boolean isMouse = (src & (InputDevice.SOURCE_MOUSE)) != 0;
-        boolean isJoy   = (src & (InputDevice.SOURCE_GAMEPAD | InputDevice.SOURCE_JOYSTICK)) != 0;
+        if (isGamepad(event.getDevice().getSources())) {
+            int index = getJoyIndex(event.getDeviceId());
+        // axis
+            wrapper.onTouch(index, -3, event.getAxisValue(MotionEvent.AXIS_X), event.getAxisValue(MotionEvent.AXIS_Y));
+            wrapper.onTouch(index, -4, event.getAxisValue(MotionEvent.AXIS_Z), event.getAxisValue(MotionEvent.AXIS_RZ));
 
-        if (isJoy) {
-            wrapper.onTouch(0, -3, event.getAxisValue(MotionEvent.AXIS_X),
-                    event.getAxisValue(MotionEvent.AXIS_Y));
-
-            wrapper.onTouch(0, -4, event.getAxisValue(MotionEvent.AXIS_Z),
-                    event.getAxisValue(MotionEvent.AXIS_RZ));
-
-            wrapper.onTouch(0, -5, event.getAxisValue(MotionEvent.AXIS_HAT_X),
-                    event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+        // d-pad
+            if ((src & InputDevice.SOURCE_DPAD) != InputDevice.SOURCE_DPAD) {
+                float dx = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+                float dy = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+                wrapper.onTouch(index, dx >  0.9 ? -2 : -1, -14, 0);
+                wrapper.onTouch(index, dy < -0.9 ? -2 : -1, -15, 0);
+                wrapper.onTouch(index, dy >  0.9 ? -2 : -1, -16, 0);
+                wrapper.onTouch(index, dx < -0.9 ? -2 : -1, -13, 0);
+            }
         }
 
         return true;
@@ -154,19 +167,23 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         int btn;
 
         switch (keyCode) {
-            case KeyEvent.KEYCODE_BUTTON_A      : btn = -0;  break;
-            case KeyEvent.KEYCODE_BUTTON_B      : btn = -1;  break;
-            case KeyEvent.KEYCODE_BUTTON_X      : btn = -2;  break;
-            case KeyEvent.KEYCODE_BUTTON_Y      : btn = -3;  break;
-            case KeyEvent.KEYCODE_BUTTON_L1     : btn = -4;  break;
-            case KeyEvent.KEYCODE_BUTTON_R1     : btn = -5;  break;
-            case KeyEvent.KEYCODE_BUTTON_SELECT : btn = -6;  break;
-            case KeyEvent.KEYCODE_BUTTON_START  : btn = -7;  break;
-            case KeyEvent.KEYCODE_BUTTON_THUMBL : btn = -8;  break;
-            case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = -9;  break;
-            case KeyEvent.KEYCODE_BUTTON_L2     : btn = -10; break;
-            case KeyEvent.KEYCODE_BUTTON_R2     : btn = -11; break;
-            case KeyEvent.KEYCODE_BACK          : btn = KeyEvent.KEYCODE_TAB; break;
+            case KeyEvent.KEYCODE_BUTTON_A      : btn = -1;  break;
+            case KeyEvent.KEYCODE_BUTTON_B      : btn = -2;  break;
+            case KeyEvent.KEYCODE_BUTTON_X      : btn = -3;  break;
+            case KeyEvent.KEYCODE_BUTTON_Y      : btn = -4;  break;
+            case KeyEvent.KEYCODE_BUTTON_L1     : btn = -5;  break;
+            case KeyEvent.KEYCODE_BUTTON_R1     : btn = -6;  break;
+            case KeyEvent.KEYCODE_BUTTON_SELECT : btn = -7;  break;
+            case KeyEvent.KEYCODE_BUTTON_START  : btn = -8;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBL : btn = -9;  break;
+            case KeyEvent.KEYCODE_BUTTON_THUMBR : btn = -10; break;
+            case KeyEvent.KEYCODE_BUTTON_L2     : btn = -11; break;
+            case KeyEvent.KEYCODE_BUTTON_R2     : btn = -12; break;
+            case KeyEvent.KEYCODE_DPAD_LEFT     : btn = -13; break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT    : btn = -14; break;
+            case KeyEvent.KEYCODE_DPAD_UP       : btn = -15; break;
+            case KeyEvent.KEYCODE_DPAD_DOWN     : btn = -16; break;
+            case KeyEvent.KEYCODE_BACK          : btn = KeyEvent.KEYCODE_ESCAPE; break;
             case KeyEvent.KEYCODE_VOLUME_UP     :
             case KeyEvent.KEYCODE_VOLUME_DOWN   :
             case KeyEvent.KEYCODE_VOLUME_MUTE   : return false;
@@ -174,7 +191,8 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         }
 
         boolean isDown = event.getAction() == KeyEvent.ACTION_DOWN;
-        wrapper.onTouch(0, isDown ? -2 : -1, btn, 0);
+        int index = btn < 0 ? getJoyIndex(event.getDevice().getId()) : 0;
+        wrapper.onTouch(index, isDown ? -2 : -1, btn, 0);
         return true;
     }
 
@@ -268,7 +286,7 @@ class Touch {
 }
 
 class Wrapper implements Renderer {
-    public static native void nativeInit(String contentDir, String cacheDir, String packName, int levelOffset);
+    public static native void nativeInit(String contentDir, String cacheDir);
     public static native void nativeFree();
     public static native void nativeReset();
     public static native void nativeResize(int w, int h);
@@ -280,16 +298,12 @@ class Wrapper implements Renderer {
     Boolean ready = false;
     private String contentDir;
     private String cacheDir;
-    private String packName;
-    private int levelOffset;
     private ArrayList<Touch> touch = new ArrayList<>();
     private Sound sound;
 
-    void onCreate(String contentDir, String cacheDir, String packName, int levelOffset) {
+    void onCreate(String contentDir, String cacheDir) {
         this.contentDir  = contentDir;
         this.cacheDir    = cacheDir;
-        this.packName    = packName;
-        this.levelOffset = levelOffset;
 
         sound = new Sound();
         sound.start(this);
@@ -336,7 +350,7 @@ class Wrapper implements Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         if (!ready) {
-            nativeInit(contentDir, cacheDir, packName, levelOffset);
+            nativeInit(contentDir, cacheDir);
             sound.play();
             ready = true;
         }

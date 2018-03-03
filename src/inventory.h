@@ -911,7 +911,7 @@ struct Inventory {
         Input::Joystick &joy = Input::joy[Core::settings.controls[playerIndex].joyIndex];
 
         ControlKey key = cMAX;
-        if (Input::down[ikCtrl] || Input::down[ikEnter] || joy.down[jkA])
+        if (Input::down[ikCtrl] || Input::down[ikEnter] || Input::state[playerIndex][cAction] || joy.down[jkA])
             key = cAction;
         else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::state[playerIndex][cInventory])
             key = cInventory;

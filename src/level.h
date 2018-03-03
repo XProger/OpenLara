@@ -2291,6 +2291,7 @@ struct Level : IGame {
         if (isEnded) {
             Core::setTarget(NULL, CLEAR_ALL);
             UI::begin();
+            UI::updateAspect(float(Core::width) / float(Core::height));
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();
             return;

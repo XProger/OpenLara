@@ -68,16 +68,71 @@ int osGetTime() {
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
-bool osSave(const char *name, const void *data, int size) {
-    return false;
+
+// joystick
+bool osJoyReady(int index) {
+    return index == 0;
 }
+
+void osJoyVibrate(int index, float L, float R) {
+    //
+}
+
+
+// storage
+void osCacheWrite(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fwrite(stream->data, 1, stream->size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    } else
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+
+    delete stream;
+}
+
+void osCacheRead(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        int size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = new char[size];
+        fread(data, 1, size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, data, size), stream->userData);
+        delete[] data;
+    } else
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
+}
+
 
 extern "C" {
 
 char Stream::cacheDir[255];
 char Stream::contentDir[255];
 
-JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstring cacheDir, jstring packName, jint levelOffset) {
+JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstring cacheDir) {
     timeval t;
     gettimeofday(&t, NULL);
     startTime = t.tv_sec;	
@@ -86,12 +141,6 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
 
     Stream::contentDir[0] = Stream::cacheDir[0] = 0;
 
-    str = env->GetStringUTFChars(packName, NULL);
-/*
-    Stream *level = new Stream(str);
-    env->ReleaseStringUTFChars(packName, str);
-    level->seek(levelOffset);
-*/
     str = env->GetStringUTFChars(contentDir, NULL);
     strcat(Stream::contentDir, str);
     env->ReleaseStringUTFChars(contentDir, str);
@@ -116,8 +165,6 @@ JNI_METHOD(void, nativeUpdate)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeRender)(JNIEnv* env) {
-    Core::stats.dips = 0;
-    Core::stats.tris = 0;
     Game::render();
 }
 
@@ -128,27 +175,6 @@ JNI_METHOD(void, nativeResize)(JNIEnv* env, jobject obj, jint w, jint h) {
 
 float DeadZone(float x) {
     return x = fabsf(x) < 0.2f ? 0.0f : x;
-}
-
-int getPOV(int x, int y) {
-    switch (x) {
-        case -1 : {
-            if (y == -1) return 8;
-            if (y ==  0) return 7;
-            if (y == +1) return 6;
-        }
-        case 0 : {
-            if (y == -1) return 1;
-            if (y ==  0) return 0;
-            if (y == +1) return 5;
-        }
-        case +1 : {
-            if (y == -1) return 2;
-            if (y ==  0) return 3;
-            if (y == +1) return 4;
-        }
-    }
-    return 0;
 }
 
 InputKey keyToInputKey(int code) {
@@ -169,13 +195,13 @@ JNI_METHOD(void, nativeTouch)(JNIEnv* env, jobject obj, jint id, jint state, jfl
 // gamepad / keyboard
     if (state < 0) {
         switch (state) {
-            case -3 : Input::setJoyPos(0, jkL, vec2(DeadZone(x), DeadZone(y))); break;
-            case -4 : Input::setJoyPos(0, jkR, vec2(DeadZone(x), DeadZone(y))); break;
-            //case -5 : Input::setJoyPos(ikJoyPOV, vec2(float(getPOV(sign(x), sign(y))), 0.0f)); break;
+            case -3 : Input::setJoyPos(id, jkL, vec2(DeadZone(x), DeadZone(y))); break;
+            case -4 : Input::setJoyPos(id, jkR, vec2(DeadZone(x), DeadZone(y))); break;
             default : {
                 int btn = int(x);
-                if (btn <= 0)
-                    Input::setJoyDown(0, JoyKey(jkA - btn), state != -1);
+                LOG("key %d = %d\n", btn, state);
+                if (btn < 0)
+                    Input::setJoyDown(id, JoyKey(jkNone - btn), state != -1);
                 else
                     Input::setDown(keyToInputKey(btn), state != -1);
             }
