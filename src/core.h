@@ -146,9 +146,9 @@
     #include <pspgum.h>
 
     #define FFP
-    //#define TEX_SWIZZLE
-    #define EDRAM_MESH
-    //#define EDRAM_TEX
+    #define TEX_SWIZZLE
+    //#define EDRAM_MESH
+    #define EDRAM_TEX
 #endif
 
 #ifdef USE_INFLATE
@@ -500,6 +500,7 @@ enum RenderState {
     RS_BLEND_MULT       = 1 << 12,
     RS_BLEND_PREMULT    = 1 << 13,
     RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULT | RS_BLEND_PREMULT,
+    RS_ALPHA_TEST       = 1 << 14,
 };
 
 typedef uint16 Index;
@@ -689,7 +690,7 @@ namespace Core {
     static int EDRAM_SIZE;
 
     void* allocEDRAM(int size) {
-        LOG("EDRAM ALLOC: offset: %d size %d\n", Core::EDRAM_OFFSET, size);
+        LOG("EDRAM ALLOC: offset: %d size %d (free %d)\n", Core::EDRAM_OFFSET, size, EDRAM_SIZE - (Core::EDRAM_OFFSET + size));
         if (Core::EDRAM_OFFSET + size > EDRAM_SIZE)
             LOG("! EDRAM overflow !\n");
 
@@ -931,7 +932,6 @@ namespace Core {
 
             sceGuShadeModel(GU_SMOOTH);
             sceGuAlphaFunc(GU_GREATER, 127, 255);
-            sceGuEnable(GU_ALPHA_TEST);
 
             int swizzle = GU_FALSE;
             #ifdef TEX_SWIZZLE
@@ -955,13 +955,10 @@ namespace Core {
             sceGuSetDither(&dith);
             sceGuEnable(GU_DITHER);
 
-            sceGuEnable(GU_LIGHT0);
-            sceGuDisable(GU_LIGHT1);
-            sceGuDisable(GU_LIGHT2);
-            sceGuDisable(GU_LIGHT3);
             sceGuAmbientColor(0xFFFFFFFF);
             sceGuColor(0xFFFFFFFF);
-            sceGuClearColor(0xffff00ff);
+            sceGuClearColor(0x00000000);
+            sceGuColorMaterial(GU_AMBIENT | GU_DIFFUSE);
 
             freeEDRAM();
         #else
@@ -971,19 +968,12 @@ namespace Core {
             glEnableClientState(GL_VERTEX_ARRAY);
             
             glAlphaFunc(GL_GREATER, 0.5f);
-            glEnable(GL_ALPHA_TEST);
-
-            glEnable(GL_LIGHT0);
-            glDisable(GL_LIGHT1);
-            glDisable(GL_LIGHT2);
-            glDisable(GL_LIGHT3);
-            glEnable(GL_NORMALIZE);
 
             glMatrixMode(GL_TEXTURE);
             glLoadIdentity();
             glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
 
-            glClearColor(1, 0, 1, 1);
+            glClearColor(0, 0, 0, 0);
         #endif
     #endif
 
@@ -1289,6 +1279,20 @@ namespace Core {
         #endif
         }
 
+        if (mask & RS_ALPHA_TEST) {
+        #ifdef _PSP
+            if (renderState & RS_ALPHA_TEST)
+                sceGuEnable(GU_ALPHA_TEST);
+            else
+                sceGuDisable(GU_ALPHA_TEST);
+        #else
+            if (renderState & RS_ALPHA_TEST)
+                glEnable(GL_ALPHA_TEST);
+            else
+                glDisable(GL_ALPHA_TEST);
+        #endif
+        }
+
         if (mask & RS_TARGET) {
             if (reqTarget.clear) {
             #ifdef _PSP
@@ -1338,6 +1342,12 @@ namespace Core {
             case bmMult     : renderState |= RS_BLEND_MULT;    break;
             case bmPremult  : renderState |= RS_BLEND_PREMULT; break;
         }
+    }
+
+    void setAlphaTest(bool value) {
+        renderState &= ~RS_ALPHA_TEST;
+        if (value)
+            renderState |= RS_ALPHA_TEST;
     }
 
     void setColorWrite(bool r, bool g, bool b, bool a) {

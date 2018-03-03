@@ -214,6 +214,8 @@ struct ShaderCache {
         shader->setParam(uLightProj,      Core::mLightProj);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
+    #else
+        Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     #endif
     }
 

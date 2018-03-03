@@ -29,7 +29,8 @@ uniform sampler2D sNormal;
 	attribute vec4 aCoord;
 
 	void main() {
-		vTexCoord = (aCoord.xy * 0.5 + 0.5) * uTexParam.zw;
+		vec3 coord = aCoord.xyz * (1.0 / 32767.0);
+		vTexCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw;
 
 		#if defined(WATER_MASK) || defined(WATER_COMPOSE)
 
@@ -37,12 +38,12 @@ uniform sampler2D sNormal;
 
 			#ifdef WATER_COMPOSE
 				#ifdef WATER_USE_GRID
-					vTexCoord = (aCoord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
+					vTexCoord = (coord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
 					height = texture2D(sNormal, vTexCoord).x;
 				#endif
 			#endif
 
-			vCoord = vec3(aCoord.x, height, aCoord.y) * uPosScale[1] + uPosScale[0];
+			vCoord = vec3(coord.x, height, coord.y) * uPosScale[1] + uPosScale[0];
 
 			vec4 cp = uViewProj * vec4(vCoord, 1.0);
 
@@ -50,9 +51,9 @@ uniform sampler2D sNormal;
 			gl_Position = cp;
 		#else
 			vProjCoord = vec4(0.0);
-			vCoord	   = vec3(aCoord.xy, 0.0);
+			vCoord	   = vec3(coord.xy, 0.0);
 			#ifdef WATER_CAUSTICS
-				vec3 rCoord = vec3(aCoord.x, aCoord.y, 0.0) * uPosScale[1].xzy;
+				vec3 rCoord = vec3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 
 				vec4 info = texture2D(sNormal, (rCoord.xy  * 0.5 + 0.5) * uTexParam.zw);
 				vec3 normal = vec3(info.z, info.w, sqrt(1.0 - dot(info.zw, info.zw)));
@@ -67,7 +68,7 @@ uniform sampler2D sNormal;
 				gl_Position = vec4(vNewPos.xy + refOld.xy / refOld.z, 0.0, 1.0);
 			#else
 				vOldPos = vNewPos = vec4(0.0);
-				gl_Position = vec4(aCoord.xyz, 1.0);
+				gl_Position = vec4(coord.xyz, 1.0);
 			#endif
 		#endif
 		vViewVec  = uViewPos  - vCoord.xyz;

@@ -5,19 +5,18 @@ R"====(
 #endif
 
 varying vec2 vTexCoord;
-uniform vec4 uMaterial;
+varying vec4 vColor;
 uniform vec4 uParam;
 
 #ifdef VERTEX
 	attribute vec4 aCoord;
+	attribute vec4 aTexCoord;
+	attribute vec4 aLight;
 
 	void main() {
-		#ifdef FILTER_DEFAULT
-			vTexCoord = aCoord.zw * uParam.xy + uParam.zw;
-		#else
-			vTexCoord = aCoord.zw;
-		#endif
-		gl_Position = vec4(aCoord.xy, 0.0, 1.0);
+		vTexCoord	= aTexCoord.xy;
+		vColor		= aLight;
+		gl_Position	= vec4(aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
 	}
 #else
 	uniform sampler2D sDiffuse;
@@ -95,7 +94,7 @@ uniform vec4 uParam;
 			return equirectangular();
 		#endif
 
-		return texture2D(sDiffuse, vTexCoord) * uMaterial;
+		return texture2D(sDiffuse, vTexCoord) * vColor;
 	}
 
 	void main() {

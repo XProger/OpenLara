@@ -1076,6 +1076,9 @@ struct Inventory {
     }
 
     void prepareBackground() {
+        #ifdef _PSP
+            return;
+        #endif
         Core::defaultTarget = getBackgroundTarget();
         game->renderGame(false);
         Core::defaultTarget = NULL;
@@ -1266,6 +1269,125 @@ struct Inventory {
         }
     }
 
+    void renderTitleBG() {
+        float aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
+        float aspectDst = float(Core::width) / float(Core::height);
+        float aspectImg = aspectSrc / aspectDst;
+        float ax = background[0]->origWidth  / float(background[0]->width);
+
+        #ifdef FFP
+            mat4 m;
+            m.identity();
+            Core::setViewProj(m, m);
+            Core::mModel.identity();
+            Core::mModel.scale(vec3(1.0f / 32767.0f));
+        #endif
+
+        uint8 alpha;
+        if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f) {
+            Core::setBlending(bmAlpha);
+            alpha = uint8(titleTimer * 255);
+        } else {
+            Core::setBlending(bmNone);
+            alpha = 255;
+        }
+
+        Index  indices[6 * 3] = { 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11 };
+        Vertex vertices[4 * 3];
+
+        short2 size;
+        if (aspectImg < 1.0f) {
+            size.x = short(32767 * aspectImg);
+            size.y = 32767;
+
+            vertices[ 4].coord = short4( -32767,  size.y, 0, 0);
+            vertices[ 5].coord = short4(-size.x,  size.y, 0, 0);
+            vertices[ 6].coord = short4(-size.x, -size.y, 0, 0);
+            vertices[ 7].coord = short4( -32767, -size.y, 0, 0);
+
+            vertices[ 8].coord = short4( size.x,  size.y, 0, 0);
+            vertices[ 9].coord = short4(  32767,  size.y, 0, 0);
+            vertices[10].coord = short4(  32767, -size.y, 0, 0);
+            vertices[11].coord = short4( size.x, -size.y, 0, 0);
+        } else {
+            size.x = 32767;
+            size.y = short(32767 / aspectImg);
+
+            vertices[ 4].coord = short4(-size.x,  32767, 0, 0);
+            vertices[ 5].coord = short4( size.x,  32767, 0, 0);
+            vertices[ 6].coord = short4( size.x, size.y, 0, 0);
+            vertices[ 7].coord = short4(-size.x, size.y, 0, 0);
+
+            vertices[ 8].coord = short4(-size.x, -size.y, 0, 0);
+            vertices[ 9].coord = short4( size.x, -size.y, 0, 0);
+            vertices[10].coord = short4( size.x,  -32767, 0, 0);
+            vertices[11].coord = short4(-size.x,  -32767, 0, 0);
+        }
+
+        short tw = short(ax * 32767);
+        vertices[ 0].coord = short4(-size.x,  size.y, 0, 0);
+        vertices[ 1].coord = short4( size.x,  size.y, 0, 0);
+        vertices[ 2].coord = short4( size.x, -size.y, 0, 0);
+        vertices[ 3].coord = short4(-size.x, -size.y, 0, 0);
+
+        vertices[ 0].light =
+        vertices[ 1].light =
+        vertices[ 2].light =
+        vertices[ 3].light = ubyte4(255, 255, 255, alpha);
+        vertices[ 4].light = 
+        vertices[ 5].light = 
+        vertices[ 6].light = 
+        vertices[ 7].light = 
+        vertices[ 8].light = 
+        vertices[ 9].light = 
+        vertices[10].light = 
+        vertices[11].light = ubyte4(0, 0, 0, alpha);
+
+        vertices[ 0].texCoord = short4( 0,     0, 0, 0);
+        vertices[ 1].texCoord = short4(tw,     0, 0, 0);
+        vertices[ 2].texCoord = short4(tw, 32767, 0, 0);
+        vertices[ 3].texCoord = short4( 0, 32767, 0, 0);
+        vertices[ 4].texCoord =
+        vertices[ 5].texCoord =
+        vertices[ 6].texCoord =
+        vertices[ 7].texCoord =
+        vertices[ 8].texCoord =
+        vertices[ 9].texCoord =
+        vertices[10].texCoord =
+        vertices[11].texCoord = short4(0, 0, 0, 0);
+
+        game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
+        background[0]->bind(sDiffuse);
+        game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
+    }
+
+    void renderGameBG() {
+        #ifdef _PSP
+            return;
+        #endif
+        Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
+        Vertex vertices[4];
+        vertices[ 0].coord = short4(-32767,  32767, 0, 0);
+        vertices[ 1].coord = short4( 32767,  32767, 0, 0);
+        vertices[ 2].coord = short4( 32767, -32767, 0, 0);
+        vertices[ 3].coord = short4(-32767, -32767, 0, 0);
+        vertices[ 0].light =
+        vertices[ 1].light =
+        vertices[ 2].light =
+        vertices[ 3].light = ubyte4(255, 255, 255, uint8(phaseRing * 255));
+        vertices[ 0].texCoord = short4(    0, 32767, 0, 0);
+        vertices[ 1].texCoord = short4(32767, 32767, 0, 0);
+        vertices[ 2].texCoord = short4(32767,     0, 0, 0);
+        vertices[ 3].texCoord = short4(    0,     0, 0, 0);
+
+        game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
+
+    // blured grayscale image
+        background[1]->bind(sDiffuse);
+        Core::setBlending(phaseRing < 1.0f ? bmAlpha : bmNone);
+        game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
+    }
+
     void renderBackground() {
         if (!isActive() && titleTimer == 0.0f)
             return;
@@ -1273,43 +1395,14 @@ struct Inventory {
         Core::setDepthTest(false);
 
         if (background[0]) {
-            #ifdef FFP
-                mat4 m;
-                m.identity();
-                Core::setViewProj(m, m);
-                Core::mModel.identity();
-            //    Core::mModel.scale(vec3(0.9f));
-            #endif
-
-            background[0]->bind(sDiffuse);  // orignal image
-            if (background[1]) {
-                game->setShader(Core::passFilter, Shader::FILTER_MIXER, false, false);
-                Core::active.shader->setParam(uParam, vec4(phaseRing, 1.0f - phaseRing * 0.4f, 0, 0));;
-                background[1]->bind(sNormal);   // blured grayscale image
-                Core::setBlending(bmNone);
-            } else {
-                game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
-                
-                float aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
-                float aspectDst = float(Core::width) / float(Core::height);
-                float aspectImg = aspectDst / aspectSrc;
-                float ax = background[0]->origWidth  / float(background[0]->width);
-                float ay = background[0]->origHeight / float(background[0]->height);
-                Core::active.shader->setParam(uParam, vec4(ax * aspectImg, -ay, (0.5f - aspectImg * 0.5f) * ax, ay));
-
-                if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f) {
-                    Core::setBlending(bmAlpha);
-                    Core::active.shader->setParam(uMaterial, vec4(1, 1, 1, titleTimer));
-                } else {
-                    Core::setBlending(bmNone);
-                    Core::active.shader->setParam(uMaterial, vec4(1));
-                }
-            }
-            game->getMesh()->renderQuad();
+            if (background[1])
+                renderGameBG();
+            else
+                renderTitleBG();
         }
 
-        Core::setDepthTest(true);
         Core::setBlending(bmAlpha);
+        Core::setDepthTest(true);
     }
 
     void render(float aspect) {

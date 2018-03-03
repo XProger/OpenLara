@@ -126,7 +126,7 @@ struct Mesh {
 
             for (int i = 0; i < vCount; i++) {
                 dst->texCoord = short2(src->texCoord.x, src->texCoord.y);
-                dst->color    = ubyte4(src->light.x, src->light.y, src->light.z, 255); //color;
+                dst->color    = ubyte4(src->light.x, src->light.y, src->light.z, src->light.w); //color;
                 dst->normal   = src->normal;
                 dst->coord    = src->coord;
 
@@ -205,18 +205,6 @@ struct Mesh {
     }
 };
 
-
-#define CHECK_NORMAL(n) \
-        if (!(n.x | n.y | n.z)) {\
-            vec3 o(mVertices[f.vertices[0]]);\
-            vec3 a = o - mVertices[f.vertices[1]];\
-            vec3 b = o - mVertices[f.vertices[2]];\
-            o = b.cross(a).normal() * 32767.0f;\
-            n.x = (int)o.x;\
-            n.y = (int)o.y;\
-            n.z = (int)o.z;\
-        }\
-
 #define CHECK_ROOM_NORMAL(f) \
             vec3 o(d.vertices[f.vertices[0]].vertex);\
             vec3 a = o - d.vertices[f.vertices[1]].vertex;\
@@ -234,11 +222,11 @@ struct Mesh {
                     d.vertices[f.vertices[3]].vertex);\
             for (int k = 0; k < f.vCount; k++) {\
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];\
-                vertices[vCount].coord  = short4( v.vertex.x, v.vertex.y, v.vertex.z, 0 );\
-                vertices[vCount].normal = short4( f.normal.x, f.normal.y, f.normal.z, 0 );\
-                vertices[vCount].color  = ubyte4( 255, 255, 255, 255 );\
-                vertices[vCount].light  = ubyte4( v.color.r, v.color.g, v.color.b, 255 );\
-                vCount++;\
+                Vertex &rv = vertices[vCount++];\
+                rv.coord  = short4( v.vertex.x, v.vertex.y, v.vertex.z, 0 );\
+                rv.normal = short4( f.normal.x, f.normal.y, f.normal.z, 0 );\
+                rv.color  = ubyte4( 255, 255, 255, 255 );\
+                rv.light  = ubyte4( v.color.r, v.color.g, v.color.b, 255 );\
             }
 
 
@@ -646,15 +634,15 @@ struct MeshBuilder {
         quad.iCount = 2 * 3;
 
         addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteTile, false);
-        vertices[vCount + 3].coord = short4( -1, -1, 0, 0 );
-        vertices[vCount + 2].coord = short4(  1, -1, 1, 0 );
-        vertices[vCount + 1].coord = short4(  1,  1, 1, 1 );
-        vertices[vCount + 0].coord = short4( -1,  1, 0, 1 );
+        vertices[vCount + 0].coord = short4( -32767,  32767, 0, 1 );
+        vertices[vCount + 1].coord = short4(  32767,  32767, 1, 1 );
+        vertices[vCount + 2].coord = short4(  32767, -32767, 1, 0 );
+        vertices[vCount + 3].coord = short4( -32767, -32767, 0, 0 );
 
-        vertices[vCount + 3].texCoord = short4(     0,      0, 0, 0 );
-        vertices[vCount + 2].texCoord = short4( 32767,      0, 0, 0 );
-        vertices[vCount + 1].texCoord = short4( 32767,  32767, 0, 0 );
         vertices[vCount + 0].texCoord = short4(     0,  32767, 0, 0 );
+        vertices[vCount + 1].texCoord = short4( 32767,  32767, 0, 0 );
+        vertices[vCount + 2].texCoord = short4( 32767,      0, 0, 0 );
+        vertices[vCount + 3].texCoord = short4(     0,      0, 0, 0 );
 
         for (int i = 0; i < 4; i++) {
             Vertex &v = vertices[vCount + i];
@@ -716,7 +704,7 @@ struct MeshBuilder {
         plane.iCount = 0;
     #endif
 
-        LOG("MegaMesh (i:%d v:%d a:%d)\n", iCount, vCount, aCount);
+        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, iCount * sizeof(Index) + vCount * sizeof(VertexGPU));
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
@@ -948,8 +936,9 @@ struct MeshBuilder {
                 TR::Mesh::Vertex &v = mesh.vertices[f.vertices[k]];
 
                 vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
+                vec3 n = vec3(v.normal.x, v.normal.y, v.normal.z).normal() * 32767.0f;
+                v.normal = short4(short(n.x), short(n.y), short(n.z), 0);
                 vertices[vCount].normal = rotate(v.normal, dir);
-                vertices[vCount].normal.w = t.attribute == 2 ? 0 : 32767;
                 vertices[vCount].color  = ubyte4( c.r, c.g, c.b, 255 );
                 vertices[vCount].light  = ubyte4( light.r, light.g, light.b, 255 );
 
@@ -1327,59 +1316,6 @@ struct MeshBuilder {
     }
 
     void renderModel(int modelIndex, bool underwater = false) {
-    #ifdef FFP
-        Core::mModel.identity();
-
-        #ifdef _PSP
-            //sceGuDisable(GU_TEXTURE_2D);
-            //Core::setBlending(bmNone);
-            sceGuEnable(GU_LIGHTING);
-
-            ubyte4 ambient;
-            ambient.x = ambient.y = ambient.z = clamp(int(Core::active.material.y * 255), 0, 255);
-            ambient.w = 255;
-            sceGuAmbient(*(uint32*)&ambient);
-
-            for (int i = 0; i < 1 /*MAX_LIGHTS*/; i++) {
-                ScePspFVector3 pos;
-                pos.x = Core::lightPos[i].x;
-                pos.y = Core::lightPos[i].y;
-                pos.z = Core::lightPos[i].z;
-
-                sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
-
-                ubyte4 color;
-                color.x = clamp(int(Core::lightColor[i].x * 255), 0, 255);
-                color.y = clamp(int(Core::lightColor[i].y * 255), 0, 255);
-                color.z = clamp(int(Core::lightColor[i].z * 255), 0, 255);
-                color.w = 255;
-
-                sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
-                sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
-            }
-        #else
-            glEnable(GL_LIGHTING);
-            glEnable(GL_COLOR_MATERIAL);
-
-            glMatrixMode(GL_MODELVIEW);
-            glLoadMatrixf((GLfloat*)&Core::mView);
-
-            vec4 ambient(vec3(Core::active.material.y), 1.0f);
-            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&ambient);
-
-            for (int i = 0; i < 1 /*MAX_LIGHTS*/; i++) {
-                vec4 pos(Core::lightPos[i].xyz(), 1.0f);
-                vec4 color(Core::lightColor[i].xyz(), 1.0f);
-                float att = Core::lightColor[i].w;
-                att *= att;
-
-                glLightfv(GL_LIGHT0 + i, GL_POSITION, (GLfloat*)&pos);
-                glLightfv(GL_LIGHT0 + i, GL_DIFFUSE,  (GLfloat*)&color);
-                glLightfv(GL_LIGHT0 + i, GL_QUADRATIC_ATTENUATION, (GLfloat*)&att);
-            }
-        #endif
-    #endif
-
         ASSERT(level->models[modelIndex].mCount == Core::active.basisCount);
 
         int part = 0;
@@ -1398,7 +1334,7 @@ struct MeshBuilder {
                     continue;
                 }
                 #ifdef FFP
-//                    Core::setMatrix(NULL, NULL, &m);
+                    Core::mModel.identity();
                     Core::mModel.setRot(basis.rot);
                     Core::mModel.setPos(basis.pos);
                 #endif
@@ -1417,15 +1353,6 @@ struct MeshBuilder {
                 mesh->render(range);
             }
         }
-
-    #ifdef FFP
-        #ifdef _PSP
-            sceGuDisable(GU_LIGHTING);
-        #else
-            glDisable(GL_COLOR_MATERIAL);
-            glDisable(GL_LIGHTING);
-        #endif
-    #endif
     }
 
     void renderSprite(int sequenceIndex, int frame) {
@@ -1434,8 +1361,8 @@ struct MeshBuilder {
             Core::mModel.setPos(Core::active.basis[0].pos);
 
             int vCount = 0, iCount = 0;
-            Index  indices[1 * 6];
-            Vertex vertices[1 * 4];
+            Index  indices[6];
+            Vertex vertices[4];
 
             TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[sequenceIndex].sStart + frame];
 

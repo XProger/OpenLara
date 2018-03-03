@@ -1271,6 +1271,9 @@ struct Level : IGame {
             dir = -1;
         }
 
+        beginLighting(true);
+        updateLighting();
+
         while (i != end) {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
@@ -1329,6 +1332,7 @@ struct Level : IGame {
                 mesh->renderRoomSprites(roomIndex);
             }
         }
+        endLighting();
 
         Core::setBlending(bmNone);
     }
@@ -1367,6 +1371,8 @@ struct Level : IGame {
             setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, mesh->transparent == 1);
         } else
             setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
+
+        updateLighting();
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -1514,6 +1520,82 @@ struct Level : IGame {
         }
     }
 
+    void updateLighting() {
+    #ifdef FFP
+        #ifdef _PSP
+            ubyte4 ambient;
+            ambient.x = ambient.y = ambient.z = clamp(int(Core::active.material.y * 255), 0, 255);
+            ambient.w = 255;
+            sceGuAmbient(*(uint32*)&ambient);
+
+            for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
+                ScePspFVector3 pos;
+                pos.x = Core::lightPos[i].x;
+                pos.y = Core::lightPos[i].y;
+                pos.z = Core::lightPos[i].z;
+
+                sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
+
+                ubyte4 color;
+                color.x = clamp(int(Core::lightColor[i].x * 255), 0, 255);
+                color.y = clamp(int(Core::lightColor[i].y * 255), 0, 255);
+                color.z = clamp(int(Core::lightColor[i].z * 255), 0, 255);
+                color.w = 255;
+
+                sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
+                sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
+            }
+        #else
+            vec4 ambient(vec3(Core::active.material.y), 1.0f);
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&ambient);
+
+            for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
+                vec4 pos(Core::lightPos[i].xyz(), 1.0f);
+                vec4 color(Core::lightColor[i].xyz(), 1.0f);
+                float att = Core::lightColor[i].w;
+                att *= att;
+
+                glLightfv(GL_LIGHT0 + i, GL_POSITION, (GLfloat*)&pos);
+                glLightfv(GL_LIGHT0 + i, GL_DIFFUSE,  (GLfloat*)&color);
+                glLightfv(GL_LIGHT0 + i, GL_QUADRATIC_ATTENUATION, (GLfloat*)&att);
+            }
+        #endif
+    #endif
+    }
+
+    void beginLighting(bool room) {
+    #ifdef FFP
+        Core::mModel.identity();
+        #ifdef _PSP
+            sceGuEnable(GU_LIGHTING);
+            if (room)
+                sceGuDisable(GU_LIGHT0);
+            else
+                sceGuEnable(GU_LIGHT0);
+            sceGuEnable(GU_LIGHT1);
+        #else
+            glEnable(GL_COLOR_MATERIAL);
+            glEnable(GL_LIGHTING);
+            if (room)
+                glDisable(GL_LIGHT0);
+            else
+                glEnable(GL_LIGHT0);
+            glEnable(GL_LIGHT1);
+        #endif
+    #endif 
+    }
+
+    void endLighting() {
+    #ifdef FFP
+        #ifdef _PSP
+            sceGuDisable(GU_LIGHTING);
+        #else
+            glDisable(GL_COLOR_MATERIAL);
+            glDisable(GL_LIGHTING);
+        #endif
+    #endif    
+    }
+
     void setup() {
         camera->setup(Core::pass == Core::passCompose);
         setupBinding();
@@ -1533,6 +1615,8 @@ struct Level : IGame {
             return;
 
         PROFILE_MARKER("ENTITIES");
+
+        beginLighting(false);
 
         if (transp == 0) {
             Core::setBlending(bmNone);
@@ -1559,6 +1643,8 @@ struct Level : IGame {
             renderEntitiesTransp(transp);
             Core::setDepthWrite(true);
         }
+
+        endLighting();
     }
 
     bool checkPortal(const TR::Room &room, const TR::Room::Portal &portal, const vec4 &viewPort, vec4 &clipPort) {
@@ -1704,6 +1790,8 @@ struct Level : IGame {
         }
 
         prepareRooms(roomsList, roomsCount);
+
+        updateLighting();
         for (int transp = 0; transp < 3; transp++) {
             renderRooms(roomsList, roomsCount, transp);
             renderEntities(transp);
@@ -2212,8 +2300,12 @@ struct Level : IGame {
             inventory.prepareBackground();
         }
 
-        if (!title && inventory.titleTimer <= 1.0f)
-            renderGame(true);
+        if (!level.isTitle()) {
+            if (inventory.phaseRing < 1.0f && inventory.titleTimer <= 1.0f) {
+                renderGame(true);
+                title = false;
+            }
+        }
 
         renderInventory(title);
     }
