@@ -161,13 +161,14 @@ uniform sampler2D sNormal;
 
 		return v;
 	}
-
+#ifdef WATER_CAUSTICS
 	vec4 caustics() {
 		float rOldArea = length(dFdx(vOldPos.xyz)) * length(dFdy(vOldPos.xyz));
 		float rNewArea = length(dFdx(vNewPos.xyz)) * length(dFdy(vNewPos.xyz));
 		float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0) * vOldPos.w;
 		return vec4(value, 0.0, 0.0, 0.0);
 	}
+#endif
 
 	vec4 mask() {
 		return vec4(0.0);

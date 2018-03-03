@@ -35,14 +35,14 @@ struct MeshRange {
 
     void bind(uint32 *VAO) const {}
 #else
-    void setup() const {
+    void setup(void *vBuffer) const {
         glEnableVertexAttribArray(aCoord);
         glEnableVertexAttribArray(aNormal);
         glEnableVertexAttribArray(aTexCoord);
         glEnableVertexAttribArray(aColor);
         glEnableVertexAttribArray(aLight);
 
-        VertexGPU *v = (VertexGPU*)NULL + vStart;
+        VertexGPU *v = (VertexGPU*)vBuffer + vStart;
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(*v), &v->coord);
         glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(*v), &v->normal);
         glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(*v), &v->texCoord);
@@ -66,10 +66,9 @@ struct MeshRange {
 #define MAX_ROOM_DYN_FACES 256
 
 struct Mesh {
-    #ifdef _PSP
-        Index       *iBuffer;
-        VertexGPU   *vBuffer;
-    #else
+    Index       *iBuffer;
+    VertexGPU   *vBuffer;
+    #ifndef _PSP
         GLuint      ID[2];
         GLuint      *VAO;
     #endif
@@ -80,12 +79,12 @@ struct Mesh {
     int     aIndex;
     bool    cmdBufAlloc;
 
-    Mesh(int iCount, int vCount) :  iCount(iCount), vCount(vCount), aCount(0), aIndex(-1), cmdBufAlloc(true) {
-    #ifdef _PSP
+#ifdef _PSP
+    Mesh(int iCount, int vCount, bool dynamic) :  iCount(iCount), vCount(vCount), aCount(0), aIndex(-1), cmdBufAlloc(true) {
         iBuffer =     (Index*)sceGuGetMemory(iCount * sizeof(Index)); 
         vBuffer = (VertexGPU*)sceGuGetMemory(vCount * sizeof(VertexGPU)); 
-    #endif
     }
+#endif
 
     Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount) : iCount(iCount), vCount(vCount), aCount(aCount), aIndex(0), cmdBufAlloc(false) {
     #ifdef _PSP
@@ -103,14 +102,22 @@ struct Mesh {
         if (Core::support.VAO)
             glBindVertexArray(Core::active.VAO = 0);
 
-        glGenBuffers(2, ID);
-        bind(true);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
-        glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(Vertex), vertices, GL_STATIC_DRAW);
-
-        if (Core::support.VAO && aCount) {
-            VAO = new GLuint[aCount];
-            glGenVertexArrays(aCount, VAO);
+        if (vertices || indices) {
+            glGenBuffers(2, ID);
+            bind(true);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(VertexGPU), vertices, GL_STATIC_DRAW);
+            
+            if (Core::support.VAO && aCount) {
+                VAO = new GLuint[aCount];
+                glGenVertexArrays(aCount, VAO);
+            }
+            iBuffer = NULL;
+            vBuffer = NULL;
+        } else {
+            ID[0] = ID[1] = 0;
+            iBuffer = new Index[iCount];
+            vBuffer = new VertexGPU[vCount];
         }
     #endif
     }
@@ -135,16 +142,27 @@ struct Mesh {
             }
         }
     #else
+    // !!! typeof vertices[0] == Vertex == VertexGPU
+        ASSERT(sizeof(VertexGPU) == sizeof(Vertex));
+
         if (Core::support.VAO)
             glBindVertexArray(Core::active.VAO = 0);
 
         if (indices && iCount) {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
-            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, iCount * sizeof(Index), indices);
+            if (iBuffer) {
+                memcpy(iBuffer, indices, iCount * sizeof(Index));
+            } else {
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
+                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, iCount * sizeof(Index), indices);
+            }
         }
         if (vertices && vCount) {
-            glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(Vertex), vertices);
+            if (vBuffer) {
+                memcpy(vBuffer, vertices, vCount * sizeof(VertexGPU));
+            } else {
+                glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(VertexGPU), vertices);
+            }
         }
     #endif
     }
@@ -158,11 +176,16 @@ struct Mesh {
             }
         #endif
     #else
-        if (VAO) {
-            glDeleteVertexArrays(aCount, VAO);
-            delete[] VAO;
+        if (iBuffer || vBuffer) {
+            delete[] iBuffer;
+            delete[] vBuffer;
+        } else {
+            if (VAO) {
+                glDeleteVertexArrays(aCount, VAO);
+                delete[] VAO;
+            }
+            glDeleteBuffers(2, ID);
         }
-        glDeleteBuffers(2, ID);
     #endif
     }
 
@@ -173,7 +196,7 @@ struct Mesh {
             range.aIndex = aIndex++;
             range.bind(VAO);
             bind(true);
-            range.setup();
+            range.setup(vBuffer);
         } else
     #endif
             range.aIndex = -1;
@@ -198,10 +221,10 @@ struct Mesh {
 
         if (range.aIndex == -1) {
             bind();
-            range.setup();
+            range.setup(vBuffer);
         };
 
-        Core::DIP(range.iStart, range.iCount);
+        Core::DIP(range.iStart, range.iCount, iBuffer);
     }
 };
 

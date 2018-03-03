@@ -40,6 +40,18 @@ struct OptionItem {
         *(uint8*)(intptr_t(settings) + offset) = value;
     }
 
+    bool checkValue(uint8 value) const {
+        if (value >= maxValue) return false;
+        Core::Settings stg;
+        switch (title) {
+            case STR_OPT_DETAIL_FILTER   : stg.detail.setFilter((Core::Settings::Quality)value);   return stg.detail.filter   == value;
+            case STR_OPT_DETAIL_LIGHTING : stg.detail.setLighting((Core::Settings::Quality)value); return stg.detail.lighting == value;
+            case STR_OPT_DETAIL_SHADOWS  : stg.detail.setShadows((Core::Settings::Quality)value);  return stg.detail.shadows  == value;
+            case STR_OPT_DETAIL_WATER    : stg.detail.setWater((Core::Settings::Quality)value);    return stg.detail.water    == value;
+            default : return true;
+        }
+    }
+
     float drawParam(float x, float y, float w, StringID oStr, bool active, uint8 value) const {
         if (oStr != STR_NOT_IMPLEMENTED) {
             UI::textOut(vec2(x + 32.0f, y), oStr);
@@ -63,8 +75,8 @@ struct OptionItem {
             float maxWidth = UI::getTextSize(STR[color + value]).x;
             maxWidth = maxWidth * 0.5f + 8.0f;
             x += w * 0.5f;
-            if (value > 0)        UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
-            if (value < maxValue) UI::specOut(vec2(x + maxWidth, y), 109);
+            if (checkValue(value - 1)) UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
+            if (checkValue(value + 1)) UI::specOut(vec2(x + maxWidth, y), 109);
         }
         return y + LINE_HEIGHT;
     }
@@ -91,10 +103,10 @@ struct OptionItem {
                 UI::textOut(vec2(x, y), title, UI::aCenter, w, 255, UI::SHADE_GRAY); 
             case TYPE_EMPTY   : break;
             case TYPE_BUTTON  : {
-                    const char *caption = offset ? (char*)offset : STR[title];
-                    UI::textOut(vec2(x, y), caption, UI::aCenter, w);
-                    break;
-                }
+                const char *caption = offset ? (char*)offset : STR[title];
+                UI::textOut(vec2(x, y), caption, UI::aCenter, w);
+                break;
+            }
             case TYPE_PARAM : 
             case TYPE_KEY :
                 return bar ? drawBar(x, y, w, active, value) : drawParam(x, y, w, title, active, value);
@@ -358,14 +370,14 @@ struct Inventory {
                 case cUp     : nextSlot(slot, -1); break;
                 case cDown   : nextSlot(slot, +1); break;
                 case cLeft   :
-                    if (opt->type == OptionItem::TYPE_PARAM && value > 0) {
+                    if (opt->type == OptionItem::TYPE_PARAM && opt->checkValue(value - 1)) {
                         value--;
                         timer = 0.2f;
                         return opt;
                     }    
                     break;
                 case cRight  :
-                    if (opt->type == OptionItem::TYPE_PARAM && value < opt->maxValue) {
+                    if (opt->type == OptionItem::TYPE_PARAM && opt->checkValue(value + 1)) {
                         value++;
                         timer = 0.2f;
                         return opt;

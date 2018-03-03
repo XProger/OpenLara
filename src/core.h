@@ -1507,7 +1507,7 @@ namespace Core {
     #endif
     }
 
-    void DIP(int iStart, int iCount) {
+    void DIP(int iStart, int iCount, void *iBuffer) {
         validateRenderState();
 
     #ifdef FFP
@@ -1526,7 +1526,7 @@ namespace Core {
     #ifdef _PSP
         sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, iCount, active.iBuffer + iStart, active.vBuffer);
     #else
-        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)NULL + iStart);
+        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)iBuffer + iStart);
     #endif
 
         stats.dips++;
