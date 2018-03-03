@@ -41,7 +41,7 @@ struct Sprite : Controller {
             if (instant && frame >= seq.sCount)
                 remove = true;
             else
-                frame %= seq.sCount;
+                frame %= max(seq.sCount, int16(1));
         } else
             if (instant && time >= (1.0f / SPRITE_FPS))
                 remove = true;

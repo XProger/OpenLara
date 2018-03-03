@@ -38,8 +38,8 @@ namespace TR {
 
         VER_TR3_PC   = VER_TR3 | VER_PC,
         VER_TR3_PSX  = VER_TR3 | VER_PSX,
-		
-		VER_MAX      = 0xFFFFFFFF,
+
+        VER_MAX      = 0xFFFFFFFF,
     };
 
     enum LevelID {
@@ -506,6 +506,9 @@ namespace TR {
         if (Stream::existsContent("data/JUNGLE.TR2"))
             return VER_TR3_PC;
 
+        if (Stream::existsContent("DATA/JUNGLE.PSX"))
+            return VER_TR3_PSX;
+
         useEasyStart = false;
         return VER_UNKNOWN;
     }
@@ -542,6 +545,7 @@ namespace TR {
                 }
                 case VER_TR2_PSX : sprintf(dst, "DATA/%s.PSX", LEVEL_INFO[id].name); break;
                 case VER_TR3_PC  : sprintf(dst, isCutsceneLevel(id) ? "cuts/%s.TR2" : "data/%s.TR2", LEVEL_INFO[id].name); break;
+                case VER_TR3_PSX : sprintf(dst, isCutsceneLevel(id) ? "CUTS/%s.PSX" : "DATA/%s.PSX", LEVEL_INFO[id].name); break;
                 default          : ASSERT(false);
             }
         } else {

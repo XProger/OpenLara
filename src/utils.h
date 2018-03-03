@@ -76,6 +76,7 @@ typedef unsigned int    uint32;
 #define FOURCC(str)     uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
 #define COUNT(arr)      (sizeof(arr) / sizeof(arr[0]))
+#define OFFSETOF(T, E)  ((size_t)&(((T*)0)->E))
 
 template <typename T>
 inline const T& min(const T &a, const T &b) {
@@ -737,6 +738,18 @@ struct mat4 {
         return r;
     }
 
+    mat4 inverseOrtho() const {
+        mat4 r;
+        r.e00 =  e00; r.e10 = e01; r.e20 = e02; r.e30 = 0;
+        r.e01 =  e10; r.e11 = e11; r.e21 = e12; r.e31 = 0;
+        r.e02 =  e20; r.e12 = e21; r.e22 = e22; r.e32 = 0;
+        r.e03 = -(e03 * e00 + e13 * e10 + e23 * e20); // -dot(pos, right)
+        r.e13 = -(e03 * e01 + e13 * e11 + e23 * e21); // -dot(pos, up)
+        r.e23 = -(e03 * e02 + e13 * e12 + e23 * e22); // -dot(pos, dir)
+        r.e33 = 1;
+        return r;
+    }
+
     mat4 transpose() const {
         mat4 r;
         r.e00 = e00; r.e10 = e01; r.e20 = e02; r.e30 = e03;
@@ -1126,11 +1139,22 @@ struct Box {
     }
 
     bool intersect(const mat4 &matrix, const vec3 &rayPos, const vec3 &rayDir, float &t) const {
-        mat4 mInv = matrix.inverse();
+        mat4 mInv = matrix.inverseOrtho();
         return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz(), t);
     }
 };
 
+struct Stream;
+
+extern void osCacheWrite (Stream *stream);
+extern void osCacheRead  (Stream *stream);
+
+extern void osSaveGame   (Stream *stream);
+extern void osLoadGame   (Stream *stream);
+
+#ifdef __EMSCRIPTEN__
+extern void osDownload   (Stream *stream);
+#endif
 
 struct Stream {
     static char cacheDir[255];
@@ -1147,7 +1171,12 @@ struct Stream {
 
     enum Endian { eLittle, eBig } endian;
 
-    Stream(const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {}
+    Stream(const char *name, const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {
+        if (name) {
+            this->name = new char[strlen(name) + 1];
+            strcpy(this->name, name);
+        }
+    }
 
     Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
@@ -1161,18 +1190,16 @@ struct Stream {
 
         if (!f) {
             #ifdef __EMSCRIPTEN__
-                this->name = new char[64];
-                strcpy(this->name, name);
-
-                extern void osDownload(Stream *stream);
+                if (name) {
+                    this->name = new char[strlen(name) + 1];
+                    strcpy(this->name, name);
+                }
                 osDownload(this);
-                return;
             #else
                 LOG("error loading file \"%s\"\n", name);
                 if (callback) {
                     callback(NULL, userData);
                     delete this;
-                    return;
                 } else {
                     ASSERT(false);
                 }
@@ -1182,8 +1209,10 @@ struct Stream {
             size = ftell(f);
             fseek(f, 0, SEEK_SET);
 
-            this->name = new char[strlen(name) + 1];
-            strcpy(this->name, name);
+            if (name) {
+                this->name = new char[strlen(name) + 1];
+                strcpy(this->name, name);
+            }
 
             if (callback)
                 callback(this, userData);
@@ -1193,6 +1222,20 @@ struct Stream {
     ~Stream() {
         delete[] name;
         if (f) fclose(f);
+    }
+
+    static void cacheRead(const char *name, Callback *callback = NULL, void *userData = NULL) {
+        Stream *stream = new Stream(name, NULL, 0);
+        stream->callback = callback;
+        stream->userData = userData;
+        osCacheRead(stream);
+    }
+
+    static void cacheWrite(const char *name, const char *data, int size, Callback *callback = NULL, void *userData = NULL) {
+        Stream *stream = new Stream(name, data, size);
+        stream->callback = callback;
+        stream->userData = userData;
+        osCacheWrite(stream);
     }
 
     static bool exists(const char *name) {
@@ -1209,10 +1252,6 @@ struct Stream {
         strcpy(fileName, Stream::contentDir);
         strcat(fileName, name);
         return exists(fileName);
-    }
-
-    static void write(const char *name, const void *data, int size) {
-        osSave(name, data, size);
     }
 
     void setPos(int pos) {
@@ -1294,6 +1333,7 @@ struct BitStream {
     }
 
     uint8 readByte() {
+        ASSERT(data < end);
         return *data++;
     }
 };

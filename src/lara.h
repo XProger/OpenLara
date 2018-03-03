@@ -252,6 +252,9 @@ struct Lara : Character {
 
     Camera      *camera;
 
+    float       hitTimer;
+    bool        camChanged; // hit key detection to go first person view mode
+
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
     //int         dbgBoxesCount;
@@ -429,6 +432,9 @@ struct Lara : Character {
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
         camera = new Camera(game, this);
 
+        hitTimer   = 0.0f;
+        camChanged = false;
+
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
@@ -596,6 +602,7 @@ struct Lara : Character {
 
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
         visibleMask = 0xFFFFFFFF;
+        health = LARA_MAX_HEALTH;
 
         if (room == TR::NO_ROOM) {
             stand = STAND_AIR;
@@ -1482,6 +1489,8 @@ struct Lara : Character {
         damageTime = LARA_DAMAGE_TIME;
 
         Character::hit(damage, enemy, hitType);
+
+        hitTimer = 0.2f;
 
         switch (hitType) {
             case TR::HIT_DART      : addBlood(enemy->pos, vec3(0));
@@ -2648,7 +2657,7 @@ struct Lara : Character {
         if (input & LOOK)
             return input;
 
-        Input::Joystick &joy = Input::joy[pid];
+        Input::Joystick &joy = Input::joy[Core::settings.controls[pid].joyIndex];
 
         if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)
             return input;
@@ -2693,7 +2702,18 @@ struct Lara : Character {
             || state == STATE_USE_KEY
             || state == STATE_USE_PUZZLE
             || state == STATE_SPECIAL
-            || state == STATE_REACH;
+            || state == STATE_REACH
+            || state == STATE_SWAN_DIVE
+            || state == STATE_HANDSTAND
+            || state == STATE_ROLL_1
+            || state == STATE_ROLL_2
+            // make me sick!
+            // || state == STATE_BACK_JUMP
+            // || state == STATE_LEFT_JUMP
+            // || state == STATE_RIGHT_JUMP
+            || animation.index == ANIM_CLIMB_2
+            || animation.index == ANIM_CLIMB_3
+            || animation.index == ANIM_CLIMB_JUMP;
     }
 
     virtual void doCustomCommand(int curFrame, int prevFrame) {
@@ -2724,6 +2744,14 @@ struct Lara : Character {
     }
 
     virtual void update() {
+        if ((Input::state[camera->cameraIndex][cLook]) && (Input::state[camera->cameraIndex][cAction])) {
+            if (!camChanged) {
+                camera->changeView(!camera->firstPerson);
+                camChanged = true;
+            }
+        } else
+            camChanged = false;
+
         if (level->isCutsceneLevel()) {
             updateAnimation(true);
 
@@ -2738,6 +2766,14 @@ struct Lara : Character {
         }
         
         camera->update();
+
+        if (hitTimer > 0.0f) {
+            hitTimer -= Core::deltaTime;
+            if (hitTimer > 0.0f)
+                Input::setJoyVibrate(camera->cameraIndex, 0.5f, 0.5f);
+            else
+                Input::setJoyVibrate(camera->cameraIndex, 0, 0);
+        }
 
         if (level->isCutsceneLevel())
             return;
@@ -3248,7 +3284,7 @@ struct Lara : Character {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
-        if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
+        if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
             visibleMask &= ~BODY_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;

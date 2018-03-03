@@ -68,13 +68,54 @@ int osGetTime() {
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
 
-bool osSave(const char *name, const void *data, int size) {
-    FILE *f = fopen(name, "wb");
-    if (!f) return false;
-    fwrite(data, size, 1, f);
-    fclose(f);
-    return true;
+
+// storage
+void osCacheWrite(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fwrite(stream->data, 1, stream->size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+
+    delete stream;
 }
+
+void osCacheRead(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        int size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = new char[size];
+        fread(data, 1, size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, data, size), stream->userData);
+        delete[] data;
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
+}
+
 
 // Sound
 #define SND_FRAME_SIZE  4
@@ -150,6 +191,14 @@ InputKey mouseToInputKey(int btn) {
         case 3 : return ikMouseR;
     }
     return ikNone;
+}
+
+bool osJoyReady(int index) {
+    return false;
+}
+
+void osJoyVibrate(int index, float L, float R) {
+    // TODO
 }
 
 void toggle_fullscreen(Display* dpy, Window win) {

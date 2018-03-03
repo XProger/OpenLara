@@ -75,6 +75,8 @@
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+    
+    extern EGLDisplay display;
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
@@ -144,9 +146,9 @@
     #include <pspgum.h>
 
     #define FFP
-    //#define TEX_SWIZZLE
-    #define EDRAM_MESH
-    //#define EDRAM_TEX
+    #define TEX_SWIZZLE
+    //#define EDRAM_MESH
+    #define EDRAM_TEX
 #endif
 
 #ifdef USE_INFLATE
@@ -164,15 +166,17 @@
     #define GENERATE_WATER_PLANE
 #endif
 
-extern int osGetTime();
-extern bool osSave(const char *name, const void *data, int size);
-
 #include "utils.h"
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
+
+extern int     osGetTime     ();
+
+extern bool    osJoyReady    (int index);
+extern void    osJoyVibrate  (int index, float L, float R);
 
 struct Mutex {
     void *obj;
@@ -243,7 +247,7 @@ enum InputKey { ikNone,
 
 enum JoyKey {
 // gamepad
-    jkNone, jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkL, jkR, jkLT, jkRT, jkPOV, jkLeft, jkRight, jkUp, jkDown, jkMAX
+    jkNone, jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkL, jkR, jkLT, jkRT, jkLeft, jkRight, jkUp, jkDown, jkMAX
 };
 
 enum ControlKey {
@@ -251,8 +255,8 @@ enum ControlKey {
 };
 
 struct KeySet {
-    InputKey key;
-    JoyKey   joy;
+    uint8 key;
+    uint8 joy;
     
     KeySet() {}
     KeySet(InputKey key, JoyKey joy) : key(key), joy(joy) {}
@@ -282,9 +286,14 @@ namespace Core {
     #endif
     } support;
 
+#define SETTINGS_VERSION 1
+#define SETTINGS_READING 0xFF
+
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };
         enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT };
+
+        uint8 version;
 
         struct {
             union {
@@ -325,19 +334,23 @@ namespace Core {
             }
         } detail;
 
-        struct Controls {
-            KeySet keys[cMAX];
-            uint8  joyIndex;
-            uint8  retarget;
-            uint8  multitarget;
-            uint8  vibration;
-        } controls[2];
-
         struct {
             uint8 music;
             uint8 sound;
             uint8 reverb;
         } audio;
+
+        struct Controls {
+            uint8  joyIndex;
+            uint8  vibration;
+            uint8  retarget;
+            uint8  multiaim;
+            KeySet keys[cMAX];
+        } controls[2];
+
+        // temporary, used only for setting controls
+        uint8 playerIndex;
+        uint8 ctrlIndex;
     } settings;
 
     bool resetState;
@@ -487,40 +500,32 @@ enum RenderState {
     RS_BLEND_MULT       = 1 << 12,
     RS_BLEND_PREMULT    = 1 << 13,
     RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULT | RS_BLEND_PREMULT,
+    RS_ALPHA_TEST       = 1 << 14,
+};
+
+enum ClearMode {
+    CLEAR_COLOR   = 1,
+    CLEAR_DEPTH   = 2,
+    CLEAR_ALL     = CLEAR_COLOR | CLEAR_DEPTH,
 };
 
 typedef uint16 Index;
 
 struct Vertex {
-    short4  coord;      // xyz  - position, w - joint index (for entities only)
-    short4  normal;     // xyz  - vertex normal, w - unused
-    short4  texCoord;   // xy   - texture coordinates, zw - trapezoid warping
-    ubyte4  param;      // xy   - anim tex range and frame index, zw - unused
-    ubyte4  color;      // for non-textured geometry
-    ubyte4  light;      // xyz  - color, w - use premultiplied alpha
+    short4 coord;      // xyz  - position, w - joint index (for entities only)
+    short4 normal;     // xyz  - vertex normal, w - unused
+    short4 texCoord;   // xy   - texture coordinates, zw - trapezoid warping
+    ubyte4 color;      // for non-textured geometry
+    ubyte4 light;      // xyz  - color, w - use premultiplied alpha
 };
 
-#ifdef FFP
-    #ifdef _PSP
-        struct VertexGPU {
-            short2 texCoord;
-            ubyte4 color;
-            short3 normal;
-            short3 coord;
-        };
-    #else
-/*
-        struct VertexGPU {
-            short2 texCoord;
-            ubyte4 color;
-            short3 normal;
-            uint16 _alignN;
-            short3 coord;
-            uint16 _alignC;
-        };
-*/
-        typedef Vertex VertexGPU;
-    #endif
+#ifdef _PSP
+    struct VertexGPU {
+        short2 texCoord;
+        ubyte4 color;
+        short3 normal;
+        short3 coord;
+    };
 #else
     typedef Vertex VertexGPU;
 #endif
@@ -654,7 +659,7 @@ namespace Core {
     
     struct ReqTarget {
         Texture *texture;
-        bool    clear;
+        uint8   clear;
         uint8   face;
     } reqTarget;
 
@@ -691,7 +696,7 @@ namespace Core {
     static int EDRAM_SIZE;
 
     void* allocEDRAM(int size) {
-        LOG("EDRAM ALLOC: offset: %d size %d\n", Core::EDRAM_OFFSET, size);
+        LOG("EDRAM ALLOC: offset: %d size %d (free %d)\n", Core::EDRAM_OFFSET, size, EDRAM_SIZE - (Core::EDRAM_OFFSET + size));
         if (Core::EDRAM_OFFSET + size > EDRAM_SIZE)
             LOG("! EDRAM overflow !\n");
 
@@ -933,7 +938,6 @@ namespace Core {
 
             sceGuShadeModel(GU_SMOOTH);
             sceGuAlphaFunc(GU_GREATER, 127, 255);
-            sceGuEnable(GU_ALPHA_TEST);
 
             int swizzle = GU_FALSE;
             #ifdef TEX_SWIZZLE
@@ -957,12 +961,10 @@ namespace Core {
             sceGuSetDither(&dith);
             sceGuEnable(GU_DITHER);
 
-            sceGuEnable(GU_LIGHT0);
-            sceGuDisable(GU_LIGHT1);
-            sceGuDisable(GU_LIGHT2);
-            sceGuDisable(GU_LIGHT3);
             sceGuAmbientColor(0xFFFFFFFF);
             sceGuColor(0xFFFFFFFF);
+            sceGuClearColor(0x00000000);
+            sceGuColorMaterial(GU_AMBIENT | GU_DIFFUSE);
 
             freeEDRAM();
         #else
@@ -972,17 +974,12 @@ namespace Core {
             glEnableClientState(GL_VERTEX_ARRAY);
             
             glAlphaFunc(GL_GREATER, 0.5f);
-            glEnable(GL_ALPHA_TEST);
-
-            glEnable(GL_LIGHT0);
-            glDisable(GL_LIGHT1);
-            glDisable(GL_LIGHT2);
-            glDisable(GL_LIGHT3);
-            glEnable(GL_NORMALIZE);
 
             glMatrixMode(GL_TEXTURE);
             glLoadIdentity();
             glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
+
+            glClearColor(0, 0, 0, 0);
         #endif
     #endif
 
@@ -1016,6 +1013,8 @@ namespace Core {
         whiteTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
 
     // init settings
+        settings.version = SETTINGS_VERSION;
+
         settings.detail.setFilter   (Core::Settings::HIGH);
         settings.detail.setLighting (Core::Settings::HIGH);
         settings.detail.setShadows  (Core::Settings::HIGH);
@@ -1028,11 +1027,11 @@ namespace Core {
 
     // player 1
         {
-            Settings::Controls &ctrl   = settings.controls[0];
-            ctrl.retarget    = true;
-            ctrl.multitarget = true;
-            ctrl.vibration   = true;
-            ctrl.joyIndex    = 0;
+            Settings::Controls &ctrl = settings.controls[0];
+            ctrl.joyIndex  = 0;
+            ctrl.vibration = true;
+            ctrl.retarget  = true;
+            ctrl.multiaim  = true;
 
             ctrl.keys[ cLeft      ] = KeySet( ikLeft,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikRight,  jkRight  );
@@ -1046,17 +1045,17 @@ namespace Core {
             ctrl.keys[ cDuck      ] = KeySet( ikZ,      jkLT     );
             ctrl.keys[ cDash      ] = KeySet( ikX,      jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikA,      jkB      );
-            ctrl.keys[ cInventory ] = KeySet( ikTab,    jkSelect );
+            ctrl.keys[ cInventory ] = KeySet( ikEscape, jkSelect );
             ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
         }
 
     // player 2
         {
-            Settings::Controls &ctrl   = settings.controls[1];
-            ctrl.retarget    = true;
-            ctrl.multitarget = true;
-            ctrl.vibration   = true;
-            ctrl.joyIndex    = 1;
+            Settings::Controls &ctrl = settings.controls[1];
+            ctrl.joyIndex  = 1;
+            ctrl.vibration = true;
+            ctrl.retarget  = true;
+            ctrl.multiaim  = true;
 
             ctrl.keys[ cLeft      ] = KeySet( ikNone,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikNone,   jkRight  );
@@ -1071,16 +1070,18 @@ namespace Core {
             ctrl.keys[ cDash      ] = KeySet( ikNone,   jkRT     );
             ctrl.keys[ cRoll      ] = KeySet( ikNone,   jkB      );
             ctrl.keys[ cInventory ] = KeySet( ikNone,   jkSelect );
-            ctrl.keys[ cStart     ] = KeySet( ikEnter,  jkStart  );
+            ctrl.keys[ cStart     ] = KeySet( ikNone,   jkStart  );
         }
 
     // use D key for jump in browsers
     #ifdef __EMSCRIPTEN__
-        settings.controls[0].keys[cJump].key = ikD;
+        settings.controls[0].keys[ cJump      ].key = ikD;
+        settings.controls[0].keys[ cInventory ].key = ikTab;
     #endif
 
     #ifdef __RPI__
         settings.detail.setShadows(Core::Settings::LOW);
+        settings.detail.setLighting(Core::Settings::MEDIUM);
     #endif
 
     #ifdef FFP
@@ -1283,13 +1284,30 @@ namespace Core {
             }
         #endif
         }
-
+    #ifdef FFP
+        if (mask & RS_ALPHA_TEST) {
+        #ifdef _PSP
+            if (renderState & RS_ALPHA_TEST)
+                sceGuEnable(GU_ALPHA_TEST);
+            else
+                sceGuDisable(GU_ALPHA_TEST);
+        #else
+            if (renderState & RS_ALPHA_TEST)
+                glEnable(GL_ALPHA_TEST);
+            else
+                glDisable(GL_ALPHA_TEST);
+        #endif
+        }
+    #endif
         if (mask & RS_TARGET) {
             if (reqTarget.clear) {
             #ifdef _PSP
-                sceGuClear(GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT | GU_FAST_CLEAR_BIT);
+                sceGuClear(((reqTarget.clear & CLEAR_COLOR) ? GU_COLOR_BUFFER_BIT : 0) | 
+                           ((reqTarget.clear & CLEAR_DEPTH) ? GU_DEPTH_BUFFER_BIT : 0) | 
+                           GU_FAST_CLEAR_BIT);
             #else
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+                glClear(((reqTarget.clear & CLEAR_COLOR) ? GL_COLOR_BUFFER_BIT : 0) | 
+                        ((reqTarget.clear & CLEAR_DEPTH) ? GL_DEPTH_BUFFER_BIT : 0));
             #endif
             }
             renderState &= ~RS_TARGET;
@@ -1335,6 +1353,12 @@ namespace Core {
         }
     }
 
+    void setAlphaTest(bool value) {
+        renderState &= ~RS_ALPHA_TEST;
+        if (value)
+            renderState |= RS_ALPHA_TEST;
+    }
+
     void setColorWrite(bool r, bool g, bool b, bool a) {
         renderState &= ~RS_COLOR_WRITE;
         if (r) renderState |= RS_COLOR_WRITE_R;
@@ -1369,7 +1393,7 @@ namespace Core {
     #endif
     }
 
-    void setTarget(Texture *target, bool clear = false, int face = 0) {
+    void setTarget(Texture *target, uint8 clear = 0, uint8 face = 0) {
         if (!target)
             target = defaultTarget;
 
@@ -1450,6 +1474,8 @@ namespace Core {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(1);
         #elif LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(1);
+        #elif __RPI__
+            eglSwapInterval(display, 1);
         #elif _PSP
             sceDisplayWaitVblankStart();
         #endif
@@ -1458,6 +1484,8 @@ namespace Core {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(0);
         #elif LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(0);
+        #elif __RPI__
+            eglSwapInterval(display, 0);
         #endif
         }
     }
@@ -1479,7 +1507,7 @@ namespace Core {
     #endif
     }
 
-    void DIP(int iStart, int iCount) {
+    void DIP(int iStart, int iCount, void *iBuffer) {
         validateRenderState();
 
     #ifdef FFP
@@ -1498,7 +1526,7 @@ namespace Core {
     #ifdef _PSP
         sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, iCount, active.iBuffer + iStart, active.vBuffer);
     #else
-        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)NULL + iStart);
+        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)iBuffer + iStart);
     #endif
 
         stats.dips++;

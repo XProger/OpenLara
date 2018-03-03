@@ -15,6 +15,8 @@
     #include "debug.h"
 #endif
 
+#define ANIM_TEX_TIMESTEP (10.0f / 30.0f)
+
 extern ShaderCache *shaderCache;
 extern void loadAsync(Stream *stream, void *userData);
 
@@ -52,6 +54,7 @@ struct Level : IGame {
     float      effectTimer;
     int        effectIdx;
     float      cutsceneWaitTimer;
+    float      animTexTimer;
 
     Texture    *cube360;
 
@@ -130,21 +133,24 @@ struct Level : IGame {
         save->size      = ptr - data;
         save->version   = level.version & TR::VER_VERSION;
 
-        Stream::write("savegame.dat", data, int(ptr - data));
+        //osSaveGame(new Stream("savegame", data, int(ptr - data)));
         delete[] data;
 
         LOG("Ok\n");
     }
 
     virtual void loadGame(int slot) {
-        LOG("Lave Game... ");
+        LOG("Load Game... ");
+
+        Stream *stream = NULL;//osLoadGame();
+        if (!stream)
+            return;
 
         clearInventory();
         clearEntities();
 
-        Stream stream("savegame.dat");
         char *data;
-        stream.read(data, stream.size);
+        stream->read(data, stream->size);
         char *ptr = data;
 
         TR::SaveGame *save = (TR::SaveGame*)ptr;
@@ -188,6 +194,7 @@ struct Level : IGame {
         }
 
         delete[] data;
+        delete stream;
 
     //    camera->room = lara->getRoomIndex();
     //    camera->pos  = camera->destPos = lara->pos;
@@ -232,6 +239,8 @@ struct Level : IGame {
         bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
 
         Core::settings = settings;
+
+        Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
             delete shaderCache;
@@ -379,7 +388,7 @@ struct Level : IGame {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setTarget(target, true, i);
+            Core::setTarget(target, CLEAR_ALL, i);
             renderView(roomIndex, false, false);
             Core::invalidateTarget(false, true);
         }
@@ -393,7 +402,9 @@ struct Level : IGame {
 
         switch (effect) {
             case TR::Effect::FLOOR_SHAKE :
-                camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
+                for (int i = 0; i < 2; i++)
+                    if (players[i] && players[i]->camera)
+                        players[i]->camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - players[i]->camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
                 return;
             case TR::Effect::FLOOD : {
                 Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
@@ -406,7 +417,7 @@ struct Level : IGame {
                 break;
             case TR::Effect::EXPLOSION :
                 playSound(TR::SND_TNT, vec3(0), 0);
-                camera->shake = 1.0f;
+                shakeCamera(1.0f);
                 break;
             default : ;
         }
@@ -415,6 +426,17 @@ struct Level : IGame {
     virtual void checkTrigger(Controller *controller, bool heavy) {
         players[0]->checkTrigger(controller, heavy);
     }
+
+    virtual void shakeCamera(float value, bool add = false) {
+        for (int i = 0; i < 2; i++)
+            if (players[i] && players[i]->camera) {
+                if (add)
+                    players[i]->camera->shake += value;
+                else
+                    players[i]->camera->shake  = value;
+            }
+    }
+
 
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle) {
         int index;
@@ -503,7 +525,7 @@ struct Level : IGame {
                 switch (b.flags.mode) {
                     case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
                     case 1 : flags |= Sound::REPLAY; break;
-                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
+                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP; break;
                     case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
                 }
             }
@@ -536,7 +558,6 @@ struct Level : IGame {
             }
             level->sndSoundtrack->setVolume(1.0f, 0.2f);
         }
-        LOG("play soundtrack - %d\n", Core::getTime());
     }
 
     virtual void playTrack(uint8 track, bool restart = false) {
@@ -569,7 +590,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f) {
+    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
     #ifdef _PSP
         Core::freeEDRAM();
     #endif
@@ -685,6 +706,7 @@ struct Level : IGame {
             case TR::Entity::ENEMY_WOLF            : return new Wolf(this, index);
             case TR::Entity::ENEMY_BEAR            : return new Bear(this, index);
             case TR::Entity::ENEMY_BAT             : return new Bat(this, index);
+            case TR::Entity::ENEMY_PUMA            :
             case TR::Entity::ENEMY_LION_MALE       :
             case TR::Entity::ENEMY_LION_FEMALE     : return new Lion(this, index);
             case TR::Entity::ENEMY_RAT_LAND        :
@@ -698,7 +720,6 @@ struct Level : IGame {
             case TR::Entity::ENEMY_MUMMY           : return new Mummy(this, index);
             case TR::Entity::ENEMY_CROCODILE_LAND  :
             case TR::Entity::ENEMY_CROCODILE_WATER :
-            case TR::Entity::ENEMY_PUMA            :
             case TR::Entity::ENEMY_GORILLA         : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
             case TR::Entity::ENEMY_LARSON          : return new Larson(this, index);
             case TR::Entity::ENEMY_PIERRE          : return new Pierre(this, index);
@@ -1250,11 +1271,14 @@ struct Level : IGame {
             dir = -1;
         }
 
+        beginLighting(true);
+        updateLighting();
+
         while (i != end) {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
 
-            if (!range.geometry[transp].count) {
+            if (!range.geometry[transp].count && !range.dynamic[transp].count) {
                 i += dir;
                 continue;
             }
@@ -1308,6 +1332,7 @@ struct Level : IGame {
                 mesh->renderRoomSprites(roomIndex);
             }
         }
+        endLighting();
 
         Core::setBlending(bmNone);
     }
@@ -1328,9 +1353,11 @@ struct Level : IGame {
         int roomIndex = controller->getRoomIndex();
         TR::Room &room = level.rooms[roomIndex];
 
-        if (!entity.isLara() && !entity.isActor())
-            if (!room.flags.visible || controller->flags.invisible)// || controller->flags.rendered)
-                return;
+        if (controller->flags.invisible)
+            return;
+
+        if (!entity.isLara() && !entity.isActor() && !room.flags.visible)
+            return;
 
         float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
 
@@ -1345,15 +1372,15 @@ struct Level : IGame {
         } else
             setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
 
+        updateLighting();
+
         if (isModel) { // model
             vec3 pos = controller->getPos();
             if (ambientCache) {
                 AmbientCache::Cube cube;
-                if (Core::stats.frame != controller->jointsFrame) {
-                    ambientCache->getAmbient(roomIndex, pos, cube);
-                    if (cube.status == AmbientCache::Cube::READY)
-                        memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
-                }
+                ambientCache->getAmbient(roomIndex, pos, cube);
+                if (cube.status == AmbientCache::Cube::READY)
+                    memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
 
@@ -1395,7 +1422,7 @@ struct Level : IGame {
             }
         }
 
-        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f) {
+        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f && !inventory.active && inventory.lastKey == cMAX) {
             int playerIndex = Input::state[0][cInventory] ? 0 : 1;
 
             if (player->health <= 0.0f)
@@ -1419,6 +1446,12 @@ struct Level : IGame {
                 sndChanged = NULL;
         } else {
             params->time += Core::deltaTime;
+            animTexTimer += Core::deltaTime;
+
+            if (animTexTimer > ANIM_TEX_TIMESTEP) {
+                level.shiftAnimTex();
+                animTexTimer -= ANIM_TEX_TIMESTEP;
+            }
 
             updateEffect();
 
@@ -1474,17 +1507,93 @@ struct Level : IGame {
             }
             case TR::Effect::EARTHQUAKE : {
                 switch (effectIdx) {
-                    case 0 : if (effectTimer > 0.0f) { playSound(TR::SND_ROCK);     effectIdx++; camera->shake = 1.0f; } break;
+                    case 0 : if (effectTimer > 0.0f) { playSound(TR::SND_ROCK);     effectIdx++; shakeCamera(1.0f); } break;
                     case 1 : if (effectTimer > 0.1f) { playSound(TR::SND_STOMP);    effectIdx++; } break;
-                    case 2 : if (effectTimer > 0.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
+                    case 2 : if (effectTimer > 0.6f) { playSound(TR::SND_BOULDER);  effectIdx++; shakeCamera(0.5f, true); } break;
                     case 3 : if (effectTimer > 1.1f) { playSound(TR::SND_ROCK);     effectIdx++; } break;
-                    case 4 : if (effectTimer > 1.6f) { playSound(TR::SND_BOULDER);  effectIdx++; camera->shake += 0.5f; } break;
-                    case 5 : if (effectTimer > 2.3f) { playSound(TR::SND_BOULDER);  camera->shake += 0.5f; effect = TR::Effect::NONE; } break;
+                    case 4 : if (effectTimer > 1.6f) { playSound(TR::SND_BOULDER);  effectIdx++; shakeCamera(0.5f, true); } break;
+                    case 5 : if (effectTimer > 2.3f) { playSound(TR::SND_BOULDER);  shakeCamera(0.5f, true); effect = TR::Effect::NONE; } break;
                 }
                 break;
             }
             default : effect = TR::Effect::NONE; return;
         }
+    }
+
+    void updateLighting() {
+    #ifdef FFP
+        #ifdef _PSP
+            ubyte4 ambient;
+            ambient.x = ambient.y = ambient.z = clamp(int(Core::active.material.y * 255), 0, 255);
+            ambient.w = 255;
+            sceGuAmbient(*(uint32*)&ambient);
+
+            for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
+                ScePspFVector3 pos;
+                pos.x = Core::lightPos[i].x;
+                pos.y = Core::lightPos[i].y;
+                pos.z = Core::lightPos[i].z;
+
+                sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
+
+                ubyte4 color;
+                color.x = clamp(int(Core::lightColor[i].x * 255), 0, 255);
+                color.y = clamp(int(Core::lightColor[i].y * 255), 0, 255);
+                color.z = clamp(int(Core::lightColor[i].z * 255), 0, 255);
+                color.w = 255;
+
+                sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
+                sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
+            }
+        #else
+            vec4 ambient(vec3(Core::active.material.y), 1.0f);
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&ambient);
+
+            for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
+                vec4 pos(Core::lightPos[i].xyz(), 1.0f);
+                vec4 color(Core::lightColor[i].xyz(), 1.0f);
+                float att = Core::lightColor[i].w;
+                att *= att;
+
+                glLightfv(GL_LIGHT0 + i, GL_POSITION, (GLfloat*)&pos);
+                glLightfv(GL_LIGHT0 + i, GL_DIFFUSE,  (GLfloat*)&color);
+                glLightfv(GL_LIGHT0 + i, GL_QUADRATIC_ATTENUATION, (GLfloat*)&att);
+            }
+        #endif
+    #endif
+    }
+
+    void beginLighting(bool room) {
+    #ifdef FFP
+        Core::mModel.identity();
+        #ifdef _PSP
+            sceGuEnable(GU_LIGHTING);
+            if (room)
+                sceGuDisable(GU_LIGHT0);
+            else
+                sceGuEnable(GU_LIGHT0);
+            sceGuEnable(GU_LIGHT1);
+        #else
+            glEnable(GL_COLOR_MATERIAL);
+            glEnable(GL_LIGHTING);
+            if (room)
+                glDisable(GL_LIGHT0);
+            else
+                glEnable(GL_LIGHT0);
+            glEnable(GL_LIGHT1);
+        #endif
+    #endif 
+    }
+
+    void endLighting() {
+    #ifdef FFP
+        #ifdef _PSP
+            sceGuDisable(GU_LIGHTING);
+        #else
+            glDisable(GL_COLOR_MATERIAL);
+            glDisable(GL_LIGHTING);
+        #endif
+    #endif    
     }
 
     void setup() {
@@ -1506,6 +1615,8 @@ struct Level : IGame {
             return;
 
         PROFILE_MARKER("ENTITIES");
+
+        beginLighting(false);
 
         if (transp == 0) {
             Core::setBlending(bmNone);
@@ -1532,6 +1643,8 @@ struct Level : IGame {
             renderEntitiesTransp(transp);
             Core::setDepthWrite(true);
         }
+
+        endLighting();
     }
 
     bool checkPortal(const TR::Room &room, const TR::Room::Portal &portal, const vec4 &viewPort, vec4 &clipPort) {
@@ -1672,11 +1785,13 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setTarget(NULL, Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL); // render to back buffer
+            Core::setTarget(NULL, (Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL) ? CLEAR_ALL : 0); // render to back buffer
             setupBinding();
         }
 
         prepareRooms(roomsList, roomsCount);
+
+        updateLighting();
         for (int transp = 0; transp < 3; transp++) {
             renderRooms(roomsList, roomsCount, transp);
             renderEntities(transp);
@@ -1712,7 +1827,7 @@ struct Level : IGame {
         }
 
         Core::mViewInv  = mat4(pos, pos + dir, up);
-        Core::mView     = Core::mViewInv.inverse();
+        Core::mView     = Core::mViewInv.inverseOrtho();
         Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
@@ -1724,7 +1839,7 @@ struct Level : IGame {
         vec3 pos = player->getBoundingBox().center();
 
         Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
-        Core::mView    = Core::mViewInv.inverse();
+        Core::mView    = Core::mViewInv.inverseOrtho();
         Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
 
         mat4 bias;
@@ -1745,7 +1860,7 @@ struct Level : IGame {
         bool colorShadow = shadow->format == Texture::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setTarget(shadow, true);
+        Core::setTarget(shadow, CLEAR_ALL);
         setupLightCamera();
         Core::setCulling(cfBack);
 
@@ -1760,7 +1875,7 @@ struct Level : IGame {
 
     #ifdef _DEBUG
     void renderDebug() {
-        if (level.isTitle()) return;
+        if (level.isTitle() || inventory.titleTimer > 1.0f) return;
 
         Core::setViewport(0, 0, Core::width, Core::height);
         camera->setup(true);
@@ -2002,7 +2117,7 @@ struct Level : IGame {
             ambientCache->processQueue();
 
         //if (Core::settings.detail.stereo || Core::settings.detail.splitscreen) {
-            Core::setTarget(NULL, true);
+            Core::setTarget(NULL, CLEAR_ALL);
             Core::validateRenderState();
         //}
 
@@ -2016,7 +2131,7 @@ struct Level : IGame {
         if (!cube360)
             cube360 = new Texture(1024, 1024, Texture::RGBA, true, NULL, true, false);
         renderEnvironment(camera->getRoomIndex(), camera->pos, &cube360, 0, Core::passCompose);
-        Core::setTarget(NULL, true);
+        Core::setTarget(NULL, Core::CLEAR_ALL);
         setShader(Core::passFilter, Shader::FILTER_EQUIRECTANGULAR);
         cube360->bind(sEnvironment);
         mesh->renderQuad();
@@ -2045,14 +2160,14 @@ struct Level : IGame {
 
                 Core::defaultTarget = Core::eyeTex[0];
                 Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye = -1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true, false);
 
                 Core::defaultTarget = Core::eyeTex[1];
                 Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye =  1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true, false);
@@ -2060,7 +2175,7 @@ struct Level : IGame {
                 Core::settings.detail.vr = false;
 
                 Core::defaultTarget = oldTarget;
-                Core::setTarget(NULL, true);
+                Core::setTarget(NULL, CLEAR_ALL);
                 Core::viewportDef = vp;
             }   
             
@@ -2153,7 +2268,7 @@ struct Level : IGame {
     }
 
     void renderInventory(bool clear) {
-        Core::setTarget(NULL, clear);
+        Core::setTarget(NULL, clear ? CLEAR_ALL : 0);
 
         if (!(level.isTitle() || inventory.titleTimer > 0.0f))
             inventory.renderBackground();
@@ -2174,7 +2289,7 @@ struct Level : IGame {
         lastTitle = title;
 
         if (isEnded) {
-            Core::setTarget(NULL, true);
+            Core::setTarget(NULL, CLEAR_ALL);
             UI::begin();
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();
@@ -2185,8 +2300,12 @@ struct Level : IGame {
             inventory.prepareBackground();
         }
 
-        if (!title)
-            renderGame(true);
+        if (!level.isTitle()) {
+            if (inventory.phaseRing < 1.0f && inventory.titleTimer <= 1.0f) {
+                renderGame(true);
+                title = false;
+            }
+        }
 
         renderInventory(title);
     }

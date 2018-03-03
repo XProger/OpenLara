@@ -3,7 +3,7 @@ OBJS   = main.o ../../libs/stb_vorbis/stb_vorbis.o
 
 INCDIR   = ../../
 CFLAGS   = -G0 -O3
-CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
+CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti -Wno-invalid-offsetof
 ASFLAGS  = $(CFLAGS)
 
 BUILD_PRX = 1

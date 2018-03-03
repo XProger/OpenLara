@@ -240,10 +240,10 @@ struct Enemy : Character {
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        if (hitSound > -1 && health > 0.0f) 
+            game->playSound(hitSound, pos, Sound::PAN);
         Character::hit(damage, enemy, hitType);
         wound = true;
-        if (hitSound > -1) 
-            game->playSound(hitSound, pos, Sound::PAN);
     };
 
     void bite(const vec3 &pos, float damage) {
@@ -462,7 +462,6 @@ struct Enemy : Character {
 
 #define WOLF_TURN_FAST   (DEG2RAD * 150)
 #define WOLF_TURN_SLOW   (DEG2RAD * 60)
-
 #define WOLF_DIST_STALK  STALK_BOX
 #define WOLF_DIST_BITE   345
 #define WOLF_DIST_ATTACK (1024 + 512)
@@ -619,9 +618,127 @@ struct Wolf : Enemy {
     }
 };
 
+
+#define LION_DIST_ATTACK 1024
+#define LION_TURN_FAST   (DEG2RAD * 150)
+#define LION_TURN_SLOW   (DEG2RAD * 60)
+
 struct Lion : Enemy {
+
+    enum {
+        HIT_MASK = 0x380066,
+    };
+
+    enum {
+        ANIM_DEATH_LION = 7,
+        ANIM_DEATH_PUMA = 4,
+    };
+
+    enum {
+        STATE_NONE   ,
+        STATE_STOP   ,
+        STATE_WALK   ,
+        STATE_RUN    ,
+        STATE_ATTACK ,
+        STATE_DEATH  ,
+        STATE_ROAR   ,
+        STATE_BITE   ,
+    };
+
     Lion(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
-        hitSound = TR::SND_HIT_LION;
+        dropHeight = -1024;
+        jointChest = 19;
+        jointHead  = 20;
+        switch (getEntity().type) {
+            case TR::Entity::ENEMY_LION_MALE :
+                hitSound   = TR::SND_HIT_LION;
+                health     = 30.0f;
+                aggression = 1.0f;
+                break;
+            case TR::Entity::ENEMY_LION_FEMALE :
+                hitSound = TR::SND_HIT_LION;
+                health   = 25.0f;
+                break;
+            case TR::Entity::ENEMY_PUMA :
+                health   = 45.0f;
+                break;
+            default : ;
+        }
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP    :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (mood == MOOD_SLEEP)
+                    return STATE_WALK;
+                if (targetInView && (collide(target) & HIT_MASK))
+                    return STATE_BITE;
+                if (targetInView && targetDist < LION_DIST_ATTACK)
+                    return STATE_ATTACK;
+                return STATE_RUN;
+            case STATE_WALK     : 
+                if (mood != MOOD_SLEEP)
+                    return STATE_STOP;
+                if (randf() < 0.0004f) {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_RUN      :
+                if ((mood == MOOD_SLEEP) ||
+                    (targetInView && targetDist < LION_DIST_ATTACK) ||
+                    (targetInView && (collide(target) & HIT_MASK)))
+                    return STATE_STOP;
+                if (mood == MOOD_ESCAPE && randf() < 0.0004f) {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_ATTACK :
+            case STATE_BITE   :
+                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
+                    bite(getJoint(jointHead).pos, state == STATE_ATTACK ? 150.0f : 250.0f);
+                    nextState = STATE_STOP;
+                }
+        }
+
+        return state;
+    }
+
+    virtual int getStateDeath() {
+        if (state == STATE_DEATH)
+            return state;
+        int deathAnim = (getEntity().type == TR::Entity::ENEMY_PUMA) ? ANIM_DEATH_PUMA : ANIM_DEATH_LION;
+        return animation.setAnim(deathAnim + rand() % 2);
+    }
+
+    virtual void updatePosition() {
+        float angleY = 0.0f;
+
+        if (state == STATE_RUN || state == STATE_WALK || state == STATE_ROAR)
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        turn(angleY, state == STATE_RUN ? LION_TURN_FAST : LION_TURN_SLOW);
+
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+
+        Enemy::updatePosition();
+        setOverrides(state != STATE_DEATH, jointChest, jointHead);
+        lookAt(target);
     }
 };
 
@@ -1173,7 +1290,7 @@ struct GiantMutant : Enemy {
             case STATE_FALL : 
                 if (stand == STAND_GROUND) {
                     animation.setState(STATE_STOP);
-                    game->getCamera()->shake = 5.0f;
+                    game->shakeCamera(5.0f);
                 }
                 break;
         }
@@ -1335,7 +1452,7 @@ struct ScionTarget : Enemy {
                 if (index != int(timer / 0.3f)) {
                     vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * 512.0f, (randf() * 2.0f - 1.0f) * 64.0f - 500.0f, (randf() * 2.0f - 1.0f) * 512.0f);
                     game->addEntity(TR::Entity::EXPLOSION, getRoomIndex(), p);
-                    game->getCamera()->shake = 0.5f;
+                    game->shakeCamera(0.5f);
                 }
 
                 if (timer < 0.0f) 

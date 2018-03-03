@@ -162,6 +162,7 @@ struct Camera : ICamera {
         level->cutMatrix.identity();
         level->cutMatrix.rotateY(rotation);
         level->cutMatrix.setPos(pos);
+        owner->animation.overrideMask = 0;
         timer = 0.0f;
     }
 
@@ -405,8 +406,8 @@ struct Camera : ICamera {
                 continue;
             }
 
-            int sx = (int(p.x) - room.info.x) / 1024;
-            int sz = (int(p.z) - room.info.z) / 1024;
+            int sx = clamp((int(p.x) - room.info.x) / 1024, 0, room.xSectors - 1);
+            int sz = clamp((int(p.z) - room.info.z) / 1024, 0, room.zSectors - 1);
 
             int boxIndex = room.sectors[sz + sx * room.zSectors].boxIndex;
         
@@ -446,8 +447,10 @@ struct Camera : ICamera {
     }
 
     virtual void update() {
-        if (shake > 0.0f)
+        if (shake > 0.0f) {
             shake = max(0.0f, shake - Core::deltaTime);
+            Input::setJoyVibrate(cameraIndex,  clamp(shake, 0.0f, 1.0f), 0);
+        }
 
         if (mode == MODE_CUTSCENE) {
             timer += Core::deltaTime * 30.0f;
@@ -483,10 +486,10 @@ struct Camera : ICamera {
 
                 eye.pos    = level->cutMatrix * eye.pos;
                 target.pos = level->cutMatrix * target.pos;
+
+                mViewInv   = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else
                 updateFirstPerson();
-
-            mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
 
             checkRoom();
         } else {
@@ -521,13 +524,13 @@ struct Camera : ICamera {
             if (Input::state[cameraIndex][cLook]) {
                 float d = 2.0f * Core::deltaTime;
 
-                advAngle.x -= Input::joy[cameraIndex].L.y * d;
+                advAngle.x += Input::joy[cameraIndex].L.y * d;
                 advAngle.y += Input::joy[cameraIndex].L.x * d;
 
-                if (Input::state[cameraIndex][cUp])    advAngle.y += d;
-                if (Input::state[cameraIndex][cDown])  advAngle.y -= d;
-                if (Input::state[cameraIndex][cLeft])  advAngle.x += d;
-                if (Input::state[cameraIndex][cRight]) advAngle.x -= d;
+                if (Input::state[cameraIndex][cUp])    advAngle.x -= d;
+                if (Input::state[cameraIndex][cDown])  advAngle.x += d;
+                if (Input::state[cameraIndex][cLeft])  advAngle.y += d;
+                if (Input::state[cameraIndex][cRight]) advAngle.y -= d;
             }
 
             if (advAngleOld == advAngle) {
@@ -547,7 +550,7 @@ struct Camera : ICamera {
             }
 
             targetAngle = owner->angle + advAngle;
-            if (mode == MODE_FOLLOW || mode == MODE_COMBAT)
+            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
                 targetAngle += angle;
 
             targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
@@ -624,7 +627,7 @@ struct Camera : ICamera {
                 Core::mViewInv.scale(vec3(1.0f, -1.0f, 1.0f));
             }
 
-            Core::mView = Core::mViewInv.inverse();
+            Core::mView = Core::mViewInv.inverseOrtho();
             if (shake > 0.0f)
                 Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 

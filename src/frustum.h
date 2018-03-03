@@ -47,7 +47,7 @@ struct Frustum {
     bool isVisible(const mat4 &matrix, const vec3 &min, const vec3 &max) {
         start = count;
         // transform clip planes (relative)
-        mat4 m = matrix.inverse();
+        mat4 m = matrix.inverseOrtho();
         for (int i = 0; i < count; i++) {
             vec4 &p = planes[i];
             vec4 o = m * vec4(p.xyz() * (-p.w), 1.0f);

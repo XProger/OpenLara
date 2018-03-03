@@ -7,7 +7,6 @@
     E( aCoord           ) \
     E( aNormal          ) \
     E( aTexCoord        ) \
-    E( aParam           ) \
     E( aColor           ) \
     E( aLight           )
 
@@ -80,11 +79,11 @@ struct Shader {
     // generate shader file path
         if (Core::support.shaderBinary) {
             uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
-            sprintf(fileName, "%s%08X.xsh", Stream::cacheDir, hash);
+            sprintf(fileName, "%08X.xsh", hash);
         }
 
         ID = glCreateProgram();
-    
+
         if (!(Core::support.shaderBinary && linkBinary(fileName))) // try to load cached shader     
             if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
             #ifndef __EMSCRIPTEN__
@@ -94,7 +93,7 @@ struct Shader {
                 glGetProgramBinary(ID, size, NULL, &format, &data[8]);
                 *(int*)(&data[0]) = format;
                 *(int*)(&data[4]) = size;
-                Stream::write(fileName, data, 8 + size);
+                Stream::cacheWrite(fileName, data, 8 + size);
                 delete[] data;
             #endif
             }
@@ -144,18 +143,27 @@ struct Shader {
         return checkLink();
     }
     
-    bool linkBinary(const char *fileName) {
-        if (!Stream::exists(fileName))
+    bool linkBinary(const char *name) {
+        // non-async code!
+        char path[255];
+        strcpy(path, Stream::cacheDir);
+        strcat(path, name);
+
+        if (!Stream::exists(path))
+            return false;
+
+        Stream *stream = new Stream(path);
+        if (!stream)
             return false;
 
         GLenum size, format;
-        Stream stream(fileName);
-        stream.read(format);
-        stream.read(size);
+        stream->read(format);
+        stream->read(size);
         char *data = new char[size];
-        stream.raw(data, size);
+        stream->raw(data, size);
         glProgramBinary(ID, format, data, size);
         delete[] data;
+        delete stream;
 
         return checkLink();
     }
@@ -193,51 +201,32 @@ struct Shader {
         return false;
     }
 
-    inline bool checkParam(UniformType uType, const void *value, int size) {
-        return true;
-        /*
-        if (size > sizeof(vec4) * 4) return true;
-        if (memcmp(&params[uType], value, size) != 0) {
-            memcpy(&params[uType], value, size);
-            return true;
-        }
-        return false;
-        */
-    }
-
     void setParam(UniformType uType, const int &value, int count = 1) {
-        if (uID[uType] != -1)
-            glUniform1iv(uID[uType], count, (GLint*)&value);
+        if (uID[uType] != -1) glUniform1iv(uID[uType], count, (GLint*)&value);
     }
 
     void setParam(UniformType uType, const float &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform1fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform1fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec2 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform2fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform2fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec3 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform3fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform3fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const vec4 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform4fv(uID[uType], count, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform4fv(uID[uType], count, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const mat4 &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
     }
 
     void setParam(UniformType uType, const Basis &value, int count = 1) {
-        if (uID[uType] != -1 && checkParam(uType, &value, sizeof(value) * count))
-            glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
+        if (uID[uType] != -1) glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
     }
 #endif
 };

@@ -70,6 +70,11 @@ struct Texture {
 
         void bind(uint16 tile, uint16 clut) {
         #ifdef _PSP
+            int swizzle = GU_FALSE;
+            #ifdef TEX_SWIZZLE
+                swizzle = GU_TRUE;
+            #endif
+            sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
             sceGuClutLoad(1, cluts + clut);
             sceGuTexImage(0, width, height, width, tiles + tile);
         #else
@@ -79,6 +84,8 @@ struct Texture {
     #endif
 
     Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
+        LOG("create texture %d x %d (%d)\n", width, height, format);
+
         #ifndef _PSP
             #ifdef SPLIT_BY_TILE
                 memset(this->tiles, 0, sizeof(tiles));
@@ -126,7 +133,15 @@ struct Texture {
         this->format = format;
 
     #ifdef _PSP
-        memory = NULL;//new uint8[width * height * 2];
+        if (data) {
+            memory = new uint8[width * height * 4];
+        #ifdef TEX_SWIZZLE
+            swizzle(memory, (uint8*)data, width * 4, height);
+        #else
+            memcpy(memory, data, width * height * 4);
+        #endif
+        } else
+            memory = NULL;
     #else
         glGenTextures(1, &ID);
         bind(0);
@@ -262,11 +277,17 @@ struct Texture {
 
     void bind(int sampler) {
     #ifdef _PSP
-        if (this && !sampler && memory)
+        if (this && !sampler && memory) {
+            int swizzle = GU_FALSE;
+            #ifdef TEX_SWIZZLE
+                swizzle = GU_TRUE;
+            #endif
+            sceGuTexMode(GU_PSM_8888, 0, 0, swizzle);
             sceGuTexImage(0, width, height, width, memory);
+        }
     #else
         #ifdef SPLIT_BY_TILE
-            if (sampler || !ID) return;
+            if (!this || sampler || !ID) return;
         #endif
 
         if (Core::active.textures[sampler] != this) {
@@ -654,12 +675,13 @@ struct Texture {
 
         BitStream bs(cdata, csize);
         uint8 *dst = data;
+        uint8 *end = data + size;
 
         uint32 length = 0;
         uint16 offset = 0;
 
         bs.readBits(2);
-        while (bs.data < bs.end || bs.index > 0) {
+        while (bs.data < bs.end && dst < end) {
             if (!bs.readBit()) {
                 *dst++ = bs.readByte();
             } else {

@@ -17,6 +17,16 @@ enum StringID {
     , STR_QUALITY_MEDIUM
     , STR_QUALITY_HIGH
     , STR_APPLY
+    , STR_GAMEPAD_1
+    , STR_GAMEPAD_2
+    , STR_GAMEPAD_3
+    , STR_GAMEPAD_4
+    , STR_NOT_READY
+    , STR_PLAYER_1
+    , STR_PLAYER_2
+    , STR_PRESS_ANY_KEY
+    , STR_HELP_SELECT
+    , STR_HELP_BACK
 // inventory pages
     , STR_OPTION
     , STR_INVENTORY
@@ -50,6 +60,22 @@ enum StringID {
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
+// controls options
+    , STR_SET_CONTROLS
+    , STR_OPT_CONTROLS_KEYBOARD
+    , STR_OPT_CONTROLS_GAMEPAD
+    , STR_OPT_CONTROLS_VIBRATION
+    , STR_OPT_CONTROLS_RETARGET
+    , STR_OPT_CONTROLS_MULTIAIM
+    // controls
+    , STR_CTRL_FIRST
+    , STR_CTRL_LAST = STR_CTRL_FIRST + cMAX - 1
+    // keys
+    , STR_KEY_FIRST
+    , STR_KEY_LAST  = STR_KEY_FIRST + ikZ
+    // gamepad
+    , STR_JOY_FIRST
+    , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
 // inventory items
     , STR_UNKNOWN
     , STR_PISTOLS
@@ -70,32 +96,21 @@ enum StringID {
 };
 
 const char *helpText = 
-    "Controls gamepad, touch and keyboard:@"
-    " Enter, Start (gamepad) - add second player or restore Lara@"
-    " H - Show or hide this help@"
-    " TAB - Inventory@"
-    " LEFT - Left@"
-    " RIGHT - Right@"
-    " UP - Run@"
-    " DOWN - Back@"
-    " SHIFT - Walk@"
-    " SPACE - Draw Weapon@"
-    " CTRL - Action@"
-    " D - Jump@"
-    " Z - Step Left@"
-    " X - Step Right@"
-    " A - Roll@"
-    " C - Look # not implemented #@"
-    " V - First Person View@"
-    " R - slow motion@"
-    " T - fast motion@"
-    " ALT + ENTER - Fullscreen@@"
-    "Actions:@"
-    " Out of water - Run + Action@"
-    " Handstand - Run + Walk@"
-    " Swan dive - Run + Walk + jump@"
-    " DOZY on - Look + Step Right + Action + Jump@"
-    " DOZY off - Walk@";
+    "Start - add second player or restore Lara@"
+    "H - Show or hide this help@"
+    "ALT + ENTER - Fullscreen@"
+    "C - Look@"
+    "R - Slow motion@"
+    "T - Fast motion@"
+    "Roll - Up + Down@"
+    "Step Left - Walk + Left@"
+    "Step Right - Walk + Right@"
+    "Out of water - Up + Action@"
+    "Handstand - Up + Walk@"
+    "Swan dive - Up + Walk + Jump@"
+    "First Person View - Look + Action@"
+    "DOZY on - Look + Duck + Action + Jump@"
+    "DOZY off - Walk";
 
 
 const char *STR[STR_MAX] = {
@@ -111,6 +126,16 @@ const char *STR[STR_MAX] = {
     , "Medium"
     , "High"
     , "Apply"
+    , "Gamepad 1"
+    , "Gamepad 2"
+    , "Gamepad 3"
+    , "Gamepad 4"
+    , "Not Ready"
+    , "Player 1"
+    , "Player 2"
+    , "Press Any Key"
+    , "%s - Select"
+    , "%s - Go Back"
 // inventory pages
     , "OPTION"
     , "INVENTORY"
@@ -144,6 +169,22 @@ const char *STR[STR_MAX] = {
 // sound options
     , "Set Volumes"
     , "Reverberation"
+// controls options
+    , "Set Controls"
+    , "Keyboard"
+    , "Gamepad"
+    , "Vibration"
+    , "Retargeting"
+    , "Multi-aiming"
+    // controls
+    , "Left", "Right", "Up", "Down", "Jump", "Walk", "Action", "Draw Weapon", "Look", "Duck", "Dash", "Roll", "Inventory", "Start"
+    // keys
+    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
+    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
+    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
+    // gamepad
+    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
 // inventory items
     , "Unknown"
     , "Pistols"
@@ -285,13 +326,13 @@ namespace UI {
         SHADE_GRAY   = 2,
     };
 
-    void textOut(const vec2 &pos, const char *text, Align align = aLeft, float width = 0, ShadeType shade = SHADE_ORANGE, bool isShadow = false) {
+    void textOut(const vec2 &pos, const char *text, Align align = aLeft, float width = 0, uint8 alpha = 255, ShadeType shade = SHADE_ORANGE, bool isShadow = false) {
         if (!text) return;
        
         TR::Level *level = game->getLevel();
 
         if (shade && !isShadow && ((level->version & TR::VER_TR3)))
-            textOut(pos + vec2(1, 1), text, align, width, shade, true);
+            textOut(pos + vec2(1, 1), text, align, width, alpha, shade, true);
 
         MeshBuilder *mesh = game->getMesh();
         int seq = level->extra.glyphs;
@@ -328,18 +369,18 @@ namespace UI {
 
             TR::Color32 tColor, bColor;
             if (isShadow) {
-                tColor = bColor = TR::Color32(0, 0, 0, 255);
+                tColor = bColor = TR::Color32(0, 0, 0, alpha);
             } else {
-                tColor = bColor = TR::Color32(255, 255, 255, 255);
+                tColor = bColor = TR::Color32(255, 255, 255, alpha);
 
                 if (shade && ((level->version & TR::VER_TR3))) {
                     if (shade == SHADE_ORANGE) {
-                        tColor = TR::Color32(255, 190, 90, 255);
-                        bColor = TR::Color32(140, 50, 10, 255);
+                        tColor = TR::Color32(255, 190, 90, alpha);
+                        bColor = TR::Color32(140, 50, 10, alpha);
                     }
                     if (shade == SHADE_GRAY) {
-                        tColor = TR::Color32(255, 255, 255, 255);
-                        bColor = TR::Color32(128, 128, 128, 255);
+                        tColor = TR::Color32(255, 255, 255, alpha);
+                        bColor = TR::Color32(128, 128, 128, alpha);
                     }
                 }
             }
@@ -363,8 +404,8 @@ namespace UI {
         }
     }
 
-    void textOut(const vec2 &pos, StringID str, Align align = aLeft, float width = 0, ShadeType shade = SHADE_ORANGE) {
-        textOut(pos, STR[str], align, width, shade);
+    void textOut(const vec2 &pos, StringID str, Align align = aLeft, float width = 0, uint8 alpha = 255, ShadeType shade = SHADE_ORANGE) {
+        textOut(pos, STR[str], align, width, alpha, shade);
     }
 
     void specOut(const vec2 &pos, char specChar) {
@@ -482,10 +523,10 @@ namespace UI {
     void renderHelp() {
         // TODO: Core::eye offset
         if (showHelp)
-            textOut(vec2(0, 32), STR_HELP_TEXT, aRight, width - 32, UI::SHADE_GRAY);
+            textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
         else
             if (helpTipTime > 0.0f)
-                textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, UI::SHADE_ORANGE);
+                textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
     }
 };
 

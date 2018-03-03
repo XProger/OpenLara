@@ -64,13 +64,83 @@ int osGetTime() {
     return (int)emscripten_get_now();
 }
 
-bool osSave(const char *name, const void *data, int size) {
-// TODO cookie? idb?
-    FILE *f = fopen(name, "wb");
-    if (!f) return false;
+// cache & data
+const char *IDB = "db";
+
+void onError(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("! IDB error for %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void onLoad(void *arg, void *data, int size) {
+    Stream *stream = (Stream*)arg;
+
+    FILE *f = fopen(stream->name, "wb");
     fwrite(data, size, 1, f);
     fclose(f);
-    return true;
+
+    stream->callback(new Stream(stream->name), stream->userData);   
+    delete stream;
+}
+
+void onLoadAndStore(void *arg, void *data, int size) {
+    emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
+    onLoad(arg, data, size);
+}
+
+void onExists(void *arg, int exists) {
+    if (exists)
+        emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
+    else
+        emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
+}
+
+void osDownload(Stream *stream) {
+    emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
+}
+
+void onCacheStore(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("cache stored: %s\n", stream->name);
+    if (stream->callback)    
+        stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    delete stream;
+}
+
+void onCacheLoad(void *arg, void *data, int size) {
+    Stream *stream = (Stream*)arg;
+    LOG("cache loaded: %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(new Stream(stream->name, data, size), stream->userData);   
+    delete stream;
+}
+
+void onCacheError(void *arg) {
+    Stream *stream = (Stream*)arg;
+    LOG("! cache error: %s\n", stream->name);
+    if (stream->callback)
+        stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osCacheWrite(Stream *stream) {
+    emscripten_idb_async_store(IDB, stream->name, stream->data, stream->size, stream, onCacheStore, onCacheError);
+}
+
+void osCacheRead(Stream *stream) {
+    emscripten_idb_async_load(IDB, stream->name, stream, onCacheLoad, onCacheError);
+}
+
+// memory card
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
 }
 
 extern "C" {
@@ -79,34 +149,19 @@ extern "C" {
     }
     
     void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size) {
-        Game::startLevel(new Stream(data, size));
+        Game::startLevel(new Stream(NULL, data, size));
     }
 }
 
-JoyKey joyToInputKey(int code, int type) {
-    static const JoyKey keys[2][16] = {
-        { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone },
-        { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone },
+JoyKey joyToInputKey(int code) {
+    static const JoyKey keys[16] = {
+        jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkUp, jkDown, jkLeft, jkRight,
     };
 
     if (code >= 0 && code < 16)
-        return keys[type][code];
+        return keys[code];
     
     return jkNone;
-}
-
-int joyGetPOV(int mask) {
-    switch (mask) {
-        case 0b0001 : return 1;
-        case 0b1001 : return 2;
-        case 0b1000 : return 3;
-        case 0b1010 : return 4;
-        case 0b0010 : return 5;
-        case 0b0110 : return 6;
-        case 0b0100 : return 7;
-        case 0b0101 : return 8;
-    }
-    return 0;
 }
 
 #define JOY_DEAD_ZONE_STICK      0.3f
@@ -122,69 +177,48 @@ vec2 joyTrigger(float x) {
     return vec2(x > JOY_DEAD_ZONE_TRIGGER ? x : 0.0f, 0.0f);
 }
 
-int joyIndex[2] = { -1, -1 };
-int joyType[2]  = { 0, 0 };
+bool joyReady[INPUT_JOY_COUNT] = { 0 };
 
-void joyUpdate(int index) {
-    EmscriptenGamepadEvent state;
-    
-    if (joyIndex[index] == -1) {
-        int count = emscripten_get_num_gamepads();
-        for (int i = 0; i < count; i++) {
-            if (emscripten_get_gamepad_status(i, &state) == EMSCRIPTEN_RESULT_SUCCESS && state.numButtons >= 12 && i != joyIndex[index ^ 1]) {
+bool osJoyReady(int index) {
+    return joyReady[index];
+}
 
-                if (state.digitalButton[9]) {
-                    joyType[index] = 0;
-                } else if (state.digitalButton[11]) {
-                    joyType[index] = 1;
-                } else
-                    continue;
-                joyIndex[index] = i;
-                
-                LOG("using gamepad %d as joy%d type%d\n", i, index, joyType[index]);
-                break;
-            }
+void osJoyVibrate(int index, float L, float R) {
+    //
+}
+
+void joyUpdate() {
+    int count = min(emscripten_get_num_gamepads(), INPUT_JOY_COUNT);
+    for (int j = 0; j < count; j++) {
+        EmscriptenGamepadEvent state;
+
+        bool wasReady = joyReady[j];
+        joyReady[j] = emscripten_get_gamepad_status(j, &state) == EMSCRIPTEN_RESULT_SUCCESS;
+        if (!joyReady[j]) {
+            if (wasReady)
+                Input::reset();
+            continue;
         }
-    }
-    
-    if (joyIndex[index] == -1)
-        return;
-    
-    if (emscripten_get_gamepad_status(joyIndex[index], &state) != EMSCRIPTEN_RESULT_SUCCESS || state.numButtons < 12) {
-        joyIndex[index] = -1;
-        return;
-    }
 
-    for (int i = 0; i < state.numButtons; i++) {
-        JoyKey key = joyToInputKey(i, joyType[index]);
-        Input::setJoyDown(index, key, state.digitalButton[i]);
-        if (key == jkLT || key == jkRT)
-            Input::setJoyPos(index, key, joyTrigger(state.analogButton[i]));
-    }
+        for (int i = 0; i < state.numButtons; i++) {
+            JoyKey key = joyToInputKey(i);
+            Input::setJoyDown(j, key, state.digitalButton[i]);
+            if (key == jkLT || key == jkRT)
+                Input::setJoyPos(j, key, joyTrigger(state.analogButton[i]));
+        }
 
-    if (joyType[index] == 0 && state.numButtons > 15) { // get POV
-        auto &b = state.digitalButton;
-        int pov = joyGetPOV(b[12] | (b[13] << 1) | (b[14] << 2) | (b[15] << 3));
-        Input::setJoyPos(index, jkPOV, vec2((float)pov, 0.0f));
+        Input::setJoyPos(j, jkL, joyAxis(state.axis[0], state.axis[1]));
+        Input::setJoyPos(j, jkR, joyAxis(state.axis[2], state.axis[3]));
     }
-    
-    if (joyType[index] == 1) {
-        // TODO
-    }
-
-    if (state.numAxes > 1) Input::setJoyPos(index, jkL, joyAxis(state.axis[0], state.axis[1]));
-    if (state.numAxes > 3 && joyType[index] == 0) Input::setJoyPos(index, jkR, joyAxis(state.axis[2], state.axis[3]));
-    if (state.numAxes > 5 && joyType[index] == 1) Input::setJoyPos(index, jkR, joyAxis(state.axis[3], state.axis[5]));
 }
 
 void main_loop() {
-    joyUpdate(0);
-    joyUpdate(1);
+    joyUpdate();
 
     if (Game::update()) {
-		Game::render();
-		eglSwapBuffers(display, surface);
-	}
+        Game::render();
+        eglSwapBuffers(display, surface);
+    }
 }
 
 bool initGL() {
@@ -223,12 +257,12 @@ void freeGL() {
 EM_BOOL resize() {
     //int f;
     //emscripten_get_canvas_size(&Core::width, &Core::height, &f);
-	double w, h;
-	emscripten_get_element_css_size(NULL, &w, &h);
-	Core::width  = int(w);
-	Core::height = int(h);
-	emscripten_set_canvas_size(Core::width, Core::height);
-	LOG("resize %d %d\n", Core::width, Core::height);
+    double w, h;
+    emscripten_get_element_css_size(NULL, &w, &h);
+    Core::width  = int(w);
+    Core::height = int(h);
+    emscripten_set_canvas_size(Core::width, Core::height);
+    LOG("resize %d %d\n", Core::width, Core::height);
     return 1;
 }
 
@@ -241,9 +275,9 @@ EM_BOOL fullscreenCallback(int eventType, const void *reserved, void *userData) 
 }
 
 bool isFullScreen() {
-	EmscriptenFullscreenChangeEvent status;
-	emscripten_get_fullscreen_status(&status);
-	return status.isFullscreen;
+    EmscriptenFullscreenChangeEvent status;
+    emscripten_get_fullscreen_status(&status);
+    return status.isFullscreen;
 }
 
 void changeWindowMode() {
@@ -313,42 +347,6 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
             break;
     }
     return 1;
-}
-
-const char *IDB = "db";
-
-void onError(void *arg) {
-    Stream *stream = (Stream*)arg;
-    LOG("! IDB error for %s\n", stream->name);
-    stream->callback(NULL, stream->userData);
-    delete stream;
-}
-
-void onLoad(void *arg, void *data, int size) {
-    Stream *stream = (Stream*)arg;
-
-    FILE *f = fopen(stream->name, "wb");
-    fwrite(data, size, 1, f);
-    fclose(f);
-
-    stream->callback(new Stream(stream->name), stream->userData);	
-    delete stream;
-}
-
-void onLoadAndStore(void *arg, void *data, int size) {
-    emscripten_idb_async_store(IDB, ((Stream*)arg)->name, data, size, NULL, NULL, onError);
-    onLoad(arg, data, size);
-}
-
-void onExists(void *arg, int exists) {
-    if (exists)
-        emscripten_idb_async_load(IDB, ((Stream*)arg)->name, arg, onLoad, onError);
-    else
-        emscripten_async_wget_data(((Stream*)arg)->name, arg, onLoadAndStore, onError);
-}
-
-void osDownload(Stream *stream) {
-    emscripten_idb_async_exists(IDB, stream->name, stream, onExists, onError);
 }
 
 char Stream::cacheDir[255];

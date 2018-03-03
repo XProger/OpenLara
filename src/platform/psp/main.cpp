@@ -94,22 +94,62 @@ int osGetTime() {
     return int(time * 1000 / osTimerFreq - osStartTime);
 }
 
-bool osSave(const char *name, const void *data, int size) {
-    return false;
+
+// storage
+void osCacheWrite(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fwrite(stream->data, 1, stream->size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+
+    delete stream;
 }
 
-int joyGetPOV(int mask) {
-    switch (mask) {
-        case 0b0001 : return 1;
-        case 0b1001 : return 2;
-        case 0b1000 : return 3;
-        case 0b1010 : return 4;
-        case 0b0010 : return 5;
-        case 0b0110 : return 6;
-        case 0b0100 : return 7;
-        case 0b0101 : return 8;
-    }
-    return 0;
+void osCacheRead(Stream *stream) {
+    char path[255];
+    strcpy(path, Stream::cacheDir);
+    strcat(path, stream->name);
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END);
+        int size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = new char[size];
+        fread(data, 1, size, f);
+        fclose(f);
+        if (stream->callback)
+            stream->callback(new Stream(stream->name, data, size), stream->userData);
+        delete[] data;
+    } else
+        if (stream->callback)
+            stream->callback(NULL, stream->userData);
+    delete stream;
+}
+
+void osSaveGame(Stream *stream) {
+    return osCacheWrite(stream);
+}
+
+void osLoadGame(Stream *stream) {
+    return osCacheRead(stream);
+}
+
+
+// input
+bool osJoyReady(int index) {
+    return index == 0;
+}
+
+void osJoyVibrate(int index, float L, float R) {
+    //
 }
 
 void joyInit() {
@@ -121,25 +161,23 @@ void joyUpdate() {
     SceCtrlData pad;
     sceCtrlReadBufferPositive(&pad, 1);
 
-    Input::setDown(ikJoyA,      (pad.Buttons & PSP_CTRL_CROSS));
-    Input::setDown(ikJoyB,      (pad.Buttons & PSP_CTRL_CIRCLE));
-    Input::setDown(ikJoyX,      (pad.Buttons & PSP_CTRL_SQUARE));
-    Input::setDown(ikJoyY,      (pad.Buttons & PSP_CTRL_TRIANGLE));
-    Input::setDown(ikJoyLB,     (pad.Buttons & PSP_CTRL_LTRIGGER));
-    Input::setDown(ikJoyRB,     (pad.Buttons & PSP_CTRL_RTRIGGER));
-    Input::setDown(ikJoyStart,  (pad.Buttons & PSP_CTRL_START));
-    Input::setDown(ikJoySelect, (pad.Buttons & PSP_CTRL_SELECT));
-
-    int pov = joyGetPOV( ((pad.Buttons & PSP_CTRL_UP)    != 0) |
-                        (((pad.Buttons & PSP_CTRL_DOWN)  != 0) << 1) |
-                        (((pad.Buttons & PSP_CTRL_LEFT)  != 0) << 2) |
-                        (((pad.Buttons & PSP_CTRL_RIGHT) != 0) << 3));
-    Input::setPos(ikJoyPOV, vec2(float(pov), 0.0f));
+    Input::setJoyDown(0, jkUp,     (pad.Buttons & PSP_CTRL_UP));
+    Input::setJoyDown(0, jkDown,   (pad.Buttons & PSP_CTRL_DOWN));
+    Input::setJoyDown(0, jkLeft,   (pad.Buttons & PSP_CTRL_LEFT));
+    Input::setJoyDown(0, jkRight,  (pad.Buttons & PSP_CTRL_RIGHT));
+    Input::setJoyDown(0, jkA,      (pad.Buttons & PSP_CTRL_CROSS));
+    Input::setJoyDown(0, jkB,      (pad.Buttons & PSP_CTRL_CIRCLE));
+    Input::setJoyDown(0, jkX,      (pad.Buttons & PSP_CTRL_SQUARE));
+    Input::setJoyDown(0, jkY,      (pad.Buttons & PSP_CTRL_TRIANGLE));
+    Input::setJoyDown(0, jkLB,     (pad.Buttons & PSP_CTRL_LTRIGGER));
+    Input::setJoyDown(0, jkRB,     (pad.Buttons & PSP_CTRL_RTRIGGER));
+    Input::setJoyDown(0, jkStart,  (pad.Buttons & PSP_CTRL_START));
+    Input::setJoyDown(0, jkSelect, (pad.Buttons & PSP_CTRL_SELECT));
 
     vec2 stick = vec2(float(pad.Lx), float(pad.Ly)) / 128.0f - 1.0f;
     if (fabsf(stick.x) < 0.2f && fabsf(stick.y) < 0.2f)
         stick = vec2(0.0f);
-    Input::setPos(ikJoyR, stick);
+    Input::setJoyPos(0, jkL, stick);
 }
 
 void sndFill(void* buf, unsigned int length, void *userdata) {
