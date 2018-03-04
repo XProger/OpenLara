@@ -92,12 +92,15 @@ struct Texture {
             #endif
         #endif
 
+        origWidth  = width;
+        origHeight = height;
+
         if (!Core::support.texNPOT) {
             width  = nextPow2(width);
             height = nextPow2(height);
         }
-        this->width  = origWidth  = width;
-        this->height = origHeight = height;
+        this->width  = width;
+        this->height = height;
 
         bool   filter   = (opt & NEAREST) == 0;
         bool   cube     = (opt & CUBEMAP) != 0;

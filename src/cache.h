@@ -686,7 +686,7 @@ struct WaterCache {
         int w, h;
         getTargetSize(w, h);
     // get refraction texture
-        if (!refract || w != refract->width || h != refract->height) {
+        if (!refract || w != refract->origWidth || h != refract->origHeight) {
             delete refract;
             refract = new Texture(w, h, Texture::RGBA, false);
             Core::setTarget(refract, CLEAR_ALL);

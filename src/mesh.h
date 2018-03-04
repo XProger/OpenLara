@@ -102,23 +102,26 @@ struct Mesh {
         if (Core::support.VAO)
             glBindVertexArray(Core::active.VAO = 0);
 
-        if (vertices || indices) {
-            glGenBuffers(2, ID);
-            bind(true);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
-            glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(VertexGPU), vertices, GL_STATIC_DRAW);
-            
-            if (Core::support.VAO && aCount) {
-                VAO = new GLuint[aCount];
-                glGenVertexArrays(aCount, VAO);
+        #ifdef DYNGEOM_NO_VBO
+            if (!vertices && !indices) {
+                ID[0] = ID[1] = 0;
+                iBuffer = new Index[iCount];
+                vBuffer = new VertexGPU[vCount];
+                return;
             }
-            iBuffer = NULL;
-            vBuffer = NULL;
-        } else {
-            ID[0] = ID[1] = 0;
-            iBuffer = new Index[iCount];
-            vBuffer = new VertexGPU[vCount];
+        #endif 
+
+        glGenBuffers(2, ID);
+        bind(true);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(VertexGPU), vertices, GL_STATIC_DRAW);
+            
+        if (Core::support.VAO && aCount) {
+            VAO = new GLuint[aCount];
+            glGenVertexArrays(aCount, VAO);
         }
+        iBuffer = NULL;
+        vBuffer = NULL;
     #endif
     }
 
