@@ -875,7 +875,7 @@ static void init_get_bits(bitstream_t *s, const uint8_t *buffer, int bit_size) {
 }
 
 static INLINE unsigned int get_bits(bitstream_t *s, int n){
-    register int tmp;
+    int tmp;
     OPEN_READER(re, s)
     UPDATE_CACHE(re, s)
     tmp= SHOW_UBITS(re, s, n);
@@ -2000,8 +2000,8 @@ static void mp3_synth_filter(
     int32_t sb_samples[SBLIMIT]
 ) {
     int32_t tmp[32];
-    register int16_t *synth_buf;
-    register const int16_t *w, *w2, *p;
+    int16_t *synth_buf;
+    const int16_t *w, *w2, *p;
     int j, offset, v;
     int16_t *samples2;
     int sum, sum2;

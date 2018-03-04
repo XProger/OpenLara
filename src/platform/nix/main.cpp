@@ -1,6 +1,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <linux/joystick.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <pthread.h>
@@ -193,12 +195,117 @@ InputKey mouseToInputKey(int btn) {
     return ikNone;
 }
 
+struct JoyDevice {
+    int  fd;
+    vec2 L, R;
+} joyDevice[INPUT_JOY_COUNT];
+
 bool osJoyReady(int index) {
-    return false;
+    return joyDevice[index].fd != -1;
 }
 
 void osJoyVibrate(int index, float L, float R) {
     // TODO
+}
+
+void joyInit() {
+    LOG("init gamepads:\n");
+    char name[128];
+    for (int i = 0; i < INPUT_JOY_COUNT; i++) {
+        JoyDevice &joy = joyDevice[i];
+    // open device
+        sprintf(name, "/dev/input/js%d", i);
+        joy.fd = open(name, O_RDONLY | O_NONBLOCK);
+        if (joy.fd == -1)
+            continue;
+    // skip init messages
+        js_event event;
+        while (read(joy.fd, &event, sizeof(event)) != -1 && (event.type & JS_EVENT_INIT));
+    // get gamepad info
+        int8 axes, buttons;
+        ioctl(joy.fd, JSIOCGAXES,    &axes);
+        ioctl(joy.fd, JSIOCGBUTTONS, &buttons);
+        
+        if (axes < 4 || buttons < 11) { // is it really a gamepad?
+            close(joy.fd);
+            joy.fd = -1;
+            continue;
+        }
+
+        if (ioctl(joy.fd, JSIOCGNAME(sizeof(name)), name) < 0)
+            strcpy(name, "Unknown");
+
+        LOG("gamepad %d\n", i);
+        LOG(" name : %s\n", name);
+        LOG(" btns : %d\n", int(buttons));
+        LOG(" axes : %d\n", int(axes));
+    }
+}
+
+#define JOY_DEAD_ZONE_STICK      8192
+#define JOY_DEAD_ZONE_TRIGGER    8192
+
+float joyAxisValue(int value) {
+    if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
+        return 0.0f;
+    return value / 32767.0f;
+}
+
+float joyTrigger(int value) {
+    if (value + 32767 < JOY_DEAD_ZONE_TRIGGER)
+        return 0.0f;
+    return min(1.0f, (value + 32767) / 65536.0f);
+}
+
+vec2 joyDir(const vec2 &value) {
+    float dist = min(1.0f, value.length());
+    return value.normal() * dist;
+}
+
+void joyUpdate() {
+    static const JoyKey keys[] = { jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkNone /*jkHome*/, jkL, jkR };
+
+    for (int i = 0; i < INPUT_JOY_COUNT; i++) {
+        JoyDevice &joy = joyDevice[i];
+    
+        if (joy.fd == -1)
+            continue;
+
+        js_event event;
+        while (read(joy.fd, &event, sizeof(event)) != -1) {
+        // buttons
+            if (event.type & JS_EVENT_BUTTON)
+                Input::setJoyDown(i, event.number >= COUNT(keys) ? jkNone : keys[event.number], event.value == 1);
+        // axes
+            if (event.type & JS_EVENT_AXIS) {
+            
+                switch (event.number) {
+                // Left stick
+                    case 0 : joy.L.x = joyAxisValue(event.value); break;
+                    case 1 : joy.L.y = joyAxisValue(event.value); break;
+                // Right stick
+                    case 3 : joy.R.x = joyAxisValue(event.value); break;
+                    case 4 : joy.R.y = joyAxisValue(event.value); break;
+                // Left trigger
+                    case 2 : Input::setJoyPos(i, jkLT, joyTrigger(event.value)); break;
+                // Right trigger
+                    case 5 : Input::setJoyPos(i, jkRT, joyTrigger(event.value)); break;
+                // D-PAD
+                    case 6 :
+                        Input::setJoyDown(i, jkLeft,  event.value < -0x4000);
+                        Input::setJoyDown(i, jkRight, event.value >  0x4000);
+                        break;
+                    case 7 :
+                        Input::setJoyDown(i, jkUp,    event.value < -0x4000);
+                        Input::setJoyDown(i, jkDown,  event.value >  0x4000);
+                        break;
+                }
+                
+                Input::setJoyPos(i, jkL, joyDir(joy.L));
+                Input::setJoyPos(i, jkR, joyDir(joy.R));
+            }
+        }
+    }
 }
 
 void toggle_fullscreen(Display* dpy, Window win) {
@@ -296,6 +403,8 @@ int main(int argc, char **argv) {
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, wnd, &WM_DELETE_WINDOW, 1);
 
+    joyInit();
+
     timeval t;
     gettimeofday(&t, NULL);
     startTime = t.tv_sec;
@@ -311,6 +420,7 @@ int main(int argc, char **argv) {
                 Core::quit();
             WndProc(event,dpy,wnd);
         } else {
+            joyUpdate();
 			bool updated = Game::update();
             if (updated) {
 				Game::render();
