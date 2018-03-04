@@ -7,8 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		99714F651F621E1000960AA7 /* level in Resources */ = {isa = PBXBuildFile; fileRef = 99714F641F621E1000960AA7 /* level */; };
-		99714F671F621E5E00960AA7 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99714F661F621E5E00960AA7 /* audio */; };
+		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
 		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
@@ -20,24 +19,32 @@
 
 /* Begin PBXFileReference section */
 		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
-		99714F641F621E1000960AA7 /* level */ = {isa = PBXFileReference; lastKnownFileType = folder; name = level; path = ../../../../bin/level; sourceTree = "<group>"; };
-		99714F661F621E5E00960AA7 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../../bin/audio; sourceTree = "<group>"; };
-		99BFB68D1DCA7F1700E2E997 /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
-		99BFB68E1DCA7F1700E2E997 /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
-		99BFB68F1DCA7F1700E2E997 /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
-		99BFB6901DCA7F1700E2E997 /* mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mesh.h; path = ../../mesh.h; sourceTree = "<group>"; };
-		99BFB6911DCA7F1700E2E997 /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debug.h; path = ../../debug.h; sourceTree = "<group>"; };
-		99BFB6921DCA7F1700E2E997 /* controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = controller.h; path = ../../controller.h; sourceTree = "<group>"; };
-		99BFB6931DCA7F1700E2E997 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
-		99BFB6941DCA7F1700E2E997 /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../sound.h; sourceTree = "<group>"; };
-		99BFB6951DCA7F1700E2E997 /* camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = camera.h; path = ../../camera.h; sourceTree = "<group>"; };
-		99BFB6961DCA7F1700E2E997 /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = core.h; path = ../../core.h; sourceTree = "<group>"; };
-		99BFB6971DCA7F1700E2E997 /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
-		99BFB6981DCA7F1700E2E997 /* shader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shader.h; path = ../../shader.h; sourceTree = "<group>"; };
-		99BFB69A1DCA7F1700E2E997 /* input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = input.h; path = ../../input.h; sourceTree = "<group>"; };
-		99BFB69B1DCA7F1700E2E997 /* enemy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = enemy.h; path = ../../enemy.h; sourceTree = "<group>"; };
-		99BFB69C1DCA7F1700E2E997 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
-		99BFB69D1DCA7F1700E2E997 /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
+		99713CAE204CA3DA00006FAC /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
+		99713CAF204CA3DA00006FAC /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
+		99713CB0204CA3DA00006FAC /* camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = camera.h; path = ../../camera.h; sourceTree = "<group>"; };
+		99713CB1204CA3DA00006FAC /* character.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = character.h; path = ../../character.h; sourceTree = "<group>"; };
+		99713CB2204CA3DA00006FAC /* collision.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = collision.h; path = ../../collision.h; sourceTree = "<group>"; };
+		99713CB3204CA3DA00006FAC /* controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = controller.h; path = ../../controller.h; sourceTree = "<group>"; };
+		99713CB4204CA3DA00006FAC /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = core.h; path = ../../core.h; sourceTree = "<group>"; };
+		99713CB5204CA3DA00006FAC /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debug.h; path = ../../debug.h; sourceTree = "<group>"; };
+		99713CB6204CA3DA00006FAC /* enemy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = enemy.h; path = ../../enemy.h; sourceTree = "<group>"; };
+		99713CB7204CA3DA00006FAC /* format.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = format.h; path = ../../format.h; sourceTree = "<group>"; };
+		99713CB8204CA3DA00006FAC /* frustum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = frustum.h; path = ../../frustum.h; sourceTree = "<group>"; };
+		99713CB9204CA3DA00006FAC /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../game.h; sourceTree = "<group>"; };
+		99713CBA204CA3DA00006FAC /* gameflow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gameflow.h; path = ../../gameflow.h; sourceTree = "<group>"; };
+		99713CBB204CA3DA00006FAC /* input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = input.h; path = ../../input.h; sourceTree = "<group>"; };
+		99713CBC204CA3DA00006FAC /* inventory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inventory.h; path = ../../inventory.h; sourceTree = "<group>"; };
+		99713CBD204CA3DA00006FAC /* lara.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lara.h; path = ../../lara.h; sourceTree = "<group>"; };
+		99713CBE204CA3DA00006FAC /* level.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = level.h; path = ../../level.h; sourceTree = "<group>"; };
+		99713CBF204CA3DA00006FAC /* mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mesh.h; path = ../../mesh.h; sourceTree = "<group>"; };
+		99713CC0204CA3DA00006FAC /* shader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shader.h; path = ../../shader.h; sourceTree = "<group>"; };
+		99713CC1204CA3DA00006FAC /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../sound.h; sourceTree = "<group>"; };
+		99713CC2204CA3DA00006FAC /* sprite.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sprite.h; path = ../../sprite.h; sourceTree = "<group>"; };
+		99713CC3204CA3DA00006FAC /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
+		99713CC4204CA3DA00006FAC /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
+		99713CC5204CA3DA00006FAC /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../../ui.h; sourceTree = "<group>"; };
+		99713CC6204CA3DA00006FAC /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
+		99713CC8204CAD9900006FAC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
 		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
@@ -70,27 +77,37 @@
 		99C4C0771796A8230032DE85 = {
 			isa = PBXGroup;
 			children = (
+				99BFB69E1DCA7F1700E2E997 /* libs */,
 				995C97EF1E91A857003825B2 /* shaders */,
+				99713CAE204CA3DA00006FAC /* animation.h */,
+				99713CAF204CA3DA00006FAC /* cache.h */,
+				99713CB0204CA3DA00006FAC /* camera.h */,
+				99713CB1204CA3DA00006FAC /* character.h */,
+				99713CB2204CA3DA00006FAC /* collision.h */,
+				99713CB3204CA3DA00006FAC /* controller.h */,
+				99713CB4204CA3DA00006FAC /* core.h */,
+				99713CB5204CA3DA00006FAC /* debug.h */,
+				99713CB6204CA3DA00006FAC /* enemy.h */,
+				99713CB7204CA3DA00006FAC /* format.h */,
+				99713CB8204CA3DA00006FAC /* frustum.h */,
+				99713CB9204CA3DA00006FAC /* game.h */,
+				99713CBA204CA3DA00006FAC /* gameflow.h */,
+				99713CBB204CA3DA00006FAC /* input.h */,
+				99713CBC204CA3DA00006FAC /* inventory.h */,
+				99713CBD204CA3DA00006FAC /* lara.h */,
+				99713CBE204CA3DA00006FAC /* level.h */,
+				99713CBF204CA3DA00006FAC /* mesh.h */,
+				99713CC0204CA3DA00006FAC /* shader.h */,
+				99713CC1204CA3DA00006FAC /* sound.h */,
+				99713CC2204CA3DA00006FAC /* sprite.h */,
+				99713CC3204CA3DA00006FAC /* texture.h */,
+				99713CC4204CA3DA00006FAC /* trigger.h */,
+				99713CC5204CA3DA00006FAC /* ui.h */,
+				99713CC6204CA3DA00006FAC /* utils.h */,
 				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,
 				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
-				99BFB69E1DCA7F1700E2E997 /* libs */,
+				99713CC8204CAD9900006FAC /* tinflate.c */,
 				99BFB6A11DCA7F5300E2E997 /* main.cpp */,
-				99BFB68D1DCA7F1700E2E997 /* lara.h */,
-				99BFB68E1DCA7F1700E2E997 /* format.h */,
-				99BFB68F1DCA7F1700E2E997 /* level.h */,
-				99BFB6901DCA7F1700E2E997 /* mesh.h */,
-				99BFB6911DCA7F1700E2E997 /* debug.h */,
-				99BFB6921DCA7F1700E2E997 /* controller.h */,
-				99BFB6931DCA7F1700E2E997 /* utils.h */,
-				99BFB6941DCA7F1700E2E997 /* sound.h */,
-				99BFB6951DCA7F1700E2E997 /* camera.h */,
-				99BFB6961DCA7F1700E2E997 /* core.h */,
-				99BFB6971DCA7F1700E2E997 /* trigger.h */,
-				99BFB6981DCA7F1700E2E997 /* shader.h */,
-				99BFB69A1DCA7F1700E2E997 /* input.h */,
-				99BFB69B1DCA7F1700E2E997 /* enemy.h */,
-				99BFB69C1DCA7F1700E2E997 /* game.h */,
-				99BFB69D1DCA7F1700E2E997 /* texture.h */,
 				99C4C0A31796AACF0032DE85 /* Supporting Files */,
 				99C4C0821796A8230032DE85 /* Frameworks */,
 				99C4C0811796A8230032DE85 /* Products */,
@@ -121,8 +138,6 @@
 		99C4C0A31796AACF0032DE85 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				99714F661F621E5E00960AA7 /* audio */,
-				99714F641F621E1000960AA7 /* level */,
 				99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */,
 			);
 			name = "Supporting Files";
@@ -180,8 +195,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				99714F651F621E1000960AA7 /* level in Resources */,
-				99714F671F621E5E00960AA7 /* audio in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,6 +205,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				99713CC9204CAD9900006FAC /* tinflate.c in Sources */,
 				99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */,
 				99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */,
 				99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */,

@@ -897,7 +897,11 @@ namespace Core {
 
         if (support.maxAniso)
             glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &support.maxAniso);
-        glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
+        #ifdef MOBILE
+            glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
+        #else
+            support.maxVectors = 16;
+        #endif
     #endif
 
     #ifdef PROFILE
@@ -1074,6 +1078,11 @@ namespace Core {
             ctrl.keys[ cInventory ] = KeySet( ikNone,   jkSelect );
             ctrl.keys[ cStart     ] = KeySet( ikNone,   jkStart  );
         }
+
+    // use S key for action on Mac because Ctrl + Left/Right used by system (default)
+    #ifdef __APPLE__
+        settings.controls[0].keys[ cAction    ].key = ikS;
+    #endif
 
     // use D key for jump in browsers
     #ifdef __EMSCRIPTEN__
