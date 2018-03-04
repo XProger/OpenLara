@@ -45,6 +45,7 @@ struct Level : IGame {
     Sound::Sample *sndSoundtrack;
     Sound::Sample *sndUnderwater;
     Sound::Sample *sndCurrent;
+    bool waitSoundtrack;
     bool playNextTrack;
 
     bool lastTitle;
@@ -486,6 +487,15 @@ struct Level : IGame {
         delete controller;
     }
 
+    virtual void addMuzzleFlash(Controller *owner, int joint, const vec3 &offset, int lightIndex) {
+        MuzzleFlash *mf = (MuzzleFlash*)addEntity(TR::Entity::MUZZLE_FLASH, owner->getRoomIndex(), offset, 0);
+        if (mf) {
+            mf->owner      = owner;
+            mf->joint      = joint;
+            mf->lightIndex = lightIndex;
+        }
+    }
+
     virtual bool invUse(int playerIndex, TR::Entity::Type type) {
         if (!players[playerIndex]->useItem(type))
             return inventory.use(type);
@@ -525,8 +535,8 @@ struct Level : IGame {
                 switch (b.flags.mode) {
                     case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
                     case 1 : flags |= Sound::REPLAY; break;
-                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP; break;
-                    case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::FLIPPED | Sound::UNFLIPPED | Sound::LOOP | Sound::UNIQUE; break;
+                    case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::LOOP; break;
+                    case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::LOOP | Sound::UNIQUE; break;
                 }
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
@@ -546,8 +556,9 @@ struct Level : IGame {
     }
 
     static void playAsync(Stream *stream, void *userData) {
-        if (!stream) return;
         Level *level = (Level*)userData;
+        level->waitSoundtrack = false;
+        if (!stream) return;
 
         level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, Sound::MUSIC);
         if (level->sndSoundtrack) {
@@ -582,6 +593,7 @@ struct Level : IGame {
 
         if (track == 0xFF) return;
 
+        waitSoundtrack = true;
         getGameTrack(level.version, track, playAsync, this);
     }
 
@@ -633,7 +645,10 @@ struct Level : IGame {
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
-                playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), Sound::PAN | src.flags);
+                int flags = Sound::PAN;
+                if (src.flags & 64)  flags |= Sound::FLIPPED;
+                if (src.flags & 128) flags |= Sound::UNFLIPPED;
+                playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), flags);
             }
 
             lastTitle       = false;
@@ -684,6 +699,8 @@ struct Level : IGame {
     }
 
     void addPlayer(int index) {
+        if (level.isCutsceneLevel()) return;
+
         if (!players[index]) {
             players[index] = (Lara*)addEntity(TR::Entity::LARA, 0, vec3(0.0f), 0.0f);
             players[index]->camera->cameraIndex = index;
@@ -790,6 +807,7 @@ struct Level : IGame {
             case TR::Entity::RICOCHET              : return new Sprite(this, index, true, Sprite::FRAME_RANDOM);
             case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
+            case TR::Entity::MUZZLE_FLASH          : return new MuzzleFlash(this, index);
             case TR::Entity::LAVA_PARTICLE         : return new LavaParticle(this, index);
             case TR::Entity::TRAP_LAVA_EMITTER     : return new TrapLavaEmitter(this, index);
             case TR::Entity::FLAME                 : return new Flame(this, index);
@@ -1402,7 +1420,7 @@ struct Level : IGame {
             playNextTrack = false;
         }
 
-        if (level.isCutsceneLevel()) {
+        if (level.isCutsceneLevel() && waitSoundtrack) {
             if (!sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
                 if (camera->timer > 0.0f) // for the case that audio stops before animation ends
                     loadNextLevel();
@@ -1424,6 +1442,11 @@ struct Level : IGame {
 
         if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f && !inventory.active && inventory.lastKey == cMAX) {
             int playerIndex = Input::state[0][cInventory] ? 0 : 1;
+
+            if (level.isCutsceneLevel()) {
+                loadNextLevel();
+                return;
+            }
 
             if (player->health <= 0.0f)
                 inventory.toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);

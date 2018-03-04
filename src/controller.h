@@ -82,6 +82,8 @@ struct IGame {
     virtual Controller* addEntity(TR::Entity::Type type, int room, const vec3 &pos, float angle = 0.0f) { return NULL; }
     virtual void removeEntity(Controller *controller) {}
 
+    virtual void addMuzzleFlash(Controller *owner, int joint, const vec3 &offset, int lightIndex) {}
+
     virtual bool invUse(int playerIndex, TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
     virtual int* invCount(TR::Entity::Type type) { return NULL; }
@@ -811,6 +813,118 @@ struct Controller {
 
         return pos;
     }
+
+    int traceX(const TR::Location &from, TR::Location &to) {
+        vec3 d = to.pos - from.pos;
+        if (fabsf(d.x) < EPS) return 1;
+
+        d.yz() *= 1024 / d.x;
+
+        vec3 p = from.pos;
+
+        p.x = float(int(p.x) / 1024 * 1024);
+        if (d.x > 0) p.x += 1023;
+
+        p.yz() += d.yz() * ((p.x - from.pos.x) / 1024);
+
+        float s = float(sign(d.x));
+        d.x = 1024;
+        d *= s;
+
+        int16 roomIndex = from.room;
+        while ((p.x - to.pos.x) * s < 0) {
+            if (level->isBlocked(roomIndex, p)) {
+                to.pos  = p;
+                to.room = roomIndex;
+                return -1;
+            }
+
+            to.room = roomIndex;
+            if (level->isBlocked(roomIndex, vec3(p.x + s, p.y, p.z))) {
+                to.pos = p;
+                return 0;
+            }
+
+            p += d;
+        }
+
+        to.room = roomIndex;
+        return 1;
+    }
+
+    int traceZ(const TR::Location &from, TR::Location &to) {
+        vec3 d = to.pos - from.pos;
+        if (fabsf(d.z) < EPS) return 1;
+
+        d.xy() *= 1024 / d.z;
+
+        vec3 p = from.pos;
+        
+        p.z = float(int(p.z) / 1024 * 1024);
+        if (d.z > 0) p.z += 1023;
+
+        p.xy() += d.xy() * ((p.z - from.pos.z) / 1024);
+
+        float s = float(sign(d.z));
+        d.z = 1024;
+        d *= s;
+
+        int16 roomIndex = from.room;
+        while ((p.z - to.pos.z) * s < 0) {
+            if (level->isBlocked(roomIndex, p)) {
+                to.pos  = p;
+                to.room = roomIndex;
+                return -1;
+            }
+
+            to.room = roomIndex;
+            if (level->isBlocked(roomIndex, vec3(p.x, p.y, p.z + s))) {
+                to.pos = p;
+                return 0;
+            }
+
+            p += d;
+        }
+
+        to.room = roomIndex;
+        return 1;
+    }
+
+    bool trace(const TR::Location &from, TR::Location &to) {
+        int rx, rz;
+
+        if (fabsf(to.pos.x - from.pos.x) < fabsf(to.pos.z - from.pos.z)) {
+            rz = traceZ(from, to);
+            if (!rz) return false;
+            rx = traceX(from, to);
+        } else {
+            rx = traceX(from, to);
+            if (!rx) return false;
+            rz = traceZ(from, to);
+        }
+        TR::Room::Sector *sector = level->getSector(to.room, to.pos);
+        return clipHeight(from, to, sector) && rx == 1 && rz == 1;
+    }
+
+    bool clipHeight(const TR::Location &from, TR::Location &to, TR::Room::Sector *sector) {
+        vec3 dir = to.pos - from.pos;
+
+        float y = level->getFloor(sector, to.pos);
+        if (to.pos.y <= y || from.pos.y >= y) {
+            y = level->getCeiling(sector, to.pos);
+            if (to.pos.y >= y || from.pos.y <= y)
+                return true;
+        }
+
+        ASSERT(dir.y != 0.0f);
+
+        float d = (y - from.pos.y) / dir.y;
+        to.pos.y = y;
+        to.pos.x = from.pos.x + dir.x * d;
+        to.pos.z = from.pos.z + dir.z * d;
+        return false;
+    }
+
 
     bool checkRange(Controller *target, float range) {
         vec3 d = target->pos - pos;

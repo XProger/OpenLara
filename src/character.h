@@ -3,6 +3,7 @@
 
 #include "controller.h"
 #include "collision.h"
+#include "sprite.h"
 
 struct Character : Controller {
     float   health;
@@ -49,6 +50,7 @@ struct Character : Controller {
     int     box;
 
     bool    flying;
+    bool    fullChestRotation;
 
     Collision collision;
 
@@ -63,6 +65,7 @@ struct Character : Controller {
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
         flying = getEntity().type == TR::Entity::ENEMY_BAT;
+        fullChestRotation = false;
         updateZone();
     }
 
@@ -234,9 +237,12 @@ struct Character : Controller {
         quat rot;
 
         if (jointChest > -1) {
-            if (aim(target, jointChest, rangeChest, rot))
-                rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
-            else 
+            if (aim(target, jointChest, rangeChest, rot)) {
+                if (fullChestRotation)
+                    rotChest = rotChest.slerp(rot, speed);
+                else
+                    rotChest = rotChest.slerp(quat(0, 0, 0, 1).slerp(rot, 0.5f), speed);
+            } else 
                 rotChest = rotChest.slerp(quat(0, 0, 0, 1), speed);
             animation.overrides[jointChest] = rotChest * animation.overrides[jointChest];
         }
@@ -248,6 +254,49 @@ struct Character : Controller {
                 rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);
             animation.overrides[jointHead] = rotHead * animation.overrides[jointHead];
         }
+    }
+
+    void addSparks(uint32 mask) {
+        Sphere spheres[MAX_SPHERES];
+        int count;
+        getSpheres(spheres, count);
+        for (int i = 0; i < count; i++)
+            if (mask & (1 << i)) {
+                vec3 sprPos = spheres[i].center + (vec3(randf(), randf(), randf()) * 2.0f - 1.0f) * spheres[i].radius;
+                game->addEntity(TR::Entity::SPARKLES, getRoomIndex(), sprPos);
+            }
+    }
+
+    void addBlood(const vec3 &sprPos, const vec3 &sprVel) {
+        Sprite *sprite = (Sprite*)game->addEntity(TR::Entity::BLOOD, getRoomIndex(), sprPos, 0);
+        if (sprite)
+            sprite->velocity = sprVel;
+    }
+
+    void addBlood(float radius, float height, const vec3 &sprVel) {
+        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * height, (randf() * 2.0f - 1.0f) * radius);
+        addBlood(p, sprVel);
+    }
+
+    void addBloodSpikes() {
+        float ang = randf() * PI * 2.0f;
+        addBlood(64.0f,  512.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * 20.0f);
+    }
+
+    void addBloodBlade() {
+        float ang = angle.y + (randf() - 0.5f) * 30.0f * DEG2RAD;
+        addBlood(64.0f, 744.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * speed);
+    }
+
+    void addBloodSlam(Controller *trapSlam) {
+        for (int i = 0; i < 6; i++)
+            addBloodSpikes();
+    }
+
+    void addRicochet(const vec3 &pos, bool sound) {
+        game->addEntity(TR::Entity::RICOCHET, getRoomIndex(), pos);
+        if (sound)
+            game->playSound(TR::SND_RICOCHET, pos, Sound::PAN);
     }
 };
 

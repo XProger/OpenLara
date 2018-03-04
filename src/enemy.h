@@ -306,6 +306,9 @@ struct Enemy : Character {
 
         int targetBoxOld = targetBox;
 
+        if (target->health <= 0.0f)
+            targetBox = -1;
+
     // update mood
         bool inZone = zone == target->zone;
 
@@ -667,7 +670,7 @@ struct Lion : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
+        if (!think(true))
             return state;
 
         float angle;
@@ -1462,6 +1465,11 @@ struct ScionTarget : Enemy {
     }
 };
 
+#define HUMAN_WAIT       0.01f
+#define HUMAN_DIST_WALK  (1024 * 3)
+#define HUMAN_DIST_SHOT  (1024 * 7)
+#define HUMAN_TURN_SLOW  (DEG2RAD * 90)
+#define HUMAN_TURN_FAST  (DEG2RAD * 180)
 
 struct Human : Enemy {
     enum {
@@ -1471,13 +1479,15 @@ struct Human : Enemy {
         STATE_RUN,
         STATE_AIM,
         STATE_DEATH,
-        STATE_UNKNOWN,
+        STATE_WAIT,
         STATE_FIRE
     };
 
-    int animDeath;
+    int   jointGun;
+    int   animDeath;
 
     Human(IGame *game, int entity, float health) : Enemy(game, entity, health, 100, 375.0f, 1.0f), animDeath(-1) {
+        jointGun   = 0;
         jointChest = 7;
         jointHead  = 8;
     }
@@ -1486,6 +1496,7 @@ struct Human : Enemy {
         if (health <= 0.0f)
             onDead();
         Enemy::deactivate(removeFromList);
+        getRoom().removeDynLight(entity);
     }
 
     virtual int getStateDeath() {
@@ -1499,19 +1510,135 @@ struct Human : Enemy {
     }
 
     virtual void updatePosition() {
+        fullChestRotation = state == STATE_FIRE || state == STATE_AIM;
+
+        if (state == STATE_RUN || state == STATE_WALK) {
+            float angleY = 0.0f;
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+            turn(angleY, state == STATE_RUN ? HUMAN_TURN_FAST : HUMAN_TURN_SLOW);
+        } else
+            turn(0, HUMAN_TURN_SLOW);
+        
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
     }
 
     virtual void onDead() {}
+
+    bool targetIsVisible() {
+        if (targetInView && targetDist < HUMAN_DIST_SHOT && target->health > 0.0f) {
+            TR::Location from, to;
+            from.room = getRoomIndex();
+            from.pos  = pos;
+            to.pos    = target->pos;
+
+        // vertical offset to ~gun/head height
+            from.pos.y -= 768.0f;
+            if (target->stand != STAND_UNDERWATER && target->stand != STAND_ONWATER)
+                to.pos.y   -= 768.0f;
+
+            return trace(from, to);
+        }
+        return false;
+    }
+
+    bool doShot(float damage, const vec3 &muzzleOffset) {
+        game->addMuzzleFlash(this, jointGun, muzzleOffset, -1);
+
+        if (targetDist < HUMAN_DIST_SHOT && randf() < ((HUMAN_DIST_SHOT - targetDist) / HUMAN_DIST_SHOT - 0.25f)) {
+            target->hit(damage, this);
+            target->addBlood(target->getJoint(rand() % target->getModel()->mCount).pos, vec3(0));
+            game->playSound(target->stand == STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, target->pos, Sound::PAN);
+            return true;
+        }
+
+        int16 roomIndex = getRoomIndex();
+        TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+        float floor = level->getFloor(sector, pos) - 64.0f;
+        vec3 p = vec3(target->pos.x + randf() * 512.0f - 256.0f, floor, target->pos.z + randf() * 512.0f - 256.0f);
+
+        target->addRicochet(p, true);
+        return false;
+    }
 };
 
+
+#define LARSON_DAMAGE 50
 
 struct Larson : Human {
 
     Larson(IGame *game, int entity) : Human(game, entity, 50) {
         animDeath = 15;
+        jointGun  = 14;
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (mood == MOOD_SLEEP)
+                    return randf() < HUMAN_WAIT ? STATE_WAIT : STATE_WALK;
+                if (mood == MOOD_ESCAPE)
+                    return STATE_RUN;
+                return STATE_WALK;
+            case STATE_WAIT : 
+                if (mood != MOOD_SLEEP)
+                    return STATE_STOP;
+                if (randf() < HUMAN_WAIT) {
+                    nextState = STATE_WALK;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_WALK :
+                if (mood == MOOD_SLEEP && randf() < HUMAN_WAIT)
+                    nextState = STATE_WAIT;
+                else if (mood == MOOD_ESCAPE)
+                    nextState = STATE_RUN;
+                else if (targetIsVisible())
+                    nextState = STATE_AIM;
+                else if (!targetInView || targetDist > HUMAN_DIST_WALK)
+                    nextState = STATE_RUN;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_RUN :
+                if (mood == MOOD_SLEEP && randf() < HUMAN_WAIT)
+                    nextState = STATE_WAIT;
+                else if (targetIsVisible())
+                    nextState = STATE_AIM;
+                else if (targetInView && targetDist < HUMAN_DIST_WALK)
+                    nextState = STATE_WALK;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_AIM :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetIsVisible())
+                    return STATE_FIRE;
+                return STATE_STOP;
+            case STATE_FIRE :
+                if (nextState == STATE_NONE) {
+                    doShot(LARSON_DAMAGE, vec3(-50, 0, 20));
+                    nextState = STATE_AIM;
+                }
+                if (mood == MOOD_ESCAPE || target->health <= 0.0f)
+                    nextState = STATE_STOP;
+                break;
+        }
+
+        return state;
     }
 };
 

@@ -926,6 +926,8 @@ namespace TR {
         SND_UZIS_SHOT       = 43,
         SND_MAGNUMS_SHOT    = 44,
         SND_SHOTGUN_SHOT    = 45,
+        SND_EMPTY           = 48,
+        SND_HIT_UNDERWATER  = 50,
         
         SND_UNDERWATER      = 60,
 
@@ -1295,11 +1297,11 @@ namespace TR {
         uint8   align;
         uint32  waterLevel;
 
-        struct  DynLight {
+        struct DynLight {
             int32 id;
             vec4  pos;
             vec4  color;
-        } dynLights[2];
+        } dynLights[2]; // 1 is reserved for main light
         
         int32 dynLightsCount;
 
@@ -1358,15 +1360,17 @@ namespace TR {
             DynLight *light = NULL;
             for (int i = 0; i < dynLightsCount; i++)
                 if (dynLights[i].id == id) {
+                    float maxRadius = min(dynLights[i].color.w, color.w); // radius is invSqrt
                     light = &dynLights[i];
+                    light->color.w = maxRadius;
                     break;
                 }
-             // 1 is additional second light, can be overridden
+
+            // 1 is additional second light, can be overridden
             if (!light) {
-                if (dynLightsCount < 2) {
-                    light = &dynLights[dynLightsCount];
-                    dynLightsCount = min(2, dynLightsCount + 1);
-                } else
+                if (dynLightsCount < COUNT(dynLights))
+                    light = &dynLights[dynLightsCount++];
+                else
                     light = &dynLights[1];
             }
 
@@ -2948,6 +2952,7 @@ namespace TR {
             stream.read(r.info);
         // room data
             stream.read(d.size);
+            int startOffset = stream.pos;
             if (version == VER_TR1_PSX) stream.seek(2);
             d.vertices = stream.read(d.vCount) ? new Room::Data::Vertex[d.vCount] : NULL;
             for (int i = 0; i < d.vCount; i++) {
@@ -3000,8 +3005,14 @@ namespace TR {
                 stream.seek(2);
 
             int tmp = stream.pos;
-            stream.seek(stream.read(d.rCount) * FACE4_SIZE); // uint32 colored (not existing in file)
-            stream.seek(stream.read(d.tCount) * FACE3_SIZE);
+            if (version == VER_TR2_PSX) {
+                stream.read(d.rCount);
+                stream.seek(sizeof(uint16) * d.rCount);
+                if ((stream.pos - startOffset) % 4) stream.seek(2);
+                stream.seek(sizeof(uint16) * 4 * d.rCount);
+            } else
+                stream.seek(stream.read(d.rCount) * FACE4_SIZE); // uint32 colored (not existing in file)
+            stream.read(d.tCount);
             stream.setPos(tmp);
 
             d.fCount = d.rCount + d.tCount;
@@ -3009,23 +3020,23 @@ namespace TR {
 
             int idx = 0;
 
-            stream.seek(sizeof(d.rCount));
+            int16 tmpCount;
+            stream.read(tmpCount);
+            ASSERT(tmpCount == d.rCount);
             if (version == VER_TR2_PSX) {
-                ASSERT(false); // TODO
-                /*
-                for (int i = 0; i < d.fCount; i++)
-                    stream.read(d.rectangles[i].flags.value);
+                for (int i = 0; i < d.rCount; i++)
+                    stream.raw(&d.faces[i].flags.value, sizeof(uint16));
                 if ((stream.pos - startOffset) % 4) stream.seek(2);
                 for (int i = 0; i < d.rCount; i++) {
-                    Rectangle &v = d.rectangles[i];
-                    stream.raw(v.vertices, sizeof(v.vertices));
-                    v.vertices[0] >>= 2;
-                    v.vertices[1] >>= 2;
-                    v.vertices[2] >>= 2;
-                    v.vertices[3] >>= 2;
-                    v.colored = false;
+                    Face &f = d.faces[i];
+                    f.vCount = 4;
+                    stream.raw(f.vertices, sizeof(uint16) * 4);
+                    f.vertices[0] >>= 2;
+                    f.vertices[1] >>= 2;
+                    f.vertices[2] >>= 2;
+                    f.vertices[3] >>= 2;
+                    f.colored = false;
                 }
-                */
             } else
                 for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
 
@@ -3034,21 +3045,21 @@ namespace TR {
                     swap(d.faces[j].vertices[2], d.faces[j].vertices[3]);
             }
 
-            stream.seek(sizeof(d.tCount));
+            stream.read(tmpCount);
+            ASSERT(tmpCount == d.tCount);
             if (version == VER_TR2_PSX) {
-                ASSERT(false); // TODO
-                /*
                 stream.seek(2);
                 for (int i = 0; i < d.tCount; i++) {
-                    Triangle &v = d.triangles[i];
-                    stream.raw(&v.flags.value, sizeof(uint16));
-                    stream.raw(v.vertices, sizeof(v.vertices));
-                    v.vertices[0] >>= 2;
-                    v.vertices[1] >>= 2;
-                    v.vertices[2] >>= 2;
-                    v.colored = false;
+                    Face &f = d.faces[d.rCount + i];
+                    f.vCount = 3;
+                    stream.raw(&f.flags.value, sizeof(uint16));
+                    stream.raw(f.vertices, sizeof(uint16) * 3);
+                    f.vertices[0] >>= 2;
+                    f.vertices[1] >>= 2;
+                    f.vertices[2] >>= 2;
+                    f.vertices[3] = 0;
+                    f.colored = false;
                 }
-                */
             } else {
                 for (int i = 0; i < d.tCount; i++)
                     readFace(stream, d.faces[idx++], false, true);

@@ -204,6 +204,68 @@ struct TrapFlameEmitter : Controller {
 };
 
 
+#define MUZZLE_FLASH_TIME   0.1f
+#define FLASH_LIGHT_COLOR   vec4(0.6f, 0.5f, 0.1f, 1.0f / 3072.0f)
+
+struct MuzzleFlash : Controller {
+    Controller *owner;
+    int        joint;
+    int        lightIndex;
+
+    MuzzleFlash(IGame *game, int entity) : Controller(game, entity), owner(NULL), joint(0), lightIndex(-1) {
+        pos.z += (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? 180.0f : 150.0f;
+        activate();
+    }
+
+    virtual void update() {
+        if (timer < MUZZLE_FLASH_TIME) {
+            timer += Core::deltaTime;
+
+            if (timer < MUZZLE_FLASH_TIME) {
+                float intensity = clamp((MUZZLE_FLASH_TIME - timer) * 20.0f, EPS, 1.0f);
+
+                vec4 lightPos   = vec4(owner->getJoint(joint).pos, 0);
+                vec4 lightColor = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
+                if (lightIndex > -1) {
+                    ASSERT(lightIndex + 1 < MAX_LIGHTS);
+                    Core::lightPos[lightIndex]   = lightPos;
+                    Core::lightColor[lightIndex] = lightColor;
+                } else
+                    getRoom().addDynLight(owner->entity, lightPos, lightColor);
+            } else {
+                if (lightIndex > -1) {
+                    ASSERT(lightIndex < MAX_LIGHTS);
+                    Core::lightPos[lightIndex]   = vec4(0);
+                    Core::lightColor[lightIndex] = vec4(0, 0, 0, 1);
+                } else
+                    getRoom().removeDynLight(owner->entity);
+                game->removeEntity(this);
+            }
+        }
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        ASSERT(level->extra.muzzleFlash);
+        ASSERT(owner);
+
+        float alpha = min(1.0f, (0.1f - timer) * 20.0f);
+        float lum   = 3.0f;
+        Basis b = owner->getJoint(joint);
+        b.w = 1.0f;
+        b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
+        b.translate(pos);
+        if (level->version & (TR::VER_TR2 | TR::VER_TR3))
+            lum = alpha;
+
+        game->setShader(Core::pass, Shader::FLASH, false, true);
+        Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
+        Core::setBasis(&b, 1);
+
+        mesh->renderModel(level->extra.muzzleFlash);
+    }
+};
+
+
 #define LAVA_PARTICLE_DAMAGE 10
 #define LAVA_V_SPEED         -165
 #define LAVA_H_SPEED         32
@@ -1380,6 +1442,9 @@ struct Waterfall : Controller {
     Waterfall(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
 
     virtual void update() {
+        if (getEntity().room != getRoomIndex()) // room is flipped
+            return;
+
         vec3 delta = (game->getLara(pos)->pos - pos) * (1.0f / 1024.0f);
         if (delta.length2() > 100.0f)
             return;

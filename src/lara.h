@@ -52,8 +52,6 @@
 #define MAX_TRIGGER_ACTIONS 64
 
 #define DESCENT_SPEED       2048.0f
-#define MUZZLE_FLASH_TIME   0.1f
-#define FLASH_LIGHT_COLOR   vec4(0.6f, 0.5f, 0.1f, 1.0f / 3072.0f)
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
 struct Lara : Character {
@@ -183,6 +181,11 @@ struct Lara : Character {
         STATE_WATER_OUT,
         STATE_MAX };
 
+    #define LARA_RGUN_JOINT 10
+    #define LARA_LGUN_JOINT 13
+    #define LARA_RGUN_OFFSET vec3( 10, -50, 0)
+    #define LARA_LGUN_OFFSET vec3(-10, -50, 0)
+
     enum {
         BODY_HIP        = 0x0001,
         BODY_LEG_L1     = 0x0002,
@@ -226,7 +229,6 @@ struct Lara : Character {
     struct Arm {
         Controller      *tracking;       // tracking target (main target)
         Controller      *target;         // target for shooting
-        float           shotTimer;
         quat            rot, rotAbs;
 
         Weapon::Anim::Type anim;
@@ -466,7 +468,6 @@ struct Lara : Character {
         }
 
         for (int i = 0; i < 2; i++) {
-            arms[i].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
             arms[i].rot       = quat(0, 0, 0, 1);
             arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
@@ -908,6 +909,11 @@ struct Lara : Character {
     }
 
     void doShot(bool rightHand, bool leftHand) {
+        if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && *wpnAmmo <= 0) { // check for no ammo
+            game->playSound(TR::SND_EMPTY, pos, Sound::PAN);
+            wpnChange(Weapon::PISTOLS);
+        }
+
         int count = wpnCurrent == Weapon::SHOTGUN ? 6 : 2;
         float nearDist = 32.0f * 1024.0f;
         vec3  nearPos;
@@ -931,11 +937,12 @@ struct Lara : Character {
                     *wpnAmmo -= 1;
             }
 
-            arm->shotTimer = 0.0f;
             shots++;
 
-            int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
+            game->addMuzzleFlash(this, i ? LARA_LGUN_JOINT : LARA_RGUN_JOINT, i ? LARA_LGUN_OFFSET : LARA_RGUN_OFFSET, 1 + camera->cameraIndex);
 
+        // TODO: use new trace code
+            int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
             vec3 p = getJoint(joint).pos;
             vec3 d = arm->rotAbs * vec3(0, 0, 1);
             vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
@@ -961,18 +968,11 @@ struct Lara : Character {
         }
 
         if (shots) {
-            Core::lightPos[1 + camera->cameraIndex]   = (getJoint(10).pos + getJoint(13).pos) * 0.5f;
-            Core::lightColor[1 + camera->cameraIndex] = FLASH_LIGHT_COLOR;
-
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
              if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == Weapon::SHOTGUN)
                 *wpnAmmo -= 1;
-        }
-
-        if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && *wpnAmmo <= 0) {
-            wpnChange(Weapon::PISTOLS);
         }
     }
 
@@ -1422,8 +1422,8 @@ struct Lara : Character {
             case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
             case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
             case TR::Effect::DRAW_LEFTGUN   : drawGun(false); break;
-            case TR::Effect::SHOT_RIGHTGUN  : arms[0].shotTimer = 0; break;
-            case TR::Effect::SHOT_LEFTGUN   : arms[1].shotTimer = 0; break;
+            case TR::Effect::SHOT_RIGHTGUN  : game->addMuzzleFlash(this, LARA_RGUN_JOINT, LARA_RGUN_OFFSET, 1 + camera->cameraIndex); break;
+            case TR::Effect::SHOT_LEFTGUN   : game->addMuzzleFlash(this, LARA_LGUN_JOINT, LARA_LGUN_OFFSET, 1 + camera->cameraIndex); break;
             case TR::Effect::MESH_SWAP_1    : 
             case TR::Effect::MESH_SWAP_2    : 
             case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
@@ -1431,43 +1431,6 @@ struct Lara : Character {
             case 32 : break; // TODO TR3 footprint
             default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
         }
-    }
-
-    void addSparks(uint32 mask) {
-        Sphere spheres[MAX_SPHERES];
-        int count;
-        getSpheres(spheres, count);
-        for (int i = 0; i < count; i++)
-            if (mask & (1 << i)) {
-                vec3 sprPos = spheres[i].center + (vec3(randf(), randf(), randf()) * 2.0f - 1.0f) * spheres[i].radius;
-                game->addEntity(TR::Entity::SPARKLES, getRoomIndex(), sprPos);
-            }
-    }
-
-    void addBlood(const vec3 &sprPos, const vec3 &sprVel) {
-        Sprite *sprite = (Sprite*)game->addEntity(TR::Entity::BLOOD, getRoomIndex(), sprPos, 0);
-        if (sprite)
-            sprite->velocity = sprVel;
-    }
-
-    void addBlood(float radius, float height, const vec3 &sprVel) {
-        vec3 p = pos + vec3((randf() * 2.0f - 1.0f) * radius, -randf() * height, (randf() * 2.0f - 1.0f) * radius);
-        addBlood(p, sprVel);
-    }
-
-    void addBloodSpikes() {
-        float ang = randf() * PI * 2.0f;
-        addBlood(64.0f,  512.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * 20.0f);
-    }
-
-    void addBloodBlade() {
-        float ang = angle.y + (randf() - 0.5f) * 30.0f * DEG2RAD;
-        addBlood(64.0f, 744.0f, vec3(sinf(ang), 0.0f, cosf(ang)) * speed);
-    }
-
-    void addBloodSlam(Controller *trapSlam) {
-        for (int i = 0; i < 6; i++)
-            addBloodSpikes();
     }
 
     void bakeEnvironment() {
@@ -1508,10 +1471,10 @@ struct Lara : Character {
         game->stopTrack();
 
         Core::lightColor[1 + 0] = Core::lightColor[1 + 1] = vec4(0, 0, 0, 1);
-        arms[0].shotTimer = arms[1].shotTimer = MUZZLE_FLASH_TIME + 1.0f;
         arms[0].tracking  = arms[1].tracking  = NULL;
         arms[0].target    = arms[1].target    = NULL;
         viewTarget        = NULL;
+        velocity          = vec3(0.0f);
         animation.overrideMask = 0;
 
         switch (hitType) {
@@ -2793,31 +2756,13 @@ struct Lara : Character {
         usedKey = TR::Entity::LARA;
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC)
-            camera->mode = emptyHands() ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
-    }
-
-    void updateFlash() {
-        float minTime = MUZZLE_FLASH_TIME;
-
-        for (int i = 0; i < 2; i++)
-            if (arms[i].shotTimer < MUZZLE_FLASH_TIME) {
-                arms[i].shotTimer += Core::deltaTime;
-                minTime = min(minTime, arms[i].shotTimer);
-            }
-
-        if (minTime < MUZZLE_FLASH_TIME) {
-            float intensity = clamp((0.1f - minTime) * 20.0f, EPS, 1.0f);
-
-            Core::lightColor[1 + camera->cameraIndex] = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
-            Core::lightPos[1 + camera->cameraIndex]   = (getJoint(10).pos + getJoint(13).pos) * 0.5f;
-        } else
-            Core::lightColor[1 + camera->cameraIndex] = vec4(0, 0, 0, 1);
+            camera->mode = (emptyHands() || health <= 0.0f) ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
     }
 
     virtual void updateAnimation(bool commands) {
         Controller::updateAnimation(commands);
         updateWeapon();
-        updateFlash();
+
         if (stand == STAND_UNDERWATER)
             specular = 0.0f;
         else
@@ -3266,22 +3211,6 @@ struct Lara : Character {
         return mask;
     }
 
-    void renderMuzzleFlash(MeshBuilder *mesh, const Basis &basis, const vec3 &offset, float time) {
-        ASSERT(level->extra.muzzleFlash);
-        if (time > MUZZLE_FLASH_TIME) return;
-        float alpha = min(1.0f, (0.1f - time) * 20.0f);
-        float lum   = 3.0f;
-        Basis b(basis);
-        b.w = 1.0f;
-        b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
-        b.translate(offset);
-        if (level->version & (TR::VER_TR2 | TR::VER_TR3))
-            lum = alpha;
-        Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
-        Core::setBasis(&b, 1);
-        mesh->renderModel(level->extra.muzzleFlash);
-    }
-
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
         if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
@@ -3291,31 +3220,6 @@ struct Lara : Character {
 
         if (braid)
             braid->render(mesh);
-
-        if (wpnCurrent != Weapon::SHOTGUN && Core::pass != Core::passShadow && (arms[0].shotTimer < MUZZLE_FLASH_TIME || arms[1].shotTimer < MUZZLE_FLASH_TIME)) {
-            game->setShader(Core::pass, Shader::FLASH, false, true);
-            
-            int meshTransp = mesh->transparent;
-            float zOffset;
-            if (level->version & (TR::VER_TR2 | TR::VER_TR3)) {
-                mesh->transparent = 2;
-                Core::setBlending(bmAdd);
-                zOffset = 180;
-            } else {
-                Core::setBlending(bmAlpha);
-                zOffset = 150;
-            }
-
-            renderMuzzleFlash(mesh, joints[10], vec3(-10, -50, zOffset), arms[0].shotTimer);
-            renderMuzzleFlash(mesh, joints[13], vec3( 10, -50, zOffset), arms[1].shotTimer);
-
-            mesh->transparent = meshTransp;
-            switch (mesh->transparent) {
-                case 0 : Core::setBlending(bmNone);  break;
-                case 1 : Core::setBlending(bmAlpha); break;
-                case 2 : Core::setBlending(bmAdd);   break;
-            }
-        }
 
         if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);

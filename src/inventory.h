@@ -41,7 +41,7 @@ struct OptionItem {
     }
 
     bool checkValue(uint8 value) const {
-        if (value >= maxValue) return false;
+        if (value > maxValue) return false;
         Core::Settings stg;
         switch (title) {
             case STR_OPT_DETAIL_FILTER   : stg.detail.setFilter((Core::Settings::Quality)value);   return stg.detail.filter   == value;
