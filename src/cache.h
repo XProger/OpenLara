@@ -613,7 +613,7 @@ struct WaterCache {
 
     // calc caustics
         game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
-        vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f / PLANE_DETAIL) };
+        vec3 rPosScale[2] = { vec3(0.0f), vec3(32767.0f / PLANE_DETAIL) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
 
         float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);

@@ -77,6 +77,8 @@
     #define glProgramBinary(...)
     
     extern EGLDisplay display;
+
+    #define DYNGEOM_NO_VBO
 #elif __linux__
     #define LINUX 1
     #include <GL/gl.h>
