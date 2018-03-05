@@ -1,7 +1,9 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <linux/input.h>
 #include <linux/joystick.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pwd.h>
@@ -137,6 +139,7 @@ void* sndFill(void *arg) {
 }
 
 void sndInit() {
+return;
     static const pa_sample_spec spec = {
         .format   = PA_SAMPLE_S16LE,
         .rate     = 44100,
@@ -197,7 +200,13 @@ InputKey mouseToInputKey(int btn) {
 
 struct JoyDevice {
     int  fd;
+    int  fe;
     vec2 L, R;
+    ff_effect fx;
+    char event[128];
+    int  time;
+    
+    float vL, vR, oL, oR;
 } joyDevice[INPUT_JOY_COUNT];
 
 bool osJoyReady(int index) {
@@ -205,8 +214,14 @@ bool osJoyReady(int index) {
 }
 
 void osJoyVibrate(int index, float L, float R) {
-    // TODO
+    if (!osJoyReady(index)) return;
+    joyDevice[index].vL = L;
+    joyDevice[index].vR = R;
 }
+
+#define JOY_DEAD_ZONE_STICK      8192
+#define JOY_DEAD_ZONE_TRIGGER    8192
+#define TEST_BIT(arr, bit)       ((arr[bit / 32] >> (bit % 32)) & 1)
 
 void joyInit() {
     LOG("init gamepads:\n");
@@ -235,15 +250,46 @@ void joyInit() {
         if (ioctl(joy.fd, JSIOCGNAME(sizeof(name)), name) < 0)
             strcpy(name, "Unknown");
 
-        LOG("gamepad %d\n", i);
+        LOG("gamepad %d\n", i + 1);
         LOG(" name : %s\n", name);
         LOG(" btns : %d\n", int(buttons));
         LOG(" axes : %d\n", int(axes));
+        
+        joy.fe = -1;
+        for (int j = 0; j < 99; j++) {
+            sprintf(name, "/sys/class/input/js%d/device/event%d", i, j);
+            DIR *dir = opendir(name);
+            if (!dir) continue;
+            closedir(dir);
+            sprintf(joy.event, "/dev/input/event%d", j);
+            joy.fe = open(joy.event, O_RDWR);
+            break;
+        }
+        
+        uint32 features[4];
+        if (joy.fe > -1 && (ioctl(joy.fe, EVIOCGBIT(EV_FF, sizeof(features)), features) == -1 || !TEST_BIT(features, FF_RUMBLE))) {
+            close(joy.fe);
+            joy.fe = -1;
+        }
+        
+        if (joy.fe > -1) {
+            LOG(" vibration feature\n");
+            joy.fx.id = -1;
+            joy.time  = osGetTime();
+            joy.vL = joy.oL = joy.vR = joy.oR = 0.0f;
+            close(joy.fe);
+        }
     }
 }
 
-#define JOY_DEAD_ZONE_STICK      8192
-#define JOY_DEAD_ZONE_TRIGGER    8192
+void joyFree() {
+    for (int i = 0; i < INPUT_JOY_COUNT; i++) {
+        JoyDevice &joy = joyDevice[i];
+        if (joy.fd == -1) continue;
+        close(joy.fd);
+        if (joy.fe == -1) continue;
+    }
+}
 
 float joyAxisValue(int value) {
     if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
@@ -262,6 +308,55 @@ vec2 joyDir(const vec2 &value) {
     return value.normal() * dist;
 }
 
+void joyRumble(JoyDevice &joy) {
+    if (joy.fe == -1) return;
+ 
+    if (joy.oL == 0.0f && joy.vL == 0.0f && joy.oR == 0.0f && joy.vR == 0.0f)
+        return;
+ 
+    if (osGetTime() < joy.time)
+        return;
+ 
+    close(joy.fe);
+    joy.fe = open(joy.event, O_RDWR);
+    if (joy.fe == -1)
+        LOG("can't open event\n");
+     
+    input_event event;
+    event.type = EV_FF;
+
+    if (joy.oL != 0.0f || joy.oR != 0.0f) {
+        event.value = 0;
+        event.code  = joy.fx.id; 
+        if (write(joy.fe, &event, sizeof(event)) == -1)
+            LOG("! joy stop fx\n");
+    }
+        
+    if (joy.vL != 0.0f || joy.vR != 0.0f) {
+        joy.fx.type                      = FF_RUMBLE;
+        joy.fx.u.rumble.strong_magnitude = int(joy.vL * 65535);
+        joy.fx.u.rumble.weak_magnitude   = int(joy.vR * 65535);
+        joy.fx.replay.length             = int(max(50.0f, 1000.0f / Core::stats.fps));
+        joy.fx.replay.delay              = 0;
+        joy.fx.id                        = -1;
+        
+        if (ioctl(joy.fe, EVIOCSFF, &joy.fx) == -1) {
+            LOG("! joy drv send fx\n");
+            return;
+        }
+
+        event.value = 1;
+        event.code  = joy.fx.id; 
+        if (write(joy.fe, &event, sizeof(event)) == -1)
+            LOG("! joy play fx\n");
+    }
+    
+    joy.oL = joy.vL;
+    joy.oR = joy.vR;
+    
+    joy.time = osGetTime() + joy.fx.replay.length;
+}
+
 void joyUpdate() {
     static const JoyKey keys[] = { jkA, jkB, jkX, jkY, jkLB, jkRB, jkSelect, jkStart, jkNone /*jkHome*/, jkL, jkR };
 
@@ -271,6 +366,8 @@ void joyUpdate() {
         if (joy.fd == -1)
             continue;
 
+        joyRumble(joy);
+        
         js_event event;
         while (read(joy.fd, &event, sizeof(event)) != -1) {
         // buttons
@@ -430,6 +527,7 @@ int main(int argc, char **argv) {
         }
     };
 
+    joyFree();
     sndFree();
     Game::deinit();
 
