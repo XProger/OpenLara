@@ -14,8 +14,7 @@ inspired by OpenTomb project http://opentomb.github.io/
 
 ## Roadmap
 - save game crystals
-- camera
-- RELEASE alpha-3 (February)
+- RELEASE alpha-3
 - enemies
 - Wii port
 - bug fixes
