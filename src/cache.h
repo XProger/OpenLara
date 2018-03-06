@@ -41,7 +41,7 @@ struct ShaderCache {
     ShaderCache() {
         memset(shaders, 0, sizeof(shaders));
 
-        LOG("shader: cache warm up...\n");
+        LOG("shader: cache warm-up...\n");
         prepareCompose(FX_NONE);
         if (Core::settings.detail.water > Core::Settings::LOW)
             prepareCompose(FX_CLIP_PLANE);
@@ -76,6 +76,8 @@ struct ShaderCache {
 
         compile(Core::passCompose, Shader::ENTITY, fx | FX_NONE);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::SPRITE, fx | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER | FX_ALPHA_TEST);
