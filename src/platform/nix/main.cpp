@@ -277,21 +277,23 @@ void joyUpdate() {
             
                 switch (event.number) {
                 // Left stick
-                    case 0 : joy.L.x = joyAxisValue(event.value); break;
-                    case 1 : joy.L.y = joyAxisValue(event.value); break;
+                    case ABS_X  : joy.L.x = joyAxisValue(event.value); break;
+                    case ABS_Y  : joy.L.y = joyAxisValue(event.value); break;
                 // Right stick
-                    case 3 : joy.R.x = joyAxisValue(event.value); break;
-                    case 4 : joy.R.y = joyAxisValue(event.value); break;
+                    case ABS_RX : joy.R.x = joyAxisValue(event.value); break;
+                    case ABS_RY : joy.R.y = joyAxisValue(event.value); break;
                 // Left trigger
-                    case 2 : Input::setJoyPos(i, jkLT, joyTrigger(event.value)); break;
+                    case ABS_Z  : Input::setJoyPos(i, jkLT, joyTrigger(event.value)); break;
                 // Right trigger
-                    case 5 : Input::setJoyPos(i, jkRT, joyTrigger(event.value)); break;
+                    case ABS_RZ : Input::setJoyPos(i, jkRT, joyTrigger(event.value)); break;
                 // D-PAD
-                    case 6 :
+                    case ABS_HAT0X    :
+                    case ABS_THROTTLE :
                         Input::setJoyDown(i, jkLeft,  event.value < -0x4000);
                         Input::setJoyDown(i, jkRight, event.value >  0x4000);
                         break;
-                    case 7 :
+                    case ABS_HAT0Y    :
+                    case ABS_RUDDER   :
                         Input::setJoyDown(i, jkUp,    event.value < -0x4000);
                         Input::setJoyDown(i, jkDown,  event.value >  0x4000);
                         break;

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <linux/input.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <pthread.h>
@@ -200,7 +201,7 @@ int udevMon_fd;
 vec2 joyL, joyR;
 
 bool osJoyReady(int index) {
-    return true; // TODO
+    return index == 0; // TODO
 }
 
 void osJoyVibrate(int index, float L, float R) {
@@ -357,6 +358,23 @@ void inputFree() {
     udev_unref(udevObj);
 }
 
+#define JOY_DEAD_ZONE_STICK      8192
+
+float joyAxisValue(int value) {
+    if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
+        return 0.0f;
+    return value / 32767.0f;
+}
+
+float joyTrigger(int value) {
+    return min(1.0f, value / 255.0f);
+}
+
+vec2 joyDir(const vec2 &value) {
+    float dist = min(1.0f, value.length());
+    return value.normal() * dist;
+}
+
 void inputUpdate() {
 // get input events
     input_event events[16];
@@ -364,6 +382,8 @@ void inputUpdate() {
     for (int i = 0; i < MAX_INPUT_DEVICES; i++) {
         if (inputDevices[i] == -1) continue;
         int rb = read(inputDevices[i], events, sizeof(events));
+
+        int joyIndex = 0; // TODO: joy index
 
         input_event *e = events;
         while (rb > 0) {
@@ -376,7 +396,7 @@ void inputUpdate() {
                         Input::setDown(key, e->value != 0);
                     } else {
                         JoyKey key = codeToJoyKey(e->code);
-                        Input::setJoyDown(0, key, e->value != 0);
+                        Input::setJoyDown(joyIndex, key, e->value != 0);
                     }
                     break;
                 }
@@ -387,13 +407,32 @@ void inputUpdate() {
                     break;
                 }
                 case EV_ABS : {
-                    float v = float(e->value) / 128.0f - 1.0f;
                     switch (e->code) {
-                        case ABS_X  : joyL.x = v; break;
-                        case ABS_Y  : joyL.y = v; break;
-                        case ABS_Z  : joyR.x = v; break;
-                        case ABS_RZ : joyR.y = v; break;
+                    // Left stick
+                        case ABS_X  : joyL.x = joyAxisValue(e->value); break;
+                        case ABS_Y  : joyL.y = joyAxisValue(e->value); break;
+                    // Right stick
+                        case ABS_RX : joyR.x = joyAxisValue(e->value); break;
+                        case ABS_RY : joyR.y = joyAxisValue(e->value); break;
+                    // Left trigger
+                        case ABS_Z  : Input::setJoyPos(joyIndex, jkLT, joyTrigger(e->value)); break;
+                    // Right trigger
+                        case ABS_RZ : Input::setJoyPos(joyIndex, jkRT, joyTrigger(e->value)); break;
+                    // D-PAD
+                        case ABS_HAT0X    :
+                        case ABS_THROTTLE :
+                            Input::setJoyDown(joyIndex, jkLeft,  e->value < 0);
+                            Input::setJoyDown(joyIndex, jkRight, e->value > 0);
+                            break;
+                        case ABS_HAT0Y    :
+                        case ABS_RUDDER   :
+                            Input::setJoyDown(joyIndex, jkUp,    e->value < 0);
+                            Input::setJoyDown(joyIndex, jkDown,  e->value > 0);
+                            break;
                     }
+
+                    Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                    Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
                 }
             }
             //LOG("input: type = %d, code = %d, value = %d\n", int(e->type), int(e->code), int(e->value));
@@ -401,8 +440,7 @@ void inputUpdate() {
             rb -= sizeof(events[0]);
         }
     }
-    Input::setJoyPos(0, jkL, joyL);
-    Input::setJoyPos(0, jkR, joyR);
+
 // monitoring plug and unplug input devices
     fd_set fds;
     FD_ZERO(&fds);
