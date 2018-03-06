@@ -139,7 +139,6 @@ void* sndFill(void *arg) {
 }
 
 void sndInit() {
-return;
     static const pa_sample_spec spec = {
         .format   = PA_SAMPLE_S16LE,
         .rate     = 44100,
@@ -198,15 +197,18 @@ InputKey mouseToInputKey(int btn) {
     return ikNone;
 }
 
+#define JOY_DEAD_ZONE_STICK      8192
+#define JOY_DEAD_ZONE_TRIGGER    8192
+#define JOY_MIN_UPDATE_FX_TIME   50.0f
+
 struct JoyDevice {
-    int  fd;
-    int  fe;
-    vec2 L, R;
-    ff_effect fx;
-    char event[128];
-    int  time;
-    
-    float vL, vR, oL, oR;
+    int   fd;     // device file descriptor
+    int   fe;     // event file descriptor
+    vec2  L, R;   // left/right stick axes values
+    float vL, vR; // current value for left/right motor vibration
+    float oL, oR; // last applied value
+    int   time;   // time when we can send effect update
+    ff_effect fx; // effect structure
 } joyDevice[INPUT_JOY_COUNT];
 
 bool osJoyReady(int index) {
@@ -218,10 +220,6 @@ void osJoyVibrate(int index, float L, float R) {
     joyDevice[index].vL = L;
     joyDevice[index].vR = R;
 }
-
-#define JOY_DEAD_ZONE_STICK      8192
-#define JOY_DEAD_ZONE_TRIGGER    8192
-#define TEST_BIT(arr, bit)       ((arr[bit / 32] >> (bit % 32)) & 1)
 
 void joyInit() {
     LOG("init gamepads:\n");
@@ -261,8 +259,8 @@ void joyInit() {
             DIR *dir = opendir(name);
             if (!dir) continue;
             closedir(dir);
-            sprintf(joy.event, "/dev/input/event%d", j);
-            joy.fe = open(joy.event, O_RDWR);
+            sprintf(name, "/dev/input/event%d", j);
+            joy.fe = open(name, O_RDWR);
             break;
         }
         
@@ -273,11 +271,16 @@ void joyInit() {
         }
         
         if (joy.fe > -1) {
-            LOG(" vibration feature\n");
-            joy.fx.id = -1;
-            joy.time  = osGetTime();
+            int n_effects;
+            if (ioctl(joy.fe, EVIOCGEFFECTS, &n_effects) == -1) {
+                perror("Ioctl query");
+            }
+            LOG(" vibration feature %d\n", n_effects);
+            joy.fx.id           = -1;
+            joy.fx.type         = FF_RUMBLE;
+            joy.fx.replay.delay = 0;
             joy.vL = joy.oL = joy.vR = joy.oR = 0.0f;
-            close(joy.fe);
+            joy.time  = osGetTime();
         }
     }
 }
@@ -316,40 +319,33 @@ void joyRumble(JoyDevice &joy) {
  
     if (osGetTime() < joy.time)
         return;
- 
-    close(joy.fe);
-    joy.fe = open(joy.event, O_RDWR);
-    if (joy.fe == -1)
-        LOG("can't open event\n");
      
     input_event event;
     event.type = EV_FF;
 
-    if (joy.oL != 0.0f || joy.oR != 0.0f) {
-        event.value = 0;
-        event.code  = joy.fx.id; 
-        if (write(joy.fe, &event, sizeof(event)) == -1)
-            LOG("! joy stop fx\n");
-    }
-        
     if (joy.vL != 0.0f || joy.vR != 0.0f) {
-        joy.fx.type                      = FF_RUMBLE;
+    // update effect
         joy.fx.u.rumble.strong_magnitude = int(joy.vL * 65535);
         joy.fx.u.rumble.weak_magnitude   = int(joy.vR * 65535);
-        joy.fx.replay.length             = int(max(50.0f, 1000.0f / Core::stats.fps));
-        joy.fx.replay.delay              = 0;
-        joy.fx.id                        = -1;
+        joy.fx.replay.length             = int(max(JOY_MIN_UPDATE_FX_TIME, 1000.0f / Core::stats.fps));
         
         if (ioctl(joy.fe, EVIOCSFF, &joy.fx) == -1) {
-            LOG("! joy drv send fx\n");
-            return;
+            LOG("! joy update fx\n");
         }
 
+    // play effect
         event.value = 1;
         event.code  = joy.fx.id; 
         if (write(joy.fe, &event, sizeof(event)) == -1)
             LOG("! joy play fx\n");
-    }
+    } else
+        if (joy.oL != 0.0f || joy.oR != 0.0f) {
+        // stop effect
+            event.value = 0;
+            event.code  = joy.fx.id; 
+            if (write(joy.fe, &event, sizeof(event)) == -1)
+                LOG("! joy stop fx\n");
+        }
     
     joy.oL = joy.vL;
     joy.oR = joy.vR;

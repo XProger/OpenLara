@@ -647,6 +647,8 @@ struct Inventory {
     }
 
     bool toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+        Input::stopJoyVibration();
+        
         this->playerIndex = playerIndex;
         titleTimer = 0.0f;
 

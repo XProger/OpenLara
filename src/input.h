@@ -117,10 +117,15 @@ namespace Input {
         setJoyDown(index, key, pos.x > 0.0f); // gamepad LT, RT auto-down state
     }
 
-    void setJoyVibrate(int playerIndex, float L, float R) {
+    void setJoyVibration(int playerIndex, float L, float R) {
         if (!Core::settings.controls[playerIndex].vibration)
             return;
         osJoyVibrate(Core::settings.controls[playerIndex].joyIndex, L, R);
+    }
+    
+    void stopJoyVibration() {
+        osJoyVibrate(Core::settings.controls[0].joyIndex, 0.0f, 0.0f);
+        osJoyVibrate(Core::settings.controls[1].joyIndex, 0.0f, 0.0f);
     }
 
     InputKey getTouch(int id) {

@@ -73,10 +73,11 @@ typedef unsigned char   uint8;
 typedef unsigned short  uint16;
 typedef unsigned int    uint32;
 
-#define FOURCC(str)     uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
+#define FOURCC(str)        uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
-#define COUNT(arr)      (sizeof(arr) / sizeof(arr[0]))
-#define OFFSETOF(T, E)  ((size_t)&(((T*)0)->E))
+#define COUNT(arr)         (sizeof(arr) / sizeof(arr[0]))
+#define OFFSETOF(T, E)     ((size_t)&(((T*)0)->E))
+#define TEST_BIT(arr, bit) ((arr[bit / 32] >> (bit % 32)) & 1)
 
 template <typename T>
 inline const T& min(const T &a, const T &b) {

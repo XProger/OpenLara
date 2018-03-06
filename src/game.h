@@ -14,6 +14,7 @@ namespace Game {
     Stream *nextLevel;
 
     void startLevel(Stream *lvl) {
+        Input::stopJoyVibration();
         delete level;
         level = new Level(*lvl);
         UI::game = level;

@@ -2733,9 +2733,9 @@ struct Lara : Character {
         if (hitTimer > 0.0f) {
             hitTimer -= Core::deltaTime;
             if (hitTimer > 0.0f)
-                Input::setJoyVibrate(camera->cameraIndex, 0.5f, 0.5f);
+                Input::setJoyVibration(camera->cameraIndex, 0.5f, 0.5f);
             else
-                Input::setJoyVibrate(camera->cameraIndex, 0, 0);
+                Input::setJoyVibration(camera->cameraIndex, 0, 0);
         }
 
         if (level->isCutsceneLevel())
