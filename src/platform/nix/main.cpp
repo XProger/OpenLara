@@ -317,7 +317,7 @@ void joyRumble(JoyDevice &joy) {
     if (joy.oL == 0.0f && joy.vL == 0.0f && joy.oR == 0.0f && joy.vR == 0.0f)
         return;
  
-    if (osGetTime() < joy.time)
+    if (osGetTime() <= joy.time)
         return;
      
     input_event event;
