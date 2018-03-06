@@ -215,24 +215,39 @@ void  (WINAPI *XInputEnable)   (BOOL enable) = NULL;
 
 #define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
+#define JOY_MIN_UPDATE_FX_TIME   50
 
-bool joyReady[INPUT_JOY_COUNT];
+struct JoyDevice {
+    float vL, vR; // current value for left/right motor vibration
+    float oL, oR; // last applied value
+    int   time;   // time when we can send vibration update
+    bool  ready;
+} joyDevice[INPUT_JOY_COUNT];
 
 bool osJoyReady(int index) {
-    return joyReady[index];
+    return joyDevice[index].ready;
 }
 
 void osJoyVibrate(int index, float L, float R) {
-    if (XInputSetState && joyReady[index]) {
+        joyDevice[index].vL = L;
+        joyDevice[index].vR = R;
+}
+
+void joyRumble(int index) {
+    JoyDevice &joy = joyDevice[index];
+    if (XInputSetState && joy.ready && (joy.vL != joy.oL || joy.vR != joy.oR) && osGetTime() >= joy.time) {
         XINPUT_VIBRATION vibration;
-        vibration.wLeftMotorSpeed  = int(L * 65535.0f);
-        vibration.wRightMotorSpeed = int(R * 65535.0f);
+        vibration.wLeftMotorSpeed  = int(joy.vL * 65535.0f);
+        vibration.wRightMotorSpeed = int(joy.vR * 65535.0f);
         XInputSetState(index, &vibration);
+        joy.oL = joy.vL;
+        joy.oR = joy.vR;
+        joy.time = osGetTime() + JOY_MIN_UPDATE_FX_TIME;
     }
 }
 
 void joyInit() {
-    memset(joyReady, 0, sizeof(joyReady));
+    memset(joyDevice, 0, sizeof(joyDevice));
 
     HMODULE h = LoadLibrary("xinput1_3.dll");
     if (h == NULL)
@@ -246,18 +261,21 @@ void joyInit() {
         if (XInputGetState) { // XInput
             XINPUT_STATE state;
             int res = XInputGetState(j, &state);
-            joyReady[j] = (XInputGetState(j, &state) == ERROR_SUCCESS);
+            joyDevice[j].ready = (XInputGetState(j, &state) == ERROR_SUCCESS);
         } else { // mmSystem (legacy)
             JOYINFOEX info;
             info.dwSize  = sizeof(info);
             info.dwFlags = JOY_RETURNALL;
-            joyReady[j] = (joyGetPosEx(j, &info) == JOYERR_NOERROR);
+            joyDevice[j].ready = (joyGetPosEx(j, &info) == JOYERR_NOERROR);
         }
+
+        if (joyDevice[j].ready)
+            LOG("Gamepad %d is ready\n", j + 1);
     }
 }
 
 void joyFree() {
-    memset(joyReady, 0, sizeof(joyReady));
+    memset(joyDevice, 0, sizeof(joyDevice));
     Input::reset();
 }
 
@@ -279,7 +297,9 @@ int joyDeadZone(int value, int zone) {
 
 void joyUpdate() {
     for (int j = 0; j < INPUT_JOY_COUNT; j++) {
-        if (!joyReady[j]) continue;
+        if (!joyDevice[j].ready) continue;
+
+        joyRumble(j);
 
         if (XInputGetState) { // XInput
             XINPUT_STATE state;
