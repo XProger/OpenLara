@@ -83,7 +83,6 @@ void osRWUnlockWrite(void *obj) {
     osMutexUnlock(obj);
 }
 
-
 // timing
 int osStartTime = 0;
 int osTimerFreq;
@@ -93,55 +92,6 @@ int osGetTime() {
     sceRtcGetCurrentTick(&time);
     return int(time * 1000 / osTimerFreq - osStartTime);
 }
-
-
-// storage
-void osCacheWrite(Stream *stream) {
-    char path[255];
-    strcpy(path, Stream::cacheDir);
-    strcat(path, stream->name);
-    FILE *f = fopen(path, "wb");
-    if (f) {
-        fwrite(stream->data, 1, stream->size, f);
-        fclose(f);
-        if (stream->callback)
-            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
-    } else
-        if (stream->callback)
-            stream->callback(NULL, stream->userData);
-
-    delete stream;
-}
-
-void osCacheRead(Stream *stream) {
-    char path[255];
-    strcpy(path, Stream::cacheDir);
-    strcat(path, stream->name);
-    FILE *f = fopen(path, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END);
-        int size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        char *data = new char[size];
-        fread(data, 1, size, f);
-        fclose(f);
-        if (stream->callback)
-            stream->callback(new Stream(stream->name, data, size), stream->userData);
-        delete[] data;
-    } else
-        if (stream->callback)
-            stream->callback(NULL, stream->userData);
-    delete stream;
-}
-
-void osSaveGame(Stream *stream) {
-    return osCacheWrite(stream);
-}
-
-void osLoadGame(Stream *stream) {
-    return osCacheRead(stream);
-}
-
 
 // input
 bool osJoyReady(int index) {

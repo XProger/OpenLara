@@ -827,6 +827,41 @@ namespace TR {
 
         return NULL;
     }
+
+    #define FOG_DIST    (1.0f / (18 * 1024))
+    #define FOG_BLACK   vec4(0.0f, 0.0f, 0.0f, FOG_DIST)
+    #define FOG_SANDY   vec4(0.2f, 0.1f, 0.0f, FOG_DIST)
+    #define FOG_GREEN   vec4(0.0f, 0.1f, 0.0f, FOG_DIST)
+    #define FOG_RED     vec4(0.2f, 0.0f, 0.0f, FOG_DIST)
+
+    vec4 getFogParams(LevelID id) {
+        switch (id) {
+            case LVL_TR1_1     :
+            case LVL_TR1_2     :
+            case LVL_TR1_3A    :
+            case LVL_TR1_3B    :
+            case LVL_TR1_CUT_1 : return FOG_BLACK;
+            case LVL_TR1_4     :
+            case LVL_TR1_5     :
+            case LVL_TR1_6     : return FOG_SANDY;
+            case LVL_TR1_7A    :
+            case LVL_TR1_7B    :
+            case LVL_TR1_CUT_2 : return FOG_GREEN;
+            case LVL_TR1_8A    :
+            case LVL_TR1_8B    :
+            case LVL_TR1_8C    : return FOG_SANDY;
+            case LVL_TR1_10A   : return FOG_BLACK;
+            case LVL_TR1_CUT_3 :
+            case LVL_TR1_10B   :
+            case LVL_TR1_CUT_4 :
+            case LVL_TR1_10C   : return FOG_RED;
+            case LVL_TR1_EGYPT :
+            case LVL_TR1_CAT   :
+            case LVL_TR1_END   :
+            case LVL_TR1_END2  : return FOG_SANDY;
+        }
+        return FOG_BLACK;
+    }
 }
 
 #undef CHECK_FILE

@@ -4,54 +4,7 @@
 WindowRef window;
 AGLContext context;
 
-// multi-threading
-void* osMutexInit() {
-    pthread_mutex_t *mutex = new pthread_mutex_t();
-    pthread_mutex_init(mutex, NULL);
-    return mutex;
-}
-
-void osMutexFree(void *obj) {
-    pthread_mutex_destroy((pthread_mutex_t*)obj);
-    delete (pthread_mutex_t*)obj;
-}
-
-void osMutexLock(void *obj) {
-    pthread_mutex_lock((pthread_mutex_t*)obj);
-}
-
-void osMutexUnlock(void *obj) {
-    pthread_mutex_unlock((pthread_mutex_t*)obj);
-}
-
-void* osRWLockInit() {
-    pthread_rwlock_t *lock = new pthread_rwlock_t();
-    pthread_rwlock_init(lock, NULL);
-    return lock;
-}
-
-void osRWLockFree(void *obj) {
-    pthread_rwlock_destroy((pthread_rwlock_t*)obj);
-    delete (pthread_rwlock_t*)obj;
-}
-
-void osRWLockRead(void *obj) {
-    pthread_rwlock_rdlock((pthread_rwlock_t*)obj);
-}
-
-void osRWUnlockRead(void *obj) {
-    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
-}
-
-void osRWLockWrite(void *obj) {
-    pthread_rwlock_wrlock((pthread_rwlock_t*)obj);
-}
-
-void osRWUnlockWrite(void *obj) {
-    pthread_rwlock_unlock((pthread_rwlock_t*)obj);
-}
-
-// Sound
+// sound
 #define SND_SIZE 8192
 
 static AudioQueueRef audioQueue;
@@ -193,59 +146,11 @@ OSStatus eventHandler(EventHandlerCallRef handler, EventRef event, void* userDat
     return CallNextEventHandler(handler, event);
 }
 
-
 // timing
 int osGetTime() {
     UInt64 t;
     Microseconds((UnsignedWide*)&t);
     return int(t / 1000);
-}
-
-// storage
-void osCacheWrite(Stream *stream) {
-    char path[255];
-    strcpy(path, Stream::cacheDir);
-    strcat(path, stream->name);
-    FILE *f = fopen(path, "wb");
-    if (f) {
-        fwrite(stream->data, 1, stream->size, f);
-        fclose(f);
-        if (stream->callback)
-            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
-    } else
-        if (stream->callback)
-            stream->callback(NULL, stream->userData);
-    
-    delete stream;
-}
-
-void osCacheRead(Stream *stream) {
-    char path[255];
-    strcpy(path, Stream::cacheDir);
-    strcat(path, stream->name);
-    FILE *f = fopen(path, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END);
-        int size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        char *data = new char[size];
-        fread(data, 1, size, f);
-        fclose(f);
-        if (stream->callback)
-            stream->callback(new Stream(stream->name, data, size), stream->userData);
-        delete[] data;
-    } else
-        if (stream->callback)
-            stream->callback(NULL, stream->userData);
-    delete stream;
-}
-
-void osSaveGame(Stream *stream) {
-    return osCacheWrite(stream);
-}
-
-void osLoadGame(Stream *stream) {
-    return osCacheRead(stream);
 }
 
 char Stream::contentDir[255];

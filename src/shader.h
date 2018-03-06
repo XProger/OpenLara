@@ -26,6 +26,7 @@
     E( uLightProj       ) \
     E( uMaterial        ) \
     E( uAmbient         ) \
+    E( uFogParams       ) \
     E( uViewPos         ) \
     E( uLightPos        ) \
     E( uLightColor      ) \

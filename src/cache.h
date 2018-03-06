@@ -10,7 +10,6 @@
 
 #define SHADOW_TEX_SIZE 1024
 
-#define FOG_DIST       (18 * 1024)
 #define WATER_FOG_DIST (6 * 1024)
 //#define WATER_USE_GRID
 #define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
@@ -76,7 +75,6 @@ struct ShaderCache {
 
         compile(Core::passCompose, Shader::ENTITY, fx | FX_NONE);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST | FX_CLIP_PLANE);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_ALPHA_TEST);
         compile(Core::passCompose, Shader::SPRITE, fx | FX_ALPHA_TEST);
@@ -146,7 +144,7 @@ struct ShaderCache {
 
                 src = SHADER;
                 typ = typeNames[type];          
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define FOG_DIST (1.0/%d.0)\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, FOG_DIST, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 #ifdef MERGE_SPRITES
                     if (type == Shader::SPRITE)
                         strcat(def, "#define ALIGN_SPRITES 1\n");
@@ -216,6 +214,7 @@ struct ShaderCache {
         shader->setParam(uLightProj,      Core::mLightProj);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
+        shader->setParam(uFogParams,      Core::fogParams);
     #else
         Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     #endif

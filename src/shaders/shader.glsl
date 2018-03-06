@@ -21,6 +21,7 @@ uniform vec3 uViewPos;
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
 uniform vec4 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
+uniform vec4 uFogParams;
 
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
@@ -100,7 +101,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#endif
 
 		#ifndef PASS_SHADOW
-			vViewVec = vec4((uViewPos - coord.xyz) * FOG_DIST, coord.y);
+			vViewVec = vec4((uViewPos - coord.xyz) * uFogParams.w, coord.y);
 		#endif
 
 		#ifdef PASS_AMBIENT
@@ -471,7 +472,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					#ifdef UNDERWATER
 						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vLightVec.w);
 					#else
-						color.xyz = mix(vec3(0.0), color.xyz, vLightVec.w);
+						color.xyz = mix(uFogParams.xyz, color.xyz, vLightVec.w);
 					#endif
 				#endif
 /* catsuit test

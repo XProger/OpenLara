@@ -6,10 +6,16 @@
 #endif
 
 #include <stdio.h>
+
+#define OS_FILEIO_CACHE
+#define OS_PTHREAD_MT
+
 #ifdef WIN32
     #include <windows.h>
     #include <gl/GL.h>
     #include <gl/glext.h>
+
+    #undef OS_PTHREAD_MT
 #elif ANDROID
     #define MOBILE
     #include <GLES2/gl2.h>
@@ -143,6 +149,8 @@
 
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+
+    #undef  OS_FILEIO_CACHE
 #elif _PSP
     #include <pspgu.h>
     #include <pspgum.h>
@@ -151,6 +159,8 @@
     #define TEX_SWIZZLE
     //#define EDRAM_MESH
     #define EDRAM_TEX
+
+    #undef OS_PTHREAD_MT
 #endif
 
 #ifdef USE_INFLATE
@@ -614,6 +624,7 @@ namespace Core {
     vec4 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];
     vec4 params;
+    vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
     Texture *whiteTex;

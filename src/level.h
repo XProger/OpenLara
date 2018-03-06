@@ -612,6 +612,8 @@ struct Level : IGame {
         memset(players, 0, sizeof(players));
         player = NULL;
 
+        Core::fogParams = TR::getFogParams(level.id);
+
         initTextures();
         mesh = new MeshBuilder(level, atlas);
         initOverrides();
@@ -1815,10 +1817,19 @@ struct Level : IGame {
         prepareRooms(roomsList, roomsCount);
 
         updateLighting();
-        for (int transp = 0; transp < 3; transp++) {
-            renderRooms(roomsList, roomsCount, transp);
-            renderEntities(transp);
-        }
+
+    // opaque pass
+        renderRooms(roomsList, roomsCount, 0);
+        renderEntities(0);
+    // alpha blending pass
+        renderRooms(roomsList, roomsCount, 1);
+        renderEntities(1);
+    // additive blending pass
+        vec4 oldFog = Core::fogParams;
+        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
+        renderRooms(roomsList, roomsCount, 2);
+        renderEntities(2);
+        Core::fogParams = oldFog;
 
         Core::setBlending(bmNone);
         if (water && waterCache && waterCache->visible) {

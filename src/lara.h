@@ -2600,6 +2600,9 @@ struct Lara : Character {
                 case TR::LVL_TR1_6 :
                     reset(73, vec3(73372, 122, 51687), PI * 0.5f);       // level 6 (midas hand)
                     break;
+                case TR::LVL_TR1_7A :
+                    reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
+                    break;
                 case TR::LVL_TR1_7B :
                     reset(77, vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
                     break;
