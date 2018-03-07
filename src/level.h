@@ -24,7 +24,6 @@ struct Level : IGame {
     TR::Level   level;
     Inventory   inventory;
     Texture     *atlas;
-    Texture     *cube;
     MeshBuilder *mesh;
 
     Lara        *players[2], *player;
@@ -375,7 +374,7 @@ struct Level : IGame {
         Core::whiteTex->bind(sNormal);
         Core::whiteTex->bind(sMask);
         Core::whiteTex->bind(sReflect);
-        cube->bind(sEnvironment);
+        Core::whiteCube->bind(sEnvironment);
         Core::basis.identity();
     }
 
@@ -694,7 +693,6 @@ struct Level : IGame {
         delete zoneCache;
 
         delete atlas;
-        delete cube;
         delete mesh;
 
         Sound::stopAll();
@@ -1087,14 +1085,9 @@ struct Level : IGame {
         LOG("atlas: %d x %d\n", atlas->width, atlas->height);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
-        uint32 whitePix = 0xFFFFFFFF;
-        cube = new Texture(1, 1, Texture::RGBA, true, &whitePix);
-
         delete[] level.tiles;
         level.tiles = NULL;
     #else
-        cube = NULL;
-
         #ifdef _PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else

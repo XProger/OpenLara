@@ -413,6 +413,7 @@ struct Camera : ICamera {
                 vec2 delta = Input::mouse.pos - Input::mouse.start.L;
                 advAngle.x -= delta.y * 0.01f;
                 advAngle.y += delta.x * 0.01f;
+                advAngle.y = clamp(advAngle.y, -PI, PI);
                 Input::mouse.start.L = Input::mouse.pos;
             }
 

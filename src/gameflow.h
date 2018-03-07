@@ -859,8 +859,8 @@ namespace TR {
             case LVL_TR1_CAT   :
             case LVL_TR1_END   :
             case LVL_TR1_END2  : return FOG_SANDY;
+            default            : return FOG_BLACK;
         }
-        return FOG_BLACK;
     }
 }
 

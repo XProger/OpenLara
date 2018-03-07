@@ -144,7 +144,7 @@ struct ShaderCache {
 
                 src = SHADER;
                 typ = typeNames[type];          
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_RANGES %d\n#define MAX_OFFSETS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_ANIM_TEX_RANGES, MAX_ANIM_TEX_OFFSETS, MAX_CONTACTS, WATER_FOG_DIST, SHADOW_TEX_SIZE);
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEX_SIZE %d.0\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_CONTACTS, WATER_FOG_DIST, SHADOW_TEX_SIZE);
                 #ifdef MERGE_SPRITES
                     if (type == Shader::SPRITE)
                         strcat(def, "#define ALIGN_SPRITES 1\n");
@@ -394,8 +394,8 @@ struct WaterCache {
         void init(IGame *game) {
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
-
-            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY = 0;
+            ASSERT(r.flags.water);
+            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY = level->rooms[to].waterLevel, caustY = posY;
 
             for (int z = 0; z < r.zSectors; z++)
                 for (int x = 0; x < r.xSectors; x++) {
@@ -405,9 +405,16 @@ struct WaterCache {
                         minZ = min(minZ, z);
                         maxX = max(maxX, x);
                         maxZ = max(maxZ, z);
-                        posY = level->rooms[s.roomAbove].waterLevel;
-                        if (s.roomBelow != TR::NO_ROOM)
-                            caust = s.roomBelow;
+                        if (s.roomBelow != TR::NO_ROOM) {
+                            int16 caustRoom = s.roomBelow;
+                            int floor = int(level->getFloor(&s, vec3(float(r.info.x + x * 1024), float(posY), float(r.info.z + z * 1024)), &caustRoom));
+                            if (floor > caustY) {
+                                caustY = floor;
+                                caust  = caustRoom;
+                                if (level->state.flags.flipped && level->rooms[caust].alternateRoom > -1)
+                                    caust = level->rooms[caust].alternateRoom;
+                            }
+                        }
                     }
                 }
             maxX++;

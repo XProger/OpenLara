@@ -485,11 +485,8 @@ namespace Core {
 #endif
 
 #define MAX_LIGHTS           4
-#define MAX_CACHED_LIGHTS    3
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
-#define MAX_ANIM_TEX_RANGES  16
-#define MAX_ANIM_TEX_OFFSETS 32
 
 struct Shader;
 struct Texture;
@@ -627,7 +624,7 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *whiteTex;
+    Texture *whiteTex, *whiteCube;
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -1001,6 +998,8 @@ namespace Core {
     #endif
 
     #ifndef _PSP
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
         glGenFramebuffers(1, &FBO);
         glDepthFunc(GL_LEQUAL);
@@ -1027,7 +1026,8 @@ namespace Core {
         eye = 0.0f;
 
         uint32 data = 0xFFFFFFFF;
-        whiteTex = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
+        whiteTex  = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
+        whiteCube = new Texture(1, 1, Texture::RGBA, Texture::CUBEMAP, &data);
 
     // init settings
         settings.version = SETTINGS_VERSION;
@@ -1123,6 +1123,7 @@ namespace Core {
         delete eyeTex[0];
         delete eyeTex[1];
         delete whiteTex;
+        delete whiteCube;
     #ifdef _PSP
         delete[] cmdBuf;
     #else

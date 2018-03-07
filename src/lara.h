@@ -638,6 +638,8 @@ struct Lara : Character {
 
         updateZone();
         updateLights(false);
+
+        camera->changeView(camera->firstPerson);
     }
 
     TR::Entity::Type getCurrentWeaponInv() {
@@ -2588,6 +2590,9 @@ struct Lara : Character {
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
             switch (level->id) {
+                case TR::LVL_TR1_2 :
+                    reset(61, vec3(21987, -1024, 29144), PI * 3.0f * 0.5f); // level 2 (trap door)
+                    break;
                 case TR::LVL_TR1_3A :
                     reset(51, vec3(41015, 3584, 34494), -PI);        // level 3a (t-rex)
                     break;
@@ -2604,7 +2609,8 @@ struct Lara : Character {
                     reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
                     break;
                 case TR::LVL_TR1_7B :
-                    reset(77, vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
+//                    reset(77, vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
+                    reset(49, vec3(45596, -6144, 71579), 0); // level 7b (water trigger)
                     break;
                 case TR::LVL_TR2_WALL :
                     //reset(44, vec3(62976, 1536, 23040), 0);

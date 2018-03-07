@@ -1295,7 +1295,7 @@ namespace TR {
         uint8   reverbType;
         uint8   filter;
         uint8   align;
-        uint32  waterLevel;
+        int32   waterLevel;
 
         struct DynLight {
             int32 id;
@@ -3893,12 +3893,14 @@ namespace TR {
             return sector;
         }
 
-        float getFloor(const Room::Sector *sector, const vec3 &pos) {
+        float getFloor(const Room::Sector *sector, const vec3 &pos, int16 *roomIndex = NULL) {
             int x = int(pos.x);
             int z = int(pos.z);
 
             while (sector->roomBelow != NO_ROOM) {
                 Room &room = rooms[sector->roomBelow];
+                if (roomIndex)
+                    *roomIndex = sector->roomBelow;
                 sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
