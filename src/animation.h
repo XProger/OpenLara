@@ -22,19 +22,42 @@ struct Animation {
 
     Animation() : overrides(NULL) {}
 
-    Animation(TR::Level *level, const TR::Model *model) : level(level), model(model), anims(model ? &level->anims[model->animation] : NULL), time(0), delta(0), dir(1.0f),
-                                                          index(-1), prev(0), next(0), overrides(NULL), overrideMask(0) {
-        if (anims) setAnim(0);
+    Animation(TR::Level *level, const TR::Model *model) : level(level), overrides(NULL), overrideMask(0) {
+        setModel(model);
     }
 
     ~Animation() {
         delete[] overrides;
     }
     
+    void setModel(const TR::Model *model) {
+        if (this->model == model)
+            return;
+
+        this->model = model;
+        anims = model ? &level->anims[model->animation] : NULL;
+        time = 0;
+        delta = 0;
+        dir = 1.0f;
+        index = -1;
+        prev = 0;
+        next = 0;
+        overrideMask = 0;
+
+        if (overrides) {
+            delete[] overrides;
+            overrides = NULL;
+            initOverrides();
+        }
+
+        if (anims) setAnim(0);
+    }
+
     inline operator TR::Animation* () const { return anims + index; }
 
     void initOverrides() {
         ASSERT(model);
+        ASSERT(!overrides)
         overrides    = new quat[model->mCount];
         overrideMask = 0;
     }
@@ -77,6 +100,10 @@ struct Animation {
             frameSize = sizeof(TR::AnimFrame) / 2 + model->mCount * 2;
         }
         return (TR::AnimFrame*)&level->frameData[anim->frameOffset / 2 + index * frameSize]; // >> 1 (div 2) because frameData is array of shorts
+    }
+
+    void goEnd(bool lerpToNext = true) {
+        setAnim(index, -(framesCount - 1), lerpToNext);
     }
 
     void updateInfo() {

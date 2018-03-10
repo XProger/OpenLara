@@ -64,6 +64,7 @@ struct IGame {
     virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
+    virtual void         flipMap() {}
     virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
@@ -124,6 +125,7 @@ struct Controller {
     TR::Room::Light *targetLight;
     vec3 mainLightPos;
     vec4 mainLightColor;
+    bool mainLightFlip;
 
     struct MeshLayer {
         uint32   model;
@@ -152,9 +154,6 @@ struct Controller {
         const TR::Model *m = getModel();
         joints      = m ? new Basis[m->mCount] : NULL;
         jointsFrame = -1;
-
-        if (level->isCutsceneLevel())
-            fixRoomIndex();
 
         specular   = 0.0f;
         intensity  = e.intensity == -1 ? -1.0f : intensityf(e.intensity);
@@ -186,8 +185,10 @@ struct Controller {
         deactivate(true);
     }
 
-    bool fixRoomIndex() {
+    bool fixRoomIndex() { // TODO: remove this and fix braid
         vec3 p = getPos();
+        if (insideRoom(p, roomIndex))
+            return true;
         for (int i = 0; i < level->roomsCount; i++)
             if (insideRoom(p, i)) {
                 roomIndex = i;
@@ -619,7 +620,7 @@ struct Controller {
                 pos.z >= min.z && pos.z <= max.z;
     }
 
-    const TR::Model* getModel() const {
+    virtual const TR::Model* getModel() {
         int index = getEntity().modelIndex;
         return index > 0 ? &level->models[index - 1] : NULL;
     }
@@ -635,10 +636,7 @@ struct Controller {
     }
 
     virtual int getRoomIndex() const {
-        int index = roomIndex;
-        if (level->state.flags.flipped && level->rooms[index].alternateRoom > -1)
-            index = level->rooms[index].alternateRoom;
-        return index;
+        return roomIndex;
     }
 
     virtual vec3 getPos() {
@@ -1002,7 +1000,7 @@ struct Controller {
                                     case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
                                     case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect::Type(fx)); break;
                                     case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
-                                    case TR::Effect::FLIP_MAP     : level->state.flags.flipped = !level->state.flags.flipped; break;
+                                    case TR::Effect::FLIP_MAP     : game->flipMap(); break;
                                     default                       : cmdEffect(fx); break;
                                 }
                             } else {
@@ -1130,6 +1128,12 @@ struct Controller {
 
         vec3 tpos   = vec3(float(targetLight->x), float(targetLight->y), float(targetLight->z));
         vec4 tcolor = vec4(vec3(targetLight->color.r, targetLight->color.g, targetLight->color.b) * (1.0f / 255.0f), float(targetLight->radius));
+
+        if (mainLightFlip != level->state.flags.flipped) {
+            if (getRoom().alternateRoom > -1)
+                lerp = false;
+            mainLightFlip = level->state.flags.flipped;
+        }
 
         if (lerp) {
             float t = Core::deltaTime * 2.0f;

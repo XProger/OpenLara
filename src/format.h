@@ -2884,7 +2884,7 @@ namespace TR {
                         cutMatrix.rotateY(16380.0f / float(0x4000) * PI * 0.5f);
                         break;
                     case LVL_TR1_CUT_3 :
-                        state.flags.flipped = true;
+                        flipMap();
                     case LVL_TR1_CUT_4 :
                         cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
                         cutMatrix.rotateY(PI * 0.5f);
@@ -3766,6 +3766,18 @@ namespace TR {
             return 0;
         }
 
+        void flipMap() {
+            for (int i = 0; i < roomsCount; i++)
+                if (rooms[i].alternateRoom > -1) {
+                    TR::Room &src = rooms[i];
+                    TR::Room &dst = rooms[src.alternateRoom];
+
+                    swap(src, dst);
+                    swap(src.alternateRoom, dst.alternateRoom);
+                }
+            state.flags.flipped = !state.flags.flipped;
+        }
+
         void floorSkipCommand(FloorData* &fd, int func) {
             switch (func) {
                 case FloorData::PORTAL      :
@@ -3818,9 +3830,6 @@ namespace TR {
 
         Room::Sector& getSector(int roomIndex, int x, int z, int &dx, int &dz) const {
             ASSERT(roomIndex >= 0 && roomIndex < roomsCount);
-
-            if (state.flags.flipped && rooms[roomIndex].alternateRoom > -1)
-                roomIndex = rooms[roomIndex].alternateRoom;
 
             Room &room = rooms[roomIndex];
 
@@ -3981,6 +3990,34 @@ namespace TR {
             // TODO parse triggers to collide with objects (bridges, trap doors/floors etc)
 
             return float(ceiling);
+        }
+
+        TR::Room::Sector* getWaterLevelSector(int16 &roomIndex, const vec3 &pos) {
+            int x = int(pos.x);
+            int z = int(pos.z);
+
+            TR::Room *room = &rooms[roomIndex];
+            TR::Room::Sector *sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
+
+            if (room->flags.water) { // go up to the air
+                while (sector->roomAbove != NO_ROOM) {
+                    room = &rooms[sector->roomAbove];
+                    if (!room->flags.water)
+                        break;
+                    roomIndex = sector->roomAbove;
+                    sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
+                }
+                return sector;
+            } else { // go down to the water
+                while (sector->roomBelow != NO_ROOM) {
+                    room   = &rooms[roomIndex = sector->roomBelow];
+                    sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
+                    if (room->flags.water)
+                        break;
+                }
+                return sector;
+            }
+            return NULL;
         }
 
         bool isBlocked(int16 &roomIndex, const vec3 &pos) {

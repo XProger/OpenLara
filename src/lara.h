@@ -299,7 +299,7 @@ struct Lara : Character {
             delete[] basis;
         }
 
-        TR::Model* getModel() const {
+        TR::Model* getModel() {
             return &lara->level->models[lara->level->extra.braid];
         }
 
@@ -2025,7 +2025,7 @@ struct Lara : Character {
             camera->viewIndex = cameraIndex;
 
         if (needFlip) {
-            level->state.flags.flipped = !level->state.flags.flipped;
+            game->flipMap();
             game->setEffect(this, effect);
         }
     }
@@ -2615,6 +2615,9 @@ struct Lara : Character {
                 case TR::LVL_TR2_WALL :
                     //reset(44, vec3(62976, 1536, 23040), 0);
                     reset(44, vec3(62976, 1536, 23040), 0);
+                    break;
+                case TR::LVL_TR2_PLATFORM :
+                    reset(16, vec3(53029, -5120, 77359), 0);
                     break;
                 case TR::LVL_TR3_TEMPLE :
                     reset(204, vec3(40562, 3584, 58694), 0);

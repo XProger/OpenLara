@@ -315,6 +315,32 @@ struct Level : IGame {
         return zoneCache->findPath(ascend, descend, big, boxStart, boxEnd, zones, boxes);
     }
 
+    void updateBlocks(bool rise) {
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            Controller *controller = (Controller*)level.entities[i].controller;
+            switch (level.entities[i].type) {
+                case TR::Entity::BLOCK_1 :
+                case TR::Entity::BLOCK_2 :
+                case TR::Entity::BLOCK_3 :
+                case TR::Entity::BLOCK_4 :
+                    ((Block*)controller)->updateFloor(rise);
+                    break;
+                case TR::Entity::MOVING_BLOCK :
+                    ((MovingBlock*)controller)->updateFloor(rise);
+                    break;
+                default : ;
+            }
+        }
+    }
+
+    virtual void flipMap() {
+        updateBlocks(false);
+        if (waterCache) waterCache->flipMap();
+        mesh->flipMap();
+        level.flipMap();
+        updateBlocks(true);
+    }
+
     virtual void setClipParams(float clipSign, float clipHeight) {
         params->clipSign   = clipSign;
         params->clipHeight = clipHeight;
@@ -1520,7 +1546,7 @@ struct Level : IGame {
                     case 4 : if (effectTimer > 4.1f) { effectIdx++; effect = TR::Effect::NONE; } break;
                 }
                 if (idx != effectIdx)
-                    level.state.flags.flipped = !level.state.flags.flipped;
+                    flipMap();
                 break;
             }
             case TR::Effect::EARTHQUAKE : {
@@ -1742,9 +1768,6 @@ struct Level : IGame {
             return;
         }
 
-        if (level.rooms[to].alternateRoom > -1 && level.state.flags.flipped)
-            to = level.rooms[to].alternateRoom;
-
         TR::Room &room = level.rooms[to];
 
         if (!room.flags.visible) {
@@ -1770,20 +1793,39 @@ struct Level : IGame {
             waterCache->reset();
         }
 
-        for (int i = 0; i < level.roomsCount; i++)
-            level.rooms[i].flags.visible = false;
-
         int roomsList[256];
         int roomsCount = 0;
 
-        getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
-        /*
-        if (level.isCutsceneLevel()) {
+        if (level.isCutsceneLevel()) { // render all rooms except flipped
             for (int i = 0; i < level.roomsCount; i++)
-                roomsList[i] = i;
-            roomsCount = level.roomsCount;
+                level.rooms[i].flags.visible = true;
+
+            for (int i = 0; i < level.roomsCount; i++) {
+                int flipIndex = level.rooms[i].alternateRoom;
+                if (flipIndex > 0)
+                    level.rooms[flipIndex].flags.visible = false;
+            }
+
+            for (int i = 0; i < level.roomsCount; i++)
+                if (level.rooms[i].flags.visible) {
+                    roomsList[roomsCount++] = i;
+                    if (Core::pass == Core::passCompose && water && waterCache) {
+                        TR::Room &r = level.rooms[i];
+                        for (int j = 0; j < r.portalsCount; j++) {
+                            int to = r.portals[j].roomIndex;
+                            if (level.rooms[to].flags.visible && (level.rooms[to].flags.water ^ r.flags.water))
+                                waterCache->setVisible(i, to);
+                        }
+                    }
+                }
+
+        } else {
+            for (int i = 0; i < level.roomsCount; i++)
+                level.rooms[i].flags.visible = false;
+
+            getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
         }
-        */
+
         if (water && waterCache) {
             for (int i = 0; i < roomsCount; i++)
                 waterCache->setVisible(roomsList[i]);
@@ -1817,12 +1859,6 @@ struct Level : IGame {
     // alpha blending pass
         renderRooms(roomsList, roomsCount, 1);
         renderEntities(1);
-    // additive blending pass
-        vec4 oldFog = Core::fogParams;
-        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
-        renderRooms(roomsList, roomsCount, 2);
-        renderEntities(2);
-        Core::fogParams = oldFog;
 
         Core::setBlending(bmNone);
         if (water && waterCache && waterCache->visible) {
@@ -1832,7 +1868,17 @@ struct Level : IGame {
             setMainLight(player);
             waterCache->render();
             Core::pass = pass;
+            setupBinding();
         }
+
+    // additive blending pass
+        vec4 oldFog = Core::fogParams;
+        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
+        renderRooms(roomsList, roomsCount, 2);
+        renderEntities(2);
+        Core::fogParams = oldFog;
+
+        Core::setBlending(bmNone);
 
         if (showUI) {
             Core::Pass pass = Core::pass;
@@ -1908,7 +1954,7 @@ struct Level : IGame {
         camera->setup(true);
         
         if (Input::down[ikF]) {
-            level.state.flags.flipped = !level.state.flags.flipped;
+            flipMap();
             Input::down[ikF] = false;
         }
 
@@ -2011,18 +2057,19 @@ struct Level : IGame {
         //    Debug::Level::entities(level);
         //    Debug::Level::zones(level, lara);
         //    Debug::Level::blocks(level);
-        //    Debug::Level::path(level, (Enemy*)level.entities[86].controller);
+        //    Debug::Level::path(level, (Enemy*)level.entities[105].controller);
         //    Debug::Level::debugOverlaps(level, lara->box);
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
             Core::setDepthTest(true);
             Core::setBlending(bmNone);
-
         /*
+            Core::validateRenderState();
+
             static int dbg_ambient = 0;
             dbg_ambient = int(params->time * 2) % 4;
 
             shadow->unbind(sShadow);
-            cube->unbind(sEnvironment);
+            Core::whiteCube->unbind(sEnvironment);
 
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
@@ -2030,7 +2077,7 @@ struct Level : IGame {
             glColor3f(1, 1, 1);
             for (int j = 0; j < 6; j++) {
                 glPushMatrix();
-                glTranslatef(lara->pos.x, lara->pos.y - 1024, lara->pos.z);
+                glTranslatef(player->pos.x, player->pos.y - 1024, player->pos.z);
                 switch (j) {
                     case 0 : glRotatef( 90, 0, 1, 0); break;
                     case 1 : glRotatef(-90, 0, 1, 0); break;

@@ -65,43 +65,7 @@ struct Camera : ICamera {
     }
 
     virtual int getRoomIndex() const {
-        return (level->state.flags.flipped && level->rooms[eye.room].alternateRoom > -1) ? level->rooms[eye.room].alternateRoom : eye.room;
-    }
-
-    virtual void checkRoom() {
-    //    level->getSector(eye.room, eye.pos);
-    //    return;
-
-        if (mode == MODE_CUTSCENE) {
-            for (int i = 0; i < level->roomsCount; i++)
-                if (owner->insideRoom(eye.pos, i)) {
-                    eye.room = i;
-                    break;
-                }
-            return;
-        }
-
-        TR::Level::FloorInfo info;
-        owner->getFloorInfo(getRoomIndex(), eye.pos, info);
-
-        if (info.roomNext != TR::NO_ROOM)
-            eye.room = info.roomNext;
-        
-        if (eye.pos.y < info.roomCeiling) {
-            if (info.roomAbove != TR::NO_ROOM)
-                eye.room = info.roomAbove;
-            else
-                if (info.roomCeiling != 0xffff8100)
-                    eye.pos.y = (float)info.roomCeiling;
-        }
-
-        if (eye.pos.y > info.roomFloor) {
-            if (info.roomBelow != TR::NO_ROOM)
-                eye.room = info.roomBelow;
-            else
-                if (info.roomFloor != 0xffff8100)
-                    eye.pos.y = (float)info.roomFloor;
-        }
+        return eye.room;
     }
 
     void updateListener() {
@@ -387,7 +351,7 @@ struct Camera : ICamera {
             } else
                 updateFirstPerson();
 
-            checkRoom();
+            level->getSector(eye.room, eye.pos);
         } else {
             Controller *lookAt = NULL;
 

@@ -1047,12 +1047,14 @@ struct Lightning : Controller {
 
             if (timer <= 0.0f) {
                 if (flash) {
-                    level->state.flags.flipped = false;
+                    if (level->state.flags.flipped)
+                        game->flipMap();
                     flash = false;
                     armed = true;
                     timer = (35.0f + randf() * 45.0f) / 30.0f;                    
                 } else {
-                    level->state.flags.flipped = true;
+                    if (!level->state.flags.flipped)
+                        game->flipMap();
                     flash = true;
                     timer = 20.0f / 30.0f;
 
@@ -1071,7 +1073,8 @@ struct Lightning : Controller {
         } else {
             timer = 0.0f;
             flash = false;
-            level->state.flags.flipped = false;
+            if (level->state.flags.flipped)
+                game->flipMap();
             deactivate(true);
         }
     }
@@ -1306,7 +1309,7 @@ struct Cabin : Controller {
         if (state == STATE_GROUND) {
             flags.invisible        = true;
             level->state.flipmaps[3].active = TR::ACTIVE;
-            level->state.flags.flipped      = !level->state.flags.flipped;
+            game->flipMap();
             deactivate(true);
         }
 

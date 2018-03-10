@@ -63,7 +63,7 @@ struct MeshRange {
 
 #define DYN_MESH_QUADS     1024
 #define DOUBLE_SIDED       2
-#define MAX_ROOM_DYN_FACES 256
+#define MAX_ROOM_DYN_FACES 512
 
 struct Mesh {
     Index       *iBuffer;
@@ -798,6 +798,12 @@ struct MeshBuilder {
     #ifndef _PSP
         delete dynMesh;
     #endif
+    }
+
+    void flipMap() {
+        for (int i = 0; i < level->roomsCount; i++)
+            if (level->rooms[i].alternateRoom > -1)
+                swap(rooms[i], rooms[level->rooms[i].alternateRoom]);
     }
 
     inline short4 rotate(const short4 &v, int dir) {

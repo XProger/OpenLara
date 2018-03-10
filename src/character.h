@@ -126,8 +126,6 @@ struct Character : Controller {
 
         if (info.roomAbove != TR::NO_ROOM && pos.y <= info.roomCeiling) {
             TR::Room *room = &level->rooms[info.roomAbove];
-            if (level->state.flags.flipped && room->alternateRoom > -1)
-                room = &level->rooms[room->alternateRoom];
 
             if (stand == STAND_UNDERWATER && !room->flags.water) {
                 stand = STAND_ONWATER;

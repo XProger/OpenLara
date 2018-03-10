@@ -230,7 +230,7 @@ struct AmbientCache {
         enum int32 {
             BLANK, WAIT, READY
         }    status;
-        vec3 colors[6];
+        vec3 colors[6]; // TODO: ubyte4[6]
     } *items;
     int *offsets;
 
@@ -251,7 +251,7 @@ struct AmbientCache {
         for (int i = 0; i < level->roomsCount; i++) {
             TR::Room &r = level->rooms[i];
             offsets[i] = sectors;
-            sectors += r.xSectors * r.zSectors;
+            sectors += r.xSectors * r.zSectors * (r.alternateRoom > -1 ? 2 : 1); // x2 for flipped rooms
         }
     // init cache buffer
         items = new Cube[sectors];
@@ -270,11 +270,11 @@ struct AmbientCache {
     }
 
     void addTask(int room, int sector) {
-        if (tasksCount >= 32) return;
+        if (tasksCount >= COUNT(tasks)) return;
 
         Task &task  = tasks[tasksCount++];
         task.room   = room;
-        task.flip   = level->state.flags.flipped;
+        task.flip   = level->state.flags.flipped && level->rooms[room].alternateRoom > -1;
         task.sector = sector;
         task.cube   = &items[offsets[room] + sector];
         task.cube->status = Cube::WAIT;
@@ -326,20 +326,33 @@ struct AmbientCache {
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
             
-            bool oldFlip = level->state.flags.flipped;
-            level->state.flags.flipped = task.flip != 0;
-            renderAmbient(task.room, task.sector, &task.cube->colors[0]);
-            level->state.flags.flipped = oldFlip;
+            bool needFlip = task.flip != level->state.flags.flipped;
+           
+            if (needFlip) game->flipMap();
+
+            int sector = task.sector;
+            if (task.flip) {
+                TR::Room &r = level->rooms[task.room];
+                sector -= r.xSectors * r.zSectors;
+            }
+
+            renderAmbient(task.room, sector, &task.cube->colors[0]);
+            if (needFlip) game->flipMap();
 
             task.cube->status = Cube::READY;
         }
         tasksCount = 0;
     }
 
-    Cube* getAmbient(int room, int sector) {
-        Cube *cube = &items[offsets[room] + sector];
+    Cube* getAmbient(int roomIndex, int sector) {
+        TR::Room &r = level->rooms[roomIndex];
+        if (level->state.flags.flipped && r.alternateRoom > -1)
+            sector += r.xSectors * r.zSectors;
+
+        Cube *cube = &items[offsets[roomIndex] + sector];
         if (cube->status == Cube::BLANK)
-            addTask(room, sector);            
+            addTask(roomIndex, sector);
+
         return cube->status == Cube::READY ? cube : NULL;
     }
 
@@ -373,6 +386,8 @@ struct WaterCache {
     struct Item {
         int     from, to, caust;
         float   timer;
+        float   waterLevel;
+        bool    flip;
         bool    visible;
         bool    blank;
         vec3    pos, size;
@@ -395,8 +410,16 @@ struct WaterCache {
             TR::Level *level = game->getLevel();
             TR::Room &r = level->rooms[to]; // underwater room
             ASSERT(r.flags.water);
-            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0, posY = level->rooms[to].waterLevel, caustY = posY;
+            int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0;
+            
+            int posY = level->rooms[to].waterLevel;
+            if (posY == -1)
+                posY = level->rooms[from].waterLevel;
 
+            ASSERT(posY != -1); // underwater room without reaching the surface
+            
+            int caustY = posY;
+            
             for (int z = 0; z < r.zSectors; z++)
                 for (int x = 0; x < r.xSectors; x++) {
                     TR::Room::Sector &s = r.sectors[x * r.zSectors + z];
@@ -411,8 +434,6 @@ struct WaterCache {
                             if (floor > caustY) {
                                 caustY = floor;
                                 caust  = caustRoom;
-                                if (level->state.flags.flipped && level->rooms[caust].alternateRoom > -1)
-                                    caust = level->rooms[caust].alternateRoom;
                             }
                         }
                     }
@@ -516,6 +537,20 @@ struct WaterCache {
         visible = 0;
     }
 
+    void flipMap() {
+        for (int i = 0; i < level->roomsCount && count; i++)
+            if (level->rooms[i].alternateRoom > -1) {
+                int j = 0;
+                while (j < count) {
+                    if (items[j].from == i || items[j].to == i) {
+                        items[j].deinit();
+                        items[j] = items[--count];
+                    } else
+                        j++;
+                }
+            }
+    }
+
     void setVisible(int roomIndex, int nextRoom = TR::NO_ROOM) {
         if (nextRoom == TR::NO_ROOM) { // setVisible(underwaterRoom) for caustics update
             for (int i = 0; i < count; i++)
@@ -538,6 +573,9 @@ struct WaterCache {
             from = roomIndex;
             to   = nextRoom;
         }
+
+        if (level->rooms[to].waterLevel == -1 && level->rooms[from].waterLevel == -1) // not have water surface
+            return;
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -735,6 +773,11 @@ struct WaterCache {
                 item.init(game);
         }
 
+        if (!count) {
+            visible = false;
+            return;
+        }
+
     // render mirror reflection
         Core::setTarget(reflect, CLEAR_ALL);
         Camera *camera = (Camera*)game->getCamera();
@@ -754,7 +797,7 @@ struct WaterCache {
             vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
             bool underwater = level->rooms[camera->getRoomIndex()].flags.water;
 
-            //bool underwater = level->camera->pos.y > item.pos.y;
+            //bool underwater = camera->eye.pos.y > item.pos.y;
 
             camera->reflectPlane = &reflectPlane;
             camera->setup(true);

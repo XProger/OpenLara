@@ -481,9 +481,9 @@ namespace Debug {
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &e = level.entities[i];
                 Controller *controller = (Controller*)e.controller;
-                if (!controller || controller->flags.invisible) return;
+                if (!controller) continue;
           
-                sprintf(buf, "%s (%d)", getEntityName(level, e), i);
+                sprintf(buf, "%s (%d) %s", getEntityName(level, e), i, controller->flags.invisible ? "INVISIBLE" : "");
                 Debug::Draw::text(controller->getPos() + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 

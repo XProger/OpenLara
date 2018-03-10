@@ -745,9 +745,188 @@ struct Lion : Enemy {
     }
 };
 
+
+#define RAT_TURN_SLOW   (DEG2RAD * 90)
+#define RAT_TURN_FAST   (DEG2RAD * 180)
+#define RAT_DIST_BITE   341.0f
+#define RAT_DIST_ATTACK 1536.0f
+#define RAT_WAIT        0.01f
+#define RAT_DAMAGE      20
+
 struct Rat : Enemy {
-    Rat(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
-        hitSound = TR::SND_HIT_RAT;
+
+    enum {
+        HIT_MASK = 0x300018F,
+    };
+
+    enum {
+        ANIM_GROUND_DEATH = 8,
+        ANIM_WATER_DEATH  = 2,
+    };
+
+    enum {
+        STATE_NONE   ,
+        STATE_STOP   ,
+        STATE_ATTACK ,
+        STATE_RUN    ,
+        STATE_BITE   ,
+        STATE_DEATH  ,
+        STATE_WAIT   ,
+        STATE_WATER_SWIM = 1,
+        STATE_WATER_ATTACK  ,
+        STATE_WATER_DEATH   ,
+    };
+
+    int modelLand, modelWater;
+
+    Rat(IGame *game, int entity) : Enemy(game, entity, 5, 204, 200.0f, 0.25f) {
+        hitSound   = TR::SND_HIT_RAT;
+        jointChest = 1;
+        jointHead  = 2;
+
+        modelLand  = level->getModelIndex(TR::Entity::ENEMY_RAT_LAND)  - 1;
+        modelWater = level->getModelIndex(TR::Entity::ENEMY_RAT_WATER) - 1;
+    }
+
+    const virtual TR::Model* getModel() {
+        bool water = getRoom().flags.water;
+        int modelIndex = water ? modelWater : modelLand;
+
+        ASSERT(modelIndex > -1);
+        const TR::Model *model = &level->models[modelIndex];
+        if (animation.model != model) {
+            targetBox = -1;
+            animation.setModel(model);
+            stand = water ? STAND_ONWATER : STAND_GROUND;
+
+            int16 rIndex = getRoomIndex();
+            if (water) {
+                TR::Room::Sector *sector = level->getWaterLevelSector(rIndex, pos);
+                if (sector) {
+                    pos.y = float(sector->ceiling * 256);
+                    roomIndex = rIndex;
+                }
+            } else {
+                int16 rIndex = getRoomIndex();
+                TR::Room::Sector *sector = level->getSector(rIndex, pos);
+                if (sector) {
+                    pos.y = float(sector->floor * 256);
+                    roomIndex = rIndex;
+                }
+            }
+
+            nextState = STATE_NONE;
+            state     = STATE_NONE;
+
+            if (health <= 0.0f) {
+                getStateDeath();
+                animation.goEnd(false);
+            }
+
+            updateZone();
+        }
+        return animation.model;
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        bool isBite = targetInView && fabsf(target->pos.y - pos.y) < 256.0f;
+
+        switch (state) {
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (isBite && targetDist < RAT_DIST_BITE)
+                    return STATE_BITE;
+                return STATE_RUN;
+            case STATE_RUN :
+                if (targetInView && (collide(target) & HIT_MASK))
+                    return STATE_STOP;
+                if (isBite && targetDist < RAT_DIST_ATTACK)
+                    return STATE_ATTACK;
+                if (targetInView && randf() < RAT_WAIT) {
+                    nextState = STATE_WAIT;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_ATTACK :
+            case STATE_BITE   :
+                if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
+                    bite(getJoint(jointHead).pos, RAT_DAMAGE);
+                    nextState = state == STATE_ATTACK ? STATE_RUN : STATE_STOP;
+                }
+                break;
+            case STATE_WAIT :
+                if (mood == MOOD_SLEEP || randf() < RAT_WAIT)
+                    return STATE_STOP;
+            default : ;
+        }
+
+        return state;
+    }
+
+    virtual int getStateOnwater() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (animation.frameIndex % 4 == 0)
+            game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.02f);
+
+        switch (state) {
+            case STATE_WATER_SWIM :
+                if (targetInView && (collide(target) & HIT_MASK))
+                    return STATE_WATER_ATTACK;
+                break;
+            case STATE_WATER_ATTACK :
+                if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
+                    game->waterDrop(getJoint(jointHead).pos, 256.0f, 0.2f);
+                    bite(getJoint(jointHead).pos, RAT_DAMAGE);
+                    nextState = STATE_WATER_SWIM;
+                }
+                return STATE_NONE;
+            default : ;
+        }
+
+        return state;
+    }
+
+    virtual void updatePosition() {
+        float angleY = 0.0f;
+
+        if ((stand == STAND_GROUND && state == STATE_RUN) || (stand == STAND_ONWATER && state == STATE_WATER_SWIM))
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        turn(angleY, RAT_TURN_FAST);
+
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+
+        Enemy::updatePosition();
+        setOverrides(state != STATE_DEATH, jointChest, jointHead);
+        lookAt(target);
+    }
+
+    virtual int getStateDeath() {
+        bool water = getRoom().flags.water;
+        if ((water && state == STATE_WATER_DEATH) || (!water && state == STATE_DEATH))
+            return state;
+        return animation.setAnim(water ? ANIM_WATER_DEATH : ANIM_GROUND_DEATH);
     }
 };
 
@@ -1547,8 +1726,7 @@ struct Human : Enemy {
         game->addMuzzleFlash(this, jointGun, muzzleOffset, -1);
 
         if (targetDist < HUMAN_DIST_SHOT && randf() < ((HUMAN_DIST_SHOT - targetDist) / HUMAN_DIST_SHOT - 0.25f)) {
-            target->hit(damage, this);
-            target->addBlood(target->getJoint(rand() % target->getModel()->mCount).pos, vec3(0));
+            bite(target->getJoint(rand() % target->getModel()->mCount).pos, damage);
             game->playSound(target->stand == STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, target->pos, Sound::PAN);
             return true;
         }
