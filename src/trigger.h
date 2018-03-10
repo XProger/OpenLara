@@ -855,6 +855,9 @@ struct TrapSpikes : Controller {
     }
 
     virtual void update() {
+        if (getRoom().flags.water)
+            return;
+
         Character *lara = (Character*)game->getLara(pos);
         if (lara->health <= 0.0f) return;
 
