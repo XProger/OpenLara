@@ -41,11 +41,8 @@ struct Level : IGame {
     AmbientCache *ambientCache;
     WaterCache   *waterCache;
 
-    Sound::Sample *sndSoundtrack;
-    Sound::Sample *sndUnderwater;
-    Sound::Sample *sndCurrent;
-    bool waitSoundtrack;
-    bool playNextTrack;
+    Sound::Sample *sndTrack, *sndWater;
+    bool waitTrack;
 
     bool lastTitle;
     bool isEnded;
@@ -62,7 +59,7 @@ struct Level : IGame {
     virtual void loadLevel(TR::LevelID id) {
         if (isEnded) return;
 
-        sndCurrent = sndUnderwater = sndSoundtrack = NULL;
+        sndWater = sndTrack = NULL;
         Sound::stopAll();
 
         isEnded = true;
@@ -190,7 +187,7 @@ struct Level : IGame {
 
             uint8 track = level.state.flags.track;
             level.state.flags.track = 0;
-            playTrack(track, true);
+            playTrack(track);
         }
 
         delete[] data;
@@ -572,54 +569,64 @@ struct Level : IGame {
     }
 
     void stopChannel(Sound::Sample *channel) {
-        if (channel == sndSoundtrack) {
-            if (sndCurrent == sndSoundtrack)
-                sndCurrent = NULL;
-            sndSoundtrack = NULL;
-            playNextTrack = true;
+        if (channel == sndTrack) {
+            sndTrack = NULL;
+            if (level.state.flags.track == TR::LEVEL_INFO[level.id].ambientTrack) // play ambient track
+                playTrack(0);
         }
     }
+
+    struct TrackRequest {
+        Level *level;
+        int   flags;
+
+        TrackRequest(Level *level, int flags) : level(level), flags(flags) {}
+    };
 
     static void playAsync(Stream *stream, void *userData) {
-        Level *level = (Level*)userData;
-        level->waitSoundtrack = false;
-        if (!stream) return;
-
-        level->sndSoundtrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, Sound::MUSIC);
-        if (level->sndSoundtrack) {
-            if (level->level.isCutsceneLevel()) {
-            //    level->sndSoundtrack->setVolume(0.0f, 0.0f);
-            //    level->sndCurrent = level->sndSoundtrack;
-                Core::resetTime();
+        TrackRequest *req = (TrackRequest*)userData;
+        Level *level = req->level;
+        level->waitTrack = false;
+        if (stream) {
+            level->sndTrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, req->flags);
+            if (level->sndTrack) {
+                if (level->level.isCutsceneLevel()) {
+                    Core::resetTime();
+                }
+                level->sndTrack->volume = level->sndTrack->volumeTarget = 0.0f;
             }
-            level->sndSoundtrack->setVolume(1.0f, 0.2f);
         }
+
+        delete req;
     }
 
-    virtual void playTrack(uint8 track, bool restart = false) {
+    virtual void playTrack(uint8 track) {
         if (track == 0)
             track = TR::LEVEL_INFO[level.id].ambientTrack;
 
         if (level.state.flags.track == track) {
-            if (restart && sndSoundtrack) {
-                sndSoundtrack->replay();
-                sndSoundtrack->setVolume(1.0f, 0.2f);
+            if (sndTrack) {
+                sndTrack->replay();
+                sndTrack->setVolume(1.0f, 0.2f);
             }
             return;
         }
+
         level.state.flags.track = track;
 
-        if (sndSoundtrack) {
-            sndSoundtrack->setVolume(-1.0f, 0.2f);
-            if (sndCurrent == sndSoundtrack)
-                sndCurrent = NULL;
-            sndSoundtrack = NULL;
+        if (sndTrack) {
+            sndTrack->setVolume(-1.0f, 0.2f);
+            sndTrack = NULL;
         }
 
         if (track == 0xFF) return;
 
-        waitSoundtrack = true;
-        getGameTrack(level.version, track, playAsync, this);
+        int flags = Sound::MUSIC;
+        if (track == TR::LEVEL_INFO[level.id].ambientTrack)
+            flags |= Sound::LOOP;
+
+        waitTrack = true;
+        getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
     }
 
     virtual void stopTrack() {
@@ -627,7 +634,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
+    Level(Stream &stream) : level(stream), inventory(this), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
     #ifdef _PSP
         Core::freeEDRAM();
     #endif
@@ -657,18 +664,12 @@ struct Level : IGame {
             player = players[0];
             camera = player->camera;
 
-
             zoneCache    = new ZoneCache(this);
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
             shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
 
             initReflections();
-
-        // init sounds
-            //sndSoundtrack = Sound::play(Sound::openWAD("05_Lara's_Themes.wav"), vec3(0.0f), 1, 1, Sound::Flags::LOOP);
-
-            sndUnderwater = NULL;
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
@@ -685,9 +686,6 @@ struct Level : IGame {
             waterCache      = NULL;
             zoneCache       = NULL;
             shadow          = NULL;
-            sndSoundtrack   = NULL;
-            sndUnderwater   = NULL;
-            sndCurrent      = NULL;
             lastTitle       = true;
             inventory.toggle(0, Inventory::PAGE_OPTION);
         }
@@ -695,9 +693,9 @@ struct Level : IGame {
         effect  = TR::Effect::NONE;
         cube360 = NULL;
 
-        sndSoundtrack = NULL;
-        playNextTrack = true;
-        sndCurrent = sndSoundtrack;
+        sndWater = sndTrack = NULL;
+
+        playTrack(0);
         /*
         if (level.id == TR::LVL_TR2_RIG) {
             lara->animation.setAnim(level.models[level.extra.laraSpec].animation);
@@ -1436,13 +1434,8 @@ struct Level : IGame {
     }
 
     void update() {
-        if (playNextTrack) {
-            playTrack(0);
-            playNextTrack = false;
-        }
-
-        if (level.isCutsceneLevel() && waitSoundtrack) {
-            if (!sndSoundtrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
+        if (level.isCutsceneLevel() && waitTrack) {
+            if (!sndTrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
                 if (camera->timer > 0.0f) // for the case that audio stops before animation ends
                     loadNextLevel();
                 return;
@@ -1452,8 +1445,8 @@ struct Level : IGame {
                 cutsceneWaitTimer -= Core::deltaTime;
                 if (cutsceneWaitTimer > 0.0f)
                     return;
-                if (sndSoundtrack)
-                    sndSoundtrack->setVolume(1.0f, 0.0f);
+                if (sndTrack)
+                    sndTrack->setVolume(1.0f, 0.0f);
                 cutsceneWaitTimer = 0.0f;
                 Core::resetTime();
                 LOG("reset timer - %d\n", Core::getTime());
@@ -1475,8 +1468,6 @@ struct Level : IGame {
                 inventory.toggle(playerIndex);
         }
 
-        Sound::Sample *sndChanged = sndCurrent;
-
         inventory.update();
 
         if (inventory.titleTimer > 1.0f)
@@ -1484,10 +1475,11 @@ struct Level : IGame {
 
         UI::update();
 
+        float volWater, volTrack;
+
         if (inventory.isActive() || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
-            if (!level.isTitle())
-                sndChanged = NULL;
+            volWater = volTrack = 0.0f;
         } else {
             params->time += Core::deltaTime;
             animTexTimer += Core::deltaTime;
@@ -1511,22 +1503,24 @@ struct Level : IGame {
 
             Controller::clearInactive();
 
+        // underwater ambient sound volume control
             if (camera->isUnderwater()) {
-                if (!sndUnderwater) {
-                    sndUnderwater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
-                    if (sndUnderwater)
-                        sndUnderwater->volume = sndUnderwater->volumeTarget = 0.0f;
+                if (!sndWater) {
+                    sndWater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
+                    if (sndWater)
+                        sndWater->volume = sndWater->volumeTarget = 0.0f;
                 }
-                sndChanged = sndUnderwater;
-            } else
-                sndChanged = sndSoundtrack;
+                volWater = 1.0f;
+            } else 
+                volWater = 0.0f;
+
+            volTrack = 1.0f;
         }
 
-        if (sndChanged != sndCurrent) {
-            if (sndCurrent) sndCurrent->setVolume(0.0f, 0.2f);
-            if (sndChanged) sndChanged->setVolume(1.0f, 0.2f);
-            sndCurrent = sndChanged;
-        }
+        if (sndWater && sndWater->volumeTarget != volWater)
+            sndWater->setVolume(volWater, 0.2f);
+        if (sndTrack && sndTrack->volumeTarget != volTrack)
+            sndTrack->setVolume(volTrack, 0.2f);
     }
 
     void updateEffect() {

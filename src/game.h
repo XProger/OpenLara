@@ -57,9 +57,9 @@ namespace Game {
         shaderCache = NULL;
         level       = NULL;
 
+        Core::init();
         Sound::callback = stopChannel;
 
-        Core::init();
         Core::settings.version = SETTINGS_READING;
         Stream::cacheRead("settings", loadSettings, lvl);
     }

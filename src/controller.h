@@ -91,8 +91,8 @@ struct IGame {
     virtual bool invChooseKey(int playerIndex, TR::Entity::Type hole) { return false; }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const { return NULL; }
-    virtual void playTrack(uint8 track, bool restart = false) {}
-    virtual void stopTrack()                                {}
+    virtual void playTrack(uint8 track) {}
+    virtual void stopTrack()            {}
 };
 
 struct Controller {
