@@ -805,15 +805,22 @@ struct WaterCache {
 
         if (roomsCount) {
         // select optimal water plane
-            float waterLevel = -INF;
+            float waterDist  = 10000000.0f;
+            int   waterItem = 0;
 
             for (int i = 0; i < count; i++) {
                 Item &item = items[i];
                 if (!item.visible) continue;
 
-                if (item.pos.y > waterLevel)
-                    waterLevel = item.pos.y;
+                float d = fabsf(item.pos.y - camera->eye.pos.y);
+
+                if (d < waterDist) {
+                    waterDist = d;
+                    waterItem = i;
+                }
             }
+
+            float waterLevel = items[waterItem].pos.y;
 
             reflectPlane = vec4(0, 1, 0, -waterLevel);
             camera->reflectPlane = &reflectPlane;
