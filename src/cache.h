@@ -773,11 +773,6 @@ struct WaterCache {
                 item.init(game);
         }
 
-        if (!count) {
-            visible = false;
-            return;
-        }
-
     // render mirror reflection
         Core::setTarget(reflect, CLEAR_ALL);
         Camera *camera = (Camera*)game->getCamera();
@@ -787,25 +782,49 @@ struct WaterCache {
         mat4 mView     = Core::mView;
         mat4 mViewInv  = Core::mViewInv;
 
+    // merge visible rooms for all items
+        int roomsList[256];
+        int roomsCount = 0;
+
+        for (int i = 0; i < level->roomsCount; i++)
+            level->rooms[i].flags.visible = false;
+
+        bool underwater = level->rooms[camera->getRoomIndex()].flags.water;
+        vec4 reflectPlane;
+
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
 
-            vec3 p = item.pos;
-            vec3 n = vec3(0, 1, 0);
-
-            vec4 reflectPlane = vec4(n.x, n.y, n.z, -n.dot(p));
-            bool underwater = level->rooms[camera->getRoomIndex()].flags.water;
-
-            //bool underwater = camera->eye.pos.y > item.pos.y;
-
+            reflectPlane = vec4(0, 1, 0, -item.pos.y);
             camera->reflectPlane = &reflectPlane;
             camera->setup(true);
 
-            float sign = underwater ? -1.0f : 1.0f;
-            game->setClipParams(sign, item.pos.y * sign);
-            game->renderView(underwater ? item.from : item.to, false, false);
+            game->getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, underwater ? item.from : item.to, vec4(-1.0f, -1.0f, 1.0f, 1.0f), false);
         }
+
+        if (roomsCount) {
+        // select optimal water plane
+            float waterLevel = -INF;
+
+            for (int i = 0; i < count; i++) {
+                Item &item = items[i];
+                if (!item.visible) continue;
+
+                if (item.pos.y > waterLevel)
+                    waterLevel = item.pos.y;
+            }
+
+            reflectPlane = vec4(0, 1, 0, -waterLevel);
+            camera->reflectPlane = &reflectPlane;
+            camera->setup(true);
+
+        // render reflections frame
+            float sign = underwater ? -1.0f : 1.0f;
+            game->setClipParams(sign, waterLevel * sign);
+            game->renderView(TR::NO_ROOM, false, false, roomsCount, roomsList);
+        }
+
         Core::invalidateTarget(false, true);
         game->setClipParams(1.0f, NO_CLIP_PLANE);
 
@@ -831,7 +850,7 @@ struct WaterCache {
 
             int w, h;
             getTargetSize(w, h);
-            Core::active.shader->setParam(uParam, vec4(float(w) / refract->width, float(h) / refract->height, 0.05f, 0.02f));
+            Core::active.shader->setParam(uParam, vec4(float(w) / refract->width, float(h) / refract->height, 0.05f, 0.03f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);

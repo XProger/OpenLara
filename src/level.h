@@ -1756,7 +1756,7 @@ struct Level : IGame {
         return true;
     }
 
-    void getVisibleRooms(int *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {
+    virtual void getVisibleRooms(int *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {
         if (count > 16) {
             //ASSERT(false);
             return;
@@ -1781,48 +1781,51 @@ struct Level : IGame {
         }
     }
 
-    virtual void renderView(int roomIndex, bool water, bool showUI) {
+    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {
         PROFILE_MARKER("VIEW");
-        if (water && waterCache) {
+
+        if (water && waterCache)
             waterCache->reset();
-        }
 
-        int roomsList[256];
-        int roomsCount = 0;
+        int rList[256];
 
-        if (level.isCutsceneLevel()) { // render all rooms except flipped
-            for (int i = 0; i < level.roomsCount; i++)
-                level.rooms[i].flags.visible = true;
+        if (!roomsList) {
+            roomsList = rList;
 
-            for (int i = 0; i < level.roomsCount; i++) {
-                int flipIndex = level.rooms[i].alternateRoom;
-                if (flipIndex > 0)
-                    level.rooms[flipIndex].flags.visible = false;
-            }
-
-            for (int i = 0; i < level.roomsCount; i++)
-                if (level.rooms[i].flags.visible) {
-                    roomsList[roomsCount++] = i;
-                    if (Core::pass == Core::passCompose && water && waterCache) {
-                        TR::Room &r = level.rooms[i];
-                        for (int j = 0; j < r.portalsCount; j++) {
-                            int to = r.portals[j].roomIndex;
-                            if (level.rooms[to].flags.visible && (level.rooms[to].flags.water ^ r.flags.water))
-                                waterCache->setVisible(i, to);
-                        }
-                    }
-                }
-
-        } else {
+            // mark all rooms as invisible
             for (int i = 0; i < level.roomsCount; i++)
                 level.rooms[i].flags.visible = false;
 
-            getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
+            if (level.isCutsceneLevel()) { // render all rooms except flipped
+            // hide alternative rooms from getVisibleRooms
+                for (int i = 0; i < level.roomsCount; i++) {
+                    int flipIndex = level.rooms[i].alternateRoom;
+                    if (flipIndex > -1)
+                        level.rooms[flipIndex].flags.visible = true;
+                }
+
+            // get room list through portals (it will change room visible flag)
+                getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
+
+            // add other non-alternative rooms
+                for (int i = 0; i < level.roomsCount; i++)
+                    if (!level.rooms[i].flags.visible)
+                        roomsList[roomsCount++] = i;
+
+            // refresh visible flag
+                for (int i = 0; i < level.roomsCount; i++)
+                    level.rooms[i].flags.visible = false;
+
+                for (int i = 0; i < roomsCount; i++)
+                    level.rooms[roomsList[i]].flags.visible = true;
+            } else
+                getVisibleRooms(roomsList, roomsCount, TR::NO_ROOM, roomIndex, vec4(-1.0f, -1.0f, 1.0f, 1.0f), water);
         }
 
         if (water && waterCache) {
             for (int i = 0; i < roomsCount; i++)
                 waterCache->setVisible(roomsList[i]);
+
             waterCache->renderReflect();
 
             Core::Pass pass = Core::pass;
@@ -1830,7 +1833,7 @@ struct Level : IGame {
             Core::pass = pass;
         }
 
-        // clear visibility flag for rooms
+        // clear entity rendered flag (used for blob shadows)
         if (Core::pass != Core::passAmbient)
             for (int i = 0; i < level.entitiesCount; i++) {
                 Controller *controller = (Controller*)level.entities[i].controller;

@@ -84,7 +84,7 @@ struct Texture {
     #endif
 
     Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
-        LOG("create texture %d x %d (%d)\n", width, height, format);
+//        LOG("create texture %d x %d (%d)\n", width, height, format);
 
         #ifndef _PSP
             #ifdef SPLIT_BY_TILE
