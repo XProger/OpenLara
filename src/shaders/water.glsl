@@ -29,7 +29,12 @@ uniform sampler2D sNormal;
 	attribute vec4 aCoord;
 
 	void main() {
-		vec3 coord = aCoord.xyz * (1.0 / 32767.0);
+		#ifdef WATER_USE_GRID
+		    vec3 coord = aCoord.xyz;
+		#else
+			vec3 coord = aCoord.xyz * (1.0 / 32767.0);
+		#endif
+
 		vTexCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw;
 
 		#if defined(WATER_MASK) || defined(WATER_COMPOSE)
@@ -39,7 +44,7 @@ uniform sampler2D sNormal;
 			#ifdef WATER_COMPOSE
 				#ifdef WATER_USE_GRID
 					vTexCoord = (coord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
-					height = texture2D(sNormal, vTexCoord).x;
+					height = clamp(texture2D(sNormal, vTexCoord).x * 2.0, -0.1, 0.1);
 				#endif
 			#endif
 
