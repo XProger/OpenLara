@@ -2590,6 +2590,9 @@ struct Lara : Character {
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
             switch (level->id) {
+                case TR::LVL_TR1_GYM :
+                    reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
+                    break;
                 case TR::LVL_TR1_2 :
                     reset(61, vec3(21987, -1024, 29144), PI * 3.0f * 0.5f); // level 2 (trap door)
                     break;

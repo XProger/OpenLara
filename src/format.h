@@ -3762,7 +3762,6 @@ namespace TR {
                 if (type == spriteSequences[i].type)
                     return -(i + 1);
 
-            ASSERT(false);
             return 0;
         }
 

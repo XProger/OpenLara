@@ -330,9 +330,9 @@ struct Level : IGame {
         }
     }
 
-    virtual void flipMap() {
+    virtual void flipMap(bool water = true) {
         updateBlocks(false);
-        if (waterCache) waterCache->flipMap();
+        if (water && waterCache) waterCache->flipMap();
         mesh->flipMap();
         level.flipMap();
         updateBlocks(true);
@@ -372,18 +372,24 @@ struct Level : IGame {
             Core::lightColor[3] = vec4(0, 0, 0, 1);
         }
 
-        if (room.flags.water)
-            setWaterParams(float(room.info.yTop));
-        else
-            setWaterParams(NO_CLIP_PLANE);
-
         setShader(Core::pass, type, room.flags.water, alphaTest);
 
         if (room.flags.water) {
             if (waterCache)
                 waterCache->bindCaustics(roomIndex);
-            setWaterParams(float(room.info.yTop));
-        }
+
+            if (room.waterLevel == -1) { // TODO: precalculate
+                int16 rIndex = roomIndex;
+                TR::Room::Sector *sector = level.getWaterLevelSector(rIndex, room.getOffset() + vec3(512, 0, 512));
+                if (sector)
+                    setWaterParams(float(sector->ceiling * 256));
+                else
+                    setWaterParams(float(room.info.yTop));
+            } else
+                setWaterParams(float(room.waterLevel));
+
+        } else
+            setWaterParams(NO_CLIP_PLANE);
 
         Core::active.shader->setParam(uParam, Core::params);
         Core::setMaterial(diffuse, ambient, specular, alpha);
@@ -760,7 +766,7 @@ struct Level : IGame {
             case TR::Entity::ENEMY_CENTAUR         : return new Centaur(this, index);
             case TR::Entity::ENEMY_MUMMY           : return new Mummy(this, index);
             case TR::Entity::ENEMY_CROCODILE_LAND  :
-            case TR::Entity::ENEMY_CROCODILE_WATER :
+            case TR::Entity::ENEMY_CROCODILE_WATER : return new Crocodile(this, index);
             case TR::Entity::ENEMY_GORILLA         : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
             case TR::Entity::ENEMY_LARSON          : return new Larson(this, index);
             case TR::Entity::ENEMY_PIERRE          : return new Pierre(this, index);

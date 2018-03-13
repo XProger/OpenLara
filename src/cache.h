@@ -328,7 +328,7 @@ struct AmbientCache {
             
             bool needFlip = task.flip != level->state.flags.flipped;
            
-            if (needFlip) game->flipMap();
+            if (needFlip) game->flipMap(false);
 
             int sector = task.sector;
             if (task.flip) {
@@ -337,7 +337,7 @@ struct AmbientCache {
             }
 
             renderAmbient(task.room, sector, &task.cube->colors[0]);
-            if (needFlip) game->flipMap();
+            if (needFlip) game->flipMap(false);
 
             task.cube->status = Cube::READY;
         }
@@ -628,7 +628,7 @@ struct WaterCache {
             vec3 p;
             p.x = (drop.pos.x - (item.pos.x - item.size.x)) * DETAIL;
             p.z = (drop.pos.z - (item.pos.z - item.size.z)) * DETAIL;
-            Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, drop.strength));
+            Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
             item.data[0]->bind(sDiffuse);
             Core::setTarget(item.data[1], CLEAR_ALL);

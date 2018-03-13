@@ -648,7 +648,7 @@ struct Lion : Enemy {
         STATE_BITE   ,
     };
 
-    Lion(IGame *game, int entity) : Enemy(game, entity, 6, 341, 375.0f, 0.25f) {
+    Lion(IGame *game, int entity) : Enemy(game, entity, 6, 341, 400.0f, 0.25f) {
         dropHeight = -1024;
         jointChest = 19;
         jointHead  = 20;
@@ -756,15 +756,16 @@ struct Lion : Enemy {
 struct Rat : Enemy {
 
     enum {
-        HIT_MASK = 0x300018F,
+        HIT_MASK = 0x0300018F,
     };
 
     enum {
-        ANIM_GROUND_DEATH = 8,
-        ANIM_WATER_DEATH  = 2,
+        ANIM_DEATH_LAND  = 8,
+        ANIM_DEATH_WATER = 2,
     };
 
     enum {
+    // land
         STATE_NONE   ,
         STATE_STOP   ,
         STATE_ATTACK ,
@@ -772,8 +773,9 @@ struct Rat : Enemy {
         STATE_BITE   ,
         STATE_DEATH  ,
         STATE_WAIT   ,
+    // water
         STATE_WATER_SWIM = 1,
-        STATE_WATER_ATTACK  ,
+        STATE_WATER_BITE    ,
         STATE_WATER_DEATH   ,
     };
 
@@ -889,9 +891,9 @@ struct Rat : Enemy {
         switch (state) {
             case STATE_WATER_SWIM :
                 if (targetInView && (collide(target) & HIT_MASK))
-                    return STATE_WATER_ATTACK;
+                    return STATE_WATER_BITE;
                 break;
-            case STATE_WATER_ATTACK :
+            case STATE_WATER_BITE :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
                     game->waterDrop(getJoint(jointHead).pos, 256.0f, 0.2f);
                     bite(getJoint(jointHead).pos, RAT_DAMAGE);
@@ -926,9 +928,223 @@ struct Rat : Enemy {
         bool water = getRoom().flags.water;
         if ((water && state == STATE_WATER_DEATH) || (!water && state == STATE_DEATH))
             return state;
-        return animation.setAnim(water ? ANIM_WATER_DEATH : ANIM_GROUND_DEATH);
+        return animation.setAnim(water ? ANIM_DEATH_WATER : ANIM_DEATH_LAND);
     }
 };
+
+
+#define CROCODILE_TURN_SLOW   (DEG2RAD * 90)
+#define CROCODILE_TURN_FAST   (DEG2RAD * 180)
+#define CROCODILE_DIST_BITE   435.0f
+#define CROCODILE_DIST_TURN   (1024 * 3)
+#define CROCODILE_LIFT_SPEED  960.0f
+#define CROCODILE_DAMAGE      25
+
+struct Crocodile : Enemy {
+
+    enum {
+        HIT_MASK = 0x000003FC,
+    };
+
+    enum {
+        ANIM_DEATH_LAND  = 11,
+        ANIM_DEATH_WATER = 4,
+    };
+
+    enum {
+    // land
+        STATE_NONE   ,
+        STATE_STOP   ,
+        STATE_RUN    ,
+        STATE_WALK   ,
+        STATE_TURN   ,
+        STATE_BITE   ,
+        STATE_UNUSED ,
+        STATE_DEATH  ,
+    // water
+        STATE_WATER_SWIM = 1,
+        STATE_WATER_BITE    ,
+        STATE_WATER_DEATH   ,
+    };
+
+    int modelLand, modelWater;
+
+    Crocodile(IGame *game, int entity) : Enemy(game, entity, 20, 341, 600.0f, 0.25f) {
+        jointChest = 1;
+        jointHead  = 8;
+
+        modelLand  = level->getModelIndex(TR::Entity::ENEMY_CROCODILE_LAND)  - 1;
+        modelWater = level->getModelIndex(TR::Entity::ENEMY_CROCODILE_WATER) - 1;
+
+        bool water = getRoom().flags.water;
+        flying     = water;
+        stand      = water ? STAND_UNDERWATER : STAND_GROUND;
+    }
+
+    const virtual TR::Model* getModel() {
+        bool water = getRoom().flags.water;
+        int modelIndex = water ? modelWater : modelLand;
+
+        ASSERT(modelIndex > -1);
+        const TR::Model *model = &level->models[modelIndex];
+        if (animation.model != model) {
+            targetBox = -1;
+            animation.setModel(model);
+            stand  = water ? STAND_UNDERWATER : STAND_GROUND;
+            flying = water;
+
+            int16 rIndex = getRoomIndex();
+            if (water) {
+                TR::Room::Sector *sector = level->getWaterLevelSector(rIndex, pos);
+                if (sector) {
+                    pos.y = float(sector->ceiling * 256);
+                    roomIndex = rIndex;
+                }
+            } else {
+                int16 rIndex = getRoomIndex();
+                TR::Room::Sector *sector = level->getSector(rIndex, pos);
+                if (sector) {
+                    pos.y = float(sector->floor * 256);
+                    roomIndex = rIndex;
+                }
+            }
+
+            nextState = STATE_NONE;
+            state     = STATE_NONE;
+
+            if (health <= 0.0f) {
+                getStateDeath();
+                animation.goEnd(false);
+            }
+
+            updateZone();
+        }
+        return animation.model;
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        bool isBite = targetInView && fabsf(target->pos.y - pos.y) < 256.0f;
+
+        switch (state) {
+            case STATE_STOP :
+                if (isBite && targetDist < CROCODILE_DIST_BITE)
+                    return STATE_BITE;
+                switch (mood) {
+                    case MOOD_ESCAPE : return STATE_RUN;
+                    case MOOD_ATTACK : return STATE_RUN; // TODO: turn
+                    case MOOD_STALK  : return STATE_WALK;
+                    default          : return state;
+                }
+            case STATE_RUN  :
+                if (targetInView && (collide(target) & HIT_MASK))
+                    return STATE_STOP;
+                switch (mood) {
+                    case MOOD_SLEEP  : return STATE_STOP;
+                    case MOOD_STALK  : return STATE_WALK;
+                    case MOOD_ATTACK : if (targetDist < CROCODILE_DIST_TURN) return STATE_STOP; // TODO: check turn angles
+                    default          : return state;
+                }
+            case STATE_WALK :
+                if (targetInView && (collide(target) & HIT_MASK))
+                    return STATE_STOP;
+                switch (mood) {
+                    case MOOD_SLEEP  : return STATE_STOP;
+                    case MOOD_ATTACK :
+                    case MOOD_ESCAPE : return STATE_RUN;
+                    default          : return state;
+                }
+            case STATE_TURN : // TODO turn
+                return STATE_WALK;
+            case STATE_BITE   :
+                if (nextState == STATE_NONE) {
+                    bite(getJoint(jointHead).pos, CROCODILE_DAMAGE);
+                    nextState = STATE_STOP;
+                }
+                break;
+            default : ;
+        }
+
+        return state;
+    }
+
+    virtual int getStateUnderwater() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (animation.frameIndex % 4 == 0)
+            game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.02f);
+
+        switch (state) {
+            case STATE_WATER_SWIM :
+                if (targetInView && collide(target))
+                    return STATE_WATER_BITE;
+                break;
+            case STATE_WATER_BITE :
+                if (collide(target)) {
+                    if (nextState != STATE_NONE)
+                        return state;
+                    bite(getJoint(jointHead).pos, CROCODILE_DAMAGE);
+                    nextState = STATE_WATER_SWIM;
+                }
+                return STATE_WATER_SWIM;
+            default : ;
+        }
+
+        return state;
+    }
+
+    virtual void updatePosition() {
+        float angleY = 0.0f;
+
+        if ((stand == STAND_GROUND && (state == STATE_RUN || state == STATE_WALK)) || (stand == STAND_UNDERWATER && state == STATE_WATER_SWIM))
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        turn(angleY, RAT_TURN_FAST);
+
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+
+        if (flying) {
+            lift(waypoint.y - pos.y, CROCODILE_LIFT_SPEED);
+            int16 rIndex = getRoomIndex();
+            TR::Room::Sector *sector = level->getWaterLevelSector(rIndex, pos);
+            if (sector) {
+                float waterLevel = float(sector->ceiling * 256) + 256;
+                if (pos.y < waterLevel)
+                    pos.y = waterLevel;
+            }
+        }
+
+        Enemy::updatePosition();
+        setOverrides(state != STATE_DEATH, jointChest, jointHead);
+        lookAt(target);
+    }
+
+    virtual int getStateDeath() {
+        bool water = getRoom().flags.water;
+        if ((water && state == STATE_WATER_DEATH) || (!water && state == STATE_DEATH))
+            return state;
+        return animation.setAnim(water ? ANIM_DEATH_WATER : ANIM_DEATH_LAND);
+    }
+};
+
 
 #define BEAR_DIST_EAT    768
 #define BEAR_DIST_HOWL   2048

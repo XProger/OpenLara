@@ -64,7 +64,7 @@ struct IGame {
     virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
-    virtual void         flipMap() {}
+    virtual void         flipMap(bool water = true) {}
     virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
@@ -1085,13 +1085,17 @@ struct Controller {
         updateExplosion();
         updateLights(true);
     }
+    
+    virtual TR::Room& getLightRoom() {
+        return getRoom();
+    }
 
     void updateLights(bool lerp = true) {
         TR::Room::Light sunLight;
 
-        if (getModel()) {
-            const TR::Room &room = getRoom();
+        const TR::Room &room = getLightRoom();
 
+        if (getModel()) {
             vec3 center = getBoundingBox().center();
             float maxAtt = 0.0f;
             /*
@@ -1131,7 +1135,7 @@ struct Controller {
         vec4 tcolor = vec4(vec3(targetLight->color.r, targetLight->color.g, targetLight->color.b) * (1.0f / 255.0f), float(targetLight->radius));
 
         if (mainLightFlip != level->state.flags.flipped) {
-            if (getRoom().alternateRoom > -1)
+            if (room.alternateRoom > -1)
                 lerp = false;
             mainLightFlip = level->state.flags.flipped;
         }

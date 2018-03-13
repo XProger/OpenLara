@@ -83,6 +83,16 @@ struct Character : Controller {
         return index;
     }
 
+    virtual TR::Room& getLightRoom() {
+        if (stand == STAND_ONWATER) {
+            int16 rIndex = getRoomIndex();
+            TR::Room::Sector *sector = level->getSector(rIndex, pos);
+            if (sector && sector->roomAbove != TR::NO_ROOM)
+                return level->rooms[sector->roomAbove];
+        }
+        return Controller::getLightRoom();
+    }
+
     bool updateZone() {
         if (level->isCutsceneLevel())
             return false;

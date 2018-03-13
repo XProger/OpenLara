@@ -83,9 +83,9 @@ uniform sampler2D sNormal;
 
 	#define PI	 3.141592653589793
 
-	float calcFresnel(float NdotL, float fbias, float fpow) {
-		float f = 1.0 - abs(NdotL);
-		return clamp(fbias + (1.0 - fbias) * pow(f, fpow), 0.0, 1.0);
+	float calcFresnel(float NdotL, float fbias) {
+		float f = 1.0 - NdotL;
+		return clamp(fbias + (1.0 - fbias) * (f * f), 0.0, 1.0);
 	}
 
 	vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
@@ -132,7 +132,7 @@ uniform sampler2D sNormal;
 	}
 
 	float h(vec2 tc) {
-		return simplex_noise(vec3(tc * 16.0, uParam.w)) * 0.001;
+		return simplex_noise(vec3(tc * 16.0, uParam.w)) * 0.0005;
 	}
 
 	vec4 calc() {
@@ -149,7 +149,7 @@ uniform sampler2D sNormal;
 		float average = dot(f, vec4(0.25));
 
 	// normal
-		v.zw = normalize( vec3(f.x - f.z, 64.0 / (1024.0 * 2.0), f.y - f.w) ).xz;
+		v.zw = normalize( vec3(f.x - f.z, 64.0 / (1024.0 * 4.0), f.y - f.w) ).xz;
 
 	// integrate
 		const float vel = 1.4;
@@ -176,13 +176,12 @@ uniform sampler2D sNormal;
 	}
 
 	vec4 compose() {
+		vec3 viewVec = normalize(vViewVec);
+
 		vec4 value	= texture2D(sNormal, vTexCoord);
-
-		vec3 normal = vec3(value.z, -sqrt(1.0 - dot(value.zw, value.zw)), value.w);
-
+		vec3 normal = vec3(value.z, sqrt(1.0 - dot(value.zw, value.zw)) * sign(viewVec.y), value.w);
 		vec2 dudv   = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 
-		vec3 viewVec = normalize(vViewVec);
 		vec3 rv = reflect(-viewVec, normal);
 		vec3 lv = normalize(vLightVec);
 
@@ -195,7 +194,7 @@ uniform sampler2D sNormal;
 		vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
 		vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 
-		float fresnel = calcFresnel(dot(normal, viewVec), 0.1, 2.0);
+		float fresnel = calcFresnel(dot(normal, viewVec), 0.04);
 
 		vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
 
