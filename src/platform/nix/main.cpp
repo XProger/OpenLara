@@ -401,12 +401,11 @@ int main(int argc, char **argv) {
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, wnd, &WM_DELETE_WINDOW, 1);
 
-    joyInit();
-
     timeval t;
     gettimeofday(&t, NULL);
     startTime = t.tv_sec;
 
+    joyInit();
     sndInit();
     Game::init(argc > 1 ? argv[1] : NULL);
 
