@@ -1485,7 +1485,8 @@ struct Level : IGame {
 
         if (inventory.isActive() || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
-            volWater = volTrack = 0.0f;
+            volWater = 0.0f;
+            volTrack = level.isTitle() ? 0.9f : 0.0f;
         } else {
             params->time += Core::deltaTime;
             animTexTimer += Core::deltaTime;
