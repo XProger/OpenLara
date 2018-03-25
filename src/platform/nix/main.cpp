@@ -112,6 +112,7 @@ struct JoyDevice {
     float oL, oR; // last applied value
     int   time;   // time when we can send effect update
     ff_effect fx; // effect structure
+    uint8_t axismap[ABS_CNT]; // axis mapping
 } joyDevice[INPUT_JOY_COUNT];
 
 bool osJoyReady(int index) {
@@ -141,6 +142,7 @@ void joyInit() {
         int8 axes, buttons;
         ioctl(joy.fd, JSIOCGAXES,    &axes);
         ioctl(joy.fd, JSIOCGBUTTONS, &buttons);
+        ioctl(joy.fd, JSIOCGAXMAP, joy.axismap);
         
         if (axes < 4 || buttons < 11) { // is it really a gamepad?
             close(joy.fd);
@@ -275,7 +277,7 @@ void joyUpdate() {
         // axes
             if (event.type & JS_EVENT_AXIS) {
             
-                switch (event.number) {
+                switch (joy.axismap[event.number]) {
                 // Left stick
                     case ABS_X  : joy.L.x = joyAxisValue(event.value); break;
                     case ABS_Y  : joy.L.y = joyAxisValue(event.value); break;
