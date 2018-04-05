@@ -13,7 +13,6 @@ inspired by OpenTomb project http://opentomb.github.io/
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
 
 ## Roadmap
-- RELEASE alpha-3
 - enemies
 - save game crystals
 - PSP port
