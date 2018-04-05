@@ -605,7 +605,6 @@ void vrUpdateView() {
     mat4 vL = head * convToMat4(hmd->GetEyeToHeadTransform(vr::Eye_Left));
     mat4 vR = head * convToMat4(hmd->GetEyeToHeadTransform(vr::Eye_Right));
 
-    const float ONE_METER = 768.0f / 1.8f; // Lara's height in units / height in meters
     vL.setPos(vL.getPos() * ONE_METER);
     vR.setPos(vR.getPos() * ONE_METER);
 

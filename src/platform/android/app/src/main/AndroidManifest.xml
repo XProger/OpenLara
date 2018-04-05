@@ -3,7 +3,7 @@
     android:versionCode="1"
     android:versionName="0.1" >
 
-    <uses-sdk android:minSdkVersion="18" android:targetSdkVersion="18" />
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="26" />
     <supports-screens android:smallScreens="true" android:largeScreens="true" android:normalScreens="true" android:xlargeScreens="true" />
 
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />

@@ -775,12 +775,9 @@ struct WaterCache {
 
     // render mirror reflection
         Core::setTarget(reflect, CLEAR_ALL);
+        Core::validateRenderState();
         Camera *camera = (Camera*)game->getCamera();
         game->setupBinding();
-
-        mat4 mProj     = Core::mProj;
-        mat4 mView     = Core::mView;
-        mat4 mViewInv  = Core::mViewInv;
 
     // merge visible rooms for all items
         int roomsList[256];
@@ -835,12 +832,8 @@ struct WaterCache {
         Core::invalidateTarget(false, true);
         game->setClipParams(1.0f, NO_CLIP_PLANE);
 
-        Core::mProj     = mProj;
-        Core::mView     = mView;
-        Core::mViewInv  = mViewInv;
-
         camera->reflectPlane = NULL;
-        camera->setup(false);
+        camera->setup(true);
     }
 
     void render() {

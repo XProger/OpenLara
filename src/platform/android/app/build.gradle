@@ -1,11 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion "25.0.2"
+    compileSdkVersion 26
+    buildToolsVersion '26.0.2'
+
     defaultConfig {
         applicationId "com.xproger.openlara"
-        minSdkVersion 18
+        minSdkVersion 19
         targetSdkVersion 18
         versionCode 1
         versionName "0.1"
@@ -36,4 +37,6 @@ android {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
+
+    compile 'com.google.vr:sdk-base:1.80.0'
 }

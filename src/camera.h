@@ -68,9 +68,9 @@ struct Camera : ICamera {
         return eye.room;
     }
 
-    void updateListener() {
+    void updateListener(const mat4 &matrix) {
         Sound::flipped = level->state.flags.flipped;
-        Sound::listener[cameraIndex].matrix = mViewInv;
+        Sound::listener[cameraIndex].matrix = matrix;
         if (cameraIndex == 0) { // reverb effect only for main player
             TR::Room &r = level->rooms[getRoomIndex()];
             int h = (r.info.yBottom - r.info.yTop) / 1024;
@@ -148,6 +148,9 @@ struct Camera : ICamera {
             fpHead.pos -= joint.rot * vec3(0, 48, -24);
         }
 
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            fpHead.rot = quat(vec3(1, 0, 0), PI);
+
         mViewInv.identity();
         mViewInv.setRot(fpHead.rot);
         mViewInv.setPos(fpHead.pos);
@@ -155,7 +158,6 @@ struct Camera : ICamera {
         eye.pos  = mViewInv.getPos();
         eye.room = owner->getRoomIndex();
 
-        level->getSector(eye.room, fpHead.pos);
         return true;
     }
 
@@ -302,8 +304,6 @@ struct Camera : ICamera {
 
         if (eye.pos.y > floor)   eye.pos.y = floor;
         if (eye.pos.y < ceiling) eye.pos.y = ceiling;
-
-        level->getSector(eye.room, eye.pos);
     }
 
     virtual void update() {
@@ -350,8 +350,6 @@ struct Camera : ICamera {
                 mViewInv   = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else
                 updateFirstPerson();
-
-            level->getSector(eye.room, eye.pos);
         } else {
             Controller *lookAt = NULL;
 
@@ -371,43 +369,47 @@ struct Camera : ICamera {
                 owner->lookAt(NULL);
             }
 
-            vec3 advAngleOld = advAngle;
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+                advAngle = vec3(0.0f);
+            } else {
+                vec3 advAngleOld = advAngle;
 
-            if (Input::down[ikMouseL]) {
-                vec2 delta = Input::mouse.pos - Input::mouse.start.L;
-                advAngle.x -= delta.y * 0.01f;
-                advAngle.y += delta.x * 0.01f;
-                advAngle.y = clamp(advAngle.y, -PI, PI);
-                Input::mouse.start.L = Input::mouse.pos;
-            }
-
-            // TODO: use player index
-            if (Input::state[cameraIndex][cLook]) {
-                float d = 2.0f * Core::deltaTime;
-
-                advAngle.x += Input::joy[cameraIndex].L.y * d;
-                advAngle.y += Input::joy[cameraIndex].L.x * d;
-
-                if (Input::state[cameraIndex][cUp])    advAngle.x -= d;
-                if (Input::state[cameraIndex][cDown])  advAngle.x += d;
-                if (Input::state[cameraIndex][cLeft])  advAngle.y += d;
-                if (Input::state[cameraIndex][cRight]) advAngle.y -= d;
-            }
-
-            if (advAngleOld == advAngle) {
-                if (advTimer > 0.0f) {
-                    advTimer = max(0.0f, advTimer - Core::deltaTime);
+                if (Input::down[ikMouseL]) {
+                    vec2 delta = Input::mouse.pos - Input::mouse.start.L;
+                    advAngle.x -= delta.y * 0.01f;
+                    advAngle.y += delta.x * 0.01f;
+                    advAngle.y = clamp(advAngle.y, -PI, PI);
+                    Input::mouse.start.L = Input::mouse.pos;
                 }
-            } else
-                advTimer = -1.0f;
 
-            if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
-                advTimer = -advTimer;
+                // TODO: use player index
+                if (Input::state[cameraIndex][cLook]) {
+                    float d = 2.0f * Core::deltaTime;
 
-            if (advTimer == 0.0f && advAngle != 0.0f) {
-                float t = 10.0f * Core::deltaTime;
-                advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
-                advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
+                    advAngle.x += Input::joy[cameraIndex].L.y * d;
+                    advAngle.y += Input::joy[cameraIndex].L.x * d;
+
+                    if (Input::state[cameraIndex][cUp])    advAngle.x -= d;
+                    if (Input::state[cameraIndex][cDown])  advAngle.x += d;
+                    if (Input::state[cameraIndex][cLeft])  advAngle.y += d;
+                    if (Input::state[cameraIndex][cRight]) advAngle.y -= d;
+                }
+
+                if (advAngleOld == advAngle) {
+                    if (advTimer > 0.0f) {
+                        advTimer = max(0.0f, advTimer - Core::deltaTime);
+                    }
+                } else
+                    advTimer = -1.0f;
+
+                if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
+                    advTimer = -advTimer;
+
+                if (advTimer == 0.0f && advAngle != 0.0f) {
+                    float t = 10.0f * Core::deltaTime;
+                    advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
+                    advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
+                }
             }
 
             targetAngle = owner->angle + advAngle;
@@ -466,13 +468,15 @@ struct Camera : ICamera {
                 mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else
                 updateFirstPerson();
-
-            if (Core::settings.detail.vr) {
-                mViewInv = mViewInv * Input::hmd.eye[0];
-            }
         }
-        updateListener();
-        
+
+        level->getSector(eye.room, eye.pos);
+
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            updateListener(mViewInv * Input::hmd.head);
+        else
+            updateListener(mViewInv);
+
         smooth = true;
     }
 
@@ -480,8 +484,14 @@ struct Camera : ICamera {
         if (calcMatrices) {
             Core::mViewInv = mViewInv;
 
-            if (Core::settings.detail.vr)
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
                 Core::mViewInv = Core::mViewInv * Input::hmd.eye[Core::eye == -1.0f ? 0 : 1];
+
+            if (shake > 0.0f)
+                Core::mViewInv.setPos(Core::mViewInv.getPos() + vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
+
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_ON)
+                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * (firstPerson ? 8.0f : 32.0f) ));
 
             if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
@@ -489,21 +499,19 @@ struct Camera : ICamera {
             }
 
             Core::mView = Core::mViewInv.inverseOrtho();
-            if (shake > 0.0f)
-                Core::mView.translate(vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_ON)
-                Core::mView.translate(Core::mViewInv.right().xyz() * (-Core::eye * (firstPerson ? 8.0f : 32.0f) ));
-
-            if (Core::settings.detail.vr)
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
                 Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
             else
                 Core::mProj = mat4(fov, aspect, znear, zfar);
         }
 
         Core::setViewProj(Core::mView, Core::mProj);
+        Core::viewPos = Core::mViewInv.getPos();
 
-        Core::viewPos = Core::mViewInv.offset().xyz();
+        // update room for eye (with HMD offset)
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            level->getSector(eye.room, Core::viewPos);
 
         frustum->pos = Core::viewPos;
         frustum->calcPlanes(Core::mViewProj);

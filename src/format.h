@@ -10,6 +10,9 @@
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
 
+// Lara's height in units / height in meters
+#define ONE_METER             (768.0f / 1.8f)
+
 #define TR1_TYPES_START       0
 #define TR2_TYPES_START       1000
 #define TR3_TYPES_START       2000

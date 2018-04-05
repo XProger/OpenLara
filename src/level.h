@@ -235,6 +235,11 @@ struct Level : IGame {
 
         bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
 
+    #ifdef ANDROID
+        if ((settings.detail.stereo == Core::Settings::STEREO_VR) ^ (Core::settings.detail.stereo == Core::Settings::STEREO_VR))
+            osToggleVR(settings.detail.stereo == Core::Settings::STEREO_VR);
+    #endif
+
         Core::settings = settings;
 
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
@@ -611,10 +616,10 @@ struct Level : IGame {
             track = TR::LEVEL_INFO[level.id].ambientTrack;
 
         if (level.state.flags.track == track) {
-            if (sndTrack) {
-                sndTrack->replay();
-                sndTrack->setVolume(1.0f, 0.2f);
-            }
+        //    if (sndTrack) {
+        //        sndTrack->replay();
+        //        sndTrack->setVolume(1.0f, 0.2f);
+        //    }
             return;
         }
 
@@ -708,6 +713,10 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
+
+        Core::setTarget(NULL);
+        Core::validateRenderState();
+
         Core::resetTime();
     }
 
@@ -1206,7 +1215,6 @@ struct Level : IGame {
     }
 
     void initReflections() {
-        Core::beginFrame();
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
@@ -1215,7 +1223,6 @@ struct Level : IGame {
                 c->environment->generateMipMap();
             }
         }
-        Core::endFrame();
     }
 
     void setMainLight(Controller *controller) {
@@ -1788,6 +1795,24 @@ struct Level : IGame {
         }
     }
 
+    void renderOpaque(int *roomsList, int roomsCount) {
+        renderRooms(roomsList, roomsCount, 0);
+        renderEntities(0);
+    }
+
+    void renderTransparent(int *roomsList, int roomsCount) {
+        renderRooms(roomsList, roomsCount, 1);
+        renderEntities(1);
+    }
+
+    void renderAdditive(int *roomsList, int roomsCount) {
+        vec4 oldFog = Core::fogParams;
+        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
+        renderRooms(roomsList, roomsCount, 2);
+        renderEntities(2);
+        Core::fogParams = oldFog;
+    }
+
     virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {
         PROFILE_MARKER("VIEW");
 
@@ -1849,7 +1874,10 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setTarget(NULL, (Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL) ? CLEAR_ALL : 0); // render to back buffer
+            //bool clear = Core::settings.detail.stereo == Core::Settings::STEREO_VR;
+            //clear |= Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL;
+            bool clear = true;
+            Core::setTarget(NULL, clear ? CLEAR_ALL : 0); // render to back buffer
             setupBinding();
         }
 
@@ -1857,12 +1885,11 @@ struct Level : IGame {
 
         updateLighting();
 
-    // opaque pass
-        renderRooms(roomsList, roomsCount, 0);
-        renderEntities(0);
-    // alpha blending pass
-        renderRooms(roomsList, roomsCount, 1);
-        renderEntities(1);
+        renderOpaque(roomsList, roomsCount);
+        renderTransparent(roomsList, roomsCount);
+
+        if (camera->isUnderwater())
+            renderAdditive(roomsList, roomsCount);
 
         Core::setBlending(bmNone);
         if (water && waterCache && waterCache->visible) {
@@ -1875,13 +1902,9 @@ struct Level : IGame {
             setupBinding();
         }
 
-    // additive blending pass
-        vec4 oldFog = Core::fogParams;
-        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
-        renderRooms(roomsList, roomsCount, 2);
-        renderEntities(2);
-        Core::fogParams = oldFog;
-
+        if (!camera->isUnderwater())
+            renderAdditive(roomsList, roomsCount);
+    
         Core::setBlending(bmNone);
 
         if (showUI) {
@@ -1931,7 +1954,9 @@ struct Level : IGame {
 
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
+        float oldEye = Core::eye;
         Core::eye = 0.0f;
+
         Core::pass = Core::passShadow;
         shadow->unbind(sShadow);
         bool colorShadow = shadow->format == Texture::RGBA ? true : false;
@@ -1948,13 +1973,15 @@ struct Level : IGame {
         Core::setCulling(cfFront);
         if (colorShadow)
             Core::setClearColor(vec4(0.0f));
+
+        Core::eye = oldEye;
     }
 
     #ifdef _DEBUG
     void renderDebug() {
         if (level.isTitle() || inventory.titleTimer > 1.0f) return;
 
-        Core::setViewport(0, 0, Core::width, Core::height);
+        Core::setViewport(Core::x, Core::y, Core::width, Core::height);
         camera->setup(true);
         
         if (Input::down[ikF]) {
@@ -2156,28 +2183,34 @@ struct Level : IGame {
     #endif
 
     void setViewport(int view, int eye, bool isUI) {
+        float vX = float(Core::x);
+        float vY = float(Core::y);
         float vW = float(Core::width);
         float vH = float(Core::height);
 
         float aspect = vW / vH;
 
         if (Core::defaultTarget) {
+            vX = 0.0f;
+            vY = 0.0f;
             vW = float(Core::defaultTarget->width);
             vH = float(Core::defaultTarget->height);
         }
 
         vec4 &vp = Core::viewportDef;
-        
+
         if (players[1] != NULL) {
-            vp = vec4(vW * 0.5f * view, 0.0f, vW * 0.5f, vH);
+            vp = vec4(vX + vW * 0.5f * view, vY, vW * 0.5f, vH);
             if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT)
                 aspect *= 0.5f;
         } else
-            vp = vec4(0.0f, 0.0f, vW, vH); 
-
-        switch (eye) {
-            case -1 : vp = vec4(vp.x - vp.x * 0.5f, vp.y, vp.z * 0.5f, vp.w);      break;
-            case +1 : vp = vec4(vW * 0.5f + vp.x / 2.0f, vp.y, vp.z * 0.5f, vp.w); break;
+            vp = vec4(vX, vY, vW, vH); 
+        
+        if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
+            switch (eye) {
+                case -1 : vp = vec4(vX + vp.x - vp.x * 0.5f, vY + vp.y, vp.z * 0.5f, vp.w);      break;
+                case +1 : vp = vec4(vX + vW * 0.5f + vp.x / 2.0f, vY + vp.y, vp.z * 0.5f, vp.w); break;
+            }
         }
 
         Core::eye = float(eye);
@@ -2188,15 +2221,23 @@ struct Level : IGame {
             camera->aspect = aspect;
     }
 
-    void renderGame(bool showUI) {
+    void renderPrepare() {
         Core::invalidateTarget(true, true);
 
         if (ambientCache)
             ambientCache->processQueue();
 
+        if (shadow)
+            renderShadows(player->getRoomIndex());
+
+        Core::setTarget(NULL, CLEAR_ALL);
+        Core::validateRenderState();
+    }
+
+    void renderGame(bool showUI) {
         //if (Core::settings.detail.stereo || Core::settings.detail.splitscreen) {
-            Core::setTarget(NULL, CLEAR_ALL);
-            Core::validateRenderState();
+        //    Core::setTarget(NULL, CLEAR_ALL);
+        //    Core::validateRenderState();
         //}
 
 /*  // catsuit test
@@ -2215,6 +2256,8 @@ struct Level : IGame {
         mesh->renderQuad();
         return;
 */
+        vec4 vp = Core::viewportDef;
+
         int viewsCount = players[1] ? 2 : 1;
         for (int view = 0; view < viewsCount; view++) {
             player = players[view];
@@ -2224,12 +2267,12 @@ struct Level : IGame {
             params->clipSign    = 1.0f;
             params->waterHeight = params->clipHeight;
 
-            if (shadow)
+            if (shadow && view == 1)
                 renderShadows(player->getRoomIndex());
 
             if (shadow) shadow->bind(sShadow);
             Core::pass = Core::passCompose;
-
+            /*
             if (view == 0 && Input::hmd.ready) {
                 Core::settings.detail.vr = true;
 
@@ -2255,9 +2298,11 @@ struct Level : IGame {
                 Core::defaultTarget = oldTarget;
                 Core::setTarget(NULL, CLEAR_ALL);
                 Core::viewportDef = vp;
-            }   
-            
+            }
+            */
             if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
+                float oldEye = Core::eye;
+
                 setViewport(view, -1, false);
                 setup();
                 renderView(camera->getRoomIndex(), true, showUI);
@@ -2265,15 +2310,16 @@ struct Level : IGame {
                 setViewport(view,  1, false);
                 setup();
                 renderView(camera->getRoomIndex(), true, showUI);
+
+                Core::eye = oldEye;
             } else {
-                setViewport(view,  0, false);
+                setViewport(view, int(Core::eye), false);
                 setup();
                 renderView(camera->getRoomIndex(), true, showUI);
             }
         }
 
-        Core::eye = 0;
-        Core::viewportDef = vec4(0.0f, 0.0f, float(Core::width), float(Core::height));
+        Core::viewportDef = vp;
 
         player = players[0];
         camera = player->camera;
@@ -2301,18 +2347,27 @@ struct Level : IGame {
 
             float eye = inventory.active ? 0.0f : UI::width * Core::eye * 0.02f;
 
+            vec2 pos;
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+                pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
+            else
+                pos = vec2(UI::width - 32 - size.x - eye, 32);
+
+            if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER)) {
+                UI::renderBar(UI::BAR_OXYGEN, pos, size, oxygen);
+                pos.y += 16.0f;
+            }
+
             if ((!inventory.active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
-                UI::renderBar(UI::BAR_HEALTH, vec2(UI::width - 32 - size.x - eye, 32), size, health);
+                UI::renderBar(UI::BAR_HEALTH, pos, size, health);
+                pos.y += 32.0f;
 
                 if (!inventory.active && !player->emptyHands()) { // ammo
                     int index = inventory.contains(player->getCurrentWeaponInv());
                     if (index > -1)
-                        inventory.renderItemCount(inventory.items[index], vec2(UI::width - 32 - size.x - eye, 64), size.x);
+                        inventory.renderItemCount(inventory.items[index], pos, size.x);
                 }
             }
-
-            if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER))
-                UI::renderBar(UI::BAR_OXYGEN, vec2(32 - eye, 32), size, oxygen);
         }
 
         if (!level.isTitle())
@@ -2324,11 +2379,12 @@ struct Level : IGame {
     void renderInventoryEye(int eye) {
         float aspect = float(Core::width) / float(Core::height);
 
-        switch (eye) {
-            case -1 : Core::setViewport(0, 0, Core::width / 2, Core::height); break;
-            case  0 : Core::setViewport(0, 0, Core::width, Core::height); break;
-            case +1 : Core::setViewport(Core::width / 2, 0, Core::width / 2, Core::height); break;
-        }
+        if (Core::settings.detail.stereo != Core::Settings::STEREO_VR)
+            switch (eye) {
+                case -1 : Core::setViewport(Core::x, Core::y, Core::width / 2, Core::height); break;
+                case  0 : Core::setViewport(Core::x, Core::y, Core::width, Core::height); break;
+                case +1 : Core::setViewport(Core::x + Core::width / 2, Core::y, Core::width / 2, Core::height); break;
+            }
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT)
             eye = 0;
@@ -2351,14 +2407,16 @@ struct Level : IGame {
         if (!(level.isTitle() || inventory.titleTimer > 0.0f))
             inventory.renderBackground();
 
+        float oldEye = Core::eye;
+
         if ((Core::settings.detail.stereo == Core::Settings::STEREO_ON) || (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT && players[1])) {
             renderInventoryEye(-1);
             renderInventoryEye(+1);
         } else
-            renderInventoryEye(0);
+            renderInventoryEye(int(Core::eye));
 
-        Core::setViewport(0, 0, Core::width, Core::height);
-        Core::eye = 0.0f;
+        Core::setViewport(Core::x, Core::y, Core::width, Core::height);
+        Core::eye = oldEye;
     }
 
     void render() {

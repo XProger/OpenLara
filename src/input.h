@@ -32,6 +32,7 @@ namespace Input {
     } touch[6];
 
     struct HMD {
+        mat4 head;
         mat4 eye[2];
         mat4 proj[2];
         mat4 controllers[2];
@@ -46,7 +47,10 @@ namespace Input {
         }
 
         void reset() {
-            //
+            eye[0].identity();
+            eye[1].identity();
+            proj[0].identity();
+            proj[1].identity();
         }
     } hmd;
 

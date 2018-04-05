@@ -49,6 +49,8 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+
+    extern void osToggleVR(bool enable);
 #elif __RPI__
     #define MOBILE
     #include <GLES2/gl2.h>
@@ -277,7 +279,7 @@ struct KeySet {
 namespace Core {
     float deltaTime;
     int   lastTime;
-    int   width, height;
+    int   x, y, width, height;
 
     struct Support {
         int  maxVectors;
@@ -298,12 +300,12 @@ namespace Core {
     #endif
     } support;
 
-#define SETTINGS_VERSION 1
+#define SETTINGS_VERSION 2
 #define SETTINGS_READING 0xFF
 
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };
-        enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT };
+        enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT, STEREO_VR };
 
         uint8 version;
 
@@ -319,7 +321,6 @@ namespace Core {
             };
             uint8 vsync;
             uint8 stereo;
-            uint8 vr;
             void setFilter(Quality value) {
                 if (value > MEDIUM && !(support.maxAniso > 1))
                     value = MEDIUM;
@@ -674,7 +675,7 @@ namespace Core {
     } reqTarget;
 
     struct Stats {
-        int dips, tris, frame, fps, fpsTime;
+        int dips, tris, rt, frame, fps, fpsTime;
     #ifdef PROFILE
         int tFrame;
     #endif
@@ -682,12 +683,12 @@ namespace Core {
         Stats() : frame(0), fps(0), fpsTime(0) {}
 
         void start() {
-            dips = tris = 0;
+            dips = tris = rt = 0;
         }
 
         void stop() {
             if (fpsTime < Core::getTime()) {
-                LOG("FPS: %d DIP: %d TRI: %d\n", fps, dips, tris);
+                LOG("FPS: %d DIP: %d TRI: %d RT: %d\n", fps, dips, tris, rt);
             #ifdef PROFILE
                 LOG("frame time: %d mcs\n", tFrame / 1000);
             #endif
@@ -751,6 +752,7 @@ namespace Core {
     }
 
     void init() {
+        x = y = 0;
         #ifdef USE_INFLATE
             tinf_init();
         #endif
@@ -941,6 +943,10 @@ namespace Core {
             support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
         LOG("\n");
 
+    #ifndef _PSP
+        glEnable(GL_SCISSOR_TEST);
+    #endif
+
     #ifdef FFP
         #ifdef _PSP
             Core::width  = 480;
@@ -1116,6 +1122,9 @@ namespace Core {
 
         eyeTex[0] = eyeTex[1] = NULL;
 
+        memset(&active, 0, sizeof(active));
+        renderState = 0;
+
         resetTime();
     }
 
@@ -1194,6 +1203,7 @@ namespace Core {
                     sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
 */
             #else
+                Core::stats.rt++;
                 if (!target) { // may be a null
                     glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
                 } else {
@@ -1223,6 +1233,7 @@ namespace Core {
                 sceGuViewport(2048 + int(viewport.x), 2048 + int(viewport.y), int(viewport.z), int(viewport.w));
             #else
                 glViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
+                glScissor(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
             #endif
             }
             renderState &= ~RS_VIEWPORT;
@@ -1468,16 +1479,30 @@ namespace Core {
     #endif
     }
 
-    void beginFrame() {
-        //memset(&active, 0, sizeof(active));        
-        setViewport(0, 0, Core::width, Core::height);
+    void reset() {
+    #ifndef _PSP
+        if (Core::support.VAO)
+            glBindVertexArray(0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glUseProgram(0);
+    #endif
+
+        memset(&active, 0, sizeof(active));
+        renderState = 0;
+
+        setViewport(Core::x, Core::y, Core::width, Core::height);
         viewportDef = viewport;
+
         setCulling(cfFront);
         setBlending(bmAlpha);
         setDepthTest(true);
         setDepthWrite(true);
         setColorWrite(true, true, true, true);
+        validateRenderState();
+    }
 
+    void beginFrame() {
         Core::stats.start();
     }
 

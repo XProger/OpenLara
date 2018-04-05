@@ -2,20 +2,10 @@ package org.xproger.openlara;
 
 import java.util.ArrayList;
 import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
-import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import android.opengl.GLSurfaceView;
-import android.opengl.GLSurfaceView.Renderer;
 import android.os.Bundle;
-import android.app.Activity;
-import android.content.res.AssetFileDescriptor;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Environment;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -26,11 +16,23 @@ import android.view.View.OnKeyListener;
 import android.view.View.OnTouchListener;
 import android.view.Window;
 import android.view.WindowManager;
-//import android.util.Log;
 
-public class MainActivity extends Activity implements OnTouchListener, OnKeyListener, OnGenericMotionListener, SensorEventListener {
+import com.google.vr.sdk.base.AndroidCompat;
+import com.google.vr.sdk.base.Eye;
+import com.google.vr.sdk.base.GvrActivity;
+import com.google.vr.sdk.base.GvrView;
+import com.google.vr.sdk.base.HeadTransform;
+import com.google.vr.sdk.base.Viewport;
+
+public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyListener, OnGenericMotionListener {
+    static GvrView gvrView;
+
     private Wrapper wrapper;
     private ArrayList joyList = new ArrayList();
+
+    public static void toggleVR(boolean enable) {
+        gvrView.setStereoModeEnabled(enable);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,10 +47,11 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
 
         super.onCreate(savedInstanceState);
 
-        GLSurfaceView view = new GLSurfaceView(this);
+        //GLSurfaceView view = new GLSurfaceView(this);
+        final GvrView view = new GvrView(this);
         view.setEGLContextClientVersion(2);
         view.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
-        view.setPreserveEGLContextOnPause(true);
+        //view.setPreserveEGLContextOnPause(true);
         view.setRenderer(wrapper = new Wrapper());
 
         view.setFocusable(true);
@@ -57,13 +60,30 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
         view.setOnTouchListener(this);
         view.setOnGenericMotionListener(this);
         view.setOnKeyListener(this);
-        //setAsyncReprojectionEnabled(true);
-        //setSustainedPerformanceMode(this, true);
+        view.setTransitionViewEnabled(false);
+
+        if (view.setAsyncReprojectionEnabled(true)) {
+            AndroidCompat.setSustainedPerformanceMode(this, true);
+        }
+
+        //AndroidCompat.setVrModeEnabled(this, false);
+        view.setStereoModeEnabled(false);
+        view.setDistortionCorrectionEnabled(true);
+
+        view.setOnCloseButtonListener(new Runnable() {
+            @Override
+            public void run() {
+                view.setStereoModeEnabled(false);
+                wrapper.toggleVR = true;
+            }
+        });
+
+        setGvrView(view);
+
         setContentView(view);
-/*
-        SensorManager sm = (SensorManager)getSystemService(SENSOR_SERVICE);
-        sm.registerListener(this, sm.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_FASTEST);
-*/
+
+        gvrView = view;
+
         try {
             String content = Environment.getExternalStorageDirectory().getAbsolutePath();
             wrapper.onCreate(content + "/OpenLara/", getCacheDir().getAbsolutePath() + "/");
@@ -113,16 +133,6 @@ public class MainActivity extends Activity implements OnTouchListener, OnKeyList
                 break;
         }
         return true;
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor arg0, int arg1) {
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        wrapper.onTouch(-100, 0, -event.values[1], event.values[0]);
-        wrapper.onTouch(-100, 1,  event.values[2], event.values[3]);
     }
 
     boolean isGamepad(int src) {
@@ -285,17 +295,23 @@ class Touch {
     }
 }
 
-class Wrapper implements Renderer {
+class Wrapper implements GvrView.StereoRenderer {
     public static native void nativeInit(String contentDir, String cacheDir);
     public static native void nativeFree();
     public static native void nativeReset();
-    public static native void nativeResize(int w, int h);
+    public static native void nativeResize(int x, int y, int w, int h);
     public static native void nativeUpdate();
-    public static native void nativeRender();
+    public static native void nativeSetVR(boolean enabled);
+    public static native void nativeSetHead(float head[]);
+    public static native void nativeSetEye(int eye, float proj[], float view[]);
+    public static native void nativeFrameBegin();
+    public static native void nativeFrameEnd();
+    public static native void nativeFrameRender();
     public static native void nativeTouch(int id, int state, float x, float y);
     public static native void nativeSoundFill(short buffer[]);
 
     Boolean ready = false;
+    Boolean toggleVR = false;
     private String contentDir;
     private String cacheDir;
     private ArrayList<Touch> touch = new ArrayList<>();
@@ -330,7 +346,26 @@ class Wrapper implements Renderer {
     }
 
     @Override
-    public void onDrawFrame(GL10 gl) {
+    public void onSurfaceChanged(int width, int height) {
+        nativeResize(0, 0, width, height);
+    }
+
+    @Override
+    public void onSurfaceCreated(EGLConfig config) {
+        if (!ready) {
+            nativeInit(contentDir, cacheDir);
+            sound.play();
+            ready = true;
+        }
+    }
+
+    @Override
+    public void onRendererShutdown() {
+        //
+    }
+
+    @Override
+    public void onNewFrame(HeadTransform headTransform) {
         synchronized (this) {
             for (int i = 0; i < touch.size(); i++) {
                 Touch t = touch.get(i);
@@ -338,21 +373,37 @@ class Wrapper implements Renderer {
             }
             touch.clear();
         }
-        nativeUpdate();
-        nativeRender();
-    }
 
-    @Override
-    public void onSurfaceChanged(GL10 gl, int width, int height) {
-        nativeResize(width, height);
-    }
-
-    @Override
-    public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        if (!ready) {
-            nativeInit(contentDir, cacheDir);
-            sound.play();
-            ready = true;
+        if (toggleVR) {
+            nativeSetVR(false);
+            toggleVR = false;
         }
+
+        float view[] = headTransform.getHeadView();
+        nativeSetHead(view);
+
+        nativeUpdate();
+        nativeFrameBegin();
+    }
+
+    @Override
+    public void onDrawEye(Eye eye) {
+        float proj[] = eye.getPerspective(8.0f, 32.0f * 1024.0f);
+        float view[] = eye.getEyeView();
+
+        int index = 0;
+        if (eye.getType() == Eye.Type.LEFT)  index = -1;
+        if (eye.getType() == Eye.Type.RIGHT) index = +1;
+
+        nativeSetEye(index, proj, view);
+
+        nativeResize(eye.getViewport().x, eye.getViewport().y, eye.getViewport().width, eye.getViewport().height);
+        nativeFrameRender();
+    }
+
+    @Override
+    public void onFinishFrame(Viewport viewport) {
+        nativeResize(viewport.x, viewport.y, viewport.width, viewport.height);
+        nativeFrameEnd();
     }
 }

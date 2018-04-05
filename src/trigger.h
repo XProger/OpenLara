@@ -215,6 +215,7 @@ struct MuzzleFlash : Controller {
     MuzzleFlash(IGame *game, int entity) : Controller(game, entity), owner(NULL), joint(0), lightIndex(-1) {
         pos.z += (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? 180.0f : 150.0f;
         activate();
+        timer = 0.0f;
     }
 
     virtual void update() {

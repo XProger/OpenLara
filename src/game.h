@@ -39,6 +39,11 @@ void loadSettings(Stream *stream, void *userData) {
         delete stream;
     }
     
+    #ifdef ANDROID
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            osToggleVR(true);
+    #endif
+
     Core::settings.version = SETTINGS_VERSION;
     shaderCache = new ShaderCache();
     Game::startLevel((Stream*)userData);
@@ -162,21 +167,36 @@ namespace Game {
         return true;
     }
 
-    void render() {
-        if (Core::settings.version == SETTINGS_READING)
-            return;
+    void frameBegin() {
+        if (Core::settings.version == SETTINGS_READING) return;
+        Core::reset();
+        Core::beginFrame();
+        level->renderPrepare();
+    }
+
+    void frameRender() {
+        if (Core::settings.version == SETTINGS_READING) return;
 
         PROFILE_MARKER("RENDER");
         PROFILE_TIMING(Core::stats.tFrame);
-        Core::beginFrame();
-        level->render();
-        UI::renderTouch();
 
+        level->render();
         #ifdef _DEBUG
             level->renderDebug();
-        #endif
+        #endif    
+    }
 
+    void frameEnd() {
+        if (Core::settings.version == SETTINGS_READING) return;
+
+        UI::renderTouch();
         Core::endFrame();
+    }
+
+    void render() {
+        frameBegin();
+        frameRender();
+        frameEnd();
     }
 }
 

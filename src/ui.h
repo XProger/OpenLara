@@ -2,6 +2,7 @@
 #define H_UI
 
 #include "core.h"
+#include "mesh.h"
 #include "controller.h"
 
 enum StringID {
@@ -13,6 +14,7 @@ enum StringID {
     , STR_OFF
     , STR_ON
     , STR_SPLIT
+    , STR_VR
     , STR_QUALITY_LOW
     , STR_QUALITY_MEDIUM
     , STR_QUALITY_HIGH
@@ -122,6 +124,7 @@ const char *STR[STR_MAX] = {
     , "Off"
     , "On"
     , "Split Screen"
+    , "VR"
     , "Low"
     , "Medium"
     , "High"

@@ -200,6 +200,7 @@ struct Mesh {
             range.bind(VAO);
             bind(true);
             range.setup(vBuffer);
+            unbind();
         } else
     #endif
             range.aIndex = -1;
@@ -217,12 +218,21 @@ struct Mesh {
     #endif
     }
 
+    static void unbind() {
+        if (Core::support.VAO)
+            glBindVertexArray(Core::active.VAO = 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = 0);
+        glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = 0);
+    }
+
     void render(const MeshRange &range) {
+        if (range.aIndex == -1)
+            bind();
+
     #ifndef _PSP
         range.bind(VAO);
     #endif
 
-        bind();
         if (range.aIndex == -1)
             range.setup(vBuffer);
 
@@ -707,7 +717,7 @@ struct MeshBuilder {
     #ifdef GENERATE_WATER_PLANE
         plane.vStart = vStartCommon;
         plane.iStart = iCount;
-        plane.iCount = PLANE_DETAIL * 2 * PLANE_DETAIL * 2 * (2 * 3);
+        plane.iCount = SQR(PLANE_DETAIL * 2) * 6;
 
         baseIdx = vCount - vStartCommon;
         for (int16 j = -PLANE_DETAIL; j <= PLANE_DETAIL; j++)

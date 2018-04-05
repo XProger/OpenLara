@@ -183,8 +183,8 @@ struct Lara : Character {
 
     #define LARA_RGUN_JOINT 10
     #define LARA_LGUN_JOINT 13
-    #define LARA_RGUN_OFFSET vec3( 10, -50, 0)
-    #define LARA_LGUN_OFFSET vec3(-10, -50, 0)
+    #define LARA_RGUN_OFFSET vec3(-10, -50, 0)
+    #define LARA_LGUN_OFFSET vec3( 10, -50, 0)
 
     enum {
         BODY_HIP        = 0x0001,
@@ -474,6 +474,7 @@ struct Lara : Character {
 
         if (level->extra.braid > -1)
             braid = new Braid(this, (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? vec3(-2.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
+        reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
     #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
@@ -941,7 +942,8 @@ struct Lara : Character {
 
             shots++;
 
-            game->addMuzzleFlash(this, i ? LARA_LGUN_JOINT : LARA_RGUN_JOINT, i ? LARA_LGUN_OFFSET : LARA_RGUN_OFFSET, 1 + camera->cameraIndex);
+            if (wpnCurrent != Weapon::SHOTGUN)
+                game->addMuzzleFlash(this, i ? LARA_LGUN_JOINT : LARA_RGUN_JOINT, i ? LARA_LGUN_OFFSET : LARA_RGUN_OFFSET, 1 + camera->cameraIndex);
 
         // TODO: use new trace code
             int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
@@ -1149,6 +1151,10 @@ struct Lara : Character {
 
     vec3 getAngle(const vec3 &dir) {
         return vec3(atan2f(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)) - angle.x, atan2f(dir.x, dir.z) - angle.y + PI, 0.0f);
+    }
+
+    vec3 getAngleAbs(const vec3 &dir) {
+        return vec3(-atan2f(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)), -atan2f(dir.x, dir.z), 0.0f);
     }
 
     virtual void lookAt(Controller *target) {
@@ -1439,10 +1445,8 @@ struct Lara : Character {
         flags.invisible = true;
         if (!environment)
             environment = new Texture(256, 256, Texture::RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
-        Core::beginFrame();
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
-        Core::endFrame();
         flags.invisible = false;
     }
 
@@ -2637,28 +2641,51 @@ struct Lara : Character {
 
         Input::Joystick &joy = Input::joy[Core::settings.controls[pid].joyIndex];
 
-        if ((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)
-            return input;
+        if (!((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)) {
+            bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
 
-        bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
+            if (!moving) {
+                if (fabsf(joy.L.x) < fabsf(joy.L.y))
+                    joy.L.x = 0.0f;
+                else
+                    joy.L.y = 0.0f;
+            }
 
-        if (!moving) {
-            if (fabsf(joy.L.x) < fabsf(joy.L.y))
-                joy.L.x = 0.0f;
-            else
-                joy.L.y = 0.0f;
+            if (joy.L.x != 0.0f) {
+                input |= (joy.L.x < 0.0f) ? LEFT : RIGHT;
+                if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+                    rotFactor.y = min(fabsf(joy.L.x) / 0.9f, 1.0f);
+            }
+
+            if (joy.L.y != 0.0f) {
+                input |= (joy.L.y < 0.0f) ? FORTH : BACK;
+                if (stand == STAND_UNDERWATER)
+                    rotFactor.x = min(fabsf(joy.L.y) / 0.9f, 1.0f);
+            }
         }
 
-        if (joy.L.x != 0.0f) {
-            input |= (joy.L.x < 0.0f) ? LEFT : RIGHT;
-            if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
-                rotFactor.y = min(fabsf(joy.L.x) / 0.9f, 1.0f);
-        }
+    // VR control
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
+            if (!(input & WALK)) {
+                input &= ~(LEFT | RIGHT);
+            }
 
-        if (joy.L.y != 0.0f) {
-            input |= (joy.L.y < 0.0f) ? FORTH : BACK;
-            if (stand == STAND_UNDERWATER)
-                rotFactor.x = min(fabsf(joy.L.y) / 0.9f, 1.0f);
+            vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
+
+            angle.y = ang.y;
+//            rotFactor = vec2(1.0f);
+//            ang.y = shortAngle(angle.y, ang.y);
+//            if (fabsf(ang.y) > 5 * DEG2RAD)
+//                input |= ang.y < 0.0f ? LEFT : RIGHT;
+
+            if (stand == STAND_UNDERWATER) {
+                input &= ~(FORTH | BACK);
+
+                angle.x = ang.x;
+//                ang.x = shortAngle(angle.x, ang.x);
+//                if (fabsf(ang.x) > 5 * DEG2RAD)
+//                    input |= ang.x < 0.0f ? FORTH : BACK;
+            }
         }
 
         return input;
@@ -2669,6 +2696,7 @@ struct Lara : Character {
             || state == STATE_DEATH
             || state == STATE_UNDERWATER_DEATH
             || state == STATE_HANG
+            || state == STATE_HANG_UP
             || state == STATE_HANG_LEFT
             || state == STATE_HANG_RIGHT
             || state == STATE_PUSH_BLOCK
@@ -2682,9 +2710,12 @@ struct Lara : Character {
             || state == STATE_SPECIAL
             || state == STATE_REACH
             || state == STATE_SWAN_DIVE
+            || state == STATE_FAST_DIVE
             || state == STATE_HANDSTAND
             || state == STATE_ROLL_1
             || state == STATE_ROLL_2
+            || state == STATE_MIDAS_USE
+            || state == STATE_MIDAS_DEATH
             // make me sick!
             // || state == STATE_BACK_JUMP
             // || state == STATE_LEFT_JUMP
@@ -2692,6 +2723,10 @@ struct Lara : Character {
             || animation.index == ANIM_CLIMB_2
             || animation.index == ANIM_CLIMB_3
             || animation.index == ANIM_CLIMB_JUMP;
+    }
+
+    bool canFreeRotate() {
+        return !(useHeadAnimation() || state == STATE_SLIDE || state == STATE_SLIDE_BACK);
     }
 
     virtual void doCustomCommand(int curFrame, int prevFrame) {
@@ -2765,7 +2800,7 @@ struct Lara : Character {
             else
                 hit(Core::deltaTime * 150.0f);
         } else
-            if (oxygen < LARA_MAX_OXYGEN)
+            if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
                 oxygen = min(LARA_MAX_OXYGEN, oxygen += Core::deltaTime * 10.0f);
 
         usedKey = TR::Entity::LARA;
@@ -2811,9 +2846,12 @@ struct Lara : Character {
             w *= TURN_WATER_FAST;
         else if (state == STATE_TREAD || state == STATE_SURF_TREAD || state == STATE_SURF_SWIM || state == STATE_SURF_BACK)
             w *= TURN_WATER_FAST;
-        else if (state == STATE_RUN)
-            w  *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / LARA_TILT_MAX;
-        else if (state == STATE_FAST_TURN)
+        else if (state == STATE_RUN) {
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+                w *= TURN_FAST;
+            else
+                w *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / LARA_TILT_MAX;
+        } else if (state == STATE_FAST_TURN)
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
             w *= TURN_FAST_BACK;
@@ -2928,7 +2966,8 @@ struct Lara : Character {
         if (stand == STAND_UNDERWATER)
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
-        updateTilt(state == STATE_RUN || stand == STAND_UNDERWATER, vTilt.x, vTilt.y);
+        bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
+        updateTilt((state == STATE_RUN || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
