@@ -261,7 +261,7 @@ struct Level : IGame {
 
         if (rebuildShadows) {
             delete shadow;
-            shadow = Core::settings.detail.shadows > Core::Settings::LOW ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
+            shadow = Core::settings.detail.shadows > Core::Settings::LOW ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW, false) : NULL;
         }
             
         if (rebuildWater) {
@@ -422,9 +422,8 @@ struct Level : IGame {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setTarget(target, CLEAR_ALL, i);
+            Core::setRenderTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
             renderView(roomIndex, false, false);
-            Core::invalidateTarget(false, true);
         }
         Core::pass = tmpPass;
     }
@@ -678,7 +677,7 @@ struct Level : IGame {
             zoneCache    = new ZoneCache(this);
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
-            shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, Texture::SHADOW, false) : NULL;
+            shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW, false) : NULL;
 
             initReflections();
 
@@ -713,9 +712,6 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
-
-        Core::setTarget(NULL);
-        Core::validateRenderState();
 
         Core::resetTime();
     }
@@ -1278,11 +1274,10 @@ struct Level : IGame {
 
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM) {
             Sphere spheres[MAX_CONTACTS];
-            int spheresCount;
-            player->getSpheres(spheres, spheresCount);
+            int count = player->getSpheres(spheres);
 
             for (int i = 0; i < MAX_CONTACTS; i++)
-                if (i < spheresCount)
+                if (i < count)
                     Core::contacts[i] = vec4(spheres[i].center, PI * spheres[i].radius * spheres[i].radius * 0.25f);
                 else
                     Core::contacts[i] = vec4(0.0f);
@@ -1874,10 +1869,7 @@ struct Level : IGame {
             }
 
         if (water) {
-            //bool clear = Core::settings.detail.stereo == Core::Settings::STEREO_VR;
-            //clear |= Core::settings.detail.stereo == Core::Settings::STEREO_OFF && players[1] == NULL;
-            bool clear = true;
-            Core::setTarget(NULL, clear ? CLEAR_ALL : 0); // render to back buffer
+            Core::setRenderTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to back buffer
             setupBinding();
         }
 
@@ -1935,25 +1927,112 @@ struct Level : IGame {
         camera->setup(false);
     }
 
-    void setupLightCamera() {
-        vec3 pos = player->getBoundingBox().center();
+    void renderEntityShadow(int index, Controller *controller, Controller *player) {
+        Box box = controller->getSpheresBox(true);
+        mat4 m = controller->getMatrix();
 
+        vec3 pos = m * box.center();
         Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverseOrtho();
-        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
+        Core::mProj    = mat4(90.0f, 1.0f, 1.0f, 2.0f);
+
+        mat4 mLightProj = Core::mProj * Core::mView * m;
+        Box crop = box * (mLightProj);
+        crop.min.z = max(0.0f, crop.min.z);
+
+        float sx =  2.0f / (crop.max.x - crop.min.x);
+        float sy =  2.0f / (crop.max.y - crop.min.y);
+        float sz =  2.0f / (crop.max.z - crop.min.z);
+        float ox = -0.5f * (crop.max.x + crop.min.x) * sx;
+        float oy = -0.5f * (crop.max.y + crop.min.y) * sy;
+        float oz = -0.5f * (crop.max.z + crop.min.z) * sz;
+
+        Core::mProj = mat4(sx,  0,    0,  0,
+                            0,  sy,   0,  0,
+                            0,   0,  sz,  0,
+                           ox,  oy,  oz,  1) * Core::mProj;
+
+        Core::setViewProj(Core::mView, Core::mProj);
 
         mat4 bias;
         bias.identity();
-        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
+        bias.e00 = bias.e11 = bias.e22 = 0.5f;
+        bias.e03 = bias.e13 = bias.e23 = 0.5f;
+        Core::mLightProj[index] = bias * (Core::mProj * Core::mView);
+        
+        Core::setBlending(bmNone);
 
-        Core::mLightProj =  bias * (Core::mProj * Core::mView);
+        mesh->transparent = 0;
+        if (mesh->models[controller->getEntity().modelIndex - 1].geometry[mesh->transparent].count) {
+            setShader(Core::pass, Shader::ENTITY, false, false);
+            controller->render(NULL, mesh, Shader::ENTITY, false);
+        }
+        mesh->transparent = 1;
+        if (mesh->models[controller->getEntity().modelIndex - 1].geometry[mesh->transparent].count) {
+            setShader(Core::pass, Shader::ENTITY, false, true);
+            controller->render(NULL, mesh, Shader::ENTITY, false);
+        }
+        mesh->transparent = 0;
+    }
 
-        camera->frustum->pos = Core::viewPos;
-        camera->frustum->calcPlanes(Core::mViewProj);
+    struct NearObj {
+        int   player;
+        int   index;
+        float dist;
+        NearObj() {}
+        NearObj(int player, int index, float dist) : player(player), index(index), dist(dist) {}
+    };
+
+    int getNearObjects(NearObj *nearObj, int maxCount) {
+        int count = 0;
+
+        nearObj[count++] = NearObj(0, players[0]->entity, 0.0f);
+        if (players[1])
+            nearObj[count++] = NearObj(1, players[1]->entity, 0.0f);
+        int base = count;
+
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &e = level.entities[i];
+            Controller *controller = (Controller*)e.controller;
+            if (controller && controller->isActive() && e.isEnemy() && e.castShadow() && controller != players[0] && controller != players[1]) {
+                int pIndex = 0;
+                float dist = (players[0]->pos - controller->pos).length2();
+                if (players[1]) {
+                    float dist2 = (players[1]->pos - controller->pos).length2();
+                    if (dist2 < dist) {
+                        dist = dist2;
+                        pIndex = 1;
+                    }
+                }
+            // get index to insert
+                int index = base;
+                while (index < count) {
+                    if (dist < nearObj[index].dist)
+                        break;
+                    index++;
+                }
+            // insertion
+                if (index < maxCount) {
+                    if (count < maxCount)
+                        count++;
+                    for (int j = count - 1; j > index; j--)
+                        nearObj[j] = nearObj[j - 1];
+                    nearObj[index] = NearObj(pIndex, controller->entity, dist);
+                }
+            }
+        }
+
+        return count;
     }
 
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
+
+    // get near objects
+        NearObj nearObj[SHADOW_OBJ_MAX];
+        int nearCount = getNearObjects(nearObj, SHADOW_OBJ_MAX);
+
+    // render to shadow map
         float oldEye = Core::eye;
         Core::eye = 0.0f;
 
@@ -1962,14 +2041,19 @@ struct Level : IGame {
         bool colorShadow = shadow->format == Texture::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setTarget(shadow, CLEAR_ALL);
-        setupLightCamera();
+        Core::setRenderTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
+        Core::validateRenderState();
+
         Core::setCulling(cfBack);
 
-        setup();
-        renderView(roomIndex, false, false);
+        for (int i = 0; i < nearCount; i++) {
+            Core::setViewport((i % SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, (i / SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, SHADOW_TEX_TILE, SHADOW_TEX_TILE);
+            renderEntityShadow(i, (Controller*)level.entities[nearObj[i].index].controller, players[nearObj[i].player]);
+        }
 
-        Core::invalidateTarget(!colorShadow, colorShadow);
+        for (int i = nearCount; i < SHADOW_OBJ_MAX; i++)
+            Core::mLightProj[i].identity();
+
         Core::setCulling(cfFront);
         if (colorShadow)
             Core::setClearColor(vec4(0.0f));
@@ -2032,8 +2116,8 @@ struct Level : IGame {
             glLoadIdentity();
             glOrtho(0, Core::width, 0, Core::height, 0, 1);
 
-            if (waterCache && waterCache->count && waterCache->items[0].caustics)
-                waterCache->items[0].caustics->bind(sDiffuse);
+            if (shadow)
+                shadow->bind(sDiffuse);
             else
                 atlas->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
@@ -2043,8 +2127,8 @@ struct Level : IGame {
             Core::validateRenderState();
 
             glColor3f(10, 10, 10);
-            int w = Core::active.textures[sDiffuse]->width / 2;
-            int h = Core::active.textures[sDiffuse]->height / 2;
+            float w = float(Core::active.textures[sDiffuse]->width);
+            float h = float(Core::active.textures[sDiffuse]->height);
             glBegin(GL_QUADS);
                 glTexCoord2f(0, 0); glVertex2f(0, 0);
                 glTexCoord2f(1, 0); glVertex2f(w, 0);
@@ -2060,7 +2144,7 @@ struct Level : IGame {
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
         */
-           
+
         /*
         Core::setDepthTest(false);
         glBegin(GL_LINES);
@@ -2079,7 +2163,7 @@ struct Level : IGame {
             Core::setDepthTest(false);
             Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
-        //    Debug::Level::lights(level, lara->getRoomIndex(), lara);
+        //     Debug::Level::lights(level, player->getRoomIndex(), player);
         //    Debug::Level::sectors(this, lara->getRoomIndex(), (int)lara->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);
@@ -2222,16 +2306,11 @@ struct Level : IGame {
     }
 
     void renderPrepare() {
-        Core::invalidateTarget(true, true);
-
         if (ambientCache)
             ambientCache->processQueue();
 
         if (shadow)
             renderShadows(player->getRoomIndex());
-
-        Core::setTarget(NULL, CLEAR_ALL);
-        Core::validateRenderState();
     }
 
     void renderGame(bool showUI) {
@@ -2266,9 +2345,6 @@ struct Level : IGame {
             params->clipHeight  = NO_CLIP_PLANE;
             params->clipSign    = 1.0f;
             params->waterHeight = params->clipHeight;
-
-            if (shadow && view == 1)
-                renderShadows(player->getRoomIndex());
 
             if (shadow) shadow->bind(sShadow);
             Core::pass = Core::passCompose;
@@ -2401,8 +2477,8 @@ struct Level : IGame {
         UI::end();
     }
 
-    void renderInventory(bool clear) {
-        Core::setTarget(NULL, clear ? CLEAR_ALL : 0);
+    void renderInventory() {
+        Core::setRenderTarget(NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
 
         if (!(level.isTitle() || inventory.titleTimer > 0.0f))
             inventory.renderBackground();
@@ -2425,7 +2501,7 @@ struct Level : IGame {
         lastTitle = title;
 
         if (isEnded) {
-            Core::setTarget(NULL, CLEAR_ALL);
+            Core::setRenderTarget(NULL, RT_CLEAR_COLOR);
             UI::begin();
             UI::updateAspect(float(Core::width) / float(Core::height));
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
@@ -2444,7 +2520,7 @@ struct Level : IGame {
             }
         }
 
-        renderInventory(title);
+        renderInventory();
     }
 
 };

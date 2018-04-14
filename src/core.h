@@ -5,6 +5,10 @@
     #define USE_INFLATE
 #endif
 
+#ifdef _DEBUG
+    #define PROFILE
+#endif
+
 #include <stdio.h>
 
 #define OS_FILEIO_CACHE
@@ -182,6 +186,13 @@
 
 #include "utils.h"
 
+#define SHADOW_OBJ_COLS     4
+#define SHADOW_OBJ_ROWS     2
+#define SHADOW_TEX_TILE     128
+#define SHADOW_TEX_WIDTH    (SHADOW_OBJ_COLS * SHADOW_TEX_TILE)
+#define SHADOW_TEX_HEIGHT   (SHADOW_OBJ_ROWS * SHADOW_TEX_TILE)
+#define SHADOW_OBJ_MAX      (SHADOW_OBJ_COLS * SHADOW_OBJ_ROWS)
+
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
@@ -274,6 +285,16 @@ struct KeySet {
     
     KeySet() {}
     KeySet(InputKey key, JoyKey joy) : key(key), joy(joy) {}
+};
+
+enum RenderTargetOp {
+    RT_CLEAR_COLOR   = 0x0001,
+    RT_LOAD_COLOR    = 0x0002,
+    RT_STORE_COLOR   = 0x0004,
+
+    RT_CLEAR_DEPTH   = 0x0008,
+    RT_LOAD_DEPTH    = 0x0010,
+    RT_STORE_DEPTH   = 0x0020,
 };
 
 namespace Core {
@@ -616,7 +637,8 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult };
 namespace Core {
     float eye;
     vec4 viewport, viewportDef;
-    mat4 mModel, mView, mProj, mViewProj, mViewInv, mLightProj;
+    mat4 mModel, mView, mProj, mViewProj, mViewInv;
+    mat4 mLightProj[SHADOW_OBJ_MAX];
     Basis basis;
     vec3 viewPos;
     vec4 lightPos[MAX_LIGHTS];
@@ -651,9 +673,10 @@ namespace Core {
         Shader      *shader;
         Texture     *textures[8];
         Texture     *target;
+        uint32      targetFace;
+        uint32      targetOp;
         vec4        viewport;
         vec4        material;
-        uint32      targetFace;
     #ifdef _PSP
         Index       *iBuffer;
         VertexGPU   *vBuffer;
@@ -670,8 +693,8 @@ namespace Core {
     
     struct ReqTarget {
         Texture *texture;
-        uint8   clear;
-        uint8   face;
+        uint32  op;
+        uint32  face;
     } reqTarget;
 
     struct Stats {
@@ -1191,8 +1214,19 @@ namespace Core {
         if (!mask) return;
 
         if (mask & RS_TARGET) {
+            #ifdef MOBILE
+                if (support.discardFrame) {
+                    int count = 0;
+                    GLenum discard[2];
+                    if (!(active.targetOp & RT_STORE_COLOR)) discard[count++] = active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
+                    if (!(active.targetOp & RT_STORE_DEPTH)) discard[count++] = active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
+                    if (count)
+                        glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
+                }
+            #endif
+
             Texture *target = reqTarget.texture;
-            uint8   face    = reqTarget.face;
+            uint32  face    = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
             #ifdef _PSP
@@ -1221,6 +1255,7 @@ namespace Core {
             #endif
 
                 active.target     = target;
+                active.targetOp   = reqTarget.op;
                 active.targetFace = face;
             }
         }
@@ -1334,16 +1369,16 @@ namespace Core {
         }
     #endif
         if (mask & RS_TARGET) {
-            if (reqTarget.clear) {
+            int clear = 0;
             #ifdef _PSP
-                sceGuClear(((reqTarget.clear & CLEAR_COLOR) ? GU_COLOR_BUFFER_BIT : 0) | 
-                           ((reqTarget.clear & CLEAR_DEPTH) ? GU_DEPTH_BUFFER_BIT : 0) | 
-                           GU_FAST_CLEAR_BIT);
+                if (reqTarget.op & RT_CLEAR_COLOR) clear |= GU_COLOR_BUFFER_BIT;
+                if (reqTarget.op & RT_CLEAR_DEPTH) clear |= GU_DEPTH_BUFFER_BIT;
+                if (clear) sceGuClear(clear | GU_FAST_CLEAR_BIT);
             #else
-                glClear(((reqTarget.clear & CLEAR_COLOR) ? GL_COLOR_BUFFER_BIT : 0) | 
-                        ((reqTarget.clear & CLEAR_DEPTH) ? GL_DEPTH_BUFFER_BIT : 0));
+                if (reqTarget.op & RT_CLEAR_COLOR) clear |= GL_COLOR_BUFFER_BIT;
+                if (reqTarget.op & RT_CLEAR_DEPTH) clear |= GL_DEPTH_BUFFER_BIT;
+                if (clear) glClear(clear);
             #endif
-            }
             renderState &= ~RS_TARGET;
         }
 
@@ -1365,6 +1400,10 @@ namespace Core {
     void setViewport(int x, int y, int width, int height) {
         viewport = vec4(float(x), float(y), float(width), float(height));
         renderState |= RS_VIEWPORT;
+    }
+
+    void setViewport(const vec4 &vp) {
+        setViewport(int(vp.x), int(vp.y), int(vp.z), int(vp.w));
     }
 
     void setCulling(CullFace mode) {
@@ -1415,19 +1454,7 @@ namespace Core {
             renderState &= ~RS_DEPTH_TEST;
     }
 
-    void invalidateTarget(bool color, bool depth) {
-    #ifdef MOBILE
-        if (support.discardFrame && (color || depth)) {
-            int count = 0;
-            GLenum discard[2];
-            if (color) discard[count++] = active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
-            if (depth) discard[count++] = active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
-            glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
-        }
-    #endif
-    }
-
-    void setTarget(Texture *target, uint8 clear = 0, uint8 face = 0) {
+    void setRenderTarget(Texture *target, int op, int face = 0) {
         if (!target)
             target = defaultTarget;
 
@@ -1440,7 +1467,7 @@ namespace Core {
             setViewport(0, 0, target->width, target->height);
 
         reqTarget.texture = target;
-        reqTarget.clear   = clear;
+        reqTarget.op      = op;
         reqTarget.face    = face;
         renderState |= RS_TARGET;
     }

@@ -1121,21 +1121,21 @@ struct Inventory {
         //
     #else
         // vertical blur
-        Core::setTarget(background[1], CLEAR_COLOR);
+        Core::setRenderTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // horizontal blur
-        Core::setTarget(background[0], CLEAR_COLOR);
+        Core::setRenderTarget(background[0], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[1]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // grayscale
-        Core::setTarget(background[1], CLEAR_COLOR);
+        Core::setRenderTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));
         background[0]->bind(sDiffuse);
@@ -1143,8 +1143,6 @@ struct Inventory {
 
         swap(background[0], background[1]);
     #endif
-
-        Core::setTarget(NULL, CLEAR_ALL); // TODO: ???
 
         Core::setDepthTest(true);
     }
@@ -1389,7 +1387,6 @@ struct Inventory {
     }
 
     void renderGameBG() {
-        Core::setTarget(NULL, CLEAR_DEPTH);
         #ifdef _PSP
             return;
         #endif
@@ -1492,7 +1489,8 @@ struct Inventory {
     // items
         game->setupBinding();
 
-        Core::mLightProj.identity();
+        for (int i = 0; i < SHADOW_OBJ_MAX; i++)
+            Core::mLightProj[i].identity();
 
         setupCamera(aspect);
 

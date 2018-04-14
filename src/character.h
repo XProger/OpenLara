@@ -266,8 +266,7 @@ struct Character : Controller {
 
     void addSparks(uint32 mask) {
         Sphere spheres[MAX_SPHERES];
-        int count;
-        getSpheres(spheres, count);
+        int count = getSpheres(spheres);
         for (int i = 0; i < count; i++)
             if (mask & (1 << i)) {
                 vec3 sprPos = spheres[i].center + (vec3(randf(), randf(), randf()) * 2.0f - 1.0f) * spheres[i].radius;

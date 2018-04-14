@@ -699,20 +699,42 @@ struct Controller {
         return animation.getBoundingBox(vec3(0, 0, 0), oriented ? getEntity().rotation.value / 0x4000 : 0);
     }
 
-    void getSpheres(Sphere *spheres, int &count) {
+    int getSpheres(Sphere *spheres) {
         const TR::Model *m = getModel();
         ASSERT(m->mCount <= MAX_SPHERES);
 
         updateJoints();
 
-        count = 0;
+        int count = 0;
         for (int i = 0; i < m->mCount; i++) {
             TR::Mesh &aMesh = level->meshes[level->meshOffsets[m->mStart + i]];
             if (aMesh.radius <= 0) continue;
             vec3 center = joints[i] * aMesh.center;
             spheres[count++] = Sphere(center, aMesh.radius);
         }
+        return count;
     }
+
+    Box getSpheresBox(bool local = false) {
+        Sphere spheres[MAX_SPHERES];
+        int count = getSpheres(spheres);
+        if (count) {
+
+            if (local) {
+                mat4 m = getMatrix().inverseOrtho();
+                for (int i = 0; i < count; i++)
+                    spheres[i].center = m * spheres[i].center;
+            }
+
+            Box box(spheres[0].center - vec3(spheres[0].radius), spheres[0].center + vec3(spheres[0].radius));
+            for (int i = 1; i < count; i++)
+                box += Box(spheres[i].center - vec3(spheres[i].radius), spheres[i].center + vec3(spheres[i].radius));
+
+            return box;
+        } else
+            return local ? getBoundingBoxLocal() : getBoundingBox();
+    }
+
 
     int collide(Controller *controller, bool checkBoxes = true) {
         const TR::Model *a = getModel();
@@ -728,10 +750,9 @@ struct Controller {
 
         Sphere aSpheres[MAX_SPHERES];
         Sphere bSpheres[MAX_SPHERES];
-        int aCount, bCount;
 
-        getSpheres(aSpheres, aCount);
-        controller->getSpheres(bSpheres, bCount);
+        int aCount = getSpheres(aSpheres);
+        int bCount = controller->getSpheres(bSpheres);
 
         int mask = 0;
         for (int i = 0; i < aCount; i++) 
@@ -1114,7 +1135,7 @@ struct Controller {
                     if ((light.color.r | light.color.g | light.color.b) == 0) continue;
 
                     vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                    float att = max(0.0f, 1.0f - dir.length2() / float(light.radius) / float(light.radius)) * ((light.color.r + light.color.g + light.color.b) / (3.0f * 255.0f));
+                    float att = max(0.0f, 1.0f - dir.length2() / SQR(light.radius)) * ((light.color.r + light.color.g + light.color.b) / (3.0f * 255.0f));
 
                     if (att > maxAtt) {
                         maxAtt = att;

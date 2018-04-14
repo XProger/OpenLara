@@ -66,7 +66,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
     env->ReleaseStringUTFChars(cacheDir, str);
 
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&Core::defaultFBO);
-    Game::init("level/1/LEVEL2.PSX");
+    Game::init();
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {

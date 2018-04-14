@@ -1376,8 +1376,7 @@ struct Lara : Character {
             t *= v.length();
             v = v.normal();
             Sphere spheres[MAX_SPHERES];
-            int count;
-            target->getSpheres(spheres, count);
+            int count = target->getSpheres(spheres);
             for (int i = 0; i < count; i++) {
                 float st;
                 if (spheres[i].intersect(from, v, st)) {
