@@ -4,18 +4,17 @@ R"====(
 	precision highp		float;
 #endif
 
-#ifdef OPT_CONTACT
+#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 	varying vec3 vCoord;
 #endif
 
 varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 #ifdef OPT_CAUSTICS
-	varying vec2 vCausticsCoord; // - xy caustics texture coord
 	uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 #endif
 
-uniform mat4 uLightProj;
+uniform mat4 uLightProj[SHADOW_OBJ_MAX];
 uniform mat4 uViewProj;
 uniform vec3 uViewPos;
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
@@ -32,7 +31,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 	#ifndef TYPE_FLASH
 		#ifdef PASS_COMPOSE
-			varying vec4 vLightProj;
 			varying vec4 vLightVec;		// xyz - dir, w - fog factor
 
 			#ifdef OPT_SHADOW
@@ -131,7 +129,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			vLightVec.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
-		#ifdef OPT_CONTACT
+		#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 			vCoord = coord.xyz;
 		#endif
 		return coord;
@@ -227,10 +225,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
 			vTexCoord.xy *= vTexCoord.zw;
 		#endif
-
-		#ifdef OPT_CAUSTICS
-			vCausticsCoord.xy = clamp((coord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
-		#endif
 	}
 
 	void main() {
@@ -239,10 +233,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#ifndef PASS_SHADOW
 			_diffuse();
 			_lighting(coord.xyz);
-
-			#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
-				vLightProj = uLightProj * coord;
-			#endif
 		#endif
 
 		_uv(coord.xyz);
@@ -293,8 +283,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			}
 		#endif
 
-		#define SHADOW_TEXEL (2.0 / SHADOW_TEX_SIZE)
-
 		float random(vec3 seed, float freq) {
 			float dt = dot(floor(seed * freq), vec3(53.1215, 21.1352, 9.1322));
 			return fract(sin(dt) * 2105.2354);
@@ -308,8 +296,18 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			return vec3(v.x * sc.y + v.y * sc.x, v.x * -sc.x + v.y * sc.y, 0.0);
 		}
 
-		float getShadow(vec4 lightProj) {
+		float getShadow(vec4 lightProj, vec2 tileOffset) {
 			vec3 p = lightProj.xyz / lightProj.w;
+			float vis = 
+			#ifdef TYPE_ROOM
+				min(dot(vNormal.xyz, vLightVec.xyz), lightProj.w);
+			#else
+				lightProj.w;
+			#endif
+			vis = min(min(p.x, p.y), vis);
+			if (vis <= 0.0 || max(p.x, p.y) > 1.0) return 1.0;
+
+			p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
 
 			float rShadow = SHADOW(SHADOW_TEXEL * vec3(-0.93289, -0.03146, 0.0) + p) +
 							SHADOW(SHADOW_TEXEL * vec3( 0.81628, -0.05965, 0.0) + p) +
@@ -337,13 +335,17 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			return rShadow + (1.0 - rShadow) * fade;
 		}
 
-		float getShadow() {
-			#ifdef TYPE_ROOM
-				float vis = min(dot(vNormal.xyz, vLightVec.xyz), vLightProj.w);
-			#else
-				float vis = vLightProj.w;
-			#endif
-			return vis > 0.0 ? getShadow(vLightProj) : 1.0;
+		float getShadow() { // hardcoded for 4x2 shadow atlas
+			vec4 c = vec4(vCoord, 1.0);
+			return min(min(min(min(min(min(min(
+				getShadow(uLightProj[0] * c, vec2(0.00, 0.0)),
+				getShadow(uLightProj[1] * c, vec2(0.25, 0.0))),
+				getShadow(uLightProj[2] * c, vec2(0.50, 0.0))),
+				getShadow(uLightProj[3] * c, vec2(0.75, 0.0))),
+				getShadow(uLightProj[4] * c, vec2(0.00, 0.5))),
+				getShadow(uLightProj[5] * c, vec2(0.25, 0.5))),
+				getShadow(uLightProj[6] * c, vec2(0.50, 0.5))),
+				getShadow(uLightProj[7] * c, vec2(0.75, 0.5)));
 		}
 	#endif
 
@@ -351,7 +353,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		uniform sampler2D sReflect;
 
 		float calcCaustics(vec3 n) {
-			vec2 cc		= vCausticsCoord.xy;
+			vec2 cc		= clamp((vCoord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
 			vec2 border	= vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
 			vec2 fade	= smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
 			return texture2D(sReflect, cc).x * max(0.0, -n.y) * fade.x * fade.y;

@@ -1121,21 +1121,21 @@ struct Inventory {
         //
     #else
         // vertical blur
-        Core::setRenderTarget(background[1], RT_STORE_COLOR);
+        Core::setTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // horizontal blur
-        Core::setRenderTarget(background[0], RT_STORE_COLOR);
+        Core::setTarget(background[0], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / INVENTORY_BG_SIZE, 0));;
         background[1]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // grayscale
-        Core::setRenderTarget(background[1], RT_STORE_COLOR);
+        Core::setTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));
         background[0]->bind(sDiffuse);

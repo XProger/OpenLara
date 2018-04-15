@@ -288,6 +288,8 @@ struct AmbientCache {
                         float(max((s.floor - 2) * 256, (s.floor + s.ceiling) * 256 / 2)),
                         float((sector % r.zSectors) * 1024 + 512 + r.info.z));
 
+        Core::setClearColor(vec4(0, 0, 0, 1));
+
         // first pass - render environment from position (room geometry & static meshes)
         game->renderEnvironment(room, pos, textures, 4);
 
@@ -304,7 +306,7 @@ struct AmbientCache {
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
                 Texture *dst = textures[j * 4 + i];
-                Core::setRenderTarget(dst, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+                Core::setTarget(dst, RT_STORE_COLOR);
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
             }
@@ -312,11 +314,12 @@ struct AmbientCache {
 
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
-            Core::setRenderTarget(textures[j * 4 + 3], RT_STORE_COLOR);
+            Core::setTarget(textures[j * 4 + 3], RT_LOAD_COLOR);
             colors[j] = Core::copyPixel(0, 0).xyz();
         }
 
         Core::setDepthTest(true);
+        Core::setClearColor(vec4(0, 0, 0, 0));
     }
 
     void processQueue() {
@@ -628,7 +631,7 @@ struct WaterCache {
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
             item.data[0]->bind(sDiffuse);
-            Core::setRenderTarget(item.data[1], RT_STORE_COLOR);
+            Core::setTarget(item.data[1], RT_STORE_COLOR);
             Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
@@ -636,7 +639,6 @@ struct WaterCache {
     }
     
     void step(Item &item) {
-        item.timer = SIMULATE_TIMESTEP;
         if (item.timer < SIMULATE_TIMESTEP) return;
 
         game->setShader(Core::passWater, Shader::WATER_STEP);
@@ -646,7 +648,7 @@ struct WaterCache {
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             item.data[0]->bind(sDiffuse);
-            Core::setRenderTarget(item.data[1], RT_STORE_COLOR);
+            Core::setTarget(item.data[1], RT_STORE_COLOR);
             Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
@@ -665,7 +667,7 @@ struct WaterCache {
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
-        Core::setRenderTarget(item.caustics, RT_STORE_COLOR);
+        Core::setTarget(item.caustics, RT_STORE_COLOR);
         game->getMesh()->renderPlane();
     #ifdef BLUR_CAUSTICS
         // v blur
@@ -765,7 +767,7 @@ struct WaterCache {
         }
 
     // render mirror reflection
-        Core::setRenderTarget(reflect, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::setTarget(reflect, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
         Camera *camera = (Camera*)game->getCamera();
         game->setupBinding();
 

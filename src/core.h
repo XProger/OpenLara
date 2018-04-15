@@ -22,6 +22,8 @@
     #undef OS_PTHREAD_MT
 #elif ANDROID
     #define MOBILE
+    #define RENDER_TBR
+
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
     #include <dlfcn.h>
@@ -57,6 +59,8 @@
     extern void osToggleVR(bool enable);
 #elif __RPI__
     #define MOBILE
+    #define RENDER_TBR
+
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
     #include <EGL/egl.h>
@@ -101,6 +105,8 @@
 
     #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
         #define MOBILE
+        #define RENDER_TBR
+
         #include <OpenGLES/ES2/gl.h>
         #include <OpenGLES/ES2/glext.h>
         #include <OpenGLES/ES3/glext.h>
@@ -1237,6 +1243,8 @@ namespace Core {
                     sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
 */
             #else
+                bool depth = false;
+
                 Core::stats.rt++;
                 if (!target) { // may be a null
                     glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
@@ -1245,13 +1253,19 @@ namespace Core {
                     if (target->opt & Texture::CUBEMAP) 
                         texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-                    bool depth   = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+                    depth = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+
                     int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
 
                     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
                     glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
                     glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
                 }
+            #endif
+
+            #ifdef RENDER_TBR
+                if (!(reqTarget.op & RT_LOAD_COLOR) && !depth) reqTarget.op |= RT_CLEAR_COLOR;
+                if (!(reqTarget.op & RT_LOAD_DEPTH) &&  depth) reqTarget.op |= RT_CLEAR_DEPTH;
             #endif
 
                 active.target     = target;
@@ -1454,7 +1468,7 @@ namespace Core {
             renderState &= ~RS_DEPTH_TEST;
     }
 
-    void setRenderTarget(Texture *target, int op, int face = 0) {
+    void setTarget(Texture *target, int op, int face = 0) {
         if (!target)
             target = defaultTarget;
 

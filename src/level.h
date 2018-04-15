@@ -414,18 +414,22 @@ struct Level : IGame {
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {
         PROFILE_MARKER("ENVIRONMENT");
-        Core::eye = 0.0f;
         setupBinding();
+        float      tmpEye  = Core::eye;
         Core::Pass tmpPass = Core::pass;
-    // first pass render level into cube faces
+        Core::eye = 0.0f;
+
+    // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setRenderTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
+            Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
             renderView(roomIndex, false, false);
         }
+
         Core::pass = tmpPass;
+        Core::eye  = tmpEye;
     }
     
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {
@@ -1869,7 +1873,7 @@ struct Level : IGame {
             }
 
         if (water) {
-            Core::setRenderTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to back buffer
+            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to back buffer
             setupBinding();
         }
 
@@ -2041,7 +2045,7 @@ struct Level : IGame {
         bool colorShadow = shadow->format == Texture::RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setRenderTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
+        Core::setTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
         Core::validateRenderState();
 
         Core::setCulling(cfBack);
@@ -2478,7 +2482,7 @@ struct Level : IGame {
     }
 
     void renderInventory() {
-        Core::setRenderTarget(NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::setTarget(NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
 
         if (!(level.isTitle() || inventory.titleTimer > 0.0f))
             inventory.renderBackground();
@@ -2501,7 +2505,7 @@ struct Level : IGame {
         lastTitle = title;
 
         if (isEnded) {
-            Core::setRenderTarget(NULL, RT_CLEAR_COLOR);
+            Core::setTarget(NULL, RT_CLEAR_COLOR);
             UI::begin();
             UI::updateAspect(float(Core::width) / float(Core::height));
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
