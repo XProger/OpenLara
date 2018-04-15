@@ -507,7 +507,7 @@ struct WaterCache {
     } drops[MAX_DROPS];
 
     WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), dropCount(0) {
-        reflect = new Texture(512, 512, Texture::RGB16, false);
+        reflect = new Texture(512, 512, Texture::RGB16);
     }
 
     ~WaterCache() { 
@@ -731,7 +731,7 @@ struct WaterCache {
     // get refraction texture
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
             delete refract;
-            refract = new Texture(w, h, Texture::RGBA, false);
+            refract = new Texture(w, h, Texture::RGBA);
         }
         Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }

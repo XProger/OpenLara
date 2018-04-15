@@ -298,38 +298,18 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 		float getShadow(vec4 lightProj, vec2 tileOffset) {
 			vec3 p = lightProj.xyz / lightProj.w;
-			float vis = 
+			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
-				min(dot(vNormal.xyz, vLightVec.xyz), lightProj.w);
-			#else
-				lightProj.w;
+				vis = min(vis, dot(vNormal.xyz, vLightVec.xyz));
 			#endif
-			vis = min(min(p.x, p.y), vis);
-			if (vis <= 0.0 || max(p.x, p.y) > 1.0) return 1.0;
+			if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
 
 			p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
 
-			float rShadow = SHADOW(SHADOW_TEXEL * vec3(-0.93289, -0.03146, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3( 0.81628, -0.05965, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3(-0.18455,  0.97225, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3( 0.04032, -0.85898, 0.0) + p);
-
-			if (rShadow > 0.1 && rShadow < 3.9) {
-				float angle = randomAngle(vTexCoord.xyy, 15.0);
-				vec2 sc = vec2(sin(angle), cos(angle));
-
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54316,  0.21186)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.03925, -0.34345)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.07695,  0.40667)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.66378, -0.54068)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2(-0.54130,  0.66730)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.69301,  0.46990)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.37228,  0.03811)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.28597,  0.80228)) + p);
-				rShadow += SHADOW(SHADOW_TEXEL * rotate(sc, vec2( 0.44801, -0.43844)) + p);
-				rShadow /= 13.0;
-			} else
-				rShadow /= 4.0;
+			float rShadow =(SHADOW(SHADOW_TEXEL * vec3(-0.5, -0.5, 0.0) + p) +  
+							SHADOW(SHADOW_TEXEL * vec3( 0.5, -0.5, 0.0) + p) +  
+							SHADOW(SHADOW_TEXEL * vec3(-0.5,  0.5, 0.0) + p) +  
+							SHADOW(SHADOW_TEXEL * vec3( 0.5,  0.5, 0.0) + p)) * 0.25;
 
 			float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
 			return rShadow + (1.0 - rShadow) * fade;

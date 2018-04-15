@@ -261,7 +261,7 @@ struct Level : IGame {
 
         if (rebuildShadows) {
             delete shadow;
-            shadow = Core::settings.detail.shadows > Core::Settings::LOW ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW, false) : NULL;
+            shadow = Core::settings.detail.shadows > Core::Settings::LOW ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW) : NULL;
         }
             
         if (rebuildWater) {
@@ -681,7 +681,7 @@ struct Level : IGame {
             zoneCache    = new ZoneCache(this);
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
-            shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW, false) : NULL;
+            shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW) : NULL;
 
             initReflections();
 

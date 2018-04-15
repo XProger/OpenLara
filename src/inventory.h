@@ -1091,7 +1091,7 @@ struct Inventory {
 
         for (int i = 0; i < COUNT(background); i++)
             if (!background[i])
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA, false);
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA);
 
         return background[0];
     }

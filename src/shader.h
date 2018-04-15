@@ -114,16 +114,16 @@ struct Shader {
         #endif
 
         const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-        const char *code[2][3] = {
-                { GLSL_DEFINE GLSL_VERT "#define VERTEX\n",   defines, text },
-                { GLSL_DEFINE GLSL_FRAG "#define FRAGMENT\n", defines, text }
+        const char *code[2][4] = {
+                { GLSL_DEFINE GLSL_VERT "#define VERTEX\n",   defines, "#line 0\n", text },
+                { GLSL_DEFINE GLSL_FRAG "#define FRAGMENT\n", defines, "#line 0\n", text }
             };
 
         GLchar info[1024];
 
         for (int i = 0; i < 2; i++) {
             GLuint obj = glCreateShader(type[i]);
-            glShaderSource(obj, 3, code[i], NULL);
+            glShaderSource(obj, 4, code[i], NULL);
             glCompileShader(obj);
 
             glGetShaderInfoLog(obj, sizeof(info), NULL, info);
