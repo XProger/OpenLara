@@ -142,7 +142,7 @@ struct ShaderCache {
 
                 src = SHADER;
                 typ = typeNames[type];          
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n#define SHADOW_TEXEL vec3(1.0 / %d.0, 1.0 / %d.0, 0.0)\n#define SHADOW_OBJ_MAX %d\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_CONTACTS, WATER_FOG_DIST, SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, SHADOW_OBJ_MAX);
+                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_CONTACTS, WATER_FOG_DIST);
                 #ifdef MERGE_SPRITES
                     if (type == Shader::SPRITE)
                         strcat(def, "#define ALIGN_SPRITES 1\n");
@@ -157,8 +157,15 @@ struct ShaderCache {
                         strcat(def, "#define OPT_LIGHTING\n");
                     if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
                         strcat(def, "#define OPT_AMBIENT\n");
-                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
+                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM)) {
                         strcat(def, "#define OPT_SHADOW\n");
+
+                        if (Core::settings.detail.shadows > Core::Settings::MEDIUM) {
+                            strcat(def, "#define OPT_SHADOW_HIGH\n");
+                            sprintf(def, "%s#define SHADOW_TEXEL vec3(1.0 / %d.0, 1.0 / %d.0, 0.0)\n#define SHADOW_OBJ_MAX %d\n", def, SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, SHADOW_OBJ_MAX);
+                        } else
+                            sprintf(def, "%s#define SHADOW_TEXEL vec3(1.0 / %d.0, 1.0 / %d.0, 0.0)\n#define SHADOW_OBJ_MAX %d\n", def, SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, 1);
+                    }
                     if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (type == Shader::ROOM))
                         strcat(def, "#define OPT_CONTACT\n");
                     if (Core::settings.detail.water    > Core::Settings::MEDIUM && (type == Shader::ENTITY || type == Shader::ROOM) && (fx & FX_UNDERWATER))
@@ -209,7 +216,7 @@ struct ShaderCache {
         shader->bind();
         // TODO: bindable uniform block
         shader->setParam(uViewProj,       Core::mViewProj);
-        shader->setParam(uLightProj,      Core::mLightProj[0], SHADOW_OBJ_MAX);
+        shader->setParam(uLightProj,      Core::mLightProj[0], Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM ? SHADOW_OBJ_MAX : 1);
         shader->setParam(uViewPos,        Core::viewPos);
         shader->setParam(uParam,          Core::params);
         shader->setParam(uFogParams,      Core::fogParams);

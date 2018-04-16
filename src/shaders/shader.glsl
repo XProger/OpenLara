@@ -14,7 +14,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 #endif
 
-uniform mat4 uLightProj[SHADOW_OBJ_MAX];
+#ifdef OPT_SHADOW
+	uniform mat4 uLightProj[SHADOW_OBJ_MAX];
+#endif
+
 uniform mat4 uViewProj;
 uniform vec3 uViewPos;
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
@@ -283,28 +286,18 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			}
 		#endif
 
-		float random(vec3 seed, float freq) {
-			float dt = dot(floor(seed * freq), vec3(53.1215, 21.1352, 9.1322));
-			return fract(sin(dt) * 2105.2354);
-		}
-
-		float randomAngle(vec3 seed, float freq) {
-			return random(seed, freq) * 6.283285;
-		}
-
-		vec3 rotate(vec2 sc, vec2 v) {
-			return vec3(v.x * sc.y + v.y * sc.x, v.x * -sc.x + v.y * sc.y, 0.0);
-		}
-
 		float getShadow(vec4 lightProj, vec2 tileOffset) {
 			vec3 p = lightProj.xyz / lightProj.w;
+
 			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
 				vis = min(vis, dot(vNormal.xyz, vLightVec.xyz));
 			#endif
 			if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
 
-			p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
+			#ifdef OPT_SHADOW_HIGH
+				p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
+			#endif
 
 			float rShadow =(SHADOW(SHADOW_TEXEL * vec3(-0.5, -0.5, 0.0) + p) +
 							SHADOW(SHADOW_TEXEL * vec3( 0.5, -0.5, 0.0) + p) +
@@ -315,9 +308,10 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			return rShadow + (1.0 - rShadow) * fade;
 		}
 
-		float getShadow() { // hardcoded for 4x2 shadow atlas
+		float getShadow() {
 			vec4 c = vec4(vCoord, 1.0);
-			return min(min(min(min(min(min(min(
+		#ifdef OPT_SHADOW_HIGH
+			return min(min(min(min(min(min(min( // hardcoded for 4x2 shadow atlas
 				getShadow(uLightProj[0] * c, vec2(0.00, 0.0)),
 				getShadow(uLightProj[1] * c, vec2(0.25, 0.0))),
 				getShadow(uLightProj[2] * c, vec2(0.50, 0.0))),
@@ -326,6 +320,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 				getShadow(uLightProj[5] * c, vec2(0.25, 0.5))),
 				getShadow(uLightProj[6] * c, vec2(0.50, 0.5))),
 				getShadow(uLightProj[7] * c, vec2(0.75, 0.5)));
+		#else
+			return getShadow(uLightProj[0] * c, vec2(0.0, 0.0));
+		#endif
 		}
 	#endif
 
@@ -457,19 +454,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 						color.xyz = mix(uFogParams.xyz, color.xyz, vLightVec.w);
 					#endif
 				#endif
-/* catsuit test
-			#elif defined(TYPE_MIRROR)
-				color.xyz += calcSpecular(normalize(vNormal.xyz), vViewVec.xyz, vLightVec.xyz, uLightColor[0], 0.4);
-				color.w = 1.0;
-*/
 			#endif
 
-			#ifdef TYPE_PARTICLE_SPRITE
-				gl_FragColor = vec4(color.xyz * max(1.0 - vNormal.w, color.w), color.w * vNormal.w); // premultiplied
-			#else
-				gl_FragColor = color;
-			#endif
-
+			gl_FragColor = color;
 		#endif
 	}
 #endif

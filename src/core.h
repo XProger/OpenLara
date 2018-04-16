@@ -192,12 +192,14 @@
 
 #include "utils.h"
 
-#define SHADOW_OBJ_COLS     4
-#define SHADOW_OBJ_ROWS     2
-#define SHADOW_TEX_TILE     128
-#define SHADOW_TEX_WIDTH    (SHADOW_OBJ_COLS * SHADOW_TEX_TILE)
-#define SHADOW_TEX_HEIGHT   (SHADOW_OBJ_ROWS * SHADOW_TEX_TILE)
-#define SHADOW_OBJ_MAX      (SHADOW_OBJ_COLS * SHADOW_OBJ_ROWS)
+#define SHADOW_OBJ_COLS         4
+#define SHADOW_OBJ_ROWS         2
+#define SHADOW_TEX_TILE         128
+#define SHADOW_TEX_BIG_WIDTH    1024
+#define SHADOW_TEX_BIG_HEIGHT   1024
+#define SHADOW_TEX_WIDTH        (SHADOW_OBJ_COLS * SHADOW_TEX_TILE)
+#define SHADOW_TEX_HEIGHT       (SHADOW_OBJ_ROWS * SHADOW_TEX_TILE)
+#define SHADOW_OBJ_MAX          (SHADOW_OBJ_COLS * SHADOW_OBJ_ROWS)
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);

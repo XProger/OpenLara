@@ -223,6 +223,16 @@ struct Level : IGame {
         }
     }
 
+    void initShadow() {
+        delete shadow;
+        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
+            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW);
+        else if (Core::settings.detail.shadows > Core::Settings::LOW)
+            shadow = new Texture(SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, Texture::SHADOW);
+        else
+            shadow = NULL;
+    }
+
     virtual void applySettings(const Core::Settings &settings) {
         if (settings.detail.filter != Core::settings.detail.filter)
             atlas->setFilterQuality(settings.detail.filter);
@@ -259,10 +269,8 @@ struct Level : IGame {
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
         }
 
-        if (rebuildShadows) {
-            delete shadow;
-            shadow = Core::settings.detail.shadows > Core::Settings::LOW ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW) : NULL;
-        }
+        if (rebuildShadows)
+            initShadow();
             
         if (rebuildWater) {
             delete waterCache;
@@ -681,7 +689,9 @@ struct Level : IGame {
             zoneCache    = new ZoneCache(this);
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
-            shadow       = Core::settings.detail.shadows  > Core::Settings::LOW    ? new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW) : NULL;
+
+            shadow = NULL;
+            initShadow();
 
             initReflections();
 
@@ -1931,7 +1941,27 @@ struct Level : IGame {
         camera->setup(false);
     }
 
-    void renderEntityShadow(int index, Controller *controller, Controller *player) {
+    void renderShadowView(int roomIndex) {
+        vec3 pos = player->getBoundingBox().center();
+
+        Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
+        Core::mView    = Core::mViewInv.inverseOrtho();
+        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
+
+        mat4 bias;
+        bias.identity();
+        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
+
+        Core::mLightProj[0] = bias * (Core::mProj * Core::mView);
+
+        camera->frustum->pos = Core::viewPos;
+        camera->frustum->calcPlanes(Core::mViewProj);
+
+        setup();
+        renderView(roomIndex, false, false);
+    }
+
+    void renderShadowEntity(int index, Controller *controller, Controller *player) {
         Box box = controller->getSpheresBox(true);
         mat4 m = controller->getMatrix();
 
@@ -1940,8 +1970,7 @@ struct Level : IGame {
         Core::mView    = Core::mViewInv.inverseOrtho();
         Core::mProj    = mat4(90.0f, 1.0f, 1.0f, 2.0f);
 
-        mat4 mLightProj = Core::mProj * Core::mView * m;
-        Box crop = box * (mLightProj);
+        Box crop = box * (Core::mProj * Core::mView * m);
         crop.min.z = max(0.0f, crop.min.z);
 
         float sx =  2.0f / (crop.max.x - crop.min.x);
@@ -1954,14 +1983,13 @@ struct Level : IGame {
         Core::mProj = mat4(sx,  0,    0,  0,
                             0,  sy,   0,  0,
                             0,   0,  sz,  0,
-                           ox,  oy,  oz,  1) * Core::mProj;
+                            ox,  oy,  oz,  1) * Core::mProj;
 
         Core::setViewProj(Core::mView, Core::mProj);
 
         mat4 bias;
         bias.identity();
-        bias.e00 = bias.e11 = bias.e22 = 0.5f;
-        bias.e03 = bias.e13 = bias.e23 = 0.5f;
+        bias.e00 = bias.e11 = bias.e22 = bias.e03 = bias.e13 = bias.e23 = 0.5f;
         Core::mLightProj[index] = bias * (Core::mProj * Core::mView);
         
         Core::setBlending(bmNone);
@@ -2032,9 +2060,9 @@ struct Level : IGame {
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
 
-    // get near objects
-        NearObj nearObj[SHADOW_OBJ_MAX];
-        int nearCount = getNearObjects(nearObj, SHADOW_OBJ_MAX);
+        if (Core::settings.detail.shadows == Core::Settings::Quality::LOW)
+            return;
+        ASSERT(shadow);
 
     // render to shadow map
         float oldEye = Core::eye;
@@ -2050,13 +2078,19 @@ struct Level : IGame {
 
         Core::setCulling(cfBack);
 
-        for (int i = 0; i < nearCount; i++) {
-            Core::setViewport((i % SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, (i / SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, SHADOW_TEX_TILE, SHADOW_TEX_TILE);
-            renderEntityShadow(i, (Controller*)level.entities[nearObj[i].index].controller, players[nearObj[i].player]);
-        }
+        if (Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM) { // per-object shadow map (atlas)
+            NearObj nearObj[SHADOW_OBJ_MAX];
+            int nearCount = getNearObjects(nearObj, SHADOW_OBJ_MAX);
 
-        for (int i = nearCount; i < SHADOW_OBJ_MAX; i++)
-            Core::mLightProj[i].identity();
+            for (int i = 0; i < nearCount; i++) {
+                Core::setViewport((i % SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, (i / SHADOW_OBJ_COLS) * SHADOW_TEX_TILE, SHADOW_TEX_TILE, SHADOW_TEX_TILE);
+                renderShadowEntity(i, (Controller*)level.entities[nearObj[i].index].controller, players[nearObj[i].player]);
+            }
+
+            for (int i = nearCount; i < SHADOW_OBJ_MAX; i++)
+                Core::mLightProj[i].identity();
+        } else // all-in-one shadow map
+            renderShadowView(roomIndex);
 
         Core::setCulling(cfFront);
         if (colorShadow)
@@ -2350,7 +2384,12 @@ struct Level : IGame {
             params->clipSign    = 1.0f;
             params->waterHeight = params->clipHeight;
 
-            if (shadow) shadow->bind(sShadow);
+            if (shadow) {
+                if (view > 0 && Core::settings.detail.shadows < Core::Settings::Quality::HIGH)
+                    renderShadows(player->getRoomIndex()); // render shadows for player2 for all-in-one shadow technique
+                shadow->bind(sShadow);
+            }
+
             Core::pass = Core::passCompose;
             /*
             if (view == 0 && Input::hmd.ready) {
