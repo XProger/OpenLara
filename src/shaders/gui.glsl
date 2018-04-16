@@ -18,7 +18,7 @@ varying vec4 vColor;
 
 	void main() {
 		vTexCoord	= aTexCoord.xy;
-		vColor		= aLight;
+		vColor		= aLight * uMaterial;
 		gl_Position = uViewProj * vec4(aCoord.xy * uPosScale.zw + uPosScale.xy, 0.0, 1.0);
 	}
 #else

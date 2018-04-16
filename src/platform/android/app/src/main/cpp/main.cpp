@@ -88,6 +88,9 @@ JNI_METHOD(void, nativeFrameBegin)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeFrameEnd)(JNIEnv* env) {
+    Core::setBlending(bmNone);
+    Core::validateRenderState();
+
     Game::frameEnd();
     Core::reset();
 }

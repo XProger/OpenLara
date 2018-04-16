@@ -306,9 +306,9 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 			p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
 
-			float rShadow =(SHADOW(SHADOW_TEXEL * vec3(-0.5, -0.5, 0.0) + p) +  
-							SHADOW(SHADOW_TEXEL * vec3( 0.5, -0.5, 0.0) + p) +  
-							SHADOW(SHADOW_TEXEL * vec3(-0.5,  0.5, 0.0) + p) +  
+			float rShadow =(SHADOW(SHADOW_TEXEL * vec3(-0.5, -0.5, 0.0) + p) +
+							SHADOW(SHADOW_TEXEL * vec3( 0.5, -0.5, 0.0) + p) +
+							SHADOW(SHADOW_TEXEL * vec3(-0.5,  0.5, 0.0) + p) +
 							SHADOW(SHADOW_TEXEL * vec3( 0.5,  0.5, 0.0) + p)) * 0.25;
 
 			float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);

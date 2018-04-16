@@ -23,6 +23,7 @@ import com.google.vr.sdk.base.GvrActivity;
 import com.google.vr.sdk.base.GvrView;
 import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
+import android.app.Activity;
 
 public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyListener, OnGenericMotionListener {
     static GvrView gvrView;
@@ -35,16 +36,21 @@ public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyL
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
-
         super.onCreate(savedInstanceState);
 
         //GLSurfaceView view = new GLSurfaceView(this);
@@ -62,9 +68,8 @@ public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyL
         view.setOnKeyListener(this);
         view.setTransitionViewEnabled(false);
 
-        if (view.setAsyncReprojectionEnabled(true)) {
-            AndroidCompat.setSustainedPerformanceMode(this, true);
-        }
+//        if (view.setAsyncReprojectionEnabled(true))
+//            AndroidCompat.setSustainedPerformanceMode(this, true);
 
         //AndroidCompat.setVrModeEnabled(this, false);
         view.setStereoModeEnabled(false);

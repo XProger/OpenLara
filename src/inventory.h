@@ -680,7 +680,7 @@ struct Inventory {
 
                 index = targetIndex = pageItemIndex[page];
 
-                head  = Input::hmd.head.inverseOrtho();
+                head.e00 = INF; // mark head matrix as unset
 
                 //if (type == TR::Entity::INV_PASSPORT) // toggle after death
                 //    chooseItem();
@@ -773,13 +773,29 @@ struct Inventory {
                     #endif
                         break;
                     case TR::VER_TR2 :
+                    #ifdef __EMSCRIPTEN__
                         passportSlotCount = 2;
                         passportSlots[0]  = TR::LVL_TR2_WALL;
                         passportSlots[1]  = TR::LVL_TR2_BOAT;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR2_WALL; i <= TR::LVL_TR2_HOUSE; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
                         break;
                     case TR::VER_TR3 :
+                    #ifdef __EMSCRIPTEN__
                         passportSlotCount = 1;
                         passportSlots[0]  = TR::LVL_TR3_JUNGLE;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR3_JUNGLE; i <= TR::LVL_TR3_STPAUL; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
                         break;
                     default : ASSERT(false);
                 }
@@ -1292,11 +1308,18 @@ struct Inventory {
     }
 
     void renderTitleBG() {
-        float aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
-        float aspectDst = float(Core::width) / float(Core::height);
-        float aspectImg = aspectSrc / aspectDst;
-        float ax = background[0]->origWidth  / float(background[0]->width);
-        float ay = background[0]->origHeight / float(background[0]->height);
+        float aspectSrc, aspectDst, aspectImg, ax, ay;
+
+        if (background[0]) {
+            aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
+            aspectDst = float(Core::width) / float(Core::height);
+            ax = background[0]->origWidth  / float(background[0]->width);
+            ay = background[0]->origHeight / float(background[0]->height);
+        } else {
+            aspectSrc = ax = ay = 1.0f;
+            aspectDst = float(Core::width) / float(Core::height);
+        }
+        aspectImg = aspectSrc / aspectDst;
 
         #ifdef FFP
             mat4 m;
@@ -1382,7 +1405,14 @@ struct Inventory {
         vertices[11].texCoord = short4(0, 0, 0, 0);
 
         game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
-        background[0]->bind(sDiffuse);
+
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
+            for (int i = 0; i < 4; i++)
+                vertices[i].light.x = vertices[i].light.y = vertices[i].light.z = 0;
+            Core::whiteTex->bind(sDiffuse); // black background
+        } else
+            background[0]->bind(sDiffuse);
+
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
@@ -1396,26 +1426,21 @@ struct Inventory {
         vertices[1].coord = short4( 32767,  32767, 0, 0);
         vertices[2].coord = short4( 32767, -32767, 0, 0);
         vertices[3].coord = short4(-32767, -32767, 0, 0);
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-            vertices[0].light =
-            vertices[1].light =
-            vertices[2].light =
-            vertices[3].light = ubyte4(0, 0, 0, uint8(phaseRing * 255));
-        } else {
-            vertices[0].light =
-            vertices[1].light =
-            vertices[2].light =
-            vertices[3].light = ubyte4(255, 255, 255, uint8(phaseRing * 255));
-        }
+        vertices[0].light =
+        vertices[1].light =
+        vertices[2].light =
+        vertices[3].light = ubyte4(255, 255, 255, uint8(phaseRing * 255));
         vertices[0].texCoord = short4(    0, 32767, 0, 0);
         vertices[1].texCoord = short4(32767, 32767, 0, 0);
         vertices[2].texCoord = short4(32767,     0, 0, 0);
         vertices[3].texCoord = short4(    0,     0, 0, 0);
 
         game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-            Core::whiteTex->bind(sDiffuse); // black background
-        else
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
+            for (int i = 0; i < 4; i++)
+                vertices[i].light.x = vertices[i].light.y = vertices[i].light.z = 0;
+            Core::whiteTex->bind(sDiffuse); // black background 
+        } else
             background[0]->bind(sDiffuse); // blured grayscale image
 
         Core::setBlending(phaseRing < 1.0f ? bmAlpha : bmNone);
@@ -1429,19 +1454,15 @@ struct Inventory {
         Core::setDepthTest(false);
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-            if (game->getLevel()->isTitle()) {
-                if (background[0]) {
-                    renderTitleBG();
-                }
-            } else
+            if (game->getLevel()->isTitle())
+                renderTitleBG();
+            else
                 renderGameBG();
         } else {
-            if (background[0]) {
-                if (background[1])
-                    renderGameBG();
-                else
-                    renderTitleBG();
-            }
+            if (background[1])
+                renderGameBG();
+            else
+                renderTitleBG();
         }
 
         Core::setBlending(bmAlpha);
@@ -1465,8 +1486,12 @@ struct Inventory {
 
         Core::mViewInv = mat4(pos, pos + vec3(0, 0, 1), vec3(0, -1, 0));
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+            if (head.e00 == INF)
+                head = Input::hmd.head.inverseOrtho();
             Core::mViewInv = Core::mViewInv * head * Input::hmd.eye[Core::eye == -1.0f ? 0 : 1];
+        } else
+            head.e00 = INF;
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];

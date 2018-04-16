@@ -83,7 +83,10 @@ namespace Input {
             }
         down[key] = value;
 
-        if (value && key <= ikZ) lastKey = key;
+        if (value && key <= ikZ) {
+            lastKey = key;
+            touchTimerVis = 0.0f;
+        }
     }
 
     void setPos(InputKey key, const vec2 &pos) {
@@ -107,7 +110,10 @@ namespace Input {
 
         joy[index].down[key] = value;
 
-        if (value) joy[index].lastKey = key;
+        if (value) {
+            joy[index].lastKey = key;
+            touchTimerVis = 0.0f;
+        }
     }
 
     void setJoyPos(int index, JoyKey key, const vec2 &pos) {
@@ -216,7 +222,7 @@ namespace Input {
         btnPos[bJump]      = center + vec2(cosf(-PI * 0.5f), sinf(-PI * 0.5f)) * radius;
         btnPos[bAction]    = center + vec2(cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * radius;
         btnPos[bWalk]      = center + vec2(cosf(-PI), sinf(-PI)) * radius;
-        btnPos[bInventory] = vec2(Core::width - btnRadius * 2.0f, btnRadius * 2.0f);
+        btnPos[bInventory] = vec2(Core::width - btnRadius * 8.0f, btnRadius * 4.0f);
 
     // touch update
         Joystick &joy = Input::joy[Core::settings.controls[0].joyIndex];
