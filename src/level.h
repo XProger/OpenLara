@@ -1799,6 +1799,9 @@ struct Level : IGame {
         for (int i = 0; i < room.portalsCount; i++) {
             TR::Room::Portal &p = room.portals[i];
 
+            if (Core::pass == Core::passCompose && water && waterCache && (level.rooms[to].flags.water ^ level.rooms[p.roomIndex].flags.water))
+                waterCache->setVisible(to, p.roomIndex);
+
             if (from != room.portals[i].roomIndex && checkPortal(room, p, viewPort, clipPort))
                 getVisibleRooms(roomsList, roomsCount, to, p.roomIndex, clipPort, water, count + 1);
         }
