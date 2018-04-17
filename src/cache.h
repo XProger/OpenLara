@@ -808,7 +808,7 @@ struct WaterCache {
                 Item &item = items[i];
                 if (!item.visible) continue;
 
-                float d = fabsf(item.pos.y - camera->eye.pos.y);
+                float d = fabsf(item.pos.x - camera->eye.pos.x) + fabsf(item.pos.z - camera->eye.pos.z);
 
                 if (d < waterDist) {
                     waterDist = d;
