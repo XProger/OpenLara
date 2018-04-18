@@ -655,7 +655,7 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *whiteTex, *whiteCube;
+    Texture *whiteTex, *whiteCube, *blackTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -1065,6 +1065,8 @@ namespace Core {
         uint32 data = 0xFFFFFFFF;
         whiteTex  = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
         whiteCube = new Texture(1, 1, Texture::RGBA, Texture::CUBEMAP, &data);
+        data = 0;
+        blackTex  = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
 
     // init settings
         settings.version = SETTINGS_VERSION;
@@ -1164,6 +1166,7 @@ namespace Core {
         delete eyeTex[1];
         delete whiteTex;
         delete whiteCube;
+        delete blackTex;
     #ifdef _PSP
         delete[] cmdBuf;
     #else

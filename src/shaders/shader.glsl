@@ -4,7 +4,7 @@ R"====(
 	precision highp		float;
 #endif
 
-#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
+#if (defined(PASS_AMBIENT) || defined(PASS_COMPOSE)) && !defined(TYPE_FLASH)
 	varying vec3 vCoord;
 #endif
 
@@ -28,14 +28,12 @@ uniform vec4 uFogParams;
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 #ifndef PASS_SHADOW
-	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y
+	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y * clipPlaneSign
 	varying vec4 vDiffuse;
-	varying vec4 vNormal;	// xyz - normal dir, w - blend mode (0 - alpha, 1 - additive blend)
+	varying vec4 vNormal;	// xyz - normal dir, w - fog factor
 
 	#ifndef TYPE_FLASH
 		#ifdef PASS_COMPOSE
-			varying vec4 vLightVec;		// xyz - dir, w - fog factor
-
 			#ifdef OPT_SHADOW
 				varying vec3 vAmbient;
 				varying vec4 vLightMap;
@@ -102,7 +100,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		#endif
 
 		#ifndef PASS_SHADOW
-			vViewVec = vec4((uViewPos - coord.xyz) * uFogParams.w, coord.y);
+			vViewVec = vec4((uViewPos - coord.xyz) * uFogParams.w, coord.y * uParam.z);
 		#endif
 
 		#ifdef PASS_AMBIENT
@@ -115,7 +113,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			#else
 				vNormal.xyz = normalize(mulQuat(rBasisRot, aNormal.xyz));
 			#endif
-			vNormal.w = aNormal.w;
 
 			float fog;
 			#ifdef UNDERWATER
@@ -129,7 +126,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 				fog = length(vViewVec.xyz);
 			#endif
 
-			vLightVec.w = clamp(1.0 / exp(fog), 0.0, 1.0);
+			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
 		#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
@@ -163,8 +160,6 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 				vec3 lv1 = (uLightPos[1].xyz - coord) * uLightColor[1].w;
 				vec3 lv2 = (uLightPos[2].xyz - coord) * uLightColor[2].w;
 				vec3 lv3 = (uLightPos[3].xyz - coord) * uLightColor[3].w;
-
-				vLightVec.xyz = lv0;
 
 				vec4 lum, att;
 				#ifdef TYPE_ENTITY
@@ -286,12 +281,12 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			}
 		#endif
 
-		float getShadow(vec4 lightProj, vec2 tileOffset) {
+		float getShadow(vec3 lightVec, vec4 lightProj, vec2 tileOffset) {
 			vec3 p = lightProj.xyz / lightProj.w;
 
 			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
-				vis = min(vis, dot(vNormal.xyz, vLightVec.xyz));
+				vis = min(vis, dot(vNormal.xyz, lightVec));
 			#endif
 			if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
 
@@ -304,24 +299,24 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 							SHADOW(SHADOW_TEXEL * vec3(-0.5,  0.5, 0.0) + p) +
 							SHADOW(SHADOW_TEXEL * vec3( 0.5,  0.5, 0.0) + p)) * 0.25;
 
-			float fade = clamp(dot(vLightVec.xyz, vLightVec.xyz), 0.0, 1.0);
+			float fade = clamp(dot(lightVec, lightVec), 0.0, 1.0);
 			return rShadow + (1.0 - rShadow) * fade;
 		}
 
-		float getShadow() {
+		float getShadow(vec3 lightVec) {
 			vec4 c = vec4(vCoord, 1.0);
 		#ifdef OPT_SHADOW_HIGH
 			return min(min(min(min(min(min(min( // hardcoded for 4x2 shadow atlas
-				getShadow(uLightProj[0] * c, vec2(0.00, 0.0)),
-				getShadow(uLightProj[1] * c, vec2(0.25, 0.0))),
-				getShadow(uLightProj[2] * c, vec2(0.50, 0.0))),
-				getShadow(uLightProj[3] * c, vec2(0.75, 0.0))),
-				getShadow(uLightProj[4] * c, vec2(0.00, 0.5))),
-				getShadow(uLightProj[5] * c, vec2(0.25, 0.5))),
-				getShadow(uLightProj[6] * c, vec2(0.50, 0.5))),
-				getShadow(uLightProj[7] * c, vec2(0.75, 0.5)));
+				getShadow(lightVec, uLightProj[0] * c, vec2(0.00, 0.0)),
+				getShadow(lightVec, uLightProj[1] * c, vec2(0.25, 0.0))),
+				getShadow(lightVec, uLightProj[2] * c, vec2(0.50, 0.0))),
+				getShadow(lightVec, uLightProj[3] * c, vec2(0.75, 0.0))),
+				getShadow(lightVec, uLightProj[4] * c, vec2(0.00, 0.5))),
+				getShadow(lightVec, uLightProj[5] * c, vec2(0.25, 0.5))),
+				getShadow(lightVec, uLightProj[6] * c, vec2(0.50, 0.5))),
+				getShadow(lightVec, uLightProj[7] * c, vec2(0.75, 0.5)));
 		#else
-			return getShadow(uLightProj[0] * c, vec2(0.0, 0.0));
+			return getShadow(lightVec, uLightProj[0] * c, vec2(0.0, 0.0));
 		#endif
 		}
 	#endif
@@ -330,10 +325,8 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 		uniform sampler2D sReflect;
 
 		float calcCaustics(vec3 n) {
-			vec2 cc		= clamp((vCoord.xz - uRoomSize.xy) / (uRoomSize.zw - uRoomSize.xy), vec2(0.0), vec2(1.0));
-			vec2 border	= vec2(256.0) / (uRoomSize.zw - uRoomSize.xy);
-			vec2 fade	= smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
-			return texture2D(sReflect, cc).x * max(0.0, -n.y) * fade.x * fade.y;
+			vec2 cc = clamp((vCoord.xz - uRoomSize.xy) / uRoomSize.zw, vec2(0.0), vec2(1.0));
+			return texture2D(sReflect, cc).x * max(0.0, -n.y);
 		}
 	#endif
 
@@ -361,7 +354,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 
 	void main() {
 		#ifdef CLIP_PLANE
-			if (vViewVec.w * uParam.z > uParam.w)
+			if (vViewVec.w > uParam.w)
 				discard;
 		#endif
 
@@ -397,6 +390,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 			color *= vDiffuse;
 
 			#if !defined(TYPE_FLASH) && !defined(TYPE_MIRROR)
+				vec3 lightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
 
 				#ifdef PASS_AMBIENT
 					color.xyz *= vLight.xyz;
@@ -414,7 +408,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z + uLightColor[3].xyz * vLight.w;
 
 						#if defined(TYPE_ENTITY) || defined(TYPE_ROOM)
-							float rShadow = getShadow();
+							float rShadow = getShadow(lightVec);
 						#endif
 
 						#ifdef TYPE_ENTITY
@@ -445,13 +439,13 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 					color.xyz *= light;
 
 					#ifdef TYPE_ENTITY
-						color.xyz += calcSpecular(n, vViewVec.xyz, vLightVec.xyz, uLightColor[0], rSpecular);
+						color.xyz += calcSpecular(n, vViewVec.xyz, lightVec.xyz, uLightColor[0], rSpecular);
 					#endif
 
 					#ifdef UNDERWATER
-						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vLightVec.w);
+						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vNormal.w);
 					#else
-						color.xyz = mix(uFogParams.xyz, color.xyz, vLightVec.w);
+						color.xyz = mix(uFogParams.xyz, color.xyz, vNormal.w);
 					#endif
 				#endif
 			#endif

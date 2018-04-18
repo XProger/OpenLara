@@ -87,10 +87,12 @@ struct ShaderCache {
         compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER);
         compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER | FX_ALPHA_TEST);
         compile(Core::passAmbient, Shader::SPRITE, fx | FX_ALPHA_TEST);
+        compile(Core::passAmbient, Shader::SPRITE, fx | FX_UNDERWATER | FX_ALPHA_TEST);
     }
 
     void prepareShadows(int fx) {
         compile(Core::passShadow, Shader::ENTITY, fx | FX_NONE);
+        compile(Core::passShadow, Shader::ENTITY, fx | FX_ALPHA_TEST);
     }
 
     void prepareWater(int fx) {
@@ -610,8 +612,11 @@ struct WaterCache {
 
         if (item && item->caustics) {
             item->caustics->bind(sReflect);
-            Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->pos.x + item->size.x, item->pos.z + item->size.z));
+            Core::active.shader->setParam(uRoomSize, vec4(item->pos.x - item->size.x, item->pos.z - item->size.z, item->size.x * 2.0f, item->size.z * 2.0f));
             game->setWaterParams(item->pos.y);
+        } else {
+            Core::active.shader->setParam(uRoomSize, vec4(0, 0, 1, 1));
+            Core::blackTex->bind(sReflect);
         }
     }
 
@@ -674,7 +679,8 @@ struct WaterCache {
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
-        Core::setTarget(item.caustics, RT_STORE_COLOR);
+        Core::setTarget(item.caustics, RT_CLEAR_COLOR | RT_STORE_COLOR);
+        Core::setViewport(1, 1, item.caustics->width - 2, item.caustics->width - 2); // leave 1px for black border
         game->getMesh()->renderPlane();
     #ifdef BLUR_CAUSTICS
         // v blur
