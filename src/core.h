@@ -361,17 +361,12 @@ namespace Core {
             }
 
             void setShadows(Quality value) {
-                if (value > MEDIUM && !(support.maxVectors > 8))
-                    value = MEDIUM;
                 shadows = value;
             }
 
             void setWater(Quality value) {
                 if (value > LOW && !(support.texFloat || support.texHalf))
                     value = LOW;
-                else
-                    if (value > MEDIUM && !(support.maxVectors > 8))
-                        value = MEDIUM;
                 water = value;
             }
         } detail;
