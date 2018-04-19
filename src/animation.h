@@ -16,13 +16,14 @@ struct Animation {
     TR::AnimFrame   *frameA, *frameB;
     vec3            offset, jump;
     bool            isEnded, isPrepareToNext, flip;
+    bool            smooth;
 
     quat            *overrides;   // left & right arms animation frames
     int             overrideMask;
 
     Animation() : overrides(NULL) {}
 
-    Animation(TR::Level *level, const TR::Model *model) : level(level), overrides(NULL), overrideMask(0) {
+    Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), smooth(smooth), overrides(NULL), overrideMask(0) {
         setModel(model);
     }
 
@@ -90,7 +91,7 @@ struct Animation {
     }
 
     void playNext() {
-        setAnim(next, anims[index].nextFrame);
+        setAnim(next, anims[index].nextFrame, false);
     }
 
     TR::AnimFrame* getFrame(TR::Animation *anim, int index) {
@@ -121,8 +122,7 @@ struct Animation {
         int k = fIndex * anim->frameRate;
         delta = (time * 30.0f - k) / min((int)anim->frameRate, max(1, framesCount - k)); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
 
-    // size of frame (in bytes)        
-        int fIndexA =  fIndex % fCount, 
+        int fIndexA =  fIndex % fCount,
             fIndexB = (fIndex + 1) % fCount;
 
         frameA = getFrame(anim, fIndexA);
@@ -138,7 +138,10 @@ struct Animation {
 
         getCommand(anim, frameNext, NULL, NULL, &flip);
 
-        frameB = getFrame(anim, fIndexB);
+        if (smooth)
+            frameB = getFrame(anim, fIndexB);
+        else
+            frameB = frameA;
     }
 
     bool isFrameActive(int index) {

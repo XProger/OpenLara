@@ -144,7 +144,7 @@ struct Controller {
     vec3 lastPos;
     bool invertAim;
 
-    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel()), state(animation.state), layers(0), explodeMask(0), explodeParts(0), lastPos(0), invertAim(false) {
+    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel(), level->entities[entity].flags.smooth), state(animation.state), layers(0), explodeMask(0), explodeParts(0), lastPos(0), invertAim(false) {
         const TR::Entity &e = getEntity();
         pos         = vec3(float(e.x), float(e.y), float(e.z));
         angle       = vec3(0.0f, e.rotation, 0.0f);
@@ -977,8 +977,13 @@ struct Controller {
             }
             case TR::Effect::INV_ON         : flags.invisible = true;  break;
             case TR::Effect::INV_OFF        : flags.invisible = false; break;
-            case TR::Effect::DYN_ON         : break; // TODO TR2
-            case TR::Effect::DYN_OFF        : break; // TODO TR2
+            case TR::Effect::DYN_ON         :
+                Core::lightColor[1] = vec4(0.6f, 0.5f, 0.1f, 1.0f / 4096.0f);
+                Core::lightPos[1]   = getPos();
+                break;
+            case TR::Effect::DYN_OFF        :
+                Core::lightColor[1] = vec4(0, 0, 0, 1);
+                break;
             case TR::Effect::FOOTPRINT      : break; // TODO TR3
             default : ASSERT(false);
         }
@@ -1043,7 +1048,7 @@ struct Controller {
         if (animation.isEnded) { // if animation is end - switch to next
             if (animation.offset != 0.0f) cmdOffset(animation.offset);
             if (animation.jump   != 0.0f) cmdJump(animation.jump);
-            animation.playNext();
+        //    animation.playNext();
         } else
             animation.framePrev = animation.frameIndex;
     }

@@ -2029,16 +2029,19 @@ struct Level : IGame {
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
             Controller *controller = (Controller*)e.controller;
-            if (controller && controller->isActive() && e.isEnemy() && e.castShadow() && controller != players[0] && controller != players[1]) {
+            if (controller && e.castShadow() && controller != players[0] && controller != players[1]) {
                 int pIndex = 0;
-                float dist = (players[0]->pos - controller->pos).length2();
+                float dist = (players[0]->getPos() - controller->getPos()).length2();
                 if (players[1]) {
-                    float dist2 = (players[1]->pos - controller->pos).length2();
+                    float dist2 = (players[1]->getPos() - controller->getPos()).length2();
                     if (dist2 < dist) {
                         dist = dist2;
                         pIndex = 1;
                     }
                 }
+
+                if (dist > 8192 * 8192) continue;
+
             // get index to insert
                 int index = base;
                 while (index < count) {

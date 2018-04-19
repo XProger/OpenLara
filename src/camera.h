@@ -332,9 +332,12 @@ struct Camera : ICamera {
                 TR::CameraFrame *frameA = &level->cameraFrames[indexA];
                 TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
-                const int eps = 512;
+                const float maxDelta = 256 * 256;
 
-                if (abs(frameA->pos.x - frameB->pos.x) > eps || abs(frameA->pos.y - frameB->pos.y) > eps || abs(frameA->pos.z - frameB->pos.z) > eps) {
+                float dp = (vec3(frameA->pos) - vec3(frameB->pos)).length2();
+                float dt = (vec3(frameA->target) - vec3(frameB->target)).length2();
+
+                if (dp > maxDelta || dt > maxDelta) {
                     eye.pos    = frameA->pos;
                     target.pos = frameA->target;
                     fov        = frameA->fov / 32767.0f * 120.0f;

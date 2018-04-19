@@ -48,6 +48,7 @@ namespace Debug {
     }
 
     void begin() {
+        glActiveTexture(GL_TEXTURE0);
         glDisable(GL_TEXTURE_2D);
         glMatrixMode(GL_PROJECTION);
         glLoadMatrixf((GLfloat*)&Core::mProj);
@@ -484,7 +485,7 @@ namespace Debug {
                 if (!controller) continue;
           
                 sprintf(buf, "%s (%d) %s", getEntityName(level, e), i, controller->flags.invisible ? "INVISIBLE" : "");
-                Debug::Draw::text(controller->getPos() + randf() * 64, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
+                Debug::Draw::text(controller->getPos() + randf() * 64.0f, controller->flags.active ? vec4(0, 0, 0.8f, 1) : vec4(0.8f, 0, 0, 1), buf);
             }
 
             for (int i = 0; i < level.camerasCount; i++) {

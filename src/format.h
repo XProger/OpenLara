@@ -1480,7 +1480,7 @@ namespace TR {
         int16   intensity2;
         union Flags {
             struct { 
-                uint16 state:2, unused:4, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1;
+                uint16 state:2, unused:3, smooth:1, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1;
             };
             uint16 value;
         } flags;
@@ -2897,6 +2897,15 @@ namespace TR {
                         cutMatrix.rotateY(e.rotation);
                 }
             }
+
+        // turn off interpolation for some entities
+            if (id == LVL_TR2_CUT_1)
+                for (int i = 0; i < entitiesBaseCount; i++) {
+                    Entity &e = entities[i];
+                    if (e.type == Entity::CUT_6 || e.type == Entity::CUT_8 || e.type == Entity::CUT_9) {
+                        e.flags.smooth = false;
+                    }
+                }
         }
 
         LevelID getTitleId() const {
@@ -3557,6 +3566,7 @@ namespace TR {
                 if (version & (VER_TR2 | VER_TR3))
                     stream.read(e.intensity2);
                 stream.read(e.flags.value);
+                e.flags.smooth = true;
 
                 e.type = Entity::remap(version, e.type);
 
