@@ -91,7 +91,7 @@ struct Animation {
     }
 
     void playNext() {
-        setAnim(next, anims[index].nextFrame, false);
+        setAnim(next, anims[index].nextFrame);
     }
 
     TR::AnimFrame* getFrame(TR::Animation *anim, int index) {
