@@ -332,7 +332,7 @@ struct Camera : ICamera {
                 TR::CameraFrame *frameA = &level->cameraFrames[indexA];
                 TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
-                const float maxDelta = 256 * 256;
+                const float maxDelta = 512 * 512;
 
                 float dp = (vec3(frameA->pos) - vec3(frameB->pos)).length2();
                 float dt = (vec3(frameA->target) - vec3(frameB->target)).length2();
