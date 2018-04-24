@@ -11,7 +11,7 @@ namespace Debug {
     static GLuint font;
 
     void init() {
-        #ifdef _OS_WINDOWS
+        #ifdef _OS_WIN
             font = glGenLists(256);
             HDC hdc = GetDC(0);
             HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,

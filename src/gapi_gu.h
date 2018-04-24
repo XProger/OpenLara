@@ -3,6 +3,14 @@
 
 #include "core.h"
 
+#include <pspgu.h>
+#include <pspgum.h>
+
+#define FFP
+#define TEX_SWIZZLE
+//#define EDRAM_MESH
+#define EDRAM_TEX
+
 namespace GAPI {
 
     using namespace Core;
@@ -17,6 +25,7 @@ namespace GAPI {
     int cullMode, blendMode;
 
     uint32 *cmdBuf = NULL;
+    void   *curBackBuffer;
 
     static int EDRAM_OFFSET;
     static int EDRAM_SIZE;
@@ -120,6 +129,15 @@ namespace GAPI {
     }
 
     void resetState() {}
+
+    void bindTarget(Texture *texture, int face) {
+/*
+                if (!target)
+                    sceGuDrawBufferList(GU_PSM_5650, GAPI::curBackBuffer, 512);
+                else
+                    sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
+*/
+    }
 
     void discardTarget(bool color, bool depth) {}
 

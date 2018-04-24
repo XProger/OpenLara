@@ -11,16 +11,11 @@
 #define OS_PTHREAD_MT
 
 #ifdef WIN32
-    #define _OS_WINDOWS
+    #define _OS_WIN
     #define _GAPI_GL
     //#define _GAPI_VULKAN
 
     #include <windows.h>
-    
-    #ifdef _GAPI_GL
-        #include <gl/GL.h>
-        #include <gl/glext.h>
-    #endif
 
     #undef OS_PTHREAD_MT
 #elif ANDROID
@@ -29,89 +24,16 @@
     #define _GAPI_GLES
     //#define _GAPI_VULKAN
 
-    #include <dlfcn.h>
-
-    #ifdef _GAPI_GL
-        #include <GLES2/gl2.h>
-        #include <GLES2/gl2ext.h>
-        #define GL_CLAMP_TO_BORDER          0x812D
-        #define GL_TEXTURE_BORDER_COLOR     0x1004
-
-        #define GL_TEXTURE_COMPARE_MODE     0x884C
-        #define GL_TEXTURE_COMPARE_FUNC     0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
-
-        #define GL_RGBA16F                  0x881A
-        #define GL_RGBA32F                  0x8814
-        #define GL_HALF_FLOAT               0x140B
-
-        #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
-        #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
-
-        #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
-        #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
-        #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
-        #define glGenVertexArrays            glGenVertexArraysOES
-        #define glDeleteVertexArrays         glDeleteVertexArraysOES
-        #define glBindVertexArray            glBindVertexArrayOES
-
-        #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
-        #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
-        #define glGetProgramBinary           glGetProgramBinaryOES
-        #define glProgramBinary              glProgramBinaryOES
-
-        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-    #endif
-
     extern void osToggleVR(bool enable);
 #elif __RPI__
     #define _OS_RPI
     #define _GAPI_GL
     #define _GAPI_GLES
 
-    #include <GLES2/gl2.h>
-    #include <GLES2/gl2ext.h>
-    #include <EGL/egl.h>
-    #include <EGL/eglext.h>
-
-    #define GL_CLAMP_TO_BORDER          0x812D
-    #define GL_TEXTURE_BORDER_COLOR     0x1004
-
-    #define GL_TEXTURE_COMPARE_MODE     0x884C
-    #define GL_TEXTURE_COMPARE_FUNC     0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
-
-    #undef  GL_RGBA32F
-    #undef  GL_RGBA16F
-    #undef  GL_HALF_FLOAT
-
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
-
-    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
-    
-    #define glGenVertexArrays(...)
-    #define glDeleteVertexArrays(...)
-    #define glBindVertexArray(...)
-    
-    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-    #define glGetProgramBinary(...)
-    #define glProgramBinary(...)
-    
-    extern EGLDisplay display;
-
     #define DYNGEOM_NO_VBO
 #elif __linux__
     #define _OS_LINUX
     #define _GAPI_GL
-
-    #ifdef _GAPI_GL
-        #include <GL/gl.h>
-        #include <GL/glext.h>
-        #include <GL/glx.h>
-    #endif
 #elif __APPLE__
     #define _GAPI_GL
     #include "TargetConditionals.h"
@@ -119,73 +41,18 @@
     #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
         #define _OS_IOS
         #define _GAPI_GLES
-
-        #include <OpenGLES/ES2/gl.h>
-        #include <OpenGLES/ES2/glext.h>
-        #include <OpenGLES/ES3/glext.h>
-
-        #define PFNGLGENVERTEXARRAYSPROC    PFNGLGENVERTEXARRAYSOESPROC
-        #define PFNGLDELETEVERTEXARRAYSPROC PFNGLDELETEVERTEXARRAYSOESPROC
-        #define PFNGLBINDVERTEXARRAYPROC    PFNGLBINDVERTEXARRAYOESPROC
-        #define glGenVertexArrays           glGenVertexArraysOES
-        #define glDeleteVertexArrays        glDeleteVertexArraysOES
-        #define glBindVertexArray           glBindVertexArrayOES
-
-        #define GL_CLAMP_TO_BORDER          0x812D
-        #define GL_TEXTURE_BORDER_COLOR     0x1004
-
-        #define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
-        #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
-        #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
-        #define _OS_MACOS
-
-        #include <Carbon/Carbon.h>
-        #include <AudioToolbox/AudioQueue.h>
-        #include <OpenGL/OpenGL.h>
-        #include <OpenGL/gl.h>
-        #include <OpenGL/glext.h>
-        #include <AGL/agl.h>
-
-        #define GL_RGBA16F                  0x881A
-        #define GL_RGBA32F                  0x8814
-        #define GL_HALF_FLOAT               0x140B
-
-        #define GL_RGB565                   GL_RGBA
-        #define GL_TEXTURE_COMPARE_MODE     0x884C
-        #define GL_TEXTURE_COMPARE_FUNC     0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
-
-        #define glGenVertexArrays    glGenVertexArraysAPPLE
-        #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
-        #define glBindVertexArray    glBindVertexArrayAPPLE
-
-        #define GL_PROGRAM_BINARY_LENGTH 0
-        #define glGetProgramBinary(...)  0
-        #define glProgramBinary(...)     0
+        #define _OS_MAC
     #endif
 #elif __EMSCRIPTEN__
     #define _OS_WEB
     #define _GAPI_GL
     #define _GAPI_GLES
 
-    #include <emscripten/emscripten.h>
-    #include <emscripten/html5.h>
-    #include <GLES3/gl3.h>
-    #include <GLES3/gl2ext.h>
-
-    #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
-    #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
-
-    #define glGetProgramBinary(...)
-    #define glProgramBinary(...)
-
     #undef  OS_FILEIO_CACHE
 #elif _PSP
     #define _OS_PSP
     #define _GAPI_SCEGU
-    #include <pspgu.h>
-    #include <pspgum.h>
 
     #define FFP
     #define TEX_SWIZZLE
@@ -434,8 +301,6 @@ namespace Core {
 #include "input.h"
 #include "sound.h"
 
-
-
 #define MAX_LIGHTS           4
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
@@ -518,20 +383,6 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
-    #ifdef _OS_PSP
-        void    *curBackBuffer;
-    #else
-        GLuint  FBO, defaultFBO;
-        struct RenderTargetCache {
-            int count;
-            struct Item {
-                GLuint  ID;
-                int     width;
-                int     height;
-            } items[MAX_RENDER_BUFFERS];
-        } rtCache[2];
-    #endif
-
     Texture *defaultTarget;
     
     int32   renderState;
@@ -547,13 +398,14 @@ namespace Core {
         uint32      targetOp;
         vec4        viewport;
         vec4        material;
-    #ifdef _OS_PSP
-        Index       *iBuffer;
+
+    #ifdef _GAPI_GL
+        uint32      VAO;
+        uint32      iBuffer;
+        uint32      vBuffer;
+    #elif _GAPI_SCEGU
+        Index          *iBuffer;
         GAPI::Vertex   *vBuffer;
-    #else
-        GLuint      VAO;
-        GLuint      iBuffer;
-        GLuint      vBuffer;
     #endif
 
         int32       basisCount;
@@ -610,6 +462,7 @@ namespace Core {
 
     void init() {
         x = y = 0;
+
         #ifdef USE_INFLATE
             tinf_init();
         #endif
@@ -639,7 +492,6 @@ namespace Core {
         LOG("\n");
 
         defaultTarget = NULL;
-        memset(rtCache, 0, sizeof(rtCache));
 
         for (int i = 0; i < MAX_LIGHTS; i++) {
             lightPos[i]   = vec3(0.0);
@@ -715,7 +567,7 @@ namespace Core {
         }
 
     // use S key for action on Mac because Ctrl + Left/Right used by system (default)
-    #ifdef _OS_MACOS
+    #ifdef _OS_MAC
         settings.controls[0].keys[ cAction    ].key = ikS;
     #endif
 
@@ -766,28 +618,6 @@ namespace Core {
             GAPI::waitVBlank();
     }
 
-#ifndef _OS_PSP
-    int cacheRenderTarget(bool depth, int width, int height) {
-        RenderTargetCache &cache = rtCache[depth];
-
-        for (int i = 0; i < cache.count; i++)
-            if (cache.items[i].width == width && cache.items[i].height == height)
-                return i;
-
-        ASSERT(cache.count < MAX_RENDER_BUFFERS);
-
-        RenderTargetCache::Item &item = cache.items[cache.count];
-        item.width  = width;
-        item.height = height;
-
-        glGenRenderbuffers(1, &item.ID);
-        glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
-        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        return cache.count++;
-    }
-#endif
-
     bool update() {
         resetState = false;
         int time = getTime();
@@ -809,34 +639,11 @@ namespace Core {
             uint32  face    = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
-            #ifdef _OS_PSP
-/*
-                if (!target)
-                    sceGuDrawBufferList(GU_PSM_5650, curBackBuffer, 512);
-                else
-                    sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
-*/
-            #else
-                bool depth = false;
-
                 Core::stats.rt++;
-                if (!target) { // may be a null
-                    glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
-                } else {
-                    GLenum texTarget = GL_TEXTURE_2D;
-                    if (target->opt & Texture::CUBEMAP) 
-                        texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-                    depth = target->format == FMT_DEPTH || target->format == FMT_SHADOW;
+                GAPI::bindTarget(target, face);
 
-                    int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
-
-                    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-                    glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-                    glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
-                }
-            #endif
-
+                bool depth = target && (target->format == FMT_DEPTH || target->format == FMT_SHADOW);
                 if (support.discardFrame) {
                     if (!(reqTarget.op & RT_LOAD_COLOR) && !depth) reqTarget.op |= RT_CLEAR_COLOR;
                     if (!(reqTarget.op & RT_LOAD_DEPTH) &&  depth) reqTarget.op |= RT_CLEAR_DEPTH;
@@ -976,11 +783,7 @@ namespace Core {
 
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
-        // GAPI::copyTarget(dst, xOffset, yOffset, x, y, width, height); TODO
-        dst->bind(sDiffuse);
-    #ifdef _GAPI_GL
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height); // TODO: too bad for iOS devices!
-    #endif
+        GAPI::copyTarget(dst, xOffset, yOffset, x, y, width, height);
     }
 
     vec4 copyPixel(int x, int y) { // GPU sync!

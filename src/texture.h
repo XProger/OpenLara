@@ -4,12 +4,7 @@
 #include "core.h"
 #include "format.h"
 
-struct Texture {
-    enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
-
-    int     width, height, origWidth, origHeight;
-    Format  format;
-    uint32  opt;
+struct Texture : GAPI::Texture {
 
 #ifdef _OS_PSP
     TR::Tile4 *tiles;
@@ -34,7 +29,6 @@ struct Texture {
     }
 
 #else
-    uint32  ID;
     Texture *tiles[32];
 #endif
 
@@ -82,7 +76,8 @@ struct Texture {
         }
     #endif
 
-    Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
+    Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) {
+        this->opt = opt;
 //        LOG("create texture %d x %d (%d)\n", width, height, format);
 
         #ifndef _OS_PSP

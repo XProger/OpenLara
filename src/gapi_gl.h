@@ -3,13 +3,142 @@
 
 #include "core.h"
 
-#if defined(_OS_WINDOWS) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
+#ifdef _OS_WIN
+    #include <gl/GL.h>
+    #include <gl/glext.h>
+#elif _OS_ANDROID
+    #include <dlfcn.h>
+
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+    #define GL_RGBA16F                  0x881A
+    #define GL_RGBA32F                  0x8814
+    #define GL_HALF_FLOAT               0x140B
+
+    #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
+
+    #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
+    #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
+    #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
+    #define glGenVertexArrays            glGenVertexArraysOES
+    #define glDeleteVertexArrays         glDeleteVertexArraysOES
+    #define glBindVertexArray            glBindVertexArrayOES
+
+    #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
+    #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
+    #define glGetProgramBinary           glGetProgramBinaryOES
+    #define glProgramBinary              glProgramBinaryOES
+
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+#elif _OS_RPI
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
+    #include <EGL/egl.h>
+    #include <EGL/eglext.h>
+
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+    
+    #define glGenVertexArrays(...)
+    #define glDeleteVertexArrays(...)
+    #define glBindVertexArray(...)
+    
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
+    
+    extern EGLDisplay display;
+#elif _OS_LINUX
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+    #include <GL/glx.h>
+#elif __APPLE__
+    #ifdef _OS_IOS
+        #include <OpenGLES/ES2/gl.h>
+        #include <OpenGLES/ES2/glext.h>
+        #include <OpenGLES/ES3/glext.h>
+
+        #define PFNGLGENVERTEXARRAYSPROC    PFNGLGENVERTEXARRAYSOESPROC
+        #define PFNGLDELETEVERTEXARRAYSPROC PFNGLDELETEVERTEXARRAYSOESPROC
+        #define PFNGLBINDVERTEXARRAYPROC    PFNGLBINDVERTEXARRAYOESPROC
+        #define glGenVertexArrays           glGenVertexArraysOES
+        #define glDeleteVertexArrays        glDeleteVertexArraysOES
+        #define glBindVertexArray           glBindVertexArrayOES
+
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+        #define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
+        #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
+        #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
+    #else
+        #include <Carbon/Carbon.h>
+        #include <AudioToolbox/AudioQueue.h>
+        #include <OpenGL/OpenGL.h>
+        #include <OpenGL/gl.h>
+        #include <OpenGL/glext.h>
+        #include <AGL/agl.h>
+
+        #define GL_RGBA16F                  0x881A
+        #define GL_RGBA32F                  0x8814
+        #define GL_HALF_FLOAT               0x140B
+
+        #define GL_RGB565                   GL_RGBA
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+        #define glGenVertexArrays    glGenVertexArraysAPPLE
+        #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+        #define glBindVertexArray    glBindVertexArrayAPPLE
+
+        #define GL_PROGRAM_BINARY_LENGTH 0
+        #define glGetProgramBinary(...)  0
+        #define glProgramBinary(...)     0
+    #endif
+#elif _OS_WEB
+    #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
+    #include <GLES3/gl3.h>
+    #include <GLES3/gl2ext.h>
+
+    #define GL_CLAMP_TO_BORDER          GL_CLAMP_TO_BORDER_EXT
+    #define GL_TEXTURE_BORDER_COLOR     GL_TEXTURE_BORDER_COLOR_EXT
+
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
+#endif
+
+#if defined(_OS_WIN) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
 
     #ifdef _OS_ANDROID
         #define GetProc(x) dlsym(libGL, x);
     #else
         void* GetProc(const char *name) {
-            #ifdef _OS_WINDOWS
+            #ifdef _OS_WIN
                 return (void*)wglGetProcAddress(name);
             #elif _OS_LINUX
                 return (void*)glXGetProcAddress((GLubyte*)name);
@@ -22,12 +151,12 @@
     #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
 
 // Texture
-    #ifdef _OS_WINDOWS
+    #ifdef _OS_WIN
         PFNGLACTIVETEXTUREPROC              glActiveTexture;
     #endif
 
 // VSync
-    #ifdef _OS_WINDOWS
+    #ifdef _OS_WIN
         typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC) (int interval);
         PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
     #elif _OS_LINUX
@@ -35,7 +164,7 @@
         PFNGLXSWAPINTERVALSGIPROC glXSwapIntervalSGI;
     #endif
 
-    #if defined(_OS_WINDOWS) || defined(_OS_LINUX)
+    #if defined(_OS_WIN) || defined(_OS_LINUX)
         PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
     // Profiling
         #ifdef PROFILE
@@ -200,27 +329,49 @@ namespace GAPI {
 
     int cullMode, blendMode;
 
+    struct Texture {
+        enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
+
+        uint32  ID;
+        int     width, height, origWidth, origHeight;
+        Format  format;
+        uint32  opt;
+    };
+
+
+    GLuint FBO, defaultFBO;
+    struct RenderTargetCache {
+        int count;
+        struct Item {
+            GLuint  ID;
+            int     width;
+            int     height;
+        } items[MAX_RENDER_BUFFERS];
+    } rtCache[2];
+
     bool extSupport(const char *str, const char *ext) {
         return strstr(str, ext) != NULL;
     }
 
     void init() {
+        memset(rtCache, 0, sizeof(rtCache));
+
         #ifdef _OS_ANDROID
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(_OS_WINDOWS) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
-            #ifdef _OS_WINDOWS
+        #if defined(_OS_WIN) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
+            #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
 
-            #ifdef _OS_WINDOWS
+            #ifdef _OS_WIN
                 GetProcOGL(wglSwapIntervalEXT);
             #elif _OS_LINUX
                 GetProcOGL(glXSwapIntervalSGI);
             #endif
 
-            #if defined(_OS_WINDOWS) || defined(_OS_LINUX)
+            #if defined(_OS_WIN) || defined(_OS_LINUX)
                 GetProcOGL(glGenerateMipmap);
 
                 #ifdef PROFILE
@@ -399,6 +550,44 @@ namespace GAPI {
         glUseProgram(0);
     }
 
+    int cacheRenderTarget(bool depth, int width, int height) {
+        RenderTargetCache &cache = rtCache[depth];
+
+        for (int i = 0; i < cache.count; i++)
+            if (cache.items[i].width == width && cache.items[i].height == height)
+                return i;
+
+        ASSERT(cache.count < MAX_RENDER_BUFFERS);
+
+        RenderTargetCache::Item &item = cache.items[cache.count];
+        item.width  = width;
+        item.height = height;
+
+        glGenRenderbuffers(1, &item.ID);
+        glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        return cache.count++;
+    }
+
+    void bindTarget(Texture *target, int face) {
+        if (!target) { // may be a null
+            glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
+        } else {
+            GLenum texTarget = GL_TEXTURE_2D;
+            if (target->opt & Texture::CUBEMAP) 
+                texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+
+            bool depth = target->format == FMT_DEPTH || target->format == FMT_SHADOW;
+
+            int rtIndex = cacheRenderTarget(depth, target->width, target->height);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+            glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
+            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
+        }
+    }
+
     void discardTarget(bool color, bool depth) {
     #ifdef _GAPI_GLES
         if (Core::support.discardFrame) {
@@ -412,8 +601,16 @@ namespace GAPI {
     #endif
     }
 
+    void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
+        Core::active.textures[0] = NULL;
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, dst->ID);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
     void setVSync(bool enable) {
-        #ifdef _OS_WINDOWS
+        #ifdef _OS_WIN
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(enable ? 1 : 0);
         #elif _OS_LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(enable ? 1 : 0);
