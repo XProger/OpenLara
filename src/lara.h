@@ -1443,7 +1443,7 @@ struct Lara : Character {
     void bakeEnvironment() {
         flags.invisible = true;
         if (!environment)
-            environment = new Texture(256, 256, Texture::RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
+            environment = new Texture(256, 256, FMT_RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
         flags.invisible = false;
@@ -3282,11 +3282,11 @@ struct Lara : Character {
             Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
         */
             environment->bind(sEnvironment);
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
             visibleMask ^= 0xFFFFFFFF;
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
         }
     }
 };

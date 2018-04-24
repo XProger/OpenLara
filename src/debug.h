@@ -11,7 +11,7 @@ namespace Debug {
     static GLuint font;
 
     void init() {
-        #ifdef WIN32
+        #ifdef _OS_WINDOWS
             font = glGenLists(256);
             HDC hdc = GetDC(0);
             HFONT hfont = CreateFontA(-MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72), 0,
@@ -21,7 +21,7 @@ namespace Debug {
             SelectObject(hdc, hfont);
             wglUseFontBitmaps(hdc, 0, 256, font);
             DeleteObject(hfont);
-        #elif LINUX
+        #elif _OS_LINUX
             XFontStruct *fontInfo;
             Font id;
             unsigned int first, last;
@@ -182,7 +182,7 @@ namespace Debug {
             glOrtho(0, Core::width, Core::height, 0, 0, 1);
 
             Core::setDepthTest(false);
-            Core::setCulling(cfNone);
+            Core::setCullMode(cmNone);
             Core::validateRenderState();
 
             glColor4fv((GLfloat*)&color);
@@ -190,7 +190,7 @@ namespace Debug {
             glListBase(font);
             glCallLists(strlen(str), GL_UNSIGNED_BYTE, str);
             Core::setDepthTest(true);
-            Core::setCulling(cfFront);
+            Core::setCullMode(cmFront);
 
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
@@ -400,7 +400,7 @@ namespace Debug {
             sprintf(str, "%d", boxIndex);
             Draw::text(vec3((b.maxX + b.minX) * 0.5f, b.floor, (b.maxZ + b.minZ) * 0.5f), vec4(0, 1, 0, 1), str);
             glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             debugBox(b);
 
             TR::Overlap *o = &level.overlaps[level.boxes[boxIndex].overlap.index];
@@ -409,7 +409,7 @@ namespace Debug {
                 sprintf(str, "%d", o->boxIndex);
                 Draw::text(vec3((b.maxX + b.minX) * 0.5f, b.floor, (b.maxZ + b.minZ) * 0.5f), vec4(0, 0, 1, 1), str);
                 glColor4f(0.0f, 0.0f, 1.0f, 0.25f);
-                Core::setBlending(bmAlpha);
+                Core::setBlendMode(bmAlpha);
                 debugBox(b);
             } while (!(o++)->end);
         }
@@ -418,7 +418,7 @@ namespace Debug {
             if (!boxes) return;
 
             glColor4f(0.0f, 1.0f, 0.0f, 0.25f);
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             Core::setDepthTest(false);
             Core::validateRenderState();
             for (int i = 0; i < count; i++)
@@ -455,7 +455,7 @@ namespace Debug {
         }
 
         void portals(const TR::Level &level) {
-            Core::setBlending(bmAdd);
+            Core::setBlendMode(bmAdd);
             glColor3f(0, 0.25f, 0.25f);
             glDepthMask(GL_FALSE);
 
@@ -473,7 +473,7 @@ namespace Debug {
             glEnd();
 
             glDepthMask(GL_TRUE);
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
         }
 
         void entities(const TR::Level &level) {

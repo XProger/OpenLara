@@ -287,8 +287,8 @@ namespace UI {
 
     void begin() {
         Core::setDepthTest(false);
-        Core::setBlending(bmAlpha);
-        Core::setCulling(cfNone);
+        Core::setBlendMode(bmAlpha);
+        Core::setCullMode(cmNone);
         game->setupBinding();
 
         Core::mView.identity();
@@ -318,8 +318,8 @@ namespace UI {
 
     void end() {
         flush();
-        Core::setCulling(cfFront);
-        Core::setBlending(bmNone);
+        Core::setCullMode(cmFront);
+        Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
     }
 
@@ -487,8 +487,8 @@ namespace UI {
         if (Input::touchTimerVis <= 0.0f) return;
 
         Core::setDepthTest(false);
-        Core::setBlending(bmAlpha);
-        Core::setCulling(cfNone);
+        Core::setBlendMode(bmAlpha);
+        Core::setCullMode(cmNone);
 
         Core::mViewProj = mat4(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
         
@@ -507,8 +507,8 @@ namespace UI {
         for (int i = Input::bWeapon; i < Input::bMAX; i++)
             renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
 
-        Core::setCulling(cfFront);
-        Core::setBlending(bmNone);
+        Core::setCullMode(cmFront);
+        Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
     }
 

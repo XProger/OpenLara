@@ -148,7 +148,7 @@ int main() {
 
     sceGuInit();
 
-    Core::beginCmdBuf();
+    GAPI::beginCmdBuf();
 
     sceGuDrawBuffer(GU_PSM_5650, (void*)0, BUF_WIDTH);
     sceGuDispBuffer(SCR_WIDTH, SCR_HEIGHT, (void*)(BUF_WIDTH * SCR_HEIGHT * 2), BUF_WIDTH);
@@ -165,7 +165,7 @@ int main() {
 
     Game::init();
 
-    Core::submitCmdBuf();
+    GAPI::submitCmdBuf();
 
     sceDisplayWaitVblankStart();
     sceGuDisplay(GU_TRUE);
@@ -173,12 +173,12 @@ int main() {
     Core::curBackBuffer = 0;
 
     while (!Core::isQuit) {
-        Core::beginCmdBuf();
+        GAPI::beginCmdBuf();
 
         joyUpdate();
         Game::update();
         Game::render();
-        Core::submitCmdBuf();
+        GAPI::submitCmdBuf();
         Core::waitVBlank();
         Core::curBackBuffer = sceGuSwapBuffers();
     }

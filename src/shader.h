@@ -87,7 +87,7 @@ struct Shader {
 
         if (!(Core::support.shaderBinary && linkBinary(fileName))) // try to load cached shader     
             if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
-            #ifndef __EMSCRIPTEN__
+            #ifndef _OS_WEB
                 GLenum format, size;
                 glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, (GLsizei*)&size);
                 char *data = new char[8 + size];
@@ -103,7 +103,7 @@ struct Shader {
     }
 
     bool linkSource(const char *text, const char *defines = "") {
-        #ifdef MOBILE
+        #ifdef _GAPI_GLES
             #define GLSL_DEFINE ""
             #define GLSL_VERT   ""
             #define GLSL_FRAG   "#extension GL_OES_standard_derivatives : enable\n"
@@ -193,13 +193,17 @@ struct Shader {
         memset(params, 0, sizeof(params));
     }
 
-    bool bind() {
+    void bind() {
         if (Core::active.shader != this) {
             Core::active.shader = this;
             glUseProgram(ID);
-            return true;
         }
-        return false;
+
+        setParam(uViewProj,  Core::mViewProj);
+        setParam(uLightProj, Core::mLightProj[0], Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM ? SHADOW_OBJ_MAX : 1);
+        setParam(uViewPos,   Core::viewPos);
+        setParam(uParam,     Core::params);
+        setParam(uFogParams, Core::fogParams);
     }
 
     void setParam(UniformType uType, const int &value, int count = 1) {

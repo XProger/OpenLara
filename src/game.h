@@ -39,12 +39,14 @@ void loadSettings(Stream *stream, void *userData) {
         delete stream;
     }
     
-    #ifdef ANDROID
+    #ifdef _OS_ANDROID
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             osToggleVR(true);
     #endif
 
     Core::settings.version = SETTINGS_VERSION;
+    Core::setVSync(Core::settings.detail.vsync != 0);
+
     shaderCache = new ShaderCache();
     Game::startLevel((Stream*)userData);
     UI::init(Game::level);

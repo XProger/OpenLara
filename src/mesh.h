@@ -19,13 +19,13 @@ struct MeshRange {
     MeshRange() : iStart(0), iCount(0), vStart(0), aIndex(-1), tile(0), clut(0) {}
 
 #ifdef FFP
-    #ifdef _PSP
+    #ifdef _OS_PSP
         void setup() const {
             Core::active.vBuffer += vStart;
         }
     #else
         void setup() const {
-            VertexGPU *v = (VertexGPU*)NULL + vStart;
+            GAPI::Vertex *v = (GAPI::Vertex*)NULL + vStart;
             glTexCoordPointer (2, GL_SHORT,         sizeof(*v), &v->texCoord);
             glColorPointer    (4, GL_UNSIGNED_BYTE, sizeof(*v), &v->light);
             glNormalPointer   (   GL_SHORT,         sizeof(*v), &v->normal);
@@ -42,7 +42,7 @@ struct MeshRange {
         glEnableVertexAttribArray(aColor);
         glEnableVertexAttribArray(aLight);
 
-        VertexGPU *v = (VertexGPU*)vBuffer + vStart;
+        GAPI::Vertex *v = (GAPI::Vertex*)vBuffer + vStart;
         glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(*v), &v->coord);
         glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(*v), &v->normal);
         glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(*v), &v->texCoord);
@@ -66,9 +66,9 @@ struct MeshRange {
 #define MAX_ROOM_DYN_FACES 512
 
 struct Mesh {
-    Index       *iBuffer;
-    VertexGPU   *vBuffer;
-#ifndef _PSP
+    Index        *iBuffer;
+    GAPI::Vertex *vBuffer;
+#ifndef _OS_PSP
     GLuint      ID[2];
     GLuint      *VAO;
 #endif
@@ -79,21 +79,21 @@ struct Mesh {
     int     aIndex;
     bool    cmdBufAlloc;
 
-#ifdef _PSP
+#ifdef _OS_PSP
     Mesh(int iCount, int vCount, bool dynamic) :  iCount(iCount), vCount(vCount), aCount(0), aIndex(-1), cmdBufAlloc(true) {
         iBuffer =     (Index*)sceGuGetMemory(iCount * sizeof(Index)); 
-        vBuffer = (VertexGPU*)sceGuGetMemory(vCount * sizeof(VertexGPU)); 
+        vBuffer = (GAPI::Vertex*)sceGuGetMemory(vCount * sizeof(GAPI::Vertex)); 
     }
 #endif
 
     Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount) : iCount(iCount), vCount(vCount), aCount(aCount), aIndex(0), cmdBufAlloc(false) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         #ifdef EDRAM_MESH
             iBuffer =     (Index*)Core::allocEDRAM(iCount * sizeof(Index)); 
-            vBuffer = (VertexGPU*)Core::allocEDRAM(vCount * sizeof(VertexGPU)); 
+            vBuffer = (GAPI::Vertex*)Core::allocEDRAM(vCount * sizeof(GAPI::Vertex)); 
         #else
             iBuffer = new Index[iCount];
-            vBuffer = new VertexGPU[vCount];
+            vBuffer = new GAPI::Vertex[vCount];
         #endif
 
         update(indices, iCount, vertices, vCount);
@@ -106,7 +106,7 @@ struct Mesh {
             if (!vertices && !indices) {
                 ID[0] = ID[1] = 0;
                 iBuffer = new Index[iCount];
-                vBuffer = new VertexGPU[vCount];
+                vBuffer = new GAPI::Vertex[vCount];
                 return;
             }
         #endif 
@@ -114,7 +114,7 @@ struct Mesh {
         glGenBuffers(2, ID);
         bind(true);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
-        glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(VertexGPU), vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(GAPI::Vertex), vertices, GL_STATIC_DRAW);
             
         if (Core::support.VAO && aCount) {
             VAO = new GLuint[aCount];
@@ -126,13 +126,13 @@ struct Mesh {
     }
 
     void update(Index *indices, int iCount, Vertex *vertices, int vCount) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         if (indices)
             memcpy(iBuffer, indices, iCount * sizeof(indices[0]));
         
         if (vertices) {
             Vertex    *src = vertices;
-            VertexGPU *dst = vBuffer;
+            GAPI::Vertex *dst = vBuffer;
 
             for (int i = 0; i < vCount; i++) {
                 dst->texCoord = short2(src->texCoord.x, src->texCoord.y);
@@ -145,8 +145,8 @@ struct Mesh {
             }
         }
     #else
-    // !!! typeof vertices[0] == Vertex == VertexGPU
-        ASSERT(sizeof(VertexGPU) == sizeof(Vertex));
+    // !!! typeof vertices[0] == Vertex == GAPI::Vertex
+        ASSERT(sizeof(GAPI::Vertex) == sizeof(Vertex));
 
         if (Core::support.VAO)
             glBindVertexArray(Core::active.VAO = 0);
@@ -161,17 +161,17 @@ struct Mesh {
         }
         if (vertices && vCount) {
             if (vBuffer) {
-                memcpy(vBuffer, vertices, vCount * sizeof(VertexGPU));
+                memcpy(vBuffer, vertices, vCount * sizeof(GAPI::Vertex));
             } else {
                 glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(VertexGPU), vertices);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(GAPI::Vertex), vertices);
             }
         }
     #endif
     }
 
     virtual ~Mesh() {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         #ifndef EDRAM_MESH
             if (!cmdBufAlloc) {
                 delete[] iBuffer;
@@ -193,7 +193,7 @@ struct Mesh {
     }
 
     void initRange(MeshRange &range) {
-    #ifndef _PSP
+    #ifndef _OS_PSP
         if (Core::support.VAO && VAO) {
             ASSERT(aIndex < aCount);
             range.aIndex = aIndex++;
@@ -207,7 +207,7 @@ struct Mesh {
     }
 
     void bind(bool force = false) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         Core::active.iBuffer = iBuffer;
         Core::active.vBuffer = vBuffer;
     #else
@@ -229,7 +229,7 @@ struct Mesh {
         if (range.aIndex == -1)
             bind();
 
-    #ifndef _PSP
+    #ifndef _OS_PSP
         range.bind(VAO);
     #endif
 
@@ -277,7 +277,7 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
-#ifndef _PSP
+#ifndef _OS_PSP
     MeshRange dynRange;
     Mesh      *dynMesh;
 #endif
@@ -374,7 +374,7 @@ struct MeshBuilder {
     };
 
     MeshBuilder(TR::Level &level, Texture *atlas) : atlas(atlas), level(&level) {
-    #ifndef _PSP
+    #ifndef _OS_PSP
         dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1);
         dynRange.vStart = 0;
         dynRange.iStart = 0;
@@ -739,7 +739,7 @@ struct MeshBuilder {
         plane.iCount = 0;
     #endif
 
-        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, int(iCount * sizeof(Index) + vCount * sizeof(VertexGPU)));
+        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, int(iCount * sizeof(Index) + vCount * sizeof(GAPI::Vertex)));
 
     // compile buffer and ranges
         mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
@@ -805,7 +805,7 @@ struct MeshBuilder {
         delete[] models;
         delete[] sequences;
         delete mesh;
-    #ifndef _PSP
+    #ifndef _OS_PSP
         delete dynMesh;
     #endif
     }
@@ -1235,7 +1235,7 @@ struct MeshBuilder {
         if (!iCount) return;
         ASSERT(vCount > 0);
 
-        #ifdef _PSP
+        #ifdef _OS_PSP
             MeshRange dynRange;
             Mesh cmdBufMesh(iCount, vCount);
             Mesh *dynMesh = &cmdBufMesh;
@@ -1427,13 +1427,13 @@ struct MeshBuilder {
     }
 
     void renderShadowBlob() {
-        #ifdef _PSP
+        #ifdef _OS_PSP
             sceGuDisable(GU_TEXTURE_2D);
         #endif
         
         mesh->render(shadowBlob);
         
-        #ifdef _PSP
+        #ifdef _OS_PSP
             sceGuEnable(GU_TEXTURE_2D);
         #endif
     }

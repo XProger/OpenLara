@@ -70,7 +70,7 @@ struct Level : IGame {
     }
 
     virtual void loadNextLevel() {
-    #ifdef __EMSCRIPTEN__
+    #ifdef _OS_WEB
         if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC) {
             loadLevel(TR::LVL_TR1_TITLE);
             return;
@@ -226,9 +226,9 @@ struct Level : IGame {
     void initShadow() {
         delete shadow;
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
-            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, Texture::SHADOW);
+            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, FMT_SHADOW);
         else if (Core::settings.detail.shadows > Core::Settings::LOW)
-            shadow = new Texture(SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, Texture::SHADOW);
+            shadow = new Texture(SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, FMT_SHADOW);
         else
             shadow = NULL;
     }
@@ -245,12 +245,14 @@ struct Level : IGame {
 
         bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
 
-    #ifdef ANDROID
+    #ifdef _OS_ANDROID
         if ((settings.detail.stereo == Core::Settings::STEREO_VR) ^ (Core::settings.detail.stereo == Core::Settings::STEREO_VR))
             osToggleVR(settings.detail.stereo == Core::Settings::STEREO_VR);
     #endif
 
         Core::settings = settings;
+
+        Core::setVSync(Core::settings.detail.vsync != 0);
 
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
@@ -366,7 +368,7 @@ struct Level : IGame {
     }
 
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0), this);
+        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0));
     }
 
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
@@ -657,7 +659,7 @@ struct Level : IGame {
 //==============================
 
     Level(Stream &stream) : level(stream), inventory(this), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         Core::freeEDRAM();
     #endif
         params = (Params*)&Core::params;
@@ -1080,7 +1082,7 @@ struct Level : IGame {
 
     #ifndef SPLIT_BY_TILE
 
-        #ifdef _PSP
+        #ifdef _OS_PSP
             #error atlas packing is not allowed for this platform
         #endif
 
@@ -1137,7 +1139,7 @@ struct Level : IGame {
         delete[] level.tiles;
         level.tiles = NULL;
     #else
-        #ifdef _PSP
+        #ifdef _OS_PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else
             level.initTiles();
@@ -1257,7 +1259,7 @@ struct Level : IGame {
         else
             b = Basis(quat(0, 0, 0, 1), vec3(0));
 
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
         Core::setDepthTest(false);
         setShader(Core::pass, Shader::FLASH, false, false);
         Core::active.shader->setParam(uMaterial, vec4(0.5f, 0.0f, 0.0f, 0.0f));
@@ -1315,9 +1317,9 @@ struct Level : IGame {
         Core::mModel.identity();
 
         switch (transp) {
-            case 0 : Core::setBlending(bmNone);  break;
-            case 1 : Core::setBlending(bmAlpha); break;
-            case 2 : Core::setBlending(bmAdd);   Core::setDepthWrite(false); break;
+            case 0 : Core::setBlendMode(bmNone);  break;
+            case 1 : Core::setBlendMode(bmAlpha); break;
+            case 2 : Core::setBlendMode(bmAdd);   Core::setDepthWrite(false); break;
         }
 
         int i     = 0;
@@ -1362,7 +1364,7 @@ struct Level : IGame {
         Core::setDepthWrite(true);
 
         if (transp == 1) {
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
 
             #ifdef MERGE_SPRITES
                 basis.rot = Core::mViewInv.getRot();
@@ -1393,7 +1395,7 @@ struct Level : IGame {
         }
         endLighting();
 
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
     }
 
     void renderEntity(const TR::Entity &entity) {
@@ -1583,7 +1585,7 @@ struct Level : IGame {
 
     void updateLighting() {
     #ifdef FFP
-        #ifdef _PSP
+        #ifdef _OS_PSP
             ubyte4 ambient;
             ambient.x = ambient.y = ambient.z = clamp(int(Core::active.material.y * 255), 0, 255);
             ambient.w = 255;
@@ -1627,7 +1629,7 @@ struct Level : IGame {
     void beginLighting(bool room) {
     #ifdef FFP
         Core::mModel.identity();
-        #ifdef _PSP
+        #ifdef _OS_PSP
             sceGuEnable(GU_LIGHTING);
             if (room)
                 sceGuDisable(GU_LIGHT0);
@@ -1648,7 +1650,7 @@ struct Level : IGame {
 
     void endLighting() {
     #ifdef FFP
-        #ifdef _PSP
+        #ifdef _OS_PSP
             sceGuDisable(GU_LIGHTING);
         #else
             glDisable(GL_COLOR_MATERIAL);
@@ -1680,27 +1682,27 @@ struct Level : IGame {
         beginLighting(false);
 
         if (transp == 0) {
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
             renderEntitiesTransp(transp);
         }
 
         if (transp == 1) {
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             renderEntitiesTransp(transp);
 
-            Core::setBlending(bmMult);
+            Core::setBlendMode(bmMult);
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &entity = level.entities[i];
                 Controller *controller = (Controller*)entity.controller;
                 if (controller && controller->flags.rendered && controller->getEntity().castShadow())
                     controller->renderShadow(mesh);
             }
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
         }
 
         if (transp == 2) {
             Core::setDepthWrite(false);
-            Core::setBlending(bmAdd);
+            Core::setBlendMode(bmAdd);
             renderEntitiesTransp(transp);
             Core::setDepthWrite(true);
         }
@@ -1900,7 +1902,7 @@ struct Level : IGame {
         if (camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
 
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
             waterCache->renderMask();
@@ -1914,7 +1916,7 @@ struct Level : IGame {
         if (!camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
     
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
 
         if (showUI) {
             Core::Pass pass = Core::pass;
@@ -1995,7 +1997,7 @@ struct Level : IGame {
         bias.e00 = bias.e11 = bias.e22 = bias.e03 = bias.e13 = bias.e23 = 0.5f;
         Core::mLightProj[index] = bias * (Core::mProj * Core::mView);
         
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
 
         mesh->transparent = 0;
         if (mesh->models[controller->getEntity().modelIndex - 1].geometry[mesh->transparent].count) {
@@ -2076,13 +2078,13 @@ struct Level : IGame {
 
         Core::pass = Core::passShadow;
         shadow->unbind(sShadow);
-        bool colorShadow = shadow->format == Texture::RGBA ? true : false;
+        bool colorShadow = shadow->format == FMT_RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
         Core::setTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
         Core::validateRenderState();
 
-        Core::setCulling(cfBack);
+        Core::setCullMode(cmBack);
 
         if (Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM) { // per-object shadow map (atlas)
             NearObj nearObj[SHADOW_OBJ_MAX];
@@ -2098,7 +2100,7 @@ struct Level : IGame {
         } else // all-in-one shadow map
             renderShadowView(roomIndex);
 
-        Core::setCulling(cfFront);
+        Core::setCullMode(cmFront);
         if (colorShadow)
             Core::setClearColor(vec4(0.0f));
 
@@ -2165,9 +2167,9 @@ struct Level : IGame {
             else
                 atlas->bind(sDiffuse);
             glEnable(GL_TEXTURE_2D);
-            Core::setCulling(cfNone);
+            Core::setCullMode(cmNone);
             Core::setDepthTest(false);
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
             Core::validateRenderState();
 
             glColor3f(10, 10, 10);
@@ -2203,7 +2205,7 @@ struct Level : IGame {
         //    Box bbox = lara->getBoundingBox();
         //    Debug::Draw::box(bbox.min, bbox.max, vec4(1, 0, 1, 1));
 
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             Core::setDepthTest(false);
             Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
@@ -2220,7 +2222,7 @@ struct Level : IGame {
         //    Debug::Level::debugOverlaps(level, lara->box);
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
             Core::setDepthTest(true);
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
         /*
             Core::validateRenderState();
 

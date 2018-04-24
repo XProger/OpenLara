@@ -555,7 +555,7 @@ namespace TR {
             if (version & VER_TR3) strcat(dst, "3/");
             strcat(dst, LEVEL_INFO[id].name);
 
-            #ifdef __EMSCRIPTEN__
+            #ifdef _OS_WEB
                  strcat(dst, ".PSX");
             #else
                 switch (version) {
@@ -692,7 +692,7 @@ namespace TR {
                     break;
                 case VER_TR3_PC  :
                 case VER_TR3_PSX :
-                    #ifndef __EMSCRIPTEN__
+                    #ifndef _OS_WEB
                         callback(Sound::openCDAudioWAD("audio/3/cdaudio.wad", track), userData);
                         return;
                     #else

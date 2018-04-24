@@ -5,14 +5,13 @@
 #include "format.h"
 
 struct Texture {
-    enum Format { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, DEPTH_STENCIL, SHADOW, MAX };
     enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
 
     int     width, height, origWidth, origHeight;
     Format  format;
     uint32  opt;
 
-#ifdef _PSP
+#ifdef _OS_PSP
     TR::Tile4 *tiles;
     TR::CLUT  *cluts;
     uint8     *memory;
@@ -41,7 +40,7 @@ struct Texture {
 
     #ifdef SPLIT_BY_TILE
 
-        #ifdef _PSP
+        #ifdef _OS_PSP
             Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : width(256), height(256), memory(NULL) {
                 #ifdef EDRAM_TEX
                     this->tiles = (TR::Tile4*)Core::allocEDRAM(tilesCount * sizeof(tiles[0]));
@@ -69,7 +68,7 @@ struct Texture {
         #endif
 
         void bind(uint16 tile, uint16 clut) {
-        #ifdef _PSP
+        #ifdef _OS_PSP
             int swizzle = GU_FALSE;
             #ifdef TEX_SWIZZLE
                 swizzle = GU_TRUE;
@@ -86,7 +85,7 @@ struct Texture {
     Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
 //        LOG("create texture %d x %d (%d)\n", width, height, format);
 
-        #ifndef _PSP
+        #ifndef _OS_PSP
             #ifdef SPLIT_BY_TILE
                 memset(this->tiles, 0, sizeof(tiles));
             #endif
@@ -105,37 +104,37 @@ struct Texture {
         bool   filter   = (opt & NEAREST) == 0;
         bool   cube     = (opt & CUBEMAP) != 0;
         bool   mipmaps  = (opt & MIPMAPS) != 0;
-        bool   isShadow = format == SHADOW;
+        bool   isShadow = format == FMT_SHADOW;
 
-        if (format == SHADOW && !Core::support.shadowSampler) {
-            format = DEPTH;
+        if (format == FMT_SHADOW && !Core::support.shadowSampler) {
+            format = FMT_DEPTH;
             filter = false;
         }
 
-        if (format == DEPTH) {
+        if (format == FMT_DEPTH) {
             if (Core::support.depthTexture)
                 filter = false;
             else
-                format = RGBA;
+                format = FMT_RGBA;
         }
 
-        if (format == RGBA_HALF) {
+        if (format == FMT_RGBA_HALF) {
             if (Core::support.texHalf)
                 filter = filter && Core::support.texHalfLinear;
             else
-                format = RGBA_FLOAT;
+                format = FMT_RGBA_FLOAT;
         }
 
-        if (format == RGBA_FLOAT) {
+        if (format == FMT_RGBA_FLOAT) {
             if (Core::support.texFloat)
                 filter = filter && Core::support.texFloatLinear;
             else
-                format = RGBA;
+                format = FMT_RGBA;
         }
 
         this->format = format;
 
-    #ifdef _PSP
+    #ifdef _OS_PSP
         if (data) {
             memory = new uint8[width * height * 4];
         #ifdef TEX_SWIZZLE
@@ -151,7 +150,7 @@ struct Texture {
 
         GLenum target = (opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
 
-        if (format == SHADOW) {
+        if (format == FMT_SHADOW) {
             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
             glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
@@ -170,7 +169,7 @@ struct Texture {
         struct FormatDesc {
             GLuint ifmt, fmt;
             GLenum type;
-        } formats[MAX] = {            
+        } formats[FMT_MAX] = {            
             { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
             { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
             { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
@@ -184,27 +183,25 @@ struct Texture {
 
         FormatDesc desc = formats[format];
 
-        #ifdef __EMSCRIPTEN__ // fucking firefox!
-            if (format == RGBA_FLOAT) {
+        #ifdef _OS_WEB // fucking firefox!
+            if (format == FMT_RGBA_FLOAT) {
                 if (Core::support.texFloat) {
                     desc.ifmt = GL_RGBA;
                     desc.type = GL_FLOAT;
                 }
             }
 
-            if (format == RGBA_HALF) {
+            if (format == FMT_RGBA_HALF) {
                 if (Core::support.texHalf) {
                     desc.ifmt = GL_RGBA;
-                    #ifdef MOBILE
-                        desc.type = GL_HALF_FLOAT_OES;
-                    #endif
+                    desc.type = GL_HALF_FLOAT_OES;
                 }
             }
         #else
-            if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
+            if ((format == FMT_RGBA_FLOAT && !Core::support.colorFloat) || (format == FMT_RGBA_HALF && !Core::support.colorHalf)) {
                 desc.ifmt = GL_RGBA;
-                #ifdef MOBILE
-                    if (format == RGBA_HALF)
+                #ifdef _GAPI_GLES
+                    if (format == FMT_RGBA_HALF)
                         desc.type = GL_HALF_FLOAT_OES;
                 #endif
             }
@@ -226,7 +223,7 @@ struct Texture {
     }
 
     void generateMipMap() {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         // TODO
     #else
         bind(0);
@@ -240,7 +237,7 @@ struct Texture {
     }
 
     virtual ~Texture() {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         delete[] memory;
     #else
         #ifdef SPLIT_BY_TILE
@@ -258,7 +255,7 @@ struct Texture {
         bool filter  = value > Core::Settings::LOW;
         bool mipmaps = value > Core::Settings::MEDIUM;
 
-    #ifdef _PSP
+    #ifdef _OS_PSP
         if (filter)
             opt &= ~NEAREST;
         else
@@ -279,7 +276,7 @@ struct Texture {
     }
 
     void bind(int sampler) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         if (this && !sampler && memory) {
             int swizzle = GU_FALSE;
             #ifdef TEX_SWIZZLE
@@ -302,7 +299,7 @@ struct Texture {
     }
 
     void unbind(int sampler) {
-    #ifdef _PSP
+    #ifdef _OS_PSP
         //
     #else
         if (Core::active.textures[sampler]) {
@@ -821,7 +818,7 @@ struct Texture {
                 ((uint32*)data)[y * dw] = ((uint32*)data)[y * dw + dw - 1] = 0xFF000000;
         }
 
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, 0, data);
+        Texture *tex = new Texture(dw, dh, FMT_RGBA, 0, data);
         tex->origWidth  = width;
         tex->origHeight = height;
 
@@ -983,7 +980,7 @@ struct Atlas {
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, Texture::RGBA, Texture::MIPMAPS, data);
+        Texture *atlas = new Texture(width, height, FMT_RGBA, Texture::MIPMAPS, data);
 
         //Texture::SaveBMP("atlas.bmp", (char*)data, width, height);
 

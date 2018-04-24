@@ -1,10 +1,6 @@
 #ifndef H_CORE
 #define H_CORE
 
-#ifndef _PSP
-    #define USE_INFLATE
-#endif
-
 #ifdef _DEBUG
     #define PROFILE
 #endif
@@ -15,57 +11,69 @@
 #define OS_PTHREAD_MT
 
 #ifdef WIN32
+    #define _OS_WINDOWS
+    #define _GAPI_GL
+    //#define _GAPI_VULKAN
+
     #include <windows.h>
-    #include <gl/GL.h>
-    #include <gl/glext.h>
+    
+    #ifdef _GAPI_GL
+        #include <gl/GL.h>
+        #include <gl/glext.h>
+    #endif
 
     #undef OS_PTHREAD_MT
 #elif ANDROID
-    #define MOBILE
-    #define RENDER_TBR
+    #define _OS_ANDROID
+    #define _GAPI_GL
+    #define _GAPI_GLES
+    //#define _GAPI_VULKAN
 
-    #include <GLES2/gl2.h>
-    #include <GLES2/gl2ext.h>
     #include <dlfcn.h>
 
-    #define GL_CLAMP_TO_BORDER          0x812D
-    #define GL_TEXTURE_BORDER_COLOR     0x1004
+    #ifdef _GAPI_GL
+        #include <GLES2/gl2.h>
+        #include <GLES2/gl2ext.h>
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-    #define GL_TEXTURE_COMPARE_MODE     0x884C
-    #define GL_TEXTURE_COMPARE_FUNC     0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-    #define GL_RGBA16F                  0x881A
-    #define GL_RGBA32F                  0x8814
-    #define GL_HALF_FLOAT               0x140B
+        #define GL_RGBA16F                  0x881A
+        #define GL_RGBA32F                  0x8814
+        #define GL_HALF_FLOAT               0x140B
 
-    #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
+        #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
+        #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
 
-    #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
-    #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
-    #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
-    #define glGenVertexArrays            glGenVertexArraysOES
-    #define glDeleteVertexArrays         glDeleteVertexArraysOES
-    #define glBindVertexArray            glBindVertexArrayOES
+        #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
+        #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
+        #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
+        #define glGenVertexArrays            glGenVertexArraysOES
+        #define glDeleteVertexArrays         glDeleteVertexArraysOES
+        #define glBindVertexArray            glBindVertexArrayOES
 
-    #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
-    #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
-    #define glGetProgramBinary           glGetProgramBinaryOES
-    #define glProgramBinary              glProgramBinaryOES
+        #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
+        #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
+        #define glGetProgramBinary           glGetProgramBinaryOES
+        #define glProgramBinary              glProgramBinaryOES
 
-    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #endif
 
     extern void osToggleVR(bool enable);
 #elif __RPI__
-    #define MOBILE
-    #define RENDER_TBR
+    #define _OS_RPI
+    #define _GAPI_GL
+    #define _GAPI_GLES
 
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
     #include <EGL/egl.h>
     #include <EGL/eglext.h>
-    
+
     #define GL_CLAMP_TO_BORDER          0x812D
     #define GL_TEXTURE_BORDER_COLOR     0x1004
 
@@ -96,16 +104,21 @@
 
     #define DYNGEOM_NO_VBO
 #elif __linux__
-    #define LINUX 1
-    #include <GL/gl.h>
-    #include <GL/glext.h>
-    #include <GL/glx.h>
+    #define _OS_LINUX
+    #define _GAPI_GL
+
+    #ifdef _GAPI_GL
+        #include <GL/gl.h>
+        #include <GL/glext.h>
+        #include <GL/glx.h>
+    #endif
 #elif __APPLE__
+    #define _GAPI_GL
     #include "TargetConditionals.h"
 
     #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-        #define MOBILE
-        #define RENDER_TBR
+        #define _OS_IOS
+        #define _GAPI_GLES
 
         #include <OpenGLES/ES2/gl.h>
         #include <OpenGLES/ES2/glext.h>
@@ -125,6 +138,8 @@
         #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
         #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
+        #define _OS_MACOS
+
         #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
         #include <OpenGL/OpenGL.h>
@@ -150,7 +165,10 @@
         #define glProgramBinary(...)     0
     #endif
 #elif __EMSCRIPTEN__
-    #define MOBILE
+    #define _OS_WEB
+    #define _GAPI_GL
+    #define _GAPI_GLES
+
     #include <emscripten/emscripten.h>
     #include <emscripten/html5.h>
     #include <GLES3/gl3.h>
@@ -164,6 +182,8 @@
 
     #undef  OS_FILEIO_CACHE
 #elif _PSP
+    #define _OS_PSP
+    #define _GAPI_SCEGU
     #include <pspgu.h>
     #include <pspgum.h>
 
@@ -175,13 +195,17 @@
     #undef OS_PTHREAD_MT
 #endif
 
+#ifndef _OS_PSP
+    #define USE_INFLATE
+#endif
+
 #ifdef USE_INFLATE
     #include "libs/tinf/tinf.h"
 #endif
 
 #ifdef FFP
     #define SPLIT_BY_TILE
-    #ifdef _PSP
+    #ifdef _OS_PSP
         #define SPLIT_BY_CLUT
     #endif
 #else
@@ -206,10 +230,10 @@ extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
 
-extern int     osGetTime     ();
+extern int   osGetTime       ();
 
-extern bool    osJoyReady    (int index);
-extern void    osJoyVibrate  (int index, float L, float R);
+extern bool  osJoyReady      (int index);
+extern void  osJoyVibrate    (int index, float L, float R);
 
 struct Mutex {
     void *obj;
@@ -410,104 +434,7 @@ namespace Core {
 #include "input.h"
 #include "sound.h"
 
-#if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
 
-    #ifdef ANDROID
-        #define GetProc(x) dlsym(libGL, x);
-    #else
-        void* GetProc(const char *name) {
-            #ifdef WIN32
-                return (void*)wglGetProcAddress(name);
-            #elif __RPI__
-                return (void*)eglGetProcAddress(name);
-            #elif LINUX
-                return (void*)glXGetProcAddress((GLubyte*)name);
-            #endif
-        }
-    #endif
-
-    #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
-
-// Texture
-    #ifdef WIN32
-        PFNGLACTIVETEXTUREPROC              glActiveTexture;
-    #endif
-
-// VSync
-    #ifdef WIN32
-        typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC) (int interval);
-        PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
-    #elif LINUX
-        typedef int (*PFNGLXSWAPINTERVALSGIPROC) (int interval);
-        PFNGLXSWAPINTERVALSGIPROC glXSwapIntervalSGI;
-    #endif
-
-    #if defined(WIN32) || defined(LINUX)
-        PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
-    // Profiling
-        #ifdef PROFILE
-            PFNGLOBJECTLABELPROC                glObjectLabel;
-            PFNGLPUSHDEBUGGROUPPROC             glPushDebugGroup;
-            PFNGLPOPDEBUGGROUPPROC              glPopDebugGroup;
-            PFNGLGENQUERIESPROC                 glGenQueries;
-            PFNGLDELETEQUERIESPROC              glDeleteQueries;
-            PFNGLGETQUERYOBJECTIVPROC           glGetQueryObjectiv;
-            PFNGLBEGINQUERYPROC                 glBeginQuery;
-            PFNGLENDQUERYPROC                   glEndQuery;
-        #endif
-    // Shader
-        PFNGLCREATEPROGRAMPROC              glCreateProgram;
-        PFNGLDELETEPROGRAMPROC              glDeleteProgram;
-        PFNGLLINKPROGRAMPROC                glLinkProgram;
-        PFNGLUSEPROGRAMPROC                 glUseProgram;
-        PFNGLGETPROGRAMINFOLOGPROC          glGetProgramInfoLog;
-        PFNGLCREATESHADERPROC               glCreateShader;
-        PFNGLDELETESHADERPROC               glDeleteShader;
-        PFNGLSHADERSOURCEPROC               glShaderSource;
-        PFNGLATTACHSHADERPROC               glAttachShader;
-        PFNGLCOMPILESHADERPROC              glCompileShader;
-        PFNGLGETSHADERINFOLOGPROC           glGetShaderInfoLog;
-        PFNGLGETUNIFORMLOCATIONPROC         glGetUniformLocation;
-        PFNGLUNIFORM1IVPROC                 glUniform1iv;
-        PFNGLUNIFORM1FVPROC                 glUniform1fv;
-        PFNGLUNIFORM2FVPROC                 glUniform2fv;
-        PFNGLUNIFORM3FVPROC                 glUniform3fv;
-        PFNGLUNIFORM4FVPROC                 glUniform4fv;
-        PFNGLUNIFORMMATRIX4FVPROC           glUniformMatrix4fv;
-        PFNGLBINDATTRIBLOCATIONPROC         glBindAttribLocation;
-        PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
-        PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
-        PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
-        PFNGLGETPROGRAMIVPROC               glGetProgramiv;
-    // Render to texture
-        PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
-        PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
-        PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
-        PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
-        PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
-        PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
-        PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
-        PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
-        PFNGLDELETEFRAMEBUFFERSPROC         glDeleteFramebuffers;
-        PFNGLDELETERENDERBUFFERSPROC        glDeleteRenderbuffers;
-    // Mesh
-        PFNGLGENBUFFERSARBPROC              glGenBuffers;
-        PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
-        PFNGLBINDBUFFERARBPROC              glBindBuffer;
-        PFNGLBUFFERDATAARBPROC              glBufferData;
-        PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
-    #endif
-
-    PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
-    PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
-    PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
-    PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
-    PFNGLPROGRAMBINARYPROC              glProgramBinary;
-#endif
-
-#if defined(ANDROID) || defined(__EMSCRIPTEN__)
-    PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
-#endif
 
 #define MAX_LIGHTS           4
 #define MAX_RENDER_BUFFERS   32
@@ -533,14 +460,32 @@ enum RenderState {
     RS_BLEND_ADD        = 1 << 11,
     RS_BLEND_MULT       = 1 << 12,
     RS_BLEND_PREMULT    = 1 << 13,
-    RS_BLEND            = RS_BLEND_ADD | RS_BLEND_ALPHA | RS_BLEND_MULT | RS_BLEND_PREMULT,
-    RS_ALPHA_TEST       = 1 << 14,
+    RS_BLEND            = RS_BLEND_ALPHA | RS_BLEND_ADD | RS_BLEND_MULT | RS_BLEND_PREMULT,
+    RS_DISCARD          = 1 << 14,
 };
 
-enum ClearMode {
-    CLEAR_COLOR   = 1,
-    CLEAR_DEPTH   = 2,
-    CLEAR_ALL     = CLEAR_COLOR | CLEAR_DEPTH,
+// Texture image format
+enum Format {
+    FMT_LUMINANCE,
+    FMT_RGBA, 
+    FMT_RGB16,
+    FMT_RGBA16,
+    FMT_RGBA_FLOAT,
+    FMT_RGBA_HALF,
+    FMT_DEPTH,
+    FMT_DEPTH_STENCIL, 
+    FMT_SHADOW,
+    FMT_MAX,
+};
+
+// Pipeline State Object
+struct PSO {
+    void    *data;
+    void    *shader;
+    vec4    clearColor;
+    Format  colorFormat;
+    Format  depthFormat;
+    uint32  renderState;
 };
 
 typedef uint16 Index;
@@ -553,89 +498,8 @@ struct Vertex {
     ubyte4 light;      // xyz  - color, w - use premultiplied alpha
 };
 
-#ifdef _PSP
-    struct VertexGPU {
-        short2 texCoord;
-        ubyte4 color;
-        short3 normal;
-        short3 coord;
-    };
-#else
-    typedef Vertex VertexGPU;
-#endif
-
-#ifdef PROFILE
-   //#define USE_CV_MARKERS
-
-   #ifdef USE_CV_MARKERS
-       #include <libs/cvmarkers/cvmarkersobj.h>  
-       using namespace Concurrency::diagnostic;
-
-       marker_series *series[256];
-       int seriesIndex;
-   #endif
-
-    struct Marker {
-        #ifdef USE_CV_MARKERS
-            span *cvSpan;
-        #endif
-
-        Marker(const char *title) {
-            if (Core::support.profMarker) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, title);
-            #ifdef USE_CV_MARKERS
-                marker_series *&s = series[seriesIndex];
-                if (s == NULL) {
-                   char seriesTitle[64];
-                   sprintf(seriesTitle, "events - %d", seriesIndex);
-                   s = new marker_series(seriesTitle);
-                }
-                cvSpan = new span(*s, normal_importance, _T(title));
-                seriesIndex++;
-            #endif
-        }
-
-        ~Marker() {
-            if (Core::support.profMarker) glPopDebugGroup();
-            #ifdef USE_CV_MARKERS
-                delete cvSpan;
-                seriesIndex--;
-            #endif
-        }
-
-        static void setLabel(GLenum id, GLuint name, const char *label) {
-            if (Core::support.profMarker) glObjectLabel(id, name, -1, label);
-        }
-    };
-
-    struct Timing {
-        GLuint  ID;
-        int     &result;
-
-        Timing(int &result) : result(result) {
-            if (!Core::support.profTiming) return;
-            glGenQueries(1, &ID);
-            glBeginQuery(GL_TIME_ELAPSED, ID);
-        }
-
-        ~Timing() {
-            if (!Core::support.profTiming) return;
-            glEndQuery(GL_TIME_ELAPSED);
-            glGetQueryObjectiv(ID, GL_QUERY_RESULT, (GLint*)&result);
-            glDeleteQueries(1, &ID);
-        }
-    };
-
-    #define PROFILE_MARKER(title)               Marker marker(title)
-    #define PROFILE_LABEL(id, name, label)      Marker::setLabel(GL_##id, name, label)
-    #define PROFILE_TIMING(result)              Timing timing(result)
-#else
-    #define PROFILE_MARKER(title)
-    #define PROFILE_LABEL(id, name, label)
-    #define PROFILE_TIMING(time)
-#endif
-
-enum CullFace  { cfNone, cfBack, cfFront };
-enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult };
+enum CullMode  { cmNone, cmBack,  cmFront };
+enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
 
 namespace Core {
     float eye;
@@ -654,7 +518,7 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
-    #ifdef _PSP
+    #ifdef _OS_PSP
         void    *curBackBuffer;
     #else
         GLuint  FBO, defaultFBO;
@@ -673,22 +537,24 @@ namespace Core {
     int32   renderState;
 
     struct Active {
+        const PSO   *pso;
         Shader      *shader;
+        int32       renderState;
+
         Texture     *textures[8];
         Texture     *target;
         uint32      targetFace;
         uint32      targetOp;
         vec4        viewport;
         vec4        material;
-    #ifdef _PSP
+    #ifdef _OS_PSP
         Index       *iBuffer;
-        VertexGPU   *vBuffer;
+        GAPI::Vertex   *vBuffer;
     #else
         GLuint      VAO;
         GLuint      iBuffer;
         GLuint      vBuffer;
     #endif
-        int32       renderState;
 
         int32       basisCount;
         Basis       *basis;
@@ -725,57 +591,22 @@ namespace Core {
                 frame++;
         }
     } stats;
-
-#ifdef _PSP
-    uint32 *cmdBuf = NULL;
-
-    static int EDRAM_OFFSET;
-    static int EDRAM_SIZE;
-
-    void* allocEDRAM(int size) {
-        LOG("EDRAM ALLOC: offset: %d size %d (free %d)\n", Core::EDRAM_OFFSET, size, EDRAM_SIZE - (Core::EDRAM_OFFSET + size));
-        if (Core::EDRAM_OFFSET + size > EDRAM_SIZE)
-            LOG("! EDRAM overflow !\n");
-
-        void *ptr = ((char*)sceGeEdramGetAddr()) + EDRAM_OFFSET;
-        EDRAM_OFFSET += (size + 15) / 16 * 16;
-        return ptr;
-    }
-
-    void freeEDRAM() {
-        EDRAM_OFFSET = (512 * 272 * 2 * 2) + (512 * 272 * 2);
-        LOG("EDRAM FREE: offset: %d\n", EDRAM_OFFSET);
-    }
-#endif
-
-    void beginCmdBuf() {
-    #ifdef _PSP
-        if (!cmdBuf)
-            cmdBuf = new uint32[262144];
-
-        sceGuStart(GU_DIRECT, cmdBuf);
-    #endif
-    }
-
-    void submitCmdBuf() {
-    #ifdef _PSP
-        ASSERT(cmdBuf);
-        sceGuFinish();
-        sceGuSync(GU_SYNC_WAIT, GU_SYNC_FINISH);
-    #endif
-    }
 }
+
+#ifdef _GAPI_GL
+    #include "gapi_gl.h"
+#elif _GAPI_GX
+    #include "gapi_gx.h"
+#elif _GAPI_SCEGU
+    #include "gapi_gu.h"
+#elif _GAPI_VULKAN
+    #include "gapi_vk.h"
+#endif
 
 #include "texture.h"
 #include "shader.h"
 
 namespace Core {
-
-    Texture *eyeTex[2];
-
-    bool extSupport(const char *str, const char *ext) {
-        return strstr(str, ext) != NULL;
-    }
 
     void init() {
         x = y = 0;
@@ -786,173 +617,11 @@ namespace Core {
         isQuit = false;
 
         Input::init();
-        #ifdef ANDROID
-            void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
-        #endif
+        Sound::init();
 
-        #if defined(WIN32) || (defined(LINUX) && !defined(__RPI__)) || defined(ANDROID)
-            #ifdef WIN32
-                GetProcOGL(glActiveTexture);
-            #endif
+        GAPI::init();
 
-            #ifdef WIN32
-                GetProcOGL(wglSwapIntervalEXT);
-            #elif LINUX
-                GetProcOGL(glXSwapIntervalSGI);
-            #endif
-
-            #if defined(WIN32) || defined(LINUX)
-                GetProcOGL(glGenerateMipmap);
-
-                #ifdef PROFILE
-                    GetProcOGL(glObjectLabel);
-                    GetProcOGL(glPushDebugGroup);
-                    GetProcOGL(glPopDebugGroup);
-                    GetProcOGL(glGenQueries);
-                    GetProcOGL(glDeleteQueries);
-                    GetProcOGL(glGetQueryObjectiv);
-                    GetProcOGL(glBeginQuery);
-                    GetProcOGL(glEndQuery);
-                #endif
-
-                GetProcOGL(glCreateProgram);
-                GetProcOGL(glDeleteProgram);
-                GetProcOGL(glLinkProgram);
-                GetProcOGL(glUseProgram);
-                GetProcOGL(glGetProgramInfoLog);
-                GetProcOGL(glCreateShader);
-                GetProcOGL(glDeleteShader);
-                GetProcOGL(glShaderSource);
-                GetProcOGL(glAttachShader);
-                GetProcOGL(glCompileShader);
-                GetProcOGL(glGetShaderInfoLog);
-                GetProcOGL(glGetUniformLocation);
-                GetProcOGL(glUniform1iv);
-                GetProcOGL(glUniform1fv);
-                GetProcOGL(glUniform2fv);
-                GetProcOGL(glUniform3fv);
-                GetProcOGL(glUniform4fv);
-                GetProcOGL(glUniformMatrix4fv);
-                GetProcOGL(glBindAttribLocation);
-                GetProcOGL(glEnableVertexAttribArray);
-                GetProcOGL(glDisableVertexAttribArray);
-                GetProcOGL(glVertexAttribPointer);
-                GetProcOGL(glGetProgramiv);
-
-                GetProcOGL(glGenFramebuffers);
-                GetProcOGL(glBindFramebuffer);
-                GetProcOGL(glGenRenderbuffers);
-                GetProcOGL(glBindRenderbuffer);
-                GetProcOGL(glFramebufferTexture2D);
-                GetProcOGL(glFramebufferRenderbuffer);
-                GetProcOGL(glRenderbufferStorage);
-                GetProcOGL(glCheckFramebufferStatus);
-                GetProcOGL(glDeleteFramebuffers);
-                GetProcOGL(glDeleteRenderbuffers);
-
-                GetProcOGL(glGenBuffers);
-                GetProcOGL(glDeleteBuffers);
-                GetProcOGL(glBindBuffer);
-                GetProcOGL(glBufferData);
-                GetProcOGL(glBufferSubData);
-            #endif
-
-            #if defined(ANDROID) || defined(__EMSCRIPTEN__)
-                GetProcOGL(glDiscardFramebufferEXT);
-            #endif
-
-            GetProcOGL(glGenVertexArrays);
-            GetProcOGL(glDeleteVertexArrays);
-            GetProcOGL(glBindVertexArray);
-            GetProcOGL(glGetProgramBinary);
-            GetProcOGL(glProgramBinary);
-        #endif
-
-        const char *vendor, *renderer, *version;
-
-    #ifdef _PSP
-        vendor   = "Sony";
-        renderer = "SCE GU";
-        version  = "1.0";
-    #else
-        vendor   = (char*)glGetString(GL_VENDOR);
-        renderer = (char*)glGetString(GL_RENDERER);
-        version  = (char*)glGetString(GL_VERSION);
-
-        char *ext = (char*)glGetString(GL_EXTENSIONS);
-/*
-        if (ext != NULL) {
-            char buf[255];
-            int len = strlen(ext);
-            int start = 0;
-            for (int i = 0; i < len; i++)
-                if (ext[i] == ' ' || (i == len - 1)) {
-                    memcpy(buf, &ext[start], i - start);
-                    buf[i - start] = 0;
-                    LOG("%s\n", buf);
-                    start = i + 1;
-                }
-        }
-*/
-    #endif
-
-    #ifdef FFP
-        support.maxAniso       = 1;
-        support.maxVectors     = 0;
-        support.shaderBinary   = false;
-        support.VAO            = false;
-        support.depthTexture   = false;
-        support.shadowSampler  = false;
-        support.discardFrame   = false;
-        support.texNPOT        = false;
-        support.texRG          = false;
-        support.texBorder      = false;
-        support.maxAniso       = false;
-        support.colorFloat     = false;
-        support.colorHalf      = false;
-        support.texFloatLinear = false;
-        support.texFloat       = false;
-        support.texHalfLinear  = false;
-        support.texHalf        = false;
-    #else
-        support.shaderBinary   = extSupport(ext, "_program_binary");
-        support.VAO            = extSupport(ext, "_vertex_array_object");
-        support.depthTexture   = extSupport(ext, "_depth_texture");
-        support.shadowSampler  = support.depthTexture && (extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow"));
-        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
-        support.texNPOT        = extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
-        support.texRG          = extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
-        support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.maxAniso       = extSupport(ext, "_texture_filter_anisotropic");
-        support.colorFloat     = extSupport(ext, "_color_buffer_float");
-        support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
-        support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
-        support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
-        support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
-        support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
-
-        if (support.maxAniso)
-            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &support.maxAniso);
-        #ifdef MOBILE
-            glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
-        #else
-            support.maxVectors = 16;
-        #endif
-    #endif
-
-    #ifdef PROFILE
-        support.profMarker     = extSupport(ext, "_KHR_debug");
-        support.profTiming     = extSupport(ext, "_timer_query");
-    #endif
-
-        LOG("Vendor   : %s\n", vendor);
-        LOG("Renderer : %s\n", renderer);
-        LOG("Version  : %s\n", version);
         LOG("cache    : %s\n", Stream::cacheDir);
-    #ifdef _PSP
-        EDRAM_SIZE = sceGeEdramGetSize();
-        LOG("VRAM     : %d\n", EDRAM_SIZE);
-    #endif
         LOG("supports :\n");
         LOG("  variyngs count : %d\n", support.maxVectors);
         LOG("  binary shaders : %s\n", support.shaderBinary  ? "true" : "false");
@@ -969,87 +638,8 @@ namespace Core {
             support.colorHalf  ? "full" : (support.texHalf  ? (support.texHalfLinear  ? "linear" : "nearest") : "false"));
         LOG("\n");
 
-    #ifndef _PSP
-        glEnable(GL_SCISSOR_TEST);
-    #endif
-
-    #ifdef FFP
-        #ifdef _PSP
-            Core::width  = 480;
-            Core::height = 272;
-
-            sceGuDepthFunc(GU_LEQUAL);
-            sceGuDepthRange(0x0000, 0xFFFF);
-            sceGuClearDepth(0xFFFF);
-
-            sceGuShadeModel(GU_SMOOTH);
-            sceGuAlphaFunc(GU_GREATER, 127, 255);
-
-            int swizzle = GU_FALSE;
-            #ifdef TEX_SWIZZLE
-                swizzle = GU_TRUE;
-            #endif
-
-            sceGuClutMode(GU_PSM_5551, 0, 0xFF, 0);
-            sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
-            sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
-            sceGuTexScale(1.0f, 1.0f);
-            sceGuTexOffset(0.0f, 0.0f);
-            sceGuTexFilter(GU_LINEAR, GU_LINEAR);
-            //sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-            sceGuEnable(GU_CLIP_PLANES);
-
-            const ScePspIMatrix4 dith =
-              { {-4,  0, -3,  1},
-                { 2, -2,  3, -1},
-                {-3,  1, -4,  0},
-                { 3, -1,  2, -2} };
-            sceGuSetDither(&dith);
-            sceGuEnable(GU_DITHER);
-
-            sceGuAmbientColor(0xFFFFFFFF);
-            sceGuColor(0xFFFFFFFF);
-            sceGuClearColor(0x00000000);
-            sceGuColorMaterial(GU_AMBIENT | GU_DIFFUSE);
-
-            freeEDRAM();
-        #else
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-            glEnableClientState(GL_COLOR_ARRAY);
-            glEnableClientState(GL_NORMAL_ARRAY);
-            glEnableClientState(GL_VERTEX_ARRAY);
-            
-            glAlphaFunc(GL_GREATER, 0.5f);
-
-            glMatrixMode(GL_TEXTURE);
-            glLoadIdentity();
-            glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
-
-            glClearColor(0, 0, 0, 0);
-        #endif
-    #endif
-
-    #ifndef _PSP
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
-        glGenFramebuffers(1, &FBO);
-        glDepthFunc(GL_LEQUAL);
-
-        memset(rtCache, 0, sizeof(rtCache));
-    #endif
-
-    #if defined(FFP) && defined(SPLIT_BY_TILE)
-        #ifdef _PSP
-            sceGuEnable(GU_TEXTURE_2D);
-        #else
-            glEnable(GL_TEXTURE_2D);
-        #endif
-    #endif
-
         defaultTarget = NULL;
-
-        Sound::init();
+        memset(rtCache, 0, sizeof(rtCache));
 
         for (int i = 0; i < MAX_LIGHTS; i++) {
             lightPos[i]   = vec3(0.0);
@@ -1058,10 +648,10 @@ namespace Core {
         eye = 0.0f;
 
         uint32 data = 0xFFFFFFFF;
-        whiteTex  = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
-        whiteCube = new Texture(1, 1, Texture::RGBA, Texture::CUBEMAP, &data);
+        whiteTex  = new Texture(1, 1, FMT_RGBA, Texture::NEAREST, &data);
+        whiteCube = new Texture(1, 1, FMT_RGBA, Texture::CUBEMAP, &data);
         data = 0;
-        blackTex  = new Texture(1, 1, Texture::RGBA, Texture::NEAREST, &data);
+        blackTex  = new Texture(1, 1, FMT_RGBA, Texture::NEAREST, &data);
 
     // init settings
         settings.version = SETTINGS_VERSION;
@@ -1070,11 +660,11 @@ namespace Core {
         settings.detail.setLighting (Core::Settings::HIGH);
         settings.detail.setShadows  (Core::Settings::HIGH);
         settings.detail.setWater    (Core::Settings::HIGH);
-        settings.detail.vsync         = true;
-        settings.detail.stereo        = Settings::STEREO_OFF;
-        settings.audio.music          = 14;
-        settings.audio.sound          = 14;
-        settings.audio.reverb         = true;
+        settings.detail.vsync        = true;
+        settings.detail.stereo       = Settings::STEREO_OFF;
+        settings.audio.music         = 14;
+        settings.audio.sound         = 14;
+        settings.audio.reverb        = true;
 
     // player 1
         {
@@ -1125,19 +715,19 @@ namespace Core {
         }
 
     // use S key for action on Mac because Ctrl + Left/Right used by system (default)
-    #ifdef __APPLE__
+    #ifdef _OS_MACOS
         settings.controls[0].keys[ cAction    ].key = ikS;
     #endif
 
     // use D key for jump in browsers
-    #ifdef __EMSCRIPTEN__
+    #ifdef _OS_WEB
         settings.controls[0].keys[ cJump      ].key = ikD;
         settings.controls[0].keys[ cInventory ].key = ikTab;
     #endif
 
-    #ifdef __RPI__
-        settings.detail.setShadows(Core::Settings::LOW);
-        settings.detail.setLighting(Core::Settings::MEDIUM);
+    #ifdef _OS_RPI
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setLighting (Core::Settings::MEDIUM);
     #endif
 
     #ifdef FFP
@@ -1145,10 +735,11 @@ namespace Core {
         settings.detail.setLighting (Core::Settings::LOW);
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setWater    (Core::Settings::LOW);
-        settings.audio.reverb = false;
     #endif
 
-        eyeTex[0] = eyeTex[1] = NULL;
+    #ifdef _OS_PSP
+        settings.audio.reverb = false;
+    #endif
 
         memset(&active, 0, sizeof(active));
         renderState = 0;
@@ -1157,33 +748,25 @@ namespace Core {
     }
 
     void deinit() {
-        delete eyeTex[0];
-        delete eyeTex[1];
         delete whiteTex;
         delete whiteCube;
         delete blackTex;
-    #ifdef _PSP
-        delete[] cmdBuf;
-    #else
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDeleteFramebuffers(1, &FBO);
 
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        for (int b = 0; b < 2; b++)
-            for (int i = 0; i < rtCache[b].count; i++)
-                glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
-    #endif
+        GAPI::deinit();
+
         Sound::deinit();
     }
 
-#ifdef VR_SUPPORT
-    void initVR(int width, int height) {
-        eyeTex[0] = new Texture(width, height, Texture::RGBA);
-        eyeTex[1] = new Texture(width, height, Texture::RGBA);
+    void setVSync(bool enable) {
+        GAPI::setVSync(Core::settings.detail.vsync = enable);
     }
-#endif
 
-#ifndef _PSP
+    void waitVBlank() {
+        if (Core::settings.detail.vsync)
+            GAPI::waitVBlank();
+    }
+
+#ifndef _OS_PSP
     int cacheRenderTarget(bool depth, int width, int height) {
         RenderTargetCache &cache = rtCache[depth];
 
@@ -1220,22 +803,13 @@ namespace Core {
         if (!mask) return;
 
         if (mask & RS_TARGET) {
-            #ifdef MOBILE
-                if (support.discardFrame) {
-                    int count = 0;
-                    GLenum discard[2];
-                    if (!(active.targetOp & RT_STORE_COLOR)) discard[count++] = active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
-                    if (!(active.targetOp & RT_STORE_DEPTH)) discard[count++] = active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
-                    if (count)
-                        glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
-                }
-            #endif
+            GAPI::discardTarget(!(active.targetOp & RT_STORE_COLOR), !(active.targetOp & RT_STORE_DEPTH));
 
             Texture *target = reqTarget.texture;
             uint32  face    = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
-            #ifdef _PSP
+            #ifdef _OS_PSP
 /*
                 if (!target)
                     sceGuDrawBufferList(GU_PSM_5650, curBackBuffer, 512);
@@ -1253,7 +827,7 @@ namespace Core {
                     if (target->opt & Texture::CUBEMAP) 
                         texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-                    depth = target->format == Texture::DEPTH || target->format == Texture::SHADOW;
+                    depth = target->format == FMT_DEPTH || target->format == FMT_SHADOW;
 
                     int  rtIndex = cacheRenderTarget(depth, target->width, target->height);
 
@@ -1263,10 +837,10 @@ namespace Core {
                 }
             #endif
 
-            #ifdef RENDER_TBR
-                if (!(reqTarget.op & RT_LOAD_COLOR) && !depth) reqTarget.op |= RT_CLEAR_COLOR;
-                if (!(reqTarget.op & RT_LOAD_DEPTH) &&  depth) reqTarget.op |= RT_CLEAR_DEPTH;
-            #endif
+                if (support.discardFrame) {
+                    if (!(reqTarget.op & RT_LOAD_COLOR) && !depth) reqTarget.op |= RT_CLEAR_COLOR;
+                    if (!(reqTarget.op & RT_LOAD_DEPTH) &&  depth) reqTarget.op |= RT_CLEAR_DEPTH;
+                }
 
                 active.target     = target;
                 active.targetOp   = reqTarget.op;
@@ -1277,122 +851,31 @@ namespace Core {
         if (mask & RS_VIEWPORT) {
             if (viewport != active.viewport) {
                 active.viewport = viewport;
-            #ifdef _PSP
-                sceGuOffset(2048 - int(viewport.z) / 2, 2048 - int(viewport.w) / 2);
-                sceGuViewport(2048 + int(viewport.x), 2048 + int(viewport.y), int(viewport.z), int(viewport.w));
-            #else
-                glViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
-                glScissor(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
-            #endif
+                GAPI::setViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
             }
             renderState &= ~RS_VIEWPORT;
         }
 
-        if (mask & RS_DEPTH_TEST) {
-        #ifdef _PSP
-            if (renderState & RS_DEPTH_TEST)
-                sceGuEnable(GU_DEPTH_TEST);
-            else
-                sceGuDisable(GU_DEPTH_TEST);
-        #else
-            if (renderState & RS_DEPTH_TEST)
-                glEnable(GL_DEPTH_TEST);
-            else
-                glDisable(GL_DEPTH_TEST);
-        #endif
-        }
+        if (mask & RS_DEPTH_TEST)
+            GAPI::setDepthTest((renderState & RS_DEPTH_TEST) != 0);
         
-        if (mask & RS_DEPTH_WRITE) {
-        #ifdef _PSP
-            sceGuDepthMask((renderState & RS_DEPTH_WRITE) != 0 ? GU_FALSE : GU_TRUE);
-        #else
-            glDepthMask((renderState & RS_DEPTH_WRITE) != 0 ? GL_TRUE : GL_FALSE);
-        #endif
-        }
+        if (mask & RS_DEPTH_WRITE)
+            GAPI::setDepthWrite((renderState & RS_DEPTH_WRITE) != 0);
 
-        if (mask & RS_COLOR_WRITE) {
-        #ifdef _PSP
-            sceGuPixelMask(~(((renderState & RS_COLOR_WRITE_R) != 0 ? 0x000000FF : 0) |
-                             ((renderState & RS_COLOR_WRITE_G) != 0 ? 0x0000FF00 : 0) |
-                             ((renderState & RS_COLOR_WRITE_B) != 0 ? 0x00FF0000 : 0) |
-                             ((renderState & RS_COLOR_WRITE_A) != 0 ? 0xFF000000 : 0)));
-        #else
-            glColorMask((renderState & RS_COLOR_WRITE_R) != 0,
-                        (renderState & RS_COLOR_WRITE_G) != 0,
-                        (renderState & RS_COLOR_WRITE_B) != 0,
-                        (renderState & RS_COLOR_WRITE_A) != 0);
-        #endif
-        }
+        if (mask & RS_COLOR_WRITE)
+            GAPI::setColorWrite((renderState & RS_COLOR_WRITE_R) != 0, (renderState & RS_COLOR_WRITE_G) != 0, (renderState & RS_COLOR_WRITE_B) != 0, (renderState & RS_COLOR_WRITE_A) != 0);
 
-        if (mask & RS_CULL) {
-        #ifdef _PSP
-            if (!(active.renderState & RS_CULL))
-                sceGuEnable(GU_CULL_FACE);
-            switch (renderState & RS_CULL) {
-                case RS_CULL_BACK  : sceGuFrontFace(GU_CCW);  break;
-                case RS_CULL_FRONT : sceGuFrontFace(GU_CW); break;
-                default            : sceGuDisable(GU_CULL_FACE);
-            }
-        #else
-            if (!(active.renderState & RS_CULL))
-                glEnable(GL_CULL_FACE);
-            switch (renderState & RS_CULL) {
-                case RS_CULL_BACK  : glCullFace(GL_BACK);  break;
-                case RS_CULL_FRONT : glCullFace(GL_FRONT); break;
-                default            : glDisable(GL_CULL_FACE);
-            }
-        #endif
-        }
+        if (mask & RS_CULL)
+            GAPI::setCullMode(renderState & RS_CULL);
 
-        if (mask & RS_BLEND) {
-        #ifdef _PSP
-            if (!(active.renderState & RS_BLEND))
-                sceGuEnable(GU_BLEND);
-            switch (renderState & RS_BLEND) {
-                case RS_BLEND_ALPHA    : sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);    break;
-                case RS_BLEND_ADD      : sceGuBlendFunc(GU_ADD, GU_FIX, GU_FIX, 0xffffffff, 0xffffffff);        break;
-                case RS_BLEND_MULT     : sceGuBlendFunc(GU_ADD, GU_DST_COLOR, GU_FIX, 0, 0);                    break;
-                case RS_BLEND_PREMULT  : sceGuBlendFunc(GU_ADD, GU_FIX, GU_ONE_MINUS_SRC_ALPHA, 0xffffffff, 0); break;
-                default                : sceGuDisable(GU_BLEND);
-            }
-        #else
-            if (!(active.renderState & RS_BLEND))
-                glEnable(GL_BLEND);
-            switch (renderState & RS_BLEND) {
-                case RS_BLEND_ALPHA    : glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
-                case RS_BLEND_ADD      : glBlendFunc(GL_ONE, GL_ONE);                       break;
-                case RS_BLEND_MULT     : glBlendFunc(GL_DST_COLOR, GL_ZERO);                break;
-                case RS_BLEND_PREMULT  : glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);       break;
-                default                : glDisable(GL_BLEND);
-            }
-        #endif
-        }
-    #ifdef FFP
-        if (mask & RS_ALPHA_TEST) {
-        #ifdef _PSP
-            if (renderState & RS_ALPHA_TEST)
-                sceGuEnable(GU_ALPHA_TEST);
-            else
-                sceGuDisable(GU_ALPHA_TEST);
-        #else
-            if (renderState & RS_ALPHA_TEST)
-                glEnable(GL_ALPHA_TEST);
-            else
-                glDisable(GL_ALPHA_TEST);
-        #endif
-        }
-    #endif
+        if (mask & RS_BLEND)
+            GAPI::setBlendMode(renderState & RS_BLEND);
+
+        if (mask & RS_DISCARD)
+            GAPI::setAlphaTest((renderState & RS_DISCARD) != 0);
+
         if (mask & RS_TARGET) {
-            int clear = 0;
-            #ifdef _PSP
-                if (reqTarget.op & RT_CLEAR_COLOR) clear |= GU_COLOR_BUFFER_BIT;
-                if (reqTarget.op & RT_CLEAR_DEPTH) clear |= GU_DEPTH_BUFFER_BIT;
-                if (clear) sceGuClear(clear | GU_FAST_CLEAR_BIT);
-            #else
-                if (reqTarget.op & RT_CLEAR_COLOR) clear |= GL_COLOR_BUFFER_BIT;
-                if (reqTarget.op & RT_CLEAR_DEPTH) clear |= GL_DEPTH_BUFFER_BIT;
-                if (clear) glClear(clear);
-            #endif
+            GAPI::clear((reqTarget.op & RT_CLEAR_COLOR) != 0, (reqTarget.op & RT_CLEAR_DEPTH) != 0);
             renderState &= ~RS_TARGET;
         }
 
@@ -1400,15 +883,7 @@ namespace Core {
     }
 
     void setClearColor(const vec4 &color) {
-    #ifdef _PSP
-        ubyte4 c(clamp(int(color.x * 255), 0, 255),
-                 clamp(int(color.y * 255), 0, 255),
-                 clamp(int(color.z * 255), 0, 255),
-                 clamp(int(color.w * 255), 0, 255));
-        sceGuClearColor(*((uint32*)&c));
-    #else
-        glClearColor(color.x, color.y, color.z, color.w);
-    #endif
+        GAPI::setClearColor(color);
     }
 
     void setViewport(int x, int y, int width, int height) {
@@ -1420,16 +895,16 @@ namespace Core {
         setViewport(int(vp.x), int(vp.y), int(vp.z), int(vp.w));
     }
 
-    void setCulling(CullFace mode) {
+    void setCullMode(CullMode mode) {
         renderState &= ~RS_CULL;
         switch (mode) {
-            case cfNone  : break;
-            case cfBack  : renderState |= RS_CULL_BACK;  break;
-            case cfFront : renderState |= RS_CULL_FRONT; break;
+            case cmNone  : break;
+            case cmBack  : renderState |= RS_CULL_BACK;  break;
+            case cmFront : renderState |= RS_CULL_FRONT; break;
         }
     }
 
-    void setBlending(BlendMode mode) {
+    void setBlendMode(BlendMode mode) {
         renderState &= ~RS_BLEND;
         switch (mode) {
             case bmNone     : break;
@@ -1440,10 +915,10 @@ namespace Core {
         }
     }
 
-    void setAlphaTest(bool value) {
-        renderState &= ~RS_ALPHA_TEST;
-        if (value)
-            renderState |= RS_ALPHA_TEST;
+    void setAlphaTest(bool enable) {
+        renderState &= ~RS_DISCARD;
+        if (enable)
+            renderState |= RS_DISCARD;
     }
 
     void setColorWrite(bool r, bool g, bool b, bool a) {
@@ -1454,15 +929,15 @@ namespace Core {
         if (a) renderState |= RS_COLOR_WRITE_A;
     }
 
-    void setDepthWrite(bool write) {
-        if (write)
+    void setDepthWrite(bool enable) {
+        if (enable)
             renderState |= RS_DEPTH_WRITE;
         else
             renderState &= ~RS_DEPTH_WRITE;
     }
 
-    void setDepthTest(bool test) {
-        if (test)
+    void setDepthTest(bool enable) {
+        if (enable)
             renderState |= RS_DEPTH_TEST;
         else
             renderState &= ~RS_DEPTH_TEST;
@@ -1472,7 +947,7 @@ namespace Core {
         if (!target)
             target = defaultTarget;
 
-        bool color = !target || (target->format != Texture::DEPTH && target->format != Texture::SHADOW);
+        bool color = !target || (target->format != FMT_DEPTH && target->format != FMT_SHADOW);
         setColorWrite(color, color, color, color);
 
         if (target == defaultTarget) // backbuffer
@@ -1501,33 +976,20 @@ namespace Core {
 
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
+        // GAPI::copyTarget(dst, xOffset, yOffset, x, y, width, height); TODO
         dst->bind(sDiffuse);
-    #ifdef _PSP
-    
-    #else
+    #ifdef _GAPI_GL
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height); // TODO: too bad for iOS devices!
     #endif
     }
 
     vec4 copyPixel(int x, int y) { // GPU sync!
         validateRenderState();
-    #ifdef _PSP
-        return vec4(0.0f);
-    #else
-        ubyte4 c;
-        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
-        return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);
-    #endif
+        return GAPI::copyPixel(x, y);
     }
 
     void reset() {
-    #ifndef _PSP
-        if (Core::support.VAO)
-            glBindVertexArray(0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glUseProgram(0);
-    #endif
+        GAPI::resetState();
 
         memset(&active, 0, sizeof(active));
         renderState = 0;
@@ -1535,8 +997,8 @@ namespace Core {
         setViewport(Core::x, Core::y, Core::width, Core::height);
         viewportDef = viewport;
 
-        setCulling(cfFront);
-        setBlending(bmAlpha);
+        setCullMode(cmFront);
+        setBlendMode(bmAlpha);
         setDepthTest(true);
         setDepthWrite(true);
         setColorWrite(true, true, true, true);
@@ -1548,78 +1010,51 @@ namespace Core {
     }
 
     void endFrame() {
-    #ifdef __EMSCRIPTEN__
-        glColorMask(false, false, false, true);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glColorMask(true, true, true, true);
-    #endif
         Core::stats.stop();
-    }
-
-    void waitVBlank() {
-        if (Core::settings.detail.vsync) {
-        #ifdef WIN32
-            if (wglSwapIntervalEXT) wglSwapIntervalEXT(1);
-        #elif LINUX
-            if (glXSwapIntervalSGI) glXSwapIntervalSGI(1);
-        #elif __RPI__
-            eglSwapInterval(display, 1);
-        #elif _PSP
-            sceDisplayWaitVblankStart();
-        #endif
-        } else {
-        #ifdef WIN32
-            if (wglSwapIntervalEXT) wglSwapIntervalEXT(0);
-        #elif LINUX
-            if (glXSwapIntervalSGI) glXSwapIntervalSGI(0);
-        #elif __RPI__
-            eglSwapInterval(display, 0);
-        #endif
-        }
     }
 
     void setViewProj(const mat4 &mView, const mat4 &mProj) {
         Core::mProj     = mProj;
         Core::mView     = mView;
         Core::mViewProj = mProj * mView;
-    #ifdef FFP
-        #ifdef _PSP
-            sceGumMatrixMode(GU_PROJECTION);
-            sceGumLoadMatrix((ScePspFMatrix4*)&mProj);
-            sceGumMatrixMode(GU_VIEW);
-            sceGumLoadMatrix((ScePspFMatrix4*)&mView);
-        #else
-            glMatrixMode(GL_PROJECTION);
-            glLoadMatrixf((float*)&mProj);
-        #endif
-    #endif
+
+        GAPI::setViewProj(mView, mProj);
     }
 
-    void DIP(int iStart, int iCount, void *iBuffer) {
-        validateRenderState();
-
-    #ifdef FFP
-        #ifdef _PSP
-            mat4 m = mModel;
-            m.scale(vec3(32767.0f));
-            sceGumMatrixMode(GU_MODEL);
-            sceGumLoadMatrix((ScePspFMatrix4*)&m);
-        #else
-            mat4 m = mView * mModel;
-            glMatrixMode(GL_MODELVIEW);
-            glLoadMatrixf((GLfloat*)&m);
-        #endif
-    #endif
-
-    #ifdef _PSP
-        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, iCount, active.iBuffer + iStart, active.vBuffer);
-    #else
-        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, (Index*)iBuffer + iStart);
-    #endif
-
+    void DIP(int iStart, int iCount, Index *iBuffer) {
         stats.dips++;
         stats.tris += iCount / 3;
+
+        validateRenderState();
+
+        GAPI::DIP(iStart, iCount, iBuffer);
+    }
+
+    PSO* psoCreate(Shader *shader, uint32 renderState, Format colorFormat = FMT_RGBA, Format depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {
+        PSO *pso = new PSO();
+        pso->data        = NULL;
+        pso->shader      = shader;
+        pso->renderState = renderState;
+        pso->colorFormat = colorFormat;
+        pso->depthFormat = depthFormat;
+        pso->clearColor  = clearColor;
+        GAPI::initPSO(pso);
+        return pso;
+    }
+
+    void psoDestroy(PSO *pso) {
+        GAPI::deinitPSO(pso);
+        delete pso;
+    }
+
+    void psoBind(PSO *pso) {
+        ASSERT(pso);
+        ASSERT(pso->data);
+        ASSERT(pso->shader);
+        ((Shader*)pso->shader)->bind();
+        GAPI::bindPSO(pso);
+
+        Core::active.pso = pso;
     }
 }
 

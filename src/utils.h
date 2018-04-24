@@ -6,7 +6,7 @@
 #include <float.h>
 
 #ifdef _DEBUG
-    #ifdef LINUX
+    #ifdef _OS_LINUX
         #define debugBreak() raise(SIGTRAP);
     #else
         #define debugBreak() _asm { int 3 }
@@ -14,13 +14,13 @@
 
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
 
-    #ifndef ANDROID
+    #ifndef _OS_ANDROID
         #define LOG(...) printf(__VA_ARGS__)
     #endif
 
 #else
     #define ASSERT(expr)
-    #ifdef LINUX
+    #ifdef _OS_LINUX
         #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
     #else
         #define LOG(...) printf(__VA_ARGS__)
@@ -28,13 +28,13 @@
     #endif
 #endif
 
-#ifdef ANDROID
+#ifdef _OS_ANDROID
     #include <android/log.h>
     #undef LOG
     #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
 
-#ifdef _PSP
+#ifdef _OS_PSP
     extern "C" {
     // pspmath.h
         extern float vfpu_sinf(float x);
@@ -1153,7 +1153,7 @@ extern void osCacheRead  (Stream *stream);
 extern void osSaveGame   (Stream *stream);
 extern void osLoadGame   (Stream *stream);
 
-#ifdef __EMSCRIPTEN__
+#ifdef _OS_WEB
 extern void osDownload   (Stream *stream);
 #endif
 
@@ -1190,7 +1190,7 @@ struct Stream {
             f = fopen(name, "rb");
 
         if (!f) {
-            #ifdef __EMSCRIPTEN__
+            #ifdef _OS_WEB
                 if (name) {
                     this->name = new char[strlen(name) + 1];
                     strcpy(this->name, name);
