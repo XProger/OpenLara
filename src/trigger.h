@@ -762,7 +762,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, FMT_RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
+        environment = new Texture(64, 64, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS);
         activate();
     }
 

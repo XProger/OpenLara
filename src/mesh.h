@@ -20,12 +20,12 @@ struct MeshRange {
 
 #ifdef FFP
     #ifdef _OS_PSP
-        void setup() const {
+        void setup(void *vBuffer) const {
             Core::active.vBuffer += vStart;
         }
     #else
-        void setup() const {
-            GAPI::Vertex *v = (GAPI::Vertex*)NULL + vStart;
+        void setup(void *vBuffer) const {
+            GAPI::Vertex *v = (GAPI::Vertex*)vBuffer + vStart;
             glTexCoordPointer (2, GL_SHORT,         sizeof(*v), &v->texCoord);
             glColorPointer    (4, GL_UNSIGNED_BYTE, sizeof(*v), &v->light);
             glNormalPointer   (   GL_SHORT,         sizeof(*v), &v->normal);
@@ -1254,7 +1254,7 @@ struct MeshBuilder {
 
         #ifdef SPLIT_BY_TILE
             int clutOffset = level->rooms[roomIndex].flags.water ? 512 : 0;
-            atlas->bind(range.tile, range.clut + clutOffset);
+            atlas->bindTile(range.tile, range.clut + clutOffset);
         #endif
 
             mesh->render(range);
@@ -1281,7 +1281,7 @@ struct MeshBuilder {
                         || clut != t.clut
                     #endif
                         ) {
-                        atlas->bind(tile, clut);
+                        atlas->bindTile(tile, clut);
                         renderBuffer(indices, iCount, vertices, vCount);
                         tile = t.tile.index;
                         clut = t.clut;
@@ -1299,7 +1299,7 @@ struct MeshBuilder {
 
             if (iCount) {
             #ifdef SPLIT_BY_TILE
-                atlas->bind(tile, clut);
+                atlas->bindTile(tile, clut);
             #endif
                 renderBuffer(indices, iCount, vertices, vCount);
             }
@@ -1338,7 +1338,7 @@ struct MeshBuilder {
                     }
                     curTile = sprite.tile;
                     curClut = sprite.clut;
-                    atlas->bind(curTile, curClut);
+                    atlas->bindTile(curTile, curClut);
                 }
             #endif
 
@@ -1388,7 +1388,7 @@ struct MeshBuilder {
 
                 #ifdef SPLIT_BY_TILE
                     int clutOffset = underwater ? 512 : 0;
-                    atlas->bind(range.tile, range.clut + clutOffset);
+                    atlas->bindTile(range.tile, range.clut + clutOffset);
                 #endif
 
                 mesh->render(range);
@@ -1414,7 +1414,7 @@ struct MeshBuilder {
             addSprite(indices, vertices, iCount, vCount, 0, 0, 0, 0, sprite, color, color);
 
             #ifdef SPLIT_BY_TILE
-                atlas->bind(sprite.tile, sprite.clut);
+                atlas->bindTile(sprite.tile, sprite.clut);
             #endif
 
             renderBuffer(indices, iCount, vertices, vCount);

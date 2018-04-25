@@ -1443,7 +1443,7 @@ struct Lara : Character {
     void bakeEnvironment() {
         flags.invisible = true;
         if (!environment)
-            environment = new Texture(256, 256, FMT_RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
+            environment = new Texture(256, 256, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS);
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment, 0, Core::passCompose);
         environment->generateMipMap();
         flags.invisible = false;

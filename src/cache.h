@@ -206,7 +206,9 @@ struct ShaderCache {
 
     Shader *getShader(Core::Pass pass, Shader::Type type, int fx) {
         Shader *shader = shaders[pass][type][fx];
+    #ifndef FFP
         ASSERT(shader != NULL);
+    #endif
         return shader;
     }
 
@@ -214,8 +216,8 @@ struct ShaderCache {
         Core::pass = pass;
 
         Shader *shader = getShader(pass, type, fx);
-        
         shader->bind();
+
         Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     }
 };
@@ -463,7 +465,7 @@ struct WaterCache {
 
                     m[(x - minX) + w * (z - minZ)] = hasWater ? 0xF800 : 0;
                 }
-            mask = new Texture(w, h, FMT_RGB16, Texture::NEAREST, m);
+            mask = new Texture(w, h, FMT_RGB16, OPT_NEAREST, m);
             delete[] m;
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -722,8 +724,8 @@ struct WaterCache {
             w = Core::active.target->width;
             h = Core::active.target->height;
         } else {
-            w = int(Core::viewportDef.z);
-            h = int(Core::viewportDef.w);
+            w = Core::viewportDef.width;
+            h = Core::viewportDef.height;
         }
     }
 

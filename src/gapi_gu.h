@@ -22,6 +22,90 @@ namespace GAPI {
         short3 coord;
     };
 
+    struct Texture {
+        uint8      *memory;
+        int        width, height, origWidth, origHeight;
+        TexFormat  fmt;
+        uint32     opt;
+
+        Texture(int width, int height, uint32 opt) : memory(0), width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) {}
+
+        void init(void *data) {
+            ASSERT((opt & OPT_PROXY) == 0);
+
+            opt &= ~(OPT_CUBEMAP | OPT_MIPMAPS);
+
+            if (data) {
+                memory = new uint8[width * height * 4];
+                #ifdef TEX_SWIZZLE
+                    swizzle(memory, (uint8*)data, width * 4, height);
+                #else
+                    memcpy(memory, data, width * height * 4);
+                #endif
+            } else
+                memory = NULL;
+        }
+
+        void deinit() {
+            if (memory)
+                delete[] memory;
+        }
+
+        void swizzle(uint8* out, const uint8* in, uint32 width, uint32 height) {
+            int rowblocks = width / 16;
+
+            for (int j = 0; j < height; j++)
+                for (int i = 0; i < width; i++) {
+                    int blockx = i / 16;
+                    int blocky = j / 8;
+
+                    int x = i - blockx * 16;
+                    int y = j - blocky * 8;
+                    int block_index   = blockx + blocky * rowblocks;
+                    int block_address = block_index * 16 * 8;
+
+                    out[block_address + x + y * 16] = in[i + j * width];
+                }
+        }
+
+        void generateMipMap() {}
+
+        int getSwizzle() {
+            #ifdef TEX_SWIZZLE
+                return GU_TRUE;
+            #else
+                return GU_FALSE
+            #endif
+        }
+
+        void bind(int sampler) {
+            if (!this || (opt & OPT_PROXY)) return;
+            ASSERT(memory);
+
+            sceGuTexMode(GU_PSM_8888, 0, 0, getSwizzle());
+            sceGuTexImage(0, width, height, width, memory);
+        }
+
+        void bindTileCLUT(void *tile, void *clut) {
+            ASSERT(tile);
+            ASSERT(clut);
+
+            sceGuTexMode(GU_PSM_T4, 0, 0, getSwizzle());
+            sceGuClutLoad(1, clut);
+            sceGuTexImage(0, width, height, width, tile);
+        }
+
+        void unbind(int sampler) {}
+
+        void setFilterQuality(int value) {
+            if (value > Core::Settings::LOW)
+                opt &= ~NEAREST;
+            else
+                opt |= NEAREST;
+        }
+    };
+
+
     int cullMode, blendMode;
 
     uint32 *cmdBuf = NULL;
@@ -160,9 +244,9 @@ namespace GAPI {
         sceGuClearColor(*((uint32*)&c));
     }
 
-    void setViewport(int x, int y, int w, int h) {
-        sceGuOffset(2048 - w / 2, 2048 - h / 2);
-        sceGuViewport(2048 + x, 2048 + y, w, h);
+    void setViewport(const Viewport &vp) {
+        sceGuOffset(2048 - vp.width / 2, 2048 - vp.height / 2);
+        sceGuViewport(2048 + vp.x, 2048 + vp.y, vp.width, vp.height);
     }
 
     void setDepthTest(bool enable) {

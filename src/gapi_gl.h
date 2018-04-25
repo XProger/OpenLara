@@ -330,14 +330,135 @@ namespace GAPI {
     int cullMode, blendMode;
 
     struct Texture {
-        enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
+        uint32     ID;
+        int        width, height, origWidth, origHeight;
+        TexFormat  fmt;
+        uint32     opt;
 
-        uint32  ID;
-        int     width, height, origWidth, origHeight;
-        Format  format;
-        uint32  opt;
+        Texture(int width, int height, uint32 opt) : ID(0), width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) {}
+
+        void init(void *data) {
+            ASSERT((opt & OPT_PROXY) == 0);
+
+            bool filter   = (opt & OPT_NEAREST) == 0;
+            bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
+            bool cube     = (opt & OPT_CUBEMAP) != 0;
+            bool isShadow = fmt == FMT_SHADOW;
+
+            glGenTextures(1, &ID);
+            bind(0);
+
+            GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+
+            if (fmt == FMT_SHADOW) {
+                glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+                glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+            }
+
+            bool border = isShadow && Core::support.texBorder;
+            glTexParameteri(target, GL_TEXTURE_WRAP_S, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+            glTexParameteri(target, GL_TEXTURE_WRAP_T, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+            if (border) {
+                float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+                glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
+            }
+
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+            glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
+
+            struct FormatDesc {
+                GLuint ifmt, fmt;
+                GLenum type;
+            } formats[FMT_MAX] = {            
+                { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
+                { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
+                { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
+                { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
+                { GL_RGBA32F,         GL_RGBA,            GL_FLOAT                  }, // RGBA_FLOAT
+                { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT             }, // RGBA_HALF
+                { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
+                { GL_DEPTH_STENCIL,   GL_DEPTH_STENCIL,   GL_UNSIGNED_INT_24_8      }, // DEPTH_STENCIL
+                { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
+            };
+
+            FormatDesc desc = formats[fmt];
+
+            #ifdef _OS_WEB // fucking firefox!
+                if (format == FMT_RGBA_FLOAT) {
+                    if (Core::support.texFloat) {
+                        desc.ifmt = GL_RGBA;
+                        desc.type = GL_FLOAT;
+                    }
+                }
+
+                if (format == FMT_RGBA_HALF) {
+                    if (Core::support.texHalf) {
+                        desc.ifmt = GL_RGBA;
+                        desc.type = GL_HALF_FLOAT_OES;
+                    }
+                }
+            #else
+                if ((fmt == FMT_RGBA_FLOAT && !Core::support.colorFloat) || (fmt == FMT_RGBA_HALF && !Core::support.colorHalf)) {
+                    desc.ifmt = GL_RGBA;
+                    #ifdef _GAPI_GLES
+                        if (format == FMT_RGBA_HALF)
+                            desc.type = GL_HALF_FLOAT_OES;
+                    #endif
+                }
+            #endif
+
+            for (int i = 0; i < 6; i++) {
+                glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);
+                if (!cube) break;
+            }
+        }
+
+        void deinit() {
+            if (ID)
+                glDeleteTextures(1, &ID);
+        }
+
+        void generateMipMap() {
+            bind(0);
+            GLenum target = (opt & OPT_CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+
+            glGenerateMipmap(target);
+            if (!(opt & OPT_CUBEMAP) && !(opt & OPT_NEAREST) && (Core::support.maxAniso > 0))
+                glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
+        }
+
+        void bind(int sampler) {
+            if (!this || (opt & OPT_PROXY)) return;
+            ASSERT(ID);
+
+            if (Core::active.textures[sampler] != this) {
+                Core::active.textures[sampler] = this;
+                glActiveTexture(GL_TEXTURE0 + sampler);
+                glBindTexture((opt & OPT_CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
+            }
+        }
+
+        void unbind(int sampler) {
+            if (Core::active.textures[sampler]) {
+                Core::active.textures[sampler] = NULL;
+                glActiveTexture(GL_TEXTURE0 + sampler);
+                glBindTexture((opt & OPT_CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
+            }
+        }
+
+        void setFilterQuality(int value) {
+            bool filter  = value > Core::Settings::LOW;
+            bool mipmaps = value > Core::Settings::MEDIUM;
+
+            Core::active.textures[0] = NULL;
+            bind(0);
+            if (Core::support.maxAniso > 0)
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, value > Core::Settings::MEDIUM ? min(int(Core::support.maxAniso), 8) : 1);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
+        }
     };
-
 
     GLuint FBO, defaultFBO;
     struct RenderTargetCache {
@@ -575,10 +696,10 @@ namespace GAPI {
             glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
         } else {
             GLenum texTarget = GL_TEXTURE_2D;
-            if (target->opt & Texture::CUBEMAP) 
+            if (target->opt & OPT_CUBEMAP) 
                 texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
 
-            bool depth = target->format == FMT_DEPTH || target->format == FMT_SHADOW;
+            bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
 
             int rtIndex = cacheRenderTarget(depth, target->width, target->height);
 
@@ -630,9 +751,9 @@ namespace GAPI {
         glClearColor(color.x, color.y, color.z, color.w);
     }
 
-    void setViewport(int x, int y, int w, int h) {
-        glViewport(x, y, w, h);
-        glScissor(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
+    void setViewport(const Viewport &vp) {
+        glViewport(vp.x, vp.y, vp.width, vp.height);
+        glScissor(vp.x, vp.y, vp.width, vp.height);
     }
 
     void setDepthTest(bool enable) {

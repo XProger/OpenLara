@@ -63,7 +63,7 @@ struct Shader {
 #ifdef FFP
     Shader(const char *source, const char *defines = "") {}
     virtual ~Shader() {}
-    bool bind() { return true; }
+    void bind() {}
     void setParam(UniformType uType, const int &value, int count = 1) {}
     void setParam(UniformType uType, const float &value, int count = 1) {}
     void setParam(UniformType uType, const vec2 &value, int count = 1) {}

@@ -308,6 +308,11 @@ namespace Core {
 struct Shader;
 struct Texture;
 
+namespace GAPI {
+    struct Shader;
+    struct Texture;
+}
+
 enum RenderState {
     RS_TARGET           = 1 << 0,
     RS_VIEWPORT         = 1 << 1,
@@ -330,7 +335,7 @@ enum RenderState {
 };
 
 // Texture image format
-enum Format {
+enum TexFormat {
     FMT_LUMINANCE,
     FMT_RGBA, 
     FMT_RGB16,
@@ -343,14 +348,22 @@ enum Format {
     FMT_MAX,
 };
 
+// Texture options
+enum TexOption {
+    OPT_CUBEMAP = 1,
+    OPT_MIPMAPS = 2, 
+    OPT_NEAREST = 4,
+    OPT_PROXY   = 8,
+};
+
 // Pipeline State Object
 struct PSO {
-    void    *data;
-    void    *shader;
-    vec4    clearColor;
-    Format  colorFormat;
-    Format  depthFormat;
-    uint32  renderState;
+    void       *data;
+    void       *shader;
+    vec4       clearColor;
+    TexFormat  colorFormat;
+    TexFormat  depthFormat;
+    uint32     renderState;
 };
 
 typedef uint16 Index;
@@ -366,9 +379,19 @@ struct Vertex {
 enum CullMode  { cmNone, cmBack,  cmFront };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
 
+struct Viewport {
+    int x, y, width, height;
+
+    Viewport() : x(0), y(0), width(0), height(0) {}
+    Viewport(int x, int y, int width, int height) : x(x), y(y), width(width), height(height) {}
+
+    inline bool operator == (const Viewport &vp) const { return x == vp.x && y == vp.y && width == vp.width && height == vp.height; }
+    inline bool operator != (const Viewport &vp) const { return !(*this == vp); }
+};
+
 namespace Core {
     float eye;
-    vec4 viewport, viewportDef;
+    Viewport viewport, viewportDef;
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
     mat4 mLightProj[SHADOW_OBJ_MAX];
     Basis basis;
@@ -392,12 +415,12 @@ namespace Core {
         Shader      *shader;
         int32       renderState;
 
-        Texture     *textures[8];
-        Texture     *target;
-        uint32      targetFace;
-        uint32      targetOp;
-        vec4        viewport;
-        vec4        material;
+        GAPI::Texture *textures[8];
+        GAPI::Texture *target;
+        uint32        targetFace;
+        uint32        targetOp;
+        Viewport      viewport; // TODO: ivec4
+        vec4          material;
 
     #ifdef _GAPI_GL
         uint32      VAO;
@@ -500,10 +523,10 @@ namespace Core {
         eye = 0.0f;
 
         uint32 data = 0xFFFFFFFF;
-        whiteTex  = new Texture(1, 1, FMT_RGBA, Texture::NEAREST, &data);
-        whiteCube = new Texture(1, 1, FMT_RGBA, Texture::CUBEMAP, &data);
+        whiteTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
+        whiteCube = new Texture(1, 1, FMT_RGBA, OPT_CUBEMAP, &data);
         data = 0;
-        blackTex  = new Texture(1, 1, FMT_RGBA, Texture::NEAREST, &data);
+        blackTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
 
     // init settings
         settings.version = SETTINGS_VERSION;
@@ -643,7 +666,7 @@ namespace Core {
 
                 GAPI::bindTarget(target, face);
 
-                bool depth = target && (target->format == FMT_DEPTH || target->format == FMT_SHADOW);
+                bool depth = target && (target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW);
                 if (support.discardFrame) {
                     if (!(reqTarget.op & RT_LOAD_COLOR) && !depth) reqTarget.op |= RT_CLEAR_COLOR;
                     if (!(reqTarget.op & RT_LOAD_DEPTH) &&  depth) reqTarget.op |= RT_CLEAR_DEPTH;
@@ -658,7 +681,7 @@ namespace Core {
         if (mask & RS_VIEWPORT) {
             if (viewport != active.viewport) {
                 active.viewport = viewport;
-                GAPI::setViewport(int(viewport.x), int(viewport.y), int(viewport.z), int(viewport.w));
+                GAPI::setViewport(viewport);
             }
             renderState &= ~RS_VIEWPORT;
         }
@@ -693,13 +716,13 @@ namespace Core {
         GAPI::setClearColor(color);
     }
 
-    void setViewport(int x, int y, int width, int height) {
-        viewport = vec4(float(x), float(y), float(width), float(height));
+    void setViewport(const Viewport &vp) {
+        viewport = vp;
         renderState |= RS_VIEWPORT;
     }
 
-    void setViewport(const vec4 &vp) {
-        setViewport(int(vp.x), int(vp.y), int(vp.z), int(vp.w));
+    void setViewport(int x, int y, int width, int height) {
+        setViewport(Viewport(x, y, width, height));
     }
 
     void setCullMode(CullMode mode) {
@@ -754,11 +777,11 @@ namespace Core {
         if (!target)
             target = defaultTarget;
 
-        bool color = !target || (target->format != FMT_DEPTH && target->format != FMT_SHADOW);
+        bool color = !target || (target->fmt != FMT_DEPTH && target->fmt != FMT_SHADOW);
         setColorWrite(color, color, color, color);
 
         if (target == defaultTarget) // backbuffer
-            setViewport(int(viewportDef.x), int(viewportDef.y), int(viewportDef.z), int(viewportDef.w));
+            setViewport(viewportDef);
         else
             setViewport(0, 0, target->width, target->height);
 
@@ -833,7 +856,7 @@ namespace Core {
         GAPI::DIP(iStart, iCount, iBuffer);
     }
 
-    PSO* psoCreate(Shader *shader, uint32 renderState, Format colorFormat = FMT_RGBA, Format depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {
+    PSO* psoCreate(Shader *shader, uint32 renderState, TexFormat colorFormat = FMT_RGBA, TexFormat depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {
         PSO *pso = new PSO();
         pso->data        = NULL;
         pso->shader      = shader;

@@ -309,7 +309,7 @@ namespace UI {
         if (buffer.iCount > 0) {
         #ifdef SPLIT_BY_TILE
             if (curTile != 0xFFFF)
-                game->getAtlas()->bind(curTile, curClut);
+                game->getAtlas()->bindTile(curTile, curClut);
         #endif
             game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
             buffer.iCount = buffer.vCount = 0;

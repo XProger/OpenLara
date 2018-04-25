@@ -433,7 +433,7 @@ struct Level : IGame {
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
-            Texture *target = (targets[0]->opt & Texture::CUBEMAP) ? targets[0] : targets[i * stride];
+            Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
             renderView(roomIndex, false, false);
         }
@@ -2078,7 +2078,7 @@ struct Level : IGame {
 
         Core::pass = Core::passShadow;
         shadow->unbind(sShadow);
-        bool colorShadow = shadow->format == FMT_RGBA ? true : false;
+        bool colorShadow = shadow->fmt == FMT_RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
         Core::setTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
@@ -2313,33 +2313,33 @@ struct Level : IGame {
     #endif
 
     void setViewport(int view, int eye, bool isUI) {
-        float vX = float(Core::x);
-        float vY = float(Core::y);
-        float vW = float(Core::width);
-        float vH = float(Core::height);
+        int vX = Core::x;
+        int vY = Core::y;
+        int vW = Core::width;
+        int vH = Core::height;
 
-        float aspect = vW / vH;
+        float aspect = float(vW) / float(vH);
 
         if (Core::defaultTarget) {
-            vX = 0.0f;
-            vY = 0.0f;
-            vW = float(Core::defaultTarget->width);
-            vH = float(Core::defaultTarget->height);
+            vX = 0;
+            vY = 0;
+            vW = Core::defaultTarget->width;
+            vH = Core::defaultTarget->height;
         }
 
-        vec4 &vp = Core::viewportDef;
+        Viewport &vp = Core::viewportDef;
 
         if (players[1] != NULL) {
-            vp = vec4(vX + vW * 0.5f * view, vY, vW * 0.5f, vH);
+            vp = Viewport(vX + vW / 2 * view, vY, vW / 2, vH);
             if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT)
                 aspect *= 0.5f;
         } else
-            vp = vec4(vX, vY, vW, vH); 
+            vp = Viewport(vX, vY, vW, vH); 
         
         if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
             switch (eye) {
-                case -1 : vp = vec4(vX + vp.x - vp.x * 0.5f, vY + vp.y, vp.z * 0.5f, vp.w);      break;
-                case +1 : vp = vec4(vX + vW * 0.5f + vp.x / 2.0f, vY + vp.y, vp.z * 0.5f, vp.w); break;
+                case -1 : vp = Viewport(vX + vp.x - vp.x / 2, vY + vp.y, vp.width / 2, vp.height);      break;
+                case +1 : vp = Viewport(vX + vW / 2 + vp.x / 2, vY + vp.y, vp.width / 2, vp.height); break;
             }
         }
 
@@ -2381,7 +2381,7 @@ struct Level : IGame {
         mesh->renderQuad();
         return;
 */
-        vec4 vp = Core::viewportDef;
+        Viewport vp = Core::viewportDef;
 
         int viewsCount = players[1] ? 2 : 1;
         for (int view = 0; view < viewsCount; view++) {
