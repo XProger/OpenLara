@@ -1690,6 +1690,10 @@ struct Level : IGame {
             Core::setBlendMode(bmAlpha);
             renderEntitiesTransp(transp);
 
+            #ifdef FFP
+                Core::whiteTex->bind(0);
+            #endif
+
             Core::setBlendMode(bmMult);
             for (int i = 0; i < level.entitiesCount; i++) {
                 TR::Entity &entity = level.entities[i];
@@ -1698,6 +1702,10 @@ struct Level : IGame {
                     controller->renderShadow(mesh);
             }
             Core::setBlendMode(bmNone);
+
+            #ifdef FFP
+                atlas->bind(0);
+            #endif
         }
 
         if (transp == 2) {

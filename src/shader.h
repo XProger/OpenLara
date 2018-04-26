@@ -3,53 +3,6 @@
 
 #include "core.h"
 
-#define SHADER_ATTRIBS(E) \
-    E( aCoord           ) \
-    E( aNormal          ) \
-    E( aTexCoord        ) \
-    E( aColor           ) \
-    E( aLight           )
-
-#define SHADER_SAMPLERS(E) \
-    E( sDiffuse         ) \
-    E( sNormal          ) \
-    E( sReflect         ) \
-    E( sShadow          ) \
-    E( sEnvironment     ) \
-    E( sMask            )
-
-#define SHADER_UNIFORMS(E) \
-    E( uParam           ) \
-    E( uTexParam        ) \
-    E( uViewProj        ) \
-    E( uBasis           ) \
-    E( uLightProj       ) \
-    E( uMaterial        ) \
-    E( uAmbient         ) \
-    E( uFogParams       ) \
-    E( uViewPos         ) \
-    E( uLightPos        ) \
-    E( uLightColor      ) \
-    E( uAnimTexRanges   ) \
-    E( uAnimTexOffsets  ) \
-    E( uRoomSize        ) \
-    E( uPosScale        ) \
-    E( uContacts        )
-
-enum AttribType  { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
-enum SamplerType { SHADER_SAMPLERS(DECL_ENUM) sMAX };
-enum UniformType { SHADER_UNIFORMS(DECL_ENUM) uMAX };
-
-const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
-const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
-const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
-
-#undef SHADER_ATTRIBS
-#undef SHADER_SAMPLERS
-#undef SHADER_UNIFORMS
-#undef ENUM
-#undef STR
-
 struct Shader {
     vec4    params[uMAX][4];
 

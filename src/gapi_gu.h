@@ -22,6 +22,7 @@ namespace GAPI {
         short3 coord;
     };
 
+// Texture
     struct Texture {
         uint8      *memory;
         int        width, height, origWidth, origHeight;
@@ -105,6 +106,83 @@ namespace GAPI {
         }
     };
 
+// Mesh
+    struct Mesh {
+        Index        *iBuffer;
+        GAPI::Vertex *vBuffer;
+
+        int          iCount;
+        int          vCount;
+        bool         dynamic;
+
+        Mesh(bool dynamic) : iBuffer(NULL), vBuffer(NULL), dynamic(dynamic) {}
+
+        void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount, bool dynamic) {
+            this->iCount  = iCount;
+            this->vCount  = vCount;
+            this->dynamic = dynamic;
+
+            if (dynamic)
+                return;
+
+            #ifdef EDRAM_MESH
+                iBuffer =  (Index*)Core::allocEDRAM(iCount * sizeof(Index)); 
+                vBuffer = (Vertex*)Core::allocEDRAM(vCount * sizeof(Vertex)); 
+            #else
+                iBuffer = new Index[iCount];
+                vBuffer = new Vertex[vCount];
+            #endif
+
+            update(indices, iCount, vertices, vCount);
+        }
+
+        void deinit() {
+            if (dynamic)
+                return;
+
+            #ifndef EDRAM_MESH
+                delete[] iBuffer;
+                delete[] vBuffer;
+            #endif
+        }
+
+        void update(Index *indices, int iCount, ::Vertex *vertices, int vCount) {
+            if (dynamic) {
+                iBuffer =  (Index*)sceGuGetMemory(iCount * sizeof(Index)); 
+                vBuffer = (Vertex*)sceGuGetMemory(vCount * sizeof(Vertex)); 
+            }
+
+            if (indices)
+                memcpy(iBuffer, indices, iCount * sizeof(indices[0]));
+        
+            if (vertices) {
+                ::Vertex *src = vertices;
+                Vertex   *dst = vBuffer;
+
+                for (int i = 0; i < vCount; i++) {
+                    dst->texCoord = short2(src->texCoord.x, src->texCoord.y);
+                    dst->color    = ubyte4(src->light.x, src->light.y, src->light.z, src->light.w); //color;
+                    dst->normal   = src->normal;
+                    dst->coord    = src->coord;
+
+                    dst++;
+                    src++;
+                }
+            }
+        }
+
+        void bind(const MeshRange &range) const {
+            ASSERT(iBuffer != NULL);
+            ASSERT(vBuffer != NULL);
+            Core::active.iBuffer = iBuffer;
+            Core::active.vBuffer = vBuffer + range.vStart;
+        }
+
+        void initNextRange(MeshRange &range, int &aIndex) const {
+            range.aIndex = -1;
+        }
+    };
+
 
     int cullMode, blendMode;
 
@@ -149,7 +227,6 @@ namespace GAPI {
         EDRAM_SIZE = sceGeEdramGetSize();
         LOG("VRAM     : %d\n", EDRAM_SIZE);
         freeEDRAM();
-
 
         support.maxAniso       = 1;
         support.maxVectors     = 0;

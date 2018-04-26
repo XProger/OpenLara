@@ -329,6 +329,7 @@ namespace GAPI {
 
     int cullMode, blendMode;
 
+// Texture
     struct Texture {
         uint32     ID;
         int        width, height, origWidth, origHeight;
@@ -459,6 +460,155 @@ namespace GAPI {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
         }
     };
+
+// Mesh
+    struct Mesh {
+        Index        *iBuffer;
+        GAPI::Vertex *vBuffer;
+        GLuint       *VAO;
+        GLuint       ID[2];
+
+        int          iCount;
+        int          vCount;
+        int          aCount;
+        bool         dynamic;
+
+        Mesh(bool dynamic) : iBuffer(NULL), vBuffer(NULL), VAO(NULL), dynamic(dynamic) {
+            ID[0] = ID[1] = NULL;
+        }
+
+        void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
+            this->iCount = iCount;
+            this->vCount = vCount;
+            this->aCount = aCount;
+
+            if (Core::support.VAO)
+                glBindVertexArray(Core::active.VAO = 0);
+
+            #ifdef DYNGEOM_NO_VBO
+                if (!vertices && !indices) {
+                    iBuffer = new Index[iCount];
+                    vBuffer = new GAPI::Vertex[vCount];
+                    return;
+                }
+            #endif 
+
+            ASSERT(sizeof(GAPI::Vertex) == sizeof(::Vertex));
+
+            glGenBuffers(2, ID);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID[0]);
+            glBindBuffer(GL_ARRAY_BUFFER,         ID[1]);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index),  indices,  dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER,         vCount * sizeof(Vertex), vertices, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            
+            if (Core::support.VAO && aCount) {
+                VAO = new GLuint[aCount];
+                glGenVertexArrays(aCount, VAO);
+            }
+        }
+
+        void deinit() {
+            if (iBuffer || vBuffer) {
+                delete[] iBuffer;
+                delete[] vBuffer;
+            } else {
+                if (VAO) {
+                    glDeleteVertexArrays(aCount, VAO);
+                    delete[] VAO;
+                }
+                glDeleteBuffers(2, ID);
+            }
+        }
+
+        void update(Index *indices, int iCount, ::Vertex *vertices, int vCount) {
+            ASSERT(sizeof(GAPI::Vertex) == sizeof(::Vertex));
+
+            if (Core::support.VAO && Core::active.VAO != 0)
+                glBindVertexArray(Core::active.VAO = 0);
+
+            if (indices && iCount) {
+                if (iBuffer) {
+                    memcpy(iBuffer, indices, iCount * sizeof(Index));
+                } else {
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
+                    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, iCount * sizeof(Index), indices);
+                }
+            }
+            if (vertices && vCount) {
+                if (vBuffer) {
+                    memcpy(vBuffer, vertices, vCount * sizeof(GAPI::Vertex));
+                } else {
+                    glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(GAPI::Vertex), vertices);
+                }
+            }
+        }
+
+        void setupFVF(GAPI::Vertex *v) const {
+            #ifdef FFP
+                glTexCoordPointer (2, GL_SHORT,         sizeof(*v), &v->texCoord);
+                glColorPointer    (4, GL_UNSIGNED_BYTE, sizeof(*v), &v->light);
+                glNormalPointer   (   GL_SHORT,         sizeof(*v), &v->normal);
+                glVertexPointer   (3, GL_SHORT,         sizeof(*v), &v->coord);
+            #else
+                glEnableVertexAttribArray(aCoord);
+                glEnableVertexAttribArray(aNormal);
+                glEnableVertexAttribArray(aTexCoord);
+                glEnableVertexAttribArray(aColor);
+                glEnableVertexAttribArray(aLight);
+
+                glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(*v), &v->coord);
+                glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(*v), &v->normal);
+                glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(*v), &v->texCoord);
+                glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(*v), &v->color);
+                glVertexAttribPointer(aLight,    4, GL_UNSIGNED_BYTE, true,  sizeof(*v), &v->light);
+            #endif
+        }
+
+        void bind(const MeshRange &range) const {
+            if (range.aIndex == -1) {
+                if (Core::active.iBuffer != ID[0])
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
+                if (Core::active.vBuffer != ID[1])
+                    glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
+                setupFVF(vBuffer + range.vStart);
+            } else {
+                ASSERT(Core::support.VAO);
+                GLuint vao = VAO[range.aIndex];
+                if (Core::active.VAO != vao)
+                    glBindVertexArray(Core::active.VAO = vao);
+            }
+        }
+
+        void initNextRange(MeshRange &range, int &aIndex) const {
+            if (Core::support.VAO && VAO) {
+                ASSERT(aIndex < aCount);
+
+                Core::active.iBuffer = 0;
+                Core::active.vBuffer = 0;
+                Core::active.VAO     = 0;
+
+                range.aIndex = aIndex++;    // get new VAO index
+                bind(range);                // bind VAO
+                range.aIndex = -1;          // reset VAO to -1
+                bind(range);                // bind buffers and setup vertex format
+                range.aIndex = aIndex - 1;  // set VAO index back to the new
+
+                glBindVertexArray(Core::active.VAO = 0);
+            } else
+                range.aIndex = -1;
+        }
+
+        /*
+        void unbind() {
+            if (Core::support.VAO)
+                glBindVertexArray(Core::active.VAO = 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = 0);
+            glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = 0);
+        }
+        */
+    };
+
 
     GLuint FBO, defaultFBO;
     struct RenderTargetCache {
