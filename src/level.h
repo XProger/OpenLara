@@ -1528,7 +1528,7 @@ struct Level : IGame {
 
         // underwater ambient sound volume control
             if (camera->isUnderwater()) {
-                if (!sndWater) {
+                if (!sndWater && !level.isCutsceneLevel()) {
                     sndWater = playSound(TR::SND_UNDERWATER, vec3(0.0f), Sound::LOOP | Sound::MUSIC);
                     if (sndWater)
                         sndWater->volume = sndWater->volumeTarget = 0.0f;
