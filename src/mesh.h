@@ -443,7 +443,7 @@ struct MeshBuilder {
             TR::Model &model = level.models[i];
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
-                if (!index && model.mStart + j > 0) 
+                if (index == -1) 
                     continue;
                 TR::Mesh &mesh = level.meshes[index];
                 iCount += (mesh.rCount * 6 + mesh.tCount * 3) * DOUBLE_SIDED;
@@ -562,13 +562,14 @@ struct MeshBuilder {
                     #endif
 
                     int index = level.meshOffsets[model.mStart + j];
-                    if (index || model.mStart + j <= 0) {
-                        TR::Mesh &mesh = level.meshes[index];
-                        #ifndef MERGE_MODELS
-                            geom.getNextRange(vStartModel, iCount, 0xFFFF, 0xFFFF);
-                        #endif
-                        buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
-                    }
+                    if (index == -1)
+                        continue;
+
+                    TR::Mesh &mesh = level.meshes[index];
+                    #ifndef MERGE_MODELS
+                        geom.getNextRange(vStartModel, iCount, 0xFFFF, 0xFFFF);
+                    #endif
+                    buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
 
                     #ifndef MERGE_MODELS
                         geom.finish(iCount);
