@@ -37,6 +37,10 @@
     <ClInclude Include="..\..\format.h" />
     <ClInclude Include="..\..\trigger.h" />
     <ClInclude Include="..\..\utils.h" />
+    <ClInclude Include="..\..\gapi_gl.h" />
+    <ClInclude Include="..\..\gapi_gu.h" />
+    <ClInclude Include="..\..\gapi_vk.h" />
+    <ClInclude Include="..\..\gapi_gx.h" />
     <ClInclude Include="..\..\libs\minimp3\minimp3.h">
       <Filter>libs\minimp3</Filter>
     </ClInclude>

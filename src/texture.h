@@ -4,45 +4,15 @@
 #include "core.h"
 #include "format.h"
 
-struct Texture {
-    enum Format { LUMINANCE, RGBA, RGB16, RGBA16, RGBA_FLOAT, RGBA_HALF, DEPTH, DEPTH_STENCIL, SHADOW, MAX };
-    enum Option { CUBEMAP = 1, MIPMAPS = 2, NEAREST = 4 };
-
-    int     width, height, origWidth, origHeight;
-    Format  format;
-    uint32  opt;
-
-#ifdef _PSP
-    TR::Tile4 *tiles;
-    TR::CLUT  *cluts;
-    uint8     *memory;
-
-    void swizzle(uint8* out, const uint8* in, uint32 width, uint32 height) {
-        int rowblocks = width / 16;
-
-        for (int j = 0; j < height; j++)
-            for (int i = 0; i < width; i++) {
-                int blockx = i / 16;
-                int blocky = j / 8;
-
-                int x = i - blockx * 16;
-                int y = j - blocky * 8;
-                int block_index   = blockx + blocky * rowblocks;
-                int block_address = block_index * 16 * 8;
-
-                out[block_address + x + y * 16] = in[i + j * width];
-            }
-    }
-
-#else
-    uint32  ID;
-    Texture *tiles[32];
-#endif
+struct Texture : GAPI::Texture {
 
     #ifdef SPLIT_BY_TILE
 
-        #ifdef _PSP
-            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : width(256), height(256), memory(NULL) {
+        #ifdef _OS_PSP
+            TR::Tile4 *tiles;
+            TR::CLUT  *cluts;
+
+            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, OPT_PROXY) {
                 #ifdef EDRAM_TEX
                     this->tiles = (TR::Tile4*)Core::allocEDRAM(tilesCount * sizeof(tiles[0]));
                     this->cluts =  (TR::CLUT*)Core::allocEDRAM(clutsCount * sizeof(cluts[0]));
@@ -59,258 +29,87 @@ struct Texture {
                 #endif
             }
         #else
-            Texture(TR::Tile32 *tiles, int tilesCount) : width(256), height(256), ID(0) {
+            Texture *tiles[32];
+
+            Texture(TR::Tile32 *tiles, int tilesCount) : GAPI::Texture(256, 256, OPT_PROXY) {
                 memset(this->tiles, 0, sizeof(this->tiles));
 
                 ASSERT(tilesCount < COUNT(this->tiles));
                 for (int i = 0; i < tilesCount; i++)
-                    this->tiles[i] = new Texture(width, height, RGBA, 0, tiles + i);
+                    this->tiles[i] = new Texture(width, height, FMT_RGBA, 0, tiles + i);
             }
         #endif
 
-        void bind(uint16 tile, uint16 clut) {
-        #ifdef _PSP
-            int swizzle = GU_FALSE;
-            #ifdef TEX_SWIZZLE
-                swizzle = GU_TRUE;
-            #endif
-            sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
-            sceGuClutLoad(1, cluts + clut);
-            sceGuTexImage(0, width, height, width, tiles + tile);
+        void bindTile(uint16 tile, uint16 clut) {
+        #ifdef _OS_PSP
+            bindTileCLUT(tiles + tile, cluts + clut);
         #else
             tiles[tile]->bind(0);
         #endif
         }
     #endif
 
-    Texture(int width, int height, Format format, uint32 opt = 0, void *data = NULL) : opt(opt) {
+    Texture(int width, int height, TexFormat format, uint32 opt = 0, void *data = NULL) : GAPI::Texture(width, height, opt) {
 //        LOG("create texture %d x %d (%d)\n", width, height, format);
 
-        #ifndef _PSP
-            #ifdef SPLIT_BY_TILE
+        #ifdef SPLIT_BY_TILE
+            #ifndef _OS_PSP
                 memset(this->tiles, 0, sizeof(tiles));
             #endif
         #endif
 
-        origWidth  = width;
-        origHeight = height;
-
         if (!Core::support.texNPOT) {
-            width  = nextPow2(width);
-            height = nextPow2(height);
+            this->width  = nextPow2(width);
+            this->height = nextPow2(height);
         }
-        this->width  = width;
-        this->height = height;
 
-        bool   filter   = (opt & NEAREST) == 0;
-        bool   cube     = (opt & CUBEMAP) != 0;
-        bool   mipmaps  = (opt & MIPMAPS) != 0;
-        bool   isShadow = format == SHADOW;
+        bool filter   = (opt & OPT_NEAREST) == 0;
+        bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
 
-        if (format == SHADOW && !Core::support.shadowSampler) {
-            format = DEPTH;
+        if (format == FMT_SHADOW && !Core::support.shadowSampler) {
+            format = FMT_DEPTH;
             filter = false;
         }
 
-        if (format == DEPTH) {
+        if (format == FMT_DEPTH) {
             if (Core::support.depthTexture)
                 filter = false;
             else
-                format = RGBA;
+                format = FMT_RGBA;
         }
 
-        if (format == RGBA_HALF) {
+        if (format == FMT_RGBA_HALF) {
             if (Core::support.texHalf)
                 filter = filter && Core::support.texHalfLinear;
             else
-                format = RGBA_FLOAT;
+                format = FMT_RGBA_FLOAT;
         }
 
-        if (format == RGBA_FLOAT) {
+        if (format == FMT_RGBA_FLOAT) {
             if (Core::support.texFloat)
                 filter = filter && Core::support.texFloatLinear;
             else
-                format = RGBA;
+                format = FMT_RGBA;
         }
 
-        this->format = format;
+        this->fmt = format;
+        if (filter)
+            this->opt &= ~OPT_NEAREST;
+        else
+            this->opt |= OPT_NEAREST;
 
-    #ifdef _PSP
-        if (data) {
-            memory = new uint8[width * height * 4];
-        #ifdef TEX_SWIZZLE
-            swizzle(memory, (uint8*)data, width * 4, height);
-        #else
-            memcpy(memory, data, width * height * 4);
-        #endif
-        } else
-            memory = NULL;
-    #else
-        glGenTextures(1, &ID);
-        bind(0);
-
-        GLenum target = (opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
-
-        if (format == SHADOW) {
-            glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-            glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-        }
-
-        bool border = isShadow && Core::support.texBorder;
-        glTexParameteri(target, GL_TEXTURE_WRAP_S, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
-        glTexParameteri(target, GL_TEXTURE_WRAP_T, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
-        if (border) {
-            float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-            glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
-        }
-
-        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
-        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
-
-        struct FormatDesc {
-            GLuint ifmt, fmt;
-            GLenum type;
-        } formats[MAX] = {            
-            { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
-            { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
-            { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
-            { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
-            { GL_RGBA32F,         GL_RGBA,            GL_FLOAT                  }, // RGBA_FLOAT
-            { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT             }, // RGBA_HALF
-            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
-            { GL_DEPTH_STENCIL,   GL_DEPTH_STENCIL,   GL_UNSIGNED_INT_24_8      }, // DEPTH_STENCIL
-            { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
-        };
-
-        FormatDesc desc = formats[format];
-
-        #ifdef __EMSCRIPTEN__ // fucking firefox!
-            if (format == RGBA_FLOAT) {
-                if (Core::support.texFloat) {
-                    desc.ifmt = GL_RGBA;
-                    desc.type = GL_FLOAT;
-                }
-            }
-
-            if (format == RGBA_HALF) {
-                if (Core::support.texHalf) {
-                    desc.ifmt = GL_RGBA;
-                    #ifdef MOBILE
-                        desc.type = GL_HALF_FLOAT_OES;
-                    #endif
-                }
-            }
-        #else
-            if ((format == RGBA_FLOAT && !Core::support.colorFloat) || (format == RGBA_HALF && !Core::support.colorHalf)) {
-                desc.ifmt = GL_RGBA;
-                #ifdef MOBILE
-                    if (format == RGBA_HALF)
-                        desc.type = GL_HALF_FLOAT_OES;
-                #endif
-            }
-        #endif
-
-        for (int i = 0; i < 6; i++) {
-            glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);
-            if (!cube) break;
-        }
-    #endif
+        init(data);
 
         if (mipmaps)
             generateMipMap();
-
-        if (filter)
-            this->opt &= ~NEAREST;
-        else
-            this->opt |= NEAREST;
-    }
-
-    void generateMipMap() {
-    #ifdef _PSP
-        // TODO
-    #else
-        bind(0);
-        GLenum target = (opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
-
-        glGenerateMipmap(target);
-        if (!(opt & CUBEMAP) && !(opt & NEAREST) && (Core::support.maxAniso > 0))
-            glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
-    #endif
     }
 
     virtual ~Texture() {
-    #ifdef _PSP
-        delete[] memory;
-    #else
         #ifdef SPLIT_BY_TILE
-            if (!ID) {
-                for (int i = 0; i < COUNT(tiles); i++)
-                    delete[] tiles[i];
-                return;
-            }
+            for (int i = 0; i < COUNT(tiles); i++)
+                delete tiles[i];
         #endif
-        glDeleteTextures(1, &ID);
-    #endif
-    }
-
-    void setFilterQuality(int value) {
-        bool filter  = value > Core::Settings::LOW;
-        bool mipmaps = value > Core::Settings::MEDIUM;
-
-    #ifdef _PSP
-        if (filter)
-            opt &= ~NEAREST;
-        else
-            opt |= NEAREST;
-
-        if (mipmaps)
-            opt |= MIPMAPS;
-        else
-            opt &= ~MIPMAPS;
-    #else
-        Core::active.textures[0] = NULL;
-        bind(0);
-        if (Core::support.maxAniso > 0)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, value > Core::Settings::MEDIUM ? min(int(Core::support.maxAniso), 8) : 1);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
-    #endif
-    }
-
-    void bind(int sampler) {
-    #ifdef _PSP
-        if (this && !sampler && memory) {
-            int swizzle = GU_FALSE;
-            #ifdef TEX_SWIZZLE
-                swizzle = GU_TRUE;
-            #endif
-            sceGuTexMode(GU_PSM_8888, 0, 0, swizzle);
-            sceGuTexImage(0, width, height, width, memory);
-        }
-    #else
-        #ifdef SPLIT_BY_TILE
-            if (!this || sampler || !ID) return;
-        #endif
-
-        if (Core::active.textures[sampler] != this) {
-            Core::active.textures[sampler] = this;
-            glActiveTexture(GL_TEXTURE0 + sampler);
-            glBindTexture((opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, ID);
-        }
-    #endif
-    }
-
-    void unbind(int sampler) {
-    #ifdef _PSP
-        //
-    #else
-        if (Core::active.textures[sampler]) {
-            Core::active.textures[sampler] = NULL;
-            glActiveTexture(GL_TEXTURE0 + sampler);
-            glBindTexture((opt & CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D, 0);
-        }
-    #endif
+        deinit();
     }
 
     struct Color24 {
@@ -320,28 +119,57 @@ struct Texture {
     struct Color32 {
         uint8 r, g, b, a;
     };
-/*
+
     static void SaveBMP(const char *name, const char *data32, int width, int height) {
-        BITMAPINFOHEADER BMIH;
-        BMIH.biSize = sizeof(BITMAPINFOHEADER);
-        BMIH.biSizeImage = width * height * 4;
+        struct BITMAPFILEHEADER {
+            uint32  bfSize;
+            uint16  bfReserved1;
+            uint16  bfReserved2;
+            uint32  bfOffBits;
+        } fhdr;
 
-        BMIH.biSize = sizeof(BITMAPINFOHEADER);
-        BMIH.biWidth = width;
-        BMIH.biHeight = height;
-        BMIH.biPlanes = 1;
-        BMIH.biBitCount = 32;
-        BMIH.biCompression = BI_RGB;
-        BMIH.biSizeImage = width * height * 4;
+        struct BITMAPINFOHEADER{
+            uint32 biSize;
+            uint32 biWidth;
+            uint32 biHeight;
+            uint16 biPlanes;
+            uint16 biBitCount;
+            uint32 biCompression;
+            uint32 biSizeImage;
+            uint32 biXPelsPerMeter;
+            uint32 biYPelsPerMeter;
+            uint32 biClrUsed;
+            uint32 biClrImportant;
+        } ihdr;
 
-        BITMAPFILEHEADER bmfh;
-        int nBitsOffset = sizeof(BITMAPFILEHEADER) + BMIH.biSize;
-        LONG lImageSize = BMIH.biSizeImage;
-        LONG lFileSize = nBitsOffset + lImageSize;
-        bmfh.bfType = 'B' + ('M' << 8);
-        bmfh.bfOffBits = nBitsOffset;
-        bmfh.bfSize = lFileSize;
-        bmfh.bfReserved1 = bmfh.bfReserved2 = 0;
+        memset(&fhdr, 0, sizeof(fhdr));
+        memset(&ihdr, 0, sizeof(ihdr));
+
+        ihdr.biSize      = sizeof(ihdr);
+        ihdr.biWidth     = width;
+        ihdr.biHeight    = height;
+        ihdr.biPlanes    = 1;
+        ihdr.biBitCount  = 32;
+        ihdr.biSizeImage = width * height * 4;
+
+        fhdr.bfOffBits   = 2 + sizeof(fhdr) + ihdr.biSize;
+        fhdr.bfSize      = fhdr.bfOffBits + ihdr.biSizeImage;
+
+        Color32 *data = new Color32[width * height];
+
+        Color32 *dst = data;
+        Color32 *src = (Color32*)data32 + width * (height - 1);
+        for (int j = 0; j < height; j++) {
+            for (int i = 0; i < width; i++) {
+                dst->r = src->b;
+                dst->g = src->g;
+                dst->b = src->r;
+                dst->a = src->a;
+                dst++;
+                src++;
+            }
+            src -= width * 2;
+        }
 
         char buf[256];
         strcpy(buf, name);
@@ -349,15 +177,19 @@ struct Texture {
 
         FILE *f = fopen(buf, "wb");
         if (f) {
-            fwrite(&bmfh, sizeof(bmfh), 1, f);
-            fwrite(&BMIH, sizeof(BMIH), 1, f);
-            int res = fwrite(data32, width * height * 4, 1, f);
-            LOG("Res %d\n", res);
+            uint16 type = 'B' + ('M' << 8);
+            fwrite(&type, sizeof(type), 1, f);
+            fwrite(&fhdr, sizeof(fhdr), 1, f);
+            fwrite(&ihdr, sizeof(ihdr), 1, f);
+            fwrite(data, ihdr.biSizeImage, 1, f);
+            LOG("save %s\n", buf);
             fclose(f);
         } else
             ASSERT(false);
+
+        delete[] data;
     }
-*/
+
     static uint8* LoadPCX(Stream &stream, uint32 &width, uint32 &height) {
         struct PCX {
             uint8  magic;
@@ -821,7 +653,7 @@ struct Texture {
                 ((uint32*)data)[y * dw] = ((uint32*)data)[y * dw + dw - 1] = 0xFF000000;
         }
 
-        Texture *tex = new Texture(dw, dh, Texture::RGBA, 0, data);
+        Texture *tex = new Texture(dw, dh, FMT_RGBA, 0, data);
         tex->origWidth  = width;
         tex->origHeight = height;
 
@@ -987,9 +819,9 @@ struct Atlas {
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, Texture::RGBA, Texture::MIPMAPS, data);
+        Texture *atlas = new Texture(width, height, FMT_RGBA, OPT_MIPMAPS, data);
 
-        //Texture::SaveBMP("atlas.bmp", (char*)data, width, height);
+        //Texture::SaveBMP("atlas", (char*)data, width, height);
 
         delete[] data;
         return atlas;

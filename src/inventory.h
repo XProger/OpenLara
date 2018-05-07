@@ -7,7 +7,7 @@
 
 #define INVENTORY_MAX_ITEMS  32
 #define INVENTORY_MAX_RADIUS 688.0f
-#ifdef _PSP
+#ifdef _OS_PSP
     #define INVENTORY_BG_SIZE    256
 #else
     #define INVENTORY_BG_SIZE    512
@@ -125,12 +125,12 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_LIGHTING, SETTINGS( detail.lighting ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows  ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water    ), STR_QUALITY_LOW, 0, 2 ),
-#if defined(WIN32) || defined(LINUX) || defined(_PSP) || defined(__RPI__)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync    ), STR_OFF, 0, 1 ),
 #endif
-#ifndef _PSP
+#ifndef _OS_PSP
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo   ), STR_OFF, 0, 
-#if /*defined(_WIN32) ||*/ defined(ANDROID)
+#if /*defined(_OS_WIN) ||*/ defined(_OS_ANDROID)
     3 /* with VR option */
 #else
     2 /* without VR support */
@@ -154,7 +154,7 @@ static const OptionItem optControls[] = {
     OptionItem( ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
-#ifdef WIN32
+#ifdef _OS_WIN
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
 #endif
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
@@ -431,18 +431,18 @@ struct Inventory {
 
             Core::setBasis(joints, m.mCount);
 
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             mesh->transparent = 0;
             mesh->renderModel(desc.model);
             mesh->transparent = 1;
             mesh->renderModel(desc.model);
-            Core::setBlending(bmAdd);
+            Core::setBlendMode(bmAdd);
             Core::setDepthWrite(false);
             mesh->transparent = 2;
             mesh->renderModel(desc.model);
             Core::setDepthWrite(true);
 
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
         }
 
         void choose() {
@@ -760,7 +760,7 @@ struct Inventory {
 
                 switch (level->version & TR::VER_VERSION) {
                     case TR::VER_TR1 : 
-                    #ifdef __EMSCRIPTEN__
+                    #ifdef _OS_WEB
                         passportSlotCount = 2;
                         passportSlots[0]  = TR::LVL_TR1_1;
                         passportSlots[1]  = TR::LVL_TR1_2;
@@ -773,7 +773,7 @@ struct Inventory {
                     #endif
                         break;
                     case TR::VER_TR2 :
-                    #ifdef __EMSCRIPTEN__
+                    #ifdef _OS_WEB
                         passportSlotCount = 2;
                         passportSlots[0]  = TR::LVL_TR2_WALL;
                         passportSlots[1]  = TR::LVL_TR2_BOAT;
@@ -786,7 +786,7 @@ struct Inventory {
                     #endif
                         break;
                     case TR::VER_TR3 :
-                    #ifdef __EMSCRIPTEN__
+                    #ifdef _OS_WEB
                         passportSlotCount = 1;
                         passportSlots[0]  = TR::LVL_TR3_JUNGLE;
                     #else
@@ -1107,7 +1107,7 @@ struct Inventory {
 
         for (int i = 0; i < COUNT(background); i++)
             if (!background[i])
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, Texture::RGBA);
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, FMT_RGBA);
 
         return background[0];
     }
@@ -1116,7 +1116,7 @@ struct Inventory {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             return;
 
-        #ifdef _PSP
+        #ifdef _OS_PSP
             return;
         #endif
         Core::defaultTarget = getBackgroundTarget();
@@ -1124,7 +1124,7 @@ struct Inventory {
         Core::defaultTarget = NULL;
 
         Core::setDepthTest(false);
-        Core::setBlending(bmNone);
+        Core::setBlendMode(bmNone);
 
     #ifdef FFP
         mat4 m;
@@ -1133,7 +1133,7 @@ struct Inventory {
         Core::mModel.identity();
     #endif
 
-    #ifdef _PSP
+    #ifdef _OS_PSP
         //
     #else
         // vertical blur
@@ -1331,10 +1331,10 @@ struct Inventory {
 
         uint8 alpha;
         if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f) {
-            Core::setBlending(bmAlpha);
+            Core::setBlendMode(bmAlpha);
             alpha = uint8(titleTimer * 255);
         } else {
-            Core::setBlending(bmNone);
+            Core::setBlendMode(bmNone);
             alpha = 255;
         }
 
@@ -1417,7 +1417,7 @@ struct Inventory {
     }
 
     void renderGameBG() {
-        #ifdef _PSP
+        #ifdef _OS_PSP
             return;
         #endif
         Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
@@ -1443,7 +1443,7 @@ struct Inventory {
         } else
             background[0]->bind(sDiffuse); // blured grayscale image
 
-        Core::setBlending(phaseRing < 1.0f ? bmAlpha : bmNone);
+        Core::setBlendMode(phaseRing < 1.0f ? bmAlpha : bmNone);
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
@@ -1465,7 +1465,7 @@ struct Inventory {
                 renderTitleBG();
         }
 
-        Core::setBlending(bmAlpha);
+        Core::setBlendMode(bmAlpha);
         Core::setDepthTest(true);
     }
 

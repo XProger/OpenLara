@@ -7,57 +7,6 @@
 TR::ObjectTexture barTile[5 /* UI::BAR_MAX */];
 TR::ObjectTexture &whiteTile = barTile[4]; // BAR_WHITE
 
-struct MeshRange {
-    int iStart;
-    int iCount;
-    int vStart;
-    int aIndex;
-
-    uint16 tile;
-    uint16 clut;
-
-    MeshRange() : iStart(0), iCount(0), vStart(0), aIndex(-1), tile(0), clut(0) {}
-
-#ifdef FFP
-    #ifdef _PSP
-        void setup() const {
-            Core::active.vBuffer += vStart;
-        }
-    #else
-        void setup() const {
-            VertexGPU *v = (VertexGPU*)NULL + vStart;
-            glTexCoordPointer (2, GL_SHORT,         sizeof(*v), &v->texCoord);
-            glColorPointer    (4, GL_UNSIGNED_BYTE, sizeof(*v), &v->light);
-            glNormalPointer   (   GL_SHORT,         sizeof(*v), &v->normal);
-            glVertexPointer   (3, GL_SHORT,         sizeof(*v), &v->coord);
-        }
-    #endif
-
-    void bind(uint32 *VAO) const {}
-#else
-    void setup(void *vBuffer) const {
-        glEnableVertexAttribArray(aCoord);
-        glEnableVertexAttribArray(aNormal);
-        glEnableVertexAttribArray(aTexCoord);
-        glEnableVertexAttribArray(aColor);
-        glEnableVertexAttribArray(aLight);
-
-        VertexGPU *v = (VertexGPU*)vBuffer + vStart;
-        glVertexAttribPointer(aCoord,    4, GL_SHORT,         false, sizeof(*v), &v->coord);
-        glVertexAttribPointer(aNormal,   4, GL_SHORT,         true,  sizeof(*v), &v->normal);
-        glVertexAttribPointer(aTexCoord, 4, GL_SHORT,         true,  sizeof(*v), &v->texCoord);
-        glVertexAttribPointer(aColor,    4, GL_UNSIGNED_BYTE, true,  sizeof(*v), &v->color);
-        glVertexAttribPointer(aLight,    4, GL_UNSIGNED_BYTE, true,  sizeof(*v), &v->light);
-    }
-
-    void bind(GLuint *VAO) const {
-        GLuint vao = aIndex == -1 ? 0 : VAO[aIndex];
-        if (Core::support.VAO && Core::active.VAO != vao)
-            glBindVertexArray(Core::active.VAO = vao);
-    }
-#endif
-};
-
 #define PLANE_DETAIL 48
 #define CIRCLE_SEGS  16
 
@@ -65,177 +14,23 @@ struct MeshRange {
 #define DOUBLE_SIDED       2
 #define MAX_ROOM_DYN_FACES 512
 
-struct Mesh {
-    Index       *iBuffer;
-    VertexGPU   *vBuffer;
-#ifndef _PSP
-    GLuint      ID[2];
-    GLuint      *VAO;
-#endif
+struct Mesh : GAPI::Mesh {
+    int aIndex;
 
-    int     iCount;
-    int     vCount;
-    int     aCount;
-    int     aIndex;
-    bool    cmdBufAlloc;
-
-#ifdef _PSP
-    Mesh(int iCount, int vCount, bool dynamic) :  iCount(iCount), vCount(vCount), aCount(0), aIndex(-1), cmdBufAlloc(true) {
-        iBuffer =     (Index*)sceGuGetMemory(iCount * sizeof(Index)); 
-        vBuffer = (VertexGPU*)sceGuGetMemory(vCount * sizeof(VertexGPU)); 
-    }
-#endif
-
-    Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount) : iCount(iCount), vCount(vCount), aCount(aCount), aIndex(0), cmdBufAlloc(false) {
-    #ifdef _PSP
-        #ifdef EDRAM_MESH
-            iBuffer =     (Index*)Core::allocEDRAM(iCount * sizeof(Index)); 
-            vBuffer = (VertexGPU*)Core::allocEDRAM(vCount * sizeof(VertexGPU)); 
-        #else
-            iBuffer = new Index[iCount];
-            vBuffer = new VertexGPU[vCount];
-        #endif
-
-        update(indices, iCount, vertices, vCount);
-    #else
-        VAO = NULL;
-        if (Core::support.VAO)
-            glBindVertexArray(Core::active.VAO = 0);
-
-        #ifdef DYNGEOM_NO_VBO
-            if (!vertices && !indices) {
-                ID[0] = ID[1] = 0;
-                iBuffer = new Index[iCount];
-                vBuffer = new VertexGPU[vCount];
-                return;
-            }
-        #endif 
-
-        glGenBuffers(2, ID);
-        bind(true);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index), indices, GL_STATIC_DRAW);
-        glBufferData(GL_ARRAY_BUFFER, vCount * sizeof(VertexGPU), vertices, GL_STATIC_DRAW);
-            
-        if (Core::support.VAO && aCount) {
-            VAO = new GLuint[aCount];
-            glGenVertexArrays(aCount, VAO);
-        }
-        iBuffer = NULL;
-        vBuffer = NULL;
-    #endif
-    }
-
-    void update(Index *indices, int iCount, Vertex *vertices, int vCount) {
-    #ifdef _PSP
-        if (indices)
-            memcpy(iBuffer, indices, iCount * sizeof(indices[0]));
-        
-        if (vertices) {
-            Vertex    *src = vertices;
-            VertexGPU *dst = vBuffer;
-
-            for (int i = 0; i < vCount; i++) {
-                dst->texCoord = short2(src->texCoord.x, src->texCoord.y);
-                dst->color    = ubyte4(src->light.x, src->light.y, src->light.z, src->light.w); //color;
-                dst->normal   = src->normal;
-                dst->coord    = src->coord;
-
-                dst++;
-                src++;
-            }
-        }
-    #else
-    // !!! typeof vertices[0] == Vertex == VertexGPU
-        ASSERT(sizeof(VertexGPU) == sizeof(Vertex));
-
-        if (Core::support.VAO)
-            glBindVertexArray(Core::active.VAO = 0);
-
-        if (indices && iCount) {
-            if (iBuffer) {
-                memcpy(iBuffer, indices, iCount * sizeof(Index));
-            } else {
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
-                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, iCount * sizeof(Index), indices);
-            }
-        }
-        if (vertices && vCount) {
-            if (vBuffer) {
-                memcpy(vBuffer, vertices, vCount * sizeof(VertexGPU));
-            } else {
-                glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, vCount * sizeof(VertexGPU), vertices);
-            }
-        }
-    #endif
+    Mesh(Index *indices, int iCount, Vertex *vertices, int vCount, int aCount, bool dynamic) : GAPI::Mesh(dynamic), aIndex(0) {
+        init(indices, iCount, vertices, vCount, aCount);
     }
 
     virtual ~Mesh() {
-    #ifdef _PSP
-        #ifndef EDRAM_MESH
-            if (!cmdBufAlloc) {
-                delete[] iBuffer;
-                delete[] vBuffer;
-            }
-        #endif
-    #else
-        if (iBuffer || vBuffer) {
-            delete[] iBuffer;
-            delete[] vBuffer;
-        } else {
-            if (VAO) {
-                glDeleteVertexArrays(aCount, VAO);
-                delete[] VAO;
-            }
-            glDeleteBuffers(2, ID);
-        }
-    #endif
+        deinit();
     }
 
     void initRange(MeshRange &range) {
-    #ifndef _PSP
-        if (Core::support.VAO && VAO) {
-            ASSERT(aIndex < aCount);
-            range.aIndex = aIndex++;
-            range.bind(VAO);
-            bind(true);
-            range.setup(vBuffer);
-            unbind();
-        } else
-    #endif
-            range.aIndex = -1;
-    }
-
-    void bind(bool force = false) {
-    #ifdef _PSP
-        Core::active.iBuffer = iBuffer;
-        Core::active.vBuffer = vBuffer;
-    #else
-        if (force || Core::active.iBuffer != ID[0])
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
-        if (force || Core::active.vBuffer != ID[1])
-            glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
-    #endif
-    }
-
-    static void unbind() {
-        if (Core::support.VAO)
-            glBindVertexArray(Core::active.VAO = 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = 0);
-        glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = 0);
+        initNextRange(range, aIndex);
     }
 
     void render(const MeshRange &range) {
-        if (range.aIndex == -1)
-            bind();
-
-    #ifndef _PSP
-        range.bind(VAO);
-    #endif
-
-        if (range.aIndex == -1)
-            range.setup(vBuffer);
-
+        bind(range);
         Core::DIP(range.iStart, range.iCount, iBuffer);
     }
 };
@@ -277,10 +72,8 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
-#ifndef _PSP
     MeshRange dynRange;
     Mesh      *dynMesh;
-#endif
 
     Mesh      *mesh;
     Texture   *atlas;
@@ -374,12 +167,10 @@ struct MeshBuilder {
     };
 
     MeshBuilder(TR::Level &level, Texture *atlas) : atlas(atlas), level(&level) {
-    #ifndef _PSP
-        dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1);
+        dynMesh = new Mesh(NULL, DYN_MESH_QUADS * 6, NULL, DYN_MESH_QUADS * 4, 1, true);
         dynRange.vStart = 0;
         dynRange.iStart = 0;
         dynMesh->initRange(dynRange);
-    #endif
 
     // allocate room geometry ranges
         rooms = new RoomRange[level.roomsCount];
@@ -740,10 +531,10 @@ struct MeshBuilder {
         plane.iCount = 0;
     #endif
 
-        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, int(iCount * sizeof(Index) + vCount * sizeof(VertexGPU)));
+        LOG("MegaMesh (i:%d v:%d a:%d, size:%d)\n", iCount, vCount, aCount, int(iCount * sizeof(Index) + vCount * sizeof(GAPI::Vertex)));
 
     // compile buffer and ranges
-        mesh = new Mesh(indices, iCount, vertices, vCount, aCount);
+        mesh = new Mesh(indices, iCount, vertices, vCount, aCount, false);
         delete[] indices;
         delete[] vertices;
 
@@ -806,9 +597,7 @@ struct MeshBuilder {
         delete[] models;
         delete[] sequences;
         delete mesh;
-    #ifndef _PSP
         delete dynMesh;
-    #endif
     }
 
     void flipMap() {
@@ -1120,15 +909,15 @@ struct MeshBuilder {
             y0 = y1 = y;
         }
 
-        #ifndef MERGE_SPRITES
-            if (!expand) {
-                vec3 pos = vec3(float(x), float(y), float(z));
-                quad[0].coord = coordTransform(pos, vec3( float(sprite.l), float(-sprite.t), 0 ));
-                quad[1].coord = coordTransform(pos, vec3( float(sprite.r), float(-sprite.t), 0 ));
-                quad[2].coord = coordTransform(pos, vec3( float(sprite.r), float(-sprite.b), 0 ));
-                quad[3].coord = coordTransform(pos, vec3( float(sprite.l), float(-sprite.b), 0 ));
-            } else
-        #endif
+    #ifndef MERGE_SPRITES
+        if (!expand) {
+            vec3 pos = vec3(float(x), float(y), float(z));
+            quad[0].coord = coordTransform(pos, vec3( float(sprite.l), float(-sprite.t), 0 ));
+            quad[1].coord = coordTransform(pos, vec3( float(sprite.r), float(-sprite.t), 0 ));
+            quad[2].coord = coordTransform(pos, vec3( float(sprite.r), float(-sprite.b), 0 ));
+            quad[3].coord = coordTransform(pos, vec3( float(sprite.l), float(-sprite.b), 0 ));
+        } else
+    #endif
         {
             quad[0].coord = short4( x0, y0, z, 0 );
             quad[1].coord = short4( x1, y0, z, 0 );
@@ -1227,20 +1016,11 @@ struct MeshBuilder {
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
     }
-
-    void bind() {
-        mesh->bind();
-    }
     
     void renderBuffer(Index *indices, int iCount, Vertex *vertices, int vCount) {
         if (!iCount) return;
         ASSERT(vCount > 0);
 
-        #ifdef _PSP
-            MeshRange dynRange;
-            Mesh cmdBufMesh(iCount, vCount);
-            Mesh *dynMesh = &cmdBufMesh;
-        #endif
         dynRange.iStart = 0;
         dynRange.iCount = iCount;
 
@@ -1255,7 +1035,7 @@ struct MeshBuilder {
 
         #ifdef SPLIT_BY_TILE
             int clutOffset = level->rooms[roomIndex].flags.water ? 512 : 0;
-            atlas->bind(range.tile, range.clut + clutOffset);
+            atlas->bindTile(range.tile, range.clut + clutOffset);
         #endif
 
             mesh->render(range);
@@ -1282,7 +1062,7 @@ struct MeshBuilder {
                         || clut != t.clut
                     #endif
                         ) {
-                        atlas->bind(tile, clut);
+                        atlas->bindTile(tile, clut);
                         renderBuffer(indices, iCount, vertices, vCount);
                         tile = t.tile.index;
                         clut = t.clut;
@@ -1300,7 +1080,7 @@ struct MeshBuilder {
 
             if (iCount) {
             #ifdef SPLIT_BY_TILE
-                atlas->bind(tile, clut);
+                atlas->bindTile(tile, clut);
             #endif
                 renderBuffer(indices, iCount, vertices, vCount);
             }
@@ -1339,7 +1119,7 @@ struct MeshBuilder {
                     }
                     curTile = sprite.tile;
                     curClut = sprite.clut;
-                    atlas->bind(curTile, curClut);
+                    atlas->bindTile(curTile, curClut);
                 }
             #endif
 
@@ -1389,7 +1169,7 @@ struct MeshBuilder {
 
                 #ifdef SPLIT_BY_TILE
                     int clutOffset = underwater ? 512 : 0;
-                    atlas->bind(range.tile, range.clut + clutOffset);
+                    atlas->bindTile(range.tile, range.clut + clutOffset);
                 #endif
 
                 mesh->render(range);
@@ -1415,7 +1195,7 @@ struct MeshBuilder {
             addSprite(indices, vertices, iCount, vCount, 0, 0, 0, 0, sprite, color, color);
 
             #ifdef SPLIT_BY_TILE
-                atlas->bind(sprite.tile, sprite.clut);
+                atlas->bindTile(sprite.tile, sprite.clut);
             #endif
 
             renderBuffer(indices, iCount, vertices, vCount);
@@ -1428,15 +1208,7 @@ struct MeshBuilder {
     }
 
     void renderShadowBlob() {
-        #ifdef _PSP
-            sceGuDisable(GU_TEXTURE_2D);
-        #endif
-        
         mesh->render(shadowBlob);
-        
-        #ifdef _PSP
-            sceGuEnable(GU_TEXTURE_2D);
-        #endif
     }
 
     void renderQuad() {

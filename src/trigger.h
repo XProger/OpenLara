@@ -762,7 +762,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, Texture::RGBA, Texture::CUBEMAP | Texture::MIPMAPS);
+        environment = new Texture(64, 64, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS);
         activate();
     }
 
@@ -1172,15 +1172,15 @@ struct Lightning : Controller {
         Core::active.shader->setParam(uMaterial, vec4(0.0f, 0.0f, 0.0f, 1.0f));
         Core::active.shader->setParam(uBasis, b);
 
-        Core::setCulling(cfNone);
-        Core::setBlending(bmAdd);
+        Core::setCullMode(cmNone);
+        Core::setBlendMode(bmAdd);
         Core::setDepthWrite(false);
 
         renderPolyline(vec3(0.0f), target - b.pos, 64.0f, 512.0f, 1);
 
         Core::setDepthWrite(true);
-        Core::setBlending(bmNone);
-        Core::setCulling(cfFront);
+        Core::setBlendMode(bmNone);
+        Core::setCullMode(cmFront);
     }
 };
 

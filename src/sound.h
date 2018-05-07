@@ -6,10 +6,8 @@
 
 #define DECODE_OGG
 
-#ifndef _PSP
-    #ifndef __EMSCRIPTEN__
-        #define DECODE_MP3
-    #endif
+#if !defined(_OS_PSP) && !defined(_OS_WEB)
+    #define DECODE_MP3
 #endif
 
 #include "utils.h"

@@ -3,53 +3,6 @@
 
 #include "core.h"
 
-#define SHADER_ATTRIBS(E) \
-    E( aCoord           ) \
-    E( aNormal          ) \
-    E( aTexCoord        ) \
-    E( aColor           ) \
-    E( aLight           )
-
-#define SHADER_SAMPLERS(E) \
-    E( sDiffuse         ) \
-    E( sNormal          ) \
-    E( sReflect         ) \
-    E( sShadow          ) \
-    E( sEnvironment     ) \
-    E( sMask            )
-
-#define SHADER_UNIFORMS(E) \
-    E( uParam           ) \
-    E( uTexParam        ) \
-    E( uViewProj        ) \
-    E( uBasis           ) \
-    E( uLightProj       ) \
-    E( uMaterial        ) \
-    E( uAmbient         ) \
-    E( uFogParams       ) \
-    E( uViewPos         ) \
-    E( uLightPos        ) \
-    E( uLightColor      ) \
-    E( uAnimTexRanges   ) \
-    E( uAnimTexOffsets  ) \
-    E( uRoomSize        ) \
-    E( uPosScale        ) \
-    E( uContacts        )
-
-enum AttribType  { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
-enum SamplerType { SHADER_SAMPLERS(DECL_ENUM) sMAX };
-enum UniformType { SHADER_UNIFORMS(DECL_ENUM) uMAX };
-
-const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
-const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
-const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
-
-#undef SHADER_ATTRIBS
-#undef SHADER_SAMPLERS
-#undef SHADER_UNIFORMS
-#undef ENUM
-#undef STR
-
 struct Shader {
     vec4    params[uMAX][4];
 
@@ -63,7 +16,7 @@ struct Shader {
 #ifdef FFP
     Shader(const char *source, const char *defines = "") {}
     virtual ~Shader() {}
-    bool bind() { return true; }
+    void bind() {}
     void setParam(UniformType uType, const int &value, int count = 1) {}
     void setParam(UniformType uType, const float &value, int count = 1) {}
     void setParam(UniformType uType, const vec2 &value, int count = 1) {}
@@ -87,7 +40,7 @@ struct Shader {
 
         if (!(Core::support.shaderBinary && linkBinary(fileName))) // try to load cached shader     
             if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
-            #ifndef __EMSCRIPTEN__
+            #ifndef _OS_WEB
                 GLenum format, size;
                 glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, (GLsizei*)&size);
                 char *data = new char[8 + size];
@@ -103,7 +56,7 @@ struct Shader {
     }
 
     bool linkSource(const char *text, const char *defines = "") {
-        #ifdef MOBILE
+        #ifdef _GAPI_GLES
             #define GLSL_DEFINE ""
             #define GLSL_VERT   ""
             #define GLSL_FRAG   "#extension GL_OES_standard_derivatives : enable\n"
@@ -193,13 +146,17 @@ struct Shader {
         memset(params, 0, sizeof(params));
     }
 
-    bool bind() {
+    void bind() {
         if (Core::active.shader != this) {
             Core::active.shader = this;
             glUseProgram(ID);
-            return true;
         }
-        return false;
+
+        setParam(uViewProj,  Core::mViewProj);
+        setParam(uLightProj, Core::mLightProj[0], Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM ? SHADOW_OBJ_MAX : 1);
+        setParam(uViewPos,   Core::viewPos);
+        setParam(uParam,     Core::params);
+        setParam(uFogParams, Core::fogParams);
     }
 
     void setParam(UniformType uType, const int &value, int count = 1) {

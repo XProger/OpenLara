@@ -168,6 +168,13 @@ void main_loop() {
 
     if (Game::update()) {
         Game::render();
+        
+    // clear backbuffer alpha by 1.0f to make opaque canvas layer
+        glColorMask(false, false, false, true);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glColorMask(true, true, true, true);
+        
         eglSwapBuffers(display, surface);
     }
 }

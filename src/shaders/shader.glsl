@@ -20,12 +20,12 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 uniform mat4 uViewProj;
 uniform vec3 uViewPos;
+
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
 uniform vec4 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightColor[MAX_LIGHTS]; // xyz - color, w - radius * intensity
-uniform vec4 uFogParams;
-
 uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
+uniform vec4 uFogParams;
 
 #ifndef PASS_SHADOW
 	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y * clipPlaneSign
