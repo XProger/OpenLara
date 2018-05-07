@@ -2516,6 +2516,7 @@ namespace TR {
                 soundSize = new uint32[soundOffsetsCount];
                 soundDataSize = 0;
                 for (int i = 0; i < soundOffsetsCount; i++) {
+                    ASSERT(soundOffsets[i] < soundOffsets[i + 1]);
                     soundSize[i]    = soundOffsets[i + 1] - soundOffsets[i];
                     soundOffsets[i] = soundDataSize;
                     soundDataSize  += soundSize[i];
@@ -2527,6 +2528,18 @@ namespace TR {
                 stream.read(soundOffsets, stream.read(soundOffsetsCount));
                 stream.read(soundDataSize);
                 stream.read(soundData, soundDataSize);
+                soundSize = new uint32[soundOffsetsCount];
+                int size = 0;
+                for (int i = 0; i < soundOffsetsCount - 1; i++) {
+                    ASSERT(soundOffsets[i] < soundOffsets[i + 1]);
+                    size += soundSize[i] = soundOffsets[i + 1] - soundOffsets[i];
+                }
+
+                if (soundOffsetsCount) {
+                    soundSize[soundOffsetsCount - 1] = soundDataSize;
+                    if (soundOffsetsCount > 1)
+                        soundSize[soundOffsetsCount - 1] -= soundSize[soundOffsetsCount - 2];
+                }
             }
 
             if (version == VER_TR3_PSX) {
@@ -2763,6 +2776,12 @@ namespace TR {
                             f.flags.texture += objectTexturesCount;
                         }
                     }
+
+                // remap animated textures
+                    for (int i = 0; i < animTexturesCount; i++)
+                        for (int j = 0; j < animTextures[i]->count; j++)
+                            animTextures[i]->textures[j] += objectTexturesCount;
+
                     LOG("objTex:%d + roomTex:%d = %d\n", objectTexturesCount, roomTexCount, objectTexturesCount + roomTexCount);
                     objectTexturesCount += roomTexCount;
                 }
@@ -4106,8 +4125,8 @@ namespace TR {
                 case VER_TR2_PC  :
                 case VER_TR3_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
                 case VER_TR1_PSX :
-                case VER_TR2_PSX : size = soundSize[index]; break;
-                case VER_TR3_PSX : return NULL; // TR3_TODO
+                case VER_TR2_PSX :
+                case VER_TR3_PSX : size = soundSize[index]; break;
                 default          : ASSERT(false);
             }
             return new Stream(NULL, data, size);
