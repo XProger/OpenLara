@@ -625,7 +625,7 @@ struct MeshBuilder {
         for (int i = 0; i < 9; i++) {
             Vertex &v0 = vertices[vCount + i * 2 + 0];
             v0.normal    = short4( 0, -1, 0, 32767 );
-            v0.texCoord  = short4( whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 );
+            v0.texCoord  = short4( whiteTile.texCoordAtlas[0].x, whiteTile.texCoordAtlas[0].y, 32767, 32767 );
             v0.color     = v0.light = ubyte4( 0, 0, 0, 0 );
 
             if (i == 8) {
@@ -702,7 +702,7 @@ struct MeshBuilder {
             pos.rotate(cs);
             v.coord     = short4( short(pos.x), short(pos.y), 0, 0 );
             v.normal    = short4( 0, 0, 0, 32767 );
-            v.texCoord  = short4( whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 );
+            v.texCoord  = short4( whiteTile.texCoordAtlas[0].x, whiteTile.texCoordAtlas[0].y, 32767, 32767 );
             v.color     = ubyte4( 255, 255, 255, 255 );
             v.light     = ubyte4( 255, 255, 255, 255 );
 
@@ -995,7 +995,7 @@ struct MeshBuilder {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
-            v.texCoord = short4( tex->texCoord[i].x, tex->texCoord[i].y, 32767, 32767 );
+            v.texCoord = short4( tex->texCoordAtlas[i].x, tex->texCoordAtlas[i].y, 32767, 32767 );
         }
 
         if (((level->version & TR::VER_PSX)) && !triangle) // TODO: swap vertices instead of rectangle indices and vertices.texCoords (WRONG lighting in TR2!)
@@ -1142,10 +1142,10 @@ struct MeshBuilder {
         quad[0].light  = quad[1].light  = ubyte4( tColor.r, tColor.g, tColor.b, tColor.a );
         quad[2].light  = quad[3].light  = ubyte4( bColor.r, bColor.g, bColor.b, bColor.a );
 
-        quad[0].texCoord = short4( sprite.texCoord[0].x, sprite.texCoord[0].y, sprite.l, -sprite.t );
-        quad[1].texCoord = short4( sprite.texCoord[1].x, sprite.texCoord[0].y, sprite.r, -sprite.t );
-        quad[2].texCoord = short4( sprite.texCoord[1].x, sprite.texCoord[1].y, sprite.r, -sprite.b );
-        quad[3].texCoord = short4( sprite.texCoord[0].x, sprite.texCoord[1].y, sprite.l, -sprite.b );
+        quad[0].texCoord = short4( sprite.texCoordAtlas[0].x, sprite.texCoordAtlas[0].y, sprite.l, -sprite.t );
+        quad[1].texCoord = short4( sprite.texCoordAtlas[1].x, sprite.texCoordAtlas[0].y, sprite.r, -sprite.t );
+        quad[2].texCoord = short4( sprite.texCoordAtlas[1].x, sprite.texCoordAtlas[1].y, sprite.r, -sprite.b );
+        quad[3].texCoord = short4( sprite.texCoordAtlas[0].x, sprite.texCoordAtlas[1].y, sprite.l, -sprite.b );
 
         vCount += 4;
     }
@@ -1171,7 +1171,7 @@ struct MeshBuilder {
             else
                 v.light = *((ubyte4*)&color);
 
-            short2 uv = tile.texCoord[i];
+            short2 uv = tile.texCoordAtlas[i];
 
             v.texCoord = short4( uv.x, uv.y, 32767, 32767 );
         }
@@ -1180,7 +1180,7 @@ struct MeshBuilder {
     }
 
     void addFrame(Index *indices, Vertex *vertices, int &iCount, int &vCount, const vec2 &pos, const vec2 &size, uint32 color1, uint32 color2) {
-        short4 uv = short4( whiteTile.texCoord[0].x, whiteTile.texCoord[0].y, 32767, 32767 );
+        short4 uv = short4( whiteTile.texCoordAtlas[0].x, whiteTile.texCoordAtlas[0].y, 32767, 32767 );
 
         int16 minX = int16(pos.x);
         int16 minY = int16(pos.y);

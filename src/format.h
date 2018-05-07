@@ -1101,6 +1101,9 @@ namespace TR {
         struct { uint16 r:5, g:5, b:5, a:1; };
         uint16 value;
 
+        Color16() {}
+        Color16(uint16 value) : value(value) {}
+
         Color32  getBGR()  const { return Color32((b << 3) | (b >> 2), (g << 3) | (g >> 2), (r << 3) | (r >> 2), 255); }
         operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
         operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
@@ -1122,6 +1125,7 @@ namespace TR {
         Tile    tile;                        // tile or palette index
         uint16  attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
         short2  texCoord[4];
+        short2  texCoordAtlas[4];
 
         short4 getMinMax() const {
             return short4(
@@ -1131,6 +1135,15 @@ namespace TR {
                 max(max(texCoord[0].y, texCoord[1].y), texCoord[2].y)
             );
         }
+
+        short4 getMinMaxAtlas() const {
+            return short4(
+                min(min(texCoordAtlas[0].x, texCoordAtlas[1].x), texCoordAtlas[2].x),
+                min(min(texCoordAtlas[0].y, texCoordAtlas[1].y), texCoordAtlas[2].y),
+                max(max(texCoordAtlas[0].x, texCoordAtlas[1].x), texCoordAtlas[2].x),
+                max(max(texCoordAtlas[0].y, texCoordAtlas[1].y), texCoordAtlas[2].y)
+            );
+        }
     };
 
     struct SpriteTexture {
@@ -1138,9 +1151,14 @@ namespace TR {
         uint16  tile;
         int16   l, t, r, b;
         short2  texCoord[2];
+        short2  texCoordAtlas[2];
 
         short4 getMinMax() const {
             return short4( texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y );
+        }
+
+        short4 getMinMaxAtlas() const {
+            return short4( texCoordAtlas[0].x, texCoordAtlas[0].y, texCoordAtlas[1].x, texCoordAtlas[1].y );
         }
     };
 
@@ -1294,8 +1312,8 @@ namespace TR {
             };
             uint16 value;
         } flags;
+        uint16  reverbType;
         uint8   waterScheme;
-        uint8   reverbType;
         uint8   filter;
         uint8   align;
         int32   waterLevel;
@@ -1448,7 +1466,7 @@ namespace TR {
         int16       radius;
         union {
             struct {
-                uint16 transparent:1, reserved:15;
+                uint16 isStatic:1, reserved:15;
             };
             uint16 value;
         }           flags;
@@ -2252,7 +2270,6 @@ namespace TR {
         LevelID         id;
 
         int32           tilesCount;
-        Tile32          *tiles;
 
         uint32          unused;
 
@@ -2353,6 +2370,8 @@ namespace TR {
         int32           soundOffsetsCount;
         uint32          *soundOffsets;
         uint32          *soundSize;
+
+        Color32         skyColor;
 
         SaveGame                save;
         SaveGame::CurrentState  state;
@@ -2553,8 +2572,8 @@ namespace TR {
                 stream.setPos(startPos + offsetTexTiles + 8);
             }
 
-            if (version & VER_PC) {
             // tiles
+            if (version & VER_PC) {
                 stream.read(tiles8, stream.read(tilesCount));
             }
 
@@ -2562,10 +2581,8 @@ namespace TR {
                 stream.read(tiles16, tilesCount);
 
             if (version == VER_TR1_PSX) {
-            // tiles
                 stream.read(tiles4, tilesCount = 13);
                 stream.read(cluts,  clutsCount = 1024);
-                //stream.seek(0x4000);
             }
 
             if (version != VER_TR3_PSX)
@@ -2636,10 +2653,11 @@ namespace TR {
 
             if (version == VER_TR2_PSX || version == VER_TR3_PSX) {
                 stream.read(tiles4, stream.read(tilesCount));
-                stream.read(cluts, stream.read(clutsCount));
-                if (version == VER_TR3_PSX) {
-                    stream.seek(clutsCount * sizeof(CLUT));
-                } else
+                stream.read(clutsCount);
+                if (version == VER_TR3_PSX)
+                    clutsCount *= 2; // read underwater cluts too
+                stream.read(cluts, clutsCount);
+                if (version != VER_TR3_PSX)
                     stream.seek(4);
             }
 
@@ -2714,7 +2732,6 @@ namespace TR {
                 stream.seek(4);
 
             if (version == VER_TR3_PSX) {
-                uint32 skyColor;
                 stream.read(skyColor);
 
                 int32 roomTexCount;
@@ -2723,17 +2740,16 @@ namespace TR {
                 if (roomTexCount) {
                     ObjectTexture *oldTex = objectTextures;
                 // reallocate textures info to add room textures
-                    objectTextures = new ObjectTexture[objectTexturesCount + roomTexCount * 3];
+                    objectTextures = new ObjectTexture[objectTexturesCount + roomTexCount];
                     if (oldTex) {
                         memcpy(objectTextures, oldTex, sizeof(ObjectTexture) * objectTexturesCount);
                         delete[] oldTex;
                     }
-
                 // load room textures
-                    for (int i = objectTexturesCount; i < objectTexturesCount + roomTexCount * 3; i++) {
+                    for (int i = objectTexturesCount; i < objectTexturesCount + roomTexCount; i++) {
                         ObjectTexture &t = objectTextures[i];
-                        readObjectTex(stream, t);
-                        t.attribute = 0;
+                        readObjectTex(stream, t, true);
+                        stream.seek(2 * 16); // skip 2 mipmap levels
                     }
 
                 // remap room texture indices
@@ -2742,16 +2758,13 @@ namespace TR {
                         for (int j = 0; j < d.fCount; j++) {
                             Face &f = d.faces[j];
 
-                            //ASSERT(d.faces[j].flags.texture < roomTexCount);
+                            ASSERT(f.flags.texture < roomTexCount);
 
-                            if (f.flags.texture < roomTexCount) {
-                                f.flags.texture *= 3;
-                                f.flags.texture += objectTexturesCount;
-                            }
+                            f.flags.texture += objectTexturesCount;
                         }
                     }
-
-                    objectTexturesCount += roomTexCount * 3;
+                    LOG("objTex:%d + roomTex:%d = %d\n", objectTexturesCount, roomTexCount, objectTexturesCount + roomTexCount);
+                    objectTexturesCount += roomTexCount;
                 }
             }
 
@@ -2798,6 +2811,19 @@ namespace TR {
                 stream.read(cameraFrames, stream.read(cameraFramesCount));
             }
 
+
+        // Amiga -> PC color palette for TR1 PC
+            if (version == VER_TR1_PC) {
+                ASSERT(palette);
+                Color24 *c = palette;
+                for (int i = 0; i < 256; i++) {
+                    c->r <<= 2;
+                    c->g <<= 2;
+                    c->b <<= 2;
+                    c++;
+                }
+            }
+
             initRoomMeshes();
             initAnimTex();
 
@@ -2813,7 +2839,6 @@ namespace TR {
         }
 
         ~Level() {
-            delete[] tiles;
         // rooms
             for (int i = 0; i < roomsCount; i++) {
                 Room &r = rooms[i];
@@ -3094,7 +3119,8 @@ namespace TR {
                             stream.read(info);
                             q = 3;
                         }
-                        if (!(info ^ 0x03FF)) // info is 0b1111111111
+                        uint32 texture = info & 0x03FF;
+                        if (texture == 0x03FF) // ending flag
                             break;
                         info >>= 10;
                         stream.seek(4); // skip rectangle indices
@@ -3103,10 +3129,8 @@ namespace TR {
                     }
                 }
 
-                if (partsCount != 0)
-                    stream.seek(4); // skip unknown shit
-
-                ASSERT(d.size * 2 == stream.pos - startOffset);
+                ASSERT(int(d.size * 2) >= stream.pos - startOffset);
+                stream.setPos(startOffset + d.size * 2);
 
                 d.fCount   = d.rCount + d.tCount;
                 d.faces    = d.fCount ? new Face[d.fCount] : NULL;
@@ -3137,27 +3161,32 @@ namespace TR {
                         Room::Data::Vertex &v = d.vertices[d.vCount++];
 
                         struct {
-                            uint32 z:5, y:5, x:5, :1, lighting:8, attributes:8;
+                            uint32 z:5, y:5, x:5, color:16, unknown:1;
                         } cv;
 
                         stream.raw(&cv, sizeof(cv));
-
+                        //ASSERT(cv.attribute == 0);
                         v.vertex.x = (cv.x << 10);
                         v.vertex.y = (cv.y << 8) + r.info.yTop;
                         v.vertex.z = (cv.z << 10);
+
+                        v.attributes = 0;
+                        v.color      = Color16(cv.color);
                     }
 
                 // read triangles
                     for (uint8 i = 0; i < tCount; i++) {
                         struct {
-                            uint32 i0:7, i1:7, i2:7, doubleSided:1, texture:10;
+                            uint32 i0:7, i1:7, i2:7, texture:10, unknown:1;
                         } t;
 
                         stream.raw(&t, sizeof(t));
 
+                        ASSERT(t.unknown == 0);
+
                         Face &f = d.faces[d.fCount++];
                         f.flags.texture     = t.texture;
-                        f.flags.doubleSided = t.doubleSided;
+                        f.flags.doubleSided = false;
                         f.vCount      = 3;
                         f.colored     = false;
                         f.vertices[0] = vStart + t.i0;
@@ -3178,32 +3207,26 @@ namespace TR {
                         }
 
                         uint32 texture = info & 0x03FF;
-
-                        //ASSERT(!(info ^ 0x3FF) == !(texture ^ 0x3FF));
-
-                        if (!(info ^ 0x3FF))
+                        if (texture == 0x3FF)
                             break;
                         info >>= 10;
 
                         struct {
-                            uint32 i0:7, i1:7, i2:7, i3:7, :3, doubleSided:1;
+                            uint32 i0:7, i1:7, i2:7, i3:7, unknown:4;
                         } r;
                         stream.raw(&r, sizeof(r));
 
+                        ASSERT(r.unknown == 0);
+
                         Face &f = d.faces[d.fCount++];
                         f.flags.texture     = texture;
-                        f.flags.doubleSided = r.doubleSided;
+                        f.flags.doubleSided = false;
                         f.vCount      = 4;
                         f.colored     = false;
                         f.vertices[0] = vStart + r.i0;
                         f.vertices[1] = vStart + r.i1;
                         f.vertices[2] = vStart + r.i2;
                         f.vertices[3] = vStart + r.i3;
-
-                    if (texture == 1023) {
-                        f.flags.texture = 0;
-                        f.vertices[0] = f.vertices[1] = f.vertices[2] = f.vertices[3] = 0;
-                    }
 
                         ASSERT(f.vertices[0] < d.vCount);
                         ASSERT(f.vertices[1] < d.vCount);
@@ -3230,7 +3253,7 @@ namespace TR {
                         v.vertex.y    = (cv.y << 8) + r.info.yTop;
                         v.vertex.z    = (cv.z << 10);
                         lighting      = cv.lighting;
-                        v.attributes  = cv.attributes;
+                        v.attributes  = 0;//cv.attributes;
                     } else {
                         stream.read(v.vertex.x);
                         stream.read(v.vertex.y);
@@ -3339,7 +3362,8 @@ namespace TR {
                 if (partsCount != 0)
                     stream.seek(4); // skip unknown shit
 
-            ASSERT(d.size * 2 == stream.pos - startOffset);
+            ASSERT(int(d.size * 2) >= stream.pos - startOffset);
+            stream.setPos(startOffset + d.size * 2);
 
         // portals
             stream.read(r.portals, stream.read(r.portalsCount));
@@ -3435,48 +3459,38 @@ namespace TR {
                 if (version & VER_TR3) {
                     Color16 color;
                     stream.read(color.value);
-                    m.color = color.getBGR();
-                }
-
-                if (version & VER_TR2)
+                    m.color = color;
                     stream.seek(2);
+                } else {
+                    if (version & VER_TR2)
+                        stream.seek(2);
 
-                uint16 intensity;
-                stream.read(intensity);
-                if ((version & VER_VERSION) < VER_TR3) {
-                    int value = clamp((intensity > 0x1FFF) ? 255 : (255 - (intensity >> 5)), 0, 255);
-                    m.color.r = m.color.g = m.color.b = value;
-                    m.color.a = 0;
+                    uint16 intensity;
+                    stream.read(intensity);
+                    if ((version & VER_VERSION) < VER_TR3) {
+                        int value = clamp((intensity > 0x1FFF) ? 255 : (255 - (intensity >> 5)), 0, 255);
+                        m.color.r = m.color.g = m.color.b = value;
+                        m.color.a = 0;
+                    }
                 }
 
                 stream.read(m.meshID);
                 if (version == VER_TR1_PSX)
-                    stream.seek(2); // just an align for PSX version
+                    stream.seek(2); // skip padding
             }
 
         // misc flags
             stream.read(r.alternateRoom);
             stream.read(r.flags.value);
-            if (version == VER_TR3_PC) {
+            if (version & VER_TR3) {
                 stream.read(r.waterScheme);
                 stream.read(r.reverbType);
-                stream.read(r.filter); // unused
-            }
-
-            if (version == VER_TR3_PSX) {
-                //stream.seek(1);
-                stream.read(r.waterScheme);
-                stream.read(r.reverbType);
-                stream.seek(1);
             }
 
             r.dynLightsCount = 0;
         }
 
         void initMesh(int mIndex, Entity::Type type = Entity::LARA) {
-            if (type == Entity::SKY)
-                return;
-
             int offset = meshOffsets[mIndex];
             for (int i = 0; i < meshesCount; i++)
                 if (meshes[i].offset == offset)
@@ -3489,20 +3503,29 @@ namespace TR {
 
             uint32 fOffset;
 
-            stream.read(mesh.center);
-            stream.read(mesh.radius);
-
-            //ASSERT(mesh.radius >= 0);
-            if (version == VER_TR3_PSX) {
-                uint8  tmp;
-                uint16 tmpOffset;
-                mesh.vCount      = stream.read(tmp);
-                mesh.flags.value = stream.read(tmp);
-                fOffset          = stream.pos + stream.read(tmpOffset);
-                //LOG("offset:%d\n", offset - stream.pos);
-            } else {
-                stream.read(mesh.flags.value);
+            if (type == Entity::SKY && version == VER_TR3_PSX) {
+                mesh.center.x    = 
+                mesh.center.y    =
+                mesh.center.z    =
+                mesh.radius      =
+                mesh.tCount      = 0;
+                mesh.flags.value = 0x80;
                 stream.read(mesh.vCount);
+                stream.read(mesh.rCount);
+            } else {
+                stream.read(mesh.center);
+                stream.read(mesh.radius);
+
+                if (version == VER_TR3_PSX) {
+                    uint8  tmp;
+                    uint16 tmpOffset;
+                    mesh.vCount      = stream.read(tmp);
+                    mesh.flags.value = stream.read(tmp);
+                    fOffset          = stream.pos + stream.read(tmpOffset);
+                } else {
+                    stream.read(mesh.flags.value);
+                    stream.read(mesh.vCount);
+                }
             }
 
             switch (version) {
@@ -3667,11 +3690,13 @@ namespace TR {
                             stream.read(mesh.vertices[i].normal);
                     }
 
-                    ASSERT(stream.pos == fOffset);
+                    if (type != Entity::SKY) {
+                        ASSERT(stream.pos == fOffset);
 
-                    stream.setPos(fOffset);
-                    stream.read(mesh.tCount);
-                    stream.read(mesh.rCount);
+                        stream.setPos(fOffset);
+                        stream.read(mesh.tCount);
+                        stream.read(mesh.rCount);
+                    }
                     mesh.fCount = mesh.rCount + mesh.tCount;
                     mesh.faces  = mesh.fCount ? new Face[mesh.fCount] : NULL;
 
@@ -3682,18 +3707,17 @@ namespace TR {
                     for (int i = 0; i < mesh.tCount; i++) {
                         if (!(i % 4))
                             stream.read(info);
-                            
-                        Face &f = mesh.faces[idx++];
-                        f.flags.doubleSided = 0;
-                        f.flags.texture     = info & 0xFF;
-                        f.colored = false;
-                        f.vCount  = 3;
 
                         struct {
-                            uint32 i0:8, i1:8, i2:8, :8;
+                            uint32 i0:8, i1:8, i2:8, tex:8;
                         } r;
                         stream.raw(&r, sizeof(r));
-                        //stream.raw(&indices, sizeof(indices));
+
+                        Face &f = mesh.faces[idx++];
+                        f.flags.doubleSided = false;
+                        f.flags.texture     = (info & 0xFF) | (r.tex << 8);
+                        f.colored = false;
+                        f.vCount  = 3;
 
                         f.vertices[0] = r.i0;
                         f.vertices[1] = r.i1;
@@ -3709,7 +3733,7 @@ namespace TR {
                             stream.read(info);
                             
                         Face &f = mesh.faces[idx++];
-                        f.flags.doubleSided = 0;
+                        f.flags.doubleSided = false;
                         f.flags.texture     = info & 0xFFFF;
                         f.colored = false;
                         f.vCount  = 4;
@@ -3774,16 +3798,16 @@ namespace TR {
             }
         }
 
-        void readObjectTex(Stream &stream, ObjectTexture &t) {
+        void readObjectTex(Stream &stream, ObjectTexture &t, bool isRoom = false) {
             #define SET_PARAMS(t, d, c) {\
                     t.clut        = c;\
                     t.tile        = d.tile;\
                     t.attribute   = d.attribute;\
                     t.animated    = false;\
-                    t.texCoord[0] = short2( d.x0, d.y0 );\
-                    t.texCoord[1] = short2( d.x1, d.y1 );\
-                    t.texCoord[2] = short2( d.x2, d.y2 );\
-                    t.texCoord[3] = short2( d.x3, d.y3 );\
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.x0, d.y0 );\
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( d.x1, d.y1 );\
+                    t.texCoord[2] = t.texCoordAtlas[2] = short2( d.x2, d.y2 );\
+                    t.texCoord[3] = t.texCoordAtlas[3] = short2( d.x3, d.y3 );\
                     ASSERT(d.x0 < 256 && d.x1 < 256 && d.x2 < 256 && d.x3 < 256 && d.y0 < 256 && d.y1 < 256 && d.y2 < 256 && d.y3 < 256);\
                 }
 
@@ -3817,6 +3841,18 @@ namespace TR {
                         uint16  attribute; 
                     } d;
                     stream.raw(&d, sizeof(d));
+                    if (version == VER_TR3_PSX) {
+                        if (d.attribute == 0)
+                            d.attribute = 0;
+                        else if (d.attribute == 2)
+                            d.attribute = 2;
+                        else if (d.attribute == 0xFFFF)
+                            d.attribute = 1;
+                        else {
+                            //ASSERT(false);
+                            d.attribute = 0;
+                        }
+                    }
                     SET_PARAMS(t, d, d.clut);
                     break;
                 }
@@ -3857,8 +3893,8 @@ namespace TR {
                         } d;
                         stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, 0);
-                        t.texCoord[0] = short2( d.u,                       d.v                       );
-                        t.texCoord[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
+                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
+                        t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
                         break;
                     }
                     case VER_TR1_PSX : 
@@ -3873,8 +3909,8 @@ namespace TR {
                         } d;
                         stream.raw(&d, sizeof(d));
                         SET_PARAMS(t, d, d.clut);
-                        t.texCoord[0] = short2( d.u0, d.v0 );
-                        t.texCoord[1] = short2( d.u1, d.v1 );
+                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
+                        t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
                         break;
                     }
                     default : ASSERT(false);
@@ -3898,12 +3934,16 @@ namespace TR {
 
         void readAnimTex(Stream &stream) {
             stream.read(animTexturesData, stream.read(animTexturesDataSize));
+            animTextures = NULL;
+
+            if (!animTexturesDataSize)
+                return;
+
             uint16 *ptr = animTexturesData;
             animTexturesCount = *ptr++;
-            if (!animTexturesCount) {
-                animTextures = NULL;
+            if (!animTexturesCount)
                 return;
-            }
+
             animTextures = new AnimTexture*[animTexturesCount];
             for (int i = 0; i < animTexturesCount; i++) {
                 animTextures[i] = (AnimTexture*)ptr;
@@ -3974,37 +4014,45 @@ namespace TR {
             }
         }
 
-        void initTiles() {
-            tiles = new Tile32[tilesCount];
+        void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int16 clutIndex) {
         // convert to RGBA
             switch (version) {
                 case VER_TR1_PC : {
                     ASSERT(tiles8);
                     ASSERT(palette);
 
-                    for (int i = 0; i < 256; i++) { // Amiga -> PC color palette
-                        Color24 &c = palette[i];
-                        c.r <<= 2;
-                        c.g <<= 2;
-                        c.b <<= 2;
-                    }
-
-                    for (int i = 0; i < tilesCount; i++) {
-                        Color32 *ptr = &tiles[i].color[0];
-                        for (int y = 0; y < 256; y++) {
-                            for (int x = 0; x < 256; x++) {
-                                uint8 index = tiles8[i].index[y * 256 + x];
-                                Color24 &p = palette[index];
-                                if (index != 0) {
-                                    ptr[x].r = p.r;
-                                    ptr[x].g = p.g;
-                                    ptr[x].b = p.b;
-                                    ptr[x].a = 255;
-                                } else
-                                    ptr[x].r = ptr[x].g = ptr[x].b = ptr[x].a = 0;
-                            }
-                            ptr += 256;
+                    Color32 *ptr = &dst->color[uv.y * 256];
+                    for (int y = uv.y; y < uv.w; y++) {
+                        for (int x = uv.x; x < uv.z; x++) {
+                            ASSERT(x >= 0 && y >= 0 && x < 256 && y < 256);
+                            uint8 index = tiles8[tileIndex].index[y * 256 + x];
+                            Color24 &p = palette[index];
+                            if (index != 0) {
+                                ptr[x].r = p.r;
+                                ptr[x].g = p.g;
+                                ptr[x].b = p.b;
+                                ptr[x].a = 255;
+                            } else
+                                ptr[x].r = ptr[x].g = ptr[x].b = ptr[x].a = 0;
                         }
+                        ptr += 256;
+                    }
+                    break;
+                }
+                case VER_TR2_PC :
+                case VER_TR3_PC : {
+                    ASSERT(tiles16);
+
+                    Color32 *ptr = &dst->color[uv.y * 256];
+                    for (int y = uv.y; y < uv.w; y++) {
+                        for (int x = uv.x; x < uv.z; x++) {
+                            Color32 c = tiles16[tileIndex].color[y * 256 + x];
+                            ptr[x].r = c.b;
+                            ptr[x].g = c.g;
+                            ptr[x].b = c.r;
+                            ptr[x].a = c.a;
+                        }
+                        ptr += 256;
                     }
                     break;
                 }
@@ -4014,63 +4062,17 @@ namespace TR {
                     ASSERT(tiles4);
                     ASSERT(cluts);
 
-                    for (int i = 0; i < objectTexturesCount; i++) {
-                        ObjectTexture &t = objectTextures[i];
-                        CLUT   &clut = cluts[t.clut];
-                        Tile32 &dst  = tiles[t.tile.index];
-                        Tile4  &src  = tiles4[t.tile.index];
+                    CLUT   &clut = cluts[clutIndex];
+                    Tile4  &src  = tiles4[tileIndex];
 
-                        int minX = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
-                        int maxX = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
-                        int minY = min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
-                        int maxY = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
+                    for (int y = uv.y; y < uv.w; y++)
+                        for (int x = uv.x; x < uv.z; x++)
+                            dst->color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
 
-                        for (int y = minY; y <= maxY; y++)
-                            for (int x = minX; x <= maxX; x++)
-                                dst.color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
-                    }
-
-                    for (int i = 0; i < spriteTexturesCount; i++) {
-                        SpriteTexture &t = spriteTextures[i];
-                        CLUT   &clut = cluts[t.clut];
-                        Tile32 &dst  = tiles[t.tile];
-                        Tile4  &src  = tiles4[t.tile];
-                        
-                        for (int y = t.texCoord[0].y; y <= t.texCoord[1].y; y++)
-                            for (int x = t.texCoord[0].x; x <= t.texCoord[1].x; x += 2) {                           
-                                dst.color[y * 256 + x + 0] = clut.color[src.index[(y * 256 + x) / 2].a];
-                                dst.color[y * 256 + x + 1] = clut.color[src.index[(y * 256 + x) / 2].b];
-                            }
-                    }
-
-                    break;
-                }
-                case VER_TR2_PC :
-                case VER_TR3_PC : {
-                    ASSERT(tiles16);
-
-                    for (int i = 0; i < tilesCount; i++) {
-                        Color32 *ptr = &tiles[i].color[0];
-                        for (int y = 0; y < 256; y++) {
-                            for (int x = 0; x < 256; x++) {
-                                Color32 c = tiles16[i].color[y * 256 + x];
-                                ptr[x].r = c.b;
-                                ptr[x].g = c.g;
-                                ptr[x].b = c.r;
-                                ptr[x].a = c.a;
-                            }
-                            ptr += 256;
-                        }
-                    }
                     break;
                 }
                 default : ASSERT(false);
             }
-
-            delete[] tiles8;
-            delete[] tiles16;
-            tiles8  = NULL;
-            tiles16 = NULL;
         }
 
     // common methods
@@ -4121,7 +4123,7 @@ namespace TR {
 
         int16 getModelIndex(Entity::Type type) const {
         //#ifndef _DEBUG
-            if ((type >= Entity::AI_GUARD && type <= Entity::AI_CHECK) || (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) || type == Entity::WATERFALL || type == Entity::KILL_ALL_TRIGGERS || type == Entity::VIEW_TARGET || type == Entity::SOUND_DOOR_BELL || type == Entity::SOUND_ALARM_BELL)
+            if ((type >= Entity::AI_GUARD && type <= Entity::AI_CHECK) || (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) || type == Entity::WATERFALL || type == Entity::KILL_ALL_TRIGGERS || type == Entity::VIEW_TARGET || type == Entity::SOUND_DOOR_BELL || type == Entity::SOUND_ALARM_BELL || type == Entity::TRIPWIRE)
                 return 0;
         //#endif
 

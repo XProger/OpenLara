@@ -915,7 +915,9 @@ struct Level : IGame {
         }
     }
 
-    static void fillCallback(int id, int width, int height, int tileX, int tileY, void *userData, void *data) {
+    TR::Tile32 *tileData;
+
+    static void fillCallback(int id, int tileX, int tileY, int atlasWidth, int atlasHeight, Atlas::Tile &tile, void *userData, void *data) {
         static const uint32 barColor[UI::BAR_MAX][25] = {
             // flash bar
                 { 0x00000000, 0xFFA20058, 0xFFFFFFFF, 0xFFA20058, 0x00000000 },
@@ -936,27 +938,32 @@ struct Level : IGame {
         int stride = 256, uvCount;
         short2 *uv = NULL;
 
-        TR::Level *level = (TR::Level*)userData;
+        Level *owner = (Level*)userData;
+        TR::Level *level = &owner->level;
+
         TR::Color32 *src, *dst = (TR::Color32*)data;
         short4 mm;
-
+        
         if (id < level->objectTexturesCount) { // textures
             TR::ObjectTexture &t = level->objectTextures[id];
             mm      = t.getMinMax();
-            src     = level->tiles[t.tile.index].color;
-            uv      = t.texCoord;
+            src     = owner->tileData->color;
+            uv      = t.texCoordAtlas;
             uvCount = 4;
+            level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut);
         } else {
             id -= level->objectTexturesCount;
 
             if (id < level->spriteTexturesCount) { // sprites
                 TR::SpriteTexture &t = level->spriteTextures[id];
                 mm      = t.getMinMax();
-                src     = level->tiles[t.tile].color;
-                uv      = t.texCoord;
+                src     = owner->tileData->color;
+                uv      = t.texCoordAtlas;
                 uvCount = 2;
+                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut);
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
+
                 TR::ObjectTexture *tex;
                 mm.x = mm.y = mm.z = mm.w = 0;
                 stride  = 1;
@@ -982,7 +989,7 @@ struct Level : IGame {
                 }
 
                 memset(tex, 0, sizeof(*tex));
-                uv = tex->texCoord;
+                uv = tex->texCoordAtlas;
                 uv[2].y += mm.w;
                 uv[3].y += mm.w;
                 uv[1].x += mm.z;
@@ -995,15 +1002,17 @@ struct Level : IGame {
         if (data) {
             int w = mm.z - mm.x + 1;
             int h = mm.w - mm.y + 1;
-            int dstIndex = tileY * width + tileX;
+            dst += tileY * atlasWidth + tileX;
             for (int y = -ATLAS_BORDER; y < h + ATLAS_BORDER; y++) {
                 for (int x = -ATLAS_BORDER; x < w + ATLAS_BORDER; x++) {
                     TR::Color32 *p = &src[mm.y * stride + mm.x];
+                    ASSERT((x + ATLAS_BORDER + tileX) >= 0 && (x + ATLAS_BORDER + tileX) < atlasWidth);
+                    ASSERT((y + ATLAS_BORDER + tileY) >= 0 && (y + ATLAS_BORDER + tileY) < atlasHeight);
                     p += clamp(x, 0, w - 1);
                     p += clamp(y, 0, h - 1) * stride;
-                    dst[dstIndex++] = *p;
+                    dst[x + ATLAS_BORDER] = *p;
                 }
-                dstIndex += width - ATLAS_BORDER * 2 - w;
+                dst += atlasWidth;
             }
 
             cx += tileX + ATLAS_BORDER;
@@ -1016,8 +1025,8 @@ struct Level : IGame {
             uv[i].x += cx;
             uv[i].y += cy;
 
-            uv[i].x = int32(uv[i].x) * 32767 / width;
-            uv[i].y = int32(uv[i].y) * 32767 / height;
+            uv[i].x = int32(uv[i].x) * 32767 / atlasWidth;
+            uv[i].y = int32(uv[i].y) * 32767 / atlasHeight;
         }
 
     // apply ref for instanced tile
@@ -1025,11 +1034,11 @@ struct Level : IGame {
 
         int ref = tileX;
         if (ref < level->objectTexturesCount) { // textures
-            mm = level->objectTextures[ref].getMinMax();
+            mm = level->objectTextures[ref].getMinMaxAtlas();
         } else {
             ref -= level->objectTexturesCount;
             if (ref < level->spriteTexturesCount) // sprites
-                mm = level->spriteTextures[ref].getMinMax();
+                mm = level->spriteTextures[ref].getMinMaxAtlas();
             else
                 ASSERT(false); // only object textures and sprites may be instanced
         }
@@ -1084,49 +1093,49 @@ struct Level : IGame {
             #error atlas packing is not allowed for this platform
         #endif
 
-        level.initTiles();
-
         //dumpGlyphs();
 
-        int texIdx = (level.version & TR::VER_PSX) ? 256 : 0; // skip palette color for PSX version
+        int texIdx = 0;
 
     // repack texture tiles
-        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, &level, fillCallback);
+        Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
         // add textures
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
-            int16 tx = (t.tile.index % 4) * 256;
-            int16 ty = (t.tile.index / 4) * 256;
 
             short4 uv;
-            uv.x = tx + min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
-            uv.y = ty + min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
-            uv.z = tx + max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
-            uv.w = ty + max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
+            uv.x = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
+            uv.y = min(min(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y);
+            uv.z = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
+            uv.w = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
 
-            tiles->add(uv, texIdx++);
+            tiles->add(texIdx++, uv, t.tile.index, t.clut);
         }
         // add sprites
         for (int i = 0; i < level.spriteTexturesCount; i++) {
             TR::SpriteTexture &t = level.spriteTextures[i];
-            int16 tx = (t.tile % 4) * 256;
-            int16 ty = (t.tile / 4) * 256;
 
             short4 uv;
-            uv.x = tx + t.texCoord[0].x;
-            uv.y = ty + t.texCoord[0].y;
-            uv.z = tx + t.texCoord[1].x + 1;
-            uv.w = ty + t.texCoord[1].y + 1;
+            uv.x = t.texCoord[0].x;
+            uv.y = t.texCoord[0].y;
+            uv.z = t.texCoord[1].x + 1;
+            uv.w = t.texCoord[1].y + 1;
 
-            tiles->add(uv, texIdx++);
+            tiles->add(texIdx++, uv, t.tile, t.clut);
         }
         // add common textures
         const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
         for (int i = 0; i < UI::BAR_MAX; i++)
-            tiles->add(short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), texIdx++);
+            tiles->add(texIdx++, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y));
 
         // get result texture
+        tileData = new TR::Tile32();
+        
         atlas = tiles->pack();
+        
+        delete[] tileData;
+        tileData = NULL;
+
         atlas->setFilterQuality(Core::settings.detail.filter);
 
         delete tiles;
@@ -1134,8 +1143,6 @@ struct Level : IGame {
         LOG("atlas: %d x %d\n", atlas->width, atlas->height);
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
-        delete[] level.tiles;
-        level.tiles = NULL;
     #else
         #ifdef _PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
@@ -1260,7 +1267,7 @@ struct Level : IGame {
         Core::setBlending(bmNone);
         Core::setDepthTest(false);
         setShader(Core::pass, Shader::FLASH, false, false);
-        Core::active.shader->setParam(uMaterial, vec4(0.5f, 0.0f, 0.0f, 0.0f));
+        Core::active.shader->setParam(uMaterial, vec4(1.0f / 1.8f, 0.0f, 0.0f, 0.0f));
         // anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
         Core::setBasis(&b, 1);
 

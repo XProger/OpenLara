@@ -834,14 +834,21 @@ struct Texture {
 #define ATLAS_BORDER 8
 
 struct Atlas {
-    typedef void (Callback)(int id, int width, int height, int x, int y, void *userData, void *data);
+    struct Tile {
+        int32  id;
+        int16  tile;
+        int16  clut;
+        short4 uv;
+    } *tiles;
+
+    typedef void (Callback)(int id, int tileX, int tileY, int atalsWidth, int atlasHeight, Tile &tile, void *userData, void *data);
 
     struct Node {
         Node   *child[2];
         short4 rect;
-        int    id;
+        int    tileIndex;
 
-        Node(short l, short t, short r, short b) : rect(l, t, r, b), id(-1) { 
+        Node(short l, short t, short r, short b) : rect(l, t, r, b), tileIndex(-1) { 
             child[0] = child[1] = NULL; 
         }
 
@@ -850,15 +857,15 @@ struct Atlas {
             delete child[1];
         }
 
-        Node* insert(const short4 &tile, int id) {
+        Node* insert(const short4 &tile, int tileIndex) {
             ASSERT(tile.x != 0x7FFF);
 
             if (child[0] != NULL && child[1] != NULL) {
-                Node *node = child[0]->insert(tile, id);
+                Node *node = child[0]->insert(tile, tileIndex);
                 if (node != NULL) return node;
-                return child[1]->insert(tile, id);
+                return child[1]->insert(tile, tileIndex);
             } else {
-                if (this->id != -1)
+                if (this->tileIndex != -1)
                     return NULL;
 
                 int16 w  = rect.z - rect.x;
@@ -870,7 +877,7 @@ struct Atlas {
                     return NULL;
 
                 if (w == tx && h == ty) {
-                    this->id = id;
+                    this->tileIndex = tileIndex;
                     return this;
                 }
 
@@ -885,15 +892,10 @@ struct Atlas {
                     child[1] = new Node(rect.x, rect.y + ty, rect.z, rect.w);
                 }
 
-                return child[0]->insert(tile, id);
+                return child[0]->insert(tile, tileIndex);
             }
         }
     } *root;
-
-    struct Tile {
-        int    id;
-        short4 uv;
-    } *tiles;
 
     int      tilesCount;
     int      size;
@@ -910,17 +912,19 @@ struct Atlas {
         delete[] tiles;
     }
 
-    void add(short4 uv, int id) {
+    void add(int32 id, short4 uv, int16 tile = 0, int16 clut = 0) {
         for (int i = 0; i < tilesCount; i++)
-            if (tiles[i].uv == uv) {
+            if (tiles[i].uv == uv && tiles[i].tile == tile && tiles[i].clut == clut) {
                 uv.x = 0x7FFF;
                 uv.y = tiles[i].id;
                 uv.z = uv.w = 0;
                 break;
             }
-        
-        tiles[tilesCount].id = id;
-        tiles[tilesCount].uv = uv;
+
+        tiles[tilesCount].id   = id;
+        tiles[tilesCount].tile = tile;
+        tiles[tilesCount].clut = clut;
+        tiles[tilesCount].uv   = uv;
         tilesCount++;
 
         if (uv.x != 0x7FFF)
@@ -930,7 +934,7 @@ struct Atlas {
     bool insertAll(int *indices) {
         for (int i = 0; i < tilesCount; i++) {
             int idx = indices[i];
-            if (tiles[idx].uv.x != 0x7FFF && !root->insert(tiles[idx].uv, tiles[idx].id))
+            if (tiles[idx].uv.x != 0x7FFF && !root->insert(tiles[idx].uv, idx))
                 return false;
         }
         return true;
@@ -965,7 +969,7 @@ struct Atlas {
     // pack
         while (1) {
             delete root;
-            root = new Node(0, 0, width, height);
+            root = new Node(0, 0, width - 1, height - 1);
 
             if (insertAll(indices)) 
                 break;
@@ -994,17 +998,17 @@ struct Atlas {
     void fill(Node *node, void *data) {
         if (!node) return;
 
-        if (node->id == -1) {
+        if (node->tileIndex == -1) {
             fill(node->child[0], data);
             fill(node->child[1], data);
         } else
-            callback(node->id, width, height, node->rect.x, node->rect.y, userData, data);
+            callback(tiles[node->tileIndex].id, node->rect.x, node->rect.y, width, height, tiles[node->tileIndex], userData, data);
     }
 
     void fillInstances() {
         for (int i = 0; i < tilesCount; i++)
             if (tiles[i].uv.x == 0x7FFF)
-                callback(tiles[i].id, width, height, tiles[i].uv.y, 0, userData, NULL);
+                callback(tiles[i].id, tiles[i].uv.y, 0, width, height, tiles[i], userData, NULL);
     }
 };
 
