@@ -3044,7 +3044,8 @@ struct Lara : Character {
                     hitTime = 0.0f;
                 }
 
-                hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
+                if (level->version & TR::VER_TR1) // TODO: check hit animation indices for TR2 and TR3
+                    hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
                 return true;
             }
         };

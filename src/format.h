@@ -2526,19 +2526,21 @@ namespace TR {
 
             if (version == VER_TR3_PSX) {
                 stream.read(soundOffsets, stream.read(soundOffsetsCount));
-                stream.read(soundDataSize);
-                stream.read(soundData, soundDataSize);
-                soundSize = new uint32[soundOffsetsCount];
-                int size = 0;
-                for (int i = 0; i < soundOffsetsCount - 1; i++) {
-                    ASSERT(soundOffsets[i] < soundOffsets[i + 1]);
-                    size += soundSize[i] = soundOffsets[i + 1] - soundOffsets[i];
-                }
-
                 if (soundOffsetsCount) {
-                    soundSize[soundOffsetsCount - 1] = soundDataSize;
-                    if (soundOffsetsCount > 1)
-                        soundSize[soundOffsetsCount - 1] -= soundSize[soundOffsetsCount - 2];
+                    stream.read(soundDataSize);
+                    stream.read(soundData, soundDataSize);
+                    soundSize = new uint32[soundOffsetsCount];
+                    int size = 0;
+                    for (int i = 0; i < soundOffsetsCount - 1; i++) {
+                        ASSERT(soundOffsets[i] < soundOffsets[i + 1]);
+                        size += soundSize[i] = soundOffsets[i + 1] - soundOffsets[i];
+                    }
+
+                    if (soundOffsetsCount) {
+                        soundSize[soundOffsetsCount - 1] = soundDataSize;
+                        if (soundOffsetsCount > 1)
+                            soundSize[soundOffsetsCount - 1] -= soundSize[soundOffsetsCount - 2];
+                    }
                 }
             }
 
@@ -2812,6 +2814,9 @@ namespace TR {
 
                 ASSERT(s.volume <= 1.0f);
             }
+
+            if (version == VER_TR3_PSX)
+                stream.seek(4);
 
             if (version == VER_TR1_PC) {
                 stream.read(soundData,    stream.read(soundDataSize));

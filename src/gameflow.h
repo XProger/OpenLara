@@ -403,39 +403,72 @@ namespace TR {
             case 2558286 : return LVL_TR2_CUT_3;
             case 1116966 : version = VER_TR2_PSX;
             case 1900230 : return LVL_TR2_CUT_4;
-        // TR3 (TODO PSX)
+        // TR3
+            case 653403  :
             case 1275266 : return LVL_TR3_TITLE;
+            case 1889506 :
             case 3437855 : return LVL_TR3_HOUSE;
+            case 1930923 :
             case 3360001 : return LVL_TR3_JUNGLE;
+            case 1943847 :
             case 3180412 : return LVL_TR3_TEMPLE;
+            case 1880004 :
             case 3131453 : return LVL_TR3_QUADCHAS;
+            case 1493796 :
             case 2618437 : return LVL_TR3_TONYBOSS;
+            case 1979611 :
             case 3365562 : return LVL_TR3_SHORE;
+            case 2016876 :
             case 3331132 : return LVL_TR3_CRASH;
+            case 1940346 :
             case 3148248 : return LVL_TR3_RAPIDS;
+            case 1521998 :
             case 2276838 : return LVL_TR3_TRIBOSS;
+            case 2097077 :
             case 3579476 : return LVL_TR3_ROOFS;
+            case 2033505 :
             case 3670149 : return LVL_TR3_SEWER;
+            case 2079183 :
             case 3523586 : return LVL_TR3_TOWER;
+            case 1549006 :
             case 2504910 : return LVL_TR3_OFFICE;
+            case 1938738 :
             case 3140417 : return LVL_TR3_NEVADA;
+            case 2048288 :
             case 3554880 : return LVL_TR3_COMPOUND;
+            case 2054325 :
             case 3530130 : return LVL_TR3_AREA51;
+            case 1998398 :
             case 3515272 : return LVL_TR3_ANTARC;
+            case 2023895 :
             case 3331087 : return LVL_TR3_MINES;
+            case 2056388 :
             case 3575873 : return LVL_TR3_CITY;
+            case 1780885 :
             case 3190736 : return LVL_TR3_CHAMBER;
+            case 1709427 :
             case 3140028 : return LVL_TR3_STPAUL;
+            case 757827  :
             case 1547866 : return LVL_TR3_CUT_1;
+            case 982765  :
             case 1957327 : return LVL_TR3_CUT_2;
+            case 1242972 :
             case 2020225 : return LVL_TR3_CUT_3;
+            case 430130  :
             case 1048466 : return LVL_TR3_CUT_4;
+            case 971285  :
             case 1580868 : return LVL_TR3_CUT_5;
+            case 1325488 :
             case 2430940 : return LVL_TR3_CUT_6;
+            case 467121  :
             case 1253227 : return LVL_TR3_CUT_7;
-            case  944962 : return LVL_TR3_CUT_8;
+            case 494314  :
+            case 944962  : return LVL_TR3_CUT_8;
+            case 1002236 :
             case 1788075 : return LVL_TR3_CUT_9;
+            case 590185  :
             case 1402003 : return LVL_TR3_CUT_11;
+            case 1080046 :
             case 2321393 : return LVL_TR3_CUT_12;
         }
         return LVL_CUSTOM;
@@ -664,10 +697,10 @@ namespace TR {
                     break;
                 case VER_TR2_PC  :
                 case VER_TR2_PSX :
-                    if (Stream::existsContent("audio/cdaudio.mp3")) {
-                        callback(Sound::openCDAudioMP3("audio/cdaudio.dat", "audio/cdaudio.mp3", track), userData);
-                        return;
-                    }
+                    //if (Stream::existsContent("audio/cdaudio.mp3")) {
+                    //    callback(Sound::openCDAudioMP3("audio/cdaudio.dat", "audio/cdaudio.mp3", track), userData);
+                    //    return;
+                    //}
                     sprintf(title, "track_%02d", track);
                     if (!checkTrack("", title) && !checkTrack("audio/2/", title) && !checkTrack("audio/", title)) {
                         callback(NULL, userData);
