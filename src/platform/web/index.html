@@ -97,9 +97,12 @@
 					if (audioContext) {
 						audioContext.resume();
 						window.removeEventListener('touchstart', userAction, false);
+                        window.removeEventListener('click', userAction, false);
+                        console.log("resume playback");
 					}
 				};
 				window.addEventListener('touchstart', userAction, false);
+                window.addEventListener('click', userAction, false);
 
 				var gl = canvasElement.getContext("webgl", {antialias:false, premultipliedAlpha: false}) || canvasElement.getContext("experimental-webgl", {antialias:false, premultipliedAlpha: false});
 
@@ -119,7 +122,7 @@
 				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)
 				<p style="margin:8px">
 				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-				<br><i>last update: 20.04.2018</i><br>
+				<br><i>last update: 8.05.2018</i><br>
 				</p>
 			</span>
 

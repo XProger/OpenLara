@@ -3137,8 +3137,8 @@ namespace TR {
                     stream.seek(tmpV * 4 + tmpT * 4); // skip vertices and triangles
 
                     int q = 0;
+                    uint32 info;
                     while (1) {
-                        uint32 info;
                         if (!q) {
                             stream.read(info);
                             q = 3;
@@ -3223,8 +3223,8 @@ namespace TR {
                     }
                 // read rectangles
                     int q = 0;
+                    uint32 info;
                     while (1) {
-                        uint32 info;
                         if (!q) {
                             stream.read(info);
                             q = 3;
@@ -3545,7 +3545,8 @@ namespace TR {
                     uint16 tmpOffset;
                     mesh.vCount      = stream.read(tmp);
                     mesh.flags.value = stream.read(tmp);
-                    fOffset          = stream.pos + stream.read(tmpOffset);
+                    stream.read(tmpOffset);
+                    fOffset          = stream.pos + tmpOffset;
                 } else {
                     stream.read(mesh.flags.value);
                     stream.read(mesh.vCount);

@@ -122,6 +122,7 @@
 #elif _OS_WEB
     #include <emscripten/emscripten.h>
     #include <emscripten/html5.h>
+    #include <GLES/gl.h>
     #include <GLES3/gl3.h>
     #include <GLES3/gl2ext.h>
 
@@ -385,14 +386,14 @@ namespace GAPI {
             FormatDesc desc = formats[fmt];
 
             #ifdef _OS_WEB // fucking firefox!
-                if (format == FMT_RGBA_FLOAT) {
+                if (fmt == FMT_RGBA_FLOAT) {
                     if (Core::support.texFloat) {
                         desc.ifmt = GL_RGBA;
                         desc.type = GL_FLOAT;
                     }
                 }
 
-                if (format == FMT_RGBA_HALF) {
+                if (fmt == FMT_RGBA_HALF) {
                     if (Core::support.texHalf) {
                         desc.ifmt = GL_RGBA;
                         desc.type = GL_HALF_FLOAT_OES;
@@ -402,7 +403,7 @@ namespace GAPI {
                 if ((fmt == FMT_RGBA_FLOAT && !Core::support.colorFloat) || (fmt == FMT_RGBA_HALF && !Core::support.colorHalf)) {
                     desc.ifmt = GL_RGBA;
                     #ifdef _GAPI_GLES
-                        if (format == FMT_RGBA_HALF)
+                        if (fmt == FMT_RGBA_HALF)
                             desc.type = GL_HALF_FLOAT_OES;
                     #endif
                 }
@@ -430,7 +431,7 @@ namespace GAPI {
         }
 
         void bind(int sampler) {
-            if (!this || (opt & OPT_PROXY)) return;
+            if (opt & OPT_PROXY) return;
             ASSERT(ID);
 
             if (Core::active.textures[sampler] != this) {
@@ -813,7 +814,7 @@ namespace GAPI {
     }
 
     void resetState() {
-        if (glBindVertexArray)
+        if (Core::support.VAO)
             glBindVertexArray(0);
         glActiveTexture(GL_TEXTURE0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -990,7 +991,7 @@ namespace GAPI {
         ASSERT(pso->data != NULL);
 
         uint32 state = pso->renderState;
-        uint32 mask  = mask;
+        uint32 mask  = 0;//mask;
 
         if (Core::active.pso)
             mask ^= Core::active.pso->renderState;

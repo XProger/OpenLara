@@ -11,48 +11,48 @@
 #define OS_PTHREAD_MT
 
 #ifdef WIN32
-    #define _OS_WIN
-    #define _GAPI_GL
+    #define _OS_WIN  1
+    #define _GAPI_GL 1
     //#define _GAPI_VULKAN
 
     #include <windows.h>
 
     #undef OS_PTHREAD_MT
 #elif ANDROID
-    #define _OS_ANDROID
-    #define _GAPI_GL
-    #define _GAPI_GLES
+    #define _OS_ANDROID 1
+    #define _GAPI_GL    1
+    #define _GAPI_GLES  1
     //#define _GAPI_VULKAN
 
     extern void osToggleVR(bool enable);
 #elif __RPI__
-    #define _OS_RPI
-    #define _GAPI_GL
-    #define _GAPI_GLES
+    #define _OS_RPI    1
+    #define _GAPI_GL   1
+    #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
 #elif __linux__
-    #define _OS_LINUX
-    #define _GAPI_GL
+    #define _OS_LINUX 1
+    #define _GAPI_GL  1
 #elif __APPLE__
-    #define _GAPI_GL
+    #define _GAPI_GL 1
     #include "TargetConditionals.h"
 
     #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-        #define _OS_IOS
-        #define _GAPI_GLES
+        #define _OS_IOS    1
+        #define _GAPI_GLES 1
     #else
-        #define _OS_MAC
+        #define _OS_MAC    1
     #endif
 #elif __EMSCRIPTEN__
-    #define _OS_WEB
-    #define _GAPI_GL
-    #define _GAPI_GLES
+    #define _OS_WEB    1
+    #define _GAPI_GL   1
+    #define _GAPI_GLES 1
 
     #undef  OS_FILEIO_CACHE
 #elif _PSP
-    #define _OS_PSP
-    #define _GAPI_SCEGU
+    #define _OS_PSP     1
+    #define _GAPI_SCEGU 1
 
     #define FFP
     #define TEX_SWIZZLE
@@ -794,11 +794,11 @@ namespace Core {
     void setBlendMode(BlendMode mode) {
         renderState &= ~RS_BLEND;
         switch (mode) {
-            case bmNone     : break;
             case bmAlpha    : renderState |= RS_BLEND_ALPHA;   break;
             case bmAdd      : renderState |= RS_BLEND_ADD;     break;
             case bmMult     : renderState |= RS_BLEND_MULT;    break;
             case bmPremult  : renderState |= RS_BLEND_PREMULT; break;
+            default         : ;
         }
     }
 
