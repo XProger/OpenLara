@@ -94,16 +94,6 @@ void osLoadGame(Stream *stream) {
     return osCacheRead(stream);
 }
 
-extern "C" {
-    void EMSCRIPTEN_KEEPALIVE snd_fill(Sound::Frame *frames, int count) {
-        Sound::fill(frames, count);
-    }
-    
-    void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size) {
-        Game::startLevel(new Stream(NULL, data, size));
-    }
-}
-
 JoyKey joyToInputKey(int code) {
     static const JoyKey keys[16] = {
         jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkUp, jkDown, jkLeft, jkRight,
@@ -238,16 +228,31 @@ bool isFullScreen() {
     return status.isFullscreen;
 }
 
-void changeWindowMode() {
-    if (!isFullScreen()) {
-        EmscriptenFullscreenStrategy s;
-        s.scaleMode                 = EMSCRIPTEN_FULLSCREEN_SCALE_STRETCH;
-        s.canvasResolutionScaleMode = EMSCRIPTEN_FULLSCREEN_CANVAS_SCALE_HIDEF;
-        s.filteringMode             = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
-        s.canvasResizedCallback     = fullscreenCallback;
-        emscripten_request_fullscreen_strategy(NULL, 1, &s);
-    } else
-        emscripten_exit_fullscreen();
+extern "C" {
+    void EMSCRIPTEN_KEEPALIVE snd_fill(Sound::Frame *frames, int count) {
+        Sound::fill(frames, count);
+    }
+    
+    void EMSCRIPTEN_KEEPALIVE game_level_load(char *data, int size) {
+        Game::startLevel(new Stream(NULL, data, size));
+    }
+    
+    void EMSCRIPTEN_KEEPALIVE change_fs_mode() {
+        EM_ASM(JSEvents.inEventHandler = true);
+        EM_ASM(JSEvents.currentEventHandler = {allowsDeferredCalls:true});
+        
+        if (!isFullScreen()) {
+            EmscriptenFullscreenStrategy s;
+            s.scaleMode                 = EMSCRIPTEN_FULLSCREEN_SCALE_STRETCH;
+            s.canvasResolutionScaleMode = EMSCRIPTEN_FULLSCREEN_CANVAS_SCALE_HIDEF;
+            s.filteringMode             = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
+            s.canvasResizedCallback     = fullscreenCallback;
+            emscripten_request_fullscreen_strategy(NULL, 0, &s);
+        } else {
+            LOG("exit fs\n");
+            emscripten_exit_fullscreen();
+        }
+    }
 }
 
 InputKey keyToInputKey(int code) {
@@ -269,7 +274,7 @@ EM_BOOL keyCallback(int eventType, const EmscriptenKeyboardEvent *e, void *userD
         case EMSCRIPTEN_EVENT_KEYDOWN:
         case EMSCRIPTEN_EVENT_KEYUP:
             if (eventType == EMSCRIPTEN_EVENT_KEYDOWN && e->altKey && e->keyCode == 0x0D) {  // Alt + Enter
-                changeWindowMode();
+                change_fs_mode();
                 break;
             }
             Input::setDown(keyToInputKey(e->keyCode), eventType == EMSCRIPTEN_EVENT_KEYDOWN);
@@ -288,7 +293,7 @@ EM_BOOL touchCallback(int eventType, const EmscriptenTouchEvent *e, void *userDa
         if (eventType == EMSCRIPTEN_EVENT_TOUCHSTART || eventType == EMSCRIPTEN_EVENT_TOUCHEND || eventType == EMSCRIPTEN_EVENT_TOUCHCANCEL) 
             Input::setDown(key, eventType == EMSCRIPTEN_EVENT_TOUCHSTART);
     }
-    return 1;
+    return 0;
 }
 
 EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userData) {
