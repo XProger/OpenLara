@@ -133,7 +133,9 @@ struct Shader {
     }
 
     void init() {
-        bind();
+        Core::active.shader = this;
+        glUseProgram(ID);
+
         for (int st = 0; st < sMAX; st++) {
             GLint idx = glGetUniformLocation(ID, (GLchar*)SamplerName[st]);
             if (idx != -1)

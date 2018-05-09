@@ -923,10 +923,12 @@ namespace GAPI {
     }
 
     void setAlphaTest(bool enable) {
+    #ifdef FFP
         if (enable)
             glEnable(GL_ALPHA_TEST);
         else
             glDisable(GL_ALPHA_TEST);
+    #endif
     }
 
     void setCullMode(int rsMask) {
@@ -1014,10 +1016,8 @@ namespace GAPI {
         if (mask & RS_BLEND)
             setBlendMode(state & RS_BLEND);
 
-    #ifdef FFP
         if (mask & RS_DISCARD)
             setAlphaTest((state & RS_DISCARD) != 0);
-    #endif
     }
 }
 

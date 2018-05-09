@@ -85,7 +85,7 @@
 					var AudioContext = window.AudioContext || window.webkitAudioContext;
 					if (!AudioContext) return;
 					audioContext = new (window.AudioContext || window.webkitAudioContext)();
-					var count  = 2048;
+					var count  = 4096;
 					var rate   = 44100 / audioContext.sampleRate;
 					var framesCount = Math.ceil(count * rate);
 					var frames = Module._malloc(framesCount * 4); // interleaved short L, R
@@ -103,13 +103,14 @@
 					proc.connect(audioContext.destination);
 				}
 
-			// for iOS to unlock audio context after user interaction
+			// unlock audio context after user interaction
 				var userAction = function() {
-					if (audioContext) {
-						audioContext.resume();
-						window.removeEventListener('touchstart', userAction, false);
-						window.removeEventListener('click', userAction, false);
-						console.log("resume playback");
+					if (audioContext && audioContext.state == "suspended") {
+						audioContext.resume().then(function() {
+							window.removeEventListener('touchstart', userAction, false);
+							window.removeEventListener('click', userAction, false);
+							console.log("resume playback");
+                        });
 					}
 				};
 				window.addEventListener('touchstart', userAction, false);
@@ -133,26 +134,33 @@
 				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)
 				<p style="margin:8px">
 				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-				<br><i>last update: 8.05.2018</i><br>
+				<br><i>last update: 9.05.2018</i><br>
 				</p>
 			</span>
 
 			<script>
-				(function() {
-					var memoryInitializer = 'OpenLara.js.mem';
-					if (typeof Module['locateFile'] === 'function') {
-						memoryInitializer = Module['locateFile'](memoryInitializer);
-					} else if (Module['memoryInitializerPrefixURL']) {
-						memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
-					}
-					var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
-					xhr.open('GET', memoryInitializer, true);
-					xhr.responseType = 'arraybuffer';
-					xhr.send(null);
-				})();
-
 				var script = document.createElement('script');
-				script.src = "OpenLara.js";
+
+				if ('WebAssembly' in window) {
+					console.log("Start WebAssembly!");
+					script.src = "OpenLara_wasm.js";
+				} else {
+					console.log("Start asm.js!");
+					script.src = "OpenLara.js";
+					(function() {
+						var memoryInitializer = 'OpenLara.js.mem';
+						if (typeof Module['locateFile'] === 'function') {
+							memoryInitializer = Module['locateFile'](memoryInitializer);
+						} else if (Module['memoryInitializerPrefixURL']) {
+							memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
+						}
+						var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
+						xhr.open('GET', memoryInitializer, true);
+						xhr.responseType = 'arraybuffer';
+						xhr.send(null);
+					})();
+				}
+
 				document.body.appendChild(script);
 
 				window.onbeforeunload = function () { // Ctrl+W

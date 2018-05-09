@@ -208,6 +208,8 @@ struct ShaderCache {
     Shader *getShader(Core::Pass pass, Shader::Type type, int fx) {
         Shader *shader = shaders[pass][type][fx];
     #ifndef FFP
+        if (shader == NULL)
+            LOG("! NULL shader: %d %d %d\n", int(pass), int(type), int(fx));
         ASSERT(shader != NULL);
     #endif
         return shader;
@@ -217,7 +219,8 @@ struct ShaderCache {
         Core::pass = pass;
 
         Shader *shader = getShader(pass, type, fx);
-        shader->bind();
+        if (shader)
+            shader->bind();
 
         Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     }

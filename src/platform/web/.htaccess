@@ -15,7 +15,12 @@ AddEncoding gzip .gz
   Header set Content-Encoding: gzip
 </FilesMatch>
 
+<FilesMatch "\.wasm\.gz$">
+  ForceType application/octet-stream
+  Header set Content-Encoding: gzip
+</FilesMatch>
+
 RewriteEngine on 
 RewriteCond %{HTTP:Accept-Encoding} gzip 
 RewriteCond %{REQUEST_FILENAME}.gz -f 
-RewriteRule ^(.+)\.(js|data|mem)$ $1.$2.gz [L] 
+RewriteRule ^(.+)\.(js|data|mem|wasm)$ $1.$2.gz [L] 

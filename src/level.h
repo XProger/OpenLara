@@ -716,6 +716,8 @@ struct Level : IGame {
             inventory.toggle(0, Inventory::PAGE_OPTION);
         }
 
+        setClipParams(1.0f, NO_CLIP_PLANE);
+
         effect  = TR::Effect::NONE;
         cube360 = NULL;
 
@@ -2403,8 +2405,7 @@ struct Level : IGame {
             player = players[view];
             camera = player->camera;
 
-            params->clipHeight  = NO_CLIP_PLANE;
-            params->clipSign    = 1.0f;
+            setClipParams(1.0f, NO_CLIP_PLANE);
             params->waterHeight = params->clipHeight;
 
             if (shadow) {
