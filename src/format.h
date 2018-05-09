@@ -3434,8 +3434,10 @@ namespace TR {
 
                 if (version & VER_TR2)
                     stream.read(r.lightMode);
-            } else
+            } else {
+                r.ambient = 0x1FFF - r.ambient;
                 stream.read(r.ambient2);
+            }
 
         // lights
             r.lights = stream.read(r.lightsCount) ? new Room::Light[r.lightsCount] : NULL;
@@ -3464,10 +3466,13 @@ namespace TR {
                     stream.seek(4); // radius2
 
                 if ((version & VER_VERSION) < VER_TR3) {
-                    int value = 2555 - clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
+                    int value = 255 - clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                     light.color.r = light.color.g = light.color.b = value;
                     light.color.a = 0;
                 }
+
+                if (version == VER_TR3_PSX)
+                    light.radius >>= 2;
 
                 light.radius *= 2;
             }
