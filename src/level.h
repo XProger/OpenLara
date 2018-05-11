@@ -502,6 +502,7 @@ struct Level : IGame {
                 e.rotation      = TR::angle(normalizeAngle(angle));
                 e.intensity     = -1;
                 e.flags.value   = 0;
+                e.flags.smooth  = true;
                 e.modelIndex    = level.getModelIndex(e.type);
                 break;
             }

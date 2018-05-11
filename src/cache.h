@@ -49,6 +49,8 @@ struct ShaderCache {
     #define rsShadow (RS_DEPTH_TEST | RS_DEPTH_WRITE | RS_CULL_BACK)
 
     void prepareCompose(int fx) {
+        compile(Core::passCompose, Shader::SPRITE, fx, rsBase);
+
         compile(Core::passCompose, Shader::MIRROR, fx,                 rsBase);
         compile(Core::passCompose, Shader::ROOM,   fx,                 rsFull);
         compile(Core::passCompose, Shader::ROOM,   fx,                 rsFull | RS_DISCARD);
@@ -59,8 +61,12 @@ struct ShaderCache {
         compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER, rsFull);
         compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
         compile(Core::passCompose, Shader::ENTITY, fx,                 rsFull | RS_DISCARD);
+
+        compile(Core::passCompose, Shader::SPRITE, fx,                 rsFull);
+        compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER, rsFull);
         compile(Core::passCompose, Shader::SPRITE, fx,                 rsFull | RS_DISCARD);
         compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
+
         compile(Core::passCompose, Shader::FLASH,  fx,                 rsFull | RS_BLEND_MULT);
         compile(Core::passCompose, Shader::FLASH,  fx,                 rsFull | RS_BLEND_MULT | RS_DISCARD);
     }
@@ -109,6 +115,9 @@ struct ShaderCache {
             fx |= FX_ALPHA_TEST;
 
     #ifndef FFP
+        if (shaders[pass][type][fx])
+            return shaders[pass][type][fx];
+
         int def[SD_MAX], defCount = 0;
 
         #define SD_ADD(x) (def[defCount++] = SD_##x)
@@ -195,7 +204,7 @@ struct AmbientCache {
         enum int32 {
             BLANK, WAIT, READY
         }    status;
-        vec3 colors[6]; // TODO: ubyte4[6]
+        vec4 colors[6]; // TODO: ubyte4[6]
     } *items;
     int *offsets;
 
@@ -245,7 +254,7 @@ struct AmbientCache {
         task.cube->status = Cube::WAIT;
     }
 
-    void renderAmbient(int room, int sector, vec3 *colors) {
+    void renderAmbient(int room, int sector, vec4 *colors) {
         PROFILE_MARKER("PASS_AMBIENT");
                 
         TR::Room &r = level->rooms[room];
@@ -282,7 +291,7 @@ struct AmbientCache {
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
             Core::setTarget(textures[j * 4 + 3], RT_LOAD_COLOR);
-            colors[j] = Core::copyPixel(0, 0).xyz();
+            colors[j] = Core::copyPixel(0, 0);
         }
 
         Core::setDepthTest(true);
