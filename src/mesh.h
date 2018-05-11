@@ -30,8 +30,7 @@ struct Mesh : GAPI::Mesh {
     }
 
     void render(const MeshRange &range) {
-        bind(range);
-        Core::DIP(range.iStart, range.iCount, iBuffer);
+        Core::DIP(this, range);
     }
 };
 

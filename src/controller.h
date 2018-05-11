@@ -117,7 +117,7 @@ struct Controller {
     Basis   *joints;
     int     jointsFrame;
 
-    vec3    ambient[6];
+    vec4    ambient[6];
     float   specular;
     float   intensity;
 
@@ -159,7 +159,7 @@ struct Controller {
         specular   = 0.0f;
         intensity  = e.intensity == -1 ? -1.0f : intensityf(e.intensity);
         timer      = 0.0f;
-        ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec3(intensityf(getRoom().ambient));
+        ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec4(intensityf(getRoom().ambient));
         targetLight = NULL;
         updateLights(false);
         visibleMask = 0xFFFFFFFF;
@@ -1255,7 +1255,6 @@ struct Controller {
         float alpha = lerp(0.7f, 0.90f, clamp((info.floor - boxA.max.y) / 1024.0f, 0.0f, 1.0f) );
         float lum   = 0.5f * (1.0f - alpha);
         Core::setMaterial(lum, lum, lum, alpha);
-        Core::active.shader->setParam(uAmbient, vec3(0.0f));
 
         Core::setDepthWrite(false);
         mesh->renderShadowBlob();

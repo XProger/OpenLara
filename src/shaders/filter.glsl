@@ -57,10 +57,6 @@ uniform vec4 uParam;
 		return color;
 	}
 
-	vec4 mixer() { // uParam (lerp factor from diffuse to normal textures, multiply, unused, unused)
-		return mix(texture2D(sDiffuse, vTexCoord), texture2D(sNormal, vTexCoord), uParam.x) * uParam.y;
-	}
-
 	#ifdef FILTER_EQUIRECTANGULAR
 		uniform samplerCube sEnvironment;
 
@@ -84,10 +80,6 @@ uniform vec4 uParam;
 
 		#ifdef FILTER_BLUR
 			return blur();
-		#endif
-
-		#ifdef FILTER_MIXER
-			return mixer();
 		#endif
 
 		#ifdef FILTER_EQUIRECTANGULAR

@@ -514,9 +514,9 @@ struct Camera : ICamera {
 
         // update room for eye (with HMD offset)
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-            level->getSector(eye.room, Core::viewPos);
+            level->getSector(eye.room, Core::viewPos.xyz());
 
-        frustum->pos = Core::viewPos;
+        frustum->pos = Core::viewPos.xyz();
         frustum->calcPlanes(Core::mViewProj);
     }
 

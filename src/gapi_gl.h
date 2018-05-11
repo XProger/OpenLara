@@ -306,29 +306,203 @@
 
 namespace GAPI {
 
-#ifndef FFP
-    const char SHADER_BASE[] =
-        #include "shaders/shader.glsl"
-    ;
-
-    const char SHADER_WATER[] =
-        #include "shaders/water.glsl"
-    ;
-
-    const char SHADER_FILTER[] =
-        #include "shaders/filter.glsl"
-    ;
-
-    const char SHADER_GUI[] =
-        #include "shaders/gui.glsl"
-    ;
-#endif
-
     using namespace Core;
 
     typedef ::Vertex Vertex;
 
     int cullMode, blendMode;
+
+// Shader
+    #ifndef FFP
+        const char SHADER_BASE[] =
+            #include "shaders/shader.glsl"
+        ;
+
+        const char SHADER_WATER[] =
+            #include "shaders/water.glsl"
+        ;
+
+        const char SHADER_FILTER[] =
+            #include "shaders/filter.glsl"
+        ;
+
+        const char SHADER_GUI[] =
+            #include "shaders/gui.glsl"
+        ;
+        
+        const char *DefineName[SD_MAX]  = { SHADER_DEFINES(DECL_STR) };
+    #endif
+
+    struct Shader {
+    #ifdef FFP
+        void init(Core::Pass pass, int *def, int defCount) {}
+        void deinit() {}
+        void bind() {}
+        void setParam(UniformType uType, const vec4  &value, int count = 1) {}
+        void setParam(UniformType uType, const mat4  &value, int count = 1) {}
+        void setParam(UniformType uType, const Basis &value, int count = 1) {}
+    #else
+        uint32  ID;
+        int32   uID[uMAX];
+
+        void init(Core::Pass pass, int *def, int defCount) {
+            const char *source;
+            switch (pass) {
+                case Core::passCompose :
+                case Core::passShadow  :
+                case Core::passAmbient : source = SHADER_BASE;   break;
+                case Core::passWater   : source = SHADER_WATER;  break;
+                case Core::passFilter  : source = SHADER_FILTER; break;
+                case Core::passGUI     : source = SHADER_GUI;    break;
+                default                : ASSERT(false); LOG("! wrong pass id\n"); return;
+            }
+
+            char defines[1024];
+            sprintf(defines, "#define PASS_%s\n", passNames[pass]);
+
+            for (int i = 0; i < defCount; i++) {
+                #ifdef _GAPI_GLES
+                    if (def[i] == SD_SHADOW_SAMPLER)
+                        strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
+                #endif
+                sprintf(defines, "%s#define %s\n", defines, DefineName[def[i]]);
+            }
+
+            char fileName[255];
+        // generate shader file path
+            if (Core::support.shaderBinary) {
+                uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
+                sprintf(fileName, "%08X.xsh", hash);
+            }
+
+            ID = glCreateProgram();
+
+            if (!(Core::support.shaderBinary && linkBinary(fileName))) { // try to load cached shader     
+                if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
+                #ifndef _OS_WEB
+                    GLenum format, size;
+                    glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, (GLsizei*)&size);
+                    char *data = new char[8 + size];
+                    glGetProgramBinary(ID, size, NULL, &format, &data[8]);
+                    *(int*)(&data[0]) = format;
+                    *(int*)(&data[4]) = size;
+                    Stream::cacheWrite(fileName, data, 8 + size);
+                    delete[] data;
+                #endif
+                }
+            }
+
+            Core::active.shader = this;
+            glUseProgram(ID);
+
+            for (int st = 0; st < sMAX; st++) {
+                GLint idx = glGetUniformLocation(ID, (GLchar*)SamplerName[st]);
+                if (idx != -1)
+                    glUniform1iv(idx, 1, &st);
+            }
+
+            for (int ut = 0; ut < uMAX; ut++)
+                uID[ut] = glGetUniformLocation(ID, (GLchar*)UniformName[ut]);
+        }
+
+        void deinit() {
+            glDeleteProgram(ID);
+        }
+
+        bool linkSource(const char *text, const char *defines = "") {
+            #ifdef _GAPI_GLES
+                #define GLSL_DEFINE ""
+                #define GLSL_VERT   ""
+                #define GLSL_FRAG   "#extension GL_OES_standard_derivatives : enable\n"
+            #else
+                #define GLSL_DEFINE "#version 120\n"
+                #define GLSL_VERT   ""
+                #define GLSL_FRAG   ""
+            #endif
+
+            const int type[2] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+            const char *code[2][4] = {
+                    { GLSL_DEFINE GLSL_VERT "#define VERTEX\n",   defines, "#line 0\n", text },
+                    { GLSL_DEFINE GLSL_FRAG "#define FRAGMENT\n", defines, "#line 0\n", text }
+                };
+
+            GLchar info[1024];
+
+            for (int i = 0; i < 2; i++) {
+                GLuint obj = glCreateShader(type[i]);
+                glShaderSource(obj, 4, code[i], NULL);
+                glCompileShader(obj);
+
+                glGetShaderInfoLog(obj, sizeof(info), NULL, info);
+                if (info[0]) LOG("! shader: %s\n", info);
+
+                glAttachShader(ID, obj);
+                glDeleteShader(obj);
+            }
+
+            for (int at = 0; at < aMAX; at++)
+                glBindAttribLocation(ID, at, AttribName[at]);
+
+            glLinkProgram(ID);
+
+            glGetProgramInfoLog(ID, sizeof(info), NULL, info);
+            if (info[0]) LOG("! program: %s\n", info);
+
+            return checkLink();
+        }
+    
+        bool linkBinary(const char *name) {
+            // non-async code!
+            char path[255];
+            strcpy(path, Stream::cacheDir);
+            strcat(path, name);
+
+            if (!Stream::exists(path))
+                return false;
+
+            Stream *stream = new Stream(path);
+            if (!stream)
+                return false;
+
+            GLenum size, format;
+            stream->read(format);
+            stream->read(size);
+            char *data = new char[size];
+            stream->raw(data, size);
+            glProgramBinary(ID, format, data, size);
+            delete[] data;
+            delete stream;
+
+            return checkLink();
+        }
+
+        bool checkLink() {
+            GLint success;
+            glGetProgramiv(ID, GL_LINK_STATUS, &success);
+            return success != 0;
+        }
+
+        void bind() {
+            if (Core::active.shader != this) {
+                Core::active.shader = this;
+                glUseProgram(ID);
+            }
+        }
+
+        void setParam(UniformType uType, const vec4 &value, int count = 1) {
+            if (uID[uType] != -1) glUniform4fv(uID[uType], count, (GLfloat*)&value);
+        }
+
+        void setParam(UniformType uType, const mat4 &value, int count = 1) {
+            if (uID[uType] != -1) glUniformMatrix4fv(uID[uType], count, false, (GLfloat*)&value);
+        }
+
+        void setParam(UniformType uType, const Basis &value, int count = 1) {
+            if (uID[uType] != -1) glUniform4fv(uID[uType], count * 2, (GLfloat*)&value);
+        }
+    #endif
+    };
+
 
 // Texture
     struct Texture {
@@ -368,7 +542,7 @@ namespace GAPI {
             glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
             glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
 
-            struct FormatDesc {
+            static const struct FormatDesc {
                 GLuint ifmt, fmt;
                 GLenum type;
             } formats[FMT_MAX] = {            
@@ -599,15 +773,6 @@ namespace GAPI {
             } else
                 range.aIndex = -1;
         }
-
-        /*
-        void unbind() {
-            if (Core::support.VAO)
-                glBindVertexArray(Core::active.VAO = 0);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = 0);
-            glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = 0);
-        }
-        */
     };
 
 
@@ -813,6 +978,10 @@ namespace GAPI {
                 glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
     }
 
+    void beginFrame() {}
+
+    void endFrame() {}
+
     void resetState() {
         if (Core::support.VAO)
             glBindVertexArray(0);
@@ -960,14 +1129,14 @@ namespace GAPI {
     #endif
     }
 
-    void DIP(int iStart, int iCount, Index *iBuffer) {
+    void DIP(Mesh *mesh, const MeshRange &range) {
     #ifdef FFP
         mat4 m = mView * mModel;
         glMatrixMode(GL_MODELVIEW);
         glLoadMatrixf((GLfloat*)&m);
     #endif
 
-        glDrawElements(GL_TRIANGLES, iCount, GL_UNSIGNED_SHORT, iBuffer + iStart);
+        glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, mesh->iBuffer + range.iStart);
     }
 
     vec4 copyPixel(int x, int y) {

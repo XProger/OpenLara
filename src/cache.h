@@ -8,10 +8,6 @@
 
 #define NO_CLIP_PLANE  1000000.0f
 
-#define WATER_FOG_DIST (6 * 1024)
-//#define WATER_USE_GRID
-#define UNDERWATER_COLOR "#define UNDERWATER_COLOR vec3(0.6, 0.9, 0.9)\n"
-
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
 
@@ -97,7 +93,6 @@ struct ShaderCache {
         compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_BLUR,       fx, RS_COLOR_WRITE);
-        compile(Core::passFilter, Shader::FILTER_MIXER,      fx, RS_COLOR_WRITE);
     }
 
     void prepareGUI(int fx) {
@@ -114,92 +109,58 @@ struct ShaderCache {
             fx |= FX_ALPHA_TEST;
 
     #ifndef FFP
-        char def[1024], ext[255];
-        ext[0] = 0;
+        int def[SD_MAX], defCount = 0;
+
+        #define SD_ADD(x) (def[defCount++] = SD_##x)
+
         if (Core::settings.detail.shadows) {
             if (Core::support.shadowSampler) {
-                #ifdef _GAPI_GLES
-                    strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
-                #endif
-                strcat(ext, "#define SHADOW_SAMPLER\n");
+                SD_ADD(SHADOW_SAMPLER);
             } else {
                 if (Core::support.depthTexture)
-                    strcat(ext, "#define SHADOW_DEPTH\n");
+                    SD_ADD(SHADOW_DEPTH);
                 else
-                    strcat(ext, "#define SHADOW_COLOR\n");
+                    SD_ADD(SHADOW_COLOR);
             }
         }
 
-        const char *passNames[] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
-        const char *src = NULL;
-        const char *typ = NULL;
         switch (pass) {
             case Core::passCompose    :
             case Core::passShadow     :
             case Core::passAmbient    : {
-                static const char *typeNames[] = { "SPRITE", "FLASH", "ROOM", "ENTITY", "MIRROR" };
+                def[defCount++] = SD_TYPE_SPRITE + type;
 
-                src = GAPI::SHADER_BASE;
-                typ = typeNames[type];          
-                sprintf(def, "%s#define PASS_%s\n#define TYPE_%s\n#define MAX_LIGHTS %d\n#define MAX_CONTACTS %d\n#define WATER_FOG_DIST (1.0/%d.0)\n", ext, passNames[pass], typ, MAX_LIGHTS, MAX_CONTACTS, WATER_FOG_DIST);
-                #ifdef MERGE_SPRITES
-                    if (type == Shader::SPRITE)
-                        strcat(def, "#define ALIGN_SPRITES 1\n");
-                #endif
+                if (fx & FX_UNDERWATER) SD_ADD(UNDERWATER);
+                if (fx & FX_ALPHA_TEST) SD_ADD(ALPHA_TEST);
 
-                if (fx & FX_UNDERWATER) strcat(def, "#define UNDERWATER\n" UNDERWATER_COLOR);
-                if (fx & FX_ALPHA_TEST) strcat(def, "#define ALPHA_TEST\n");
                 if (pass == Core::passCompose) {
                     if (fx & FX_CLIP_PLANE)
-                        strcat(def, "#define CLIP_PLANE\n");
-                    if (Core::settings.detail.lighting > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
-                        strcat(def, "#define OPT_LIGHTING\n");
+                        SD_ADD(CLIP_PLANE);
                     if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
-                        strcat(def, "#define OPT_AMBIENT\n");
+                        SD_ADD(OPT_AMBIENT);
                     if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM)) {
-                        strcat(def, "#define OPT_SHADOW\n");
+                        SD_ADD(OPT_SHADOW);
 
-                        if (Core::settings.detail.shadows > Core::Settings::MEDIUM) {
-                            strcat(def, "#define OPT_SHADOW_HIGH\n");
-                            sprintf(def, "%s#define SHADOW_TEXEL vec3(1.0 / %d.0, 1.0 / %d.0, 0.0)\n#define SHADOW_OBJ_MAX %d\n", def, SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, SHADOW_OBJ_MAX);
-                        } else
-                            sprintf(def, "%s#define SHADOW_TEXEL vec3(1.0 / %d.0, 1.0 / %d.0, 0.0)\n#define SHADOW_OBJ_MAX %d\n", def, SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, 1);
+                        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
+                            SD_ADD(OPT_SHADOW_HIGH);
                     }
                     if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (type == Shader::ROOM))
-                        strcat(def, "#define OPT_CONTACT\n");
+                        SD_ADD(OPT_CONTACT);
                     if (Core::settings.detail.water    > Core::Settings::MEDIUM && (type == Shader::ENTITY || type == Shader::ROOM) && (fx & FX_UNDERWATER))
-                        strcat(def, "#define OPT_CAUSTICS\n");
+                        SD_ADD(OPT_CAUSTICS);
                 }
                 break;
             }
-            case Core::passWater   : {
-                static const char *typeNames[] = { "DROP", "STEP", "CAUSTICS", "MASK", "COMPOSE" };
-                src = GAPI::SHADER_WATER;
-                typ = typeNames[type];
-                sprintf(def, "%s#define PASS_%s\n#define WATER_%s\n#define WATER_FOG_DIST (1.0/%d.0)\n" UNDERWATER_COLOR, ext, passNames[pass], typ, WATER_FOG_DIST);
-                #ifdef WATER_USE_GRID
-                    strcat(def, "#define WATER_USE_GRID\n");
-                #endif
-                break;
-            }
-            case Core::passFilter  : {
-                static const char *typeNames[] = { "DEFAULT", "DOWNSAMPLE", "GRAYSCALE", "BLUR", "MIXER", "EQUIRECTANGULAR" };
-                src = GAPI::SHADER_FILTER;
-                typ = typeNames[type];
-                sprintf(def, "%s#define PASS_%s\n#define FILTER_%s\n", ext, passNames[pass], typ);
-                break;
-            }
-            case Core::passGUI : {
-                static const char *typeNames[] = { "DEFAULT" };
-                src = GAPI::SHADER_GUI;
-                typ = typeNames[type];
-                sprintf(def, "%s#define PASS_%s\n", ext, passNames[pass]);
-                break;
-            }
+            case Core::passWater   : def[defCount++] = SD_WATER_DROP + type;     break;
+            case Core::passFilter  : def[defCount++] = SD_FILTER_DEFAULT + type; break;
+            case Core::passGUI     : break;
             default : ASSERT(false);
         }
-        LOG("shader: compile %s -> %s %s%s%s\n", passNames[pass], typ, (fx & FX_UNDERWATER) ? "underwater " : "", (fx & FX_ALPHA_TEST) ? "alphaTest " : "", (fx & FX_CLIP_PLANE) ? "clipPlane" : "");
-        return shaders[pass][type][fx] = new Shader(src, def);
+
+        #undef SD_ADD
+
+        LOG("shader: %s(%d) %s%s%s\n", Core::passNames[pass], type, (fx & FX_UNDERWATER) ? "u" : "", (fx & FX_ALPHA_TEST) ? "a" : "", (fx & FX_CLIP_PLANE) ? "c" : "");
+        return shaders[pass][type][fx] = new Shader(pass, def, defCount);
     #else
         return NULL;
     #endif
@@ -220,7 +181,7 @@ struct ShaderCache {
 
         Shader *shader = getShader(pass, type, fx);
         if (shader)
-            shader->bind();
+            shader->setup();
 
         Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     }
@@ -477,11 +438,11 @@ struct WaterCache {
 
             int *mf = new int[4 * w * 64 * h * 64];
             memset(mf, 0, sizeof(int) * 4 * w * 64 * h * 64);
-            data[0] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, 0, mf);
-            data[1] = new Texture(w * 64, h * 64, FMT_RGBA_HALF);
+            data[0] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET, mf);
+            data[1] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET);
             delete[] mf;
 
-            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA) : NULL;
+            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET) : NULL;
             #ifdef BLUR_CAUSTICS
                 caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
             #endif
@@ -513,7 +474,7 @@ struct WaterCache {
     } drops[MAX_DROPS];
 
     WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), dropCount(0) {
-        reflect = new Texture(512, 512, FMT_RGBA);
+        reflect = new Texture(512, 512, FMT_RGBA, OPT_TARGET);
     }
 
     ~WaterCache() { 
@@ -628,7 +589,7 @@ struct WaterCache {
         game->setShader(Core::passWater, Shader::WATER_DROP);
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
 
-        vec3 rPosScale[2] = { vec3(0.0f), vec3(1.0f) };
+        vec4 rPosScale[2] = { vec4(0.0f), vec4(1.0f) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
             
         for (int i = 0; i < dropCount; i++) {
@@ -666,7 +627,7 @@ struct WaterCache {
 
     // calc caustics
         game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
-        vec3 rPosScale[2] = { vec3(0.0f), vec3(32767.0f / PLANE_DETAIL) };
+        vec4 rPosScale[2] = { vec4(0.0f), vec4(32767.0f / PLANE_DETAIL) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
 
         float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
@@ -713,7 +674,8 @@ struct WaterCache {
             Item &item = items[i];
             if (!item.visible) continue;
 
-            Core::active.shader->setParam(uPosScale, item.pos, 2);
+            vec4 rPosScale[2] = { vec4(item.pos, 0.0f), vec4(item.size, 1.0) };
+            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
 
             game->getMesh()->renderQuad();
         }
@@ -870,11 +832,12 @@ struct WaterCache {
             Core::setCullMode(cmNone);
             Core::setBlendMode(bmAlpha);
             #ifdef WATER_USE_GRID
-                vec3 rPosScale[2] = { item.pos, item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL) };
+                vec4 rPosScale[2] = { vec4(item.pos, 0.0f), vec4(item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL), 1.0f) };
                 Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
                 game->getMesh()->renderPlane();
             #else
-                Core::active.shader->setParam(uPosScale, item.pos, 2);
+                vec4 rPosScale[2] = { vec4(item.pos, 0.0f), vec4(item.size, 1.0) };
+                Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
                 game->getMesh()->renderQuad();
             #endif
             Core::setCullMode(cmFront);

@@ -4,6 +4,9 @@ R"====(
 	precision highp float;
 #endif
 
+#define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
+#define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
+
 varying vec3 vCoord;
 varying vec2 vTexCoord;
 varying vec4 vProjCoord;
@@ -12,10 +15,10 @@ varying vec4 vNewPos;
 varying vec3 vViewVec;
 varying vec3 vLightVec;
 
-uniform vec3  uViewPos;
+uniform vec4  uViewPos;
 uniform mat4  uViewProj;
 uniform vec4  uLightPos;
-uniform vec3  uPosScale[2];
+uniform vec4  uPosScale[2];
 
 uniform vec4  uTexParam;
 uniform vec4  uParam;
@@ -29,11 +32,7 @@ uniform sampler2D sNormal;
 	attribute vec4 aCoord;
 
 	void main() {
-		#ifdef WATER_USE_GRID
-		    vec3 coord = aCoord.xyz;
-		#else
-			vec3 coord = aCoord.xyz * (1.0 / 32767.0);
-		#endif
+		vec3 coord = aCoord.xyz * (1.0 / 32767.0);
 
 		vTexCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw;
 
@@ -41,14 +40,7 @@ uniform sampler2D sNormal;
 
 			float height = 0.0;
 
-			#ifdef WATER_COMPOSE
-				#ifdef WATER_USE_GRID
-					vTexCoord = (coord.xy * (1.0 / 48.0) * 0.5 + 0.5) * uTexParam.zw;
-					height = clamp(texture2D(sNormal, vTexCoord).x * 2.0, -0.1, 0.1);
-				#endif
-			#endif
-
-			vCoord = vec3(coord.x, height, coord.y) * uPosScale[1] + uPosScale[0];
+			vCoord = vec3(coord.x, height, coord.y) * uPosScale[1].xyz + uPosScale[0].xyz;
 
 			vec4 cp = uViewProj * vec4(vCoord, 1.0);
 
@@ -76,7 +68,7 @@ uniform sampler2D sNormal;
 				gl_Position = vec4(coord.xyz, 1.0);
 			#endif
 		#endif
-		vViewVec  = uViewPos  - vCoord.xyz;
+		vViewVec  = uViewPos.xyz - vCoord.xyz;
 		vLightVec = uLightPos.xyz - vCoord.xyz;
 	}
 #else

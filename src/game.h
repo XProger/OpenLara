@@ -72,7 +72,7 @@ namespace Game {
     }
 
     void init(const char *lvlName = NULL) {
-        #ifdef _DEBUG
+        #ifdef DEBUG_RENDER
             Debug::init();
         #endif
         char fileName[255];
@@ -87,7 +87,7 @@ namespace Game {
     }
 
     void deinit() {
-        #ifdef _DEBUG
+        #ifdef DEBUG_RENDER
             Debug::deinit();
         #endif
         delete level;
@@ -183,7 +183,7 @@ namespace Game {
         PROFILE_TIMING(Core::stats.tFrame);
 
         level->render();
-        #ifdef _DEBUG
+        #ifdef DEBUG_RENDER
             level->renderDebug();
         #endif    
     }

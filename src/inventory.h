@@ -1107,7 +1107,7 @@ struct Inventory {
 
         for (int i = 0; i < COUNT(background); i++)
             if (!background[i])
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, FMT_RGBA);
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, FMT_RGBA, OPT_TARGET);
 
         return background[0];
     }
@@ -1522,12 +1522,12 @@ struct Inventory {
         Core::whiteTex->bind(sShadow);
         game->setShader(Core::passCompose, Shader::ENTITY, false, false);
 
-        vec3 ambient[6] = {
-            vec3(0.4f), vec3(0.2f), vec3(0.4f), vec3(0.5f), vec3(0.4f), vec3(0.6f)
+        vec4 ambient[6] = {
+            vec4(0.4f), vec4(0.2f), vec4(0.4f), vec4(0.5f), vec4(0.4f), vec4(0.6f)
         };
 
         for (int i = 0; i < MAX_LIGHTS; i++) {
-            Core::lightPos[i]   = vec3(0, 0, 0);
+            Core::lightPos[i]   = vec4(0, 0, 0, 0);
             Core::lightColor[i] = vec4(0, 0, 0, 1);
         }
         

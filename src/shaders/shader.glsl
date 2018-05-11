@@ -4,6 +4,11 @@ R"====(
 	precision highp		float;
 #endif
 
+#define MAX_LIGHTS			4
+#define MAX_CONTACTS		15
+#define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
+#define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
+
 #if (defined(PASS_AMBIENT) || defined(PASS_COMPOSE)) && !defined(TYPE_FLASH)
 	varying vec3 vCoord;
 #endif
@@ -15,11 +20,18 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 #endif
 
 #ifdef OPT_SHADOW
+	#ifdef OPT_SHADOW_HIGH
+		#define SHADOW_OBJ_MAX	8
+		#define SHADOW_TEXEL	vec3(1.0 / 512.0, 1.0 / 256.0, 0.0)
+	#else
+		#define SHADOW_OBJ_MAX	1
+		#define SHADOW_TEXEL	vec3(1.0 / 1024.0, 1.0 / 1024.0, 0.0)
+	#endif
 	uniform mat4 uLightProj[SHADOW_OBJ_MAX];
 #endif
 
 uniform mat4 uViewProj;
-uniform vec3 uViewPos;
+uniform vec4 uViewPos;
 
 uniform vec4 uParam;	// x - time, y - water height, z - clip plane sign, w - clip plane height
 uniform vec4 uLightPos[MAX_LIGHTS];
@@ -53,14 +65,14 @@ uniform vec4 uFogParams;
 	#endif
 
 	#ifdef OPT_AMBIENT
-		uniform vec3 uAmbient[6];
+		uniform vec4 uAmbient[6];
 	
 		vec3 calcAmbient(vec3 n) {
 			vec3 sqr = n * n;
 			vec3 pos = step(0.0, n);
-			return	sqr.x * mix(uAmbient[1], uAmbient[0], pos.x) +
-					sqr.y * mix(uAmbient[3], uAmbient[2], pos.y) +
-					sqr.z * mix(uAmbient[5], uAmbient[4], pos.z);
+			return	sqr.x * mix(uAmbient[1].xyz, uAmbient[0].xyz, pos.x) +
+					sqr.y * mix(uAmbient[3].xyz, uAmbient[2].xyz, pos.y) +
+					sqr.z * mix(uAmbient[5].xyz, uAmbient[4].xyz, pos.z);
 		}
 	#endif
 
@@ -93,14 +105,14 @@ uniform vec4 uFogParams;
 
 		vec4 coord;
 		coord.w = rBasisPos.w; // visible flag
-		#if defined(TYPE_SPRITE) && defined(ALIGN_SPRITES)
+		#if defined(TYPE_SPRITE)
 			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz + aCoord.xyz, vec3(aTexCoord.z, aTexCoord.w, 0.0) * 32767.0);
 		#else
 			coord.xyz = mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
 		#endif
 
 		#ifndef PASS_SHADOW
-			vViewVec = vec4((uViewPos - coord.xyz) * uFogParams.w, coord.y * uParam.z);
+			vViewVec = vec4((uViewPos.xyz - coord.xyz) * uFogParams.w, coord.y * uParam.z);
 		#endif
 
 		#ifdef PASS_AMBIENT
@@ -120,7 +132,7 @@ uniform vec4 uFogParams;
 				if (uViewPos.y < uParam.y)
 					d = abs((coord.y - uParam.y) / normalize(vViewVec.xyz).y);
 				else
-					d = length(uViewPos - coord.xyz);
+					d = length(uViewPos.xyz - coord.xyz);
 				fog = d * WATER_FOG_DIST;
 			#else
 				fog = length(vViewVec.xyz);

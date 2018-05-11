@@ -11,9 +11,10 @@
 #define OS_PTHREAD_MT
 
 #ifdef WIN32
-    #define _OS_WIN  1
-    #define _GAPI_GL 1
-    //#define _GAPI_VULKAN
+    #define _OS_WIN      1
+    //#define _GAPI_GL     1
+    #define _GAPI_D3D9   1
+    //#define _GAPI_VULKAN 1
 
     #include <windows.h>
 
@@ -83,6 +84,7 @@
 
 #include "utils.h"
 
+// muse be equal with base shader
 #define SHADOW_OBJ_COLS         4
 #define SHADOW_OBJ_ROWS         2
 #define SHADOW_TEX_TILE         128
@@ -353,7 +355,8 @@ enum TexOption {
     OPT_CUBEMAP = 1,
     OPT_MIPMAPS = 2, 
     OPT_NEAREST = 4,
-    OPT_PROXY   = 8,
+    OPT_TARGET  = 8,
+    OPT_PROXY   = 16,
 };
 
 // Pipeline State Object
@@ -415,15 +418,50 @@ struct MeshRange {
     E( uViewPos         ) \
     E( uLightPos        ) \
     E( uLightColor      ) \
-    E( uAnimTexRanges   ) \
-    E( uAnimTexOffsets  ) \
     E( uRoomSize        ) \
     E( uPosScale        ) \
     E( uContacts        )
 
-enum AttribType  { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
-enum SamplerType { SHADER_SAMPLERS(DECL_ENUM) sMAX };
-enum UniformType { SHADER_UNIFORMS(DECL_ENUM) uMAX };
+#define SHADER_DEFINES(E) \
+    /* shadow types */ \
+    E( SHADOW_SAMPLER ) \
+    E( SHADOW_DEPTH   ) \
+    E( SHADOW_COLOR   ) \
+    /* compose types */ \
+    E( TYPE_SPRITE    ) \
+    E( TYPE_FLASH     ) \
+    E( TYPE_ROOM      ) \
+    E( TYPE_ENTITY    ) \
+    E( TYPE_MIRROR    ) \
+    /* water sub-passes */ \
+    E( WATER_DROP     ) \
+    E( WATER_STEP     ) \
+    E( WATER_CAUSTICS ) \
+    E( WATER_MASK     ) \
+    E( WATER_COMPOSE  ) \
+    /* filter types */ \
+    E( FILTER_DEFAULT         ) \
+    E( FILTER_DOWNSAMPLE      ) \
+    E( FILTER_GRAYSCALE       ) \
+    E( FILTER_BLUR            ) \
+    E( FILTER_EQUIRECTANGULAR ) \
+    /* options */ \
+    E( UNDERWATER      ) \
+    E( ALPHA_TEST      ) \
+    E( CLIP_PLANE      ) \
+    E( OPT_AMBIENT     ) \
+    E( OPT_SHADOW      ) \
+    E( OPT_SHADOW_HIGH ) \
+    E( OPT_CONTACT     ) \
+    E( OPT_CAUSTICS    )
+
+enum AttribType   { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
+enum SamplerType  { SHADER_SAMPLERS(DECL_ENUM) sMAX };
+enum UniformType  { SHADER_UNIFORMS(DECL_ENUM) uMAX };
+
+#define DECL_SD_ENUM(v) SD_##v,
+enum ShaderDefine { SHADER_DEFINES(DECL_SD_ENUM) SD_MAX };
+#undef DECL_SD_ENUM
 
 const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
 const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
@@ -452,7 +490,7 @@ namespace Core {
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
     mat4 mLightProj[SHADOW_OBJ_MAX];
     Basis basis;
-    vec3 viewPos;
+    vec4 viewPos;
     vec4 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];
     vec4 params;
@@ -463,17 +501,18 @@ namespace Core {
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
+    const char *passNames[Core::passMAX] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
+
     Texture *defaultTarget;
     
     int32   renderState;
 
     struct Active {
-        const PSO   *pso;
-        Shader      *shader;
-        int32       renderState;
-
+        const PSO     *pso;
+        GAPI::Shader  *shader;
         GAPI::Texture *textures[8];
         GAPI::Texture *target;
+        int32         renderState;
         uint32        targetFace;
         uint32        targetOp;
         Viewport      viewport; // TODO: ivec4
@@ -483,9 +522,6 @@ namespace Core {
         uint32      VAO;
         uint32      iBuffer;
         uint32      vBuffer;
-    #elif _GAPI_SCEGU
-        Index          *iBuffer;
-        GAPI::Vertex   *vBuffer;
     #endif
 
         int32       basisCount;
@@ -527,6 +563,8 @@ namespace Core {
 
 #ifdef _GAPI_GL
     #include "gapi_gl.h"
+#elif _GAPI_D3D9
+    #include "gapi_d3d9.h"
 #elif _GAPI_GX
     #include "gapi_gx.h"
 #elif _GAPI_SCEGU
@@ -890,9 +928,11 @@ namespace Core {
 
     void beginFrame() {
         Core::stats.start();
+        GAPI::beginFrame();
     }
 
     void endFrame() {
+        GAPI::endFrame();
         Core::stats.stop();
     }
 
@@ -904,13 +944,15 @@ namespace Core {
         GAPI::setViewProj(mView, mProj);
     }
 
-    void DIP(int iStart, int iCount, Index *iBuffer) {
+    void DIP(GAPI::Mesh *mesh, const MeshRange &range) {
+        mesh->bind(range);
+
         stats.dips++;
-        stats.tris += iCount / 3;
+        stats.tris += range.iCount / 3;
 
         validateRenderState();
 
-        GAPI::DIP(iStart, iCount, iBuffer);
+        GAPI::DIP(mesh, range);
     }
 
     PSO* psoCreate(Shader *shader, uint32 renderState, TexFormat colorFormat = FMT_RGBA, TexFormat depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {
@@ -934,7 +976,7 @@ namespace Core {
         ASSERT(pso);
         ASSERT(pso->data);
         ASSERT(pso->shader);
-        ((Shader*)pso->shader)->bind();
+        ((Shader*)pso->shader)->setup();
         GAPI::bindPSO(pso);
 
         Core::active.pso = pso;

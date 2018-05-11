@@ -289,6 +289,10 @@ namespace GAPI {
         delete[] cmdBuf;
     }
 
+    void beginFrame() {}
+
+    void endFrame() {}
+
     void resetState() {}
 
     void bindTarget(Texture *texture, int face) {
@@ -377,13 +381,13 @@ namespace GAPI {
         sceGumLoadMatrix((ScePspFMatrix4*)&mView);
     }
 
-    void DIP(int iStart, int iCount, Index *iBuffer) {
+    void DIP(Mesh *mesh, const MeshRange &range) {
         mat4 m = mModel;
         m.scale(vec3(32767.0f));
         sceGumMatrixMode(GU_MODEL);
         sceGumLoadMatrix((ScePspFMatrix4*)&m);
 
-        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, iCount, active.iBuffer + iStart, active.vBuffer);
+        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, range.iCount, mesh->iBuffer + range.iStart, mesh->vBuffer);
     }
 
     vec4 copyPixel(int x, int y) {

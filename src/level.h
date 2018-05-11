@@ -11,7 +11,11 @@
 #include "trigger.h"
 #include "inventory.h"
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_GAPI_GL) && !defined(_GAPI_GLES)
+    #define DEBUG_RENDER
+#endif
+
+#ifdef DEBUG_RENDER
     #include "debug.h"
 #endif
 
@@ -1354,7 +1358,7 @@ struct Level : IGame {
             }
 
             setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp == 1);
-            Shader *sh = Core::active.shader;
+            GAPI::Shader *sh = Core::active.shader;
 
             sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
             sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
@@ -1391,7 +1395,7 @@ struct Level : IGame {
                     continue;
 
                 setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
-                Shader *sh = Core::active.shader;
+                GAPI::Shader *sh = Core::active.shader;
 
                 sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
                 sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
@@ -1456,7 +1460,7 @@ struct Level : IGame {
 
             setMainLight(controller);
         } else { // sprite
-            Core::lightPos[0]   = vec3(0);
+            Core::lightPos[0]   = vec4(0, 0, 0, 0);
             Core::lightColor[0] = vec4(0, 0, 0, 1);
         }        
         
@@ -1729,7 +1733,7 @@ struct Level : IGame {
 
     bool checkPortal(const TR::Room &room, const TR::Room::Portal &portal, const vec4 &viewPort, vec4 &clipPort) {
         vec3 n = portal.normal;
-        vec3 v = Core::viewPos - (room.getOffset() + portal.vertices[0]);
+        vec3 v = Core::viewPos.xyz() - (room.getOffset() + portal.vertices[0]);
 
         if (n.dot(v) <= 0.0f)
             return false;
@@ -1976,7 +1980,7 @@ struct Level : IGame {
 
         Core::mLightProj[0] = bias * (Core::mProj * Core::mView);
 
-        camera->frustum->pos = Core::viewPos;
+        camera->frustum->pos = Core::viewPos.xyz();
         camera->frustum->calcPlanes(Core::mViewProj);
 
         setup();
@@ -2124,7 +2128,7 @@ struct Level : IGame {
         Core::eye = oldEye;
     }
 
-    #ifdef _DEBUG
+    #ifdef DEBUG_RENDER
     void renderDebug() {
         if (level.isTitle() || inventory.titleTimer > 1.0f) return;
 
@@ -2240,7 +2244,7 @@ struct Level : IGame {
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
             Core::setDepthTest(true);
             Core::setBlendMode(bmNone);
-        /*
+        /*// render ambient cube
             Core::validateRenderState();
 
             static int dbg_ambient = 0;
@@ -2372,7 +2376,7 @@ struct Level : IGame {
         if (ambientCache)
             ambientCache->processQueue();
 
-        if (shadow)
+        if (shadow && player)
             renderShadows(player->getRoomIndex());
     }
 

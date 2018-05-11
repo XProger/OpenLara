@@ -401,6 +401,90 @@ void sndInit(HWND hwnd) {
     }
 }
 
+HWND hWnd;
+
+#ifdef _GAPI_GL
+    HDC   hDC;
+    HGLRC hRC;
+
+    void ContextCreate() {
+        hDC = GetDC(hWnd);
+
+        PIXELFORMATDESCRIPTOR pfd;
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.nSize        = sizeof(pfd);
+        pfd.nVersion     = 1;
+        pfd.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+        pfd.cColorBits   = 32;
+        pfd.cRedBits     = 8;
+        pfd.cGreenBits   = 8;
+        pfd.cBlueBits    = 8;
+        pfd.cAlphaBits   = 8;
+        pfd.cDepthBits   = 24;
+        pfd.cStencilBits = 8;
+
+        int format = ChoosePixelFormat(hDC, &pfd);
+        SetPixelFormat(hDC, format, &pfd);
+        hRC = wglCreateContext(hDC);
+        wglMakeCurrent(hDC, hRC);
+    }
+
+    void ContextDelete() {
+        wglMakeCurrent(0, 0);
+        wglDeleteContext(hRC);
+        ReleaseDC(hWnd, hDC);
+    }
+
+    void ContextResize() {}
+
+    void ContextSwap() {
+        SwapBuffers(hDC);
+    }
+#else
+    D3DPRESENT_PARAMETERS d3dpp;
+    LPDIRECT3D9           D3D;
+    LPDIRECT3DDEVICE9     device;
+
+    void ContextCreate() {
+        memset(&d3dpp, 0, sizeof(d3dpp));
+        d3dpp.Windowed                  = TRUE;
+        d3dpp.BackBufferCount           = 1;
+        d3dpp.BackBufferWidth           = 1;
+        d3dpp.BackBufferHeight          = 1;
+        d3dpp.BackBufferFormat          = D3DFMT_X8R8G8B8;
+        d3dpp.SwapEffect                = D3DSWAPEFFECT_DISCARD;
+        d3dpp.hDeviceWindow             = hWnd;
+        d3dpp.EnableAutoDepthStencil    = TRUE;
+        d3dpp.AutoDepthStencilFormat    = D3DFMT_D24S8;
+        d3dpp.PresentationInterval      = D3DPRESENT_INTERVAL_IMMEDIATE;
+
+        if (!(D3D = Direct3DCreate9(D3D_SDK_VERSION))) {
+            LOG("! cant't initialize DirectX");
+            return;
+        }
+
+        if (!SUCCEEDED(D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &device))) {
+            LOG("! can't create device");
+        }
+    }
+
+    void ContextDelete() {
+        GAPI::deinit();
+        if (device) device->Release();
+        if (D3D)    D3D->Release();
+    }
+
+    void ContextResize() {
+        d3dpp.BackBufferWidth   = Core::width;
+        d3dpp.BackBufferHeight  = Core::height;
+        device->Reset(&d3dpp);
+    }
+
+    void ContextSwap() {
+        if (device->Present(NULL, NULL, NULL, NULL) == D3DERR_DEVICELOST)
+            ContextResize();
+    }
+#endif
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
@@ -413,6 +497,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_SIZE:
             Core::width  = LOWORD(lParam);
             Core::height = HIWORD(lParam);
+            ContextResize();
             break;
         case WM_DESTROY:
             PostQuitMessage(0);
@@ -485,32 +570,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
     return 0;
-}
-
-HGLRC glInit(HDC hDC) {
-    PIXELFORMATDESCRIPTOR pfd;
-    memset(&pfd, 0, sizeof(pfd));
-    pfd.nSize        = sizeof(pfd);
-    pfd.nVersion     = 1;
-    pfd.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfd.cColorBits   = 32;
-    pfd.cRedBits     = 8;
-    pfd.cGreenBits   = 8;
-    pfd.cBlueBits    = 8;
-    pfd.cAlphaBits   = 8;
-    pfd.cDepthBits   = 24;
-    pfd.cStencilBits = 8;
-
-    int format = ChoosePixelFormat(hDC, &pfd);
-    SetPixelFormat(hDC, format, &pfd);
-    HGLRC hRC = wglCreateContext(hDC);
-    wglMakeCurrent(hDC, hRC);
-    return hRC;
-}
-
-void glFree(HGLRC hRC) {
-    wglMakeCurrent(0, 0);
-    wglDeleteContext(hRC);
 }
 
 #ifdef VR_SUPPORT
@@ -645,10 +704,9 @@ int main(int argc, char** argv) {
     RECT r = { 0, 0, 1280, 720 };
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
 
-    HWND hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
+    hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
 
-    HDC hDC = GetDC(hWnd);
-    HGLRC hRC = glInit(hDC);
+    ContextCreate();
 
 #ifdef VR_SUPPORT
     vrInit();
@@ -694,7 +752,7 @@ int main(int argc, char** argv) {
                 vrCompose();
             #endif
                 Core::waitVBlank();
-                SwapBuffers(hDC);
+                ContextSwap();
             }
             #ifdef _DEBUG
                 Sleep(20);
@@ -709,8 +767,7 @@ int main(int argc, char** argv) {
     vrFree();
 #endif
 
-    glFree(hRC);
-    ReleaseDC(hWnd, hDC);
+    ContextDelete();
 
     DestroyWindow(hWnd);
  #ifdef _DEBUG
