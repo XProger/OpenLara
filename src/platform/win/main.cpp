@@ -459,13 +459,12 @@ HWND hWnd;
         d3dpp.PresentationInterval      = D3DPRESENT_INTERVAL_IMMEDIATE;
 
         if (!(D3D = Direct3DCreate9(D3D_SDK_VERSION))) {
-            LOG("! cant't initialize DirectX");
+            LOG("! cant't initialize DirectX\n");
             return;
         }
 
-        if (!SUCCEEDED(D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &device))) {
-            LOG("! can't create device");
-        }
+        if (!SUCCEEDED(D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &device)))
+            LOG("! can't create device\n");
     }
 
     void ContextDelete() {

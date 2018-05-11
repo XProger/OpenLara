@@ -500,8 +500,8 @@ struct mat4 {
         e11 = 2.0f / (t - b);
         e22 = 2.0f / (znear - zfar);
         e03 = (l + r) / (l - r);
-        e13 = (b + t) / (b - t);
-        e23 = (zfar + znear) / (znear - zfar);
+        e13 = (t + b) / (b - t);
+        e23 = znear / (znear - zfar);
     }
 
     mat4(float fov, float aspect, float znear, float zfar) {

@@ -296,7 +296,6 @@ namespace UI {
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
         Core::setMaterial(1, 1, 1, 1);
-        Core::active.shader->setParam(uPosScale, vec4(0, 0, 1, 1));
 
         buffer.iCount = buffer.vCount = 0;
 
@@ -476,7 +475,11 @@ namespace UI {
     }
 
     void renderControl(const vec2 &pos, float size, bool active) {
-        Core::active.shader->setParam(uPosScale, vec4(pos, vec2(size * (active ? 2.0f : 1.0f) / 32767.0f)));
+        vec2 scale = vec2(size * (active ? 2.0f : 1.0f) / 32767.0f);
+        mat4 m = Core::mViewProj;
+        m.translate(vec3(pos.x, pos.y, 0.0));
+        m.scale(vec3(scale.x, scale.y, 1.0));
+        Core::active.shader->setParam(uViewProj, m);
         Core::active.shader->setParam(uMaterial, vec4(1.0f, 1.0f, 1.0f, active ? 0.7f : 0.5f));
         game->getMesh()->renderCircle();
     }

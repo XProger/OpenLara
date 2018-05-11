@@ -896,7 +896,7 @@ namespace GAPI {
 */
 
     #ifdef FFP
-        support.maxAniso       = 1;
+        support.maxAniso       = 0;
         support.maxVectors     = 0;
         support.shaderBinary   = false;
         support.VAO            = false;
@@ -906,7 +906,6 @@ namespace GAPI {
         support.texNPOT        = false;
         support.texRG          = false;
         support.texBorder      = false;
-        support.maxAniso       = false;
         support.colorFloat     = false;
         support.colorHalf      = false;
         support.texFloatLinear = false;

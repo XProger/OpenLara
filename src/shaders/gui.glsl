@@ -9,7 +9,6 @@ varying vec4 vColor;
 
 #ifdef VERTEX
 	uniform mat4 uViewProj;
-	uniform vec4 uPosScale;
 	uniform vec4 uMaterial;
 
 	attribute vec4 aCoord;
@@ -19,7 +18,7 @@ varying vec4 vColor;
 	void main() {
 		vTexCoord	= aTexCoord.xy;
 		vColor		= aLight * uMaterial;
-		gl_Position = uViewProj * vec4(aCoord.xy * uPosScale.zw + uPosScale.xy, 0.0, 1.0);
+		gl_Position = uViewProj * vec4(aCoord.xyz, 1.0);
 	}
 #else
 	uniform sampler2D	sDiffuse;

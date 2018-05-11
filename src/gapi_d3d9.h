@@ -21,11 +21,6 @@ namespace GAPI {
     #include "shaders/gui_vs.h"
     #include "shaders/gui_ps.h"
 
-    const char *SHADER_BASE   = NULL;
-    const char *SHADER_WATER  = NULL;
-    const char *SHADER_FILTER = NULL;
-    const char *SHADER_GUI    = NULL;
-
     using namespace Core;
 
     typedef ::Vertex Vertex;
@@ -45,20 +40,20 @@ namespace GAPI {
         int reg;
         int usage;
     } bindings[uMAX] = {
-        {   0, USAGE_VS | USAGE_PS }, // uParam
-        {   1, USAGE_VS | USAGE_PS }, // uTexParam
-        {   2, USAGE_VS | USAGE_PS }, // uViewProj
-        {   6, USAGE_VS | USAGE_PS }, // uBasis
-        {  70, USAGE_VS | USAGE_PS }, // uLightProj
-        { 102, USAGE_VS | USAGE_PS }, // uMaterial
-        { 103, USAGE_VS | USAGE_PS }, // uAmbient
-        { 109, USAGE_VS | USAGE_PS }, // uFogParams
-        { 110, USAGE_VS | USAGE_PS }, // uViewPos
-        { 111, USAGE_VS | USAGE_PS }, // uLightPos
-        { 115, USAGE_VS | USAGE_PS }, // uLightColor
-        { 119, USAGE_VS | USAGE_PS }, // uRoomSize
-        { 120, USAGE_VS | USAGE_PS }, // uPosScale
-        { 122, USAGE_VS | USAGE_PS }, // uContacts
+        {   1, USAGE_VS | USAGE_PS }, // uParam
+        {   2, USAGE_VS | USAGE_PS }, // uTexParam
+        {   3, USAGE_VS | USAGE_PS }, // uViewProj
+        {   7, USAGE_VS | USAGE_PS }, // uBasis
+        {  71, USAGE_VS | USAGE_PS }, // uLightProj
+        { 103, USAGE_VS | USAGE_PS }, // uMaterial
+        { 104, USAGE_VS | USAGE_PS }, // uAmbient
+        { 110, USAGE_VS | USAGE_PS }, // uFogParams
+        { 111, USAGE_VS | USAGE_PS }, // uViewPos
+        { 112, USAGE_VS | USAGE_PS }, // uLightPos
+        { 116, USAGE_VS | USAGE_PS }, // uLightColor
+        { 120, USAGE_VS | USAGE_PS }, // uRoomSize
+        { 121, USAGE_VS | USAGE_PS }, // uPosScale
+        { 123, USAGE_VS | USAGE_PS }, // uContacts
     };
 
     struct Shader {
@@ -209,12 +204,12 @@ namespace GAPI {
 
 // Mesh
     struct Mesh {
-        LPDIRECT3DINDEXBUFFER9	IB;
-        LPDIRECT3DVERTEXBUFFER9	VB;
+        LPDIRECT3DINDEXBUFFER9  IB;
+        LPDIRECT3DVERTEXBUFFER9 VB;
 
-        int          iCount;
-        int          vCount;
-        bool         dynamic;
+        int  iCount;
+        int  vCount;
+        bool dynamic;
 
         Mesh(bool dynamic) : IB(NULL), VB(NULL), dynamic(dynamic) {}
 
@@ -281,7 +276,7 @@ namespace GAPI {
         LOG("Vendor   : %s\n", adapterInfo.Description);
         LOG("Renderer : Direct3D 9.0c\n");
 
-        support.maxAniso       = 1;
+        support.maxAniso       = 16;
         support.maxVectors     = 16;
         support.shaderBinary   = false;
         support.VAO            = false;
@@ -291,7 +286,6 @@ namespace GAPI {
         support.texNPOT        = false;
         support.texRG          = false;
         support.texBorder      = false;
-        support.maxAniso       = false;
         support.colorFloat     = false;
         support.colorHalf      = false;
         support.texFloatLinear = false;
