@@ -358,15 +358,16 @@ namespace GAPI {
             }
 
             char defines[1024];
-            sprintf(defines, "#define PASS_%s\n", passNames[pass]);
+            defines[0] = 0;
 
             for (int i = 0; i < defCount; i++) {
                 #ifdef _GAPI_GLES
                     if (def[i] == SD_SHADOW_SAMPLER)
-                        strcat(ext, "#extension GL_EXT_shadow_samplers : require\n");
+                        strcat(defines, "#extension GL_EXT_shadow_samplers : require\n"); // ACHTUNG! must be first in the list
                 #endif
                 sprintf(defines, "%s#define %s\n", defines, DefineName[def[i]]);
             }
+            sprintf(defines, "%s#define PASS_%s\n", defines, passNames[pass]);
 
             char fileName[255];
         // generate shader file path

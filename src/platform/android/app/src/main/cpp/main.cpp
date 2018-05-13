@@ -65,7 +65,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
     strcat(Stream::cacheDir, str);
     env->ReleaseStringUTFChars(cacheDir, str);
 
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&Core::defaultFBO);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&GAPI::defaultFBO);
     Game::init();
 }
 
@@ -78,7 +78,7 @@ JNI_METHOD(void, nativeReset)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeUpdate)(JNIEnv* env) {
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&Core::defaultFBO);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&GAPI::defaultFBO);
 
     Game::update();
 }
@@ -88,7 +88,7 @@ JNI_METHOD(void, nativeFrameBegin)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeFrameEnd)(JNIEnv* env) {
-    Core::setBlending(bmNone);
+    Core::setBlendMode(bmNone);
     Core::validateRenderState();
 
     Game::frameEnd();
@@ -101,7 +101,7 @@ JNI_METHOD(void, nativeFrameRender)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeResize)(JNIEnv* env, jobject obj, jint x, jint y, jint w, jint h) {
-    Core::viewportDef = vec4(float(x), float(y), float(w), float(h));
+    Core::viewportDef = Viewport(x, y, w, h);
     Core::x      = x;
     Core::y      = y;
     Core::width  = w;
