@@ -2149,7 +2149,7 @@ struct Lara : Character {
             float ceiling = c.info[Collision::FRONT].ceiling;
             float hands   = bounds.min.y;
 
-            if (fabsf(floor - hands) < 64 && floor != ceiling) {
+            if (fabsf(floor - hands) < 64 && int(floor) != int(ceiling)) {
                 alignToWall(-LARA_RADIUS);
                 pos.y = float(floor + LARA_HANG_OFFSET);
                 stand = STAND_HANG;
