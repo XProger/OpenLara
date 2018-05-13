@@ -289,7 +289,9 @@ namespace GAPI {
         delete[] cmdBuf;
     }
 
-    void beginFrame() {}
+    bool beginFrame() {
+        return true;
+    }
 
     void endFrame() {}
 

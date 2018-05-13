@@ -122,6 +122,7 @@ struct Lock {
 
 #define OS_LOCK(mutex) Lock _lock(mutex)
 
+/*
 extern void* osRWLockInit    ();
 extern void  osRWLockFree    (void *obj);
 extern void  osRWLockRead    (void *obj);
@@ -156,6 +157,7 @@ struct LockWrite {
 
 #define OS_LOCK_READ(rwLock)  LockRead  _rLock(rwLock)
 #define OS_LOCK_WRITE(rwLock) LockWrite _wLock(rwLock)
+*/
 
 enum InputKey { ikNone,
 // keyboard
@@ -926,9 +928,9 @@ namespace Core {
         validateRenderState();
     }
 
-    void beginFrame() {
+    bool beginFrame() {
         Core::stats.start();
-        GAPI::beginFrame();
+        return GAPI::beginFrame();
     }
 
     void endFrame() {

@@ -17,8 +17,6 @@ VS_OUTPUT main(VS_INPUT In) {
 
 #else // PIXEL
 
-sampler sDiffuse : register(s0);
-
 float4 main(VS_OUTPUT In) : COLOR0 {
 	return (In.vDiffuse * tex2D(sDiffuse, In.vTexCoord.xy)).bgra;
 }

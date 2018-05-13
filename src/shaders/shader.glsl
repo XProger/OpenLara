@@ -402,7 +402,6 @@ uniform vec4 uFogParams;
 			color *= vDiffuse;
 
 			#if !defined(TYPE_FLASH) && !defined(TYPE_MIRROR)
-				vec3 lightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
 
 				#ifdef PASS_AMBIENT
 					color.xyz *= vLight.xyz;
@@ -410,7 +409,8 @@ uniform vec4 uFogParams;
 
 				#ifdef PASS_COMPOSE
 
-					vec3 n = normalize(vNormal.xyz);
+					vec3 lightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
+					vec3 normal   = normalize(vNormal.xyz);
 
 					#ifdef TYPE_ENTITY
 						float rSpecular = uMaterial.z + 0.03;
@@ -441,17 +441,17 @@ uniform vec4 uFogParams;
 					#endif
 
 					#ifdef OPT_CAUSTICS
-						light += calcCaustics(n);
+						light += calcCaustics(normal);
 					#endif
 
 					#ifdef OPT_CONTACT
-						light *= getContactAO(vCoord, n) * 0.5 + 0.5;
+						light *= getContactAO(vCoord, normal) * 0.5 + 0.5;
 					#endif
 
 					color.xyz *= light;
 
 					#ifdef TYPE_ENTITY
-						color.xyz += calcSpecular(n, vViewVec.xyz, lightVec.xyz, uLightColor[0], rSpecular);
+						color.xyz += calcSpecular(normal, vViewVec.xyz, lightVec, uLightColor[0], rSpecular);
 					#endif
 
 					#ifdef UNDERWATER

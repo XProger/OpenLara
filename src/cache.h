@@ -84,6 +84,7 @@ struct ShaderCache {
     void prepareShadows(int fx) {
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow | RS_DISCARD);
+        compile(Core::passShadow, Shader::MIRROR, fx, rsShadow);
     }
 
     void prepareWater(int fx) {
@@ -169,7 +170,7 @@ struct ShaderCache {
         #undef SD_ADD
 
         LOG("shader: %s(%d) %s%s%s\n", Core::passNames[pass], type, (fx & FX_UNDERWATER) ? "u" : "", (fx & FX_ALPHA_TEST) ? "a" : "", (fx & FX_CLIP_PLANE) ? "c" : "");
-        return shaders[pass][type][fx] = new Shader(pass, def, defCount);
+        return shaders[pass][type][fx] = new Shader(pass, type, def, defCount);
     #else
         return NULL;
     #endif
@@ -233,7 +234,7 @@ struct AmbientCache {
     // init downsample textures
         for (int j = 0; j < 6; j++)
             for (int i = 0; i < 4; i++)
-                textures[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), FMT_RGBA, false);
+                textures[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), FMT_RGBA, OPT_TARGET | OPT_NEAREST);
     }
 
     ~AmbientCache() {
@@ -277,7 +278,7 @@ struct AmbientCache {
         for (int i = 1; i < 4; i++) {
             int size = 64 >> (i << 1);
 
-            Core::active.shader->setParam(uParam, vec4(float(size << 2), 0.0f, 0.0f, 0.0f));
+            Core::active.shader->setParam(uParam, vec4(1.0f / (size << 2), 0.0f, 0.0f, 0.0f));
 
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
@@ -300,6 +301,7 @@ struct AmbientCache {
 
     void processQueue() {
         game->setupBinding();
+
         for (int i = 0; i < tasksCount; i++) {
             Task &task = tasks[i];
             

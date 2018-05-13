@@ -169,11 +169,14 @@ namespace Game {
         return true;
     }
 
-    void frameBegin() {
-        if (Core::settings.version == SETTINGS_READING) return;
+    bool frameBegin() {
+        if (Core::settings.version == SETTINGS_READING) return false;
         Core::reset();
-        Core::beginFrame();
-        level->renderPrepare();
+        if (Core::beginFrame()) {
+            level->renderPrepare();
+            return true;
+        }
+        return false;
     }
 
     void frameRender() {
@@ -195,10 +198,13 @@ namespace Game {
         Core::endFrame();
     }
 
-    void render() {
-        frameBegin();
-        frameRender();
-        frameEnd();
+    bool render() {
+        if (frameBegin()) {
+            frameRender();
+            frameEnd();
+            return true;
+        }
+        return false;
     }
 }
 

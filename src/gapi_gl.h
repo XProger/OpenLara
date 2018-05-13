@@ -335,7 +335,7 @@ namespace GAPI {
 
     struct Shader {
     #ifdef FFP
-        void init(Core::Pass pass, int *def, int defCount) {}
+        void init(Core::Pass pass, int type, int *def, int defCount) {}
         void deinit() {}
         void bind() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
@@ -345,7 +345,7 @@ namespace GAPI {
         uint32  ID;
         int32   uID[uMAX];
 
-        void init(Core::Pass pass, int *def, int defCount) {
+        void init(Core::Pass pass, int type, int *def, int defCount) {
             const char *source;
             switch (pass) {
                 case Core::passCompose :
@@ -977,7 +977,9 @@ namespace GAPI {
                 glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
     }
 
-    void beginFrame() {}
+    bool beginFrame() {
+        return true;
+    }
 
     void endFrame() {}
 

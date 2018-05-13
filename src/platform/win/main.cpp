@@ -50,26 +50,6 @@ void osMutexUnlock(void *obj) {
 }
 
 /*
-void* osMutexInit() {
-    HANDLE *mutex = new HANDLE();
-    *mutex = CreateMutex(NULL, FALSE, NULL);
-    return mutex;
-}
-
-void osMutexFree(void *obj) {
-    CloseHandle(*(HANDLE*)obj);
-    delete (HANDLE*)obj;
-}
-
-void osMutexLock(void *obj) {
-    WaitForSingleObject(*(HANDLE*)obj, INFINITE);
-}
-
-void osMutexUnlock(void *obj) {
-    ReleaseMutex(*(HANDLE*)obj);
-}
-*/
-
 void* osRWLockInit() {
     SRWLOCK *lock = new SRWLOCK();
     InitializeSRWLock(lock);
@@ -95,7 +75,7 @@ void osRWLockWrite(void *obj) {
 void osRWUnlockWrite(void *obj) {
     ReleaseSRWLockExclusive((SRWLOCK*)obj);
 }
-
+*/
 
 // timing
 int osStartTime = 0;
@@ -441,16 +421,14 @@ HWND hWnd;
         SwapBuffers(hDC);
     }
 #else
-    D3DPRESENT_PARAMETERS d3dpp;
     LPDIRECT3D9           D3D;
     LPDIRECT3DDEVICE9     device;
+    D3DPRESENT_PARAMETERS d3dpp;
 
     void ContextCreate() {
         memset(&d3dpp, 0, sizeof(d3dpp));
         d3dpp.Windowed                  = TRUE;
         d3dpp.BackBufferCount           = 1;
-        d3dpp.BackBufferWidth           = 1;
-        d3dpp.BackBufferHeight          = 1;
         d3dpp.BackBufferFormat          = D3DFMT_X8R8G8B8;
         d3dpp.SwapEffect                = D3DSWAPEFFECT_DISCARD;
         d3dpp.hDeviceWindow             = hWnd;
@@ -474,14 +452,16 @@ HWND hWnd;
     }
 
     void ContextResize() {
-        d3dpp.BackBufferWidth   = Core::width;
-        d3dpp.BackBufferHeight  = Core::height;
-        device->Reset(&d3dpp);
+        if (Core::width <= 0 || Core::height <= 0)
+            return;
+        d3dpp.BackBufferWidth  = Core::width;
+        d3dpp.BackBufferHeight = Core::height;
+        GAPI::resetDevice();
     }
 
     void ContextSwap() {
         if (device->Present(NULL, NULL, NULL, NULL) == D3DERR_DEVICELOST)
-            ContextResize();
+            GAPI::resetDevice();
     }
 #endif
 

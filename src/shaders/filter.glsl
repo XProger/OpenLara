@@ -23,13 +23,11 @@ uniform vec4 uParam;
 	uniform sampler2D sNormal;
 
 	vec4 downsample() { // uParam (textureSize, unused, unused, unused)
-		float k = 1.0 / uParam.x; // inverted texture size
-
 		vec4 color = vec4(0.0);
 		for (float y = -1.5; y < 2.0; y++)
 			for (float x = -1.5; x < 2.0; x++) {
 				vec4 p;
-				p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * k).xyz;
+				p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * uParam.x).xyz;
 				p.w    = dot(p.xyz, vec3(0.299, 0.587, 0.114));
 				p.xyz *= p.w;
 				color += p;

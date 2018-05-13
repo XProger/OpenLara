@@ -13,8 +13,8 @@ struct Shader : GAPI::Shader {
         MAX = 6
     };
 
-    Shader(Core::Pass pass, int *def, int defCount) : GAPI::Shader() {
-        init(pass, def, defCount);
+    Shader(Core::Pass pass, Type type, int *def, int defCount) : GAPI::Shader() {
+        init(pass, type, def, defCount);
     }
 
     virtual ~Shader() {

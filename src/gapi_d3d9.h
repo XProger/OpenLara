@@ -8,12 +8,54 @@
 #define PROFILE_LABEL(id, name, label)
 #define PROFILE_TIMING(time)
     
-extern LPDIRECT3D9       D3D;
-extern LPDIRECT3DDEVICE9 device;
+extern LPDIRECT3D9           D3D;
+extern LPDIRECT3DDEVICE9     device;
+extern D3DPRESENT_PARAMETERS d3dpp;
+
+#ifdef _DEBUG
+void D3DCHECK(HRESULT res) {
+    if (res == D3D_OK) return;
+
+    LOG("! ");
+    switch (res) {
+        case D3DERR_WRONGTEXTUREFORMAT        : LOG("D3DERR_WRONGTEXTUREFORMAT");        break;
+        case D3DERR_UNSUPPORTEDCOLOROPERATION : LOG("D3DERR_UNSUPPORTEDCOLOROPERATION"); break;
+        case D3DERR_UNSUPPORTEDCOLORARG       : LOG("D3DERR_UNSUPPORTEDCOLORARG");       break;
+        case D3DERR_UNSUPPORTEDALPHAOPERATION : LOG("D3DERR_UNSUPPORTEDALPHAOPERATION"); break;
+        case D3DERR_UNSUPPORTEDALPHAARG       : LOG("D3DERR_UNSUPPORTEDALPHAARG");       break;
+        case D3DERR_TOOMANYOPERATIONS         : LOG("D3DERR_TOOMANYOPERATIONS");         break;
+        case D3DERR_CONFLICTINGTEXTUREFILTER  : LOG("D3DERR_CONFLICTINGTEXTUREFILTER");  break;
+        case D3DERR_UNSUPPORTEDFACTORVALUE    : LOG("D3DERR_UNSUPPORTEDFACTORVALUE");    break;
+        case D3DERR_CONFLICTINGRENDERSTATE    : LOG("D3DERR_CONFLICTINGRENDERSTATE");    break;
+        case D3DERR_UNSUPPORTEDTEXTUREFILTER  : LOG("D3DERR_UNSUPPORTEDTEXTUREFILTER");  break;
+        case D3DERR_CONFLICTINGTEXTUREPALETTE : LOG("D3DERR_CONFLICTINGTEXTUREPALETTE"); break;
+        case D3DERR_DRIVERINTERNALERROR       : LOG("D3DERR_DRIVERINTERNALERROR");       break;
+        case D3DERR_NOTFOUND                  : LOG("D3DERR_NOTFOUND");                  break;
+        case D3DERR_MOREDATA                  : LOG("D3DERR_MOREDATA");                  break;
+        case D3DERR_DEVICELOST                : LOG("D3DERR_DEVICELOST");                break;
+        case D3DERR_DEVICENOTRESET            : LOG("D3DERR_DEVICENOTRESET");            break;
+        case D3DERR_NOTAVAILABLE              : LOG("D3DERR_NOTAVAILABLE");              break;
+        case D3DERR_OUTOFVIDEOMEMORY          : LOG("D3DERR_OUTOFVIDEOMEMORY");          break;
+        case D3DERR_INVALIDDEVICE             : LOG("D3DERR_INVALIDDEVICE");             break;
+        case D3DERR_INVALIDCALL               : LOG("D3DERR_INVALIDCALL");               break;
+        case D3DERR_DRIVERINVALIDCALL         : LOG("D3DERR_DRIVERINVALIDCALL");         break;
+        case D3DERR_WASSTILLDRAWING           : LOG("D3DERR_WASSTILLDRAWING");           break;
+        default                               : LOG("D3DERR_UNKNOWN");                   break;
+    }
+    LOG("\n");
+    ASSERT(false);
+}
+#else
+    #define D3DCHECK(res) res
+#endif
 
 namespace GAPI {
-    #include "shaders/base_vs.h"
-    #include "shaders/base_ps.h"
+    #include "shaders/compose_vs.h"
+    #include "shaders/compose_ps.h"
+    #include "shaders/shadow_vs.h"
+    #include "shaders/shadow_ps.h"
+    #include "shaders/ambient_vs.h"
+    #include "shaders/ambient_ps.h"
     #include "shaders/water_vs.h"
     #include "shaders/water_ps.h"
     #include "shaders/filter_vs.h"
@@ -28,7 +70,38 @@ namespace GAPI {
     int cullMode, blendMode;
     uint32 clearColor;
 
+    LPDIRECT3DSURFACE9           defBackBuffer;
     LPDIRECT3DVERTEXDECLARATION9 vertexDecl;
+
+
+    struct Texture;
+    struct Mesh;
+
+    struct Resource {
+        Texture *texture;
+        Mesh    *mesh;
+    } resList[256];
+    int resCount;
+
+    void registerResource(Mesh *mesh) {
+        resList[resCount].mesh    = mesh;
+        resList[resCount].texture = NULL;
+        resCount++;
+    }
+
+    void registerResource(Texture *texture) {
+        resList[resCount].mesh    = NULL;
+        resList[resCount].texture = texture;
+        resCount++;
+    }
+
+    void unregisterResource(void *res) {
+        for (int i = 0; i < resCount; i++)
+            if (resList[i].mesh == res || resList[i].texture == res) {
+                resList[i] = resList[--resCount];
+                break;
+            }
+    }
 
 // Shader
     enum {
@@ -40,38 +113,56 @@ namespace GAPI {
         int reg;
         int usage;
     } bindings[uMAX] = {
-        {   1, USAGE_VS | USAGE_PS }, // uParam
-        {   2, USAGE_VS | USAGE_PS }, // uTexParam
-        {   3, USAGE_VS | USAGE_PS }, // uViewProj
-        {   7, USAGE_VS | USAGE_PS }, // uBasis
-        {  71, USAGE_VS | USAGE_PS }, // uLightProj
-        { 103, USAGE_VS | USAGE_PS }, // uMaterial
-        { 104, USAGE_VS | USAGE_PS }, // uAmbient
-        { 110, USAGE_VS | USAGE_PS }, // uFogParams
-        { 111, USAGE_VS | USAGE_PS }, // uViewPos
-        { 112, USAGE_VS | USAGE_PS }, // uLightPos
-        { 116, USAGE_VS | USAGE_PS }, // uLightColor
-        { 120, USAGE_VS | USAGE_PS }, // uRoomSize
-        { 121, USAGE_VS | USAGE_PS }, // uPosScale
-        { 123, USAGE_VS | USAGE_PS }, // uContacts
+        {   0, USAGE_VS | USAGE_PS }, // uParam
+        {   1, USAGE_VS | USAGE_PS }, // uTexParam
+        {   2, USAGE_VS | USAGE_PS }, // uViewProj
+        {   6, USAGE_VS | USAGE_PS }, // uBasis
+        {  70, USAGE_VS | USAGE_PS }, // uLightProj
+        { 102, USAGE_VS | USAGE_PS }, // uMaterial
+        { 103, USAGE_VS | USAGE_PS }, // uAmbient
+        { 109, USAGE_VS | USAGE_PS }, // uFogParams
+        { 110, USAGE_VS | USAGE_PS }, // uViewPos
+        { 111, USAGE_VS | USAGE_PS }, // uLightPos
+        { 115, USAGE_VS | USAGE_PS }, // uLightColor
+        { 119, USAGE_VS | USAGE_PS }, // uRoomSize
+        { 120, USAGE_VS | USAGE_PS }, // uPosScale
+        { 122, USAGE_VS | USAGE_PS }, // uContacts
     };
 
     struct Shader {
         LPDIRECT3DVERTEXSHADER9 VS;
         LPDIRECT3DPIXELSHADER9  PS;
 
+        BOOL flags[16];
+
         Shader() : VS(NULL), PS(NULL) {}
 
-        void init(Core::Pass pass, int *def, int defCount) {
+        void init(Core::Pass pass, int type, int *def, int defCount) {
             const BYTE *vSrc, *pSrc;
             switch (pass) {
-                case Core::passCompose :
-                case Core::passShadow  :
-                case Core::passAmbient : vSrc = BASE_VS;   pSrc = BASE_PS;   break;
-                case Core::passWater   : vSrc = WATER_VS;  pSrc = WATER_PS;  break;
-                case Core::passFilter  : vSrc = FILTER_VS; pSrc = FILTER_PS; break;
-                case Core::passGUI     : vSrc = GUI_VS;    pSrc = GUI_PS;    break;
+                case Core::passCompose : vSrc = COMPOSE_VS; pSrc = COMPOSE_PS; break;
+                case Core::passShadow  : vSrc = SHADOW_VS;  pSrc = SHADOW_PS;  break;
+                case Core::passAmbient : vSrc = AMBIENT_VS; pSrc = AMBIENT_PS; break;
+                case Core::passWater   : vSrc = WATER_VS;   pSrc = WATER_PS;   break;
+                case Core::passFilter  : vSrc = FILTER_VS;  pSrc = FILTER_PS;  break;
+                case Core::passGUI     : vSrc = GUI_VS;     pSrc = GUI_PS;     break;
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
+            }
+
+            memset(flags, 0, sizeof(flags));
+            flags[type] = TRUE;
+
+            for (int i = 0; i < defCount; i++) {
+                switch (def[i]) {
+                    case SD_UNDERWATER      : flags[ 5] = TRUE; break;
+                    case SD_ALPHA_TEST      : flags[ 6] = TRUE; break;
+                    case SD_CLIP_PLANE      : flags[ 7] = TRUE; break;
+                    case SD_OPT_AMBIENT     : flags[ 8] = TRUE; break;
+                    case SD_OPT_SHADOW      : flags[ 9] = TRUE; break;
+                    case SD_OPT_SHADOW_HIGH : flags[10] = TRUE; break;
+                    case SD_OPT_CONTACT     : flags[11] = TRUE; break;
+                    case SD_OPT_CAUSTICS    : flags[12] = TRUE; break;
+                }
             }
 
             device->CreateVertexShader ((DWORD*)vSrc, &VS);
@@ -88,6 +179,9 @@ namespace GAPI {
                 Core::active.shader = this;
                 device->SetVertexShader(VS);
                 device->SetPixelShader(PS);
+
+                device->SetVertexShaderConstantB (0, flags, COUNT(flags));
+                device->SetPixelShaderConstantB  (0, flags, COUNT(flags));
             }
         }
 
@@ -127,7 +221,9 @@ namespace GAPI {
             bool filter   = (opt & OPT_NEAREST) == 0;
             bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
             bool cube     = (opt & OPT_CUBEMAP) != 0;
+            bool isTarget = (opt & OPT_TARGET)  != 0;
             bool isShadow = fmt == FMT_SHADOW;
+            bool isDepth  = fmt == FMT_DEPTH || fmt == FMT_DEPTH_STENCIL || fmt == FMT_SHADOW;
 
             static const struct FormatDesc {
                 int       bpp;
@@ -146,26 +242,38 @@ namespace GAPI {
 
             FormatDesc desc = formats[fmt];
 
+            uint32 usage = 0;
+            if (mipmaps)  usage |= D3DUSAGE_AUTOGENMIPMAP;
+            if (isDepth)  usage |= D3DUSAGE_DEPTHSTENCIL;
+            if (isTarget) usage |= D3DUSAGE_RENDERTARGET;
+
+            D3DPOOL pool = isTarget ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
+
             if (cube) {
-                device->CreateCubeTexture(width, 1, 0, desc.format, D3DPOOL_MANAGED, &texCube, NULL);
+                D3DCHECK(device->CreateCubeTexture(width, 1, usage, desc.format, pool, &texCube, NULL));
             } else {
-                device->CreateTexture(width, height, 1, 0, desc.format, D3DPOOL_MANAGED, &tex2D, NULL);
-                if (data) {
+                D3DCHECK(device->CreateTexture(width, height, 1, usage, desc.format, pool, &tex2D, NULL));
+                if (data && !isTarget) {
                     D3DLOCKED_RECT rect;
-                    tex2D->LockRect(0, &rect, NULL, 0);
+                    D3DCHECK(tex2D->LockRect(0, &rect, NULL, 0));
                     memcpy(rect.pBits, data, width * height * (desc.bpp / 8));
-                    tex2D->UnlockRect(0);
+                    D3DCHECK(tex2D->UnlockRect(0));
                 }
             }
+
+            if (pool != D3DPOOL_MANAGED)
+                registerResource(this);
         }
 
         void deinit() {
+            unregisterResource(this);
             if (tex2D)   tex2D->Release();
             if (texCube) texCube->Release();
         }
 
         void generateMipMap() {
-            // TODO
+            if (texCube) texCube->GenerateMipSubLevels();
+            if (tex2D)   tex2D->GenerateMipSubLevels();
         }
 
         void bind(int sampler) {
@@ -178,6 +286,25 @@ namespace GAPI {
                     device->SetTexture(sampler, tex2D);
                 else if (texCube)
                     device->SetTexture(sampler, texCube);
+
+                bool filter  = (Core::settings.detail.filter > Core::Settings::LOW)    && !(opt & OPT_NEAREST);
+                bool mipmaps = (Core::settings.detail.filter > Core::Settings::MEDIUM) &&  (opt & OPT_MIPMAPS);
+                bool aniso   = filter && mipmaps && (Core::support.maxAniso > 0);
+
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSU,  D3DTADDRESS_CLAMP);
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSV,  D3DTADDRESS_CLAMP);
+
+                if (aniso) {
+                    device->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+                    device->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
+                    device->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+                    device->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, support.maxAniso);
+                } else {
+                    device->SetSamplerState(sampler, D3DSAMP_MINFILTER, filter ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+                    device->SetSamplerState(sampler, D3DSAMP_MAGFILTER, filter ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+                    device->SetSamplerState(sampler, D3DSAMP_MIPFILTER, mipmaps ? (filter ? D3DTEXF_LINEAR : D3DTEXF_POINT) : D3DTEXF_NONE);
+                    device->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, 1);
+                }
             }
         }
 
@@ -188,18 +315,7 @@ namespace GAPI {
             }
         }
 
-        void setFilterQuality(int value) {
-            bool filter  = value > Core::Settings::LOW;
-            bool mipmaps = value > Core::Settings::MEDIUM;
-
-            for (int i = 0; i < sMAX; i++) {
-                device->SetSamplerState(i, D3DSAMP_ADDRESSU,  D3DTADDRESS_CLAMP);
-                device->SetSamplerState(i, D3DSAMP_ADDRESSV,  D3DTADDRESS_CLAMP);
-                device->SetSamplerState(i, D3DSAMP_ADDRESSW,  D3DTADDRESS_CLAMP);
-                device->SetSamplerState(i, D3DSAMP_MAGFILTER, filter ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-                device->SetSamplerState(i, D3DSAMP_MINFILTER, filter ? D3DTEXF_LINEAR : D3DTEXF_POINT);
-            }
-        }
+        void setFilterQuality(int value) {}
     };
 
 // Mesh
@@ -216,15 +332,22 @@ namespace GAPI {
         void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
             this->iCount = iCount;
             this->vCount = vCount;
-
             ASSERT(sizeof(GAPI::Vertex) == sizeof(::Vertex));
 
-            device->CreateIndexBuffer  (iCount * sizeof(indices[0]),  D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &IB, NULL);
-            device->CreateVertexBuffer (vCount * sizeof(vertices[0]), D3DUSAGE_WRITEONLY,              0, D3DPOOL_MANAGED, &VB, NULL);
+            uint32 usage = D3DUSAGE_WRITEONLY | (dynamic ? D3DUSAGE_DYNAMIC : 0);
+            D3DPOOL pool = dynamic ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
+
+            D3DCHECK(device->CreateIndexBuffer  (iCount * sizeof(Index),  usage, D3DFMT_INDEX16, pool, &IB, NULL));
+            D3DCHECK(device->CreateVertexBuffer (vCount * sizeof(Vertex), usage, D3DFMT_UNKNOWN, pool, &VB, NULL));
+
             update(indices, iCount, vertices, vCount);
+
+            if (pool != D3DPOOL_MANAGED)
+                registerResource(this);
         }
 
         void deinit() {
+            unregisterResource(this);
             IB->Release();
             VB->Release();
         }
@@ -236,15 +359,17 @@ namespace GAPI {
             int size;
 
             if (indices && iCount) {
-                IB->Lock(0, size = iCount * sizeof(indices[0]), &ptr, 0);
+                size = iCount * sizeof(indices[0]);
+                D3DCHECK(IB->Lock(0, 0, &ptr, dynamic ? D3DLOCK_DISCARD : 0));
                 memcpy(ptr, indices, size);
-                IB->Unlock();
+                D3DCHECK(IB->Unlock());
             }
 
             if (vertices && vCount) {
-                VB->Lock(0, size = vCount * sizeof(vertices[0]), &ptr, 0);
+                size = vCount * sizeof(vertices[0]);
+                D3DCHECK(VB->Lock(0, 0, &ptr, dynamic ? D3DLOCK_DISCARD: 0));
                 memcpy(ptr, vertices, size);
-                VB->Unlock();
+                D3DCHECK(VB->Unlock());
             }
         }
 
@@ -276,7 +401,7 @@ namespace GAPI {
         LOG("Vendor   : %s\n", adapterInfo.Description);
         LOG("Renderer : Direct3D 9.0c\n");
 
-        support.maxAniso       = 16;
+        support.maxAniso       = 8;
         support.maxVectors     = 16;
         support.shaderBinary   = false;
         support.VAO            = false;
@@ -308,40 +433,61 @@ namespace GAPI {
         };
 
         device->CreateVertexDeclaration(VERTEX_DECL, &vertexDecl);
-/*
-        if (support.maxAniso)
-            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &support.maxAniso);
-        #ifdef _GAPI_GLES
-            glGetIntegerv(GL_MAX_VARYING_VECTORS, &support.maxVectors);
-        #else
-            support.maxVectors = 16;
-        #endif
-        glEnable(GL_SCISSOR_TEST);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
-        glGenFramebuffers(1, &FBO);
-*/
     }
 
     void deinit() {
-        /*
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDeleteFramebuffers(1, &FBO);
-
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        for (int b = 0; b < 2; b++)
-            for (int i = 0; i < rtCache[b].count; i++)
-                glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
-                */
+        vertexDecl->Release();
     }
 
-    void beginFrame() {
+    void resetDevice() {
+        int tmpCount = resCount;
+        Resource tmpList[256];
+        memcpy(tmpList, resList, sizeof(Resource) * tmpCount);
+
+        for (int i = 0; i < tmpCount; i++) {
+            Resource &res = tmpList[i];
+            if (res.mesh)
+                res.mesh->deinit();
+            else
+                res.texture->deinit();
+        }
+
+        D3DCHECK(device->Reset(&d3dpp));
+
+        for (int i = 0; i < tmpCount; i++) {
+            Resource &res = tmpList[i];
+            if (res.mesh)
+                res.mesh->init(NULL, res.mesh->iCount, NULL, res.mesh->vCount, 0);
+            else
+                res.texture->init(NULL);
+        }
+
+    }
+
+    bool beginFrame() {
+        switch (device->TestCooperativeLevel()) {
+            case D3D_OK            :
+                break;
+            case D3DERR_DEVICELOST :
+                return false;
+            case D3DERR_DEVICENOTRESET : 
+                switch (device->Reset(&d3dpp)) {
+                    case D3D_OK            : break;
+                    default                : return false;
+                }
+            case D3DERR_DRIVERINTERNALERROR :
+                Core::quit();
+                return false;
+        }
+
+        device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defBackBuffer);
         device->BeginScene();
+        return true;
     }
 
     void endFrame() {
         device->EndScene();
+        defBackBuffer->Release();
     }
 
     void resetState() {
@@ -373,39 +519,46 @@ namespace GAPI {
     }
 
     void bindTarget(Texture *target, int face) {
-        /*
         if (!target) { // may be a null
-            glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
+            D3DCHECK(device->SetRenderTarget(0, defBackBuffer));
         } else {
-            GLenum texTarget = GL_TEXTURE_2D;
-            if (target->opt & OPT_CUBEMAP) 
-                texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+            ASSERT(target->opt & OPT_TARGET);
+
+            LPDIRECT3DSURFACE9 surface;
+
+            if (target->tex2D)
+                D3DCHECK(target->tex2D->GetSurfaceLevel(0, &surface));
+            else if (target->texCube)
+                D3DCHECK(target->texCube->GetCubeMapSurface(D3DCUBEMAP_FACES(D3DCUBEMAP_FACE_POSITIVE_X + face), 0, &surface));
+
+            D3DCHECK(device->SetRenderTarget(0, surface));
+
+            surface->Release();
 
             bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
-
             int rtIndex = cacheRenderTarget(depth, target->width, target->height);
-
-            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-            glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
         }
-        */
     }
 
     void discardTarget(bool color, bool depth) {}
 
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
-        Core::active.textures[0] = NULL;
-        /*
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, dst->ID);
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, yOffset, x, y, width, height);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        */
+        ASSERT(dst && dst->tex2D);
+
+        LPDIRECT3DSURFACE9 surface;
+        dst->tex2D->GetSurfaceLevel(0, &surface);
+
+        RECT srcRect = { x, y, x + width, y + height },
+             dstRect = { xOffset, yOffset, xOffset + width, yOffset + height };
+
+        device->StretchRect(defBackBuffer, &srcRect, surface, &dstRect, D3DTEXF_POINT);
+
+        surface->Release();
     }
 
     void setVSync(bool enable) {
-        //
+        d3dpp.PresentationInterval = enable ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
+        GAPI::resetDevice();
     }
 
     void waitVBlank() {}
@@ -502,9 +655,24 @@ namespace GAPI {
     }
 
     vec4 copyPixel(int x, int y) {
-        ubyte4 c;
-//        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
-        return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);
+        GAPI::Texture *t = Core::active.target;
+        ASSERT(t && t->tex2D);
+
+        LPDIRECT3DSURFACE9 surface, texSurface;
+        D3DCHECK(t->tex2D->GetSurfaceLevel(0, &texSurface));
+        D3DCHECK(device->CreateOffscreenPlainSurface(t->width, t->height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &surface, NULL));
+        D3DCHECK(device->GetRenderTargetData(texSurface, surface));
+
+        RECT r = { x, y, x + 1, y + 1 };
+        D3DLOCKED_RECT rect;
+        surface->LockRect(&rect, &r, D3DLOCK_READONLY);
+        ubyte4 c = *((ubyte4*)rect.pBits);
+        surface->UnlockRect();
+
+        texSurface->Release();
+        surface->Release();
+
+        return vec4(float(c.z), float(c.y), float(c.x), float(c.w)) * (1.0f / 255.0f);
     }
 
     void initPSO(PSO *pso) {
