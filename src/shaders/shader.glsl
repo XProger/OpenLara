@@ -306,10 +306,16 @@ uniform vec4 uFogParams;
 				p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
 			#endif
 
-			float rShadow =(SHADOW(SHADOW_TEXEL * vec3(-0.5, -0.5, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3( 0.5, -0.5, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3(-0.5,  0.5, 0.0) + p) +
-							SHADOW(SHADOW_TEXEL * vec3( 0.5,  0.5, 0.0) + p)) * 0.25;
+			#ifdef SHADOW_SAMPLER
+				float rShadow = SHADOW(p);
+			#else
+				vec4 samples = vec4(SHADOW(SHADOW_TEXEL * vec3(0.0, 0.0, 0.0) + p),
+									SHADOW(SHADOW_TEXEL * vec3(1.0, 0.0, 0.0) + p),
+									SHADOW(SHADOW_TEXEL * vec3(0.0, 1.0, 0.0) + p),
+									SHADOW(SHADOW_TEXEL * vec3(1.0, 1.0, 0.0) + p));
+				vec2 f = fract(p.xy / SHADOW_TEXEL.xy);
+				float rShadow = mix(mix(samples.x, samples.y, f.x), mix(samples.z, samples.w, f.x), f.y);
+			#endif
 
 			float fade = clamp(dot(lightVec, lightVec), 0.0, 1.0);
 			return rShadow + (1.0 - rShadow) * fade;
