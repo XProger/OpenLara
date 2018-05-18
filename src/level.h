@@ -229,10 +229,8 @@ struct Level : IGame {
 
     void initShadow() {
         delete shadow;
-        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
-            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, FMT_SHADOW);
-        else if (Core::settings.detail.shadows > Core::Settings::LOW)
-            shadow = new Texture(SHADOW_TEX_BIG_WIDTH, SHADOW_TEX_BIG_HEIGHT, FMT_SHADOW);
+        if (Core::settings.detail.shadows > Core::Settings::LOW)
+            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, FMT_SHADOW, OPT_TARGET);
         else
             shadow = NULL;
     }
@@ -1961,7 +1959,7 @@ struct Level : IGame {
 
         Core::mViewInv  = mat4(pos, pos + dir, up);
         Core::mView     = Core::mViewInv.inverseOrtho();
-        Core::mProj     = mat4(90, 1.0f, camera->znear, camera->zfar);
+        Core::mProj     = GAPI::perspective(90, 1.0f, camera->znear, camera->zfar);
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
 
@@ -1971,15 +1969,17 @@ struct Level : IGame {
     void renderShadowView(int roomIndex) {
         vec3 pos = player->getBoundingBox().center();
 
+        float znear = camera->znear;
+        float zfar  = player->mainLightColor.w * 1.5f;
+
         Core::mViewInv = mat4(player->mainLightPos, pos, vec3(0, -1, 0));
         Core::mView    = Core::mViewInv.inverseOrtho();
-        Core::mProj    = mat4(90.0f, 1.0f, camera->znear, player->mainLightColor.w * 1.5f);
+        Core::mProj    = GAPI::perspective(90.0f, 1.0f, znear, zfar);
 
         mat4 bias;
         bias.identity();
-        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-
-        Core::mLightProj[0] = bias * (Core::mProj * Core::mView);
+        //bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
+        Core::mLightProj = bias * (Core::mProj * Core::mView);
 
         camera->frustum->pos = Core::viewPos.xyz();
         camera->frustum->calcPlanes(Core::mViewProj);
@@ -1987,7 +1987,7 @@ struct Level : IGame {
         setup();
         renderView(roomIndex, false, false);
     }
-
+/*
     void renderShadowEntity(int index, Controller *controller, Controller *player) {
         Box box = controller->getSpheresBox(true);
         mat4 m = controller->getMatrix();
@@ -2086,7 +2086,7 @@ struct Level : IGame {
 
         return count;
     }
-
+*/
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
 
@@ -2104,10 +2104,10 @@ struct Level : IGame {
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
         Core::setTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
+        //Core::setCullMode(cmBack);
         Core::validateRenderState();
 
-        Core::setCullMode(cmBack);
-
+        /*
         if (Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM) { // per-object shadow map (atlas)
             NearObj nearObj[SHADOW_OBJ_MAX];
             int nearCount = getNearObjects(nearObj, SHADOW_OBJ_MAX);
@@ -2120,9 +2120,10 @@ struct Level : IGame {
             for (int i = nearCount; i < SHADOW_OBJ_MAX; i++)
                 Core::mLightProj[i].identity();
         } else // all-in-one shadow map
-            renderShadowView(roomIndex);
+        */
+        renderShadowView(roomIndex);
 
-        Core::setCullMode(cmFront);
+        //Core::setCullMode(cmFront);
         if (colorShadow)
             Core::setClearColor(vec4(0.0f));
 

@@ -280,7 +280,7 @@ namespace UI {
     void updateAspect(float aspect) {
         height = 480.0f;
         width  = height * aspect;
-        Core::mProj = mat4(0.0f, width, height, 0.0f, 0.0f, 1.0f);
+        Core::mProj = GAPI::ortho(0.0f, width, height, 0.0f, 0.0f, 1.0f);
         Core::setViewProj(Core::mView, Core::mProj);
         Core::active.shader->setParam(uViewProj, Core::mViewProj);
     }
@@ -493,7 +493,7 @@ namespace UI {
         Core::setBlendMode(bmAlpha);
         Core::setCullMode(cmNone);
 
-        Core::mViewProj = mat4(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
+        Core::mViewProj = GAPI::ortho(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
         
         game->setShader(Core::passGUI, Shader::DEFAULT);
 

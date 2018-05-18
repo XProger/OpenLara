@@ -289,6 +289,14 @@ namespace GAPI {
         delete[] cmdBuf;
     }
 
+    mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
+        return mat4(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+    }
+
+    mat4 perspective(float fov, float aspect, float znear, float zfar) {
+        return mat4(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar);
+    }
+
     bool beginFrame() {
         return true;
     }

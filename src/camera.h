@@ -506,7 +506,7 @@ struct Camera : ICamera {
             if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
                 Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
             else
-                Core::mProj = mat4(fov, aspect, znear, zfar);
+                Core::mProj = GAPI::perspective(fov, aspect, znear, zfar);
         }
 
         Core::setViewProj(Core::mView, Core::mProj);
@@ -531,9 +531,6 @@ struct Camera : ICamera {
 
         fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 8.0f  : 32.0f;
-        #ifdef _OS_PSP
-            znear = 256.0f;
-        #endif
         zfar  = 45.0f * 1024.0f;
     }
 };

@@ -70,7 +70,7 @@ namespace GAPI {
     int cullMode, blendMode;
     uint32 clearColor;
 
-    LPDIRECT3DSURFACE9           defBackBuffer;
+    LPDIRECT3DSURFACE9           defRT, defDS;
     LPDIRECT3DVERTEXDECLARATION9 vertexDecl;
 
 
@@ -118,15 +118,15 @@ namespace GAPI {
         {   2, USAGE_VS | USAGE_PS }, // uViewProj
         {   6, USAGE_VS | USAGE_PS }, // uBasis
         {  70, USAGE_VS | USAGE_PS }, // uLightProj
-        { 102, USAGE_VS | USAGE_PS }, // uMaterial
-        { 103, USAGE_VS | USAGE_PS }, // uAmbient
-        { 109, USAGE_VS | USAGE_PS }, // uFogParams
-        { 110, USAGE_VS | USAGE_PS }, // uViewPos
-        { 111, USAGE_VS | USAGE_PS }, // uLightPos
-        { 115, USAGE_VS | USAGE_PS }, // uLightColor
-        { 119, USAGE_VS | USAGE_PS }, // uRoomSize
-        { 120, USAGE_VS | USAGE_PS }, // uPosScale
-        { 122, USAGE_VS | USAGE_PS }, // uContacts
+        {  74, USAGE_VS | USAGE_PS }, // uMaterial
+        {  75, USAGE_VS | USAGE_PS }, // uAmbient
+        {  81, USAGE_VS | USAGE_PS }, // uFogParams
+        {  82, USAGE_VS | USAGE_PS }, // uViewPos
+        {  83, USAGE_VS | USAGE_PS }, // uLightPos
+        {  87, USAGE_VS | USAGE_PS }, // uLightColor
+        {  91, USAGE_VS | USAGE_PS }, // uRoomSize
+        {  92, USAGE_VS | USAGE_PS }, // uPosScale
+        {  94, USAGE_VS | USAGE_PS }, // uContacts
     };
 
     struct Shader {
@@ -159,9 +159,8 @@ namespace GAPI {
                     case SD_CLIP_PLANE      : flags[ 7] = TRUE; break;
                     case SD_OPT_AMBIENT     : flags[ 8] = TRUE; break;
                     case SD_OPT_SHADOW      : flags[ 9] = TRUE; break;
-                    case SD_OPT_SHADOW_HIGH : flags[10] = TRUE; break;
-                    case SD_OPT_CONTACT     : flags[11] = TRUE; break;
-                    case SD_OPT_CAUSTICS    : flags[12] = TRUE; break;
+                    case SD_OPT_CONTACT     : flags[10] = TRUE; break;
+                    case SD_OPT_CAUSTICS    : flags[11] = TRUE; break;
                 }
             }
 
@@ -218,28 +217,24 @@ namespace GAPI {
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
 
-            bool filter   = (opt & OPT_NEAREST) == 0;
+            bool isDepth  = fmt == FMT_DEPTH || fmt == FMT_SHADOW;
             bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
             bool cube     = (opt & OPT_CUBEMAP) != 0;
-            bool isTarget = (opt & OPT_TARGET)  != 0;
-            bool isShadow = fmt == FMT_SHADOW;
-            bool isDepth  = fmt == FMT_DEPTH || fmt == FMT_DEPTH_STENCIL || fmt == FMT_SHADOW;
+            bool isTarget = (opt & OPT_TARGET)  != 0 && !isDepth;
 
             static const struct FormatDesc {
                 int       bpp;
                 D3DFORMAT format;
             } formats[FMT_MAX] = {
-                {  8, D3DFMT_L8           },
-                { 32, D3DFMT_A8R8G8B8     },
-                { 16, D3DFMT_R5G6B5       },
-                { 16, D3DFMT_A1R5G5B5     },
-                { 64, D3DFMT_A16B16G16R16 },
-                { 64, D3DFMT_A16B16G16R16 },
-                { 16, D3DFMT_D16          },
-                { 32, D3DFMT_D24S8        },
-                { 16, D3DFMT_D16          },
+                { 32, D3DFMT_A8R8G8B8      },
+                { 16, D3DFMT_R5G6B5        },
+                { 16, D3DFMT_A1R5G5B5      },
+                { 64, D3DFMT_A16B16G16R16F },
+                {128, D3DFMT_A32B32G32R32F },
+                { 16, D3DFMT_D16           },
+                { 16, D3DFMT_D24X8         },
             };
-
+            
             FormatDesc desc = formats[fmt];
 
             uint32 usage = 0;
@@ -247,7 +242,7 @@ namespace GAPI {
             if (isDepth)  usage |= D3DUSAGE_DEPTHSTENCIL;
             if (isTarget) usage |= D3DUSAGE_RENDERTARGET;
 
-            D3DPOOL pool = isTarget ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
+            D3DPOOL pool = (isTarget || isDepth) ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
 
             if (cube) {
                 D3DCHECK(device->CreateCubeTexture(width, 1, usage, desc.format, pool, &texCube, NULL));
@@ -291,8 +286,8 @@ namespace GAPI {
                 bool mipmaps = (Core::settings.detail.filter > Core::Settings::MEDIUM) &&  (opt & OPT_MIPMAPS);
                 bool aniso   = filter && mipmaps && (Core::support.maxAniso > 0);
 
-                device->SetSamplerState(sampler, D3DSAMP_ADDRESSU,  D3DTADDRESS_CLAMP);
-                device->SetSamplerState(sampler, D3DSAMP_ADDRESSV,  D3DTADDRESS_CLAMP);
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
                 if (aniso) {
                     device->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
@@ -387,7 +382,7 @@ namespace GAPI {
     struct RenderTargetCache {
         int count;
         struct Item {
-//            GLuint  ID;
+            LPDIRECT3DSURFACE9 surface;
             int     width;
             int     height;
         } items[MAX_RENDER_BUFFERS];
@@ -404,8 +399,8 @@ namespace GAPI {
         support.maxAniso       = 8;
         support.maxVectors     = 16;
         support.shaderBinary   = false;
-        support.VAO            = false;
-        support.depthTexture   = false;
+        support.VAO            = false; // SHADOW_COLOR
+        support.depthTexture   = false; // SHADOW_DEPTH
         support.shadowSampler  = false;
         support.discardFrame   = false;
         support.texNPOT        = false;
@@ -440,6 +435,15 @@ namespace GAPI {
     }
 
     void resetDevice() {
+    // release dummy RTs
+        for (int i = 0; i < 2; i++) {
+            RenderTargetCache &cache = rtCache[i];
+            for (int j = 0; j < cache.count; j++)
+                cache.items[j].surface->Release();
+            cache.count = 0;
+        }
+
+    // release texture RTs
         int tmpCount = resCount;
         Resource tmpList[256];
         memcpy(tmpList, resList, sizeof(Resource) * tmpCount);
@@ -454,6 +458,7 @@ namespace GAPI {
 
         D3DCHECK(device->Reset(&d3dpp));
 
+    // reinit texture RTs
         for (int i = 0; i < tmpCount; i++) {
             Resource &res = tmpList[i];
             if (res.mesh)
@@ -462,6 +467,14 @@ namespace GAPI {
                 res.texture->init(NULL);
         }
 
+    }
+
+    mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
+        return mat4(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+    }
+
+    mat4 perspective(float fov, float aspect, float znear, float zfar) {
+        return mat4(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar);
     }
 
     bool beginFrame() {
@@ -480,14 +493,16 @@ namespace GAPI {
                 return false;
         }
 
-        device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defBackBuffer);
+        device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defRT);
+        device->GetDepthStencilSurface(&defDS);
         device->BeginScene();
         return true;
     }
 
     void endFrame() {
         device->EndScene();
-        defBackBuffer->Release();
+        defRT->Release();
+        defDS->Release();
     }
 
     void resetState() {
@@ -509,34 +524,42 @@ namespace GAPI {
         RenderTargetCache::Item &item = cache.items[cache.count];
         item.width  = width;
         item.height = height;
-        /*
-        glGenRenderbuffers(1, &item.ID);
-        glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
-        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        */
+
+        if (depth)
+            device->CreateDepthStencilSurface(width, height, D3DFMT_D16, D3DMULTISAMPLE_NONE, 0, true, &item.surface, NULL);
+        else
+            device->CreateRenderTarget(width, height, D3DFMT_R5G6B5, D3DMULTISAMPLE_NONE, 0, false, &item.surface, NULL);
+
         return cache.count++;
     }
 
     void bindTarget(Texture *target, int face) {
         if (!target) { // may be a null
-            D3DCHECK(device->SetRenderTarget(0, defBackBuffer));
+            D3DCHECK(device->SetRenderTarget(0, defRT));
+            D3DCHECK(device->SetDepthStencilSurface(defDS));
         } else {
             ASSERT(target->opt & OPT_TARGET);
 
             LPDIRECT3DSURFACE9 surface;
 
-            if (target->tex2D)
+            bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
+
+            if (target->tex2D) {
                 D3DCHECK(target->tex2D->GetSurfaceLevel(0, &surface));
-            else if (target->texCube)
+            } else if (target->texCube)
                 D3DCHECK(target->texCube->GetCubeMapSurface(D3DCUBEMAP_FACES(D3DCUBEMAP_FACE_POSITIVE_X + face), 0, &surface));
 
-            D3DCHECK(device->SetRenderTarget(0, surface));
+            int rtIndex = cacheRenderTarget(!depth, target->width, target->height);
+
+            if (depth) {
+                D3DCHECK(device->SetRenderTarget(0, rtCache[false].items[rtIndex].surface));
+                D3DCHECK(device->SetDepthStencilSurface(surface));
+            } else {
+                D3DCHECK(device->SetRenderTarget(0, surface));
+                D3DCHECK(device->SetDepthStencilSurface(rtCache[true].items[rtIndex].surface));
+            }
 
             surface->Release();
-
-            bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
-            int rtIndex = cacheRenderTarget(depth, target->width, target->height);
         }
     }
 
@@ -551,7 +574,7 @@ namespace GAPI {
         RECT srcRect = { x, y, x + width, y + height },
              dstRect = { xOffset, yOffset, xOffset + width, yOffset + height };
 
-        device->StretchRect(defBackBuffer, &srcRect, surface, &dstRect, D3DTEXF_POINT);
+        device->StretchRect(defRT, &srcRect, surface, &dstRect, D3DTEXF_POINT);
 
         surface->Release();
     }

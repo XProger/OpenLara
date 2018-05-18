@@ -20,14 +20,8 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 #endif
 
 #ifdef OPT_SHADOW
-	#ifdef OPT_SHADOW_HIGH
-		#define SHADOW_OBJ_MAX	8
-		#define SHADOW_TEXEL	vec3(1.0 / 512.0, 1.0 / 256.0, 0.0)
-	#else
-		#define SHADOW_OBJ_MAX	1
-		#define SHADOW_TEXEL	vec3(1.0 / 1024.0, 1.0 / 1024.0, 0.0)
-	#endif
-	uniform mat4 uLightProj[SHADOW_OBJ_MAX];
+	#define SHADOW_TEXEL	vec3(1.0 / 1024.0, 1.0 / 1024.0, 0.0)
+	uniform mat4 uLightProj;
 #endif
 
 uniform mat4 uViewProj;
@@ -276,66 +270,55 @@ uniform vec4 uFogParams;
 			#endif
 		#else
 			uniform sampler2D sShadow;
-			#define CMP(a,b) step(min(1.0, b), a)
 
-			#ifdef SHADOW_DEPTH
-				#define compare(p, z) CMP(texture2D(sShadow, (p)).x, (z));
-			#elif defined(SHADOW_COLOR)
-				float unpack(vec4 value) {
-					vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-					return dot(value, bitSh);
-				}
-				#define compare(p, z) CMP(unpack(texture2D(sShadow, (p))), (z));
-			#endif
+			float unpack(vec4 value) {
+				vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+				return dot(value, bitSh);
+			}
 
-			float SHADOW(vec3 p) {
-				return compare(p.xy, p.z);
+			float SHADOW(vec2 p) {
+				#ifdef SHADOW_DEPTH
+					return texture2D(sShadow, p).x;
+				#else
+					return unpack(texture2D(sShadow, p));
+				#endif
 			}
 		#endif
 
-		float getShadow(vec3 lightVec, vec4 lightProj, vec2 tileOffset) {
+		float getShadow(vec3 lightVec, vec3 normal, vec4 lightProj) {
 			vec3 p = lightProj.xyz / lightProj.w;
+			p.xyz = p.xyz * 0.5 + 0.5;
+			p.z -= 0.04 * SHADOW_TEXEL.x;
 
 			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
-				vis = min(vis, dot(vNormal.xyz, lightVec));
+				vis = min(vis, dot(normal, lightVec));
 			#endif
 			if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
-
-			#ifdef OPT_SHADOW_HIGH
-				p.xy = p.xy * vec2(0.25, 0.5) + tileOffset;
-			#endif
 
 			#ifdef SHADOW_SAMPLER
 				float rShadow = SHADOW(p);
 			#else
-				vec4 samples = vec4(SHADOW(SHADOW_TEXEL * vec3(0.0, 0.0, 0.0) + p),
-									SHADOW(SHADOW_TEXEL * vec3(1.0, 0.0, 0.0) + p),
-									SHADOW(SHADOW_TEXEL * vec3(0.0, 1.0, 0.0) + p),
-									SHADOW(SHADOW_TEXEL * vec3(1.0, 1.0, 0.0) + p));
+				vec4 samples = vec4(SHADOW(                  p.xy),
+									SHADOW(SHADOW_TEXEL.xz + p.xy),
+									SHADOW(SHADOW_TEXEL.zy + p.xy),
+									SHADOW(SHADOW_TEXEL.xy + p.xy));
+
+				samples = step(vec4(p.z), samples);
+
 				vec2 f = fract(p.xy / SHADOW_TEXEL.xy);
-				float rShadow = mix(mix(samples.x, samples.y, f.x), mix(samples.z, samples.w, f.x), f.y);
+				samples.xy = mix(samples.xz, samples.yw, f.x);
+				float rShadow = mix(samples.x, samples.y, f.y);
 			#endif
 
 			float fade = clamp(dot(lightVec, lightVec), 0.0, 1.0);
 			return rShadow + (1.0 - rShadow) * fade;
 		}
 
-		float getShadow(vec3 lightVec) {
-			vec4 c = vec4(vCoord, 1.0);
-		#ifdef OPT_SHADOW_HIGH
-			return min(min(min(min(min(min(min( // hardcoded for 4x2 shadow atlas
-				getShadow(lightVec, uLightProj[0] * c, vec2(0.00, 0.0)),
-				getShadow(lightVec, uLightProj[1] * c, vec2(0.25, 0.0))),
-				getShadow(lightVec, uLightProj[2] * c, vec2(0.50, 0.0))),
-				getShadow(lightVec, uLightProj[3] * c, vec2(0.75, 0.0))),
-				getShadow(lightVec, uLightProj[4] * c, vec2(0.00, 0.5))),
-				getShadow(lightVec, uLightProj[5] * c, vec2(0.25, 0.5))),
-				getShadow(lightVec, uLightProj[6] * c, vec2(0.50, 0.5))),
-				getShadow(lightVec, uLightProj[7] * c, vec2(0.75, 0.5)));
-		#else
-			return getShadow(lightVec, uLightProj[0] * c, vec2(0.0, 0.0));
-		#endif
+		float getShadow(vec3 lightVec, vec3 normal) {
+			float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
+			factor *= 16.0;
+			return getShadow(lightVec, normal, uLightProj * vec4(vCoord + normal * factor, 1.0));
 		}
 	#endif
 
@@ -414,7 +397,6 @@ uniform vec4 uFogParams;
 				#endif
 
 				#ifdef PASS_COMPOSE
-
 					vec3 lightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
 					vec3 normal   = normalize(vNormal.xyz);
 
@@ -426,7 +408,7 @@ uniform vec4 uFogParams;
 						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z + uLightColor[3].xyz * vLight.w;
 
 						#if defined(TYPE_ENTITY) || defined(TYPE_ROOM)
-							float rShadow = getShadow(lightVec);
+							float rShadow = getShadow(lightVec, normal);
 						#endif
 
 						#ifdef TYPE_ENTITY

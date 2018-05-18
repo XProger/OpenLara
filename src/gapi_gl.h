@@ -547,14 +547,12 @@ namespace GAPI {
                 GLuint ifmt, fmt;
                 GLenum type;
             } formats[FMT_MAX] = {            
-                { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
                 { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
                 { GL_RGBA32F,         GL_RGBA,            GL_FLOAT                  }, // RGBA_FLOAT
                 { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT             }, // RGBA_HALF
                 { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
-                { GL_DEPTH_STENCIL,   GL_DEPTH_STENCIL,   GL_UNSIGNED_INT_24_8      }, // DEPTH_STENCIL
                 { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
             };
 
@@ -978,6 +976,14 @@ namespace GAPI {
                 glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
     }
 
+    mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
+        return mat4(mat4::PROJ_NEG_POS, l, r, b, t, znear, zfar);
+    }
+
+    mat4 perspective(float fov, float aspect, float znear, float zfar) {
+        return mat4(mat4::PROJ_NEG_POS, fov, aspect, znear, zfar);
+    }
+
     bool beginFrame() {
         return true;
     }
@@ -1008,7 +1014,7 @@ namespace GAPI {
 
         glGenRenderbuffers(1, &item.ID);
         glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
-        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_RGB565 : GL_DEPTH_COMPONENT16, width, height);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_DEPTH_COMPONENT16 : GL_RGB565, width, height);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         return cache.count++;
     }
@@ -1023,11 +1029,11 @@ namespace GAPI {
 
             bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
 
-            int rtIndex = cacheRenderTarget(depth, target->width, target->height);
+            int rtIndex = cacheRenderTarget(!depth, target->width, target->height);
 
             glBindFramebuffer(GL_FRAMEBUFFER, FBO);
             glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[depth].items[rtIndex].ID);
+            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[!depth].items[rtIndex].ID);
         }
     }
 

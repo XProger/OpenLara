@@ -1,15 +1,16 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 wpos		: POSITION;
-	float3 coord	: TEXCOORD0;
-	float4 texCoord	: TEXCOORD1;
-	float4 viewVec	: TEXCOORD2;
-	float4 normal	: NORMAL;
-	float4 diffuse	: COLOR0;
-	float3 ambient	: COLOR1;
-	float4 lightMap	: COLOR2;
-	float4 light	: COLOR3;
+	float4 pos		 : POSITION;
+	float3 coord	 : TEXCOORD0;
+	float4 texCoord	 : TEXCOORD1;
+	float4 viewVec	 : TEXCOORD2;
+	float4 normal	 : NORMAL;
+	float4 diffuse	 : COLOR0;
+	float3 ambient	 : COLOR1;
+	float4 lightMap	 : COLOR2;
+	float4 light	 : COLOR3;
+	float4 hpos		: TEXCOORD4;
 };
 
 #ifdef VERTEX
@@ -31,9 +32,9 @@ float3 calcAmbient(float3 n) {
 
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
-	Out.ambient  = 0.0;
-	Out.lightMap = 0.0;
-	Out.light    = 0.0;
+	Out.ambient   = 0.0;
+	Out.lightMap  = 0.0;
+	Out.light     = 0.0;
 
 	int index = int(In.aCoord.w * 2.0);
 	float4 rBasisRot = uBasis[index];
@@ -56,7 +57,6 @@ VS_OUTPUT main(VS_INPUT In) {
 		Out.viewVec = float4((uViewPos.xyz - Out.coord) * uFogParams.w, Out.coord.y * uParam.z);
 
 		#ifdef PASS_COMPOSE
-
 			if (TYPE_SPRITE) {
 				Out.normal.xyz = normalize(Out.viewVec.xyz);
 			} else {
@@ -66,7 +66,6 @@ VS_OUTPUT main(VS_INPUT In) {
 			float fog;
 
 			if (!TYPE_FLASH) {
-
 				float3 lv0 = (uLightPos[0].xyz - Out.coord) * uLightColor[0].w;
 				float3 lv1 = (uLightPos[1].xyz - Out.coord) * uLightColor[1].w;
 				float3 lv2 = (uLightPos[2].xyz - Out.coord) * uLightColor[2].w;
@@ -150,15 +149,58 @@ VS_OUTPUT main(VS_INPUT In) {
 		}
 	#endif
 
-	Out.wpos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
-
+	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
+	Out.hpos = Out.pos;
+	
 	return Out;
 }
 
 #else // PIXEL
 
-float getShadow(float3 lightVec) {
-	return 1.0;
+float SHADOW(float2 p) {
+	#ifdef SHADOW_DEPTH
+		return tex2D(sShadow, p).x;
+	#else
+		return unpack(tex2D(sShadow, p));
+	#endif
+}
+
+float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
+	float3 p = lightProj.xyz / lightProj.w;
+
+	p.y = -p.y;
+	p.xy = p.xy * 0.5 + 0.5;
+	
+	p.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL.x;
+
+	float vis = lightProj.w;
+	if (TYPE_ROOM) {
+		vis = min(vis, dot(normal, lightVec));
+	}
+	if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
+
+	p.z = saturate(p.z);
+
+	float4 samples = float4(
+			SHADOW(p.xy                  ),
+			SHADOW(p.xy + SHADOW_TEXEL.xz),
+			SHADOW(p.xy + SHADOW_TEXEL.zy),
+			SHADOW(p.xy + SHADOW_TEXEL.xy)
+		);
+	samples = step(p.zzzz, samples);
+
+	float2 f = frac(p.xy / SHADOW_TEXEL.xy);
+	samples.xy = lerp(samples.xz, samples.yw, f.xx);
+	float rShadow = lerp(samples.x, samples.y, f.y);
+
+	float fade = saturate(dot(lightVec, lightVec));
+	return rShadow + (1.0 - rShadow) * fade;
+}
+
+float getShadow(float3 coord, float3 lightVec, float3 normal) {
+	float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
+	factor *= SHADOW_NORMAL_BIAS;
+	return getShadow(lightVec, normal, mul(uLightProj, float4(coord + normal * factor, 1.0)));
 }
 
 float getContactAO(float3 p, float3 n) {
@@ -167,7 +209,7 @@ float getContactAO(float3 p, float3 n) {
 		float3 v = uContacts[i].xyz - p;
 		float  a = uContacts[i].w;
 		float  o = a * saturate(dot(n, v)) / dot(v, v);
-		res *= clamp(1.0 - o, 0.0, 1.0);
+		res *= saturate(1.0 - o);
 	}
 	return res;
 }
@@ -214,7 +256,11 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	}
 
 	#ifdef PASS_SHADOW
-		return 1.0;
+		#ifdef SHADOW_DEPTH
+			return 0.0;
+		#else // SHADOW_COLOR
+			return pack(In.hpos.z / In.hpos.w);
+		#endif
 	#else
 		color *= In.diffuse;
 
@@ -241,11 +287,11 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 				light = uLightColor[1].xyz * In.light.y + uLightColor[2].xyz * In.light.z + uLightColor[3].xyz * In.light.w;
 
 				if (TYPE_ENTITY) {
-					float rShadow = getShadow(lightVec);
+					float rShadow = getShadow(In.coord, lightVec, normal);
 					rSpecular = (uMaterial.z + 0.03) * rShadow;
 					light += In.ambient + uLightColor[0].xyz * (In.light.x * rShadow);
 				} else if (TYPE_ROOM) {
-					float rShadow = getShadow(lightVec);
+					float rShadow = getShadow(In.coord, lightVec, normal);
 					light += lerp(In.ambient.xyz, In.lightMap.xyz, rShadow);
 				} else if (TYPE_SPRITE) {
 					light += In.lightMap.xyz;

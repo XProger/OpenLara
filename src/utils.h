@@ -466,6 +466,12 @@ struct quat {
 };
 
 struct mat4 {
+
+    enum ProjRange {
+        PROJ_NEG_POS,
+        PROJ_ZERO_POS,
+    };
+
     float e00, e10, e20, e30,
           e01, e11, e21, e31,
           e02, e12, e22, e32,
@@ -494,17 +500,24 @@ struct mat4 {
         e33 = 1.0f;
     }
 
-    mat4(float l, float r, float b, float t, float znear, float zfar) {
+    mat4(ProjRange range, float l, float r, float b, float t, float znear, float zfar) {
         identity();
         e00 = 2.0f / (r - l);
         e11 = 2.0f / (t - b);
         e22 = 2.0f / (znear - zfar);
         e03 = (l + r) / (l - r);
         e13 = (t + b) / (b - t);
-        e23 = znear / (znear - zfar);
+        switch (range) {
+            case PROJ_NEG_POS :
+                e23 = (zfar + znear) / (znear - zfar);
+                break;
+            case PROJ_ZERO_POS :
+                e23 = znear / (znear - zfar);
+                break;
+        }
     }
 
-    mat4(float fov, float aspect, float znear, float zfar) {
+    mat4(ProjRange range, float fov, float aspect, float znear, float zfar) {
         float k = 1.0f / tanf(fov * 0.5f * DEG2RAD);
         identity();
         if (aspect >= 1.0f) {
@@ -514,10 +527,18 @@ struct mat4 {
             e00 = k;
             e11 = k * aspect;
         }
-        e22 = (znear + zfar) / (znear - zfar);
         e33 = 0.0f;
         e32 = -1.0f;
-        e23 = 2.0f * zfar * znear / (znear - zfar);
+        switch (range) {
+            case PROJ_NEG_POS :
+                e22 = (znear + zfar) / (znear - zfar);
+                e23 = 2.0f * zfar * znear / (znear - zfar);
+                break;
+            case PROJ_ZERO_POS :
+                e22 = zfar / (znear - zfar);
+                e23 = znear * e22;
+                break;
+        }
     }
 
     mat4(const vec3 &from, const vec3 &at, const vec3 &up) {

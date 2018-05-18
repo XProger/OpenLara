@@ -794,6 +794,11 @@ struct Rat : Enemy {
         bool water = getRoom().flags.water;
         int modelIndex = water ? modelWater : modelLand;
 
+        if (modelIndex == -1) {
+            water = modelWater != -1;
+            modelIndex = water ? modelWater : modelLand;
+        }
+
         ASSERT(modelIndex > -1);
         const TR::Model *model = &level->models[modelIndex];
         if (animation.model != model) {
@@ -984,6 +989,11 @@ struct Crocodile : Enemy {
     const virtual TR::Model* getModel() {
         bool water = getRoom().flags.water;
         int modelIndex = water ? modelWater : modelLand;
+
+        if (modelIndex == -1) {
+            water = modelWater != -1;
+            modelIndex = water ? modelWater : modelLand;
+        }
 
         ASSERT(modelIndex > -1);
         const TR::Model *model = &level->models[modelIndex];

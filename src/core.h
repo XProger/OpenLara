@@ -85,14 +85,8 @@
 #include "utils.h"
 
 // muse be equal with base shader
-#define SHADOW_OBJ_COLS         4
-#define SHADOW_OBJ_ROWS         2
-#define SHADOW_TEX_TILE         128
-#define SHADOW_TEX_BIG_WIDTH    1024
-#define SHADOW_TEX_BIG_HEIGHT   1024
-#define SHADOW_TEX_WIDTH        (SHADOW_OBJ_COLS * SHADOW_TEX_TILE)
-#define SHADOW_TEX_HEIGHT       (SHADOW_OBJ_ROWS * SHADOW_TEX_TILE)
-#define SHADOW_OBJ_MAX          (SHADOW_OBJ_COLS * SHADOW_OBJ_ROWS)
+#define SHADOW_TEX_WIDTH    1024
+#define SHADOW_TEX_HEIGHT   1024
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
@@ -340,14 +334,12 @@ enum RenderState {
 
 // Texture image format
 enum TexFormat {
-    FMT_LUMINANCE,
     FMT_RGBA, 
     FMT_RGB16,
     FMT_RGBA16,
     FMT_RGBA_FLOAT,
     FMT_RGBA_HALF,
     FMT_DEPTH,
-    FMT_DEPTH_STENCIL, 
     FMT_SHADOW,
     FMT_MAX,
 };
@@ -453,7 +445,6 @@ struct MeshRange {
     E( CLIP_PLANE      ) \
     E( OPT_AMBIENT     ) \
     E( OPT_SHADOW      ) \
-    E( OPT_SHADOW_HIGH ) \
     E( OPT_CONTACT     ) \
     E( OPT_CAUSTICS    )
 
@@ -490,7 +481,7 @@ namespace Core {
     float eye;
     Viewport viewport, viewportDef;
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
-    mat4 mLightProj[SHADOW_OBJ_MAX];
+    mat4 mLightProj;
     Basis basis;
     vec4 viewPos;
     vec4 lightPos[MAX_LIGHTS];

@@ -24,7 +24,7 @@ struct Shader : GAPI::Shader {
     void setup() {
         bind();
         setParam(uViewProj,  Core::mViewProj);
-        setParam(uLightProj, Core::mLightProj[0], Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM ? SHADOW_OBJ_MAX : 1);
+        setParam(uLightProj, Core::mLightProj);
         setParam(uViewPos,   Core::viewPos);
         setParam(uParam,     Core::params);
         setParam(uFogParams, Core::fogParams);

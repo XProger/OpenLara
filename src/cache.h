@@ -33,6 +33,7 @@ struct ShaderCache {
         prepareFilter(FX_NONE);
         prepareGUI(FX_NONE);
 
+        Core::resetTime();
         LOG("shader: cache is ready\n");
     }
 
@@ -148,12 +149,8 @@ struct ShaderCache {
                         SD_ADD(CLIP_PLANE);
                     if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
                         SD_ADD(OPT_AMBIENT);
-                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM)) {
+                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
                         SD_ADD(OPT_SHADOW);
-
-                        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
-                            SD_ADD(OPT_SHADOW_HIGH);
-                    }
                     if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (type == Shader::ROOM))
                         SD_ADD(OPT_CONTACT);
                     if (Core::settings.detail.water    > Core::Settings::MEDIUM && (type == Shader::ENTITY || type == Shader::ROOM) && (fx & FX_UNDERWATER))
@@ -715,11 +712,12 @@ struct WaterCache {
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
             delete refract;
             refract = new Texture(w, h, FMT_RGBA);
-
+            /*
             Core::setTarget(refract, RT_CLEAR_COLOR | RT_STORE_COLOR);
             Core::validateRenderState();
             Core::setTarget(NULL, RT_STORE_COLOR);
             Core::validateRenderState();
+            */
         }
         Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }

@@ -1496,7 +1496,7 @@ struct Inventory {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
         else
-            Core::mProj = mat4(70.0f, aspect, 32.0f, 2048.0f);
+            Core::mProj = GAPI::perspective(70.0f, aspect, 32.0f, 2048.0f);
 
         Core::mView   = Core::mViewInv.inverseOrtho();
         Core::viewPos = Core::mViewInv.getPos();
@@ -1514,8 +1514,7 @@ struct Inventory {
     // items
         game->setupBinding();
 
-        for (int i = 0; i < SHADOW_OBJ_MAX; i++)
-            Core::mLightProj[i].identity();
+        Core::mLightProj.identity();
 
         setupCamera(aspect);
 

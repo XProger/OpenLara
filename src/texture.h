@@ -66,16 +66,13 @@ struct Texture : GAPI::Texture {
         bool filter   = (opt & OPT_NEAREST) == 0;
         bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
 
-        if (format == FMT_SHADOW && !Core::support.shadowSampler) {
+        if (format == FMT_SHADOW && !Core::support.shadowSampler)
             format = FMT_DEPTH;
-            filter = false;
-        }
 
         if (format == FMT_DEPTH) {
-            if (Core::support.depthTexture)
-                filter = false;
-            else
+            if (!Core::support.depthTexture)
                 format = FMT_RGBA;
+            filter = false;
         }
 
         if (format == FMT_RGBA_HALF) {
