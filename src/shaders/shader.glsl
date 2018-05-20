@@ -253,13 +253,13 @@ uniform vec4 uFogParams;
 		uniform samplerCube sEnvironment;
 	#endif
 
-	vec4 pack(in float value) {
-		float4 v = fract(value * vec4(1.0, 255.0, 65025.0, 16581375.0));
+	vec4 pack(float value) {
+		vec4 v = fract(value * vec4(1.0, 255.0, 65025.0, 16581375.0));
 		return v - v.yzww * vec4(1.0/255.0, 1.0/255.0, 1.0/255.0, 0.0);
 	}
 
 	float unpack(vec4 value) {
-		return dot(value, vec4(1.0, 1/255.0, 1/65025.0, 1/16581375.0));
+		return dot(value, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0));
 	}
 
 	#ifdef OPT_SHADOW

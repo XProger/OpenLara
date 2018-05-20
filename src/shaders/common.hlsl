@@ -72,5 +72,5 @@ float4 pack(float value) {
 }
 
 float unpack(float4 value) {
-	return dot(value, float4(1.0, 1/255.0, 1/65025.0, 1/16581375.0));
+	return dot(value, float4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0));
 }
