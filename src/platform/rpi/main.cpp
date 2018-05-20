@@ -523,10 +523,11 @@ int main(int argc, char **argv) {
         }
     };
 
+    inputFree();
+
     sndFree();
     Game::deinit();
 
-    inputFree();
     eglFree(display, surface, context);
     wndFree(dmDisplay, dmWindow);
 

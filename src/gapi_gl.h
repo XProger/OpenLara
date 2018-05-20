@@ -228,7 +228,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -368,6 +368,11 @@ namespace GAPI {
                 sprintf(defines, "%s#define %s\n", defines, DefineName[def[i]]);
             }
             sprintf(defines, "%s#define PASS_%s\n", defines, passNames[pass]);
+
+            #ifdef _OS_RPI
+                strcat(defines, "#define OPT_VLIGHTPROJ\n");
+                strcat(defines, "#define OPT_SHADOW_ONETAP\n");
+            #endif
 
             char fileName[255];
         // generate shader file path
@@ -648,7 +653,7 @@ namespace GAPI {
         bool         dynamic;
 
         Mesh(bool dynamic) : iBuffer(NULL), vBuffer(NULL), VAO(NULL), dynamic(dynamic) {
-            ID[0] = ID[1] = NULL;
+            ID[0] = ID[1] = 0;
         }
 
         void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
@@ -796,7 +801,7 @@ namespace GAPI {
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(_OS_WIN) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
+        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_ANDROID)
             #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
@@ -929,8 +934,8 @@ namespace GAPI {
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
 
         #ifdef PROFILE
-            support.profMarker     = extSupport(ext, "_KHR_debug");
-            support.profTiming     = extSupport(ext, "_timer_query");
+            support.profMarker = extSupport(ext, "_KHR_debug");
+            support.profTiming = extSupport(ext, "_timer_query");
         #endif
 
         if (support.maxAniso)

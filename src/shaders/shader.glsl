@@ -10,7 +10,7 @@ R"====(
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
 
 #define SHADOW_NORMAL_BIAS	16.0
-#define SHADOW_CONST_BIAS	0.04
+#define SHADOW_CONST_BIAS	0.05
 
 #if (defined(PASS_AMBIENT) || defined(PASS_COMPOSE)) && !defined(TYPE_FLASH)
 	varying vec3 vCoord;
@@ -25,6 +25,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 #ifdef OPT_SHADOW
 	#define SHADOW_TEXEL	vec3(1.0 / 1024.0, 1.0 / 1024.0, 0.0)
 	uniform mat4 uLightProj;
+
+	#ifdef OPT_VLIGHTPROJ
+		varying vec4 vLightProj;
+	#endif
 #endif
 
 uniform mat4 uViewProj;
@@ -37,7 +41,7 @@ uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
 uniform vec4 uFogParams;
 
 #ifndef PASS_SHADOW
-	varying vec4 vViewVec;  // xyz - dir * dist, w - coord.y * clipPlaneSign
+	varying vec4 vViewVec;	// xyz - dir * dist, w - coord.y * clipPlaneSign
 	varying vec4 vDiffuse;
 	varying vec4 vNormal;	// xyz - normal dir, w - fog factor
 
@@ -51,6 +55,14 @@ uniform vec4 uFogParams;
 
 		varying vec4 vLight;	// lights intensity (MAX_LIGHTS == 4)
 	#endif
+#endif
+
+#ifdef OPT_SHADOW
+	vec4 calcLightProj(vec3 coord, vec3 lightVec, vec3 normal) {
+		float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
+		factor *= SHADOW_NORMAL_BIAS;
+		return uLightProj * vec4(coord + normal * factor, 1.0);
+	}
 #endif
 
 #ifdef VERTEX
@@ -208,6 +220,11 @@ uniform vec4 uFogParams;
 					vAmbient   = ambient;
 					vLight     = light;
 					vLightMap  = aLight * light.x;
+
+					#ifdef OPT_VLIGHTPROJ
+						vLightProj = calcLightProj(coord, lv0, vNormal.xyz);
+					#endif
+
 				#else
 					vLight.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 					vLight.w = 0.0;
@@ -296,16 +313,20 @@ uniform vec4 uFogParams;
 			#ifdef SHADOW_SAMPLER
 				float rShadow = SHADOW(p);
 			#else
-				vec4 samples = vec4(SHADOW(                  p.xy),
-									SHADOW(SHADOW_TEXEL.xz + p.xy),
-									SHADOW(SHADOW_TEXEL.zy + p.xy),
-									SHADOW(SHADOW_TEXEL.xy + p.xy));
+				#ifndef OPT_SHADOW_ONETAP
+					vec4 samples = vec4(SHADOW(                  p.xy),
+										SHADOW(SHADOW_TEXEL.xz + p.xy),
+										SHADOW(SHADOW_TEXEL.zy + p.xy),
+										SHADOW(SHADOW_TEXEL.xy + p.xy));
 
-				samples = step(vec4(p.z), samples);
+					samples = step(vec4(p.z), samples);
 
-				vec2 f = fract(p.xy / SHADOW_TEXEL.xy);
-				samples.xy = mix(samples.xz, samples.yw, f.x);
-				float rShadow = mix(samples.x, samples.y, f.y);
+					vec2 f = fract(p.xy / SHADOW_TEXEL.xy);
+					samples.xy = mix(samples.xz, samples.yw, f.x);
+					float rShadow = mix(samples.x, samples.y, f.y);
+				#else
+					float rShadow = step(p.z, SHADOW(p.xy));
+				#endif
 			#endif
 
 			float fade = clamp(dot(lightVec, lightVec), 0.0, 1.0);
@@ -313,9 +334,10 @@ uniform vec4 uFogParams;
 		}
 
 		float getShadow(vec3 lightVec, vec3 normal) {
-			float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
-			factor *= SHADOW_NORMAL_BIAS;
-			return getShadow(lightVec, normal, uLightProj * vec4(vCoord + normal * factor, 1.0));
+			#ifndef OPT_VLIGHTPROJ
+				vec4 vLightProj = calcLightProj(vCoord, lightVec, normal);
+			#endif
+			return getShadow(lightVec, normal, vLightProj);
 		}
 	#endif
 
@@ -414,7 +436,7 @@ uniform vec4 uFogParams;
 						#endif
 
 						#ifdef TYPE_ROOM
-							light += mix(vAmbient.xyz, vLightMap.xyz, rShadow);
+							light += mix(vAmbient, vLightMap.xyz, rShadow);
 						#endif
 
 						#ifdef TYPE_SPRITE
