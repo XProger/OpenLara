@@ -50,7 +50,6 @@ struct Level : IGame {
 
     bool lastTitle;
     bool isEnded;
-    bool isFirstFrame;
 
     TR::Effect::Type effect;
     float      effectTimer;
@@ -246,7 +245,7 @@ struct Level : IGame {
         bool rebuildWater   = settings.detail.water != Core::settings.detail.water;
         bool rebuildShaders = rebuildWater || rebuildAmbient || rebuildShadows;
 
-        bool redraw = settings.detail.stereo != Core::settings.detail.stereo;
+        bool redraw = memcmp(&settings.detail, &Core::settings.detail, sizeof(settings.detail)) != 0;
 
     #ifdef _OS_ANDROID
         if ((settings.detail.stereo == Core::Settings::STEREO_VR) ^ (Core::settings.detail.stereo == Core::Settings::STEREO_VR))
@@ -282,8 +281,12 @@ struct Level : IGame {
             waterCache = Core::settings.detail.water > Core::Settings::LOW ? new WaterCache(this) : NULL;
         }
 
-        if (redraw && inventory.active && !level.isTitle())
+        if (redraw && inventory.active && !level.isTitle()) {
+            Core::reset();
+            Core::beginFrame();
             inventory.prepareBackground();
+            Core::endFrame();
+        }
     }
 
     virtual TR::Level* getLevel() {
@@ -704,6 +707,8 @@ struct Level : IGame {
 
             initShadow();
 
+            initReflections();
+
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
                 int flags = Sound::PAN;
@@ -722,8 +727,6 @@ struct Level : IGame {
         cube360 = NULL;
 
         sndWater = sndTrack = NULL;
-
-        isFirstFrame = true;
 
         playTrack(0);
         /*
@@ -1238,6 +1241,8 @@ struct Level : IGame {
     }
 
     void initReflections() {
+        Core::reset();
+        Core::beginFrame();
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
@@ -1246,6 +1251,7 @@ struct Level : IGame {
                 c->environment->generateMipMap();
             }
         }
+        Core::endFrame();
     }
 
     void setMainLight(Controller *controller) {
@@ -2374,11 +2380,6 @@ struct Level : IGame {
     }
 
     void renderPrepare() {
-        if (isFirstFrame) {
-            initReflections();
-            isFirstFrame = false;
-        }
-
         if (ambientCache)
             ambientCache->processQueue();
 

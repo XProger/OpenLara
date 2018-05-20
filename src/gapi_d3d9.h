@@ -463,10 +463,13 @@ namespace GAPI {
                 res.texture->deinit();
         }
 
-        if (defRT) { defRT->Release(); defRT = NULL; }
-        if (defDS) { defDS->Release(); defDS = NULL; }
+        if (defRT) defRT->Release();
+        if (defDS) defDS->Release();
 
         D3DCHECK(device->Reset(&d3dpp));
+
+        device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defRT);
+        device->GetDepthStencilSurface(&defDS);
 
     // reinit texture RTs
         for (int i = 0; i < tmpCount; i++) {
