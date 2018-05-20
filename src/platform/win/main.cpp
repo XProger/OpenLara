@@ -429,7 +429,7 @@ HWND hWnd;
         memset(&d3dpp, 0, sizeof(d3dpp));
         d3dpp.Windowed                  = TRUE;
         d3dpp.BackBufferCount           = 1;
-        d3dpp.BackBufferFormat          = D3DFMT_X8R8G8B8;
+        d3dpp.BackBufferFormat          = D3DFMT_A8R8G8B8;
         d3dpp.SwapEffect                = D3DSWAPEFFECT_DISCARD;
         d3dpp.hDeviceWindow             = hWnd;
         d3dpp.EnableAutoDepthStencil    = TRUE;

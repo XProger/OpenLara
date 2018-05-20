@@ -120,7 +120,7 @@ struct Animation {
     // real frame index & lerp delta
         int fIndex = int(time * 30.0f) / anim->frameRate;
         int k = fIndex * anim->frameRate;
-        delta = (time * 30.0f - k) / min((int)anim->frameRate, max(1, framesCount - k)); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
+        delta = (time * 30.0f - k) / max(1, min((int)anim->frameRate, framesCount - k)); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
 
         int fIndexA =  fIndex % fCount,
             fIndexB = (fIndex + 1) % fCount;

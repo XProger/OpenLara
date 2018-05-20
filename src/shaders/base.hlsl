@@ -1,15 +1,15 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 pos		 : POSITION;
-	float3 coord	 : TEXCOORD0;
-	float4 texCoord	 : TEXCOORD1;
-	float4 viewVec	 : TEXCOORD2;
-	float4 normal	 : NORMAL;
-	float4 diffuse	 : COLOR0;
-	float3 ambient	 : COLOR1;
-	float4 lightMap	 : COLOR2;
-	float4 light	 : COLOR3;
+	float4 pos		: POSITION;
+	float3 coord	: TEXCOORD0;
+	float4 texCoord	: TEXCOORD1;
+	float4 viewVec	: TEXCOORD2;
+	float4 normal	: NORMAL;
+	float4 diffuse	: COLOR0;
+	float3 ambient	: COLOR1;
+	float4 lightMap	: COLOR2;
+	float4 light	: COLOR3;
 	float4 hpos		: TEXCOORD4;
 };
 
@@ -216,7 +216,7 @@ float getContactAO(float3 p, float3 n) {
 
 float calcCaustics(float3 coord, float3 n) {
 	float2 cc = saturate((coord.xz - uRoomSize.xy) / uRoomSize.zw);
-	return tex2D(sReflect, cc).x * max(0.0, -n.y);
+	return tex2D(sReflect, float2(cc.x, 1.0 - cc.y)).x * max(0.0, -n.y);
 }
 
 float calcSpecular(float3 normal, float3 viewVec, float3 lightVec, float4 color, float intensity) {

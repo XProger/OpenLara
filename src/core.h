@@ -350,7 +350,8 @@ enum TexOption {
     OPT_MIPMAPS = 2, 
     OPT_NEAREST = 4,
     OPT_TARGET  = 8,
-    OPT_PROXY   = 16,
+    OPT_VERTEX  = 16,
+    OPT_PROXY   = 32,
 };
 
 // Pipeline State Object

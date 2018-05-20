@@ -10,10 +10,13 @@ R"====(
 varying vec3 vCoord;
 varying vec2 vTexCoord;
 varying vec4 vProjCoord;
-varying vec4 vOldPos;
-varying vec4 vNewPos;
 varying vec3 vViewVec;
 varying vec3 vLightVec;
+
+#ifdef WATER_CAUSTICS
+    varying vec3 vOldPos;
+    varying vec3 vNewPos;
+#endif
 
 uniform vec4  uViewPos;
 uniform mat4  uViewProj;
@@ -26,9 +29,6 @@ uniform vec4  uParam;
 uniform sampler2D sNormal;
 
 #ifdef VERTEX
-	#define ETA_AIR		1.000
-	#define ETA_WATER	1.333
-
 	attribute vec4 aCoord;
 
 	void main() {
@@ -59,12 +59,11 @@ uniform sampler2D sNormal;
 				vec3 refOld = refract(-light, vec3(0.0, 0.0, 1.0), 0.75);
 				vec3 refNew = refract(-light, normal, 0.75);
 
-				vOldPos = vec4(rCoord + refOld * (-1.0 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z), 1.0);
-				vNewPos = vec4(rCoord + refNew * ((info.r - 1.0) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z), 1.0);
+				vOldPos = rCoord + refOld * (-1.0 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z);
+				vNewPos = rCoord + refNew * ((info.r - 1.0) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z);
 
 				gl_Position = vec4(vNewPos.xy + refOld.xy / refOld.z, 0.0, 1.0);
 			#else
-				vOldPos = vNewPos = vec4(0.0);
 				gl_Position = vec4(coord.xyz, 1.0);
 			#endif
 		#endif
@@ -91,10 +90,9 @@ uniform sampler2D sNormal;
 	}
 
 	vec4 drop() {
-		vec2 tc = gl_FragCoord.xy * uTexParam.xy;
-		vec4 v = texture2D(sDiffuse, tc);
+		vec4 v = texture2D(sDiffuse, vTexCoord);
 
-		float drop = max(0.0, 1.0 - length(uParam.xy - gl_FragCoord.xy) / uParam.z);
+		float drop = max(0.0, 1.0 - length(uParam.xy - vTexCoord / uTexParam.xy) / uParam.z);
 		drop = 0.5 - cos(drop * PI) * 0.5;
 		v.x += drop * uParam.w;
 
@@ -133,7 +131,7 @@ uniform sampler2D sNormal;
 	}
 
 	vec4 calc() {
-		vec2 tc = gl_FragCoord.xy * uTexParam.xy;
+		vec2 tc = vTexCoord;
 
 		if (texture2D(sMask, tc).x < 0.5)
 			return vec4(0.0);
@@ -160,10 +158,10 @@ uniform sampler2D sNormal;
 	}
 #ifdef WATER_CAUSTICS
 	vec4 caustics() {
-		float rOldArea = length(dFdx(vOldPos.xyz)) * length(dFdy(vOldPos.xyz));
-		float rNewArea = length(dFdx(vNewPos.xyz)) * length(dFdy(vNewPos.xyz));
+		float rOldArea = length(dFdx(vOldPos)) * length(dFdy(vOldPos));
+		float rNewArea = length(dFdx(vNewPos)) * length(dFdy(vNewPos));
 		rNewArea = max(rNewArea, 0.00002); // WebGL NVIDIA workaround >_<
-		float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0) * vOldPos.w;
+		float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0);
 		return vec4(value, 0.0, 0.0, 0.0);
 	}
 #endif

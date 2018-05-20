@@ -1,7 +1,7 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 wpos		: POSITION;
+	float4 pos		: POSITION;
 	float2 texCoord	: TEXCOORD0;
 	float4 diffuse	: COLOR0;
 };
@@ -9,7 +9,7 @@ struct VS_OUTPUT {
 #ifdef VERTEX
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
-	Out.wpos     = float4(In.aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
+	Out.pos      = float4(In.aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
 	Out.texCoord = In.aTexCoord.xy * (1.0 / 32767.0);
 	Out.diffuse  = In.aLight;
 

@@ -446,8 +446,8 @@ struct WaterCache {
 
             int *mf = new int[4 * w * 64 * h * 64];
             memset(mf, 0, sizeof(int) * 4 * w * 64 * h * 64);
-            data[0] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET, mf);
-            data[1] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET);
+            data[0] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET | OPT_VERTEX, mf);
+            data[1] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET | OPT_VERTEX);
             delete[] mf;
 
             caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET) : NULL;
@@ -594,11 +594,13 @@ struct WaterCache {
     void drop(Item &item) { 
         if (!dropCount) return;
 
+        vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
+
         game->setShader(Core::passWater, Shader::WATER_DROP);
-        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
 
         vec4 rPosScale[2] = { vec4(0.0f), vec4(1.0f) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
             
         for (int i = 0; i < dropCount; i++) {
             Drop &drop = drops[i];
@@ -606,11 +608,12 @@ struct WaterCache {
             vec3 p;
             p.x = (drop.pos.x - (item.pos.x - item.size.x)) * DETAIL;
             p.z = (drop.pos.z - (item.pos.z - item.size.z)) * DETAIL;
+
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
             item.data[0]->bind(sDiffuse);
             Core::setTarget(item.data[1], RT_STORE_COLOR);
-            Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
+            Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
         }
@@ -619,19 +622,24 @@ struct WaterCache {
     void step(Item &item) {
         if (item.timer < SIMULATE_TIMESTEP) return;
 
+        vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
+
         game->setShader(Core::passWater, Shader::WATER_STEP);
-        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, 1.0f, 1.0f));
         Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, Core::params.x));
+        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
             
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             item.data[0]->bind(sDiffuse);
             Core::setTarget(item.data[1], RT_STORE_COLOR);
-            Core::setViewport(0, 0, int(item.size.x * DETAIL * 2.0f + 0.5f), int(item.size.z * DETAIL * 2.0f + 0.5f));
+            Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
             item.timer -= SIMULATE_TIMESTEP;
         }
+
+        if (Core::settings.detail.water < Core::Settings::HIGH)
+            return;
 
     // calc caustics
         game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
@@ -641,7 +649,7 @@ struct WaterCache {
         float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
         float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
-        Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
+        Core::active.shader->setParam(uTexParam, vec4(0.0f, 0.0f, sx, sz));
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
@@ -711,13 +719,11 @@ struct WaterCache {
     // get refraction texture
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
             delete refract;
-            refract = new Texture(w, h, FMT_RGBA);
-            /*
+            refract = new Texture(w, h, FMT_RGBA, OPT_TARGET);
             Core::setTarget(refract, RT_CLEAR_COLOR | RT_STORE_COLOR);
             Core::validateRenderState();
             Core::setTarget(NULL, RT_STORE_COLOR);
             Core::validateRenderState();
-            */
         }
         Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }
@@ -832,7 +838,7 @@ struct WaterCache {
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
-            Core::active.shader->setParam(uTexParam, vec4(1.0f, 1.0f, sx, sz));
+            Core::active.shader->setParam(uTexParam, vec4(0.0f, 0.0f, sx, sz));
 
             refract->bind(sDiffuse);
             reflect->bind(sReflect);

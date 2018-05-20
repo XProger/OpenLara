@@ -229,8 +229,8 @@ namespace GAPI {
                 { 32, D3DFMT_A8R8G8B8      },
                 { 16, D3DFMT_R5G6B5        },
                 { 16, D3DFMT_A1R5G5B5      },
-                { 64, D3DFMT_A16B16G16R16F },
                 {128, D3DFMT_A32B32G32R32F },
+                { 64, D3DFMT_A16B16G16R16F },
                 { 16, D3DFMT_D16           },
                 { 16, D3DFMT_D24X8         },
             };
@@ -277,9 +277,12 @@ namespace GAPI {
 
             if (Core::active.textures[sampler] != this) {
                 Core::active.textures[sampler] = this;
-                if (tex2D)
+                if (tex2D) {
                     device->SetTexture(sampler, tex2D);
-                else if (texCube)
+                    if (opt & OPT_VERTEX) {
+                        device->SetTexture(D3DVERTEXTEXTURESAMPLER0 + sampler, tex2D);
+                    }
+                } else if (texCube)
                     device->SetTexture(sampler, texCube);
 
                 bool filter  = (Core::settings.detail.filter > Core::Settings::LOW)    && !(opt & OPT_NEAREST);
@@ -291,7 +294,7 @@ namespace GAPI {
 
                 if (aniso) {
                     device->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-                    device->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
+                    device->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
                     device->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
                     device->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, support.maxAniso);
                 } else {
@@ -403,15 +406,15 @@ namespace GAPI {
         support.depthTexture   = false; // SHADOW_DEPTH
         support.shadowSampler  = false;
         support.discardFrame   = false;
-        support.texNPOT        = false;
+        support.texNPOT        = true;
         support.texRG          = false;
         support.texBorder      = false;
-        support.colorFloat     = false;
-        support.colorHalf      = false;
-        support.texFloatLinear = false;
-        support.texFloat       = false;
-        support.texHalfLinear  = false;
-        support.texHalf        = false;
+        support.colorFloat     = true;
+        support.colorHalf      = true;
+        support.texFloatLinear = true;
+        support.texFloat       = true;
+        support.texHalfLinear  = true;
+        support.texHalf        = true;
 
         #ifdef PROFILE
             support.profMarker = false;
@@ -428,10 +431,14 @@ namespace GAPI {
         };
 
         device->CreateVertexDeclaration(VERTEX_DECL, &vertexDecl);
+
+        defRT = defDS = NULL;
     }
 
     void deinit() {
         vertexDecl->Release();
+        if (defRT) defRT->Release();
+        if (defDS) defDS->Release();
     }
 
     void resetDevice() {
@@ -456,6 +463,9 @@ namespace GAPI {
                 res.texture->deinit();
         }
 
+        if (defRT) { defRT->Release(); defRT = NULL; }
+        if (defDS) { defDS->Release(); defDS = NULL; }
+
         D3DCHECK(device->Reset(&d3dpp));
 
     // reinit texture RTs
@@ -466,7 +476,6 @@ namespace GAPI {
             else
                 res.texture->init(NULL);
         }
-
     }
 
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
@@ -493,16 +502,15 @@ namespace GAPI {
                 return false;
         }
 
-        device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defRT);
-        device->GetDepthStencilSurface(&defDS);
+        if (defRT == NULL) device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defRT);
+        if (defDS == NULL) device->GetDepthStencilSurface(&defDS);
+
         device->BeginScene();
         return true;
     }
 
     void endFrame() {
         device->EndScene();
-        defRT->Release();
-        defDS->Release();
     }
 
     void resetState() {
@@ -561,6 +569,8 @@ namespace GAPI {
 
             surface->Release();
         }
+
+        Core::active.viewport = Viewport(0, 0, 0, 0); // forcing viewport reset
     }
 
     void discardTarget(bool color, bool depth) {}

@@ -50,6 +50,7 @@ struct Level : IGame {
 
     bool lastTitle;
     bool isEnded;
+    bool isFirstFrame;
 
     TR::Effect::Type effect;
     float      effectTimer;
@@ -686,7 +687,13 @@ struct Level : IGame {
 
         Sound::listenersCount = 1;
 
-        if (!level.isTitle()) {
+        shadow       = NULL;
+        camera       = NULL;
+        ambientCache = NULL;
+        waterCache   = NULL;
+        zoneCache    = NULL;
+
+        if (!(lastTitle = level.isTitle())) {
             ASSERT(players[0] != NULL);
             player = players[0];
             camera = player->camera;
@@ -695,10 +702,7 @@ struct Level : IGame {
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
 
-            shadow = NULL;
             initShadow();
-
-            initReflections();
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
@@ -708,14 +712,7 @@ struct Level : IGame {
                 playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), flags);
             }
 
-            lastTitle       = false;
         } else {
-            camera          = NULL;
-            ambientCache    = NULL;
-            waterCache      = NULL;
-            zoneCache       = NULL;
-            shadow          = NULL;
-            lastTitle       = true;
             inventory.toggle(0, Inventory::PAGE_OPTION);
         }
 
@@ -725,6 +722,8 @@ struct Level : IGame {
         cube360 = NULL;
 
         sndWater = sndTrack = NULL;
+
+        isFirstFrame = true;
 
         playTrack(0);
         /*
@@ -2375,6 +2374,11 @@ struct Level : IGame {
     }
 
     void renderPrepare() {
+        if (isFirstFrame) {
+            initReflections();
+            isFirstFrame = false;
+        }
+
         if (ambientCache)
             ambientCache->processQueue();
 
