@@ -285,6 +285,8 @@ struct Level : IGame {
             Core::reset();
             Core::beginFrame();
             inventory.prepareBackground();
+            Core::setTarget(NULL, 0);
+            Core::validateRenderState();
             Core::endFrame();
         }
     }
