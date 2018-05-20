@@ -9,6 +9,9 @@ R"====(
 #define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
 
+#define SHADOW_NORMAL_BIAS	16.0
+#define SHADOW_CONST_BIAS	0.04
+
 #if (defined(PASS_AMBIENT) || defined(PASS_COMPOSE)) && !defined(TYPE_FLASH)
 	varying vec3 vCoord;
 #endif
@@ -250,15 +253,14 @@ uniform vec4 uFogParams;
 		uniform samplerCube sEnvironment;
 	#endif
 
-	#if defined(PASS_SHADOW) && defined(SHADOW_COLOR)
-		vec4 pack(in float value) {
-			vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
-			vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
-			vec4 res = fract(value * bitSh);
-			res -= res.xxyz * bitMsk;
-			return res;
-		}
-	#endif
+	vec4 pack(in float value) {
+		float v = fract(value * vec4(1.0, 255.0, 65025.0, 16581375.0));
+		return v - v.yzww * vec4(1.0/255.0, 1.0/255.0, 1.0/255.0, 0.0);
+	}
+
+	float unpack(vec4 value) {
+		return dot(value, vec4(1.0, 1/255.0, 1/65025.0, 1/16581375.0));
+	}
 
 	#ifdef OPT_SHADOW
 		#ifdef SHADOW_SAMPLER
@@ -270,11 +272,6 @@ uniform vec4 uFogParams;
 			#endif
 		#else
 			uniform sampler2D sShadow;
-
-			float unpack(vec4 value) {
-				vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-				return dot(value, bitSh);
-			}
 
 			float SHADOW(vec2 p) {
 				#ifdef SHADOW_DEPTH
@@ -288,7 +285,7 @@ uniform vec4 uFogParams;
 		float getShadow(vec3 lightVec, vec3 normal, vec4 lightProj) {
 			vec3 p = lightProj.xyz / lightProj.w;
 			p.xyz = p.xyz * 0.5 + 0.5;
-			p.z -= 0.04 * SHADOW_TEXEL.x;
+			p.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL.x;
 
 			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
@@ -317,7 +314,7 @@ uniform vec4 uFogParams;
 
 		float getShadow(vec3 lightVec, vec3 normal) {
 			float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
-			factor *= 16.0;
+			factor *= SHADOW_NORMAL_BIAS;
 			return getShadow(lightVec, normal, uLightProj * vec4(vCoord + normal * factor, 1.0));
 		}
 	#endif

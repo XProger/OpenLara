@@ -3,7 +3,7 @@
 #define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
 #define UNDERWATER_COLOR	float3(0.6, 0.9, 0.9)
 #define SHADOW_NORMAL_BIAS	16.0
-#define SHADOW_CONST_BIAS	0.18
+#define SHADOW_CONST_BIAS	0.04
 #define PI	 				3.141592653589793
 
 static const float3 SHADOW_TEXEL = float3(1.0 / 1024.0, 1.0 / 1024.0, 0.0);
@@ -67,14 +67,10 @@ float4		uContacts[MAX_CONTACTS]	: register( c94 );
 #define OPT_CAUSTICS			uFlags[11]
 
 float4 pack(float value) {
-	float4 bitSh = float4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
-	float4 bitMsk = float4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
-	float4 res = frac(value * bitSh);
-	res -= res.xxyz * bitMsk;
-	return res;
+	float4 v = frac(value * float4(1.0, 255.0, 65025.0, 16581375.0));
+	return v - v.yzww * float4(1.0/255.0, 1.0/255.0, 1.0/255.0, 0.0);
 }
 
 float unpack(float4 value) {
-	float4 bitSh = float4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-	return dot(value, bitSh);
+	return dot(value, float4(1.0, 1/255.0, 1/65025.0, 1/16581375.0));
 }
