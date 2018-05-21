@@ -572,7 +572,10 @@ namespace Core {
 
 namespace Core {
 
+    static const char *version = "22.05.2018";
+
     void init() {
+        LOG("OpenLara %s\n", version);
         x = y = 0;
 
         #ifdef USE_INFLATE

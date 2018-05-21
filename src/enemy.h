@@ -740,7 +740,140 @@ struct Lion : Enemy {
         }
 
         Enemy::updatePosition();
-        setOverrides(state != STATE_DEATH, jointChest, jointHead);
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
+#define GORILLA_DIST_ATTACK     430
+#define GORILLA_DIST_AGGRESSION 2048
+#define GORILLA_TURN_FAST       (DEG2RAD * 150)
+
+struct Gorilla : Enemy {
+
+    enum {
+        HIT_MASK = 0x00FF00,
+    };
+
+    enum {
+        ANIM_DEATH = 7,
+        ANIM_HANG  = 19,
+    };
+
+    enum {
+        STATE_NONE   ,
+        STATE_STOP   ,
+        STATE_UNUSED ,
+        STATE_RUN    ,
+        STATE_ATTACK ,
+        STATE_DEATH  ,
+        STATE_IDLE1  ,
+        STATE_IDLE2  ,
+        STATE_LSTEP  ,
+        STATE_RSTEP  ,
+        STATE_JUMP   ,
+        STATE_HANG   ,
+    };
+
+    enum {
+        BEH_ATTACK = 1,
+        BEH_LSTEP  = 2,
+        BEH_RSTEP  = 4,
+    };
+
+    Gorilla(IGame *game, int entity) : Enemy(game, entity, 22, 341, 250.0f, 1.0f) {
+        dropHeight = -1024;
+        jointChest = -1;//7;
+        jointHead  = 14;
+        flags.unused = 0;
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+        
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (targetDist < GORILLA_DIST_AGGRESSION)
+            flags.unused |= BEH_ATTACK;
+
+        switch (state) {
+            case STATE_STOP    :
+                flags.unused &= ~(BEH_LSTEP | BEH_RSTEP);
+
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetDist < GORILLA_DIST_ATTACK)
+                    return STATE_ATTACK;
+                if (!(flags.unused & BEH_ATTACK)) {
+                    // TODO
+                }
+                return STATE_RUN;
+            case STATE_RUN      :
+                if (!flags.unused && targetInView)
+                    return STATE_STOP;
+                if (targetInView && collide(target) & HIT_MASK) {
+                    nextState = STATE_ATTACK;
+                    return STATE_STOP;
+                }
+                if (mood != MOOD_ESCAPE) {
+                    int r = rand();
+                    if (r < 160)
+                        nextState = STATE_JUMP;
+                    else if (r < 320)
+                        nextState = STATE_IDLE1;
+                    else if (r < 480)
+                        nextState = STATE_IDLE2;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_ATTACK :
+                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
+                    bite(getJoint(jointChest).pos, 200.0f);
+                    nextState = STATE_STOP;
+                }
+            case STATE_LSTEP :
+                flags.unused |= BEH_LSTEP;
+                return STATE_STOP;
+            case STATE_RSTEP :
+                flags.unused |= BEH_RSTEP;
+                return STATE_STOP;
+            default : ;
+        }
+
+        return state;
+    }
+
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        Enemy::hit(damage, enemy, hitType);
+        flags.unused |= BEH_ATTACK;
+    };
+
+    virtual int getStateDeath() {
+        if (state == STATE_DEATH)
+            return state;
+        return animation.setAnim(ANIM_DEATH + rand() % 2);
+    }
+
+    virtual void updatePosition() {
+        float angleY = 0.0f;
+
+        if (state == STATE_RUN || state == STATE_WALK)
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        turn(angleY, state == STATE_RUN ? GORILLA_TURN_FAST : GORILLA_TURN_SLOW);
+
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
         lookAt(target);
     }
 };
@@ -788,6 +921,8 @@ struct Rat : Enemy {
 
         modelLand  = level->getModelIndex(TR::Entity::ENEMY_RAT_LAND)  - 1;
         modelWater = level->getModelIndex(TR::Entity::ENEMY_RAT_WATER) - 1;
+        getModel();
+        updateZone();
     }
 
     const virtual TR::Model* getModel() {
@@ -984,6 +1119,8 @@ struct Crocodile : Enemy {
         bool water = getRoom().flags.water;
         flying     = water;
         stand      = water ? STAND_UNDERWATER : STAND_GROUND;
+        getModel();
+        updateZone();
     }
 
     const virtual TR::Model* getModel() {
@@ -1941,7 +2078,7 @@ struct Human : Enemy {
         // vertical offset to ~gun/head height
             from.pos.y -= 768.0f;
             if (target->stand != STAND_UNDERWATER && target->stand != STAND_ONWATER)
-                to.pos.y   -= 768.0f;
+                to.pos.y -= 768.0f;
 
             return trace(from, to);
         }

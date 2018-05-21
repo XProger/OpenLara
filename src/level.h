@@ -797,7 +797,7 @@ struct Level : IGame {
             case TR::Entity::ENEMY_MUMMY           : return new Mummy(this, index);
             case TR::Entity::ENEMY_CROCODILE_LAND  :
             case TR::Entity::ENEMY_CROCODILE_WATER : return new Crocodile(this, index);
-            case TR::Entity::ENEMY_GORILLA         : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+            case TR::Entity::ENEMY_GORILLA         : return new Gorilla(this, index);
             case TR::Entity::ENEMY_LARSON          : return new Larson(this, index);
             case TR::Entity::ENEMY_PIERRE          : return new Pierre(this, index);
             case TR::Entity::ENEMY_SKATEBOY        : return new SkaterBoy(this, index);
