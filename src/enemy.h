@@ -862,10 +862,10 @@ struct Gorilla : Enemy {
     virtual void updatePosition() {
         float angleY = 0.0f;
 
-        if (state == STATE_RUN || state == STATE_WALK)
+        if (state == STATE_RUN)
             getTargetInfo(0, NULL, NULL, &angleY, NULL);
 
-        turn(angleY, state == STATE_RUN ? GORILLA_TURN_FAST : GORILLA_TURN_SLOW);
+        turn(angleY, GORILLA_TURN_FAST);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
