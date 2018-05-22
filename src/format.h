@@ -2286,7 +2286,7 @@ namespace TR {
         uint16          *meshData;
 
         int32           meshOffsetsCount;
-        uint32          *meshOffsets;
+        int32           *meshOffsets;
 
         int32           animsCount;
         Animation       *anims;
@@ -4154,8 +4154,7 @@ namespace TR {
         int16 getModelIndex(Entity::Type type) const {
         //#ifndef _DEBUG
             if ((type >= Entity::AI_GUARD && type <= Entity::AI_CHECK) || 
-                (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) || 
-                (type == Entity::TRAP_FLAME_EMITTER || type == Entity::MIDAS_HAND) ||
+                (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) ||
                 type == Entity::WATERFALL || type == Entity::KILL_ALL_TRIGGERS || type == Entity::VIEW_TARGET || type == Entity::SOUND_DOOR_BELL || type == Entity::SOUND_ALARM_BELL || type == Entity::TRIPWIRE)
                 return 0;
         //#endif

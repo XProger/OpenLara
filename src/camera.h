@@ -205,7 +205,7 @@ struct Camera : ICamera {
         uint16 cameraBoxIndex = level->getSector(to.room, to.pos)->boxIndex;
 
         if (ownerBoxIndex == TR::NO_BOX) {
-            ASSERT(false);
+            ASSERT(false); // TODO: collide death AABB with walls
             return;
         }
 

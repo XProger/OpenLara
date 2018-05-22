@@ -233,7 +233,7 @@ struct MeshBuilder {
             TR::Model &model = level.models[i];
             for (int j = 0; j < model.mCount; j++) {
                 int index = level.meshOffsets[model.mStart + j];
-                if (index == -1) 
+                if (!index && model.mStart + j > 0) 
                     continue;
                 TR::Mesh &mesh = level.meshes[index];
                 iCount += (mesh.rCount * 6 + mesh.tCount * 3) * DOUBLE_SIDED;
@@ -352,7 +352,7 @@ struct MeshBuilder {
                     #endif
 
                     int index = level.meshOffsets[model.mStart + j];
-                    if (index == -1)
+                    if (!index && model.mStart + j > 0) 
                         continue;
 
                     TR::Mesh &mesh = level.meshes[index];
