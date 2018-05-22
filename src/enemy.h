@@ -295,6 +295,8 @@ struct Enemy : Character {
             return false;
         thinkTime -= 1.0f / 30.0f;
 
+        updateZone();
+
         target = (Character*)game->getLara(pos);
 
         vec3 targetVec  = target->pos - pos - getDir() * length;
@@ -921,8 +923,6 @@ struct Rat : Enemy {
 
         modelLand  = level->getModelIndex(TR::Entity::ENEMY_RAT_LAND)  - 1;
         modelWater = level->getModelIndex(TR::Entity::ENEMY_RAT_WATER) - 1;
-        getModel();
-        updateZone();
     }
 
     const virtual TR::Model* getModel() {
@@ -1119,8 +1119,6 @@ struct Crocodile : Enemy {
         bool water = getRoom().flags.water;
         flying     = water;
         stand      = water ? STAND_UNDERWATER : STAND_GROUND;
-        getModel();
-        updateZone();
     }
 
     const virtual TR::Model* getModel() {
