@@ -1417,9 +1417,6 @@ struct Inventory {
     }
 
     void renderGameBG() {
-        #ifdef _OS_PSP
-            return;
-        #endif
         Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
         Vertex vertices[4];
         vertices[0].coord = short4(-32767,  32767, 0, 0);
@@ -1437,9 +1434,7 @@ struct Inventory {
 
         game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
-            for (int i = 0; i < 4; i++)
-                vertices[i].light.x = vertices[i].light.y = vertices[i].light.z = 0;
-            Core::whiteTex->bind(sDiffuse); // black background 
+            Core::blackTex->bind(sDiffuse); // black background 
         } else
             background[0]->bind(sDiffuse); // blured grayscale image
 

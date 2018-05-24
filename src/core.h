@@ -246,17 +246,29 @@ namespace Core {
             }
 
             void setLighting(Quality value) {
+            #ifdef _OS_PSP
+                lighting = LOW;
+            #else
                 lighting = value;
+            #endif
             }
 
             void setShadows(Quality value) {
+            #ifdef _OS_PSP
+                shadows = LOW;
+            #else
                 shadows = value;
+            #endif
             }
 
             void setWater(Quality value) {
+            #ifdef _OS_PSP
+                water = LOW;
+            #else
                 if (value > LOW && !(support.texFloat || support.texHalf))
                     value = LOW;
                 water = value;
+            #endif
             }
         } detail;
 

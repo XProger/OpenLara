@@ -352,14 +352,13 @@ struct MeshBuilder {
                     #endif
 
                     int index = level.meshOffsets[model.mStart + j];
-                    if (!index && model.mStart + j > 0) 
-                        continue;
-
-                    TR::Mesh &mesh = level.meshes[index];
-                    #ifndef MERGE_MODELS
-                        geom.getNextRange(vStartModel, iCount, 0xFFFF, 0xFFFF);
-                    #endif
-                    buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
+                    if (index || model.mStart + j <= 0) {
+                        TR::Mesh &mesh = level.meshes[index];
+                        #ifndef MERGE_MODELS
+                            geom.getNextRange(vStartModel, iCount, 0xFFFF, 0xFFFF);
+                        #endif
+                        buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
+                    }
 
                     #ifndef MERGE_MODELS
                         geom.finish(iCount);

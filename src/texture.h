@@ -14,8 +14,8 @@ struct Texture : GAPI::Texture {
 
             Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, OPT_PROXY) {
                 #ifdef EDRAM_TEX
-                    this->tiles = (TR::Tile4*)Core::allocEDRAM(tilesCount * sizeof(tiles[0]));
-                    this->cluts =  (TR::CLUT*)Core::allocEDRAM(clutsCount * sizeof(cluts[0]));
+                    this->tiles = (TR::Tile4*)GAPI::allocEDRAM(tilesCount * sizeof(tiles[0]));
+                    this->cluts =  (TR::CLUT*)GAPI::allocEDRAM(clutsCount * sizeof(cluts[0]));
                     memcpy(this->cluts, cluts, clutsCount * sizeof(cluts[0]));
                     #ifdef TEX_SWIZZLE
                         for (int i = 0; i < tilesCount; i++)
@@ -102,9 +102,11 @@ struct Texture : GAPI::Texture {
     }
 
     virtual ~Texture() {
-        #ifdef SPLIT_BY_TILE
-            for (int i = 0; i < COUNT(tiles); i++)
-                delete tiles[i];
+        #ifndef _OS_PSP
+            #ifdef SPLIT_BY_TILE
+                for (int i = 0; i < COUNT(tiles); i++)
+                    delete tiles[i];
+            #endif
         #endif
         deinit();
     }

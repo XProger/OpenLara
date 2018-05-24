@@ -6,10 +6,9 @@
 #include <pspgu.h>
 #include <pspgum.h>
 
-#define FFP
-#define TEX_SWIZZLE
-//#define EDRAM_MESH
-#define EDRAM_TEX
+#define PROFILE_MARKER(title)
+#define PROFILE_LABEL(id, name, label)
+#define PROFILE_TIMING(time)
 
 namespace GAPI {
 
@@ -20,6 +19,16 @@ namespace GAPI {
         ubyte4 color;
         short3 normal;
         short3 coord;
+    };
+
+// Shader
+    struct Shader {
+        void init(Core::Pass pass, int type, int *def, int defCount) {}
+        void deinit() {}
+        void bind() {}
+        void setParam(UniformType uType, const vec4  &value, int count = 1) {}
+        void setParam(UniformType uType, const mat4  &value, int count = 1) {}
+        void setParam(UniformType uType, const Basis &value, int count = 1) {}
     };
 
 // Texture
@@ -100,9 +109,9 @@ namespace GAPI {
 
         void setFilterQuality(int value) {
             if (value > Core::Settings::LOW)
-                opt &= ~NEAREST;
+                opt &= ~OPT_NEAREST;
             else
-                opt |= NEAREST;
+                opt |= OPT_NEAREST;
         }
     };
 
@@ -117,17 +126,16 @@ namespace GAPI {
 
         Mesh(bool dynamic) : iBuffer(NULL), vBuffer(NULL), dynamic(dynamic) {}
 
-        void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount, bool dynamic) {
+        void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
             this->iCount  = iCount;
             this->vCount  = vCount;
-            this->dynamic = dynamic;
 
             if (dynamic)
                 return;
 
             #ifdef EDRAM_MESH
-                iBuffer =  (Index*)Core::allocEDRAM(iCount * sizeof(Index)); 
-                vBuffer = (Vertex*)Core::allocEDRAM(vCount * sizeof(Vertex)); 
+                iBuffer =  (Index*)allocEDRAM(iCount * sizeof(Index)); 
+                vBuffer = (Vertex*)allocEDRAM(vCount * sizeof(Vertex)); 
             #else
                 iBuffer = new Index[iCount];
                 vBuffer = new Vertex[vCount];
@@ -171,12 +179,7 @@ namespace GAPI {
             }
         }
 
-        void bind(const MeshRange &range) const {
-            ASSERT(iBuffer != NULL);
-            ASSERT(vBuffer != NULL);
-            Core::active.iBuffer = iBuffer;
-            Core::active.vBuffer = vBuffer + range.vStart;
-        }
+        void bind(const MeshRange &range) const {}
 
         void initNextRange(MeshRange &range, int &aIndex) const {
             range.aIndex = -1;
@@ -193,8 +196,8 @@ namespace GAPI {
     static int EDRAM_SIZE;
 
     void* allocEDRAM(int size) {
-        LOG("EDRAM ALLOC: offset: %d size %d (free %d)\n", Core::EDRAM_OFFSET, size, EDRAM_SIZE - (Core::EDRAM_OFFSET + size));
-        if (Core::EDRAM_OFFSET + size > EDRAM_SIZE)
+        LOG("EDRAM ALLOC: offset: %d size %d (free %d)\n", EDRAM_OFFSET, size, EDRAM_SIZE - (EDRAM_OFFSET + size));
+        if (EDRAM_OFFSET + size > EDRAM_SIZE)
             LOG("! EDRAM overflow !\n");
 
         void *ptr = ((char*)sceGeEdramGetAddr()) + EDRAM_OFFSET;
@@ -290,11 +293,11 @@ namespace GAPI {
     }
 
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
-        return mat4(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+        return mat4(mat4::PROJ_NEG_POS, l, r, b, t, znear, zfar);
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar) {
-        return mat4(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar);
+        return mat4(mat4::PROJ_NEG_POS, fov, aspect, znear, zfar);
     }
 
     bool beginFrame() {
@@ -397,11 +400,27 @@ namespace GAPI {
         sceGumMatrixMode(GU_MODEL);
         sceGumLoadMatrix((ScePspFMatrix4*)&m);
 
-        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, range.iCount, mesh->iBuffer + range.iStart, mesh->vBuffer);
+        sceGumDrawArray(GU_TRIANGLES, GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_INDEX_16BIT | GU_TRANSFORM_3D, range.iCount, mesh->iBuffer + range.iStart, mesh->vBuffer + range.vStart);
     }
 
     vec4 copyPixel(int x, int y) {
         return vec4(0.0f); // TODO: read from framebuffer
+    }
+
+    void initPSO(PSO *pso) {
+        ASSERT(pso);
+        ASSERT(pso && pso->data == NULL);
+        pso->data = &pso;
+    }
+
+    void deinitPSO(PSO *pso) {
+        ASSERT(pso);
+        ASSERT(pso->data != NULL);
+        pso->data = NULL;
+    }
+
+    void bindPSO(const PSO *pso) {
+        //
     }
 }
 

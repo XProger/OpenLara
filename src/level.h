@@ -417,6 +417,10 @@ struct Level : IGame {
         Core::active.shader->setParam(uParam, Core::params);
         Core::setMaterial(diffuse, ambient, specular, alpha);
 
+        #ifdef FFP
+            updateLighting(type);
+        #endif
+
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
             Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
     }
@@ -659,7 +663,7 @@ struct Level : IGame {
             flags |= Sound::LOOP;
 
         waitTrack = true;
-        getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
+        TR::getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
     }
 
     virtual void stopTrack() {
@@ -669,7 +673,7 @@ struct Level : IGame {
 
     Level(Stream &stream) : level(stream), inventory(this), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
     #ifdef _OS_PSP
-        Core::freeEDRAM();
+        GAPI::freeEDRAM();
     #endif
         params = (Params*)&Core::params;
         params->time = 0.0f;
@@ -1158,43 +1162,54 @@ struct Level : IGame {
         #ifdef _OS_PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else
-            level.initTiles();
+            TR::Tile32 *tiles = new TR::Tile32[level.tilesCount];
 
-            atlas = new Texture(level.tiles, level.tilesCount);
-            
-            delete[] level.tiles;
-            level.tiles = NULL;
+            for (int i = 0; i < level.objectTexturesCount; i++) {
+                TR::ObjectTexture &t = level.objectTextures[i];
+                short4 uv = t.getMinMax();
+                level.fillObjectTexture(&tiles[t.tile.index], uv, t.tile.index, t.clut);
+            }
+
+            for (int i = 0; i < level.spriteTexturesCount; i++) {
+                TR::SpriteTexture &t = level.spriteTextures[i];
+                short4 uv = t.getMinMax();
+                level.fillObjectTexture(&tiles[t.tile], uv, t.tile, t.clut);
+            }
+
+            atlas = new Texture(tiles, level.tilesCount);
+
+            delete[] tiles;
         #endif
 
         for (int i = 0; i < level.objectTexturesCount; i++) {
             TR::ObjectTexture &t = level.objectTextures[i];
 
-            t.texCoord[0].x <<= 7;
-            t.texCoord[0].y <<= 7;
-            t.texCoord[1].x <<= 7;
-            t.texCoord[1].y <<= 7;
-            t.texCoord[2].x <<= 7;
-            t.texCoord[2].y <<= 7;
-            t.texCoord[3].x <<= 7;
-            t.texCoord[3].y <<= 7;
+            t.texCoordAtlas[0].x <<= 7;
+            t.texCoordAtlas[0].y <<= 7;
+            t.texCoordAtlas[1].x <<= 7;
+            t.texCoordAtlas[1].y <<= 7;
+            t.texCoordAtlas[2].x <<= 7;
+            t.texCoordAtlas[2].y <<= 7;
+            t.texCoordAtlas[3].x <<= 7;
+            t.texCoordAtlas[3].y <<= 7;
 
-            t.texCoord[0].x += 64;
-            t.texCoord[0].y += 64;
-            t.texCoord[1].x += 64;
-            t.texCoord[1].y += 64;
-            t.texCoord[2].x += 64;
-            t.texCoord[2].y += 64;
-            t.texCoord[3].x += 64;
-            t.texCoord[3].y += 64;
+            t.texCoordAtlas[0].x += 64;
+            t.texCoordAtlas[0].y += 64;
+            t.texCoordAtlas[1].x += 64;
+            t.texCoordAtlas[1].y += 64;
+            t.texCoordAtlas[2].x += 64;
+            t.texCoordAtlas[2].y += 64;
+            t.texCoordAtlas[3].x += 64;
+            t.texCoordAtlas[3].y += 64;
         }
 
         for (int i = 0; i < level.spriteTexturesCount; i++) {
             TR::SpriteTexture &t = level.spriteTextures[i];
 
-            t.texCoord[0].x <<= 7;
-            t.texCoord[0].y <<= 7;
-            t.texCoord[1].x <<= 7;
-            t.texCoord[1].y <<= 7;
+            t.texCoordAtlas[0].x <<= 7;
+            t.texCoordAtlas[0].y <<= 7;
+            t.texCoordAtlas[1].x <<= 7;
+            t.texCoordAtlas[1].y <<= 7;
             /*
             t.texCoord[0].x += 16;
             t.texCoord[0].y += 16;
@@ -1351,9 +1366,6 @@ struct Level : IGame {
             dir = -1;
         }
 
-        beginLighting(true);
-        updateLighting();
-
         while (i != end) {
             int roomIndex = roomsList[i];
             MeshBuilder::RoomRange &range = mesh->rooms[roomIndex];
@@ -1412,7 +1424,6 @@ struct Level : IGame {
                 mesh->renderRoomSprites(roomIndex);
             }
         }
-        endLighting();
 
         Core::setBlendMode(bmNone);
     }
@@ -1445,14 +1456,19 @@ struct Level : IGame {
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
+        if (isModel) { // model
+            setMainLight(controller);
+        } else { // sprite
+            Core::lightPos[0]   = vec4(0, 0, 0, 0);
+            Core::lightColor[0] = vec4(0, 0, 0, 1);
+        }
+
         if (type == Shader::SPRITE) {
             float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH || entity.type == TR::Entity::SPARKLES) ? 0.75f : 1.0f;
             float diffuse = entity.isPickup() ? 1.0f : 0.5f;
             setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, mesh->transparent == 1);
         } else
             setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
-
-        updateLighting();
 
         if (isModel) { // model
             vec3 pos = controller->getPos();
@@ -1463,13 +1479,8 @@ struct Level : IGame {
                     memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
+        }
 
-            setMainLight(controller);
-        } else { // sprite
-            Core::lightPos[0]   = vec4(0, 0, 0, 0);
-            Core::lightColor[0] = vec4(0, 0, 0, 1);
-        }        
-        
         Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
         Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
 
@@ -1602,13 +1613,41 @@ struct Level : IGame {
         }
     }
 
-    void updateLighting() {
-    #ifdef FFP
+#ifdef FFP
+    void updateLighting(Shader::Type type) {
+        float ambient = Core::active.material.y;
+        int lightMask = 0;
+        switch (type) {
+            case Shader::SPRITE :
+            case Shader::ROOM   :
+                ambient   = 1.0f;
+                lightMask = 2; 
+                break;
+            case Shader::ENTITY :
+                lightMask = 1 | 2;
+                break;
+            case Shader::FLASH  :
+            case Shader::MIRROR :
+                ambient = 1.0f;
+                break;
+            default : ;
+        }
+
         #ifdef _OS_PSP
-            ubyte4 ambient;
-            ambient.x = ambient.y = ambient.z = clamp(int(Core::active.material.y * 255), 0, 255);
-            ambient.w = 255;
-            sceGuAmbient(*(uint32*)&ambient);
+            if (lightMask & 1)
+                sceGuEnable(GU_LIGHT0);
+            else
+                sceGuDisable(GU_LIGHT0);
+
+            if (lightMask & 2)
+                sceGuEnable(GU_LIGHT1);
+            else
+                sceGuDisable(GU_LIGHT1);
+
+            ubyte4 amb;
+            amb.x = amb.y = amb.z = clamp(int(ambient * 255), 0, 255);
+            amb.w = 255;
+            sceGuAmbient(*(uint32*)&amb);
 
             for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
                 ScePspFVector3 pos;
@@ -1628,8 +1667,18 @@ struct Level : IGame {
                 sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
             }
         #else
-            vec4 ambient(vec3(Core::active.material.y), 1.0f);
-            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&ambient);
+            if (lightMask & 1)
+                glDisable(GL_LIGHT0);
+            else
+                glEnable(GL_LIGHT0);
+
+            if (lightMask & 2)
+                glDisable(GL_LIGHT1);
+            else
+                glEnable(GL_LIGHT1);
+
+            vec4 amb(vec3(ambient), 1.0f);
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&amb);
 
             for (int i = 0; i < 2 /*MAX_LIGHTS*/; i++) {
                 vec4 pos(Core::lightPos[i].xyz(), 1.0f);
@@ -1642,41 +1691,27 @@ struct Level : IGame {
                 glLightfv(GL_LIGHT0 + i, GL_QUADRATIC_ATTENUATION, (GLfloat*)&att);
             }
         #endif
-    #endif
     }
 
-    void beginLighting(bool room) {
-    #ifdef FFP
+    void beginLighting() {
         Core::mModel.identity();
         #ifdef _OS_PSP
             sceGuEnable(GU_LIGHTING);
-            if (room)
-                sceGuDisable(GU_LIGHT0);
-            else
-                sceGuEnable(GU_LIGHT0);
-            sceGuEnable(GU_LIGHT1);
         #else
             glEnable(GL_COLOR_MATERIAL);
             glEnable(GL_LIGHTING);
-            if (room)
-                glDisable(GL_LIGHT0);
-            else
-                glEnable(GL_LIGHT0);
-            glEnable(GL_LIGHT1);
         #endif
-    #endif 
     }
 
     void endLighting() {
-    #ifdef FFP
         #ifdef _OS_PSP
             sceGuDisable(GU_LIGHTING);
         #else
             glDisable(GL_COLOR_MATERIAL);
             glDisable(GL_LIGHTING);
         #endif
-    #endif    
     }
+#endif
 
     void setup() {
         camera->setup(Core::pass == Core::passCompose);
@@ -1697,8 +1732,6 @@ struct Level : IGame {
             return;
 
         PROFILE_MARKER("ENTITIES");
-
-        beginLighting(false);
 
         if (transp == 0) {
             Core::setBlendMode(bmNone);
@@ -1733,8 +1766,6 @@ struct Level : IGame {
             renderEntitiesTransp(transp);
             Core::setDepthWrite(true);
         }
-
-        endLighting();
     }
 
     bool checkPortal(const TR::Room &room, const TR::Room::Portal &portal, const vec4 &viewPort, vec4 &clipPort) {
@@ -1921,10 +1952,16 @@ struct Level : IGame {
 
         prepareRooms(roomsList, roomsCount);
 
-        updateLighting();
+        #ifdef FFP
+            beginLighting();
+        #endif
 
         renderOpaque(roomsList, roomsCount);
         renderTransparent(roomsList, roomsCount);
+
+        #ifdef FFP
+            endLighting();
+        #endif
 
         if (camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
@@ -2097,7 +2134,7 @@ struct Level : IGame {
     void renderShadows(int roomIndex) {
         PROFILE_MARKER("PASS_SHADOW");
 
-        if (Core::settings.detail.shadows == Core::Settings::Quality::LOW)
+        if (Core::settings.detail.shadows == Core::Settings::LOW)
             return;
         ASSERT(shadow);
 
@@ -2422,7 +2459,7 @@ struct Level : IGame {
             params->waterHeight = params->clipHeight;
 
             if (shadow) {
-                if (view > 0 && Core::settings.detail.shadows < Core::Settings::Quality::HIGH)
+                if (view > 0 && Core::settings.detail.shadows < Core::Settings::HIGH)
                     renderShadows(player->getRoomIndex()); // render shadows for player2 for all-in-one shadow technique
                 shadow->bind(sShadow);
             }

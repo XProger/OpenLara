@@ -170,7 +170,7 @@ int main() {
     sceDisplayWaitVblankStart();
     sceGuDisplay(GU_TRUE);
 
-    Core::curBackBuffer = 0;
+    GAPI::curBackBuffer = 0;
 
     while (!Core::isQuit) {
         GAPI::beginCmdBuf();
@@ -180,7 +180,7 @@ int main() {
         Game::render();
         GAPI::submitCmdBuf();
         Core::waitVBlank();
-        Core::curBackBuffer = sceGuSwapBuffers();
+        GAPI::curBackBuffer = sceGuSwapBuffers();
     }
 
     Game::deinit();
