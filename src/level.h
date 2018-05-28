@@ -2459,7 +2459,7 @@ struct Level : IGame {
             params->waterHeight = params->clipHeight;
 
             if (shadow) {
-                if (view > 0 && Core::settings.detail.shadows < Core::Settings::HIGH)
+                if (view > 0/* && Core::settings.detail.shadows < Core::Settings::HIGH*/)
                     renderShadows(player->getRoomIndex()); // render shadows for player2 for all-in-one shadow technique
                 shadow->bind(sShadow);
             }
