@@ -6,7 +6,7 @@
 #include <float.h>
 
 #ifdef _DEBUG
-    #ifdef _OS_LINUX
+    #if defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_CLOVER)
         #define debugBreak() raise(SIGTRAP);
     #else
         #define debugBreak() _asm { int 3 }

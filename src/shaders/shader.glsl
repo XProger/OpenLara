@@ -18,6 +18,10 @@ R"====(
 
 varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
+#ifdef OPT_VLIGHTVEC
+	varying vec3 vLightVec;
+#endif
+
 #ifdef OPT_CAUSTICS
 	uniform vec4 uRoomSize; // xy - minXZ, zw - maxXZ
 #endif
@@ -182,6 +186,10 @@ uniform vec4 uFogParams;
 				vec3 lv2 = (uLightPos[2].xyz - coord) * uLightColor[2].w;
 				vec3 lv3 = (uLightPos[3].xyz - coord) * uLightColor[3].w;
 
+				#ifdef OPT_VLIGHTVEC
+					vLightVec = lv0;
+				#endif
+
 				vec4 lum, att;
 				#ifdef TYPE_ENTITY
 					lum.x = dot(vNormal.xyz, normalize(lv0));
@@ -247,7 +255,9 @@ uniform vec4 uFogParams;
 	void _uv(vec3 coord) {
 		vTexCoord = aTexCoord;
 		#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
-			vTexCoord.xy *= vTexCoord.zw;
+			#ifdef OPT_TRAPEZOID
+				vTexCoord.xy *= vTexCoord.zw;
+			#endif
 		#endif
 	}
 
@@ -378,6 +388,7 @@ uniform vec4 uFogParams;
 				discard;
 		#endif
 
+		vec2 uv = vTexCoord.xy;
 		vec4 color;
 		#ifdef TYPE_MIRROR
 			#ifdef PASS_COMPOSE
@@ -386,10 +397,11 @@ uniform vec4 uFogParams;
 			#endif
 		#else
 			#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)
-				color = texture2D(sDiffuse, vTexCoord.xy / vTexCoord.zw);
-			#else
-				color = texture2D(sDiffuse, vTexCoord.xy);
+				#ifdef OPT_TRAPEZOID
+					uv /= vTexCoord.zw;
+				#endif
 			#endif
+			color = texture2D(sDiffuse, uv);
 		#endif
 
 		#ifdef ALPHA_TEST
@@ -416,8 +428,12 @@ uniform vec4 uFogParams;
 				#endif
 
 				#ifdef PASS_COMPOSE
-					vec3 lightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
-					vec3 normal   = normalize(vNormal.xyz);
+
+					#ifndef OPT_VLIGHTVEC
+						vec3 vLightVec = (uLightPos[0].xyz - vCoord) * uLightColor[0].w;
+					#endif
+
+					vec3 normal = normalize(vNormal.xyz);
 
 					#ifdef TYPE_ENTITY
 						float rSpecular = uMaterial.z + 0.03;
@@ -427,7 +443,7 @@ uniform vec4 uFogParams;
 						vec3 light = uLightColor[1].xyz * vLight.y + uLightColor[2].xyz * vLight.z + uLightColor[3].xyz * vLight.w;
 
 						#if defined(TYPE_ENTITY) || defined(TYPE_ROOM)
-							float rShadow = getShadow(lightVec, normal);
+							float rShadow = getShadow(vLightVec, normal);
 						#endif
 
 						#ifdef TYPE_ENTITY
@@ -458,7 +474,7 @@ uniform vec4 uFogParams;
 					color.xyz *= light;
 
 					#ifdef TYPE_ENTITY
-						color.xyz += calcSpecular(normal, vViewVec.xyz, lightVec, uLightColor[0], rSpecular);
+						color.xyz += calcSpecular(normal, vViewVec.xyz, vLightVec, uLightColor[0], rSpecular);
 					#endif
 
 					#ifdef UNDERWATER

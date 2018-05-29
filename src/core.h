@@ -32,6 +32,12 @@
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+#elif __CLOVER__
+    #define _OS_CLOVER 1
+    #define _GAPI_GL   1
+    #define _GAPI_GLES 1
+
+    //#define DYNGEOM_NO_VBO
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
@@ -704,7 +710,7 @@ namespace Core {
         settings.controls[0].keys[ cInventory ].key = ikTab;
     #endif
 
-    #ifdef _OS_RPI
+    #if defined(_OS_RPI) || defined(_OS_CLOVER)
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setLighting (Core::Settings::MEDIUM);
     #endif

@@ -38,7 +38,7 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-#elif _OS_RPI
+#elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
     #include <EGL/egl.h>
@@ -133,7 +133,7 @@
     #define glProgramBinary(...)
 #endif
 
-#if defined(_OS_WIN) || (defined(_OS_LINUX) && !defined(_OS_RPI)) || defined(_OS_ANDROID)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_ANDROID)
 
     #ifdef _OS_ANDROID
         #define GetProc(x) dlsym(libGL, x);
@@ -143,7 +143,7 @@
                 return (void*)wglGetProcAddress(name);
             #elif _OS_LINUX
                 return (void*)glXGetProcAddress((GLubyte*)name);
-            #elif _OS_RPI
+            #else // EGL
                 return (void*)eglGetProcAddress(name);
             #endif
         }
@@ -228,7 +228,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -369,9 +369,14 @@ namespace GAPI {
             }
             sprintf(defines, "%s#define PASS_%s\n", defines, passNames[pass]);
 
-            #ifdef _OS_RPI
+            #if defined(_OS_RPI) || defined(_OS_CLOVER)
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
+                strcat(defines, "#define OPT_VLIGHTVEC\n");
                 strcat(defines, "#define OPT_SHADOW_ONETAP\n");
+            #endif
+
+            #ifndef _OS_CLOVER
+                strcat(defines, "#define OPT_TRAPEZOID\n"); // TODO: only for non Mali-400?
             #endif
 
             char fileName[255];
@@ -1068,7 +1073,7 @@ namespace GAPI {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(enable ? 1 : 0);
         #elif _OS_LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(enable ? 1 : 0);
-        #elif _OS_RPI
+        #elif defined(_OS_RPI) || defined(_OS_CLOVER)
             eglSwapInterval(display, enable ? 1 : 0);
         #endif
     }
