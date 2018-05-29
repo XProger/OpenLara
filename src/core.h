@@ -948,6 +948,8 @@ namespace Core {
 
     void endFrame() {
         GAPI::endFrame();
+        GAPI::setTarget(NULL, 0);
+        validateRenderState();
         Core::stats.stop();
     }
 
