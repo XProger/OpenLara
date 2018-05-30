@@ -66,7 +66,7 @@ bool sndInit() {
     int err;
     
     // In the perfect world ReedPlayer-Clover process 
-    // will release ALSA devicbefore app running, but...
+    // will release ALSA device before app running, but...
     for (int i = 0; i < 20; i++) { // 20 * 0.1 = 2 secs
         sndOut = NULL;
         if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
@@ -581,10 +581,10 @@ LOG("start\n");
 
     inputFree();
 
-    //sndFree();
-    //Game::deinit();
-
+    Game::deinit();
     eglFree();
+
+    sndFree();
 
     return 0;
 }

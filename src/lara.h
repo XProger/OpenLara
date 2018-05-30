@@ -39,6 +39,7 @@
 #define LARA_SWIM_SPEED     50.0f
 #define LARA_SWIM_FRICTION  1.0f
 
+#define LARA_MIN_SPECULAR   0.03f
 #define LARA_WET_SPECULAR   0.5f
 #define LARA_WET_TIMER      (LARA_WET_SPECULAR / 16.0f)   // 4 sec
 
@@ -2813,10 +2814,10 @@ struct Lara : Character {
         updateWeapon();
 
         if (stand == STAND_UNDERWATER)
-            specular = 0.0f;
+            specular = LARA_MIN_SPECULAR;
         else
-            if (specular > 0.0f)
-                specular = max(0.0f, specular - LARA_WET_TIMER * Core::deltaTime);
+            if (specular > LARA_MIN_SPECULAR)
+                specular = max(LARA_MIN_SPECULAR, specular - LARA_WET_TIMER * Core::deltaTime);
 
         if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
             uint32 sparklesMask = getMidasMask();

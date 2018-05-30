@@ -142,9 +142,9 @@ uniform vec4 uFogParams;
 			float fog;
 			#ifdef UNDERWATER
 				float d;
-				if (uViewPos.y < uParam.y)
-					d = abs((coord.y - uParam.y) / normalize(vViewVec.xyz).y);
-				else
+				//if (uViewPos.y < uParam.y) // TODO: fix for mediump
+				//	d = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord.xyz).y);
+				//else
 					d = length(uViewPos.xyz - coord.xyz);
 				fog = d * WATER_FOG_DIST;
 			#else
@@ -436,7 +436,7 @@ uniform vec4 uFogParams;
 					vec3 normal = normalize(vNormal.xyz);
 
 					#ifdef TYPE_ENTITY
-						float rSpecular = uMaterial.z + 0.03;
+						float rSpecular = uMaterial.z;
 					#endif
 
 					#ifdef OPT_SHADOW

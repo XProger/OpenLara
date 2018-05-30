@@ -633,8 +633,8 @@ namespace GAPI {
         }
 
         void setFilterQuality(int value) {
-            bool filter  = value > Core::Settings::LOW;
-            bool mipmaps = value > Core::Settings::MEDIUM;
+            bool filter  = (opt & OPT_NEAREST) == 0 && (value > Core::Settings::LOW);
+            bool mipmaps = (opt & OPT_MIPMAPS) != 0;
 
             Core::active.textures[0] = NULL;
             bind(0);
