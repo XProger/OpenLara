@@ -1756,7 +1756,37 @@ struct Raptor : Enemy {
     }
 };
 
+
+#define MUTANT_TURN_FAST        (DEG2RAD * 180)
+#define MUTANT_TURN_SLOW        (DEG2RAD * 60)
+#define MUTANT_DIST_ATTACK_1    600
+#define MUTANT_DIST_ATTACK_2    (2048 + 512)
+#define MUTANT_DIST_ATTACK_3    300
+#define MUTANT_DIST_STALK       (4096 + 512)
+
 struct Mutant : Enemy {
+
+    enum {
+        HIT_MASK = 0x0678,
+    };
+
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_ATTACK_1,
+        STATE_DEATH,
+        STATE_LOOKING,
+        STATE_ATTACK_2,
+        STATE_ATTACK_3,
+        STATE_AIM_1,
+        STATE_AIM_2,
+        STATE_FIRE,
+        STATE_IDLE,
+        STATE_FLY,
+    };
+
     Mutant(IGame *game, int entity) : Enemy(game, entity, 50, 341, 150.0f, 1.0f) {
         if (getEntity().type != TR::Entity::ENEMY_MUTANT_1) {
             initMeshOverrides();
@@ -1788,10 +1818,80 @@ struct Mutant : Enemy {
     virtual int getStateGround() {
         if (!think(true))
             return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        int mask = collide(target);
+
+        switch (state) {
+            case STATE_IDLE : 
+                return STATE_STOP;
+            case STATE_STOP : 
+                if ((targetCanAttack && targetDist < MUTANT_DIST_ATTACK_3) || (mask & HIT_MASK))
+                    return STATE_ATTACK_3;
+                if ((targetCanAttack && targetDist < MUTANT_DIST_ATTACK_1))
+                    return STATE_ATTACK_1;
+                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
+                    return STATE_LOOKING;
+                return STATE_RUN;
+            case STATE_LOOKING :
+                switch (mood) {
+                    case MOOD_SLEEP :
+                        if (rand() < 256)
+                            return STATE_WALK;
+                        break;
+                    case MOOD_STALK :
+                        if (targetDist < MUTANT_DIST_STALK) {
+                            if (target->zone == zone && rand() < 256)
+                                return STATE_WALK;
+                        } else
+                            return STATE_STOP;
+                        break;
+                    case MOOD_ATTACK :
+                    case MOOD_ESCAPE :
+                        return STATE_STOP;
+                }
+            case STATE_WALK :
+                if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
+                    return STATE_STOP;
+                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && target->zone != zone)) {
+                    if (rand() < 50)
+                        return STATE_LOOKING;
+                } else if (mood == MOOD_STALK && targetDist > MUTANT_DIST_STALK)
+                    return STATE_STOP;
+                break;
+            case STATE_RUN :
+                if (mask & HIT_MASK)
+                    return STATE_STOP;
+                if (targetCanAttack && targetDist < MUTANT_DIST_ATTACK_1)
+                    return STATE_STOP;
+                if (targetInView && targetDist < MUTANT_DIST_ATTACK_2)
+                    return STATE_ATTACK_2;
+                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
+                    return STATE_STOP;
+                break;
+            case STATE_ATTACK_1 :
+            case STATE_ATTACK_2 :
+            case STATE_ATTACK_3 :
+                if (nextState == STATE_NONE && (mask & HIT_MASK)) {
+                    float damage = state == STATE_ATTACK_1 ? 150.0f : (state == STATE_ATTACK_2 ? 100.0f : 200.0f);
+                    bite(getJoint(jointHead).pos, damage);
+                    nextState = STATE_STOP;
+                }
+                break;
+        }
+
         return state;
     }
 
     virtual void updatePosition() {
+        float angleY = 0.0f;
+        getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        if (state == STATE_RUN || state == STATE_WALK)
+            turn(angleY, state == STATE_RUN ? RAPTOR_TURN_FAST : RAPTOR_TURN_SLOW);
+
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
