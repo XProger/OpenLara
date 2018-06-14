@@ -2019,8 +2019,6 @@ struct Centaur : Enemy {
         if (nextState == state)
             nextState = STATE_NONE;
 
-        int mask = collide(target);
-
         switch (state) {
             case STATE_STOP :
                 if (nextState != STATE_NONE)
