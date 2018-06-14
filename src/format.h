@@ -191,7 +191,7 @@
     E( WATERFALL             ) \
     E( NATLA_BULLET          ) \
     E( MUTANT_BULLET         ) \
-    E( MUTANT_GRENADE        ) \
+    E( CENTAUR_BULLET        ) \
     E( UNUSED_16             ) \
     E( UNUSED_17             ) \
     E( LAVA_PARTICLE         ) \
@@ -1790,7 +1790,7 @@ namespace TR {
         }
 
         bool isDoor() const {
-            return type >= DOOR_1 && type <= DOOR_6;
+            return type >= DOOR_1 && type <= DOOR_8;
         }
 
         bool isCollider() const {

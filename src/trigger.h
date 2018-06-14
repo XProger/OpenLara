@@ -1547,4 +1547,76 @@ struct StoneItem : Controller {
     }
 };
 
+#define CENTAUR_BULLET_DIST   SQR(1024.0f)
+#define CENTAUR_BULLET_DAMAGE 100.0f
+
+struct Bullet : Controller {
+    vec3 velocity;
+
+    Bullet(IGame *game, int entity) : Controller(game, entity) {
+        velocity  = vec3(200.0f) * 30.0f;
+        intensity = 4096;
+        activate();
+    }
+
+    void setAngle(const vec3 &ang) {
+        angle = ang;
+        float speed;
+        switch (getEntity().type) {
+            case TR::Entity::NATLA_BULLET   : speed = 220.0f; break;
+            case TR::Entity::MUTANT_BULLET  : speed = 250.0f; break;
+            case TR::Entity::CENTAUR_BULLET : speed = 220.0f; break;
+            default : speed = 200.0f;
+        }
+        velocity = getDir() * (speed * 30.0f);
+    }
+
+    virtual void update() {
+        //getRoom().removeDynLight(entity);
+        pos = pos + velocity * Core::deltaTime;
+
+        game->getLevel()->getSector(roomIndex, pos);
+
+        Controller::update();
+        //getRoom().addDynLight(entity, pos, vec4(1, 1, 0, 1.0f / 1024.0f));
+
+        bool directHit = false;
+
+        Character *lara = (Character*)game->getLara(pos);
+        if (!collide(lara)) {
+            TR::Level::FloorInfo info;
+            getFloorInfo(getRoomIndex(), pos, info);
+            if (!(pos.y > info.floor || pos.y < info.ceiling || !insideRoom(pos, getRoomIndex())))
+                return;
+        } else
+            directHit = true;
+
+        //getRoom().removeDynLight(entity);
+        switch (getEntity().type) {
+            case TR::Entity::CENTAUR_BULLET :
+                if (directHit) {
+                    lara->hit(CENTAUR_BULLET_DAMAGE);
+                    game->playSound(lara->stand == Character::STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, lara->pos, Sound::PAN);
+                } else {
+                    for (int i = 0; i < 2; i++) {
+                        Controller *lara = game->getLara(i);
+                        if (!lara) continue;
+
+                        float dist = (pos - lara->pos).length2();
+                        if (dist < CENTAUR_BULLET_DIST)
+                            lara->hit(CENTAUR_BULLET_DAMAGE * (CENTAUR_BULLET_DIST - dist) / CENTAUR_BULLET_DIST);
+                    }
+                }
+
+                game->addEntity(TR::Entity::EXPLOSION, getRoomIndex(), pos);
+                break;
+            case TR::Entity::MUTANT_BULLET  :
+                game->getLara()->addRicochet(pos, true);
+                break;
+            default : ;
+        }
+        game->removeEntity(this);
+    }
+};
+
 #endif

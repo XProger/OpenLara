@@ -859,6 +859,9 @@ struct Level : IGame {
             case TR::Entity::MIDAS_HAND            : return new MidasHand(this, index);
             case TR::Entity::SCION_TARGET          : return new ScionTarget(this, index);
             case TR::Entity::WATERFALL             : return new Waterfall(this, index);
+            case TR::Entity::NATLA_BULLET          :
+            case TR::Entity::MUTANT_BULLET         :
+            case TR::Entity::CENTAUR_BULLET        : return new Bullet(this, index);
             case TR::Entity::TRAP_LAVA             : return new TrapLava(this, index);
             case TR::Entity::BUBBLE                : return new Bubble(this, index);
             case TR::Entity::EXPLOSION             : return new Explosion(this, index);
@@ -1471,10 +1474,19 @@ struct Level : IGame {
         if (isModel) { // model
             vec3 pos = controller->getPos();
             if (ambientCache) {
-                AmbientCache::Cube cube;
-                ambientCache->getAmbient(roomIndex, pos, cube);
-                if (cube.status == AmbientCache::Cube::READY)
-                    memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
+                if (!controller->getEntity().isDoor()) { // no advanced ambient lighting for secret (all) doors
+                    AmbientCache::Cube cube;
+                    ambientCache->getAmbient(roomIndex, pos, cube);
+                    if (cube.status == AmbientCache::Cube::READY)
+                        memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
+                } else {
+                    controller->ambient[0] =
+                    controller->ambient[1] =
+                    controller->ambient[2] =
+                    controller->ambient[3] =
+                    controller->ambient[4] =
+                    controller->ambient[5] = vec4(Core::active.material.y);
+                }
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
         }

@@ -2,6 +2,11 @@
 #define H_ENEMY
 
 #include "character.h"
+#include "trigger.h"
+
+#define STALK_BOX       (1024 * 3)
+#define ESCAPE_BOX      (1024 * 5)
+#define ATTACK_BOX      STALK_BOX
 
 struct Enemy : Character {
 
@@ -211,6 +216,23 @@ struct Enemy : Character {
         return true;
     }
 
+    bool targetIsVisible(float maxDist) {
+        if (targetInView && targetDist < maxDist && target->health > 0.0f) {
+            TR::Location from, to;
+            from.room = getRoomIndex();
+            from.pos  = pos;
+            to.pos    = target->pos;
+
+        // vertical offset to ~gun/head height
+            from.pos.y -= 768.0f;
+            if (target->stand != STAND_UNDERWATER && target->stand != STAND_ONWATER)
+                to.pos.y -= 768.0f;
+
+            return trace(from, to);
+        }
+        return false;
+    }
+
     virtual void lookAt(Controller *target) {
         Character::lookAt(targetInView ? target : NULL);
     }
@@ -246,16 +268,12 @@ struct Enemy : Character {
         wound = true;
     };
 
-    void bite(const vec3 &pos, float damage) {
+    void bite(int joint, const vec3 &offset, float damage) {
         ASSERT(target);
         target->hit(damage, this);
-        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), pos);
+        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), getJoint(joint) * offset);
     }
 
-    #define STALK_BOX       (1024 * 3)
-    #define ESCAPE_BOX      (1024 * 5)
-    #define ATTACK_BOX      STALK_BOX
-    
     Mood getMoodFixed() {
         bool inZone = zone == target->zone;
 
@@ -463,6 +481,19 @@ struct Enemy : Character {
 
         return false;
     }
+
+    void shot(TR::Entity::Type type, int joint, const vec3 &offset) {
+        vec3 from = getJoint(joint) * offset;
+        vec3 to   = target->getBoundingBox().center();
+
+        Bullet *bullet = (Bullet*)game->addEntity(type, getRoomIndex(), from);
+        if (bullet) {
+            vec3 dir = to - from;
+            vec3 ang = vec3(-atan2f(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)), atan2f(dir.x, dir.z), 0.0f);
+            ang += vec3(randf() * 2.0f - 1.0f, randf() * 2.0f - 1.0f, 0.0f) * (1.5f * DEG2RAD);
+            bullet->setAngle(ang);
+        }
+    }
 };
 
 #define WOLF_TURN_FAST   (DEG2RAD * 150)
@@ -586,7 +617,7 @@ struct Wolf : Enemy {
             case STATE_ATTACK :
             case STATE_BITE   :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
-                    bite(getJoint(jointHead).pos, state == STATE_ATTACK ? 50.0f : 100.0f);
+                    bite(6, vec3(0.0f, -14.0f, 174.0f), state == STATE_ATTACK ? 50.0f : 100.0f);
                     nextState = state == STATE_ATTACK ? STATE_RUN : STATE_GROWL;
                 }
                 return state == STATE_ATTACK ? STATE_RUN : state;
@@ -713,7 +744,7 @@ struct Lion : Enemy {
             case STATE_ATTACK :
             case STATE_BITE   :
                 if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(getJoint(jointHead).pos, state == STATE_ATTACK ? 150.0f : 250.0f);
+                    bite(21, vec3(-2.0f, -10.0f, 132.0f), state == STATE_ATTACK ? 150.0f : 250.0f);
                     nextState = STATE_STOP;
                 }
         }
@@ -835,7 +866,7 @@ struct Gorilla : Enemy {
                 break;
             case STATE_ATTACK :
                 if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(getJoint(jointChest).pos, 200.0f);
+                    bite(15, vec3(0.0f, -19.0f, 75.0f), 200.0f);
                     nextState = STATE_STOP;
                 }
             case STATE_LSTEP :
@@ -1002,7 +1033,7 @@ struct Rat : Enemy {
             case STATE_ATTACK :
             case STATE_BITE   :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
-                    bite(getJoint(jointHead).pos, RAT_DAMAGE);
+                    bite(3, vec3(0.0f, -11.0f, 108.0f), RAT_DAMAGE);
                     nextState = state == STATE_ATTACK ? STATE_RUN : STATE_STOP;
                 }
                 break;
@@ -1036,7 +1067,7 @@ struct Rat : Enemy {
             case STATE_WATER_BITE :
                 if (nextState == STATE_NONE && targetInView && (collide(target) & HIT_MASK)) {
                     game->waterDrop(getJoint(jointHead).pos, 256.0f, 0.2f);
-                    bite(getJoint(jointHead).pos, RAT_DAMAGE);
+                    bite(3, vec3(0.0f, -11.0f, 108.0f), RAT_DAMAGE);
                     nextState = STATE_WATER_SWIM;
                 }
                 return STATE_NONE;
@@ -1211,7 +1242,7 @@ struct Crocodile : Enemy {
                 return STATE_WALK;
             case STATE_BITE   :
                 if (nextState == STATE_NONE) {
-                    bite(getJoint(jointHead).pos, CROCODILE_DAMAGE);
+                    bite(9, vec3(5.0f, -21.0f, 467.0f), CROCODILE_DAMAGE);
                     nextState = STATE_STOP;
                 }
                 break;
@@ -1243,7 +1274,7 @@ struct Crocodile : Enemy {
                 if (collide(target)) {
                     if (nextState != STATE_NONE)
                         return state;
-                    bite(getJoint(jointHead).pos, CROCODILE_DAMAGE);
+                    bite(9, vec3(5.0f, -21.0f, 467.0f), CROCODILE_DAMAGE);
                     nextState = STATE_WATER_SWIM;
                 }
                 return STATE_WATER_SWIM;
@@ -1403,7 +1434,7 @@ struct Bear : Enemy {
             case STATE_BITE     :
             case STATE_ATTACK   :
                 if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(getJoint(jointHead).pos, state == STATE_BITE ? 200.0f : 400.0f);
+                    bite(14, vec3(0.0f, 96.0f, 335.0f), state == STATE_BITE ? 200.0f : 400.0f);
                     nextState = state == STATE_BITE ? STATE_STOP : STATE_HOWL;
                 }
                 break;
@@ -1484,7 +1515,7 @@ struct Bat : Enemy {
                     mood = MOOD_SLEEP;
                     return STATE_FLY;
                 } else
-                    bite(getJoint(jointHead).pos, 2);
+                    bite(4, vec3(0.0f, 16.0f, 45.0f), 2);
                 break;
             case STATE_FLY    : 
                 if (collide(target)) {
@@ -1723,7 +1754,7 @@ struct Raptor : Enemy {
             case STATE_ATTACK_2 :
             case STATE_BITE     :
                 if (nextState == STATE_NONE && targetInView && (mask & HIT_MASK)) {
-                    bite(getJoint(jointHead).pos, 100);                    
+                    bite(22, vec3(0.0f, 66.0f, 318.0f), 100);                    
                     nextState = state == STATE_ATTACK_2 ? STATE_RUN : STATE_STOP;
                 }
                 break;
@@ -1876,7 +1907,7 @@ struct Mutant : Enemy {
             case STATE_ATTACK_3 :
                 if (nextState == STATE_NONE && (mask & HIT_MASK)) {
                     float damage = state == STATE_ATTACK_1 ? 150.0f : (state == STATE_ATTACK_2 ? 100.0f : 200.0f);
-                    bite(getJoint(jointHead).pos, damage);
+                    bite(10, vec3(-27.0f, 98.0f, 0.0f), damage);
                     nextState = STATE_STOP;
                 }
                 break;
@@ -1899,6 +1930,7 @@ struct Mutant : Enemy {
 };
 
 struct GiantMutant : Enemy {
+
     enum {
         STATE_STOP = 1,
         STATE_BORN = 8,
@@ -1951,9 +1983,31 @@ struct GiantMutant : Enemy {
     }
 };
 
+#define CENTAUR_TURN_FAST (DEG2RAD * 120)
+#define CENTAUR_DIST_RUN  (1024 + 512)
+#define CENTAUR_DIST_SHOT (1024 * 1024)
 
 struct Centaur : Enemy {
-    Centaur(IGame *game, int entity) : Enemy(game, entity, 20, 341, 400.0f, 0.5f) {
+
+    enum {
+        HIT_MASK = 0x030199,
+    };
+
+    enum {
+        ANIM_DEATH = 8,
+    };
+
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_FIRE,
+        STATE_RUN,
+        STATE_AIM,
+        STATE_DEATH,
+        STATE_IDLE,
+    };
+
+    Centaur(IGame *game, int entity) : Enemy(game, entity, 120, 341, 400.0f, 1.0f) {
         jointChest = 10;
         jointHead  = 17;
     }
@@ -1961,13 +2015,93 @@ struct Centaur : Enemy {
     virtual int getStateGround() {
         if (!think(true))
             return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        int mask = collide(target);
+
+        switch (state) {
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetCanAttack && targetDist < CENTAUR_DIST_RUN)
+                    return STATE_RUN;
+                if (targetIsVisible(CENTAUR_DIST_SHOT))
+                    return STATE_AIM;
+                return STATE_RUN;
+            case STATE_RUN :
+                if (targetCanAttack && targetDist < CENTAUR_DIST_RUN) {
+                    nextState = STATE_IDLE;
+                    return STATE_STOP;
+                }
+                if (targetIsVisible(CENTAUR_DIST_SHOT)) {
+                    nextState = STATE_AIM;
+                    return STATE_STOP;
+                }
+                if (rand() < 96) {
+                    nextState = STATE_IDLE;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_AIM :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetIsVisible(CENTAUR_DIST_SHOT))
+                    return STATE_FIRE;
+                return STATE_STOP;
+            case STATE_FIRE :
+                if (nextState != STATE_NONE)
+                    break;
+                nextState = STATE_AIM;
+                shot(TR::Entity::CENTAUR_BULLET, 13, vec3(11.0f, 415.0f, 41.0f));
+                break;
+            case STATE_IDLE :
+                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
+                    bite(5, vec3(50.0f, 30.0f, 0.0f), 200);
+                    nextState = STATE_STOP;
+                }
+                break;
+        }
+
         return state;
     }
 
+    virtual int getStateDeath() {
+        if (state == STATE_DEATH) return state;
+        return animation.setAnim(ANIM_DEATH);
+    }
+
     virtual void updatePosition() {
+        float angleY = 0.0f;
+        getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        if (state == STATE_RUN)
+            turn(angleY, CENTAUR_TURN_FAST);
+
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
+    }
+
+    virtual void deactivate(bool removeFromList = false) {
+        if (!removeFromList) {
+            if (!explodeMask)
+                explode(0xffffffff);
+            return;
+        }
+        Enemy::deactivate(removeFromList);
+    }
+
+    virtual void update() {
+        bool exploded = explodeMask != 0;
+
+        Enemy::update();
+
+        if (exploded && !explodeMask) {
+            deactivate(true);
+            flags.invisible = true;
+        }
     }
 };
 
@@ -2123,8 +2257,8 @@ struct Human : Enemy {
         STATE_FIRE
     };
 
-    int   jointGun;
-    int   animDeath;
+    int jointGun;
+    int animDeath;
 
     Human(IGame *game, int entity, float health) : Enemy(game, entity, health, 100, 375.0f, 1.0f), animDeath(-1) {
         jointGun   = 0;
@@ -2166,28 +2300,11 @@ struct Human : Enemy {
 
     virtual void onDead() {}
 
-    bool targetIsVisible() {
-        if (targetInView && targetDist < HUMAN_DIST_SHOT && target->health > 0.0f) {
-            TR::Location from, to;
-            from.room = getRoomIndex();
-            from.pos  = pos;
-            to.pos    = target->pos;
-
-        // vertical offset to ~gun/head height
-            from.pos.y -= 768.0f;
-            if (target->stand != STAND_UNDERWATER && target->stand != STAND_ONWATER)
-                to.pos.y -= 768.0f;
-
-            return trace(from, to);
-        }
-        return false;
-    }
-
     bool doShot(float damage, const vec3 &muzzleOffset) {
         game->addMuzzleFlash(this, jointGun, muzzleOffset, -1);
 
         if (targetDist < HUMAN_DIST_SHOT && randf() < ((HUMAN_DIST_SHOT - targetDist) / HUMAN_DIST_SHOT - 0.25f)) {
-            bite(target->getJoint(rand() % target->getModel()->mCount).pos, damage);
+            bite(rand() % target->getModel()->mCount, vec3(0.0f), damage);
             game->playSound(target->stand == STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, target->pos, Sound::PAN);
             return true;
         }
@@ -2244,7 +2361,7 @@ struct Larson : Human {
                     nextState = STATE_WAIT;
                 else if (mood == MOOD_ESCAPE)
                     nextState = STATE_RUN;
-                else if (targetIsVisible())
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
                     nextState = STATE_AIM;
                 else if (!targetInView || targetDist > HUMAN_DIST_WALK)
                     nextState = STATE_RUN;
@@ -2254,7 +2371,7 @@ struct Larson : Human {
             case STATE_RUN :
                 if (mood == MOOD_SLEEP && randf() < HUMAN_WAIT)
                     nextState = STATE_WAIT;
-                else if (targetIsVisible())
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
                     nextState = STATE_AIM;
                 else if (targetInView && targetDist < HUMAN_DIST_WALK)
                     nextState = STATE_WALK;
@@ -2264,7 +2381,7 @@ struct Larson : Human {
             case STATE_AIM :
                 if (nextState != STATE_NONE)
                     return nextState;
-                if (targetIsVisible())
+                if (targetIsVisible(HUMAN_DIST_SHOT))
                     return STATE_FIRE;
                 return STATE_STOP;
             case STATE_FIRE :

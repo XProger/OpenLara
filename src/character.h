@@ -300,11 +300,6 @@ struct Character : Controller {
             addBloodSpikes();
     }
 
-    void addRicochet(const vec3 &pos, bool sound) {
-        game->addEntity(TR::Entity::RICOCHET, getRoomIndex(), pos);
-        if (sound)
-            game->playSound(TR::SND_RICOCHET, pos, Sound::PAN);
-    }
 };
 
 #endif

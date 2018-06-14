@@ -476,7 +476,6 @@ struct Lara : Character {
         if (level->extra.braid > -1)
             braid = new Braid(this, (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? vec3(-2.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
 
-    #ifdef _DEBUG
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
         //reset(0, vec3(74858, 3072, 20795), 0);           // level 1 (dart)
         //reset(14, vec3(20215, 6656, 52942), PI);         // level 1 (bridge)
@@ -522,6 +521,7 @@ struct Lara : Character {
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
         //reset(47, vec3(50546, -13056, 53783), 270 * DEG2RAD);      // Level 10b (trap door slope)
         //reset(59, vec3(42907, -13056, 63012), 270 * DEG2RAD);      // Level 10b (doppelganger)
+        //reset(53, vec3(39617, -18385, 48950), 180 * DEG2RAD);      // Level 10b (centaur)
         //reset(50, vec3(52122, -18688, 47313), 150 * DEG2RAD);      // Level 10b (scion holder pickup)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
@@ -529,7 +529,6 @@ struct Lara : Character {
         //reset(21, vec3(47668, -10752, 32163), 0);                 // Level 10c (lava emitter)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
         //dbgBoxes = NULL;
-    #endif
 
         if (!level->isCutsceneLevel()) {
             if (getRoom().flags.water) {
