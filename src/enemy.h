@@ -8,6 +8,8 @@
 #define ESCAPE_BOX      (1024 * 5)
 #define ATTACK_BOX      STALK_BOX
 
+#define MAX_SHOT_DIST   (64 * 1024)
+
 struct Enemy : Character {
 
     struct Path {
@@ -68,6 +70,7 @@ struct Enemy : Character {
     Path      *path;
 
     float targetDist;
+    float targetAngle;
     bool  targetDead;
     bool  targetInView;     // target in enemy view zone
     bool  targetFromView;   // enemy in target view zone
@@ -319,6 +322,7 @@ struct Enemy : Character {
 
         vec3 targetVec  = target->pos - pos - getDir() * length;
         targetDist      = targetVec.length();
+        targetAngle     = atan2f(targetVec.x, targetVec.z) - angle.y;
         targetDead      = target->health <= 0;
         targetInView    = targetVec.dot(getDir()) > 0;
         targetFromView  = targetVec.dot(target->getDir()) < 0;
@@ -1793,6 +1797,7 @@ struct Raptor : Enemy {
 #define MUTANT_DIST_ATTACK_1    600
 #define MUTANT_DIST_ATTACK_2    (2048 + 512)
 #define MUTANT_DIST_ATTACK_3    300
+#define MUTANT_DIST_SHOT        3840
 #define MUTANT_DIST_STALK       (4096 + 512)
 
 struct Mutant : Enemy {
@@ -1818,6 +1823,12 @@ struct Mutant : Enemy {
         STATE_FLY,
     };
 
+    enum {
+        FLAG_FLY      = 1,
+        FLAG_BULLET_1 = 2,
+        FLAG_BULLET_2 = 4,
+    };
+
     Mutant(IGame *game, int entity) : Enemy(game, entity, 50, 341, 150.0f, 1.0f) {
         if (getEntity().type != TR::Entity::ENEMY_MUTANT_1) {
             initMeshOverrides();
@@ -1825,9 +1836,9 @@ struct Mutant : Enemy {
             aggression     = 0.25f;
         }
 
-        jointChest = 1;
-        jointHead  = 2;    
-        nextState  = 0;
+        flags.unused = 0;
+        jointChest   = 1;
+        jointHead    = 2;
     }
 
     virtual void update() {
@@ -1853,20 +1864,38 @@ struct Mutant : Enemy {
         if (nextState == state)
             nextState = STATE_NONE;
 
+        if (getEntity().type != TR::Entity::ENEMY_MUTANT_3) {
+            if (flags.unused & (FLAG_BULLET_1 | FLAG_BULLET_2)) {
+                if (targetAngle > PI * 0.25f)
+                    flags.unused &= ~(FLAG_BULLET_1 | FLAG_BULLET_2);
+            } else {
+                if (targetAngle < PI * 0.25f && state != STATE_FIRE && (targetDist > MUTANT_DIST_SHOT || zone != target->zone) && targetIsVisible(MAX_SHOT_DIST))
+                    flags.unused |= (rand() % 2) ? FLAG_BULLET_1 : FLAG_BULLET_2;
+            }
+        }
+
         int mask = collide(target);
 
         switch (state) {
-            case STATE_IDLE : 
+            case STATE_IDLE :
                 return STATE_STOP;
-            case STATE_STOP : 
+            case STATE_STOP :
+                if (flags.unused & FLAG_FLY)
+                    return STATE_FLY;
                 if ((targetCanAttack && targetDist < MUTANT_DIST_ATTACK_3) || (mask & HIT_MASK))
                     return STATE_ATTACK_3;
                 if ((targetCanAttack && targetDist < MUTANT_DIST_ATTACK_1))
                     return STATE_ATTACK_1;
+                if (flags.unused & FLAG_BULLET_1)
+                    return STATE_AIM_1;
+                if (flags.unused & FLAG_BULLET_2)
+                    return STATE_AIM_2;
                 if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
                     return STATE_LOOKING;
                 return STATE_RUN;
             case STATE_LOOKING :
+                if (flags.unused)
+                    return STATE_STOP;
                 switch (mood) {
                     case MOOD_SLEEP :
                         if (rand() < 256)
@@ -1884,6 +1913,8 @@ struct Mutant : Enemy {
                         return STATE_STOP;
                 }
             case STATE_WALK :
+                if (flags.unused)
+                    return STATE_STOP;
                 if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
                     return STATE_STOP;
                 if (mood == MOOD_SLEEP || (mood == MOOD_STALK && target->zone != zone)) {
@@ -1899,8 +1930,21 @@ struct Mutant : Enemy {
                     return STATE_STOP;
                 if (targetInView && targetDist < MUTANT_DIST_ATTACK_2)
                     return STATE_ATTACK_2;
+                if (flags.unused & (FLAG_BULLET_1 | FLAG_BULLET_2))
+                    return STATE_STOP;
                 if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
                     return STATE_STOP;
+                break;
+            case STATE_AIM_1 :
+                return (flags.unused & FLAG_BULLET_1) ? STATE_FIRE : STATE_STOP;
+            case STATE_AIM_2 :
+                return (flags.unused & FLAG_BULLET_2) ? STATE_FIRE : STATE_STOP;
+            case STATE_FIRE :
+                if (flags.unused & FLAG_BULLET_1)
+                    shot(TR::Entity::MUTANT_BULLET, 9, vec3(-35.0f, 269.0f, 0.0f));
+                if (flags.unused & FLAG_BULLET_2)
+                    shot(TR::Entity::CENTAUR_BULLET, 14, vec3(51.0f, 213.0f, 0.0f));
+                flags.unused &= ~(FLAG_BULLET_1 | FLAG_BULLET_2);
                 break;
             case STATE_ATTACK_1 :
             case STATE_ATTACK_2 :
@@ -1985,7 +2029,6 @@ struct GiantMutant : Enemy {
 
 #define CENTAUR_TURN_FAST (DEG2RAD * 120)
 #define CENTAUR_DIST_RUN  (1024 + 512)
-#define CENTAUR_DIST_SHOT (1024 * 1024)
 
 struct Centaur : Enemy {
 
@@ -2025,7 +2068,7 @@ struct Centaur : Enemy {
                     return nextState;
                 if (targetCanAttack && targetDist < CENTAUR_DIST_RUN)
                     return STATE_RUN;
-                if (targetIsVisible(CENTAUR_DIST_SHOT))
+                if (targetIsVisible(MAX_SHOT_DIST))
                     return STATE_AIM;
                 return STATE_RUN;
             case STATE_RUN :
@@ -2033,7 +2076,7 @@ struct Centaur : Enemy {
                     nextState = STATE_IDLE;
                     return STATE_STOP;
                 }
-                if (targetIsVisible(CENTAUR_DIST_SHOT)) {
+                if (targetIsVisible(MAX_SHOT_DIST)) {
                     nextState = STATE_AIM;
                     return STATE_STOP;
                 }
@@ -2045,7 +2088,7 @@ struct Centaur : Enemy {
             case STATE_AIM :
                 if (nextState != STATE_NONE)
                     return nextState;
-                if (targetIsVisible(CENTAUR_DIST_SHOT))
+                if (targetIsVisible(MAX_SHOT_DIST))
                     return STATE_FIRE;
                 return STATE_STOP;
             case STATE_FIRE :

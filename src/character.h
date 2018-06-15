@@ -112,7 +112,7 @@ struct Character : Controller {
     }
 
     void rotateY(float delta) {
-        angle.y += delta; 
+        angle.y = clampAngle(angle.y + delta);
         velocity = velocity.rotateY(-delta);
     }
 

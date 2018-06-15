@@ -1549,6 +1549,7 @@ struct StoneItem : Controller {
 
 #define CENTAUR_BULLET_DIST   SQR(1024.0f)
 #define CENTAUR_BULLET_DAMAGE 100.0f
+#define MUTANT_BULLET_DAMAGE  30.0f
 
 struct Bullet : Controller {
     vec3 velocity;
@@ -1596,7 +1597,6 @@ struct Bullet : Controller {
             case TR::Entity::CENTAUR_BULLET :
                 if (directHit) {
                     lara->hit(CENTAUR_BULLET_DAMAGE);
-                    game->playSound(lara->stand == Character::STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, lara->pos, Sound::PAN);
                 } else {
                     for (int i = 0; i < 2; i++) {
                         Controller *lara = game->getLara(i);
@@ -1611,10 +1611,17 @@ struct Bullet : Controller {
                 game->addEntity(TR::Entity::EXPLOSION, getRoomIndex(), pos);
                 break;
             case TR::Entity::MUTANT_BULLET  :
-                game->getLara()->addRicochet(pos, true);
+                if (directHit)
+                    lara->hit(MUTANT_BULLET_DAMAGE);
+                else
+                    game->getLara()->addRicochet(pos - getDir() * 64.0f, true);
                 break;
             default : ;
         }
+
+        if (directHit)
+            game->playSound(lara->stand == Character::STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, lara->pos, Sound::PAN);
+
         game->removeEntity(this);
     }
 };
