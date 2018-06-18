@@ -2294,7 +2294,7 @@ struct Human : Enemy {
         STATE_RUN,
         STATE_AIM,
         STATE_DEATH,
-        STATE_WAIT,
+        STATE_WAIT, // == STATE_FIRE for MrT
         STATE_FIRE
     };
 
@@ -2325,7 +2325,7 @@ struct Human : Enemy {
     }
 
     virtual void updatePosition() {
-        fullChestRotation = state == STATE_FIRE || state == STATE_AIM;
+        fullChestRotation = state == STATE_FIRE || state == STATE_AIM || (state == STATE_WAIT && getEntity().type == TR::Entity::ENEMY_MR_T);
 
         if (state == STATE_RUN || state == STATE_WALK) {
             float angleY = 0.0f;
@@ -2480,14 +2480,80 @@ struct Cowboy : Human {
 };
 
 
+#define MRT_DIST_WALK 4096
+#define MRT_DAMAGE    150
+
 struct MrT : Human {
 
     MrT(IGame *game, int entity) : Human(game, entity, 200) {
-        animDeath = 14;
+        animDeath  = 14;
+        jointGun   = 9;
+        jointChest = 1;
+        jointHead  = 2;
+        state = STATE_RUN;
     }
 
     virtual void onDead() {
         game->addEntity(TR::Entity::SHOTGUN, getRoomIndex(), pos, 0);
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        float angle;
+        getTargetInfo(0, NULL, NULL, &angle, NULL);
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_AIM;
+                if (mood == MOOD_SLEEP)
+                    return STATE_WALK;
+                return STATE_RUN;
+            case STATE_WALK : 
+                if (mood == MOOD_ESCAPE || !targetInView)
+                    nextState = STATE_RUN;
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (targetDist > MRT_DIST_WALK)
+                    nextState = STATE_RUN;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_RUN :
+                if (mood == MOOD_ESCAPE || !targetInView)
+                    break;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (targetDist < MRT_DIST_WALK && targetInView)
+                    nextState = STATE_WALK;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_AIM :
+                flags.unused = false;
+                if (nextState != STATE_NONE)
+                    return STATE_STOP;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_WAIT; // STATE_FIRE
+                return STATE_STOP;
+            case STATE_WAIT : // STATE_FIRE
+                if (!flags.unused) {
+                    doShot(MRT_DAMAGE, vec3(-20, -20, 300));
+                    flags.unused = true;
+                }
+                if (mood == MOOD_ESCAPE)
+                    nextState = STATE_RUN;
+                break;
+        }
+
+        return state;
     }
 };
 
