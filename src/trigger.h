@@ -1556,7 +1556,7 @@ struct Bullet : Controller {
 
     Bullet(IGame *game, int entity) : Controller(game, entity) {
         velocity  = vec3(200.0f) * 30.0f;
-        intensity = 4096;
+        intensity = intensityf(4096);
         activate();
     }
 
