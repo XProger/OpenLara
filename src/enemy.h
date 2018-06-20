@@ -1565,6 +1565,8 @@ struct Bat : Enemy {
 #define REX_TURN_FAST       (DEG2RAD * 120)
 #define REX_TURN_SLOW       (DEG2RAD * 60)
 #define REX_DAMAGE          1000
+#define REX_DAMAGE_WALK     1
+#define REX_DAMAGE_RUN      10
 
 struct Rex : Enemy {
 
@@ -1620,7 +1622,7 @@ struct Rex : Enemy {
                 if (mood == MOOD_SLEEP || walk)                     return STATE_WALK;
                 return STATE_RUN;
             case STATE_WALK :
-                if (mask) target->hit(1, this);
+                if (mask) target->hit(REX_DAMAGE_WALK, this);
                 if (mood != MOOD_SLEEP && !walk)    return STATE_STOP;
                 if (targetInView && randf() < 0.015f) {
                     nextState = STATE_BAWL;
@@ -1628,7 +1630,7 @@ struct Rex : Enemy {
                 }
                 break;
             case STATE_RUN :
-                if (mask) target->hit(10, this);
+                if (mask) target->hit(REX_DAMAGE_RUN, this);
                 if ((targetCanAttack && targetDist < REX_DIST_WALK) || walk)
                     return STATE_STOP;
                 if (targetInView && mood != MOOD_ESCAPE && randf() < 0.015f) {
@@ -1973,48 +1975,59 @@ struct Mutant : Enemy {
     }
 };
 
+
+#define GIANT_MUTANT_TURN_SLOW   (DEG2RAD * 90)
+#define GIANT_MUTANT_MAX_ANGLE   (DEG2RAD * 45)
+#define GIANT_MUTANT_DAMAGE      500
+#define GIANT_MUTANT_DAMAGE_WALK 5
+#define GIANT_MUTANT_DIST_ATTACK 2600
+#define GIANT_MUTANT_DIST_FATAL  2250
+
 struct GiantMutant : Enemy {
 
     enum {
-        STATE_STOP = 1,
-        STATE_BORN = 8,
-        STATE_FALL = 9,
+        HIT_MASK_HAND  = 0x3FF8000,
+        HIT_MASK_HANDS = 0x3FFFFF0,
     };
 
-    GiantMutant(IGame *game, int entity) : Enemy(game, entity, 500, 341, 375.0f, 1.0f) {
-        hitSound = TR::SND_HIT_MUTANT;
-        stand = STAND_AIR;
+    enum {
+        ANIM_DEATH = 13,
+    };
+
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_TURN_LEFT,
+        STATE_TURN_RIGHT,
+        STATE_ATTACK_1,
+        STATE_ATTACK_2,
+        STATE_ATTACK_3,
+        STATE_WALK,
+        STATE_BORN,
+        STATE_FALL,
+        STATE_UNUSED,
+        STATE_FATAL,
+    };
+
+    GiantMutant(IGame *game, int entity) : Enemy(game, entity, 1/*500*/, 341, 375.0f, 1.0f) {
+        hitSound   = TR::SND_HIT_MUTANT;
+        stand      = STAND_AIR;
         jointChest = -1;
         jointHead  = 3;
         rangeHead  = vec4(-0.5f, 0.5f, -0.5f, 0.5f) * PI;
         invertAim  = true;
     }
 
-    virtual int getStateGround() {
-        if (!think(true))
-            return state;
-        return state;
-    }
-
     void update() {
         bool exploded = explodeMask != 0;
 
-        if (health <= 0.0f && !exploded) {
+        Enemy::update();
+
+        if (health <= 0.0f && !exploded && animation.index == ANIM_DEATH && flags.state == TR::Entity::asInactive) {
+            flags.state = TR::Entity::asActive;
             game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
             explode(0xffffffff);
         }
-
-        switch (state) {
-            case STATE_BORN : animation.setState(STATE_FALL); break;
-            case STATE_FALL : 
-                if (stand == STAND_GROUND) {
-                    animation.setState(STATE_STOP);
-                    game->shakeCamera(5.0f);
-                }
-                break;
-        }
-
-        Enemy::update();
 
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
@@ -2024,6 +2037,97 @@ struct GiantMutant : Enemy {
             deactivate(true);
             flags.invisible = true;
         }
+    }
+
+    virtual int getStateAir() {
+        if (state == STATE_BORN)
+            return STATE_FALL;
+        return state;
+    }
+
+    virtual int getStateGround() {
+        if (health <= 0)
+            return state;
+
+        if (!think(true))
+            return state;
+
+        int mask = collide(target);
+
+        if (mask) target->hit(GIANT_MUTANT_DAMAGE_WALK, this);
+
+        switch (state) {
+            case STATE_FALL :
+                animation.setState(STATE_STOP);
+                game->shakeCamera(5.0f);
+                break;
+            case STATE_STOP :
+                flags.unused = false;
+                //if (targetAngle >  GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_RIGHT;
+                //if (targetAngle < -GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_LEFT;
+                if (targetDist < GIANT_MUTANT_DIST_ATTACK) {
+                    if (target->health <= GIANT_MUTANT_DAMAGE) {
+                        if (targetDist < GIANT_MUTANT_DIST_FATAL)
+                            return STATE_ATTACK_3;
+                    } else
+                        return ((rand() % 2) ? STATE_ATTACK_1 : STATE_ATTACK_2);
+                }
+                return STATE_WALK;
+            case STATE_WALK :
+                if (targetDist  <  GIANT_MUTANT_DIST_ATTACK ||
+                    targetAngle >  GIANT_MUTANT_MAX_ANGLE   ||
+                    targetAngle < -GIANT_MUTANT_MAX_ANGLE)
+                    return STATE_STOP;
+                break;
+                /*
+            case STATE_TURN_RIGHT :
+                if (targetAngle < GIANT_MUTANT_MAX_ANGLE)
+                    return STATE_STOP;
+                break;
+            case STATE_TURN_LEFT :
+                if (targetAngle > -GIANT_MUTANT_MAX_ANGLE)
+                    return STATE_STOP;
+                break;
+                */
+            case STATE_ATTACK_1 :
+            case STATE_ATTACK_2 :
+                if (!flags.unused && (
+                    (state == STATE_ATTACK_1 && (mask & HIT_MASK_HAND)) ||
+                    (state == STATE_ATTACK_2 && (mask & HIT_MASK_HANDS)))) {
+                    target->hit(GIANT_MUTANT_DAMAGE, this);
+                    flags.unused = true;
+                }
+                break;
+                /*
+            case STATE_IDLE :
+                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
+                    bite(5, vec3(50.0f, 30.0f, 0.0f), 200);
+                    nextState = STATE_STOP;
+                }
+                break;
+                */
+            default : ;
+        }
+        
+        return state;
+    }
+
+    virtual int getStateDeath() {
+        if (animation.index != ANIM_DEATH)
+            return animation.setAnim(ANIM_DEATH);
+        return state;
+    }
+
+    virtual void updatePosition() {
+        float angleY = 0.0f;
+        getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
+            turn(angleY, GIANT_MUTANT_TURN_SLOW);
+
+        Enemy::updatePosition();
+        //setOverrides(true, jointChest, jointHead);
+        //lookAt(target);
     }
 };
 

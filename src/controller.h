@@ -1107,8 +1107,10 @@ struct Controller {
     }
 
     virtual void update() {
-        updateAnimation(true);
-        updateExplosion();
+        if (explodeMask)
+            updateExplosion();
+        else
+            updateAnimation(true);
         updateLights(true);
     }
     
