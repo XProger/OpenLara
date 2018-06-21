@@ -66,6 +66,8 @@ struct Lara : Character {
 
         ANIM_STAND              = 11,
 
+        ANIM_LANDING            = 24,
+
         ANIM_CLIMB_JUMP         = 26,
 
         ANIM_FALL_HANG          = 28,
@@ -2102,6 +2104,9 @@ struct Lara : Character {
                             if (v > 0.0f)
                                 hit(v * v * LARA_MAX_HEALTH / 196.0f, NULL, TR::HIT_FALL);
                     }
+
+                    if (state == STATE_FALL && health > 0.0f)
+                        animation.setAnim(ANIM_LANDING);
                 }
             }
             if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
