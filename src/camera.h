@@ -204,10 +204,8 @@ struct Camera : ICamera {
         uint16 ownerBoxIndex  = level->getSector(target.room, target.pos)->boxIndex;
         uint16 cameraBoxIndex = level->getSector(to.room, to.pos)->boxIndex;
 
-        if (ownerBoxIndex == TR::NO_BOX) {
-            ASSERT(false); // TODO: collide death AABB with walls
+        if (ownerBoxIndex == TR::NO_BOX)
             return;
-        }
 
         TR::Box cBox = level->boxes[ownerBoxIndex];
         if (cameraBoxIndex != TR::NO_BOX && !level->boxes[ownerBoxIndex].contains(int(to.pos.x), int(to.pos.z)))

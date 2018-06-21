@@ -99,7 +99,7 @@ struct Character : Controller {
 
         int dx, dz;
         TR::Room::Sector &s = level->getSector(getRoomIndex(), int(pos.x), int(pos.z), dx, dz);
-        if (s.boxIndex == 0xFFFF)
+        if (s.boxIndex == TR::NO_BOX)
             return false;
         box  = s.boxIndex;
         zone = getZones()[box];

@@ -322,7 +322,7 @@ struct Enemy : Character {
 
         vec3 targetVec  = target->pos - pos - getDir() * length;
         targetDist      = targetVec.length();
-        targetAngle     = atan2f(targetVec.x, targetVec.z) - angle.y;
+        targetAngle     = clampAngle(atan2f(targetVec.x, targetVec.z) - angle.y);
         targetDead      = target->health <= 0;
         targetInView    = targetVec.dot(getDir()) > 0;
         targetFromView  = targetVec.dot(target->getDir()) < 0;
@@ -1975,13 +1975,13 @@ struct Mutant : Enemy {
     }
 };
 
-
-#define GIANT_MUTANT_TURN_SLOW   (DEG2RAD * 90)
-#define GIANT_MUTANT_MAX_ANGLE   (DEG2RAD * 45)
-#define GIANT_MUTANT_DAMAGE      500
-#define GIANT_MUTANT_DAMAGE_WALK 5
-#define GIANT_MUTANT_DIST_ATTACK 2600
-#define GIANT_MUTANT_DIST_FATAL  2250
+#define GIANT_MUTANT_TURN_SLOW    (DEG2RAD * 90)
+#define GIANT_MUTANT_MAX_ANGLE    (DEG2RAD * 45)
+#define GIANT_MUTANT_DAMAGE       500
+#define GIANT_MUTANT_DAMAGE_WALK  5
+#define GIANT_MUTANT_DAMAGE_FATAL 1000
+#define GIANT_MUTANT_DIST_ATTACK  2600
+#define GIANT_MUTANT_DIST_FATAL   2250
 
 struct GiantMutant : Enemy {
 
@@ -2027,13 +2027,13 @@ struct GiantMutant : Enemy {
             flags.state = TR::Entity::asActive;
             game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
             explode(0xffffffff);
+            game->checkTrigger(this, true);
         }
 
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
 
         if (exploded && !explodeMask) {
-            game->checkTrigger(this, true);
             deactivate(true);
             flags.invisible = true;
         }
@@ -2052,6 +2052,9 @@ struct GiantMutant : Enemy {
         if (!think(true))
             return state;
 
+        if (!target || target->health <= 0.0f)
+            return STATE_STOP;
+
         int mask = collide(target);
 
         if (mask) target->hit(GIANT_MUTANT_DAMAGE_WALK, this);
@@ -2063,8 +2066,8 @@ struct GiantMutant : Enemy {
                 break;
             case STATE_STOP :
                 flags.unused = false;
-                //if (targetAngle >  GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_RIGHT;
-                //if (targetAngle < -GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_LEFT;
+                if (targetAngle >  GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_RIGHT;
+                if (targetAngle < -GIANT_MUTANT_MAX_ANGLE) return STATE_TURN_LEFT;
                 if (targetDist < GIANT_MUTANT_DIST_ATTACK) {
                     if (target->health <= GIANT_MUTANT_DAMAGE) {
                         if (targetDist < GIANT_MUTANT_DIST_FATAL)
@@ -2079,7 +2082,6 @@ struct GiantMutant : Enemy {
                     targetAngle < -GIANT_MUTANT_MAX_ANGLE)
                     return STATE_STOP;
                 break;
-                /*
             case STATE_TURN_RIGHT :
                 if (targetAngle < GIANT_MUTANT_MAX_ANGLE)
                     return STATE_STOP;
@@ -2088,7 +2090,6 @@ struct GiantMutant : Enemy {
                 if (targetAngle > -GIANT_MUTANT_MAX_ANGLE)
                     return STATE_STOP;
                 break;
-                */
             case STATE_ATTACK_1 :
             case STATE_ATTACK_2 :
                 if (!flags.unused && (
@@ -2098,14 +2099,9 @@ struct GiantMutant : Enemy {
                     flags.unused = true;
                 }
                 break;
-                /*
-            case STATE_IDLE :
-                if (nextState == STATE_NONE && (collide(target) & HIT_MASK)) {
-                    bite(5, vec3(50.0f, 30.0f, 0.0f), 200);
-                    nextState = STATE_STOP;
-                }
-                break;
-                */
+            case STATE_ATTACK_3 :
+                target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
+                return STATE_FATAL;
             default : ;
         }
         
@@ -2119,11 +2115,9 @@ struct GiantMutant : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
-            turn(angleY, GIANT_MUTANT_TURN_SLOW);
+        if (target && target->health > 0.0f)
+            if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
+                turn(targetAngle, GIANT_MUTANT_TURN_SLOW);
 
         Enemy::updatePosition();
         //setOverrides(true, jointChest, jointHead);

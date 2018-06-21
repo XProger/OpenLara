@@ -996,6 +996,7 @@ namespace TR {
         HIT_REX,
         HIT_LIGHTNING,
         HIT_MIDAS,
+        HIT_GIANT_MUTANT,
     };
 
     struct Action {

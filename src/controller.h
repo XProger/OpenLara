@@ -1210,12 +1210,12 @@ struct Controller {
                 continue;
             explodeMask |= (1 << i);
             float angle = randf() * PI * 2.0f;
-            float speed = randf() * 256.0f;
+            vec2  speed = vec2(randf(), -randf()) * (getEntity().type == TR::Entity::ENEMY_GIANT_MUTANT ? 256.0f : 128.0f);
 
             ExplodePart &part = explodeParts[i];
             part.basis     = joints[i];
             part.basis.w   = 1.0f;
-            part.velocity  = vec3(cosf(angle), (randf() - 0.5f) * 0.25f, sinf(angle)) * speed;
+            part.velocity  = vec3(cosf(angle) * speed.x, speed.y, sinf(angle) * speed.x);
             part.roomIndex = roomIndex;
         }
     }

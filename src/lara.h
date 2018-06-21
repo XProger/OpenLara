@@ -1537,6 +1537,15 @@ struct Lara : Character {
                 camera->doCutscene(pos, angle.y);
                 break;
             }
+            case TR::HIT_GIANT_MUTANT : {
+//                camera->setAngle(-25, 170);
+                pos   = enemy->pos;
+                angle = enemy->angle;
+
+                animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation);
+                break;
+            }
+
             default : ;
         }
 
