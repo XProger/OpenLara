@@ -22,6 +22,14 @@
 // TODO: add IK for arms
 // TODO: controls
 
+// hint to the driver to use discrete GPU
+extern "C" {
+// NVIDIA
+  __declspec(dllexport) int NvOptimusEnablement = 1;
+// AMD
+  __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 #ifdef VR_SUPPORT
    #include "libs/openvr/openvr.h"
 #endif
