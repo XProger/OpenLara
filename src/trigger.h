@@ -1513,7 +1513,7 @@ struct Bubble : Sprite {
 struct Explosion : Sprite {
 
     Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
-        game->playSound(TR::SND_EXPLOSION, pos, 0);
+        game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
         game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
     }
 };

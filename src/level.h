@@ -464,16 +464,16 @@ struct Level : IGame {
                         players[i]->camera->shake = 0.5f * max(0.0f, 1.0f - (controller->pos - players[i]->camera->eye.pos).length2() / (15 * 1024 * 15 * 1024));
                 return;
             case TR::Effect::FLOOD : {
-                Sound::Sample *sample = playSound(TR::SND_FLOOD, vec3(), 0);
+                Sound::Sample *sample = playSound(TR::SND_FLOOD);
                 if (sample)
                     sample->setVolume(0.0f, 4.0f);
                 break;
             }
             case TR::Effect::STAIRS2SLOPE :
-                playSound(TR::SND_STAIRS2SLOPE, vec3(), 0);
+                playSound(TR::SND_STAIRS2SLOPE);
                 break;
             case TR::Effect::EXPLOSION :
-                playSound(TR::SND_TNT, vec3(0), 0);
+                playSound(TR::SND_TNT);
                 shakeCamera(1.0f);
                 break;
             default : ;
@@ -572,7 +572,6 @@ struct Level : IGame {
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
-        //return NULL;
         if (level.version == TR::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
 
@@ -590,7 +589,7 @@ struct Level : IGame {
 
             if (!(flags & Sound::MUSIC)) {
                 switch (b.flags.mode) {
-                    case 0 : if (level.version & TR::VER_TR1)    flags |= Sound::UNIQUE; break; // TODO check this
+                    case 0 : flags |= Sound::UNIQUE; break;
                     case 1 : flags |= Sound::REPLAY; break;
                     case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::LOOP; break;
                     case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::LOOP | Sound::UNIQUE; break;
@@ -598,7 +597,7 @@ struct Level : IGame {
             }
             if (b.flags.gain) volume = max(0.0f, volume - randf() * 0.25f);
             //if (b.flags.camera) flags &= ~Sound::PAN;
-            return Sound::play(level.getSampleStream(index), pos, volume, pitch, flags, id);
+            return Sound::play(level.getSampleStream(index), &pos, volume, pitch, flags, id);
         }
         return NULL;
     }
@@ -623,7 +622,7 @@ struct Level : IGame {
         Level *level = req->level;
         level->waitTrack = false;
         if (stream) {
-            level->sndTrack = Sound::play(stream, vec3(0.0f), 0.01f, 1.0f, req->flags);
+            level->sndTrack = Sound::play(stream, NULL, 0.01f, 1.0f, req->flags);
             if (level->sndTrack) {
                 if (level->level.isCutsceneLevel()) {
                     Core::resetTime();

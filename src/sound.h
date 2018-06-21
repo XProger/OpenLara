@@ -469,6 +469,7 @@ namespace Sound {
     bool flipped;
 
     struct Sample {
+        const vec3 *uniquePtr;
         Decoder *decoder;
         vec3    pos;
         float   volume;
@@ -480,8 +481,10 @@ namespace Sound {
         bool    isPlaying;
         bool    stopAfterFade;
 
-        Sample(Stream *stream, const vec3 &pos, float volume, float pitch, int flags, int id) : decoder(NULL), pos(pos), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
-            uint32 fourcc; 
+        Sample(Stream *stream, const vec3 *pos, float volume, float pitch, int flags, int id) : uniquePtr(pos), decoder(NULL), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
+            this->pos = pos ? *pos : vec3(0.0f);
+            
+            uint32 fourcc;
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
 
@@ -760,16 +763,23 @@ namespace Sound {
         return stream;
     }
 
-    Sample* play(Stream *stream, const vec3 &pos, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
+    Sample* getChannel(int id, const vec3 *pos) {
+        for (int i = 0; i < channelsCount; i++)
+            if (channels[i]->id == id && channels[i]->uniquePtr == pos)
+                return channels[i];
+        return NULL;
+    }
+
+    Sample* play(Stream *stream, const vec3 *pos = NULL, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
         OS_LOCK(lock);
 
         ASSERT(pitch >= 0.0f);
         if (!stream) return NULL;
         if (volume > 0.001f) {
-            vec3 listenerPos = getListener(pos).matrix.getPos();
+            if (pos && !(flags & (FLIPPED | UNFLIPPED | MUSIC)) && (flags & PAN)) {
+                vec3 listenerPos = getListener(*pos).matrix.getPos();
+                vec3 d = *pos - listenerPos;
 
-            if (!(flags & (FLIPPED | UNFLIPPED | MUSIC)) && (flags & PAN)) {
-                vec3 d = pos - listenerPos;
                 if (fabsf(d.x) > SND_FADEOFF_DIST || fabsf(d.y) > SND_FADEOFF_DIST || fabsf(d.z) > SND_FADEOFF_DIST) {
                     delete stream;
                     return NULL;
@@ -777,21 +787,19 @@ namespace Sound {
             }
 
             if (flags & (UNIQUE | REPLAY)) {
-                for (int i = 0; i < channelsCount; i++)
-                    if (channels[i]->id == id) {
-                        vec3 p = listenerPos;
+                Sample *ch = getChannel(id, pos);
 
-                        if ((p - channels[i]->pos).length2() > (p - pos).length2()) {
-                            channels[i]->pos = pos;
-                            channels[i]->pitch = pitch;
-                        }
+                if (ch) {
+                    if (pos)
+                        ch->pos = *pos;
+                    ch->pitch = pitch;
 
-                        if (flags & REPLAY)
-                            channels[i]->replay();
+                    if (flags & REPLAY)
+                        ch->replay();
 
-                        delete stream;
-                        return channels[i];
-                    }
+                    delete stream;
+                    return ch;
+                }
             }
 
             if (channelsCount < SND_CHANNELS_MAX)

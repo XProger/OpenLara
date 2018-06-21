@@ -1490,7 +1490,6 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_BOULDER : {
-                camera->setAngle(-25, 170);
                 animation.setAnim(ANIM_DEATH_BOULDER);
 
                 vec3 v(0.0f);
@@ -1518,7 +1517,6 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_REX : {
-                camera->setAngle(-25, 170);
                 pos   = enemy->pos;
                 angle = enemy->angle;
 
@@ -1538,7 +1536,6 @@ struct Lara : Character {
                 break;
             }
             case TR::HIT_GIANT_MUTANT : {
-//                camera->setAngle(-25, 170);
                 pos   = enemy->pos;
                 angle = enemy->angle;
 

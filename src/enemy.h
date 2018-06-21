@@ -1847,7 +1847,7 @@ struct Mutant : Enemy {
         bool exploded = explodeMask != 0;
 
         if (health <= 0.0f && !exploded) {
-            game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
+            game->playSound(TR::SND_MUTANT_DEATH, pos, Sound::PAN);
             explode(0xffffffff);
         }
 
@@ -1976,6 +1976,7 @@ struct Mutant : Enemy {
 };
 
 #define GIANT_MUTANT_TURN_SLOW    (DEG2RAD * 90)
+#define GIANT_MUTANT_MIN_ANGLE    (DEG2RAD * 10)
 #define GIANT_MUTANT_MAX_ANGLE    (DEG2RAD * 45)
 #define GIANT_MUTANT_DAMAGE       500
 #define GIANT_MUTANT_DAMAGE_WALK  5
@@ -2009,11 +2010,11 @@ struct GiantMutant : Enemy {
         STATE_FATAL,
     };
 
-    GiantMutant(IGame *game, int entity) : Enemy(game, entity, 1/*500*/, 341, 375.0f, 1.0f) {
+    GiantMutant(IGame *game, int entity) : Enemy(game, entity, 500, 341, 375.0f, 1.0f) {
         hitSound   = TR::SND_HIT_MUTANT;
         stand      = STAND_AIR;
         jointChest = -1;
-        jointHead  = 3;
+        jointHead  = -1; // 3; TODO: fix head orientation
         rangeHead  = vec4(-0.5f, 0.5f, -0.5f, 0.5f) * PI;
         invertAim  = true;
     }
@@ -2025,7 +2026,7 @@ struct GiantMutant : Enemy {
 
         if (health <= 0.0f && !exploded && animation.index == ANIM_DEATH && flags.state == TR::Entity::asInactive) {
             flags.state = TR::Entity::asActive;
-            game->playSound(TR::SND_MUTANT_DEATH, pos, 0);
+            game->playSound(TR::SND_MUTANT_DEATH, pos, Sound::PAN);
             explode(0xffffffff);
             game->checkTrigger(this, true);
         }
@@ -2115,7 +2116,7 @@ struct GiantMutant : Enemy {
     }
 
     virtual void updatePosition() {
-        if (target && target->health > 0.0f)
+        if (target && target->health > 0.0f && fabsf(targetAngle) > GIANT_MUTANT_MIN_ANGLE)
             if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
                 turn(targetAngle, GIANT_MUTANT_TURN_SLOW);
 
