@@ -379,7 +379,7 @@ struct Level : IGame {
 
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
-            setShader(Core::pass, type);
+            setShader(Core::pass, type, false, alphaTest);
             return;
         }
 

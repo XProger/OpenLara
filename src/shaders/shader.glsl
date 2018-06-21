@@ -394,6 +394,8 @@ uniform vec4 uFogParams;
 			#ifdef PASS_COMPOSE
 				vec3 rv = reflect(-normalize(vViewVec.xyz), normalize(vNormal.xyz));
 				color = textureCube(sEnvironment, normalize(rv));
+			#else
+				color = vec4(1.0);
 			#endif
 		#else
 			#if defined(PASS_COMPOSE) && !defined(TYPE_SPRITE)

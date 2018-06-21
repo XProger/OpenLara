@@ -86,6 +86,7 @@ struct ShaderCache {
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow | RS_DISCARD);
         compile(Core::passShadow, Shader::MIRROR, fx, rsShadow);
+        compile(Core::passShadow, Shader::MIRROR, fx, rsShadow | RS_DISCARD);
     }
 
     void prepareWater(int fx) {
