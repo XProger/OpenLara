@@ -590,10 +590,10 @@ namespace Core {
 
 namespace Core {
 
-    static const char *version = "22.05.2018";
+    static const char *version = __DATE__;
 
     void init() {
-        LOG("OpenLara %s\n", version);
+        LOG("OpenLara (%s)\n", version);
         x = y = 0;
 
         #ifdef USE_INFLATE
