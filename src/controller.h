@@ -161,6 +161,7 @@ struct Controller {
         timer      = 0.0f;
         ambient[0] = ambient[1] = ambient[2] = ambient[3] = ambient[4] = ambient[5] = vec4(intensityf(getRoom().ambient));
         targetLight = NULL;
+        mainLightFlip = false;
         updateLights(false);
         visibleMask = 0xFFFFFFFF;
 
@@ -1163,8 +1164,7 @@ struct Controller {
         vec4 tcolor = vec4(vec3(targetLight->color.r, targetLight->color.g, targetLight->color.b) * (1.0f / 255.0f), float(targetLight->radius));
 
         if (mainLightFlip != level->state.flags.flipped) {
-            if (room.alternateRoom > -1)
-                lerp = false;
+            lerp = false;
             mainLightFlip = level->state.flags.flipped;
         }
 

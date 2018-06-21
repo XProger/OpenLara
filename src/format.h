@@ -3466,7 +3466,7 @@ namespace TR {
                     stream.seek(4); // radius2
 
                 if ((version & VER_VERSION) < VER_TR3) {
-                    int value = 255 - clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
+                    int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                     light.color.r = light.color.g = light.color.b = value;
                     light.color.a = 0;
                 }
