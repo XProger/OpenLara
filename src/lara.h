@@ -2067,9 +2067,9 @@ struct Lara : Character {
         getFloorInfo(getRoomIndex(), pos, info);
 
         if (getRoom().flags.water) {
+            wpnHide();
             if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
                 return stand;
-            wpnHide();
             if (stand == STAND_AIR) {
                 //if (stand != STAND_UNDERWATER && stand != STAND_ONWATER && (state != STATE_FALL && state != STATE_REACH && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE))
                 //    animation.setAnim(ANIM_FALL_FORTH);
