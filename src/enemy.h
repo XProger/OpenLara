@@ -410,12 +410,6 @@ struct Enemy : Character {
     void nextWaypoint() {
         if (!path->getNextPoint(level, waypoint))
             waypoint = target->pos;
-        if (flying) {
-            if (target->stand != STAND_ONWATER)
-                waypoint.y -= 765.0f;
-            else
-                waypoint.y -= 64.0f;
-        }
     }
 
     uint16 getRandomZoneBox() {
@@ -1541,8 +1535,10 @@ struct Bat : Enemy {
         if (state == STATE_FLY || state == STATE_ATTACK)
             getTargetInfo(0, NULL, NULL, &angleY, NULL);
         turn(angleY, BAT_TURN_SPEED);
-        if (flying)
-            lift(waypoint.y - pos.y, BAT_LIFT_SPEED);
+        if (flying) {
+            float wy = waypoint.y - (target->stand != STAND_ONWATER ? 765.0f : 64.0f);
+            lift(wy - pos.y, BAT_LIFT_SPEED);
+        }
         Enemy::updatePosition();
     }
 
@@ -1796,6 +1792,7 @@ struct Raptor : Enemy {
 
 #define MUTANT_TURN_FAST        (DEG2RAD * 180)
 #define MUTANT_TURN_SLOW        (DEG2RAD * 60)
+#define MUTANT_LIFT_SPEED       512.0f
 #define MUTANT_DIST_ATTACK_1    600
 #define MUTANT_DIST_ATTACK_2    (2048 + 512)
 #define MUTANT_DIST_ATTACK_3    300
@@ -1860,6 +1857,16 @@ struct Mutant : Enemy {
     }
 
     virtual int getStateGround() {
+        if (state == STATE_FLY) {
+            stand  = STAND_AIR;
+            flying = true;
+            updateZone();
+            return getStateAir();
+        }
+
+        stepHeight = 256;
+        dropHeight = -stepHeight;
+
         if (!think(true))
             return state;
 
@@ -1876,11 +1883,15 @@ struct Mutant : Enemy {
             }
         }
 
+        if (getEntity().type == TR::Entity::ENEMY_MUTANT_1) { // flying mutant
+            if (mood == MOOD_ESCAPE || (zone != target->zone && !(flags.unused & (FLAG_BULLET_1 | FLAG_BULLET_2)))) {
+                flags.unused |= FLAG_FLY;
+            }
+        }
+
         int mask = collide(target);
 
         switch (state) {
-            case STATE_IDLE :
-                return STATE_STOP;
             case STATE_STOP :
                 if (flags.unused & FLAG_FLY)
                     return STATE_FLY;
@@ -1895,6 +1906,31 @@ struct Mutant : Enemy {
                 if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
                     return STATE_LOOKING;
                 return STATE_RUN;
+            case STATE_WALK :
+                if (flags.unused)
+                    return STATE_STOP;
+                if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
+                    return STATE_STOP;
+                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && target->zone != zone)) {
+                    if (rand() < 50)
+                        return STATE_LOOKING;
+                } else if (mood == MOOD_STALK && targetDist > MUTANT_DIST_STALK)
+                    return STATE_STOP;
+                break;
+            case STATE_RUN :
+                if (flags.unused & FLAG_FLY)
+                    return STATE_STOP;
+                if (mask & HIT_MASK)
+                    return STATE_STOP;
+                if (targetCanAttack && targetDist < MUTANT_DIST_ATTACK_1)
+                    return STATE_STOP;
+                if (targetInView && targetDist < MUTANT_DIST_ATTACK_2)
+                    return STATE_ATTACK_2;
+                if (flags.unused & (FLAG_BULLET_1 | FLAG_BULLET_2))
+                    return STATE_STOP;
+                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
+                    return STATE_STOP;
+                break;
             case STATE_LOOKING :
                 if (flags.unused)
                     return STATE_STOP;
@@ -1914,28 +1950,14 @@ struct Mutant : Enemy {
                     case MOOD_ESCAPE :
                         return STATE_STOP;
                 }
-            case STATE_WALK :
-                if (flags.unused)
-                    return STATE_STOP;
-                if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
-                    return STATE_STOP;
-                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && target->zone != zone)) {
-                    if (rand() < 50)
-                        return STATE_LOOKING;
-                } else if (mood == MOOD_STALK && targetDist > MUTANT_DIST_STALK)
-                    return STATE_STOP;
-                break;
-            case STATE_RUN :
-                if (mask & HIT_MASK)
-                    return STATE_STOP;
-                if (targetCanAttack && targetDist < MUTANT_DIST_ATTACK_1)
-                    return STATE_STOP;
-                if (targetInView && targetDist < MUTANT_DIST_ATTACK_2)
-                    return STATE_ATTACK_2;
-                if (flags.unused & (FLAG_BULLET_1 | FLAG_BULLET_2))
-                    return STATE_STOP;
-                if (mood == MOOD_SLEEP || (mood == MOOD_STALK && targetDist < MUTANT_DIST_STALK))
-                    return STATE_STOP;
+            case STATE_ATTACK_1 :
+            case STATE_ATTACK_2 :
+            case STATE_ATTACK_3 :
+                if (nextState == STATE_NONE && (mask & HIT_MASK)) {
+                    float damage = state == STATE_ATTACK_1 ? 150.0f : (state == STATE_ATTACK_2 ? 100.0f : 200.0f);
+                    bite(10, vec3(-27.0f, 98.0f, 0.0f), damage);
+                    nextState = STATE_STOP;
+                }
                 break;
             case STATE_AIM_1 :
                 return (flags.unused & FLAG_BULLET_1) ? STATE_FIRE : STATE_STOP;
@@ -1948,26 +1970,51 @@ struct Mutant : Enemy {
                     shot(TR::Entity::CENTAUR_BULLET, 14, vec3(51.0f, 213.0f, 0.0f));
                 flags.unused &= ~(FLAG_BULLET_1 | FLAG_BULLET_2);
                 break;
-            case STATE_ATTACK_1 :
-            case STATE_ATTACK_2 :
-            case STATE_ATTACK_3 :
-                if (nextState == STATE_NONE && (mask & HIT_MASK)) {
-                    float damage = state == STATE_ATTACK_1 ? 150.0f : (state == STATE_ATTACK_2 ? 100.0f : 200.0f);
-                    bite(10, vec3(-27.0f, 98.0f, 0.0f), damage);
-                    nextState = STATE_STOP;
-                }
-                break;
+            case STATE_IDLE :
+                return STATE_STOP;
+            default : ;
         }
 
         return state;
+    }
+
+    virtual int getStateAir() {
+        if (state != STATE_FLY) {
+            stand  = STAND_GROUND;
+            flying = false;
+            updateZone();
+            return getStateGround();
+        }
+
+        stepHeight = 30 * 1024;
+        dropHeight = -stepHeight;
+
+        if (!think(true))
+            return state;
+
+        if ((flags.unused & FLAG_FLY) && mood != MOOD_ESCAPE && zone == target->zone)
+            flags.unused &= ~FLAG_FLY;
+
+        if (!(flags.unused & FLAG_FLY)) {
+            int16 roomIndex = getRoomIndex();
+            TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+            float floor = level->getFloor(sector, pos) - 1.0f;
+            if (pos.y >= floor)
+                return STATE_STOP;
+        }
+
+        return STATE_FLY;
     }
 
     virtual void updatePosition() {
         float angleY = 0.0f;
         getTargetInfo(0, NULL, NULL, &angleY, NULL);
 
-        if (state == STATE_RUN || state == STATE_WALK)
-            turn(angleY, state == STATE_RUN ? RAPTOR_TURN_FAST : RAPTOR_TURN_SLOW);
+        if (state == STATE_RUN || state == STATE_WALK || state == STATE_FLY)
+            turn(angleY, (state == STATE_RUN || state == STATE_FLY) ? MUTANT_TURN_FAST : MUTANT_TURN_SLOW);
+
+        if (flying)
+            lift(target->pos.y - pos.y, MUTANT_LIFT_SPEED);
 
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
