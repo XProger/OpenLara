@@ -166,9 +166,9 @@ struct Enemy : Character {
                 if (enemy->health > 0.0f) {
                     vec3 dir = vec3(enemy->pos.x - pos.x, 0.0f, enemy->pos.z - pos.z);
                     float D = dir.length2();
-                    float R = enemy->radius + radius;
+                    float R = float(enemy->radius + radius);
                     if (D < R * R) {
-                        D = sqrt(D);
+                        D = sqrtf(D);
                         pos -= dir.normal() * (R - D);
                     }
                 }
