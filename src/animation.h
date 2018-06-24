@@ -15,7 +15,8 @@ struct Animation {
 
     TR::AnimFrame   *frameA, *frameB;
     vec3            offset, jump;
-    bool            isEnded, isPrepareToNext, flip;
+    float           rot;
+    bool            isEnded, isPrepareToNext;
     bool            smooth;
 
     quat            *overrides;   // left & right arms animation frames
@@ -136,7 +137,7 @@ struct Animation {
             fIndexB    = frameNext / anim->frameRate;
         }
 
-        getCommand(anim, frameNext, NULL, NULL, &flip);
+        getCommand(anim, frameNext, NULL, NULL, &rot);
 
         if (smooth)
             frameB = getFrame(anim, fIndexB);
@@ -207,11 +208,11 @@ struct Animation {
         return anim->speed + anim->accel * t * t * 0.5f;
     }
 
-    void getCommand(TR::Animation *anim, int frameIndex, vec3 *offset, vec3 *jump, bool *flip) {
+    void getCommand(TR::Animation *anim, int frameIndex, vec3 *offset, vec3 *jump, float *rot) {
         int16 *ptr = &level->commands[anim->animCommand];
 
         if (offset) *offset = vec3(0.0f);
-        if (flip)   *flip   = false;
+        if (rot)    *rot    = 0.0f;
 
         for (int i = 0; i < anim->acCount; i++) {
             int cmd = *ptr++; 
@@ -233,10 +234,10 @@ struct Animation {
                     break;                
                 case TR::ANIM_CMD_SOUND  : ptr += 2; break;
                 case TR::ANIM_CMD_EFFECT :
-                    if (flip) {
+                    if (rot) {
                         int frame = (*ptr++) - anim->frameStart;
                         int fx    = (*ptr++) & 0x3FFF;
-                        *flip     = fx == TR::Effect::ROTATE_180 && frame == frameIndex;
+                        *rot      = (fx == TR::Effect::ROTATE_180 && frame == frameIndex) ? PI : 0.0f;
                     } else
                         ptr += 2;
                     break;

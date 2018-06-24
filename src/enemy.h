@@ -255,6 +255,15 @@ struct Enemy : Character {
         return 0;
     }
 
+    void turn(bool tilt, float w) {
+        float angleY = 0.0f;
+
+        if (tilt)
+            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+
+        turn(angleY, w);
+    }
+
     int lift(float delta, float speed) {
         speed *= Core::deltaTime;
         decrease(delta, pos.y, speed);
@@ -634,12 +643,7 @@ struct Wolf : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-
-        if (state == STATE_RUN || state == STATE_WALK || state == STATE_STALK)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK || state == STATE_STALK, state == STATE_RUN ? WOLF_TURN_FAST : WOLF_TURN_SLOW);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -758,12 +762,7 @@ struct Lion : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-
-        if (state == STATE_RUN || state == STATE_WALK || state == STATE_ROAR)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, state == STATE_RUN ? LION_TURN_FAST : LION_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK || state == STATE_ROAR, state == STATE_RUN ? LION_TURN_FAST : LION_TURN_SLOW);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -800,16 +799,16 @@ struct Gorilla : Enemy {
         STATE_DEATH  ,
         STATE_IDLE1  ,
         STATE_IDLE2  ,
-        STATE_LSTEP  ,
-        STATE_RSTEP  ,
+        STATE_LEFT   ,
+        STATE_RIGHT  ,
         STATE_JUMP   ,
         STATE_HANG   ,
     };
 
     enum {
-        BEH_ATTACK = 1,
-        BEH_LSTEP  = 2,
-        BEH_RSTEP  = 4,
+        FLAG_ATTACK = 1,
+        FLAG_LEFT   = 2,
+        FLAG_RIGHT  = 4,
     };
 
     Gorilla(IGame *game, int entity) : Enemy(game, entity, 22, 341, 250.0f, 1.0f) {
@@ -822,32 +821,32 @@ struct Gorilla : Enemy {
     virtual int getStateGround() {
         if (!think(true))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
         
         if (nextState == state)
             nextState = STATE_NONE;
 
         if (targetDist < GORILLA_DIST_AGGRESSION)
-            flags.unused |= BEH_ATTACK;
+            flags.unused |= FLAG_ATTACK;
 
         switch (state) {
             case STATE_STOP    :
-                flags.unused &= ~(BEH_LSTEP | BEH_RSTEP);
-
                 if (nextState != STATE_NONE)
                     return nextState;
-                if (targetDist < GORILLA_DIST_ATTACK)
+                if (targetCanAttack && targetDist < GORILLA_DIST_ATTACK)
                     return STATE_ATTACK;
-                if (!(flags.unused & BEH_ATTACK)) {
-                    // TODO
+                if (!(flags.unused & FLAG_ATTACK) && zone == target->zone && targetInView) {
+                    int r = rand() % 512;
+                    if (r < 120) return STATE_JUMP;
+                    if (r < 240) return STATE_IDLE1;
+                    if (r < 360) return STATE_IDLE2;
+                    if (r < 480) return STATE_RUN;
+                    return (r % 2) ? STATE_LEFT : STATE_RIGHT;
                 }
                 return STATE_RUN;
             case STATE_RUN      :
                 if (!flags.unused && targetInView)
                     return STATE_STOP;
-                if (targetInView && collide(target) & HIT_MASK) {
+                if (targetInView && (collide(target) & HIT_MASK)) {
                     nextState = STATE_ATTACK;
                     return STATE_STOP;
                 }
@@ -859,6 +858,8 @@ struct Gorilla : Enemy {
                         nextState = STATE_IDLE1;
                     else if (r < 480)
                         nextState = STATE_IDLE2;
+                    else
+                        break;
                     return STATE_STOP;
                 }
                 break;
@@ -867,11 +868,9 @@ struct Gorilla : Enemy {
                     bite(15, vec3(0.0f, -19.0f, 75.0f), 200.0f);
                     nextState = STATE_STOP;
                 }
-            case STATE_LSTEP :
-                flags.unused |= BEH_LSTEP;
-                return STATE_STOP;
-            case STATE_RSTEP :
-                flags.unused |= BEH_RSTEP;
+                break;
+            case STATE_LEFT  :
+            case STATE_RIGHT :
                 return STATE_STOP;
             default : ;
         }
@@ -881,7 +880,7 @@ struct Gorilla : Enemy {
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         Enemy::hit(damage, enemy, hitType);
-        flags.unused |= BEH_ATTACK;
+        flags.unused |= FLAG_ATTACK;
     };
 
     virtual int getStateDeath() {
@@ -890,13 +889,36 @@ struct Gorilla : Enemy {
         return animation.setAnim(ANIM_DEATH + rand() % 2);
     }
 
+    virtual void updateAnimation(bool commands) {
+        Enemy::updateAnimation(commands);
+
+        switch (state) {
+            case STATE_STOP :
+                if (flags.unused & FLAG_LEFT)  angle.y += PI * 0.5f;
+                if (flags.unused & FLAG_RIGHT) angle.y -= PI * 0.5f;
+                flags.unused &= ~(FLAG_LEFT | FLAG_RIGHT);
+                break;
+            case STATE_LEFT :
+                if (!(flags.unused & FLAG_LEFT)) {
+                    flags.unused |= FLAG_LEFT;
+                    angle.y -= PI * 0.5f;
+                }
+                break;
+            case STATE_RIGHT :
+                if (!(flags.unused & FLAG_RIGHT)) {
+                    flags.unused |= FLAG_RIGHT;
+                    angle.y += PI * 0.5f;
+                }
+                break;
+            default : ;
+        }
+
+        if ((state == STATE_LEFT || state == STATE_RIGHT) && animation.isPrepareToNext && animation.anims[animation.next].state == STATE_STOP)
+            animation.rot = (state == STATE_LEFT ? -PI : PI) * 0.5f;
+    }
+
     virtual void updatePosition() {
-        float angleY = 0.0f;
-
-        if (state == STATE_RUN)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, GORILLA_TURN_FAST);
+        turn(state == STATE_RUN, GORILLA_TURN_FAST);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -953,7 +975,7 @@ struct Rat : Enemy {
         modelLand  = level->getModelIndex(TR::Entity::ENEMY_RAT_LAND)  - 1;
         modelWater = level->getModelIndex(TR::Entity::ENEMY_RAT_WATER) - 1;
     }
-
+    
     const virtual TR::Model* getModel() {
         bool water = getRoom().flags.water;
         int modelIndex = water ? modelWater : modelLand;
@@ -1076,12 +1098,7 @@ struct Rat : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-
-        if ((stand == STAND_GROUND && state == STATE_RUN) || (stand == STAND_ONWATER && state == STATE_WATER_SWIM))
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, RAT_TURN_FAST);
+        turn((stand == STAND_GROUND && state == STATE_RUN) || (stand == STAND_ONWATER && state == STATE_WATER_SWIM), RAT_TURN_FAST);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -1283,12 +1300,7 @@ struct Crocodile : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-
-        if ((stand == STAND_GROUND && (state == STATE_RUN || state == STATE_WALK)) || (stand == STAND_UNDERWATER && state == STATE_WATER_SWIM))
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, RAT_TURN_FAST);
+        turn((stand == STAND_GROUND && (state == STATE_RUN || state == STATE_WALK)) || (stand == STAND_UNDERWATER && state == STATE_WATER_SWIM), CROCODILE_TURN_FAST);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -1453,11 +1465,7 @@ struct Bear : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        if (state == STATE_RUN || state == STATE_WALK || state == STATE_HIND)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        turn(angleY, state == STATE_RUN ? BEAR_TURN_FAST : BEAR_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK || state == STATE_HIND, state == STATE_RUN ? BEAR_TURN_FAST : BEAR_TURN_SLOW);
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
@@ -1531,10 +1539,8 @@ struct Bat : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        if (state == STATE_FLY || state == STATE_ATTACK)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-        turn(angleY, BAT_TURN_SPEED);
+        turn(state == STATE_FLY || state == STATE_ATTACK, BAT_TURN_SPEED);
+
         if (flying) {
             float wy = waypoint.y - (target->stand != STAND_ONWATER ? 765.0f : 64.0f);
             lift(wy - pos.y, BAT_LIFT_SPEED);
@@ -1659,11 +1665,7 @@ struct Rex : Enemy {
             return;
         }
 
-        float angleY = 0.0f;
-        getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        if (state == STATE_RUN || state == STATE_WALK)
-            turn(angleY, state == STATE_RUN ? REX_TURN_FAST : REX_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK, state == STATE_RUN ? REX_TURN_FAST : REX_TURN_SLOW);
 
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
@@ -1777,11 +1779,7 @@ struct Raptor : Enemy {
             return;
         }
 
-        float angleY = 0.0f;
-        getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        if (state == STATE_RUN || state == STATE_WALK)
-            turn(angleY, state == STATE_RUN ? RAPTOR_TURN_FAST : RAPTOR_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK, state == STATE_RUN ? RAPTOR_TURN_FAST : RAPTOR_TURN_SLOW);
         
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
@@ -2007,11 +2005,7 @@ struct Mutant : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        if (state == STATE_RUN || state == STATE_WALK || state == STATE_FLY)
-            turn(angleY, (state == STATE_RUN || state == STATE_FLY) ? MUTANT_TURN_FAST : MUTANT_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK || state == STATE_FLY, (state == STATE_RUN || state == STATE_FLY) ? MUTANT_TURN_FAST : MUTANT_TURN_SLOW);
 
         if (flying)
             lift(target->pos.y - pos.y, MUTANT_LIFT_SPEED);
@@ -2163,9 +2157,11 @@ struct GiantMutant : Enemy {
     }
 
     virtual void updatePosition() {
+        float angleY = 0.0f;
         if (target && target->health > 0.0f && fabsf(targetAngle) > GIANT_MUTANT_MIN_ANGLE)
             if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
-                turn(targetAngle, GIANT_MUTANT_TURN_SLOW);
+                angleY = targetAngle;
+        turn(angleY, GIANT_MUTANT_TURN_SLOW);
 
         Enemy::updatePosition();
         //setOverrides(true, jointChest, jointHead);
@@ -2260,11 +2256,7 @@ struct Centaur : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        getTargetInfo(0, NULL, NULL, &angleY, NULL);
-
-        if (state == STATE_RUN)
-            turn(angleY, CENTAUR_TURN_FAST);
+        turn(state == STATE_RUN, CENTAUR_TURN_FAST);
 
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);
@@ -2473,12 +2465,7 @@ struct Human : Enemy {
     virtual void updatePosition() {
         fullChestRotation = state == STATE_FIRE || state == STATE_AIM || (state == STATE_WAIT && getEntity().type == TR::Entity::ENEMY_MR_T);
 
-        if (state == STATE_RUN || state == STATE_WALK) {
-            float angleY = 0.0f;
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
-            turn(angleY, state == STATE_RUN ? HUMAN_TURN_FAST : HUMAN_TURN_SLOW);
-        } else
-            turn(0, HUMAN_TURN_SLOW);
+        turn(state == STATE_RUN || state == STATE_WALK, state == STATE_RUN ? HUMAN_TURN_FAST : HUMAN_TURN_SLOW);
         
         Enemy::updatePosition();
         setOverrides(true, jointChest, jointHead);

@@ -1185,7 +1185,7 @@ struct Controller {
         mat4 matrix;
         matrix.identity();
         matrix.translate(pos);
-        if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.flip ? PI * animation.delta : 0.0f));
+        if (angle.y != 0.0f) matrix.rotateY(angle.y - animation.rot * animation.delta);
         if (angle.x != 0.0f) matrix.rotateX(angle.x);
         if (angle.z != 0.0f) matrix.rotateZ(angle.z);
         return matrix;
