@@ -527,12 +527,12 @@ struct Enemy : Character {
     }
 };
 
+
 #define WOLF_TURN_FAST   (DEG2RAD * 150)
 #define WOLF_TURN_SLOW   (DEG2RAD * 60)
 #define WOLF_DIST_STALK  STALK_BOX
 #define WOLF_DIST_BITE   345
 #define WOLF_DIST_ATTACK (1024 + 512)
-
 
 struct Wolf : Enemy {
 
@@ -573,38 +573,28 @@ struct Wolf : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!flags.active)
-            return (state == STATE_STOP || state == STATE_SLEEP) ? STATE_SLEEP : STATE_STOP;
-
         if (!think(false))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
-
-        bool inZone = target ? target->zone == zone : false;
 
         if (nextState == state)
             nextState = STATE_NONE;
 
         switch (state) {
             case STATE_SLEEP    :
-                if (mood == MOOD_ESCAPE || inZone) {
+                if (mood == MOOD_ESCAPE || target->zone == zone)
                     nextState = STATE_GROWL;
-                    return STATE_STOP;
-                }
-                if (randf() < 0.0001f) {
+                else if (rand() < 32)
                     nextState = STATE_WALK;
-                    return STATE_STOP;
-                }
-                break;
+                else
+                    break;
+                return STATE_STOP;
             case STATE_STOP     : return nextState != STATE_NONE ? nextState : STATE_WALK;
             case STATE_WALK     : 
                 if (mood != MOOD_SLEEP) {
                     nextState = STATE_NONE;
                     return STATE_STALK;
                 }
-                if (randf() < 0.0001f) {
+                if (rand() < 32) {
                     nextState = STATE_SLEEP;
                     return STATE_STOP;
                 }
@@ -624,7 +614,7 @@ struct Wolf : Enemy {
                     if (!targetInView || targetFromView || targetDist > WOLF_DIST_ATTACK)
                         return STATE_RUN;
                 }
-                if (randf() < 0.012f) {
+                if (rand() < 384) {
                     nextState = STATE_HOWL;
                     return STATE_GROWL;
                 }
@@ -798,6 +788,7 @@ struct Lion : Enemy {
         lookAt(target);
     }
 };
+
 
 #define GORILLA_DIST_ATTACK     430
 #define GORILLA_DIST_AGGRESSION 2048
@@ -1055,19 +1046,17 @@ struct Rat : Enemy {
         if (nextState == state)
             nextState = STATE_NONE;
 
-        bool isBite = targetInView && fabsf(target->pos.y - pos.y) < 256.0f;
-
         switch (state) {
             case STATE_STOP :
                 if (nextState != STATE_NONE)
                     return nextState;
-                if (isBite && targetDist < RAT_DIST_BITE)
+                if (targetCanAttack && targetDist < RAT_DIST_BITE)
                     return STATE_BITE;
                 return STATE_RUN;
             case STATE_RUN :
                 if (targetInView && (collide(target) & HIT_MASK))
                     return STATE_STOP;
-                if (isBite && targetDist < RAT_DIST_ATTACK)
+                if (targetCanAttack && targetDist < RAT_DIST_ATTACK)
                     return STATE_ATTACK;
                 if (targetInView && randf() < RAT_WAIT) {
                     nextState = STATE_WAIT;
@@ -1247,15 +1236,13 @@ struct Crocodile : Enemy {
         if (nextState == state)
             nextState = STATE_NONE;
 
-        bool isBite = targetInView && fabsf(target->pos.y - pos.y) < 256.0f;
-
         switch (state) {
             case STATE_STOP :
-                if (isBite && targetDist < CROCODILE_DIST_BITE)
+                if (targetCanAttack && targetDist < CROCODILE_DIST_BITE)
                     return STATE_BITE;
                 switch (mood) {
                     case MOOD_ESCAPE : return STATE_RUN;
-                    case MOOD_ATTACK : return STATE_RUN; // TODO: turn
+                    case MOOD_ATTACK : return (targetInView || targetDist < CROCODILE_DIST_TURN) ? STATE_RUN : STATE_TURN;
                     case MOOD_STALK  : return STATE_WALK;
                     default          : return state;
                 }
@@ -1265,7 +1252,7 @@ struct Crocodile : Enemy {
                 switch (mood) {
                     case MOOD_SLEEP  : return STATE_STOP;
                     case MOOD_STALK  : return STATE_WALK;
-                    case MOOD_ATTACK : if (targetDist < CROCODILE_DIST_TURN) return STATE_STOP; // TODO: check turn angles
+                    case MOOD_ATTACK : if (targetDist > CROCODILE_DIST_TURN && !targetInView) return STATE_STOP;
                     default          : return state;
                 }
             case STATE_WALK :
@@ -1277,8 +1264,8 @@ struct Crocodile : Enemy {
                     case MOOD_ESCAPE : return STATE_RUN;
                     default          : return state;
                 }
-            case STATE_TURN : // TODO turn
-                return STATE_WALK;
+            case STATE_TURN :
+                return targetInView ? STATE_WALK : state;
             case STATE_BITE   :
                 if (nextState == STATE_NONE) {
                     bite(9, vec3(5.0f, -21.0f, 467.0f), CROCODILE_DAMAGE);
@@ -1324,7 +1311,11 @@ struct Crocodile : Enemy {
     }
 
     virtual void updatePosition() {
-        turn((stand == STAND_GROUND && (state == STATE_RUN || state == STATE_WALK)) || (stand == STAND_UNDERWATER && state == STATE_WATER_SWIM), CROCODILE_TURN_FAST);
+        if (state == STATE_TURN)
+            angle.y += CROCODILE_TURN_FAST * Core::deltaTime;
+        else
+            turn((stand == STAND_GROUND && (state == STATE_RUN || state == STATE_WALK)) || (stand == STAND_UNDERWATER && state == STATE_WATER_SWIM), CROCODILE_TURN_FAST);
+        angle.z = 0.0f;
 
         if (state == STATE_DEATH) {
             animation.overrideMask = 0;
