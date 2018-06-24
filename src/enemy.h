@@ -155,11 +155,35 @@ struct Enemy : Character {
         if (pz != nz) pos.z = float(nz);
     }
 
+    void collideEnemies() {
+        if (getEntity().isBigEnemy())
+            return;
+
+        Controller *c = Controller::first;
+        while (c) {
+            if (c != this && c->getEntity().isEnemy()) {
+                Enemy *enemy = (Enemy*)c;
+                if (enemy->health > 0.0f) {
+                    vec3 dir = vec3(enemy->pos.x - pos.x, 0.0f, enemy->pos.z - pos.z);
+                    float D = dir.length2();
+                    float R = enemy->radius + radius;
+                    if (D < R * R) {
+                        D = sqrt(D);
+                        pos -= dir.normal() * (R - D);
+                    }
+                }
+            }
+            c = c->next;
+        }
+    }
+
     virtual void updatePosition() {
         if (!flags.active) return;
 
         vec3 p = pos;
         pos += velocity * (30.0f * Core::deltaTime);
+
+        collideEnemies();
 
         clipByBox(pos);
 
@@ -339,12 +363,12 @@ struct Enemy : Character {
 
         int targetBoxOld = targetBox;
 
-        if (target->health <= 0.0f)
+        bool inZone = zone == target->zone;
+
+        if (target->health <= 0.0f || !inZone)
             targetBox = -1;
 
     // update mood
-        bool inZone = zone == target->zone;
-
         if (mood != MOOD_ATTACK && targetBox > -1 && !checkBox(targetBox)) {
             if (!inZone)
                 mood = MOOD_SLEEP;
