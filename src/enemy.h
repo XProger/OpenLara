@@ -802,7 +802,7 @@ struct Gorilla : Enemy {
 
     enum {
         ANIM_DEATH = 7,
-        ANIM_HANG  = 19,
+        ANIM_CLIMB = 19,
     };
 
     enum {
@@ -817,7 +817,7 @@ struct Gorilla : Enemy {
         STATE_LEFT   ,
         STATE_RIGHT  ,
         STATE_JUMP   ,
-        STATE_HANG   ,
+        STATE_CLIMB  ,
     };
 
     enum {
@@ -828,6 +828,7 @@ struct Gorilla : Enemy {
 
     Gorilla(IGame *game, int entity) : Enemy(game, entity, 22, 341, 250.0f, 1.0f) {
         dropHeight = -1024;
+        stepHeight =  1024;
         jointChest = -1;//7;
         jointHead  = 14;
         flags.unused = 0;
@@ -904,9 +905,7 @@ struct Gorilla : Enemy {
         return animation.setAnim(ANIM_DEATH + rand() % 2);
     }
 
-    virtual void updateAnimation(bool commands) {
-        Enemy::updateAnimation(commands);
-
+    void strafe(int dir) {
         switch (state) {
             case STATE_STOP :
                 if (flags.unused & FLAG_LEFT)  angle.y += PI * 0.5f;
@@ -927,6 +926,12 @@ struct Gorilla : Enemy {
                 break;
             default : ;
         }
+    }
+
+    virtual void updateAnimation(bool commands) {
+        Enemy::updateAnimation(commands);
+
+        strafe(state);
 
         if ((state == STATE_LEFT || state == STATE_RIGHT) && animation.isPrepareToNext && animation.anims[animation.next].state == STATE_STOP)
             animation.rot = (state == STATE_LEFT ? -PI : PI) * 0.5f;
@@ -940,9 +945,55 @@ struct Gorilla : Enemy {
             return;
         }
 
+        vec3 old = pos;
+
+        TR::Level::FloorInfo infoA, infoB;
+        getFloorInfo(getRoomIndex(), old, infoA);
+        old.y = infoA.floor;
+
         Enemy::updatePosition();
+
+        getFloorInfo(getRoomIndex(), pos, infoB);
+
+        if (infoB.floor < old.y - 384)
+            climb(old);
+
         setOverrides(true, jointChest, jointHead);
         lookAt(target);
+    }
+
+    void climb(const vec3 &old) {
+        int ox = int(old.x) / 1024;
+        int oz = int(old.z) / 1024;
+
+        int cx = int(pos.x) / 1024;
+        int cz = int(pos.z) / 1024;
+
+        if ((ox == cx) == (oz == cz))
+            return;
+
+        strafe(STATE_STOP);
+
+        if (oz == cz) {
+            if (ox < cx) {
+                pos.x   = float(cx * 1024 - 75);
+                angle.y = PI * 0.5f;
+            } else {
+                pos.x   = float(ox * 1024 + 75);
+                angle.y = -PI * 0.5f;
+            }
+        } else {
+            if (oz < cz) {
+                pos.z   = float(cz * 1024 - 75);
+                angle.y = 0.0f;
+            } else {
+                pos.z   = float(oz * 1024 + 75);
+                angle.y = -PI;
+            }
+        }
+
+        pos.y = old.y;
+        animation.setAnim(ANIM_CLIMB);
     }
 };
 
