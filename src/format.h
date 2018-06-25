@@ -1378,7 +1378,7 @@ namespace TR {
             return sectors + sx * zSectors + sz;
         }
 
-        void addDynLight(int32 id, const vec4 &pos, const vec4 &color) {
+        void addDynLight(int32 id, const vec4 &pos, const vec4 &color, bool priority = false) {
             DynLight *light = NULL;
             for (int i = 0; i < dynLightsCount; i++)
                 if (dynLights[i].id == id) {
@@ -1399,6 +1399,9 @@ namespace TR {
             light->id    = id;
             light->pos   = pos;
             light->color = color;
+
+            if (priority && dynLights[0].id != id)
+                swap(dynLights[0], dynLights[1]);
         }
 
         void removeDynLight(int32 id) {

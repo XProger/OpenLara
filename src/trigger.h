@@ -232,7 +232,7 @@ struct MuzzleFlash : Controller {
                     Core::lightPos[lightIndex]   = lightPos;
                     Core::lightColor[lightIndex] = lightColor;
                 } else
-                    getRoom().addDynLight(owner->entity, lightPos, lightColor);
+                    getRoom().addDynLight(owner->entity, lightPos, lightColor, true);
             } else {
                 if (lightIndex > -1) {
                     ASSERT(lightIndex < MAX_LIGHTS);

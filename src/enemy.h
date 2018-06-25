@@ -226,7 +226,7 @@ struct Enemy : Character {
             animation.overrideMask &= ~(1 << chest);
     }
 
-    bool getTargetInfo(int height, vec3 *pos, float *angleX, float *angleY, float *dist) {
+    void getTargetInfo(int height, vec3 *pos, float *angleX, float *angleY, float *dist) {
         vec3 p = waypoint;
         p.y -= height;
         if (pos) *pos = p;
@@ -240,7 +240,6 @@ struct Enemy : Character {
             if (angleX) *angleX = 0.0f;
             if (angleY) *angleY = atan2f(b.cross(a).dot(n), a.dot(b));
         }
-        return true;
     }
 
     bool targetIsVisible(float maxDist) {
@@ -307,7 +306,7 @@ struct Enemy : Character {
     void bite(int joint, const vec3 &offset, float damage) {
         ASSERT(target);
         target->hit(damage, this);
-        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), getJoint(joint) * offset);
+        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), target->getJoint(joint) * offset);
     }
 
     Mood getMoodFixed() {
@@ -722,9 +721,6 @@ struct Lion : Enemy {
         if (!think(true))
             return state;
 
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
-
         if (nextState == state)
             nextState = STATE_NONE;
 
@@ -1091,9 +1087,6 @@ struct Rat : Enemy {
         if (!think(false))
             return state;
 
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
-
         if (nextState == state)
             nextState = STATE_NONE;
 
@@ -1133,9 +1126,6 @@ struct Rat : Enemy {
     virtual int getStateOnwater() {
         if (!think(false))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1281,9 +1271,6 @@ struct Crocodile : Enemy {
         if (!think(true))
             return state;
 
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
-
         if (nextState == state)
             nextState = STATE_NONE;
 
@@ -1332,9 +1319,6 @@ struct Crocodile : Enemy {
     virtual int getStateUnderwater() {
         if (!think(false))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -2498,7 +2482,7 @@ struct Human : Enemy {
         STATE_RUN,
         STATE_AIM,
         STATE_DEATH,
-        STATE_WAIT, // == STATE_FIRE for MrT
+        STATE_WAIT, // == STATE_FIRE for MrT and Cowboy
         STATE_FIRE
     };
 
@@ -2572,9 +2556,6 @@ struct Larson : Human {
     virtual int getStateGround() {
         if (!think(false))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -2667,6 +2648,9 @@ struct SkaterBoy : Human {
 };
 
 
+#define COWBOY_DIST_WALK (3 * 1024)
+#define COWBOY_DAMAGE    70
+
 struct Cowboy : Human {
 
     Cowboy(IGame *game, int entity) : Human(game, entity, 150) {
@@ -2676,10 +2660,70 @@ struct Cowboy : Human {
     virtual void onDead() {
         game->addEntity(TR::Entity::MAGNUMS, getRoomIndex(), pos, 0);
     }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+        // same as Mr. T
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_AIM;
+                if (mood == MOOD_SLEEP)
+                    return STATE_WALK;
+                return STATE_RUN;
+            case STATE_WALK : 
+                if (mood == MOOD_ESCAPE || !targetInView)
+                    nextState = STATE_RUN;
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (targetDist > COWBOY_DIST_WALK)
+                    nextState = STATE_RUN;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_RUN :
+                if (mood == MOOD_ESCAPE || !targetInView)
+                    break;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (targetDist < COWBOY_DIST_WALK && targetInView)
+                    nextState = STATE_WALK;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_AIM :
+                flags.unused = 7;
+                if (nextState != STATE_NONE)
+                    return STATE_STOP;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_WAIT; // STATE_FIRE
+                return STATE_STOP;
+        // ----
+            case STATE_WAIT : // STATE_FIRE
+                if (animation.frameIndex != flags.unused && (animation.frameIndex == 0 || animation.frameIndex == 4)) {
+                    jointGun = (flags.unused == 7) ? 8 : 5;
+                    doShot(COWBOY_DAMAGE, vec3(0, -40, 40));
+                    flags.unused = animation.frameIndex;
+                }
+
+                if (mood == MOOD_ESCAPE)
+                    nextState = STATE_RUN;
+                break;
+        }
+
+        return state;
+    }
 };
 
 
-#define MRT_DIST_WALK 4096
+#define MRT_DIST_WALK (4 * 1024)
 #define MRT_DAMAGE    150
 
 struct MrT : Human {
@@ -2699,9 +2743,6 @@ struct MrT : Human {
     virtual int getStateGround() {
         if (!think(false))
             return state;
-
-        float angle;
-        getTargetInfo(0, NULL, NULL, &angle, NULL);
 
         if (nextState == state)
             nextState = STATE_NONE;
