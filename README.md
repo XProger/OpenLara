@@ -15,13 +15,12 @@ inspired by OpenTomb project http://opentomb.github.io/
 ## Roadmap
 - enemies
 - save game crystals
+- RELEASE beta-1
 - PSP port
 - Wii port
 - PSV port
-- bug fixes
-- RELEASE beta-1
-- bug fixes
 - graphics improvements
+- bug fixes
 - RELEASE
 - OpenLara 2...
 
