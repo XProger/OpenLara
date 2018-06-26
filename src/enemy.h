@@ -2513,8 +2513,6 @@ struct Human : Enemy {
     }
 
     virtual void updatePosition() {
-        fullChestRotation = state == STATE_FIRE || state == STATE_AIM || (state == STATE_WAIT && getEntity().type == TR::Entity::ENEMY_MR_T);
-
         turn(state == STATE_RUN || state == STATE_WALK, state == STATE_RUN ? HUMAN_TURN_FAST : HUMAN_TURN_SLOW);
         
         Enemy::updatePosition();
@@ -2534,8 +2532,8 @@ struct Human : Enemy {
         }
 
         int16 roomIndex = getRoomIndex();
-        TR::Room::Sector *sector = level->getSector(roomIndex, pos);
-        float floor = level->getFloor(sector, pos) - 64.0f;
+        TR::Room::Sector *sector = level->getSector(roomIndex, target->pos);
+        float floor = level->getFloor(sector, target->pos) - 64.0f;
         vec3 p = vec3(target->pos.x + randf() * 512.0f - 256.0f, floor, target->pos.z + randf() * 512.0f - 256.0f);
 
         target->addRicochet(p, true);
@@ -2556,6 +2554,8 @@ struct Larson : Human {
     virtual int getStateGround() {
         if (!think(false))
             return state;
+
+        fullChestRotation = state == STATE_FIRE || state == STATE_AIM;
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -2636,14 +2636,92 @@ struct Pierre : Human {
 };
 
 
+#define SKATERBOY_DIST_MIN      2560
+#define SKATERBOY_DIST_MAX      4096
+#define SKATERBOY_TURN_FAST     (120 * DEG2RAD)
+#define SKATERBOY_DAMAGE_STAND  50.0f
+#define SKATERBOY_DAMAGE_MOVE   40.0f
+
 struct SkaterBoy : Human {
 
+    enum {
+        STATE_STOP,
+        STATE_STAND_FIRE,
+        STATE_MOVE,
+        STATE_STEP,
+        STATE_MOVE_FIRE,
+        STATE_DEATH
+    };
+
+    Controller *board;
+
     SkaterBoy(IGame *game, int entity) : Human(game, entity, 125) {
-        animDeath = 13;
+        animDeath  = 13;
+        jointChest = 1;
+
+        board = game->addEntity(TR::Entity::ENEMY_SKATEBOARD, getRoomIndex(), pos, 0.0f);
+        board->activate();
     }
 
     virtual void onDead() {
         game->addEntity(TR::Entity::UZIS, getRoomIndex(), pos, 0);
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        fullChestRotation = state == STATE_STAND_FIRE || state == STATE_MOVE_FIRE;
+
+        if (health < 120)
+            game->playTrack(56);
+
+        switch (state) {
+            case STATE_STOP :
+                flags.unused = 0;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_STAND_FIRE;
+                return STATE_MOVE;
+            case STATE_MOVE :
+                flags.unused = 0;
+                if (rand() < 512)
+                    return STATE_STEP;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return (mood != MOOD_ESCAPE && targetDist > SKATERBOY_DIST_MIN && targetDist < SKATERBOY_DIST_MAX) ? STATE_STOP : STATE_MOVE_FIRE;
+                break;
+            case STATE_STEP :
+                if (rand() < 1024)
+                    return STATE_MOVE;
+                break;
+            case STATE_STAND_FIRE :
+            case STATE_MOVE_FIRE  :
+                if (!flags.unused && targetIsVisible(HUMAN_DIST_SHOT)) {
+                    float damage = state == STATE_STAND_FIRE ? SKATERBOY_DAMAGE_STAND : SKATERBOY_DAMAGE_MOVE;
+                    jointGun = 7; doShot(damage, vec3(0, -32, 0));
+                    jointGun = 4; doShot(damage, vec3(0, -32, 0));
+                    flags.unused = 1;
+                }
+
+                if (mood == MOOD_ESCAPE || targetDist < 1024)
+                    return STATE_RUN;
+                break;
+        }
+
+        return state;
+    }
+
+    virtual void update() {
+        Human::update();
+        board->pos   = pos;
+        board->angle = angle;
+        if (board->animation.index != animation.index)
+            board->animation.setAnim(animation.index);
+        board->animation.time = animation.time - Core::deltaTime;
+    }
+
+    virtual void deactivate(bool removeFromList) {
+        board->deactivate(removeFromList);
+        Human::deactivate(removeFromList);
     }
 };
 
@@ -2654,7 +2732,9 @@ struct SkaterBoy : Human {
 struct Cowboy : Human {
 
     Cowboy(IGame *game, int entity) : Human(game, entity, 150) {
-        animDeath = 7;
+        animDeath  = 7;
+        jointChest = 1;
+        jointHead  = 2;
     }
 
     virtual void onDead() {
@@ -2665,11 +2745,12 @@ struct Cowboy : Human {
         if (!think(false))
             return state;
 
+        fullChestRotation = state == STATE_WAIT || state == STATE_AIM;
+
         if (nextState == state)
             nextState = STATE_NONE;
 
         switch (state) {
-        // same as Mr. T
             case STATE_STOP :
                 if (nextState != STATE_NONE)
                     return nextState;
@@ -2705,7 +2786,6 @@ struct Cowboy : Human {
                 if (targetIsVisible(HUMAN_DIST_SHOT))
                     return STATE_WAIT; // STATE_FIRE
                 return STATE_STOP;
-        // ----
             case STATE_WAIT : // STATE_FIRE
                 if (animation.frameIndex != flags.unused && (animation.frameIndex == 0 || animation.frameIndex == 4)) {
                     jointGun = (flags.unused == 7) ? 8 : 5;
@@ -2743,6 +2823,8 @@ struct MrT : Human {
     virtual int getStateGround() {
         if (!think(false))
             return state;
+
+        fullChestRotation = state == STATE_WAIT || state == STATE_AIM;
 
         if (nextState == state)
             nextState = STATE_NONE;
