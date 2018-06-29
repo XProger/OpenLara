@@ -2646,7 +2646,6 @@ mp3_decoder_t mp3_create(void) {
 
 void mp3_done(mp3_decoder_t dec) {
     if (dec) {
-        mp3_context_t *ctx = (mp3_context_t*)dec;
         libc_free(dec);
     }
 }

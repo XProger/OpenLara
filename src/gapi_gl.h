@@ -357,6 +357,7 @@ namespace GAPI {
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
 
+            char buf[256];
             char defines[1024];
             defines[0] = 0;
 
@@ -365,9 +366,11 @@ namespace GAPI {
                     if (def[i] == SD_SHADOW_SAMPLER)
                         strcat(defines, "#extension GL_EXT_shadow_samplers : require\n"); // ACHTUNG! must be first in the list
                 #endif
-                sprintf(defines, "%s#define %s\n", defines, DefineName[def[i]]);
+                sprintf(buf, "#define %s\n", DefineName[def[i]]);
+                strcat(defines, buf);
             }
-            sprintf(defines, "%s#define PASS_%s\n", defines, passNames[pass]);
+            sprintf(buf, "#define PASS_%s\n", passNames[pass]);
+            strcat(defines, buf);
 
             #if defined(_OS_RPI) || defined(_OS_CLOVER)
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
@@ -391,7 +394,7 @@ namespace GAPI {
             if (!(Core::support.shaderBinary && linkBinary(fileName))) { // try to load cached shader     
                 if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
                 #ifndef _OS_WEB
-                    GLenum format, size;
+                    GLenum format = 0, size;
                     glGetProgramiv(ID, GL_PROGRAM_BINARY_LENGTH, (GLsizei*)&size);
                     char *data = new char[8 + size];
                     glGetProgramBinary(ID, size, NULL, &format, &data[8]);
@@ -796,6 +799,7 @@ namespace GAPI {
     } rtCache[2];
 
     bool extSupport(const char *str, const char *ext) {
+        if (!str) return false;
         return strstr(str, ext) != NULL;
     }
 
