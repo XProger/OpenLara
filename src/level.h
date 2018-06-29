@@ -301,8 +301,12 @@ struct Level : IGame {
         return atlas;
     }
 
-    virtual ICamera* getCamera() {
-        return camera;
+    virtual ICamera* getCamera(int index = -1) {
+        if (index == -1)
+            return camera;
+        if (players[index])
+            return players[index]->camera;
+        return NULL;
     }
 
     virtual Controller* getLara(int index = 0) {

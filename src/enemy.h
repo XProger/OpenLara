@@ -524,6 +524,24 @@ struct Enemy : Character {
             bullet->setAngle(ang);
         }
     }
+
+    bool isVisible() {
+        for (int i = 0; i < 2; i++) {
+            ICamera *camera = game->getCamera(i);
+            if (!camera) continue;
+
+            TR::Location eye = camera->eye;
+            TR::Location loc;
+            loc.room = getRoomIndex();
+            loc.box  = box;
+            loc.pos  = pos;
+            loc.pos.y -= 1024;
+
+            if (trace(eye, loc))
+                return true;
+        }
+        return false;
+    }
 };
 
 
@@ -2620,6 +2638,9 @@ struct Larson : Human {
 };
 
 
+#define PIERRE_MIN_HEALTH   40
+#define PIERRE_DAMAGE       25
+
 struct Pierre : Human {
 
     Pierre(IGame *game, int entity) : Human(game, entity, 70) {
@@ -2627,11 +2648,93 @@ struct Pierre : Human {
     }
 
     virtual void onDead() {
-        if (level->id == TR::LVL_TR1_7B) {
-            game->addEntity(TR::Entity::MAGNUMS,           getRoomIndex(), pos, 0);
-            game->addEntity(TR::Entity::SCION_PICKUP_DROP, getRoomIndex(), pos, 0);
-            game->addEntity(TR::Entity::KEY_ITEM_1,        getRoomIndex(), pos, 0);
+        game->addEntity(TR::Entity::MAGNUMS,           getRoomIndex(), pos, 0);
+        game->addEntity(TR::Entity::SCION_PICKUP_DROP, getRoomIndex(), pos, 0);
+        game->addEntity(TR::Entity::KEY_ITEM_1,        getRoomIndex(), pos, 0);
+    }
+
+    virtual int getStateGround() {
+        if (!think(false))
+            return state;
+
+        if (!flags.once && health <= PIERRE_MIN_HEALTH) {
+            health = PIERRE_MIN_HEALTH;
+            timer += Core::deltaTime;
         }
+
+        if (timer > 0.0f && isVisible()) // time to run away!
+            timer = 0.0f;
+
+        if (getRoom().flags.water)
+            timer = 1.0f;
+
+        if (timer > 0.4f) {
+            flags.invisible = true;
+            deactivate(true);
+        }
+
+        fullChestRotation = state == STATE_FIRE || state == STATE_AIM;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (mood == MOOD_SLEEP)
+                    return randf() < HUMAN_WAIT ? STATE_WAIT : STATE_WALK;
+                if (mood == MOOD_ESCAPE)
+                    return STATE_RUN;
+                return STATE_WALK;
+            case STATE_WAIT : 
+                if (mood != MOOD_SLEEP)
+                    return STATE_STOP;
+                if (randf() < HUMAN_WAIT) {
+                    nextState = STATE_WALK;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_WALK :
+                if (mood == MOOD_SLEEP && randf() < HUMAN_WAIT)
+                    nextState = STATE_WAIT;
+                else if (mood == MOOD_ESCAPE)
+                    nextState = STATE_RUN;
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (!targetInView || targetDist > HUMAN_DIST_WALK)
+                    nextState = STATE_RUN;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_RUN :
+                if (mood == MOOD_SLEEP && randf() < HUMAN_WAIT)
+                    nextState = STATE_WAIT;
+                else if (targetIsVisible(HUMAN_DIST_SHOT))
+                    nextState = STATE_AIM;
+                else if (targetInView && targetDist < HUMAN_DIST_WALK)
+                    nextState = STATE_WALK;
+                else
+                    break;
+                return STATE_STOP;
+            case STATE_AIM :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (targetIsVisible(HUMAN_DIST_SHOT))
+                    return STATE_FIRE;
+                return STATE_STOP;
+            case STATE_FIRE :
+                if (nextState == STATE_NONE) {
+                    jointGun = 11; doShot(PIERRE_DAMAGE, vec3(60, 0, 50));
+                    jointGun = 14; doShot(PIERRE_DAMAGE, vec3(-60, 0, 50));
+                    nextState = STATE_AIM;
+                }
+                if (mood == MOOD_ESCAPE && (rand() % 2))
+                    nextState = STATE_STOP;
+                break;
+        }
+
+        return state;
     }
 };
 

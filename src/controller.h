@@ -58,9 +58,9 @@ struct IGame {
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
     virtual Texture*     getAtlas()     { return NULL; }
-    virtual ICamera*     getCamera()    { return NULL; }
-    virtual Controller*  getLara(int index = 0)   { return NULL; }
-    virtual Controller*  getLara(const vec3 &pos) { return NULL; }
+    virtual ICamera*     getCamera(int index = -1)  { return NULL; }
+    virtual Controller*  getLara(int index = 0)     { return NULL; }
+    virtual Controller*  getLara(const vec3 &pos)   { return NULL; }
     virtual bool         isCutscene()   { return false; }
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }

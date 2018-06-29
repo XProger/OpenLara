@@ -21,7 +21,7 @@ struct Switch : Controller {
                 flags.state = TR::Entity::asActive;
             } else
                 deactivate(true);
-           return true;
+            return true;
         }
         return false;
     }
@@ -37,8 +37,10 @@ struct Switch : Controller {
     virtual void update() {
         updateAnimation(true);
         flags.active = TR::ACTIVE;
-        if (!isActive())
+        if (!isActive()) {
             animation.setState(STATE_UP);
+            timer = 0.0f;
+        }
     }
 };
 
