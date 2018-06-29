@@ -1246,7 +1246,7 @@ struct Lara : Character {
         bool retarget = false;
         if (Core::settings.controls[camera->cameraIndex].retarget) {
             for (int i = 0; i < 2; i++)
-                if (!arms[i].tracking || ((Character*)arms[i].tracking)->health <= 0.0f) {
+                if (!arms[i].tracking || !((Character*)arms[i].tracking)->isActiveTarget()) {
                     retarget = true;
                     break;
                 }
@@ -1331,7 +1331,7 @@ struct Lara : Character {
                 continue;
 
             Character *enemy = (Character*)c;
-            if (enemy->health <= 0)
+            if (!enemy->isActiveTarget())
                 continue;
 
             Box box = enemy->getBoundingBox();

@@ -69,6 +69,10 @@ struct Character : Controller {
         updateZone();
     }
 
+    bool isActiveTarget() {
+        return flags.state == TR::Entity::asActive && !flags.invisible && health > 0.0f;
+    }
+
     virtual int getRoomIndex() const {
         int index = Controller::getRoomIndex();
         
