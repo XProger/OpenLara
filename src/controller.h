@@ -513,7 +513,7 @@ struct Controller {
     }
 
     virtual bool activate() {
-        if (flags.state != TR::Entity::asNone)
+        if (flags.state == TR::Entity::asActive)
             return false;
         flags.invisible = false;
         flags.state = TR::Entity::asActive;

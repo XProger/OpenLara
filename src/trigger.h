@@ -18,12 +18,17 @@ struct Switch : Controller {
         if (flags.state == TR::Entity::asInactive) {
             if (state == STATE_DOWN && t > 0.0f) {
                 timer = t;
-                flags.state = TR::Entity::asActive;
+                Controller::activate();
             } else
-                deactivate(true);
+                Controller::deactivate(true);
             return true;
         }
         return false;
+    }
+
+    virtual void deactivate(bool removeFromList) {
+        Controller::deactivate(true);
+        flags.state = TR::Entity::asInactive;
     }
     
     virtual bool activate() {
