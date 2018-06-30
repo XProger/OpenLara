@@ -357,7 +357,6 @@ namespace GAPI {
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
 
-            char buf[256];
             char defines[1024];
             defines[0] = 0;
 
@@ -366,11 +365,9 @@ namespace GAPI {
                     if (def[i] == SD_SHADOW_SAMPLER)
                         strcat(defines, "#extension GL_EXT_shadow_samplers : require\n"); // ACHTUNG! must be first in the list
                 #endif
-                sprintf(buf, "#define %s\n", DefineName[def[i]]);
-                strcat(defines, buf);
+                sprintf(defines + strlen(defines), "#define %s\n", DefineName[def[i]]);
             }
-            sprintf(buf, "#define PASS_%s\n", passNames[pass]);
-            strcat(defines, buf);
+            sprintf(defines + strlen(defines), "#define PASS_%s\n", passNames[pass]);
 
             #if defined(_OS_RPI) || defined(_OS_CLOVER)
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
