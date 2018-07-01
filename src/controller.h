@@ -513,7 +513,7 @@ struct Controller {
     }
 
     virtual bool activate() {
-        if (flags.state == TR::Entity::asActive)
+        if (flags.state == TR::Entity::asActive || next)
             return false;
         flags.invisible = false;
         flags.state = TR::Entity::asActive;
@@ -539,6 +539,7 @@ struct Controller {
                     prev = c;
                 c = c->next;
             }
+            next = NULL;
         }
     }
 
@@ -546,15 +547,17 @@ struct Controller {
         Controller *prev = NULL;
         Controller *c = first;
         while (c) {
+            Controller *next = c->next;
             if (c->flags.state == TR::Entity::asInactive) {
                 if (prev)
                     prev->next = c->next;
                 else
                     first = c->next;
                 c->flags.state = TR::Entity::asNone;
+                c->next = NULL;
             } else
                 prev = c;
-            c = c->next;
+            c = next;
         }
     }
 
