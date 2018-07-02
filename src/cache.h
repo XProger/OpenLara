@@ -98,7 +98,7 @@ struct ShaderCache {
     }
 
     void prepareFilter(int fx) {
-        compile(Core::passFilter, Shader::DEFAULT,           fx, RS_COLOR_WRITE);
+        compile(Core::passFilter, Shader::FILTER_UPSCALE,    fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_BLUR,       fx, RS_COLOR_WRITE);
@@ -160,7 +160,7 @@ struct ShaderCache {
                 break;
             }
             case Core::passWater   : def[defCount++] = SD_WATER_DROP + type;     break;
-            case Core::passFilter  : def[defCount++] = SD_FILTER_DEFAULT + type; break;
+            case Core::passFilter  : def[defCount++] = SD_FILTER_UPSCALE + type; break;
             case Core::passGUI     : break;
             default : ASSERT(false);
         }

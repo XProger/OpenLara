@@ -1307,11 +1307,13 @@ struct Inventory {
         }
     }
 
-    void renderTitleBG() {
+    void renderTitleBG(float sx = 1.0f, float sy = 1.0f) {
         float aspectSrc, aspectDst, aspectImg, ax, ay;
 
         if (background[0]) {
-            aspectSrc = float(background[0]->origWidth) / float(background[0]->origHeight);
+            float ox = sx * background[0]->origWidth;
+            float oy = sy * background[0]->origHeight;
+            aspectSrc = ox / oy;
             aspectDst = float(Core::width) / float(Core::height);
             ax = background[0]->origWidth  / float(background[0]->width);
             ay = background[0]->origHeight / float(background[0]->height);
@@ -1404,8 +1406,6 @@ struct Inventory {
         vertices[10].texCoord =
         vertices[11].texCoord = short4(0, 0, 0, 0);
 
-        game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
-
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
             for (int i = 0; i < 4; i++)
                 vertices[i].light.x = vertices[i].light.y = vertices[i].light.z = 0;
@@ -1413,6 +1413,8 @@ struct Inventory {
         } else
             background[0]->bind(sDiffuse);
 
+        game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
+        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
@@ -1432,11 +1434,13 @@ struct Inventory {
         vertices[2].texCoord = short4(32767,     0, 0, 0);
         vertices[3].texCoord = short4(    0,     0, 0, 0);
 
-        game->setShader(Core::passFilter, Shader::DEFAULT, false, false);
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
             Core::blackTex->bind(sDiffuse); // black background 
         } else
             background[0]->bind(sDiffuse); // blured grayscale image
+
+        game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
+        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
 
         Core::setBlendMode(phaseRing < 1.0f ? bmAlpha : bmNone);
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));

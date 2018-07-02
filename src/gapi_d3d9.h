@@ -271,6 +271,13 @@ namespace GAPI {
             if (tex2D)   tex2D->GenerateMipSubLevels();
         }
 
+        void update(void *data) {
+            D3DLOCKED_RECT rect;
+            D3DCHECK(tex2D->LockRect(0, &rect, NULL, 0));
+            memcpy(rect.pBits, data, width * height * 4);
+            D3DCHECK(tex2D->UnlockRect(0));
+        }
+
         void bind(int sampler) {
             if (opt & OPT_PROXY) return;
             ASSERT(tex2D || texCube);

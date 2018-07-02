@@ -613,6 +613,11 @@ namespace GAPI {
             //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
         }
 
+        void update(void *data) {
+            bind(0);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, origWidth, origHeight, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        }
+
         void bind(int sampler) {
             if (opt & OPT_PROXY) return;
             ASSERT(ID);

@@ -61,6 +61,15 @@ float4 blur(float2 uv) { // uParam (dirX, dirY, 1 / textureSize, unused)
 	return color;
 }
 
+float4 upscale(float2 uv) {
+    uv *= uParam.xy + 0.5;
+    float2 iuv = floor(uv);
+    float2 fuv = frac(uv);
+    uv = iuv + fuv * fuv * (3.0 - 2.0 * fuv);
+    uv = (uv - 0.5) / uParam.xy;
+    return tex2D(sDiffuse, uv).bgra;
+}
+
 float4 main(VS_OUTPUT In) : COLOR0 {
 
 	if (FILTER_DOWNSAMPLE)
@@ -69,9 +78,9 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	if (FILTER_GRAYSCALE)
 		return grayscale(In.texCoord.xy);
 
-    if (FILTER_BLUR)
-        return blur(In.texCoord.xy);
+	if (FILTER_BLUR)
+		rreturn blur(In.texCoord.xy);
 
-	return (tex2D(sDiffuse, In.texCoord.xy) * In.diffuse).bgra;
+	return upscale(In.texCoord.xy) * In.diffuse;
 }
 #endif

@@ -67,6 +67,16 @@ uniform vec4 uParam;
 		}
 	#endif
 
+
+	vec4 upscale() { // https://www.shadertoy.com/view/XsfGDn
+		vec2 uv = vTexCoord * uParam.xy + 0.5;
+		vec2 iuv = floor(uv);
+		vec2 fuv = fract(uv);
+		uv = iuv + fuv * fuv * (3.0 - 2.0 * fuv);
+		uv = (uv - 0.5) / uParam.xy;
+		return texture2D(sDiffuse, uv) * vColor;
+	}
+
 	vec4 filter() {
 		#ifdef FILTER_DOWNSAMPLE
 			return downsample();
@@ -84,7 +94,7 @@ uniform vec4 uParam;
 			return equirectangular();
 		#endif
 
-		return texture2D(sDiffuse, vTexCoord) * vColor;
+		return upscale();
 	}
 
 	void main() {

@@ -47,11 +47,7 @@ namespace GAPI {
 
             if (data) {
                 memory = new uint8[width * height * 4];
-                #ifdef TEX_SWIZZLE
-                    swizzle(memory, (uint8*)data, width * 4, height);
-                #else
-                    memcpy(memory, data, width * height * 4);
-                #endif
+                update(data);
             } else
                 memory = NULL;
         }
@@ -86,6 +82,14 @@ namespace GAPI {
             #else
                 return GU_FALSE
             #endif
+        }
+
+        void update(void *data) {
+        #ifdef TEX_SWIZZLE
+            swizzle(memory, (uint8*)data, width * 4, height);
+        #else
+            memcpy(memory, data, width * height * 4);
+        #endif
         }
 
         void bind(int sampler) {

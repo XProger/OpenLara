@@ -453,7 +453,7 @@ struct MeshRange {
     E( WATER_MASK     ) \
     E( WATER_COMPOSE  ) \
     /* filter types */ \
-    E( FILTER_DEFAULT         ) \
+    E( FILTER_UPSCALE         ) \
     E( FILTER_DOWNSAMPLE      ) \
     E( FILTER_GRAYSCALE       ) \
     E( FILTER_BLUR            ) \
@@ -587,6 +587,7 @@ namespace Core {
 
 #include "texture.h"
 #include "shader.h"
+//#include "video.h"
 
 namespace Core {
 
