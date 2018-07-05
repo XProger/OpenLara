@@ -3,6 +3,7 @@
 
 #define DECODE_VAG
 #define DECODE_ADPCM
+#define DECODE_IMA
 
 #define DECODE_OGG
 
@@ -139,19 +140,62 @@ namespace Sound {
 
     struct Decoder {
         Stream  *stream;
-        int     channels, offset;
+        int     channels, freq, offset;
+        Frame   prevFrame;
 
-        Decoder(Stream *stream, int channels) : stream(stream), channels(channels), offset(stream->pos) {}
+        Decoder(Stream *stream, int channels, int freq) : stream(stream), channels(channels), freq(freq), offset(stream->pos) {
+            memset(&prevFrame, 0, sizeof(prevFrame));
+        }
+
         virtual ~Decoder() { delete stream; }
         virtual int decode(Frame *frames, int count) { return 0; }
         virtual void replay() { stream->seek(offset - stream->pos); }
+
+        int resample(Sound::Frame *frames, Sound::Frame &frame) {
+            if (freq == 44100) {
+                frames[0] = frame;
+                return 1;
+            }
+
+            int dL = int(frame.L) - int(prevFrame.L);
+            int dR = int(frame.R) - int(prevFrame.R);
+            switch (freq) {
+                case 11025 :
+                    if (channels == 2) {
+                        frames[0].L = prevFrame.L + dL / 4;                   // 0.25 L
+                        frames[0].R = prevFrame.R + dR / 4;                   // 0.25 R
+                        frames[1].L = prevFrame.L + dL / 2;                   // 0.50 L
+                        frames[1].R = prevFrame.R + dR / 2;                   // 0.50 R
+                        frames[2].L = prevFrame.L + dL * 3 / 4;               // 0.75 L
+                        frames[2].R = prevFrame.R + dR * 3 / 4;               // 0.75 R
+                    } else {
+                        frames[0].L = frames[0].R = prevFrame.L + dL / 4;     // 0.25 LR
+                        frames[1].L = frames[1].R = prevFrame.L + dL / 2;     // 0.50 LR
+                        frames[2].L = frames[2].R = prevFrame.L + dL * 3 / 4; // 0.75 LR
+                    }
+                    frames[3] = prevFrame = frame;                            // 1.00 LR
+                    return 4;
+                case 22050 :
+                    if (channels == 2) {
+                        frames[0].L = prevFrame.L + dL / 2;                   // 0.50 L
+                        frames[0].R = prevFrame.R + dR / 2;                   // 0.50 R
+                    } else
+                        frames[0].L = frames[0].R = prevFrame.L + dL / 2;     // 0.50 LR
+                    frames[1] = prevFrame = frame;                            // 1.00 LR
+                    return 2;
+                default    : // impossible
+                    ASSERT(false);
+                    int k = 44100 / freq;
+                    for (int i = 0; i < k; i++) frames[i] = frame; // no lerp
+                    return k;
+            }        
+        }
     };
 
     struct PCM : Decoder {
-        int freq, size, bits;
-        Frame frameLast;
+        int size, bits;
 
-        PCM(Stream *stream, int channels, int freq, int size, int bits) : Decoder(stream, channels), freq(freq), size(size), bits(bits) { frameLast.L = frameLast.R = 0; }
+        PCM(Stream *stream, int channels, int freq, int size, int bits) : Decoder(stream, channels, freq), size(size), bits(bits) {}
 
         virtual int decode(Frame *frames, int count) {
             if (stream->pos - offset >= size) return 0;
@@ -178,41 +222,7 @@ namespace Sound {
                 return 0;
             }
 
-            int dL = int(frame.L) - int(frameLast.L);
-            int dR = int(frame.R) - int(frameLast.R);
-            switch (freq) {
-                case 11025 :
-                    if (channels == 2) {
-                        frames[0].L = frameLast.L + dL / 4;                   // 0.25 L
-                        frames[0].R = frameLast.R + dR / 4;                   // 0.25 R
-                        frames[1].L = frameLast.L + dL / 2;                   // 0.50 L
-                        frames[1].R = frameLast.R + dR / 2;                   // 0.50 R
-                        frames[2].L = frameLast.L + dL * 3 / 4;               // 0.75 L
-                        frames[2].R = frameLast.R + dR * 3 / 4;               // 0.75 R
-                    } else {
-                        frames[0].L = frames[0].R = frameLast.L + dL / 4;     // 0.25 LR
-                        frames[1].L = frames[1].R = frameLast.L + dL / 2;     // 0.50 LR
-                        frames[2].L = frames[2].R = frameLast.L + dL * 3 / 4; // 0.75 LR
-                    }
-                    frames[3] = frameLast = frame;                            // 1.00 LR
-                    return 4;
-                case 22050 :
-                    if (channels == 2) {
-                        frames[0].L = frameLast.L + dL / 2;                   // 0.50 L
-                        frames[0].R = frameLast.R + dR / 2;                   // 0.50 R
-                    } else
-                        frames[0].L = frames[0].R = frameLast.L + dL / 2;     // 0.50 LR
-                    frames[1] = frameLast = frame;                            // 1.00 LR
-                    return 2;
-                case 44100 : // not used
-                    frames[0] = frameLast = frame;
-                    return 1;
-                default    : // impossible
-                    ASSERT(false);
-                    int k = 44100 / freq;
-                    for (int i = 0; i < k; i++) frames[i] = frame; // no lerp
-                    return k;
-            }
+            return resample(frames, frame);
         }
     };
 
@@ -220,7 +230,7 @@ namespace Sound {
     struct ADPCM : Decoder { // https://wiki.multimedia.cx/?title=Microsoft_ADPCM
         int size, block;
 
-        ADPCM(Stream *stream, int channels, int size, int block) : Decoder(stream, channels), size(size), block(block) {}
+        ADPCM(Stream *stream, int channels, int freq, int size, int block) : Decoder(stream, channels, freq), size(size), block(block) {}
 
         struct Channel {
             int16 c1, c2;
@@ -290,6 +300,83 @@ namespace Sound {
     };
 #endif
 
+#ifdef DECODE_IMA
+    struct IMA : Decoder { // https://wiki.multimedia.cx/?title=Microsoft_ADPCM
+        struct State {
+            int amp, idx;
+        } state[2];
+
+        int freq;
+
+        IMA(Stream *stream, int channels, int freq) : Decoder(stream, channels, freq) { 
+            memset(state, 0, sizeof(state)); 
+        }
+
+        int16 getSample(uint8 n, State &state) {
+            static int indexLUT[] = {
+                -1, -1, -1, -1, 2, 4, 6, 8
+            };
+
+            static int stepLUT[] = {
+                7,     8,     9,    10,    11,    12,    13,    14,
+                16,    17,    19,    21,    23,    25,    28,    31,
+                34,    37,    41,    45,    50,    55,    60,    66,
+                73,    80,    88,    97,   107,   118,   130,   143,
+                157,   173,   190,   209,   230,   253,   279,   307,
+                337,   371,   408,   449,   494,   544,   598,   658,
+                724,   796,   876,   963,  1060,  1166,  1282,  1411,
+                1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,
+                3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,
+                7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
+                15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+                32767
+            };
+
+            int step = stepLUT[state.idx];
+
+            state.idx += indexLUT[n & 7];
+            state.idx = clamp(state.idx, 0, 88);
+
+            int diff = step >> 3;
+            if (n & 1) diff += step >> 2;
+            if (n & 2) diff += step >> 1;
+            if (n & 4) diff += step;
+
+            if (n & 8) {
+                state.amp -= diff;
+                if (state.amp < -32768)
+                    state.amp = -32768;
+            } else {
+                state.amp += diff;
+                if (state.amp > 32767)
+                    state.amp = 32767;
+            }
+
+            return state.amp;
+        }
+
+        virtual int decode(Frame *frames, int count) {
+            uint8 n;
+            stream->read(n);
+
+            int a = getSample(n & 0x0F, state[0]);
+            int b = getSample(n >> 4,   state[1 % channels]);
+
+            Frame frame;
+            if (channels == 2) {
+                frame.L = a;
+                frame.R = b;
+                return resample(frames, frame);
+            } else {
+                frame.L = frame.R = a;
+                int i = resample(frames, frame);
+                frame.L = frame.R = b;
+                return i + resample(frames + i, frame);
+            }
+        }
+    };
+#endif
+
 #ifdef DECODE_VAG
     struct VAG : Decoder {
         uint8 pred, shift, flags;
@@ -297,7 +384,7 @@ namespace Sound {
         Frame buffer[28 * 4];
         int bufferSize;
 
-        VAG(Stream *stream) : Decoder(stream, 1), s1(0), s2(0), bufferSize(0) {}
+        VAG(Stream *stream) : Decoder(stream, 1, 11025), s1(0), s2(0), bufferSize(0) {}
 
         void predicate(short value) {
             int inc[] = { 0, 60, 115,  98, 122 };
@@ -369,7 +456,7 @@ namespace Sound {
         char    *buffer;
         int     size, pos;        
 
-        MP3(Stream *stream, int channels) : Decoder(stream, channels), size(stream->size), pos(0) {
+        MP3(Stream *stream, int channels) : Decoder(stream, channels, 0), size(stream->size), pos(0) {
             mp3 = mp3_create();
             buffer = new char[size]; // TODO: file streaming
             stream->raw(buffer, size);
@@ -409,7 +496,7 @@ namespace Sound {
         stb_vorbis       *ogg;
         stb_vorbis_alloc alloc;
 
-        OGG(Stream *stream, int channels) : Decoder(stream, channels), ogg(NULL) {
+        OGG(Stream *stream, int channels) : Decoder(stream, channels, 0), ogg(NULL) {
             char buf[255];
             strcpy(buf, Stream::contentDir);
             strcat(buf, stream->name);
@@ -420,6 +507,7 @@ namespace Sound {
             ASSERT(ogg);
             stb_vorbis_info info = stb_vorbis_get_info(ogg);
             this->channels = info.channels;
+            this->freq     = info.sample_rate;
         }
 
         virtual ~OGG() {
@@ -512,7 +600,7 @@ namespace Sound {
                     } else if (type == FOURCC("data")) {
                         if (waveFmt.format == 1) decoder = new PCM(stream, waveFmt.channels, waveFmt.samplesPerSec, size, waveFmt.sampleBits);
                         #ifdef DECODE_ADPCM
-                        if (waveFmt.format == 2) decoder = new ADPCM(stream, waveFmt.channels, size, waveFmt.block);
+                        if (waveFmt.format == 2) decoder = new ADPCM(stream, waveFmt.channels, size, waveFmt.block, waveFmt.samplesPerSec);
                         #endif
                         break;
                     } else

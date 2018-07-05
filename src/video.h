@@ -10,21 +10,22 @@ struct Video {
     struct Decoder : Sound::Decoder {
         int width, height, fps;
 
-        Decoder(Stream *stream) : Sound::Decoder(stream, 2) {}
+        Decoder(Stream *stream) : Sound::Decoder(stream, 2, 0) {}
         virtual ~Decoder() { /* delete stream; */ }
         virtual bool decode(uint8 *frame) { return false; }
     };
 
     // based on ffmpeg code https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/escape124.c
-    struct Escape124 : Decoder {
+    struct Escape : Decoder {
         int vfmt, bpp;
         int sfmt, rate, channels, bps;
         int framesCount, chunksCount, offset;
         int curVideoPos, curVideoChunk;
         int curAudioPos, curAudioChunk;
 
+        Sound::Decoder *audioDecoder;
+
         uint32 *prevFrame, *nextFrame;
-        Sound::Frame prevSample;
 
         struct Chunk {
             int offset;
@@ -46,7 +47,7 @@ struct Video {
             MacroBlock  *blocks;
         } codebook[3];
 
-        Escape124(Stream *stream) : Decoder(stream), chunks(NULL) {
+        Escape(Stream *stream) : Decoder(stream), audioDecoder(NULL), chunks(NULL) {
             for (int i = 0; i < 4; i++)
                 skipLine();
 
@@ -89,10 +90,20 @@ struct Video {
             curVideoPos = curVideoChunk = 0; 
             curAudioPos = curAudioChunk = 0;
 
-            prevSample.L = prevSample.R = 0;
+            if (sfmt == 1)
+                audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);      // TR2
+            else if (sfmt == 101)
+                if (bps == 8)
+                    audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);  // TR1
+                else
+                    audioDecoder = new Sound::IMA(stream, channels, rate);          // TR3
         }
 
-        virtual ~Escape124() {
+        virtual ~Escape() {
+            if (audioDecoder) {
+                audioDecoder->stream = NULL;
+                delete audioDecoder;
+            }
             delete[] chunks;
             delete[] codebook[0].blocks;
             delete[] codebook[1].blocks;
@@ -199,6 +210,16 @@ struct Video {
             }
             stream->setPos(chunks[curVideoChunk].offset + curVideoPos);
 
+            switch (vfmt) {
+                case 124 : return decode124(frame);
+                case 130 : return decode130(frame);
+                default  : ASSERT(false);
+            }
+
+            return false;
+        }
+
+        bool decode124(uint8 *frame) {
             uint32 flags, size;
             stream->read(flags);
             stream->read(size);
@@ -323,55 +344,46 @@ struct Video {
             return true;
         }
 
+        bool decode130(uint8 *frame) {
+            return true;
+        }
+
         virtual int decode(Sound::Frame *frames, int count) {
+            if (!audioDecoder) return 0;
+
             if (abs(curAudioChunk - curVideoChunk) > 1) { // sync with video chunk
                 curAudioChunk = curVideoChunk;
                 curAudioPos   = 0;
             }
 
-            if (curAudioChunk >= chunksCount) {
-                for (int i = 0; i < count; i++)
-                    frames[i].L = frames[i].R = 0;
-                return count;
-            }
-
-            Chunk *chunk = &chunks[curAudioChunk];
-            stream->setPos(chunk->offset + chunk->videoSize + curAudioPos);
-
-            int sampleSize = channels * (bps / 8);
-
-            for (int i = 0; i < count; i++) {
-
+            int i = 0;
+            while (i < count) {
                 if (curAudioChunk >= chunksCount) {
-                    frames[i].L = frames[i].R = 0;
-                    continue;
+                    memset(&frames[i], 0, sizeof(Sound::Frame) * (count - i));
+                    break;
                 }
 
-                if (sfmt == 101) {
-                    ubyte2 sample;
-                    stream->raw(&sample, sizeof(sample));
-                    frames[i].L = uint16(sample.x) << 7;
-                    frames[i].R = uint16(sample.y) << 7;
-                } else if (sfmt == 1) {
-                    Sound::Frame sample;
+                Chunk *chunk = &chunks[curAudioChunk];
 
-                    stream->raw(&sample, sizeof(Sound::Frame));
-
-                    frames[i].L = (int(prevSample.L) + int(sample.L)) / 2;
-                    frames[i].R = (int(prevSample.R) + int(sample.R)) / 2;
-                    i++;
-                    frames[i] = prevSample = sample;
-                }
-
-                curAudioPos += sampleSize;
                 if (curAudioPos >= chunk->audioSize) {
                     curAudioPos = 0;
                     curAudioChunk++;
-                    if (curAudioChunk < chunksCount) {
-                        chunk = &chunks[curAudioChunk];
-                        stream->setPos(chunk->offset + chunk->videoSize);
-                    }
+                    continue;
                 }
+
+                stream->setPos(chunk->offset + chunk->videoSize + curAudioPos);
+
+                int part = min(count - i, (chunk->audioSize - curAudioPos) / (channels * bps / 8));
+
+                int pos = stream->pos;
+
+                while (part > 0) { 
+                    int res = audioDecoder->decode(&frames[i], part);
+                    i += res;
+                    part -= res;
+                }
+
+                curAudioPos += stream->pos - pos;
             }
 
             return count;
@@ -382,7 +394,6 @@ struct Video {
     Texture *frameTex[2];
     uint8   *frameData;
     float   time, step;
-    float   invFPS;
     bool    isPlaying;
     bool    needUpdate;
     Sound::Sample *sample;
@@ -392,7 +403,7 @@ struct Video {
 
         if (!stream) return;
 
-        decoder   = new Escape124(stream);
+        decoder   = new Escape(stream);
         frameData = new uint8[decoder->width * decoder->height * 4];
         memset(frameData, 0, decoder->width * decoder->height * 4);
 
