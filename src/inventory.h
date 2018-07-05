@@ -210,6 +210,7 @@ struct Inventory {
 
     IGame   *game;
     Texture *background[2];
+    Video   *video;
 
     bool    active;
     bool    chosen;
@@ -454,6 +455,10 @@ struct Inventory {
 
     static void loadTitleBG(Stream *stream, void *userData) {
         Inventory *inv = (Inventory*)userData;
+
+        if (!inv->video)
+            inv->skipVideo(); // play background track etc.
+
         if (!stream) {
             inv->titleTimer = 0.0f;
             return;
@@ -462,6 +467,13 @@ struct Inventory {
 
         inv->background[0] = Texture::Load(*stream);
         delete stream;
+    }
+
+    static void loadVideo(Stream *stream, void *userData) {
+        Inventory *inv = (Inventory*)userData;
+        if (stream)
+            inv->video = new Video(stream);
+        new Stream(TR::getGameScreen(inv->game->getLevel()->id), loadTitleBG, inv);
     }
 
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), playerIndex(0), changeTimer(0.0f), nextLevel(TR::LVL_MAX), lastKey(cMAX) {
@@ -505,13 +517,6 @@ struct Inventory {
 
         memset(background, 0, sizeof(background));
 
-        const char *titleBG = TR::getGameScreen(level->version, level->id);
-        if (titleBG) {
-            titleTimer = TITLE_LOADING;
-            new Stream(titleBG, loadTitleBG, this);
-        } else
-            titleTimer = 0.0f;
-
         if (level->isTitle()) {
             add(TR::Entity::INV_HOME);
         } else {
@@ -523,14 +528,23 @@ struct Inventory {
         memset(pageItemIndex, 0, sizeof(pageItemIndex));
 
         waitForKey = NULL;
+        video = NULL;
+
+        titleTimer = TITLE_LOADING;
     }
 
     ~Inventory() {
+        delete video;
+
         for (int i = 0; i < itemsCount; i++)
             delete items[i];
 
         for (int i = 0; i < COUNT(background); i++)
             delete background[i];
+    }
+
+    void init() {
+        new Stream(TR::getGameVideo(game->getLevel()->id), loadVideo, this);
     }
 
     bool isActive() {
@@ -651,7 +665,10 @@ struct Inventory {
         return false;
     }
 
-    bool toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+    void toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+        if (titleTimer != 0.0f || (isActive() != active))
+            return;
+
         Input::stopJoyVibration();
         
         this->playerIndex = playerIndex;
@@ -686,7 +703,6 @@ struct Inventory {
                 //    chooseItem();
             }
         }
-        return active;
     }
 
     void doPhase(bool increase, float speed, float &value) {
@@ -898,7 +914,30 @@ struct Inventory {
         }
     };
 
+    void skipVideo() {
+        delete video;
+        video = NULL;
+        game->playTrack(0);
+        if (game->getLevel()->isTitle()) {
+            titleTimer = 0.0f;
+            toggle(0, Inventory::PAGE_OPTION);
+        }
+        Input::reset();
+    }
+
     void update() {
+        if (video && (Input::state[0][cInventory] || Input::state[1][cInventory]))
+            skipVideo();
+
+        if (video) {
+            video->update();
+            if (video->isPlaying)
+                return;
+            skipVideo();
+        }
+
+        if (video || titleTimer == TITLE_LOADING) return;
+
         if (titleTimer != TITLE_LOADING && titleTimer > 0.0f) {
             titleTimer -= Core::deltaTime;
             if (titleTimer < 0.0f)
@@ -1139,14 +1178,14 @@ struct Inventory {
         // vertical blur
         Core::setTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(0, 1, 1.0f / INVENTORY_BG_SIZE, 0));;
+        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INVENTORY_BG_SIZE, 0, 0));
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // horizontal blur
         Core::setTarget(background[0], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(1, 0, 1.0f / INVENTORY_BG_SIZE, 0));;
+        Core::active.shader->setParam(uParam, vec4(1.0f / INVENTORY_BG_SIZE, 0, 0, 0));
         background[1]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
@@ -1307,7 +1346,7 @@ struct Inventory {
         }
     }
 
-    void renderTitleBG(float sx = 1.0f, float sy = 1.0f) {
+    void renderTitleBG(float sx = 1.0f, float sy = 1.0f, uint8 alpha = 255) {
         float aspectSrc, aspectDst, aspectImg, ax, ay;
 
         if (background[0]) {
@@ -1331,14 +1370,7 @@ struct Inventory {
             Core::mModel.scale(vec3(1.0f / 32767.0f));
         #endif
 
-        uint8 alpha;
-        if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f) {
-            Core::setBlendMode(bmAlpha);
-            alpha = uint8(titleTimer * 255);
-        } else {
-            Core::setBlendMode(bmNone);
-            alpha = 255;
-        }
+        Core::setBlendMode(alpha < 255 ? bmAlpha : bmNone);
 
         Index  indices[6 * 3] = { 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11 };
         Vertex vertices[4 * 3];
@@ -1414,7 +1446,7 @@ struct Inventory {
             background[0]->bind(sDiffuse);
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
-        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
+        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), Core::getTime() * 0.001f, 0.0f));
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
@@ -1452,16 +1484,22 @@ struct Inventory {
 
         Core::setDepthTest(false);
 
+        uint8 alpha;
+        if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f)
+            alpha = uint8(titleTimer * 255);
+        else
+            alpha = 255;
+
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             if (game->getLevel()->isTitle())
-                renderTitleBG();
+                renderTitleBG(1.0f, 1.0f, alpha);
             else
                 renderGameBG();
         } else {
             if (background[1])
                 renderGameBG();
             else
-                renderTitleBG();
+                renderTitleBG(1.0f, 1.0f, alpha);
         }
 
         Core::setBlendMode(bmAlpha);
@@ -1504,6 +1542,24 @@ struct Inventory {
     }
 
     void render(float aspect) {
+        if (video) {
+            Core::setDepthTest(false);
+            video->render();
+
+            Texture *tmp = background[0];
+
+            background[0] = video->frameTex[0];
+            renderTitleBG(1.0f, 1.2f, 255);
+
+            background[0] = video->frameTex[1];
+            renderTitleBG(1.0f, 1.2f, clamp(int((video->time / video->step) * 255), 0, 255));
+
+            background[0] = tmp;
+
+            Core::setDepthTest(true);
+            return;
+        }
+
         if (!isActive() && titleTimer == 0.0f)
             return;
 

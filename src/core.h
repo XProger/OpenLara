@@ -587,7 +587,7 @@ namespace Core {
 
 #include "texture.h"
 #include "shader.h"
-//#include "video.h"
+#include "video.h"
 
 namespace Core {
 

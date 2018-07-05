@@ -180,6 +180,12 @@ int nextPow2(uint32 x) {
     return x;
 }
 
+inline uint32 log2i(uint32 value) {
+    int res = 0;
+    for(; value; value >>= 1, res++);
+    return res ? res - 1 : res;
+}
+
 uint32 fnv32(const char *data, int32 size, uint32 hash = 0x811c9dc5) {
     for (int i = 0; i < size; i++)
         hash = (hash ^ data[i]) * 0x01000193;
@@ -1200,7 +1206,17 @@ struct Stream {
         }
     }
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
+        if (!name && callback) {
+            callback(NULL, userData);
+            delete this;
+            return;
+        }
+
+        if (!name) {
+            ASSERT(false);
+        }
+
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             char path[255];
             path[0] = 0;
@@ -1277,8 +1293,10 @@ struct Stream {
     }
 
     void setPos(int pos) {
-        this->pos = pos;
-        if (f) fseek(f, pos, SEEK_SET);
+        if (this->pos != pos) {
+            this->pos = pos;
+            if (f) fseek(f, pos, SEEK_SET);
+        }
     }
 
     void seek(int offset) {
@@ -1287,13 +1305,14 @@ struct Stream {
         pos += offset;
     }
 
-    void raw(void *data, int count) {
-        if (!count) return;
+    int raw(void *data, int count) {
+        if (!count) return 0;
         if (f)
-            fread(data, 1, count, f);
+            count = fread(data, 1, count, f);
         else
             memcpy(data, this->data + pos, count);
         pos += count;
+        return count;
     }
 
     template <typename T>
@@ -1426,6 +1445,29 @@ struct BitStream {
     uint8 value;
 
     BitStream(uint8 *data, int size) : data(data), end(data + size), index(0), value(0) {}
+
+    uint32 read(int count) {
+        uint32 bits = 0;
+
+        int m = count - 1;
+
+        while (count--) {
+            if (!index) {
+                ASSERT(data < end);
+                value = *data++;
+                index = 8;
+            }
+
+            if (value & 1)
+                bits |= (1 << (m - count));
+
+            value >>= 1;
+
+            index--;
+        }
+
+        return bits;
+    }
 
     uint8 readBits(int count) {
         uint32 bits = 0;

@@ -17,6 +17,7 @@ namespace Game {
         Input::stopJoyVibration();
         delete level;
         level = new Level(*lvl);
+        level->init();
         UI::game = level;
         #if !defined(_OS_PSP) && !defined(_OS_CLOVER)
             UI::helpTipTime = 5.0f;

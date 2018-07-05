@@ -46,7 +46,7 @@ uniform vec4 uParam;
 		const vec3 offset = vec3(0.0, 1.3846153846, 3.2307692308);
 		const vec3 weight = vec3(0.2270270270, 0.3162162162, 0.0702702703);
 
-		vec2 dir   = uParam.xy * uParam.z;
+		vec2 dir   = uParam.xy;
 		vec4 color = texture2D(sDiffuse, vTexCoord) * weight[0];
 		color += texture2D(sDiffuse, vTexCoord + dir * offset[1]) * weight[1];
 		color += texture2D(sDiffuse, vTexCoord - dir * offset[1]) * weight[1];
@@ -66,7 +66,6 @@ uniform vec4 uParam;
 			return textureCube(sEnvironment, normalize(v));
 		}
 	#endif
-
 
 	vec4 upscale() { // https://www.shadertoy.com/view/XsfGDn
 		vec2 uv = vTexCoord * uParam.xy + 0.5;

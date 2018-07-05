@@ -193,7 +193,7 @@ namespace TR {
     struct LevelInfo {
         const char *name;
         const char *title;
-        int        ambientTrack;
+        int        track;
     } LEVEL_INFO[LVL_MAX] = {
     // TR1
         { ""          , "Custom Level",             TRACK_TR1_CAVES     },
@@ -243,8 +243,8 @@ namespace TR {
         { "CATACOMB"  , "Catacombs of the Talion",  TRACK_TR2_TIBET_2   },
         { "ICECAVE"   , "Ice Palace",               TRACK_TR2_TIBET_2   },
         { "EMPRTOMB"  , "Temple of Xian",           TRACK_TR2_CHINA_2   },
-        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
         { "CUT4"      , "",                         TRACK_TR2_CUT_4     },
+        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
         { "XIAN"      , "The Dragon's Lair",        TRACK_TR2_CHINA_2   },
         { "HOUSE"     , "Home Sweet Home",          NO_TRACK            },
     // TR3
@@ -341,6 +341,7 @@ namespace TR {
             case 636660  : version = VER_TR1_PSX;
             case 512104  : return LVL_TR1_CUT_3;
             case 1686748 : version = VER_TR1_PSX;
+            case 3094342 :
             case 3094020 : return LVL_TR1_10B;
             case 940398  : version = VER_TR1_PSX;
             case 879582  : return LVL_TR1_CUT_4;
@@ -506,7 +507,7 @@ namespace TR {
 
     LevelID getEndId(Version version) {
         switch (version & VER_VERSION) {
-            case VER_TR1 : return LVL_TR1_10C;
+            case VER_TR1 : return LVL_TR1_END2;
             case VER_TR2 : return LVL_TR2_HOUSE;
             case VER_TR3 : return LVL_TR3_CHAMBER;
         }
@@ -739,7 +740,7 @@ namespace TR {
         new Stream(title, callback, userData);
     }
 
-    const char* getGameScreen(Version version, LevelID id) {
+    const char* getGameScreen(LevelID id) {
         switch (id) {
         // TR1
             case LVL_TR1_TITLE :
@@ -855,10 +856,65 @@ namespace TR {
                 CHECK_FILE("pix/ANTARC.BMP"); 
                 return "level/3/ANTARC.PNG";
 
-            default : ;
+            default : return NULL;
         }
+    }
 
-        return NULL;
+    const char* getGameVideo(LevelID id) {
+        switch (id) {
+        // TR1
+            case LVL_TR1_TITLE    :
+                CHECK_FILE("FMV/CAFE.RPL");
+                return "video/1/CAFE.RPL";
+            case LVL_TR1_GYM      :
+                CHECK_FILE("FMV/MANSION.RPL");
+                return "video/1/MANSION.RPL";
+            case LVL_TR1_1        :
+                CHECK_FILE("FMV/SNOW.RPL");
+                return "video/1/SNOW.RPL";
+            case LVL_TR1_4        :
+                CHECK_FILE("FMV/LIFT.RPL");
+                return "video/1/LIFT.RPL";
+            case LVL_TR1_8A       :
+                CHECK_FILE("FMV/VISION.RPL");
+                return "video/1/VISION.RPL";
+            case LVL_TR1_10A      :
+                CHECK_FILE("FMV/CANYON.RPL");
+                return "video/1/CANYON.RPL";
+            case LVL_TR1_10B      :
+                CHECK_FILE("FMV/PIRAMID.RPL");
+                return "video/1/PIRAMID.RPL";
+            case LVL_TR1_CUT_4    :
+                CHECK_FILE("FMV/PRISON.RPL");
+                return "video/1/PRISON.RPL";
+            case LVL_TR1_EGYPT    :
+                CHECK_FILE("FMV/END.RPL");
+                return "video/1/END.RPL";
+        // TR2
+            case LVL_TR2_TITLE    :
+                CHECK_FILE("fmv/ANCIENT.RPL");
+                return "video/2/ANCIENT.RPL";
+            case LVL_TR2_WALL     :
+                CHECK_FILE("fmv/MODERN.RPL");
+                return "video/2/MODERN.RPL";
+            case LVL_TR2_RIG      :
+                CHECK_FILE("fmv/LANDING.RPL");
+                return "video/2/LANDING.RPL";
+            case LVL_TR2_UNWATER  :
+                CHECK_FILE("fmv/MS.RPL");
+                return "video/2/MS.RPL";
+            case LVL_TR2_SKIDOO   :
+                CHECK_FILE("fmv/CRASH.RPL");
+                return "video/2/CRASH.RPL";
+            case LVL_TR2_EMPRTOMB :
+                CHECK_FILE("fmv/JEEP.RPL");
+                return "video/2/JEEP.RPL";
+            case LVL_TR2_HOUSE    :
+                CHECK_FILE("fmv/END.RPL");
+                return "video/2/END.RPL";
+        // TR3
+            default : return NULL;
+        }
     }
 
     #define FOG_DIST    (1.0f / (18 * 1024))

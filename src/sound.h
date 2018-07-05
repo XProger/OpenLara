@@ -481,6 +481,10 @@ namespace Sound {
         bool    isPlaying;
         bool    stopAfterFade;
 
+        Sample(Decoder *decoder, float volume, float pitch, int flags, int id) : uniquePtr(NULL), decoder(decoder), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
+            isPlaying = decoder != NULL;
+        }
+
         Sample(Stream *stream, const vec3 *pos, float volume, float pitch, int flags, int id) : uniquePtr(pos), decoder(NULL), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
             this->pos = pos ? *pos : vec3(0.0f);
             
@@ -808,6 +812,12 @@ namespace Sound {
             LOG("! no free channels\n");
         }
         delete stream;
+        return NULL;
+    }
+
+    Sample* play(Decoder *decoder) {
+        if (channelsCount < SND_CHANNELS_MAX)
+            return channels[channelsCount++] = new Sample(decoder, 1.0f, 1.0f, MUSIC, -1);
         return NULL;
     }
 

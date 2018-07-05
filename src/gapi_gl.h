@@ -592,10 +592,18 @@ namespace GAPI {
                 }
             #endif
 
+
+            void *pix = data;
+            if (data && !Core::support.texNPOT && (width != origWidth || height != origHeight))
+                pix = NULL;
+
             for (int i = 0; i < 6; i++) {
-                glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, data);
+                glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, pix);
                 if (!cube) break;
             }
+
+            if (pix != data)
+                update(data);
         }
 
         void deinit() {

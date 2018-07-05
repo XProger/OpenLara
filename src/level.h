@@ -26,7 +26,7 @@ extern void loadAsync(Stream *stream, void *userData);
 
 struct Level : IGame {
     TR::Level   level;
-    Inventory   inventory;
+    Inventory   *inventory;
     Texture     *atlas;
     MeshBuilder *mesh;
 
@@ -57,8 +57,6 @@ struct Level : IGame {
     float      cutsceneWaitTimer;
     float      animTexTimer;
 
-    Texture    *cube360;
-
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         if (isEnded) return;
@@ -86,7 +84,7 @@ struct Level : IGame {
     virtual void saveGame(int slot) {
         LOG("Save Game... ");
 
-        char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory.itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
+        char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory->itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
         char  *ptr = data;
 
         TR::SaveGame *save = (TR::SaveGame*)ptr;
@@ -107,9 +105,9 @@ struct Level : IGame {
 
         // inventory items
             currentState->progress.itemsCount = 0;
-            for (int i = 0; i < inventory.itemsCount; i++) {
+            for (int i = 0; i < inventory->itemsCount; i++) {
                 TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-                Inventory::Item *invItem = inventory.items[i];
+                Inventory::Item *invItem = inventory->items[i];
             
                 if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
 
@@ -167,7 +165,7 @@ struct Level : IGame {
 
             for (int i = 0; i < currentState->progress.itemsCount; i++) {
                 TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-                inventory.add(TR::Entity::Type(item->type), item->count, false);
+                inventory->add(TR::Entity::Type(item->type), item->count, false);
                 ptr += sizeof(*item);
             }
 
@@ -203,11 +201,11 @@ struct Level : IGame {
     }
 
     void clearInventory() {
-        int i = inventory.itemsCount;
+        int i = inventory->itemsCount;
 
         while (i--) {
-            if (TR::Entity::isPickup(TR::Entity::convFromInv(inventory.items[i]->type)))
-                inventory.remove(i);
+            if (TR::Entity::isPickup(TR::Entity::convFromInv(inventory->items[i]->type)))
+                inventory->remove(i);
         }
     }
 
@@ -281,10 +279,10 @@ struct Level : IGame {
             waterCache = Core::settings.detail.water > Core::Settings::LOW ? new WaterCache(this) : NULL;
         }
 
-        if (redraw && inventory.active && !level.isTitle()) {
+        if (redraw && inventory->active && !level.isTitle()) {
             Core::reset();
             Core::beginFrame();
-            inventory.prepareBackground();
+            inventory->prepareBackground();
             Core::endFrame();
         }
     }
@@ -559,20 +557,20 @@ struct Level : IGame {
 
     virtual bool invUse(int playerIndex, TR::Entity::Type type) {
         if (!players[playerIndex]->useItem(type))
-            return inventory.use(type);
+            return inventory->use(type);
         return true;
     }
 
     virtual void invAdd(TR::Entity::Type type, int count) {
-        inventory.add(type, count);
+        inventory->add(type, count);
     }
 
     virtual int* invCount(TR::Entity::Type type) { 
-        return inventory.getCountPtr(type);
+        return inventory->getCountPtr(type);
     }
 
     virtual bool invChooseKey(int playerIndex, TR::Entity::Type hole) {
-        return inventory.chooseKey(playerIndex, hole);
+        return inventory->chooseKey(playerIndex, hole);
     }
 
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
@@ -609,7 +607,7 @@ struct Level : IGame {
     void stopChannel(Sound::Sample *channel) {
         if (channel == sndTrack) {
             sndTrack = NULL;
-            if (level.state.flags.track == TR::LEVEL_INFO[level.id].ambientTrack) // play ambient track
+            if (level.state.flags.track == TR::LEVEL_INFO[level.id].track) // play ambient track
                 playTrack(0);
         }
     }
@@ -640,7 +638,7 @@ struct Level : IGame {
 
     virtual void playTrack(uint8 track) {
         if (track == 0)
-            track = TR::LEVEL_INFO[level.id].ambientTrack;
+            track = TR::LEVEL_INFO[level.id].track;
 
         if (level.state.flags.track == track) {
         //    if (sndTrack) {
@@ -660,7 +658,7 @@ struct Level : IGame {
         if (track == 0xFF) return;
 
         int flags = Sound::MUSIC;
-        if (track == TR::LEVEL_INFO[level.id].ambientTrack)
+        if (track == TR::LEVEL_INFO[level.id].track)
             flags |= Sound::LOOP;
 
         waitTrack = true;
@@ -672,7 +670,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), inventory(this), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
+    Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
     #ifdef _OS_PSP
         GAPI::freeEDRAM();
     #endif
@@ -687,6 +685,8 @@ struct Level : IGame {
         initTextures();
         mesh = new MeshBuilder(level, atlas);
         initOverrides();
+
+        inventory = new Inventory(this);
 
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
@@ -724,18 +724,14 @@ struct Level : IGame {
                 playSound(src.id, vec3(float(src.x), float(src.y), float(src.z)), flags);
             }
 
-        } else {
-            inventory.toggle(0, Inventory::PAGE_OPTION);
         }
 
         setClipParams(1.0f, NO_CLIP_PLANE);
 
         effect  = TR::Effect::NONE;
-        cube360 = NULL;
 
         sndWater = sndTrack = NULL;
 
-        playTrack(0);
         /*
         if (level.id == TR::LVL_TR2_RIG) {
             lara->animation.setAnim(level.models[level.extra.laraSpec].animation);
@@ -747,7 +743,7 @@ struct Level : IGame {
     }
 
     virtual ~Level() {
-        delete cube360;
+        delete inventory;
 
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
@@ -761,6 +757,10 @@ struct Level : IGame {
         delete mesh;
 
         Sound::stopAll();
+    }
+
+    void init() {
+        inventory->init();
     }
 
     void addPlayer(int index) {
@@ -1477,7 +1477,7 @@ struct Level : IGame {
         if (isModel) { // model
             vec3 pos = controller->getPos();
             if (ambientCache) {
-                if (!controller->getEntity().isDoor()) { // no advanced ambient lighting for secret (all) doors
+                if (!controller->getEntity().isDoor() && !controller->getEntity().isBlock()) { // no advanced ambient lighting for secret (all) doors and blocks
                     AmbientCache::Cube cube;
                     ambientCache->getAmbient(roomIndex, pos, cube);
                     if (cube.status == AmbientCache::Cube::READY)
@@ -1501,8 +1501,13 @@ struct Level : IGame {
     }
 
     void update() {
+        if (inventory->video) {
+            inventory->update();
+            return;
+        }
+
         if (level.isCutsceneLevel() && waitTrack) {
-            if (!sndTrack && TR::LEVEL_INFO[level.id].ambientTrack != TR::NO_TRACK) {
+            if (!sndTrack && TR::LEVEL_INFO[level.id].track != TR::NO_TRACK) {
                 if (camera->timer > 0.0f) // for the case that audio stops before animation ends
                     loadNextLevel();
                 return;
@@ -1521,7 +1526,7 @@ struct Level : IGame {
             }
         }
 
-        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory.titleTimer < 1.0f && !inventory.active && inventory.lastKey == cMAX) {
+        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory->titleTimer < 1.0f && !inventory->active && inventory->lastKey == cMAX) {
             int playerIndex = Input::state[0][cInventory] ? 0 : 1;
 
             if (level.isCutsceneLevel()) {
@@ -1530,21 +1535,21 @@ struct Level : IGame {
             }
 
             if (player->health <= 0.0f)
-                inventory.toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
+                inventory->toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
             else
-                inventory.toggle(playerIndex);
+                inventory->toggle(playerIndex);
         }
 
-        inventory.update();
+        inventory->update();
 
-        if (inventory.titleTimer > 1.0f)
+        if (inventory->titleTimer > 1.0f)
             return;
 
         UI::update();
 
         float volWater, volTrack;
 
-        if (inventory.isActive() || level.isTitle()) {
+        if (inventory->isActive() || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
             volWater = 0.0f;
             volTrack = level.isTitle() ? 0.9f : 0.0f;
@@ -2189,7 +2194,7 @@ struct Level : IGame {
 
     #ifdef DEBUG_RENDER
     void renderDebug() {
-        if (level.isTitle() || inventory.titleTimer > 1.0f) return;
+        if (level.isTitle() || inventory->titleTimer > 1.0f) return;
 
         Core::setViewport(Core::x, Core::y, Core::width, Core::height);
         camera->setup(true);
@@ -2432,6 +2437,11 @@ struct Level : IGame {
     }
 
     void renderPrepare() {
+        if (inventory->video) {
+            inventory->render(1.0);
+            return;
+        }
+
         if (ambientCache)
             ambientCache->processQueue();
 
@@ -2534,7 +2544,7 @@ struct Level : IGame {
     }
 
     void renderUI() {
-        if (level.isCutsceneLevel() || inventory.titleTimer > 1.0f) return;
+        if (level.isCutsceneLevel() || inventory->titleTimer > 1.0f) return;
 
         UI::begin();
         UI::updateAspect(camera->aspect);
@@ -2551,7 +2561,7 @@ struct Level : IGame {
                 if (oxygen <= 0.2f) oxygen = 0.0f;
             }
 
-            float eye = inventory.active ? 0.0f : UI::width * Core::eye * 0.02f;
+            float eye = inventory->active ? 0.0f : UI::width * Core::eye * 0.02f;
 
             vec2 pos;
             if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
@@ -2564,14 +2574,14 @@ struct Level : IGame {
                 pos.y += 16.0f;
             }
 
-            if ((!inventory.active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
+            if ((!inventory->active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
                 UI::renderBar(UI::BAR_HEALTH, pos, size, health);
                 pos.y += 32.0f;
 
-                if (!inventory.active && !player->emptyHands()) { // ammo
-                    int index = inventory.contains(player->getCurrentWeaponInv());
+                if (!inventory->active && !player->emptyHands()) { // ammo
+                    int index = inventory->contains(player->getCurrentWeaponInv());
                     if (index > -1)
-                        inventory.renderItemCount(inventory.items[index], pos, size.x);
+                        inventory->renderItemCount(inventory->items[index], pos, size.x);
                 }
             }
         }
@@ -2597,21 +2607,21 @@ struct Level : IGame {
 
         Core::eye = float(eye);
 
-        if (level.isTitle() || inventory.titleTimer > 0.0f)
-            inventory.renderBackground();
-        inventory.render(aspect);
+        if (level.isTitle() || inventory->titleTimer > 0.0f)
+            inventory->renderBackground();
+        inventory->render(aspect);
 
         UI::begin();
         UI::updateAspect(aspect);
-        inventory.renderUI();
+        inventory->renderUI();
         UI::end();
     }
 
     void renderInventory() {
         Core::setTarget(NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
 
-        if (!(level.isTitle() || inventory.titleTimer > 0.0f))
-            inventory.renderBackground();
+        if (!(level.isTitle() || inventory->titleTimer > 0.0f))
+            inventory->renderBackground();
 
         float oldEye = Core::eye;
 
@@ -2626,7 +2636,10 @@ struct Level : IGame {
     }
 
     void render() {
-        bool title  = inventory.isActive() || level.isTitle();
+        if (inventory->video)
+            return;
+
+        bool title  = inventory->isActive() || level.isTitle();
         bool copyBg = title && lastTitle != title;
         lastTitle = title;
 
@@ -2640,11 +2653,11 @@ struct Level : IGame {
         }
 
         if (copyBg) {
-            inventory.prepareBackground();
+            inventory->prepareBackground();
         }
 
         if (!level.isTitle()) {
-            if (inventory.phaseRing < 1.0f && inventory.titleTimer <= 1.0f) {
+            if (inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) {
                 renderGame(true);
                 title = false;
             }

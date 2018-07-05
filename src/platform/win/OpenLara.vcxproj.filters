@@ -52,6 +52,7 @@
     <ClInclude Include="..\..\libs\tinf\tinf.h">
       <Filter>libs\tinf</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\video.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">

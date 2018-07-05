@@ -225,6 +225,7 @@
     <ClInclude Include="..\..\format.h" />
     <ClInclude Include="..\..\trigger.h" />
     <ClInclude Include="..\..\utils.h" />
+    <ClInclude Include="..\..\video.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl" />
