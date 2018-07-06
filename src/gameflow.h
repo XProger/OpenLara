@@ -561,9 +561,10 @@ namespace TR {
                     if (id == LVL_TR2_VENICE || id == LVL_TR2_CUT_2 || id == LVL_TR2_PLATFORM || id == LVL_TR2_CUT_3 || id == LVL_TR2_UNWATER || 
                         id == LVL_TR2_KEEL || id == LVL_TR2_LIVING || id == LVL_TR2_DECK || id == LVL_TR2_CATACOMB || id == LVL_TR2_ICECAVE ||
                         id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
-                        strcpy(dst, LEVEL_INFO[id].name);
-                        String::toLower(dst);
-                        sprintf(dst, "DATA/%s.TR2", dst);
+                        char buf[64];
+                        strcpy(buf, LEVEL_INFO[id].name);
+                        String::toLower(buf);
+                        sprintf(dst, "DATA/%s.TR2", buf);
                     } else if (id == LVL_TR2_TITLE) {
                         sprintf(dst, "DATA/%s.tr2", LEVEL_INFO[id].name);
                     } else if (id == LVL_TR2_EMPRTOMB) {
@@ -912,6 +913,18 @@ namespace TR {
             case LVL_TR2_HOUSE    :
                 CHECK_FILE("fmv/END.RPL");
                 return "video/2/END.RPL";
+            case LVL_TR3_TITLE :
+                CHECK_FILE("fmv/Intr_Eng.rpl");
+                return "video/3/Intr_Eng.rpl";
+            case LVL_TR3_SHORE :
+                CHECK_FILE("fmv/Sail_Eng.rpl");
+                return "video/3/Sail_Eng.rpl";
+            case LVL_TR3_ANTARC :
+                CHECK_FILE("fmv/Crsh_Eng.rpl");
+                return "video/3/Crsh_Eng.rpl";
+            case LVL_TR3_STPAUL :
+                CHECK_FILE("fmv/Endgame.rpl");
+                return "video/3/Endgame.rpl";
         // TR3
             default : return NULL;
         }

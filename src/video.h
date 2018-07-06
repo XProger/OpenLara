@@ -7,6 +7,35 @@
 
 struct Video {
 
+    union Color32 {
+        uint32 value;
+        struct { uint8 r, g, b, a; };
+
+        void SetRGB15(uint16 v) {
+            r = (v & 0x7C00) >> 7;
+            g = (v & 0x03E0) >> 2;
+            b = (v & 0x001F) << 3;
+            a = 255;
+        }
+
+        void SetYCbCr(int32 Y, int32 Cb, int32 Cr) {
+            Y = max(0, 1191 * (Y - 16));
+            Cb -= 128;
+            Cr -= 128;
+            r = clamp((Y + 1836 * Cr) >> 10, 0, 255);
+            g = clamp((Y - 547 * Cr - 218 * Cb) >> 10, 0, 255);
+            b = clamp((Y + 2165 * Cb) >> 10, 0, 255);
+            a = 255;
+        }
+
+        void SetYUV(int32 Y, int32 U, int32 V) {
+            r = clamp(Y + (74698 * V >> 16), 0, 255);
+            g = clamp(Y - ((25863 * U + 38049 * V) >> 16), 0, 255);
+            b = clamp(Y + (133174 * U >> 16), 0, 255);
+            a = 255;
+        }
+    };
+
     struct Decoder : Sound::Decoder {
         int width, height, fps;
 
@@ -25,7 +54,7 @@ struct Video {
 
         Sound::Decoder *audioDecoder;
 
-        uint32 *prevFrame, *nextFrame;
+        uint8 *prevFrame, *nextFrame, *lumaFrame;
 
         struct Chunk {
             int offset;
@@ -47,7 +76,7 @@ struct Video {
             MacroBlock  *blocks;
         } codebook[3];
 
-        Escape(Stream *stream) : Decoder(stream), audioDecoder(NULL), chunks(NULL) {
+        Escape(Stream *stream) : Decoder(stream), audioDecoder(NULL), prevFrame(NULL), nextFrame(NULL), lumaFrame(NULL), chunks(NULL) {
             for (int i = 0; i < 4; i++)
                 skipLine();
 
@@ -78,10 +107,24 @@ struct Video {
                 chunks[i].audioSize = readValue();
             }
 
-            prevFrame = new uint32[width * height];
-            nextFrame = new uint32[width * height];
-            memset(prevFrame, 0, width * height * sizeof(uint32));
-            memset(nextFrame, 0, width * height * sizeof(uint32));
+            switch (vfmt) {
+                case 124 :
+                    prevFrame = new uint8[width * height * 4];
+                    nextFrame = new uint8[width * height * 4];
+                    memset(prevFrame, 0, width * height * sizeof(uint32));
+                    memset(nextFrame, 0, width * height * sizeof(uint32));
+                    break;
+                case 130 :
+                    prevFrame = new uint8[width * height * 3 / 2];
+                    nextFrame = new uint8[width * height * 3 / 2];
+                    lumaFrame = new uint8[width * height / 4];
+                    memset(prevFrame, 0, width * height);
+                    memset(prevFrame + width * height, 16, width * height / 2);
+                    break;
+                default  :
+                    LOG("! unsupported Escape codec version (%d)\n", vfmt);
+                    ASSERT(false);
+            }
 
             codebook[0].blocks =
             codebook[1].blocks =
@@ -110,6 +153,7 @@ struct Video {
             delete[] codebook[2].blocks;
             delete[] prevFrame;
             delete[] nextFrame;
+            delete[] lumaFrame;
         }
 
         void skipLine() {
@@ -133,30 +177,34 @@ struct Video {
             return 0;
         }
 
+        int getSkip124(BitStream &bs) {
+            int value;
+
+            if ((value  = bs.read(1)) != 1 ||
+                (value += bs.read(3)) != 8 ||
+                (value += bs.read(7)) != 135)
+                return value;
+
+            return value + bs.read(12);
+        }
+
+        int getSkip130(BitStream &bs) {
+            int value;
+
+            if (value = bs.read(1))  return 0;
+            if (value = bs.read(3))  return value;
+            if (value = bs.read(8))  return value + 7;
+            if (value = bs.read(15)) return value + 262;
+
+            return -1;
+        }
+
         void copySuperBlock(uint32 *dst, int dstWidth, uint32 *src, int srcWidth) {
             for (int i = 0; i < 8; i++) {
                 memcpy(dst, src, 8 * sizeof(uint32));
                 src += srcWidth;
                 dst += dstWidth;
             }
-        }
-
-        int getSkipCount(BitStream &bs) {
-            int value;
-
-            value = bs.read(1);
-            if (!value)
-                return value;
-
-            value += bs.read(3);
-            if (value != (1 + ((1 << 3) - 1)))
-                return value;
-
-            value += bs.read(7);
-            if (value != (1 + ((1 << 3) - 1)) + ((1 << 7) - 1))
-                return value;
-
-            return value + bs.read(12);
         }
 
         void decodeMacroBlock(BitStream &bs, MacroBlock &mb, int &cbIndex, int sbIndex) {
@@ -183,20 +231,6 @@ struct Video {
             dst[8] = mb.pixels[2];
             dst[9] = mb.pixels[3];
         }
-
-        union Color32 {
-            uint32 value;
-            struct { uint8 r, g, b, a; };
-
-            Color32() {}
-
-            Color32(uint16 v) {
-                r = (v & 0x7C00) >> 7;
-                g = (v & 0x03E0) >> 2;
-                b = (v & 0x001F) << 3;
-                a = 255;
-            }
-        };
 
         bool decode(uint8 *frame) {
             if (curVideoChunk >= chunksCount)
@@ -258,8 +292,9 @@ struct Video {
 
                     for (uint32 j = 0; j < cb.size; j++) {
                         uint8  mask = bs.read(4);
-                        Color32 cA = Color32(uint16(bs.read(15)));
-                        Color32 cB = Color32(uint16(bs.read(15)));
+                        Color32 cA, cB;
+                        cA.SetRGB15(bs.read(15));
+                        cB.SetRGB15(bs.read(15));
 
                         if (cA.value != cB.value && (mask == 6 || mask == 9) && // check for 0101 or 1010 mask
                             abs(int(cA.r) - int(cB.r)) <= 8 &&
@@ -292,13 +327,13 @@ struct Video {
             for (int sbIndex = 0; sbIndex < sbCount; sbIndex++) {
                 int sbLine   = width / 8;
                 int sbOffset = ((sbIndex / sbLine) * width + (sbIndex % sbLine)) * 8;
-                uint32 *src = prevFrame + sbOffset;
-                uint32 *dst = nextFrame + sbOffset;
+                uint32 *src = (uint32*)prevFrame + sbOffset;
+                uint32 *dst = (uint32*)nextFrame + sbOffset;
 
                 uint16 multiMask = 0;
 
                 if (skip == -1)
-                    skip = getSkipCount(bs);
+                    skip = getSkip124(bs);
 
                 if (skip) {
                     copySuperBlock(dst, width, src, width);
@@ -345,13 +380,152 @@ struct Video {
         }
 
         bool decode130(uint8 *frame) {
+
+            static const uint8 offsetLUT[] = { 
+                2, 4, 10, 20
+            };
+
+            static const int8 signLUT[64][4] = {
+                {  0,  0,  0,  0 }, { -1,  1,  0,  0 }, {  1, -1,  0,  0 }, { -1,  0,  1,  0 },
+                { -1,  1,  1,  0 }, {  0, -1,  1,  0 }, {  1, -1,  1,  0 }, { -1, -1,  1,  0 },
+                {  1,  0, -1,  0 }, {  0,  1, -1,  0 }, {  1,  1, -1,  0 }, { -1,  1, -1,  0 },
+                {  1, -1, -1,  0 }, { -1,  0,  0,  1 }, { -1,  1,  0,  1 }, {  0, -1,  0,  1 },
+                {  0,  0,  0,  0 }, {  1, -1,  0,  1 }, { -1, -1,  0,  1 }, { -1,  0,  1,  1 },
+                { -1,  1,  1,  1 }, {  0, -1,  1,  1 }, {  1, -1,  1,  1 }, { -1, -1,  1,  1 },
+                {  0,  0, -1,  1 }, {  1,  0, -1,  1 }, { -1,  0, -1,  1 }, {  0,  1, -1,  1 },
+                {  1,  1, -1,  1 }, { -1,  1, -1,  1 }, {  0, -1, -1,  1 }, {  1, -1, -1,  1 },
+                {  0,  0,  0,  0 }, { -1, -1, -1,  1 }, {  1,  0,  0, -1 }, {  0,  1,  0, -1 },
+                {  1,  1,  0, -1 }, { -1,  1,  0, -1 }, {  1, -1,  0, -1 }, {  0,  0,  1, -1 },
+                {  1,  0,  1, -1 }, { -1,  0,  1, -1 }, {  0,  1,  1, -1 }, {  1,  1,  1, -1 },
+                { -1,  1,  1, -1 }, {  0, -1,  1, -1 }, {  1, -1,  1, -1 }, { -1, -1,  1, -1 },
+                {  0,  0,  0,  0 }, {  1,  0, -1, -1 }, {  0,  1, -1, -1 }, {  1,  1, -1, -1 },
+                { -1,  1, -1, -1 }, {  1, -1, -1, -1 }, {  0,  0,  0,  0 }, {  0,  0,  0,  0 },
+                {  0,  0,  0,  0 }, {  0,  0,  0,  0 }, {  0,  0,  0,  0 }, {  0,  0,  0,  0 },
+                {  0,  0,  0,  0 }, {  0,  0,  0,  0 }, {  0,  0,  0,  0 }, {  0,  0,  0,  0 },
+            };
+
+            static const int8 lumaLUT[] = {
+                -4, -3, -2, -1, 1, 2, 3, 4
+            };
+
+            static const int8 chromaLUT[2][8] = {
+                { 1, 1, 0, -1, -1, -1,  0,  1 },
+                { 0, 1, 1,  1,  0, -1, -1, -1 }
+            };
+
+            static const uint8 chromaValueLUT[] = {
+                 20,  28,  36,  44,  52,  60,  68,  76,
+                 84,  92, 100, 106, 112, 116, 120, 124,
+                128, 132, 136, 140, 144, 150, 156, 164,
+                172, 180, 188, 196, 204, 212, 220, 228
+            };
+
+            Chunk &chunk = chunks[curVideoChunk++];
+
+            uint8 *data = new uint8[chunk.videoSize];
+            stream->raw(data, chunk.videoSize);
+            BitStream bs(data, chunk.videoSize);
+            bs.data += 16; // skip 16 bytes
+
+            uint8 *lumaPtr = lumaFrame;
+
+            int skip = -1;
+            int bCount = width * height / 4;
+            uint32 luma = 0, Y[4] = { 0 }, U = 16, V = 16;
+
+            uint8 *oY = prevFrame, *oU = oY + width * height, *oV = oU + width * height / 4;
+            uint8 *nY = nextFrame, *nU = nY + width * height, *nV = nU + width * height / 4;
+
+            for (int bIndex = 0; bIndex < bCount; bIndex++) {
+                if (skip == -1)
+                    skip = getSkip130(bs);
+
+                if (skip) {
+                    Y[0] = oY[0];
+                    Y[1] = oY[1];
+                    Y[2] = oY[width];
+                    Y[3] = oY[width + 1];
+                    U    = oU[0];
+                    V    = oV[0];
+                    luma = *lumaPtr;
+                } else {
+                    if (bs.read(1)) {
+                        uint32 sign = bs.read(6);
+                        uint32 diff = bs.read(2);
+
+                        luma = bs.read(5) * 2;
+
+                        for (int i = 0; i < 4; i++)
+                            Y[i] = clamp(luma + offsetLUT[diff] * signLUT[sign][i], 0U, 63U);
+
+                    } else if (bs.read(1)) {
+                        luma = bs.read(1) ? bs.read(6) : ((luma + lumaLUT[bs.read(3)]) & 63);
+
+                        for (int i = 0; i < 4; i++)
+                            Y[i] = luma;
+                    }
+
+                    if (bs.read(1)) {
+                        if (bs.read(1)) {
+                            U = bs.read(5);
+                            V = bs.read(5);
+                        } else {
+                            uint32 idx = bs.read(3);
+                            U = (U + chromaLUT[0][idx]) & 31;
+                            V = (V + chromaLUT[1][idx]) & 31;
+                        }
+                    }
+                }
+                *lumaPtr++ = luma;
+
+                nY[0]         = Y[0];
+                nY[1]         = Y[1];
+                nY[width]     = Y[2];
+                nY[width + 1] = Y[3];
+                nU[0]         = U;
+                nV[0]         = V;
+
+                nY += 2; nU++; nV++;
+                oY += 2; oU++; oV++;
+
+                if (!(((bIndex + 1) * 2) % width)) {
+                    nY += width;
+                    oY += width;
+                }
+
+                skip--;
+            }
+
+            delete[] data;
+
+            nY  = nextFrame;
+            nU = nY  + width * height;
+            nV = nU + width * height / 4;
+
+            Color32 *p = (Color32*)frame;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int Y = nY[y * width + x] << 2;
+                    int U = chromaValueLUT[nU[x / 2]] - 128;
+                    int V = chromaValueLUT[nV[x / 2]] - 128;
+                    (p++)->SetYUV(Y, U, V);
+                }
+
+                if (y & 1) {
+                    nU += width / 2;
+                    nV += width / 2;
+                }
+            }
+
+            swap(prevFrame, nextFrame);
+
             return true;
         }
 
         virtual int decode(Sound::Frame *frames, int count) {
             if (!audioDecoder) return 0;
 
-            if (abs(curAudioChunk - curVideoChunk) > 1) { // sync with video chunk
+            if (bps != 4 && abs(curAudioChunk - curVideoChunk) > 1) { // sync with video chunk, doesn't work for IMA
                 curAudioChunk = curVideoChunk;
                 curAudioPos   = 0;
             }
