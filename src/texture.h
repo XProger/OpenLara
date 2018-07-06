@@ -498,7 +498,7 @@ struct Texture : GAPI::Texture {
             stream.seek(6);
         } else {
             stream.seek(-4);
-            size  = 384 * 256 * 2;
+            size  = 512 * 256 * 2;
             csize = stream.size;
         }
 
@@ -562,8 +562,8 @@ struct Texture : GAPI::Texture {
         }
         delete[] cdata;
 
-        width  = 384;
-        height = size / width / 2;
+        height = 256;
+        width  = (dst - data) / height / 2;
 
         uint32 *data32 = new uint32[width * height];
         {

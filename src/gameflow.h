@@ -822,21 +822,25 @@ namespace TR {
         // TR3
             case LVL_TR3_TITLE :
                 CHECK_FILE("pix/TITLEUK.BMP");      // PC (TODO: add other languages)
+                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
                 return "level/3/TITLEUK.PNG";       // WEB
             case LVL_TR3_HOUSE  :
                 CHECK_FILE("pix/HOUSE.BMP"); 
+                CHECK_FILE("PIX/HOUSE.RAW"); 
                 return "level/3/HOUSE.PNG";
             case LVL_TR3_JUNGLE   :
             case LVL_TR3_TEMPLE   :
             case LVL_TR3_QUADCHAS :
             case LVL_TR3_TONYBOSS :
                 CHECK_FILE("pix/INDIA.BMP"); 
+                CHECK_FILE("PIX/INDIA.RAW"); 
                 return "level/3/INDIA.PNG";
             case LVL_TR3_SHORE   :
             case LVL_TR3_CRASH   :
             case LVL_TR3_RAPIDS  :
             case LVL_TR3_TRIBOSS :
                 CHECK_FILE("pix/SOUTHPAC.BMP"); 
+                CHECK_FILE("PIX/SOUTHPAC.RAW"); 
                 return "level/3/SOUTHPAC.PNG";
             case LVL_TR3_ROOFS  :
             case LVL_TR3_SEWER  :
@@ -844,17 +848,20 @@ namespace TR {
             case LVL_TR3_OFFICE :
             case LVL_TR3_STPAUL :
                 CHECK_FILE("pix/LONDON.BMP"); 
+                CHECK_FILE("PIX/LONDON.RAW"); 
                 return "level/3/LONDON.PNG";
             case LVL_TR3_NEVADA   :
             case LVL_TR3_COMPOUND :
             case LVL_TR3_AREA51   :
                 CHECK_FILE("pix/NEVADA.BMP"); 
+                CHECK_FILE("PIX/NEVADA.RAW"); 
                 return "level/3/NEVADA.PNG";
             case LVL_TR3_ANTARC  :
             case LVL_TR3_MINES   :
             case LVL_TR3_CITY    :
             case LVL_TR3_CHAMBER :
                 CHECK_FILE("pix/ANTARC.BMP"); 
+                CHECK_FILE("PIX/ANTARC.RAW"); 
                 return "level/3/ANTARC.PNG";
 
             default : return NULL;

@@ -1490,16 +1490,20 @@ struct Inventory {
         else
             alpha = 255;
 
+        float sy = 1.0f;
+        if (background[0])
+            sy = (480.0f / 640.0f) * ((float)background[0]->width / (float)background[0]->height);
+
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             if (game->getLevel()->isTitle())
-                renderTitleBG(1.0f, 1.0f, alpha);
+                renderTitleBG(1.0f, sy, alpha);
             else
                 renderGameBG();
         } else {
             if (background[1])
                 renderGameBG();
             else
-                renderTitleBG(1.0f, 1.0f, alpha);
+                renderTitleBG(1.0f, sy, alpha);
         }
 
         Core::setBlendMode(bmAlpha);
@@ -1548,11 +1552,15 @@ struct Inventory {
 
             Texture *tmp = background[0];
 
+            float sy = 1.0f;
+            if (game->getLevel()->version & TR::VER_TR1)
+                sy = 1.2f;
+
             background[0] = video->frameTex[0];
-            renderTitleBG(1.0f, 1.2f, 255);
+            renderTitleBG(1.0f, sy, 255);
 
             background[0] = video->frameTex[1];
-            renderTitleBG(1.0f, 1.2f, clamp(int((video->time / video->step) * 255), 0, 255));
+            renderTitleBG(1.0f, sy, clamp(int((video->time / video->step) * 255), 0, 255));
 
             background[0] = tmp;
 
