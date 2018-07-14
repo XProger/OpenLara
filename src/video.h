@@ -431,6 +431,8 @@ struct Video {
         }
 
         virtual bool decodeVideo(Color32 *pixels) {
+            OS_LOCK(Sound::lock);
+
             if (curVideoChunk >= chunksCount)
                 return false;
 
@@ -892,6 +894,8 @@ struct Video {
         }
 
         bool nextFrame() {
+            OS_LOCK(Sound::lock);
+
             uint8 data[SECTOR_SIZE];
 
             VideoFrame *vFrame = vFrames + vFrameIndex;
@@ -1154,7 +1158,8 @@ struct Video {
         isPlaying = true;
     }
 
-    ~Video() {
+    virtual ~Video() {
+        OS_LOCK(Sound::lock);
         sample->decoder = NULL;
         sample->stop();
         delete decoder;

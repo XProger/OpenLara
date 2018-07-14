@@ -226,12 +226,14 @@ class Sound {
     void start(final Wrapper wrapper) {
         int rate = 44100;
         int size = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-        //System.out.println(String.format("sound buffer size: %d", bufSize));
-        buffer = new short[size / 2];
+        size /= 2; // bytes -> words
+        while (size % 4704 != 0) size++;
+        //System.out.println(String.format("sound buffer size: %d", size));
+        buffer = new short[size];
 
         try {
             audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT, size, AudioTrack.MODE_STREAM);
+                    AudioFormat.ENCODING_PCM_16BIT, size * 2, AudioTrack.MODE_STREAM);
         }catch (IllegalArgumentException e){
             System.out.println("Error: buffer size is zero");
             return;
