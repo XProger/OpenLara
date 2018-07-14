@@ -5,6 +5,164 @@
 #include "texture.h"
 #include "sound.h"
 
+struct AC_ENTRY {
+    uint8 code;
+    uint8 skip;
+    uint8 ac;
+    uint8 length;
+};
+
+// ISO 13818-2 table B-14
+static const AC_ENTRY STR_AC[] = {
+// signBit = (8 + shift) - length
+// AC_LUT_1 (shift = 1)
+    { 0b11000000 , 1  , 1  , 4  },
+    { 0b10000000 , 0  , 2  , 5  },
+    { 0b10100000 , 2  , 1  , 5  },
+    { 0b01010000 , 0  , 3  , 6  },
+    { 0b01100000 , 4  , 1  , 6  },
+    { 0b01110000 , 3  , 1  , 6  },
+    { 0b00100000 , 7  , 1  , 7  },
+    { 0b00101000 , 6  , 1  , 7  },
+    { 0b00110000 , 1  , 2  , 7  },
+    { 0b00111000 , 5  , 1  , 7  },
+    { 0b00010000 , 2  , 2  , 8  },
+    { 0b00010100 , 9  , 1  , 8  },
+    { 0b00011000 , 0  , 4  , 8  },
+    { 0b00011100 , 8  , 1  , 8  },
+    { 0b01000000 , 13 , 1  , 9  },
+    { 0b01000010 , 0  , 6  , 9  },
+    { 0b01000100 , 12 , 1  , 9  },
+    { 0b01000110 , 11 , 1  , 9  },
+    { 0b01001000 , 3  , 2  , 9  },
+    { 0b01001010 , 1  , 3  , 9  },
+    { 0b01001100 , 0  , 5  , 9  },
+    { 0b01001110 , 10 , 1  , 9  },
+// AC_LUT_6 (shift = 6)
+    { 0b10000000 , 16 , 1  , 11 },
+    { 0b10010000 , 5  , 2  , 11 },
+    { 0b10100000 , 0  , 7  , 11 },
+    { 0b10110000 , 2  , 3  , 11 },
+    { 0b11000000 , 1  , 4  , 11 },
+    { 0b11010000 , 15 , 1  , 11 },
+    { 0b11100000 , 14 , 1  , 11 },
+    { 0b11110000 , 4  , 2  , 11 },
+    { 0b01000000 , 0  , 11 , 13 },
+    { 0b01000100 , 8  , 2  , 13 },
+    { 0b01001000 , 4  , 3  , 13 },
+    { 0b01001100 , 0  , 10 , 13 },
+    { 0b01010000 , 2  , 4  , 13 },
+    { 0b01010100 , 7  , 2  , 13 },
+    { 0b01011000 , 21 , 1  , 13 },
+    { 0b01011100 , 20 , 1  , 13 },
+    { 0b01100000 , 0  , 9  , 13 },
+    { 0b01100100 , 19 , 1  , 13 },
+    { 0b01101000 , 18 , 1  , 13 },
+    { 0b01101100 , 1  , 5  , 13 },
+    { 0b01110000 , 3  , 3  , 13 },
+    { 0b01110100 , 0  , 8  , 13 },
+    { 0b01111000 , 6  , 2  , 13 },
+    { 0b01111100 , 17 , 1  , 13 },
+    { 0b00100000 , 10 , 2  , 14 },
+    { 0b00100010 , 9  , 2  , 14 },
+    { 0b00100100 , 5  , 3  , 14 },
+    { 0b00100110 , 3  , 4  , 14 },
+    { 0b00101000 , 2  , 5  , 14 },
+    { 0b00101010 , 1  , 7  , 14 },
+    { 0b00101100 , 1  , 6  , 14 },
+    { 0b00101110 , 0  , 15 , 14 },
+    { 0b00110000 , 0  , 14 , 14 },
+    { 0b00110010 , 0  , 13 , 14 },
+    { 0b00110100 , 0  , 12 , 14 },
+    { 0b00110110 , 26 , 1  , 14 },
+    { 0b00111000 , 25 , 1  , 14 },
+    { 0b00111010 , 24 , 1  , 14 },
+    { 0b00111100 , 23 , 1  , 14 },
+    { 0b00111110 , 22 , 1  , 14 },
+// AC_LUT_9 (shift = 9)
+    { 0b10000000 , 0  , 31 , 15 },
+    { 0b10001000 , 0  , 30 , 15 },
+    { 0b10010000 , 0  , 29 , 15 },
+    { 0b10011000 , 0  , 28 , 15 },
+    { 0b10100000 , 0  , 27 , 15 },
+    { 0b10101000 , 0  , 26 , 15 },
+    { 0b10110000 , 0  , 25 , 15 },
+    { 0b10111000 , 0  , 24 , 15 },
+    { 0b11000000 , 0  , 23 , 15 },
+    { 0b11001000 , 0  , 22 , 15 },
+    { 0b11010000 , 0  , 21 , 15 },
+    { 0b11011000 , 0  , 20 , 15 },
+    { 0b11100000 , 0  , 19 , 15 },
+    { 0b11101000 , 0  , 18 , 15 },
+    { 0b11110000 , 0  , 17 , 15 },
+    { 0b11111000 , 0  , 16 , 15 },
+    { 0b01000000 , 0  , 40 , 16 },
+    { 0b01000100 , 0  , 39 , 16 },
+    { 0b01001000 , 0  , 38 , 16 },
+    { 0b01001100 , 0  , 37 , 16 },
+    { 0b01010000 , 0  , 36 , 16 },
+    { 0b01010100 , 0  , 35 , 16 },
+    { 0b01011000 , 0  , 34 , 16 },
+    { 0b01011100 , 0  , 33 , 16 },
+    { 0b01100000 , 0  , 32 , 16 },
+    { 0b01100100 , 1  , 14 , 16 },
+    { 0b01101000 , 1  , 13 , 16 },
+    { 0b01101100 , 1  , 12 , 16 },
+    { 0b01110000 , 1  , 11 , 16 },
+    { 0b01110100 , 1  , 10 , 16 },
+    { 0b01111000 , 1  , 9  , 16 },
+    { 0b01111100 , 1  , 8  , 16 },
+    { 0b00100000 , 1  , 18 , 17 },
+    { 0b00100010 , 1  , 17 , 17 },
+    { 0b00100100 , 1  , 16 , 17 },
+    { 0b00100110 , 1  , 15 , 17 },
+    { 0b00101000 , 6  , 3  , 17 },
+    { 0b00101010 , 16 , 2  , 17 },
+    { 0b00101100 , 15 , 2  , 17 },
+    { 0b00101110 , 14 , 2  , 17 },
+    { 0b00110000 , 13 , 2  , 17 },
+    { 0b00110010 , 12 , 2  , 17 },
+    { 0b00110100 , 11 , 2  , 17 },
+    { 0b00110110 , 31 , 1  , 17 },
+    { 0b00111000 , 30 , 1  , 17 },
+    { 0b00111010 , 29 , 1  , 17 },
+    { 0b00111100 , 28 , 1  , 17 },
+    { 0b00111110 , 27 , 1  , 17 },
+};
+
+static const uint8 STR_ZIG_ZAG[] = {
+     0,  1,  8, 16,  9,  2,  3, 10,
+    17, 24, 32, 25, 18, 11,  4,  5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13,  6,  7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63,
+};
+
+static const uint8 STR_QUANTIZATION[] = {
+     2, 16, 19, 22, 26, 27, 29, 34,
+    16, 16, 22, 24, 27, 29, 34, 37,
+    19, 22, 26, 27, 29, 34, 34, 38,
+    22, 22, 26, 27, 29, 34, 37, 40,
+    22, 26, 27, 29, 32, 35, 40, 48,
+    26, 27, 29, 32, 35, 40, 48, 58,
+    26, 27, 29, 34, 38, 46, 56, 69,
+    27, 29, 35, 38, 46, 56, 69, 83
+};
+
+static const float STR_IDCT[] = {
+    0.354f,  0.354f,  0.354f,  0.354f,  0.354f,  0.354f,  0.354f,  0.354f,
+    0.490f,  0.416f,  0.278f,  0.098f, -0.098f, -0.278f, -0.416f, -0.490f,
+    0.462f,  0.191f, -0.191f, -0.462f, -0.462f, -0.191f,  0.191f,  0.462f,
+    0.416f, -0.098f, -0.490f, -0.278f,  0.278f,  0.490f,  0.098f, -0.416f,
+    0.354f, -0.354f, -0.354f,  0.354f,  0.354f, -0.354f, -0.354f,  0.354f,
+    0.278f, -0.490f,  0.098f,  0.416f, -0.416f, -0.098f,  0.490f, -0.278f,
+    0.191f, -0.462f,  0.462f, -0.191f, -0.191f,  0.462f, -0.462f,  0.191f,
+    0.098f, -0.278f,  0.416f, -0.490f,  0.490f, -0.416f,  0.278f, -0.098f,
+};
+
 struct Video {
 
     union Color32 {
@@ -28,11 +186,50 @@ struct Video {
             a = 255;
         }
 
+       void SetYCbCrPSX(int32 Y, int32 Cb, int32 Cr) {
+            int32 R = ((91893 * Cr)                   >> 16);
+            int32 G = ((-(22525 * Cb) - (46812 * Cr)) >> 16);
+            int32 B = ((116224 * Cb)                  >> 16);
+        
+            Y += 128;
+            r = clamp(Y + R, 0, 255);
+            g = clamp(Y + G, 0, 255);
+            b = clamp(Y + B, 0, 255);
+            a = 255;
+       }
+
+
         void SetYUV(int32 Y, int32 U, int32 V) {
             r = clamp(Y + (74698 * V >> 16), 0, 255);
             g = clamp(Y - ((25863 * U + 38049 * V) >> 16), 0, 255);
             b = clamp(Y + (133174 * U >> 16), 0, 255);
             a = 255;
+        }
+
+        static void YCbCr_420_PSX(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
+            int32 R = ((91893 * Cr)                   >> 16) + 128;
+            int32 G = ((-(22525 * Cb) - (46812 * Cr)) >> 16) + 128;
+            int32 B = ((116224 * Cb)                  >> 16) + 128;
+        
+            C0.r = clamp(Y0 + R, 0, 255);
+            C0.g = clamp(Y0 + G, 0, 255);
+            C0.b = clamp(Y0 + B, 0, 255);
+            C0.a = 255;
+
+            C1.r = clamp(Y1 + R, 0, 255);
+            C1.g = clamp(Y1 + G, 0, 255);
+            C1.b = clamp(Y1 + B, 0, 255);
+            C1.a = 255;
+
+            C2.r = clamp(Y2 + R, 0, 255);
+            C2.g = clamp(Y2 + G, 0, 255);
+            C2.b = clamp(Y2 + B, 0, 255);
+            C2.a = 255;
+
+            C3.r = clamp(Y3 + R, 0, 255);
+            C3.g = clamp(Y3 + G, 0, 255);
+            C3.b = clamp(Y3 + B, 0, 255);
+            C3.a = 255;
         }
     };
 
@@ -41,10 +238,10 @@ struct Video {
 
         Decoder(Stream *stream) : Sound::Decoder(stream, 2, 0) {}
         virtual ~Decoder() { /* delete stream; */ }
-        virtual bool decode(uint8 *frame) { return false; }
+        virtual bool decodeVideo(Color32 *pixels) { return false; }
     };
 
-    // based on ffmpeg code https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/escape124.c
+    // based on ffmpeg https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/ implementation of escape codecs
     struct Escape : Decoder {
         int vfmt, bpp;
         int sfmt, rate, channels, bps;
@@ -135,11 +332,12 @@ struct Video {
 
             if (sfmt == 1)
                 audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);      // TR2
-            else if (sfmt == 101)
+            else if (sfmt == 101) {
                 if (bps == 8)
                     audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);  // TR1
                 else
                     audioDecoder = new Sound::IMA(stream, channels, rate);          // TR3
+            }
         }
 
         virtual ~Escape() {
@@ -180,7 +378,7 @@ struct Video {
         int getSkip124(BitStream &bs) {
             int value;
 
-            if ((value  = bs.read(1)) != 1 ||
+            if ((value  = bs.readBit()) != 1 ||
                 (value += bs.read(3)) != 8 ||
                 (value += bs.read(7)) != 135)
                 return value;
@@ -191,10 +389,10 @@ struct Video {
         int getSkip130(BitStream &bs) {
             int value;
 
-            if (value = bs.read(1))  return 0;
-            if (value = bs.read(3))  return value;
-            if (value = bs.read(8))  return value + 7;
-            if (value = bs.read(15)) return value + 262;
+            if ((value = bs.readBit())) return 0;
+            if ((value = bs.read(3)))   return value;
+            if ((value = bs.read(8)))   return value + 7;
+            if ((value = bs.read(15)))  return value + 262;
 
             return -1;
         }
@@ -208,10 +406,10 @@ struct Video {
         }
 
         void decodeMacroBlock(BitStream &bs, MacroBlock &mb, int &cbIndex, int sbIndex) {
-            int value = bs.read(1);
+            int value = bs.readBit();
             if (value) {
                 static const int8 trans[3][2] = { {2, 1}, {0, 2}, {1, 0} };
-                value = bs.read(1);
+                value = bs.readBit();
                 cbIndex = trans[cbIndex][value];
             }
 
@@ -232,7 +430,7 @@ struct Video {
             dst[9] = mb.pixels[3];
         }
 
-        bool decode(uint8 *frame) {
+        virtual bool decodeVideo(Color32 *pixels) {
             if (curVideoChunk >= chunksCount)
                 return false;
 
@@ -245,15 +443,15 @@ struct Video {
             stream->setPos(chunks[curVideoChunk].offset + curVideoPos);
 
             switch (vfmt) {
-                case 124 : return decode124(frame);
-                case 130 : return decode130(frame);
+                case 124 : return decode124(pixels);
+                case 130 : return decode130(pixels);
                 default  : ASSERT(false);
             }
 
             return false;
         }
 
-        bool decode124(uint8 *frame) {
+        bool decode124(Color32 *pixels) {
             uint32 flags, size;
             stream->read(flags);
             stream->read(size);
@@ -340,7 +538,7 @@ struct Video {
                 } else {
                     copySuperBlock(sb.pixels, 8, src, width);
 
-                    while (!bs.read(1)) {
+                    while (!bs.readBit()) {
                         decodeMacroBlock(bs, mb, cbIndex, sbIndex);
                         uint16 mask = bs.read(16);
                         multiMask |= mask;
@@ -349,7 +547,7 @@ struct Video {
                                 insertMacroBlock(sb, mb, i);
                     }
 
-                    if (!bs.read(1)) {
+                    if (!bs.readBit()) {
                         uint16 invMask = bs.read(4);
                         for (int i = 0; i < 4; i++)
                             multiMask ^= ((invMask & (1 << i)) ? 0x0F : bs.read(4)) << (i * 4);
@@ -360,7 +558,7 @@ struct Video {
                             }
                     } else 
                         if (flags & (1 << 16))
-                            while (!bs.read(1)) {
+                            while (!bs.readBit()) {
                                 decodeMacroBlock(bs, mb, cbIndex, sbIndex);
                                 insertMacroBlock(sb, mb, bs.read(4));
                             }
@@ -373,13 +571,13 @@ struct Video {
 
             delete[] data;
 
-            memcpy(frame, nextFrame, width * height * 4);
+            memcpy(pixels, nextFrame, width * height * 4);
             swap(prevFrame, nextFrame);
 
             return true;
         }
 
-        bool decode130(uint8 *frame) {
+        bool decode130(Color32 *pixels) {
 
             static const uint8 offsetLUT[] = { 
                 2, 4, 10, 20
@@ -449,7 +647,7 @@ struct Video {
                     V    = oV[0];
                     luma = *lumaPtr;
                 } else {
-                    if (bs.read(1)) {
+                    if (bs.readBit()) {
                         uint32 sign = bs.read(6);
                         uint32 diff = bs.read(2);
 
@@ -458,15 +656,15 @@ struct Video {
                         for (int i = 0; i < 4; i++)
                             Y[i] = clamp(luma + offsetLUT[diff] * signLUT[sign][i], 0U, 63U);
 
-                    } else if (bs.read(1)) {
-                        luma = bs.read(1) ? bs.read(6) : ((luma + lumaLUT[bs.read(3)]) & 63);
+                    } else if (bs.readBit()) {
+                        luma = bs.readBit() ? bs.read(6) : ((luma + lumaLUT[bs.read(3)]) & 63);
 
                         for (int i = 0; i < 4; i++)
                             Y[i] = luma;
                     }
 
-                    if (bs.read(1)) {
-                        if (bs.read(1)) {
+                    if (bs.readBit()) {
+                        if (bs.readBit()) {
                             U = bs.read(5);
                             V = bs.read(5);
                         } else {
@@ -502,7 +700,7 @@ struct Video {
             nU = nY  + width * height;
             nV = nU + width * height / 4;
 
-            Color32 *p = (Color32*)frame;
+            Color32 *p = pixels;
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int Y = nY[y * width + x] << 2;
@@ -564,9 +762,366 @@ struct Video {
         }
     };
 
+    // based on https://raw.githubusercontent.com/m35/jpsxdec/readme/jpsxdec/PlayStation1_STR_format.txt
+    struct STR : Decoder {
+
+        enum {
+            MAGIC_STR         = 0x80010160,
+            SECTOR_SIZE       = 2352,
+
+            VIDEO_CHUNK_SIZE  = 2016,
+            VIDEO_MAX_CHUNKS  = 16,
+            VIDEO_MAX_FRAMES  = 4,
+
+            AUDIO_CHUNK_SIZE  = (16 + 112) * 18, // XA ADPCM data block size
+            AUDIO_MAX_FRAMES  = 10000,
+
+            BLOCK_EOD         = 0xFE00,
+        };
+
+        struct SyncHeader {
+            uint32 sync[3];
+            uint8  mins, secs, block, mode;
+            uint8  interleaved;
+            uint8  channel;
+            struct {
+                uint8 isEnd:1, isVideo:1, isAudio:1, isData:1, trigger:1, form:1, realtime:1, eof:1;
+            } submode;
+            struct {
+                uint8 stereo:1, :1, rate:1, :1, bps:1, :3;
+            } coding;
+            uint32 dup;
+        };
+
+        struct Sector {
+            uint32 magic;
+            uint16 chunkIndex;
+            uint16 chunksCount;
+            uint32 frameIndex;
+            uint32 chunkSize;
+            uint16 width, height;
+            uint16 blocks;
+            uint16 unk1;
+            uint16 qscale;
+            uint16 version;
+            uint32 unk2;
+        };
+
+        struct VideoFrame {
+            uint8  data[VIDEO_CHUNK_SIZE * VIDEO_MAX_CHUNKS];
+            int    size;
+            uint16 width;
+            uint16 height;
+            uint32 qscale;
+        };
+
+        struct AudioFrame {
+            int pos;
+            int size;
+        };
+
+        uint8 AC_LUT_1[256];
+        uint8 AC_LUT_6[256];
+        uint8 AC_LUT_9[256];
+
+        VideoFrame vFrames[VIDEO_MAX_FRAMES];
+        AudioFrame aFrames[AUDIO_MAX_FRAMES];
+
+        int   vFrameIndex;
+        int   aFrameIndex;
+
+        Sound::Decoder *audioDecoder;
+
+        struct {
+            uint8 code;
+            uint8 length;
+        } vlc[176];
+
+        int curAudioPos;
+        int curAudioFrame;
+
+        STR(Stream *stream) : Decoder(stream), vFrameIndex(-1), aFrameIndex(-1), audioDecoder(NULL) {
+            curAudioFrame = 0;
+
+            if (stream->pos >= stream->size) {
+                LOG("Can't load STR format \"%s\"\n", stream->name);
+                ASSERT(false);
+                return;
+            }
+
+            memset(AC_LUT_1, 255, sizeof(AC_LUT_1));
+            memset(AC_LUT_6, 255, sizeof(AC_LUT_6));
+            memset(AC_LUT_9, 255, sizeof(AC_LUT_9));
+
+            buildLUT(AC_LUT_1,  0,  22, 1);
+            buildLUT(AC_LUT_6, 22,  62, 6);
+            buildLUT(AC_LUT_9, 62, 110, 9);
+
+            int pos = stream->pos;
+            nextFrame();
+
+            VideoFrame &frame = vFrames[vFrameIndex];
+            width  = (frame.width  + 15) / 16 * 16;
+            height = (frame.height + 15) / 16 * 16;
+            fps    = 150 / (frame.size / VIDEO_CHUNK_SIZE);
+            fps    = (fps < 20) ? 15 : 30;
+            //fps = int(fps * 44100 / 37800);
+            stream->setPos(pos);
+
+            vFrameIndex = aFrameIndex = -1;
+            memset(aFrames, 0, sizeof(aFrames));
+
+            audioDecoder = new Sound::XA(stream);
+        }
+
+        virtual ~STR() {
+            if (audioDecoder) {
+                audioDecoder->stream = NULL;
+                delete audioDecoder;
+            }        
+        }
+
+        void buildLUT(uint8 *LUT, int start, int end, int shift) {
+            for (int i = start; i < end; i++) {
+                const AC_ENTRY &e = STR_AC[i];
+                uint8 trash = (1 << (8 + shift - e.length + 1));
+            // fill the value and all possible endings
+                while (trash--)
+                    LUT[e.code | trash] = i;
+            }
+        }
+
+        bool nextFrame() {
+            uint8 data[SECTOR_SIZE];
+
+            VideoFrame *vFrame = vFrames + vFrameIndex;
+            while (stream->pos < stream->size) {
+                if (stream->raw(data, sizeof(data)) != sizeof(data)) {
+                    ASSERT(false);
+                    return false;
+                }
+
+                SyncHeader *syncHeader = (SyncHeader*)data;
+
+                if (syncHeader->sync[0] != 0xFFFFFF00 || syncHeader->sync[1] != 0xFFFFFFFF || syncHeader->sync[2] != 0x00FFFFFF) {
+                    ASSERT(false);
+                    return false;
+                }
+
+                if (syncHeader->submode.isVideo || syncHeader->submode.isData) {
+                    Sector *sector = (Sector*)(data + sizeof(SyncHeader));
+
+                    if (sector->magic == MAGIC_STR) {
+
+                        if (sector->chunkIndex == 0) {
+                            vFrameIndex = (vFrameIndex + 1) % VIDEO_MAX_FRAMES;
+                            vFrame = vFrames + vFrameIndex;
+                            vFrame->size    = 0;
+                            vFrame->width   = sector->width;
+                            vFrame->height  = sector->height;
+                            vFrame->qscale  = sector->qscale;
+                        }
+
+                        ASSERT(vFrame->size + VIDEO_CHUNK_SIZE < sizeof(vFrame->data));
+                        memcpy(vFrame->data + vFrame->size, data + sizeof(SyncHeader) + sizeof(Sector), VIDEO_CHUNK_SIZE);
+                        vFrame->size += VIDEO_CHUNK_SIZE;
+
+                        if (sector->chunkIndex == sector->chunksCount - 1) {
+                            //LOG("frame %d: %dx%d %d\n", sector->frameIndex, frame->width, frame->height, frame->size);
+                            return true;
+                        }
+                    }
+
+                } else if (syncHeader->submode.isAudio) {
+                    channels = syncHeader->coding.stereo ? 2 : 1;
+                    freq     = syncHeader->coding.rate ? 37800 : 18900;
+
+                    aFrameIndex = (aFrameIndex + 1) % AUDIO_MAX_FRAMES;
+                    AudioFrame *aFrame = aFrames + aFrameIndex;
+                    aFrame->pos  = stream->pos - sizeof(data);
+                    aFrame->size = AUDIO_CHUNK_SIZE;
+                };
+            }
+            return false;
+        }
+
+        // http://jpsxdec.blogspot.com/2011/06/decoding-mpeg-like-bitstreams.html
+        bool readCode(BitStream &bs, int16 &skip, int16 &ac) {
+            if (bs.readU(1)) {
+                if (bs.readU(1)) {
+                    skip = 0;
+                    ac   = bs.readU(1) ? -1 : 1;
+                    return true;
+                }
+                return false; // end of block
+            }
+
+            int nz = 1;
+            while (!bs.readU(1))
+                nz++;
+
+            if (nz == 5) { // escape code == 0b1000001
+                uint16 esc = bs.readU(16);
+                skip = esc >> 10;
+                ac   = esc & 0x3FF;
+                if (ac & 0x200)
+                    ac -= 0x400;
+                return true;
+            }
+
+            uint8 *table, shift;
+            if (nz < 6) {
+                table = AC_LUT_1;
+                shift = 1;
+            } else if (nz < 9) {
+                table = AC_LUT_6;
+                shift = 6;
+            } else {
+                table = AC_LUT_9;
+                shift = 9;
+            }
+
+            BitStream state = bs;
+            uint32 code = (1 << 7) | state.readU(7);
+
+            code >>= nz - shift;
+
+            ASSERT(table);
+
+            int index = table[code];
+
+            ASSERT(index != 255);
+
+            const AC_ENTRY &e = STR_AC[index];
+            bs.skip(e.length - nz - 1);
+            skip = e.skip;
+            ac = (code & (1 << (8 + shift - e.length))) ? -e.ac : e.ac;
+            return true;
+        }
+        
+        void IDCT(int16 *b) {
+            float t[64];
+
+            for (int x = 0; x < 8; x++)
+                for (int y = 0; y < 8; y++)
+                    t[x + y * 8] = b[x + 0 * 8] * STR_IDCT[0 * 8 + y]
+                                 + b[x + 1 * 8] * STR_IDCT[1 * 8 + y]
+                                 + b[x + 2 * 8] * STR_IDCT[2 * 8 + y]
+                                 + b[x + 3 * 8] * STR_IDCT[3 * 8 + y]
+                                 + b[x + 4 * 8] * STR_IDCT[4 * 8 + y]
+                                 + b[x + 5 * 8] * STR_IDCT[5 * 8 + y]
+                                 + b[x + 6 * 8] * STR_IDCT[6 * 8 + y]
+                                 + b[x + 7 * 8] * STR_IDCT[7 * 8 + y];
+
+            for (int x = 0; x < 8; x++)
+                for (int y = 0; y < 8; y++) {
+                    int i = y * 8;
+                    b[x + i] = int16(
+                               t[0 + i] * STR_IDCT[x + 0 * 8]
+                             + t[1 + i] * STR_IDCT[x + 1 * 8]
+                             + t[2 + i] * STR_IDCT[x + 2 * 8]
+                             + t[3 + i] * STR_IDCT[x + 3 * 8]
+                             + t[4 + i] * STR_IDCT[x + 4 * 8]
+                             + t[5 + i] * STR_IDCT[x + 5 * 8]
+                             + t[6 + i] * STR_IDCT[x + 6 * 8]
+                             + t[7 + i] * STR_IDCT[x + 7 * 8]);
+                }
+        }
+
+        virtual bool decodeVideo(Color32 *pixels) {
+            if (!nextFrame())
+                return false;
+
+            VideoFrame *frame = vFrames + vFrameIndex;
+
+            BitStream bs(frame->data + 8, frame->size - 8); // make bitstream without frame header
+
+            int16 block[6][64]; // Cr, Cb, YTL, YTR, YBL, YBR
+            for (int bX = 0; bX < width / 16; bX++)
+                for (int bY = 0; bY < height / 16; bY++) {
+                    memset(block, 0, sizeof(block));
+
+                    for (int i = 0; i < 6; i++) {
+                        bool nonZero = false;
+
+                        int16 *channel = block[i];
+                        channel[0] = bs.readU(10);
+                        if (channel[0]) {
+                            if (channel[0] & 0x200)
+                                channel[0] -= 0x400;
+                            channel[0] = channel[0] * STR_QUANTIZATION[0]; // DC
+                            nonZero = true;
+                        }
+                        
+                        int16 skip, ac;
+                        int index = 0;
+                        while (readCode(bs, skip, ac)) {
+                            index += 1 + skip;
+                            ASSERT(index < 64);
+                            int zIndex = STR_ZIG_ZAG[index];
+                            channel[zIndex] = (ac * STR_QUANTIZATION[zIndex] * frame->qscale + 4) >> 3;
+                            nonZero = true;
+                        }
+
+                        if (nonZero)
+                            IDCT(channel);
+                    }
+
+                    Color32 *blockPixels = pixels + (width * bY * 16 + bX * 16);
+
+                    for (uint32 i = 0; i < 8 * 8; i++) {
+                        int x = (i % 8) * 2;
+                        int y = (i / 8) * 2;
+                        int j = (x & 7) + (y & 7) * 8;
+
+                        Color32 *c = blockPixels + (width * y + x);
+
+                        int16 *b = block[(x < 8) ? ((y < 8) ? 2 : 4) : ((y < 8) ? 3 : 5)];
+
+                        Color32::YCbCr_420_PSX(b[j], b[j + 1], b[j + 8], b[j + 8 + 1], block[1][i], block[0][i], c[0], c[1], c[width], c[width + 1]);
+                    }
+                }
+
+            return true;
+        }
+
+        virtual int decode(Sound::Frame *frames, int count) {
+            if (!audioDecoder) return 0;
+
+            int oldPos = stream->pos;
+
+            Sound::XA *xa = (Sound::XA*)audioDecoder;
+
+            int i = 0;
+            while (i < count) {
+                if (xa->pos >= COUNT(xa->buffer)) {
+                    if (aFrames[curAudioFrame].size == 0)
+                        curAudioFrame = (curAudioFrame + 1) % AUDIO_MAX_FRAMES;
+
+                    if (aFrames[curAudioFrame].size == 0) {
+                        stream->setPos(oldPos);
+                        nextFrame();
+                        oldPos = stream->pos;
+                        curAudioFrame = aFrameIndex;
+                    }
+                }
+                stream->setPos(aFrames[curAudioFrame].pos);
+
+                i += audioDecoder->decode(&frames[i], count - i);
+
+                if (xa->pos >= COUNT(xa->buffer))
+                    aFrames[curAudioFrame].size = 0;
+            }
+
+            stream->setPos(oldPos);
+
+            return count;
+        }
+    };
+
     Decoder *decoder;
     Texture *frameTex[2];
-    uint8   *frameData;
+    Color32 *frameData;
     float   time, step;
     bool    isPlaying;
     bool    needUpdate;
@@ -577,9 +1132,17 @@ struct Video {
 
         if (!stream) return;
 
-        decoder   = new Escape(stream);
-        frameData = new uint8[decoder->width * decoder->height * 4];
-        memset(frameData, 0, decoder->width * decoder->height * 4);
+        uint32 magic;
+        stream->read(magic);
+        stream->seek(-4);
+
+        if (magic == 0x6F4D5241)
+            decoder = new Escape(stream);
+        else
+            decoder = new STR(stream);
+
+        frameData = new Color32[decoder->width * decoder->height];
+        memset(frameData, 0, decoder->width * decoder->height * sizeof(Color32));
 
         for (int i = 0; i < 2; i++)
             frameTex[i] = new Texture(decoder->width, decoder->height, FMT_RGBA, 0, frameData);
@@ -607,8 +1170,14 @@ struct Video {
         if (time < step)
             return;
         time -= step;
-
-        isPlaying = needUpdate = decoder->decode(frameData);
+    #ifdef VIDEO_TEST
+        int t = Core::getTime();
+        while (decoder->decodeVideo(frameData)) {}
+        LOG("time: %d\n", Core::getTime() - t);
+        isPlaying = false;
+    #else
+        isPlaying = needUpdate = decoder->decodeVideo(frameData);
+    #endif
     }
 
     void render() { // just update GPU texture if it's necessary

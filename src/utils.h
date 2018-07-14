@@ -1438,38 +1438,61 @@ void osRWUnlockWrite(void *obj) {
 #endif
 
 
+static const uint32 BIT_MASK[] = {
+    0x00000000,
+    0x00000001, 0x00000003, 0x00000007, 0x0000000F,
+    0x0000001F, 0x0000003F, 0x0000007F, 0x000000FF,
+    0x000001FF, 0x000003FF, 0x000007FF, 0x00000FFF,
+    0x00001FFF, 0x00003FFF, 0x00007FFF, 0x0000FFFF,
+    0x0001FFFF, 0x0003FFFF, 0x0007FFFF, 0x000FFFFF,
+    0x001FFFFF, 0x003FFFFF, 0x007FFFFF, 0x00FFFFFF,
+    0x01FFFFFF, 0x03FFFFFF, 0x07FFFFFF, 0x0FFFFFFF,
+    0x1FFFFFFF, 0x3FFFFFFF, 0x7FFFFFFF, 0xFFFFFFFF,
+};
+
 struct BitStream {
-    uint8 *data;
-    uint8 *end;
-    uint8 index;
-    uint8 value;
+    uint8  *data;
+    uint8  *end;
+    uint16 index;
+    uint16 value;
 
     BitStream(uint8 *data, int size) : data(data), end(data + size), index(0), value(0) {}
 
-    uint32 read(int count) {
-        uint32 bits = 0;
+    inline uint32 readBit() {
+       uint32 bit;
 
-        int m = count - 1;
+       if (!index--) {
+          value = *data++;
+          index = 7;
+       }
+
+       bit = value & 1;
+       value >>= 1;
+
+       return bit;
+    }
+
+    uint32 read(int count) {
+        uint32 bits = 0, mask = 1;
+
+        if (index == 0) {
+            if (count > 7) {
+                count -= 8;
+                mask <<= 8;
+                bits = *data++;
+            }
+        }
 
         while (count--) {
-            if (!index) {
-                ASSERT(data < end);
-                value = *data++;
-                index = 8;
-            }
-
-            if (value & 1)
-                bits |= (1 << (m - count));
-
-            value >>= 1;
-
-            index--;
+            if (readBit())
+                bits += mask;
+            mask <<= 1;
         }
 
         return bits;
     }
 
-    uint8 readBits(int count) {
+    uint8 readBE(int count) {
         uint32 bits = 0;
 
         while (count--) {
@@ -1491,13 +1514,60 @@ struct BitStream {
         return bits;
     }
 
-    uint8 readBit() {
-        return readBits(1);
+    uint8 readBitBE() {
+        return readBE(1);
     }
 
     uint8 readByte() {
         ASSERT(data < end);
         return *data++;
+    }
+
+    uint32 readWord(bool littleEndian) {
+        uint8 a, b;
+        if (littleEndian) {
+            a = data[0];
+            b = data[1];
+        } else {
+            b = data[0];
+            a = data[1];
+        }
+        data += 2;
+        return a + (b << 8);
+    }
+
+    uint32 readU(int count) {
+        if (!index) {
+            value = readWord(true);
+            index = 16;
+        }
+
+        uint32 bits;
+        if (count <= index) {
+            bits = (value >> (index - count)) & BIT_MASK[count];
+            index -= count;
+        } else {
+            bits = value & BIT_MASK[index];
+            count -= index;
+            index = 0;
+
+            while (count >= 16) {
+                bits = (bits << 16) | readWord(true);
+                count -= 16;
+            }
+
+            if (count > 0) {
+                value = readWord(true);
+                index = 16 - count;
+                bits = (bits << count) | (value >> index);
+            }
+        }
+
+        return bits;
+    }
+
+    void skip(int count) {
+        readU(count);
     }
 };
 
