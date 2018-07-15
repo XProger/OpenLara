@@ -33,7 +33,7 @@ struct OptionItem {
     uint32   icon;
     uint8    maxValue;
     bool     bar;
-        
+
     OptionItem(Type type = TYPE_EMPTY, int title = STR_NOT_IMPLEMENTED, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
 
     void setValue(uint8 value, Core::Settings *settings) const {
@@ -213,6 +213,9 @@ struct Inventory {
     IGame   *game;
     Texture *background[2];
     Video   *video;
+
+    bool    playLogo;
+    bool    playVideo;
 
     bool    active;
     bool    chosen;
@@ -478,6 +481,14 @@ struct Inventory {
         new Stream(TR::getGameScreen(inv->game->getLevel()->id), loadTitleBG, inv);
     }
 
+    static void loadLogo(Stream *stream, void *userData) {
+        Inventory *inv = (Inventory*)userData;
+        if (stream)
+            inv->video = new Video(stream);
+        else
+            inv->skipVideo();
+    }
+
     Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), playerIndex(0), changeTimer(0.0f), nextLevel(TR::LVL_MAX), lastKey(cMAX) {
         TR::LevelID id = game->getLevel()->id;
 
@@ -545,8 +556,19 @@ struct Inventory {
             delete background[i];
     }
 
-    void init(bool playVideo) {
+    void startVideo() {
         new Stream(playVideo ? TR::getGameVideo(game->getLevel()->id) : NULL, loadVideo, this);
+    }
+
+    void init(bool playLogo, bool playVideo) {
+        this->playLogo  = playLogo;
+        this->playVideo = playVideo;
+
+        if (playLogo) {
+            new Stream(TR::getGameLogo(game->getLevel()->version), loadLogo, this);
+            return;
+        }
+        startVideo();
     }
 
     bool isActive() {
@@ -919,6 +941,16 @@ struct Inventory {
     void skipVideo() {
         delete video;
         video = NULL;
+
+        if (playLogo) {
+            playLogo = false;
+            if (playVideo) {
+                startVideo();
+                return;
+            }
+        }
+        playVideo = false;
+
         game->playTrack(0);
         if (game->getLevel()->isTitle()) {
             titleTimer = 0.0f;
@@ -928,10 +960,17 @@ struct Inventory {
     }
 
     void update() {
-        if (video && (Input::state[0][cInventory] || Input::state[0][cAction] || Input::state[0][cJump] || 
-                      Input::state[1][cInventory] || Input::state[1][cAction] || Input::state[1][cJump] ||
-                      Input::down[ikCtrl] || Input::down[ikEnter] || Input::down[ikAlt]))
-            skipVideo();
+        if (titleTimer > 1.0f && (
+            Input::state[0][cInventory] || Input::state[0][cAction] || Input::state[0][cJump] || 
+            Input::state[1][cInventory] || Input::state[1][cAction] || Input::state[1][cJump] ||
+            Input::down[ikCtrl] || Input::down[ikEnter] || Input::down[ikAlt]))
+        {
+            if (video) {
+                if (video->time > 0.5f)
+                    skipVideo();
+            } else if (titleTimer > 1.0f && titleTimer < 2.5f)
+                titleTimer = 1.0f;
+        }
 
         if (video) {
             video->update();
@@ -1555,14 +1594,14 @@ struct Inventory {
             Texture *tmp = background[0];
 
             float sy = 1.0f;
-            if (game->getLevel()->version & TR::VER_TR1)
+            if ((game->getLevel()->version & TR::VER_TR1) && !playLogo)
                 sy = 1.2f;
 
             background[0] = video->frameTex[0];
             renderTitleBG(1.0f, sy, 255);
 
             background[0] = video->frameTex[1];
-            renderTitleBG(1.0f, sy, clamp(int((video->time / video->step) * 255), 0, 255));
+            renderTitleBG(1.0f, sy, clamp(int((video->stepTimer / video->step) * 255), 0, 255));
 
             background[0] = tmp;
 

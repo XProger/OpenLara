@@ -868,6 +868,31 @@ namespace TR {
         }
     }
 
+    const char* getGameLogo(Version version) {
+        if (version & VER_TR1) {
+            CHECK_FILE("FMV/CORELOGO.FMV");
+            CHECK_FILE("FMV/CORE.RPL");
+            CHECK_FILE("video/1/CORELOGO.FMV");
+            return "video/1/CORE.RPL";
+        }
+
+        if (version & VER_TR2) {
+            CHECK_FILE("FMV/LOGO.FMV");
+            CHECK_FILE("FMV/LOGO.RPL");
+            CHECK_FILE("video/2/LOGO.FMV");
+            return "video/2/LOGO.RPL";
+        }
+
+        if (version & VER_TR3) {
+            CHECK_FILE("FMV/LOGO.FMV");
+            CHECK_FILE("fmv/logo.rpl");
+            CHECK_FILE("video/3/LOGO.FMV");
+            return "video/3/logo.rpl";
+        }
+
+        return NULL;
+    }
+
     const char* getGameVideo(LevelID id) {
         switch (id) {
         // TR1

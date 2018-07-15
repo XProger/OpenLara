@@ -1099,14 +1099,27 @@ struct Video {
             int i = 0;
             while (i < count) {
                 if (xa->pos >= COUNT(xa->buffer)) {
-                    if (aFrames[curAudioFrame].size == 0)
+                    if (aFrames[curAudioFrame].size == 0) {
                         curAudioFrame = (curAudioFrame + 1) % AUDIO_MAX_FRAMES;
 
-                    if (aFrames[curAudioFrame].size == 0) {
-                        stream->setPos(oldPos);
-                        nextFrame();
-                        oldPos = stream->pos;
-                        curAudioFrame = aFrameIndex;
+                        if (aFrames[curAudioFrame].size == 0) {
+                            // check next 3 frames for audio frame
+                            stream->setPos(oldPos);
+                            for (int j = 0; j < 3; j++) {
+                                nextFrame();
+                                curAudioFrame = aFrameIndex;
+                                if (curAudioFrame != -1 && aFrames[curAudioFrame].size != 0)
+                                    break;
+                            }
+
+                            if (curAudioFrame == -1) { // no audio frames found!
+                                ASSERT(false);
+                                memset(frames, 0, count * sizeof(Sound::Frame));
+                                return count;
+                            }
+
+                            oldPos = stream->pos;
+                        }
                     }
                 }
                 stream->setPos(aFrames[curAudioFrame].pos);
@@ -1126,12 +1139,12 @@ struct Video {
     Decoder *decoder;
     Texture *frameTex[2];
     Color32 *frameData;
-    float   time, step;
+    float   step, stepTimer, time;
     bool    isPlaying;
     bool    needUpdate;
     Sound::Sample *sample;
 
-    Video(Stream *stream) : decoder(NULL), time(0.0f), isPlaying(false) {
+    Video(Stream *stream) : decoder(NULL), time(0.0f), stepTimer(0.0f), isPlaying(false) {
         frameTex[0] = frameTex[1] = NULL;
 
         if (!stream) return;
@@ -1154,7 +1167,8 @@ struct Video {
         sample = Sound::play(decoder);
 
         step      = 1.0f / decoder->fps;
-        time      = step;
+        stepTimer = step;
+        time      = 0.0f;
         isPlaying = true;
     }
 
@@ -1171,10 +1185,11 @@ struct Video {
     void update() {
         if (!isPlaying) return;
 
-        time += Core::deltaTime;
-        if (time < step)
+        stepTimer += Core::deltaTime;
+        if (stepTimer < step)
             return;
-        time -= step;
+        stepTimer -= step;
+        time += step;
     #ifdef VIDEO_TEST
         int t = Core::getTime();
         while (decoder->decodeVideo(frameData)) {}

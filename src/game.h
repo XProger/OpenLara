@@ -26,7 +26,7 @@ namespace Game {
         if (level->level.isTitle() && id != TR::LVL_MAX)
             playVideo = false;
 
-        level->init(playVideo);
+        level->init(id == TR::LVL_MAX, playVideo);
 
         UI::game = level;
         #if !defined(_OS_PSP) && !defined(_OS_CLOVER)

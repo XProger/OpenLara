@@ -759,8 +759,8 @@ struct Level : IGame {
         Sound::stopAll();
     }
 
-    void init(bool playVideo) {
-        inventory->init(playVideo);
+    void init(bool playLogo, bool playVideo) {
+        inventory->init(playLogo, playVideo);
     }
 
     void addPlayer(int index) {
