@@ -1454,6 +1454,7 @@ static const uint32 BIT_MASK[] = {
     0x1FFFFFFF, 0x3FFFFFFF, 0x7FFFFFFF, 0xFFFFFFFF,
 };
 
+// TODO: refactor for LE, BE, byte and word reading
 struct BitStream {
     uint8  *data;
     uint8  *end;

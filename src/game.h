@@ -14,10 +14,20 @@ namespace Game {
     Stream *nextLevel;
 
     void startLevel(Stream *lvl) {
+        TR::LevelID id = TR::LVL_MAX;
+        if (level)
+            id = level->level.id;
+
         Input::stopJoyVibration();
         delete level;
         level = new Level(*lvl);
-        level->init();
+
+        bool playVideo = id != level->level.id;
+        if (level->level.isTitle() && id != TR::LVL_MAX)
+            playVideo = false;
+
+        level->init(playVideo);
+
         UI::game = level;
         #if !defined(_OS_PSP) && !defined(_OS_CLOVER)
             UI::helpTipTime = 5.0f;

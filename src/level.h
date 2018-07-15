@@ -759,8 +759,8 @@ struct Level : IGame {
         Sound::stopAll();
     }
 
-    void init() {
-        inventory->init();
+    void init(bool playVideo) {
+        inventory->init(playVideo);
     }
 
     void addPlayer(int index) {
@@ -2636,9 +2636,6 @@ struct Level : IGame {
     }
 
     void render() {
-        if (inventory->video)
-            return;
-
         bool title  = inventory->isActive() || level.isTitle();
         bool copyBg = title && lastTitle != title;
         lastTitle = title;

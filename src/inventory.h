@@ -153,8 +153,10 @@ static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
+#ifndef _OS_CLOVER
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
-#ifdef _OS_WIN
+#endif
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
 #endif
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
@@ -543,8 +545,8 @@ struct Inventory {
             delete background[i];
     }
 
-    void init() {
-        new Stream(TR::getGameVideo(game->getLevel()->id), loadVideo, this);
+    void init(bool playVideo) {
+        new Stream(playVideo ? TR::getGameVideo(game->getLevel()->id) : NULL, loadVideo, this);
     }
 
     bool isActive() {
@@ -926,7 +928,9 @@ struct Inventory {
     }
 
     void update() {
-        if (video && (Input::state[0][cInventory] || Input::state[1][cInventory]))
+        if (video && (Input::state[0][cInventory] || Input::state[0][cAction] || Input::state[0][cJump] || 
+                      Input::state[1][cInventory] || Input::state[1][cAction] || Input::state[1][cJump] ||
+                      Input::down[ikCtrl] || Input::down[ikEnter] || Input::down[ikAlt]))
             skipVideo();
 
         if (video) {
@@ -1438,11 +1442,9 @@ struct Inventory {
         vertices[10].texCoord =
         vertices[11].texCoord = short4(0, 0, 0, 0);
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
-            for (int i = 0; i < 4; i++)
-                vertices[i].light.x = vertices[i].light.y = vertices[i].light.z = 0;
-            Core::whiteTex->bind(sDiffuse); // black background
-        } else
+        if ((Core::settings.detail.stereo == Core::Settings::STEREO_VR && !video) || !background[0])
+            Core::blackTex->bind(sDiffuse); // black background
+        else
             background[0]->bind(sDiffuse);
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);

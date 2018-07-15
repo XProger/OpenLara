@@ -949,9 +949,10 @@ namespace Core {
 
     void endFrame() {
         GAPI::endFrame();
-        active.targetOp |= RT_STORE_COLOR;
-        GAPI::setTarget(NULL, RT_STORE_COLOR);
-        validateRenderState();
+        if (active.target != defaultTarget) {
+            GAPI::setTarget(NULL, 0);
+            validateRenderState();
+        }
         Core::stats.stop();
     }
 
