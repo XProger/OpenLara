@@ -1144,7 +1144,7 @@ struct Video {
     bool    needUpdate;
     Sound::Sample *sample;
 
-    Video(Stream *stream) : decoder(NULL), time(0.0f), stepTimer(0.0f), isPlaying(false) {
+    Video(Stream *stream) : decoder(NULL), stepTimer(0.0f), time(0.0f), isPlaying(false) {
         frameTex[0] = frameTex[1] = NULL;
 
         if (!stream) return;

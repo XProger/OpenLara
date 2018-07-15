@@ -1393,7 +1393,9 @@ void osLoadGame(Stream *stream) {
 void* osMutexInit() {
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
+#ifndef _OS_WEB
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
+#endif
 
     pthread_mutex_t *mutex = new pthread_mutex_t();
     pthread_mutex_init(mutex, &attr);

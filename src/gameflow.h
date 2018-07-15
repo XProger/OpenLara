@@ -873,21 +873,21 @@ namespace TR {
             CHECK_FILE("FMV/CORELOGO.FMV");
             CHECK_FILE("FMV/CORE.RPL");
             CHECK_FILE("video/1/CORELOGO.FMV");
-            return "video/1/CORE.RPL";
+            CHECK_FILE("video/1/CORE.RPL");
         }
 
         if (version & VER_TR2) {
             CHECK_FILE("FMV/LOGO.FMV");
             CHECK_FILE("FMV/LOGO.RPL");
             CHECK_FILE("video/2/LOGO.FMV");
-            return "video/2/LOGO.RPL";
+            CHECK_FILE("video/2/LOGO.RPL");
         }
 
         if (version & VER_TR3) {
             CHECK_FILE("FMV/LOGO.FMV");
             CHECK_FILE("fmv/logo.rpl");
             CHECK_FILE("video/3/LOGO.FMV");
-            return "video/3/logo.rpl";
+            CHECK_FILE("video/3/logo.rpl");
         }
 
         return NULL;
@@ -900,106 +900,127 @@ namespace TR {
                 CHECK_FILE("FMV/CAFE.FMV");
                 CHECK_FILE("FMV/CAFE.RPL");
                 CHECK_FILE("video/1/CAFE.FMV");
-                return "video/1/CAFE.RPL";
+                CHECK_FILE("video/1/CAFE.RPL");
+                break;
             case LVL_TR1_GYM      :
                 CHECK_FILE("FMV/MANSION.FMV");
                 CHECK_FILE("FMV/MANSION.RPL");
                 CHECK_FILE("video/1/MANSION.FMV");
-                return "video/1/MANSION.RPL";
+                CHECK_FILE("video/1/MANSION.RPL");
+                break;
             case LVL_TR1_1        :
                 CHECK_FILE("FMV/SNOW.FMV");
                 CHECK_FILE("FMV/SNOW.RPL");
                 CHECK_FILE("video/1/SNOW.FMV");
-                return "video/1/SNOW.RPL";
+                CHECK_FILE("video/1/SNOW.RPL");
+                break;
             case LVL_TR1_4        :
                 CHECK_FILE("FMV/LIFT.FMV");
                 CHECK_FILE("FMV/LIFT.RPL");
                 CHECK_FILE("video/1/LIFT.FMV");
-                return "video/1/LIFT.RPL";
+                CHECK_FILE("video/1/LIFT.RPL");
+                break;
             case LVL_TR1_8A       :
                 CHECK_FILE("FMV/VISION.FMV");
                 CHECK_FILE("FMV/VISION.RPL");
                 CHECK_FILE("video/1/VISION.FMV");
-                return "video/1/VISION.RPL";
+                CHECK_FILE("video/1/VISION.RPL");
+                break;
             case LVL_TR1_10A      :
                 CHECK_FILE("FMV/CANYON.FMV");
                 CHECK_FILE("FMV/CANYON.RPL");
                 CHECK_FILE("video/1/CANYON.FMV");
-                return "video/1/CANYON.RPL";
+                CHECK_FILE("video/1/CANYON.RPL");
+                break;
             case LVL_TR1_10B      :
                 CHECK_FILE("FMV/PIRAMID.FMV");
                 CHECK_FILE("FMV/PIRAMID.RPL");
                 CHECK_FILE("video/1/PIRAMID.FMV");
-                return "video/1/PIRAMID.RPL";
+                CHECK_FILE("video/1/PIRAMID.RPL");
+                break;
             case LVL_TR1_CUT_4    :
                 CHECK_FILE("FMV/PRISON.FMV");
                 CHECK_FILE("FMV/PRISON.RPL");
                 CHECK_FILE("video/1/PRISON.FMV");
-                return "video/1/PRISON.RPL";
+                CHECK_FILE("video/1/PRISON.RPL");
+                break;
             case LVL_TR1_EGYPT    :
                 CHECK_FILE("FMV/END.FMV");
                 CHECK_FILE("FMV/END.RPL");
                 CHECK_FILE("video/1/END.FMV");
-                return "video/1/END.RPL";
+                CHECK_FILE("video/1/END.RPL");
+                break;
         // TR2
             case LVL_TR2_TITLE    :
                 CHECK_FILE("FMV/ANCIENT.FMV");
                 CHECK_FILE("fmv/ANCIENT.RPL");
                 CHECK_FILE("video/2/ANCIENT.FMV");
-                return "video/2/ANCIENT.RPL";
+                CHECK_FILE("video/2/ANCIENT.RPL");
+                break;
             case LVL_TR2_WALL     :
                 CHECK_FILE("FMV/MODERN.FMV");
                 CHECK_FILE("fmv/MODERN.RPL");
                 CHECK_FILE("video/2/MODERN.FMV");
-                return "video/2/MODERN.RPL";
+                CHECK_FILE("video/2/MODERN.RPL");
+                break;
             case LVL_TR2_RIG      :
                 CHECK_FILE("FMV/LANDING.FMV");
                 CHECK_FILE("fmv/LANDING.RPL");
                 CHECK_FILE("video/2/LANDING.FMV");
-                return "video/2/LANDING.RPL";
+                CHECK_FILE("video/2/LANDING.RPL");
+                break;
             case LVL_TR2_UNWATER  :
                 CHECK_FILE("FMV/MS.FMV");
                 CHECK_FILE("fmv/MS.RPL");
                 CHECK_FILE("video/2/MS.FMV");
-                return "video/2/MS.RPL";
+                CHECK_FILE("video/2/MS.RPL");
+                break;
             case LVL_TR2_SKIDOO   :
                 CHECK_FILE("FMV/CRASH.FMV");
                 CHECK_FILE("fmv/CRASH.RPL");
                 CHECK_FILE("video/2/CRASH.FMV");
-                return "video/2/CRASH.RPL";
+                CHECK_FILE("video/2/CRASH.RPL");
+                break;
             case LVL_TR2_EMPRTOMB :
                 CHECK_FILE("FMV/JEEP.FMV");
                 CHECK_FILE("fmv/JEEP.RPL");
                 CHECK_FILE("video/2/JEEP.FMV");
-                return "video/2/JEEP.RPL";
+                CHECK_FILE("video/2/JEEP.RPL");
+                break;
             case LVL_TR2_HOUSE    :
                 CHECK_FILE("FMV/END.FMV");
                 CHECK_FILE("fmv/END.RPL");
                 CHECK_FILE("video/2/END.FMV");
-                return "video/2/END.RPL";
+                CHECK_FILE("video/2/END.RPL");
+                break;
         // TR3
             case LVL_TR3_TITLE :
                 CHECK_FILE("FMV/INTRO.FMV");
                 CHECK_FILE("fmv/Intr_Eng.rpl");
                 CHECK_FILE("video/3/INTRO.FMV");
-                return "video/3/Intr_Eng.rpl";
+                CHECK_FILE("video/3/Intr_Eng.rpl");
+                break;
             case LVL_TR3_SHORE :
                 CHECK_FILE("FMV/LAGOON.FMV");
                 CHECK_FILE("fmv/Sail_Eng.rpl");
                 CHECK_FILE("video/3/LAGOON.FMV");
-                return "video/3/Sail_Eng.rpl";
+                CHECK_FILE("video/3/Sail_Eng.rpl");
+                break;
             case LVL_TR3_ANTARC :
                 CHECK_FILE("FMV/HUEY.FMV");
                 CHECK_FILE("fmv/Crsh_Eng.rpl");
                 CHECK_FILE("video/3/HUEY.FMV");
-                return "video/3/Crsh_Eng.rpl";
+                CHECK_FILE("video/3/Crsh_Eng.rpl");
+                break;
             case LVL_TR3_STPAUL :
                 CHECK_FILE("FMV/END.FMV");
                 CHECK_FILE("fmv/Endgame.rpl");
                 CHECK_FILE("video/3/END.FMV");
-                return "video/3/Endgame.rpl";
-            default : return NULL;
+                CHECK_FILE("video/3/Endgame.rpl");
+                break;
+            default : ;
         }
+        return NULL;
     }
 
     #define FOG_DIST    (1.0f / (18 * 1024))

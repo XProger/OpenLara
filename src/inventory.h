@@ -1532,8 +1532,10 @@ struct Inventory {
             alpha = 255;
 
         float sy = 1.0f;
+    #ifndef _OS_WEB
         if (background[0])
             sy = (480.0f / 640.0f) * ((float)background[0]->width / (float)background[0]->height);
+    #endif
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             if (game->getLevel()->isTitle())
