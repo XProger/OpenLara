@@ -1456,7 +1456,7 @@ struct Waterfall : Controller {
     Waterfall(IGame *game, int entity) : Controller(game, entity), timer(0.0f) {}
 
     virtual void update() {
-        if (getEntity().room != getRoomIndex()) // room is flipped
+        if (getRoom().alternateRoom != -1 && level->state.flags.flipped) // room is flipped
             return;
 
         vec3 delta = (game->getLara(pos)->pos - pos) * (1.0f / 1024.0f);

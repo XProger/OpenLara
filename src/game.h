@@ -22,11 +22,12 @@ namespace Game {
         delete level;
         level = new Level(*lvl);
 
+        bool playLogo  = level->level.isTitle() && id == TR::LVL_MAX;
         bool playVideo = id != level->level.id;
         if (level->level.isTitle() && id != TR::LVL_MAX)
             playVideo = false;
 
-        level->init(id == TR::LVL_MAX, playVideo);
+        level->init(playLogo, playVideo);
 
         UI::game = level;
         #if !defined(_OS_PSP) && !defined(_OS_CLOVER)
