@@ -659,9 +659,9 @@ struct Video {
                             Y[i] = clamp(luma + offsetLUT[diff] * signLUT[sign][i], 0U, 63U);
 
                     } else {
-                        if (bs.readBit()) {
+
+                        if (bs.readBit())
                             luma = bs.readBit() ? bs.read(6) : ((luma + lumaLUT[bs.read(3)]) & 63);
-                        }
 
                         for (int i = 0; i < 4; i++)
                             Y[i] = luma;

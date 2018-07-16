@@ -1814,7 +1814,7 @@ struct Lara : Character {
                 Switch *controller = (Switch*)level->entities[info.trigCmd[cmdIndex++].args].controller;
 
                 if (controller->flags.state != TR::Entity::asActive) {
-                    limit = state == STATE_STOP ? &TR::Limits::SWITCH : &TR::Limits::SWITCH_UNDERWATER;
+                    limit = state == STATE_STOP ? (controller->getEntity().type == TR::Entity::SWITCH_BUTTON ? &TR::Limits::SWITCH_BUTTON : &TR::Limits::SWITCH) : &TR::Limits::SWITCH_UNDERWATER;
                     if (checkInteraction(controller, limit, Input::state[camera->cameraIndex][cAction])) {
                         actionState = (controller->state == Switch::STATE_DOWN && stand == STAND_GROUND) ? STATE_SWITCH_UP : STATE_SWITCH_DOWN;
 

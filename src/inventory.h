@@ -961,12 +961,12 @@ struct Inventory {
 
     void update() {
         if (titleTimer > 1.0f && (
-            Input::state[0][cInventory] || Input::state[0][cAction] || Input::state[0][cJump] || 
-            Input::state[1][cInventory] || Input::state[1][cAction] || Input::state[1][cJump] ||
-            Input::down[ikCtrl] || Input::down[ikEnter] || Input::down[ikAlt]))
+            Input::state[0][cInventory] || Input::state[0][cAction] || 
+            Input::state[1][cInventory] || Input::state[1][cAction] ||
+            Input::down[ikCtrl]))
         {
             if (video) {
-                if (video->time > 0.5f)
+                if (video->time > 0.75f)
                     skipVideo();
             } else if (titleTimer > 1.0f && titleTimer < 2.5f)
                 titleTimer = 1.0f;

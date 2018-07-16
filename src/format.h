@@ -1032,6 +1032,10 @@ namespace TR {
             0, 100, 80,     ::Box(vec3(-1024, -1024, -1024), vec3(1024, 1024, 512)), true, true
         };
 
+        Limit SWITCH_BUTTON = {
+            0, 300, 30,     ::Box(vec3(-200, 0, 290), vec3(200, 0, 512)), true, true
+        };
+
         Limit PICKUP = {
             0, -100, 180,   ::Box(vec3(-256, -100, -256), vec3(256, 100, 100)), false, true
         };
@@ -3052,13 +3056,15 @@ namespace TR {
             }
 
         // turn off interpolation for some entities
-            if (id == LVL_TR2_CUT_1)
-                for (int i = 0; i < entitiesBaseCount; i++) {
-                    Entity &e = entities[i];
-                    if (e.type == Entity::CUT_6 || e.type == Entity::CUT_8 || e.type == Entity::CUT_9) {
-                        e.flags.smooth = false;
-                    }
+            for (int i = 0; i < entitiesBaseCount; i++) {
+                Entity &e = entities[i];
+                if ((id == LVL_TR2_CUT_1 && (e.type == Entity::CUT_6 || e.type == Entity::CUT_8 || e.type == Entity::CUT_9)) ||
+                    e.type == Entity::SWITCH_BUTTON) {
+
+                    e.flags.smooth = false;
+
                 }
+            }
         }
 
         LevelID getTitleId() const {
