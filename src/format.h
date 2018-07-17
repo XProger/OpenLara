@@ -1033,7 +1033,7 @@ namespace TR {
         };
 
         Limit SWITCH_BUTTON = {
-            0, 300, 30,     ::Box(vec3(-200, 0, 290), vec3(200, 0, 512)), true, true
+            0, 292, 30,     ::Box(vec3(-200, 0, 250), vec3(200, 0, 512)), true, true
         };
 
         Limit PICKUP = {
