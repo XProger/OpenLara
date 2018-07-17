@@ -775,6 +775,15 @@ struct Level : IGame {
         Lara *lead = players[index ^ 1];
         if (!lead) return;
 
+        Controller *c = Controller::first;
+        while (c) {
+            Controller *next = c->next;
+            if (c->getEntity().type == TR::Entity::FLAME && ((Flame*)c)->owner == players[index])
+                removeEntity(c);
+            c = next;
+        }
+
+        players[index]->dozy = false;
         players[index]->reset(lead->getRoomIndex(), lead->pos, lead->angle.y, lead->stand);
     }
 

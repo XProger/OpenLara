@@ -2064,7 +2064,7 @@ struct Mutant : Enemy {
         if (!(flags.unused & FLAG_FLY)) {
             int16 roomIndex = getRoomIndex();
             TR::Room::Sector *sector = level->getSector(roomIndex, pos);
-            float floor = level->getFloor(sector, pos) - 1.0f;
+            float floor = level->getFloor(sector, pos) - 128.0f;
             if (pos.y >= floor)
                 return STATE_STOP;
         }

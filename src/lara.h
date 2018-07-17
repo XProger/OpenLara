@@ -608,6 +608,7 @@ struct Lara : Character {
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
         visibleMask = 0xFFFFFFFF;
         health = LARA_MAX_HEALTH;
+        oxygen = LARA_MAX_OXYGEN;
 
         if (room == TR::NO_ROOM) {
             stand = STAND_AIR;
@@ -2573,8 +2574,6 @@ struct Lara : Character {
 
         if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cDash]) || Input::down[ikO])) {
             dozy = true;
-            health = LARA_MAX_HEALTH;
-            oxygen = LARA_MAX_OXYGEN;
             reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
             return input;
         }

@@ -126,17 +126,25 @@ struct TrapDartEmitter : Controller {
 
 struct Flame : Sprite {
 
-    static Flame* add(IGame *game, Controller *controller, int jointIndex) {
-        Flame *flame = (Flame*)game->addEntity(TR::Entity::FLAME, controller->getRoomIndex(), controller->pos);
-        if (flame)
-            flame->jointIndex = jointIndex;
+    static Flame* add(IGame *game, Controller *owner, int jointIndex) {
+        ASSERT(owner);
+
+        Flame *flame = (Flame*)game->addEntity(TR::Entity::FLAME, owner->getRoomIndex(), owner->pos);
+
+        int jCount = owner->getModel()->mCount;
+
+        if (flame) {
+            flame->owner = owner;
+            flame->jointIndex = jointIndex & jCount;
+        }
         return flame;
     }
 
+    Controller *owner;
     int32 jointIndex;
     float sleep;
 
-    Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), jointIndex(0), sleep(0.0f) {
+    Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), owner(NULL), jointIndex(0), sleep(0.0f) {
         time = randf() * 3.0f;
         activate();
     }
@@ -159,7 +167,7 @@ struct Flame : Sprite {
         Sprite::update();
         game->playSound(TR::SND_FLAME, pos, Sound::PAN);
 
-        Character *lara = (Character*)game->getLara(pos);
+        Character *lara = (Character*)(owner ? owner : game->getLara(pos));
 
         if (jointIndex > -1) {
             if (lara->stand == Character::STAND_UNDERWATER) {
