@@ -244,6 +244,7 @@ struct Lara : Character {
     int               pickupListCount;
     Controller        *pickupList[32];
     KeyHole           *keyHole;
+    Controller        *keyItem;
     Lightning         *lightning;
     Texture           *environment;
     vec2              rotFactor;
@@ -454,6 +455,7 @@ struct Lara : Character {
         hitTime    = 0.0f;
 
         keyHole     = NULL;
+        keyItem     = NULL;
         lightning   = NULL;
         environment = NULL;
 
@@ -486,6 +488,8 @@ struct Lara : Character {
         //reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
         //reset(9, vec3(63008, 0, 37787), 0);              // level 2 (switch)
         //reset(15, vec3(70067, -256, 29104), -0.68f);     // level 2 (pool)
+        //reset(5, vec3(55398, 0, 29246), -PI * 0.5f);     // level 2 (key hole)
+        //reset(71, vec3(12473, -768, 30208), -PI * 0.5f); // level 2 (puzzle hole)
         //reset(26, vec3(71980, 1546, 19000), 270 * DEG2RAD);     // level 2 (underwater switch)
         //reset(61, vec3(27221, -1024, 29205), -PI * 0.5f); // level 2 (blade)
         //reset(43, vec3(31400, -2560, 25200), PI);        // level 2 (reach)
@@ -508,6 +512,7 @@ struct Lara : Character {
         //reset(19, vec3(41418, -3707, 58863), 270 * DEG2RAD);  // level 5 (triangle)
         //reset(21, vec3(24106, -4352, 52089), 0);              // level 6 (flame traps)
         //reset(73, vec3(73372, 122, 51687), PI * 0.5f);       // level 6 (midas hand)
+        //reset(20, vec3(25088, -5120, 17593), PI);            // level 6 (puzzle slots)
         //reset(64, vec3(36839, -2560, 48769), 270 * DEG2RAD);  // level 6 (flipmap effect)
         //reset(99,  vec3(45562, -3328, 63366), 225 * DEG2RAD); // level 7a (flipmap)
         //reset(77,  vec3(36943, -4096, 62821), 270 * DEG2RAD); // level 7b (heavy trigger)
@@ -609,6 +614,9 @@ struct Lara : Character {
         visibleMask = 0xFFFFFFFF;
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
+        
+        keyHole = NULL;
+        keyItem = NULL;
 
         if (room == TR::NO_ROOM) {
             stand = STAND_AIR;
@@ -1866,7 +1874,9 @@ struct Lara : Character {
                     }
 
                     keyHole = controller;
-                    game->invUse(camera->cameraIndex, usedKey);
+
+                    if (game->invUse(camera->cameraIndex, usedKey))
+                        keyItem = game->addEntity(usedKey, getRoomIndex(), pos, 0);
 
                     animation.setState(actionState);
                 }
@@ -2755,11 +2765,24 @@ struct Lara : Character {
                 }
                 break;
             }
-            case STATE_USE_KEY    :                                  
+            case STATE_USE_KEY    :
             case STATE_USE_PUZZLE : {
-                if (keyHole && animation.isFrameActive(state == STATE_USE_PUZZLE ? PUZZLE_FRAME : KEY_FRAME)) {
-                    keyHole->activate();
-                    keyHole = NULL;
+                if (keyHole) {
+                    if (animation.isFrameActive(state == STATE_USE_PUZZLE ? PUZZLE_FRAME : KEY_FRAME)) {
+                        keyHole->activate();
+                        if (keyItem) {
+                            if (state == STATE_USE_KEY) {
+                                mat4 &m = keyItem->matrix;
+                                m = keyHole->getMatrix();
+                                m.translate(vec3(0, -590, 484));
+                                m.rotateX(PI * 0.5f);
+                            } else
+                                game->removeEntity(keyItem);
+                        }
+
+                        keyItem = NULL;
+                        keyHole = NULL;
+                    }
                 }
                 break;
             }
@@ -2817,6 +2840,42 @@ struct Lara : Character {
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC)
             camera->mode = (emptyHands() || health <= 0.0f) ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
+
+        if (keyItem) {
+            keyItem->flags.invisible = animation.frameIndex < (state == STATE_USE_KEY ? 70 : 30);
+            keyItem->lockMatrix = true;
+            mat4 &m = keyItem->matrix;
+            Basis b;
+
+            if (state == STATE_USE_KEY) {
+                b = getJoint(10);
+                b.rot = b.rot * quat(vec3(0, 1, 0), PI * 0.5f);
+                b.translate(vec3(0, 120, 0));
+            } else {
+                vec3 rot(0.0f);
+                
+                // TODO: hardcode item-hand alignment 8)
+                rot.x = -PI * 0.5f;
+
+                if (animation.frameIndex < 55)
+                    b = getJoint(13);
+                else
+                    b = getJoint(10);
+
+                b.translate(vec3(0, 48, 0));
+
+                if (rot.x != 0.0f) b.rot = b.rot * quat(vec3(1, 0, 0), rot.x);
+                if (rot.y != 0.0f) b.rot = b.rot * quat(vec3(0, 1, 0), rot.y);
+                if (rot.z != 0.0f) b.rot = b.rot * quat(vec3(0, 0, 1), rot.z);
+            }
+
+            keyItem->joints[0] = b;
+
+            m.identity();
+            m.setRot(b.rot);
+            m.setPos(b.pos);
+            //m = getMatrix();
+        }
     }
 
     virtual void updateAnimation(bool commands) {

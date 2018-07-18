@@ -1407,22 +1407,16 @@ struct KeyHole : Controller {
     virtual bool activate() {
         if (!Controller::activate()) return false;
         flags.active = TR::ACTIVE;
-        swap();
         deactivate();
         return true;
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
-        Controller::setSaveData(data);
-        if (flags.active == TR::ACTIVE)
-            swap();
-    }
-
-    void swap() {
-        if (getEntity().isPuzzleHole()) {
+    virtual const TR::Model* getModel() {
+        if (getEntity().isPuzzleHole() && flags.active == TR::ACTIVE) {
             int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
-            meshSwap(0, level->extra.puzzleDone[doneIdx]);
+            return &level->models[level->extra.puzzleDone[doneIdx]];
         }
+        return Controller::getModel();
     }
 
     virtual void update() {}

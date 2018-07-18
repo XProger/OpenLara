@@ -2064,7 +2064,7 @@ namespace TR {
 
     struct Model {
         Entity::Type type;
-        uint16       unused;
+        uint16       index;
         uint16       mCount;
         uint16       mStart;
         uint32       node;
@@ -2649,7 +2649,8 @@ namespace TR {
                 Model &m = models[i];
                 uint16 type;
                 m.type = Entity::Type(stream.read(type));
-                stream.read(m.unused);
+                stream.seek(sizeof(m.index));
+                m.index = i;
                 stream.read(m.mCount);
                 stream.read(m.mStart);
                 stream.read(m.node);

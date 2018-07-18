@@ -1444,16 +1444,8 @@ struct Level : IGame {
     void renderEntity(const TR::Entity &entity) {
         //if (entity.room != lara->getRoomIndex()) return;
         if (Core::pass == Core::passShadow && !entity.castShadow()) return;
-        bool isModel = entity.modelIndex > 0;
-
-        if (isModel) {
-            if (!mesh->models[entity.modelIndex - 1].geometry[mesh->transparent].count) return;
-        } else {
-            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
-        }
 
         Controller *controller = (Controller*)entity.controller;
-
         int roomIndex = controller->getRoomIndex();
         TR::Room &room = level.rooms[roomIndex];
 
@@ -1462,6 +1454,14 @@ struct Level : IGame {
 
         if (!entity.isLara() && !entity.isActor() && !room.flags.visible)
             return;
+
+        bool isModel = entity.modelIndex > 0;
+
+        if (isModel) {
+            if (!mesh->models[controller->getModel()->index].geometry[mesh->transparent].count) return;
+        } else {
+            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
+        }
 
         float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
 

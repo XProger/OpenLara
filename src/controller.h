@@ -142,10 +142,15 @@ struct Controller {
     } *explodeParts;
 
     vec3 lastPos;
+    mat4 matrix;
     bool invertAim;
+    bool lockMatrix;
 
     Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel(), level->entities[entity].flags.smooth), state(animation.state), layers(0), explodeMask(0), explodeParts(0), lastPos(0), invertAim(false) {
         const TR::Entity &e = getEntity();
+        lockMatrix  = false;
+        matrix.identity();
+
         pos         = vec3(float(e.x), float(e.y), float(e.z));
         angle       = vec3(0.0f, e.rotation, 0.0f);
         roomIndex   = e.room;
@@ -1185,12 +1190,13 @@ struct Controller {
         if (level->isCutsceneLevel() && (getEntity().isActor() || getEntity().isLara())) 
             return level->cutMatrix;
 
-        mat4 matrix;
-        matrix.identity();
-        matrix.translate(pos);
-        if (angle.y != 0.0f) matrix.rotateY(angle.y - animation.rot * animation.delta);
-        if (angle.x != 0.0f) matrix.rotateX(angle.x);
-        if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+        if (!lockMatrix) {
+            matrix.identity();
+            matrix.translate(pos);
+            if (angle.y != 0.0f) matrix.rotateY(angle.y - animation.rot * animation.delta);
+            if (angle.x != 0.0f) matrix.rotateX(angle.x);
+            if (angle.z != 0.0f) matrix.rotateZ(angle.z);
+        }
         return matrix;
     }
 
@@ -1320,7 +1326,7 @@ struct Controller {
             }
         } else {
             Core::setBasis(joints, model->mCount);
-            mesh->renderModel(getEntity().modelIndex - 1, caustics);
+            mesh->renderModel(model->index, caustics);
         }
     }
 
