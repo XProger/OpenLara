@@ -2098,8 +2098,7 @@ struct Lara : Character {
             if (pos.y + 8 >= info.floor && (abs(info.slantX) > 2 || abs(info.slantZ) > 2)) {
                 pos.y = info.floor;
 
-                if (stand == STAND_GROUND)
-                    slideStart();
+                slide();
 
                 return STAND_SLIDE;
             }
@@ -2382,29 +2381,28 @@ struct Lara : Character {
         return res;
     }
 
-    void slideStart() {
-        if (state != STATE_SLIDE && state != STATE_SLIDE_BACK) {
-            TR::Level::FloorInfo info;
-            getFloorInfo(getRoomIndex(), pos, info);
+    void slide() {
+        TR::Level::FloorInfo info;
+        getFloorInfo(getRoomIndex(), pos, info);
 
-            int sx = abs(info.slantX), sz = abs(info.slantZ);
-            // get direction
-            float dir;
-            if (sx > sz)
-                dir = info.slantX > 0 ? 3.0f : 1.0f;
-            else
-                dir = info.slantZ > 0 ? 2.0f : 0.0f;
-            dir *= PI * 0.5f;
+        int sx = abs(info.slantX), sz = abs(info.slantZ);
+        // get direction
+        float dir;
+        if (sx >= sz)
+            dir = info.slantX > 0 ? 3.0f : 1.0f;
+        else
+            dir = info.slantZ > 0 ? 2.0f : 0.0f;
+        dir *= PI * 0.5f;
 
-            int aIndex = ANIM_SLIDE_FORTH;
-            if (fabsf(shortAngle(dir, angle.y)) > PI * 0.5f) {
-                aIndex = ANIM_SLIDE_BACK;
-                dir += PI;
-            }
-
-            angle.y = dir;
-            animation.setAnim(aIndex);
+        int aIndex = ANIM_SLIDE_FORTH;
+        if (fabsf(shortAngle(dir, angle.y)) > PI * 0.5f) {
+            aIndex = ANIM_SLIDE_BACK;
+            dir += PI;
         }
+
+        angle.y = dir;
+        if (animation.index != aIndex)
+            animation.setAnim(aIndex);
     }
 
     virtual int getStateSlide() {
