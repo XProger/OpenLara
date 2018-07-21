@@ -5,11 +5,13 @@
 #include "utils.h"
 
 #define INPUT_JOY_COUNT 4
+#define MAX_PLAYERS     COUNT(Core::settings.controls)
 
 namespace Input {
     InputKey lastKey;
     bool down[ikMAX];
-    bool state[2][cMAX];
+    bool state[MAX_PLAYERS][cMAX];
+    ControlKey lastState[MAX_PLAYERS];
 
     struct Mouse {
         vec2 pos;
@@ -195,10 +197,15 @@ namespace Input {
 
     void update() {
         for (int j = 0; j < COUNT(Core::settings.controls); j++) {
+            lastState[j] = cMAX;
+
             Core::Settings::Controls &ctrl = Core::settings.controls[j];
             for (int i = 0; i < cMAX; i++) {
                 KeySet &c = ctrl.keys[i];
-                state[j][i] = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]);
+                bool active = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]);
+                if (active && !state[j][i])
+                    lastState[j] = ControlKey(i);
+                state[j][i] = active;
             }
         }
 

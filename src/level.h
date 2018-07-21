@@ -770,6 +770,11 @@ struct Level : IGame {
             players[index] = (Lara*)addEntity(TR::Entity::LARA, 0, vec3(0.0f), 0.0f);
             players[index]->camera->cameraIndex = index;
             Sound::listenersCount = 2;
+        } else if (index == 1) {
+            removeEntity(players[index]);
+            players[index] = NULL;
+            Sound::listenersCount = 1;
+            return;
         }
 
         Lara *lead = players[index ^ 1];
@@ -783,7 +788,6 @@ struct Level : IGame {
             c = next;
         }
 
-        players[index]->dozy = false;
         players[index]->reset(lead->getRoomIndex(), lead->pos, lead->angle.y, lead->stand);
     }
 
@@ -1535,8 +1539,8 @@ struct Level : IGame {
             }
         }
 
-        if ((Input::state[0][cInventory] || Input::state[1][cInventory]) && !level.isTitle() && inventory->titleTimer < 1.0f && !inventory->active && inventory->lastKey == cMAX) {
-            int playerIndex = Input::state[0][cInventory] ? 0 : 1;
+        if ((Input::lastState[0] == cInventory || Input::lastState[1] == cInventory) && !level.isTitle() && inventory->titleTimer < 1.0f && !inventory->active) {
+            int playerIndex = (Input::lastState[0] == cInventory) ? 0 : 1;
 
             if (level.isCutsceneLevel()) {
                 loadNextLevel();

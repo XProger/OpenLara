@@ -614,7 +614,8 @@ struct Lara : Character {
         visibleMask = 0xFFFFFFFF;
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
-        
+        dozy   = false;
+
         keyHole = NULL;
         keyItem = NULL;
 
@@ -2583,8 +2584,8 @@ struct Lara : Character {
         int pid = camera->cameraIndex;
 
         if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cDash]) || Input::down[ikO])) {
-            dozy = true;
             reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
+            dozy = true;
             return input;
         }
 

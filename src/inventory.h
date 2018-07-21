@@ -960,16 +960,14 @@ struct Inventory {
     }
 
     void update() {
-        if (titleTimer > 1.0f && (
-            Input::state[0][cInventory] || Input::state[0][cAction] || 
-            Input::state[1][cInventory] || Input::state[1][cAction] ||
-            Input::down[ikCtrl]))
+        if (Input::lastState[0] == cInventory || Input::lastState[0] == cAction ||
+            Input::lastState[1] == cInventory || Input::lastState[1] == cAction)
         {
             if (video) {
-                if (video->time > 0.75f)
-                    skipVideo();
-            } else if (titleTimer > 1.0f && titleTimer < 2.5f)
+                skipVideo();
+            } else if (titleTimer > 1.0f && titleTimer < 2.5f) {
                 titleTimer = 1.0f;
+            }
         }
 
         if (video) {
@@ -1018,9 +1016,9 @@ struct Inventory {
         Input::Joystick &joy = Input::joy[Core::settings.controls[playerIndex].joyIndex];
 
         ControlKey key = cMAX;
-        if (Input::down[ikCtrl] || Input::down[ikEnter] || Input::state[playerIndex][cAction] || joy.down[jkA])
+        if (Input::down[ikCtrl] || Input::down[ikEnter] || Input::lastState[playerIndex] == cAction || joy.down[jkA])
             key = cAction;
-        else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::state[playerIndex][cInventory])
+        else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::lastState[playerIndex] == cInventory)
             key = cInventory;
         else if (Input::down[ikLeft]  || joy.down[jkLeft]  || joy.L.x < -0.5f)
             key = cLeft;
