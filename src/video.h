@@ -857,7 +857,7 @@ struct Video {
             height = (frame.height + 15) / 16 * 16;
             fps    = 150 / (frame.size / VIDEO_CHUNK_SIZE);
             fps    = (fps < 20) ? 15 : 30;
-            //fps = int(fps * 44100 / 37800);
+
             stream->setPos(pos);
 
             vFrameIndex = aFrameIndex = -1;

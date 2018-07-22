@@ -348,6 +348,7 @@ struct Enemy : Character {
             return false;
         thinkTime -= 1.0f / 30.0f;
 
+        int zoneOld = zone;
         updateZone();
 
         target = (Character*)game->getLara(pos);
@@ -420,6 +421,9 @@ struct Enemy : Character {
             gotoBox(target->box);
 
         if (path && this->box != path->boxes[path->index - 1] && this->box != path->boxes[path->index])
+            targetBoxOld = -1;
+
+        if (zoneOld != zone)
             targetBoxOld = -1;
 
         if (targetBoxOld != targetBox) {
@@ -512,7 +516,7 @@ struct Enemy : Character {
         return false;
     }
 
-    void shot(TR::Entity::Type type, int joint, const vec3 &offset) {
+    void shot(TR::Entity::Type type, int joint, const vec3 &offset, float rx, float ry) {
         vec3 from = getJoint(joint) * offset;
         vec3 to   = target->getBoundingBox().center();
 
@@ -520,9 +524,13 @@ struct Enemy : Character {
         if (bullet) {
             vec3 dir = to - from;
             vec3 ang = vec3(-atan2f(dir.y, sqrtf(dir.x * dir.x + dir.z * dir.z)), atan2f(dir.x, dir.z), 0.0f);
-            ang += vec3(randf() * 2.0f - 1.0f, randf() * 2.0f - 1.0f, 0.0f) * (1.5f * DEG2RAD);
+            ang += vec3(rx, ry, 0.0f);
             bullet->setAngle(ang);
         }
+    }
+
+    void shot(TR::Entity::Type type, int joint, const vec3 &offset) {
+        shot(type, joint, offset, (randf() * 2.0f - 1.0f) * (1.5f * DEG2RAD), (randf() * 2.0f - 1.0f) * (1.5f * DEG2RAD));
     }
 
     bool isVisible() {
@@ -2777,7 +2785,7 @@ struct SkaterBoy : Human {
         fullChestRotation = state == STATE_STAND_FIRE || state == STATE_MOVE_FIRE;
 
         if (health < 120)
-            game->playTrack(56);
+            game->playTrack(56, true);
 
         switch (state) {
             case STATE_STOP :
@@ -2982,10 +2990,196 @@ struct MrT : Human {
     }
 };
 
+#define NATLA_FIRE_ANGLE    (30 * DEG2RAD)
+#define NATLA_FAINT_TIME    16.0f
+#define NATLA_HALF_HEALTH   200.0f
+#define NATLA_FAINT_HEALTH  -8192.0f
+#define NATLA_LIFT_SPEED    MUTANT_LIFT_SPEED
 
 struct Natla : Human {
 
-    Natla(IGame *game, int entity) : Human(game, entity, 400) {}
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_FLY,
+        STATE_RUN,
+        STATE_AIM,
+        STATE_FAINT,
+        STATE_FIRE,
+        STATE_FALL,
+        STATE_STAND,
+        STATE_DEATH,
+    };
+
+    enum {
+        FLAG_FLY = 1,
+    };
+
+    Natla(IGame *game, int entity) : Human(game, entity, 400) {
+        jointChest = 1;
+        jointHead  = 2;
+    }
+
+    int stage1() {
+        flying = (flags.unused & FLAG_FLY);
+
+        stepHeight =  256;
+        dropHeight = -256;
+
+        if (flying) {
+            stepHeight *= 80;
+            dropHeight *= 80;
+        }
+
+        if (!think(false))
+            return state;
+
+        timer += Core::deltaTime;
+        bool canShot = target && target->health > 0.0f && targetIsVisible(HUMAN_DIST_SHOT);
+
+        if (canShot && state == STATE_FLY && flying && rand() < 256)
+            flags.unused &= ~FLAG_FLY;
+        else if (!canShot)
+            flags.unused |= FLAG_FLY;
+
+        flying = (flags.unused & FLAG_FLY);
+
+        if (state == nextState)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP :
+                timer = 0.0f;
+                return flying ? STATE_FLY : STATE_AIM;
+            case STATE_FLY : {
+                if (timer >= 1.0f) {
+                    { //if (canShot) { ???
+                        game->playSound(TR::SND_NATLA_SHOT, pos, Sound::PAN);
+                        shot(TR::Entity::CENTAUR_BULLET, 4, vec3(5.0f, 220.0f, 7.0f));
+                    }
+                    timer -= 1.0f;
+                }
+
+                int16 roomIndex = getRoomIndex();
+                TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+                float floor = level->getFloor(sector, pos) - 128.0f;
+
+                if (!flying && pos.y >= floor)
+                    return STATE_STOP;
+
+                break;
+            }
+            case STATE_AIM :
+                if (nextState != STATE_NONE)
+                    return nextState;
+                return canShot ? STATE_FIRE : STATE_STOP;
+            case STATE_FIRE :
+                if (nextState != STATE_NONE)
+                    return state;
+
+                game->playSound(TR::SND_NATLA_SHOT, pos, Sound::PAN);
+                shot(TR::Entity::CENTAUR_BULLET, 4, vec3(5.0f, 220.0f, 7.0f));
+                shot(TR::Entity::CENTAUR_BULLET, 4, vec3(5.0f, 220.0f, 7.0f), 0.0f, (randf() * 2.0f - 1.0f) * (25.0f * DEG2RAD));
+                shot(TR::Entity::CENTAUR_BULLET, 4, vec3(5.0f, 220.0f, 7.0f), 0.0f, (randf() * 2.0f - 1.0f) * (25.0f * DEG2RAD));
+
+                nextState = STATE_STOP;
+                break;
+        }
+
+        return state;
+    }
+
+    int stage2() {
+        stepHeight =  256;
+        dropHeight = -256;
+        flying     = false;
+
+        if (!think(true))
+            return state;
+
+        timer += Core::deltaTime;
+        bool canShot = target && target->health > 0.0f && fabsf(targetAngle) < NATLA_FIRE_ANGLE && targetIsVisible(HUMAN_DIST_SHOT);
+
+        switch (state) {
+            case STATE_RUN   :
+            case STATE_STAND :
+                if (timer >= 20.0f / 30.0f) {
+                    { // if (canShot) { ???
+                        game->playSound(TR::SND_NATLA_SHOT, pos, Sound::PAN);
+                        shot(TR::Entity::MUTANT_BULLET, 4, vec3(5.0f, 220.0f, 7.0f));
+                    }
+                    timer -= 20.0f / 30.0f;
+                }
+                return canShot ? STATE_STAND : STATE_RUN;
+            case STATE_FLY  :
+                health = NATLA_FAINT_HEALTH;
+                return STATE_FALL;
+            case STATE_STOP :
+            case STATE_AIM  :
+            case STATE_FIRE :
+                health = NATLA_FAINT_HEALTH;
+                return STATE_FAINT;
+        }
+        return state;
+    }
+
+    virtual int getStateGround() {
+        if (health > NATLA_HALF_HEALTH)
+            return stage1();
+        return stage2();
+    }
+
+    virtual int getStateDeath() {
+        switch (state) {
+            case STATE_FALL : {
+                int16 roomIndex = getRoomIndex();
+                TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+                float floor = level->getFloor(sector, pos);
+                if (pos.y >= floor) {
+                    pos.y = floor;
+                    timer = 0.0f;
+                    return STATE_FAINT;
+                }
+                return state;
+            }
+            case STATE_FAINT : {
+                timer += Core::deltaTime;
+                if (timer >= NATLA_FAINT_TIME) {
+                    health = NATLA_HALF_HEALTH;
+                    timer  = 0.0f;
+                    flags.unused = 0;
+                    game->playTrack(54, true);
+                    return STATE_STAND;
+                }
+                return state;
+            }
+        }
+        return STATE_DEATH;
+    }
+
+    virtual void updateVelocity() {
+        if (state == STATE_FLY) {
+            angle.y += targetAngle;
+            updateJoints();
+            angle.y -= targetAngle;
+        }
+        Enemy::updateVelocity();
+    }
+
+    virtual void updatePosition() {
+        if (flying) {
+            stand = STAND_AIR;
+            lift(target->pos.y - pos.y, NATLA_LIFT_SPEED);
+        }
+
+        turn(true, state == STATE_RUN ? HUMAN_TURN_FAST : HUMAN_TURN_SLOW);
+        
+        Enemy::updatePosition();
+        setOverrides(state != STATE_FAINT, jointChest, jointHead);
+        lookAt(target);
+
+        stand = STAND_GROUND;
+    }
 };
 
 struct Dog : Enemy {

@@ -960,6 +960,8 @@ namespace TR {
         
         SND_STAIRS2SLOPE    = 119,
 
+        SND_NATLA_SHOT      = 123,
+
         SND_HIT_SKATEBOY    = 132,
 
         SND_HIT_MUTANT      = 142,
@@ -2250,7 +2252,7 @@ namespace TR {
             ByteFlags flipmaps[MAX_FLIPMAP_COUNT];
             ByteFlags tracks[MAX_TRACKS_COUNT];
 
-            uint16   fogColor;
+            uint16    fogColor;
             union {
                 struct { uint16 track:8, flipped:1; };
                 uint16 value;

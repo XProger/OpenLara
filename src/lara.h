@@ -527,14 +527,16 @@ struct Lara : Character {
         //reset(57, vec3(71081, 5632, 73042), 0);                   // Level 10a (Skaterboy)
         //reset(68, vec3(52458, -9984, 93724), 270 * DEG2RAD);      // Level 10a (MrT)
         //reset(44, vec3(75803, -11008, 21097), 90 * DEG2RAD);      // Level 10a (boat)
-        //reset(47, vec3(50546, -13056, 53783), 270 * DEG2RAD);      // Level 10b (trap door slope)
-        //reset(59, vec3(42907, -13056, 63012), 270 * DEG2RAD);      // Level 10b (doppelganger)
-        //reset(53, vec3(39617, -18385, 48950), 180 * DEG2RAD);      // Level 10b (centaur)
-        //reset(50, vec3(52122, -18688, 47313), 150 * DEG2RAD);      // Level 10b (scion holder pickup)
+        //reset(47, vec3(50546, -13056, 53783), 270 * DEG2RAD);     // Level 10b (trap door slope)
+        //reset(59, vec3(42907, -13056, 63012), 270 * DEG2RAD);     // Level 10b (doppelganger)
+        //reset(53, vec3(39617, -18385, 48950), 180 * DEG2RAD);     // Level 10b (centaur)
+        //reset(50, vec3(52122, -18688, 47313), 150 * DEG2RAD);     // Level 10b (scion holder pickup)
         //reset(50, vec3(53703, -18688, 13769), PI);                // Level 10c (scion holder)
         //reset(19, vec3(35364, -512, 40199), PI * 0.5f);           // Level 10c (lava flow)
         //reset(9, vec3(69074, -14592, 25192), 0);                  // Level 10c (trap slam)
         //reset(21, vec3(47668, -10752, 32163), 0);                 // Level 10c (lava emitter)
+        //reset(29, vec3(61586, -439, 51734), PI * 0.5f);           // Level 10c (precise falling)
+        //reset(33, vec3(64641, 9578, 61861), 0);                   // Level 10c (Natla)
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
         //dbgBoxes = NULL;
 
@@ -1720,7 +1722,7 @@ struct Lara : Character {
     }
 
     int doTutorial(int track) {
-        if (level->version == TR::VER_TR1_PC || level->version == TR::VER_TR1_PSX)
+        if (level->version & TR::VER_TR1)
             switch (track) { // GYM tutorial routine
                 case 28 : if (level->state.tracks[track].once && state == STATE_UP_JUMP) track = 29; break;
                 case 37 : 
@@ -2036,7 +2038,7 @@ struct Lara : Character {
                     if (!(level->state.progress.secrets & (1 << cmd.args))) {
                         level->state.progress.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
-                            game->playTrack(TR::TRACK_TR1_SECRET);
+                            game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
                     break;
             }

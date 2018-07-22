@@ -607,7 +607,7 @@ struct Level : IGame {
     void stopChannel(Sound::Sample *channel) {
         if (channel == sndTrack) {
             sndTrack = NULL;
-            if (level.state.flags.track == TR::LEVEL_INFO[level.id].track) // play ambient track
+            if (level.state.flags.track != TR::LEVEL_INFO[level.id].track) // play ambient track
                 playTrack(0);
         }
     }
@@ -636,7 +636,19 @@ struct Level : IGame {
         delete req;
     }
 
-    virtual void playTrack(uint8 track) {
+    static void playAsyncBG(Stream *stream, void *userData) {
+        TrackRequest *req = (TrackRequest*)userData;
+        if (stream)
+            Sound::play(stream, NULL, 1.0f, 1.0f, req->flags);
+        delete req;
+    }
+
+    virtual void playTrack(uint8 track, bool background = false) {
+        if (background) {
+            TR::getGameTrack(level.version, track, playAsyncBG, new TrackRequest(this, Sound::MUSIC));
+            return;
+        }
+
         if (track == 0)
             track = TR::LEVEL_INFO[level.id].track;
 
