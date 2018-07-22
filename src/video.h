@@ -176,59 +176,42 @@ struct Video {
             a = 255;
         }
 
-        void SetYCbCr(int32 Y, int32 Cb, int32 Cr) {
-            Y = max(0, 1191 * (Y - 16));
-            Cb -= 128;
-            Cr -= 128;
-            r = clamp((Y + 1836 * Cr) >> 10, 0, 255);
-            g = clamp((Y - 547 * Cr - 218 * Cb) >> 10, 0, 255);
-            b = clamp((Y + 2165 * Cb) >> 10, 0, 255);
-            a = 255;
-        }
+        static void YCbCr_T871_420(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, int32 F, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
+            static const Color32 dither[8] = {
+                0x00000600, 0x00060006, 0x00040204, 0x00020402,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            };
 
-       void SetYCbCrPSX(int32 Y, int32 Cb, int32 Cr) {
-            int32 R = ((91893 * Cr)                   >> 16);
-            int32 G = ((-(22525 * Cb) - (46812 * Cr)) >> 16);
-            int32 B = ((116224 * Cb)                  >> 16);
-        
-            Y += 128;
-            r = clamp(Y + R, 0, 255);
-            g = clamp(Y + G, 0, 255);
-            b = clamp(Y + B, 0, 255);
-            a = 255;
-       }
+            ASSERT(F < 5);
 
+            // Y[0..3] += 128 <-> RGB += 128
+            int32 R =  (( 91881  * Cr              ) >> 16);
+            int32 G = -(( 22550  * Cb + 46799 * Cr ) >> 16);
+            int32 B =  (( 116129 * Cb              ) >> 16);
 
-        void SetYUV(int32 Y, int32 U, int32 V) {
-            r = clamp(Y + (74698 * V >> 16), 0, 255);
-            g = clamp(Y - ((25863 * U + 38049 * V) >> 16), 0, 255);
-            b = clamp(Y + (133174 * U >> 16), 0, 255);
-            a = 255;
-        }
+            const Color32 *d = &dither[F];
 
-        static void YCbCr_420_PSX(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
-            int32 R = ((91893 * Cr)                   >> 16) + 128;
-            int32 G = ((-(22525 * Cb) - (46812 * Cr)) >> 16) + 128;
-            int32 B = ((116224 * Cb)                  >> 16) + 128;
-        
-            C0.r = clamp(Y0 + R, 0, 255);
-            C0.g = clamp(Y0 + G, 0, 255);
-            C0.b = clamp(Y0 + B, 0, 255);
+            C0.r = clamp(Y0 + R + d->r, 0, 255);
+            C0.g = clamp(Y0 + G + d->g, 0, 255);
+            C0.b = clamp(Y0 + B + d->b, 0, 255);
             C0.a = 255;
+            d++;
 
-            C1.r = clamp(Y1 + R, 0, 255);
-            C1.g = clamp(Y1 + G, 0, 255);
-            C1.b = clamp(Y1 + B, 0, 255);
+            C1.r = clamp(Y1 + R + d->r, 0, 255);
+            C1.g = clamp(Y1 + G + d->g, 0, 255);
+            C1.b = clamp(Y1 + B + d->b, 0, 255);
             C1.a = 255;
+            d++;
 
-            C2.r = clamp(Y2 + R, 0, 255);
-            C2.g = clamp(Y2 + G, 0, 255);
-            C2.b = clamp(Y2 + B, 0, 255);
+            C2.r = clamp(Y2 + R + d->r, 0, 255);
+            C2.g = clamp(Y2 + G + d->g, 0, 255);
+            C2.b = clamp(Y2 + B + d->b, 0, 255);
             C2.a = 255;
+            d++;
 
-            C3.r = clamp(Y3 + R, 0, 255);
-            C3.g = clamp(Y3 + G, 0, 255);
-            C3.b = clamp(Y3 + B, 0, 255);
+            C3.r = clamp(Y3 + R + d->r, 0, 255);
+            C3.g = clamp(Y3 + G + d->g, 0, 255);
+            C3.b = clamp(Y3 + B + d->b, 0, 255);
             C3.a = 255;
         }
     };
@@ -312,8 +295,9 @@ struct Video {
                     memset(nextFrame, 0, width * height * sizeof(uint32));
                     break;
                 case 130 :
-                    prevFrame = new uint8[width * height * 3 / 2];
-                    nextFrame = new uint8[width * height * 3 / 2];
+                    // Y[w*h], Cb[w*h/4], Cr[w*h/4], F[w*h/4]
+                    prevFrame = new uint8[width * height * 7 / 4];
+                    nextFrame = new uint8[width * height * 7 / 4];
                     lumaFrame = new uint8[width * height / 4];
                     memset(prevFrame, 0, width * height);
                     memset(prevFrame + width * height, 16, width * height / 2);
@@ -625,16 +609,16 @@ struct Video {
             uint8 *data = new uint8[chunk.videoSize];
             stream->raw(data, chunk.videoSize);
             BitStream bs(data, chunk.videoSize);
-            bs.data += 16; // skip 16 bytes
+            bs.data += 16; // skip 16 bytes (frame size, version, gamma/linear chroma flags etc.)
 
             uint8 *lumaPtr = lumaFrame;
 
             int skip = -1;
             int bCount = width * height / 4;
-            uint32 luma = 0, Y[4] = { 0 }, U = 16, V = 16;
+            uint32 luma = 0, Y[4] = { 0 }, U = 16, V = 16, F = 0;
 
-            uint8 *oY = prevFrame, *oU = oY + width * height, *oV = oU + width * height / 4;
-            uint8 *nY = nextFrame, *nU = nY + width * height, *nV = nU + width * height / 4;
+            uint8 *oY = prevFrame, *oU = oY + width * height, *oV = oU + width * height / 4, *oF = oV + width * height / 4;
+            uint8 *nY = nextFrame, *nU = nY + width * height, *nV = nU + width * height / 4, *nF = nV + width * height / 4;
 
             for (int bIndex = 0; bIndex < bCount; bIndex++) {
                 if (skip == -1)
@@ -647,6 +631,7 @@ struct Video {
                     Y[3] = oY[width + 1];
                     U    = oU[0];
                     V    = oV[0];
+                    F    = oF[0];
                     luma = *lumaPtr;
                 } else {
                     if (bs.readBit()) {
@@ -658,6 +643,7 @@ struct Video {
                         for (int i = 0; i < 4; i++)
                             Y[i] = clamp(luma + offsetLUT[diff] * signLUT[sign][i], 0U, 63U);
 
+                        F = 1;
                     } else {
 
                         if (bs.readBit())
@@ -665,6 +651,8 @@ struct Video {
 
                         for (int i = 0; i < 4; i++)
                             Y[i] = luma;
+
+                        F = 0;
                     }
 
                     if (bs.readBit()) {
@@ -686,9 +674,10 @@ struct Video {
                 nY[width + 1] = Y[3];
                 nU[0]         = U;
                 nV[0]         = V;
+                nF[0]         = F;
 
-                nY += 2; nU++; nV++;
-                oY += 2; oU++; oV++;
+                nY += 2; nU++; nV++; nF++;
+                oY += 2; oU++; oV++; oF++;
 
                 if (!(((bIndex + 1) * 2) % width)) {
                     nY += width;
@@ -700,22 +689,22 @@ struct Video {
 
             delete[] data;
 
-            nY  = nextFrame;
-            nU = nY  + width * height;
+            nY = nextFrame;
+            nU = nY + width * height;
             nV = nU + width * height / 4;
+            nF = nV + width * height / 4;
 
-            Color32 *p = pixels;
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int Y = nY[y * width + x] << 2;
-                    int U = chromaValueLUT[nU[x / 2]] - 128;
-                    int V = chromaValueLUT[nV[x / 2]] - 128;
-                    (p++)->SetYUV(Y, U, V);
-                }
+            for (int y = 0; y < height / 2; y++) {
+                for (int x = 0; x < width / 2; x++) {
+                    int i = (y * width + x) * 2;
+                    
+                    Color32::YCbCr_T871_420(nY[i] << 2, nY[i + 1] << 2, nY[i + width] << 2, nY[i + width + 1] << 2, 
+                                            chromaValueLUT[*nU] - 128, chromaValueLUT[*nV] - 128, *nF * 4, 
+                                            pixels[i], pixels[i + 1], pixels[i + width], pixels[i + width + 1]);
 
-                if (y & 1) {
-                    nU += width / 2;
-                    nV += width / 2;
+                    nU++;
+                    nV++;
+                    nF++;
                 }
             }
 
@@ -1084,7 +1073,8 @@ struct Video {
 
                         int16 *b = block[(x < 8) ? ((y < 8) ? 2 : 4) : ((y < 8) ? 3 : 5)];
 
-                        Color32::YCbCr_420_PSX(b[j], b[j + 1], b[j + 8], b[j + 8 + 1], block[1][i], block[0][i], c[0], c[1], c[width], c[width + 1]);
+                        Color32::YCbCr_T871_420(b[j] + 128, b[j + 1] + 128, b[j + 8] + 128, b[j + 8 + 1] + 128, block[1][i], block[0][i], 4,
+                                                c[0], c[1], c[width], c[width + 1]);
                     }
                 }
 
