@@ -182,35 +182,34 @@ struct Video {
                 0x00000000, 0x00000000, 0x00000000, 0x00000000,
             };
 
-            ASSERT(F < 5);
+            ASSERT(F == 0 || F == 4);
 
-            // Y[0..3] += 128 <-> RGB += 128
-            int32 R =  (( 91881  * Cr              ) >> 16);
-            int32 G = -(( 22550  * Cb + 46799 * Cr ) >> 16);
-            int32 B =  (( 116129 * Cb              ) >> 16);
+            int32 R = ( 91881  * Cr              ) >> 16;
+            int32 G = ( 22550  * Cb + 46799 * Cr ) >> 16;
+            int32 B = ( 116129 * Cb              ) >> 16;
 
             const Color32 *d = &dither[F];
 
             C0.r = clamp(Y0 + R + d->r, 0, 255);
-            C0.g = clamp(Y0 + G + d->g, 0, 255);
+            C0.g = clamp(Y0 - G + d->g, 0, 255);
             C0.b = clamp(Y0 + B + d->b, 0, 255);
             C0.a = 255;
             d++;
 
             C1.r = clamp(Y1 + R + d->r, 0, 255);
-            C1.g = clamp(Y1 + G + d->g, 0, 255);
+            C1.g = clamp(Y1 - G + d->g, 0, 255);
             C1.b = clamp(Y1 + B + d->b, 0, 255);
             C1.a = 255;
             d++;
 
             C2.r = clamp(Y2 + R + d->r, 0, 255);
-            C2.g = clamp(Y2 + G + d->g, 0, 255);
+            C2.g = clamp(Y2 - G + d->g, 0, 255);
             C2.b = clamp(Y2 + B + d->b, 0, 255);
             C2.a = 255;
             d++;
 
             C3.r = clamp(Y3 + R + d->r, 0, 255);
-            C3.g = clamp(Y3 + G + d->g, 0, 255);
+            C3.g = clamp(Y3 - G + d->g, 0, 255);
             C3.b = clamp(Y3 + B + d->b, 0, 255);
             C3.a = 255;
         }
@@ -767,7 +766,7 @@ struct Video {
             VIDEO_MAX_FRAMES  = 4,
 
             AUDIO_CHUNK_SIZE  = (16 + 112) * 18, // XA ADPCM data block size
-            AUDIO_MAX_FRAMES  = 10000,
+            AUDIO_MAX_FRAMES  = 8,
 
             BLOCK_EOD         = 0xFE00,
         };
