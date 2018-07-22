@@ -177,7 +177,7 @@ struct Video {
         }
 
         static void YCbCr_T871_420(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, int32 F, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
-            static const Color32 dither[8] = {
+            static const uint32 dither[8] = {
                 0x00000600, 0x00060006, 0x00040204, 0x00020402,
                 0x00000000, 0x00000000, 0x00000000, 0x00000000,
             };
@@ -188,7 +188,7 @@ struct Video {
             int32 G = ( 22550  * Cb + 46799 * Cr ) >> 16;
             int32 B = ( 116129 * Cb              ) >> 16;
 
-            const Color32 *d = &dither[F];
+            const Color32 *d = (Color32*)dither + F;
 
             C0.r = clamp(Y0 + R + d->r, 0, 255);
             C0.g = clamp(Y0 - G + d->g, 0, 255);
