@@ -8,6 +8,7 @@
 
 #define CAM_OFFSET_FOLLOW (1024.0f + 512.0f)
 #define CAM_OFFSET_COMBAT (2048.0f + 512.0f)
+#define CAM_OFFSET_LOOK   (512.0f)
 
 #define CAM_SPEED_FOLLOW  12
 #define CAM_SPEED_COMBAT  8
@@ -19,8 +20,7 @@ struct Camera : ICamera {
     Frustum    *frustum;
 
     float       fov, aspect, znear, zfar;
-    vec3        advAngle, targetAngle;
-    float       advTimer;
+    vec3        lookAngle, targetAngle;
     mat4        mViewInv;
 
     float       timer;
@@ -34,6 +34,8 @@ struct Camera : ICamera {
 
     Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL) {
         this->owner = owner;
+        lookAngle = vec3(0.0f);
+
         changeView(false);
         if (level->isCutsceneLevel()) {
             mode = MODE_CUTSCENE;
@@ -49,8 +51,6 @@ struct Camera : ICamera {
 
         target.pos.y -= 1024;
         eye.pos.z  -= 100;
-
-        advTimer = -1.0f;
 
         speed  = CAM_SPEED_FOLLOW;
         smooth = false;
@@ -92,13 +92,19 @@ struct Camera : ICamera {
             pos.z = center.z;
         }
 
-        if (mode != MODE_STATIC)
-            pos.y = box.max.y + (box.min.y - box.max.y) * (3.0f / 4.0f);
-        else
-            pos.y = center.y;
+        if (mode == MODE_LOOK) {
+            Basis b = owner->getJoint(owner->jointHead);
+            b.translate(vec3(0, -128, 0));
+            pos = b.pos;
+        } else {
+            if (mode != MODE_STATIC)
+                pos.y = box.max.y + (box.min.y - box.max.y) * (3.0f / 4.0f);
+            else
+                pos.y = center.y;
 
-        if (owner->stand != Character::STAND_UNDERWATER)
-            pos.y -= 256;
+            if (owner->stand != Character::STAND_UNDERWATER)
+                pos.y -= 256;
+        }
 
         return pos;
     }
@@ -282,6 +288,8 @@ struct Camera : ICamera {
 
     void move(const TR::Location &to) {
         float t = (smooth && speed) ? (30.0f / speed * Core::deltaTime) : 1.0f;
+        if (mode == MODE_LOOK)
+            t = 20.0f * Core::deltaTime;
 
         eye.pos  = eye.pos.lerp(to.pos, t);
         eye.room = to.room;
@@ -354,6 +362,41 @@ struct Camera : ICamera {
         } else {
             Controller *lookAt = NULL;
 
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+                lookAngle = vec3(0.0f);
+            } else {
+                if (mode == MODE_LOOK) {
+                    float d = 3.0f * Core::deltaTime;
+
+                    lookAngle.x += Input::joy[cameraIndex].L.y * d;
+                    lookAngle.y += Input::joy[cameraIndex].L.x * d;
+
+                    if (Input::state[cameraIndex][cUp])    lookAngle.x -= d;
+                    if (Input::state[cameraIndex][cDown])  lookAngle.x += d;
+                    if (Input::state[cameraIndex][cLeft])  lookAngle.y -= d;
+                    if (Input::state[cameraIndex][cRight]) lookAngle.y += d;
+
+                    lookAngle.x = clamp(lookAngle.x, -80 * DEG2RAD, +80 * DEG2RAD);
+                    lookAngle.y = clamp(lookAngle.y, -90 * DEG2RAD, +90 * DEG2RAD);
+                } else
+                    if (lookAngle.x != 0.0f || lookAngle.y != 0.0f) {
+                        float t = 10.0f * Core::deltaTime;
+                        lookAngle.x = lerp(clampAngle(lookAngle.x), 0.0f, t);
+                        lookAngle.y = lerp(clampAngle(lookAngle.y), 0.0f, t);
+                        if (lookAngle.x < EPS) lookAngle.x = 0.0f;
+                        if (lookAngle.y < EPS) lookAngle.y = 0.0f;
+                    }
+            }
+
+            targetAngle = owner->angle + lookAngle;
+            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
+                targetAngle += angle;
+
+            targetAngle.x = clampAngle(targetAngle.x);
+            targetAngle.y = clampAngle(targetAngle.y);
+
+            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
+
             if (mode != MODE_STATIC) {
                 if (!owner->viewTarget) {
                     if (viewTarget && !viewTarget->flags.invisible) {
@@ -369,55 +412,6 @@ struct Camera : ICamera {
                 lookAt = viewTarget;
                 owner->lookAt(NULL);
             }
-
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-                advAngle = vec3(0.0f);
-            } else {
-                vec3 advAngleOld = advAngle;
-
-                if (Input::down[ikMouseL]) {
-                    vec2 delta = Input::mouse.pos - Input::mouse.start.L;
-                    advAngle.x -= delta.y * 0.01f;
-                    advAngle.y += delta.x * 0.01f;
-                    advAngle.y = clamp(advAngle.y, -PI, PI);
-                    Input::mouse.start.L = Input::mouse.pos;
-                }
-
-                // TODO: use player index
-                if (Input::state[cameraIndex][cLook]) {
-                    float d = 2.0f * Core::deltaTime;
-
-                    advAngle.x += Input::joy[cameraIndex].L.y * d;
-                    advAngle.y += Input::joy[cameraIndex].L.x * d;
-
-                    if (Input::state[cameraIndex][cUp])    advAngle.x -= d;
-                    if (Input::state[cameraIndex][cDown])  advAngle.x += d;
-                    if (Input::state[cameraIndex][cLeft])  advAngle.y += d;
-                    if (Input::state[cameraIndex][cRight]) advAngle.y -= d;
-                }
-
-                if (advAngleOld == advAngle) {
-                    if (advTimer > 0.0f) {
-                        advTimer = max(0.0f, advTimer - Core::deltaTime);
-                    }
-                } else
-                    advTimer = -1.0f;
-
-                if (owner->velocity != 0.0f && advTimer < 0.0f && !Input::down[ikMouseL])
-                    advTimer = -advTimer;
-
-                if (advTimer == 0.0f && advAngle != 0.0f) {
-                    float t = 10.0f * Core::deltaTime;
-                    advAngle.x = lerp(clampAngle(advAngle.x), 0.0f, t);
-                    advAngle.y = lerp(clampAngle(advAngle.y), 0.0f, t);
-                }
-            }
-
-            targetAngle = owner->angle + advAngle;
-            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
-                targetAngle += angle;
-
-            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
 
             if (!firstPerson || viewIndex != -1) {
 
@@ -452,7 +446,11 @@ struct Camera : ICamera {
                     else
                         target.pos.y = p.y;
 
-                    float offset = (mode == MODE_COMBAT ? CAM_OFFSET_COMBAT : CAM_OFFSET_FOLLOW) * cosf(targetAngle.x);
+                    float offset;
+                    if (mode == MODE_LOOK)
+                        offset = CAM_OFFSET_LOOK;
+                    else 
+                        offset = (mode == MODE_COMBAT ? CAM_OFFSET_COMBAT : CAM_OFFSET_FOLLOW) * cosf(targetAngle.x);
 
                     vec3 dir = vec3(targetAngle.x, targetAngle.y) * offset;
                     to.pos  = target.pos - dir;
@@ -523,9 +521,6 @@ struct Camera : ICamera {
 
         if (firstPerson)
             smooth = false;
-
-        advAngle = vec3(0.0f);
-        advTimer = 0.0f;
 
         fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 8.0f  : 32.0f;

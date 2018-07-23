@@ -245,11 +245,22 @@ struct Character : Controller {
         if (health <= 0.0f)
             target = NULL;
 
+        vec3 t(0.0f);
+        if (target) {
+            Box box = target->getBoundingBox();
+            t = (box.min + box.max) * 0.5f;
+        }
+
+        lookAtPos(target ? &t : NULL);
+    }
+
+
+    void lookAtPos(const vec3 *t = NULL) {
         float speed = 8.0f * Core::deltaTime;
         quat rot;
 
         if (jointChest > -1) {
-            if (aim(target, jointChest, rangeChest, rot)) {
+            if (t && aim(*t, jointChest, rangeChest, rot)) {
                 if (fullChestRotation)
                     rotChest = rotChest.slerp(rot, speed);
                 else
@@ -260,7 +271,7 @@ struct Character : Controller {
         }
 
         if (jointHead > -1) {
-            if (aim(target, jointHead, rangeHead, rot))
+            if (t && aim(*t, jointHead, rangeHead, rot))
                 rotHead = rotHead.slerp(rot, speed);
             else
                 rotHead = rotHead.slerp(quat(0, 0, 0, 1), speed);

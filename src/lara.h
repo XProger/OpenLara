@@ -259,7 +259,6 @@ struct Lara : Character {
     Camera      *camera;
 
     float       hitTimer;
-    bool        camChanged; // hit key detection to go first person view mode
 
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
@@ -439,15 +438,14 @@ struct Lara : Character {
         camera = new Camera(game, this);
 
         hitTimer   = 0.0f;
-        camChanged = false;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
         jointChest = 7;
         jointHead  = 14;
-        rangeChest = vec4(-0.40f, 0.40f, -0.90f, 0.90f) * PI;
-        rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
+        rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
+        rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;
 
         oxygen     = LARA_MAX_OXYGEN;
         hitDir     = -1;
@@ -1178,7 +1176,12 @@ struct Lara : Character {
 
         updateOverrides();
 
-        Character::lookAt(canLookAt() ? target : NULL);
+        Controller *lookTarget = canLookAt() ? target : NULL;
+        if (camera->mode == Camera::MODE_LOOK) {
+            vec3 p = pos + vec3(camera->targetAngle.x, camera->targetAngle.y) * 8192.0f;
+            Character::lookAtPos(&p);
+        } else
+            Character::lookAt(lookTarget);
 
         if (!emptyHands()) {
             updateTargets();
@@ -1318,7 +1321,7 @@ struct Lara : Character {
         }
 
         if (arms[0].target && arms[1].target && arms[0].target != arms[1].target) {
-            viewTarget = NULL; //arms[0].target;
+            viewTarget = (arms[0].target->pos - pos).length2() < (arms[1].target->pos - pos).length2() ? arms[0].target : arms[1].target;
         } else if (arms[0].target)
             viewTarget = arms[0].target;
         else if (arms[1].target)
@@ -2597,20 +2600,18 @@ struct Lara : Character {
         input = Character::getInput();
         if (input & DEATH) return input;
 
-        if (Input::state[pid][cLook])      input |= LOOK;
-        if (!(input & LOOK)) {
-            if (Input::state[pid][cUp])        input |= FORTH;
-            if (Input::state[pid][cRight])     input |= RIGHT;
-            if (Input::state[pid][cDown])      input |= BACK;
-            if (Input::state[pid][cLeft])      input |= LEFT;
-        }
+        if (Input::state[pid][cUp])        input |= FORTH;
+        if (Input::state[pid][cRight])     input |= RIGHT;
+        if (Input::state[pid][cDown])      input |= BACK;
+        if (Input::state[pid][cLeft])      input |= LEFT;
         if (Input::state[pid][cRoll])      input  = FORTH | BACK;
-        //if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
-        //if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
         if (Input::state[pid][cJump])      input |= JUMP;
         if (Input::state[pid][cWalk])      input |= WALK;
         if (Input::state[pid][cAction])    input |= ACTION;
         if (Input::state[pid][cWeapon])    input |= WEAPON;
+        if (Input::state[pid][cLook] && canLookAt()) input = LOOK;
+        //if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
+        //if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
 
     // scion debug (TODO: remove)
         if (Input::down[ikP]) {
@@ -2791,13 +2792,8 @@ struct Lara : Character {
     }
 
     virtual void update() {
-        if ((Input::state[camera->cameraIndex][cLook]) && (Input::state[camera->cameraIndex][cAction])) {
-            if (!camChanged) {
-                camera->changeView(!camera->firstPerson);
-                camChanged = true;
-            }
-        } else
-            camChanged = false;
+        if (Input::state[camera->cameraIndex][cLook] && Input::lastState[camera->cameraIndex] == cAction)
+            camera->changeView(!camera->firstPerson);
 
         if (level->isCutsceneLevel()) {
             updateAnimation(true);
@@ -2839,8 +2835,11 @@ struct Lara : Character {
 
         usedKey = TR::Entity::LARA;
 
-        if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC)
+        if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC) {
             camera->mode = (emptyHands() || health <= 0.0f) ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
+            if (input & LOOK)
+                camera->mode = Camera::MODE_LOOK;
+        }
 
         if (keyItem) {
             keyItem->flags.invisible = animation.frameIndex < (state == STATE_USE_KEY ? 70 : 30);

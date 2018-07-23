@@ -589,36 +589,47 @@ struct Controller {
         layers[layer].mask  = mask;
     }
 
-    bool aim(Controller *target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
-        if (target) {
-            Box box = target->getBoundingBox();
-            vec3 t = (box.min + box.max) * 0.5f;
+    bool aim(const vec3 &t, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
+        Basis b = animation.getJoints(getMatrix(), joint);
+        vec3 delta = (b.inverse() * t).normal();
+        if (invertAim)
+            delta = -delta;
 
-            Basis b = animation.getJoints(getMatrix(), joint);
-            vec3 delta = (b.inverse() * t).normal();
-            if (invertAim)
-                delta = -delta;
+        float angleY = clampAngle(atan2f(delta.x, delta.z));
+        float angleX = clampAngle(asinf(delta.y));
 
-            float angleY = clampAngle(atan2f(delta.x, delta.z));
-            float angleX = clampAngle(asinf(delta.y));
+        if (angleX > angleRange.x && angleX <= angleRange.y &&
+            angleY > angleRange.z && angleY <= angleRange.w) {
 
-            if (angleX > angleRange.x && angleX <= angleRange.y &&
-                angleY > angleRange.z && angleY <= angleRange.w) {
+            quat ax(vec3(1, 0, 0), -angleX);
+            quat ay(vec3(0, 1, 0), angleY);
 
-                quat ax(vec3(1, 0, 0), -angleX);
-                quat ay(vec3(0, 1, 0), angleY);
+            rot = ay * ax;
+            if (rotAbs)
+                *rotAbs = b.rot * rot;
 
-                rot = ay * ax;
-                if (rotAbs)
-                    *rotAbs = b.rot * rot;
-                return true;
-            }
+            return true;
         }
 
         if (rotAbs)
             *rotAbs = rotYXZ(angle);
+
         return false;
     }
+
+    bool aim(Controller *target, int joint, const vec4 &angleRange, quat &rot, quat *rotAbs = NULL) {
+        if (target) {
+            Box box = target->getBoundingBox();
+            vec3 t = (box.min + box.max) * 0.5f;
+            return aim(t, joint, angleRange, rot, rotAbs);
+        }
+
+        if (rotAbs)
+            *rotAbs = rotYXZ(angle);
+
+        return false;
+    }
+
 
     bool insideRoom(const vec3 &pos, int roomIndex) const {
         TR::Room &r = level->rooms[roomIndex];
