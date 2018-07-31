@@ -468,7 +468,7 @@ struct Inventory {
             inv->titleTimer = 0.0f;
             return;
         }
-        inv->titleTimer = 3.0f;
+        inv->titleTimer = inv->game->getLevel()->isTitle() ? 0.0f : 3.0f;
 
         inv->background[0] = Texture::Load(*stream);
         delete stream;

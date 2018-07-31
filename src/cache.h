@@ -718,13 +718,9 @@ struct WaterCache {
         int w, h;
         getTargetSize(w, h);
     // get refraction texture
-        if (!refract || w != refract->origWidth || h != refract->origHeight) {
+        if (!refract || w > refract->origWidth || h > refract->origHeight) {
             delete refract;
             refract = new Texture(w, h, FMT_RGBA, OPT_TARGET);
-            Core::setTarget(refract, RT_CLEAR_COLOR | RT_STORE_COLOR);
-            Core::validateRenderState();
-            Core::setTarget(NULL, RT_STORE_COLOR);
-            Core::validateRenderState();
         }
         Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
     }

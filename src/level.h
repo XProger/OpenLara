@@ -50,6 +50,9 @@ struct Level : IGame {
 
     bool lastTitle;
     bool isEnded;
+    bool needRedrawTitleBG;
+    bool needRedrawReflections;
+    bool needRenderGame;
 
     TR::Effect::Type effect;
     float      effectTimer;
@@ -279,12 +282,8 @@ struct Level : IGame {
             waterCache = Core::settings.detail.water > Core::Settings::LOW ? new WaterCache(this) : NULL;
         }
 
-        if (redraw && inventory->active && !level.isTitle()) {
-            Core::reset();
-            Core::beginFrame();
-            inventory->prepareBackground();
-            Core::endFrame();
-        }
+        if (redraw && inventory->active && !level.isTitle())
+            needRedrawTitleBG = true;
     }
 
     virtual TR::Level* getLevel() {
@@ -715,6 +714,9 @@ struct Level : IGame {
         waterCache   = NULL;
         zoneCache    = NULL;
 
+        needRedrawTitleBG = false;
+        needRedrawReflections = true;
+
         if (!(lastTitle = level.isTitle())) {
             ASSERT(players[0] != NULL);
             player = players[0];
@@ -724,9 +726,12 @@ struct Level : IGame {
             ambientCache = Core::settings.detail.lighting > Core::Settings::MEDIUM ? new AmbientCache(this) : NULL;
             waterCache   = Core::settings.detail.water    > Core::Settings::LOW    ? new WaterCache(this)   : NULL;
 
-            initShadow();
+            if (ambientCache) { // at first calculate ambient cube for Lara
+                AmbientCache::Cube cube;
+                ambientCache->getAmbient(players[0]->getRoomIndex(), players[0]->pos, cube); // add to queue
+            }
 
-            initReflections();
+            initShadow();
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];
@@ -1287,8 +1292,6 @@ struct Level : IGame {
     }
 
     void initReflections() {
-        Core::reset();
-        Core::beginFrame();
         for (int i = 0; i < level.entitiesBaseCount; i++) {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
@@ -1297,7 +1300,6 @@ struct Level : IGame {
                 c->environment->generateMipMap();
             }
         }
-        Core::endFrame();
     }
 
     void setMainLight(Controller *controller) {
@@ -1526,6 +1528,18 @@ struct Level : IGame {
     }
 
     void update() {
+        bool invRing = inventory->phaseRing != 0.0f && inventory->phaseRing != 1.0f;
+        if (inventory->video || inventory->titleTimer >= 1.0f || level.isCutsceneLevel() || invRing) {
+            memset(Input::btnEnable, 0, sizeof(Input::btnEnable));
+            Input::btnEnable[Input::bInventory] = !invRing;
+        } else
+            memset(Input::btnEnable, 1, sizeof(Input::btnEnable));
+
+        Input::btnEnable[Input::bWeapon] &= players[0] && players[0]->canDrawWeapon();
+
+        if (inventory->isActive())
+            Input::btnEnable[Input::bWalk] = Input::btnEnable[Input::bJump] = Input::btnEnable[Input::bWeapon] = false;
+
         if (inventory->video) {
             inventory->update();
             return;
@@ -2467,6 +2481,16 @@ struct Level : IGame {
             return;
         }
 
+        needRenderGame = !inventory->video && !level.isTitle() && ((inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) || needRedrawTitleBG);
+
+        if (!needRenderGame)
+            return;
+
+        if (needRedrawReflections) {
+            initReflections();
+            needRedrawReflections = false;
+        }
+
         if (ambientCache)
             ambientCache->processQueue();
 
@@ -2662,11 +2686,12 @@ struct Level : IGame {
 
     void render() {
         bool title  = inventory->isActive() || level.isTitle();
-        bool copyBg = title && lastTitle != title;
+        bool copyBg = title && (lastTitle != title || needRedrawTitleBG);
         lastTitle = title;
+        needRedrawTitleBG = false;
 
         if (isEnded) {
-            Core::setTarget(NULL, RT_CLEAR_COLOR);
+            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
             UI::begin();
             UI::updateAspect(float(Core::width) / float(Core::height));
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
@@ -2678,12 +2703,8 @@ struct Level : IGame {
             inventory->prepareBackground();
         }
 
-        if (!level.isTitle()) {
-            if (inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) {
-                renderGame(true);
-                title = false;
-            }
-        }
+        if (needRenderGame)
+            renderGame(true);
 
         renderInventory();
     }

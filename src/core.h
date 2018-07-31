@@ -948,11 +948,11 @@ namespace Core {
     }
 
     void endFrame() {
-        GAPI::endFrame();
         if (active.target != defaultTarget) {
             GAPI::setTarget(NULL, 0);
             validateRenderState();
         }
+        GAPI::endFrame();
         Core::stats.stop();
     }
 

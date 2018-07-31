@@ -776,7 +776,6 @@ struct Lara : Character {
         if (dozy) return true;
 
         return wpnCurrent != Weapon::EMPTY
-               && emptyHands()
                && animation.index != ANIM_CLIMB_3
                && animation.index != ANIM_CLIMB_2
                && state != STATE_DEATH

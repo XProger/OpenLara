@@ -499,16 +499,19 @@ namespace UI {
 
         float offset = Core::height * 0.25f;
 
-        vec2 pos = vec2(offset, Core::height - offset);
-        if (Input::down[Input::touchKey[Input::zMove]]) {
-            Input::Touch &t = Input::touch[Input::touchKey[Input::zMove] - ikTouchA];
-            renderControl(t.pos, Input::btnRadius, true);
-            pos = t.start;
+        if (Input::btnEnable[Input::bMove]) {
+            vec2 pos = vec2(offset * 0.7f, Core::height - offset * 0.7f) + vec2(-cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * offset;
+            if (Input::down[Input::touchKey[Input::zMove]]) {
+                Input::Touch &t = Input::touch[Input::touchKey[Input::zMove] - ikTouchA];
+                renderControl(t.pos, Input::btnRadius, true);
+                pos = t.start;
+            }
+            renderControl(pos, Input::btnRadius, false);
         }
-        renderControl(pos, Input::btnRadius, false);
 
         for (int i = Input::bWeapon; i < Input::bMAX; i++)
-            renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
+            if (Input::btnEnable[i])
+                renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
 
         Core::setCullMode(cmFront);
         Core::setBlendMode(bmNone);

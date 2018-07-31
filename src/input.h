@@ -56,13 +56,15 @@ namespace Input {
         }
     } hmd;
 
-    enum TouchButton { bNone, bWeapon, bWalk, bAction, bJump, bInventory, bMAX };
+    enum TouchButton { bMove, bWeapon, bWalk, bAction, bJump, bInventory, bMAX };
     enum TouchZone   { zMove, zLook, zButton, zMAX };
 
     float       touchTimerVis, touchTimerTap;
     InputKey    touchKey[zMAX];
+
     TouchButton btn;
     vec2        btnPos[bMAX];
+    bool        btnEnable[bMAX];
     float       btnRadius;
     bool        doubleTap;
 
@@ -170,6 +172,7 @@ namespace Input {
         touchTimerTap    = 0.0f;
         doubleTap        = false;
         touchKey[zMove]  = touchKey[zLook] = touchKey[zButton] = ikNone;
+        memset(btnEnable, 1, sizeof(btnEnable));
     }
 
     bool checkTouchZone(TouchZone zone) {
@@ -195,17 +198,21 @@ namespace Input {
         dir = delta;
     }
 
+    void setState(int playerIndex, ControlKey key, bool down) {
+        if (down && !state[playerIndex][key])
+            lastState[playerIndex] = key;
+        state[playerIndex][key] = down;
+    }
+
     void update() {
+        bool newState[MAX_PLAYERS][cMAX];
+
         for (int j = 0; j < COUNT(Core::settings.controls); j++) {
             lastState[j] = cMAX;
-
             Core::Settings::Controls &ctrl = Core::settings.controls[j];
             for (int i = 0; i < cMAX; i++) {
                 KeySet &c = ctrl.keys[i];
-                bool active = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]);
-                if (active && !state[j][i])
-                    lastState[j] = ControlKey(i);
-                state[j][i] = active;
+                newState[j][i] = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]);
             }
         }
 
@@ -237,13 +244,11 @@ namespace Input {
         if (checkTouchZone(zMove))
             joy.L = vec2(0.0f);
 
-        if (checkTouchZone(zLook)) {
+        if (checkTouchZone(zLook))
             joy.L = vec2(0.0f);
-            state[0][cLook] = false;
-        }
 
         if (checkTouchZone(zButton))
-            btn = bNone;
+            btn = bMove; // no active buttons == bNone
 
         if (doubleTap)
             doubleTap = false;
@@ -268,11 +273,10 @@ namespace Input {
                     } else
                         touchTimerTap = 0.3f;
                 }
-
-                if (zone == zLook)
-                    state[0][cLook] = true;
             }
         }
+
+        newState[0][cLook] |= touchKey[zLook] != ikNone;
 
     // set active touches as gamepad controls
         getTouchDir(touchKey[zMove], joy.L);
@@ -283,26 +287,31 @@ namespace Input {
 
             btn = bMAX;
             float minDist = btnRadius * 8.0f;
-            for (int i = 0; i < bMAX; i++) {
-                float d = (pos - btnPos[i]).length();
-                if (d < minDist) {
-                    minDist = d;
-                    btn = TouchButton(i);
+            for (int i = 0; i < bMAX; i++)
+                if (btnEnable[i]) {
+                    float d = (pos - btnPos[i]).length();
+                    if (d < minDist) {
+                        minDist = d;
+                        btn = TouchButton(i);
+                    }
                 }
-            }
 
             switch (btn) {
-                case bWeapon    : state[0][cWeapon]    = true; break;
-                case bWalk      : state[0][cWalk]      = true; break;
-                case bAction    : state[0][cAction]    = true; break;
-                case bJump      : state[0][cJump]      = true; break;
-                case bInventory : state[0][cInventory] = true; break;
+                case bWeapon    : newState[0][cWeapon   ] = true; break;
+                case bWalk      : newState[0][cWalk     ] = true; break;
+                case bAction    : newState[0][cAction   ] = true; break;
+                case bJump      : newState[0][cJump     ] = true; break;
+                case bInventory : newState[0][cInventory] = true; break;
                 default         : ;
             }
         }
 
         if (doubleTap)
-            state[0][cRoll] = true;
+            newState[0][cRoll] = true;
+
+        for (int j = 0; j < COUNT(Core::settings.controls); j++)
+            for (int i = 0; i < cMAX; i++)
+                setState(j, ControlKey(i), newState[j][i]);
     }
 }
 
