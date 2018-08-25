@@ -371,8 +371,8 @@ struct AmbientCache {
             int oz = sz + sign(z - sz) * 1024;
 
             float tx, tz;
-            tx = fabsf(x - sx) / 1024.0f;
-            tz = fabsf(z - sz) / 1024.0f;
+            tx = abs(x - sx) / 1024.0f;
+            tz = abs(z - sz) / 1024.0f;
 
             cx = getAmbient(room, ox, sz);
             cz = getAmbient(room, sx, oz);
