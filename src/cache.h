@@ -321,10 +321,18 @@ struct AmbientCache {
         tasksCount = 0;
     }
 
-    Cube* getAmbient(int roomIndex, int sector) {
+    Cube* getAmbient(int roomIndex, int x, int z) {
         TR::Room &r = level->rooms[roomIndex];
+
+        int sx = clamp(x / 1024, 0, r.xSectors - 1);
+        int sz = clamp(z / 1024, 0, r.zSectors - 1);
+        int sector = sx * r.zSectors + sz;
+
         if (level->state.flags.flipped && r.alternateRoom > -1)
             sector += r.xSectors * r.zSectors;
+
+        if (r.sectors[sector].floor == TR::NO_FLOOR)
+            return NULL;
 
         Cube *cube = &items[offsets[roomIndex] + sector];
         if (cube->status == Cube::BLANK)
@@ -333,17 +341,70 @@ struct AmbientCache {
         return cube->status == Cube::READY ? cube : NULL;
     }
 
+    void lerpCubes(Cube &result, const Cube *a, const Cube *b, float t) {
+        ASSERT(a != NULL && b != NULL);
+        result.colors[0] = a->colors[0].lerp(b->colors[0], t);
+        result.colors[1] = a->colors[1].lerp(b->colors[1], t);
+        result.colors[2] = a->colors[2].lerp(b->colors[2], t);
+        result.colors[3] = a->colors[3].lerp(b->colors[3], t);
+        result.colors[4] = a->colors[4].lerp(b->colors[4], t);
+        result.colors[5] = a->colors[5].lerp(b->colors[5], t);
+    }
+
     void getAmbient(int room, const vec3 &pos, Cube &value) {
         TR::Room &r = level->rooms[room];
-            
-        int sx = clamp((int(pos.x) - r.info.x) / 1024, 0, r.xSectors - 1);
-        int sz = clamp((int(pos.z) - r.info.z) / 1024, 0, r.zSectors - 1);
-            
-        int sector = sx * r.zSectors + sz;
-        Cube *a = getAmbient(room, sector);
-        if (a)
-            value = *a;
-        else
+        
+        int x = int(pos.x) - r.info.x;
+        int z = int(pos.z) - r.info.z;
+
+        // cc cx
+        // cz cd
+
+        Cube *cc = getAmbient(room, x, z);
+        if (cc && cc->status == Cube::READY) {
+            Cube *cx = NULL, *cz = NULL, *cd = NULL;
+
+            int sx = (x / 1024) * 1024 + 512;
+            int sz = (z / 1024) * 1024 + 512;
+
+            int ox = sx + sign(x - sx) * 1024;
+            int oz = sz + sign(z - sz) * 1024;
+
+            float tx, tz;
+            tx = fabsf(x - sx) / 1024.0f;
+            tz = fabsf(z - sz) / 1024.0f;
+
+            cx = getAmbient(room, ox, sz);
+            cz = getAmbient(room, sx, oz);
+            cd = getAmbient(room, ox, oz);
+
+            if (cx != NULL && cx->status != Cube::READY) cx = cc;
+            if (cz != NULL && cz->status != Cube::READY) cz = cc;
+            if (cd != NULL && cd->status != Cube::READY) cd = cc;
+
+            Cube lx, lz;
+            if (cd != NULL && cx != NULL && cz != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(lz, cz, cd, tx);
+                lerpCubes(value, &lx, &lz, tz);
+            } else if (cd != NULL && cx != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(value, &lx, cd, tz);
+            } else if (cd != NULL && cz != NULL) {
+                lerpCubes(lz, cc, cz, tz);
+                lerpCubes(value, &lz, cd, tx);
+            } else if (cx != NULL && cz != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(value, &lx, cz, tz);
+            } else if (cx != NULL) {
+                lerpCubes(value, cc, cx, tx);
+            } else if (cz != NULL) {
+                lerpCubes(value, cc, cz, tz);
+            } else
+                value = *cc;
+
+            value.status = cc->status;
+        } else
             value.status = Cube::BLANK;
     }
 };
