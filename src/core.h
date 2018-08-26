@@ -894,7 +894,7 @@ namespace Core {
         if (target == defaultTarget) // backbuffer
             setViewport(viewportDef);
         else
-            setViewport(0, 0, target->width, target->height);
+            setViewport(0, 0, target->origWidth, target->origHeight);
 
         reqTarget.texture = target;
         reqTarget.op      = op;

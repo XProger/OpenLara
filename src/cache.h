@@ -321,10 +321,18 @@ struct AmbientCache {
         tasksCount = 0;
     }
 
-    Cube* getAmbient(int roomIndex, int sector) {
+    Cube* getAmbient(int roomIndex, int x, int z) {
         TR::Room &r = level->rooms[roomIndex];
+
+        int sx = clamp(x / 1024, 0, r.xSectors - 1);
+        int sz = clamp(z / 1024, 0, r.zSectors - 1);
+        int sector = sx * r.zSectors + sz;
+
         if (level->state.flags.flipped && r.alternateRoom > -1)
             sector += r.xSectors * r.zSectors;
+
+        if (r.sectors[sector].floor == TR::NO_FLOOR)
+            return NULL;
 
         Cube *cube = &items[offsets[roomIndex] + sector];
         if (cube->status == Cube::BLANK)
@@ -333,17 +341,70 @@ struct AmbientCache {
         return cube->status == Cube::READY ? cube : NULL;
     }
 
+    void lerpCubes(Cube &result, const Cube *a, const Cube *b, float t) {
+        ASSERT(a != NULL && b != NULL);
+        result.colors[0] = a->colors[0].lerp(b->colors[0], t);
+        result.colors[1] = a->colors[1].lerp(b->colors[1], t);
+        result.colors[2] = a->colors[2].lerp(b->colors[2], t);
+        result.colors[3] = a->colors[3].lerp(b->colors[3], t);
+        result.colors[4] = a->colors[4].lerp(b->colors[4], t);
+        result.colors[5] = a->colors[5].lerp(b->colors[5], t);
+    }
+
     void getAmbient(int room, const vec3 &pos, Cube &value) {
         TR::Room &r = level->rooms[room];
-            
-        int sx = clamp((int(pos.x) - r.info.x) / 1024, 0, r.xSectors - 1);
-        int sz = clamp((int(pos.z) - r.info.z) / 1024, 0, r.zSectors - 1);
-            
-        int sector = sx * r.zSectors + sz;
-        Cube *a = getAmbient(room, sector);
-        if (a)
-            value = *a;
-        else
+        
+        int x = int(pos.x) - r.info.x;
+        int z = int(pos.z) - r.info.z;
+
+        // cc cx
+        // cz cd
+
+        Cube *cc = getAmbient(room, x, z);
+        if (cc && cc->status == Cube::READY) {
+            Cube *cx = NULL, *cz = NULL, *cd = NULL;
+
+            int sx = (x / 1024) * 1024 + 512;
+            int sz = (z / 1024) * 1024 + 512;
+
+            int ox = sx + sign(x - sx) * 1024;
+            int oz = sz + sign(z - sz) * 1024;
+
+            float tx, tz;
+            tx = abs(x - sx) / 1024.0f;
+            tz = abs(z - sz) / 1024.0f;
+
+            cx = getAmbient(room, ox, sz);
+            cz = getAmbient(room, sx, oz);
+            cd = getAmbient(room, ox, oz);
+
+            if (cx != NULL && cx->status != Cube::READY) cx = cc;
+            if (cz != NULL && cz->status != Cube::READY) cz = cc;
+            if (cd != NULL && cd->status != Cube::READY) cd = cc;
+
+            Cube lx, lz;
+            if (cd != NULL && cx != NULL && cz != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(lz, cz, cd, tx);
+                lerpCubes(value, &lx, &lz, tz);
+            } else if (cd != NULL && cx != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(value, &lx, cd, tz);
+            } else if (cd != NULL && cz != NULL) {
+                lerpCubes(lz, cc, cz, tz);
+                lerpCubes(value, &lz, cd, tx);
+            } else if (cx != NULL && cz != NULL) {
+                lerpCubes(lx, cc, cx, tx);
+                lerpCubes(value, &lx, cz, tz);
+            } else if (cx != NULL) {
+                lerpCubes(value, cc, cx, tx);
+            } else if (cz != NULL) {
+                lerpCubes(value, cc, cz, tz);
+            } else
+                value = *cc;
+
+            value.status = cc->status;
+        } else
             value.status = Cube::BLANK;
     }
 };
@@ -357,6 +418,7 @@ struct WaterCache {
 
     IGame     *game;
     TR::Level *level;
+    Texture   *screen;
     Texture   *refract;
     Texture   *reflect;
 
@@ -482,11 +544,12 @@ struct WaterCache {
         Drop(const vec3 &pos, float radius, float strength) : pos(pos), radius(radius), strength(strength) {}
     } drops[MAX_DROPS];
 
-    WaterCache(IGame *game) : game(game), level(game->getLevel()), refract(NULL), count(0), dropCount(0) {
+    WaterCache(IGame *game) : game(game), level(game->getLevel()), screen(NULL), refract(NULL), count(0), dropCount(0) {
         reflect = new Texture(512, 512, FMT_RGBA, OPT_TARGET);
     }
 
-    ~WaterCache() { 
+    ~WaterCache() {
+        delete screen;
         delete refract;
         delete reflect;
         for (int i = 0; i < count; i++)
@@ -702,27 +765,34 @@ struct WaterCache {
         Core::setCullMode(cmFront);
     }
 
-    void getTargetSize(int &w, int &h) {
-        if (Core::active.target != NULL) {
-            w = Core::active.target->width;
-            h = Core::active.target->height;
-        } else {
-            w = Core::viewportDef.width;
-            h = Core::viewportDef.height;
-        }
-    }
 
-    void getRefract() {
-        if (!visible) return;
-        PROFILE_MARKER("WATER_REFRACT");
-        int w, h;
-        getTargetSize(w, h);
+    Texture* getScreenTex() {
+        int w = Core::viewportDef.width;
+        int h = Core::viewportDef.height;
     // get refraction texture
-        if (!refract || w > refract->origWidth || h > refract->origHeight) {
+        if (!refract || w != refract->origWidth || h != refract->origHeight) {
+            PROFILE_MARKER("WATER_REFRACT_INIT");
             delete refract;
             refract = new Texture(w, h, FMT_RGBA, OPT_TARGET);
+        #ifdef _OS_IOS
+            delete screen;
+            screen  = new Texture(w, h, FMT_RGBA, OPT_TARGET);
+        #endif
         }
-        Core::copyTarget(refract, 0, 0, int(Core::viewportDef.x), int(Core::viewportDef.y), w, h); // copy framebuffer into refraction texture
+        return screen;
+    }
+
+    void copyScreenToRefract() {
+        PROFILE_MARKER("WATER_REFRACT_COPY");
+    // get refraction texture
+        int x, y;
+        if (!screen) {
+            x = Core::viewportDef.x;
+            y = Core::viewportDef.y;
+        } else
+            x = y = 0;
+
+        Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
     }
 
     void simulate() {
@@ -828,9 +898,7 @@ struct WaterCache {
             Core::active.shader->setParam(uLightPos,    Core::lightPos[0],   1);
             Core::active.shader->setParam(uLightColor,  Core::lightColor[0], 1);
 
-            int w, h;
-            getTargetSize(w, h);
-            Core::active.shader->setParam(uParam, vec4(float(w) / refract->width, float(h) / refract->height, 0.05f, 0.03f));
+            Core::active.shader->setParam(uParam, vec4(float(refract->origWidth) / refract->width, float(refract->origHeight) / refract->height, 0.05f, 0.03f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
@@ -856,6 +924,44 @@ struct WaterCache {
             Core::setBlendMode(bmNone);
         }
         dropCount = 0;
+    }
+
+    void blitScreen() {
+        ASSERT(screen);
+
+        Core::setDepthTest(false);
+        Core::setBlendMode(bmNone);
+
+        game->setShader(Core::passGUI, Shader::DEFAULT);
+
+        Core::mView.identity();
+        Core::mProj = GAPI::ortho(0.0f, float(screen->origWidth), 0.0f, float(screen->origHeight), 0.0f, 1.0f);
+        Core::setViewProj(Core::mView, Core::mProj);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+        Core::active.shader->setParam(uMaterial, vec4(1.0f));
+
+        screen->bind(0);
+        int w = screen->width;
+        int h = screen->height;
+
+        Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
+        Vertex vertices[4];
+        vertices[0].coord = short4(0, h, 0, 0);
+        vertices[1].coord = short4(w, h, 0, 0);
+        vertices[2].coord = short4(w, 0, 0, 0);
+        vertices[3].coord = short4(0, 0, 0, 0);
+        vertices[0].light =
+        vertices[1].light =
+        vertices[2].light =
+        vertices[3].light = ubyte4(255, 255, 255, 255);
+        vertices[0].texCoord = short4(    0, 32767, 0, 0);
+        vertices[1].texCoord = short4(32767, 32767, 0, 0);
+        vertices[2].texCoord = short4(32767,     0, 0, 0);
+        vertices[3].texCoord = short4(    0,     0, 0, 0);
+
+        game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
+
+        Core::setDepthTest(true);
     }
 
     #undef MAX_WATER_SURFACES

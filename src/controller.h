@@ -1206,7 +1206,7 @@ struct Controller {
         if (!lockMatrix) {
             matrix.identity();
             matrix.translate(pos);
-            if (angle.y != 0.0f) matrix.rotateY(angle.y - animation.rot * animation.delta);
+            if (angle.y != 0.0f) matrix.rotateY(angle.y - (animation.anims != NULL ? (animation.rot * animation.delta) : 0.0f));
             if (angle.x != 0.0f) matrix.rotateX(angle.x);
             if (angle.z != 0.0f) matrix.rotateZ(angle.z);
         }

@@ -33,11 +33,6 @@ struct Animation {
     }
     
     void setModel(const TR::Model *model) {
-        if (this->model == model)
-            return;
-
-        this->model = model;
-        anims = model ? &level->anims[model->animation] : NULL;
         time = 0;
         delta = 0;
         dir = 1.0f;
@@ -45,6 +40,12 @@ struct Animation {
         prev = 0;
         next = 0;
         overrideMask = 0;
+
+        if (this->model == model)
+            return;
+
+        this->model = model;
+        anims = model ? &level->anims[model->animation] : NULL;
 
         if (overrides) {
             delete[] overrides;
