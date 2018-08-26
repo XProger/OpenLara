@@ -440,13 +440,19 @@ struct Level : IGame {
         Core::Pass tmpPass = Core::pass;
         Core::eye = 0.0f;
 
+    // TODO: fix for wrong room visibility checks, FIX IT!
+        int roomsCount = 0;
+        int roomsList[256];
+        for (int i = 0; i < level.roomsCount; i++)
+            roomsList[roomsCount++] = i;
+    // -----
     // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
-            renderView(roomIndex, false, false);
+            renderView(roomIndex, false, false, roomsCount, roomsList);
         }
 
         Core::pass = tmpPass;
@@ -2343,7 +2349,7 @@ struct Level : IGame {
             Core::validateRenderState();
         //    Debug::Level::rooms(level, lara->pos, lara->getEntity().room);
         //     Debug::Level::lights(level, player->getRoomIndex(), player);
-        //    Debug::Level::sectors(this, lara->getRoomIndex(), (int)lara->pos.y);
+        //    Debug::Level::sectors(this, players[0]->getRoomIndex(), (int)players[0]->pos.y);
         //    Core::setDepthTest(false);
         //    Debug::Level::portals(level);
         //    Core::setDepthTest(true);
@@ -2399,6 +2405,7 @@ struct Level : IGame {
             glBegin(GL_LINES);
             float S = 64.0f;
             for (int i = 0; i < level.roomsCount; i++) {
+                if (i != players[0]->getRoomIndex()) continue;
                 TR::Room &r = level.rooms[i];                
                 for (int j = 0; j < r.xSectors * r.zSectors; j++) {
                     TR::Room::Sector &s = r.sectors[j];
