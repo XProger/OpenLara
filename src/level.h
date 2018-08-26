@@ -2052,7 +2052,7 @@ struct Level : IGame {
 
         if (water && waterCache && waterCache->visible && screen) {
             Core::setTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
-            waterCache->blitScreen();
+            waterCache->blitTexture(screen);
         }
 
         if (showUI)

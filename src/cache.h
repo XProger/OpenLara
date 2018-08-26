@@ -791,8 +791,13 @@ struct WaterCache {
             y = Core::viewportDef.y;
         } else
             x = y = 0;
-
+    #ifdef _OS_IOS
+        Core::setTarget(refract, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        blitTexture(screen);
+        Core::setTarget(screen, RT_LOAD_COLOR | RT_STORE_COLOR);
+    #else
         Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
+    #endif
     }
 
     void simulate() {
@@ -926,8 +931,8 @@ struct WaterCache {
         dropCount = 0;
     }
 
-    void blitScreen() {
-        ASSERT(screen);
+    void blitTexture(Texture *tex) {
+        ASSERT(tex);
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);
@@ -935,14 +940,14 @@ struct WaterCache {
         game->setShader(Core::passGUI, Shader::DEFAULT);
 
         Core::mView.identity();
-        Core::mProj = GAPI::ortho(0.0f, float(screen->origWidth), 0.0f, float(screen->origHeight), 0.0f, 1.0f);
+        Core::mProj = GAPI::ortho(0.0f, float(tex->origWidth), 0.0f, float(tex->origHeight), 0.0f, 1.0f);
         Core::setViewProj(Core::mView, Core::mProj);
         Core::active.shader->setParam(uViewProj, Core::mViewProj);
         Core::active.shader->setParam(uMaterial, vec4(1.0f));
 
-        screen->bind(0);
-        int w = screen->width;
-        int h = screen->height;
+        tex->bind(0);
+        int w = tex->width;
+        int h = tex->height;
 
         Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
         Vertex vertices[4];
