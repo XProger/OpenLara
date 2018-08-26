@@ -2011,7 +2011,7 @@ struct Level : IGame {
         Texture *screen = NULL;
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
-            Core::setTarget(screen, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to screen texture (FUCK YOU iOS!) or back buffer
+            Core::setTarget(screen, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
             setupBinding();
         }
 
@@ -2051,7 +2051,7 @@ struct Level : IGame {
         Core::Pass pass = Core::pass;
 
         if (water && waterCache && waterCache->visible && screen) {
-            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+            Core::setTarget(NULL, RT_STORE_COLOR);
             waterCache->blitTexture(screen);
         }
 

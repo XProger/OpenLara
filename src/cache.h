@@ -792,9 +792,9 @@ struct WaterCache {
         } else
             x = y = 0;
     #ifdef _OS_IOS
-        Core::setTarget(refract, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::setTarget(refract, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
         blitTexture(screen);
-        Core::setTarget(screen, RT_LOAD_COLOR | RT_STORE_COLOR);
+        Core::setTarget(screen, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
     #else
         Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
     #endif
@@ -934,15 +934,11 @@ struct WaterCache {
     void blitTexture(Texture *tex) {
         ASSERT(tex);
 
-        Core::setDepthTest(false);
-        Core::setBlendMode(bmNone);
-
         game->setShader(Core::passGUI, Shader::DEFAULT);
 
-        Core::mView.identity();
-        Core::mProj = GAPI::ortho(0.0f, float(tex->origWidth), 0.0f, float(tex->origHeight), 0.0f, 1.0f);
-        Core::setViewProj(Core::mView, Core::mProj);
-        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+        mat4 mProj = GAPI::ortho(0.0f, float(tex->origWidth), 0.0f, float(tex->origHeight), 0.0f, 1.0f);
+
+        Core::active.shader->setParam(uViewProj, mProj);
         Core::active.shader->setParam(uMaterial, vec4(1.0f));
 
         tex->bind(0);
@@ -963,6 +959,9 @@ struct WaterCache {
         vertices[1].texCoord = short4(32767, 32767, 0, 0);
         vertices[2].texCoord = short4(32767,     0, 0, 0);
         vertices[3].texCoord = short4(    0,     0, 0, 0);
+
+        Core::setDepthTest(false);
+        Core::setBlendMode(bmNone);
 
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
 
