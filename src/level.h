@@ -2002,8 +2002,10 @@ struct Level : IGame {
                     controller->flags.rendered = false;
             }
 
+        Texture *screen = NULL;
         if (water) {
-            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to back buffer
+            screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
+            Core::setTarget(screen, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR); // render to screen texture (FUCK YOU iOS!) or back buffer
             setupBinding();
         }
 
@@ -2027,9 +2029,10 @@ struct Level : IGame {
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
             waterCache->renderMask();
-            waterCache->getRefract();
+            waterCache->copyScreenToRefract();
             setMainLight(player);
             waterCache->render();
+
             Core::pass = pass;
             setupBinding();
         }
@@ -2039,11 +2042,17 @@ struct Level : IGame {
     
         Core::setBlendMode(bmNone);
 
-        if (showUI) {
-            Core::Pass pass = Core::pass;
-            renderUI();
-            Core::pass = pass;
+        Core::Pass pass = Core::pass;
+
+        if (water && waterCache && waterCache->visible && screen) {
+            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+            waterCache->blitScreen();
         }
+
+        if (showUI)
+            renderUI();
+
+        Core::pass = pass;
     }
 
     void setupCubeCamera(const vec3 &pos, int face) {
