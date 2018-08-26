@@ -848,7 +848,9 @@ struct Controller {
             dist -= d;
             pos = pos + dir * d;
 
-            px = (int)pos.x, py = (int)pos.y, pz = (int)pos.z;
+            px = (int)pos.x;
+            py = (int)pos.y;
+            pz = (int)pos.z;
         }
 
         return pos;

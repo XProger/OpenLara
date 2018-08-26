@@ -1244,7 +1244,7 @@ struct Stream {
             #endif
         } else {
             fseek(f, 0, SEEK_END);
-            size = ftell(f);
+            size = (int32)ftell(f);
             fseek(f, 0, SEEK_SET);
 
             if (name) {
@@ -1308,7 +1308,7 @@ struct Stream {
     int raw(void *data, int count) {
         if (!count) return 0;
         if (f)
-            count = fread(data, 1, count, f);
+            count = (int)fread(data, 1, count, f);
         else
             memcpy(data, this->data + pos, count);
         pos += count;
@@ -1364,7 +1364,7 @@ void osCacheRead(Stream *stream) {
     FILE *f = fopen(path, "rb");
     if (f) {
         fseek(f, 0, SEEK_END);
-        int size = ftell(f);
+        int size = (int)ftell(f);
         fseek(f, 0, SEEK_SET);
         char *data = new char[size];
         fread(data, 1, size, f);
@@ -1389,11 +1389,13 @@ void osLoadGame(Stream *stream) {
 
 
 #ifdef OS_PTHREAD_MT
+#include <pthread.h>
+
 // multi-threading
 void* osMutexInit() {
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
-#ifndef _OS_WEB
+#if !defined(_OS_WEB) && !defined(_OS_IOS)
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
 #endif
 

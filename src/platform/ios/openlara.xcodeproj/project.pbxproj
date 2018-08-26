@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		99266D7E160A568B003FFEBA /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99266D7D160A568B003FFEBA /* AudioToolbox.framework */; };
 		99266D81160A5E7C003FFEBA /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99266D80160A5E7C003FFEBA /* UIKit.framework */; };
+		992B0783212BC0DA00B42DDC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 992B0782212BC0DA00B42DDC /* tinflate.c */; };
+		992B0786212BC39300B42DDC /* level in Resources */ = {isa = PBXBuildFile; fileRef = 992B0784212BC39200B42DDC /* level */; };
+		992B0787212BC39300B42DDC /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 992B0785212BC39300B42DDC /* audio */; };
 		996585AF160A31450097B128 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 996585AE160A31450097B128 /* Foundation.framework */; };
 		996585CB160A3A8B0097B128 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 996585C8160A3A8B0097B128 /* AppDelegate.mm */; };
 		996585CC160A3A8B0097B128 /* ViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 996585CA160A3A8B0097B128 /* ViewController.mm */; };
@@ -17,14 +20,15 @@
 		99CF06251E9145830072E389 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 996585B8160A31450097B128 /* main.m */; };
 		99CF06301E91505D0072E389 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99CF062E1E91505D0072E389 /* minimp3.cpp */; };
 		99CF06311E91505D0072E389 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99CF062F1E91505D0072E389 /* stb_vorbis.c */; };
-		99CF06351E9154170072E389 /* LEVEL2.PSX in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06331E9154170072E389 /* LEVEL2.PSX */; };
-		99CF06361E9154170072E389 /* 05.ogg in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06341E9154170072E389 /* 05.ogg */; };
 		99CF06381E9193370072E389 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 99CF06231E9143C60072E389 /* Default-568h@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		99266D7D160A568B003FFEBA /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		99266D80160A5E7C003FFEBA /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		992B0782212BC0DA00B42DDC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
+		992B0784212BC39200B42DDC /* level */ = {isa = PBXFileReference; lastKnownFileType = folder; name = level; path = ../../../bin/level; sourceTree = "<group>"; };
+		992B0785212BC39300B42DDC /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../bin/audio; sourceTree = "<group>"; };
 		996585A8160A31450097B128 /* OpenLara.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenLara.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		996585AE160A31450097B128 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		996585B0160A31450097B128 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -38,8 +42,6 @@
 		996585CA160A3A8B0097B128 /* ViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ViewController.mm; sourceTree = "<group>"; };
 		996585FA160A3B500097B128 /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
 		996585FC160A3C620097B128 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
-		99CF06021E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
-		99CF06031E913FE90072E389 /* bin */ = {isa = PBXFileReference; lastKnownFileType = text; name = bin; path = ../../../bin; sourceTree = "<group>"; };
 		99CF06061E9140630072E389 /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
 		99CF06071E9140630072E389 /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
 		99CF06081E9140630072E389 /* camera.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = camera.h; path = ../../camera.h; sourceTree = "<group>"; };
@@ -91,6 +93,9 @@
 		9965859D160A31450097B128 = {
 			isa = PBXGroup;
 			children = (
+				992B0785212BC39300B42DDC /* audio */,
+				992B0784212BC39200B42DDC /* level */,
+				992B0782212BC0DA00B42DDC /* tinflate.c */,
 				996585CD160A3AC50097B128 /* src */,
 				996585B8160A31450097B128 /* main.m */,
 				996585C8160A3A8B0097B128 /* AppDelegate.mm */,
@@ -98,7 +103,6 @@
 				996585CA160A3A8B0097B128 /* ViewController.mm */,
 				996585BB160A31450097B128 /* AppDelegate.h */,
 				996585B3160A31450097B128 /* Supporting Files */,
-				996585FE160A3C960097B128 /* data */,
 				996585AB160A31450097B128 /* Frameworks */,
 				996585A9160A31450097B128 /* Products */,
 			);
@@ -173,15 +177,6 @@
 			path = ../src;
 			sourceTree = "<group>";
 		};
-		996585FE160A3C960097B128 /* data */ = {
-			isa = PBXGroup;
-			children = (
-				99CF06021E913FE90072E389 /* bin */,
-				99CF06031E913FE90072E389 /* bin */,
-			);
-			path = data;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -208,7 +203,7 @@
 		9965859F160A31450097B128 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0430;
+				LastUpgradeCheck = 0940;
 				TargetAttributes = {
 					996585A7160A31450097B128 = {
 						DevelopmentTeam = L49L654K86;
@@ -238,9 +233,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				992B0786212BC39300B42DDC /* level in Resources */,
+				992B0787212BC39300B42DDC /* audio in Resources */,
 				99CF06381E9193370072E389 /* Default-568h@2x.png in Resources */,
-				99CF06351E9154170072E389 /* LEVEL2.PSX in Resources */,
-				99CF06361E9154170072E389 /* 05.ogg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +246,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				992B0783212BC0DA00B42DDC /* tinflate.c in Sources */,
 				99CF06301E91505D0072E389 /* minimp3.cpp in Sources */,
 				99CF06311E91505D0072E389 /* stb_vorbis.c in Sources */,
 				99CF06251E9145830072E389 /* main.m in Sources */,
@@ -277,13 +273,32 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -291,11 +306,14 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
-				ONLY_ACTIVE_ARCH = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				ONLY_ACTIVE_ARCH = YES;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -306,17 +324,38 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
 				PROVISIONING_PROFILE = "";
@@ -329,6 +368,7 @@
 		996585C1160A31450097B128 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = L49L654K86;
@@ -336,6 +376,7 @@
 				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
 				INFOPLIST_FILE = "openlara-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.xproger.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "${TARGET_NAME}";
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = app;
@@ -345,6 +386,7 @@
 		996585C2160A31450097B128 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_IDENTITY = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEVELOPMENT_TEAM = L49L654K86;
@@ -352,6 +394,7 @@
 				GCC_PREFIX_HEADER = "openlara-Prefix.pch";
 				INFOPLIST_FILE = "openlara-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.xproger.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "${TARGET_NAME}";
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = app;

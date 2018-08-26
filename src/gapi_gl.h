@@ -91,9 +91,17 @@
         #define GL_CLAMP_TO_BORDER          0x812D
         #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-        #define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
-        #define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
-        #define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
+        #undef  GL_RGBA32F
+        #undef  GL_RGBA16F
+        #undef  GL_HALF_FLOAT
+
+        #define GL_RGBA32F      GL_RGBA
+        #define GL_RGBA16F      GL_RGBA
+        #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+        //#define GL_TEXTURE_COMPARE_MODE     GL_TEXTURE_COMPARE_MODE_EXT
+        //#define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
+        //#define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
         #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
@@ -228,7 +236,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -342,7 +350,7 @@ namespace GAPI {
         void setParam(UniformType uType, const mat4  &value, int count = 1) {}
         void setParam(UniformType uType, const Basis &value, int count = 1) {}
     #else
-        uint32  ID;
+        GLuint  ID;
         int32   uID[uMAX];
 
         void init(Core::Pass pass, int type, int *def, int defCount) {
@@ -382,7 +390,7 @@ namespace GAPI {
             char fileName[255];
         // generate shader file path
             if (Core::support.shaderBinary) {
-                uint32 hash = fnv32(defines, strlen(defines), fnv32(source, strlen(source)));
+                uint32 hash = fnv32(defines, (int32)strlen(defines), fnv32(source, (int32)strlen(source)));
                 sprintf(fileName, "%08X.xsh", hash);
             }
 

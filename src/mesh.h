@@ -609,9 +609,9 @@ struct MeshBuilder {
         short4 res = v;
 
         switch (dir) {
-            case 1  : res.x =  v.z, res.z = -v.x; break;
-            case 2  : res.x = -v.x, res.z = -v.z; break;
-            case 3  : res.x = -v.z, res.z =  v.x; break;
+            case 1  : res.x =  v.z; res.z = -v.x; break;
+            case 2  : res.x = -v.x; res.z = -v.z; break;
+            case 3  : res.x = -v.z; res.z =  v.x; break;
             default : ASSERT(false);
         }
         return res;

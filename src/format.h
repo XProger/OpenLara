@@ -1864,8 +1864,8 @@ namespace TR {
             switch (rotation.value / 0x4000) {
                 case 0  : dx =  0; dz =  1; break;
                 case 1  : dx =  1; dz =  0; break;
-                case 2  : dx =  0, dz = -1; break;
-                case 3  : dx = -1, dz =  0; break;
+                case 2  : dx =  0; dz = -1; break;
+                case 3  : dx = -1; dz =  0; break;
                 default : dx =  0; dz =  0; break;
             }
         }

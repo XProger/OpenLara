@@ -63,7 +63,8 @@ namespace Sound {
             float process(float x, int delay) {
                 index = (index + 1) % delay;
                 float y = out[index];
-                return out[index] = x, y;
+                out[index] = x;
+                return y;
             }
         };
 

@@ -132,7 +132,7 @@ struct Level : IGame {
             }
         }
 
-        save->size      = ptr - data;
+        save->size      = int32(ptr - data);
         save->version   = level.version & TR::VER_VERSION;
 
         //osSaveGame(new Stream("savegame", data, int(ptr - data)));

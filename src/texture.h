@@ -1,4 +1,4 @@
-#ifndef H_TEXTURE
+ #ifndef H_TEXTURE
 #define H_TEXTURE
 
 #include "core.h"
@@ -563,7 +563,7 @@ struct Texture : GAPI::Texture {
         delete[] cdata;
 
         height = 256;
-        width  = (dst - data) / height / 2;
+        width  = uint32(dst - data) / height / 2;
 
         uint32 *data32 = new uint32[width * height];
         {
