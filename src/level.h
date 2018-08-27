@@ -440,19 +440,16 @@ struct Level : IGame {
         Core::Pass tmpPass = Core::pass;
         Core::eye = 0.0f;
 
-    // TODO: fix for wrong room visibility checks, FIX IT!
-        int roomsCount = 0;
-        int roomsList[256];
-        for (int i = 0; i < level.roomsCount; i++)
-            roomsList[roomsCount++] = i;
-    // -----
+        int16 rIndex = roomIndex;
+        level.getSector(rIndex, pos); // fix room index for overlapped blocks
+
     // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
-            renderView(roomIndex, false, false, roomsCount, roomsList);
+            renderView(rIndex, false, false);
         }
 
         Core::pass = tmpPass;

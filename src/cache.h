@@ -791,13 +791,13 @@ struct WaterCache {
             y = Core::viewportDef.y;
         } else
             x = y = 0;
-    #ifdef _OS_IOS
-        Core::setTarget(refract, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
-        blitTexture(screen);
-        Core::setTarget(screen, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
-    #else
-        Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
-    #endif
+
+        if (screen) { // only for iOS devices
+            Core::setTarget(refract, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
+            blitTexture(screen);
+            Core::setTarget(screen, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
+        } else 
+            Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
     }
 
     void simulate() {
