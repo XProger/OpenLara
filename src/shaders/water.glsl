@@ -79,9 +79,9 @@ uniform sampler2D sNormal;
 
 	#define PI	 3.141592653589793
 
-	float calcFresnel(float NdotL, float fbias) {
-		float f = 1.0 - NdotL;
-		return clamp(fbias + (1.0 - fbias) * (f * f), 0.0, 1.0);
+	float calcFresnel(float VoH, float f0) {
+		float f = pow(1.0 - VoH, 5.0);
+		return f + f0 * (1.0f - f);
 	}
 
 	vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
@@ -189,7 +189,7 @@ uniform sampler2D sNormal;
 		vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
 		vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 
-		float fresnel = calcFresnel(dot(normal, viewVec), 0.04);
+		float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 		vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
 
