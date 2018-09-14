@@ -142,9 +142,11 @@ uniform vec4 uFogParams;
 			float fog;
 			#ifdef UNDERWATER
 				float d;
-				//if (uViewPos.y < uParam.y) // TODO: fix for mediump
-				//	d = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord.xyz).y);
-				//else
+			#ifdef OPT_UNDERWATER_FOG
+				if (uViewPos.y < uParam.y) // TODO: fix for mediump
+					d = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord.xyz).y);
+				else
+			#endif
 					d = length(uViewPos.xyz - coord.xyz);
 				fog = d * WATER_FOG_DIST;
 			#else

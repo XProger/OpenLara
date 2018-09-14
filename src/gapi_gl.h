@@ -384,7 +384,9 @@ namespace GAPI {
             #endif
 
             #ifndef _OS_CLOVER
-                strcat(defines, "#define OPT_TRAPEZOID\n"); // TODO: only for non Mali-400?
+                // TODO: only for non Mali-400?
+                strcat(defines, "#define OPT_TRAPEZOID\n");
+                strcat(defines, "#define OPT_UNDERWATER_FOG\n");
             #endif
 
             char fileName[255];
