@@ -91,8 +91,9 @@ struct ShaderCache {
 
     void prepareWater(int fx) {
         compile(Core::passWater, Shader::WATER_MASK,     fx, RS_COLOR_WRITE_A | RS_DEPTH_TEST);
-        compile(Core::passWater, Shader::WATER_STEP,     fx, RS_COLOR_WRITE);
+        compile(Core::passWater, Shader::WATER_SIMULATE, fx, RS_COLOR_WRITE);
         compile(Core::passWater, Shader::WATER_DROP,     fx, RS_COLOR_WRITE);
+        compile(Core::passWater, Shader::WATER_RAYS,     fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
         compile(Core::passWater, Shader::WATER_CAUSTICS, fx, RS_COLOR_WRITE);
         compile(Core::passWater, Shader::WATER_COMPOSE,  fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
     }
@@ -688,7 +689,7 @@ struct WaterCache {
 
         vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
 
-        game->setShader(Core::passWater, Shader::WATER_STEP);
+        game->setShader(Core::passWater, Shader::WATER_SIMULATE);
         Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, Core::params.x));
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
             
@@ -739,9 +740,47 @@ struct WaterCache {
     #endif
     }
 
+    void renderRays() {
+        if (!visible) return;
+        PROFILE_MARKER("WATER_RAYS");
+
+        for (int i = 0; i < count; i++) {
+            Item &item = items[i];
+            if (!item.visible || !item.caustics) continue;
+
+        // render water plane
+            game->setShader(Core::passWater, Shader::WATER_RAYS);
+
+            item.caustics->bind(sReflect);
+            Core::ditherTex->bind(sMask);
+
+            vec3 bCenter = vec3(item.pos.x, item.pos.y + WATER_VOLUME_HEIGHT / 2, item.pos.z);
+            vec3 bSize   = vec3(item.size.x, WATER_VOLUME_HEIGHT / 2, item.size.z);
+            Box box(bCenter - bSize, bCenter + bSize);
+
+            vec4 rPosScale[2] = { vec4(bCenter, 0.0), vec4(bSize, 1.0) };
+
+            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+            Core::active.shader->setParam(uParam,    vec4(level->rooms[item.to].getOffset(), 0.35f));
+
+            Core::setBlendMode(bmAdd);
+            Core::setCullMode(cmBack);
+            Core::setDepthWrite(false);
+            //Core::setDepthTest(false);
+            //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            //game->getMesh()->renderBox();
+            game->getMesh()->renderWaterVolume(item.to);
+            //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            //Core::setDepthTest(true);
+            Core::setDepthWrite(true);
+            Core::setCullMode(cmFront);
+            Core::setBlendMode(bmNone);
+        }
+    }
+
     void renderMask() {
         if (!visible) return;
-        PROFILE_MARKER("WATER_RENDER_MASK");
+        PROFILE_MARKER("WATER_MASK");
     // mask underwater geometry by zero alpha
         game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
@@ -891,9 +930,9 @@ struct WaterCache {
         camera->setup(true);
     }
 
-    void render() {
+    void compose() {
         if (!visible) return;
-        PROFILE_MARKER("WATER_RENDER");
+        PROFILE_MARKER("WATER_COMPOSE");
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;

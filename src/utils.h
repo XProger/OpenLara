@@ -1594,4 +1594,58 @@ namespace String {
 
 }
 
+template <typename T>
+struct Array {
+    int capacity;
+    int count;
+    T   *items;
+
+    Array(int capacity = 32) : capacity(capacity), count(0), items(NULL) {}
+
+    ~Array() { 
+        free(items);
+    }
+
+    int push(const T &item) {
+        if (!items)
+            items = (T*)malloc(capacity * sizeof(T));
+
+        if (count == capacity) {
+            capacity += capacity + capacity / 2;
+            if (items)
+                items = (T*)realloc(items, capacity * sizeof(T));
+            else
+                items = (T*)malloc(capacity * sizeof(T));
+        }
+        items[count] = item;
+        return count++;
+    }
+
+    int pop() {
+        ASSERT(count > 0);
+        return --count;
+    }
+
+    void removeFast(int index) {
+        (*this)[index] = (*this)[--count];
+    }
+
+    void remove(int index) {
+        count--;
+        ASSERT(count >= 0);
+        for (int i = index; i < count; i++)
+            items[i] = items[i + 1];
+    }
+
+    void clear() {
+        count = 0;
+    }
+
+    T& operator[] (int index) {
+        ASSERT(index >= 0 && index < count);
+        return items[index]; 
+    };
+};
+
+
 #endif

@@ -66,6 +66,13 @@ uniform sampler2D sNormal;
 			#else
 				gl_Position = vec4(coord.xyz, 1.0);
 			#endif
+
+			#ifdef WATER_RAYS
+				vCoord = aCoord.xyz + uParam.xyz;
+				vec4 cp = uViewProj * vec4(vCoord, 1.0);
+				vProjCoord	= cp;
+				gl_Position = cp;
+			#endif
 		#endif
 		vViewVec  = uViewPos.xyz - vCoord.xyz;
 		vLightVec = uLightPos.xyz - vCoord.xyz;
@@ -81,7 +88,7 @@ uniform sampler2D sNormal;
 
 	float calcFresnel(float VoH, float f0) {
 		float f = pow(1.0 - VoH, 5.0);
-		return f + f0 * (1.0f - f);
+		return f + f0 * (1.0 - f);
 	}
 
 	vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
@@ -130,7 +137,7 @@ uniform sampler2D sNormal;
 		return simplex_noise(vec3(tc * 16.0, uParam.w)) * 0.0005;
 	}
 
-	vec4 calc() {
+	vec4 simulate() {
 		vec2 tc = vTexCoord;
 
 		if (texture2D(sMask, tc).x < 0.5)
@@ -156,6 +163,7 @@ uniform sampler2D sNormal;
 
 		return v;
 	}
+
 #ifdef WATER_CAUSTICS
 	vec4 caustics() {
 		float rOldArea = length(dFdx(vOldPos)) * length(dFdy(vOldPos));
@@ -163,6 +171,45 @@ uniform sampler2D sNormal;
 		rNewArea = max(rNewArea, 0.00002); // WebGL NVIDIA workaround >_<
 		float value = clamp(rOldArea / rNewArea * 0.2, 0.0, 1.0);
 		return vec4(value, 0.0, 0.0, 0.0);
+	}
+#endif
+
+#ifdef WATER_RAYS
+
+float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
+	center -= rayPos;
+	vec3 bMin = (center - hsize) / rayDir;
+	vec3 bMax = (center + hsize) / rayDir;
+	vec3 m = min(bMin, bMax);
+	return max(0.0, max(m.x, max(m.y, m.z)));
+}
+
+	vec4 rays() {
+		#define RAY_STEPS 16.0
+
+		vec3 viewVec = normalize(vViewVec);
+
+		float t = boxIntersect(uViewPos.xyz, -viewVec, uPosScale[0].xyz, uPosScale[1].xyz);
+
+		vec3 p0 = uViewPos.xyz - viewVec * t;
+		vec3 p1 = vCoord.xyz;
+
+		float dither = texture2D(sMask, gl_FragCoord.xy * (1.0 / 8.0)).x;
+		vec3 step = (p1 - p0) / RAY_STEPS;
+		vec3 pos  = p0 + step * dither;
+
+		float sum = 0.0;
+		for (float i = 0.0; i < RAY_STEPS; i++) {
+			vec3 wpos = (pos - uPosScale[0].xyz) / uPosScale[1].xyz;
+			vec2 tc = wpos.xz * 0.5 + 0.5;
+			float light = texture2D(sReflect, tc).x;
+			sum += light * (1.0 - (clamp(wpos.y, -1.0, 1.0) * 0.5 + 0.5));
+			pos += step;
+		}
+		sum /= RAY_STEPS;
+		sum *= uParam.w;
+
+		return vec4(UNDERWATER_COLOR * sum, 1.0);
 	}
 #endif
 
@@ -205,12 +252,16 @@ uniform sampler2D sNormal;
 			return drop();
 		#endif
 
-		#ifdef WATER_STEP
-			return calc();
+		#ifdef WATER_SIMULATE
+			return simulate();
 		#endif
 
 		#ifdef WATER_CAUSTICS
 			return caustics();
+		#endif
+
+		#ifdef WATER_RAYS
+			return rays();
 		#endif
 
 		#ifdef WATER_MASK

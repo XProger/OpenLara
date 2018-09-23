@@ -553,8 +553,8 @@ namespace GAPI {
             }
 
             bool border = isShadow && Core::support.texBorder;
-            glTexParameteri(target, GL_TEXTURE_WRAP_S, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
-            glTexParameteri(target, GL_TEXTURE_WRAP_T, border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE);
+            glTexParameteri(target, GL_TEXTURE_WRAP_S, (opt & OPT_REPEAT) ? GL_REPEAT : (border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE));
+            glTexParameteri(target, GL_TEXTURE_WRAP_T, (opt & OPT_REPEAT) ? GL_REPEAT : (border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE));
             if (border) {
                 float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
                 glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
@@ -566,7 +566,8 @@ namespace GAPI {
             static const struct FormatDesc {
                 GLuint ifmt, fmt;
                 GLenum type;
-            } formats[FMT_MAX] = {            
+            } formats[FMT_MAX] = {
+                { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
                 { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16

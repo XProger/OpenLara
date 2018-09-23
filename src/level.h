@@ -2031,10 +2031,14 @@ struct Level : IGame {
         Core::setBlendMode(bmNone);
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
+            if (!camera->isUnderwater())
+                waterCache->renderRays();
             waterCache->renderMask();
             waterCache->copyScreenToRefract();
             setMainLight(player);
-            waterCache->render();
+            waterCache->compose();
+            if (camera->isUnderwater())
+                waterCache->renderRays();
 
             Core::pass = pass;
             setupBinding();

@@ -14,6 +14,9 @@ TR::ObjectTexture &whiteTile = barTile[4]; // BAR_WHITE
 #define DOUBLE_SIDED       2
 #define MAX_ROOM_DYN_FACES 512
 
+#define WATER_VOLUME_HEIGHT (768 * 2)
+#define WATER_VOLUME_OFFSET 4
+
 struct Mesh : GAPI::Mesh {
     int aIndex;
 
@@ -139,6 +142,7 @@ struct MeshBuilder {
         Geometry  geometry[3]; // opaque, double-side alpha, additive
         Dynamic   dynamic[3];  // lists of dynamic polygons (with animated textures) like lava, waterfalls etc.
         MeshRange sprites;
+        MeshRange waterVolume;
         int       split;
     } *rooms;
 
@@ -154,7 +158,7 @@ struct MeshBuilder {
 
 // procedured
     MeshRange shadowBlob;
-    MeshRange quad, circle;
+    MeshRange quad, circle, box;
     MeshRange plane;
 
     int transparent;
@@ -263,6 +267,28 @@ struct MeshBuilder {
         iCount += CIRCLE_SEGS * 3;
         vCount += CIRCLE_SEGS + 1;
 
+    // box
+        const Index boxIndices[] = {
+            2,  1,  0,  3,  2,  0,
+            4,  5,  6,  4,  6,  7,
+            8,  9,  10, 8,  10, 11,
+            14, 13, 12, 15, 14, 12,
+            16, 17, 18, 16, 18, 19,
+            22, 21, 20, 23, 22, 20,
+        };
+
+        const short4 boxCoords[] = {
+            {-1, -1,  1, 0}, { 1, -1,  1, 0}, { 1,  1,  1, 0}, {-1,  1,  1, 0},
+            { 1,  1,  1, 0}, { 1,  1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0},
+            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1,  1, -1, 0}, {-1,  1, -1, 0},
+            {-1, -1, -1, 0}, {-1, -1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0},
+            { 1,  1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0}, { 1,  1, -1, 0},
+            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0}, {-1, -1,  1, 0},
+        };
+
+        iCount += COUNT(boxIndices);
+        vCount += COUNT(boxCoords);
+
     // detailed plane
     #ifdef GENERATE_WATER_PLANE
         iCount += SQR(PLANE_DETAIL * 2) * 6;
@@ -288,6 +314,10 @@ struct MeshBuilder {
                 vStartRoom = vCount;
                 aCount++;
             }
+
+            range.waterVolume.iCount = 0;
+            if (Core::settings.detail.water > Core::Settings::MEDIUM)
+                buildWaterVolume(i, indices, vertices, iCount, vCount, vStartRoom);
 
             for (int transp = 0; transp < 3; transp++) { // opaque, opacity
                 int blendMask = getBlendMask(transp);
@@ -470,12 +500,11 @@ struct MeshBuilder {
         vertices[vCount + 3].texCoord = short4(     0,      0, 0, 0 );
 
         for (int i = 0; i < 4; i++) {
-            Vertex &v = vertices[vCount + i];
+            Vertex &v = vertices[vCount++];
             v.normal  = short4( 0, 0, 0, 0 );
             v.color   = ubyte4( 255, 255, 255, 255 );
             v.light   = ubyte4( 255, 255, 255, 255 );
         }
-        vCount += 4;
 
     // circle
         circle.vStart = vStartCommon;
@@ -502,6 +531,25 @@ struct MeshBuilder {
         vertices[vCount + CIRCLE_SEGS] = vertices[vCount];
         vertices[vCount + CIRCLE_SEGS].coord = short4( 0, 0, 0, 0 );
         vCount += CIRCLE_SEGS + 1;
+
+    // box
+        box.vStart = vStartCommon;
+        box.iStart = iCount;
+        box.iCount = COUNT(boxIndices);
+
+        baseIdx = vCount - vStartCommon;
+
+        for (int i = 0; i < COUNT(boxIndices); i++)
+            indices[iCount++] = baseIdx + boxIndices[i];
+
+        for (int i = 0; i < COUNT(boxCoords); i++) {
+            Vertex &v = vertices[vCount++];
+            v.coord    = boxCoords[i];
+            v.normal   = short4(0, 0, 0, 32767);
+            v.texCoord = short4(0, 0, 0, 0);
+            v.color    = ubyte4(255, 255, 255, 255);
+            v.light    = ubyte4(255, 255, 255, 255);
+        }
 
     // plane
     #ifdef GENERATE_WATER_PLANE
@@ -557,6 +605,7 @@ struct MeshBuilder {
                     r.geometry[j].ranges[k].aIndex = rangeRoom.aIndex;
 
             r.sprites.aIndex = rangeRoom.aIndex;
+            r.waterVolume.aIndex = rangeRoom.aIndex;
         }
 
         MeshRange rangeModel;
@@ -642,7 +691,7 @@ struct MeshBuilder {
 
         for (int i = 0; i < room.data.fCount; i++) {
             TR::Face &f = room.data.faces[i];
-            if (f.vertices[0] == 0xFFFF) continue;
+            if (f.flags.value == 0xFFFF) continue;
 
             TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
             TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
@@ -663,7 +712,8 @@ struct MeshBuilder {
 
             if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
                 isWaterSurface(yb, s.roomBelow, room.flags.water)) {
-                f.vertices[0] = 0xFFFF; // mark as unused
+                f.flags.value = 0xFFFF; // mark as unused
+
                 room.waterLevel = a.y;
                 if (f.vCount == 4) {
                     iCount -= 6;
@@ -672,7 +722,171 @@ struct MeshBuilder {
                     iCount -= 3;
                     vCount -= 3;
                 }
+
+            // preserve indices & vertices for water volume
+                if (room.flags.water && Core::settings.detail.water > Core::Settings::MEDIUM) {
+                // water volume caps
+                    iCount += (f.vCount == 4 ? 6 : 3) * 2;
+                    vCount += f.vCount * 2;
+                // water volume bounds (reserved)
+                    iCount += 6 * f.vCount;
+                    vCount += 4 * f.vCount;
+                }
             }
+        }
+    }
+
+    Index addUniqueVertex(Array<TR::Vertex> &vertices, TR::Vertex &v) {
+        for (int i = 0; i < vertices.count; i++) {
+            TR::Vertex &o = vertices[i];
+            if (o.x == v.x && o.y == v.y && o.z == v.z)
+                return i;
+        }
+        return vertices.push(v);
+    }
+
+    void addUniqueEdge(Array<Edge> &edges, Index a, Index b) {
+        for (int i = 0; i < edges.count; i++) {
+            Edge &e = edges[i];
+            if ((e.a == a && e.b == b) || (e.a == b && e.b == a)) {
+                edges.remove(i);
+                return;
+            }
+        }
+        edges.push(Edge(a, b));
+    }
+
+    void buildWaterVolume(int roomIndex, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart) {
+        TR::Room &room = level->rooms[roomIndex];
+        if (!room.flags.water) return;
+        MeshRange &range = rooms[roomIndex].waterVolume;
+
+        Array<Edge>       wEdges(128);
+        Array<Index>      wIndices(128);
+        Array<TR::Vertex> wVertices(128);
+
+        for (int i = 0; i < room.data.fCount; i++) {
+            TR::Face &f = room.data.faces[i];
+            if (f.flags.value != 0xFFFF) continue;
+            
+            Index idx[4];
+
+            idx[0] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[0]].vertex);
+            idx[1] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[1]].vertex);
+            idx[2] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[2]].vertex);
+
+            if (f.vCount > 3) {
+                idx[3] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[3]].vertex);
+
+                wIndices.push(idx[0]);
+                wIndices.push(idx[1]);
+                wIndices.push(idx[3]);
+
+                wIndices.push(idx[3]);
+                wIndices.push(idx[1]);
+                wIndices.push(idx[2]);
+
+                addUniqueEdge(wEdges, idx[0], idx[1]);
+                addUniqueEdge(wEdges, idx[1], idx[2]);
+                addUniqueEdge(wEdges, idx[2], idx[3]);
+                addUniqueEdge(wEdges, idx[3], idx[0]);
+            } else {
+                wIndices.push(idx[0]);
+                wIndices.push(idx[1]);
+                wIndices.push(idx[2]);
+
+                addUniqueEdge(wEdges, idx[0], idx[1]);
+                addUniqueEdge(wEdges, idx[1], idx[2]);
+                addUniqueEdge(wEdges, idx[2], idx[0]);
+            }
+        }
+
+        if (!wEdges.count) return;
+
+        Array<short3> wOffsets(wVertices.count);
+
+        for (int i = 0; i < wVertices.count; i++)
+            wOffsets.push(short3(0, WATER_VOLUME_OFFSET, 0));
+
+        for (int i = 0; i < wEdges.count; i++) {
+            Edge &e = wEdges[i];
+            TR::Vertex &a = wVertices[e.a];
+            TR::Vertex &b = wVertices[e.b];
+            int16 dx = a.z - b.z;
+            int16 dz = b.x - a.x;
+
+            short3 &ao = wOffsets[e.a];
+            ao.x = clamp(ao.x + dx, -WATER_VOLUME_OFFSET, WATER_VOLUME_OFFSET);
+            ao.z = clamp(ao.z + dz, -WATER_VOLUME_OFFSET, WATER_VOLUME_OFFSET);
+
+            short3 &bo = wOffsets[e.b];
+            bo.x = clamp(bo.x + dx, -WATER_VOLUME_OFFSET, WATER_VOLUME_OFFSET);
+            bo.z = clamp(bo.z + dz, -WATER_VOLUME_OFFSET, WATER_VOLUME_OFFSET);
+        }
+
+        range.vStart = vStart;
+        range.iCount = wIndices.count * 2 + wEdges.count * 6;
+        range.iStart = iCount;
+
+        for (int i = 0; i < wIndices.count; i += 3) {
+            indices[iCount++] = vCount + wIndices[i + 2];
+            indices[iCount++] = vCount + wIndices[i + 1];
+            indices[iCount++] = vCount + wIndices[i + 0];
+        }
+
+        for (int i = 0; i < wIndices.count; i++)
+            indices[iCount++] = vCount + wIndices[i] + wVertices.count;
+
+        for (int i = 0; i < wEdges.count; i++) {
+            Index a = wEdges[i].a;
+            Index b = wEdges[i].b;
+
+            indices[iCount++] = vCount + a;
+            indices[iCount++] = vCount + b;
+            indices[iCount++] = vCount + a + wVertices.count;
+
+            indices[iCount++] = vCount + b;
+            indices[iCount++] = vCount + b + wVertices.count;
+            indices[iCount++] = vCount + a + wVertices.count;
+        }
+
+        for (int i = 0; i < wVertices.count; i++) {
+            TR::Vertex &v = wVertices[i];
+            short3     &o = wOffsets[i];
+
+            v.x += o.x;
+            v.y += o.y;
+            v.z += o.z;
+
+            vertices[vCount++].coord = short4(v.x, v.y, v.z, 0);
+        }
+
+        for (int i = 0; i < wVertices.count; i++) {
+            TR::Vertex &v = wVertices[i];
+
+            v.y += WATER_VOLUME_HEIGHT - WATER_VOLUME_OFFSET - WATER_VOLUME_OFFSET;
+
+            const vec3 sectorOffsets[] = {
+                vec3(-8, 0, -8),
+                vec3( 8, 0, -8),
+                vec3( 8, 0,  8),
+                vec3(-8, 0,  8),
+            };
+
+            int16 floor = 32000;
+            for (int j = 0; j < 4; j++) {
+                vec3 pos = room.getOffset() + vec3(v.x, v.y, v.z) + sectorOffsets[j];
+                int16 rIndex = roomIndex;
+                TR::Room::Sector *sector = level->getSector(rIndex, pos);
+                if (sector->floor == TR::NO_FLOOR || !level->rooms[rIndex].flags.water) continue;
+                floor = min(floor, int16(level->getFloor(sector, pos)));
+            }
+
+            floor -= WATER_VOLUME_OFFSET * 3;
+
+            v.y = min(v.y, floor);
+
+            vertices[vCount++].coord = short4(v.x, v.y, v.z, 0);
         }
     }
 
@@ -691,7 +905,7 @@ struct MeshBuilder {
             TR::Face          &f = d.faces[j];
             TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
-            if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
+            if (f.flags.value == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
             CHECK_ROOM_NORMAL(f);
 
@@ -725,7 +939,7 @@ struct MeshBuilder {
                 TR::Face          &f = d.faces[j];
                 TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
-                if (f.vertices[0] == 0xFFFF) continue; // skip if marks as unused (removing water planes)
+                if (f.flags.value == 0xFFFF) continue; // skip if marks as unused (removing water planes)
 
                 if (!(blendMask & getBlendMask(t.attribute)))
                     continue;
@@ -1219,6 +1433,16 @@ struct MeshBuilder {
 
     void renderPlane() {
         mesh->render(plane);
+    }
+
+    void renderBox() {
+        mesh->render(box);
+    }
+
+    void renderWaterVolume(int roomIndex) {
+        MeshRange &range = rooms[roomIndex].waterVolume;
+        if (range.iCount)
+            mesh->render(range);
     }
 };
 

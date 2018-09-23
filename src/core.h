@@ -352,6 +352,7 @@ enum RenderState {
 
 // Texture image format
 enum TexFormat {
+    FMT_LUMINANCE,
     FMT_RGBA, 
     FMT_RGB16,
     FMT_RGBA16,
@@ -364,12 +365,13 @@ enum TexFormat {
 
 // Texture options
 enum TexOption {
-    OPT_CUBEMAP = 1,
-    OPT_MIPMAPS = 2, 
-    OPT_NEAREST = 4,
-    OPT_TARGET  = 8,
-    OPT_VERTEX  = 16,
-    OPT_PROXY   = 32,
+    OPT_REPEAT  = 1,
+    OPT_CUBEMAP = 2,
+    OPT_MIPMAPS = 4, 
+    OPT_NEAREST = 8,
+    OPT_TARGET  = 16,
+    OPT_VERTEX  = 32,
+    OPT_PROXY   = 64,
 };
 
 // Pipeline State Object
@@ -383,6 +385,13 @@ struct PSO {
 };
 
 typedef uint16 Index;
+
+struct Edge {
+    Index a, b;
+
+    Edge() {}
+    Edge(Index a, Index b) : a(a), b(b) {}
+};
 
 struct Vertex {
     short4 coord;      // xyz  - position, w - joint index (for entities only)
@@ -448,8 +457,9 @@ struct MeshRange {
     E( TYPE_MIRROR    ) \
     /* water sub-passes */ \
     E( WATER_DROP     ) \
-    E( WATER_STEP     ) \
+    E( WATER_SIMULATE ) \
     E( WATER_CAUSTICS ) \
+    E( WATER_RAYS     ) \
     E( WATER_MASK     ) \
     E( WATER_COMPOSE  ) \
     /* filter types */ \
@@ -509,7 +519,7 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *whiteTex, *whiteCube, *blackTex;
+    Texture *whiteTex, *whiteCube, *blackTex, *ditherTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -639,7 +649,19 @@ namespace Core {
         data = 0;
         blackTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
 
-    // init settings
+        uint8 ditherData[] = {
+            0x00, 0x7F, 0x1F, 0x9F, 0x07, 0x87, 0x27, 0xA7,
+            0xBF, 0x3F, 0xDF, 0x5F, 0xC7, 0x47, 0xE7, 0x67,
+            0x2F, 0xAF, 0x0F, 0x8F, 0x37, 0xB7, 0x17, 0x97,
+            0xEF, 0x6F, 0xCF, 0x4F, 0xF7, 0x77, 0xD7, 0x57,
+            0x0B, 0x8B, 0x2B, 0xAB, 0x03, 0x83, 0x23, 0xA3,
+            0xCB, 0x4B, 0xEB, 0x6B, 0xC3, 0x43, 0xE3, 0x63,
+            0x3B, 0xBB, 0x1B, 0x9B, 0x33, 0xB3, 0x13, 0x93,
+            0xFB, 0x7B, 0xDB, 0x5B, 0xF3, 0x73, 0xD3, 0x53,
+        };
+        ditherTex = new Texture(8, 8, FMT_LUMINANCE, OPT_REPEAT | OPT_NEAREST, &ditherData);
+
+// init settings
         settings.version = SETTINGS_VERSION;
 
         settings.detail.setFilter   (Core::Settings::HIGH);
@@ -737,6 +759,7 @@ namespace Core {
         delete whiteTex;
         delete whiteCube;
         delete blackTex;
+        delete ditherTex;
 
         GAPI::deinit();
 
