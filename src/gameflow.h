@@ -287,188 +287,344 @@ namespace TR {
         isDemoLevel = false;
         switch (size) {
         // TR1
+            // TITLE
+            case 585648  : // PSX JAP
             case 508614  : version = VER_TR1_PSX;
             case 334874  :
             case 316138  :
             case 316460  : return LVL_TR1_TITLE;
+            // GYM
+            case 1234800 : // PSX JAP
             case 1074234 : version = VER_TR1_PSX;
             case 3236806 :
             case 3237128 : return LVL_TR1_GYM;
+            // LEVEL1
+            case 1667568 : // PSX JAP
             case 1448896 : version = VER_TR1_PSX;
             case 2533312 :
             case 2533634 : return LVL_TR1_1;
+            // LEVEL2
             case 2873406 : isDemoLevel = true; return LVL_TR1_2;
+            case 1766352 : // PSX JAP
             case 1535734 : version = VER_TR1_PSX;
             case 2873128 :
             case 2873450 : return LVL_TR1_2;
+            // LEVEL3A
+            case 1876896 : // PSX JAP
             case 1630560 : version = VER_TR1_PSX;
             case 2934408 :
             case 2934730 : return LVL_TR1_3A;
+            // LEVEL3B
+            case 1510414 : // PSX JAP
             case 1506614 : version = VER_TR1_PSX;
             case 2737936 :
             case 2738258 : return LVL_TR1_3B;
+            // CUT1
             case 722402  : version = VER_TR1_PSX;
             case 599840  : return LVL_TR1_CUT_1;
+            // LEVEL4
+            case 1624130 : // PSX JAP
             case 1621970 : version = VER_TR1_PSX;
             case 3030550 :
             case 3030872 : return LVL_TR1_4;
+            // LEVEL5
+            case 1588102 : // PSX JAP
             case 1585942 : version = VER_TR1_PSX;
             case 2718218 :
             case 2718540 : return LVL_TR1_5;
+            // LEVEL6
+            case 1710624 : // PSX JAP
             case 1708464 : version = VER_TR1_PSX;
             case 3139590 :
             case 3074376 : return LVL_TR1_6;
+            // LEVEL7A
+            case 1698824 : // PSX JAP
             case 1696664 : version = VER_TR1_PSX;
             case 2817290 :
             case 2817612 : return LVL_TR1_7A;
+            // LEVEL7B
+            case 1735434 : // PSX JAP
             case 1733274 : version = VER_TR1_PSX;
             case 3388774 :
             case 3389096 : return LVL_TR1_7B;
+            // CUT2
             case 542960  : version = VER_TR1_PSX;
             case 354320  : return LVL_TR1_CUT_2;
+            // LEVEL8A
+            case 1565494 : // PSX JAP
             case 1563356 : version = VER_TR1_PSX;
             case 2880242 :
             case 2880564 : return LVL_TR1_8A;
+            // LEVEL8B
+            case 1567790 : // PSX JAP
             case 1565630 : version = VER_TR1_PSX;
             case 2886434 :
             case 2886756 : return LVL_TR1_8B;
+            // LEVEL8C
+            case 1621520 : // PSX JAP
             case 1619360 : version = VER_TR1_PSX;
             case 3105128 :
             case 3105450 : return LVL_TR1_8C;
+            // LEVEL10A
+            case 1680146 : // PSX JAP
             case 1678018 : version = VER_TR1_PSX;
             case 3223816 :
             case 3224138 : return LVL_TR1_10A;
+            // CUT3
             case 636660  : version = VER_TR1_PSX;
             case 512104  : return LVL_TR1_CUT_3;
+            // LEVEL10B
+            case 1688908 : // PSX JAP
             case 1686748 : version = VER_TR1_PSX;
             case 3094342 :
             case 3094020 : return LVL_TR1_10B;
+            // CUT4
             case 940398  : version = VER_TR1_PSX;
             case 879582  : return LVL_TR1_CUT_4;
+            // LEVEL10C
+            case 1816438 : // PSX JAP
             case 1814278 : version = VER_TR1_PSX;
             case 3531702 :
             case 3532024 : return LVL_TR1_10C;
+            // EGYPT
             case 3278614 : version = VER_TR1_PSX;
             case 3279242 : return LVL_TR1_EGYPT;
+            // CAT
             case 3270370 : version = VER_TR1_PSX;
             case 3270998 : return LVL_TR1_CAT;
+            // END
             case 3208018 : return LVL_TR1_END;
+            // END2
             case 3153300 : return LVL_TR1_END2;
         // TR2
+            // TITLE
+            case 148698  : // PSX JAP
             case 148744  : version = VER_TR2_PSX;
             case 611892  : return LVL_TR2_TITLE;
+            // ASSAULT
+            case 1568632 : // PSX JAP
             case 1565974 : version = VER_TR2_PSX;
             case 3471450 : return LVL_TR2_ASSAULT;
+            // WALL
+            case 1664198 : // PSX JAP
             case 1661622 : version = VER_TR2_PSX;
             case 2986356 : return LVL_TR2_WALL;
-            case 2014880 : version = VER_TR2_PSX;
+            // BOAT
+            case 2017538 : // PSX JAP
+            case 2014880 :
             case 2010678 : version = VER_TR2_PSX; // PLAYABLE.PSX
             case 3945738 : return LVL_TR2_BOAT;
+            // VENICE
+            case 2084060 : // PSX JAP
             case 2081402 : version = VER_TR2_PSX;
             case 4213070 : return LVL_TR2_VENICE;
+            // OPERA
+            case 2063540 : // PSX JAP
             case 2060882 : version = VER_TR2_PSX;
             case 3996500 : return LVL_TR2_OPERA;
+            // RIG
+            case 1952874 : // PSX JAP
             case 1950216 : version = VER_TR2_PSX;
             case 3944472 : return LVL_TR2_RIG;
+            // PLATFORM
+            case 1995728 : // PSX JAP
             case 1993070 : version = VER_TR2_PSX;
             case 4101590 : return LVL_TR2_PLATFORM;
+            // UNWATER
+            case 1786858 : // PSX JAP
             case 1784200 : version = VER_TR2_PSX;
             case 3131814 : return LVL_TR2_UNWATER;
+            // KEEL
+            case 2016768 : // PSX JAP
             case 2014110 : version = VER_TR2_PSX;
             case 3995356 : return LVL_TR2_KEEL;
+            // LIVING
+            case 1811102 : // PSX JAP
             case 1808444 : version = VER_TR2_PSX;
             case 3501472 : return LVL_TR2_LIVING;
+            // DECK
+            case 1970742 : // PSX JAP
             case 1968084 : version = VER_TR2_PSX;
             case 3890042 : return LVL_TR2_DECK;
+            // SKIDOO
+            case 1984560 : // PSX JAP
             case 1981902 : version = VER_TR2_PSX;
             case 3521106 : return LVL_TR2_SKIDOO;
+            // MONASTRY
+            case 2123446 : // PSX JAP
             case 2120772 : version = VER_TR2_PSX;
             case 4325562 : return LVL_TR2_MONASTRY;
+            // CATACOMB
+            case 1880628 : // PSX JAP
             case 1877970 : version = VER_TR2_PSX;
             case 3605052 : return LVL_TR2_CATACOMB;
+            // ICECAVE
+            case 1990512 : // PSX JAP
             case 1987854 : version = VER_TR2_PSX;
             case 3803398 : return LVL_TR2_ICECAVE;
+            // EMPRTOMB
+            case 2104252 : // PSX JAP
             case 2101594 : version = VER_TR2_PSX;
             case 4291468 : return LVL_TR2_EMPRTOMB;
+            // FLOATING
+            case 2081348 : // PSX JAP
             case 2078690 : version = VER_TR2_PSX;
             case 4007486 : return LVL_TR2_FLOATING;
+            // XIAN
+            case 1751496 : // PSX JAP
             case 1748838 : version = VER_TR2_PSX;
             case 3173840 : return LVL_TR2_XIAN;
+            // HOUSE
+            case 1889386 : // PSX JAP
             case 1886728 : version = VER_TR2_PSX;
             case 3693108 : return LVL_TR2_HOUSE;
+            // CUT1
+            case 952800  : // PSX JAP
             case 952798  : version = VER_TR2_PSX;
             case 1767052 : return LVL_TR2_CUT_1;
+            // CUT2
+            case 1098878 : // PSX JAP
             case 1098876 : version = VER_TR2_PSX;
             case 2037544 : return LVL_TR2_CUT_2;
+            // CUT3
+            case 1288924 : // PSX JAP
             case 1288922 : version = VER_TR2_PSX;
             case 2558286 : return LVL_TR2_CUT_3;
+            // CUT4
+            case 1116968 : // PSX JAP
             case 1116966 : version = VER_TR2_PSX;
             case 1900230 : return LVL_TR2_CUT_4;
         // TR3
+            // TITLE
+            case 653485  : // PSX JAP
             case 653403  :
             case 1275266 : return LVL_TR3_TITLE;
+            // HOUSE
+            case 1891244 : // PSX JAP
             case 1889506 :
             case 3437855 : return LVL_TR3_HOUSE;
+            // JUNGLE
+            case 1933419 : // PSX JAP
             case 1930923 :
             case 3360001 : return LVL_TR3_JUNGLE;
+            // TEMPLE
+            case 1945795 : // PSX JAP
             case 1943847 :
             case 3180412 : return LVL_TR3_TEMPLE;
+            // QUADCHAS
+            case 1881562 : // PSX JAP
             case 1880004 :
             case 3131453 : return LVL_TR3_QUADCHAS;
+            // TONYBOSS
+            case 1495530 : // PSX JAP
             case 1493796 :
             case 2618437 : return LVL_TR3_TONYBOSS;
+            // SHORE
+            case 1981723 : // PSX JAP
             case 1979611 :
             case 3365562 : return LVL_TR3_SHORE;
+            // CRASH
+            case 2018552 : // PSX JAP
             case 2016876 :
             case 3331132 : return LVL_TR3_CRASH;
+            // RAPIDS
+            case 1942136 : // PSX JAP
             case 1940346 :
             case 3148248 : return LVL_TR3_RAPIDS;
+            // TRIBOSS
+            case 1523788 : // PSX JAP
             case 1521998 :
             case 2276838 : return LVL_TR3_TRIBOSS;
+            // ROOFS
+            case 2098953 : // PSX JAP
             case 2097077 :
             case 3579476 : return LVL_TR3_ROOFS;
+            // SEWER
+            case 2035235 : // PSX JAP
             case 2033505 :
             case 3670149 : return LVL_TR3_SEWER;
+            // TOWER
+            case 2080921 : // PSX JAP
             case 2079183 :
             case 3523586 : return LVL_TR3_TOWER;
+            // OFFICE
+            case 1550728 : // PSX JAP
             case 1549006 :
             case 2504910 : return LVL_TR3_OFFICE;
+            // NEVADA
+            case 1940862 : // PSX JAP
             case 1938738 :
             case 3140417 : return LVL_TR3_NEVADA;
+            // COMPOUND
+            case 2050018 : // PSX JAP
             case 2048288 :
             case 3554880 : return LVL_TR3_COMPOUND;
+            // AREA51
+            case 2056073 : // PSX JAP
             case 2054325 :
             case 3530130 : return LVL_TR3_AREA51;
+            // ANTARC
+            case 2000298 : // PSX JAP
             case 1998398 :
             case 3515272 : return LVL_TR3_ANTARC;
+            // MINES
+            case 2025641 : // PSX JAP
             case 2023895 :
             case 3331087 : return LVL_TR3_MINES;
+            // CITY
+            case 2058380 : // PSX JAP
             case 2056388 :
             case 3575873 : return LVL_TR3_CITY;
+            // CHAMBER
+            case 1782615 : // PSX JAP
             case 1780885 :
             case 3190736 : return LVL_TR3_CHAMBER;
+            // STPAUL
+            case 1711157 : // PSX JAP
             case 1709427 :
             case 3140028 : return LVL_TR3_STPAUL;
+            // CUT1
+            case 757909  : // PSX JAP
             case 757827  :
             case 1547866 : return LVL_TR3_CUT_1;
+            // CUT2
+            case 982847  : // PSX JAP
             case 982765  :
             case 1957327 : return LVL_TR3_CUT_2;
+            // CUT3
+            case 1243054 : // PSX JAP
             case 1242972 :
             case 2020225 : return LVL_TR3_CUT_3;
+            // CUT4
+            case 430212  : // PSX JAP
             case 430130  :
             case 1048466 : return LVL_TR3_CUT_4;
+            // CUT5
+            case 971367  : // PSX JAP
             case 971285  :
             case 1580868 : return LVL_TR3_CUT_5;
+            // CUT6
+            case 1325570 : // PSX JAP
             case 1325488 :
             case 2430940 : return LVL_TR3_CUT_6;
+            // CUT7
+            case 467203  : // PSX JAP
             case 467121  :
             case 1253227 : return LVL_TR3_CUT_7;
+            // CUT8
+            case 494396  : // PSX JAP
             case 494314  :
             case 944962  : return LVL_TR3_CUT_8;
+            // CUT9
+            case 1002318 : // PSX JAP
             case 1002236 :
             case 1788075 : return LVL_TR3_CUT_9;
+            // CUT11
+            case 590267  : // PSX JAP
             case 590185  :
             case 1402003 : return LVL_TR3_CUT_11;
+            // CUT12
+            case 1080128 : // PSX JAP
             case 1080046 :
             case 2321393 : return LVL_TR3_CUT_12;
         }
@@ -748,6 +904,7 @@ namespace TR {
                 CHECK_FILE("TITLEH.png");           // Android
                 CHECK_FILE("DATA/TITLEH.PCX");      // PC
                 CHECK_FILE("DELDATA/AMERTIT.RAW");  // PSX
+                CHECK_FILE("DELDATA/JAPTIT.RAW");   // PSX JAP
                 CHECK_FILE("BINDATA/USATIT.BIN");   // SEGA
                 return "level/1/AMERTIT.PNG";       // WEB
             case LVL_TR1_GYM :
@@ -786,7 +943,8 @@ namespace TR {
                 CHECK_FILE("TITLE.png");            // Android
                 CHECK_FILE("data/TITLE.PCX");       // PC
                 CHECK_FILE("pix/title.pcx");        // PC
-                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
+                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX US
+                CHECK_FILE("PIXJAP/TITLEJAP.RAW");  // PSX US
                 return "level/2/TITLEUS.PNG";       // WEB
             case LVL_TR2_ASSAULT :
             case LVL_TR2_HOUSE   :
@@ -821,8 +979,9 @@ namespace TR {
                 return "level/2/TIBET.PNG";
         // TR3
             case LVL_TR3_TITLE :
-                CHECK_FILE("pix/TITLEUK.BMP");      // PC (TODO: add other languages)
-                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX (TODO: add other languages)
+                CHECK_FILE("pix/TITLEUK.BMP");      // PC
+                CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX
+                CHECK_FILE("PIXJAP/TITLEJAP.RAW");  // PSX
                 return "level/3/TITLEUK.PNG";       // WEB
             case LVL_TR3_HOUSE  :
                 CHECK_FILE("pix/HOUSE.BMP"); 

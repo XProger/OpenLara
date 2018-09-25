@@ -2680,6 +2680,10 @@ namespace TR {
             if (version == VER_TR2_PSX || version == VER_TR3_PSX) {
                 stream.read(tiles4, stream.read(tilesCount));
                 stream.read(clutsCount);
+                if (clutsCount > 1024) { // check for japanese version (skip 2 bytes after tiles data)
+                    stream.seek(-2);
+                    stream.read(clutsCount);
+                }
                 if (version == VER_TR3_PSX)
                     clutsCount *= 2; // read underwater cluts too
                 stream.read(cluts, clutsCount);
