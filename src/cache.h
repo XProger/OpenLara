@@ -329,11 +329,11 @@ struct AmbientCache {
         int sz = clamp(z / 1024, 0, r.zSectors - 1);
         int sector = sx * r.zSectors + sz;
 
-        if (level->state.flags.flipped && r.alternateRoom > -1)
-            sector += r.xSectors * r.zSectors;
-
         if (r.sectors[sector].floor == TR::NO_FLOOR)
             return NULL;
+
+        if (level->state.flags.flipped && r.alternateRoom > -1)
+            sector += r.xSectors * r.zSectors;
 
         Cube *cube = &items[offsets[roomIndex] + sector];
         if (cube->status == Cube::BLANK)
