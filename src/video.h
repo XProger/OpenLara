@@ -832,6 +832,8 @@ struct Video {
         int curAudioPos;
         int curAudioFrame;
 
+        bool hasSyncHeader;
+
         STR(Stream *stream) : Decoder(stream), vFrameIndex(-1), aFrameIndex(-1), audioDecoder(NULL) {
             curAudioFrame = 0;
 
@@ -850,6 +852,13 @@ struct Video {
             buildLUT(AC_LUT_9, 62, 110, 9);
 
             int pos = stream->pos;
+
+            uint32 syncMagic[3];
+            stream->raw(syncMagic, sizeof(syncMagic));
+            stream->seek(-12);
+
+            hasSyncHeader = syncMagic[0] == 0xFFFFFF00 && syncMagic[1] == 0xFFFFFFFF && syncMagic[2] == 0x00FFFFFF;
+
             nextFrame();
 
             VideoFrame &frame = vFrames[vFrameIndex];
@@ -886,54 +895,49 @@ struct Video {
         bool nextFrame() {
             OS_LOCK(Sound::lock);
 
-            uint8 data[SECTOR_SIZE];
-
             VideoFrame *vFrame = vFrames + vFrameIndex;
             while (stream->pos < stream->size) {
-                if (stream->raw(data, sizeof(data)) != sizeof(data)) {
-                    ASSERT(false);
-                    return false;
-                }
 
-                SyncHeader *syncHeader = (SyncHeader*)data;
+                if (hasSyncHeader)
+                    stream->seek(24);
 
-                if (syncHeader->sync[0] != 0xFFFFFF00 || syncHeader->sync[1] != 0xFFFFFFFF || syncHeader->sync[2] != 0x00FFFFFF) {
-                    ASSERT(false);
-                    return false;
-                }
+                Sector sector;
+                stream->raw(&sector, sizeof(Sector));
 
-                if (syncHeader->submode.isVideo || syncHeader->submode.isData) {
-                    Sector *sector = (Sector*)(data + sizeof(SyncHeader));
+                if (sector.magic == MAGIC_STR) {
 
-                    if (sector->magic == MAGIC_STR) {
-
-                        if (sector->chunkIndex == 0) {
-                            vFrameIndex = (vFrameIndex + 1) % VIDEO_MAX_FRAMES;
-                            vFrame = vFrames + vFrameIndex;
-                            vFrame->size    = 0;
-                            vFrame->width   = sector->width;
-                            vFrame->height  = sector->height;
-                            vFrame->qscale  = sector->qscale;
-                        }
-
-                        ASSERT(vFrame->size + VIDEO_CHUNK_SIZE < sizeof(vFrame->data));
-                        memcpy(vFrame->data + vFrame->size, data + sizeof(SyncHeader) + sizeof(Sector), VIDEO_CHUNK_SIZE);
-                        vFrame->size += VIDEO_CHUNK_SIZE;
-
-                        if (sector->chunkIndex == sector->chunksCount - 1) {
-                            //LOG("frame %d: %dx%d %d\n", sector->frameIndex, frame->width, frame->height, frame->size);
-                            return true;
-                        }
+                    if (sector.chunkIndex == 0) {
+                        vFrameIndex = (vFrameIndex + 1) % VIDEO_MAX_FRAMES;
+                        vFrame = vFrames + vFrameIndex;
+                        vFrame->size    = 0;
+                        vFrame->width   = sector.width;
+                        vFrame->height  = sector.height;
+                        vFrame->qscale  = sector.qscale;
                     }
 
-                } else if (syncHeader->submode.isAudio) {
-                    channels = syncHeader->coding.stereo ? 2 : 1;
-                    freq     = syncHeader->coding.rate ? 37800 : 18900;
+                    ASSERT(vFrame->size + VIDEO_CHUNK_SIZE < sizeof(vFrame->data));
+                    stream->raw(vFrame->data + vFrame->size, VIDEO_CHUNK_SIZE);
+                    vFrame->size += VIDEO_CHUNK_SIZE;
+
+                    if (hasSyncHeader)
+                        stream->seek(280);
+
+                    if (sector.chunkIndex == sector.chunksCount - 1)
+                        return true;
+
+                } else {
+                    channels = 2;
+                    freq     = 37800;
 
                     aFrameIndex = (aFrameIndex + 1) % AUDIO_MAX_FRAMES;
                     AudioFrame *aFrame = aFrames + aFrameIndex;
-                    aFrame->pos  = stream->pos - sizeof(data);
-                    aFrame->size = AUDIO_CHUNK_SIZE;
+                    aFrame->pos  = stream->pos - sizeof(sector);
+                    aFrame->size = AUDIO_CHUNK_SIZE; // !!! MUST BE 2304 !!! most of CD image tools copy only 2048 per sector, so "clicks" will be there
+
+                    stream->seek(2048 - sizeof(sector));
+
+                    if (hasSyncHeader)
+                        stream->seek(280);
                 };
             }
             return false;
