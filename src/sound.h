@@ -511,7 +511,6 @@ namespace Sound {
             if (stream->pos >= stream->size)
                 return;
 
-            stream->seek(24); // skip sync header
             stream->raw(groups, sizeof(groups));
 
             pos = 0;
