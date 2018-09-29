@@ -497,7 +497,11 @@ struct WaterCache {
                         int xt = int(r.info.x + x * 1024 - rt.info.x) / 1024;
                         int zt = int(r.info.z + z * 1024 - rt.info.z) / 1024;
                         TR::Room::Sector &st = rt.sectors[xt * rt.zSectors + zt];
-                        hasWater = s.ceiling > st.ceiling; // TODO fix for LEVEL10A, use slant
+                        hasWater = s.ceiling > st.ceiling;
+                        if (s.ceiling == st.ceiling) {
+                            vec3 p = vec3(float(r.info.x + x * 1024 + 512), float(posY), float(r.info.z + z * 1024 + 512));
+                            hasWater = (s.ceiling * 256 - level->getCeiling(&s, p)) > 8.0f;
+                        }
                     }
 
                     m[(x - minX) + w * (z - minZ)] = hasWater ? 0xF800 : 0;

@@ -39,7 +39,7 @@ uniform vec4 uParam;
 	vec4 grayscale() { // uParam (factor, unused, unused, unused)
 		vec4 color = texture2D(sDiffuse, vTexCoord);
 		vec3 gray  = vec3(dot(color, vec4(0.299, 0.587, 0.114, 0.0)));
-		return vec4(mix(color.xyz, gray, uParam.x), color.w);
+		return vec4(mix(color.xyz, gray, uParam.w) * uParam.xyz, color.w);
 	}
 
 	vec4 blur() { // uParam (dirX, dirY, 1 / textureSize, unused)
