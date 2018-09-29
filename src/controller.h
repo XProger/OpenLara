@@ -403,15 +403,22 @@ struct Controller {
                 }
 
                 case TR::FloorData::TRIGGER :  {
-                    if (info.trigCmdCount) break;
-                    info.trigger        = (TR::Level::Trigger::Type)cmd.sub;
-                    info.trigCmdCount   = 0;
-                    info.trigInfo       = (*fd++).triggerInfo;
+                    bool skip = info.trigCmdCount > 0;
+
+                    if (!skip) {
+                        info.trigger      = (TR::Level::Trigger::Type)cmd.sub;
+                        info.trigCmdCount = 0;
+                        info.trigInfo     = (*fd++).triggerInfo;
+                    } else
+                        fd++;
+
                     TR::FloorData::TriggerCommand trigCmd;
                     do {
-                        ASSERT(info.trigCmdCount < MAX_TRIGGER_COMMANDS);
                         trigCmd = (*fd++).triggerCmd; // trigger action
-                        info.trigCmd[info.trigCmdCount++] = trigCmd;
+                        if (!skip) {
+                            ASSERT(info.trigCmdCount < MAX_TRIGGER_COMMANDS);
+                            info.trigCmd[info.trigCmdCount++] = trigCmd;
+                        }
                     } while (!trigCmd.end);
                     break;
                 }
