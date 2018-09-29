@@ -84,7 +84,13 @@ struct Level : IGame {
         loadLevel((level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1));
     }
 
-    virtual void saveGame(int slot) {
+    virtual void invShow(int playerIndex, int page, int itemIndex = -1) {
+        if (itemIndex != -1)
+            inventory->pageItemIndex[page] = itemIndex;
+        inventory->toggle(playerIndex, Inventory::Page(page));
+    }
+
+    virtual void saveGame(int entityIndex) {
         LOG("Save Game... ");
 
         char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory->itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
@@ -141,7 +147,7 @@ struct Level : IGame {
         LOG("Ok\n");
     }
 
-    virtual void loadGame(int slot) {
+    virtual void loadGame() {
         LOG("Load Game... ");
 
         Stream *stream = NULL;//osLoadGame();
@@ -1199,22 +1205,41 @@ struct Level : IGame {
         #ifdef _OS_PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else
-            TR::Tile32 *tiles = new TR::Tile32[level.tilesCount];
+            Texture::Tile *tiles = new Texture::Tile[level.tilesCount];
+            for (int i = 0; i < level.tilesCount; i++) {
+                tiles[i].width = tiles[i].height = 256;
+                tiles[i].data = new uint32[256 * 256];
+            }
 
             for (int i = 0; i < level.objectTexturesCount; i++) {
                 TR::ObjectTexture &t = level.objectTextures[i];
                 short4 uv = t.getMinMax();
-                level.fillObjectTexture(&tiles[t.tile.index], uv, t.tile.index, t.clut);
+                uv.z++;
+                uv.w++;
+                level.fillObjectTexture((TR::Tile32*)tiles[t.tile.index].data, uv, t.tile.index, t.clut);
             }
 
             for (int i = 0; i < level.spriteTexturesCount; i++) {
                 TR::SpriteTexture &t = level.spriteTextures[i];
                 short4 uv = t.getMinMax();
-                level.fillObjectTexture(&tiles[t.tile], uv, t.tile, t.clut);
+                uv.z++;
+                uv.w++;
+                level.fillObjectTexture((TR::Tile32*)tiles[t.tile].data, uv, t.tile, t.clut);
+            }
+
+            for (int i = 0; i < level.tilesCount; i++) {
+                char buf[256];
+                sprintf(buf, "texture/%s_%d.png", TR::LEVEL_INFO[level.id].name, i);
+                if (Stream::exists(buf)) {
+                    delete[] tiles[i].data;
+                    tiles[i].data = (uint32*)Texture::LoadPNG(Stream(buf), tiles[i].width, tiles[i].height);
+                }
             }
 
             atlas = new Texture(tiles, level.tilesCount);
 
+            for (int i = 0; i < level.tilesCount; i++)
+                delete[] tiles[i].data;
             delete[] tiles;
         #endif
 
@@ -1582,6 +1607,8 @@ struct Level : IGame {
                 inventory->toggle(playerIndex);
         }
 
+        bool invActive = inventory->isActive();
+
         inventory->update();
 
         if (inventory->titleTimer > 1.0f)
@@ -1591,7 +1618,7 @@ struct Level : IGame {
 
         float volWater, volTrack;
 
-        if (inventory->isActive() || level.isTitle()) {
+        if (invActive || level.isTitle()) {
             Sound::reverb.setRoomSize(vec3(1.0f));
             volWater = 0.0f;
             volTrack = level.isTitle() ? 0.9f : 0.0f;

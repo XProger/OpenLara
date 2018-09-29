@@ -1803,13 +1803,14 @@ namespace TR {
             return type >= DOOR_1 && type <= DOOR_8;
         }
 
-        bool isCollider() const {
+        bool isCollider(TR::Entity::Flags flags) const {
             return isEnemy() ||
                    isVehicle() ||
                    isDoor() ||
+                   (type == CRYSTAL && flags.collision) ||
                    (type == DRAWBRIDGE && flags.active != ACTIVE) ||
                    ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
-                   type == CRYSTAL || type == MOVING_OBJECT || type == SCION_HOLDER;
+                   type == MOVING_OBJECT || type == SCION_HOLDER;
         }
 
         static bool isPickup(Type type) {
@@ -1818,6 +1819,7 @@ namespace TR {
                    (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
                    (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
                    (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR) ||
+                   (type == CRYSTAL) ||
                    (type >= SECRET_1 && type <= SECRET_3) ||
                    (type == M16 || type == AMMO_M16) ||
                    (type == MP5 || type == AMMO_MP5) ||
@@ -3976,6 +3978,25 @@ namespace TR {
                 stream.read(s.sCount);
                 stream.read(s.sStart);
                 s.sCount = -s.sCount;
+            }
+
+        // remove unavailable sprites (check EGYPT.PHD)
+            for (int roomIndex = 0; roomIndex < roomsCount; roomIndex++) {
+                Room::Data &data = rooms[roomIndex].data;
+                
+                int i = 0;
+                while (i < data.sCount)
+                    if (data.sprites[i].vertex >= data.vCount || data.sprites[i].texture >= spriteTexturesCount) {
+                        LOG("! room %d has wrong sprite %d (v:%d/%d t:%d/%d)\n", roomIndex, i, data.sprites[i].vertex, data.vCount, data.sprites[i].texture, spriteTexturesCount);
+                        ASSERT(false);
+                        data.sprites[i] = data.sprites[--data.sCount];
+                    } else
+                        i++;
+
+                if (!data.sCount && data.sprites) {
+                    delete[] data.sprites;
+                    data.sprites = NULL;
+                }
             }
         }
 

@@ -207,6 +207,7 @@ struct Inventory {
         PAGE_OPTION,
         PAGE_INVENTORY,
         PAGE_ITEMS,
+        PAGE_SAVEGAME,
         PAGE_MAX
     };
 
@@ -701,7 +702,14 @@ struct Inventory {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
-            game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p);
+
+            if (curPage == PAGE_SAVEGAME) {
+                phaseRing = active ? 1.0f : 0.0f;
+                slot = 1;
+            } else {
+                game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p);
+            }
+
             chosen = false;
 
             if (active) {
@@ -1031,7 +1039,20 @@ struct Inventory {
 
         Item *item = items[getGlobalIndex(page, index)];
 
-        if (index == targetIndex && targetPage == page && ready) {
+        if (page == PAGE_SAVEGAME) {
+            if (Input::lastState[playerIndex] == cLeft || Input::lastState[playerIndex] == cRight)
+                slot ^= 1;
+
+            if (Input::lastState[playerIndex] == cAction) {
+                if (slot == 1) {
+                    TR::Entity &e = game->getLevel()->entities[index];
+                    Controller *controller = (Controller*)e.controller;
+                    controller->deactivate(true);
+                }
+                toggle(playerIndex, targetPage);
+            }
+
+        } else if (index == targetIndex && targetPage == page && ready) {
             if (!chosen) {
                 if ((key == cUp && !canFlipPage(-1)) || (key == cDown && !canFlipPage( 1)))
                     key = cMAX;
@@ -1092,7 +1113,7 @@ struct Inventory {
                     }
                 } else
                     if (!game->getLevel()->isTitle())
-                        toggle();
+                        toggle(playerIndex, targetPage);
             }
         }
         lastKey = key;
@@ -1233,7 +1254,7 @@ struct Inventory {
         // grayscale
         Core::setTarget(background[1], RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
-        Core::active.shader->setParam(uParam, vec4(1, 0, 0, 0));
+        Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, 1.0f));
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
@@ -1646,7 +1667,7 @@ struct Inventory {
     void renderUI() {
         if (!active || phaseRing < 1.0f) return;
 
-        static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS };
+        static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS, STR_SAVEGAME };
 
         float eye = UI::width * Core::eye * 0.01f;
 
@@ -1654,6 +1675,15 @@ struct Inventory {
             setupCamera(1.0f, true);
             Core::active.shader->setParam(uViewProj, Core::mViewProj);
             eye = 0.0f;
+        }
+
+        if (page == PAGE_SAVEGAME) {
+            UI::renderBar(UI::BAR_OPTION, vec2(-eye + UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
+            UI::textOut(vec2(-eye, 240), pageTitle[page], UI::aCenter, UI::width);
+            UI::renderBar(UI::BAR_OPTION, vec2(-eye - 48 * slot + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
+            UI::textOut(vec2(-eye - 48 + UI::width / 2, 240 + 24), STR_YES, UI::aCenter, 48);
+            UI::textOut(vec2(-eye + UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
+            return;
         }
 
         if (!game->getLevel()->isTitle()) 

@@ -112,6 +112,13 @@ namespace Game {
     }
 
     void updateTick() {
+        Input::update();
+        
+        if (!level->level.isTitle()) {
+            if (Input::lastState[0] == cStart) level->addPlayer(0);
+            if (Input::lastState[1] == cStart) level->addPlayer(1);
+        }
+
         float dt = Core::deltaTime;
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;
@@ -144,8 +151,6 @@ namespace Game {
 
         if (level->isEnded)
             return true;
-
-        Input::update();
 /*
         if (level->camera) {
             if (Input::down[ikV]) { // third <-> first person view
@@ -165,10 +170,6 @@ namespace Game {
             Input::down[ikL] = false;
         }
 */
-        if (!level->level.isTitle()) {
-            if (Input::lastState[0] == cStart) level->addPlayer(0);
-            if (Input::lastState[1] == cStart) level->addPlayer(1);
-        }
 
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);

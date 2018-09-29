@@ -778,6 +778,7 @@ struct Crystal : Controller {
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
+        flags.collision = true;
         activate();
     }
 
@@ -786,6 +787,8 @@ struct Crystal : Controller {
     }
 
     virtual void deactivate(bool removeFromList = false) {
+        flags.invisible = true;
+        flags.collision = false;
         Controller::deactivate(removeFromList);
         getRoom().removeDynLight(entity);
     }

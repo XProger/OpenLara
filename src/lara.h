@@ -7,6 +7,7 @@
 #include "trigger.h"
 #include "sprite.h"
 #include "enemy.h"
+#include "inventory.h"
 
 // TODO: slide to slide in WALL
 // TODO: static sounds in LEVEL3A
@@ -1671,11 +1672,25 @@ struct Lara : Character {
 
             Controller *controller = (Controller*)entity.controller;
 
-            if (controller->getRoomIndex() != room || controller->flags.invisible || !canPickup(controller))
+            if (controller->getRoomIndex() != room || controller->flags.invisible)
                 continue;
 
-            ASSERT(pickupListCount < COUNT(pickupList));
-            pickupList[pickupListCount++] = controller;
+            if (entity.type == TR::Entity::CRYSTAL) {
+                if (Input::lastState[camera->cameraIndex] == cAction) {
+                    vec3 dir = controller->pos - pos;
+                    if (dir.length2() < SQR(350.0f) && getDir().dot(dir.normal()) > COS30) {
+                        pickupListCount = 0;
+                        game->invShow(camera->cameraIndex, Inventory::PAGE_SAVEGAME, i);
+                        return true;
+                    }
+                }
+            } else {
+                if (!canPickup(controller))
+                    continue;
+
+                ASSERT(pickupListCount < COUNT(pickupList));
+                pickupList[pickupListCount++] = controller;
+            }
         }
 
         if (pickupListCount > 0) {
@@ -3068,9 +3083,9 @@ struct Lara : Character {
         for (int i = 0; i < level->entitiesCount; i++) {
             const TR::Entity &e = level->entities[i];
 
-            if (!e.controller || !e.isCollider()) continue;
-
             Controller *controller = (Controller*)e.controller;
+
+            if (!controller || !e.isCollider(controller->flags)) continue;
 
             if (e.isEnemy()) {
                 if (e.type != TR::Entity::ENEMY_REX && (controller->flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;

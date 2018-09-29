@@ -13,6 +13,8 @@ enum StringID {
     , STR_HELP_TEXT
     , STR_OFF
     , STR_ON
+    , STR_YES
+    , STR_NO
     , STR_SPLIT
     , STR_VR
     , STR_QUALITY_LOW
@@ -33,6 +35,8 @@ enum StringID {
     , STR_OPTION
     , STR_INVENTORY
     , STR_ITEMS
+// save game page
+    , STR_SAVEGAME
 // inventory option
     , STR_GAME
     , STR_MAP
@@ -123,6 +127,8 @@ const char *STR[STR_MAX] = {
     , helpText
     , "Off"
     , "On"
+    , "YES"
+    , "NO"
     , "Split Screen"
     , "VR"
     , "Low"
@@ -143,6 +149,8 @@ const char *STR[STR_MAX] = {
     , "OPTION"
     , "INVENTORY"
     , "ITEMS"
+// save game page
+    , "Save Game?"
 // inventory option
     , "Game"
     , "Map"

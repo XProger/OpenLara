@@ -31,12 +31,18 @@ struct Texture : GAPI::Texture {
         #else
             Texture *tiles[32];
 
-            Texture(TR::Tile32 *tiles, int tilesCount) : GAPI::Texture(256, 256, OPT_PROXY) {
+            struct Tile {
+                uint32 width;
+                uint32 height;
+                uint32 *data;
+            };
+
+            Texture(Tile *tiles, int tilesCount) : GAPI::Texture(256, 256, OPT_PROXY) {
                 memset(this->tiles, 0, sizeof(this->tiles));
 
                 ASSERT(tilesCount < COUNT(this->tiles));
                 for (int i = 0; i < tilesCount; i++)
-                    this->tiles[i] = new Texture(width, height, FMT_RGBA, 0, tiles + i);
+                    this->tiles[i] = new Texture(tiles[i].width, tiles[i].height, FMT_RGBA, OPT_MIPMAPS, tiles[i].data);
             }
         #endif
 

@@ -51,8 +51,8 @@ struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
     virtual void         loadNextLevel() {}
-    virtual void         loadGame(int slot) {}
-    virtual void         saveGame(int slot) {}
+    virtual void         loadGame() {}
+    virtual void         saveGame(int entityIndex) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
 
     virtual TR::Level*   getLevel()     { return NULL; }
@@ -86,6 +86,7 @@ struct IGame {
 
     virtual void addMuzzleFlash(Controller *owner, int joint, const vec3 &offset, int lightIndex) {}
 
+    virtual void invShow(int playerIndex, int page, int itemIndex = -1) {}
     virtual bool invUse(int playerIndex, TR::Entity::Type type) { return false; }
     virtual void invAdd(TR::Entity::Type type, int count = 1) {}
     virtual int* invCount(TR::Entity::Type type) { return NULL; }
@@ -402,6 +403,7 @@ struct Controller {
                 }
 
                 case TR::FloorData::TRIGGER :  {
+                    if (info.trigCmdCount) break;
                     info.trigger        = (TR::Level::Trigger::Type)cmd.sub;
                     info.trigCmdCount   = 0;
                     info.trigInfo       = (*fd++).triggerInfo;

@@ -63,6 +63,11 @@
 #define PI2     (PI * 2.0f)
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
+
+#define COS30   0.86602540378f
+#define COS45   0.70710678118f
+#define COS60   0.50000000000f
+
 #define SQR(x)  ((x)*(x))
 #define randf() ((float)rand()/RAND_MAX)
 
