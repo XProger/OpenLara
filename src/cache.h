@@ -500,7 +500,7 @@ struct WaterCache {
                         hasWater = s.ceiling > st.ceiling;
                         if (s.ceiling == st.ceiling) {
                             vec3 p = vec3(float(r.info.x + x * 1024 + 512), float(posY), float(r.info.z + z * 1024 + 512));
-                            hasWater = (s.ceiling * 256 - level->getCeiling(&s, p)) > 8.0f;
+                            hasWater = (s.ceiling * 256 - level->getCeiling(&st, p)) > 8.0f;
                         }
                     }
 
