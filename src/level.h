@@ -1638,9 +1638,13 @@ struct Level : IGame {
             params->time += Core::deltaTime;
             animTexTimer += Core::deltaTime;
 
-            if (animTexTimer > ANIM_TEX_TIMESTEP) {
+            float timeStep = ANIM_TEX_TIMESTEP;
+            if (level.version & TR::VER_TR1)
+                timeStep *= 0.5f;
+
+            if (animTexTimer > timeStep) {
                 level.shiftAnimTex();
-                animTexTimer -= ANIM_TEX_TIMESTEP;
+                animTexTimer -= timeStep;
             }
 
             updateEffect();

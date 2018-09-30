@@ -206,8 +206,7 @@ struct MeshBuilder {
             iCount += (d.rCount * 6 + d.tCount * 3) * DOUBLE_SIDED;
             vCount += (d.rCount * 4 + d.tCount * 3);
 
-            if (Core::settings.detail.water > Core::Settings::LOW)
-                roomRemoveWaterSurfaces(r, iCount, vCount);
+            roomRemoveWaterSurfaces(r, iCount, vCount);
 
             for (int j = 0; j < r.meshesCount; j++) {
                 TR::Room::Mesh &m = r.meshes[j];
@@ -687,11 +686,18 @@ struct MeshBuilder {
     }
 
     void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
+
+        if (Core::settings.detail.water == Core::Settings::LOW) {
+            for (int i = 0; i < room.data.fCount; i++)
+                room.data.faces[i].water = false;
+            return;
+        }
+
         room.waterLevel = -1;
 
         for (int i = 0; i < room.data.fCount; i++) {
             TR::Face &f = room.data.faces[i];
-            if (f.flags.value == 0xFFFF) continue;
+            if (f.water) continue;
 
             TR::Vertex &a = room.data.vertices[f.vertices[0]].vertex;
             TR::Vertex &b = room.data.vertices[f.vertices[1]].vertex;
@@ -712,7 +718,7 @@ struct MeshBuilder {
 
             if (isWaterSurface(yt, s.roomAbove, room.flags.water) ||
                 isWaterSurface(yb, s.roomBelow, room.flags.water)) {
-                f.flags.value = 0xFFFF; // mark as unused
+                f.water = true;
 
                 room.waterLevel = a.y;
                 if (f.vCount == 4) {
@@ -767,8 +773,8 @@ struct MeshBuilder {
 
         for (int i = 0; i < room.data.fCount; i++) {
             TR::Face &f = room.data.faces[i];
-            if (f.flags.value != 0xFFFF) continue;
-            
+            if (!f.water) continue;
+
             Index idx[4];
 
             idx[0] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[0]].vertex);
@@ -905,7 +911,7 @@ struct MeshBuilder {
             TR::Face          &f = d.faces[j];
             TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
-            if (f.flags.value == 0xFFFF) continue; // skip if marks as unused (removing water planes)
+            if (f.water) continue;
 
             CHECK_ROOM_NORMAL(f);
 
@@ -939,7 +945,7 @@ struct MeshBuilder {
                 TR::Face          &f = d.faces[j];
                 TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
-                if (f.flags.value == 0xFFFF) continue; // skip if marks as unused (removing water planes)
+                if (f.water) continue;
 
                 if (!(blendMask & getBlendMask(t.attribute)))
                     continue;

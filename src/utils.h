@@ -1646,6 +1646,10 @@ struct Array {
         count = 0;
     }
 
+    void sort() {
+        ::sort(items, count);
+    }
+
     T& operator[] (int index) {
         ASSERT(index >= 0 && index < count);
         return items[index]; 

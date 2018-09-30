@@ -1180,10 +1180,10 @@ namespace TR {
             struct { uint16 texture:15, doubleSided:1; };
             uint16 value;
         } flags;
-        uint8  colored; // !!! not existing in file
-        uint8  vCount;  // !!! not existing in file
-        short3 normal;  // !!! not existing in file
+
+        short3 normal;
         uint16 vertices[4];
+        uint8  water:1, colored:1, vCount:6;
 
         static int cmp(const Face &a, const Face &b) {
             int aIndex = a.flags.texture;
@@ -3124,6 +3124,8 @@ namespace TR {
         #else
             f.colored = false;
         #endif
+
+            f.water = false;
         }
 
         void readRoom(Stream &stream, int roomIndex) {
@@ -3362,6 +3364,7 @@ namespace TR {
                         f.vertices[2] >>= 2;
                         f.vertices[3] >>= 2;
                         f.colored = false;
+                        f.water   = false;
                     }
                 } else
                     for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
