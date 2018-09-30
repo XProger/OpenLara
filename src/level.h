@@ -797,8 +797,7 @@ struct Level : IGame {
             players[index]->camera->cameraIndex = index;
             Sound::listenersCount = 2;
         } else if (index == 1) {
-            removeEntity(players[index]);
-            players[index] = NULL;
+            removePlayer(index);
             Sound::listenersCount = 1;
             return;
         }
@@ -815,6 +814,19 @@ struct Level : IGame {
         }
 
         players[index]->reset(lead->getRoomIndex(), lead->pos, lead->angle.y, lead->stand);
+    }
+
+    void removePlayer(int index) {
+        for (int i = 0; i < level.entitiesCount; i++) {
+            if (level.entities[i].controller && level.entities[i].isEnemy()) {
+                Enemy *e = (Enemy*)level.entities[i].controller;
+                if (e->target == players[index]) {
+                    e->target = NULL;
+                }
+            }
+        }
+        removeEntity(players[index]);
+        players[index] = NULL;
     }
 
     Controller* initController(int index) {

@@ -1497,8 +1497,8 @@ struct Lara : Character {
         arms[0].tracking  = arms[1].tracking  = NULL;
         arms[0].target    = arms[1].target    = NULL;
         viewTarget        = NULL;
-        velocity          = vec3(0.0f);
         animation.overrideMask = 0;
+        int oldState = state;
 
         switch (hitType) {
             case TR::HIT_FALL : {
@@ -1574,6 +1574,9 @@ struct Lara : Character {
             for (int i = 0; i < 10; i++)
                 Flame::add(game, this, int(randf() * 24.0f));
         }
+
+        if (state != oldState)
+            velocity = vec3(0.0f);
     };
 
     bool useItem(TR::Entity::Type item) {
@@ -2513,7 +2516,6 @@ struct Lara : Character {
     }
 
     virtual int getStateDeath() {
-        velocity = vec3(0.0f);
         return (stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? STATE_UNDERWATER_DEATH : (state == STATE_MIDAS_DEATH ? STATE_MIDAS_DEATH : STATE_DEATH);
     }
 

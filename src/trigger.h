@@ -167,7 +167,7 @@ struct Flame : Sprite {
         Sprite::update();
         game->playSound(TR::SND_FLAME, pos, Sound::PAN);
 
-        Character *lara = (Character*)(owner ? owner : game->getLara(pos));
+        Character *lara = (Character*)((owner && owner->getEntity().isLara()) ? owner : game->getLara(pos));
 
         if (jointIndex > -1) {
             if (lara->stand == Character::STAND_UNDERWATER) {

@@ -167,8 +167,13 @@ struct Character : Controller {
     virtual bool  useHeadAnimation()    { return false; }
 
     int getNextState() {
-        if (input & DEATH)
-            return getStateDeath();
+        if (input & DEATH) {
+            int deathState = getStateDeath();
+            if (animation.canSetState(deathState)) {
+                velocity = vec3(0.0f);
+                return deathState;
+            }
+        }
 
         switch (stand) {
             case STAND_AIR        : return getStateAir();
