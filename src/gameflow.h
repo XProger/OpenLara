@@ -283,40 +283,46 @@ namespace TR {
         { "STPAUL",     "All Hallows",              TRACK_TR3_CAVES     },
     };
 
-    LevelID getLevelID(int size, Version &version, bool &isDemoLevel) {
+    LevelID getLevelID(int size, const char *name, Version &version, bool &isDemoLevel) {
         isDemoLevel = false;
         switch (size) {
         // TR1
             // TITLE
             case 585648  : // PSX JAP
             case 508614  : version = VER_TR1_PSX;
+            //case 320412  : // PC JAP
             case 334874  :
             case 316138  :
             case 316460  : return LVL_TR1_TITLE;
             // GYM
             case 1234800 : // PSX JAP
             case 1074234 : version = VER_TR1_PSX;
+            case 3377974 : // PC JAP
             case 3236806 :
             case 3237128 : return LVL_TR1_GYM;
             // LEVEL1
             case 1667568 : // PSX JAP
             case 1448896 : version = VER_TR1_PSX;
+            case 2540906 : // PC JAP
             case 2533312 :
             case 2533634 : return LVL_TR1_1;
             // LEVEL2
             case 2873406 : isDemoLevel = true; return LVL_TR1_2;
             case 1766352 : // PSX JAP
             case 1535734 : version = VER_TR1_PSX;
+            case 2880722 : // PC JAP
             case 2873128 :
             case 2873450 : return LVL_TR1_2;
             // LEVEL3A
             case 1876896 : // PSX JAP
             case 1630560 : version = VER_TR1_PSX;
+            case 2942002 : // PC JAP
             case 2934408 :
             case 2934730 : return LVL_TR1_3A;
             // LEVEL3B
             case 1510414 : // PSX JAP
             case 1506614 : version = VER_TR1_PSX;
+            case 2745530 : // PC JAP
             case 2737936 :
             case 2738258 : return LVL_TR1_3B;
             // CUT1
@@ -325,26 +331,31 @@ namespace TR {
             // LEVEL4
             case 1624130 : // PSX JAP
             case 1621970 : version = VER_TR1_PSX;
+            case 3038144 : // PC JAP
             case 3030550 :
             case 3030872 : return LVL_TR1_4;
             // LEVEL5
             case 1588102 : // PSX JAP
             case 1585942 : version = VER_TR1_PSX;
+            case 2725812 : // PC JAP
             case 2718218 :
             case 2718540 : return LVL_TR1_5;
             // LEVEL6
             case 1710624 : // PSX JAP
             case 1708464 : version = VER_TR1_PSX;
+            case 3147184 : // PC JAP
             case 3139590 :
             case 3074376 : return LVL_TR1_6;
             // LEVEL7A
             case 1698824 : // PSX JAP
             case 1696664 : version = VER_TR1_PSX;
+            case 2824884 : // PC JAP
             case 2817290 :
             case 2817612 : return LVL_TR1_7A;
             // LEVEL7B
             case 1735434 : // PSX JAP
             case 1733274 : version = VER_TR1_PSX;
+            case 3603912 : // PC JAP
             case 3388774 :
             case 3389096 : return LVL_TR1_7B;
             // CUT2
@@ -353,21 +364,25 @@ namespace TR {
             // LEVEL8A
             case 1565494 : // PSX JAP
             case 1563356 : version = VER_TR1_PSX;
+            case 2887836 : // PC JAP
             case 2880242 :
             case 2880564 : return LVL_TR1_8A;
             // LEVEL8B
             case 1567790 : // PSX JAP
             case 1565630 : version = VER_TR1_PSX;
+            case 2894028 : // PC JAP
             case 2886434 :
             case 2886756 : return LVL_TR1_8B;
             // LEVEL8C
             case 1621520 : // PSX JAP
             case 1619360 : version = VER_TR1_PSX;
+            case 3072066 : // PC JAP
             case 3105128 :
             case 3105450 : return LVL_TR1_8C;
             // LEVEL10A
             case 1680146 : // PSX JAP
             case 1678018 : version = VER_TR1_PSX;
+            case 3270372 : // PC JAP
             case 3223816 :
             case 3224138 : return LVL_TR1_10A;
             // CUT3
@@ -376,6 +391,7 @@ namespace TR {
             // LEVEL10B
             case 1688908 : // PSX JAP
             case 1686748 : version = VER_TR1_PSX;
+            case 3101614 : // PC JAP
             case 3094342 :
             case 3094020 : return LVL_TR1_10B;
             // CUT4
@@ -384,6 +400,7 @@ namespace TR {
             // LEVEL10C
             case 1816438 : // PSX JAP
             case 1814278 : version = VER_TR1_PSX;
+            case 3533814 : // PC JAP
             case 3531702 :
             case 3532024 : return LVL_TR1_10C;
             // EGYPT
@@ -628,6 +645,30 @@ namespace TR {
             case 1080046 :
             case 2321393 : return LVL_TR3_CUT_12;
         }
+
+        if (name) {
+            // skip directory path
+            int start = 0;
+            for (int i = strlen(name) - 1; i >= 0; i--)
+                if (name[i] == '/' || name[i] == '\\') {
+                    start = i + 1;
+                    break;
+                }
+            // skip extension
+            char buf[255];
+            strcpy(buf, name + start);
+            for (int i = 0; i < int(strlen(buf)); i++)
+                if (buf[i] == '.') {
+                    buf[i] = 0;
+                    break;
+                }
+            // compare with standard levels
+            // TODO: fix TITLE (2-3), HOUSE (3), CUTx (2-3)
+            for (int i = 0; i < LVL_MAX; i++)
+                if (!strcmp(buf, LEVEL_INFO[i].name))
+                    return LevelID(i);
+        }
+
         return LVL_CUSTOM;
     }
 
@@ -700,6 +741,16 @@ namespace TR {
             return VER_TR3_PSX;
 
         useEasyStart = false;
+        return VER_UNKNOWN;
+    }
+
+    Version getGameVersionByLevel(LevelID id) {
+        if (id >= LVL_TR1_TITLE && id <= LVL_TR1_END2)
+            return VER_TR1;
+        if (id >= LVL_TR2_TITLE && id <= LVL_TR2_HOUSE)
+            return VER_TR2;
+        if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
+            return VER_TR3;
         return VER_UNKNOWN;
     }
 
