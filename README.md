@@ -13,14 +13,8 @@ inspired by OpenTomb project http://opentomb.github.io/
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
 
 ## Roadmap
-- FMVs
-- enemies
-- save game crystals
 - BETA
 - Sega Saturn levels
-- PSP port
-- Wii port
-- PSV port
 - graphics improvements
 - bug fixes
 - RELEASE 1
