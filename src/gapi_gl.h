@@ -543,6 +543,8 @@ namespace GAPI {
             bool isShadow = fmt == FMT_SHADOW;
 
             glGenTextures(1, &ID);
+
+            Core::active.textures[0] = NULL;
             bind(0);
 
             GLenum target = cube ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
