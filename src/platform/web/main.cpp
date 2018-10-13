@@ -57,7 +57,7 @@ void onCacheStore(void *arg) {
     Stream *stream = (Stream*)arg;
     LOG("cache stored: %s\n", stream->name);
     if (stream->callback)    
-        stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+        stream->callback(new Stream(stream->name, stream->data, stream->size), stream->userData);
     delete stream;
 }
 
@@ -86,12 +86,12 @@ void osCacheRead(Stream *stream) {
 }
 
 // memory card
-void osSaveGame(Stream *stream) {
-    return osCacheWrite(stream);
+void osReadSlot(Stream *stream) {
+    return osCacheRead(stream);
 }
 
-void osLoadGame(Stream *stream) {
-    return osCacheRead(stream);
+void osWriteSlot(Stream *stream) {
+    return osCacheWrite(stream);
 }
 
 JoyKey joyToInputKey(int code) {
