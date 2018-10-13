@@ -10,6 +10,7 @@
 #include "lara.h"
 #include "trigger.h"
 #include "inventory.h"
+#include "savegame.h"
 
 #if defined(_DEBUG) && defined(_GAPI_GL) && !defined(_GAPI_GLES)
     #define DEBUG_RENDER
@@ -22,9 +23,14 @@
 #define ANIM_TEX_TIMESTEP (10.0f / 30.0f)
 
 extern ShaderCache *shaderCache;
-extern void loadAsync(Stream *stream, void *userData);
+extern void loadLevelAsync(Stream *stream, void *userData);
+
+extern Array<SaveSlot> saveSlots;
+extern SaveResult saveResult;
+extern int loadSlot;
 
 struct Level : IGame {
+
     TR::Level   level;
     Inventory   *inventory;
     Texture     *atlas;
@@ -54,6 +60,8 @@ struct Level : IGame {
     bool needRedrawReflections;
     bool needRenderGame;
 
+    TR::LevelID nextLevel;
+
     TR::Effect::Type effect;
     float      effectTimer;
     int        effectIdx;
@@ -61,125 +69,140 @@ struct Level : IGame {
     float      animTexTimer;
 
 // IGame implementation ========
-    virtual void loadLevel(TR::LevelID id) {
-        if (isEnded) return;
+    virtual void loadLevel(TR::LevelID id, bool showSaveGame) {
+        if (nextLevel != TR::LVL_MAX) return;
 
         sndWater = sndTrack = NULL;
         Sound::stopAll();
 
-        isEnded = true;
+        nextLevel = id;
 
-        char buf[64];
-        TR::getGameLevelFile(buf, level.version, id);
-        new Stream(buf, loadAsync);
+        if (showSaveGame && !TR::isCutsceneLevel(nextLevel))
+            invShow(camera->cameraIndex, Inventory::PAGE_SAVEGAME, -1);
     }
 
-    virtual void loadNextLevel() {
+    virtual void loadNextLevel(bool showSaveGame) {
     #ifdef _OS_WEB
         if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC) {
-            loadLevel(TR::LVL_TR1_TITLE);
+            loadLevel(TR::LVL_TR1_TITLE, showSaveGame);
             return;
         }
     #endif
-        loadLevel((level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1));
+        loadLevel((level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1), showSaveGame);
     }
 
     virtual void invShow(int playerIndex, int page, int itemIndex = -1) {
-        if (itemIndex != -1)
+        if (itemIndex != -1 || page == Inventory::PAGE_SAVEGAME)
             inventory->pageItemIndex[page] = itemIndex;
         inventory->toggle(playerIndex, Inventory::Page(page));
     }
 
-    virtual void saveGame(int entityIndex) {
-        LOG("Save Game... ");
+    SaveSlot createSaveSlot(TR::LevelID id, bool checkpoint) {
+        SaveSlot slot;
+        slot.level = id | (checkpoint ? LVL_FLAG_CHECKPOINT : 0);
 
-        char  *data = new char[sizeof(TR::SaveGame) + sizeof(TR::SaveGame::Item) * inventory->itemsCount + sizeof(TR::SaveGame::CurrentState) + sizeof(TR::SaveGame::Entity) * level.entitiesCount]; // oversized
-        char  *ptr = data;
-
-        TR::SaveGame *save = (TR::SaveGame*)ptr;
-
-    // global stats
-        *save = level.save;
-        ptr += sizeof(*save);
-
-    // save levels progress
-        save->progressCount = 0;
-        bool saveCurrentState = true;
-
-        if (saveCurrentState) {
-            TR::SaveGame::CurrentState *currentState = (TR::SaveGame::CurrentState*)ptr;
-            ptr += sizeof(TR::SaveGame::CurrentState);
-
-            *currentState = level.state;
-
-        // inventory items
-            currentState->progress.itemsCount = 0;
-            for (int i = 0; i < inventory->itemsCount; i++) {
-                TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-                Inventory::Item *invItem = inventory->items[i];
+        // allocate oversized data for save slot
+        slot.data  = new uint8[sizeof(SaveProgress) + sizeof(SaveItem) * inventory->itemsCount + // for every save
+                               sizeof(SaveProgress) + sizeof(SaveState) + sizeof(SaveEntity) * level.entitiesCount];    // only for checkpoints
             
-                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+        uint8 *ptr = slot.data;
 
-                item->type  = invItem->type;
-                item->count = invItem->count;
+    // game progress stats
+        SaveProgress *gameStats = (SaveProgress*)ptr;
+        ptr += sizeof(*gameStats);
+        *gameStats = level.gameStats;
 
-                ptr += sizeof(*item);
-                currentState->progress.itemsCount++;
-            }
+    // inventory items
+        int32 *itemsCount = (int32*)ptr;
+        ptr += sizeof(*itemsCount);
+
+        *itemsCount = 0;
+        for (int i = 0; i < inventory->itemsCount; i++) {
+            Inventory::Item *invItem = inventory->items[i];
+            
+            if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+
+            SaveItem *item = (SaveItem*)ptr;
+            ptr += sizeof(*item);
+
+            item->type  = invItem->type;
+            item->count = invItem->count;
+
+            (*itemsCount)++;
+        }
+
+        if (checkpoint) {
+        // level progress stats
+            SaveProgress *levelStats = (SaveProgress*)ptr;
+            ptr += sizeof(*levelStats);
+            *levelStats = level.levelStats;
+
+        // level state
+            SaveState *state = (SaveState*)ptr;
+            ptr += sizeof(*state);
+            *state = level.state;
 
         // level entities
-            currentState->entitiesCount = 0;
+            int32 *entitiesCount = (int32*)ptr;
+            ptr += sizeof(*entitiesCount);
+
+            *entitiesCount = 0;
             for (int i = 0; i < level.entitiesCount; i++) {
                 Controller *controller = (Controller*)level.entities[i].controller;
-                TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
+                SaveEntity *entity = (SaveEntity*)ptr;
                 if (!controller || !controller->getSaveData(*entity)) continue;
-                ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
-                currentState->entitiesCount++;
+                ptr += (sizeof(SaveEntity) - sizeof(SaveEntity::Extra)) + entity->extraSize;
+                (*entitiesCount)++;
             }
         }
 
-        save->size      = int32(ptr - data);
-        save->version   = level.version & TR::VER_VERSION;
+        slot.size = int32(ptr - slot.data);
 
-        //osSaveGame(new Stream("savegame", data, int(ptr - data)));
-        delete[] data;
-
-        LOG("Ok\n");
+        return slot;
     }
 
-    virtual void loadGame() {
-        LOG("Load Game... ");
+    void parseLoadSlot() {
+        if (loadSlot == -1) return;
+        const SaveSlot &slot = saveSlots[loadSlot];
 
-        Stream *stream = NULL;//osLoadGame();
-        if (!stream)
-            return;
+        loadSlot = -1;
 
         clearInventory();
-        clearEntities();
 
-        char *data;
-        stream->read(data, stream->size);
-        char *ptr = data;
+        uint8 *data = slot.data;
+        uint8 *ptr  = data;
 
-        TR::SaveGame *save = (TR::SaveGame*)ptr;
+    // game progress stats
+        level.gameStats = *(SaveProgress*)ptr;
+        ptr += sizeof(level.gameStats);
 
-        level.save = *save;
-        ptr += sizeof(*save);
+    // inventory items
+        int32 itemsCount = *(int32*)ptr;
+        ptr += sizeof(itemsCount);
 
-        if (save->size > (ptr - data)) { // has current state
-            TR::SaveGame::CurrentState *currentState = (TR::SaveGame::CurrentState*)ptr;
-            ptr += sizeof(TR::SaveGame::CurrentState);
+        for (int i = 0; i < itemsCount; i++) {
+            SaveItem *item = (SaveItem*)ptr;
+            inventory->add(TR::Entity::Type(item->type), item->count, false);
+            ptr += sizeof(*item);
+        }
 
-            level.state = *currentState;
+        if (slot.level & LVL_FLAG_CHECKPOINT) {
+            clearEntities();
 
-            for (int i = 0; i < currentState->progress.itemsCount; i++) {
-                TR::SaveGame::Item *item = (TR::SaveGame::Item*)ptr;
-                inventory->add(TR::Entity::Type(item->type), item->count, false);
-                ptr += sizeof(*item);
-            }
+        // level progress stats
+            level.levelStats = *(SaveProgress*)ptr;
+            ptr += sizeof(level.levelStats);
 
-            for (int i = 0; i < currentState->entitiesCount; i++) {
-                TR::SaveGame::Entity *entity = (TR::SaveGame::Entity*)ptr;
+        // level state
+            level.state = *(SaveState*)ptr;
+            ptr += sizeof(level.state);
+
+        // level entities
+            int32 entitiesCount = *(int32*)ptr;
+            ptr += sizeof(entitiesCount);
+
+            for (int i = 0; i < entitiesCount; i++) {
+                SaveEntity *entity = (SaveEntity*)ptr;
 
                 Controller *controller;
                 if (i >= level.entitiesBaseCount)
@@ -193,20 +216,64 @@ struct Level : IGame {
                     Controller::first = controller;
                 }
 
-                ptr += (sizeof(TR::SaveGame::Entity) - sizeof(TR::SaveGame::Entity::Extra)) + entity->extraSize;
+                if (controller->getEntity().isLara()) {
+                    Lara *lara = (Lara*)controller;
+                    if (lara->camera)
+                        lara->camera->reset();
+                }
+
+                ptr += (sizeof(SaveEntity) - sizeof(SaveEntity::Extra)) + entity->extraSize;
             }
 
             uint8 track = level.state.flags.track;
             level.state.flags.track = 0;
             playTrack(track);
         }
+    }
 
-        delete[] data;
-        delete stream;
+    static void saveGameWriteAsync(Stream *stream, void *userData) {
+        if (stream != NULL) {
+            delete[] stream->data;
+            delete stream;
+            saveResult = SAVE_RESULT_SUCCESS;
+            UI::showHint(STR_HINT_SAVING_DONE, 1.0f);
+        } else {
+            saveResult = SAVE_RESULT_ERROR;
+            UI::showHint(STR_HINT_SAVING_ERROR, 3.0f);
+        }
+    }
 
-    //    camera->room = lara->getRoomIndex();
-    //    camera->pos  = camera->destPos = lara->pos;
-        LOG("Ok\n");
+    virtual void saveGame(bool checkpoint) {
+        ASSERT(saveResult != SAVE_RESULT_WAIT);
+
+        if (saveResult == SAVE_RESULT_WAIT)
+            return;
+
+        saveResult = SAVE_RESULT_WAIT;
+        UI::showHint(STR_HINT_SAVING, 60.0f);
+
+        LOG("Save Game...\n");
+
+        TR::LevelID id = level.id;
+        if (!checkpoint) {
+            ASSERT(nextLevel != TR::LVL_MAX);
+            id = nextLevel;
+        }
+
+        removeSaveSlot(id, checkpoint);
+
+        saveSlots.push(createSaveSlot(id, checkpoint));
+        saveSlots.sort();
+
+        int size;
+        uint8 *data = writeSaveSlots(size);
+
+        osWriteSlot(new Stream(SAVE_FILENAME, (const char*)data, size, saveGameWriteAsync, this));
+    }
+
+    virtual void loadGame(int slot) {
+        LOG("Load Game...\n");
+        loadSlot = slot;
     }
 
     void clearInventory() {
@@ -657,8 +724,10 @@ struct Level : IGame {
             return;
         }
 
-        if (track == 0)
+        if (track == 0) {
+            if (sndTrack) return;
             track = TR::LEVEL_INFO[level.id].track;
+        }
 
         if (level.state.flags.track == track) {
         //    if (sndTrack) {
@@ -694,6 +763,8 @@ struct Level : IGame {
     #ifdef _OS_PSP
         GAPI::freeEDRAM();
     #endif
+        nextLevel = TR::LVL_MAX;
+
         params = (Params*)&Core::params;
         params->time = 0.0f;
 
@@ -708,14 +779,7 @@ struct Level : IGame {
 
         inventory = new Inventory(this);
 
-        for (int i = 0; i < level.entitiesBaseCount; i++) {
-            TR::Entity &e = level.entities[i];
-            e.controller = initController(i);
-            if (e.type == TR::Entity::LARA || ((level.version & TR::VER_TR1) && e.type == TR::Entity::CUT_1))
-                players[0] = (Lara*)e.controller;
-        }
-
-        Sound::listenersCount = 1;
+        initEntities();
 
         shadow       = NULL;
         camera       = NULL;
@@ -764,6 +828,8 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
+        saveResult = SAVE_RESULT_SUCCESS;
+        parseLoadSlot();
 
         Core::resetTime();
     }
@@ -787,6 +853,17 @@ struct Level : IGame {
 
     void init(bool playLogo, bool playVideo) {
         inventory->init(playLogo, playVideo);
+    }
+
+    void initEntities() {
+        for (int i = 0; i < level.entitiesBaseCount; i++) {
+            TR::Entity &e = level.entities[i];
+            e.controller = initController(i);
+            if (e.type == TR::Entity::LARA || ((level.version & TR::VER_TR1) && e.type == TR::Entity::CUT_1))
+                players[0] = (Lara*)e.controller;
+        }
+
+        Sound::listenersCount = 1;
     }
 
     void addPlayer(int index) {
@@ -1202,7 +1279,6 @@ struct Level : IGame {
         tileData = new TR::Tile32();
         
         atlas = tiles->pack();
-        
         delete[] tileData;
         tileData = NULL;
 
@@ -1568,6 +1644,8 @@ struct Level : IGame {
     }
 
     void update() {
+        if (isEnded) return;
+
         bool invRing = inventory->phaseRing != 0.0f && inventory->phaseRing != 1.0f;
         if (inventory->video || inventory->titleTimer >= 1.0f || level.isCutsceneLevel() || invRing) {
             memset(Input::btnEnable, 0, sizeof(Input::btnEnable));
@@ -1588,7 +1666,7 @@ struct Level : IGame {
         if (level.isCutsceneLevel() && waitTrack) {
             if (!sndTrack && TR::LEVEL_INFO[level.id].track != TR::NO_TRACK) {
                 if (camera->timer > 0.0f) // for the case that audio stops before animation ends
-                    loadNextLevel();
+                    loadNextLevel(true);
                 return;
             }
 
@@ -1608,8 +1686,8 @@ struct Level : IGame {
         if ((Input::lastState[0] == cInventory || Input::lastState[1] == cInventory) && !level.isTitle() && inventory->titleTimer < 1.0f && !inventory->active) {
             int playerIndex = (Input::lastState[0] == cInventory) ? 0 : 1;
 
-            if (level.isCutsceneLevel()) {
-                loadNextLevel();
+            if (level.isCutsceneLevel()) { // skip cutscene level
+                loadNextLevel(true);
                 return;
             }
 
@@ -1625,6 +1703,24 @@ struct Level : IGame {
 
         if (inventory->titleTimer > 1.0f)
             return;
+
+        if (loadSlot > -1 && nextLevel == TR::LVL_MAX) {
+            if (inventory->isActive())
+                return;
+
+            TR::LevelID id = TR::LevelID(saveSlots[loadSlot].level & ~LVL_FLAG_CHECKPOINT);
+            loadLevel(id, false);
+            return;
+        }
+
+        if (nextLevel != TR::LVL_MAX && !inventory->isActive()) {
+            isEnded = true;
+            char buf[64];
+            TR::getGameLevelFile(buf, level.version, nextLevel);
+            nextLevel = TR::LVL_MAX;
+            new Stream(buf, loadLevelAsync);
+            return;
+        }
 
         UI::update();
 
@@ -2688,7 +2784,7 @@ struct Level : IGame {
                 pos.y += 32.0f;
 
                 if (!inventory->active && !player->emptyHands()) { // ammo
-                    int index = inventory->contains(player->getCurrentWeaponInv());
+                    int index = inventory->contains(player->wpnCurrent);
                     if (index > -1)
                         inventory->renderItemCount(inventory->items[index], pos, size.x);
                 }

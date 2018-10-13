@@ -4,6 +4,7 @@
 #include "format.h"
 #include "controller.h"
 #include "ui.h"
+#include "savegame.h"
 
 #define INVENTORY_MAX_ITEMS  32
 #define INVENTORY_MAX_RADIUS 688.0f
@@ -16,6 +17,8 @@
 #define INVENTORY_HEIGHT     2048.0f
 #define TITLE_LOADING        64.0f
 #define LINE_HEIGHT          20.0f
+
+extern Array<SaveSlot> saveSlots;
 
 static const struct OptionItem *waitForKey = NULL;
 
@@ -181,26 +184,6 @@ static const OptionItem optControls[] = {
 
 static OptionItem optControlsPlayer[COUNT(optControls)];
 
-static OptionItem optPassport[] = {
-    OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ),
-    OptionItem( ),
-    OptionItem( OptionItem::TYPE_BUTTON ), // dummy
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-    OptionItem( ),
-};
-
 struct Inventory {
 
     enum Page {
@@ -244,6 +227,8 @@ struct Inventory {
 
         int                 value;
 
+        Array<OptionItem>   optLoadSlots;
+
         struct Desc {
             StringID    str;
             Page        page;
@@ -268,15 +253,15 @@ struct Inventory {
                 case TR::Entity::INV_CONTROLS        : desc = Desc( STR_CONTROLS,        PAGE_OPTION,    level->extra.inv.controls        ); break;
                 case TR::Entity::INV_GAMMA           : desc = Desc( STR_GAMMA,           PAGE_OPTION,    level->extra.inv.gamma           ); break;
                                                                                    
-                case TR::Entity::INV_PISTOLS         : desc = Desc( STR_PISTOLS,         PAGE_INVENTORY, level->extra.inv.weapon[0]       ); break;
-                case TR::Entity::INV_SHOTGUN         : desc = Desc( STR_SHOTGUN,         PAGE_INVENTORY, level->extra.inv.weapon[1]       ); break;
-                case TR::Entity::INV_MAGNUMS         : desc = Desc( STR_MAGNUMS,         PAGE_INVENTORY, level->extra.inv.weapon[2]       ); break;
-                case TR::Entity::INV_UZIS            : desc = Desc( STR_UZIS,            PAGE_INVENTORY, level->extra.inv.weapon[3]       ); break;
+                case TR::Entity::INV_PISTOLS         : desc = Desc( STR_PISTOLS,         PAGE_INVENTORY, level->extra.inv.weapons[type]   ); break;
+                case TR::Entity::INV_SHOTGUN         : desc = Desc( STR_SHOTGUN,         PAGE_INVENTORY, level->extra.inv.weapons[type]   ); break;
+                case TR::Entity::INV_MAGNUMS         : desc = Desc( STR_MAGNUMS,         PAGE_INVENTORY, level->extra.inv.weapons[type]   ); break;
+                case TR::Entity::INV_UZIS            : desc = Desc( STR_UZIS,            PAGE_INVENTORY, level->extra.inv.weapons[type]   ); break;
                                                                                    
-                case TR::Entity::INV_AMMO_PISTOLS    : desc = Desc( STR_AMMO_PISTOLS,    PAGE_INVENTORY, level->extra.inv.ammo[0]         ); break;
-                case TR::Entity::INV_AMMO_SHOTGUN    : desc = Desc( STR_AMMO_SHOTGUN,    PAGE_INVENTORY, level->extra.inv.ammo[1]         ); break;
-                case TR::Entity::INV_AMMO_MAGNUMS    : desc = Desc( STR_AMMO_MAGNUMS,    PAGE_INVENTORY, level->extra.inv.ammo[2]         ); break;
-                case TR::Entity::INV_AMMO_UZIS       : desc = Desc( STR_AMMO_UZIS,       PAGE_INVENTORY, level->extra.inv.ammo[3]         ); break;
+                case TR::Entity::INV_AMMO_PISTOLS    : desc = Desc( STR_AMMO_PISTOLS,    PAGE_INVENTORY, level->extra.inv.ammo[type]      ); break;
+                case TR::Entity::INV_AMMO_SHOTGUN    : desc = Desc( STR_AMMO_SHOTGUN,    PAGE_INVENTORY, level->extra.inv.ammo[type]      ); break;
+                case TR::Entity::INV_AMMO_MAGNUMS    : desc = Desc( STR_AMMO_MAGNUMS,    PAGE_INVENTORY, level->extra.inv.ammo[type]      ); break;
+                case TR::Entity::INV_AMMO_UZIS       : desc = Desc( STR_AMMO_UZIS,       PAGE_INVENTORY, level->extra.inv.ammo[type]      ); break;
 
                 case TR::Entity::INV_MEDIKIT_SMALL   : desc = Desc( STR_MEDI_SMALL,      PAGE_INVENTORY, level->extra.inv.medikit[0]      ); break;
                 case TR::Entity::INV_MEDIKIT_BIG     : desc = Desc( STR_MEDI_BIG,        PAGE_INVENTORY, level->extra.inv.medikit[1]      ); break;
@@ -320,12 +305,90 @@ struct Inventory {
             }
         }
 
+        void initLoadSlots(TR::Level *level) {
+            optLoadSlots.clear();
+            optLoadSlots.push(OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_LEVEL ));
+            optLoadSlots.push(OptionItem( ));
+
+            for (int i = 0; i < saveSlots.length; i++) {
+                const SaveSlot &slot = saveSlots[i];
+
+                bool isCheckpointSlot = (slot.level & LVL_FLAG_CHECKPOINT) != 0;
+                TR::LevelID id = TR::LevelID(slot.level & ~LVL_FLAG_CHECKPOINT);
+
+                if (TR::getGameVersionByLevel(id) != (level->version & TR::VER_VERSION))
+                    continue;
+
+                OptionItem item;
+                item.type   = OptionItem::TYPE_BUTTON;
+                item.offset = isCheckpointSlot ? intptr_t(STR[STR_CURRENT_POSITION]) : intptr_t(TR::LEVEL_INFO[id].title); // offset as int pointer to level title string
+                item.color  = i; // color as slot index
+                optLoadSlots.push(item);
+            }
+/*
+            #ifdef _DEBUG
+                int passportSlotCount = 0;
+                TR::LevelID passportSlots[32];
+
+                switch (level->version & TR::VER_VERSION) {
+                    case TR::VER_TR1 : 
+                    #ifdef _OS_WEB
+                        passportSlotCount = 2;
+                        passportSlots[0]  = TR::LVL_TR1_1;
+                        passportSlots[1]  = TR::LVL_TR1_2;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR1_1; i <= TR::LVL_TR1_10C; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
+                        break;
+                    case TR::VER_TR2 :
+                    #ifdef _OS_WEB
+                        passportSlotCount = 2;
+                        passportSlots[0]  = TR::LVL_TR2_WALL;
+                        passportSlots[1]  = TR::LVL_TR2_BOAT;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR2_WALL; i <= TR::LVL_TR2_HOUSE; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
+                        break;
+                    case TR::VER_TR3 :
+                    #ifdef _OS_WEB
+                        passportSlotCount = 1;
+                        passportSlots[0]  = TR::LVL_TR3_JUNGLE;
+                    #else
+                        passportSlotCount = 0;
+                        for (int i = TR::LVL_TR3_JUNGLE; i <= TR::LVL_TR3_STPAUL; i++)
+                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
+                                passportSlots[passportSlotCount++] = TR::LevelID(i);
+                            }
+                    #endif
+                        break;
+                    default : ASSERT(false);
+                }
+
+                for (int i = 0; i < passportSlotCount; i++) {
+                    OptionItem item;
+                    item.type   = OptionItem::TYPE_BUTTON;
+                    item.offset = intptr_t(TR::LEVEL_INFO[passportSlots[i]].title); // offset as int pointer to level title string
+                    item.color  = -passportSlots[i]; // color as level ID
+                    optLoadSlots.push(item);
+                }
+            #endif
+*/
+        }
+
         const OptionItem* getOptions(int &optCount) const {
             switch (type) {
                 case TR::Entity::INV_PASSPORT :
                     if (value != 0) return NULL;
-                    optCount = COUNT(optPassport);
-                    return optPassport;
+                    optCount = optLoadSlots.length;
+                    return optLoadSlots;
                 case TR::Entity::INV_DETAIL :
                     optCount = COUNT(optDetail);
                     return optDetail;
@@ -366,8 +429,17 @@ struct Inventory {
             const OptionItem *options = getOptions(optCount);
             if (!options) return;
 
+            int rep = 0;
             do {
                 slot = (slot + dir + optCount) % optCount;
+            // check for looping (no available slot)
+                if (slot == 0) {
+                    rep++;
+                    if (rep > 1) {
+                        slot = -1;
+                        return;
+                    }
+                }
             } while (options[slot].type == OptionItem::TYPE_TITLE || options[slot].type == OptionItem::TYPE_EMPTY);
         }
 
@@ -569,7 +641,11 @@ struct Inventory {
             new Stream(TR::getGameLogo(game->getLevel()->version), loadLogo, this);
             return;
         }
-        startVideo();
+
+        if (playVideo)
+            startVideo();
+        else 
+            new Stream(TR::getGameScreen(game->getLevel()->id), loadTitleBG, this);
     }
 
     bool isActive() {
@@ -673,7 +749,7 @@ struct Inventory {
     
     bool chooseKey(int playerIndex, TR::Entity::Type hole) {
         TR::Entity::Type type = TR::Entity::getItemForHole(hole);
-        if (type == TR::Entity::LARA)
+        if (type == TR::Entity::NONE)
             return false;
         int index = contains(type);
         if (index < 0)
@@ -690,7 +766,7 @@ struct Inventory {
         return false;
     }
 
-    void toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::LARA) {
+    void toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
         if (titleTimer != 0.0f || (isActive() != active))
             return;
 
@@ -721,7 +797,7 @@ struct Inventory {
                 phaseSelect = 1.0f;
                 page        = targetPage  = curPage;
 
-                if (type != TR::Entity::LARA) {
+                if (type != TR::Entity::NONE) {
                     int i = contains(type);
                     if (i >= 0)
                         pageItemIndex[page] = getLocalIndex(i);
@@ -802,58 +878,7 @@ struct Inventory {
             case TR::Entity::INV_PASSPORT : {
                 game->playSound(TR::SND_INV_PAGE);
                 item->value = 1;
-
-                int passportSlotCount = 0;
-                TR::LevelID passportSlots[32];
-
-                switch (level->version & TR::VER_VERSION) {
-                    case TR::VER_TR1 : 
-                    #ifdef _OS_WEB
-                        passportSlotCount = 2;
-                        passportSlots[0]  = TR::LVL_TR1_1;
-                        passportSlots[1]  = TR::LVL_TR1_2;
-                    #else
-                        passportSlotCount = 0;
-                        for (int i = TR::LVL_TR1_1; i <= TR::LVL_TR1_10C; i++)
-                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
-                                passportSlots[passportSlotCount++] = TR::LevelID(i);
-                            }
-                    #endif
-                        break;
-                    case TR::VER_TR2 :
-                    #ifdef _OS_WEB
-                        passportSlotCount = 2;
-                        passportSlots[0]  = TR::LVL_TR2_WALL;
-                        passportSlots[1]  = TR::LVL_TR2_BOAT;
-                    #else
-                        passportSlotCount = 0;
-                        for (int i = TR::LVL_TR2_WALL; i <= TR::LVL_TR2_HOUSE; i++)
-                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
-                                passportSlots[passportSlotCount++] = TR::LevelID(i);
-                            }
-                    #endif
-                        break;
-                    case TR::VER_TR3 :
-                    #ifdef _OS_WEB
-                        passportSlotCount = 1;
-                        passportSlots[0]  = TR::LVL_TR3_JUNGLE;
-                    #else
-                        passportSlotCount = 0;
-                        for (int i = TR::LVL_TR3_JUNGLE; i <= TR::LVL_TR3_STPAUL; i++)
-                            if (!TR::isCutsceneLevel(TR::LevelID(i))) {
-                                passportSlots[passportSlotCount++] = TR::LevelID(i);
-                            }
-                    #endif
-                        break;
-                    default : ASSERT(false);
-                }
-
-                for (int i = 0; i < passportSlotCount; i++) {
-                    optPassport[2 + i].type   = OptionItem::TYPE_BUTTON;
-                    optPassport[2 + i].offset = intptr_t(TR::LEVEL_INFO[passportSlots[i]].title); // offset as int pointer to level title string
-                    optPassport[2 + i].color  = passportSlots[i]; // color as level ID
-                }
-
+                item->initLoadSlots(level);
                 break;
             }
             case TR::Entity::INV_CONTROLS :
@@ -887,7 +912,19 @@ struct Inventory {
             if (key == cAction && phaseChoose == 1.0f && item->value != 0) {
                 TR::LevelID id = level->id;
                 switch (item->value) {
-                    case 1 : nextLevel = level->isTitle() ? level->getStartId() : id; break;
+                    case 1 : {
+                        if (level->isTitle()) { // start new game
+                            nextLevel = level->getStartId();
+                        } else { // restart level
+                            int slot = getSaveSlot(id, false);
+                            if (slot > -1)
+                                game->loadGame(slot);
+                            else
+                                nextLevel = id; 
+                            toggle();
+                        }
+                        break;
+                    }
                     case 2 : 
                         if (!level->isTitle())
                             nextLevel = level->getTitleId();
@@ -918,7 +955,12 @@ struct Inventory {
 
     void optionChanged(Item *item, const OptionItem *opt, Core::Settings &settings) {
         if (item->type == TR::Entity::INV_PASSPORT) {
-            nextLevel = (TR::LevelID)opt->color;
+        #ifdef _DEBUG
+            if (int(opt->color) < 0)
+                nextLevel = TR::LevelID(-int(opt->color));
+            else
+        #endif
+                game->loadGame(opt->color);
             item->anim->dir = -1.0f;
             item->value = -100;
             toggle();
@@ -1045,9 +1087,12 @@ struct Inventory {
 
             if (Input::lastState[playerIndex] == cAction) {
                 if (slot == 1) {
-                    TR::Entity &e = game->getLevel()->entities[index];
-                    Controller *controller = (Controller*)e.controller;
-                    controller->deactivate(true);
+                    if (index > -1) {
+                        TR::Entity &e = game->getLevel()->entities[index];
+                        Controller *controller = (Controller*)e.controller;
+                        controller->deactivate(true);
+                    }
+                    game->saveGame(index > -1);
                 }
                 toggle(playerIndex, targetPage);
             }
@@ -1171,7 +1216,7 @@ struct Inventory {
         }
 
         if (!isActive() && nextLevel != TR::LVL_MAX)
-            game->loadLevel(nextLevel);
+            game->loadLevel(nextLevel, false);
     }
 
     void chooseItem() {
@@ -1303,7 +1348,10 @@ struct Inventory {
 
         if (item->value != 0) return;
 
-        renderOptions(item);
+        if (slot == -1) {
+            //
+        } else
+            renderOptions(item);
     }
 
     void renderOptions(Item *item) {

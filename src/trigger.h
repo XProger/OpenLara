@@ -129,6 +129,10 @@ struct Flame : Sprite {
     static Flame* add(IGame *game, Controller *owner, int jointIndex) {
         ASSERT(owner);
 
+        if (owner && owner->getEntity().isLara()) {
+            ((Character*)owner)->burn = true;
+        }
+
         Flame *flame = (Flame*)game->addEntity(TR::Entity::FLAME, owner->getRoomIndex(), owner->pos);
 
         int jCount = owner->getModel()->mCount;
@@ -149,18 +153,8 @@ struct Flame : Sprite {
         activate();
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
-        Controller::getSaveData(data);
-        data.extraSize = sizeof(data.extra.flame);
-        data.extra.flame.jointIndex = jointIndex;
-        data.extra.flame.sleep      = sleep;
-        return true;
-    }
-
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
-        Controller::setSaveData(data);
-        jointIndex = data.extra.flame.jointIndex;
-        sleep      = data.extra.flame.sleep;
+    virtual bool getSaveData(SaveEntity &data) {
+        return false;
     }
 
     virtual void update() {
@@ -170,7 +164,7 @@ struct Flame : Sprite {
         Character *lara = (Character*)((owner && owner->getEntity().isLara()) ? owner : game->getLara(pos));
 
         if (jointIndex > -1) {
-            if (lara->stand == Character::STAND_UNDERWATER) {
+            if (!lara->burn) {
                 game->removeEntity(this);
                 return;
             }
@@ -185,7 +179,7 @@ struct Flame : Sprite {
                 if (sleep > 0.0f)
                     sleep = max(0.0f, sleep - Core::deltaTime);
 
-                if (sleep == 0.0f && lara->collide(Sphere(pos, 600.0f))) {
+                if (sleep == 0.0f && !lara->burn && lara->collide(Sphere(pos, 600.0f))) {
                     lara->hit(FLAME_HEAT_DAMAGE * Core::deltaTime, this);
 
                     if (lara->collide(Sphere(pos, 300.0f))) {
@@ -297,7 +291,7 @@ struct LavaParticle : Sprite {
         activate();
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(SaveEntity &data) {
         return false;
     }
 
@@ -434,7 +428,7 @@ struct Block : Controller {
         updateFloor(true);
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         updateFloor(false);
         Controller::setSaveData(data);
         if (state == STATE_STAND)
@@ -535,7 +529,7 @@ struct MovingBlock : Controller {
             updateFloor(true);
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         updateFloor(false);
         Controller::setSaveData(data);
         if (flags.state == TR::Entity::asNone)
@@ -685,17 +679,18 @@ struct TrapDoor : Controller {
         STATE_OPEN,
     };
 
-    TrapDoor(IGame *game, int entity) : Controller(game, entity) {
-        flags.collision = true;
-    }
+    TrapDoor(IGame *game, int entity) : Controller(game, entity) {}
     
+    virtual bool isCollider() {
+        int targetState = isActive(false) ? STATE_OPEN : STATE_CLOSE;
+        return state == targetState && state == STATE_CLOSE;
+    }
+
     virtual void update() {
         updateAnimation(true);
         int targetState = isActive() ? STATE_OPEN : STATE_CLOSE;
 
-        if (state == targetState)
-            flags.collision = targetState == STATE_CLOSE;
-        else
+        if (state != targetState)
             animation.setState(targetState);
     }
 };
@@ -711,8 +706,10 @@ struct TrapFloor : Controller {
 
     float velocity;
 
-    TrapFloor(IGame *game, int entity) : Controller(game, entity), velocity(0) {
-        flags.collision = true;
+    TrapFloor(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
+
+    virtual bool isCollider() {
+        return state == STATE_STATIC || state == STATE_SHAKE;
     }
 
     virtual bool activate() {
@@ -728,8 +725,6 @@ struct TrapFloor : Controller {
     virtual void update() {
         updateAnimation(true);
         if (state == STATE_FALL) {
-            flags.collision = false;
-
             applyGravity(velocity);
             pos.y += velocity * (30.0f * Core::deltaTime);
 
@@ -748,8 +743,10 @@ struct TrapFloor : Controller {
 };
 
 struct Bridge : Controller {
-    Bridge(IGame *game, int entity) : Controller(game, entity) {
-        flags.collision = true;
+    Bridge(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual bool isCollider() {
+        return true;
     }
 };
 
@@ -759,8 +756,10 @@ struct Drawbridge : Controller {
         STATE_DOWN,
     };
 
-    Drawbridge(IGame *game, int entity) : Controller(game, entity) {
-        flags.collision = true;
+    Drawbridge(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual bool isCollider() {
+        return flags.active != TR::ACTIVE;
     }
 
     virtual void update() {
@@ -778,7 +777,6 @@ struct Crystal : Controller {
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
         environment = new Texture(64, 64, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
-        flags.collision = true;
         activate();
     }
 
@@ -786,9 +784,12 @@ struct Crystal : Controller {
         delete environment;
     }
 
+    virtual bool isCollider() {
+        return !flags.invisible;
+    }
+
     virtual void deactivate(bool removeFromList = false) {
         flags.invisible = true;
-        flags.collision = false;
         Controller::deactivate(removeFromList);
         getRoom().removeDynLight(entity);
     }
@@ -1017,7 +1018,10 @@ struct ThorHammer : Controller {
     ThorHammer(IGame *game, int entity) : Controller(game, entity) {
         block = game->addEntity(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y);
         ASSERT(block);
-        flags.collision = block->flags.collision = false;
+    }
+
+    virtual bool isCollider() {
+        return state == STATE_DOWN;
     }
 
     virtual void update() {
@@ -1036,8 +1040,6 @@ struct ThorHammer : Controller {
             }
             case STATE_DOWN : {
                 game->checkTrigger(this, 1); 
-                if (lara->health > 0.0f)
-                    flags.collision = block->flags.collision = true;
                 deactivate(true);
                 break;
             }
@@ -1206,7 +1208,7 @@ struct MidasHand : Controller {
     TR::Entity::Type invItem;
     bool interaction;
 
-    MidasHand(IGame *game, int entity) : Controller(game, entity), invItem(TR::Entity::LARA), interaction(false) {
+    MidasHand(IGame *game, int entity) : Controller(game, entity), invItem(TR::Entity::NONE), interaction(false) {
         activate();
     }
 
@@ -1227,7 +1229,7 @@ struct MidasHand : Controller {
         interaction = (d.x < 700.0f && d.z < 700.0f) && lara->state == 2; // 2 = Lara::STATE_STOP
 
         if (interaction) {
-            if (invItem != TR::Entity::LARA) {
+            if (invItem != TR::Entity::NONE) {
                 if (invItem == TR::Entity::INV_LEADBAR) {
                     lara->angle.y = PI * 0.5f;
                     lara->pos.x   = pos.x - 612.0f;
@@ -1235,7 +1237,7 @@ struct MidasHand : Controller {
                     game->invAdd(TR::Entity::PUZZLE_1);
                 } else
                     game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
-                invItem = TR::Entity::LARA;
+                invItem = TR::Entity::NONE;
             } else if (Input::state[0][cAction] && !game->invChooseKey(0, getEntity().type)) // TODO: add callback for useItem // TODO: player[1]
                 game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
         }
@@ -1268,8 +1270,10 @@ struct MovingObject : Controller {
         STATE_OPEN,
     };
 
-    MovingObject(IGame *game, int entity) : Controller(game, entity) {
-        flags.collision = true;
+    MovingObject(IGame *game, int entity) : Controller(game, entity) {}
+
+    virtual bool isCollider() {
+        return true;
     }
 
     virtual void update() {
@@ -1397,7 +1401,7 @@ struct MutantEgg : Controller {
         Controller::update();
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         Controller::setSaveData(data);
         visibleMask = (state == STATE_IDLE) ? 0xff0001ff : (0xffffffff & ~(1 << 24));
     }
@@ -1507,7 +1511,7 @@ struct Bubble : Sprite {
         game->waterDrop(pos, 64.0f, 0.01f);
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(SaveEntity &data) {
         return false;
     }
 
@@ -1527,6 +1531,10 @@ struct Explosion : Sprite {
     Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
         game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
         game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
+    }
+
+    virtual bool getSaveData(SaveEntity &data) {
+        return false;
     }
 };
 
@@ -1570,6 +1578,10 @@ struct Bullet : Controller {
         velocity  = vec3(200.0f) * 30.0f;
         intensity = intensityf(4096);
         activate();
+    }
+
+    virtual bool getSaveData(SaveEntity &data) {
+        return false;
     }
 
     void setAngle(const vec3 &ang) {

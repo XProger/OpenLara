@@ -743,7 +743,7 @@ struct MeshBuilder {
     }
 
     Index addUniqueVertex(Array<TR::Vertex> &vertices, TR::Vertex &v) {
-        for (int i = 0; i < vertices.count; i++) {
+        for (int i = 0; i < vertices.length; i++) {
             TR::Vertex &o = vertices[i];
             if (o.x == v.x && o.y == v.y && o.z == v.z)
                 return i;
@@ -752,7 +752,7 @@ struct MeshBuilder {
     }
 
     void addUniqueEdge(Array<Edge> &edges, Index a, Index b) {
-        for (int i = 0; i < edges.count; i++) {
+        for (int i = 0; i < edges.length; i++) {
             Edge &e = edges[i];
             if ((e.a == a && e.b == b) || (e.a == b && e.b == a)) {
                 edges.remove(i);
@@ -807,14 +807,14 @@ struct MeshBuilder {
             }
         }
 
-        if (!wEdges.count) return;
+        if (!wEdges.length) return;
 
-        Array<short3> wOffsets(wVertices.count);
+        Array<short3> wOffsets(wVertices.length);
 
-        for (int i = 0; i < wVertices.count; i++)
+        for (int i = 0; i < wVertices.length; i++)
             wOffsets.push(short3(0, WATER_VOLUME_OFFSET, 0));
 
-        for (int i = 0; i < wEdges.count; i++) {
+        for (int i = 0; i < wEdges.length; i++) {
             Edge &e = wEdges[i];
             TR::Vertex &a = wVertices[e.a];
             TR::Vertex &b = wVertices[e.b];
@@ -831,32 +831,32 @@ struct MeshBuilder {
         }
 
         range.vStart = vStart;
-        range.iCount = wIndices.count * 2 + wEdges.count * 6;
+        range.iCount = wIndices.length * 2 + wEdges.length * 6;
         range.iStart = iCount;
 
-        for (int i = 0; i < wIndices.count; i += 3) {
+        for (int i = 0; i < wIndices.length; i += 3) {
             indices[iCount++] = vCount + wIndices[i + 2];
             indices[iCount++] = vCount + wIndices[i + 1];
             indices[iCount++] = vCount + wIndices[i + 0];
         }
 
-        for (int i = 0; i < wIndices.count; i++)
-            indices[iCount++] = vCount + wIndices[i] + wVertices.count;
+        for (int i = 0; i < wIndices.length; i++)
+            indices[iCount++] = vCount + wIndices[i] + wVertices.length;
 
-        for (int i = 0; i < wEdges.count; i++) {
+        for (int i = 0; i < wEdges.length; i++) {
             Index a = wEdges[i].a;
             Index b = wEdges[i].b;
 
             indices[iCount++] = vCount + a;
             indices[iCount++] = vCount + b;
-            indices[iCount++] = vCount + a + wVertices.count;
+            indices[iCount++] = vCount + a + wVertices.length;
 
             indices[iCount++] = vCount + b;
-            indices[iCount++] = vCount + b + wVertices.count;
-            indices[iCount++] = vCount + a + wVertices.count;
+            indices[iCount++] = vCount + b + wVertices.length;
+            indices[iCount++] = vCount + a + wVertices.length;
         }
 
-        for (int i = 0; i < wVertices.count; i++) {
+        for (int i = 0; i < wVertices.length; i++) {
             TR::Vertex &v = wVertices[i];
             short3     &o = wOffsets[i];
 
@@ -867,7 +867,7 @@ struct MeshBuilder {
             vertices[vCount++].coord = short4(v.x, v.y, v.z, 0);
         }
 
-        for (int i = 0; i < wVertices.count; i++) {
+        for (int i = 0; i < wVertices.length; i++) {
             TR::Vertex &v = wVertices[i];
 
             v.y += WATER_VOLUME_HEIGHT - WATER_VOLUME_OFFSET - WATER_VOLUME_OFFSET;

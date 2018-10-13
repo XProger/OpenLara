@@ -3,12 +3,12 @@
 
 #include "utils.h"
 #include "gameflow.h"
+#include "savegame.h"
 
 #define MAX_RESERVED_ENTITIES 128
-#define MAX_FLIPMAP_COUNT     32
-#define MAX_TRACKS_COUNT      256
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
+#define MAX_WEAPONS           4
 
 // Lara's height in units / height in meters
 #define ONE_METER             (768.0f / 1.8f)
@@ -1460,10 +1460,6 @@ namespace TR {
         uint16 :8, once:1, active:5, :2;
     };
 
-    struct ByteFlags {
-        uint16 once:1, active:5, :2;
-    };
-
     // internal mesh structure
     struct Mesh {
 
@@ -1498,7 +1494,7 @@ namespace TR {
 
     struct Entity {
         enum ActiveState { asNone, asActive, asInactive };
-        enum Type        { TR_TYPES(DECL_ENUM) TYPE_MAX = 0xFFFF };
+        enum Type        { NONE = 0, TR_TYPES(DECL_ENUM) TYPE_MAX = 0xFFFF };
 
         Type    type;
         int16   room;
@@ -1508,7 +1504,7 @@ namespace TR {
         int16   intensity2;
         union Flags {
             struct { 
-                uint16 state:2, unused:3, smooth:1, collision:1, invisible:1, once:1, active:5, reverse:1, rendered:1;
+                uint16 state:2, unused:3, smooth:1, :1, invisible:1, once:1, active:5, reverse:1, rendered:1;
             };
             uint16 value;
         } flags;
@@ -1803,16 +1799,6 @@ namespace TR {
             return type >= DOOR_1 && type <= DOOR_8;
         }
 
-        bool isCollider(TR::Entity::Flags flags) const {
-            return isEnemy() ||
-                   isVehicle() ||
-                   isDoor() ||
-                   (type == CRYSTAL && flags.collision) ||
-                   (type == DRAWBRIDGE && flags.active != ACTIVE) ||
-                   ((type == HAMMER_HANDLE || type == HAMMER_BLOCK) && flags.collision) ||
-                   type == MOVING_OBJECT || type == SCION_HOLDER;
-        }
-
         static bool isPickup(Type type) {
             return (type >= PISTOLS && type <= AMMO_UZIS) ||
                    (type >= PUZZLE_1 && type <= PUZZLE_4) ||
@@ -1898,7 +1884,7 @@ namespace TR {
                 case KEY_ITEM_4    : return INV_KEY_4;
 
                 case LEADBAR       : return INV_LEADBAR;
-                //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
+                //case Entity::SCION         : return Entity::INV_SCION;
                 default            : return type;
             }
         }
@@ -1929,7 +1915,7 @@ namespace TR {
                 case INV_KEY_4         : return KEY_ITEM_4;
 
                 case INV_LEADBAR       : return LEADBAR;
-                //case TR::Entity::SCION         : return TR::Entity::INV_SCION;
+                //case Entity::SCION         : return Entity::INV_SCION;
                 default            : return type;
             }
         }
@@ -2186,91 +2172,6 @@ namespace TR {
         } flags;
     };
 
-    struct SaveGame {
-
-        struct Item {
-            uint16 type;
-            uint16 count;
-        };
-
-        struct Progress {
-            uint32 size;
-            uint32 time;
-            uint32 distance;
-            uint8  levelID;
-            uint8  mediUsed;
-            uint8  secrets;
-            uint8  pickups;
-            uint16 ammoUsed;
-            uint8  kills;
-            uint8  itemsCount;
-        // Item items[itemsCount]
-        };
-
-        struct Entity {
-        // base
-            int32  x, y, z;
-            uint16 rotation;
-            uint16 type;
-            uint16 flags;
-            int16  timer;
-        // animation
-            uint16 animIndex;
-            uint16 animFrame;
-        // common
-            uint16 room;
-            uint16 extraSize;
-            union Extra {
-                struct {
-                    float  velX, velY, velZ;
-                    float  angleX;
-                    float  health;
-                    float  oxygen;
-                    float  stamina;
-                    float  poison;
-                    float  freeze;
-                    uint16 itemHands;
-                    uint16 itemBack;
-                    uint16 itemHolster;
-                    union {
-                        struct { uint16 wet:1, burn:1; };
-                        uint16 value;
-                    } flags;
-                } lara;
-                struct {
-                    float  health;
-                    uint16 mood;
-                    uint16 targetBox;
-                } enemy;
-
-                struct {
-                    int32 jointIndex;
-                    float sleep;
-                } flame;
-            } extra;
-        };
-
-        struct CurrentState {
-            ByteFlags flipmaps[MAX_FLIPMAP_COUNT];
-            ByteFlags tracks[MAX_TRACKS_COUNT];
-
-            uint16    fogColor;
-            union {
-                struct { uint16 track:8, flipped:1; };
-                uint16 value;
-            } flags;
-            uint16   entitiesCount;
-            Progress progress;
-            //Entity   entities[entitiesCount];
-        };
-
-        int32  size;
-        uint16 version;
-        uint16 progressCount;
-        // Progress     progress[levelsCount];
-        // CurrentState currentState;
-    };
-
     struct Location {
         int16  room;
         uint16 box;
@@ -2385,9 +2286,6 @@ namespace TR {
 
         Color32         skyColor;
 
-        SaveGame                save;
-        SaveGame::CurrentState  state;
-
    // common
         struct Trigger {
             enum Type {
@@ -2432,14 +2330,54 @@ namespace TR {
             }
         };
 
+        SaveProgress gameStats;
+        SaveProgress levelStats;
+        SaveState    state;
+
         int     cutEntity;
         mat4    cutMatrix;
         bool    isDemoLevel;
 
-        struct {
+        struct Extra {
+
+            static int getWeaponIndex(Entity::Type type) {
+                #if MAX_WEAPONS != 4
+                    #error update this func first
+                #endif
+
+                switch (type) {
+                // pistols
+                    case Entity::LARA_PISTOLS      :
+                    case Entity::INV_PISTOLS       : 
+                    case Entity::INV_AMMO_PISTOLS  : 
+                    case Entity::AMMO_PISTOLS      : 
+                    case Entity::PISTOLS           : return  0;
+                // shotgun
+                    case Entity::LARA_SHOTGUN      :
+                    case Entity::INV_SHOTGUN       :
+                    case Entity::INV_AMMO_SHOTGUN  : 
+                    case Entity::AMMO_SHOTGUN      : 
+                    case Entity::SHOTGUN           : return  1;
+                // magnums
+                    case Entity::LARA_MAGNUMS      :
+                    case Entity::INV_MAGNUMS       :
+                    case Entity::INV_AMMO_MAGNUMS  : 
+                    case Entity::AMMO_MAGNUMS      : 
+                    case Entity::MAGNUMS           : return  2;
+                // uzis
+                    case Entity::LARA_UZIS         :
+                    case Entity::INV_UZIS          :
+                    case Entity::INV_AMMO_UZIS     : 
+                    case Entity::AMMO_UZIS         : 
+                    case Entity::UZIS              : return  3;
+
+                    default : ASSERT(false);
+                }
+                return 0;
+            }
+
             int16 muzzleFlash;
             int16 puzzleDone[4];
-            int16 weapons[4];
             int16 braid;
             int16 laraSpec;
             int16 laraSkin;
@@ -2448,6 +2386,13 @@ namespace TR {
             int16 smoke;
             int16 waterSplash;
             int16 glyphs;
+
+            struct {
+                int16 items[MAX_WEAPONS];
+                int16& operator[] (Entity::Type type) {
+                    return items[getWeaponIndex(type)];
+                };
+            } weapons;
 
             struct {
                 int16 passport;
@@ -2461,8 +2406,20 @@ namespace TR {
                 int16 controls;
                 int16 gamma;
 
-                int16 weapon[4];
-                int16 ammo[4];
+                struct {
+                    int16 items[MAX_WEAPONS];
+                    int16& operator[] (Entity::Type type) {
+                        return items[getWeaponIndex(type)];
+                    };
+                } weapons;
+
+                struct {
+                    int16 items[MAX_WEAPONS];
+                    int16& operator[] (Entity::Type type) {
+                        return items[getWeaponIndex(type)];
+                    };
+                } ammo;
+
                 int16 medikit[2];
                 int16 puzzle[4];
                 int16 key[4];
@@ -2495,7 +2452,7 @@ namespace TR {
             #define MAGIC_TR3_PC3 0xFF180034
             #define MAGIC_TR3_PSX 0xFFFFFFC8
 
-            id = TR::getLevelID(stream.size, version, isDemoLevel);
+            id = TR::getLevelID(stream.size, stream.name, version, isDemoLevel);
 
             if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
@@ -2965,17 +2922,15 @@ namespace TR {
         // get special models indices
             memset(&extra, 0xFF, sizeof(extra));
 
-            for (int i = 0; i < modelsCount; i++)
-                switch (models[i].type) {
+            for (int i = 0; i < modelsCount; i++) {
+                Entity::Type type = models[i].type;
+
+                switch (type) {
                     case Entity::MUZZLE_FLASH        : extra.muzzleFlash     = i; break;
                     case Entity::PUZZLE_DONE_1       : extra.puzzleDone[0]   = i; break;
                     case Entity::PUZZLE_DONE_2       : extra.puzzleDone[1]   = i; break;
                     case Entity::PUZZLE_DONE_3       : extra.puzzleDone[2]   = i; break;
                     case Entity::PUZZLE_DONE_4       : extra.puzzleDone[3]   = i; break;
-                    case Entity::LARA_PISTOLS        : extra.weapons[0]      = i; break;
-                    case Entity::LARA_SHOTGUN        : extra.weapons[1]      = i; break;
-                    case Entity::LARA_MAGNUMS        : extra.weapons[2]      = i; break;
-                    case Entity::LARA_UZIS           : extra.weapons[3]      = i; break;
                     case Entity::LARA_BRAID          : extra.braid           = i; break;
                     case Entity::LARA_SPEC           : extra.laraSpec        = i; break;
                     case Entity::LARA_SKIN           : extra.laraSkin        = i; break;
@@ -2994,15 +2949,20 @@ namespace TR {
                     case Entity::INV_CONTROLS        : extra.inv.controls    = i; break;
                     case Entity::INV_GAMMA           : extra.inv.gamma       = i; break;
 
-                    case Entity::INV_PISTOLS         : extra.inv.weapon[0]   = i; break;
-                    case Entity::INV_SHOTGUN         : extra.inv.weapon[1]   = i; break;
-                    case Entity::INV_MAGNUMS         : extra.inv.weapon[2]   = i; break;
-                    case Entity::INV_UZIS            : extra.inv.weapon[3]   = i; break;
+                    case Entity::LARA_PISTOLS        :
+                    case Entity::LARA_SHOTGUN        :
+                    case Entity::LARA_MAGNUMS        :
+                    case Entity::LARA_UZIS           : extra.weapons[type]     = i; break;
 
-                    case Entity::INV_AMMO_PISTOLS    : extra.inv.ammo[0]     = i; break;
-                    case Entity::INV_AMMO_SHOTGUN    : extra.inv.ammo[1]     = i; break;
-                    case Entity::INV_AMMO_MAGNUMS    : extra.inv.ammo[2]     = i; break;
-                    case Entity::INV_AMMO_UZIS       : extra.inv.ammo[3]     = i; break;
+                    case Entity::INV_PISTOLS         :
+                    case Entity::INV_SHOTGUN         :
+                    case Entity::INV_MAGNUMS         :
+                    case Entity::INV_UZIS            : extra.inv.weapons[type] = i; break;
+
+                    case Entity::INV_AMMO_PISTOLS    :
+                    case Entity::INV_AMMO_SHOTGUN    :
+                    case Entity::INV_AMMO_MAGNUMS    :
+                    case Entity::INV_AMMO_UZIS       : extra.inv.ammo[type]  = i; break;
 
                     case Entity::INV_MEDIKIT_SMALL   : extra.inv.medikit[0]  = i; break;
                     case Entity::INV_MEDIKIT_BIG     : extra.inv.medikit[1]  = i; break;
@@ -3024,6 +2984,7 @@ namespace TR {
 
                     default : ;
                 }
+            }
                 
             for (int i = 0; i < spriteSequencesCount; i++)
                 switch (spriteSequences[i].type) {
@@ -4051,7 +4012,7 @@ namespace TR {
 
             if (isCutsceneLevel()) {
                 for (int i = 0; i < entitiesBaseCount; i++) {
-                    TR::Entity &e = entities[i];
+                    Entity &e = entities[i];
                     if ((((version & VER_TR1)) && e.isActor()) || 
                         (((version & (VER_TR2 | VER_TR3))) && e.isLara())) {
                         cutEntity = i;
@@ -4221,8 +4182,8 @@ namespace TR {
         void flipMap() {
             for (int i = 0; i < roomsCount; i++)
                 if (rooms[i].alternateRoom > -1) {
-                    TR::Room &src = rooms[i];
-                    TR::Room &dst = rooms[src.alternateRoom];
+                    Room &src = rooms[i];
+                    Room &dst = rooms[src.alternateRoom];
 
                     swap(src, dst);
                     swap(src.alternateRoom, dst.alternateRoom);
@@ -4444,12 +4405,12 @@ namespace TR {
             return float(ceiling);
         }
 
-        TR::Room::Sector* getWaterLevelSector(int16 &roomIndex, const vec3 &pos) {
+        Room::Sector* getWaterLevelSector(int16 &roomIndex, const vec3 &pos) {
             int x = int(pos.x);
             int z = int(pos.z);
 
-            TR::Room *room = &rooms[roomIndex];
-            TR::Room::Sector *sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
+            Room *room = &rooms[roomIndex];
+            Room::Sector *sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
 
             if (room->flags.water) { // go up to the air
                 while (sector->roomAbove != NO_ROOM) {

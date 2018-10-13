@@ -57,8 +57,8 @@ struct Enemy : Character {
     bool  wound;
     int   nextState;
 
-    int   targetBox;
-    vec3  waypoint;
+    uint16 targetBox;
+    vec3   waypoint;
 
     float thinkTime;
     float length;       // dist from center to head (jaws)
@@ -76,7 +76,7 @@ struct Enemy : Character {
     bool  targetFromView;   // enemy in target view zone
     bool  targetCanAttack;
 
-    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(-1), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
+    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(TR::NO_BOX), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
         targetDist   = +INF;
         targetInView = targetFromView = targetCanAttack = false;
     }
@@ -85,20 +85,21 @@ struct Enemy : Character {
         delete path;
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(SaveEntity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.enemy);
         data.extra.enemy.health    = health;
-        data.extra.enemy.mood      = mood;
+        data.extra.enemy.spec.mood = mood;
         data.extra.enemy.targetBox = targetBox;
         return true;
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         Character::setSaveData(data);
         health    = data.extra.enemy.health;
-        mood      = Mood(data.extra.enemy.mood);
+        mood      = Mood(data.extra.enemy.spec.mood);
         targetBox = data.extra.enemy.targetBox;
+        updateZone();
     }
 
     virtual bool activate() {
@@ -331,7 +332,7 @@ struct Enemy : Character {
             if (inZone) {
                 int dx = abs(int(pos.x - target->pos.x));
                 int dz = abs(int(pos.z - target->pos.z));
-                return ((dx <= ATTACK_BOX && dz <= ATTACK_BOX) || (mood == MOOD_STALK && targetBox == -1)) ? MOOD_ATTACK : MOOD_STALK;
+                return ((dx <= ATTACK_BOX && dz <= ATTACK_BOX) || (mood == MOOD_STALK && targetBox == TR::NO_BOX)) ? MOOD_ATTACK : MOOD_STALK;
             }
             return mood;
         }
@@ -366,13 +367,13 @@ struct Enemy : Character {
         bool inZone = zone == target->zone;
 
         if (target->health <= 0.0f || !inZone)
-            targetBox = -1;
+            targetBox = TR::NO_BOX;
 
     // update mood
-        if (mood != MOOD_ATTACK && targetBox > -1 && !checkBox(targetBox)) {
+        if (mood != MOOD_ATTACK && targetBox != TR::NO_BOX && !checkBox(targetBox)) {
             if (!inZone)
                 mood = MOOD_SLEEP;
-            targetBox = -1;
+            targetBox = TR::NO_BOX;
         }
 
         mood = target->health <= 0 ? MOOD_SLEEP : (ai == AI_FIXED ? getMoodFixed() : getMoodRandom());
@@ -382,17 +383,17 @@ struct Enemy : Character {
 
         switch (mood) {
             case MOOD_SLEEP :
-                if (targetBox == -1 && checkBox(box = getRandomZoneBox()) && isStalkBox(box)) {
+                if (targetBox == TR::NO_BOX && checkBox(box = getRandomZoneBox()) && isStalkBox(box)) {
                     mood = MOOD_STALK;
                     gotoBox(box);
                 }
                 break;
             case MOOD_STALK :
-                if ((targetBox == -1 || !isStalkBox(targetBox)) && checkBox(box = getRandomZoneBox())) {
+                if ((targetBox == TR::NO_BOX || !isStalkBox(targetBox)) && checkBox(box = getRandomZoneBox())) {
                     if (isStalkBox(box))
                         gotoBox(box);
                     else
-                        if (targetBox == -1) {
+                        if (targetBox == TR::NO_BOX) {
                             if (!inZone)
                                 mood = MOOD_SLEEP;
                             gotoBox(box);
@@ -402,10 +403,10 @@ struct Enemy : Character {
             case MOOD_ATTACK :
                 if (randf() > aggression)
                     break;
-                targetBox = -1;
+                targetBox = TR::NO_BOX;
                 break;
             case MOOD_ESCAPE :
-                if (targetBox == -1 && checkBox(box = getRandomZoneBox())) {
+                if (targetBox == TR::NO_BOX && checkBox(box = getRandomZoneBox())) {
                     if (isEscapeBox(box))
                         gotoBox(box);
                     else
@@ -417,23 +418,23 @@ struct Enemy : Character {
                 break;
         }
 
-        if (targetBox == -1)
+        if (targetBox == TR::NO_BOX)
             gotoBox(target->box);
 
         if (path && this->box != path->boxes[path->index - 1] && this->box != path->boxes[path->index])
-            targetBoxOld = -1;
+            targetBoxOld = TR::NO_BOX;
 
         if (zoneOld != zone)
-            targetBoxOld = -1;
+            targetBoxOld = TR::NO_BOX;
 
         if (targetBoxOld != targetBox) {
             if (findPath(stepHeight, dropHeight, getEntity().isBigEnemy()))
                 nextWaypoint();
             else
-                targetBox = -1;
+                targetBox = TR::NO_BOX;
         }
 
-        if (targetBox != -1 && path) {
+        if (targetBox != TR::NO_BOX && path) {
             vec3 d = pos - waypoint;
 
             if (fabsf(d.x) < 512 && fabsf(d.y) < 512 && fabsf(d.z) < 512)
@@ -1076,7 +1077,7 @@ struct Rat : Enemy {
         ASSERT(modelIndex > -1);
         const TR::Model *model = &level->models[modelIndex];
         if (animation.model != model) {
-            targetBox = -1;
+            targetBox = TR::NO_BOX;
             animation.setModel(model);
             stand = water ? STAND_ONWATER : STAND_GROUND;
 
@@ -1259,7 +1260,7 @@ struct Crocodile : Enemy {
         ASSERT(modelIndex > -1);
         const TR::Model *model = &level->models[modelIndex];
         if (animation.model != model) {
-            targetBox = -1;
+            targetBox = TR::NO_BOX;
             animation.setModel(model);
             stand  = water ? STAND_UNDERWATER : STAND_GROUND;
             flying = water;

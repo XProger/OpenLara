@@ -218,6 +218,7 @@
     <ClInclude Include="..\..\libs\minimp3\libc.h" />
     <ClInclude Include="..\..\libs\minimp3\minimp3.h" />
     <ClInclude Include="..\..\mesh.h" />
+    <ClInclude Include="..\..\savegame.h" />
     <ClInclude Include="..\..\shader.h" />
     <ClInclude Include="..\..\sound.h" />
     <ClInclude Include="..\..\sprite.h" />

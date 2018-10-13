@@ -6,6 +6,7 @@
 #include "cache.h"
 #include "level.h"
 #include "ui.h"
+#include "savegame.h"
 
 ShaderCache *shaderCache;
 
@@ -19,11 +20,17 @@ namespace Game {
             id = level->level.id;
 
         Input::stopJoyVibration();
+
+        bool playVideo = true;
+        if (loadSlot != -1)
+            playVideo = (saveSlots[loadSlot].level & LVL_FLAG_CHECKPOINT) == 0;
+
         delete level;
         level = new Level(*lvl);
 
-        bool playLogo  = level->level.isTitle() && id == TR::LVL_MAX;
-        bool playVideo = id != level->level.id;
+        bool playLogo = level->level.isTitle() && id == TR::LVL_MAX;
+        playVideo = playVideo && (id != level->level.id);
+
         if (level->level.isTitle() && id != TR::LVL_MAX)
             playVideo = false;
 
@@ -37,7 +44,7 @@ namespace Game {
     }
 }
 
-void loadAsync(Stream *stream, void *userData) {
+void loadLevelAsync(Stream *stream, void *userData) {
     if (!stream) {
         if (Game::level) Game::level->isEnded = false;
         return;
@@ -67,6 +74,29 @@ void loadSettings(Stream *stream, void *userData) {
     UI::init(Game::level);
 }
 
+static void readSlotAsync(Stream *stream, void *userData) {
+    if (!stream) {
+        saveResult = SAVE_RESULT_ERROR;
+        return;
+    }
+
+    readSaveSlots(stream);
+    delete stream;
+
+    saveResult = SAVE_RESULT_SUCCESS;
+}
+
+void readSlots() {
+    ASSERT(saveResult != SAVE_RESULT_WAIT);
+
+    if (saveResult == SAVE_RESULT_WAIT)
+        return;
+
+    LOG("Read Slots...\n");
+    saveResult = SAVE_RESULT_WAIT;
+
+    osReadSlot(new Stream(SAVE_FILENAME, NULL, 0, readSlotAsync, NULL));
+}
 
 namespace Game {
 
@@ -75,6 +105,7 @@ namespace Game {
     }
 
     void init(Stream *lvl) {
+        loadSlot    = -1;
         nextLevel   = NULL;
         shaderCache = NULL;
         level       = NULL;
@@ -84,6 +115,7 @@ namespace Game {
 
         Core::settings.version = SETTINGS_READING;
         Stream::cacheRead("settings", loadSettings, lvl);
+        readSlots();
     }
 
     void init(const char *lvlName = NULL) {
@@ -102,6 +134,8 @@ namespace Game {
     }
 
     void deinit() {
+        freeSaveSlots();
+
         #ifdef DEBUG_RENDER
             Debug::deinit();
         #endif
@@ -151,25 +185,21 @@ namespace Game {
 
         if (level->isEnded)
             return true;
-/*
-        if (level->camera) {
-            if (Input::down[ikV]) { // third <-> first person view
-                level->camera->changeView(!level->camera->firstPerson);
-                Input::down[ikV] = false;
-            }
-        }
 
-        if (Input::down[ikS]) {
+        if (Input::down[ik5] && !level->inventory->isActive()) {
             if (level->players[0]->canSaveGame())
-                level->saveGame(0);
-            Input::down[ikS] = false;
+                level->saveGame(true);
+            Input::down[ik5] = false;
         }
 
-        if (Input::down[ikL]) {
-            level->loadGame(0);
-            Input::down[ikL] = false;
+        if (Input::down[ik9] && !level->inventory->isActive()) {
+            int slot = getSaveSlot(level->level.id, true);
+            if (slot == -1)
+                slot = getSaveSlot(level->level.id, false);
+            if (slot > -1)
+                level->loadGame(slot);
+            Input::down[ik9] = false;
         }
-*/
 
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);

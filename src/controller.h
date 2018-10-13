@@ -49,10 +49,10 @@ struct ICamera {
 
 struct IGame {
     virtual ~IGame() {}
-    virtual void         loadLevel(TR::LevelID id) {}
-    virtual void         loadNextLevel() {}
-    virtual void         loadGame() {}
-    virtual void         saveGame(int entityIndex) {}
+    virtual void         loadLevel(TR::LevelID id, bool showSaveGame) {}
+    virtual void         loadNextLevel(bool showSaveGame) {}
+    virtual void         saveGame(bool checkpoint) {}
+    virtual void         loadGame(int slot) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
 
     virtual TR::Level*   getLevel()     { return NULL; }
@@ -128,6 +128,8 @@ struct Controller {
     vec3 mainLightPos;
     vec4 mainLightColor;
     bool mainLightFlip;
+    bool invertAim;
+    bool lockMatrix;
 
     struct MeshLayer {
         uint32   model;
@@ -144,10 +146,8 @@ struct Controller {
 
     vec3 lastPos;
     mat4 matrix;
-    bool invertAim;
-    bool lockMatrix;
 
-    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel(), level->entities[entity].flags.smooth), state(animation.state), layers(0), explodeMask(0), explodeParts(0), lastPos(0), invertAim(false) {
+    Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel(), level->entities[entity].flags.smooth), state(animation.state), invertAim(false), layers(0), explodeMask(0), explodeParts(0), lastPos(0) {
         const TR::Entity &e = getEntity();
         lockMatrix  = false;
         matrix.identity();
@@ -181,6 +181,8 @@ struct Controller {
             flags.reverse = true;
             activate();
         }
+
+        level->entities[entity].flags = flags;
 
         if (e.isLara() || e.isActor()) // Lara and cutscene entities is active by default
             activate();
@@ -268,7 +270,7 @@ struct Controller {
                 TR::Entity &e = level->entities[cmd.args];
                 Controller *controller = (Controller*)e.controller;
                 if (!controller) continue; // Block UpdateFloor issue while entities initialization
-                if (!controller->flags.collision) continue;
+                if (!controller->isCollider()) continue;
 
                 switch (e.type) {
                     case TR::Entity::TRAP_DOOR_1 :
@@ -455,7 +457,7 @@ struct Controller {
         } while (!cmd.end);
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+    virtual bool getSaveData(SaveEntity &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
         if (entity < level->entitiesBaseCount) {
@@ -485,7 +487,7 @@ struct Controller {
         return true;
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         const TR::Entity &e = getEntity();
         const TR::Model  *m = getModel();
         if (entity < level->entitiesBaseCount) {
@@ -506,9 +508,10 @@ struct Controller {
         timer       = data.timer == -1 ? -1.0f : (timer / 30.0f);
     // animation
         if (m) animation.setAnim(data.animIndex, -data.animFrame);
+        updateLights(false);
     }
 
-    bool isActive() {
+    bool isActive(bool timing = true) {
         if (flags.active != TR::ACTIVE)
             return flags.reverse;
 
@@ -518,12 +521,22 @@ struct Controller {
         if (timer == -1.0f)
             return flags.reverse;
 
-        timer = max(0.0f, timer - Core::deltaTime);
+        if (timing) {
+            timer = max(0.0f, timer - Core::deltaTime);
 
-        if (timer == 0.0f)
-            timer = -1.0f;
+            if (timer == 0.0f)
+                timer = -1.0f;
+        }
 
         return !flags.reverse;
+    }
+
+    virtual bool isCollider() {
+        const TR::Entity &e = getEntity();
+        return e.isEnemy() ||
+               e.isVehicle() ||
+               e.isDoor() ||
+               e.type == TR::Entity::SCION_HOLDER;
     }
 
     virtual bool activate() {
@@ -1057,7 +1070,7 @@ struct Controller {
                                 switch (fx) {
                                     case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
                                     case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect::Type(fx)); break;
-                                    case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
+                                    case TR::Effect::FINISH_LEVEL : game->loadNextLevel(true); break;
                                     case TR::Effect::FLIP_MAP     : game->flipMap(); break;
                                     default                       : cmdEffect(fx); break;
                                 }

@@ -34,6 +34,10 @@ struct Camera : ICamera {
 
     Camera(IGame *game, Character *owner) : ICamera(), game(game), level(game->getLevel()), frustum(new Frustum()), timer(-1.0f), viewIndex(-1), viewIndexLast(-1), viewTarget(NULL) {
         this->owner = owner;
+        reset();
+    }
+
+    void reset() {
         lookAngle = vec3(0.0f);
 
         changeView(false);
@@ -326,7 +330,7 @@ struct Camera : ICamera {
 
             if (indexA == level->cameraFramesCount - 1) {
                 if (level->isCutsceneLevel())
-                    game->loadNextLevel();
+                    game->loadNextLevel(true);
                 else {
                     Character *lara = (Character*)owner;
                     if (lara->health > 0.0f)
@@ -388,15 +392,6 @@ struct Camera : ICamera {
                     }
             }
 
-            targetAngle = owner->angle + lookAngle;
-            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
-                targetAngle += angle;
-
-            targetAngle.x = clampAngle(targetAngle.x);
-            targetAngle.y = clampAngle(targetAngle.y);
-
-            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
-
             if (mode != MODE_STATIC) {
                 if (!owner->viewTarget) {
                     if (viewTarget && !viewTarget->flags.invisible) {
@@ -412,6 +407,15 @@ struct Camera : ICamera {
                 lookAt = viewTarget;
                 owner->lookAt(NULL);
             }
+
+            targetAngle = owner->angle + lookAngle;
+            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
+                targetAngle += angle;
+
+            targetAngle.x = clampAngle(targetAngle.x);
+            targetAngle.y = clampAngle(targetAngle.y);
+
+            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
 
             if (!firstPerson || viewIndex != -1) {
 

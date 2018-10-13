@@ -1182,8 +1182,8 @@ struct Stream;
 extern void osCacheWrite (Stream *stream);
 extern void osCacheRead  (Stream *stream);
 
-extern void osSaveGame   (Stream *stream);
-extern void osLoadGame   (Stream *stream);
+extern void osReadSlot   (Stream *stream);
+extern void osWriteSlot  (Stream *stream);
 
 #ifdef _OS_WEB
 extern void osDownload   (Stream *stream);
@@ -1202,16 +1202,14 @@ struct Stream {
     char        *name;
     int         size, pos;
 
-    enum Endian { eLittle, eBig } endian;
-
-    Stream(const char *name, const void *data, int size) : callback(NULL), userData(NULL), f(NULL), data((char*)data), name(NULL), size(size), pos(0), endian(eLittle) {
+    Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0) {
         if (name) {
             this->name = new char[strlen(name) + 1];
             strcpy(this->name, name);
         }
     }
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), endian(eLittle) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0) {
         if (!name && callback) {
             callback(NULL, userData);
             delete this;
@@ -1268,17 +1266,11 @@ struct Stream {
     }
 
     static void cacheRead(const char *name, Callback *callback = NULL, void *userData = NULL) {
-        Stream *stream = new Stream(name, NULL, 0);
-        stream->callback = callback;
-        stream->userData = userData;
-        osCacheRead(stream);
+        osCacheRead(new Stream(name, NULL, 0, callback, userData));
     }
 
     static void cacheWrite(const char *name, const char *data, int size, Callback *callback = NULL, void *userData = NULL) {
-        Stream *stream = new Stream(name, data, size);
-        stream->callback = callback;
-        stream->userData = userData;
-        osCacheWrite(stream);
+        osCacheWrite(new Stream(name, data, size, callback, userData));
     }
 
     static bool exists(const char *name) {
@@ -1354,7 +1346,7 @@ void osCacheWrite(Stream *stream) {
         fwrite(stream->data, 1, stream->size, f);
         fclose(f);
         if (stream->callback)
-            stream->callback(new Stream(stream->name, NULL, 0), stream->userData);
+            stream->callback(new Stream(stream->name, stream->data, stream->size), stream->userData);
     } else
         if (stream->callback)
             stream->callback(NULL, stream->userData);
@@ -1383,12 +1375,12 @@ void osCacheRead(Stream *stream) {
     delete stream;
 }
 
-void osSaveGame(Stream *stream) {
-    return osCacheWrite(stream);
+void osReadSlot(Stream *stream) {
+    return osCacheRead(stream);
 }
 
-void osLoadGame(Stream *stream) {
-    return osCacheRead(stream);
+void osWriteSlot(Stream *stream) {
+    return osCacheWrite(stream);
 }
 #endif
 
@@ -1602,58 +1594,62 @@ namespace String {
 template <typename T>
 struct Array {
     int capacity;
-    int count;
+    int length;
     T   *items;
 
-    Array(int capacity = 32) : capacity(capacity), count(0), items(NULL) {}
+    Array(int capacity = 32) : capacity(capacity), length(0), items(NULL) {}
 
     ~Array() { 
-        free(items);
+        clear();
     }
 
     int push(const T &item) {
         if (!items)
             items = (T*)malloc(capacity * sizeof(T));
 
-        if (count == capacity) {
+        if (length == capacity) {
             capacity += capacity + capacity / 2;
             if (items)
                 items = (T*)realloc(items, capacity * sizeof(T));
             else
                 items = (T*)malloc(capacity * sizeof(T));
         }
-        items[count] = item;
-        return count++;
+        items[length] = item;
+        return length++;
     }
 
     int pop() {
-        ASSERT(count > 0);
-        return --count;
+        ASSERT(length > 0);
+        return --length;
     }
 
     void removeFast(int index) {
-        (*this)[index] = (*this)[--count];
+        (*this)[index] = (*this)[--length];
     }
 
     void remove(int index) {
-        count--;
-        ASSERT(count >= 0);
-        for (int i = index; i < count; i++)
+        length--;
+        ASSERT(length >= 0);
+        for (int i = index; i < length; i++)
             items[i] = items[i + 1];
     }
 
     void clear() {
-        count = 0;
+        length = 0;
+        free(items);
+        items = NULL;
     }
 
     void sort() {
-        ::sort(items, count);
+        ::sort(items, length);
     }
 
     T& operator[] (int index) {
-        ASSERT(index >= 0 && index < count);
+        ASSERT(index >= 0 && index < length);
         return items[index]; 
     };
+
+    operator T*() const { return items; };
 };
 
 

@@ -49,6 +49,7 @@ struct Character : Controller {
     int     zone;
     int     box;
 
+    bool    burn;
     bool    flying;
     bool    fullChestRotation;
 
@@ -64,6 +65,7 @@ struct Character : Controller {
 
         rotHead  = rotChest = quat(0, 0, 0, 1);
 
+        burn   = false;
         flying = getEntity().type == TR::Entity::ENEMY_BAT;
         fullChestRotation = false;
         updateZone();
@@ -169,8 +171,9 @@ struct Character : Controller {
     int getNextState() {
         if (input & DEATH) {
             int deathState = getStateDeath();
-            if (animation.canSetState(deathState)) {
-                velocity = vec3(0.0f);
+            if (state == deathState || animation.canSetState(deathState)) {
+                if (stand != STAND_AIR)
+                    velocity = vec3(0.0f);
                 return deathState;
             }
         }
@@ -187,6 +190,9 @@ struct Character : Controller {
     }
 
     virtual void updateState() {
+        if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+            burn = false;
+
         int state = getNextState();
         // try to set new state
         if (!animation.setState(state))

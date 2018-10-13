@@ -1075,7 +1075,7 @@ struct ZoneCache {
     }
 
     uint16 findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) {
-        if (boxStart == 0xFFFF || boxEnd == 0xFFFF)
+        if (boxStart == TR::NO_BOX || boxEnd == TR::NO_BOX)
             return 0;
 
         TR::Level *level = game->getLevel();

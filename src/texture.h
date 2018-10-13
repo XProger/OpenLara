@@ -55,6 +55,17 @@ struct Texture : GAPI::Texture {
         }
     #endif
 
+#ifdef _DEBUG
+    void dump(const char *fileName) {
+        bind(0);
+        int size = width *height * 4;
+        char *data = new char[size];
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        Texture::SaveBMP(fileName, data, width, height);
+        delete[] data;
+    }
+#endif
+
     Texture(int width, int height, TexFormat format, uint32 opt = 0, void *data = NULL) : GAPI::Texture(width, height, opt) {
 //        LOG("create texture %d x %d (%d)\n", width, height, format);
 

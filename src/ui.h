@@ -11,6 +11,9 @@ enum StringID {
     , STR_LOADING
     , STR_HELP_PRESS
     , STR_HELP_TEXT
+    , STR_HINT_SAVING
+    , STR_HINT_SAVING_DONE
+    , STR_HINT_SAVING_ERROR
     , STR_OFF
     , STR_ON
     , STR_YES
@@ -37,6 +40,7 @@ enum StringID {
     , STR_ITEMS
 // save game page
     , STR_SAVEGAME
+    , STR_CURRENT_POSITION
 // inventory option
     , STR_GAME
     , STR_MAP
@@ -125,6 +129,9 @@ const char *STR[STR_MAX] = {
     , "Loading..."
     , "Press H for help"
     , helpText
+    , "Saving game..."
+    , "Saving done!"
+    , "SAVING ERROR!"
     , "Off"
     , "On"
     , "YES"
@@ -151,6 +158,7 @@ const char *STR[STR_MAX] = {
     , "ITEMS"
 // save game page
     , "Save Game?"
+    , "Current Position"
 // inventory option
     , "Game"
     , "Map"
@@ -168,7 +176,7 @@ const char *STR[STR_MAX] = {
     , "Restart Level"
     , "Exit to Title"
     , "Exit Game"
-    , "Select Level"
+    , "Load Game"
 // detail options
     , "Select Detail"
     , "Filtering"
@@ -215,10 +223,13 @@ const char *STR[STR_MAX] = {
 };
 
 namespace UI {
-    IGame *game;
-    float width, height;
-    float helpTipTime;
-    bool  showHelp;
+    IGame    *game;
+    float    width, height;
+    float    helpTipTime;
+    float    hintTime;
+    StringID hintStr;
+
+    bool     showHelp;
 
     const static uint8 char_width[110] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
@@ -463,6 +474,7 @@ namespace UI {
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
+        hintTime = 0.0f;
 //        texInv = loadRAW(64, 64, "btn_inv.raw");
 //        texAction = loadRAW(64, 64, "btn_action.raw");
     }
@@ -473,6 +485,10 @@ namespace UI {
     }
 
     void update() {
+        if (hintTime > 0.0f)
+            hintTime = max(0.0f, hintTime - Core::deltaTime);
+
+
         if (Input::down[ikH]) {
             Input::down[ikH] = false;
             showHelp = !showHelp;
@@ -537,8 +553,16 @@ namespace UI {
             mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
 
+    void showHint(StringID str, float time) {
+        hintStr  = str;
+        hintTime = time;
+    }
+
     void renderHelp() {
         // TODO: Core::eye offset
+        if (hintTime > 0.0f)
+            textOut(vec2(16, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
+
         if (showHelp)
             textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
         else

@@ -91,8 +91,8 @@ namespace TR {
         LVL_TR2_CATACOMB,
         LVL_TR2_ICECAVE,
         LVL_TR2_EMPRTOMB,
-        LVL_TR2_FLOATING,
         LVL_TR2_CUT_4,
+        LVL_TR2_FLOATING,
         LVL_TR2_XIAN,
         LVL_TR2_HOUSE,
     // TR3
@@ -654,7 +654,7 @@ namespace TR {
                     start = i + 1;
                     break;
                 }
-            // skip extension
+            // skip file extension
             char buf[255];
             strcpy(buf, name + start);
             for (int i = 0; i < int(strlen(buf)); i++)

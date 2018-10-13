@@ -218,17 +218,16 @@ struct Lara : Character {
     bool dozy;
 
     struct Weapon {
-        enum Type  { EMPTY = -1, PISTOLS, SHOTGUN, MAGNUMS, UZIS, MAX };
         enum State { IS_HIDDEN, IS_ARMED, IS_FIRING };
         struct Anim {
             enum Type { NONE, PREPARE, UNHOLSTER, HOLSTER, HOLD, AIM, FIRE };
         };
     };
 
-    Weapon::Type    wpnCurrent;
-    Weapon::Type    wpnNext;
-    Weapon::State   wpnState;
-    int             *wpnAmmo;
+    TR::Entity::Type wpnCurrent;
+    TR::Entity::Type wpnNext;
+    Weapon::State    wpnState;
+    int              *wpnAmmo;
 
     struct Arm {
         Controller      *tracking;       // tracking target (main target)
@@ -241,6 +240,7 @@ struct Lara : Character {
         Arm() : tracking(NULL), target(NULL) {}
     } arms[2];
 
+    TR::Entity::Type  itemHolster;
     TR::Entity::Type  usedKey;
     int               pickupListCount;
     Controller        *pickupList[32];
@@ -435,10 +435,11 @@ struct Lara : Character {
 
     } *braid;
 
-    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(Weapon::EMPTY), wpnNext(Weapon::EMPTY), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE), braid(NULL) {
         camera = new Camera(game, this);
 
-        hitTimer   = 0.0f;
+        itemHolster = TR::Entity::NONE;
+        hitTimer    = 0.0f;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -466,9 +467,9 @@ struct Lara : Character {
                 meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
         } else {
             if (level->id == TR::LVL_TR2_HOUSE)
-                wpnSet(Weapon::SHOTGUN);
+                wpnSet(TR::Entity::SHOTGUN);
             else
-                wpnSet(Weapon::PISTOLS);
+                wpnSet(TR::Entity::PISTOLS);
         }
 
         for (int i = 0; i < 2; i++) {
@@ -555,10 +556,20 @@ struct Lara : Character {
     }
 
     bool canSaveGame() {
-        return health > 0.0f && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
+        return health > 0.0f && !burn;// && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
     }
 
-    virtual bool getSaveData(TR::SaveGame::Entity &data) {
+    TR::Entity::Type getItemHands() {
+        return (wpnState == Weapon::IS_HIDDEN) ? TR::Entity::NONE : wpnCurrent;
+    }
+
+    TR::Entity::Type getItemBack() {
+        if (game->invCount(TR::Entity::INV_SHOTGUN) && (wpnCurrent != TR::Entity::SHOTGUN || wpnState == Weapon::IS_HIDDEN))
+            return TR::Entity::SHOTGUN;
+        return TR::Entity::NONE;
+    }
+
+    virtual bool getSaveData(SaveEntity &data) {
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.lara);
         data.extra.lara.velX        = velocity.x;
@@ -570,16 +581,18 @@ struct Lara : Character {
         data.extra.lara.stamina     = 0.0f;
         data.extra.lara.poison      = 0.0f;
         data.extra.lara.freeze      = 0.0f;
-        data.extra.lara.itemHands   = TR::Entity::LARA;
-        data.extra.lara.itemBack    = TR::Entity::SHOTGUN;
-        data.extra.lara.itemHolster = TR::Entity::PISTOLS;
-        data.extra.lara.flags.value = 0;
-        data.extra.lara.flags.burn  = 0; // TODO
-        data.extra.lara.flags.wet   = 0; // TODO
+        data.extra.lara.reserved    = 0;
+        data.extra.lara.itemWeapon  = wpnCurrent;
+        data.extra.lara.itemHands   = getItemHands();
+        data.extra.lara.itemBack    = getItemBack();
+        data.extra.lara.itemHolster = itemHolster;
+        data.extra.lara.spec.value  = 0;
+        data.extra.lara.spec.burn   = burn;
+        data.extra.lara.spec.wet    = specular > LARA_MIN_SPECULAR;
         return true;
     }
 
-    virtual void setSaveData(const TR::SaveGame::Entity &data) {
+    virtual void setSaveData(const SaveEntity &data) {
         Character::setSaveData(data);
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
@@ -587,13 +600,18 @@ struct Lara : Character {
         oxygen   = data.extra.lara.oxygen;
 
         layers[1].mask = layers[2].mask = layers[3].mask = 0;
-        wpnState   = Weapon::IS_HIDDEN;
-        wpnCurrent = Weapon::EMPTY;
-/*
-        wpnSet(Weapon::Type(data.extra.lara.curWeapon));
-        if (!data.extra.lara.emptyHands)
+
+        wpnSet(TR::Entity::Type(data.extra.lara.itemWeapon));
+
+        wpnCurrent  = TR::Entity::Type(data.extra.lara.itemWeapon);
+        itemHolster = TR::Entity::Type(data.extra.lara.itemHolster);
+        wpnState    = Weapon::IS_HIDDEN;
+
+        if (data.extra.lara.itemHands == data.extra.lara.itemWeapon)
             wpnDraw(true);
-*/
+
+        if (itemHolster != TR::Entity::NONE)
+            meshSwap(1, level->extra.weapons[itemHolster], BODY_LEG_L1 | BODY_LEG_R1);
     }
 
     int getRoomByPos(const vec3 &pos) {
@@ -657,25 +675,15 @@ struct Lara : Character {
         camera->changeView(camera->firstPerson);
     }
 
-    TR::Entity::Type getCurrentWeaponInv() {
-        switch (wpnCurrent) {
-            case Weapon::PISTOLS : return TR::Entity::PISTOLS;
-            case Weapon::SHOTGUN : return TR::Entity::SHOTGUN;
-            case Weapon::MAGNUMS : return TR::Entity::MAGNUMS;
-            case Weapon::UZIS    : return TR::Entity::UZIS;
-            default              : return TR::Entity::LARA;
-        }
-    }
-
-    void wpnSet(Weapon::Type wType) {
+    void wpnSet(TR::Entity::Type wType) {
         wpnCurrent = wType;
         wpnState   = Weapon::IS_FIRING;
 
-        TR::Entity::Type invType = getCurrentWeaponInv();
+        TR::Entity::Type invType = wpnCurrent;
 
         wpnAmmo = game->invCount(invType);
 
-        arms[0].animation = arms[1].animation = Animation(level, &level->models[wType == Weapon::SHOTGUN ? TR::MODEL_SHOTGUN : TR::MODEL_PISTOLS]);
+        arms[0].animation = arms[1].animation = Animation(level, &level->models[wType == TR::Entity::SHOTGUN ? TR::MODEL_SHOTGUN : TR::MODEL_PISTOLS]);
 
         wpnSetAnim(arms[0], Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 0.0f);
         wpnSetAnim(arms[1], Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 0.0f);
@@ -702,10 +710,10 @@ struct Lara : Character {
 
     float wpnGetDamage() {
         switch (wpnCurrent) {
-            case Weapon::PISTOLS : return 1;
-            case Weapon::SHOTGUN : return 1;
-            case Weapon::MAGNUMS : return 2;
-            case Weapon::UZIS    : return 1;
+            case TR::Entity::PISTOLS : return 1;
+            case TR::Entity::SHOTGUN : return 1;
+            case TR::Entity::MAGNUMS : return 2;
+            case TR::Entity::UZIS    : return 1;
             default : ;
         }
         return 0;
@@ -716,17 +724,16 @@ struct Lara : Character {
 
         int mask = 0;
         switch (wpnCurrent) {
-            case Weapon::EMPTY   : break;
-            case Weapon::PISTOLS :
-            case Weapon::MAGNUMS :
-            case Weapon::UZIS    :
+            case TR::Entity::PISTOLS :
+            case TR::Entity::MAGNUMS :
+            case TR::Entity::UZIS    :
                 switch (wState) {
                     case Weapon::IS_HIDDEN : mask = BODY_LEG_L1 | BODY_LEG_R1;              break;
                     case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
                     case Weapon::IS_FIRING : mask = BODY_ARM_L3 | BODY_ARM_R3 | BODY_HEAD;  break;
                 }
                 break;
-            case Weapon::SHOTGUN :
+            case TR::Entity::SHOTGUN :
                 switch (wState) {
                     case Weapon::IS_HIDDEN : mask = BODY_CHEST;                             break;
                     case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
@@ -746,22 +753,23 @@ struct Lara : Character {
     // 3 - angry (head)
 
         // swap weapon parts
-        if (wpnCurrent != Weapon::SHOTGUN) {
+        if (wpnCurrent != TR::Entity::SHOTGUN) {
             meshSwap(1, level->extra.weapons[wpnCurrent], mask);
             // have a shotgun in inventory place it on the back if another weapon is in use
-            meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], game->invCount(TR::Entity::INV_SHOTGUN) ? BODY_CHEST : 0);
+            meshSwap(2, level->extra.weapons[TR::Entity::SHOTGUN], game->invCount(TR::Entity::INV_SHOTGUN) ? BODY_CHEST : 0);
+            itemHolster = (wState == Weapon::IS_HIDDEN) ? wpnCurrent : TR::Entity::NONE;
         } else {
             meshSwap(2, level->extra.weapons[wpnCurrent], mask);
         }
 
         // mesh swap to angry Lara's head while firing (from uzis model)
-        meshSwap(3, level->extra.weapons[Weapon::UZIS], (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
+        meshSwap(3, level->extra.weapons[TR::Entity::UZIS], (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
 
         wpnState = wState;
     }
 
     bool emptyHands() {
-        return wpnCurrent == Weapon::EMPTY || arms[0].anim == Weapon::Anim::NONE;
+        return wpnCurrent == TR::Entity::NONE || arms[0].anim == Weapon::Anim::NONE;
     }
 
     bool canLookAt() {
@@ -776,7 +784,7 @@ struct Lara : Character {
     bool canDrawWeapon() {
         if (dozy) return true;
 
-        return wpnCurrent != Weapon::EMPTY
+        return wpnCurrent != TR::Entity::NONE
                && animation.index != ANIM_CLIMB_3
                && animation.index != ANIM_CLIMB_2
                && state != STATE_DEATH
@@ -832,7 +840,7 @@ struct Lara : Character {
         if (!canDrawWeapon()) return;
 
         if (wpnReady() && emptyHands()) {
-            if (wpnCurrent != Weapon::SHOTGUN) {
+            if (wpnCurrent != TR::Entity::SHOTGUN) {
                 wpnSetAnim(arms[0], wpnState, instant ? Weapon::Anim::AIM : Weapon::Anim::PREPARE, 0.0f, 1.0f);
                 wpnSetAnim(arms[1], wpnState, instant ? Weapon::Anim::AIM : Weapon::Anim::PREPARE, 0.0f, 1.0f);
             } else
@@ -842,7 +850,7 @@ struct Lara : Character {
 
     void wpnHide() {
         if (wpnReady() && !emptyHands()) {
-            if (wpnCurrent != Weapon::SHOTGUN) {
+            if (wpnCurrent != TR::Entity::SHOTGUN) {
                 wpnSetAnim(arms[0], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, -1.0f);
                 wpnSetAnim(arms[1], wpnState, Weapon::Anim::UNHOLSTER, 0.0f, -1.0f);
             } else
@@ -850,7 +858,7 @@ struct Lara : Character {
         }
     }
 
-    void wpnChange(Weapon::Type wType) {
+    void wpnChange(TR::Entity::Type wType) {
         if (wpnCurrent == wType || level->isHome()) {
             if (emptyHands())
                 wpnDraw();
@@ -861,7 +869,7 @@ struct Lara : Character {
     }
 
     int wpnGetAnimIndex(Weapon::Anim::Type wAnim) {
-        if (wpnCurrent == Weapon::SHOTGUN) {
+        if (wpnCurrent == TR::Entity::SHOTGUN) {
             switch (wAnim) {
                 case Weapon::Anim::PREPARE   : ASSERT(false); break;    // rifle has no prepare animation
                 case Weapon::Anim::UNHOLSTER : return 1;
@@ -886,11 +894,11 @@ struct Lara : Character {
 
     int wpnGetSound() {
         switch (wpnCurrent) {
-            case Weapon::PISTOLS : return TR::SND_PISTOLS_SHOT;
-            case Weapon::SHOTGUN : return TR::SND_SHOTGUN_SHOT;
-            case Weapon::MAGNUMS : return TR::SND_MAGNUMS_SHOT;
-            case Weapon::UZIS    : return TR::SND_UZIS_SHOT;
-            default              : return TR::SND_NO;
+            case TR::Entity::PISTOLS : return TR::SND_PISTOLS_SHOT;
+            case TR::Entity::SHOTGUN : return TR::SND_SHOTGUN_SHOT;
+            case TR::Entity::MAGNUMS : return TR::SND_MAGNUMS_SHOT;
+            case TR::Entity::UZIS    : return TR::SND_UZIS_SHOT;
+            default                  : return TR::SND_NO;
         }
     }
 
@@ -909,7 +917,7 @@ struct Lara : Character {
                             wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == NULL);
                     }
                 // shotgun reload sound
-                    if (wpnCurrent == Weapon::SHOTGUN) {
+                    if (wpnCurrent == TR::Entity::SHOTGUN) {
                         if (anim.frameIndex == 10)
                             game->playSound(TR::SND_SHOTGUN_RELOAD, pos, Sound::PAN);
                     }
@@ -917,7 +925,7 @@ struct Lara : Character {
             }
             arm.animation.framePrev = arm.animation.frameIndex;
 
-            if (wpnCurrent == Weapon::SHOTGUN) break;
+            if (wpnCurrent == TR::Entity::SHOTGUN) break;
         }
 
         if (armShot[0] || armShot[1])
@@ -927,17 +935,17 @@ struct Lara : Character {
     void doShot(bool rightHand, bool leftHand) {
         if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && *wpnAmmo <= 0) { // check for no ammo
             game->playSound(TR::SND_EMPTY, pos, Sound::PAN);
-            wpnChange(Weapon::PISTOLS);
+            wpnChange(TR::Entity::PISTOLS);
         }
 
-        int count = wpnCurrent == Weapon::SHOTGUN ? 6 : 2;
+        int count = wpnCurrent == TR::Entity::SHOTGUN ? 6 : 2;
         float nearDist = 32.0f * 1024.0f;
         vec3  nearPos;
         int   shots = 0;
 
         for (int i = 0; i < count; i++) {
             int armIndex;
-            if (wpnCurrent == Weapon::SHOTGUN) {
+            if (wpnCurrent == TR::Entity::SHOTGUN) {
                 if (!rightHand) continue;
                 armIndex = 0;
             } else {
@@ -949,17 +957,17 @@ struct Lara : Character {
             if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO) {
                 if (*wpnAmmo <= 0)
                     continue;
-                if (wpnCurrent != Weapon::SHOTGUN)
+                if (wpnCurrent != TR::Entity::SHOTGUN)
                     *wpnAmmo -= 1;
             }
 
             shots++;
 
-            if (wpnCurrent != Weapon::SHOTGUN)
+            if (wpnCurrent != TR::Entity::SHOTGUN)
                 game->addMuzzleFlash(this, i ? LARA_LGUN_JOINT : LARA_RGUN_JOINT, i ? LARA_LGUN_OFFSET : LARA_RGUN_OFFSET, 1 + camera->cameraIndex);
 
         // TODO: use new trace code
-            int joint = wpnCurrent == Weapon::SHOTGUN ? 8 : (i ? 11 : 8);
+            int joint = wpnCurrent == TR::Entity::SHOTGUN ? 8 : (i ? 11 : 8);
             vec3 p = getJoint(joint).pos;
             vec3 d = arm->rotAbs * vec3(0, 0, 1);
             vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
@@ -988,7 +996,7 @@ struct Lara : Character {
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
-             if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == Weapon::SHOTGUN)
+             if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == TR::Entity::SHOTGUN)
                 *wpnAmmo -= 1;
         }
     }
@@ -996,10 +1004,10 @@ struct Lara : Character {
     void updateWeapon() {
         if (level->isCutsceneLevel()) return;
 
-        if (wpnNext != Weapon::EMPTY && emptyHands()) {
+        if (wpnNext != TR::Entity::NONE && emptyHands()) {
             wpnSet(wpnNext);
             wpnDraw();
-            wpnNext = Weapon::EMPTY;
+            wpnNext = TR::Entity::NONE;
         }
 
     // apply weapon state changes
@@ -1011,7 +1019,7 @@ struct Lara : Character {
         }
 
         if (!emptyHands()) {
-            bool isRifle = wpnCurrent == Weapon::SHOTGUN;
+            bool isRifle = wpnCurrent == TR::Entity::SHOTGUN;
 
             for (int i = 0; i < 2; i++) {
                 Arm &arm = arms[i];
@@ -1051,7 +1059,7 @@ struct Lara : Character {
                     case Weapon::Anim::AIM       :
                     case Weapon::Anim::FIRE      :
                         if (input & ACTION)
-                            wpnSetAnim(arm, Weapon::IS_FIRING, Weapon::Anim::FIRE, arm.animation.time - arm.animation.timeMax, wpnCurrent == Weapon::UZIS ? 2.0f : 1.0f);
+                            wpnSetAnim(arm, Weapon::IS_FIRING, Weapon::Anim::FIRE, arm.animation.time - arm.animation.timeMax, wpnCurrent == TR::Entity::UZIS ? 2.0f : 1.0f);
                         else
                             wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, false);
                         break;
@@ -1122,7 +1130,7 @@ struct Lara : Character {
             animation.overrides[ 9] = arm->animation.getJointRot( 9);
             animation.overrides[10] = arm->animation.getJointRot(10);
             // left arm
-            if (wpnCurrent != Weapon::SHOTGUN) arm = &arms[1];
+            if (wpnCurrent != TR::Entity::SHOTGUN) arm = &arms[1];
             animation.overrides[11] = arm->animation.getJointRot(11);
             animation.overrides[12] = arm->animation.getJointRot(12);
             animation.overrides[13] = arm->animation.getJointRot(13);
@@ -1186,7 +1194,7 @@ struct Lara : Character {
         if (!emptyHands()) {
             updateTargets();
 
-            if (wpnCurrent == Weapon::SHOTGUN)
+            if (wpnCurrent == TR::Entity::SHOTGUN)
                 aimShotgun();
             else
                 aimPistols();
@@ -1267,7 +1275,7 @@ struct Lara : Character {
                 }
         }
 
-        int count = wpnCurrent != Weapon::SHOTGUN ? 2 : 1;
+        int count = wpnCurrent != TR::Entity::SHOTGUN ? 2 : 1;
         if (!(input & ACTION) || retarget) {
             getTargets(arms[0].tracking, arms[1].tracking);
             if (count == 1)
@@ -1537,8 +1545,8 @@ struct Lara : Character {
                 angle = enemy->angle;
 
                 meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
-                meshSwap(2, level->extra.weapons[Weapon::SHOTGUN], 0);
-                meshSwap(3, level->extra.weapons[Weapon::UZIS],    0);
+                meshSwap(2, level->extra.weapons[TR::Entity::SHOTGUN], 0);
+                meshSwap(3, level->extra.weapons[TR::Entity::UZIS],    0);
 
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
                 break;
@@ -1583,10 +1591,10 @@ struct Lara : Character {
         if (game->isCutscene()) return false;
 
         switch (item) {
-            case TR::Entity::INV_PISTOLS       : wpnChange(Lara::Weapon::PISTOLS); break;
-            case TR::Entity::INV_SHOTGUN       : wpnChange(Lara::Weapon::SHOTGUN); break;
-            case TR::Entity::INV_MAGNUMS       : wpnChange(Lara::Weapon::MAGNUMS); break;
-            case TR::Entity::INV_UZIS          : wpnChange(Lara::Weapon::UZIS);    break;
+            case TR::Entity::INV_PISTOLS       : wpnChange(TR::Entity::PISTOLS); break;
+            case TR::Entity::INV_SHOTGUN       : wpnChange(TR::Entity::SHOTGUN); break;
+            case TR::Entity::INV_MAGNUMS       : wpnChange(TR::Entity::MAGNUMS); break;
+            case TR::Entity::INV_UZIS          : wpnChange(TR::Entity::UZIS);    break;
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
                 damageTime = LARA_DAMAGE_TIME;
@@ -1753,7 +1761,7 @@ struct Lara : Character {
                     if (level->state.tracks[track].once) {
                         timer += Core::deltaTime;
                         if (timer > 3.0f)
-                            game->loadNextLevel();
+                            game->loadNextLevel(false);
                     } else {
                         if (state != STATE_WATER_OUT)
                             return 0;
@@ -1882,10 +1890,10 @@ struct Lara : Character {
                         return;
 
                     limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
-                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedKey != TR::Entity::LARA))
+                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedKey != TR::Entity::NONE))
                         return;
 
-                    if (usedKey == TR::Entity::LARA) {
+                    if (usedKey == TR::Entity::NONE) {
                         if (isPressed(ACTION) && !game->invChooseKey(camera->cameraIndex, entity.type))
                             game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
@@ -1993,7 +2001,7 @@ struct Lara : Character {
                     applyFlow(level->cameras[cmd.args]);
                     break;
                 case TR::Action::FLIP : {
-                    TR::ByteFlags &flip = level->state.flipmaps[cmd.args];
+                    SaveState::ByteFlags &flip = level->state.flipmaps[cmd.args];
 
                     if (flip.once)
                         break;
@@ -2023,7 +2031,7 @@ struct Lara : Character {
                     cameraTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
-                    game->loadNextLevel();
+                    game->loadNextLevel(true);
                     break;
                 case TR::Action::SOUNDTRACK : {
                     int track = doTutorial(cmd.args);
@@ -2031,7 +2039,7 @@ struct Lara : Character {
                     if (track == 0) break;
 
                 // check trigger
-                    TR::ByteFlags &flags = level->state.tracks[track];
+                    SaveState::ByteFlags &flags = level->state.tracks[track];
 
                     if (flags.once)
                         break;
@@ -2055,8 +2063,8 @@ struct Lara : Character {
                     effect = TR::Effect::Type(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!(level->state.progress.secrets & (1 << cmd.args))) {
-                        level->state.progress.secrets |= 1 << cmd.args;
+                    if (!(level->levelStats.secrets & (1 << cmd.args))) {
+                        level->levelStats.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
@@ -2614,7 +2622,11 @@ struct Lara : Character {
         }
 
         input = Character::getInput();
-        if (input & DEATH) return input;
+        if (input & DEATH) {
+            if (stand != STAND_AIR) // Lara can't die in the air
+                return input;
+            input &= ~DEATH;
+        }
 
         if (Input::state[pid][cUp])        input |= FORTH;
         if (Input::state[pid][cRight])     input |= RIGHT;
@@ -2634,6 +2646,9 @@ struct Lara : Character {
             switch (level->id) {
                 case TR::LVL_TR1_GYM :
                     reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
+                    break;
+                case TR::LVL_TR1_1 :
+                    reset(33, vec3(48229, 4608, 78420), 270 * DEG2RAD);     // level 1 (end)
                     break;
                 case TR::LVL_TR1_2 :
                     reset(61, vec3(21987, -1024, 29144), PI * 3.0f * 0.5f); // level 2 (trap door)
@@ -2849,7 +2864,7 @@ struct Lara : Character {
             if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
                 oxygen = min(LARA_MAX_OXYGEN, oxygen += Core::deltaTime * 10.0f);
 
-        usedKey = TR::Entity::LARA;
+        usedKey = TR::Entity::NONE;
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC) {
             camera->mode = (emptyHands() || health <= 0.0f) ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;
@@ -3087,7 +3102,7 @@ struct Lara : Character {
 
             Controller *controller = (Controller*)e.controller;
 
-            if (!controller || !e.isCollider(controller->flags)) continue;
+            if (!controller || !controller->isCollider()) continue;
 
             if (e.isEnemy()) {
                 if (e.type != TR::Entity::ENEMY_REX && (controller->flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;
