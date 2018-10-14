@@ -2779,7 +2779,7 @@ struct Level : IGame {
                 pos.y += 16.0f;
             }
 
-            if ((!inventory->active && (!player->emptyHands() || player->damageTime > 0.0f || health <= 0.2f))) {
+            if ((!inventory->active && ((player->wpnReady() && !player->emptyHands()) || player->damageTime > 0.0f || health <= 0.2f))) {
                 UI::renderBar(UI::BAR_HEALTH, pos, size, health);
                 pos.y += 32.0f;
 

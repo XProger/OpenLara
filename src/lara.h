@@ -56,6 +56,25 @@
 #define DESCENT_SPEED       2048.0f
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
+enum {
+	LARA_JOINT_HIPS = 0,
+	LARA_JOINT_THIGH_L,
+	LARA_JOINT_CALF_L,
+	LARA_JOINT_FOOT_L,
+	LARA_JOINT_THIGH_R,
+	LARA_JOINT_CALF_R,
+	LARA_JOINT_FOOT_R,
+	LARA_JOINT_CHEST,
+	LARA_JOINT_UPPER_ARM_R,
+	LARA_JOINT_LOWER_ARM_R,
+	LARA_JOINT_HAND_R,
+	LARA_JOINT_UPPER_ARM_L,
+	LARA_JOINT_LOWER_ARM_L,
+	LARA_JOINT_HAND_L,
+	LARA_JOINT_HEAD,
+	LARA_JOINT_COUNT
+};
+
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -444,8 +463,8 @@ struct Lara : Character {
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
-        jointChest = 7;
-        jointHead  = 14;
+        jointChest = LARA_JOINT_CHEST;
+        jointHead  = LARA_JOINT_HEAD;
         rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
         rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;
 
@@ -1107,39 +1126,15 @@ struct Lara : Character {
     }
 
     void updateOverrides() {
+		// Copy all current animation joints
+		for (int i = 0; i < LARA_JOINT_COUNT; i++)
+			animation.overrides[i] = animation.getJointRot(i);
+
         int overrideMask = 0;
         // head & chest
         overrideMask |= BODY_CHEST | BODY_HEAD;
 
-        animation.overrides[jointChest] = animation.getJointRot(jointChest);
-        animation.overrides[jointHead]  = animation.getJointRot(jointHead);
-
-    /* TODO: shotgun full body animation
-        if (wpnCurrent == Weapon::SHOTGUN) {
-            animation.frameA = arms[0].animation.frameA;
-            animation.frameB = arms[0].animation.frameB;
-            animation.delta  = arms[0].animation.delta;
-        }
-    */
-
-    // arms
-        if (!emptyHands()) {
-            // right arm
-            Arm *arm = &arms[0];
-            animation.overrides[ 8] = arm->animation.getJointRot( 8);
-            animation.overrides[ 9] = arm->animation.getJointRot( 9);
-            animation.overrides[10] = arm->animation.getJointRot(10);
-            // left arm
-            if (wpnCurrent != TR::Entity::SHOTGUN) arm = &arms[1];
-            animation.overrides[11] = arm->animation.getJointRot(11);
-            animation.overrides[12] = arm->animation.getJointRot(12);
-            animation.overrides[13] = arm->animation.getJointRot(13);
-
-            overrideMask |=  (BODY_ARM_R | BODY_ARM_L);
-        } else
-            overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
-
-    // update hit anim
+		// update hit anim
         if (hitDir >= 0) {
             Animation hitAnim = Animation(level, getModel());
             switch (hitDir) {
@@ -1166,6 +1161,25 @@ struct Lara : Character {
             overrideMask = BODY_UPPER | BODY_LOWER | BODY_HEAD;
         }
 
+		// arms
+		if (!emptyHands()) {
+			// right arm
+			Arm *arm = &arms[0];
+			animation.overrides[LARA_JOINT_UPPER_ARM_R] = animation.overrides[LARA_JOINT_CHEST].inverse() * animation.overrides[LARA_JOINT_HIPS].inverse() * arm->animation.getJointRot(LARA_JOINT_UPPER_ARM_R);
+			animation.overrides[LARA_JOINT_LOWER_ARM_R] = arm->animation.getJointRot(LARA_JOINT_LOWER_ARM_R);
+			animation.overrides[LARA_JOINT_HAND_R] = arm->animation.getJointRot(LARA_JOINT_HAND_R);
+			// left arm
+			if (wpnCurrent != TR::Entity::SHOTGUN) arm = &arms[1];
+
+			animation.overrides[LARA_JOINT_UPPER_ARM_L] = animation.overrides[LARA_JOINT_CHEST].inverse() * animation.overrides[LARA_JOINT_HIPS].inverse() * arm->animation.getJointRot(LARA_JOINT_UPPER_ARM_L);
+			animation.overrides[LARA_JOINT_LOWER_ARM_L] = arm->animation.getJointRot(LARA_JOINT_LOWER_ARM_L);
+			animation.overrides[LARA_JOINT_HAND_L] = arm->animation.getJointRot(LARA_JOINT_HAND_L);
+
+			overrideMask |= (BODY_ARM_R | BODY_ARM_L);
+		}
+		else
+			overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
+
         animation.overrideMask = overrideMask;
         jointsFrame = -1;
     }
@@ -1183,6 +1197,7 @@ struct Lara : Character {
             return;
 
         updateOverrides();
+		updateTargets();
 
         Controller *lookTarget = canLookAt() ? target : NULL;
         if (camera->mode == Camera::MODE_LOOK) {
@@ -1191,9 +1206,7 @@ struct Lara : Character {
         } else
             Character::lookAt(lookTarget);
 
-        if (!emptyHands()) {
-            updateTargets();
-
+        if (wpnReady() && !emptyHands()) {
             if (wpnCurrent == TR::Entity::SHOTGUN)
                 aimShotgun();
             else
@@ -1213,16 +1226,35 @@ struct Lara : Character {
     }
 
     void aimShotgun() {
-        quat rot;
+		float speed = 8.0f * Core::deltaTime;
 
+		int joints[2] = { LARA_JOINT_UPPER_ARM_R, LARA_JOINT_UPPER_ARM_L };
+
+		bool hasAim = true;
+
+		quat rot;
         Arm &arm = arms[0];
-        arm.target = aim(arm.target, 14, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs) ? arm.target : NULL;
+		if (!aim(arm.target, LARA_JOINT_UPPER_ARM_R, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs)) {
+			rot = quat(0, 0, 0, 1);
+			arm.target = NULL;
+			hasAim = false;
+		}
+
+		if (hasAim)
+			rot = animation.getJointRot(LARA_JOINT_HIPS) * animation.getJointRot(LARA_JOINT_CHEST) * rot;
+
+		for (int i = 0; i < 2; i++) {
+			int j = joints[i];
+			arm.rot = arm.rot.slerp(rot, speed);
+			animation.overrides[j] = arm.rot * animation.overrides[j];
+			jointsFrame = -1;
+		}
     }
 
     void aimPistols() {
         float speed = 8.0f * Core::deltaTime;
 
-        int joints[2] = { 8, 11 };
+        int joints[2] = { LARA_JOINT_UPPER_ARM_R, LARA_JOINT_UPPER_ARM_L };
 
         vec4 ranges[2] = {
             vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.2f, PI * 0.5f),
@@ -1234,24 +1266,21 @@ struct Lara : Character {
             Arm &arm = arms[i];
             int j = joints[i];
 
+			bool hasAim = true;
             if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                 arm.target = arms[i^1].target;
                 if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                     rot = quat(0, 0, 0, 1);
                     arm.target = NULL;
+					hasAim = false;
                 }
             }
 
-            float t;
-            if (arm.anim == Weapon::Anim::FIRE)
-                t = 1.0f;
-            else if (arm.anim == Weapon::Anim::AIM)
-                t = arm.animation.time / arm.animation.timeMax;
-            else
-                t = 0.0f;
+			if (hasAim)
+				rot = animation.getJointRot(LARA_JOINT_HIPS) * animation.getJointRot(LARA_JOINT_CHEST) * rot;
 
             arm.rot = arm.rot.slerp(rot, speed);
-            animation.overrides[j] = animation.overrides[j].slerp(arm.rot * animation.overrides[j], t);
+			animation.overrides[j] = arm.rot * animation.overrides[j];
             jointsFrame = -1;
         }
     }
@@ -1926,7 +1955,7 @@ struct Lara : Character {
             }
 
             case TR::Level::Trigger::COMBAT :
-                if (emptyHands())
+                if (wpnReady() && !emptyHands())
                     return;
                 break;
 
@@ -2396,8 +2425,10 @@ struct Lara : Character {
             if (state == STATE_FAST_TURN)
                 return state;
 
-            if (input & LEFT)  return (state == STATE_TURN_LEFT  && animation.prev == animation.index) ? STATE_FAST_TURN : STATE_TURN_LEFT;
-            if (input & RIGHT) return (state == STATE_TURN_RIGHT && animation.prev == animation.index) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
+			bool weaponReady = wpnReady() && !emptyHands();
+
+            if (input & LEFT)  return (state == STATE_TURN_LEFT  && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_LEFT;
+            if (input & RIGHT) return (state == STATE_TURN_RIGHT && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
         }
 
         if (state == STATE_STOP && res != STATE_STOP) {
