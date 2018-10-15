@@ -188,7 +188,7 @@ namespace Game {
 
         if (Input::down[ik5] && !level->inventory->isActive()) {
             if (level->players[0]->canSaveGame())
-                level->saveGame(true);
+                level->saveGame(true, false);
             Input::down[ik5] = false;
         }
 

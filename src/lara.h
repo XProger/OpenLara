@@ -1788,7 +1788,7 @@ struct Lara : Character {
                     if (level->state.tracks[track].once) {
                         timer += Core::deltaTime;
                         if (timer > 3.0f)
-                            game->loadNextLevel(false);
+                            game->loadNextLevel();
                     } else {
                         if (state != STATE_WATER_OUT)
                             return 0;
@@ -2063,7 +2063,7 @@ struct Lara : Character {
                     cameraTarget = (Controller*)level->entities[cmd.args].controller;
                     break;
                 case TR::Action::END :
-                    game->loadNextLevel(true);
+                    game->loadNextLevel();
                     break;
                 case TR::Action::SOUNDTRACK : {
                     int track = doTutorial(cmd.args);

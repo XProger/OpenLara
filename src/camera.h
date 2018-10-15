@@ -330,7 +330,7 @@ struct Camera : ICamera {
 
             if (indexA == level->cameraFramesCount - 1) {
                 if (level->isCutsceneLevel())
-                    game->loadNextLevel(true);
+                    game->loadNextLevel();
                 else {
                     Character *lara = (Character*)owner;
                     if (lara->health > 0.0f)

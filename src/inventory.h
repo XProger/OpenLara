@@ -1096,7 +1096,7 @@ struct Inventory {
                         Controller *controller = (Controller*)e.controller;
                         controller->deactivate(true);
                     }
-                    game->saveGame(index > -1);
+                    game->saveGame(index > -1, false);
                 }
                 toggle(playerIndex, targetPage);
             }
@@ -1220,7 +1220,7 @@ struct Inventory {
         }
 
         if (!isActive() && nextLevel != TR::LVL_MAX)
-            game->loadLevel(nextLevel, false);
+            game->loadLevel(nextLevel);
     }
 
     void chooseItem() {

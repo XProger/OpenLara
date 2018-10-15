@@ -163,7 +163,7 @@ void removeSaveSlot(TR::LevelID levelID, bool checkpoint) {
         if (TR::getGameVersionByLevel(id) != version)
             continue;
 
-        if ((checkpoint && isCheckpointSlot) || (!checkpoint && levelID == id)) {
+        if (isCheckpointSlot || (!checkpoint && levelID == id)) {
             delete[] slot.data;
             saveSlots.remove(i);
             i--;

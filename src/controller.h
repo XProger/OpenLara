@@ -49,9 +49,9 @@ struct ICamera {
 
 struct IGame {
     virtual ~IGame() {}
-    virtual void         loadLevel(TR::LevelID id, bool showSaveGame) {}
-    virtual void         loadNextLevel(bool showSaveGame) {}
-    virtual void         saveGame(bool checkpoint) {}
+    virtual void         loadLevel(TR::LevelID id) {}
+    virtual void         loadNextLevel() {}
+    virtual void         saveGame(bool checkpoint, bool updateStats) {}
     virtual void         loadGame(int slot) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
 
@@ -1079,7 +1079,7 @@ struct Controller {
                                 switch (fx) {
                                     case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
                                     case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect::Type(fx)); break;
-                                    case TR::Effect::FINISH_LEVEL : game->loadNextLevel(true); break;
+                                    case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
                                     case TR::Effect::FLIP_MAP     : game->flipMap(); break;
                                     default                       : cmdEffect(fx); break;
                                 }

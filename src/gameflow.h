@@ -754,6 +754,20 @@ namespace TR {
         return VER_UNKNOWN;
     }
 
+
+    LevelID getNextSaveLevel(LevelID id) {
+        Version version = getGameVersionByLevel(id);
+        LevelID end = getEndId(version);
+
+        while (id != end) {
+            id = LevelID(id + 1);
+            if (!isCutsceneLevel(id))
+                return id;
+        }
+
+        return LVL_MAX;
+    }
+
     void getGameLevelFile(char *dst, Version version, LevelID id) {
         if (useEasyStart) {
             switch (version) {
