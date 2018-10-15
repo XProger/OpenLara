@@ -968,6 +968,10 @@ struct Level : IGame {
             case TR::Entity::GEARS_1               :
             case TR::Entity::GEARS_2               :
             case TR::Entity::GEARS_3               : return new Gear(this, index);
+            case TR::Entity::INV_KEY_1             :
+            case TR::Entity::INV_KEY_2             :
+            case TR::Entity::INV_KEY_3             :
+            case TR::Entity::INV_KEY_4             : return new KeyItemInv(this, index);
             case TR::Entity::TRAP_FLOOR            : return new TrapFloor(this, index);
             case TR::Entity::CRYSTAL               : return new Crystal(this, index);
             case TR::Entity::TRAP_SWING_BLADE      : return new TrapSwingBlade(this, index);

@@ -574,7 +574,9 @@ struct Lara : Character {
     }
 
     bool canSaveGame() {
-        return health > 0.0f && !burn;// && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
+        return health > 0.0f && !burn 
+               && state != STATE_USE_KEY
+               && state != STATE_USE_PUZZLE; // && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
     }
 
     TR::Entity::Type getItemHands() {
@@ -1931,8 +1933,13 @@ struct Lara : Character {
 
                     keyHole = controller;
 
-                    if (game->invUse(camera->cameraIndex, usedKey))
+                    if (game->invUse(camera->cameraIndex, usedKey)) {
                         keyItem = game->addEntity(usedKey, getRoomIndex(), pos, 0);
+                        keyItem->lockMatrix = true;
+                        keyItem->pos     = keyHole->pos + vec3(-484, -590, 0);
+                        keyItem->angle.x = PI * 0.5f;
+                        keyItem->angle.y = keyHole->angle.y;
+                    }
 
                     animation.setState(actionState);
                 }
@@ -2831,12 +2838,9 @@ struct Lara : Character {
                     if (animation.isFrameActive(state == STATE_USE_PUZZLE ? PUZZLE_FRAME : KEY_FRAME)) {
                         keyHole->activate();
                         if (keyItem) {
-                            if (state == STATE_USE_KEY) {
-                                mat4 &m = keyItem->matrix;
-                                m = keyHole->getMatrix();
-                                m.translate(vec3(0, -590, 484));
-                                m.rotateX(PI * 0.5f);
-                            } else
+                            if (state == STATE_USE_KEY)
+                                keyItem->lockMatrix = false;
+                            else
                                 game->removeEntity(keyItem);
                         }
 

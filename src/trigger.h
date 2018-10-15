@@ -63,6 +63,12 @@ struct Gear : Controller {
     }
 };
 
+struct KeyItemInv : Controller {
+    KeyItemInv(IGame *game, int entity) : Controller(game, entity) {
+        angle.x = PI * 0.5f;
+    }
+};
+
 #define DART_DAMAGE 50
 
 struct Dart : Controller {
