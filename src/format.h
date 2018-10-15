@@ -1818,6 +1818,18 @@ namespace TR {
                    (type >= STONE_ITEM_1 && type <= STONE_ITEM_4);
         }
 
+        static bool isPuzzleItem(Type type) {
+            return type >= PUZZLE_1 && type <= PUZZLE_4;
+        }
+        
+        static bool isKeyItem(Type type) {
+            return type >= KEY_ITEM_1 && type <= KEY_ITEM_4;
+        }
+
+        static bool isCrossLevelItem(Type type) {
+            return !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR);
+        }
+
         bool isPickup() const {
             return isPickup(type);
         }
@@ -1884,7 +1896,9 @@ namespace TR {
                 case KEY_ITEM_4    : return INV_KEY_4;
 
                 case LEADBAR       : return INV_LEADBAR;
-                //case Entity::SCION         : return Entity::INV_SCION;
+                case SCION_PICKUP_QUALOPEC :
+                case SCION_PICKUP_DROP     :
+                case SCION_PICKUP_HOLDER   : return Entity::INV_SCION;
                 default            : return type;
             }
         }
@@ -1915,8 +1929,8 @@ namespace TR {
                 case INV_KEY_4         : return KEY_ITEM_4;
 
                 case INV_LEADBAR       : return LEADBAR;
-                //case Entity::SCION         : return Entity::INV_SCION;
-                default            : return type;
+                case INV_SCION         : return SCION_PICKUP_DROP;
+                default                : return type;
             }
         }
 
