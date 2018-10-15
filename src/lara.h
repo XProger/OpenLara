@@ -56,25 +56,6 @@
 #define DESCENT_SPEED       2048.0f
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
-enum {
-	LARA_JOINT_HIPS = 0,
-	LARA_JOINT_THIGH_L,
-	LARA_JOINT_CALF_L,
-	LARA_JOINT_FOOT_L,
-	LARA_JOINT_THIGH_R,
-	LARA_JOINT_CALF_R,
-	LARA_JOINT_FOOT_R,
-	LARA_JOINT_CHEST,
-	LARA_JOINT_UPPER_ARM_R,
-	LARA_JOINT_LOWER_ARM_R,
-	LARA_JOINT_HAND_R,
-	LARA_JOINT_UPPER_ARM_L,
-	LARA_JOINT_LOWER_ARM_L,
-	LARA_JOINT_HAND_L,
-	LARA_JOINT_HEAD,
-	LARA_JOINT_COUNT
-};
-
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -210,28 +191,47 @@ struct Lara : Character {
     #define LARA_LGUN_OFFSET vec3( 10, -50, 0)
 
     enum {
-        BODY_HIP        = 0x0001,
-        BODY_LEG_L1     = 0x0002,
-        BODY_LEG_L2     = 0x0004,
-        BODY_LEG_L3     = 0x0008,
-        BODY_LEG_R1     = 0x0010,
-        BODY_LEG_R2     = 0x0020,
-        BODY_LEG_R3     = 0x0040,
-        BODY_CHEST      = 0x0080,
-        BODY_ARM_R1     = 0x0100,
-        BODY_ARM_R2     = 0x0200,
-        BODY_ARM_R3     = 0x0400,
-        BODY_ARM_L1     = 0x0800,
-        BODY_ARM_L2     = 0x1000,
-        BODY_ARM_L3     = 0x2000,
-        BODY_HEAD       = 0x4000,
-        BODY_ARM_L      = BODY_ARM_L1 | BODY_ARM_L2 | BODY_ARM_L3,
-        BODY_ARM_R      = BODY_ARM_R1 | BODY_ARM_R2 | BODY_ARM_R3,
-        BODY_LEG_L      = BODY_LEG_L1 | BODY_LEG_L2 | BODY_LEG_L3,
-        BODY_LEG_R      = BODY_LEG_R1 | BODY_LEG_R2 | BODY_LEG_R3,
-        BODY_UPPER      = BODY_CHEST  | BODY_ARM_L  | BODY_ARM_R,       // without head
-        BODY_LOWER      = BODY_HIP    | BODY_LEG_L  | BODY_LEG_R,
-        BODY_BRAID_MASK = BODY_HEAD   | BODY_CHEST  | BODY_ARM_L1 | BODY_ARM_L2 | BODY_ARM_R1 | BODY_ARM_R2,
+        JOINT_HIPS = 0,
+        JOINT_LEG_L1,
+        JOINT_LEG_L2,
+        JOINT_LEG_L3,
+        JOINT_LEG_R1,
+        JOINT_LEG_R2,
+        JOINT_LEG_R3,
+        JOINT_CHEST,
+        JOINT_ARM_R1,
+        JOINT_ARM_R2,
+        JOINT_ARM_R3,
+        JOINT_ARM_L1,
+        JOINT_ARM_L2,
+        JOINT_ARM_L3,
+        JOINT_HEAD,
+        JOINT_MAX
+    };
+
+    enum {
+        JOINT_MASK_HIPS       = 1 << JOINT_HIPS,
+        JOINT_MASK_LEG_L1     = 1 << JOINT_LEG_L1,
+        JOINT_MASK_LEG_L2     = 1 << JOINT_LEG_L2,
+        JOINT_MASK_LEG_L3     = 1 << JOINT_LEG_L3,
+        JOINT_MASK_LEG_R1     = 1 << JOINT_LEG_R1,
+        JOINT_MASK_LEG_R2     = 1 << JOINT_LEG_R2,
+        JOINT_MASK_LEG_R3     = 1 << JOINT_LEG_R3,
+        JOINT_MASK_CHEST      = 1 << JOINT_CHEST,
+        JOINT_MASK_ARM_R1     = 1 << JOINT_ARM_R1,
+        JOINT_MASK_ARM_R2     = 1 << JOINT_ARM_R2,
+        JOINT_MASK_ARM_R3     = 1 << JOINT_ARM_R3,
+        JOINT_MASK_ARM_L1     = 1 << JOINT_ARM_L1,
+        JOINT_MASK_ARM_L2     = 1 << JOINT_ARM_L2,
+        JOINT_MASK_ARM_L3     = 1 << JOINT_ARM_L3,
+        JOINT_MASK_HEAD       = 1 << JOINT_HEAD,
+        JOINT_MASK_ARM_L      = JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_L3,
+        JOINT_MASK_ARM_R      = JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2 | JOINT_MASK_ARM_R3,
+        JOINT_MASK_LEG_L      = JOINT_MASK_LEG_L1 | JOINT_MASK_LEG_L2 | JOINT_MASK_LEG_L3,
+        JOINT_MASK_LEG_R      = JOINT_MASK_LEG_R1 | JOINT_MASK_LEG_R2 | JOINT_MASK_LEG_R3,
+        JOINT_MASK_UPPER      = JOINT_MASK_CHEST  | JOINT_MASK_ARM_L  | JOINT_MASK_ARM_R,       // without head
+        JOINT_MASK_LOWER      = JOINT_MASK_HIPS   | JOINT_MASK_LEG_L  | JOINT_MASK_LEG_R,
+        JOINT_MASK_BRAID      = JOINT_MASK_HEAD   | JOINT_MASK_CHEST  | JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2,
     };
 
     bool dozy;
@@ -377,7 +377,7 @@ struct Lara : Character {
             lara->updateJoints();
 
             for (int i = 0; i < model->mCount; i++) {
-                if (!(BODY_BRAID_MASK & (1 << i))) continue;
+                if (!(JOINT_MASK_BRAID & (1 << i))) continue;
 
                 int offset = level->meshOffsets[model->mStart + i];
                 TR::Mesh *mesh = (TR::Mesh*)&level->meshes[offset];
@@ -462,8 +462,8 @@ struct Lara : Character {
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
-        jointChest = LARA_JOINT_CHEST;
-        jointHead  = LARA_JOINT_HEAD;
+        jointChest = JOINT_CHEST;
+        jointHead  = JOINT_HEAD;
         rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
         rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;
 
@@ -482,7 +482,7 @@ struct Lara : Character {
 
         if (level->isHome()) {
             if (level->version & TR::VER_TR1)
-                meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+                meshSwap(1, TR::MODEL_LARA_SPEC, JOINT_MASK_UPPER | JOINT_MASK_LOWER);
         } else {
             if (level->id == TR::LVL_TR2_HOUSE)
                 wpnSet(TR::Entity::SHOTGUN);
@@ -629,7 +629,7 @@ struct Lara : Character {
             wpnDraw(true);
 
         if (itemHolster != TR::Entity::NONE)
-            meshSwap(1, level->extra.weapons[itemHolster], BODY_LEG_L1 | BODY_LEG_R1);
+            meshSwap(1, level->extra.weapons[itemHolster], JOINT_MASK_LEG_L1 | JOINT_MASK_LEG_R1);
     }
 
     int getRoomByPos(const vec3 &pos) {
@@ -742,16 +742,16 @@ struct Lara : Character {
             case TR::Entity::MAGNUMS :
             case TR::Entity::UZIS    :
                 switch (wState) {
-                    case Weapon::IS_HIDDEN : mask = BODY_LEG_L1 | BODY_LEG_R1;              break;
-                    case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
-                    case Weapon::IS_FIRING : mask = BODY_ARM_L3 | BODY_ARM_R3 | BODY_HEAD;  break;
+                    case Weapon::IS_HIDDEN : mask = JOINT_MASK_LEG_L1 | JOINT_MASK_LEG_R1;              break;
+                    case Weapon::IS_ARMED  : mask = JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3;              break;
+                    case Weapon::IS_FIRING : mask = JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3 | JOINT_MASK_HEAD;  break;
                 }
                 break;
             case TR::Entity::SHOTGUN :
                 switch (wState) {
-                    case Weapon::IS_HIDDEN : mask = BODY_CHEST;                             break;
-                    case Weapon::IS_ARMED  : mask = BODY_ARM_L3 | BODY_ARM_R3;              break;
-                    case Weapon::IS_FIRING : mask = BODY_ARM_L3 | BODY_ARM_R3 | BODY_HEAD;  break;
+                    case Weapon::IS_HIDDEN : mask = JOINT_MASK_CHEST;                             break;
+                    case Weapon::IS_ARMED  : mask = JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3;              break;
+                    case Weapon::IS_FIRING : mask = JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3 | JOINT_MASK_HEAD;  break;
                 }
                 break;
             default : ;
@@ -770,14 +770,14 @@ struct Lara : Character {
         if (wpnCurrent != TR::Entity::SHOTGUN) {
             meshSwap(1, level->extra.weapons[wpnCurrent], mask);
             // have a shotgun in inventory place it on the back if another weapon is in use
-            meshSwap(2, level->extra.weapons[TR::Entity::SHOTGUN], game->invCount(TR::Entity::INV_SHOTGUN) ? BODY_CHEST : 0);
+            meshSwap(2, level->extra.weapons[TR::Entity::SHOTGUN], game->invCount(TR::Entity::INV_SHOTGUN) ? JOINT_MASK_CHEST : 0);
             itemHolster = (wState == Weapon::IS_HIDDEN) ? wpnCurrent : TR::Entity::NONE;
         } else {
             meshSwap(2, level->extra.weapons[wpnCurrent], mask);
         }
 
         // mesh swap to angry Lara's head while firing (from uzis model)
-        meshSwap(3, level->extra.weapons[TR::Entity::UZIS], (wState == Weapon::IS_FIRING) ? BODY_HEAD : 0);
+        meshSwap(3, level->extra.weapons[TR::Entity::UZIS], (wState == Weapon::IS_FIRING) ? JOINT_MASK_HEAD : 0);
 
         wpnState = wState;
     }
@@ -1123,15 +1123,15 @@ struct Lara : Character {
     }
 
     void updateOverrides() {
-		// Copy all current animation joints
-		for (int i = 0; i < LARA_JOINT_COUNT; i++)
-			animation.overrides[i] = animation.getJointRot(i);
+        // Copy all current animation joints
+        for (int i = 0; i < JOINT_MAX; i++)
+            animation.overrides[i] = animation.getJointRot(i);
 
         int overrideMask = 0;
         // head & chest
-        overrideMask |= BODY_CHEST | BODY_HEAD;
+        overrideMask |= JOINT_MASK_CHEST | JOINT_MASK_HEAD;
 
-		// update hit anim
+        // update hit anim
         if (hitDir >= 0) {
             Animation hitAnim = Animation(level, getModel());
             switch (hitDir) {
@@ -1144,8 +1144,8 @@ struct Lara : Character {
             hitAnim.time = hitTime;
             hitAnim.updateInfo();
             
-            overrideMask &= ~(BODY_CHEST | BODY_HEAD);
-            int hitMask = (BODY_UPPER | BODY_LOWER | BODY_HEAD) & ~overrideMask;
+            overrideMask &= ~(JOINT_MASK_CHEST | JOINT_MASK_HEAD);
+            int hitMask = (JOINT_MASK_UPPER | JOINT_MASK_LOWER | JOINT_MASK_HEAD) & ~overrideMask;
             int index    = 0;
             while (hitMask) {
                 if (hitMask & 1)
@@ -1155,27 +1155,26 @@ struct Lara : Character {
             }
 
             hitTime += Core::deltaTime;
-            overrideMask = BODY_UPPER | BODY_LOWER | BODY_HEAD;
+            overrideMask = JOINT_MASK_UPPER | JOINT_MASK_LOWER | JOINT_MASK_HEAD;
         }
 
-		// arms
-		if (!emptyHands()) {
-			// right arm
-			Arm *arm = &arms[0];
-			animation.overrides[LARA_JOINT_UPPER_ARM_R] = animation.overrides[LARA_JOINT_CHEST].inverse() * animation.overrides[LARA_JOINT_HIPS].inverse() * arm->animation.getJointRot(LARA_JOINT_UPPER_ARM_R);
-			animation.overrides[LARA_JOINT_LOWER_ARM_R] = arm->animation.getJointRot(LARA_JOINT_LOWER_ARM_R);
-			animation.overrides[LARA_JOINT_HAND_R] = arm->animation.getJointRot(LARA_JOINT_HAND_R);
-			// left arm
-			if (wpnCurrent != TR::Entity::SHOTGUN) arm = &arms[1];
+        // arms
+        if (!emptyHands()) {
+            // right arm
+            Arm *arm = &arms[0];
+            animation.overrides[JOINT_ARM_R1] = animation.overrides[JOINT_CHEST].inverse() * animation.overrides[JOINT_HIPS].inverse() * arm->animation.getJointRot(JOINT_ARM_R1);
+            animation.overrides[JOINT_ARM_R2] = arm->animation.getJointRot(JOINT_ARM_R2);
+            animation.overrides[JOINT_ARM_R3] = arm->animation.getJointRot(JOINT_ARM_R3);
+            // left arm
+            if (wpnCurrent != TR::Entity::SHOTGUN) arm = &arms[1];
 
-			animation.overrides[LARA_JOINT_UPPER_ARM_L] = animation.overrides[LARA_JOINT_CHEST].inverse() * animation.overrides[LARA_JOINT_HIPS].inverse() * arm->animation.getJointRot(LARA_JOINT_UPPER_ARM_L);
-			animation.overrides[LARA_JOINT_LOWER_ARM_L] = arm->animation.getJointRot(LARA_JOINT_LOWER_ARM_L);
-			animation.overrides[LARA_JOINT_HAND_L] = arm->animation.getJointRot(LARA_JOINT_HAND_L);
+            animation.overrides[JOINT_ARM_L1] = animation.overrides[JOINT_CHEST].inverse() * animation.overrides[JOINT_HIPS].inverse() * arm->animation.getJointRot(JOINT_ARM_L1);
+            animation.overrides[JOINT_ARM_L2] = arm->animation.getJointRot(JOINT_ARM_L2);
+            animation.overrides[JOINT_ARM_L3] = arm->animation.getJointRot(JOINT_ARM_L3);
 
-			overrideMask |= (BODY_ARM_R | BODY_ARM_L);
-		}
-		else
-			overrideMask &= ~(BODY_ARM_R | BODY_ARM_L);
+            overrideMask |= (JOINT_MASK_ARM_R | JOINT_MASK_ARM_L);
+        } else
+            overrideMask &= ~(JOINT_MASK_ARM_R | JOINT_MASK_ARM_L);
 
         animation.overrideMask = overrideMask;
         jointsFrame = -1;
@@ -1194,7 +1193,7 @@ struct Lara : Character {
             return;
 
         updateOverrides();
-		updateTargets();
+        updateTargets();
 
         Controller *lookTarget = canLookAt() ? target : NULL;
         if (camera->mode == Camera::MODE_LOOK) {
@@ -1223,35 +1222,35 @@ struct Lara : Character {
     }
 
     void aimShotgun() {
-		float speed = 8.0f * Core::deltaTime;
+        float speed = 8.0f * Core::deltaTime;
 
-		int joints[2] = { LARA_JOINT_UPPER_ARM_R, LARA_JOINT_UPPER_ARM_L };
+        int joints[2] = { JOINT_ARM_R1, JOINT_ARM_L1 };
 
-		bool hasAim = true;
+        bool hasAim = true;
 
-		quat rot;
+        quat rot;
         Arm &arm = arms[0];
-		if (!aim(arm.target, LARA_JOINT_UPPER_ARM_R, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs)) {
-			rot = quat(0, 0, 0, 1);
-			arm.target = NULL;
-			hasAim = false;
-		}
+        if (!aim(arm.target, JOINT_ARM_R1, vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.25f, PI * 0.25f), rot, &arm.rotAbs)) {
+            rot = quat(0, 0, 0, 1);
+            arm.target = NULL;
+            hasAim = false;
+        }
 
-		if (hasAim)
-			rot = animation.getJointRot(LARA_JOINT_HIPS) * animation.getJointRot(LARA_JOINT_CHEST) * rot;
+        if (hasAim)
+            rot = animation.getJointRot(JOINT_HIPS) * animation.getJointRot(JOINT_CHEST) * rot;
 
-		for (int i = 0; i < 2; i++) {
-			int j = joints[i];
-			arm.rot = arm.rot.slerp(rot, speed);
-			animation.overrides[j] = arm.rot * animation.overrides[j];
-			jointsFrame = -1;
-		}
+        for (int i = 0; i < 2; i++) {
+            int j = joints[i];
+            arm.rot = arm.rot.slerp(rot, speed);
+            animation.overrides[j] = arm.rot * animation.overrides[j];
+            jointsFrame = -1;
+        }
     }
 
     void aimPistols() {
         float speed = 8.0f * Core::deltaTime;
 
-        int joints[2] = { LARA_JOINT_UPPER_ARM_R, LARA_JOINT_UPPER_ARM_L };
+        int joints[2] = { JOINT_ARM_R1, JOINT_ARM_L1 };
 
         vec4 ranges[2] = {
             vec4(-PI * 0.4f, PI * 0.4f, -PI * 0.2f, PI * 0.5f),
@@ -1263,21 +1262,21 @@ struct Lara : Character {
             Arm &arm = arms[i];
             int j = joints[i];
 
-			bool hasAim = true;
+            bool hasAim = true;
             if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                 arm.target = arms[i^1].target;
                 if (!aim(arm.target, j, ranges[i], rot, &arm.rotAbs)) {
                     rot = quat(0, 0, 0, 1);
                     arm.target = NULL;
-					hasAim = false;
+                    hasAim = false;
                 }
             }
 
-			if (hasAim)
-				rot = animation.getJointRot(LARA_JOINT_HIPS) * animation.getJointRot(LARA_JOINT_CHEST) * rot;
+            if (hasAim)
+                rot = animation.getJointRot(JOINT_HIPS) * animation.getJointRot(JOINT_CHEST) * rot;
 
             arm.rot = arm.rot.slerp(rot, speed);
-			animation.overrides[j] = arm.rot * animation.overrides[j];
+            animation.overrides[j] = arm.rot * animation.overrides[j];
             jointsFrame = -1;
         }
     }
@@ -1457,9 +1456,9 @@ struct Lara : Character {
     }
 
     void drawGun(int right) {
-        int mask = (right ? BODY_ARM_R3 : BODY_ARM_L3); // unholster
+        int mask = (right ? JOINT_MASK_ARM_R3 : JOINT_MASK_ARM_L3); // unholster
         if (layers[1].mask & mask)
-            mask = (layers[1].mask & ~mask) | (right ? BODY_LEG_R1 : BODY_LEG_L1); // holster
+            mask = (layers[1].mask & ~mask) | (right ? JOINT_MASK_LEG_R1 : JOINT_MASK_LEG_L1); // holster
         else
             mask |= layers[1].mask;
         meshSwap(1, level->extra.weapons[wpnCurrent], mask);
@@ -1570,7 +1569,7 @@ struct Lara : Character {
                 pos   = enemy->pos;
                 angle = enemy->angle;
 
-                meshSwap(1, TR::MODEL_LARA_SPEC, BODY_UPPER | BODY_LOWER);
+                meshSwap(1, TR::MODEL_LARA_SPEC, JOINT_MASK_UPPER | JOINT_MASK_LOWER);
                 meshSwap(2, level->extra.weapons[TR::Entity::SHOTGUN], 0);
                 meshSwap(3, level->extra.weapons[TR::Entity::UZIS],    0);
 
@@ -2422,7 +2421,7 @@ struct Lara : Character {
             if (state == STATE_FAST_TURN)
                 return state;
 
-			bool weaponReady = wpnReady() && !emptyHands();
+            bool weaponReady = wpnReady() && !emptyHands();
 
             if (input & LEFT)  return (state == STATE_TURN_LEFT  && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_LEFT;
             if (input & RIGHT) return (state == STATE_TURN_RIGHT && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
@@ -3374,30 +3373,30 @@ struct Lara : Character {
 
     uint32 getMidasMask() {
         if (state == STATE_MIDAS_USE)
-            return BODY_ARM_L3 | BODY_ARM_R3;
+            return JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3;
 
         uint32 mask = 0;
         int frame = animation.frameIndex;
-        if (frame > 4  ) mask |= BODY_LEG_L3 | BODY_LEG_R3;
-        if (frame > 69 ) mask |= BODY_LEG_L2;
-        if (frame > 79 ) mask |= BODY_LEG_L1;
-        if (frame > 99 ) mask |= BODY_LEG_R2;
-        if (frame > 119) mask |= BODY_LEG_R1 | BODY_HIP;
-        if (frame > 134) mask |= BODY_CHEST;
-        if (frame > 149) mask |= BODY_ARM_L1;
-        if (frame > 162) mask |= BODY_ARM_L2;
-        if (frame > 173) mask |= BODY_ARM_L3;
-        if (frame > 185) mask |= BODY_ARM_R1;
-        if (frame > 194) mask |= BODY_ARM_R2;
-        if (frame > 217) mask |= BODY_ARM_R3;
-        if (frame > 224) mask |= BODY_HEAD;
+        if (frame > 4  ) mask |= JOINT_MASK_LEG_L3 | JOINT_MASK_LEG_R3;
+        if (frame > 69 ) mask |= JOINT_MASK_LEG_L2;
+        if (frame > 79 ) mask |= JOINT_MASK_LEG_L1;
+        if (frame > 99 ) mask |= JOINT_MASK_LEG_R2;
+        if (frame > 119) mask |= JOINT_MASK_LEG_R1 | JOINT_MASK_HIPS;
+        if (frame > 134) mask |= JOINT_MASK_CHEST;
+        if (frame > 149) mask |= JOINT_MASK_ARM_L1;
+        if (frame > 162) mask |= JOINT_MASK_ARM_L2;
+        if (frame > 173) mask |= JOINT_MASK_ARM_L3;
+        if (frame > 185) mask |= JOINT_MASK_ARM_R1;
+        if (frame > 194) mask |= JOINT_MASK_ARM_R2;
+        if (frame > 217) mask |= JOINT_MASK_ARM_R3;
+        if (frame > 224) mask |= JOINT_MASK_HEAD;
         return mask;
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         uint32 visMask = visibleMask;
         if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
-            visibleMask &= ~BODY_HEAD;
+            visibleMask &= ~JOINT_MASK_HEAD;
         Controller::render(frustum, mesh, type, caustics);
         visibleMask = visMask;
 
