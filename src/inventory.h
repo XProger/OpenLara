@@ -681,6 +681,10 @@ struct Inventory {
 
         if (smart) {
             switch (type) {
+                case TR::Entity::INV_PISTOLS      :
+                case TR::Entity::INV_AMMO_PISTOLS : 
+                    addAmmo(type, count, 10, TR::Entity::INV_PISTOLS, TR::Entity::INV_AMMO_PISTOLS);
+                    break;
                 case TR::Entity::INV_SHOTGUN      :
                 case TR::Entity::INV_AMMO_SHOTGUN : 
                     addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);

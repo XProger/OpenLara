@@ -246,7 +246,6 @@ struct Lara : Character {
     TR::Entity::Type wpnCurrent;
     TR::Entity::Type wpnNext;
     Weapon::State    wpnState;
-    int              *wpnAmmo;
 
     struct Arm {
         Controller      *tracking;       // tracking target (main target)
@@ -698,10 +697,6 @@ struct Lara : Character {
         wpnCurrent = wType;
         wpnState   = Weapon::IS_FIRING;
 
-        TR::Entity::Type invType = wpnCurrent;
-
-        wpnAmmo = game->invCount(invType);
-
         arms[0].animation = arms[1].animation = Animation(level, &level->models[wType == TR::Entity::SHOTGUN ? TR::MODEL_SHOTGUN : TR::MODEL_PISTOLS]);
 
         wpnSetAnim(arms[0], Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 0.0f);
@@ -952,6 +947,8 @@ struct Lara : Character {
     }
 
     void doShot(bool rightHand, bool leftHand) {
+        int *wpnAmmo = game->invCount(wpnCurrent);
+
         if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && *wpnAmmo <= 0) { // check for no ammo
             game->playSound(TR::SND_EMPTY, pos, Sound::PAN);
             wpnChange(TR::Entity::PISTOLS);
