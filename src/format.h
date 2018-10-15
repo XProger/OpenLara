@@ -1827,7 +1827,7 @@ namespace TR {
         }
 
         static bool isCrossLevelItem(Type type) {
-            return !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR);
+            return isPickup(type) && !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR);
         }
 
         bool isPickup() const {

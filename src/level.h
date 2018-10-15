@@ -75,12 +75,12 @@ struct Level : IGame {
         sndWater = sndTrack = NULL;
         Sound::stopAll();
 
-        if (loadSlot == -1 && !TR::isCutsceneLevel(level.id)) {
+        if (!level.isTitle() && loadSlot == -1 && !TR::isCutsceneLevel(level.id)) {
         // update statistics info for current level
             saveGame(false, true);
         // save next level
             level.id = TR::getNextSaveLevel(level.id); // get next not cutscene level
-            if (level.id != TR::LVL_MAX) {
+            if (level.id != TR::LVL_MAX && !level.isTitle()) {
                 memset(&level.levelStats, 0, sizeof(level.levelStats));
                 saveGame(false, false);
                 loadSlot = getSaveSlot(level.id, false);
@@ -267,15 +267,13 @@ struct Level : IGame {
         if (saveResult == SAVE_RESULT_WAIT)
             return;
 
-        saveResult = SAVE_RESULT_WAIT;
-        UI::showHint(STR_HINT_SAVING, 60.0f);
-
         LOG("Save Game...\n");
 
         TR::LevelID id = level.id;
 
         SaveSlot slot;
         if (updateStats) {
+            removeSaveSlot(id, true);
             int index = getSaveSlot(id, false);
             if (index == -1) {
                 slot = createSaveSlot(id, false, true);
@@ -291,10 +289,14 @@ struct Level : IGame {
 
         saveSlots.sort();
 
-        int size;
-        uint8 *data = writeSaveSlots(size);
+        if (!updateStats) {
+            saveResult = SAVE_RESULT_WAIT;
+            UI::showHint(STR_HINT_SAVING, 60.0f);
 
-        osWriteSlot(new Stream(SAVE_FILENAME, (const char*)data, size, saveGameWriteAsync, this));
+            int size;
+            uint8 *data = writeSaveSlots(size);
+            osWriteSlot(new Stream(SAVE_FILENAME, (const char*)data, size, saveGameWriteAsync, this));
+        }
     }
 
     virtual void loadGame(int slot) {

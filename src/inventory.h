@@ -909,8 +909,8 @@ struct Inventory {
             if (key == cRight && item->value < 2) { item->value++; item->anim->dir =  1.0f; game->playSound(TR::SND_INV_PAGE); }
 
             if (item->value != oldValue) {
-                slot = -1;
-                item->nextSlot(slot, 1);
+                slot = 0;
+                item->nextSlot(slot, -1);
             }
 
             if (key == cAction && phaseChoose == 1.0f && item->value != 0) {
