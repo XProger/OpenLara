@@ -2825,7 +2825,9 @@ namespace TR {
             initRoomMeshes();
             initAnimTex();
 
-            memset(&state, 0, sizeof(state));
+            memset(&gameStats,  0, sizeof(gameStats));
+            memset(&levelStats, 0, sizeof(levelStats));
+            memset(&state,      0, sizeof(state));
 
             initExtra();
             initCutscene();

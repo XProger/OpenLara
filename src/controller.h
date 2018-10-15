@@ -270,11 +270,12 @@ struct Controller {
                 TR::Entity &e = level->entities[cmd.args];
                 Controller *controller = (Controller*)e.controller;
                 if (!controller) continue; // Block UpdateFloor issue while entities initialization
-                if (!controller->isCollider()) continue;
 
                 switch (e.type) {
                     case TR::Entity::TRAP_DOOR_1 :
                     case TR::Entity::TRAP_DOOR_2 : {
+                        if (!controller->isCollider()) continue;
+
                         int dirX, dirZ;
                         e.getAxis(dirX, dirZ);
 
@@ -293,6 +294,8 @@ struct Controller {
                         break;
                     }
                     case TR::Entity::TRAP_FLOOR  : {
+                        if (!controller->isCollider()) continue;
+
                         if (sx != int(controller->pos.x) / 1024 || sz != int(controller->pos.z) / 1024) 
                             break;
                         int ey = int(controller->pos.y) - 512;
@@ -306,6 +309,8 @@ struct Controller {
                         break;
                     }
                     case TR::Entity::DRAWBRIDGE  : {
+                        if (controller->isCollider()) continue; // drawbridge is collidable in inactive state, but it works as floor only when active
+
                         if (controller->flags.active != TR::ACTIVE) continue;
                         int dirX, dirZ;
                         e.getAxis(dirX, dirZ);
@@ -326,10 +331,14 @@ struct Controller {
                         break;
                     }
                     case TR::Entity::HAMMER_HANDLE : {
+                        if (!controller->isCollider()) continue;
+
                         int dirX, dirZ;
                         e.getAxis(dirX, dirZ);
-                        if (abs(int(controller->pos.x) + dirX * 1024 * 3 - x) < 512 && abs(int(controller->pos.z) + dirZ * 1024 * 3 - z) < 512)
+                        if (abs(int(controller->pos.x) + dirX * 1024 * 3 - x) < 512 && abs(int(controller->pos.z) + dirZ * 1024 * 3 - z) < 512) {
                             info.floor -= 1024 * 3;
+                            info.trigCmdCount = 0;
+                        }
                         break;
                     }
                     case TR::Entity::BRIDGE_1    : 

@@ -97,7 +97,7 @@ struct Level : IGame {
         inventory->toggle(playerIndex, Inventory::Page(page));
     }
 
-    SaveSlot createSaveSlot(TR::LevelID id, bool checkpoint) {
+    SaveSlot createSaveSlot(TR::LevelID id, bool checkpoint, bool dummy = false) {
         SaveSlot slot;
         slot.level = id | (checkpoint ? LVL_FLAG_CHECKPOINT : 0);
 
@@ -117,18 +117,28 @@ struct Level : IGame {
         ptr += sizeof(*itemsCount);
 
         *itemsCount = 0;
-        for (int i = 0; i < inventory->itemsCount; i++) {
-            Inventory::Item *invItem = inventory->items[i];
-            
-            if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
-
+        if (dummy) {
             SaveItem *item = (SaveItem*)ptr;
             ptr += sizeof(*item);
 
-            item->type  = invItem->type;
-            item->count = invItem->count;
+            item->type  = TR::Entity::INV_PISTOLS;
+            item->count = UNLIMITED_AMMO;
 
-            (*itemsCount)++;
+            *itemsCount = 1;
+        } else {
+            for (int i = 0; i < inventory->itemsCount; i++) {
+                Inventory::Item *invItem = inventory->items[i];
+            
+                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+
+                SaveItem *item = (SaveItem*)ptr;
+                ptr += sizeof(*item);
+
+                item->type  = invItem->type;
+                item->count = invItem->count;
+
+                (*itemsCount)++;
+            }
         }
 
         if (checkpoint) {
@@ -261,6 +271,10 @@ struct Level : IGame {
         }
 
         removeSaveSlot(id, checkpoint);
+
+        TR::LevelID startID = TR::getStartId(level.version);
+        if (!checkpoint && getSaveSlot(startID, false) == -1)
+            saveSlots.push(createSaveSlot(startID, false, true)); // add first level save game
 
         saveSlots.push(createSaveSlot(id, checkpoint));
         saveSlots.sort();
@@ -973,6 +987,7 @@ struct Level : IGame {
             case TR::Entity::TRAP_SLAM             : return new TrapSlam(this, index);
             case TR::Entity::TRAP_SWORD            : return new TrapSword(this, index);
             case TR::Entity::HAMMER_HANDLE         : return new ThorHammer(this, index);
+            case TR::Entity::HAMMER_BLOCK          : return new ThorHammerBlock(this, index);
             case TR::Entity::LIGHTNING             : return new Lightning(this, index);
             case TR::Entity::MOVING_OBJECT         : return new MovingObject(this, index);
             case TR::Entity::SWITCH                :

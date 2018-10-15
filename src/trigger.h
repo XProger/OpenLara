@@ -744,10 +744,6 @@ struct TrapFloor : Controller {
 
 struct Bridge : Controller {
     Bridge(IGame *game, int entity) : Controller(game, entity) {}
-
-    virtual bool isCollider() {
-        return true;
-    }
 };
 
 struct Drawbridge : Controller {
@@ -1005,6 +1001,20 @@ struct TrapSword : Controller {
 };
 
 
+struct ThorHammerBlock : Controller {
+    Controller *handle;
+
+    ThorHammerBlock(IGame *game, int entity) : Controller(game, entity), handle(NULL) {}
+
+    virtual bool isCollider() {
+        return handle ? handle->isCollider() : false;
+    }
+
+    virtual bool getSaveData(SaveEntity &data) {
+        return false;
+    }
+};
+
 struct ThorHammer : Controller {
     enum {
         STATE_IDLE,
@@ -1013,11 +1023,29 @@ struct ThorHammer : Controller {
         STATE_DOWN,
     };
 
-    Controller *block;
+    ThorHammerBlock *block;
 
     ThorHammer(IGame *game, int entity) : Controller(game, entity) {
-        block = game->addEntity(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y);
+        initBlock();
+    }
+
+    void initBlock() {
+        block = (ThorHammerBlock*)game->addEntity(TR::Entity::HAMMER_BLOCK, getRoomIndex(), pos, angle.y);
         ASSERT(block);
+        if (block)
+            block->handle = this;
+    }
+
+    void updateBlock() {
+        block->animation.frameA = animation.frameA;
+        block->animation.frameB = animation.frameB;
+        block->animation.delta  = animation.delta;
+    }
+
+    virtual void setSaveData(const SaveEntity &data) {
+        Controller::setSaveData(data);
+        initBlock();
+        updateBlock();
     }
 
     virtual bool isCollider() {
@@ -1025,12 +1053,11 @@ struct ThorHammer : Controller {
     }
 
     virtual void update() {
-        Character *lara = (Character*)game->getLara(pos);
-
         switch (state) {
             case STATE_IDLE  : if (isActive()) animation.setState(STATE_START); break;
             case STATE_START : animation.setState(isActive() ? STATE_FALL : STATE_IDLE); break;
             case STATE_FALL  : {
+                Character *lara = (Character*)game->getLara(pos);
                 if (animation.frameIndex > 30 && lara->health > 0.0f) {
                     vec3 d = pos + getDir() * (3.0f * 1024.0f) - lara->pos;
                     if (fabsf(d.x) < 520.0f && fabsf(d.z) < 520.0f)
@@ -1046,12 +1073,10 @@ struct ThorHammer : Controller {
         }
 
         updateAnimation(true);
-        block->animation.frameA = animation.frameA;
-        block->animation.frameB = animation.frameB;
-        block->animation.delta  = animation.delta;
+        if (block)
+            updateBlock();
     }
 };
-
 
 #define LIGHTNING_DAMAGE 400
 
