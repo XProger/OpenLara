@@ -2219,8 +2219,11 @@ struct GiantMutant : Enemy {
                 }
                 break;
             case STATE_ATTACK_3 :
-                target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
-                return STATE_FATAL;
+                if (target->stand != STAND_HANG) {
+                    target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
+                    return STATE_FATAL;
+                }
+                break;
             default : ;
         }
         
