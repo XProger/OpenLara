@@ -1936,7 +1936,7 @@ struct Lara : Character {
                     if (game->invUse(camera->cameraIndex, usedKey)) {
                         keyItem = game->addEntity(usedKey, getRoomIndex(), pos, 0);
                         keyItem->lockMatrix = true;
-                        keyItem->pos     = keyHole->pos + vec3(-484, -590, 0);
+                        keyItem->pos     = keyHole->pos + vec3(0, -590, 484).rotateY(-keyHole->angle.y);
                         keyItem->angle.x = PI * 0.5f;
                         keyItem->angle.y = keyHole->angle.y;
                     }
