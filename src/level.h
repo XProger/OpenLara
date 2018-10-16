@@ -67,6 +67,7 @@ struct Level : IGame {
     int        effectIdx;
     float      cutsceneWaitTimer;
     float      animTexTimer;
+    float      statsTimeDelta;
 
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
@@ -247,6 +248,8 @@ struct Level : IGame {
             playTrack(track);
         } else
             memset(&level.levelStats, 0, sizeof(level.levelStats));
+
+        statsTimeDelta = 0.0f;
     }
 
     static void saveGameWriteAsync(Stream *stream, void *userData) {
@@ -787,7 +790,7 @@ struct Level : IGame {
     }
 //==============================
 
-    Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f) {
+    Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f), statsTimeDelta(0.0f) {
     #ifdef _OS_PSP
         GAPI::freeEDRAM();
     #endif
@@ -1765,6 +1768,12 @@ struct Level : IGame {
             volWater = 0.0f;
             volTrack = level.isTitle() ? 0.9f : 0.0f;
         } else {
+            statsTimeDelta += Core::deltaTime;
+            while (statsTimeDelta >= 1.0f) {
+                statsTimeDelta -= 1.0f;
+                level.levelStats.time++;
+            }
+
             params->time += Core::deltaTime;
             animTexTimer += Core::deltaTime;
 

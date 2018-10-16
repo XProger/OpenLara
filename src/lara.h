@@ -56,6 +56,8 @@
 #define DESCENT_SPEED       2048.0f
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
+#define UNITS_PER_METER     445.0f
+
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -274,6 +276,7 @@ struct Lara : Character {
     int         hitDir;
     vec3        collisionOffset;
     vec3        flowVelocity;
+    float       statsDistDelta;
 
     Camera      *camera;
 
@@ -467,6 +470,8 @@ struct Lara : Character {
         rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
         rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;
 
+        statsDistDelta = 0.0f;
+
         oxygen     = LARA_MAX_OXYGEN;
         hitDir     = -1;
         damageTime = LARA_DAMAGE_TIME;
@@ -614,6 +619,8 @@ struct Lara : Character {
 
     virtual void setSaveData(const SaveEntity &data) {
         Character::setSaveData(data);
+        statsDistDelta = 0.0f;
+
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
         health   = data.extra.lara.health;
@@ -650,6 +657,8 @@ struct Lara : Character {
     }
 
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
+        statsDistDelta = 0.0f;
+
         visibleMask = 0xFFFFFFFF;
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
@@ -1011,6 +1020,8 @@ struct Lara : Character {
         }
 
         if (shots) {
+            level->levelStats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
+
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
@@ -1624,6 +1635,7 @@ struct Lara : Character {
             case TR::Entity::INV_UZIS          : wpnChange(TR::Entity::UZIS);    break;
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
+                level->levelStats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
@@ -2827,6 +2839,7 @@ struct Lara : Character {
                         pickupList[i]->deactivate();
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->getEntity().type, 1);
+                        level->levelStats.pickups++;
                     }
                     pickupListCount = 0;
                 }
@@ -3102,8 +3115,17 @@ struct Lara : Character {
 
         collisionOffset = vec3(0.0f);
 
-        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
+        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) { // TODO: stop & smash anim
+            vec3 oldPos = pos;
+
             move();
+
+            statsDistDelta += (pos - oldPos).length();
+            while (statsDistDelta >= UNITS_PER_METER) {
+                statsDistDelta -= UNITS_PER_METER;
+                level->levelStats.distance++;
+            }
+        }
     }
 
     virtual vec3 getPos() {

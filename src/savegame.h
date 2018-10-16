@@ -24,9 +24,9 @@ struct SaveItem {
 struct SaveProgress {
     uint32 time;
     uint32 distance;
-    uint32 mediUsed;
     uint32 secrets;
     uint32 pickups;
+    uint32 mediUsed;
     uint32 ammoUsed;
     uint32 kills;
 };
