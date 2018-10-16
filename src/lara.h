@@ -2999,7 +2999,7 @@ struct Lara : Character {
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
             w *= TURN_FAST_BACK;
-        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK)
+        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
             w *= TURN_NORMAL;
         else if (state == STATE_FORWARD_JUMP || state == STATE_BACK)
             w *= TURN_SLOW;
@@ -3111,7 +3111,7 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((state == STATE_RUN || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
+        updateTilt((state == STATE_RUN || state == STATE_STOP || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
