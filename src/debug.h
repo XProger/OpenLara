@@ -711,7 +711,7 @@ namespace Debug {
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, roomNext = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.roomNext, int(info.floor - info.ceiling));
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
 
-            const SaveProgress &stats = game->getLevel()->levelStats;
+            const SaveProgress &stats = game->getLevel()->stats;
             sprintf(buf, "stats: time = %d, distance = %d, secrets = %c%c%c, pickups = %d, mediUsed = %d, ammoUsed = %d, kills = %d", stats.time, stats.distance, 
                 (stats.secrets & 4) ? '1' : '0', 
                 (stats.secrets & 2) ? '1' : '0',

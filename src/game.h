@@ -186,6 +186,11 @@ namespace Game {
         if (level->isEnded)
             return true;
 
+        if (Input::down[ik0] && !level->inventory->isActive()) {
+            level->inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
+            Input::down[ik0] = false;
+        }
+
         if (Input::down[ik5] && !level->inventory->isActive()) {
             if (level->players[0]->canSaveGame())
                 level->saveGame(true, false);

@@ -75,8 +75,8 @@ struct OptionItem {
         UI::textOut(vec2(x, y), vStr, UI::aCenter, w, alpha, UI::SHADE_GRAY); // color as StringID
 
         if (type == TYPE_PARAM && active) {
-            float maxWidth = UI::getTextSize(STR[color + value]).x;
-            maxWidth = maxWidth * 0.5f + 8.0f;
+            int maxWidth = UI::getTextSize(STR[color + value]).x;
+            maxWidth = maxWidth / 2 + 8;
             x += w * 0.5f;
             if (checkValue(value - 1)) UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
             if (checkValue(value + 1)) UI::specOut(vec2(x + maxWidth, y), 109);
@@ -191,6 +191,7 @@ struct Inventory {
         PAGE_INVENTORY,
         PAGE_ITEMS,
         PAGE_SAVEGAME,
+        PAGE_LEVEL_STATS,
         PAGE_MAX
     };
 
@@ -787,7 +788,8 @@ struct Inventory {
                 phaseRing = active ? 1.0f : 0.0f;
                 slot = 1;
             } else {
-                game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p);
+                if (curPage != PAGE_LEVEL_STATS)
+                    game->playSound(active ? TR::SND_INV_SHOW : TR::SND_INV_HIDE, p);
             }
 
             chosen = false;
@@ -1085,7 +1087,11 @@ struct Inventory {
 
         Item *item = items[getGlobalIndex(page, index)];
 
-        if (page == PAGE_SAVEGAME) {
+        if (page == PAGE_LEVEL_STATS) {
+            if (Input::lastState[playerIndex] != cMAX) {
+                toggle(playerIndex, targetPage);
+            }
+        } else if (page == PAGE_SAVEGAME) {
             if (Input::lastState[playerIndex] == cLeft || Input::lastState[playerIndex] == cRight)
                 slot ^= 1;
 
@@ -1345,7 +1351,7 @@ struct Inventory {
         }
 
         UI::textOut(vec2(0, 480 - 32), str, UI::aCenter, UI::width);
-        float tw = UI::getTextSize(STR[str]).x;
+        int tw = UI::getTextSize(STR[str]).x;
 
         if (item->value > 0) UI::specOut(vec2((UI::width - tw) * 0.5f - 32.0f, 480 - 32), 108);
         if (item->value < 2) UI::specOut(vec2((UI::width + tw) * 0.5f + 16.0f, 480 - 32), 109);
@@ -1716,10 +1722,39 @@ struct Inventory {
             renderPage(targetPage);
     }
 
+    void showLevelStats(const vec2 &pos) {
+        char buf[256];
+        char time[16];
+        TR::Level *level = game->getLevel();
+        SaveProgress &stats = level->stats;
+
+        int secretsMax = 3;
+        int secrets = ((stats.secrets & 1) != 0) +
+                        ((stats.secrets & 2) != 0) +
+                        ((stats.secrets & 4) != 0);
+
+        int s = stats.time % 60;
+        int m = stats.time / 60 % 60;
+        int h = stats.time / 3600;
+
+        if (h)
+            sprintf(time, "%d:%02d:%02d", h, m, s);
+        else
+            sprintf(time, "%d:%02d", m, s);
+
+        sprintf(buf, STR[STR_LEVEL_STATS], 
+                TR::LEVEL_INFO[level->id].title,
+                stats.kills,
+                stats.pickups,
+                secrets, secretsMax, time);
+
+        UI::textOut(pos, buf, UI::aCenter, UI::width);
+    }
+
     void renderUI() {
         if (!active || phaseRing < 1.0f) return;
 
-        static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS, STR_SAVEGAME };
+        static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS, STR_SAVEGAME, STR_LEVEL_STATS };
 
         float eye = UI::width * Core::eye * 0.01f;
 
@@ -1735,6 +1770,11 @@ struct Inventory {
             UI::renderBar(UI::BAR_OPTION, vec2(-eye - 48 * slot + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
             UI::textOut(vec2(-eye - 48 + UI::width / 2, 240 + 24), STR_YES, UI::aCenter, 48);
             UI::textOut(vec2(-eye + UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
+            return;
+        }
+
+        if (page == PAGE_LEVEL_STATS) {
+            showLevelStats(vec2(-eye, 180));
             return;
         }
 

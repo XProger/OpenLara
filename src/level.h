@@ -82,7 +82,7 @@ struct Level : IGame {
         // save next level
             level.id = TR::getNextSaveLevel(level.id); // get next not cutscene level
             if (level.id != TR::LVL_MAX && !level.isTitle()) {
-                memset(&level.levelStats, 0, sizeof(level.levelStats));
+                memset(&level.stats, 0, sizeof(level.stats));
                 saveGame(false, false);
                 loadSlot = getSaveSlot(level.id, false);
             }
@@ -123,7 +123,7 @@ struct Level : IGame {
         if (dummy)
             memset(levelStats, 0, sizeof(*levelStats));
         else
-            *levelStats = level.levelStats;
+            *levelStats = level.stats;
 
     // inventory items
         int32 *itemsCount = (int32*)ptr;
@@ -191,8 +191,8 @@ struct Level : IGame {
         uint8 *ptr  = data;
 
     // level progress stats
-        level.levelStats = *(SaveProgress*)ptr;
-        ptr += sizeof(level.levelStats);
+        level.stats = *(SaveProgress*)ptr;
+        ptr += sizeof(level.stats);
 
     // inventory items
         int32 itemsCount = *(int32*)ptr;
@@ -247,7 +247,7 @@ struct Level : IGame {
             level.state.flags.track = 0;
             playTrack(track);
         } else
-            memset(&level.levelStats, 0, sizeof(level.levelStats));
+            memset(&level.stats, 0, sizeof(level.stats));
 
         statsTimeDelta = 0.0f;
     }
@@ -284,7 +284,7 @@ struct Level : IGame {
             } else
                 slot = saveSlots[index];
             SaveProgress *levelStats = (SaveProgress*)slot.data;
-            *levelStats = level.levelStats;
+            *levelStats = level.stats;
         } else {
             removeSaveSlot(id, checkpoint); // remove checkpoints and level saves
             saveSlots.push(createSaveSlot(id, checkpoint));
@@ -1771,7 +1771,7 @@ struct Level : IGame {
             statsTimeDelta += Core::deltaTime;
             while (statsTimeDelta >= 1.0f) {
                 statsTimeDelta -= 1.0f;
-                level.levelStats.time++;
+                level.stats.time++;
             }
 
             params->time += Core::deltaTime;

@@ -1020,7 +1020,7 @@ struct Lara : Character {
         }
 
         if (shots) {
-            level->levelStats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
+            level->stats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
 
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
@@ -1635,7 +1635,7 @@ struct Lara : Character {
             case TR::Entity::INV_UZIS          : wpnChange(TR::Entity::UZIS);    break;
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
-                level->levelStats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
+                level->stats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
@@ -2107,8 +2107,8 @@ struct Lara : Character {
                     effect = TR::Effect::Type(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!(level->levelStats.secrets & (1 << cmd.args))) {
-                        level->levelStats.secrets |= 1 << cmd.args;
+                    if (!(level->stats.secrets & (1 << cmd.args))) {
+                        level->stats.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
@@ -2839,7 +2839,7 @@ struct Lara : Character {
                         pickupList[i]->deactivate();
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->getEntity().type, 1);
-                        level->levelStats.pickups++;
+                        level->stats.pickups++;
                     }
                     pickupListCount = 0;
                 }
@@ -3123,7 +3123,7 @@ struct Lara : Character {
             statsDistDelta += (pos - oldPos).length();
             while (statsDistDelta >= UNITS_PER_METER) {
                 statsDistDelta -= UNITS_PER_METER;
-                level->levelStats.distance++;
+                level->stats.distance++;
             }
         }
     }
