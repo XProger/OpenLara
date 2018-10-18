@@ -55,7 +55,7 @@ struct Texture : GAPI::Texture {
         }
     #endif
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_OS_WIN) && defined(_GAPI_GL)
     void dump(const char *fileName) {
         bind(0);
         int size = width *height * 4;
