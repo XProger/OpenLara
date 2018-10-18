@@ -393,13 +393,13 @@ namespace UI {
         MeshBuilder *mesh = game->getMesh();
         int seq = level->extra.glyphs;
 
-        int x = int(pos.x) + getLeftOffset(text, align, width);
+        int x = int(pos.x) + getLeftOffset(text, align, int(width));
         int y = int(pos.y);
 
         while (char c = *text++) {
 
             if (c == '@') {
-                x = int(pos.x) + getLeftOffset(text, align, width);
+                x = int(pos.x) + getLeftOffset(text, align, int(width));
                 y += 16;
                 continue;
             }

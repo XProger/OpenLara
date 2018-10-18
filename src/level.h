@@ -71,34 +71,35 @@ struct Level : IGame {
 
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
-        if (nextLevel != TR::LVL_MAX) return;
-
         sndWater = sndTrack = NULL;
         Sound::stopAll();
-
-        if (!level.isTitle() && loadSlot == -1 && !TR::isCutsceneLevel(level.id)) {
-        // update statistics info for current level
-            saveGame(false, true);
-        // save next level
-            level.id = TR::getNextSaveLevel(level.id); // get next not cutscene level
-            if (level.id != TR::LVL_MAX && !level.isTitle()) {
-                memset(&level.stats, 0, sizeof(level.stats));
-                saveGame(false, false);
-                loadSlot = getSaveSlot(level.id, false);
-            }
-        }
-
         nextLevel = id;
     }
 
     virtual void loadNextLevel() {
+        TR::LevelID id = TR::LVL_MAX;
     #ifdef _OS_WEB
         if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC) {
-            loadLevel(TR::LVL_TR1_TITLE);
+            id = TR::LVL_TR1_TITLE;
             return;
-        }
+        } else
     #endif
-        loadLevel((level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1));
+        id = (level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1);
+
+        if (nextLevel == TR::LVL_MAX) {
+            if (!level.isTitle() && loadSlot == -1 && !TR::isCutsceneLevel(level.id)) {
+            // update statistics info for current level
+                saveGame(false, true);
+            // save next level
+                level.id = TR::getNextSaveLevel(level.id); // get next not cutscene level
+                if (level.id != TR::LVL_MAX && !level.isTitle()) {
+                    memset(&level.stats, 0, sizeof(level.stats));
+                    saveGame(false, false);
+                    loadSlot = getSaveSlot(level.id, false);
+                }
+            }
+            loadLevel(id);
+        }
     }
 
     virtual void invShow(int playerIndex, int page, int itemIndex = -1) {
@@ -2435,11 +2436,6 @@ struct Level : IGame {
 
         Core::setViewport(Core::x, Core::y, Core::width, Core::height);
         camera->setup(true);
-        
-        if (Input::down[ikF]) {
-            flipMap();
-            Input::down[ikF] = false;
-        }
 
         Debug::begin();
         /*
