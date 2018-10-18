@@ -52,10 +52,11 @@ float4		uContacts[MAX_CONTACTS]	: register( c94 );
 #define FILTER_EQUIRECTANGULAR	uFlags[4]
 
 #define WATER_DROP				uFlags[0]
-#define WATER_STEP				uFlags[1]
+#define WATER_SIMULATE			uFlags[1]
 #define WATER_CAUSTICS			uFlags[2]
-#define WATER_MASK				uFlags[3]
-#define WATER_COMPOSE			uFlags[4]
+#define WATER_RAYS				uFlags[3]
+#define WATER_MASK				uFlags[4]
+#define WATER_COMPOSE			uFlags[5]
 
 // options for compose, shadow, ambient passes
 #define UNDERWATER				uFlags[5]
