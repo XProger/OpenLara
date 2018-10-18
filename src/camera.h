@@ -364,8 +364,6 @@ struct Camera : ICamera {
             } else
                 updateFirstPerson();
         } else {
-            Controller *lookAt = NULL;
-
             if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
                 lookAngle = vec3(0.0f);
             } else {
@@ -392,6 +390,15 @@ struct Camera : ICamera {
                     }
             }
 
+            targetAngle = owner->angle + lookAngle;
+
+            targetAngle.x = clampAngle(targetAngle.x);
+            targetAngle.y = clampAngle(targetAngle.y);
+
+            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
+
+            Controller *lookAt = NULL;
+
             if (mode != MODE_STATIC) {
                 if (!owner->viewTarget) {
                     if (viewTarget && !viewTarget->flags.invisible) {
@@ -408,14 +415,8 @@ struct Camera : ICamera {
                 owner->lookAt(NULL);
             }
 
-            targetAngle = owner->angle + lookAngle;
             if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
                 targetAngle += angle;
-
-            targetAngle.x = clampAngle(targetAngle.x);
-            targetAngle.y = clampAngle(targetAngle.y);
-
-            targetAngle.x = clamp(targetAngle.x, -85 * DEG2RAD, +85 * DEG2RAD);
 
             if (!firstPerson || viewIndex != -1) {
 
