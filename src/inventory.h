@@ -1751,7 +1751,6 @@ struct Inventory {
     void showLevelStats(const vec2 &pos) {
         char buf[256];
         char time[16];
-        TR::Level *level = game->getLevel();
 
         int secretsMax = 3;
         int secrets = ((saveStats.secrets & 1) != 0) +
