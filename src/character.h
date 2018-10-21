@@ -128,7 +128,7 @@ struct Character : Controller {
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (getEntity().isEnemy() && health > 0.0f && health <= damage)
-            level->stats.kills++;
+            saveStats.kills++;
         health = max(0.0f, health - damage);
     }
 

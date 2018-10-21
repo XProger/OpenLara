@@ -314,15 +314,14 @@ struct Inventory {
             for (int i = 0; i < saveSlots.length; i++) {
                 const SaveSlot &slot = saveSlots[i];
 
-                bool isCheckpointSlot = (slot.level & LVL_FLAG_CHECKPOINT) != 0;
-                TR::LevelID id = TR::LevelID(slot.level & ~LVL_FLAG_CHECKPOINT);
+                TR::LevelID id = slot.getLevelID();
 
                 if (TR::getGameVersionByLevel(id) != (level->version & TR::VER_VERSION))
                     continue;
 
                 OptionItem item;
                 item.type   = OptionItem::TYPE_BUTTON;
-                item.offset = isCheckpointSlot ? intptr_t(STR[STR_CURRENT_POSITION]) : intptr_t(TR::LEVEL_INFO[id].title); // offset as int pointer to level title string
+                item.offset = slot.isCheckpoint() ? intptr_t(STR[STR_CURRENT_POSITION]) : intptr_t(TR::LEVEL_INFO[id].title); // offset as int pointer to level title string
                 item.color  = i; // color as slot index
                 optLoadSlots.push(item);
             }
@@ -563,15 +562,59 @@ struct Inventory {
             inv->skipVideo();
     }
 
-    Inventory(IGame *game) : game(game), active(false), chosen(false), index(0), targetIndex(0), page(PAGE_OPTION), targetPage(PAGE_OPTION), itemsCount(0), playerIndex(0), changeTimer(0.0f), nextLevel(TR::LVL_MAX), lastKey(cMAX) {
-        TR::LevelID id = game->getLevel()->id;
+    Inventory() : itemsCount(0) {
+        memset(background, 0, sizeof(background));
+        reset(NULL);
+    }
+
+    ~Inventory() {
+        delete video;
+        clear();
+    }
+
+    void clear() {
+        for (int i = 0; i < itemsCount; i++)
+            delete items[i];
+        itemsCount = 0;
+
+        for (int i = 0; i < COUNT(background); i++) {
+            delete background[i];
+            background[i] = NULL;
+        }
+    }
+
+    void reset(IGame *game) {
+        clear();
+        this->game  = game;
+        active      = false;
+        chosen      = false;
+        index       = targetIndex = 0;
+        page        = targetPage = PAGE_OPTION;
+
+        playerIndex = 0;
+        changeTimer = 0.0f;
+        nextLevel   = TR::LVL_MAX;
+        lastKey     = cMAX;
+
+        phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
+        memset(pageItemIndex, 0, sizeof(pageItemIndex));
+
+        waitForKey = NULL;
+        video      = NULL;
+
+        titleTimer = TITLE_LOADING;
+
+        if (!game) return;
+
+        TR::Level *level = game->getLevel();
+        TR::LevelID id   = level->id;
 
         add(TR::Entity::INV_PASSPORT);
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
 
-        if (!game->getLevel()->isTitle() && id != TR::LVL_TR1_GYM && id != TR::LVL_TR2_ASSAULT) {
+        if (!level->isTitle() && id != TR::LVL_TR1_GYM && id != TR::LVL_TR2_ASSAULT) {
 /*
             if (level->extra.inv.map != -1)
                 add(TR::Entity::INV_MAP);
@@ -600,34 +643,12 @@ struct Inventory {
         #endif
         } 
 
-        TR::Level *level = game->getLevel();
-
-        memset(background, 0, sizeof(background));
-
         if (level->isTitle()) {
             add(TR::Entity::INV_HOME);
         } else {
             add(TR::Entity::INV_COMPASS);
             add(TR::Entity::INV_STOPWATCH);
         }
-
-        phaseRing = phasePage = phaseChoose = phaseSelect = 0.0f;
-        memset(pageItemIndex, 0, sizeof(pageItemIndex));
-
-        waitForKey = NULL;
-        video = NULL;
-
-        titleTimer = TITLE_LOADING;
-    }
-
-    ~Inventory() {
-        delete video;
-
-        for (int i = 0; i < itemsCount; i++)
-            delete items[i];
-
-        for (int i = 0; i < COUNT(background); i++)
-            delete background[i];
     }
 
     void startVideo() {
@@ -795,8 +816,10 @@ struct Inventory {
             chosen = false;
 
             if (active) {
-                for (int i = 0; i < itemsCount; i++)
-                    items[i]->reset();
+                if (curPage != PAGE_LEVEL_STATS) {
+                    for (int i = 0; i < itemsCount; i++)
+                        items[i]->reset();
+                }
 
                 nextLevel   = TR::LVL_MAX;
                 phasePage   = 1.0f;
@@ -1102,7 +1125,7 @@ struct Inventory {
                         Controller *controller = (Controller*)e.controller;
                         controller->deactivate(true);
                     }
-                    game->saveGame(index > -1, false);
+                    game->saveGame(game->getLevel()->id, index > -1, false);
                 }
                 toggle(playerIndex, targetPage);
             }
@@ -1172,6 +1195,9 @@ struct Inventory {
             }
         }
         lastKey = key;
+
+        if (page == PAGE_SAVEGAME || page == PAGE_LEVEL_STATS)
+            return;
 
         ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
@@ -1726,16 +1752,15 @@ struct Inventory {
         char buf[256];
         char time[16];
         TR::Level *level = game->getLevel();
-        SaveProgress &stats = level->stats;
 
         int secretsMax = 3;
-        int secrets = ((stats.secrets & 1) != 0) +
-                        ((stats.secrets & 2) != 0) +
-                        ((stats.secrets & 4) != 0);
+        int secrets = ((saveStats.secrets & 1) != 0) +
+                      ((saveStats.secrets & 2) != 0) +
+                      ((saveStats.secrets & 4) != 0);
 
-        int s = stats.time % 60;
-        int m = stats.time / 60 % 60;
-        int h = stats.time / 3600;
+        int s = saveStats.time % 60;
+        int m = saveStats.time / 60 % 60;
+        int h = saveStats.time / 3600;
 
         if (h)
             sprintf(time, "%d:%02d:%02d", h, m, s);
@@ -1743,9 +1768,9 @@ struct Inventory {
             sprintf(time, "%d:%02d", m, s);
 
         sprintf(buf, STR[STR_LEVEL_STATS], 
-                TR::LEVEL_INFO[level->id].title,
-                stats.kills,
-                stats.pickups,
+                TR::LEVEL_INFO[saveStats.level].title,
+                saveStats.kills,
+                saveStats.pickups,
                 secrets, secretsMax, time);
 
         UI::textOut(pos, buf, UI::aCenter, UI::width);

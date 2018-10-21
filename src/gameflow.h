@@ -720,6 +720,10 @@ namespace TR {
                id == LVL_TR3_CUT_9 || id == LVL_TR3_CUT_11 || id == LVL_TR3_CUT_12;
     }
 
+    bool isTitleLevel(LevelID id) {
+        return id == LVL_TR1_TITLE || id == LVL_TR2_TITLE || id == LVL_TR3_TITLE;
+    }
+
     Version getGameVersion() {
         useEasyStart = true;
         if (Stream::existsContent("DATA/GYM.PHD") || Stream::existsContent("GYM.PHD"))
@@ -752,20 +756,6 @@ namespace TR {
         if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
             return VER_TR3;
         return VER_UNKNOWN;
-    }
-
-
-    LevelID getNextSaveLevel(LevelID id) {
-        Version version = getGameVersionByLevel(id);
-        LevelID end = getEndId(version);
-
-        while (id != end) {
-            id = LevelID(id + 1);
-            if (!isCutsceneLevel(id))
-                return id;
-        }
-
-        return LVL_MAX;
     }
 
     void getGameLevelFile(char *dst, Version version, LevelID id) {

@@ -25,6 +25,7 @@
 extern ShaderCache *shaderCache;
 extern void loadLevelAsync(Stream *stream, void *userData);
 
+extern Inventory *inventory;
 extern Array<SaveSlot> saveSlots;
 extern SaveResult saveResult;
 extern int loadSlot;
@@ -32,7 +33,6 @@ extern int loadSlot;
 struct Level : IGame {
 
     TR::Level   level;
-    Inventory   *inventory;
     Texture     *atlas;
     MeshBuilder *mesh;
 
@@ -59,6 +59,7 @@ struct Level : IGame {
     bool needRedrawTitleBG;
     bool needRedrawReflections;
     bool needRenderGame;
+    bool showStats;
 
     TR::LevelID nextLevel;
 
@@ -77,29 +78,28 @@ struct Level : IGame {
     }
 
     virtual void loadNextLevel() {
+        if (nextLevel != TR::LVL_MAX) return;
+
         TR::LevelID id = TR::LVL_MAX;
     #ifdef _OS_WEB
-        if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC) {
+        if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC)
             id = TR::LVL_TR1_TITLE;
-            return;
-        } else
+        else
     #endif
         id = (level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1);
 
-        if (nextLevel == TR::LVL_MAX) {
-            if (!level.isTitle() && loadSlot == -1 && !TR::isCutsceneLevel(level.id)) {
-            // update statistics info for current level
-                saveGame(false, true);
-            // save next level
-                level.id = TR::getNextSaveLevel(level.id); // get next not cutscene level
-                if (level.id != TR::LVL_MAX && !level.isTitle()) {
-                    memset(&level.stats, 0, sizeof(level.stats));
-                    saveGame(false, false);
-                    loadSlot = getSaveSlot(level.id, false);
-                }
+        if (!level.isTitle() && loadSlot == -1) {
+        // update statistics info for current level
+            if (!TR::isCutsceneLevel(level.id) && !level.isHome())
+                saveGame(level.id, false, true);
+        // save next level
+            if (!TR::isCutsceneLevel(id) && !TR::isTitleLevel(id)) {
+                saveGame(id, false, false);
+                loadSlot  = getSaveSlot(id, false);
+                showStats = true;
             }
-            loadLevel(id);
         }
+        loadLevel(id);
     }
 
     virtual void invShow(int playerIndex, int page, int itemIndex = -1) {
@@ -110,21 +110,22 @@ struct Level : IGame {
 
     SaveSlot createSaveSlot(TR::LevelID id, bool checkpoint, bool dummy = false) {
         SaveSlot slot;
-        slot.level = id | (checkpoint ? LVL_FLAG_CHECKPOINT : 0);
 
         // allocate oversized data for save slot
-        slot.data  = new uint8[sizeof(SaveProgress) + sizeof(SaveItem) * inventory->itemsCount + // for every save
-                               sizeof(SaveState) + sizeof(SaveEntity) * level.entitiesCount];    // only for checkpoints
+        slot.data  = new uint8[sizeof(SaveStats) + sizeof(SaveItem) * inventory->itemsCount + // for every save
+                               sizeof(SaveState) + sizeof(SaveEntity) * level.entitiesCount]; // only for checkpoints
 
         uint8 *ptr = slot.data;
 
     // level progress stats
-        SaveProgress *levelStats = (SaveProgress*)ptr;
-        ptr += sizeof(*levelStats);
-        if (dummy)
-            memset(levelStats, 0, sizeof(*levelStats));
+        SaveStats *stats = (SaveStats*)ptr;
+        if (!checkpoint)
+            memset(stats, 0, sizeof(*stats));
         else
-            *levelStats = level.stats;
+            *stats = saveStats;
+        stats->level      = id;
+        stats->checkpoint = checkpoint;
+        ptr += sizeof(*stats);
 
     // inventory items
         int32 *itemsCount = (int32*)ptr;
@@ -143,7 +144,7 @@ struct Level : IGame {
             for (int i = 0; i < inventory->itemsCount; i++) {
                 Inventory::Item *invItem = inventory->items[i];
             
-                if (!checkpoint && !TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type))) continue;
+                if (!TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type))) continue;
 
                 SaveItem *item = (SaveItem*)ptr;
                 ptr += sizeof(*item);
@@ -180,20 +181,17 @@ struct Level : IGame {
         return slot;
     }
 
-    void parseLoadSlot() {
-        if (loadSlot == -1) return;
-        const SaveSlot &slot = saveSlots[loadSlot];
-
-        loadSlot = -1;
-
+    void parseSaveSlot(const SaveSlot &slot) {
         clearInventory();
 
         uint8 *data = slot.data;
         uint8 *ptr  = data;
 
     // level progress stats
-        level.stats = *(SaveProgress*)ptr;
-        ptr += sizeof(level.stats);
+        if (slot.isCheckpoint())
+            saveStats = *(SaveStats*)ptr;             // start level current position
+
+        ptr += sizeof(saveStats);
 
     // inventory items
         int32 itemsCount = *(int32*)ptr;
@@ -205,7 +203,7 @@ struct Level : IGame {
             ptr += sizeof(*item);
         }
 
-        if (slot.level & LVL_FLAG_CHECKPOINT) {
+        if (slot.isCheckpoint()) {
             clearEntities();
 
         // level state
@@ -242,13 +240,13 @@ struct Level : IGame {
 
             if (level.state.flags.flipped) {
                 flipMap();
+                level.state.flags.flipped = true;
             }
 
             uint8 track = level.state.flags.track;
             level.state.flags.track = 0;
             playTrack(track);
-        } else
-            memset(&level.stats, 0, sizeof(level.stats));
+        }
 
         statsTimeDelta = 0.0f;
     }
@@ -265,15 +263,13 @@ struct Level : IGame {
         }
     }
 
-    virtual void saveGame(bool checkpoint, bool updateStats) {
+    virtual void saveGame(TR::LevelID id, bool checkpoint, bool updateStats) {
         ASSERT(saveResult != SAVE_RESULT_WAIT);
 
         if (saveResult == SAVE_RESULT_WAIT)
             return;
 
         LOG("Save Game...\n");
-
-        TR::LevelID id = level.id;
 
         SaveSlot slot;
         if (updateStats) {
@@ -284,8 +280,7 @@ struct Level : IGame {
                 saveSlots.push(slot);
             } else
                 slot = saveSlots[index];
-            SaveProgress *levelStats = (SaveProgress*)slot.data;
-            *levelStats = level.stats;
+            *(SaveStats*)slot.data = saveStats;
         } else {
             removeSaveSlot(id, checkpoint); // remove checkpoints and level saves
             saveSlots.push(createSaveSlot(id, checkpoint));
@@ -796,6 +791,7 @@ struct Level : IGame {
         GAPI::freeEDRAM();
     #endif
         nextLevel = TR::LVL_MAX;
+        showStats = false;
 
         params = (Params*)&Core::params;
         params->time = 0.0f;
@@ -808,9 +804,6 @@ struct Level : IGame {
         initTextures();
         mesh = new MeshBuilder(level, atlas);
         initOverrides();
-
-        inventory = new Inventory(this);
-
         initEntities();
 
         shadow       = NULL;
@@ -860,16 +853,22 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
+        if (!level.isCutsceneLevel()) {
+            inventory->reset(this);
+            memset(&saveStats, 0, sizeof(saveStats));
+            saveStats.level = level.id;
+        }
+
         saveResult = SAVE_RESULT_SUCCESS;
-        if (loadSlot != -1 && (saveSlots[loadSlot].level & ~LVL_FLAG_CHECKPOINT) == level.id)
-            parseLoadSlot();
+        if (loadSlot != -1 && saveSlots[loadSlot].getLevelID() == level.id) {
+            parseSaveSlot(saveSlots[loadSlot]);
+            loadSlot = -1;
+        }
 
         Core::resetTime();
     }
 
     virtual ~Level() {
-        delete inventory;
-
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
 
@@ -1742,21 +1741,25 @@ struct Level : IGame {
         if (inventory->titleTimer > 1.0f)
             return;
 
-        if (loadSlot > -1 && nextLevel == TR::LVL_MAX && !level.isCutsceneLevel()) {
-            if (inventory->isActive())
-                return;
-
-            TR::LevelID id = TR::LevelID(saveSlots[loadSlot].level & ~LVL_FLAG_CHECKPOINT);
-            loadLevel(id);
-            return;
-        }
-
         if (nextLevel != TR::LVL_MAX && !inventory->isActive()) {
+            if (showStats) {
+                inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
+                showStats = false;
+                return;
+            }
             isEnded = true;
             char buf[64];
             TR::getGameLevelFile(buf, level.version, nextLevel);
             nextLevel = TR::LVL_MAX;
             new Stream(buf, loadLevelAsync);
+            return;
+        }
+
+        if (loadSlot > -1 && nextLevel == TR::LVL_MAX) {
+            if (inventory->isActive())
+                return;
+
+            loadLevel(saveSlots[loadSlot].getLevelID());
             return;
         }
 
@@ -1769,10 +1772,13 @@ struct Level : IGame {
             volWater = 0.0f;
             volTrack = level.isTitle() ? 0.9f : 0.0f;
         } else {
-            statsTimeDelta += Core::deltaTime;
-            while (statsTimeDelta >= 1.0f) {
-                statsTimeDelta -= 1.0f;
-                level.stats.time++;
+            
+            if (!level.isCutsceneLevel()) {
+                statsTimeDelta += Core::deltaTime;
+                while (statsTimeDelta >= 1.0f) {
+                    statsTimeDelta -= 1.0f;
+                    saveStats.time++;
+                }
             }
 
             params->time += Core::deltaTime;

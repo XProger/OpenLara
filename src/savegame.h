@@ -6,9 +6,8 @@
 #define MAX_FLIPMAP_COUNT     32
 #define MAX_TRACKS_COUNT      256
 
-#define LVL_FLAG_CHECKPOINT (1 << 31)
 #define SAVE_FILENAME       "savegame.dat"
-#define SAVE_MAGIC          FOURCC("OLS1")
+#define SAVE_MAGIC          FOURCC("OLS2")
 
 enum SaveResult {
     SAVE_RESULT_SUCCESS,
@@ -21,7 +20,9 @@ struct SaveItem {
     uint16 count;
 };
 
-struct SaveProgress {
+struct SaveStats {
+    uint32 level:31;
+    uint32 checkpoint:1;
     uint32 time;
     uint32 distance;
     uint32 secrets;
@@ -89,15 +90,22 @@ struct SaveState {
 };
 
 struct SaveSlot {
-    uint32 level;
     uint32 size;
     uint8  *data;
 
+    TR::LevelID getLevelID() const {
+        return TR::LevelID(((SaveStats*)data)->level);
+    }
+
+    bool isCheckpoint() const {
+        return ((SaveStats*)data)->checkpoint;
+    }
+
     static int cmp(const SaveSlot &a, const SaveSlot &b) {
-        if (a.level < b.level)
-            return -1;
-        if (a.level > b.level)
-            return +1;
+        uint32 ia = *(uint32*)a.data; // level + checkpoint flag
+        uint32 ib = *(uint32*)b.data;
+        if (ia < ib) return -1;
+        if (ia > ib) return +1;
         return 0;
     }
 };
@@ -105,6 +113,7 @@ struct SaveSlot {
 Array<SaveSlot> saveSlots;
 SaveResult      saveResult;
 int             loadSlot;
+SaveStats       saveStats;
 
 void freeSaveSlots() {
     for (int i = 0; i < saveSlots.length; i++)
@@ -121,7 +130,6 @@ void readSaveSlots(Stream *stream) {
 
     SaveSlot slot;
     while (stream->pos < stream->size) {
-        stream->read(slot.level);
         stream->read(slot.size);
         stream->read(slot.data, slot.size);
         saveSlots.push(slot);
@@ -131,7 +139,7 @@ void readSaveSlots(Stream *stream) {
 uint8* writeSaveSlots(int &size) {
     size = 4;
     for (int i = 0; i < saveSlots.length; i++)
-        size += 4 + 4 + saveSlots[i].size;
+        size += 4 + saveSlots[i].size;
 
     uint8 *data = new uint8[size];
     uint8 *ptr  = data;
@@ -142,10 +150,9 @@ uint8* writeSaveSlots(int &size) {
 
     for (int i = 0; i < saveSlots.length; i++) {
         SaveSlot &s = saveSlots[i];
-        memcpy(ptr + 0, &s.level, 4);
-        memcpy(ptr + 4, &s.size,  4);
-        memcpy(ptr + 8, s.data,   s.size);
-        ptr += 4 + 4 + s.size;
+        memcpy(ptr + 0, &s.size,  4);
+        memcpy(ptr + 4, s.data,   s.size);
+        ptr += 4 + s.size;
     }
 
     return data;
@@ -157,13 +164,12 @@ void removeSaveSlot(TR::LevelID levelID, bool checkpoint) {
     for (int i = 0; i < saveSlots.length; i++) {
         SaveSlot &slot = saveSlots[i];
 
-        bool isCheckpointSlot = (slot.level & LVL_FLAG_CHECKPOINT) != 0;
-        TR::LevelID id = TR::LevelID(slot.level & ~LVL_FLAG_CHECKPOINT);
+        TR::LevelID id = slot.getLevelID();
 
         if (TR::getGameVersionByLevel(id) != version)
             continue;
 
-        if (isCheckpointSlot || (!checkpoint && levelID == id)) {
+        if (slot.isCheckpoint() || (!checkpoint && levelID == id)) {
             delete[] slot.data;
             saveSlots.remove(i);
             i--;
@@ -178,13 +184,12 @@ int getSaveSlot(TR::LevelID levelID, bool checkpoint) {
     for (int i = 0; i < saveSlots.length; i++) {
         SaveSlot &slot = saveSlots[i];
 
-        bool isCheckpointSlot = (slot.level & LVL_FLAG_CHECKPOINT) != 0;
-        TR::LevelID id = TR::LevelID(slot.level & ~LVL_FLAG_CHECKPOINT);
+        TR::LevelID id = slot.getLevelID();
 
         if (TR::getGameVersionByLevel(id) != version)
             continue;
 
-        if ((checkpoint && isCheckpointSlot) || (!checkpoint && levelID == id))
+        if ((checkpoint && slot.isCheckpoint()) || (!checkpoint && levelID == id))
             return i;
     }
 

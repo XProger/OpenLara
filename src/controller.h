@@ -51,7 +51,7 @@ struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
     virtual void         loadNextLevel() {}
-    virtual void         saveGame(bool checkpoint, bool updateStats) {}
+    virtual void         saveGame(TR::LevelID id, bool checkpoint, bool updateStats) {}
     virtual void         loadGame(int slot) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
 

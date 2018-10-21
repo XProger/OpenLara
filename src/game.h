@@ -4,15 +4,17 @@
 #include "core.h"
 #include "format.h"
 #include "cache.h"
+#include "inventory.h"
 #include "level.h"
 #include "ui.h"
 #include "savegame.h"
 
 ShaderCache *shaderCache;
+Inventory   *inventory;
 
 namespace Game {
-    Level  *level;
-    Stream *nextLevel;
+    Level     *level;
+    Stream    *nextLevel;
 
     void startLevel(Stream *lvl) {
         TR::LevelID id = TR::LVL_MAX;
@@ -23,7 +25,7 @@ namespace Game {
 
         bool playVideo = true;
         if (loadSlot != -1)
-            playVideo = (saveSlots[loadSlot].level & LVL_FLAG_CHECKPOINT) == 0;
+            playVideo = !saveSlots[loadSlot].isCheckpoint();
 
         delete level;
         level = new Level(*lvl);
@@ -130,6 +132,8 @@ namespace Game {
         else
             strcpy(fileName, lvlName);
 
+        inventory = new Inventory();
+
         init(new Stream(fileName));
     }
 
@@ -140,6 +144,7 @@ namespace Game {
             Debug::deinit();
         #endif
         delete level;
+        delete inventory;
         UI::deinit();
         delete shaderCache;
         Core::deinit();
@@ -187,8 +192,8 @@ namespace Game {
             return true;
 
     #ifdef _DEBUG
-        if (Input::down[ik0] && !level->inventory->isActive()) {
-            level->inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
+        if (Input::down[ik0] && !inventory->isActive()) {
+            inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
             Input::down[ik0] = false;
         }
 
@@ -198,13 +203,13 @@ namespace Game {
         }
     #endif
 
-        if (Input::down[ik5] && !level->inventory->isActive()) {
+        if (Input::down[ik5] && !inventory->isActive()) {
             if (level->players[0]->canSaveGame())
-                level->saveGame(true, false);
+                level->saveGame(level->level.id, true, false);
             Input::down[ik5] = false;
         }
 
-        if (Input::down[ik9] && !level->inventory->isActive()) {
+        if (Input::down[ik9] && !inventory->isActive()) {
             int slot = getSaveSlot(level->level.id, true);
             if (slot == -1)
                 slot = getSaveSlot(level->level.id, false);

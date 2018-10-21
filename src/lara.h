@@ -595,6 +595,9 @@ struct Lara : Character {
     }
 
     virtual bool getSaveData(SaveEntity &data) {
+        if (camera->cameraIndex != 0) // only player1 can be saved
+            return false;
+
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.lara);
         data.extra.lara.velX        = velocity.x;
@@ -1020,7 +1023,7 @@ struct Lara : Character {
         }
 
         if (shots) {
-            level->stats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
+            saveStats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
 
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
@@ -1635,7 +1638,7 @@ struct Lara : Character {
             case TR::Entity::INV_UZIS          : wpnChange(TR::Entity::UZIS);    break;
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
-                level->stats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
+                saveStats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
@@ -2107,8 +2110,8 @@ struct Lara : Character {
                     effect = TR::Effect::Type(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!(level->stats.secrets & (1 << cmd.args))) {
-                        level->stats.secrets |= 1 << cmd.args;
+                    if (!(saveStats.secrets & (1 << cmd.args))) {
+                        saveStats.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
@@ -2839,7 +2842,7 @@ struct Lara : Character {
                         pickupList[i]->deactivate();
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->getEntity().type, 1);
-                        level->stats.pickups++;
+                        saveStats.pickups++;
                     }
                     pickupListCount = 0;
                 }
@@ -2999,7 +3002,7 @@ struct Lara : Character {
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
             w *= TURN_FAST_BACK;
-        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
+        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || (state == STATE_STOP && animation.index == ANIM_LANDING))
             w *= TURN_NORMAL;
         else if (state == STATE_FORWARD_JUMP || state == STATE_BACK)
             w *= TURN_SLOW;
@@ -3111,7 +3114,7 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((state == STATE_RUN || state == STATE_STOP || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
+        updateTilt((state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
@@ -3123,7 +3126,7 @@ struct Lara : Character {
             statsDistDelta += (pos - oldPos).length();
             while (statsDistDelta >= UNITS_PER_METER) {
                 statsDistDelta -= UNITS_PER_METER;
-                level->stats.distance++;
+                saveStats.distance++;
             }
         }
     }

@@ -2344,7 +2344,6 @@ namespace TR {
             }
         };
 
-        SaveProgress stats;
         SaveState    state;
 
         int     cutEntity;
@@ -2838,7 +2837,6 @@ namespace TR {
             initRoomMeshes();
             initAnimTex();
 
-            memset(&stats, 0, sizeof(stats));
             memset(&state, 0, sizeof(state));
 
             initExtra();
