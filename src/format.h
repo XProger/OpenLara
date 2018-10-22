@@ -1799,25 +1799,6 @@ namespace TR {
             return type >= DOOR_1 && type <= DOOR_8;
         }
 
-        static bool isPickup(Type type) {
-            return (type >= PISTOLS && type <= AMMO_UZIS) ||
-                   (type >= PUZZLE_1 && type <= PUZZLE_4) ||
-                   (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) ||
-                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
-                   (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR) ||
-                   (type == CRYSTAL) ||
-                   (type >= SECRET_1 && type <= SECRET_3) ||
-                   (type == M16 || type == AMMO_M16) ||
-                   (type == MP5 || type == AMMO_MP5) ||
-                   (type == AUTOPISTOLS || type == AMMO_AUTOPISTOLS) ||
-                   (type == DESERT_EAGLE || type == AMMO_DESERT_EAGLE) || 
-                   (type == GRENADE || type == AMMO_GRENADE) || 
-                   (type == ROCKET || type == AMMO_ROCKET) ||
-                   (type == HARPOON || type == AMMO_HARPOON) ||
-                   (type == FLARES || type == FLARE) || 
-                   (type >= STONE_ITEM_1 && type <= STONE_ITEM_4);
-        }
-
         static bool isPuzzleItem(Type type) {
             return type >= PUZZLE_1 && type <= PUZZLE_4;
         }
@@ -1826,8 +1807,31 @@ namespace TR {
             return type >= KEY_ITEM_1 && type <= KEY_ITEM_4;
         }
 
+        static bool isWeapon(Type type) {
+            return (type >= PISTOLS && type <= AMMO_UZIS) ||
+                   (type == M16 || type == AMMO_M16) ||
+                   (type == MP5 || type == AMMO_MP5) ||
+                   (type == AUTOPISTOLS || type == AMMO_AUTOPISTOLS) ||
+                   (type == DESERT_EAGLE || type == AMMO_DESERT_EAGLE) || 
+                   (type == GRENADE || type == AMMO_GRENADE) || 
+                   (type == ROCKET || type == AMMO_ROCKET) ||
+                   (type == HARPOON || type == AMMO_HARPOON);
+        }
+
+        static bool isPickup(Type type) {
+            return isPuzzleItem(type) ||
+                   isKeyItem(type) ||
+                   isWeapon(type) ||
+                   (type == MEDIKIT_SMALL || type == MEDIKIT_BIG) || 
+                   (type == SCION_PICKUP_QUALOPEC || type == SCION_PICKUP_DROP || type == SCION_PICKUP_HOLDER || type == LEADBAR) ||
+                   (type == CRYSTAL) ||
+                   (type >= SECRET_1 && type <= SECRET_3) ||
+                   (type == FLARES || type == FLARE) || 
+                   (type >= STONE_ITEM_1 && type <= STONE_ITEM_4);
+        }
+
         static bool isCrossLevelItem(Type type) {
-            return isPickup(type) && !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR);
+            return isPickup(type) && !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR) && !(type >= SECRET_1 && type <= SECRET_3);
         }
 
         bool isPickup() const {

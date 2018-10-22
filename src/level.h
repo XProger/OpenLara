@@ -144,7 +144,8 @@ struct Level : IGame {
             for (int i = 0; i < inventory->itemsCount; i++) {
                 Inventory::Item *invItem = inventory->items[i];
             
-                if (!TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type))) continue;
+                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
+                if (!checkpoint && !TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type))) continue;
 
                 SaveItem *item = (SaveItem*)ptr;
                 ptr += sizeof(*item);
