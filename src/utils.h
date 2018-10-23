@@ -1189,10 +1189,11 @@ extern void osWriteSlot  (Stream *stream);
 extern void osDownload   (Stream *stream);
 #endif
 
-struct Stream {
-    static char cacheDir[255];
-    static char contentDir[255];
+char cacheDir[255];
+char saveDir[255];
+char contentDir[255];
 
+struct Stream {
     typedef void (Callback)(Stream *stream, void *userData);
     Callback    *callback;
     void        *userData;
@@ -1284,7 +1285,7 @@ struct Stream {
 
     static bool existsContent(const char *name) {
         char fileName[1024];
-        strcpy(fileName, Stream::contentDir);
+        strcpy(fileName, contentDir);
         strcat(fileName, name);
         return exists(fileName);
     }
@@ -1337,9 +1338,9 @@ struct Stream {
 
 
 #ifdef OS_FILEIO_CACHE
-void osCacheWrite(Stream *stream) {
+void osDataWrite(Stream *stream, const char *dir) {
     char path[255];
-    strcpy(path, Stream::cacheDir);
+    strcpy(path, dir);
     strcat(path, stream->name);
     FILE *f = fopen(path, "wb");
     if (f) {
@@ -1354,9 +1355,9 @@ void osCacheWrite(Stream *stream) {
     delete stream;
 }
 
-void osCacheRead(Stream *stream) {
+void osDataRead(Stream *stream, const char *dir) {
     char path[255];
-    strcpy(path, Stream::cacheDir);
+    strcpy(path, dir);
     strcat(path, stream->name);
     FILE *f = fopen(path, "rb");
     if (f) {
@@ -1375,13 +1376,22 @@ void osCacheRead(Stream *stream) {
     delete stream;
 }
 
-void osReadSlot(Stream *stream) {
-    return osCacheRead(stream);
+void osCacheWrite(Stream *stream) {
+    osDataWrite(stream, cacheDir);
+}
+
+void osCacheRead(Stream *stream) {
+    osDataRead(stream, cacheDir);
 }
 
 void osWriteSlot(Stream *stream) {
-    return osCacheWrite(stream);
+    osDataWrite(stream, saveDir);
 }
+
+void osReadSlot(Stream *stream) {
+    osDataRead(stream, saveDir);
+}
+
 #endif
 
 

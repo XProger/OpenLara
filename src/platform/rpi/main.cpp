@@ -467,9 +467,6 @@ void inputUpdate() {
     }
 }
 
-char Stream::cacheDir[255];
-char Stream::contentDir[255];
-
 EGLDisplay display;
 
 int main(int argc, char **argv) {
@@ -489,17 +486,18 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
     const char *home;
     if (!(home = getenv("HOME")))
         home = getpwuid(getuid())->pw_dir;
-    strcat(Stream::cacheDir, home);
-    strcat(Stream::cacheDir, "/.OpenLara/");
+    strcat(cacheDir, home);
+    strcat(cacheDir, "/.openlara/");
 
     struct stat st = {0};
-    if (stat(Stream::cacheDir, &st) == -1 && mkdir(Stream::cacheDir, 0777) == -1)
-        Stream::cacheDir[0] = 0;
+    if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
+        cacheDir[0] = 0;
+    strcpy(saveDir, cacheDir);
 
     timeval t;
     gettimeofday(&t, NULL);

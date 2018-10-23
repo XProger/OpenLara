@@ -9,11 +9,11 @@
 #include "ui.h"
 #include "savegame.h"
 
-namespace Game {
-    Level     *level;
-    Stream    *nextLevel;
+#define MAX_CHEAT_SEQUENCE 8
 
-    #define MAX_CHEAT_SEQUENCE 8
+namespace Game {
+    Level      *level;
+    Stream     *nextLevel;
     ControlKey cheatSeq[MAX_CHEAT_SEQUENCE];
 
     void cheatControl(ControlKey key) {

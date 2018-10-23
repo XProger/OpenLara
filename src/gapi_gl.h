@@ -475,7 +475,7 @@ namespace GAPI {
         bool linkBinary(const char *name) {
             // non-async code!
             char path[255];
-            strcpy(path, Stream::cacheDir);
+            strcpy(path, cacheDir);
             strcat(path, name);
 
             if (!Stream::exists(path))

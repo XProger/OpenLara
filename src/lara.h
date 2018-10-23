@@ -629,15 +629,18 @@ struct Lara : Character {
         health   = data.extra.lara.health;
         oxygen   = data.extra.lara.oxygen;
 
+        if (level->isHome()) return;
+
         layers[1].mask = layers[2].mask = layers[3].mask = 0;
 
-        wpnSet(TR::Entity::Type(data.extra.lara.itemWeapon));
+        if (data.extra.lara.itemWeapon)
+            wpnSet(TR::Entity::Type(data.extra.lara.itemWeapon));
 
         wpnCurrent  = TR::Entity::Type(data.extra.lara.itemWeapon);
         itemHolster = TR::Entity::Type(data.extra.lara.itemHolster);
         wpnState    = Weapon::IS_HIDDEN;
 
-        if (data.extra.lara.itemHands == data.extra.lara.itemWeapon)
+        if (data.extra.lara.itemHands && data.extra.lara.itemHands == data.extra.lara.itemWeapon)
             wpnDraw(true);
 
         if (itemHolster != TR::Entity::NONE)

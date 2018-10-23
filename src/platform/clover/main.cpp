@@ -526,11 +526,7 @@ void inputUpdate() {
     }
 }
 
-char Stream::cacheDir[255];
-char Stream::contentDir[255];
-
 int main(int argc, char **argv) {
-LOG("start\n");
     if (!eglInit()) {
         LOG("! can't initialize EGL context\n");
         return -1;
@@ -539,26 +535,33 @@ LOG("start\n");
     Core::width  = fb.width;
     Core::height = fb.height;
 
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
-    strcpy(Stream::contentDir, argv[0]);
-    int i = strlen(Stream::contentDir);
+    strcpy(contentDir, argv[0]);
+    int i = strlen(contentDir);
     while (--i >= 0) {
-        if (Stream::contentDir[i] == '/') {
-            Stream::contentDir[i + 1] = 0;
+        if (contentDir[i] == '/') {
+            contentDir[i + 1] = 0;
             break;
         }
         i--;
     }
 
-    strcpy(Stream::cacheDir, Stream::contentDir);
-    strcat(Stream::cacheDir, "cache/");
+    strcpy(cacheDir, contentDir);
+    strcat(cacheDir, "cache/");
 
     struct stat st = {0};
-    if (stat(Stream::cacheDir, &st) == -1 && mkdir(Stream::cacheDir, 0777) == -1)
-        Stream::cacheDir[0] = 0;
+    if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
+        cacheDir[0] = 0;
 
-    LOG("cache dir %s\n", Stream::cacheDir);
+    const char *home;
+    if (!(home = getenv("HOME")))
+        home = getpwuid(getuid())->pw_dir;
+    strcpy(saveDir, home);
+    strcat(saveDir, "/.openlara/");
+
+    if (stat(saveDir, &st) == -1 && mkdir(saveDir, 0777) == -1)
+        saveDir[0] = 0;
 
     timeval t;
     gettimeofday(&t, NULL);

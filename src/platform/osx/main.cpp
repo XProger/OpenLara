@@ -153,18 +153,15 @@ int osGetTime() {
     return int(t / 1000);
 }
 
-char Stream::contentDir[255];
-char Stream::cacheDir[255];
-
 int main() {
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
     // get path to game content
     CFBundleRef bundle  = CFBundleGetMainBundle();
     CFURLRef bundleURL  = CFBundleCopyBundleURL(bundle);
     CFStringRef pathStr = CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
-    CFStringGetFileSystemRepresentation(pathStr, Stream::contentDir, 230);
-    strcat(Stream::contentDir, "/Contents/Resources/");
+    CFStringGetFileSystemRepresentation(pathStr, contentDir, 230);
+    strcat(contentDir, "/Contents/Resources/");
 
 // init window
     Rect rect = {0, 0, 720, 1280};
