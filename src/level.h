@@ -24,6 +24,10 @@
 
 extern void loadLevelAsync(Stream *stream, void *userData);
 
+extern Array<SaveSlot> saveSlots;
+extern SaveResult saveResult;
+extern int loadSlot;
+
 struct Level : IGame {
 
     TR::Level   level;
@@ -191,7 +195,7 @@ struct Level : IGame {
 
     // level progress stats
         if (slot.isCheckpoint())
-            saveStats = *(SaveStats*)ptr;             // start level current position
+            saveStats = *(SaveStats*)ptr; // start level current position
 
         ptr += sizeof(saveStats);
 
@@ -282,7 +286,9 @@ struct Level : IGame {
                 saveSlots.push(slot);
             } else
                 slot = saveSlots[index];
-            *(SaveStats*)slot.data = saveStats;
+            SaveStats *stats = (SaveStats*)slot.data;
+            stats->level      = level.id;
+            stats->checkpoint = checkpoint;
         } else {
             removeSaveSlot(id, checkpoint); // remove checkpoints and level saves
             saveSlots.push(createSaveSlot(id, checkpoint));
@@ -855,6 +861,7 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
+
         if (!level.isCutsceneLevel()) {
             inventory->reset(this);
             memset(&saveStats, 0, sizeof(saveStats));

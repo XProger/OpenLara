@@ -646,9 +646,9 @@ struct Inventory {
 
         if (level->version & TR::VER_TR1) {
             add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
-            add(TR::Entity::INV_SHOTGUN, UNLIMITED_AMMO);
-            add(TR::Entity::INV_MAGNUMS, UNLIMITED_AMMO);
-            add(TR::Entity::INV_UZIS,    UNLIMITED_AMMO);
+            add(TR::Entity::INV_SHOTGUN, 250);
+            add(TR::Entity::INV_MAGNUMS, 20);
+            add(TR::Entity::INV_UZIS,    100);
         }
     }
 
@@ -727,10 +727,13 @@ struct Inventory {
         int i = contains(type);
         if (i > -1) {
             items[i]->count += count;
+            items[i]->count = min(UNLIMITED_AMMO, items[i]->count);
             return;
         }
 
         ASSERT(itemsCount < INVENTORY_MAX_ITEMS);
+
+        count = min(UNLIMITED_AMMO, count);
 
         Item *newItem = new Item(game->getLevel(), type, count);
         if (newItem->desc.model == -1) {
