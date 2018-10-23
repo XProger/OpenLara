@@ -9,12 +9,31 @@
 #include "ui.h"
 #include "savegame.h"
 
-ShaderCache *shaderCache;
-Inventory   *inventory;
-
 namespace Game {
     Level     *level;
     Stream    *nextLevel;
+
+    #define MAX_CHEAT_SEQUENCE 8
+    ControlKey cheatSeq[MAX_CHEAT_SEQUENCE];
+
+    void cheatControl(ControlKey key) {
+        if (key == cMAX || !level || level->level.isTitle() || level->level.isCutsceneLevel()) return;
+        const ControlKey CHEAT_ALL_WEAPONS[] = { cLook, cWeapon, cDash, cDuck, cDuck, cDash, cRoll, cLook };
+        const ControlKey CHEAT_SKIP_LEVEL[]  = { cDuck, cDash, cLook, cRoll, cWeapon, cLook, cDash, cDuck };
+
+        for (int i = 0; i < MAX_CHEAT_SEQUENCE - 1; i++)
+            cheatSeq[i] = cheatSeq[i + 1];
+        cheatSeq[MAX_CHEAT_SEQUENCE - 1] = key;
+
+    // add all weapons
+        if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_ALL_WEAPONS)], CHEAT_ALL_WEAPONS, sizeof(CHEAT_ALL_WEAPONS))) {
+            inventory->addWeapons();
+            level->playSound(TR::SND_SCREAM);
+        }
+    // skip level
+        if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_SKIP_LEVEL)], CHEAT_SKIP_LEVEL, sizeof(CHEAT_SKIP_LEVEL)))
+            level->loadNextLevel();
+    }
 
     void startLevel(Stream *lvl) {
         TR::LevelID id = TR::LVL_MAX;
@@ -112,6 +131,8 @@ namespace Game {
         shaderCache = NULL;
         level       = NULL;
 
+        memset(cheatSeq, 0, sizeof(cheatSeq));
+
         Core::init();
         Sound::callback = stopChannel;
 
@@ -152,7 +173,9 @@ namespace Game {
 
     void updateTick() {
         Input::update();
-        
+
+        cheatControl(Input::lastState[0]); 
+
         if (!level->level.isTitle()) {
             if (Input::lastState[0] == cStart) level->addPlayer(0);
             if (Input::lastState[1] == cStart) level->addPlayer(1);

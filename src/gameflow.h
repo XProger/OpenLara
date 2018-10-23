@@ -724,6 +724,10 @@ namespace TR {
         return id == LVL_TR1_TITLE || id == LVL_TR2_TITLE || id == LVL_TR3_TITLE;
     }
 
+    bool isEmptyLevel(LevelID id) {
+        return id == TR::LVL_TR1_10A || id == TR::LVL_TR2_RIG || id == TR::LVL_TR3_COMPOUND;
+    }
+
     Version getGameVersion() {
         useEasyStart = true;
         if (Stream::existsContent("DATA/GYM.PHD") || Stream::existsContent("GYM.PHD"))

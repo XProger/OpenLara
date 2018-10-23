@@ -1157,6 +1157,8 @@ struct ZoneCache {
     }
 };
 
+ShaderCache *shaderCache;
+
 #undef UNDERWATER_COLOR
 
 #endif

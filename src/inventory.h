@@ -18,8 +18,6 @@
 #define TITLE_LOADING        64.0f
 #define LINE_HEIGHT          20.0f
 
-extern Array<SaveSlot> saveSlots;
-
 static const struct OptionItem *waitForKey = NULL;
 
 struct OptionItem {
@@ -607,28 +605,18 @@ struct Inventory {
         if (!game) return;
 
         TR::Level *level = game->getLevel();
-        TR::LevelID id   = level->id;
 
         add(TR::Entity::INV_PASSPORT);
         add(TR::Entity::INV_DETAIL);
         add(TR::Entity::INV_SOUND);
         add(TR::Entity::INV_CONTROLS);
 
-        if (!level->isTitle() && id != TR::LVL_TR1_GYM && id != TR::LVL_TR2_ASSAULT) {
-/*
-            if (level->extra.inv.map != -1)
-                add(TR::Entity::INV_MAP);
-            if (level->extra.inv.gamma != -1)
-                add(TR::Entity::INV_GAMMA);
-*/
-            add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
-            add(TR::Entity::INV_SHOTGUN, 10);
-            add(TR::Entity::INV_MAGNUMS, 10);
-            add(TR::Entity::INV_UZIS, 50);
-//              add(TR::Entity::INV_MEDIKIT_SMALL, 999);
-//              add(TR::Entity::INV_MEDIKIT_BIG, 999);
-//              add(TR::Entity::INV_SCION, 1);
+        if (!level->isTitle() && !level->isCutsceneLevel() && !level->isHome()) {
+            if (!TR::isEmptyLevel(level->id)) {
+                add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
+            }
         #ifdef _DEBUG
+            addWeapons();
             add(TR::Entity::INV_KEY_1, 3);
             add(TR::Entity::INV_KEY_2, 3);
             add(TR::Entity::INV_KEY_3, 3);
@@ -648,6 +636,19 @@ struct Inventory {
         } else {
             add(TR::Entity::INV_COMPASS);
             add(TR::Entity::INV_STOPWATCH);
+        }
+    }
+
+    void addWeapons() {
+        TR::Level *level = game->getLevel();
+        if (level->isTitle() || level->isCutsceneLevel() || level->isHome())
+            return;
+
+        if (level->version & TR::VER_TR1) {
+            add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
+            add(TR::Entity::INV_SHOTGUN, UNLIMITED_AMMO);
+            add(TR::Entity::INV_MAGNUMS, UNLIMITED_AMMO);
+            add(TR::Entity::INV_UZIS,    UNLIMITED_AMMO);
         }
     }
 
@@ -1831,6 +1832,8 @@ struct Inventory {
         }
     }
 };
+
+Inventory *inventory;
 
 #undef SETTINGS
 #undef LINE_HEIGHT

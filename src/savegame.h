@@ -196,5 +196,4 @@ int getSaveSlot(TR::LevelID levelID, bool checkpoint) {
     return -1;
 }
 
-
 #endif

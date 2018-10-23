@@ -22,13 +22,7 @@
 
 #define ANIM_TEX_TIMESTEP (10.0f / 30.0f)
 
-extern ShaderCache *shaderCache;
 extern void loadLevelAsync(Stream *stream, void *userData);
-
-extern Inventory *inventory;
-extern Array<SaveSlot> saveSlots;
-extern SaveResult saveResult;
-extern int loadSlot;
 
 struct Level : IGame {
 
@@ -144,8 +138,15 @@ struct Level : IGame {
             for (int i = 0; i < inventory->itemsCount; i++) {
                 Inventory::Item *invItem = inventory->items[i];
             
-                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type))) continue;
-                if (!checkpoint && !TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type))) continue;
+                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type)))
+                    continue;
+
+                if (!checkpoint) {
+                    if (!TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type)))
+                        continue;
+                    if (TR::isEmptyLevel(id))
+                        continue;
+                }
 
                 SaveItem *item = (SaveItem*)ptr;
                 ptr += sizeof(*item);
