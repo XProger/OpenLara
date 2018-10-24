@@ -2990,7 +2990,7 @@ struct Lara : Character {
             checkTrigger(this, false);
 
     // get turning angle
-        float w = (input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f);
+        float w = ((input & WALK) && state != STATE_WALK) ? 0.0f : ((input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f));
 
         if (state == STATE_SWIM || state == STATE_GLIDE)
             w *= TURN_WATER_FAST;
@@ -3015,7 +3015,7 @@ struct Lara : Character {
         if (w != 0.0f)
             rotateY(w * rotFactor.y * Core::deltaTime);
     // pitch (underwater only)
-        if (stand == STAND_UNDERWATER && (input & (FORTH | BACK)))
+        if (stand == STAND_UNDERWATER && (((input & FORTH) != 0) ^ ((input & BACK) != 0)))
             rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * rotFactor.x * Core::deltaTime);
 
     // get animation direction
@@ -3117,7 +3117,7 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
+        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
