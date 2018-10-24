@@ -844,8 +844,6 @@ struct Lara : Character {
                && state != STATE_SURF_BACK
                && state != STATE_SURF_LEFT
                && state != STATE_SURF_RIGHT
-               && state != STATE_SWAN_DIVE
-               && state != STATE_FAST_DIVE
                && state != STATE_HANDSTAND
                && state != STATE_WATER_OUT;
     }
