@@ -1151,10 +1151,10 @@ namespace TR {
                 CHECK_FILE("video/1/CANYON.RPL");
                 break;
             case LVL_TR1_10B      :
-                CHECK_FILE("FMV/PIRAMID.FMV");
-                CHECK_FILE("FMV/PIRAMID.RPL");
-                CHECK_FILE("video/1/PIRAMID.FMV");
-                CHECK_FILE("video/1/PIRAMID.RPL");
+                CHECK_FILE("FMV/PYRAMID.FMV");
+                CHECK_FILE("FMV/PYRAMID.RPL");
+                CHECK_FILE("video/1/PYRAMID.FMV");
+                CHECK_FILE("video/1/PYRAMID.RPL");
                 break;
             case LVL_TR1_CUT_4    :
                 CHECK_FILE("FMV/PRISON.FMV");

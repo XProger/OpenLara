@@ -20,6 +20,7 @@
 
 #else
     #define ASSERT(expr)
+    //#define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); }
     #ifdef _OS_LINUX
         #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
     #else

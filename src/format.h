@@ -3837,7 +3837,6 @@ namespace TR {
                     t.texCoord[1] = t.texCoordAtlas[1] = short2( d.x1, d.y1 );\
                     t.texCoord[2] = t.texCoordAtlas[2] = short2( d.x2, d.y2 );\
                     t.texCoord[3] = t.texCoordAtlas[3] = short2( d.x3, d.y3 );\
-                    ASSERT(d.x0 < 256 && d.x1 < 256 && d.x2 < 256 && d.x3 < 256 && d.y0 < 256 && d.y1 < 256 && d.y2 < 256 && d.y3 < 256);\
                 }
 
             switch (version) {
