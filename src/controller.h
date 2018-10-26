@@ -514,7 +514,7 @@ struct Controller {
             roomIndex   = data.room;
         }
         flags.value = e.flags.value ^ data.flags;
-        timer       = data.timer == -1 ? -1.0f : (timer / 30.0f);
+        timer       = data.timer == -1 ? -1.0f : (data.timer / 30.0f);
     // animation
         if (m) animation.setAnim(data.animIndex, -data.animFrame);
         updateLights(false);
