@@ -560,9 +560,9 @@ struct Inventory {
             inv->skipVideo();
     }
 
-    Inventory() : itemsCount(0) {
+    Inventory() : game(NULL), itemsCount(0) {
         memset(background, 0, sizeof(background));
-        reset(NULL);
+        reset();
     }
 
     ~Inventory() {
@@ -581,9 +581,8 @@ struct Inventory {
         }
     }
 
-    void reset(IGame *game) {
+    void reset() {
         clear();
-        this->game  = game;
         active      = false;
         chosen      = false;
         index       = targetIndex = 0;

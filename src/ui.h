@@ -17,9 +17,9 @@ enum StringID {
     , STR_HINT_SAVING_ERROR
     , STR_OFF
     , STR_ON
+    , STR_SPLIT
     , STR_YES
     , STR_NO
-    , STR_SPLIT
     , STR_VR
     , STR_QUALITY_LOW
     , STR_QUALITY_MEDIUM
@@ -144,9 +144,9 @@ const char *STR[STR_MAX] = {
     , "SAVING ERROR!"
     , "Off"
     , "On"
+    , "Split Screen"
     , "YES"
     , "NO"
-    , "Split Screen"
     , "VR"
     , "Low"
     , "Medium"

@@ -862,8 +862,10 @@ struct Level : IGame {
         }
         */
 
+        inventory->game = this;
+
         if (!level.isCutsceneLevel()) {
-            inventory->reset(this);
+            inventory->reset();
             memset(&saveStats, 0, sizeof(saveStats));
             saveStats.level = level.id;
         }
