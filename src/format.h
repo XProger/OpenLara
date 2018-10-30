@@ -1123,8 +1123,9 @@ namespace TR {
         operator short3() const { return *((short3*)this); }
     };
 
-    struct Tile {
-        uint16 index:14, undefined:1, triangle:1;
+    union Tile {
+        struct { uint16 index:14, undefined:1, triangle:1; };
+        uint16 value;
     };
 
     struct ObjectTexture {
@@ -1452,8 +1453,9 @@ namespace TR {
         };
     };
 
-    struct Overlap {
-        uint16 boxIndex:15, end:1;
+    union Overlap {
+        struct { uint16 boxIndex:15, end:1; };
+        uint16 value;
     };
 
     struct Flags {
@@ -2273,7 +2275,6 @@ namespace TR {
         int32           entitiesCount;
         Entity          *entities;
 
-        int32           paletteSize;
         Color24         *palette;
         Color32         *palette32;
 
@@ -2445,23 +2446,19 @@ namespace TR {
             } inv;
         } extra;
 
-        Level(Stream &stream) : version(VER_UNKNOWN), soundData(NULL), soundOffsets(NULL), soundSize(NULL) {
-            int startPos = stream.pos;
+        Level(Stream &stream) {
             memset(this, 0, sizeof(*this));
+            version  = VER_UNKNOWN;
             cutEntity = -1;
 
-            tiles4    = NULL;
-            tiles8    = NULL;
-            tiles16   = NULL;
-            palette   = NULL;
-            palette32 = NULL;
-
+            int startPos = stream.pos;
             int soundOffset = 0;
 
             uint32 magic;
 
             #define MAGIC_TR1_PC  0x00000020
             #define MAGIC_TR1_PSX 0x56414270
+            #define MAGIC_TR1_SAT 0x4D4F4F52
             #define MAGIC_TR2_PC  0x0000002D
             #define MAGIC_TR3_PC1 0xFF080038
             #define MAGIC_TR3_PC2 0xFF180038
@@ -2472,6 +2469,40 @@ namespace TR {
 
             if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
+                if (magic == MAGIC_TR1_SAT) {
+                    version = VER_TR1_SEGA;
+
+                    stream.seek(-4);
+                // get file name without extension
+                    int len = strlen(stream.name);
+                    char *name = new char[len + 1];
+                    memcpy(name, stream.name, len);
+                    for (int i = len - 1; i >= 0; i--) {
+                        if (name[i] == '/' || name[i] == '\\')
+                            break;
+                        if (name[i] == '.') {
+                            len = i;
+                            break;
+                        }
+                    }
+                    name[len] = 0;
+                    LOG("load Sega Saturn level: %s\n", name);
+
+                    readSAT(stream);
+
+                    strcat(name, ".SAD");
+                    readSAT(Stream(name));
+                    name[len] = '\0';
+
+                    strcat(name, ".SPR");
+                    readSAT(Stream(name));
+                    name[len] = '\0';
+
+                    strcat(name, ".SND");
+                    readSAT(Stream(name));
+                    return;
+                }
+
                 if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC && magic != MAGIC_TR3_PC1 && magic != MAGIC_TR3_PC2 && magic != MAGIC_TR3_PC3 && magic != MAGIC_TR3_PSX) {
                     soundOffset = magic;
                     stream.read(magic);
@@ -2905,6 +2936,626 @@ namespace TR {
             delete[] soundData;
             delete[] soundOffsets;
             delete[] soundSize;
+        }
+
+        #define CHUNK(str) ((uint64)((const char*)(str))[0]        | ((uint64)((const char*)(str))[1] << 8)  | ((uint64)((const char*)(str))[2] << 16) | ((uint64)((const char*)(str))[3] << 24) | \
+                           ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
+
+        void readSAT(Stream &stream) {
+            struct TINF {
+                uint8 data[16];
+            };
+
+            struct TPAL {
+                uint8 data[3];
+            };
+
+            struct SPAL {
+                uint8 data[2];
+            };
+
+            uint32 tinfCount = 0;
+            TINF *tinf = NULL;
+
+            uint32 tqtrCount = 0;
+            uint8 *tqtr = NULL;
+
+            uint32 tsubCount = 0;
+            uint8 *tsub = NULL;
+
+            uint32 tpalCount = 0;
+            TPAL *tpal = NULL;
+
+            uint32 spalCount = 0;
+            SPAL *spal = NULL;
+
+            Room *room = NULL;
+
+            while (stream.pos < stream.size) {
+                uint64 chunkType = stream.read64();
+                {
+                        char buf[9];
+                        memcpy(buf, &chunkType, 8);
+                        buf[8] = 0;
+                        LOG("chunk: \"%s\"\n", buf);                
+                }
+
+                switch (chunkType) {
+                // SAT
+                    case CHUNK("ROOMFILE") : 
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000020);
+                        break;
+                    case CHUNK("ROOMTINF") :
+                        ASSERT(stream.readBE32() == 0x00000010);
+                        tinfCount = stream.readBE32();
+                        tinf = new TINF[tinfCount];
+                        stream.raw(tinf, sizeof(TINF) * tinfCount);
+                        break;
+                    case CHUNK("ROOMTQTR") :
+                        ASSERT(stream.readBE32() == 0x00000001);
+                        tqtrCount = stream.readBE32();
+                        tqtr = new uint8[tqtrCount];
+                        stream.raw(tqtr, sizeof(uint8) * tqtrCount);
+                        break;
+                    case CHUNK("ROOMTSUB") :
+                        ASSERT(stream.readBE32() == 0x00000001);
+                        tsubCount = stream.readBE32();
+                        tsub = new uint8[tsubCount];
+                        stream.raw(tsub, sizeof(uint8) * tsubCount);
+                        break;
+                    case CHUNK("ROOMTPAL") :
+                        ASSERT(stream.readBE32() == 0x00000003);
+                        tpalCount = stream.readBE32();
+                        tpal = new TPAL[tpalCount];
+                        stream.raw(tpal, sizeof(TPAL) * tpalCount);
+                        break;
+                    case CHUNK("ROOMSPAL") :
+                        ASSERT(stream.readLE32() == 0x02000000);
+                        spalCount = stream.readBE32();
+                        spal = new SPAL[spalCount];
+                        stream.raw(spal, sizeof(SPAL) * spalCount);
+                        break;
+                    case CHUNK("ROOMDATA") :
+                        ASSERT(stream.readBE32() == 0x00000044);
+                        roomsCount = stream.readBE32();
+                        rooms = new Room[roomsCount];
+                        memset(rooms, 0, sizeof(Room) * roomsCount);
+                        break;
+                    case CHUNK("ROOMNUMB") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        room = &rooms[stream.readBE32()];
+                        break;
+                    case CHUNK("MESHPOS ") :
+                        room->info.x       = stream.readBE32();
+                        room->info.z       = stream.readBE32();
+                        room->info.yBottom = stream.readBE32();
+                        room->info.yTop    = stream.readBE32();
+                        break;
+                    case CHUNK("MESHSIZE") : {
+                        uint32 flag = stream.readBE32();
+                        if (flag == 0x00000014) {
+                            uint32 count = stream.readBE32();
+                            stream.seek(20 * count); // unknown
+                            break;
+                        }
+                        ASSERT(flag == 0x00000002);
+
+                        Room::Data &data = room->data;
+
+                        data.size = stream.readBE32();
+                        data.vCount = stream.readBE16();
+                        data.vertices = new Room::Data::Vertex[data.vCount];
+                        for (int j = 0; j < data.vCount; j++) {
+                            Room::Data::Vertex &v = data.vertices[j];
+                            v.vertex.x   = stream.readBE16();
+                            v.vertex.y   = stream.readBE16();
+                            v.vertex.z   = stream.readBE16();
+                            v.color      = Color16(stream.readBE16());
+                            v.attributes = 0;
+                        }
+
+                        data.fCount = stream.readBE16();
+                        data.faces  = new Face[data.fCount];
+
+                        enum {
+                            TYPE_R_TRANSP    = 33,
+                            TYPE_T_INVISIBLE = 34,
+                            TYPE_R_INVISIBLE = 35,
+                            TYPE_T_SOLID     = 36,
+                            TYPE_R_SOLID     = 37,
+                            TYPE_SPRITE      = 39,
+                        };
+
+                        int fIndex = 0;
+                        data.sCount = 0;
+
+                        uint16 typesCount = stream.readBE16();
+                        for (int j = 0; j < typesCount; j++) {
+                            uint16 type  = stream.readBE16();
+                            uint16 count = stream.readBE16();
+                            LOG(" type:%d count:%d\n", (int)type, (int)count);
+                            for (int k = 0; k < count; k++) {
+                                ASSERT(fIndex < data.fCount);
+
+                                Face &f = data.faces[fIndex++];
+                                switch (type) {
+                                    case TYPE_SPRITE       :
+                                        stream.readBE16(); // sprite vertex
+                                        stream.readBE16(); // sprite texture
+                                        break;
+                                    case TYPE_T_INVISIBLE  :
+                                    case TYPE_T_SOLID      :
+                                        f.vCount      = 3;
+                                        f.vertices[0] = stream.readBE16();
+                                        f.vertices[1] = stream.readBE16();
+                                        f.vertices[2] = stream.readBE16();
+                                        f.flags.value = stream.readBE16();
+                                        break;
+                                    case TYPE_R_TRANSP     :
+                                    case TYPE_R_INVISIBLE  :
+                                    case TYPE_R_SOLID      :
+                                        f.vCount      = 4;
+                                        f.vertices[0] = stream.readBE16();
+                                        f.vertices[1] = stream.readBE16();
+                                        f.vertices[2] = stream.readBE16();
+                                        f.vertices[3] = stream.readBE16();
+                                        f.flags.value = stream.readBE16();
+                                        break;
+                                    default :
+                                        LOG("! unknown face type: %d\n", type);
+                                        ASSERT(false);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case CHUNK("DOORDATA") : {
+                        ASSERT(room && room->sectors == NULL);
+                        stream.seek(4); // unknown
+
+                        room->portalsCount = stream.readBE32();
+                        room->portals = new Room::Portal[room->portalsCount];
+
+                        for (int j = 0; j < room->portalsCount; j++) {
+                            Room::Portal &p = room->portals[j];
+                            p.roomIndex = stream.readBE16();
+                            p.normal.x  = stream.readBE16();
+                            p.normal.y  = stream.readBE16();
+                            p.normal.z  = stream.readBE16();
+                            for (int k = 0; k < 4; k++) {
+                                p.vertices[k].x = stream.readBE16();
+                                p.vertices[k].y = stream.readBE16();
+                                p.vertices[k].z = stream.readBE16();
+                            }
+                        }
+                        break;
+                    }
+                    case CHUNK("FLOORDAT") : 
+                        room->zSectors = stream.readBE32();
+                        room->xSectors = stream.readBE32();
+                        break;
+                    case CHUNK("FLOORSIZ") : {
+                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERT(room && room->sectors == NULL);
+
+                        int32 count = stream.readBE32();
+                        ASSERT(count == room->xSectors * room->zSectors);
+
+                        room->sectors = count ? new Room::Sector[count] : NULL;
+
+                        for (int i = 0; i < count; i++) {
+                            Room::Sector &s = room->sectors[i];
+                            s.material   = 0;
+                            s.floorIndex = stream.readBE16();
+                            s.boxIndex   = stream.readBE16();
+                            stream.read(s.roomBelow);
+                            stream.read(s.floor);
+                            stream.read(s.roomAbove);
+                            stream.read(s.ceiling);
+                        }
+                        break;
+                    }
+                    case CHUNK("FLORDATA") :
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(floors == NULL);
+                        floorsCount = stream.readBE32();
+                        floors = new FloorData[floorsCount];
+                        stream.raw(floors, sizeof(FloorData) * floorsCount);
+                        break;
+                    case CHUNK("LIGHTAMB") :
+                        room->ambient  = stream.readBE32();
+                        room->ambient2 = stream.readBE32();
+                        break;
+                    case CHUNK("RM_FLIP ") : {
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        uint32 value = stream.readBE32();
+                        room->alternateRoom = value == 0xFFFFFFFF ? -1 : value;
+                        break;
+                    }
+                    case CHUNK("RM_FLAGS") : {
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        uint32 value = stream.readBE32();
+                        room->flags.water = (value & 0x01) != 0;
+                        break;
+                    }
+                    case CHUNK("LIGHTSIZ") : {
+                        ASSERT(stream.readBE32() == 0x00000014);
+                        ASSERT(room && room->lights == NULL);
+                        room->lightsCount = stream.readBE32();
+                        room->lights = room->lightsCount ? new Room::Light[room->lightsCount] : NULL;
+                        for (int i = 0; i < room->lightsCount; i++) {
+                            Room::Light &light = room->lights[i];
+                            light.x = stream.readBE32();
+                            light.y = stream.readBE32();
+                            light.z = stream.readBE32();
+                 
+                            int32 intensity = stream.readBE32();
+                            int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
+                            light.color.r = light.color.g = light.color.b = value;
+                            light.color.a = 0;
+
+                            light.radius = stream.readBE32() * 2;
+                        }
+                        break;
+                    }
+                    case CHUNK("CAMERAS ") :
+                        ASSERT(stream.readBE32() == 0x00000010);
+                        ASSERT(cameras == NULL);
+                        camerasCount = stream.readBE32();
+                        cameras = camerasCount ? new Camera[camerasCount] : NULL;
+                        for (int i = 0; i < camerasCount; i++) {
+                            Camera &cam = cameras[i];
+                            cam.x = stream.readBE32();
+                            cam.y = stream.readBE32();
+                            cam.z = stream.readBE32();
+                            cam.room = stream.readBE16();
+                            cam.flags.boxIndex = stream.readBE16();
+                        }
+                        break;
+                    case CHUNK("SOUNDFX ") : {
+                        uint32 flag = stream.readBE32();
+                        if (flag == 0x00000000) { // SND
+                            ASSERT(stream.readBE32() == 0x00000000);
+                            break;
+                        }
+                        ASSERT(flag == 0x00000010); // SAT
+
+                        ASSERT(soundSources == NULL);
+                        soundSourcesCount = stream.readBE32();
+                        soundSources = soundSourcesCount ? new SoundSource[soundSourcesCount] : NULL;
+                        for (int i = 0; i < soundSourcesCount; i++) {
+                            SoundSource &s = soundSources[i];
+                            s.x     = stream.readBE32();
+                            s.y     = stream.readBE32();
+                            s.z     = stream.readBE32();
+                            s.id    = stream.readBE16();
+                            s.flags = stream.readBE16();
+                        }
+                        break;
+                    }
+                    case CHUNK("BOXES   ") :
+                        ASSERT(stream.readBE32() == 0x00000014);
+                        ASSERT(boxes == NULL);
+                        boxesCount = stream.readBE32();
+                        boxes = boxesCount ? new Box[boxesCount] : NULL;
+                        for (int i = 0; i < boxesCount; i++) {
+                            Box &b = boxes[i];
+                            b.minZ          = stream.readBE32();
+                            b.maxZ          = stream.readBE32();
+                            b.minX          = stream.readBE32();
+                            b.maxX          = stream.readBE32();
+                            b.floor         = stream.readBE16();
+                            b.overlap.value = stream.readBE16();
+                        }
+                        break;
+                    case CHUNK("OVERLAPS") :
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(overlaps == NULL);
+                        overlapsCount = stream.readBE32();
+                        overlaps = overlapsCount ? new Overlap[overlapsCount] : NULL;
+                        for (int i = 0; i < overlapsCount; i++)
+                            overlaps[i].value = stream.readBE16();
+                        break;
+                    case CHUNK("GND_ZONE") :
+                    case CHUNK("GND_ZON2") :
+                    case CHUNK("FLY_ZONE") : {
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        uint16 **ptr;
+
+                        switch (chunkType) {
+                            case CHUNK("GND_ZONE") : ptr = zones[0].ground1 ? &zones[1].ground1 : &zones[0].ground1; break;
+                            case CHUNK("GND_ZON2") : ptr = zones[0].ground2 ? &zones[1].ground2 : &zones[0].ground2; break;
+                            case CHUNK("FLY_ZONE") : ptr = zones[0].fly     ? &zones[1].fly     : &zones[0].fly;     break;
+                            default                : ptr = NULL;
+                        }
+                        
+                        ASSERT(ptr != NULL);
+                        ASSERT(*ptr == NULL);
+
+                        int32 count = stream.readBE32();
+                        *ptr = count ? new uint16[count] : NULL;
+                        for (int i = 0; i < count; i++)
+                            (*ptr)[i] = stream.readBE16();
+                        break;
+                    }
+                    case CHUNK("ARANGES ") : {
+                        ASSERT(stream.readBE32() == 0x00000008);
+                        int32 count = stream.readBE32();
+                        stream.seek(count * 8); // unknown
+                        break;
+                    }
+                    case CHUNK("ITEMDATA") : {
+                        ASSERT(stream.readBE32() == 0x00000014);
+                        int32 count = stream.readBE32();
+                        stream.seek(count * 24); // unknown
+                        break;
+                    }
+                    case CHUNK("ROOMEND ") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        LOG("tinfCount = %d\n", tinfCount);
+                        LOG("tqtrCount = %d\n", tqtrCount);
+                        LOG("tsubCount = %d\n", tsubCount);
+                        LOG("tpalCount = %d\n", tpalCount);
+                        LOG("spalCount = %d\n", spalCount);
+                        tilesCount = 16;
+                        tiles8  = new Tile8[tilesCount];
+                        palette = new Color24[256];
+
+                        break;
+                // SAD
+                    case CHUNK("OBJFILE ") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000020);
+                        break;
+                    case CHUNK("ANIMS   ") :
+                        ASSERT(stream.readBE32() == 0x00000022);
+                        ASSERT(anims == NULL);
+                        animsCount = stream.readBE32();
+                        anims = animsCount ? new Animation[animsCount] : NULL;
+                        for (int i = 0; i < animsCount; i++) {
+                            Animation &anim = anims[i];
+                            anim.frameOffset   = stream.readBE32();
+                            anim.frameRate     = stream.read();
+                            anim.frameSize     = stream.read();
+                            anim.state         = stream.readBE16();
+                            anim.speed.L       = stream.readBE16();
+                            anim.speed.H       = stream.readBE16();
+                            anim.accel.L       = stream.readBE16();
+                            anim.accel.H       = stream.readBE16();
+                            anim.frameStart    = stream.readBE16();
+                            anim.frameEnd      = stream.readBE16();
+                            anim.nextAnimation = stream.readBE16();
+                            anim.nextFrame     = stream.readBE16();
+                            anim.scCount       = stream.readBE16();
+                            anim.scOffset      = stream.readBE16();
+                            anim.acCount       = stream.readBE16();
+                            anim.animCommand   = stream.readBE16();
+                        }
+                        break;
+                    case CHUNK("CHANGES ") :
+                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERT(states == NULL);
+                        statesCount = stream.readBE32();
+                        states = statesCount ? new AnimState[statesCount] : NULL;
+                        for (int i = 0; i < statesCount; i++) {
+                            AnimState &state = states[i];
+                            state.state         = stream.readBE16();
+                            state.rangesCount   = stream.readBE16();
+                            state.rangesOffset  = stream.readBE16();
+                            ASSERT(stream.readBE16() == state.rangesOffset); // dummy
+                        }
+                        break;
+                    case CHUNK("RANGES \0") :
+                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERT(ranges == NULL);
+                        rangesCount = stream.readBE32();
+                        ranges = rangesCount ? new AnimRange[rangesCount] : NULL;
+                        for (int i = 0; i < rangesCount; i++) {
+                            AnimRange &range = ranges[i];
+                            range.low           = stream.readBE16();
+                            range.high          = stream.readBE16();
+                            range.nextAnimation = stream.readBE16();
+                            range.nextFrame     = stream.readBE16();
+                        }
+                        break;
+                    case CHUNK("COMMANDS") :
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(commands == NULL);
+                        commandsCount = stream.readBE32();
+                        commands = commandsCount ? new int16[commandsCount] : NULL;
+                        for (int i = 0; i < commandsCount; i++)
+                            commands[i] = stream.readBE16();
+                        break;
+                    case CHUNK("ANIBONES") :
+                        ASSERT(stream.readBE32() == 0x00000004);
+                        ASSERT(nodesData == NULL);
+                        nodesDataSize = stream.readBE32();
+                        nodesData = nodesDataSize ? new uint32[nodesDataSize] : NULL;
+                        for (int i = 0; i < nodesDataSize; i++)
+                            nodesData[i] = stream.readBE32();
+                        break;
+                    case CHUNK("ANIMOBJ ") :
+                        ASSERT(stream.readBE32() == 0x00000038);
+                        ASSERT(models == NULL);
+                        modelsCount = stream.readBE32();
+                        models = modelsCount ? new Model[modelsCount] : NULL;
+                        for (int i = 0; i < modelsCount; i++) {
+                            Model &model = models[i];
+                            ASSERT(stream.readBE16() == 0x0000);
+                            model.index  = i;
+                            model.type   = Entity::Type(stream.readBE16());
+                            model.mCount = stream.readBE16();
+                            model.mStart = stream.readBE16();
+                            model.node   = stream.readBE32();
+                            model.frame  = stream.readBE32();
+                            model.animation = stream.readBE16();
+                            ASSERT(stream.readBE16() == model.animation);
+                        }
+                        break;
+                    case CHUNK("STATOBJ ") :
+                        ASSERT(stream.readBE32() == 0x00000020);
+                        ASSERT(staticMeshes == NULL);
+                        staticMeshesCount = stream.readBE32();
+                        staticMeshes = staticMeshesCount ? new StaticMesh[staticMeshesCount] : NULL;
+                        for (int i = 0; i < staticMeshesCount; i++) {
+                            StaticMesh &mesh = staticMeshes[i];
+                            mesh.id        = stream.readBE32();
+                            mesh.mesh      = stream.readBE16();
+                            mesh.vbox.minX = stream.readBE16();
+                            mesh.vbox.maxX = stream.readBE16();
+                            mesh.vbox.minY = stream.readBE16();
+                            mesh.vbox.maxY = stream.readBE16();
+                            mesh.vbox.minZ = stream.readBE16();
+                            mesh.vbox.maxZ = stream.readBE16();
+                            mesh.cbox.minX = stream.readBE16();
+                            mesh.cbox.maxX = stream.readBE16();
+                            mesh.cbox.minY = stream.readBE16();
+                            mesh.cbox.maxY = stream.readBE16();
+                            mesh.cbox.minZ = stream.readBE16();
+                            mesh.cbox.maxZ = stream.readBE16();
+                            mesh.flags     = stream.readBE16();
+                        }
+                        break;
+                    case CHUNK("FRAMES  ") :
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(frameData == NULL);
+                        frameDataSize = stream.readBE32();
+                        frameData = frameDataSize ? new uint16[frameDataSize] : NULL;
+                        for (int i = 0; i < frameDataSize; i++) 
+                            frameData[i] = stream.readBE16();
+                        break;
+                    case CHUNK("MESHPTRS") :
+                        ASSERT(stream.readBE32() == 0x00000004);
+                        ASSERT(meshOffsets == NULL);
+                        meshOffsetsCount = stream.readBE32();
+                        meshOffsets = meshOffsetsCount ? new int32[meshOffsetsCount] : NULL;
+                        for (int i = 0; i < meshOffsetsCount; i++) 
+                            meshOffsets[i] = stream.readBE32();
+                        break;
+                    case CHUNK("MESHDATA") :
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(meshData == NULL);
+                        meshDataCount = stream.readBE32();
+                        meshData = meshDataCount ? new uint16[meshDataCount] : NULL;
+                        stream.raw(meshData, sizeof(uint16) * meshDataCount); // load raw for initMesh call
+                        break;
+                    case CHUNK("OTEXTINF") :
+                        ASSERT(stream.readBE32() == 0x00000010);
+                        ASSERT(objectTextures == NULL);
+                        objectTexturesCount = stream.readBE32();
+                        objectTextures = objectTexturesCount ? new ObjectTexture[objectTexturesCount] : NULL;
+                        for (int i = 0; i < objectTexturesCount; i++)
+                            readObjectTex(stream, objectTextures[i]);
+                        break;
+                    case CHUNK("OTEXTDAT") : {
+                        ASSERT(stream.readBE32() == 0x00000001);
+                        int count = stream.readBE32();
+                        stream.seek(count); // TODO
+                        break;
+                    }
+                    case CHUNK("ITEXTINF") : {
+                        ASSERT(stream.readBE32() == 0x00000014);
+                        int count = stream.readBE32();
+                        stream.seek(count * 20); // TODO
+                        break;
+                    }
+                    case CHUNK("ITEXTDAT") : {
+                        ASSERT(stream.readBE32() == 0x00000001);
+                        int count = stream.readBE32();
+                        stream.seek(count); // TODO
+                        break;
+                    }
+                    case CHUNK("OBJEND  ") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000000);
+
+                        for (int i = 0; i < modelsCount; i++) {
+                            Model &model = models[i];
+                            model.type = Entity::remap(version, model.type);
+
+                            for (int j = 0; j < model.mCount; j++)
+                                initMesh(model.mStart + j, model.type);
+                            }
+
+                        for (int i = 0; i < staticMeshesCount; i++)
+                            initMesh(staticMeshes[i].mesh);
+
+                        remapMeshOffsetsToIndices();
+
+                        delete[] meshData;
+                        meshData = NULL;
+
+                        break;
+                // SPR
+                    case CHUNK("SPRFILE ") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000020);
+                        break;
+                    case CHUNK("SPRITINF") : {
+                        ASSERT(stream.readBE32() == 0x00000010);
+                        int count = stream.readBE32();
+                        stream.seek(count * 16); // TODO
+                        break;
+                    }
+                    case CHUNK("SPRITDAT") : {
+                        ASSERT(stream.readBE32() == 0x00000001);
+                        int count = stream.readBE32();
+                        stream.seek(count); // TODO
+                        break;
+                    }
+                    case CHUNK("OBJECTS ") : {
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        int count = stream.readBE32();
+                        stream.seek(count * 8); // TODO
+                        break;
+                    }
+                    case CHUNK("SPRITEND") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        break;
+                // SND
+                    case CHUNK("SAMPLUT ") : {
+                        ASSERT(stream.readBE32() == 0x00000002);
+                        int count = stream.readBE32();
+                        soundsMap = new int16[count];
+                        for (int i = 0; i < count; i++)
+                            soundsMap[i] = stream.readBE16();
+                        break;
+                    }
+                    case CHUNK("SAMPINFS") : {
+                        ASSERT(stream.readBE32() == 0x00000008);
+                        int count = stream.readBE32();
+                        stream.seek(count * 8); // TODO
+                        break;
+                    }
+                    case CHUNK("SAMPLE  ") : {
+                        int index = stream.readBE32();
+                        int count = stream.readBE32();
+                        stream.seek(count); // TODO
+                        break;
+                    }
+                    case CHUNK("ENDFILE\0") :
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERT(stream.readBE32() == 0x00000000);
+                        break;
+                    default : {
+                        char buf[9];
+                        memcpy(buf, &chunkType, 8);
+                        buf[8] = 0;
+                        LOG("! unknown chunk type: \"%s\"\n", buf);
+                        ASSERT(false);
+                        break;
+                    }
+                }
+            }
+
+            delete[] spal;
+            delete[] tpal;
+            delete[] tsub;
+            delete[] tqtr;
+            delete[] tinf;
         }
 
         void readSamples(Stream &stream) {
@@ -3555,9 +4206,52 @@ namespace TR {
                     stream.read(mesh.flags.value);
                     stream.read(mesh.vCount);
                 }
+
+                if (version == VER_TR1_SEGA) {
+                    mesh.center.x    = swap16(mesh.center.x);
+                    mesh.center.y    = swap16(mesh.center.y);
+                    mesh.center.z    = swap16(mesh.center.z);
+                    mesh.radius      = swap16(mesh.radius);
+                    mesh.flags.value = swap16(mesh.flags.value);
+                    mesh.vCount      = swap16(mesh.vCount);
+                }
             }
 
             switch (version) {
+                case VER_TR1_SEGA : {
+                    mesh.vertices = new Mesh::Vertex[mesh.vCount];
+                    for (int i = 0; i < mesh.vCount; i++) {
+                        short4 &c = mesh.vertices[i].coord;
+                        c.x = stream.readBE16();
+                        c.y = stream.readBE16();
+                        c.z = stream.readBE16();
+                    }
+                    int16 nCount = stream.readBE16();
+                    ASSERT(mesh.vCount == abs(nCount));
+                    for (int i = 0; i < mesh.vCount; i++) {
+                        short4 &c = mesh.vertices[i].coord;
+                        short4 &n = mesh.vertices[i].normal;
+                        if (nCount > 0) { // normal
+                            n.x = stream.readBE16();
+                            n.y = stream.readBE16();
+                            n.z = stream.readBE16();
+                            n.w = 1;
+                            c.w = 0x1FFF;
+                        } else { // intensity
+                            c.w = stream.readBE16();
+                            n = short4( 0, 0, 0, 0 );
+                        }
+                    }
+
+                    mesh.fCount = stream.readBE16();
+                    mesh.faces = new Face[mesh.fCount];
+                    mesh.fCount = 0;
+
+                    // TODO read faces
+
+                    //ASSERT(false);
+                    break;
+                }
                 case VER_TR1_PC :
                 case VER_TR2_PC :
                 case VER_TR3_PC : {
@@ -3840,6 +4534,21 @@ namespace TR {
                 }
 
             switch (version) {
+                case VER_TR1_SEGA : {
+                    struct {
+                        uint16  attribute;
+                        Tile    tile;
+                        uint8   xh0, x0, yh0, y0;
+                        uint8   xh1, x1, yh1, y1;
+                        uint8   xh2, x2, yh2, y2;
+                        uint8   xh3, x3, yh3, y3;
+                    } d;
+                    d.attribute  = 0;
+                    d.tile.value = 0;
+                    stream.raw(&d.xh0, 16);
+                    SET_PARAMS(t, d, 0);
+                    break;
+                }
                 case VER_TR1_PC :
                 case VER_TR2_PC :
                 case VER_TR3_PC : {
@@ -4064,6 +4773,10 @@ namespace TR {
         void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int16 clutIndex) {
         // convert to RGBA
             switch (version) {
+                case VER_TR1_SEGA : {
+                    // TODO
+                    break;
+                }
                 case VER_TR1_PC : {
                     ASSERT(tiles8);
                     ASSERT(palette);

@@ -72,12 +72,14 @@
 #define SQR(x)  ((x)*(x))
 #define randf() ((float)rand()/RAND_MAX)
 
-typedef signed char     int8;
-typedef signed short    int16;
-typedef signed int      int32;
-typedef unsigned char   uint8;
-typedef unsigned short  uint16;
-typedef unsigned int    uint32;
+typedef signed char        int8;
+typedef signed short       int16;
+typedef signed int         int32;
+typedef signed long long   int64;
+typedef unsigned char      uint8;
+typedef unsigned short     uint16;
+typedef unsigned int       uint32;
+typedef unsigned long long uint64;
 
 #define FOURCC(str)        uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
@@ -1334,6 +1336,36 @@ struct Stream {
         } else
             a = NULL;
         return a;
+    }
+
+    inline uint8 read() {
+        uint8 x;
+        return read(x);
+    }
+
+    inline uint16 readLE16() {
+        uint16 x;
+        return read(x);
+    }
+
+    inline uint32 readLE32() {
+        uint32 x;
+        return read(x);
+    }
+
+    inline uint16 readBE16() {
+        uint16 x;
+        return swap16(read(x));
+    }
+
+    inline uint32 readBE32() {
+        uint32 x;
+        return swap32(read(x));
+    }
+
+    inline uint64 read64() {
+        uint64 x;
+        return read(x);
     }
 };
 
