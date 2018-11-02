@@ -2488,18 +2488,19 @@ namespace TR {
                     name[len] = 0;
                     LOG("load Sega Saturn level: %s\n", name);
 
-                    readSAT(stream);
-
                     strcat(name, ".SAD");
-                    readSAT(Stream(name));
+                    Stream sad(name);
                     name[len] = '\0';
-
                     strcat(name, ".SPR");
-                    readSAT(Stream(name));
+                    Stream spr(name);
                     name[len] = '\0';
-
                     strcat(name, ".SND");
-                    readSAT(Stream(name));
+                    Stream snd(name);
+
+                    readSAT(stream); // sat
+                    readSAT(sad);
+                    readSAT(spr);
+                    readSAT(snd);
                     return;
                 }
 
@@ -3531,8 +3532,8 @@ namespace TR {
                         break;
                     }
                     case CHUNK("SAMPLE  ") : {
-                        int index = stream.readBE32();
-                        int count = stream.readBE32();
+                        int32 index = stream.readBE32();
+                        int32 count = stream.readBE32();
                         stream.seek(count); // TODO
                         break;
                     }
@@ -5008,6 +5009,8 @@ namespace TR {
             int z = int(pos.z);
 
         // check horizontal
+            int16 prevRoom = roomIndex;
+
             while (1) { // Let's Rock!
                 Room &room = rooms[roomIndex];
 
@@ -5023,9 +5026,10 @@ namespace TR {
                 sector = room.getSector(sx, sz);
 
                 int nextRoom = getNextRoom(sector);
-                if (nextRoom == NO_ROOM)
+                if (nextRoom == NO_ROOM || nextRoom == prevRoom)
                     break;
 
+                prevRoom  = roomIndex;
                 roomIndex = nextRoom;
             };
 
