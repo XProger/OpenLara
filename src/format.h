@@ -1128,12 +1128,21 @@ namespace TR {
         uint16 value;
     };
 
+    enum TextureType {
+        TEX_TYPE_ROOM,
+        TEX_TYPE_ITEM,
+        TEX_TYPE_OBJECT,
+        TEX_TYPE_SPRITE,
+    };
+
     struct ObjectTexture {
-        uint16  clut;
-        Tile    tile;                        // tile or palette index
-        uint16  attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
-        short2  texCoord[4];
-        short2  texCoordAtlas[4];
+        TextureType  type;
+        uint16       index;
+        uint16       clut;
+        Tile         tile;
+        uint16       attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
+        short2       texCoord[4];
+        short2       texCoordAtlas[4];
 
         short4 getMinMax() const {
             return short4(
@@ -1224,10 +1233,12 @@ namespace TR {
     #define FACE4_SIZE (sizeof(uint16) + sizeof(uint16) * 4) // flags + vertices[4]
     #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
+    struct ColorIndex4 {
+        uint8 a:4, b:4;
+    };
+
     struct Tile4 {
-        struct {
-            uint8 a:4, b:4;
-        } index[256 * 256 / 2];
+        ColorIndex4 index[256 * 256 / 2];
     };
 
     struct Tile8 {
@@ -1422,7 +1433,7 @@ namespace TR {
     };
 
     union FloorData {
-        uint16 data;
+        uint16 value;
         struct Command {
             uint16 func:5, tri:3, sub:7, end:1;
         } cmd;
@@ -1433,7 +1444,6 @@ namespace TR {
             uint16  timer:8, once:1, mask:5, :2;
         } triggerInfo;
         union TriggerCommand {
-            uint16 value;
             struct {
                 uint16 args:10, action:5, end:1;
             };
@@ -1832,6 +1842,40 @@ namespace TR {
                    (type >= STONE_ITEM_1 && type <= STONE_ITEM_4);
         }
 
+        static bool isInventoryItem(Type type) {
+            return type == INV_PASSPORT
+                || type == INV_PASSPORT_CLOSED
+                || type == INV_MAP
+                || type == INV_COMPASS
+                || type == INV_STOPWATCH
+                || type == INV_HOME
+                || type == INV_DETAIL
+                || type == INV_SOUND
+                || type == INV_CONTROLS
+                || type == INV_GAMMA
+                || type == INV_PISTOLS
+                || type == INV_SHOTGUN
+                || type == INV_MAGNUMS
+                || type == INV_UZIS
+                || type == INV_AMMO_PISTOLS
+                || type == INV_AMMO_SHOTGUN
+                || type == INV_AMMO_MAGNUMS
+                || type == INV_AMMO_UZIS
+                || type == INV_AMMO_EXPLOSIVE
+                || type == INV_MEDIKIT_SMALL
+                || type == INV_MEDIKIT_BIG
+                || type == INV_PUZZLE_1
+                || type == INV_PUZZLE_2
+                || type == INV_PUZZLE_3
+                || type == INV_PUZZLE_4
+                || type == INV_KEY_1
+                || type == INV_KEY_2
+                || type == INV_KEY_3
+                || type == INV_KEY_4
+                || type == INV_LEADBAR
+                || type == INV_SCION;
+        }
+
         static bool isCrossLevelItem(Type type) {
             return isPickup(type) && !isPuzzleItem(type) && !isKeyItem(type) && (type != LEADBAR) && !(type >= SECRET_1 && type <= SECRET_3);
         }
@@ -2034,6 +2078,8 @@ namespace TR {
                 index = joint * 2 + 1;
                 uint16 b = angles[index++];
                 uint16 a = angles[index++];
+                if (version & VER_SAT)
+                    swap(a, b);
                 return unpack(a, b);
             }
 
@@ -2063,8 +2109,8 @@ namespace TR {
     };
 
     struct AnimTexture {
-        int16   count;        // number of texture offsets - 1 in group
-        int16   textures[1];  // offsets into objectTextures[]
+        uint16 count;
+        uint16 *textures;
     };
 
     struct Node {
@@ -2215,7 +2261,7 @@ namespace TR {
         int16           meshesCount;
         Mesh            meshes[MAX_MESHES];
 
-        int32           meshDataCount;
+        int32           meshDataSize;
         uint16          *meshData;
 
         int32           meshOffsetsCount;
@@ -2248,11 +2294,29 @@ namespace TR {
         int32           objectTexturesCount;
         ObjectTexture   *objectTextures;
 
+        int32           objectTexturesDataSize;
+        uint8           *objectTexturesData;
+
+        int32           roomTexturesCount;
+        ObjectTexture   *roomTextures;
+
+        int32           roomTexturesDataSize;
+        uint8           *roomTexturesData;
+
+        int32           itemTexturesCount;
+        ObjectTexture   *itemTextures;
+
+        int32           itemTexturesDataSize;
+        uint8           *itemTexturesData;
+
         int32           spriteTexturesCount;
         SpriteTexture   *spriteTextures;
 
         int32           spriteSequencesCount;
         SpriteSequence  *spriteSequences;
+
+        int32           spriteTexturesDataSize;
+        uint8           *spriteTexturesData;
 
         int32           camerasCount;
         Camera          *cameras;
@@ -2266,10 +2330,8 @@ namespace TR {
         Overlap         *overlaps;
         Zone            zones[2];   // default and alternative
 
-        int32           animTexturesDataSize;
-        uint16          *animTexturesData;
         int16           animTexturesCount;
-        AnimTexture     **animTextures;
+        AnimTexture     *animTextures;
 
         int32           entitiesBaseCount;
         int32           entitiesCount;
@@ -2470,7 +2532,7 @@ namespace TR {
             if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
                 if (magic == MAGIC_TR1_SAT) {
-                    version = VER_TR1_SEGA;
+                    version = VER_TR1_SAT;
 
                     stream.seek(-4);
                 // get file name without extension
@@ -2497,10 +2559,12 @@ namespace TR {
                     strcat(name, ".SND");
                     Stream snd(name);
 
-                    readSAT(stream); // sat
+                    delete[] name;
+
                     readSAT(sad);
                     readSAT(spr);
                     readSAT(snd);
+                    readSAT(stream); // sat
                     return;
                 }
 
@@ -2642,7 +2706,7 @@ namespace TR {
 
         // meshes
             meshesCount = 0;
-            stream.read(meshData,    stream.read(meshDataCount));
+            stream.read(meshData,    stream.read(meshDataSize));
             stream.read(meshOffsets, stream.read(meshOffsetsCount));
         // animations
 
@@ -2785,7 +2849,7 @@ namespace TR {
                 // load room textures
                     for (int i = objectTexturesCount; i < objectTexturesCount + roomTexCount; i++) {
                         ObjectTexture &t = objectTextures[i];
-                        readObjectTex(stream, t, true);
+                        readObjectTex(stream, t, TEX_TYPE_ROOM);
                         stream.seek(2 * 16); // skip 2 mipmap levels
                     }
 
@@ -2803,8 +2867,8 @@ namespace TR {
 
                 // remap animated textures
                     for (int i = 0; i < animTexturesCount; i++)
-                        for (int j = 0; j < animTextures[i]->count; j++)
-                            animTextures[i]->textures[j] += objectTexturesCount;
+                        for (int j = 0; j < animTextures[i].count; j++)
+                            animTextures[i].textures[j] += objectTexturesCount;
 
                     LOG("objTex:%d + roomTex:%d = %d\n", objectTexturesCount, roomTexCount, objectTexturesCount + roomTexCount);
                     objectTexturesCount += roomTexCount;
@@ -2870,18 +2934,7 @@ namespace TR {
                 }
             }
 
-            initRoomMeshes();
-            initAnimTex();
-
-            memset(&state, 0, sizeof(state));
-
-            initExtra();
-            initCutscene();
-
-            gObjectTextures = objectTextures;
-            gSpriteTextures = spriteTextures;
-            gObjectTexturesCount = objectTexturesCount;
-            gSpriteTexturesCount = spriteTexturesCount;
+            prepare();
         }
 
         ~Level() {
@@ -2908,8 +2961,14 @@ namespace TR {
             delete[] models;
             delete[] staticMeshes;
             delete[] objectTextures;
+            delete[] objectTexturesData;
+            delete[] roomTextures;
+            delete[] roomTexturesData;
+            delete[] itemTextures;
+            delete[] itemTexturesData;
             delete[] spriteTextures;
             delete[] spriteSequences;
+            delete[] spriteTexturesData;
             delete[] cameras;
             delete[] soundSources;
             delete[] boxes;
@@ -2921,7 +2980,8 @@ namespace TR {
                 delete[] zones[i].ground4;
                 delete[] zones[i].fly;
             }
-            delete[] animTexturesData;
+            for (int i = 0; i < animTexturesCount; i++)
+                delete[] animTextures[i].textures;
             delete[] animTextures;
             delete[] entities;
             delete[] palette;
@@ -2943,10 +3003,6 @@ namespace TR {
                            ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
 
         void readSAT(Stream &stream) {
-            struct TINF {
-                uint8 data[16];
-            };
-
             struct TPAL {
                 uint8 data[3];
             };
@@ -2954,12 +3010,6 @@ namespace TR {
             struct SPAL {
                 uint8 data[2];
             };
-
-            uint32 tinfCount = 0;
-            TINF *tinf = NULL;
-
-            uint32 tqtrCount = 0;
-            uint8 *tqtr = NULL;
 
             uint32 tsubCount = 0;
             uint8 *tsub = NULL;
@@ -2984,60 +3034,79 @@ namespace TR {
                 switch (chunkType) {
                 // SAT
                     case CHUNK("ROOMFILE") : 
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000020);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000020);
                         break;
                     case CHUNK("ROOMTINF") :
-                        ASSERT(stream.readBE32() == 0x00000010);
-                        tinfCount = stream.readBE32();
-                        tinf = new TINF[tinfCount];
-                        stream.raw(tinf, sizeof(TINF) * tinfCount);
+                        ASSERTV(stream.readBE32() == 0x00000010);
+                        roomTexturesCount = stream.readBE32();
+                        roomTextures = roomTexturesCount ? new ObjectTexture[roomTexturesCount] : NULL;
+                        for (int i = 0; i < roomTexturesCount; i++)
+                            readObjectTex(stream, roomTextures[i], TEX_TYPE_ROOM);
                         break;
                     case CHUNK("ROOMTQTR") :
-                        ASSERT(stream.readBE32() == 0x00000001);
-                        tqtrCount = stream.readBE32();
-                        tqtr = new uint8[tqtrCount];
-                        stream.raw(tqtr, sizeof(uint8) * tqtrCount);
+                        ASSERTV(stream.readBE32() == 0x00000001);
+                        roomTexturesDataSize = stream.readBE32();
+                        roomTexturesData = roomTexturesDataSize ? new uint8[roomTexturesDataSize] : NULL;
+                        stream.raw(roomTexturesData, roomTexturesDataSize);
                         break;
                     case CHUNK("ROOMTSUB") :
-                        ASSERT(stream.readBE32() == 0x00000001);
+                        ASSERTV(stream.readBE32() == 0x00000001);
                         tsubCount = stream.readBE32();
                         tsub = new uint8[tsubCount];
                         stream.raw(tsub, sizeof(uint8) * tsubCount);
                         break;
                     case CHUNK("ROOMTPAL") :
-                        ASSERT(stream.readBE32() == 0x00000003);
+                        ASSERTV(stream.readBE32() == 0x00000003);
                         tpalCount = stream.readBE32();
                         tpal = new TPAL[tpalCount];
                         stream.raw(tpal, sizeof(TPAL) * tpalCount);
                         break;
                     case CHUNK("ROOMSPAL") :
-                        ASSERT(stream.readLE32() == 0x02000000);
+                        ASSERTV(stream.readLE32() == 0x02000000);
                         spalCount = stream.readBE32();
                         spal = new SPAL[spalCount];
                         stream.raw(spal, sizeof(SPAL) * spalCount);
                         break;
                     case CHUNK("ROOMDATA") :
-                        ASSERT(stream.readBE32() == 0x00000044);
+                        ASSERTV(stream.readBE32() == 0x00000044);
                         roomsCount = stream.readBE32();
                         rooms = new Room[roomsCount];
                         memset(rooms, 0, sizeof(Room) * roomsCount);
                         break;
                     case CHUNK("ROOMNUMB") :
-                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
                         room = &rooms[stream.readBE32()];
                         break;
                     case CHUNK("MESHPOS ") :
+                        ASSERT(room);
                         room->info.x       = stream.readBE32();
                         room->info.z       = stream.readBE32();
                         room->info.yBottom = stream.readBE32();
                         room->info.yTop    = stream.readBE32();
                         break;
                     case CHUNK("MESHSIZE") : {
+                        ASSERT(room);
                         uint32 flag = stream.readBE32();
                         if (flag == 0x00000014) {
-                            uint32 count = stream.readBE32();
-                            stream.seek(20 * count); // unknown
+                            room->meshesCount = stream.readBE32();
+
+                            room->meshes = room->meshesCount ? new Room::Mesh[room->meshesCount] : NULL;
+                            for (int i = 0; i < room->meshesCount; i++) {
+                                Room::Mesh &m = room->meshes[i];
+                                m.x = stream.readBE32();
+                                m.y = stream.readBE32();
+                                m.z = stream.readBE32();
+                                m.rotation.value = stream.readBE16();
+                                uint16 intensity = stream.readBE16();
+                                stream.readBE16();
+                                int value = clamp((intensity > 0x1FFF) ? 255 : (255 - (intensity >> 5)), 0, 255);
+                                m.color.r = m.color.g = m.color.b = value;
+                                m.color.a = 0;
+                                m.meshID = stream.readBE16();
+                            }
+
+                            //stream.seek(20 * count); // unknown
                             break;
                         }
                         ASSERT(flag == 0x00000002);
@@ -3056,8 +3125,9 @@ namespace TR {
                             v.attributes = 0;
                         }
 
-                        data.fCount = stream.readBE16();
-                        data.faces  = new Face[data.fCount];
+                        data.fCount  = stream.readBE16();
+                        data.faces   = new Face[data.fCount];
+                        data.sprites = new Room::Data::Sprite[data.fCount];
 
                         enum {
                             TYPE_R_TRANSP    = 33,
@@ -3069,7 +3139,6 @@ namespace TR {
                         };
 
                         int fIndex = 0;
-                        data.sCount = 0;
 
                         uint16 typesCount = stream.readBE16();
                         for (int j = 0; j < typesCount; j++) {
@@ -3080,40 +3149,59 @@ namespace TR {
                                 ASSERT(fIndex < data.fCount);
 
                                 Face &f = data.faces[fIndex++];
+                                f.flags.value = 0;
                                 switch (type) {
-                                    case TYPE_SPRITE       :
-                                        stream.readBE16(); // sprite vertex
-                                        stream.readBE16(); // sprite texture
+                                    case TYPE_SPRITE       : {
+                                        Room::Data::Sprite &sprite = data.sprites[data.sCount++];
+                                        sprite.vertex  = (stream.readBE16() >> 4);
+                                        sprite.texture = (stream.readBE16() >> 4);
+                                        fIndex--;
                                         break;
+                                    }
                                     case TYPE_T_INVISIBLE  :
                                     case TYPE_T_SOLID      :
                                         f.vCount      = 3;
-                                        f.vertices[0] = stream.readBE16();
-                                        f.vertices[1] = stream.readBE16();
-                                        f.vertices[2] = stream.readBE16();
+                                        f.vertices[0] = (stream.readBE16() >> 4);
+                                        f.vertices[1] = (stream.readBE16() >> 4);
+                                        f.vertices[2] = (stream.readBE16() >> 4);
+                                        f.vertices[3] = 0;
+                                        ASSERT(f.vertices[0] < data.vCount && f.vertices[1] < data.vCount && f.vertices[2] < data.vCount);
                                         f.flags.value = stream.readBE16();
+                                        data.tCount++;
                                         break;
-                                    case TYPE_R_TRANSP     :
                                     case TYPE_R_INVISIBLE  :
+                                    case TYPE_R_TRANSP     :
                                     case TYPE_R_SOLID      :
                                         f.vCount      = 4;
-                                        f.vertices[0] = stream.readBE16();
-                                        f.vertices[1] = stream.readBE16();
-                                        f.vertices[2] = stream.readBE16();
-                                        f.vertices[3] = stream.readBE16();
+                                        f.vertices[0] = (stream.readBE16() >> 4);
+                                        f.vertices[1] = (stream.readBE16() >> 4);
+                                        f.vertices[2] = (stream.readBE16() >> 4);
+                                        f.vertices[3] = (stream.readBE16() >> 4);
+                                        ASSERT(f.vertices[0] < data.vCount && f.vertices[1] < data.vCount && f.vertices[2] < data.vCount && f.vertices[3] < data.vCount);
                                         f.flags.value = stream.readBE16();
+                                        data.rCount++;
                                         break;
                                     default :
                                         LOG("! unknown face type: %d\n", type);
                                         ASSERT(false);
                                 }
+                                if (type == TYPE_R_INVISIBLE || type == TYPE_T_INVISIBLE)
+                                    f.flags.value = 0;
+                                //ASSERT(f.flags.value % 16 == 0);
+                                //ASSERT(f.flags.value / 16 < roomTexturesCount);
+                                f.flags.value /= 16;
+                                f.water       = false;
+                                f.colored     = false;
                             }
                         }
+                        data.fCount = fIndex;
                         break;
                     }
                     case CHUNK("DOORDATA") : {
+                        int32 roomIndex = stream.readBE32();
+                        ASSERT(roomIndex < roomsCount);
+                        Room *room = &rooms[roomIndex];
                         ASSERT(room && room->sectors == NULL);
-                        stream.seek(4); // unknown
 
                         room->portalsCount = stream.readBE32();
                         room->portals = new Room::Portal[room->portalsCount];
@@ -3132,12 +3220,13 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("FLOORDAT") : 
+                    case CHUNK("FLOORDAT") :
+                        ASSERT(room);
                         room->zSectors = stream.readBE32();
                         room->xSectors = stream.readBE32();
                         break;
                     case CHUNK("FLOORSIZ") : {
-                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(room && room->sectors == NULL);
 
                         int32 count = stream.readBE32();
@@ -3158,30 +3247,33 @@ namespace TR {
                         break;
                     }
                     case CHUNK("FLORDATA") :
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(floors == NULL);
                         floorsCount = stream.readBE32();
                         floors = new FloorData[floorsCount];
-                        stream.raw(floors, sizeof(FloorData) * floorsCount);
+                        for (int i = 0; i < floorsCount; i++)
+                            floors[i].value = stream.readBE16();
                         break;
                     case CHUNK("LIGHTAMB") :
+                        ASSERT(room);
                         room->ambient  = stream.readBE32();
                         room->ambient2 = stream.readBE32();
                         break;
                     case CHUNK("RM_FLIP ") : {
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         uint32 value = stream.readBE32();
                         room->alternateRoom = value == 0xFFFFFFFF ? -1 : value;
                         break;
                     }
                     case CHUNK("RM_FLAGS") : {
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERT(room);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         uint32 value = stream.readBE32();
                         room->flags.water = (value & 0x01) != 0;
                         break;
                     }
                     case CHUNK("LIGHTSIZ") : {
-                        ASSERT(stream.readBE32() == 0x00000014);
+                        ASSERTV(stream.readBE32() == 0x00000014);
                         ASSERT(room && room->lights == NULL);
                         room->lightsCount = stream.readBE32();
                         room->lights = room->lightsCount ? new Room::Light[room->lightsCount] : NULL;
@@ -3201,7 +3293,7 @@ namespace TR {
                         break;
                     }
                     case CHUNK("CAMERAS ") :
-                        ASSERT(stream.readBE32() == 0x00000010);
+                        ASSERTV(stream.readBE32() == 0x00000010);
                         ASSERT(cameras == NULL);
                         camerasCount = stream.readBE32();
                         cameras = camerasCount ? new Camera[camerasCount] : NULL;
@@ -3217,7 +3309,7 @@ namespace TR {
                     case CHUNK("SOUNDFX ") : {
                         uint32 flag = stream.readBE32();
                         if (flag == 0x00000000) { // SND
-                            ASSERT(stream.readBE32() == 0x00000000);
+                            ASSERTV(stream.readBE32() == 0x00000000);
                             break;
                         }
                         ASSERT(flag == 0x00000010); // SAT
@@ -3236,7 +3328,7 @@ namespace TR {
                         break;
                     }
                     case CHUNK("BOXES   ") :
-                        ASSERT(stream.readBE32() == 0x00000014);
+                        ASSERTV(stream.readBE32() == 0x00000014);
                         ASSERT(boxes == NULL);
                         boxesCount = stream.readBE32();
                         boxes = boxesCount ? new Box[boxesCount] : NULL;
@@ -3251,7 +3343,7 @@ namespace TR {
                         }
                         break;
                     case CHUNK("OVERLAPS") :
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(overlaps == NULL);
                         overlapsCount = stream.readBE32();
                         overlaps = overlapsCount ? new Overlap[overlapsCount] : NULL;
@@ -3261,7 +3353,7 @@ namespace TR {
                     case CHUNK("GND_ZONE") :
                     case CHUNK("GND_ZON2") :
                     case CHUNK("FLY_ZONE") : {
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         uint16 **ptr;
 
                         switch (chunkType) {
@@ -3281,50 +3373,85 @@ namespace TR {
                         break;
                     }
                     case CHUNK("ARANGES ") : {
-                        ASSERT(stream.readBE32() == 0x00000008);
-                        int32 count = stream.readBE32();
-                        stream.seek(count * 8); // unknown
+                        ASSERTV(stream.readBE32() == 0x00000008);
+                        animTexturesCount = stream.readBE32();
+                        animTextures = new AnimTexture[animTexturesCount];
+                        for (int i = 0; i < animTexturesCount; i++) {
+                            AnimTexture &animTex = animTextures[i];
+                            uint32 first = stream.readBE32();
+                            uint32 last  = stream.readBE32();
+                            animTex.count    = last - first + 1;
+                            animTex.textures = new uint16[animTex.count];
+                            for (int j = 0; j < animTex.count; j++)
+                                animTex.textures[j] = first + j;
+                        }
                         break;
                     }
                     case CHUNK("ITEMDATA") : {
-                        ASSERT(stream.readBE32() == 0x00000014);
-                        int32 count = stream.readBE32();
-                        stream.seek(count * 24); // unknown
+                        ASSERTV(stream.readBE32() == 0x00000014);
+                        entitiesBaseCount = stream.readBE32();
+                        entitiesCount = entitiesBaseCount + MAX_RESERVED_ENTITIES;
+                        entities = new Entity[entitiesCount];
+                        for (int i = 0; i < entitiesBaseCount; i++) {
+                            Entity &e = entities[i];
+                            e.type = Entity::Type(stream.readBE16());
+                            e.room = stream.readBE16();
+                            e.x    = stream.readBE32();
+                            e.y    = stream.readBE32();
+                            e.z    = stream.readBE32();
+                            e.rotation.value = stream.readBE16();
+                            e.intensity      = stream.readBE16();
+                            e.intensity2     = stream.readBE16();
+                            e.flags.value    = stream.readBE16();
+                            e.flags.smooth = true;
+
+                            e.type = Entity::remap(version, e.type);
+                            e.modelIndex = getModelIndex(e.type);
+                        }
+
+                        for (int i = 0; i < entitiesCount; i++)
+                            entities[i].controller = NULL;
+
+                        if (isCutsceneLevel()) {
+                            for (int i = 0; i < entitiesBaseCount; i++) {
+                                Entity &e = entities[i];
+                                if (e.isActor()) {
+                                    cutEntity = i;
+                                    break;
+                                }
+                            }
+                        }
+
                         break;
                     }
                     case CHUNK("ROOMEND ") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        LOG("tinfCount = %d\n", tinfCount);
-                        LOG("tqtrCount = %d\n", tqtrCount);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
                         LOG("tsubCount = %d\n", tsubCount);
                         LOG("tpalCount = %d\n", tpalCount);
                         LOG("spalCount = %d\n", spalCount);
-                        tilesCount = 16;
-                        tiles8  = new Tile8[tilesCount];
-                        palette = new Color24[256];
-
+                        prepare();
                         break;
                 // SAD
                     case CHUNK("OBJFILE ") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000020);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000020);
                         break;
                     case CHUNK("ANIMS   ") :
-                        ASSERT(stream.readBE32() == 0x00000022);
+                        ASSERTV(stream.readBE32() == 0x00000022);
                         ASSERT(anims == NULL);
                         animsCount = stream.readBE32();
                         anims = animsCount ? new Animation[animsCount] : NULL;
                         for (int i = 0; i < animsCount; i++) {
                             Animation &anim = anims[i];
                             anim.frameOffset   = stream.readBE32();
-                            anim.frameRate     = stream.read();
                             anim.frameSize     = stream.read();
+                            anim.frameRate     = stream.read();
                             anim.state         = stream.readBE16();
-                            anim.speed.L       = stream.readBE16();
                             anim.speed.H       = stream.readBE16();
-                            anim.accel.L       = stream.readBE16();
+                            anim.speed.L       = stream.readBE16();
                             anim.accel.H       = stream.readBE16();
+                            anim.accel.L       = stream.readBE16();
                             anim.frameStart    = stream.readBE16();
                             anim.frameEnd      = stream.readBE16();
                             anim.nextAnimation = stream.readBE16();
@@ -3336,7 +3463,7 @@ namespace TR {
                         }
                         break;
                     case CHUNK("CHANGES ") :
-                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(states == NULL);
                         statesCount = stream.readBE32();
                         states = statesCount ? new AnimState[statesCount] : NULL;
@@ -3345,11 +3472,11 @@ namespace TR {
                             state.state         = stream.readBE16();
                             state.rangesCount   = stream.readBE16();
                             state.rangesOffset  = stream.readBE16();
-                            ASSERT(stream.readBE16() == state.rangesOffset); // dummy
+                            ASSERTV(stream.readBE16() == state.rangesOffset); // dummy
                         }
                         break;
                     case CHUNK("RANGES \0") :
-                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(ranges == NULL);
                         rangesCount = stream.readBE32();
                         ranges = rangesCount ? new AnimRange[rangesCount] : NULL;
@@ -3362,7 +3489,7 @@ namespace TR {
                         }
                         break;
                     case CHUNK("COMMANDS") :
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(commands == NULL);
                         commandsCount = stream.readBE32();
                         commands = commandsCount ? new int16[commandsCount] : NULL;
@@ -3370,7 +3497,7 @@ namespace TR {
                             commands[i] = stream.readBE16();
                         break;
                     case CHUNK("ANIBONES") :
-                        ASSERT(stream.readBE32() == 0x00000004);
+                        ASSERTV(stream.readBE32() == 0x00000004);
                         ASSERT(nodesData == NULL);
                         nodesDataSize = stream.readBE32();
                         nodesData = nodesDataSize ? new uint32[nodesDataSize] : NULL;
@@ -3378,25 +3505,25 @@ namespace TR {
                             nodesData[i] = stream.readBE32();
                         break;
                     case CHUNK("ANIMOBJ ") :
-                        ASSERT(stream.readBE32() == 0x00000038);
+                        ASSERTV(stream.readBE32() == 0x00000038);
                         ASSERT(models == NULL);
                         modelsCount = stream.readBE32();
                         models = modelsCount ? new Model[modelsCount] : NULL;
                         for (int i = 0; i < modelsCount; i++) {
                             Model &model = models[i];
-                            ASSERT(stream.readBE16() == 0x0000);
-                            model.index  = i;
-                            model.type   = Entity::Type(stream.readBE16());
-                            model.mCount = stream.readBE16();
-                            model.mStart = stream.readBE16();
-                            model.node   = stream.readBE32();
-                            model.frame  = stream.readBE32();
+                            ASSERTV(stream.readBE16() == 0x0000);
+                            model.index     = i;
+                            model.type      = Entity::Type(stream.readBE16());
+                            model.mCount    = stream.readBE16();
+                            model.mStart    = stream.readBE16();
+                            model.node      = stream.readBE32();
+                            model.frame     = stream.readBE32();
                             model.animation = stream.readBE16();
-                            ASSERT(stream.readBE16() == model.animation);
+                            ASSERTV(stream.readBE16() == model.animation);
                         }
                         break;
                     case CHUNK("STATOBJ ") :
-                        ASSERT(stream.readBE32() == 0x00000020);
+                        ASSERTV(stream.readBE32() == 0x00000020);
                         ASSERT(staticMeshes == NULL);
                         staticMeshesCount = stream.readBE32();
                         staticMeshes = staticMeshesCount ? new StaticMesh[staticMeshesCount] : NULL;
@@ -3420,7 +3547,7 @@ namespace TR {
                         }
                         break;
                     case CHUNK("FRAMES  ") :
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(frameData == NULL);
                         frameDataSize = stream.readBE32();
                         frameData = frameDataSize ? new uint16[frameDataSize] : NULL;
@@ -3428,7 +3555,7 @@ namespace TR {
                             frameData[i] = stream.readBE16();
                         break;
                     case CHUNK("MESHPTRS") :
-                        ASSERT(stream.readBE32() == 0x00000004);
+                        ASSERTV(stream.readBE32() == 0x00000004);
                         ASSERT(meshOffsets == NULL);
                         meshOffsetsCount = stream.readBE32();
                         meshOffsets = meshOffsetsCount ? new int32[meshOffsetsCount] : NULL;
@@ -3436,14 +3563,14 @@ namespace TR {
                             meshOffsets[i] = stream.readBE32();
                         break;
                     case CHUNK("MESHDATA") :
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(meshData == NULL);
-                        meshDataCount = stream.readBE32();
-                        meshData = meshDataCount ? new uint16[meshDataCount] : NULL;
-                        stream.raw(meshData, sizeof(uint16) * meshDataCount); // load raw for initMesh call
+                        meshDataSize = stream.readBE32();
+                        meshData = meshDataSize ? new uint16[meshDataSize] : NULL;
+                        stream.raw(meshData, sizeof(uint16) * meshDataSize); // load raw for initMesh call
                         break;
                     case CHUNK("OTEXTINF") :
-                        ASSERT(stream.readBE32() == 0x00000010);
+                        ASSERTV(stream.readBE32() == 0x00000010);
                         ASSERT(objectTextures == NULL);
                         objectTexturesCount = stream.readBE32();
                         objectTextures = objectTexturesCount ? new ObjectTexture[objectTexturesCount] : NULL;
@@ -3451,26 +3578,30 @@ namespace TR {
                             readObjectTex(stream, objectTextures[i]);
                         break;
                     case CHUNK("OTEXTDAT") : {
-                        ASSERT(stream.readBE32() == 0x00000001);
-                        int count = stream.readBE32();
-                        stream.seek(count); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000001);
+                        objectTexturesDataSize = stream.readBE32();
+                        objectTexturesData = objectTexturesDataSize ? new uint8[objectTexturesDataSize] : NULL;
+                        stream.raw(objectTexturesData, objectTexturesDataSize);
                         break;
                     }
                     case CHUNK("ITEXTINF") : {
-                        ASSERT(stream.readBE32() == 0x00000014);
-                        int count = stream.readBE32();
-                        stream.seek(count * 20); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000014);
+                        itemTexturesCount = stream.readBE32();
+                        itemTextures = itemTexturesCount ? new ObjectTexture[itemTexturesCount] : NULL;
+                        for (int i = 0; i < itemTexturesCount; i++)
+                            readObjectTex(stream, itemTextures[i], TEX_TYPE_ITEM);
                         break;
                     }
                     case CHUNK("ITEXTDAT") : {
-                        ASSERT(stream.readBE32() == 0x00000001);
-                        int count = stream.readBE32();
-                        stream.seek(count); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000001);
+                        itemTexturesDataSize = stream.readBE32();
+                        itemTexturesData = itemTexturesDataSize ? new uint8[itemTexturesDataSize] : NULL;
+                        stream.raw(itemTexturesData, itemTexturesDataSize);
                         break;
                     }
                     case CHUNK("OBJEND  ") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
 
                         for (int i = 0; i < modelsCount; i++) {
                             Model &model = models[i];
@@ -3478,7 +3609,7 @@ namespace TR {
 
                             for (int j = 0; j < model.mCount; j++)
                                 initMesh(model.mStart + j, model.type);
-                            }
+                        }
 
                         for (int i = 0; i < staticMeshesCount; i++)
                             initMesh(staticMeshes[i].mesh);
@@ -3491,42 +3622,54 @@ namespace TR {
                         break;
                 // SPR
                     case CHUNK("SPRFILE ") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000020);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000020);
                         break;
                     case CHUNK("SPRITINF") : {
-                        ASSERT(stream.readBE32() == 0x00000010);
-                        int count = stream.readBE32();
-                        stream.seek(count * 16); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000010);
+                        spriteTexturesCount = stream.readBE32();
+                        spriteTextures = spriteTexturesCount ? new SpriteTexture[spriteTexturesCount] : NULL;
+                        for (int i = 0; i < spriteTexturesCount; i++)
+                            readSpriteTex(stream, spriteTextures[i]);
                         break;
                     }
                     case CHUNK("SPRITDAT") : {
-                        ASSERT(stream.readBE32() == 0x00000001);
-                        int count = stream.readBE32();
-                        stream.seek(count); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000001);
+                        spriteTexturesDataSize = stream.readBE32();
+                        spriteTexturesData = spriteTexturesDataSize ? new uint8[spriteTexturesDataSize] : NULL;
+                        stream.raw(spriteTexturesData, spriteTexturesDataSize);
                         break;
                     }
                     case CHUNK("OBJECTS ") : {
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        int count = stream.readBE32();
-                        stream.seek(count * 8); // TODO
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        spriteSequencesCount = stream.readBE32();
+                        spriteSequences = spriteSequencesCount ? new SpriteSequence[spriteSequencesCount] : NULL;
+                        for (int i = 0; i < spriteSequencesCount; i++) {
+                            SpriteSequence &s = spriteSequences[i];
+                            s.unused = stream.readBE16();
+                            s.type = Entity::remap(version, Entity::Type(stream.readBE16()));
+                            s.sCount = (s.type >= Entity::TR1_TYPE_MAX) ? 1 : -stream.readBE16();
+                            s.sStart = stream.readBE16();
+                        }
                         break;
                     }
                     case CHUNK("SPRITEND") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
                         break;
                 // SND
                     case CHUNK("SAMPLUT ") : {
-                        ASSERT(stream.readBE32() == 0x00000002);
+                        ASSERTV(stream.readBE32() == 0x00000002);
                         int count = stream.readBE32();
                         soundsMap = new int16[count];
-                        for (int i = 0; i < count; i++)
+                        for (int i = 0; i < count; i++) {
                             soundsMap[i] = stream.readBE16();
+                            soundsMap[i] = -1; // TODO
+                        }
                         break;
                     }
                     case CHUNK("SAMPINFS") : {
-                        ASSERT(stream.readBE32() == 0x00000008);
+                        ASSERTV(stream.readBE32() == 0x00000008);
                         int count = stream.readBE32();
                         stream.seek(count * 8); // TODO
                         break;
@@ -3538,8 +3681,8 @@ namespace TR {
                         break;
                     }
                     case CHUNK("ENDFILE\0") :
-                        ASSERT(stream.readBE32() == 0x00000000);
-                        ASSERT(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
+                        ASSERTV(stream.readBE32() == 0x00000000);
                         break;
                     default : {
                         char buf[9];
@@ -3555,8 +3698,73 @@ namespace TR {
             delete[] spal;
             delete[] tpal;
             delete[] tsub;
-            delete[] tqtr;
-            delete[] tinf;
+        }
+
+        void appendObjectTex(ObjectTexture *&objTex, int32 &count) {
+            ObjectTexture *newObjectTextures = new ObjectTexture[objectTexturesCount + count];
+            memcpy(newObjectTextures,                       objectTextures,   sizeof(ObjectTexture) * objectTexturesCount);
+            memcpy(newObjectTextures + objectTexturesCount, objTex,           sizeof(ObjectTexture) * count);
+            delete[] objectTextures;
+            objectTextures       = newObjectTextures;
+            objectTexturesCount += count;
+
+            delete[] objTex;
+            objTex = NULL;
+            count  = 0;
+        }
+
+        int getItemTexureByIndex(uint16 index) {
+            for (int i = 0; i < itemTexturesCount; i++)
+                if (itemTextures[i].index == index)
+                    return i;
+            ASSERT(false);
+            return 0;
+        }
+
+        void prepare() {
+            if (roomTextures) {
+                // remap texture indices for room faces
+                for (int i = 0; i < roomsCount; i++) {
+                    Room::Data &data = rooms[i].data;
+                    for (int j = 0; j < data.fCount; j++)
+                        data.faces[j].flags.texture += objectTexturesCount;
+                }
+
+                for (int i = 0; i < animTexturesCount; i++)
+                    for (int j = 0; j < animTextures[i].count; j++)
+                        animTextures[i].textures[j] += objectTexturesCount;
+
+                appendObjectTex(roomTextures, roomTexturesCount);
+            }
+
+            if (itemTextures) {
+                // remap texture indices for inventory items
+                for (int i = 0; i < modelsCount; i++) {
+                    Model &model = models[i];
+                    if (Entity::isInventoryItem(model.type)) {
+                        for (int j = model.mStart; j < model.mStart + model.mCount; j++) {
+                            Mesh &mesh = meshes[meshOffsets[j]];
+                            for (int k = 0; k < mesh.fCount; k++)
+                                if (!mesh.faces[k].colored) {
+                                    ASSERT(mesh.faces[k].flags.texture < itemTexturesCount);
+                                    mesh.faces[k].flags.texture = getItemTexureByIndex(mesh.faces[k].flags.texture) + objectTexturesCount;
+                                }
+                        }
+                    }
+                }
+
+                appendObjectTex(itemTextures, itemTexturesCount);
+            }
+
+            initRoomMeshes();
+            initAnimTex();
+            initExtra();
+            initCutscene();
+
+            gObjectTextures      = objectTextures;
+            gSpriteTextures      = spriteTextures;
+            gObjectTexturesCount = objectTexturesCount;
+            gSpriteTexturesCount = spriteTexturesCount;
         }
 
         void readSamples(Stream &stream) {
@@ -4208,7 +4416,7 @@ namespace TR {
                     stream.read(mesh.vCount);
                 }
 
-                if (version == VER_TR1_SEGA) {
+                if (version == VER_TR1_SAT) {
                     mesh.center.x    = swap16(mesh.center.x);
                     mesh.center.y    = swap16(mesh.center.y);
                     mesh.center.z    = swap16(mesh.center.z);
@@ -4219,7 +4427,7 @@ namespace TR {
             }
 
             switch (version) {
-                case VER_TR1_SEGA : {
+                case VER_TR1_SAT : {
                     mesh.vertices = new Mesh::Vertex[mesh.vCount];
                     for (int i = 0; i < mesh.vCount; i++) {
                         short4 &c = mesh.vertices[i].coord;
@@ -4246,11 +4454,79 @@ namespace TR {
 
                     mesh.fCount = stream.readBE16();
                     mesh.faces = new Face[mesh.fCount];
-                    mesh.fCount = 0;
+                    mesh.tCount = mesh.rCount = 0;
 
-                    // TODO read faces
+                    enum {
+                        TYPE_T_UNKNOWN1 = 2,
+                        TYPE_T_COLOR    = 4,
+                        TYPE_T_PALETTE  = 8,
+                        TYPE_T_UNKNOWN2 = 16,
+                        TYPE_R_UNKNOWN1 = 17,
+                        TYPE_R_COLOR    = 5,
+                        TYPE_R_TEX      = 9,
+                        TYPE_R_TRANSP   = 49,
+                        TYPE_R_UNKNOWN2 = 57,
+                    };
 
-                    //ASSERT(false);
+                    int divisor = 16;
+                    //if (Entity::isInventoryItem(type))
+                    //    divisor = 20;
+
+                    int fIndex = 0;
+                    uint16 typesCount = stream.readBE16();
+                    for (int j = 0; j < typesCount; j++) {
+                        uint16 type  = stream.readBE16();
+                        uint16 count = stream.readBE16();
+                        LOG(" type:%d count:%d\n", (int)type, (int)count);
+                        for (int k = 0; k < count; k++) {
+                            ASSERT(fIndex < mesh.fCount);
+                            Face &f = mesh.faces[fIndex++];
+                            switch (type) {
+                                case TYPE_T_UNKNOWN1 : 
+                                case TYPE_T_COLOR    :
+                                case TYPE_T_PALETTE  :
+                                case TYPE_T_UNKNOWN2 :
+                                    f.vCount      = 3;
+                                    f.vertices[0] = (stream.readBE16() >> 5);
+                                    f.vertices[1] = (stream.readBE16() >> 5);
+                                    f.vertices[2] = (stream.readBE16() >> 5);
+                                    f.vertices[3] = 0;
+                                    f.flags.value = stream.readBE16();
+                                    ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount);
+                                    mesh.tCount++;
+                                    break;
+                                case TYPE_R_COLOR    :
+                                case TYPE_R_TEX      :
+                                case TYPE_R_TRANSP   :
+                                case TYPE_R_UNKNOWN1 :
+                                case TYPE_R_UNKNOWN2 :
+                                    f.vCount      = 4;
+                                    f.vertices[0] = (stream.readBE16() >> 5);
+                                    f.vertices[1] = (stream.readBE16() >> 5);
+                                    f.vertices[2] = (stream.readBE16() >> 5);
+                                    f.vertices[3] = (stream.readBE16() >> 5);
+                                    f.flags.value = stream.readBE16();
+                                    ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount && f.vertices[3] < mesh.vCount);
+                                    mesh.rCount++;
+                                    break;
+                                default :
+                                    LOG("! unknown face type: %d\n", type);
+                                    ASSERT(false);
+                            }
+                            if (type == TYPE_T_COLOR || type == TYPE_R_COLOR || type == TYPE_T_PALETTE || type == TYPE_T_UNKNOWN2) {
+                                if (type == TYPE_T_PALETTE)
+                                    f.flags.value = 0;
+                                f.colored = true;
+                            } else {
+                                ASSERT(f.flags.value % 16 == 0);
+                                ASSERT(f.flags.value / 16 < objectTexturesCount);
+                                f.flags.value /= divisor;
+                                f.colored = false;
+                            }
+                            f.water = false;
+                        }
+                    }
+                    ASSERT(fIndex == mesh.fCount);
                     break;
                 }
                 case VER_TR1_PC :
@@ -4522,7 +4798,7 @@ namespace TR {
             }
         }
 
-        void readObjectTex(Stream &stream, ObjectTexture &t, bool isRoom = false) {
+        void readObjectTex(Stream &stream, ObjectTexture &t, TextureType type = TEX_TYPE_OBJECT) {
             #define SET_PARAMS(t, d, c) {\
                     t.clut        = c;\
                     t.tile        = d.tile;\
@@ -4534,20 +4810,50 @@ namespace TR {
                     t.texCoord[3] = t.texCoordAtlas[3] = short2( d.x3, d.y3 );\
                 }
 
+            t.type = type;
+
             switch (version) {
-                case VER_TR1_SEGA : {
+                case VER_TR1_SAT : {
                     struct {
                         uint16  attribute;
                         Tile    tile;
-                        uint8   xh0, x0, yh0, y0;
-                        uint8   xh1, x1, yh1, y1;
-                        uint8   xh2, x2, yh2, y2;
-                        uint8   xh3, x3, yh3, y3;
+                        uint16  clut;
+                        uint8   w, h;
+                        uint8   x0, y0;
+                        uint8   x1, y1;
+                        uint8   x2, y2;
+                        uint8   x3, y3;
                     } d;
-                    d.attribute  = 0;
-                    d.tile.value = 0;
-                    stream.raw(&d.xh0, 16);
-                    SET_PARAMS(t, d, 0);
+
+                    d.attribute = 0;
+
+                    int16 index = 0;
+                    if (type == TEX_TYPE_ITEM)
+                        index = stream.readBE16();
+
+                    d.tile.value = stream.readBE16(); // offset to 4-bit indices
+                    uint16 i1 = stream.readBE16();
+                    uint16 i2 = stream.readBE16();
+                    uint16 i3 = stream.readBE16();
+                    uint16 i4 = stream.readBE16();
+                    d.clut = stream.readBE16() + d.tile.value; // offset to color palette
+                    d.w    = stream.read();
+                    d.h    = stream.read();
+                    uint16 i5 = stream.readBE16();
+
+                    //LOG("%d %d %d %d %d\n", i1, i2, i3, i4, i5);
+
+                    if (type == TEX_TYPE_ITEM)
+                        stream.seek(2);
+
+                    d.x0 = d.y0 = d.x3 = d.y1 = 0;
+                    d.x1 = d.x2 = max(0, (d.w << 3) - 1);
+                    d.y2 = d.y3 = max(0, d.h - 1);
+
+                    SET_PARAMS(t, d, d.clut);
+
+                    t.index = index;
+
                     break;
                 }
                 case VER_TR1_PC :
@@ -4606,7 +4912,7 @@ namespace TR {
                 readObjectTex(stream, objectTextures[i]);
         }
 
-        void readSpriteTex(Stream &stream) {
+        void readSpriteTex(Stream &stream, SpriteTexture &t) {
             #define SET_PARAMS(t, d, c) {\
                     t.clut = c;\
                     t.tile = d.tile;\
@@ -4616,46 +4922,69 @@ namespace TR {
                     t.b    = d.b;\
                 }
 
-            spriteTextures = stream.read(spriteTexturesCount) ? new SpriteTexture[spriteTexturesCount] : NULL;
-            for (int i = 0; i < spriteTexturesCount; i++) {
-                SpriteTexture &t = spriteTextures[i];
-                switch (version) {
-                    case VER_TR1_PC :
-                    case VER_TR2_PC :
-                    case VER_TR3_PC : {
-                        struct {
-                            uint16  tile;
-                            uint8   u, v;
-                            uint16  w, h;
-                            int16   l, t, r, b;
-                        } d;
-                        stream.raw(&d, sizeof(d));
-                        SET_PARAMS(t, d, 0);
-                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
-                        t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
-                        break;
-                    }
-                    case VER_TR1_PSX : 
-                    case VER_TR2_PSX :
-                    case VER_TR3_PSX : {
-                        struct {
-                            int16   l, t, r, b;
-                            uint16  clut;
-                            uint16  tile;
-                            uint8   u0, v0;
-                            uint8   u1, v1;
-                        } d;
-                        stream.raw(&d, sizeof(d));
-                        SET_PARAMS(t, d, d.clut);
-                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
-                        t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
-                        break;
-                    }
-                    default : ASSERT(false);
+            switch (version) {
+                case VER_TR1_SAT : {
+                    struct {
+                        uint16 tile;
+                        uint16 clut;
+                        uint8  w, h;
+                        int16  l, t, r, b;
+                    } d;
+                    d.tile = stream.readBE16(); // offset to 4-bit indices
+                    d.clut = stream.readBE16(); // offset to 16-bit color table (16 colors)
+                    d.w    = stream.read();     // texture width div 8
+                    d.h    = stream.read();     // texture height
+                    d.l    = stream.readBE16();
+                    d.t    = stream.readBE16();
+                    d.r    = stream.readBE16();
+                    d.b    = stream.readBE16();
+                    ASSERTV((int16)stream.readBE16() == d.b);
+                    SET_PARAMS(t, d, d.clut);
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( 0,                     0                );
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( ((int16)d.w << 3) - 1, ((int16)d.h) - 1 );
+                    break;
                 }
+                case VER_TR1_PC :
+                case VER_TR2_PC :
+                case VER_TR3_PC : {
+                    struct {
+                        uint16  tile;
+                        uint8   u, v;
+                        uint16  w, h;
+                        int16   l, t, r, b;
+                    } d;
+                    stream.raw(&d, sizeof(d));
+                    SET_PARAMS(t, d, 0);
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
+                    break;
+                }
+                case VER_TR1_PSX : 
+                case VER_TR2_PSX :
+                case VER_TR3_PSX : {
+                    struct {
+                        int16   l, t, r, b;
+                        uint16  clut;
+                        uint16  tile;
+                        uint8   u0, v0;
+                        uint8   u1, v1;
+                    } d;
+                    stream.raw(&d, sizeof(d));
+                    SET_PARAMS(t, d, d.clut);
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
+                    break;
+                }
+                default : ASSERT(false);
             }
 
             #undef SET_PARAMS
+        }
+
+        void readSpriteTex(Stream &stream) {
+            spriteTextures = stream.read(spriteTexturesCount) ? new SpriteTexture[spriteTexturesCount] : NULL;
+            for (int i = 0; i < spriteTexturesCount; i++)
+                readSpriteTex(stream, spriteTextures[i]);
 
             spriteSequences = stream.read(spriteSequencesCount) ? new SpriteSequence[spriteSequencesCount] : NULL;
             for (int i = 0; i < spriteSequencesCount; i++) {
@@ -4690,22 +5019,20 @@ namespace TR {
         }
 
         void readAnimTex(Stream &stream) {
-            stream.read(animTexturesData, stream.read(animTexturesDataSize));
-            animTextures = NULL;
+            uint32 size;
+            stream.read(size);
 
-            if (!animTexturesDataSize)
-                return;
+            if (!size) return;
 
-            uint16 *ptr = animTexturesData;
-            animTexturesCount = *ptr++;
-            if (!animTexturesCount)
-                return;
+            stream.read(animTexturesCount);
+            animTextures = animTexturesCount ? new AnimTexture[animTexturesCount] : NULL;
 
-            animTextures = new AnimTexture*[animTexturesCount];
             for (int i = 0; i < animTexturesCount; i++) {
-                animTextures[i] = (AnimTexture*)ptr;
-                animTextures[i]->count++; // count + 1
-                ptr += 1 + animTextures[i]->count; // skip count and texture indices
+                AnimTexture &animTex = animTextures[i];
+                animTex.count    = stream.readLE16() + 1;
+                animTex.textures = new uint16[animTex.count];
+                for (int j = 0; j < animTex.count; j++)
+                    animTex.textures[j] = stream.readLE16();
             }
         }
 
@@ -4757,25 +5084,56 @@ namespace TR {
 
         void initAnimTex() {
             for (int i = 0; i < animTexturesCount; i++)
-                for (int j = 0; j < animTextures[i]->count; j++)
-                    objectTextures[animTextures[i]->textures[j]].animated = true;
+                for (int j = 0; j < animTextures[i].count; j++)
+                    objectTextures[animTextures[i].textures[j]].animated = true;
         }
 
         void shiftAnimTex() {
             for (int i = 0; i < animTexturesCount; i++) {
-                AnimTexture *at = animTextures[i];
-                ObjectTexture tmp = objectTextures[at->textures[0]];
-                for (int j = 0; j < at->count - 1; j++)
-                    objectTextures[at->textures[j]] = objectTextures[at->textures[j + 1]];
-                objectTextures[at->textures[at->count - 1]] = tmp;
+                AnimTexture &animTex = animTextures[i];
+                ObjectTexture tmp = objectTextures[animTex.textures[0]];
+                for (int j = 0; j < animTex.count - 1; j++)
+                    objectTextures[animTex.textures[j]] = objectTextures[animTex.textures[j + 1]];
+                objectTextures[animTex.textures[animTex.count - 1]] = tmp;
             }
         }
 
-        void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int16 clutIndex) {
+        void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int16 clutIndex, TextureType type) {
         // convert to RGBA
             switch (version) {
-                case VER_TR1_SEGA : {
-                    // TODO
+                case VER_TR1_SAT : {
+                    /*
+                    if (type == TEX_TYPE_ROOM) {
+                        for (int y = uv.y; y < uv.w; y++)
+                            for (int x = uv.x; x < uv.z; x++)
+                                dst->color[y * 256 + x] = Color32(255, 0, 255, 255);
+                        return;
+                    }
+                    */
+                    uint32 iOffset = uint32(uint16(tileIndex)) << 3;
+                    uint32 cOffset = uint32(uint16(clutIndex)) << 3;
+
+                    uint8 *data = NULL;
+                    switch (type) {
+                        case TEX_TYPE_ROOM   : data = roomTexturesData;   break;
+                        case TEX_TYPE_ITEM   : data = itemTexturesData;   break;
+                        case TEX_TYPE_OBJECT : data = objectTexturesData; break;
+                        case TEX_TYPE_SPRITE : data = spriteTexturesData; break;
+                    }
+
+                    ASSERT(data != NULL);
+
+                    ColorIndex4 *indices = (ColorIndex4*) (data + iOffset);
+                    CLUT        *clut    = (CLUT*)        (data + cOffset);
+
+                    int w = uv.z - uv.x;
+
+                    for (int y = uv.y; y < uv.w; y++)
+                        for (int x = uv.x; x < uv.z; x++) {
+                            ColorIndex4 *index = indices + ((y - uv.y) * w + (x - uv.x)) / 2;
+                            Color16 &c = clut->color[(x % 2) ? index->a : index->b];
+                            dst->color[y * 256 + x] = Color16(swap16(c.value));
+                        }
                     break;
                 }
                 case VER_TR1_PC : {
@@ -4839,6 +5197,7 @@ namespace TR {
     // common methods
         Color32 getColor(int texture) const {
             switch (version) {
+                case VER_TR1_SAT : return Color16((uint16)texture);
                 case VER_TR1_PC  : return palette[texture & 0xFF];
                 case VER_TR2_PC  :
                 case VER_TR3_PC  : return palette32[(texture >> 8) & 0xFF];
@@ -4922,7 +5281,7 @@ namespace TR {
 
         void floorSkipCommand(FloorData* &fd, int func) {
             switch (func) {
-                case FloorData::PORTAL      :
+                case FloorData::PORTAL  :
                 case FloorData::FLOOR   :
                 case FloorData::CEILING : 
                     fd++;
@@ -4966,7 +5325,7 @@ namespace TR {
         // floor data always in this order
             if (!fd->cmd.end && fd->cmd.func == FloorData::FLOOR)   fd += 2; // skip floor slant info
             if (!fd->cmd.end && fd->cmd.func == FloorData::CEILING) fd += 2; // skip ceiling slant info
-            if (fd->cmd.func == FloorData::PORTAL)  return (++fd)->data;
+            if (fd->cmd.func == FloorData::PORTAL)  return (++fd)->value;
             return NO_ROOM;
         }
 

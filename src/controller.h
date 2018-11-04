@@ -393,7 +393,7 @@ struct Controller {
             switch (cmd.func) {
 
                 case TR::FloorData::PORTAL  :
-                    info.roomNext = (*fd++).data;
+                    info.roomNext = (*fd++).value;
                     break;
 
                 case TR::FloorData::FLOOR   : // floor & ceiling

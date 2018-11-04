@@ -13,14 +13,17 @@
     #endif
 
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
+    #define ASSERTV(expr) ASSERT(expr)
 
     #ifndef _OS_ANDROID
         #define LOG(...) printf(__VA_ARGS__)
     #endif
 
 #else
-    #define ASSERT(expr)
     //#define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); }
+    #define ASSERT(expr)
+    #define ASSERTV(expr) (expr) ? 0 : 1
+
     #ifdef _OS_LINUX
         #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
     #else

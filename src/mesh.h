@@ -908,7 +908,9 @@ struct MeshBuilder {
         dyn.faces = NULL;
 
         for (int j = 0; j < d.fCount; j++) {
-            TR::Face          &f = d.faces[j];
+            TR::Face &f = d.faces[j];
+            ASSERT(!f.colored);
+            ASSERT(f.flags.texture < level.objectTexturesCount);
             TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
 
             if (f.water) continue;
@@ -962,6 +964,7 @@ struct MeshBuilder {
 
         for (int j = 0; j < mesh.fCount; j++) {
             TR::Face &f = mesh.faces[j];
+            ASSERT(f.colored || f.flags.texture < level.objectTexturesCount);
             TR::ObjectTexture &t = f.colored ? whiteTile : level.objectTextures[f.flags.texture];
 
             if (t.attribute != 0)

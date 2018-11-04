@@ -1145,7 +1145,7 @@ struct Level : IGame {
             src     = owner->tileData->color;
             uv      = t.texCoordAtlas;
             uvCount = 4;
-            level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut);
+            level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, t.type);
         } else {
             id -= level->objectTexturesCount;
 
@@ -1155,7 +1155,7 @@ struct Level : IGame {
                 src     = owner->tileData->color;
                 uv      = t.texCoordAtlas;
                 uvCount = 2;
-                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut);
+                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, TR::TextureType::TEX_TYPE_SPRITE);
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
 
@@ -1280,8 +1280,6 @@ struct Level : IGame {
     }
 */
     void initTextures() {
-        ASSERT(level.tilesCount);
-
     #ifndef SPLIT_BY_TILE
 
         #ifdef _OS_PSP
@@ -1338,6 +1336,8 @@ struct Level : IGame {
         PROFILE_LABEL(TEXTURE, atlas->ID, "atlas");
 
     #else
+        ASSERT(level.tilesCount);
+
         #ifdef _OS_PSP
             atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else

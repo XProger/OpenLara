@@ -696,11 +696,13 @@ namespace Debug {
                 c = c->next;
             }
 
+            vec3 viewPos = ((Lara*)controller)->camera->frustum->pos;
+
             char buf[255];
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = controller->angle * RAD2DEG;
-            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d)", int(controller->pos.x), int(controller->pos.y), int(controller->pos.z), (int)angle.x, (int)angle.y, controller->getRoomIndex(), game->getCamera()->getRoomIndex());
+            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d [%d, %d, %d])", int(controller->pos.x), int(controller->pos.y), int(controller->pos.z), (int)angle.x, (int)angle.y, controller->getRoomIndex(), game->getCamera()->getRoomIndex(), int(viewPos.x), int(viewPos.y), int(viewPos.z));
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
