@@ -770,12 +770,7 @@ struct WaterCache {
             Core::setBlendMode(bmAdd);
             Core::setCullMode(cmBack);
             Core::setDepthWrite(false);
-            //Core::setDepthTest(false);
-            //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            //game->getMesh()->renderBox();
             game->getMesh()->renderWaterVolume(item.to);
-            //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            //Core::setDepthTest(true);
             Core::setDepthWrite(true);
             Core::setCullMode(cmFront);
             Core::setBlendMode(bmNone);
@@ -1161,6 +1156,8 @@ struct ZoneCache {
         return 0;
     }
 };
+
+ShaderCache *shaderCache;
 
 #undef UNDERWATER_COLOR
 

@@ -11,13 +11,14 @@ enum StringID {
     , STR_LOADING
     , STR_HELP_PRESS
     , STR_HELP_TEXT
+    , STR_LEVEL_STATS
     , STR_HINT_SAVING
     , STR_HINT_SAVING_DONE
     , STR_HINT_SAVING_ERROR
-    , STR_OFF
-    , STR_ON
     , STR_YES
     , STR_NO
+    , STR_OFF
+    , STR_ON
     , STR_SPLIT
     , STR_VR
     , STR_QUALITY_LOW
@@ -109,6 +110,8 @@ const char *helpText =
     "Start - add second player or restore Lara@"
     "H - Show or hide this help@"
     "ALT + ENTER - Fullscreen@"
+    "5 - Save Game@"
+    "9 - Load Game@"
     "C - Look@"
     "R - Slow motion@"
     "T - Fast motion@"
@@ -122,6 +125,12 @@ const char *helpText =
     "DOZY on - Look + Duck + Action + Jump@"
     "DOZY off - Walk";
 
+const char *levelStats = 
+    "%s@@@"
+    "KILLS %d@@"
+    "PICKUPS %d@@"
+    "SECRETS %d of %d@@"
+    "TIME TAKEN %s";
 
 const char *STR[STR_MAX] = {
       "Not implemented yet!"
@@ -129,13 +138,14 @@ const char *STR[STR_MAX] = {
     , "Loading..."
     , "Press H for help"
     , helpText
+    , levelStats
     , "Saving game..."
     , "Saving done!"
     , "SAVING ERROR!"
-    , "Off"
-    , "On"
     , "YES"
     , "NO"
+    , "Off"
+    , "On"
     , "Split Screen"
     , "VR"
     , "Low"
@@ -256,7 +266,21 @@ namespace UI {
         return char_map[c - 32];
     }
 
-    vec2 getTextSize(const char *text) {
+    short2 getLineSize(const char *text) {
+        int x = 0;
+
+        while (char c = *text++) {
+            if (c == ' ' || c == '_') {
+                x += 6;
+            } else if (c == '@') {
+                break;
+            } else 
+                x += char_width[charRemap(c)] + 1;
+        }
+        return short2(x, 16);
+    }
+
+    short2 getTextSize(const char *text) {
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
@@ -271,7 +295,7 @@ namespace UI {
         }
         w = max(w, x);
 
-        return vec2(float(w), float(h));
+        return short2(w, h);
     }
 
     #define MAX_CHARS DYN_MESH_QUADS
@@ -347,6 +371,19 @@ namespace UI {
         SHADE_GRAY   = 2,
     };
 
+    int getLeftOffset(const char *text, Align align, int width) {
+        if (align != aLeft) {
+            int lineWidth = getLineSize(text).x;
+
+            if (align == aCenter)
+                return (width - lineWidth) / 2;
+
+            if (align == aRight)
+                return width - lineWidth;
+        }
+        return 0;
+    }
+
     void textOut(const vec2 &pos, const char *text, Align align = aLeft, float width = 0, uint8 alpha = 255, ShadeType shade = SHADE_ORANGE, bool isShadow = false) {
         if (!text) return;
        
@@ -358,26 +395,19 @@ namespace UI {
         MeshBuilder *mesh = game->getMesh();
         int seq = level->extra.glyphs;
 
-        int x = int(pos.x);
+        int x = int(pos.x) + getLeftOffset(text, align, int(width));
         int y = int(pos.y);
 
-        if (align == aCenter)
-            x += int((width - getTextSize(text).x) / 2);
-
-        if (align == aRight)
-            x += int(width - getTextSize(text).x);
-
-        int left = x;
-
         while (char c = *text++) {
-            if (c == ' ' || c == '_') {
-                x += 6;
+
+            if (c == '@') {
+                x = int(pos.x) + getLeftOffset(text, align, int(width));
+                y += 16;
                 continue;
             }
 
-            if (c == '@') {
-                x = left;
-                y += 16;
+            if (c == ' ' || c == '_') {
+                x += 6;
                 continue;
             }
 

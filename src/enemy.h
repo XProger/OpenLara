@@ -1915,6 +1915,12 @@ struct Mutant : Enemy {
         jointHead    = 2;
     }
 
+    virtual void setSaveData(const SaveEntity &data) {
+        Character::setSaveData(data);
+        if (flags.invisible)
+            deactivate(true);
+    }
+
     virtual void update() {
         bool exploded = explodeMask != 0;
 
@@ -2137,6 +2143,12 @@ struct GiantMutant : Enemy {
         invertAim  = true;
     }
 
+    virtual void setSaveData(const SaveEntity &data) {
+        Character::setSaveData(data);
+        if (flags.invisible)
+            deactivate(true);
+    }
+
     void update() {
         bool exploded = explodeMask != 0;
 
@@ -2219,8 +2231,11 @@ struct GiantMutant : Enemy {
                 }
                 break;
             case STATE_ATTACK_3 :
-                target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
-                return STATE_FATAL;
+                if (target->stand != STAND_HANG) {
+                    target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
+                    return STATE_FATAL;
+                }
+                break;
             default : ;
         }
         
@@ -2272,6 +2287,12 @@ struct Centaur : Enemy {
     Centaur(IGame *game, int entity) : Enemy(game, entity, 120, 341, 400.0f, 1.0f) {
         jointChest = 10;
         jointHead  = 17;
+    }
+
+    virtual void setSaveData(const SaveEntity &data) {
+        Character::setSaveData(data);
+        if (flags.invisible)
+            deactivate(true);
     }
 
     virtual int getStateGround() {

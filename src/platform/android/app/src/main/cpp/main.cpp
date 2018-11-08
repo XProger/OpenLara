@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
+#include <cstring>
 
 #include "game.h"
 
@@ -43,10 +44,7 @@ void osToggleVR(bool enable) {
 
 extern "C" {
 
-char Stream::cacheDir[255];
-char Stream::contentDir[255];
-
-JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstring cacheDir) {
+JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstring jcacheDir) {
     env->GetJavaVM(&jvm);
 
     timeval t;
@@ -55,15 +53,17 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring contentDir, jstri
 
     const char* str;
 
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
-    str = env->GetStringUTFChars(contentDir, NULL);
-    strcat(Stream::contentDir, str);
-    env->ReleaseStringUTFChars(contentDir, str);
+    str = env->GetStringUTFChars(jcontentDir, NULL);
+    strcat(contentDir, str);
+    env->ReleaseStringUTFChars(jcontentDir, str);
 
-    str = env->GetStringUTFChars(cacheDir, NULL);
-    strcat(Stream::cacheDir, str);
-    env->ReleaseStringUTFChars(cacheDir, str);
+    str = env->GetStringUTFChars(jcacheDir, NULL);
+    strcat(cacheDir, str);
+    env->ReleaseStringUTFChars(jcacheDir, str);
+
+    strcpy(saveDir, cacheDir);
 
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&GAPI::defaultFBO);
     Game::init();

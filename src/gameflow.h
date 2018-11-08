@@ -18,7 +18,7 @@ namespace TR {
 
         VER_PC       = 256,
         VER_PSX      = 512,
-        VER_SEGA     = 1024,
+        VER_SAT      = 1024,
 
         VER_TR1      = 1,
         VER_TR2      = 2, 
@@ -27,11 +27,11 @@ namespace TR {
         VER_TR5      = 16,
 
         VER_VERSION  = VER_TR1 | VER_TR2 | VER_TR3 | VER_TR4 | VER_TR5,
-        VER_PLATFORM = VER_PC  | VER_PSX | VER_SEGA,
+        VER_PLATFORM = VER_PC  | VER_PSX | VER_SAT,
 
         VER_TR1_PC   = VER_TR1 | VER_PC,
         VER_TR1_PSX  = VER_TR1 | VER_PSX,
-        VER_TR1_SEGA = VER_TR1 | VER_SEGA,
+        VER_TR1_SAT  = VER_TR1 | VER_SAT,
 
         VER_TR2_PC   = VER_TR2 | VER_PC,
         VER_TR2_PSX  = VER_TR2 | VER_PSX,
@@ -291,18 +291,21 @@ namespace TR {
             case 585648  : // PSX JAP
             case 508614  : version = VER_TR1_PSX;
             //case 320412  : // PC JAP
+            case 5148    : // SAT
             case 334874  :
             case 316138  :
             case 316460  : return LVL_TR1_TITLE;
             // GYM
             case 1234800 : // PSX JAP
             case 1074234 : version = VER_TR1_PSX;
+            case 343854  : // SAT
             case 3377974 : // PC JAP
             case 3236806 :
             case 3237128 : return LVL_TR1_GYM;
             // LEVEL1
             case 1667568 : // PSX JAP
             case 1448896 : version = VER_TR1_PSX;
+            case 497656  :
             case 2540906 : // PC JAP
             case 2533312 :
             case 2533634 : return LVL_TR1_1;
@@ -720,6 +723,14 @@ namespace TR {
                id == LVL_TR3_CUT_9 || id == LVL_TR3_CUT_11 || id == LVL_TR3_CUT_12;
     }
 
+    bool isTitleLevel(LevelID id) {
+        return id == LVL_TR1_TITLE || id == LVL_TR2_TITLE || id == LVL_TR3_TITLE;
+    }
+
+    bool isEmptyLevel(LevelID id) {
+        return id == TR::LVL_TR1_10A || id == TR::LVL_TR2_RIG || id == TR::LVL_TR3_COMPOUND;
+    }
+
     Version getGameVersion() {
         useEasyStart = true;
         if (Stream::existsContent("DATA/GYM.PHD") || Stream::existsContent("GYM.PHD"))
@@ -727,7 +738,7 @@ namespace TR {
         if (Stream::existsContent("PSXDATA/GYM.PSX"))
             return VER_TR1_PSX;
         if (Stream::existsContent("DATA/GYM.SAT"))
-            return VER_TR1_SEGA;
+            return VER_TR1_SAT;
 
         if (Stream::existsContent("data/ASSAULT.TR2") || Stream::existsContent("assault.TR2"))
             return VER_TR2_PC;
@@ -754,31 +765,17 @@ namespace TR {
         return VER_UNKNOWN;
     }
 
-
-    LevelID getNextSaveLevel(LevelID id) {
-        Version version = getGameVersionByLevel(id);
-        LevelID end = getEndId(version);
-
-        while (id != end) {
-            id = LevelID(id + 1);
-            if (!isCutsceneLevel(id))
-                return id;
-        }
-
-        return LVL_MAX;
-    }
-
     void getGameLevelFile(char *dst, Version version, LevelID id) {
         if (useEasyStart) {
             switch (version) {
-                case VER_TR1_PC   :
+                case VER_TR1_PC  :
                     sprintf(dst, "DATA/%s.PHD", LEVEL_INFO[id].name);
                     if (Stream::existsContent(dst)) break;
                     sprintf(dst, "%s.PHD", LEVEL_INFO[id].name);
                     break;
-                case VER_TR1_PSX  : sprintf(dst, "PSXDATA/%s.PSX", LEVEL_INFO[id].name); break;
-                case VER_TR1_SEGA : sprintf(dst, "DATA/%s.SAT",    LEVEL_INFO[id].name); break;
-                case VER_TR2_PC   : { // oh FFFFUUUUUUCKing CaTaComB.Tr2!
+                case VER_TR1_PSX : sprintf(dst, "PSXDATA/%s.PSX", LEVEL_INFO[id].name); break;
+                case VER_TR1_SAT : sprintf(dst, "DATA/%s.SAT",    LEVEL_INFO[id].name); break;
+                case VER_TR2_PC  : { // oh FFFFUUUUUUCKing CaTaComB.Tr2!
                     if (id == LVL_TR2_VENICE || id == LVL_TR2_CUT_2 || id == LVL_TR2_PLATFORM || id == LVL_TR2_CUT_3 || id == LVL_TR2_UNWATER || 
                         id == LVL_TR2_KEEL || id == LVL_TR2_LIVING || id == LVL_TR2_DECK || id == LVL_TR2_CATACOMB || id == LVL_TR2_ICECAVE ||
                         id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
@@ -910,6 +907,7 @@ namespace TR {
         char title[32];
         if (useEasyStart) {
             switch (version) {
+                case VER_TR1_SAT :
                 case VER_TR1_PC  :
                 case VER_TR1_PSX :
                     sprintf(title, "track_%02d", track);
@@ -1157,10 +1155,10 @@ namespace TR {
                 CHECK_FILE("video/1/CANYON.RPL");
                 break;
             case LVL_TR1_10B      :
-                CHECK_FILE("FMV/PIRAMID.FMV");
-                CHECK_FILE("FMV/PIRAMID.RPL");
-                CHECK_FILE("video/1/PIRAMID.FMV");
-                CHECK_FILE("video/1/PIRAMID.RPL");
+                CHECK_FILE("FMV/PYRAMID.FMV");
+                CHECK_FILE("FMV/PYRAMID.RPL");
+                CHECK_FILE("video/1/PYRAMID.FMV");
+                CHECK_FILE("video/1/PYRAMID.RPL");
                 break;
             case LVL_TR1_CUT_4    :
                 CHECK_FILE("FMV/PRISON.FMV");

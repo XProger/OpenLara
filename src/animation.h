@@ -117,10 +117,11 @@ struct Animation {
     //    framePrev  = frameIndex;
         frameIndex = int(time * 30.0f);
 
+        int rate =  max((int)anim->frameRate, 1);
     // get count of real frames
-        int fCount = (anim->frameEnd - anim->frameStart) / anim->frameRate + 1;
+        int fCount = (anim->frameEnd - anim->frameStart) / rate + 1;
     // real frame index & lerp delta
-        int fIndex = int(time * 30.0f) / anim->frameRate;
+        int fIndex = int(time * 30.0f) / rate;
         int k = fIndex * anim->frameRate;
         delta = (time * 30.0f - k) / max(1, min((int)anim->frameRate, framesCount - k)); // min is because in some cases framesCount > realFramesCount / frameRate * frameRate
 
@@ -135,7 +136,7 @@ struct Animation {
             frameNext  = anim->nextFrame;
             anim       = &level->anims[anim->nextAnimation];
             frameNext -= anim->frameStart;
-            fIndexB    = frameNext / anim->frameRate;
+            fIndexB    = frameNext / max((int)anim->frameRate, 1);
         }
 
         getCommand(anim, frameNext, NULL, NULL, &rot);

@@ -696,11 +696,13 @@ namespace Debug {
                 c = c->next;
             }
 
+            vec3 viewPos = ((Lara*)controller)->camera->frustum->pos;
+
             char buf[255];
             sprintf(buf, "DIP = %d, TRI = %d, SND = %d, active = %d", Core::stats.dips, Core::stats.tris, Sound::channelsCount, activeCount);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             vec3 angle = controller->angle * RAD2DEG;
-            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d)", int(controller->pos.x), int(controller->pos.y), int(controller->pos.z), (int)angle.x, (int)angle.y, controller->getRoomIndex(), game->getCamera()->getRoomIndex());
+            sprintf(buf, "pos = (%d, %d, %d), angle = (%d, %d), room = %d (camera: %d [%d, %d, %d])", int(controller->pos.x), int(controller->pos.y), int(controller->pos.z), (int)angle.x, (int)angle.y, controller->getRoomIndex(), game->getCamera()->getRoomIndex(), int(viewPos.x), int(viewPos.y), int(viewPos.z));
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
             int rate = anim.anims[anim.index].frameRate;
             sprintf(buf, "state = %d, anim = %d, next = %d, rate = %d, frame = %.2f / %d (%f)", anim.state, anim.index, anim.next, rate, anim.time * 30.0f, anim.framesCount, anim.delta);
@@ -709,6 +711,12 @@ namespace Debug {
             TR::Level::FloorInfo info;
             controller->getFloorInfo(controller->getRoomIndex(), controller->pos, info);
             sprintf(buf, "floor = %d, roomBelow = %d, roomAbove = %d, roomNext = %d, height = %d", info.floorIndex, info.roomBelow, info.roomAbove, info.roomNext, int(info.floor - info.ceiling));
+            Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
+
+            sprintf(buf, "stats: time = %d, distance = %d, secrets = %c%c%c, pickups = %d, mediUsed = %d, ammoUsed = %d, kills = %d", saveStats.time, saveStats.distance, 
+                (saveStats.secrets & 4) ? '1' : '0', 
+                (saveStats.secrets & 2) ? '1' : '0',
+                (saveStats.secrets & 1) ? '1' : '0', saveStats.pickups, saveStats.mediUsed, saveStats.ammoUsed, saveStats.kills);
             Debug::Draw::text(vec2(16, y += 16), vec4(1.0f), buf);
 
             y += 16;

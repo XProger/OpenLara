@@ -626,7 +626,7 @@ namespace Sound {
 
         OGG(Stream *stream, int channels) : Decoder(stream, channels, 0), ogg(NULL) {
             char buf[255];
-            strcpy(buf, Stream::contentDir);
+            strcpy(buf, contentDir);
             strcat(buf, stream->name);
 
             alloc.alloc_buffer_length_in_bytes = 256 * 1024;

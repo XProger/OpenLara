@@ -226,6 +226,7 @@ namespace GAPI {
                 int       bpp;
                 D3DFORMAT format;
             } formats[FMT_MAX] = {
+                {  8, D3DFMT_L8            },
                 { 32, D3DFMT_A8R8G8B8      },
                 { 16, D3DFMT_R5G6B5        },
                 { 16, D3DFMT_A1R5G5B5      },
@@ -296,8 +297,8 @@ namespace GAPI {
                 bool mipmaps = (Core::settings.detail.filter > Core::Settings::MEDIUM) &&  (opt & OPT_MIPMAPS);
                 bool aniso   = filter && mipmaps && (Core::support.maxAniso > 0);
 
-                device->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-                device->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSU, (opt & OPT_REPEAT) ? D3DTADDRESS_WRAP : D3DTADDRESS_CLAMP);
+                device->SetSamplerState(sampler, D3DSAMP_ADDRESSV, (opt & OPT_REPEAT) ? D3DTADDRESS_WRAP : D3DTADDRESS_CLAMP);
 
                 if (aniso) {
                     device->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);

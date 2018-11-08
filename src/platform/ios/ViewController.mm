@@ -16,9 +16,6 @@
 
 #include <mach/mach_time.h>
 
-char Stream::cacheDir[255];
-char Stream::contentDir[255];
-
 bool osJoyReady(int index) {
     return false;
 }
@@ -112,11 +109,11 @@ void soundInit() {
 	[EAGLContext setCurrentContext:self.context];
 	
 
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
     NSString *path = [[NSBundle mainBundle] resourcePath];
-    strcat(Stream::contentDir, [path UTF8String]);
-    strcat(Stream::contentDir, "/");
+    strcat(contentDir, [path UTF8String]);
+    strcat(contentDir, "/");
 
     Game::init();
 

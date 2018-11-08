@@ -51,7 +51,7 @@ struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
     virtual void         loadNextLevel() {}
-    virtual void         saveGame(bool checkpoint, bool updateStats) {}
+    virtual void         saveGame(TR::LevelID id, bool checkpoint, bool updateStats) {}
     virtual void         loadGame(int slot) {}
     virtual void         applySettings(const Core::Settings &settings)  {}
 
@@ -393,7 +393,7 @@ struct Controller {
             switch (cmd.func) {
 
                 case TR::FloorData::PORTAL  :
-                    info.roomNext = (*fd++).data;
+                    info.roomNext = (*fd++).value;
                     break;
 
                 case TR::FloorData::FLOOR   : // floor & ceiling
@@ -514,7 +514,7 @@ struct Controller {
             roomIndex   = data.room;
         }
         flags.value = e.flags.value ^ data.flags;
-        timer       = data.timer == -1 ? -1.0f : (timer / 30.0f);
+        timer       = data.timer == -1 ? -1.0f : (data.timer / 30.0f);
     // animation
         if (m) animation.setAnim(data.animIndex, -data.animFrame);
         updateLights(false);

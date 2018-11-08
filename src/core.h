@@ -624,7 +624,7 @@ namespace Core {
 
         GAPI::init();
 
-        LOG("cache    : %s\n", Stream::cacheDir);
+        LOG("cache    : %s\n", cacheDir);
         LOG("supports :\n");
         LOG("  variyngs count : %d\n", support.maxVectors);
         LOG("  binary shaders : %s\n", support.shaderBinary  ? "true" : "false");

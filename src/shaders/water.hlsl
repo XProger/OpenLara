@@ -27,15 +27,15 @@ VS_OUTPUT main(VS_INPUT In) {
 
 	if (WATER_COMPOSE) {
 		Out.coord    = float3(coord.x, 0.0, coord.y) * uPosScale[1].xyz + uPosScale[0].xyz;
-		Out.pos      = mul(uViewProj, float4(Out.coord, 1.0));
+		Out.pos     = mul(uViewProj, float4(Out.coord, 1.0));
 		Out.viewVec  = uViewPos.xyz - Out.coord.xyz;
 		Out.lightVec = uLightPos[0].xyz - Out.coord.xyz;
 		Out.oldPos   = getInvUV(coord.xy, uTexParam);
 	} else if (WATER_DROP) {
 		Out.pos    = float4(coord.xyz, 1.0);
 		Out.oldPos = getInvUV(coord.xy, uTexParam);
-	} else if (WATER_STEP) {
-		Out.pos    = float4(coord.xyz, 1.0);
+	} else if (WATER_SIMULATE) {
+		Out.pos	   = float4(coord.xyz, 1.0);
 		Out.oldPos = getInvUV(coord.xy, uTexParam);
 	} else if (WATER_CAUSTICS) {
 		float3 rCoord = float3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
@@ -54,7 +54,11 @@ VS_OUTPUT main(VS_INPUT In) {
 	} else if (WATER_MASK) {
 		Out.coord = float3(coord.x, 0.0, coord.y) * uPosScale[1].xyz + uPosScale[0].xyz;
 		Out.pos   = mul(uViewProj, float4(Out.coord, 1.0));
-	}
+	} else if (WATER_RAYS) {
+        Out.coord   = In.aCoord.xyz + uParam.xyz;
+		Out.viewVec = uViewPos.xyz - Out.coord.xyz;
+        Out.pos	    = mul(uViewProj, float4(Out.coord, 1.0));
+    }
 
 	Out.texCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw + 0.5 * uTexParam.xy; // + half texel offset
 	Out.hpos     = Out.pos;
@@ -64,9 +68,9 @@ VS_OUTPUT main(VS_INPUT In) {
 
 #else // PIXEL
 
-float calcFresnel(float NdotL, float fbias) {
-	float f = 1.0 - NdotL;
-	return saturate(fbias + (1.0 - fbias) * (f * f));
+float calcFresnel(float VoH, float f0) {
+	float f = pow(1.0 - VoH, 5.0);
+	return f + f0 * (1.0f - f);
 }
 
 float3 applyFog(float3 color, float3 fogColor, float factor) {
@@ -118,7 +122,7 @@ float h(float2 tc) {
 	return simplex_noise(float3(tc * 16.0, uParam.w)) * 0.0005;
 }
 
-float4 calc(VS_OUTPUT In) {
+float4 simulate(VS_OUTPUT In) {
 	float2 iuv = In.oldPos.xy;
 	float2 uv  = In.texCoord;
 	
@@ -157,6 +161,43 @@ float4 caustics(VS_OUTPUT In) {
 	return float4(value, 0.0, 0.0, 0.0);
 }
 
+float boxIntersect(float3 rayPos, float3 rayDir, float3 center, float3 hsize) {
+	center -= rayPos;
+	float3 bMin = (center - hsize) / rayDir;
+	float3 bMax = (center + hsize) / rayDir;
+	float3 m = min(bMin, bMax);
+	return max(0.0, max(m.x, max(m.y, m.z)));
+}
+
+float4 rays(VS_OUTPUT In, float4 pixelCoord) {
+	#define RAY_STEPS 16.0
+	
+	float3 viewVec = normalize(In.viewVec);
+
+	float t = boxIntersect(uViewPos.xyz, -viewVec, uPosScale[0].xyz, uPosScale[1].xyz);
+
+	float3 p0 = uViewPos.xyz - viewVec * t;
+	float3 p1 = In.coord.xyz;
+
+	float dither = tex2D(sMask, pixelCoord.xy * (1.0 / 8.0)).x;
+	
+	float3 step = (p1 - p0) / RAY_STEPS;
+	float3 pos	= p0 + step * dither;
+
+	float sum = 0.0;
+	for (float i = 0.0; i < RAY_STEPS; i++) {
+		float3 wpos = (pos - uPosScale[0].xyz) / uPosScale[1].xyz;
+		float2 tc = wpos.xz * 0.5 + 0.5;
+		float light = tex2D(sReflect, tc).x;
+		sum += light * (1.0 - (clamp(wpos.y, -1.0, 1.0) * 0.5 + 0.5));
+		pos += step;
+	}
+	sum /= RAY_STEPS;
+	sum *= uParam.w;
+
+	return float4(UNDERWATER_COLOR * sum, 1.0);
+}
+
 float4 mask(VS_OUTPUT In) {
 	return 0.0;
 }
@@ -167,7 +208,7 @@ float4 compose(VS_OUTPUT In) {
 	
 	float4 value  = tex2D(sNormal, iuv);
 	float3 normal = float3(value.z, sqrt(1.0 - dot(value.zw, value.zw)) * sign(viewVec.y), value.w);	
-	float2 dudv   = mul(uViewProj, float4(normal.x, 0.0, normal.z, 0.0)).xy;
+	float2 dudv	  = mul(uViewProj, float4(normal.x, 0.0, normal.z, 0.0)).xy;
 
 	float3 rv = reflect(-viewVec, normal);
 	float3 lv = normalize(In.lightVec);
@@ -178,10 +219,10 @@ float4 compose(VS_OUTPUT In) {
 
 	float4 refrA = tex2D(sDiffuse, uParam.xy * invUV(clamp(tc + dudv * uParam.z, 0.0, 0.999)) );
 	float4 refrB = tex2D(sDiffuse, uParam.xy * invUV(tc) );
-	float4 refr  = float4(lerp(refrA.xyz, refrB.xyz, refrA.w), 1.0);
-	float4 refl  = tex2D(sReflect, tc.xy + dudv * uParam.w);
+	float4 refr	 = float4(lerp(refrA.xyz, refrB.xyz, refrA.w), 1.0);
+	float4 refl	 = tex2D(sReflect, tc.xy + dudv * uParam.w);
 
-	float fresnel = calcFresnel(dot(normal, viewVec), 0.04);
+	float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 	float4 color = lerp(refr, refl, fresnel) + spec * 1.5;
 
@@ -192,15 +233,18 @@ float4 compose(VS_OUTPUT In) {
 	return color;
 }
 
-float4 main(VS_OUTPUT In) : COLOR0 {
+float4 main(VS_OUTPUT In, float4 pixelCoord: VPOS) : COLOR0 {
 	if (WATER_DROP)
 		return drop(In);
 
-	if (WATER_STEP)
-		return calc(In);
+	if (WATER_SIMULATE)
+		return simulate(In);
 
 	if (WATER_CAUSTICS)
 		return caustics(In);
+		
+	if (WATER_RAYS)
+		return rays(In, pixelCoord);
 
 	if (WATER_MASK)
 		return mask(In);

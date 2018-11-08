@@ -4,15 +4,36 @@
 #include "core.h"
 #include "format.h"
 #include "cache.h"
+#include "inventory.h"
 #include "level.h"
 #include "ui.h"
 #include "savegame.h"
 
-ShaderCache *shaderCache;
+#define MAX_CHEAT_SEQUENCE 8
 
 namespace Game {
-    Level  *level;
-    Stream *nextLevel;
+    Level      *level;
+    Stream     *nextLevel;
+    ControlKey cheatSeq[MAX_CHEAT_SEQUENCE];
+
+    void cheatControl(ControlKey key) {
+        if (key == cMAX || !level || level->level.isTitle() || level->level.isCutsceneLevel()) return;
+        const ControlKey CHEAT_ALL_WEAPONS[] = { cLook, cWeapon, cDash, cDuck, cDuck, cDash, cRoll, cLook };
+        const ControlKey CHEAT_SKIP_LEVEL[]  = { cDuck, cDash, cLook, cRoll, cWeapon, cLook, cDash, cDuck };
+
+        for (int i = 0; i < MAX_CHEAT_SEQUENCE - 1; i++)
+            cheatSeq[i] = cheatSeq[i + 1];
+        cheatSeq[MAX_CHEAT_SEQUENCE - 1] = key;
+
+    // add all weapons
+        if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_ALL_WEAPONS)], CHEAT_ALL_WEAPONS, sizeof(CHEAT_ALL_WEAPONS))) {
+            inventory->addWeapons();
+            level->playSound(TR::SND_SCREAM);
+        }
+    // skip level
+        if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_SKIP_LEVEL)], CHEAT_SKIP_LEVEL, sizeof(CHEAT_SKIP_LEVEL)))
+            level->loadNextLevel();
+    }
 
     void startLevel(Stream *lvl) {
         TR::LevelID id = TR::LVL_MAX;
@@ -23,7 +44,7 @@ namespace Game {
 
         bool playVideo = true;
         if (loadSlot != -1)
-            playVideo = (saveSlots[loadSlot].level & LVL_FLAG_CHECKPOINT) == 0;
+            playVideo = !saveSlots[loadSlot].isCheckpoint();
 
         delete level;
         level = new Level(*lvl);
@@ -110,6 +131,8 @@ namespace Game {
         shaderCache = NULL;
         level       = NULL;
 
+        memset(cheatSeq, 0, sizeof(cheatSeq));
+
         Core::init();
         Sound::callback = stopChannel;
 
@@ -130,6 +153,8 @@ namespace Game {
         else
             strcpy(fileName, lvlName);
 
+        inventory = new Inventory();
+
         init(new Stream(fileName));
     }
 
@@ -140,6 +165,7 @@ namespace Game {
             Debug::deinit();
         #endif
         delete level;
+        delete inventory;
         UI::deinit();
         delete shaderCache;
         Core::deinit();
@@ -147,7 +173,9 @@ namespace Game {
 
     void updateTick() {
         Input::update();
-        
+
+        cheatControl(Input::lastState[0]); 
+
         if (!level->level.isTitle()) {
             if (Input::lastState[0] == cStart) level->addPlayer(0);
             if (Input::lastState[1] == cStart) level->addPlayer(1);
@@ -186,13 +214,25 @@ namespace Game {
         if (level->isEnded)
             return true;
 
-        if (Input::down[ik5] && !level->inventory->isActive()) {
+    #ifdef _DEBUG
+        if (Input::down[ik0] && !inventory->isActive()) {
+            inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
+            Input::down[ik0] = false;
+        }
+
+        if (Input::down[ikF]) {
+            level->flipMap();
+            Input::down[ikF] = false;
+        }
+    #endif
+
+        if (Input::down[ik5] && !inventory->isActive()) {
             if (level->players[0]->canSaveGame())
-                level->saveGame(true, false);
+                level->saveGame(level->level.id, true, false);
             Input::down[ik5] = false;
         }
 
-        if (Input::down[ik9] && !level->inventory->isActive()) {
+        if (Input::down[ik9] && !inventory->isActive()) {
             int slot = getSaveSlot(level->level.id, true);
             if (slot == -1)
                 slot = getSaveSlot(level->level.id, false);

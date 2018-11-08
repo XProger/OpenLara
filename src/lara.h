@@ -56,6 +56,8 @@
 #define DESCENT_SPEED       2048.0f
 #define TARGET_MAX_DIST     (8.0f * 1024.0f)
 
+#define UNITS_PER_METER     445.0f
+
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -274,6 +276,7 @@ struct Lara : Character {
     int         hitDir;
     vec3        collisionOffset;
     vec3        flowVelocity;
+    float       statsDistDelta;
 
     Camera      *camera;
 
@@ -467,6 +470,8 @@ struct Lara : Character {
         rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
         rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;
 
+        statsDistDelta = 0.0f;
+
         oxygen     = LARA_MAX_OXYGEN;
         hitDir     = -1;
         damageTime = LARA_DAMAGE_TIME;
@@ -590,6 +595,9 @@ struct Lara : Character {
     }
 
     virtual bool getSaveData(SaveEntity &data) {
+        if (camera->cameraIndex != 0) // only player1 can be saved
+            return false;
+
         Character::getSaveData(data);
         data.extraSize = sizeof(data.extra.lara);
         data.extra.lara.velX        = velocity.x;
@@ -614,20 +622,25 @@ struct Lara : Character {
 
     virtual void setSaveData(const SaveEntity &data) {
         Character::setSaveData(data);
+        statsDistDelta = 0.0f;
+
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
         health   = data.extra.lara.health;
         oxygen   = data.extra.lara.oxygen;
 
+        if (level->isHome()) return;
+
         layers[1].mask = layers[2].mask = layers[3].mask = 0;
 
-        wpnSet(TR::Entity::Type(data.extra.lara.itemWeapon));
+        if (data.extra.lara.itemWeapon)
+            wpnSet(TR::Entity::Type(data.extra.lara.itemWeapon));
 
         wpnCurrent  = TR::Entity::Type(data.extra.lara.itemWeapon);
         itemHolster = TR::Entity::Type(data.extra.lara.itemHolster);
         wpnState    = Weapon::IS_HIDDEN;
 
-        if (data.extra.lara.itemHands == data.extra.lara.itemWeapon)
+        if (data.extra.lara.itemHands && data.extra.lara.itemHands == data.extra.lara.itemWeapon)
             wpnDraw(true);
 
         if (itemHolster != TR::Entity::NONE)
@@ -650,6 +663,8 @@ struct Lara : Character {
     }
 
     void reset(int room, const vec3 &pos, float angle, Stand forceStand = STAND_GROUND) {
+        statsDistDelta = 0.0f;
+
         visibleMask = 0xFFFFFFFF;
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
@@ -829,8 +844,6 @@ struct Lara : Character {
                && state != STATE_SURF_BACK
                && state != STATE_SURF_LEFT
                && state != STATE_SURF_RIGHT
-               && state != STATE_SWAN_DIVE
-               && state != STATE_FAST_DIVE
                && state != STATE_HANDSTAND
                && state != STATE_WATER_OUT;
     }
@@ -1011,6 +1024,8 @@ struct Lara : Character {
         }
 
         if (shots) {
+            saveStats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
+
             game->playSound(wpnGetSound(), pos, Sound::PAN);
             game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
@@ -1624,6 +1639,7 @@ struct Lara : Character {
             case TR::Entity::INV_UZIS          : wpnChange(TR::Entity::UZIS);    break;
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
+                saveStats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
                 damageTime = LARA_DAMAGE_TIME;
                 health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
                 game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
@@ -1936,7 +1952,7 @@ struct Lara : Character {
                     if (game->invUse(camera->cameraIndex, usedKey)) {
                         keyItem = game->addEntity(usedKey, getRoomIndex(), pos, 0);
                         keyItem->lockMatrix = true;
-                        keyItem->pos     = keyHole->pos + vec3(-484, -590, 0);
+                        keyItem->pos     = keyHole->pos + vec3(0, -590, 484).rotateY(-keyHole->angle.y);
                         keyItem->angle.x = PI * 0.5f;
                         keyItem->angle.y = keyHole->angle.y;
                     }
@@ -2095,8 +2111,8 @@ struct Lara : Character {
                     effect = TR::Effect::Type(cmd.args);
                     break;
                 case TR::Action::SECRET :
-                    if (!(level->levelStats.secrets & (1 << cmd.args))) {
-                        level->levelStats.secrets |= 1 << cmd.args;
+                    if (!(saveStats.secrets & (1 << cmd.args))) {
+                        saveStats.secrets |= 1 << cmd.args;
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
@@ -2827,6 +2843,7 @@ struct Lara : Character {
                         pickupList[i]->deactivate();
                         pickupList[i]->flags.invisible = true;
                         game->invAdd(pickupList[i]->getEntity().type, 1);
+                        saveStats.pickups++;
                     }
                     pickupListCount = 0;
                 }
@@ -2971,7 +2988,7 @@ struct Lara : Character {
             checkTrigger(this, false);
 
     // get turning angle
-        float w = (input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f);
+        float w = ((input & WALK) && state != STATE_WALK) ? 0.0f : ((input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f));
 
         if (state == STATE_SWIM || state == STATE_GLIDE)
             w *= TURN_WATER_FAST;
@@ -2986,7 +3003,7 @@ struct Lara : Character {
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
             w *= TURN_FAST_BACK;
-        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK)
+        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || (state == STATE_STOP && animation.index == ANIM_LANDING))
             w *= TURN_NORMAL;
         else if (state == STATE_FORWARD_JUMP || state == STATE_BACK)
             w *= TURN_SLOW;
@@ -2996,7 +3013,7 @@ struct Lara : Character {
         if (w != 0.0f)
             rotateY(w * rotFactor.y * Core::deltaTime);
     // pitch (underwater only)
-        if (stand == STAND_UNDERWATER && (input & (FORTH | BACK)))
+        if (stand == STAND_UNDERWATER && (((input & FORTH) != 0) ^ ((input & BACK) != 0)))
             rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * rotFactor.x * Core::deltaTime);
 
     // get animation direction
@@ -3098,12 +3115,21 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((state == STATE_RUN || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
+        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
-        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) // TODO: stop & smash anim
+        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) { // TODO: stop & smash anim
+            vec3 oldPos = pos;
+
             move();
+
+            statsDistDelta += (pos - oldPos).length();
+            while (statsDistDelta >= UNITS_PER_METER) {
+                statsDistDelta -= UNITS_PER_METER;
+                saveStats.distance++;
+            }
+        }
     }
 
     virtual vec3 getPos() {

@@ -312,12 +312,9 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
     return 1;
 }
 
-char Stream::cacheDir[255];
-char Stream::contentDir[255];
-
 int main() {
-    Stream::contentDir[0] = Stream::cacheDir[0] = 0;
-    
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
+
     initGL(); 
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);

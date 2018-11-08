@@ -13,13 +13,17 @@
     #endif
 
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
+    #define ASSERTV(expr) ASSERT(expr)
 
     #ifndef _OS_ANDROID
         #define LOG(...) printf(__VA_ARGS__)
     #endif
 
 #else
+    //#define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); }
     #define ASSERT(expr)
+    #define ASSERTV(expr) (expr) ? 0 : 1
+
     #ifdef _OS_LINUX
         #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
     #else
@@ -71,12 +75,14 @@
 #define SQR(x)  ((x)*(x))
 #define randf() ((float)rand()/RAND_MAX)
 
-typedef signed char     int8;
-typedef signed short    int16;
-typedef signed int      int32;
-typedef unsigned char   uint8;
-typedef unsigned short  uint16;
-typedef unsigned int    uint32;
+typedef signed char        int8;
+typedef signed short       int16;
+typedef signed int         int32;
+typedef signed long long   int64;
+typedef unsigned char      uint8;
+typedef unsigned short     uint16;
+typedef unsigned int       uint32;
+typedef unsigned long long uint64;
 
 #define FOURCC(str)        uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
@@ -1190,10 +1196,11 @@ extern void osWriteSlot  (Stream *stream);
 extern void osDownload   (Stream *stream);
 #endif
 
-struct Stream {
-    static char cacheDir[255];
-    static char contentDir[255];
+char cacheDir[255];
+char saveDir[255];
+char contentDir[255];
 
+struct Stream {
     typedef void (Callback)(Stream *stream, void *userData);
     Callback    *callback;
     void        *userData;
@@ -1285,7 +1292,7 @@ struct Stream {
 
     static bool existsContent(const char *name) {
         char fileName[1024];
-        strcpy(fileName, Stream::contentDir);
+        strcpy(fileName, contentDir);
         strcat(fileName, name);
         return exists(fileName);
     }
@@ -1334,13 +1341,43 @@ struct Stream {
             a = NULL;
         return a;
     }
+
+    inline uint8 read() {
+        uint8 x;
+        return read(x);
+    }
+
+    inline uint16 readLE16() {
+        uint16 x;
+        return read(x);
+    }
+
+    inline uint32 readLE32() {
+        uint32 x;
+        return read(x);
+    }
+
+    inline uint16 readBE16() {
+        uint16 x;
+        return swap16(read(x));
+    }
+
+    inline uint32 readBE32() {
+        uint32 x;
+        return swap32(read(x));
+    }
+
+    inline uint64 read64() {
+        uint64 x;
+        return read(x);
+    }
 };
 
 
 #ifdef OS_FILEIO_CACHE
-void osCacheWrite(Stream *stream) {
+void osDataWrite(Stream *stream, const char *dir) {
     char path[255];
-    strcpy(path, Stream::cacheDir);
+    strcpy(path, dir);
     strcat(path, stream->name);
     FILE *f = fopen(path, "wb");
     if (f) {
@@ -1355,9 +1392,9 @@ void osCacheWrite(Stream *stream) {
     delete stream;
 }
 
-void osCacheRead(Stream *stream) {
+void osDataRead(Stream *stream, const char *dir) {
     char path[255];
-    strcpy(path, Stream::cacheDir);
+    strcpy(path, dir);
     strcat(path, stream->name);
     FILE *f = fopen(path, "rb");
     if (f) {
@@ -1376,13 +1413,22 @@ void osCacheRead(Stream *stream) {
     delete stream;
 }
 
-void osReadSlot(Stream *stream) {
-    return osCacheRead(stream);
+void osCacheWrite(Stream *stream) {
+    osDataWrite(stream, cacheDir);
+}
+
+void osCacheRead(Stream *stream) {
+    osDataRead(stream, cacheDir);
 }
 
 void osWriteSlot(Stream *stream) {
-    return osCacheWrite(stream);
+    osDataWrite(stream, saveDir);
 }
+
+void osReadSlot(Stream *stream) {
+    osDataRead(stream, saveDir);
+}
+
 #endif
 
 

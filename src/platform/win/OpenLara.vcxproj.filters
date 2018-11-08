@@ -53,6 +53,7 @@
       <Filter>libs\tinf</Filter>
     </ClInclude>
     <ClInclude Include="..\..\video.h" />
+    <ClInclude Include="..\..\savegame.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
