@@ -1138,11 +1138,11 @@ namespace TR {
     struct ObjectTexture {
         TextureType  type;
         uint16       index;
-        uint16       clut;
+        uint16  clut;
         Tile         tile;
-        uint16       attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
-        short2       texCoord[4];
-        short2       texCoordAtlas[4];
+        uint16  attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
+        short2  texCoord[4];
+        short2  texCoordAtlas[4];
 
         short4 getMinMax() const {
             return short4(
@@ -1234,7 +1234,7 @@ namespace TR {
     #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
     struct ColorIndex4 {
-        uint8 a:4, b:4;
+            uint8 a:4, b:4;
     };
 
     struct Tile4 {
@@ -2514,8 +2514,6 @@ namespace TR {
             cutEntity = -1;
 
             int startPos = stream.pos;
-            int soundOffset = 0;
-
             uint32 magic;
 
             #define MAGIC_TR1_PC  0x00000020
@@ -2569,7 +2567,6 @@ namespace TR {
                 }
 
                 if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC && magic != MAGIC_TR3_PC1 && magic != MAGIC_TR3_PC2 && magic != MAGIC_TR3_PC3 && magic != MAGIC_TR3_PSX) {
-                    soundOffset = magic;
                     stream.read(magic);
                 }
 
@@ -4263,7 +4260,7 @@ namespace TR {
         // sectors
             stream.read(r.zSectors);
             stream.read(r.xSectors);
-            r.sectors = (r.zSectors * r.xSectors) ? new Room::Sector[r.zSectors * r.xSectors] : NULL;
+            r.sectors = (r.zSectors * r.xSectors > 0) ? new Room::Sector[r.zSectors * r.xSectors] : NULL;
 
             for (int i = 0; i < r.zSectors * r.xSectors; i++) {
                 Room::Sector &s = r.sectors[i];
@@ -4389,7 +4386,7 @@ namespace TR {
             Mesh &mesh = meshes[meshesCount++];
             mesh.offset = offset;
 
-            uint32 fOffset;
+            uint32 fOffset = 0xFFFFFFFF;
 
             if (type == Entity::SKY && version == VER_TR3_PSX) {
                 mesh.center.x    = 
@@ -4423,7 +4420,7 @@ namespace TR {
                     mesh.radius      = swap16(mesh.radius);
                     mesh.flags.value = swap16(mesh.flags.value);
                     mesh.vCount      = swap16(mesh.vCount);
-                }
+            }
             }
 
             switch (version) {
@@ -4922,7 +4919,7 @@ namespace TR {
                     t.b    = d.b;\
                 }
 
-            switch (version) {
+                switch (version) {
                 case VER_TR1_SAT : {
                     struct {
                         uint16 tile;
@@ -4944,39 +4941,39 @@ namespace TR {
                     t.texCoord[1] = t.texCoordAtlas[1] = short2( ((int16)d.w << 3) - 1, ((int16)d.h) - 1 );
                     break;
                 }
-                case VER_TR1_PC :
-                case VER_TR2_PC :
-                case VER_TR3_PC : {
-                    struct {
-                        uint16  tile;
-                        uint8   u, v;
-                        uint16  w, h;
-                        int16   l, t, r, b;
-                    } d;
-                    stream.raw(&d, sizeof(d));
-                    SET_PARAMS(t, d, 0);
-                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
-                    t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
-                    break;
+                    case VER_TR1_PC :
+                    case VER_TR2_PC :
+                    case VER_TR3_PC : {
+                        struct {
+                            uint16  tile;
+                            uint8   u, v;
+                            uint16  w, h;
+                            int16   l, t, r, b;
+                        } d;
+                        stream.raw(&d, sizeof(d));
+                        SET_PARAMS(t, d, 0);
+                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
+                        t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
+                        break;
+                    }
+                    case VER_TR1_PSX : 
+                    case VER_TR2_PSX :
+                    case VER_TR3_PSX : {
+                        struct {
+                            int16   l, t, r, b;
+                            uint16  clut;
+                            uint16  tile;
+                            uint8   u0, v0;
+                            uint8   u1, v1;
+                        } d;
+                        stream.raw(&d, sizeof(d));
+                        SET_PARAMS(t, d, d.clut);
+                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
+                        t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
+                        break;
+                    }
+                    default : ASSERT(false);
                 }
-                case VER_TR1_PSX : 
-                case VER_TR2_PSX :
-                case VER_TR3_PSX : {
-                    struct {
-                        int16   l, t, r, b;
-                        uint16  clut;
-                        uint16  tile;
-                        uint8   u0, v0;
-                        uint8   u1, v1;
-                    } d;
-                    stream.raw(&d, sizeof(d));
-                    SET_PARAMS(t, d, d.clut);
-                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
-                    t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
-                    break;
-                }
-                default : ASSERT(false);
-            }
 
             #undef SET_PARAMS
         }
@@ -5233,7 +5230,7 @@ namespace TR {
             return new Stream(NULL, data, size);
         }
 
-        int getMeshByID(int id) const {
+        int getMeshByID(uint32 id) const {
             for (int i = 0; i < staticMeshesCount; i++)
                 if (staticMeshes[i].id == id)
                     return i;
@@ -5281,7 +5278,7 @@ namespace TR {
 
         void floorSkipCommand(FloorData* &fd, int func) {
             switch (func) {
-                case FloorData::PORTAL  :
+                case FloorData::PORTAL      :
                 case FloorData::FLOOR   :
                 case FloorData::CEILING : 
                     fd++;

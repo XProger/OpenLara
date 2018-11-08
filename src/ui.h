@@ -15,11 +15,11 @@ enum StringID {
     , STR_HINT_SAVING
     , STR_HINT_SAVING_DONE
     , STR_HINT_SAVING_ERROR
+    , STR_YES
+    , STR_NO
     , STR_OFF
     , STR_ON
     , STR_SPLIT
-    , STR_YES
-    , STR_NO
     , STR_VR
     , STR_QUALITY_LOW
     , STR_QUALITY_MEDIUM
@@ -142,11 +142,11 @@ const char *STR[STR_MAX] = {
     , "Saving game..."
     , "Saving done!"
     , "SAVING ERROR!"
+    , "YES"
+    , "NO"
     , "Off"
     , "On"
     , "Split Screen"
-    , "YES"
-    , "NO"
     , "VR"
     , "Low"
     , "Medium"

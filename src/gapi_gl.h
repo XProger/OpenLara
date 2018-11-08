@@ -71,6 +71,14 @@
     #define glProgramBinary(...)
     
     extern EGLDisplay display;
+#elif _OS_NX
+    #define GL_GLEXT_PROTOTYPES
+    #include <EGL/egl.h>
+    #include <EGL/eglext.h>
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+
+    extern EGLDisplay display;
 #elif _OS_LINUX
     #include <GL/gl.h>
     #include <GL/glext.h>
@@ -1100,7 +1108,7 @@ namespace GAPI {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(enable ? 1 : 0);
         #elif _OS_LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(enable ? 1 : 0);
-        #elif defined(_OS_RPI) || defined(_OS_CLOVER)
+        #elif defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_NX)
             eglSwapInterval(display, enable ? 1 : 0);
         #endif
     }

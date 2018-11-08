@@ -1177,9 +1177,9 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             v.normal  = short4( 0, 0, 0, 0 );
             if (color2 != 0 && (i == 0 || i == 3))
-                v.light = *((ubyte4*)&color2);
+                v.light.value = color2;
             else
-                v.light = *((ubyte4*)&color);
+                v.light.value = color;
 
             short2 uv = tile.texCoordAtlas[i];
 
@@ -1209,9 +1209,9 @@ struct MeshBuilder {
 
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
-            v.normal   = short4( 0, 0, 0, 0 );
-            v.light    = *((ubyte4*)&color1);
-            v.texCoord = uv;
+            v.normal      = short4( 0, 0, 0, 0 );
+            v.light.value = color1;
+            v.texCoord    = uv;
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
@@ -1229,9 +1229,9 @@ struct MeshBuilder {
 
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
-            v.normal   = short4( 0, 0, 0, 0 );
-            v.light    = *((ubyte4*)&color2);
-            v.texCoord = uv;
+            v.normal      = short4( 0, 0, 0, 0 );
+            v.light.value = color2;
+            v.texCoord    = uv;
         }
 
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;

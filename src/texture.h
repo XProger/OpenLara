@@ -345,7 +345,7 @@ struct Texture : GAPI::Texture {
         stream.seek(8);
 
         uint8 bits, colorType, interlace;
-        int BPP, BPL;
+        int BPP = 0, BPL = 0;
 
         uint8 palette[256 * 3];
         uint8 trans[256];
