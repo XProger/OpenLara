@@ -53,6 +53,7 @@
       <Filter>libs\tinf</Filter>
     </ClInclude>
     <ClInclude Include="..\..\video.h" />
+    <ClInclude Include="..\..\savegame.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
@@ -61,10 +62,10 @@
     <None Include="..\..\shaders\gui.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\shader.glsl">
+    <None Include="..\..\shaders\water.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\water.glsl">
+    <None Include="..\..\shaders\shader.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
