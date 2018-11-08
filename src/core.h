@@ -67,6 +67,11 @@
     #define EDRAM_TEX
 
     #undef OS_PTHREAD_MT
+#elif __SWITCH__
+   #define _OS_NX     1
+   #define _GAPI_GL   1
+
+   #undef OS_PTHREAD_MT
 #endif
 
 #ifndef _OS_PSP
@@ -104,23 +109,7 @@ extern int   osGetTime       ();
 extern bool  osJoyReady      (int index);
 extern void  osJoyVibrate    (int index, float L, float R);
 
-struct Mutex {
-    void *obj;
-
-    Mutex()       { obj = osMutexInit(); }
-    ~Mutex()      { osMutexFree(obj);    }
-    void lock()   { osMutexLock(obj);    }
-    void unlock() { osMutexUnlock(obj);  }
-};
-
-struct Lock {
-    Mutex &mutex;
-
-    Lock(Mutex &mutex) : mutex(mutex) { mutex.lock(); }
-    ~Lock() { mutex.unlock(); }
-};
-
-#define OS_LOCK(mutex) Lock _lock(mutex)
+#define OS_LOCK(mutex) Core::Lock _lock(mutex)
 
 /*
 extern void* osRWLockInit    ();
@@ -201,6 +190,23 @@ enum RenderTargetOp {
 };
 
 namespace Core {
+
+    struct Mutex {
+        void *obj;
+    
+        Mutex()       { obj = osMutexInit(); }
+        ~Mutex()      { osMutexFree(obj);    }
+        void lock()   { osMutexLock(obj);    }
+        void unlock() { osMutexUnlock(obj);  }
+    };
+    
+    struct Lock {
+        Mutex &mutex;
+    
+        Lock(Mutex &mutex) : mutex(mutex) { mutex.lock(); }
+        ~Lock() { mutex.unlock(); }
+    };
+
     float deltaTime;
     int   lastTime;
     int   x, y, width, height;
@@ -767,7 +773,7 @@ namespace Core {
     }
 
     void setVSync(bool enable) {
-        GAPI::setVSync(Core::settings.detail.vsync = enable);
+        GAPI::setVSync((Core::settings.detail.vsync = enable));
     }
 
     void waitVBlank() {

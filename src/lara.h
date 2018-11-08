@@ -2893,7 +2893,7 @@ struct Lara : Character {
                 hit(Core::deltaTime * 150.0f);
         } else
             if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
-                oxygen = min(LARA_MAX_OXYGEN, oxygen += Core::deltaTime * 10.0f);
+                oxygen = min(LARA_MAX_OXYGEN, oxygen + Core::deltaTime * 10.0f);
 
         usedKey = TR::Entity::NONE;
 
@@ -3318,7 +3318,7 @@ struct Lara : Character {
                     if (state == STATE_BACK) animation.setAnim(isLeftFoot ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
                     pos.y = float(floor);
                 } else if (h > -1.0f) {
-                    pos.y = min(float(floor), pos.y += DESCENT_SPEED * Core::deltaTime);
+                    pos.y = min(float(floor), pos.y + DESCENT_SPEED * Core::deltaTime);
                 } else if (h > -128) {
                     pos.y = float(floor);
                 } else if (h >= -(256 + 128) && (state == STATE_RUN || state == STATE_WALK)) { // ascend

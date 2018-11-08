@@ -40,7 +40,7 @@ struct ShaderCache {
     ~ShaderCache() {
         for (int pass = 0; pass < Core::passMAX; pass++)
             for (int type = 0; type < Shader::MAX; type++)
-                for (int fx = 0; fx < sizeof(shaders[pass][Shader::MAX]) / sizeof(shaders[pass][Shader::MAX][FX_NONE]); fx++)
+                for (int fx = 0; fx < COUNT(shaders[pass][Shader::MAX]); fx++)
                     delete shaders[pass][type][fx];
     }
 

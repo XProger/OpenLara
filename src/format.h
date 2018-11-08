@@ -2454,8 +2454,6 @@ namespace TR {
             palette   = NULL;
             palette32 = NULL;
 
-            int soundOffset = 0;
-
             uint32 magic;
 
             #define MAGIC_TR1_PC  0x00000020
@@ -2471,7 +2469,6 @@ namespace TR {
             if (version == VER_UNKNOWN || version == VER_TR1_PSX) {
                 stream.read(magic);
                 if (magic != MAGIC_TR1_PC && magic != MAGIC_TR2_PC && magic != MAGIC_TR3_PC1 && magic != MAGIC_TR3_PC2 && magic != MAGIC_TR3_PC3 && magic != MAGIC_TR3_PSX) {
-                    soundOffset = magic;
                     stream.read(magic);
                 }
 
@@ -3403,7 +3400,7 @@ namespace TR {
         // sectors
             stream.read(r.zSectors);
             stream.read(r.xSectors);
-            r.sectors = (r.zSectors * r.xSectors) ? new Room::Sector[r.zSectors * r.xSectors] : NULL;
+            r.sectors = (r.zSectors * r.xSectors > 0) ? new Room::Sector[r.zSectors * r.xSectors] : NULL;
 
             for (int i = 0; i < r.zSectors * r.xSectors; i++) {
                 Room::Sector &s = r.sectors[i];
@@ -3529,7 +3526,7 @@ namespace TR {
             Mesh &mesh = meshes[meshesCount++];
             mesh.offset = offset;
 
-            uint32 fOffset;
+            uint32 fOffset = 0xFFFFFFFF;
 
             if (type == Entity::SKY && version == VER_TR3_PSX) {
                 mesh.center.x    = 
@@ -4161,7 +4158,7 @@ namespace TR {
             return new Stream(NULL, data, size);
         }
 
-        int getMeshByID(int id) const {
+        int getMeshByID(uint32 id) const {
             for (int i = 0; i < staticMeshesCount; i++)
                 if (staticMeshes[i].id == id)
                     return i;

@@ -24,7 +24,7 @@ struct Animation {
 
     Animation() : overrides(NULL) {}
 
-    Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), smooth(smooth), overrides(NULL), overrideMask(0) {
+    Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), model(NULL), smooth(smooth), overrides(NULL), overrideMask(0) {
         setModel(model);
     }
 

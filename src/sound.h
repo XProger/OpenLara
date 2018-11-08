@@ -658,7 +658,7 @@ namespace Sound {
         }
     };
 #endif
-    Mutex lock;
+    Core::Mutex lock;
 
     struct Listener {
         mat4 matrix;

@@ -344,7 +344,7 @@ struct Video {
 
         int readValue() {
             char buf[255];
-            for (int i = 0; i < sizeof(buf); i++) {
+            for (uint32 i = 0; i < sizeof(buf); i++) {
                 char &c = buf[i];
                 stream->read(c);
                 if (c == ' ' || c == '.' || c == ',' || c == ';' || c == '\n') {

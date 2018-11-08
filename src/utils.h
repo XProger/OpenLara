@@ -80,7 +80,7 @@ typedef unsigned int    uint32;
 
 #define FOURCC(str)        uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
-#define COUNT(arr)         (sizeof(arr) / sizeof(arr[0]))
+#define COUNT(arr)         int(sizeof(arr) / sizeof(arr[0]))
 #define OFFSETOF(T, E)     ((size_t)&(((T*)0)->E))
 #define TEST_BIT(arr, bit) ((arr[bit / 32] >> (bit % 32)) & 1)
 
@@ -899,8 +899,9 @@ struct ubyte2 {
     uint8 x, y;
 };
 
-struct ubyte4 {
-    uint8 x, y, z, w;
+union ubyte4 {
+    struct { uint8 x, y, z, w; };
+    uint32 value;
 
     ubyte4() {}
     ubyte4(uint8 x, uint8 y, uint8 z, uint8 w) : x(x), y(y), z(z), w(w) {}
