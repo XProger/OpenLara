@@ -307,7 +307,7 @@ struct Enemy : Character {
     void bite(int joint, const vec3 &offset, float damage) {
         ASSERT(target);
         target->hit(damage, this);
-        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), target->getJoint(joint) * offset);
+        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), getJoint(joint) * offset);
     }
 
     Mood getMoodFixed() {
