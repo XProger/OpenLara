@@ -1123,11 +1123,6 @@ namespace TR {
         operator short3() const { return *((short3*)this); }
     };
 
-    union Tile {
-        struct { uint16 index:14, undefined:1, triangle:1; };
-        uint16 value;
-    };
-
     enum TextureType {
         TEX_TYPE_ROOM,
         TEX_TYPE_ITEM,
@@ -1138,11 +1133,13 @@ namespace TR {
     struct ObjectTexture {
         TextureType  type;
         uint16       index;
-        uint16  clut;
-        Tile         tile;
-        uint16  attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated
-        short2  texCoord[4];
-        short2  texCoordAtlas[4];
+        uint16       clut;
+        uint16       tile;
+        uint32       attribute:15, animated:1;    // 0 - opaque, 1 - transparent, 2 - blend additive, animated, triangle
+        short2       texCoord[4];
+        short2       texCoordAtlas[4];
+
+        uint16 i1, i2, i3, i4, i5;
 
         short4 getMinMax() const {
             return short4(
@@ -1193,7 +1190,7 @@ namespace TR {
 
         short3 normal;
         uint16 vertices[4];
-        uint8  water:1, colored:1, vCount:6;
+        uint8  water:1, colored:1, flip:1, vCount:5;
 
         static int cmp(const Face &a, const Face &b) {
             int aIndex = a.flags.texture;
@@ -1209,9 +1206,9 @@ namespace TR {
             ObjectTexture &ta = gObjectTextures[aIndex];
             ObjectTexture &tb = gObjectTextures[bIndex];
 
-            if (ta.tile.index < tb.tile.index)
+            if (ta.tile < tb.tile)
                 return -1;
-            if (ta.tile.index > tb.tile.index)
+            if (ta.tile > tb.tile)
                 return  1;
 
             #ifdef SPLIT_BY_CLUT
@@ -1234,7 +1231,7 @@ namespace TR {
     #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
     struct ColorIndex4 {
-            uint8 a:4, b:4;
+        uint8 a:4, b:4;
     };
 
     struct Tile4 {
@@ -3004,18 +3001,14 @@ namespace TR {
                 uint8 data[3];
             };
 
-            struct SPAL {
-                uint8 data[2];
-            };
-
             uint32 tsubCount = 0;
             uint8 *tsub = NULL;
 
             uint32 tpalCount = 0;
             TPAL *tpal = NULL;
 
-            uint32 spalCount = 0;
-            SPAL *spal = NULL;
+            int32 spalCount = 0;
+            uint16 *spal = NULL;
 
             Room *room = NULL;
 
@@ -3025,7 +3018,7 @@ namespace TR {
                         char buf[9];
                         memcpy(buf, &chunkType, 8);
                         buf[8] = 0;
-                        LOG("chunk: \"%s\"\n", buf);                
+                        LOG("chunk: \"%s\"\n", buf);
                 }
 
                 switch (chunkType) {
@@ -3041,30 +3034,68 @@ namespace TR {
                         for (int i = 0; i < roomTexturesCount; i++)
                             readObjectTex(stream, roomTextures[i], TEX_TYPE_ROOM);
                         break;
-                    case CHUNK("ROOMTQTR") :
+                    case CHUNK("ROOMTQTR") : {
                         ASSERTV(stream.readBE32() == 0x00000001);
                         roomTexturesDataSize = stream.readBE32();
                         roomTexturesData = roomTexturesDataSize ? new uint8[roomTexturesDataSize] : NULL;
                         stream.raw(roomTexturesData, roomTexturesDataSize);
+/*
+                        int32 count = stream.readBE32();
+                        stream.seek(count);
+                    */
                         break;
+                    }
                     case CHUNK("ROOMTSUB") :
                         ASSERTV(stream.readBE32() == 0x00000001);
+                        /*
+                        roomTexturesDataSize = stream.readBE32();
+                        roomTexturesData = roomTexturesDataSize ? new uint8[roomTexturesDataSize] : NULL;
+                        stream.raw(roomTexturesData, roomTexturesDataSize);
+                        */
+
                         tsubCount = stream.readBE32();
                         tsub = new uint8[tsubCount];
                         stream.raw(tsub, sizeof(uint8) * tsubCount);
+
                         break;
-                    case CHUNK("ROOMTPAL") :
+                    case CHUNK("ROOMTPAL") : {
                         ASSERTV(stream.readBE32() == 0x00000003);
                         tpalCount = stream.readBE32();
                         tpal = new TPAL[tpalCount];
                         stream.raw(tpal, sizeof(TPAL) * tpalCount);
+
+                        uint8 *data = new uint8[roomTexturesDataSize];
+                        for (int i = 0; i < roomTexturesDataSize; i++) {
+                            TPAL *p = tpal + roomTexturesData[i];
+                            data[i] = uint8((int(p->data[0]) + int(p->data[1]) + int(p->data[2])) / 3);
+                        }
+                        FILE *f = fopen("room_data.dmp", "wb");
+                        fwrite(data, 1, roomTexturesDataSize, f);
+                        fclose(f);
+                        delete[] data;
+
                         break;
-                    case CHUNK("ROOMSPAL") :
+                    }
+                    case CHUNK("ROOMSPAL") : {
                         ASSERTV(stream.readLE32() == 0x02000000);
                         spalCount = stream.readBE32();
-                        spal = new SPAL[spalCount];
-                        stream.raw(spal, sizeof(SPAL) * spalCount);
+                        spal = new uint16[spalCount];
+                        for (int i = 0; i < spalCount; i++)
+                            spal[i] = stream.readBE16();
+
+                        uint8 *data = new uint8[roomTexturesDataSize];
+                        for (int i = 0; i < roomTexturesDataSize; i++) {
+                            Color32 c = Color16(spal[roomTexturesData[i]]);
+                            data[i] = uint8((int(c.r) + int(c.g) + int(c.b)) / 3);
+                        }
+                        FILE *f = fopen("room_data_16.dmp", "wb");
+                        fwrite(data, 1, roomTexturesDataSize, f);
+                        fclose(f);
+                        delete[] data;
+
+
                         break;
+                    }
                     case CHUNK("ROOMDATA") :
                         ASSERTV(stream.readBE32() == 0x00000044);
                         roomsCount = stream.readBE32();
@@ -3164,6 +3195,10 @@ namespace TR {
                                         f.vertices[3] = 0;
                                         ASSERT(f.vertices[0] < data.vCount && f.vertices[1] < data.vCount && f.vertices[2] < data.vCount);
                                         f.flags.value = stream.readBE16();
+                                        if (type == TYPE_T_INVISIBLE) {
+                                            fIndex--;
+                                            continue;
+                                        }
                                         data.tCount++;
                                         break;
                                     case TYPE_R_INVISIBLE  :
@@ -3176,19 +3211,28 @@ namespace TR {
                                         f.vertices[3] = (stream.readBE16() >> 4);
                                         ASSERT(f.vertices[0] < data.vCount && f.vertices[1] < data.vCount && f.vertices[2] < data.vCount && f.vertices[3] < data.vCount);
                                         f.flags.value = stream.readBE16();
+                                        if (type == TYPE_R_INVISIBLE) {
+                                            fIndex--;
+                                            continue;
+                                        }
                                         data.rCount++;
                                         break;
                                     default :
                                         LOG("! unknown face type: %d\n", type);
                                         ASSERT(false);
                                 }
-                                if (type == TYPE_R_INVISIBLE || type == TYPE_T_INVISIBLE)
-                                    f.flags.value = 0;
+                                //if (type == TYPE_R_TRANSP)
+                                //    f.flags.value = 0;
                                 //ASSERT(f.flags.value % 16 == 0);
                                 //ASSERT(f.flags.value / 16 < roomTexturesCount);
                                 f.flags.value /= 16;
                                 f.water       = false;
                                 f.colored     = false;
+                                f.flip        = false;
+
+                                if (type == TYPE_R_TRANSP) {
+                                    roomTextures[f.flags.texture].attribute = 1;
+                                }
                             }
                         }
                         data.fCount = fIndex;
@@ -3380,7 +3424,7 @@ namespace TR {
                             animTex.count    = last - first + 1;
                             animTex.textures = new uint16[animTex.count];
                             for (int j = 0; j < animTex.count; j++)
-                                animTex.textures[j] = first + j;
+                                animTex.textures[j] = last - j;
                         }
                         break;
                     }
@@ -3572,7 +3616,7 @@ namespace TR {
                         objectTexturesCount = stream.readBE32();
                         objectTextures = objectTexturesCount ? new ObjectTexture[objectTexturesCount] : NULL;
                         for (int i = 0; i < objectTexturesCount; i++)
-                            readObjectTex(stream, objectTextures[i]);
+                            readObjectTex(stream, objectTextures[i], TEX_TYPE_OBJECT);
                         break;
                     case CHUNK("OTEXTDAT") : {
                         ASSERTV(stream.readBE32() == 0x00000001);
@@ -3960,6 +4004,7 @@ namespace TR {
         #endif
 
             f.water = false;
+            f.flip  = false;
         }
 
         void readRoom(Stream &stream, int roomIndex) {
@@ -4199,6 +4244,7 @@ namespace TR {
                         f.vertices[3] >>= 2;
                         f.colored = false;
                         f.water   = false;
+                        f.flip    = false;
                     }
                 } else
                     for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
@@ -4218,6 +4264,8 @@ namespace TR {
                         f.vertices[2] >>= 2;
                         f.vertices[3] = 0;
                         f.colored = false;
+                        f.water   = false;
+                        f.flip    = false;
                     }
                 } else {
                     for (int i = 0; i < d.tCount; i++)
@@ -4420,7 +4468,7 @@ namespace TR {
                     mesh.radius      = swap16(mesh.radius);
                     mesh.flags.value = swap16(mesh.flags.value);
                     mesh.vCount      = swap16(mesh.vCount);
-            }
+                }
             }
 
             switch (version) {
@@ -4454,15 +4502,16 @@ namespace TR {
                     mesh.tCount = mesh.rCount = 0;
 
                     enum {
-                        TYPE_T_UNKNOWN1 = 2,
-                        TYPE_T_COLOR    = 4,
-                        TYPE_T_PALETTE  = 8,
-                        TYPE_T_UNKNOWN2 = 16,
-                        TYPE_R_UNKNOWN1 = 17,
-                        TYPE_R_COLOR    = 5,
-                        TYPE_R_TEX      = 9,
-                        TYPE_R_TRANSP   = 49,
-                        TYPE_R_UNKNOWN2 = 57,
+                        TYPE_T_TEX         = 2,
+                        TYPE_T_COLOR       = 4,
+                        TYPE_T_PALETTE     = 8,
+                        TYPE_T_UNKNOWN2    = 16,
+
+                        TYPE_R_COLOR       = 5,
+                        TYPE_R_TEX         = 9,
+                        TYPE_R_TRANSP      = 17,
+                        TYPE_R_FLIP_TEX    = 49,
+                        TYPE_R_FLIP_TRANSP = 57,
                     };
 
                     int divisor = 16;
@@ -4479,7 +4528,7 @@ namespace TR {
                             ASSERT(fIndex < mesh.fCount);
                             Face &f = mesh.faces[fIndex++];
                             switch (type) {
-                                case TYPE_T_UNKNOWN1 : 
+                                case TYPE_T_TEX      : 
                                 case TYPE_T_COLOR    :
                                 case TYPE_T_PALETTE  :
                                 case TYPE_T_UNKNOWN2 :
@@ -4491,12 +4540,13 @@ namespace TR {
                                     f.flags.value = stream.readBE16();
                                     ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount);
                                     mesh.tCount++;
+                                    f.colored = true;
                                     break;
-                                case TYPE_R_COLOR    :
-                                case TYPE_R_TEX      :
-                                case TYPE_R_TRANSP   :
-                                case TYPE_R_UNKNOWN1 :
-                                case TYPE_R_UNKNOWN2 :
+                                case TYPE_R_COLOR       :
+                                case TYPE_R_TEX         :
+                                case TYPE_R_TRANSP      :
+                                case TYPE_R_FLIP_TEX    :
+                                case TYPE_R_FLIP_TRANSP :
                                     f.vCount      = 4;
                                     f.vertices[0] = (stream.readBE16() >> 5);
                                     f.vertices[1] = (stream.readBE16() >> 5);
@@ -4512,7 +4562,9 @@ namespace TR {
                             }
                             if (type == TYPE_T_COLOR || type == TYPE_R_COLOR || type == TYPE_T_PALETTE || type == TYPE_T_UNKNOWN2) {
                                 if (type == TYPE_T_PALETTE)
-                                    f.flags.value = 0;
+                                    f.flags.value = 0xFFFF; // TODO
+                                if (type == TYPE_T_UNKNOWN2)
+                                    f.flags.value = 0xFF80; // TODO
                                 f.colored = true;
                             } else {
                                 ASSERT(f.flags.value % 16 == 0);
@@ -4520,6 +4572,11 @@ namespace TR {
                                 f.flags.value /= divisor;
                                 f.colored = false;
                             }
+
+                            if (type == TYPE_R_TRANSP || type == TYPE_R_FLIP_TRANSP)
+                                objectTextures[f.flags.texture].attribute = 1;
+
+                            f.flip  = (type == TYPE_R_FLIP_TEX || type == TYPE_R_FLIP_TRANSP);
                             f.water = false;
                         }
                     }
@@ -4813,7 +4870,8 @@ namespace TR {
                 case VER_TR1_SAT : {
                     struct {
                         uint16  attribute;
-                        Tile    tile;
+                        uint16  tile;
+                        uint8   triangle;
                         uint16  clut;
                         uint8   w, h;
                         uint8   x0, y0;
@@ -4828,26 +4886,36 @@ namespace TR {
                     if (type == TEX_TYPE_ITEM)
                         index = stream.readBE16();
 
-                    d.tile.value = stream.readBE16(); // offset to 4-bit indices
+                    d.triangle = false;
+                    d.tile = stream.readBE16(); // offset to 4-bit indices
                     uint16 i1 = stream.readBE16();
                     uint16 i2 = stream.readBE16();
                     uint16 i3 = stream.readBE16();
                     uint16 i4 = stream.readBE16();
-                    d.clut = stream.readBE16() + d.tile.value; // offset to color palette
-                    d.w    = stream.read();
+                    d.clut = stream.readBE16() + d.tile; // offset to color palette
+                    d.w    = stream.read() << 3;
                     d.h    = stream.read();
                     uint16 i5 = stream.readBE16();
 
-                    //LOG("%d %d %d %d %d\n", i1, i2, i3, i4, i5);
+                    //if (type == TEX_TYPE_OBJECT && d.w == 80 && d.h == 56) {
+                    //    LOG("%d %d %d %d %d\n", i1, i2, i3, i4, i5);
+                    //}
 
                     if (type == TEX_TYPE_ITEM)
                         stream.seek(2);
 
                     d.x0 = d.y0 = d.x3 = d.y1 = 0;
-                    d.x1 = d.x2 = max(0, (d.w << 3) - 1);
+                    d.x1 = d.x2 = max(0, d.w - 1);
                     d.y2 = d.y3 = max(0, d.h - 1);
 
                     SET_PARAMS(t, d, d.clut);
+
+                    t.i1 = i1;
+                    t.i2 = i2;
+                    t.i3 = i3;
+                    t.i4 = i4;
+                    t.i5 = i5;
+
 
                     t.index = index;
 
@@ -4858,7 +4926,7 @@ namespace TR {
                 case VER_TR3_PC : {
                     struct {
                         uint16  attribute;
-                        Tile    tile;
+                        uint16  tile:14, :2;
                         uint8   xh0, x0, yh0, y0;
                         uint8   xh1, x1, yh1, y1;
                         uint8   xh2, x2, yh2, y2;
@@ -4875,9 +4943,9 @@ namespace TR {
                         uint8   x0, y0;
                         uint16  clut;
                         uint8   x1, y1;
-                        Tile    tile;
+                        uint16  tile:14, :2;
                         uint8   x2, y2;
-                        uint16  unknown;
+                        uint16  unknown2;
                         uint8   x3, y3;
                         uint16  attribute; 
                     } d;
@@ -4919,7 +4987,7 @@ namespace TR {
                     t.b    = d.b;\
                 }
 
-                switch (version) {
+            switch (version) {
                 case VER_TR1_SAT : {
                     struct {
                         uint16 tile;
@@ -4941,39 +5009,39 @@ namespace TR {
                     t.texCoord[1] = t.texCoordAtlas[1] = short2( ((int16)d.w << 3) - 1, ((int16)d.h) - 1 );
                     break;
                 }
-                    case VER_TR1_PC :
-                    case VER_TR2_PC :
-                    case VER_TR3_PC : {
-                        struct {
-                            uint16  tile;
-                            uint8   u, v;
-                            uint16  w, h;
-                            int16   l, t, r, b;
-                        } d;
-                        stream.raw(&d, sizeof(d));
-                        SET_PARAMS(t, d, 0);
-                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
-                        t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
-                        break;
-                    }
-                    case VER_TR1_PSX : 
-                    case VER_TR2_PSX :
-                    case VER_TR3_PSX : {
-                        struct {
-                            int16   l, t, r, b;
-                            uint16  clut;
-                            uint16  tile;
-                            uint8   u0, v0;
-                            uint8   u1, v1;
-                        } d;
-                        stream.raw(&d, sizeof(d));
-                        SET_PARAMS(t, d, d.clut);
-                        t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
-                        t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
-                        break;
-                    }
-                    default : ASSERT(false);
+                case VER_TR1_PC :
+                case VER_TR2_PC :
+                case VER_TR3_PC : {
+                    struct {
+                        uint16  tile;
+                        uint8   u, v;
+                        uint16  w, h;
+                        int16   l, t, r, b;
+                    } d;
+                    stream.raw(&d, sizeof(d));
+                    SET_PARAMS(t, d, 0);
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u,                       d.v                       );
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( (uint8)(d.u + (d.w >> 8)), (uint8)(d.v + (d.h >> 8)) );
+                    break;
                 }
+                case VER_TR1_PSX : 
+                case VER_TR2_PSX :
+                case VER_TR3_PSX : {
+                    struct {
+                        int16   l, t, r, b;
+                        uint16  clut;
+                        uint16  tile;
+                        uint8   u0, v0;
+                        uint8   u1, v1;
+                    } d;
+                    stream.raw(&d, sizeof(d));
+                    SET_PARAMS(t, d, d.clut);
+                    t.texCoord[0] = t.texCoordAtlas[0] = short2( d.u0, d.v0 );
+                    t.texCoord[1] = t.texCoordAtlas[1] = short2( d.u1, d.v1 );
+                    break;
+                }
+                default : ASSERT(false);
+            }
 
             #undef SET_PARAMS
         }
@@ -5095,18 +5163,10 @@ namespace TR {
             }
         }
 
-        void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int16 clutIndex, TextureType type) {
+        void fillObjectTexture(Tile32 *dst, const short4 &uv, int16 tileIndex, int32 clutIndex, TextureType type) {
         // convert to RGBA
             switch (version) {
                 case VER_TR1_SAT : {
-                    /*
-                    if (type == TEX_TYPE_ROOM) {
-                        for (int y = uv.y; y < uv.w; y++)
-                            for (int x = uv.x; x < uv.z; x++)
-                                dst->color[y * 256 + x] = Color32(255, 0, 255, 255);
-                        return;
-                    }
-                    */
                     uint32 iOffset = uint32(uint16(tileIndex)) << 3;
                     uint32 cOffset = uint32(uint16(clutIndex)) << 3;
 
@@ -5123,14 +5183,37 @@ namespace TR {
                     ColorIndex4 *indices = (ColorIndex4*) (data + iOffset);
                     CLUT        *clut    = (CLUT*)        (data + cOffset);
 
+                    int h = uv.w - uv.y;
                     int w = uv.z - uv.x;
+                    ASSERT(w <= 256 && h <= 256);
+                    /*
+                    if (type == TEX_TYPE_OBJECT && w == 80 && h == 56) {
+                        for (int y = 0; y < h; y++)
+                            for (int x = 0; x < h; x++)
+                                dst->color[y * 256 + x] = Color32(255, 0, 255, 255);
+                        return;
+                    }
+                    */
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++) {
+                            ColorIndex4 *index = indices + (y * w + x) / 2;
+                            int idx = (x % 2) ? index->a : index->b;
+                            Color16 &c = clut->color[idx];
 
-                    for (int y = uv.y; y < uv.w; y++)
-                        for (int x = uv.x; x < uv.z; x++) {
-                            ColorIndex4 *index = indices + ((y - uv.y) * w + (x - uv.x)) / 2;
-                            Color16 &c = clut->color[(x % 2) ? index->a : index->b];
+                            if (idx == 0 && (c.value == 0x1BF4 || c.value == 0x0080)) {
+                                dst->color[y * 256 + x].a = 0;// = Color32(255, 0, 0, 0);
+                                continue;
+                            }
+
                             dst->color[y * 256 + x] = Color16(swap16(c.value));
+                            /*
+                            if (dst->color[y * 256 + x].a != 255) {
+                                dst->color[y * 256 + x] = Color32(0, 255, 0, 255);
+                                continue;
+                            }
+                            */
                         }
+
                     break;
                 }
                 case VER_TR1_PC : {
@@ -5205,7 +5288,7 @@ namespace TR {
                     ObjectTexture &t = objectTextures[texture & 0x7FFF];
                     int idx  = (t.texCoord[0].y * 256 + t.texCoord[0].x) / 2;
                     int part = t.texCoord[0].x % 2;
-                    Tile4 &tile = tiles4[t.tile.index];
+                    Tile4 &tile = tiles4[t.tile];
                     CLUT  &clut = cluts[t.clut];
                     return clut.color[part ? tile.index[idx].b : tile.index[idx].a];
                 }
@@ -5278,7 +5361,7 @@ namespace TR {
 
         void floorSkipCommand(FloorData* &fd, int func) {
             switch (func) {
-                case FloorData::PORTAL      :
+                case FloorData::PORTAL  :
                 case FloorData::FLOOR   :
                 case FloorData::CEILING : 
                     fd++;

@@ -1145,7 +1145,8 @@ struct Level : IGame {
             src     = owner->tileData->color;
             uv      = t.texCoordAtlas;
             uvCount = 4;
-            level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, t.type);
+            if (data)
+                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, t.type);
         } else {
             id -= level->objectTexturesCount;
 
@@ -1155,7 +1156,8 @@ struct Level : IGame {
                 src     = owner->tileData->color;
                 uv      = t.texCoordAtlas;
                 uvCount = 2;
-                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, TR::TextureType::TEX_TYPE_SPRITE);
+                if (data)
+                    level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, TR::TextureType::TEX_TYPE_SPRITE);
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
 
@@ -1302,7 +1304,7 @@ struct Level : IGame {
             uv.z = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
             uv.w = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
 
-            tiles->add(texIdx++, uv, t.tile.index, t.clut);
+            tiles->add(texIdx++, t.type, uv, t.tile, t.clut);
         }
         // add sprites
         for (int i = 0; i < level.spriteTexturesCount; i++) {
@@ -1314,12 +1316,12 @@ struct Level : IGame {
             uv.z = t.texCoord[1].x + 1;
             uv.w = t.texCoord[1].y + 1;
 
-            tiles->add(texIdx++, uv, t.tile, t.clut);
+            tiles->add(texIdx++, TR::TEX_TYPE_SPRITE, uv, t.tile, t.clut);
         }
         // add common textures
         const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
         for (int i = 0; i < UI::BAR_MAX; i++)
-            tiles->add(texIdx++, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y));
+            tiles->add(texIdx++, TR::TEX_TYPE_SPRITE, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y));
 
         // get result texture
         tileData = new TR::Tile32();

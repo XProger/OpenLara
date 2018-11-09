@@ -413,6 +413,9 @@ namespace UI {
 
             int frame = charRemap(c);
 
+            if (frame >= level->spriteSequences[seq].sCount)
+                continue;
+
             if (buffer.iCount == MAX_CHARS * 6)
                 flush();
 
@@ -467,6 +470,9 @@ namespace UI {
 
         if (buffer.iCount == MAX_CHARS * 6)
             flush();
+
+        if (specChar >= level->spriteSequences[seq].sCount)
+            return;
 
         TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
 

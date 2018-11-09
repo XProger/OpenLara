@@ -936,6 +936,7 @@ namespace TR {
             }
         } else {
             switch (version) {
+                case VER_TR1_SAT :
                 case VER_TR1_PC  :
                 case VER_TR1_PSX :
                     sprintf(title, "audio/1/track_%02d.ogg", track);

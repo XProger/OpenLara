@@ -17,6 +17,8 @@ TR::ObjectTexture &whiteTile = barTile[4]; // BAR_WHITE
 #define WATER_VOLUME_HEIGHT (768 * 2)
 #define WATER_VOLUME_OFFSET 4
 
+const TR::Color32 COLOR_WHITE( 255, 255, 255, 255 );
+
 struct Mesh : GAPI::Mesh {
     int aIndex;
 
@@ -365,8 +367,6 @@ struct MeshBuilder {
         int vStartModel = vCount;
         aCount++;
 
-        TR::Color32 COLOR_WHITE(255, 255, 255, 255);
-
         for (int i = 0; i < level.modelsCount; i++) {
             TR::Model &model = level.models[i];
 
@@ -487,7 +487,7 @@ struct MeshBuilder {
         quad.iStart = iCount;
         quad.iCount = 2 * 3;
 
-        addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteTile, false);
+        addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteTile, false, false);
         vertices[vCount + 0].coord = short4( -32767,  32767, 0, 1 );
         vertices[vCount + 1].coord = short4(  32767,  32767, 1, 1 );
         vertices[vCount + 2].coord = short4(  32767, -32767, 1, 0 );
@@ -926,8 +926,8 @@ struct MeshBuilder {
                 continue;
             }
 
-            if (!geom.validForTile(t.tile.index, t.clut))
-                geom.getNextRange(vStart, iCount, t.tile.index, t.clut);
+            if (!geom.validForTile(t.tile, t.clut))
+                geom.getNextRange(vStart, iCount, t.tile, t.clut);
 
             ADD_ROOM_FACE(indices, iCount, vCount, vStart, vertices, f, t);
         }
@@ -959,7 +959,6 @@ struct MeshBuilder {
     }
 
     bool buildMesh(Geometry &geom, int blendMask, const TR::Mesh &mesh, const TR::Level &level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const TR::Color32 &light) {
-        TR::Color24 COLOR_WHITE( 255, 255, 255 );
         bool isOpaque = true;
 
         for (int j = 0; j < mesh.fCount; j++) {
@@ -973,8 +972,8 @@ struct MeshBuilder {
             if (!(blendMask & getBlendMask(t.attribute)))
                 continue;
 
-            if (!geom.validForTile(t.tile.index, t.clut))
-                geom.getNextRange(vStart, iCount, t.tile.index, t.clut);
+            if (!geom.validForTile(t.tile, t.clut))
+                geom.getNextRange(vStart, iCount, t.tile, t.clut);
 
             TR::Color32 c = f.colored ? level.getColor(f.flags.value) : COLOR_WHITE;
 
@@ -1001,7 +1000,7 @@ struct MeshBuilder {
         return isOpaque;
     }
 
-    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex, bool triangle) {
+    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex, bool triangle, bool flip) {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
@@ -1010,9 +1009,14 @@ struct MeshBuilder {
 
         if (((level->version & TR::VER_PSX)) && !triangle) // TODO: swap vertices instead of rectangle indices and vertices.texCoords (WRONG lighting in TR2!)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
+
+        if (flip) {
+            swap(vertices[vCount + 0].texCoord, vertices[vCount + 1].texCoord);
+            swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
+        }
     }
 
-    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided) {
+    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1028,10 +1032,10 @@ struct MeshBuilder {
             iCount += 3;
         }
 
-        if (tex) addTexCoord(vertices, vCount, tex, true);
+        if (tex) addTexCoord(vertices, vCount, tex, true, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided) {
+    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1056,12 +1060,12 @@ struct MeshBuilder {
             iCount += 6;
         }
 
-        if (tex) addTexCoord(vertices, vCount, tex, false);
+        if (tex) addTexCoord(vertices, vCount, tex, false, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided,
+    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip,
                  const short3 &c0, const short3 &c1, const short3 &c2, const short3 &c3) {
-        addQuad(indices, iCount, vCount, vStart, vertices, tex, doubleSided);
+        addQuad(indices, iCount, vCount, vStart, vertices, tex, doubleSided, flip);
 
         vec3 a = c0 - c1;
         vec3 b = c3 - c2;
@@ -1099,9 +1103,9 @@ struct MeshBuilder {
 
     void addFace(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, const TR::Face &f, TR::ObjectTexture *tex, const short3 &a, const short3 &b, const short3 &c, const short3 &d) {
         if (f.vCount == 4)
-            addQuad(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, a, b, c, d);
+            addQuad(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip, a, b, c, d);
         else
-            addTriangle(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided);
+            addTriangle(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip);
     }
 
 
@@ -1114,7 +1118,7 @@ struct MeshBuilder {
     }
 
     void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, const TR::Color32 &tColor, const TR::Color32 &bColor, bool expand = false) {
-        addQuad(indices, iCount, vCount, vStart, NULL, NULL, false);
+        addQuad(indices, iCount, vCount, vStart, NULL, NULL, false, false);
 
         Vertex *quad = &vertices[vCount];
 
@@ -1161,7 +1165,7 @@ struct MeshBuilder {
     }
 
     void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color, uint32 color2 = 0) {
-        addQuad(indices, iCount, vCount, 0, vertices, NULL, false);
+        addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false);
 
         int16 minX = int16(pos.x);
         int16 minY = int16(pos.y);
@@ -1214,8 +1218,8 @@ struct MeshBuilder {
             v.texCoord    = uv;
         }
 
-        addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
-        addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
 
         vertices[vCount + 0].coord = short4( minX, int16(maxY - 1), 0, 0 );
         vertices[vCount + 1].coord = short4( maxX, int16(maxY - 1), 0, 0 );
@@ -1234,8 +1238,8 @@ struct MeshBuilder {
             v.texCoord    = uv;
         }
 
-        addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
-        addQuad(indices, iCount, vCount, 0, vertices, NULL, false); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
+        addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
     }
     
     void renderBuffer(Index *indices, int iCount, Vertex *vertices, int vCount) {

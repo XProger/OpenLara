@@ -683,9 +683,10 @@ struct Texture : GAPI::Texture {
 
 struct Atlas {
     struct Tile {
-        int32  id;
-        int16  tile;
-        int16  clut;
+        uint16 id;
+        uint16 type;
+        uint16 tile;
+        uint16 clut;
         short4 uv;
     } *tiles;
 
@@ -760,9 +761,9 @@ struct Atlas {
         delete[] tiles;
     }
 
-    void add(int32 id, short4 uv, int16 tile = 0, int16 clut = 0) {
+    void add(uint16 id, uint16 type, short4 uv, uint16 tile = 0, uint16 clut = 0) {
         for (int i = 0; i < tilesCount; i++)
-            if (tiles[i].uv == uv && tiles[i].tile == tile && tiles[i].clut == clut) {
+            if (tiles[i].uv == uv && tiles[i].type == type && tiles[i].tile == tile && tiles[i].clut == clut) {
                 uv.x = 0x7FFF;
                 uv.y = tiles[i].id;
                 uv.z = uv.w = 0;
@@ -770,6 +771,7 @@ struct Atlas {
             }
 
         tiles[tilesCount].id   = id;
+        tiles[tilesCount].type = type;
         tiles[tilesCount].tile = tile;
         tiles[tilesCount].clut = clut;
         tiles[tilesCount].uv   = uv;
