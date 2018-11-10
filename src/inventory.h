@@ -508,9 +508,10 @@ struct Inventory {
 
             Core::setBasis(joints, m.mCount);
 
-            Core::setBlendMode(bmAlpha);
+            Core::setBlendMode(bmNone);
             mesh->transparent = 0;
             mesh->renderModel(desc.model);
+            Core::setBlendMode(bmPremult);
             mesh->transparent = 1;
             mesh->renderModel(desc.model);
             Core::setBlendMode(bmAdd);
@@ -1655,7 +1656,7 @@ struct Inventory {
                 renderTitleBG(1.0f, sy, alpha);
         }
 
-        Core::setBlendMode(bmAlpha);
+        Core::setBlendMode(bmPremult);
         Core::setDepthTest(true);
     }
 

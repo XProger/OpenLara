@@ -330,7 +330,7 @@ namespace UI {
 
     void begin() {
         Core::setDepthTest(false);
-        Core::setBlendMode(bmAlpha);
+        Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
         game->setupBinding();
 
@@ -419,7 +419,7 @@ namespace UI {
             if (buffer.iCount == MAX_CHARS * 6)
                 flush();
 
-            TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
+            TR::TextureInfo &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
 
             TR::Color32 tColor, bColor;
             if (isShadow) {
@@ -474,7 +474,7 @@ namespace UI {
         if (specChar >= level->spriteSequences[seq].sCount)
             return;
 
-        TR::SpriteTexture &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
+        TR::TextureInfo &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
 
         #ifdef SPLIT_BY_TILE
             if (sprite.tile != curTile

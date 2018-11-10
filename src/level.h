@@ -1140,28 +1140,28 @@ struct Level : IGame {
         short4 mm;
         
         if (id < level->objectTexturesCount) { // textures
-            TR::ObjectTexture &t = level->objectTextures[id];
+            TR::TextureInfo &t = level->objectTextures[id];
             mm      = t.getMinMax();
             src     = owner->tileData->color;
             uv      = t.texCoordAtlas;
             uvCount = 4;
             if (data)
-                level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, t.type);
+                level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
         } else {
             id -= level->objectTexturesCount;
 
             if (id < level->spriteTexturesCount) { // sprites
-                TR::SpriteTexture &t = level->spriteTextures[id];
+                TR::TextureInfo &t = level->spriteTextures[id];
                 mm      = t.getMinMax();
                 src     = owner->tileData->color;
                 uv      = t.texCoordAtlas;
                 uvCount = 2;
                 if (data)
-                    level->fillObjectTexture(owner->tileData, tile.uv, tile.tile, tile.clut, TR::TextureType::TEX_TYPE_SPRITE);
+                    level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
 
-                TR::ObjectTexture *tex;
+                TR::TextureInfo *tex;
                 mm.x = mm.y = mm.z = mm.w = 0;
                 stride  = 1;
                 uvCount = 4;
@@ -1296,7 +1296,7 @@ struct Level : IGame {
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
         // add textures
         for (int i = texIdx; i < level.objectTexturesCount; i++) {
-            TR::ObjectTexture &t = level.objectTextures[i];
+            TR::TextureInfo &t = level.objectTextures[i];
 
             short4 uv;
             uv.x = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
@@ -1304,11 +1304,11 @@ struct Level : IGame {
             uv.z = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
             uv.w = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
 
-            tiles->add(texIdx++, t.type, uv, t.tile, t.clut);
+            tiles->add(texIdx++, uv, &t);
         }
         // add sprites
         for (int i = 0; i < level.spriteTexturesCount; i++) {
-            TR::SpriteTexture &t = level.spriteTextures[i];
+            TR::TextureInfo &t = level.spriteTextures[i];
 
             short4 uv;
             uv.x = t.texCoord[0].x;
@@ -1316,12 +1316,14 @@ struct Level : IGame {
             uv.z = t.texCoord[1].x + 1;
             uv.w = t.texCoord[1].y + 1;
 
-            tiles->add(texIdx++, TR::TEX_TYPE_SPRITE, uv, t.tile, t.clut);
+            tiles->add(texIdx++, uv, &t);
         }
         // add common textures
         const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
-        for (int i = 0; i < UI::BAR_MAX; i++)
-            tiles->add(texIdx++, TR::TEX_TYPE_SPRITE, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y));
+        for (int i = 0; i < UI::BAR_MAX; i++) {
+            barTile[i].type = TR::TEX_TYPE_SPRITE;
+            tiles->add(texIdx++, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), &barTile[i]);
+        }
 
         // get result texture
         tileData = new TR::Tile32();
@@ -1548,8 +1550,8 @@ struct Level : IGame {
         Core::mModel.identity();
 
         switch (transp) {
-            case 0 : Core::setBlendMode(bmNone);  break;
-            case 1 : Core::setBlendMode(bmAlpha); break;
+            case 0 : Core::setBlendMode(bmNone);    break;
+            case 1 : Core::setBlendMode(bmPremult); break;
             case 2 : Core::setBlendMode(bmAdd);   Core::setDepthWrite(false); break;
         }
 
@@ -1592,7 +1594,7 @@ struct Level : IGame {
         Core::setDepthWrite(true);
 
         if (transp == 1) {
-            Core::setBlendMode(bmAlpha);
+            Core::setBlendMode(bmPremult);
 
             #ifdef MERGE_SPRITES
                 basis.rot = Core::mViewInv.getRot();
@@ -2001,7 +2003,7 @@ struct Level : IGame {
         }
 
         if (transp == 1) {
-            Core::setBlendMode(bmAlpha);
+            Core::setBlendMode(bmPremult);
             renderEntitiesTransp(transp);
 
             #ifdef FFP

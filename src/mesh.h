@@ -4,8 +4,8 @@
 #include "core.h"
 #include "format.h"
 
-TR::ObjectTexture barTile[5 /* UI::BAR_MAX */];
-TR::ObjectTexture &whiteTile = barTile[4]; // BAR_WHITE
+TR::TextureInfo barTile[5 /* UI::BAR_MAX */];
+TR::TextureInfo &whiteTile = barTile[4]; // BAR_WHITE
 
 #define PLANE_DETAIL 48
 #define CIRCLE_SEGS  16
@@ -352,7 +352,7 @@ struct MeshBuilder {
             for (int j = 0; j < d.sCount; j++) {
                 TR::Room::Data::Sprite &f = d.sprites[j];
                 TR::Room::Data::Vertex &v = d.vertices[f.vertex];
-                TR::SpriteTexture &sprite = level.spriteTextures[f.texture];
+                TR::TextureInfo &sprite = level.spriteTextures[f.texture];
 
                 addSprite(indices, vertices, iCount, vCount, vStartRoom, v.vertex.x, v.vertex.y, v.vertex.z, sprite, v.color, v.color);
             }
@@ -425,7 +425,7 @@ struct MeshBuilder {
             range.vStart = vStartSprite;
             range.iStart = iCount;
             for (int j = 0; j < level.spriteSequences[i].sCount; j++) {
-                TR::SpriteTexture &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
+                TR::TextureInfo &sprite = level.spriteTextures[level.spriteSequences[i].sStart + j];
                 addSprite(indices, vertices, iCount, vCount, vStartSprite, 0, 0, 0, sprite, TR::Color32(255, 255, 255, 255), TR::Color32(255, 255, 255, 255));
             }
             range.iCount = iCount - range.iStart;
@@ -911,7 +911,7 @@ struct MeshBuilder {
             TR::Face &f = d.faces[j];
             ASSERT(!f.colored);
             ASSERT(f.flags.texture < level.objectTexturesCount);
-            TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
+            TR::TextureInfo &t = level.objectTextures[f.flags.texture];
 
             if (f.water) continue;
 
@@ -944,8 +944,8 @@ struct MeshBuilder {
             dyn.faces = new uint16[dyn.count];
             dyn.count = 0;
             for (int j = 0; j < d.fCount; j++) {
-                TR::Face          &f = d.faces[j];
-                TR::ObjectTexture &t = level.objectTextures[f.flags.texture];
+                TR::Face        &f = d.faces[j];
+                TR::TextureInfo &t = level.objectTextures[f.flags.texture];
 
                 if (f.water) continue;
 
@@ -964,7 +964,7 @@ struct MeshBuilder {
         for (int j = 0; j < mesh.fCount; j++) {
             TR::Face &f = mesh.faces[j];
             ASSERT(f.colored || f.flags.texture < level.objectTexturesCount);
-            TR::ObjectTexture &t = f.colored ? whiteTile : level.objectTextures[f.flags.texture];
+            TR::TextureInfo &t = f.colored ? whiteTile : level.objectTextures[f.flags.texture];
 
             if (t.attribute != 0)
                 isOpaque = false;
@@ -1000,7 +1000,7 @@ struct MeshBuilder {
         return isOpaque;
     }
 
-    void addTexCoord(Vertex *vertices, int vCount, TR::ObjectTexture *tex, bool triangle, bool flip) {
+    void addTexCoord(Vertex *vertices, int vCount, TR::TextureInfo *tex, bool triangle, bool flip) {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
@@ -1016,7 +1016,7 @@ struct MeshBuilder {
         }
     }
 
-    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip) {
+    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1035,7 +1035,7 @@ struct MeshBuilder {
         if (tex) addTexCoord(vertices, vCount, tex, true, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip) {
+    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1063,7 +1063,7 @@ struct MeshBuilder {
         if (tex) addTexCoord(vertices, vCount, tex, false, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::ObjectTexture *tex, bool doubleSided, bool flip,
+    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip,
                  const short3 &c0, const short3 &c1, const short3 &c2, const short3 &c3) {
         addQuad(indices, iCount, vCount, vStart, vertices, tex, doubleSided, flip);
 
@@ -1101,7 +1101,7 @@ struct MeshBuilder {
     }
 
 
-    void addFace(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, const TR::Face &f, TR::ObjectTexture *tex, const short3 &a, const short3 &b, const short3 &c, const short3 &d) {
+    void addFace(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, const TR::Face &f, TR::TextureInfo *tex, const short3 &a, const short3 &b, const short3 &c, const short3 &d) {
         if (f.vCount == 4)
             addQuad(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip, a, b, c, d);
         else
@@ -1117,7 +1117,7 @@ struct MeshBuilder {
         return short4(int16(coord.x), int16(coord.y), int16(coord.z), 0);
     }
 
-    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::SpriteTexture &sprite, const TR::Color32 &tColor, const TR::Color32 &bColor, bool expand = false) {
+    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, const TR::TextureInfo &sprite, const TR::Color32 &tColor, const TR::Color32 &bColor, bool expand = false) {
         addQuad(indices, iCount, vCount, vStart, NULL, NULL, false, false);
 
         Vertex *quad = &vertices[vCount];
@@ -1164,7 +1164,7 @@ struct MeshBuilder {
         vCount += 4;
     }
 
-    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::ObjectTexture &tile, const vec2 &pos, const vec2 &size, uint32 color, uint32 color2 = 0) {
+    void addBar(Index *indices, Vertex *vertices, int &iCount, int &vCount, const TR::TextureInfo &tile, const vec2 &pos, const vec2 &size, uint32 color, uint32 color2 = 0) {
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false);
 
         int16 minX = int16(pos.x);
@@ -1277,8 +1277,8 @@ struct MeshBuilder {
 
             const TR::Room::Data &d = level->rooms[roomIndex].data;
             for (int i = 0; i < dyn.count; i++) {
-                TR::Face          &f = d.faces[dyn.faces[i]];
-                TR::ObjectTexture &t = level->objectTextures[f.flags.texture];
+                TR::Face        &f = d.faces[dyn.faces[i]];
+                TR::TextureInfo &t = level->objectTextures[f.flags.texture];
 
             #ifdef SPLIT_BY_TILE
                 if (iCount) {

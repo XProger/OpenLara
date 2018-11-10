@@ -683,11 +683,9 @@ struct Texture : GAPI::Texture {
 
 struct Atlas {
     struct Tile {
-        uint16 id;
-        uint16 type;
-        uint16 tile;
-        uint16 clut;
-        short4 uv;
+        uint16          id;
+        TR::TextureInfo *tex;
+        short4          uv;
     } *tiles;
 
     typedef void (Callback)(int id, int tileX, int tileY, int atalsWidth, int atlasHeight, Tile &tile, void *userData, void *data);
@@ -761,20 +759,18 @@ struct Atlas {
         delete[] tiles;
     }
 
-    void add(uint16 id, uint16 type, short4 uv, uint16 tile = 0, uint16 clut = 0) {
+    void add(uint16 id, short4 uv, TR::TextureInfo *tex) {
         for (int i = 0; i < tilesCount; i++)
-            if (tiles[i].uv == uv && tiles[i].type == type && tiles[i].tile == tile && tiles[i].clut == clut) {
+            if (tiles[i].uv == uv && tiles[i].tex->type == tex->type && tiles[i].tex->tile == tex->tile && tiles[i].tex->clut == tex->clut) {
                 uv.x = 0x7FFF;
                 uv.y = tiles[i].id;
                 uv.z = uv.w = 0;
                 break;
             }
 
-        tiles[tilesCount].id   = id;
-        tiles[tilesCount].type = type;
-        tiles[tilesCount].tile = tile;
-        tiles[tilesCount].clut = clut;
-        tiles[tilesCount].uv   = uv;
+        tiles[tilesCount].id  = id;
+        tiles[tilesCount].tex = tex;
+        tiles[tilesCount].uv  = uv;
         tilesCount++;
 
         if (uv.x != 0x7FFF)
@@ -839,7 +835,7 @@ struct Atlas {
 
         Texture *atlas = new Texture(width, height, FMT_RGBA, OPT_MIPMAPS, data);
 
-        //Texture::SaveBMP("atlas", (char*)data, width, height);
+        Texture::SaveBMP("atlas", (char*)data, width, height);
 
         delete[] data;
         return atlas;
