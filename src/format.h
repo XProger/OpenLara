@@ -2586,8 +2586,10 @@ namespace TR {
                     readSAT(sad);
                     readSAT(spr);
                     readSAT(snd);
-                    if (cin)
+                    if (cin) {
                         readCIN(*cin);
+                        delete cin;
+                    }
                     readSAT(stream); // sat
                     return;
                 }
