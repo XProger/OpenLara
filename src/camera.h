@@ -330,7 +330,7 @@ struct Camera : ICamera {
             int indexA = min(int(timer), level->cameraFramesCount - 1);
             int indexB = min((indexA + 1), level->cameraFramesCount - 1);
 
-            if (indexA == level->cameraFramesCount - 1) {
+            if (indexA == level->cameraFramesCount - 3) {
                 if (level->isCutsceneLevel())
                     game->loadNextLevel();
                 else {
