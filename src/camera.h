@@ -323,6 +323,8 @@ struct Camera : ICamera {
         }
 
         if (mode == MODE_CUTSCENE) {
+            ASSERT(level->cameraFramesCount && level->cameraFrames);
+
             timer += Core::deltaTime * 30.0f;
             float t = timer - int(timer);
             int indexA = min(int(timer), level->cameraFramesCount - 1);

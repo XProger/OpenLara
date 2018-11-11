@@ -1325,6 +1325,7 @@ struct Controller {
 
     Basis& getJoint(int index) {
         updateJoints();
+        ASSERT(getModel() && index < getModel()->mCount);
         return joints[index];
     }
 

@@ -2007,31 +2007,31 @@ namespace TR {
     };
 
     struct Animation {
-        uint32  frameOffset;    // Byte offset into Frames[] (divide by 2 for Frames[i])
-        uint8   frameRate;      // Engine ticks per frame
-        uint8   frameSize;      // Number of int16_t's in Frames[] used by this animation
+        uint32  frameOffset;
+        uint8   frameRate;
+        uint8   frameSize;
 
         uint16  state;
 
         fixed   speed;
         fixed   accel;
 
-        uint16  frameStart;     // First frame in this animation
-        uint16  frameEnd;       // Last frame in this animation
+        uint16  frameStart;
+        uint16  frameEnd;
         uint16  nextAnimation;
         uint16  nextFrame;
 
         uint16  scCount;
-        uint16  scOffset;       // Offset into StateChanges[]
+        uint16  scOffset;
 
-        uint16  acCount;        // How many of them to use.
-        uint16  animCommand;    // Offset into AnimCommand[]
+        uint16  acCount;
+        uint16  animCommand;
     };
 
     struct AnimState {
         uint16  state;
-        uint16  rangesCount;    // number of ranges
-        uint16  rangesOffset;   // Offset into animRanges[]
+        uint16  rangesCount;
+        uint16  rangesOffset;
     };
 
     struct AnimRange {
@@ -2557,12 +2557,37 @@ namespace TR {
                     name[len] = '\0';
                     strcat(name, ".SND");
                     Stream snd(name);
+                    name[len] = '\0';
+                    strcat(name, ".CIN");
+
+                    Stream *cin = NULL;
+                    if (Stream::existsContent(name)) {
+                        cin = new Stream(name);
+                    } else {
+                        len = strlen(name);
+                        for (int i = len - 1; i >= 0; i--)
+                            if (name[i] == '/' || name[i] == '\\') {
+                                char *newName = new char[len + 11 + 1];
+                                name[i] = 0;
+                                strcpy(newName, name);
+                                strcat(newName, "/../CINDATA/");
+                                strcat(newName, name + i + 1);
+                                delete[] name;
+                                name = newName;
+                                break;
+                            }
+
+                        if (Stream::existsContent(name))
+                            cin = new Stream(name);
+                    }
 
                     delete[] name;
 
                     readSAT(sad);
                     readSAT(spr);
                     readSAT(snd);
+                    if (cin)
+                        readCIN(*cin);
                     readSAT(stream); // sat
                     return;
                 }
@@ -3367,7 +3392,6 @@ namespace TR {
                     case CHUNK("ROOMEND ") :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
-                        LOG("tsubCount = %d\n", tsubCount);
                         LOG("tpalCount = %d\n", tpalCount);
                         LOG("spalCount = %d\n", spalCount);
                         prepare();
@@ -3617,6 +3641,13 @@ namespace TR {
                     }
                 }
             }
+        }
+
+        void readCIN(Stream &stream) {
+            stream.seek(2); // skip unknown word
+            cameraFramesCount = (stream.size - 2) / 16;
+            cameraFrames = cameraFramesCount ? new CameraFrame[cameraFramesCount] : NULL;
+            stream.raw(cameraFrames, cameraFramesCount * 16);
         }
 
         void appendObjectTex(TextureInfo *&objTex, int32 &count) {
@@ -4429,9 +4460,8 @@ namespace TR {
                     enum {
                         TYPE_T_TEX         = 2,
                         TYPE_T_COLOR       = 4,
-                        TYPE_T_PALETTE     = 8,
+                        TYPE_T_UNKNOWN1    = 8,
                         TYPE_T_UNKNOWN2    = 16,
-
                         TYPE_R_COLOR       = 5,
                         TYPE_R_TEX         = 9,
                         TYPE_R_TRANSP      = 17,
@@ -4450,25 +4480,19 @@ namespace TR {
                         texturesCount = objectTexturesCount;
                     }
 
-
-                    int divisor = 16;
-                    //if (Entity::isInventoryItem(type))
-                    //    divisor = 20;
-
                     int fIndex = 0;
                     uint16 typesCount = stream.readBE16();
                     for (int j = 0; j < typesCount; j++) {
                         uint16 type  = stream.readBE16();
                         uint16 count = stream.readBE16();
-                        LOG(" type:%d count:%d\n", (int)type, (int)count);
+
                         for (int k = 0; k < count; k++) {
                             ASSERT(fIndex < mesh.fCount);
                             Face &f = mesh.faces[fIndex++];
                             switch (type) {
+                                case TYPE_T_COLOR    : f.colored = true;
                                 case TYPE_T_TEX      : 
-                                case TYPE_T_COLOR    :
-
-                                case TYPE_T_PALETTE  :
+                                case TYPE_T_UNKNOWN1 :
                                 case TYPE_T_UNKNOWN2 :
                                     f.vCount      = 3;
                                     f.vertices[0] = (stream.readBE16() >> 5);
@@ -4478,9 +4502,8 @@ namespace TR {
                                     f.flags.value = stream.readBE16();
                                     ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount);
                                     mesh.tCount++;
-                                    f.colored = true;
                                     break;
-                                case TYPE_R_COLOR       :
+                                case TYPE_R_COLOR       : f.colored = true;
                                 case TYPE_R_TEX         :
                                 case TYPE_R_TRANSP      :
                                 case TYPE_R_FLIP_TEX    :
@@ -4498,17 +4521,20 @@ namespace TR {
                                     LOG("! unknown face type: %d\n", type);
                                     ASSERT(false);
                             }
-                            if (type == TYPE_T_COLOR || type == TYPE_R_COLOR || type == TYPE_T_PALETTE || type == TYPE_T_UNKNOWN2) {
-                                if (type == TYPE_T_PALETTE)
-                                    f.flags.value = 0xFFFF; // TODO
+
+                            // TODO
+                            if (type == TYPE_T_UNKNOWN1 || type == TYPE_T_UNKNOWN2) {
+                                if (type == TYPE_T_UNKNOWN1)
+                                    f.flags.value = 0xFFFF;
                                 if (type == TYPE_T_UNKNOWN2)
-                                    f.flags.value = 0xFF80; // TODO
+                                    f.flags.value = 0xFF80;
                                 f.colored = true;
-                            } else {
+                            }
+
+                            if (!f.colored) {
                                 ASSERT(f.flags.value % 16 == 0);
                                 ASSERT(f.flags.value / 16 < texturesCount);
-                                f.flags.value /= divisor;
-                                f.colored = false;
+                                f.flags.value /= 16;
                             }
 
                             if (type == TYPE_R_TRANSP || type == TYPE_R_FLIP_TRANSP)
@@ -5131,7 +5157,7 @@ namespace TR {
                             Color16 &c = clut->color[idx];
 
                             if (t->attribute == 1 && idx == 0)
-                                dst->color[y * 256 + x] = Color32(255, 0, 0, 0);
+                                dst->color[y * 256 + x] = Color32(0, 0, 0, 0);
                             else
                                 dst->color[y * 256 + x] = Color16(swap16(c.value));
                         }
