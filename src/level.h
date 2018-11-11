@@ -1121,11 +1121,11 @@ struct Level : IGame {
             // oxygen bar
                 { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 },
             // option bar
-                { 0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF },
+                { 0x00000000, 0x20202020, 0x20202020, 0x20202020, 0x00000000,
+                  0x00000000, 0x60606060, 0x60606060, 0x60606060, 0x00000000,
+                  0x00000000, 0x80808080, 0x80808080, 0x80808080, 0x00000000,
+                  0x00000000, 0x60606060, 0x60606060, 0x60606060, 0x00000000,
+                  0x00000000, 0x20202020, 0x20202020, 0x20202020, 0x00000000 },
             // white bar (white tile)
                 { 0xFFFFFFFF },
             };
@@ -1290,13 +1290,12 @@ struct Level : IGame {
 
         //dumpGlyphs();
 
-        int texIdx = 0;
-
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
         // add textures
-        for (int i = texIdx; i < level.objectTexturesCount; i++) {
+        for (int i = 0; i < level.objectTexturesCount; i++) {
             TR::TextureInfo &t = level.objectTextures[i];
+            if (t.tile == 0xFFFF) continue;
 
             short4 uv;
             uv.x = min(min(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x);
@@ -1304,11 +1303,12 @@ struct Level : IGame {
             uv.z = max(max(t.texCoord[0].x, t.texCoord[1].x), t.texCoord[2].x) + 1;
             uv.w = max(max(t.texCoord[0].y, t.texCoord[1].y), t.texCoord[2].y) + 1;
 
-            tiles->add(texIdx++, uv, &t);
+            tiles->add(i, uv, &t);
         }
         // add sprites
         for (int i = 0; i < level.spriteTexturesCount; i++) {
             TR::TextureInfo &t = level.spriteTextures[i];
+            if (t.tile == 0xFFFF) continue;
 
             short4 uv;
             uv.x = t.texCoord[0].x;
@@ -1316,13 +1316,13 @@ struct Level : IGame {
             uv.z = t.texCoord[1].x + 1;
             uv.w = t.texCoord[1].y + 1;
 
-            tiles->add(texIdx++, uv, &t);
+            tiles->add(level.objectTexturesCount + i, uv, &t);
         }
         // add common textures
         const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
         for (int i = 0; i < UI::BAR_MAX; i++) {
             barTile[i].type = TR::TEX_TYPE_SPRITE;
-            tiles->add(texIdx++, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), &barTile[i]);
+            tiles->add(level.objectTexturesCount + level.spriteTexturesCount + i, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), &barTile[i]);
         }
 
         // get result texture
