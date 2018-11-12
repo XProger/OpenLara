@@ -3299,6 +3299,19 @@ namespace TR {
                         uint32 flag = stream.readBE32();
                         if (flag == 0x00000000) { // SND
                             ASSERTV(stream.readBE32() == 0x00000000);
+
+                            int pos = stream.pos;
+                            stream.setPos(0);
+                            soundDataSize = stream.size;
+                            soundData = new uint8[soundDataSize];
+                            stream.raw(soundData, soundDataSize);
+                            soundOffsetsCount = 256;
+                            soundOffsets = new uint32[soundOffsetsCount];
+                            soundSize    = new uint32[soundOffsetsCount];
+                            memset(soundOffsets, 0, soundOffsetsCount * sizeof(uint32));
+                            memset(soundSize,    0, soundOffsetsCount * sizeof(uint32));
+                            stream.setPos(pos);
+
                             break;
                         }
                         ASSERT(flag == 0x00000010); // SAT
@@ -3603,8 +3616,8 @@ namespace TR {
                         spriteSequences = spriteSequencesCount ? new SpriteSequence[spriteSequencesCount] : NULL;
                         for (int i = 0; i < spriteSequencesCount; i++) {
                             SpriteSequence &s = spriteSequences[i];
-                            s.unused = stream.readBE16();
-                            s.type = Entity::remap(version, Entity::Type(stream.readBE16()));
+                            ASSERTV(stream.readBE16() == 0);
+                            s.type   = Entity::remap(version, Entity::Type(stream.readBE16()));
                             s.sCount = (s.type >= Entity::TR1_TYPE_MAX) ? 1 : -stream.readBE16();
                             s.sStart = stream.readBE16();
                         }
@@ -3619,22 +3632,33 @@ namespace TR {
                         ASSERTV(stream.readBE32() == 0x00000002);
                         int count = stream.readBE32();
                         soundsMap = new int16[count];
-                        for (int i = 0; i < count; i++) {
+                        for (int i = 0; i < count; i++)
                             soundsMap[i] = stream.readBE16();
-                            soundsMap[i] = -1; // TODO
-                        }
                         break;
                     }
                     case CHUNK("SAMPINFS") : {
                         ASSERTV(stream.readBE32() == 0x00000008);
-                        int count = stream.readBE32();
-                        stream.seek(count * 8); // TODO
+                        soundsInfoCount = stream.readBE32();
+                        soundsInfo = soundsInfoCount ? new SoundInfo[soundsInfoCount] : NULL;
+                        for (int i = 0; i < soundsInfoCount; i++) {
+                            SoundInfo &s = soundsInfo[i];
+                            s.index       = stream.readBE16();
+                            s.volume      = float(stream.readBE16()) / 0x7FFF;
+                            s.chance      = float(stream.readBE16()) / 0xFFFF;
+                            s.range       = 8 * 1024;
+                            s.pitch       = 0.2f;
+                            s.flags.value = stream.readBE16();
+                        }
                         break;
                     }
                     case CHUNK("SAMPLE  ") : {
                         int32 index = stream.readBE32();
-                        int32 count = stream.readBE32();
-                        stream.seek(count); // TODO
+                        int32 size  = stream.readBE32();
+                        ASSERT(index < soundOffsetsCount);
+                        soundOffsets[index] = stream.pos - 4;
+                        soundSize[index]    = size - 4; // trim last samples (clicks)
+                        *((uint32*)(&soundData[soundOffsets[index]])) = FOURCC("SEGA"); // mark sample as SEGA PCM
+                        stream.seek(size);
                         break;
                     }
                     case CHUNK("ENDFILE\0") :
@@ -5329,6 +5353,7 @@ namespace TR {
             uint8 *data = &soundData[soundOffsets[index]];
             uint32 size = 0;
             switch (version) {
+                case VER_TR1_SAT : size = soundSize[index]; break;
                 case VER_TR1_PC  : 
                 case VER_TR2_PC  :
                 case VER_TR3_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header

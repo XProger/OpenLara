@@ -225,13 +225,24 @@ namespace Sound {
                     frame.R = stream->read(value);
                 } else
                     frame.L = frame.R = stream->read(value);
-            } else if (bits == 8) {
-                uint8 value;
-                if (channels == 2) {
-                    frame.L = stream->read(value) * 257 - 32768;
-                    frame.R = stream->read(value) * 257 - 32768;
-                } else
-                    frame.L = frame.R = stream->read(value) * 257 - 32768;
+            } else if (bits == 8 || bits == -8) {
+
+                if (bits > 0) {
+                    uint8 value;
+                    if (channels == 2) {
+                        frame.L = stream->read(value) * 257 - 32768;
+                        frame.R = stream->read(value) * 257 - 32768;
+                    } else
+                        frame.L = frame.R = stream->read(value) * 257 - 32768;
+                } else {
+                    int8 value;
+                    if (channels == 2) {
+                        frame.L = (stream->read(value) + 128) * 257 - 32768;
+                        frame.R = (stream->read(value) + 128) * 257 - 32768;
+                    } else
+                        frame.L = frame.R = (stream->read(value) + 128) * 257 - 32768;
+                }
+
             } else {
                 ASSERT(false);
                 return 0;
@@ -745,6 +756,9 @@ namespace Sound {
                 #ifdef DECODE_MP3
                     decoder = new MP3(stream, 2);
                 #endif
+            }
+            else if (fourcc == FOURCC("SEGA")) { // Sega Saturn PCM mono signed 8-bit 11025 Hz
+                decoder = new PCM(stream, 1, 11025, stream->size, -8);
             }
             else { // vag
                 stream->setPos(0);
