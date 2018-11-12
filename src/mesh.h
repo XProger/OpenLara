@@ -1032,7 +1032,7 @@ struct MeshBuilder {
                     swap(vertices[vCount + 2].texCoord, vertices[vCount + 1].texCoord);
                 }
 
-                if (flip == 12) // flip vertical
+                if (flip == 8 || flip == 12) // flip vertical
                     swap(vertices[vCount + 0].texCoord, vertices[vCount + 2].texCoord);
 
             } else {
