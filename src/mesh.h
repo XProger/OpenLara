@@ -54,7 +54,7 @@ struct Mesh : GAPI::Mesh {
                     d.vertices[f.vertices[1]].vertex,\
                     d.vertices[f.vertices[2]].vertex,\
                     d.vertices[f.vertices[3]].vertex);\
-            for (int k = 0; k < f.vCount; k++) {\
+            for (int k = 0; k < (f.triangle ? 3 : 4); k++) {\
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];\
                 Vertex &rv = vertices[vCount++];\
                 rv.coord  = short4( v.vertex.x, v.vertex.y, v.vertex.z, 0 );\
@@ -721,22 +721,22 @@ struct MeshBuilder {
                 f.water = true;
 
                 room.waterLevel = a.y;
-                if (f.vCount == 4) {
-                    iCount -= 6;
-                    vCount -= 4;
-                } else {
+                if (f.triangle) {
                     iCount -= 3;
                     vCount -= 3;
+                } else {
+                    iCount -= 6;
+                    vCount -= 4;
                 }
 
             // preserve indices & vertices for water volume
                 if (room.flags.water && Core::settings.detail.water > Core::Settings::MEDIUM) {
                 // water volume caps
-                    iCount += (f.vCount == 4 ? 6 : 3) * 2;
-                    vCount += f.vCount * 2;
+                    iCount += (f.triangle ? 3 : 6) * 2;
+                    vCount += (f.triangle ? 3 : 4) * 2;
                 // water volume bounds (reserved)
-                    iCount += 6 * f.vCount;
-                    vCount += 4 * f.vCount;
+                    iCount += (f.triangle ? 3 : 4) * 6;
+                    vCount += (f.triangle ? 3 : 4) * 4;
                 }
             }
         }
@@ -781,7 +781,7 @@ struct MeshBuilder {
             idx[1] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[1]].vertex);
             idx[2] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[2]].vertex);
 
-            if (f.vCount > 3) {
+            if (!f.triangle) {
                 idx[3] = addUniqueVertex(wVertices, room.data.vertices[f.vertices[3]].vertex);
 
                 wIndices.push(idx[0]);
@@ -983,7 +983,7 @@ struct MeshBuilder {
                     mesh.vertices[f.vertices[2]].coord,
                     mesh.vertices[f.vertices[3]].coord);
 
-            for (int k = 0; k < f.vCount; k++) {
+            for (int k = 0; k < (f.triangle ? 3 : 4); k++) {
                 TR::Mesh::Vertex &v = mesh.vertices[f.vertices[k]];
 
                 vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
@@ -1000,7 +1000,7 @@ struct MeshBuilder {
         return isOpaque;
     }
 
-    void addTexCoord(Vertex *vertices, int vCount, TR::TextureInfo *tex, bool triangle, bool flip) {
+    void addTexCoord(Vertex *vertices, int vCount, TR::TextureInfo *tex, bool triangle, uint8 flip) {
         int count = triangle ? 3 : 4;
         for (int i = 0; i < count; i++) {
             Vertex &v = vertices[vCount + i];
@@ -1010,13 +1010,43 @@ struct MeshBuilder {
         if (((level->version & TR::VER_PSX)) && !triangle) // TODO: swap vertices instead of rectangle indices and vertices.texCoords (WRONG lighting in TR2!)
             swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
 
-        if (flip) {
-            swap(vertices[vCount + 0].texCoord, vertices[vCount + 1].texCoord);
-            swap(vertices[vCount + 2].texCoord, vertices[vCount + 3].texCoord);
+        if ((level->version & TR::VER_SAT)) {
+            if (triangle) {
+            /*  transform Saturn's triangle texCoords by flip code
+                                    |\
+                flip 2, 6,  8, 12 - |_\
+                                     _
+                flip 0, 4, 10, 14 - | /
+                                    |/
+            */
+                if (flip == 2 || flip == 6 || flip == 8 || flip == 12)
+                    vertices[vCount + 1].texCoord = vertices[vCount + 2].texCoord;
+
+                vertices[vCount + 2].texCoord.x = vertices[vCount + 0].texCoord.x;
+
+                if (flip == 10 || flip == 14) // flip diagonal
+                    swap(vertices[vCount + 1].texCoord, vertices[vCount + 2].texCoord);
+
+                if (flip == 2 || flip == 6) { // rotate
+                    swap(vertices[vCount + 0].texCoord, vertices[vCount + 2].texCoord);
+                    swap(vertices[vCount + 2].texCoord, vertices[vCount + 1].texCoord);
+                }
+
+                if (flip == 12) // flip vertical
+                    swap(vertices[vCount + 0].texCoord, vertices[vCount + 2].texCoord);
+
+            } else {
+
+                if (flip) { // flip horizontal
+                    swap(vertices[vCount + 0].texCoord, vertices[vCount + 1].texCoord);
+                    swap(vertices[vCount + 3].texCoord, vertices[vCount + 2].texCoord);
+                }
+
+            }
         }
     }
 
-    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip) {
+    void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, uint8 flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1035,7 +1065,7 @@ struct MeshBuilder {
         if (tex) addTexCoord(vertices, vCount, tex, true, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip) {
+    void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, uint8 flip) {
         int vIndex = vCount - vStart;
 
         indices[iCount + 0] = vIndex + 0;
@@ -1063,7 +1093,7 @@ struct MeshBuilder {
         if (tex) addTexCoord(vertices, vCount, tex, false, flip);
     }
 
-    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, bool flip,
+    void addQuad(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, uint8 flip,
                  const short3 &c0, const short3 &c1, const short3 &c2, const short3 &c3) {
         addQuad(indices, iCount, vCount, vStart, vertices, tex, doubleSided, flip);
 
@@ -1102,10 +1132,10 @@ struct MeshBuilder {
 
 
     void addFace(Index *indices, int &iCount, int &vCount, int vStart, Vertex *vertices, const TR::Face &f, TR::TextureInfo *tex, const short3 &a, const short3 &b, const short3 &c, const short3 &d) {
-        if (f.vCount == 4)
-            addQuad(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip, a, b, c, d);
-        else
+        if (f.triangle)
             addTriangle(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip);
+        else
+            addQuad(indices, iCount, vCount, vStart, vertices, tex, f.flags.doubleSided, f.flip, a, b, c, d);
     }
 
 

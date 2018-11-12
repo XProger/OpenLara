@@ -110,7 +110,7 @@
     E( AMMO_SHOTGUN          ) \
     E( AMMO_MAGNUMS          ) \
     E( AMMO_UZIS             ) \
-    E( AMMO_EXPLOSIVE        ) \
+    E( EXPLOSIVE             ) \
     E( MEDIKIT_SMALL         ) \
     E( MEDIKIT_BIG           ) \
     E( INV_DETAIL            ) \
@@ -125,7 +125,7 @@
     E( INV_AMMO_SHOTGUN      ) \
     E( INV_AMMO_MAGNUMS      ) \
     E( INV_AMMO_UZIS         ) \
-    E( INV_AMMO_EXPLOSIVE    ) \
+    E( INV_EXPLOSIVE         ) \
     E( INV_MEDIKIT_SMALL     ) \
     E( INV_MEDIKIT_BIG       ) \
     E( PUZZLE_1              ) \
@@ -1181,7 +1181,7 @@ namespace TR {
 
         short3 normal;
         uint16 vertices[4];
-        uint8  water:1, colored:1, flip:1, vCount:5;
+        uint8  triangle:1, colored:1, water:1, flip:5;
 
         static int cmp(const Face &a, const Face &b) {
             int aIndex = a.flags.texture;
@@ -1849,7 +1849,7 @@ namespace TR {
                 || type == INV_AMMO_SHOTGUN
                 || type == INV_AMMO_MAGNUMS
                 || type == INV_AMMO_UZIS
-                || type == INV_AMMO_EXPLOSIVE
+                || type == INV_EXPLOSIVE
                 || type == INV_MEDIKIT_SMALL
                 || type == INV_MEDIKIT_BIG
                 || type == INV_PUZZLE_1
@@ -2279,6 +2279,7 @@ namespace TR {
         int32           staticMeshesCount;
         StaticMesh      *staticMeshes;
 
+        int32           objectTexturesBaseCount;
         int32           objectTexturesCount;
         TextureInfo     *objectTextures;
 
@@ -2294,6 +2295,7 @@ namespace TR {
         int32           itemTexturesCount;
         TextureInfo     *itemTextures;
 
+        int32           itemTexturesBaseCount;
         int32           itemTexturesDataSize;
         uint8           *itemTexturesData;
 
@@ -2472,6 +2474,7 @@ namespace TR {
                 int16 sound;
                 int16 controls;
                 int16 gamma;
+                int16 explosive;
 
                 struct {
                     int16 items[MAX_WEAPONS];
@@ -2612,8 +2615,7 @@ namespace TR {
 
             if (version == VER_UNKNOWN) {
                 LOG("unsupported level format\n"); 
-                ASSERT(false); 
-                memset(this, 0, sizeof(*this)); 
+                ASSERT(false);
                 return;
             }
 
@@ -2982,12 +2984,14 @@ namespace TR {
 
             while (stream.pos < stream.size) {
                 uint64 chunkType = stream.read64();
+                /*
                 {
                         char buf[9];
                         memcpy(buf, &chunkType, 8);
                         buf[8] = 0;
                         LOG("chunk: \"%s\"\n", buf);
                 }
+                */
 
                 switch (chunkType) {
                 // SAT
@@ -3117,7 +3121,7 @@ namespace TR {
                         for (int j = 0; j < typesCount; j++) {
                             uint16 type  = stream.readBE16();
                             uint16 count = stream.readBE16();
-                            LOG(" type:%d count:%d\n", (int)type, (int)count);
+                            //LOG(" type:%d count:%d\n", (int)type, (int)count);
                             for (int k = 0; k < count; k++) {
                                 ASSERT(fIndex < data.fCount);
 
@@ -3133,7 +3137,7 @@ namespace TR {
                                     }
                                     case TYPE_T_INVISIBLE  :
                                     case TYPE_T_SOLID      :
-                                        f.vCount      = 3;
+                                        f.triangle    = true;
                                         f.vertices[0] = (stream.readBE16() >> 4);
                                         f.vertices[1] = (stream.readBE16() >> 4);
                                         f.vertices[2] = (stream.readBE16() >> 4);
@@ -3149,7 +3153,7 @@ namespace TR {
                                     case TYPE_R_INVISIBLE  :
                                     case TYPE_R_TRANSP     :
                                     case TYPE_R_SOLID      :
-                                        f.vCount      = 4;
+                                        f.triangle    = false;
                                         f.vertices[0] = (stream.readBE16() >> 4);
                                         f.vertices[1] = (stream.readBE16() >> 4);
                                         f.vertices[2] = (stream.readBE16() >> 4);
@@ -3539,9 +3543,11 @@ namespace TR {
                         ASSERTV(stream.readBE32() == 0x00000010);
                         ASSERT(objectTextures == NULL);
                         objectTexturesCount = stream.readBE32();
-                        objectTextures = objectTexturesCount ? new TextureInfo[objectTexturesCount] : NULL;
+                        objectTextures = objectTexturesCount ? new TextureInfo[objectTexturesCount * 5] : NULL;
                         for (int i = 0; i < objectTexturesCount; i++)
                             readObjectTex(stream, objectTextures[i], TEX_TYPE_OBJECT);
+                        objectTexturesBaseCount = objectTexturesCount;
+                        expandObjectTex(objectTextures, objectTexturesCount);
                         break;
                     case CHUNK("OTEXTDAT") : {
                         ASSERTV(stream.readBE32() == 0x00000001);
@@ -3553,9 +3559,11 @@ namespace TR {
                     case CHUNK("ITEXTINF") : {
                         ASSERTV(stream.readBE32() == 0x00000014);
                         itemTexturesCount = stream.readBE32();
-                        itemTextures = itemTexturesCount ? new TextureInfo[itemTexturesCount] : NULL;
+                        itemTextures = itemTexturesCount ? new TextureInfo[itemTexturesCount * 5] : NULL;
                         for (int i = 0; i < itemTexturesCount; i++)
                             readObjectTex(stream, itemTextures[i], TEX_TYPE_ITEM);
+                        itemTexturesBaseCount = itemTexturesCount;
+                        expandObjectTex(itemTextures, itemTexturesCount);
                         break;
                     }
                     case CHUNK("ITEXTDAT") : {
@@ -3665,6 +3673,16 @@ namespace TR {
             count  = 0;
         }
 
+        void expandObjectTex(TextureInfo *textures, int32 &count) {
+            for (int i = 0; i < count; i++)
+                for (int j = 0; j < 4; j++) {
+                    int idx = count * (1 + j) + i;
+                    textures[idx] = textures[i];
+                    textures[idx].tile = textures[idx].sub[j];
+                }
+            count *= 5;
+        }
+
         int getItemTexureByIndex(uint16 index) {
             for (int i = 0; i < itemTexturesCount; i++)
                 if (itemTextures[i].index == index)
@@ -3754,14 +3772,20 @@ namespace TR {
                             Mesh &mesh = meshes[meshOffsets[j]];
                             for (int k = 0; k < mesh.fCount; k++)
                                 if (!mesh.faces[k].colored) {
-                                    ASSERT(mesh.faces[k].flags.texture < itemTexturesCount);
-                                    mesh.faces[k].flags.texture = getItemTexureByIndex(mesh.faces[k].flags.texture) + objectTexturesCount;
+                                    mesh.faces[k].flags.texture += objectTexturesCount;
                                 }
                         }
                     }
                 }
 
                 appendObjectTex(itemTextures, itemTexturesCount);
+            }
+
+            if (version == VER_TR1_SAT) {
+                for (int i = 0; i < objectTexturesCount; i++) {
+                    if (objectTextures[i].tile == 1)
+                        objectTextures[i].tile = 0xFFFF;    // mark as unused
+                }
             }
 
             initRoomMeshes();
@@ -3832,6 +3856,7 @@ namespace TR {
                     case Entity::INV_SOUND           : extra.inv.sound       = i; break;
                     case Entity::INV_CONTROLS        : extra.inv.controls    = i; break;
                     case Entity::INV_GAMMA           : extra.inv.gamma       = i; break;
+                    case Entity::INV_EXPLOSIVE       : extra.inv.explosive   = i; break;
 
                     case Entity::LARA_PISTOLS        :
                     case Entity::LARA_SHOTGUN        :
@@ -3943,9 +3968,9 @@ namespace TR {
         }
 
         void readFace(Stream &stream, Face &f, bool colored, bool triangle) {
-            f.vCount = triangle ? 3 : 4;
+            f.triangle = triangle;
 
-            for (int i = 0; i < f.vCount; i++)
+            for (int i = 0; i < (triangle ? 3 : 4); i++)
                 stream.read(f.vertices[i]);
 
             if (triangle)
@@ -4067,7 +4092,7 @@ namespace TR {
                         Face &f = d.faces[d.fCount++];
                         f.flags.texture     = t.texture;
                         f.flags.doubleSided = false;
-                        f.vCount      = 3;
+                        f.triangle    = true;
                         f.colored     = false;
                         f.flip        = false;
                         f.vertices[0] = vStart + t.i0;
@@ -4102,7 +4127,7 @@ namespace TR {
                         Face &f = d.faces[d.fCount++];
                         f.flags.texture     = texture;
                         f.flags.doubleSided = false;
-                        f.vCount      = 4;
+                        f.triangle    = false;
                         f.colored     = false;
                         f.flip        = false;
                         f.vertices[0] = vStart + r.i0;
@@ -4194,15 +4219,15 @@ namespace TR {
                     if ((stream.pos - startOffset) % 4) stream.seek(2);
                     for (int i = 0; i < d.rCount; i++) {
                         Face &f = d.faces[i];
-                        f.vCount = 4;
                         stream.raw(f.vertices, sizeof(uint16) * 4);
                         f.vertices[0] >>= 2;
                         f.vertices[1] >>= 2;
                         f.vertices[2] >>= 2;
                         f.vertices[3] >>= 2;
-                        f.colored = false;
-                        f.water   = false;
-                        f.flip    = false;
+                        f.triangle = false;
+                        f.colored  = false;
+                        f.water    = false;
+                        f.flip     = false;
                     }
                 } else
                     for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
@@ -4214,16 +4239,16 @@ namespace TR {
                     stream.seek(2);
                     for (int i = 0; i < d.tCount; i++) {
                         Face &f = d.faces[d.rCount + i];
-                        f.vCount = 3;
                         stream.raw(&f.flags.value, sizeof(uint16));
                         stream.raw(f.vertices, sizeof(uint16) * 3);
                         f.vertices[0] >>= 2;
                         f.vertices[1] >>= 2;
                         f.vertices[2] >>= 2;
                         f.vertices[3] = 0;
-                        f.colored = false;
-                        f.water   = false;
-                        f.flip    = false;
+                        f.triangle = true;
+                        f.colored  = false;
+                        f.water    = false;
+                        f.flip     = false;
                     }
                 } else {
                     for (int i = 0; i < d.tCount; i++)
@@ -4233,7 +4258,7 @@ namespace TR {
 
             if (version & VER_PSX) { // swap indices (quad strip -> quad list) only for PSX version
                 for (int j = 0; j < d.fCount; j++)
-                    if (d.faces[j].vCount == 4)
+                    if (!d.faces[j].triangle)
                         swap(d.faces[j].vertices[2], d.faces[j].vertices[3]);
             }
 
@@ -4460,26 +4485,29 @@ namespace TR {
                     mesh.tCount = mesh.rCount = 0;
 
                     enum {
-                        TYPE_T_TEX         = 2,
-                        TYPE_T_COLOR       = 4,
-                        TYPE_T_UNKNOWN1    = 8,
-                        TYPE_T_UNKNOWN2    = 16,
-                        TYPE_R_COLOR       = 5,
-                        TYPE_R_TEX         = 9,
-                        TYPE_R_TRANSP      = 17,
-                        TYPE_R_FLIP_TEX    = 49,
-                        TYPE_R_FLIP_TRANSP = 57,
+                        TYPE_T_TEX_UNK        = 2,
+                        TYPE_T_COLOR          = 4,
+                        TYPE_T_TEX            = 8,
+                        TYPE_T_TEX_TRANSP     = 16,
+                        TYPE_R_COLOR          = 5,
+                        TYPE_R_TEX            = 9,
+                        TYPE_R_TRANSP         = 17,
+                        TYPE_R_FLIP_TEX       = 49,
+                        TYPE_R_FLIP_TRANSP    = 57,
                     };
 
                     TextureInfo   *textures;
                     int           texturesCount;
+                    int           texturesBaseCount;
 
-                    if (Entity::isInventoryItem(type)) {
-                        textures      = itemTextures;
-                        texturesCount = itemTexturesCount;
+                    if (itemTexturesCount && Entity::isInventoryItem(type)) {
+                        textures          = itemTextures;
+                        texturesCount     = itemTexturesCount;
+                        texturesBaseCount = itemTexturesBaseCount;
                     } else {
-                        textures      = objectTextures;
-                        texturesCount = objectTexturesCount;
+                        textures          = objectTextures;
+                        texturesCount     = objectTexturesCount;
+                        texturesBaseCount = objectTexturesBaseCount;
                     }
 
                     int fIndex = 0;
@@ -4487,16 +4515,18 @@ namespace TR {
                     for (int j = 0; j < typesCount; j++) {
                         uint16 type  = stream.readBE16();
                         uint16 count = stream.readBE16();
-
                         for (int k = 0; k < count; k++) {
                             ASSERT(fIndex < mesh.fCount);
                             Face &f = mesh.faces[fIndex++];
+                            f.water   = false;
+                            f.colored = false;
+                            f.flip    = 0;
                             switch (type) {
-                                case TYPE_T_COLOR    : f.colored = true;
-                                case TYPE_T_TEX      : 
-                                case TYPE_T_UNKNOWN1 :
-                                case TYPE_T_UNKNOWN2 :
-                                    f.vCount      = 3;
+                                case TYPE_T_COLOR      : f.colored = true;
+                                case TYPE_T_TEX_UNK    : 
+                                case TYPE_T_TEX        :
+                                case TYPE_T_TEX_TRANSP :
+                                    f.triangle    = true;
                                     f.vertices[0] = (stream.readBE16() >> 5);
                                     f.vertices[1] = (stream.readBE16() >> 5);
                                     f.vertices[2] = (stream.readBE16() >> 5);
@@ -4504,13 +4534,49 @@ namespace TR {
                                     f.flags.value = stream.readBE16();
                                     ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount);
                                     mesh.tCount++;
+
+                                    if (!f.colored) {
+                                        union {
+                                            struct { uint16 texture:12, flip:4; };
+                                            uint16 value;
+                                        } tri;
+
+                                        tri.value = f.flags.value;
+                                        f.flags.value = tri.texture;
+                                        f.flip        = tri.flip;
+
+                                        if (textures == itemTextures)
+                                            f.flags.value = getItemTexureByIndex(f.flags.value);
+
+                                        f.flags.value += texturesBaseCount;
+
+                                        if (f.flip != 0 && f.flip != 2 && f.flip != 4 && f.flip != 6 && f.flip != 8 && f.flip != 10 && f.flip != 12 && f.flip != 14) {
+                                            // TODO puma flip 14 bug
+                                            ASSERT(false);
+                                            f.colored = true;
+                                            f.flags.value = 0x00FF;
+                                        }
+
+                                        if (f.flip == 6 || f.flip == 12) { // 3 bit
+                                            f.flags.value += texturesBaseCount + texturesBaseCount + texturesBaseCount;
+                                        }
+
+                                        if (f.flip == 4 || f.flip == 14) {
+                                            f.flags.value += texturesBaseCount + texturesBaseCount;
+                                        }
+
+                                        if (f.flip == 2 || f.flip == 8) {
+                                            f.flags.value += texturesBaseCount;
+                                        }
+                                    }
+
                                     break;
                                 case TYPE_R_COLOR       : f.colored = true;
+                                case TYPE_R_FLIP_TEX    :
+                                case TYPE_R_FLIP_TRANSP : f.flip = 1;
                                 case TYPE_R_TEX         :
                                 case TYPE_R_TRANSP      :
-                                case TYPE_R_FLIP_TEX    :
-                                case TYPE_R_FLIP_TRANSP :
-                                    f.vCount      = 4;
+                                    f.triangle    = false;
                                     f.vertices[0] = (stream.readBE16() >> 5);
                                     f.vertices[1] = (stream.readBE16() >> 5);
                                     f.vertices[2] = (stream.readBE16() >> 5);
@@ -4518,32 +4584,28 @@ namespace TR {
                                     f.flags.value = stream.readBE16();
                                     ASSERT(f.vertices[0] < mesh.vCount && f.vertices[1] < mesh.vCount && f.vertices[2] < mesh.vCount && f.vertices[3] < mesh.vCount);
                                     mesh.rCount++;
+
+                                    f.flip = (type == TYPE_R_FLIP_TEX || type == TYPE_R_FLIP_TRANSP);
+
+                                    if (!f.colored) {
+                                        ASSERT(f.flags.value % 16 == 0);
+                                        f.flags.value /= 16;
+
+                                        if (textures == itemTextures)
+                                            f.flags.value = getItemTexureByIndex(f.flags.value);
+                                    }
+
                                     break;
                                 default :
                                     LOG("! unknown face type: %d\n", type);
                                     ASSERT(false);
                             }
 
-                            // TODO
-                            if (type == TYPE_T_UNKNOWN1 || type == TYPE_T_UNKNOWN2) {
-                                if (type == TYPE_T_UNKNOWN1)
-                                    f.flags.value = 0xFFFF;
-                                if (type == TYPE_T_UNKNOWN2)
-                                    f.flags.value = 0xFF80;
-                                f.colored = true;
-                            }
+                            ASSERT(f.colored || f.flags.value < texturesCount);
 
-                            if (!f.colored) {
-                                ASSERT(f.flags.value % 16 == 0);
-                                ASSERT(f.flags.value / 16 < texturesCount);
-                                f.flags.value /= 16;
-                            }
-
-                            if (type == TYPE_R_TRANSP || type == TYPE_R_FLIP_TRANSP)
+                            if (type == TYPE_R_TRANSP || type == TYPE_R_FLIP_TRANSP || type == TYPE_T_TEX_TRANSP)
                                 textures[f.flags.texture].attribute = 1;
 
-                            f.flip  = (type == TYPE_R_FLIP_TEX || type == TYPE_R_FLIP_TRANSP);
-                            f.water = false;
                         }
                     }
                     ASSERT(fIndex == mesh.fCount);
@@ -4736,9 +4798,9 @@ namespace TR {
                         Face &f = mesh.faces[idx++];
                         f.flags.doubleSided = false;
                         f.flags.texture     = (info & 0xFF) | (r.tex << 8);
-                        f.colored = false;
-                        f.flip    = false;
-                        f.vCount  = 3;
+                        f.triangle = true;
+                        f.colored  = false;
+                        f.flip     = false;
 
                         f.vertices[0] = r.i0;
                         f.vertices[1] = r.i1;
@@ -4756,9 +4818,9 @@ namespace TR {
                         Face &f = mesh.faces[idx++];
                         f.flags.doubleSided = false;
                         f.flags.texture     = info & 0xFFFF;
-                        f.colored = false;
-                        f.flip    = false;
-                        f.vCount  = 4;
+                        f.triangle = false;
+                        f.colored  = false;
+                        f.flip     = false;
 
                         struct {
                             uint32 i0:8, i1:8, i2:8, i3:8;
@@ -4780,7 +4842,7 @@ namespace TR {
 
             #define RECALC_ZERO_NORMALS(mesh, face)\
                 int fn = -1;\
-                for (int j = 0; j < face.vCount; j++) {\
+                for (int j = 0; j < (face.triangle ? 3 : 4); j++) {\
                     Mesh::Vertex &v = mesh.vertices[face.vertices[j]];\
                     short4 &n = v.normal;\
                     if (!(n.x | n.y | n.z)) {\
@@ -4857,7 +4919,7 @@ namespace TR {
                     t.sub[1] = stream.readBE16();
                     t.sub[2] = stream.readBE16();
                     t.sub[3] = stream.readBE16();
-                    d.clut   = stream.readBE16() + d.tile; // offset to color palette
+                    d.clut   = stream.readBE16(); // offset to color palette
                     d.w      = stream.read() * 8;
                     d.h      = stream.read();
                     t.i5     = stream.readBE16();
@@ -4867,16 +4929,19 @@ namespace TR {
                         d.h *= 2;
                     }
 
-                    //LOG("%d %d %d %d %d\n", t.sub[0], t.sub[1], t.sub[2], t.sub[3], t.i5);
-
+                    uint16 bi = 0;
                     if (type == TEX_TYPE_ITEM)
-                        stream.seek(2);
+                        ASSERTV(stream.readBE16() == t.i5);
 
                     d.x0 = d.y0 = d.x3 = d.y1 = 0;
                     d.x1 = d.x2 = max(0, d.w - 1);
                     d.y2 = d.y3 = max(0, d.h - 1);
 
                     SET_PARAMS(t, d, d.clut);
+
+                    //if (type == TEX_TYPE_ITEM) {
+                    //    LOG("%d %d | %d %d %d %d | %d %d %dx%d | %d\n", t.index, t.tile, t.sub[0], t.sub[1], t.sub[2], t.sub[3], t.clut, t.i5, d.w, d.h, bi);
+                    //}
 
                     break;
                 }
@@ -4958,7 +5023,7 @@ namespace TR {
                         int16  l, t, r, b;
                     } d;
                     d.tile = stream.readBE16(); // offset to 4-bit indices
-                    d.clut = stream.readBE16(); // offset to 16-bit color table (16 colors)
+                    d.clut = stream.readBE16() - d.tile; // offset to 16-bit color table (16 colors)
                     d.w    = stream.read();     // texture width div 8
                     d.h    = stream.read();     // texture height
                     d.l    = stream.readBE16();
@@ -5111,7 +5176,7 @@ namespace TR {
             switch (version) {
                 case VER_TR1_SAT : {
                     uint32 iOffset = uint32(uint16(t->tile)) << 3;
-                    uint32 cOffset = uint32(uint16(t->clut)) << 3;
+                    uint32 cOffset = uint32(uint16(t->clut + t->tile)) << 3;
 
                     uint8 *data = NULL;
                     switch (t->type) {
@@ -5131,10 +5196,13 @@ namespace TR {
                     ASSERT(w <= 256 && h <= 256);
 
                     /*
-                    if (type == TEX_TYPE_OBJECT && w == 80 && h == 56) {
+                    if (t->type == TEX_TYPE_OBJECT) {
                         for (int y = 0; y < h; y++)
-                            for (int x = 0; x < h; x++)
-                                dst->color[y * 256 + x] = Color32(255, 0, 255, 255);
+                            for (int x = 0; x < h; x++) {
+                                ColorIndex4 *index = indices + (y * w + x) / 2;
+                                uint8 p = uint8((x % 2) ? index->a : index->b) << 4;
+                                dst->color[y * 256 + x] = Color32(p, p, p, 255);
+                            }
                         return;
                     }
                     */
