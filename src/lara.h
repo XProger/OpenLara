@@ -2227,7 +2227,8 @@ struct Lara : Character {
     virtual int getStateAir() {
         angle.x = 0.0f;
 
-        if (velocity.y > 131.0f && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE)
+        float EPSILON = 3.0f;
+        if (velocity.y > (131.0f + EPSILON) && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE)
             return STATE_FALL;
 
         if (state == STATE_REACH && getDir().dot(vec3(velocity.x, 0.0f, velocity.z)) < 0)
