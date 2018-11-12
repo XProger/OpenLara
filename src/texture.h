@@ -835,7 +835,7 @@ struct Atlas {
 
         Texture *atlas = new Texture(width, height, FMT_RGBA, OPT_MIPMAPS, data);
 
-        Texture::SaveBMP("atlas", (char*)data, width, height);
+        //Texture::SaveBMP("atlas", (char*)data, width, height);
 
         delete[] data;
         return atlas;
