@@ -307,7 +307,8 @@ struct Enemy : Character {
     void bite(int joint, const vec3 &offset, float damage) {
         ASSERT(target);
         target->hit(damage, this);
-        game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), getJoint(joint) * offset);
+        if (joint >= 0)
+            game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), getJoint(joint) * offset);
     }
 
     Mood getMoodFixed() {
@@ -2574,7 +2575,8 @@ struct Human : Enemy {
         game->addMuzzleFlash(this, jointGun, muzzleOffset, -1);
 
         if (targetDist < HUMAN_DIST_SHOT && randf() < ((HUMAN_DIST_SHOT - targetDist) / HUMAN_DIST_SHOT - 0.25f)) {
-            bite(rand() % target->getModel()->mCount, vec3(0.0f), damage);
+            bite(-1, vec3(0.0f), damage);
+            game->addEntity(TR::Entity::BLOOD, target->getRoomIndex(), target->getJoint(rand() % target->getModel()->mCount).pos);
             game->playSound(target->stand == STAND_UNDERWATER ? TR::SND_HIT_UNDERWATER : TR::SND_HIT, target->pos, Sound::PAN);
             return true;
         }

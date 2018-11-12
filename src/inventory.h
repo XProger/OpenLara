@@ -246,6 +246,7 @@ struct Inventory {
                 case TR::Entity::INV_MAP             : desc = Desc( STR_MAP,             PAGE_INVENTORY, level->extra.inv.map             ); break;
                 case TR::Entity::INV_COMPASS         : desc = Desc( STR_COMPASS,         PAGE_INVENTORY, level->extra.inv.compass         ); break;
                 case TR::Entity::INV_STOPWATCH       : desc = Desc( STR_STOPWATCH,       PAGE_INVENTORY, level->extra.inv.stopwatch       ); break;
+                case TR::Entity::INV_EXPLOSIVE       : desc = Desc( STR_EXPLOSIVE,       PAGE_INVENTORY, level->extra.inv.explosive       ); break;
                 case TR::Entity::INV_HOME            : desc = Desc( STR_HOME,            PAGE_OPTION,    level->extra.inv.home            ); break;
                 case TR::Entity::INV_DETAIL          : desc = Desc( STR_DETAIL,          PAGE_OPTION,    level->extra.inv.detail          ); break;
                 case TR::Entity::INV_SOUND           : desc = Desc( STR_SOUND,           PAGE_OPTION,    level->extra.inv.sound           ); break;
@@ -627,6 +628,7 @@ struct Inventory {
             add(TR::Entity::INV_PUZZLE_3, 3);
             add(TR::Entity::INV_PUZZLE_4, 3);
 
+            add(TR::Entity::INV_EXPLOSIVE);
             add(TR::Entity::INV_LEADBAR, 3);
         #endif
         } 

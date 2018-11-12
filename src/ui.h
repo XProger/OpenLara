@@ -89,6 +89,7 @@ enum StringID {
     , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
 // inventory items
     , STR_UNKNOWN
+    , STR_EXPLOSIVE
     , STR_PISTOLS
     , STR_SHOTGUN
     , STR_MAGNUMS
@@ -216,6 +217,7 @@ const char *STR[STR_MAX] = {
     , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
 // inventory items
     , "Unknown"
+    , "Explosive"
     , "Pistols"
     , "Shotgun"
     , "Magnums"

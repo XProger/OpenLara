@@ -274,7 +274,7 @@ struct MuzzleFlash : Controller {
             lum = alpha;
 
         game->setShader(Core::pass, Shader::FLASH, false, true);
-        Core::active.shader->setParam(uMaterial, vec4(lum, 0.0f, 0.0f, alpha));
+        Core::active.shader->setParam(uMaterial, vec4(lum * alpha, 0.0f, 0.0f, alpha));
         Core::setBasis(&b, 1);
 
         mesh->renderModel(level->extra.muzzleFlash);

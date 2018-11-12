@@ -327,16 +327,18 @@ struct Camera : ICamera {
 
             timer += Core::deltaTime * 30.0f;
             float t = timer - int(timer);
-            int indexA = min(int(timer), level->cameraFramesCount - 1);
-            int indexB = min((indexA + 1), level->cameraFramesCount - 1);
+            int indexA = min(int(timer), level->cameraFramesCount - 3);
+            int indexB = min((indexA + 1), level->cameraFramesCount - 3);
 
             if (indexA == level->cameraFramesCount - 3) {
                 if (level->isCutsceneLevel())
                     game->loadNextLevel();
                 else {
                     Character *lara = (Character*)owner;
-                    if (lara->health > 0.0f)
+                    if (lara->health > 0.0f) {
                         mode = MODE_FOLLOW;
+                        return;
+                    }
                 }
             }
 
