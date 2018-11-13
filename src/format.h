@@ -2499,16 +2499,6 @@ namespace TR {
             } inv;
         } extra;
 
-        struct TPAL {
-            uint8 data[3];
-        };
-
-        uint32 tpalCount;
-        TPAL *tpal;
-
-        int32 spalCount;
-        uint16 *spal;
-
         uint32 tsubCount;
         uint8 *tsub;
 
@@ -2971,8 +2961,6 @@ namespace TR {
             delete[] soundOffsets;
             delete[] soundSize;
 
-            delete[] spal;
-            delete[] tpal;
             delete[] tsub;
         }
 
@@ -3032,17 +3020,12 @@ namespace TR {
                         break;
                     case CHUNK("ROOMTPAL") : {
                         ASSERTV(stream.readBE32() == 0x00000003);
-                        tpalCount = stream.readBE32();
-                        tpal = new TPAL[tpalCount];
-                        stream.raw(tpal, sizeof(TPAL) * tpalCount);
+                        stream.seek(stream.readBE32() * 3);
                         break;
                     }
                     case CHUNK("ROOMSPAL") : {
                         ASSERTV(stream.readLE32() == 0x02000000);
-                        spalCount = stream.readBE32();
-                        spal = new uint16[spalCount];
-                        for (int i = 0; i < spalCount; i++)
-                            spal[i] = stream.readBE16();
+                        stream.seek(stream.readBE32() * 2);
                         break;
                     }
                     case CHUNK("ROOMDATA") :
@@ -3411,8 +3394,6 @@ namespace TR {
                     case CHUNK("ROOMEND ") :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
-                        LOG("tpalCount = %d\n", tpalCount);
-                        LOG("spalCount = %d\n", spalCount);
                         prepare();
                         break;
                 // SAD

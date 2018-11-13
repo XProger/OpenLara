@@ -1131,6 +1131,156 @@ struct Video {
         }
     };
 
+// based on https://wiki.multimedia.cx/index.php/Sega_FILM
+    struct Cinepak : Decoder {
+
+        struct Chunk {
+            int    offset;
+            int    size;
+            uint32 info[2];
+        } *chunks;
+
+        int chunksCount;
+        int audioChunkIndex;
+        int audioChunkPos;
+        Array<Sound::Frame> audioChunkFrames;
+
+        int videoChunkIndex;
+        int videoChunkPos;
+        Array<uint8> videoChunkData;
+
+        Cinepak(Stream *stream) : Decoder(stream), chunks(NULL), audioChunkIndex(-1), audioChunkPos(0), videoChunkIndex(-1), videoChunkPos(0) {
+            ASSERTV(stream->readLE32() == FOURCC("FILM"));
+            int sampleOffset = stream->readBE32();
+            stream->seek(4); // skip version 1.06
+            stream->seek(4); // skip reserved
+            ASSERTV(stream->readLE32() == FOURCC("FDSC"));
+            ASSERTV(stream->readBE32() == 32);
+            ASSERTV(stream->readLE32() == FOURCC("cvid"));
+            height = stream->readBE32();
+            width  = stream->readBE32();
+            ASSERTV(stream->read() == 24);
+            channels = stream->read();
+            ASSERT(channels == 2);
+            ASSERTV(stream->read() == 16);
+            ASSERTV(stream->read() == 0);
+            freq = stream->readBE16();
+            ASSERT(freq == 22254);
+
+            stream->seek(6);
+            ASSERTV(stream->readLE32() == FOURCC("STAB"));
+            stream->seek(4); // skip STAB length
+            fps = stream->readBE32() / 2;
+            chunksCount = stream->readBE32();
+            chunks = new Chunk[chunksCount];
+            for (int i = 0; i < chunksCount; i++) {
+                Chunk &c = chunks[i];
+                c.offset  = stream->readBE32() + sampleOffset;
+                c.size    = stream->readBE32();
+                c.info[0] = stream->readBE32();
+                c.info[1] = stream->readBE32();
+            }
+        }
+
+        virtual ~Cinepak() {
+            delete[] chunks;  
+        }
+
+        virtual bool decodeVideo(Color32 *pixels) {
+            if (audioChunkIndex >= chunksCount)
+                return false;
+            /*
+            // TODO: sega cinepak film decoder
+            // get next audio chunk
+            if (videoChunkPos >= videoChunkData.length) {
+                videoChunkPos = 0;
+
+                while (++videoChunkIndex < chunksCount) {
+                    if (chunks[videoChunkIndex].info[0] != 0xFFFFFFFF || chunks[videoChunkIndex].info[1] != 1)
+                        break;
+                }
+
+                if (videoChunkIndex >= chunksCount)
+                    return true;
+
+                const Chunk &chunk = chunks[videoChunkIndex];
+
+                {
+                    OS_LOCK(Sound::lock);
+                    stream->setPos(chunk.offset);
+                    videoChunkData.resize(chunk.size);
+                    stream->raw(videoChunkData.items, videoChunkData.length);
+                }
+            }
+
+            // TODO: decode
+            Stream data(NULL, videoChunkData.items + videoChunkPos, videoChunkData.length - videoChunkPos);
+            union FrameHeader {
+                struct { uint32 flags:8, size:24; };
+                uint32 value;
+            } hdr;
+
+            hdr.value = data.readBE32();
+            ASSERT(hdr.size <= videoChunkData.length - videoChunkPos);
+            videoChunkPos += hdr.size;
+            */
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++) {
+                    Color32 c;
+                    c.r = c.g = c.b = x ^ y;
+                    c.a = 255;
+                    pixels[y * width + x] = c;
+                }
+            
+            return true;
+        }
+
+        virtual int decode(Sound::Frame *frames, int count) {
+            if (audioChunkIndex >= chunksCount) {
+                memset(frames, 0, count);
+                return count;
+            }
+
+            // get next audio chunk
+            if (audioChunkPos >= audioChunkFrames.length) {
+                audioChunkPos = 0;
+
+                while (++audioChunkIndex < chunksCount) {
+                    if (chunks[audioChunkIndex].info[0] == 0xFFFFFFFF)
+                        break;
+                }
+
+                if (audioChunkIndex >= chunksCount) {
+                    memset(frames, 0, count);
+                    return count;
+                }
+
+                const Chunk &chunk = chunks[audioChunkIndex];
+
+                audioChunkFrames.resize(chunk.size / sizeof(Sound::Frame));
+
+                stream->setPos(chunk.offset);
+                // read LEFT channel samples
+                for (int i = 0; i < audioChunkFrames.length; i++)
+                    audioChunkFrames[i].L = stream->readBE16();
+                // read RIGHT channel samples
+                for (int i = 0; i < audioChunkFrames.length; i++)
+                    audioChunkFrames[i].R = stream->readBE16();
+            }
+
+            for (int i = 0; i < count; i += 2) {
+                frames[i + 0] = audioChunkFrames[audioChunkPos];
+                frames[i + 1] = audioChunkFrames[audioChunkPos++];
+
+                if (audioChunkPos >= audioChunkFrames.length)
+                    return i + 2;
+            }
+
+            return count;
+        }
+    };
+
+
     Decoder *decoder;
     Texture *frameTex[2];
     Color32 *frameData;
@@ -1144,11 +1294,15 @@ struct Video {
 
         if (!stream) return;
 
-        uint32 magic;
-        stream->read(magic);
+        uint32 magic = stream->readLE32();
         stream->seek(-4);
 
-        if (magic == 0x6F4D5241)
+        float pitch = 1.0f;
+
+        if (magic == FOURCC("FILM")) {
+            decoder = new Cinepak(stream);
+            pitch = decoder->freq / 22050.0f; // 22254 / 22050 = 1.00925
+        } else if (magic == FOURCC("ARMo"))
             decoder = new Escape(stream);
         else
             decoder = new STR(stream);
@@ -1160,6 +1314,7 @@ struct Video {
             frameTex[i] = new Texture(decoder->width, decoder->height, FMT_RGBA, 0, frameData);
 
         sample = Sound::play(decoder);
+        sample->pitch = pitch;
 
         step      = 1.0f / decoder->fps;
         stepTimer = step;

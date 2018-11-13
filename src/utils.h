@@ -1650,17 +1650,21 @@ struct Array {
         clear();
     }
 
+    void reserve(int capacity) {
+        this->capacity = capacity;
+        if (items)
+            items = (T*)realloc(items, capacity * sizeof(T));
+        else
+            items = (T*)malloc(capacity * sizeof(T));
+    }
+
     int push(const T &item) {
         if (!items)
             items = (T*)malloc(capacity * sizeof(T));
 
-        if (length == capacity) {
-            capacity += capacity + capacity / 2;
-            if (items)
-                items = (T*)realloc(items, capacity * sizeof(T));
-            else
-                items = (T*)malloc(capacity * sizeof(T));
-        }
+        if (length == capacity)
+            reserve(capacity + capacity / 2);
+
         items[length] = item;
         return length++;
     }
@@ -1679,6 +1683,12 @@ struct Array {
         ASSERT(length >= 0);
         for (int i = index; i < length; i++)
             items[i] = items[i + 1];
+    }
+
+    void resize(int length) {
+        if (capacity < length)
+            reserve(length);
+        this->length = length;
     }
 
     void clear() {
