@@ -509,10 +509,9 @@ struct Inventory {
 
             Core::setBasis(joints, m.mCount);
 
-            Core::setBlendMode(bmNone);
+            Core::setBlendMode(bmPremult);
             mesh->transparent = 0;
             mesh->renderModel(desc.model);
-            Core::setBlendMode(bmPremult);
             mesh->transparent = 1;
             mesh->renderModel(desc.model);
             Core::setBlendMode(bmAdd);
