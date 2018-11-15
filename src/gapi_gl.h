@@ -394,7 +394,8 @@ namespace GAPI {
             #ifndef _OS_CLOVER
                 // TODO: only for non Mali-400?
                 strcat(defines, "#define OPT_TRAPEZOID\n");
-                strcat(defines, "#define OPT_UNDERWATER_FOG\n");
+                if (Core::settings.detail.water > Core::Settings::LOW)
+                    strcat(defines, "#define OPT_UNDERWATER_FOG\n");
             #endif
 
             char fileName[255];

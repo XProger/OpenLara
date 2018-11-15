@@ -687,13 +687,13 @@ struct MeshBuilder {
 
     void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
 
+        room.waterLevel = -1;
+
         if (Core::settings.detail.water == Core::Settings::LOW) {
             for (int i = 0; i < room.data.fCount; i++)
                 room.data.faces[i].water = false;
             return;
         }
-
-        room.waterLevel = -1;
 
         for (int i = 0; i < room.data.fCount; i++) {
             TR::Face &f = room.data.faces[i];
