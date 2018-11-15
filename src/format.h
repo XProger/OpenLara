@@ -5161,9 +5161,22 @@ namespace TR {
         }
 
         void initAnimTex() {
-            for (int i = 0; i < animTexturesCount; i++)
-                for (int j = 0; j < animTextures[i].count; j++)
-                    objectTextures[animTextures[i].textures[j]].animated = true;
+            for (int i = 0; i < animTexturesCount; i++) {
+                bool transp = false;
+                for (int j = 0; j < animTextures[i].count; j++) {
+                    TextureInfo &t = objectTextures[animTextures[i].textures[j]];
+                    t.animated = true;
+                    if (t.attribute != 0)
+                        transp = 1;
+                }
+
+                if (transp) {
+                    for (int j = 0; j < animTextures[i].count; j++) {
+                        TextureInfo &t = objectTextures[animTextures[i].textures[j]];
+                        t.attribute = 1;
+                    }
+                }
+            }
         }
 
         void shiftAnimTex() {
