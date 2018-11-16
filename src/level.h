@@ -374,7 +374,7 @@ struct Level : IGame {
 
         if (rebuildMesh) {
             delete mesh;
-            mesh = new MeshBuilder(level, atlas);
+            mesh = new MeshBuilder(&level, atlas);
         }
 
         if (rebuildAmbient) {
@@ -810,7 +810,7 @@ struct Level : IGame {
         Core::fogParams = TR::getFogParams(level.id);
 
         initTextures();
-        mesh = new MeshBuilder(level, atlas);
+        mesh = new MeshBuilder(&level, atlas);
         initOverrides();
         initEntities();
 
