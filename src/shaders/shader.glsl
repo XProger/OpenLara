@@ -162,7 +162,7 @@ uniform vec4 uFogParams;
 
 	void _diffuse() {
 		#ifndef PASS_SHADOW
-			vDiffuse = vec4(aColor.xyz * (uMaterial.x * 1.8), 1.0) * uMaterial.w;
+			vDiffuse = vec4(aColor.xyz * (uMaterial.x * 1.8), 1.0);
 
 			#ifdef UNDERWATER
 				vDiffuse.xyz *= UNDERWATER_COLOR;
@@ -174,6 +174,8 @@ uniform vec4 uFogParams;
 
 			#ifdef TYPE_FLASH
 				vDiffuse.xyz += uMaterial.w;
+			#else
+				vDiffuse *= uMaterial.w;
 			#endif
 		#endif
 	}
