@@ -1081,7 +1081,7 @@ struct Controller {
                         if (animation.isFrameActive(frame)) {
                             if (cmd == TR::ANIM_CMD_EFFECT) {
                                 switch (fx) {
-                                    case TR::Effect::ROTATE_180   : angle.y = angle.y + PI; break;
+                                    case TR::Effect::ROTATE_180   : angle.x = -angle.x; angle.y = angle.y + PI; break;
                                     case TR::Effect::FLOOR_SHAKE  : game->setEffect(this, TR::Effect::Type(fx)); break;
                                     case TR::Effect::FINISH_LEVEL : game->loadNextLevel(); break;
                                     case TR::Effect::FLIP_MAP     : game->flipMap(); break;

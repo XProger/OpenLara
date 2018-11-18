@@ -144,6 +144,8 @@ struct Lara : Character {
         ANIM_SWITCH_BIG_DOWN    = 195,
         ANIM_SWITCH_BIG_UP      = 196,
         ANIM_PUSH_BUTTON        = 197,
+
+        ANIM_ROLL_WATER         = 203,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
@@ -216,7 +218,7 @@ struct Lara : Character {
         STATE_WADE,
         STATE_ROLL_WATER,
         STATE_PICKUP_FLARE,
-        STATE_UNUSED_4,
+        STATE_ROLL_AIR,
         STATE_UNUSED_5,
         STATE_DEATH_SLIDE,
 
@@ -2341,6 +2343,15 @@ struct Lara : Character {
             }
         }
 
+        if ((level->version & TR::VER_VERSION) > TR::VER_TR1) {
+            bool roll = (input & (FORTH | BACK)) == (FORTH | BACK);
+
+            if ((state == STATE_FORWARD_JUMP && (roll || (input & BACK)  )) ||
+                (state == STATE_BACK_JUMP    && (roll || (input & FORTH) )) || 
+                (state == STATE_FAST_DIVE    &&  roll))
+                return STATE_ROLL_AIR;
+        }
+
         if (state == STATE_FORWARD_JUMP || state == STATE_FALL_BACK) {
             if (emptyHands()) {
                 if (input & ACTION) return STATE_REACH;
@@ -2600,6 +2611,11 @@ struct Lara : Character {
             angle.x = -45.0f * DEG2RAD;
             velocity.y *= 1.5f;
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
+        }
+
+        if ((level->version & TR::VER_VERSION) > TR::VER_TR1 && state != STATE_ROLL_WATER) {
+            if ((input & (FORTH | BACK)) == (FORTH | BACK))
+                return animation.setAnim(ANIM_ROLL_WATER);
         }
 
         if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
