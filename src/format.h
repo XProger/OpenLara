@@ -3255,7 +3255,7 @@ namespace TR {
 
                             int16 intensity  = stream.readBE16();
                             int16 intensity2 = stream.readBE16();
-                            ASSERT(intensity == intensity2);
+                            ASSERTV(intensity == intensity2);
                             int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                             light.color.r = light.color.g = light.color.b = value;
                             light.color.a = 0;
@@ -4936,7 +4936,6 @@ namespace TR {
                         d.h *= 2;
                     }
 
-                    uint16 bi = 0;
                     if (type == TEX_TYPE_ITEM)
                         ASSERTV(stream.readBE16() == t.i5);
 

@@ -481,7 +481,7 @@ uniform vec4 uFogParams;
 					#ifdef TYPE_ENTITY
 						float specular = calcSpecular(normal, vViewVec.xyz, vLightVec, uLightColor[0], rSpecular);
 						#ifdef UNDERWATER
-							specular *= (1.0f - uwSign);
+							specular *= (1.0 - uwSign);
 						#endif
 						color.xyz += specular;
 					#endif

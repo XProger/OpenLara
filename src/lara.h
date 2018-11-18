@@ -138,7 +138,8 @@ struct Lara : Character {
         ANIM_WADE_RUN_RIGHT     = 179,
         ANIM_WADE_STAND         = 186,
         ANIM_WADE_ASCEND        = 190,
-        ANIM_SWIM_WADE          = 192,
+        ANIM_SWIM_STAND         = 192,
+        ANIM_SURF_STAND         = 193,
 
         ANIM_SWITCH_BIG_DOWN    = 195,
         ANIM_SWITCH_BIG_UP      = 196,
@@ -2200,6 +2201,12 @@ struct Lara : Character {
                 } else {
                     pos.y = waterLevel;
                     updateRoom();
+                    switch (state) {
+                        case STATE_BACK       : animation.setAnim(ANIM_ONWATER_SWIM_B); break;
+                        case STATE_STEP_LEFT  : animation.setAnim(ANIM_ONWATER_SWIM_L); break;
+                        case STATE_STEP_RIGHT : animation.setAnim(ANIM_ONWATER_SWIM_R); break;
+                        default               : animation.setAnim(ANIM_ONWATER_SWIM_F); 
+                    }
                     return STAND_ONWATER;
                 }
             } else if (waterDepth > LARA_WADE_DEPTH) {
@@ -2208,17 +2215,19 @@ struct Lara : Character {
                     pos.y = waterLevel + waterDepth;
                     game->playSound(TR::SND_WATER_SPLASH, pos, Sound::PAN);
                     updateRoom();
-                    animation.setAnim(ANIM_SWIM_WADE);
+                    animation.setAnim(ANIM_SWIM_STAND);
                     stopScreaming();
                     return STAND_WADE;
                 } else if (stand == STAND_UNDERWATER) {
                     if (waterDepth <= LARA_SWIM_MIN_DEPTH) {
                         pos.y = waterLevel + waterDepth;
                         updateRoom();
-                        animation.setAnim(ANIM_SWIM_WADE);
+                        animation.setAnim(ANIM_SWIM_STAND);
                         return STAND_WADE;
                     }
                 } else if (stand == STAND_ONWATER || stand == STAND_GROUND) {
+                    if (state == STATE_RUN || state == STATE_SURF_SWIM)
+                        animation.setAnim(ANIM_WADE);
                     pos.y = waterLevel + waterDepth;
                     updateRoom();
                     return STAND_WADE;
@@ -2687,6 +2696,8 @@ struct Lara : Character {
             }
             if (state == STATE_SURF_SWIM)
                 return animation.setAnim(ANIM_WADE_SWIM);
+            if (state == STATE_SURF_BACK)
+                return animation.setAnim(ANIM_BACK);
         }
 
         if (input & FORTH) {
@@ -2698,8 +2709,6 @@ struct Lara : Character {
         }
 
         if (input & BACK) {
-            if (state == STATE_SURF_BACK)
-                return animation.setAnim(ANIM_BACK);
             return STATE_BACK;
         }
 
