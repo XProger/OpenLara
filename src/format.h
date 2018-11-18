@@ -923,6 +923,8 @@ namespace TR {
 
         SND_SCREAM          = 30,
         SND_HIT             = 31,
+
+        SND_WATER_SPLASH    = 33,
         
         SND_BUBBLE          = 37,
          
@@ -2640,9 +2642,7 @@ namespace TR {
                             soundSize[soundOffsetsCount - 1] -= soundSize[soundOffsetsCount - 2];
                     }
                 }
-            }
 
-            if (version == VER_TR3_PSX) {
             // skip code modules
                 int size;
                 for (int i = 0; i < 13; i++) {
@@ -4071,7 +4071,7 @@ namespace TR {
                         Room::Data::Vertex &v = d.vertices[d.vCount++];
 
                         struct {
-                            uint32 z:5, y:5, x:5, color:16, unknown:1;
+                            uint32 z:5, y:5, x:5, color:15, flags:2;
                         } cv;
 
                         stream.raw(&cv, sizeof(cv));
@@ -4156,7 +4156,7 @@ namespace TR {
 
                     if (version == VER_TR2_PSX) {
                         struct {
-                            uint32 lighting:8, attributes:8, z:5, y:5, x:5, :1;
+                            uint32 lighting:8, attributes:8, z:5, y:5, x:5, w:1;
                         } cv;
 
                         stream.raw(&cv, sizeof(cv));
@@ -4165,7 +4165,9 @@ namespace TR {
                         v.vertex.y    = (cv.y << 8) + r.info.yTop;
                         v.vertex.z    = (cv.z << 10);
                         lighting      = cv.lighting;
-                        v.attributes  = 0;//cv.attributes;
+                        v.attributes  = cv.attributes;
+
+                        lighting = 0x1FFF - (lighting << 5); // TODO: calc lighting by lighting = [0..255] and mode = [0..31] values
                     } else {
                         stream.read(v.vertex.x);
                         stream.read(v.vertex.y);
@@ -4185,7 +4187,7 @@ namespace TR {
                         }
                     }
 
-                    if (version & VER_PSX)
+                    if (version == VER_TR1_PSX || version == VER_TR3_PSX)
                         lighting = 0x1FFF - (lighting << 5); // convert vertex luminance from PSX to PC format
 
                     if ((version & VER_VERSION) < VER_TR3) { // lighting to color conversion
@@ -5162,18 +5164,18 @@ namespace TR {
 
         void initAnimTex() {
             for (int i = 0; i < animTexturesCount; i++) {
-                bool transp = false;
+                uint8 transp = 0;
                 for (int j = 0; j < animTextures[i].count; j++) {
                     TextureInfo &t = objectTextures[animTextures[i].textures[j]];
                     t.animated = true;
                     if (t.attribute != 0)
-                        transp = 1;
+                        transp = t.attribute;
                 }
 
                 if (transp) {
                     for (int j = 0; j < animTextures[i].count; j++) {
                         TextureInfo &t = objectTextures[animTextures[i].textures[j]];
-                        t.attribute = 1;
+                        t.attribute = transp;
                     }
                 }
             }
@@ -5633,21 +5635,35 @@ namespace TR {
                 while (sector->roomAbove != NO_ROOM) {
                     room = &rooms[sector->roomAbove];
                     if (!room->flags.water)
-                        break;
+                        return sector;
                     roomIndex = sector->roomAbove;
                     sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
                 }
-                return sector;
             } else { // go down to the water
                 while (sector->roomBelow != NO_ROOM) {
                     room   = &rooms[roomIndex = sector->roomBelow];
                     sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
                     if (room->flags.water)
-                        break;
+                        return sector;
                 }
-                return sector;
             }
             return NULL;
+        }
+
+        void getWaterInfo(int16 roomIndex, const vec3 &pos, float &level, float &depth) {
+            depth = 0.0f;
+            level = 0.0f;
+
+            Room::Sector *sector = getWaterLevelSector(roomIndex, pos);
+            if (!sector)
+                return;
+
+            level = sector->ceiling * 256.0f;
+
+            if (pos.y < level)
+                depth = pos.y - level;
+            else
+                depth = getFloor(sector, pos) - level;
         }
 
         bool isBlocked(int16 &roomIndex, const vec3 &pos) {

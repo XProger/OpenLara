@@ -147,10 +147,14 @@ struct Controller {
     vec3 lastPos;
     mat4 matrix;
 
+    float waterLevel, waterDepth;
+
     Controller(IGame *game, int entity) : next(NULL), game(game), level(game->getLevel()), entity(entity), animation(level, getModel(), level->entities[entity].flags.smooth), state(animation.state), invertAim(false), layers(0), explodeMask(0), explodeParts(0), lastPos(0) {
         const TR::Entity &e = getEntity();
         lockMatrix  = false;
         matrix.identity();
+
+        waterLevel = waterDepth = 0.0f;
 
         pos         = vec3(float(e.x), float(e.y), float(e.z));
         angle       = vec3(0.0f, e.rotation, 0.0f);
@@ -1084,9 +1088,13 @@ struct Controller {
                                     default                       : cmdEffect(fx); break;
                                 }
                             } else {
-                                if (!(sfx & 0x8000)) { // TODO 0x4000 / 0x8000 for ground / water foot steps
-                                    game->playSound(fx, pos, Sound::PAN);
+                                if (!(level->version & TR::VER_TR1)) {
+                                    if ((sfx & 0x8000) && waterDepth <= 0.0f)
+                                        break;
+                                    if ((sfx & 0x4000) && waterDepth > 0.0f)
+                                        break;
                                 }
+                                game->playSound(fx, pos, Sound::PAN);
                             }
                         }
                         break;

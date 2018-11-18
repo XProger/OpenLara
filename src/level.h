@@ -701,8 +701,8 @@ struct Level : IGame {
 
             if (!(flags & Sound::MUSIC)) {
                 switch (b.flags.mode) {
-                    case 0 : flags |= Sound::UNIQUE; break;
-                    case 1 : flags |= Sound::REPLAY; break;
+                    case 0 : if (level.version & TR::VER_TR1) flags |= Sound::UNIQUE; break;
+                    case 1 : flags |= (level.version & TR::VER_TR1) ? Sound::REPLAY : Sound::UNIQUE; break;
                     case 2 : if (level.version & TR::VER_TR1)    flags |= Sound::LOOP; break;
                     case 3 : if (!(level.version & TR::VER_TR1)) flags |= Sound::LOOP | Sound::UNIQUE; break;
                 }
@@ -1062,6 +1062,7 @@ struct Level : IGame {
             case TR::Entity::MUTANT_EGG_BIG        : return new MutantEgg(this, index);
 
             case TR::Entity::ENEMY_DOG              : return new Dog(this, index);
+            case TR::Entity::ENEMY_TIGER            : return new Tiger(this, index);
             case TR::Entity::ENEMY_GOON_MASK_1      :
             case TR::Entity::ENEMY_GOON_MASK_2      :
             case TR::Entity::ENEMY_GOON_MASK_3      :
@@ -1084,7 +1085,6 @@ struct Level : IGame {
             case TR::Entity::ENEMY_SPIDER           :
             case TR::Entity::ENEMY_SPIDER_GIANT     :
             case TR::Entity::ENEMY_CROW             :
-            case TR::Entity::ENEMY_TIGER            :
             case TR::Entity::ENEMY_MARCO            :
             case TR::Entity::ENEMY_GUARD_SPEAR        :
             case TR::Entity::ENEMY_GUARD_SPEAR_STATUE :

@@ -147,11 +147,12 @@ uniform vec4 uFogParams;
 				else
 					d = length(uViewPos.xyz - coord.xyz);
 				fog = d * WATER_FOG_DIST;
+				fog *= step(uParam.y, coord.y);
+				vNormal.w = fog;
 			#else
 				fog = length(vViewVec.xyz);
+    			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 			#endif
-
-			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 		#endif
 
 		#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
@@ -163,10 +164,6 @@ uniform vec4 uFogParams;
 	void _diffuse() {
 		#ifndef PASS_SHADOW
 			vDiffuse = vec4(aColor.xyz * (uMaterial.x * 1.8), 1.0);
-
-			#ifdef UNDERWATER
-				vDiffuse.xyz *= UNDERWATER_COLOR;
-			#endif
 
 			#ifdef TYPE_MIRROR
 				vDiffuse.xyz = uMaterial.xyz;
@@ -467,8 +464,12 @@ uniform vec4 uFogParams;
 						vec3 light = vLight.xyz;
 					#endif
 
-					#ifdef OPT_CAUSTICS
-						light += calcCaustics(normal);
+					#ifdef UNDERWATER
+						float uwSign = step(uParam.y, vCoord.y);
+
+						#ifdef OPT_CAUSTICS
+							light += calcCaustics(normal) * uwSign;
+						#endif
 					#endif
 
 					#ifdef OPT_CONTACT
@@ -478,11 +479,26 @@ uniform vec4 uFogParams;
 					color.xyz *= light;
 
 					#ifdef TYPE_ENTITY
-						color.xyz += calcSpecular(normal, vViewVec.xyz, vLightVec, uLightColor[0], rSpecular);
+						float specular = calcSpecular(normal, vViewVec.xyz, vLightVec, uLightColor[0], rSpecular);
+						#ifdef UNDERWATER
+							specular *= (1.0f - uwSign);
+						#endif
+						color.xyz += specular;
 					#endif
 
 					#if defined(UNDERWATER) && defined(OPT_UNDERWATER_FOG)
-						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, vNormal.w);
+						float dist;
+						if (uViewPos.y < uParam.y)
+							dist = abs((vCoord.y - uParam.y) / normalize(uViewPos.xyz - vCoord.xyz).y);
+						else
+							dist = length(uViewPos.xyz - vCoord.xyz);
+						dist += 128.0;
+						dist *= WATER_FOG_DIST;
+						dist *= uwSign;
+
+						float fog = clamp(1.0 / exp(dist), 0.0, 1.0);
+						color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * 8.0, 0.0, 2.0));
+						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
 					#else
 						color.xyz = mix(uFogParams.xyz, color.xyz, vNormal.w);
 					#endif

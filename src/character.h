@@ -16,7 +16,8 @@ struct Character : Controller {
         STAND_SLIDE,
         STAND_HANG,
         STAND_UNDERWATER,
-        STAND_ONWATER
+        STAND_ONWATER,
+        STAND_WADE
     }       stand;
 
     int     input, lastInput;
@@ -80,12 +81,6 @@ struct Character : Controller {
         
         if (level->isCutsceneLevel())
             return index;
-        
-        TR::Level::FloorInfo info;
-        getFloorInfo(index, pos, info);
-
-        if (level->rooms[index].flags.water && info.roomAbove != TR::NO_ROOM && (info.floor - level->rooms[index].info.yTop) <= 512)
-            return info.roomAbove;
         return index;
     }
 
@@ -165,6 +160,7 @@ struct Character : Controller {
     virtual int   getStateHang()        { return state; }
     virtual int   getStateUnderwater()  { return state; }
     virtual int   getStateOnwater()     { return state; }
+    virtual int   getStateWade()        { return state; }
     virtual int   getStateDeath()       { return state; }
     virtual int   getStateDefault()     { return state; }
     virtual int   getInput()            { return health <= 0 ? DEATH : 0; }
@@ -187,6 +183,7 @@ struct Character : Controller {
             case STAND_HANG       : return getStateHang();
             case STAND_UNDERWATER : return getStateUnderwater();
             case STAND_ONWATER    : return getStateOnwater();
+            case STAND_WADE       : return getStateWade();
         }
         return animation.state;
     }
@@ -223,7 +220,14 @@ struct Character : Controller {
         return (input & key) && !(lastInput & key);
     }
 
+    void updateRoom() {
+        level->getSector(roomIndex, pos);
+        level->getWaterInfo(getRoomIndex(), pos, waterLevel, waterDepth);
+    }
+
     virtual void update() {
+        updateRoom();
+
         vec3 p = pos;
         lastInput = input;
         input = getInput();

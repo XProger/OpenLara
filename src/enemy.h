@@ -3230,4 +3230,128 @@ struct Dog : Enemy {
     }
 };
 
+#define TIGER_WALK           1120
+#define TIGER_ROAR           96
+#define TIGER_DIST_ATTACK_1  341
+#define TIGER_DIST_ATTACK_2  1536
+#define TIGER_DIST_ATTACK_3  1024
+#define TIGER_DAMAGE         100
+#define TIGER_TURN_FAST      (DEG2RAD * 180)
+#define TIGER_TURN_SLOW      (DEG2RAD * 90)
+
+struct Tiger : Enemy {
+
+    enum {
+        HIT_MASK = 0x7FDC000,
+    };
+
+    enum {
+        ANIM_DEATH = 11,
+    };
+
+    enum {
+        STATE_NONE = -1,
+        STATE_DEATH    ,
+        STATE_STOP     ,
+        STATE_WALK     ,
+        STATE_RUN      ,
+        STATE_IDLE     ,
+        STATE_ROAR     ,
+        STATE_ATTACK_1 ,
+        STATE_ATTACK_2 ,
+        STATE_ATTACK_3 ,
+    };
+
+    Tiger(IGame *game, int entity) : Enemy(game, entity, 20, 341, 200.0f, 0.25f) {
+        dropHeight = -1024;
+        jointChest = -1;//21;
+        jointHead  = -1;//22;
+        nextState  = STATE_NONE;
+    }
+
+    virtual int getStateGround() {
+        if (!think(true))
+            return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        switch (state) {
+            case STATE_STOP    :
+                if (mood == MOOD_ESCAPE)
+                    return STATE_RUN;
+                if (mood == MOOD_SLEEP) {
+                    int r = rand();
+                    if (r < TIGER_ROAR) return STATE_ROAR;
+                    if (r < TIGER_WALK) return STATE_WALK;
+                    return state;
+                }
+                if (targetInView && targetDist < TIGER_DIST_ATTACK_1)
+                    return STATE_ATTACK_1;
+                if (targetInView && targetDist < TIGER_DIST_ATTACK_3)
+                    return STATE_ATTACK_3;
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if (mood != MOOD_ATTACK && rand() < TIGER_ROAR)
+                    return STATE_ROAR;
+                return STATE_RUN;
+            case STATE_WALK     : 
+                if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
+                    return STATE_RUN;
+                if (rand() < TIGER_ROAR) {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            case STATE_RUN      : {
+                bool melee = flags.unused != 0;
+                flags.unused = 0;
+
+                if (mood == MOOD_SLEEP)
+                    return STATE_STOP;
+                if (targetInView && melee)
+                    return STATE_STOP;
+                if (targetInView && targetDist < TIGER_DIST_ATTACK_2) {
+                    if (target->velocity.length2() < SQR(16.0f))
+                        return STATE_STOP;
+                    else
+                        return STATE_ATTACK_2;
+                }
+                if (mood != MOOD_ATTACK && rand() < TIGER_ROAR) {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            }
+            case STATE_ATTACK_1 :
+            case STATE_ATTACK_2 :
+            case STATE_ATTACK_3 :
+                if (flags.unused == 0 && (collide(target) & HIT_MASK)) {
+                    bite(26, vec3(19.0f, -13.0f, 3.0f), TIGER_DAMAGE);
+                    flags.unused = 1;
+                }
+        }
+        return state;
+    }
+
+    virtual int getStateDeath() {
+        if (state == STATE_DEATH)
+            return state;
+        return animation.setAnim(ANIM_DEATH);
+    }
+
+    virtual void updatePosition() {
+        turn(state == STATE_RUN || state == STATE_WALK || state == STATE_ROAR, state == STATE_RUN ? TIGER_TURN_FAST : TIGER_TURN_SLOW);
+
+        if (state == STATE_DEATH) {
+            animation.overrideMask = 0;
+            return;
+        }
+
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+};
+
 #endif
