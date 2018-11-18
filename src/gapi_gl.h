@@ -373,6 +373,38 @@ namespace GAPI {
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
 
+            #ifdef _DEBUG
+                Stream *stream = NULL;
+                switch (pass) {
+                    case Core::passCompose :
+                    case Core::passShadow  :
+                    case Core::passAmbient : stream = new Stream("../../src/shaders/shader.glsl"); break;
+                    case Core::passWater   : stream = new Stream("../../src/shaders/water.glsl");  break;
+                    case Core::passFilter  : stream = new Stream("../../src/shaders/filter.glsl"); break;
+                    case Core::passGUI     : stream = new Stream("../../src/shaders/gui.glsl");    break;
+                    default                : ASSERT(false);  return;
+                }
+                
+                char *sourceData = new char[stream->size + 1];
+                stream->raw(sourceData, stream->size);
+                sourceData[stream->size] = 0;
+
+                source = sourceData;
+                for (int i = 0; i < stream->size; i++) // trim string resource begin tag
+                    if (sourceData[i] == '(') {
+                        source = sourceData + i + 1;
+                        break;
+                    }
+
+                for (int i = stream->size - 1; i >= 0; i--) // trim string resource end tag
+                    if (sourceData[i] == ')') {
+                        sourceData[i] = 0;
+                        break;
+                    }
+
+                delete stream;
+            #endif
+
             char defines[1024];
             defines[0] = 0;
 
@@ -421,6 +453,10 @@ namespace GAPI {
                 #endif
                 }
             }
+
+            #ifdef _DEBUG
+                delete[] sourceData;
+            #endif
 
             Core::active.shader = this;
             glUseProgram(ID);

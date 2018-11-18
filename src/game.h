@@ -224,6 +224,12 @@ namespace Game {
             level->flipMap();
             Input::down[ikF] = false;
         }
+
+        if (Input::down[ikCtrl] && Input::down[ik1]) {
+            delete shaderCache;
+            shaderCache = new ShaderCache();
+            Input::down[ik1] = false;
+        }
     #endif
 
         if (Input::down[ik5] && !inventory->isActive()) {
