@@ -234,29 +234,26 @@ struct MuzzleFlash : Controller {
     }
 
     virtual void update() {
+        timer += Core::deltaTime;
         if (timer < MUZZLE_FLASH_TIME) {
-            timer += Core::deltaTime;
+            float intensity = clamp((MUZZLE_FLASH_TIME - timer) * 20.0f, EPS, 1.0f);
 
-            if (timer < MUZZLE_FLASH_TIME) {
-                float intensity = clamp((MUZZLE_FLASH_TIME - timer) * 20.0f, EPS, 1.0f);
-
-                vec4 lightPos   = vec4(owner->getJoint(joint).pos, 0);
-                vec4 lightColor = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
-                if (lightIndex > -1) {
-                    ASSERT(lightIndex + 1 < MAX_LIGHTS);
-                    Core::lightPos[lightIndex]   = lightPos;
-                    Core::lightColor[lightIndex] = lightColor;
-                } else
-                    getRoom().addDynLight(owner->entity, lightPos, lightColor, true);
-            } else {
-                if (lightIndex > -1) {
-                    ASSERT(lightIndex < MAX_LIGHTS);
-                    Core::lightPos[lightIndex]   = vec4(0);
-                    Core::lightColor[lightIndex] = vec4(0, 0, 0, 1);
-                } else
-                    getRoom().removeDynLight(owner->entity);
-                game->removeEntity(this);
-            }
+            vec4 lightPos   = vec4(owner->getJoint(joint).pos, 0);
+            vec4 lightColor = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
+            if (lightIndex > -1) {
+                ASSERT(lightIndex + 1 < MAX_LIGHTS);
+                Core::lightPos[lightIndex]   = lightPos;
+                Core::lightColor[lightIndex] = lightColor;
+            } else
+                getRoom().addDynLight(owner->entity, lightPos, lightColor, true);
+        } else {
+            if (lightIndex > -1) {
+                ASSERT(lightIndex < MAX_LIGHTS);
+                Core::lightPos[lightIndex]   = vec4(0);
+                Core::lightColor[lightIndex] = vec4(0, 0, 0, 1);
+            } else
+                getRoom().removeDynLight(owner->entity);
+            game->removeEntity(this);
         }
     }
 
