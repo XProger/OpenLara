@@ -465,7 +465,10 @@ uniform vec4 uFogParams;
 					#endif
 
 					#ifdef UNDERWATER
-						float uwSign = step(uParam.y, vCoord.y);
+						float uwSign = 1.0;
+						#ifdef TYPE_ENTITY
+							uwSign = step(uParam.y, vCoord.y);
+						#endif
 
 						#ifdef OPT_CAUSTICS
 							light += calcCaustics(normal) * uwSign;
