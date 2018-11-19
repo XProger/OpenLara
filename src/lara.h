@@ -2905,7 +2905,8 @@ struct Lara : Character {
         }
 
         if (dozy && Input::state[pid][cWalk]) {
-            dozy = false;
+            dozy  = false;
+            stand = STAND_AIR;
             return input;
         }
 
