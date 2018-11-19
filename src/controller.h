@@ -1008,15 +1008,18 @@ struct Controller {
         return fabsf(d.x) < range && fabsf(d.z) < range && fabsf(d.y) < range;
     }
 
-    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {}
+    void updateRoom() {
+        level->getSector(roomIndex, pos);
+        level->getWaterInfo(getRoomIndex(), pos, waterLevel, waterDepth);
+    }
 
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {}
     virtual void  doCustomCommand               (int curFrame, int prevFrame) {}
-    virtual void  checkRoom()                   {}
     virtual void  applyFlow(TR::Camera &sink)   {}
 
     virtual void  cmdOffset(const vec3 &offset) {
         pos = pos + offset.rotateY(-angle.y);
-        checkRoom();
+        updateRoom();
     }
 
     virtual void  cmdJump(const vec3 &vel)      {}

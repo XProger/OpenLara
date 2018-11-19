@@ -127,29 +127,6 @@ struct Character : Controller {
         health = max(0.0f, health - damage);
     }
 
-    virtual void checkRoom() {
-        TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
-
-        if (info.roomNext != TR::NO_ROOM)
-            roomIndex = info.roomNext;        
-
-        if (info.roomBelow != TR::NO_ROOM && pos.y > info.roomFloor)
-            roomIndex = info.roomBelow;
-
-        if (info.roomAbove != TR::NO_ROOM && pos.y <= info.roomCeiling) {
-            TR::Room *room = &level->rooms[info.roomAbove];
-
-            if (stand == STAND_UNDERWATER && !room->flags.water) {
-                stand = STAND_ONWATER;
-                velocity.y = 0;
-                pos.y = info.roomCeiling;
-            } else
-                if (stand != STAND_ONWATER)
-                    roomIndex = info.roomAbove;
-        }
-    }
-
     virtual void  updateVelocity()      {}
     virtual void  updatePosition()      {}
     virtual Stand getStand()            { return stand; }
@@ -218,11 +195,6 @@ struct Character : Controller {
 
     bool isPressed(Key key) {
         return (input & key) && !(lastInput & key);
-    }
-
-    void updateRoom() {
-        level->getSector(roomIndex, pos);
-        level->getWaterInfo(getRoomIndex(), pos, waterLevel, waterDepth);
     }
 
     virtual void update() {

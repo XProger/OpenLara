@@ -210,7 +210,7 @@ struct Enemy : Character {
         } else
             pos = p;
 
-        checkRoom();
+        updateRoom();
     }
 
     void setOverrides(bool active, int chest, int head) {
@@ -2444,7 +2444,7 @@ struct Doppelganger : Enemy {
             angle.y -= PI;
         }
 
-        Enemy::checkRoom();
+        Enemy::updateRoom();
 
         TR::Level::FloorInfo info;
         getFloorInfo(getRoomIndex(), pos, info);
