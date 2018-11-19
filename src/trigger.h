@@ -1531,7 +1531,10 @@ struct Bubble : Sprite {
             h = s.ceiling * 256;
             room = s.roomAbove;
         }
-        time -= (pos.y - h) / speed - (1.0f / SPRITE_FPS);
+        if (pos.y < h)
+            time = 1.0f / SPRITE_FPS;
+        else
+            time -= (pos.y - h) / speed - (1.0f / SPRITE_FPS);
         activate();
     }
 
