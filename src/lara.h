@@ -524,9 +524,8 @@ struct Lara : Character {
             if (level->version & TR::VER_TR1)
                 meshSwap(1, TR::MODEL_LARA_SPEC, JOINT_MASK_UPPER | JOINT_MASK_LOWER);
         } else {
-            if (level->id == TR::LVL_TR2_HOUSE)
-                wpnSet(TR::Entity::SHOTGUN);
-            else
+            int *wpnAmmo = game->invCount(TR::Entity::PISTOLS);
+            if (wpnAmmo && *wpnAmmo > 0)
                 wpnSet(TR::Entity::PISTOLS);
         }
 

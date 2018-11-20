@@ -809,6 +809,14 @@ struct Level : IGame {
 
         Core::fogParams = TR::getFogParams(level.id);
 
+        inventory->game = this;
+
+        if (!level.isCutsceneLevel()) {
+            inventory->reset();
+            memset(&saveStats, 0, sizeof(saveStats));
+            saveStats.level = level.id;
+        }
+
         initTextures();
         mesh = new MeshBuilder(&level, atlas);
         initOverrides();
@@ -861,14 +869,6 @@ struct Level : IGame {
             camera->doCutscene(lara->pos, lara->angle.y);
         }
         */
-
-        inventory->game = this;
-
-        if (!level.isCutsceneLevel()) {
-            inventory->reset();
-            memset(&saveStats, 0, sizeof(saveStats));
-            saveStats.level = level.id;
-        }
 
         saveResult = SAVE_RESULT_SUCCESS;
         if (loadSlot != -1 && saveSlots[loadSlot].getLevelID() == level.id) {
