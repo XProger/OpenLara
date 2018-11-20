@@ -231,6 +231,7 @@ struct Controller {
         info.floorIndex   = s.floorIndex;
         info.boxIndex     = s.boxIndex;
         info.lava         = false;
+        info.climb        = 0;
         info.trigger      = TR::Level::Trigger::ACTIVATE;
         info.trigCmdCount = 0;
 

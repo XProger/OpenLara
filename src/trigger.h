@@ -1570,6 +1570,15 @@ struct Explosion : Sprite {
 };
 
 
+struct Window : Controller {
+
+    Window(IGame *game, int entity) : Controller(game, entity) {
+        initMeshOverrides();
+        layers[0].mask = 0x00000001;
+    }
+};
+
+
 #define STONE_ITEM_LIGHT_RADIUS 2048.0f
 
 struct StoneItem : Controller {

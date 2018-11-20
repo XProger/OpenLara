@@ -1106,6 +1106,9 @@ struct Level : IGame {
             case TR::Entity::STONE_ITEM_3           :
             case TR::Entity::STONE_ITEM_4           : return new StoneItem(this, index);
 
+            case TR::Entity::WINDOW_1               :
+            case TR::Entity::WINDOW_2               : return new Window(this, index);
+
             default                                 : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
         }
     }
@@ -1849,7 +1852,7 @@ struct Level : IGame {
         effectTimer += Core::deltaTime;
 
         switch (effect) {
-            case TR::Effect::FLICKER : {
+            case TR::Effect::TR1_FLICKER : {
                 int idx = effectIdx;
                 switch (effectIdx) {
                     case 0 : if (effectTimer > 3.0f) effectIdx++; break;

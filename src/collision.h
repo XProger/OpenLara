@@ -11,6 +11,7 @@ struct Collision {
 
     struct Info {
         int room, roomAbove, roomBelow;
+        int climb;
         float floor, ceiling;
     } info[4];
 
@@ -91,6 +92,7 @@ struct Collision {
         inf.roomBelow = info.roomBelow;
         inf.floor     = info.floor;
         inf.ceiling   = info.ceiling;
+        inf.climb     = info.climb;
 
         if ((info.ceiling == info.floor) ||  (info.floor - info.ceiling < height) || (pos.y - info.floor > maxAscent) || (info.floor - pos.y > maxDescent) || (info.ceiling > pos.y) ||
             (maxAscent == maxDescent && (maxAscent <= 256 + 128) && (abs(info.slantX) > 2 || abs(info.slantZ) > 2))) {

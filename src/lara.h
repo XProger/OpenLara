@@ -599,7 +599,7 @@ struct Lara : Character {
         //reset(10, vec3(90443, 11264 - 256, 114614), PI, STAND_ONWATER);   // villa mortal 2
     // TR2
         //reset(36, vec3(64190, 5632, 35743), 75 * DEG2RAD);   // WALL (wade)
-        //reset(19, vec3(28353, 2560, 58587), 150 * DEG2RAD);   // ASSAULT (wade)
+        //reset(19, vec3(28353, 2560, 58587), 150 * DEG2RAD);  // ASSAULT (wade)
 
         //dbgBoxes = NULL;
 
@@ -2718,7 +2718,13 @@ struct Lara : Character {
     }
 
     int checkMove(int newState, int maxAscent = 256 + 128, int maxDescent = 0xFFFFFF) {
-        float ext = angle.y + ((newState == STATE_BACK || newState == STATE_FAST_BACK) ? PI : 0.0f);
+        float ext = angle.y;
+        if (newState == STATE_BACK || newState == STATE_FAST_BACK)
+            ext += PI;
+        else if (newState == STATE_STEP_LEFT)
+            ext -= PI * 0.5f;
+        else if (newState == STATE_STEP_RIGHT)
+            ext += PI * 0.5f;
         vec3 p = pos;
         collision  = Collision(this, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, maxAscent, maxDescent);
         if (collision.side == Collision::FRONT)

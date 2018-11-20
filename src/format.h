@@ -894,7 +894,6 @@ namespace TR {
             DRAW_LEFTGUN   ,
             SHOT_RIGHTGUN  ,
             SHOT_LEFTGUN   ,
-            FLICKER        = 16,
             UNKNOWN        ,
             MESH_SWAP_1    ,
             MESH_SWAP_2    ,
@@ -903,7 +902,16 @@ namespace TR {
             INV_OFF        ,
             DYN_ON         ,
             DYN_OFF        ,
-            FOOTPRINT      = 32,
+            STATUE_FX      ,
+            RESET_HAIR     ,
+            BOILER_FX      ,
+            ASSAULT_RESET  ,
+            ASSAULT_STOP   ,
+            ASSAULT_START  ,
+            ASSAULT_FINISH ,
+            FOOTPRINT      ,
+        // specific
+            TR1_FLICKER    = 16,
         };
     };
 
@@ -2383,8 +2391,8 @@ namespace TR {
             int floorIndex;
             int boxIndex;
             int lava;
-            int trigCmdCount;
             int climb;
+            int trigCmdCount;
             Trigger::Type trigger;
             FloorData::TriggerInfo trigInfo;
             FloorData::TriggerCommand trigCmd[MAX_TRIGGER_COMMANDS];

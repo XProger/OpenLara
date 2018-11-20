@@ -171,7 +171,7 @@ namespace Debug {
             glEnd();
         }
 
-        void text(const vec2 &pos, const vec4 &color, const char *str) {
+        void textColor(const vec2 &pos, const vec4 &color, const char *str) {
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
@@ -195,6 +195,11 @@ namespace Debug {
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glPopMatrix();
+        }
+
+        void text(const vec2 &pos, const vec4 &color, const char *str) {
+            textColor(pos + vec2(1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), str);
+            textColor(pos, color, str);
         }
 
         void text(const vec3 &pos, const vec4 &color, const char *str) {
@@ -722,6 +727,15 @@ namespace Debug {
             y += 16;
             if (info.lava)
                 Debug::Draw::text(vec2(16, y += 16), vec4(1.0f, 0.5f, 0.3f, 1.0f), "LAVA");
+
+            if (info.climb) {
+                sprintf(buf, "climb mask:");
+                if (info.climb & 0x01) strcat(buf, " +Z");
+                if (info.climb & 0x02) strcat(buf, " +X");
+                if (info.climb & 0x04) strcat(buf, " -Z");
+                if (info.climb & 0x08) strcat(buf, " -X");
+                Debug::Draw::text(vec2(16, y += 16), vec4(0.5f, 0.8f, 0.5f, 1.0f), buf);
+            }
 
             if (info.trigCmdCount > 0) {
                 sprintf(buf, "trigger: %s%s mask: %d timer: %d", getTriggerType(level, info.trigger), info.trigInfo.once ? " (once)" : "", info.trigInfo.mask, info.trigInfo.timer);
