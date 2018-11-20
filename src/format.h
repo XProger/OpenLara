@@ -4107,6 +4107,7 @@ namespace TR {
                         f.flags.doubleSided = false;
                         f.triangle    = true;
                         f.colored     = false;
+                        f.water       = false;
                         f.flip        = false;
                         f.vertices[0] = vStart + t.i0;
                         f.vertices[1] = vStart + t.i1;
@@ -4142,6 +4143,7 @@ namespace TR {
                         f.flags.doubleSided = false;
                         f.triangle    = false;
                         f.colored     = false;
+                        f.water       = false;
                         f.flip        = false;
                         f.vertices[0] = vStart + r.i0;
                         f.vertices[1] = vStart + r.i1;
