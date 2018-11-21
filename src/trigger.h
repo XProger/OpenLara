@@ -1570,9 +1570,9 @@ struct Explosion : Sprite {
 };
 
 
-struct Window : Controller {
+struct BreakableWindow : Controller {
 
-    Window(IGame *game, int entity) : Controller(game, entity) {
+    BreakableWindow(IGame *game, int entity) : Controller(game, entity) {
         initMeshOverrides();
         layers[0].mask = 0x00000001;
     }

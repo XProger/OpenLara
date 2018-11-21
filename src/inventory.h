@@ -615,6 +615,11 @@ struct Inventory {
             if (!TR::isEmptyLevel(level->id)) {
                 add(TR::Entity::INV_PISTOLS, UNLIMITED_AMMO);
             }
+
+            if (level->id == TR::LVL_TR2_HOUSE) {
+                add(TR::Entity::INV_KEY_1);
+                add(TR::Entity::INV_PUZZLE_1);
+            }
         #ifdef _DEBUG
             addWeapons();
             add(TR::Entity::INV_KEY_1, 3);

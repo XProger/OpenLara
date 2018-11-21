@@ -4817,6 +4817,7 @@ namespace TR {
                         f.flags.texture     = (info & 0xFF) | (r.tex << 8);
                         f.triangle = true;
                         f.colored  = false;
+                        f.water    = false;
                         f.flip     = false;
 
                         f.vertices[0] = r.i0;
@@ -4837,6 +4838,7 @@ namespace TR {
                         f.flags.texture     = info & 0xFFFF;
                         f.triangle = false;
                         f.colored  = false;
+                        f.water    = false;
                         f.flip     = false;
 
                         struct {

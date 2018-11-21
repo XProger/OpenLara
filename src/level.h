@@ -1107,7 +1107,7 @@ struct Level : IGame {
             case TR::Entity::STONE_ITEM_4           : return new StoneItem(this, index);
 
             case TR::Entity::WINDOW_1               :
-            case TR::Entity::WINDOW_2               : return new Window(this, index);
+            case TR::Entity::WINDOW_2               : return new BreakableWindow(this, index);
 
             default                                 : return (level.entities[index].modelIndex > 0) ? new Controller(this, index) : new Sprite(this, index, 0);
         }

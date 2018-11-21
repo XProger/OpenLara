@@ -852,10 +852,12 @@ struct Lara : Character {
     }
 
     bool canDrawWeapon() {
+        if (wpnCurrent == TR::Entity::NONE)
+            return false;
+
         if (dozy) return true;
 
-        return wpnCurrent != TR::Entity::NONE
-               && animation.index != ANIM_CLIMB_3
+        return    animation.index != ANIM_CLIMB_3
                && animation.index != ANIM_CLIMB_2
                && state != STATE_DEATH
                && state != STATE_HANG
@@ -2911,7 +2913,7 @@ struct Lara : Character {
 
         if (dozy && Input::state[pid][cWalk]) {
             dozy  = false;
-            stand = STAND_AIR;
+            stand = getRoom().flags.water ? STAND_UNDERWATER : STAND_AIR;
             return input;
         }
 
