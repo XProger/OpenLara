@@ -225,6 +225,7 @@ struct Inventory {
         Animation           *anim;
 
         int                 value;
+        vec4                params;
 
         Array<OptionItem>   optLoadSlots;
 
@@ -239,7 +240,7 @@ struct Inventory {
 
         Item() : anim(NULL) {}
 
-        Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f), value(0) {
+        Item(TR::Level *level, TR::Entity::Type type, int count = 1) : type(type), count(count), angle(0.0f), value(0), params(0.0f) {
             switch (type) {
                 case TR::Entity::INV_PASSPORT        : desc = Desc( STR_GAME,            PAGE_OPTION,    level->extra.inv.passport        ); break;
                 case TR::Entity::INV_PASSPORT_CLOSED : desc = Desc( STR_GAME,            PAGE_OPTION,    level->extra.inv.passport_closed ); break;
@@ -475,19 +476,38 @@ struct Inventory {
             return NULL;
         }
 
-        void update() {
+        void update(bool chosen, float phaseChoose) {
             if (!anim) return;
             anim->update();
 
-            if (type == TR::Entity::INV_PASSPORT) {
+            if (type == TR::Entity::INV_PASSPORT && chosen) {
                 float t = (14 + value * 5) / 30.0f;
-                
+
                 if ( (anim->dir > 0.0f && anim->time > t) ||
                      (anim->dir < 0.0f && anim->time < t)) {
                     anim->dir = 0.0f;
                     anim->time = t;
                     anim->updateInfo();
                 } 
+            }
+ 
+            if (type == TR::Entity::INV_COMPASS) {
+                params.z = params.z + (params.y - params.x) * Core::deltaTime * 8.0f; // acceleration
+                params.z -= params.z * Core::deltaTime; // damping
+                params.x += params.z * Core::deltaTime; // apply speed
+                if (chosen && anim->dir > 0.0f) {
+                    if (phaseChoose >= 1.0f) {
+                        float t = 7.0f / 30.0f;
+                        if (anim->time > t) {
+                            anim->dir = 0.0f;
+                            anim->time = t;
+                            anim->updateInfo();
+                        }
+                    } else {
+                        anim->time = 0.0f;
+                        anim->updateInfo();
+                    }
+                }
             }
         }
 
@@ -506,6 +526,10 @@ struct Inventory {
             matrix.setPos(basis.pos);
 
             anim->getJoints(matrix, -1, true, joints);
+
+            if (m.type == TR::Entity::INV_COMPASS) { // override needle animation
+                joints[1].rotate(quat(vec3(0.0f, 1.0f, 0.0f), -params.x));
+            }
 
             Core::setBasis(joints, m.mCount);
 
@@ -920,6 +944,11 @@ struct Inventory {
                 item->initLoadSlots(level);
                 break;
             }
+            case TR::Entity::INV_COMPASS : {
+                float angle = normalizeAngle(game->getLara(playerIndex)->angle.y);
+                item->params = vec4(angle + (randf() - 0.5f) * PI * 2.0f, angle, 0.0f, 0.0f); // initial angle, target angle, initial speed, unused
+                break;
+            }
             case TR::Entity::INV_CONTROLS :
                 Core::settings.playerIndex = 0;
                 Core::settings.ctrlIndex   = 0;
@@ -1196,7 +1225,6 @@ struct Inventory {
                     if (phaseChoose == 1.0f) {
                         chosen  = false;
                         item->anim->dir = 1.0f;
-                        item->value     = 1000;
                         item->angle     = 0.0f;
                     }
                 } else
@@ -1216,7 +1244,7 @@ struct Inventory {
         int itemIndex = index == targetIndex ? getGlobalIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
-            items[i]->update();
+            items[i]->update(chosen, phaseChoose);
             float &angle = items[i]->angle;
 
             if (itemIndex != i || chosen) {
@@ -1444,7 +1472,6 @@ struct Inventory {
                     renderOptions(item);
                     break;
                 case TR::Entity::INV_GAMMA     :
-                case TR::Entity::INV_COMPASS   :
                 case TR::Entity::INV_STOPWATCH :
                 case TR::Entity::INV_MAP       :
                     UI::textOut(vec2(-eye, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
@@ -1495,6 +1522,10 @@ struct Inventory {
             }
 
             Basis b = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item->desc.page * INVENTORY_HEIGHT - rh, 0));
+
+            if (item->type == TR::Entity::INV_COMPASS) {
+                b.rotate(quat(vec3(1.0f, 0.0f, 0.0f), -phaseChoose * PI * 0.1f));
+            }
 
             item->render(game, b);
 
@@ -1829,7 +1860,7 @@ struct Inventory {
             renderItemText(eye, items[getGlobalIndex(page, index)]);
 
     // inventory controls help
-        if (page == targetPage) {
+        if (page == targetPage && Input::touchTimerVis <= 0.0f) {
             float dx = 32.0f - eye;
             char buf[64];
             sprintf(buf, STR[STR_HELP_SELECT], STR[STR_KEY_FIRST + ikEnter] );
