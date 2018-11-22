@@ -13,8 +13,6 @@ inspired by OpenTomb project http://opentomb.github.io/
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
 
 ## Roadmap
-- BETA
-- Sega Saturn levels
 - graphics improvements
 - bug fixes
 - RELEASE 1
