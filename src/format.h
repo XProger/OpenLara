@@ -3949,7 +3949,7 @@ namespace TR {
         }
 
     void initModelIndices(bool simpleItems) {
-        #define OVERRIDE(a) { TR::Entity::##a, TR::Entity::INV_##a }
+        #define OVERRIDE(TYPE) { TR::Entity::TYPE, TR::Entity::INV_##TYPE }
 
         struct {
             TR::Entity::Type src, dst;
