@@ -53,16 +53,7 @@ struct Sprite : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Basis b;
-        b.w   = 1.0f;
-        b.pos = pos;
-        #ifdef MERGE_SPRITES
-            b.rot = Core::mViewInv.getRot();
-        #else
-            b.rot = quat(0, 0, 0, 1);
-        #endif
-        Core::setBasis(&b, 1);
-        mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
+        renderSprite(frustum, mesh, type, caustics, frame);
     }
 };
 

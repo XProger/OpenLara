@@ -1686,14 +1686,14 @@ struct Lara : Character {
                 game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
                 //TODO: remove medikit item
                 break;
-            case TR::Entity::INV_PUZZLE_1 :
-            case TR::Entity::INV_PUZZLE_2 :
-            case TR::Entity::INV_PUZZLE_3 :
-            case TR::Entity::INV_PUZZLE_4 :
-            case TR::Entity::INV_KEY_1    :
-            case TR::Entity::INV_KEY_2    :
-            case TR::Entity::INV_KEY_3    :
-            case TR::Entity::INV_KEY_4    :
+            case TR::Entity::INV_PUZZLE_1   :
+            case TR::Entity::INV_PUZZLE_2   :
+            case TR::Entity::INV_PUZZLE_3   :
+            case TR::Entity::INV_PUZZLE_4   :
+            case TR::Entity::INV_KEY_ITEM_1 :
+            case TR::Entity::INV_KEY_ITEM_2 :
+            case TR::Entity::INV_KEY_ITEM_3 :
+            case TR::Entity::INV_KEY_ITEM_4 :
                 if (usedKey == item)
                     return false;
                 usedKey = item;

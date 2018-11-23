@@ -126,6 +126,7 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_LIGHTING, SETTINGS( detail.lighting ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows  ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water    ), STR_QUALITY_LOW, 0, 2 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple   ), STR_OFF, 0, 1 ),
 #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync    ), STR_OFF, 0, 1 ),
 #endif
@@ -177,7 +178,6 @@ static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRoll      , SETTINGS( controls[0].keys[ cRoll      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cInventory , SETTINGS( controls[0].keys[ cInventory ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cStart     , SETTINGS( controls[0].keys[ cStart     ] ), STR_KEY_FIRST ),
-
 };
 
 static OptionItem optControlsPlayer[COUNT(optControls)];
@@ -272,10 +272,10 @@ struct Inventory {
                 case TR::Entity::INV_PUZZLE_3        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[2]       ); break;
                 case TR::Entity::INV_PUZZLE_4        : desc = Desc( STR_PUZZLE,          PAGE_ITEMS,     level->extra.inv.puzzle[3]       ); break;
                                                                                                    
-                case TR::Entity::INV_KEY_1           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[0]          ); break;
-                case TR::Entity::INV_KEY_2           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[1]          ); break;
-                case TR::Entity::INV_KEY_3           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[2]          ); break;
-                case TR::Entity::INV_KEY_4           : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[3]          ); break;
+                case TR::Entity::INV_KEY_ITEM_1      : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[0]          ); break;
+                case TR::Entity::INV_KEY_ITEM_2      : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[1]          ); break;
+                case TR::Entity::INV_KEY_ITEM_3      : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[2]          ); break;
+                case TR::Entity::INV_KEY_ITEM_4      : desc = Desc( STR_KEY,             PAGE_ITEMS,     level->extra.inv.key[3]          ); break;
                                                                                                    
                 case TR::Entity::INV_LEADBAR         : desc = Desc( STR_LEAD_BAR,        PAGE_ITEMS,     level->extra.inv.leadbar         ); break;
                 case TR::Entity::INV_SCION           : desc = Desc( STR_SCION,           PAGE_ITEMS,     level->extra.inv.scion           ); break;
@@ -641,15 +641,15 @@ struct Inventory {
             }
 
             if (level->id == TR::LVL_TR2_HOUSE) {
-                add(TR::Entity::INV_KEY_1);
+                add(TR::Entity::INV_KEY_ITEM_1);
                 add(TR::Entity::INV_PUZZLE_1);
             }
         #ifdef _DEBUG
             addWeapons();
-            add(TR::Entity::INV_KEY_1, 3);
-            add(TR::Entity::INV_KEY_2, 3);
-            add(TR::Entity::INV_KEY_3, 3);
-            add(TR::Entity::INV_KEY_4, 3);
+            add(TR::Entity::INV_KEY_ITEM_1, 3);
+            add(TR::Entity::INV_KEY_ITEM_2, 3);
+            add(TR::Entity::INV_KEY_ITEM_3, 3);
+            add(TR::Entity::INV_KEY_ITEM_4, 3);
 
             add(TR::Entity::INV_PUZZLE_1, 3);
             add(TR::Entity::INV_PUZZLE_2, 3);

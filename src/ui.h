@@ -68,6 +68,7 @@ enum StringID {
     , STR_OPT_DETAIL_WATER
     , STR_OPT_DETAIL_VSYNC
     , STR_OPT_DETAIL_STEREO
+    , STR_OPT_SIMPLE_ITEMS
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
@@ -196,6 +197,7 @@ const char *STR[STR_MAX] = {
     , "Water"
     , "VSync"
     , "Stereo"
+    , "Simple Items"
 // sound options
     , "Set Volumes"
     , "Reverberation"
