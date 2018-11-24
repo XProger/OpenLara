@@ -1258,7 +1258,7 @@ struct Inventory {
         int itemIndex = index == targetIndex ? getGlobalIndex(page, index) : -1;
 
         for (int i = 0; i < itemsCount; i++) {
-            items[i]->update(chosen, phaseChoose);
+            items[i]->update(chosen && itemIndex == i, phaseChoose);
             float &angle = items[i]->angle;
 
             if (itemIndex != i || chosen) {
