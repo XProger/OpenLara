@@ -299,7 +299,7 @@ struct Lara : Character {
     } arms[2];
 
     TR::Entity::Type  itemHolster;
-    TR::Entity::Type  usedKey;
+    TR::Entity::Type  usedItem;
     int               pickupListCount;
     Controller        *pickupList[32];
     KeyHole           *keyHole;
@@ -1681,10 +1681,7 @@ struct Lara : Character {
             case TR::Entity::INV_MEDIKIT_SMALL :
             case TR::Entity::INV_MEDIKIT_BIG   :
                 saveStats.mediUsed += (item == TR::Entity::INV_MEDIKIT_SMALL) ? 1 : 2;
-                damageTime = LARA_DAMAGE_TIME;
-                health = min(LARA_MAX_HEALTH, health + (item == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
-                game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
-                //TODO: remove medikit item
+                usedItem = item;
                 break;
             case TR::Entity::INV_PUZZLE_1   :
             case TR::Entity::INV_PUZZLE_2   :
@@ -1694,9 +1691,9 @@ struct Lara : Character {
             case TR::Entity::INV_KEY_ITEM_2 :
             case TR::Entity::INV_KEY_ITEM_3 :
             case TR::Entity::INV_KEY_ITEM_4 :
-                if (usedKey == item)
+                if (usedItem == item)
                     return false;
-                usedKey = item;
+                usedItem = item;
                 break;
             case TR::Entity::INV_LEADBAR  :
                 for (int i = 0; i < level->entitiesCount; i++) {
@@ -1978,24 +1975,24 @@ struct Lara : Character {
                         return;
 
                     limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
-                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedKey != TR::Entity::NONE))
+                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedItem != TR::Entity::NONE))
                         return;
 
-                    if (usedKey == TR::Entity::NONE) {
+                    if (usedItem == TR::Entity::NONE) {
                         if (isPressed(ACTION) && !game->invChooseKey(camera->cameraIndex, entity.type))
                             game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
                     }
 
-                    if (TR::Entity::convToInv(TR::Entity::getItemForHole(entity.type)) != usedKey) { // check compatibility if user select other
+                    if (TR::Entity::convToInv(TR::Entity::getItemForHole(entity.type)) != usedItem) { // check compatibility if user select other
                         game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
                         return;
                     }
 
                     keyHole = controller;
 
-                    if (game->invUse(camera->cameraIndex, usedKey)) {
-                        keyItem = game->addEntity(usedKey, getRoomIndex(), pos, 0);
+                    if (game->invUse(camera->cameraIndex, usedItem)) {
+                        keyItem = game->addEntity(usedItem, getRoomIndex(), pos, 0);
                         keyItem->lockMatrix = true;
                         keyItem->pos     = keyHole->pos + vec3(0, -590, 484).rotateY(-keyHole->angle.y);
                         keyItem->angle.x = PI * 0.5f;
@@ -3127,6 +3124,17 @@ struct Lara : Character {
             if (fixRoomIndex() && braid)
                 braid->update();
         } else {
+            switch (usedItem) {
+                case TR::Entity::INV_MEDIKIT_SMALL :
+                case TR::Entity::INV_MEDIKIT_BIG   :
+                    damageTime = LARA_DAMAGE_TIME;
+                    health = min(LARA_MAX_HEALTH, health + (usedItem == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
+                    game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
+                    inventory->remove(usedItem);
+                    usedItem = TR::Entity::NONE;
+                default : ;
+            }
+
             Character::update();
             if (braid)
                 braid->update();
@@ -3157,7 +3165,7 @@ struct Lara : Character {
             if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
                 oxygen = min(LARA_MAX_OXYGEN, oxygen + Core::deltaTime * 10.0f);
 
-        usedKey = TR::Entity::NONE;
+        usedItem = TR::Entity::NONE;
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC) {
             camera->mode = (emptyHands() || health <= 0.0f) ? Camera::MODE_FOLLOW : Camera::MODE_COMBAT;

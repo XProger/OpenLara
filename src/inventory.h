@@ -646,6 +646,8 @@ struct Inventory {
             }
         #ifdef _DEBUG
             addWeapons();
+            add(TR::Entity::MEDIKIT_BIG);
+            add(TR::Entity::MEDIKIT_SMALL, 2);
             add(TR::Entity::INV_KEY_ITEM_1, 3);
             add(TR::Entity::INV_KEY_ITEM_2, 3);
             add(TR::Entity::INV_KEY_ITEM_3, 3);
@@ -1474,6 +1476,23 @@ struct Inventory {
             UI::textOut(vec2(-eye, 480 - 32), item->desc.str, UI::aCenter, UI::width);
 
         renderItemCount(item, vec2(UI::width / 2 - 160 - eye, 480 - 96), 320);
+
+    // show health bar in inventory when selector is over medikit
+        if (item->type == TR::Entity::INV_MEDIKIT_BIG || item->type == TR::Entity::INV_MEDIKIT_SMALL) {
+            Character *lara = (Character*)game->getLara(playerIndex);
+            if (lara) {
+                float health = lara->health / 1000.0f; // LARA_MAX_HEALTH
+
+                vec2 size = vec2(180, 10);
+                vec2 pos;
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+                    pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
+                else
+                    pos = vec2(UI::width - 32 - size.x - eye, 32);
+
+                UI::renderBar(UI::BAR_HEALTH, pos, size, health);
+            }
+        }
 
         if (phaseChoose == 1.0f) {
             switch (item->type) {
