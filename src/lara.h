@@ -2640,7 +2640,7 @@ struct Lara : Character {
         }
 
         if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
-            angle.x = (state == STATE_SWAN_DIVE ? -45.0f : 85.0f) * DEG2RAD;
+            angle.x = (state == STATE_SWAN_DIVE ? -45.0f : -85.0f) * DEG2RAD;
             pos.y += 100.0f;
             velocity.y *= 2.0f;
             game->waterDrop(pos, 128.0f, 0.2f);
