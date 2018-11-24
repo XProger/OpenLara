@@ -7,6 +7,7 @@ R"====(
 #define MAX_LIGHTS			4
 #define MAX_CONTACTS		15
 #define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
+#define WATER_COLOR_DIST	(1.0 / (2.0 * 1024.0))
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
 
 #define SHADOW_NORMAL_BIAS	16.0
@@ -495,12 +496,9 @@ uniform vec4 uFogParams;
 							dist = abs((vCoord.y - uParam.y) / normalize(uViewPos.xyz - vCoord.xyz).y);
 						else
 							dist = length(uViewPos.xyz - vCoord.xyz);
-						dist += 128.0;
-						dist *= WATER_FOG_DIST;
-						dist *= uwSign;
-
-						float fog = clamp(1.0 / exp(dist), 0.0, 1.0);
-						color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * 8.0, 0.0, 2.0));
+						float fog = clamp(1.0 / exp(dist * WATER_FOG_DIST * uwSign), 0.0, 1.0);
+						dist += vCoord.y - uParam.y;
+						color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * WATER_COLOR_DIST * uwSign, 0.0, 2.0));
 						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
 					#else
 						color.xyz = mix(uFogParams.xyz, color.xyz, vNormal.w);

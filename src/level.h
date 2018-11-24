@@ -512,17 +512,7 @@ struct Level : IGame {
         if (room.flags.water) {
             if (waterCache)
                 waterCache->bindCaustics(roomIndex);
-
-            if (room.waterLevel == -1) { // TODO: precalculate
-                int16 rIndex = roomIndex;
-                TR::Room::Sector *sector = level.getWaterLevelSector(rIndex, room.getOffset() + vec3(512, 0, 512));
-                if (sector)
-                    setWaterParams(float(sector->ceiling * 256));
-                else
-                    setWaterParams(float(room.info.yTop));
-            } else
-                setWaterParams(float(room.waterLevel));
-
+            setWaterParams(float(room.waterLevel[level.state.flags.flipped]));
         } else
             setWaterParams(NO_CLIP_PLANE);
 

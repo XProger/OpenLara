@@ -48,15 +48,15 @@ struct Mesh : GAPI::Mesh {
             f.normal.y = (int)o.y;\
             f.normal.z = (int)o.z;
 
-#define ADD_ROOM_FACE(indices, iCount, vCount, vStart, vertices, f, t) \
-            addFace(indices, iCount, vCount, vStart, vertices, f, &t,\
+#define ADD_ROOM_FACE(_indices, iCount, vCount, vStart, _vertices, f, t) \
+            addFace(_indices, iCount, vCount, vStart, _vertices, f, &t,\
                     d.vertices[f.vertices[0]].vertex,\
                     d.vertices[f.vertices[1]].vertex,\
                     d.vertices[f.vertices[2]].vertex,\
                     d.vertices[f.vertices[3]].vertex);\
             for (int k = 0; k < (f.triangle ? 3 : 4); k++) {\
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];\
-                Vertex &rv = vertices[vCount++];\
+                Vertex &rv = _vertices[vCount++];\
                 rv.coord  = short4( v.vertex.x, v.vertex.y, v.vertex.z, 0 );\
                 rv.normal = short4( f.normal.x, f.normal.y, f.normal.z, 0 );\
                 rv.color  = ubyte4( 255, 255, 255, 255 );\
@@ -76,6 +76,9 @@ uint8 intensity(int lighting) {
 }
 
 struct MeshBuilder {
+    Index     dynIndices[MAX_ROOM_DYN_FACES * 6 * DOUBLE_SIDED];
+    Vertex    dynVertices[MAX_ROOM_DYN_FACES * 4];
+
     MeshRange dynRange;
     Mesh      *dynMesh;
 
@@ -199,6 +202,19 @@ struct MeshBuilder {
     // get size of mesh for rooms (geometry & sprites)
         int vStartRoom = vCount;
 
+    // pre-calculate water level for rooms
+        for (int i = 0; i < level->roomsCount; i++) {
+            TR::Room &room = level->rooms[i];
+            room.waterLevel[0] = room.waterLevel[1] = room.waterLevelSurface = TR::NO_WATER;
+        }
+
+        for (int j = 0; j < 2; j++) {
+            for (int i = 0; i < level->roomsCount; i++)
+                calcWaterLevel(i, level->state.flags.flipped);
+            level->flipMap();
+        }
+
+    // get reooms geometry info
         for (int i = 0; i < level->roomsCount; i++) {
             TR::Room       &r = level->rooms[i];
             TR::Room::Data &d = r.data;
@@ -685,9 +701,33 @@ struct MeshBuilder {
         return false;
     }
 
-    void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
+    int calcWaterLevel(int16 roomIndex, bool flip) {
+        TR::Room &room = level->rooms[roomIndex];
 
-        room.waterLevel = -1;
+        int32 &value = room.waterLevel[flip];
+
+        if (value != TR::NO_WATER)
+            return value;
+
+        if (room.flags.water) {
+            value = room.info.yBottom;
+
+            for (int z = 0; z < room.zSectors; z++)
+                for (int x = 0; x < room.xSectors; x++) {
+                    TR::Room::Sector &s = room.sectors[x * room.zSectors + z];
+                    if (s.ceiling != TR::NO_FLOOR)
+                        value = min( value, s.ceiling * 256 );
+                    if (s.roomAbove != TR::NO_ROOM)
+                        value = min( value, calcWaterLevel(s.roomAbove, flip) );
+                }
+
+            return value;
+        }
+        
+        return room.info.yBottom;
+    }
+
+    void roomRemoveWaterSurfaces(TR::Room &room, int &iCount, int &vCount) {
 
         if (Core::settings.detail.water == Core::Settings::LOW) {
             for (int i = 0; i < room.data.fCount; i++)
@@ -720,7 +760,7 @@ struct MeshBuilder {
                 isWaterSurface(yb, s.roomBelow, room.flags.water)) {
                 f.water = true;
 
-                room.waterLevel = a.y;
+                room.waterLevelSurface = a.y;
                 if (f.triangle) {
                     iCount -= 3;
                     vCount -= 3;
@@ -1097,6 +1137,7 @@ struct MeshBuilder {
                  const short3 &c0, const short3 &c1, const short3 &c2, const short3 &c3) {
         addQuad(indices, iCount, vCount, vStart, vertices, tex, doubleSided, flip);
 
+        // TODO: pre-calculate trapezoid ratio for room geometry
         vec3 a = c0 - c1;
         vec3 b = c3 - c2;
         vec3 c = c0 - c3;
@@ -1302,8 +1343,6 @@ struct MeshBuilder {
             uint16 tile = 0xFFFF, clut = 0xFFFF;
         #endif
             int iCount = 0, vCount = 0, vStart = 0;
-            Index  indices[MAX_ROOM_DYN_FACES * 6 * DOUBLE_SIDED];
-            Vertex vertices[MAX_ROOM_DYN_FACES * 4];
 
             const TR::Room::Data &d = level->rooms[roomIndex].data;
             for (int i = 0; i < dyn.count; i++) {
@@ -1318,7 +1357,7 @@ struct MeshBuilder {
                     #endif
                         ) {
                         atlas->bindTile(tile, clut);
-                        renderBuffer(indices, iCount, vertices, vCount);
+                        renderBuffer(dynIndices, iCount, dynVertices, vCount);
                         tile = t.tile.index;
                         clut = t.clut;
                         iCount = 0;
@@ -1330,14 +1369,14 @@ struct MeshBuilder {
                 }
             #endif
 
-                ADD_ROOM_FACE(indices, iCount, vCount, vStart, vertices, f, t);
+                ADD_ROOM_FACE(dynIndices, iCount, vCount, vStart, dynVertices, f, t);
             }
 
             if (iCount) {
             #ifdef SPLIT_BY_TILE
                 atlas->bindTile(tile, clut);
             #endif
-                renderBuffer(indices, iCount, vertices, vCount);
+                renderBuffer(dynIndices, iCount, dynVertices, vCount);
             }
         }
     }

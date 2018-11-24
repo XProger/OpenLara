@@ -2256,12 +2256,6 @@ struct Lara : Character {
                 } else
                     return STAND_WADE;
             }
-        } else {
-            if (stand == STAND_UNDERWATER && !(waterLevel == 0.0f && waterDepth == 0.0f)) {
-                pos.y = waterLevel;
-                updateRoom();
-                return STAND_ONWATER;
-            }
         }
 
         if (stand == STAND_ONWATER && state != STATE_STOP) {
@@ -3606,6 +3600,14 @@ struct Lara : Character {
 
         if (dozy) stand = STAND_GROUND;
         updateRoom();
+        if (stand == STAND_UNDERWATER && !(waterLevel == 0.0f && waterDepth == 0.0f) && pos.y <= waterLevel) {
+            if (waterLevel - pos.y < 256.0f) {
+                pos.y = waterLevel;
+                updateRoom();
+                stand = STAND_ONWATER;
+            } else
+                stand = STAND_AIR;
+        }
         if (dozy) stand = STAND_UNDERWATER;
     }
 

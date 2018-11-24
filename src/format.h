@@ -860,6 +860,7 @@ namespace TR {
         NO_FLOOR = -127,
         NO_ROOM  = 0xFF,
         NO_BOX   = 0xFFFF,
+        NO_WATER = 0x7FFFFFFF,
         ACTIVE   = 0x1F,
     };
 
@@ -1333,7 +1334,8 @@ namespace TR {
         uint8   waterScheme;
         uint8   filter;
         uint8   align;
-        int32   waterLevel;
+        int32   waterLevel[2]; // water level for normal and flipped level state
+        int32   waterLevelSurface;
 
         struct DynLight {
             int32 id;
@@ -1390,6 +1392,12 @@ namespace TR {
         }
 
         Sector* getSector(int sx, int sz) {
+            if (sz <= 0 || sz >= zSectors - 1) {
+                sz = clamp(sz, 0, zSectors - 1);
+                sx = clamp(sx, 1, xSectors - 2);
+            } else
+                sx = clamp(sx, 0, xSectors - 1);
+
             ASSERT(sx >= 0 && sx < xSectors && sz >= 0 && sz < zSectors);
             return sectors + sx * zSectors + sz;
         }
@@ -5575,13 +5583,6 @@ namespace TR {
 
                 int sx = (x - room.info.x) / 1024;
                 int sz = (z - room.info.z) / 1024;
-
-                if (sz <= 0 || sz >= room.zSectors - 1) {
-                    sz = clamp(sz, 0, room.zSectors - 1);
-                    sx = clamp(sx, 1, room.xSectors - 2);
-                } else
-                    sx = clamp(sx, 0, room.xSectors - 1);
-
                 sector = room.getSector(sx, sz);
 
                 int nextRoom = getNextRoom(sector);

@@ -426,7 +426,6 @@ struct WaterCache {
     struct Item {
         int     from, to, caust;
         float   timer;
-        float   waterLevel;
         bool    flip;
         bool    visible;
         bool    blank;
@@ -452,9 +451,9 @@ struct WaterCache {
             ASSERT(r.flags.water);
             int minX = r.xSectors, minZ = r.zSectors, maxX = 0, maxZ = 0;
             
-            int posY = level->rooms[to].waterLevel;
-            if (posY == -1)
-                posY = level->rooms[from].waterLevel;
+            int posY = level->rooms[to].waterLevelSurface;
+            if (posY == TR::NO_WATER)
+                posY = level->rooms[from].waterLevelSurface;
 
             ASSERT(posY != -1); // underwater room without reaching the surface
             
@@ -618,7 +617,7 @@ struct WaterCache {
             to   = nextRoom;
         }
 
-        if (level->rooms[to].waterLevel == -1 && level->rooms[from].waterLevel == -1) // not have water surface
+        if (level->rooms[to].waterLevelSurface == TR::NO_WATER && level->rooms[from].waterLevelSurface == TR::NO_WATER) // not have water surface
             return;
 
         for (int i = 0; i < count; i++) {

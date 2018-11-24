@@ -4,7 +4,8 @@ R"====(
 	precision highp float;
 #endif
 
-#define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
+#define WATER_FOG_DIST		(1.0 / (1024.0 * 6.0))
+#define WATER_COLOR_DIST	(1.0 / (2.0 * 1024.0))
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
 
 varying vec3 vCoord;
@@ -14,8 +15,8 @@ varying vec3 vViewVec;
 varying vec3 vLightVec;
 
 #ifdef WATER_CAUSTICS
-    varying vec3 vOldPos;
-    varying vec3 vNewPos;
+	varying vec3 vOldPos;
+	varying vec3 vNewPos;
 #endif
 
 uniform vec4  uViewPos;
@@ -89,11 +90,6 @@ uniform sampler2D sNormal;
 	float calcFresnel(float VoH, float f0) {
 		float f = pow(1.0 - VoH, 5.0);
 		return f + f0 * (1.0 - f);
-	}
-
-	vec3 applyFog(vec3 color, vec3 fogColor, float factor) {
-		float fog = clamp(1.0 / exp(factor), 0.0, 1.0);
-		return mix(fogColor, color, fog);
 	}
 
 	vec4 drop() {
@@ -217,6 +213,14 @@ float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
 		return vec4(0.0);
 	}
 
+	void applyFog(inout vec3 color, float dist) {
+		dist *= step(vCoord.y, uViewPos.y);
+		color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * WATER_COLOR_DIST, 0.0, 2.0));
+
+		float fog = clamp(1.0 / exp(dist * WATER_FOG_DIST), 0.0, 1.0);
+		color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
+	}
+
 	vec4 compose() {
 		vec3 viewVec = normalize(vViewVec);
 
@@ -239,11 +243,9 @@ float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
 		float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 		vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
-
-		float d = abs((vCoord.y - uViewPos.y) / normalize(vViewVec).y);
-		d *= step(0.0, uViewPos.y - vCoord.y); // apply fog only when camera is underwater
-		color.xyz = applyFog(color.xyz, UNDERWATER_COLOR * 0.2, d * WATER_FOG_DIST);
 		color.w *= texture2D(sMask, vTexCoord).x;
+		applyFog(color.xyz, vViewVec.y / viewVec.y);
+
 		return color;
 	}
 
