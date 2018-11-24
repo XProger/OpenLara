@@ -829,11 +829,12 @@ struct Inventory {
 
     void applySounds(bool pause) {
         for (int i = 0; i < Sound::channelsCount; i++)
-            if (Sound::channels[i]->flags & Sound::PAN)
+            if (Sound::channels[i]->flags & Sound::PAN) {
                 if (pause)
                     Sound::channels[i]->pause();
                 else
                     Sound::channels[i]->resume();
+            }
     }
 
     void toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
