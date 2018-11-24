@@ -3407,6 +3407,8 @@ struct Lara : Character {
 
             if (!controller || !controller->isCollider()) continue;
 
+            if (e.type == TR::Entity::TRAP_DOOR_1 || e.type == TR::Entity::TRAP_DOOR_2) continue;
+
             if (e.isEnemy()) {
                 if (e.type != TR::Entity::ENEMY_REX && (controller->flags.active != TR::ACTIVE || ((Character*)controller)->health <= 0)) continue;
             } else {
