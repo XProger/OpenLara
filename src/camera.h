@@ -38,6 +38,9 @@ struct Camera : ICamera {
     }
 
     void reset() {
+        Sound::listener[cameraIndex].matrix.identity();
+        Sound::listener[cameraIndex].matrix.translate(vec3(0x7FFFFFFF));
+
         lookAngle = vec3(0.0f);
 
         changeView(false);

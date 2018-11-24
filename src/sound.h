@@ -706,10 +706,12 @@ namespace Sound {
         int     flags;
         int     id;
         bool    isPlaying;
+        bool    isPaused;
         bool    stopAfterFade;
 
         Sample(Decoder *decoder, float volume, float pitch, int flags, int id) : uniquePtr(NULL), decoder(decoder), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
             isPlaying = decoder != NULL;
+            isPaused  = false;
         }
 
         Sample(Stream *stream, const vec3 *pos, float volume, float pitch, int flags, int id) : uniquePtr(pos), decoder(NULL), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
@@ -771,6 +773,7 @@ namespace Sound {
                 delete stream;
 
             isPlaying = decoder != NULL;
+            isPaused  = false;
         }
 
         ~Sample() {
@@ -807,6 +810,12 @@ namespace Sound {
 
         bool render(Frame *frames, int count) {
             if (!isPlaying) return false;
+
+            if (isPaused) {
+                memset(frames, 0, sizeof(Frame) * count);
+                return true;
+            }
+
         // decode
             int i = 0;
             while (i < count) {
@@ -854,6 +863,14 @@ namespace Sound {
 
         void replay() {
             decoder->replay();
+        }
+
+        void pause() {
+            isPaused = true;
+        }
+
+        void resume() {
+            isPaused = false;
         }
     } *channels[SND_CHANNELS_MAX];
     int channelsCount;

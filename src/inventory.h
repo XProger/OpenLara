@@ -683,6 +683,7 @@ struct Inventory {
     }
 
     void startVideo() {
+        applySounds(true);
         new Stream(playVideo ? TR::getGameVideo(game->getLevel()->id) : NULL, loadVideo, this);
     }
 
@@ -826,6 +827,15 @@ struct Inventory {
         return false;
     }
 
+    void applySounds(bool pause) {
+        for (int i = 0; i < Sound::channelsCount; i++)
+            if (Sound::channels[i]->flags & Sound::PAN)
+                if (pause)
+                    Sound::channels[i]->pause();
+                else
+                    Sound::channels[i]->resume();
+    }
+
     void toggle(int playerIndex = 0, Page curPage = PAGE_INVENTORY, TR::Entity::Type type = TR::Entity::NONE) {
         if (titleTimer != 0.0f || (isActive() != active))
             return;
@@ -838,6 +848,8 @@ struct Inventory {
         if (phaseRing == 0.0f || phaseRing == 1.0f) {
             active = !active;
             vec3 p;
+
+            applySounds(active);
 
             if (curPage == PAGE_SAVEGAME) {
                 phaseRing = active ? 1.0f : 0.0f;
@@ -1075,6 +1087,7 @@ struct Inventory {
             toggle(0, Inventory::PAGE_OPTION);
         }
         Input::reset();
+        applySounds(false);
     }
 
     void update() {
