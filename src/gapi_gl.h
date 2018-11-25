@@ -3,6 +3,8 @@
 
 #include "core.h"
 
+//#define _DEBUG_SHADERS
+
 #ifdef _OS_WIN
     #include <gl/GL.h>
     #include <gl/glext.h>
@@ -373,7 +375,7 @@ namespace GAPI {
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
 
-            #ifdef _DEBUG
+            #ifdef _DEBUG_SHADERS
                 Stream *stream = NULL;
                 switch (pass) {
                     case Core::passCompose :
@@ -454,7 +456,7 @@ namespace GAPI {
                 }
             }
 
-            #ifdef _DEBUG
+            #ifdef _DEBUG_SHADERS
                 delete[] sourceData;
             #endif
 

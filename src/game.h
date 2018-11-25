@@ -224,7 +224,9 @@ namespace Game {
             level->flipMap();
             Input::down[ikF] = false;
         }
+    #endif
 
+    #ifdef _DEBUG_SHADERS
         if (Input::down[ikCtrl] && Input::down[ik1]) {
             delete shaderCache;
             shaderCache = new ShaderCache();
