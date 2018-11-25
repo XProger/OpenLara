@@ -164,8 +164,8 @@ namespace Game {
         #ifdef DEBUG_RENDER
             Debug::deinit();
         #endif
-        delete level;
         delete inventory;
+        delete level;
         UI::deinit();
         delete shaderCache;
         Core::deinit();
