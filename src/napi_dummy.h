@@ -1,5 +1,5 @@
 #ifndef H_NAPI_DUMMY
-#define H_NAPI_DUMMYT
+#define H_NAPI_DUMMY
 
 #include "utils.h"
 
