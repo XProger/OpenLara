@@ -11,6 +11,7 @@
 #include "trigger.h"
 #include "inventory.h"
 #include "savegame.h"
+#include "network.h"
 
 #if defined(_DEBUG) && defined(_GAPI_GL) && !defined(_GAPI_GLES)
     #define DEBUG_RENDER
@@ -872,10 +873,14 @@ struct Level : IGame {
             loadSlot = -1;
         }
 
+        Network::start(this);
+
         Core::resetTime();
     }
 
     virtual ~Level() {
+        Network::stop();
+
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
 
@@ -1812,6 +1817,13 @@ struct Level : IGame {
             sndWater->setVolume(volWater, 0.2f);
         if (sndTrack && sndTrack->volumeTarget != volTrack)
             sndTrack->setVolume(volTrack, 0.2f);
+
+    #ifdef _DEBUG
+        if (Input::down[ikJ]) {
+            Network::sayHello();
+            Input::down[ikJ] = false;
+        }
+    #endif
     }
 
     void updateEffect() {

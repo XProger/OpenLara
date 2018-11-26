@@ -320,6 +320,8 @@ struct Lara : Character {
 
     float       hitTimer;
 
+    int32       networkInput;
+
 #ifdef _DEBUG
     //uint16      *dbgBoxes;
     //int         dbgBoxesCount;
@@ -494,8 +496,9 @@ struct Lara : Character {
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE), braid(NULL) {
         camera = new Camera(game, this);
 
-        itemHolster = TR::Entity::NONE;
-        hitTimer    = 0.0f;
+        itemHolster  = TR::Entity::NONE;
+        hitTimer     = 0.0f;
+        networkInput = -1;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -2893,6 +2896,10 @@ struct Lara : Character {
 
     virtual int getInput() { // TODO: updateInput
         if (level->isCutsceneLevel()) return 0;
+
+        if (networkInput != -1)
+            return networkInput;
+
         input = 0;
         int pid = camera->cameraIndex;
 

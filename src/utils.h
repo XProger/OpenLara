@@ -1638,6 +1638,27 @@ namespace String {
 
 }
 
+
+template <int N>
+struct FixedStr {
+    char data[N];
+
+    void get(char *dst) {
+        memcpy(dst, data, sizeof(data));
+        dst[sizeof(data)] = 0;
+    }
+
+    FixedStr<N>& operator = (const char *str) {
+        int len = min(sizeof(data), strlen(str));
+        memset(data, 0, sizeof(data));
+        memcpy(data, str, len);
+        return *this;
+    }
+};
+
+typedef FixedStr<16> str16;
+
+
 template <typename T>
 struct Array {
     int capacity;
@@ -1675,7 +1696,8 @@ struct Array {
     }
 
     void removeFast(int index) {
-        (*this)[index] = (*this)[--length];
+        (*this)[index] = (*this)[length - 1];
+        length--;
     }
 
     void remove(int index) {

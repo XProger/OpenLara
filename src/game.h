@@ -173,6 +173,7 @@ namespace Game {
 
     void updateTick() {
         Input::update();
+        Network::update();
 
         cheatControl(Input::lastState[0]); 
 

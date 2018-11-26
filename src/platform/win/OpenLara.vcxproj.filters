@@ -54,6 +54,9 @@
     </ClInclude>
     <ClInclude Include="..\..\video.h" />
     <ClInclude Include="..\..\savegame.h" />
+    <ClInclude Include="..\..\network.h" />
+    <ClInclude Include="..\..\napi_socket.h" />
+    <ClInclude Include="..\..\napi_dummy.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
