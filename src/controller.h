@@ -411,20 +411,93 @@ struct Controller {
                     info.roomNext = (*fd++).value;
                     break;
 
-                case TR::FloorData::FLOOR   : // floor & ceiling
-                case TR::FloorData::CEILING : { 
-                    TR::FloorData::Slant slant = (*fd++).slant;
-                    int sx = (int)slant.x;
-                    int sz = (int)slant.z;
+                case TR::FloorData::FLOOR                 :
+                case TR::FloorData::FLOOR_NW_SE_SOLID     : 
+                case TR::FloorData::FLOOR_NE_SW_SOLID     : 
+                case TR::FloorData::FLOOR_NW_SE_PORTAL_SE :
+                case TR::FloorData::FLOOR_NW_SE_PORTAL_NW :
+                case TR::FloorData::FLOOR_NE_SW_PORTAL_SW :
+                case TR::FloorData::FLOOR_NE_SW_PORTAL_NE : {
+                    int sx, sz;
+
                     if (cmd.func == TR::FloorData::FLOOR) {
-                        info.slantX = sx;
-                        info.slantZ = sz;
-                        info.floor -= sx * (sx > 0 ? (dx - 1024) : dx) >> 2;
-                        info.floor -= sz * (sz > 0 ? (dz - 1024) : dz) >> 2;
+                        sx = fd->slantX;
+                        sz = fd->slantZ;
                     } else {
-                        info.ceiling -= sx * (sx < 0 ? (dx - 1024) : dx) >> 2; 
-                        info.ceiling += sz * (sz > 0 ? (dz - 1024) : dz) >> 2; 
+                        if (cmd.func == TR::FloorData::FLOOR_NW_SE_SOLID     || 
+                            cmd.func == TR::FloorData::FLOOR_NW_SE_PORTAL_SE ||
+                            cmd.func == TR::FloorData::FLOOR_NW_SE_PORTAL_NW) {
+                            if (dx <= 1024 - dz) {
+                                info.floor += cmd.triangle.b * 256;
+                                sx = fd->a - fd->b;
+                                sz = fd->c - fd->b;
+                            } else {
+                                info.floor += cmd.triangle.a * 256;
+                                sx = fd->d - fd->c;
+                                sz = fd->d - fd->a;
+                            }
+                        } else {
+                            if (dx <= dz) {
+                                info.floor += cmd.triangle.b * 256;
+                                sx = fd->d - fd->c;
+                                sz = fd->c - fd->b;
+                            } else {
+                                info.floor += cmd.triangle.a * 256;
+                                sx = fd->a - fd->b;
+                                sz = fd->d - fd->a;
+                            }
+                        }
                     }
+                    fd++;
+
+                    info.slantX = sx;
+                    info.slantZ = sz;
+                    info.floor -= sx * (sx > 0 ? (dx - 1023) : dx) >> 2;
+                    info.floor -= sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
+                    break;
+                }
+
+                case TR::FloorData::CEILING                 :
+                case TR::FloorData::CEILING_NE_SW_SOLID     :
+                case TR::FloorData::CEILING_NW_SE_SOLID     :
+                case TR::FloorData::CEILING_NE_SW_PORTAL_SW :
+                case TR::FloorData::CEILING_NE_SW_PORTAL_NE :
+                case TR::FloorData::CEILING_NW_SE_PORTAL_SE :
+                case TR::FloorData::CEILING_NW_SE_PORTAL_NW : { 
+                    int sx, sz;
+
+                    if (cmd.func == TR::FloorData::CEILING) {
+                        sx = fd->slantX;
+                        sz = fd->slantZ;
+                    } else {
+                        if (cmd.func == TR::FloorData::CEILING_NW_SE_SOLID     || 
+                            cmd.func == TR::FloorData::CEILING_NW_SE_PORTAL_SE ||
+                            cmd.func == TR::FloorData::CEILING_NW_SE_PORTAL_NW) {
+                            if (dx <= 1024 - dz) {
+                                info.ceiling += cmd.triangle.b * 256;
+                                sx = fd->c - fd->d;
+                                sz = fd->b - fd->c;
+                            } else {
+                                info.ceiling += cmd.triangle.a * 256;
+                                sx = fd->b - fd->a;
+                                sz = fd->a - fd->d;
+                            }
+                        } else {
+                            if (dx <= dz) {
+                                info.ceiling += cmd.triangle.b * 256;
+                                sx = fd->b - fd->a;
+                                sz = fd->b - fd->c;
+                            } else {
+                                info.ceiling += cmd.triangle.a * 256;
+                                sx = fd->c - fd->d;
+                                sz = fd->a - fd->d;
+                            }
+                        }
+                    }
+                    fd++;
+
+                    info.ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2; 
+                    info.ceiling += sz * (sz > 0 ? (dz - 1023) : dz) >> 2; 
                     break;
                 }
 
@@ -457,23 +530,9 @@ struct Controller {
                     info.climb = cmd.sub; // climb mask
                     break;
 
-                case 0x07 :
-                case 0x08 :
-                case 0x09 :
-                case 0x0A :
-                case 0x0B :
-                case 0x0C :
-                case 0x0D :
-                case 0x0E :
-                case 0x0F :
-                case 0x10 :
-                case 0x11 :
-                case 0x12 : fd++; break; // TODO TR3 triangulation
-
-                case 0x13 : break; // TODO TR3 monkeyswing
-
-                case 0x14 : 
-                case 0x15 : break; // TODO TR3 minecart
+                case TR::FloorData::MONKEY : break;
+                case TR::FloorData::MINECART_LEFT  : 
+                case TR::FloorData::MINECART_RIGHT : break;
 
                 default : LOG("unknown func: %d\n", cmd.func);
             }

@@ -1440,12 +1440,20 @@ namespace TR {
 
     union FloorData {
         uint16 value;
-        struct Command {
-            uint16 func:5, tri:3, sub:7, end:1;
+        union Command {
+            struct {
+                uint16 func:5, tri:3, sub:7, end:1;
+            };
+            struct {
+                int16 :5, a:5, b:5, :1;
+            } triangle;
         } cmd;
-        struct Slant {
-            int8 x:8, z:8;
-        } slant;
+        struct {
+            int16 slantX:8, slantZ:8;
+        };
+        struct {
+            uint16 a:4, b:4, c:4, d:4;
+        };
         struct TriggerInfo {
             uint16  timer:8, once:1, mask:5, :2;
         } triggerInfo;
@@ -1459,13 +1467,28 @@ namespace TR {
         } triggerCmd;
 
         enum {
-            NONE    ,
-            PORTAL  ,
-            FLOOR   ,
-            CEILING ,
-            TRIGGER ,
-            LAVA    ,
-            CLIMB   ,
+              NONE
+            , PORTAL
+            , FLOOR
+            , CEILING
+            , TRIGGER
+            , LAVA
+            , CLIMB
+            , FLOOR_NW_SE_SOLID
+            , FLOOR_NE_SW_SOLID
+            , CEILING_NW_SE_SOLID
+            , CEILING_NE_SW_SOLID
+            , FLOOR_NW_SE_PORTAL_SE
+            , FLOOR_NW_SE_PORTAL_NW
+            , FLOOR_NE_SW_PORTAL_SW
+            , FLOOR_NE_SW_PORTAL_NE
+            , CEILING_NW_SE_PORTAL_SE
+            , CEILING_NW_SE_PORTAL_NW
+            , CEILING_NE_SW_PORTAL_SW
+            , CEILING_NE_SW_PORTAL_NE
+            , MONKEY
+            , MINECART_LEFT
+            , MINECART_RIGHT
         };
     };
 
@@ -5495,6 +5518,21 @@ namespace TR {
                     fd++;
                     break;
 
+                case FloorData::FLOOR_NW_SE_SOLID       :
+                case FloorData::FLOOR_NE_SW_SOLID       :
+                case FloorData::CEILING_NW_SE_SOLID     :
+                case FloorData::CEILING_NE_SW_SOLID     :
+                case FloorData::FLOOR_NW_SE_PORTAL_NW   :
+                case FloorData::FLOOR_NW_SE_PORTAL_SE   :
+                case FloorData::FLOOR_NE_SW_PORTAL_NE   :
+                case FloorData::FLOOR_NE_SW_PORTAL_SW   :
+                case FloorData::CEILING_NW_SE_PORTAL_NW :
+                case FloorData::CEILING_NW_SE_PORTAL_SE :
+                case FloorData::CEILING_NE_SW_PORTAL_NE :
+                case FloorData::CEILING_NE_SW_PORTAL_SW :
+                    fd++;
+                    break;
+
                 case FloorData::TRIGGER :
                     fd++;
                     do {} while (!(*fd++).triggerCmd.end);
@@ -5502,25 +5540,10 @@ namespace TR {
 
                 case FloorData::LAVA :
                 case FloorData::CLIMB :
+                case FloorData::MONKEY         :
+                case FloorData::MINECART_LEFT  :
+                case FloorData::MINECART_RIGHT :
                     break;
-
-                case 0x07 :
-                case 0x08 :
-                case 0x09 :
-                case 0x0A :
-                case 0x0B :
-                case 0x0C :
-                case 0x0D :
-                case 0x0E :
-                case 0x0F :
-                case 0x10 :
-                case 0x11 :
-                case 0x12 : fd++; break; // TODO TR3 triangulation
-
-                case 0x13 : break; // TODO TR3 monkeyswing
-
-                case 0x14 : 
-                case 0x15 : break; // TODO TR3 minecart
 
                 default : LOG("unknown func to skip: %d\n", func);
             }
@@ -5531,9 +5554,33 @@ namespace TR {
             if (!sector->floorIndex) return NO_ROOM;
             FloorData *fd = &floors[sector->floorIndex];
         // floor data always in this order
-            if (!fd->cmd.end && fd->cmd.func == FloorData::FLOOR)   fd += 2; // skip floor slant info
-            if (!fd->cmd.end && fd->cmd.func == FloorData::CEILING) fd += 2; // skip ceiling slant info
-            if (fd->cmd.func == FloorData::PORTAL)  return (++fd)->value;
+            if (   fd->cmd.func == FloorData::FLOOR
+                || fd->cmd.func == FloorData::FLOOR_NW_SE_SOLID
+                || fd->cmd.func == FloorData::FLOOR_NE_SW_SOLID
+                || fd->cmd.func == FloorData::FLOOR_NW_SE_PORTAL_SE
+                || fd->cmd.func == FloorData::FLOOR_NW_SE_PORTAL_NW
+                || fd->cmd.func == FloorData::FLOOR_NE_SW_PORTAL_SW
+                || fd->cmd.func == FloorData::FLOOR_NE_SW_PORTAL_NE) {
+
+                if (fd->cmd.end) return NO_ROOM;
+                fd += 2;
+            }
+
+            if (   fd->cmd.func == FloorData::CEILING
+                || fd->cmd.func == FloorData::CEILING_NE_SW_SOLID
+                || fd->cmd.func == FloorData::CEILING_NW_SE_SOLID
+                || fd->cmd.func == FloorData::CEILING_NE_SW_PORTAL_SW
+                || fd->cmd.func == FloorData::CEILING_NE_SW_PORTAL_NE
+                || fd->cmd.func == FloorData::CEILING_NW_SE_PORTAL_SE
+                || fd->cmd.func == FloorData::CEILING_NW_SE_PORTAL_NW) {
+
+                if (fd->cmd.end) return NO_ROOM;
+                fd += 2;
+            }
+
+            if (fd->cmd.func == FloorData::PORTAL)
+                return (++fd)->value;
+
             return NO_ROOM;
         }
 
@@ -5630,12 +5677,12 @@ namespace TR {
                 cmd = (*fd++).cmd;
                 
                 switch (cmd.func) {
-                    case FloorData::FLOOR   : {
-                        FloorData::Slant slant = (*fd++).slant;
-                        int sx = (int)slant.x;
-                        int sz = (int)slant.z;
-                        int dx = x % 1024;
-                        int dz = z % 1024;
+                    case FloorData::FLOOR   : { // TODO: triangulation
+                        int sx = fd->slantX;
+                        int sz = fd->slantZ;
+                        fd++;
+                        int dx = x & 1023;
+                        int dz = z & 1023;
                         floor -= sx * (sx > 0 ? (dx - 1023) : dx) >> 2;
                         floor -= sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
                         break;
@@ -5682,12 +5729,12 @@ namespace TR {
                 fd += 2; // skip floor slant
             }
 
-            if (fd->cmd.func == FloorData::CEILING) {
-                FloorData::Slant slant = (++fd)->slant;
-                int sx = (int)slant.x;
-                int sz = (int)slant.z;
-                int dx = x % 1024;
-                int dz = z % 1024;
+            if (fd->cmd.func == FloorData::CEILING) { // TODO: triangulation
+                int sx = fd->slantX;
+                int sz = fd->slantZ;
+                fd++;
+                int dx = x & 1023;
+                int dz = z & 1023;
                 ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2;
                 ceiling += sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
             }
