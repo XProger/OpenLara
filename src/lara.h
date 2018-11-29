@@ -3141,10 +3141,12 @@ struct Lara : Character {
             switch (usedItem) {
                 case TR::Entity::INV_MEDIKIT_SMALL :
                 case TR::Entity::INV_MEDIKIT_BIG   :
-                    damageTime = LARA_DAMAGE_TIME;
-                    health = min(LARA_MAX_HEALTH, health + (usedItem == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
-                    game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
-                    inventory->remove(usedItem);
+                    if (health < LARA_MAX_HEALTH) {
+                        damageTime = LARA_DAMAGE_TIME;
+                        health = min(LARA_MAX_HEALTH, health + (usedItem == TR::Entity::INV_MEDIKIT_SMALL ? LARA_MAX_HEALTH / 2 : LARA_MAX_HEALTH));
+                        game->playSound(TR::SND_HEALTH, pos, Sound::PAN);
+                        inventory->remove(usedItem);
+                    }
                     usedItem = TR::Entity::NONE;
                 default : ;
             }
