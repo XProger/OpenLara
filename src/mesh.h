@@ -715,6 +715,8 @@ struct MeshBuilder {
             for (int z = 0; z < room.zSectors; z++)
                 for (int x = 0; x < room.xSectors; x++) {
                     TR::Room::Sector &s = room.sectors[x * room.zSectors + z];
+                    if (level->getNextRoom(&s) != TR::NO_ROOM)
+                        continue;
                     if (s.ceiling != TR::NO_FLOOR)
                         value = min( value, s.ceiling * 256 );
                     if (s.roomAbove != TR::NO_ROOM)

@@ -3438,7 +3438,7 @@ struct Lara : Character {
             } else {
             // fast distance check for object
                 if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK && e.type != TR::Entity::SCION_HOLDER)
-                    if (fabsf(pos.x - controller->pos.x) > 1024 || fabsf(pos.z - controller->pos.z) > 1024 || fabsf(pos.y - controller->pos.y) > 2048) continue;
+                    if (fabsf(pos.x - controller->pos.x) > 2048 || fabsf(pos.z - controller->pos.z) > 2048 || fabsf(pos.y - controller->pos.y) > 2048) continue;
             }
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;

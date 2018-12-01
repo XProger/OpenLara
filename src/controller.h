@@ -258,8 +258,10 @@ struct Controller {
             TR::Room::Sector *sAbove = &s;
             while (sAbove->roomAbove != TR::NO_ROOM) sAbove = &level->getSector(sAbove->roomAbove, x, z, dx, dz);
             if (sAbove != sBelow) {
-                info.ceiling = float(256 * sAbove->ceiling);
-                parseFloorData(info, sAbove->floorIndex, dx, dz);
+                TR::Level::FloorInfo tmpInfo;
+                tmpInfo.ceiling = float(256 * sAbove->ceiling);
+                parseFloorData(tmpInfo, sAbove->floorIndex, dx, dz);
+                info.ceiling = tmpInfo.ceiling;
             }
         } else {
             int tmp = info.roomNext;
