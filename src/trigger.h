@@ -145,7 +145,7 @@ struct Flame : Sprite {
 
         if (flame) {
             flame->owner = owner;
-            flame->jointIndex = jCount > 1 ? (jointIndex & jCount) : -1;
+            flame->jointIndex = jCount > 1 ? (jointIndex % jCount) : -1;
         }
         return flame;
     }

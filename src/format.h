@@ -5657,6 +5657,8 @@ namespace TR {
         float getFloor(const Room::Sector *sector, const vec3 &pos, int16 *roomIndex = NULL) {
             int x = int(pos.x);
             int z = int(pos.z);
+            int dx = x & 1023;
+            int dz = z & 1023;
 
             while (sector->roomBelow != NO_ROOM) {
                 Room &room = rooms[sector->roomBelow];
@@ -5677,12 +5679,45 @@ namespace TR {
                 cmd = (*fd++).cmd;
                 
                 switch (cmd.func) {
-                    case FloorData::FLOOR   : { // TODO: triangulation
-                        int sx = fd->slantX;
-                        int sz = fd->slantZ;
+                    case TR::FloorData::FLOOR                 :
+                    case TR::FloorData::FLOOR_NW_SE_SOLID     : 
+                    case TR::FloorData::FLOOR_NE_SW_SOLID     : 
+                    case TR::FloorData::FLOOR_NW_SE_PORTAL_SE :
+                    case TR::FloorData::FLOOR_NW_SE_PORTAL_NW :
+                    case TR::FloorData::FLOOR_NE_SW_PORTAL_SW :
+                    case TR::FloorData::FLOOR_NE_SW_PORTAL_NE : {
+                        int sx, sz;
+
+                        if (cmd.func == TR::FloorData::FLOOR) {
+                            sx = fd->slantX;
+                            sz = fd->slantZ;
+                        } else {
+                            if (cmd.func == TR::FloorData::FLOOR_NW_SE_SOLID     || 
+                                cmd.func == TR::FloorData::FLOOR_NW_SE_PORTAL_SE ||
+                                cmd.func == TR::FloorData::FLOOR_NW_SE_PORTAL_NW) {
+                                if (dx <= 1024 - dz) {
+                                    floor += cmd.triangle.b * 256;
+                                    sx = fd->a - fd->b;
+                                    sz = fd->c - fd->b;
+                                } else {
+                                    floor += cmd.triangle.a * 256;
+                                    sx = fd->d - fd->c;
+                                    sz = fd->d - fd->a;
+                                }
+                            } else {
+                                if (dx <= dz) {
+                                    floor += cmd.triangle.b * 256;
+                                    sx = fd->d - fd->c;
+                                    sz = fd->c - fd->b;
+                                } else {
+                                    floor += cmd.triangle.a * 256;
+                                    sx = fd->a - fd->b;
+                                    sz = fd->d - fd->a;
+                                }
+                            }
+                        }
                         fd++;
-                        int dx = x & 1023;
-                        int dz = z & 1023;
+
                         floor -= sx * (sx > 0 ? (dx - 1023) : dx) >> 2;
                         floor -= sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
                         break;
@@ -5710,6 +5745,8 @@ namespace TR {
         float getCeiling(const Room::Sector *sector, const vec3 &pos) {
             int x = int(pos.x);
             int z = int(pos.z);
+            int dx = x & 1023;
+            int dz = z & 1023;
 
             ASSERT(sector);
             while (sector->roomAbove != NO_ROOM) {
@@ -5723,23 +5760,71 @@ namespace TR {
                 return float(ceiling);
 
             FloorData *fd = &floors[sector->floorIndex];
-            
-            if (fd->cmd.func == FloorData::FLOOR) {
-                if (fd->cmd.end) return float(ceiling);
-                fd += 2; // skip floor slant
-            }
+            FloorData::Command cmd;
 
-            if (fd->cmd.func == FloorData::CEILING) { // TODO: triangulation
-                int sx = fd->slantX;
-                int sz = fd->slantZ;
-                fd++;
-                int dx = x & 1023;
-                int dz = z & 1023;
-                ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2;
-                ceiling += sz * (sz > 0 ? (dz - 1023) : dz) >> 2;
-            }
+            do {
+                cmd = (*fd++).cmd;
+                
+                switch (cmd.func) {
+                    case TR::FloorData::CEILING                 :
+                    case TR::FloorData::CEILING_NE_SW_SOLID     :
+                    case TR::FloorData::CEILING_NW_SE_SOLID     :
+                    case TR::FloorData::CEILING_NE_SW_PORTAL_SW :
+                    case TR::FloorData::CEILING_NE_SW_PORTAL_NE :
+                    case TR::FloorData::CEILING_NW_SE_PORTAL_SE :
+                    case TR::FloorData::CEILING_NW_SE_PORTAL_NW : { 
+                        int sx, sz;
 
-            // TODO parse triggers to collide with objects (bridges, trap doors/floors etc)
+                        if (cmd.func == TR::FloorData::CEILING) {
+                            sx = fd->slantX;
+                            sz = fd->slantZ;
+                        } else {
+                            if (cmd.func == TR::FloorData::CEILING_NW_SE_SOLID     || 
+                                cmd.func == TR::FloorData::CEILING_NW_SE_PORTAL_SE ||
+                                cmd.func == TR::FloorData::CEILING_NW_SE_PORTAL_NW) {
+                                if (dx <= 1024 - dz) {
+                                    ceiling += cmd.triangle.b * 256;
+                                    sx = fd->c - fd->d;
+                                    sz = fd->b - fd->c;
+                                } else {
+                                    ceiling += cmd.triangle.a * 256;
+                                    sx = fd->b - fd->a;
+                                    sz = fd->a - fd->d;
+                                }
+                            } else {
+                                if (dx <= dz) {
+                                    ceiling += cmd.triangle.b * 256;
+                                    sx = fd->b - fd->a;
+                                    sz = fd->b - fd->c;
+                                } else {
+                                    ceiling += cmd.triangle.a * 256;
+                                    sx = fd->c - fd->d;
+                                    sz = fd->a - fd->d;
+                                }
+                            }
+                        }
+                        fd++;
+
+                        ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2; 
+                        ceiling += sz * (sz > 0 ? (dz - 1023) : dz) >> 2; 
+                        break;
+                    }
+
+                    case FloorData::TRIGGER :  {
+                        fd++;
+                        FloorData::TriggerCommand trigCmd;
+                        do {
+                            trigCmd = (*fd++).triggerCmd;
+                            if (trigCmd.action != Action::ACTIVATE)
+                                continue;
+                            // TODO controller[trigCmd.args]->getCeiling(&ceiling, x, y, z);
+                        } while (!trigCmd.end);
+                        break;
+                    }
+
+                    default : floorSkipCommand(fd, cmd.func);
+                }
+            } while (!cmd.end);
 
             return float(ceiling);
         }
