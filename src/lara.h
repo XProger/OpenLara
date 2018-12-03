@@ -1994,7 +1994,7 @@ struct Lara : Character {
                         return;
                     }
 
-                    if (TR::Entity::convToInv(TR::Entity::getItemForHole(entity.type)) != usedItem) { // check compatibility if user select other
+                    if (TR::Level::convToInv(TR::Entity::getItemForHole(entity.type)) != usedItem) { // check compatibility if user select other
                         game->playSound(TR::SND_NO, pos, Sound::PAN); // uncompatible item
                         return;
                     }
@@ -3093,12 +3093,25 @@ struct Lara : Character {
             case STATE_PICK_UP : {
                 int pickupFrame = stand == STAND_GROUND ? PICKUP_FRAME_GROUND : PICKUP_FRAME_UNDERWATER;
                 if (animation.isFrameActive(pickupFrame)) {
+                    camera->setup(true);
+
                     for (int i = 0; i < pickupListCount; i++) {
-                        if (pickupList[i]->getEntity().type == TR::Entity::SCION_PICKUP_HOLDER)
+                        Controller *item = pickupList[i];
+
+                        if (item->getEntity().type == TR::Entity::SCION_PICKUP_HOLDER)
                             continue;
-                        pickupList[i]->deactivate();
-                        pickupList[i]->flags.invisible = true;
-                        game->invAdd(pickupList[i]->getEntity().type, 1);
+                        item->deactivate();
+                        item->flags.invisible = true;
+                        game->invAdd(item->getEntity().type, 1);
+
+                        vec4 p = Core::mViewProj * vec4(item->pos, 1.0f);
+                        if (p.w != 0.0f) {
+                            p.x = ( p.x / p.w * 0.5f + 0.5f) * UI::width;
+                            p.y = (-p.y / p.w * 0.5f + 0.5f) * UI::height;
+                        } else
+                            p = vec4(UI::width * 0.5f, UI::height * 0.5f, 0.0f, 0.0f);
+
+                        UI::addPickup(item->getEntity().type, vec2(p.x, p.y));
                         saveStats.pickups++;
                     }
                     pickupListCount = 0;

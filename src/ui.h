@@ -5,6 +5,8 @@
 #include "mesh.h"
 #include "controller.h"
 
+#define PICKUP_SHOW_TIME 5.0f
+
 enum StringID {
       STR_NOT_IMPLEMENTED
 // common
@@ -245,6 +247,15 @@ namespace UI {
 
     bool     showHelp;
 
+    struct PickupItem {
+        float      time;
+        vec2       pos;
+        int        modelIndex;
+        Animation *animation;
+    };
+
+    Array<PickupItem> pickups;
+
     const static uint8 char_width[110] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
         9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
@@ -327,7 +338,7 @@ namespace UI {
     void updateAspect(float aspect) {
         height = 480.0f;
         width  = height * aspect;
-        Core::mProj = GAPI::ortho(0.0f, width, height, 0.0f, 0.0f, 1.0f);
+        Core::mProj = GAPI::ortho(0.0f, width, height, 0.0f, -128.0f, 127.0f);
         Core::setViewProj(Core::mView, Core::mProj);
         Core::active.shader->setParam(uViewProj, Core::mViewProj);
     }
@@ -496,38 +507,21 @@ namespace UI {
     }
 
     #undef MAX_CHARS
-/*
-    Texture *texInv, *texAction;
 
-    Texture* loadRAW(int width, int height, const char *name) {
-        FILE *f = fopen(name, "rb");
-        ASSERT(f);
-        uint8 *data = new uint8[width * height * 4];
-        fread(data, 1, width * height * 4, f);
-        fclose(f);
-        Texture *tex = new Texture(width, height, Texture::RGBA, false, data);
-        delete[] data;
-        return tex;
-    }
-*/
     void init(IGame *game) {
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
         hintTime = 0.0f;
-//        texInv = loadRAW(64, 64, "btn_inv.raw");
-//        texAction = loadRAW(64, 64, "btn_action.raw");
     }
 
     void deinit() {
-//        delete texInv;
-//        delete texAction;
+        pickups.clear();
     }
 
     void update() {
         if (hintTime > 0.0f)
             hintTime = max(0.0f, hintTime - Core::deltaTime);
-
 
         if (Input::down[ikH]) {
             Input::down[ikH] = false;
@@ -536,6 +530,20 @@ namespace UI {
         }
         if (helpTipTime > 0.0f)
             helpTipTime -= Core::deltaTime;
+
+        int i = 0;
+        while (i < pickups.length) {
+            PickupItem &item = pickups[i];
+            item.time -= Core::deltaTime;
+            if (item.time <= 0.0f) {
+                delete item.animation;
+                pickups.remove(i);
+            } else {
+                vec2 target = vec2(UI::width - 48.0f - Core::eye * 16.0f - (i % 4) * 96.0f, UI::height - 48.0f - (i / 4) * 96.0f);
+                item.pos = item.pos.lerp(target, Core::deltaTime * 5.0f);
+                i++;
+            }
+        }
     }
 
     void renderControl(const vec2 &pos, float size, bool active) {
@@ -600,14 +608,101 @@ namespace UI {
 
     void renderHelp() {
         // TODO: Core::eye offset
-        if (hintTime > 0.0f)
+        if (hintTime > 0.0f) {
             textOut(vec2(16, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
+        }
 
-        if (showHelp)
+        if (showHelp) {
             textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
-        else
-            if (helpTipTime > 0.0f)
+        } else {
+            if (helpTipTime > 0.0f) {
                 textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
+            }
+        }
+    }
+
+    void addPickup(TR::Entity::Type type, const vec2 &pos) {
+        TR::Level *level = game->getLevel();
+
+        PickupItem item;
+        item.time       = PICKUP_SHOW_TIME;
+        item.pos        = pos;
+        item.modelIndex = level->getModelIndex(TR::Level::convToInv(type));
+        if (item.modelIndex <= 0)
+            return;
+        item.animation  = new Animation(level, &level->models[item.modelIndex - 1]);
+
+        pickups.push(item);
+    }
+
+    void setupInventoryShading() {
+        Core::whiteTex->bind(sShadow);
+        game->setShader(Core::passCompose, Shader::ENTITY, false, false);
+
+        vec4 ambient[6] = {
+            vec4(0.4f), vec4(0.2f), vec4(0.4f), vec4(0.5f), vec4(0.4f), vec4(0.6f)
+        };
+
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            Core::lightPos[i]   = vec4(0, 0, 0, 0);
+            Core::lightColor[i] = vec4(0, 0, 0, 1);
+        }
+        
+        Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+        Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+        Core::active.shader->setParam(uAmbient,    ambient[0], 6);
+    }
+
+    void renderPickups() {
+        if (!pickups.length)
+            return;
+
+        Core::viewPos = vec3(0.0);
+
+        mat4 mView = Core::mView;
+        Core::mView.scale(vec3(0.5f));
+        Core::setViewProj(Core::mView, Core::mProj);
+        setupInventoryShading();
+
+        Basis joints[MAX_SPHERES];
+
+        Core::setDepthTest(true);
+
+        MeshBuilder *mesh = game->getMesh();
+        for (int i = 0; i < pickups.length; i++) {
+            const PickupItem &item = pickups[i];
+
+            float offset = 0.0f;
+            if (item.time < 1.0f)
+                offset = (1.0f - item.time) * 512.0f;
+
+            mat4 matrix;
+            matrix.identity();
+            matrix.translate(vec3(item.pos.x + offset, item.pos.y, 0.0f) * 2.0f);
+            matrix.rotateX(-15 * DEG2RAD);
+            matrix.rotateY(item.time * PI * 0.5f);
+
+            item.animation->getJoints(matrix, -1, true, joints);
+            Core::setBasis(joints, item.animation->model->mCount);
+
+            float alpha = 1.0f - min(PICKUP_SHOW_TIME - item.time, 1.0f);
+            alpha *= alpha;
+            alpha *= alpha;
+            alpha = 1.0f - alpha;
+
+            Core::active.shader->setParam(uMaterial, vec4(1.0f, 0.4f, 0.0f, alpha));
+
+            mesh->renderModelFull(item.modelIndex - 1);
+        }
+
+        Core::setDepthTest(false);
+
+        Core::setViewProj(mView, Core::mProj);
+        game->setShader(Core::passGUI, Shader::DEFAULT);
+        Core::active.shader->setParam(uViewProj, Core::mViewProj);
+        Core::setBlendMode(bmPremult);
+        Core::setCullMode(cmNone);
+        Core::setMaterial(1, 1, 1, 1);
     }
 };
 

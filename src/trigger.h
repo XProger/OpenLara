@@ -1448,7 +1448,7 @@ struct KeyHole : Controller {
 
     virtual const TR::Model* getModel() {
         if (getEntity().isPuzzleHole() && flags.active == TR::ACTIVE) {
-            int doneIdx = TR::Entity::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
+            int doneIdx = TR::Level::convToInv(TR::Entity::getItemForHole(getEntity().type)) - TR::Entity::INV_PUZZLE_1;
             return &level->models[level->extra.puzzleDone[doneIdx]];
         }
         return Controller::getModel();

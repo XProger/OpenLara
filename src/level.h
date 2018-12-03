@@ -142,12 +142,12 @@ struct Level : IGame {
         } else {
             for (int i = 0; i < inventory->itemsCount; i++) {
                 Inventory::Item *invItem = inventory->items[i];
-            
-                if (!TR::Entity::isPickup(TR::Entity::convFromInv(invItem->type)))
+
+                if (!TR::Entity::isPickup(TR::Level::convFromInv(invItem->type)))
                     continue;
 
                 if (!checkpoint) {
-                    if (!TR::Entity::isCrossLevelItem(TR::Entity::convFromInv(invItem->type)))
+                    if (!TR::Entity::isCrossLevelItem(TR::Level::convFromInv(invItem->type)))
                         continue;
                     if (TR::isEmptyLevel(id))
                         continue;
@@ -316,7 +316,7 @@ struct Level : IGame {
         int i = inventory->itemsCount;
 
         while (i--) {
-            if (TR::Entity::isPickup(TR::Entity::convFromInv(inventory->items[i]->type)))
+            if (TR::Entity::isPickup(TR::Level::convFromInv(inventory->items[i]->type)))
                 inventory->remove(i);
         }
     }
@@ -791,7 +791,8 @@ struct Level : IGame {
 //==============================
 
     Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f), statsTimeDelta(0.0f) {
-        level.initModelIndices(Core::settings.detail.simple == 1);
+        level.simpleItems = Core::settings.detail.simple == 1;
+        level.initModelIndices();
 
     #ifdef _OS_PSP
         GAPI::freeEDRAM();
@@ -911,7 +912,8 @@ struct Level : IGame {
     }
 
     void resetModels() {
-        level.initModelIndices(Core::settings.detail.simple == 1);
+        level.simpleItems = Core::settings.detail.simple == 1;
+        level.initModelIndices();
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
             if (!e.controller) continue;
@@ -2793,50 +2795,49 @@ struct Level : IGame {
     }
 
     void renderUI() {
-        if (level.isCutsceneLevel() || inventory->titleTimer > 1.0f) return;
+        if (level.isCutsceneLevel() || inventory->titleTimer > 1.0f || level.isTitle()) return;
 
         UI::begin();
         UI::updateAspect(camera->aspect);
 
-        if (!level.isTitle()) {
-        // render health & oxygen bars
-            vec2 size = vec2(180, 10);
+        UI::renderPickups();
 
-            float health = player->health / float(LARA_MAX_HEALTH);
-            float oxygen = player->oxygen / float(LARA_MAX_OXYGEN);
+    // render health & oxygen bars
+        vec2 size = vec2(180, 10);
 
-            if ((params->time - int(params->time)) < 0.5f) { // blinking
-                if (health <= 0.2f) health = 0.0f;
-                if (oxygen <= 0.2f) oxygen = 0.0f;
-            }
+        float health = player->health / float(LARA_MAX_HEALTH);
+        float oxygen = player->oxygen / float(LARA_MAX_OXYGEN);
 
-            float eye = inventory->active ? 0.0f : UI::width * Core::eye * 0.02f;
+        if ((params->time - int(params->time)) < 0.5f) { // blinking
+            if (health <= 0.2f) health = 0.0f;
+            if (oxygen <= 0.2f) oxygen = 0.0f;
+        }
 
-            vec2 pos;
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-                pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
-            else
-                pos = vec2(UI::width - 32 - size.x - eye, 32);
+        float eye = inventory->active ? 0.0f : UI::width * Core::eye * 0.02f;
 
-            if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER)) {
-                UI::renderBar(UI::BAR_OXYGEN, pos, size, oxygen);
-                pos.y += 16.0f;
-            }
+        vec2 pos;
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
+        else
+            pos = vec2(UI::width - 32 - size.x - eye, 32);
 
-            if ((!inventory->active && ((player->wpnReady() && !player->emptyHands()) || player->damageTime > 0.0f || health <= 0.2f))) {
-                UI::renderBar(UI::BAR_HEALTH, pos, size, health);
-                pos.y += 32.0f;
+        if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER)) {
+            UI::renderBar(UI::BAR_OXYGEN, pos, size, oxygen);
+            pos.y += 16.0f;
+        }
 
-                if (!inventory->active && !player->emptyHands()) { // ammo
-                    int index = inventory->contains(player->wpnCurrent);
-                    if (index > -1)
-                        inventory->renderItemCount(inventory->items[index], pos, size.x);
-                }
+        if ((!inventory->active && ((player->wpnReady() && !player->emptyHands()) || player->damageTime > 0.0f || health <= 0.2f))) {
+            UI::renderBar(UI::BAR_HEALTH, pos, size, health);
+            pos.y += 32.0f;
+
+            if (!inventory->active && !player->emptyHands()) { // ammo
+                int index = inventory->contains(player->wpnCurrent);
+                if (index > -1)
+                    inventory->renderItemCount(inventory->items[index], pos, size.x);
             }
         }
 
-        if (!level.isTitle())
-            UI::renderHelp();
+        UI::renderHelp();
 
         UI::end();
     }

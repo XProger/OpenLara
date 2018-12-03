@@ -533,18 +533,7 @@ struct Inventory {
 
             Core::setBasis(joints, m.mCount);
 
-            Core::setBlendMode(bmPremult);
-            mesh->transparent = 0;
-            mesh->renderModel(desc.model);
-            mesh->transparent = 1;
-            mesh->renderModel(desc.model);
-            Core::setBlendMode(bmAdd);
-            Core::setDepthWrite(false);
-            mesh->transparent = 2;
-            mesh->renderModel(desc.model);
-            Core::setDepthWrite(true);
-
-            Core::setBlendMode(bmNone);
+            mesh->renderModelFull(desc.model);
         }
 
         void choose() {
@@ -709,7 +698,7 @@ struct Inventory {
     }
 
     int contains(TR::Entity::Type type) {
-        type = TR::Entity::convToInv(type);
+        type = TR::Level::convToInv(type);
         for (int i = 0; i < itemsCount; i++)
             if (items[i]->type == type)
                 return i;
@@ -733,7 +722,7 @@ struct Inventory {
     }
 
     void add(TR::Entity::Type type, int count = 1, bool smart = true) {
-        type = TR::Entity::convToInv(type);
+        type = TR::Level::convToInv(type);
 
         if (smart) {
             switch (type) {
@@ -1801,21 +1790,7 @@ struct Inventory {
 
         setupCamera(aspect);
 
-        Core::whiteTex->bind(sShadow);
-        game->setShader(Core::passCompose, Shader::ENTITY, false, false);
-
-        vec4 ambient[6] = {
-            vec4(0.4f), vec4(0.2f), vec4(0.4f), vec4(0.5f), vec4(0.4f), vec4(0.6f)
-        };
-
-        for (int i = 0; i < MAX_LIGHTS; i++) {
-            Core::lightPos[i]   = vec4(0, 0, 0, 0);
-            Core::lightColor[i] = vec4(0, 0, 0, 1);
-        }
-        
-        Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-        Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-        Core::active.shader->setParam(uAmbient,    ambient[0], 6);
+        UI::setupInventoryShading();
 
         renderPage(page);
         if (page != targetPage)

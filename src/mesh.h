@@ -1473,6 +1473,21 @@ struct MeshBuilder {
         }
     }
 
+    void renderModelFull(int modelIndex, bool underwater = false) {
+        Core::setBlendMode(bmPremult);
+        transparent = 0;
+        renderModel(modelIndex, underwater);
+        transparent = 1;
+        renderModel(modelIndex, underwater);
+        Core::setBlendMode(bmAdd);
+        Core::setDepthWrite(false);
+        transparent = 2;
+        renderModel(modelIndex, underwater);
+        Core::setDepthWrite(true);
+        Core::setBlendMode(bmNone);
+        transparent = 0;
+    }
+
     void renderSprite(int sequenceIndex, int frame) {
         #ifndef MERGE_SPRITES
             Core::mModel.identity();

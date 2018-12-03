@@ -1949,70 +1949,6 @@ namespace TR {
             }
         }
 
-        static Type convToInv(Type type) {
-            switch (type) {
-                case PISTOLS       : return INV_PISTOLS;
-                case SHOTGUN       : return INV_SHOTGUN;
-                case MAGNUMS       : return INV_MAGNUMS;
-                case UZIS          : return INV_UZIS;
- 
-                case AMMO_PISTOLS  : return INV_AMMO_PISTOLS;
-                case AMMO_SHOTGUN  : return INV_AMMO_SHOTGUN;
-                case AMMO_MAGNUMS  : return INV_AMMO_MAGNUMS;
-                case AMMO_UZIS     : return INV_AMMO_UZIS;
-
-                case MEDIKIT_SMALL : return INV_MEDIKIT_SMALL;
-                case MEDIKIT_BIG   : return INV_MEDIKIT_BIG;
-
-                case PUZZLE_1      : return INV_PUZZLE_1;
-                case PUZZLE_2      : return INV_PUZZLE_2;
-                case PUZZLE_3      : return INV_PUZZLE_3;
-                case PUZZLE_4      : return INV_PUZZLE_4;
-
-                case KEY_ITEM_1    : return INV_KEY_ITEM_1;
-                case KEY_ITEM_2    : return INV_KEY_ITEM_2;
-                case KEY_ITEM_3    : return INV_KEY_ITEM_3;
-                case KEY_ITEM_4    : return INV_KEY_ITEM_4;
-
-                case LEADBAR       : return INV_LEADBAR;
-                case SCION_PICKUP_QUALOPEC :
-                case SCION_PICKUP_DROP     :
-                case SCION_PICKUP_HOLDER   : return Entity::INV_SCION;
-                default            : return type;
-            }
-        }
-
-        static Type convFromInv(Type type) {
-            switch (type) {
-                case INV_PISTOLS       : return PISTOLS;
-                case INV_SHOTGUN       : return SHOTGUN;
-                case INV_MAGNUMS       : return MAGNUMS;
-                case INV_UZIS          : return UZIS;
- 
-                case INV_AMMO_PISTOLS  : return AMMO_PISTOLS;
-                case INV_AMMO_SHOTGUN  : return AMMO_SHOTGUN;
-                case INV_AMMO_MAGNUMS  : return AMMO_MAGNUMS;
-                case INV_AMMO_UZIS     : return AMMO_UZIS;
-
-                case INV_MEDIKIT_SMALL : return MEDIKIT_SMALL;
-                case INV_MEDIKIT_BIG   : return MEDIKIT_BIG;
-
-                case INV_PUZZLE_1      : return PUZZLE_1;
-                case INV_PUZZLE_2      : return PUZZLE_2;
-                case INV_PUZZLE_3      : return PUZZLE_3;
-                case INV_PUZZLE_4      : return PUZZLE_4;
-
-                case INV_KEY_ITEM_1    : return KEY_ITEM_1;
-                case INV_KEY_ITEM_2    : return KEY_ITEM_2;
-                case INV_KEY_ITEM_3    : return KEY_ITEM_3;
-                case INV_KEY_ITEM_4    : return KEY_ITEM_4;
-
-                case INV_LEADBAR       : return LEADBAR;
-                case INV_SCION         : return SCION_PICKUP_DROP;
-                default                : return type;
-            }
-        }
-
         static Type getItemForHole(Type hole) {
             switch (hole) {
                 case PUZZLE_HOLE_1 : return PUZZLE_1;
@@ -2046,6 +1982,53 @@ namespace TR {
                 opaque = false;
         }
     };
+
+    #define INV_ITEM_PAIR(TYPE) { Entity::TYPE, Entity::INV_##TYPE }
+
+    static struct {
+        Entity::Type src, dst;
+    } ITEM_TO_INV[] = {
+    // weapon
+        INV_ITEM_PAIR(PISTOLS),
+        INV_ITEM_PAIR(SHOTGUN),
+        INV_ITEM_PAIR(MAGNUMS),
+        INV_ITEM_PAIR(UZIS),
+        INV_ITEM_PAIR(AUTOPISTOLS),
+        INV_ITEM_PAIR(HARPOON),
+        INV_ITEM_PAIR(M16),
+        INV_ITEM_PAIR(GRENADE),
+    // ammo
+        INV_ITEM_PAIR(AMMO_PISTOLS),
+        INV_ITEM_PAIR(AMMO_SHOTGUN),
+        INV_ITEM_PAIR(AMMO_MAGNUMS),
+        INV_ITEM_PAIR(AMMO_UZIS),
+        INV_ITEM_PAIR(AMMO_AUTOPISTOLS),
+        INV_ITEM_PAIR(AMMO_HARPOON),
+        INV_ITEM_PAIR(AMMO_M16),
+        INV_ITEM_PAIR(AMMO_GRENADE),
+    // items
+        INV_ITEM_PAIR(MEDIKIT_BIG),
+        INV_ITEM_PAIR(MEDIKIT_SMALL),
+        INV_ITEM_PAIR(FLARES),
+    // key items
+        INV_ITEM_PAIR(KEY_ITEM_1),
+        INV_ITEM_PAIR(KEY_ITEM_2),
+        INV_ITEM_PAIR(KEY_ITEM_3),
+        INV_ITEM_PAIR(KEY_ITEM_4),
+    // puzzle items
+        INV_ITEM_PAIR(PUZZLE_1),
+        INV_ITEM_PAIR(PUZZLE_2),
+        INV_ITEM_PAIR(PUZZLE_3),
+        INV_ITEM_PAIR(PUZZLE_4),
+    // other items
+        INV_ITEM_PAIR(LEADBAR),
+        INV_ITEM_PAIR(QUEST_ITEM_1),
+        INV_ITEM_PAIR(QUEST_ITEM_2),
+        { Entity::SCION_PICKUP_DROP,     Entity::INV_SCION },
+        { Entity::SCION_PICKUP_QUALOPEC, Entity::INV_SCION },
+    };
+
+    #undef INV_ITEM_PAIR
 
     struct Animation {
         uint32  frameOffset;
@@ -2447,6 +2430,7 @@ namespace TR {
         int     cutEntity;
         mat4    cutMatrix;
         bool    isDemoLevel;
+        bool    simpleItems;
 
         struct Extra {
 
@@ -3979,66 +3963,28 @@ namespace TR {
             }
         }
 
-    void initModelIndices(bool simpleItems) {
-        #define OVERRIDE(TYPE) { TR::Entity::TYPE, TR::Entity::INV_##TYPE }
-
-        struct {
-            TR::Entity::Type src, dst;
-        } overrides[] = {
-        // weapon
-            OVERRIDE(PISTOLS),
-            OVERRIDE(SHOTGUN),
-            OVERRIDE(MAGNUMS),
-            OVERRIDE(UZIS),
-            OVERRIDE(AUTOPISTOLS),
-            OVERRIDE(HARPOON),
-            OVERRIDE(M16),
-            OVERRIDE(GRENADE),
-        // ammo
-            OVERRIDE(AMMO_PISTOLS),
-            OVERRIDE(AMMO_SHOTGUN),
-            OVERRIDE(AMMO_MAGNUMS),
-            OVERRIDE(AMMO_UZIS),
-            OVERRIDE(AMMO_AUTOPISTOLS),
-            OVERRIDE(AMMO_HARPOON),
-            OVERRIDE(AMMO_M16),
-            OVERRIDE(AMMO_GRENADE),
-        // items
-            OVERRIDE(MEDIKIT_BIG),
-            OVERRIDE(MEDIKIT_SMALL),
-            OVERRIDE(FLARES),
-        // key items
-            OVERRIDE(KEY_ITEM_1),
-            OVERRIDE(KEY_ITEM_2),
-            OVERRIDE(KEY_ITEM_3),
-            OVERRIDE(KEY_ITEM_4),
-        // puzzle items
-            OVERRIDE(PUZZLE_1),
-            OVERRIDE(PUZZLE_2),
-            OVERRIDE(PUZZLE_3),
-            OVERRIDE(PUZZLE_4),
-        // other items
-            OVERRIDE(LEADBAR),
-            OVERRIDE(QUEST_ITEM_1),
-            OVERRIDE(QUEST_ITEM_2),
-            { TR::Entity::SCION_PICKUP_QUALOPEC, TR::Entity::INV_SCION },
-            { TR::Entity::SCION_PICKUP_DROP,     TR::Entity::INV_SCION },
-        };
-
-        for (int i = 0; i < entitiesCount; i++) {
-            TR::Entity &e = entities[i];
-            e.modelIndex = getModelIndex(e.type);
-            if (!simpleItems) {
-                for (int j = 0; j < COUNT(overrides); j++)
-                    if (e.type == overrides[j].src) {
-                        e.modelIndex = getModelIndex(overrides[j].dst);
-                        break;
-                    }
-            }
+        static Entity::Type convToInv(Entity::Type type) {
+            for (int j = 0; j < COUNT(ITEM_TO_INV); j++)
+                if (type == ITEM_TO_INV[j].src) {
+                    return ITEM_TO_INV[j].dst;
+                }
+            return type;
         }
 
-        #undef OVERRIDE
-    }
+        static Entity::Type convFromInv(Entity::Type type) {
+            for (int j = 0; j < COUNT(ITEM_TO_INV); j++)
+                if (type == ITEM_TO_INV[j].dst) {
+                    return ITEM_TO_INV[j].src;
+                }
+            return type;
+        }
+
+        void initModelIndices() {
+            for (int i = 0; i < entitiesCount; i++) {
+                TR::Entity &e = entities[i];
+                e.modelIndex = getModelIndex(e.type);
+            }
+        }
 
         LevelID getTitleId() const {
             return TR::getTitleId(version);
@@ -5473,6 +5419,9 @@ namespace TR {
         }
 
         int16 getModelIndex(Entity::Type type) const {
+            if (!simpleItems)
+                type = convToInv(type);
+
         //#ifndef _DEBUG
             if ((type >= Entity::AI_GUARD && type <= Entity::AI_CHECK) || 
                 (type >= Entity::GLOW_2 && type <= Entity::ENEMY_BAT_SWARM) ||
