@@ -727,11 +727,12 @@ struct Inventory {
         if (smart) {
             switch (type) {
                 case TR::Entity::INV_PISTOLS      :
-                case TR::Entity::INV_AMMO_PISTOLS : 
+                case TR::Entity::INV_AMMO_PISTOLS :
+                    count = UNLIMITED_AMMO; // pistols always has unlimited ammo
                     addAmmo(type, count, 10, TR::Entity::INV_PISTOLS, TR::Entity::INV_AMMO_PISTOLS);
                     break;
                 case TR::Entity::INV_SHOTGUN      :
-                case TR::Entity::INV_AMMO_SHOTGUN : 
+                case TR::Entity::INV_AMMO_SHOTGUN :
                     addAmmo(type, count,  2, TR::Entity::INV_SHOTGUN, TR::Entity::INV_AMMO_SHOTGUN);
                     break;
                 case TR::Entity::INV_MAGNUMS      :
@@ -739,7 +740,7 @@ struct Inventory {
                     addAmmo(type, count, 25, TR::Entity::INV_MAGNUMS, TR::Entity::INV_AMMO_MAGNUMS);
                     break;
                 case TR::Entity::INV_UZIS         :
-                case TR::Entity::INV_AMMO_UZIS    : 
+                case TR::Entity::INV_AMMO_UZIS    :
                     addAmmo(type, count, 50, TR::Entity::INV_UZIS, TR::Entity::INV_AMMO_UZIS);
                     break;
                 default : ;

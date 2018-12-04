@@ -1466,7 +1466,7 @@ struct Controller {
                 mask |= layers[i].mask;
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
-                    joints[j].w = (vmask & (1 << j)) ? 1.0f : -1.0f; // hide invisible parts
+                    joints[j].w = (vmask & (1 << j)) ? 1.0f : 0.0f; // hide invisible parts
 
                 if (explodeMask) {
                     ASSERT(explodeParts);
