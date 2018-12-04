@@ -1458,11 +1458,62 @@ struct Inventory {
             y = options[i].render(x, y, width, slot == i, &stg);
     }
 
+
+    StringID getItemName(StringID def, TR::LevelID id, TR::Entity::Type type) {
+        #define LVLCHECK(L, T, S) if (id == TR::L && type == TR::Entity::INV_##T) return S;
+
+        LVLCHECK(LVL_TR1_2,     KEY_ITEM_1, STR_KEY_SILVER);
+        LVLCHECK(LVL_TR1_2,     PUZZLE_1,   STR_PUZZLE_GOLD_IDOL);
+
+        LVLCHECK(LVL_TR1_3A,    PUZZLE_1,   STR_PUZZLE_COG);
+
+        LVLCHECK(LVL_TR1_4,     KEY_ITEM_1, STR_KEY_NEPTUNE);
+        LVLCHECK(LVL_TR1_4,     KEY_ITEM_2, STR_KEY_ATLAS);
+        LVLCHECK(LVL_TR1_4,     KEY_ITEM_3, STR_KEY_DAMOCLES);
+        LVLCHECK(LVL_TR1_4,     KEY_ITEM_4, STR_KEY_THOR);
+
+        LVLCHECK(LVL_TR1_5,     KEY_ITEM_1, STR_KEY_RUSTY);
+
+        LVLCHECK(LVL_TR1_6,     PUZZLE_1,   STR_PUZZLE_GOLD_BAR);
+
+        LVLCHECK(LVL_TR1_7A,    KEY_ITEM_1, STR_KEY_GOLD);
+        LVLCHECK(LVL_TR1_7A,    KEY_ITEM_2, STR_KEY_SILVER);
+        LVLCHECK(LVL_TR1_7A,    KEY_ITEM_3, STR_KEY_RUSTY);
+
+        LVLCHECK(LVL_TR1_7B,    KEY_ITEM_1, STR_KEY_GOLD);
+        LVLCHECK(LVL_TR1_7B,    KEY_ITEM_2, STR_KEY_RUSTY);
+        LVLCHECK(LVL_TR1_7B,    KEY_ITEM_3, STR_KEY_RUSTY);
+
+        LVLCHECK(LVL_TR1_8A,    KEY_ITEM_1, STR_KEY_SAPPHIRE);
+
+        LVLCHECK(LVL_TR1_8B,    KEY_ITEM_1, STR_KEY_SAPPHIRE);
+        LVLCHECK(LVL_TR1_8B,    PUZZLE_2,   STR_PUZZLE_SCARAB);
+        LVLCHECK(LVL_TR1_8B,    PUZZLE_3,   STR_PUZZLE_HORUS);
+        LVLCHECK(LVL_TR1_8B,    PUZZLE_4,   STR_PUZZLE_ANKH);
+        LVLCHECK(LVL_TR1_8B,    PUZZLE_1,   STR_PUZZLE_HORUS);
+
+        LVLCHECK(LVL_TR1_8C,    KEY_ITEM_1, STR_KEY_GOLD);
+        LVLCHECK(LVL_TR1_8C,    PUZZLE_1,   STR_PUZZLE_ANKH);
+        LVLCHECK(LVL_TR1_8C,    PUZZLE_2,   STR_PUZZLE_SCARAB);
+
+        LVLCHECK(LVL_TR1_10A,   PUZZLE_1,   STR_PUZZLE_FUSE);
+        LVLCHECK(LVL_TR1_10A,   PUZZLE_2,   STR_PUZZLE_PYRAMID);
+
+        LVLCHECK(LVL_TR1_EGYPT, KEY_ITEM_1, STR_KEY_GOLD);
+        LVLCHECK(LVL_TR1_CAT,   KEY_ITEM_1, STR_KEY_ORNATE);
+
+        #undef LVLCHECK
+
+        return def;
+    }
+
     void renderItemText(float eye, Item *item) {
         if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
             //
-        } else
-            UI::textOut(vec2(-eye, 480 - 32), item->desc.str, UI::aCenter, UI::width);
+        } else {
+            StringID str = getItemName(item->desc.str, game->getLevel()->id, item->type);
+            UI::textOut(vec2(-eye, 480 - 32), str, UI::aCenter, UI::width);
+        }
 
         renderItemCount(item, vec2(UI::width / 2 - 160 - eye, 480 - 96), 320);
 

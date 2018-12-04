@@ -103,10 +103,31 @@ enum StringID {
     , STR_AMMO_UZIS
     , STR_MEDI_SMALL
     , STR_MEDI_BIG
-    , STR_PUZZLE
-    , STR_KEY
     , STR_LEAD_BAR
     , STR_SCION
+// keys
+    , STR_KEY
+    , STR_KEY_SILVER
+    , STR_KEY_RUSTY
+    , STR_KEY_GOLD
+    , STR_KEY_SAPPHIRE
+    , STR_KEY_NEPTUNE
+    , STR_KEY_ATLAS
+    , STR_KEY_DAMOCLES
+    , STR_KEY_THOR
+    , STR_KEY_ORNATE
+// puzzles
+    , STR_PUZZLE
+    , STR_PUZZLE_GOLD_IDOL
+    , STR_PUZZLE_GOLD_BAR
+    , STR_PUZZLE_COG
+    , STR_PUZZLE_FUSE
+    , STR_PUZZLE_ANKH
+    , STR_PUZZLE_HORUS
+    , STR_PUZZLE_ANUBIS
+    , STR_PUZZLE_SCARAB
+    , STR_PUZZLE_PYRAMID
+
     , STR_MAX
 };
 
@@ -232,10 +253,30 @@ const char *STR[STR_MAX] = {
     , "Uzi Clips"
     , "Small Medi Pack"
     , "Large Medi Pack"
-    , "Puzzle"
-    , "Key"
     , "Lead Bar"
     , "Scion"
+// keys
+    , "Key"
+    , "Silver Key"
+    , "Rusty Key"
+    , "Gold Key"
+    , "Sapphire Key"
+    , "Neptune Key"
+    , "Atlas Key"
+    , "Damocles Key"
+    , "Thor Key"
+    , "Ornate Key"
+// puzzles
+    , "Puzzle"
+    , "Gold Idol"
+    , "Gold Bar"
+    , "Machine Cog"
+    , "Fuse"
+    , "Ankh"
+    , "Eye of Horus"
+    , "Seal of Anubis"
+    , "Scarab"
+    , "Pyramid Key"
 };
 
 namespace UI {
