@@ -169,8 +169,8 @@ bool osJoyReady(int index) {
 }
 
 void osJoyVibrate(int index, float L, float R) {
-        joyDevice[index].vL = L;
-        joyDevice[index].vR = R;
+    joyDevice[index].vL = L;
+    joyDevice[index].vR = R;
 }
 
 void joyRumble(int index) {

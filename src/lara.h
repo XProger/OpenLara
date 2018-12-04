@@ -62,6 +62,8 @@
 
 #define UNITS_PER_METER     445.0f
 
+#define LARA_VIBRATE_HIT_TIME   0.2f
+
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -1023,7 +1025,7 @@ struct Lara : Character {
         int count = wpnCurrent == TR::Entity::SHOTGUN ? 6 : 2;
         float nearDist = 32.0f * 1024.0f;
         vec3  nearPos;
-        int   shots = 0;
+        int   shots = 0, hits = 0;
 
         for (int i = 0; i < count; i++) {
             int armIndex;
@@ -1057,6 +1059,7 @@ struct Lara : Character {
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
             if (arm->target && checkHit(arm->target, p, hit, hit)) {
+                hits++;
                 TR::Entity::Type type = arm->target->getEntity().type;
                 ((Character*)arm->target)->hit(wpnGetDamage(), this);
                 hit -= d * 64.0f;
@@ -1078,7 +1081,8 @@ struct Lara : Character {
             saveStats.ammoUsed += ((wpnCurrent == TR::Entity::SHOTGUN) ? 1 : 2);
 
             game->playSound(wpnGetSound(), pos, Sound::PAN);
-            game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
+            if (shots != hits)
+                game->playSound(TR::SND_RICOCHET, nearPos, Sound::PAN);
 
              if (wpnAmmo && *wpnAmmo != UNLIMITED_AMMO && wpnCurrent == TR::Entity::SHOTGUN)
                 *wpnAmmo -= 1;
@@ -1577,7 +1581,7 @@ struct Lara : Character {
 
         Character::hit(damage, enemy, hitType);
 
-        hitTimer = 0.2f;
+        hitTimer = LARA_VIBRATE_HIT_TIME;
 
         switch (hitType) {
             case TR::HIT_DART      : addBlood(enemy->pos, vec3(0));

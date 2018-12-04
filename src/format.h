@@ -1841,11 +1841,11 @@ namespace TR {
         }
 
         static bool isPuzzleItem(Type type) {
-            return type >= PUZZLE_1 && type <= PUZZLE_4;
+            return (type >= PUZZLE_1 && type <= PUZZLE_4) || (type >= INV_PUZZLE_1 && type <= INV_PUZZLE_4);
         }
         
         static bool isKeyItem(Type type) {
-            return type >= KEY_ITEM_1 && type <= KEY_ITEM_4;
+            return (type >= KEY_ITEM_1 && type <= KEY_ITEM_4) || (type >= INV_KEY_ITEM_1 && type <= INV_KEY_ITEM_4);
         }
 
         static bool isWeapon(Type type) {

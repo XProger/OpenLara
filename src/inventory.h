@@ -1460,6 +1460,9 @@ struct Inventory {
 
 
     StringID getItemName(StringID def, TR::LevelID id, TR::Entity::Type type) {
+        if (!TR::Entity::isPuzzleItem(type) && !TR::Entity::isKeyItem(type))
+            return def;
+
         #define LVLCHECK(L, T, S) if (id == TR::L && type == TR::Entity::INV_##T) return S;
 
         LVLCHECK(LVL_TR1_2,     KEY_ITEM_1, STR_KEY_SILVER);
