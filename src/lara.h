@@ -1673,7 +1673,7 @@ struct Lara : Character {
 
         if (hitType == TR::HIT_LAVA) {
             for (int i = 0; i < 10; i++)
-                Flame::add(game, this, int(randf() * 24.0f));
+                Flame::add(game, this, rand() % getModel()->mCount);
         }
 
         if (state != oldState)
