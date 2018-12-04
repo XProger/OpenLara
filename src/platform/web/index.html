@@ -8,6 +8,7 @@
 			}
 			body {
 				margin: 0px;
+                font-size: 1.0em;
                 overflow: hidden;
 			}
 			.game_fs {
@@ -19,6 +20,14 @@
 				height: 100%;
 				border: 0;
 				display: block;
+			}
+			table {
+				border-collapse: collapse;
+			}
+
+			table, th, td {
+				border: 1px solid black;
+				padding: 4px;
 			}
 			</style>
 			<meta charset="utf-8">
@@ -131,10 +140,18 @@
 
 			<span id="info">
 				<input type="file" id="browseFile" style="display:none" accept=".phd,.psx, .tr2" onchange="readLevel(event)" />
-				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)
+				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)&nbsp;
+				<!--
+				<input type="button" value="Backup Saves" onclick="backupSaves();" />
+				<input type="button" value="Restore Saves" onclick="restoreSaves();" />
+-->
 				<p style="margin:8px">
-				OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
-				<br><i>last update: 13.10.2018</i><br>
+					OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
+				
+					<div id="latest_changes" style="margin:8px">
+						<br><i>last update: 04.12.2018</i><br>
+						<input type="button" value="Latest changes" onclick="getLatestChanges()" />
+					</div>
 				</p>
 			</span>
 
@@ -163,9 +180,9 @@
 
 				document.body.appendChild(script);
 
-				window.onbeforeunload = function () { // Ctrl+W
-					return "Really want to quit the game?";
-				};
+				//window.onbeforeunload = function () { // Ctrl+W
+				//	return "Really want to quit the game?";
+				//};
 
 				var isMobile = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
 
@@ -175,7 +192,30 @@
 					document.getElementById('info').style.display = 'none';
 				}
 
-				function readLevel(event, home) {
+				function getLatestChanges() {
+					var xhr = new XMLHttpRequest();
+					
+					xhr.onreadystatechange = function() {
+						if (this.readyState === 4 && this.status === 200) {
+							e = document.getElementById('latest_changes');
+							str = '<table>';
+							for (var i = 0; i < this.response.length; i++) {
+								var item = this.response[i];
+								var d = new Date(item.commit.author.date);
+								var date = d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
+								str += '<tr><td>' + date + '</td><td border="1px">' + item.commit.message + '</td></tr>';
+							}
+							str += '</table>';
+							e.innerHTML = str;
+						}
+					};
+					
+					xhr.open('GET', "https://api.github.com/repos/XProger/OpenLara/commits", true);
+					xhr.responseType = 'json';
+					xhr.send(null);				
+				}
+				
+				function readLevel(event) {
 					var reader = new FileReader();
 					reader.onload = function(){
 						var size = reader.result.byteLength;
@@ -185,6 +225,46 @@
 					};
 					reader.readAsArrayBuffer(event.target.files[0]);
 				}
+                /*
+                var db;      
+                var request = indexedDB.open("db");
+request.onupgradeneeded = function() {
+console.log("!!!!!!!! NO DB!");
+};
+request.onsuccess = function() {
+  db = request.result;
+  // Enable our buttons once the IndexedDB instance is available.
+
+};
+
+ function logTimestamps(timestamps) {
+  console.log('There are ' + timestamps.length +
+    ' timestamp(s) saved in IndexedDB: ' + timestamps.join(', '));
+} 
+                
+                function backupSaves() {
+
+  var transaction = db.transaction("FILE_DATA", 'readonly');
+  var store = transaction.objectStore("FILE_DATA");
+  store.get("level/1/GYMLOAD.PNG").onsuccess = function(e) {
+    var value = e.target.result;
+    // value will be: { zip: {}, foo: { bar: { baz: 1 } } }
+    console.log(value);
+                    var data = value;
+                    var a = document.createElement("a");
+                    
+                    a.href     = URL.createObjectURL(new Blob([data]));
+                    a.download = "savegame.dat";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);    
+  };
+
+                }
+*/
+                function restoreSaves() {
+                    alert('restore');
+                }
 			</script>
 
 			<script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','//www.google-analytics.com/analytics.js','ga');ga('create', 'UA-60009035-1', 'auto');ga('send', 'pageview');</script>
