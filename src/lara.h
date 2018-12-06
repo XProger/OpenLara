@@ -1575,7 +1575,7 @@ struct Lara : Character {
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy || level->isCutsceneLevel()) return;
 
-        if (health <= 0.0f) return;
+        if (health <= 0.0f && hitType != TR::HIT_FALL) return;
 
         damageTime = LARA_DAMAGE_TIME;
 
@@ -2820,7 +2820,13 @@ struct Lara : Character {
     }
 
     virtual int getStateDeath() {
-        return (stand == STAND_UNDERWATER || stand == STAND_ONWATER) ? STATE_UNDERWATER_DEATH : (state == STATE_MIDAS_DEATH ? STATE_MIDAS_DEATH : STATE_DEATH);
+        if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
+            return STATE_UNDERWATER_DEATH;
+        if (state == STATE_MIDAS_DEATH)
+            return STATE_MIDAS_DEATH;
+        if (state == STATE_HANG || state == STATE_HANG_LEFT || state == STATE_HANG_RIGHT || state == STATE_UP_JUMP)
+            return STATE_FALL;
+        return STATE_DEATH;
     }
 
     virtual int getStateDefault() {
