@@ -896,6 +896,16 @@ namespace TR {
             ASSERT(track < COUNT(TR2_TRACK_MAPPING));
             return TR2_TRACK_MAPPING[track];
         }
+        static const uint8 TR1_TRACK_MAPPING[] = {
+            2, 2, 2, 11, 12, 3, 13, 14, 15, 16, 17, 18, 19, 60, 20, 21, 22, 23, 24, 25, 26, 27,
+            7, 8, 9, 10, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+            47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 28, 4, 5, 6
+        };
+
+        if (version & VER_TR1) {
+            ASSERT(track < COUNT(TR1_TRACK_MAPPING));
+            return TR1_TRACK_MAPPING[track];
+        }
         return track;
     }
 
@@ -920,7 +930,6 @@ namespace TR {
     }
 
     void getGameTrack(Version version, int track, Stream::Callback callback, void *userData) {
-        track = remapTrack(version, track);
 
         char title[32];
         if (useEasyStart) {
@@ -930,8 +939,12 @@ namespace TR {
                 case VER_TR1_PSX :
                     sprintf(title, "track_%02d", track);
                     if (!checkTrack("", title) && !checkTrack("audio/1/", title) && !checkTrack("audio/", title)) {
-                        callback(NULL, userData);
-                        return;
+                        track = remapTrack(version, track);
+                        sprintf(title, "%03d", track);
+                        if (!checkTrack("", title) && !checkTrack("audio/1/", title) && !checkTrack("audio/", title)) {
+                            callback(NULL, userData);
+                            return;
+                        }
                     }
                     break;
                 case VER_TR2_PC  :
@@ -940,6 +953,7 @@ namespace TR {
                     //    callback(Sound::openCDAudioMP3("audio/cdaudio.dat", "audio/cdaudio.mp3", track), userData);
                     //    return;
                     //}
+                    track = remapTrack(version, track);
                     sprintf(title, "track_%02d", track);
                     if (!checkTrack("", title) && !checkTrack("audio/2/", title) && !checkTrack("audio/", title)) {
                         callback(NULL, userData);
@@ -958,9 +972,14 @@ namespace TR {
                 case VER_TR1_PC  :
                 case VER_TR1_PSX :
                     sprintf(title, "audio/1/track_%02d.ogg", track);
+                    if (Stream::existsContent(title))
+                        break;
+                    track = remapTrack(version, track);
+                    sprintf(title, "audio/1/%03d.ogg", track);
                     break;
                 case VER_TR2_PC  :
                 case VER_TR2_PSX :
+                    track = remapTrack(version, track);
                     sprintf(title, "audio/2/track_%02d.ogg", track);
                     break;
                 case VER_TR3_PC  :
