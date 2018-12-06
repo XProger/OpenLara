@@ -714,8 +714,12 @@ namespace UI {
             const PickupItem &item = pickups[i];
 
             float offset = 0.0f;
-            if (item.time < 1.0f)
-                offset = (1.0f - item.time) * 512.0f;
+            if (item.time < 1.0f) {
+                offset = 1.0f - item.time;
+                offset *= offset;
+                offset *= offset;
+                offset *= 512.0f;
+            }
 
             mat4 matrix;
             matrix.identity();
