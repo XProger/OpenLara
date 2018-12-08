@@ -216,11 +216,6 @@ namespace Game {
             return true;
 
     #ifdef _DEBUG
-        if (Input::down[ik0] && !inventory->isActive()) {
-            inventory->toggle(0, Inventory::PAGE_LEVEL_STATS);
-            Input::down[ik0] = false;
-        }
-
         if (Input::down[ikF]) {
             level->flipMap();
             Input::down[ikF] = false;

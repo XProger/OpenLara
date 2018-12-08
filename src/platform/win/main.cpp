@@ -473,6 +473,27 @@ HWND hWnd;
     }
 #endif
 
+#ifdef _NAPI_SOCKET
+char command[256];
+
+void parseCommand(char *cmd) {
+    NAPI::Peer peer;
+    int pos = 0;
+    for (int i = 0; i < strlen(cmd); i++)
+        if (cmd[i] == ':') {
+            cmd[i] = 0;
+            pos = i + 1;
+            break;
+        }
+    peer.ip = inet_addr(cmd);
+    peer.port = htons(atoi(&cmd[pos]));
+    cmd[pos - 1] = ':';
+
+    LOG("join %s:%d\n", inet_ntoa(*(in_addr*)&peer.ip), ntohs(peer.port));
+    Network::joinGame(peer);
+}
+#endif
+
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         // window
@@ -492,6 +513,20 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         // keyboard
         case WM_CHAR       :
         case WM_SYSCHAR    : 
+            #ifdef _NAPI_SOCKET
+            if (wParam == VK_RETURN) {
+                parseCommand(command);
+                //command[0] = 0;
+            } else if ((wParam >= '0' && wParam <= '9') || wParam == ':' || wParam == '.') {
+                int len = strlen(command);
+                command[len] = wParam;
+                command[len + 1] = 0;
+            } else if (wParam == 8) {
+                int len = strlen(command);
+                if (len > 0)
+                    command[len - 1] = 0;
+            }
+            #endif
             break;
         case WM_KEYDOWN    :
         case WM_KEYUP      :

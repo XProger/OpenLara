@@ -165,56 +165,6 @@ static const float STR_IDCT[] = {
 
 struct Video {
 
-    union Color32 {
-        uint32 value;
-        struct { uint8 r, g, b, a; };
-
-        void SetRGB15(uint16 v) {
-            r = (v & 0x7C00) >> 7;
-            g = (v & 0x03E0) >> 2;
-            b = (v & 0x001F) << 3;
-            a = 255;
-        }
-
-        static void YCbCr_T871_420(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, int32 F, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
-            static const uint32 dither[8] = {
-                0x00000600, 0x00060006, 0x00040204, 0x00020402,
-                0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            };
-
-            ASSERT(F == 0 || F == 4);
-
-            int32 R = ( 91881  * Cr              ) >> 16;
-            int32 G = ( 22550  * Cb + 46799 * Cr ) >> 16;
-            int32 B = ( 116129 * Cb              ) >> 16;
-
-            const Color32 *d = (Color32*)dither + F;
-
-            C0.r = clamp(Y0 + R + d->r, 0, 255);
-            C0.g = clamp(Y0 - G + d->g, 0, 255);
-            C0.b = clamp(Y0 + B + d->b, 0, 255);
-            C0.a = 255;
-            d++;
-
-            C1.r = clamp(Y1 + R + d->r, 0, 255);
-            C1.g = clamp(Y1 - G + d->g, 0, 255);
-            C1.b = clamp(Y1 + B + d->b, 0, 255);
-            C1.a = 255;
-            d++;
-
-            C2.r = clamp(Y2 + R + d->r, 0, 255);
-            C2.g = clamp(Y2 - G + d->g, 0, 255);
-            C2.b = clamp(Y2 + B + d->b, 0, 255);
-            C2.a = 255;
-            d++;
-
-            C3.r = clamp(Y3 + R + d->r, 0, 255);
-            C3.g = clamp(Y3 - G + d->g, 0, 255);
-            C3.b = clamp(Y3 + B + d->b, 0, 255);
-            C3.a = 255;
-        }
-    };
-
     struct Decoder : Sound::Decoder {
         int width, height, fps;
 

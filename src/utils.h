@@ -1190,6 +1190,81 @@ struct Box {
     }
 };
 
+union Color32 { // RGBA8888
+    uint32 value;
+    struct { uint8 r, g, b, a; };
+
+    Color32() {}
+    Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
+
+    void SetRGB15(uint16 v) {
+        r = (v & 0x7C00) >> 7;
+        g = (v & 0x03E0) >> 2;
+        b = (v & 0x001F) << 3;
+        a = 255;
+    }
+
+    static void YCbCr_T871_420(int32 Y0, int32 Y1, int32 Y2, int32 Y3, int32 Cb, int32 Cr, int32 F, Color32 &C0, Color32 &C1, Color32 &C2, Color32 &C3) {
+        static const uint32 dither[8] = {
+            0x00000600, 0x00060006, 0x00040204, 0x00020402,
+            0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        };
+
+        ASSERT(F == 0 || F == 4);
+
+        int32 R = ( 91881  * Cr              ) >> 16;
+        int32 G = ( 22550  * Cb + 46799 * Cr ) >> 16;
+        int32 B = ( 116129 * Cb              ) >> 16;
+
+        const Color32 *d = (Color32*)dither + F;
+
+        C0.r = clamp(Y0 + R + d->r, 0, 255);
+        C0.g = clamp(Y0 - G + d->g, 0, 255);
+        C0.b = clamp(Y0 + B + d->b, 0, 255);
+        C0.a = 255;
+        d++;
+
+        C1.r = clamp(Y1 + R + d->r, 0, 255);
+        C1.g = clamp(Y1 - G + d->g, 0, 255);
+        C1.b = clamp(Y1 + B + d->b, 0, 255);
+        C1.a = 255;
+        d++;
+
+        C2.r = clamp(Y2 + R + d->r, 0, 255);
+        C2.g = clamp(Y2 - G + d->g, 0, 255);
+        C2.b = clamp(Y2 + B + d->b, 0, 255);
+        C2.a = 255;
+        d++;
+
+        C3.r = clamp(Y3 + R + d->r, 0, 255);
+        C3.g = clamp(Y3 - G + d->g, 0, 255);
+        C3.b = clamp(Y3 + B + d->b, 0, 255);
+        C3.a = 255;
+    }
+};
+
+struct Color24 { // RGB888
+    uint8 r, g, b;
+
+    Color24() {}
+    Color24(uint8 r, uint8 g, uint8 b) : r(r), g(g), b(b) {}
+
+    operator Color32() const { return Color32(r, g, b, 255); }
+};
+
+union Color16 { // RGBA5551
+    struct { uint16 r:5, g:5, b:5, a:1; };
+    uint16 value;
+
+    Color16() {}
+    Color16(uint16 value) : value(value) {}
+
+    Color32  getBGR()  const { return Color32((b << 3) | (b >> 2), (g << 3) | (g >> 2), (r << 3) | (r >> 2), 255); }
+    operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
+    operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
+};
+
+
 struct Stream;
 
 extern void osCacheWrite (Stream *stream);

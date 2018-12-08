@@ -1099,41 +1099,6 @@ namespace TR {
         operator float() const { return value / 16384.0f * PI * 0.5f; };
     };
 
-    struct Color32 {
-        uint8 r, g, b, a;
-
-        Color32() {}
-        Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
-    };
-
-    struct Color24 {
-        uint8 r, g, b;
-
-        Color24() {}
-        Color24(uint8 r, uint8 g, uint8 b) : r(r), g(g), b(b) {}
-
-        operator Color32() const { return Color32(r, g, b, 255); }
-    };
-
-    union Color16 {
-        struct { uint16 r:5, g:5, b:5, a:1; };
-        uint16 value;
-
-        Color16() {}
-        Color16(uint16 value) : value(value) {}
-
-        Color32  getBGR()  const { return Color32((b << 3) | (b >> 2), (g << 3) | (g >> 2), (r << 3) | (r >> 2), 255); }
-        operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
-        operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
-    };
-
-    struct Vertex {
-        int16 x, y, z;
-
-        operator vec3()   const { return vec3((float)x, (float)y, (float)z); }
-        operator short3() const { return *((short3*)this); }
-    };
-
     enum TextureType {
         TEX_TYPE_ROOM,
         TEX_TYPE_ITEM,
@@ -1275,15 +1240,15 @@ namespace TR {
             Face        *faces;
 
             struct Vertex {
-                TR::Vertex  vertex;
-                int16       unused_lighting;   // 0 (bright) .. 0x1FFF (dark)
-                uint16      attributes;
-                Color32     color;
+                short3  pos;
+                int16   unused_lighting;   // 0 (bright) .. 0x1FFF (dark)
+                uint16  attributes;
+                Color32 color;
             } *vertices;
 
             struct Sprite {
-                int16       vertex;
-                int16       texture;
+                int16 vertexIndex;
+                int16 texture;
 
                 static int cmp(const Sprite &a, const Sprite &b) {
                     ASSERT(a.texture < gSpriteTexturesCount);
@@ -1346,9 +1311,9 @@ namespace TR {
         int32 dynLightsCount;
 
         struct Portal {
-            uint16  roomIndex;
-            Vertex  normal;
-            Vertex  vertices[4];
+            uint16 roomIndex;
+            short3 normal;
+            short3 vertices[4];
 
             vec3 getCenter() const {
                 return vec3(float( (int(vertices[0].x) + int(vertices[1].x) + int(vertices[2].x) + int(vertices[3].x)) / 4 ),
@@ -1509,7 +1474,7 @@ namespace TR {
             short4 normal;
         };
 
-        TR::Vertex  center;
+        short3      center;
         int16       radius;
         union {
             struct {
@@ -2074,7 +2039,7 @@ namespace TR {
 
     struct AnimFrame {
         MinMax  box;
-        Vertex  pos;
+        short3  pos;
         uint16  angles[1];  // angle frames in YXZ order, first angle must be skipped in TR1
 
         #define ANGLE_SCALE (2.0f * PI / 1024.0f)
@@ -2167,6 +2132,7 @@ namespace TR {
         uint16       unused;
         int16        sCount;
         int16        sStart;
+        uint8        transp;
     };
 
     struct Camera {
@@ -2182,8 +2148,8 @@ namespace TR {
     };
 
     struct CameraFrame {
-        Vertex  target;
-        Vertex  pos;
+        short3  target;
+        short3  pos;
         int16   fov;
         int16   roll;
     };
@@ -3101,9 +3067,9 @@ namespace TR {
                         data.vertices = new Room::Data::Vertex[data.vCount];
                         for (int j = 0; j < data.vCount; j++) {
                             Room::Data::Vertex &v = data.vertices[j];
-                            v.vertex.x   = stream.readBE16();
-                            v.vertex.y   = stream.readBE16();
-                            v.vertex.z   = stream.readBE16();
+                            v.pos.x      = stream.readBE16();
+                            v.pos.y      = stream.readBE16();
+                            v.pos.z      = stream.readBE16();
                             v.color      = Color16(stream.readBE16());
                             v.attributes = 0;
                         }
@@ -3136,8 +3102,8 @@ namespace TR {
                                 switch (type) {
                                     case TYPE_SPRITE       : {
                                         Room::Data::Sprite &sprite = data.sprites[data.sCount++];
-                                        sprite.vertex  = (stream.readBE16() >> 4);
-                                        sprite.texture = (stream.readBE16() >> 4);
+                                        sprite.vertexIndex = (stream.readBE16() >> 4);
+                                        sprite.texture     = (stream.readBE16() >> 4);
                                         fIndex--;
                                         break;
                                     }
@@ -3624,6 +3590,7 @@ namespace TR {
                             s.type   = Entity::remap(version, Entity::Type(stream.readBE16()));
                             s.sCount = (s.type >= Entity::TR1_TYPE_MAX) ? 1 : -stream.readBE16();
                             s.sStart = stream.readBE16();
+                            s.transp = 1;
                         }
                         break;
                     }
@@ -4122,10 +4089,9 @@ namespace TR {
 
                         stream.raw(&cv, sizeof(cv));
                         //ASSERT(cv.attribute == 0);
-                        v.vertex.x = (cv.x << 10);
-                        v.vertex.y = (cv.y << 8) + r.info.yTop;
-                        v.vertex.z = (cv.z << 10);
-
+                        v.pos.x      = (cv.x << 10);
+                        v.pos.y      = (cv.y << 8) + r.info.yTop;
+                        v.pos.z      = (cv.z << 10);
                         v.attributes = 0;
                         v.color      = Color16(cv.color);
                     }
@@ -4209,17 +4175,17 @@ namespace TR {
 
                         stream.raw(&cv, sizeof(cv));
 
-                        v.vertex.x    = (cv.x << 10);
-                        v.vertex.y    = (cv.y << 8) + r.info.yTop;
-                        v.vertex.z    = (cv.z << 10);
+                        v.pos.x       = (cv.x << 10);
+                        v.pos.y       = (cv.y << 8) + r.info.yTop;
+                        v.pos.z       = (cv.z << 10);
                         lighting      = cv.lighting;
                         v.attributes  = cv.attributes;
 
                         lighting = 0x1FFF - (lighting << 5); // TODO: calc lighting by lighting = [0..255] and mode = [0..31] values
                     } else {
-                        stream.read(v.vertex.x);
-                        stream.read(v.vertex.y);
-                        stream.read(v.vertex.z);
+                        stream.read(v.pos.x);
+                        stream.read(v.pos.y);
+                        stream.read(v.pos.z);
                         stream.read(lighting);
 
                         if (version == VER_TR2_PC || version == VER_TR3_PC)
@@ -5144,6 +5110,7 @@ namespace TR {
                 stream.read(s.sCount);
                 stream.read(s.sStart);
                 s.sCount = -s.sCount;
+                s.transp = 1;
             }
 
         // remove unavailable sprites (check EGYPT.PHD)
@@ -5152,8 +5119,8 @@ namespace TR {
                 
                 int i = 0;
                 while (i < data.sCount)
-                    if (data.sprites[i].vertex >= data.vCount || data.sprites[i].texture >= spriteTexturesCount) {
-                        LOG("! room %d has wrong sprite %d (v:%d/%d t:%d/%d)\n", roomIndex, i, data.sprites[i].vertex, data.vCount, data.sprites[i].texture, spriteTexturesCount);
+                    if (data.sprites[i].vertexIndex >= data.vCount || data.sprites[i].texture >= spriteTexturesCount) {
+                        LOG("! room %d has wrong sprite %d (v:%d/%d t:%d/%d)\n", roomIndex, i, data.sprites[i].vertexIndex, data.vCount, data.sprites[i].texture, spriteTexturesCount);
                         ASSERT(false);
                         data.sprites[i] = data.sprites[--data.sCount];
                     } else

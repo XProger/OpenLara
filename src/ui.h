@@ -279,6 +279,10 @@ const char *STR[STR_MAX] = {
     , "Pyramid Key"
 };
 
+#ifdef _NAPI_SOCKET
+extern char command[256];
+#endif
+
 namespace UI {
     IGame    *game;
     float    width, height;
@@ -354,8 +358,6 @@ namespace UI {
         return short2(w, h);
     }
 
-    #define MAX_CHARS DYN_MESH_QUADS
-
     enum BarType {
         BAR_FLASH,
         BAR_HEALTH,
@@ -364,13 +366,6 @@ namespace UI {
         BAR_WHITE,
         BAR_MAX,
     };
-
-    struct Buffer {
-        Vertex  vertices[MAX_CHARS * 4];
-        Index   indices[MAX_CHARS * 6];
-        int     iCount;
-        int     vCount;
-    } buffer;
 
     #ifdef SPLIT_BY_TILE
         uint16 curTile, curClut;
@@ -396,26 +391,15 @@ namespace UI {
         game->setShader(Core::passGUI, Shader::DEFAULT);
         Core::setMaterial(1, 1, 1, 1);
 
-        buffer.iCount = buffer.vCount = 0;
+        game->getMesh()->dynBegin();
 
         #ifdef SPLIT_BY_TILE
             curTile = curClut = 0xFFFF;
         #endif
     }
 
-    void flush() {
-        if (buffer.iCount > 0) {
-        #ifdef SPLIT_BY_TILE
-            if (curTile != 0xFFFF)
-                game->getAtlas()->bindTile(curTile, curClut);
-        #endif
-            game->getMesh()->renderBuffer(buffer.indices, buffer.iCount, buffer.vertices, buffer.vCount);
-            buffer.iCount = buffer.vCount = 0;
-        }
-    }
-
     void end() {
-        flush();
+        game->getMesh()->dynEnd();
         Core::setCullMode(cmFront);
         Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
@@ -472,43 +456,25 @@ namespace UI {
             if (frame >= level->spriteSequences[seq].sCount)
                 continue;
 
-            if (buffer.iCount == MAX_CHARS * 6)
-                flush();
-
-            TR::TextureInfo &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + frame];
-
-            TR::Color32 tColor, bColor;
+            Color32 tColor, bColor;
             if (isShadow) {
-                tColor = bColor = TR::Color32(0, 0, 0, alpha);
+                tColor = bColor = Color32(0, 0, 0, alpha);
             } else {
-                tColor = bColor = TR::Color32(255, 255, 255, alpha);
+                tColor = bColor = Color32(255, 255, 255, alpha);
 
                 if (shade && ((level->version & TR::VER_TR3))) {
                     if (shade == SHADE_ORANGE) {
-                        tColor = TR::Color32(255, 190, 90, alpha);
-                        bColor = TR::Color32(140, 50, 10, alpha);
+                        tColor = Color32(255, 190, 90, alpha);
+                        bColor = Color32(140, 50, 10, alpha);
                     }
                     if (shade == SHADE_GRAY) {
-                        tColor = TR::Color32(255, 255, 255, alpha);
-                        bColor = TR::Color32(128, 128, 128, alpha);
+                        tColor = Color32(255, 255, 255, alpha);
+                        bColor = Color32(128, 128, 128, alpha);
                     }
                 }
             }
 
-            #ifdef SPLIT_BY_TILE
-                if (sprite.tile != curTile
-                    #ifdef SPLIT_BY_CLUT
-                        || sprite.clut != curClut
-                    #endif
-                ) {
-                    flush();
-                    curTile = sprite.tile;
-                    curClut = sprite.clut;
-                }
-            #endif
-
-
-            mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, x, y, 0, sprite, tColor, bColor, true);
+            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x, y, 0), tColor, bColor, true);
 
             x += char_width[frame] + 1;
         }
@@ -524,27 +490,10 @@ namespace UI {
 
         int seq = level->extra.glyphs;
 
-        if (buffer.iCount == MAX_CHARS * 6)
-            flush();
-
         if (specChar >= level->spriteSequences[seq].sCount)
             return;
 
-        TR::TextureInfo &sprite = level->spriteTextures[level->spriteSequences[seq].sStart + specChar];
-
-        #ifdef SPLIT_BY_TILE
-            if (sprite.tile != curTile
-                #ifdef SPLIT_BY_CLUT
-                    || sprite.clut != curClut
-                #endif
-            ) {
-                flush();
-                curTile = sprite.tile;
-                curClut = sprite.clut;
-            }
-        #endif
-
-        mesh->addSprite(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, 0, int(pos.x), int(pos.y), 0, sprite, TR::Color32(255, 255, 255, 255), TR::Color32(255, 255, 255, 255), true);
+        mesh->addDynSprite(level->spriteSequences[seq].sStart + specChar, short3(int16(pos.x), int16(pos.y), 0), COLOR_WHITE, COLOR_WHITE, true);
     }
 
     #undef MAX_CHARS
@@ -635,11 +584,11 @@ namespace UI {
         MeshBuilder *mesh = game->getMesh();
 
         if (brColor1 != 0 || brColor2 != 0)
-            mesh->addFrame(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, pos - 2.0f, size + 4.0f, brColor1, brColor2);
+            mesh->addDynFrame(pos - 2.0f, size + 4.0f, brColor1, brColor2);
         if (bgColor != 0)
-            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, whiteTile, pos - 1.0f, size + 2.0f, bgColor);
+            mesh->addDynBar(whiteTile, pos - 1.0f, size + 2.0f, bgColor);
         if ((fgColor != 0 || fgColor2 != 0) && value > 0.0f)
-            mesh->addBar(buffer.indices, buffer.vertices, buffer.iCount, buffer.vCount, barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
+            mesh->addDynBar(barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
 
     void showHint(StringID str, float time) {
@@ -648,6 +597,9 @@ namespace UI {
     }
 
     void renderHelp() {
+    #ifdef _NAPI_SOCKET
+        textOut(vec2(16, height - 32), command, aLeft, width - 32, 255, UI::SHADE_GRAY);
+    #endif
         // TODO: Core::eye offset
         if (hintTime > 0.0f) {
             textOut(vec2(16, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);

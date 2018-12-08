@@ -291,7 +291,7 @@ struct LavaParticle : Sprite {
     LavaParticle(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_RANDOM), bounces(0) {
         float speed = randf() * LAVA_H_SPEED;
         velocity = vec3(cosf(angle.y) * speed, randf() * LAVA_V_SPEED, sinf(angle.y) * speed);
-        game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
+        game->getLevel()->spriteSequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
         activate();
     }
 
@@ -1562,7 +1562,7 @@ struct Explosion : Sprite {
 
     Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
         game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
-        game->getMesh()->sequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
+        game->getLevel()->spriteSequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
     }
 
     virtual bool getSaveData(SaveEntity &data) {

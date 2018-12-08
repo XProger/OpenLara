@@ -76,7 +76,6 @@ namespace NAPI {
     }
 
     void handleAddress(const uint8 *data, int size) {
-        waitAddress = false;
         if (size < sizeof(stun_header))
             return;
         stun_header *hdr = (stun_header*)data;
@@ -98,6 +97,7 @@ namespace NAPI {
             stun_addr *addr = (stun_addr*)(data + sizeof(stun_attr));
 
             if (attr->attr == 0x0100 && ntohs(attr->len) == 8) {
+                waitAddress = false;
                 peer.ip   = addr->addr;
                 peer.port = addr->port;
                 LOG("network: acquire UDP tunnel %s:%d\n", inet_ntoa(*(in_addr*)&peer.ip), ntohs(peer.port));
@@ -110,6 +110,7 @@ namespace NAPI {
 
     int send(const Peer &to, const void *data, int size) {
         if (sock == INVALID_SOCKET) return false;
+        LOG("network: -> %s:%d (%d)\n", inet_ntoa(*(in_addr*)&to.ip), ntohs(to.port), size);
 
         addr.sin_addr.s_addr = to.ip;
         addr.sin_port        = to.port;
@@ -124,6 +125,7 @@ namespace NAPI {
         if (count > 0) {
             from.ip   = addr.sin_addr.s_addr;
             from.port = addr.sin_port;
+            LOG("network: <- %s:%d (%d)\n", inet_ntoa(*(in_addr*)&from.ip), ntohs(from.port), size);
         }
 
         if (waitAddress) {
@@ -142,7 +144,7 @@ namespace NAPI {
     }
 
     void requestAddress() {
-        int stunIndex = 0;
+        int stunIndex = rand() % COUNT(stunServers);
 
         hostent *hostinfo = gethostbyname(stunServers[stunIndex].host);
         if (!hostinfo)

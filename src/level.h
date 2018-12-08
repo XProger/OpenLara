@@ -1152,7 +1152,7 @@ struct Level : IGame {
         Level *owner = (Level*)userData;
         TR::Level *level = &owner->level;
 
-        TR::Color32 *src, *dst = (TR::Color32*)data;
+        Color32 *src, *dst = (Color32*)data;
         short4 mm;
         
         if (id < level->objectTexturesCount) { // textures
@@ -1188,7 +1188,7 @@ struct Level : IGame {
                     case UI::BAR_OXYGEN   : 
                     case UI::BAR_OPTION   :
                     case UI::BAR_WHITE    :
-                        src  = (TR::Color32*)&barColor[id][0];
+                        src  = (Color32*)&barColor[id][0];
                         tex  = &barTile[id];
                         if (id != UI::BAR_WHITE) {
                             mm.w = 4; // height - 1
@@ -1218,7 +1218,7 @@ struct Level : IGame {
             dst += tileY * atlasWidth + tileX;
             for (int y = -ATLAS_BORDER; y < h + ATLAS_BORDER; y++) {
                 for (int x = -ATLAS_BORDER; x < w + ATLAS_BORDER; x++) {
-                    TR::Color32 *p = &src[mm.y * stride + mm.x];
+                    Color32 *p = &src[mm.y * stride + mm.x];
                     ASSERT((x + ATLAS_BORDER + tileX) >= 0 && (x + ATLAS_BORDER + tileX) < atlasWidth);
                     ASSERT((y + ATLAS_BORDER + tileY) >= 0 && (y + ATLAS_BORDER + tileY) < atlasHeight);
                     p += clamp(x, 0, w - 1);
@@ -1266,7 +1266,7 @@ struct Level : IGame {
         TR::SpriteSequence &seq = level.spriteSequences[level.extra.glyphs];
         short2 size = short2(0, 0);
         for (int i = 0; i < seq.sCount; i++) {
-            TR::SpriteTexture &sprite = level.spriteTextures[seq.sStart + i];
+            TR::TextureInfo &sprite = level.spriteTextures[seq.sStart + i];
             short w = sprite.texCoord[1].x - sprite.texCoord[0].x + 1;
             short h = sprite.texCoord[1].y - sprite.texCoord[0].y + 1;
             size.y += h + 1;
@@ -1275,12 +1275,12 @@ struct Level : IGame {
         size.x += 1;
         size.y += 1;
         size.x = (size.x + 3) / 4 * 4;
-        TR::Color32 *data = new TR::Color32[int(size.x) * int(size.y)];
+        Color32 *data = new Color32[int(size.x) * int(size.y)];
         memset(data, 128, int(size.x) * int(size.y) * 4);
         
         short2 pos = short2(1, 1);
         for (int i = 0; i < seq.sCount; i++) {
-            TR::SpriteTexture &sprite = level.spriteTextures[seq.sStart + i];
+            TR::TextureInfo &sprite = level.spriteTextures[seq.sStart + i];
             short w = sprite.texCoord[1].x - sprite.texCoord[0].x + 1;
             short h = sprite.texCoord[1].y - sprite.texCoord[0].y + 1;
 
@@ -1376,7 +1376,7 @@ struct Level : IGame {
             }
 
             for (int i = 0; i < level.spriteTexturesCount; i++) {
-                TR::SpriteTexture &t = level.spriteTextures[i];
+                TR::TextureInfo &t = level.spriteTextures[i];
                 short4 uv = t.getMinMax();
                 uv.z++;
                 uv.w++;
@@ -1422,7 +1422,7 @@ struct Level : IGame {
         }
 
         for (int i = 0; i < level.spriteTexturesCount; i++) {
-            TR::SpriteTexture &t = level.spriteTextures[i];
+            TR::TextureInfo &t = level.spriteTextures[i];
 
             t.texCoordAtlas[0].x <<= 7;
             t.texCoordAtlas[0].y <<= 7;
@@ -1591,10 +1591,8 @@ struct Level : IGame {
                     continue;
 
                 setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
-                GAPI::Shader *sh = Core::active.shader;
-
-                sh->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-                sh->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+                Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
 
                 basis.pos = level.rooms[roomIndex].getOffset();
                 Core::setBasis(&basis, 1);
@@ -1625,7 +1623,7 @@ struct Level : IGame {
         if (isModel) {
             if (!mesh->models[controller->getModel()->index].geometry[mesh->transparent].count) return;
         } else {
-            if (mesh->sequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
+            if (level.spriteSequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
         }
 
         float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
@@ -1635,20 +1633,9 @@ struct Level : IGame {
             type = Shader::MIRROR;
 
         if (isModel) { // model
-            setMainLight(controller);
-        } else { // sprite
-            Core::lightPos[0]   = vec4(0, 0, 0, 0);
-            Core::lightColor[0] = vec4(0, 0, 0, 1);
-        }
-
-        if (type == Shader::SPRITE) {
-            float alpha = (entity.type == TR::Entity::SMOKE || entity.type == TR::Entity::WATER_SPLASH || entity.type == TR::Entity::SPARKLES) ? 0.75f : 1.0f;
-            float diffuse = entity.isPickup() ? 1.0f : 0.5f;
-            setRoomParams(roomIndex, type, diffuse, intensity, controller->specular, alpha, mesh->transparent == 1);
-        } else
             setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
+            setMainLight(controller);
 
-        if (isModel) { // model
             vec3 pos = controller->getPos();
             if (ambientCache) {
                 if (!controller->getEntity().isDoor() && !controller->getEntity().isBlock()) { // no advanced ambient lighting for secret (all) doors and blocks
@@ -1666,10 +1653,10 @@ struct Level : IGame {
                 }
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
-        }
 
-        Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-        Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+            Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+            Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+        }
 
         controller->render(camera->frustum, mesh, type, room.flags.water);
     }
@@ -1821,10 +1808,22 @@ struct Level : IGame {
             sndTrack->setVolume(volTrack, 0.2f);
 
     #ifdef _DEBUG
+    #ifdef _NAPI_SOCKET
         if (Input::down[ikJ]) {
-            Network::sayHello();
+            //Network::sayHello();
+            NAPI::Peer peer;
+            peer.ip = ((93 << 0) | (92 << 8) | (200 << 16) | (163 << 24));
+            peer.port = htons(10994);
+            LOG("join %s:%d\n", inet_ntoa(*(in_addr*)&peer.ip), ntohs(peer.port));
+            Network::joinGame(peer);
             Input::down[ikJ] = false;
         }
+
+        if (Input::down[ikY]) {
+            NAPI::requestAddress();
+            Input::down[ikY] = false;
+        }
+    #endif        
     #endif
     }
 
@@ -1969,11 +1968,37 @@ struct Level : IGame {
     }
 
     void renderEntitiesTransp(int transp) {
+        mesh->dynBegin();
         mesh->transparent = transp;
         for (int i = 0; i < level.entitiesCount; i++) {
             TR::Entity &e = level.entities[i];
             if (!e.controller || e.modelIndex == 0) continue;
             renderEntity(e);
+        }
+
+        {
+            PROFILE_MARKER("ENTITY_SPRITES");
+
+            if (mesh->dynICount) {
+                setRoomParams(0, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
+
+                Core::lightPos[0]   = vec4(0, 0, 0, 0);
+                Core::lightColor[0] = vec4(0, 0, 0, 1);
+                Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+                Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
+
+                Basis b;
+                b.w   = 1.0f;
+                b.pos = Core::viewPos.xyz();
+                #ifdef MERGE_SPRITES
+                    b.rot = Core::mViewInv.getRot();
+                #else
+                    b.rot = quat(0, 0, 0, 1);
+                #endif
+                Core::setBasis(&b, 1);
+            }
+
+            mesh->dynEnd();
         }
     }
 

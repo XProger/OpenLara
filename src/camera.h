@@ -13,6 +13,11 @@
 #define CAM_SPEED_FOLLOW  12
 #define CAM_SPEED_COMBAT  8
 
+#define CAM_FOLLOW_ANGLE     0.0f
+#define CAM_LOOK_ANGLE_XMAX  ( 55.0f * DEG2RAD)
+#define CAM_LOOK_ANGLE_XMIN  (-75.0f * DEG2RAD)
+#define CAM_LOOK_ANGLE_Y     ( 80.0f * DEG2RAD)
+
 struct Camera : ICamera {
     IGame      *game;
     TR::Level  *level;
@@ -385,14 +390,14 @@ struct Camera : ICamera {
                     if (Input::state[cameraIndex][cLeft])  lookAngle.y -= d;
                     if (Input::state[cameraIndex][cRight]) lookAngle.y += d;
 
-                    lookAngle.x = clamp(lookAngle.x, -80 * DEG2RAD, +80 * DEG2RAD);
-                    lookAngle.y = clamp(lookAngle.y, -90 * DEG2RAD, +90 * DEG2RAD);
+                    lookAngle.x = clamp(lookAngle.x,  CAM_LOOK_ANGLE_XMIN, CAM_LOOK_ANGLE_XMAX);
+                    lookAngle.y = clamp(lookAngle.y, -CAM_LOOK_ANGLE_Y,    CAM_LOOK_ANGLE_Y);
                 } else
-                    if (lookAngle.x != 0.0f || lookAngle.y != 0.0f) {
+                    if (lookAngle.x != CAM_FOLLOW_ANGLE || lookAngle.y != 0.0f) {
                         float t = 10.0f * Core::deltaTime;
-                        lookAngle.x = lerp(clampAngle(lookAngle.x), 0.0f, t);
+                        lookAngle.x = lerp(clampAngle(lookAngle.x), CAM_FOLLOW_ANGLE, t);
                         lookAngle.y = lerp(clampAngle(lookAngle.y), 0.0f, t);
-                        if (lookAngle.x < EPS) lookAngle.x = 0.0f;
+                        if (fabsf(lookAngle.x - CAM_FOLLOW_ANGLE) < EPS) lookAngle.x = CAM_FOLLOW_ANGLE;
                         if (lookAngle.y < EPS) lookAngle.y = 0.0f;
                     }
             }

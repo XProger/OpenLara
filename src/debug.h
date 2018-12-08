@@ -470,7 +470,7 @@ namespace Debug {
                 for (int j = 0; j < r.portalsCount; j++) {
                     TR::Room::Portal &p = r.portals[j];
                     for (int k = 0; k < 4; k++) {
-                        TR::Vertex &v = p.vertices[k];
+                        short3 &v = p.vertices[k];
                         glVertex3f(float(v.x + r.info.x), float(v.y), float(v.z + r.info.z));
                     }
                 }

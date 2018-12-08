@@ -1270,7 +1270,7 @@ struct Controller {
                 sunLight.x      = int32(center.x);
                 sunLight.y      = int32(center.y) - 8192;
                 sunLight.z      = int32(center.z);
-                sunLight.color  = TR::Color32(255, 255, 255, 255);
+                sunLight.color  = Color32(255, 255, 255, 255);
                 sunLight.radius = 1000 * 1024;
                 targetLight     = &sunLight;
             } else {
@@ -1419,23 +1419,24 @@ struct Controller {
         return joints[index];
     }
 
-    void renderSprite(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics, int frame) {
-        Basis b;
-        b.w   = 1.0f;
-        b.pos = pos;
-        #ifdef MERGE_SPRITES
-            b.rot = Core::mViewInv.getRot();
-        #else
-            b.rot = quat(0, 0, 0, 1);
-        #endif
-        Core::setBasis(&b, 1);
-        mesh->renderSprite(-(getEntity().modelIndex + 1), frame);
-    }
+    void renderSprite(int frame) {
+        TR::Entity::Type type = getEntity().type;
+        float fDiffuse = TR::Entity::isPickup(type) ? 1.0f : 0.5f;
+        float fAmbient = (intensity < 0.0f ? intensityf(getRoom().ambient) : intensity) * fDiffuse;
+        float fAlpha   = (type == TR::Entity::SMOKE || type == TR::Entity::WATER_SPLASH || type == TR::Entity::SPARKLES) ? 0.75f : 1.0f;
 
+        uint8 ambient = clamp(int(fAmbient * 255.0f), 0, 255);
+        uint8 alpha   = clamp(int(fAlpha   * 255.0f), 0, 255);
+        Color32 color(ambient, ambient, ambient, alpha);
+
+        vec3 p = pos - Core::viewPos.xyz();
+
+        game->getMesh()->addDynSprite(level->spriteSequences[-(getEntity().modelIndex + 1)].sStart + frame, short3(int16(p.x), int16(p.y), int16(p.z)), color, color);
+    }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         if (getEntity().modelIndex < 0) {
-            renderSprite(frustum, mesh, type, caustics, 0);
+            renderSprite(0);
             return;
         }
         ASSERT(getEntity().modelIndex > 0);

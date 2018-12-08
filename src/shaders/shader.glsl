@@ -54,7 +54,7 @@ uniform vec4 uFogParams;
 		#ifdef PASS_COMPOSE
 			#ifdef OPT_SHADOW
 				varying vec3 vAmbient;
-				varying vec4 vLightMap;
+				varying vec3 vLightMap;
 			#endif
 		#endif
 
@@ -175,6 +175,10 @@ uniform vec4 uFogParams;
 			#else
 				vDiffuse *= uMaterial.w;
 			#endif
+
+			#ifdef TYPE_SPRITE
+				vDiffuse *= aLight.w;
+			#endif
 		#endif
 	}
 
@@ -227,7 +231,7 @@ uniform vec4 uFogParams;
 				#ifdef OPT_SHADOW
 					vAmbient   = ambient;
 					vLight     = light;
-					vLightMap  = aLight * light.x;
+					vLightMap  = aLight.xyz * light.x;
 
 					#ifdef OPT_VLIGHTPROJ
 						vLightProj = calcLightProj(coord, lv0, vNormal.xyz);
@@ -454,11 +458,11 @@ uniform vec4 uFogParams;
 						#endif
 
 						#ifdef TYPE_ROOM
-							light += mix(vAmbient, vLightMap.xyz, rShadow);
+							light += mix(vAmbient, vLightMap, rShadow);
 						#endif
 
 						#ifdef TYPE_SPRITE
-							light += vLightMap.xyz;
+							light += vLightMap;
 						#endif
 
 					#else

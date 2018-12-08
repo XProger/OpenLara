@@ -53,7 +53,7 @@ struct Sprite : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        renderSprite(frustum, mesh, type, caustics, frame);
+        renderSprite(frame);
     }
 };
 
