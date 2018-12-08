@@ -2447,9 +2447,13 @@ struct Doppelganger : Enemy {
         Enemy::updateRoom();
 
         TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
+        getFloorInfo(getRoomIndex(), target->pos, info);
+        float laraHeight = info.floor - target->pos.y;
 
-        if (stand != STAND_AIR && target->stand == Character::STAND_GROUND && pos.y < info.floor - 1024) {
+        getFloorInfo(getRoomIndex(), pos, info);
+        float selfHeight = info.floor - pos.y;
+
+        if (stand != STAND_AIR && target->stand == Character::STAND_GROUND && selfHeight > 1024 && laraHeight < 256) {
             animation = Animation(level, target->getModel());
             animation.setAnim(ANIM_FALL, 1);
             stand = STAND_AIR;
@@ -2457,7 +2461,7 @@ struct Doppelganger : Enemy {
         }
 
         if (stand == STAND_AIR) {
-            if (pos.y > info.floor) {
+            if (selfHeight < 128.0f) {
                 game->checkTrigger(this, true);
                 flags.invisible = true;
                 deactivate(true);

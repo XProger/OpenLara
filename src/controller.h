@@ -1454,7 +1454,7 @@ struct Controller {
 
         updateJoints();
 
-        Core::mModel = getMatrix();
+        Core::mModel = matrix;
 
         if (layers) {
             uint32 mask = 0;
