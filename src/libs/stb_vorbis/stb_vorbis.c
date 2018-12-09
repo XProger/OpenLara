@@ -581,7 +581,9 @@ enum STBVorbisError
    #undef __forceinline
    #endif
    #define __forceinline
-   #define alloca __builtin_alloca
+   #ifndef alloca
+      #define alloca __builtin_alloca
+   #endif
 #elif !defined(_MSC_VER)
    #if __GNUC__
       #define __forceinline inline
@@ -1236,8 +1238,13 @@ static void compute_twiddle_factors(int n, float *A, float *B, float *C)
 {
    int n4 = n >> 2, n8 = n >> 3;
    int k, k2;
+#ifdef __MINGW64__
+   double sA, cA, sB, cB, sC, cC;
+   double xA, yA, xB, yB, xC, yC;
+#else
    float sA, cA, sB, cB, sC, cC;
    float xA, yA, xB, yB, xC, yC;
+#endif
 
    sincos(4*M_PI/n, &sA, &cA);
    sincos(M_PI/n/2, &sB, &cB);
@@ -1277,7 +1284,12 @@ static void compute_twiddle_factors(int n, float *A, float *B, float *C)
 static void compute_window(int n, float *window)
 {
    int n2 = n >> 1, i;
+#ifdef __MINGW64__
+   double s, c, x, y;
+#else
    float s, c, x, y;
+#endif
+
    sincos(0.5f / n2 * 0.5f * M_PI, &s, &c);
    x = c;
    y = s;
