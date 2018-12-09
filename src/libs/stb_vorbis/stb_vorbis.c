@@ -1219,16 +1219,22 @@ static int lookup1_values(int entries, int dim)
 
     #define sinf(x)         vfpu_sinf(x)
     #define cosf(x)         vfpu_cosf(x)
-    #define sincos(a, s, c) vfpu_sincos(a, s, c)
+
+    void sincosd(double x, double *s, double *c) {
+        float fs, fc;
+        vfpu_sincos((float)x, fs, fc);
+        *s = (double)fs;
+        *c = (double)fc;
+    }
 #else
-    static void sincos(float r, float *s, float *c) {
-        *s = sinf(r);
-        *c = cosf(r);
+    void sincosd(double x, double *s, double *c) {
+        *s = sin(x);
+        *c = cos(x);
     }
 #endif
 
 #define rotate(x, y, s, c) {\
-        float t = x*c - y*s;\
+        double t = x*c - y*s;\
         y = x*s + y*c;\
         x = t;\
     }
@@ -1238,65 +1244,59 @@ static void compute_twiddle_factors(int n, float *A, float *B, float *C)
 {
    int n4 = n >> 2, n8 = n >> 3;
    int k, k2;
-#ifdef __MINGW64__
+
    double sA, cA, sB, cB, sC, cC;
    double xA, yA, xB, yB, xC, yC;
-#else
-   float sA, cA, sB, cB, sC, cC;
-   float xA, yA, xB, yB, xC, yC;
-#endif
 
-   sincos(4*M_PI/n, &sA, &cA);
-   sincos(M_PI/n/2, &sB, &cB);
-   sincos(2*M_PI/n, &sC, &cC);
+   sincosd(4*M_PI/n, &sA, &cA);
+   sincosd(M_PI/n/2, &sB, &cB);
+   sincosd(2*M_PI/n, &sC, &cC);
 
-   A[0] = xA = 1.0f;
-   A[1] = yA = 0.0f;
+   xA = 1.0;
+   yA = 0.0;
+   A[0] = 1.0f;
+   A[1] = 0.0f;
    xB = cB;
    yB = sB;
-   B[0] = xB * 0.5f;
-   B[1] = yB * 0.5f;
+   B[0] = (float)(xB * 0.5);
+   B[1] = (float)(yB * 0.5);
    rotate(cB, sB, sB, cB);
 
    for (k=1, k2=2; k < n4; ++k,k2+=2) {
       rotate(xA, yA, sA, cA);
-      A[k2  ] =  xA;
-      A[k2+1] = -yA;
+      A[k2  ] = (float) xA;
+      A[k2+1] = (float)-yA;
       rotate(xB, yB, sB, cB);
-      B[k2  ] = xB * 0.5f;
-      B[k2+1] = yB * 0.5f;
+      B[k2  ] = (float)(xB * 0.5);
+      B[k2+1] = (float)(yB * 0.5);
    }
 
    xC = cC;
    yC = sC;
-   C[0] =  xC;
-   C[1] = -yC;
+   C[0] = (float) xC;
+   C[1] = (float)-yC;
 
    rotate(cC, sC, sC, cC);
 
    for (k=1, k2=2; k < n8; ++k,k2+=2) {
       rotate(xC, yC, sC, cC);
-      C[k2  ] =  xC;
-      C[k2+1] = -yC;
+      C[k2  ] = (float) xC;
+      C[k2+1] = (float)-yC;
    }
 }
 
 static void compute_window(int n, float *window)
 {
    int n2 = n >> 1, i;
-#ifdef __MINGW64__
    double s, c, x, y;
-#else
-   float s, c, x, y;
-#endif
 
-   sincos(0.5f / n2 * 0.5f * M_PI, &s, &c);
+   sincosd(0.5f / n2 * 0.5f * M_PI, &s, &c);
    x = c;
    y = s;
    rotate(c, s, s, c);
 
    for (i=0; i < n2; ++i) {
-      window[i] = sinf(0.5f * M_PI * (y * y));
+      window[i] = (float)sin(0.5 * M_PI * (y * y));
       rotate(x, y, s, c);
    }
 }
