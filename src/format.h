@@ -2957,6 +2957,7 @@ namespace TR {
                            ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
 
         void readSAT(Stream &stream) {
+        #ifndef _OS_PSP
             Room *room = NULL;
 
             while (stream.pos < stream.size) {
@@ -3646,6 +3647,7 @@ namespace TR {
                     }
                 }
             }
+        #endif
         }
 
         void readCIN(Stream &stream) {

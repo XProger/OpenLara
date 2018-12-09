@@ -1222,7 +1222,7 @@ static int lookup1_values(int entries, int dim)
 
     void sincosd(double x, double *s, double *c) {
         float fs, fc;
-        vfpu_sincos((float)x, fs, fc);
+        vfpu_sincos((float)x, &fs, &fc);
         *s = (double)fs;
         *c = (double)fc;
     }
@@ -1296,7 +1296,7 @@ static void compute_window(int n, float *window)
    rotate(c, s, s, c);
 
    for (i=0; i < n2; ++i) {
-      window[i] = (float)sin(0.5 * M_PI * (y * y));
+      window[i] = sinf((float)(0.5 * M_PI * (y * y)));
       rotate(x, y, s, c);
    }
 }

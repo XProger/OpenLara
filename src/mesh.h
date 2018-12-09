@@ -163,6 +163,10 @@ struct MeshBuilder {
 
     int transparent;
 
+    #ifdef SPLIT_BY_TILE
+        uint16 curTile, curClut;
+    #endif
+
     enum {
         BLEND_NONE  = 1,
         BLEND_ALPHA = 2,
@@ -268,28 +272,6 @@ struct MeshBuilder {
     // circle
         iCount += CIRCLE_SEGS * 3;
         vCount += CIRCLE_SEGS + 1;
-
-    // box
-        const Index boxIndices[] = {
-            2,  1,  0,  3,  2,  0,
-            4,  5,  6,  4,  6,  7,
-            8,  9,  10, 8,  10, 11,
-            14, 13, 12, 15, 14, 12,
-            16, 17, 18, 16, 18, 19,
-            22, 21, 20, 23, 22, 20,
-        };
-
-        const short4 boxCoords[] = {
-            {-1, -1,  1, 0}, { 1, -1,  1, 0}, { 1,  1,  1, 0}, {-1,  1,  1, 0},
-            { 1,  1,  1, 0}, { 1,  1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0},
-            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1,  1, -1, 0}, {-1,  1, -1, 0},
-            {-1, -1, -1, 0}, {-1, -1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0},
-            { 1,  1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0}, { 1,  1, -1, 0},
-            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0}, {-1, -1,  1, 0},
-        };
-
-        iCount += COUNT(boxIndices);
-        vCount += COUNT(boxCoords);
 
     // detailed plane
     #ifdef GENERATE_WATER_PLANE
@@ -513,25 +495,6 @@ struct MeshBuilder {
         vertices[vCount + CIRCLE_SEGS] = vertices[vCount];
         vertices[vCount + CIRCLE_SEGS].coord = short4( 0, 0, 0, 0 );
         vCount += CIRCLE_SEGS + 1;
-
-    // box
-        box.vStart = vStartCommon;
-        box.iStart = iCount;
-        box.iCount = COUNT(boxIndices);
-
-        baseIdx = vCount - vStartCommon;
-
-        for (int i = 0; i < COUNT(boxIndices); i++)
-            indices[iCount++] = baseIdx + boxIndices[i];
-
-        for (int i = 0; i < COUNT(boxCoords); i++) {
-            Vertex &v = vertices[vCount++];
-            v.coord    = boxCoords[i];
-            v.normal   = short4(0, 0, 0, 32767);
-            v.texCoord = short4(0, 0, 0, 0);
-            v.color    = ubyte4(255, 255, 255, 255);
-            v.light    = ubyte4(255, 255, 255, 255);
-        }
 
     // plane
     #ifdef GENERATE_WATER_PLANE
@@ -1318,20 +1281,20 @@ struct MeshBuilder {
 
             #ifdef SPLIT_BY_TILE
                 if (iCount) {
-                    if (tile != t.tile.index
+                    if (tile != t.tile
                     #ifdef SPLIT_BY_CLUT
                         || clut != t.clut
                     #endif
                         ) {
                         atlas->bindTile(tile, clut);
                         renderBuffer(dynIndices, iCount, dynVertices, vCount);
-                        tile = t.tile.index;
+                        tile = t.tile;
                         clut = t.clut;
                         iCount = 0;
                         vCount = 0;
                     }
                 } else {
-                    tile = t.tile.index;
+                    tile = t.tile;
                     clut = t.clut;
                 }
             #endif
@@ -1353,7 +1316,8 @@ struct MeshBuilder {
         dynVCount = 0;
 
         #ifdef SPLIT_BY_TILE
-            uint16 curTile = 0xFFFF, curClut = 0xFFFF;
+            curTile = 0xFFFF;
+            curClut = 0xFFFF;
         #endif
     }
 
@@ -1401,7 +1365,7 @@ struct MeshBuilder {
         TR::Room::Data &d = level->rooms[roomIndex].data;
         for (int j = 0; j < d.sCount; j++) {
             TR::Room::Data::Sprite &f = d.sprites[j];
-            addDynSprite(f.texture, d.vertices[f.vertex].pos);
+            addDynSprite(f.texture, d.vertices[f.vertexIndex].pos, COLOR_WHITE, COLOR_WHITE);
         }
 
         dynEnd();
@@ -1428,7 +1392,7 @@ struct MeshBuilder {
         {
             #ifndef MERGE_MODELS
                 Basis &basis = Core::active.basis[i];
-                if (basis.w == -1.0f) {
+                if (basis.w == 0.0f) {
                     part += models[modelIndex].parts[transparent][i];
                     continue;
                 }
@@ -1483,10 +1447,6 @@ struct MeshBuilder {
 
     void renderPlane() {
         mesh->render(plane);
-    }
-
-    void renderBox() {
-        mesh->render(box);
     }
 
     void renderWaterVolume(int roomIndex) {

@@ -1400,7 +1400,7 @@ struct Level : IGame {
         #endif
 
         for (int i = 0; i < level.objectTexturesCount; i++) {
-            TR::ObjectTexture &t = level.objectTextures[i];
+            TR::TextureInfo &t = level.objectTextures[i];
 
             t.texCoordAtlas[0].x <<= 7;
             t.texCoordAtlas[0].y <<= 7;
