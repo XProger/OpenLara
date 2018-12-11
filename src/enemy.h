@@ -1874,6 +1874,7 @@ struct Raptor : Enemy {
 #define MUTANT_DIST_ATTACK_3    300
 #define MUTANT_DIST_SHOT        3840
 #define MUTANT_DIST_STALK       (4096 + 512)
+#define MUTANT_PART_DAMAGE      100
 
 struct Mutant : Enemy {
 
@@ -1927,7 +1928,7 @@ struct Mutant : Enemy {
 
         if (health <= 0.0f && !exploded) {
             game->playSound(TR::SND_MUTANT_DEATH, pos, Sound::PAN);
-            explode(0xffffffff);
+            explode(0xffffffff, MUTANT_PART_DAMAGE);
         }
 
         Enemy::update();
@@ -2108,6 +2109,7 @@ struct Mutant : Enemy {
 #define GIANT_MUTANT_DAMAGE_FATAL 1000
 #define GIANT_MUTANT_DIST_ATTACK  2600
 #define GIANT_MUTANT_DIST_FATAL   2250
+#define GIANT_MUTANT_PART_DAMAGE  250
 
 struct GiantMutant : Enemy {
 
@@ -2158,7 +2160,7 @@ struct GiantMutant : Enemy {
         if (health <= 0.0f && !exploded && animation.index == ANIM_DEATH && flags.state == TR::Entity::asInactive) {
             flags.state = TR::Entity::asActive;
             game->playSound(TR::SND_MUTANT_DEATH, pos, Sound::PAN);
-            explode(0xffffffff);
+            explode(0xffffffff, GIANT_MUTANT_PART_DAMAGE);
             game->checkTrigger(this, true);
         }
 
@@ -2262,8 +2264,9 @@ struct GiantMutant : Enemy {
     }
 };
 
-#define CENTAUR_TURN_FAST (DEG2RAD * 120)
-#define CENTAUR_DIST_RUN  (1024 + 512)
+#define CENTAUR_TURN_FAST   (DEG2RAD * 120)
+#define CENTAUR_DIST_RUN    (1024 + 512)
+#define CENTAUR_PART_DAMAGE 100
 
 struct Centaur : Enemy {
 
@@ -2365,7 +2368,7 @@ struct Centaur : Enemy {
     virtual void deactivate(bool removeFromList = false) {
         if (!removeFromList) {
             if (!explodeMask)
-                explode(0xffffffff);
+                explode(0xffffffff, CENTAUR_PART_DAMAGE);
             return;
         }
         Enemy::deactivate(removeFromList);

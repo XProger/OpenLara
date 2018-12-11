@@ -1333,7 +1333,7 @@ struct CentaurStatue : Controller {
         }
 
         if ((pos - game->getLara(pos)->pos).length() < CENTAUR_STATUE_RANGE) {
-            explode(0xFFFFFFFF);
+            explode(0xFFFFFFFF, 0.0f);
             game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
             Controller *enemy = game->addEntity(TR::Entity::ENEMY_CENTAUR, getRoomIndex(), pos, angle.y);
             if (enemy)
@@ -1423,7 +1423,7 @@ struct MutantEgg : Controller {
             if ( flags.once || getEntity().type == TR::Entity::MUTANT_EGG_BIG || box.contains(((game->getLara(pos))->pos)) ) {
                 animation.setState(STATE_EXPLOSION);
                 layers[0].mask = 0xffffffff & ~(1 << 24);
-                explode(0x00fffe00);
+                explode(0x00fffe00, 0.0f);
                 game->addEntity(enemy, getRoomIndex(), pos, angle.y);
             }
         }

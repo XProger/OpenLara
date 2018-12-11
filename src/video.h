@@ -1187,7 +1187,7 @@ struct Video {
 
         virtual int decode(Sound::Frame *frames, int count) {
             if (audioChunkIndex >= chunksCount) {
-                memset(frames, 0, count);
+                memset(frames, 0, count * sizeof(Sound::Frame));
                 return count;
             }
 

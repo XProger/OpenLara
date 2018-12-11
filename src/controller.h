@@ -141,7 +141,8 @@ struct Controller {
     struct ExplodePart {
         Basis basis;
         vec3  velocity;
-        int   roomIndex;
+        float damage;
+        int16 roomIndex;
     } *explodeParts;
 
     vec3 lastPos;
@@ -1188,7 +1189,17 @@ struct Controller {
         } else
             animation.framePrev = animation.frameIndex;
     }
-    
+
+    bool checkNear(const vec3 &p, float dist) {
+        vec3 d = p - pos;
+        if (d.x < -dist || d.x > dist || d.z < -dist || d.z > dist || d.y < -3072.0f || d.y > 3072.0f || (SQR(d.x) + SQR(d.z) > SQR(dist)))
+            return false;
+        Box box = getBoundingBoxLocal();
+        if (d.y < box.min.y || (d.y - 100.0f) > box.max.y)
+            return false;
+        return true;
+    }
+
     void updateExplosion() {
         if (!explodeMask) return;
         const TR::Model *model = getModel();
@@ -1201,31 +1212,28 @@ struct Controller {
                 part.basis = Basis(part.basis.rot * q, part.basis.pos + part.velocity * (30.0f * Core::deltaTime));
 
                 vec3 p = part.basis.pos;
-                //TR::Room::Sector *s = level->getSector(part.roomIndex, int(p.x), int(p.y), int(p.z));
-                TR::Level::FloorInfo info;
-                getFloorInfo(part.roomIndex, p, info);
 
-                if (info.roomNext != TR::NO_ROOM)
-                    part.roomIndex = info.roomNext;
+                TR::Room::Sector *sector = level->getSector(part.roomIndex, p);
+                float ceiling = level->getCeiling(sector, p);
+                float floor   = level->getFloor(sector, p);
 
                 bool explode = false;
 
-                if (p.y < info.roomCeiling) {
-                    if (info.roomAbove != TR::NO_ROOM)
-                        part.roomIndex = info.roomAbove;
-                    else {
-                        if (info.roomCeiling != 0xffff8100)
-                            p.y = (float)info.roomCeiling;
-                        explode = true;
-                    }
+                if (p.y < ceiling) {
+                    p.y = ceiling;
+                    part.velocity.y = -part.velocity.y;
                 }
 
-                if (p.y > info.roomFloor) {
-                    if (info.roomBelow != TR::NO_ROOM)
-                        part.roomIndex = info.roomBelow;
-                    else {
-                        if (info.roomFloor != 0xffff8100)
-                            p.y = (float)info.roomFloor;
+                if (p.y >= floor) {
+                    p.y = floor;
+                    part.damage = 0.0f;
+                    explode = true;
+                }
+
+                if (part.damage > 0.0f) {
+                    Controller *lara = game->getLara();
+                    if (lara->checkNear(p, part.damage * 2.0f)) {
+                        lara->hit(part.damage);
                         explode = true;
                     }
                 }
@@ -1330,7 +1338,7 @@ struct Controller {
         return matrix;
     }
 
-    void explode(int32 mask) {
+    void explode(int32 mask, float damage) {
         const TR::Model *model = getModel();
 
         if (!layers) initMeshOverrides();
@@ -1355,6 +1363,7 @@ struct Controller {
             part.basis     = joints[i];
             part.basis.w   = 1.0f;
             part.velocity  = vec3(cosf(angle) * speed.x, speed.y, sinf(angle) * speed.x);
+            part.damage    = damage;
             part.roomIndex = roomIndex;
         }
     }
