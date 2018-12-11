@@ -5,6 +5,8 @@
 #include <math.h>
 #include <float.h>
 
+//#define TEST_SLOW_FIO
+
 #ifdef _DEBUG
     #if defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_CLOVER)
         #define debugBreak() raise(SIGTRAP);
@@ -1281,6 +1283,8 @@ char cacheDir[255];
 char saveDir[255];
 char contentDir[255];
 
+#define STREAM_BUFFER_SIZE (8 * 1024)
+
 struct Stream {
     typedef void (Callback)(Stream *stream, void *userData);
     Callback    *callback;
@@ -1289,16 +1293,19 @@ struct Stream {
     FILE        *f;
     char        *data;
     char        *name;
-    int         size, pos;
+    int         size, pos, fpos;
 
-    Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0) {
+    char        *buffer;
+    int         bufferIndex;
+
+    Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0), buffer(NULL) {
         if (name) {
             this->name = new char[strlen(name) + 1];
             strcpy(this->name, name);
         }
     }
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), buffer(NULL) {
         if (!name && callback) {
             callback(NULL, userData);
             delete this;
@@ -1336,8 +1343,11 @@ struct Stream {
             #endif
         } else {
             fseek(f, 0, SEEK_END);
-            size = (int32)ftell(f);
-            fseek(f, 0, SEEK_SET);
+            fpos = (int32)ftell(f);
+            size = fpos;
+
+            buffer = new char[STREAM_BUFFER_SIZE];
+            bufferIndex = -1;
 
             if (name) {
                 this->name = new char[strlen(name) + 1];
@@ -1351,6 +1361,7 @@ struct Stream {
 
     ~Stream() {
         delete[] name;
+        delete[] buffer;
         if (f) fclose(f);
     }
 
@@ -1364,10 +1375,8 @@ struct Stream {
 
     static bool exists(const char *name) {
         FILE *f = fopen(name, "rb");
-        if (!f)
-            return false;
-        else
-            fclose(f);
+        if (!f) return false;
+        fclose(f);
         return true;
     }
 
@@ -1379,37 +1388,60 @@ struct Stream {
     }
 
     void setPos(int pos) {
-        if (this->pos != pos) {
-            this->pos = pos;
-            if (f) fseek(f, pos, SEEK_SET);
-        }
+        this->pos = pos;
     }
 
     void seek(int offset) {
-        if (!offset) return;
-        if (f) fseek(f, offset, SEEK_CUR);
         pos += offset;
     }
 
-    int raw(void *data, int count) {
-        if (!count) return 0;
-        if (f)
-            count = (int)fread(data, 1, count, f);
-        else
+    void raw(void *data, int count) {
+        if (!count) return;
+
+        if (f) {
+            uint8 *ptr = (uint8*)data;
+            while (count > 0) {
+                int bIndex = pos / STREAM_BUFFER_SIZE;
+                int bPos   = pos % STREAM_BUFFER_SIZE;
+                int delta  = min(STREAM_BUFFER_SIZE - bPos, count);
+
+                if (bufferIndex != bIndex) {
+                    bufferIndex = bIndex;
+
+                    if (fpos != bufferIndex * STREAM_BUFFER_SIZE) {
+                        fpos = bufferIndex * STREAM_BUFFER_SIZE;
+                        fseek(f, fpos, SEEK_SET);
+
+                        #ifdef TEST_SLOW_FIO
+                            LOG("seek %d\n", bufferIndex * STREAM_BUFFER_SIZE);
+                            Sleep(5);
+                        #endif
+                    }
+
+                    int readed = fread(buffer, 1, min(STREAM_BUFFER_SIZE, size - bufferIndex * STREAM_BUFFER_SIZE), f);
+                    ASSERT(readed > 0);
+                    fpos += readed;
+
+                    #ifdef TEST_SLOW_FIO
+                        LOG("read %d + %d\n", bufferIndex * STREAM_BUFFER_SIZE, readed);
+                        Sleep(5);
+                    #endif
+                }
+
+                memcpy(ptr, buffer + bPos, delta);
+                count -= delta;
+                pos   += delta;
+                ptr   += delta;
+            }
+        } else {
             memcpy(data, this->data + pos, count);
-        pos += count;
-        return count;
+            pos += count;
+        }
     }
 
     template <typename T>
     inline T& read(T &x) {
         raw(&x, sizeof(x));
-    /*
-        if (endian == eBig) {
-            if (sizeof(T) == 2) x = T(swap16(x));
-            if (sizeof(T) == 4) x = T(swap32(x));
-        }
-    */
         return x;
     }
 
