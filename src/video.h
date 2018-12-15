@@ -896,7 +896,6 @@ struct Video {
 
                     if (sector.chunkIndex == sector.chunksCount - 1) {
                         videoChunksCount++;
-                        LOG("video %d\n", videoChunksCount);
                         return true;
                     }
 
@@ -907,8 +906,6 @@ struct Video {
                     stream->raw(chunk->data + sizeof(sector), AUDIO_SECTOR_SIZE - sizeof(sector)); // !!! MUST BE 2304 !!! most of CD image tools copy only 2048 per sector, so "clicks" will be there
                     chunk->size = AUDIO_SECTOR_SIZE;
                     stream->seek(24);
-
-                    LOG("audio %d\n", audioChunksCount);
 
                     if (!hasSyncHeader)
                         stream->seek(2048 - (AUDIO_SECTOR_SIZE + 24));

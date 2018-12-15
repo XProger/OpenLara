@@ -1368,11 +1368,11 @@ struct Level : IGame {
             }
 
             for (int i = 0; i < level.objectTexturesCount; i++) {
-                TR::ObjectTexture &t = level.objectTextures[i];
+                TR::TextureInfo &t = level.objectTextures[i];
                 short4 uv = t.getMinMax();
                 uv.z++;
                 uv.w++;
-                level.fillObjectTexture((TR::Tile32*)tiles[t.tile.index].data, uv, t.tile.index, t.clut);
+                level.fillObjectTexture((TR::Tile32*)tiles[t.tile].data, uv, &t);
             }
 
             for (int i = 0; i < level.spriteTexturesCount; i++) {
@@ -1380,7 +1380,7 @@ struct Level : IGame {
                 short4 uv = t.getMinMax();
                 uv.z++;
                 uv.w++;
-                level.fillObjectTexture((TR::Tile32*)tiles[t.tile].data, uv, t.tile, t.clut);
+                level.fillObjectTexture((TR::Tile32*)tiles[t.tile].data, uv, &t);
             }
 
             for (int i = 0; i < level.tilesCount; i++) {
