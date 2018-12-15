@@ -186,9 +186,10 @@ struct Video {
         uint8 *prevFrame, *nextFrame, *lumaFrame;
 
         struct Chunk {
-            int offset;
-            int videoSize;
-            int audioSize;
+            int32 offset;
+            int32 videoSize;
+            int32 audioSize;
+            uint8 *data;
         } *chunks;
 
         union MacroBlock {
@@ -234,6 +235,7 @@ struct Video {
                 chunks[i].offset    = readValue();
                 chunks[i].videoSize = readValue();
                 chunks[i].audioSize = readValue();
+                chunks[i].data      = NULL;
             }
 
             switch (vfmt) {
@@ -260,24 +262,29 @@ struct Video {
             codebook[1].blocks =
             codebook[2].blocks = NULL;
 
-            curVideoPos = curVideoChunk = 0; 
-            curAudioPos = curAudioChunk = 0;
+            curVideoPos   = curAudioPos   = 0;
+            curVideoChunk = curAudioChunk = 0;
+
+            nextChunk(0, 0);
 
             if (sfmt == 1)
-                audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);      // TR2
+                audioDecoder = new Sound::PCM(NULL, channels, rate, 0x7FFFFF, bps);      // TR2
             else if (sfmt == 101) {
                 if (bps == 8)
-                    audioDecoder = new Sound::PCM(stream, channels, rate, 0, bps);  // TR1
+                    audioDecoder = new Sound::PCM(NULL, channels, rate, 0x7FFFFF, bps);  // TR1
                 else
-                    audioDecoder = new Sound::IMA(stream, channels, rate);          // TR3
+                    audioDecoder = new Sound::IMA(NULL, channels, rate);          // TR3
             }
         }
 
         virtual ~Escape() {
-            if (audioDecoder) {
+            {
+                OS_LOCK(Sound::lock);
                 audioDecoder->stream = NULL;
                 delete audioDecoder;
             }
+            for (int i = 0; i < chunksCount; i++)
+                delete[] chunks[i].data;
             delete[] chunks;
             delete[] codebook[0].blocks;
             delete[] codebook[1].blocks;
@@ -363,9 +370,23 @@ struct Video {
             dst[9] = mb.pixels[3];
         }
 
-        virtual bool decodeVideo(Color32 *pixels) {
+        void nextChunk(int from, int to) {
             OS_LOCK(Sound::lock);
 
+            if (from < curVideoChunk && from < curAudioChunk) {
+                delete[] chunks[from].data;
+                chunks[from].data = NULL;
+            }
+
+            Chunk &chunk = chunks[to];
+            if (chunk.data)
+                return;
+            chunk.data = new uint8[chunk.videoSize + chunk.audioSize];
+            stream->setPos(chunk.offset);
+            stream->raw(chunk.data, chunk.videoSize + chunk.audioSize);
+        }
+
+        virtual bool decodeVideo(Color32 *pixels) {
             if (curVideoChunk >= chunksCount)
                 return false;
 
@@ -374,23 +395,27 @@ struct Video {
                 curVideoPos = 0;
                 if (curVideoChunk >= chunksCount)
                     return false;
+
+                nextChunk(curVideoChunk - 1, curVideoChunk);
             }
-            stream->setPos(chunks[curVideoChunk].offset + curVideoPos);
+
+            uint8 *data = chunks[curVideoChunk].data + curVideoPos;
 
             switch (vfmt) {
-                case 124 : return decode124(pixels);
-                case 130 : return decode130(pixels);
+                case 124 : return decode124(data, pixels);
+                case 130 : return decode130(data, pixels);
                 default  : ASSERT(false);
             }
 
             return false;
         }
 
-        bool decode124(Color32 *pixels) {
+        bool decode124(uint8 *data, Color32 *pixels) {
             uint32 flags, size;
-            stream->read(flags);
-            stream->read(size);
-            
+            memcpy(&flags, data + 0, 4);
+            memcpy(&size,  data + 4, 4);
+            data += 8;
+
             curVideoPos += size;
 
         // skip unchanged frame
@@ -402,8 +427,6 @@ struct Video {
         // read data into bit stream
             size -= (sizeof(flags) + sizeof(size));
 
-            uint8 *data = new uint8[size];
-            stream->raw(data, size);
             BitStream bs(data, size);
 
         // read codebook changes
@@ -447,10 +470,10 @@ struct Video {
                 }
             }
 
-            static const uint16 maskMatrix[] = { 0x1,   0x2,   0x10,   0x20,
-                                                 0x4,   0x8,   0x40,   0x80,
-                                                 0x100, 0x200, 0x1000, 0x2000,
-                                                 0x400, 0x800, 0x4000, 0x8000};
+            static const uint16 maskMatrix[] = { 0x0001, 0x0002, 0x0010, 0x0020,
+                                                 0x0004, 0x0008, 0x0040, 0x0080,
+                                                 0x0100, 0x0200, 0x1000, 0x2000,
+                                                 0x0400, 0x0800, 0x4000, 0x8000};
 
             SuperBlock sb;
             MacroBlock mb;
@@ -504,15 +527,13 @@ struct Video {
                 skip--;
             }
 
-            delete[] data;
-
             memcpy(pixels, nextFrame, width * height * 4);
             swap(prevFrame, nextFrame);
 
             return true;
         }
 
-        bool decode130(Color32 *pixels) {
+        bool decode130(uint8 *data, Color32 *pixels) {
 
             static const uint8 offsetLUT[] = { 
                 2, 4, 10, 20
@@ -553,10 +574,9 @@ struct Video {
                 172, 180, 188, 196, 204, 212, 220, 228
             };
 
-            Chunk &chunk = chunks[curVideoChunk++];
+            Chunk &chunk = chunks[curVideoChunk];
+            curVideoPos = chunk.videoSize;
 
-            uint8 *data = new uint8[chunk.videoSize];
-            stream->raw(data, chunk.videoSize);
             BitStream bs(data, chunk.videoSize);
             bs.data += 16; // skip 16 bytes (frame size, version, gamma/linear chroma flags etc.)
 
@@ -636,8 +656,6 @@ struct Video {
                 skip--;
             }
 
-            delete[] data;
-
             nY = nextFrame;
             nU = nY + width * height;
             nV = nU + width * height / 4;
@@ -666,6 +684,7 @@ struct Video {
             if (!audioDecoder) return 0;
 
             if (bps != 4 && abs(curAudioChunk - curVideoChunk) > 1) { // sync with video chunk, doesn't work for IMA
+                nextChunk(curAudioChunk, curVideoChunk);
                 curAudioChunk = curVideoChunk;
                 curAudioPos   = 0;
             }
@@ -682,22 +701,23 @@ struct Video {
                 if (curAudioPos >= chunk->audioSize) {
                     curAudioPos = 0;
                     curAudioChunk++;
+                    nextChunk(curAudioChunk - 1, curAudioChunk);
                     continue;
                 }
 
-                stream->setPos(chunk->offset + chunk->videoSize + curAudioPos);
-
                 int part = min(count - i, (chunk->audioSize - curAudioPos) / (channels * bps / 8));
 
-                int pos = stream->pos;
+                Stream *memStream = new Stream(NULL, chunk->data + chunk->videoSize + curAudioPos, chunk->audioSize - curAudioPos);
+                audioDecoder->stream = memStream;
 
                 while (part > 0) { 
                     int res = audioDecoder->decode(&frames[i], part);
                     i += res;
                     part -= res;
                 }
+                curAudioPos += memStream->pos;
 
-                curAudioPos += stream->pos - pos;
+                delete memStream;
             }
 
             return count;
@@ -709,16 +729,12 @@ struct Video {
 
         enum {
             MAGIC_STR         = 0x80010160,
-            SECTOR_SIZE       = 2352,
 
-            VIDEO_CHUNK_SIZE  = 2016,
-            VIDEO_MAX_CHUNKS  = 16,
-            VIDEO_MAX_FRAMES  = 4,
+            VIDEO_SECTOR_SIZE = 2016,
+            VIDEO_SECTOR_MAX  = 16,
+            AUDIO_SECTOR_SIZE = (16 + 112) * 18, // XA ADPCM data block size
 
-            AUDIO_CHUNK_SIZE  = (16 + 112) * 18, // XA ADPCM data block size
-            AUDIO_MAX_FRAMES  = 8,
-
-            BLOCK_EOD         = 0xFE00,
+            MAX_CHUNKS        = 4,
         };
 
         struct SyncHeader {
@@ -749,28 +765,31 @@ struct Video {
             uint32 unk2;
         };
 
-        struct VideoFrame {
-            uint8  data[VIDEO_CHUNK_SIZE * VIDEO_MAX_CHUNKS];
+        struct VideoChunk {
             int    size;
             uint16 width;
             uint16 height;
             uint32 qscale;
+            uint8  data[VIDEO_SECTOR_SIZE * VIDEO_SECTOR_MAX];
         };
 
-        struct AudioFrame {
-            int pos;
-            int size;
+        struct AudioChunk {
+            int    size;
+            uint8  data[AUDIO_SECTOR_SIZE];
         };
 
         uint8 AC_LUT_1[256];
         uint8 AC_LUT_6[256];
         uint8 AC_LUT_9[256];
 
-        VideoFrame vFrames[VIDEO_MAX_FRAMES];
-        AudioFrame aFrames[AUDIO_MAX_FRAMES];
+        VideoChunk videoChunks[MAX_CHUNKS];
+        AudioChunk audioChunks[MAX_CHUNKS];
 
-        int   vFrameIndex;
-        int   aFrameIndex;
+        int   videoChunksCount;
+        int   audioChunksCount;
+
+        int   curVideoChunk;
+        int   curAudioChunk;
 
         Sound::Decoder *audioDecoder;
 
@@ -779,13 +798,9 @@ struct Video {
             uint8 length;
         } vlc[176];
 
-        int curAudioPos;
-        int curAudioFrame;
-
         bool hasSyncHeader;
 
-        STR(Stream *stream) : Decoder(stream), vFrameIndex(-1), aFrameIndex(-1), audioDecoder(NULL) {
-            curAudioFrame = 0;
+        STR(Stream *stream) : Decoder(stream), videoChunksCount(0), audioChunksCount(0), curVideoChunk(-1), curAudioChunk(-1), audioDecoder(NULL) {
 
             if (stream->pos >= stream->size) {
                 LOG("Can't load STR format \"%s\"\n", stream->name);
@@ -801,35 +816,38 @@ struct Video {
             buildLUT(AC_LUT_6, 22,  62, 6);
             buildLUT(AC_LUT_9, 62, 110, 9);
 
-            int pos = stream->pos;
-
             uint32 syncMagic[3];
             stream->raw(syncMagic, sizeof(syncMagic));
-            stream->seek(-12);
+            stream->seek(-(int)sizeof(syncMagic));
 
             hasSyncHeader = syncMagic[0] == 0xFFFFFF00 && syncMagic[1] == 0xFFFFFFFF && syncMagic[2] == 0x00FFFFFF;
+            
+            if (!hasSyncHeader) {
+                LOG("! No sync header found, please use jpsxdec tool to extract FMVs\n");
+            }
 
-            nextFrame();
+            for (int i = 0; i < MAX_CHUNKS; i++) {
+                videoChunks[i].size = 0;
+                audioChunks[i].size = 0;
+            }
 
-            VideoFrame &frame = vFrames[vFrameIndex];
-            width  = (frame.width  + 15) / 16 * 16;
-            height = (frame.height + 15) / 16 * 16;
-            fps    = 150 / (frame.size / VIDEO_CHUNK_SIZE);
-            fps    = (fps < 20) ? 15 : 30;
+            nextChunk();
 
-            stream->setPos(pos);
+            VideoChunk &chunk = videoChunks[0];
+            width    = (chunk.width  + 15) / 16 * 16;
+            height   = (chunk.height + 15) / 16 * 16;
+            fps      = 150 / (chunk.size / VIDEO_SECTOR_SIZE);
+            fps      = (fps < 20) ? 15 : 30;
+            channels = 2;
+            freq     = 37800;
 
-            vFrameIndex = aFrameIndex = -1;
-            memset(aFrames, 0, sizeof(aFrames));
-
-            audioDecoder = new Sound::XA(stream);
+            audioDecoder = new Sound::XA(NULL);
         }
 
         virtual ~STR() {
-            if (audioDecoder) {
-                audioDecoder->stream = NULL;
-                delete audioDecoder;
-            }        
+            OS_LOCK(Sound::lock);
+            audioDecoder->stream = NULL;
+            delete audioDecoder;
         }
 
         void buildLUT(uint8 *LUT, int start, int end, int shift) {
@@ -842,10 +860,14 @@ struct Video {
             }
         }
 
-        bool nextFrame() {
+        bool nextChunk() {
             OS_LOCK(Sound::lock);
 
-            VideoFrame *vFrame = vFrames + vFrameIndex;
+            if (stream->pos >= stream->size)
+                return false;
+
+            bool readingVideo = false;
+
             while (stream->pos < stream->size) {
 
                 if (hasSyncHeader)
@@ -855,39 +877,44 @@ struct Video {
                 stream->raw(&sector, sizeof(Sector));
 
                 if (sector.magic == MAGIC_STR) {
+                    VideoChunk *chunk = videoChunks + (videoChunksCount % MAX_CHUNKS);
 
                     if (sector.chunkIndex == 0) {
-                        vFrameIndex = (vFrameIndex + 1) % VIDEO_MAX_FRAMES;
-                        vFrame = vFrames + vFrameIndex;
-                        vFrame->size    = 0;
-                        vFrame->width   = sector.width;
-                        vFrame->height  = sector.height;
-                        vFrame->qscale  = sector.qscale;
+                        readingVideo  = true;
+                        chunk->size   = 0;
+                        chunk->width  = sector.width;
+                        chunk->height = sector.height;
+                        chunk->qscale = sector.qscale;
                     }
 
-                    ASSERT(vFrame->size + VIDEO_CHUNK_SIZE < sizeof(vFrame->data));
-                    stream->raw(vFrame->data + vFrame->size, VIDEO_CHUNK_SIZE);
-                    vFrame->size += VIDEO_CHUNK_SIZE;
+                    ASSERT(chunk->size + VIDEO_SECTOR_SIZE < sizeof(chunk->data));
+                    stream->raw(chunk->data + chunk->size, VIDEO_SECTOR_SIZE);
+                    chunk->size += VIDEO_SECTOR_SIZE;
 
                     if (hasSyncHeader)
                         stream->seek(280);
 
-                    if (sector.chunkIndex == sector.chunksCount - 1)
+                    if (sector.chunkIndex == sector.chunksCount - 1) {
+                        videoChunksCount++;
+                        LOG("video %d\n", videoChunksCount);
                         return true;
+                    }
 
                 } else {
-                    channels = 2;
-                    freq     = 37800;
+                    AudioChunk *chunk = audioChunks + (audioChunksCount++ % MAX_CHUNKS);
 
-                    aFrameIndex = (aFrameIndex + 1) % AUDIO_MAX_FRAMES;
-                    AudioFrame *aFrame = aFrames + aFrameIndex;
-                    aFrame->pos  = stream->pos - sizeof(sector);
-                    aFrame->size = AUDIO_CHUNK_SIZE; // !!! MUST BE 2304 !!! most of CD image tools copy only 2048 per sector, so "clicks" will be there
+                    memcpy(chunk->data, &sector, sizeof(sector)); // audio chunk has no sector header (just XA data)
+                    stream->raw(chunk->data + sizeof(sector), AUDIO_SECTOR_SIZE - sizeof(sector)); // !!! MUST BE 2304 !!! most of CD image tools copy only 2048 per sector, so "clicks" will be there
+                    chunk->size = AUDIO_SECTOR_SIZE;
+                    stream->seek(24);
 
-                    stream->seek(2048 - sizeof(sector));
+                    LOG("audio %d\n", audioChunksCount);
 
-                    if (hasSyncHeader)
-                        stream->seek(280);
+                    if (!hasSyncHeader)
+                        stream->seek(2048 - (AUDIO_SECTOR_SIZE + 24));
+
+                    if (!readingVideo)
+                        return true;
                 };
             }
             return false;
@@ -977,12 +1004,16 @@ struct Video {
         }
 
         virtual bool decodeVideo(Color32 *pixels) {
-            if (!nextFrame())
-                return false;
+            curVideoChunk++;
+            while (curVideoChunk >= videoChunksCount) {
+                if (!nextChunk()) {
+                    return false;
+                }
+            }
 
-            VideoFrame *frame = vFrames + vFrameIndex;
+            VideoChunk *chunk = videoChunks + (curVideoChunk % MAX_CHUNKS);
 
-            BitStream bs(frame->data + 8, frame->size - 8); // make bitstream without frame header
+            BitStream bs(chunk->data + 8, chunk->size - 8); // make bitstream without frame header
 
             int16 block[6][64]; // Cr, Cb, YTL, YTR, YBL, YBR
             for (int bX = 0; bX < width / 16; bX++)
@@ -1007,7 +1038,7 @@ struct Video {
                             index += 1 + skip;
                             ASSERT(index < 64);
                             int zIndex = STR_ZIG_ZAG[index];
-                            channel[zIndex] = (ac * STR_QUANTIZATION[zIndex] * frame->qscale + 4) >> 3;
+                            channel[zIndex] = (ac * STR_QUANTIZATION[zIndex] * chunk->qscale + 4) >> 3;
                             nonZero = true;
                         }
 
@@ -1036,46 +1067,29 @@ struct Video {
 
         virtual int decode(Sound::Frame *frames, int count) {
             if (!audioDecoder) return 0;
-
-            int oldPos = stream->pos;
-
             Sound::XA *xa = (Sound::XA*)audioDecoder;
 
             int i = 0;
             while (i < count) {
                 if (xa->pos >= COUNT(xa->buffer)) {
-                    if (aFrames[curAudioFrame].size == 0) {
-                        curAudioFrame = (curAudioFrame + 1) % AUDIO_MAX_FRAMES;
-
-                        if (aFrames[curAudioFrame].size == 0) {
-                            // check next 3 frames for audio frame
-                            stream->setPos(oldPos);
-                            for (int j = 0; j < 3; j++) {
-                                nextFrame();
-                                curAudioFrame = aFrameIndex;
-                                if (curAudioFrame != -1 && aFrames[curAudioFrame].size != 0)
-                                    break;
-                            }
-
-                            if (curAudioFrame == -1) { // no audio frames found!
-                                ASSERT(false);
-                                memset(frames, 0, count * sizeof(Sound::Frame));
-                                return count;
-                            }
-
-                            oldPos = stream->pos;
+                    curAudioChunk++;
+                    while (curAudioChunk >= audioChunksCount) {
+                        if (!nextChunk()) {
+                            memset(frames, 0, count * sizeof(Sound::Frame));
+                            return count;
                         }
                     }
                 }
-                stream->setPos(aFrames[curAudioFrame].pos);
+
+                AudioChunk *chunk = audioChunks + (curAudioChunk % MAX_CHUNKS);
+                ASSERT(chunk->size > 0);
+                Stream *memStream = new Stream(NULL, chunk->data, AUDIO_SECTOR_SIZE);
+                audioDecoder->stream = memStream;
 
                 i += audioDecoder->decode(&frames[i], count - i);
 
-                if (xa->pos >= COUNT(xa->buffer))
-                    aFrames[curAudioFrame].size = 0;
+                delete memStream;
             }
-
-            stream->setPos(oldPos);
 
             return count;
         }

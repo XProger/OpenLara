@@ -1283,7 +1283,7 @@ char cacheDir[255];
 char saveDir[255];
 char contentDir[255];
 
-#define STREAM_BUFFER_SIZE (8 * 1024)
+#define STREAM_BUFFER_SIZE (16 * 1024)
 
 struct Stream {
     typedef void (Callback)(Stream *stream, void *userData);
@@ -1343,10 +1343,10 @@ struct Stream {
             #endif
         } else {
             fseek(f, 0, SEEK_END);
-            fpos = (int32)ftell(f);
-            size = fpos;
+            size = (int32)ftell(f);
+            fseek(f, 0, SEEK_SET);
+            fpos = 0;
 
-            buffer = new char[STREAM_BUFFER_SIZE];
             bufferIndex = -1;
 
             if (name) {
@@ -1400,33 +1400,70 @@ struct Stream {
 
         if (f) {
             uint8 *ptr = (uint8*)data;
+
             while (count > 0) {
                 int bIndex = pos / STREAM_BUFFER_SIZE;
-                int bPos   = pos % STREAM_BUFFER_SIZE;
-                int delta  = min(STREAM_BUFFER_SIZE - bPos, count);
 
                 if (bufferIndex != bIndex) {
                     bufferIndex = bIndex;
+
+                    int readed, part;
+
+                    if (fpos == pos) {
+                        part = min(count / STREAM_BUFFER_SIZE * STREAM_BUFFER_SIZE, size - fpos);
+                        if (part > STREAM_BUFFER_SIZE) {
+                            readed = fread(ptr, 1, part, f);
+
+                            #ifdef TEST_SLOW_FIO
+                                LOG("%s read %d + %d\n", name, fpos, readed);
+                                Sleep(5);
+                            #endif
+
+                            ASSERT(part == readed);
+                            count -= readed;
+                            fpos  += readed;
+                            pos   += readed;
+                            ptr   += readed;
+
+                            if (count <= 0) {
+                                bufferIndex = -1;
+                                break;
+                            }
+
+                            bufferIndex = pos / STREAM_BUFFER_SIZE;
+                        }
+                    }
 
                     if (fpos != bufferIndex * STREAM_BUFFER_SIZE) {
                         fpos = bufferIndex * STREAM_BUFFER_SIZE;
                         fseek(f, fpos, SEEK_SET);
 
                         #ifdef TEST_SLOW_FIO
-                            LOG("seek %d\n", bufferIndex * STREAM_BUFFER_SIZE);
+                            LOG("%s seek %d\n", name, fpos);
                             Sleep(5);
                         #endif
                     }
 
-                    int readed = fread(buffer, 1, min(STREAM_BUFFER_SIZE, size - bufferIndex * STREAM_BUFFER_SIZE), f);
-                    ASSERT(readed > 0);
-                    fpos += readed;
+                    if (!buffer) {
+                        buffer = new char[STREAM_BUFFER_SIZE];
+                    }
+
+                    part   = min(STREAM_BUFFER_SIZE, size - fpos);
+                    readed = fread(buffer, 1, part, f);
 
                     #ifdef TEST_SLOW_FIO
-                        LOG("read %d + %d\n", bufferIndex * STREAM_BUFFER_SIZE, readed);
+                        LOG("%s read %d + %d\n", name, fpos, readed);
                         Sleep(5);
                     #endif
+
+                    ASSERT(part == readed);
+                    fpos += readed;
                 }
+
+                ASSERT(buffer);
+
+                int bPos   = pos % STREAM_BUFFER_SIZE;
+                int delta  = min(STREAM_BUFFER_SIZE - bPos, count);
 
                 memcpy(ptr, buffer + bPos, delta);
                 count -= delta;

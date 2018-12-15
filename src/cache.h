@@ -168,7 +168,6 @@ struct ShaderCache {
 
         #undef SD_ADD
 
-        LOG("shader: %s(%d) %s%s%s\n", Core::passNames[pass], type, (fx & FX_UNDERWATER) ? "u" : "", (fx & FX_ALPHA_TEST) ? "a" : "", (fx & FX_CLIP_PLANE) ? "c" : "");
         return shaders[pass][type][fx] = new Shader(pass, type, def, defCount);
     #else
         return NULL;

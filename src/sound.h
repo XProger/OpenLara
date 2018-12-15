@@ -158,7 +158,7 @@ namespace Sound {
         int     channels, freq, offset;
         Frame   prevFrame;
 
-        Decoder(Stream *stream, int channels, int freq) : stream(stream), channels(channels), freq(freq), offset(stream->pos) {
+        Decoder(Stream *stream, int channels, int freq) : stream(stream), channels(channels), freq(freq), offset(stream ? stream->pos : 0) {
             memset(&prevFrame, 0, sizeof(prevFrame));
         }
 
