@@ -398,6 +398,47 @@ namespace GAPI {
         sceGumLoadMatrix((ScePspFMatrix4*)&mView);
     }
 
+    void updateLights(vec4 *lightPos, vec4 *lightColor, int count) {
+        int lightsCount = 0;
+
+        ubyte4 amb;
+        amb.x = amb.y = amb.z = clamp(int(Core::active.material.y * 255), 0, 255);
+        amb.w = 255;
+        sceGuAmbient(*(uint32*)&amb);
+
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            if (lightColor[i].w != 1.0f) {
+                sceGuEnable(GU_LIGHT0 + i);
+                lightsCount++;
+            } else {
+                sceGuDisable(GU_LIGHT0 + i);
+                continue;
+            }
+
+            ScePspFVector3 pos;
+            pos.x = Core::lightPos[i].x;
+            pos.y = Core::lightPos[i].y;
+            pos.z = Core::lightPos[i].z;
+
+            sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
+
+            ubyte4 color;
+            color.x = clamp(int(Core::lightColor[i].x * 255), 0, 255);
+            color.y = clamp(int(Core::lightColor[i].y * 255), 0, 255);
+            color.z = clamp(int(Core::lightColor[i].z * 255), 0, 255);
+            color.w = 255;
+
+            sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
+            sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
+        }
+
+        if (lightsCount) {
+            sceGuEnable(GU_LIGHTING);
+        } else {
+            sceGuDisable(GU_LIGHTING);
+        }
+    }
+
     void DIP(Mesh *mesh, const MeshRange &range) {
         mat4 m = mModel;
         m.scale(vec3(32767.0f));

@@ -542,7 +542,7 @@ namespace UI {
         m.translate(vec3(pos.x, pos.y, 0.0));
         m.scale(vec3(scale.x, scale.y, 1.0));
         Core::active.shader->setParam(uViewProj, m);
-        Core::active.shader->setParam(uMaterial, vec4(1.0f, 1.0f, 1.0f, active ? 0.7f : 0.5f));
+        Core::setMaterial(1.0f, 1.0f, 1.0f, active ? 0.7f : 0.5f);
         game->getMesh()->renderCircle();
     }
 
@@ -631,19 +631,25 @@ namespace UI {
     void setupInventoryShading() {
         Core::whiteTex->bind(sShadow);
         game->setShader(Core::passCompose, Shader::ENTITY, false, false);
+        Core::setMaterial(1.0f, 0.0f, 0.0f, 1.0f);
 
-        vec4 ambient[6] = {
-            vec4(0.4f), vec4(0.2f), vec4(0.4f), vec4(0.5f), vec4(0.4f), vec4(0.6f)
-        };
+        // center
+        Core::lightPos[0]   = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Core::lightColor[0] = vec4(0.4f, 0.4f, 0.4f, 1.0f / 2048.0f);
+        // camera view
+        Core::lightPos[1]   = vec4(0.0f, 0.0f, -2048.0f, 0.0f);
+        Core::lightColor[1] = vec4(0.9f, 0.9f, 0.9f, 1.0f / 2048.0f);
+        // left
+        Core::lightPos[2]   = vec4(-1536.0f,  256.0f, 0.0f, 0.0f);
+        Core::lightColor[2] = vec4(0.8f, 0.8f, 0.5f, 1.0f / 4096.0f);
+        // right
+        Core::lightPos[3]   = vec4( 1536.0f, -256.0f, 0.0f, 0.0f);
+        Core::lightColor[3] = vec4(0.8f, 0.6f, 0.8f, 1.0f / 4096.0f);
 
-        for (int i = 0; i < MAX_LIGHTS; i++) {
-            Core::lightPos[i]   = vec4(0, 0, 0, 0);
-            Core::lightColor[i] = vec4(0, 0, 0, 1);
-        }
-        
-        Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
-        Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-        Core::active.shader->setParam(uAmbient,    ambient[0], 6);
+        Core::updateLights();
+
+        vec4 ambient[6] = { vec4(0), vec4(0), vec4(0), vec4(0), vec4(0), vec4(0) };
+        Core::active.shader->setParam(uAmbient, ambient[0], 6);
     }
 
     void renderPickups() {
@@ -687,7 +693,7 @@ namespace UI {
             alpha *= alpha;
             alpha = 1.0f - alpha;
 
-            Core::active.shader->setParam(uMaterial, vec4(1.0f, 0.4f, 0.0f, alpha));
+            Core::setMaterial(1.0f, 0.0f, 0.0f, alpha);
 
             mesh->renderModelFull(item.modelIndex - 1);
         }

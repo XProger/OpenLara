@@ -1564,7 +1564,7 @@ struct Inventory {
         float alpha = 1.0f - phaseRing * phase;
         alpha *= alpha;
         alpha = 1.0f - alpha;
-        Core::active.shader->setParam(uMaterial, vec4(1.0f, 0.4f, 0.0f, alpha));
+        Core::setMaterial(1.0f, 0.0f, 0.0f, alpha);
 
         int count = getItemsCount(page);
 
@@ -1728,10 +1728,22 @@ struct Inventory {
         vertices[2].texCoord = short4(32767,     0, 0, 0);
         vertices[3].texCoord = short4(    0,     0, 0, 0);
 
+        Texture *backTex = NULL;
+    #ifdef FFP
+        backTex = Core::blackTex;
+
+        mat4 m;
+        m.identity();
+        Core::setViewProj(m, m);
+        Core::mModel.identity();
+        Core::mModel.scale(vec3(1.0f / 32767.0f));
+    #else
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
-            Core::blackTex->bind(sDiffuse); // black background 
+            backTex = Core::blackTex; // black background 
         } else
-            background[0]->bind(sDiffuse); // blured grayscale image
+            backTex = background[0]; // blured grayscale image
+    #endif
+        backTex->bind(sDiffuse);
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
@@ -1753,10 +1765,9 @@ struct Inventory {
             alpha = 255;
 
         float sy = 1.0f;
-    #ifndef _OS_WEB
-        if (background[0])
-            sy = (480.0f / 640.0f) * ((float)background[0]->width / (float)background[0]->height);
-    #endif
+
+        if (background[0] && background[0]->origWidth / background[0]->origHeight == 2) // PSX images aspect correction
+            sy = (480.0f / 640.0f) * ((float)background[0]->origWidth / (float)background[0]->origHeight);
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             if (game->getLevel()->isTitle())
@@ -1820,6 +1831,8 @@ struct Inventory {
             if ((game->getLevel()->version & TR::VER_TR1) && !playLogo)
                 sy = 1.2f;
 
+            Core::resetLights();
+
             background[0] = video->frameTex[0];
             renderTitleBG(1.0f, sy, 255);
 
@@ -1881,6 +1894,8 @@ struct Inventory {
 
     void renderUI() {
         if (!active || phaseRing < 1.0f) return;
+
+        Core::resetLights();
 
         static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS, STR_SAVEGAME, STR_LEVEL_STATS };
 

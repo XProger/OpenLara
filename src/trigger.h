@@ -272,7 +272,7 @@ struct MuzzleFlash : Controller {
             lum = alpha;
 
         game->setShader(Core::pass, Shader::FLASH, false, true);
-        Core::active.shader->setParam(uMaterial, vec4(lum * alpha, 0.0f, 0.0f, alpha));
+        Core::setMaterial(lum * alpha, 0.0f, 0.0f, alpha);
         Core::setBasis(&b, 1);
 
         mesh->renderModel(level->extra.muzzleFlash);
@@ -801,7 +801,7 @@ struct Crystal : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Core::active.shader->setParam(uMaterial, vec4(0.5, 0.5, 3.0, 1.0f)); // blue color dodge for crystal
+        Core::setMaterial(0.5, 0.5, 3.0, 1.0f); // blue color dodge for crystal
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
     }
@@ -1218,7 +1218,7 @@ struct Lightning : Controller {
         b.rot = quat(0, 0, 0, 1);
 
         game->setShader(Core::pass, Shader::FLASH, false, false);
-        Core::active.shader->setParam(uMaterial, vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        Core::setMaterial(0.0f, 0.0f, 0.0f, 1.0f);
         Core::active.shader->setParam(uBasis, b);
 
         Core::setCullMode(cmNone);

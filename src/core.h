@@ -954,6 +954,18 @@ namespace Core {
         Core::active.shader->setParam(uMaterial, Core::active.material);
     }
 
+    void updateLights() {
+        GAPI::updateLights(lightPos, lightColor, MAX_LIGHTS);
+    }
+
+    void resetLights() {
+        for (int i = 0; i < MAX_LIGHTS; i++) {
+            lightPos[i]   = vec4(0, 0, 0, 0);
+            lightColor[i] = vec4(0, 0, 0, 1);
+        }
+        updateLights();
+    }
+
     void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {
         validateRenderState();
         GAPI::copyTarget(dst, xOffset, yOffset, x, y, width, height);

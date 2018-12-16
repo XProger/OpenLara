@@ -3998,12 +3998,7 @@ namespace TR {
 
             stream.read(f.flags.value);
 
-        #ifndef SPLIT_BY_TILE
             f.colored = colored;
-        #else
-            f.colored = false;
-        #endif
-
             f.water = false;
             f.flip  = false;
         }

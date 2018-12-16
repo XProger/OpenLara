@@ -1391,6 +1391,9 @@ struct MeshBuilder {
     #endif
         {
             #ifndef MERGE_MODELS
+                if (models[modelIndex].parts[transparent][i] == 0)
+                    continue;
+
                 Basis &basis = Core::active.basis[i];
                 if (basis.w == 0.0f) {
                     part += models[modelIndex].parts[transparent][i];

@@ -609,7 +609,7 @@ namespace GAPI {
                 glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
             }
 
-            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR ) : ( mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST ));
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR) : (mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST));
             glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
 
             static const struct FormatDesc {
@@ -1218,6 +1218,54 @@ namespace GAPI {
     #ifdef FFP
         glMatrixMode(GL_PROJECTION);
         glLoadMatrixf((float*)&mProj);
+    #endif
+    }
+
+    void updateLights(vec4 *lightPos, vec4 *lightColor, int count) {
+    #ifdef FFP
+        int lightsCount = 0;
+
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+
+        vec4 amb(vec3(Core::active.material.y), 1.0f);
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&amb);
+
+        for (int i = 0; i < count; i++) {
+            GLenum light = GL_LIGHT0 + i;
+
+            if (lightColor[i].w != 1.0f) {
+                glEnable(light);
+                lightsCount++;
+            } else {
+                glDisable(light);
+                continue;
+            }
+
+            vec4 pos(lightPos[i].xyz(), 1.0f);
+            vec4 color(lightColor[i].xyz(), 1.0f);
+            float att = lightColor[i].w * lightColor[i].w;
+
+            glLightfv(light, GL_POSITION, (GLfloat*)&pos);
+            glLightfv(light, GL_DIFFUSE,  (GLfloat*)&color);
+            glLightfv(light, GL_QUADRATIC_ATTENUATION, (GLfloat*)&att);
+        }
+
+        glPopMatrix();
+
+        if (lightsCount) {
+            glEnable(GL_COLOR_MATERIAL);
+            glEnable(GL_LIGHTING);        
+        } else {
+            glDisable(GL_COLOR_MATERIAL);
+            glDisable(GL_LIGHTING);
+        }
+    #else
+        if (Core::active.shader) {
+            Core::active.shader->setParam(uLightColor, lightColor[0], count);
+            Core::active.shader->setParam(uLightPos,   lightPos[0],   count);
+        }
     #endif
     }
 
