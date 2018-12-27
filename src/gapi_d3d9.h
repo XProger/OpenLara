@@ -7,7 +7,7 @@
 #define PROFILE_MARKER(title)
 #define PROFILE_LABEL(id, name, label)
 #define PROFILE_TIMING(time)
-    
+
 extern LPDIRECT3D9           D3D;
 extern LPDIRECT3DDEVICE9     device;
 extern D3DPRESENT_PARAMETERS d3dpp;
@@ -50,18 +50,18 @@ void D3DCHECK(HRESULT res) {
 #endif
 
 namespace GAPI {
-    #include "shaders/compose_vs.h"
-    #include "shaders/compose_ps.h"
-    #include "shaders/shadow_vs.h"
-    #include "shaders/shadow_ps.h"
-    #include "shaders/ambient_vs.h"
-    #include "shaders/ambient_ps.h"
-    #include "shaders/water_vs.h"
-    #include "shaders/water_ps.h"
-    #include "shaders/filter_vs.h"
-    #include "shaders/filter_ps.h"
-    #include "shaders/gui_vs.h"
-    #include "shaders/gui_ps.h"
+    #include "shaders/d3d9/compose_vs.h"
+    #include "shaders/d3d9/compose_ps.h"
+    #include "shaders/d3d9/shadow_vs.h"
+    #include "shaders/d3d9/shadow_ps.h"
+    #include "shaders/d3d9/ambient_vs.h"
+    #include "shaders/d3d9/ambient_ps.h"
+    #include "shaders/d3d9/water_vs.h"
+    #include "shaders/d3d9/water_ps.h"
+    #include "shaders/d3d9/filter_vs.h"
+    #include "shaders/d3d9/filter_ps.h"
+    #include "shaders/d3d9/gui_vs.h"
+    #include "shaders/d3d9/gui_ps.h"
 
     using namespace Core;
 
@@ -113,6 +113,7 @@ namespace GAPI {
         int reg;
         int usage;
     } bindings[uMAX] = {
+        {   0, USAGE_VS | USAGE_PS }, // uFlags
         {   0, USAGE_VS | USAGE_PS }, // uParam
         {   1, USAGE_VS | USAGE_PS }, // uTexParam
         {   2, USAGE_VS | USAGE_PS }, // uViewProj
@@ -126,7 +127,7 @@ namespace GAPI {
         {  87, USAGE_VS | USAGE_PS }, // uLightColor
         {  91, USAGE_VS | USAGE_PS }, // uRoomSize
         {  92, USAGE_VS | USAGE_PS }, // uPosScale
-        {  94, USAGE_VS | USAGE_PS }, // uContacts
+        {  98, USAGE_VS | USAGE_PS }, // uContacts
     };
 
     struct Shader {
@@ -154,13 +155,13 @@ namespace GAPI {
 
             for (int i = 0; i < defCount; i++) {
                 switch (def[i]) {
-                    case SD_UNDERWATER      : flags[ 5] = TRUE; break;
-                    case SD_ALPHA_TEST      : flags[ 6] = TRUE; break;
-                    case SD_CLIP_PLANE      : flags[ 7] = TRUE; break;
-                    case SD_OPT_AMBIENT     : flags[ 8] = TRUE; break;
-                    case SD_OPT_SHADOW      : flags[ 9] = TRUE; break;
-                    case SD_OPT_CONTACT     : flags[10] = TRUE; break;
-                    case SD_OPT_CAUSTICS    : flags[11] = TRUE; break;
+                    case SD_UNDERWATER   : flags[ 5] = TRUE; break;
+                    case SD_ALPHA_TEST   : flags[ 6] = TRUE; break;
+                    case SD_CLIP_PLANE   : flags[ 7] = TRUE; break;
+                    case SD_OPT_AMBIENT  : flags[ 8] = TRUE; break;
+                    case SD_OPT_SHADOW   : flags[ 9] = TRUE; break;
+                    case SD_OPT_CONTACT  : flags[10] = TRUE; break;
+                    case SD_OPT_CAUSTICS : flags[11] = TRUE; break;
                 }
             }
 
@@ -226,14 +227,14 @@ namespace GAPI {
                 int       bpp;
                 D3DFORMAT format;
             } formats[FMT_MAX] = {
-                {  8, D3DFMT_L8            },
-                { 32, D3DFMT_A8R8G8B8      },
-                { 16, D3DFMT_R5G6B5        },
-                { 16, D3DFMT_A1R5G5B5      },
-                {128, D3DFMT_A32B32G32R32F },
-                { 64, D3DFMT_A16B16G16R16F },
-                { 16, D3DFMT_D16           },
-                { 16, D3DFMT_D24X8         },
+                {   8, D3DFMT_L8            },
+                {  32, D3DFMT_A8R8G8B8      },
+                {  16, D3DFMT_R5G6B5        },
+                {  16, D3DFMT_A1R5G5B5      },
+                { 128, D3DFMT_A32B32G32R32F },
+                {  64, D3DFMT_A16B16G16R16F },
+                {  16, D3DFMT_D16           },
+                {  16, D3DFMT_D24X8         },
             };
             
             FormatDesc desc = formats[fmt];
@@ -423,6 +424,7 @@ namespace GAPI {
         support.texFloat       = true;
         support.texHalfLinear  = true;
         support.texHalf        = true;
+        support.clipDist       = false;
 
         #ifdef PROFILE
             support.profMarker = false;
@@ -430,11 +432,11 @@ namespace GAPI {
         #endif
 
         const D3DVERTEXELEMENT9 VERTEX_DECL[] = {
-            {0, 0,  D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // aCoord
-            {0, 8,  D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL,   0}, // aNormal
-            {0, 16, D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0}, // aTexCoord
-            {0, 24, D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0}, // aColor
-            {0, 28, D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    1}, // aLight
+            {0, OFFSETOF(Vertex, coord),    D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // aCoord
+            {0, OFFSETOF(Vertex, normal),   D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL,   0}, // aNormal
+            {0, OFFSETOF(Vertex, texCoord), D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0}, // aTexCoord
+            {0, OFFSETOF(Vertex, color),    D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0}, // aColor
+            {0, OFFSETOF(Vertex, light),    D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    1}, // aLight
             D3DDECL_END()
         };
 
@@ -691,7 +693,13 @@ namespace GAPI {
         device->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
     }
 
-    void setViewProj(const mat4 &mView, const mat4 &mProj) {
+    void setViewProj(const mat4 &mView, const mat4 &mProj) {}
+
+    void updateLights(vec4 *lightPos, vec4 *lightColor, int count) {
+        if (active.shader) {
+            active.shader->setParam(uLightColor, lightColor[0], count);
+            active.shader->setParam(uLightPos,   lightPos[0],   count);
+        }
     }
 
     void DIP(Mesh *mesh, const MeshRange &range) {

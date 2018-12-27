@@ -23,7 +23,7 @@ namespace GAPI {
 
 // Shader
     struct Shader {
-        void init(Core::Pass pass, int type, int *def, int defCount) {}
+        void init(Pass pass, int type, int *def, int defCount) {}
         void deinit() {}
         void bind() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
@@ -112,7 +112,7 @@ namespace GAPI {
         void unbind(int sampler) {}
 
         void setFilterQuality(int value) {
-            if (value > Core::Settings::LOW)
+            if (value > Settings::LOW)
                 opt &= ~OPT_NEAREST;
             else
                 opt |= OPT_NEAREST;
@@ -235,7 +235,7 @@ namespace GAPI {
         LOG("VRAM     : %d\n", EDRAM_SIZE);
         freeEDRAM();
 
-        support.maxAniso       = 1;
+        support.maxAniso       = 0;
         support.maxVectors     = 0;
         support.shaderBinary   = false;
         support.VAO            = false;
@@ -245,13 +245,13 @@ namespace GAPI {
         support.texNPOT        = false;
         support.texRG          = false;
         support.texBorder      = false;
-        support.maxAniso       = false;
         support.colorFloat     = false;
         support.colorHalf      = false;
         support.texFloatLinear = false;
         support.texFloat       = false;
         support.texHalfLinear  = false;
         support.texHalf        = false;
+        support.clipDist       = false;
 
         Core::width  = 480;
         Core::height = 272;
@@ -402,7 +402,7 @@ namespace GAPI {
         int lightsCount = 0;
 
         ubyte4 amb;
-        amb.x = amb.y = amb.z = clamp(int(Core::active.material.y * 255), 0, 255);
+        amb.x = amb.y = amb.z = clamp(int(active.material.y * 255), 0, 255);
         amb.w = 255;
         sceGuAmbient(*(uint32*)&amb);
 
@@ -416,20 +416,20 @@ namespace GAPI {
             }
 
             ScePspFVector3 pos;
-            pos.x = Core::lightPos[i].x;
-            pos.y = Core::lightPos[i].y;
-            pos.z = Core::lightPos[i].z;
+            pos.x = lightPos[i].x;
+            pos.y = lightPos[i].y;
+            pos.z = lightPos[i].z;
 
             sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
 
             ubyte4 color;
-            color.x = clamp(int(Core::lightColor[i].x * 255), 0, 255);
-            color.y = clamp(int(Core::lightColor[i].y * 255), 0, 255);
-            color.z = clamp(int(Core::lightColor[i].z * 255), 0, 255);
+            color.x = clamp(int(lightColor[i].x * 255), 0, 255);
+            color.y = clamp(int(lightColor[i].y * 255), 0, 255);
+            color.z = clamp(int(lightColor[i].z * 255), 0, 255);
             color.w = 255;
 
             sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
-            sceGuLightAtt(i, 1.0f, 0.0f, Core::lightColor[i].w * Core::lightColor[i].w);
+            sceGuLightAtt(i, 1.0f, 0.0f, lightColor[i].w * lightColor[i].w);
         }
 
         if (lightsCount) {

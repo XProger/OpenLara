@@ -315,14 +315,13 @@ uniform vec4 uFogParams;
 
 		float getShadow(vec3 lightVec, vec3 normal, vec4 lightProj) {
 			vec3 p = lightProj.xyz / lightProj.w;
-			p.xyz = p.xyz * 0.5 + 0.5;
 			p.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL.x;
 
 			float vis = lightProj.w;
 			#ifdef TYPE_ROOM
 				vis = min(vis, dot(normal, lightVec));
 			#endif
-			if (vis < 0.0 || p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 1.0;
+			if (min(vis, min(p.x, p.y)) < 0.0 || max(p.x, p.y) > 1.0) return 1.0;
 
 			#ifdef SHADOW_SAMPLER
 				float rShadow = SHADOW(p);

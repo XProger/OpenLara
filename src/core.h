@@ -59,13 +59,18 @@
 
     #undef  OS_FILEIO_CACHE
 #elif _PSP
-    #define _OS_PSP     1
-    #define _GAPI_SCEGU 1
+    #define _OS_PSP  1
+    #define _GAPI_GU 1
 
     #define FFP
     #define TEX_SWIZZLE
     //#define EDRAM_MESH
     #define EDRAM_TEX
+
+    #undef OS_PTHREAD_MT
+#elif __vita__
+    #define _OS_PSV   1
+    #define _GAPI_GXM 1
 
     #undef OS_PTHREAD_MT
 #elif __SWITCH__
@@ -225,6 +230,7 @@ namespace Core {
         bool texBorder;
         bool colorFloat, texFloat, texFloatLinear;
         bool colorHalf, texHalf,  texHalfLinear;
+        bool clipDist;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -443,6 +449,7 @@ struct MeshRange {
     E( sMask            )
 
 #define SHADER_UNIFORMS(E) \
+    E( uFlags           ) \
     E( uParam           ) \
     E( uTexParam        ) \
     E( uViewProj        ) \
@@ -539,7 +546,7 @@ namespace Core {
 
     const char *passNames[Core::passMAX] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
 
-    Texture *defaultTarget;
+    GAPI::Texture *defaultTarget;
     
     int32   renderState;
 
@@ -555,9 +562,13 @@ namespace Core {
         vec4          material;
 
     #ifdef _GAPI_GL
-        uint32      VAO;
-        uint32      iBuffer;
-        uint32      vBuffer;
+        uint32 VAO;
+        uint32 iBuffer;
+        uint32 vBuffer;
+    #endif
+
+    #ifdef _GAPI_GXM
+        Vertex *vBuffer;
     #endif
 
         int32       basisCount;
@@ -565,26 +576,27 @@ namespace Core {
     } active;
     
     struct ReqTarget {
-        Texture *texture;
+        GAPI::Texture *texture;
         uint32  op;
         uint32  face;
     } reqTarget;
 
     struct Stats {
-        int dips, tris, rt, frame, fps, fpsTime;
+        uint32 dips, tris, rt, cb, frame, frameIndex, fps;
+        int fpsTime;
     #ifdef PROFILE
         int tFrame;
     #endif
 
-        Stats() : frame(0), fps(0), fpsTime(0) {}
+        Stats() : frame(0), fps(0), fpsTime(0), frameIndex(0) {}
 
         void start() {
-            dips = tris = rt = 0;
+            dips = tris = rt = cb = 0;
         }
 
         void stop() {
             if (fpsTime < Core::getTime()) {
-                LOG("FPS: %d DIP: %d TRI: %d RT: %d\n", fps, dips, tris, rt);
+                LOG("FPS: %d DIP: %d TRI: %d RT: %d CB: %d\n", fps, dips, tris, rt, cb);
             #ifdef PROFILE
                 LOG("frame time: %d mcs\n", tFrame / 1000);
             #endif
@@ -593,6 +605,8 @@ namespace Core {
                 fpsTime = Core::getTime() + 1000;
             } else
                 frame++;
+
+            frameIndex++;
         }
     } stats;
 }
@@ -603,8 +617,10 @@ namespace Core {
     #include "gapi_d3d9.h"
 #elif _GAPI_GX
     #include "gapi_gx.h"
-#elif _GAPI_SCEGU
+#elif _GAPI_GU
     #include "gapi_gu.h"
+#elif _GAPI_GXM
+    #include "gapi_gxm.h"
 #elif _GAPI_VULKAN
     #include "gapi_vk.h"
 #endif
@@ -644,6 +660,7 @@ namespace Core {
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
+        LOG("  clip distance  : %s\n", support.clipDist      ? "true" : "false");
         LOG("  anisotropic    : %d\n", support.maxAniso);
         LOG("  float textures : float = %s, half = %s\n", 
             support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
@@ -808,8 +825,8 @@ namespace Core {
         if (mask & RS_TARGET) {
             GAPI::discardTarget(!(active.targetOp & RT_STORE_COLOR), !(active.targetOp & RT_STORE_DEPTH));
 
-            Texture *target = reqTarget.texture;
-            uint32  face    = reqTarget.face;
+            GAPI::Texture *target = reqTarget.texture;
+            uint32  face          = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
                 Core::stats.rt++;
@@ -923,7 +940,7 @@ namespace Core {
             renderState &= ~RS_DEPTH_TEST;
     }
 
-    void setTarget(Texture *target, int op, int face = 0) {
+    void setTarget(GAPI::Texture *target, int op, int face = 0) {
         if (!target)
             target = defaultTarget;
 
@@ -1016,14 +1033,13 @@ namespace Core {
     }
 
     void DIP(GAPI::Mesh *mesh, const MeshRange &range) {
+        validateRenderState();
+
         mesh->bind(range);
+        GAPI::DIP(mesh, range);
 
         stats.dips++;
         stats.tris += range.iCount / 3;
-
-        validateRenderState();
-
-        GAPI::DIP(mesh, range);
     }
 
     PSO* psoCreate(Shader *shader, uint32 renderState, TexFormat colorFormat = FMT_RGBA, TexFormat depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {

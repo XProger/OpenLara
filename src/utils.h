@@ -34,6 +34,11 @@
     #endif
 #endif
 
+#ifdef _OS_PSV
+    #undef LOG
+    #define LOG(...) psvDebugScreenPrintf(__VA_ARGS__)
+#endif
+
 #ifdef _OS_ANDROID
     #include <android/log.h>
     #undef LOG

@@ -8,7 +8,7 @@
 
 #define DECODE_OGG
 
-#if !defined(_OS_PSP) && !defined(_OS_WEB)
+#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV)
     #define DECODE_MP3
 #endif
 
@@ -1063,6 +1063,8 @@ namespace Sound {
     }
 
     Sample* play(Decoder *decoder) {
+        OS_LOCK(lock);
+
         if (channelsCount < SND_CHANNELS_MAX)
             return channels[channelsCount++] = new Sample(decoder, 1.0f, 1.0f, MUSIC, -1);
         return NULL;

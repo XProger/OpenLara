@@ -1,9 +1,9 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 pos		: POSITION;
-	float2 texCoord	: TEXCOORD0;
-	float4 diffuse	: COLOR0;
+	float4 pos      : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 diffuse  : COLOR0;
 };
 
 #ifdef VERTEX
@@ -11,14 +11,16 @@ VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 	Out.pos      = float4(In.aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
 	Out.texCoord = In.aTexCoord.xy * (1.0 / 32767.0);
-	Out.diffuse  = In.aLight;
+	Out.diffuse  = RGBA(In.aLight);
 
-// D3D9 specific
-	if (FILTER_DOWNSAMPLE) {
-		Out.texCoord += float2(2.0, -2.0) * uParam.x;
-	} else if (FILTER_BLUR) {
-		Out.texCoord += float2(1.0, -1.0) * uParam.z;
-	}
+    #ifndef _GAPI_GXM
+    // D3D9 specific
+        if (FILTER_DOWNSAMPLE) {
+            Out.texCoord += float2(2.0, -2.0) * uParam.x;
+        } else if (FILTER_BLUR) {
+            Out.texCoord += float2(1.0, -1.0) * uParam.z;
+        }
+    #endif
 	
 	return Out;
 }
@@ -27,9 +29,8 @@ VS_OUTPUT main(VS_INPUT In) {
 
 float4 downsample(float2 uv) { // uParam (1 / textureSize, unused, unused, unused)
 	float4 color = 0.0;
-	[unroll]
+
 	for (float y = -1.5; y < 2.0; y++) {
-		[unroll]
 		for (float x = -1.5; x < 2.0; x++) {
 			float4 p;
 			p.xyz  = tex2D(sDiffuse, uv + float2(x, y) * uParam.x).xyz;
@@ -45,7 +46,7 @@ float4 downsample(float2 uv) { // uParam (1 / textureSize, unused, unused, unuse
 float4 grayscale(float2 uv) { // uParam (factor, unused, unused, unused)
 	float4 color = tex2D(sDiffuse, uv);
 	float3 gray  = dot(color, float4(0.299, 0.587, 0.114, 0.0));
-	return float4(lerp(color.xyz, gray, uParam.w) * uParam.bgr, color.w);
+	return float4(lerp(color.xyz, gray, uParam.w) * uParam.xyz, color.w).bgra;
 }
 
 float4 blur(float2 uv) { // uParam (dirX, dirY, 1 / textureSize, unused)

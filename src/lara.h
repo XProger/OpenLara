@@ -3735,8 +3735,7 @@ struct Lara : Character {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
         /* catsuit test
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
-            Core::active.shader->setParam(uLightColor, Core::lightColor[0], MAX_LIGHTS);
-            Core::active.shader->setParam(uLightPos,   Core::lightPos[0],   MAX_LIGHTS);
+            Core::updateLights();
         */
             environment->bind(sEnvironment);
             Core::setBlendMode(bmAlpha);

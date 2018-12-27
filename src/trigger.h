@@ -271,11 +271,12 @@ struct MuzzleFlash : Controller {
         if (level->version & (TR::VER_TR2 | TR::VER_TR3))
             lum = alpha;
 
-        game->setShader(Core::pass, Shader::FLASH, false, true);
+        game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::setMaterial(lum * alpha, 0.0f, 0.0f, alpha);
         Core::setBasis(&b, 1);
-
+        Core::setDepthWrite(false);
         mesh->renderModel(level->extra.muzzleFlash);
+        Core::setDepthWrite(true);
     }
 };
 

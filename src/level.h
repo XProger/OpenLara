@@ -2111,7 +2111,7 @@ struct Level : IGame {
             for (int i = 0; i < roomsCount; i++)
                 waterCache->setVisible(roomsList[i]);
 
-            waterCache->renderReflect();
+            waterCache->renderReflection();
 
             Core::Pass pass = Core::pass;
             waterCache->simulate();
@@ -2148,7 +2148,7 @@ struct Level : IGame {
             if (!camera->isUnderwater())
                 waterCache->renderRays();
             waterCache->renderMask();
-            waterCache->copyScreenToRefract();
+            waterCache->copyScreenToRefraction();
             setMainLight(player);
             waterCache->compose();
             if (camera->isUnderwater())
@@ -2207,10 +2207,15 @@ struct Level : IGame {
         Core::mView    = Core::mViewInv.inverseOrtho();
         Core::mProj    = GAPI::perspective(90.0f, 1.0f, znear, zfar);
 
+        Core::mLightProj = Core::mProj * Core::mView;
+
         mat4 bias;
         bias.identity();
-        //bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-        Core::mLightProj = bias * (Core::mProj * Core::mView);
+        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
+    #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+        bias.e11 = -bias.e11;
+    #endif
+        Core::mLightProj = bias * Core::mLightProj;
 
         camera->frustum->pos = Core::viewPos.xyz();
         camera->frustum->calcPlanes(Core::mViewProj);

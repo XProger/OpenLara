@@ -6,6 +6,7 @@
 #include "controller.h"
 
 #define PICKUP_SHOW_TIME 5.0f
+//#define UI_SHOW_FPS
 
 enum StringID {
       STR_NOT_IMPLEMENTED
@@ -612,6 +613,11 @@ namespace UI {
                 textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
             }
         }
+    #ifdef UI_SHOW_FPS
+        char buf[256];
+        sprintf(buf, "%d", Core::stats.fps);
+        textOut(vec2(0, 16), buf, aLeft, width, 255, UI::SHADE_ORANGE);
+    #endif
     }
 
     void addPickup(TR::Entity::Type type, const vec2 &pos) {
