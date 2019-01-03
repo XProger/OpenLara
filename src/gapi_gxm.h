@@ -396,6 +396,8 @@ namespace GAPI {
 
         int colorMask, blendMode;
 
+        bool rebind;
+
         void init(Pass pass, int type, int *def, int defCount) {
             const uint8 *vpSrc, *fpSrc;
             switch (pass) {
@@ -606,8 +608,10 @@ namespace GAPI {
                 { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
                 { 16, SCE_GXM_TEXTURE_FORMAT_U5U6U5_RGB        , SCE_GXM_COLOR_FORMAT_U5U6U5_RGB        }, // RGB16
                 { 16, SCE_GXM_TEXTURE_FORMAT_U1U5U5U5_ARGB     , SCE_GXM_COLOR_FORMAT_U1U5U5U5_ARGB     }, // RGBA16
-                { 64, SCE_GXM_COLOR_FORMAT_A8R8G8B8 , SCE_GXM_COLOR_FORMAT_A8R8G8B8 }, // RGBA_FLOAT  // not supported
-                { 64, SCE_GXM_COLOR_FORMAT_A8R8G8B8 , SCE_GXM_COLOR_FORMAT_A8R8G8B8 }, // RGBA_HALF
+                  { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
+                  { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
+//                { 64, SCE_GXM_TEXTURE_FORMAT_F16F16F16F16_ARGB , SCE_GXM_COLOR_FORMAT_F16F16F16F16_RGBA }, // RGBA_FLOAT  // not supported
+//                { 64, SCE_GXM_TEXTURE_FORMAT_F16F16F16F16_ARGB , SCE_GXM_COLOR_FORMAT_F16F16F16F16_RGBA }, // RGBA_HALF
                 { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R            , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32      }, // DEPTH
                 { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R            , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32      }, // SHADOW
             };
@@ -666,8 +670,6 @@ namespace GAPI {
                         SceGxmDepthStencilFormat(desc.targetFormat),
                         SCE_GXM_DEPTH_STENCIL_SURFACE_TILED,
                         aWidth, this->data, NULL);
-
-            sceGxmDepthStencilSurfaceSetForceStoreMode ( &depthSurface, SCE_GXM_DEPTH_STENCIL_FORCE_STORE_ENABLED );
 
                 } else {
                     sceGxmColorSurfaceInit(&colorSurface,
@@ -738,6 +740,10 @@ namespace GAPI {
             if (active.textures[sampler] != this) {
                 active.textures[sampler] = this;
                 sceGxmSetFragmentTexture(Context::gxmContext, sampler, &ID);
+
+                if (opt & OPT_VERTEX) {
+                    sceGxmSetVertexTexture(Context::gxmContext, sampler, &ID);
+                }
             }
         }
 
@@ -999,8 +1005,8 @@ namespace GAPI {
             bool loadDepth  = (Core::reqTarget.op & RT_LOAD_DEPTH);
             bool storeDepth = (Core::reqTarget.op & RT_STORE_DEPTH);
 
-            //sceGxmDepthStencilSurfaceSetForceLoadMode  ( &target->depthSurface, loadDepth  ? SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_ENABLED  : SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_DISABLED  );
-            //sceGxmDepthStencilSurfaceSetForceStoreMode ( &target->depthSurface, storeDepth ? SCE_GXM_DEPTH_STENCIL_FORCE_STORE_ENABLED : SCE_GXM_DEPTH_STENCIL_FORCE_STORE_DISABLED );
+            sceGxmDepthStencilSurfaceSetForceLoadMode  ( &target->depthSurface, loadDepth  ? SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_ENABLED  : SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_DISABLED  );
+            sceGxmDepthStencilSurfaceSetForceStoreMode ( &target->depthSurface, storeDepth ? SCE_GXM_DEPTH_STENCIL_FORCE_STORE_ENABLED : SCE_GXM_DEPTH_STENCIL_FORCE_STORE_DISABLED );
 
             sceGxmBeginScene(Context::gxmContext, 0, target->renderTarget, NULL, NULL, NULL, colorSurface, &target->depthSurface);
 
@@ -1155,6 +1161,9 @@ namespace GAPI {
     }
 
     vec4 copyPixel(int x, int y) {
+//        GAPI::Texture *t = Core::active.target;
+//        Color32 *color = (Color32*)t->data;
+//        return vec4(color->r, color->g, color->b, 255.0f) * (1.0f / 255.0f);
         return vec4(0.0f); // TODO: read from framebuffer
     }
 

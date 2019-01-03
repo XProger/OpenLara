@@ -1137,16 +1137,17 @@ struct Inventory {
 
         bool ready = active && phaseRing == 1.0f && phasePage == 1.0f;
 
-        Input::Joystick &joy = Input::joy[Core::settings.controls[playerIndex].joyIndex];
+        Input::Joystick &joy     = Input::joy[Core::settings.controls[playerIndex].joyIndex];
+        Input::Joystick &joyMain = Input::joy[0];
 
         ControlKey key = cMAX;
         if (Input::down[ikCtrl] || Input::down[ikEnter] || Input::lastState[playerIndex] == cAction || joy.down[jkA])
             key = cAction;
         else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::lastState[playerIndex] == cInventory)
             key = cInventory;
-        else if (Input::down[ikLeft]  || joy.down[jkLeft]  || joy.L.x < -0.5f)
+        else if (Input::down[ikLeft]  || joy.down[jkLeft]  || joy.L.x < -0.5f || joyMain.down[jkLeft]  || joyMain.L.x < -0.5f)
             key = cLeft;
-        else if (Input::down[ikRight] || joy.down[jkRight] || joy.L.x >  0.5f)
+        else if (Input::down[ikRight] || joy.down[jkRight] || joy.L.x >  0.5f || joyMain.down[jkRight] || joyMain.L.x > 0.5f)
             key = cRight;
         else if (Input::down[ikUp]    || joy.down[jkUp]    || joy.L.y < -0.5f)
             key = cUp;
@@ -1853,8 +1854,6 @@ struct Inventory {
 
     // items
         game->setupBinding();
-
-        Core::mLightProj.identity();
 
         setupCamera(aspect);
 

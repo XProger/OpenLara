@@ -102,8 +102,7 @@
 #include "utils.h"
 
 // muse be equal with base shader
-#define SHADOW_TEX_WIDTH    1024
-#define SHADOW_TEX_HEIGHT   1024
+#define SHADOW_TEX_SIZE      1024
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
@@ -588,7 +587,7 @@ namespace Core {
         int tFrame;
     #endif
 
-        Stats() : frame(0), fps(0), fpsTime(0), frameIndex(0) {}
+        Stats() : frame(0), fps(0), frameIndex(0), fpsTime(0) {}
 
         void start() {
             dips = tris = rt = cb = 0;

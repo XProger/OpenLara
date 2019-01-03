@@ -223,6 +223,9 @@ struct ShaderCache {
     void bind(Core::Pass pass, Shader::Type type, int fx) {
         Core::pass = pass;
 
+        if (Core::support.clipDist)
+            fx &= ~ShaderCache::FX_CLIP_PLANE;
+
         Shader *shader = getShader(pass, type, fx);
         if (shader)
             shader->setup();

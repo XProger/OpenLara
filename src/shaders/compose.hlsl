@@ -12,7 +12,7 @@ struct VS_OUTPUT {
 	float4 light	: TEXCOORD7;
 	float4 lightProj : TEXCOORD8;
 #ifdef _GAPI_GXM
-	//float  clipDist  : CLP0;
+	float  clipDist  : CLP0;
 #endif
 };
 
@@ -129,9 +129,17 @@ VS_OUTPUT main(VS_INPUT In) {
 	}
 
 	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
-Out.lightProj = mul(uLightProj, float4(Out.coord, 1.0));
+	Out.lightProj = mul(uLightProj, float4(Out.coord, 1.0));
+/*
+	if (TYPE_ROOM) {
+		float3 lightVec = uLightPos[0].xyz - Out.coord;
+		if (dot(Out.normal.xyz, lightVec) < 0.0) {
+			Out.lightProj.w = -1.0;
+		}
+	}
+*/
 #ifdef _GAPI_GXM
-	//Out.clipDist = uParam.w - Out.viewVec.w;
+	Out.clipDist = uParam.w - Out.viewVec.w;
 #endif
 	
 	return Out;
@@ -141,23 +149,24 @@ Out.lightProj = mul(uLightProj, float4(Out.coord, 1.0));
 
 float SHADOW(float2 p) {
 	#ifdef SHADOW_DEPTH
-		return tex2D(sShadow, p).x;
+		return tex2Dlod(sShadow, float4(p, 0, 0)).x;
 	#else
-		return unpack(tex2D(sShadow, p));
+		return unpack(tex2Dlod(sShadow, float4(p, 0, 0)));
 	#endif
 }
 
 float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
+/*
 	float sMin = min(lightProj.x, lightProj.y);
 	float sMax = max(lightProj.x, lightProj.y);
-	
-	//float vis = lightProj.w;
-	//if (TYPE_ROOM) {
-	//	vis = min(vis, dot(normal, lightVec));
-	//}
-	//sMin = min(vis, sMin);
-	
-	float factor = step(0.0, lightProj.w); //((sMin > 0.0f) && (sMax < lightProj.w));
+	float vis = lightProj.w;
+	if (TYPE_ROOM) {
+		vis = min(vis, dot(normal, lightVec));
+	}
+	sMin = min(vis, sMin);
+*/
+	float factor = step(0.0, lightProj.w); //float((sMin > 0.0f) && (sMax < lightProj.w)); // 
+	lightProj.xyz *= factor;
 
 #ifdef _GAPI_GXM
 	lightProj.z += SHADOW_CONST_BIAS * SHADOW_TEXEL.x * lightProj.w;
@@ -182,7 +191,7 @@ float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
 	float rShadow = lerp(samples.x, samples.y, f.y);
 #endif
 
-	rShadow = lerp(1.0, rShadow, factor);
+	//rShadow = lerp(1.0, rShadow, factor);
 	
 	float fade = saturate(dot(lightVec, lightVec));
 	return rShadow + (1.0 - rShadow) * fade;
@@ -207,7 +216,7 @@ float getContactAO(float3 p, float3 n) {
 
 float calcCaustics(float3 coord, float3 n) {
 	float2 cc = saturate((coord.xz - uRoomSize.xy) / uRoomSize.zw);
-	return tex2D(sReflect, float2(cc.x, 1.0 - cc.y)).x * max(0.0, -n.y);
+	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y);
 }
 
 float calcSpecular(float3 normal, float3 viewVec, float3 lightVec, float intensity) {
@@ -219,14 +228,6 @@ float calcSpecular(float3 normal, float3 viewVec, float3 lightVec, float intensi
 
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float2 uv = In.texCoord.xy;
-
-#ifndef _GAPI_GXM
-	if (CLIP_PLANE) {
-		if (In.viewVec.w > uParam.w) {
-			discard;
-		}
-	}
-#endif
 
 	if (!TYPE_SPRITE) {
 		uv /= In.texCoord.zw;
@@ -245,6 +246,14 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 				discard;
 		}
 	}
+
+#ifndef _GAPI_GXM
+	if (CLIP_PLANE) {
+		if (In.viewVec.w > uParam.w) {
+			discard;
+		}
+	}
+#endif
 
 	color *= In.diffuse;
 

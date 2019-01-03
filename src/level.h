@@ -339,9 +339,12 @@ struct Level : IGame {
 
     void initShadow() {
         delete shadow;
-        if (Core::settings.detail.shadows > Core::Settings::LOW)
-            shadow = new Texture(SHADOW_TEX_WIDTH, SHADOW_TEX_HEIGHT, FMT_SHADOW, OPT_TARGET);
-        else
+        if (Core::settings.detail.shadows > Core::Settings::LOW) {
+            if (level.isTitle())
+                shadow = new Texture(32, 32, FMT_SHADOW); // init dummy shadow map
+            else
+                shadow = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, FMT_SHADOW, OPT_TARGET);
+        } else
             shadow = NULL;
     }
 
@@ -551,6 +554,7 @@ struct Level : IGame {
         Core::whiteTex->bind(sMask);
         Core::whiteTex->bind(sReflect);
         Core::whiteCube->bind(sEnvironment);
+        if (shadow) shadow->bind(sShadow);
         Core::basis.identity();
     }
 
@@ -846,6 +850,8 @@ struct Level : IGame {
         needRedrawTitleBG = false;
         needRedrawReflections = true;
 
+        initShadow();
+
         if (!(lastTitle = level.isTitle())) {
             ASSERT(players[0] != NULL);
             player = players[0];
@@ -859,8 +865,6 @@ struct Level : IGame {
                 AmbientCache::Cube cube;
                 ambientCache->getAmbient(players[0]->getRoomIndex(), players[0]->pos, cube); // add to queue
             }
-
-            initShadow();
 
             for (int i = 0; i < level.soundSourcesCount; i++) {
                 TR::SoundSource &src = level.soundSources[i];

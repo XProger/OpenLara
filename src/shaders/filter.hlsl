@@ -33,7 +33,7 @@ float4 downsample(float2 uv) { // uParam (1 / textureSize, unused, unused, unuse
 	for (float y = -1.5; y < 2.0; y++) {
 		for (float x = -1.5; x < 2.0; x++) {
 			float4 p;
-			p.xyz  = tex2D(sDiffuse, uv + float2(x, y) * uParam.x).xyz;
+			p.xyz  = tex2Dlod(sDiffuse, float4(uv + float2(x, y) * uParam.x, 0, 0)).xyz;
 			p.w    = dot(p.xyz, float3(0.299, 0.587, 0.114));
 			p.xyz *= p.w;
 			color += p;

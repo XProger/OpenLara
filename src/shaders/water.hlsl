@@ -182,7 +182,7 @@ float4 rays(VS_OUTPUT In, float2 pixelCoord) {
 	float3 p0 = uViewPos.xyz - viewVec * t;
 	float3 p1 = In.coord.xyz;
 
-	float dither = tex2D(sMask, pixelCoord * (1.0 / 8.0)).x;
+	float dither = tex2Dlod(sMask, float4(pixelCoord * (1.0 / 8.0), 0, 0)).x;
 	
 	float3 delta = (p1 - p0) / RAY_STEPS;
 	float3 pos	= p0 + delta * dither;
@@ -191,7 +191,7 @@ float4 rays(VS_OUTPUT In, float2 pixelCoord) {
 	for (float i = 0.0; i < RAY_STEPS; i++) {
 		float3 wpos = (pos - uPosScale[0].xyz) / uPosScale[1].xyz;
 		float2 tc = wpos.xz * 0.5 + 0.5;
-		float light = tex2D(sReflect, tc).x;
+		float light = tex2Dlod(sReflect, float4(tc, 0, 0)).x;
 		sum += light * (1.0 - (clamp(wpos.y, -1.0, 1.0) * 0.5 + 0.5));
 		pos += delta;
 	}
@@ -234,15 +234,15 @@ float4 compose(VS_OUTPUT In) {
 	dist *= step(In.coord.y, uViewPos.y);
 	color.xyz *= lerp(float3(1.0, 1.0, 1.0), UNDERWATER_COLOR, clamp(dist * WATER_COLOR_DIST, 0.0, 2.0));
 	float fog = saturate(1.0 / exp(dist * WATER_FOG_DIST));
-	color.xyz = lerp(UNDERWATER_COLOR * 0.2, color.xyz, fog);	
-    return float4(tex2D(sReflect, tc.xy).xyz, 1.0); // color
+	color.xyz = lerp(UNDERWATER_COLOR * 0.2, color.xyz, fog);
+	return color;
 }
 
-#ifndef _GAPI_GXM
-float4 main(VS_OUTPUT In, float4 pixelCoord: VPOS) : COLOR0 {
-#else
+#ifdef _GAPI_GXM
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float2 pixelCoord = float2(__pixel_x(), __pixel_y());
+#else
+float4 main(VS_OUTPUT In, float4 pixelCoord: VPOS) : COLOR0 {
 #endif
 	if (WATER_DROP)
 		return drop(In);
