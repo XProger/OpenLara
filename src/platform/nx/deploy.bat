@@ -1,0 +1,1 @@
+C:\devkitPro\tools\bin\nxlink.exe -a 192.168.1.46 OpenLara.nro

@@ -24,7 +24,7 @@
 #else
     //#define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); }
     #define ASSERT(expr)
-    #define ASSERTV(expr) (expr) ? 0 : 1
+    #define ASSERTV(expr) (expr)
 
     #ifdef _OS_LINUX
         #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
