@@ -93,6 +93,7 @@ void sndFree() {
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
+NWindow    *window;
 
 bool eglInit() {
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -125,7 +126,10 @@ bool eglInit() {
     if (eglChooseConfig(display, eglAttr, &config, 1, &configCount) == EGL_FALSE)
         return false;
 
-    surface = eglCreateWindowSurface(display, config, (char*)"", NULL);
+    window = nwindowGetDefault();
+    nwindowSetDimensions(window, 1920, 1080);
+
+    surface = eglCreateWindowSurface(display, config, (EGLNativeWindowType)window, NULL);
 
     if (surface == EGL_NO_SURFACE)
         return false;
@@ -149,6 +153,19 @@ void eglFree() {
     eglDestroyContext(display, context);
     eglTerminate(display);
     eglReleaseThread();
+}
+
+void configureResolution() {
+    if (appletGetOperationMode() == AppletOperationMode_Docked) {
+        Core::width  = 1920;
+        Core::height = 1080;
+    } else {
+        Core::width  = 1280;
+        Core::height = 720;
+    }
+
+    nwindowSetCrop(window, 0, 0, Core::width, Core::height);
+    Core::y = 1080 - Core::height;
 }
 
 // Input
@@ -176,7 +193,7 @@ void joySplit(bool split) {
         hidSetNpadJoyAssignmentModeDual(CONTROLLER_PLAYER_2);
         hidMergeSingleJoyAsDualJoy(CONTROLLER_PLAYER_1, CONTROLLER_PLAYER_2);
 
-        if (Game::level && Game::level.players[1]) {
+        if (Game::level && Game::level->players[1]) {
             Game::level->addPlayer(1); // add existing player == remove player
         }
     }
@@ -291,6 +308,7 @@ int main(int argc, char* argv[]) {
         touchUpdate();
 
         if (Game::update()) {
+            configureResolution();
             Game::render();
             Core::waitVBlank();
             eglSwapBuffers(display, surface);
