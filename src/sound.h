@@ -72,7 +72,9 @@ namespace Sound {
             float   out;
 
             float process(float x, float gain, float damping) {
-                return out = out * damping + x * gain * (1.0f - damping);
+                out = out * damping + x * gain * (1.0f - damping);
+                if (out < EPS) out = 0.0f;
+                return out;
             }
         };
 
@@ -99,6 +101,9 @@ namespace Sound {
                         panCoeff[i][1] = panCoeff[i + 1][1] =  k;
                 }
 
+                memset(df, 0, sizeof(df));
+                memset(af, 0, sizeof(af));
+
                 setRoomSize(vec3(1.0f));
             }
 
@@ -120,8 +125,8 @@ namespace Sound {
 
                 for (int i = 0; i < count; i++) {
                     FrameHI &frame = frames[i];
-                    float L   = frame.L * (1.0f / 32768.0f);
-                    float R   = frame.R * (1.0f / 32768.0f);
+                    float L   = frame.L * (1.0f / 32767.0f);
+                    float R   = frame.R * (1.0f / 32767.0f);
                     float in  = (L + R) * 0.5f;
                     float out = 0.0f;
 
@@ -137,14 +142,13 @@ namespace Sound {
                 // apply pan
                     for (int j = 0; j < MAX_FDN; j++) {
                         output[j] = out - buffer[(j + MAX_FDN - 1) % MAX_FDN];
-                        if (output[j] < EPS)
-                            output[j] = 0.0f;
+                        if (output[j] < EPS) output[j] = 0.0f;
                         L += buffer[j] * panCoeff[j][0];
                         R += buffer[j] * panCoeff[j][1];
                     }
 
-                    frame.L = int(L * 32768.0f);
-                    frame.R = int(R * 32768.0f);
+                    frame.L = int(L * 32767.0f);
+                    frame.R = int(R * 32767.0f);
                 }
             }
         };
@@ -635,14 +639,19 @@ namespace Sound {
         stb_vorbis       *ogg;
         stb_vorbis_alloc alloc;
 
+        uint8 *data;
+
         OGG(Stream *stream, int channels) : Decoder(stream, channels, 0), ogg(NULL) {
             char buf[255];
             strcpy(buf, contentDir);
             strcat(buf, stream->name);
 
+            data = new uint8[stream->size];
+            stream->raw(data, stream->size);
+
             alloc.alloc_buffer_length_in_bytes = 256 * 1024;
             alloc.alloc_buffer = new char[alloc.alloc_buffer_length_in_bytes];
-            ogg = stb_vorbis_open_filename(buf, NULL, &alloc);
+            ogg = stb_vorbis_open_memory(data, stream->size, NULL, &alloc);
             ASSERT(ogg);
             stb_vorbis_info info = stb_vorbis_get_info(ogg);
             this->channels = info.channels;
@@ -652,6 +661,7 @@ namespace Sound {
         virtual ~OGG() {
             stb_vorbis_close(ogg);
             delete[] alloc.alloc_buffer;
+            delete[] data;
         }
 
         virtual int decode(Frame *frames, int count) {
@@ -946,8 +956,8 @@ namespace Sound {
 
     void convFrames(FrameHI *from, Frame *to, int count) {
         for (int i = 0; i < count; i++) {
-            to[i].L = clamp(from[i].L, -32768, 32767);
-            to[i].R = clamp(from[i].R, -32768, 32767);
+            to[i].L = clamp(from[i].L, -32767, 32767);
+            to[i].R = clamp(from[i].R, -32767, 32767);
         }
     }
 

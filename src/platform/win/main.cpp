@@ -121,8 +121,7 @@ InputKey mouseToInputKey(int msg) {
 }
 
 // joystick
-typedef struct _XINPUT_GAMEPAD
-{
+typedef struct _XINPUT_GAMEPAD {
     WORD                                wButtons;
     BYTE                                bLeftTrigger;
     BYTE                                bRightTrigger;
@@ -132,14 +131,12 @@ typedef struct _XINPUT_GAMEPAD
     SHORT                               sThumbRY;
 } XINPUT_GAMEPAD, *PXINPUT_GAMEPAD;
 
-typedef struct _XINPUT_STATE
-{
+typedef struct _XINPUT_STATE {
     DWORD                               dwPacketNumber;
     XINPUT_GAMEPAD                      Gamepad;
 } XINPUT_STATE, *PXINPUT_STATE;
 
-typedef struct _XINPUT_VIBRATION
-{
+typedef struct _XINPUT_VIBRATION {
     WORD                                wLeftMotorSpeed;
     WORD                                wRightMotorSpeed;
 } XINPUT_VIBRATION, *PXINPUT_VIBRATION;
@@ -354,10 +351,16 @@ char *sndData;
 HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 2, 44100, 44100 * 4, 4, 16, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
+HANDLE  sndThread;
+HANDLE  sndSema;
 
 void sndFree() {
     if (!sndReady) return;
     sndReady = false;
+    ReleaseSemaphore(sndSema, 1, NULL);
+    WaitForSingleObject(sndThread, INFINITE);
+    CloseHandle(sndThread);
+    CloseHandle(sndSema);
     waveOutUnprepareHeader(waveOut, &waveBuf[0], sizeof(WAVEHDR));
     waveOutUnprepareHeader(waveOut, &waveBuf[1], sizeof(WAVEHDR));
     waveOutReset(waveOut);
@@ -365,24 +368,43 @@ void sndFree() {
     delete[] sndData;
 }
 
-void sndFill(HWAVEOUT waveOut, LPWAVEHDR waveBuf) {
+DWORD WINAPI sndPrep(void* arg) {
+    int idx = 0;
+    while (1) {
+        WaitForSingleObject(sndSema, INFINITE);
+        if (!sndReady) break;
+
+        WAVEHDR *hdr = waveBuf + idx;
+        waveOutUnprepareHeader(waveOut, hdr, sizeof(WAVEHDR));
+        Sound::fill((Sound::Frame*)hdr->lpData, SND_SIZE / 4);
+        waveOutPrepareHeader(waveOut, hdr, sizeof(WAVEHDR));
+        waveOutWrite(waveOut, hdr, sizeof(WAVEHDR));
+
+        idx ^= 1;
+    }
+    return 0;
+}
+
+void sndFill(HWAVEOUT waveOut, LPWAVEHDR waveBufPrev) {
     if (!sndReady) return;
-    waveOutUnprepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
-    Sound::fill((Sound::Frame*)waveBuf->lpData, SND_SIZE / 4);
-    waveOutPrepareHeader(waveOut, waveBuf, sizeof(WAVEHDR));
-    waveOutWrite(waveOut, waveBuf, sizeof(WAVEHDR));
+    ReleaseSemaphore(sndSema, 1, NULL);
 }
 
 void sndInit(HWND hwnd) {
     if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hwnd, 0, CALLBACK_WINDOW) == MMSYSERR_NOERROR) {
         sndReady = true;
         sndData  = new char[SND_SIZE * 2];
+        memset(sndData, 0, SND_SIZE * 2);
         memset(&waveBuf, 0, sizeof(waveBuf));
         for (int i = 0; i < 2; i++) {
-            waveBuf[i].dwBufferLength = SND_SIZE;
-            waveBuf[i].lpData = sndData + SND_SIZE * i;
-            sndFill(waveOut, &waveBuf[i]);
+            WAVEHDR *hdr = waveBuf + i;
+            hdr->dwBufferLength = SND_SIZE;
+            hdr->lpData = sndData + SND_SIZE * i;
+            waveOutPrepareHeader(waveOut, hdr, sizeof(WAVEHDR));
+            waveOutWrite(waveOut, hdr, sizeof(WAVEHDR));
         }
+        sndSema   = CreateSemaphore(NULL, 0, 2, NULL);
+        sndThread = CreateThread(NULL, 0, sndPrep, NULL, 0, NULL);
     } else {
         sndReady = false;
         sndData  = NULL;
@@ -775,7 +797,7 @@ int main(int argc, char** argv) {
                 ContextSwap();
             }
             #ifdef _DEBUG
-                Sleep(20);
+                Sleep(10);
             #endif
         }
     };
