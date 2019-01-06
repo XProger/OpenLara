@@ -957,7 +957,7 @@ struct WaterCache {
         // render reflections frame
             float sign = underwater ? -1.0f : 1.0f;
             game->setClipParams(sign, waterLevel * sign);
-            game->renderView(TR::NO_ROOM, false, false, roomsCount, roomsList);
+            game->renderView(TR::NO_ROOM, false, roomsCount, roomsList);
         }
 
         game->setClipParams(1.0f, NO_CLIP_PLANE);

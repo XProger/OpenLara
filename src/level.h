@@ -574,7 +574,7 @@ struct Level : IGame {
             Core::pass = pass;
             Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
-            renderView(rIndex, false, false);
+            renderView(rIndex, false);
         }
 
         Core::pass = tmpPass;
@@ -2070,7 +2070,7 @@ struct Level : IGame {
         Core::fogParams = oldFog;
     }
 
-    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {
+    virtual void renderView(int roomIndex, bool water, int roomsCount = 0, int *roomsList = NULL) {
         PROFILE_MARKER("VIEW");
 
         if (water && waterCache)
@@ -2174,9 +2174,6 @@ struct Level : IGame {
             waterCache->blitTexture(screen);
         }
 
-        if (showUI)
-            renderUI();
-
         Core::pass = pass;
     }
 
@@ -2225,7 +2222,7 @@ struct Level : IGame {
         camera->frustum->calcPlanes(Core::mViewProj);
 
         setup();
-        renderView(roomIndex, false, false);
+        renderView(roomIndex, false);
     }
 /*
     void renderShadowEntity(int index, Controller *controller, Controller *player) {
@@ -2597,12 +2594,13 @@ struct Level : IGame {
         
         if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
             switch (eye) {
-                case -1 : vp = Viewport(vX + vp.x - vp.x / 2, vY + vp.y, vp.width / 2, vp.height);      break;
+                case -1 : vp = Viewport(vX + vp.x - vp.x / 2, vY + vp.y, vp.width / 2, vp.height);   break;
                 case +1 : vp = Viewport(vX + vW / 2 + vp.x / 2, vY + vp.y, vp.width / 2, vp.height); break;
             }
         }
 
         Core::eye = float(eye);
+        Core::setViewport(vp.x, vp.y, vp.width, vp.height);
 
         if (isUI)
             UI::updateAspect(aspect);
@@ -2684,14 +2682,14 @@ struct Level : IGame {
                 Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye = -1.0f;
                 setup();
-                renderView(camera->getRoomIndex(), true, false);
+                renderView(camera->getRoomIndex(), true);
 
                 Core::defaultTarget = Core::eyeTex[1];
                 Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
                 Core::setTarget(NULL, CLEAR_ALL);
                 Core::eye =  1.0f;
                 setup();
-                renderView(camera->getRoomIndex(), true, false);
+                renderView(camera->getRoomIndex(), true);
 
                 Core::settings.detail.vr = false;
 
@@ -2705,18 +2703,47 @@ struct Level : IGame {
 
                 setViewport(view, -1, false);
                 setup();
-                renderView(camera->getRoomIndex(), true, showUI);
+                renderView(camera->getRoomIndex(), true);
 
                 setViewport(view,  1, false);
                 setup();
-                renderView(camera->getRoomIndex(), true, showUI);
+                renderView(camera->getRoomIndex(), true);
 
                 Core::eye = oldEye;
             } else {
                 setViewport(view, int(Core::eye), false);
                 setup();
-                renderView(camera->getRoomIndex(), true, showUI);
+                renderView(camera->getRoomIndex(), true);
             }
+        }
+
+        if (showUI) {
+            Core::Pass pass = Core::pass;
+
+            for (int view = 0; view < viewsCount; view++) {
+                player = players[view];
+                camera = player->camera;
+
+                setClipParams(1.0f, NO_CLIP_PLANE);
+                params->waterHeight = params->clipHeight;
+
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
+                    float oldEye = Core::eye;
+
+                    setViewport(view, -1, false);
+                    renderUI();
+
+                    setViewport(view, 1, false);
+                    renderUI();
+
+                    Core::eye = oldEye;
+                } else {
+                    setViewport(view, int(Core::eye), false);
+                    renderUI();
+                }
+            }
+
+            Core::pass = pass;
         }
 
         Core::viewportDef = vp;
