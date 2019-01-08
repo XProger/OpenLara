@@ -4,6 +4,7 @@ R"====(
 	precision highp float;
 #endif
 
+#define MAX_LIGHTS			4
 #define WATER_FOG_DIST		(1.0 / (1024.0 * 6.0))
 #define WATER_COLOR_DIST	(1.0 / (2.0 * 1024.0))
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
@@ -21,7 +22,7 @@ varying vec3 vLightVec;
 
 uniform vec4  uViewPos;
 uniform mat4  uViewProj;
-uniform vec4  uLightPos;
+uniform vec4  uLightPos[MAX_LIGHTS];
 uniform vec4  uPosScale[2];
 
 uniform vec4  uTexParam;
@@ -76,7 +77,7 @@ uniform sampler2D sNormal;
 			#endif
 		#endif
 		vViewVec  = uViewPos.xyz - vCoord.xyz;
-		vLightVec = uLightPos.xyz - vCoord.xyz;
+		vLightVec = uLightPos[0].xyz - vCoord.xyz;
 	}
 #else
 	uniform sampler2D sDiffuse;

@@ -587,7 +587,7 @@ namespace Core {
         int tFrame;
     #endif
 
-        Stats() : frame(0), fps(0), frameIndex(0), fpsTime(0) {}
+        Stats() : frame(0), frameIndex(0), fps(0), fpsTime(0) {}
 
         void start() {
             dips = tris = rt = cb = 0;
