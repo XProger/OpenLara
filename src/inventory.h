@@ -1857,7 +1857,7 @@ struct Inventory {
 
         setupCamera(aspect);
 
-        UI::setupInventoryShading();
+        UI::setupInventoryShading(vec3(0.0f));
 
         renderPage(page);
         if (page != targetPage)

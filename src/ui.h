@@ -634,7 +634,7 @@ namespace UI {
         pickups.push(item);
     }
 
-    void setupInventoryShading() {
+    void setupInventoryShading(vec3 offset) {
         Core::mView.identity();
         Core::mProj = GAPI::perspective(1.0f, 1.0f, 1.0f, 2.0f);
         Core::mLightProj = Core::mProj * Core::mView;
@@ -642,17 +642,19 @@ namespace UI {
         game->setShader(Core::passCompose, Shader::ENTITY, false, false);
         Core::setMaterial(1.0f, 0.0f, 0.0f, 1.0f);
 
+        vec4 o = vec4(offset, 0.0f);
+
         // center
-        Core::lightPos[0]   = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        Core::lightPos[0]   = vec4(0.0f, 0.0f, 0.0f, 0.0f) + o;
         Core::lightColor[0] = vec4(0.4f, 0.4f, 0.4f, 1.0f / 2048.0f);
         // camera view
-        Core::lightPos[1]   = vec4(0.0f, 0.0f, -2048.0f, 0.0f);
+        Core::lightPos[1]   = vec4(0.0f, 0.0f, -2048.0f, 0.0f) + o;
         Core::lightColor[1] = vec4(0.9f, 0.9f, 0.9f, 1.0f / 2048.0f);
         // left
-        Core::lightPos[2]   = vec4(-1536.0f,  256.0f, 0.0f, 0.0f);
+        Core::lightPos[2]   = vec4(-1536.0f,  256.0f, 0.0f, 0.0f) + o;
         Core::lightColor[2] = vec4(0.8f, 0.8f, 0.5f, 1.0f / 4096.0f);
         // right
-        Core::lightPos[3]   = vec4( 1536.0f, -256.0f, 0.0f, 0.0f);
+        Core::lightPos[3]   = vec4( 1536.0f, -256.0f, 0.0f, 0.0f) + o;
         Core::lightColor[3] = vec4(0.8f, 0.6f, 0.8f, 1.0f / 4096.0f);
 
         Core::updateLights();
@@ -670,7 +672,9 @@ namespace UI {
         mat4 mView = Core::mView;
         Core::mView.scale(vec3(0.5f));
         Core::setViewProj(Core::mView, Core::mProj);
-        setupInventoryShading();
+
+        vec3 lightOffset = vec3(UI::width - 64.0f, UI::height - 64.0f, 2048.0f);
+        setupInventoryShading(lightOffset);
 
         Basis joints[MAX_SPHERES];
 
