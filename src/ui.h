@@ -507,6 +507,9 @@ namespace UI {
     }
 
     void deinit() {
+        for (int i = 0; i < pickups.length; i++) {
+            delete pickups[i].animation;
+        }
         pickups.clear();
     }
 

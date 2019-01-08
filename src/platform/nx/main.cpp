@@ -95,6 +95,20 @@ EGLSurface surface;
 EGLContext context;
 NWindow    *window;
 
+void configureResolution() {
+    if (appletGetOperationMode() == AppletOperationMode_Docked) {
+        Core::width = 1920;
+        Core::height = 1080;
+    }
+    else {
+        Core::width = 1280;
+        Core::height = 720;
+    }
+
+    int offset = 1080 - Core::height;
+    nwindowSetCrop(window, 0, offset, Core::width, Core::height + offset);
+}
+
 bool eglInit() {
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (display == EGL_NO_DISPLAY)
@@ -144,6 +158,10 @@ bool eglInit() {
     if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE)
         return false;
 
+    configureResolution();
+    glClear(GL_COLOR_BUFFER_BIT);
+    eglSwapBuffers(display, surface);
+
     return true;
 }
 
@@ -153,19 +171,6 @@ void eglFree() {
     eglDestroyContext(display, context);
     eglTerminate(display);
     eglReleaseThread();
-}
-
-void configureResolution() {
-    if (appletGetOperationMode() == AppletOperationMode_Docked) {
-        Core::width  = 1920;
-        Core::height = 1080;
-    } else {
-        Core::width  = 1280;
-        Core::height = 720;
-    }
-
-    int offset = 1080 - Core::height;
-    nwindowSetCrop(window, 0, offset, Core::width, Core::height + offset);
 }
 
 // Input
