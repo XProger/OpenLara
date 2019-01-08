@@ -511,6 +511,10 @@ struct Level : IGame {
             Core::lightColor[3] = vec4(0, 0, 0, 1);
         }
 
+        if (type == Shader::SPRITE) {
+            alphaTest = true;
+        }
+
         setShader(Core::pass, type, room.flags.water, alphaTest);
 
         if (room.flags.water) {

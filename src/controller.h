@@ -1351,6 +1351,9 @@ struct Controller {
        
         updateJoints();
 
+        int towardPart = rand() % model->mCount;
+        vec3 laraPos = game->getLara(pos)->pos;
+
         int roomIndex = getRoomIndex();
         for (int i = 0; i < model->mCount; i++) {
             if (!(mask & (1 << i)))
@@ -1358,6 +1361,10 @@ struct Controller {
             explodeMask |= (1 << i);
             float angle = randf() * PI * 2.0f;
             vec2  speed = vec2(randf(), -randf()) * (getEntity().type == TR::Entity::ENEMY_GIANT_MUTANT ? 256.0f : 128.0f);
+
+            if ((rand() % 4) == 0) {
+                angle = (laraPos - joints[i].pos).angleY();
+            }
 
             ExplodePart &part = explodeParts[i];
             part.basis     = joints[i];
