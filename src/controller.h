@@ -1351,7 +1351,6 @@ struct Controller {
        
         updateJoints();
 
-        int towardPart = rand() % model->mCount;
         vec3 laraPos = game->getLara(pos)->pos;
 
         int roomIndex = getRoomIndex();
