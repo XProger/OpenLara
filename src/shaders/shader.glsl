@@ -214,7 +214,7 @@ uniform vec4 uFogParams;
 				vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
 				#ifdef UNDERWATER
-					light.x *= abs(sin(dot(coord.xyz, vec3(1.0 / 512.0)) + uParam.x)) * 1.5 + 0.5;
+					light.x *= 0.5 + abs(sin(dot(coord.xyz, vec3(1.0 / 1024.0)) + uParam.x)) * 0.75;
 				#endif
 
 				vec3 ambient;
@@ -485,7 +485,7 @@ uniform vec4 uFogParams;
 
 					color.xyz *= light;
 
-					#ifdef TYPE_ENTITY
+					#if defined(TYPE_ENTITY) && defined(OPT_UNDERWATER_FOG)
 						float specular = calcSpecular(normal, vViewVec.xyz, vLightVec, uLightColor[0], rSpecular);
 						#ifdef UNDERWATER
 							specular *= (1.0 - uwSign);
@@ -493,16 +493,21 @@ uniform vec4 uFogParams;
 						color.xyz += specular;
 					#endif
 
-					#if defined(UNDERWATER) && defined(OPT_UNDERWATER_FOG)
-						float dist;
-						if (uViewPos.y < uParam.y)
-							dist = abs((vCoord.y - uParam.y) / normalize(uViewPos.xyz - vCoord.xyz).y);
-						else
-							dist = length(uViewPos.xyz - vCoord.xyz);
-						float fog = clamp(1.0 / exp(dist * WATER_FOG_DIST * uwSign), 0.0, 1.0);
-						dist += vCoord.y - uParam.y;
-						color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * WATER_COLOR_DIST * uwSign, 0.0, 2.0));
-						color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
+					#ifdef UNDERWATER
+						#ifdef OPT_UNDERWATER_FOG
+							float dist;
+							if (uViewPos.y < uParam.y)
+								dist = abs((vCoord.y - uParam.y) / normalize(uViewPos.xyz - vCoord.xyz).y);
+							else
+								dist = length(uViewPos.xyz - vCoord.xyz);
+							float fog = clamp(1.0 / exp(dist * WATER_FOG_DIST * uwSign), 0.0, 1.0);
+							dist += vCoord.y - uParam.y;
+							color.xyz *= mix(vec3(1.0), UNDERWATER_COLOR, clamp(dist * WATER_COLOR_DIST * uwSign, 0.0, 2.0));
+							color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
+						#else
+							color.xyz = mix(color.xyz, color.xyz * UNDERWATER_COLOR, uwSign);
+							color.xyz = mix(uFogParams.xyz, color.xyz, vNormal.w);
+						#endif
 					#else
 						color.xyz = mix(uFogParams.xyz, color.xyz, vNormal.w);
 					#endif
