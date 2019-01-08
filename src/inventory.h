@@ -1143,7 +1143,7 @@ struct Inventory {
         ControlKey key = cMAX;
         if (Input::down[ikCtrl] || Input::down[ikEnter] || Input::lastState[playerIndex] == cAction || joy.down[jkA])
             key = cAction;
-        else if (Input::down[ikAlt]   || joy.down[jkB]     || Input::lastState[playerIndex] == cInventory)
+        else if (Input::down[ikAlt]   || joy.down[jkB])
             key = cInventory;
         else if (Input::down[ikLeft]  || joy.down[jkLeft]  || joy.L.x < -0.5f || joyMain.down[jkLeft]  || joyMain.L.x < -0.5f)
             key = cLeft;
@@ -1153,6 +1153,18 @@ struct Inventory {
             key = cUp;
         else if (Input::down[ikDown]  || joy.down[jkDown]  || joy.L.y >  0.5f)
             key = cDown;
+
+        #ifdef _OS_NX
+        // swap A/B keys for Nintendo (Japanese) UX style
+            if (key == cAction) {
+                key = cInventory;
+            } else if (key == cInventory) {
+                key = cAction;
+            }
+        #endif
+
+        if (Input::lastState[playerIndex] == cInventory)
+            key = cInventory;
 
         Item *item = items[getGlobalIndex(page, index)];
 
@@ -1940,10 +1952,18 @@ struct Inventory {
         if (page == targetPage && Input::touchTimerVis <= 0.0f) {
             float dx = 32.0f - eye;
             char buf[64];
-            sprintf(buf, STR[STR_HELP_SELECT], STR[STR_KEY_FIRST + ikEnter] );
+            const char *bSelect = STR[STR_KEY_FIRST + ikEnter];
+            const char *bBack   = STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[cInventory].key];
+
+            #ifdef _OS_NX
+                bSelect = "A";
+                bBack   = "B";
+            #endif
+
+            sprintf(buf, STR[STR_HELP_SELECT], bSelect);
             UI::textOut(vec2(dx, 480 - 64), buf, UI::aLeft, UI::width);
             if (chosen) {
-                sprintf(buf, STR[STR_HELP_BACK], STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[ cInventory ].key] );
+                sprintf(buf, STR[STR_HELP_BACK], bBack);
                 UI::textOut(vec2(0, 480 - 64), buf, UI::aRight, UI::width - dx);
             }
         }

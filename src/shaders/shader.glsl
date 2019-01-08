@@ -154,9 +154,7 @@ uniform vec4 uFogParams;
 				fog = length(vViewVec.xyz);
     			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 			#endif
-		#endif
 
-		#if defined(PASS_COMPOSE) && !defined(TYPE_FLASH)
 			vCoord = coord.xyz;
 		#endif
 		return coord;

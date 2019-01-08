@@ -1070,10 +1070,6 @@ namespace GAPI {
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
         support.clipDist       = false; // TODO
 
-        #ifdef _OS_NX
-            support.shaderBinary = false; // TODO: check GPU crash for current switchbrew mesa libs
-        #endif
-
         #ifdef PROFILE
             support.profMarker = extSupport(ext, "_KHR_debug");
             support.profTiming = extSupport(ext, "_timer_query");

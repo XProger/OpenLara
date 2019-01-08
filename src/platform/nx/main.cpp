@@ -164,8 +164,8 @@ void configureResolution() {
         Core::height = 720;
     }
 
-    nwindowSetCrop(window, 0, 0, Core::width, Core::height);
-    Core::y = 1080 - Core::height;
+    int offset = 1080 - Core::height;
+    nwindowSetCrop(window, 0, offset, Core::width, Core::height + offset);
 }
 
 // Input
@@ -294,7 +294,7 @@ int main(int argc, char* argv[]) {
     strcat(cacheDir, "/switch/OpenLara/cache/");
     strcat(saveDir, "/switch/OpenLara/");
 
-    //mkdir("/switch/OpenLara/cache/");
+    fsFsCreateDirectory(fsdevGetDefaultFileSystem(), cacheDir);
 
     startTime = osGetTime();
 

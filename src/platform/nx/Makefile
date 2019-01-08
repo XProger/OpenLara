@@ -33,10 +33,13 @@ include $(DEVKITPRO)/libnx/switch_rules
 TARGET		:=	OpenLara
 BUILD		:=	build
 SOURCES		:=	./ ./../../libs/stb_vorbis/ ./../../libs/tinf/ ./../../libs/minimp3/
-DATA		:=	data
 INCLUDES	:=	../../
 EXEFS_SRC	:=	exefs_src
 #ROMFS	:=	romfs
+
+APP_TITLE     := OpenLara
+APP_AUTHOR    := XProger
+APP_VERSION   := 1.0
 
 #---------------------------------------------------------------------------------
 # options for code generation

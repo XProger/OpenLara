@@ -136,6 +136,12 @@ namespace Game {
         Core::init();
         Sound::callback = stopChannel;
 
+        if (lvl->size == -1) {
+            delete lvl;
+            Core::quit();
+            return;
+        }
+
         Core::settings.version = SETTINGS_READING;
         Stream::cacheRead("settings", loadSettings, lvl);
         readSlots();

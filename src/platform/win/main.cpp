@@ -770,7 +770,12 @@ int main(int argc, char** argv) {
 #endif
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
-    ShowWindow(hWnd, SW_SHOWDEFAULT);
+
+    if (Core::isQuit) {
+        MessageBoxA(hWnd, "Please check the readme file first!", "Game resources not found", MB_ICONHAND);
+    } else {
+        ShowWindow(hWnd, SW_SHOWDEFAULT);
+    }
 
     MSG msg;
 
