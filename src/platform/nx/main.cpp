@@ -221,13 +221,12 @@ void joyUpdate() {
 
     hidScanInput();
 
-    u64 mDown = 0;
+    bool waitForSplit = false;
 
     for (int i = 0; i < (joyIsSplit ? 2 : 1); i++) {
         HidControllerID ctrl = (i == 0 ? CONTROLLER_P1_AUTO : CONTROLLER_PLAYER_2);
 
         u64 mask = hidKeysDown(ctrl) | hidKeysHeld(ctrl);
-        mDown |= mask;
 
         for (int j = 1; j < jkMAX; j++) {
             if (j != jkSelect && j != jkStart) {
@@ -244,13 +243,16 @@ void joyUpdate() {
         hidJoystickRead(&sR, ctrl, JOYSTICK_RIGHT);
         Input::setJoyPos(i, jkL, vec2(float(sL.dx), float(-sL.dy)) / 32767.0f);
         Input::setJoyPos(i, jkR, vec2(float(sR.dx), float(-sR.dy)) / 32767.0f);
+
+        if ((mask & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) { // hold L and R to split/merge joy-con's
+            if (joySplitTime + 1000 < osGetTime()) { // 1 sec timer
+                joySplit(!joyIsSplit);
+            }
+            waitForSplit = true;
+        } 
     }
 
-    if ((mDown & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) { // hold L and R to split/merge joy-con's
-        if (joySplitTime + 1000 < osGetTime()) { // 1 sec timer
-            joySplit(!joyIsSplit);
-        }
-    } else {
+    if (!waitForSplit) {
         joySplitTime = osGetTime();
     }
 }

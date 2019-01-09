@@ -1156,11 +1156,13 @@ struct Inventory {
 
         #ifdef _OS_NX
         // swap A/B keys for Nintendo (Japanese) UX style
+        if (Input::touchTimerVis == 0.0f) {
             if (key == cAction) {
                 key = cInventory;
             } else if (key == cInventory) {
                 key = cAction;
             }
+        }
         #endif
 
         if (Input::lastState[playerIndex] == cInventory)
