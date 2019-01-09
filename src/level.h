@@ -1090,7 +1090,7 @@ struct Level : IGame {
             case TR::Entity::CENTAUR_STATUE        : return new CentaurStatue(this, index);
             case TR::Entity::CABIN                 : return new Cabin(this, index);
             case TR::Entity::MUZZLE_FLASH          : return new MuzzleFlash(this, index);
-            case TR::Entity::LAVA_PARTICLE         : return new LavaParticle(this, index);
+            case TR::Entity::LAVA_PARTICLE         : ASSERT(false); return NULL;
             case TR::Entity::TRAP_LAVA_EMITTER     : return new TrapLavaEmitter(this, index);
             case TR::Entity::FLAME                 : return new Flame(this, index);
             case TR::Entity::TRAP_FLAME_EMITTER    : return new TrapFlameEmitter(this, index);
@@ -1638,21 +1638,29 @@ struct Level : IGame {
         if (!entity.isLara() && !entity.isActor() && !room.flags.visible)
             return;
 
-        bool isModel = entity.modelIndex > 0;
+        bool isModel;
 
-        if (isModel) {
-            if (!mesh->models[controller->getModel()->index].geometry[mesh->transparent].count) return;
+        if (entity.type != TR::Entity::TRAP_LAVA_EMITTER) {
+            isModel = entity.modelIndex > 0;
+            if (isModel) {
+                if (!mesh->models[controller->getModel()->index].geometry[mesh->transparent].count) return;
+            } else {
+                if (level.spriteSequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
+            }
         } else {
-            if (level.spriteSequences[-(entity.modelIndex + 1)].transp != mesh->transparent) return;
+            if (mesh->transparent != 2) {
+                return;
+            }
+            isModel = false;
         }
-
-        float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
 
         Shader::Type type = isModel ? Shader::ENTITY : Shader::SPRITE;
         if (entity.type == TR::Entity::CRYSTAL)
             type = Shader::MIRROR;
 
         if (isModel) { // model
+            float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
+
             setMainLight(controller);
             setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
 

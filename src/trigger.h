@@ -280,69 +280,106 @@ struct MuzzleFlash : Controller {
     }
 };
 
-
-#define LAVA_PARTICLE_DAMAGE 10
-#define LAVA_V_SPEED         -165
-#define LAVA_H_SPEED         32
-#define LAVA_EMITTER_RANGE   (1024 * 10)
-
-struct LavaParticle : Sprite {
-    int bounces;
-
-    LavaParticle(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_RANDOM), bounces(0) {
-        float speed = randf() * LAVA_H_SPEED;
-        velocity = vec3(cosf(angle.y) * speed, randf() * LAVA_V_SPEED, sinf(angle.y) * speed);
-        game->getLevel()->spriteSequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
-        activate();
-    }
-
-    virtual bool getSaveData(SaveEntity &data) {
-        return false;
-    }
-
-    virtual void update() {
-        applyGravity(velocity.y);
-        Sprite::update();
-
-        TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
-
-        bool hit = false;
-        if (!bounces) {
-            Controller *lara = game->getLara(pos);
-            if ((hit = lara->collide(Sphere(pos, 0.0f))))
-                lara->hit(LAVA_PARTICLE_DAMAGE, this);
-        }
-
-        if (hit || pos.y > info.floor || pos.y < info.ceiling) {
-            if (hit || ++bounces > 4) {
-                game->removeEntity(this);
-                return;
-            }
-            intensity = max(0.0f, 1.0f - bounces * 0.25f);
- 
-            if (pos.y > info.floor)   pos.y = info.floor;
-            if (pos.y < info.ceiling) pos.y = info.ceiling;
-
-            velocity = velocity.reflect(vec3(0, 1, 0)) * 0.5f;
-        }
-    }
-};
+#define LAVA_PARTICLE_BOUNCES 4
+#define LAVA_PARTICLE_DAMAGE  10
+#define LAVA_V_SPEED          -165
+#define LAVA_H_SPEED          32
+#define LAVA_EMITTER_RANGE    (1024 * 10)
 
 struct TrapLavaEmitter : Controller {
-    TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity) {}
+
+    struct Particle {
+        vec3  pos;
+        vec3  velocity;
+        int16 roomIndex;
+        int8  frame;
+        int8  bounces;
+
+        void update(TR::Level *level, Controller *lara) {
+            Controller::applyGravity(velocity.y);
+            pos += velocity * (30.0f * Core::deltaTime);
+
+            bool hit = false;
+            if (!bounces && lara->collide(Sphere(pos, 0.0f))) {
+                lara->hit(LAVA_PARTICLE_DAMAGE);
+                bounces = LAVA_PARTICLE_BOUNCES + 1;
+            }
+
+            TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+            float floor = level->getFloor(sector, pos);
+            float ceiling = level->getCeiling(sector, pos);
+
+            if (pos.y > floor || pos.y < ceiling) {
+                bounces++;
+
+                if (pos.y > floor)   pos.y = floor;
+                if (pos.y < ceiling) pos.y = ceiling;
+
+                velocity = velocity.reflect(vec3(0, 1, 0)) * 0.5f;
+            }
+        }
+    };
+
+    Array<Particle> particles;
+    int             spriteIndex;
+
+    TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity) {
+        spriteIndex = game->getLevel()->getModelIndex(TR::Entity::LAVA_PARTICLE);
+        if (spriteIndex) {
+            game->getLevel()->spriteSequences[-(spriteIndex + 1)].transp = 2; // fix blending mode to additive
+        }
+        particles.capacity = 128;
+    }
 
     void virtual update() {
-        vec3 d = (game->getLara()->pos - pos).abs(); // TODO: players[1]
+        if (!spriteIndex)
+            return;
+
+        Controller *lara = game->getLara();
+
+        vec3 d = (lara->pos - pos).abs();
 
         if (!isActive() || max(d.x, d.y, d.z) > LAVA_EMITTER_RANGE) return;
 
         if (timer <= 0.0f) {
-            game->addEntity(TR::Entity::LAVA_PARTICLE, getRoomIndex(), pos, PI * 2.0f * randf());
+            float speed = randf() * LAVA_H_SPEED;
+            float angle = PI * 2.0f * randf();
+
+            Particle part;
+            part.pos       = pos;
+            part.velocity  = vec3(cosf(angle) * speed, randf() * LAVA_V_SPEED, sinf(angle) * speed);
+            part.roomIndex = getRoomIndex();
+            part.bounces   = 0;
+            part.frame     = rand() % level->spriteSequences[-(spriteIndex + 1)].sCount;
+            particles.push(part);
+
             game->playSound(TR::SND_LAVA, pos, Sound::PAN);
             timer += 1.0f / 30.0f;
-        } else
+        } else {
             timer -= Core::deltaTime;
+        }
+
+        TR::Level  *level = game->getLevel();
+        for (int i = 0; i < particles.length; i++) {
+            particles[i].update(level, lara);
+            if (particles[i].bounces > LAVA_PARTICLE_BOUNCES) {
+                particles.removeFast(i);
+                i--;
+            }
+        }
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        for (int i = 0; i < particles.length; i++) {
+            Particle &part = particles[i];
+
+            uint8 intensity = clamp(int(max(0.0f, 1.0f - part.bounces * 0.25f) * 0.5f * 255.0f), 0, 255);
+            Color32 color(intensity, intensity, intensity, 255);
+
+            vec3 p = part.pos - Core::viewPos.xyz();
+
+            mesh->addDynSprite(level->spriteSequences[-(spriteIndex + 1)].sStart + part.frame, short3(int16(p.x), int16(p.y), int16(p.z)), color, color);
+        }
     }
 };
 
