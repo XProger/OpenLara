@@ -299,7 +299,6 @@ struct TrapLavaEmitter : Controller {
             Controller::applyGravity(velocity.y);
             pos += velocity * (30.0f * Core::deltaTime);
 
-            bool hit = false;
             if (!bounces && lara->collide(Sphere(pos, 0.0f))) {
                 lara->hit(LAVA_PARTICLE_DAMAGE);
                 bounces = LAVA_PARTICLE_BOUNCES + 1;
