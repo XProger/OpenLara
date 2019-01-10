@@ -1729,15 +1729,17 @@ struct Level : IGame {
         if ((Input::lastState[0] == cInventory || Input::lastState[1] == cInventory) && !level.isTitle() && inventory->titleTimer < 1.0f && !inventory->active) {
             int playerIndex = (Input::lastState[0] == cInventory) ? 0 : 1;
 
-            if (level.isCutsceneLevel()) { // skip cutscene level
-                loadNextLevel();
-                return;
-            }
+            if (getLara(playerIndex)) {
+                if (level.isCutsceneLevel()) { // skip cutscene level
+                    loadNextLevel();
+                    return;
+                }
 
-            if (player->health <= 0.0f)
-                inventory->toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
-            else
-                inventory->toggle(playerIndex);
+                if (player->health <= 0.0f)
+                    inventory->toggle(playerIndex, Inventory::PAGE_OPTION, TR::Entity::INV_PASSPORT);
+                else
+                    inventory->toggle(playerIndex);
+            }
         }
 
         bool invActive = inventory->isActive();
@@ -1769,7 +1771,9 @@ struct Level : IGame {
             return;
         }
 
-        UI::update();
+        if (!inventory->isActive()) {
+            UI::update();
+        }
 
         float volWater, volTrack;
 

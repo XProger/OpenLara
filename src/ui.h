@@ -296,6 +296,7 @@ namespace UI {
     struct PickupItem {
         float      time;
         vec2       pos;
+        int        playerIndex;
         int        modelIndex;
         Animation *animation;
     };
@@ -525,6 +526,11 @@ namespace UI {
         if (helpTipTime > 0.0f)
             helpTipTime -= Core::deltaTime;
 
+        float w = UI::width;
+        if (game->getLara(1)) {
+            w *= 0.5f;
+        }
+
         int i = 0;
         while (i < pickups.length) {
             PickupItem &item = pickups[i];
@@ -533,7 +539,7 @@ namespace UI {
                 delete item.animation;
                 pickups.remove(i);
             } else {
-                vec2 target = vec2(UI::width - 48.0f - Core::eye * 16.0f - (i % 4) * 96.0f, UI::height - 48.0f - (i / 4) * 96.0f);
+                vec2 target = vec2(w - 48.0f - Core::eye * 16.0f - (i % 4) * 96.0f, UI::height - 48.0f - (i / 4) * 96.0f);
                 item.pos = item.pos.lerp(target, Core::deltaTime * 5.0f);
                 i++;
             }
@@ -626,16 +632,17 @@ namespace UI {
     #endif
     }
 
-    void addPickup(TR::Entity::Type type, const vec2 &pos) {
+    void addPickup(TR::Entity::Type type, int playerIndex, const vec2 &pos) {
         TR::Level *level = game->getLevel();
 
         PickupItem item;
-        item.time       = PICKUP_SHOW_TIME;
-        item.pos        = pos;
-        item.modelIndex = level->getModelIndex(TR::Level::convToInv(type));
+        item.time        = PICKUP_SHOW_TIME;
+        item.pos         = pos;
+        item.playerIndex = playerIndex;
+        item.modelIndex  = level->getModelIndex(TR::Level::convToInv(type));
         if (item.modelIndex <= 0)
             return;
-        item.animation  = new Animation(level, &level->models[item.modelIndex - 1]);
+        item.animation   = new Animation(level, &level->models[item.modelIndex - 1]);
 
         pickups.push(item);
     }
@@ -689,6 +696,9 @@ namespace UI {
         MeshBuilder *mesh = game->getMesh();
         for (int i = 0; i < pickups.length; i++) {
             const PickupItem &item = pickups[i];
+
+            if (item.playerIndex != game->getCamera()->cameraIndex)
+                continue;
 
             float offset = 0.0f;
             if (item.time < 1.0f) {

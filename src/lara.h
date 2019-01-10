@@ -3118,10 +3118,13 @@ struct Lara : Character {
                         if (p.w != 0.0f) {
                             p.x = ( p.x / p.w * 0.5f + 0.5f) * UI::width;
                             p.y = (-p.y / p.w * 0.5f + 0.5f) * UI::height;
+                            if (game->getLara(1)) {
+                                p.x *= 0.5f;
+                            }
                         } else
                             p = vec4(UI::width * 0.5f, UI::height * 0.5f, 0.0f, 0.0f);
 
-                        UI::addPickup(item->getEntity().type, vec2(p.x, p.y));
+                        UI::addPickup(item->getEntity().type, camera->cameraIndex, vec2(p.x, p.y));
                         saveStats.pickups++;
                     }
                     pickupListCount = 0;

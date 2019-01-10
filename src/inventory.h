@@ -1544,10 +1544,15 @@ struct Inventory {
 
                 vec2 size = vec2(180, 10);
                 vec2 pos;
-                if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
                     pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
-                else
-                    pos = vec2(UI::width - 32 - size.x - eye, 32);
+                } else {
+                    if (game->getLara(1) && playerIndex == 0) {
+                        pos = vec2(32 - eye, 32);
+                    } else {
+                        pos = vec2(UI::width - 32 - size.x - eye, 32);
+                    }
+                }
 
                 UI::renderBar(UI::BAR_HEALTH, pos, size, health);
             }
