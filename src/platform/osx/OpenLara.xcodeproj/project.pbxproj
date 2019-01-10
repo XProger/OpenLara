@@ -8,16 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
-		99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.cpp */; };
+		523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E31DDF7AA5006FE2FC /* Cocoa.framework */; };
+		523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E51DDF926E006FE2FC /* QuartzCore.framework */; };
+		99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.mm */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
-		99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0951796A9730032DE85 /* AGL.framework */; };
-		99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0B81796AB7B0032DE85 /* Carbon.framework */; };
 		99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0931796A96F0032DE85 /* OpenGL.framework */; };
 		99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		523F97E31DDF7AA5006FE2FC /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		523F97E51DDF926E006FE2FC /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
 		99713CAE204CA3DA00006FAC /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
 		99713CAF204CA3DA00006FAC /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
@@ -64,10 +66,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */,
+				523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */,
 				99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */,
 				99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */,
-				99C4C0B91796AB7B0032DE85 /* Carbon.framework in Frameworks */,
-				99C4C0B71796AB730032DE85 /* AGL.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,7 +109,25 @@
 				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,
 				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
 				99713CC8204CAD9900006FAC /* tinflate.c */,
-				99BFB6A11DCA7F5300E2E997 /* main.cpp */,
+				99BFB69E1DCA7F1700E2E997 /* libs */,
+				99BFB6A11DCA7F5300E2E997 /* main.mm */,
+				99BFB68D1DCA7F1700E2E997 /* lara.h */,
+				99BFB68E1DCA7F1700E2E997 /* format.h */,
+				99BFB68F1DCA7F1700E2E997 /* level.h */,
+				99BFB6901DCA7F1700E2E997 /* mesh.h */,
+				99BFB6911DCA7F1700E2E997 /* debug.h */,
+				99BFB6921DCA7F1700E2E997 /* controller.h */,
+				99BFB6931DCA7F1700E2E997 /* utils.h */,
+				99BFB6941DCA7F1700E2E997 /* sound.h */,
+				99BFB6951DCA7F1700E2E997 /* camera.h */,
+				99BFB6961DCA7F1700E2E997 /* core.h */,
+				99BFB6971DCA7F1700E2E997 /* trigger.h */,
+				99BFB6981DCA7F1700E2E997 /* shader.h */,
+				99BFB6991DCA7F1700E2E997 /* shader.glsl */,
+				99BFB69A1DCA7F1700E2E997 /* input.h */,
+				99BFB69B1DCA7F1700E2E997 /* enemy.h */,
+				99BFB69C1DCA7F1700E2E997 /* game.h */,
+				99BFB69D1DCA7F1700E2E997 /* texture.h */,
 				99C4C0A31796AACF0032DE85 /* Supporting Files */,
 				99C4C0821796A8230032DE85 /* Frameworks */,
 				99C4C0811796A8230032DE85 /* Products */,
@@ -125,6 +145,8 @@
 		99C4C0821796A8230032DE85 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				523F97E51DDF926E006FE2FC /* QuartzCore.framework */,
+				523F97E31DDF7AA5006FE2FC /* Cocoa.framework */,
 				99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */,
 				99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */,
 				99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */,
@@ -207,7 +229,7 @@
 			files = (
 				99713CC9204CAD9900006FAC /* tinflate.c in Sources */,
 				99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */,
-				99BFB6A21DCA7F5300E2E997 /* main.cpp in Sources */,
+				99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */,
 				99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
