@@ -7,10 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
 		523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E31DDF7AA5006FE2FC /* Cocoa.framework */; };
 		523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E51DDF926E006FE2FC /* QuartzCore.framework */; };
-		99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A11DCA7F5300E2E997 /* main.mm */; };
+		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
+		99BF38CD21E7176900D90A38 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BF38CC21E7176900D90A38 /* main.mm */; };
+		99BF38D221E7202500D90A38 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CE21E7202500D90A38 /* audio */; };
+		99BF38D321E7202500D90A38 /* DELDATA in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CF21E7202500D90A38 /* DELDATA */; };
+		99BF38D421E7202500D90A38 /* PSXDATA in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38D021E7202500D90A38 /* PSXDATA */; };
+		99BF38D521E7202500D90A38 /* FMV in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38D121E7202500D90A38 /* FMV */; };
 		99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */; };
 		99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */; };
 		99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 99C4C0931796A96F0032DE85 /* OpenGL.framework */; };
@@ -47,8 +51,12 @@
 		99713CC5204CA3DA00006FAC /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../../ui.h; sourceTree = "<group>"; };
 		99713CC6204CA3DA00006FAC /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
 		99713CC8204CAD9900006FAC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
+		99BF38CC21E7176900D90A38 /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		99BF38CE21E7202500D90A38 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../../Desktop/OpenLara_TR1/audio; sourceTree = "<group>"; };
+		99BF38CF21E7202500D90A38 /* DELDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DELDATA; path = ../../../../Desktop/OpenLara_TR1/DELDATA; sourceTree = "<group>"; };
+		99BF38D021E7202500D90A38 /* PSXDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PSXDATA; path = ../../../../Desktop/OpenLara_TR1/PSXDATA; sourceTree = "<group>"; };
+		99BF38D121E7202500D90A38 /* FMV */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FMV; path = ../../../../Desktop/OpenLara_TR1/FMV; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
-		99BFB6A11DCA7F5300E2E997 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
 		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
 		99C4C0931796A96F0032DE85 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
@@ -79,7 +87,11 @@
 		99C4C0771796A8230032DE85 = {
 			isa = PBXGroup;
 			children = (
-				99BFB69E1DCA7F1700E2E997 /* libs */,
+				99BF38CE21E7202500D90A38 /* audio */,
+				99BF38CF21E7202500D90A38 /* DELDATA */,
+				99BF38D121E7202500D90A38 /* FMV */,
+				99BF38D021E7202500D90A38 /* PSXDATA */,
+				99BF38CC21E7176900D90A38 /* main.mm */,
 				995C97EF1E91A857003825B2 /* shaders */,
 				99713CAE204CA3DA00006FAC /* animation.h */,
 				99713CAF204CA3DA00006FAC /* cache.h */,
@@ -110,24 +122,6 @@
 				99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */,
 				99713CC8204CAD9900006FAC /* tinflate.c */,
 				99BFB69E1DCA7F1700E2E997 /* libs */,
-				99BFB6A11DCA7F5300E2E997 /* main.mm */,
-				99BFB68D1DCA7F1700E2E997 /* lara.h */,
-				99BFB68E1DCA7F1700E2E997 /* format.h */,
-				99BFB68F1DCA7F1700E2E997 /* level.h */,
-				99BFB6901DCA7F1700E2E997 /* mesh.h */,
-				99BFB6911DCA7F1700E2E997 /* debug.h */,
-				99BFB6921DCA7F1700E2E997 /* controller.h */,
-				99BFB6931DCA7F1700E2E997 /* utils.h */,
-				99BFB6941DCA7F1700E2E997 /* sound.h */,
-				99BFB6951DCA7F1700E2E997 /* camera.h */,
-				99BFB6961DCA7F1700E2E997 /* core.h */,
-				99BFB6971DCA7F1700E2E997 /* trigger.h */,
-				99BFB6981DCA7F1700E2E997 /* shader.h */,
-				99BFB6991DCA7F1700E2E997 /* shader.glsl */,
-				99BFB69A1DCA7F1700E2E997 /* input.h */,
-				99BFB69B1DCA7F1700E2E997 /* enemy.h */,
-				99BFB69C1DCA7F1700E2E997 /* game.h */,
-				99BFB69D1DCA7F1700E2E997 /* texture.h */,
 				99C4C0A31796AACF0032DE85 /* Supporting Files */,
 				99C4C0821796A8230032DE85 /* Frameworks */,
 				99C4C0811796A8230032DE85 /* Products */,
@@ -217,6 +211,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				99BF38D221E7202500D90A38 /* audio in Resources */,
+				99BF38D321E7202500D90A38 /* DELDATA in Resources */,
+				99BF38D421E7202500D90A38 /* PSXDATA in Resources */,
+				99BF38D521E7202500D90A38 /* FMV in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -227,9 +225,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				99BF38CD21E7176900D90A38 /* main.mm in Sources */,
 				99713CC9204CAD9900006FAC /* tinflate.c in Sources */,
 				99BFB6AB1DCA87C500E2E997 /* minimp3.cpp in Sources */,
-				99BFB6A21DCA7F5300E2E997 /* main.mm in Sources */,
 				99BFB6A91DCA87BF00E2E997 /* stb_vorbis.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -273,6 +271,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "-v";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -305,6 +304,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				OTHER_LDFLAGS = "-v";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -312,12 +312,14 @@
 		99C4C0B51796AAD00032DE85 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "OpenLara-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				OTHER_LDFLAGS = "--verbose";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xproger.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -327,13 +329,15 @@
 		99C4C0B61796AAD00032DE85 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "OpenLara-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				OTHER_LDFLAGS = "--verbose";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xproger.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;

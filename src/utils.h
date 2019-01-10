@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
+#include <strings.h>
 
 //#define TEST_SLOW_FIO
 
@@ -1412,7 +1413,8 @@ struct Stream {
                 if (bufferIndex != bIndex) {
                     bufferIndex = bIndex;
 
-                    int readed, part;
+                    size_t readed;
+                    int part;
 
                     if (fpos == pos) {
                         part = min(count / STREAM_BUFFER_SIZE * STREAM_BUFFER_SIZE, size - fpos);
@@ -1420,7 +1422,7 @@ struct Stream {
                             readed = fread(ptr, 1, part, f);
 
                             #ifdef TEST_SLOW_FIO
-                                LOG("%s read %d + %d\n", name, fpos, readed);
+                                LOG("%s read %d + %d\n", name, fpos, (int)readed);
                                 Sleep(5);
                             #endif
 
@@ -1594,9 +1596,7 @@ void osReadSlot(Stream *stream) {
 void* osMutexInit() {
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
-#if !defined(_OS_WEB) && !defined(_OS_IOS)
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
-#endif
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
 
     pthread_mutex_t *mutex = new pthread_mutex_t();
     pthread_mutex_init(mutex, &attr);
@@ -1804,7 +1804,7 @@ struct FixedStr {
     }
 
     FixedStr<N>& operator = (const char *str) {
-        int len = min(sizeof(data), strlen(str));
+        size_t len = min(sizeof(data), strlen(str));
         memset(data, 0, sizeof(data));
         memcpy(data, str, len);
         return *this;

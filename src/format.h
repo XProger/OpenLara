@@ -2519,10 +2519,10 @@ namespace TR {
 
                     stream.seek(-4);
                 // get file name without extension
-                    int len = strlen(stream.name);
+                    size_t len = strlen(stream.name);
                     char *name = new char[len + 1];
                     memcpy(name, stream.name, len);
-                    for (int i = len - 1; i >= 0; i--) {
+                    for (int i = int(len) - 1; i >= 0; i--) {
                         if (name[i] == '/' || name[i] == '\\')
                             break;
                         if (name[i] == '.') {
@@ -2549,7 +2549,7 @@ namespace TR {
                         cin = new Stream(name);
                     } else {
                         len = strlen(name);
-                        for (int i = len - 1; i >= 0; i--)
+                        for (int i = int(len) - 1; i >= 0; i--)
                             if (name[i] == '/' || name[i] == '\\') {
                                 char *newName = new char[len + 11 + 1];
                                 name[i] = 0;

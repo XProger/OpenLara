@@ -54,10 +54,10 @@
 #define FIXHR(a) ((int)((a) * (1LL<<32) + 0.5))
 
 #ifndef _MSC_VER
-    #define MULL(a,b) (((int64_t)(a) * (int64_t)(b)) >> FRAC_BITS)
-    #define MULH(a,b) (((int64_t)(a) * (int64_t)(b)) >> 32)
+    #define MULL(a,b) int32_t(((int64_t)(a) * (int64_t)(b)) >> FRAC_BITS)
+    #define MULH(a,b) int32_t(((int64_t)(a) * (int64_t)(b)) >> 32)
 #else
-    static INLINE int MULL(int a, int b) {
+    static INLINE int32_t MULL(int a, int b) {
         int res;
         __asm {
             mov eax, a
@@ -69,7 +69,7 @@
         }
         return res;
     }
-    static INLINE int MULH(int a, int b) {
+    static INLINE int32_t MULH(int a, int b) {
         int res;
         __asm {
             mov eax, a
@@ -1659,7 +1659,7 @@ static void compute_imdct(
         if (v != 0)
             break;
     }
-    sblimit = ((ptr - g->sb_hybrid) / 18) + 1;
+    sblimit = int((ptr - g->sb_hybrid) / 18) + 1;
 
     if (g->block_type == 2) {
         /* XXX: check for 8000 Hz */

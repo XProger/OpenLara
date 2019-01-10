@@ -670,7 +670,7 @@ namespace TR {
         if (name) {
             // skip directory path
             int start = 0;
-            for (int i = strlen(name) - 1; i >= 0; i--)
+            for (int i = int(strlen(name)) - 1; i >= 0; i--)
                 if (name[i] == '/' || name[i] == '\\') {
                     start = i + 1;
                     break;
