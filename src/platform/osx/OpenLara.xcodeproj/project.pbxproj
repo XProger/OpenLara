@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E31DDF7AA5006FE2FC /* Cocoa.framework */; };
-		523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E51DDF926E006FE2FC /* QuartzCore.framework */; };
+		9938F1A421E830250056E172 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9938F1A021E81EFE0056E172 /* IOKit.framework */; };
 		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
 		99BF38CD21E7176900D90A38 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BF38CC21E7176900D90A38 /* main.mm */; };
 		99BF38D221E7202500D90A38 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CE21E7202500D90A38 /* audio */; };
@@ -23,7 +23,7 @@
 
 /* Begin PBXFileReference section */
 		523F97E31DDF7AA5006FE2FC /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
-		523F97E51DDF926E006FE2FC /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		9938F1A021E81EFE0056E172 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
 		99713CAE204CA3DA00006FAC /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
 		99713CAF204CA3DA00006FAC /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
@@ -60,12 +60,8 @@
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
 		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };
 		99C4C0931796A96F0032DE85 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
-		99C4C0951796A9730032DE85 /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = System/Library/Frameworks/AGL.framework; sourceTree = SDKROOT; };
 		99C4C09B1796AACF0032DE85 /* OpenLara.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenLara.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "OpenLara-Info.plist"; sourceTree = "<group>"; };
-		99C4C0B81796AB7B0032DE85 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
-		99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
-		99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudioKit.framework; path = System/Library/Frameworks/CoreAudioKit.framework; sourceTree = SDKROOT; };
 		99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -74,7 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				523F97E61DDF926E006FE2FC /* QuartzCore.framework in Frameworks */,
+				9938F1A421E830250056E172 /* IOKit.framework in Frameworks */,
 				523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */,
 				99DF7BC41DCBA30B00C40D0A /* AudioToolbox.framework in Frameworks */,
 				99C4C0BA1796AB810032DE85 /* OpenGL.framework in Frameworks */,
@@ -139,14 +135,10 @@
 		99C4C0821796A8230032DE85 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				523F97E51DDF926E006FE2FC /* QuartzCore.framework */,
+				9938F1A021E81EFE0056E172 /* IOKit.framework */,
 				523F97E31DDF7AA5006FE2FC /* Cocoa.framework */,
 				99DF7BC31DCBA30B00C40D0A /* AudioToolbox.framework */,
-				99DF7BC11DCBA2D100C40D0A /* CoreAudioKit.framework */,
-				99DF7BBF1DCBA2BF00C40D0A /* CoreAudio.framework */,
-				99C4C0B81796AB7B0032DE85 /* Carbon.framework */,
 				99C4C0931796A96F0032DE85 /* OpenGL.framework */,
-				99C4C0951796A9730032DE85 /* AGL.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
