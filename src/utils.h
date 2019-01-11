@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
-#include <strings.h>
 
 //#define TEST_SLOW_FIO
 
