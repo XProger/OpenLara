@@ -279,6 +279,8 @@ void joyFree() {
     IOHIDManagerClose(hidManager, kIOHIDOptionsTypeNone);
 }
 
+NSWindow *window;
+
 @interface OpenLaraGLView : NSOpenGLView
 
 @end
@@ -349,6 +351,9 @@ void joyFree() {
 - (void)keyUp:(NSEvent *)theEvent {
     unsigned short keyCode = theEvent.keyCode;
     Input::setDown(keyToInputKey(keyCode), false);
+    if (keyCode == 36 && Input::down[ikAlt]) { // Alt + Enter
+        [window toggleFullScreen:nil];
+    }
 }
 
 - (void)flagsChanged:(NSEvent *)theEvent {
@@ -410,7 +415,7 @@ int main() {
     
     // init window
     NSRect rect = NSMakeRect(0, 0, 1280, 720);
-    NSWindow *window = [[NSWindow alloc] initWithContentRect:rect styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:YES];
+    window = [[NSWindow alloc] initWithContentRect:rect styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:YES];
     window.title = @"OpenLara";
     window.acceptsMouseMovedEvents = YES;
     window.delegate = [[OpenLaraWindowDelegate alloc] init];
@@ -430,7 +435,7 @@ int main() {
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     window.contentView = view;
     [view.openGLContext makeCurrentContext];
-    
+
     // get path to game content
     NSBundle *bundle   = [NSBundle mainBundle];
     NSURL *resourceURL = bundle.resourceURL;
