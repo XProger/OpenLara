@@ -61,10 +61,11 @@ InputKey keyToInputKey(int code) {
         0x2D, 0x1F, 0x23, 0x0C, 0x0F, 0x01, 0x11, 0x20, 0x09, 0x0D, 0x07, 0x10, 0x06, // N..Z
     };
 
-    for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
+    for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++) {
         if (codes[i] == code) {
             return (InputKey)(ikLeft + i);
         }
+    }
     return ikNone;
 }
 
@@ -79,14 +80,6 @@ InputKey mouseToInputKey(int btn) {
 
 IOHIDDeviceRef  joyDevices[4] = { 0 };
 IOHIDManagerRef hidManager;
-
-JoyKey joyButtonToKey(uint32_t button) {
-    static const JoyKey keys[] = { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkStart, jkSelect, jkNone, jkUp, jkDown, jkLeft, jkRight };
-    
-    if (button >= 0 || button < COUNT(keys))
-        return keys[button];
-    return jkNone;
-}
 
 bool osJoyReady(int index) {
     if (index < 0 || index >= COUNT(joyDevices))
@@ -104,9 +97,59 @@ float joyAxisValue(IOHIDValueRef value) {
     CFIndex min = IOHIDElementGetLogicalMin(element);
     CFIndex max = IOHIDElementGetLogicalMax(element);
     
-    float v = float(val - min) / float(max - min);
-    if (v < 0.2f) v = 0.0f; // check for deadzone
-    return v * 2.0f - 1.0f;
+    float v = float(val - min) / float(max - min) * 2.0f - 1.0f;
+    if (v > -0.2f && v < 0.2f) v = 0.0f; // check for deadzone
+    return v;
+}
+
+static const struct { uint32 vendorId, productId; } JOY_VENDORS[] = {
+    { 0x045E, 0x0000 }, // Microsoft
+    { 0x2DC8, 0x0000 }, // 8Bitdo
+    { 0x054C, 0x05C4 }, // 8Bitdo
+    { 0x054C, 0x0000 }, // Sony
+    { 0x2717, 0x0000 }, // Xiaomi
+} ;
+
+#define JOY_MAX_VENDORS COUNT(JOY_VENDORS)
+#define JOY_MAX_BUTTONS 17
+
+static const uint32 joyAxisTable[JOY_MAX_VENDORS][6] = {
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry, kHIDUsage_GD_Z, kHIDUsage_GD_Rz },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+};
+
+static const uint32 joyButtonsTable[][JOY_MAX_BUTTONS] = {
+    { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkStart, jkSelect, jkNone, jkUp, jkDown, jkLeft, jkRight, jkNone, jkNone },
+    { jkB, jkA, jkNone, jkY, jkX, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
+    { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
+    { jkSelect, jkL, jkR, jkStart, jkUp, jkRight, jkDown, jkLeft, jkLT, jkRT, jkLB, jkRB, jkY, jkB, jkA, jkX, jkNone },
+    { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
+};
+
+JoyKey joyButtonToKey(const uint32 *btns, uint32 button) {
+    if (button >= 0 || button < JOY_MAX_BUTTONS)
+        return JoyKey(btns[button]);
+    return jkNone;
+}
+
+void joyGetInfo(IOHIDDeviceRef device, uint32 &vendorId, uint32 &productId) {
+    vendorId  = [(NSNumber*)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDVendorIDKey)) intValue];
+    productId = [(NSNumber*)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey)) intValue];
+}
+
+uint32 joyGetVendorIndex(IOHIDDeviceRef device) {
+    uint32 vendorId, productId;
+    joyGetInfo(device, vendorId, productId);
+    
+    for (int i = 0; i < JOY_MAX_VENDORS; i++) {
+        if (JOY_VENDORS[i].vendorId == vendorId && (!JOY_VENDORS[i].productId || JOY_VENDORS[i].productId == productId)) {
+            return i;
+        }
+    }
+    return 0; // MS Xbox 360 as default
 }
 
 void hidValueCallback(void *context, IOReturn result, void *sender, IOHIDValueRef value) {
@@ -125,39 +168,45 @@ void hidValueCallback(void *context, IOReturn result, void *sender, IOHIDValueRe
     }
     
     if (joyIndex == -1) return;
-
-    // TODO: add mapping for most popular gamepads by kIOHIDVendorIDKey / kIOHIDProductIDKey
-    switch (IOHIDElementGetUsagePage(element)) {
+    
+    uint32 page   = IOHIDElementGetUsagePage(element);
+    uint32 usage  = IOHIDElementGetUsage(element);
+    uint32 vendor = joyGetVendorIndex(joyDevices[joyIndex]);
+    
+    const uint32 *axis = joyAxisTable[vendor];
+    const uint32 *btns = joyButtonsTable[vendor];
+    
+    switch (page) {
         case kHIDPage_GenericDesktop : {
-            switch (IOHIDElementGetUsage(IOHIDValueGetElement(value))) {
-                case kHIDUsage_GD_X  :
-                    Input::setJoyPos(joyIndex, jkL, vec2(joyAxisValue(value), Input::joy[joyIndex].L.y));
-                    break;
-                case kHIDUsage_GD_Y  :
-                    Input::setJoyPos(joyIndex, jkL, vec2(Input::joy[joyIndex].L.x, joyAxisValue(value)));
-                    break;
-                case kHIDUsage_GD_Rx :
-                    Input::setJoyPos(joyIndex, jkR, vec2(joyAxisValue(value), Input::joy[joyIndex].R.y));
-                    break;
-                case kHIDUsage_GD_Ry :
-                    Input::setJoyPos(joyIndex, jkR, vec2(Input::joy[joyIndex].R.x, joyAxisValue(value)));
-                    break;
-                case kHIDUsage_GD_Z  :
-                    Input::setJoyPos(joyIndex, jkLT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
-                    break;
-                case kHIDUsage_GD_Rz :
-                    Input::setJoyPos(joyIndex, jkRT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
-                    break;
-                default : LOG("! joy: unknown joy 0x%x (%d)\n", IOHIDElementGetUsage(IOHIDValueGetElement(value)), (int)IOHIDValueGetIntegerValue(value));
+            if (usage == axis[0])
+                Input::setJoyPos(joyIndex, jkL, vec2(joyAxisValue(value), Input::joy[joyIndex].L.y));
+            else if (usage == axis[1])
+                Input::setJoyPos(joyIndex, jkL, vec2(Input::joy[joyIndex].L.x, joyAxisValue(value)));
+            else if (usage == axis[2])
+                Input::setJoyPos(joyIndex, jkR, vec2(joyAxisValue(value), Input::joy[joyIndex].R.y));
+            else if (usage == axis[3])
+                Input::setJoyPos(joyIndex, jkR, vec2(Input::joy[joyIndex].R.x, joyAxisValue(value)));
+            else if (usage == axis[4])
+                Input::setJoyPos(joyIndex, jkLT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
+            else if (usage == axis[5])
+                Input::setJoyPos(joyIndex, jkRT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
+            else if (usage == kHIDUsage_GD_Hatswitch) {
+                CFIndex p = IOHIDValueGetIntegerValue(value);
+                Input::setJoyDown(joyIndex, jkUp,    p == 7 || p == 0 || p == 1);
+                Input::setJoyDown(joyIndex, jkRight, p == 1 || p == 2 || p == 3);
+                Input::setJoyDown(joyIndex, jkDown,  p == 3 || p == 4 || p == 5);
+                Input::setJoyDown(joyIndex, jkLeft,  p == 5 || p == 6 || p == 7);
             }
+            //if (usage != axis[0] && usage != axis[1] && usage != axis[2] && usage != axis[3])
+            //    LOG("! joy: axis 0x%x (%d)\n", usage, (int)IOHIDValueGetIntegerValue(value));
             break;
         }
         case kHIDPage_Button : {
             uint32_t button = IOHIDElementGetUsage(IOHIDValueGetElement(value)) - kHIDUsage_Button_1;
             bool down  = IOHIDValueGetIntegerValue(value) != 0;
-            JoyKey key = joyButtonToKey(button);
+            JoyKey key = joyButtonToKey(btns, button);
             Input::setJoyDown(joyIndex, key, down);
-            if (key == jkNone) LOG("! joy: unknown button %d\n", button);
+            //LOG("! joy: button %d\n", button);
             break;
         }
         default : ;
@@ -166,7 +215,16 @@ void hidValueCallback(void *context, IOReturn result, void *sender, IOHIDValueRe
 
 void joyAdd(void* context, IOReturn, void*, IOHIDDeviceRef device) {
     for (int i = 0; i < COUNT(joyDevices); i++) {
+        if (joyDevices[i] == device) {
+            return;
+        }
+    }
+
+    for (int i = 0; i < COUNT(joyDevices); i++) {
         if (joyDevices[i] == NULL) {
+            uint32 vendorId, productId;
+            joyGetInfo(device, vendorId, productId);
+            LOG("! joy: add index:%d vendor:0x%04X product:0x%04X\n", i, vendorId, productId);
             joyDevices[i] = device;
             break;
         }
@@ -176,6 +234,7 @@ void joyAdd(void* context, IOReturn, void*, IOHIDDeviceRef device) {
 void joyRemove(void* context, IOReturn, void*, IOHIDDeviceRef device) {
     for (int i = 0; i < COUNT(joyDevices); i++) {
         if (joyDevices[i] == device) {
+            LOG("! joy: remove index:%d\n", i);
             joyDevices[i] = NULL;
             break;
         }
@@ -189,7 +248,11 @@ void joyInit() {
                                       @(kIOHIDDeviceUsagePageKey): @(kHIDPage_GenericDesktop),
                                       @(kIOHIDDeviceUsageKey): @(kHIDUsage_GD_GamePad)
                                       };
-    NSArray *matchDicts = @[ matchingGamepad ];
+    NSDictionary *matchingJoystick = @{
+                                       @(kIOHIDDeviceUsagePageKey): @(kHIDPage_GenericDesktop),
+                                       @(kIOHIDDeviceUsageKey): @(kHIDUsage_GD_Joystick)
+                                       };
+    NSArray *matchDicts = @[ matchingGamepad, matchingJoystick ];
     
     IOHIDManagerSetDeviceMatchingMultiple(hidManager, (__bridge CFArrayRef) matchDicts);
     IOHIDManagerRegisterDeviceMatchingCallback(hidManager, joyAdd, NULL);
@@ -197,6 +260,16 @@ void joyInit() {
     IOHIDManagerScheduleWithRunLoop(hidManager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     IOHIDManagerOpen(hidManager, kIOHIDOptionsTypeNone);
     IOHIDManagerRegisterInputValueCallback(hidManager, hidValueCallback, NULL);
+    
+    CFSetRef devices = IOHIDManagerCopyDevices(hidManager);
+    CFIndex count = CFSetGetCount(devices);
+    CFTypeRef devicesArray[count]; // array of IOHIDDeviceRef
+    CFSetGetValues(devices, devicesArray);
+    for (int i = 0; i < count; i++) {
+        joyAdd(NULL, 0, NULL, (IOHIDDeviceRef)devicesArray[i]);
+    }
+    CFRelease(devices);
+    
 }
 
 void joyFree() {
