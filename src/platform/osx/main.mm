@@ -1,15 +1,28 @@
 #include <Cocoa/Cocoa.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <IOKit/hid/IOHidLib.h>
 
 #include "game.h"
+
+// timing
+int osGetTime() {
+    static mach_timebase_info_data_t timebaseInfo;
+    if (timebaseInfo.denom == 0) {
+        mach_timebase_info(&timebaseInfo);
+    }
+    
+    uint64_t absolute = mach_absolute_time();
+    uint64_t milliseconds = absolute * timebaseInfo.numer / (timebaseInfo.denom * 1000000ULL);
+    return int(milliseconds);
+}
 
 // sound
 #define SND_SIZE 2352
 
 static AudioQueueRef audioQueue;
 
-void soundFill(void* inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
+void sndFill(void* inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffer) {
     void* frames = inBuffer->mAudioData;
     UInt32 count = inBuffer->mAudioDataBytesCapacity / 4;
     Sound::fill((Sound::Frame*)frames, count);
@@ -17,7 +30,7 @@ void soundFill(void* inUserData, AudioQueueRef inAQ, AudioQueueBufferRef inBuffe
     AudioQueueEnqueueBuffer(audioQueue, inBuffer, 0, NULL);
 }
 
-void soundInit() {
+void sndInit() {
     AudioStreamBasicDescription deviceFormat;
     deviceFormat.mSampleRate        = 44100;
     deviceFormat.mFormatID          = kAudioFormatLinearPCM;
@@ -29,12 +42,12 @@ void soundInit() {
     deviceFormat.mBitsPerChannel    = 16;
     deviceFormat.mReserved          = 0;
     
-    AudioQueueNewOutput(&deviceFormat, soundFill, NULL, NULL, NULL, 0, &audioQueue);
+    AudioQueueNewOutput(&deviceFormat, sndFill, NULL, NULL, NULL, 0, &audioQueue);
     
     for (int i = 0; i < 2; i++) {
         AudioQueueBufferRef mBuffer;
         AudioQueueAllocateBuffer(audioQueue, SND_SIZE, &mBuffer);
-        soundFill(NULL, audioQueue, mBuffer);
+        sndFill(NULL, audioQueue, mBuffer);
     }
     AudioQueueStart(audioQueue, NULL);
 }
@@ -51,7 +64,6 @@ InputKey keyToInputKey(int code) {
     for (int i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
         if (codes[i] == code) {
             return (InputKey)(ikLeft + i);
-                LOG("%d\n", code);
         }
     return ikNone;
 }
@@ -65,24 +77,133 @@ InputKey mouseToInputKey(int btn) {
     return ikNone;
 }
 
+IOHIDDeviceRef  joyDevices[4] = { 0 };
+IOHIDManagerRef hidManager;
+
+JoyKey joyButtonToKey(uint32_t button) {
+    static const JoyKey keys[] = { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkStart, jkSelect, jkNone, jkUp, jkDown, jkLeft, jkRight };
+    
+    if (button >= 0 || button < COUNT(keys))
+        return keys[button];
+    return jkNone;
+}
+
 bool osJoyReady(int index) {
-    return false;
+    if (index < 0 || index >= COUNT(joyDevices))
+        return false;
+    return joyDevices[index] != NULL;
 }
 
 void osJoyVibrate(int index, float L, float R) {
     // TODO
 }
 
-// timing
-int osGetTime() {
-    static mach_timebase_info_data_t timebaseInfo;
-    if (timebaseInfo.denom == 0) {
-        mach_timebase_info(&timebaseInfo);
+float joyAxisValue(IOHIDValueRef value) {
+    IOHIDElementRef element = IOHIDValueGetElement(value);
+    CFIndex val = IOHIDValueGetIntegerValue(value);
+    CFIndex min = IOHIDElementGetLogicalMin(element);
+    CFIndex max = IOHIDElementGetLogicalMax(element);
+    
+    float v = float(val - min) / float(max - min);
+    if (v < 0.2f) v = 0.0f; // check for deadzone
+    return v * 2.0f - 1.0f;
+}
+
+void hidValueCallback(void *context, IOReturn result, void *sender, IOHIDValueRef value) {
+    if (result != kIOReturnSuccess)
+        return;
+
+    IOHIDElementRef element = IOHIDValueGetElement(value);
+    IOHIDDeviceRef  device  = IOHIDElementGetDevice(element);
+    
+    int joyIndex = -1;
+    for (int i = 0; i < COUNT(joyDevices); i++) {
+        if (joyDevices[i] == device) {
+            joyIndex = i;
+            break;
+        }
     }
     
-    uint64_t absolute = mach_absolute_time();
-    uint64_t milliseconds = absolute * timebaseInfo.numer / (timebaseInfo.denom * 1000000ULL);
-    return int(milliseconds);
+    if (joyIndex == -1) return;
+
+    // TODO: add mapping for most popular gamepads by kIOHIDVendorIDKey / kIOHIDProductIDKey
+    switch (IOHIDElementGetUsagePage(element)) {
+        case kHIDPage_GenericDesktop : {
+            switch (IOHIDElementGetUsage(IOHIDValueGetElement(value))) {
+                case kHIDUsage_GD_X  :
+                    Input::setJoyPos(joyIndex, jkL, vec2(joyAxisValue(value), Input::joy[joyIndex].L.y));
+                    break;
+                case kHIDUsage_GD_Y  :
+                    Input::setJoyPos(joyIndex, jkL, vec2(Input::joy[joyIndex].L.x, joyAxisValue(value)));
+                    break;
+                case kHIDUsage_GD_Rx :
+                    Input::setJoyPos(joyIndex, jkR, vec2(joyAxisValue(value), Input::joy[joyIndex].R.y));
+                    break;
+                case kHIDUsage_GD_Ry :
+                    Input::setJoyPos(joyIndex, jkR, vec2(Input::joy[joyIndex].R.x, joyAxisValue(value)));
+                    break;
+                case kHIDUsage_GD_Z  :
+                    Input::setJoyPos(joyIndex, jkLT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
+                    break;
+                case kHIDUsage_GD_Rz :
+                    Input::setJoyPos(joyIndex, jkRT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
+                    break;
+                default : LOG("! joy: unknown joy 0x%x (%d)\n", IOHIDElementGetUsage(IOHIDValueGetElement(value)), (int)IOHIDValueGetIntegerValue(value));
+            }
+            break;
+        }
+        case kHIDPage_Button : {
+            uint32_t button = IOHIDElementGetUsage(IOHIDValueGetElement(value)) - kHIDUsage_Button_1;
+            bool down  = IOHIDValueGetIntegerValue(value) != 0;
+            JoyKey key = joyButtonToKey(button);
+            Input::setJoyDown(joyIndex, key, down);
+            if (key == jkNone) LOG("! joy: unknown button %d\n", button);
+            break;
+        }
+        default : ;
+    }
+}
+
+void joyAdd(void* context, IOReturn, void*, IOHIDDeviceRef device) {
+    for (int i = 0; i < COUNT(joyDevices); i++) {
+        if (joyDevices[i] == NULL) {
+            joyDevices[i] = device;
+            break;
+        }
+    }
+}
+
+void joyRemove(void* context, IOReturn, void*, IOHIDDeviceRef device) {
+    for (int i = 0; i < COUNT(joyDevices); i++) {
+        if (joyDevices[i] == device) {
+            joyDevices[i] = NULL;
+            break;
+        }
+    }
+}
+
+void joyInit() {
+    hidManager = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDManagerOptionNone);
+    
+    NSDictionary *matchingGamepad = @{
+                                      @(kIOHIDDeviceUsagePageKey): @(kHIDPage_GenericDesktop),
+                                      @(kIOHIDDeviceUsageKey): @(kHIDUsage_GD_GamePad)
+                                      };
+    NSArray *matchDicts = @[ matchingGamepad ];
+    
+    IOHIDManagerSetDeviceMatchingMultiple(hidManager, (__bridge CFArrayRef) matchDicts);
+    IOHIDManagerRegisterDeviceMatchingCallback(hidManager, joyAdd, NULL);
+    IOHIDManagerRegisterDeviceRemovalCallback(hidManager, joyRemove, NULL);
+    IOHIDManagerScheduleWithRunLoop(hidManager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    IOHIDManagerOpen(hidManager, kIOHIDOptionsTypeNone);
+    IOHIDManagerRegisterInputValueCallback(hidManager, hidValueCallback, NULL);
+}
+
+void joyFree() {
+    IOHIDManagerUnscheduleFromRunLoop(hidManager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    IOHIDManagerRegisterDeviceMatchingCallback(hidManager, NULL, 0);
+    IOHIDManagerRegisterDeviceRemovalCallback(hidManager, NULL, 0);
+    IOHIDManagerClose(hidManager, kIOHIDOptionsTypeNone);
 }
 
 @interface OpenLaraGLView : NSOpenGLView
@@ -216,10 +337,10 @@ int main() {
     
     // init window
     NSRect rect = NSMakeRect(0, 0, 1280, 720);
-    NSWindow *mainWindow = [[NSWindow alloc] initWithContentRect:rect styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:YES];
-    mainWindow.title = @"OpenLara";
-    mainWindow.acceptsMouseMovedEvents = YES;
-    mainWindow.delegate = [[OpenLaraWindowDelegate alloc] init];
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:rect styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:YES];
+    window.title = @"OpenLara";
+    window.acceptsMouseMovedEvents = YES;
+    window.delegate = [[OpenLaraWindowDelegate alloc] init];
     
     // init OpenGL context
     NSOpenGLPixelFormatAttribute attribs[] = {
@@ -232,9 +353,9 @@ int main() {
     };
     NSOpenGLPixelFormat *format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attribs];
 
-    OpenLaraGLView *view = [[OpenLaraGLView alloc] initWithFrame:mainWindow.contentLayoutRect pixelFormat:format];
+    OpenLaraGLView *view = [[OpenLaraGLView alloc] initWithFrame:window.contentLayoutRect pixelFormat:format];
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    mainWindow.contentView = view;
+    window.contentView = view;
     [view.openGLContext makeCurrentContext];
     
     // get path to game content
@@ -244,10 +365,11 @@ int main() {
     strcat(contentDir, "/");
 
     // show window
-    [mainWindow center];
-    [mainWindow makeKeyAndOrderFront:nil];
+    [window center];
+    [window makeKeyAndOrderFront:nil];
 
-    soundInit();
+    joyInit();
+    sndInit();
     Game::init();
 
     if (!Core::isQuit) {
@@ -255,6 +377,7 @@ int main() {
     }
     
     Game::deinit();
+    joyFree();
     // TODO: sndFree
 
     return 0;

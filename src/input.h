@@ -128,7 +128,7 @@ namespace Input {
             case jkRT  : joy[index].RT  = pos.x;       break;
             default    : return;
         }
-        setJoyDown(index, key, pos.x > 0.0f); // gamepad LT, RT auto-down state
+        setJoyDown(index, key, pos.x > EPS); // gamepad LT, RT auto-down state
     }
 
     void setJoyVibration(int playerIndex, float L, float R) {
