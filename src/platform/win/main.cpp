@@ -731,10 +731,12 @@ int main(int argc, char** argv) {
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
     _CrtMemCheckpoint(&_msBegin);
 //#elif PROFILE
-#else
+#elif PROFILE
 int main(int argc, char** argv) {
-//#else
-//int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+#else
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = lpCmdLine ? 2 : 1;
+    char *argv[] = { "", lpCmdLine };
 #endif
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
@@ -746,7 +748,23 @@ int main(int argc, char** argv) {
     RECT r = { 0, 0, 1280, 720 };
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
 
-    hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, 0, 0, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
+#ifndef _DEBUG
+    {
+        int ox = (GetSystemMetrics(SM_CXSCREEN) - (r.right - r.left)) / 2;
+        int oy = (GetSystemMetrics(SM_CYSCREEN) - (r.bottom - r.top)) / 2;
+        r.left   += ox;
+        r.top    += oy;
+        r.right  += ox;
+        r.bottom += oy;
+    }
+#else
+    r.right += r.left;
+    r.bottom += r.top;
+    r.left = r.top = 0;
+#endif
+
+    hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
+    SendMessage(hWnd, WM_SETICON, 1, (LPARAM)LoadIcon(GetModuleHandle(NULL), "MAINICON"));
 
     ContextCreate();
 

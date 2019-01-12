@@ -89,4 +89,10 @@
       <UniqueIdentifier>{80edb27c-40cf-4f7a-a854-88eeba24a5fb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="OpenLara.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
+  </ItemGroup>
 </Project>
