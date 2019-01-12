@@ -877,7 +877,7 @@ struct WaterCache {
     }
 
     void simulate() {
-       PROFILE_MARKER("WATER_SIMULATE");
+        PROFILE_MARKER("WATER_SIMULATE");
     // simulate water
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);

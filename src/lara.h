@@ -1528,6 +1528,7 @@ struct Lara : Character {
     }
 
     void drawGun(int right) {
+        wpnCurrent = TR::Entity::PISTOLS;
         int mask = (right ? JOINT_MASK_ARM_R3 : JOINT_MASK_ARM_L3); // unholster
         if (layers[1].mask & mask)
             mask = (layers[1].mask & ~mask) | (right ? JOINT_MASK_LEG_R1 : JOINT_MASK_LEG_L1); // holster

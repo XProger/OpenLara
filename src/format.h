@@ -895,7 +895,6 @@ namespace TR {
             DRAW_LEFTGUN   ,
             SHOT_RIGHTGUN  ,
             SHOT_LEFTGUN   ,
-            UNKNOWN        ,
             MESH_SWAP_1    ,
             MESH_SWAP_2    ,
             MESH_SWAP_3    ,
