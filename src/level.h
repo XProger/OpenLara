@@ -738,7 +738,7 @@ struct Level : IGame {
     void stopChannel(Sound::Sample *channel) {
         if (channel == sndTrack) {
             sndTrack = NULL;
-            if (level.state.flags.track != TR::LEVEL_INFO[level.id].track) // play ambient track
+            if (level.state.flags.track != TR::LEVEL_INFO[level.id].track && TR::LEVEL_INFO[level.id].track != TR::NO_TRACK) // play ambient track
                 playTrack(0);
         }
     }
