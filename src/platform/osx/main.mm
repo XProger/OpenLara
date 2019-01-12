@@ -105,8 +105,8 @@ float joyAxisValue(IOHIDValueRef value) {
 static const struct { uint32 vendorId, productId; } JOY_VENDORS[] = {
     { 0x045E, 0x0000 }, // Microsoft
     { 0x2DC8, 0x0000 }, // 8Bitdo
-    { 0x054C, 0x05C4 }, // 8Bitdo
-    { 0x054C, 0x09CC }, // Sony DS4
+    { 0x054C, 0x05C4 }, // Sony DS4 CUH-ZCT1x
+    { 0x054C, 0x09CC }, // Sony DS4 CUH-ZCT2x
     { 0x054C, 0x0000 }, // Sony DS3
     { 0x2717, 0x0000 }, // Xiaomi
 } ;
