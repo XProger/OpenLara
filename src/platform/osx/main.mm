@@ -105,18 +105,20 @@ float joyAxisValue(IOHIDValueRef value) {
 static const struct { uint32 vendorId, productId; } JOY_VENDORS[] = {
     { 0x045E, 0x0000 }, // Microsoft
     { 0x2DC8, 0x0000 }, // 8Bitdo
-    { 0x054C, 0x05C4 }, // 8Bitdo
-    { 0x054C, 0x0000 }, // Sony
+    { 0x054C, 0x05C4 }, // Sony DS4 CUH-ZCT1x
+    { 0x054C, 0x09CC }, // Sony DS4 CUH-ZCT2x
+    { 0x054C, 0x0000 }, // Sony DS3
     { 0x2717, 0x0000 }, // Xiaomi
 } ;
 
 #define JOY_MAX_VENDORS COUNT(JOY_VENDORS)
 #define JOY_MAX_BUTTONS 17
 
-static const uint32 joyAxisTable[JOY_MAX_VENDORS][6] = {
+static const uint32 joyAxisTable[][6] = {
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry, kHIDUsage_GD_Z, kHIDUsage_GD_Rz },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
 };
@@ -124,6 +126,7 @@ static const uint32 joyAxisTable[JOY_MAX_VENDORS][6] = {
 static const uint32 joyButtonsTable[][JOY_MAX_BUTTONS] = {
     { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkStart, jkSelect, jkNone, jkUp, jkDown, jkLeft, jkRight, jkNone, jkNone },
     { jkB, jkA, jkNone, jkY, jkX, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
+    { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
     { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
     { jkSelect, jkL, jkR, jkStart, jkUp, jkRight, jkDown, jkLeft, jkLT, jkRT, jkLB, jkRB, jkY, jkB, jkA, jkX, jkNone },
     { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
@@ -262,14 +265,15 @@ void joyInit() {
     IOHIDManagerRegisterInputValueCallback(hidManager, hidValueCallback, NULL);
     
     CFSetRef devices = IOHIDManagerCopyDevices(hidManager);
-    CFIndex count = CFSetGetCount(devices);
-    CFTypeRef devicesArray[count]; // array of IOHIDDeviceRef
-    CFSetGetValues(devices, devicesArray);
-    for (int i = 0; i < count; i++) {
-        joyAdd(NULL, 0, NULL, (IOHIDDeviceRef)devicesArray[i]);
+    if (devices) {
+        CFIndex count = CFSetGetCount(devices);
+        CFTypeRef devicesArray[count]; // array of IOHIDDeviceRef
+        CFSetGetValues(devices, devicesArray);
+        for (int i = 0; i < count; i++) {
+            joyAdd(NULL, 0, NULL, (IOHIDDeviceRef)devicesArray[i]);
+        }
+        CFRelease(devices);
     }
-    CFRelease(devices);
-    
 }
 
 void joyFree() {

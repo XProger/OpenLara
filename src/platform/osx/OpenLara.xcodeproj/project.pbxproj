@@ -10,6 +10,7 @@
 		523F97E41DDF7AA5006FE2FC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 523F97E31DDF7AA5006FE2FC /* Cocoa.framework */; };
 		9938F1A421E830250056E172 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9938F1A021E81EFE0056E172 /* IOKit.framework */; };
 		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
+		9975BF0B21E9F5D300F13342 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9975BF0A21E9F5D300F13342 /* Assets.xcassets */; };
 		99BF38CD21E7176900D90A38 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BF38CC21E7176900D90A38 /* main.mm */; };
 		99BF38D221E7202500D90A38 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CE21E7202500D90A38 /* audio */; };
 		99BF38D321E7202500D90A38 /* DELDATA in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CF21E7202500D90A38 /* DELDATA */; };
@@ -51,6 +52,7 @@
 		99713CC5204CA3DA00006FAC /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../../ui.h; sourceTree = "<group>"; };
 		99713CC6204CA3DA00006FAC /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
 		99713CC8204CAD9900006FAC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
+		9975BF0A21E9F5D300F13342 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		99BF38CC21E7176900D90A38 /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		99BF38CE21E7202500D90A38 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../../Desktop/OpenLara_TR1/audio; sourceTree = "<group>"; };
 		99BF38CF21E7202500D90A38 /* DELDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DELDATA; path = ../../../../Desktop/OpenLara_TR1/DELDATA; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 		99C4C0A31796AACF0032DE85 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				9975BF0A21E9F5D300F13342 /* Assets.xcassets */,
 				99C4C0A41796AACF0032DE85 /* OpenLara-Info.plist */,
 			);
 			name = "Supporting Files";
@@ -207,6 +210,7 @@
 				99BF38D321E7202500D90A38 /* DELDATA in Resources */,
 				99BF38D421E7202500D90A38 /* PSXDATA in Resources */,
 				99BF38D521E7202500D90A38 /* FMV in Resources */,
+				9975BF0B21E9F5D300F13342 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,6 +309,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -322,6 +327,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = 3;
