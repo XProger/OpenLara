@@ -25,11 +25,11 @@ void osMutexUnlock(void *obj) {
 }
 
 // timing
-unsigned int startTime;
+u64 startTick;
 
 int osGetTime() {
     u64 tick = armGetSystemTick();
-    return (tick * 625 / 12) / 1000000;
+    return int(((tick - startTick) * 625 / 12) / 1000000);
 }
 
 // sound
@@ -286,6 +286,34 @@ void touchUpdate() {
     }
 }
 
+void makeCacheDir(char *elfPath) {
+    char buf[255];
+    int len = strlen(elfPath);
+    int start = 0;
+    strcpy(buf, elfPath);
+
+    // skip volume id
+    for (int i = 0; i < len; i++) {
+        if (buf[i] == ':') {
+            start = i + 1;
+            break;
+        }
+    }
+
+    // skip executable name
+    for (int i = len - 1; i >= 0; i--) {
+        if (buf[i] == '/') {
+            buf[i] = 0;
+            break;
+        }
+    }
+
+    // make directory by full path
+    strcpy(cacheDir, buf + start);
+    strcat(cacheDir, "/cache/");
+    fsFsCreateDirectory(fsdevGetDefaultFileSystem(), cacheDir);
+}
+
 int main(int argc, char* argv[]) {
     Core::width  = 1280;
     Core::height = 720;
@@ -296,14 +324,9 @@ int main(int argc, char* argv[]) {
     }
 
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
+    makeCacheDir(argv[0]);
 
-    strcat(contentDir, "/switch/OpenLara/");
-    strcat(cacheDir, "/switch/OpenLara/cache/");
-    strcat(saveDir, "/switch/OpenLara/");
-
-    fsFsCreateDirectory(fsdevGetDefaultFileSystem(), cacheDir);
-
-    startTime = osGetTime();
+    startTick = armGetSystemTick();
 
     sndInit();
     joyInit();
