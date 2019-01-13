@@ -984,6 +984,8 @@ namespace TR {
         SND_TNT             = 170,
         SND_MUTANT_DEATH    = 171,
         SND_SECRET          = 173,
+
+        SND_HELICOPTER      = 297,
     };
 
     enum {

@@ -1147,6 +1147,8 @@ struct Level : IGame {
             case TR::Entity::WINDOW_1               :
             case TR::Entity::WINDOW_2               : return new BreakableWindow(this, index);
 
+            case TR::Entity::HELICOPTER_FLYING      : return new HelicopterFlying(this, index);
+
             default                                 : return new Controller(this, index);
         }
     }

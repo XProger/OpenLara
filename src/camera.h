@@ -415,11 +415,13 @@ struct Camera : ICamera {
                 if (!owner->viewTarget) {
                     if (viewTarget && !viewTarget->flags.invisible) {
                         vec3 targetVec = (viewTarget->pos - owner->pos).normal();
-                        if (targetVec.dot(owner->getDir()) > 0.5f)
+                        if (targetVec.dot(owner->getDir()) > 0.1f) {
                             lookAt = viewTarget;
+                        }
                     }
-                } else
+                } else {
                     lookAt = owner->viewTarget;
+                }
 
                 owner->lookAt(lookAt);
             } else {
@@ -427,15 +429,17 @@ struct Camera : ICamera {
                 owner->lookAt(NULL);
             }
 
-            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT))
+            if (!firstPerson && (mode == MODE_FOLLOW || mode == MODE_COMBAT)) {
                 targetAngle += angle;
+            }
 
             if (!firstPerson || viewIndex != -1) {
 
                 if (timer > 0.0f) {
                     timer -= Core::deltaTime;
-                    if (timer <= 0.0f)
+                    if (timer <= 0.0f) {
                         resetTarget();
+                    }
                 }
 
                 TR::Location to;
