@@ -483,11 +483,12 @@ struct MeshRange {
     E( WATER_MASK     ) \
     E( WATER_COMPOSE  ) \
     /* filter types */ \
-    E( FILTER_UPSCALE         ) \
-    E( FILTER_DOWNSAMPLE      ) \
-    E( FILTER_GRAYSCALE       ) \
-    E( FILTER_BLUR            ) \
-    E( FILTER_EQUIRECTANGULAR ) \
+    E( FILTER_UPSCALE          ) \
+    E( FILTER_DOWNSAMPLE       ) \
+    E( FILTER_DOWNSAMPLE_DEPTH ) \
+    E( FILTER_GRAYSCALE        ) \
+    E( FILTER_BLUR             ) \
+    E( FILTER_EQUIRECTANGULAR  ) \
     /* options */ \
     E( UNDERWATER      ) \
     E( ALPHA_TEST      ) \
@@ -939,19 +940,19 @@ namespace Core {
             renderState &= ~RS_DEPTH_TEST;
     }
 
-    void setTarget(GAPI::Texture *target, int op, int face = 0) {
-        if (!target)
-            target = defaultTarget;
+    void setTarget(GAPI::Texture *color, GAPI::Texture *depth, int op, int face = 0) {
+        if (!color)
+            color = defaultTarget;
 
-        bool color = !target || (target->fmt != FMT_DEPTH && target->fmt != FMT_SHADOW);
-        setColorWrite(color, color, color, color);
+        bool isColor = !color || (color->fmt != FMT_DEPTH && color->fmt != FMT_SHADOW);
+        setColorWrite(isColor, isColor, isColor, isColor);
 
-        if (target == defaultTarget) // backbuffer
+        if (color == defaultTarget) // backbuffer
             setViewport(viewportDef);
         else
-            setViewport(0, 0, target->origWidth, target->origHeight);
+            setViewport(0, 0, color->origWidth, color->origHeight);
 
-        reqTarget.texture = target;
+        reqTarget.texture = color;
         reqTarget.op      = op;
         reqTarget.face    = face;
         renderState |= RS_TARGET;
@@ -1016,7 +1017,7 @@ namespace Core {
 
     void endFrame() {
         if (active.target != defaultTarget) {
-            GAPI::setTarget(NULL, 0);
+            GAPI::setTarget(NULL, NULL, 0);
             validateRenderState();
         }
         GAPI::endFrame();

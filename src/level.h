@@ -577,7 +577,7 @@ struct Level : IGame {
             setupCubeCamera(pos, i);
             Core::pass = pass;
             Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setTarget(target, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
+            Core::setTarget(target, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
             renderView(rIndex, false);
         }
 
@@ -2151,7 +2151,7 @@ struct Level : IGame {
         Texture *screen = NULL;
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
-            Core::setTarget(screen, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
+            Core::setTarget(screen, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
             setupBinding();
         }
 
@@ -2188,7 +2188,7 @@ struct Level : IGame {
         Core::Pass pass = Core::pass;
 
         if (water && waterCache && waterCache->visible && screen) {
-            Core::setTarget(NULL, RT_STORE_COLOR);
+            Core::setTarget(NULL, NULL, RT_STORE_COLOR);
             waterCache->blitTexture(screen);
         }
 
@@ -2358,7 +2358,7 @@ struct Level : IGame {
         bool colorShadow = shadow->fmt == FMT_RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setTarget(shadow, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
+        Core::setTarget(shadow, NULL, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
         //Core::setCullMode(cmBack);
         Core::validateRenderState();
 
@@ -2848,7 +2848,7 @@ struct Level : IGame {
     }
 
     void renderInventory() {
-        Core::setTarget(NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
 
         Core::resetLights();
 
@@ -2877,7 +2877,7 @@ struct Level : IGame {
         needRedrawTitleBG = false;
 
         if (isEnded) {
-            Core::setTarget(NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
+            Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
             UI::begin();
             UI::updateAspect(float(Core::width) / float(Core::height));
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);

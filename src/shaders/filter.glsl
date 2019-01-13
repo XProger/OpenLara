@@ -36,6 +36,19 @@ uniform vec4 uParam;
 		return vec4(color.xyz / color.w, 1.0);
 	}
 
+	#ifdef FILTER_DOWNSAMPLE_DEPTH
+		vec4 downsampleDepth() {
+			vec2 t = vTexCoord.xy;
+			vec3 o = vec3(uParam.x, uParam.y, 0.0);
+			float d0 = texture2D(sDiffuse, t + o.zz).x;
+			float d1 = texture2D(sDiffuse, t + o.xz).x;
+			float d2 = texture2D(sDiffuse, t + o.zy).x;
+			float d3 = texture2D(sDiffuse, t + o.xy).x;
+			gl_FragDepth = max(max(d0, d1), max(d2, d3));
+			return vec4(0.0);
+		}
+	#endif
+
 	vec4 grayscale() { // uParam (factor, unused, unused, unused)
 		vec4 color = texture2D(sDiffuse, vTexCoord);
 		vec3 gray  = vec3(dot(color, vec4(0.299, 0.587, 0.114, 0.0)));
@@ -79,6 +92,10 @@ uniform vec4 uParam;
 	vec4 filter() {
 		#ifdef FILTER_DOWNSAMPLE
 			return downsample();
+		#endif
+
+		#ifdef FILTER_DOWNSAMPLE_DEPTH
+			return downsampleDepth();
 		#endif
 
 		#ifdef FILTER_GRAYSCALE

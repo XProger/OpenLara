@@ -321,7 +321,7 @@ struct AmbientCache {
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
                 Texture *dst = textures[j * 4 + i];
-                Core::setTarget(dst, RT_STORE_COLOR);
+                Core::setTarget(dst, NULL, RT_STORE_COLOR);
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
             }
@@ -329,7 +329,7 @@ struct AmbientCache {
 
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
-            Core::setTarget(textures[j * 4 + 3], RT_LOAD_COLOR);
+            Core::setTarget(textures[j * 4 + 3], NULL, RT_LOAD_COLOR);
             colors[j] = Core::copyPixel(0, 0);
         }
 
@@ -719,7 +719,7 @@ struct WaterCache {
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
             item.data[0]->bind(sDiffuse);
-            Core::setTarget(item.data[1], RT_STORE_COLOR);
+            Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
@@ -738,7 +738,7 @@ struct WaterCache {
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             item.data[0]->bind(sDiffuse);
-            Core::setTarget(item.data[1], RT_STORE_COLOR);
+            Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
             swap(item.data[0], item.data[1]);
@@ -760,7 +760,7 @@ struct WaterCache {
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
-        Core::setTarget(item.caustics, RT_CLEAR_COLOR | RT_STORE_COLOR);
+        Core::setTarget(item.caustics, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
         Core::setViewport(1, 1, item.caustics->width - 2, item.caustics->width - 2); // leave 1px for black border
         game->getMesh()->renderPlane();
     #ifdef BLUR_CAUSTICS
@@ -869,9 +869,9 @@ struct WaterCache {
             x = y = 0;
 
         if (screen) { // only for iOS devices
-            Core::setTarget(refract, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
+            Core::setTarget(refract, NULL, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
             blitTexture(screen);
-            Core::setTarget(screen, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
+            Core::setTarget(screen, NULL, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
         } else 
             Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
     }
@@ -907,7 +907,7 @@ struct WaterCache {
         }
 
     // render mirror reflection
-        Core::setTarget(reflect, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::setTarget(reflect, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
         Camera *camera = (Camera*)game->getCamera();
         game->setupBinding();
 

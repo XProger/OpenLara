@@ -58,18 +58,12 @@ float4      uPosScale[2]            : register( c92 );
 FLAGS_TYPE  uFlags[4]               : register( FLAGS_REG );
 float4      uContacts[MAX_CONTACTS] : register( c98 );
 
-
-#define TYPE_SPRITE             uFlags[0].x
-#define TYPE_FLASH              uFlags[0].y
-#define TYPE_ROOM               uFlags[0].z
-#define TYPE_ENTITY             uFlags[0].w
-#define TYPE_MIRROR             uFlags[1].x
-
 #define FILTER_DEFAULT          uFlags[0].x
 #define FILTER_DOWNSAMPLE       uFlags[0].y
-#define FILTER_GRAYSCALE        uFlags[0].z
-#define FILTER_BLUR             uFlags[0].w
-#define FILTER_EQUIRECTANGULAR  uFlags[1].x
+#define FILTER_DOWNSAMPLE_DEPTH uFlags[0].z
+#define FILTER_GRAYSCALE        uFlags[0].w
+#define FILTER_BLUR             uFlags[1].x
+#define FILTER_EQUIRECTANGULAR  uFlags[1].y
 
 #define WATER_DROP              uFlags[0].x
 #define WATER_SIMULATE          uFlags[0].y
@@ -79,6 +73,11 @@ float4      uContacts[MAX_CONTACTS] : register( c98 );
 #define WATER_COMPOSE           uFlags[1].y
 
 // options for compose, shadow, ambient passes
+#define TYPE_SPRITE             uFlags[0].x
+#define TYPE_FLASH              uFlags[0].y
+#define TYPE_ROOM               uFlags[0].z
+#define TYPE_ENTITY             uFlags[0].w
+#define TYPE_MIRROR             uFlags[1].x
 #define UNDERWATER              uFlags[1].y
 #define ALPHA_TEST              uFlags[1].z
 #define CLIP_PLANE              uFlags[1].w
