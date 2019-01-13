@@ -2453,14 +2453,14 @@ struct Lara : Character {
     }
 
     bool checkClimb() {
-        if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
+        if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && !(input & (LEFT | RIGHT)) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
             float floor   = collision.info[Collision::FRONT].floor;
             float ceiling = collision.info[Collision::FRONT].ceiling; 
 
             float h = pos.y - floor;
 
             int aIndex = animation.index;
-            if (floor == ceiling || h < 256)
+            if (floor - ceiling < 768 || h < 256)
                 ;// do nothing
             else if (h <= 2 * 256 + 128) {
                 aIndex = ANIM_CLIMB_2;
