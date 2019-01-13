@@ -68,6 +68,8 @@ struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
     enum {
+        ANIM_RUN                = 0,
+
         ANIM_STAND_LEFT         = 2,
         ANIM_STAND_RIGHT        = 3,
 
@@ -276,8 +278,6 @@ struct Lara : Character {
         JOINT_MASK_BRAID      = JOINT_MASK_HEAD   | JOINT_MASK_CHEST  | JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2,
     };
 
-    bool dozy;
-
     struct Weapon {
         enum State { IS_HIDDEN, IS_ARMED, IS_FIRING };
         struct Anim {
@@ -321,6 +321,9 @@ struct Lara : Character {
     Camera      *camera;
 
     float       hitTimer;
+
+    bool        dozy;
+    bool        canJump;
 
     int32       networkInput;
 
@@ -495,12 +498,15 @@ struct Lara : Character {
 
     } *braid;
 
-    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), dozy(false), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE), braid(NULL) {
         camera = new Camera(game, this);
 
         itemHolster  = TR::Entity::NONE;
         hitTimer     = 0.0f;
         networkInput = -1;
+
+        dozy    = false;
+        canJump = true;
 
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
@@ -2519,11 +2525,23 @@ struct Lara : Character {
             return res;
         }
 
+        if (state == STATE_RUN) {
+            if (animation.index == ANIM_RUN_START) {
+                canJump = false;
+            } else if (animation.index == ANIM_RUN) {
+                if (animation.frameIndex >= 4 && animation.frameIndex <= 5) {
+                    canJump = true;
+                }
+            } else {
+                canJump = true;
+            }
+        }
+
         // jump button is pressed
         if (input & JUMP) {
             if ((input & FORTH) && state == STATE_FORWARD_JUMP)
                 return STATE_RUN;
-            if (state == STATE_RUN)
+            if (state == STATE_RUN && canJump)
                 return STATE_FORWARD_JUMP;
             if (animation.index == ANIM_SLIDE_BACK) // TODO: animation index? %)
                 return STATE_SLIDE_BACK;
