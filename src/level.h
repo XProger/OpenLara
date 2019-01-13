@@ -374,8 +374,10 @@ struct Level : IGame {
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
+        #if !defined(_GAPI_D3D9) && !defined(_GAPI_GXM)
             delete shaderCache;
             shaderCache = new ShaderCache();
+        #endif
         }
 
         if (rebuildMesh) {

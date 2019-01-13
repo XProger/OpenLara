@@ -57,6 +57,7 @@
     <ClInclude Include="..\..\network.h" />
     <ClInclude Include="..\..\napi_socket.h" />
     <ClInclude Include="..\..\napi_dummy.h" />
+    <ClInclude Include="..\..\gapi_gxm.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">

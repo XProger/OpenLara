@@ -384,9 +384,13 @@ namespace GAPI {
 
     struct Shader {
         SceGxmVertexProgram    *vp;
-        SceGxmFragmentProgram  *fp;
+        SceGxmShaderPatcherId  vpUID;
         SceGxmProgram          *vpPtr, *fpPtr;
-        SceGxmShaderPatcherId  vpUID, fpUID;
+
+        struct PSO {
+            SceGxmFragmentProgram  *fp;
+            SceGxmShaderPatcherId  fpUID;
+        } pso[2 * bmMAX];
 
         const SceGxmProgramParameter *vParams[uMAX];
         const SceGxmProgramParameter *fParams[uMAX];
@@ -395,10 +399,13 @@ namespace GAPI {
         int   cbCount[uMAX];
 
         int colorMask, blendMode;
+        int psoIndex;
 
         bool rebind;
 
         void init(Pass pass, int type, int *def, int defCount) {
+            memset(pso, 0, sizeof(pso));
+
             const uint8 *vpSrc, *fpSrc;
             switch (pass) {
                 case passCompose : vpSrc = COMPOSE_VP; fpSrc = COMPOSE_FP; break;
@@ -430,7 +437,6 @@ namespace GAPI {
             fpPtr = (SceGxmProgram*)fpSrc;
 
             sceGxmShaderPatcherRegisterProgram(shaderPatcher, vpPtr, &vpUID);
-            sceGxmShaderPatcherRegisterProgram(shaderPatcher, fpPtr, &fpUID);
 
             SceGxmVertexStream vStream;
             vStream.stride      = sizeof(Vertex);
@@ -467,20 +473,27 @@ namespace GAPI {
             }
 
             sceGxmShaderPatcherCreateVertexProgram(shaderPatcher, vpUID, vAttrib, vAttribCount, &vStream, 1, &vp);
-            sceGxmShaderPatcherCreateFragmentProgram(shaderPatcher, fpUID, SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4, SCE_GXM_MULTISAMPLE_NONE, NULL, vpPtr, &fp);
 
             for (int ut = 0; ut < uMAX; ut++) {
                 vParams[ut] = sceGxmProgramFindParameterByName(vpPtr, UniformName[ut]);
                 fParams[ut] = sceGxmProgramFindParameterByName(fpPtr, UniformName[ut]);
             }
 
-            colorMask = SCE_GXM_COLOR_MASK_ALL;
-            blendMode = 0;
+            colorMask = blendMode = -1;
         }
 
         void deinit() {
+            sceGxmDisplayQueueFinish();
+
+            sceGxmShaderPatcherReleaseVertexProgram(shaderPatcher, vp);
             sceGxmShaderPatcherUnregisterProgram(shaderPatcher, vpUID);
-            sceGxmShaderPatcherUnregisterProgram(shaderPatcher, fpUID);
+
+            for (int i = 0; i < COUNT(pso); i++) {
+                if (pso[i].fp) {
+                    sceGxmShaderPatcherReleaseFragmentProgram(shaderPatcher, pso[i].fp);
+                    sceGxmShaderPatcherUnregisterProgram(shaderPatcher, pso[i].fpUID);
+                }
+            }
         }
 
         void setBlendInfo(int colorMask, int blendMode) {
@@ -493,30 +506,47 @@ namespace GAPI {
             blendInfo.colorMask = SceGxmColorMask(colorMask);
             blendInfo.colorFunc = SCE_GXM_BLEND_FUNC_ADD;
             blendInfo.alphaFunc = SCE_GXM_BLEND_FUNC_ADD;
+            blendInfo.alphaSrc  = SCE_GXM_BLEND_FACTOR_ONE;
+            blendInfo.alphaDst  = SCE_GXM_BLEND_FACTOR_ZERO;
 
+            psoIndex = 0;
             switch (blendMode) {
                 case RS_BLEND_ALPHA   :
-                    blendInfo.colorSrc = blendInfo.alphaSrc = SCE_GXM_BLEND_FACTOR_SRC_ALPHA;
-                    blendInfo.colorDst = blendInfo.alphaDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    psoIndex = bmAlpha;
+                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_SRC_ALPHA;
+                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
                     break;
                 case RS_BLEND_ADD     :
-                    blendInfo.colorSrc = blendInfo.alphaSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = blendInfo.alphaDst = SCE_GXM_BLEND_FACTOR_ONE;
+                    psoIndex = bmAdd;
+                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE;
                     break;
                 case RS_BLEND_MULT    :
-                    blendInfo.colorSrc = blendInfo.alphaSrc = SCE_GXM_BLEND_FACTOR_DST_COLOR;
-                    blendInfo.colorDst = blendInfo.alphaDst = SCE_GXM_BLEND_FACTOR_ZERO;
+                    psoIndex = bmMult;
+                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_DST_COLOR;
+                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
                     break;
                 case RS_BLEND_PREMULT :
-                    blendInfo.colorSrc = blendInfo.alphaSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = blendInfo.alphaDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    psoIndex = bmPremult;
+                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
                     break;
                 default               :
-                    blendInfo.colorSrc = blendInfo.alphaSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = blendInfo.alphaDst = SCE_GXM_BLEND_FACTOR_ZERO;
+                    psoIndex = bmNone;
+                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
             }
 
-            sceGxmShaderPatcherCreateFragmentProgram(shaderPatcher, fpUID, SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4, SCE_GXM_MULTISAMPLE_NONE, &blendInfo, vpPtr, &fp);
+            if (colorMask != SCE_GXM_COLOR_MASK_ALL) {
+                psoIndex += bmMAX;
+            }
+
+            PSO &p = pso[psoIndex];
+
+            if (!p.fp) {
+                sceGxmShaderPatcherRegisterProgram(shaderPatcher, fpPtr, &p.fpUID);
+                sceGxmShaderPatcherCreateFragmentProgram(shaderPatcher, p.fpUID, SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4, SCE_GXM_MULTISAMPLE_NONE, &blendInfo, vpPtr, &p.fp);
+            }
 
             rebind = true;
         }
@@ -535,7 +565,7 @@ namespace GAPI {
         void setup() {
             if (rebind) {
                 sceGxmSetVertexProgram(Context::gxmContext, vp);
-                sceGxmSetFragmentProgram(Context::gxmContext, fp);
+                sceGxmSetFragmentProgram(Context::gxmContext, pso[psoIndex].fp);
                 rebind = false;
             }
 

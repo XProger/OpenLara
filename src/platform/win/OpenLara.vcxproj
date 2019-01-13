@@ -204,6 +204,7 @@
     <ClInclude Include="..\..\gapi_gl.h" />
     <ClInclude Include="..\..\gapi_gu.h" />
     <ClInclude Include="..\..\gapi_gx.h" />
+    <ClInclude Include="..\..\gapi_gxm.h" />
     <ClInclude Include="..\..\gapi_vk.h" />
     <ClInclude Include="..\..\debug.h" />
     <ClInclude Include="..\..\enemy.h" />
