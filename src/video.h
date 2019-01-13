@@ -863,6 +863,9 @@ struct Video {
         bool nextChunk() {
             OS_LOCK(Sound::lock);
 
+            if (videoChunks[videoChunksCount % MAX_CHUNKS].size > 0)
+                return false;
+
             if (stream->pos >= stream->size)
                 return false;
 
@@ -1059,6 +1062,8 @@ struct Video {
                     }
                 }
 
+            chunk->size = 0;
+
             return true;
         }
 
@@ -1072,6 +1077,7 @@ struct Video {
                     curAudioChunk++;
                     while (curAudioChunk >= audioChunksCount) {
                         if (!nextChunk()) {
+                            curAudioChunk--;
                             memset(frames, 0, count * sizeof(Sound::Frame));
                             return count;
                         }

@@ -26,11 +26,14 @@
     #define ASSERT(expr)
     #define ASSERTV(expr) (expr) ? 1 : 0
 
-    #ifdef _OS_LINUX
-        #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
+    #ifdef PROFILE
+        #ifdef _OS_LINUX
+            #define LOG(...) printf(__VA_ARGS__); fflush(stdout)
+        #else
+            #define LOG(...) printf(__VA_ARGS__)
+        #endif
     #else
-        #define LOG(...) printf(__VA_ARGS__)
-    //    #define LOG(...) 0
+        #define LOG(...) 0
     #endif
 #endif
 
