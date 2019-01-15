@@ -339,6 +339,7 @@ namespace Core {
 #define MAX_LIGHTS           4
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
+#define NOISE_TEX_SIZE       32
 
 struct Shader;
 struct Texture;
@@ -540,7 +541,7 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *whiteTex, *whiteCube, *blackTex, *ditherTex;
+    Texture *whiteTex, *whiteCube, *blackTex, *ditherTex, *noiseTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -681,6 +682,7 @@ namespace Core {
         data = 0;
         blackTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
 
+    // generate dithering texture
         uint8 ditherData[] = {
             0x00, 0x7F, 0x1F, 0x9F, 0x07, 0x87, 0x27, 0xA7,
             0xBF, 0x3F, 0xDF, 0x5F, 0xC7, 0x47, 0xE7, 0x67,
@@ -692,6 +694,15 @@ namespace Core {
             0xFB, 0x7B, 0xDB, 0x5B, 0xF3, 0x73, 0xD3, 0x53,
         };
         ditherTex = new Texture(8, 8, FMT_LUMINANCE, OPT_REPEAT | OPT_NEAREST, &ditherData);
+
+    // generate noise texture
+        uint8 *noiseData = new uint8[SQR(NOISE_TEX_SIZE)];
+        for (int i = 0; i < SQR(NOISE_TEX_SIZE); i++) {
+            noiseData[i] = rand() % 255;
+        }
+        noiseTex = new Texture(NOISE_TEX_SIZE, NOISE_TEX_SIZE, FMT_LUMINANCE, OPT_REPEAT, noiseData);
+        delete[] noiseData;
+
 
 // init settings
         settings.version = SETTINGS_VERSION;
@@ -793,6 +804,7 @@ namespace Core {
         delete whiteCube;
         delete blackTex;
         delete ditherTex;
+        delete noiseTex;
 
         GAPI::deinit();
         NAPI::deinit();

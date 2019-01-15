@@ -9,6 +9,10 @@
 #define NO_CLIP_PLANE  1000000.0f
 //#define LOG_SHADERS
 
+#if defined(_OS_IOS) || defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+    #define USE_SCREEN_TEX
+#endif
+
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2, FX_CLIP_PLANE = 4 };
 
@@ -519,8 +523,8 @@ struct WaterCache {
             maxX++;
             maxZ++;
 
-            int w = nextPow2(maxX - minX);
-            int h = nextPow2(maxZ - minZ);
+            int w = maxX - minX;
+            int h = maxZ - minZ;
 
             uint16 *m = new uint16[w * h];
             memset(m, 0, w * h * sizeof(m[0]));
@@ -542,9 +546,9 @@ struct WaterCache {
                         }
                     }
 
-                    m[(x - minX) + w * (z - minZ)] = hasWater ? 0xF800 : 0;
+                    m[(x - minX) + w * (z - minZ)] = hasWater ? 0xFFFF : 0x0000; // TODO: flow map
                 }
-            mask = new Texture(w, h, FMT_RGB16, OPT_NEAREST, m);
+            mask = new Texture(w, h, FMT_RGBA16, OPT_NEAREST, m);
             delete[] m;
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -718,7 +722,7 @@ struct WaterCache {
 
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
-            item.data[0]->bind(sDiffuse);
+            item.data[0]->bind(sNormal);
             Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
@@ -732,12 +736,13 @@ struct WaterCache {
         vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
 
         game->setShader(Core::passWater, Shader::WATER_SIMULATE);
-        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, 0, Core::params.x));
+        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, randf() * 0.5f));
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
-            
+        Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
+
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
-            item.data[0]->bind(sDiffuse);
+            item.data[0]->bind(sNormal);
             Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
             game->getMesh()->renderQuad();
@@ -850,9 +855,9 @@ struct WaterCache {
             PROFILE_MARKER("WATER_REFRACT_INIT");
             delete refract;
             refract = new Texture(w, h, FMT_RGBA, OPT_TARGET);
-        #ifdef _OS_IOS
+        #ifdef USE_SCREEN_TEX
             delete screen;
-            screen  = new Texture(w, h, FMT_RGBA, OPT_TARGET);
+            screen = new Texture(w, h, FMT_RGBA, OPT_TARGET);
         #endif
         }
         return screen;
@@ -886,6 +891,7 @@ struct WaterCache {
             if (!item.visible) continue;
 
             if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
+                Core::noiseTex->bind(sDiffuse);
                 item.mask->bind(sMask);
             // add water drops
                 drop(item);                    
@@ -984,6 +990,7 @@ struct WaterCache {
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
             Core::active.shader->setParam(uTexParam, vec4(0.0f, 0.0f, sx, sz));
+            Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
 
             refract->bind(sDiffuse);
             reflect->bind(sReflect);
@@ -1034,6 +1041,13 @@ struct WaterCache {
         vertices[1].texCoord = short4(32767, 32767, 0, 0);
         vertices[2].texCoord = short4(32767,     0, 0, 0);
         vertices[3].texCoord = short4(    0,     0, 0, 0);
+
+#if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+        vertices[0].texCoord = short4(    0,     0, 0, 0);
+        vertices[1].texCoord = short4(32767,     0, 0, 0);
+        vertices[2].texCoord = short4(32767, 32767, 0, 0);
+        vertices[3].texCoord = short4(    0, 32767, 0, 0);
+#endif
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);

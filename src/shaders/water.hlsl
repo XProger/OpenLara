@@ -16,7 +16,19 @@ float2 invUV(float2 uv) {
 }
 
 float3 getInvUV(float2 uv, float4 param) {
-	return float3((float2(uv.x, -uv.y) * 0.5 + 0.5) * param.zw + 0.5 * param.xy, 0.0);
+	float2 p = (float2(uv.x, -uv.y) * 0.5 + 0.5) * param.zw;
+#ifndef _GAPI_GXM
+	p.xy += 0.5 * param.xy;
+#endif
+	return float3(p, 0.0);
+}
+
+float2 getUV(float2 uv, float4 param) {
+	float2 p = (uv.xy * 0.5 + 0.5) * param.zw;
+#ifndef _GAPI_GXM
+	//p.xy += 0.5 * param.xy;
+#endif
+	return p;
 }
 
 #ifdef VERTEX
@@ -33,18 +45,22 @@ VS_OUTPUT main(VS_INPUT In) {
 	
 	float3 coord = In.aCoord.xyz * (1.0 / 32767.0);
 
+	Out.texCoord = getUV(coord.xy, uTexParam);
+
 	if (WATER_COMPOSE) {
 		Out.coord    = float3(coord.x, 0.0, coord.y) * uPosScale[1].xyz + uPosScale[0].xyz;
 		Out.pos      = mul(uViewProj, float4(Out.coord, 1.0));
 		Out.viewVec  = uViewPos.xyz - Out.coord.xyz;
 		Out.lightVec = uLightPos[0].xyz - Out.coord.xyz;
 		Out.oldPos   = getInvUV(coord.xy, uTexParam);
+		Out.texCoord = getUV(coord.xy, uRoomSize);
 	} else if (WATER_DROP) {
 		Out.pos    = float4(coord.xyz, 1.0);
 		Out.oldPos = getInvUV(coord.xy, uTexParam);
 	} else if (WATER_SIMULATE) {
-		Out.pos	   = float4(coord.xyz, 1.0);
-		Out.oldPos = getInvUV(coord.xy, uTexParam);
+		Out.pos      = float4(coord.xyz, 1.0);
+		Out.oldPos   = getInvUV(coord.xy, uTexParam);
+		Out.texCoord = getUV(coord.xy, uRoomSize);
 	} else if (WATER_CAUSTICS) {
 		float3 rCoord = float3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 		float2 uv     = getInvUV(rCoord.xy, uTexParam).xy;
@@ -68,8 +84,7 @@ VS_OUTPUT main(VS_INPUT In) {
         Out.pos	    = mul(uViewProj, float4(Out.coord, 1.0));
     }
 
-	Out.texCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw + 0.5 * uTexParam.xy; // + half texel offset
-	Out.hpos     = Out.pos;
+	Out.hpos = Out.pos;
 	
 	return Out;
 }
@@ -84,7 +99,7 @@ float calcFresnel(float VoH, float f0) {
 float4 drop(VS_OUTPUT In) {
 	float2 iuv = In.oldPos.xy;
 	
-	float4 v = tex2D(sDiffuse, iuv);
+	float4 v = tex2D(sNormal, iuv);
 
 	float value = max(0.0, 1.0 - length(uParam.xy - In.texCoord / uTexParam.xy) / uParam.z);
 	value = 0.5 - cos(value * PI) * 0.5;
@@ -94,50 +109,19 @@ float4 drop(VS_OUTPUT In) {
 	return v;
 }
 
-float3 hash33(float3 p3) {
-	p3 = frac(p3 * float3(.1031,.11369,.13787));
-	p3 += dot(p3, p3.yxz+19.19);
-	return -1.0 + 2.0 * frac(float3((p3.x + p3.y)*p3.z, (p3.x+p3.z)*p3.y, (p3.y+p3.z)*p3.x));
-}
-
-float simplex_noise(float3 p) { // https://www.shadertoy.com/view/4sc3z2
-	const float K1 = 0.333333333;
-	const float K2 = 0.166666667;
-
-	float3 i = floor(p + (p.x + p.y + p.z) * K1);
-	float3 d0 = p - (i - (i.x + i.y + i.z) * K2);
-
-	float3 e = step((float3)0.0, d0 - d0.yzx);
-	float3 i1 = e * (1.0 - e.zxy);
-	float3 i2 = 1.0 - e.zxy * (1.0 - e);
-
-	float3 d1 = d0 - (i1  - 1.0 * K2);
-	float3 d2 = d0 - (i2  - 2.0 * K2);
-	float3 d3 = d0 - (1.0 - 3.0 * K2);
-
-	float4 h = max(0.6 - float4(dot(d0, d0), dot(d1, d1), dot(d2, d2), dot(d3, d3)), 0.0);
-	float4 n = h * h * h * h * float4(dot(d0, hash33(i)), dot(d1, hash33(i + i1)), dot(d2, hash33(i + i2)), dot(d3, hash33(i + 1.0)));
-
-	return dot((float4)31.316, n);
-}
-
-float h(float2 tc) {
-	return simplex_noise(float3(tc * 16.0, uParam.w)) * 0.0005;
-}
-
 float4 simulate(VS_OUTPUT In) {
 	float2 iuv = In.oldPos.xy;
 	float2 uv  = In.texCoord;
 	
-	if (tex2D(sMask, uv).x < 0.5)
+	if (tex2D(sMask, uv).a < 0.5)
 		return 0.0;
 
-	float4 v = tex2D(sDiffuse, iuv); // height, speed, normal.xz
+	float4 v = tex2D(sNormal, iuv); // height, speed, normal.xz
 
 	float3 d = float3(float2(uTexParam.x, -uTexParam.y), 0.0);
 	float4 f = float4(
-			tex2D(sDiffuse, iuv + d.xz).x, tex2D(sDiffuse, iuv + d.zy).x,
-			tex2D(sDiffuse, iuv - d.xz).x, tex2D(sDiffuse, iuv - d.zy).x
+			tex2D(sNormal, iuv + d.xz).x, tex2D(sNormal, iuv + d.zy).x,
+			tex2D(sNormal, iuv - d.xz).x, tex2D(sNormal, iuv - d.zy).x
 		);
 
 	float average = dot(f, (float4)0.25);
@@ -151,7 +135,7 @@ float4 simulate(VS_OUTPUT In) {
 
 	v.y += (average - v.x) * vel;
 	v.y *= vis;
-	v.x += v.y + h(uv);
+	v.x += v.y + (tex2D(sDiffuse, uv + uParam.zw).x * 2.0 - 1.0) * 0.00025;
 
 	return v;
 }
@@ -228,7 +212,7 @@ float4 compose(VS_OUTPUT In) {
 	float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 	float4 color = lerp(refr, refl, fresnel) + spec * 1.5;
-	color.w *= tex2D(sMask, In.texCoord).x;
+	color.w *= tex2D(sMask, In.texCoord).a;
 	
 	float dist = In.viewVec.y / viewVec.y;
 	dist *= step(In.coord.y, uViewPos.y);

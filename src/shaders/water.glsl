@@ -20,6 +20,10 @@ varying vec3 vLightVec;
 	varying vec3 vNewPos;
 #endif
 
+#if defined(WATER_COMPOSE) || defined(WATER_SIMULATE)
+	varying vec2 vMaskCoord;
+#endif
+
 uniform vec4  uViewPos;
 uniform mat4  uViewProj;
 uniform vec4  uLightPos[MAX_LIGHTS];
@@ -27,6 +31,7 @@ uniform vec4  uPosScale[2];
 
 uniform vec4  uTexParam;
 uniform vec4  uParam;
+uniform vec4  uRoomSize;
 
 uniform sampler2D sNormal;
 
@@ -37,6 +42,10 @@ uniform sampler2D sNormal;
 		vec3 coord = aCoord.xyz * (1.0 / 32767.0);
 
 		vTexCoord = (coord.xy * 0.5 + 0.5) * uTexParam.zw;
+
+	#if defined(WATER_COMPOSE) || defined(WATER_SIMULATE)
+		vMaskCoord = (coord.xy * 0.5 + 0.5) * uRoomSize.zw;
+	#endif
 
 		#if defined(WATER_MASK) || defined(WATER_COMPOSE)
 
@@ -59,7 +68,7 @@ uniform sampler2D sNormal;
 
 				vec3 light = vec3(0.0, 0.0, 1.0);
 				vec3 refOld = refract(-light, vec3(0.0, 0.0, 1.0), 0.75);
-				vec3 refNew = refract(-light, normal, 0.75);
+				vec3 refNew = refract(-light, normalize(normal + vec3(0.0, 0.0, 0.25)), 0.75);
 
 				vOldPos = rCoord + refOld * (-1.0 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z);
 				vNewPos = rCoord + refNew * ((info.r - 1.0) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z);
@@ -94,7 +103,7 @@ uniform sampler2D sNormal;
 	}
 
 	vec4 drop() {
-		vec4 v = texture2D(sDiffuse, vTexCoord);
+		vec4 v = texture2D(sNormal, vTexCoord);
 
 		float drop = max(0.0, 1.0 - length(uParam.xy - vTexCoord / uTexParam.xy) / uParam.z);
 		drop = 0.5 - cos(drop * PI) * 0.5;
@@ -103,48 +112,18 @@ uniform sampler2D sNormal;
 		return v;
 	}
 
-	vec3 hash33(vec3 p3) {
-		p3 = fract(p3 * vec3(.1031,.11369,.13787));
-		p3 += dot(p3, p3.yxz+19.19);
-		return -1.0 + 2.0 * fract(vec3((p3.x + p3.y)*p3.z, (p3.x+p3.z)*p3.y, (p3.y+p3.z)*p3.x));
-	}
-
-	float simplex_noise(vec3 p) { // https://www.shadertoy.com/view/4sc3z2
-		const float K1 = 0.333333333;
-		const float K2 = 0.166666667;
-
-		vec3 i = floor(p + (p.x + p.y + p.z) * K1);
-		vec3 d0 = p - (i - (i.x + i.y + i.z) * K2);
-
-		vec3 e = step(vec3(0.0), d0 - d0.yzx);
-		vec3 i1 = e * (1.0 - e.zxy);
-		vec3 i2 = 1.0 - e.zxy * (1.0 - e);
-
-		vec3 d1 = d0 - (i1  - 1.0 * K2);
-		vec3 d2 = d0 - (i2  - 2.0 * K2);
-		vec3 d3 = d0 - (1.0 - 3.0 * K2);
-
-		vec4 h = max(0.6 - vec4(dot(d0, d0), dot(d1, d1), dot(d2, d2), dot(d3, d3)), 0.0);
-		vec4 n = h * h * h * h * vec4(dot(d0, hash33(i)), dot(d1, hash33(i + i1)), dot(d2, hash33(i + i2)), dot(d3, hash33(i + 1.0)));
-
-		return dot(vec4(31.316), n);
-	}
-
-	float h(vec2 tc) {
-		return simplex_noise(vec3(tc * 16.0, uParam.w)) * 0.0005;
-	}
-
+#ifdef WATER_SIMULATE
 	vec4 simulate() {
 		vec2 tc = vTexCoord;
 
-		if (texture2D(sMask, tc).x < 0.5)
+		if (texture2D(sMask, vMaskCoord).a < 0.5)
 			return vec4(0.0);
 
-		vec4 v = texture2D(sDiffuse, tc); // height, speed, normal.xz
+		vec4 v = texture2D(sNormal, tc); // height, speed, normal.xz
 
 		vec3 d = vec3(uTexParam.xy, 0.0);
-		vec4 f = vec4(texture2D(sDiffuse, tc + d.xz).x, texture2D(sDiffuse, tc + d.zy).x,
-					  texture2D(sDiffuse, tc - d.xz).x, texture2D(sDiffuse, tc - d.zy).x);
+		vec4 f = vec4(texture2D(sNormal, tc + d.xz).x, texture2D(sNormal, tc + d.zy).x,
+					  texture2D(sNormal, tc - d.xz).x, texture2D(sNormal, tc - d.zy).x);
 		float average = dot(f, vec4(0.25));
 
 	// normal
@@ -153,13 +132,14 @@ uniform sampler2D sNormal;
 	// integrate
 		const float vel = 1.4;
 		const float vis = 0.995;
-
 		v.y += (average - v.x) * vel;
 		v.y *= vis;
-		v.x += v.y + h(tc);
+		float noise = texture2D(sDiffuse, tc + uParam.zw * 0.5).x;
+		v.x += v.y + (noise * 2.0 - 1.0) * 0.00025;
 
 		return v;
 	}
+#endif
 
 #ifdef WATER_CAUSTICS
 	vec4 caustics() {
@@ -173,13 +153,13 @@ uniform sampler2D sNormal;
 
 #ifdef WATER_RAYS
 
-float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
-	center -= rayPos;
-	vec3 bMin = (center - hsize) / rayDir;
-	vec3 bMax = (center + hsize) / rayDir;
-	vec3 m = min(bMin, bMax);
-	return max(0.0, max(m.x, max(m.y, m.z)));
-}
+	float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
+		center -= rayPos;
+		vec3 bMin = (center - hsize) / rayDir;
+		vec3 bMax = (center + hsize) / rayDir;
+		vec3 m = min(bMin, bMax);
+		return max(0.0, max(m.x, max(m.y, m.z)));
+	}
 
 	vec4 rays() {
 		#define RAY_STEPS 16.0
@@ -222,6 +202,7 @@ float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
 		color.xyz = mix(UNDERWATER_COLOR * 0.2, color.xyz, fog);
 	}
 
+#ifdef WATER_COMPOSE
 	vec4 compose() {
 		vec3 viewVec = normalize(vViewVec);
 
@@ -244,11 +225,12 @@ float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
 		float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 		vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
-		color.w *= texture2D(sMask, vTexCoord).x;
+		color.w *= texture2D(sMask, vMaskCoord).a;
 		applyFog(color.xyz, vViewVec.y / viewVec.y);
 
 		return color;
 	}
+#endif
 
 	vec4 pass() {
 		#ifdef WATER_DROP
