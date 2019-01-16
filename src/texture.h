@@ -92,14 +92,14 @@ struct Texture : GAPI::Texture {
             filter = false;
         }
 
-        if (format == FMT_RGBA_HALF) {
+        if (format == FMT_RG_HALF) {
             if (Core::support.texHalf)
                 filter = filter && Core::support.texHalfLinear;
             else
-                format = FMT_RGBA_FLOAT;
+                format = FMT_RG_FLOAT;
         }
 
-        if (format == FMT_RGBA_FLOAT) {
+        if (format == FMT_RG_FLOAT) {
             if (Core::support.texFloat)
                 filter = filter && Core::support.texFloatLinear;
             else

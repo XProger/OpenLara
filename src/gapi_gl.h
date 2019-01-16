@@ -3,7 +3,9 @@
 
 #include "core.h"
 
-//#define _DEBUG_SHADERS
+#if defined(_DEBUG) || defined(PROFILE)
+    //#define _DEBUG_SHADERS
+#endif
 
 #ifdef _OS_WIN
     #include <gl/GL.h>
@@ -20,6 +22,9 @@
     #define GL_TEXTURE_COMPARE_FUNC     0x884D
     #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
+    #define GL_RG                       0x8227
+    #define GL_RG16F                    0x822F
+    #define GL_RG32F                    0x8230
     #define GL_RGBA16F                  0x881A
     #define GL_RGBA32F                  0x8814
     #define GL_HALF_FLOAT               0x140B
@@ -53,10 +58,12 @@
     #define GL_TEXTURE_COMPARE_FUNC     0x884D
     #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
+    #undef  GL_RG
     #undef  GL_RGBA32F
     #undef  GL_RGBA16F
     #undef  GL_HALF_FLOAT
 
+    #define GL_RG           GL_RGBA
     #define GL_RGBA32F      GL_RGBA
     #define GL_RGBA16F      GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
@@ -101,10 +108,17 @@
         #define GL_CLAMP_TO_BORDER          0x812D
         #define GL_TEXTURE_BORDER_COLOR     0x1004
 
+        // TODO: WTF?
+        #undef  GL_RG
         #undef  GL_RGBA32F
         #undef  GL_RGBA16F
+        #undef  GL_RG32F
+        #undef  GL_RG16F
         #undef  GL_HALF_FLOAT
 
+        #define RG              GL_RGBA
+        #define GL_RG16F        GL_RGBA
+        #define GL_RG32F        GL_RGBA
         #define GL_RGBA32F      GL_RGBA
         #define GL_RGBA16F      GL_RGBA
         #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
@@ -120,6 +134,9 @@
         #include <OpenGL/glext.h>
         #include <AGL/agl.h>
 
+        #define GL_RG                       0x8227
+        #define GL_RG16F                    0x822F
+        #define GL_RG32F                    0x8230
         #define GL_RGBA16F                  0x881A
         #define GL_RGBA32F                  0x8814
         #define GL_HALF_FLOAT               0x140B
@@ -676,38 +693,42 @@ namespace GAPI {
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
                 { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
                 { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
-                { GL_RGBA32F,         GL_RGBA,            GL_FLOAT                  }, // RGBA_FLOAT
-                { GL_RGBA16F,         GL_RGBA,            GL_HALF_FLOAT             }, // RGBA_HALF
+                { GL_RG32F,           GL_RG,              GL_FLOAT                  }, // RG_FLOAT
+                { GL_RG16F,           GL_RG,              GL_HALF_FLOAT             }, // RG_HALF
                 { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
                 { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
             };
 
             FormatDesc desc = formats[fmt];
 
+            if ((fmt == FMT_RG_FLOAT || fmt == FMT_RG_HALF) && !Core::support.texRG) {
+                desc.ifmt = (fmt == FMT_RG_FLOAT) ? GL_RGBA32F : GL_RGBA16F;
+                desc.fmt  = GL_RGBA;
+            }
+
             #ifdef _OS_WEB // fucking firefox!
-                if (fmt == FMT_RGBA_FLOAT) {
+                if (fmt == FMT_RG_FLOAT) {
                     if (Core::support.texFloat) {
                         desc.ifmt = GL_RGBA;
                         desc.type = GL_FLOAT;
                     }
                 }
 
-                if (fmt == FMT_RGBA_HALF) {
+                if (fmt == FMT_RG_HALF) {
                     if (Core::support.texHalf) {
                         desc.ifmt = GL_RGBA;
                         desc.type = GL_HALF_FLOAT_OES;
                     }
                 }
             #else
-                if ((fmt == FMT_RGBA_FLOAT && !Core::support.colorFloat) || (fmt == FMT_RGBA_HALF && !Core::support.colorHalf)) {
+                if ((fmt == FMT_RG_FLOAT && !Core::support.colorFloat) || (fmt == FMT_RG_HALF && !Core::support.colorHalf)) {
                     desc.ifmt = GL_RGBA;
                     #ifdef _GAPI_GLES
-                        if (fmt == FMT_RGBA_HALF)
+                        if (fmt == FMT_RG_HALF)
                             desc.type = GL_HALF_FLOAT_OES;
                     #endif
                 }
             #endif
-
 
             void *pix = data;
             if (data && !Core::support.texNPOT && (width != origWidth || height != origHeight))

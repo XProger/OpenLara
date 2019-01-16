@@ -556,8 +556,8 @@ struct WaterCache {
 
             int *mf = new int[4 * w * 64 * h * 64];
             memset(mf, 0, sizeof(int) * 4 * w * 64 * h * 64);
-            data[0] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET | OPT_VERTEX, mf);
-            data[1] = new Texture(w * 64, h * 64, FMT_RGBA_HALF, OPT_TARGET | OPT_VERTEX);
+            data[0] = new Texture(w * 64, h * 64, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX, mf);
+            data[1] = new Texture(w * 64, h * 64, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX);
             delete[] mf;
 
             caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET) : NULL;
@@ -761,7 +761,7 @@ struct WaterCache {
         float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
         float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
-        Core::active.shader->setParam(uTexParam, vec4(0.0f, 0.0f, sx, sz));
+        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, sx, sz));
 
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
@@ -989,7 +989,7 @@ struct WaterCache {
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
 
-            Core::active.shader->setParam(uTexParam, vec4(0.0f, 0.0f, sx, sz));
+            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, sx, sz));
             Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
 
             refract->bind(sDiffuse);

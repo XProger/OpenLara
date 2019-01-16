@@ -35,6 +35,12 @@ uniform vec4  uRoomSize;
 
 uniform sampler2D sNormal;
 
+vec3 calcNormal(vec2 tc, float base) {
+	float dx = texture2D(sNormal, vec2(tc.x + uTexParam.x, tc.y)).x - base;
+	float dz = texture2D(sNormal, vec2(tc.x, tc.y + uTexParam.y)).x - base;
+	return normalize( vec3(dx, 64.0 / (1024.0 * 8.0), dz) );
+}
+
 #ifdef VERTEX
 	attribute vec4 aCoord;
 
@@ -63,8 +69,9 @@ uniform sampler2D sNormal;
 			#ifdef WATER_CAUSTICS
 				vec3 rCoord = vec3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 
-				vec4 info = texture2D(sNormal, (rCoord.xy  * 0.5 + 0.5) * uTexParam.zw);
-				vec3 normal = vec3(info.z, info.w, sqrt(1.0 - dot(info.zw, info.zw)));
+				vec2 tc = (rCoord.xy * 0.5 + 0.5) * uTexParam.zw;
+				vec4 info = texture2D(sNormal, tc);
+				vec3 normal = calcNormal(tc, info.x).xzy;
 
 				vec3 light = vec3(0.0, 0.0, 1.0);
 				vec3 refOld = refract(-light, vec3(0.0, 0.0, 1.0), 0.75);
@@ -103,13 +110,13 @@ uniform sampler2D sNormal;
 	}
 
 	vec4 drop() {
-		vec4 v = texture2D(sNormal, vTexCoord);
+		vec2 v = texture2D(sNormal, vTexCoord).xy;
 
 		float drop = max(0.0, 1.0 - length(uParam.xy - vTexCoord / uTexParam.xy) / uParam.z);
 		drop = 0.5 - cos(drop * PI) * 0.5;
 		v.x += drop * uParam.w;
 
-		return v;
+		return vec4(v, 0.0, 0.0);
 	}
 
 #ifdef WATER_SIMULATE
@@ -119,15 +126,12 @@ uniform sampler2D sNormal;
 		if (texture2D(sMask, vMaskCoord).a < 0.5)
 			return vec4(0.0);
 
-		vec4 v = texture2D(sNormal, tc); // height, speed, normal.xz
+		vec2 v = texture2D(sNormal, tc).xy; // height, speed
 
 		vec3 d = vec3(uTexParam.xy, 0.0);
 		vec4 f = vec4(texture2D(sNormal, tc + d.xz).x, texture2D(sNormal, tc + d.zy).x,
 					  texture2D(sNormal, tc - d.xz).x, texture2D(sNormal, tc - d.zy).x);
 		float average = dot(f, vec4(0.25));
-
-	// normal
-		v.zw = normalize( vec3(f.x - f.z, 64.0 / (1024.0 * 4.0), f.y - f.w) ).xz;
 
 	// integrate
 		const float vel = 1.4;
@@ -137,7 +141,7 @@ uniform sampler2D sNormal;
 		float noise = texture2D(sDiffuse, tc + uParam.zw * 0.5).x;
 		v.x += v.y + (noise * 2.0 - 1.0) * 0.00025;
 
-		return v;
+		return vec4(v.xy, 0.0, 0.0);
 	}
 #endif
 
@@ -206,9 +210,11 @@ uniform sampler2D sNormal;
 	vec4 compose() {
 		vec3 viewVec = normalize(vViewVec);
 
-		vec4 value	= texture2D(sNormal, vTexCoord);
-		vec3 normal = vec3(value.z, sqrt(1.0 - dot(value.zw, value.zw)) * sign(viewVec.y), value.w);
-		vec2 dudv   = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
+		vec2 value = texture2D(sNormal, vTexCoord).xy;
+		vec3 normal = calcNormal(vTexCoord, value.x);
+		normal.y *= sign(viewVec.y);
+
+		vec2 dudv = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 
 		vec3 rv = reflect(-viewVec, normal);
 		vec3 lv = normalize(vLightVec);
