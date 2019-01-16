@@ -33,7 +33,7 @@
             #define LOG(...) printf(__VA_ARGS__)
         #endif
     #else
-        #define LOG(...) 0
+        #define LOG(...) printf(__VA_ARGS__)
     #endif
 #endif
 
