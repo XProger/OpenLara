@@ -1,63 +1,64 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 pos       : POSITION;
-	float2 texCoord  : TEXCOORD0;
-	float2 maskCoord : TEXCOORD1;
+	float4 pos        : POSITION;
+	half2  texCoord   : TEXCOORD0;
+	half2  maskCoord  : TEXCOORD1;
+	half2  texCoordL  : TEXCOORD2;
+	half2  texCoordR  : TEXCOORD3;
+	half2  texCoordT  : TEXCOORD4;
+	half2  texCoordB  : TEXCOORD5;
+	half2  noiseCoord : TEXCOORD6;
 };
 
-float2 getInvUV(float2 uv, float4 param) {
-	float2 p = (float2(uv.x, -uv.y) * 0.5 + 0.5) * param.zw;
-#ifndef _GAPI_GXM
-	p.xy += 0.5 * param.xy;
-#endif
-	return p;
-}
-
-float2 getUV(float2 uv, float4 param) {
-	return (uv.xy * 0.5 + 0.5) * param.zw;
-}
-
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 	
 	float3 coord = In.aCoord.xyz * (1.0 / 32767.0);
+	float4 uv = float4(coord.x, coord.y, coord.x, -coord.y) * 0.5 + 0.5;
 
 	Out.pos       = float4(coord.xyz, 1.0);
-	Out.texCoord  = getInvUV(coord.xy, uTexParam);
-	Out.maskCoord = getUV(coord.xy, uRoomSize);
+	Out.maskCoord = uv.xy * uRoomSize.zw;
+	Out.texCoord  = uv.zw * uTexParam.zw;
+	#ifndef _GAPI_GXM
+		Out.texCoord += 0.5 * uTexParam.xy;
+	#endif
+	
+	float3 d = float3(uTexParam.x, uTexParam.y, 0.0);
+	Out.texCoordL  = Out.texCoord - d.xz;
+	Out.texCoordR  = Out.texCoord + d.xz;
+	Out.texCoordT  = Out.texCoord - d.zy;
+	Out.texCoordB  = Out.texCoord + d.zy;
+	Out.noiseCoord = Out.texCoord + uParam.zw;
 	
 	return Out;
 }
 
 #else // PIXEL
 
+#define WATER_VEL	1.4
+#define WATER_VIS	0.995
+
 half4 main(VS_OUTPUT In) : COLOR0 {
-	float2 uv = In.texCoord.xy;
-	if (tex2Dlod(sMask, float4(In.maskCoord, 0, 0)).a < 0.5)
-		return 0.0;
+	half4 v = tex2D(sNormal, In.texCoord.xy); // height, speed
 
-	half2 v = (half2)tex2Dlod(sNormal, float4(uv, 0, 0)).xy; // height, speed
-
-	float3 d = float3(float2(uTexParam.x, -uTexParam.y), 0.0);
-	float4 f = float4(
-			F2_TEX2D(sNormal, uv + d.xz).x, F2_TEX2D(sNormal, uv + d.zy).x,
-			F2_TEX2D(sNormal, uv - d.xz).x, F2_TEX2D(sNormal, uv - d.zy).x
-		);
-
-	float average = dot(f, (float4)0.25);
-
-// integrate
-	const half vel = 1.4;
-	const half vis = 0.995;
-
-	v.y += (half)((average - v.x) * vel);
-	v.y *= vis;
-	v.x += v.y + (half)(tex2Dlod(sDiffuse, float4(uv + uParam.zw, 0, 0)).x * 2.0 - 1.0) * 0.00025;
+	half average = (
+		tex2D(sNormal, In.texCoordL).x +
+		tex2D(sNormal, In.texCoordR).x +
+		tex2D(sNormal, In.texCoordT).x +
+		tex2D(sNormal, In.texCoordB).x) * 0.25;
 	
-	return half4(v, 0, 0);
+// integrate
+	v.y += (average - v.x) * WATER_VEL;
+	v.y *= WATER_VIS;
+	v.x += v.y;
+	v.x += tex2D(sDiffuse, In.noiseCoord).x * 0.00025;
 
+	v *= tex2D(sMask, In.maskCoord).a;
+	
+	return v;
 }
 
 #endif
