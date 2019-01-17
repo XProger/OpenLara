@@ -80,8 +80,8 @@ void inputUpdate() {
 
     vec2 stickL = vec2(float(pad.lx), float(pad.ly)) / 128.0f - 1.0f;
     vec2 stickR = vec2(float(pad.rx), float(pad.ry)) / 128.0f - 1.0f;
-    if (fabsf(stickL.x) < 0.2f && fabsf(stickL.y) < 0.2f) stickL = vec2(0.0f);
-    if (fabsf(stickR.x) < 0.2f && fabsf(stickR.y) < 0.2f) stickR = vec2(0.0f);
+    if (fabsf(stickL.x) < 0.3f && fabsf(stickL.y) < 0.3f) stickL = vec2(0.0f);
+    if (fabsf(stickR.x) < 0.3f && fabsf(stickR.y) < 0.3f) stickR = vec2(0.0f);
     Input::setJoyPos(0, jkL, stickL);
     Input::setJoyPos(0, jkR, stickR);
 
@@ -193,7 +193,8 @@ int main() {
     osTimerFreq = sceRtcGetTickResolution();
     osStartTime = osGetTime();
 
-    Game::init();
+    Game::init("PSXDATA/LEVEL2.PSX");
+//    sceRazorGpuCaptureSetTrigger(100, "ux0:data/OpenLara/capture.sgx");
 
     while (!Core::isQuit) {
         inputUpdate();

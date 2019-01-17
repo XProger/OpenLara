@@ -50,14 +50,32 @@ void D3DCHECK(HRESULT res) {
 #endif
 
 namespace GAPI {
-    #include "shaders/d3d9/compose_vs.h"
-    #include "shaders/d3d9/compose_ps.h"
+    #include "shaders/d3d9/compose_sprite_vs.h"
+    #include "shaders/d3d9/compose_sprite_ps.h"
+    #include "shaders/d3d9/compose_flash_vs.h"
+    #include "shaders/d3d9/compose_flash_ps.h"
+    #include "shaders/d3d9/compose_room_vs.h"
+    #include "shaders/d3d9/compose_room_ps.h"
+    #include "shaders/d3d9/compose_entity_vs.h"
+    #include "shaders/d3d9/compose_entity_ps.h"
+    #include "shaders/d3d9/compose_mirror_vs.h"
+    #include "shaders/d3d9/compose_mirror_ps.h"
     #include "shaders/d3d9/shadow_vs.h"
     #include "shaders/d3d9/shadow_ps.h"
     #include "shaders/d3d9/ambient_vs.h"
     #include "shaders/d3d9/ambient_ps.h"
-    #include "shaders/d3d9/water_vs.h"
-    #include "shaders/d3d9/water_ps.h"
+    #include "shaders/d3d9/water_drop_vs.h"
+    #include "shaders/d3d9/water_drop_ps.h"
+    #include "shaders/d3d9/water_simulate_vs.h"
+    #include "shaders/d3d9/water_simulate_ps.h"
+    #include "shaders/d3d9/water_caustics_vs.h"
+    #include "shaders/d3d9/water_caustics_ps.h"
+    #include "shaders/d3d9/water_rays_vs.h"
+    #include "shaders/d3d9/water_rays_ps.h"
+    #include "shaders/d3d9/water_mask_vs.h"
+    #include "shaders/d3d9/water_mask_ps.h"
+    #include "shaders/d3d9/water_compose_vs.h"
+    #include "shaders/d3d9/water_compose_ps.h"
     #include "shaders/d3d9/filter_vs.h"
     #include "shaders/d3d9/filter_ps.h"
     #include "shaders/d3d9/gui_vs.h"
@@ -141,10 +159,29 @@ namespace GAPI {
         void init(Core::Pass pass, int type, int *def, int defCount) {
             const BYTE *vSrc, *pSrc;
             switch (pass) {
-                case Core::passCompose : vSrc = COMPOSE_VS; pSrc = COMPOSE_PS; break;
+                case Core::passCompose :
+                    switch (type) {
+                        case 0 : vSrc = COMPOSE_SPRITE_VS; pSrc = COMPOSE_SPRITE_PS; break;
+                        case 1 : vSrc = COMPOSE_FLASH_VS;  pSrc = COMPOSE_FLASH_PS;  break;
+                        case 2 : vSrc = COMPOSE_ROOM_VS;   pSrc = COMPOSE_ROOM_PS;   break;
+                        case 3 : vSrc = COMPOSE_ENTITY_VS; pSrc = COMPOSE_ENTITY_PS; break;
+                        case 4 : vSrc = COMPOSE_MIRROR_VS; pSrc = COMPOSE_MIRROR_PS; break;
+                        default : ASSERT(false);
+                    }
+                    break;
                 case Core::passShadow  : vSrc = SHADOW_VS;  pSrc = SHADOW_PS;  break;
                 case Core::passAmbient : vSrc = AMBIENT_VS; pSrc = AMBIENT_PS; break;
-                case Core::passWater   : vSrc = WATER_VS;   pSrc = WATER_PS;   break;
+                case Core::passWater   : 
+                    switch (type) {
+                        case 0 : vSrc = WATER_DROP_VS;     pSrc = WATER_DROP_PS;     break;
+                        case 1 : vSrc = WATER_SIMULATE_VS; pSrc = WATER_SIMULATE_PS; break;
+                        case 2 : vSrc = WATER_CAUSTICS_VS; pSrc = WATER_CAUSTICS_PS; break;
+                        case 3 : vSrc = WATER_RAYS_VS;     pSrc = WATER_RAYS_PS;     break;
+                        case 4 : vSrc = WATER_MASK_VS;     pSrc = WATER_MASK_PS;     break;
+                        case 5 : vSrc = WATER_COMPOSE_VS;  pSrc = WATER_COMPOSE_PS;  break;
+                        default : ASSERT(false);
+                    }
+                    break;
                 case Core::passFilter  : vSrc = FILTER_VS;  pSrc = FILTER_PS;  break;
                 case Core::passGUI     : vSrc = GUI_VS;     pSrc = GUI_PS;     break;
                 default                : ASSERT(false); LOG("! wrong pass id\n"); return;
@@ -227,14 +264,14 @@ namespace GAPI {
                 int       bpp;
                 D3DFORMAT format;
             } formats[FMT_MAX] = {
-                {   8, D3DFMT_L8            },
-                {  32, D3DFMT_A8R8G8B8      },
-                {  16, D3DFMT_R5G6B5        },
-                {  16, D3DFMT_A1R5G5B5      },
-                { 128, D3DFMT_A32B32G32R32F },
-                {  64, D3DFMT_A16B16G16R16F },
-                {  16, D3DFMT_D16           },
-                {  16, D3DFMT_D24X8         },
+                {   8, D3DFMT_L8       },
+                {  32, D3DFMT_A8R8G8B8 },
+                {  16, D3DFMT_R5G6B5   },
+                {  16, D3DFMT_A1R5G5B5 },
+                {  64, D3DFMT_G32R32F  },
+                {  32, D3DFMT_G16R16F  },
+                {  16, D3DFMT_D16      },
+                {  16, D3DFMT_D24X8    },
             };
             
             FormatDesc desc = formats[fmt];
@@ -253,7 +290,18 @@ namespace GAPI {
                 if (data && !isTarget) {
                     D3DLOCKED_RECT rect;
                     D3DCHECK(tex2D->LockRect(0, &rect, NULL, 0));
-                    memcpy(rect.pBits, data, width * height * (desc.bpp / 8));
+                    if (width != origWidth || height != origHeight) {
+                        memset(rect.pBits, 0, width * height * (desc.bpp / 8));
+                        uint8 *dst = (uint8*)rect.pBits;
+                        uint8 *src = (uint8*)data;
+                        for (int y = 0; y < origHeight; y++) {
+                            memcpy(dst, src, origWidth * (desc.bpp / 8));
+                            src += origWidth * (desc.bpp / 8);
+                            dst += width * (desc.bpp / 8);
+                        }
+                    } else {
+                        memcpy(rect.pBits, data, width * height * (desc.bpp / 8));
+                    }
                     D3DCHECK(tex2D->UnlockRect(0));
                 }
             }

@@ -116,43 +116,6 @@ extern void  osJoyVibrate    (int index, float L, float R);
 
 #define OS_LOCK(mutex) Core::Lock _lock(mutex)
 
-/*
-extern void* osRWLockInit    ();
-extern void  osRWLockFree    (void *obj);
-extern void  osRWLockRead    (void *obj);
-extern void  osRWUnlockRead  (void *obj);
-extern void  osRWLockWrite   (void *obj);
-extern void  osRWUnlockWrite (void *obj);
-
-struct RWLock {
-    void *obj;
-
-    RWLock()           { obj = osRWLockInit(); }
-    ~RWLock()          { osRWLockFree(obj);    }
-    void lockRead()    { osRWLockRead(obj);    }
-    void unlockRead()  { osRWUnlockRead(obj);  }
-    void lockWrite()   { osRWLockWrite(obj);   }
-    void unlockWrite() { osRWUnlockWrite(obj); }
-};
-
-struct LockRead {
-    RWLock &lock;
-
-    LockRead(RWLock &lock) : lock(lock) { lock.lockRead(); }
-    ~LockRead() { lock.unlockRead(); }
-};
-
-struct LockWrite {
-    RWLock &lock;
-
-    LockWrite(RWLock &lock) : lock(lock) { lock.lockWrite(); }
-    ~LockWrite() { lock.unlockWrite(); }
-};
-
-#define OS_LOCK_READ(rwLock)  LockRead  _rLock(rwLock)
-#define OS_LOCK_WRITE(rwLock) LockWrite _wLock(rwLock)
-*/
-
 enum InputKey { ikNone,
 // keyboard
     ikLeft, ikRight, ikUp, ikDown, ikSpace, ikTab, ikEnter, ikEscape, ikShift, ikCtrl, ikAlt,

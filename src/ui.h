@@ -6,7 +6,10 @@
 #include "controller.h"
 
 #define PICKUP_SHOW_TIME 5.0f
-//#define UI_SHOW_FPS
+
+#ifdef _OS_PSV
+    #define UI_SHOW_FPS
+#endif
 
 enum StringID {
       STR_NOT_IMPLEMENTED

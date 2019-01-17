@@ -96,6 +96,7 @@ typedef unsigned long long uint64;
 
 #define FOURCC(str)        uint32(((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 
+#define ALIGN(x, a)        (((x) + ((a) - 1)) & ~((a) - 1))
 #define COUNT(arr)         int(sizeof(arr) / sizeof(arr[0]))
 #define OFFSETOF(T, E)     ((size_t)&(((T*)0)->E))
 #define TEST_BIT(arr, bit) ((arr[bit / 32] >> (bit % 32)) & 1)
@@ -176,6 +177,12 @@ float decrease(float delta, float &value, float &speed) {
 
 float hermite(float x) {
     return x * x * (3.0f - 2.0f * x);
+}
+
+float lerpHermite(float a, float b, float t) {
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+    return a + (b - a) * hermite(t); 
 }
 
 float lerp(float a, float b, float t) {

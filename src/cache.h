@@ -830,6 +830,7 @@ struct WaterCache {
         Core::setColorWrite(false, false, false, true);
         Core::setDepthWrite(false);
         Core::setCullMode(cmNone);
+        Core::setBlendMode(bmNone);
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -894,7 +895,7 @@ struct WaterCache {
                 Core::noiseTex->bind(sDiffuse);
                 item.mask->bind(sMask);
             // add water drops
-                drop(item);                    
+                drop(item);
             // simulation step
                 step(item);
             }
@@ -1037,16 +1038,17 @@ struct WaterCache {
         vertices[1].light =
         vertices[2].light =
         vertices[3].light = ubyte4(255, 255, 255, 255);
-        vertices[0].texCoord = short4(    0, 32767, 0, 0);
-        vertices[1].texCoord = short4(32767, 32767, 0, 0);
-        vertices[2].texCoord = short4(32767,     0, 0, 0);
-        vertices[3].texCoord = short4(    0,     0, 0, 0);
 
 #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
         vertices[0].texCoord = short4(    0,     0, 0, 0);
         vertices[1].texCoord = short4(32767,     0, 0, 0);
         vertices[2].texCoord = short4(32767, 32767, 0, 0);
         vertices[3].texCoord = short4(    0, 32767, 0, 0);
+#else
+        vertices[0].texCoord = short4(    0, 32767, 0, 0);
+        vertices[1].texCoord = short4(32767, 32767, 0, 0);
+        vertices[2].texCoord = short4(32767,     0, 0, 0);
+        vertices[3].texCoord = short4(    0,     0, 0, 0);
 #endif
 
         Core::setDepthTest(false);

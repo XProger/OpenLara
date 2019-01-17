@@ -11,8 +11,6 @@
 #define PROFILE_LABEL(id, name, label)
 #define PROFILE_TIMING(time)
 
-#define ALIGN(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
-
 #define DISPLAY_WIDTH           960
 #define DISPLAY_HEIGHT          544
 #define DISPLAY_STRIDE          1024
@@ -21,14 +19,32 @@
 #define DISPLAY_PIXEL_FORMAT    SCE_DISPLAY_PIXELFORMAT_A8B8G8R8
 
 namespace GAPI {
-    #include "shaders/gxm/compose_vp.h"
-    #include "shaders/gxm/compose_fp.h"
+    #include "shaders/gxm/compose_sprite_vp.h"
+    #include "shaders/gxm/compose_sprite_fp.h"
+    #include "shaders/gxm/compose_flash_vp.h"
+    #include "shaders/gxm/compose_flash_fp.h"
+    #include "shaders/gxm/compose_room_vp.h"
+    #include "shaders/gxm/compose_room_fp.h"
+    #include "shaders/gxm/compose_entity_vp.h"
+    #include "shaders/gxm/compose_entity_fp.h"
+    #include "shaders/gxm/compose_mirror_vp.h"
+    #include "shaders/gxm/compose_mirror_fp.h"
     #include "shaders/gxm/shadow_vp.h"
     #include "shaders/gxm/shadow_fp.h"
     #include "shaders/gxm/ambient_vp.h"
     #include "shaders/gxm/ambient_fp.h"
-    #include "shaders/gxm/water_vp.h"
-    #include "shaders/gxm/water_fp.h"
+    #include "shaders/gxm/water_drop_vp.h"
+    #include "shaders/gxm/water_drop_fp.h"
+    #include "shaders/gxm/water_simulate_vp.h"
+    #include "shaders/gxm/water_simulate_fp.h"
+    #include "shaders/gxm/water_caustics_vp.h"
+    #include "shaders/gxm/water_caustics_fp.h"
+    #include "shaders/gxm/water_rays_vp.h"
+    #include "shaders/gxm/water_rays_fp.h"
+    #include "shaders/gxm/water_mask_vp.h"
+    #include "shaders/gxm/water_mask_fp.h"
+    #include "shaders/gxm/water_compose_vp.h"
+    #include "shaders/gxm/water_compose_fp.h"
     #include "shaders/gxm/filter_vp.h"
     #include "shaders/gxm/filter_fp.h"
     #include "shaders/gxm/gui_vp.h"
@@ -197,6 +213,23 @@ namespace GAPI {
             sceKernelFreeMemBlock(uid);
         }
 
+        uint32 *SWIZZE_TABLE = NULL;
+        #define SWIZZLE(x, y) ((SWIZZE_TABLE[(x)] << 1) | (SWIZZE_TABLE[(y)]))
+
+        void initSwizzleTable() {
+            SWIZZE_TABLE = new uint32[4096];
+            uint32 value = 0;
+            for (int i = 0; i < 4096; i++) {
+                SWIZZE_TABLE[i] = value;
+                value += 0x2AAAAAAB;
+                value &= 0x55555555;
+            }
+        }
+
+        void freeSwizzleTable() {
+            delete[] SWIZZE_TABLE;
+        }
+
         void init() {
             void *vdmRingBuffer = allocGPU(
                 SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE, SCE_GXM_DEFAULT_VDM_RING_BUFFER_SIZE,
@@ -229,6 +262,8 @@ namespace GAPI {
             params.fragmentUsseRingBufferOffset  = offset;
 
             sceGxmCreateContext(&params, &gxmContext);
+
+            initSwizzleTable();
         }
 
         void deinit() {
@@ -240,6 +275,7 @@ namespace GAPI {
             freeGPU(fragmentRingBufferUID);
             freeFragmentUSSE(fragmentUsseRingBufferUID);
             sceGxmDestroyContext(gxmContext);
+            freeSwizzleTable();
         }
 
         void checkPendings() {
@@ -251,6 +287,67 @@ namespace GAPI {
                     i++;
             }
         }
+
+        template <typename T>
+        void swizzleTiles(T *dst, T *src, int width, int tilesX, int tilesY) {
+            int tileSize = width / tilesX;
+            int tileArea = SQR(tileSize);
+
+            for (int j = 0; j < tilesY; j++) {
+                for (int i = 0; i < tilesX; i++) {
+                    T *tilePtr = dst + ((tileArea * tilesX) * j) + (tileArea * i);
+
+                    for (int y = 0; y < tileSize; y++) {
+                        T *ptr = src + (width * (tileSize * j)) + (tileSize * i) + width * y;
+
+                        for (int x = 0; x < tileSize; x++)
+                            *(tilePtr + SWIZZLE(x, y)) = *ptr++;
+                    }
+                }
+            }
+        }
+
+        void swizzleImage(void *dst, void *src, int width, int height, int bpp) {
+            ASSERT(SWIZZLE_TABLE);
+
+            int tilesX, tilesY;
+
+            if (width > height) {
+                tilesX = width / height;
+                tilesY = 1;
+            } else {
+                tilesX = 1;
+                tilesY = height / width;
+            }
+
+            switch (bpp) {
+                case  8 : swizzleTiles(  (uint8*) dst,  (uint8*) src, width, tilesX, tilesY ); break;
+                case 16 : swizzleTiles( (uint16*) dst, (uint16*) src, width, tilesX, tilesY ); break;
+                case 32 : swizzleTiles( (uint32*) dst, (uint32*) src, width, tilesX, tilesY ); break;
+            }
+        }
+
+        #define TILE_SIZE 32
+
+        void tileImage(void *dst, void *src, int width, int height, int bpp) {
+            int tilesX = width  / TILE_SIZE;
+            int tilesY = height / TILE_SIZE;
+
+            uint8 *tilePtr = (uint8*)dst;
+            for (int y = 0; y < tilesY; y++) {
+                for (int x = 0; x < tilesX; x++) {
+                    uint8 *ptr = (uint8*)src + (width * y + x) * TILE_SIZE * bpp / 8;
+
+                    for (int i = 0; i < TILE_SIZE; i++) {
+                        memcpy(tilePtr, ptr, TILE_SIZE * bpp / 8);
+                        ptr += width * bpp / 8;
+                        tilePtr += TILE_SIZE * bpp / 8;
+                    }
+                }
+            }
+        }
+
+        #undef TILE_SIZE
     };
 
     namespace SwapChain {
@@ -398,6 +495,8 @@ namespace GAPI {
         vec4  cbMem[98 + MAX_CONTACTS];
         int   cbCount[uMAX];
 
+        SceGxmOutputRegisterFormat outputFmt;
+
         int colorMask, blendMode;
         int psoIndex;
 
@@ -406,12 +505,33 @@ namespace GAPI {
         void init(Pass pass, int type, int *def, int defCount) {
             memset(pso, 0, sizeof(pso));
 
+            outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4;
+
             const uint8 *vpSrc, *fpSrc;
             switch (pass) {
-                case passCompose : vpSrc = COMPOSE_VP; fpSrc = COMPOSE_FP; break;
+                case passCompose :
+                    switch (type) {
+                        case 0 : vpSrc = COMPOSE_SPRITE_VP; fpSrc = COMPOSE_SPRITE_FP; break;
+                        case 1 : vpSrc = COMPOSE_FLASH_VP;  fpSrc = COMPOSE_FLASH_FP;  break;
+                        case 2 : vpSrc = COMPOSE_ROOM_VP;   fpSrc = COMPOSE_ROOM_FP;   break;
+                        case 3 : vpSrc = COMPOSE_ENTITY_VP; fpSrc = COMPOSE_ENTITY_FP; break;
+                        case 4 : vpSrc = COMPOSE_MIRROR_VP; fpSrc = COMPOSE_MIRROR_FP; break;
+                        default : ASSERT(false);
+                    }
+                    break;
                 case passShadow  : vpSrc = SHADOW_VP;  fpSrc = SHADOW_FP;  break;
                 case passAmbient : vpSrc = AMBIENT_VP; fpSrc = AMBIENT_FP; break;
-                case passWater   : vpSrc = WATER_VP;   fpSrc = WATER_FP;   break;
+                case passWater   : 
+                    switch (type) {
+                        case 0 : vpSrc = WATER_DROP_VP;     fpSrc = WATER_DROP_FP;     outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_HALF2; break;
+                        case 1 : vpSrc = WATER_SIMULATE_VP; fpSrc = WATER_SIMULATE_FP; outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_HALF2; break;
+                        case 2 : vpSrc = WATER_CAUSTICS_VP; fpSrc = WATER_CAUSTICS_FP; break;
+                        case 3 : vpSrc = WATER_RAYS_VP;     fpSrc = WATER_RAYS_FP;     break;
+                        case 4 : vpSrc = WATER_MASK_VP;     fpSrc = WATER_MASK_FP;     break;
+                        case 5 : vpSrc = WATER_COMPOSE_VP;  fpSrc = WATER_COMPOSE_FP;  break;
+                        default : ASSERT(false);
+                    }
+                    break;
                 case passFilter  : vpSrc = FILTER_VP;  fpSrc = FILTER_FP;  break;
                 case passGUI     : vpSrc = GUI_VP;     fpSrc = GUI_FP;     break;
                 case PASS_CLEAR  : vpSrc = CLEAR_VP;   fpSrc = CLEAR_FP;   break;
@@ -502,39 +622,17 @@ namespace GAPI {
             this->colorMask = colorMask;
             this->blendMode = blendMode;
 
-            SceGxmBlendInfo blendInfo;
-            blendInfo.colorMask = SceGxmColorMask(colorMask);
-            blendInfo.colorFunc = SCE_GXM_BLEND_FUNC_ADD;
-            blendInfo.alphaFunc = SCE_GXM_BLEND_FUNC_ADD;
-            blendInfo.alphaSrc  = SCE_GXM_BLEND_FACTOR_ONE;
-            blendInfo.alphaDst  = SCE_GXM_BLEND_FACTOR_ZERO;
-
             psoIndex = 0;
             switch (blendMode) {
-                case RS_BLEND_ALPHA   :
-                    psoIndex = bmAlpha;
-                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_SRC_ALPHA;
-                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-                    break;
-                case RS_BLEND_ADD     :
-                    psoIndex = bmAdd;
-                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE;
-                    break;
-                case RS_BLEND_MULT    :
-                    psoIndex = bmMult;
-                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_DST_COLOR;
-                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
-                    break;
-                case RS_BLEND_PREMULT :
-                    psoIndex = bmPremult;
-                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-                    break;
-                default               :
-                    psoIndex = bmNone;
-                    blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
-                    blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
+                case RS_BLEND_ALPHA   : psoIndex = bmAlpha;   break;
+                case RS_BLEND_ADD     : psoIndex = bmAdd;     break;
+                case RS_BLEND_MULT    : psoIndex = bmMult;    break;
+                case RS_BLEND_PREMULT : psoIndex = bmPremult; break;
+                default               : psoIndex = bmNone;
+            }
+
+            if (outputFmt != SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4) {
+                psoIndex = 0;
             }
 
             if (colorMask != SCE_GXM_COLOR_MASK_ALL) {
@@ -544,11 +642,43 @@ namespace GAPI {
             PSO &p = pso[psoIndex];
 
             if (!p.fp) {
-                sceGxmShaderPatcherRegisterProgram(shaderPatcher, fpPtr, &p.fpUID);
-                sceGxmShaderPatcherCreateFragmentProgram(shaderPatcher, p.fpUID, SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4, SCE_GXM_MULTISAMPLE_NONE, &blendInfo, vpPtr, &p.fp);
+                SceGxmBlendInfo blendInfo;
+                blendInfo.colorMask = SceGxmColorMask(colorMask);
+                blendInfo.colorFunc = SCE_GXM_BLEND_FUNC_ADD;
+                blendInfo.alphaFunc = SCE_GXM_BLEND_FUNC_ADD;
+                blendInfo.alphaSrc  = SCE_GXM_BLEND_FACTOR_ONE;
+                blendInfo.alphaDst  = SCE_GXM_BLEND_FACTOR_ZERO;
+
+                switch (blendMode) {
+                    case RS_BLEND_ALPHA   :
+                        blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_SRC_ALPHA;
+                        blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                        break;
+                    case RS_BLEND_ADD     :
+                        blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                        blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE;
+                        break;
+                    case RS_BLEND_MULT    :
+                        blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_DST_COLOR;
+                        blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
+                        break;
+                    case RS_BLEND_PREMULT :
+                        blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                        blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                        break;
+                    default               :
+                        blendInfo.colorSrc = SCE_GXM_BLEND_FACTOR_ONE;
+                        blendInfo.colorDst = SCE_GXM_BLEND_FACTOR_ZERO;
+                }
+                createFP(p, &blendInfo);
             }
 
             rebind = true;
+        }
+
+        void createFP(PSO &p, SceGxmBlendInfo *blendInfo) {
+            sceGxmShaderPatcherRegisterProgram(shaderPatcher, fpPtr, &p.fpUID);
+            sceGxmShaderPatcherCreateFragmentProgram(shaderPatcher, p.fpUID, outputFmt, SCE_GXM_MULTISAMPLE_NONE, blendInfo, vpPtr, &p.fp);
         }
 
         void bind() {
@@ -602,80 +732,99 @@ namespace GAPI {
     };
 
 // Texture
+    static const struct FormatDesc {
+        uint32 bpp, textureFormat, targetFormat;
+    } formats[FMT_MAX] = {
+        {  8, SCE_GXM_TEXTURE_FORMAT_U8_1RRR       , SCE_GXM_COLOR_FORMAT_U8_R          }, // LUMINANCE
+        { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR , SCE_GXM_COLOR_FORMAT_A8B8G8R8      }, // RGBA
+        { 16, SCE_GXM_TEXTURE_FORMAT_U5U6U5_BGR    , SCE_GXM_COLOR_FORMAT_U5U6U5_BGR    }, // RGB16
+        { 16, SCE_GXM_TEXTURE_FORMAT_U1U5U5U5_ABGR , SCE_GXM_COLOR_FORMAT_U1U5U5U5_ABGR }, // RGBA16
+        { 64, SCE_GXM_TEXTURE_FORMAT_F32F32_GR     , SCE_GXM_COLOR_FORMAT_F32F32_GR     }, // RG_FLOAT  // not supported
+        { 32, SCE_GXM_TEXTURE_FORMAT_F16F16_GR     , SCE_GXM_COLOR_FORMAT_F16F16_GR     }, // RG_HALF
+        { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R        , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32  }, // DEPTH
+        { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R        , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32  }, // SHADOW
+    };
+
     struct Texture {
         SceGxmTexture ID;
-        void          *data;
+        uint8         *data;
         SceUID        uid;
-        int           size;
 
-        int           width, height, origWidth, origHeight;
+        int           width, height, origWidth, origHeight, aWidth, aHeight;
         TexFormat     fmt;
         uint32        opt;
 
         SceGxmColorSurface colorSurface;
         SceGxmRenderTarget *renderTarget;
 
-            SceUID                    depthBufferUID;
-            SceGxmDepthStencilSurface depthSurface;
-            void                      *depthBufferData;
+        SceUID                    depthBufferUID;
+        SceGxmDepthStencilSurface depthSurface;
+        void                      *depthBufferData;
 
-
-        Texture(int width, int height, uint32 opt) : width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) {}
+        Texture(int width, int height, uint32 opt) : width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) { opt |= OPT_NEAREST; }
 
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
 
-            bool filter   = (opt & OPT_NEAREST) == 0;
-            bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
-            bool cube     = (opt & OPT_CUBEMAP) != 0;
-            bool isTarget = (opt & OPT_TARGET)  != 0;
-            bool isShadow = fmt == FMT_SHADOW;
-
-            static const struct FormatDesc {
-                uint32 bpp, textureFormat, targetFormat;
-            } formats[FMT_MAX] = {
-                {  8, SCE_GXM_TEXTURE_FORMAT_U8_1RRR           , SCE_GXM_COLOR_FORMAT_U8_R              }, // LUMINANCE
-                { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
-                { 16, SCE_GXM_TEXTURE_FORMAT_U5U6U5_RGB        , SCE_GXM_COLOR_FORMAT_U5U6U5_RGB        }, // RGB16
-                { 16, SCE_GXM_TEXTURE_FORMAT_U1U5U5U5_ARGB     , SCE_GXM_COLOR_FORMAT_U1U5U5U5_ARGB     }, // RGBA16
-                  { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
-                  { 32, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ARGB     , SCE_GXM_COLOR_FORMAT_A8R8G8B8          }, // RGBA
-//                { 64, SCE_GXM_TEXTURE_FORMAT_F16F16F16F16_ARGB , SCE_GXM_COLOR_FORMAT_F16F16F16F16_RGBA }, // RGBA_FLOAT  // not supported
-//                { 64, SCE_GXM_TEXTURE_FORMAT_F16F16F16F16_ARGB , SCE_GXM_COLOR_FORMAT_F16F16F16F16_RGBA }, // RGBA_HALF
-                { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R            , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32      }, // DEPTH
-                { 32, SCE_GXM_TEXTURE_FORMAT_F32M_R            , SCE_GXM_DEPTH_STENCIL_FORMAT_DF32      }, // SHADOW
-            };
+            bool filter     = (opt & OPT_NEAREST) == 0;
+            bool mipmaps    = (opt & OPT_MIPMAPS) != 0;
+            bool isCube     = (opt & OPT_CUBEMAP) != 0;
+            bool isTarget   = (opt & OPT_TARGET)  != 0;
+            bool isShadow   = fmt == FMT_SHADOW;
+            bool isTiled    = isTarget || fmt == FMT_DEPTH || fmt == FMT_SHADOW;
+            bool isSwizzled = false;//!isTiled;
 
             FormatDesc desc = formats[fmt];
 
-            if (data && !support.texNPOT && (width != origWidth || height != origHeight))
-                data = NULL;
-
-            uint32 aWidth  = width;
-            uint32 aHeight = height;
-
-            if (fmt == FMT_DEPTH || fmt == FMT_SHADOW) {
-                aWidth  = ALIGN(aWidth,  SCE_GXM_TILE_SIZEX);
-                aHeight = ALIGN(aHeight, SCE_GXM_TILE_SIZEY);
+            if (isSwizzled) {
+                aWidth  = width  = nextPow2(width);
+                aHeight = height = nextPow2(height);
+            } else if (isTiled) {
+                aWidth  = ALIGN(width,  SCE_GXM_TILE_SIZEX);
+                aHeight = ALIGN(height, SCE_GXM_TILE_SIZEY);
+            } else {
+                aWidth  = ALIGN(width, 8);
+                aHeight = height;
             }
 
-            size = aWidth * aHeight * desc.bpp / 8 * (cube ? 6 : 1);
+            int size = aWidth * aHeight * desc.bpp / 8 * (isCube ? 6 : 1);
 
             SceGxmMemoryAttribFlags flags = isTarget ? SCE_GXM_MEMORY_ATTRIB_RW : SCE_GXM_MEMORY_ATTRIB_READ;
-            this->data = Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, size, flags, &uid);
+            this->data = (uint8*)Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, size, flags, &uid);
 
             if (data && this->data) {
-                memcpy(this->data, data, size);
+                if (isSwizzled || isTiled) {
+                    if (aWidth != origWidth || aHeight != origHeight) {
+                        uint8 *tmp = new uint8[aWidth * aHeight * desc.bpp / 8];
+                        swap(this->data, tmp);
+                        updateData(data);
+                        swap(this->data, tmp);
+                        if (isSwizzled) {
+                            Context::swizzleImage(this->data, tmp, aWidth, aHeight, desc.bpp);
+                        } else {
+                            Context::tileImage(this->data, tmp, aWidth, aHeight, desc.bpp);
+                        }
+                        delete[] tmp;
+                    } else {
+                        if (isSwizzled) {
+                            Context::swizzleImage(this->data, data, aWidth, aHeight, desc.bpp);
+                        } else {
+                            Context::tileImage(this->data, data, aWidth, aHeight, desc.bpp);
+                        }
+                    }
+                } else {
+                    updateData(data);
+                }
             }
 
-            if (fmt == FMT_DEPTH || fmt == FMT_SHADOW) {
-                sceGxmTextureInitTiled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 1);
+            if (isCube) {
+                sceGxmTextureInitCube(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+            } else if (isSwizzled) {
+                sceGxmTextureInitSwizzled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+            } else if (isTiled) {
+                sceGxmTextureInitTiled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
             } else {
-                if (cube) {
-                    sceGxmTextureInitCube(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 1);
-                } else {
-                    sceGxmTextureInitLinear(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 1);
-                }
+                sceGxmTextureInitLinear(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
             }
 
             SceGxmTextureAddrMode addrMode;
@@ -684,6 +833,7 @@ namespace GAPI {
             } else {
                 addrMode = (isShadow && support.texBorder) ? SCE_GXM_TEXTURE_ADDR_CLAMP_FULL_BORDER : SCE_GXM_TEXTURE_ADDR_CLAMP;
             }
+
             sceGxmTextureSetUAddrMode(&ID, addrMode);
             sceGxmTextureSetUAddrMode(&ID, addrMode);
 
@@ -704,10 +854,10 @@ namespace GAPI {
                 } else {
                     sceGxmColorSurfaceInit(&colorSurface,
                         SceGxmColorFormat(desc.targetFormat),
-                        SCE_GXM_COLOR_SURFACE_LINEAR,
+                        isSwizzled ? SCE_GXM_COLOR_SURFACE_SWIZZLED : (isTiled ? SCE_GXM_COLOR_SURFACE_TILED : SCE_GXM_COLOR_SURFACE_LINEAR),
                         SCE_GXM_COLOR_SURFACE_SCALE_NONE,
-                        SCE_GXM_OUTPUT_REGISTER_SIZE_32BIT,
-                        width, height, width, this->data);
+                        desc.bpp > 32 ? SCE_GXM_OUTPUT_REGISTER_SIZE_64BIT : SCE_GXM_OUTPUT_REGISTER_SIZE_32BIT,
+                        aWidth, aHeight, aWidth, this->data);
 
                     uint32 dsWidth  = ALIGN(width,  SCE_GXM_TILE_SIZEX);
                     uint32 dsHeight = ALIGN(height, SCE_GXM_TILE_SIZEY);
@@ -726,8 +876,8 @@ namespace GAPI {
 
                 SceGxmRenderTargetParams params;
                 memset(&params, 0, sizeof(params));
-                params.width           = width;
-                params.height          = height;
+                params.width           = aWidth;
+                params.height          = aHeight;
                 params.scenesPerFrame  = 1;
                 params.multisampleMode = SCE_GXM_MULTISAMPLE_NONE;
                 params.driverMemBlock  = -1;
@@ -758,9 +908,26 @@ namespace GAPI {
             */
         }
 
+        void updateData(void *data) {
+            FormatDesc desc = formats[fmt];
+
+            if (aWidth != origWidth || aHeight != origHeight) {
+                uint8 *dst = (uint8*)this->data;
+                uint8 *src = (uint8*)data;
+                for (int y = 0; y < origHeight; y++) {
+                    memcpy(dst, src, origWidth * desc.bpp / 8);
+                    src += origWidth * desc.bpp / 8;
+                    dst += aWidth * desc.bpp / 8;
+                }
+            } else {
+                memcpy(this->data, data, aWidth * aHeight * desc.bpp / 8);
+            }
+        }
+
         void update(void *data) {
-            if (!data) return;
-            memcpy(this->data, data, size);
+            if (data) {
+                updateData(data);
+            }
         }
 
         void bind(int sampler) {

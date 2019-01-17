@@ -46,7 +46,7 @@ float4 downsample(float2 uv) { // uParam (1 / textureSize, unused, unused, unuse
 float4 grayscale(float2 uv) { // uParam (factor, unused, unused, unused)
 	float4 color = tex2D(sDiffuse, uv);
 	float3 gray  = dot(color, float4(0.299, 0.587, 0.114, 0.0));
-	return float4(lerp(color.xyz, gray, uParam.w) * uParam.xyz, color.w).bgra;
+	return float4(lerp(color.xyz, gray, uParam.w) * uParam.xyz, color.w);
 }
 
 float4 blur(float2 uv) { // uParam (dirX, dirY, 1 / textureSize, unused)
@@ -68,7 +68,7 @@ float4 upscale(float2 uv) {
     float2 fuv = frac(uv);
     uv = iuv + fuv * fuv * (3.0 - 2.0 * fuv);
     uv = (uv - 0.5) / uParam.xy;
-    return tex2D(sDiffuse, uv).bgra;
+    return tex2D(sDiffuse, uv);
 }
 
 float4 main(VS_OUTPUT In) : COLOR0 {

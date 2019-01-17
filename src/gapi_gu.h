@@ -57,7 +57,7 @@ namespace GAPI {
                 delete[] memory;
         }
 
-        void swizzle(uint8* out, const uint8* in, uint32 width, uint32 height) {
+        void swizzle(uint8 *out, const uint8 *in, uint32 width, uint32 height) {
             int rowblocks = width / 16;
 
             for (int j = 0; j < height; j++)

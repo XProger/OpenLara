@@ -25,9 +25,9 @@
 // hint to the driver to use discrete GPU
 extern "C" {
 // NVIDIA
-  __declspec(dllexport) int NvOptimusEnablement = 1;
+    __declspec(dllexport) int NvOptimusEnablement = 1;
 // AMD
-  __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
 #ifdef VR_SUPPORT
@@ -56,34 +56,6 @@ void osMutexLock(void *obj) {
 void osMutexUnlock(void *obj) {
     LeaveCriticalSection((CRITICAL_SECTION*)obj);
 }
-
-/*
-void* osRWLockInit() {
-    SRWLOCK *lock = new SRWLOCK();
-    InitializeSRWLock(lock);
-    return lock;
-}
-
-void osRWLockFree(void *obj) {
-    delete (SRWLOCK*)obj;
-}
-
-void osRWLockRead(void *obj) {
-    AcquireSRWLockShared((SRWLOCK*)obj);
-}
-
-void osRWUnlockRead(void *obj) {
-    ReleaseSRWLockShared((SRWLOCK*)obj);
-}
-
-void osRWLockWrite(void *obj) {
-    AcquireSRWLockExclusive((SRWLOCK*)obj);
-}
-
-void osRWUnlockWrite(void *obj) {
-    ReleaseSRWLockExclusive((SRWLOCK*)obj);
-}
-*/
 
 // timing
 int osStartTime = 0;

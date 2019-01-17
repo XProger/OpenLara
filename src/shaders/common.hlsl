@@ -3,6 +3,7 @@
 	#pragma pack_matrix( column_major )
 #endif
 
+#define ALPHA_REF			0.5
 #define MAX_LIGHTS          4
 #define MAX_CONTACTS        15
 #define WATER_FOG_DIST      (1.0 / (6.0 * 1024.0))
@@ -20,11 +21,13 @@ static const float3 SHADOW_TEXEL = float3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 
 	#define FLAGS_TYPE  float4
 	#define RGBA(c)     (c).rgba
 	#define RGB(c)      (c).rgb
+	#define F2_TEX2D(s,uv) h2tex2Dlod(s, float4(uv, 0, 0))
 #else
-	#define FLAGS_REG   b0
-	#define FLAGS_TYPE  bool4
-	#define RGBA(c)     (c).bgra
-	#define RGB(c)      (c).bgr
+	#define FLAGS_REG     b0
+	#define FLAGS_TYPE    bool4
+	#define RGBA(c)       (c).rgba
+	#define RGB(c)        (c).rgb
+	#define F2_TEX2D(s,uv) tex2Dlod(s, float4(uv, 0, 0)).xy
 #endif
 
 struct VS_INPUT {
@@ -65,19 +68,13 @@ float4      uContacts[MAX_CONTACTS] : register( c98 );
 #define FILTER_BLUR             uFlags[1].x
 #define FILTER_EQUIRECTANGULAR  uFlags[1].y
 
-#define WATER_DROP              uFlags[0].x
-#define WATER_SIMULATE          uFlags[0].y
-#define WATER_CAUSTICS          uFlags[0].z
-#define WATER_RAYS              uFlags[0].w
-#define WATER_MASK              uFlags[1].x
-#define WATER_COMPOSE           uFlags[1].y
-
 // options for compose, shadow, ambient passes
 #define TYPE_SPRITE             uFlags[0].x
 #define TYPE_FLASH              uFlags[0].y
 #define TYPE_ROOM               uFlags[0].z
 #define TYPE_ENTITY             uFlags[0].w
 #define TYPE_MIRROR             uFlags[1].x
+
 #define UNDERWATER              uFlags[1].y
 #define ALPHA_TEST              uFlags[1].z
 #define CLIP_PLANE              uFlags[1].w
@@ -109,4 +106,106 @@ float3 calcAmbient(float3 n) {
 	return	sqr.x * lerp(uAmbient[1].xyz, uAmbient[0].xyz, pos.x) +
 			sqr.y * lerp(uAmbient[3].xyz, uAmbient[2].xyz, pos.y) +
 			sqr.z * lerp(uAmbient[5].xyz, uAmbient[4].xyz, pos.z);
+}
+
+float calcSpecular(float3 normal, float3 viewVec, float3 lightVec, float intensity) {
+	float3 vv = normalize(viewVec);
+	float3 rv = reflect(-vv, normal);
+	float3 lv = normalize(lightVec);
+	return pow(max(0.0, dot(rv, lv)), 8.0) * intensity;
+}
+
+float calcCaustics(float3 coord, float3 n) {
+	float2 cc = saturate((coord.xz - uRoomSize.xy) / uRoomSize.zw);
+	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y);
+}
+
+float3 calcNormal(float2 tc, float base) {
+	float dx = F2_TEX2D(sNormal, float2(tc.x + uTexParam.x, tc.y)).x - base;
+	float dz = F2_TEX2D(sNormal, float2(tc.x, tc.y + uTexParam.y)).x - base;
+	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
+}
+
+void applyFogUW(inout float3 color, float3 coord, float waterFogDist) {
+	float dist;
+	if (uViewPos.y < uParam.y)
+		dist = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord.xyz).y);
+	else
+		dist = length(uViewPos.xyz - coord.xyz);
+	float fog = saturate(1.0 / exp(dist * waterFogDist));
+	dist += coord.y - uParam.y;
+	color.xyz *= lerp(float3(1.0, 1.0, 1.0), UNDERWATER_COLOR, clamp(dist * waterFogDist, 0.0, 2.0));
+	color.xyz = lerp(UNDERWATER_COLOR * 0.2, color.xyz, fog);
+}
+
+void applyFog(inout float3 color, float fogFactor) {
+	color.xyz = lerp(uFogParams.xyz, color.xyz, fogFactor);
+}
+
+float SHADOW(float2 p) {
+	#ifdef SHADOW_DEPTH
+		return tex2Dlod(sShadow, float4(p, 0, 0)).x;
+	#else
+		return unpack(tex2Dlod(sShadow, float4(p, 0, 0)));
+	#endif
+}
+
+float getShadowValue(float3 lightVec, float4 lightProj) {
+/*
+	float sMin = min(lightProj.x, lightProj.y);
+	float sMax = max(lightProj.x, lightProj.y);
+	float vis = lightProj.w;
+	if (TYPE_ROOM) {
+		vis = min(vis, dot(normal, lightVec));
+	}
+	sMin = min(vis, sMin);
+*/
+	float factor = step(0.0, lightProj.w); //float((sMin > 0.0f) && (sMax < lightProj.w)); // 
+	lightProj.xyz *= factor;
+
+#ifdef _GAPI_GXM
+	lightProj.z += SHADOW_CONST_BIAS * SHADOW_TEXEL.x * lightProj.w;
+	float rShadow = f1tex2Dproj(sShadow, lightProj);
+#else
+	float3 p = lightProj.xyz / lightProj.w;
+	
+	p.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL.x;
+
+	p.z = saturate(p.z);
+
+	float4 samples = float4(
+			SHADOW(p.xy                  ),
+			SHADOW(p.xy + SHADOW_TEXEL.xz),
+			SHADOW(p.xy + SHADOW_TEXEL.zy),
+			SHADOW(p.xy + SHADOW_TEXEL.xy)
+		);
+	samples = step(p.zzzz, samples);
+
+	float2 f = frac(p.xy / SHADOW_TEXEL.xy);
+	samples.xy = lerp(samples.xz, samples.yw, f.xx);
+	float rShadow = lerp(samples.x, samples.y, f.y);
+#endif
+
+	//rShadow = lerp(1.0, rShadow, factor);
+	
+	float fade = saturate(dot(lightVec, lightVec));
+	return rShadow + (1.0 - rShadow) * fade;
+}
+
+float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
+	float factor = clamp(1.0 - dot(normalize(lightVec), normal), 0.0, 1.0);
+	factor *= SHADOW_NORMAL_BIAS;
+	return getShadowValue(lightVec, lightProj /*mul(uLightProj, float4(coord + normal * factor, 1.0)) */ );
+}
+
+float getContactAO(float3 p, float3 n) {
+	float res = 1.0;
+	#pragma loop (unroll: always)
+	for (int i = 0; i < MAX_CONTACTS; i++) {
+		float3 v = uContacts[i].xyz - p;
+		float  a = uContacts[i].w;
+		float  o = a * saturate(dot(n, v)) / dot(v, v);
+		res *= saturate(1.0 - o);
+	}
+	return res;
 }
