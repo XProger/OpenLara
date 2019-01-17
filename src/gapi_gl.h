@@ -646,6 +646,20 @@ namespace GAPI {
 
 
 // Texture
+	static const struct FormatDesc {
+		GLuint ifmt, fmt;
+		GLenum type;
+	} formats[FMT_MAX] = {
+		{ GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
+		{ GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
+		{ GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
+		{ GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
+		{ GL_RG32F,           GL_RG,              GL_FLOAT                  }, // RG_FLOAT
+		{ GL_RG16F,           GL_RG,              GL_HALF_FLOAT             }, // RG_HALF
+		{ GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
+		{ GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
+	};
+
     struct Texture {
         uint32     ID;
         int        width, height, origWidth, origHeight;
@@ -685,20 +699,27 @@ namespace GAPI {
             glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR) : (mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST));
             glTexParameteri(target, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
 
-            static const struct FormatDesc {
-                GLuint ifmt, fmt;
-                GLenum type;
-            } formats[FMT_MAX] = {
-                { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
-                { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
-                { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
-                { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
-                { GL_RG32F,           GL_RG,              GL_FLOAT                  }, // RG_FLOAT
-                { GL_RG16F,           GL_RG,              GL_HALF_FLOAT             }, // RG_HALF
-                { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
-                { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
-            };
+            FormatDesc desc = getFormat();
 
+            void *pix = (width == origWidth && height == origHeight) ? data : NULL;
+
+            for (int i = 0; i < 6; i++) {
+                glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, pix);
+                if (!cube) break;
+            }
+			
+            if (pix != data) {
+                update(data);
+			}
+        }
+
+        void deinit() {
+            if (ID) {
+                glDeleteTextures(1, &ID);
+			}
+        }
+
+        FormatDesc getFormat() {
             FormatDesc desc = formats[fmt];
 
             if ((fmt == FMT_RG_FLOAT || fmt == FMT_RG_HALF) && !Core::support.texRG) {
@@ -729,23 +750,7 @@ namespace GAPI {
                     #endif
                 }
             #endif
-
-            void *pix = data;
-            if (data && !Core::support.texNPOT && (width != origWidth || height != origHeight))
-                pix = NULL;
-
-            for (int i = 0; i < 6; i++) {
-                glTexImage2D(cube ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + i) : GL_TEXTURE_2D, 0, desc.ifmt, width, height, 0, desc.fmt, desc.type, pix);
-                if (!cube) break;
-            }
-
-            if (pix != data)
-                update(data);
-        }
-
-        void deinit() {
-            if (ID)
-                glDeleteTextures(1, &ID);
+            return desc;
         }
 
         void generateMipMap() {
@@ -760,7 +765,8 @@ namespace GAPI {
 
         void update(void *data) {
             bind(0);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, origWidth, origHeight, GL_RGBA, GL_UNSIGNED_BYTE, data);
+			FormatDesc desc = getFormat();
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, origWidth, origHeight, desc.fmt, desc.type, data);
         }
 
         void bind(int sampler) {
