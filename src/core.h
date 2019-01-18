@@ -493,6 +493,8 @@ struct Viewport {
 
 namespace Core {
     float eye;
+	// added
+	Texture* eyeTex[2];
     Viewport viewport, viewportDef;
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
     mat4 mLightProj;

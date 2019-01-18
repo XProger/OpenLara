@@ -14,7 +14,7 @@
     #endif
 #endif
 
-//#define VR_SUPPORT
+#define VR_SUPPORT
 // TODO: fix depth precision
 // TODO: fix water surface rendering
 // TODO: fix clipping
@@ -32,6 +32,8 @@ extern "C" {
 
 #ifdef VR_SUPPORT
    #include "libs/openvr/openvr.h"
+   #include <iostream> 
+   #include <string.h>
 #endif
 
 #include "game.h"
@@ -590,12 +592,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 #ifdef VR_SUPPORT
-vr::IVRSystem *hmd;
+vr::IVRSystem *hmd; // vrContext
+vr::IVRRenderModels* rm;
 vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
 
 void vrInit() {
     vr::EVRInitError eError = vr::VRInitError_None;
     hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
+	rm = vr::VRRenderModels(); // initialize render models interface
 
     if (eError != vr::VRInitError_None) {
         hmd = NULL;
@@ -613,8 +617,8 @@ void vrInit() {
 void vrInitTargets() {
     uint32_t width, height;
     hmd->GetRecommendedRenderTargetSize( &width, &height);
-    eyeTex[0] = new Texture(width, height, Texture::RGBA);
-    eyeTex[1] = new Texture(width, height, Texture::RGBA);
+    Core::eyeTex[0] = new Texture(width, height, TexFormat::FMT_RGBA);
+    Core::eyeTex[1] = new Texture(width, height, TexFormat::FMT_RGBA);
 }
 
 void vrFree() {
@@ -639,12 +643,16 @@ mat4 convToMat4(const vr::HmdMatrix34_t &m) {
 void vrUpdateInput() {
     if (!hmd) return;
     vr::VREvent_t event;
-
+	char buffer[1024] = "test";
     while (hmd->PollNextEvent(&event, sizeof(event))) {
         //ProcessVREvent( event );
         switch (event.eventType) {
             case vr::VREvent_TrackedDeviceActivated:
                 //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+				vr::RenderModel_t ** controllerRender;
+				hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
+				rm->LoadRenderModel_Async(buffer, controllerRender);
+				// need to process render model?
                 LOG( "Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
                 break;
             case vr::VREvent_TrackedDeviceDeactivated:
