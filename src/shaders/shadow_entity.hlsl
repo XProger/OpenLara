@@ -7,6 +7,7 @@ struct VS_OUTPUT {
 };
 
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
@@ -24,10 +25,10 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	if (ALPHA_TEST) {
-		if (tex2D(sDiffuse, In.texCoord.xy).a <= 0.5)
-			discard;
-	}
+	#ifdef ALPHA_TEST
+		clip(tex2D(sDiffuse, In.texCoord.xy).a - ALPHA_REF);
+	#endif
+
 #ifdef _GAPI_GXM
     return 0.0;
 #else
@@ -38,4 +39,5 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	#endif
 #endif
 }
+
 #endif

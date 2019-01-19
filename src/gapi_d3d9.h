@@ -50,37 +50,6 @@ void D3DCHECK(HRESULT res) {
 #endif
 
 namespace GAPI {
-    #include "shaders/d3d9/compose_sprite_vs.h"
-    #include "shaders/d3d9/compose_sprite_ps.h"
-    #include "shaders/d3d9/compose_flash_vs.h"
-    #include "shaders/d3d9/compose_flash_ps.h"
-    #include "shaders/d3d9/compose_room_vs.h"
-    #include "shaders/d3d9/compose_room_ps.h"
-    #include "shaders/d3d9/compose_entity_vs.h"
-    #include "shaders/d3d9/compose_entity_ps.h"
-    #include "shaders/d3d9/compose_mirror_vs.h"
-    #include "shaders/d3d9/compose_mirror_ps.h"
-    #include "shaders/d3d9/shadow_vs.h"
-    #include "shaders/d3d9/shadow_ps.h"
-    #include "shaders/d3d9/ambient_vs.h"
-    #include "shaders/d3d9/ambient_ps.h"
-    #include "shaders/d3d9/water_drop_vs.h"
-    #include "shaders/d3d9/water_drop_ps.h"
-    #include "shaders/d3d9/water_simulate_vs.h"
-    #include "shaders/d3d9/water_simulate_ps.h"
-    #include "shaders/d3d9/water_caustics_vs.h"
-    #include "shaders/d3d9/water_caustics_ps.h"
-    #include "shaders/d3d9/water_rays_vs.h"
-    #include "shaders/d3d9/water_rays_ps.h"
-    #include "shaders/d3d9/water_mask_vs.h"
-    #include "shaders/d3d9/water_mask_ps.h"
-    #include "shaders/d3d9/water_compose_vs.h"
-    #include "shaders/d3d9/water_compose_ps.h"
-    #include "shaders/d3d9/filter_vs.h"
-    #include "shaders/d3d9/filter_ps.h"
-    #include "shaders/d3d9/gui_vs.h"
-    #include "shaders/d3d9/gui_ps.h"
-
     using namespace Core;
 
     typedef ::Vertex Vertex;
@@ -122,6 +91,8 @@ namespace GAPI {
     }
 
 // Shader
+    #include "shaders/d3d9/shaders.h"
+
     enum {
         USAGE_VS,
         USAGE_PS,
@@ -157,53 +128,84 @@ namespace GAPI {
         Shader() : VS(NULL), PS(NULL) {}
 
         void init(Core::Pass pass, int type, int *def, int defCount) {
-            const BYTE *vSrc, *pSrc;
-            switch (pass) {
-                case Core::passCompose :
-                    switch (type) {
-                        case 0 : vSrc = COMPOSE_SPRITE_VS; pSrc = COMPOSE_SPRITE_PS; break;
-                        case 1 : vSrc = COMPOSE_FLASH_VS;  pSrc = COMPOSE_FLASH_PS;  break;
-                        case 2 : vSrc = COMPOSE_ROOM_VS;   pSrc = COMPOSE_ROOM_PS;   break;
-                        case 3 : vSrc = COMPOSE_ENTITY_VS; pSrc = COMPOSE_ENTITY_PS; break;
-                        case 4 : vSrc = COMPOSE_MIRROR_VS; pSrc = COMPOSE_MIRROR_PS; break;
-                        default : ASSERT(false);
-                    }
-                    break;
-                case Core::passShadow  : vSrc = SHADOW_VS;  pSrc = SHADOW_PS;  break;
-                case Core::passAmbient : vSrc = AMBIENT_VS; pSrc = AMBIENT_PS; break;
-                case Core::passWater   : 
-                    switch (type) {
-                        case 0 : vSrc = WATER_DROP_VS;     pSrc = WATER_DROP_PS;     break;
-                        case 1 : vSrc = WATER_SIMULATE_VS; pSrc = WATER_SIMULATE_PS; break;
-                        case 2 : vSrc = WATER_CAUSTICS_VS; pSrc = WATER_CAUSTICS_PS; break;
-                        case 3 : vSrc = WATER_RAYS_VS;     pSrc = WATER_RAYS_PS;     break;
-                        case 4 : vSrc = WATER_MASK_VS;     pSrc = WATER_MASK_PS;     break;
-                        case 5 : vSrc = WATER_COMPOSE_VS;  pSrc = WATER_COMPOSE_PS;  break;
-                        default : ASSERT(false);
-                    }
-                    break;
-                case Core::passFilter  : vSrc = FILTER_VS;  pSrc = FILTER_PS;  break;
-                case Core::passGUI     : vSrc = GUI_VS;     pSrc = GUI_PS;     break;
-                default                : ASSERT(false); LOG("! wrong pass id\n"); return;
-            }
-
             memset(flags, 0, sizeof(flags));
             flags[type] = TRUE;
 
+            bool underwater = false;
+            bool alphatest  = false;
+
             for (int i = 0; i < defCount; i++) {
                 switch (def[i]) {
-                    case SD_UNDERWATER   : flags[ 5] = TRUE; break;
-                    case SD_ALPHA_TEST   : flags[ 6] = TRUE; break;
-                    case SD_CLIP_PLANE   : flags[ 7] = TRUE; break;
-                    case SD_OPT_AMBIENT  : flags[ 8] = TRUE; break;
-                    case SD_OPT_SHADOW   : flags[ 9] = TRUE; break;
-                    case SD_OPT_CONTACT  : flags[10] = TRUE; break;
-                    case SD_OPT_CAUSTICS : flags[11] = TRUE; break;
+                    case SD_UNDERWATER   : underwater = true; break;
+                    case SD_ALPHA_TEST   : alphatest  = true; break;
+                    case SD_OPT_AMBIENT  : flags[0] = TRUE;   break;
+                    case SD_OPT_SHADOW   : flags[1] = TRUE;   break;
+                    case SD_OPT_CONTACT  : flags[2] = TRUE;   break;
+                    case SD_OPT_CAUSTICS : flags[3] = TRUE;   break;
                 }
             }
+ 
+            #define SHADER(S,P)    S##_##P
+            #define SHADER_A(S,P)  (alphatest  ? SHADER(S##_a,P) : SHADER(S,P))
+            #define SHADER_U(S,P)  (underwater ? SHADER(S##_u,P) : SHADER(S,P))
+            #define SHADER_AU(S,P) ((underwater && alphatest) ? SHADER(S##_au,P) : (alphatest ? SHADER(S##_a,P) : SHADER_U(S,P)))
+
+            const uint8 *vSrc, *fSrc;
+            switch (pass) {
+                case passCompose :
+                    switch (type) {
+                        case 0  : vSrc = SHADER_U ( compose_sprite, v );  fSrc = SHADER_AU ( compose_sprite, f ); break;
+                        case 1  : vSrc = SHADER   ( compose_flash,  v );  fSrc = SHADER    ( compose_flash,  f ); break;
+                        case 2  : vSrc = SHADER_U ( compose_room,   v );  fSrc = SHADER_AU ( compose_room,   f ); break;
+                        case 3  : vSrc = SHADER_U ( compose_entity, v );  fSrc = SHADER_AU ( compose_entity, f ); break;
+                        case 4  : vSrc = SHADER   ( compose_mirror, v );  fSrc = SHADER    ( compose_mirror, f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passShadow : 
+                    switch (type) {
+                        case 3  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passAmbient :
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( ambient_sprite, v );  fSrc = SHADER_A ( ambient_sprite, f ); break;
+                        case 1  : vSrc = SHADER ( ambient_room,   v );  fSrc = SHADER   ( ambient_room,   f ); break; // TYPE_FLASH (sky)
+                        case 2  : vSrc = SHADER ( ambient_room,   v );  fSrc = SHADER_A ( ambient_room,   f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passWater : 
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( water_drop,     v );  fSrc = SHADER ( water_drop,     f ); break;
+                        case 1  : vSrc = SHADER ( water_simulate, v );  fSrc = SHADER ( water_simulate, f ); break;
+                        case 2  : vSrc = SHADER ( water_caustics, v );  fSrc = SHADER ( water_caustics, f ); break;
+                        case 3  : vSrc = SHADER ( water_rays,     v );  fSrc = SHADER ( water_rays,     f ); break;
+                        case 4  : vSrc = SHADER ( water_mask,     v );  fSrc = SHADER ( water_mask,     f ); break;
+                        case 5  : vSrc = SHADER ( water_compose,  v );  fSrc = SHADER ( water_compose,  f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passFilter :
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( filter_upscale,    v );  fSrc = SHADER ( filter_upscale,    f ); break;
+                        case 1  : vSrc = SHADER ( filter_downsample, v );  fSrc = SHADER ( filter_downsample, f ); break;
+                        case 3  : vSrc = SHADER ( filter_grayscale,  v );  fSrc = SHADER ( filter_grayscale,  f ); break;
+                        case 4  : vSrc = SHADER ( filter_blur,       v );  fSrc = SHADER ( filter_blur,       f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passGUI    : vSrc = SHADER ( gui, v );  fSrc = SHADER ( gui, f ); break;
+                default         : ASSERT(false); LOG("! wrong pass id\n"); return;
+            }
+
+            #undef SHADER_A
+            #undef SHADER_U
+            #undef SHADER_AU
 
             device->CreateVertexShader ((DWORD*)vSrc, &VS);
-            device->CreatePixelShader  ((DWORD*)pSrc, &PS);
+            device->CreatePixelShader  ((DWORD*)fSrc, &PS);
         }
 
         void deinit() {
@@ -339,8 +341,9 @@ namespace GAPI {
                     if (opt & OPT_VERTEX) {
                         device->SetTexture(D3DVERTEXTEXTURESAMPLER0 + sampler, tex2D);
                     }
-                } else if (texCube)
+                } else if (texCube) {
                     device->SetTexture(sampler, texCube);
+                }
 
                 bool filter  = (Core::settings.detail.filter > Core::Settings::LOW)    && !(opt & OPT_NEAREST);
                 bool mipmaps = (Core::settings.detail.filter > Core::Settings::MEDIUM) &&  (opt & OPT_MIPMAPS);
@@ -472,7 +475,7 @@ namespace GAPI {
         support.texFloat       = true;
         support.texHalfLinear  = true;
         support.texHalf        = true;
-        support.clipDist       = false;
+        support.clipDist       = true;
 
         #ifdef PROFILE
             support.profMarker = false;
@@ -525,7 +528,6 @@ namespace GAPI {
         if (defDS) defDS->Release();
 
         D3DCHECK(device->Reset(&d3dpp));
-
         device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &defRT);
         device->GetDepthStencilSurface(&defDS);
 

@@ -1,14 +1,14 @@
 #include "common.hlsl"
 
-// 	UNDERWATER, OPT_CAUSTICS, CLIP_PLANE (D3D9 only), ALPHA_TEST
+// ALPHA_TEST, UNDERWATER, OPT_CAUSTICS, CLIP_PLANE (D3D9 only)
 
 struct VS_OUTPUT {
-	float4 pos		: POSITION;
-	float3 coord	: TEXCOORD0;
-	float4 texCoord	: TEXCOORD1;
-	float4 normal	: TEXCOORD2;
-	float4 diffuse	: TEXCOORD3;
-	float4 light	: TEXCOORD4;
+	float4 pos      : POSITION;
+	float3 coord    : TEXCOORD0;
+	float4 texCoord : TEXCOORD1;
+	float4 normal   : TEXCOORD2;
+	float4 diffuse  : TEXCOORD3;
+	float4 light    : TEXCOORD4;
 #ifdef _GAPI_GXM
 	float clipDist  : CLP0;
 #else
@@ -17,6 +17,7 @@ struct VS_OUTPUT {
 };
 
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
@@ -45,11 +46,11 @@ VS_OUTPUT main(VS_INPUT In) {
 	lum.w = dot(Out.normal.xyz, normalize(lv3)); att.w = dot(lv3, lv3);
 	light = max((float4)0.0, lum) * max((float4)0.0, (float4)1.0 - att);
 
-	if (UNDERWATER) {
+	#ifdef UNDERWATER
 		Out.normal.w = 0.0;
-	} else {
+	#else
 		Out.normal.w = saturate(1.0 / exp(length(viewVec.xyz)));
-	}
+	#endif
 	
 	Out.light.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 	Out.light.w = 0.0;
@@ -73,15 +74,13 @@ VS_OUTPUT main(VS_INPUT In) {
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float4 color = tex2D(sDiffuse, In.texCoord.xy);
 
-	if (ALPHA_TEST) {
-        clip(color.w - ALPHA_REF);
-	}
+	#ifdef ALPHA_TEST
+		clip(color.w - ALPHA_REF);
+	#endif
 
-#ifndef _GAPI_GXM
-	if (CLIP_PLANE) {
+	#ifdef CLIP_PLANE
 		clip(In.clipDist);
-	}
-#endif
+	#endif
 
 	color *= In.diffuse;
 
@@ -90,16 +89,16 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	float3 light = In.light.xyz;
 
 	if (OPT_CAUSTICS) {
-        light += calcCaustics(In.coord, normal);
+		light += calcCaustics(In.coord, normal);
 	}
 
 	color.xyz *= light;
 
-	if (UNDERWATER) {
+	#ifdef UNDERWATER
 		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST);
-	} else {
-	    applyFog(color.xyz, In.normal.w);
-	}
+	#else
+		applyFog(color.xyz, In.normal.w);
+	#endif
 
 	return color;
 }

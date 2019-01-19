@@ -18,6 +18,6 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	return In.diffuse * tex2Dlod(sDiffuse, float4(In.texCoord, 0, 0));
+	return In.diffuse * tex2D(sDiffuse, In.texCoord);
 }
 #endif

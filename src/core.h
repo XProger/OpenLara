@@ -348,13 +348,14 @@ enum TexFormat {
 
 // Texture options
 enum TexOption {
-    OPT_REPEAT  = 1,
-    OPT_CUBEMAP = 2,
-    OPT_MIPMAPS = 4, 
-    OPT_NEAREST = 8,
-    OPT_TARGET  = 16,
-    OPT_VERTEX  = 32,
-    OPT_PROXY   = 64,
+    OPT_REPEAT  = 0x01,
+    OPT_CUBEMAP = 0x02,
+    OPT_MIPMAPS = 0x04, 
+    OPT_NEAREST = 0x08,
+    OPT_TARGET  = 0x10,
+    OPT_VERTEX  = 0x20,
+    OPT_DEPEND  = 0x40,
+    OPT_PROXY   = 0x80,
 };
 
 // Pipeline State Object

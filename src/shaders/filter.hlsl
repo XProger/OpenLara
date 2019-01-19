@@ -3,7 +3,9 @@
 struct VS_OUTPUT {
 	float4 pos      : POSITION;
 	float2 texCoord : TEXCOORD0;
+#ifdef UPSCALE
 	float4 diffuse  : COLOR0;
+#endif
 };
 
 #ifdef VERTEX
@@ -11,15 +13,16 @@ VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 	Out.pos      = float4(In.aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
 	Out.texCoord = In.aTexCoord.xy * (1.0 / 32767.0);
-	Out.diffuse  = RGBA(In.aLight);
-
+	#ifdef UPSCALE
+		Out.diffuse  = RGBA(In.aLight);
+	#endif
+	
     #ifndef _GAPI_GXM
-    // D3D9 specific
-        if (FILTER_DOWNSAMPLE) {
+        #ifdef DOWNSAMPLE
             Out.texCoord += float2(2.0, -2.0) * uParam.x;
-        } else if (FILTER_BLUR) {
+        #elif BLUR
             Out.texCoord += float2(1.0, -1.0) * uParam.z;
-        }
+        #endif
     #endif
 	
 	return Out;
@@ -62,7 +65,7 @@ float4 blur(float2 uv) { // uParam (dirX, dirY, 1 / textureSize, unused)
 	return color;
 }
 
-float4 upscale(float2 uv) {
+float4 upscale(float2 uv) { // uParam (1 / textureWidth, 1 / textureHeight, unused, unused)
     uv *= uParam.xy + 0.5;
     float2 iuv = floor(uv);
     float2 fuv = frac(uv);
@@ -72,16 +75,16 @@ float4 upscale(float2 uv) {
 }
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-
-	if (FILTER_DOWNSAMPLE)
+	#ifdef DOWNSAMPLE
 		return downsample(In.texCoord.xy);
-
-	if (FILTER_GRAYSCALE)
+	#elif GRAYSCALE
 		return grayscale(In.texCoord.xy);
-
-	if (FILTER_BLUR)
+	#elif BLUR
 		return blur(In.texCoord.xy);
-
-	return upscale(In.texCoord.xy) * In.diffuse;
+	#elif UPSCALE
+		return upscale(In.texCoord.xy) * In.diffuse;
+	#else
+		#error unsupported filter type
+	#endif
 }
 #endif

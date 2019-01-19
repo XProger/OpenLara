@@ -174,7 +174,7 @@ struct MeshBuilder {
     };
 
     MeshBuilder(TR::Level *level, Texture *atlas) : atlas(atlas), level(level) {
-        dynMesh = new Mesh(NULL, DYN_MESH_FACES * 3, NULL, DYN_MESH_FACES * 3, 1, true);
+        dynMesh = new Mesh(NULL, COUNT(dynIndices), NULL, COUNT(dynVertices), 1, true);
         dynRange.vStart = 0;
         dynRange.iStart = 0;
         dynMesh->initRange(dynRange);
@@ -1320,12 +1320,13 @@ struct MeshBuilder {
     }
 
     void dynEnd() {
-        if (dynICount)
+        if (dynICount) {
             renderBuffer(dynIndices, dynICount, dynVertices, dynVCount);
+        }
     }
 
     void dynCheck(int freeIndicesCount) {
-        if (dynICount + freeIndicesCount > DYN_MESH_FACES * 3) {
+        if (dynICount + freeIndicesCount > COUNT(dynIndices)) {
             dynEnd();
             dynBegin();
         }

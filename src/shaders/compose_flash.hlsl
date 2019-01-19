@@ -14,6 +14,7 @@ struct VS_OUTPUT {
 };
 
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
@@ -38,11 +39,9 @@ VS_OUTPUT main(VS_INPUT In) {
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float4 color = tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw);
 
-#ifndef _GAPI_GXM
-	if (CLIP_PLANE) {
+	#ifdef CLIP_PLANE
 		clip(In.clipDist);
-	}
-#endif
+	#endif
 
 	color.xyz *= In.diffuse.xyz;
 	return color;

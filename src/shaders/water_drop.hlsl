@@ -36,12 +36,12 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 half4 main(VS_OUTPUT In) : COLOR0 {
-	half2 v = (half2)tex2Dlod(sNormal, float4(In.texCoord.xy, 0, 0)).xy;
+	half2 v = tex2D(sNormal, In.texCoord.xy).xy;
 
 	float value = max(0.0, 1.0 - length(uParam.xy - In.dropCoord / uTexParam.xy) / uParam.z);
 	value = 0.5 - cos(value * PI) * 0.5;
 	value *= uParam.w;
-	
+
 	v.x += (half)value;
 	//v.x = 1.0;
 

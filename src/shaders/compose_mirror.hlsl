@@ -12,6 +12,7 @@ struct VS_OUTPUT {
 };
 
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
@@ -41,11 +42,9 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	float3 rv = reflect(-In.viewVec.xyz, In.normal.xyz);
 	float4 color = texCUBE(sEnvironment, normalize(rv));
 
-#ifndef _GAPI_GXM
-	if (CLIP_PLANE) {
+	#ifdef CLIP_PLANE
 		clip(In.viewVec.w);
-	}
-#endif
+	#endif
 
 	color *= uMaterial;
     color.xyz = saturate(color.xyz);

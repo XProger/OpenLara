@@ -53,7 +53,7 @@ float calcFresnel(float VoH, float f0) {
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float3 viewVec = normalize(In.viewVec);
 	
-	float2 value = F2_TEX2D(sNormal, In.texCoord).xy;
+	float2 value = tex2D(sNormal, In.texCoord).xy;
 
 	float3 normal = calcNormal(In.texCoord, value.x);
 	normal.y *= sign(viewVec.y);
@@ -67,15 +67,15 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 
 	float2 tc = In.hpos.xy / In.hpos.z * 0.5 + 0.5;
 
-	float4 refrA = tex2Dlod(sDiffuse, float4(uParam.xy * invUV(clamp(tc + dudv * uParam.z, 0.0, 0.999)), 0, 0) );
-	float4 refrB = tex2Dlod(sDiffuse, float4(uParam.xy * invUV(tc), 0, 0) );
+	float4 refrA = tex2D(sDiffuse, uParam.xy * invUV(clamp(tc + dudv * uParam.z, 0.0, 0.999)));
+	float4 refrB = tex2D(sDiffuse, uParam.xy * invUV(tc));
 	float4 refr	 = float4(lerp(refrA.xyz, refrB.xyz, refrA.w), 1.0);
-	float4 refl	 = tex2Dlod(sReflect, float4(tc.xy + dudv * uParam.w, 0, 0));
+	float4 refl	 = tex2D(sReflect, tc.xy + dudv * uParam.w);
 
 	float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
 	float4 color = lerp(refr, refl, fresnel) + spec * 1.5;
-	color.w *= tex2Dlod(sMask, float4(In.maskCoord, 0, 0)).a;
+	color.w *= tex2D(sMask, In.maskCoord).a;
 	
 	float dist = In.viewVec.y / viewVec.y;
 	dist *= step(In.coord.y, uViewPos.y);

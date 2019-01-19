@@ -30,7 +30,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	float3 rCoord = float3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 
 	float2 uv     = getInvUV(rCoord.xy, uTexParam).xy;
-	float2 info   = F2_TEX2D(sNormal, uv).xy;
+	float2 info   = tex2Dlod(sNormal, float4(uv, 0, 0)).xy;
 	float3 normal = calcNormal(uv, info.x).xzy;
 
 	float3 light  = float3(0.0, 0.0, 1.0);

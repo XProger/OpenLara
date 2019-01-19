@@ -2,13 +2,13 @@
 
 struct VS_OUTPUT {
 	float4 pos        : POSITION;
-	half2  texCoord   : TEXCOORD0;
-	half2  maskCoord  : TEXCOORD1;
-	half2  texCoordL  : TEXCOORD2;
-	half2  texCoordR  : TEXCOORD3;
-	half2  texCoordT  : TEXCOORD4;
-	half2  texCoordB  : TEXCOORD5;
-	half2  noiseCoord : TEXCOORD6;
+	float2  texCoord   : TEXCOORD0;
+	half2   maskCoord  : TEXCOORD1;
+	float2  texCoordL  : TEXCOORD2;
+	float2  texCoordR  : TEXCOORD3;
+	float2  texCoordT  : TEXCOORD4;
+	float2  texCoordB  : TEXCOORD5;
+	half2   noiseCoord : TEXCOORD6;
 };
 
 #ifdef VERTEX
@@ -31,7 +31,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.texCoordR  = Out.texCoord + d.xz;
 	Out.texCoordT  = Out.texCoord - d.zy;
 	Out.texCoordB  = Out.texCoord + d.zy;
-	Out.noiseCoord = Out.texCoord + uParam.zw;
+	Out.noiseCoord = Out.maskCoord + uParam.zw;
 	
 	return Out;
 }
@@ -54,7 +54,7 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	v.y += (average - v.x) * WATER_VEL;
 	v.y *= WATER_VIS;
 	v.x += v.y;
-	v.x += tex2D(sDiffuse, In.noiseCoord).x * 0.00025;
+	v.x += (tex2D(sDiffuse, In.noiseCoord).x * 2.0 - 1.0) * 0.00025;
 
 	v *= tex2D(sMask, In.maskCoord).a;
 	

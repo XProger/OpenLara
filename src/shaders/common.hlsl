@@ -21,13 +21,12 @@ static const float3 SHADOW_TEXEL = float3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 
 	#define FLAGS_TYPE  float4
 	#define RGBA(c)     (c).rgba
 	#define RGB(c)      (c).rgb
-	#define F2_TEX2D(s,uv) h2tex2Dlod(s, float4(uv, 0, 0))
 #else
 	#define FLAGS_REG     b0
 	#define FLAGS_TYPE    bool4
 	#define RGBA(c)       (c).rgba
 	#define RGB(c)        (c).rgb
-	#define F2_TEX2D(s,uv) tex2Dlod(s, float4(uv, 0, 0)).xy
+	#define CLIP_PLANE
 #endif
 
 struct VS_INPUT {
@@ -61,27 +60,11 @@ float4      uPosScale[2]            : register( c92 );
 FLAGS_TYPE  uFlags[4]               : register( FLAGS_REG );
 float4      uContacts[MAX_CONTACTS] : register( c98 );
 
-#define FILTER_DEFAULT          uFlags[0].x
-#define FILTER_DOWNSAMPLE       uFlags[0].y
-#define FILTER_DOWNSAMPLE_DEPTH uFlags[0].z
-#define FILTER_GRAYSCALE        uFlags[0].w
-#define FILTER_BLUR             uFlags[1].x
-#define FILTER_EQUIRECTANGULAR  uFlags[1].y
-
 // options for compose, shadow, ambient passes
-#define TYPE_SPRITE             uFlags[0].x
-#define TYPE_FLASH              uFlags[0].y
-#define TYPE_ROOM               uFlags[0].z
-#define TYPE_ENTITY             uFlags[0].w
-#define TYPE_MIRROR             uFlags[1].x
-
-#define UNDERWATER              uFlags[1].y
-#define ALPHA_TEST              uFlags[1].z
-#define CLIP_PLANE              uFlags[1].w
-#define OPT_AMBIENT             uFlags[2].x
-#define OPT_SHADOW              uFlags[2].y
-#define OPT_CONTACT             uFlags[2].z
-#define OPT_CAUSTICS            uFlags[2].w
+#define OPT_AMBIENT             uFlags[0].x
+#define OPT_SHADOW              uFlags[0].y
+#define OPT_CONTACT             uFlags[0].z
+#define OPT_CAUSTICS            uFlags[0].w
 
 float4 pack(float value) {
 	float4 v = frac(value * float4(1.0, 255.0, 65025.0, 16581375.0));
@@ -120,10 +103,10 @@ float calcCaustics(float3 coord, float3 n) {
 	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y);
 }
 
-float3 calcNormal(float2 tc, float base) {
-	float dx = F2_TEX2D(sNormal, float2(tc.x + uTexParam.x, tc.y)).x - base;
-	float dz = F2_TEX2D(sNormal, float2(tc.x, tc.y + uTexParam.y)).x - base;
-	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
+half3 calcNormal(float2 tc, half base) {
+	half dx = (half)tex2Dlod(sNormal, float4(tc.x + uTexParam.x, tc.y, 0, 0)).x - base;
+	half dz = (half)tex2Dlod(sNormal, float4(tc.x, tc.y + uTexParam.y, 0, 0)).x - base;
+	return normalize( half3(dx, 64.0 / (1024.0 * 8.0), dz) );
 }
 
 void applyFogUW(inout float3 color, float3 coord, float waterFogDist) {
@@ -200,7 +183,11 @@ float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
 
 float getContactAO(float3 p, float3 n) {
 	float res = 1.0;
+#ifdef _GAPI_GXM
 	#pragma loop (unroll: always)
+#else
+	[unroll]
+#endif
 	for (int i = 0; i < MAX_CONTACTS; i++) {
 		float3 v = uContacts[i].xyz - p;
 		float  a = uContacts[i].w;

@@ -1,16 +1,16 @@
 #include "common.hlsl"
 
-// UNDERWATER, ALPHA_TEST, CLIP_PLANE (D3D9 only), OPT_SHADOW, OPT_CAUSTICS, OPT_AMBIENT
+// ALPHA_TEST, UNDERWATER, CLIP_PLANE (D3D9 only), OPT_SHADOW, OPT_CAUSTICS, OPT_AMBIENT
 
 struct VS_OUTPUT {
-	float4 pos		 : POSITION;
-	float3 coord	 : TEXCOORD0;
-	float4 texCoord	 : TEXCOORD1;
-	float4 viewVec	 : TEXCOORD2;
-	float4 normal	 : TEXCOORD3;
-	float4 diffuse	 : TEXCOORD4;
-	float3 ambient	 : TEXCOORD5;
-	float4 light	 : TEXCOORD6;
+	float4 pos       : POSITION;
+	float3 coord     : TEXCOORD0;
+	float4 texCoord  : TEXCOORD1;
+	float4 viewVec   : TEXCOORD2;
+	float4 normal    : TEXCOORD3;
+	float4 diffuse   : TEXCOORD4;
+	float3 ambient   : TEXCOORD5;
+	float4 light     : TEXCOORD6;
 	float4 lightProj : TEXCOORD7;
 #ifdef _GAPI_GXM
 	float  clipDist  : CLP0;
@@ -18,9 +18,9 @@ struct VS_OUTPUT {
 };
 
 #ifdef VERTEX
+
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
-	Out.ambient   = 0.0;
 
 	int index = int(In.aCoord.w * 2.0);
 	float4 rBasisRot = uBasis[index];
@@ -53,12 +53,12 @@ VS_OUTPUT main(VS_INPUT In) {
 	lum.w = dot(Out.normal.xyz, normalize(lv3)); att.w = dot(lv3, lv3);
 	light = max((float4)0.0, lum) * max((float4)0.0, (float4)1.0 - att);
 
-	if (UNDERWATER) {
+	#ifdef UNDERWATER
 		light.x *= abs(sin(dot(Out.coord.xyz, 1.0 / 512.0) + uParam.x)) * 1.5 + 0.5;
 		Out.normal.w = 0.0;
-	} else {
+	#else
 		Out.normal.w = saturate(1.0 / exp(length(Out.viewVec.xyz)));
-	}
+	#endif
 
 	if (OPT_SHADOW) {
 		Out.light = light;
@@ -88,15 +88,13 @@ VS_OUTPUT main(VS_INPUT In) {
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float4 color = tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw);
 
-	if (ALPHA_TEST) {
+	#ifdef ALPHA_TEST
 		clip(color.w - ALPHA_REF);
-	}
+	#endif
 
-#ifndef _GAPI_GXM
-	if (CLIP_PLANE) {
+	#ifdef CLIP_PLANE
 		clip(In.viewVec.w);
-	}
-#endif
+	#endif
 
 	color *= In.diffuse;
 
@@ -127,16 +125,16 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 
 	float specular = calcSpecular(normal, In.viewVec.xyz, lightVec, rSpecular);
 	
-	if (UNDERWATER) {
+	#ifdef UNDERWATER
 		float uwSign = step(uParam.y, In.coord.y);
 		specular *= (1.0 - uwSign);
 		color.xyz += specular;
 
 		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST * uwSign);		
-	} else {
+	#else
 		color.xyz += specular;
 		applyFog(color.xyz, In.normal.w);
-	}
+	#endif
 
 	return color;
 }

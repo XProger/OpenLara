@@ -7,7 +7,6 @@
 #include "camera.h"
 
 #define NO_CLIP_PLANE  1000000.0f
-//#define LOG_SHADERS
 
 #if defined(_OS_IOS) || defined(_GAPI_D3D9) || defined(_GAPI_GXM)
     #define USE_SCREEN_TEX
@@ -167,48 +166,6 @@ struct ShaderCache {
 
         #undef SD_ADD
 
-        #ifdef LOG_SHADERS
-        {
-            static const char *DefineName[SD_MAX]  = { SHADER_DEFINES(DECL_STR) };
-
-            int id = 0;
-            /*
-            id |= flags[ 5];
-            id |= flags[ 6];
-            id |= flags[ 7];
-            id |= flags[ 8];
-            id |= flags[ 9];
-            id |= flags[10];
-            id |= flags[11];
-            */
-            char defines[1024];
-            defines[0] = 0;
-
-            for (int i = 0; i < defCount; i++) { // base shader defines
-                strcat(defines, " /D");
-                strcat(defines, DefineName[def[i]]);
-                strcat(defines, "=1");
-            }
-
-            const char *name = NULL;
-
-            switch (pass) {
-                case passCompose : name = "compose"; break;
-                case passShadow  : name = "shadow";  break;
-                case passAmbient : name = "ambient"; break;
-                case passWater   : name = "water" ;  break;
-                case passFilter  : name = "filter";  break;
-                case passGUI     : name = "gui";     break;
-            }
-
-            char buf[256];
-            sprintf(buf, "%s_%d_%02X", name, type, id);
-            LOG("fxc /nologo /T vs_3_0 /O3 /Gec /Vn %s_vs /Fh d3d9/%s_vs.h %s.hlsl /DVERTEX%s\n", buf, buf, name, defines);
-            LOG("fxc /nologo /T vs_3_0 /O3 /Gec /Vn %s_ps /Fh d3d9/%s_ps.h %s.hlsl /DPIXEL%s\n", buf, buf, name, defines);
-        }
-        #endif
-
-
         return shaders[pass][type][fx] = new Shader(pass, type, def, defCount);
     #else
         return NULL;
@@ -232,8 +189,9 @@ struct ShaderCache {
             fx &= ~ShaderCache::FX_CLIP_PLANE;
 
         Shader *shader = getShader(pass, type, fx);
-        if (shader)
+        if (shader) {
             shader->setup();
+        }
 
         Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     }
@@ -457,7 +415,8 @@ struct WaterCache {
     #define MAX_SURFACES       16
     #define MAX_INVISIBLE_TIME 5.0f
     #define SIMULATE_TIMESTEP  (1.0f / 40.0f)
-    #define DETAIL             (64.0f / 1024.0f)
+    #define WATER_TILE_SIZE    64
+    #define DETAIL             (WATER_TILE_SIZE / 1024.0f)
     #define MAX_DROPS          32
 
     IGame     *game;
@@ -554,13 +513,13 @@ struct WaterCache {
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
             pos  = vec3(r.info.x + minX * 1024 + size.x, float(posY), r.info.z + minZ * 1024 + size.z);
 
-            int *mf = new int[4 * w * 64 * h * 64];
-            memset(mf, 0, sizeof(int) * 4 * w * 64 * h * 64);
-            data[0] = new Texture(w * 64, h * 64, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX, mf);
-            data[1] = new Texture(w * 64, h * 64, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX);
+            int *mf = new int[4 * w * h * SQR(WATER_TILE_SIZE)];
+            memset(mf, 0, sizeof(int) * 4 * w * h * SQR(WATER_TILE_SIZE));
+            data[0] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX, mf);
+            data[1] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX);
             delete[] mf;
 
-            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET) : NULL;
+            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET | OPT_DEPEND) : NULL;
             #ifdef BLUR_CAUSTICS
                 caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
             #endif
@@ -766,7 +725,8 @@ struct WaterCache {
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
         Core::setTarget(item.caustics, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
-        Core::setViewport(1, 1, item.caustics->width - 2, item.caustics->width - 2); // leave 1px for black border
+        Core::validateRenderState(); // force clear color for borders
+        Core::setViewport(1, 1, item.caustics->width - 1, item.caustics->width - 1); // leave 2px for black border
         game->getMesh()->renderPlane();
     #ifdef BLUR_CAUSTICS
         // v blur
@@ -871,15 +831,17 @@ struct WaterCache {
         if (!screen) {
             x = Core::viewportDef.x;
             y = Core::viewportDef.y;
-        } else
+        } else {
             x = y = 0;
+        }
 
-        if (screen) { // only for iOS devices
+        if (screen) {
             Core::setTarget(refract, NULL, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
             blitTexture(screen);
             Core::setTarget(screen, NULL, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
-        } else 
+        } else {
             Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
+        }
     }
 
     void simulate() {
@@ -998,7 +960,7 @@ struct WaterCache {
             item.mask->bind(sMask);
             item.data[0]->bind(sNormal);
             Core::setCullMode(cmNone);
-            Core::setBlendMode(bmAlpha);
+            Core::setBlendMode(bmNone);
             #ifdef WATER_USE_GRID
                 vec4 rPosScale[2] = { vec4(item.pos, 0.0f), vec4(item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL), 1.0f) };
                 Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
@@ -1059,9 +1021,9 @@ struct WaterCache {
         Core::setDepthTest(true);
     }
 
-    #undef MAX_WATER_SURFACES
-    #undef MAX_WATER_INVISIBLE_TIME
-    #undef WATER_SIMULATE_TIMESTEP
+    #undef MAX_SURFACES
+    #undef MAX_INVISIBLE_TIME
+    #undef SIMULATE_TIMESTEP
     #undef DETAIL
 };
 

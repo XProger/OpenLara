@@ -19,39 +19,6 @@
 #define DISPLAY_PIXEL_FORMAT    SCE_DISPLAY_PIXELFORMAT_A8B8G8R8
 
 namespace GAPI {
-    #include "shaders/gxm/compose_sprite_vp.h"
-    #include "shaders/gxm/compose_sprite_fp.h"
-    #include "shaders/gxm/compose_flash_vp.h"
-    #include "shaders/gxm/compose_flash_fp.h"
-    #include "shaders/gxm/compose_room_vp.h"
-    #include "shaders/gxm/compose_room_fp.h"
-    #include "shaders/gxm/compose_entity_vp.h"
-    #include "shaders/gxm/compose_entity_fp.h"
-    #include "shaders/gxm/compose_mirror_vp.h"
-    #include "shaders/gxm/compose_mirror_fp.h"
-    #include "shaders/gxm/shadow_vp.h"
-    #include "shaders/gxm/shadow_fp.h"
-    #include "shaders/gxm/ambient_vp.h"
-    #include "shaders/gxm/ambient_fp.h"
-    #include "shaders/gxm/water_drop_vp.h"
-    #include "shaders/gxm/water_drop_fp.h"
-    #include "shaders/gxm/water_simulate_vp.h"
-    #include "shaders/gxm/water_simulate_fp.h"
-    #include "shaders/gxm/water_caustics_vp.h"
-    #include "shaders/gxm/water_caustics_fp.h"
-    #include "shaders/gxm/water_rays_vp.h"
-    #include "shaders/gxm/water_rays_fp.h"
-    #include "shaders/gxm/water_mask_vp.h"
-    #include "shaders/gxm/water_mask_fp.h"
-    #include "shaders/gxm/water_compose_vp.h"
-    #include "shaders/gxm/water_compose_fp.h"
-    #include "shaders/gxm/filter_vp.h"
-    #include "shaders/gxm/filter_fp.h"
-    #include "shaders/gxm/gui_vp.h"
-    #include "shaders/gxm/gui_fp.h"
-    #include "shaders/gxm/clear_vp.h"
-    #include "shaders/gxm/clear_fp.h"
-
     #define SHADER_BUFF_SIZE    (64 * 1024)
     #define SHADER_VERT_SIZE    (64 * 1024)
     #define SHADER_FRAG_SIZE    (64 * 1024)
@@ -281,10 +248,11 @@ namespace GAPI {
         void checkPendings() {
             int i = 0;
             while (i < pendings.length) {
-                if (pendings[i].frameIndex + DISPLAY_BUFFER_COUNT <= Core::stats.frameIndex)
+                if (pendings[i].frameIndex + DISPLAY_BUFFER_COUNT <= Core::stats.frameIndex) {
                     pendings.removeFast(i);
-                else
+                } else {
                     i++;
+                }
             }
         }
 
@@ -461,6 +429,8 @@ namespace GAPI {
     };
 
 // Shader
+    #include "shaders/gxm/shaders.h"
+
     static const int bindings[uMAX] = {
         94, // uFlags
          0, // uParam
@@ -507,54 +477,88 @@ namespace GAPI {
 
             outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4;
 
-            const uint8 *vpSrc, *fpSrc;
-            switch (pass) {
-                case passCompose :
-                    switch (type) {
-                        case 0 : vpSrc = COMPOSE_SPRITE_VP; fpSrc = COMPOSE_SPRITE_FP; break;
-                        case 1 : vpSrc = COMPOSE_FLASH_VP;  fpSrc = COMPOSE_FLASH_FP;  break;
-                        case 2 : vpSrc = COMPOSE_ROOM_VP;   fpSrc = COMPOSE_ROOM_FP;   break;
-                        case 3 : vpSrc = COMPOSE_ENTITY_VP; fpSrc = COMPOSE_ENTITY_FP; break;
-                        case 4 : vpSrc = COMPOSE_MIRROR_VP; fpSrc = COMPOSE_MIRROR_FP; break;
-                        default : ASSERT(false);
-                    }
-                    break;
-                case passShadow  : vpSrc = SHADOW_VP;  fpSrc = SHADOW_FP;  break;
-                case passAmbient : vpSrc = AMBIENT_VP; fpSrc = AMBIENT_FP; break;
-                case passWater   : 
-                    switch (type) {
-                        case 0 : vpSrc = WATER_DROP_VP;     fpSrc = WATER_DROP_FP;     outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_HALF2; break;
-                        case 1 : vpSrc = WATER_SIMULATE_VP; fpSrc = WATER_SIMULATE_FP; outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_HALF2; break;
-                        case 2 : vpSrc = WATER_CAUSTICS_VP; fpSrc = WATER_CAUSTICS_FP; break;
-                        case 3 : vpSrc = WATER_RAYS_VP;     fpSrc = WATER_RAYS_FP;     break;
-                        case 4 : vpSrc = WATER_MASK_VP;     fpSrc = WATER_MASK_FP;     break;
-                        case 5 : vpSrc = WATER_COMPOSE_VP;  fpSrc = WATER_COMPOSE_FP;  break;
-                        default : ASSERT(false);
-                    }
-                    break;
-                case passFilter  : vpSrc = FILTER_VP;  fpSrc = FILTER_FP;  break;
-                case passGUI     : vpSrc = GUI_VP;     fpSrc = GUI_FP;     break;
-                case PASS_CLEAR  : vpSrc = CLEAR_VP;   fpSrc = CLEAR_FP;   break;
-                default          : ASSERT(false); LOG("! wrong pass id\n"); return;
-            }
-
             float *flags = (float*)(cbMem + bindings[uFlags]);
-            flags[type] = 1.0f;
+
+            bool underwater = false;
+            bool alphatest  = false;
 
             for (int i = 0; i < defCount; i++) {
                 switch (def[i]) {
-                    case SD_UNDERWATER      : flags[ 5] = 1.0f; break;
-                    case SD_ALPHA_TEST      : flags[ 6] = 1.0f; break;
-                    case SD_CLIP_PLANE      : flags[ 7] = 1.0f; break;
-                    case SD_OPT_AMBIENT     : flags[ 8] = 1.0f; break;
-                    case SD_OPT_SHADOW      : flags[ 9] = 1.0f; break;
-                    case SD_OPT_CONTACT     : flags[10] = 1.0f; break;
-                    case SD_OPT_CAUSTICS    : flags[11] = 1.0f; break;
+                    case SD_UNDERWATER      : underwater = true; break;
+                    case SD_ALPHA_TEST      : alphatest  = true; break;
+                    case SD_OPT_AMBIENT     : flags[0] = 1.0f; break;
+                    case SD_OPT_SHADOW      : flags[1] = 1.0f; break;
+                    case SD_OPT_CONTACT     : flags[2] = 1.0f; break;
+                    case SD_OPT_CAUSTICS    : flags[3] = 1.0f; break;
                 }
             }
 
-            vpPtr = (SceGxmProgram*)vpSrc;
-            fpPtr = (SceGxmProgram*)fpSrc;
+            #define SHADER(S,P)    S##_##P
+            #define SHADER_A(S,P)  (alphatest  ? SHADER(S##_a,P) : SHADER(S,P))
+            #define SHADER_U(S,P)  (underwater ? SHADER(S##_u,P) : SHADER(S,P))
+            #define SHADER_AU(S,P) ((underwater && alphatest) ? SHADER(S##_au,P) : (alphatest ? SHADER(S##_a,P) : SHADER_U(S,P)))
+
+            const uint8 *vSrc, *fSrc;
+            switch (pass) {
+                case passCompose :
+                    switch (type) {
+                        case 0  : vSrc = SHADER_U ( compose_sprite, v );  fSrc = SHADER_AU ( compose_sprite, f ); break;
+                        case 1  : vSrc = SHADER   ( compose_flash,  v );  fSrc = SHADER    ( compose_flash,  f ); break;
+                        case 2  : vSrc = SHADER_U ( compose_room,   v );  fSrc = SHADER_AU ( compose_room,   f ); break;
+                        case 3  : vSrc = SHADER_U ( compose_entity, v );  fSrc = SHADER_AU ( compose_entity, f ); break;
+                        case 4  : vSrc = SHADER   ( compose_mirror, v );  fSrc = SHADER    ( compose_mirror, f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passShadow : 
+                    switch (type) {
+                        case 3  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passAmbient :
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( ambient_sprite, v );  fSrc = SHADER_A ( ambient_sprite, f ); break;
+                        case 1  : vSrc = SHADER ( ambient_room,   v );  fSrc = SHADER   ( ambient_room,   f ); break; // TYPE_FLASH (sky)
+                        case 2  : vSrc = SHADER ( ambient_room,   v );  fSrc = SHADER_A ( ambient_room,   f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passWater : 
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( water_drop,     v );  fSrc = SHADER ( water_drop,     f ); break;
+                        case 1  : vSrc = SHADER ( water_simulate, v );  fSrc = SHADER ( water_simulate, f ); break;
+                        case 2  : vSrc = SHADER ( water_caustics, v );  fSrc = SHADER ( water_caustics, f ); break;
+                        case 3  : vSrc = SHADER ( water_rays,     v );  fSrc = SHADER ( water_rays,     f ); break;
+                        case 4  : vSrc = SHADER ( water_mask,     v );  fSrc = SHADER ( water_mask,     f ); break;
+                        case 5  : vSrc = SHADER ( water_compose,  v );  fSrc = SHADER ( water_compose,  f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passFilter :
+                    switch (type) {
+                        case 0  : vSrc = SHADER ( filter_upscale,    v );  fSrc = SHADER ( filter_upscale,    f ); break;
+                        case 1  : vSrc = SHADER ( filter_downsample, v );  fSrc = SHADER ( filter_downsample, f ); break;
+                        case 3  : vSrc = SHADER ( filter_grayscale,  v );  fSrc = SHADER ( filter_grayscale,  f ); break;
+                        case 4  : vSrc = SHADER ( filter_blur,       v );  fSrc = SHADER ( filter_blur,       f ); break;
+                        default : ASSERT(false);
+                    }
+                    break;
+                case passGUI    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
+                case PASS_CLEAR : vSrc = SHADER ( clear, v );  fSrc = SHADER ( clear, f ); break;
+                default         : ASSERT(false); LOG("! wrong pass id\n"); return;
+            }
+
+            #undef SHADER_A
+            #undef SHADER_U
+            #undef SHADER_AU
+
+            if (pass == passWater && (type == 0 || type == 1)) { // water_simulate & water_drop use half2 render target
+                outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_HALF2;
+            }
+
+            vpPtr = (SceGxmProgram*)vSrc;
+            fpPtr = (SceGxmProgram*)fSrc;
 
             sceGxmShaderPatcherRegisterProgram(shaderPatcher, vpPtr, &vpUID);
 
@@ -771,8 +775,8 @@ namespace GAPI {
             bool isCube     = (opt & OPT_CUBEMAP) != 0;
             bool isTarget   = (opt & OPT_TARGET)  != 0;
             bool isShadow   = fmt == FMT_SHADOW;
-            bool isTiled    = isTarget || fmt == FMT_DEPTH || fmt == FMT_SHADOW;
-            bool isSwizzled = false;//!isTiled;
+            bool isTiled    = isTarget;
+            bool isSwizzled = !isTiled;
 
             FormatDesc desc = formats[fmt];
 
@@ -968,30 +972,38 @@ namespace GAPI {
         SceUID       iBufferUID;
         SceUID       vBufferUID;
 
-        int          iCount;
-        int          vCount;
-
         bool         dynamic;
 
         struct Chunk {
             int frameIndex;
-            int iStart, iCount;
-            int vStart, vCount;
+            int iBase, iStart, iCount;
+            int vBase, vStart, vCount;
         } chunks[DISPLAY_BUFFER_COUNT];
 
         Mesh(bool dynamic) : iBuffer(NULL), vBuffer(NULL), dynamic(dynamic) {}
 
         void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
             ASSERT(sizeof(GAPI::Vertex) == sizeof(::Vertex));
+
             memset(chunks, 0, sizeof(chunks));
 
-            this->iCount  = iCount;
-            this->vCount  = vCount;
+            for (int i = 0; i < COUNT(chunks); i++) {
+                chunks[i].frameIndex = -1;
+                chunks[i].iBase = i * iCount;
+                chunks[i].vBase = i * vCount;
+            }
+
+            if (dynamic) {
+                iCount *= COUNT(chunks);
+                vCount *= COUNT(chunks);
+            }
 
             iBuffer = (Index*)  Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE, iCount * sizeof(Index),  SCE_GXM_MEMORY_ATTRIB_READ, &iBufferUID);
             vBuffer = (Vertex*) Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE, vCount * sizeof(Vertex), SCE_GXM_MEMORY_ATTRIB_READ, &vBufferUID);
 
-            update(indices, iCount, vertices, vCount);
+            if (!dynamic) {
+                update(indices, iCount, vertices, vCount);
+            }
         }
 
         void deinit() {
@@ -1007,8 +1019,8 @@ namespace GAPI {
             Chunk &chunk = getChunk();
             if (chunk.frameIndex != Core::stats.frameIndex) {
                 chunk.frameIndex = Core::stats.frameIndex;
-                chunk.iStart = chunk.iCount = 0;
-                chunk.vStart = chunk.vCount = 0;
+                chunk.iStart = chunk.iCount = chunk.iBase;
+                chunk.vStart = chunk.vCount = chunk.vBase;
             }
 
             if (indices && iCount) {
@@ -1117,7 +1129,7 @@ namespace GAPI {
         vertices[2].coord = short4{-1,  3, 1, 1};
         clearMesh.init(indices, 3, vertices, 3, 0);
 
-        clearColor = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+        clearColor = vec4(0.0f);
 
         colorMask = SCE_GXM_COLOR_MASK_ALL;
         blendMode = 0;
@@ -1197,6 +1209,10 @@ namespace GAPI {
         } else {
             ASSERT(target->opt & OPT_TARGET);
 
+            uint32 flags = 0;
+            if (target->opt & OPT_VERTEX) flags |= SCE_GXM_SCENE_FRAGMENT_SET_DEPENDENCY;
+            if (target->opt & OPT_DEPEND) flags |= SCE_GXM_SCENE_VERTEX_WAIT_FOR_DEPENDENCY;
+
             SceGxmColorSurface *colorSurface = (target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW) ? NULL : &target->colorSurface;
 
             bool loadDepth  = (Core::reqTarget.op & RT_LOAD_DEPTH);
@@ -1205,30 +1221,7 @@ namespace GAPI {
             sceGxmDepthStencilSurfaceSetForceLoadMode  ( &target->depthSurface, loadDepth  ? SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_ENABLED  : SCE_GXM_DEPTH_STENCIL_FORCE_LOAD_DISABLED  );
             sceGxmDepthStencilSurfaceSetForceStoreMode ( &target->depthSurface, storeDepth ? SCE_GXM_DEPTH_STENCIL_FORCE_STORE_ENABLED : SCE_GXM_DEPTH_STENCIL_FORCE_STORE_DISABLED );
 
-            sceGxmBeginScene(Context::gxmContext, 0, target->renderTarget, NULL, NULL, NULL, colorSurface, &target->depthSurface);
-
-
-
-        /*
-            bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
-
-            if (target->tex2D) {
-                D3DCHECK(target->tex2D->GetSurfaceLevel(0, &surface));
-            } else if (target->texCube)
-                D3DCHECK(target->texCube->GetCubeMapSurface(D3DCUBEMAP_FACES(D3DCUBEMAP_FACE_POSITIVE_X + face), 0, &surface));
-
-            int rtIndex = cacheRenderTarget(!depth, target->width, target->height);
-
-            if (depth) {
-                D3DCHECK(device->SetRenderTarget(0, rtCache[false].items[rtIndex].surface));
-                D3DCHECK(device->SetDepthStencilSurface(surface));
-            } else {
-                D3DCHECK(device->SetRenderTarget(0, surface));
-                D3DCHECK(device->SetDepthStencilSurface(rtCache[true].items[rtIndex].surface));
-            }
-
-            surface->Release();
-        */
+            sceGxmBeginScene(Context::gxmContext, flags, target->renderTarget, NULL, NULL, NULL, colorSurface, &target->depthSurface);
         }
         active.viewport = Viewport(0, 0, 0, 0); // forcing viewport reset
     }
