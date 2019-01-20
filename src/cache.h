@@ -83,6 +83,7 @@ struct ShaderCache {
     }
 
     void prepareShadows(int fx) {
+        compile(Core::passShadow, Shader::MIRROR, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow | RS_DISCARD);
     }

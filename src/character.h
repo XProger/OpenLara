@@ -44,6 +44,7 @@ struct Character : Controller {
     vec3    velocity;
     float   angleExt;
     float   speed;
+    float   lookAtSpeed;
     int     stepHeight;
     int     dropHeight;
 
@@ -59,6 +60,8 @@ struct Character : Controller {
     Character(IGame *game, int entity, float health) : Controller(game, entity), health(health), tilt(0.0f), stand(STAND_GROUND), lastInput(0), viewTarget(NULL), jointChest(-1), jointHead(-1), velocity(0.0f), angleExt(0.0f), speed(0.0f) {
         stepHeight =  256;
         dropHeight = -256;
+
+        lookAtSpeed = 8.0f;
 
         rangeChest = vec4(-0.80f, 0.80f, -0.75f, 0.75f) * PI;
         rangeHead  = vec4(-0.25f, 0.25f, -0.50f, 0.50f) * PI;
@@ -245,7 +248,7 @@ struct Character : Controller {
 
 
     void lookAtPos(const vec3 *t = NULL) {
-        float speed = 8.0f * Core::deltaTime;
+        float speed = lookAtSpeed * Core::deltaTime;
         quat rot;
 
         if (jointChest > -1) {
@@ -304,6 +307,15 @@ struct Character : Controller {
             addBloodSpikes();
     }
 
+    void bakeEnvironment(Texture *&environment) {
+        flags.invisible = true;
+        if (!environment) {
+            environment = new Texture(256, 256, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
+        }
+        game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment);
+        environment->generateMipMap();
+        flags.invisible = false;
+    }
 };
 
 #endif

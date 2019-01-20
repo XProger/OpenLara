@@ -3361,4 +3361,137 @@ struct Tiger : Enemy {
     }
 };
 
+
+#define WINSTON_DIST        1536.0f
+#define WINSTON_TURN_SLOW   (DEG2RAD * 60)
+#define WINSTON_FREEZE_TIME 60.0f
+
+struct Winston : Enemy {
+
+    enum {
+        STATE_NONE ,
+        STATE_STOP ,
+        STATE_WALK ,
+    };
+
+    Texture *environment;
+
+    Winston(IGame *game, int entity) : Enemy(game, entity, 20, 341, 200.0f, 0.25f), environment(NULL) {
+        dropHeight = -1024;
+        jointChest = 11;
+        jointHead  = 25;
+        nextState  = STATE_NONE;
+        lookAtSpeed = 1.0f;
+        timer = 0.0f;
+    }
+
+    virtual ~Winston() {
+        delete environment;
+    }
+
+    virtual int getStateGround() {
+        if (getRoomIndex() == 94) {
+            int doorIndex = (level->version & TR::VER_TR2) ? 38 : 68;
+
+            Controller *door = (Controller*)game->getLevel()->entities[doorIndex].controller;
+            if (!door->isActive()) {
+                if (timer > WINSTON_FREEZE_TIME) {
+                    flags.unused |= 4;
+                    if (!environment) {
+                        bakeEnvironment(environment);
+                    }
+                } else {
+                    timer += Core::deltaTime;
+                }
+                return STATE_STOP;
+            } else {
+                if (!(flags.unused & 4)) {
+                    timer = 0.0f;
+                }
+            }
+        }
+
+        if (flags.unused & 4) {
+            timer -= Core::deltaTime;
+            if (timer < 0.0f) {
+                timer = 0.0f;
+                flags.unused &= ~4;
+            }
+            return STATE_STOP;
+        }
+
+        if (!think(false))
+            return state;
+
+        if (nextState == state)
+            nextState = STATE_NONE;
+
+        if (nextState != STATE_NONE)
+            return nextState;
+
+        switch (state) {
+            case STATE_STOP    :
+                if ((targetDist > WINSTON_DIST || !targetInView) && nextState != STATE_WALK) {
+                    nextState = STATE_WALK;
+                    game->playSound(TR::SND_WINSTON_WALK, pos, Sound::PAN);
+                }
+            case STATE_WALK     :
+                if (targetDist < WINSTON_DIST) {
+                    if (targetInView) {
+                        nextState = STATE_STOP;
+                        flags.unused &= ~1;
+                    } else if (!(flags.unused & 1)) {
+                        game->playSound(TR::SND_WINSTON_SCARED, pos, Sound::PAN);
+                        game->playSound(TR::SND_WINSTON_TRAY, pos, Sound::PAN);
+                        flags.unused |= 1;
+                    }
+                }
+        }
+
+        bool touch = collide(target) != 0;
+        bool push  = (flags.unused & 2) != 0;
+
+        if (!push && touch) {
+            game->playSound(TR::SND_WINSTON_PUSH, pos, Sound::PAN);
+            game->playSound(TR::SND_WINSTON_TRAY, pos, Sound::PAN);
+            flags.unused |= 2;
+        }
+
+        if (push && !touch) {
+            flags.unused &= ~2;
+        }
+
+        if (rand() < 0x100) {
+            game->playSound(TR::SND_WINSTON_TRAY, pos, Sound::PAN);
+        }
+
+        return state;
+    }
+
+    virtual void updatePosition() {
+        if (flags.unused & 4) {
+            animation.time = 0.0f;
+            animation.updateInfo();
+            return;
+        }
+
+        turn(state == STATE_WALK, WINSTON_TURN_SLOW);
+        angle.z = 0.0f;
+
+        Enemy::updatePosition();
+        setOverrides(true, jointChest, jointHead);
+        lookAt(target);
+    }
+
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+        if (environment && (flags.unused & 4)) {
+            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.5f, 2.0f, 2.5f, 1.0f, false);
+            environment->bind(sEnvironment);
+            Controller::render(frustum, mesh, type, caustics);
+        } else {
+            Enemy::render(frustum, mesh, type, caustics);
+        }
+    }
+};
+
 #endif

@@ -986,6 +986,11 @@ namespace TR {
         SND_SECRET          = 173,
 
         SND_HELICOPTER      = 297,
+
+        SND_WINSTON_SCARED  = 344,
+        SND_WINSTON_WALK    = 345,
+        SND_WINSTON_PUSH    = 346,
+        SND_WINSTON_TRAY    = 347,
     };
 
     enum {
@@ -1902,7 +1907,7 @@ namespace TR {
         }
 
         bool castShadow() const {
-            return isLara() || isEnemy() || isVehicle() || isActor() || type == DART || type == TRAP_SWORD;
+            return isLara() || isEnemy() || isVehicle() || isActor() || type == DART || type == TRAP_SWORD || type == ENEMY_WINSTON || type == ENEMY_WINSTON_CAMO;
         }
 
         void getAxis(int &dx, int &dz) {

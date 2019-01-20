@@ -1570,15 +1570,6 @@ struct Lara : Character {
         }
     }
 
-    void bakeEnvironment() {
-        flags.invisible = true;
-        if (!environment)
-            environment = new Texture(256, 256, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
-        game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment);
-        environment->generateMipMap();
-        flags.invisible = false;
-    }
-
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
         if (dozy || level->isCutsceneLevel()) return;
 
@@ -1657,7 +1648,7 @@ struct Lara : Character {
             }
             case TR::HIT_MIDAS : {
             // generate environment map for reflections
-                bakeEnvironment();
+                bakeEnvironment(environment);
             // set death animation
                 animation.setAnim(level->models[TR::MODEL_LARA_SPEC].animation + 1);
                 camera->doCutscene(pos, angle.y);
@@ -3760,11 +3751,9 @@ struct Lara : Character {
             Core::updateLights();
         */
             environment->bind(sEnvironment);
-            Core::setBlendMode(bmAlpha);
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
             visibleMask ^= 0xFFFFFFFF;
-            Core::setBlendMode(bmNone);
         }
     }
 };

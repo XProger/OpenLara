@@ -1139,6 +1139,7 @@ struct Level : IGame {
             case TR::Entity::ENEMY_MERCENARY_SNOWMOBILE :
             case TR::Entity::ENEMY_MONK_1           :
             case TR::Entity::ENEMY_MONK_2           : return new Enemy(this, index, 100, 10, 0.0f, 0.0f);
+            case TR::Entity::ENEMY_WINSTON          : return new Winston(this, index);
 
             case TR::Entity::CRYSTAL_PICKUP         : return new CrystalPickup(this, index);
             case TR::Entity::STONE_ITEM_1           :
@@ -1915,7 +1916,7 @@ struct Level : IGame {
             if (mesh->dynICount) {
                 Core::lightPos[0]   = vec4(0, 0, 0, 0);
                 Core::lightColor[0] = vec4(0, 0, 0, 1);
-                setRoomParams(0, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
+                setRoomParams(getLara()->getRoomIndex(), Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
 
                 Basis b;
                 b.w   = 1.0f;
