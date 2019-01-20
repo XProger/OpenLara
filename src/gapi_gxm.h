@@ -37,7 +37,7 @@ namespace GAPI {
         void *addr;
     };
 
-    void display_queue_callback(const void *callbackData) {
+    void displayCallback(const void *callbackData) {
         SceDisplayFrameBuf display_fb;
         const DisplayData *cb_data = (DisplayData*)callbackData;
 
@@ -757,6 +757,7 @@ namespace GAPI {
         int           width, height, origWidth, origHeight, aWidth, aHeight;
         TexFormat     fmt;
         uint32        opt;
+        int           mipCount;
 
         SceGxmColorSurface colorSurface;
         SceGxmRenderTarget *renderTarget;
@@ -776,7 +777,7 @@ namespace GAPI {
             bool isTarget   = (opt & OPT_TARGET)  != 0;
             bool isShadow   = fmt == FMT_SHADOW;
             bool isTiled    = isTarget;
-            bool isSwizzled = !isTiled;
+            bool isSwizzled = !isTiled && filter;
 
             FormatDesc desc = formats[fmt];
 
@@ -791,9 +792,37 @@ namespace GAPI {
                 aHeight = height;
             }
 
-            int size = aWidth * aHeight * desc.bpp / 8 * (isCube ? 6 : 1);
+            int size = 0;
 
-            SceGxmMemoryAttribFlags flags = isTarget ? SCE_GXM_MEMORY_ATTRIB_RW : SCE_GXM_MEMORY_ATTRIB_READ;
+            if (isCube || isTiled || fmt != FMT_RGBA) {
+                mipmaps = false;
+            }
+
+            mipCount = 0;
+            if (mipmaps) {
+                int w = width;
+                int h = height;
+                while (w > 15 && h > 15 && mipCount < 4) {
+                    size += ALIGN(w, 8) * h;
+                    w /= 2;
+                    h /= 2;
+                    mipCount++;
+                }
+            } else {
+                size += aWidth * aHeight;
+            }
+
+            if (mipCount > 1) {
+                isSwizzled = false;
+            }
+
+            size *= desc.bpp / 8;
+
+            if (isCube) {
+                size *= 6;
+            }
+
+            SceGxmMemoryAttribFlags flags = (isTarget || mipCount > 1) ? SCE_GXM_MEMORY_ATTRIB_RW : SCE_GXM_MEMORY_ATTRIB_READ;
             this->data = (uint8*)Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, size, flags, &uid);
 
             if (data && this->data) {
@@ -821,14 +850,16 @@ namespace GAPI {
                 }
             }
 
+            generateMipMap();
+
             if (isCube) {
-                sceGxmTextureInitCube(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+                sceGxmTextureInitCube(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, mipCount);
             } else if (isSwizzled) {
-                sceGxmTextureInitSwizzled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+                sceGxmTextureInitSwizzled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, mipCount);
             } else if (isTiled) {
-                sceGxmTextureInitTiled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+                sceGxmTextureInitTiled(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, mipCount);
             } else {
-                sceGxmTextureInitLinear(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, 0);
+                sceGxmTextureInitLinear(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, mipCount);
             }
 
             SceGxmTextureAddrMode addrMode;
@@ -900,16 +931,47 @@ namespace GAPI {
             Context::freeGPU(uid, true);
         }
 
-        void generateMipMap() {
-            /*
-            bind(0);
-            GLenum target = (opt & OPT_CUBEMAP) ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
+        void generateMipMap() { // TODO: cubemap
+            if (mipCount <= 1) return;
 
-            glGenerateMipmap(target);
-            if (!(opt & OPT_CUBEMAP) && !(opt & OPT_NEAREST) && (support.maxAniso > 0))
-                glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(support.maxAniso), 8));
-            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
-            */
+            int w = width;
+            int h = height;
+
+            uint8 *src = this->data;
+            int srcStride = ALIGN(w, 8) * 4;
+
+            for (int i = 0; i < mipCount - 1; i++) {
+                uint8 *dst = src + srcStride * h;
+                int dstStride = ALIGN(w / 2, 8) * 4;
+
+                // TODO: check for NPOT
+                if (w > 1024 || h > 1024) { // sceGxmTransferDownscale supports blocks less than 1024
+                    int blocksX = max(1, w / 1024);
+                    int blocksY = max(1, h / 1024);
+                    for (int y = 0; y < blocksY; y++) {
+                        for (int x = 0; x < blocksX; x++) {
+                            int blockWidth  = min(1024, w - x * 1024);
+                            int blockHeight = min(1024, h - y * 1024);
+                            sceGxmTransferDownscale(
+                                SCE_GXM_TRANSFER_FORMAT_U8U8U8U8_ABGR, src, x * 1024, y * 1024, blockWidth, blockHeight, srcStride,
+                                SCE_GXM_TRANSFER_FORMAT_U8U8U8U8_ABGR, dst, x * 512,  y * 512,  dstStride,
+                                NULL, SCE_GXM_TRANSFER_FRAGMENT_SYNC, NULL);
+                        }
+                    }
+                } else {
+                    sceGxmTransferDownscale(
+                        SCE_GXM_TRANSFER_FORMAT_U8U8U8U8_ABGR, src, 0, 0, w, h, srcStride,
+                        SCE_GXM_TRANSFER_FORMAT_U8U8U8U8_ABGR, dst, 0, 0, dstStride,
+                        NULL, SCE_GXM_TRANSFER_FRAGMENT_SYNC, NULL);
+                }
+
+                w /= 2;
+                h /= 2;
+                src = dst;
+                srcStride = dstStride;
+            }
+
+            sceGxmTextureSetMipFilter(&ID, SCE_GXM_TEXTURE_MIP_FILTER_ENABLED);
         }
 
         void updateData(void *data) {
@@ -1087,7 +1149,7 @@ namespace GAPI {
             SceGxmInitializeParams params;
             memset(&params, 0, sizeof(params));
             params.displayQueueMaxPendingCount  = DISPLAY_BUFFER_COUNT - 1;
-            params.displayQueueCallback         = display_queue_callback;
+            params.displayQueueCallback         = displayCallback;
             params.displayQueueCallbackDataSize = sizeof(DisplayData);
             params.parameterBufferSize          = SCE_GXM_DEFAULT_PARAMETER_BUFFER_SIZE;
 
@@ -1209,7 +1271,7 @@ namespace GAPI {
         } else {
             ASSERT(target->opt & OPT_TARGET);
 
-            uint32 flags = 0;
+            uint32 flags = SCE_GXM_SCENE_VERTEX_TRANSFER_SYNC;
             if (target->opt & OPT_VERTEX) flags |= SCE_GXM_SCENE_FRAGMENT_SET_DEPENDENCY;
             if (target->opt & OPT_DEPEND) flags |= SCE_GXM_SCENE_VERTEX_WAIT_FOR_DEPENDENCY;
 
