@@ -2,7 +2,6 @@
 
 struct VS_OUTPUT {
 	float4 pos      : POSITION;
-	float2 texCoord : TEXCOORD0;
 	float3 oldPos   : TEXCOORD1;
 	float3 newPos   : TEXCOORD2;
 };
@@ -25,8 +24,6 @@ VS_OUTPUT main(VS_INPUT In) {
 
 	float3 coord  = In.aCoord.xyz * (1.0 / 32767.0);
 
-	Out.texCoord  = getUV(coord.xy, uTexParam);
-
 	float3 rCoord = float3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 
 	float2 uv     = getInvUV(rCoord.xy, uTexParam).xy;
@@ -35,7 +32,7 @@ VS_OUTPUT main(VS_INPUT In) {
 
 	float3 light  = float3(0.0, 0.0, 1.0);
 	float3 refOld = refract(-light, float3(0.0, 0.0, 1.0), 0.75);
-	float3 refNew = refract(-light, normal, 0.75);
+	float3 refNew = refract(-light, normalize(normal + float3(0.0, 0.0, 0.25)), 0.75);
 
 	Out.oldPos = rCoord + refOld * (-1.0 / refOld.z) + refOld * ((-refOld.z - 1.0) / refOld.z);
 	Out.newPos = rCoord + refNew * ((info.r - 1.0) / refNew.z) + refOld * ((-refNew.z - 1.0) / refOld.z);

@@ -5,7 +5,7 @@ R"====(
 #endif
 
 #define MAX_LIGHTS			4
-#define WATER_FOG_DIST		(1.0 / (1024.0 * 6.0))
+#define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
 #define WATER_COLOR_DIST	(1.0 / (2.0 * 1024.0))
 #define UNDERWATER_COLOR	vec3(0.6, 0.9, 0.9)
 

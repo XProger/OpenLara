@@ -485,7 +485,7 @@ struct WaterCache {
             int w = maxX - minX;
             int h = maxZ - minZ;
 
-            uint16 *m = new uint16[w * h];
+            uint8 *m = new uint8[w * h];
             memset(m, 0, w * h * sizeof(m[0]));
 
             for (int z = minZ; z < maxZ; z++)
@@ -505,9 +505,9 @@ struct WaterCache {
                         }
                     }
 
-                    m[(x - minX) + w * (z - minZ)] = hasWater ? 0xFFFF : 0x0000; // TODO: flow map
+                    m[(x - minX) + w * (z - minZ)] = hasWater ? 0xFF : 0x00; // TODO: flow map
                 }
-            mask = new Texture(w, h, FMT_RGBA16, OPT_NEAREST, m);
+            mask = new Texture(w, h, FMT_LUMINANCE, OPT_NEAREST, m);
             delete[] m;
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -748,6 +748,9 @@ struct WaterCache {
     }
 
     void renderRays() {
+        #ifdef _OS_PSV // TODO
+            return;
+        #endif
         if (!visible) return;
         PROFILE_MARKER("WATER_RAYS");
 

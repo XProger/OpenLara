@@ -37,7 +37,7 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	float4 color = tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw);
+	float4 color = RGBA(tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw));
 
 	#ifdef CLIP_PLANE
 		clip(In.clipDist);

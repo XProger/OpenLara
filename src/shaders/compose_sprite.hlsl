@@ -72,7 +72,7 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	float4 color = tex2D(sDiffuse, In.texCoord.xy);
+	float4 color = RGBA(tex2D(sDiffuse, In.texCoord.xy));
 
 	#ifdef ALPHA_TEST
 		clip(color.w - ALPHA_REF);
@@ -95,7 +95,7 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	color.xyz *= light;
 
 	#ifdef UNDERWATER
-		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST);
+		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST, WATER_COLOR_DIST);
 	#else
 		applyFog(color.xyz, In.normal.w);
 	#endif

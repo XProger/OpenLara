@@ -32,9 +32,9 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.viewVec.y   = abs(Out.viewVec.y);
 	Out.lightVec.y  = abs(Out.lightVec.y);
 	Out.lightVec    = uLightPos[0].xyz - coord;
-	
-	Out.viewVec.w   = step(uPosScale[0].y, uViewPos.y) * WATER_COLOR_DIST;
-	
+
+	Out.viewVec.w   = step(uPosScale[0].y, uViewPos.y);
+
 	Out.texCoordR = Out.texCoord + float2(uTexParam.x, 0.0);
 	Out.texCoordB = Out.texCoord + float2(0.0, uTexParam.y);
 
@@ -68,9 +68,9 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	color.xyz += specular;
 
 	float dist = (In.viewVec.y / viewVec.y) * In.viewVec.w;
-	color.xyz *= lerp((half3)1.0, UNDERWATER_COLOR_H, (half)clamp(dist, 0.0, 2.0));
+	color.xyz *= lerp((half3)1.0, UNDERWATER_COLOR_H, (half)clamp(dist * WATER_COLOR_DIST, 0.0, 2.0));
 
-	half fog = saturate(1.0h / exp(dist));
+	half fog = saturate(1.0h / exp(dist * WATER_FOG_DIST));
 	color.xyz = lerp(UNDERWATER_COLOR_H * 0.2, color.xyz, fog);
 
 	return color;

@@ -50,7 +50,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	light = max((float4)0.0, lum) * max((float4)0.0, (float4)1.0 - att);
 
 	#ifdef UNDERWATER
-		light.x *= abs(sin(dot(Out.coord.xyz, 1.0 / 512.0) + uParam.x)) * 1.5 + 0.5;
+		light.x *= calcCausticsV(Out.coord);
 		Out.normal.w = 0.0;
 	#else
 		float3 viewVec = (uViewPos.xyz - Out.coord) * uFogParams.w;
@@ -82,7 +82,7 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	float4 color = tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw);
+	float4 color = RGBA(tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw));
 
 	#ifdef ALPHA_TEST
 		clip(color.w - ALPHA_REF);
@@ -117,7 +117,7 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	color.xyz *= light;
 
 	#ifdef UNDERWATER
-		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST);	
+		applyFogUW(color.xyz, In.coord, WATER_FOG_DIST, WATER_COLOR_DIST);
 	#else
 		applyFog(color.xyz, In.normal.w);
 	#endif

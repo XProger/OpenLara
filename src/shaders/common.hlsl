@@ -1,6 +1,8 @@
 #ifdef __psp2__
 	#define _GAPI_GXM
 	#pragma pack_matrix( column_major )
+#else
+	#define _GAPI_D3D9
 #endif
 
 #define ALPHA_REF			0.5
@@ -25,8 +27,8 @@ static const float3 SHADOW_TEXEL = float3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 
 #else
 	#define FLAGS_REG     b0
 	#define FLAGS_TYPE    bool4
-	#define RGBA(c)       (c).rgba
-	#define RGB(c)        (c).rgb
+	#define RGBA(c)       (c).bgra
+	#define RGB(c)        (c).bgr
 	#define CLIP_PLANE
 #endif
 
@@ -101,13 +103,19 @@ float calcSpecular(float3 normal, float3 viewVec, float3 lightVec, float intensi
 
 float calcCaustics(float3 coord, float3 n) {
 	float2 cc = saturate((coord.xz - uRoomSize.xy) / uRoomSize.zw);
-	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y);
+	float2 border = 256.0 / uRoomSize.zw;
+	float2 fade   = smoothstep((float2)0.0, border, cc) * (1.0 - smoothstep(1.0 - border, 1.0, cc));
+	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y) * fade.x * fade.y;
+}
+
+float calcCausticsV(float3 coord) {
+	return 0.5 + abs(sin(dot(coord.xyz, 1.0 / 1024.0) + uParam.x)) * 0.75;
 }
 
 half3 calcNormalV(float2 tc, half base) {
 	half dx = (half)tex2Dlod(sNormal, float4(tc.x + uTexParam.x, tc.y, 0, 0)).x - base;
-	half dz = (half)tex2Dlod(sNormal, float4(tc.x, tc.y + uTexParam.y, 0, 0)).x - base;
-	return normalize( half3(dx, 64.0 / (1024.0 * 8.0), dz) );
+	half dz = (half)tex2Dlod(sNormal, float4(tc.x, tc.y - uTexParam.y, 0, 0)).x - base;
+	return (half3)normalize( half3(dx, 64.0 / (1024.0 * 8.0), dz) );
 }
 
 float3 calcNormalF(float2 tcR, float2 tcB, float base) {
@@ -117,19 +125,24 @@ float3 calcNormalF(float2 tcR, float2 tcB, float base) {
 }
 
 half calcFresnel(half VoH, half f0) {
-	half f = pow(1.0 - VoH, 5.0);
-	return f + f0 * (1.0f - f);
+	half f = (half)pow(1.0 - VoH, 5.0);
+	return f + f0 * (1.0h - f);
 }
 
-void applyFogUW(inout float3 color, float3 coord, float waterFogDist) {
+void applyFogUW(inout float3 color, float3 coord, float waterFogDist, float waterColorDist) {
+	float h    = coord.y - uParam.y;
+	float3 dir = uViewPos.xyz - coord.xyz;
 	float dist;
-	if (uViewPos.y < uParam.y)
-		dist = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord.xyz).y);
-	else
-		dist = length(uViewPos.xyz - coord.xyz);
+	
+	if (uViewPos.y < uParam.y) {
+		dist = abs(h / normalize(dir).y);
+	} else {
+		dist = length(dir);
+	}
+
 	float fog = saturate(1.0 / exp(dist * waterFogDist));
-	dist += coord.y - uParam.y;
-	color.xyz *= lerp(float3(1.0, 1.0, 1.0), UNDERWATER_COLOR, clamp(dist * waterFogDist, 0.0, 2.0));
+	dist += h;
+	color.xyz *= lerp((float3)1.0, UNDERWATER_COLOR, clamp(dist * waterColorDist, 0.0, 2.0));
 	color.xyz = lerp(UNDERWATER_COLOR * 0.2, color.xyz, fog);
 }
 

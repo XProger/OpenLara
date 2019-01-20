@@ -357,7 +357,9 @@ uniform vec4 uFogParams;
 
 		float calcCaustics(vec3 n) {
 			vec2 cc = clamp((vCoord.xz - uRoomSize.xy) / uRoomSize.zw, vec2(0.0), vec2(1.0));
-			return texture2D(sReflect, cc).x * max(0.0, -n.y);
+			vec2 border = vec2(256.0) / uRoomSize.zw;
+			vec2 fade   = smoothstep(vec2(0.0), border, cc) * (1.0 - smoothstep(vec2(1.0) - border, vec2(1.0), cc));
+			return texture2D(sReflect, cc).x * max(0.0, -n.y) * fade.x * fade.y;
 		}
 	#endif
 

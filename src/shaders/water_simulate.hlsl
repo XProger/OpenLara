@@ -2,13 +2,13 @@
 
 struct VS_OUTPUT {
 	float4 pos        : POSITION;
-	float2  texCoord   : TEXCOORD0;
-	half2   maskCoord  : TEXCOORD1;
-	float2  texCoordL  : TEXCOORD2;
-	float2  texCoordR  : TEXCOORD3;
-	float2  texCoordT  : TEXCOORD4;
-	float2  texCoordB  : TEXCOORD5;
-	half2   noiseCoord : TEXCOORD6;
+	float2 texCoord   : TEXCOORD0;
+	half2  maskCoord  : TEXCOORD1;
+	float2 texCoordL  : TEXCOORD2;
+	float2 texCoordR  : TEXCOORD3;
+	float2 texCoordT  : TEXCOORD4;
+	float2 texCoordB  : TEXCOORD5;
+	half2  noiseCoord : TEXCOORD6;
 };
 
 #ifdef VERTEX
