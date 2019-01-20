@@ -94,6 +94,11 @@ vec3 calcNormal(vec2 tc, float base) {
 		#endif
 		vViewVec  = uViewPos.xyz - vCoord.xyz;
 		vLightVec = uLightPos[0].xyz - vCoord.xyz;
+
+		#ifdef WATER_COMPOSE
+			vViewVec.y  = abs(vViewVec.y);
+			vLightVec.y = abs(vLightVec.y);
+		#endif
 	}
 #else
 	uniform sampler2D sDiffuse;
@@ -212,7 +217,6 @@ vec3 calcNormal(vec2 tc, float base) {
 
 		vec2 value = texture2D(sNormal, vTexCoord).xy;
 		vec3 normal = calcNormal(vTexCoord, value.x);
-		normal.y *= sign(viewVec.y);
 
 		vec2 dudv = (uViewProj * vec4(normal.x, 0.0, normal.z, 0.0)).xy;
 

@@ -9,6 +9,7 @@
 #define WATER_FOG_DIST      (1.0 / (6.0 * 1024.0))
 #define WATER_COLOR_DIST    (1.0 / (2.0 * 1024.0))
 #define UNDERWATER_COLOR    float3(0.6, 0.9, 0.9)
+#define UNDERWATER_COLOR_H  half3(0.6, 0.9, 0.9)
 #define SHADOW_NORMAL_BIAS  16.0
 #define SHADOW_CONST_BIAS   0.05
 #define SHADOW_SIZE         1024
@@ -103,10 +104,21 @@ float calcCaustics(float3 coord, float3 n) {
 	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y);
 }
 
-half3 calcNormal(float2 tc, half base) {
+half3 calcNormalV(float2 tc, half base) {
 	half dx = (half)tex2Dlod(sNormal, float4(tc.x + uTexParam.x, tc.y, 0, 0)).x - base;
 	half dz = (half)tex2Dlod(sNormal, float4(tc.x, tc.y + uTexParam.y, 0, 0)).x - base;
 	return normalize( half3(dx, 64.0 / (1024.0 * 8.0), dz) );
+}
+
+float3 calcNormalF(float2 tcR, float2 tcB, float base) {
+	float dx = tex2D(sNormal, tcR).x - base;
+	float dz = tex2D(sNormal, tcB).x - base;
+	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
+}
+
+half calcFresnel(half VoH, half f0) {
+	half f = pow(1.0 - VoH, 5.0);
+	return f + f0 * (1.0f - f);
 }
 
 void applyFogUW(inout float3 color, float3 coord, float waterFogDist) {

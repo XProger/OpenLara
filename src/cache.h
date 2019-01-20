@@ -837,7 +837,11 @@ struct WaterCache {
 
         if (screen) {
             Core::setTarget(refract, NULL, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
-            blitTexture(screen);
+            bool flip = false;
+            #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+                flip = true;
+            #endif
+            blitTexture(screen, flip);
             Core::setTarget(screen, NULL, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
         } else {
             Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
@@ -947,7 +951,7 @@ struct WaterCache {
             game->setShader(Core::passWater, Shader::WATER_COMPOSE);
             Core::updateLights();
 
-            Core::active.shader->setParam(uParam, vec4(float(refract->origWidth) / refract->width, float(refract->origHeight) / refract->height, 0.05f, 0.03f));
+            Core::active.shader->setParam(uParam, vec4(float(refract->origWidth) / refract->width, float(refract->origHeight) / refract->height, 0.05f, 0.0f));
 
             float sx = item.size.x * DETAIL / (item.data[0]->width  / 2);
             float sz = item.size.z * DETAIL / (item.data[0]->height / 2);
@@ -976,7 +980,7 @@ struct WaterCache {
         dropCount = 0;
     }
 
-    void blitTexture(Texture *tex) {
+    void blitTexture(Texture *tex, bool flip = false) {
         ASSERT(tex);
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
@@ -1001,17 +1005,21 @@ struct WaterCache {
         vertices[2].light =
         vertices[3].light = ubyte4(255, 255, 255, 255);
 
-#if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
-        vertices[0].texCoord = short4(    0,     0, 0, 0);
-        vertices[1].texCoord = short4(32767,     0, 0, 0);
-        vertices[2].texCoord = short4(32767, 32767, 0, 0);
-        vertices[3].texCoord = short4(    0, 32767, 0, 0);
-#else
-        vertices[0].texCoord = short4(    0, 32767, 0, 0);
-        vertices[1].texCoord = short4(32767, 32767, 0, 0);
-        vertices[2].texCoord = short4(32767,     0, 0, 0);
-        vertices[3].texCoord = short4(    0,     0, 0, 0);
-#endif
+    #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+        flip = !flip;
+    #endif
+
+        if (flip) {
+            vertices[0].texCoord = short4(    0,     0, 0, 0);
+            vertices[1].texCoord = short4(32767,     0, 0, 0);
+            vertices[2].texCoord = short4(32767, 32767, 0, 0);
+            vertices[3].texCoord = short4(    0, 32767, 0, 0);
+        } else {
+            vertices[0].texCoord = short4(    0, 32767, 0, 0);
+            vertices[1].texCoord = short4(32767, 32767, 0, 0);
+            vertices[2].texCoord = short4(32767,     0, 0, 0);
+            vertices[3].texCoord = short4(    0,     0, 0, 0);
+        }
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);

@@ -31,7 +31,7 @@ VS_OUTPUT main(VS_INPUT In) {
 
 	float2 uv     = getInvUV(rCoord.xy, uTexParam).xy;
 	float2 info   = tex2Dlod(sNormal, float4(uv, 0, 0)).xy;
-	float3 normal = calcNormal(uv, info.x).xzy;
+	float3 normal = calcNormalV(uv, info.x).xzy;
 
 	float3 light  = float3(0.0, 0.0, 1.0);
 	float3 refOld = refract(-light, float3(0.0, 0.0, 1.0), 0.75);
