@@ -280,7 +280,6 @@ struct MuzzleFlash : Controller {
     }
 };
 
-#define LAVA_PARTICLE_BOUNCES 4
 #define LAVA_PARTICLE_DAMAGE  10
 #define LAVA_V_SPEED          -165
 #define LAVA_H_SPEED          32
@@ -293,15 +292,21 @@ struct TrapLavaEmitter : Controller {
         vec3  velocity;
         int16 roomIndex;
         int8  frame;
-        int8  bounces;
 
         void update(TR::Level *level, Controller *lara) {
             Controller::applyGravity(velocity.y);
+            vec3 opos = pos;
             pos += velocity * (30.0f * Core::deltaTime);
 
-            if (!bounces && lara->collide(Sphere(pos, 0.0f))) {
+            if (lara->collide(Sphere(pos, 0.0f))) {
                 lara->hit(LAVA_PARTICLE_DAMAGE);
-                bounces = LAVA_PARTICLE_BOUNCES + 1;
+                frame = -1;
+                return;
+            }
+
+            if (level->rooms[roomIndex].flags.water) {
+                frame = -1;
+                return;
             }
 
             TR::Room::Sector *sector = level->getSector(roomIndex, pos);
@@ -309,12 +314,29 @@ struct TrapLavaEmitter : Controller {
             float ceiling = level->getCeiling(sector, pos);
 
             if (pos.y > floor || pos.y < ceiling) {
-                bounces++;
+                vec3 n;
 
-                if (pos.y > floor)   pos.y = floor;
-                if (pos.y < ceiling) pos.y = ceiling;
+                if (pos.y - floor > 128) {
+                    int ix = int(pos.x);
+                    int iz = int(pos.z);
+                    ix -= ix / 1024 * 1024 + 512;
+                    iz -= iz / 1024 * 1024 + 512;
 
-                velocity = velocity.reflect(vec3(0, 1, 0)) * 0.5f;
+                    if (abs(ix) > abs(iz)) {
+                        n = vec3(ix < 0 ? -1.0f : 1.0f, 0, 0);
+                    } else {
+                        n = vec3(0, 0, iz < 0 ? -1.0f : 1.0f);
+                    }
+
+                } else if (pos.y > floor) {
+                    n = vec3(0, -1, 0);
+                } else if (pos.y < ceiling) {
+                    n = vec3(0,  1, 0);
+                }
+
+                velocity = velocity.reflect(n) * 0.5f;
+                pos      = opos;
+                frame--;
             }
         }
     };
@@ -323,9 +345,9 @@ struct TrapLavaEmitter : Controller {
     int             spriteIndex;
 
     TrapLavaEmitter(IGame *game, int entity) : Controller(game, entity) {
-        spriteIndex = game->getLevel()->getModelIndex(TR::Entity::LAVA_PARTICLE);
+        spriteIndex = level->getModelIndex(TR::Entity::LAVA_PARTICLE);
         if (spriteIndex) {
-            game->getLevel()->spriteSequences[-(spriteIndex + 1)].transp = 2; // fix blending mode to additive
+            level->spriteSequences[-(spriteIndex + 1)].transp = 2; // fix blending mode to additive
         }
         particles.capacity = 128;
     }
@@ -334,34 +356,30 @@ struct TrapLavaEmitter : Controller {
         if (!spriteIndex)
             return;
 
-        Controller *lara = game->getLara();
+        Controller *lara = game->getLara(pos);
 
         vec3 d = (lara->pos - pos).abs();
 
-        if (!isActive() || max(d.x, d.y, d.z) > LAVA_EMITTER_RANGE) return;
+        if (isActive() && max(d.x, d.z) < LAVA_EMITTER_RANGE) {
+            if (timer <= 0.0f) {
+                Particle part;
+                part.pos       = pos;
+                part.velocity  = vec3((randf() * 2.0f - 1.0f) * LAVA_H_SPEED, randf() * LAVA_V_SPEED, (randf() * 2.0f - 1.0f) * LAVA_H_SPEED);
+                part.roomIndex = getRoomIndex();
+                part.frame     = rand() % level->spriteSequences[-(spriteIndex + 1)].sCount;
+                particles.push(part);
 
-        if (timer <= 0.0f) {
-            float speed = randf() * LAVA_H_SPEED;
-            float angle = PI * 2.0f * randf();
+                game->playSound(TR::SND_LAVA, pos, Sound::PAN);
+                timer += 1.0f / 30.0f;
 
-            Particle part;
-            part.pos       = pos;
-            part.velocity  = vec3(cosf(angle) * speed, randf() * LAVA_V_SPEED, sinf(angle) * speed);
-            part.roomIndex = getRoomIndex();
-            part.bounces   = 0;
-            part.frame     = rand() % level->spriteSequences[-(spriteIndex + 1)].sCount;
-            particles.push(part);
-
-            game->playSound(TR::SND_LAVA, pos, Sound::PAN);
-            timer += 1.0f / 30.0f;
-        } else {
-            timer -= Core::deltaTime;
+            } else {
+                timer -= Core::deltaTime;
+            }
         }
 
-        TR::Level  *level = game->getLevel();
         for (int i = 0; i < particles.length; i++) {
             particles[i].update(level, lara);
-            if (particles[i].bounces > LAVA_PARTICLE_BOUNCES) {
+            if (particles[i].frame < 0) {
                 particles.removeFast(i);
                 i--;
             }
@@ -372,7 +390,7 @@ struct TrapLavaEmitter : Controller {
         for (int i = 0; i < particles.length; i++) {
             Particle &part = particles[i];
 
-            uint8 intensity = clamp(int(max(0.0f, 1.0f - part.bounces * 0.25f) * 0.5f * 255.0f), 0, 255);
+            uint8 intensity = clamp(int(part.frame * 0.18f * 255.0f), 0, 255);
             Color32 color(intensity, intensity, intensity, 255);
 
             vec3 p = part.pos - Core::viewPos.xyz();
@@ -1599,7 +1617,7 @@ struct Explosion : Sprite {
 
     Explosion(IGame *game, int entity) : Sprite(game, entity, true, Sprite::FRAME_ANIMATED) {
         game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
-        game->getLevel()->spriteSequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
+        level->spriteSequences[-(getEntity().modelIndex + 1)].transp = 2; // fix blending mode to additive
     }
 
     virtual bool getSaveData(SaveEntity &data) {
@@ -1708,7 +1726,7 @@ struct Bullet : Controller {
         //getRoom().removeDynLight(entity);
         pos = pos + velocity * Core::deltaTime;
 
-        game->getLevel()->getSector(roomIndex, pos);
+        level->getSector(roomIndex, pos);
 
         Controller::update();
         //getRoom().addDynLight(entity, pos, vec4(1, 1, 0, 1.0f / 1024.0f));
