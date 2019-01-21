@@ -362,9 +362,13 @@ struct TrapLavaEmitter : Controller {
 
         if (isActive() && max(d.x, d.z) < LAVA_EMITTER_RANGE) {
             if (timer <= 0.0f) {
+                vec2 d;
+                sincos(PI * 2.0f * randf(), &d.x, &d.y);
+                d *= randf() * LAVA_H_SPEED;
+
                 Particle part;
                 part.pos       = pos;
-                part.velocity  = vec3((randf() * 2.0f - 1.0f) * LAVA_H_SPEED, randf() * LAVA_V_SPEED, (randf() * 2.0f - 1.0f) * LAVA_H_SPEED);
+                part.velocity  = vec3(d.x, randf() * LAVA_V_SPEED, d.y);
                 part.roomIndex = getRoomIndex();
                 part.frame     = rand() % level->spriteSequences[-(spriteIndex + 1)].sCount;
                 particles.push(part);
