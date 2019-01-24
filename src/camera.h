@@ -166,8 +166,10 @@ struct Camera : ICamera {
             fpHead.pos -= joint.rot * vec3(0, 48, -24);
         }
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-            fpHead.rot = quat(vec3(1, 0, 0), PI);
+		if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+			fpHead.rot = quat(vec3(1, 0, 0), PI); // comment this out and the vr head tracking in lara.h to get manual rotation(not reccomended)
+
+		}
 
         mViewInv.identity();
         mViewInv.setRot(fpHead.rot);

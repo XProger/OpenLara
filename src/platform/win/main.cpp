@@ -591,6 +591,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
     return 0;
 }
 
+//VR Support
 #ifdef VR_SUPPORT
 vr::IVRSystem *hmd; // vrContext
 vr::IVRRenderModels* rm;
@@ -640,12 +641,12 @@ mat4 convToMat4(const vr::HmdMatrix34_t &m) {
                 m.m[0][3], m.m[1][3], m.m[2][3], 1.0f);
 }
 
-void vrUpdateInput() {
+void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr Input)
     if (!hmd) return;
     vr::VREvent_t event;
 	char buffer[1024] = "test";
     while (hmd->PollNextEvent(&event, sizeof(event))) {
-        //ProcessVREvent( event );
+        //ProcessVREvent( event ); // eventually going to have the switch
         switch (event.eventType) {
             case vr::VREvent_TrackedDeviceActivated:
                 //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
@@ -658,7 +659,7 @@ void vrUpdateInput() {
             case vr::VREvent_TrackedDeviceDeactivated:
                 LOG("Device %u detached.\n", event.trackedDeviceIndex);
                 break;
-            case vr::VREvent_TrackedDeviceUpdated:
+            case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
                 LOG("Device %u updated.\n", event.trackedDeviceIndex);
                 break;
         }
@@ -694,6 +695,8 @@ void vrUpdateView() {
     vR.setPos(vR.getPos() * ONE_METER);
 
     Input::hmd.setView(pL, pR, vL, vR);
+	// pass this to Lara's rotation value
+	Input::hmd.head = head;
 }
 
 void vrCompose() {

@@ -3,5 +3,6 @@ c:\users\austin\desktop\openlaragittest2\openlara\src\level.h(2701): warning C42
 c:\users\austin\desktop\openlaragittest2\openlara\src\level.h(2708): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
 c:\users\austin\desktop\openlaragittest2\openlara\src\platform\win\main.cpp(286): warning C4005: 'MAX_TOUCH_COUNT': macro redefinition
   c:\program files (x86)\windows kits\8.1\include\um\winuser.h(6140): note: see previous definition of 'MAX_TOUCH_COUNT'
-c:\users\austin\desktop\openlaragittest2\openlara\src\platform\win\main.cpp(654): warning C4700: uninitialized local variable 'controllerRender' used
+c:\users\austin\desktop\openlaragittest2\openlara\src\platform\win\main.cpp(655): warning C4700: uninitialized local variable 'controllerRender' used
+     Creating library ..\..\..\bin\OpenLara.lib and object ..\..\..\bin\OpenLara.exp
   OpenLara.vcxproj -> C:\Users\Austin\Desktop\OpenLaraGitTest2\OpenLara\src\platform\win\..\..\..\bin\OpenLara.exe
