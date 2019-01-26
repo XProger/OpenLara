@@ -831,7 +831,9 @@ struct Controller {
         const TR::Model *m = getModel();
         ASSERT(m->mCount <= MAX_SPHERES);
 
+        int jFrame = jointsFrame;
         updateJoints();
+        jointsFrame = jFrame;
 
         int count = 0;
         for (int i = 0; i < m->mCount; i++) {

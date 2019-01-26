@@ -2962,11 +2962,6 @@ struct Lara : Character {
         //if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
         //if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
 
-    // scion debug (TODO: remove)
-        if (Input::down[ikU]) {
-            // 203 Water roll
-            animation.setAnim(ANIM_WADE_STAND);
-        }
 
         if (Input::down[ikP]) {
             switch (level->id) {

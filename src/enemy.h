@@ -79,6 +79,7 @@ struct Enemy : Character {
     Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(TR::NO_BOX), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
         targetDist   = +INF;
         targetInView = targetFromView = targetCanAttack = false;
+        waypoint     = pos;
     }
 
     virtual ~Enemy() {
@@ -227,22 +228,6 @@ struct Enemy : Character {
             animation.overrideMask &= ~(1 << chest);
     }
 
-    void getTargetInfo(int height, vec3 *pos, float *angleX, float *angleY, float *dist) {
-        vec3 p = waypoint;
-        p.y -= height;
-        if (pos) *pos = p;
-        vec3 a = p - this->pos;
-        if (dist) *dist = a.length();
-
-        if (angleX || angleY) {
-            a = a.normal();
-            vec3 b = getDir();
-            vec3 n = vec3(0, 1, 0);
-            if (angleX) *angleX = 0.0f;
-            if (angleY) *angleY = atan2f(b.cross(a).dot(n), a.dot(b));
-        }
-    }
-
     bool targetIsVisible(float maxDist) {
         if (targetInView && targetDist < maxDist && target->health > 0.0f) {
             TR::Location from, to;
@@ -264,28 +249,28 @@ struct Enemy : Character {
         Character::lookAt(targetInView ? target : NULL);
     }
 
-    int turn(float delta, float speed) {
-        float w = speed * Core::deltaTime;
-
-        updateTilt(delta, w, speed * 0.1f);
-
-        if (delta != 0.0f) {
-            decrease(delta, angle.y, w);
-            if (speed != 0.0f) {
-                velocity = velocity.rotateY(-w);
-                return speed < 0 ? LEFT : RIGHT;
-            }
-        }
-        return 0;
-    }
-
     void turn(bool tilt, float w) {
-        float angleY = 0.0f;
+        float speed = animation.getSpeed();
 
-        if (tilt)
-            getTargetInfo(0, NULL, NULL, &angleY, NULL);
+        if (!target || speed == 0.0f || w == 0.0f) {
+            angle.z = lerp(angle.z, 0.0f, 4.0f * Core::deltaTime);
+            return;
+        }
 
-        turn(angleY, w);
+        vec3  d = waypoint - pos;
+        float a = clampAngle(normalizeAngle(PIH - d.angleY() - angle.y));
+
+        w /= 30.0f;
+
+        float minDist = speed * PIH / w;
+
+        if ( (a > PIH || a < -PIH) && (SQR(d.x) + SQR(d.z) < SQR(minDist)) )
+            w *= 0.5f;
+
+        a = clamp(a, -w, w);
+
+        angle.y += a * 30.0f * Core::deltaTime;
+        angle.z = lerp(angle.z, tilt ? a * 2.0f : 0.0f, 4.0f * Core::deltaTime);
     }
 
     int lift(float delta, float speed) {
