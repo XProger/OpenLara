@@ -597,10 +597,37 @@ vr::IVRSystem *hmd; // vrContext
 vr::IVRRenderModels* rm;
 vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
 
+//action handles
+vr::VRActionHandle_t VRcLeft = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcRight = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcUp = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcDown = vr::k_ulInvalidActionHandle;
+
+vr::VRActionHandle_t VRcJump = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcWalk = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcAction = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcWeapon = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcRoll = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcLook = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcInventory = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcStart = vr::k_ulInvalidActionHandle;
+
+vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
+
+vr::VRInputValueHandle_t m_leftHand = vr::k_ulInvalidInputValueHandle;
+vr::VRInputValueHandle_t m_rightHand = vr::k_ulInvalidInputValueHandle;
+
+//only in select TR games
+vr::VRActionHandle_t VRcDuck = vr::k_ulInvalidActionHandle;
+vr::VRActionHandle_t VRcDash = vr::k_ulInvalidActionHandle;
+//
+
+vr::VRActionSetHandle_t m_actionsetTR = vr::k_ulInvalidActionSetHandle;
+
 void vrInit() {
     vr::EVRInitError eError = vr::VRInitError_None;
     hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
-	rm = vr::VRRenderModels(); // initialize render models interface
+	//rm = vr::VRRenderModels(); // initialize render models interface
 
     if (eError != vr::VRInitError_None) {
         hmd = NULL;
@@ -613,6 +640,29 @@ void vrInit() {
         LOG("! compositor initialization failed\n");
         return;
     }
+
+	//set manifest
+	vr::VRInput()->SetActionManifestPath("C:/Users/Austin/Desktop/OpenLaraGitTest2/OpenLara/bin/TombRaidervr_actions.json"); // needs absolutepath
+    // get action handles
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Left", &VRcLeft);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Right", &VRcRight);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Up", &VRcUp);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Down", &VRcDown);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Jump", &VRcJump);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Walk", &VRcWalk);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Action", &VRcAction);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Weapon", &VRcWeapon);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Roll", &VRcRoll);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Inventory", &VRcInventory);
+	vr::VRInput()->GetActionHandle("/actions/demo/in/Start", &VRcStart);
+	//get actionsethasndle
+	vr::VRInput()->GetActionSetHandle("/actions/demo", &m_actionsetDemo);
+	//get input source handles
+	vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_leftHand);
+	vr::VRInput()->GetInputSourceHandle("/user/hand/right", &m_rightHand);
+	// aren't using right now
+	//vr::VRInput()->GetActionHandle("/actions/demo/in/TriggerHaptic", &m_actionTriggerHaptic);
+	//vr::VRInput()->GetActionHandle("/actions/demo/in/AnalogInput", &m_actionAnalongInput);
 }
 
 void vrInitTargets() {
@@ -640,37 +690,157 @@ mat4 convToMat4(const vr::HmdMatrix34_t &m) {
                 m.m[0][2], m.m[1][2], m.m[2][2], 0.0f,
                 m.m[0][3], m.m[1][3], m.m[2][3], 1.0f);
 }
+//utility function for reading digital state
+bool GetDigitalActionState(vr::VRActionHandle_t action, vr::VRInputValueHandle_t *pDevicePath = nullptr)
+{
+	vr::InputDigitalActionData_t actionData;
+	vr::VRInput()->GetDigitalActionData(action, &actionData, sizeof(actionData), vr::k_ulInvalidInputValueHandle);
+	if (pDevicePath)
+	{
+		*pDevicePath = vr::k_ulInvalidInputValueHandle;
+		if (actionData.bActive)
+		{
+			vr::InputOriginInfo_t originInfo;
+			if (vr::VRInputError_None == vr::VRInput()->GetOriginTrackedDeviceInfo(actionData.activeOrigin, &originInfo, sizeof(originInfo)))
+			{
+				*pDevicePath = originInfo.devicePath;
+			}
+		}
+	}
+	return actionData.bActive && actionData.bState;
+}
 
-void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr Input)
+std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
+
+	std::string str_td_class = "Unknown class";
+
+	switch (td_class)
+	{
+	case vr::TrackedDeviceClass_Invalid:			// = 0, the ID was not valid.
+		str_td_class = "invalid";
+		break;
+	case vr::TrackedDeviceClass_HMD:				// = 1, Head-Mounted Displays
+		str_td_class = "hmd";
+		break;
+	case vr::TrackedDeviceClass_Controller:			// = 2, Tracked controllers
+		str_td_class = "controller";
+		break;
+	case vr::TrackedDeviceClass_GenericTracker:		// = 3, Generic trackers, similar to controllers
+		str_td_class = "generic tracker";
+		break;
+	case vr::TrackedDeviceClass_TrackingReference:	// = 4, Camera and base stations that serve as tracking reference points
+		str_td_class = "base station";
+		break;
+	case vr::TrackedDeviceClass_DisplayRedirect:	// = 5, Accessories that aren't necessarily tracked themselves, but may redirect video output from other tracked devices
+		str_td_class = "display redirect";
+		break;
+	}
+
+	return str_td_class;
+}
+
+void ProcessVREvent(const vr::VREvent_t & event)
+{
+	std::string str_td_class = GetTrackedDeviceClassString(hmd->GetTrackedDeviceClass(event.trackedDeviceIndex));
+	std::cout << "Event" << event.eventType << std::endl;
+	switch (event.eventType)
+	{
+	case vr::VREvent_TrackedDeviceActivated:
+	{
+		std::cout << "Device " << event.trackedDeviceIndex << " attached (" << str_td_class << ")" << std::endl;
+		//tracked_device_type[event.trackedDeviceIndex] = str_td_class;
+	}
+	break;
+	case vr::VREvent_TrackedDeviceDeactivated:
+	{
+		std::cout << "Device " << event.trackedDeviceIndex << " detached (" << str_td_class << ")" << std::endl;
+		//tracked_device_type[event.trackedDeviceIndex] = "";
+	}
+	break;
+	case vr::VREvent_TrackedDeviceUpdated:
+	{
+		std::cout << "Device " << event.trackedDeviceIndex << " updated (" << str_td_class << ")" << std::endl;
+	}
+	break;
+	case vr::VREvent_ButtonPress:
+	{
+		vr::VREvent_Controller_t controller_data = event.data.controller;
+		std::cout << "Pressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
+	}
+	break;
+	case vr::VREvent_ButtonUnpress:
+	{
+		vr::VREvent_Controller_t controller_data = event.data.controller;
+		std::cout << "Unpressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
+	}
+	break;
+	case vr::VREvent_ButtonTouch:
+	{
+		vr::VREvent_Controller_t controller_data = event.data.controller;
+		std::cout << "Touched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
+	}
+	break;
+	case vr::VREvent_ButtonUntouch:
+	{
+		vr::VREvent_Controller_t controller_data = event.data.controller;
+		std::cout << "Untouched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
+	}
+	break;
+	}
+}
+
+void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr Input) // broken
     if (!hmd) return;
     vr::VREvent_t event;
-	char buffer[1024] = "test";
+	//char buffer[1024] = "test";
     while (hmd->PollNextEvent(&event, sizeof(event))) {
-        //ProcessVREvent( event ); // eventually going to have the switch
-        switch (event.eventType) {
-            case vr::VREvent_TrackedDeviceActivated:
-                //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
-				vr::RenderModel_t ** controllerRender;
-				hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
-				rm->LoadRenderModel_Async(buffer, controllerRender);
-				// need to process render model?
-                LOG( "Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
-                break;
-            case vr::VREvent_TrackedDeviceDeactivated:
-                LOG("Device %u detached.\n", event.trackedDeviceIndex);
-                break;
-            case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
-                LOG("Device %u updated.\n", event.trackedDeviceIndex);
-                break;
-        }
+        ProcessVREvent( event ); // eventually going to be the function for this while loop
+    //    switch (event.eventType) {
+    //        case vr::VREvent_TrackedDeviceActivated:
+    //            //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+				//vr::RenderModel_t ** controllerRender;
+				//hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
+				////rm->LoadRenderModel_Async(buffer, controllerRender);
+				//// need to process render model?
+    //            LOG( "Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
+    //            break;
+    //        case vr::VREvent_TrackedDeviceDeactivated:
+    //            LOG("Device %u detached.\n", event.trackedDeviceIndex);
+    //            break;
+    //        case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
+    //            LOG("Device %u updated.\n", event.trackedDeviceIndex);
+    //            break;
+    //    }
     }
+	// not currently working, can't get steam vr input binding to generate file, might need to do by hand
+	//process actions( set hmd down)
+	vr::VRActiveActionSet_t actionSet = { 0 };
+	actionSet.ulActionSet = m_actionsetDemo;
+	vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
 
-    for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
-        vr::VRControllerState_t state;
-        if (hmd->GetControllerState(unDevice, &state, sizeof(state))) {
-            //m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
-        }
-    }
+	Input::hmd.down[cUp] = GetDigitalActionState(VRcUp); 
+	Input::hmd.down[cDown] = GetDigitalActionState(VRcDown);
+	Input::hmd.down[cRight] = GetDigitalActionState(VRcRight);
+	Input::hmd.down[cLeft] = GetDigitalActionState(VRcLeft);
+	Input::hmd.down[cJump] = GetDigitalActionState(VRcJump);
+	Input::hmd.down[cWalk] = GetDigitalActionState(VRcWalk);
+	Input::hmd.down[cAction] = GetDigitalActionState(VRcAction);
+	Input::hmd.down[cWeapon] = GetDigitalActionState(VRcWeapon);
+	Input::hmd.down[cRoll] = GetDigitalActionState(VRcRoll);
+	Input::hmd.down[cStart] = GetDigitalActionState(VRcStart);
+	Input::hmd.down[cInventory] = GetDigitalActionState(VRcInventory);
+
+	//Manual setings
+
+
+
+   // for (vr::TrackedDeviceIndex_t unDevice = 1; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
+   //     vr::VRControllerState_t state;
+   //     if (hmd->GetControllerState(unDevice, &state, sizeof(state))) {
+   //         //m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
+			//Input::hmd.down[cJump] = state.ulButtonPressed & vr::ButtonMaskFromId(vr::EVRButtonId::k_EButton_Grip);
+   //     }
+   // }
 }
 
 void vrUpdateView() {
