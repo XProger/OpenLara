@@ -20,7 +20,7 @@
 // TODO: fix clipping
 // TODO: add MSAA support for render targets
 // TODO: add IK for arms
-// TODO: controls
+// TODO: controls (WIP)
 
 // hint to the driver to use discrete GPU
 extern "C" {
@@ -594,7 +594,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 //VR Support
 #ifdef VR_SUPPORT
 vr::IVRSystem *hmd; // vrContext
-vr::IVRRenderModels* rm;
+vr::IVRRenderModels* rm; // not currently in use
 vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
 
 //action handles
@@ -655,7 +655,7 @@ void vrInit() {
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Roll", &VRcRoll);
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Inventory", &VRcInventory);
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Start", &VRcStart);
-	//get actionsethasndle
+	//get actionsethandle
 	vr::VRInput()->GetActionSetHandle("/actions/demo", &m_actionsetDemo);
 	//get input source handles
 	vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_leftHand);
@@ -739,10 +739,31 @@ std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
 	return str_td_class;
 }
 
+//void ProcessVREvent(const vr::VREvent_t &event) {
+//	switch (event.eventType) {
+//	case vr::VREvent_TrackedDeviceActivated:
+//		//SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+//		vr::RenderModel_t ** controllerRender;
+//		hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
+//		//rm->LoadRenderModel_Async(buffer, controllerRender);
+//		// need to process render model?
+//		LOG("Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
+//		break;
+//	case vr::VREvent_TrackedDeviceDeactivated:
+//		LOG("Device %u detached.\n", event.trackedDeviceIndex);
+//		break;
+//	case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
+//		LOG("Device %u updated.\n", event.trackedDeviceIndex);
+//		break;
+//	}
+//}
+
+//taken from openvrsimpleexamples
+
 void ProcessVREvent(const vr::VREvent_t & event)
 {
 	std::string str_td_class = GetTrackedDeviceClassString(hmd->GetTrackedDeviceClass(event.trackedDeviceIndex));
-	std::cout << "Event" << event.eventType << std::endl;
+	//std::cout << "Event" << event.eventType << std::endl; //event debugging, 20x events never fire in latest openVR
 	switch (event.eventType)
 	{
 	case vr::VREvent_TrackedDeviceActivated:
@@ -762,25 +783,25 @@ void ProcessVREvent(const vr::VREvent_t & event)
 		std::cout << "Device " << event.trackedDeviceIndex << " updated (" << str_td_class << ")" << std::endl;
 	}
 	break;
-	case vr::VREvent_ButtonPress:
+	case vr::VREvent_ButtonPress: // these events dont work anymore
 	{
 		vr::VREvent_Controller_t controller_data = event.data.controller;
 		std::cout << "Pressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
 	}
 	break;
-	case vr::VREvent_ButtonUnpress:
+	case vr::VREvent_ButtonUnpress: // these events dont work anymore
 	{
 		vr::VREvent_Controller_t controller_data = event.data.controller;
 		std::cout << "Unpressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
 	}
 	break;
-	case vr::VREvent_ButtonTouch:
+	case vr::VREvent_ButtonTouch: // these events dont work anymore
 	{
 		vr::VREvent_Controller_t controller_data = event.data.controller;
 		std::cout << "Touched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
 	}
 	break;
-	case vr::VREvent_ButtonUntouch:
+	case vr::VREvent_ButtonUntouch: // these events dont work anymore
 	{
 		vr::VREvent_Controller_t controller_data = event.data.controller;
 		std::cout << "Untouched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
@@ -795,24 +816,8 @@ void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr In
 	//char buffer[1024] = "test";
     while (hmd->PollNextEvent(&event, sizeof(event))) {
         ProcessVREvent( event ); // eventually going to be the function for this while loop
-    //    switch (event.eventType) {
-    //        case vr::VREvent_TrackedDeviceActivated:
-    //            //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
-				//vr::RenderModel_t ** controllerRender;
-				//hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
-				////rm->LoadRenderModel_Async(buffer, controllerRender);
-				//// need to process render model?
-    //            LOG( "Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
-    //            break;
-    //        case vr::VREvent_TrackedDeviceDeactivated:
-    //            LOG("Device %u detached.\n", event.trackedDeviceIndex);
-    //            break;
-    //        case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
-    //            LOG("Device %u updated.\n", event.trackedDeviceIndex);
-    //            break;
-    //    }
     }
-	// not currently working, can't get steam vr input binding to generate file, might need to do by hand
+
 	//process actions( set hmd down)
 	vr::VRActiveActionSet_t actionSet = { 0 };
 	actionSet.ulActionSet = m_actionsetDemo;
@@ -829,18 +834,6 @@ void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr In
 	Input::hmd.down[cRoll] = GetDigitalActionState(VRcRoll);
 	Input::hmd.down[cStart] = GetDigitalActionState(VRcStart);
 	Input::hmd.down[cInventory] = GetDigitalActionState(VRcInventory);
-
-	//Manual setings
-
-
-
-   // for (vr::TrackedDeviceIndex_t unDevice = 1; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
-   //     vr::VRControllerState_t state;
-   //     if (hmd->GetControllerState(unDevice, &state, sizeof(state))) {
-   //         //m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
-			//Input::hmd.down[cJump] = state.ulButtonPressed & vr::ButtonMaskFromId(vr::EVRButtonId::k_EButton_Grip);
-   //     }
-   // }
 }
 
 void vrUpdateView() {

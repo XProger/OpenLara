@@ -40,7 +40,7 @@ namespace Input {
         mat4 controllers[2];
         vec3 zero;
         bool ready;
-		bool down[cMAX]; // internal state for VR conmtrollers( based on actions not buttons)
+		bool down[cMAX]; // internal state for VR controllers( based on actions not buttons)
 
         void setView(const mat4 &pL, const mat4 &pR, const mat4 &vL, const mat4 &vR) {
             proj[0] = pL;

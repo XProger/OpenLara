@@ -3059,7 +3059,6 @@ struct Lara : Character {
                 //input &= ~(LEFT | RIGHT); // locks side jumping and movement
             }
             vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz()); // set in main
-			//ang = temp; // let's see how broken this gets
             angle.y = ang.y;
             rotFactor = vec2(1.0f);
             ang.y = shortAngle(angle.y, ang.y);
@@ -3436,7 +3435,7 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y); //was !VR
+        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 

@@ -2699,7 +2699,7 @@ struct Level : IGame {
 
                 Core::defaultTarget = Core::eyeTex[0];
                 Core::viewportDef = Viewport(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL,Core::defaultTarget, 0); // changing to 0 and adding oldTarget parameter/ trying defaultTarget
+                Core::setTarget(NULL,Core::defaultTarget, 0); // changing to 0 and adding defaultTarget parameter
                 Core::eye = -1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true);
