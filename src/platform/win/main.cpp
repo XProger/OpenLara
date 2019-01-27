@@ -527,7 +527,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_KEYUP      :
         case WM_SYSKEYDOWN :
         case WM_SYSKEYUP   :
-            if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN) { // switch to fullscreen or window
+            if (msg == WM_SYSKEYDOWN && wParam == VK_RETURN) { // Alt + Enter - switch to fullscreen or window
                 static WINDOWPLACEMENT pLast;
                 DWORD style = GetWindowLong(hWnd, GWL_STYLE);
                 if (style & WS_OVERLAPPEDWINDOW) {
@@ -541,6 +541,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
                     SetWindowLong(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
                     SetWindowPlacement(hWnd, &pLast);
                 }
+                break;
+            }
+            if (msg == WM_SYSKEYDOWN && wParam == VK_F4) { // Alt + F4 - close application
+                Core::quit();
                 break;
             }
             Input::setDown(keyToInputKey(wParam), msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
