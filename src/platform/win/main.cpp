@@ -735,8 +735,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         r.bottom += oy;
     }
 #else
-    r.right += r.left;
-    r.bottom += r.top;
+    r.right  -= r.left;
+    r.bottom -= r.top;
     r.left = r.top = 0;
 #endif
 
