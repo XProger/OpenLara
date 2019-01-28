@@ -2962,7 +2962,7 @@ struct Lara : Character {
         if (Input::state[pid][cRight])     input |= RIGHT;
         if (Input::state[pid][cDown])      input |= BACK;
         if (Input::state[pid][cLeft])      input |= LEFT;
-        if (Input::state[pid][cRoll])      input  = FORTH | BACK; // roll define
+        if (Input::state[pid][cRoll])      input  = FORTH | BACK;
         if (Input::state[pid][cJump])      input |= JUMP;
         if (Input::state[pid][cWalk])      input |= WALK;
         if (Input::state[pid][cAction])    input |= ACTION;
@@ -3054,24 +3054,19 @@ struct Lara : Character {
 
     // VR control
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
-			
+
             if (!(input & WALK)) {
-                //input &= ~(LEFT | RIGHT); // locks side jumping and movement
+
             }
             vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz()); // set in main
             angle.y = ang.y;
-            rotFactor = vec2(1.0f);
-            ang.y = shortAngle(angle.y, ang.y);
-            if (fabsf(ang.y) > 5 * DEG2RAD)
-                input |= ang.y < 0.0f ? LEFT : RIGHT;
+
 
             if (stand == STAND_UNDERWATER) {
                 input &= ~(FORTH | BACK);
 
                 angle.x = ang.x;
-                ang.x = shortAngle(angle.x, ang.x);
-                if (fabsf(ang.x) > 5 * DEG2RAD)
-                    input |= ang.x < 0.0f ? FORTH : BACK;
+
             }
         }
 
@@ -3104,15 +3099,15 @@ struct Lara : Character {
             || state == STATE_MIDAS_USE
             || state == STATE_MIDAS_DEATH
             // make me sick!
-            || state == STATE_BACK_JUMP
-            || state == STATE_LEFT_JUMP
-            || state == STATE_RIGHT_JUMP
-			//
-			//added
-			|| state == STATE_TURN_RIGHT
-			|| state == STATE_TURN_LEFT
-			|| state == STATE_FAST_TURN
-			//
+            //|| state == STATE_BACK_JUMP
+            //|| state == STATE_LEFT_JUMP
+            //|| state == STATE_RIGHT_JUMP
+            //
+            //added
+          //|| state == STATE_TURN_RIGHT
+          //|| state == STATE_TURN_LEFT
+          //|| state == STATE_FAST_TURN
+            //
             || animation.index == ANIM_CLIMB_2
             || animation.index == ANIM_CLIMB_3
             || animation.index == ANIM_CLIMB_JUMP;
