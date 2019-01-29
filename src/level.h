@@ -1584,9 +1584,14 @@ struct Level : IGame {
                 continue;
             }
 
-            setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(level.rooms[roomIndex].ambient), 0.0f, 1.0f, transp == 1);
+            const TR::Room &room = level.rooms[roomIndex];
 
-            basis.pos = level.rooms[roomIndex].getOffset();
+            vec3 center = room.getCenter();
+            int ambient = room.getAmbient(int(center.x), int(center.y), int(center.z));
+
+            setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(ambient), 0.0f, 1.0f, transp == 1);
+
+            basis.pos = room.getOffset();
             Core::setBasis(&basis, 1);
 
             Core::mModel.setPos(basis.pos);

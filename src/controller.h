@@ -1271,40 +1271,18 @@ struct Controller {
         const TR::Room &room = getLightRoom();
 
         targetLight = NULL;
-        int ambient = room.ambient;
 
         if (getEntity().intensity == -1) {
+            int ambient = room.ambient;
 
             if (room.lightsCount && getModel()) {
-                ambient = 0x1FFF - ambient;
-                int maxValue = 0;
-
                 vec3 center = getBoundingBox().center();
 
                 int x = int(center.x);
                 int y = int(center.y);
                 int z = int(center.z);
 
-                for (int i = 0; i < room.lightsCount; i++) {
-                    TR::Room::Light &light = room.lights[i];
-
-                    int dx = x - light.x;
-                    int dy = y - light.y;
-                    int dz = z - light.z;
-
-                    int D = (SQR(dx) + SQR(dy) + SQR(dz)) >> 12;
-                    int R = SQR(light.radius >> 1) >> 12;
-
-                    int value = (light.intensity * R) / (D + R) + ambient;
-
-                    if (maxValue < value) {
-                        targetLight = &room.lights[i];
-                        maxValue    = value;
-                    }
-                }
-
-                ambient = (maxValue + ambient) / 2;
-                ambient = 0x1FFF - ambient;
+                ambient = room.getAmbient(x, y, z, &targetLight);
             }
 
             intensity = intensityf(ambient);

@@ -1363,6 +1363,10 @@ namespace TR {
             return vec3(float(info.x), 0.0f, float(info.z));
         }
 
+        vec3 getCenter() const {
+            return vec3(info.x + xSectors * 512.0f, (info.yBottom + info.yTop) * 0.5f, info.z + zSectors * 512.0f);
+        }
+
         Sector* getSector(int sx, int sz) {
             if (sz <= 0 || sz >= zSectors - 1) {
                 sz = clamp(sz, 0, zSectors - 1);
@@ -1407,6 +1411,37 @@ namespace TR {
                     dynLightsCount--;
                     break;
                 }
+        }
+
+        int getAmbient(int x, int y, int z, Light **nearLight = NULL) const {
+            if (!lightsCount) {
+                return ambient;
+            }
+
+            int ambientInv = 0x1FFF - ambient;
+            int maxValue   = 0;
+
+            for (int i = 0; i < lightsCount; i++) {
+                Light &light = lights[i];
+
+                int dx = x - light.x;
+                int dy = y - light.y;
+                int dz = z - light.z;
+
+                int D = (SQR(dx) + SQR(dy) + SQR(dz)) >> 12;
+                int R = SQR(light.radius >> 1) >> 12;
+
+                int value = (light.intensity * R) / (D + R) + ambientInv;
+
+                if (maxValue < value) {
+                    if (nearLight) {
+                        *nearLight = &light;
+                    }
+                    maxValue = value;
+                }
+            }
+
+            return 0x1FFF - (maxValue + ambientInv) / 2;
         }
     };
 
