@@ -1630,17 +1630,23 @@ struct Inventory {
         }
     }
 
-    void renderTitleBG(float sx = 1.0f, float sy = 1.0f, uint8 alpha = 255) {
-        float aspectSrc, aspectDst, aspectImg, ax, ay;
+    void renderTitleBG(float sx = 1.0f, float sy = 1.0f, uint8 alpha = 255, float cropW = 1.0f, float cropH = 1.0f) {
+        float aspectSrc, aspectDst, aspectImg, ax, ay, tx, ty;
 
         if (background[0]) {
-            float ox = sx * background[0]->origWidth;
-            float oy = sy * background[0]->origHeight;
+            Texture *tex = background[0];
+            float origW = float(tex->origWidth)  * cropW;
+            float origH = float(tex->origHeight) * cropH;
+            tx = 0.5f * (tex->origWidth  - origW) / tex->width;
+            ty = 0.5f * (tex->origHeight - origH) / tex->height;
+            float ox = sx * origW;
+            float oy = sy * origH;
             aspectSrc = ox / oy;
             aspectDst = float(Core::width) / float(Core::height);
-            ax = background[0]->origWidth  / float(background[0]->width);
-            ay = background[0]->origHeight / float(background[0]->height);
+            ax = origW / tex->width;
+            ay = origH / tex->height;
         } else {
+            tx = ty = 0.0f;
             aspectSrc = ax = ay = 1.0f;
             aspectDst = float(Core::width) / float(Core::height);
         }
@@ -1677,10 +1683,10 @@ struct Inventory {
             size.x = 32767;
             size.y = short(32767 / aspectImg);
 
-            vertices[ 4].coord = short4(-size.x,  32767, 0, 0);
-            vertices[ 5].coord = short4( size.x,  32767, 0, 0);
-            vertices[ 6].coord = short4( size.x, size.y, 0, 0);
-            vertices[ 7].coord = short4(-size.x, size.y, 0, 0);
+            vertices[ 4].coord = short4(-size.x,   32767, 0, 0);
+            vertices[ 5].coord = short4( size.x,   32767, 0, 0);
+            vertices[ 6].coord = short4( size.x,  size.y, 0, 0);
+            vertices[ 7].coord = short4(-size.x,  size.y, 0, 0);
 
             vertices[ 8].coord = short4(-size.x, -size.y, 0, 0);
             vertices[ 9].coord = short4( size.x, -size.y, 0, 0);
@@ -1688,8 +1694,8 @@ struct Inventory {
             vertices[11].coord = short4(-size.x,  -32767, 0, 0);
         }
 
-        short tw = short(ax * 32767);
-        short th = short(ay * 32767);
+        short2 t0(short(tx * 32767), short(ty * 32767));
+        short2 t1(t0.x + short(ax * 32767), t0.y + short(ay * 32767));
 
         vertices[ 0].coord = short4(-size.x,  size.y, 0, 0);
         vertices[ 1].coord = short4( size.x,  size.y, 0, 0);
@@ -1709,10 +1715,10 @@ struct Inventory {
         vertices[10].light = 
         vertices[11].light = ubyte4(0, 0, 0, alpha);
 
-        vertices[ 0].texCoord = short4( 0,  0, 0, 0);
-        vertices[ 1].texCoord = short4(tw,  0, 0, 0);
-        vertices[ 2].texCoord = short4(tw, th, 0, 0);
-        vertices[ 3].texCoord = short4( 0, th, 0, 0);
+        vertices[ 0].texCoord = short4(t0.x, t0.y, 0, 0);
+        vertices[ 1].texCoord = short4(t1.x, t0.y, 0, 0);
+        vertices[ 2].texCoord = short4(t1.x, t1.y, 0, 0);
+        vertices[ 3].texCoord = short4(t0.x, t1.y, 0, 0);
         vertices[ 4].texCoord =
         vertices[ 5].texCoord =
         vertices[ 6].texCoord =
@@ -1722,10 +1728,11 @@ struct Inventory {
         vertices[10].texCoord =
         vertices[11].texCoord = short4(0, 0, 0, 0);
 
-        if ((Core::settings.detail.stereo == Core::Settings::STEREO_VR && !video) || !background[0])
+        if ((Core::settings.detail.stereo == Core::Settings::STEREO_VR && !video) || !background[0]) {
             Core::blackTex->bind(sDiffuse); // black background
-        else
+        } else {
             background[0]->bind(sDiffuse);
+        }
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), Core::getTime() * 0.001f, 0.0f));
@@ -1848,16 +1855,21 @@ struct Inventory {
             Texture *tmp = background[0];
 
             float sy = 1.0f;
-            if ((game->getLevel()->version & TR::VER_TR1) && !playLogo)
+            float ch = 1.0f;
+            if ((game->getLevel()->version & TR::VER_TR1) && !playLogo) {
                 sy = 1.2f;
+                if (video->format == Video::PSX) {
+                    ch = 120.0f / 208.0f;
+                }
+            }
 
             Core::resetLights();
 
             background[0] = video->frameTex[0];
-            renderTitleBG(1.0f, sy, 255);
+            renderTitleBG(1.0f, sy, 255, 1.0f, ch);
 
             background[0] = video->frameTex[1];
-            renderTitleBG(1.0f, sy, clamp(int((video->stepTimer / video->step) * 255), 0, 255));
+            renderTitleBG(1.0f, sy, clamp(int((video->stepTimer / video->step) * 255), 0, 255), 1.0f, ch);
 
             background[0] = tmp;
 
