@@ -836,6 +836,7 @@ namespace TR {
                     case VER_TR1_PSX :
                     case VER_TR2_PSX : 
                     case VER_TR3_PSX : strcat(dst, ".PSX"); break;
+                    case VER_TR1_SAT : strcat(dst, ".SAT"); break;
                     case VER_UNKNOWN : 
                         if (Stream::existsContent("level/1/TITLE.PSX")) {
                             strcpy(dst, "level/1/TITLE.PSX");
@@ -843,6 +844,10 @@ namespace TR {
                         }
                         if (Stream::existsContent("level/1/TITLE.PHD")) {
                             strcpy(dst, "level/1/TITLE.PHD");
+                            return;
+                        }
+                        if (Stream::existsContent("level/1/TITLE.SAT")) {
+                            strcpy(dst, "level/1/TITLE.SAT");
                             return;
                         }
                         if (Stream::existsContent("level/2/TITLE.TR2")) {
