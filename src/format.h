@@ -1347,6 +1347,7 @@ namespace TR {
         struct Light {
             int32   x, y, z;
             uint32  radius;
+            int32   intensity;
             Color32 color;
         } *lights;
 
@@ -3255,6 +3256,7 @@ namespace TR {
                             int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                             light.color.r = light.color.g = light.color.b = value;
                             light.color.a = 0;
+                            light.intensity = intensity;
 
                             light.radius = stream.readBE32() * 2;
                         }
@@ -4381,6 +4383,8 @@ namespace TR {
                     light.color.r = light.color.g = light.color.b = value;
                     light.color.a = 0;
                 }
+
+                light.intensity = intensity;
 
                 if (version == VER_TR3_PSX)
                     light.radius >>= 2;

@@ -1664,14 +1664,14 @@ struct Level : IGame {
             type = Shader::MIRROR;
 
         if (isModel) { // model
-            float intensity = controller->intensity < 0.0f ? intensityf(room.ambient) : controller->intensity;
+            ASSERT(controller->intensity >= 0.0f);
 
             setMainLight(controller);
-            setRoomParams(roomIndex, type, 1.0f, intensity, controller->specular, 1.0f, mesh->transparent == 1);
+            setRoomParams(roomIndex, type, 1.0f, controller->intensity, controller->specular, 1.0f, mesh->transparent == 1);
 
             vec3 pos = controller->getPos();
             if (ambientCache) {
-                if (!controller->getEntity().isDoor() && !controller->getEntity().isBlock()) { // no advanced ambient lighting for secret (all) doors and blocks
+                if (!entity.isDoor() && !entity.isBlock()) { // no advanced ambient lighting for secret (all) doors and blocks
                     AmbientCache::Cube cube;
                     ambientCache->getAmbient(roomIndex, pos, cube);
                     if (cube.status == AmbientCache::Cube::READY)

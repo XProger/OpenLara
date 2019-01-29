@@ -1268,39 +1268,47 @@ struct Controller {
     }
 
     void updateLights(bool lerp = true) {
-        TR::Room::Light sunLight;
-
         const TR::Room &room = getLightRoom();
 
-        if (getModel()) {
-            vec3 center = getBoundingBox().center();
-            float maxAtt = 0.0f;
-            /*
-            if (room.flags.sky) { // TODO trace rooms up for sun light, add direct light projection
-                sunLight.x      = int32(center.x);
-                sunLight.y      = int32(center.y) - 8192;
-                sunLight.z      = int32(center.z);
-                sunLight.color  = Color32(255, 255, 255, 255);
-                sunLight.radius = 1000 * 1024;
-                targetLight     = &sunLight;
-            } else {
-            */
-            {
+        targetLight = NULL;
+        int ambient = room.ambient;
+
+        if (getEntity().intensity == -1) {
+
+            if (room.lightsCount && getModel()) {
+                ambient = 0x1FFF - ambient;
+                int maxValue = 0;
+
+                vec3 center = getBoundingBox().center();
+
+                int x = int(center.x);
+                int y = int(center.y);
+                int z = int(center.z);
+
                 for (int i = 0; i < room.lightsCount; i++) {
                     TR::Room::Light &light = room.lights[i];
-                    if ((light.color.r | light.color.g | light.color.b) == 0) continue;
 
-                    vec3 dir = vec3(float(light.x), float(light.y), float(light.z)) - center;
-                    float att = max(0.0f, 1.0f - dir.length2() / SQR(light.radius)) * ((light.color.r + light.color.g + light.color.b) / (3.0f * 255.0f));
+                    int dx = x - light.x;
+                    int dy = y - light.y;
+                    int dz = z - light.z;
 
-                    if (att > maxAtt) {
-                        maxAtt = att;
-                        targetLight = &light;
+                    int D = (SQR(dx) + SQR(dy) + SQR(dz)) >> 12;
+                    int R = SQR(light.radius >> 1) >> 12;
+
+                    int value = (light.intensity * R) / (D + R) + ambient;
+
+                    if (maxValue < value) {
+                        targetLight = &room.lights[i];
+                        maxValue    = value;
                     }
                 }
+
+                ambient = (maxValue + ambient) / 2;
+                ambient = 0x1FFF - ambient;
             }
-        } else 
-            targetLight = NULL;
+
+            intensity = intensityf(ambient);
+        }
 
         if (targetLight == NULL) {
             mainLightPos   = vec3(0);
