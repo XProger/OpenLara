@@ -3102,12 +3102,6 @@ struct Lara : Character {
             //|| state == STATE_BACK_JUMP
             //|| state == STATE_LEFT_JUMP
             //|| state == STATE_RIGHT_JUMP
-            //
-            //added
-          //|| state == STATE_TURN_RIGHT
-          //|| state == STATE_TURN_LEFT
-          //|| state == STATE_FAST_TURN
-            //
             || animation.index == ANIM_CLIMB_2
             || animation.index == ANIM_CLIMB_3
             || animation.index == ANIM_CLIMB_JUMP;
