@@ -736,7 +736,7 @@ void ProcessVREvent(const vr::VREvent_t &event) {
 void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr Input) // broken
     if (!hmd) return;
     vr::VREvent_t event;
-	
+    
     while (hmd->PollNextEvent(&event, sizeof(event))) {
         ProcessVREvent( event ); // eventually going to be the function for this while loop
     }
