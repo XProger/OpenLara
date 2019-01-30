@@ -32,8 +32,6 @@ extern "C" {
 
 #ifdef VR_SUPPORT
    #include "libs/openvr/openvr.h"
-   #include <iostream> 
-   #include <string.h>
 #endif
 
 #include "game.h"
@@ -596,6 +594,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 vr::IVRSystem *hmd; // vrContext
 vr::IVRRenderModels* rm; // not currently in use
 vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
+//eye textures(eventually)
 
 //action handles
 vr::VRActionHandle_t VRcLeft = vr::k_ulInvalidActionHandle;
@@ -710,110 +709,34 @@ bool GetDigitalActionState(vr::VRActionHandle_t action, vr::VRInputValueHandle_t
 	return actionData.bActive && actionData.bState;
 }
 
-std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
 
-	std::string str_td_class = "Unknown class";
-
-	switch (td_class)
-	{
-	case vr::TrackedDeviceClass_Invalid:			// = 0, the ID was not valid.
-		str_td_class = "invalid";
+void ProcessVREvent(const vr::VREvent_t &event) {
+	char buffer[1024] = "test";
+	switch (event.eventType) {
+	case vr::VREvent_TrackedDeviceActivated:
+		//SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+		vr::RenderModel_t ** controllerRender;
+		hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
+		//rm->LoadRenderModel_Async(buffer, controllerRender);
+		// need to process render model?
+		LOG("Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
 		break;
-	case vr::TrackedDeviceClass_HMD:				// = 1, Head-Mounted Displays
-		str_td_class = "hmd";
+	case vr::VREvent_TrackedDeviceDeactivated:
+		LOG("Device %u detached.\n", event.trackedDeviceIndex);
 		break;
-	case vr::TrackedDeviceClass_Controller:			// = 2, Tracked controllers
-		str_td_class = "controller";
-		break;
-	case vr::TrackedDeviceClass_GenericTracker:		// = 3, Generic trackers, similar to controllers
-		str_td_class = "generic tracker";
-		break;
-	case vr::TrackedDeviceClass_TrackingReference:	// = 4, Camera and base stations that serve as tracking reference points
-		str_td_class = "base station";
-		break;
-	case vr::TrackedDeviceClass_DisplayRedirect:	// = 5, Accessories that aren't necessarily tracked themselves, but may redirect video output from other tracked devices
-		str_td_class = "display redirect";
+	case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
+		LOG("Device %u updated.\n", event.trackedDeviceIndex);
 		break;
 	}
-
-	return str_td_class;
 }
-
-//void ProcessVREvent(const vr::VREvent_t &event) {
-//	switch (event.eventType) {
-//	case vr::VREvent_TrackedDeviceActivated:
-//		//SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
-//		vr::RenderModel_t ** controllerRender;
-//		hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
-//		//rm->LoadRenderModel_Async(buffer, controllerRender);
-//		// need to process render model?
-//		LOG("Device %u attached. Setting up render model\n", event.trackedDeviceIndex);
-//		break;
-//	case vr::VREvent_TrackedDeviceDeactivated:
-//		LOG("Device %u detached.\n", event.trackedDeviceIndex);
-//		break;
-//	case vr::VREvent_TrackedDeviceUpdated: //not sure what to do here
-//		LOG("Device %u updated.\n", event.trackedDeviceIndex);
-//		break;
-//	}
-//}
 
 //taken from openvrsimpleexamples
 
-void ProcessVREvent(const vr::VREvent_t & event)
-{
-	std::string str_td_class = GetTrackedDeviceClassString(hmd->GetTrackedDeviceClass(event.trackedDeviceIndex));
-	//std::cout << "Event" << event.eventType << std::endl; //event debugging, 20x events never fire in latest openVR
-	switch (event.eventType)
-	{
-	case vr::VREvent_TrackedDeviceActivated:
-	{
-		std::cout << "Device " << event.trackedDeviceIndex << " attached (" << str_td_class << ")" << std::endl;
-		//tracked_device_type[event.trackedDeviceIndex] = str_td_class;
-	}
-	break;
-	case vr::VREvent_TrackedDeviceDeactivated:
-	{
-		std::cout << "Device " << event.trackedDeviceIndex << " detached (" << str_td_class << ")" << std::endl;
-		//tracked_device_type[event.trackedDeviceIndex] = "";
-	}
-	break;
-	case vr::VREvent_TrackedDeviceUpdated:
-	{
-		std::cout << "Device " << event.trackedDeviceIndex << " updated (" << str_td_class << ")" << std::endl;
-	}
-	break;
-	case vr::VREvent_ButtonPress: // these events dont work anymore
-	{
-		vr::VREvent_Controller_t controller_data = event.data.controller;
-		std::cout << "Pressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
-	}
-	break;
-	case vr::VREvent_ButtonUnpress: // these events dont work anymore
-	{
-		vr::VREvent_Controller_t controller_data = event.data.controller;
-		std::cout << "Unpressed button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
-	}
-	break;
-	case vr::VREvent_ButtonTouch: // these events dont work anymore
-	{
-		vr::VREvent_Controller_t controller_data = event.data.controller;
-		std::cout << "Touched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
-	}
-	break;
-	case vr::VREvent_ButtonUntouch: // these events dont work anymore
-	{
-		vr::VREvent_Controller_t controller_data = event.data.controller;
-		std::cout << "Untouched button " << hmd->GetButtonIdNameFromEnum((vr::EVRButtonId) controller_data.button) << " of device " << event.trackedDeviceIndex << " (" << str_td_class << ")" << std::endl;
-	}
-	break;
-	}
-}
 
 void vrUpdateInput() { // going to use action manifest and ivr:input(Steam Vr Input) // broken
     if (!hmd) return;
     vr::VREvent_t event;
-	//char buffer[1024] = "test";
+	
     while (hmd->PollNextEvent(&event, sizeof(event))) {
         ProcessVREvent( event ); // eventually going to be the function for this while loop
     }
@@ -856,6 +779,11 @@ void vrUpdateView() {
 
     vL.setPos(vL.getPos() * ONE_METER);
     vR.setPos(vR.getPos() * ONE_METER);
+
+	//from level.h
+
+
+
 
     Input::hmd.setView(pL, pR, vL, vR);
 	// pass this to Lara's rotation value
