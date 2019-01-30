@@ -626,7 +626,7 @@ vr::VRActionSetHandle_t m_actionsetTR = vr::k_ulInvalidActionSetHandle;
 void vrInit() {
     vr::EVRInitError eError = vr::VRInitError_None;
     hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
-	//rm = vr::VRRenderModels(); // initialize render models interface
+    //rm = vr::VRRenderModels(); // initialize render models interface
 
     if (eError != vr::VRInitError_None) {
         hmd = NULL;
@@ -642,7 +642,7 @@ void vrInit() {
 
 	//set manifest
 	vr::VRInput()->SetActionManifestPath("C:/Users/Austin/Desktop/OpenLaraGitTest2/OpenLara/bin/TombRaidervr_actions.json"); // needs absolutepath
-    // get action handles
+        // get action handles
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Left", &VRcLeft);
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Right", &VRcRight);
 	vr::VRInput()->GetActionHandle("/actions/demo/in/Up", &VRcUp);
@@ -780,7 +780,7 @@ void vrUpdateView() {
     vL.setPos(vL.getPos() * ONE_METER);
     vR.setPos(vR.getPos() * ONE_METER);
     Input::hmd.setView(pL, pR, vL, vR);
-	// pass this to Lara's rotation value
+    // pass this to Lara's rotation value
     Input::hmd.head = head;
 }
 
