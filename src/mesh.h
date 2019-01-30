@@ -819,7 +819,7 @@ struct MeshBuilder {
 
         for (int i = 0; i < wVertices.length; i++) {
             short3 &v = wVertices[i];
-            short3     &o = wOffsets[i];
+            short3 &o = wOffsets[i];
 
             v.x += o.x;
             v.y += o.y;
@@ -830,6 +830,8 @@ struct MeshBuilder {
 
         for (int i = 0; i < wVertices.length; i++) {
             short3 &v = wVertices[i];
+
+            int16 base = v.y;
 
             v.y += WATER_VOLUME_HEIGHT - WATER_VOLUME_OFFSET - WATER_VOLUME_OFFSET;
 
@@ -851,7 +853,9 @@ struct MeshBuilder {
 
             floor -= WATER_VOLUME_OFFSET * 3;
 
-            v.y = min(v.y, floor);
+            if (floor > base) {
+                v.y = min(v.y, floor);
+            }
 
             vertices[vCount++].coord = short4(v.x, v.y, v.z, 0);
         }
