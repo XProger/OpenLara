@@ -3058,7 +3058,7 @@ struct Lara : Character {
             if (!(input & WALK)) {
 
             }
-            vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz()); // set in main
+            vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
             angle.y = ang.y;
 
 
