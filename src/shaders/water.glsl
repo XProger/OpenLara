@@ -114,6 +114,7 @@ vec3 calcNormal(vec2 tc, float base) {
 		return f + f0 * (1.0 - f);
 	}
 
+#ifdef WATER_DROP
 	vec4 drop() {
 		vec2 v = texture2D(sNormal, vTexCoord).xy;
 
@@ -123,13 +124,20 @@ vec3 calcNormal(vec2 tc, float base) {
 
 		return vec4(v, 0.0, 0.0);
 	}
+#endif
 
 #ifdef WATER_SIMULATE
+	float noise3(vec3 x) { // https://www.shadertoy.com/view/XslGRr
+		vec3 p = floor(x);
+		vec3 f = fract(x);
+		f = f * f * (3.0 - 2.0 * f);
+		vec2 uv = (p.xy + vec2(37.0, 17.0) * p.z) + f.xy;
+		vec2 rg = texture2D(sDiffuse, (uv + 0.5) / 32.0).yx;
+		return mix(rg.x, rg.y, f.z) * 2.0 - 1.0;
+	}
+
 	vec4 simulate() {
 		vec2 tc = vTexCoord;
-
-		if (texture2D(sMask, vMaskCoord).a < 0.5)
-			return vec4(0.0);
 
 		vec2 v = texture2D(sNormal, tc).xy; // height, speed
 
@@ -143,8 +151,8 @@ vec3 calcNormal(vec2 tc, float base) {
 		const float vis = 0.995;
 		v.y += (average - v.x) * vel;
 		v.y *= vis;
-		float noise = texture2D(sDiffuse, tc + uParam.zw * 0.5).x;
-		v.x += v.y + (noise * 2.0 - 1.0) * 0.00025;
+		v.x += v.y + noise3(vec3(tc * 32.0, uParam.w)) * 0.00025;
+		v *= texture2D(sMask, vMaskCoord).a;
 
 		return vec4(v.xy, 0.0, 0.0);
 	}
@@ -161,7 +169,6 @@ vec3 calcNormal(vec2 tc, float base) {
 #endif
 
 #ifdef WATER_RAYS
-
 	float boxIntersect(vec3 rayPos, vec3 rayDir, vec3 center, vec3 hsize) {
 		center -= rayPos;
 		vec3 bMin = (center - hsize) / rayDir;

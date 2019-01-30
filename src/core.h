@@ -660,11 +660,11 @@ namespace Core {
         ditherTex = new Texture(8, 8, FMT_LUMINANCE, OPT_REPEAT | OPT_NEAREST, &ditherData);
 
     // generate noise texture
-        uint8 *noiseData = new uint8[SQR(NOISE_TEX_SIZE)];
-        for (int i = 0; i < SQR(NOISE_TEX_SIZE); i++) {
+        uint8 *noiseData = new uint8[SQR(NOISE_TEX_SIZE) * 4];
+        for (int i = 0; i < SQR(NOISE_TEX_SIZE) * 4; i++) {
             noiseData[i] = rand() % 255;
         }
-        noiseTex = new Texture(NOISE_TEX_SIZE, NOISE_TEX_SIZE, FMT_LUMINANCE, OPT_REPEAT, noiseData);
+        noiseTex = new Texture(NOISE_TEX_SIZE, NOISE_TEX_SIZE, FMT_RGBA, OPT_REPEAT, noiseData);
         delete[] noiseData;
 
 

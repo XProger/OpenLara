@@ -696,7 +696,7 @@ struct WaterCache {
         vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
 
         game->setShader(Core::passWater, Shader::WATER_SIMULATE);
-        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, randf() * 0.5f));
+        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, Core::params.x));
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
         Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
 
