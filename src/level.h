@@ -2690,7 +2690,7 @@ struct Level : IGame {
             }
 
             Core::pass = Core::passCompose;
-            //
+            
             if (view == 0 && Input::hmd.ready) {
                 Core::settings.detail.stereo = Core::Settings::STEREO_VR;
 
@@ -2716,7 +2716,6 @@ struct Level : IGame {
                 Core::defaultTarget = oldTarget;
                 Core::setTarget(NULL, Core::defaultTarget, 0);
                 Core::viewportDef = vp;
-                //
             }
             
             if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
