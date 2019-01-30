@@ -3054,22 +3054,13 @@ struct Lara : Character {
 
     // VR control
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
-
-            if (!(input & WALK)) {
-
-            }
             vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
             angle.y = ang.y;
-
-
             if (stand == STAND_UNDERWATER) {
                 input &= ~(FORTH | BACK);
-
                 angle.x = ang.x;
-
             }
         }
-
         return input;
     }
 
