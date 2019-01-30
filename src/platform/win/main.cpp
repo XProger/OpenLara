@@ -781,7 +781,7 @@ void vrUpdateView() {
     vR.setPos(vR.getPos() * ONE_METER);
     Input::hmd.setView(pL, pR, vL, vR);
 	// pass this to Lara's rotation value
-	Input::hmd.head = head;
+    Input::hmd.head = head;
 }
 
 void vrCompose() {
