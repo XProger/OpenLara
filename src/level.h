@@ -2696,34 +2696,34 @@ struct Level : IGame {
             }
 
             Core::pass = Core::passCompose;
-            /*
+            
             if (view == 0 && Input::hmd.ready) {
-                Core::settings.detail.vr = true;
+                Core::settings.detail.stereo = Core::Settings::STEREO_VR;
 
-                Texture *oldTarget = Core::defaultTarget;
-                vec4 vp = Core::viewportDef;
+                GAPI::Texture *oldTarget = Core::defaultTarget;
+                Viewport vp = Core::viewportDef;
 
                 Core::defaultTarget = Core::eyeTex[0];
-                Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, CLEAR_ALL);
+                Core::viewportDef = Viewport(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::setTarget(NULL,Core::defaultTarget, 0); // changing to 0 and adding defaultTarget parameter
                 Core::eye = -1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true);
 
                 Core::defaultTarget = Core::eyeTex[1];
-                Core::viewportDef = vec4(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
-                Core::setTarget(NULL, CLEAR_ALL);
+                Core::viewportDef = Viewport(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::setTarget(NULL, Core::defaultTarget, 0);
                 Core::eye =  1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true);
 
-                Core::settings.detail.vr = false;
+                //Core::settings.detail.vr = false;
 
                 Core::defaultTarget = oldTarget;
-                Core::setTarget(NULL, CLEAR_ALL);
+                Core::setTarget(NULL, Core::defaultTarget, 0);
                 Core::viewportDef = vp;
             }
-            */
+            
             if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
                 float oldEye = Core::eye;
 

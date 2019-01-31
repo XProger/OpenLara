@@ -40,6 +40,7 @@ namespace Input {
         mat4 controllers[2];
         vec3 zero;
         bool ready;
+        bool down[cMAX]; // internal state for VR controllers( based on actions not buttons)
 
         void setView(const mat4 &pL, const mat4 &pR, const mat4 &vL, const mat4 &vR) {
             proj[0] = pL;
@@ -212,7 +213,7 @@ namespace Input {
             Core::Settings::Controls &ctrl = Core::settings.controls[j];
             for (int i = 0; i < cMAX; i++) {
                 KeySet &c = ctrl.keys[i];
-                newState[j][i] = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]);
+                newState[j][i] = (c.key != ikNone && down[c.key]) || (c.joy != jkNone && joy[ctrl.joyIndex].down[c.joy]) || hmd.down[i]; //adding vr check with hmd[down]
             }
         }
 

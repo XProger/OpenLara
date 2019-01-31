@@ -1,0 +1,75 @@
+{
+   "actions" : [
+      {
+         "name" : "/actions/demo/in/Left",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Right",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Up",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Down",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Jump",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Walk",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Action",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Weapon",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Roll",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Inventory",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/demo/in/Start",
+         "type" : "boolean"
+      }
+   ],
+   "default_bindings" : [
+      {
+         "binding_url" : "system_generated_openlara_exe_binding_holographic_controller.json",
+         "controller_type" : "holographic_controller"
+      }
+   ],
+   "localization" : [
+      {
+         "/actions/demo/in/Action" : "Action",
+         "/actions/demo/in/AnalogInput" : "Analog Input",
+         "/actions/demo/in/Down" : "MoveDown",
+         "/actions/demo/in/Hand_Left" : "Left Hand Pose",
+         "/actions/demo/in/Hand_Right" : "Right Hand Pose",
+         "/actions/demo/in/Inventory" : "Inventory",
+         "/actions/demo/in/Jump" : "Jump",
+         "/actions/demo/in/Left" : "MoveLeft",
+         "/actions/demo/in/Right" : "MoveRight",
+         "/actions/demo/in/Roll" : "Roll",
+         "/actions/demo/in/Start" : "Start",
+         "/actions/demo/in/Up" : "MoveUp",
+         "/actions/demo/in/Walk" : "Walk",
+         "/actions/demo/in/Weapon" : "Weapon",
+         "/actions/demo/out/haptic_left" : "Left Haptic Feedback",
+         "/actions/demo/out/haptic_right" : "Right Haptic Feedback",
+         "language_tag" : "en_US"
+      }
+   ]
+}

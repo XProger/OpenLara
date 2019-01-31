@@ -166,8 +166,9 @@ struct Camera : ICamera {
             fpHead.pos -= joint.rot * vec3(0, 48, -24);
         }
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             fpHead.rot = quat(vec3(1, 0, 0), PI);
+        }
 
         mViewInv.identity();
         mViewInv.setRot(fpHead.rot);
