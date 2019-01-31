@@ -127,7 +127,7 @@ vec3 calcNormal(vec2 tc, float base) {
 #endif
 
 #ifdef WATER_SIMULATE
-	float noise3(vec3 x) { // https://www.shadertoy.com/view/XslGRr
+	float noise3D(vec3 x) { // https://www.shadertoy.com/view/XslGRr
 		vec3 p = floor(x);
 		vec3 f = fract(x);
 		f = f * f * (3.0 - 2.0 * f);
@@ -151,7 +151,7 @@ vec3 calcNormal(vec2 tc, float base) {
 		const float vis = 0.995;
 		v.y += (average - v.x) * vel;
 		v.y *= vis;
-		v.x += v.y + noise3(vec3(tc * 32.0, uParam.w)) * 0.00025;
+		v.x += v.y + noise3D(vec3(tc * 32.0, uParam.w)) * 0.00025;
 		v *= texture2D(sMask, vMaskCoord).a;
 
 		return vec4(v.xy, 0.0, 0.0);
