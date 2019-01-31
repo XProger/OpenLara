@@ -669,6 +669,7 @@ void vrInit() {
 }
 
 void vrInitTargets() {
+    if (!hmd) return;
     uint32_t width, height;
     hmd->GetRecommendedRenderTargetSize(&width, &height);
     Core::eyeTex[0] = new Texture(width, height, TexFormat::FMT_RGBA);
