@@ -3040,6 +3040,11 @@ struct Lara : Character {
 
     // VR control
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
+
+            if (!(input & WALK)) {
+                input &= ~(LEFT | RIGHT);
+            }
+
             vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
             angle.y = ang.y;
             if (stand == STAND_UNDERWATER) {
@@ -3075,10 +3080,6 @@ struct Lara : Character {
             || state == STATE_ROLL_END
             || state == STATE_MIDAS_USE
             || state == STATE_MIDAS_DEATH
-            // make me sick!
-            //|| state == STATE_BACK_JUMP
-            //|| state == STATE_LEFT_JUMP
-            //|| state == STATE_RIGHT_JUMP
             || animation.index == ANIM_CLIMB_2
             || animation.index == ANIM_CLIMB_3
             || animation.index == ANIM_CLIMB_JUMP;

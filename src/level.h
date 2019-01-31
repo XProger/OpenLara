@@ -2696,7 +2696,7 @@ struct Level : IGame {
             }
 
             Core::pass = Core::passCompose;
-            
+
             if (view == 0 && Input::hmd.ready) {
                 Core::settings.detail.stereo = Core::Settings::STEREO_VR;
 
@@ -2704,14 +2704,14 @@ struct Level : IGame {
                 Viewport vp = Core::viewportDef;
 
                 Core::defaultTarget = Core::eyeTex[0];
-                Core::viewportDef = Viewport(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::viewportDef = Viewport(0, 0, Core::defaultTarget->width, Core::defaultTarget->height);
                 Core::setTarget(NULL,Core::defaultTarget, 0); // changing to 0 and adding defaultTarget parameter
                 Core::eye = -1.0f;
                 setup();
                 renderView(camera->getRoomIndex(), true);
 
                 Core::defaultTarget = Core::eyeTex[1];
-                Core::viewportDef = Viewport(0, 0, float(Core::defaultTarget->width), float(Core::defaultTarget->height));
+                Core::viewportDef = Viewport(0, 0, Core::defaultTarget->width, Core::defaultTarget->height);
                 Core::setTarget(NULL, Core::defaultTarget, 0);
                 Core::eye =  1.0f;
                 setup();
@@ -2723,7 +2723,7 @@ struct Level : IGame {
                 Core::setTarget(NULL, Core::defaultTarget, 0);
                 Core::viewportDef = vp;
             }
-            
+
             if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
                 float oldEye = Core::eye;
 

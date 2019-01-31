@@ -2237,11 +2237,7 @@ struct GiantMutant : Enemy {
     }
 
     virtual void updatePosition() {
-        float angleY = 0.0f;
-        if (target && target->health > 0.0f && fabsf(targetAngle) > GIANT_MUTANT_MIN_ANGLE)
-            if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
-                angleY = targetAngle;
-        turn(angleY, GIANT_MUTANT_TURN_SLOW);
+        turn(false, GIANT_MUTANT_TURN_SLOW);
 
         Enemy::updatePosition();
         //setOverrides(true, jointChest, jointHead);
