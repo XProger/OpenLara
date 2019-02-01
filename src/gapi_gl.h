@@ -353,6 +353,10 @@ namespace GAPI {
             #include "shaders/shader.glsl"
         ;
 
+        const char SHADER_SKY[] =
+            #include "shaders/sky.glsl"
+        ;
+
         const char SHADER_WATER[] =
             #include "shaders/water.glsl"
         ;
@@ -412,6 +416,7 @@ namespace GAPI {
                 case Core::passCompose :
                 case Core::passShadow  :
                 case Core::passAmbient : source = SHADER_BASE;   break;
+                case Core::passSky     : source = SHADER_SKY;    break;
                 case Core::passWater   : source = SHADER_WATER;  break;
                 case Core::passFilter  : source = SHADER_FILTER; break;
                 case Core::passGUI     : source = SHADER_GUI;    break;
@@ -424,6 +429,7 @@ namespace GAPI {
                     case Core::passCompose :
                     case Core::passShadow  :
                     case Core::passAmbient : stream = new Stream("../../src/shaders/shader.glsl"); break;
+                    case Core::passSky     : stream = new Stream("../../src/shaders/sky.glsl");    break;
                     case Core::passWater   : stream = new Stream("../../src/shaders/water.glsl");  break;
                     case Core::passFilter  : stream = new Stream("../../src/shaders/filter.glsl"); break;
                     case Core::passGUI     : stream = new Stream("../../src/shaders/gui.glsl");    break;

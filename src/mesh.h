@@ -1382,7 +1382,8 @@ struct MeshBuilder {
     }
 
     void renderModel(int modelIndex, bool underwater = false) {
-        ASSERT(level->models[modelIndex].mCount == Core::active.basisCount);
+        ASSERT((Core::pass != Core::passCompose && Core::pass != Core::passShadow && Core::pass != Core::passAmbient) || 
+               level->models[modelIndex].mCount == Core::active.basisCount);
 
         int part = 0;
 

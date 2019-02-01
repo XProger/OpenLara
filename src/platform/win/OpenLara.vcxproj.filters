@@ -72,6 +72,9 @@
     <None Include="..\..\shaders\shader.glsl">
       <Filter>shaders</Filter>
     </None>
+    <None Include="..\..\shaders\sky.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

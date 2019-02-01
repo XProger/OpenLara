@@ -508,9 +508,9 @@ namespace Core {
 
     Texture *whiteTex, *whiteCube, *blackTex, *ditherTex, *noiseTex;
 
-    enum Pass { passCompose, passShadow, passAmbient, passWater, passFilter, passGUI, passMAX } pass;
+    enum Pass { passCompose, passShadow, passAmbient, passSky, passWater, passFilter, passGUI, passMAX } pass;
 
-    const char *passNames[Core::passMAX] = { "COMPOSE", "SHADOW", "AMBIENT", "WATER", "FILTER", "GUI" };
+    const char *passNames[Core::passMAX] = { "COMPOSE", "SHADOW", "AMBIENT", "SKY", "WATER", "FILTER", "GUI" };
 
     GAPI::Texture *defaultTarget;
     

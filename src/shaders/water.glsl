@@ -152,7 +152,7 @@ vec3 calcNormal(vec2 tc, float base) {
 		v.y += (average - v.x) * vel;
 		v.y *= vis;
 		v.x += v.y + noise3D(vec3(tc * 32.0, uParam.w)) * 0.00025;
-		v *= texture2D(sMask, vMaskCoord).a;
+		v *= texture2D(sMask, vMaskCoord).x;
 
 		return vec4(v.xy, 0.0, 0.0);
 	}
@@ -241,8 +241,9 @@ vec3 calcNormal(vec2 tc, float base) {
 
 		float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
-		vec4 color = mix(refr, refl, fresnel) + spec * 1.5;
-		color.w *= texture2D(sMask, vMaskCoord).a;
+		vec4 color = mix(refr, refl, fresnel);
+		color.xyz += spec * 1.5;
+		color.w = texture2D(sMask, vMaskCoord).x;
 		applyFog(color.xyz, vViewVec.y / viewVec.y);
 
 		return color;

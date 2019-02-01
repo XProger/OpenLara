@@ -59,6 +59,7 @@ struct Level : IGame {
     bool needRedrawReflections;
     bool needRenderGame;
     bool showStats;
+    bool skyIsVisible;
 
     TR::LevelID nextLevel;
 
@@ -1486,45 +1487,43 @@ struct Level : IGame {
 
     void renderSky() {
         if (level.extra.sky == -1) return;
+        ASSERT(mesh->transparent == 0);
 
-        mat4 m = Core::mViewProj;
+        Core::Pass pass = Core::pass;
         mat4 mView = Core::mView;
-        mView.setPos(vec3(0));
-        Core::mViewProj = Core::mProj * mView;
+        mat4 mProj = Core::mProj;
 
-        //Animation anim(&level, &level.models[level.extra.sky]);
+        Core::mView.setPos(vec3(0));
 
         // TODO TR2 TR3 use animation frame to get skydome rotation
-        Basis b;
-        if (level.version & TR::VER_TR2)
-            b = Basis(quat(vec3(1, 0, 0), PI * 0.5f), vec3(0));
-        else
-            b = Basis(quat(0, 0, 0, 1), vec3(0));
-
-        Core::setBlendMode(bmNone);
-        Core::setDepthTest(false);
-        setShader(Core::pass, Shader::FLASH, false, false);
-        Core::setMaterial(1.0f / 1.8f, 0.0f, 0.0f, 0.0f);
-
+        // Animation anim(&level, &level.models[level.extra.sky]);
         // anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
-        Core::setBasis(&b, 1);
 
-        mesh->transparent = 0;
+        if (level.version & TR::VER_TR2) {
+            Core::mView.rotateX(PIH);
+        }
+        Core::setViewProj(Core::mView, Core::mProj);
+
+        setShader(Core::passSky, Shader::DEFAULT, false, false);
+
+        //Basis b;
+        //Core::setBasis(&b, 1); // unused
+
         mesh->renderModel(level.extra.sky);
 
-        Core::setDepthTest(true);
-        Core::mViewProj = m;
+        Core::setViewProj(mView, mProj);
+        Core::pass = pass;
     }
 
     void prepareRooms(int *roomsList, int roomsCount) {
-        bool hasSky = false;
+        skyIsVisible = false;
 
         for (int i = 0; i < level.roomsCount; i++)
             level.rooms[i].flags.visible = false;
 
         for (int i = 0; i < roomsCount; i++) {
             TR::Room &r = level.rooms[roomsList[i]];
-            hasSky |= r.flags.sky;
+            skyIsVisible |= r.flags.sky;
             r.flags.visible = true;
         }
 
@@ -1543,9 +1542,6 @@ struct Level : IGame {
         }
 
         setMainLight(player);
-
-        if (hasSky)
-            renderSky();
     }
 
     void renderRooms(int *roomsList, int roomsCount, int transp) {
@@ -2081,6 +2077,9 @@ struct Level : IGame {
     void renderOpaque(int *roomsList, int roomsCount) {
         renderRooms(roomsList, roomsCount, 0);
         renderEntities(0);
+        if (Core::pass != Core::passShadow && skyIsVisible) {
+            renderSky();
+        }
     }
 
     void renderTransparent(int *roomsList, int roomsCount) {
@@ -2164,7 +2163,6 @@ struct Level : IGame {
         }
 
         prepareRooms(roomsList, roomsCount);
-
 
         renderOpaque(roomsList, roomsCount);
         renderTransparent(roomsList, roomsCount);

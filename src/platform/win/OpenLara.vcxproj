@@ -236,6 +236,7 @@
     <None Include="..\..\shaders\filter.glsl" />
     <None Include="..\..\shaders\gui.glsl" />
     <None Include="..\..\shaders\shader.glsl" />
+    <None Include="..\..\shaders\sky.glsl" />
     <None Include="..\..\shaders\water.glsl" />
   </ItemGroup>
   <ItemGroup>

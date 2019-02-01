@@ -31,6 +31,8 @@ struct ShaderCache {
         if (Core::settings.detail.shadows > Core::Settings::LOW)
             prepareShadows(FX_NONE);
 
+        prepareSky(FX_NONE);
+
         if (Core::settings.detail.water > Core::Settings::LOW)
             prepareWater(FX_NONE);
 
@@ -69,7 +71,7 @@ struct ShaderCache {
         compile(Core::passCompose, Shader::SPRITE, fx,                 rsFull | RS_DISCARD);
         compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
 
-        compile(Core::passCompose, Shader::FLASH,  fx,                 rsFull | RS_BLEND_MULT);
+        compile(Core::passCompose, Shader::FLASH,  fx,                 rsFull | RS_BLEND_MULT); // spot shadow
     }
 
     void prepareAmbient(int fx) {
@@ -79,13 +81,16 @@ struct ShaderCache {
         compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER, rsFull | RS_DISCARD);
         compile(Core::passAmbient, Shader::SPRITE, fx,                 rsFull | RS_DISCARD);
         compile(Core::passAmbient, Shader::SPRITE, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
-        compile(Core::passAmbient, Shader::FLASH,  fx,                 rsFull); // sky
     }
 
     void prepareShadows(int fx) {
         compile(Core::passShadow, Shader::MIRROR, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow);
         compile(Core::passShadow, Shader::ENTITY, fx, rsShadow | RS_DISCARD);
+    }
+
+    void prepareSky(int fx) {
+        compile(Core::passSky, Shader::DEFAULT, fx, rsBase);
     }
 
     void prepareWater(int fx) {
@@ -159,6 +164,7 @@ struct ShaderCache {
                 }
                 break;
             }
+            case Core::passSky     : break;
             case Core::passWater   : def[defCount++] = SD_WATER_DROP + type;     break;
             case Core::passFilter  : def[defCount++] = SD_FILTER_UPSCALE + type; break;
             case Core::passGUI     : break;
@@ -968,7 +974,7 @@ struct WaterCache {
             item.mask->bind(sMask);
             item.data[0]->bind(sNormal);
             Core::setCullMode(cmNone);
-            Core::setBlendMode(bmNone);
+            Core::setBlendMode(bmAlpha);
             #ifdef WATER_USE_GRID
                 vec4 rPosScale[2] = { vec4(item.pos, 0.0f), vec4(item.size * vec3(1.0f / PLANE_DETAIL, 512.0f, 1.0f / PLANE_DETAIL), 1.0f) };
                 Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
