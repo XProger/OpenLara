@@ -5,6 +5,10 @@
 
 #include "game.h"
 
+int MSAA = 0;
+BOOL enableRetina = YES;
+int frameLimit = 58 + 4;
+
 // timing
 int osGetTime() {
     static mach_timebase_info_data_t timebaseInfo;
@@ -356,7 +360,9 @@ NSWindow *window;
     unsigned short keyCode = theEvent.keyCode;
     Input::setDown(keyToInputKey(keyCode), false);
     if (keyCode == 36 && Input::down[ikAlt]) { // Alt + Enter
+        allowFrameUpdate = NO;
         [window toggleFullScreen:nil];
+        allowFrameUpdate = YES;
     }
 }
 
@@ -372,9 +378,17 @@ NSWindow *window;
 }
 
 - (void)reshape {
-    NSRect bounds = self.bounds;
-    Core::width  = bounds.size.width;
-    Core::height = bounds.size.height;
+    CGSize drawableSize = self.bounds.size;
+    
+    if (enableRetina)
+    {
+        NSScreen* screen = self.window.screen ?: [NSScreen mainScreen];
+        drawableSize.width *= screen.backingScaleFactor;
+        drawableSize.height *= screen.backingScaleFactor;
+    }
+    
+    Core::width  = drawableSize.width;
+    Core::height = drawableSize.height;
 }
 
 - (void)prepareOpenGL {
@@ -382,21 +396,39 @@ NSWindow *window;
     [[self openGLContext] setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
 }
 
+int lastDeltaMs = 1;
+BOOL allowFrameUpdate = YES;
+
 - (void)drawRect:(NSRect)dirtyRect {
+    
+    if(!allowFrameUpdate) {
+        return;
+    }
+    
+    int startDrawMs = osGetTime();
+    
     NSOpenGLContext *context = [self openGLContext];
     
     if (!Game::update())
         return;
     Game::render();
-
+    
     [context flushBuffer];
+    
+    int endDrawMs = osGetTime();
+    int deltaMs = endDrawMs - startDrawMs;
+    float avgDelta = ((lastDeltaMs + deltaMs) / 2.0);
+    lastDeltaMs = deltaMs;
+    
+    float nextDelaySec = (1000.0 / frameLimit) / 1000.0;
+    nextDelaySec = nextDelaySec - (avgDelta / 1000.0);
     
     BOOL arg = YES;
     NSInvocation *inv = [NSInvocation invocationWithMethodSignature:[self methodSignatureForSelector:@selector(setNeedsDisplay:)]];
     [inv setSelector:@selector(setNeedsDisplay:)];
     [inv setTarget:self];
     [inv setArgument:&arg atIndex:2];
-    [inv performSelector:@selector(invoke) withObject:self afterDelay:0.01];
+    [inv performSelector:@selector(invoke) withObject:self afterDelay:nextDelaySec];
 }
 
 @end
@@ -413,6 +445,21 @@ NSWindow *window;
 @end
 
 int main() {
+
+    //get and create support path
+    NSString *appName, *supportPath = nil;
+    NSArray *paths = NSSearchPathForDirectoriesInDomains( NSApplicationSupportDirectory,
+                                                         NSUserDomainMask, YES );
+    if ( [paths count] > 0)
+    {
+        appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleExecutable"];
+        supportPath = [[paths objectAtIndex:0] stringByAppendingPathComponent:appName];
+        
+        if ( ![[NSFileManager defaultManager] fileExistsAtPath:supportPath] )
+            if ( ![[NSFileManager defaultManager] createDirectoryAtPath:supportPath attributes:nil] )
+                supportPath = nil;
+    }
+    
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
     
     NSApplication *application = [NSApplication sharedApplication];
@@ -424,28 +471,39 @@ int main() {
     window.acceptsMouseMovedEvents = YES;
     window.delegate = [[OpenLaraWindowDelegate alloc] init];
     
+    
     // init OpenGL context
     NSOpenGLPixelFormatAttribute attribs[] = {
+        NSOpenGLPFANoRecovery,
+        NSOpenGLPFAMultisample,
         NSOpenGLPFADoubleBuffer,
         NSOpenGLPFAColorSize,     32,
         NSOpenGLPFADepthSize,     24,
         NSOpenGLPFAStencilSize,   8,
+        NSOpenGLPFASampleBuffers, (NSOpenGLPixelFormatAttribute)(MSAA == 0 ? 0 : 1),
+        NSOpenGLPFASamples, (NSOpenGLPixelFormatAttribute)MSAA,
         NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersionLegacy,
         0
     };
     NSOpenGLPixelFormat *format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attribs];
-
+    
     OpenLaraGLView *view = [[OpenLaraGLView alloc] initWithFrame:window.contentLayoutRect pixelFormat:format];
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     window.contentView = view;
     [view.openGLContext makeCurrentContext];
-
+    [view setWantsBestResolutionOpenGLSurface:enableRetina];
+    
     // get path to game content
     NSBundle *bundle   = [NSBundle mainBundle];
     NSURL *resourceURL = bundle.resourceURL;
     [resourceURL getFileSystemRepresentation:contentDir maxLength:sizeof(contentDir)];
     strcat(contentDir, "/");
-
+    
+    [supportPath getCString:saveDir maxLength:sizeof(saveDir) encoding:NSUTF8StringEncoding];
+    strcat(saveDir, "/");
+    [supportPath getCString:cacheDir maxLength:sizeof(cacheDir) encoding:NSUTF8StringEncoding];
+    strcat(cacheDir, "/");
+    
     // show window
     [window center];
     [window makeKeyAndOrderFront:nil];
