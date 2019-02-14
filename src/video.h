@@ -1287,7 +1287,7 @@ struct Video {
         memset(frameData, 0, decoder->width * decoder->height * sizeof(Color32));
 
         for (int i = 0; i < 2; i++)
-            frameTex[i] = new Texture(decoder->width, decoder->height, FMT_RGBA, 0, frameData);
+            frameTex[i] = new Texture(decoder->width, decoder->height, 1, FMT_RGBA, 0, frameData);
 
         sample = Sound::play(decoder);
         sample->pitch = pitch;

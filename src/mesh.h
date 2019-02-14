@@ -64,10 +64,8 @@ struct Mesh : GAPI::Mesh {
 
 
 float intensityf(uint16 lighting) {
-    if (lighting > 0x1FFF) return 1.0f;
-    float lum = 1.0f - (lighting >> 5) / 255.0f;
-    //return powf(lum, 2.2f); // gamma to linear space
-    return lum;// * lum; // gamma to "linear" space
+    ASSERT(lighting >= 0 && lighting <= 0x1FFF);
+    return (0x1FFF - lighting) / float(0x1FFF);
 }
 
 uint8 intensity(int lighting) {
@@ -273,6 +271,28 @@ struct MeshBuilder {
         iCount += CIRCLE_SEGS * 3;
         vCount += CIRCLE_SEGS + 1;
 
+    // box
+        const Index boxIndices[] = {
+            2,  1,  0,  3,  2,  0,
+            4,  5,  6,  4,  6,  7,
+            8,  9,  10, 8,  10, 11,
+            14, 13, 12, 15, 14, 12,
+            16, 17, 18, 16, 18, 19,
+            22, 21, 20, 23, 22, 20,
+        };
+
+        const short4 boxCoords[] = {
+            {-1, -1,  1, 0}, { 1, -1,  1, 0}, { 1,  1,  1, 0}, {-1,  1,  1, 0},
+            { 1,  1,  1, 0}, { 1,  1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0},
+            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1,  1, -1, 0}, {-1,  1, -1, 0},
+            {-1, -1, -1, 0}, {-1, -1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0},
+            { 1,  1,  1, 0}, {-1,  1,  1, 0}, {-1,  1, -1, 0}, { 1,  1, -1, 0},
+            {-1, -1, -1, 0}, { 1, -1, -1, 0}, { 1, -1,  1, 0}, {-1, -1,  1, 0},
+        };
+
+        iCount += COUNT(boxIndices);
+        vCount += COUNT(boxCoords);
+
     // detailed plane
     #ifdef GENERATE_WATER_PLANE
         iCount += SQR(PLANE_DETAIL * 2) * 6;
@@ -353,6 +373,8 @@ struct MeshBuilder {
         for (int i = 0; i < level->modelsCount; i++) {
             TR::Model &model = level->models[i];
 
+            int vCountStart = vCount;
+
             for (int transp = 0; transp < 3; transp++) {
                 Geometry &geom = models[i].geometry[transp];
 
@@ -394,6 +416,13 @@ struct MeshBuilder {
             // remove bottom triangles from skybox
                 //if (m.geometry[0].ranges[0].iCount && ((level.version & TR::VER_TR3)))
                 //    m.geometry[0].ranges[0].iCount -= 16 * 3;
+            // rotate TR2 skybox
+                if (level->version & TR::VER_TR2) {
+                    for (int j = vCountStart; j < vCount; j++) {
+                        short4 &c = vertices[j].coord;
+                        c = short4(c.x, -c.z, c.y, c.w);
+                    }
+                }
             }
         }
         ASSERT(vCount - vStartModel <= 0xFFFF);
@@ -496,6 +525,25 @@ struct MeshBuilder {
         vertices[vCount + CIRCLE_SEGS].coord = short4( 0, 0, 0, 0 );
         vCount += CIRCLE_SEGS + 1;
 
+    // box
+        box.vStart = vStartCommon;
+        box.iStart = iCount;
+        box.iCount = COUNT(boxIndices);
+
+        baseIdx = vCount - vStartCommon;
+
+        for (int i = 0; i < COUNT(boxIndices); i++)
+            indices[iCount++] = baseIdx + boxIndices[i];
+
+        for (int i = 0; i < COUNT(boxCoords); i++) {
+            Vertex &v = vertices[vCount++];
+            v.coord    = boxCoords[i];
+            v.normal   = short4(0, 0, 0, 32767);
+            v.texCoord = short4(0, 0, 0, 0);
+            v.color    = ubyte4(255, 255, 255, 255);
+            v.light    = ubyte4(255, 255, 255, 255);
+        }
+
     // plane
     #ifdef GENERATE_WATER_PLANE
         plane.vStart = vStartCommon;
@@ -570,6 +618,7 @@ struct MeshBuilder {
         quad.aIndex       = rangeCommon.aIndex;
         circle.aIndex     = rangeCommon.aIndex;
         plane.aIndex      = rangeCommon.aIndex;
+        box.aIndex        = rangeCommon.aIndex;
     }
 
     ~MeshBuilder() {
@@ -1454,6 +1503,10 @@ struct MeshBuilder {
 
     void renderPlane() {
         mesh->render(plane);
+    }
+
+    void renderBox() {
+        mesh->render(box);
     }
 
     void renderWaterVolume(int roomIndex) {

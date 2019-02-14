@@ -2983,6 +2983,9 @@ struct Lara : Character {
                 case TR::LVL_TR1_4 :
                     reset(18, vec3(34914, 11008, 41315), 90 * DEG2RAD); // main hall
                     break;
+                case TR::LVL_TR1_5 :
+                    reset(74, vec3(52549, -3584, 60871), -150 * DEG2RAD); // main hall
+                    break;
                 case TR::LVL_TR1_6 :
                     reset(73, vec3(73372, 122, 51687), PI * 0.5f);       // level 6 (midas hand)
                     break;

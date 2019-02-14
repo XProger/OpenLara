@@ -310,7 +310,7 @@ struct Character : Controller {
     void bakeEnvironment(Texture *&environment) {
         flags.invisible = true;
         if (!environment) {
-            environment = new Texture(256, 256, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
+            environment = new Texture(256, 256, 1, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
         }
         game->renderEnvironment(getRoomIndex(), pos - vec3(0.0f, 384.0f, 0.0f), &environment);
         environment->generateMipMap();

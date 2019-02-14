@@ -1,9 +1,4 @@
 R"====(
-#ifdef GL_ES
-	precision lowp	int;
-	precision highp float;
-#endif
-
 varying vec2 vTexCoord;
 varying vec4 vColor;
 
@@ -24,7 +19,7 @@ varying vec4 vColor;
 	uniform sampler2D	sDiffuse;
 
 	void main() {
-		gl_FragColor = texture2D(sDiffuse, vTexCoord) * vColor;
+		fragColor = texture2D(sDiffuse, vTexCoord) * vColor;
 	}
 #endif
 )===="

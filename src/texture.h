@@ -42,7 +42,7 @@ struct Texture : GAPI::Texture {
 
                 ASSERT(tilesCount < COUNT(this->tiles));
                 for (int i = 0; i < tilesCount; i++)
-                    this->tiles[i] = new Texture(tiles[i].width, tiles[i].height, FMT_RGBA, OPT_MIPMAPS, tiles[i].data);
+                    this->tiles[i] = new Texture(tiles[i].width, tiles[i].height, 1, FMT_RGBA, OPT_MIPMAPS, tiles[i].data);
             }
         #endif
 
@@ -66,9 +66,7 @@ struct Texture : GAPI::Texture {
     }
 #endif
 
-    Texture(int width, int height, TexFormat format, uint32 opt = 0, void *data = NULL) : GAPI::Texture(width, height, opt) {
-//        LOG("create texture %d x %d (%d)\n", width, height, format);
-
+    Texture(int width, int height, int depth, TexFormat format, uint32 opt = 0, void *data = NULL) : GAPI::Texture(width, height, depth, opt) {
         #ifdef SPLIT_BY_TILE
             #ifndef _OS_PSP
                 memset(this->tiles, 0, sizeof(tiles));
@@ -82,9 +80,11 @@ struct Texture : GAPI::Texture {
 
         bool filter   = (opt & OPT_NEAREST) == 0;
         bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
+        bool isVolume = (opt & OPT_VOLUME)  != 0;
 
-        if (format == FMT_SHADOW && !Core::support.shadowSampler)
+        if (format == FMT_SHADOW && !Core::support.shadowSampler) {
             format = FMT_DEPTH;
+        }
 
         if (format == FMT_DEPTH) {
             if (!Core::support.depthTexture)
@@ -111,6 +111,10 @@ struct Texture : GAPI::Texture {
             this->opt &= ~OPT_NEAREST;
         else
             this->opt |= OPT_NEAREST;
+
+        if (isVolume && !Core::support.tex3D) {
+            this->opt &= ~OPT_VOLUME;
+        }
 
         init(data);
 
@@ -669,7 +673,7 @@ struct Texture : GAPI::Texture {
                 ((uint32*)data)[y * dw] = ((uint32*)data)[y * dw + dw - 1] = 0xFF000000;
         }
 
-        Texture *tex = new Texture(dw, dh, FMT_RGBA, 0, data);
+        Texture *tex = new Texture(dw, dh, 1, FMT_RGBA, 0, data);
         tex->origWidth  = width;
         tex->origHeight = height;
 
@@ -833,7 +837,7 @@ struct Atlas {
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, FMT_RGBA, OPT_MIPMAPS, data);
+        Texture *atlas = new Texture(width, height, 1, FMT_RGBA, OPT_MIPMAPS, data);
 
         //Texture::SaveBMP("atlas", (char*)data, width, height);
 

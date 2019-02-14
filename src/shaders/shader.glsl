@@ -1,9 +1,4 @@
 R"====(
-#ifdef GL_ES
-	precision lowp		int;
-	precision highp		float;
-#endif
-
 #define MAX_LIGHTS			4
 #define MAX_CONTACTS		15
 #define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
@@ -162,7 +157,10 @@ uniform vec4 uFogParams;
 
 	void _diffuse() {
 		#ifndef PASS_SHADOW
-			vDiffuse = vec4(aColor.xyz * (uMaterial.x * 1.8), 1.0);
+			vDiffuse = vec4(aColor.xyz * uMaterial.x, 1.0);
+			#ifdef PASS_COMPOSE
+				vDiffuse.xyz *= 2.0;
+			#endif
 
 			#ifdef TYPE_MIRROR
 				vDiffuse.xyz = uMaterial.xyz;
@@ -211,7 +209,7 @@ uniform vec4 uFogParams;
 				lum.w = dot(vNormal.xyz, normalize(lv3)); att.w = dot(lv3, lv3);
 				vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
-				#ifdef UNDERWATER
+				#if (defined(TYPE_ENTITY) || defined(TYPE_ROOM)) && defined(UNDERWATER)
 					light.x *= 0.5 + abs(sin(dot(coord.xyz, vec3(1.0 / 1024.0)) + uParam.x)) * 0.75;
 				#endif
 
@@ -418,9 +416,9 @@ uniform vec4 uFogParams;
 		#ifdef PASS_SHADOW
 
 			#ifdef SHADOW_COLOR
-				gl_FragColor = pack(gl_FragCoord.z);
+				fragColor = pack(gl_FragCoord.z);
 			#else
-				gl_FragColor = vec4(1.0);
+				fragColor = vec4(1.0);
 			#endif
 
 		#else
@@ -514,7 +512,7 @@ uniform vec4 uFogParams;
 				#endif
 			#endif
 
-			gl_FragColor = color;
+			fragColor = color;
 		#endif
 	}
 #endif

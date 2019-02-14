@@ -1,9 +1,4 @@
 R"====(
-#ifdef GL_ES
-	precision lowp	int;
-	precision highp float;
-#endif
-
 #define MAX_LIGHTS			4
 #define WATER_FOG_DIST		(1.0 / (6.0 * 1024.0))
 #define WATER_COLOR_DIST	(1.0 / (2.0 * 1024.0))
@@ -250,7 +245,7 @@ vec3 calcNormal(vec2 tc, float base) {
 	}
 #endif
 
-	vec4 pass() {
+	vec4 process() {
 		#ifdef WATER_DROP
 			return drop();
 		#endif
@@ -279,7 +274,7 @@ vec3 calcNormal(vec2 tc, float base) {
 	}
 
 	void main() {
-		gl_FragColor = pass();
+	    fragColor = process();
 	}
 #endif
 )===="

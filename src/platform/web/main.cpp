@@ -1,14 +1,12 @@
 #include <stdio.h>
 #include <cstring>
 #include <pthread.h>
-#include <EGL/egl.h>
 
 #include "game.h"
 
 int lastJoy = -1;
-EGLDisplay display;
-EGLSurface surface;
-EGLContext context;
+EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
+int WEBGL_VERSION;
 
 // timing
 int osGetTime() {
@@ -164,47 +162,56 @@ void main_loop() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glColorMask(true, true, true, true);
-        
-        eglSwapBuffers(display, surface);
     }
 }
 
 bool initGL() {
-    EGLint vMajor, vMinor, cfgCount;
-    EGLConfig cfg;
+    EmscriptenWebGLContextAttributes attrs;
+    emscripten_webgl_init_context_attributes(&attrs);
+    attrs.alpha                     = true;
+    attrs.depth                     = true;
+    attrs.enableExtensionsByDefault = true;
+    attrs.antialias                 = false;
+    attrs.premultipliedAlpha        = false;
+    attrs.majorVersion              = 2;
 
-    EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
-    EGLint attribList[] = {
-        EGL_RED_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_ALPHA_SIZE, 8,
-        EGL_DEPTH_SIZE, 8,
-        EGL_STENCIL_SIZE, EGL_DONT_CARE,
-        EGL_SAMPLE_BUFFERS, EGL_DONT_CARE,
-        EGL_NONE
-    };
+    context = emscripten_webgl_create_context(0, &attrs);
+    if (!context) {
+        attrs.majorVersion = 1;
+        context = emscripten_webgl_create_context(0, &attrs);
+    }
 
-    display = eglGetDisplay((EGLNativeDisplayType)EGL_DEFAULT_DISPLAY);
-    eglInitialize(display, &vMajor, &vMinor);
-    eglGetConfigs(display, NULL, 0, &cfgCount);
-    eglChooseConfig(display, attribList, &cfg, 1, &cfgCount);
-    surface = eglCreateWindowSurface(display, cfg, NULL, NULL);
-    context = eglCreateContext(display, cfg, EGL_NO_CONTEXT, contextAttribs);
-    eglMakeCurrent(display, surface, surface, context);
+    if (!context) {
+        LOG("! can't initialize WebGL !\n");
+        return false;
+    }
+    WEBGL_VERSION = attrs.majorVersion;
+
+    emscripten_webgl_make_context_current(context);
+
+    char *ext = (char*)glGetString(GL_EXTENSIONS);
+    if (ext != NULL) {
+        char buf[255];
+        int len = strlen(ext);
+        int start = 0;
+        for (int i = 0; i < len; i++)
+            if (ext[i] == ' ' || (i == len - 1)) {
+                memcpy(buf, &ext[start], i - start);
+                buf[i - start] = 0;
+                emscripten_webgl_enable_extension(context, buf);
+                //LOG("enable: %s\n", buf);
+                start = i + 1;
+            }
+    }
+
     return true;
 }
 
 void freeGL() {
-    eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    eglDestroyContext(display, context);
-    eglDestroySurface(display, surface);
-    eglTerminate(display);
+    emscripten_webgl_destroy_context(context);
 }
 
 EM_BOOL resize() {
-    //int f;
-    //emscripten_get_canvas_size(&Core::width, &Core::height, &f);
     double w, h;
     emscripten_get_element_css_size(NULL, &w, &h);
     Core::width  = int(w);
@@ -313,9 +320,10 @@ EM_BOOL mouseCallback(int eventType, const EmscriptenMouseEvent *e, void *userDa
 }
 
 int main() {
+    if (!initGL()) {
+        return 0;
+    }
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
-
-    initGL(); 
 
     emscripten_set_keydown_callback(0, 0, 1, keyCallback);
     emscripten_set_keyup_callback(0, 0, 1, keyCallback);

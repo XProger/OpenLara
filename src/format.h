@@ -1431,7 +1431,7 @@ namespace TR {
                 int D = (SQR(dx) + SQR(dy) + SQR(dz)) >> 12;
                 int R = SQR(light.radius >> 1) >> 12;
 
-                int value = (light.intensity * R) / (D + R) + ambientInv;
+                int value = min(0x1FFF, (light.intensity * R) / (D + R) + ambientInv);
 
                 if (maxValue < value) {
                     if (nearLight) {

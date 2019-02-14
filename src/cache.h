@@ -91,6 +91,10 @@ struct ShaderCache {
 
     void prepareSky(int fx) {
         compile(Core::passSky, Shader::DEFAULT, fx, rsBase);
+        if (Core::support.tex3D) {
+            compile(Core::passSky, Shader::SKY_CLOUDS,       fx, rsBase);
+            compile(Core::passSky, Shader::SKY_CLOUDS_AZURE, fx, rsBase);
+        }
     }
 
     void prepareWater(int fx) {
@@ -164,7 +168,7 @@ struct ShaderCache {
                 }
                 break;
             }
-            case Core::passSky     : break;
+            case Core::passSky     : def[defCount++] = SD_SKY_TEXTURE + type;    break;
             case Core::passWater   : def[defCount++] = SD_WATER_DROP + type;     break;
             case Core::passFilter  : def[defCount++] = SD_FILTER_UPSCALE + type; break;
             case Core::passGUI     : break;
@@ -241,7 +245,7 @@ struct AmbientCache {
     // init downsample textures
         for (int j = 0; j < 6; j++)
             for (int i = 0; i < 4; i++)
-                textures[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), FMT_RGBA, OPT_TARGET | OPT_NEAREST);
+                textures[j * 4 + i] = new Texture(64 >> (i << 1), 64 >> (i << 1), 1, FMT_RGBA, OPT_TARGET | OPT_NEAREST);
     }
 
     ~AmbientCache() {
@@ -514,7 +518,7 @@ struct WaterCache {
 
                     m[(x - minX) + w * (z - minZ)] = hasWater ? 0xFF : 0x00; // TODO: flow map
                 }
-            mask = new Texture(w, h, FMT_LUMINANCE, OPT_NEAREST, m);
+            mask = new Texture(w, h, 1, FMT_LUMINANCE, OPT_NEAREST, m);
             delete[] m;
 
             size = vec3(float((maxX - minX) * 512), 1.0f, float((maxZ - minZ) * 512)); // half size
@@ -522,13 +526,13 @@ struct WaterCache {
 
             int *mf = new int[4 * w * h * SQR(WATER_TILE_SIZE)];
             memset(mf, 0, sizeof(int) * 4 * w * h * SQR(WATER_TILE_SIZE));
-            data[0] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX, mf);
-            data[1] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX);
+            data[0] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, 1, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX, mf);
+            data[1] = new Texture(w * WATER_TILE_SIZE, h * WATER_TILE_SIZE, 1, FMT_RG_HALF, OPT_TARGET | OPT_VERTEX);
             delete[] mf;
 
-            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, FMT_RGBA, OPT_TARGET | OPT_DEPEND) : NULL;
+            caustics = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, 1, FMT_RGBA, OPT_TARGET | OPT_DEPEND) : NULL;
             #ifdef BLUR_CAUSTICS
-                caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, Texture::RGBA) : NULL;
+                caustics_tmp = Core::settings.detail.water > Core::Settings::MEDIUM ? new Texture(512, 512, 1, Texture::RGBA) : NULL;
             #endif
             
             blank = false;
@@ -558,7 +562,7 @@ struct WaterCache {
     } drops[MAX_DROPS];
 
     WaterCache(IGame *game) : game(game), level(game->getLevel()), screen(NULL), refract(NULL), count(0), dropCount(0) {
-        reflect = new Texture(512, 512, FMT_RGBA, OPT_TARGET);
+        reflect = new Texture(512, 512, 1, FMT_RGBA, OPT_TARGET);
     }
 
     ~WaterCache() {
@@ -825,10 +829,10 @@ struct WaterCache {
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
             PROFILE_MARKER("WATER_REFRACT_INIT");
             delete refract;
-            refract = new Texture(w, h, FMT_RGBA, OPT_TARGET);
+            refract = new Texture(w, h, 1, FMT_RGBA, OPT_TARGET);
         #ifdef USE_SCREEN_TEX
             delete screen;
-            screen = new Texture(w, h, FMT_RGBA, OPT_TARGET);
+            screen = new Texture(w, h, 1, FMT_RGBA, OPT_TARGET);
         #endif
         }
         return screen;

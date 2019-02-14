@@ -125,8 +125,6 @@
 				window.addEventListener('touchstart', userAction, false);
 				window.addEventListener('click', userAction, false);
 
-				var gl = canvasElement.getContext("webgl", {antialias:false, premultipliedAlpha: false}) || canvasElement.getContext("experimental-webgl", {antialias:false, premultipliedAlpha: false});
-
 				Module.setStatus('Downloading...');
 				window.onerror = function(event) {
 					Module.setStatus('Exception thrown, see JavaScript console');
@@ -149,7 +147,7 @@
 					OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
 				
 					<div id="latest_changes" style="margin:8px">
-						<br><i>last update: 04.12.2018</i><br>
+						<br><i>last update: 14.02.2019</i><br>
 						<input type="button" value="Latest changes" onclick="getLatestChanges()" />
 					</div>
 				</p>

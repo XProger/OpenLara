@@ -1,9 +1,4 @@
 R"====(
-#ifdef GL_ES
-	precision highp int;
-	precision highp float;
-#endif
-
 varying vec2 vTexCoord;
 varying vec4 vColor;
 uniform vec4 uParam;
@@ -89,7 +84,7 @@ uniform vec4 uParam;
 		return texture2D(sDiffuse, uv) * vColor;
 	}
 
-	vec4 filter() {
+	vec4 process() {
 		#ifdef FILTER_DOWNSAMPLE
 			return downsample();
 		#endif
@@ -114,7 +109,7 @@ uniform vec4 uParam;
 	}
 
 	void main() {
-		gl_FragColor = filter();
+		fragColor = process();
 	}
 #endif
 )===="

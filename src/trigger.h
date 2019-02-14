@@ -835,7 +835,7 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
+        environment = new Texture(64, 64, 1, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
         activate();
     }
 
@@ -860,7 +860,7 @@ struct Crystal : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Core::setMaterial(0.5, 0.5, 3.0, 1.0f); // blue color dodge for crystal
+        Core::setMaterial(0.5, 0.5, 3.0, 1.0f);
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
     }

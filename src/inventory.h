@@ -1348,7 +1348,7 @@ struct Inventory {
 
         for (int i = 0; i < COUNT(background); i++)
             if (!background[i])
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, FMT_RGBA, OPT_TARGET);
+                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
 
         return background[0];
     }
@@ -1592,11 +1592,11 @@ struct Inventory {
         float ringTilt      = cpos.angle();
         float radius        = phaseRing * INVENTORY_MAX_RADIUS * phase;
         float collapseAngle = phaseRing * phase * PI - PI;
-        float ringHeight    = lerp(float(this->page), float(targetPage), hermite(phasePage)) * INVENTORY_HEIGHT;
+        float ringHeight    = lerp(float(this->page), float(targetPage), quintic(phasePage)) * INVENTORY_HEIGHT;
         float angle         = getAngle(pageItemIndex[page], count);
 
         if (phaseSelect < 1.0f)
-            angle = lerpAngle(angle, getAngle(targetIndex, count), hermite(phaseSelect));
+            angle = lerpAngle(angle, getAngle(targetIndex, count), quintic(phaseSelect));
         
         Basis basis = Basis(quat(vec3(1, 0, 0), ringTilt), vec3(0));
 

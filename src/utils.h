@@ -176,20 +176,18 @@ float decrease(float delta, float &value, float &speed) {
         return 0.0f;
 }
 
-float hermite(float x) {
-    return x * x * (3.0f - 2.0f * x);
+inline float hermite(float x) {
+    return x * x * (3 - 2 * x);
 }
 
-float lerpHermite(float a, float b, float t) {
-    if (t <= 0.0f) return a;
-    if (t >= 1.0f) return b;
-    return a + (b - a) * hermite(t); 
+inline float quintic(float x) {
+    return x * x * x * (x * (x * 6 - 15) + 10);
 }
 
-float lerp(float a, float b, float t) {
+inline float lerp(float a, float b, float t) {
     if (t <= 0.0f) return a;
     if (t >= 1.0f) return b;
-    return a + (b - a) * t; 
+    return a + (b - a) * t;
 }
 
 float lerpAngle(float a, float b, float t) {
@@ -243,6 +241,108 @@ template <class T>
 void sort(T *items, int count) {
     if (count)
         qsort(items, 0, count - 1);
+}
+
+
+namespace Noise { // based on https://github.com/Auburns/FastNoise
+    int seed;
+
+    uint8 m_perm[512];
+    uint8 m_perm12[512];
+
+    const float GRAD_X[] = { 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0 };
+    const float GRAD_Y[] = { 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1 };
+    const float GRAD_Z[] = { 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1 };
+
+    uint8 index(int x, int y, int z) {
+        return m_perm12[(x & 0xff) + m_perm[(y & 0xff) + m_perm[(z & 0xff)]]];
+    }
+
+    float noise(int x, int y, int z, float xd, float yd, float zd) {
+        uint8 lutPos = index(x, y, z);
+        return xd * GRAD_X[lutPos] + yd * GRAD_Y[lutPos] + zd * GRAD_Z[lutPos];
+    }
+
+    void setSeed(int seed) {
+        Noise::seed = seed;
+        srand(seed);
+
+        for (int i = 0; i < 256; i++)
+            m_perm[i] = i;
+
+        for (int j = 0; j < 256; j++) {
+            int k       = (rand() % (256 - j)) + j;
+            int p       = m_perm[j];
+            m_perm[j]   = m_perm[j + 256] = m_perm[k];
+            m_perm[k]   = p;
+            m_perm12[j] = m_perm12[j + 256] = m_perm[j] % 12;
+        }
+    }
+
+    float value(float x, float y, float z, int size) {
+        x *= size;
+        y *= size;
+        z *= size;
+
+        int x0 = (int)x;
+        int y0 = (int)y;
+        int z0 = (int)z;
+        int x1 = (x0 + 1) % size;
+        int y1 = (y0 + 1) % size;
+        int z1 = (z0 + 1) % size;
+
+        float dx0 = x - x0;
+        float dy0 = y - y0;
+        float dz0 = z - z0;
+        float dx1 = dx0 - 1;
+        float dy1 = dy0 - 1;
+        float dz1 = dz0 - 1;
+
+        float fx = quintic(dx0);
+        float fy = quintic(dy0);
+        float fz = quintic(dz0);
+
+        return lerp(lerp(lerp(noise(x0, y0, z0, dx0, dy0, dz0), noise(x1, y0, z0, dx1, dy0, dz0), fx), 
+                         lerp(noise(x0, y1, z0, dx0, dy1, dz0), noise(x1, y1, z0, dx1, dy1, dz0), fx), fy),
+                    lerp(lerp(noise(x0, y0, z1, dx0, dy0, dz1), noise(x1, y0, z1, dx1, dy0, dz1), fx), 
+                         lerp(noise(x0, y1, z1, dx0, dy1, dz1), noise(x1, y1, z1, dx1, dy1, dz1), fx), fy), fz);
+    }
+
+    uint8* generate(uint32 seed, int size, int octaves, int frequency, float amplitude) {
+        setSeed(seed);
+
+        float *out = new float[size * size * size];
+        memset(out, 0, size * size * size * sizeof(float));
+
+        float isize = 1.0f / size;
+
+        for (int j = 0; j < octaves; j++) {
+            float *ptr = out;
+
+            for (int z = 0; z < size; z++) {
+                float iz = z * isize;
+                for (int y = 0; y < size; y++) {
+                    float iy = y * isize;
+                    for (int x = 0; x < size; x++) {
+                        float ix = x * isize;
+                        *ptr++ += value(ix, iy, iz, frequency) * amplitude;
+                    }
+                }
+            }
+
+            frequency *= 2;
+            amplitude *= 0.5f;
+        }
+
+        uint8 *dst = new uint8[size * size * size];
+        for (int i = 0; i < size * size * size; i++) {
+            dst[i] = clamp(int((out[i] * 0.5f + 0.5f) * 255.0f), 0, 255);
+        }
+
+        delete[] out;
+
+        return dst;
+    }
 }
 
 struct vec2 {

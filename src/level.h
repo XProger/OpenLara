@@ -22,6 +22,7 @@
 #endif
 
 #define ANIM_TEX_TIMESTEP (10.0f / 30.0f)
+#define SKY_TIME_PERIOD   (1.0f / 0.005f)
 
 extern void loadLevelAsync(Stream *stream, void *userData);
 
@@ -342,9 +343,9 @@ struct Level : IGame {
         delete shadow;
         if (Core::settings.detail.shadows > Core::Settings::LOW) {
             if (level.isTitle())
-                shadow = new Texture(32, 32, FMT_SHADOW); // init dummy shadow map
+                shadow = new Texture(32, 32, 1, FMT_SHADOW); // init dummy shadow map
             else
-                shadow = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, FMT_SHADOW, OPT_TARGET);
+                shadow = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, 1, FMT_SHADOW, OPT_TARGET);
         } else
             shadow = NULL;
     }
@@ -1486,37 +1487,69 @@ struct Level : IGame {
     }
 
     void renderSky() {
-        if (level.extra.sky == -1) return;
         ASSERT(mesh->transparent == 0);
+
+        Shader::Type type;
+        TR::SkyParams skyParams;
+
+        if (level.version & TR::VER_TR1) {
+            if (Core::settings.detail.lighting < Core::Settings::HIGH || !Core::support.tex3D || !TR::getSkyParams(level.id, skyParams))
+                return;
+            type = Shader::SKY_CLOUDS_AZURE;
+        } else { // TR2, TR3
+            if (level.extra.sky == -1)
+                return;
+
+            if (Core::settings.detail.lighting < Core::Settings::HIGH || !Core::support.tex3D) {
+                type = Shader::DEFAULT;
+            } else {
+                type = Shader::SKY_CLOUDS;
+                if (!TR::getSkyParams(level.id, skyParams)) {
+                    type = Shader::DEFAULT;
+                }
+            }
+        }
 
         Core::Pass pass = Core::pass;
         mat4 mView = Core::mView;
         mat4 mProj = Core::mProj;
 
         Core::mView.setPos(vec3(0));
-
-        // TODO TR2 TR3 use animation frame to get skydome rotation
-        // Animation anim(&level, &level.models[level.extra.sky]);
-        // anim.getJoints(Basis(quat(0, 0, 0, 1), vec3(0)), 0, false));//Basis(anim.getJointRot(0), vec3(0)));
-
-        if (level.version & TR::VER_TR2) {
-            Core::mView.rotateX(PIH);
-        }
         Core::setViewProj(Core::mView, Core::mProj);
 
-        setShader(Core::passSky, Shader::DEFAULT, false, false);
+        setShader(Core::passSky, type, false, false);
 
-        //Basis b;
-        //Core::setBasis(&b, 1); // unused
+        if (type != Shader::DEFAULT) {
+            float time = Core::params.x;
+            if (time > SKY_TIME_PERIOD) {
+                time /= SKY_TIME_PERIOD;
+                time = (time - int(time)) * SKY_TIME_PERIOD;
+            }
 
-        mesh->renderModel(level.extra.sky);
+            Core::active.shader->setParam(uParam,     vec4(skyParams.wind * time, 1.0));
+            Core::active.shader->setParam(uLightProj, *(mat4*)&skyParams);
+            Core::active.shader->setParam(uPosScale,  skyParams.cloudDownColor, 2);
+
+            Core::perlinTex->bind(sNormal);
+            Core::ditherTex->bind(sMask);
+        }
+
+        if (level.version & TR::VER_TR1) {
+            Core::setCullMode(cmNone);
+            mesh->renderBox();
+            Core::setCullMode(cmFront);
+        } else {
+            Basis b;
+            Core::setBasis(&b, 1); // unused
+            mesh->renderModel(level.extra.sky);
+        }
 
         Core::setViewProj(mView, mProj);
         Core::pass = pass;
     }
 
     void prepareRooms(int *roomsList, int roomsCount) {
-        skyIsVisible = false;
+        skyIsVisible = (level.version & TR::VER_TR1);
 
         for (int i = 0; i < level.roomsCount; i++)
             level.rooms[i].flags.visible = false;
@@ -2369,7 +2402,7 @@ struct Level : IGame {
         Core::validateRenderState();
 
         /*
-        if (Core::settings.detail.shadows > Core::Settings::Quality::MEDIUM) { // per-object shadow map (atlas)
+        if (Core::settings.detail.shadows > Core::Settings::MEDIUM) { // per-object shadow map (atlas)
             NearObj nearObj[SHADOW_OBJ_MAX];
             int nearCount = getNearObjects(nearObj, SHADOW_OBJ_MAX);
 
@@ -2669,7 +2702,7 @@ struct Level : IGame {
 /*
     // EQUIRECTANGULAR PROJECTION test
         if (!cube360)
-            cube360 = new Texture(1024, 1024, Texture::RGBA, true, NULL, true, false);
+            cube360 = new Texture(1024, 1024, 1, Texture::RGBA, true, NULL, true, false);
         renderEnvironment(camera->getRoomIndex(), camera->pos, &cube360, 0, Core::passCompose);
         Core::setTarget(NULL, Core::CLEAR_ALL);
         setShader(Core::passFilter, Shader::FILTER_EQUIRECTANGULAR);

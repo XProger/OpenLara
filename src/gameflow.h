@@ -1312,16 +1312,17 @@ namespace TR {
     }
 
     #define FOG_DIST    (1.0f / (18 * 1024))
-    #define FOG_BLACK   vec4(0.0f, 0.0f, 0.0f, FOG_DIST)
-    #define FOG_SANDY   vec4(0.2f, 0.1f, 0.0f, FOG_DIST)
-    #define FOG_GREEN   vec4(0.0f, 0.1f, 0.0f, FOG_DIST)
-    #define FOG_RED     vec4(0.2f, 0.0f, 0.0f, FOG_DIST)
+    #define FOG_BLACK   vec4(0.0f,  0.0f, 0.0f,  FOG_DIST)
+    #define FOG_SANDY   vec4(0.2f,  0.1f, 0.0f,  FOG_DIST)
+    #define FOG_GREEN   vec4(0.0f,  0.1f, 0.0f,  FOG_DIST)
+    #define FOG_RED     vec4(0.2f,  0.0f, 0.0f,  FOG_DIST)
+    #define FOG_MIST    vec4(0.25f, 0.2f, 0.15f, FOG_DIST)
 
     vec4 getFogParams(LevelID id) {
         switch (id) {
             case LVL_TR1_1     :
-            case LVL_TR1_2     :
-            case LVL_TR1_3A    :
+            case LVL_TR1_2     : return FOG_BLACK;
+            case LVL_TR1_3A    : return FOG_MIST;
             case LVL_TR1_3B    :
             case LVL_TR1_CUT_1 : return FOG_BLACK;
             case LVL_TR1_4     :
@@ -1344,6 +1345,53 @@ namespace TR {
             case LVL_TR1_END2  : return FOG_SANDY;
             default            : return FOG_BLACK;
         }
+    }
+
+    struct SkyParams {
+        vec4 skyDownColor;
+        vec4 skyUpColor;
+        vec4 sunDirSize;
+        vec4 sunColorGlare;
+        vec4 cloudDownColor;
+        vec4 cloudUpColor;
+        vec3 wind;
+    };
+
+    #define CLOUD_UP    vec3()
+    #define CLOUD_DOWN  vec3()
+
+    bool getSkyParams(LevelID id, SkyParams &params) {
+        switch (id) {
+            case LVL_TR1_3A :
+                params.skyDownColor    = vec4(0.8f, 0.8f, 0.7f, 1.0f);
+                params.skyUpColor      = vec4(0.3f, 0.4f, 0.5f, 1.0f);
+                params.sunDirSize      = vec4(vec3(1.0f, 0.75f, -1.0f).normal(), 0.0025f);
+                params.sunColorGlare   = vec4(0.8f, 0.4f, 0.1f, 4.0f);
+                params.cloudDownColor  = vec4(0.35f, 0.4f, 0.45f, 1.0f);
+                params.cloudUpColor    = vec4(1.1f, 1.045f, 0.88f, 1.0f);
+                params.wind            = vec3(0.01f, -0.005f, 0.005f);
+                break;
+            case LVL_TR1_5 :
+                params.skyDownColor    = vec4(0.15f, 0.05f, 0.0f, 1.0f);
+                params.skyUpColor      = vec4(0.3f, 0.2f, 0.1f, 1.0f);
+                params.sunDirSize      = vec4(vec3(-1.0f, 0.8f, -1.0f).normal(), 0.0015f);
+                params.sunColorGlare   = vec4(0.7f, 0.7f, 0.6f, 256.0f);
+                params.cloudDownColor  = vec4(0.2f, 0.1f, 0.0f, 1.0f);
+                params.cloudUpColor    = vec4(0.5f, 0.5f, 0.4f, 1.0f);
+                params.wind            = vec3(0.01f, -0.005f, 0.005f);
+                break;
+            case LVL_TR3_HOUSE : // test
+                params.skyDownColor    = vec4(0.8f, 0.8f, 0.7f, 1.0f);
+                params.skyUpColor      = vec4(0.3f, 0.4f, 0.5f, 1.0f);
+                params.sunDirSize      = vec4(vec3(1.0f, 0.75f, -1.0f).normal(), 0.0025f);
+                params.sunColorGlare   = vec4(0.8f, 0.4f, 0.1f, 4.0f);
+                params.cloudDownColor  = vec4(0.35f, 0.4f, 0.45f, 1.0f);
+                params.cloudUpColor    = vec4(1.1f, 1.045f, 0.88f, 1.0f);
+                params.wind            = vec3(0.01f, -0.005f, 0.005f);
+                break;
+            default : return false;
+        }
+        return true;
     }
 }
 

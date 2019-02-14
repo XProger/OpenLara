@@ -1396,8 +1396,8 @@ struct Controller {
         Core::active.shader->setParam(uViewProj, Core::mViewProj * m);
         Core::setBasis(&b, 1);
 
-        float alpha = lerp(0.7f, 0.90f, clamp((info.floor - boxA.max.y) / 1024.0f, 0.0f, 1.0f) );
-        float lum   = 0.5f * (1.0f - alpha);
+        float alpha = lerp(0.7f, 0.9f, clamp((info.floor - boxA.max.y) / 1024.0f, 0.0f, 1.0f) );
+        float lum   = 1.0f - alpha;
         Core::setMaterial(lum, lum, lum, alpha);
 
         Core::setDepthWrite(false);

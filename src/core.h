@@ -58,6 +58,8 @@
     #define _GAPI_GLES 1
 
     #undef  OS_FILEIO_CACHE
+
+    extern int WEBGL_VERSION;
 #elif _PSP
     #define _OS_PSP  1
     #define _GAPI_GU 1
@@ -188,6 +190,7 @@ namespace Core {
         bool shadowSampler;
         bool discardFrame;
         bool texNPOT;
+        bool tex3D;
         bool texRG;
         bool texBorder;
         bool colorFloat, texFloat, texFloatLinear;
@@ -303,6 +306,8 @@ namespace Core {
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
 #define NOISE_TEX_SIZE       32
+#define PERLIN_TEX_SIZE      128
+#define PERLIN_TEX_NAME      "perlin3_128.raw"
 
 struct Shader;
 struct Texture;
@@ -348,14 +353,15 @@ enum TexFormat {
 
 // Texture options
 enum TexOption {
-    OPT_REPEAT  = 0x01,
-    OPT_CUBEMAP = 0x02,
-    OPT_MIPMAPS = 0x04, 
-    OPT_NEAREST = 0x08,
-    OPT_TARGET  = 0x10,
-    OPT_VERTEX  = 0x20,
-    OPT_DEPEND  = 0x40,
-    OPT_PROXY   = 0x80,
+    OPT_REPEAT  = 0x0001,
+    OPT_CUBEMAP = 0x0002,
+    OPT_VOLUME  = 0x0004,
+    OPT_MIPMAPS = 0x0008, 
+    OPT_NEAREST = 0x0010,
+    OPT_TARGET  = 0x0020,
+    OPT_VERTEX  = 0x0040,
+    OPT_DEPEND  = 0x0080,
+    OPT_PROXY   = 0x0100,
 };
 
 // Pipeline State Object
@@ -440,6 +446,10 @@ struct MeshRange {
     E( TYPE_ROOM      ) \
     E( TYPE_ENTITY    ) \
     E( TYPE_MIRROR    ) \
+    /* sky */ \
+    E( SKY_TEXTURE      ) \
+    E( SKY_CLOUDS       ) \
+    E( SKY_CLOUDS_AZURE ) \
     /* water sub-passes */ \
     E( WATER_DROP     ) \
     E( WATER_SIMULATE ) \
@@ -506,7 +516,7 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
-    Texture *whiteTex, *whiteCube, *blackTex, *ditherTex, *noiseTex;
+    Texture *whiteTex, *whiteCube, *blackTex, *ditherTex, *noiseTex, *perlinTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passSky, passWater, passFilter, passGUI, passMAX } pass;
 
@@ -599,7 +609,42 @@ namespace Core {
 
     static const char *version = __DATE__;
 
+    void readPerlinAsync(Stream *stream, void *userData) {
+        int size = PERLIN_TEX_SIZE * PERLIN_TEX_SIZE * PERLIN_TEX_SIZE;
+        uint8 *perlinData = NULL;
+
+        if (stream && stream->size == size) {
+            perlinData = new uint8[size];
+            stream->raw(perlinData, size);
+        } else {
+            perlinData = Noise::generate(123456, PERLIN_TEX_SIZE, 5, 8, 1.0f);
+            Stream::cacheWrite(PERLIN_TEX_NAME, (char*)perlinData, size);
+        }
+        delete stream;
+
+        perlinTex = new Texture(PERLIN_TEX_SIZE, PERLIN_TEX_SIZE, PERLIN_TEX_SIZE, FMT_LUMINANCE, OPT_REPEAT | OPT_VOLUME, perlinData);
+    /*/
+        uint8 *pdata = new uint8[SQR(PERLIN_TEX_SIZE) * 4];
+        int offset = 0;
+        for (int k = 0; k < PERLIN_TEX_SIZE; k++) {
+            int j = 0;
+            for (int i = 0; i < SQR(PERLIN_TEX_SIZE); i++) {
+                pdata[j + 0] = pdata[j + 1] = pdata[j + 2] = perlinData[offset + i];
+                pdata[j + 3] = 255;
+                j += 4;
+            }
+            char buf[256];
+            sprintf(buf, "noise/perlin_%03d", k);
+            Texture::SaveBMP(buf, (char*)pdata, PERLIN_TEX_SIZE, PERLIN_TEX_SIZE);
+            offset += PERLIN_TEX_SIZE * PERLIN_TEX_SIZE;
+        }
+        delete[] pdata;
+    */
+        delete[] perlinData;
+    }
+
     void init() {
+        memset(&support, 0, sizeof(support));
         LOG("OpenLara (%s)\n", version);
         x = y = 0;
 
@@ -624,6 +669,7 @@ namespace Core {
         LOG("  shadow sampler : %s\n", support.shadowSampler ? "true" : "false");
         LOG("  discard frame  : %s\n", support.discardFrame  ? "true" : "false");
         LOG("  NPOT textures  : %s\n", support.texNPOT       ? "true" : "false");
+        LOG("  3D   textures  : %s\n", support.tex3D         ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
         LOG("  clip distance  : %s\n", support.clipDist      ? "true" : "false");
@@ -641,35 +687,42 @@ namespace Core {
         }
         eye = 0.0f;
 
-        uint32 data = 0xFFFFFFFF;
-        whiteTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
-        whiteCube = new Texture(1, 1, FMT_RGBA, OPT_CUBEMAP, &data);
-        data = 0;
-        blackTex  = new Texture(1, 1, FMT_RGBA, OPT_NEAREST, &data);
-
-    // generate dithering texture
-        uint8 ditherData[] = {
-            0x00, 0x7F, 0x1F, 0x9F, 0x07, 0x87, 0x27, 0xA7,
-            0xBF, 0x3F, 0xDF, 0x5F, 0xC7, 0x47, 0xE7, 0x67,
-            0x2F, 0xAF, 0x0F, 0x8F, 0x37, 0xB7, 0x17, 0x97,
-            0xEF, 0x6F, 0xCF, 0x4F, 0xF7, 0x77, 0xD7, 0x57,
-            0x0B, 0x8B, 0x2B, 0xAB, 0x03, 0x83, 0x23, 0xA3,
-            0xCB, 0x4B, 0xEB, 0x6B, 0xC3, 0x43, 0xE3, 0x63,
-            0x3B, 0xBB, 0x1B, 0x9B, 0x33, 0xB3, 0x13, 0x93,
-            0xFB, 0x7B, 0xDB, 0x5B, 0xF3, 0x73, 0xD3, 0x53,
-        };
-        ditherTex = new Texture(8, 8, FMT_LUMINANCE, OPT_REPEAT | OPT_NEAREST, &ditherData);
-
-    // generate noise texture
-        uint8 *noiseData = new uint8[SQR(NOISE_TEX_SIZE) * 4];
-        for (int i = 0; i < SQR(NOISE_TEX_SIZE) * 4; i++) {
-            noiseData[i] = rand() % 255;
+        { // init 1x1 textures
+            uint32 data = 0xFFFFFFFF;
+            whiteTex  = new Texture(1, 1, 1, FMT_RGBA, OPT_NEAREST, &data);
+            whiteCube = new Texture(1, 1, 1, FMT_RGBA, OPT_CUBEMAP, &data);
+            data = 0;
+            blackTex  = new Texture(1, 1, 1, FMT_RGBA, OPT_NEAREST, &data);
         }
-        noiseTex = new Texture(NOISE_TEX_SIZE, NOISE_TEX_SIZE, FMT_RGBA, OPT_REPEAT, noiseData);
-        delete[] noiseData;
 
+        { // generate dithering texture
+            uint8 ditherData[] = {
+                0x00, 0x7F, 0x1F, 0x9F, 0x07, 0x87, 0x27, 0xA7,
+                0xBF, 0x3F, 0xDF, 0x5F, 0xC7, 0x47, 0xE7, 0x67,
+                0x2F, 0xAF, 0x0F, 0x8F, 0x37, 0xB7, 0x17, 0x97,
+                0xEF, 0x6F, 0xCF, 0x4F, 0xF7, 0x77, 0xD7, 0x57,
+                0x0B, 0x8B, 0x2B, 0xAB, 0x03, 0x83, 0x23, 0xA3,
+                0xCB, 0x4B, 0xEB, 0x6B, 0xC3, 0x43, 0xE3, 0x63,
+                0x3B, 0xBB, 0x1B, 0x9B, 0x33, 0xB3, 0x13, 0x93,
+                0xFB, 0x7B, 0xDB, 0x5B, 0xF3, 0x73, 0xD3, 0x53,
+            };
+            ditherTex = new Texture(8, 8, 1, FMT_LUMINANCE, OPT_REPEAT | OPT_NEAREST, &ditherData);
+        }
 
-// init settings
+        { // generate noise texture
+            uint8 *noiseData = new uint8[SQR(NOISE_TEX_SIZE) * 4];
+            for (int i = 0; i < SQR(NOISE_TEX_SIZE) * 4; i++) {
+                noiseData[i] = rand() % 255;
+            }
+            noiseTex = new Texture(NOISE_TEX_SIZE, NOISE_TEX_SIZE, 1, FMT_RGBA, OPT_REPEAT, noiseData);
+            delete[] noiseData;
+        }
+
+        if (support.tex3D) {
+            Stream::cacheRead(PERLIN_TEX_NAME, readPerlinAsync);
+        }
+
+    // init settings
         settings.version = SETTINGS_VERSION;
 
         settings.detail.setFilter   (Core::Settings::HIGH);
@@ -770,6 +823,7 @@ namespace Core {
         delete blackTex;
         delete ditherTex;
         delete noiseTex;
+        delete perlinTex;
 
         GAPI::deinit();
         NAPI::deinit();
