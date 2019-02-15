@@ -12,4 +12,4 @@ add_library( game SHARED
 
 include_directories(../../../)
 
-target_link_libraries( game GLESv2 log )
+target_link_libraries( game GLESv3 OpenSLES log )

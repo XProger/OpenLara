@@ -5,6 +5,8 @@
 #include <math.h>
 #include <pthread.h>
 #include <cstring>
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
 
 #include "game.h"
 
@@ -22,6 +24,88 @@ int osGetTime() {
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
 }
+
+// sound
+#define          SND_FRAMES 1176
+
+Sound::Frame     sndBuf[2][SND_FRAMES];
+int              sndBufIndex;
+
+SLObjectItf      sndEngine;
+SLObjectItf      sndOutput;
+SLObjectItf      sndPlayer;
+SLBufferQueueItf sndQueue = NULL;
+SLPlayItf        sndPlay  = NULL;
+
+void sndFill(SLBufferQueueItf bq, void *context) {
+    if (!sndQueue) return;
+    Sound::fill(sndBuf[sndBufIndex ^= 1], SND_FRAMES);
+    (*sndQueue)->Enqueue(sndQueue, sndBuf[sndBufIndex], SND_FRAMES * sizeof(Sound::Frame));
+}
+
+void sndSetState(bool active) {
+    if (!sndPlay) return;
+    (*sndPlay)->SetPlayState(sndPlay, active ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_PAUSED);
+}
+
+void sndInit() {
+    slCreateEngine(&sndEngine, 0, NULL, 0, NULL, NULL);
+    (*sndEngine)->Realize(sndEngine, SL_BOOLEAN_FALSE);
+
+    SLEngineItf engine;
+
+    (*sndEngine)->GetInterface(sndEngine, SL_IID_ENGINE, &engine);
+    (*engine)->CreateOutputMix(engine, &sndOutput, 0, NULL, NULL);
+    (*sndOutput)->Realize(sndOutput, SL_BOOLEAN_FALSE);
+
+    SLDataFormat_PCM bufFormat;
+    bufFormat.formatType    = SL_DATAFORMAT_PCM;
+    bufFormat.numChannels   = 2;
+    bufFormat.samplesPerSec = SL_SAMPLINGRATE_44_1;
+    bufFormat.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_16;
+    bufFormat.containerSize = SL_PCMSAMPLEFORMAT_FIXED_16;
+    bufFormat.channelMask   = SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT ;
+    bufFormat.endianness    = SL_BYTEORDER_LITTLEENDIAN;
+
+    SLDataLocator_AndroidSimpleBufferQueue bufLocator;
+    bufLocator.locatorType = SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE;
+    bufLocator.numBuffers  = 2;
+    
+    SLDataLocator_OutputMix snkLocator;
+    snkLocator.locatorType = SL_DATALOCATOR_OUTPUTMIX;
+    snkLocator.outputMix   = sndOutput;
+
+    SLDataSource audioSrc;
+    audioSrc.pLocator = &bufLocator;
+    audioSrc.pFormat  = &bufFormat;
+
+    SLDataSink audioSnk;
+    audioSnk.pLocator = &snkLocator;
+    audioSnk.pFormat  = NULL;
+
+    SLInterfaceID audioInt[] = { SL_IID_BUFFERQUEUE, SL_IID_PLAY  };
+    SLboolean     audioReq[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+
+    (*engine)->CreateAudioPlayer(engine, &sndPlayer, &audioSrc, &audioSnk, 2, audioInt, audioReq);
+    (*sndPlayer)->Realize(sndPlayer, SL_BOOLEAN_FALSE);
+    (*sndPlayer)->GetInterface(sndPlayer, SL_IID_BUFFERQUEUE, &sndQueue);
+    (*sndPlayer)->GetInterface(sndPlayer, SL_IID_PLAY, &sndPlay);
+    (*sndQueue)->RegisterCallback(sndQueue, sndFill, NULL);
+
+    sndBufIndex = 1;
+    sndFill(sndQueue, NULL);
+    sndFill(sndQueue, NULL);
+}
+
+void sndFree() {
+    if (sndPlayer) (*sndPlayer)->Destroy(sndPlayer);
+    if (sndOutput) (*sndOutput)->Destroy(sndOutput);
+    if (sndEngine) (*sndEngine)->Destroy(sndEngine);
+    sndPlayer = sndOutput = sndEngine = NULL;
+    sndQueue = NULL;
+    sndPlay  = NULL;
+}
+
 
 // joystick
 bool osJoyReady(int index) {
@@ -65,12 +149,15 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstr
 
     strcpy(saveDir, cacheDir);
 
+    sndInit();
+
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&GAPI::defaultFBO);
     Game::init();
 }
 
 JNI_METHOD(void, nativeFree)(JNIEnv* env) {
     Game::deinit();
+    sndFree();
 }
 
 JNI_METHOD(void, nativeReset)(JNIEnv* env) {
@@ -182,11 +269,8 @@ JNI_METHOD(void, nativeSetEye)(JNIEnv* env, jobject obj, jint eye, jfloatArray p
     env->ReleaseFloatArrayElements(view, mView, 0);
 }
 
-JNI_METHOD(void, nativeSoundFill)(JNIEnv* env, jobject obj, jshortArray buffer) {
-    jshort *frames = env->GetShortArrayElements(buffer, NULL);
-    jsize count = env->GetArrayLength(buffer) / 2;
-    Sound::fill((Sound::Frame*)frames, count);
-    env->ReleaseShortArrayElements(buffer, frames, 0);
+JNI_METHOD(void, nativeSoundState)(JNIEnv* env, jobject obj, jboolean active) {
+    sndSetState(active);
 }
 
 }

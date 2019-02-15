@@ -2,9 +2,6 @@ package org.xproger.openlara;
 
 import java.util.ArrayList;
 import javax.microedition.khronos.egl.EGLConfig;
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.InputDevice;
@@ -14,16 +11,12 @@ import android.view.View;
 import android.view.View.OnGenericMotionListener;
 import android.view.View.OnKeyListener;
 import android.view.View.OnTouchListener;
-import android.view.Window;
-import android.view.WindowManager;
 
-import com.google.vr.sdk.base.AndroidCompat;
 import com.google.vr.sdk.base.Eye;
 import com.google.vr.sdk.base.GvrActivity;
 import com.google.vr.sdk.base.GvrView;
 import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
-import android.app.Activity;
 
 public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyListener, OnGenericMotionListener {
     static GvrView gvrView;
@@ -218,79 +211,6 @@ public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyL
     }
 }
 
-// @TODO: use native OpenSL ES
-class Sound {
-    private short buffer[];
-    private static AudioTrack audioTrack;
-
-    void start(final Wrapper wrapper) {
-        int rate = 44100;
-        int size = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
-        size /= 2; // bytes -> words
-        while (size % 4704 != 0) size++;
-        //System.out.println(String.format("sound buffer size: %d", size));
-        buffer = new short[size];
-
-        try {
-            audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 44100, AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT, size * 2, AudioTrack.MODE_STREAM);
-        }catch (IllegalArgumentException e){
-            System.out.println("Error: buffer size is zero");
-            return;
-        }
-
-        try {
-            audioTrack.play();
-        }catch (NullPointerException e){
-            System.out.println("Error: audioTrack null pointer on start()");
-            return;
-        }
-
-        new Thread( new Runnable() {
-            public void run() {
-                while ( audioTrack.getPlayState() != AudioTrack.PLAYSTATE_STOPPED ) {
-                    if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING && wrapper.ready) {
-                        Wrapper.nativeSoundFill(buffer);
-                        audioTrack.write(buffer, 0, buffer.length);
-                        audioTrack.flush();
-                    } else
-                        try {
-                            Thread.sleep(10);
-                        } catch(Exception e) {
-                            //
-                        }
-                }
-            }
-        } ).start();
-    }
-
-    void stop() {
-        try {
-            audioTrack.flush();
-            audioTrack.stop();
-            audioTrack.release();
-        }catch (NullPointerException e){
-            System.out.println("Error: audioTrack null pointer on stop()");
-        }
-    }
-
-    void play() {
-        try {
-            audioTrack.play();
-        }catch (NullPointerException e){
-            System.out.println("Error: audioTrack null pointer on play()");
-        }
-    }
-
-    void pause() {
-        try {
-            audioTrack.pause();
-        }catch (NullPointerException e){
-            System.out.println("Error: audioTrack null pointer on pause()");
-        };
-    }
-}
-
 class Touch {
     int id, state;
     float x, y;
@@ -315,34 +235,29 @@ class Wrapper implements GvrView.StereoRenderer {
     public static native void nativeFrameEnd();
     public static native void nativeFrameRender();
     public static native void nativeTouch(int id, int state, float x, float y);
-    public static native void nativeSoundFill(short buffer[]);
+    public static native void nativeSoundState(boolean active);
 
     Boolean ready = false;
     Boolean toggleVR = false;
     private String contentDir;
     private String cacheDir;
     private ArrayList<Touch> touch = new ArrayList<>();
-    private Sound sound;
 
     void onCreate(String contentDir, String cacheDir) {
         this.contentDir  = contentDir;
         this.cacheDir    = cacheDir;
-
-        sound = new Sound();
-        sound.start(this);
     }
 
     void onDestroy() {
-        sound.stop();
         nativeFree();
     }
 
     void onPause() {
-        sound.pause();
+        nativeSoundState(false);
     }
 
     void onResume() {
-        sound.play();
+        nativeSoundState(true);
         if (ready) nativeReset();
     }
 
@@ -361,7 +276,7 @@ class Wrapper implements GvrView.StereoRenderer {
     public void onSurfaceCreated(EGLConfig config) {
         if (!ready) {
             nativeInit(contentDir, cacheDir);
-            sound.play();
+            nativeSoundState(true);
             ready = true;
         }
     }
