@@ -13,8 +13,11 @@
 #elif _OS_ANDROID
     #include <dlfcn.h>
 
-    #include <GLES2/gl2.h>
+    #include <GLES3/gl3.h>
+    #include <GLES3/gl3ext.h>
     #include <GLES2/gl2ext.h>
+
+/*
     #define GL_CLAMP_TO_BORDER          0x812D
     #define GL_TEXTURE_BORDER_COLOR     0x1004
 
@@ -45,6 +48,7 @@
     #define glProgramBinary              glProgramBinaryOES
 
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+*/
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
@@ -168,7 +172,7 @@
     #define glProgramBinary(...)
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_ANDROID)
+#if defined(_OS_WIN) || defined(_OS_LINUX)
 
     #ifdef _OS_ANDROID
         #define GetProc(x) dlsym(libGL, x);
@@ -264,7 +268,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS) && !defined(_OS_ANDROID)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -692,17 +696,10 @@ namespace GAPI {
                 glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
             }
 
-            bool border = isShadow && Core::support.texBorder;
-
-            glTexParameteri(target, GL_TEXTURE_WRAP_S, (opt & OPT_REPEAT) ? GL_REPEAT : (border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE));
-            glTexParameteri(target, GL_TEXTURE_WRAP_T, (opt & OPT_REPEAT) ? GL_REPEAT : (border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE));
+            glTexParameteri(target, GL_TEXTURE_WRAP_S, (opt & OPT_REPEAT) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+            glTexParameteri(target, GL_TEXTURE_WRAP_T, (opt & OPT_REPEAT) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
             if (isVolume) {
-                glTexParameteri(target, GL_TEXTURE_WRAP_R, (opt & OPT_REPEAT) ? GL_REPEAT : (border ? GL_CLAMP_TO_BORDER : GL_CLAMP_TO_EDGE));
-            }
-
-            if (border) {
-                float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-                glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, color);
+                glTexParameteri(target, GL_TEXTURE_WRAP_R, (opt & OPT_REPEAT) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
             }
 
             glTexParameteri(target, GL_TEXTURE_MIN_FILTER, filter ? (mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR) : (mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST));
@@ -986,7 +983,7 @@ namespace GAPI {
             void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_ANDROID)
+        #if defined(_OS_WIN) || defined(_OS_LINUX)
             #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
@@ -1054,15 +1051,15 @@ namespace GAPI {
                 GetProcOGL(glBufferSubData);
             #endif
 
-            #ifdef _GAPI_GLES
-                GetProcOGL(glDiscardFramebufferEXT);
-            #endif
-
             GetProcOGL(glGenVertexArrays);
             GetProcOGL(glDeleteVertexArrays);
             GetProcOGL(glBindVertexArray);
             GetProcOGL(glGetProgramBinary);
             GetProcOGL(glProgramBinary);
+
+            #ifdef _GAPI_GLES
+                GetProcOGL(glDiscardFramebufferEXT);
+            #endif
         #endif
 
         LOG("Vendor   : %s\n", (char*)glGetString(GL_VENDOR));
@@ -1280,8 +1277,13 @@ namespace GAPI {
             GLenum discard[2];
             if (color) discard[count++] = Core::active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
             if (depth) discard[count++] = Core::active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
-            if (count)
-                glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
+            if (count) {
+                #ifdef _OS_ANDROID
+                    glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
+                #else
+                    glDiscardFramebuffer(GL_FRAMEBUFFER, count, discard);
+                #endif
+            }
         }
     #endif
     }
