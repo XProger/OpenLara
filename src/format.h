@@ -1423,6 +1423,8 @@ namespace TR {
 
             for (int i = 0; i < lightsCount; i++) {
                 Light &light = lights[i];
+                if (light.intensity > 8192)
+                    continue;
 
                 int dx = x - light.x;
                 int dy = y - light.y;
