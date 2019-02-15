@@ -63,6 +63,8 @@
     #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
     #undef  GL_RG
+    #undef  GL_RG32F
+    #undef  GL_RG16F
     #undef  GL_RGBA32F
     #undef  GL_RGBA16F
     #undef  GL_HALF_FLOAT
@@ -70,11 +72,17 @@
     #define GL_RG           GL_RGBA
     #define GL_RGBA32F      GL_RGBA
     #define GL_RGBA16F      GL_RGBA
+    #define GL_RG32F        GL_RGBA
+    #define GL_RG16F        GL_RGBA
     #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
+    #define GL_TEXTURE_3D           0
+    #define GL_TEXTURE_WRAP_R       0
     #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
     #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
-    
+
+    #define glTexImage3D(...) 0
+
     #define glGenVertexArrays(...)
     #define glDeleteVertexArrays(...)
     #define glBindVertexArray(...)
@@ -206,7 +214,9 @@
 
     #if defined(_OS_WIN) || defined(_OS_LINUX)
         PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
-        PFNGLTEXIMAGE3DPROC                 glTexImage3D;
+        #ifdef _OS_WIN
+            PFNGLTEXIMAGE3DPROC             glTexImage3D;
+        #endif
     // Profiling
         #ifdef PROFILE
             PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -996,7 +1006,9 @@ namespace GAPI {
 
             #if defined(_OS_WIN) || defined(_OS_LINUX)
                 GetProcOGL(glGenerateMipmap);
-                GetProcOGL(glTexImage3D);
+                #ifdef _OS_WIN
+                    GetProcOGL(glTexImage3D);
+                #endif
 
                 #ifdef PROFILE
                     GetProcOGL(glObjectLabel);
@@ -1150,7 +1162,13 @@ namespace GAPI {
 
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = 0;
     #ifdef _GAPI_GLES
-        if (WEBGL_VERSION == 1) {
+        bool GLES3 = false;
+        #ifdef _OS_WEB
+            GLES3 = WEBGL_VERSION != 1;
+        #else
+            GLES3 = false;
+        #endif
+        if (!GLES3) {
             strcat(GLSL_HEADER_VERT, "#define VERTEX\n"
                                      "precision lowp  int;\n"
                                      "precision highp float;\n");
