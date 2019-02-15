@@ -16,39 +16,6 @@
     #include <GLES3/gl3.h>
     #include <GLES3/gl3ext.h>
     #include <GLES2/gl2ext.h>
-
-/*
-    #define GL_CLAMP_TO_BORDER          0x812D
-    #define GL_TEXTURE_BORDER_COLOR     0x1004
-
-    #define GL_TEXTURE_COMPARE_MODE     0x884C
-    #define GL_TEXTURE_COMPARE_FUNC     0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
-
-    #define GL_RG                       0x8227
-    #define GL_RG16F                    0x822F
-    #define GL_RG32F                    0x8230
-    #define GL_RGBA16F                  0x881A
-    #define GL_RGBA32F                  0x8814
-    #define GL_HALF_FLOAT               0x140B
-
-    #define GL_DEPTH_STENCIL            GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8        GL_UNSIGNED_INT_24_8_OES
-
-    #define PFNGLGENVERTEXARRAYSPROC     PFNGLGENVERTEXARRAYSOESPROC
-    #define PFNGLDELETEVERTEXARRAYSPROC  PFNGLDELETEVERTEXARRAYSOESPROC
-    #define PFNGLBINDVERTEXARRAYPROC     PFNGLBINDVERTEXARRAYOESPROC
-    #define glGenVertexArrays            glGenVertexArraysOES
-    #define glDeleteVertexArrays         glDeleteVertexArraysOES
-    #define glBindVertexArray            glBindVertexArrayOES
-
-    #define PFNGLGETPROGRAMBINARYPROC    PFNGLGETPROGRAMBINARYOESPROC
-    #define PFNGLPROGRAMBINARYPROC       PFNGLPROGRAMBINARYOESPROC
-    #define glGetProgramBinary           glGetProgramBinaryOES
-    #define glProgramBinary              glProgramBinaryOES
-
-    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-*/
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
@@ -1095,20 +1062,26 @@ namespace GAPI {
 */
 
     #ifndef FFP
-        bool ext3 = false;
+        bool GLES3 = false;
         #ifdef _OS_WEB
-            ext3 = WEBGL_VERSION != 1;
+            GLES3 = WEBGL_VERSION != 1;
+        #else
+            #ifdef _GAPI_GLES
+                int GLES_VERSION = 1;
+                glGetIntegerv(GL_MAJOR_VERSION, &GLES_VERSION);
+                GLES3 = GLES_VERSION > 2; 
+            #endif
         #endif
 
         support.shaderBinary   = extSupport(ext, "_program_binary");
-        support.VAO            = ext3 || extSupport(ext, "_vertex_array_object");
-        support.depthTexture   = ext3 || extSupport(ext, "_depth_texture");
+        support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
+        support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
         support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
-        support.texNPOT        = ext3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
-        support.texRG          = ext3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
+        support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         #ifdef _GAPI_GLES
-            support.tex3D      = ext3;
+            support.tex3D      = GLES3;
         #else
             support.tex3D      = glTexImage3D != NULL;
         #endif
@@ -1162,12 +1135,6 @@ namespace GAPI {
 
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = 0;
     #ifdef _GAPI_GLES
-        bool GLES3 = false;
-        #ifdef _OS_WEB
-            GLES3 = WEBGL_VERSION != 1;
-        #else
-            GLES3 = false;
-        #endif
         if (!GLES3) {
             strcat(GLSL_HEADER_VERT, "#define VERTEX\n"
                                      "precision lowp  int;\n"
