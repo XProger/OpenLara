@@ -14,7 +14,7 @@
     #endif
 #endif
 
-//#define VR_SUPPORT
+#define VR_SUPPORT
 // TODO: fix depth precision
 // TODO: fix water surface rendering
 // TODO: fix clipping
@@ -779,7 +779,8 @@ void vrUpdateView() {
     vL.setPos(vL.getPos() * ONE_METER);
     vR.setPos(vR.getPos() * ONE_METER);
     Input::hmd.setView(pL, pR, vL, vR);
-
+    // set last head and current head
+    Input::hmd.lastHead = Input::hmd.head;
     Input::hmd.head = head;
 }
 

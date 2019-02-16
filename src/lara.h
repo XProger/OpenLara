@@ -3042,14 +3042,39 @@ struct Lara : Character {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
 
             if (!(input & WALK)) {
-                input &= ~(LEFT | RIGHT);
+            //    input &= ~(LEFT | RIGHT); // commented out to allow side jumping in VR
             }
 
-            vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
-            angle.y = ang.y;
+
+            
+            vec3 ang;
+            if (Input::hmd.resetAngle) {
+                ang = getAngleAbs(Input::hmd.head.dir().xyz()); 
+                angle.y = ang.y;
+                Input::hmd.resetAngle = false;
+            }
+            else {
+                //ang = getAngleAbs(Input::hmd.head.dir().xyz());
+                //angle.y = ang.y;
+                ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz());
+                angle.y -= ang.y * 1.5 ; // adding difference between hmd frames // 360 = 360 ,but lara doesn't rotate enough(0.25) // method is not working
+            }
+
+            //if (Input::down[ikLeft]) {
+            //    rotateY(1);
+            //}
+            //else {
+            //    vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
+            //    angle.y = ang.y; // add incrementer based on button press, doesn't work with rotFactor.y
+            //}
+            if (!(input & (FORTH | BACK))) {
+                //rotateY();
+            
+            }
+
             if (stand == STAND_UNDERWATER) {
                 input &= ~(FORTH | BACK);
-                angle.x = ang.x;
+              //  angle.x = ang.x;
             }
         }
         return input;
@@ -3282,7 +3307,7 @@ struct Lara : Character {
             w *= TURN_WATER_FAST;
         else if (state == STATE_RUN) {
             if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-                w *= TURN_FAST;
+                w *= TURN_FAST; // added *2
             else
                 w *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / LARA_TILT_MAX;
         } else if (state == STATE_FAST_TURN)

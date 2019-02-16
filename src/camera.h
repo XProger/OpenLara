@@ -167,7 +167,7 @@ struct Camera : ICamera {
         }
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-            fpHead.rot = quat(vec3(1, 0, 0), PI);
+           //fpHead.rot = quat(vec3(1, 0, 0), PI);  // whats here
         }
 
         mViewInv.identity();
@@ -377,9 +377,10 @@ struct Camera : ICamera {
             } else
                 updateFirstPerson();
         } else {
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-                lookAngle = vec3(0.0f);
-            } else {
+           if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+               lookAngle = vec3(0.0f); // what's going on here // was 0
+               //lookAngle = Input::hmd.head.dir().xyz();
+           } else {
                 if (mode == MODE_LOOK) {
                     float d = 3.0f * Core::deltaTime;
 
