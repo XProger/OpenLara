@@ -674,8 +674,7 @@ namespace GAPI {
             Core::active.textures[0] = NULL;
             bind(0);
 
-
-            if (fmt == FMT_SHADOW) {
+            if (isShadow) {
                 glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
                 glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
             }
@@ -1273,7 +1272,7 @@ namespace GAPI {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
                 #else
-                    glDiscardFramebuffer(GL_FRAMEBUFFER, count, discard);
+                    glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                 #endif
             }
         }
