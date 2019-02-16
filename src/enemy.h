@@ -2790,14 +2790,19 @@ struct SkaterBoy : Human {
         game->addEntity(TR::Entity::UZIS, getRoomIndex(), pos, 0);
     }
 
+    virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
+        bool flag = health >= 120;
+        Human::hit(damage, enemy, hitType);
+        if (flag && health < 120) {
+            game->playTrack(56, true);
+        }
+    };
+    
     virtual int getStateGround() {
         if (!think(false))
             return state;
 
         fullChestRotation = state == STATE_STAND_FIRE || state == STATE_MOVE_FIRE;
-
-        if (health < 120)
-            game->playTrack(56, true);
 
         switch (state) {
             case STATE_STOP :

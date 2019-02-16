@@ -202,7 +202,7 @@ namespace Core {
     #endif
     } support;
 
-#define SETTINGS_VERSION 3
+#define SETTINGS_VERSION 4
 #define SETTINGS_READING 0xFF
 
     struct Settings {
@@ -222,6 +222,7 @@ namespace Core {
                 uint8 quality[4];
             };
             uint8 simple;
+            uint8 subtitles;
             uint8 vsync;
             uint8 stereo;
             void setFilter(Quality value) {
@@ -728,6 +729,7 @@ namespace Core {
         settings.detail.setShadows  (Core::Settings::HIGH);
         settings.detail.setWater    (Core::Settings::HIGH);
         settings.detail.simple       = false;
+        settings.detail.subtitles    = true;
         settings.detail.vsync        = true;
         settings.detail.stereo       = Settings::STEREO_OFF;
         settings.audio.music         = 14;
