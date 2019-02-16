@@ -834,6 +834,8 @@ struct Level : IGame {
 
         waitTrack = true;
         TR::getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
+
+        UI::showSubs(UI::getSubs(track));
     }
 
     virtual void stopTrack() {

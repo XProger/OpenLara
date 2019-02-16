@@ -6,6 +6,7 @@
 #include "controller.h"
 
 #define PICKUP_SHOW_TIME 5.0f
+#define SUBTITLES_SPEED  0.1f
 
 #ifdef _OS_PSV
     #define UI_SHOW_FPS
@@ -75,6 +76,7 @@ enum StringID {
     , STR_OPT_DETAIL_VSYNC
     , STR_OPT_DETAIL_STEREO
     , STR_OPT_SIMPLE_ITEMS
+    , STR_OPT_SUBTITLES
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
@@ -131,6 +133,38 @@ enum StringID {
     , STR_PUZZLE_ANUBIS
     , STR_PUZZLE_SCARAB
     , STR_PUZZLE_PYRAMID
+// TR1 subtitles
+    , STR_TR1_SUB_26
+    , STR_TR1_SUB_27
+    , STR_TR1_SUB_28
+    , STR_TR1_SUB_29
+    , STR_TR1_SUB_30
+    , STR_TR1_SUB_31
+    , STR_TR1_SUB_32
+    , STR_TR1_SUB_33
+    , STR_TR1_SUB_34
+    , STR_TR1_SUB_35
+    , STR_TR1_SUB_36
+    , STR_TR1_SUB_37
+    , STR_TR1_SUB_38
+    , STR_TR1_SUB_39
+    , STR_TR1_SUB_40
+    , STR_TR1_SUB_41
+    , STR_TR1_SUB_42
+    , STR_TR1_SUB_43
+    , STR_TR1_SUB_44
+    , STR_TR1_SUB_45
+    , STR_TR1_SUB_46
+    , STR_TR1_SUB_47
+    , STR_TR1_SUB_48
+    , STR_TR1_SUB_49
+    , STR_TR1_SUB_50
+    , STR_TR1_SUB_51
+    , STR_TR1_SUB_52
+    , STR_TR1_SUB_53
+    , STR_TR1_SUB_54
+    , STR_TR1_SUB_55
+    , STR_TR1_SUB_56
 
     , STR_MAX
 };
@@ -225,6 +259,7 @@ const char *STR[STR_MAX] = {
     , "VSync"
     , "Stereo"
     , "Simple Items"
+    , "Subtitles"
 // sound options
     , "Set Volumes"
     , "Reverberation"
@@ -281,6 +316,38 @@ const char *STR[STR_MAX] = {
     , "Seal of Anubis"
     , "Scarab"
     , "Pyramid Key"
+// TR1 subtitles
+/* 26 */ , "Welcome to my home.@I'll take you on a guided tour."
+/* 27 */ , "Use the directional buttons to go into the music room."
+/* 28 */ , "OK. Let's do some tumbling.@Press the jump button."
+/* 29 */ , "Now press it again and press one of@the directions and I'll jump that way."
+/* 30 */ , "Ah, the main hall.@Sorry about the crates, I'm having some things put@ into storage and the delivery people haven't been yet."
+/* 31 */ , "Run up to a crate, and while still pressing forwards@press action, and I'll vault up onto it."
+/* 32 */ , "This used to be the ballroom, but I've converted it into my own personal gym.@What do you think?@Well, let's do some exercises."
+/* 33 */ , "I don't actually run everywhere.@When I want to be careful, I walk.@Hold down the walk button, and walk to the white line."
+/* 34 */ , "With the walk button down, I won't fall off even if you try to make me.@Go on, try it."
+/* 35 */ , "If you want look around, press and hold the look button.@Then press in the direction you want to look."
+/* 36 */ , "If a jump is too far for me, I can grab the ledge and save myself from a nasty fall.@Walk to the edge with the white line until I won't go any further.@Then press jump immediately followed by forwards then while @I'm in the air press and hold the action button."
+/* 37 */ , "Press forward and I'll climb up."
+/* 38 */ , "If I do a running jump, I can make a jump like that, no problem."
+/* 39 */ , "Walk to the edge with the white line until I stop.@Then let go of walk and tap backwards to give me a run up.@Press forward, and almost immediately press and hold the jump button.@I won't actually jump until the last minute."
+/* 40 */ , "Right. This is a really big one.@So do a running jump exactly as before except while I'm in the air@press and hold the action button to make me grab the ledge."
+/* 41 */ , "Nice."
+/* 42 */ , "Try to vault up here.@Press forwards and hold action."
+/* 43 */ , "I can't climb up because the gap is too small.@But press right and I'll shimmy sideways@until there is room, then press forward."
+/* 44 */ , "Great!@If there is a long drop and I don't want to@hurt myself jumping off I can let myself down carefully."
+/* 45 */ , "Tap backwards, and I'll jump off backwards.@Immediately press and hold the action button,@and I'll grab the ledge on the way down."
+/* 46 */ , "Then let go."
+/* 47 */ , "Let's go for a swim."
+/* 48 */ , "The jump button and the directions@move me around underwater."
+/* 49 */ , "Ah! Air!@Just use forward and left and right@to manoeuvre around on the surface.@Press jump to dive down for another swim about.@Or go to the edge and press action to climb out."
+/* 50 */ , "Right. Now I'd better take off these wet clothes."
+/* 51 */ , "Say cheese!"
+/* 52 */ , "Ain't nothin' personal."
+/* 53 */ , "I still git a pain in my brain from ye.@An' it's tellin' me funny ideas now.@Like to shoot you to hell!"
+/* 54 */ , "You can't bump off me and my brood so easy, Lara."
+/* 55 */ , "A leetle late for the prize giving - non?@Still, it is the taking-part wheech counts."
+/* 56 */ , "You firin' at me?@You firin' at me, huh?@Ain't nobody else, so you must be firin' at me!"
 };
 
 #ifdef _NAPI_SOCKET
@@ -292,7 +359,10 @@ namespace UI {
     float    width, height;
     float    helpTipTime;
     float    hintTime;
+    float    subsTime;
+
     StringID hintStr;
+    StringID subsStr;
 
     bool     showHelp;
 
@@ -319,7 +389,7 @@ namespace UI {
         18, 19, 20, 21, 22, 23, 24, 25, 80, 76, 81, 97, 98, 77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 
         37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0 };
 
-    enum Align  { aLeft, aRight, aCenter };
+    enum Align  { aLeft, aRight, aCenter, aCenterV };
 
     inline int charRemap(char c) {
         ASSERT(c <= 126);
@@ -420,7 +490,7 @@ namespace UI {
         if (align != aLeft) {
             int lineWidth = getLineSize(text).x;
 
-            if (align == aCenter)
+            if (align == aCenter || align == aCenterV)
                 return (width - lineWidth) / 2;
 
             if (align == aRight)
@@ -442,6 +512,9 @@ namespace UI {
 
         int x = int(pos.x) + getLeftOffset(text, align, int(width));
         int y = int(pos.y);
+        if (align == aCenterV) {
+            y -= getTextSize(text).y / 2;
+        }
 
         while (char c = *text++) {
 
@@ -507,7 +580,7 @@ namespace UI {
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
-        hintTime = 0.0f;
+        hintTime = subsTime = 0.0f;
     }
 
     void deinit() {
@@ -518,8 +591,13 @@ namespace UI {
     }
 
     void update() {
-        if (hintTime > 0.0f)
+        if (hintTime > 0.0f) {
             hintTime = max(0.0f, hintTime - Core::deltaTime);
+        }
+
+        if (subsTime > 0.0f) {
+            subsTime = max(0.0f, subsTime - Core::deltaTime);
+        }
 
         if (Input::down[ikH]) {
             Input::down[ikH] = false;
@@ -609,21 +687,40 @@ namespace UI {
         hintTime = time;
     }
 
+    void showSubs(StringID str) {
+        if (str == STR_NOT_IMPLEMENTED || !Core::settings.detail.subtitles)
+            return;
+        subsStr  = str;
+        subsTime = strlen(STR[str]) * SUBTITLES_SPEED;
+    }
+
+    StringID getSubs(int track) {
+        if (game && (game->getLevel()->version & TR::VER_TR1) && track >= 26 && track <= 56)
+            return StringID(STR_TR1_SUB_26 + (track - 26));
+        return STR_NOT_IMPLEMENTED;
+    }
+
     void renderHelp() {
     #ifdef _NAPI_SOCKET
         textOut(vec2(16, height - 32), command, aLeft, width - 32, 255, UI::SHADE_GRAY);
     #endif
-        // TODO: Core::eye offset
+        float eye = UI::width * Core::eye * 0.02f;
+
         if (hintTime > 0.0f) {
-            textOut(vec2(16, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(16 - eye, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
+        }
+
+        if (subsTime > 0.0f) {
+            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
+            textOut(vec2(16 - eye, height - 48), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY);
         }
 
     #if defined(_OS_WEB) || defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_RPI)
         if (showHelp) {
-            textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(32 - eye, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
         } else {
             if (helpTipTime > 0.0f) {
-                textOut(vec2(0, height - 32), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
+                textOut(vec2(0 - eye, height - 16), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
             }
         }
     #endif
