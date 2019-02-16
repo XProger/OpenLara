@@ -75,12 +75,9 @@ struct ShaderCache {
     }
 
     void prepareAmbient(int fx) {
-        compile(Core::passAmbient, Shader::ROOM,   fx,                 rsFull);
-        compile(Core::passAmbient, Shader::ROOM,   fx,                 rsFull | RS_DISCARD);
-        compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER, rsFull);
-        compile(Core::passAmbient, Shader::ROOM,   fx | FX_UNDERWATER, rsFull | RS_DISCARD);
-        compile(Core::passAmbient, Shader::SPRITE, fx,                 rsFull | RS_DISCARD);
-        compile(Core::passAmbient, Shader::SPRITE, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
+        compile(Core::passAmbient, Shader::ROOM,   fx, rsFull);
+        compile(Core::passAmbient, Shader::ROOM,   fx, rsFull | RS_DISCARD);
+        compile(Core::passAmbient, Shader::SPRITE, fx, rsFull | RS_DISCARD);
     }
 
     void prepareShadows(int fx) {

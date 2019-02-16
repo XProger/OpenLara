@@ -71,6 +71,10 @@ struct Level : IGame {
     float      animTexTimer;
     float      statsTimeDelta;
 
+    vec3 underwaterColor;
+    vec4 underwaterFogParams;
+    vec4 levelFogParams;
+
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         sndWater = sndTrack = NULL;
@@ -519,17 +523,6 @@ struct Level : IGame {
             alphaTest = true;
         }
 
-        setShader(Core::pass, type, room.flags.water, alphaTest);
-
-        if (room.flags.water) {
-            if (waterCache)
-                waterCache->bindCaustics(roomIndex);
-            setWaterParams(float(room.waterLevel[level.state.flags.flipped]));
-        } else
-            setWaterParams(NO_CLIP_PLANE);
-
-        Core::active.shader->setParam(uParam, Core::params);
-
     #ifdef FFP
         switch (type) {
             case Shader::SPRITE :
@@ -549,7 +542,36 @@ struct Level : IGame {
         }
     #endif
 
-        Core::setMaterial(diffuse, ambient, specular, alpha);
+        vec4 material;
+
+        if (Core::pass == Core::passAmbient) {
+            if (room.flags.water) {
+                Core::fogParams = underwaterFogParams;
+                material = vec4(underwaterColor, 1.0f);
+            } else {
+                Core::fogParams = levelFogParams;
+                material = vec4(1.0f);
+            }
+        } else {
+            Core::fogParams = levelFogParams;
+            material = vec4(diffuse, ambient, specular, alpha);
+        }
+        
+        setShader(Core::pass, type, (Core::pass == Core::passAmbient) ? false : room.flags.water, alphaTest);
+
+        Core::setMaterial(material.x, material.y, material.z, material.w);
+
+        if (room.flags.water) {
+            if (waterCache) {
+                waterCache->bindCaustics(roomIndex);
+            }
+            setWaterParams(float(room.waterLevel[level.state.flags.flipped]));
+        } else {
+            setWaterParams(NO_CLIP_PLANE);
+        }
+
+        Core::active.shader->setParam(uParam, Core::params);
+
         Core::updateLights();
 
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
@@ -835,7 +857,9 @@ struct Level : IGame {
         memset(players, 0, sizeof(players));
         player = NULL;
 
-        Core::fogParams = TR::getFogParams(level.id);
+        underwaterColor     = vec3(0.6f, 0.9f, 0.9f);
+        underwaterFogParams = vec4(underwaterColor * 0.2f, 1.0f / (6 * 1024));
+        levelFogParams      = TR::getFogParams(level.id);
 
         inventory->game = this;
 

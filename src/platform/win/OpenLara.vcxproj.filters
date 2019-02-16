@@ -69,10 +69,16 @@
     <None Include="..\..\shaders\water.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\shader.glsl">
+    <None Include="..\..\shaders\sky.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\sky.glsl">
+    <None Include="..\..\shaders\shadow.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\ambient.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\compose.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

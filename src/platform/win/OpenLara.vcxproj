@@ -233,9 +233,11 @@
     <ClInclude Include="..\..\video.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\shaders\ambient.glsl" />
+    <None Include="..\..\shaders\compose.glsl" />
     <None Include="..\..\shaders\filter.glsl" />
     <None Include="..\..\shaders\gui.glsl" />
-    <None Include="..\..\shaders\shader.glsl" />
+    <None Include="..\..\shaders\shadow.glsl" />
     <None Include="..\..\shaders\sky.glsl" />
     <None Include="..\..\shaders\water.glsl" />
   </ItemGroup>
