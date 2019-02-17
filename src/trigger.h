@@ -399,7 +399,7 @@ struct TrapLavaEmitter : Controller {
 
             vec3 p = part.pos - Core::viewPos.xyz();
 
-            mesh->addDynSprite(level->spriteSequences[-(spriteIndex + 1)].sStart + part.frame, short3(int16(p.x), int16(p.y), int16(p.z)), color, color);
+            mesh->addDynSprite(level->spriteSequences[-(spriteIndex + 1)].sStart + part.frame, short3(int16(p.x), int16(p.y), int16(p.z)), false, color, color);
         }
     }
 };

@@ -1434,7 +1434,7 @@ struct Controller {
 
         vec3 p = pos - Core::viewPos.xyz();
 
-        game->getMesh()->addDynSprite(level->spriteSequences[-(getEntity().modelIndex + 1)].sStart + frame, short3(int16(p.x), int16(p.y), int16(p.z)), color, color);
+        game->getMesh()->addDynSprite(level->spriteSequences[-(getEntity().modelIndex + 1)].sStart + frame, short3(int16(p.x), int16(p.y), int16(p.z)), false, color, color);
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {

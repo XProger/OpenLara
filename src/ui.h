@@ -196,8 +196,10 @@ namespace UI {
         }
 
         while (char c = *text++) {
-            if (c == '\xBF') c = '?';
-            if (c == '\xA1') c = '!';
+            bool invert = false;
+
+            if (c == '\xBF') { c = '?'; invert = true; }
+            if (c == '\xA1') { c = '!'; invert = true; }
 
             if (c == '@') {
                 x = int(pos.x) + getLeftOffset(text, align, int(width));
@@ -244,18 +246,19 @@ namespace UI {
                 dx = (char_width[idx] - char_width[frame]) / 2 - 1;
                 if (idx < 26) { // if next char is uppercase
                     dy -= 4;
-                //    dx += (c == '~') ? 1 : 2;
                 }
-                //if (c == ')') {
-                //    dx += 2;
-                //}
+            }
+
+            if (invert) {
+                dx += char_width[frame];
+                dy -= 10;
             }
 
             if (c == '|') {
-                mesh->addDynSprite(level->spriteSequences[seq].sStart + charRemap(','), short3(x + 3, y + 1, 0), tColor, bColor, true);
+                mesh->addDynSprite(level->spriteSequences[seq].sStart + charRemap(','), short3(x + 3, y + 1, 0), invert, tColor, bColor, true);
             }
 
-            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), tColor, bColor, true);
+            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), invert, tColor, bColor, true);
 
             if (c != '~' && c != '$' && c != '(' && c != ')') { // umlauts
                 x += char_width[frame] + 1;
@@ -276,7 +279,7 @@ namespace UI {
         if (specChar >= level->spriteSequences[seq].sCount)
             return;
 
-        mesh->addDynSprite(level->spriteSequences[seq].sStart + specChar, short3(int16(pos.x), int16(pos.y), 0), COLOR_WHITE, COLOR_WHITE, true);
+        mesh->addDynSprite(level->spriteSequences[seq].sStart + specChar, short3(int16(pos.x), int16(pos.y), 0), false, COLOR_WHITE, COLOR_WHITE, true);
     }
 
     #undef MAX_CHARS
