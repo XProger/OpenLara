@@ -236,6 +236,10 @@ bool isFullScreen() {
 }
 
 extern "C" {
+    void EMSCRIPTEN_KEEPALIVE set_def_lang(int id) {
+		Core::defLang = id;
+	}
+
     void EMSCRIPTEN_KEEPALIVE snd_fill(Sound::Frame *frames, int count) {
         Sound::fill(frames, count);
     }
@@ -338,6 +342,7 @@ int main() {
     emscripten_set_mouseup_callback(0, 0, 1, mouseCallback);
     emscripten_set_mousemove_callback(0, 0, 1, mouseCallback);
     
+    emscripten_run_script("getLanguage()");
     Game::init();
     emscripten_run_script("snd_init()");
     resize();

@@ -2,6 +2,7 @@
 #define H_GAMEFLOW
 
 #include "utils.h"
+#include "lang.h"
 
 #define CHECK_FILE(name) if (Stream::existsContent(name)) return name
 
@@ -190,97 +191,100 @@ namespace TR {
         TRACK_TR3_CUT_12    = 66,
     };
 
+//    #define LEVEL (version,name,track) { #name, STR_##version##_##name, TRACK_##version##track },
+//    #define CUT   (version,id)         { #CUT_#id, STR_##version##_##name, TRACK_##version##track },
+
     struct LevelInfo {
         const char *name;
-        const char *title;
+        StringID   title;
         int        track;
     } LEVEL_INFO[LVL_MAX] = {
+        { ""          , STR_EMPTY         , TRACK_TR1_CAVES     },
     // TR1
-        { ""          , "Custom Level",             TRACK_TR1_CAVES     },
-        { "TITLE"     , "",                         TRACK_TR1_TITLE     },
-        { "GYM"       , "Lara's Home",              NO_TRACK            },
-        { "LEVEL1"    , "Caves",                    TRACK_TR1_CAVES     },
-        { "LEVEL2"    , "City of Vilcabamba",       TRACK_TR1_CAVES     },
-        { "LEVEL3A"   , "Lost Valley",              TRACK_TR1_CAVES     },
-        { "LEVEL3B"   , "Tomb of Qualopec",         TRACK_TR1_CAVES     },
-        { "CUT1"      , "",                         TRACK_TR1_CUT_1     },
-        { "LEVEL4"    , "St. Francis' Folly",       TRACK_TR1_CAVES     },
-        { "LEVEL5"    , "Colosseum",                TRACK_TR1_CAVES     },
-        { "LEVEL6"    , "Palace Midas",             TRACK_TR1_CAVES     },
-        { "LEVEL7A"   , "The Cistern",              TRACK_TR1_CISTERN   },
-        { "LEVEL7B"   , "Tomb of Tihocan",          TRACK_TR1_CISTERN   },
-        { "CUT2"      , "",                         TRACK_TR1_CUT_2     },
-        { "LEVEL8A"   , "City of Khamoon",          TRACK_TR1_EGYPT     },
-        { "LEVEL8B"   , "Obelisk of Khamoon",       TRACK_TR1_EGYPT     },
-        { "LEVEL8C"   , "Sanctuary of the Scion",   TRACK_TR1_EGYPT     },
-        { "LEVEL10A"  , "Natla's Mines",            TRACK_TR1_MINE      },
-        { "CUT3"      , "",                         TRACK_TR1_CUT_3     },
-        { "LEVEL10B"  , "Atlantis",                 TRACK_TR1_MINE      },
-        { "CUT4"      , "",                         TRACK_TR1_CUT_4     },
-        { "LEVEL10C"  , "The Great Pyramid",        TRACK_TR1_MINE      },
-        { "EGYPT"     , "Return to Egypt",          TRACK_TR1_EGYPT     },
-        { "CAT"       , "Temple of the Cat",        TRACK_TR1_EGYPT     },
-        { "END"       , "Atlantean Stronghold",     TRACK_TR1_EGYPT     },
-        { "END2"      , "The Hive",                 TRACK_TR1_EGYPT     },
+        { "TITLE"     , STR_EMPTY         , TRACK_TR1_TITLE     },
+        { "GYM"       , STR_TR1_GYM       , NO_TRACK            },
+        { "LEVEL1"    , STR_TR1_LEVEL1    , TRACK_TR1_CAVES     },
+        { "LEVEL2"    , STR_TR1_LEVEL2    , TRACK_TR1_CAVES     },
+        { "LEVEL3A"   , STR_TR1_LEVEL3A   , TRACK_TR1_CAVES     },
+        { "LEVEL3B"   , STR_TR1_LEVEL3B   , TRACK_TR1_CAVES     },
+        { "CUT1"      , STR_EMPTY         , TRACK_TR1_CUT_1     },
+        { "LEVEL4"    , STR_TR1_LEVEL4    , TRACK_TR1_CAVES     },
+        { "LEVEL5"    , STR_TR1_LEVEL5    , TRACK_TR1_CAVES     },
+        { "LEVEL6"    , STR_TR1_LEVEL6    , TRACK_TR1_CAVES     },
+        { "LEVEL7A"   , STR_TR1_LEVEL7A   , TRACK_TR1_CISTERN   },
+        { "LEVEL7B"   , STR_TR1_LEVEL7B   , TRACK_TR1_CISTERN   },
+        { "CUT2"      , STR_EMPTY         , TRACK_TR1_CUT_2     },
+        { "LEVEL8A"   , STR_TR1_LEVEL8A   , TRACK_TR1_EGYPT     },
+        { "LEVEL8B"   , STR_TR1_LEVEL8B   , TRACK_TR1_EGYPT     },
+        { "LEVEL8C"   , STR_TR1_LEVEL8C   , TRACK_TR1_EGYPT     },
+        { "LEVEL10A"  , STR_TR1_LEVEL10A  , TRACK_TR1_MINE      },
+        { "CUT3"      , STR_EMPTY         , TRACK_TR1_CUT_3     },
+        { "LEVEL10B"  , STR_TR1_LEVEL10B  , TRACK_TR1_MINE      },
+        { "CUT4"      , STR_EMPTY         , TRACK_TR1_CUT_4     },
+        { "LEVEL10C"  , STR_TR1_LEVEL10C  , TRACK_TR1_MINE      },
+        { "EGYPT"     , STR_TR1_EGYPT     , TRACK_TR1_EGYPT     },
+        { "CAT"       , STR_TR1_CAT       , TRACK_TR1_EGYPT     },
+        { "END"       , STR_TR1_END       , TRACK_TR1_EGYPT     },
+        { "END2"      , STR_TR1_END2      , TRACK_TR1_EGYPT     },
     // TR2
-        { "TITLE"     , "",                         TRACK_TR2_TITLE     },
-        { "ASSAULT"   , "Lara's Home",              NO_TRACK            },
-        { "WALL"      , "The Great Wall",           TRACK_TR2_CHINA_1   },
-        { "CUT1"      , "",                         TRACK_TR2_CUT_1     },
-        { "BOAT"      , "Venice",                   NO_TRACK            },
-        { "VENICE"    , "Bartoli's Hideout",        NO_TRACK            },
-        { "OPERA"     , "Opera House",              TRACK_TR2_ITALY     },
-        { "CUT2"      , "",                         TRACK_TR2_CUT_2     },
-        { "RIG"       , "Offshore Rig",             TRACK_TR2_RIG       },
-        { "PLATFORM"  , "Diving Area",              TRACK_TR2_RIG       },
-        { "CUT3"      , "",                         TRACK_TR2_CUT_3     },
-        { "UNWATER"   , "40 Fathoms",               TRACK_TR2_UNWATER_1 },
-        { "KEEL"      , "Wreck of the Maria Doria", TRACK_TR2_UNWATER_2 },
-        { "LIVING"    , "Living Quarters",          TRACK_TR2_UNWATER_1 },
-        { "DECK"      , "The Deck",                 TRACK_TR2_UNWATER_2 },
-        { "SKIDOO"    , "Tibetan Foothills",        TRACK_TR2_TIBET_1   },
-        { "MONASTRY"  , "Barkhang Monastery",       NO_TRACK            },
-        { "CATACOMB"  , "Catacombs of the Talion",  TRACK_TR2_TIBET_2   },
-        { "ICECAVE"   , "Ice Palace",               TRACK_TR2_TIBET_2   },
-        { "EMPRTOMB"  , "Temple of Xian",           TRACK_TR2_CHINA_2   },
-        { "CUT4"      , "",                         TRACK_TR2_CUT_4     },
-        { "FLOATING"  , "Floating Islands",         TRACK_TR2_CHINA_2   },
-        { "XIAN"      , "The Dragon's Lair",        TRACK_TR2_CHINA_2   },
-        { "HOUSE"     , "Home Sweet Home",          NO_TRACK            },
+        { "TITLE"     , STR_EMPTY         , TRACK_TR2_TITLE     },
+        { "ASSAULT"   , STR_TR2_ASSAULT   , NO_TRACK            },
+        { "WALL"      , STR_TR2_WALL      , TRACK_TR2_CHINA_1   },
+        { "CUT1"      , STR_EMPTY         , TRACK_TR2_CUT_1     },
+        { "BOAT"      , STR_TR2_BOAT      , NO_TRACK            },
+        { "VENICE"    , STR_TR2_VENICE    , NO_TRACK            },
+        { "OPERA"     , STR_TR2_OPERA     , TRACK_TR2_ITALY     },
+        { "CUT2"      , STR_EMPTY         , TRACK_TR2_CUT_2     },
+        { "RIG"       , STR_TR2_RIG       , TRACK_TR2_RIG       },
+        { "PLATFORM"  , STR_TR2_PLATFORM  , TRACK_TR2_RIG       },
+        { "CUT3"      , STR_EMPTY         , TRACK_TR2_CUT_3     },
+        { "UNWATER"   , STR_TR2_UNWATER   , TRACK_TR2_UNWATER_1 },
+        { "KEEL"      , STR_TR2_KEEL      , TRACK_TR2_UNWATER_2 },
+        { "LIVING"    , STR_TR2_LIVING    , TRACK_TR2_UNWATER_1 },
+        { "DECK"      , STR_TR2_DECK      , TRACK_TR2_UNWATER_2 },
+        { "SKIDOO"    , STR_TR2_SKIDOO    , TRACK_TR2_TIBET_1   },
+        { "MONASTRY"  , STR_TR2_MONASTRY  , NO_TRACK            },
+        { "CATACOMB"  , STR_TR2_CATACOMB  , TRACK_TR2_TIBET_2   },
+        { "ICECAVE"   , STR_TR2_ICECAVE   , TRACK_TR2_TIBET_2   },
+        { "EMPRTOMB"  , STR_TR2_EMPRTOMB  , TRACK_TR2_CHINA_2   },
+        { "CUT4"      , STR_EMPTY         , TRACK_TR2_CUT_4     },
+        { "FLOATING"  , STR_TR2_FLOATING  , TRACK_TR2_CHINA_2   },
+        { "XIAN"      , STR_TR2_XIAN      , TRACK_TR2_CHINA_2   },
+        { "HOUSE"     , STR_TR2_HOUSE     , NO_TRACK            },
     // TR3
-        { "TITLE",      "",                         TRACK_TR3_TITLE     },
-        { "HOUSE",      "Lara's House",             NO_TRACK            },
-        { "JUNGLE",     "Jungle",                   TRACK_TR3_INDIA_1   },
-        { "CUT6",       "",                         TRACK_TR3_CUT_6     },
-        { "TEMPLE",     "Temple Ruins",             TRACK_TR3_INDIA_1   },
-        { "CUT9",       "",                         TRACK_TR3_CUT_9     },
-        { "QUADCHAS",   "The River Ganges",         TRACK_TR3_INDIA_1   },
-        { "TONYBOSS",   "Caves Of Kaliya",          TRACK_TR3_INDIA_2   },
-        { "SHORE",      "Coastal Village",          TRACK_TR3_SOUTH_1   },
-        { "CUT1",       "",                         TRACK_TR3_CUT_1     },
-        { "CRASH",      "Crash Site",               TRACK_TR3_SOUTH_2   },
-        { "CUT4",       "",                         TRACK_TR3_CUT_4     },
-        { "RAPIDS",     "Madubu Gorge",             TRACK_TR3_SOUTH_3   },
-        { "TRIBOSS",    "Temple Of Puna",           TRACK_TR3_CAVES     },
-        { "ROOFS",      "Thames Wharf",             TRACK_TR3_LONDON_1  },
-        { "CUT2",       "",                         TRACK_TR3_CUT_2     },
-        { "SEWER",      "Aldwych",                  TRACK_TR3_LONDON_2  },
-        { "CUT5",       "",                         TRACK_TR3_CUT_5     },
-        { "TOWER",      "Lud's Gate",               TRACK_TR3_LONDON_3  },
-        { "CUT11",      "",                         TRACK_TR3_CUT_11    },
-        { "OFFICE",     "City",                     TRACK_TR3_LONDON_4  },
-        { "NEVADA",     "Nevada Desert",            TRACK_TR3_NEVADA_1  },
-        { "CUT7",       "",                         TRACK_TR3_CUT_7     },
-        { "COMPOUND",   "High Security Compound",   TRACK_TR3_NEVADA_2  },
-        { "CUT8",       "",                         TRACK_TR3_CUT_8     },
-        { "AREA51",     "Area 51",                  TRACK_TR3_NEVADA_2  },
-        { "ANTARC",     "Antarctica",               TRACK_TR3_ANTARC_1  },
-        { "CUT3",       "",                         TRACK_TR3_CUT_3     },
-        { "MINES",      "RX-Tech Mines",            TRACK_TR3_ANTARC_2  },
-        { "CITY",       "Lost City Of Tinnos",      TRACK_TR3_ANTARC_3  },
-        { "CUT12",      "",                         TRACK_TR3_CUT_12    },
-        { "CHAMBER",    "Meteorite Cavern",         TRACK_TR3_ANTARC_3  },
-        { "STPAUL",     "All Hallows",              TRACK_TR3_CAVES     },
+        { "TITLE"     , STR_EMPTY         , TRACK_TR3_TITLE     },
+        { "HOUSE"     , STR_TR3_HOUSE     , NO_TRACK            },
+        { "JUNGLE"    , STR_TR3_JUNGLE    , TRACK_TR3_INDIA_1   },
+        { "CUT6"      , STR_EMPTY         , TRACK_TR3_CUT_6     },
+        { "TEMPLE"    , STR_TR3_TEMPLE    , TRACK_TR3_INDIA_1   },
+        { "CUT9"      , STR_EMPTY         , TRACK_TR3_CUT_9     },
+        { "QUADCHAS"  , STR_TR3_QUADCHAS  , TRACK_TR3_INDIA_1   },
+        { "TONYBOSS"  , STR_TR3_TONYBOSS  , TRACK_TR3_INDIA_2   },
+        { "SHORE"     , STR_TR3_SHORE     , TRACK_TR3_SOUTH_1   },
+        { "CUT1"      , STR_EMPTY         , TRACK_TR3_CUT_1     },
+        { "CRASH"     , STR_TR3_CRASH     , TRACK_TR3_SOUTH_2   },
+        { "CUT4"      , STR_EMPTY         , TRACK_TR3_CUT_4     },
+        { "RAPIDS"    , STR_TR3_RAPIDS    , TRACK_TR3_SOUTH_3   },
+        { "TRIBOSS"   , STR_TR3_TRIBOSS   , TRACK_TR3_CAVES     },
+        { "ROOFS"     , STR_TR3_ROOFS     , TRACK_TR3_LONDON_1  },
+        { "CUT2"      , STR_EMPTY         , TRACK_TR3_CUT_2     },
+        { "SEWER"     , STR_TR3_SEWER     , TRACK_TR3_LONDON_2  },
+        { "CUT5"      , STR_EMPTY         , TRACK_TR3_CUT_5     },
+        { "TOWER"     , STR_TR3_TOWER     , TRACK_TR3_LONDON_3  },
+        { "CUT11"     , STR_EMPTY         , TRACK_TR3_CUT_11    },
+        { "OFFICE"    , STR_TR3_OFFICE    , TRACK_TR3_LONDON_4  },
+        { "NEVADA"    , STR_TR3_NEVADA    , TRACK_TR3_NEVADA_1  },
+        { "CUT7"      , STR_EMPTY         , TRACK_TR3_CUT_7     },
+        { "COMPOUND"  , STR_TR3_COMPOUND  , TRACK_TR3_NEVADA_2  },
+        { "CUT8"      , STR_EMPTY         , TRACK_TR3_CUT_8     },
+        { "AREA51"    , STR_TR3_AREA51    , TRACK_TR3_NEVADA_2  },
+        { "ANTARC"    , STR_TR3_ANTARC    , TRACK_TR3_ANTARC_1  },
+        { "CUT3"      , STR_EMPTY         , TRACK_TR3_CUT_3     },
+        { "MINES"     , STR_TR3_MINES     , TRACK_TR3_ANTARC_2  },
+        { "CITY"      , STR_TR3_CITY      , TRACK_TR3_ANTARC_3  },
+        { "CUT12"     , STR_EMPTY         , TRACK_TR3_CUT_12    },
+        { "CHAMBER"   , STR_TR3_CHAMBER   , TRACK_TR3_ANTARC_3  },
+        { "STPAUL"    , STR_TR3_STPAUL    , TRACK_TR3_CAVES     },
     };
 
     LevelID getLevelID(int size, const char *name, Version &version, bool &isDemoLevel) {
@@ -918,11 +922,17 @@ namespace TR {
 
     bool checkTrack(const char *pre, char *name) {
         static const char *fmt[] = { ".ogg", ".mp3", ".wav" };
-        static const char *lng[] = { "", "_EN", "_DE", "_FR", "_IT", "_JA", "_RU" };
+        const char *lng[] = { "", "", "_EN", "_FR", "_DE", "_ES", "_IT", "_RU", "_JA" };
+
+        int start = 1;
+        if (Core::settings.audio.language != 0) {
+            start = 0;
+            lng[start] = lng[Core::settings.audio.language + 2];
+        }
 
         char buf[32];
         for (int f = 0; f < COUNT(fmt); f++)
-            for (int l = 0; l < COUNT(lng); l++) {
+            for (int l = start; l < COUNT(lng); l++) {
                 strcpy(buf, pre);
                 strcat(buf, name);
                 strcat(buf, lng[l]);
@@ -978,7 +988,12 @@ namespace TR {
                 case VER_TR1_SAT :
                 case VER_TR1_PC  :
                 case VER_TR1_PSX :
-                    sprintf(title, "audio/1/track_%02d.ogg", track);
+                    if (track != 24 && track >= 22 && track <= 56 && Core::settings.audio.language != LANG_ES && Core::settings.audio.language != LANG_IT) { // es, it isn't implemented yet
+                        const char *lng[] = { "_EN", "_FR", "_DE", "_ES", "_IT", "_RU", "_JA" };
+                        sprintf(title, "audio/1/track_%02d%s.ogg", track, lng[Core::settings.audio.language]);
+                    } else {
+                        sprintf(title, "audio/1/track_%02d.ogg", track);
+                    }
                 #ifndef _OS_WEB
                     if (Stream::existsContent(title))
                         break;

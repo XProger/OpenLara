@@ -489,6 +489,22 @@ void parseCommand(char *cmd) {
 }
 #endif
 
+LangID checkLanguage() {
+    LANGID id = GetUserDefaultUILanguage() & 0xFF;
+    switch (id) {
+        case LANG_ENGLISH    : return LANG_EN;
+        case LANG_FRENCH     : return LANG_FR;
+        case LANG_GERMAN     : return LANG_DE;
+        case LANG_SPANISH    : return LANG_ES;
+        case LANG_ITALIAN    : return LANG_IT;
+        case LANG_RUSSIAN    :
+        case LANG_UKRAINIAN  :
+        case LANG_BELARUSIAN : return LANG_RU;
+        case LANG_JAPANESE   : return LANG_JA;
+    }
+    return LANG_EN;
+}
+
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         // window
@@ -847,6 +863,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     touchInit(hWnd);
     joyInit();
     sndInit(hWnd);
+
+    Core::defLang = checkLanguage();
 
     Game::init(argc > 1 ? argv[1] : NULL);
 

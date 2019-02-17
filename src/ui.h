@@ -12,343 +12,7 @@
     #define UI_SHOW_FPS
 #endif
 
-enum StringID {
-      STR_NOT_IMPLEMENTED
-// common
-    , STR_LOADING
-    , STR_HELP_PRESS
-    , STR_HELP_TEXT
-    , STR_LEVEL_STATS
-    , STR_HINT_SAVING
-    , STR_HINT_SAVING_DONE
-    , STR_HINT_SAVING_ERROR
-    , STR_YES
-    , STR_NO
-    , STR_OFF
-    , STR_ON
-    , STR_SPLIT
-    , STR_VR
-    , STR_QUALITY_LOW
-    , STR_QUALITY_MEDIUM
-    , STR_QUALITY_HIGH
-    , STR_APPLY
-    , STR_GAMEPAD_1
-    , STR_GAMEPAD_2
-    , STR_GAMEPAD_3
-    , STR_GAMEPAD_4
-    , STR_NOT_READY
-    , STR_PLAYER_1
-    , STR_PLAYER_2
-    , STR_PRESS_ANY_KEY
-    , STR_HELP_SELECT
-    , STR_HELP_BACK
-// inventory pages
-    , STR_OPTION
-    , STR_INVENTORY
-    , STR_ITEMS
-// save game page
-    , STR_SAVEGAME
-    , STR_CURRENT_POSITION
-// inventory option
-    , STR_GAME
-    , STR_MAP
-    , STR_COMPASS
-    , STR_STOPWATCH
-    , STR_HOME
-    , STR_DETAIL
-    , STR_SOUND
-    , STR_CONTROLS
-    , STR_GAMMA
-// passport menu
-    , STR_AUTOSAVE
-    , STR_LOAD_GAME
-    , STR_START_GAME
-    , STR_RESTART_LEVEL
-    , STR_EXIT_TO_TITLE
-    , STR_EXIT_GAME
-    , STR_SELECT_LEVEL
-// detail options
-    , STR_SELECT_DETAIL
-    , STR_OPT_DETAIL_FILTER
-    , STR_OPT_DETAIL_LIGHTING
-    , STR_OPT_DETAIL_SHADOWS
-    , STR_OPT_DETAIL_WATER
-    , STR_OPT_DETAIL_VSYNC
-    , STR_OPT_DETAIL_STEREO
-    , STR_OPT_SIMPLE_ITEMS
-    , STR_OPT_SUBTITLES
-// sound options
-    , STR_SET_VOLUMES
-    , STR_REVERBERATION
-// controls options
-    , STR_SET_CONTROLS
-    , STR_OPT_CONTROLS_KEYBOARD
-    , STR_OPT_CONTROLS_GAMEPAD
-    , STR_OPT_CONTROLS_VIBRATION
-    , STR_OPT_CONTROLS_RETARGET
-    , STR_OPT_CONTROLS_MULTIAIM
-    // controls
-    , STR_CTRL_FIRST
-    , STR_CTRL_LAST = STR_CTRL_FIRST + cMAX - 1
-    // keys
-    , STR_KEY_FIRST
-    , STR_KEY_LAST  = STR_KEY_FIRST + ikZ
-    // gamepad
-    , STR_JOY_FIRST
-    , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
-// inventory items
-    , STR_UNKNOWN
-    , STR_EXPLOSIVE
-    , STR_PISTOLS
-    , STR_SHOTGUN
-    , STR_MAGNUMS
-    , STR_UZIS
-    , STR_AMMO_PISTOLS
-    , STR_AMMO_SHOTGUN
-    , STR_AMMO_MAGNUMS
-    , STR_AMMO_UZIS
-    , STR_MEDI_SMALL
-    , STR_MEDI_BIG
-    , STR_LEAD_BAR
-    , STR_SCION
-// keys
-    , STR_KEY
-    , STR_KEY_SILVER
-    , STR_KEY_RUSTY
-    , STR_KEY_GOLD
-    , STR_KEY_SAPPHIRE
-    , STR_KEY_NEPTUNE
-    , STR_KEY_ATLAS
-    , STR_KEY_DAMOCLES
-    , STR_KEY_THOR
-    , STR_KEY_ORNATE
-// puzzles
-    , STR_PUZZLE
-    , STR_PUZZLE_GOLD_IDOL
-    , STR_PUZZLE_GOLD_BAR
-    , STR_PUZZLE_COG
-    , STR_PUZZLE_FUSE
-    , STR_PUZZLE_ANKH
-    , STR_PUZZLE_HORUS
-    , STR_PUZZLE_ANUBIS
-    , STR_PUZZLE_SCARAB
-    , STR_PUZZLE_PYRAMID
-// TR1 subtitles
-    , STR_TR1_SUB_26
-    , STR_TR1_SUB_27
-    , STR_TR1_SUB_28
-    , STR_TR1_SUB_29
-    , STR_TR1_SUB_30
-    , STR_TR1_SUB_31
-    , STR_TR1_SUB_32
-    , STR_TR1_SUB_33
-    , STR_TR1_SUB_34
-    , STR_TR1_SUB_35
-    , STR_TR1_SUB_36
-    , STR_TR1_SUB_37
-    , STR_TR1_SUB_38
-    , STR_TR1_SUB_39
-    , STR_TR1_SUB_40
-    , STR_TR1_SUB_41
-    , STR_TR1_SUB_42
-    , STR_TR1_SUB_43
-    , STR_TR1_SUB_44
-    , STR_TR1_SUB_45
-    , STR_TR1_SUB_46
-    , STR_TR1_SUB_47
-    , STR_TR1_SUB_48
-    , STR_TR1_SUB_49
-    , STR_TR1_SUB_50
-    , STR_TR1_SUB_51
-    , STR_TR1_SUB_52
-    , STR_TR1_SUB_53
-    , STR_TR1_SUB_54
-    , STR_TR1_SUB_55
-    , STR_TR1_SUB_56
-
-    , STR_MAX
-};
-
-const char *helpText = 
-    "Start - add second player or restore Lara@"
-    "H - Show or hide this help@"
-    "ALT + ENTER - Fullscreen@"
-    "5 - Save Game@"
-    "9 - Load Game@"
-    "C - Look@"
-    "R - Slow motion@"
-    "T - Fast motion@"
-    "Roll - Up + Down@"
-    "Step Left - Walk + Left@"
-    "Step Right - Walk + Right@"
-    "Out of water - Up + Action@"
-    "Handstand - Up + Walk@"
-    "Swan dive - Up + Walk + Jump@"
-    "First Person View - Look + Action@"
-    "DOZY on - Look + Duck + Action + Jump@"
-    "DOZY off - Walk";
-
-const char *levelStats = 
-    "%s@@@"
-    "KILLS %d@@"
-    "PICKUPS %d@@"
-    "SECRETS %d of %d@@"
-    "TIME TAKEN %s";
-
-const char *STR[STR_MAX] = {
-      "Not implemented yet!"
-// help
-    , "Loading..."
-    , "Press H for help"
-    , helpText
-    , levelStats
-    , "Saving game..."
-    , "Saving done!"
-    , "SAVING ERROR!"
-    , "YES"
-    , "NO"
-    , "Off"
-    , "On"
-    , "Split Screen"
-    , "VR"
-    , "Low"
-    , "Medium"
-    , "High"
-    , "Apply"
-    , "Gamepad 1"
-    , "Gamepad 2"
-    , "Gamepad 3"
-    , "Gamepad 4"
-    , "Not Ready"
-    , "Player 1"
-    , "Player 2"
-    , "Press Any Key"
-    , "%s - Select"
-    , "%s - Go Back"
-// inventory pages
-    , "OPTION"
-    , "INVENTORY"
-    , "ITEMS"
-// save game page
-    , "Save Game?"
-    , "Current Position"
-// inventory option
-    , "Game"
-    , "Map"
-    , "Compass"
-    , "Statistics"
-    , "Lara's Home"
-    , "Detail Levels"
-    , "Sound"
-    , "Controls"
-    , "Gamma"
-// passport menu
-    , "Autosave"
-    , "Load Game"
-    , "Start Game"
-    , "Restart Level"
-    , "Exit to Title"
-    , "Exit Game"
-    , "Load Game"
-// detail options
-    , "Select Detail"
-    , "Filtering"
-    , "Lighting"
-    , "Shadows"
-    , "Water"
-    , "VSync"
-    , "Stereo"
-    , "Simple Items"
-    , "Subtitles"
-// sound options
-    , "Set Volumes"
-    , "Reverberation"
-// controls options
-    , "Set Controls"
-    , "Keyboard"
-    , "Gamepad"
-    , "Vibration"
-    , "Retargeting"
-    , "Multi-aiming"
-    // controls
-    , "Left", "Right", "Up", "Down", "Jump", "Walk", "Action", "Draw Weapon", "Look", "Duck", "Dash", "Roll", "Inventory", "Start"
-    // keys
-    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
-    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
-    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-    // gamepad
-    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
-// inventory items
-    , "Unknown"
-    , "Explosive"
-    , "Pistols"
-    , "Shotgun"
-    , "Magnums"
-    , "Uzis"
-    , "Pistol Clips"
-    , "Shotgun Shells"
-    , "Magnum Clips"
-    , "Uzi Clips"
-    , "Small Medi Pack"
-    , "Large Medi Pack"
-    , "Lead Bar"
-    , "Scion"
-// keys
-    , "Key"
-    , "Silver Key"
-    , "Rusty Key"
-    , "Gold Key"
-    , "Sapphire Key"
-    , "Neptune Key"
-    , "Atlas Key"
-    , "Damocles Key"
-    , "Thor Key"
-    , "Ornate Key"
-// puzzles
-    , "Puzzle"
-    , "Gold Idol"
-    , "Gold Bar"
-    , "Machine Cog"
-    , "Fuse"
-    , "Ankh"
-    , "Eye of Horus"
-    , "Seal of Anubis"
-    , "Scarab"
-    , "Pyramid Key"
-// TR1 subtitles
-/* 26 */ , "Welcome to my home.@I'll take you on a guided tour."
-/* 27 */ , "Use the directional buttons to go into the music room."
-/* 28 */ , "OK. Let's do some tumbling.@Press the jump button."
-/* 29 */ , "Now press it again and press one of@the directions and I'll jump that way."
-/* 30 */ , "Ah, the main hall.@Sorry about the crates, I'm having some things put@ into storage and the delivery people haven't been yet."
-/* 31 */ , "Run up to a crate, and while still pressing forwards@press action, and I'll vault up onto it."
-/* 32 */ , "This used to be the ballroom, but I've converted it into my own personal gym.@What do you think?@Well, let's do some exercises."
-/* 33 */ , "I don't actually run everywhere.@When I want to be careful, I walk.@Hold down the walk button, and walk to the white line."
-/* 34 */ , "With the walk button down, I won't fall off even if you try to make me.@Go on, try it."
-/* 35 */ , "If you want look around, press and hold the look button.@Then press in the direction you want to look."
-/* 36 */ , "If a jump is too far for me, I can grab the ledge and save myself from a nasty fall.@Walk to the edge with the white line until I won't go any further.@Then press jump immediately followed by forwards then while @I'm in the air press and hold the action button."
-/* 37 */ , "Press forward and I'll climb up."
-/* 38 */ , "If I do a running jump, I can make a jump like that, no problem."
-/* 39 */ , "Walk to the edge with the white line until I stop.@Then let go of walk and tap backwards to give me a run up.@Press forward, and almost immediately press and hold the jump button.@I won't actually jump until the last minute."
-/* 40 */ , "Right. This is a really big one.@So do a running jump exactly as before except while I'm in the air@press and hold the action button to make me grab the ledge."
-/* 41 */ , "Nice."
-/* 42 */ , "Try to vault up here.@Press forwards and hold action."
-/* 43 */ , "I can't climb up because the gap is too small.@But press right and I'll shimmy sideways@until there is room, then press forward."
-/* 44 */ , "Great!@If there is a long drop and I don't want to@hurt myself jumping off I can let myself down carefully."
-/* 45 */ , "Tap backwards, and I'll jump off backwards.@Immediately press and hold the action button,@and I'll grab the ledge on the way down."
-/* 46 */ , "Then let go."
-/* 47 */ , "Let's go for a swim."
-/* 48 */ , "The jump button and the directions@move me around underwater."
-/* 49 */ , "Ah! Air!@Just use forward and left and right@to manoeuvre around on the surface.@Press jump to dive down for another swim about.@Or go to the edge and press action to climb out."
-/* 50 */ , "Right. Now I'd better take off these wet clothes."
-/* 51 */ , "Say cheese!"
-/* 52 */ , "Ain't nothin' personal."
-/* 53 */ , "I still git a pain in my brain from ye.@An' it's tellin' me funny ideas now.@Like to shoot you to hell!"
-/* 54 */ , "You can't bump off me and my brood so easy, Lara."
-/* 55 */ , "A leetle late for the prize giving - non?@Still, it is the taking-part wheech counts."
-/* 56 */ , "You firin' at me?@You firin' at me, huh?@Ain't nobody else, so you must be firin' at me!"
-};
+#include "lang.h"
 
 #ifdef _NAPI_SOCKET
 extern char command[256];
@@ -380,7 +44,7 @@ namespace UI {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
         9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
         12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
-        5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 11, 8, 13, 16, 9, 4, 12, 12, 
+        5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 8, 8, 13, 16, 9, 4, 12, 12, 
         7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
         
     static const uint8 char_map[102] = {
@@ -405,12 +69,18 @@ namespace UI {
         int x = 0;
 
         while (char c = *text++) {
-            if (c == ' ' || c == '_') {
+            //if (c == '¿') c = '?';
+            //if (c == '¡') c = '!';
+
+            if (c == '~' || c == '$' || c == ')') { // umlauts
+                //
+            } else if (c == ' ' || c == '_') {
                 x += 6;
             } else if (c == '@') {
                 break;
-            } else 
+            } else {
                 x += char_width[charRemap(c)] + 1;
+            }
         }
         return short2(x, 16);
     }
@@ -419,13 +89,18 @@ namespace UI {
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
-            if (c == ' ' || c == '_') {
+            //if (c == '¿') c = '?';
+            //if (c == '¡') c = '!';
+
+            if (c == '~' || c == '$' || c == ')') { // umlauts
+                //
+            } else if (c == ' ' || c == '_') {
                 x += 6;
             } else if (c == '@') {
                 w = max(w, x);
                 h += 16;
                 x = 0;
-            } else 
+            } else
                 x += char_width[charRemap(c)] + 1;
         }
         w = max(w, x);
@@ -455,6 +130,8 @@ namespace UI {
     }
 
     void begin() {
+        ensureLanguage(LangID(Core::settings.audio.language));
+
         Core::setDepthTest(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
@@ -517,6 +194,8 @@ namespace UI {
         }
 
         while (char c = *text++) {
+            //if (c == '¿') c = '?';
+            //if (c == '¡') c = '!';
 
             if (c == '@') {
                 x = int(pos.x) + getLeftOffset(text, align, int(width));
@@ -554,7 +233,9 @@ namespace UI {
 
             mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x, y, 0), tColor, bColor, true);
 
-            x += char_width[frame] + 1;
+            if (c != '~' && c != '$' && c != ')') { // umlauts
+                x += char_width[frame] + 1;
+            }
         }
     }
 
@@ -577,6 +258,7 @@ namespace UI {
     #undef MAX_CHARS
 
     void init(IGame *game) {
+        ensureLanguage(LangID(Core::settings.audio.language));
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
@@ -688,7 +370,7 @@ namespace UI {
     }
 
     void showSubs(StringID str) {
-        if (str == STR_NOT_IMPLEMENTED || !Core::settings.detail.subtitles)
+        if (str == STR_EMPTY || !Core::settings.audio.subtitles)
             return;
         subsStr  = str;
         subsTime = strlen(STR[str]) * SUBTITLES_SPEED;
@@ -697,7 +379,7 @@ namespace UI {
     StringID getSubs(int track) {
         if (game && (game->getLevel()->version & TR::VER_TR1) && track >= 26 && track <= 56)
             return StringID(STR_TR1_SUB_26 + (track - 26));
-        return STR_NOT_IMPLEMENTED;
+        return STR_EMPTY;
     }
 
     void renderHelp() {

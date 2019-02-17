@@ -211,6 +211,7 @@
     <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
     <ClInclude Include="..\..\gameflow.h" />
+    <ClInclude Include="..\..\lang.h" />
     <ClInclude Include="..\..\napi_dummy.h" />
     <ClInclude Include="..\..\napi_socket.h" />
     <ClInclude Include="..\..\network.h" />

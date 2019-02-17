@@ -8,11 +8,11 @@
 			}
 			body {
 				margin: 0px;
-                font-size: 1.0em;
-                overflow: hidden;
+				font-size: 1.0em;
+				overflow: hidden;
 			}
 			.game_fs {
-                position: fixed;
+				position: fixed;
 				top: 0px;
 				left: 0px;
 				margin: 0px;
@@ -111,7 +111,26 @@
 					}
 					proc.connect(audioContext.destination);
 				}
-
+                
+                function getLanguage() {
+                    var lang = navigator.languages && navigator.languages[0] || navigator.language || navigator.userLanguage;
+                    var id = 0;
+                    if (lang.startsWith("fr")) {
+                        id = 1;
+                    } else if (lang.startsWith("de")) {
+                        id = 2;
+                    } else if (lang.startsWith("es")) {
+                        id = 3;
+                    } else if (lang.startsWith("it")) {
+                        id = 4;
+                    } else if (lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk")) {
+                        id = 5;
+                    } else if (lang.startsWith("it")) {
+                        id = 6;
+                    }
+                    Module.ccall('set_def_lang', 'null', ['number'], [id]);
+                }
+                
 			// unlock audio context after user interaction
 				var userAction = function() {
 					if (audioContext && audioContext.state == "suspended") {
@@ -147,7 +166,9 @@
 					OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
 				
 					<div id="latest_changes" style="margin:8px">
-						<br><i>last update: 14.02.2019</i><br>
+						<br><i>last update: <?php
+							echo date("d.m.Y", filemtime("./OpenLara.js.gz"));
+						?></i><br>
 						<input type="button" value="Latest changes" onclick="getLatestChanges()" />
 					</div>
 				</p>

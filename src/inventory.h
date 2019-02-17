@@ -35,7 +35,7 @@ struct OptionItem {
     uint8    maxValue;
     bool     bar;
 
-    OptionItem(Type type = TYPE_EMPTY, int title = STR_NOT_IMPLEMENTED, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
+    OptionItem(Type type = TYPE_EMPTY, int title = STR_EMPTY, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
 
     void setValue(uint8 value, Core::Settings *settings) const {
         *(uint8*)(intptr_t(settings) + offset) = value;
@@ -54,7 +54,7 @@ struct OptionItem {
     }
 
     float drawParam(float x, float y, float w, StringID oStr, bool active, uint8 value) const {
-        if (oStr != STR_NOT_IMPLEMENTED) {
+        if (oStr != STR_EMPTY) {
             UI::textOut(vec2(x + 32.0f, y), oStr);
             x = x + w * 0.5f;
             w = w * 0.5f - 32.0f;
@@ -104,7 +104,7 @@ struct OptionItem {
                 UI::textOut(vec2(x, y), title, UI::aCenter, w, 255, UI::SHADE_GRAY); 
             case TYPE_EMPTY   : break;
             case TYPE_BUTTON  : {
-                const char *caption = offset ? (char*)offset : STR[title];
+                const char *caption = STR[offset ? StringID(offset) : title];
                 UI::textOut(vec2(x, y), caption, UI::aCenter, w);
                 break;
             }
@@ -127,7 +127,6 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows   ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water     ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple    ), STR_OFF, 0, 1 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SUBTITLES,       SETTINGS( detail.subtitles ), STR_OFF, 0, 1 ),
 #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI) || defined(_OS_PSV)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync     ), STR_OFF, 0, 1 ),
 #endif
@@ -147,24 +146,26 @@ static const OptionItem optDetail[] = {
 static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_VOLUMES ),
     OptionItem( ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED,     SETTINGS( audio.music  ), 0xFF0080FF, 101, SND_MAX_VOLUME, true ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED,     SETTINGS( audio.sound  ), 0xFFFF8000, 102, SND_MAX_VOLUME, true ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION,       SETTINGS( audio.reverb ), STR_OFF, 0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY,         SETTINGS( audio.music     ), 0xFF0080FF, 101, SND_MAX_VOLUME, true ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY,         SETTINGS( audio.sound     ), 0xFFFF8000, 102, SND_MAX_VOLUME, true ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION, SETTINGS( audio.reverb    ), STR_OFF, 0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SUBTITLES, SETTINGS( audio.subtitles ), STR_OFF, 0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_LANGUAGE,  SETTINGS( audio.language  ), STR_LANG_EN, 0, 6 ),
 };
 
 static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY,                SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
 #ifndef _OS_CLOVER
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD, SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
 #endif
 #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
 #endif
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM   , SETTINGS( controls[0].multiaim           ), STR_OFF,       0, 1 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_NOT_IMPLEMENTED         , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cUp        , SETTINGS( controls[0].keys[ cUp        ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDown      , SETTINGS( controls[0].keys[ cDown      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRight     , SETTINGS( controls[0].keys[ cRight     ] ), STR_KEY_FIRST ),
@@ -322,7 +323,7 @@ struct Inventory {
 
                 OptionItem item;
                 item.type   = OptionItem::TYPE_BUTTON;
-                item.offset = slot.isCheckpoint() ? intptr_t(STR[STR_CURRENT_POSITION]) : intptr_t(TR::LEVEL_INFO[id].title); // offset as int pointer to level title string
+                item.offset = slot.isCheckpoint() ? STR_CURRENT_POSITION : TR::LEVEL_INFO[id].title;
                 item.color  = i; // color as slot index
                 optLoadSlots.push(item);
             }
@@ -1572,7 +1573,7 @@ struct Inventory {
                 case TR::Entity::INV_GAMMA     :
                 case TR::Entity::INV_STOPWATCH :
                 case TR::Entity::INV_MAP       :
-                    UI::textOut(vec2(-eye, 240), STR_NOT_IMPLEMENTED, UI::aCenter, UI::width);
+                    UI::textOut(vec2(-eye, 240), STR_EMPTY, UI::aCenter, UI::width);
                     break;
                 default : ;
             }
@@ -1915,7 +1916,7 @@ struct Inventory {
             sprintf(time, "%d:%02d", m, s);
 
         sprintf(buf, STR[STR_LEVEL_STATS], 
-                TR::LEVEL_INFO[saveStats.level].title,
+                STR[TR::LEVEL_INFO[saveStats.level].title],
                 saveStats.kills,
                 saveStats.pickups,
                 secrets, secretsMax, time);
