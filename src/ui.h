@@ -44,7 +44,7 @@ namespace UI {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
         9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
         12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
-        5, 5, 5, 11, 9, 10, 8, 6, 6, 7, 7, 3, 8, 8, 13, 16, 9, 4, 12, 12, 
+        5, 5, 5, 11, 9, 7, 8, 6, 0, 7, 7, 3, 8, 8, 13, 7, 9, 4, 12, 12, 
         7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
         
     static const uint8 char_map[102] = {
@@ -69,10 +69,11 @@ namespace UI {
         int x = 0;
 
         while (char c = *text++) {
-            //if (c == '¿') c = '?';
-            //if (c == '¡') c = '!';
+            if (c == '\xBF') c = '?';
+            if (c == '\xA1') c = '!';
+            if (c == '|')    c = 'c';
 
-            if (c == '~' || c == '$' || c == ')') { // umlauts
+            if (c == '~' || c == '$' || c == '(' || c == ')') { // umlauts
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -89,10 +90,11 @@ namespace UI {
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
-            //if (c == '¿') c = '?';
-            //if (c == '¡') c = '!';
+            if (c == '\xBF') c = '?';
+            if (c == '\xA1') c = '!';
+            if (c == '|')    c = 'c';
 
-            if (c == '~' || c == '$' || c == ')') { // umlauts
+            if (c == '~' || c == '$' || c == '(' || c == ')') { // umlauts
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -194,8 +196,8 @@ namespace UI {
         }
 
         while (char c = *text++) {
-            //if (c == '¿') c = '?';
-            //if (c == '¡') c = '!';
+            if (c == '\xBF') c = '?';
+            if (c == '\xA1') c = '!';
 
             if (c == '@') {
                 x = int(pos.x) + getLeftOffset(text, align, int(width));
@@ -208,7 +210,12 @@ namespace UI {
                 continue;
             }
 
-            int frame = charRemap(c);
+            char charFrame = c;
+            if (charFrame == '\xBF') charFrame = '?';
+            if (charFrame == '\xA1') charFrame = '!';
+            if (charFrame == '|')    charFrame = 'c';
+
+            int frame = charRemap(charFrame);
 
             if (frame >= level->spriteSequences[seq].sCount)
                 continue;
@@ -231,9 +238,26 @@ namespace UI {
                 }
             }
 
-            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x, y, 0), tColor, bColor, true);
+            int dx = 0, dy = 0;
+            if (c == '~' || c == '$' || c == '(' || c == ')') {
+                int idx = charRemap(*text);
+                dx = (char_width[idx] - char_width[frame]) / 2 - 1;
+                if (idx < 26) { // if next char is uppercase
+                    dy -= 4;
+                //    dx += (c == '~') ? 1 : 2;
+                }
+                //if (c == ')') {
+                //    dx += 2;
+                //}
+            }
 
-            if (c != '~' && c != '$' && c != ')') { // umlauts
+            if (c == '|') {
+                mesh->addDynSprite(level->spriteSequences[seq].sStart + charRemap(','), short3(x + 3, y + 1, 0), tColor, bColor, true);
+            }
+
+            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), tColor, bColor, true);
+
+            if (c != '~' && c != '$' && c != '(' && c != ')') { // umlauts
                 x += char_width[frame] + 1;
             }
         }
