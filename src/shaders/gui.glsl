@@ -20,7 +20,6 @@ varying vec4 vColor;
 
 	void main() {
 		fragColor = texture2D(sDiffuse, vTexCoord) * vColor;
-		fragColor.rgb *= fragColor.a;
 	}
 #endif
 )===="

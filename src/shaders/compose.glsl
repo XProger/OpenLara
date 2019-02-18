@@ -151,7 +151,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 		#ifdef TYPE_FLASH
 			vDiffuse.xyz += uMaterial.w;
 		#else
-			vDiffuse.w = uMaterial.w;
+			vDiffuse *= uMaterial.w;
 		#endif
 
 		#ifdef TYPE_SPRITE
@@ -465,8 +465,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 		fragColor = color;
 		#ifdef TYPE_FLASH
 			fragColor.w = 0.0;
-		#else
-			fragColor.xyz *= fragColor.w;
 		#endif
 	}
 

@@ -1195,11 +1195,11 @@ struct Level : IGame {
             // oxygen bar
                 { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 },
             // option bar
-                { 0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x80FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x60FFFFFF, 0x00FFFFFF,
-                  0x00FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x20FFFFFF, 0x00FFFFFF },
+                { 0x00000000, 0x20202020, 0x20202020, 0x20202020, 0x00000000,
+                  0x00000000, 0x60606060, 0x60606060, 0x60606060, 0x00000000,
+                  0x00000000, 0x80808080, 0x80808080, 0x80808080, 0x00000000,
+                  0x00000000, 0x60606060, 0x60606060, 0x60606060, 0x00000000,
+                  0x00000000, 0x20202020, 0x20202020, 0x20202020, 0x00000000 },
             // white bar (white tile)
                 { 0xFFFFFFFF },
             };
@@ -1212,26 +1212,31 @@ struct Level : IGame {
 
         Color32 *src, *dst = (Color32*)data;
         short4 mm;
-        
+
+        bool isSprite = false;
+
         if (id < level->objectTexturesCount) { // textures
             TR::TextureInfo &t = level->objectTextures[id];
             mm      = t.getMinMax();
             src     = owner->tileData->color;
             uv      = t.texCoordAtlas;
             uvCount = 4;
-            if (data)
+            if (data) {
                 level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
+            }
         } else {
             id -= level->objectTexturesCount;
 
             if (id < level->spriteTexturesCount) { // sprites
                 TR::TextureInfo &t = level->spriteTextures[id];
-                mm      = t.getMinMax();
-                src     = owner->tileData->color;
-                uv      = t.texCoordAtlas;
-                uvCount = 2;
-                if (data)
+                mm       = t.getMinMax();
+                src      = owner->tileData->color;
+                uv       = t.texCoordAtlas;
+                uvCount  = 2;
+                isSprite = true;
+                if (data) {
                     level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
+                }
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
 
@@ -1281,7 +1286,12 @@ struct Level : IGame {
                     ASSERT((y + ATLAS_BORDER + tileY) >= 0 && (y + ATLAS_BORDER + tileY) < atlasHeight);
                     p += clamp(x, 0, w - 1);
                     p += clamp(y, 0, h - 1) * stride;
-                    dst[x + ATLAS_BORDER] = *p;
+
+                    if (isSprite && (y < 0 || y >= h || x < 0 || x >= w)) {
+                        dst[x + ATLAS_BORDER] = Color32(0, 0, 0, 0);
+                    } else {
+                        dst[x + ATLAS_BORDER] = *p;
+                    }
                 }
                 dst += atlasWidth;
             }
