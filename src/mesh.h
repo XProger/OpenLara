@@ -385,13 +385,16 @@ struct MeshBuilder {
                         models[i].parts[transp][j] = geom.count;
                     #endif
 
+                    bool forceOpaque = false;
+                    TR::Entity::fixOpaque(model.type, forceOpaque);
+
                     int index = level->meshOffsets[model.mStart + j];
                     if (index || model.mStart + j <= 0) {
                         TR::Mesh &mesh = level->meshes[index];
                         #ifndef MERGE_MODELS
                             geom.getNextRange(vStartModel, iCount, 0xFFFF, 0xFFFF);
                         #endif
-                        buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE);
+                        buildMesh(geom, blendMask, mesh, level, indices, vertices, iCount, vCount, vStartModel, j, 0, 0, 0, 0, COLOR_WHITE, forceOpaque);
                     }
 
                     #ifndef MERGE_MODELS
@@ -965,7 +968,7 @@ struct MeshBuilder {
         }
     }
 
-    bool buildMesh(Geometry &geom, int blendMask, const TR::Mesh &mesh, TR::Level *level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const Color32 &light) {
+    bool buildMesh(Geometry &geom, int blendMask, const TR::Mesh &mesh, TR::Level *level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 joint, int x, int y, int z, int dir, const Color32 &light, bool forceOpaque = false) {
         bool isOpaque = true;
 
         for (int j = 0; j < mesh.fCount; j++) {
@@ -973,10 +976,12 @@ struct MeshBuilder {
             ASSERT(f.colored || f.flags.texture < level->objectTexturesCount);
             TR::TextureInfo &t = f.colored ? whiteTile : level->objectTextures[f.flags.texture];
 
-            if (t.attribute != 0)
+            int texAttrib = forceOpaque ? 0 : t.attribute;
+
+            if (texAttrib != 0)
                 isOpaque = false;
 
-            if (!(blendMask & getBlendMask(t.attribute)))
+            if (!(blendMask & getBlendMask(texAttrib)))
                 continue;
 
             if (!geom.validForTile(t.tile, t.clut))

@@ -352,7 +352,7 @@ namespace UI {
         if (Input::touchTimerVis <= 0.0f) return;
 
         Core::setDepthTest(false);
-        Core::setBlendMode(bmAlpha);
+        Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
 
         Core::mViewProj = GAPI::ortho(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
