@@ -719,6 +719,7 @@ namespace Core {
             delete[] noiseData;
         }
 
+        perlinTex = NULL;
         if (support.tex3D) {
             Stream::cacheRead(PERLIN_TEX_NAME, readPerlinAsync);
         }

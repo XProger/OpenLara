@@ -681,6 +681,9 @@ struct Inventory {
     }
 
     void init(bool playLogo, bool playVideo) {
+        active    = false;
+        phaseRing = 0.0f;
+
         this->playLogo  = playLogo;
         this->playVideo = playVideo;
 

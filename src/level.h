@@ -1536,6 +1536,13 @@ struct Level : IGame {
             }
         }
 
+        if (type != Shader::DEFAULT && !Core::perlinTex) {
+            type = Shader::DEFAULT;
+            if (level.version & TR::VER_TR1) {
+                return;
+            }
+        }
+
         Core::Pass pass = Core::pass;
         mat4 mView = Core::mView;
         mat4 mProj = Core::mProj;
