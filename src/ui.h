@@ -342,7 +342,8 @@ namespace UI {
         m.translate(vec3(pos.x, pos.y, 0.0));
         m.scale(vec3(scale.x, scale.y, 1.0));
         Core::active.shader->setParam(uViewProj, m);
-        Core::setMaterial(1.0f, 1.0f, 1.0f, active ? 0.7f : 0.5f);
+        float a = active ? 0.7f : 0.5f;
+        Core::setMaterial(a, a, a, a);
         game->getMesh()->renderCircle();
     }
 

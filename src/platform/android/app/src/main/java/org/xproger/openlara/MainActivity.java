@@ -1,6 +1,8 @@
 package org.xproger.openlara;
 
 import java.util.ArrayList;
+import java.util.Locale;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import android.os.Bundle;
 import android.os.Environment;
@@ -223,7 +225,7 @@ class Touch {
 }
 
 class Wrapper implements GvrView.StereoRenderer {
-    public static native void nativeInit(String contentDir, String cacheDir);
+    public static native void nativeInit(String contentDir, String cacheDir, int langId);
     public static native void nativeFree();
     public static native void nativeReset();
     public static native void nativeResize(int x, int y, int w, int h);
@@ -272,10 +274,33 @@ class Wrapper implements GvrView.StereoRenderer {
         nativeResize(0, 0, width, height);
     }
 
+    int getLanguage() {
+        String lang = Locale.getDefault().getLanguage();
+        int id = 0;
+        if (lang.startsWith("fr")) {
+            id = 1;
+        } else if (lang.startsWith("de")) {
+            id = 2;
+        } else if (lang.startsWith("es")) {
+            id = 3;
+        } else if (lang.startsWith("it")) {
+            id = 4;
+        } else if (lang.startsWith("pl")) {
+            id = 5;
+        } else if (lang.startsWith("pt")) {
+            id = 6;
+        } else if (lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk")) {
+            id = 7;
+        } else if (lang.startsWith("ja")) {
+            id = 8;
+        }
+        return id;
+    }
+
     @Override
     public void onSurfaceCreated(EGLConfig config) {
         if (!ready) {
-            nativeInit(contentDir, cacheDir);
+            nativeInit(contentDir, cacheDir, getLanguage());
             nativeSoundState(true);
             ready = true;
         }

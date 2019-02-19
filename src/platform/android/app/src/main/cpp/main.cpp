@@ -128,7 +128,7 @@ void osToggleVR(bool enable) {
 
 extern "C" {
 
-JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstring jcacheDir) {
+JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstring jcacheDir, jint langId) {
     env->GetJavaVM(&jvm);
 
     timeval t;
@@ -138,6 +138,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstr
     const char* str;
 
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
+    Core::defLang = langId;
 
     str = env->GetStringUTFChars(jcontentDir, NULL);
     strcat(contentDir, str);
@@ -147,7 +148,7 @@ JNI_METHOD(void, nativeInit)(JNIEnv* env, jobject obj, jstring jcontentDir, jstr
     strcat(cacheDir, str);
     env->ReleaseStringUTFChars(jcacheDir, str);
 
-    strcpy(saveDir, cacheDir);
+    strcpy(saveDir, contentDir);
 
     sndInit();
 
