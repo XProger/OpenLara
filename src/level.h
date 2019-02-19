@@ -835,7 +835,7 @@ struct Level : IGame {
         waitTrack = true;
         TR::getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
 
-        UI::showSubs(UI::getSubs(track));
+        UI::showSubs(TR::getSubs(level.version, track));
     }
 
     virtual void stopTrack() {
@@ -915,6 +915,7 @@ struct Level : IGame {
         effect  = TR::Effect::NONE;
 
         sndWater = sndTrack = NULL;
+        UI::init(this);
 
         /*
         if (level.id == TR::LVL_TR2_RIG) {
@@ -935,6 +936,8 @@ struct Level : IGame {
     }
 
     virtual ~Level() {
+        UI::init(NULL);
+
         Network::stop();
 
         for (int i = 0; i < level.entitiesCount; i++)
@@ -2855,7 +2858,7 @@ struct Level : IGame {
     }
 
     void renderUI() {
-        if (level.isCutsceneLevel() || inventory->titleTimer > 1.0f || level.isTitle()) return;
+        if (inventory->titleTimer > 1.0f || level.isTitle()) return;
 
         UI::begin();
         UI::updateAspect(camera->aspect);
@@ -2864,42 +2867,46 @@ struct Level : IGame {
 
         Core::resetLights();
 
-    // render health & oxygen bars
-        vec2 size = vec2(180, 10);
+        if (!level.isCutsceneLevel()) {
+        // render health & oxygen bars
+            vec2 size = vec2(180, 10);
 
-        float health = player->health / float(LARA_MAX_HEALTH);
-        float oxygen = player->oxygen / float(LARA_MAX_OXYGEN);
+            float health = player->health / float(LARA_MAX_HEALTH);
+            float oxygen = player->oxygen / float(LARA_MAX_OXYGEN);
 
-        if ((params->time - int(params->time)) < 0.5f) { // blinking
-            if (health <= 0.2f) health = 0.0f;
-            if (oxygen <= 0.2f) oxygen = 0.0f;
-        }
-
-        float eye = inventory->active ? 0.0f : UI::width * Core::eye * 0.02f;
-
-        vec2 pos;
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-            pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
-        else
-            pos = vec2(UI::width - 32 - size.x - eye, 32);
-
-        if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER)) {
-            UI::renderBar(UI::BAR_OXYGEN, pos, size, oxygen);
-            pos.y += 16.0f;
-        }
-
-        if ((!inventory->active && ((player->wpnReady() && !player->emptyHands()) || player->damageTime > 0.0f || health <= 0.2f))) {
-            UI::renderBar(UI::BAR_HEALTH, pos, size, health);
-            pos.y += 32.0f;
-
-            if (!inventory->active && !player->emptyHands()) { // ammo
-                int index = inventory->contains(player->wpnCurrent);
-                if (index > -1)
-                    inventory->renderItemCount(inventory->items[index], pos, size.x);
+            if ((params->time - int(params->time)) < 0.5f) { // blinking
+                if (health <= 0.2f) health = 0.0f;
+                if (oxygen <= 0.2f) oxygen = 0.0f;
             }
+
+            float eye = inventory->active ? 0.0f : UI::width * Core::eye * 0.02f;
+
+            vec2 pos;
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+                pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
+            else
+                pos = vec2(UI::width - 32 - size.x - eye, 32);
+
+            if (!player->dozy && (player->stand == Lara::STAND_ONWATER || player->stand == Character::STAND_UNDERWATER)) {
+                UI::renderBar(UI::BAR_OXYGEN, pos, size, oxygen);
+                pos.y += 16.0f;
+            }
+
+            if ((!inventory->active && ((player->wpnReady() && !player->emptyHands()) || player->damageTime > 0.0f || health <= 0.2f))) {
+                UI::renderBar(UI::BAR_HEALTH, pos, size, health);
+                pos.y += 32.0f;
+
+                if (!inventory->active && !player->emptyHands()) { // ammo
+                    int index = inventory->contains(player->wpnCurrent);
+                    if (index > -1)
+                        inventory->renderItemCount(inventory->items[index], pos, size.x);
+                }
+            }
+
+            UI::renderHelp();
         }
 
-        UI::renderHelp();
+        UI::renderSubs();
 
         UI::end();
     }

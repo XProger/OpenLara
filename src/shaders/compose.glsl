@@ -463,9 +463,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 		#endif
 
 		fragColor = color;
-		#ifdef TYPE_FLASH
-			fragColor.w = 0.0;
-		#endif
 	}
 
 #endif

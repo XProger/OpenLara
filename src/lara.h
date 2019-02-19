@@ -511,7 +511,7 @@ struct Lara : Character {
         if (level->extra.laraSkin > -1)
             level->entities[entity].modelIndex = level->extra.laraSkin + 1;
 
-        jointChest = JOINT_CHEST;
+        jointChest = level->isCutsceneLevel() ? 0 : JOINT_CHEST;
         jointHead  = JOINT_HEAD;
         rangeChest = vec4(-0.50f, 0.50f, -0.95f, 0.95f) * PI;
         rangeHead  = vec4(-0.30f, 0.30f, -0.55f, 0.55f) * PI;

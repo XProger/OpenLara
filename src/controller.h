@@ -1267,6 +1267,8 @@ struct Controller {
         return getRoom();
     }
 
+    #define LIGHT_DIST 8192.0f
+
     void updateLights(bool lerp = true) {
         const TR::Room &room = getLightRoom();
 
@@ -1309,6 +1311,15 @@ struct Controller {
         } else {
             mainLightPos   = tpos;
             mainLightColor = tcolor;
+        }
+
+    // fix position and radius
+        mainLightColor.w = min(LIGHT_DIST * 1.5f, mainLightColor.w);
+        vec3 dir = mainLightPos - pos;
+        float dist = dir.length();
+        if (dist > LIGHT_DIST) {
+            dir *= (LIGHT_DIST / dist);
+            mainLightPos = pos + dir;
         }
     }
 

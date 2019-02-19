@@ -46,10 +46,8 @@ namespace Game {
         if (loadSlot != -1)
             playVideo = !saveSlots[loadSlot].isCheckpoint();
 
-        UI::init(NULL);
         delete level;
         level = new Level(*lvl);
-        UI::init(level);
 
         bool playLogo = level->level.isTitle() && id == TR::LVL_MAX;
         playVideo = playVideo && (id != level->level.id);
@@ -94,7 +92,6 @@ void loadSettings(Stream *stream, void *userData) {
 
     shaderCache = new ShaderCache();
     Game::startLevel((Stream*)userData);
-    UI::init(Game::level);
 }
 
 static void readSlotAsync(Stream *stream, void *userData) {

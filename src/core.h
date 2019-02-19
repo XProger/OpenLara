@@ -202,7 +202,7 @@ namespace Core {
     #endif
     } support;
 
-#define SETTINGS_VERSION 5
+#define SETTINGS_VERSION 6
 #define SETTINGS_READING 0xFF
 
     struct Settings {

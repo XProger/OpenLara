@@ -132,7 +132,7 @@ namespace UI {
     }
 
     void begin() {
-        ensureLanguage(LangID(Core::settings.audio.language));
+        ensureLanguage(Core::settings.audio.language);
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmPremult);
@@ -285,7 +285,7 @@ namespace UI {
     #undef MAX_CHARS
 
     void init(IGame *game) {
-        ensureLanguage(LangID(Core::settings.audio.language));
+        ensureLanguage(Core::settings.audio.language);
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
@@ -403,12 +403,6 @@ namespace UI {
         subsTime = strlen(STR[str]) * SUBTITLES_SPEED;
     }
 
-    StringID getSubs(int track) {
-        if (game && (game->getLevel()->version & TR::VER_TR1) && track >= 26 && track <= 56)
-            return StringID(STR_TR1_SUB_26 + (track - 26));
-        return STR_EMPTY;
-    }
-
     void renderHelp() {
     #ifdef _NAPI_SOCKET
         textOut(vec2(16, height - 32), command, aLeft, width - 32, 255, UI::SHADE_GRAY);
@@ -417,11 +411,6 @@ namespace UI {
 
         if (hintTime > 0.0f) {
             textOut(vec2(16 - eye, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
-        }
-
-        if (subsTime > 0.0f) {
-            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
-            textOut(vec2(16 - eye, height - 48), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY);
         }
 
     #if defined(_OS_WEB) || defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_RPI)
@@ -439,6 +428,17 @@ namespace UI {
         sprintf(buf, "%d", Core::stats.fps);
         textOut(vec2(0, 16), buf, aLeft, width, 255, UI::SHADE_ORANGE);
     #endif
+    }
+
+    void renderSubs() {
+        if (!Core::settings.audio.subtitles) return;
+
+        float eye = UI::width * Core::eye * 0.02f;
+
+        if (subsTime > 0.0f) {
+            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
+            textOut(vec2(16 - eye, height - 48), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY);
+        }
     }
 
     void addPickup(TR::Entity::Type type, int playerIndex, const vec2 &pos) {

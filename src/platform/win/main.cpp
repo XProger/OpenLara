@@ -489,20 +489,23 @@ void parseCommand(char *cmd) {
 }
 #endif
 
-LangID checkLanguage() {
+int checkLanguage() {
     LANGID id = GetUserDefaultUILanguage() & 0xFF;
+    int str = STR_LANG_EN;
     switch (id) {
-        case LANG_ENGLISH    : return LANG_EN;
-        case LANG_FRENCH     : return LANG_FR;
-        case LANG_GERMAN     : return LANG_DE;
-        case LANG_SPANISH    : return LANG_ES;
-        case LANG_ITALIAN    : return LANG_IT;
+        case LANG_ENGLISH    : str = STR_LANG_EN; break;
+        case LANG_FRENCH     : str = STR_LANG_FR; break;
+        case LANG_GERMAN     : str = STR_LANG_DE; break;
+        case LANG_SPANISH    : str = STR_LANG_ES; break;
+        case LANG_ITALIAN    : str = STR_LANG_IT; break;
+        case LANG_POLISH     : str = STR_LANG_PL; break;
+        case LANG_PORTUGUESE : str = STR_LANG_PT; break;
         case LANG_RUSSIAN    :
         case LANG_UKRAINIAN  :
-        case LANG_BELARUSIAN : return LANG_RU;
-        case LANG_JAPANESE   : return LANG_JA;
+        case LANG_BELARUSIAN : str = STR_LANG_RU; break;
+        case LANG_JAPANESE   : str = STR_LANG_JA; break;
     }
-    return LANG_EN;
+    return str - STR_LANG_EN;
 }
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {

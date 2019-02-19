@@ -123,10 +123,14 @@
                         id = 3;
                     } else if (lang.startsWith("it")) {
                         id = 4;
-                    } else if (lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk")) {
+                    } else if (lang.startsWith("pl")) {
                         id = 5;
-                    } else if (lang.startsWith("it")) {
+                    } else if (lang.startsWith("pt")) {
                         id = 6;
+                    } else if (lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk")) {
+                        id = 7;
+                    } else if (lang.startsWith("ja")) {
+                        id = 8;
                     }
                     Module.ccall('set_def_lang', 'null', ['number'], [id]);
                 }

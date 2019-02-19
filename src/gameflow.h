@@ -922,7 +922,7 @@ namespace TR {
 
     bool checkTrack(const char *pre, char *name) {
         static const char *fmt[] = { ".ogg", ".mp3", ".wav" };
-        const char *lng[] = { "", "", "_EN", "_FR", "_DE", "_ES", "_IT", "_RU", "_JA" };
+        const char *lng[] = { "", "", LANG_PREFIXES };
 
         int start = 1;
         if (Core::settings.audio.language != 0) {
@@ -943,6 +943,21 @@ namespace TR {
                 }
             }
 
+        return false;
+    }
+
+    StringID getSubs(Version version, int track) {
+        if ((version & VER_TR1) && (track >= 22 && track <= 56 && track != 24)) {
+            return StringID(STR_TR1_SUB_22 + (track - 22));
+        }
+        return STR_EMPTY;
+    }
+
+    bool checkWebDub(Version version, int track) {
+        if ((version & VER_TR1) && (track >= 22 && track <= 56 && track != 24)) {
+            int lang = Core::settings.audio.language + STR_LANG_EN;
+            return lang != STR_LANG_ES && lang != STR_LANG_IT && lang != STR_LANG_PL && lang != STR_LANG_PT;
+        }
         return false;
     }
 
@@ -987,9 +1002,9 @@ namespace TR {
             switch (version) {
                 case VER_TR1_SAT :
                 case VER_TR1_PC  :
-                case VER_TR1_PSX :
-                    if (track != 24 && track >= 22 && track <= 56 && Core::settings.audio.language != LANG_ES && Core::settings.audio.language != LANG_IT) { // es, it isn't implemented yet
-                        const char *lng[] = { "_EN", "_FR", "_DE", "_ES", "_IT", "_RU", "_JA" };
+                case VER_TR1_PSX : {
+                    if (TR::checkWebDub(version, track)) {
+                        const char *lng[] = { LANG_PREFIXES };
                         sprintf(title, "audio/1/track_%02d%s.ogg", track, lng[Core::settings.audio.language]);
                     } else {
                         sprintf(title, "audio/1/track_%02d.ogg", track);
@@ -1001,6 +1016,7 @@ namespace TR {
                     sprintf(title, "audio/1/%03d.ogg", track);
                 #endif
                     break;
+                }
                 case VER_TR2_PC  :
                 case VER_TR2_PSX :
                     track = remapTrack(version, track);

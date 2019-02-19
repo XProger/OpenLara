@@ -25,6 +25,8 @@ enum StringID {
     , STR_LANG_DE
     , STR_LANG_ES
     , STR_LANG_IT
+    , STR_LANG_PL
+    , STR_LANG_PT
     , STR_LANG_RU
     , STR_LANG_JA
     , STR_APPLY
@@ -130,6 +132,9 @@ enum StringID {
     , STR_PUZZLE_SCARAB
     , STR_PUZZLE_PYRAMID
 // TR1 subtitles
+    , STR_TR1_SUB_22 // CUT4
+    , STR_TR1_SUB_23 // CUT1
+    , STR_TR1_SUB_25 // CUT3
     , STR_TR1_SUB_26
     , STR_TR1_SUB_27
     , STR_TR1_SUB_28
@@ -228,6 +233,19 @@ enum StringID {
     , STR_MAX
 };
 
+#define STR_LANGUAGES \
+      "English"       \
+    , "Fran|ais"      \
+    , "Deutsch"       \
+    , "Espa(~nol"     \
+    , "Italiano"      \
+    , "Polski"        \
+    , "Portugu)es"    \
+    , "Russian"       \
+    , "Japanese"      \
+
+#define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA"
+
 const char *helpText = 
     "Start - add second player or restore Lara@"
     "H - Show or hide this help@"
@@ -269,13 +287,7 @@ const char *STR_EN[] = { ""
     , "Low"
     , "Medium"
     , "High"
-    , "English"
-    , "French"
-    , "German"
-    , "Spanish"
-    , "Italian"
-    , "Russian"
-    , "Japanese"
+    , STR_LANGUAGES
     , "Apply"
     , "Gamepad 1"
     , "Gamepad 2"
@@ -379,6 +391,53 @@ const char *STR_EN[] = { ""
     , "Scarab"
     , "Pyramid Key"
 // TR1 subtitles
+/* 22 */ ,
+    "\0Back again?"
+    "And you - for a grand re-opening I assume."
+    "Evolution's in a rut - natural selection at an all time low..."
+    "shipping out fresh meat will incite territorial rages again"
+    " - will strengthen and advance us..."
+    "Even create new breeds."
+    "Kind of like evolution on steroids then."
+    "A kick in the pants...those runts Qualopec and Tihocan had no idea"
+    " - the cataclysm of Atlantis struck a race of langouring wimps..."
+    "plummeted them to the very basics of survival again..."
+    "It shouldn't happen like that."
+    "Or like this."
+    "Hatching commences in 20 seconds."
+    "Too late for abortions now!"
+    "Not without the heart of the operation!"
+    "Noooo!"
+    "TEN"
+    "FIVE..."
+    "4...3...2..."
+    "ONE..."
+/* 23 */ ,
+    "\0Well, you have my total attention now"
+    "I'm not quite sure if I've got yours though"
+    "hello"
+    "I'll heel an' hide ye to a barn door yit"
+    "Of course"
+    "Ye and that drivelin' piece of the Scion."
+    "Ye want to keep it so bad, I'll harness it right up y..."
+    "Wait... we're talking about the artifact here?"
+    "Damn straight we are ... right up y ..."
+    "Hold on - I'm sorry"
+    "this piece you say - where's the rest?"
+    "Ms Natla put Pierre Dupont on that trail."
+    "And where is that?"
+    "Hah. Ye ain't fast enough fer him."
+    "So you think all this talking is just holding me up then?"
+    "I don't know where his little jackrabbit-frog-legs are runnin' him to"
+    "You'll have to ask Ms. Natla"
+    "Thank you. I will."
+/* 25 */ ,
+    "\0Here lies Tihocan"
+    "...one of the two just rulers of Atlantis..."
+    "Who even after the curse of the continent..."
+    "...had tried to keep rule here in these barren other-lands..."
+    "He died without child and his knowledge has no heritage..."
+    "Look over us kindly, Tihocan."
 /* 26 */ , "Welcome to my home!@I'll take you on a guided tour."
 /* 27 */ , "Use the directional buttons to go into the music room."
 /* 28 */ , "OK. Let's do some tumbling.@Press the jump button."
@@ -497,13 +556,7 @@ const char *STR_FR[] = { ""
     , "Bas"
     , "Moyen"
     , "Haut"
-    , "English"
-    , "French"
-    , "German"
-    , "Spanish"
-    , "Italian"
-    , "Russian"
-    , "Japanese"
+    , STR_LANGUAGES
     , "Appliquer"
     , "Gamepad 1"
     , "Gamepad 2"
@@ -607,6 +660,9 @@ const char *STR_FR[] = { ""
     , "Scarab)ee"
     , "Cl)e pyramide"
 // TR1 subtitles by Zellphie
+/* 22 */ , ""
+/* 23 */ , ""
+/* 25 */ , ""
 /* 26 */ , "Bienvenue chez moi! je vais vous faire visiter."
 /* 27 */ , "Utilisez les touches fl)ech)ees pour@aller dans le salon de musique."
 /* 28 */ , "OK. On va bouger un peu.@Appuyez sur la touche de saut."
@@ -620,7 +676,7 @@ const char *STR_FR[] = { ""
 /* 36 */ , "Si je ne peux pas sauter assez loin, je peux toujours me rattraper@de justesse pour ne pas tomber. Avancez vers la ligne blanche@jusqu'$a ce que je m'arr(ete de moi-m(eme,@ensuite appuyez sur la touche de saut et tout de suite apr$es@sur la touche fl)ech)ee haut, et maintenez la touche d'action enfonc)ee pendant que je saute."
 /* 37 */ , "Appuyez sur la touche fl)ech)ee haut pour me faire grimper."
 /* 38 */ , "Si je prends de l')elan, je peux sauter |a sans probl$eme!"
-/* 39 */ , "Avancez jusqu'$a la ligne blanche, jusqu'$a ce que je m'arr(ete,@et appuyez sur la touche de marche puis sur la touche fl)ech)ee bas pour que je prenne de l')elan.@Appuyez ensuite sur la touche fl)ech)ee haut et sur la touche de saut tout de suite apr(es.@Mais en fait, je ne sauterai qu'au dernier moment, je ne suis pas folle!"
+/* 39 */ , "Avancez jusqu'$a la ligne blanche, jusqu'$a ce que je m'arr(ete,@et appuyez sur la touche de marche puis sur la touche fl)ech)ee bas pour que je prenne de l')elan.@Appuyez ensuite sur la touche fl)ech)ee haut et sur la touche de saut tout de suite apr$es.@Mais en fait, je ne sauterai qu'au dernier moment, je ne suis pas folle!"
 /* 40 */ , "L$a, c'est plus difficile.@Nous allons refaire exactement le m(eme saut, mais@vous maintiendrez la touche d'action enfonc)ee@pour que je me rattrape en catastrophe@Quand je serai en l'air."
 /* 41 */ , "Bien jou)e!"
 /* 42 */ , "Nous allons essayer de sauter ici.@Appuyez sur la touche fl)ech)ee haut puis sur la touche d'action sans la rel(acher."
@@ -725,13 +781,7 @@ const char *STR_DE[] = { "" // by Oktopaps
     , "Niedrig"
     , "Mittel"
     , "Hoch"
-    , "English"
-    , "French"
-    , "German"
-    , "Spanish"
-    , "Italian"
-    , "Russian"
-    , "Japanese"
+    , STR_LANGUAGES
     , "Anwenden"
     , "Gamepad 1"
     , "Gamepad 2"
@@ -835,6 +885,9 @@ const char *STR_DE[] = { "" // by Oktopaps
     , "Skarab~aus"
     , "Schl~ussel der Pyramide"
 // TR1 subtitles
+/* 22 */ , ""
+/* 23 */ , ""
+/* 25 */ , ""
 /* 26 */ , "Willkommen bei mir daheim.@Lass uns einen kleinen Rundgang machen."
 /* 27 */ , "Benutz das Steuerkreuz, um ins Musikzimmer zu gehen."
 /* 28 */ , "OK, dann lass uns ein bisschen herumtoben!@Dr~uck die Sprungtaste."
@@ -953,13 +1006,7 @@ const char *STR_ES[] = { ""
     , "Bajo"
     , "Medio"
     , "Alto"
-    , "English"
-    , "French"
-    , "German"
-    , "Spanish"
-    , "Italian"
-    , "Russian"
-    , "Japanese"
+    , STR_LANGUAGES
     , "Aplicar"
     , "Gamepad 1"
     , "Gamepad 2"
@@ -969,8 +1016,8 @@ const char *STR_ES[] = { ""
     , "Jugador 1"
     , "Jugador 2"
     , "Pulsa Cualquier Tecla"
-    , "%s - Elegir"
-    , "%s - Regresa"
+    , "%s - Seleccionar"
+    , "%s - Volver"
 // inventory pages
     , "OPCIONES"
     , "INVENTARIO"
@@ -1008,7 +1055,7 @@ const char *STR_ES[] = { ""
     , "Fijar Volumen"
     , "Reverberaci)on"
     , "Subtitulos"
-    , "Lenguaje"
+    , "Idioma"
 // controls options
     , "Ajustar Controles"
     , "Teclado"
@@ -1063,6 +1110,9 @@ const char *STR_ES[] = { ""
     , "Escarabajo"
     , "Llave de la Pir)amide"
 // TR1 subtitles
+/* 22 */ , ""
+/* 23 */ , ""
+/* 25 */ , ""
 /* 26 */ , "Bienvenidos a mi casa, Te llevar)e en un tour guiado."
 /* 27 */ , "Utiliza la tecla de control para llegar a@la habitaci)on de la m)usica."
 /* 28 */ , "Vale. Hagamos unas cuantas acrobacias.@Presiona la tecla de salto."
@@ -1181,13 +1231,7 @@ const char *STR_IT[] = { ""
     , "Basso"
     , "Medio"
     , "Alto"
-    , "Inglese"
-    , "Francese"
-    , "Tedesco"
-    , "Spagnolo"
-    , "Italiano"
-    , "Russo"
-    , "Giapponese"
+    , STR_LANGUAGES
     , "Applica"
     , "Gamepad 1"
     , "Gamepad 2"
@@ -1291,6 +1335,9 @@ const char *STR_IT[] = { ""
     , "Scarabeo"
     , "Chiave della piramide"
 // TR1 subtitles
+/* 22 */ , ""
+/* 23 */ , ""
+/* 25 */ , ""
 /* 26 */ , "Benvenuto nella mia casa."
 /* 27 */ , "Usa i tasti di controllo per andare nella stanza della musica."
 /* 28 */ , "Ok. Facciamo qualche acrobazia.@Premi il tasto Salto."
@@ -1387,33 +1434,253 @@ const char *STR_IT[] = { ""
     , "All Hallows"
 };
 
-char **STR = NULL;
-
-enum LangID {
-    LANG_EN ,
-    LANG_FR ,
-    LANG_DE ,
-    LANG_ES ,
-    LANG_IT ,
-    LANG_RU ,
-    LANG_JA ,
+const char *STR_PL[] = { ""
+// help
+    , "Loading..."
+    , "Press H for help"
+    , helpText
+    , "%s@@@"
+      "KILLS %d@@"
+      "PICKUPS %d@@"
+      "SECRETS %d of %d@@"
+      "TIME TAKEN %s"
+    , "Saving game..."
+    , "Saving done!"
+    , "SAVING ERROR!"
+    , "YES"
+    , "NO"
+    , "Off"
+    , "On"
+    , "Split Screen"
+    , "VR"
+    , "Low"
+    , "Medium"
+    , "High"
+    , STR_LANGUAGES
+    , "Apply"
+    , "Gamepad 1"
+    , "Gamepad 2"
+    , "Gamepad 3"
+    , "Gamepad 4"
+    , "Not Ready"
+    , "Player 1"
+    , "Player 2"
+    , "Press Any Key"
+    , "%s - Select"
+    , "%s - Go Back"
+// inventory pages
+    , "OPTIONS"
+    , "INVENTORY"
+    , "ITEMS"
+// save game page
+    , "Save Game?"
+    , "Current Position"
+// inventory option
+    , "Game"
+    , "Map"
+    , "Compass"
+    , "Statistics"
+    , "Lara's Home"
+    , "Detail Levels"
+    , "Sound"
+    , "Controls"
+    , "Gamma"
+// passport menu
+    , "Load Game"
+    , "New Game"
+    , "Restart Level"
+    , "Exit to Title"
+    , "Exit Game"
+    , "Select Level"
+// detail options
+    , "Select Detail"
+    , "Filtering"
+    , "Lighting"
+    , "Shadows"
+    , "Water"
+    , "VSync"
+    , "Stereo"
+    , "Simple Items"
+// sound options
+    , "Set Volumes"
+    , "Reverberation"
+    , "Subtitles"
+    , "Language"
+// controls options
+    , "Set Controls"
+    , "Keyboard"
+    , "Gamepad"
+    , "Vibration"
+    , "Retargeting"
+    , "Multi-aiming"
+    // controls
+    , "Left", "Right", "Run", "Back", "Jump", "Walk", "Action", "Draw Weapon", "Look", "Duck", "Dash", "Roll", "Inventory", "Start"
+    // keys
+    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
+    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
+    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
+    // gamepad
+    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+// inventory items
+    , "Unknown"
+    , "Explosive"
+    , "Pistols"
+    , "Shotgun"
+    , "Magnums"
+    , "Uzis"
+    , "Pistol Clips"
+    , "Shotgun Shells"
+    , "Magnum Clips"
+    , "Uzi Clips"
+    , "Small Medi Pack"
+    , "Large Medi Pack"
+    , "Lead Bar"
+    , "Scion"
+// keys
+    , "Key"
+    , "Silver Key"
+    , "Rusty Key"
+    , "Gold Key"
+    , "Sapphire Key"
+    , "Neptune Key"
+    , "Atlas Key"
+    , "Damocles Key"
+    , "Thor Key"
+    , "Ornate Key"
+// puzzles
+    , "Puzzle"
+    , "Gold Idol"
+    , "Gold Bar"
+    , "Machine Cog"
+    , "Fuse"
+    , "Ankh"
+    , "Eye of Horus"
+    , "Seal of Anubis"
+    , "Scarab"
+    , "Pyramid Key"
+// TR1 subtitles
+/* 22 */ , ""
+/* 23 */ , ""
+/* 25 */ , ""
+/* 26 */ , "Welcome to my home!@I'll take you on a guided tour."
+/* 27 */ , "Use the directional buttons to go into the music room."
+/* 28 */ , "OK. Let's do some tumbling.@Press the jump button."
+/* 29 */ , "Now press it again and press one of@the directions and I'll jump that way."
+/* 30 */ , "Ah, the main hall.@Sorry about the crates, I'm having some things put@ into storage and the delivery people haven't been yet."
+/* 31 */ , "Run up to a crate, and while still pressing forwards@press action, and I'll vault up onto it."
+/* 32 */ , "This used to be the ballroom, but I've converted it into my own personal gym.@What do you think?@Well, let's do some exercises."
+/* 33 */ , "I don't actually run everywhere.@When I want to be careful, I walk.@Hold down the walk button, and walk to the white line."
+/* 34 */ , "With the walk button down, I won't fall off even if you try to make me.@Go on, try it."
+/* 35 */ , "If you want look around, press and hold the look button.@Then press in the direction you want to look."
+/* 36 */ , "If a jump is too far for me, I can grab the ledge and save myself from a nasty fall.@Walk to the edge with the white line until I won't go any further.@Then press jump immediately followed by forwards then while @I'm in the air press and hold the action button."
+/* 37 */ , "Press forward and I'll climb up."
+/* 38 */ , "If I do a running jump, I can make a jump like that, no problem."
+/* 39 */ , "Walk to the edge with the white line until I stop.@Then let go of walk and tap backwards to give me a run up.@Press forward, and almost immediately press and hold the jump button.@I won't actually jump until the last minute."
+/* 40 */ , "Right. This is a really big one.@So do a running jump exactly as before except while I'm in the air@press and hold the action button to make me grab the ledge."
+/* 41 */ , "Nice."
+/* 42 */ , "Try to vault up here.@Press forwards and hold action."
+/* 43 */ , "I can't climb up because the gap is too small.@But press right and I'll shimmy sideways@until there is room, then press forward."
+/* 44 */ , "Great!@If there is a long drop and I don't want to@hurt myself jumping off I can let myself down carefully."
+/* 45 */ , "Tap backwards, and I'll jump off backwards.@Immediately press and hold the action button,@and I'll grab the ledge on the way down."
+/* 46 */ , "Then let go."
+/* 47 */ , "Let's go for a swim."
+/* 48 */ , "The jump button and the directions@move me around underwater."
+/* 49 */ , "Ah! Air!@Just use forward and left and right@to manoeuvre around on the surface.@Press jump to dive down for another swim about.@Or go to the edge and press action to climb out."
+/* 50 */ , "Right. Now I'd better take off these wet clothes."
+/* 51 */ , "Say cheese!"
+/* 52 */ , "Ain't nothin' personal."
+/* 53 */ , "I still git a pain in my brain from ye.@An' it's tellin' me funny ideas now.@Like to shoot you to hell!"
+/* 54 */ , "You can't bump off me and my brood so easy, Lara."
+/* 55 */ , "A leetle late for the prize giving - non?@Still, it is the taking-part wheech counts."
+/* 56 */ , "You firin' at me?@You firin' at me, huh?@Ain't nobody else, so you must be firin' at me!"
+// TR1 levels
+    , "Lara's Home"
+    , "Caves"
+    , "City of Vilcabamba"
+    , "Lost Valley"
+    , "Tomb of Qualopec"
+    , "St. Francis' Folly"
+    , "Colosseum"
+    , "Palace Midas"
+    , "The Cistern"
+    , "Tomb of Tihocan"
+    , "City of Khamoon"
+    , "Obelisk of Khamoon"
+    , "Sanctuary of the Scion"
+    , "Natla's Mines"
+    , "Atlantis"
+    , "The Great Pyramid"
+    , "Return to Egypt"
+    , "Temple of the Cat"
+    , "Atlantean Stronghold"
+    , "The Hive"
+// TR2 levels
+    , "Lara's Home"
+    , "The Great Wall"
+    , "Venice"
+    , "Bartoli's Hideout"
+    , "Opera House"
+    , "Offshore Rig"
+    , "Diving Area"
+    , "40 Fathoms"
+    , "Wreck of the Maria Doria"
+    , "Living Quarters"
+    , "The Deck"
+    , "Tibetan Foothills"
+    , "Barkhang Monastery"
+    , "Catacombs of the Talion"
+    , "Ice Palace"
+    , "Temple of Xian"
+    , "Floating Islands"
+    , "The Dragon's Lair"
+    , "Home Sweet Home"
+// TR3 levels
+    , "Lara's House"
+    , "Jungle"
+    , "Temple Ruins"
+    , "The River Ganges"
+    , "Caves Of Kaliya"
+    , "Coastal Village"
+    , "Crash Site"
+    , "Madubu Gorge"
+    , "Temple Of Puna"
+    , "Thames Wharf"
+    , "Aldwych"
+    , "Lud's Gate"
+    , "City"
+    , "Nevada Desert"
+    , "High Security Compound"
+    , "Area 51"
+    , "Antarctica"
+    , "RX-Tech Mines"
+    , "Lost City Of Tinnos"
+    , "Meteorite Cavern"
+    , "All Hallows"
 };
 
-void ensureLanguage(LangID lang) {
+char **STR = NULL;
+
+void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_EN) == STR_MAX);
     ASSERT(COUNT(STR_FR) == STR_MAX);
     ASSERT(COUNT(STR_DE) == STR_MAX);
     ASSERT(COUNT(STR_ES) == STR_MAX);
     ASSERT(COUNT(STR_IT) == STR_MAX);
+    ASSERT(COUNT(STR_PL) == STR_MAX);
+
+    lang += STR_LANG_EN;
 
     switch (lang) {
-        case LANG_FR : STR = (char**)STR_FR; break;
-        case LANG_DE : STR = (char**)STR_DE; break;
-        case LANG_ES : STR = (char**)STR_ES; break;
-        case LANG_IT : STR = (char**)STR_IT; break;
-        case LANG_RU : STR = (char**)STR_EN; break;
-        case LANG_JA : STR = (char**)STR_EN; break;
-        default      : STR = (char**)STR_EN; break;
+        case STR_LANG_FR : STR = (char**)STR_FR; break;
+        case STR_LANG_DE : STR = (char**)STR_DE; break;
+        case STR_LANG_ES : STR = (char**)STR_ES; break;
+        case STR_LANG_IT : STR = (char**)STR_IT; break;
+        case STR_LANG_PL : STR = (char**)STR_PL; break;
+        case STR_LANG_PT : STR = (char**)STR_EN; break;
+        case STR_LANG_RU : STR = (char**)STR_EN; break;
+        case STR_LANG_JA : STR = (char**)STR_EN; break;
+        default          : STR = (char**)STR_EN; break;
     }
 }
 

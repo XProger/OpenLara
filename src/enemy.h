@@ -2236,8 +2236,32 @@ struct GiantMutant : Enemy {
         return state;
     }
 
+    int turn(float delta, float speed) {
+        float w = speed * Core::deltaTime;
+
+        updateTilt(delta, w, speed * 0.1f);
+
+        if (delta != 0.0f) {
+            decrease(delta, angle.y, w);
+            if (speed != 0.0f) {
+                velocity = velocity.rotateY(-w);
+                return speed < 0 ? LEFT : RIGHT;
+            }
+        }
+
+        angle.z = 0.0f;
+        return 0;
+    }
+
     virtual void updatePosition() {
-        turn(false, GIANT_MUTANT_TURN_SLOW);
+        float angleY = 0.0f;
+        if (target && target->health > 0.0f && fabsf(targetAngle) > GIANT_MUTANT_MIN_ANGLE)
+            if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || state == STATE_STOP)
+                angleY = targetAngle;
+        
+        if (angleY != 0.0f) {
+            turn(targetAngle, GIANT_MUTANT_TURN_SLOW);
+        }
 
         Enemy::updatePosition();
         //setOverrides(true, jointChest, jointHead);
