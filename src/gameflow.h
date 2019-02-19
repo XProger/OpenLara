@@ -954,7 +954,7 @@ namespace TR {
     }
 
     bool checkWebDub(Version version, int track) {
-        if ((version & VER_TR1) && (track >= 22 && track <= 56 && track != 24)) {
+        if (getSubs(version, track) != STR_EMPTY) {
             int lang = Core::settings.audio.language + STR_LANG_EN;
             return lang != STR_LANG_ES && lang != STR_LANG_IT && lang != STR_LANG_PL && lang != STR_LANG_PT;
         }

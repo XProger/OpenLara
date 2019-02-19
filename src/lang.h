@@ -134,6 +134,7 @@ enum StringID {
 // TR1 subtitles
     , STR_TR1_SUB_22 // CUT4
     , STR_TR1_SUB_23 // CUT1
+    , STR_TR1_SUB_24
     , STR_TR1_SUB_25 // CUT3
     , STR_TR1_SUB_26
     , STR_TR1_SUB_27
@@ -431,6 +432,7 @@ const char *STR_EN[] = { ""
     "I don't know where his little jackrabbit-frog-legs are runnin' him to"
     "You'll have to ask Ms. Natla"
     "Thank you. I will."
+/* 24 */ , ""
 /* 25 */ ,
     "\0Here lies Tihocan"
     "...one of the two just rulers of Atlantis..."
@@ -662,6 +664,7 @@ const char *STR_FR[] = { ""
 // TR1 subtitles by Zellphie
 /* 22 */ , ""
 /* 23 */ , ""
+/* 24 */ , ""
 /* 25 */ , ""
 /* 26 */ , "Bienvenue chez moi! je vais vous faire visiter."
 /* 27 */ , "Utilisez les touches fl)ech)ees pour@aller dans le salon de musique."
@@ -887,6 +890,7 @@ const char *STR_DE[] = { "" // by Oktopaps
 // TR1 subtitles
 /* 22 */ , ""
 /* 23 */ , ""
+/* 24 */ , ""
 /* 25 */ , ""
 /* 26 */ , "Willkommen bei mir daheim.@Lass uns einen kleinen Rundgang machen."
 /* 27 */ , "Benutz das Steuerkreuz, um ins Musikzimmer zu gehen."
@@ -1112,6 +1116,7 @@ const char *STR_ES[] = { ""
 // TR1 subtitles
 /* 22 */ , ""
 /* 23 */ , ""
+/* 24 */ , ""
 /* 25 */ , ""
 /* 26 */ , "Bienvenidos a mi casa, Te llevar)e en un tour guiado."
 /* 27 */ , "Utiliza la tecla de control para llegar a@la habitaci)on de la m)usica."
@@ -1337,6 +1342,7 @@ const char *STR_IT[] = { ""
 // TR1 subtitles
 /* 22 */ , ""
 /* 23 */ , ""
+/* 24 */ , ""
 /* 25 */ , ""
 /* 26 */ , "Benvenuto nella mia casa."
 /* 27 */ , "Usa i tasti di controllo per andare nella stanza della musica."
@@ -1562,6 +1568,7 @@ const char *STR_PL[] = { ""
 // TR1 subtitles
 /* 22 */ , ""
 /* 23 */ , ""
+/* 24 */ , ""
 /* 25 */ , ""
 /* 26 */ , "Welcome to my home!@I'll take you on a guided tour."
 /* 27 */ , "Use the directional buttons to go into the music room."
