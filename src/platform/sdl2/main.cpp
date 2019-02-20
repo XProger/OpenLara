@@ -105,53 +105,6 @@ void sndFree() {
     delete[] sndData;
 }
 
-/*bool eglInit(EGL_DISPMANX_WINDOW_T &window, EGLDisplay &display, EGLSurface &surface, EGLContext &context) {
-    static const EGLint eglAttr[] = {
-        EGL_RED_SIZE,       8,
-        EGL_GREEN_SIZE,     8,
-        EGL_BLUE_SIZE,      8,
-        EGL_ALPHA_SIZE,     8,
-        EGL_DEPTH_SIZE,     24,
-        EGL_SAMPLES,        0,
-        EGL_SURFACE_TYPE,   EGL_WINDOW_BIT,
-        EGL_NONE
-    };
-
-    static const EGLint ctxAttr[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
-        EGL_NONE
-    };
-
-    display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (display == EGL_NO_DISPLAY)
-        return false;
-
-    if (eglInitialize(display, NULL, NULL) == EGL_FALSE)
-        return false;
-
-    EGLConfig config;
-    EGLint configCount;
-
-    if (eglChooseConfig(display, eglAttr, &config, 1, &configCount) == EGL_FALSE)
-        return false;
-
-    context = eglCreateContext(display, config, EGL_NO_CONTEXT, ctxAttr);
-    if (context == EGL_NO_CONTEXT)
-        return false;
-
-    surface = eglCreateWindowSurface(display, config, &window, NULL);
-    if (surface == EGL_NO_SURFACE)
-        return false;
-
-    if (eglSurfaceAttrib(display, surface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_DESTROYED) == EGL_FALSE)
-        return false;
-
-    if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE)
-        return false;
-
-    return true;
-}*/
-
 // Input
 #define MAX_INPUT_DEVICES 16
 int inputDevices[MAX_INPUT_DEVICES];
@@ -431,26 +384,34 @@ void inputUpdate() {
 
 int main(int argc, char **argv) {
 
+    int w, h;
+    SDL_DisplayMode current;
+
     SDL_Init(SDL_INIT_VIDEO);
 
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GetCurrentDisplayMode(0, &current);
+
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    //SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
+    // We start in fullscreen mode using the vide mode currently in use, to avoid video mode changes.
     SDL_Window *window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+   
+    // We try to use the current video mode, but we inform the core of whatever mode SDL2 gave us in the end. 
+    SDL_GetWindowSize(window, &w, &h);
 
-    Core::width  = 640;
-    Core::height = 480;
+    Core::width  = w;
+    Core::height = h;
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     SDL_GL_SetSwapInterval(0);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
-	SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
+    SDL_ShowCursor(SDL_DISABLE);
 
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
