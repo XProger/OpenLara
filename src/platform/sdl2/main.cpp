@@ -433,17 +433,17 @@ int main(int argc, char **argv) {
 
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     //SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
     SDL_Window *window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	1366, 768, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
-    Core::width  = 1366;
-    Core::height = 768;
+    Core::width  = 640;
+    Core::height = 480;
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     SDL_GL_SetSwapInterval(0);
@@ -484,7 +484,6 @@ int main(int argc, char **argv) {
             Game::render();
             Core::waitVBlank();
 	    SDL_GL_SwapWindow(window);
-            //eglSwapBuffers(display, surface);
         }
     };
 
@@ -493,8 +492,9 @@ int main(int argc, char **argv) {
     sndFree();
     Game::deinit();
 
-    //eglFree(display, surface, context);
-    //wndFree(dmDisplay, dmWindow);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
     return 0;
 }

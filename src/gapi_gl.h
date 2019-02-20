@@ -16,8 +16,12 @@
     #include <GLES3/gl3.h>
     #include <GLES3/gl3ext.h>
     #include <GLES2/gl2ext.h>
-#elif defined(__SDL2__)
+
+#elif defined(__SDL2__) 
     #include <SDL2/SDL.h>
+#if !defined(_GAPI_GLES)
+    #include <SDL2/SDL_opengl.h>
+#else
     #include <SDL2/SDL_opengles2.h>
 
     #define GL_CLAMP_TO_BORDER          0x812D
@@ -55,6 +59,7 @@
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
+#endif
 
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>

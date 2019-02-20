@@ -28,11 +28,11 @@
 
     extern void osToggleVR(bool enable);
 #elif __SDL2__
-    #define _OS_SDL2   1
     #define _GAPI_GL   1
+#ifdef SDL2GLES
     #define _GAPI_GLES 1
-
     #define DYNGEOM_NO_VBO
+#endif
 #elif __RPI__
     #define _OS_RPI    1
     #define _GAPI_GL   1

@@ -1,3 +1,5 @@
+SRCS=main.cpp ../../libs/stb_vorbis/stb_vorbis.c ../../libs/minimp3/minimp3.cpp ../../libs/tinf/tinflate.c
+CC=g++
 OBJS=OpenLara.o
 BIN=OpenLara
 
@@ -6,7 +8,8 @@ LDFLAGS+=-lGLESv2 -lEGL -lSDL2 -lpthread -lrt -lm
 
 INCLUDES+=-I./ 
 
-all: $(BIN) $(LIB)
+openlara : $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 %.o: %.c
 	@rm -f $@ 
