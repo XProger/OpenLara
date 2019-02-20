@@ -16,6 +16,51 @@
     #include <GLES3/gl3.h>
     #include <GLES3/gl3ext.h>
     #include <GLES2/gl2ext.h>
+
+#elif defined(__SDL2__) 
+    #include <SDL2/SDL.h>
+#if !defined(_GAPI_GLES)
+    #include <SDL2/SDL_opengl.h>
+#else
+    #include <SDL2/SDL_opengles2.h>
+
+    #define GL_CLAMP_TO_BORDER          0x812D
+    #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+    #undef  GL_RG
+    #undef  GL_RG32F
+    #undef  GL_RG16F
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RG           GL_RGBA
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_RG32F        GL_RGBA
+    #define GL_RG16F        GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define GL_TEXTURE_3D           0
+    #define GL_TEXTURE_WRAP_R       0
+    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+
+    #define glTexImage3D(...) 0
+
+    #define glGenVertexArrays(...)
+    #define glDeleteVertexArrays(...)
+    #define glBindVertexArray(...)
+    
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+    #define glGetProgramBinary(...)
+    #define glProgramBinary(...)
+#endif
+
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
@@ -245,10 +290,9 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS) && !defined(_OS_ANDROID)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS) && !defined(_OS_ANDROID) && !defined(__SDL2__)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
-
 
 #ifdef PROFILE
    //#define USE_CV_MARKERS
@@ -1074,7 +1118,11 @@ namespace GAPI {
         #else
             #ifdef _GAPI_GLES
                 int GLES_VERSION = 1;
+                #if defined(__SDL2__)
+                SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &GLES_VERSION);
+                #else
                 glGetIntegerv(GL_MAJOR_VERSION, &GLES_VERSION);
+                #endif 
                 GLES3 = GLES_VERSION > 2; 
             #endif
         #endif
@@ -1272,7 +1320,9 @@ namespace GAPI {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
                 #else
-                    glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
+                    #if !defined(__SDL2__)
+                        glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
+                    #endif
                 #endif
             }
         }
