@@ -409,7 +409,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetSwapInterval(0);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
-	SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
     SDL_ShowCursor(SDL_DISABLE);
 
