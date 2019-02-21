@@ -300,6 +300,9 @@ void inputUpdate() {
                  break;
              }
         }
+
+        Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+        Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
      }
 }
 
