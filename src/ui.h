@@ -55,6 +55,82 @@ namespace UI {
 
     enum Align  { aLeft, aRight, aCenter, aCenterV };
 
+    inline int getCyrillic(char c, bool &invertX, bool &invertY, int &dx, int &dy) {
+        if ((c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ')) {
+            switch (c) {
+                case 'à' : return 'a';
+                case 'á' : return '6';
+                case 'â' : break;
+                case 'ã' : return 'r';
+                case 'ä' : invertX = true; return '6';
+                case 'å' : return 'e';
+                case '¸' : return 'e';
+                case 'æ' : break;
+                case 'ç' : break;
+                case 'è' : return 'u';
+                case 'é' : return 'u';
+                case 'ê' : return 'k';
+                case 'ë' : break;
+                case 'ì' : break;
+                case 'í' : break;
+                case 'î' : return 'o';
+                case 'ï' : return 'n';
+                case 'ð' : return 'p';
+                case 'ñ' : return 'c';
+                case 'ò' : return 'm';
+                case 'ó' : return 'y';
+                case 'ô' : break;
+                case 'õ' : return 'x';
+                case 'ö' : break;
+                case '÷' : break;
+                case 'ø' : break;
+                case 'ù' : break;
+                case 'ú' : break;
+                case 'û' : break;
+                case 'ü' : break;
+                case 'ý' : break;
+                case 'þ' : break;
+                case 'ÿ' : break;
+
+                case 'À' : return 'A';
+                case 'Á' : break;
+                case 'Â' : return 'B';
+                case 'Ã' : invertY = true; dy -= 3; return 'L';
+                case 'Ä' : return 'D';
+                case 'Å' : return 'E';
+                case '¨' : return 'E';
+                case 'Æ' : break;
+                case 'Ç' : return '3';
+                case 'È' : invertY = true; dy = -3; return 'N';
+                case 'É' : invertY = true; dy = -3; return 'N';
+                case 'Ê' : return 'K';
+                case 'Ë' : break;
+                case 'Ì' : return 'M';
+                case 'Í' : return 'H';
+                case 'Î' : return 'O';
+                case 'Ï' : break;
+                case 'Ð' : return 'P';
+                case 'Ñ' : return 'C';
+                case 'Ò' : return 'T';
+                case 'Ó' : break;
+                case 'Ô' : break;
+                case 'Õ' : return 'X';
+                case 'Ö' : break;
+                case '×' : break;
+                case 'Ø' : break;
+                case 'Ù' : break;
+                case 'Ú' : invertX = invertY = true; dy = -3; return 'P';
+                case 'Û' : break;
+                case 'Ü' : break;
+                case 'Ý' : break;
+                case 'Þ' : break;
+                case 'ß' : invertX = true; return 'R';
+            }
+            return ' ';
+        }
+        return c;
+    }
+
     inline int charRemap(char c) {
         ASSERT(c <= 126);
         if (c < 11)
@@ -65,15 +141,21 @@ namespace UI {
         return char_map[c - 32];
     }
 
+    inline bool skipChar(char c) {
+        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '/' || c == '*' || c == '{';
+    }
+
     short2 getLineSize(const char *text) {
-        int x = 0;
+        bool ix, iy;
+        int  dx, dy;
+        int  x = 0;
 
         while (char c = *text++) {
+            c = getCyrillic(c, ix, iy, dx, dy);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
-            if (c == '|')    c = 'c';
 
-            if (c == '~' || c == '$' || c == '(' || c == ')') { // umlauts
+            if (skipChar(c)) {
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -87,14 +169,16 @@ namespace UI {
     }
 
     short2 getTextSize(const char *text) {
+        bool ix, iy;
+        int  dx, dy;
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
+            c = getCyrillic(c, ix, iy, dx, dy);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
-            if (c == '|')    c = 'c';
 
-            if (c == '~' || c == '$' || c == '(' || c == ')') { // umlauts
+            if (skipChar(c)) {
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -196,10 +280,12 @@ namespace UI {
         }
 
         while (char c = *text++) {
-            bool invert = false;
+            bool invertX = false, invertY = false;
+            int dx = 0, dy = 0;
 
-            if (c == '\xBF') { c = '?'; invert = true; }
-            if (c == '\xA1') { c = '!'; invert = true; }
+            c = getCyrillic(c, invertX, invertY, dx, dy);
+            if (c == '\xBF') { c = '?'; invertX = invertY = true; }
+            if (c == '\xA1') { c = '!'; invertX = invertY = true; }
 
             if (c == '@') {
                 x = int(pos.x) + getLeftOffset(text, align, int(width));
@@ -215,7 +301,9 @@ namespace UI {
             char charFrame = c;
             if (charFrame == '\xBF') charFrame = '?';
             if (charFrame == '\xA1') charFrame = '!';
-            if (charFrame == '|')    charFrame = 'c';
+            if (charFrame == '|')    charFrame = ',';
+            if (charFrame == '*')    charFrame = '.';
+            if (charFrame == '{')    charFrame = '(';
 
             int frame = charRemap(charFrame);
 
@@ -240,27 +328,52 @@ namespace UI {
                 }
             }
 
-            int dx = 0, dy = 0;
-            if (c == '~' || c == '$' || c == '(' || c == ')') {
+            bool isSkipChar = skipChar(c);
+
+            if (isSkipChar) {
                 int idx = charRemap(*text);
-                dx = (char_width[idx] - char_width[frame]) / 2 - 1;
-                if (idx < 26) { // if next char is uppercase
-                    dy -= 4;
+                
+                if (c == '{') {
+                    invertY = true;
+                    dx = idx < 26 ? 2 : 0;
+                    dy = idx < 26 ? -17 : -13;
+
+                } else if (c == '*') {
+                    dx = (char_width[idx] - char_width[frame]) / 2;
+                    dy = idx < 26 ? -13 : -9;
+                } else if (c == '/') {
+                    frame = idx;
+                    text++;
+                    isSkipChar = false;
+                } else if (c == '|') {
+                    dy = 2;
+                    invertX = true;
+                    if (idx < 26) {
+                        dx = (char_width[idx] - char_width[frame]);
+                    } else {
+                        dx = (char_width[idx] - char_width[frame]) / 2;
+                    }
+                } else {
+                    dx = (char_width[idx] - char_width[frame]) / 2 - 1;
+                    if (idx < 26) { // if next char is uppercase
+                        dy -= 4;
+                    }
                 }
             }
 
-            if (invert) {
-                dx += char_width[frame];
-                dy -= 10;
+            if (invertX) dx += char_width[frame];
+            if (invertY) dy -= 10;
+
+            if (c == '/') {
+                int ox = frame < 26 ? 1 : 0;
+                int line = charRemap(')');
+                mesh->addDynSprite(level->spriteSequences[seq].sStart + line, short3(x + ox + 1, y + 4, 0), false, false, tColor, bColor, true);
+                mesh->addDynSprite(level->spriteSequences[seq].sStart + line, short3(x + ox - 3, y + 7, 0), false, false, tColor, bColor, true);
             }
 
-            if (c == '|') {
-                mesh->addDynSprite(level->spriteSequences[seq].sStart + charRemap(','), short3(x + 3, y + 1, 0), invert, tColor, bColor, true);
-            }
+            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), invertX, invertY, tColor, bColor, true);
 
-            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), invert, tColor, bColor, true);
-
-            if (c != '~' && c != '$' && c != '(' && c != ')') { // umlauts
+            if (!isSkipChar) {
                 x += char_width[frame] + 1;
             }
         }
@@ -279,7 +392,7 @@ namespace UI {
         if (specChar >= level->spriteSequences[seq].sCount)
             return;
 
-        mesh->addDynSprite(level->spriteSequences[seq].sStart + specChar, short3(int16(pos.x), int16(pos.y), 0), false, COLOR_WHITE, COLOR_WHITE, true);
+        mesh->addDynSprite(level->spriteSequences[seq].sStart + specChar, short3(int16(pos.x), int16(pos.y), 0), false, false, COLOR_WHITE, COLOR_WHITE, true);
     }
 
     #undef MAX_CHARS

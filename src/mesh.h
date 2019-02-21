@@ -357,7 +357,7 @@ struct MeshBuilder {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertexIndex];
                 TR::TextureInfo &sprite = level->spriteTextures[f.texture];
 
-                addSprite(indices, vertices, iCount, vCount, vStartRoom, v.pos.x, v.pos.y, v.pos.z, false, sprite, v.color, v.color);
+                addSprite(indices, vertices, iCount, vCount, vStartRoom, v.pos.x, v.pos.y, v.pos.z, false, false, sprite, v.color, v.color);
             }
             range.sprites.iCount = iCount - range.sprites.iStart;
         #else
@@ -1160,7 +1160,7 @@ struct MeshBuilder {
         return short4(int16(coord.x), int16(coord.y), int16(coord.z), 0);
     }
 
-    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, bool invert, const TR::TextureInfo &sprite, const Color32 &tColor, const Color32 &bColor, bool expand = false) {
+    void addSprite(Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart, int16 x, int16 y, int16 z, bool invertX, bool invertY, const TR::TextureInfo &sprite, const Color32 &tColor, const Color32 &bColor, bool expand = false) {
         addQuad(indices, iCount, vCount, vStart, NULL, NULL, false, false);
 
         Vertex *quad = &vertices[vCount];
@@ -1168,15 +1168,19 @@ struct MeshBuilder {
         int16 x0, y0, x1, y1;
 
         if (expand) {
-            if (invert) {
+            if (invertX) {
                 x0 = x - int16(sprite.l);
-                y0 = y - int16(sprite.t);
                 x1 = x - int16(sprite.r);
-                y1 = y - int16(sprite.b);
             } else {
                 x0 = x + int16(sprite.l);
-                y0 = y + int16(sprite.t);
                 x1 = x + int16(sprite.r);
+            }
+
+            if (invertY) {
+                y0 = y - int16(sprite.t);
+                y1 = y - int16(sprite.b);
+            } else {
+                y0 = y + int16(sprite.t);
                 y1 = y + int16(sprite.b);
             }
         } else {
@@ -1397,7 +1401,7 @@ struct MeshBuilder {
         }
     }
 
-    void addDynSprite(int spriteIndex, const short3 &center, bool invert, const Color32 &tColor, const Color32 &bColor, bool expand = false) {
+    void addDynSprite(int spriteIndex, const short3 &center, bool invertX, bool invertY, const Color32 &tColor, const Color32 &bColor, bool expand = false) {
         dynCheck(1 * 6);
 
         TR::TextureInfo &sprite = level->spriteTextures[spriteIndex];
@@ -1416,7 +1420,7 @@ struct MeshBuilder {
             }
         #endif
 
-        addSprite(dynIndices, dynVertices, dynICount, dynVCount, 0, center.x, center.y, center.z, invert, sprite, tColor, bColor, expand);
+        addSprite(dynIndices, dynVertices, dynICount, dynVCount, 0, center.x, center.y, center.z, invertX, invertY, sprite, tColor, bColor, expand);
     }
 
     void renderRoomSprites(int roomIndex) {

@@ -495,7 +495,7 @@ namespace GAPI {
 
             char defines[1024];
             defines[0] = 0;
-            strcat(defines, "#define VER2\n");
+            strcat(defines, "#define VER3\n");
 
             for (int i = 0; i < defCount; i++) {
                 sprintf(defines + strlen(defines), "#define %s\n", DefineName[def[i]]);
@@ -1218,12 +1218,12 @@ namespace GAPI {
             strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
                                      "precision lowp  int;\n"
                                      "precision highp float;\n"
+                                     "precision lowp  sampler3D;\n"
                                      "#define varying     in\n"
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
-                                     "#define sampler3D   lowp sampler3D\n"
-                                     "out vec4 fragColor;\n");
+                                     "layout(location = 0) out vec4 fragColor;\n");
         }
     #else
         strcat(GLSL_HEADER_VERT, "#version 110\n"
