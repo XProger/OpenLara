@@ -363,8 +363,11 @@ namespace UI {
 
             if (invertX) dx += char_width[frame];
             if (invertY) dy -= 10;
+            int ax = 1;
 
             if (c == '/') {
+                ax += 2;
+                x += 2;
                 int ox = frame < 26 ? 1 : 0;
                 int line = charRemap(')');
                 mesh->addDynSprite(level->spriteSequences[seq].sStart + line, short3(x + ox + 1, y + 4, 0), false, false, tColor, bColor, true);
@@ -374,7 +377,7 @@ namespace UI {
             mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), invertX, invertY, tColor, bColor, true);
 
             if (!isSkipChar) {
-                x += char_width[frame] + 1;
+                x += char_width[frame] + ax;
             }
         }
     }
