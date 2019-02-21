@@ -1464,6 +1464,9 @@ struct Inventory {
         float width  = 320.0f;
         float height = optionsCount * LINE_HEIGHT + 8;
 
+        if (item->type == TR::Entity::INV_CONTROLS || item->type == TR::Entity::INV_DETAIL)
+            width += 80;
+
         float eye = UI::width * Core::eye * 0.02f;
         float x = ( UI::width  - width  ) * 0.5f - eye;
         float y = ( UI::height - height ) * 0.5f + LINE_HEIGHT;

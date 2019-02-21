@@ -236,13 +236,13 @@ enum StringID {
 
 #define STR_LANGUAGES \
       "English"       \
-    , "Fran|cais"      \
+    , "Fran|cais"     \
     , "Deutsch"       \
     , "Espa(~nol"     \
     , "Italiano"      \
     , "Polski"        \
     , "Portugu)es"    \
-    , "Russian"       \
+    , "–усски{и"      \
     , "Japanese"      \
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA"
@@ -826,7 +826,7 @@ const char *STR_DE[] = { "" // by Oktopaps
     , "Beleuchtung"
     , "Schatten"
     , "Wasser"
-    , "V-Sync"
+    , "VSync"
     , "Stereo"
     , "Simple Items"
 // sound options
