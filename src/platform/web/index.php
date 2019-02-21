@@ -115,21 +115,21 @@
                 function getLanguage() {
                     var lang = navigator.languages && navigator.languages[0] || navigator.language || navigator.userLanguage;
                     var id = 0;
-                    if (lang.startsWith("fr")) {
+                    if (lang == "fr") {
                         id = 1;
-                    } else if (lang.startsWith("de")) {
+                    } else if (lang == "de") {
                         id = 2;
-                    } else if (lang.startsWith("es")) {
+                    } else if (lang == "es") {
                         id = 3;
-                    } else if (lang.startsWith("it")) {
+                    } else if (lang == "it") {
                         id = 4;
-                    } else if (lang.startsWith("pl")) {
+                    } else if (lang == "pl") {
                         id = 5;
-                    } else if (lang.startsWith("pt")) {
+                    } else if (lang == "pt") {
                         id = 6;
-                    } else if (lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk")) {
+                    } else if (lang == "ru" || lang == "be" || lang == "uk") {
                         id = 7;
-                    } else if (lang.startsWith("ja")) {
+                    } else if (lang == "ja") {
                         id = 8;
                     }
                     Module.ccall('set_def_lang', 'null', ['number'], [id]);
