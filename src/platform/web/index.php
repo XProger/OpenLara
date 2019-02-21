@@ -111,30 +111,32 @@
 					}
 					proc.connect(audioContext.destination);
 				}
-                
-                function getLanguage() {
-                    var lang = navigator.languages && navigator.languages[0] || navigator.language || navigator.userLanguage;
-                    var id = 0;
-                    if (lang == "fr") {
-                        id = 1;
-                    } else if (lang == "de") {
-                        id = 2;
-                    } else if (lang == "es") {
-                        id = 3;
-                    } else if (lang == "it") {
-                        id = 4;
-                    } else if (lang == "pl") {
-                        id = 5;
-                    } else if (lang == "pt") {
-                        id = 6;
-                    } else if (lang == "ru" || lang == "be" || lang == "uk") {
-                        id = 7;
-                    } else if (lang == "ja") {
-                        id = 8;
-                    }
-                    Module.ccall('set_def_lang', 'null', ['number'], [id]);
-                }
-                
+
+				function getLanguage() {
+					var lang = navigator.languages && navigator.languages[0] || navigator.language || navigator.userLanguage;
+					if (!lang) return;
+					var id = 0;
+					lang = lang.substring(0, 2);
+					if (lang == "fr") {
+						id = 1;
+					} else if (lang == "de") {
+						id = 2;
+					} else if (lang == "es") {
+						id = 3;
+					} else if (lang == "it") {
+						id = 4;
+					} else if (lang == "pl") {
+						id = 5;
+					} else if (lang == "pt") {
+						id = 6;
+					} else if (lang == "ru" || lang == "be" || lang == "uk") {
+						id = 7;
+					} else if (lang == "ja") {
+						id = 8;
+					}
+					Module.ccall('set_def_lang', 'null', ['number'], [id]);
+				}
+
 			// unlock audio context after user interaction
 				var userAction = function() {
 					if (audioContext && audioContext.state == "suspended") {
@@ -142,7 +144,7 @@
 							window.removeEventListener('touchstart', userAction, false);
 							window.removeEventListener('click', userAction, false);
 							console.log("resume playback");
-                        });
+						});
 					}
 				};
 				window.addEventListener('touchstart', userAction, false);
@@ -248,9 +250,9 @@
 					};
 					reader.readAsArrayBuffer(event.target.files[0]);
 				}
-                /*
-                var db;      
-                var request = indexedDB.open("db");
+				/*
+				var db;      
+				var request = indexedDB.open("db");
 request.onupgradeneeded = function() {
 console.log("!!!!!!!! NO DB!");
 };
@@ -262,32 +264,32 @@ request.onsuccess = function() {
 
  function logTimestamps(timestamps) {
   console.log('There are ' + timestamps.length +
-    ' timestamp(s) saved in IndexedDB: ' + timestamps.join(', '));
+	' timestamp(s) saved in IndexedDB: ' + timestamps.join(', '));
 } 
-                
-                function backupSaves() {
+				
+				function backupSaves() {
 
   var transaction = db.transaction("FILE_DATA", 'readonly');
   var store = transaction.objectStore("FILE_DATA");
   store.get("level/1/GYMLOAD.PNG").onsuccess = function(e) {
-    var value = e.target.result;
-    // value will be: { zip: {}, foo: { bar: { baz: 1 } } }
-    console.log(value);
-                    var data = value;
-                    var a = document.createElement("a");
-                    
-                    a.href     = URL.createObjectURL(new Blob([data]));
-                    a.download = "savegame.dat";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);    
+	var value = e.target.result;
+	// value will be: { zip: {}, foo: { bar: { baz: 1 } } }
+	console.log(value);
+					var data = value;
+					var a = document.createElement("a");
+					
+					a.href     = URL.createObjectURL(new Blob([data]));
+					a.download = "savegame.dat";
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);    
   };
 
-                }
+				}
 */
-                function restoreSaves() {
-                    alert('restore');
-                }
+				function restoreSaves() {
+					alert('restore');
+				}
 			</script>
 
 			<script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,'script','//www.google-analytics.com/analytics.js','ga');ga('create', 'UA-60009035-1', 'auto');ga('send', 'pageview');</script>
