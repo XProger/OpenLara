@@ -255,12 +255,16 @@ class Wrapper implements GvrView.StereoRenderer {
     }
 
     void onPause() {
-        nativeSoundState(false);
+        if (ready) {
+            nativeSoundState(false);
+        }
     }
 
     void onResume() {
-        nativeSoundState(true);
-        if (ready) nativeReset();
+        if (ready) {
+            nativeSoundState(true);
+            nativeReset();
+        }
     }
 
     void onTouch(int id, int state, float x, float y) {

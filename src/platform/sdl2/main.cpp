@@ -465,6 +465,7 @@ int main(int argc, char **argv) {
     int w, h;
     SDL_DisplayMode current;
 
+
     SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
     SDL_GetCurrentDisplayMode(0, &current);
@@ -475,8 +476,8 @@ int main(int argc, char **argv) {
 
     // We start in fullscreen mode using the vide mode currently in use, to avoid video mode changes.
     SDL_Window *window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	//current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-	640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+        //current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+	      640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
    
     // We try to use the current video mode, but we inform the core of whatever mode SDL2 gave us in the end. 
     SDL_GetWindowSize(window, &w, &h);
@@ -488,7 +489,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetSwapInterval(0);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
-	SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
     SDL_ShowCursor(SDL_DISABLE);
 
