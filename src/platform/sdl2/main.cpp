@@ -109,6 +109,10 @@ void sndFree() {
 #define MAX_INPUT_DEVICES 16
 int inputDevices[MAX_INPUT_DEVICES];
 
+SDL_GameController *sdl_gamecontroller;
+SDL_Joystick *sdl_joystick;
+bool using_old_joystick_interface;
+
 udev *udevObj;
 udev_monitor *udevMon;
 int udevMon_fd;
@@ -126,57 +130,57 @@ void osJoyVibrate(int index, float L, float R) {
 InputKey codeToInputKey(int code) {
     switch (code) {
     // keyboard
-        case KEY_LEFT       : return ikLeft;
-        case KEY_RIGHT      : return ikRight;
-        case KEY_UP         : return ikUp;
-        case KEY_DOWN       : return ikDown;
-        case KEY_SPACE      : return ikSpace;
-        case KEY_TAB        : return ikTab;
-        case KEY_ENTER      : return ikEnter;
-        case KEY_ESC        : return ikEscape;
-        case KEY_LEFTSHIFT  :
-        case KEY_RIGHTSHIFT : return ikShift;
-        case KEY_LEFTCTRL   :
-        case KEY_RIGHTCTRL  : return ikCtrl;
-        case KEY_LEFTALT    :
-        case KEY_RIGHTALT   : return ikAlt;
-        case KEY_0          : return ik0;
-        case KEY_1          : return ik1;
-        case KEY_2          : return ik2;
-        case KEY_3          : return ik3;
-        case KEY_4          : return ik4;
-        case KEY_5          : return ik5;
-        case KEY_6          : return ik6;
-        case KEY_7          : return ik7;
-        case KEY_8          : return ik8;
-        case KEY_9          : return ik9;
-        case KEY_A          : return ikA;
-        case KEY_B          : return ikB;
-        case KEY_C          : return ikC;
-        case KEY_D          : return ikD;
-        case KEY_E          : return ikE;
-        case KEY_F          : return ikF;
-        case KEY_G          : return ikG;
-        case KEY_H          : return ikH;
-        case KEY_I          : return ikI;
-        case KEY_J          : return ikJ;
-        case KEY_K          : return ikK;
-        case KEY_L          : return ikL;
-        case KEY_M          : return ikM;
-        case KEY_N          : return ikN;
-        case KEY_O          : return ikO;
-        case KEY_P          : return ikP;
-        case KEY_Q          : return ikQ;
-        case KEY_R          : return ikR;
-        case KEY_S          : return ikS;
-        case KEY_T          : return ikT;
-        case KEY_U          : return ikU;
-        case KEY_V          : return ikV;
-        case KEY_W          : return ikW;
-        case KEY_X          : return ikX;
-        case KEY_Y          : return ikY;
-        case KEY_Z          : return ikZ;
-        case KEY_HOMEPAGE   : return ikEscape;
+        case SDL_SCANCODE_LEFT       : return ikLeft;
+        case SDL_SCANCODE_RIGHT      : return ikRight;
+        case SDL_SCANCODE_UP         : return ikUp;
+        case SDL_SCANCODE_DOWN       : return ikDown;
+        case SDL_SCANCODE_SPACE      : return ikSpace;
+        case SDL_SCANCODE_TAB        : return ikTab;
+        case SDL_SCANCODE_RETURN     : return ikEnter;
+        case SDL_SCANCODE_ESCAPE     : return ikEscape;
+        case SDL_SCANCODE_LSHIFT     :
+        case SDL_SCANCODE_RSHIFT     : return ikShift;
+        case SDL_SCANCODE_LCTRL      :
+        case SDL_SCANCODE_RCTRL      : return ikCtrl;
+        case SDL_SCANCODE_LALT       :
+        case SDL_SCANCODE_RALT       : return ikAlt;
+        case SDL_SCANCODE_0          : return ik0;
+        case SDL_SCANCODE_1          : return ik1;
+        case SDL_SCANCODE_2          : return ik2;
+        case SDL_SCANCODE_3          : return ik3;
+        case SDL_SCANCODE_4          : return ik4;
+        case SDL_SCANCODE_5          : return ik5;
+        case SDL_SCANCODE_6          : return ik6;
+        case SDL_SCANCODE_7          : return ik7;
+        case SDL_SCANCODE_8          : return ik8;
+        case SDL_SCANCODE_9          : return ik9;
+        case SDL_SCANCODE_A          : return ikA;
+        case SDL_SCANCODE_B          : return ikB;
+        case SDL_SCANCODE_C          : return ikC;
+        case SDL_SCANCODE_D          : return ikD;
+        case SDL_SCANCODE_E          : return ikE;
+        case SDL_SCANCODE_F          : return ikF;
+        case SDL_SCANCODE_G          : return ikG;
+        case SDL_SCANCODE_H          : return ikH;
+        case SDL_SCANCODE_I          : return ikI;
+        case SDL_SCANCODE_J          : return ikJ;
+        case SDL_SCANCODE_K          : return ikK;
+        case SDL_SCANCODE_L          : return ikL;
+        case SDL_SCANCODE_M          : return ikM;
+        case SDL_SCANCODE_N          : return ikN;
+        case SDL_SCANCODE_O          : return ikO;
+        case SDL_SCANCODE_P          : return ikP;
+        case SDL_SCANCODE_Q          : return ikQ;
+        case SDL_SCANCODE_R          : return ikR;
+        case SDL_SCANCODE_S          : return ikS;
+        case SDL_SCANCODE_T          : return ikT;
+        case SDL_SCANCODE_U          : return ikU;
+        case SDL_SCANCODE_V          : return ikV;
+        case SDL_SCANCODE_W          : return ikW;
+        case SDL_SCANCODE_X          : return ikX;
+        case SDL_SCANCODE_Y          : return ikY;
+        case SDL_SCANCODE_Z          : return ikZ;
+        case SDL_SCANCODE_AC_HOME    : return ikEscape;
     // mouse
         case BTN_LEFT       : return ikMouseL;
         case BTN_RIGHT      : return ikMouseR;
@@ -188,18 +192,16 @@ InputKey codeToInputKey(int code) {
 JoyKey codeToJoyKey(int code) {
     switch (code) {
     // gamepad
-        case BTN_A          : return jkA;
-        case BTN_B          : return jkB;
-        case BTN_X          : return jkX;
-        case BTN_Y          : return jkY;
-        case BTN_TL         : return jkLB;
-        case BTN_TR         : return jkRB;
-        case BTN_SELECT     : return jkSelect;
-        case BTN_START      : return jkStart;
-        case BTN_THUMBL     : return jkL;
-        case BTN_THUMBR     : return jkR;
-        case BTN_TL2        : return jkLT;
-        case BTN_TR2        : return jkRT;
+        case SDL_CONTROLLER_BUTTON_A                    : return jkA;
+        case SDL_CONTROLLER_BUTTON_B                    : return jkB;
+        case SDL_CONTROLLER_BUTTON_X                    : return jkX;
+        case SDL_CONTROLLER_BUTTON_Y                    : return jkY;
+        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER         : return jkLB;
+        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER        : return jkRB;
+        case SDL_CONTROLLER_BUTTON_BACK                 : return jkSelect;
+        case SDL_CONTROLLER_BUTTON_START                : return jkStart;
+        case SDL_CONTROLLER_BUTTON_LEFTSTICK            : return jkL;
+        case SDL_CONTROLLER_BUTTON_RIGHTSTICK           : return jkR;
     }
     return jkNone;
 }
@@ -228,7 +230,23 @@ void inputDevRemove(const char *node) {
     }
 }
 
+
 bool inputInit() {
+    sdl_gamecontroller = NULL;
+    sdl_joystick = NULL;
+    if (SDL_NumJoysticks() > 0) {
+	if(SDL_IsGameController(0)) {
+            sdl_gamecontroller = SDL_GameControllerOpen(0);
+        }
+        else {
+            sdl_joystick = SDL_JoystickOpen(0);
+            using_old_joystick_interface = true;
+        }
+    }
+    return true;
+}
+
+bool inputInitOLD() {
     joyL = joyR = vec2(0);
 
     for (int i = 0; i < MAX_INPUT_DEVICES; i++)
@@ -265,12 +283,24 @@ bool inputInit() {
     return true;
 }
 
-void inputFree() {
+void inputFreeOLD() {
     for (int i = 0; i < MAX_INPUT_DEVICES; i++)
         if (inputDevices[i] != -1)
             close(inputDevices[i]);
     udev_monitor_unref(udevMon);
     udev_unref(udevObj);
+}
+
+
+void inputFree() {
+    if (sdl_gamecontroller != NULL) {
+        SDL_GameControllerClose(sdl_gamecontroller);
+        sdl_gamecontroller = NULL;
+    }
+    if (sdl_joystick != NULL) {
+        SDL_JoystickClose(sdl_joystick);
+        sdl_joystick = NULL;
+    }
 }
 
 #define JOY_DEAD_ZONE_STICK      8192
@@ -290,7 +320,8 @@ vec2 joyDir(const vec2 &value) {
     return value.normal() * dist;
 }
 
-void inputUpdate() {
+
+void inputUpdateOLD() {
 // get input events
     input_event events[16];
 
@@ -355,31 +386,78 @@ void inputUpdate() {
             rb -= sizeof(events[0]);
         }
     }
+}
 
-// monitoring plug and unplug input devices
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(udevMon_fd, &fds);
 
-    timeval tv;
-    tv.tv_sec  = 0;
-    tv.tv_usec = 0;
+void inputUpdate() {
+// get input events
 
-    if (select(udevMon_fd + 1, &fds, NULL, NULL, &tv) > 0 && FD_ISSET(udevMon_fd, &fds)) {
-        udev_device *device = udev_monitor_receive_device(udevMon);
-        if (device) {
-            const char *node = udev_device_get_devnode(device);
-            if (node) {
-                const char *action = udev_device_get_action(device);
-                if (!strcmp(action, "add"))
-                    inputDevAdd(node);
-                if (!strcmp(action, "remove"))
-                    inputDevRemove(node);
-            }
-            udev_device_unref(device);
-        } else
-            LOG("! input: receive_device\n");
-    }
+    int joyIndex = 0; // TODO: joy index
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event) == 1) { // while there are still events to be processed
+        switch (event.type) {
+            case SDL_KEYDOWN: {
+		int scancode = event.key.keysym.scancode;
+                InputKey key = codeToInputKey(scancode);
+		if (key != ikNone) {
+		    Input::setDown(key, 1);
+		}
+		break;
+             }
+             case SDL_KEYUP: {
+		int scancode = event.key.keysym.scancode;
+                InputKey key = codeToInputKey(scancode);
+		if (key != ikNone) {
+		    Input::setDown(key, 0);
+                }
+                break;
+             }
+             case SDL_CONTROLLERBUTTONDOWN: {
+                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        Input::setJoyDown(joyIndex, key, 1);
+                        break;
+             }
+             case SDL_CONTROLLERBUTTONUP: {
+                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        Input::setJoyDown(joyIndex, key, 0);
+                        break;
+             }
+             case SDL_CONTROLLERAXISMOTION: {
+                 switch (event.caxis.axis) {
+                     case SDL_CONTROLLER_AXIS_LEFTX:
+		            if (event.caxis.value < 0) {
+			        Input::setJoyDown(joyIndex, jkLeft,  1);
+			        Input::setJoyDown(joyIndex, jkRight, 0);
+                            }
+		            if (event.caxis.value > 0) {
+			        Input::setJoyDown(joyIndex, jkRight, 1);
+			        Input::setJoyDown(joyIndex, jkLeft,  0);
+                            } 
+                            if (event.caxis.value == 0) {
+			        Input::setJoyDown(joyIndex, jkRight, 0);
+			        Input::setJoyDown(joyIndex, jkLeft,  0);
+                            }
+		            break;
+                      case SDL_CONTROLLER_AXIS_LEFTY:
+		            if (event.caxis.value < 0) {
+			        Input::setJoyDown(joyIndex, jkUp,  1);
+			        Input::setJoyDown(joyIndex, jkDown, 0);
+                            }
+		            if (event.caxis.value > 0) {
+			        Input::setJoyDown(joyIndex, jkUp, 0);
+			        Input::setJoyDown(joyIndex, jkDown,  1);
+                            } 
+                            if (event.caxis.value == 0) {
+			        Input::setJoyDown(joyIndex, jkUp, 0);
+			        Input::setJoyDown(joyIndex, jkDown,  0);
+                            }
+		            break;
+                 }
+                 break;
+             }
+        }
+     }
 }
 
 int main(int argc, char **argv) {
@@ -387,7 +465,7 @@ int main(int argc, char **argv) {
     int w, h;
     SDL_DisplayMode current;
 
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
     SDL_GetCurrentDisplayMode(0, &current);
 
@@ -397,7 +475,8 @@ int main(int argc, char **argv) {
 
     // We start in fullscreen mode using the vide mode currently in use, to avoid video mode changes.
     SDL_Window *window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+	//current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+	640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
    
     // We try to use the current video mode, but we inform the core of whatever mode SDL2 gave us in the end. 
     SDL_GetWindowSize(window, &w, &h);
@@ -409,7 +488,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetSwapInterval(0);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
-	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
     SDL_ShowCursor(SDL_DISABLE);
 
@@ -432,11 +511,11 @@ int main(int argc, char **argv) {
 
     sndInit();
 
+    inputInit();
+
     char *lvlName = argc > 1 ? argv[1] : NULL;
 
     Game::init(lvlName);
-
-    inputInit(); // initialize and grab input devices
 
     while (!Core::isQuit) {
         inputUpdate();
@@ -447,8 +526,6 @@ int main(int argc, char **argv) {
 	    SDL_GL_SwapWindow(window);
         }
     };
-
-    inputFree();
 
     sndFree();
     Game::deinit();
