@@ -1,14 +1,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <linux/input.h>
-#include <unistd.h>
 #include <pwd.h>
 #include <pthread.h>
-//#include <EGL/egl.h>
-#include <fcntl.h>
-#include <linux/input.h>
-#include <libudev.h>
 #include <alsa/asoundlib.h>
 
 // SDL2 include stuff
@@ -106,16 +100,9 @@ void sndFree() {
 }
 
 // Input
-#define MAX_INPUT_DEVICES 16
-int inputDevices[MAX_INPUT_DEVICES];
-
 SDL_GameController *sdl_gamecontroller;
 SDL_Joystick *sdl_joystick;
 bool using_old_joystick_interface;
-
-udev *udevObj;
-udev_monitor *udevMon;
-int udevMon_fd;
 
 vec2 joyL, joyR;
 
@@ -181,10 +168,6 @@ InputKey codeToInputKey(int code) {
         case SDL_SCANCODE_Y          : return ikY;
         case SDL_SCANCODE_Z          : return ikZ;
         case SDL_SCANCODE_AC_HOME    : return ikEscape;
-    // mouse
-        case BTN_LEFT       : return ikMouseL;
-        case BTN_RIGHT      : return ikMouseR;
-        case BTN_MIDDLE     : return ikMouseM;
     }
     return ikNone;
 }
@@ -206,31 +189,6 @@ JoyKey codeToJoyKey(int code) {
     return jkNone;
 }
 
-int inputDevIndex(const char *node) {
-    const char *str = strstr(node, "/event");
-    if (str)
-        return atoi(str + 6);
-    return -1;
-}
-
-void inputDevAdd(const char *node) {
-    int index = inputDevIndex(node);
-    if (index != -1) {
-        inputDevices[index] = open(node, O_RDONLY | O_NONBLOCK);
-        ioctl(inputDevices[index], EVIOCGRAB, 1);
-        //LOG("input: add %s\n", node);
-    }
-}
-
-void inputDevRemove(const char *node) {
-    int index = inputDevIndex(node);
-    if (index != -1 && inputDevices[index] != -1) {
-        close(inputDevices[index]);
-        //LOG("input: remove %s\n", node);
-    }
-}
-
-
 bool inputInit() {
     sdl_gamecontroller = NULL;
     sdl_joystick = NULL;
@@ -245,52 +203,6 @@ bool inputInit() {
     }
     return true;
 }
-
-bool inputInitOLD() {
-    joyL = joyR = vec2(0);
-
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++)
-        inputDevices[i] = -1;
-
-    udevObj = udev_new();
-    if (!udevObj)
-        return false;
-
-    udevMon = udev_monitor_new_from_netlink(udevObj, "udev");
-    udev_monitor_filter_add_match_subsystem_devtype(udevMon, "input", NULL);
-    udev_monitor_enable_receiving(udevMon);
-    udevMon_fd = udev_monitor_get_fd(udevMon);
-
-    udev_enumerate *e = udev_enumerate_new(udevObj);
-    udev_enumerate_add_match_subsystem(e, "input");
-    udev_enumerate_scan_devices(e);
-    udev_list_entry *devices = udev_enumerate_get_list_entry(e);
-
-    udev_list_entry *entry;
-    udev_list_entry_foreach(entry, devices) {
-        const char *path, *node;
-        udev_device *device;
-
-        path   = udev_list_entry_get_name(entry);
-        device = udev_device_new_from_syspath(udevObj, path);
-        node   = udev_device_get_devnode(device);
-
-        if (node)
-            inputDevAdd(node);
-    }
-    udev_enumerate_unref(e);
-
-    return true;
-}
-
-void inputFreeOLD() {
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++)
-        if (inputDevices[i] != -1)
-            close(inputDevices[i]);
-    udev_monitor_unref(udevMon);
-    udev_unref(udevObj);
-}
-
 
 void inputFree() {
     if (sdl_gamecontroller != NULL) {
@@ -319,75 +231,6 @@ vec2 joyDir(const vec2 &value) {
     float dist = min(1.0f, value.length());
     return value.normal() * dist;
 }
-
-
-void inputUpdateOLD() {
-// get input events
-    input_event events[16];
-
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++) {
-        if (inputDevices[i] == -1) continue;
-        int rb = read(inputDevices[i], events, sizeof(events));
-
-        int joyIndex = 0; // TODO: joy index
-
-        input_event *e = events;
-        while (rb > 0) {
-            switch (e->type) {
-                case EV_KEY : {
-                    InputKey key = codeToInputKey(e->code);
-                    if (key != ikNone) {
-                        if (key == ikMouseL || key == ikMouseR || key == ikMouseM)
-                            Input::setPos(key, Input::mouse.pos);
-                        Input::setDown(key, e->value != 0);
-                    } else {
-                        JoyKey key = codeToJoyKey(e->code);
-                        Input::setJoyDown(joyIndex, key, e->value != 0);
-                    }
-                    break;
-                }
-                case EV_REL : {
-                    vec2 delta(0);
-                    delta[e->code] = float(e->value);
-                    Input::setPos(ikMouseL, Input::mouse.pos + delta);
-                    break;
-                }
-                case EV_ABS : {
-                    switch (e->code) {
-                    // Left stick
-                        case ABS_X  : joyL.x = joyAxisValue(e->value); break;
-                        case ABS_Y  : joyL.y = joyAxisValue(e->value); break;
-                    // Right stick
-                        case ABS_RX : joyR.x = joyAxisValue(e->value); break;
-                        case ABS_RY : joyR.y = joyAxisValue(e->value); break;
-                    // Left trigger
-                        case ABS_Z  : Input::setJoyPos(joyIndex, jkLT, joyTrigger(e->value)); break;
-                    // Right trigger
-                        case ABS_RZ : Input::setJoyPos(joyIndex, jkRT, joyTrigger(e->value)); break;
-                    // D-PAD
-                        case ABS_HAT0X    :
-                        case ABS_THROTTLE :
-                            Input::setJoyDown(joyIndex, jkLeft,  e->value < 0);
-                            Input::setJoyDown(joyIndex, jkRight, e->value > 0);
-                            break;
-                        case ABS_HAT0Y    :
-                        case ABS_RUDDER   :
-                            Input::setJoyDown(joyIndex, jkUp,    e->value < 0);
-                            Input::setJoyDown(joyIndex, jkDown,  e->value > 0);
-                            break;
-                    }
-
-                    Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-                    Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
-                }
-            }
-            //LOG("input: type = %d, code = %d, value = %d\n", int(e->type), int(e->code), int(e->value));
-            e++;
-            rb -= sizeof(events[0]);
-        }
-    }
-}
-
 
 void inputUpdate() {
 // get input events
