@@ -38,7 +38,7 @@
 			<button id="goFS">Go fullscreen</button>
 			<canvas class="game" id="canvas" width="854" height="480" oncontextmenu="event.preventDefault()"></canvas><br>
 			<div id="status">Starting...</div>
-			<script type='text/javascript'>
+			<script>
 				var statusElement = document.getElementById('status');
 				var canvasElement = document.getElementById('canvas');
 				var proc;
@@ -161,14 +161,14 @@
 				};
 			</script>
 
-			<span id="info">
+			<div id="info">
 				<input type="file" id="browseFile" style="display:none" accept=".phd,.psx, .tr2" onchange="readLevel(event)" />
 				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)&nbsp;
 				<!--
 				<input type="button" value="Backup Saves" onclick="backupSaves();" />
 				<input type="button" value="Restore Saves" onclick="restoreSaves();" />
 -->
-				<p style="margin:8px">
+				<div style="margin:8px">
 					OpenLara on <a target="_blank" href="https://github.com/XProger/OpenLara">github</a> & <a target="_blank" href="https://www.facebook.com/OpenLaraTR">facebook</a><br>
 				
 					<div id="latest_changes" style="margin:8px">
@@ -177,8 +177,8 @@
 						?></i><br>
 						<input type="button" value="Latest changes" onclick="getLatestChanges()" />
 					</div>
-				</p>
-			</span>
+				</div>
+			</div>
 
 			<script>
 				var script = document.createElement('script');
