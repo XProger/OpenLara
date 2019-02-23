@@ -1482,11 +1482,25 @@ struct Stream {
     }
 
     static void cacheRead(const char *name, Callback *callback = NULL, void *userData = NULL) {
-        osCacheRead(new Stream(name, NULL, 0, callback, userData));
+        Stream *stream = new Stream(name, NULL, 0, callback, userData);
+        #ifdef _OS_ANDROID // use saveDir for settings on android devices
+            if (name && strcmp(name, "settings") == 0) {
+                osReadSlot(stream);
+                return;
+            }
+        #endif
+        osCacheRead(stream);
     }
 
     static void cacheWrite(const char *name, const char *data, int size, Callback *callback = NULL, void *userData = NULL) {
-        osCacheWrite(new Stream(name, data, size, callback, userData));
+        Stream *stream = new Stream(name, data, size, callback, userData);
+        #ifdef _OS_ANDROID // use saveDir for settings on android devices
+            if (name && strcmp(name, "settings") == 0) {
+                osWriteSlot(stream);
+                return;
+            }
+        #endif
+        osCacheWrite(stream);
     }
 
     static bool exists(const char *name) {
