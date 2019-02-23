@@ -373,8 +373,8 @@ namespace GAPI {
 
     int cullMode, blendMode;
 
-    char GLSL_HEADER_VERT[256];
-    char GLSL_HEADER_FRAG[256];
+    char GLSL_HEADER_VERT[512];
+    char GLSL_HEADER_FRAG[512];
 
 // Shader
     #ifndef FFP
@@ -1223,7 +1223,7 @@ namespace GAPI {
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
-                                     "layout(location = 0) out vec4 fragColor;\n");
+                                     "out vec4 fragColor;\n");
         }
     #else
         strcat(GLSL_HEADER_VERT, "#version 110\n"
@@ -1232,6 +1232,9 @@ namespace GAPI {
                                  "#define FRAGMENT\n"
                                  "#define fragColor gl_FragColor\n");
     #endif
+
+        ASSERT(strlen(GLSL_HEADER_VERT) < COUNT(GLSL_HEADER_VERT));
+        ASSERT(strlen(GLSL_HEADER_FRAG) < COUNT(GLSL_HEADER_FRAG));
     }
 
     void deinit() {

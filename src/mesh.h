@@ -64,7 +64,8 @@ struct Mesh : GAPI::Mesh {
 
 
 float intensityf(uint16 lighting) {
-    ASSERT(lighting >= 0 && lighting <= 0x1FFF);
+//    ASSERT(lighting >= 0 && lighting <= 0x1FFF);
+    lighting = min(lighting, uint16(0x1FFF));
     return (0x1FFF - lighting) / float(0x1FFF);
 }
 

@@ -40,99 +40,74 @@ namespace UI {
 
     Array<PickupItem> pickups;
 
-    const static uint8 char_width[110] = {
+    int advGlyphsStart;
+
+    #define CYR_MAP           "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞßáâãäæçêëìíïôö÷øùúûüýþÿ"
+    #define CYR_MAP_COUNT     COUNT(CYR_MAP)
+    #define CYR_MAP_START     102
+    #define CYR_MAP_UPPERCASE 20
+
+    const static uint8 char_width[110 + CYR_MAP_COUNT] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
         9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
         12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
         5, 5, 5, 11, 9, 7, 8, 6, 0, 7, 7, 3, 8, 8, 13, 7, 9, 4, 12, 12, 
-        7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8 }; 
+        7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8,
+    // cyrillic
+        11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11, 9, 13, 13, 10, 13, // ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛ
+        9, 11, 12, 11, 10, 9, 8, 10, 11, 9, 10, 10, 11, 9, 10, 10,     // ÜÝÞßáâãäæçêëìíïô
+        10, 9, 11, 12, 9, 11, 8, 9, 13, 9                              // ö÷øùúûüýþÿ
+    }; 
         
-    static const uint8 char_map[102] = {
+    static const uint8 char_map[102 + 33*2] = {
             0, 64, 66, 78, 77, 74, 78, 79, 69, 70, 92, 72, 63, 71, 62, 68, 52, 53, 54, 55, 56, 57, 58, 59, 
         60, 61, 73, 73, 66, 74, 75, 65, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 
         18, 19, 20, 21, 22, 23, 24, 25, 80, 76, 81, 97, 98, 77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 
-        37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0 };
+        37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0,
+    // cyrillic
+        0, 110, 0, 111, 112, 0, 113, 114, 115, 0, 0, 116, 0, 0, 0, 117, 0, 0, 0, 118, 119, 0, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129,
+        0, 130, 131, 132, 133, 0, 134, 135, 0, 0, 136, 137, 138, 139, 0, 140, 0, 0, 0, 0, 141, 0, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151,
+    };
 
     enum Align  { aLeft, aRight, aCenter, aCenterV };
 
-    inline int getCyrillic(char c, bool &invertX, bool &invertY, int &dx, int &dy) {
+    inline char remapCyrillic(char c) {
         if ((c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ')) {
             switch (c) {
                 case 'à' : return 'a';
-                case 'á' : return '6';
-                case 'â' : break;
-                case 'ã' : return 'r';
-                case 'ä' : invertX = true; return '6';
                 case 'å' : return 'e';
                 case '¸' : return 'e';
-                case 'æ' : break;
-                case 'ç' : break;
                 case 'è' : return 'u';
                 case 'é' : return 'u';
-                case 'ê' : return 'k';
-                case 'ë' : break;
-                case 'ì' : break;
-                case 'í' : break;
                 case 'î' : return 'o';
-                case 'ï' : return 'n';
                 case 'ð' : return 'p';
                 case 'ñ' : return 'c';
                 case 'ò' : return 'm';
                 case 'ó' : return 'y';
-                case 'ô' : break;
                 case 'õ' : return 'x';
-                case 'ö' : break;
-                case '÷' : break;
-                case 'ø' : break;
-                case 'ù' : break;
-                case 'ú' : break;
-                case 'û' : break;
-                case 'ü' : break;
-                case 'ý' : break;
-                case 'þ' : break;
-                case 'ÿ' : break;
-
                 case 'À' : return 'A';
-                case 'Á' : break;
                 case 'Â' : return 'B';
-                case 'Ã' : invertY = true; dy -= 3; return 'L';
-                case 'Ä' : return 'D';
                 case 'Å' : return 'E';
                 case '¨' : return 'E';
-                case 'Æ' : break;
-                case 'Ç' : return '3';
-                case 'È' : invertY = true; dy = -3; return 'N';
-                case 'É' : invertY = true; dy = -3; return 'N';
                 case 'Ê' : return 'K';
-                case 'Ë' : break;
                 case 'Ì' : return 'M';
                 case 'Í' : return 'H';
                 case 'Î' : return 'O';
-                case 'Ï' : break;
                 case 'Ð' : return 'P';
                 case 'Ñ' : return 'C';
                 case 'Ò' : return 'T';
-                case 'Ó' : break;
-                case 'Ô' : break;
                 case 'Õ' : return 'X';
-                case 'Ö' : break;
-                case '×' : break;
-                case 'Ø' : break;
-                case 'Ù' : break;
-                case 'Ú' : invertX = invertY = true; dy = -3; return 'P';
-                case 'Û' : break;
-                case 'Ü' : break;
-                case 'Ý' : break;
-                case 'Þ' : break;
-                case 'ß' : invertX = true; return 'R';
             }
-            return ' ';
+            return c;
         }
         return c;
     }
 
     inline int charRemap(char c) {
-        ASSERT(c <= 126);
+        if ((c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ')) {
+            return char_map[CYR_MAP_START + (c - 'À')];
+        }
+
         if (c < 11)
             return c + 81;
         if (c < 16)
@@ -145,13 +120,46 @@ namespace UI {
         return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '/' || c == '*' || c == '{';
     }
 
+    inline bool upperCase(int index) {
+        return index < 26 || (index >= 110 && (index < 110 + CYR_MAP_UPPERCASE));
+    }
+
+    void patchGlyphs(TR::Level &level) {
+        UI::advGlyphsStart = level.spriteTexturesCount;
+
+        TR::TextureInfo cyrSprites[CYR_MAP_COUNT];
+        for (int i = 0; i < COUNT(cyrSprites); i++) {
+            int idx = 110 + i; // mapped index
+            int w = char_width[idx];
+            int h = upperCase(idx) ? 13 : 9;
+            int o = 0;
+            char c = CYR_MAP[i];
+
+            if (c == 'á' || c == 'ä') h = 14;
+            if (c == 'Ö' || c == 'Ù' || c == 'ö' || c == 'ù') { o = 1; h++; }
+            if (c == 'ô') { o = 2; h += 2; }
+
+            cyrSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
+        }
+
+        // add additional sprites for Cyrillyc glyphs
+        int              newSpritesCount = level.spriteTexturesCount + COUNT(cyrSprites);
+        TR::TextureInfo *newSprites      = new TR::TextureInfo[newSpritesCount];
+
+        memcpy(newSprites,                             level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
+        memcpy(newSprites + level.spriteTexturesCount, cyrSprites,           sizeof(TR::TextureInfo) * COUNT(cyrSprites));
+
+        delete[] level.spriteTextures;
+
+        level.spriteTexturesCount = newSpritesCount;
+        level.spriteTextures      = newSprites;
+    }
+
     short2 getLineSize(const char *text) {
-        bool ix, iy;
-        int  dx, dy;
         int  x = 0;
 
         while (char c = *text++) {
-            c = getCyrillic(c, ix, iy, dx, dy);
+            c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
 
@@ -169,12 +177,10 @@ namespace UI {
     }
 
     short2 getTextSize(const char *text) {
-        bool ix, iy;
-        int  dx, dy;
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
-            c = getCyrillic(c, ix, iy, dx, dy);
+            c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
 
@@ -283,7 +289,7 @@ namespace UI {
             bool invertX = false, invertY = false;
             int dx = 0, dy = 0;
 
-            c = getCyrillic(c, invertX, invertY, dx, dy);
+            c = remapCyrillic(c);
             if (c == '\xBF') { c = '?'; invertX = invertY = true; }
             if (c == '\xA1') { c = '!'; invertX = invertY = true; }
 
@@ -307,9 +313,6 @@ namespace UI {
 
             int frame = charRemap(charFrame);
 
-            if (frame >= level->spriteSequences[seq].sCount)
-                continue;
-
             Color32 tColor, bColor;
             if (isShadow) {
                 tColor = bColor = Color32(0, 0, 0, alpha);
@@ -331,16 +334,16 @@ namespace UI {
             bool isSkipChar = skipChar(c);
 
             if (isSkipChar) {
-                int idx = charRemap(*text);
+                int idx = charRemap(remapCyrillic(*text));
+                bool isUppderCase = upperCase(idx);
                 
                 if (c == '{') {
                     invertY = true;
-                    dx = idx < 26 ? 2 : 0;
-                    dy = idx < 26 ? -17 : -13;
-
+                    dx = isUppderCase ? 2 : 0;
+                    dy = isUppderCase ? -17 : -13;
                 } else if (c == '*') {
                     dx = (char_width[idx] - char_width[frame]) / 2;
-                    dy = idx < 26 ? -13 : -9;
+                    dy = isUppderCase ? -13 : -9;
                 } else if (c == '/') {
                     frame = idx;
                     text++;
@@ -348,14 +351,14 @@ namespace UI {
                 } else if (c == '|') {
                     dy = 2;
                     invertX = true;
-                    if (idx < 26) {
+                    if (isUppderCase) {
                         dx = (char_width[idx] - char_width[frame]);
                     } else {
                         dx = (char_width[idx] - char_width[frame]) / 2;
                     }
                 } else {
                     dx = (char_width[idx] - char_width[frame]) / 2 - 1;
-                    if (idx < 26) { // if next char is uppercase
+                    if (isUppderCase) { // if next char is uppercase
                         dy -= 4;
                     }
                 }
@@ -374,7 +377,17 @@ namespace UI {
                 mesh->addDynSprite(level->spriteSequences[seq].sStart + line, short3(x + ox - 3, y + 7, 0), false, false, tColor, bColor, true);
             }
 
-            mesh->addDynSprite(level->spriteSequences[seq].sStart + frame, short3(x + dx, y + dy, 0), invertX, invertY, tColor, bColor, true);
+            int spriteIndex = frame;
+            if (frame < level->spriteSequences[seq].sCount) {
+                spriteIndex += level->spriteSequences[seq].sStart;
+            } else {
+                spriteIndex += advGlyphsStart - 110;
+            }
+
+            if (spriteIndex >= level->spriteTexturesCount)
+                continue;
+
+            mesh->addDynSprite(spriteIndex, short3(x + dx, y + dy, 0), invertX, invertY, tColor, bColor, true);
 
             if (!isSkipChar) {
                 x += char_width[frame] + ax;

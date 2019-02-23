@@ -1124,6 +1124,13 @@ namespace TR {
 
         uint16       sub[4], i5;
 
+        TextureInfo() {}
+
+        TextureInfo(TextureType type, int16 l, int16 t, int16 r, int16 b, uint8 tx, uint8 ty, uint8 tw, uint8 th) : type(type), attribute(1), l(l), t(t), r(r), b(b) {
+            texCoord[0] = texCoordAtlas[0] = short2( tx,          ty          );
+            texCoord[1] = texCoordAtlas[1] = short2( tx + tw - 1, ty + th - 1 );
+        }
+
         short4 getMinMax() const {
             if (type == TEX_TYPE_SPRITE)
                 return short4( texCoord[0].x, texCoord[0].y, texCoord[1].x, texCoord[1].y );
@@ -5251,6 +5258,21 @@ namespace TR {
             }
         }
 
+        void fillObjectTexture32(Tile32 *dst, const Color32 *data, const short4 &uv, TextureInfo *t) {
+            Color32 *ptr = &dst->color[uv.y * 256];
+            for (int y = uv.y; y < uv.w; y++) {
+                for (int x = uv.x; x < uv.z; x++) {
+                    const Color32 &p = data[y * 256 + x];
+                    ptr[x].r = p.r;
+                    ptr[x].g = p.g;
+                    ptr[x].b = p.b;
+                    ptr[x].a = p.a;
+                }
+                ptr += 256;
+            }
+            premultiplyAlpha(dst->color, uv);
+        }
+
         void fillObjectTexture(Tile32 *dst, const short4 &uv, TextureInfo *t) {
         // convert to RGBA
             switch (version) {
@@ -5371,10 +5393,14 @@ namespace TR {
                 default : ASSERT(false);
             }
 
+            premultiplyAlpha(dst->color, uv);
+        }
+
+        void premultiplyAlpha(Color32 *data, const short4 &uv) {
         // pre-multiple alpha
             for (int y = uv.y; y < uv.w; y++)
                 for (int x = uv.x; x < uv.z; x++) {
-                    Color32 &c = dst->color[y * 256 + x]; 
+                    Color32 &c = data[y * 256 + x]; 
                     c.r = uint8((uint16(c.r) * c.a) / 255);
                     c.g = uint8((uint16(c.g) * c.a) / 255);
                     c.b = uint8((uint16(c.b) * c.a) / 255);

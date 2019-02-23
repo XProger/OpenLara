@@ -1187,7 +1187,11 @@ struct Level : IGame {
         }
     }
 
+    #define ATLAS_PAGE_BARS   4096
+    #define ATLAS_PAGE_GLYPHS 8192
+
     TR::Tile32 *tileData;
+    uint8 *glyphsCyr;
 
     static void fillCallback(int id, int tileX, int tileY, int atlasWidth, int atlasHeight, Atlas::Tile &tile, void *userData, void *data) {
         static const uint32 barColor[UI::BAR_MAX][25] = {
@@ -1238,7 +1242,14 @@ struct Level : IGame {
                 uvCount  = 2;
                 isSprite = true;
                 if (data) {
-                    level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
+                    if (id < UI::advGlyphsStart) {
+                        level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
+                    } else {
+                        short4 uv = tile.uv;
+                        uv.x -= ATLAS_PAGE_GLYPHS;
+                        uv.z -= ATLAS_PAGE_GLYPHS;
+                        level->fillObjectTexture32(owner->tileData, (Color32*)owner->glyphsCyr, uv, tile.tex);
+                    }
                 }
             } else { // common (generated) textures
                 id -= level->spriteTexturesCount;
@@ -1357,17 +1368,18 @@ struct Level : IGame {
 
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++) {
-                    TR::Tile32 &tile = level.tiles[sprite.tile];
-
-                    data[pos.x + x + (pos.y + y) * size.x] = tile.color[sprite.texCoord[0].x + x + (sprite.texCoord[0].y + y) * 256];
+                    TR::Tile8 &tile = level.tiles8[sprite.tile];
+                    
+                    data[pos.x + x + (pos.y + y) * size.x] = level.getColor(tile.index[sprite.texCoord[0].x + x + (sprite.texCoord[0].y + y) * 256]);
                 }
             pos.y += h + 1;
         }
 
-        Texture::SaveBMP("psx_glyph.bmp", (char*)data, size.x, size.y);
+        Texture::SaveBMP("pc_glyph.bmp", (char*)data, size.x, size.y);
         delete[] data;
     }
 */
+
     void initTextures() {
     #ifndef SPLIT_BY_TILE
 
@@ -1376,6 +1388,10 @@ struct Level : IGame {
         #endif
 
         //dumpGlyphs();
+        UI::patchGlyphs(level);
+
+        uint32 glyphsW, glyphsH;
+        glyphsCyr = Texture::LoadPNG(Stream(NULL, GLYPH_CYR, size_GLYPH_CYR), glyphsW, glyphsH);
 
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
@@ -1403,13 +1419,19 @@ struct Level : IGame {
             uv.z = t.texCoord[1].x + 1;
             uv.w = t.texCoord[1].y + 1;
 
+            if (i >= UI::advGlyphsStart) {
+             // add virtual UV offset for additional glyph sprites
+                uv.x += ATLAS_PAGE_GLYPHS;
+                uv.z += ATLAS_PAGE_GLYPHS; 
+            }
+
             tiles->add(level.objectTexturesCount + i, uv, &t);
         }
         // add common textures
         const short2 bar[UI::BAR_MAX] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0) };
         for (int i = 0; i < UI::BAR_MAX; i++) {
             barTile[i].type = TR::TEX_TYPE_SPRITE;
-            tiles->add(level.objectTexturesCount + level.spriteTexturesCount + i, short4(i * 32, 4096, i * 32 + bar[i].x, 4096 + bar[i].y), &barTile[i]);
+            tiles->add(level.objectTexturesCount + level.spriteTexturesCount + i, short4(i * 32, ATLAS_PAGE_BARS, i * 32 + bar[i].x, ATLAS_PAGE_BARS + bar[i].y), &barTile[i]);
         }
 
         // get result texture
@@ -1418,6 +1440,9 @@ struct Level : IGame {
         atlas = tiles->pack();
         delete[] tileData;
         tileData = NULL;
+
+        delete[] glyphsCyr;
+        glyphsCyr = NULL;
 
         atlas->setFilterQuality(Core::settings.detail.filter);
 

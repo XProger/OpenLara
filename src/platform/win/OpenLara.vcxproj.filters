@@ -59,6 +59,7 @@
     <ClInclude Include="..\..\napi_dummy.h" />
     <ClInclude Include="..\..\gapi_gxm.h" />
     <ClInclude Include="..\..\lang.h" />
+    <ClInclude Include="..\..\glyph_cyr.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
