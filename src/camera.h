@@ -151,7 +151,7 @@ struct Camera : ICamera {
     bool updateFirstPerson() {
         Basis &joint = owner->getJoint(owner->jointHead);
 
-        if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) {
+        if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) { //enters here
             targetAngle.x += PI;
             targetAngle.z = -targetAngle.z;
 
@@ -168,8 +168,41 @@ struct Camera : ICamera {
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
            //fpHead.rot = quat(vec3(1, 0, 0), PI);  // whats here
-        }
+            auto temp = fpHead.rot;
+            if (Input::hmd.resetAngle) {
+                fpHead.rot = quat(vec3(1, 0, 0), PI);
+                //fpHead.rot = rotYXZ(owner->angle);
+            }
+            else {
+                fpHead.rot = temp;
+            }
+           //if (Input::down[ikLeft] || Input::down[ikRight]) {
+           //    //fpHead.rot = temp;
+           //    //quat rot = rotYXZ(owner->angle);
+           //    ////fpHead.pos = pos;
+           //    //fpHead.rot = fpHead.rot.lerp(rot, smooth ? Core::deltaTime * 10.0f : 1.0f);
+           //    //fpHead.rot = quat(vec3(1, 0, 0), PI);
+           //}
+           //else {
+           //    fpHead.rot = quat(vec3(1, 0, 0), PI);
+           //}
+           ////copied
+           //if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) {
+           //    targetAngle.x += PI;
+           //    targetAngle.z = -targetAngle.z;
 
+           //    vec3 pos = joint.pos - joint.rot * vec3(0, 48, -24);
+           //    quat rot = rotYXZ(targetAngle);
+           //    fpHead.pos = pos;
+           //    fpHead.rot = fpHead.rot.lerp(rot, smooth ? Core::deltaTime * 10.0f : 1.0f);
+           //}
+           //else {
+           //    fpHead = joint;
+           //    fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0), PI);
+           //    fpHead.pos -= joint.rot * vec3(0, 48, -24);
+           //}
+        }
+        // its got to be here
         mViewInv.identity();
         mViewInv.setRot(fpHead.rot);
         mViewInv.setPos(fpHead.pos);
@@ -378,8 +411,9 @@ struct Camera : ICamera {
                 updateFirstPerson();
         } else {
            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-               lookAngle = vec3(0.0f); // what's going on here // was 0
-               //lookAngle = Input::hmd.head.dir().xyz();
+               lookAngle = vec3(0.0f); 
+               //lookAngle = Input::hmd.head.dir().xyz(); // doesn't work
+               //copied
            } else {
                 if (mode == MODE_LOOK) {
                     float d = 3.0f * Core::deltaTime;

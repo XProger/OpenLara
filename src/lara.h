@@ -3046,26 +3046,58 @@ struct Lara : Character {
             }
 
 
-            
-            vec3 ang;
-            if (Input::hmd.resetAngle) {
-                ang = getAngleAbs(Input::hmd.head.dir().xyz()); 
-                angle.y = ang.y;
+            //if (Input::down[ikLeft] || Input::down[ikRight]) {
+            //    Input::hmd.resetAngle = false;
+            //}
+            if (Input::down[ik1]) {
                 Input::hmd.resetAngle = false;
             }
-            else {
+            if (Input::down[ik2]) {
+                Input::hmd.resetAngle = true;
+            }
+           vec3 ang;
+          if (Input::hmd.resetAngle) {
+               ang = getAngleAbs(Input::hmd.head.dir().xyz());
+              //ang = camera->angle;
+              //ang += getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
+              //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
+
+                //camera->angle = getAngleAbs(Input::hmd.head.dir().xyz());
+                //ang = camera->angle;
+                angle.y = ang.y;
+                //Input::hmd.resetAngle = false;
+           }
+
+
+
+
+
+
+
+
+           // else {
                 //ang = getAngleAbs(Input::hmd.head.dir().xyz());
                 //angle.y = ang.y;
-                ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz());
-                angle.y -= ang.y * 1.5 ; // adding difference between hmd frames // 360 = 360 ,but lara doesn't rotate enough(0.25) // method is not working
-            }
-
-            //if (Input::down[ikLeft]) {
-            //    rotateY(1);
+                //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz());
+                //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
+                //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz() - (Input::hmd.head.dir().xyz()));
+                //angle.y -= ang.y; // adding difference between hmd frames // 360 = 360 ,but lara doesn't rotate enough(0.25) // method is not working
+                //rotateY(ang.y);
+                //angle.y = clampAngle(angle.y + (ang.y) );
+                //Input::hmd.head.dir().xyz() += ang.y;
             //}
+
+            
             //else {
-            //    vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
-            //    angle.y = ang.y; // add incrementer based on button press, doesn't work with rotFactor.y
+               //ang = getAngleAbs(Input::hmd.head.dir().xyz());
+               //camera->targetAngle = ang;
+               //camera->lookAngle = ang;
+               //angle.y = ang.y; // add incrementer based on button press, doesn't work with rotFactor.y
+               //rotateY(ang.y);
+               //angle.y = clampAngle(angle.y + (-ang.y) );
+               if (Input::down[ikLeft]) {
+               camera->targetAngle = ang + vec3(0,1,0);
+            }
             //}
             if (!(input & (FORTH | BACK))) {
                 //rotateY();
@@ -3074,7 +3106,7 @@ struct Lara : Character {
 
             if (stand == STAND_UNDERWATER) {
                 input &= ~(FORTH | BACK);
-              //  angle.x = ang.x;
+                angle.x = ang.x;
             }
         }
         return input;
