@@ -1390,8 +1390,11 @@ struct Level : IGame {
         //dumpGlyphs();
         UI::patchGlyphs(level);
 
-        uint32 glyphsW, glyphsH;
-        glyphsCyr = Texture::LoadPNG(Stream(NULL, GLYPH_CYR, size_GLYPH_CYR), glyphsW, glyphsH);
+        {
+            uint32 glyphsW, glyphsH;
+            Stream stream(NULL, GLYPH_CYR, size_GLYPH_CYR);
+            glyphsCyr = Texture::LoadPNG(stream, glyphsW, glyphsH);
+        }
 
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
