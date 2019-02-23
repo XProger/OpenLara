@@ -729,7 +729,7 @@ namespace TR {
 
     LevelID getEndId(Version version) {
         switch (version & VER_VERSION) {
-            case VER_TR1 : return LVL_TR1_END2;
+            case VER_TR1 : return LVL_TR1_10C;
             case VER_TR2 : return LVL_TR2_HOUSE;
             case VER_TR3 : return LVL_TR3_CHAMBER;
         }

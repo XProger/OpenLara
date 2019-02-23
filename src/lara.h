@@ -2457,15 +2457,15 @@ struct Lara : Character {
             float h = pos.y - floor;
 
             int aIndex = animation.index;
-            if (floor - ceiling < 768 || h < 256)
-                ;// do nothing
-            else if (h <= 2 * 256 + 128) {
+            bool canClimb = (floor - ceiling >= LARA_HEIGHT) && (h >= 256);
+
+            if (canClimb && h <= 2 * 256 + 128) {
                 aIndex = ANIM_CLIMB_2;
                 pos.y  = floor + 512.0f;
-            } else if (h <= 3 * 256 + 128) {
+            } else if (canClimb && h <= 3 * 256 + 128) {
                 aIndex = ANIM_CLIMB_3;
                 pos.y  = floor + 768.0f;
-            } else if (h <= 7 * 256 + 128)
+            } else if (h > 3 * 128 + 128 && h <= 7 * 256 + 128)
                 aIndex = ANIM_CLIMB_JUMP;
 
             if (aIndex != animation.index) {
@@ -3605,9 +3605,13 @@ struct Lara : Character {
                 case STAND_GROUND :
                 case STAND_HANG   :
                 case STAND_WADE   :
-                    if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN)
-                        animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
-                    else if (stand == STAND_HANG)
+                    if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN) {
+                        if (input & ACTION) {
+                            animation.setAnim(isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT);
+                        } else {
+                            animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
+                        }
+                    } else if (stand == STAND_HANG)
                         animation.setAnim(ANIM_HANG, -21);
                     else if (state != STATE_ROLL_START && state != STATE_ROLL_END)
                         animation.setAnim((state == STATE_RUN || state == STATE_WALK) ? (isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT) : ANIM_STAND);
