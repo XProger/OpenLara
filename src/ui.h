@@ -24,6 +24,10 @@ namespace UI {
     float    helpTipTime;
     float    hintTime;
     float    subsTime;
+    int      subsPartTime;
+    int      subsPartLength;
+    int      subsPos;
+    int      subsLength;
 
     StringID hintStr;
     StringID subsStr;
@@ -158,6 +162,7 @@ namespace UI {
         int  x = 0;
 
         while (char c = *text++) {
+            if (c == '[') break;
             c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
@@ -179,6 +184,7 @@ namespace UI {
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
+            if (c == '[') break;
             c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
@@ -285,6 +291,8 @@ namespace UI {
         }
 
         while (char c = *text++) {
+            if (c == '[') break; // subs part end (timing tags)
+
             bool invertX = false, invertY = false;
             int dx = 0, dy = 0;
 
@@ -427,13 +435,67 @@ namespace UI {
         pickups.clear();
     }
 
+    void showHint(StringID str, float time) {
+        hintStr  = str;
+        hintTime = time;
+    }
+
+    void subsGetNextPart() {
+        const char *subs = STR[subsStr];
+
+        subsPos += subsPartLength;
+
+        if (subsPos >= subsLength) {
+            subsTime = 0.0f;
+            subsStr  = STR_EMPTY;
+        }
+
+        for (int i = subsPos; i < subsLength; i++) {
+            if (subs[i] == '[') {
+                for (int j = i; j < subsLength; j++) {
+                    if (subs[j] == ']') {
+                        char buf[32];
+                        memcpy(buf, subs + i + 1, j - i - 1);
+                        buf[j - i - 1] = 0;
+
+                        int time = atoi(buf);
+
+                        subsTime += (time - subsPartTime) / 1000.0f;
+                        subsPartTime = time;
+                        subsPartLength = j - subsPos + 1;
+                        return;
+                    }
+                }
+            }
+        }
+
+        subsPartLength = subsLength - subsPos;
+        subsTime = subsPartLength * SUBTITLES_SPEED;
+    }
+
+    void showSubs(StringID str) {
+        if (str == STR_EMPTY || !Core::settings.audio.subtitles)
+            return;
+        subsStr        = str;
+        subsLength     = strlen(STR[str]);
+        subsPos        = 0;
+        subsTime       = 0.0f;
+        subsPartTime   = 0;
+        subsPartLength = 0;
+
+        subsGetNextPart();
+    }
+
     void update() {
         if (hintTime > 0.0f) {
             hintTime = max(0.0f, hintTime - Core::deltaTime);
         }
 
         if (subsTime > 0.0f) {
-            subsTime = max(0.0f, subsTime - Core::deltaTime);
+            subsTime -= Core::deltaTime;
+            if (subsTime <= 0.0f) {
+                subsGetNextPart();
+            }
         }
 
         if (Input::down[ikH]) {
@@ -520,18 +582,6 @@ namespace UI {
             mesh->addDynBar(barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
 
-    void showHint(StringID str, float time) {
-        hintStr  = str;
-        hintTime = time;
-    }
-
-    void showSubs(StringID str) {
-        if (str == STR_EMPTY || !Core::settings.audio.subtitles)
-            return;
-        subsStr  = str;
-        subsTime = strlen(STR[str]) * SUBTITLES_SPEED;
-    }
-
     void renderHelp() {
     #ifdef _NAPI_SOCKET
         textOut(vec2(16, height - 32), command, aLeft, width - 32, 255, UI::SHADE_GRAY);
@@ -565,8 +615,9 @@ namespace UI {
         float eye = UI::width * Core::eye * 0.02f;
 
         if (subsTime > 0.0f) {
-            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
-            textOut(vec2(16 - eye, height - 48), STR[subsStr], aCenterV, width - 32, 255, UI::SHADE_GRAY);
+            const char *subs = STR[subsStr] + subsPos;
+            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
+            textOut(vec2(16 - eye, height - 48), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY);
         }
     }
 
