@@ -1007,7 +1007,11 @@ namespace TR {
                         const char *lng[] = { LANG_PREFIXES };
                         sprintf(title, "audio/1/track_%02d%s.ogg", track, lng[Core::settings.audio.language]);
                     } else {
-                        sprintf(title, "audio/1/track_%02d.ogg", track);
+                        if (TR::getSubs(version, track) != STR_EMPTY) {
+                            sprintf(title, "audio/1/track_%02d_EN.ogg", track);
+                        } else {
+                            sprintf(title, "audio/1/track_%02d.ogg", track);
+                        }
                     }
                 #ifndef _OS_WEB
                     if (Stream::existsContent(title))
