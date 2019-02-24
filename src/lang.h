@@ -3,6 +3,15 @@
 
 /*** ACHTUNG! THIS FILE MUST BE ANSI! ***/
 
+// Thanks:
+// SuiKaze Raider    - Base
+// Zellphie          - French
+// Oktopaps          - German
+// Nickelony         - Polish
+// Dustie            - Polish
+// RaymanTheHedgehog - Spanish
+// ElikaStudio       - Russian
+
 enum StringID {
       STR_EMPTY
 // common
@@ -765,7 +774,7 @@ const char *STR_FR[] = { ""
     , "All Hallows"
 };
 
-const char *STR_DE[] = { "" // by Oktopaps
+const char *STR_DE[] = { ""
 // help
     , "Wird geladen..."
     , "H dr~ucken f~ur Hilfe"
@@ -1487,7 +1496,7 @@ const char *STR_IT[] = { ""
     , "All Hallows"
 };
 
-const char *STR_PL[] = { "" // Nickelony & Dustie
+const char *STR_PL[] = { ""
 // help
     , "Wczytywanie..."
     , "Wci)snij H je*zeli potrzebujesz pomocy"
