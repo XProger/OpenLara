@@ -2371,6 +2371,7 @@ namespace TR {
         Color24         *palette;
         Color32         *palette32;
 
+        uint16          kanjiSprite;
         int32           clutsCount;
         CLUT            *cluts;
 
@@ -2794,7 +2795,8 @@ namespace TR {
             if (version == VER_TR2_PSX || version == VER_TR3_PSX) {
                 stream.read(tiles4, stream.read(tilesCount));
                 stream.read(clutsCount);
-                if (clutsCount > 1024) { // check for japanese version (skip 2 bytes after tiles data)
+                if (clutsCount > 1024) { // check for japanese version (read kanji CLUT index)
+                    kanjiSprite = clutsCount & 0xFFFF;
                     stream.seek(-2);
                     stream.read(clutsCount);
                 }

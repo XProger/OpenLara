@@ -1343,8 +1343,11 @@ struct Level : IGame {
             uv[i].y += mm.y;
         }
     }
-/*
+
+#ifdef _DEBUG
     void dumpGlyphs() {
+        ASSERT(level.tiles8);
+
         TR::SpriteSequence &seq = level.spriteSequences[level.extra.glyphs];
         short2 size = short2(0, 0);
         for (int i = 0; i < seq.sCount; i++) {
@@ -1378,7 +1381,37 @@ struct Level : IGame {
         Texture::SaveBMP("pc_glyph.bmp", (char*)data, size.x, size.y);
         delete[] data;
     }
-*/
+
+    void dumpKanji() {
+        Stream stream("DATA/KANJI.PSX");
+        int size = stream.readLE32() / 2;
+        TR::ColorIndex4 *buffer = new TR::ColorIndex4[size];
+        stream.raw(buffer, size);
+        int width = 256;
+        int height = size / width * 2;
+
+        Color32 *image = new Color32[width * height];
+
+        TR::Tile4 *tile = (TR::Tile4*)buffer;
+        TR::CLUT  &clut = level.cluts[level.spriteTextures[level.kanjiSprite].clut];
+
+        TR::ColorIndex4 *idx = buffer;
+        Color32 *ptr = image;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x += 2) {
+                *ptr++ = clut.color[idx->a];
+                *ptr++ = clut.color[idx->b];
+                idx++;
+            }
+        }
+
+        Texture::SaveBMP("kanji", (char*)image, width, height);
+
+        delete[] buffer;
+        delete[] image;
+    }
+#endif
 
     void initTextures() {
     #ifndef SPLIT_BY_TILE
@@ -1387,7 +1420,11 @@ struct Level : IGame {
             #error atlas packing is not allowed for this platform
         #endif
 
-        //dumpGlyphs();
+        #ifdef _DEBUG
+            //dumpGlyphs();
+            //dumpKanji();
+        #endif
+
         UI::patchGlyphs(level);
 
         {
