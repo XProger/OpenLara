@@ -1,9 +1,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <pwd.h>
-#include <pthread.h>
-#include <alsa/asoundlib.h>
 
 // SDL2 include stuff
 #include <SDL2/SDL.h>
@@ -25,84 +24,70 @@ int osGetTime() {
 }
 
 // sound
-snd_pcm_uframes_t   SND_FRAMES = 512;
-snd_pcm_t           *sndOut;
+
+int SND_FRAMES = 512;
+// A Frame is a struct containing: int16 L, int16 R.
 Sound::Frame        *sndData;
-pthread_t           sndThread;
+SDL_AudioDeviceID sdl_audiodev;
 
-void* sndFill(void *arg) {
-    while (sndOut) {
+void sndFill(void *udata, Uint8 *stream, int len) {
+        // Let's milk the audio subsystem for SND_FRAMES frames!
         Sound::fill(sndData, SND_FRAMES);
-
-        int err = snd_pcm_writei(sndOut, sndData, SND_FRAMES);
-        if (err < 0) {
-            LOG("! sound: write %s\n", snd_strerror(err));;
-            if (err != -EPIPE)
-                break;
-
-            err = snd_pcm_recover(sndOut, err, 0);
-            if (err < 0) {
-                LOG("! sound: failed to recover\n");
-                break;
-            }
-            snd_pcm_prepare(sndOut);
-        }
-    }
-    return NULL;
+        // We have the number of samples, but each sample is sizeof(Sound::Frame) bytes long,
+        // and memcpy copies a number of bytes.
+        memcpy (stream, sndData, SND_FRAMES * sizeof(Sound::Frame));
 }
 
 bool sndInit() {
-    unsigned int freq = 44100;
+    int FREQ = 44100;
 
-    int err;
-    if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-        LOG("! sound: open %s\n", snd_strerror(err));\
-        sndOut = NULL;
+    SDL_AudioSpec desired, obtained;
+
+    desired.freq     = FREQ;
+    desired.format   = AUDIO_S16SYS;
+    desired.channels = 2;
+    desired.samples  = SND_FRAMES;
+    desired.callback = sndFill;
+    desired.userdata = NULL;
+
+    sdl_audiodev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, /*SDL_AUDIO_ALLOW_FORMAT_CHANGE*/0);
+    if (sdl_audiodev == 0)
+    {
+        LOG ("SDL2: error opening audio device: %s\n", SDL_GetError());
         return false;
     }
 
-    snd_pcm_hw_params_t *params;
-
-    snd_pcm_hw_params_alloca(&params);
-    snd_pcm_hw_params_any(sndOut, params);
-    snd_pcm_hw_params_set_access(sndOut, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-
-    snd_pcm_hw_params_set_channels(sndOut, params, 2);
-    snd_pcm_hw_params_set_format(sndOut, params, SND_PCM_FORMAT_S16_LE);
-    snd_pcm_hw_params_set_rate_near(sndOut, params, &freq, NULL);
-
-    snd_pcm_hw_params_set_periods(sndOut, params, 4, 0);
-    snd_pcm_hw_params_set_period_size_near(sndOut, params, &SND_FRAMES, NULL);
-    snd_pcm_hw_params_get_period_size(params, &SND_FRAMES, 0);
-
-    snd_pcm_hw_params(sndOut, params);
-    snd_pcm_prepare(sndOut);
-
-    sndData = new Sound::Frame[SND_FRAMES];
-    memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
-    if ((err = snd_pcm_writei(sndOut, sndData, SND_FRAMES)) < 0) {
-        LOG("! sound: write %s\n", snd_strerror(err));\
-        sndOut = NULL;
+    if (desired.samples != obtained.samples) {
+        LOG ("SDL2: number of samples not supported by device. Watch out for buggy audio drivers!\n");
+        return false;
     }
 
-    snd_pcm_start(sndOut);
-    pthread_create(&sndThread, NULL, sndFill, NULL);
+    // Initialize audio buffer and fill it with zeros
+    sndData = new Sound::Frame[SND_FRAMES];
+    memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
+
+    SDL_PauseAudioDevice(sdl_audiodev,0);
 
     return true;
 }
 
 void sndFree() {
-    pthread_cancel(sndThread);
-    snd_pcm_drop(sndOut);
-    snd_pcm_drain(sndOut);
-    snd_pcm_close(sndOut);
+    SDL_PauseAudioDevice(sdl_audiodev,1);
+    SDL_CloseAudioDevice(sdl_audiodev);
+
+    // Delete the audio buffer
     delete[] sndData;
 }
 
 // Input
-SDL_GameController *sdl_gamecontroller;
-SDL_Joystick *sdl_joystick;
-bool using_old_joystick_interface;
+
+#define MAX_JOYS 4
+#define JOY_DEAD_ZONE_STICK      8192
+
+struct sdl_input *sdl_inputs;
+int sdl_numjoysticks, sdl_numcontrollers;
+SDL_Joystick *sdl_joysticks[MAX_JOYS];
+SDL_GameController *sdl_controllers[MAX_JOYS];
 
 vec2 joyL, joyR;
 
@@ -172,9 +157,9 @@ InputKey codeToInputKey(int code) {
     return ikNone;
 }
 
-JoyKey codeToJoyKey(int code) {
+JoyKey controllerCodeToJoyKey(int code) {
+// joystick using the modern SDL GameController interface
     switch (code) {
-    // gamepad
         case SDL_CONTROLLER_BUTTON_A                    : return jkA;
         case SDL_CONTROLLER_BUTTON_B                    : return jkB;
         case SDL_CONTROLLER_BUTTON_X                    : return jkX;
@@ -189,33 +174,52 @@ JoyKey codeToJoyKey(int code) {
     return jkNone;
 }
 
+JoyKey joyCodeToJoyKey(int buttonNumber) {
+// joystick using the classic SDL Joystick interface
+    switch (buttonNumber) {
+        case 0 : return jkY;
+        case 1 : return jkB;
+        case 2 : return jkA;
+        case 3 : return jkX;
+        case 4 : return jkL;
+        case 5 : return jkR;
+        case 6 : return jkLB;
+        case 7 : return jkRB;
+        case 8 : return jkSelect;
+        case 9 : return jkStart;
+    }
+    return jkNone;
+}
+
 bool inputInit() {
-    sdl_gamecontroller = NULL;
-    sdl_joystick = NULL;
-    if (SDL_NumJoysticks() > 0) {
-	if(SDL_IsGameController(0)) {
-            sdl_gamecontroller = SDL_GameControllerOpen(0);
+    int i;
+    joyL = joyR = vec2(0);
+    sdl_numjoysticks = SDL_NumJoysticks();
+    sdl_numjoysticks = (sdl_numjoysticks < MAX_JOYS )? sdl_numjoysticks : MAX_JOYS;
+
+    for (i = 0; i < sdl_numjoysticks; i++) {
+	if(SDL_IsGameController(i)) {
+            SDL_GameController *controller = SDL_GameControllerOpen(i);
+            sdl_joysticks[i] = SDL_GameControllerGetJoystick(controller);
+            sdl_controllers[i] = controller;
+            sdl_numcontrollers++;
         }
         else {
-            sdl_joystick = SDL_JoystickOpen(0);
-            using_old_joystick_interface = true;
+            sdl_joysticks[i] = SDL_JoystickOpen(i);
         }
     }
     return true;
 }
 
 void inputFree() {
-    if (sdl_gamecontroller != NULL) {
-        SDL_GameControllerClose(sdl_gamecontroller);
-        sdl_gamecontroller = NULL;
+    int i;
+    for (i = 0; i < sdl_numcontrollers; i++) {
+            SDL_GameControllerClose(sdl_controllers[i]);
     }
-    if (sdl_joystick != NULL) {
-        SDL_JoystickClose(sdl_joystick);
-        sdl_joystick = NULL;
+    for (i = 0; i < sdl_numjoysticks; i++) {
+            SDL_JoystickClose(sdl_joysticks[i]);
     }
 }
-
-#define JOY_DEAD_ZONE_STICK      8192
 
 float joyAxisValue(int value) {
     if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
@@ -232,12 +236,22 @@ vec2 joyDir(const vec2 &value) {
     return value.normal() * dist;
 }
 
+int getJoyIndex(SDL_JoystickID id) {
+    int i;
+    for (i=0 ; i < sdl_numjoysticks; i++) {
+        if (SDL_JoystickInstanceID(sdl_joysticks[i]) == id) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 void inputUpdate() {
 // get input events
 
-    int joyIndex = 0; // TODO: joy index
-
+    int joyIndex;
     SDL_Event event;
+
     while (SDL_PollEvent(&event) == 1) { // while there are still events to be processed
         switch (event.type) {
             case SDL_KEYDOWN: {
@@ -256,53 +270,59 @@ void inputUpdate() {
                 }
                 break;
              }
+             // Joystick reading using the modern GameController interface
              case SDL_CONTROLLERBUTTONDOWN: {
-                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        joyIndex = getJoyIndex(event.cbutton.which);
+                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
                         Input::setJoyDown(joyIndex, key, 1);
                         break;
              }
              case SDL_CONTROLLERBUTTONUP: {
-                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        joyIndex = getJoyIndex(event.cbutton.which);
+                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
                         Input::setJoyDown(joyIndex, key, 0);
                         break;
              }
              case SDL_CONTROLLERAXISMOTION: {
+                 joyIndex = getJoyIndex(event.caxis.which);
                  switch (event.caxis.axis) {
-                     case SDL_CONTROLLER_AXIS_LEFTX:
-		            if (event.caxis.value < 0) {
-			        Input::setJoyDown(joyIndex, jkLeft,  1);
-			        Input::setJoyDown(joyIndex, jkRight, 0);
-                            }
-		            if (event.caxis.value > 0) {
-			        Input::setJoyDown(joyIndex, jkRight, 1);
-			        Input::setJoyDown(joyIndex, jkLeft,  0);
-                            } 
-                            if (event.caxis.value == 0) {
-			        Input::setJoyDown(joyIndex, jkRight, 0);
-			        Input::setJoyDown(joyIndex, jkLeft,  0);
-                            }
-		            break;
-                      case SDL_CONTROLLER_AXIS_LEFTY:
-		            if (event.caxis.value < 0) {
-			        Input::setJoyDown(joyIndex, jkUp,  1);
-			        Input::setJoyDown(joyIndex, jkDown, 0);
-                            }
-		            if (event.caxis.value > 0) {
-			        Input::setJoyDown(joyIndex, jkUp, 0);
-			        Input::setJoyDown(joyIndex, jkDown,  1);
-                            } 
-                            if (event.caxis.value == 0) {
-			        Input::setJoyDown(joyIndex, jkUp, 0);
-			        Input::setJoyDown(joyIndex, jkDown,  0);
-                            }
-		            break;
+                     case SDL_CONTROLLER_AXIS_LEFTX:  joyL.x = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_LEFTY:  joyL.y = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_RIGHTX: joyR.x = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_RIGHTY: joyR.y = joyAxisValue(event.caxis.value); break;
                  }
+                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
                  break;
              }
-        }
-
-        Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-        Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+             // Joystick reading using the classic Joystick interface
+             case SDL_JOYBUTTONDOWN: {
+                        joyIndex = getJoyIndex(event.jbutton.which);
+                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                        Input::setJoyDown(joyIndex, key, 1);
+                        break;
+             }
+             case SDL_JOYBUTTONUP: {
+                        joyIndex = getJoyIndex(event.jbutton.which);
+                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                        Input::setJoyDown(joyIndex, key, 0);
+                        break;
+             }
+             case SDL_JOYAXISMOTION: {
+                 joyIndex = getJoyIndex(event.jaxis.which);
+                 switch (event.jaxis.axis) {
+                     // In the classic joystick interface we know what axis changed by it's number,
+                     // they have no names like on the fancy GameController interface. 
+                     case 0: joyL.x = joyAxisValue(event.jaxis.value); break;
+                     case 1: joyL.y = joyAxisValue(event.jaxis.value); break;
+                     case 2: joyR.x = joyAxisValue(event.jaxis.value); break;
+                     case 3: joyR.y = joyAxisValue(event.jaxis.value); break;
+                 }
+                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+                 break;
+             }
+         }
      }
 }
 
@@ -312,7 +332,7 @@ int main(int argc, char **argv) {
     SDL_DisplayMode current;
 
 
-    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
+    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
     SDL_GetCurrentDisplayMode(0, &current);
 
