@@ -41,6 +41,7 @@ namespace Input {
         mat4 controllers[2];
         vec3 zero;
         bool resetAngle = true; // whether or not the angle of lara should be rest to hmd angle
+        bool centerAngle = true; // find reference for head position 
         bool ready;
         bool state[cMAX];
 

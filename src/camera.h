@@ -176,31 +176,6 @@ struct Camera : ICamera {
             else {
                 fpHead.rot = temp;
             }
-           //if (Input::down[ikLeft] || Input::down[ikRight]) {
-           //    //fpHead.rot = temp;
-           //    //quat rot = rotYXZ(owner->angle);
-           //    ////fpHead.pos = pos;
-           //    //fpHead.rot = fpHead.rot.lerp(rot, smooth ? Core::deltaTime * 10.0f : 1.0f);
-           //    //fpHead.rot = quat(vec3(1, 0, 0), PI);
-           //}
-           //else {
-           //    fpHead.rot = quat(vec3(1, 0, 0), PI);
-           //}
-           ////copied
-           //if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) {
-           //    targetAngle.x += PI;
-           //    targetAngle.z = -targetAngle.z;
-
-           //    vec3 pos = joint.pos - joint.rot * vec3(0, 48, -24);
-           //    quat rot = rotYXZ(targetAngle);
-           //    fpHead.pos = pos;
-           //    fpHead.rot = fpHead.rot.lerp(rot, smooth ? Core::deltaTime * 10.0f : 1.0f);
-           //}
-           //else {
-           //    fpHead = joint;
-           //    fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0), PI);
-           //    fpHead.pos -= joint.rot * vec3(0, 48, -24);
-           //}
         }
         // its got to be here
         mViewInv.identity();

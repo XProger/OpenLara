@@ -65,7 +65,9 @@
 #define LARA_VIBRATE_HIT_TIME   0.2f
 
 struct Lara : Character {
-
+    // new 
+    vec3 lastAngle;
+    bool first = true;
     // http://www.tombraiderforums.com/showthread.php?t=148859
     enum {
         ANIM_RUN                = 0,
@@ -3049,22 +3051,42 @@ struct Lara : Character {
             //if (Input::down[ikLeft] || Input::down[ikRight]) {
             //    Input::hmd.resetAngle = false;
             //}
+
+           vec3 ang;
+           vec3 diff;
+
+           if (first) {
+               ang = getAngleAbs(Input::hmd.head.dir().xyz());
+               angle.y = ang.y;
+               first = false;
+           }
+
             if (Input::down[ik1]) {
                 Input::hmd.resetAngle = false;
             }
             if (Input::down[ik2]) {
                 Input::hmd.resetAngle = true;
+                Input::hmd.centerAngle = true;
+
             }
-           vec3 ang;
+            if (Input::hmd.centerAngle) {
+                Input::hmd.lastHead = Input::hmd.head;
+                lastAngle = angle;
+                Input::hmd.centerAngle = false;
+            }
+           
           if (Input::hmd.resetAngle) {
-               ang = getAngleAbs(Input::hmd.head.dir().xyz());
+               //ang = getAngleAbs(Input::hmd.head.dir().xyz());
+
               //ang = camera->angle;
               //ang += getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
-              //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
-
+              ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz()); // difference
+              //apply difference to 
+              diff = lastAngle + ang;
                 //camera->angle = getAngleAbs(Input::hmd.head.dir().xyz());
                 //ang = camera->angle;
-                angle.y = ang.y;
+                //angle.y = ang.y;
+              angle.y = diff.y;
                 //Input::hmd.resetAngle = false;
            }
 
@@ -3095,9 +3117,6 @@ struct Lara : Character {
                //angle.y = ang.y; // add incrementer based on button press, doesn't work with rotFactor.y
                //rotateY(ang.y);
                //angle.y = clampAngle(angle.y + (-ang.y) );
-               if (Input::down[ikLeft]) {
-               camera->targetAngle = ang + vec3(0,1,0);
-            }
             //}
             if (!(input & (FORTH | BACK))) {
                 //rotateY();
