@@ -100,9 +100,14 @@ void sndFree() {
 }
 
 // Input
-SDL_GameController *sdl_gamecontroller;
-SDL_Joystick *sdl_joystick;
-bool using_old_joystick_interface;
+
+#define MAX_JOYS 4
+#define JOY_DEAD_ZONE_STICK      8192
+
+struct sdl_input *sdl_inputs;
+int sdl_numjoysticks, sdl_numcontrollers;
+SDL_Joystick *sdl_joysticks[MAX_JOYS];
+SDL_GameController *sdl_controllers[MAX_JOYS];
 
 vec2 joyL, joyR;
 
@@ -172,9 +177,9 @@ InputKey codeToInputKey(int code) {
     return ikNone;
 }
 
-JoyKey codeToJoyKey(int code) {
+JoyKey controllerCodeToJoyKey(int code) {
+// joystick using the modern SDL GameController interface
     switch (code) {
-    // gamepad
         case SDL_CONTROLLER_BUTTON_A                    : return jkA;
         case SDL_CONTROLLER_BUTTON_B                    : return jkB;
         case SDL_CONTROLLER_BUTTON_X                    : return jkX;
@@ -189,33 +194,52 @@ JoyKey codeToJoyKey(int code) {
     return jkNone;
 }
 
+JoyKey joyCodeToJoyKey(int buttonNumber) {
+// joystick using the classic SDL Joystick interface
+    switch (buttonNumber) {
+        case 0 : return jkY;
+        case 1 : return jkB;
+        case 2 : return jkA;
+        case 3 : return jkX;
+        case 4 : return jkL;
+        case 5 : return jkR;
+        case 6 : return jkLB;
+        case 7 : return jkRB;
+        case 8 : return jkSelect;
+        case 9 : return jkStart;
+    }
+    return jkNone;
+}
+
 bool inputInit() {
-    sdl_gamecontroller = NULL;
-    sdl_joystick = NULL;
-    if (SDL_NumJoysticks() > 0) {
-	if(SDL_IsGameController(0)) {
-            sdl_gamecontroller = SDL_GameControllerOpen(0);
+    int i;
+    joyL = joyR = vec2(0);
+    sdl_numjoysticks = SDL_NumJoysticks();
+    sdl_numjoysticks = (sdl_numjoysticks < MAX_JOYS )? sdl_numjoysticks : MAX_JOYS;
+
+    for (i = 0; i < sdl_numjoysticks; i++) {
+	if(SDL_IsGameController(i)) {
+            SDL_GameController *controller = SDL_GameControllerOpen(i);
+            sdl_joysticks[i] = SDL_GameControllerGetJoystick(controller);
+            sdl_controllers[i] = controller;
+            sdl_numcontrollers++;
         }
         else {
-            sdl_joystick = SDL_JoystickOpen(0);
-            using_old_joystick_interface = true;
+            sdl_joysticks[i] = SDL_JoystickOpen(i);
         }
     }
     return true;
 }
 
 void inputFree() {
-    if (sdl_gamecontroller != NULL) {
-        SDL_GameControllerClose(sdl_gamecontroller);
-        sdl_gamecontroller = NULL;
+    int i;
+    for (i = 0; i < sdl_numcontrollers; i++) {
+            SDL_GameControllerClose(sdl_controllers[i]);
     }
-    if (sdl_joystick != NULL) {
-        SDL_JoystickClose(sdl_joystick);
-        sdl_joystick = NULL;
+    for (i = 0; i < sdl_numjoysticks; i++) {
+            SDL_JoystickClose(sdl_joysticks[i]);
     }
 }
-
-#define JOY_DEAD_ZONE_STICK      8192
 
 float joyAxisValue(int value) {
     if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
@@ -232,12 +256,22 @@ vec2 joyDir(const vec2 &value) {
     return value.normal() * dist;
 }
 
+int getJoyIndex(SDL_JoystickID id) {
+    int i;
+    for (i=0 ; i < sdl_numjoysticks; i++) {
+        if (SDL_JoystickInstanceID(sdl_joysticks[i]) == id) {
+            return i;
+        }
+    }
+    return 0;
+}
+
 void inputUpdate() {
 // get input events
 
-    int joyIndex = 0; // TODO: joy index
-
+    int joyIndex;
     SDL_Event event;
+
     while (SDL_PollEvent(&event) == 1) { // while there are still events to be processed
         switch (event.type) {
             case SDL_KEYDOWN: {
@@ -256,53 +290,59 @@ void inputUpdate() {
                 }
                 break;
              }
+             // Joystick reading using the modern GameController interface
              case SDL_CONTROLLERBUTTONDOWN: {
-                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        joyIndex = getJoyIndex(event.cbutton.which);
+                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
                         Input::setJoyDown(joyIndex, key, 1);
                         break;
              }
              case SDL_CONTROLLERBUTTONUP: {
-                        JoyKey key = codeToJoyKey(event.cbutton.button);
+                        joyIndex = getJoyIndex(event.cbutton.which);
+                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
                         Input::setJoyDown(joyIndex, key, 0);
                         break;
              }
              case SDL_CONTROLLERAXISMOTION: {
+                 joyIndex = getJoyIndex(event.caxis.which);
                  switch (event.caxis.axis) {
-                     case SDL_CONTROLLER_AXIS_LEFTX:
-		            if (event.caxis.value < 0) {
-			        Input::setJoyDown(joyIndex, jkLeft,  1);
-			        Input::setJoyDown(joyIndex, jkRight, 0);
-                            }
-		            if (event.caxis.value > 0) {
-			        Input::setJoyDown(joyIndex, jkRight, 1);
-			        Input::setJoyDown(joyIndex, jkLeft,  0);
-                            } 
-                            if (event.caxis.value == 0) {
-			        Input::setJoyDown(joyIndex, jkRight, 0);
-			        Input::setJoyDown(joyIndex, jkLeft,  0);
-                            }
-		            break;
-                      case SDL_CONTROLLER_AXIS_LEFTY:
-		            if (event.caxis.value < 0) {
-			        Input::setJoyDown(joyIndex, jkUp,  1);
-			        Input::setJoyDown(joyIndex, jkDown, 0);
-                            }
-		            if (event.caxis.value > 0) {
-			        Input::setJoyDown(joyIndex, jkUp, 0);
-			        Input::setJoyDown(joyIndex, jkDown,  1);
-                            } 
-                            if (event.caxis.value == 0) {
-			        Input::setJoyDown(joyIndex, jkUp, 0);
-			        Input::setJoyDown(joyIndex, jkDown,  0);
-                            }
-		            break;
+                     case SDL_CONTROLLER_AXIS_LEFTX:  joyL.x = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_LEFTY:  joyL.y = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_RIGHTX: joyR.x = joyAxisValue(event.caxis.value); break;
+                     case SDL_CONTROLLER_AXIS_RIGHTY: joyR.y = joyAxisValue(event.caxis.value); break;
                  }
+                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
                  break;
              }
-        }
-
-        Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-        Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+             // Joystick reading using the classic Joystick interface
+             case SDL_JOYBUTTONDOWN: {
+                        joyIndex = getJoyIndex(event.jbutton.which);
+                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                        Input::setJoyDown(joyIndex, key, 1);
+                        break;
+             }
+             case SDL_JOYBUTTONUP: {
+                        joyIndex = getJoyIndex(event.jbutton.which);
+                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                        Input::setJoyDown(joyIndex, key, 0);
+                        break;
+             }
+             case SDL_JOYAXISMOTION: {
+                 joyIndex = getJoyIndex(event.jaxis.which);
+                 switch (event.jaxis.axis) {
+                     // In the classic joystick interface we know what axis changed by it's number,
+                     // they have no names like on the fancy GameController interface. 
+                     case 0: joyL.x = joyAxisValue(event.jaxis.value); break;
+                     case 1: joyL.y = joyAxisValue(event.jaxis.value); break;
+                     case 2: joyR.x = joyAxisValue(event.jaxis.value); break;
+                     case 3: joyR.y = joyAxisValue(event.jaxis.value); break;
+                 }
+                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+                 break;
+             }
+         }
      }
 }
 
