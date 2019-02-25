@@ -60,6 +60,30 @@
     <ClInclude Include="..\..\gapi_gxm.h" />
     <ClInclude Include="..\..\lang.h" />
     <ClInclude Include="..\..\glyph_cyr.h" />
+    <ClInclude Include="..\..\lang\es.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\en.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\fr.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\it.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\ja.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\pl.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\ru.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\de.h">
+      <Filter>lang</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
@@ -99,6 +123,9 @@
     </Filter>
     <Filter Include="libs\tinf">
       <UniqueIdentifier>{80edb27c-40cf-4f7a-a854-88eeba24a5fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lang">
+      <UniqueIdentifier>{2aaeadd4-47e5-4826-a82a-3adc5ff45978}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

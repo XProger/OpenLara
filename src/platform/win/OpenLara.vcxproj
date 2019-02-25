@@ -213,6 +213,14 @@
     <ClInclude Include="..\..\gameflow.h" />
     <ClInclude Include="..\..\glyph_cyr.h" />
     <ClInclude Include="..\..\lang.h" />
+    <ClInclude Include="..\..\lang\de.h" />
+    <ClInclude Include="..\..\lang\en.h" />
+    <ClInclude Include="..\..\lang\es.h" />
+    <ClInclude Include="..\..\lang\fr.h" />
+    <ClInclude Include="..\..\lang\it.h" />
+    <ClInclude Include="..\..\lang\ja.h" />
+    <ClInclude Include="..\..\lang\pl.h" />
+    <ClInclude Include="..\..\lang\ru.h" />
     <ClInclude Include="..\..\napi_dummy.h" />
     <ClInclude Include="..\..\napi_socket.h" />
     <ClInclude Include="..\..\network.h" />
