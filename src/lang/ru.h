@@ -276,4 +276,40 @@ const char *STR_RU[] = { ""
     , "All Hallows"
 };
 
+inline bool isCyrillic(char c) {
+    return (c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ');
+}
+
+inline char remapCyrillic(char c) {
+    if (!isCyrillic(c)) {
+        return c;
+    }
+
+    switch (c) {
+        case 'à' : return 'a';
+        case 'å' : return 'e';
+        case '¸' : return 'e';
+        case 'è' : return 'u';
+        case 'é' : return 'u';
+        case 'î' : return 'o';
+        case 'ð' : return 'p';
+        case 'ñ' : return 'c';
+        case 'ó' : return 'y';
+        case 'õ' : return 'x';
+        case 'À' : return 'A';
+        case 'Â' : return 'B';
+        case 'Å' : return 'E';
+        case '¨' : return 'E';
+        case 'Ê' : return 'K';
+        case 'Ì' : return 'M';
+        case 'Í' : return 'H';
+        case 'Î' : return 'O';
+        case 'Ð' : return 'P';
+        case 'Ñ' : return 'C';
+        case 'Ò' : return 'T';
+        case 'Õ' : return 'X';
+    }
+    return c;
+}
+
 #endif

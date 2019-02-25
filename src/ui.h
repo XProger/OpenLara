@@ -75,39 +75,8 @@ namespace UI {
 
     enum Align  { aLeft, aRight, aCenter, aCenterV };
 
-    inline char remapCyrillic(char c) {
-        if ((c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ')) {
-            switch (c) {
-                case 'à' : return 'a';
-                case 'å' : return 'e';
-                case '¸' : return 'e';
-                case 'è' : return 'u';
-                case 'é' : return 'u';
-                case 'î' : return 'o';
-                case 'ð' : return 'p';
-                case 'ñ' : return 'c';
-                case 'ó' : return 'y';
-                case 'õ' : return 'x';
-                case 'À' : return 'A';
-                case 'Â' : return 'B';
-                case 'Å' : return 'E';
-                case '¨' : return 'E';
-                case 'Ê' : return 'K';
-                case 'Ì' : return 'M';
-                case 'Í' : return 'H';
-                case 'Î' : return 'O';
-                case 'Ð' : return 'P';
-                case 'Ñ' : return 'C';
-                case 'Ò' : return 'T';
-                case 'Õ' : return 'X';
-            }
-            return c;
-        }
-        return c;
-    }
-
     inline int charRemap(char c) {
-        if ((c >= 'À' && c <= 'ß') || (c >= 'à' && c <= 'ÿ')) {
+        if (isCyrillic(c)) {
             return char_map[CYR_MAP_START + (c - 'À')];
         }
 
