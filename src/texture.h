@@ -709,7 +709,6 @@ struct Texture : GAPI::Texture {
     }
 };
 
-#define ATLAS_BORDER 8
 
 struct Atlas {
     struct Tile {
@@ -718,7 +717,7 @@ struct Atlas {
         short4          uv;
     } *tiles;
 
-    typedef void (Callback)(int id, int tileX, int tileY, int atalsWidth, int atlasHeight, Tile &tile, void *userData, void *data);
+    typedef void (Callback)(Atlas *atlas, int id, int tileX, int tileY, int atalsWidth, int atlasHeight, Tile &tile, void *userData, void *data);
 
     struct Node {
         Node   *child[2];
@@ -734,21 +733,21 @@ struct Atlas {
             delete child[1];
         }
 
-        Node* insert(const short4 &tile, int tileIndex) {
+        Node* insert(Atlas *atlas, const short4 &tile, int tileIndex) {
             ASSERT(tile.x != 0x7FFF);
 
             if (child[0] != NULL && child[1] != NULL) {
-                Node *node = child[0]->insert(tile, tileIndex);
+                Node *node = child[0]->insert(atlas, tile, tileIndex);
                 if (node != NULL) return node;
-                return child[1]->insert(tile, tileIndex);
+                return child[1]->insert(atlas, tile, tileIndex);
             } else {
                 if (this->tileIndex != -1)
                     return NULL;
 
                 int16 w  = rect.z - rect.x;
                 int16 h  = rect.w - rect.y;
-                int16 tx = (tile.z - tile.x) + ATLAS_BORDER * 2;
-                int16 ty = (tile.w - tile.y) + ATLAS_BORDER * 2;
+                int16 tx = (tile.z - tile.x) + atlas->border.x + atlas->border.z;
+                int16 ty = (tile.w - tile.y) + atlas->border.y + atlas->border.w;
 
                 if (w < tx || h < ty)
                     return NULL;
@@ -769,7 +768,7 @@ struct Atlas {
                     child[1] = new Node(rect.x, rect.y + ty, rect.z, rect.w);
                 }
 
-                return child[0]->insert(tile, tileIndex);
+                return child[0]->insert(atlas, tile, tileIndex);
             }
         }
     } *root;
@@ -777,10 +776,11 @@ struct Atlas {
     int      tilesCount;
     int      size;
     int      width, height;
+    short4   border;
     void     *userData;
     Callback *callback;
 
-    Atlas(int maxTiles, void *userData, Callback *callback) : root(NULL), tilesCount(0), size(0), userData(userData), callback(callback) {
+    Atlas(int maxTiles, short4 border, void *userData, Callback *callback) : root(NULL), tilesCount(0), size(0), border(border), userData(userData), callback(callback) {
         tiles = new Tile[maxTiles];
     }
 
@@ -804,19 +804,19 @@ struct Atlas {
         tilesCount++;
 
         if (uv.x != 0x7FFF)
-            size += (uv.z - uv.x + ATLAS_BORDER * 2) * (uv.w - uv.y + ATLAS_BORDER * 2);
+            size += (uv.z - uv.x + border.x + border.z) * (uv.w - uv.y + border.y + border.w);
     }
 
     bool insertAll(int *indices) {
         for (int i = 0; i < tilesCount; i++) {
             int idx = indices[i];
-            if (tiles[idx].uv.x != 0x7FFF && !root->insert(tiles[idx].uv, idx))
+            if (tiles[idx].uv.x != 0x7FFF && !root->insert(this, tiles[idx].uv, idx))
                 return false;
         }
         return true;
     }
 
-    Texture* pack() {
+    Texture* pack(bool mipmaps) {
     // TODO TR2 fix CUT2 AV
 //        width  = 4096;//nextPow2(int(sqrtf(float(size))));
 //        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
@@ -835,7 +835,7 @@ struct Atlas {
                 short4 &a = tiles[indices[i - 1]].uv;
                 short4 &b = tiles[indices[i]].uv;
                 //if ((a.z - a.x + ATLAS_BORDER * 2) * (a.w - a.y + ATLAS_BORDER * 2) < (b.z - b.x + ATLAS_BORDER * 2) * (b.w - b.y + ATLAS_BORDER * 2)) {
-                if ((a.z - a.x + ATLAS_BORDER * 2) < (b.z - b.x + ATLAS_BORDER * 2)) {
+                if ((a.z - a.x) < (b.z - b.x)) {
                     swap(indices[i - 1], indices[i]);
                     swapped = true;
                 }
@@ -863,7 +863,7 @@ struct Atlas {
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, 1, FMT_RGBA, OPT_MIPMAPS, data);
+        Texture *atlas = new Texture(width, height, 1, FMT_RGBA, mipmaps ? OPT_MIPMAPS : 0, data);
 
         //Texture::SaveBMP("atlas", (char*)data, width, height);
 
@@ -878,13 +878,13 @@ struct Atlas {
             fill(node->child[0], data);
             fill(node->child[1], data);
         } else
-            callback(tiles[node->tileIndex].id, node->rect.x, node->rect.y, width, height, tiles[node->tileIndex], userData, data);
+            callback(this, tiles[node->tileIndex].id, node->rect.x, node->rect.y, width, height, tiles[node->tileIndex], userData, data);
     }
 
     void fillInstances() {
         for (int i = 0; i < tilesCount; i++)
             if (tiles[i].uv.x == 0x7FFF)
-                callback(tiles[i].id, tiles[i].uv.y, 0, width, height, tiles[i], userData, NULL);
+                callback(this, tiles[i].id, tiles[i].uv.y, 0, width, height, tiles[i], userData, NULL);
     }
 };
 

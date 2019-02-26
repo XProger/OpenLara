@@ -1205,9 +1205,10 @@ struct Lightning : Controller {
     }
 
     void setVertex(Vertex &v, const vec3 &coord, int16 joint, int idx) {
+        TR::TextureInfo &tex = CommonTex[CTEX_FLASH];
         v.coord     = toCoord(coord, joint);
         v.normal    = short4( 0, -1, 0, 0 );
-        v.texCoord  = short4( barTile[0].texCoordAtlas[idx].x, barTile[0].texCoordAtlas[idx].y, 32767, 32767 );
+        v.texCoord  = short4( tex.texCoordAtlas[idx].x, tex.texCoordAtlas[idx].y, 32767, 32767 );
         v.color     = ubyte4( 255, 255, 255, 255 );
     }
 

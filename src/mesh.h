@@ -4,8 +4,19 @@
 #include "core.h"
 #include "format.h"
 
-TR::TextureInfo barTile[5 /* UI::BAR_MAX */];
-TR::TextureInfo &whiteTile = barTile[4]; // BAR_WHITE
+enum CommonTexType {
+    CTEX_FLASH,
+    CTEX_HEALTH,
+    CTEX_OXYGEN,
+    CTEX_OPTION,
+    CTEX_WHITE_TILE,
+    CTEX_WHITE_SPRITE,
+    CTEX_MAX,
+};
+
+TR::TextureInfo CommonTex[CTEX_MAX];
+TR::TextureInfo &whiteTile   = CommonTex[CTEX_WHITE_TILE];
+TR::TextureInfo &whiteSprite = CommonTex[CTEX_WHITE_SPRITE];
 
 #define PLANE_DETAIL 48
 #define CIRCLE_SEGS  16
@@ -485,7 +496,7 @@ struct MeshBuilder {
         quad.iStart = iCount;
         quad.iCount = 2 * 3;
 
-        addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteTile, false, false);
+        addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteSprite, false, false);
         vertices[vCount + 0].coord = short4( -32767,  32767, 0, 1 );
         vertices[vCount + 1].coord = short4(  32767,  32767, 1, 1 );
         vertices[vCount + 2].coord = short4(  32767, -32767, 1, 0 );
@@ -517,7 +528,7 @@ struct MeshBuilder {
             pos.rotate(cs);
             v.coord     = short4( short(pos.x), short(pos.y), 0, 0 );
             v.normal    = short4( 0, 0, 0, 32767 );
-            v.texCoord  = short4( whiteTile.texCoordAtlas[0].x, whiteTile.texCoordAtlas[0].y, 32767, 32767 );
+            v.texCoord  = short4( whiteSprite.texCoordAtlas[0].x, whiteSprite.texCoordAtlas[0].y, 32767, 32767 );
             v.color     = ubyte4( 255, 255, 255, 255 );
             v.light     = ubyte4( 255, 255, 255, 255 );
 
@@ -1263,7 +1274,7 @@ struct MeshBuilder {
         int &iCount      = dynICount;
         int &vCount      = dynVCount;
 
-        short4 uv = short4( whiteTile.texCoordAtlas[0].x, whiteTile.texCoordAtlas[0].y, 32767, 32767 );
+        short4 uv = short4( whiteSprite.texCoordAtlas[0].x, whiteSprite.texCoordAtlas[0].y, 32767, 32767 );
 
         int16 minX = int16(pos.x);
         int16 minY = int16(pos.y);

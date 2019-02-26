@@ -83,7 +83,7 @@ struct OptionItem {
     }
 
     float drawBar(float x, float y, float w, bool active, uint8 value) const {
-        UI::renderBar(UI::BAR_WHITE, vec2(x + (32.0f + 2.0f), y - LINE_HEIGHT + 6 + 2), vec2(w - (64.0f + 4.0f), LINE_HEIGHT - 6 - 4), value / float(maxValue), color, 0xFF000000, 0xFFA0A0A0, 0xFFA0A0A0, 0xFF000000);
+        UI::renderBar(CTEX_WHITE_SPRITE, vec2(x + (32.0f + 2.0f), y - LINE_HEIGHT + 6 + 2), vec2(w - (64.0f + 4.0f), LINE_HEIGHT - 6 - 4), value / float(maxValue), color, 0xFF000000, 0xFFA0A0A0, 0xFFA0A0A0, 0xFF000000);
         UI::specOut(vec2(x + 16.0f, y), icon);
         if (active) {
             if (value >        0) UI::specOut(vec2(x, y), 108);
@@ -94,13 +94,13 @@ struct OptionItem {
 
     float render(float x, float y, float w, bool active, Core::Settings *settings) const {
         if (active)
-            UI::renderBar(UI::BAR_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0xFFD8377C, 0);
+            UI::renderBar(CTEX_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0xFFD8377C, 0);
 
         const uint8 &value = *(uint8*)(intptr_t(settings) + offset);
 
         switch (type) {
             case TYPE_TITLE   : 
-                UI::renderBar(UI::BAR_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
+                UI::renderBar(CTEX_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
                 UI::textOut(vec2(x, y), title, UI::aCenter, w, 255, UI::SHADE_GRAY); 
             case TYPE_EMPTY   : break;
             case TYPE_BUTTON  : {
@@ -1472,7 +1472,7 @@ struct Inventory {
         float y = ( UI::height - height ) * 0.5f + LINE_HEIGHT;
 
     // background
-        UI::renderBar(UI::BAR_OPTION, vec2(x, y - 16.0f), vec2(width, height), 0.0f, 0, 0xC0000000);
+        UI::renderBar(CTEX_OPTION, vec2(x, y - 16.0f), vec2(width, height), 0.0f, 0, 0xC0000000);
 
         x     += 8.0f;
         width -= 16.0f;
@@ -1562,7 +1562,7 @@ struct Inventory {
                     }
                 }
 
-                UI::renderBar(UI::BAR_HEALTH, pos, size, health);
+                UI::renderBar(CTEX_HEALTH, pos, size, health);
             }
         }
 
@@ -1946,9 +1946,9 @@ struct Inventory {
         }
 
         if (page == PAGE_SAVEGAME) {
-            UI::renderBar(UI::BAR_OPTION, vec2(-eye + UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
+            UI::renderBar(CTEX_OPTION, vec2(-eye + UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
             UI::textOut(vec2(-eye, 240), pageTitle[page], UI::aCenter, UI::width);
-            UI::renderBar(UI::BAR_OPTION, vec2(-eye - 48 * slot + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
+            UI::renderBar(CTEX_OPTION, vec2(-eye - 48 * slot + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
             UI::textOut(vec2(-eye - 48 + UI::width / 2, 240 + 24), STR_YES, UI::aCenter, 48);
             UI::textOut(vec2(-eye + UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
             return;

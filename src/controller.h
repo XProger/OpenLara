@@ -57,7 +57,6 @@ struct IGame {
 
     virtual TR::Level*   getLevel()     { return NULL; }
     virtual MeshBuilder* getMesh()      { return NULL; }
-    virtual Texture*     getAtlas()     { return NULL; }
     virtual ICamera*     getCamera(int index = -1)  { return NULL; }
     virtual Controller*  getLara(int index = 0)     { return NULL; }
     virtual Controller*  getLara(const vec3 &pos)   { return NULL; }

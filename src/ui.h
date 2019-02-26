@@ -202,15 +202,6 @@ namespace UI {
         return short2(w, h);
     }
 
-    enum BarType {
-        BAR_FLASH,
-        BAR_HEALTH,
-        BAR_OXYGEN,
-        BAR_OPTION,
-        BAR_WHITE,
-        BAR_MAX,
-    };
-
     #ifdef SPLIT_BY_TILE
         uint16 curTile, curClut;
     #endif
@@ -605,15 +596,15 @@ namespace UI {
         Core::setDepthTest(true);
     }
 
-    void renderBar(BarType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474, uint32 fgColor2 = 0) {
+    void renderBar(CommonTexType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474, uint32 fgColor2 = 0) {
         MeshBuilder *mesh = game->getMesh();
 
         if (brColor1 != 0 || brColor2 != 0)
             mesh->addDynFrame(pos - 2.0f, size + 4.0f, brColor1, brColor2);
         if (bgColor != 0)
-            mesh->addDynBar(whiteTile, pos - 1.0f, size + 2.0f, bgColor);
+            mesh->addDynBar(whiteSprite, pos - 1.0f, size + 2.0f, bgColor);
         if ((fgColor != 0 || fgColor2 != 0) && value > 0.0f)
-            mesh->addDynBar(barTile[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
+            mesh->addDynBar(CommonTex[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
 
     void renderHelp() {
