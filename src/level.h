@@ -1192,6 +1192,15 @@ struct Level : IGame {
 
     TR::Tile32 *tileData;
     uint8 *glyphsCyr;
+    uint8 *glyphsJap;
+
+    static int getAdvGlyphPage(int index) {
+        index -= UI::advGlyphsStart;
+        if (index >= CYR_MAP_COUNT) {
+            return 1 + (index - CYR_MAP_COUNT) / 256;
+        }
+        return 0;
+    }
 
     static void fillCallback(int id, int tileX, int tileY, int atlasWidth, int atlasHeight, Atlas::Tile &tile, void *userData, void *data) {
         static const uint32 barColor[UI::BAR_MAX][25] = {
@@ -1245,10 +1254,13 @@ struct Level : IGame {
                     if (id < UI::advGlyphsStart) {
                         level->fillObjectTexture(owner->tileData, tile.uv, tile.tex);
                     } else {
+                        int page = getAdvGlyphPage(id);
+                        int offset = ATLAS_PAGE_GLYPHS + page * 256;
                         short4 uv = tile.uv;
-                        uv.x -= ATLAS_PAGE_GLYPHS;
-                        uv.z -= ATLAS_PAGE_GLYPHS;
-                        level->fillObjectTexture32(owner->tileData, (Color32*)owner->glyphsCyr, uv, tile.tex);
+                        uv.y -= offset;
+                        uv.w -= offset;
+                        Color32 *glyphsData = (Color32*)(page == 0 ? owner->glyphsCyr : (owner->glyphsJap + (page - 1) * 256 * 256 * 4));
+                        level->fillObjectTexture32(owner->tileData, glyphsData, uv, tile.tex);
                     }
                 }
             } else { // common (generated) textures
@@ -1433,6 +1445,12 @@ struct Level : IGame {
             glyphsCyr = Texture::LoadPNG(stream, glyphsW, glyphsH);
         }
 
+        {
+            uint32 glyphsW, glyphsH;
+            Stream stream(NULL, GLYPH_JAP, size_GLYPH_JAP);
+            glyphsJap = Texture::LoadBMP(stream, glyphsW, glyphsH);
+        }
+
     // repack texture tiles
         Atlas *tiles = new Atlas(level.objectTexturesCount + level.spriteTexturesCount + UI::BAR_MAX, this, fillCallback);
         // add textures
@@ -1461,8 +1479,9 @@ struct Level : IGame {
 
             if (i >= UI::advGlyphsStart) {
              // add virtual UV offset for additional glyph sprites
-                uv.x += ATLAS_PAGE_GLYPHS;
-                uv.z += ATLAS_PAGE_GLYPHS; 
+                int offset = ATLAS_PAGE_GLYPHS + getAdvGlyphPage(i) * 256;
+                uv.y += offset;
+                uv.w += offset;
             }
 
             tiles->add(level.objectTexturesCount + i, uv, &t);
@@ -1482,7 +1501,9 @@ struct Level : IGame {
         tileData = NULL;
 
         delete[] glyphsCyr;
+        delete[] glyphsJap;
         glyphsCyr = NULL;
+        glyphsJap = NULL;
 
         atlas->setFilterQuality(Core::settings.detail.filter);
 

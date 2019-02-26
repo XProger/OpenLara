@@ -5,6 +5,8 @@
 
 // Thanks: ElikaStudio
 
+#include "glyph_cyr.h"
+
 const char *STR_RU[] = { ""
 // help
     , "Загрузка..."

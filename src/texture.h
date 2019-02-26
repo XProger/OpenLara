@@ -272,33 +272,59 @@ struct Texture : GAPI::Texture {
     }
 
     static uint8* LoadBMP(Stream &stream, uint32 &width, uint32 &height) {
-        int32 offset;
+        int32  offset, size;
+        uint16 bpp;
         stream.seek(10);
         stream.read(offset);
         stream.seek(4);
         stream.read(width);
         stream.read(height);
+        stream.seek(2);
+        stream.read(bpp);
+        stream.seek(4);
+        stream.read(size);
         stream.seek(offset - stream.pos);
 
-        Color24 *data24 = new Color24[width * height];
-        Color32 *data32 = new Color32[width * height];
-        stream.raw(data24, width * height * sizeof(Color24));
+        uint8 *data = new uint8[size];
+        stream.raw(data, size);
 
-        Color32 *dst = data32;
-        for (uint32 y = 0; y < height; y++) {
-            Color24 *src = data24 + (height - y - 1) * width;
-            for (uint32 x = 0; x < width; x++) {
-                dst->r = src->b;
-                dst->g = src->g;
-                dst->b = src->r;
-                dst->a = 255;
-                src++;
-                dst++;
+        uint8 *data32 = new uint8[width * height * 8];
+        Color32 *dst = (Color32*)data32;
+
+        switch (bpp) {
+            case 1  : { // monochrome (alpha)
+                for (uint32 y = 0; y < height; y++) {
+                    uint8 *src = data + (height - y - 1) * (width / 8);
+                    for (uint32 x = 0; x < width / 8; x++) {
+                        for (int i = 7; i >= 0; i--) {
+                            dst->r = dst->g = dst->b = 255;
+                            dst->a = (*src & (1 << i)) != 0 ? 255 : 0;
+                            dst++;
+                        }
+                        src++;
+                    }
+                }
+                break;
             }
+            case 24 : { // true color
+                for (uint32 y = 0; y < height; y++) {
+                    Color24 *src = (Color24*)data + (height - y - 1) * width;
+                    for (uint32 x = 0; x < width; x++) {
+                        dst->r = src->b;
+                        dst->g = src->g;
+                        dst->b = src->r;
+                        dst->a = 255;
+                        src++;
+                        dst++;
+                    }
+                }
+                break;
+            }
+            default : ASSERT(false);
         }
-        delete[] data24;
+        delete[] data;
 
-        return (uint8*)data32;
+        return data32;
     }
 
 #ifdef USE_INFLATE

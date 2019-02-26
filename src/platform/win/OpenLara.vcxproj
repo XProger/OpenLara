@@ -211,12 +211,13 @@
     <ClInclude Include="..\..\frustum.h" />
     <ClInclude Include="..\..\game.h" />
     <ClInclude Include="..\..\gameflow.h" />
-    <ClInclude Include="..\..\glyph_cyr.h" />
     <ClInclude Include="..\..\lang.h" />
     <ClInclude Include="..\..\lang\de.h" />
     <ClInclude Include="..\..\lang\en.h" />
     <ClInclude Include="..\..\lang\es.h" />
     <ClInclude Include="..\..\lang\fr.h" />
+    <ClInclude Include="..\..\lang\glyph_cyr.h" />
+    <ClInclude Include="..\..\lang\glyph_jap.h" />
     <ClInclude Include="..\..\lang\it.h" />
     <ClInclude Include="..\..\lang\ja.h" />
     <ClInclude Include="..\..\lang\pl.h" />

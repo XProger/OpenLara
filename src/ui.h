@@ -7,6 +7,7 @@
 
 #define PICKUP_SHOW_TIME 5.0f
 #define SUBTITLES_SPEED  0.1f
+#define TEXT_LINE_HEIGHT 18
 
 #ifdef _OS_PSV
     #define UI_SHOW_FPS
@@ -89,7 +90,7 @@ namespace UI {
     }
 
     inline bool skipChar(char c) {
-        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '/' || c == '*' || c == '{';
+        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '}' || c == '*' || c == '{';
     }
 
     inline bool upperCase(int index) {
@@ -114,23 +115,40 @@ namespace UI {
             cyrSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
 
-        // add additional sprites for Cyrillyc glyphs
-        int              newSpritesCount = level.spriteTexturesCount + COUNT(cyrSprites);
-        TR::TextureInfo *newSprites      = new TR::TextureInfo[newSpritesCount];
+        TR::TextureInfo japSprites[JAP_MAP_COUNT];
+        for (int i = 0; i < COUNT(japSprites); i++) {
+            japSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+        }
 
-        memcpy(newSprites,                             level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
-        memcpy(newSprites + level.spriteTexturesCount, cyrSprites,           sizeof(TR::TextureInfo) * COUNT(cyrSprites));
+    // init new sprites array with additional sprites
+        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + COUNT(cyrSprites) + COUNT(japSprites)];
+    // copy original sprites
+        memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
+    // append cyrillic sprites
+        memcpy(newSprites + level.spriteTexturesCount, cyrSprites, sizeof(TR::TextureInfo) * COUNT(cyrSprites));
+        level.spriteTexturesCount += COUNT(cyrSprites);
+    // append japanese sprites
+        memcpy(newSprites + level.spriteTexturesCount, japSprites, sizeof(TR::TextureInfo) * COUNT(japSprites));
+        level.spriteTexturesCount += COUNT(japSprites);
 
         delete[] level.spriteTextures;
-
-        level.spriteTexturesCount = newSpritesCount;
-        level.spriteTextures      = newSprites;
+        level.spriteTextures = newSprites;
     }
 
     short2 getLineSize(const char *text) {
         int  x = 0;
 
         while (char c = *text++) {
+
+            if (isJapaneseStart(c)) {
+                while (getJapaneseGlyph(text) != 0xFFFF) {
+                    x += 16;
+                    text += 2;
+                }
+                text += 2;
+                continue;
+            }
+
             if (c == '[') break;
             c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
@@ -146,13 +164,23 @@ namespace UI {
                 x += char_width[charRemap(c)] + 1;
             }
         }
-        return short2(x, 16);
+        return short2(x, TEXT_LINE_HEIGHT);
     }
 
     short2 getTextSize(const char *text) {
         int x = 0, w = 0, h = 16;
 
         while (char c = *text++) {
+
+            if (isJapaneseStart(c)) {
+                while (getJapaneseGlyph(text) != 0xFFFF) {
+                    x += 16;
+                    text += 2;
+                }
+                text += 2;
+                continue;
+            }
+
             if (c == '[') break;
             c = remapCyrillic(c);
             if (c == '\xBF') c = '?';
@@ -164,7 +192,7 @@ namespace UI {
                 x += 6;
             } else if (c == '@') {
                 w = max(w, x);
-                h += 16;
+                h += TEXT_LINE_HEIGHT;
                 x = 0;
             } else
                 x += char_width[charRemap(c)] + 1;
@@ -259,7 +287,35 @@ namespace UI {
             y -= getTextSize(text).y / 2;
         }
 
+        Color32 tColor, bColor, sColor = Color32(0, 0, 0, alpha);
+
         while (char c = *text++) {
+            // skip japanese chars
+            if (isJapaneseStart(c)) {
+                uint16 index;
+                while ((index = getJapaneseGlyph(text)) != 0xFFFF) {
+                    if (!isShadow) {
+                        index += UI::advGlyphsStart + CYR_MAP_COUNT; 
+                        mesh->addDynSprite(index, short3(x + 1, y + 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, y + 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x + 1, y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, y    , 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x + 1, y    , 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x    , y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x    , y + 1, 0), false, false, sColor, sColor, true);
+
+                        tColor = Color32(252, 236, 136, alpha);
+                        bColor = Color32(160, 104,  56, alpha);
+                        mesh->addDynSprite(index, short3(x, y, 0), false, false, tColor, bColor, true);
+                    }
+                    x += 16;
+                    text += 2;
+                }
+                text += 2;
+                continue;
+            }
+
             if (c == '[') break; // subs part end (timing tags)
 
             bool invertX = false, invertY = false;
@@ -271,7 +327,7 @@ namespace UI {
 
             if (c == '@') {
                 x = int(pos.x) + getLeftOffset(text, align, int(width));
-                y += 16;
+                y += TEXT_LINE_HEIGHT;
                 continue;
             }
 
@@ -289,16 +345,15 @@ namespace UI {
 
             int frame = charRemap(charFrame);
 
-            Color32 tColor, bColor;
             if (isShadow) {
-                tColor = bColor = Color32(0, 0, 0, alpha);
+                tColor = bColor = sColor;
             } else {
                 tColor = bColor = Color32(255, 255, 255, alpha);
 
                 if (shade && ((level->version & TR::VER_TR3))) {
                     if (shade == SHADE_ORANGE) {
                         tColor = Color32(255, 190, 90, alpha);
-                        bColor = Color32(140, 50, 10, alpha);
+                        bColor = Color32(140,  50, 10, alpha);
                     }
                     if (shade == SHADE_GRAY) {
                         tColor = Color32(255, 255, 255, alpha);
@@ -320,7 +375,7 @@ namespace UI {
                 } else if (c == '*') {
                     dx = (char_width[idx] - char_width[frame]) / 2;
                     dy = isUppderCase ? -13 : -9;
-                } else if (c == '/') {
+                } else if (c == '}') {
                     frame = idx;
                     text++;
                     isSkipChar = false;
@@ -344,7 +399,7 @@ namespace UI {
             if (invertY) dy -= 10;
             int ax = 1;
 
-            if (c == '/') {
+            if (c == '}') {
                 ax += 2;
                 x += 2;
                 int ox = frame < 26 ? 1 : 0;
@@ -417,11 +472,21 @@ namespace UI {
         if (subsPos >= subsLength) {
             subsTime = 0.0f;
             subsStr  = STR_EMPTY;
+            return;
         }
 
         for (int i = subsPos; i < subsLength; i++) {
+
+            if (isJapaneseStart(subs[i])) {
+                while (getJapaneseGlyph(subs + i + 1) != 0xFFFF) {
+                    i += 2;
+                }
+                i += 2;
+                continue;
+            }
+
             if (subs[i] == '[') {
-                for (int j = i; j < subsLength; j++) {
+                for (int j = i + 1; j < subsLength; j++) {
                     if (subs[j] == ']') {
                         char buf[32];
                         memcpy(buf, subs + i + 1, j - i - 1);
@@ -440,6 +505,10 @@ namespace UI {
 
         subsPartLength = subsLength - subsPos;
         subsTime = subsPartLength * SUBTITLES_SPEED;
+
+    // slower for japanese
+        if (Core::settings.audio.language == (STR_LANG_JA - STR_LANG_EN))
+            subsTime *= 2.5f;
     }
 
     void showSubs(StringID str) {

@@ -245,7 +245,7 @@ enum StringID {
     , "Polski"        \
     , "Portugu)es"    \
     , "–усски{и"      \
-    , "Japanese"      \
+    , "\x01\x02\x70\x01\x97\x01\xCF\xFF\xFF" \
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA"
 
@@ -287,6 +287,7 @@ void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_IT) == STR_MAX);
     ASSERT(COUNT(STR_PL) == STR_MAX);
     ASSERT(COUNT(STR_RU) == STR_MAX);
+    ASSERT(COUNT(STR_JA) == STR_MAX);
 
     lang += STR_LANG_EN;
 
@@ -298,11 +299,9 @@ void ensureLanguage(int lang) {
         case STR_LANG_PL : STR = (char**)STR_PL; break;
         case STR_LANG_PT : STR = (char**)STR_EN; break;
         case STR_LANG_RU : STR = (char**)STR_RU; break;
-        case STR_LANG_JA : STR = (char**)STR_EN; break;
+        case STR_LANG_JA : STR = (char**)STR_JA; break;
         default          : STR = (char**)STR_EN; break;
     }
 }
-
-#include "glyph_cyr.h"
 
 #endif

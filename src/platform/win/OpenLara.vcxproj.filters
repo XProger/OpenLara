@@ -59,7 +59,6 @@
     <ClInclude Include="..\..\napi_dummy.h" />
     <ClInclude Include="..\..\gapi_gxm.h" />
     <ClInclude Include="..\..\lang.h" />
-    <ClInclude Include="..\..\glyph_cyr.h" />
     <ClInclude Include="..\..\lang\es.h">
       <Filter>lang</Filter>
     </ClInclude>
@@ -82,6 +81,12 @@
       <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="..\..\lang\de.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\glyph_cyr.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\glyph_jap.h">
       <Filter>lang</Filter>
     </ClInclude>
   </ItemGroup>
