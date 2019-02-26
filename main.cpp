@@ -1,10 +1,15 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <pwd.h>
+#include <pthread.h>
+#include <alsa/asoundlib.h>
 
+// SDL2 include stuff
 #include <SDL2/SDL.h>
+#define GL_GLEXT_PROTOTYPES 1
+#include <SDL2/SDL_opengles2.h>
+//
 
 #include "game.h"
 
@@ -20,58 +25,77 @@ int osGetTime() {
 }
 
 // sound
-
-int SND_FRAMES = 512;
-// A Frame is a struct containing: int16 L, int16 R.
+snd_pcm_uframes_t   SND_FRAMES = 512;
+snd_pcm_t           *sndOut;
 Sound::Frame        *sndData;
-SDL_AudioDeviceID sdl_audiodev;
+pthread_t           sndThread;
 
-void sndFill(void *udata, Uint8 *stream, int len) {
-        // Let's milk the audio subsystem for SND_FRAMES frames!
+void* sndFill(void *arg) {
+    while (sndOut) {
         Sound::fill(sndData, SND_FRAMES);
-        // We have the number of samples, but each sample is sizeof(Sound::Frame) bytes long,
-        // and memcpy copies a number of bytes.
-        memcpy (stream, sndData, SND_FRAMES * sizeof(Sound::Frame));
+
+        int err = snd_pcm_writei(sndOut, sndData, SND_FRAMES);
+        if (err < 0) {
+            LOG("! sound: write %s\n", snd_strerror(err));;
+            if (err != -EPIPE)
+                break;
+
+            err = snd_pcm_recover(sndOut, err, 0);
+            if (err < 0) {
+                LOG("! sound: failed to recover\n");
+                break;
+            }
+            snd_pcm_prepare(sndOut);
+        }
+    }
+    return NULL;
 }
 
 bool sndInit() {
-    int FREQ = 44100;
+    unsigned int freq = 44100;
 
-    SDL_AudioSpec desired, obtained;
-
-    desired.freq     = FREQ;
-    desired.format   = AUDIO_S16SYS;
-    desired.channels = 2;
-    desired.samples  = SND_FRAMES;
-    desired.callback = sndFill;
-    desired.userdata = NULL;
-
-    sdl_audiodev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, /*SDL_AUDIO_ALLOW_FORMAT_CHANGE*/0);
-    if (sdl_audiodev == 0)
-    {
-        LOG ("SDL2: error opening audio device: %s\n", SDL_GetError());
+    int err;
+    if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        LOG("! sound: open %s\n", snd_strerror(err));\
+        sndOut = NULL;
         return false;
     }
 
-    if (desired.samples != obtained.samples) {
-        LOG ("SDL2: number of samples not supported by device. Watch out for buggy audio drivers!\n");
-        return false;
-    }
+    snd_pcm_hw_params_t *params;
 
-    // Initialize audio buffer and fill it with zeros
+    snd_pcm_hw_params_alloca(&params);
+    snd_pcm_hw_params_any(sndOut, params);
+    snd_pcm_hw_params_set_access(sndOut, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+
+    snd_pcm_hw_params_set_channels(sndOut, params, 2);
+    snd_pcm_hw_params_set_format(sndOut, params, SND_PCM_FORMAT_S16_LE);
+    snd_pcm_hw_params_set_rate_near(sndOut, params, &freq, NULL);
+
+    snd_pcm_hw_params_set_periods(sndOut, params, 4, 0);
+    snd_pcm_hw_params_set_period_size_near(sndOut, params, &SND_FRAMES, NULL);
+    snd_pcm_hw_params_get_period_size(params, &SND_FRAMES, 0);
+
+    snd_pcm_hw_params(sndOut, params);
+    snd_pcm_prepare(sndOut);
+
     sndData = new Sound::Frame[SND_FRAMES];
     memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
+    if ((err = snd_pcm_writei(sndOut, sndData, SND_FRAMES)) < 0) {
+        LOG("! sound: write %s\n", snd_strerror(err));\
+        sndOut = NULL;
+    }
 
-    SDL_PauseAudioDevice(sdl_audiodev,0);
+    snd_pcm_start(sndOut);
+    pthread_create(&sndThread, NULL, sndFill, NULL);
 
     return true;
 }
 
 void sndFree() {
-    SDL_PauseAudioDevice(sdl_audiodev,1);
-    SDL_CloseAudioDevice(sdl_audiodev);
-
-    // Delete the audio buffer
+    pthread_cancel(sndThread);
+    snd_pcm_drop(sndOut);
+    snd_pcm_drain(sndOut);
+    snd_pcm_close(sndOut);
     delete[] sndData;
 }
 
@@ -79,19 +103,11 @@ void sndFree() {
 
 #define MAX_JOYS 4
 #define JOY_DEAD_ZONE_STICK      8192
-#define WIN_W 640
-#define WIN_H 480
 
 struct sdl_input *sdl_inputs;
 int sdl_numjoysticks, sdl_numcontrollers;
 SDL_Joystick *sdl_joysticks[MAX_JOYS];
 SDL_GameController *sdl_controllers[MAX_JOYS];
-SDL_Window *sdl_window;
-SDL_Renderer *sdl_renderer;
-SDL_DisplayMode sdl_displaymode;
-
-bool fullscreen;
-bool l_alt, k_enter; // Is left ALT pressed? (For fullscreen toggle purposes)
 
 vec2 joyL, joyR;
 
@@ -103,20 +119,6 @@ void osJoyVibrate(int index, float L, float R) {
     // TODO
 }
 
-void toggleFullscreen () {
-    Uint32 flags = 0;
-
-    fullscreen = !fullscreen;
-
-    flags = fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
-
-    SDL_SetWindowFullscreen (sdl_window, flags);
-
-    // Tell the engine we have changed display size!
-    Core::width  = fullscreen ? sdl_displaymode.w : WIN_W;
-    Core::height = fullscreen ? sdl_displaymode.h : WIN_H;
-}
-
 InputKey codeToInputKey(int code) {
     switch (code) {
     // keyboard
@@ -126,21 +128,13 @@ InputKey codeToInputKey(int code) {
         case SDL_SCANCODE_DOWN       : return ikDown;
         case SDL_SCANCODE_SPACE      : return ikSpace;
         case SDL_SCANCODE_TAB        : return ikTab;
-
-        case SDL_SCANCODE_RETURN     : {
-            k_enter = !k_enter;
-            if (l_alt && k_enter) {
-                toggleFullscreen();
-            }
-            else return ikEnter;
-        }
-
+        case SDL_SCANCODE_RETURN     : return ikEnter;
         case SDL_SCANCODE_ESCAPE     : return ikEscape;
         case SDL_SCANCODE_LSHIFT     :
         case SDL_SCANCODE_RSHIFT     : return ikShift;
         case SDL_SCANCODE_LCTRL      :
         case SDL_SCANCODE_RCTRL      : return ikCtrl;
-        case SDL_SCANCODE_LALT       : { l_alt = !l_alt; } // We toggle l_alt being pushed. 
+        case SDL_SCANCODE_LALT       :
         case SDL_SCANCODE_RALT       : return ikAlt;
         case SDL_SCANCODE_0          : return ik0;
         case SDL_SCANCODE_1          : return ik1;
@@ -222,8 +216,6 @@ bool inputInit() {
     joyL = joyR = vec2(0);
     sdl_numjoysticks = SDL_NumJoysticks();
     sdl_numjoysticks = (sdl_numjoysticks < MAX_JOYS )? sdl_numjoysticks : MAX_JOYS;
-    l_alt = false;
-    k_enter = false;
 
     for (i = 0; i < sdl_numjoysticks; i++) {
 	if(SDL_IsGameController(i)) {
@@ -357,39 +349,32 @@ void inputUpdate() {
 int main(int argc, char **argv) {
 
     int w, h;
+    SDL_DisplayMode current;
 
-    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
-    SDL_GetCurrentDisplayMode(0, &sdl_displaymode);
+    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
-#ifdef _GAPI_GLES
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#endif
+    SDL_GetCurrentDisplayMode(0, &current);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE,   8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,  8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     // We start in fullscreen mode using the vide mode currently in use, to avoid video mode changes.
-    sdl_window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        //sdl_displaymode.w, sdl_displaymode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-	WIN_W, WIN_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-  
+    SDL_Window *window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        //current.w, current.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+	      640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+   
     // We try to use the current video mode, but we inform the core of whatever mode SDL2 gave us in the end. 
-    SDL_GetWindowSize(sdl_window, &w, &h);
+    SDL_GetWindowSize(window, &w, &h);
 
     Core::width  = w;
     Core::height = h;
 
-    SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
+    SDL_GLContext context = SDL_GL_CreateContext(window);
     SDL_GL_SetSwapInterval(0);
 
-    sdl_renderer = SDL_CreateRenderer(sdl_window, -1,
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
 	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
     SDL_ShowCursor(SDL_DISABLE);
@@ -425,15 +410,15 @@ int main(int argc, char **argv) {
         if (Game::update()) {
             Game::render();
             Core::waitVBlank();
-	    SDL_GL_SwapWindow(sdl_window);
+	    SDL_GL_SwapWindow(window);
         }
     };
 
     sndFree();
     Game::deinit();
 
-    SDL_DestroyRenderer(sdl_renderer);
-    SDL_DestroyWindow(sdl_window);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
     SDL_Quit();
 
     return 0;

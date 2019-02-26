@@ -19,46 +19,50 @@
 
 #elif defined(__SDL2__) 
     #include <SDL2/SDL.h>
-#if !defined(_GAPI_GLES)
-    #include <SDL2/SDL_opengl.h>
-#else
-    #include <SDL2/SDL_opengles2.h>
 
-    #define GL_CLAMP_TO_BORDER          0x812D
-    #define GL_TEXTURE_BORDER_COLOR     0x1004
+    #if defined(_GAPI_GLES)
+	#define GL_GLEXT_PROTOTYPES 1
+	#include <SDL2/SDL_opengles2.h>
+	#include <SDL2/SDL_opengles2_gl2ext.h>
 
-    #define GL_TEXTURE_COMPARE_MODE     0x884C
-    #define GL_TEXTURE_COMPARE_FUNC     0x884D
-    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+	#define GL_CLAMP_TO_BORDER          0x812D
+	#define GL_TEXTURE_BORDER_COLOR     0x1004
 
-    #undef  GL_RG
-    #undef  GL_RG32F
-    #undef  GL_RG16F
-    #undef  GL_RGBA32F
-    #undef  GL_RGBA16F
-    #undef  GL_HALF_FLOAT
+	#define GL_TEXTURE_COMPARE_MODE     0x884C
+	#define GL_TEXTURE_COMPARE_FUNC     0x884D
+	#define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-    #define GL_RG           GL_RGBA
-    #define GL_RGBA32F      GL_RGBA
-    #define GL_RGBA16F      GL_RGBA
-    #define GL_RG32F        GL_RGBA
-    #define GL_RG16F        GL_RGBA
-    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+	#undef  GL_RG
+	#undef  GL_RG32F
+	#undef  GL_RG16F
+	#undef  GL_RGBA32F
+	#undef  GL_RGBA16F
+	#undef  GL_HALF_FLOAT
 
-    #define GL_TEXTURE_3D           0
-    #define GL_TEXTURE_WRAP_R       0
-    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+	#define GL_RG           GL_RGBA
+	#define GL_RGBA32F      GL_RGBA
+	#define GL_RGBA16F      GL_RGBA
+	#define GL_RG32F        GL_RGBA
+	#define GL_RG16F        GL_RGBA
+	#define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
-    #define glTexImage3D(...) 0
+	#define GL_TEXTURE_WRAP_R       0
+	#define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+	#define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
 
-    #define glGenVertexArrays(...)
-    #define glDeleteVertexArrays(...)
-    #define glBindVertexArray(...)
-    
-    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-    #define glGetProgramBinary(...)
-    #define glProgramBinary(...)
+	#define glTexImage3D(...) 0
+
+	#define glGenVertexArrays(...)
+	#define glDeleteVertexArrays(...)
+	#define glBindVertexArray(...)
+	
+	#define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+	#define glGetProgramBinary(...)
+	#define glProgramBinary(...)
+    #else
+	#define GL_GLEXT_PROTOTYPES 1
+	#include <SDL2/SDL_opengl.h>
+	#include <SDL2/SDL_opengl_glext.h>
 #endif
 
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
@@ -501,7 +505,7 @@ namespace GAPI {
                 sprintf(defines + strlen(defines), "#define %s\n", DefineName[def[i]]);
             }
 
-            #if defined(_OS_RPI) || defined(_OS_CLOVER)
+            #if defined(_OS_RPI) || defined(_OS_CLOVER) || (defined (__SDL2__) && defined (_GAPI_GLES))
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
                 strcat(defines, "#define OPT_VLIGHTVEC\n");
                 strcat(defines, "#define OPT_SHADOW_ONETAP\n");
