@@ -505,10 +505,6 @@ namespace UI {
 
         subsPartLength = subsLength - subsPos;
         subsTime = subsPartLength * SUBTITLES_SPEED;
-
-    // slower for japanese
-        if (Core::settings.audio.language == (STR_LANG_JA - STR_LANG_EN))
-            subsTime *= 2.5f;
     }
 
     void showSubs(StringID str) {
