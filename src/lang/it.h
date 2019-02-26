@@ -1,6 +1,8 @@
 #ifndef H_LANG_IT
 #define H_LANG_IT
 
+// Thanks: MontyTRC
+
 const char *STR_IT[] = { ""
 // help
     , "Caricamento..."
