@@ -1519,7 +1519,7 @@ struct Level : IGame {
         glyphsJap = NULL;
 
         atlas->setFilterQuality(Core::settings.detail.filter);
-        glyphs->setFilterQuality(Core::settings.detail.filter);
+        glyphs->setFilterQuality(Core::Settings::MEDIUM);
 
         delete tAtlas;
         delete gAtlas;
