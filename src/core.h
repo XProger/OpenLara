@@ -29,7 +29,7 @@
     extern void osToggleVR(bool enable);
 #elif __SDL2__
     #define _GAPI_GL   1
-#ifdef SDL2GLES
+#ifdef SDL2_GLES
     #define _GAPI_GLES 1
     #define DYNGEOM_NO_VBO
 #endif
