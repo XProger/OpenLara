@@ -1131,6 +1131,9 @@ namespace GAPI {
             #endif
         #endif
 
+        bool _GL_EXT_shadow_samplers      = extSupport(ext, "GL_EXT_shadow_samplers");
+        bool _GL_OES_standard_derivatives = extSupport(ext, "GL_OES_standard_derivatives");
+
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
         support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
@@ -1193,45 +1196,62 @@ namespace GAPI {
 
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = 0;
     #ifdef _GAPI_GLES
-        if (!GLES3) {
-            strcat(GLSL_HEADER_VERT, "#define VERTEX\n"
-                                     "precision lowp  int;\n"
-                                     "precision highp float;\n");
-
-            strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
-            if (support.shadowSampler) {
-                strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
-            }
-            strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
-                                     "precision lowp  int;\n"
-                                     "precision highp float;\n"
-                                     "#define fragColor gl_FragColor\n");
-        } else {
+        if (GLES3) {
+            // vertex
             strcat(GLSL_HEADER_VERT, "#version 300 es\n"
-                                     "#define VERTEX\n"
                                      "precision lowp  int;\n"
                                      "precision highp float;\n"
+                                     "#define VERTEX\n"
                                      "#define varying   out\n"
                                      "#define attribute in\n"
                                      "#define texture2D texture\n");
-
+            // fragment
             strcat(GLSL_HEADER_FRAG, "#version 300 es\n");
-            if (support.shadowSampler) {
+            if (_GL_EXT_shadow_samplers) {
                 strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
             }
-            strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
-                                     "precision lowp  int;\n"
+            if (_GL_OES_standard_derivatives) {
+                strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
+            }
+            if (support.shadowSampler) {
+                strcat(GLSL_HEADER_FRAG, "precision lowp sampler2DShadow;\n");
+            }
+            strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "precision lowp  sampler3D;\n"
+                                     "#define FRAGMENT\n"
                                      "#define varying     in\n"
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
                                      "out vec4 fragColor;\n");
+        } else {
+            // vertex
+            strcat(GLSL_HEADER_VERT, "#version 100\n"
+                                     "precision lowp  int;\n"
+                                     "precision highp float;\n"
+                                     "#define VERTEX\n");
+            // fragment
+            strcat(GLSL_HEADER_FRAG, "#version 100\n");
+            if (_GL_EXT_shadow_samplers) {
+                strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
+            }
+            if (_GL_OES_standard_derivatives) {
+                strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
+            }
+            if (support.shadowSampler) {
+                strcat(GLSL_HEADER_FRAG, "precision lowp sampler2DShadow;\n");
+            }
+            strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
+                                     "precision highp float;\n"
+                                     "#define FRAGMENT\n"
+                                     "#define fragColor gl_FragColor\n");
         }
     #else
+        // vertex
         strcat(GLSL_HEADER_VERT, "#version 110\n"
                                  "#define VERTEX\n");
+        // fragment
         strcat(GLSL_HEADER_FRAG, "#version 110\n"
                                  "#define FRAGMENT\n"
                                  "#define fragColor gl_FragColor\n");

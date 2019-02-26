@@ -262,7 +262,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	#ifdef OPT_SHADOW
 		#ifdef SHADOW_SAMPLER
 			uniform sampler2DShadow sShadow;
-			#ifdef GL_ES
+			#ifdef GL_EXT_shadow_samplers
 				#define SHADOW(V) (shadow2DEXT(sShadow, V))
 			#else
 				#define SHADOW(V) (shadow2D(sShadow, V).x)
