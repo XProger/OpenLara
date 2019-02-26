@@ -245,7 +245,7 @@ enum StringID {
     , "Polski"        \
     , "Portugu)es"    \
     , "–усски{и"      \
-    , "\x01\x02\x70\x01\x97\x01\xCF\xFF\xFF" \
+    , "\x01\x02\x70\x01\x98\x01\xCD\xFF\xFF" \
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA"
 
