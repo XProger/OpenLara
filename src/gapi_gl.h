@@ -63,7 +63,7 @@
 	#define GL_GLEXT_PROTOTYPES 1
 	#include <SDL2/SDL_opengl.h>
 	#include <SDL2/SDL_opengl_glext.h>
-#endif
+    #endif
 
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
@@ -1142,9 +1142,11 @@ namespace GAPI {
         support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         #ifdef _GAPI_GLES
-            support.tex3D      = GLES3;
+            support.derivatives = GLES3 || _GL_OES_standard_derivatives; 
+            support.tex3D       = GLES3;
         #else
-            support.tex3D      = glTexImage3D != NULL;
+            support.derivatives = true; 
+            support.tex3D       = glTexImage3D != NULL;
         #endif
         support.texBorder      = extSupport(ext, "_texture_border_clamp");
         support.maxAniso       = extSupport(ext, "_texture_filter_anisotropic");
@@ -1153,9 +1155,15 @@ namespace GAPI {
         support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
         support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
         support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
+ 
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
         support.clipDist       = false; // TODO
 
+        #ifdef SDL2_GLES
+            support.shaderBinary  = false; // TODO
+            support.VAO           = false; // TODO
+            support.shadowSampler = false; // TODO
+        #endif
 
         #ifdef PROFILE
             support.profMarker = extSupport(ext, "_KHR_debug");
@@ -1240,7 +1248,7 @@ namespace GAPI {
                 strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
             }
             if (support.shadowSampler) {
-                strcat(GLSL_HEADER_FRAG, "precision lowp sampler2DShadow;\n");
+                strcat(GLSL_HEADER_FRAG, "#define sampler2DShadow lowp sampler2DShadow\n");
             }
             strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"

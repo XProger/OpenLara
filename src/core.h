@@ -195,6 +195,7 @@ namespace Core {
         bool depthTexture;
         bool shadowSampler;
         bool discardFrame;
+        bool derivatives;
         bool texNPOT;
         bool tex3D;
         bool texRG;
@@ -258,6 +259,8 @@ namespace Core {
             #else
                 if (value > LOW && !(support.texFloat || support.texHalf))
                     value = LOW;
+                if (value > MEDIUM && !support.derivatives)
+                    value = MEDIUM;
                 water = value;
             #endif
             }

@@ -99,7 +99,9 @@ struct ShaderCache {
         compile(Core::passWater, Shader::WATER_SIMULATE, fx, RS_COLOR_WRITE);
         compile(Core::passWater, Shader::WATER_DROP,     fx, RS_COLOR_WRITE);
         compile(Core::passWater, Shader::WATER_RAYS,     fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
-        compile(Core::passWater, Shader::WATER_CAUSTICS, fx, RS_COLOR_WRITE);
+        if (Core::support.derivatives) {
+            compile(Core::passWater, Shader::WATER_CAUSTICS, fx, RS_COLOR_WRITE);
+        }
         compile(Core::passWater, Shader::WATER_COMPOSE,  fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
     }
 
