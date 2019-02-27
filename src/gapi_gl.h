@@ -214,6 +214,8 @@
 
     #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
 
+    // TODO: different systems, different headers, different extension suffixes... fuck this shit and make your own OGL header!
+
 // Texture
     #ifdef _OS_WIN
         PFNGLACTIVETEXTUREPROC              glActiveTexture;
@@ -1132,12 +1134,13 @@ namespace GAPI {
         #endif
 
         bool _GL_EXT_shadow_samplers      = extSupport(ext, "GL_EXT_shadow_samplers");
+        bool _GL_ARB_shadow               = extSupport(ext, "GL_ARB_shadow");
         bool _GL_OES_standard_derivatives = extSupport(ext, "GL_OES_standard_derivatives");
 
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
         support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
-        support.shadowSampler  = extSupport(ext, "_shadow_samplers") || extSupport(ext, "GL_ARB_shadow");
+        support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
@@ -1214,17 +1217,8 @@ namespace GAPI {
                                      "#define attribute in\n"
                                      "#define texture2D texture\n");
             // fragment
-            strcat(GLSL_HEADER_FRAG, "#version 300 es\n");
-            if (_GL_EXT_shadow_samplers) {
-                strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
-            }
-            if (_GL_OES_standard_derivatives) {
-                strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
-            }
-            if (support.shadowSampler) {
-                strcat(GLSL_HEADER_FRAG, "precision lowp sampler2DShadow;\n");
-            }
-            strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
+            strcat(GLSL_HEADER_FRAG, "#version 300 es\n"
+                                     "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "precision lowp  sampler3D;\n"
                                      "#define FRAGMENT\n"
@@ -1241,19 +1235,14 @@ namespace GAPI {
                                      "#define VERTEX\n");
             // fragment
             strcat(GLSL_HEADER_FRAG, "#version 100\n");
-            if (_GL_EXT_shadow_samplers) {
-                strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
-            }
-            if (_GL_OES_standard_derivatives) {
-                strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
-            }
-            if (support.shadowSampler) {
-                strcat(GLSL_HEADER_FRAG, "#define sampler2DShadow lowp sampler2DShadow\n");
-            }
             strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "#define FRAGMENT\n"
                                      "#define fragColor gl_FragColor\n");
+        }
+
+        if (support.shadowSampler) {
+            strcat(GLSL_HEADER_FRAG, "#define sampler2DShadow lowp sampler2DShadow\n");
         }
     #else
         // vertex
@@ -1264,6 +1253,15 @@ namespace GAPI {
                                  "#define FRAGMENT\n"
                                  "#define fragColor gl_FragColor\n");
     #endif
+
+        if (_GL_OES_standard_derivatives) {
+            strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
+        }
+
+        if (_GL_EXT_shadow_samplers && !_GL_ARB_shadow) {
+            strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
+            strcat(GLSL_HEADER_FRAG, "#define USE_GL_EXT_shadow_samplers\n");
+        }
 
         ASSERT(strlen(GLSL_HEADER_VERT) < COUNT(GLSL_HEADER_VERT));
         ASSERT(strlen(GLSL_HEADER_FRAG) < COUNT(GLSL_HEADER_FRAG));
