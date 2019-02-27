@@ -563,8 +563,6 @@ namespace UI {
     }
 
     void renderTouch() {
-        game->setupBinding();
-
         if (Input::touchTimerVis <= 0.0f) return;
 
         Core::setDepthTest(false);
