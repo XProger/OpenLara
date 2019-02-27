@@ -278,7 +278,7 @@ namespace UI {
             y -= getTextSize(text).y / 2;
         }
 
-        Color32 tColor, bColor, sColor = Color32(0, 0, 0, alpha);
+        Color32 tColor, bColor, sColor = Color32(48, 12, 0, alpha);
 
         while (char c = *text++) {
             // skip japanese chars
@@ -287,18 +287,18 @@ namespace UI {
                 while ((index = getJapaneseGlyph(text)) != 0xFFFF) {
                     if (!isShadow) {
                         index += UI::advGlyphsStart + CYR_MAP_COUNT; 
-                        mesh->addDynSprite(index, short3(x + 1, y + 1, 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x - 1, y - 1, 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x - 1, y + 1, 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x + 1, y - 1, 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x - 1, y    , 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x + 1, y    , 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x    , y - 1, 0), false, false, sColor, sColor, true);
-                        mesh->addDynSprite(index, short3(x    , y + 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x + 1, 1 + y + 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, 1 + y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, 1 + y + 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x + 1, 1 + y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x - 1, 1 + y    , 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x + 1, 1 + y    , 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x    , 1 + y - 1, 0), false, false, sColor, sColor, true);
+                        mesh->addDynSprite(index, short3(x    , 1 + y + 1, 0), false, false, sColor, sColor, true);
 
                         tColor = Color32(252, 236, 136, alpha);
                         bColor = Color32(160, 104,  56, alpha);
-                        mesh->addDynSprite(index, short3(x, y, 0), false, false, tColor, bColor, true);
+                        mesh->addDynSprite(index, short3(x, 1 + y, 0), false, false, tColor, bColor, true);
                     }
                     x += 16;
                     text += 2;
