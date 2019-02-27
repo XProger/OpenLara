@@ -51,6 +51,7 @@
 	#define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
 
 	#define glTexImage3D(...) 0
+	#define GL_TEXTURE_3D GL_TEXTURE_3D_OES
 
 	#define glGenVertexArrays(...)
 	#define glDeleteVertexArrays(...)
@@ -1205,7 +1206,17 @@ namespace GAPI {
         glClearColor(0, 0, 0, 0);
     #endif
 
-        GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = 0;
+        char extHeader[256];
+        GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = extHeader[0] = 0;
+        if (_GL_OES_standard_derivatives) {
+            strcat(extHeader, "#extension GL_OES_standard_derivatives : enable\n");
+        }
+
+        if (_GL_EXT_shadow_samplers && !_GL_ARB_shadow) {
+            strcat(extHeader, "#extension GL_EXT_shadow_samplers : enable\n");
+            strcat(extHeader, "#define USE_GL_EXT_shadow_samplers\n");
+        }
+        
     #ifdef _GAPI_GLES
         if (GLES3) {
             // vertex
@@ -1217,8 +1228,9 @@ namespace GAPI {
                                      "#define attribute in\n"
                                      "#define texture2D texture\n");
             // fragment
-            strcat(GLSL_HEADER_FRAG, "#version 300 es\n"
-                                     "precision lowp  int;\n"
+            strcat(GLSL_HEADER_FRAG, "#version 300 es\n");
+            strcat(GLSL_HEADER_FRAG, extHeader);
+            strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "precision lowp  sampler3D;\n"
                                      "#define FRAGMENT\n"
@@ -1235,6 +1247,7 @@ namespace GAPI {
                                      "#define VERTEX\n");
             // fragment
             strcat(GLSL_HEADER_FRAG, "#version 100\n");
+            strcat(GLSL_HEADER_FRAG, extHeader);
             strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "#define FRAGMENT\n"
@@ -1249,20 +1262,11 @@ namespace GAPI {
         strcat(GLSL_HEADER_VERT, "#version 110\n"
                                  "#define VERTEX\n");
         // fragment
-        strcat(GLSL_HEADER_FRAG, "#version 110\n"
-                                 "#define FRAGMENT\n"
+        strcat(GLSL_HEADER_FRAG, "#version 110\n");
+        strcat(GLSL_HEADER_FRAG, extHeader);
+        strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
                                  "#define fragColor gl_FragColor\n");
     #endif
-
-        if (_GL_OES_standard_derivatives) {
-            strcat(GLSL_HEADER_FRAG, "#extension GL_OES_standard_derivatives : enable\n");
-        }
-
-        if (_GL_EXT_shadow_samplers && !_GL_ARB_shadow) {
-            strcat(GLSL_HEADER_FRAG, "#extension GL_EXT_shadow_samplers : enable\n");
-            strcat(GLSL_HEADER_FRAG, "#define USE_GL_EXT_shadow_samplers\n");
-        }
-
         ASSERT(strlen(GLSL_HEADER_VERT) < COUNT(GLSL_HEADER_VERT));
         ASSERT(strlen(GLSL_HEADER_FRAG) < COUNT(GLSL_HEADER_FRAG));
     }
