@@ -91,7 +91,6 @@ SDL_Renderer *sdl_renderer;
 SDL_DisplayMode sdl_displaymode;
 
 bool fullscreen;
-bool l_alt, k_enter; // Is left ALT pressed? (For fullscreen toggle purposes)
 
 vec2 joyL, joyR;
 
@@ -103,7 +102,17 @@ void osJoyVibrate(int index, float L, float R) {
     // TODO
 }
 
+bool isKeyPressed (SDL_Scancode scancode) {
+    const Uint8 *state = SDL_GetKeyboardState(NULL);
+    if (state[scancode]) {
+        return true;
+    }
+    return false;
+}
+
+#ifndef _GAPI_GLES 
 void toggleFullscreen () {
+
     Uint32 flags = 0;
 
     fullscreen = !fullscreen;
@@ -116,6 +125,7 @@ void toggleFullscreen () {
     Core::width  = fullscreen ? sdl_displaymode.w : WIN_W;
     Core::height = fullscreen ? sdl_displaymode.h : WIN_H;
 }
+#endif
 
 InputKey codeToInputKey(int code) {
     switch (code) {
@@ -126,21 +136,13 @@ InputKey codeToInputKey(int code) {
         case SDL_SCANCODE_DOWN       : return ikDown;
         case SDL_SCANCODE_SPACE      : return ikSpace;
         case SDL_SCANCODE_TAB        : return ikTab;
-
-        case SDL_SCANCODE_RETURN     : {
-            k_enter = !k_enter;
-            if (l_alt && k_enter) {
-                toggleFullscreen();
-            }
-            else return ikEnter;
-        }
-
+        case SDL_SCANCODE_RETURN     : return ikEnter;
         case SDL_SCANCODE_ESCAPE     : return ikEscape;
         case SDL_SCANCODE_LSHIFT     :
         case SDL_SCANCODE_RSHIFT     : return ikShift;
         case SDL_SCANCODE_LCTRL      :
         case SDL_SCANCODE_RCTRL      : return ikCtrl;
-        case SDL_SCANCODE_LALT       : { l_alt = !l_alt; } // We toggle l_alt being pushed. 
+        case SDL_SCANCODE_LALT       :
         case SDL_SCANCODE_RALT       : return ikAlt;
         case SDL_SCANCODE_0          : return ik0;
         case SDL_SCANCODE_1          : return ik1;
@@ -286,8 +288,6 @@ bool inputInit() {
     joyL = joyR = vec2(0);
     sdl_numjoysticks = SDL_NumJoysticks();
     sdl_numjoysticks = (sdl_numjoysticks < MAX_JOYS )? sdl_numjoysticks : MAX_JOYS;
-    l_alt = false;
-    k_enter = false;
 
     for (index = 0; index < MAX_JOYS; index++)
         sdl_joysticks[index] = NULL;
@@ -337,6 +337,15 @@ void inputUpdate() {
 		if (key != ikNone) {
 		    Input::setDown(key, 1);
 		}
+
+#ifndef _GAPI_GLES 
+                if (scancode == SDL_SCANCODE_RETURN) {
+                    if (isKeyPressed(SDL_SCANCODE_LALT) && isKeyPressed(SDL_SCANCODE_RETURN)) {
+                        toggleFullscreen();
+                    }
+                }
+#endif
+                
 		break;
              }
              case SDL_KEYUP: {
