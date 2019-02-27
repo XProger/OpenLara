@@ -51,7 +51,9 @@
 	#define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
 
 	#define glTexImage3D(...) 0
-	#define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+        #ifndef GL_TEXTURE_3D // WUUUUUT!?
+	    #define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+        #endif
 
 	#define glGenVertexArrays(...)
 	#define glDeleteVertexArrays(...)
