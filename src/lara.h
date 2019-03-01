@@ -3047,18 +3047,15 @@ struct Lara : Character {
             //    input &= ~(LEFT | RIGHT); // commented out to allow side jumping in VR
             }
 
-
-            //if (Input::down[ikLeft] || Input::down[ikRight]) {
-            //    Input::hmd.resetAngle = false;
-            //}
-
            vec3 ang;
            vec3 diff;
-
            if (first) {
                ang = getAngleAbs(Input::hmd.head.dir().xyz());
+               //ang = getAngle(Input::hmd.head.dir().xyz());
                angle.y = ang.y;
                first = false;
+               //camera->hmdAngle = vec3(PI, 0, 0);
+               return input;
            }
 
             if (Input::down[ik1]) {
@@ -3067,26 +3064,44 @@ struct Lara : Character {
             if (Input::down[ik2]) {
                 Input::hmd.resetAngle = true;
                 Input::hmd.centerAngle = true;
+                camera->lastRotation = camera->hmdRotation;
+                //might break
+                return input;
+               // first = true;
 
             }
             if (Input::hmd.centerAngle) {
                 Input::hmd.lastHead = Input::hmd.head;
                 lastAngle = angle;
+                //lastAngle = getAngleAbs(Input::hmd.head.dir().xyz()); // last angle from the head
                 Input::hmd.centerAngle = false;
+                camera->hmdAngle = camera->targetAngle;
+                return input;
             }
            
           if (Input::hmd.resetAngle) {
                //ang = getAngleAbs(Input::hmd.head.dir().xyz());
-
+              //ang = getAngleAbs(Input::hmd.head.dir().xyz()) - getAngleAbs(Input::hmd.lastHead.dir().xyz());
               //ang = camera->angle;
               //ang += getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
-              ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz()); // difference
+              //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz()); // difference
+              //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz() - (Input::hmd.head.dir().xyz()));
+              ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz()); // difference
               //apply difference to 
-              diff = lastAngle + ang;
+              diff = lastAngle - ang; // was lastAngle
                 //camera->angle = getAngleAbs(Input::hmd.head.dir().xyz());
                 //ang = camera->angle;
-                //angle.y = ang.y;
               angle.y = diff.y;
+              //camera->hmdAngle = vec3(PI, 0, 0);
+              //camera->hmdAngle = camera->targetAngle;
+              //angle.y = ang.y;
+              //angle.y += diff.y - angle.y;
+
+
+              //angle.y = diff.y;
+             //rotateY((diff.y - angle.y)); // diff.y - ang.y // close
+              //rot
+              //angle.y = clampAngle(diff.y);
                 //Input::hmd.resetAngle = false;
            }
 

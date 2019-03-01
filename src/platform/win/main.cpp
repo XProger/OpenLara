@@ -765,8 +765,8 @@ void vrUpdateView() {
     if (!tPose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)
         return;
 
-    mat4 pL = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Left,  8.0f, 45.0f * 1024.0f));
-    mat4 pR = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Right, 8.0f, 45.0f * 1024.0f));
+    mat4 pL = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Left,  8.0f, 45.0f * 1024.0f)); // was 45 *
+    mat4 pR = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Right, 8.0f, 45.0f * 1024.0f)); // was 45 *
 
     mat4 head = convToMat4(tPose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking);
     if (Input::hmd.zero.x == INF)

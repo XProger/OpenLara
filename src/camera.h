@@ -25,7 +25,9 @@ struct Camera : ICamera {
     Frustum    *frustum;
 
     float       fov, aspect, znear, zfar;
-    vec3        lookAngle, targetAngle;
+    vec3        lookAngle, targetAngle, hmdAngle; // hmdAngle used to correct during vr
+    quat        lastRotation = quat(vec3(1,0,0),PI) ;
+    quat        hmdRotation;
     mat4        mViewInv;
 
     float       timer;
@@ -152,7 +154,7 @@ struct Camera : ICamera {
         Basis &joint = owner->getJoint(owner->jointHead);
 
         if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) { //enters here
-            targetAngle.x += PI;
+            targetAngle.x += PI; // don't change this
             targetAngle.z = -targetAngle.z;
 
             vec3 pos = joint.pos - joint.rot * vec3(0, 48, -24);
@@ -168,13 +170,39 @@ struct Camera : ICamera {
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
            //fpHead.rot = quat(vec3(1, 0, 0), PI);  // whats here
-            auto temp = fpHead.rot;
+            hmdRotation = fpHead.rot;
             if (Input::hmd.resetAngle) {
-                fpHead.rot = quat(vec3(1, 0, 0), PI);
-                //fpHead.rot = rotYXZ(owner->angle);
+               //fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0),PI);
+                //fpHead.rot = fpHead.rot * rotYXZ(owner->angle);
+                //vec3 var = owner->angle - targetAngle; // they're the same idiot
+                vec3 var;
+                //if (Input::hmd.centerAngle) {
+                //    //var = vec3(PI, owner->angle.y, 0) /** DEG2RAD*/;
+                //    var = targetAngle;
+                //}
+                //else {
+                //    var = vec3(PI, 0, 0);
+                //}
+                //var = targetAngle;
+                //if (owner->angle.y != targetAngle.y) {
+                //    var = owner->angle - targetAngle;
+                //}
+                //else {
+                //    var = targetAngle + vec3(0,1,0);
+                //}
+                //auto rotate = rotYXZ(hmdAngle);
+                //auto var = rotate * 0.5;
+                //fpHead.rot = rotate /** quat(vec3(1, 0, 0), PI)*/; // pI / // this sucks
+                fpHead.rot = lastRotation;
+                //fpHead.rot = quat(vec3(1, 0, 0), PI) * rotYXZ(owner->angle /** vec3(1,0,0)*/) ; // pI / // this sucks
+                //fpHead.rot = rotYXZ(targetAngle * vec3(1,0,0)); // the problem
+                //fpHead.rot = quat(vec3(1, 0, 0), PI);
+                //fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0), PI);
+                //fpHead.rot = rotYXZ(lara.getAngleAbs(Input::hmd.head.dir().xyz())) * quat(vec3(1, 0, 0), PI);
+                //fpHead.rot = quat(vec3(1,0,0),PI) * rotYXZ(owner->angle);
             }
             else {
-                fpHead.rot = temp;
+                fpHead.rot = hmdRotation;
             }
         }
         // its got to be here
@@ -552,9 +580,9 @@ struct Camera : ICamera {
         this->firstPerson = firstPerson;
 
         if (firstPerson)
-            smooth = false;
+            smooth = false; // was false
 
-        fov   = firstPerson ? 90.0f : 65.0f;
+        fov   = firstPerson ? 90.0f : 65.0f; // was 90
         znear = firstPerson ? 16.0f : 32.0f;
         zfar  = 45.0f * 1024.0f;
 
