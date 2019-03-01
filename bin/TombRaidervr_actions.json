@@ -43,6 +43,10 @@
       {
          "name" : "/actions/demo/in/Start",
          "type" : "boolean"
+      },
+	  {
+         "name" : "/actions/demo/in/Toggle",
+         "type" : "boolean"
       }
    ],
    "default_bindings" : [

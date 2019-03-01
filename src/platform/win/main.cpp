@@ -14,7 +14,7 @@
     #endif
 #endif
 
-#define VR_SUPPORT
+//#define VR_SUPPORT
 // TODO: fix depth precision
 // TODO: fix water surface rendering
 // TODO: fix clipping
@@ -698,8 +698,8 @@ mat4 convToMat4(const vr::HmdMatrix34_t &m) {
                 m.m[0][2], m.m[1][2], m.m[2][2], 0.0f,
                 m.m[0][3], m.m[1][3], m.m[2][3], 1.0f);
 }
-//utility functions for reading digital state( from openvr sample)
-//utility function for reading digital state
+//utility functions for reading digital states( from openvr sample)
+//
 bool GetDigitalActionState(vr::VRActionHandle_t action, vr::VRInputValueHandle_t *pDevicePath = nullptr)
 {
     vr::InputDigitalActionData_t actionData;
@@ -805,7 +805,7 @@ void vrUpdateInput() {
     Input::hmd.state[cRoll]      = GetDigitalActionState(VRcRoll);
     Input::hmd.state[cStart]     = GetDigitalActionState(VRcStart);
     Input::hmd.state[cInventory] = GetDigitalActionState(VRcInventory);
-    //
+    
     if (GetDigitalActionFallingEdge(VRcToggle)) {
         Input::hmd.rotationState =  !Input::hmd.rotationState;
         Input::hmd.rotationMode = Input::hmd.rotationState;
