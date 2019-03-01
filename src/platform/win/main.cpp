@@ -14,7 +14,7 @@
     #endif
 #endif
 
-#define VR_SUPPORT
+//#define VR_SUPPORT
 // TODO: fix depth precision
 // TODO: fix water surface rendering
 // TODO: fix clipping
