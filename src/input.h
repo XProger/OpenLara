@@ -44,6 +44,9 @@ namespace Input {
         bool centerAngle = true; // find reference for head position 
         bool ready;
         bool state[cMAX];
+        bool rotationState = true; // mioght do an int here
+        //enum rotationModeValues{STANDARD,IMMERSIVE};
+        int rotationMode = 1;
 
         void setView(const mat4 &pL, const mat4 &pR, const mat4 &vL, const mat4 &vR) {
             proj[0] = pL;

@@ -85,11 +85,11 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/demo/in/start"
+                     "output" : "/actions/demo/in/roll"
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/right/input/application_menu"
+               "path" : "/user/hand/right/input/grip"
             },
             {
                "inputs" : {
@@ -103,18 +103,18 @@
             {
                "inputs" : {
                   "click" : {
-                     "output" : "/actions/demo/in/roll"
+                     "output" : "/actions/demo/in/toggle"
                   }
                },
                "mode" : "button",
-               "path" : "/user/hand/right/input/grip"
+               "path" : "/user/hand/right/input/application_menu"
             }
          ]
       }
    },
    "controller_type" : "holographic_controller",
    "description" : "",
-   "name" : "OpenLaraTestWMRBinding",
+   "name" : "OpenLaraTestWMRBindingWithToggle",
    "options" : {},
    "simulated_actions" : []
 }

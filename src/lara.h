@@ -3056,10 +3056,12 @@ struct Lara : Character {
                return input;
            }
 
-            if (Input::down[ik1]) {
+            //if(Input::hmd.immersiveRotation)
+
+            if (Input::down[ik1] || Input::hmd.rotationMode == 0) {
                 Input::hmd.resetAngle = false;
             }
-            if (Input::down[ik2]) {
+            if (Input::down[ik2] || Input::hmd.rotationMode == 1) {
                 Input::hmd.resetAngle = true;
                 Input::hmd.centerAngle = true;
                 camera->lastRotation = camera->hmdRotation;
