@@ -3051,10 +3051,8 @@ struct Lara : Character {
            vec3 diff;
            if (first) {
                ang = getAngleAbs(Input::hmd.head.dir().xyz());
-               //ang = getAngle(Input::hmd.head.dir().xyz());
                angle.y = ang.y;
                first = false;
-               //camera->hmdAngle = vec3(PI, 0, 0);
                return input;
            }
 
@@ -3065,83 +3063,25 @@ struct Lara : Character {
                 Input::hmd.resetAngle = true;
                 Input::hmd.centerAngle = true;
                 camera->lastRotation = camera->hmdRotation;
-                //might break
-                return input;
-               // first = true;
 
             }
             if (Input::hmd.centerAngle) {
                 Input::hmd.lastHead = Input::hmd.head;
                 lastAngle = angle;
-                //lastAngle = getAngleAbs(Input::hmd.head.dir().xyz()); // last angle from the head
                 Input::hmd.centerAngle = false;
-                camera->hmdAngle = camera->targetAngle;
-                return input;
             }
            
-          if (Input::hmd.resetAngle) {
-               //ang = getAngleAbs(Input::hmd.head.dir().xyz());
-              //ang = getAngleAbs(Input::hmd.head.dir().xyz()) - getAngleAbs(Input::hmd.lastHead.dir().xyz());
-              //ang = camera->angle;
-              //ang += getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
-              //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz()); // difference
-              //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz() - (Input::hmd.head.dir().xyz()));
-              ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz()); // difference
-              //apply difference to 
-              diff = lastAngle - ang; // was lastAngle
-                //camera->angle = getAngleAbs(Input::hmd.head.dir().xyz());
-                //ang = camera->angle;
-              angle.y = diff.y;
-              //camera->hmdAngle = vec3(PI, 0, 0);
-              //camera->hmdAngle = camera->targetAngle;
-              //angle.y = ang.y;
-              //angle.y += diff.y - angle.y;
+            if (Input::hmd.resetAngle) {
+                ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz()); 
+                diff = lastAngle - ang; 
+                angle.y = diff.y;
 
-
-              //angle.y = diff.y;
-             //rotateY((diff.y - angle.y)); // diff.y - ang.y // close
-              //rot
-              //angle.y = clampAngle(diff.y);
-                //Input::hmd.resetAngle = false;
-           }
-
-
-
-
-
-
-
-
-           // else {
-                //ang = getAngleAbs(Input::hmd.head.dir().xyz());
-                //angle.y = ang.y;
-                //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz()) - getAngleAbs(Input::hmd.head.dir().xyz());
-                //ang = getAngle(Input::hmd.lastHead.dir().xyz()) - getAngle(Input::hmd.head.dir().xyz());
-                //ang = getAngleAbs(Input::hmd.lastHead.dir().xyz() - (Input::hmd.head.dir().xyz()));
-                //angle.y -= ang.y; // adding difference between hmd frames // 360 = 360 ,but lara doesn't rotate enough(0.25) // method is not working
-                //rotateY(ang.y);
-                //angle.y = clampAngle(angle.y + (ang.y) );
-                //Input::hmd.head.dir().xyz() += ang.y;
-            //}
-
-            
-            //else {
-               //ang = getAngleAbs(Input::hmd.head.dir().xyz());
-               //camera->targetAngle = ang;
-               //camera->lookAngle = ang;
-               //angle.y = ang.y; // add incrementer based on button press, doesn't work with rotFactor.y
-               //rotateY(ang.y);
-               //angle.y = clampAngle(angle.y + (-ang.y) );
-            //}
-            if (!(input & (FORTH | BACK))) {
-                //rotateY();
-            
+                if (stand == STAND_UNDERWATER) {
+                    //input &= ~(FORTH | BACK);
+                    angle.x = diff.x;
+                }
             }
 
-            if (stand == STAND_UNDERWATER) {
-                input &= ~(FORTH | BACK);
-                angle.x = ang.x;
-            }
         }
         return input;
     }

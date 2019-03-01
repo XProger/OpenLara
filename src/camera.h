@@ -153,8 +153,8 @@ struct Camera : ICamera {
     bool updateFirstPerson() {
         Basis &joint = owner->getJoint(owner->jointHead);
 
-        if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) { //enters here
-            targetAngle.x += PI; // don't change this
+        if (mode != MODE_CUTSCENE && !owner->useHeadAnimation()) { 
+            targetAngle.x += PI; 
             targetAngle.z = -targetAngle.z;
 
             vec3 pos = joint.pos - joint.rot * vec3(0, 48, -24);
@@ -169,43 +169,14 @@ struct Camera : ICamera {
         }
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-           //fpHead.rot = quat(vec3(1, 0, 0), PI);  // whats here
             hmdRotation = fpHead.rot;
             if (Input::hmd.resetAngle) {
-               //fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0),PI);
-                //fpHead.rot = fpHead.rot * rotYXZ(owner->angle);
-                //vec3 var = owner->angle - targetAngle; // they're the same idiot
-                vec3 var;
-                //if (Input::hmd.centerAngle) {
-                //    //var = vec3(PI, owner->angle.y, 0) /** DEG2RAD*/;
-                //    var = targetAngle;
-                //}
-                //else {
-                //    var = vec3(PI, 0, 0);
-                //}
-                //var = targetAngle;
-                //if (owner->angle.y != targetAngle.y) {
-                //    var = owner->angle - targetAngle;
-                //}
-                //else {
-                //    var = targetAngle + vec3(0,1,0);
-                //}
-                //auto rotate = rotYXZ(hmdAngle);
-                //auto var = rotate * 0.5;
-                //fpHead.rot = rotate /** quat(vec3(1, 0, 0), PI)*/; // pI / // this sucks
                 fpHead.rot = lastRotation;
-                //fpHead.rot = quat(vec3(1, 0, 0), PI) * rotYXZ(owner->angle /** vec3(1,0,0)*/) ; // pI / // this sucks
-                //fpHead.rot = rotYXZ(targetAngle * vec3(1,0,0)); // the problem
-                //fpHead.rot = quat(vec3(1, 0, 0), PI);
-                //fpHead.rot = fpHead.rot * quat(vec3(1, 0, 0), PI);
-                //fpHead.rot = rotYXZ(lara.getAngleAbs(Input::hmd.head.dir().xyz())) * quat(vec3(1, 0, 0), PI);
-                //fpHead.rot = quat(vec3(1,0,0),PI) * rotYXZ(owner->angle);
             }
             else {
                 fpHead.rot = hmdRotation;
             }
         }
-        // its got to be here
         mViewInv.identity();
         mViewInv.setRot(fpHead.rot);
         mViewInv.setPos(fpHead.pos);
@@ -415,8 +386,6 @@ struct Camera : ICamera {
         } else {
            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
                lookAngle = vec3(0.0f); 
-               //lookAngle = Input::hmd.head.dir().xyz(); // doesn't work
-               //copied
            } else {
                 if (mode == MODE_LOOK) {
                     float d = 3.0f * Core::deltaTime;
@@ -580,9 +549,9 @@ struct Camera : ICamera {
         this->firstPerson = firstPerson;
 
         if (firstPerson)
-            smooth = false; // was false
+            smooth = false;
 
-        fov   = firstPerson ? 90.0f : 65.0f; // was 90
+        fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 16.0f : 32.0f;
         zfar  = 45.0f * 1024.0f;
 
