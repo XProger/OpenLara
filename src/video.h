@@ -972,39 +972,41 @@ struct Video {
         }
         
         void IDCT(int16 *b) {
-            int32 t[64];
+            int16 t[64];
 
             #define IDCT_PASS(src, dst, x, y) { \
-                int32 a0 = src[0*x + i*y] * STR_IDCT_A; \
-                int32 b1 = src[1*x + i*y] * STR_IDCT_B; \
-                int32 c1 = src[1*x + i*y] * STR_IDCT_C; \
-                int32 d1 = src[1*x + i*y] * STR_IDCT_D; \
-                int32 e1 = src[1*x + i*y] * STR_IDCT_E; \
-                int32 f2 = src[2*x + i*y] * STR_IDCT_F; \
-                int32 g2 = src[2*x + i*y] * STR_IDCT_G; \
-                int32 b3 = src[3*x + i*y] * STR_IDCT_B; \
-                int32 c3 = src[3*x + i*y] * STR_IDCT_C; \
-                int32 d3 = src[3*x + i*y] * STR_IDCT_D; \
-                int32 e3 = src[3*x + i*y] * STR_IDCT_E; \
-                int32 a4 = src[4*x + i*y] * STR_IDCT_A; \
-                int32 b5 = src[5*x + i*y] * STR_IDCT_B; \
-                int32 c5 = src[5*x + i*y] * STR_IDCT_C; \
-                int32 d5 = src[5*x + i*y] * STR_IDCT_D; \
-                int32 e5 = src[5*x + i*y] * STR_IDCT_E; \
-                int32 f6 = src[6*x + i*y] * STR_IDCT_F; \
-                int32 g6 = src[6*x + i*y] * STR_IDCT_G; \
-                int32 b7 = src[7*x + i*y] * STR_IDCT_B; \
-                int32 c7 = src[7*x + i*y] * STR_IDCT_C; \
-                int32 d7 = src[7*x + i*y] * STR_IDCT_D; \
-                int32 e7 = src[7*x + i*y] * STR_IDCT_E; \
-                dst[0*x + i*y] = ( a0 + b1 + f2 + c3 + a4 + d5 + g6 + e7 ) >> 16; \
-                dst[1*x + i*y] = ( a0 + c1 + g2 - e3 - a4 - b5 - f6 - d7 ) >> 16; \
-                dst[2*x + i*y] = ( a0 + d1 - g2 - b3 - a4 + e5 + f6 + c7 ) >> 16; \
-                dst[3*x + i*y] = ( a0 + e1 - f2 - d3 + a4 + c5 - g6 - b7 ) >> 16; \
-                dst[4*x + i*y] = ( a0 - e1 - f2 + d3 + a4 - c5 - g6 + b7 ) >> 16; \
-                dst[5*x + i*y] = ( a0 - d1 - g2 + b3 - a4 - e5 + f6 - c7 ) >> 16; \
-                dst[6*x + i*y] = ( a0 - c1 + g2 + e3 - a4 + b5 - f6 + d7 ) >> 16; \
-                dst[7*x + i*y] = ( a0 - b1 + f2 - c3 + a4 - d5 + g6 - e7 ) >> 16; }
+                int16 *s = src + i * y;\
+                int16 *d = dst + i * y;\
+                int32 a0 = s[0 * x] * STR_IDCT_A; \
+                int32 b1 = s[1 * x] * STR_IDCT_B; \
+                int32 c1 = s[1 * x] * STR_IDCT_C; \
+                int32 d1 = s[1 * x] * STR_IDCT_D; \
+                int32 e1 = s[1 * x] * STR_IDCT_E; \
+                int32 f2 = s[2 * x] * STR_IDCT_F; \
+                int32 g2 = s[2 * x] * STR_IDCT_G; \
+                int32 b3 = s[3 * x] * STR_IDCT_B; \
+                int32 c3 = s[3 * x] * STR_IDCT_C; \
+                int32 d3 = s[3 * x] * STR_IDCT_D; \
+                int32 e3 = s[3 * x] * STR_IDCT_E; \
+                int32 a4 = s[4 * x] * STR_IDCT_A; \
+                int32 b5 = s[5 * x] * STR_IDCT_B; \
+                int32 c5 = s[5 * x] * STR_IDCT_C; \
+                int32 d5 = s[5 * x] * STR_IDCT_D; \
+                int32 e5 = s[5 * x] * STR_IDCT_E; \
+                int32 f6 = s[6 * x] * STR_IDCT_F; \
+                int32 g6 = s[6 * x] * STR_IDCT_G; \
+                int32 b7 = s[7 * x] * STR_IDCT_B; \
+                int32 c7 = s[7 * x] * STR_IDCT_C; \
+                int32 d7 = s[7 * x] * STR_IDCT_D; \
+                int32 e7 = s[7 * x] * STR_IDCT_E; \
+                d[0 * x] = ( a0 + b1 + f2 + c3 + a4 + d5 + g6 + e7 ) >> 16; \
+                d[1 * x] = ( a0 + c1 + g2 - e3 - a4 - b5 - f6 - d7 ) >> 16; \
+                d[2 * x] = ( a0 + d1 - g2 - b3 - a4 + e5 + f6 + c7 ) >> 16; \
+                d[3 * x] = ( a0 + e1 - f2 - d3 + a4 + c5 - g6 - b7 ) >> 16; \
+                d[4 * x] = ( a0 - e1 - f2 + d3 + a4 - c5 - g6 + b7 ) >> 16; \
+                d[5 * x] = ( a0 - d1 - g2 + b3 - a4 - e5 + f6 - c7 ) >> 16; \
+                d[6 * x] = ( a0 - c1 + g2 + e3 - a4 + b5 - f6 + d7 ) >> 16; \
+                d[7 * x] = ( a0 - b1 + f2 - c3 + a4 - d5 + g6 - e7 ) >> 16; }
 
             for (int i = 0; i < 8; i++) IDCT_PASS(b, t, 8, 1);
             for (int i = 0; i < 8; i++) IDCT_PASS(t, b, 1, 8);
