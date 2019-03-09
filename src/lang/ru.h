@@ -371,7 +371,7 @@ inline char remapCyrillic(char c) {
         case 'å' : return 'e';
         case '¸' : return 'e';
         case 'è' : return 'u';
-        case '{è' : return 'u';
+        case 'é' : return 'u';
         case 'î' : return 'o';
         case 'ğ' : return 'p';
         case 'ñ' : return 'c';
