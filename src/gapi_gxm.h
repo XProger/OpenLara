@@ -696,7 +696,7 @@ namespace GAPI {
             }
         }
 
-        void setup() {
+        void validate() {
             if (rebind) {
                 sceGxmSetVertexProgram(Context::gxmContext, vp);
                 sceGxmSetFragmentProgram(Context::gxmContext, pso[psoIndex].fp);
@@ -708,30 +708,26 @@ namespace GAPI {
                 void *buff;
                 if (vParams[uType]) {
                     sceGxmReserveVertexDefaultUniformBuffer(Context::gxmContext, &buff);
-                    sceGxmSetUniformDataF(buff, vParams[uType], 0, cbCount[uType], (float*)(cbMem + bindings[uType]));
+                    sceGxmSetUniformDataF(buff, vParams[uType], 0, cbCount[uType] * 4, (float*)(cbMem + bindings[uType]));
                 }
                 if (fParams[uType]) {
                     sceGxmReserveFragmentDefaultUniformBuffer(Context::gxmContext, &buff);
-                    sceGxmSetUniformDataF(buff, fParams[uType], 0, cbCount[uType], (float*)(cbMem + bindings[uType]));
+                    sceGxmSetUniformDataF(buff, fParams[uType], 0, cbCount[uType] * 4, (float*)(cbMem + bindings[uType]));
                 }
             }
         }
 
         void setParam(UniformType uType, float *value, int count) {
             cbCount[uType] = count;
-            memcpy(cbMem + bindings[uType], value, count * 4);
+            memcpy(cbMem + bindings[uType], value, count * 16);
         }
 
         void setParam(UniformType uType, const vec4 &value, int count = 1) {
-            setParam(uType, (float*)&value, count * 4);
+            setParam(uType, (float*)&value, count);
         }
 
         void setParam(UniformType uType, const mat4  &value, int count = 1) {
-            setParam(uType, (float*)&value, count * 16);
-        }
-
-        void setParam(UniformType uType, const Basis &value, int count = 1) {
-            setParam(uType, (float*)&value, count * 8);
+            setParam(uType, (float*)&value, count * 4);
         }
     };
 
@@ -850,7 +846,7 @@ namespace GAPI {
                 }
             }
 
-            generateMipMap();
+            //generateMipMap();
 
             if (isCube) {
                 sceGxmTextureInitCube(&ID, this->data, SceGxmTextureFormat(desc.textureFormat), width, height, mipCount);
@@ -1124,20 +1120,12 @@ namespace GAPI {
        // LOG("VRAM     : %d\n", EDRAM_SIZE);
        // freeEDRAM();
 
-        support.maxAniso       = 0;
-        support.maxVectors     = 0;
-        support.shaderBinary   = false;
-        support.VAO            = false;
+        support.shaderBinary   = true;
         support.depthTexture   = true;
         support.shadowSampler  = true;
-        support.discardFrame   = false;
         support.texNPOT        = true;
         support.texRG          = true;
-        support.texBorder      = false;
-        support.colorFloat     = false;
         support.colorHalf      = true;
-        support.texFloatLinear = false;
-        support.texFloat       = false;
         support.texHalfLinear  = true;
         support.texHalf        = true;
         support.clipDist       = true;
@@ -1358,7 +1346,7 @@ namespace GAPI {
         if (!active.shader) return;
 
         active.shader->setBlendInfo(colorMask, blendMode);
-        active.shader->setup();
+        active.shader->validate();
         sceGxmDraw(Context::gxmContext, SCE_GXM_PRIMITIVE_TRIANGLES, SCE_GXM_INDEX_FORMAT_U16, mesh->iBuffer + mesh->getChunk().iStart + range.iStart, range.iCount);
     }
 

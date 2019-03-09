@@ -111,7 +111,7 @@
     #define glProgramBinary(...)
     
     extern EGLDisplay display;
-#elif _OS_NX
+#elif _OS_SWITCH
     #define GL_GLEXT_PROTOTYPES
     #include <EGL/egl.h>
     #include <EGL/eglext.h>
@@ -446,7 +446,6 @@ namespace GAPI {
         void bind() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
         void setParam(UniformType uType, const mat4  &value, int count = 1) {}
-        void setParam(UniformType uType, const Basis &value, int count = 1) {}
     #else
         GLuint  ID;
         int32   uID[uMAX];
@@ -645,7 +644,7 @@ namespace GAPI {
             }
         }
 
-        void setup() {
+        void validate() {
             if (rebind) {
                 glUseProgram(ID);
                 rebind = false;
@@ -657,31 +656,26 @@ namespace GAPI {
                 const Binding &b = bindings[uType];
 
                 if (b.vec)
-                    glUniform4fv(uID[uType], cbCount[uType] / 4, (GLfloat*)(cbMem + b.reg));
+                    glUniform4fv(uID[uType], cbCount[uType], (GLfloat*)(cbMem + b.reg));
                 else
-                    glUniformMatrix4fv(uID[uType], cbCount[uType] / 16, false, (GLfloat*)(cbMem + b.reg));
+                    glUniformMatrix4fv(uID[uType], cbCount[uType] / 4, false, (GLfloat*)(cbMem + b.reg));
 
+                cbCount[uType] = 0;
                 Core::stats.cb++;
             }
-
-            memset(cbCount, 0, sizeof(cbCount));
         }
         
         void setParam(UniformType uType, float *value, int count) {
             cbCount[uType] = count;
-            memcpy(cbMem + bindings[uType].reg, value, count * 4);
+            memcpy(cbMem + bindings[uType].reg, value, count * 16);
         }
 
         void setParam(UniformType uType, const vec4 &value, int count = 1) {
-            if (uID[uType] != -1) setParam(uType, (float*)&value, count * 4);
+            if (uID[uType] != -1) setParam(uType, (float*)&value, count);
         }
 
         void setParam(UniformType uType, const mat4 &value, int count = 1) {
-            if (uID[uType] != -1) setParam(uType, (float*)&value, count * 16);
-        }
-
-        void setParam(UniformType uType, const Basis &value, int count = 1) {
-            if (uID[uType] != -1) setParam(uType, (float*)&value, count * 8);
+            if (uID[uType] != -1) setParam(uType, (float*)&value, count * 4);
         }
     #endif
     };
@@ -813,7 +807,7 @@ namespace GAPI {
             glGenerateMipmap(target);
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-                //glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 4);
+                glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
             }
         }
 
@@ -1381,7 +1375,7 @@ namespace GAPI {
             if (wglSwapIntervalEXT) wglSwapIntervalEXT(enable ? 1 : 0);
         #elif _OS_LINUX
             if (glXSwapIntervalSGI) glXSwapIntervalSGI(enable ? 1 : 0);
-        #elif defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_NX)
+        #elif defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_SWITCH)
             eglSwapInterval(display, enable ? 1 : 0);
         #endif
     }
@@ -1510,7 +1504,7 @@ namespace GAPI {
         glLoadMatrixf((GLfloat*)&m);
     #endif
         if (Core::active.shader) {
-            Core::active.shader->setup();
+            Core::active.shader->validate();
         }
 
         glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, mesh->iBuffer + range.iStart);

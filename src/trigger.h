@@ -1279,7 +1279,7 @@ struct Lightning : Controller {
 
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::setMaterial(0.0f, 0.0f, 0.0f, 1.0f);
-        Core::active.shader->setParam(uBasis, b);
+        Core::setBasis(&b, 1);
 
         Core::setCullMode(cmNone);
         Core::setBlendMode(bmAdd);

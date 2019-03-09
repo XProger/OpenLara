@@ -1,0 +1,67 @@
+; constants
+.constf const0(2.0, 1.0, 0.5, 0.25)
+.constf const1(3.05185094e-005, 0.00392156886, 0.00784313725, 0.0)
+
+; uniforms
+.fvec uViewProj[4]
+.fvec uBasis[32*2]
+
+; in
+.alias aCoord    v0
+.alias aNormal   v1
+.alias aTexCoord v2
+.alias aColor    v3
+.alias aLight    v4
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+; mulQuat
+    ;mul r0.xyz, uBasis[0], aCoord.zxy
+    ;mad r0.xyz, aCoord, uBasis[0].zxy, -r0
+    ;mad r0.xyz, aCoord.yzx, uBasis[0].w, r0
+    ;mul r1.xyz, uBasis[0].zxy, r0
+    ;mad r0.xyz, r0.yzx, uBasis[0].yzx, -r1
+    ;mad r0.xyz, r0, const0.x, aCoord
+    ;add r0.xyz, uBasis[1], r0
+    ;mov r0.w, uBasis[1].w
+    
+    mul r0.x, const0.xxxx, aCoord.wwww
+    
+    ;frc r0.x, v0.w
+    ;add r0.x, -r0.x, v0.w
+    mova a0.x, r0.x
+    mul r0.xyz, uBasis[a0.x], aCoord.zxyw
+    mad r0.xyz, aCoord, uBasis[a0.x].zxyw, -r0
+    mad r0.xyz, aCoord.yzxw, uBasis[a0.x].w, r0
+    mul r1.xyz, uBasis[a0.x].zxyw, r0
+    mad r0.xyz, r0.yzxw, uBasis[a0.x].yzxw, -r1
+    mad r0.xyz, r0, const0.x, aCoord
+    add r0.xyz, uBasis[a0.x + 1], r0
+    mov r0.w, uBasis[a0.x + 1].w
+
+; uViewProj * coord
+    dp4 vPosition.x, uViewProj[0], r0
+    dp4 vPosition.y, uViewProj[1], r0
+    dp4 vPosition.z, uViewProj[2], r0
+    dp4 vPosition.w, uViewProj[3], r0
+    
+    mul r2, const1.xxxx, aTexCoord.xyzw
+    mov vTexCoord, r2
+    
+    mov r3, aColor
+    mul r3, const1.yyyy, r3.xyzw
+    
+    mov r4, aLight
+    mul r4, const1.yyyy, r4.xyzw
+        
+    mul vColor, r3, r4
+    ;mov vColor, r3
+    ;mov vColor.xyz, r2.xyz
+    ;mov vColor.w, const0.yyyy
+    
+    end
+.end

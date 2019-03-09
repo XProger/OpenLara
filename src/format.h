@@ -3010,7 +3010,7 @@ namespace TR {
                            ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
 
         void readSAT(Stream &stream) {
-        #ifndef _OS_PSP
+        #if !defined(_OS_PSP) && !defined(_OS_3DS)
             Room *room = NULL;
 
             while (stream.pos < stream.size) {
@@ -3843,6 +3843,7 @@ namespace TR {
             initAnimTex();
             initExtra();
             initCutscene();
+            initTextureTypes();
 
             gObjectTextures      = objectTextures;
             gSpriteTextures      = spriteTextures;
@@ -3982,6 +3983,46 @@ namespace TR {
                     default :
                         cutMatrix.translate(vec3(float(e.x), float(e.y), float(e.z)));
                         cutMatrix.rotateY(e.rotation);
+                }
+            }
+        }
+
+        void initTextureTypes() {
+            // rooms geometry
+            for (int roomIndex = 0; roomIndex < roomsCount; roomIndex++) {
+                TR::Room       &room = rooms[roomIndex];
+                TR::Room::Data &data = room.data;
+                for (int i = 0; i < data.fCount; i++) {
+                    Face &f = data.faces[i];
+                    ASSERT(!f.colored);
+                    ASSERT(f.flags.texture < objectTexturesCount);
+                    TR::TextureInfo &t = objectTextures[f.flags.texture];
+                    t.type = TEX_TYPE_ROOM;
+                }
+            }
+
+            // rooms static meshes
+            for (int staticMeshIndex = 0; staticMeshIndex < staticMeshesCount; staticMeshIndex++) {
+                TR::StaticMesh *staticMesh = &staticMeshes[staticMeshIndex];
+                if (!meshOffsets[staticMesh->mesh]) continue;
+                TR::Mesh &mesh = meshes[meshOffsets[staticMesh->mesh]];
+
+                for (int i = 0; i < mesh.fCount; i++) {
+                    TR::Face &f = mesh.faces[i];
+                    ASSERT(f.colored || f.flags.texture < objectTexturesCount);
+                    if (f.colored) continue;
+                    TR::TextureInfo &t = objectTextures[f.flags.texture];
+                    t.type = TEX_TYPE_ROOM;
+                }
+            }
+
+            // animated textures
+            for (int animTextureIndex = 0; animTextureIndex < animTexturesCount; animTextureIndex++) {
+                AnimTexture &animTex = animTextures[animTextureIndex];
+
+                for (int j = 0; j < animTex.count; j++) {
+                    TextureInfo &t = objectTextures[animTex.textures[j]];
+                    t.type = TEX_TYPE_ROOM;
                 }
             }
         }

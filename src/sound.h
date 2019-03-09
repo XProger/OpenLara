@@ -8,7 +8,7 @@
 
 #define DECODE_OGG
 
-#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV)
+#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV) && !defined(_OS_3DS)
     #define DECODE_MP3
 #endif
 
@@ -50,31 +50,39 @@ namespace Sound {
         int32 L, R;
     };
 
+    struct Stats {
+        int mixer;
+        int reverb;
+        int render[2];
+        int ogg;
+    } stats;
+
     namespace Filter {
-        #define MAX_FDN     16
-        #define MAX_DELAY   1024
+        #define MAX_FDN       16
+        #define MAX_DELAY     954
+
+        #define DSP_SCALE_BIT 8
+        #define DSP_SCALE     (1 << DSP_SCALE_BIT)
 
         static const int16 FDN[MAX_FDN] = { 281, 331, 373, 419, 461, 503, 547, 593, 641, 683, 727, 769, 811, 853, 907, 953 };
 
         struct Delay {
             int     index;
-            float   out[MAX_DELAY];
+            int16   out[MAX_DELAY];
 
-            float process(float x, int delay) {
+            void process(int32 &x, int16 delay) {
                 index = (index + 1) % delay;
-                float y = out[index];
+                int16 y = out[index];
                 out[index] = x;
-                return y;
+                x = y;
             }
         };
 
         struct Absorption {
-            float   out;
+            int32 out;
 
-            float process(float x, float gain, float damping) {
-                out = out * damping + x * gain * (1.0f - damping);
-                if (out < EPS) out = 0.0f;
-                return out;
+            void process(int32 &x, int32 *coeff) { // coeff[0] - gain, coeff[1] - damping
+                x = out = (out * coeff[1] + ((x * coeff[0] * (DSP_SCALE - coeff[1])) >> DSP_SCALE_BIT)) >> DSP_SCALE_BIT;
             }
         };
 
@@ -82,25 +90,24 @@ namespace Sound {
             Delay       df[MAX_FDN];
             Absorption  af[MAX_FDN];
 
-            float       output[MAX_FDN];
-            float       panCoeff[MAX_FDN][2];
-            float       absCoeff[MAX_FDN][2];   // absorption gain & damping
+            int32       output[MAX_FDN];
+            int32       panCoeff[MAX_FDN][2];
+            int32       absCoeff[MAX_FDN][2];   // absorption gain & damping
+            int32       buffer[MAX_FDN];
 
             Reverberation() {
-                float k = 1.0f / MAX_FDN;
-
                 for (int i = 0; i < MAX_FDN; i++) {
-                    output[i]      = 0.0f;
-                    panCoeff[i][0] = (i % 2) ? -k : k;
+                    panCoeff[i][0] = (i % 2) ? -1 : 1;
                 }
 
                 for (int i = 0; i < MAX_FDN; i += 2) {
                     if ((i / 2) % 2)
-                        panCoeff[i][1] = panCoeff[i + 1][1] = -k;
+                        panCoeff[i][1] = panCoeff[i + 1][1] = -1;
                     else
-                        panCoeff[i][1] = panCoeff[i + 1][1] =  k;
+                        panCoeff[i][1] = panCoeff[i + 1][1] =  1;
                 }
 
+                memset(output, 0, sizeof(output));
                 memset(df, 0, sizeof(df));
                 memset(af, 0, sizeof(af));
 
@@ -115,40 +122,43 @@ namespace Sound {
                 float k = -10.0f / (44100.0f * rt60);
 
                 for (int i = 0; i < MAX_FDN; i++) {
-                    absCoeff[i][0] = powf(10.0f, FDN[i] * k);
-                    absCoeff[i][1] = 1.0f - (2.0f / (1.0f + powf(absCoeff[i][0], 1.0f - 1.0f / 0.15f)));
+                    float v = powf(10.0f, FDN[i] * k);
+                    absCoeff[i][0] = int32(v * DSP_SCALE);
+                    absCoeff[i][1] = int32((1.0f - (2.0f / (1.0f + powf(v, 1.0f - 1.0f / 0.15f)))) * DSP_SCALE);
                 }
             };
 
             void process(FrameHI *frames, int count) {
-                float buffer[MAX_FDN];
+                PROFILE_CPU_TIMING(stats.reverb);
 
                 for (int i = 0; i < count; i++) {
                     FrameHI &frame = frames[i];
-                    float L   = frame.L * (1.0f / 32767.0f);
-                    float R   = frame.R * (1.0f / 32767.0f);
-                    float in  = (L + R) * 0.5f;
-                    float out = 0.0f;
+                    int32 in  = (frame.L + frame.R) / 2;
+                    int32 out = 0;
+                    int32 L   = 0;
+                    int32 R   = 0;
 
                 // apply delay & absorption filters
                     for (int j = 0; j < MAX_FDN; j++) {
-                        float k = in + output[j];
-                        k = df[j].process(k, FDN[j]);
-                        k = af[j].process(k, absCoeff[j][0], absCoeff[j][1]);
-                        out += k * (2.0f / MAX_FDN);
+                        int32 k = in + output[j];
+                        df[j].process(k, FDN[j]);
+                        af[j].process(k, absCoeff[j]);
+                        out += k;
                         buffer[j] = k;
                     }
+                    out = out * 2 / MAX_FDN;
 
                 // apply pan
+                    int32 buf = buffer[MAX_FDN - 1];
                     for (int j = 0; j < MAX_FDN; j++) {
-                        output[j] = out - buffer[(j + MAX_FDN - 1) % MAX_FDN];
-                        if (output[j] < EPS) output[j] = 0.0f;
-                        L += buffer[j] * panCoeff[j][0];
-                        R += buffer[j] * panCoeff[j][1];
+                        output[j] = max(0, out - buf);
+                        buf = buffer[j];
+                        L += buf ^ panCoeff[j][0];
+                        R += buf ^ panCoeff[j][1];
                     }
 
-                    frame.L = int(L * 32767.0f);
-                    frame.R = int(R * 32767.0f);
+                    frame.L += L / MAX_FDN;
+                    frame.R += R / MAX_FDN;
                 }
             }
         };
@@ -665,6 +675,7 @@ namespace Sound {
         }
 
         virtual int decode(Frame *frames, int count) {
+            PROFILE_CPU_TIMING(stats.ogg);
             int i = 0;
             while (i < count) {
                 int res = stb_vorbis_get_samples_short_interleaved(ogg, channels, (short*)frames + i, (count - i) * 2);
@@ -914,6 +925,8 @@ namespace Sound {
     }
 
     void renderChannels(FrameHI *result, int count, bool music) {
+        PROFILE_CPU_TIMING(stats.render[music]);
+
         int bufSize = count + count / 2;
         if (!buffer) buffer = new Frame[bufSize]; // + 50% for pitch
 
@@ -946,9 +959,12 @@ namespace Sound {
                 for (int j = 0; j < count; j++, t += channels[i]->pitch) {
                     int idxA = int(t);
                     int idxB = (j == (count - 1)) ? idxA : (idxA + 1);
-                    float k = t - idxA;
-                    result[j].L += int(lerp(buffer[idxA].L, buffer[idxB].L, k));
-                    result[j].R += int(lerp(buffer[idxA].R, buffer[idxB].R, k));
+                    int st = int((t - idxA) * DSP_SCALE);
+                    Frame &a = buffer[idxA];
+                    Frame &b = buffer[idxB];
+
+                    result[j].L += a.L + ((b.L - a.L) * st >> DSP_SCALE_BIT);
+                    result[j].R += a.R + ((b.R - a.R) * st >> DSP_SCALE_BIT);
                 }
             }
         }
@@ -963,9 +979,10 @@ namespace Sound {
 
     void fill(Frame *frames, int count) {
         OS_LOCK(lock);
+        PROFILE_CPU_TIMING(stats.mixer);
 
         if (!channelsCount) {
-            if (result) {
+            if (result && (Core::settings.audio.music != 0 || Core::settings.audio.sound != 0)) {
                 memset(result, 0, sizeof(FrameHI) * count);
                 if (Core::settings.audio.reverb)
                     reverb.process(result, count);
@@ -978,12 +995,16 @@ namespace Sound {
         if (!result) result = new FrameHI[count];
         memset(result, 0, sizeof(FrameHI) * count);
 
-        renderChannels(result, count, false);
+        if (Core::settings.audio.sound != 0) {
+            renderChannels(result, count, false);
 
-        if (Core::settings.audio.reverb)
-            reverb.process(result, count);
+            if (Core::settings.audio.reverb)
+                reverb.process(result, count);
+        }
 
-        renderChannels(result, count, true);
+        if (Core::settings.audio.music != 0) {
+            renderChannels(result, count, true);
+        }
 
         convFrames(result, frames, count);
 

@@ -28,7 +28,6 @@ namespace GAPI {
         void bind() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
         void setParam(UniformType uType, const mat4  &value, int count = 1) {}
-        void setParam(UniformType uType, const Basis &value, int count = 1) {}
     };
 
 // Texture

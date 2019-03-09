@@ -9,7 +9,7 @@ EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
 int WEBGL_VERSION;
 
 // timing
-int osGetTime() {
+int osGetTimeMS() {
     return (int)emscripten_get_now();
 }
 

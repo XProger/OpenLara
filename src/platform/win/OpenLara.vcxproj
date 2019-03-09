@@ -200,10 +200,10 @@
     <ClInclude Include="..\..\controller.h" />
     <ClInclude Include="..\..\core.h" />
     <ClInclude Include="..\..\format.h" />
+    <ClInclude Include="..\..\gapi_c3d.h" />
     <ClInclude Include="..\..\gapi_d3d9.h" />
     <ClInclude Include="..\..\gapi_gl.h" />
     <ClInclude Include="..\..\gapi_gu.h" />
-    <ClInclude Include="..\..\gapi_gx.h" />
     <ClInclude Include="..\..\gapi_gxm.h" />
     <ClInclude Include="..\..\gapi_vk.h" />
     <ClInclude Include="..\..\debug.h" />

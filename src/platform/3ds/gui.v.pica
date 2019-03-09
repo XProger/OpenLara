@@ -1,0 +1,39 @@
+; constants
+.constf const0(2.0, 1.0, 0.5, 0.25)
+.constf const1(3.05185094e-005, 0.00392156886, 0.00784313725, 0.0)
+
+; uniforms
+.fvec uViewProj[4]
+.fvec uMaterial
+
+; in
+.alias aCoord    v0
+.alias aNormal   v1
+.alias aTexCoord v2
+.alias aColor    v3
+.alias aLight    v4
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+    mov r0.xyz, aCoord
+    mov r0.w, const0.yyyy
+
+; uViewProj * coord
+    dp4 vPosition.x, uViewProj[0], r0
+    dp4 vPosition.y, uViewProj[1], r0
+    dp4 vPosition.z, uViewProj[2], r0
+    dp4 vPosition.w, uViewProj[3], r0
+    
+    mul r2, const1.xxxx, aTexCoord.xyzw
+    mov vTexCoord, r2
+    
+    mov r3, aLight
+    mul r3, const1.yyyy, r3.xyzw
+    mul vColor, uMaterial, r3
+    
+    end
+.end

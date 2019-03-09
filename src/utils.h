@@ -98,7 +98,7 @@ typedef unsigned long long uint64;
 #define FOURCC(str)        uint32( ((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 #define TWOCC(str)         uint32( ((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) )
 
-#define ALIGN(x, a)        (((x) + ((a) - 1)) & ~((a) - 1))
+#define ALIGNADDR(x, a)    (((x) + ((a) - 1)) & ~((a) - 1))
 #define COUNT(arr)         int(sizeof(arr) / sizeof(arr[0]))
 #define OFFSETOF(T, E)     ((size_t)&(((T*)0)->E))
 #define TEST_BIT(arr, bit) ((arr[bit / 32] >> (bit % 32)) & 1)
@@ -539,8 +539,7 @@ struct quat {
     }
 
     vec3 operator * (const vec3 &v) const {
-        //return v + xyz.cross(xyz.cross(v) + v * w) * 2.0f;
-        return (*this * quat(v.x, v.y, v.z, 0) * inverse()).xyz();
+        return v + xyz().cross(xyz().cross(v) + v * w) * 2.0f;
     }
 
     float dot(const quat &q) const {

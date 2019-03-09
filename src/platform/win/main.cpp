@@ -60,7 +60,7 @@ void osMutexUnlock(void *obj) {
 // timing
 int osStartTime = 0;
 
-int osGetTime() {
+int osGetTimeMS() {
 #ifdef DEBUG
     LARGE_INTEGER Freq, Count;
     QueryPerformanceFrequency(&Freq);
@@ -144,14 +144,14 @@ void osJoyVibrate(int index, float L, float R) {
 
 void joyRumble(int index) {
     JoyDevice &joy = joyDevice[index];
-    if (XInputSetState && joy.ready && (joy.vL != joy.oL || joy.vR != joy.oR) && osGetTime() >= joy.time) {
+    if (XInputSetState && joy.ready && (joy.vL != joy.oL || joy.vR != joy.oR) && Core::getTime() >= joy.time) {
         XINPUT_VIBRATION vibration;
         vibration.wLeftMotorSpeed  = int(joy.vL * 65535.0f);
         vibration.wRightMotorSpeed = int(joy.vR * 65535.0f);
         XInputSetState(index, &vibration);
         joy.oL = joy.vL;
         joy.oR = joy.vR;
-        joy.time = osGetTime() + JOY_MIN_UPDATE_FX_TIME;
+        joy.time = Core::getTime() + JOY_MIN_UPDATE_FX_TIME;
     }
 }
 
@@ -861,7 +861,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     Sound::channelsCount = 0;
 
-    osStartTime = osGetTime();
+    osStartTime = Core::getTime();
 
     touchInit(hWnd);
     joyInit();

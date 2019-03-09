@@ -111,7 +111,7 @@ namespace Network {
     void start(IGame *game) {
         Network::game = game;
         NAPI::listen(NET_PORT);
-        syncInputTime = syncStateTime = osGetTime();
+        syncInputTime = syncStateTime = Core::getTime();
     }
 
     void stop() {
@@ -216,7 +216,7 @@ namespace Network {
         NAPI::Peer from;
         Packet packet, response;
 
-        int time = osGetTime();
+        int time = Core::getTime();
 
         while ( (count = recvPacket(from, packet)) > 0 ) {
             Player *player = getPlayerByPeer(from);

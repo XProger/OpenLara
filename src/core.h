@@ -66,6 +66,11 @@
     #undef  OS_FILEIO_CACHE
 
     extern int WEBGL_VERSION;
+#elif _3DS
+    #define _OS_3DS    1
+    #define _GAPI_C3D  1
+
+    #undef OS_PTHREAD_MT
 #elif _PSP
     #define _OS_PSP  1
     #define _GAPI_GU 1
@@ -82,10 +87,10 @@
 
     #undef OS_PTHREAD_MT
 #elif __SWITCH__
-   #define _OS_NX     1
-   #define _GAPI_GL   1
+    #define _OS_SWITCH 1
+    #define _GAPI_GL   1
 
-   #undef OS_PTHREAD_MT
+    #undef OS_PTHREAD_MT
 #endif
 
 #ifndef _OS_PSP
@@ -117,7 +122,7 @@ extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
 
-extern int   osGetTime       ();
+extern int   osGetTimeMS     ();
 
 extern bool  osJoyReady      (int index);
 extern void  osJoyVibrate    (int index, float L, float R);
@@ -190,6 +195,7 @@ namespace Core {
     struct Support {
         int  maxVectors;
         int  maxAniso;
+        int  texMinSize;
         bool shaderBinary;
         bool VAO;
         bool depthTexture;
@@ -291,7 +297,7 @@ namespace Core {
     bool isQuit;
 
     int getTime() {
-        return osGetTime();
+        return osGetTimeMS();
     }
 
     void resetTime() {
@@ -303,6 +309,24 @@ namespace Core {
         isQuit = true;
     }
 }
+
+#ifdef PROFILE
+    struct TimingCPU {
+        int &result;
+
+        TimingCPU(int &result) : result(result) {
+            result = Core::getTime();
+        }
+
+        ~TimingCPU() {
+            result = Core::getTime() - result;
+        }
+    };
+
+    #define PROFILE_CPU_TIMING(result)  TimingCPU timingCPU(result)
+#else
+    #define PROFILE_CPU_TIMING(result)
+#endif
 
 #include "input.h"
 #include "sound.h"
@@ -556,6 +580,10 @@ namespace Core {
         Vertex *vBuffer;
     #endif
 
+    #ifdef _GAPI_C3D
+        void *VAO;
+    #endif
+
         int32       basisCount;
         Basis       *basis;
     } active;
@@ -571,6 +599,7 @@ namespace Core {
         int fpsTime;
     #ifdef PROFILE
         int tFrame;
+        int video;
     #endif
 
         Stats() : frame(0), frameIndex(0), fps(0), fpsTime(0) {}
@@ -584,6 +613,8 @@ namespace Core {
                 LOG("FPS: %d DIP: %d TRI: %d RT: %d CB: %d\n", fps, dips, tris, rt, cb);
             #ifdef PROFILE
                 LOG("frame time: %d mcs\n", tFrame / 1000);
+                LOG("sound: mix %d rev %d ren %d/%d ogg %d\n", Sound::stats.mixer, Sound::stats.reverb, Sound::stats.render[0], Sound::stats.render[1], Sound::stats.ogg);
+                LOG("video: %d\n", video);
             #endif
                 fps     = frame;
                 frame   = 0;
@@ -600,8 +631,8 @@ namespace Core {
     #include "gapi_gl.h"
 #elif _GAPI_D3D9
     #include "gapi_d3d9.h"
-#elif _GAPI_GX
-    #include "gapi_gx.h"
+#elif _OS_3DS
+    #include "gapi_c3d.h"
 #elif _GAPI_GU
     #include "gapi_gu.h"
 #elif _GAPI_GXM
@@ -654,9 +685,12 @@ namespace Core {
     }
 
     void init() {
-        memset(&support, 0, sizeof(support));
         LOG("OpenLara (%s)\n", version);
+
         x = y = 0;
+
+        memset(&support, 0, sizeof(support));
+        support.texMinSize = 1;
 
         #ifdef USE_INFLATE
             tinf_init();
@@ -697,12 +731,14 @@ namespace Core {
         }
         eye = 0.0f;
 
-        { // init 1x1 textures
-            uint32 data = 0xFFFFFFFF;
-            whiteTex  = new Texture(1, 1, 1, FMT_RGBA, OPT_NEAREST, &data);
-            whiteCube = new Texture(1, 1, 1, FMT_RGBA, OPT_CUBEMAP, &data);
-            data = 0;
-            blackTex  = new Texture(1, 1, 1, FMT_RGBA, OPT_NEAREST, &data);
+        { // init dummy textures
+            uint32 *data = new uint32[SQR(support.texMinSize)];
+            memset(data, 0xFF, SQR(support.texMinSize) * sizeof(data[0]));
+            whiteTex  = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_NEAREST, data);
+            whiteCube = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_CUBEMAP, data);
+            memset(data, 0x00, SQR(support.texMinSize) * sizeof(data[0]));
+            blackTex  = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_NEAREST, data);
+            delete[] data;
         }
 
         { // generate dithering texture
@@ -811,6 +847,15 @@ namespace Core {
     #if defined(_OS_RPI) || defined(_OS_CLOVER)
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setLighting (Core::Settings::MEDIUM);
+    #endif
+
+    #ifdef _OS_3DS
+        settings.detail.setFilter   (Core::Settings::MEDIUM);
+        settings.detail.setLighting (Core::Settings::LOW);
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setWater    (Core::Settings::LOW);
+
+        settings.audio.reverb = false;
     #endif
 
     #ifdef FFP
@@ -1006,7 +1051,7 @@ namespace Core {
         Core::active.basis      = basis;
         Core::active.basisCount = count;
 
-        Core::active.shader->setParam(uBasis, basis[0], count);
+        Core::active.shader->setParam(uBasis, *(vec4*)basis, count * 2);
     }
 
     void setMaterial(float diffuse, float ambient, float specular, float alpha) {

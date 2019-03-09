@@ -565,6 +565,8 @@ namespace UI {
     void renderTouch() {
         if (Input::touchTimerVis <= 0.0f) return;
 
+        Core::whiteTex->bind(sDiffuse);
+
         Core::setDepthTest(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
