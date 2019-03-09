@@ -118,7 +118,7 @@ struct Texture : GAPI::Texture {
 
         init(data);
 
-        if (mipmaps)
+        if (mipmaps && width > Core::support.texMinSize && height > Core::support.texMinSize)
             generateMipMap();
     }
 
