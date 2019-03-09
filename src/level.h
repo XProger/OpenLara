@@ -1925,6 +1925,7 @@ struct Level : IGame {
 
         if (inventory->video) {
             inventory->update();
+            UI::update();
             return;
         }
 
@@ -2869,6 +2870,14 @@ struct Level : IGame {
     void renderPrepare() {
         if (inventory->video) {
             inventory->render(1.0);
+
+            if (UI::subsStr != STR_EMPTY) {
+                UI::begin();
+                UI::updateAspect(float(Core::width) / float(Core::height));
+                atlasGlyphs->bind(sDiffuse);
+                UI::renderSubs();
+                UI::end();
+            }
             return;
         }
 

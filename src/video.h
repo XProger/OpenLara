@@ -1264,15 +1264,23 @@ struct Video {
         SAT,
     } format;
 
+    Sound::Sample *sample;
     Decoder *decoder;
     Texture *frameTex[2];
     Color32 *frameData;
     float   step, stepTimer, time;
     bool    isPlaying;
     bool    needUpdate;
-    Sound::Sample *sample;
 
-    Video(Stream *stream) : decoder(NULL), stepTimer(0.0f), time(0.0f), isPlaying(false) {
+    static void playAsync(Stream *stream, void *userData) {
+        if (stream) {
+            Video *video = (Video*)userData;
+            video->sample = Sound::play(stream, NULL, 1.0f, 1.0f, Sound::MUSIC);
+            Core::resetTime();
+        }
+    }
+
+    Video(Stream *stream, TR::LevelID id) : sample(NULL), decoder(NULL), stepTimer(0.0f), time(0.0f), isPlaying(false) {
         frameTex[0] = frameTex[1] = NULL;
 
         if (!stream) return;
@@ -1300,8 +1308,10 @@ struct Video {
         for (int i = 0; i < 2; i++)
             frameTex[i] = new Texture(decoder->width, decoder->height, 1, FMT_RGBA, 0, frameData);
 
-        sample = Sound::play(decoder);
-        sample->pitch = pitch;
+        if (!TR::getVideoTrack(id, playAsync, this)) {
+            sample = Sound::play(decoder);
+            sample->pitch = pitch;
+        }
 
         step      = 1.0f / decoder->fps;
         stepTimer = step;
@@ -1311,8 +1321,12 @@ struct Video {
 
     virtual ~Video() {
         OS_LOCK(Sound::lock);
-        sample->decoder = NULL;
-        sample->stop();
+        if (sample) {
+            if (sample->decoder == decoder) {
+                sample->decoder = NULL;
+            }
+            sample->stop();
+        }
         delete decoder;
         delete frameTex[0];
         delete frameTex[1];

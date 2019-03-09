@@ -946,6 +946,39 @@ namespace TR {
         return false;
     }
 
+    StringID getVideoSubs(LevelID id) {
+        switch (id) {
+        // TR1
+            case LVL_TR1_TITLE : return STR_TR1_SUB_CAFE;
+            case LVL_TR1_4     : return STR_TR1_SUB_LIFT;
+            case LVL_TR1_10A   : return STR_TR1_SUB_CANYON;
+            case LVL_TR1_CUT_4 : return STR_TR1_SUB_PRISON;
+            default            : return STR_EMPTY;
+        }
+    }
+
+    bool getVideoTrack(LevelID id, Stream::Callback callback, void *userData) {
+        char title[32];
+
+        const char *str = NULL;
+        switch (id) {
+        // TR1
+            case LVL_TR1_TITLE : str = "CAFE";   break;
+            case LVL_TR1_4     : str = "LIFT";   break;
+            case LVL_TR1_10A   : str = "CANYON"; break;
+            case LVL_TR1_CUT_4 : str = "PRISON"; break;
+            default            : return false;
+        }
+
+        sprintf(title, "track_%s", str);
+        if (!checkTrack("", title) && !checkTrack("audio/1/", title) && !checkTrack("audio/", title)) {
+            return false;
+        }
+
+        new Stream(title, callback, userData);
+        return true;
+    }
+
     StringID getSubs(Version version, int track) {
         if ((version & VER_TR1) && (track >= 22 && track <= 56 && track != 24)) {
             return StringID(STR_TR1_SUB_22 + (track - 22));
@@ -962,7 +995,6 @@ namespace TR {
     }
 
     void getGameTrack(Version version, int track, Stream::Callback callback, void *userData) {
-
         char title[32];
         if (useEasyStart) {
             switch (version) {

@@ -134,6 +134,10 @@ enum StringID {
     , STR_PUZZLE_SCARAB
     , STR_PUZZLE_PYRAMID
 // TR1 subtitles
+    , STR_TR1_SUB_CAFE
+    , STR_TR1_SUB_LIFT
+    , STR_TR1_SUB_CANYON
+    , STR_TR1_SUB_PRISON
     , STR_TR1_SUB_22 // CUT4
     , STR_TR1_SUB_23 // CUT1
     , STR_TR1_SUB_24

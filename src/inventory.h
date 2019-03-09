@@ -563,17 +563,21 @@ struct Inventory {
 
     static void loadVideo(Stream *stream, void *userData) {
         Inventory *inv = (Inventory*)userData;
-        if (stream)
-            inv->video = new Video(stream);
-        new Stream(TR::getGameScreen(inv->game->getLevel()->id), loadTitleBG, inv);
+        TR::LevelID id = inv->game->getLevel()->id;
+        if (stream) {
+            inv->video = new Video(stream, id);
+            UI::showSubs(getVideoSubs(id));
+        }
+        new Stream(TR::getGameScreen(id), loadTitleBG, inv);
     }
 
     static void loadLogo(Stream *stream, void *userData) {
         Inventory *inv = (Inventory*)userData;
-        if (stream)
-            inv->video = new Video(stream);
-        else
+        if (stream) {
+            inv->video = new Video(stream, TR::LVL_CUSTOM);
+        } else {
             inv->skipVideo();
+        }
     }
 
     Inventory() : game(NULL), itemsCount(0) {
