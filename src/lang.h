@@ -247,7 +247,7 @@ enum StringID {
     , "Espa(~nol"     \
     , "Italiano"      \
     , "Polski"        \
-    , "Portugu)es"    \
+    , "Portugu(es"    \
     , "–усски{и"      \
     , "\x11\x02\x70\x01\x97\x01\xD6\xFF\xFF" \
 
