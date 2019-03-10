@@ -88,13 +88,7 @@ const char *STR_RU[] = { ""
     , "Множественные цели"
     // controls
     , "Влево", "Вправо", "Бег", "Назад", "Прыжок", "Шаг", "Де{иствие", "Оружие", "Смотреть", "Присесть", "Спринт", "Кувырок", "Инвентарь", "Start"
-    // keys
-    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
-    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
-    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-    // gamepad
-    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+    , STR_KEYS
 // inventory items
     , "Неизвестно"
     , "Взрывчатка"

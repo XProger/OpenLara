@@ -253,6 +253,13 @@ enum StringID {
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA"
 
+#define STR_KEYS \
+      "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT" \
+    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" \
+    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M" \
+    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" \
+    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+
 const char *helpText = 
     "Start - add second player or restore Lara@"
     "H - Show or hide this help@"
@@ -278,6 +285,7 @@ const char *helpText =
 #include "lang/es.h"
 #include "lang/it.h"
 #include "lang/pl.h"
+#include "lang/pt.h"
 #include "lang/ru.h"
 #include "lang/ja.h"
 
@@ -290,6 +298,7 @@ void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_ES) == STR_MAX);
     ASSERT(COUNT(STR_IT) == STR_MAX);
     ASSERT(COUNT(STR_PL) == STR_MAX);
+    ASSERT(COUNT(STR_PT) == STR_MAX);
     ASSERT(COUNT(STR_RU) == STR_MAX);
     ASSERT(COUNT(STR_JA) == STR_MAX);
 
@@ -301,7 +310,7 @@ void ensureLanguage(int lang) {
         case STR_LANG_ES : STR = (char**)STR_ES; break;
         case STR_LANG_IT : STR = (char**)STR_IT; break;
         case STR_LANG_PL : STR = (char**)STR_PL; break;
-        case STR_LANG_PT : STR = (char**)STR_EN; break;
+        case STR_LANG_PT : STR = (char**)STR_PT; break;
         case STR_LANG_RU : STR = (char**)STR_RU; break;
         case STR_LANG_JA : STR = (char**)STR_JA; break;
         default          : STR = (char**)STR_EN; break;

@@ -101,13 +101,7 @@ const char *STR_JA[] = { "日本語"
     , "マルチエイミング"
     // controls
     , "左", "右", "上", "下", "ジャンプ", "歩く", "アクション", "銃を抜く", "見る", "しゃがむ", "ダッシュ", "転がる", "持ち物を見る", "スタート"
-    // keys
-    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
-    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
-    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-    // gamepad
-    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+    , STR_KEYS
 // inventory items
     , "不明"
     , "爆弾"
@@ -382,13 +376,7 @@ const char *STR_JA[] = { "\x11\x02\x70\x01\x97\x01\xD6\xFF\xFF"
     , "\x11\x01\x58\x01\x23\x01\x63\x01\x67\x01\x3C\x01\x52\x01\x02\x01\x3F\xFF\xFF"
     // controls
     , "\x11\x01\xCD\xFF\xFF", "\x11\x01\x75\xFF\xFF", "\x11\x01\x35\xFF\xFF", "\x11\x01\x6B\xFF\xFF", "\x11\x01\x26\x01\x39\x01\x02\x01\x27\xFF\xFF", "\x11\x01\x51\x01\x30\xFF\xFF", "\x11\x01\x1A\x01\x21\x01\x1C\x01\x38\x01\x02\xFF\xFF", "\x11\x01\xDA\x01\x07\x02\x7B\x01\x30\xFF\xFF", "\x11\x01\x70\x01\x08\xFF\xFF", "\x11\x01\x04\x01\x99\x01\x1B\x01\xD7\xFF\xFF", "\x11\x01\x62\x01\x2F\x01\x1C\x01\x4E\xFF\xFF", "\x11\x02\x50\x01\x1B\x01\x08\xFF\xFF", "\x11\x01\xBD\x01\x4A\x01\xBB\x01\x07\x01\x70\x01\x08\xFF\xFF", "\x11\x01\x17\x01\x13\x01\x03\x01\x20\xFF\xFF"
-    // keys
-    , "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT"
-    , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-    , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
-    , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-    // gamepad
-    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+    , STR_KEYS
 // inventory items
     , "\x11\x02\x51\x01\x83\xFF\xFF"
     , "\x11\x02\x4E\x01\x68\xFF\xFF"

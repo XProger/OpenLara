@@ -47,10 +47,13 @@ namespace UI {
 
     int advGlyphsStart;
 
-    #define CYR_MAP           "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ"
-    #define CYR_MAP_COUNT     COUNT(CYR_MAP)
+    #define CYR_MAP           "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ" "i~"
+    #define CYR_MAP_COUNT     (COUNT(CYR_MAP) - 1)
     #define CYR_MAP_START     102
     #define CYR_MAP_UPPERCASE 20
+    #define CHAR_SPR_TILDA    (110 + CYR_MAP_COUNT - 1)
+    #define CHAR_SPR_I        (CHAR_SPR_TILDA - 1)
+
 
     const static uint8 char_width[110 + CYR_MAP_COUNT] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
@@ -61,7 +64,9 @@ namespace UI {
     // cyrillic
         11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛ
          9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ÜÝÞ‗בגדהזחךכלםןע
-        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9                      // פצקרשתûü‎‏ÿ
+        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // פצקרשתûü‎‏ÿ
+    // additional latin (i~)
+        5, 10
     }; 
         
     static const uint8 char_map[102 + 33*2] = {
@@ -90,7 +95,7 @@ namespace UI {
     }
 
     inline bool skipChar(char c) {
-        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '}' || c == '*' || c == '{';
+        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '}' || c == '*' || c == '{' || c == '+';
     }
 
     inline bool upperCase(int index) {
@@ -108,7 +113,7 @@ namespace UI {
             int o = 0;
             char c = CYR_MAP[i];
 
-            if (c == 'ב' || c == 'ה') h = 14;
+            if (c == 'ב' || c == 'ה' || c == '~') h = 14;
             if (c == 'Ö' || c == 'Ù' || c == 'צ' || c == 'ש') { o = 1; h++; }
             if (c == 'פ') { o = 2; h += 2; }
 
@@ -280,6 +285,8 @@ namespace UI {
 
         Color32 tColor, bColor, sColor = Color32(48, 12, 0, alpha);
 
+        char lastChar = 0;
+
         while (char c = *text++) {
             // skip japanese chars
             if (isJapaneseStart(c)) {
@@ -335,6 +342,9 @@ namespace UI {
             if (charFrame == '{')    charFrame = '(';
 
             int frame = charRemap(charFrame);
+            if (c == '+') frame = CHAR_SPR_TILDA;
+            if (c == 'i' && skipChar(lastChar)) frame = CHAR_SPR_I;
+            lastChar = c;
 
             if (isShadow) {
                 tColor = bColor = sColor;
