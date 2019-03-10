@@ -87,7 +87,7 @@ void osRWUnlockWrite(void *obj) {
 int osStartTime = 0;
 int osTimerFreq;
 
-int osGetTime() {
+int osGetTimeMS() {
     u64 time;
     sceRtcGetCurrentTick(&time);
     return int(time * 1000 / osTimerFreq - osStartTime);
@@ -160,7 +160,7 @@ int main() {
     joyInit();
 
     osTimerFreq = sceRtcGetTickResolution();
-    osStartTime = osGetTime();
+    osStartTime = Core::getTime();
 
     Game::init();
 

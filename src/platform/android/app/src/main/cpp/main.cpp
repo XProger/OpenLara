@@ -19,7 +19,7 @@ JavaVM *jvm;
 // timing
 time_t startTime;
 
-int osGetTime() {
+int osGetTimeMS() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);

@@ -10,7 +10,7 @@ BOOL enableRetina = YES;
 int frameLimit = 58 + 4;
 
 // timing
-int osGetTime() {
+int osGetTimeMS() {
     static mach_timebase_info_data_t timebaseInfo;
     if (timebaseInfo.denom == 0) {
         mach_timebase_info(&timebaseInfo);
@@ -405,7 +405,7 @@ BOOL allowFrameUpdate = YES;
         return;
     }
     
-    int startDrawMs = osGetTime();
+    int startDrawMs = Core::getTime();
     
     NSOpenGLContext *context = [self openGLContext];
     
@@ -415,7 +415,7 @@ BOOL allowFrameUpdate = YES;
     
     [context flushBuffer];
     
-    int endDrawMs = osGetTime();
+    int endDrawMs = Core::getTime();
     int deltaMs = endDrawMs - startDrawMs;
     float avgDelta = ((lastDeltaMs + deltaMs) / 2.0);
     lastDeltaMs = deltaMs;

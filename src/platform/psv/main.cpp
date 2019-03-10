@@ -39,7 +39,7 @@ void osMutexUnlock(void *obj) {
 int osStartTime = 0;
 int osTimerFreq;
 
-int osGetTime() {
+int osGetTimeMS() {
     SceRtcTick current;
     sceRtcGetCurrentTick(&current);
     return int(current.tick * 1000 / osTimerFreq - osStartTime);
@@ -191,7 +191,7 @@ int main() {
     inputInit();
 
     osTimerFreq = sceRtcGetTickResolution();
-    osStartTime = osGetTime();
+    osStartTime = Core::getTime();
 
     Game::init("PSXDATA/LEVEL2.PSX");
 //    sceRazorGpuCaptureSetTrigger(100, "ux0:data/OpenLara/capture.sgx");

@@ -18,7 +18,7 @@
 // timing
 unsigned int startTime;
 
-int osGetTime() {
+int osGetTimeMS() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
@@ -185,7 +185,7 @@ void joyInit() {
             joy.fx.type         = FF_RUMBLE;
             joy.fx.replay.delay = 0;
             joy.vL = joy.oL = joy.vR = joy.oR = 0.0f;
-            joy.time  = osGetTime();
+            joy.time  = Core::getTime();
         }
     }
 }
@@ -222,7 +222,7 @@ void joyRumble(JoyDevice &joy) {
     if (joy.oL == 0.0f && joy.vL == 0.0f && joy.oR == 0.0f && joy.vR == 0.0f)
         return;
  
-    if (osGetTime() <= joy.time)
+    if (Core::getTime() <= joy.time)
         return;
      
     input_event event;
@@ -255,7 +255,7 @@ void joyRumble(JoyDevice &joy) {
     joy.oL = joy.vL;
     joy.oR = joy.vR;
     
-    joy.time = osGetTime() + joy.fx.replay.length;
+    joy.time = Core::getTime() + joy.fx.replay.length;
 }
 
 void joyUpdate() {

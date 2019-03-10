@@ -27,7 +27,7 @@ void osMutexUnlock(void *obj) {
 // timing
 u64 startTick;
 
-int osGetTime() {
+int osGetTimeMS() {
     u64 tick = armGetSystemTick();
     return int(((tick - startTick) * 625 / 12) / 1000000);
 }
@@ -187,7 +187,7 @@ int  joySplitTime;
 
 void joySplit(bool split) {
     joyIsSplit   = split;
-    joySplitTime = osGetTime();
+    joySplitTime = Core::getTime();
     if (split) {
         hidSetNpadJoyHoldType(HidJoyHoldType_Horizontal);
         hidSetNpadJoyAssignmentModeSingleByDefault(CONTROLLER_PLAYER_1);
@@ -245,7 +245,7 @@ void joyUpdate() {
         Input::setJoyPos(i, jkR, vec2(float(sR.dx), float(-sR.dy)) / 32767.0f);
 
         if ((mask & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) { // hold L and R to split/merge joy-con's
-            if (joySplitTime + 1000 < osGetTime()) { // 1 sec timer
+            if (joySplitTime + 1000 < Core::getTime()) { // 1 sec timer
                 joySplit(!joyIsSplit);
             }
             waitForSplit = true;
@@ -253,7 +253,7 @@ void joyUpdate() {
     }
 
     if (!waitForSplit) {
-        joySplitTime = osGetTime();
+        joySplitTime = Core::getTime();
     }
 }
 

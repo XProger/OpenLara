@@ -24,7 +24,7 @@ void osJoyVibrate(int index, float L, float R) {
     // TODO
 }
 
-int osGetTime() {
+int osGetTimeMS() {
     const int64_t kOneMillion = 1000 * 1000;
     static mach_timebase_info_data_t info;
 
