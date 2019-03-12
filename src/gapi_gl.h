@@ -807,7 +807,9 @@ namespace GAPI {
             glGenerateMipmap(target);
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
+            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) // TODO
                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
+            #endif
             }
         }
 
@@ -1122,9 +1124,13 @@ namespace GAPI {
             #ifdef _GAPI_GLES
                 int GLES_VERSION = 1;
                 #if defined(__SDL2__)
-                SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &GLES_VERSION);
+                    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &GLES_VERSION);
                 #else
-                glGetIntegerv(GL_MAJOR_VERSION, &GLES_VERSION);
+                    #if defined(_OS_RPI) || defined(_OS_CLOVER)
+                        GLES_VERSION = 2;
+                    #else
+                        glGetIntegerv(GL_MAJOR_VERSION, &GLES_VERSION);
+                    #endif
                 #endif 
                 GLES3 = GLES_VERSION > 2; 
             #endif
