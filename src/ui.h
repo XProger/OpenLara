@@ -138,6 +138,8 @@ namespace UI {
 
         delete[] level.spriteTextures;
         level.spriteTextures = newSprites;
+        TR::gSpriteTextures      = level.spriteTextures;
+        TR::gSpriteTexturesCount = level.spriteTexturesCount;
     }
 
     short2 getLineSize(const char *text) {

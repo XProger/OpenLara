@@ -1515,7 +1515,7 @@ struct Level : IGame {
         ASSERT(COUNT(CommonTexOffset) == CTEX_MAX);
         memset(CommonTex, 0, sizeof(CommonTex));
         for (int i = 0; i < CTEX_MAX; i++) {
-            CommonTex[i].type = TR::TEX_TYPE_SPRITE;
+            CommonTex[i].type = CommonTex[i].dataType = TR::TEX_TYPE_SPRITE;
             Atlas *dst = (i == CTEX_FLASH || i == CTEX_WHITE_OBJECT) ? oAtlas : ((i == CTEX_WHITE_ROOM) ? rAtlas : gAtlas);
             dst->add(level.objectTexturesCount + level.spriteTexturesCount + i, short4(i * 32, ATLAS_PAGE_BARS, i * 32 + CommonTexOffset[i].x, ATLAS_PAGE_BARS + CommonTexOffset[i].y), &CommonTex[i]);
         }
