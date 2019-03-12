@@ -299,7 +299,7 @@
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
 #endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_IOS) && !defined(_OS_ANDROID) && !defined(__SDL2__)
+#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_PSC) && !defined(_OS_IOS) && !defined(_OS_ANDROID) && !defined(__SDL2__)
     PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
 #endif
 
@@ -1359,7 +1359,7 @@ namespace GAPI {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
                 #else
-                    #if !defined(__SDL2__)
+                    #if !defined(__SDL2__) && !defined(_OS_PSC)
                         glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                     #endif
                 #endif
