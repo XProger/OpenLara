@@ -45,6 +45,13 @@
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+#elif __PSC__
+    #define _OS_CLOVER 1
+    #define _OS_PSC    1
+    #define _GAPI_GL   1
+    #define _GAPI_GLES 1
+
+    #define DYNGEOM_NO_VBO
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
