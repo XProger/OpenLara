@@ -142,9 +142,9 @@ EGLContext context;
 // Wayland Listeners
 void wlEventObjectAdd(void* data, wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
     if (!strcmp(interface, "wl_compositor")) {
-        wlCompositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
+        wlCompositor = (wl_compositor*)wl_registry_bind(registry, name, &wl_compositor_interface, 1);
     } else if (!strcmp(interface, "wl_shell")) {
-        wlShell = wl_registry_bind(registry, name, &wl_shell_interface, 1);
+        wlShell = (wl_shell*)wl_registry_bind(registry, name, &wl_shell_interface, 1);
     }
 }
 
@@ -200,7 +200,7 @@ bool eglInit() {
         EGL_NONE
     };
 
-    display = eglGetDisplay(wlDisplay);
+    display = eglGetDisplay((EGLNativeDisplayType)wlDisplay);;
     if (display == EGL_NO_DISPLAY) {
         LOG("eglGetDisplay = EGL_NO_DISPLAY\n");
         return false;
@@ -254,7 +254,7 @@ void eglFree() {
     eglDestroySurface(display, surface);
     wl_egl_window_destroy(wlEGLWindow);
     wl_shell_surface_destroy(wlShellSurface);
-    wl_surface_destroy(wlSurface)
+    wl_surface_destroy(wlSurface);
     eglDestroyContext(display, context);
     eglTerminate(display);
     wl_display_disconnect(wlDisplay);
@@ -585,8 +585,8 @@ int main(int argc, char **argv) {
         return -1;
     }
     
-    Core::width  = fb.width;
-    Core::height = fb.height;
+    //Core::width  = fb.width;
+    //Core::height = fb.height;
 
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
@@ -603,7 +603,7 @@ int main(int argc, char **argv) {
     strcpy(cacheDir, contentDir);
     strcat(cacheDir, "cache/");
 
-    stat st = {0};
+    struct stat st = {0};
     if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
         cacheDir[0] = 0;
 
