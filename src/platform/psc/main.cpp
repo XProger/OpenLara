@@ -13,9 +13,15 @@
 #include <libudev.h>
 #include <alsa/asoundlib.h>
 
+#include <wayland-client.h>
+#include <wayland-egl.h>
+
 #include "game.h"
 
 #define WND_TITLE    "OpenLara"
+
+#define WND_WIDTH    1280
+#define WND_HEIGHT   720
 
 // timing
 unsigned int startTime;
@@ -122,28 +128,62 @@ void sndFree() {
 }
 
 // Window
-struct FrameBuffer {
-    unsigned short width;
-    unsigned short height;
-} fb;
+wl_display       *wlDisplay;
+wl_compositor    *wlCompositor = NULL;
+wl_shell         *wlShell = NULL;
+wl_surface       *wlSurface;
+wl_shell_surface *wlShellSurface;
+wl_egl_window    *wlEGLWindow;
 
 EGLDisplay display;
 EGLSurface surface;
 EGLContext context;
 
+// Wayland Listeners
+void wlEventObjectAdd(void* data, wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
+    if (!strcmp(interface, "wl_compositor")) {
+        wlCompositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
+    } else if (!strcmp(interface, "wl_shell")) {
+        wlShell = wl_registry_bind(registry, name, &wl_shell_interface, 1);
+    }
+}
+
+void wlEventObjectRemove(void* data, wl_registry* registry, uint32_t name) {
+    //
+}
+
+wl_registry_listener wlRegistryListener = {
+    &wlEventObjectAdd,
+    &wlEventObjectRemove
+};
+
+void wlEventSurfacePing(void* data, wl_shell_surface* shell_surface, uint32_t serial) {
+    wl_shell_surface_pong(shell_surface, serial);
+}
+
+void wlEventSurfaceConfig(void* data, wl_shell_surface* shell_surface, uint32_t edges, int32_t width, int32_t height) {
+    wl_egl_window_resize(wlEGLWindow, width, height, 0, 0);
+    Core::width  = width;
+    Core::height = height;
+}
+
+void wlEnentSurfacePopup(void* data, wl_shell_surface* shell_surface) {
+    //
+}
+
+wl_shell_surface_listener wlSurfaceListener = {
+    &wlEventSurfacePing,
+    &wlEventSurfaceConfig,
+    &wlEnentSurfacePopup
+};
+
 bool eglInit() {
     LOG("EGL init context...\n");
-    
-    fb_var_screeninfo vinfo;
-    int fd = open("/dev/fb0", O_RDWR);
-    if (ioctl(fd, FBIOGET_VSCREENINFO, &vinfo) < 0) {
-        LOG("! can't get framebuffer size\n");
-        return false;
-    }
-    close(fd);
 
-    fb.width  = vinfo.xres;
-    fb.height = vinfo.yres;
+    wlDisplay = wl_display_connect(NULL);
+    wl_registry* registry = wl_display_get_registry(wlDisplay);
+    wl_registry_add_listener(registry, &wlRegistryListener, NULL);
+    wl_display_roundtrip(wlDisplay);
     
     static const EGLint eglAttr[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -160,7 +200,7 @@ bool eglInit() {
         EGL_NONE
     };
 
-    display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    display = eglGetDisplay(wlDisplay);
     if (display == EGL_NO_DISPLAY) {
         LOG("eglGetDisplay = EGL_NO_DISPLAY\n");
         return false;
@@ -171,6 +211,8 @@ bool eglInit() {
         return false;
     }
 
+    eglBindAPI(EGL_OPENGL_API);
+
     EGLConfig config;
     EGLint configCount;
 
@@ -179,15 +221,22 @@ bool eglInit() {
         return false;
     }
 
-    surface = eglCreateWindowSurface(display, config, &fb, NULL);
-    if (surface == EGL_NO_SURFACE) {
-        LOG("eglCreateWindowSurface = EGL_NO_SURFACE\n");
-        return false;
-    }
-
     context = eglCreateContext(display, config, EGL_NO_CONTEXT, ctxAttr);
     if (context == EGL_NO_CONTEXT) {
         LOG("eglCreateContext = EGL_NO_CONTEXT\n");
+        return false;
+    }
+
+    wlSurface = wl_compositor_create_surface(wlCompositor);
+    wlShellSurface = wl_shell_get_shell_surface(wlShell, wlSurface);
+    wl_shell_surface_add_listener(wlShellSurface, &wlSurfaceListener, NULL);
+    wl_shell_surface_set_toplevel(wlShellSurface);
+
+    wlEGLWindow = wl_egl_window_create(wlSurface, WND_WIDTH, WND_HEIGHT);
+
+    surface = eglCreateWindowSurface(display, config, wlEGLWindow, NULL);
+    if (surface == EGL_NO_SURFACE) {
+        LOG("eglCreateWindowSurface = EGL_NO_SURFACE\n");
         return false;
     }
 
@@ -203,8 +252,12 @@ void eglFree() {
     LOG("EGL release context\n");
     eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroySurface(display, surface);
+    wl_egl_window_destroy(wlEGLWindow);
+    wl_shell_surface_destroy(wlShellSurface);
+    wl_surface_destroy(wlSurface)
     eglDestroyContext(display, context);
     eglTerminate(display);
+    wl_display_disconnect(wlDisplay);
 }
 
 // Input
@@ -550,7 +603,7 @@ int main(int argc, char **argv) {
     strcpy(cacheDir, contentDir);
     strcat(cacheDir, "cache/");
 
-    struct stat st = {0};
+    stat st = {0};
     if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
         cacheDir[0] = 0;
 
