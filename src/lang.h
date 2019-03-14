@@ -244,7 +244,7 @@ enum StringID {
       "English"       \
     , "Fran|cais"     \
     , "Deutsch"       \
-    , "Espa(~nol"     \
+    , "Espa+nol"      \
     , "Italiano"      \
     , "Polski"        \
     , "Portugu(es"    \
