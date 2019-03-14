@@ -595,7 +595,7 @@ struct MovingBlock : Controller {
     virtual void setSaveData(const SaveEntity &data) {
         updateFloor(false);
         Controller::setSaveData(data);
-        if (flags.state == TR::Entity::asNone)
+        if (state != STATE_MOVE)
             updateFloor(true);
     }
 
