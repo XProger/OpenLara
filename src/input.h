@@ -88,7 +88,7 @@ namespace Input {
             }
         down[key] = value;
 
-        if (value && key <= ikZ) {
+        if (value && key <= ikBack) {
             lastKey = key;
             touchTimerVis = 0.0f;
         }

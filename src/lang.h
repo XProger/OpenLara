@@ -92,7 +92,7 @@ enum StringID {
     , STR_CTRL_LAST = STR_CTRL_FIRST + cMAX - 1
     // keys
     , STR_KEY_FIRST
-    , STR_KEY_LAST  = STR_KEY_FIRST + ikZ
+    , STR_KEY_LAST  = STR_KEY_FIRST + ikBack
     // gamepad
     , STR_JOY_FIRST
     , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
@@ -258,6 +258,9 @@ enum StringID {
     , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" \
     , "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M" \
     , "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" \
+    , "PAD0", "PAD1", "PAD2", "PAD3", "PAD4", "PAD5", "PAD6", "PAD7", "PAD8", "PAD9", "PAD+", "PAD-", "PADx", "PAD/", "PAD." \
+    , "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" \
+    , "-", "+", "<", ">", "/", "\\", ",", ".", "$", ":", "'", "PGUP", "PGDN", "HOME", "END", "DEL", "INS", "BKSP" \
     , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
 
 const char *helpText = 

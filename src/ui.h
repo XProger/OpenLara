@@ -161,7 +161,7 @@ namespace UI {
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
 
-            if (skipChar(c)) {
+            if (skipChar(c) && *text && *text != '@') {
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -193,7 +193,7 @@ namespace UI {
             if (c == '\xBF') c = '?';
             if (c == '\xA1') c = '!';
 
-            if (skipChar(c)) {
+            if (skipChar(c) && *text && *text != '@') {
                 //
             } else if (c == ' ' || c == '_') {
                 x += 6;
@@ -344,7 +344,7 @@ namespace UI {
             if (charFrame == '{')    charFrame = '(';
 
             int frame = charRemap(charFrame);
-            if (c == '+') frame = CHAR_SPR_TILDA;
+            if (c == '+' && *text && *text != '@') frame = CHAR_SPR_TILDA;
             if (c == 'i' && skipChar(lastChar)) frame = CHAR_SPR_I;
             lastChar = c;
 
@@ -365,7 +365,7 @@ namespace UI {
                 }
             }
 
-            bool isSkipChar = skipChar(c);
+            bool isSkipChar = skipChar(c) && *text && *text != '@';
 
             if (isSkipChar) {
                 int idx = charRemap(remapCyrillic(*text));

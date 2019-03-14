@@ -142,6 +142,9 @@ enum InputKey { ikNone,
     ik0, ik1, ik2, ik3, ik4, ik5, ik6, ik7, ik8, ik9,
     ikA, ikB, ikC, ikD, ikE, ikF, ikG, ikH, ikI, ikJ, ikK, ikL, ikM,
     ikN, ikO, ikP, ikQ, ikR, ikS, ikT, ikU, ikV, ikW, ikX, ikY, ikZ,
+    ikN0, ikN1, ikN2, ikN3, ikN4, ikN5, ikN6, ikN7, ikN8, ikN9, ikNAdd, ikNSub, ikNMul, ikNDiv, ikNDot, 
+    ikF1, ikF2, ikF3, ikF4, ikF5, ikF6, ikF7, ikF8, ikF9, ikF10, ikF11, ikF12,
+    ikMinus, ikPlus, ikLSB, ikRSB, ikSlash, ikBSlash, ikComa, ikDot, ikTilda, ikColon, ikApos, ikPrev, ikNext, ikHome, ikEnd, ikDel, ikIns, ikBack,
 // mouse
     ikMouseL, ikMouseR, ikMouseM,
 // touch
