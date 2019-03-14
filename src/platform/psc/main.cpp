@@ -625,6 +625,8 @@ int main(int argc, char **argv) {
     sndInit();
 
     while (!Core::isQuit) {
+        wl_display_dispatch_pending(wlDisplay);
+
         inputUpdate();
 
         if (Game::update()) {
