@@ -1382,7 +1382,13 @@ struct MovingObject : Controller {
 
 struct CentaurStatue : Controller {
 
-    CentaurStatue(IGame *game, int entity) : Controller(game, entity) {}
+    CentaurStatue(IGame *game, int entity) : Controller(game, entity) {
+        flags.unused = false;
+    }
+
+    virtual bool activate() {
+        return (flags.unused ? false : Controller::activate());
+    }
 
     virtual void update() {
         if (explodeMask) {
@@ -1393,6 +1399,7 @@ struct CentaurStatue : Controller {
         }
 
         if ((pos - game->getLara(pos)->pos).length() < CENTAUR_STATUE_RANGE) {
+            flags.unused = true;
             explode(0xFFFFFFFF, 0.0f);
             game->playSound(TR::SND_EXPLOSION, pos, Sound::PAN);
             Controller *enemy = game->addEntity(TR::Entity::ENEMY_CENTAUR, getRoomIndex(), pos, angle.y);
