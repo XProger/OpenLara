@@ -88,9 +88,9 @@ namespace GAPI {
             void *mem;
 
             if (type == SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW) {
-                size = ALIGN(size, 256 * 1024);
+                size = ALIGNADDR(size, 256 * 1024);
             } else {
-                size = ALIGN(size, 4 * 1024);
+                size = ALIGNADDR(size, 4 * 1024);
             }
 
             *uid = sceKernelAllocMemBlock("gpu_mem", type, size, NULL);
@@ -127,7 +127,7 @@ namespace GAPI {
         void* allocVertexUSSE(unsigned int size, SceUID *uid, unsigned int *usse_offset) {
             void *mem = NULL;
 
-            size = ALIGN(size, 4096);
+            size = ALIGNADDR(size, 4096);
 
             *uid = sceKernelAllocMemBlock("vertex_usse", SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE, size, NULL);
 
@@ -155,7 +155,7 @@ namespace GAPI {
         void* allocFragmentUSSE(unsigned int size, SceUID *uid, unsigned int *usse_offset) {
             void *mem = NULL;
 
-            size = ALIGN(size, 4096);
+            size = ALIGNADDR(size, 4096);
 
             *uid = sceKernelAllocMemBlock("fragment_usse", SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE, size, NULL);
 
@@ -371,8 +371,8 @@ namespace GAPI {
                 sceGxmSyncObjectCreate(&color.syncObj);
             }
 
-            uint32 dsWidth   = ALIGN(DISPLAY_WIDTH,  SCE_GXM_TILE_SIZEX);
-            uint32 dsHeight  = ALIGN(DISPLAY_HEIGHT, SCE_GXM_TILE_SIZEY);
+            uint32 dsWidth   = ALIGNADDR(DISPLAY_WIDTH,  SCE_GXM_TILE_SIZEX);
+            uint32 dsHeight  = ALIGNADDR(DISPLAY_HEIGHT, SCE_GXM_TILE_SIZEY);
 
             depthBuffer.data = Context::allocGPU(
                 SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE,
@@ -473,6 +473,7 @@ namespace GAPI {
         bool rebind;
 
         void init(Pass pass, int type, int *def, int defCount) {
+			LOG("init shader %d %d ", int(pass), int(type));
             memset(pso, 0, sizeof(pso));
 
             outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4;
@@ -498,7 +499,7 @@ namespace GAPI {
             #define SHADER_U(S,P)  (underwater ? SHADER(S##_u,P) : SHADER(S,P))
             #define SHADER_AU(S,P) ((underwater && alphatest) ? SHADER(S##_au,P) : (alphatest ? SHADER(S##_a,P) : SHADER_U(S,P)))
 
-            const uint8 *vSrc, *fSrc;
+            const uint8 *vSrc = NULL, *fSrc = NULL;
             switch (pass) {
                 case passCompose :
                     switch (type) {
@@ -512,7 +513,8 @@ namespace GAPI {
                     break;
                 case passShadow : 
                     switch (type) {
-                        case 3  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
+                        case 3  : 
+						case 4  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
                         default : ASSERT(false);
                     }
                     break;
@@ -545,9 +547,12 @@ namespace GAPI {
                     }
                     break;
                 case passGUI    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
+				case passSky    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
                 case PASS_CLEAR : vSrc = SHADER ( clear, v );  fSrc = SHADER ( clear, f ); break;
                 default         : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
+
+			LOG("  %s", vSrc != NULL ? "true" : "false");
 
             #undef SHADER_A
             #undef SHADER_U
@@ -604,6 +609,8 @@ namespace GAPI {
             }
 
             colorMask = blendMode = -1;
+
+			LOG("done\n");
         }
 
         void deinit() {
@@ -750,7 +757,7 @@ namespace GAPI {
         uint8         *data;
         SceUID        uid;
 
-        int           width, height, origWidth, origHeight, aWidth, aHeight;
+        int           width, height, depth, origWidth, origHeight, origDepth, aWidth, aHeight;
         TexFormat     fmt;
         uint32        opt;
         int           mipCount;
@@ -762,7 +769,7 @@ namespace GAPI {
         SceGxmDepthStencilSurface depthSurface;
         void                      *depthBufferData;
 
-        Texture(int width, int height, uint32 opt) : width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) { opt |= OPT_NEAREST; }
+        Texture(int width, int height, int depth, uint32 opt) : width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) { opt |= OPT_NEAREST; }
 
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
@@ -781,10 +788,10 @@ namespace GAPI {
                 aWidth  = width  = nextPow2(width);
                 aHeight = height = nextPow2(height);
             } else if (isTiled) {
-                aWidth  = ALIGN(width,  SCE_GXM_TILE_SIZEX);
-                aHeight = ALIGN(height, SCE_GXM_TILE_SIZEY);
+                aWidth  = ALIGNADDR(width,  SCE_GXM_TILE_SIZEX);
+                aHeight = ALIGNADDR(height, SCE_GXM_TILE_SIZEY);
             } else {
-                aWidth  = ALIGN(width, 8);
+                aWidth  = ALIGNADDR(width, 8);
                 aHeight = height;
             }
 
@@ -799,7 +806,7 @@ namespace GAPI {
                 int w = width;
                 int h = height;
                 while (w > 15 && h > 15 && mipCount < 4) {
-                    size += ALIGN(w, 8) * h;
+                    size += ALIGNADDR(w, 8) * h;
                     w /= 2;
                     h /= 2;
                     mipCount++;
@@ -890,8 +897,8 @@ namespace GAPI {
                         desc.bpp > 32 ? SCE_GXM_OUTPUT_REGISTER_SIZE_64BIT : SCE_GXM_OUTPUT_REGISTER_SIZE_32BIT,
                         aWidth, aHeight, aWidth, this->data);
 
-                    uint32 dsWidth  = ALIGN(width,  SCE_GXM_TILE_SIZEX);
-                    uint32 dsHeight = ALIGN(height, SCE_GXM_TILE_SIZEY);
+                    uint32 dsWidth  = ALIGNADDR(width,  SCE_GXM_TILE_SIZEX);
+                    uint32 dsHeight = ALIGNADDR(height, SCE_GXM_TILE_SIZEY);
 
                     depthBufferData = Context::allocGPU(
                         SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE,
@@ -934,11 +941,11 @@ namespace GAPI {
             int h = height;
 
             uint8 *src = this->data;
-            int srcStride = ALIGN(w, 8) * 4;
+            int srcStride = ALIGNADDR(w, 8) * 4;
 
             for (int i = 0; i < mipCount - 1; i++) {
                 uint8 *dst = src + srcStride * h;
-                int dstStride = ALIGN(w / 2, 8) * 4;
+                int dstStride = ALIGNADDR(w / 2, 8) * 4;
 
                 // TODO: check for NPOT
                 if (w > 1024 || h > 1024) { // sceGxmTransferDownscale supports blocks less than 1024
@@ -1214,7 +1221,7 @@ namespace GAPI {
     }
 
     bool hasScene;
-    Texture defTarget(DISPLAY_WIDTH, DISPLAY_HEIGHT, OPT_TARGET);
+    Texture defTarget(DISPLAY_WIDTH, DISPLAY_HEIGHT, 1, OPT_TARGET);
 
     void resetState() {
         hasScene = false;

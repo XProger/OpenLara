@@ -2,7 +2,7 @@
 #define H_ENEMY
 
 #include "character.h"
-#include "trigger.h"
+#include "objects.h"
 
 #define STALK_BOX       (1024 * 3)
 #define ESCAPE_BOX      (1024 * 5)

@@ -164,7 +164,8 @@ namespace GAPI {
                     break;
                 case passShadow : 
                     switch (type) {
-                        case 3  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
+                        case 3  :
+                        case 4  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
                         default : ASSERT(false);
                     }
                     break;
@@ -176,6 +177,7 @@ namespace GAPI {
                         default : ASSERT(false);
                     }
                     break;
+                case passSky   : vSrc = SHADER ( gui, v );  fSrc = SHADER ( gui, f ); break; // TODO
                 case passWater : 
                     switch (type) {
                         case 0  : vSrc = SHADER ( water_drop,     v );  fSrc = SHADER ( water_drop,     f ); break;

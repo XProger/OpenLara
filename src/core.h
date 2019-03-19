@@ -638,17 +638,17 @@ namespace Core {
 }
 
 #ifdef _GAPI_GL
-    #include "gapi_gl.h"
+    #include "gapi/gl.h"
 #elif _GAPI_D3D9
-    #include "gapi_d3d9.h"
+    #include "gapi/d3d9.h"
 #elif _OS_3DS
-    #include "gapi_c3d.h"
+    #include "gapi/c3d.h"
 #elif _GAPI_GU
-    #include "gapi_gu.h"
+    #include "gapi/gu.h"
 #elif _GAPI_GXM
-    #include "gapi_gxm.h"
+    #include "gapi/gxm.h"
 #elif _GAPI_VULKAN
-    #include "gapi_vk.h"
+    #include "gapi/vk.h"
 #endif
 
 #include "texture.h"
@@ -701,6 +701,7 @@ namespace Core {
 
         memset(&support, 0, sizeof(support));
         support.texMinSize = 1;
+        Core::support.derivatives = true;
 
         #ifdef USE_INFLATE
             tinf_init();

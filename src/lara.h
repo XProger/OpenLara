@@ -4,7 +4,7 @@
 /*     Desine sperare qui hic intras     */
 /*****************************************/
 #include "character.h"
-#include "trigger.h"
+#include "objects.h"
 #include "sprite.h"
 #include "enemy.h"
 #include "inventory.h"
