@@ -177,13 +177,27 @@ wl_shell_surface_listener wlSurfaceListener = {
     &wlEnentSurfacePopup
 };
 
+void main_loop(void *data, wl_callback *callback, uint32_t time);
+
+bool configured = false;
+
+void configure_callback(void *data, wl_callback *callback, uint32_t  time) {
+    wl_callback_destroy(callback);
+    configured = true;
+    main_loop(data, NULL, time);
+}
+
+wl_callback_listener configure_callback_listener = {
+    configure_callback,
+};
+
 bool eglInit() {
     LOG("EGL init context...\n");
 
     wlDisplay = wl_display_connect(NULL);
     wl_registry* registry = wl_display_get_registry(wlDisplay);
     wl_registry_add_listener(registry, &wlRegistryListener, NULL);
-    wl_display_roundtrip(wlDisplay);
+    wl_display_dispatch(wlDisplay);
     
     static const EGLint eglAttr[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -192,6 +206,7 @@ bool eglInit() {
         EGL_GREEN_SIZE,      8,
         EGL_RED_SIZE,        8,
         EGL_ALPHA_SIZE,      8,
+        EGL_DEPTH_SIZE,      24,
         EGL_NONE
     };
 
@@ -211,7 +226,7 @@ bool eglInit() {
         return false;
     }
 
-    eglBindAPI(EGL_OPENGL_API);
+    eglBindAPI(EGL_OPENGL_ES_API);
 
     EGLConfig config;
     EGLint configCount;
@@ -244,6 +259,11 @@ bool eglInit() {
         LOG("eglMakeCurrent = EGL_FALSE\n");
         return false;
     }
+
+    wl_shell_surface_set_fullscreen(wlShellSurface, WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT, 0, NULL);
+
+    wl_callback *callback = wl_display_sync(wlDisplay);
+    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
 
     return true;
 }
@@ -279,96 +299,6 @@ bool osJoyReady(int index) {
 
 void osJoyVibrate(int index, float L, float R) {
     // TODO
-}
-
-InputKey codeToInputKey(int code) {
-    switch (code) {
-    // keyboard
-        case KEY_LEFT       : return ikLeft;
-        case KEY_RIGHT      : return ikRight;
-        case KEY_UP         : return ikUp;
-        case KEY_DOWN       : return ikDown;
-        case KEY_SPACE      : return ikSpace;
-        case KEY_TAB        : return ikTab;
-        case KEY_ENTER      : return ikEnter;
-        case KEY_ESC        : return ikEscape;
-        case KEY_LEFTSHIFT  :
-        case KEY_RIGHTSHIFT : return ikShift;
-        case KEY_LEFTCTRL   :
-        case KEY_RIGHTCTRL  : return ikCtrl;
-        case KEY_LEFTALT    :
-        case KEY_RIGHTALT   : return ikAlt;
-        case KEY_0          : return ik0;
-        case KEY_1          : return ik1;
-        case KEY_2          : return ik2;
-        case KEY_3          : return ik3;
-        case KEY_4          : return ik4;
-        case KEY_5          : return ik5;
-        case KEY_6          : return ik6;
-        case KEY_7          : return ik7;
-        case KEY_8          : return ik8;
-        case KEY_9          : return ik9;
-        case KEY_A          : return ikA;
-        case KEY_B          : return ikB;
-        case KEY_C          : return ikC;
-        case KEY_D          : return ikD;
-        case KEY_E          : return ikE;
-        case KEY_F          : return ikF;
-        case KEY_G          : return ikG;
-        case KEY_H          : return ikH;
-        case KEY_I          : return ikI;
-        case KEY_J          : return ikJ;
-        case KEY_K          : return ikK;
-        case KEY_L          : return ikL;
-        case KEY_M          : return ikM;
-        case KEY_N          : return ikN;
-        case KEY_O          : return ikO;
-        case KEY_P          : return ikP;
-        case KEY_Q          : return ikQ;
-        case KEY_R          : return ikR;
-        case KEY_S          : return ikS;
-        case KEY_T          : return ikT;
-        case KEY_U          : return ikU;
-        case KEY_V          : return ikV;
-        case KEY_W          : return ikW;
-        case KEY_X          : return ikX;
-        case KEY_Y          : return ikY;
-        case KEY_Z          : return ikZ;
-        case KEY_HOMEPAGE   : return ikEscape;
-    // mouse
-        case BTN_LEFT       : return ikMouseL;
-        case BTN_RIGHT      : return ikMouseR;
-        case BTN_MIDDLE     : return ikMouseM;
-    // system keys
-        case KEY_VOLUMEUP   :
-        case BTN_MODE       :
-            Core::quit();
-            return ikNone;
-    }
-    return ikNone;
-}
-
-JoyKey codeToJoyKey(int code) {
-    switch (code) {
-    // gamepad
-        case BTN_TRIGGER_HAPPY1 : return jkLeft;
-        case BTN_TRIGGER_HAPPY2 : return jkRight;
-        case BTN_TRIGGER_HAPPY3 : return jkUp;
-        case BTN_TRIGGER_HAPPY4 : return jkDown;
-        case BTN_A          : return jkB;
-        case BTN_B          : return jkA;
-        case BTN_X          : return jkY;
-        case BTN_Y          : return jkX;
-        case BTN_TL         : return jkLB;
-        case BTN_TR         : return jkRB;
-        case BTN_SELECT     : return jkSelect;
-        case BTN_START      : return jkStart;
-        case BTN_THUMBL     : return jkL;
-        case BTN_THUMBR     : return jkR;
-        case BTN_TL2        : return jkLT;
-        case BTN_TR2        : return jkRT;
-    }
-    return jkNone;
 }
 
 int inputDevIndex(const char *node) {
@@ -482,6 +412,23 @@ vec2 joyDir(const vec2 &value) {
     return value.normal() * dist;
 }
 
+JoyKey codeToJoyKey(int code) {
+    switch (code) {
+    // gamepad
+        case BTN_B   : return jkB;
+        case BTN_C   : return jkA;
+        case BTN_A   : return jkY;
+        case BTN_X   : return jkX;
+        case BTN_TL  : return jkLB;
+        case BTN_TR  : return jkRB;
+        case BTN_TL2 : return jkSelect;
+        case BTN_TR2 : return jkStart;
+        case BTN_Y   : return jkLT;
+        case BTN_Z   : return jkRT;
+    }
+    return jkNone;
+}
+
 void inputUpdate() {
 // get input events
     input_event events[16];
@@ -491,60 +438,37 @@ void inputUpdate() {
         int rb = read(inputDevices[i].fd, events, sizeof(events));
 
         int joyIndex = inputDevices[i].joyIndex;
+        if (joyIndex == -1) continue;
 
         input_event *e = events;
         while (rb > 0) {
             switch (e->type) {
                 case EV_KEY : {
-                    InputKey key = codeToInputKey(e->code);
-                    if (key != ikNone) {
-                        if (key == ikMouseL || key == ikMouseR || key == ikMouseM)
-                            Input::setPos(key, Input::mouse.pos);
-                        Input::setDown(key, e->value != 0);
-                    } else {
-                        if (joyIndex == -1)
-                            break;
-                        JoyKey key = codeToJoyKey(e->code);
-                        Input::setJoyDown(joyIndex, key, e->value != 0);
-                    }
-                    break;
-                }
-                case EV_REL : {
-                    vec2 delta(0);
-                    delta[e->code] = float(e->value);
-                    Input::setPos(ikMouseL, Input::mouse.pos + delta);
+                    JoyKey key = codeToJoyKey(e->code);
+                    Input::setJoyDown(joyIndex, key, e->value != 0);
                     break;
                 }
                 case EV_ABS : {
-                    if (joyIndex == -1)
-                        break;
-                        
                     switch (e->code) {
-                    // Left stick
-                        case ABS_X  : joyL.x = joyAxisValue(e->value); break;
-                        case ABS_Y  : joyL.y = joyAxisValue(e->value); break;
-                    // Right stick
-                        case ABS_RX : joyR.x = joyAxisValue(e->value); break;
-                        case ABS_RY : joyR.y = joyAxisValue(e->value); break;
-                    // Left trigger
-                        case ABS_Z  : Input::setJoyPos(joyIndex, jkLT, joyTrigger(e->value)); break;
-                    // Right trigger
-                        case ABS_RZ : Input::setJoyPos(joyIndex, jkRT, joyTrigger(e->value)); break;
-                    // D-PAD
-                        case ABS_HAT0X    :
-                        case ABS_THROTTLE :
-                            Input::setJoyDown(joyIndex, jkLeft,  e->value < 0);
-                            Input::setJoyDown(joyIndex, jkRight, e->value > 0);
+                        case ABS_X : {
+                            if (e->value == 1) {
+                                Input::setJoyDown(joyIndex, jkLeft,  false);
+                                Input::setJoyDown(joyIndex, jkRight, false);
+                            } else {
+                                Input::setJoyDown(joyIndex, e->value ? jkRight : jkLeft, true);
+                            }
                             break;
-                        case ABS_HAT0Y    :
-                        case ABS_RUDDER   :
-                            Input::setJoyDown(joyIndex, jkUp,    e->value < 0);
-                            Input::setJoyDown(joyIndex, jkDown,  e->value > 0);
+                        }
+                        case ABS_Y : {
+                            if (e->value == 1) {
+                                Input::setJoyDown(joyIndex, jkUp,   false);
+                                Input::setJoyDown(joyIndex, jkDown, false);
+                            } else {
+                                Input::setJoyDown(joyIndex, e->value ? jkDown : jkUp, true);
+                            }
                             break;
+                        }
                     }
-
-                    Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-                    Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
                 }
             }
             //LOG("input: type = %d, code = %d, value = %d\n", int(e->type), int(e->code), int(e->value));
@@ -577,6 +501,37 @@ void inputUpdate() {
         } else
             LOG("! input: receive_device\n");
     }
+}
+
+wl_callback_listener frame_listener = {
+    main_loop
+};
+
+void main_loop(void *data, wl_callback *callback, uint32_t time) {
+    if (!configured)
+        return;
+
+    if (callback) {
+        wl_callback_destroy(callback);
+    }
+
+    inputUpdate();
+
+    Game::update();
+    Game::render();
+    Core::waitVBlank();
+
+    wl_region *region = wl_compositor_create_region(wlCompositor);
+    wl_region_add(region, 0, 0, Core::width, Core::height);
+    wl_surface_set_opaque_region(wlSurface, region);
+    wl_region_destroy(region);
+
+    {
+        wl_callback *callback = wl_surface_frame(wlSurface);
+        wl_callback_add_listener(callback, &frame_listener, NULL);
+    }
+            
+    eglSwapBuffers(display, surface);
 }
 
 int main(int argc, char **argv) {
@@ -624,18 +579,7 @@ int main(int argc, char **argv) {
     inputInit();
     sndInit();
 
-    while (!Core::isQuit) {
-        wl_display_dispatch_pending(wlDisplay);
-
-        inputUpdate();
-
-        if (Game::update()) {
-            Game::render();
-            Core::waitVBlank();
-            eglSwapBuffers(display, surface);
-        } else
-            usleep(9000);
-    };
+    while (!Core::isQuit && wl_display_dispatch(wlDisplay) != -1);
 
     inputFree();
 

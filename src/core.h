@@ -46,7 +46,6 @@
 
     #define DYNGEOM_NO_VBO
 #elif __PSC__
-    #define _OS_CLOVER 1
     #define _OS_PSC    1
     #define _GAPI_GL   1
     #define _GAPI_GLES 1
@@ -858,6 +857,12 @@ namespace Core {
     #if defined(_OS_RPI) || defined(_OS_CLOVER)
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setLighting (Core::Settings::MEDIUM);
+    #endif
+
+    #ifdef _OS_PSC
+        settings.detail.setLighting (Core::Settings::MEDIUM);
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setWater    (Core::Settings::LOW);
     #endif
 
     #ifdef _OS_3DS

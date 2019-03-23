@@ -68,6 +68,10 @@
 	#include <SDL2/SDL_opengl_glext.h>
     #endif
 
+#elif defined(_OS_PSC)
+    #include <GLES3/gl3.h>
+    #include <GLES2/gl2ext.h>
+    extern EGLDisplay display;
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
