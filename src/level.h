@@ -612,6 +612,41 @@ struct Level : IGame {
         Core::pass = tmpPass;
         Core::eye  = tmpEye;
     }
+
+    virtual void renderModelFull(int modelIndex, bool underwater, Basis *joints) {
+        vec4 ambient[6] = { vec4(0), vec4(0), vec4(0), vec4(0), vec4(0), vec4(0) };
+
+        // opaque
+        Core::setBlendMode(bmPremult); // inventory items has fade-out/in alpha
+        mesh->transparent = 0;
+        setShader(Core::passCompose, Shader::ENTITY, underwater, false);
+        Core::setBasis(joints, level.models[modelIndex].mCount);
+        Core::active.shader->setParam(uMaterial, Core::active.material);
+        Core::active.shader->setParam(uAmbient, ambient[0], 6);
+        Core::updateLights();
+        mesh->renderModel(modelIndex, underwater);
+        // transparent
+        mesh->transparent = 1;
+        setShader(Core::passCompose, Shader::ENTITY, underwater, true);
+        Core::setBasis(joints, level.models[modelIndex].mCount);
+        Core::active.shader->setParam(uMaterial, Core::active.material);
+        Core::active.shader->setParam(uAmbient, ambient[0], 6);
+        Core::updateLights();
+        mesh->renderModel(modelIndex, underwater);
+        // additive
+        Core::setBlendMode(bmAdd);
+        Core::setDepthWrite(false);
+        mesh->transparent = 2;
+        setShader(Core::passCompose, Shader::ENTITY, underwater, false);
+        Core::setBasis(joints, level.models[modelIndex].mCount);
+        Core::active.shader->setParam(uMaterial, Core::active.material);
+        Core::active.shader->setParam(uAmbient, ambient[0], 6);
+        Core::updateLights();
+        mesh->renderModel(modelIndex, underwater);
+        Core::setDepthWrite(true);
+        Core::setBlendMode(bmNone);
+        mesh->transparent = 0;
+    }
     
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {
         this->effect      = effect;

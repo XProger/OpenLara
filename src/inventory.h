@@ -516,8 +516,6 @@ struct Inventory {
         void render(IGame *game, const Basis &basis) {
             if (!anim) return;
 
-            MeshBuilder *mesh = game->getMesh();
-
             TR::Level *level = game->getLevel();
             TR::Model &m     = level->models[desc.model];
             Basis joints[MAX_SPHERES];
@@ -533,9 +531,7 @@ struct Inventory {
                 joints[1].rotate(quat(vec3(0.0f, 1.0f, 0.0f), -params.x));
             }
 
-            Core::setBasis(joints, m.mCount);
-
-            mesh->renderModelFull(desc.model);
+            game->renderModelFull(desc.model, false, joints);
         }
 
         void choose() {

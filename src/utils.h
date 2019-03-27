@@ -1042,6 +1042,8 @@ struct short2 {
 
     short2() {}
     short2(int16 x, int16 y) : x(x), y(y) {}
+
+    inline bool operator == (const short2 &v) const { return x == v.x && y == v.y; }
 };
 
 struct short3 {

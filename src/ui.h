@@ -719,7 +719,6 @@ namespace UI {
 
         Core::setDepthTest(true);
 
-        MeshBuilder *mesh = game->getMesh();
         for (int i = 0; i < pickups.length; i++) {
             const PickupItem &item = pickups[i];
 
@@ -741,7 +740,6 @@ namespace UI {
             matrix.rotateY(item.time * PI * 0.5f);
 
             item.animation->getJoints(matrix, -1, true, joints);
-            Core::setBasis(joints, item.animation->model->mCount);
 
             float alpha = 1.0f - min(PICKUP_SHOW_TIME - item.time, 1.0f);
             alpha *= alpha;
@@ -750,7 +748,7 @@ namespace UI {
 
             Core::setMaterial(1.0f, 0.0f, 0.0f, alpha);
 
-            mesh->renderModelFull(item.modelIndex - 1);
+            game->renderModelFull(item.modelIndex - 1, false, joints);
         }
 
         Core::setDepthTest(false);
