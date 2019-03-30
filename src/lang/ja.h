@@ -280,7 +280,7 @@ const char *STR_JA[] = { "日本語"
 #endif
 
 #define JA_GLYPH_COUNT 452
-#define JA_GLYPH_BASE 1
+#define JA_GLYPH_BASE 0
 const uint8 JA_GLYPH_WIDTH[] = {
     16, 16, 15, 14, 6, 10, 16, 15, 16, 6, 16, 16, 15, 16, 15, 16, 
     15, 15, 15, 16, 16, 14, 15, 15, 15, 15, 16, 16, 17, 14, 17, 14, 
