@@ -79,12 +79,6 @@
     <ClInclude Include="..\..\lang\de.h">
       <Filter>lang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\lang\glyph_cyr.h">
-      <Filter>lang</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\lang\glyph_jap.h">
-      <Filter>lang</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\objects.h" />
     <ClInclude Include="..\..\gapi\c3d.h">
       <Filter>gapi</Filter>
@@ -103,6 +97,18 @@
     </ClInclude>
     <ClInclude Include="..\..\gapi\vk.h">
       <Filter>gapi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\gr.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\glyph_gr.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\glyph_ja.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\glyph_ru.h">
+      <Filter>lang</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

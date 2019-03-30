@@ -216,8 +216,10 @@
     <ClInclude Include="..\..\lang\en.h" />
     <ClInclude Include="..\..\lang\es.h" />
     <ClInclude Include="..\..\lang\fr.h" />
-    <ClInclude Include="..\..\lang\glyph_cyr.h" />
-    <ClInclude Include="..\..\lang\glyph_jap.h" />
+    <ClInclude Include="..\..\lang\glyph_gr.h" />
+    <ClInclude Include="..\..\lang\glyph_ja.h" />
+    <ClInclude Include="..\..\lang\glyph_ru.h" />
+    <ClInclude Include="..\..\lang\gr.h" />
     <ClInclude Include="..\..\lang\it.h" />
     <ClInclude Include="..\..\lang\ja.h" />
     <ClInclude Include="..\..\lang\pl.h" />

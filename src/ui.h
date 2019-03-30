@@ -47,15 +47,15 @@ namespace UI {
 
     int advGlyphsStart;
 
-    #define CYR_MAP           "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ" "i~"
-    #define CYR_MAP_COUNT     (COUNT(CYR_MAP) - 1)
-    #define CYR_MAP_START     102
-    #define CYR_MAP_UPPERCASE 20
-    #define CHAR_SPR_TILDA    (110 + CYR_MAP_COUNT - 1)
-    #define CHAR_SPR_I        (CHAR_SPR_TILDA - 1)
+    #define RU_MAP              "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ" "i~"
+    #define RU_GLYPH_COUNT      (COUNT(RU_MAP) - 1)
+    #define RU_GLYPH_START      102
+    #define RU_GLYPH_UPPERCASE  20
+    #define CHAR_SPR_TILDA      (110 + RU_GLYPH_COUNT - 1)
+    #define CHAR_SPR_I          (CHAR_SPR_TILDA - 1)
 
 
-    const static uint8 char_width[110 + CYR_MAP_COUNT] = {
+    const static uint8 char_width[110 + RU_GLYPH_COUNT] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
         9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
         12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
@@ -83,7 +83,7 @@ namespace UI {
 
     inline int charRemap(char c) {
         if (isCyrillic(c)) {
-            return char_map[CYR_MAP_START + (c - 'À')];
+            return char_map[RU_GLYPH_START + (c - 'À')];
         }
 
         if (c < 11)
@@ -99,42 +99,50 @@ namespace UI {
     }
 
     inline bool upperCase(int index) {
-        return index < 26 || (index >= 110 && (index < 110 + CYR_MAP_UPPERCASE));
+        return index < 26 || (index >= 110 && (index < 110 + RU_GLYPH_UPPERCASE));
     }
 
     void patchGlyphs(TR::Level &level) {
         UI::advGlyphsStart = level.spriteTexturesCount;
 
-        TR::TextureInfo cyrSprites[CYR_MAP_COUNT];
-        for (int i = 0; i < COUNT(cyrSprites); i++) {
+        TR::TextureInfo ruSprites[RU_GLYPH_COUNT];
+        for (int i = 0; i < COUNT(ruSprites); i++) {
             int idx = 110 + i; // mapped index
             int w = char_width[idx];
             int h = upperCase(idx) ? 13 : 9;
             int o = 0;
-            char c = CYR_MAP[i];
+            char c = RU_MAP[i];
 
             if (c == 'ב' || c == 'ה' || c == '~') h = 14;
             if (c == 'Ö' || c == 'Ù' || c == 'צ' || c == 'ש') { o = 1; h++; }
             if (c == 'פ') { o = 2; h += 2; }
 
-            cyrSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
+            ruSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
 
-        TR::TextureInfo japSprites[JAP_MAP_COUNT];
-        for (int i = 0; i < COUNT(japSprites); i++) {
-            japSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+        TR::TextureInfo jaSprites[JA_GLYPH_COUNT];
+        for (int i = 0; i < COUNT(jaSprites); i++) {
+            jaSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+        }
+
+        TR::TextureInfo grSprites[GR_GLYPH_COUNT];
+        for (int i = 0; i < COUNT(grSprites); i++) {
+            grSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, 16, 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
         }
 
     // init new sprites array with additional sprites
-        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + COUNT(cyrSprites) + COUNT(japSprites)];
+        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + COUNT(ruSprites) + COUNT(jaSprites) + COUNT(grSprites)];
     // copy original sprites
         memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
-    // append cyrillic sprites
-        memcpy(newSprites + level.spriteTexturesCount, cyrSprites, sizeof(TR::TextureInfo) * COUNT(cyrSprites));
-        level.spriteTexturesCount += COUNT(cyrSprites);
-    // append japanese sprites
-        memcpy(newSprites + level.spriteTexturesCount, japSprites, sizeof(TR::TextureInfo) * COUNT(japSprites));
-        level.spriteTexturesCount += COUNT(japSprites);
+    // append russian glyphs
+        memcpy(newSprites + level.spriteTexturesCount, ruSprites, sizeof(TR::TextureInfo) * COUNT(ruSprites));
+        level.spriteTexturesCount += COUNT(ruSprites);
+    // append japanese glyphs
+        memcpy(newSprites + level.spriteTexturesCount, jaSprites, sizeof(TR::TextureInfo) * COUNT(jaSprites));
+        level.spriteTexturesCount += COUNT(jaSprites);
+    // append greek glyphs
+        memcpy(newSprites + level.spriteTexturesCount, grSprites, sizeof(TR::TextureInfo) * COUNT(grSprites));
+        level.spriteTexturesCount += COUNT(grSprites);
 
         delete[] level.spriteTextures;
         level.spriteTextures = newSprites;
@@ -142,14 +150,56 @@ namespace UI {
         TR::gSpriteTexturesCount = level.spriteTexturesCount;
     }
 
+    bool isWideCharStart(char c) {
+        int lang = Core::settings.audio.language + STR_LANG_EN;
+        if (lang == STR_LANG_JA || lang == STR_LANG_GR)
+            return c == '\x11';
+        return false;
+    }
+
+    uint16 getWideCharGlyph(const char *text) {
+        uint16 index = uint8(*text) << 8;
+        index |= uint8(*(text + 1));
+        if (index == 0xFFFF)
+            return index;
+        index -= 257;
+        if (index > 255) index--;
+        return index;
+    }
+
+    uint16 getWideCharGlyphWidth(uint16 glyph) {
+        int lang = Core::settings.audio.language + STR_LANG_EN;
+        if (lang == STR_LANG_JA) {
+            ASSERT(glyph < JA_GLYPH_COUNT);
+            return 16;
+        }
+        if (lang == STR_LANG_GR) {
+            ASSERT(glyph < GR_GLYPH_COUNT);
+            return GR_GLYPH_WIDTH[glyph];
+        }
+        return 1;
+    }
+
+    int getWideCharGlyphIndex(uint16 glyph) {
+        int lang = Core::settings.audio.language + STR_LANG_EN;
+        glyph += UI::advGlyphsStart + RU_GLYPH_COUNT;
+        if (lang == STR_LANG_JA)
+            return glyph;
+        if (lang == STR_LANG_GR)
+            return glyph + JA_GLYPH_COUNT;
+        ASSERT(false);
+        return glyph;
+    }
+
     short2 getLineSize(const char *text) {
         int  x = 0;
 
         while (char c = *text++) {
 
-            if (isJapaneseStart(c)) {
-                while (getJapaneseGlyph(text) != 0xFFFF) {
-                    x += 16;
+            if (isWideCharStart(c)) {
+                uint16 glyph;
+                while ((glyph = getWideCharGlyph(text)) != 0xFFFF) {
+                    x += getWideCharGlyphWidth(glyph);
                     text += 2;
                 }
                 text += 2;
@@ -179,9 +229,10 @@ namespace UI {
 
         while (char c = *text++) {
 
-            if (isJapaneseStart(c)) {
-                while (getJapaneseGlyph(text) != 0xFFFF) {
-                    x += 16;
+            if (isWideCharStart(c)) {
+                uint16 glyph;
+                while ((glyph = getWideCharGlyph(text)) != 0xFFFF) {
+                    x += getWideCharGlyphWidth(glyph);
                     text += 2;
                 }
                 text += 2;
@@ -291,11 +342,11 @@ namespace UI {
 
         while (char c = *text++) {
             // skip japanese chars
-            if (isJapaneseStart(c)) {
-                uint16 index;
-                while ((index = getJapaneseGlyph(text)) != 0xFFFF) {
+            if (isWideCharStart(c)) {
+                uint16 glyph;
+                while ((glyph = getWideCharGlyph(text)) != 0xFFFF) {
                     if (!isShadow) {
-                        index += UI::advGlyphsStart + CYR_MAP_COUNT; 
+                        int index = getWideCharGlyphIndex(glyph); 
                         mesh->addDynSprite(index, short3(x + 1, 1 + y + 1, 0), false, false, sColor, sColor, true);
                         mesh->addDynSprite(index, short3(x - 1, 1 + y - 1, 0), false, false, sColor, sColor, true);
                         mesh->addDynSprite(index, short3(x - 1, 1 + y + 1, 0), false, false, sColor, sColor, true);
@@ -309,7 +360,7 @@ namespace UI {
                         bColor = Color32(160, 104,  56, alpha);
                         mesh->addDynSprite(index, short3(x, 1 + y, 0), false, false, tColor, bColor, true);
                     }
-                    x += 16;
+                    x += getWideCharGlyphWidth(glyph);
                     text += 2;
                 }
                 text += 2;
@@ -480,8 +531,8 @@ namespace UI {
 
         for (int i = subsPos; i < subsLength; i++) {
 
-            if (isJapaneseStart(subs[i])) {
-                while (getJapaneseGlyph(subs + i + 1) != 0xFFFF) {
+            if (isWideCharStart(subs[i])) {
+                while (getWideCharGlyph(subs + i + 1) != 0xFFFF) {
                     i += 2;
                 }
                 i += 2;
@@ -511,12 +562,16 @@ namespace UI {
     }
 
     void showSubs(StringID str) {
-        if (str == STR_EMPTY || !Core::settings.audio.subtitles)
-            return;
         subsStr        = str;
+        subsTime       = 0.0f;
+
+        if (str == STR_EMPTY || !Core::settings.audio.subtitles) {
+            subsTime = 0.0f;
+            return;
+        }
+
         subsLength     = strlen(STR[str]);
         subsPos        = 0;
-        subsTime       = 0.0f;
         subsPartTime   = 0;
         subsPartLength = 0;
 

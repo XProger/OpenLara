@@ -5,7 +5,7 @@
 
 // Thanks: ElikaStudio
 
-#include "glyph_cyr.h"
+#include "glyph_ru.h"
 
 const char *STR_RU[] = { ""
 // help

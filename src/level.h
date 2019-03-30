@@ -1231,15 +1231,20 @@ struct Level : IGame {
     #define ATLAS_PAGE_GLYPHS 8192
 
     TR::Tile32 *tileData;
-    uint8 *glyphsCyr;
-    uint8 *glyphsJap;
+    uint8 *glyphsRU;
+    uint8 *glyphsJA;
+    uint8 *glyphsGR;
 
     static int getAdvGlyphPage(int index) {
         index -= UI::advGlyphsStart;
-        if (index >= CYR_MAP_COUNT) {
-            return 1 + (index - CYR_MAP_COUNT) / 256;
+        if (index >= RU_GLYPH_COUNT) {
+            index -= RU_GLYPH_COUNT;
+            if (index >= JA_GLYPH_COUNT)
+                return 3; // GR
+            else
+                return 1 + index / 256; // JA
         }
-        return 0;
+        return 0; // RU
     }
 
     static void fillCallback(Atlas *atlas, int id, int tileX, int tileY, int atlasWidth, int atlasHeight, Atlas::Tile &tile, void *userData, void *data) {
@@ -1303,7 +1308,15 @@ struct Level : IGame {
                         short4 uv = tile.uv;
                         uv.y -= offset;
                         uv.w -= offset;
-                        Color32 *glyphsData = (Color32*)(page == 0 ? owner->glyphsCyr : (owner->glyphsJap + (page - 1) * 256 * 256 * 4));
+                        Color32 *glyphsData = NULL;
+
+                        switch (page) {
+                            case 0 : glyphsData = (Color32*)owner->glyphsRU; break;
+                            case 1 :
+                            case 2 : glyphsData = (Color32*)owner->glyphsJA + (page - 1) * 256 * 256; break;
+                            case 3 : glyphsData = (Color32*)owner->glyphsGR; break;
+                        }
+
                         level->fillObjectTexture32(owner->tileData, glyphsData, uv, tile.tex);
                     }
                 }
@@ -1486,14 +1499,20 @@ struct Level : IGame {
 
         {
             uint32 glyphsW, glyphsH;
-            Stream stream(NULL, GLYPH_CYR, size_GLYPH_CYR);
-            glyphsCyr = Texture::LoadPNG(stream, glyphsW, glyphsH);
+            Stream stream(NULL, GLYPH_RU, size_GLYPH_RU);
+            glyphsRU = Texture::LoadPNG(stream, glyphsW, glyphsH);
         }
 
         {
             uint32 glyphsW, glyphsH;
-            Stream stream(NULL, GLYPH_JAP, size_GLYPH_JAP);
-            glyphsJap = Texture::LoadBMP(stream, glyphsW, glyphsH);
+            Stream stream(NULL, GLYPH_JA, size_GLYPH_JA);
+            glyphsJA = Texture::LoadBMP(stream, glyphsW, glyphsH);
+        }
+
+        {
+            uint32 glyphsW, glyphsH;
+            Stream stream(NULL, GLYPH_GR, size_GLYPH_GR);
+            glyphsGR = Texture::LoadBMP(stream, glyphsW, glyphsH);
         }
 
     // repack texture tiles
@@ -1570,10 +1589,12 @@ struct Level : IGame {
         delete[] tileData;
         tileData = NULL;
 
-        delete[] glyphsCyr;
-        delete[] glyphsJap;
-        glyphsCyr = NULL;
-        glyphsJap = NULL;
+        delete[] glyphsRU;
+        delete[] glyphsJA;
+        delete[] glyphsGR;
+        glyphsRU = NULL;
+        glyphsJA = NULL;
+        glyphsGR = NULL;
 
         atlasRooms->setFilterQuality(Core::settings.detail.filter);
         atlasObjects->setFilterQuality(Core::settings.detail.filter);
