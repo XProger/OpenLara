@@ -509,6 +509,7 @@ int checkLanguage() {
         case LANG_UKRAINIAN  :
         case LANG_BELARUSIAN : str = STR_LANG_RU; break;
         case LANG_JAPANESE   : str = STR_LANG_JA; break;
+        case LANG_GREEK      : str = STR_LANG_GR; break;
     }
     return str - STR_LANG_EN;
 }

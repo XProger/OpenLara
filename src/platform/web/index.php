@@ -133,6 +133,8 @@
 						id = 7;
 					} else if (lang == "ja") {
 						id = 8;
+					} else if (lang == "gr") {
+						id = 9;
 					}
 					Module.ccall('set_def_lang', 'null', ['number'], [id]);
 				}

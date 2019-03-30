@@ -486,7 +486,8 @@ int checkLanguage() {
     if (id == TWOCC("be")) return STR_LANG_RU - STR_LANG_EN;
     if (id == TWOCC("ru")) return STR_LANG_RU - STR_LANG_EN;
     if (id == TWOCC("ja")) return STR_LANG_JA - STR_LANG_EN;
-    
+    if (id == TWOCC("gr")) return STR_LANG_GR - STR_LANG_EN;
+
     return 0;
 }
 
