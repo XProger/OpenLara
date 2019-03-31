@@ -1582,9 +1582,11 @@ struct Level : IGame {
         atlasSprites = sAtlas->pack(true);
         atlasGlyphs  = gAtlas->pack(false);
 
+    #ifdef _OS_3DS
         ASSERT(atlasRooms->width   <= 1024 && atlasRooms->height   <= 1024);
         ASSERT(atlasObjects->width <= 1024 && atlasObjects->height <= 1024);
         ASSERT(atlasSprites->width <= 1024 && atlasSprites->height <= 1024);
+    #endif
 
         delete[] tileData;
         tileData = NULL;

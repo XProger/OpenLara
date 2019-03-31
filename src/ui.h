@@ -336,7 +336,14 @@ namespace UI {
             y -= getTextSize(text).y / 2;
         }
 
-        Color32 tColor, bColor, sColor = Color32(48, 12, 0, alpha);
+        Color32 tColor, bColor, sColor;
+        tColor = bColor = sColor = Color32(0, 0, 0, 255);
+
+        switch (level->version & TR::VER_VERSION) {
+            case TR::VER_TR1 : sColor = Color32(48, 12, 0, alpha); break;
+            case TR::VER_TR2 : sColor = Color32(0,  49, 0, alpha); break;
+            case TR::VER_TR3 : sColor = shade == SHADE_ORANGE ? Color32(48, 12, 0, alpha) : Color32(12, 12, 12, alpha); break;
+        }
 
         char lastChar = 0;
 
@@ -356,8 +363,29 @@ namespace UI {
                         mesh->addDynSprite(index, short3(x    , 1 + y - 1, 0), false, false, sColor, sColor, true);
                         mesh->addDynSprite(index, short3(x    , 1 + y + 1, 0), false, false, sColor, sColor, true);
 
-                        tColor = Color32(252, 236, 136, alpha);
-                        bColor = Color32(160, 104,  56, alpha);
+                        switch (level->version & TR::VER_VERSION) {
+                            case TR::VER_TR1 :
+                                tColor = Color32(252, 236, 136, alpha);
+                                bColor = Color32(160, 104,  56, alpha);
+                                break;
+                            case TR::VER_TR2 :
+                                tColor = Color32(99, 189, 95, alpha);
+                                bColor = Color32( 79, 152,  76, alpha);
+                                break;
+                            case TR::VER_TR3 : 
+                                if (shade == SHADE_NONE) {
+                                    tColor = Color32(255, 255, 255, alpha);
+                                    bColor = Color32(255, 255, 255, alpha);
+                                } else if (shade == SHADE_ORANGE) {
+                                    tColor = Color32(255, 190, 90, alpha);
+                                    bColor = Color32(140,  50, 10, alpha);
+                                } else if (shade == SHADE_GRAY) {
+                                    tColor = Color32(255, 255, 255, alpha);
+                                    bColor = Color32(128, 128, 128, alpha);
+                                }
+                                break;
+                        }
+
                         mesh->addDynSprite(index, short3(x, 1 + y, 0), false, false, tColor, bColor, true);
                     }
                     x += getWideCharGlyphWidth(glyph);
