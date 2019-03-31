@@ -127,7 +127,7 @@ namespace UI {
 
         TR::TextureInfo grSprites[GR_GLYPH_COUNT];
         for (int i = 0; i < COUNT(grSprites); i++) {
-            grSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, 16, 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+            grSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, GR_GLYPH_WIDTH[i], 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, GR_GLYPH_WIDTH[i], 16);
         }
 
     // init new sprites array with additional sprites

@@ -1565,7 +1565,7 @@ struct Level : IGame {
             sAtlas->add(level.objectTexturesCount + i, uv, &t);
         }
         // add common textures
-        const short2 CommonTexOffset[] = { short2(0, 4), short2(0, 4), short2(0, 4), short2(4, 4), short2(0, 0), short2(0, 0), short2(0, 0) };
+        const short2 CommonTexOffset[] = { short2(1, 5), short2(1, 5), short2(1, 5), short2(5, 5), short2(1, 1), short2(1, 1), short2(1, 1) };
         ASSERT(COUNT(CommonTexOffset) == CTEX_MAX);
         memset(CommonTex, 0, sizeof(CommonTex));
         for (int i = 0; i < CTEX_MAX; i++) {
