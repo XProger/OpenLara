@@ -270,7 +270,7 @@ void touchUpdate() {
         touchPosition touch;
         hidTouchRead(&touch, i);
 
-        InputKey key = Input::getTouch(i /*touch.id*/); // require libnx with https://github.com/switchbrew/libnx/pull/228
+        InputKey key = Input::getTouch(touch.id);
         if (key == ikNone) continue;
 
         Input::setPos(key, vec2(float(touch.px), float(touch.py)));
