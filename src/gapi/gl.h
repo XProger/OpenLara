@@ -392,31 +392,31 @@ namespace GAPI {
 // Shader
     #ifndef FFP
         const char SHADER_COMPOSE[] =
-            #include "shaders/compose.glsl"
+            #include "../shaders/compose.glsl"
         ;
 
         const char SHADER_SHADOW[] =
-            #include "shaders/shadow.glsl"
+            #include "../shaders/shadow.glsl"
         ;
 
         const char SHADER_AMBIENT[] =
-            #include "shaders/ambient.glsl"
+            #include "../shaders/ambient.glsl"
         ;
 
         const char SHADER_SKY[] =
-            #include "shaders/sky.glsl"
+            #include "../shaders/sky.glsl"
         ;
 
         const char SHADER_WATER[] =
-            #include "shaders/water.glsl"
+            #include "../shaders/water.glsl"
         ;
 
         const char SHADER_FILTER[] =
-            #include "shaders/filter.glsl"
+            #include "../shaders/filter.glsl"
         ;
 
         const char SHADER_GUI[] =
-            #include "shaders/gui.glsl"
+            #include "../shaders/gui.glsl"
         ;
         
         const char *DefineName[SD_MAX]  = { SHADER_DEFINES(DECL_STR) };

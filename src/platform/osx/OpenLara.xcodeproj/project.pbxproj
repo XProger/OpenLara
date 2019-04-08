@@ -11,7 +11,7 @@
 		9938F1A421E830250056E172 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9938F1A021E81EFE0056E172 /* IOKit.framework */; };
 		99713CC9204CAD9900006FAC /* tinflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 99713CC8204CAD9900006FAC /* tinflate.c */; };
 		9975BF0B21E9F5D300F13342 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9975BF0A21E9F5D300F13342 /* Assets.xcassets */; };
-		99BF38CD21E7176900D90A38 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BF38CC21E7176900D90A38 /* main.mm */; };
+		99BF38CD21E7176900D90A38 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 99BF38CC21E7176900D90A38 /* main.mm */; settings = {COMPILER_FLAGS = "-Wno-invalid-source-encoding"; }; };
 		99BF38D221E7202500D90A38 /* audio in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CE21E7202500D90A38 /* audio */; };
 		99BF38D321E7202500D90A38 /* DELDATA in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38CF21E7202500D90A38 /* DELDATA */; };
 		99BF38D421E7202500D90A38 /* PSXDATA in Resources */ = {isa = PBXBuildFile; fileRef = 99BF38D021E7202500D90A38 /* PSXDATA */; };
@@ -25,6 +25,12 @@
 /* Begin PBXFileReference section */
 		523F97E31DDF7AA5006FE2FC /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		9938F1A021E81EFE0056E172 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		993F06C7225BEE3A0030AF80 /* savegame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = savegame.h; path = ../../savegame.h; sourceTree = "<group>"; };
+		993F06C8225BEE3A0030AF80 /* lang */ = {isa = PBXFileReference; lastKnownFileType = folder; name = lang; path = ../../lang; sourceTree = "<group>"; };
+		993F06C9225BEE3A0030AF80 /* lang.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lang.h; path = ../../lang.h; sourceTree = "<group>"; };
+		993F06CA225BEE3A0030AF80 /* objects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = objects.h; path = ../../objects.h; sourceTree = "<group>"; };
+		993F06CB225BEE3A0030AF80 /* video.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = video.h; path = ../../video.h; sourceTree = "<group>"; };
+		993F06CC225BEE3A0030AF80 /* gapi */ = {isa = PBXFileReference; lastKnownFileType = folder; name = gapi; path = ../../gapi; sourceTree = "<group>"; };
 		995C97EF1E91A857003825B2 /* shaders */ = {isa = PBXFileReference; lastKnownFileType = folder; name = shaders; path = ../../shaders; sourceTree = "<group>"; };
 		99713CAE204CA3DA00006FAC /* animation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = animation.h; path = ../../animation.h; sourceTree = "<group>"; };
 		99713CAF204CA3DA00006FAC /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../cache.h; sourceTree = "<group>"; };
@@ -48,7 +54,6 @@
 		99713CC1204CA3DA00006FAC /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../sound.h; sourceTree = "<group>"; };
 		99713CC2204CA3DA00006FAC /* sprite.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sprite.h; path = ../../sprite.h; sourceTree = "<group>"; };
 		99713CC3204CA3DA00006FAC /* texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = texture.h; path = ../../texture.h; sourceTree = "<group>"; };
-		99713CC4204CA3DA00006FAC /* trigger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trigger.h; path = ../../trigger.h; sourceTree = "<group>"; };
 		99713CC5204CA3DA00006FAC /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../../ui.h; sourceTree = "<group>"; };
 		99713CC6204CA3DA00006FAC /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../utils.h; sourceTree = "<group>"; };
 		99713CC8204CAD9900006FAC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
@@ -85,12 +90,18 @@
 		99C4C0771796A8230032DE85 = {
 			isa = PBXGroup;
 			children = (
+				995C97EF1E91A857003825B2 /* shaders */,
+				993F06CC225BEE3A0030AF80 /* gapi */,
+				993F06C8225BEE3A0030AF80 /* lang */,
+				993F06C9225BEE3A0030AF80 /* lang.h */,
+				993F06CA225BEE3A0030AF80 /* objects.h */,
+				993F06C7225BEE3A0030AF80 /* savegame.h */,
+				993F06CB225BEE3A0030AF80 /* video.h */,
 				99BF38CE21E7202500D90A38 /* audio */,
 				99BF38CF21E7202500D90A38 /* DELDATA */,
 				99BF38D121E7202500D90A38 /* FMV */,
 				99BF38D021E7202500D90A38 /* PSXDATA */,
 				99BF38CC21E7176900D90A38 /* main.mm */,
-				995C97EF1E91A857003825B2 /* shaders */,
 				99713CAE204CA3DA00006FAC /* animation.h */,
 				99713CAF204CA3DA00006FAC /* cache.h */,
 				99713CB0204CA3DA00006FAC /* camera.h */,
@@ -113,7 +124,6 @@
 				99713CC1204CA3DA00006FAC /* sound.h */,
 				99713CC2204CA3DA00006FAC /* sprite.h */,
 				99713CC3204CA3DA00006FAC /* texture.h */,
-				99713CC4204CA3DA00006FAC /* trigger.h */,
 				99713CC5204CA3DA00006FAC /* ui.h */,
 				99713CC6204CA3DA00006FAC /* utils.h */,
 				99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */,

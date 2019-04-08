@@ -598,7 +598,7 @@ namespace UI {
             return;
         }
 
-        subsLength     = strlen(STR[str]);
+        subsLength     = int(strlen(STR[str]));
         subsPos        = 0;
         subsPartTime   = 0;
         subsPartLength = 0;
