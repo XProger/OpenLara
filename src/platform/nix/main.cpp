@@ -365,19 +365,21 @@ int checkLanguage() {
     uint16 id;
     memcpy(&id, lang, 2);
     
-    if (id == TWOCC("en")) return STR_LANG_EN - STR_LANG_EN;
-    if (id == TWOCC("fr")) return STR_LANG_FR - STR_LANG_EN;
-    if (id == TWOCC("de")) return STR_LANG_DE - STR_LANG_EN;
-    if (id == TWOCC("es")) return STR_LANG_ES - STR_LANG_EN;
-    if (id == TWOCC("it")) return STR_LANG_IT - STR_LANG_EN;
-    if (id == TWOCC("pl")) return STR_LANG_PL - STR_LANG_EN;
-    if (id == TWOCC("uk")) return STR_LANG_RU - STR_LANG_EN;
-    if (id == TWOCC("be")) return STR_LANG_RU - STR_LANG_EN;
-    if (id == TWOCC("ru")) return STR_LANG_RU - STR_LANG_EN;
-    if (id == TWOCC("ja")) return STR_LANG_JA - STR_LANG_EN;
-    if (id == TWOCC("gr")) return STR_LANG_GR - STR_LANG_EN;
+    int str = STR_LANG_EN;
+    if (id == TWOCC("en")) return STR_LANG_EN;
+    if (id == TWOCC("fr")) return STR_LANG_FR;
+    if (id == TWOCC("de")) return STR_LANG_DE;
+    if (id == TWOCC("es")) return STR_LANG_ES;
+    if (id == TWOCC("it")) return STR_LANG_IT;
+    if (id == TWOCC("pl")) return STR_LANG_PL;
+    if (id == TWOCC("uk")) return STR_LANG_RU;
+    if (id == TWOCC("be")) return STR_LANG_RU;
+    if (id == TWOCC("ru")) return STR_LANG_RU;
+    if (id == TWOCC("ja")) return STR_LANG_JA;
+    if (id == TWOCC("gr")) return STR_LANG_GR;
+    if (id == TWOCC("fi")) return STR_LANG_FI;
 
-    return 0;
+    return str - STR_LANG_EN;
 }
 
 int main(int argc, char **argv) {
