@@ -475,6 +475,10 @@ namespace UI {
                         dy -= 4;
                     }
                 }
+
+                if (c == '(' && idx == 34) { // i with cap, just align it %)
+                    dx -= 1;
+                }
             }
 
             if (invertX) dx += char_width[frame];
