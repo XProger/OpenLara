@@ -1,6 +1,6 @@
 @echo off
-rd /S /Q d3d9
-mkdir d3d9
+rd /S /Q d3d11
+mkdir d3d11
 
 call :compile_au compose_sprite
 call :compile_au compose_room
@@ -31,11 +31,11 @@ EXIT /B %ERRORLEVEL%
 
 :compile
     SETLOCAL
-    echo compile d3d9/%~1%~2 %~3
-    echo #include "%~1%~2_v.h" >> d3d9/shaders.h
-    echo #include "%~1%~2_f.h" >> d3d9/shaders.h
-    fxc /nologo /T vs_3_0 /O3 /Gec /D_GAPI_D3D9=1 /Vn %~1%~2_v /Fh d3d9/%~1%~2_v.h %~1.hlsl /DVERTEX %~3
-    fxc /nologo /T ps_3_0 /O3 /Gec /D_GAPI_D3D9=1 /Vn %~1%~2_f /Fh d3d9/%~1%~2_f.h %~1.hlsl /DPIXEL %~3
+    echo compile d3d11/%~1%~2 %~3
+    echo #include "%~1%~2_v.h" >> d3d11/shaders.h
+    echo #include "%~1%~2_f.h" >> d3d11/shaders.h
+    fxc /nologo /T vs_4_0 /O3 /Gec /D_GAPI_D3D11=1 /Vn %~1%~2_v /Fh d3d11/%~1%~2_v.h %~1.hlsl /DVERTEX %~3
+    fxc /nologo /T ps_4_0 /O3 /Gec /D_GAPI_D3D11=1 /Vn %~1%~2_f /Fh d3d11/%~1%~2_f.h %~1.hlsl /DPIXEL %~3
     ENDLOCAL
 EXIT /B 0
 

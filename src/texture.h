@@ -820,8 +820,8 @@ struct Atlas {
     // TODO TR2 fix CUT2 AV
 //        width  = 4096;//nextPow2(int(sqrtf(float(size))));
 //        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
-        width  = nextPow2(int(sqrtf(float(size))));
-        height = (width * width / 2 > size) ? (width / 2) : width;
+        width  = max(1, nextPow2(int(sqrtf(float(size)))));
+        height = max(1, (width * width / 2 > size) ? (width / 2) : width);
     // sort
         int *indices = new int[tilesCount];
         for (int i = 0; i < tilesCount; i++)

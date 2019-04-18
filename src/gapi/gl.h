@@ -1525,50 +1525,6 @@ namespace GAPI {
         glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
         return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);
     }
-
-    void initPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso && pso->data == NULL);
-        pso->data = &pso;
-    }
-
-    void deinitPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data != NULL);
-        pso->data = NULL;
-    }
-
-    void bindPSO(const PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data != NULL);
-
-        uint32 state = pso->renderState;
-        uint32 mask  = 0;//mask;
-
-        if (Core::active.pso)
-            mask ^= Core::active.pso->renderState;
-
-        if (!Core::active.pso || Core::active.pso->clearColor != pso->clearColor)
-            setClearColor(pso->clearColor);
-
-        if (mask & RS_DEPTH_TEST)
-            setDepthTest((state & RS_DEPTH_TEST) != 0);
-        
-        if (mask & RS_DEPTH_WRITE)
-            setDepthWrite((state & RS_DEPTH_WRITE) != 0);
-
-        if (mask & RS_COLOR_WRITE)
-            setColorWrite((state & RS_COLOR_WRITE_R) != 0, (state & RS_COLOR_WRITE_G) != 0, (state & RS_COLOR_WRITE_B) != 0, (state & RS_COLOR_WRITE_A) != 0);
-
-        if (mask & RS_CULL)
-            setCullMode(state & RS_CULL);
-
-        if (mask & RS_BLEND)
-            setBlendMode(state & RS_BLEND);
-
-        if (mask & RS_DISCARD)
-            setAlphaTest((state & RS_DISCARD) != 0);
-    }
 }
 
 #endif

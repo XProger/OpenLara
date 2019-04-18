@@ -1,8 +1,5 @@
-#ifdef __psp2__
-	#define _GAPI_GXM
+#ifdef _GAPI_GXM
 	#pragma pack_matrix( column_major )
-#else
-	#define _GAPI_D3D9
 #endif
 
 #define ALPHA_REF			0.5
@@ -19,33 +16,67 @@
 
 static const float3 SHADOW_TEXEL = float3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 0.0);
 
-#ifdef _GAPI_GXM
+#ifdef _GAPI_D3D9
+	#define FLAGS_REG   b0
+	#define FLAGS_TYPE  bool4
+#else
 	#define FLAGS_REG   c94
 	#define FLAGS_TYPE  float4
-	#define RGBA(c)     (c).rgba
-	#define RGB(c)      (c).rgb
-#else
-	#define FLAGS_REG     b0
-	#define FLAGS_TYPE    bool4
-	#define RGBA(c)       (c).bgra
-	#define RGB(c)        (c).bgr
+#endif
+
+#ifndef _GAPI_GXM
 	#define CLIP_PLANE
 #endif
 
 struct VS_INPUT {
-	float4 aCoord    : POSITION;
-	float4 aNormal   : NORMAL;
-	float4 aTexCoord : TEXCOORD0;
+	int4   aCoord    : POSITION;
+	int4   aNormal   : NORMAL;
+	int4   aTexCoord : TEXCOORD0;
 	float4 aColor    : COLOR0;
 	float4 aLight    : COLOR1;
 };
 
-sampler2D   sDiffuse     : register(s0);
-sampler2D   sNormal      : register(s1);
-sampler2D   sReflect     : register(s2);
-sampler2D   sShadow      : register(s3);
-samplerCUBE sEnvironment : register(s4);
-sampler2D   sMask        : register(s5);
+#ifdef _GAPI_D3D11
+	SamplerState           smpDefault : register(s0);
+	SamplerState           smpPoint   : register(s1);
+	SamplerState           smpLinear  : register(s2);
+	SamplerState           smpAniso   : register(s3);
+	SamplerComparisonState smpCmp     : register(s4);
+
+	Texture2D    sDiffuse     : register(t0);
+#ifdef NORMAL_AS_3D
+	Texture3D    sNormal      : register(t1);
+#else
+	Texture2D    sNormal      : register(t1);
+#endif
+	Texture2D    sReflect     : register(t2);
+	Texture2D    sShadow      : register(t3);
+	TextureCube  sEnvironment : register(t4);
+	Texture2D    sMask        : register(t5);
+	
+	#define SAMPLE_2D        (T,uv) T.Sample(smpDefault, uv)
+	#define SAMPLE_2D_POINT  (T,uv) T.Sample(smpPoint,   uv)
+	#define SAMPLE_2D_LINEAR (T,uv) T.Sample(smpLinear,  uv)
+	#define SAMPLE_2D_ANISO  (T,uv) T.Sample(smpAniso,   uv)
+	#define SAMPLE_2D_CMP    (T,uv) T.SampleCmp(smpCmp,  uv.xy, uv.z)
+	#define SAMPLE_3D        (T,uv) T.Sample(smpLinear,  uv)
+	#define SAMPLE_CUBE      (T,uv) T.Sample(smpLinear,  uv)
+#else
+	sampler2D    sDiffuse     : register(s0);
+	sampler2D    sNormal      : register(s1);
+	sampler2D    sReflect     : register(s2);
+	sampler2D    sShadow      : register(s3);
+	samplerCUBE  sEnvironment : register(s4);
+	sampler2D    sMask        : register(s5);
+	
+	#define SAMPLE_2D        (T,uv) tex2D(T, uv)
+	#define SAMPLE_2D_POINT  (T,uv) tex2D(T, uv)
+	#define SAMPLE_2D_LINEAR (T,uv) tex2D(T, uv)
+	#define SAMPLE_2D_ANISO  (T,uv) tex2D(T, uv)
+	#define SAMPLE_2D_CMP    (T,uv) ((tex2Dlod(T, uv.xy) => uv.z) ? 1 : 0)
+	#define SAMPLE_3D        (T,uv) tex3D(T, uv)
+	#define SAMPLE_CUBE      (T,uv) texCUBE(T, uv)
+#endif
 
 float4      uParam                  : register(  c0 );
 float4      uTexParam               : register(  c1 );
@@ -105,22 +136,16 @@ float calcCaustics(float3 coord, float3 n) {
 	float2 cc = saturate((coord.xz - uRoomSize.xy) / uRoomSize.zw);
 	float2 border = 256.0 / uRoomSize.zw;
 	float2 fade   = smoothstep((float2)0.0, border, cc) * (1.0 - smoothstep(1.0 - border, 1.0, cc));
-	return tex2Dlod(sReflect, float4(cc.x, 1.0 - cc.y, 0, 0)).x * max(0.0, -n.y) * fade.x * fade.y;
+	return SAMPLE_2D_LINEAR(sReflect, float2(cc.x, 1.0 - cc.y)).x * max(0.0, -n.y) * fade.x * fade.y;
 }
 
 float calcCausticsV(float3 coord) {
 	return 0.5 + abs(sin(dot(coord.xyz, 1.0 / 1024.0) + uParam.x)) * 0.75;
 }
 
-half3 calcNormalV(float2 tc, half base) {
-	half dx = (half)tex2Dlod(sNormal, float4(tc.x + uTexParam.x, tc.y, 0, 0)).x - base;
-	half dz = (half)tex2Dlod(sNormal, float4(tc.x, tc.y - uTexParam.y, 0, 0)).x - base;
-	return (half3)normalize( half3(dx, 64.0 / (1024.0 * 8.0), dz) );
-}
-
 float3 calcNormalF(float2 tcR, float2 tcB, float base) {
-	float dx = tex2D(sNormal, tcR).x - base;
-	float dz = tex2D(sNormal, tcB).x - base;
+	float dx = SAMPLE_2D_LINEAR(sNormal, tcR).x - base;
+	float dz = SAMPLE_2D_LINEAR(sNormal, tcB).x - base;
 	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
 }
 
@@ -151,10 +176,12 @@ void applyFog(inout float3 color, float fogFactor) {
 }
 
 float SHADOW(float2 p) {
-	#ifdef SHADOW_DEPTH
-		return tex2Dlod(sShadow, float4(p, 0, 0)).x;
+	#ifdef SHADOW_SAMPLER
+		return SAMPLE_2D_POINT(sShadow, float4(p, 0, 0)).x;
+	#elif SHADOW_DEPTH
+		return SAMPLE_2D_POINT(sShadow, float4(p, 0, 0)).x;
 	#else
-		return unpack(tex2Dlod(sShadow, float4(p, 0, 0)));
+		return unpack(SAMPLE_2D_POINT(sShadow, float4(p, 0, 0)));
 	#endif
 }
 

@@ -46,7 +46,7 @@ VS_OUTPUT main(VS_INPUT In) {
 half4 main(VS_OUTPUT In) : COLOR0 {
 	float3 viewVec = normalize(In.viewVec.xyz);
 	
-	float  base   = tex2D(sNormal, In.texCoord).x;
+	float  base   = SAMPLE_2D_LINEAR(sNormal, In.texCoord).x;
 	float3 normal = calcNormalF(In.texCoordR, In.texCoordB, base);
 	
 	float2 dudv = mul(uViewProj, float4(normal.x, 0.0, normal.z, 0.0)).xy * uParam.z;
@@ -57,14 +57,15 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 
 	float2 tc = In.hpos.xy / In.hpos.z * 0.5 + 0.5;
 
-	half4 refrA = tex2D(sDiffuse, tc - dudv);
-	half4 refrB = tex2D(sDiffuse, tc);
+	half4 refrA = SAMPLE_2D_LINEAR(sDiffuse, tc - dudv);
+	half4 refrB = SAMPLE_2D_POINT(sDiffuse, tc);
 	half3 refr  = lerp(refrA.xyz, refrB.xyz, refrA.w);
-	half3 refl  = tex2D(sReflect, tc + dudv).xyz;
+	half3 refl  = SAMPLE_2D_LINEAR(sReflect, tc + dudv).xyz;
 
 	half fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
-	half4 color = half4(lerp(refr, refl, fresnel), tex2D(sMask, In.maskCoord).a);
+	half  mask  = SAMPLE_2D_POINT(sMask, In.maskCoord).a;
+	half4 color = half4(lerp(refr, refl, fresnel), mask);
 	color.xyz += specular;
 
 	float dist = (In.viewVec.y / viewVec.y) * In.viewVec.w;

@@ -135,7 +135,9 @@
 						id = 8;
 					} else if (lang == "gr") {
 						id = 9;
-					}
+					} else if (lang == "fi") {
+                        id = 10;
+                    }
 					Module.ccall('set_def_lang', 'null', ['number'], [id]);
 				}
 

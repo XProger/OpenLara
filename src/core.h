@@ -14,6 +14,7 @@
     #define _OS_WIN      1
     #define _GAPI_GL     1
     //#define _GAPI_D3D9   1
+    //#define _GAPI_D3D11  1
     //#define _GAPI_VULKAN 1
     //#define _NAPI_SOCKET
 
@@ -404,8 +405,9 @@ enum TexOption {
     OPT_NEAREST = 0x0010,
     OPT_TARGET  = 0x0020,
     OPT_VERTEX  = 0x0040,
-    OPT_DEPEND  = 0x0080,
-    OPT_PROXY   = 0x0100,
+    OPT_DYNAMIC = 0x0080,
+    OPT_DEPEND  = 0x0100,
+    OPT_PROXY   = 0x0200,
 };
 
 // Pipeline State Object
@@ -533,7 +535,7 @@ const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 #undef SHADER_SAMPLERS
 #undef SHADER_UNIFORMS
 
-enum CullMode  { cmNone, cmBack,  cmFront };
+enum CullMode  { cmNone, cmBack,  cmFront, cmMAX };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
 
 struct Viewport {
@@ -640,6 +642,8 @@ namespace Core {
     #include "gapi/gl.h"
 #elif _GAPI_D3D9
     #include "gapi/d3d9.h"
+#elif _GAPI_D3D11
+    #include "gapi/d3d11.h"
 #elif _OS_3DS
     #include "gapi/c3d.h"
 #elif _GAPI_GU
@@ -742,11 +746,12 @@ namespace Core {
         eye = 0.0f;
 
         { // init dummy textures
-            uint32 *data = new uint32[SQR(support.texMinSize)];
-            memset(data, 0xFF, SQR(support.texMinSize) * sizeof(data[0]));
+            int size = SQR(support.texMinSize) * 6;
+            uint32 *data = new uint32[size];
+            memset(data, 0xFF, size * sizeof(data[0]));
             whiteTex  = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_NEAREST, data);
             whiteCube = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_CUBEMAP, data);
-            memset(data, 0x00, SQR(support.texMinSize) * sizeof(data[0]));
+            memset(data, 0x00, size * sizeof(data[0]));
             blackTex  = new Texture(support.texMinSize, support.texMinSize, 1, FMT_RGBA, OPT_NEAREST, data);
             delete[] data;
         }
@@ -1145,33 +1150,6 @@ namespace Core {
 
         stats.dips++;
         stats.tris += range.iCount / 3;
-    }
-
-    PSO* psoCreate(Shader *shader, uint32 renderState, TexFormat colorFormat = FMT_RGBA, TexFormat depthFormat = FMT_DEPTH, const vec4 &clearColor = vec4(0.0f)) {
-        PSO *pso = new PSO();
-        pso->data        = NULL;
-        pso->shader      = shader;
-        pso->renderState = renderState;
-        pso->colorFormat = colorFormat;
-        pso->depthFormat = depthFormat;
-        pso->clearColor  = clearColor;
-        GAPI::initPSO(pso);
-        return pso;
-    }
-
-    void psoDestroy(PSO *pso) {
-        GAPI::deinitPSO(pso);
-        delete pso;
-    }
-
-    void psoBind(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data);
-        ASSERT(pso->shader);
-        ((Shader*)pso->shader)->setup();
-        GAPI::bindPSO(pso);
-
-        Core::active.pso = pso;
     }
 }
 

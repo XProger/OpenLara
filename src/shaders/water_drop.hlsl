@@ -36,7 +36,7 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 half4 main(VS_OUTPUT In) : COLOR0 {
-	half2 v = tex2D(sNormal, In.texCoord.xy).xy;
+	half2 v = SAMPLE_2D_LINEAR(sNormal, In.texCoord.xy).xy;
 
 	float value = max(0.0, 1.0 - length(uParam.xy - In.dropCoord / uTexParam.xy) / uParam.z);
 	value = 0.5 - cos(value * PI) * 0.5;

@@ -1306,7 +1306,7 @@ struct Video {
         memset(frameData, 0, decoder->width * decoder->height * sizeof(Color32));
 
         for (int i = 0; i < 2; i++)
-            frameTex[i] = new Texture(decoder->width, decoder->height, 1, FMT_RGBA, 0, frameData);
+            frameTex[i] = new Texture(decoder->width, decoder->height, 1, FMT_RGBA, OPT_DYNAMIC, frameData);
 
         if (!TR::getVideoTrack(id, playAsync, this)) {
             sample = Sound::play(decoder);

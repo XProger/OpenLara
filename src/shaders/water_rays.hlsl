@@ -34,7 +34,8 @@ float boxIntersect(float3 rayPos, float3 rayDir, float3 center, float3 hsize) {
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float2 pixelCoord = float2(__pixel_x(), __pixel_y());
 #else
-float4 main(VS_OUTPUT In, float2 pixelCoord: VPOS) : COLOR0 {
+float4 main(VS_OUTPUT In/*, float2 pixelCoord: VPOS*/) : COLOR0 {
+	float2 pixelCoord = 0.0;
 #endif
 	float3 viewVec = normalize(In.viewVec);
 
@@ -43,7 +44,7 @@ float4 main(VS_OUTPUT In, float2 pixelCoord: VPOS) : COLOR0 {
 	float3 p0 = uViewPos.xyz - viewVec * t;
 	float3 p1 = In.coord.xyz;
 
-	float dither = tex2Dlod(sMask, float4(pixelCoord * (1.0 / 8.0), 0.0, 0.0)).x;
+	float dither = SAMPLE_2D_POINT(sMask, float4(pixelCoord * (1.0 / 8.0), 0.0, 0.0)).x;
 	
 	float3 delta = (p1 - p0) / RAY_STEPS;
 	float3 pos	= p0 + delta * dither;
@@ -52,7 +53,7 @@ float4 main(VS_OUTPUT In, float2 pixelCoord: VPOS) : COLOR0 {
 	for (float i = 0.0; i < RAY_STEPS; i++) {
 		float3 wpos = (pos - uPosScale[0].xyz) / uPosScale[1].xyz;
 		float2 tc = wpos.xz * 0.5 + 0.5;
-		float light = tex2Dlod(sReflect, float4(tc, 0, 0)).x;
+		float light = SAMPLE_2D_LINEAR(sReflect, float4(tc, 0, 0)).x;
 		sum += light * (1.0 - (clamp(wpos.y, -1.0, 1.0) * 0.5 + 0.5));
 		pos += delta;
 	}

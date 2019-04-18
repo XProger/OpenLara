@@ -86,6 +86,9 @@
     <ClInclude Include="..\..\gapi\d3d9.h">
       <Filter>gapi</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\gapi\d3d11.h">
+      <Filter>gapi</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\gapi\gl.h">
       <Filter>gapi</Filter>
     </ClInclude>
@@ -108,6 +111,9 @@
       <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="..\..\lang\glyph_ru.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\lang\fi.h">
       <Filter>lang</Filter>
     </ClInclude>
   </ItemGroup>

@@ -40,7 +40,7 @@ VS_OUTPUT main(VS_INPUT In) {
 
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float3 rv = reflect(-In.viewVec.xyz, In.normal.xyz);
-	float4 color = RGBA(texCUBE(sEnvironment, normalize(rv)));
+	float4 color = SAMPLE_CUBE(sEnvironment, normalize(rv));
 
 	#ifdef CLIP_PLANE
 		clip(In.viewVec.w);

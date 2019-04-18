@@ -1056,6 +1056,7 @@ struct short3 {
 
     short3 operator + (const short3 &v) const { return short3(x + v.x, y + v.y, z + v.z); }
     short3 operator - (const short3 &v) const { return short3(x - v.x, y - v.y, z - v.z); }
+    inline bool operator == (const short3 &v) const { return x == v.x && y == v.y && z == v.z; }
 };
 
 struct short4 {

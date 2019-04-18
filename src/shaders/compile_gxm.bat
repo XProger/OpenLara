@@ -45,8 +45,8 @@ EXIT /B %ERRORLEVEL%
     echo compile gxm/%~1%~2 %~3
     echo #include "%~1%~2_v.h" >> gxm/shaders.h
     echo #include "%~1%~2_f.h" >> gxm/shaders.h
-    psp2cgc -profile sce_vp_psp2 -W4 -Wperf -pedantic %~1.hlsl -cache -o gxm/%~1%~2_v.gxp %~3 -DVERTEX
-    psp2cgc -profile sce_fp_psp2 -W4 -Wperf -pedantic %~1.hlsl -cache -o gxm/%~1%~2_f.gxp %~3 -DPIXEL
+    psp2cgc -profile sce_vp_psp2 -W4 -Wperf -D_GAPI_GXM=1 -pedantic %~1.hlsl -cache -o gxm/%~1%~2_v.gxp %~3 -DVERTEX
+    psp2cgc -profile sce_fp_psp2 -W4 -Wperf -D_GAPI_GXM=1 -pedantic %~1.hlsl -cache -o gxm/%~1%~2_f.gxp %~3 -DPIXEL
     ENDLOCAL
 EXIT /B 0
 

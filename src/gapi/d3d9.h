@@ -774,22 +774,6 @@ namespace GAPI {
 
         return vec4(float(c.z), float(c.y), float(c.x), float(c.w)) * (1.0f / 255.0f);
     }
-
-    void initPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso && pso->data == NULL);
-        pso->data = &pso;
-    }
-
-    void deinitPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data != NULL);
-        pso->data = NULL;
-    }
-
-    void bindPSO(const PSO *pso) {
-        //
-    }
 }
 
 #endif

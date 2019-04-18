@@ -82,7 +82,7 @@ VS_OUTPUT main(VS_INPUT In) {
 #else // PIXEL
 
 float4 main(VS_OUTPUT In) : COLOR0 {
-	float4 color = RGBA(tex2D(sDiffuse, In.texCoord.xy / In.texCoord.zw));
+	float4 color = SAMPLE_2D(sDiffuse, In.texCoord.xy / In.texCoord.zw);
 
 	#ifdef ALPHA_TEST
 		clip(color.w - ALPHA_REF);

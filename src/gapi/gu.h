@@ -450,22 +450,6 @@ namespace GAPI {
     vec4 copyPixel(int x, int y) {
         return vec4(0.0f); // TODO: read from framebuffer
     }
-
-    void initPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso && pso->data == NULL);
-        pso->data = &pso;
-    }
-
-    void deinitPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data != NULL);
-        pso->data = NULL;
-    }
-
-    void bindPSO(const PSO *pso) {
-        //
-    }
 }
 
 #endif

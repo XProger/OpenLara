@@ -26,7 +26,7 @@ VS_OUTPUT main(VS_INPUT In) {
 
 float4 main(VS_OUTPUT In) : COLOR0 {
 	#ifdef ALPHA_TEST
-		clip(tex2D(sDiffuse, In.texCoord.xy).a - ALPHA_REF);
+		clip(SAMPLE_2D_LINEAR(sDiffuse, In.texCoord.xy).a - ALPHA_REF);
 	#endif
 
 #ifdef _GAPI_GXM

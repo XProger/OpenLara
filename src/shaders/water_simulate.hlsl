@@ -25,14 +25,14 @@ VS_OUTPUT main(VS_INPUT In) {
 	#ifndef _GAPI_GXM
 		Out.texCoord += 0.5 * uTexParam.xy;
 	#endif
-	
+
 	float3 d = float3(uTexParam.x, uTexParam.y, 0.0);
 	Out.texCoordL  = Out.texCoord - d.xz;
 	Out.texCoordR  = Out.texCoord + d.xz;
 	Out.texCoordT  = Out.texCoord - d.zy;
 	Out.texCoordB  = Out.texCoord + d.zy;
 	Out.noiseCoord = Out.maskCoord + uParam.zw;
-	
+
 	return Out;
 }
 
@@ -42,22 +42,22 @@ VS_OUTPUT main(VS_INPUT In) {
 #define WATER_VIS	0.995
 
 half4 main(VS_OUTPUT In) : COLOR0 {
-	half4 v = tex2D(sNormal, In.texCoord.xy); // height, speed
+	half4 v = SAMPLE_2D_POINT(sNormal, In.texCoord.xy); // height, speed
 
 	half average = (
-		tex2D(sNormal, In.texCoordL).x +
-		tex2D(sNormal, In.texCoordR).x +
-		tex2D(sNormal, In.texCoordT).x +
-		tex2D(sNormal, In.texCoordB).x) * 0.25;
-	
+		SAMPLE_2D_POINT(sNormal, In.texCoordL).x +
+		SAMPLE_2D_POINT(sNormal, In.texCoordR).x +
+		SAMPLE_2D_POINT(sNormal, In.texCoordT).x +
+		SAMPLE_2D_POINT(sNormal, In.texCoordB).x) * 0.25;
+
 // integrate
 	v.y += (average - v.x) * WATER_VEL;
 	v.y *= WATER_VIS;
 	v.x += v.y;
-	v.x += (tex2D(sDiffuse, In.noiseCoord).x * 2.0 - 1.0) * 0.00025;
+	v.x += (SAMPLE_2D_LINEAR(sDiffuse, In.noiseCoord).x * 2.0 - 1.0) * 0.00025;
 
-	v *= tex2D(sMask, In.maskCoord).a;
-	
+	v *= SAMPLE_2D_POINT(sMask, In.maskCoord).a;
+
 	return v;
 }
 

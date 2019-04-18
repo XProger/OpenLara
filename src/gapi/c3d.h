@@ -646,22 +646,6 @@ namespace GAPI {
 //        return vec4(color->r, color->g, color->b, 255.0f) * (1.0f / 255.0f);
         return vec4(0.0f); // TODO: read from framebuffer
     }
-
-    void initPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso && pso->data == NULL);
-        pso->data = &pso;
-    }
-
-    void deinitPSO(PSO *pso) {
-        ASSERT(pso);
-        ASSERT(pso->data != NULL);
-        pso->data = NULL;
-    }
-
-    void bindPSO(const PSO *pso) {
-        //
-    }
 }
 
 #endif

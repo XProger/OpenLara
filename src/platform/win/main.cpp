@@ -428,7 +428,7 @@ HWND hWnd;
     void ContextSwap() {
         SwapBuffers(hDC);
     }
-#else
+#elif _GAPI_D3D9
     LPDIRECT3D9           D3D;
     LPDIRECT3DDEVICE9     device;
     D3DPRESENT_PARAMETERS d3dpp;
@@ -471,6 +471,59 @@ HWND hWnd;
         if (device->Present(NULL, NULL, NULL, NULL) == D3DERR_DEVICELOST)
             GAPI::resetDevice();
     }
+#elif _GAPI_D3D11
+    ID3D11Device        *device;
+    ID3D11DeviceContext *deviceContext;
+    IDXGISwapChain      *swapChain;
+
+    void ContextCreate() {
+        DXGI_SWAP_CHAIN_DESC desc = { 0 };
+        desc.BufferCount          = 2;
+        desc.BufferDesc.Format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.BufferDesc.RefreshRate.Numerator   = 60;
+        desc.BufferDesc.RefreshRate.Denominator = 1;
+        desc.BufferUsage          = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        desc.OutputWindow         = hWnd;
+        desc.SampleDesc.Count     = 1;
+        desc.SampleDesc.Quality   = 0;
+        desc.Windowed             = TRUE;
+        desc.OutputWindow         = hWnd;
+
+        D3D_FEATURE_LEVEL featureLevels[] = {
+            D3D_FEATURE_LEVEL_11_0,
+            D3D_FEATURE_LEVEL_10_1,
+            D3D_FEATURE_LEVEL_10_0,
+        };
+
+        HRESULT ret;
+
+        ret = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, featureLevels, ARRAYSIZE(featureLevels), D3D11_SDK_VERSION, &desc, &swapChain, &device, NULL, &deviceContext);
+        ASSERT(ret == S_OK);
+
+        GAPI::defRTV = NULL;
+        GAPI::defDSV = NULL;
+    }
+
+    void ContextDelete() {
+        GAPI::deinit();
+        SAFE_RELEASE(swapChain);
+        SAFE_RELEASE(deviceContext);
+        SAFE_RELEASE(device);
+    }
+
+    void ContextResize() {
+        if (Core::width <= 0 || Core::height <= 0)
+            return;
+
+        GAPI::resetDevice();
+
+        HRESULT ret = swapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+        ASSERT(ret == S_OK);
+    }
+
+    void ContextSwap() {
+        HRESULT ret = swapChain->Present(Core::settings.detail.vsync ? 1 : 0, 0);
+    }
 #endif
 
 #ifdef _NAPI_SOCKET
@@ -510,6 +563,7 @@ int checkLanguage() {
         case LANG_BELARUSIAN : str = STR_LANG_RU; break;
         case LANG_JAPANESE   : str = STR_LANG_JA; break;
         case LANG_GREEK      : str = STR_LANG_GR; break;
+        case LANG_FINNISH    : str = STR_LANG_FI; break;
     }
     return str - STR_LANG_EN;
 }
