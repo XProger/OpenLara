@@ -43,7 +43,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	if (OPT_AMBIENT) {
 		Out.ambient = calcAmbient(Out.normal.xyz);
 	} else {
-		Out.ambient = min(uMaterial.yyy, In.aLight);
+		Out.ambient = min(uMaterial.yyy, In.aLight.xyz);
 	}
 
 	float4 lum, att, light;
@@ -69,7 +69,7 @@ VS_OUTPUT main(VS_INPUT In) {
 		Out.light.xyz += Out.ambient + uLightColor[0].xyz * light.x;
 	}
 
-	Out.diffuse = float4(In.aColor * (uMaterial.x * 1.8), 1.0);
+	Out.diffuse = float4(In.aColor.xyz * (uMaterial.x * 1.8), 1.0);
 
 	Out.diffuse *= uMaterial.w;
 

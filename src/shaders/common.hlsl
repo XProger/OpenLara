@@ -37,11 +37,11 @@ struct VS_INPUT {
 };
 
 #ifdef _GAPI_D3D11
-	SamplerState           smpDefault : register(s0);
-	SamplerState           smpPoint   : register(s1);
-	SamplerState           smpLinear  : register(s2);
-	SamplerState           smpAniso   : register(s3);
-	SamplerComparisonState smpCmp     : register(s4);
+	SamplerState           smpDefault   : register(s0);
+	SamplerState           smpPoint     : register(s1);
+	SamplerState           smpPointWrap : register(s2);
+	SamplerState           smpLinear    : register(s3);
+	SamplerComparisonState smpCmp       : register(s4);
 
 	Texture2D    sDiffuse     : register(t0);
 #ifdef NORMAL_AS_3D
@@ -54,13 +54,14 @@ struct VS_INPUT {
 	TextureCube  sEnvironment : register(t4);
 	Texture2D    sMask        : register(t5);
 	
-	#define SAMPLE_2D        (T,uv) T.Sample(smpDefault, uv)
-	#define SAMPLE_2D_POINT  (T,uv) T.Sample(smpPoint,   uv)
-	#define SAMPLE_2D_LINEAR (T,uv) T.Sample(smpLinear,  uv)
-	#define SAMPLE_2D_ANISO  (T,uv) T.Sample(smpAniso,   uv)
-	#define SAMPLE_2D_CMP    (T,uv) T.SampleCmp(smpCmp,  uv.xy, uv.z)
-	#define SAMPLE_3D        (T,uv) T.Sample(smpLinear,  uv)
-	#define SAMPLE_CUBE      (T,uv) T.Sample(smpLinear,  uv)
+	#define SAMPLE_2D(T,uv)            T.Sample(smpDefault,   uv)
+	#define SAMPLE_2D_POINT(T,uv)      T.Sample(smpPoint,     uv)
+	#define SAMPLE_2D_POINT_WRAP(T,uv) T.Sample(smpPointWrap, uv)
+	#define SAMPLE_2D_LINEAR(T,uv)     T.Sample(smpLinear,    uv)
+	#define SAMPLE_2D_CMP(T,uv)        T.SampleCmp(smpCmp,    uv.xy, uv.z)
+	#define SAMPLE_2D_LOD0(T,uv)       T.SampleLevel(smpLinear, uv, 0)
+	#define SAMPLE_3D(T,uv)            T.Sample(smpLinear,    uv)
+	#define SAMPLE_CUBE(T,uv)          T.Sample(smpLinear,    uv)
 #else
 	sampler2D    sDiffuse     : register(s0);
 	sampler2D    sNormal      : register(s1);
@@ -69,13 +70,14 @@ struct VS_INPUT {
 	samplerCUBE  sEnvironment : register(s4);
 	sampler2D    sMask        : register(s5);
 	
-	#define SAMPLE_2D        (T,uv) tex2D(T, uv)
-	#define SAMPLE_2D_POINT  (T,uv) tex2D(T, uv)
-	#define SAMPLE_2D_LINEAR (T,uv) tex2D(T, uv)
-	#define SAMPLE_2D_ANISO  (T,uv) tex2D(T, uv)
-	#define SAMPLE_2D_CMP    (T,uv) ((tex2Dlod(T, uv.xy) => uv.z) ? 1 : 0)
-	#define SAMPLE_3D        (T,uv) tex3D(T, uv)
-	#define SAMPLE_CUBE      (T,uv) texCUBE(T, uv)
+	#define SAMPLE_2D(T,uv)             tex2D(T, uv)
+	#define SAMPLE_2D_POINT(T,uv)       tex2D(T, uv)
+	#define SAMPLE_2D_POINT_WRAP(T,uv)  tex2D(T, uv)
+	#define SAMPLE_2D_LINEAR(T,uv)      tex2D(T, uv)
+	#define SAMPLE_2D_LOD0(T,uv)        tex2Dlod(T, float4(uv.xy, 0, 0))
+	#define SAMPLE_2D_CMP(T,uv)         ((tex2D(T, uv.xy) => uv.z) ? 1 : 0)
+	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
+	#define SAMPLE_CUBE(T,uv)           texCUBE(T, uv)
 #endif
 
 float4      uParam                  : register(  c0 );
@@ -143,9 +145,9 @@ float calcCausticsV(float3 coord) {
 	return 0.5 + abs(sin(dot(coord.xyz, 1.0 / 1024.0) + uParam.x)) * 0.75;
 }
 
-float3 calcNormalF(float2 tcR, float2 tcB, float base) {
-	float dx = SAMPLE_2D_LINEAR(sNormal, tcR).x - base;
-	float dz = SAMPLE_2D_LINEAR(sNormal, tcB).x - base;
+float3 calcHeightMapNormal(float2 tcR, float2 tcB, float base) {
+	float dx = SAMPLE_2D_LOD0(sNormal, tcR).x - base;
+	float dz = SAMPLE_2D_LOD0(sNormal, tcB).x - base;
 	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
 }
 
@@ -181,7 +183,7 @@ float SHADOW(float2 p) {
 	#elif SHADOW_DEPTH
 		return SAMPLE_2D_POINT(sShadow, float4(p, 0, 0)).x;
 	#else
-		return unpack(SAMPLE_2D_POINT(sShadow, float4(p, 0, 0)));
+		return unpack(SAMPLE_2D_POINT(sShadow, p));
 	#endif
 }
 

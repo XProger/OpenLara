@@ -52,6 +52,8 @@ void D3DCHECK(HRESULT res) {
     #define D3DCHECK(res) res
 #endif
 
+#define MAX_SAMPLERS 5
+
 namespace GAPI {
     using namespace Core;
 
@@ -72,6 +74,8 @@ namespace GAPI {
     ID3D11BlendState        *BS[2][bmMAX]; // [colorWrite][blendMode] ONLY two colorWrite modes are supported (A and RGBA)
     ID3D11RasterizerState   *RS[cmMAX];    // [cullMode]
     ID3D11DepthStencilState *DS[2][2];     // [depthTest][depthWrite]
+
+    ID3D11SamplerState      *samplers[MAX_SAMPLERS];
 
 // Shader
     #include "shaders/d3d11/shaders.h"
@@ -272,13 +276,12 @@ namespace GAPI {
         ID3D11ShaderResourceView *SRV;
         ID3D11RenderTargetView   *RTV;
         ID3D11DepthStencilView   *DSV;
-        ID3D11SamplerState       *sampler;
 
         int       width, height, depth, origWidth, origHeight, origDepth;
         TexFormat fmt;
         uint32    opt;
 
-        Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), tex3D(NULL), SRV(NULL), RTV(NULL), DSV(NULL), sampler(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {}
+        Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), tex3D(NULL), SRV(NULL), RTV(NULL), DSV(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {}
 
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
@@ -389,8 +392,6 @@ namespace GAPI {
             }
 
             ASSERT(SRV);
-
-            initSampler();
         }
 
         void deinit() {
@@ -399,48 +400,6 @@ namespace GAPI {
             SAFE_RELEASE(SRV);
             SAFE_RELEASE(RTV);
             SAFE_RELEASE(DSV);
-            SAFE_RELEASE(sampler);
-        }
-
-        void initSampler() {
-            SAFE_RELEASE(sampler);
-
-            D3D11_SAMPLER_DESC desc;
-            memset(&desc, 0, sizeof(desc));
-
-            bool mipmaps = (opt & OPT_MIPMAPS) != 0;
-            bool filter  = (opt & OPT_NEAREST) == 0;
-
-            if (mipmaps && (opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
-                desc.MaxAnisotropy = min(int(Core::support.maxAniso), 8);
-            } else {
-                desc.MaxAnisotropy = 1;
-            }
-
-            if (desc.MaxAnisotropy > 1) {
-                desc.Filter = D3D11_FILTER_ANISOTROPIC;
-            } else {
-                if (filter) {
-                    desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-                } else {
-                    desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-                }
-            }
-
-            if (fmt == FMT_SHADOW) {
-                desc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-                desc.ComparisonFunc = D3D11_COMPARISON_LESS;
-            } else {
-                desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-            }
-
-            desc.AddressU       =
-            desc.AddressV       =
-            desc.AddressW       = (opt & OPT_REPEAT) ? D3D11_TEXTURE_ADDRESS_WRAP : D3D11_TEXTURE_ADDRESS_CLAMP;
-            
-            desc.MinLOD         = 0;
-            desc.MaxLOD         = D3D11_FLOAT32_MAX;
-            device->CreateSamplerState(&desc, &sampler);
         }
 
         void generateMipMap() {
@@ -466,10 +425,8 @@ namespace GAPI {
 
                 if (opt & OPT_VERTEX) {
                     deviceContext->VSSetShaderResources(sampler, 1, &SRV);
-                    deviceContext->VSSetSamplers(sampler, 1, &this->sampler);
                 }
                 deviceContext->PSSetShaderResources(sampler, 1, &SRV);
-                deviceContext->PSSetSamplers(sampler, 1, &this->sampler);
             }
         }
 
@@ -562,6 +519,66 @@ namespace GAPI {
         } items[MAX_RENDER_BUFFERS];
     } rtCache;
 
+    void deinitSamplers() {
+        for (int i = 0; i < COUNT(samplers); i++) {
+            SAFE_RELEASE(samplers[i]);
+        }
+    }
+
+    ID3D11SamplerState* initSampler(bool filter, bool aniso, bool wrap, bool cmp) {
+        D3D11_SAMPLER_DESC desc;
+        memset(&desc, 0, sizeof(desc));
+
+        if (aniso && (Core::support.maxAniso > 0)) {
+            desc.MaxAnisotropy = min(int(Core::support.maxAniso), 8);
+        } else {
+            desc.MaxAnisotropy = 1;
+        }
+
+        if (desc.MaxAnisotropy > 1) {
+            desc.Filter = D3D11_FILTER_ANISOTROPIC;
+        } else {
+            if (filter) {
+                desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+            } else {
+                desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+            }
+        }
+
+        if (cmp) {
+            desc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+            desc.ComparisonFunc = D3D11_COMPARISON_LESS;
+        } else {
+            desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        }
+
+        desc.AddressU =
+        desc.AddressV =
+        desc.AddressW = wrap ? D3D11_TEXTURE_ADDRESS_WRAP : D3D11_TEXTURE_ADDRESS_CLAMP;
+        desc.MinLOD   = 0;
+        desc.MaxLOD   = D3D11_FLOAT32_MAX;
+
+        ID3D11SamplerState *sampler;
+        device->CreateSamplerState(&desc, &sampler);
+        return sampler;
+    }
+
+    void initSamplers() {
+        deinitSamplers();
+    /*
+        0 - smpDefault
+        1 - smpPoint
+        2 - smpPointWrap
+        3 - smpLinear
+        4 - smpCmp
+    */
+        samplers[0] = initSampler(true,  true,  false, false); // TODO settings dependent
+        samplers[1] = initSampler(false, false, false, false);
+        samplers[2] = initSampler(false, false, true,  false);
+        samplers[3] = initSampler(true,  false, false, false);
+        samplers[4] = initSampler(true,  false, false, true);
+    }
+
     void init() {
         memset(&rtCache, 0, sizeof(rtCache));
         
@@ -628,6 +645,7 @@ namespace GAPI {
             #undef BLEND_FUNC
         }
 
+    // init raster state
         {
             D3D11_RASTERIZER_DESC desc;
             memset(&desc, 0, sizeof(desc));
@@ -641,6 +659,7 @@ namespace GAPI {
             device->CreateRasterizerState(&desc, &RS[cmFront]);
         }
 
+    // init depth stencil states
         {
             D3D11_DEPTH_STENCIL_DESC desc;
             memset(&desc, 0, sizeof(desc));
@@ -656,6 +675,10 @@ namespace GAPI {
                 }
             }
         }
+
+    // init samplers
+        memset(samplers, 0, sizeof(samplers));
+        initSamplers();
     }
 
     void resetDevice() {
@@ -666,6 +689,9 @@ namespace GAPI {
             SAFE_RELEASE(rtCache.items[i].RTV);
             SAFE_RELEASE(rtCache.items[i].DSV);
         }
+
+        deinitSamplers();
+
         rtCache.count = 0;
     }
 
@@ -747,6 +773,9 @@ namespace GAPI {
         deviceContext->RSSetState(RS[cmNone]);
         depthTest = depthWrite = dirtyDepthState = true;
         colorWrite = dirtyBlendState = true;
+
+        deviceContext->VSGetSamplers(0, COUNT(samplers), samplers);
+        deviceContext->PSGetSamplers(0, COUNT(samplers), samplers);
     }
 
     void cacheRenderTarget(ID3D11RenderTargetView **RTV, ID3D11DepthStencilView **DSV, int width, int height) {

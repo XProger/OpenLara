@@ -47,7 +47,7 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	float3 viewVec = normalize(In.viewVec.xyz);
 	
 	float  base   = SAMPLE_2D_LINEAR(sNormal, In.texCoord).x;
-	float3 normal = calcNormalF(In.texCoordR, In.texCoordB, base);
+	float3 normal = calcHeightMapNormal(In.texCoordR, In.texCoordB, base);
 	
 	float2 dudv = mul(uViewProj, float4(normal.x, 0.0, normal.z, 0.0)).xy * uParam.z;
 	float3 rv = reflect(-viewVec, normal);
