@@ -1005,9 +1005,9 @@ namespace Core {
     void setCullMode(CullMode mode) {
         renderState &= ~RS_CULL;
         switch (mode) {
-            case cmNone  : break;
             case cmBack  : renderState |= RS_CULL_BACK;  break;
             case cmFront : renderState |= RS_CULL_FRONT; break;
+            default      : ;
         }
     }
 

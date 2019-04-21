@@ -199,6 +199,7 @@
     <ClInclude Include="..\..\collision.h" />
     <ClInclude Include="..\..\controller.h" />
     <ClInclude Include="..\..\core.h" />
+    <ClInclude Include="..\..\extension.h" />
     <ClInclude Include="..\..\format.h" />
     <ClInclude Include="..\..\debug.h" />
     <ClInclude Include="..\..\enemy.h" />
@@ -212,6 +213,8 @@
     <ClInclude Include="..\..\gapi\gu.h" />
     <ClInclude Include="..\..\gapi\gxm.h" />
     <ClInclude Include="..\..\gapi\vk.h" />
+    <ClInclude Include="..\..\gltf.h" />
+    <ClInclude Include="..\..\json.h" />
     <ClInclude Include="..\..\lang.h" />
     <ClInclude Include="..\..\lang\de.h" />
     <ClInclude Include="..\..\lang\en.h" />

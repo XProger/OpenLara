@@ -5011,7 +5011,7 @@ namespace TR {
                             n = mesh.vertices[face.vertices[fn]].normal;\
                             continue;\
                         }\
-                        vec3 o(mesh.vertices[face.vertices[0]].coord);\
+                        vec3 o = mesh.vertices[face.vertices[0]].coord;\
                         vec3 a = o - mesh.vertices[face.vertices[1]].coord;\
                         vec3 b = o - mesh.vertices[face.vertices[2]].coord;\
                         o = b.cross(a).normal() * 16300.0f;\

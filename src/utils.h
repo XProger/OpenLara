@@ -483,6 +483,8 @@ struct vec4 {
     vec4(const vec3 &xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
     vec4(const vec2 &xy, const vec2 &zw) : x(xy.x), y(xy.y), z(zw.x), w(zw.y) {}
 
+    inline float& operator [] (int index) const { ASSERT(index >= 0 && index <= 3); return ((float*)this)[index]; }
+
     inline bool operator == (const vec4 &v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
     inline bool operator != (const vec4 &v) const { return !(*this == v); }
 
@@ -514,6 +516,9 @@ struct quat {
         z = axis.z * s;
         w = c;
     }
+
+    inline bool operator == (const quat &q) const { return x == q.x && y == q.y && z == q.z && w == q.w; }
+    inline bool operator != (const quat &v) const { return !(*this == v); }
 
     quat operator - () const {
         return quat(-x, -y, -z, -w);
@@ -1065,7 +1070,11 @@ struct short4 {
     short4() {}
     short4(int16 x, int16 y, int16 z, int16 w) : x(x), y(y), z(z), w(w) {}
 
+    operator vec2()   const { return vec2((float)x, (float)y); };
     operator vec3()   const { return vec3((float)x, (float)y, (float)z); };
+    operator vec4()   const { return vec4((float)x, (float)y, (float)z, (float)w); };
+
+    operator short2() const { return *((short2*)this); }
     operator short3() const { return *((short3*)this); }
 
     inline bool operator == (const short4 &v) const { return x == v.x && y == v.y && z == v.z && w == v.w; }
@@ -1386,6 +1395,28 @@ union Color16 { // RGBA5551
 };
 
 
+namespace String {
+
+    void toLower(char *str) {
+        if (!str) return;
+
+        while (char &c = *str++) {
+            if (c >= 'A' && c <= 'Z')
+                c -= 'Z' - 'z';
+        }
+    }
+
+    char* copy(const char *str) {
+        if (str == NULL) {
+            return NULL;
+        }
+        char *res = new char[strlen(str) + 1];
+        strcpy(res, str);
+        return res;
+    }
+}
+
+
 struct Stream;
 
 extern void osCacheWrite (Stream *stream);
@@ -1418,10 +1449,7 @@ struct Stream {
     int         bufferIndex;
 
     Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0), buffer(NULL) {
-        if (name) {
-            this->name = new char[strlen(name) + 1];
-            strcpy(this->name, name);
-        }
+        this->name = String::copy(name);
     }
 
     Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), buffer(NULL) {
@@ -1446,10 +1474,7 @@ struct Stream {
 
         if (!f) {
             #ifdef _OS_WEB
-                if (name) {
-                    this->name = new char[strlen(name) + 1];
-                    strcpy(this->name, name);
-                }
+                this->name = String::copy(name);
                 osDownload(this);
             #else
                 LOG("error loading file \"%s\"\n", name);
@@ -1468,10 +1493,7 @@ struct Stream {
 
             bufferIndex = -1;
 
-            if (name) {
-                this->name = new char[strlen(name) + 1];
-                strcpy(this->name, name);
-            }
+            this->name = String::copy(name);
 
             if (callback)
                 callback(this, userData);
@@ -1905,20 +1927,6 @@ struct BitStream {
         readU(count);
     }
 };
-
-
-namespace String {
-
-    void toLower(char *str) {
-        if (!str) return;
-
-        while (char &c = *str++) {
-            if (c >= 'A' && c <= 'Z')
-                c -= 'Z' - 'z';
-        }
-    }
-
-}
 
 
 template <int N>

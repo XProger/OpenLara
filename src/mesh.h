@@ -988,6 +988,9 @@ struct MeshBuilder {
         for (int j = 0; j < mesh.fCount; j++) {
             TR::Face &f = mesh.faces[j];
             ASSERT(f.colored || f.flags.texture < level->objectTexturesCount);
+            if (level->version & TR::VER_PSX) {
+                f.colored = false; // PSX version has colored textures
+            }
             TR::TextureInfo &t = f.colored ? (useRoomTex ? whiteRoom : whiteObject) : level->objectTextures[f.flags.texture];
 
             int texAttrib = forceOpaque ? 0 : t.attribute;

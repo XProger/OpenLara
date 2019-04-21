@@ -12,6 +12,7 @@
 #include "inventory.h"
 #include "savegame.h"
 #include "network.h"
+#include "extension.h"
 
 #if defined(_DEBUG) && defined(_GAPI_GL) && !defined(_GAPI_GLES)
     #define DEBUG_RENDER
@@ -2134,6 +2135,13 @@ struct Level : IGame {
             Input::down[ikY] = false;
         }
     #endif        
+    #endif
+
+    #ifdef GEOMETRY_EXPORT
+        if (Input::down[ikF1]) {
+            Extension::exportGeometry(this, atlasRooms, atlasObjects, atlasSprites);
+            Input::down[ikF1] = false;
+        }
     #endif
     }
 

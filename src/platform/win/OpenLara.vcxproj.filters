@@ -116,6 +116,9 @@
     <ClInclude Include="..\..\lang\fi.h">
       <Filter>lang</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\extension.h" />
+    <ClInclude Include="..\..\gltf.h" />
+    <ClInclude Include="..\..\json.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">
