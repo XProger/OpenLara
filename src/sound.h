@@ -70,7 +70,7 @@ namespace Sound {
             int     index;
             int16   out[MAX_DELAY];
 
-            void process(int32 &x, int16 delay) {
+            void process(int16 &x, int16 delay) {
                 index = (index + 1) % delay;
                 int16 y = out[index];
                 out[index] = x;
@@ -79,9 +79,9 @@ namespace Sound {
         };
 
         struct Absorption {
-            int32 out;
+            int16 out;
 
-            void process(int32 &x, int32 *coeff) { // coeff[0] - gain, coeff[1] - damping
+            void process(int16 &x, int32 *coeff) { // coeff[0] - gain, coeff[1] - damping
                 x = out = (out * coeff[1] + ((x * coeff[0] * (DSP_SCALE - coeff[1])) >> DSP_SCALE_BIT)) >> DSP_SCALE_BIT;
             }
         };
@@ -91,9 +91,9 @@ namespace Sound {
             Absorption  af[MAX_FDN];
 
             int32       output[MAX_FDN];
-            int32       panCoeff[MAX_FDN][2];
+            int16       buffer[MAX_FDN];
+            int16       panCoeff[MAX_FDN][2];
             int32       absCoeff[MAX_FDN][2];   // absorption gain & damping
-            int32       buffer[MAX_FDN];
 
             Reverberation() {
                 for (int i = 0; i < MAX_FDN; i++) {
@@ -140,16 +140,16 @@ namespace Sound {
 
                 // apply delay & absorption filters
                     for (int j = 0; j < MAX_FDN; j++) {
-                        int32 k = in + output[j];
+                        int16 k = clamp(in + output[j], -0x7FFF, 0x7FFF);
                         df[j].process(k, FDN[j]);
                         af[j].process(k, absCoeff[j]);
-                        out += k;
                         buffer[j] = k;
+                        out += k;
                     }
                     out = out * 2 / MAX_FDN;
 
                 // apply pan
-                    int32 buf = buffer[MAX_FDN - 1];
+                    int16 buf = buffer[MAX_FDN - 1];
                     for (int j = 0; j < MAX_FDN; j++) {
                         output[j] = max(0, out - buf);
                         buf = buffer[j];
