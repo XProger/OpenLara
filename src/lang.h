@@ -17,6 +17,9 @@ enum StringID {
     , STR_NO
     , STR_OFF
     , STR_ON
+    , STR_NO_STEREO
+    , STR_SBS
+    , STR_ANAGLYPH
     , STR_SPLIT
     , STR_VR
     , STR_QUALITY_LOW

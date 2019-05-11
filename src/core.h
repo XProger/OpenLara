@@ -230,7 +230,7 @@ namespace Core {
 
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };
-        enum Stereo   { STEREO_OFF, STEREO_ON, STEREO_SPLIT, STEREO_VR };
+        enum Stereo   { STEREO_OFF, STEREO_SBS, STEREO_ANAGLYPH, STEREO_SPLIT, STEREO_VR };
 
         uint8 version;
 
@@ -279,6 +279,10 @@ namespace Core {
                     value = MEDIUM;
                 water = value;
             #endif
+            }
+
+            bool isStereo() {
+                return stereo == STEREO_SBS || stereo == STEREO_ANAGLYPH || stereo == STEREO_VR;
             }
         } detail;
 
@@ -509,6 +513,7 @@ struct MeshRange {
     E( FILTER_DOWNSAMPLE_DEPTH ) \
     E( FILTER_GRAYSCALE        ) \
     E( FILTER_BLUR             ) \
+    E( FILTER_ANAGLYPH         ) \
     E( FILTER_EQUIRECTANGULAR  ) \
     /* options */ \
     E( UNDERWATER      ) \
@@ -701,6 +706,7 @@ namespace Core {
         LOG("OpenLara (%s)\n", version);
 
         x = y = 0;
+        eyeTex[0] = eyeTex[1] = NULL;
 
         memset(&support, 0, sizeof(support));
         support.texMinSize = 1;
@@ -897,6 +903,8 @@ namespace Core {
     }
 
     void deinit() {
+        delete eyeTex[0];
+        delete eyeTex[1];
         delete whiteTex;
         delete whiteCube;
         delete blackTex;

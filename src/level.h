@@ -42,7 +42,7 @@ struct Level : IGame {
 
     Lara        *players[2], *player;
     Camera      *camera;
-    Texture     *shadow;
+    Texture     *shadow[2];
 
     struct Params {
         float   time;
@@ -348,14 +348,16 @@ struct Level : IGame {
     }
 
     void initShadow() {
-        delete shadow;
+        delete shadow[0];
+        delete shadow[1];
+        shadow[0] = shadow[1] = NULL;
+
         if (Core::settings.detail.shadows > Core::Settings::LOW) {
             if (level.isTitle())
-                shadow = new Texture(32, 32, 1, FMT_SHADOW); // init dummy shadow map
+                shadow[0] = new Texture(32, 32, 1, FMT_SHADOW); // init dummy shadow map
             else
-                shadow = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, 1, FMT_SHADOW, OPT_TARGET);
-        } else
-            shadow = NULL;
+                shadow[0] = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, 1, FMT_SHADOW, OPT_TARGET);
+        }
     }
 
     virtual void applySettings(const Core::Settings &settings) {
@@ -587,7 +589,10 @@ struct Level : IGame {
         Core::whiteTex->bind(sMask);
         Core::whiteTex->bind(sReflect);
         Core::whiteCube->bind(sEnvironment);
-        if (shadow) shadow->bind(sShadow);
+
+        Texture *shadowMap = shadow[player->camera->cameraIndex];
+        if (shadowMap) shadowMap->bind(sShadow);
+
         Core::basis.identity();
     }
 
@@ -607,7 +612,7 @@ struct Level : IGame {
             Core::pass = pass;
             Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
             Core::setTarget(target, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
-            renderView(rIndex, false);
+            renderView(rIndex, false, false);
         }
 
         Core::pass = tmpPass;
@@ -913,7 +918,7 @@ struct Level : IGame {
         mesh = new MeshBuilder(&level, atlasRooms);
         initEntities();
 
-        shadow       = NULL;
+        shadow[0] = shadow[1] = NULL;
         camera       = NULL;
         ambientCache = NULL;
         waterCache   = NULL;
@@ -981,7 +986,8 @@ struct Level : IGame {
         for (int i = 0; i < level.entitiesCount; i++)
             delete (Controller*)level.entities[i].controller;
 
-        delete shadow;
+        delete shadow[0];
+        delete shadow[1];
         delete ambientCache;
         delete waterCache;
         delete zoneCache;
@@ -2382,7 +2388,7 @@ struct Level : IGame {
         Core::fogParams = oldFog;
     }
 
-    virtual void renderView(int roomIndex, bool water, int roomsCount = 0, int *roomsList = NULL) {
+    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {
         PROFILE_MARKER("VIEW");
 
         if (water && waterCache)
@@ -2485,6 +2491,10 @@ struct Level : IGame {
             waterCache->blitTexture(screen);
         }
 
+        if (showUI) {
+            renderUI();
+        }
+
         Core::pass = pass;
     }
 
@@ -2533,7 +2543,7 @@ struct Level : IGame {
         camera->frustum->calcPlanes(Core::mViewProj);
 
         setup();
-        renderView(roomIndex, false);
+        renderView(roomIndex, false, false);
     }
 /*
     void renderShadowEntity(int index, Controller *controller, Controller *player) {
@@ -2635,7 +2645,7 @@ struct Level : IGame {
         return count;
     }
 */
-    void renderShadows(int roomIndex) {
+    void renderShadows(int roomIndex, Texture *shadowMap) {
         PROFILE_MARKER("PASS_SHADOW");
 
         if (Core::settings.detail.shadows == Core::Settings::LOW)
@@ -2647,11 +2657,11 @@ struct Level : IGame {
         Core::eye = 0.0f;
 
         Core::pass = Core::passShadow;
-        shadow->unbind(sShadow);
-        bool colorShadow = shadow->fmt == FMT_RGBA ? true : false;
+        shadowMap->unbind(sShadow);
+        bool colorShadow = shadowMap->fmt == FMT_RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
-        Core::setTarget(shadow, NULL, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
+        Core::setTarget(shadowMap, NULL, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
         //Core::setCullMode(cmBack);
         Core::validateRenderState();
 
@@ -2917,7 +2927,14 @@ struct Level : IGame {
 
         C3D_FrameDrawOn(GAPI::curTarget);
     #else
-        if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH || Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+            if (eye <= 0) {
+                Core::defaultTarget = Core::eyeTex[0];
+            } else {
+                Core::defaultTarget = Core::eyeTex[1];
+            }
+            Core::setTarget(Core::defaultTarget, NULL, 0);
+        } else {
             switch (eye) {
                 case -1 : vp = Viewport(vX + vp.x - vp.x / 2, vY + vp.y, vp.width / 2, vp.height);   break;
                 case +1 : vp = Viewport(vX + vW / 2 + vp.x / 2, vY + vp.y, vp.width / 2, vp.height); break;
@@ -2934,6 +2951,26 @@ struct Level : IGame {
     }
 
     void renderPrepare() {
+        #ifdef _OS_3DS
+            Core::settings.detail.stereo = osGet3DSliderState() > 0.0f ? Core::Settings::STEREO_SBS : Core::Settings::STEREO_OFF;
+        #endif
+
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
+            for (int i = 0; i < 2; i++) {
+                Texture *&tex = Core::eyeTex[i];
+                if (!tex || tex->origWidth != Core::width || tex->origHeight != Core::height) {
+                    delete tex;
+                    tex = new Texture(Core::width, Core::height, 1, FMT_RGBA, OPT_TARGET | OPT_NEAREST);
+                }
+            }
+        } else if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
+            delete Core::eyeTex[0];
+            delete Core::eyeTex[1];
+            Core::eyeTex[0] = Core::eyeTex[1] = NULL;
+        }
+
+        needRenderGame = !inventory->video && !level.isTitle() && ((inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) || needRedrawTitleBG);
+
         if (inventory->video) {
             inventory->render(1.0);
 
@@ -2944,10 +2981,7 @@ struct Level : IGame {
                 UI::renderSubs();
                 UI::end();
             }
-            return;
         }
-
-        needRenderGame = !inventory->video && !level.isTitle() && ((inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) || needRedrawTitleBG);
 
         if (!needRenderGame)
             return;
@@ -2957,36 +2991,29 @@ struct Level : IGame {
             needRedrawReflections = false;
         }
 
-        if (ambientCache)
+        if (ambientCache) {
             ambientCache->processQueue();
+        }
 
-        if (shadow && player)
-            renderShadows(player->getRoomIndex());
+        if (shadow[0] && players[0]) {
+            player = players[0];
+            renderShadows(player->getRoomIndex(), shadow[0]);
+
+            if (players[1]) {
+                if (!shadow[1]) {
+                    shadow[1] = new Texture(shadow[0]->origWidth, shadow[0]->origHeight, 1, shadow[0]->fmt, shadow[0]->opt);
+                }
+
+                player = players[1];
+                renderShadows(player->getRoomIndex(), shadow[1]);
+            }
+        }
     }
 
-    void renderGame(bool showUI) {
-        //if (Core::settings.detail.stereo || Core::settings.detail.splitscreen) {
-        //    Core::setTarget(NULL, CLEAR_ALL);
-        //    Core::validateRenderState();
-        //}
-
-/*  // catsuit test
-        lara->bakeEnvironment();
-        lara->visibleMask = Lara::BODY_HEAD | Lara::BODY_ARM_L3 | Lara::BODY_ARM_R3;
-*/
-
-/*
-    // EQUIRECTANGULAR PROJECTION test
-        if (!cube360)
-            cube360 = new Texture(1024, 1024, 1, Texture::RGBA, true, NULL, true, false);
-        renderEnvironment(camera->getRoomIndex(), camera->pos, &cube360, 0, Core::passCompose);
-        Core::setTarget(NULL, Core::CLEAR_ALL);
-        setShader(Core::passFilter, Shader::FILTER_EQUIRECTANGULAR);
-        cube360->bind(sEnvironment);
-        mesh->renderQuad();
-        return;
-*/
-        Viewport vp = Core::viewportDef;
+    void renderEye(int eye, bool showUI) {
+        float          oldEye      = Core::eye;
+        Viewport       oldViewport = Core::viewportDef;
+        GAPI::Texture *oldTarget   = Core::defaultTarget;
 
         int viewsCount = players[1] ? 2 : 1;
         for (int view = 0; view < viewsCount; view++) {
@@ -2996,99 +3023,45 @@ struct Level : IGame {
             setClipParams(1.0f, NO_CLIP_PLANE);
             params->waterHeight = params->clipHeight;
 
-            if (shadow) {
-                if (view > 0/* && Core::settings.detail.shadows < Core::Settings::HIGH*/)
-                    renderShadows(player->getRoomIndex()); // render shadows for player2 for all-in-one shadow technique
-                shadow->bind(sShadow);
-            }
-
             Core::pass = Core::passCompose;
 
-            if (view == 0 && Input::hmd.ready) {
-                Core::settings.detail.stereo = Core::Settings::STEREO_VR;
-
-                GAPI::Texture *oldTarget = Core::defaultTarget;
-                Viewport vp = Core::viewportDef;
-
-                Core::defaultTarget = Core::eyeTex[0];
-                Core::viewportDef = Viewport(0, 0, Core::defaultTarget->width, Core::defaultTarget->height);
-                Core::setTarget(NULL,Core::defaultTarget, 0); // changing to 0 and adding defaultTarget parameter
-                Core::eye = -1.0f;
-                setup();
-                renderView(camera->getRoomIndex(), true);
-
-                Core::defaultTarget = Core::eyeTex[1];
-                Core::viewportDef = Viewport(0, 0, Core::defaultTarget->width, Core::defaultTarget->height);
-                Core::setTarget(NULL, Core::defaultTarget, 0);
-                Core::eye =  1.0f;
-                setup();
-                renderView(camera->getRoomIndex(), true);
-
-                //Core::settings.detail.vr = false;
-
-                Core::defaultTarget = oldTarget;
-                Core::setTarget(NULL, Core::defaultTarget, 0);
-                Core::viewportDef = vp;
-            }
-
-        #ifdef _OS_3DS
-            Core::settings.detail.stereo = osGet3DSliderState() > 0.0f ? Core::Settings::STEREO_ON : Core::Settings::STEREO_OFF;
-        #endif
-
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
-                float oldEye = Core::eye;
-
-                setViewport(view, -1, false);
-                setup();
-                renderView(camera->getRoomIndex(), true);
-
-                setViewport(view,  1, false);
-                setup();
-                renderView(camera->getRoomIndex(), true);
-
-                Core::eye = oldEye;
-            } else {
-                setViewport(view, int(Core::eye), false);
-                setup();
-                renderView(camera->getRoomIndex(), true);
-            }
+            setViewport(view, eye, false);
+            setup();
+            renderView(camera->getRoomIndex(), true, showUI);
         }
 
-        if (showUI) {
-            Core::Pass pass = Core::pass;
+        Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        Core::resetLights();
 
-            for (int view = 0; view < viewsCount; view++) {
-                player = players[view];
-                camera = player->camera;
+        if (!(level.isTitle() || inventory->titleTimer > 0.0f))
+            inventory->renderBackground();
 
-                setClipParams(1.0f, NO_CLIP_PLANE);
-                params->waterHeight = params->clipHeight;
+        renderInventoryEye(eye);
 
-                if (Core::settings.detail.stereo == Core::Settings::STEREO_ON) { // left/right SBS stereo
-                    float oldEye = Core::eye;
-
-                    setViewport(view, -1, false);
-                    renderUI();
-
-                    setViewport(view, 1, false);
-                    renderUI();
-
-                    Core::eye = oldEye;
-                } else {
-                    setViewport(view, int(Core::eye), false);
-                    renderUI();
-                }
-            }
-
-            Core::pass = pass;
-        }
-
-        Core::viewportDef = vp;
+        Core::defaultTarget = oldTarget;
+        Core::viewportDef   = oldViewport;
+        Core::eye           = oldEye;
 
         player = players[0];
         camera = player->camera;
+    }
 
-        // lara->visibleMask = 0xFFFFFFFF; // catsuit test
+    void renderGame(bool showUI) {
+        if (Core::eye == 0.0f && Core::settings.detail.isStereo()) {
+            renderEye(-1, showUI);
+            renderEye(+1, showUI);
+        }  else {
+            renderEye(int(Core::eye), showUI);
+        }
+
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
+            Core::setTarget(NULL, NULL, RT_STORE_COLOR);
+            setShader(Core::passFilter, Shader::FILTER_ANAGLYPH, false, false);
+            Core::eyeTex[0]->bind(sDiffuse);
+            Core::eyeTex[1]->bind(sNormal);
+            Core::setDepthTest(false);
+            mesh->renderQuad();
+        }
     }
 
     void renderUI() {
@@ -3179,7 +3152,6 @@ struct Level : IGame {
 
     void renderInventory() {
         Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
-
         Core::resetLights();
 
         if (!(level.isTitle() || inventory->titleTimer > 0.0f))
@@ -3187,7 +3159,7 @@ struct Level : IGame {
 
         float oldEye = Core::eye;
 
-        if ((Core::settings.detail.stereo == Core::Settings::STEREO_ON) || (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT && players[1])) {
+        if ((Core::settings.detail.stereo == Core::Settings::STEREO_SBS) || (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) || (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT && players[1])) {
             renderInventoryEye(-1);
             renderInventoryEye(+1);
         } else

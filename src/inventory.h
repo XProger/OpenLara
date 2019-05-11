@@ -130,13 +130,13 @@ static const OptionItem optDetail[] = {
 #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI) || defined(_OS_PSV)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync     ), STR_OFF, 0, 1 ),
 #endif
-#ifndef _OS_PSP
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_OFF, 0, 
-#if /*defined(_OS_WIN) ||*/ defined(_OS_ANDROID)
-    3 /* with VR option */
-#else
-    2 /* without VR support */
-#endif
+#if !defined(_OS_PSP) && !defined(_OS_PSV) && !defined(_OS_3DS)
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_NO_STEREO, 0, 
+    #if /*defined(_OS_WIN) ||*/ defined(_OS_ANDROID)
+        4 /* with VR option */
+    #else
+        3 /* without VR support */
+    #endif
     ),
 #endif
     OptionItem( ),
@@ -1832,7 +1832,7 @@ struct Inventory {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             pos.z -= 256.0f;
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_ON)
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
             pos.x += Core::eye * 8.0f;
 
         Core::mViewInv = mat4(pos, pos + vec3(0, 0, 1), vec3(0, -1, 0));

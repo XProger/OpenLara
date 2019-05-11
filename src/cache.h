@@ -110,6 +110,7 @@ struct ShaderCache {
         compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx, RS_COLOR_WRITE);
         compile(Core::passFilter, Shader::FILTER_BLUR,       fx, RS_COLOR_WRITE);
+        compile(Core::passFilter, Shader::FILTER_ANAGLYPH,   fx, RS_COLOR_WRITE);
     }
 
     void prepareGUI(int fx) {
@@ -944,7 +945,7 @@ struct WaterCache {
         // render reflections frame
             float sign = underwater ? -1.0f : 1.0f;
             game->setClipParams(sign, waterLevel * sign);
-            game->renderView(TR::NO_ROOM, false, roomsCount, roomsList);
+            game->renderView(TR::NO_ROOM, false, false, roomsCount, roomsList);
         }
 
         game->setClipParams(1.0f, NO_CLIP_PLANE);

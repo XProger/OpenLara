@@ -74,7 +74,7 @@ struct IGame {
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderModelFull(int modelIndex, bool underwater, Basis *joints) {}
     virtual void renderCompose(int roomIndex) {}
-    virtual void renderView(int roomIndex, bool water, int roomsCount = 0, int *roomsList = NULL) {}
+    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {}
     virtual void renderGame(bool showUI) {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 

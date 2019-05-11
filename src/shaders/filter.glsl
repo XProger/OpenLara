@@ -17,19 +17,21 @@ uniform vec4 uParam;
 	uniform sampler2D sDiffuse;
 	uniform sampler2D sNormal;
 
-	vec4 downsample() { // uParam (textureSize, unused, unused, unused)
-		vec4 color = vec4(0.0);
-		for (float y = -1.5; y < 2.0; y++)
-			for (float x = -1.5; x < 2.0; x++) {
-				vec4 p;
-				p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * uParam.x).xyz;
-				p.w    = dot(p.xyz, vec3(0.299, 0.587, 0.114));
-				p.xyz *= p.w;
-				color += p;
-			}
+	#ifdef FILTER_DOWNSAMPLE
+		vec4 downsample() { // uParam (textureSize, unused, unused, unused)
+			vec4 color = vec4(0.0);
+			for (float y = -1.5; y < 2.0; y++)
+				for (float x = -1.5; x < 2.0; x++) {
+					vec4 p;
+					p.xyz  = texture2D(sDiffuse, vTexCoord + vec2(x, y) * uParam.x).xyz;
+					p.w    = dot(p.xyz, vec3(0.299, 0.587, 0.114));
+					p.xyz *= p.w;
+					color += p;
+				}
 
-		return vec4(color.xyz / color.w, 1.0);
-	}
+			return vec4(color.xyz / color.w, 1.0);
+		}
+	#endif
 
 	#ifdef FILTER_DOWNSAMPLE_DEPTH
 		vec4 downsampleDepth() {
@@ -44,24 +46,28 @@ uniform vec4 uParam;
 		}
 	#endif
 
-	vec4 grayscale() { // uParam (factor, unused, unused, unused)
-		vec4 color = texture2D(sDiffuse, vTexCoord);
-		vec3 gray  = vec3(dot(color, vec4(0.299, 0.587, 0.114, 0.0)));
-		return vec4(mix(color.xyz, gray, uParam.w) * uParam.xyz, color.w);
-	}
+	#ifdef FILTER_GRAYSCALE
+		vec4 grayscale() { // uParam (factor, unused, unused, unused)
+			vec4 color = texture2D(sDiffuse, vTexCoord);
+			vec3 gray  = vec3(dot(color, vec4(0.299, 0.587, 0.114, 0.0)));
+			return vec4(mix(color.xyz, gray, uParam.w) * uParam.xyz, color.w);
+		}
+	#endif
 
-	vec4 blur() { // uParam (dirX, dirY, 1 / textureSize, unused)
-		const vec3 offset = vec3(0.0, 1.3846153846, 3.2307692308);
-		const vec3 weight = vec3(0.2270270270, 0.3162162162, 0.0702702703);
+	#ifdef FILTER_BLUR
+		vec4 blur() { // uParam (dirX, dirY, 1 / textureSize, unused)
+			const vec3 offset = vec3(0.0, 1.3846153846, 3.2307692308);
+			const vec3 weight = vec3(0.2270270270, 0.3162162162, 0.0702702703);
 
-		vec2 dir   = uParam.xy;
-		vec4 color = texture2D(sDiffuse, vTexCoord) * weight[0];
-		color += texture2D(sDiffuse, vTexCoord + dir * offset[1]) * weight[1];
-		color += texture2D(sDiffuse, vTexCoord - dir * offset[1]) * weight[1];
-		color += texture2D(sDiffuse, vTexCoord + dir * offset[2]) * weight[2];
-		color += texture2D(sDiffuse, vTexCoord - dir * offset[2]) * weight[2];
-		return color;
-	}
+			vec2 dir   = uParam.xy;
+			vec4 color = texture2D(sDiffuse, vTexCoord) * weight[0];
+			color += texture2D(sDiffuse, vTexCoord + dir * offset[1]) * weight[1];
+			color += texture2D(sDiffuse, vTexCoord - dir * offset[1]) * weight[1];
+			color += texture2D(sDiffuse, vTexCoord + dir * offset[2]) * weight[2];
+			color += texture2D(sDiffuse, vTexCoord - dir * offset[2]) * weight[2];
+			return color;
+		}
+	#endif
 
 	#ifdef FILTER_EQUIRECTANGULAR
 		uniform samplerCube sEnvironment;
@@ -75,14 +81,24 @@ uniform vec4 uParam;
 		}
 	#endif
 
-	vec4 upscale() { // https://www.shadertoy.com/view/XsfGDn
-		vec2 uv = vTexCoord * uParam.xy + 0.5;
-		vec2 iuv = floor(uv);
-		vec2 fuv = fract(uv);
-		uv = iuv + fuv * fuv * (3.0 - 2.0 * fuv);
-		uv = (uv - 0.5) / uParam.xy;
-		return texture2D(sDiffuse, uv) * vColor;
-	}
+	#ifdef FILTER_UPSCALE
+		vec4 upscale() { // https://www.shadertoy.com/view/XsfGDn
+			vec2 uv = vTexCoord * uParam.xy + 0.5;
+			vec2 iuv = floor(uv);
+			vec2 fuv = fract(uv);
+			uv = iuv + fuv * fuv * (3.0 - 2.0 * fuv);
+			uv = (uv - 0.5) / uParam.xy;
+			return texture2D(sDiffuse, uv) * vColor;
+		}
+	#endif
+
+	#ifdef FILTER_ANAGLYPH
+		vec4 anaglyph() {
+			vec3 eyeL = texture2D(sDiffuse, vTexCoord).rgb;
+			vec3 eyeR = texture2D(sNormal,  vTexCoord).rgb;
+			return vec4(eyeL.r, eyeR.g, eyeR.b, 1.0);
+		}
+	#endif
 
 	vec4 process() {
 		#ifdef FILTER_DOWNSAMPLE
@@ -105,7 +121,15 @@ uniform vec4 uParam;
 			return equirectangular();
 		#endif
 
-		return upscale();
+		#ifdef FILTER_UPSCALE
+			return upscale();
+		#endif
+
+		#ifdef FILTER_ANAGLYPH
+			return anaglyph();
+		#endif
+
+		return vec4(1.0);
 	}
 
 	void main() {
