@@ -13,6 +13,9 @@
 #define CAM_SPEED_FOLLOW  12
 #define CAM_SPEED_COMBAT  8
 
+#define CAM_FOCAL_LENGTH     1536.0f
+#define CAM_EYE_SEPARATION   16.0f
+
 #define CAM_FOLLOW_ANGLE     0.0f
 #define CAM_LOOK_ANGLE_XMAX  ( 55.0f * DEG2RAD)
 #define CAM_LOOK_ANGLE_XMIN  (-75.0f * DEG2RAD)
@@ -512,7 +515,7 @@ struct Camera : ICamera {
                 Core::mViewInv.setPos(Core::mViewInv.getPos() + vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
             if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
-                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * 16.0f) );
+                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
 
             if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
@@ -521,17 +524,19 @@ struct Camera : ICamera {
 
             Core::mView = Core::mViewInv.inverseOrtho();
 
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
                 Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
-            else
-                Core::mProj = GAPI::perspective(fov, aspect, znear, zfar);
+            } else {
+                float eyeSep = (Core::eye * CAM_EYE_SEPARATION) * znear / CAM_FOCAL_LENGTH;
+                Core::mProj = GAPI::perspective(fov, aspect, znear, zfar, eyeSep);
+            }
         }
 
         Core::setViewProj(Core::mView, Core::mProj);
         Core::viewPos = Core::mViewInv.getPos();
 
         // update room for eye (with HMD offset)
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+        if (Core::settings.detail.isStereo())
             level->getSector(eye.room, Core::viewPos.xyz());
 
         frustum->pos = Core::viewPos.xyz();

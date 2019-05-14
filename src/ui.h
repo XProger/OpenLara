@@ -643,7 +643,7 @@ namespace UI {
                 delete item.animation;
                 pickups.remove(i);
             } else {
-                vec2 target = vec2(w - 48.0f - Core::eye * 16.0f - (i % 4) * 96.0f, UI::height - 48.0f - (i / 4) * 96.0f);
+                vec2 target = vec2(w - 48.0f - (i % 4) * 96.0f, UI::height - 48.0f - (i / 4) * 96.0f);
                 item.pos = item.pos.lerp(target, Core::deltaTime * 5.0f);
                 i++;
             }
@@ -710,18 +710,16 @@ namespace UI {
     #ifdef _NAPI_SOCKET
         textOut(vec2(16, height - 32), command, aLeft, width - 32, 255, UI::SHADE_GRAY);
     #endif
-        float eye = UI::width * Core::eye * 0.02f;
-
         if (hintTime > 0.0f) {
-            textOut(vec2(16 - eye, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(16, 32), hintStr, aLeft, width - 32, 255, UI::SHADE_GRAY);
         }
 
     #if defined(_OS_WEB) || defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_RPI)
         if (showHelp) {
-            textOut(vec2(32 - eye, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
         } else {
             if (helpTipTime > 0.0f) {
-                textOut(vec2(0 - eye, height - 16), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
+                textOut(vec2(0, height - 16), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
             }
         }
     #endif
@@ -736,12 +734,10 @@ namespace UI {
     void renderSubs() {
         if (!Core::settings.audio.subtitles) return;
 
-        float eye = UI::width * Core::eye * 0.02f;
-
         if (subsTime > 0.0f) {
             const char *subs = STR[subsStr] + subsPos;
-            textOut(vec2(16 - eye, height - 48) + vec2(1, 1), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
-            textOut(vec2(16 - eye, height - 48), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(16, height - 48) + vec2(1, 1), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY, true);
+            textOut(vec2(16, height - 48), subs, aCenterV, width - 32, 255, UI::SHADE_GRAY);
         }
     }
 
@@ -762,7 +758,7 @@ namespace UI {
 
     void setupInventoryShading(vec3 offset) {
         Core::mView.identity();
-        Core::mProj = GAPI::perspective(1.0f, 1.0f, 1.0f, 2.0f);
+        Core::mProj = GAPI::perspective(1.0f, 1.0f, 1.0f, 2.0f, 0.0f);
         Core::mLightProj = Core::mProj * Core::mView;
 
         game->setShader(Core::passCompose, Shader::ENTITY, false, false);
@@ -797,6 +793,7 @@ namespace UI {
 
         mat4 mView = Core::mView;
         Core::mView.scale(vec3(0.5f));
+        Core::mView.translate(vec3(-Core::eye * CAM_EYE_SEPARATION, 0.0f, 0.0f));
         Core::setViewProj(Core::mView, Core::mProj);
 
         vec3 lightOffset = vec3(UI::width - 64.0f, UI::height - 64.0f, 2048.0f);

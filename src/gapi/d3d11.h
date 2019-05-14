@@ -717,13 +717,16 @@ namespace GAPI {
         }
     }
 
-
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
-        return mat4(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+        mat4 m;
+        m.ortho(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+        return m;
     }
 
-    mat4 perspective(float fov, float aspect, float znear, float zfar) {
-        return mat4(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar);
+    mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
+        mat4 m;
+        m.perspective(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar, eye);
+        return m;
     }
 
     bool beginFrame() {

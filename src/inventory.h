@@ -6,17 +6,23 @@
 #include "ui.h"
 #include "savegame.h"
 
-#define INVENTORY_MAX_ITEMS  32
-#define INVENTORY_MAX_RADIUS 688.0f
+#define INV_MAX_ITEMS  32
+#define INV_MAX_RADIUS 688.0f
 #ifdef _OS_PSP
-    #define INVENTORY_BG_SIZE    256
+    #define INV_BG_SIZE    256
 #else
-    #define INVENTORY_BG_SIZE    512
+    #define INV_BG_SIZE    512
 #endif
 
-#define INVENTORY_HEIGHT     2048.0f
+#define INV_HEIGHT     2048.0f
 #define TITLE_LOADING        64.0f
 #define LINE_HEIGHT          20.0f
+
+#define INV_EYE_SEPARATION    16.0f
+#define INV_EYE_FOCAL_LENGTH  256.0f
+#define INV_ZNEAR             32.0f
+#define INV_ZFAR              2048.0f
+#define INV_FOV               70.0f
 
 static const struct OptionItem *waitForKey = NULL;
 
@@ -539,7 +545,7 @@ struct Inventory {
             anim->setAnim(0, 0, false);
         }
 
-    } *items[INVENTORY_MAX_ITEMS];
+    } *items[INV_MAX_ITEMS];
 
     static void loadTitleBG(Stream *stream, void *userData) {
         Inventory *inv = (Inventory*)userData;
@@ -759,7 +765,7 @@ struct Inventory {
             return;
         }
 
-        ASSERT(itemsCount < INVENTORY_MAX_ITEMS);
+        ASSERT(itemsCount < INV_MAX_ITEMS);
 
         count = min(UNLIMITED_AMMO, count);
 
@@ -1346,14 +1352,14 @@ struct Inventory {
     }
 
     Texture* getBackgroundTarget() {
-        if (background[0] && (background[0]->origWidth != INVENTORY_BG_SIZE || background[0]->origHeight != INVENTORY_BG_SIZE)) {
+        if (background[0] && (background[0]->origWidth != INV_BG_SIZE || background[0]->origHeight != INV_BG_SIZE)) {
             delete background[0];
             background[0] = NULL;
         }
 
         for (int i = 0; i < COUNT(background); i++)
             if (!background[i])
-                background[i] = new Texture(INVENTORY_BG_SIZE, INVENTORY_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
+                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
 
         return background[0];
     }
@@ -1385,14 +1391,14 @@ struct Inventory {
         // vertical blur
         Core::setTarget(background[1], NULL, RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INVENTORY_BG_SIZE, 0, 0));
+        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INV_BG_SIZE, 0, 0));
         background[0]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
         // horizontal blur
         Core::setTarget(background[0], NULL, RT_STORE_COLOR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(1.0f / INVENTORY_BG_SIZE, 0, 0, 0));
+        Core::active.shader->setParam(uParam, vec4(1.0f / INV_BG_SIZE, 0, 0, 0));
         background[1]->bind(sDiffuse);
         game->getMesh()->renderQuad();
 
@@ -1467,8 +1473,7 @@ struct Inventory {
         if (item->type == TR::Entity::INV_CONTROLS || item->type == TR::Entity::INV_DETAIL)
             width += 80;
 
-        float eye = UI::width * Core::eye * 0.02f;
-        float x = ( UI::width  - width  ) * 0.5f - eye;
+        float x = ( UI::width  - width  ) * 0.5f;
         float y = ( UI::height - height ) * 0.5f + LINE_HEIGHT;
 
     // background
@@ -1534,15 +1539,15 @@ struct Inventory {
         return def;
     }
 
-    void renderItemText(float eye, Item *item) {
+    void renderItemText(Item *item) {
         if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
             //
         } else {
             StringID str = getItemName(item->desc.str, game->getLevel()->id, item->type);
-            UI::textOut(vec2(-eye, 480 - 32), str, UI::aCenter, UI::width);
+            UI::textOut(vec2(0, 480 - 32), str, UI::aCenter, UI::width);
         }
 
-        renderItemCount(item, vec2(UI::width / 2 - 160 - eye, 480 - 96), 320);
+        renderItemCount(item, vec2(UI::width / 2 - 160, 480 - 96), 320);
 
     // show health bar in inventory when selector is over medikit
         if (item->type == TR::Entity::INV_MEDIKIT_BIG || item->type == TR::Entity::INV_MEDIKIT_SMALL) {
@@ -1553,12 +1558,12 @@ struct Inventory {
                 vec2 size = vec2(180, 10);
                 vec2 pos;
                 if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-                    pos = vec2((UI::width - size.x) * 0.5f - eye * 4.0f, 96);
+                    pos = vec2((UI::width - size.x) * 0.5f, 96);
                 } else {
                     if (game->getLara(1) && playerIndex == 0) {
-                        pos = vec2(32 - eye, 32);
+                        pos = vec2(32, 32);
                     } else {
-                        pos = vec2(UI::width - 32 - size.x - eye, 32);
+                        pos = vec2(UI::width - 32 - size.x, 32);
                     }
                 }
 
@@ -1579,7 +1584,7 @@ struct Inventory {
                 case TR::Entity::INV_GAMMA     :
                 case TR::Entity::INV_STOPWATCH :
                 case TR::Entity::INV_MAP       :
-                    UI::textOut(vec2(-eye, 240), STR_EMPTY, UI::aCenter, UI::width);
+                    UI::textOut(vec2(0, 240), STR_EMPTY, UI::aCenter, UI::width);
                     break;
                 default : ;
             }
@@ -1598,9 +1603,9 @@ struct Inventory {
 
         vec2 cpos(1286, 256 + 1280 * (1.0f - phaseRing));
         float ringTilt      = cpos.angle();
-        float radius        = phaseRing * INVENTORY_MAX_RADIUS * phase;
+        float radius        = phaseRing * INV_MAX_RADIUS * phase;
         float collapseAngle = phaseRing * phase * PI - PI;
-        float ringHeight    = lerp(float(this->page), float(targetPage), quintic(phasePage)) * INVENTORY_HEIGHT;
+        float ringHeight    = lerp(float(this->page), float(targetPage), quintic(phasePage)) * INV_HEIGHT;
         float angle         = getAngle(pageItemIndex[page], count);
 
         if (phaseSelect < 1.0f)
@@ -1626,7 +1631,7 @@ struct Inventory {
                 rd +=  296 * phaseChoose;
             }
 
-            Basis b = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item->desc.page * INVENTORY_HEIGHT - rh, 0));
+            Basis b = basis * Basis(quat(vec3(0, 1, 0), PI + ia - a), vec3(sinf(a), 0, -cosf(a)) * rd - vec3(0, item->desc.page * INV_HEIGHT - rh, 0));
 
             if (item->type == TR::Entity::INV_COMPASS) {
                 b.rotate(quat(vec3(1.0f, 0.0f, 0.0f), -phaseChoose * PI * 0.1f));
@@ -1833,7 +1838,7 @@ struct Inventory {
             pos.z -= 256.0f;
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
-            pos.x += Core::eye * 8.0f;
+            pos.x += Core::eye * INV_EYE_SEPARATION;
 
         Core::mViewInv = mat4(pos, pos + vec3(0, 0, 1), vec3(0, -1, 0));
 
@@ -1844,10 +1849,12 @@ struct Inventory {
         } else
             head.e00 = INF;
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             Core::mProj = Input::hmd.proj[Core::eye == -1.0f ? 0 : 1];
-        else
-            Core::mProj = GAPI::perspective(70.0f, aspect, 32.0f, 2048.0f);
+        } else {
+            float eyeSep = Core::eye * INV_EYE_SEPARATION * INV_ZNEAR / INV_EYE_FOCAL_LENGTH;
+            Core::mProj = GAPI::perspective(INV_FOV, aspect, INV_ZNEAR, INV_ZFAR, eyeSep);
+        }
 
         Core::mView   = Core::mViewInv.inverseOrtho();
         Core::viewPos = Core::mViewInv.getPos();
@@ -1935,47 +1942,44 @@ struct Inventory {
 
         static const StringID pageTitle[PAGE_MAX] = { STR_OPTION, STR_INVENTORY, STR_ITEMS, STR_SAVEGAME, STR_LEVEL_STATS };
 
-        float eye = UI::width * Core::eye * 0.01f;
-
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
             setupCamera(1.0f, true);
             Core::active.shader->setParam(uViewProj, Core::mViewProj);
-            eye = 0.0f;
         }
 
         if (page == PAGE_SAVEGAME) {
-            UI::renderBar(CTEX_OPTION, vec2(-eye + UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
-            UI::textOut(vec2(-eye, 240), pageTitle[page], UI::aCenter, UI::width);
-            UI::renderBar(CTEX_OPTION, vec2(-eye - 48 * slot + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
-            UI::textOut(vec2(-eye - 48 + UI::width / 2, 240 + 24), STR_YES, UI::aCenter, 48);
-            UI::textOut(vec2(-eye + UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
+            UI::renderBar(CTEX_OPTION, vec2(UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
+            UI::textOut(vec2(0, 240), pageTitle[page], UI::aCenter, UI::width);
+            UI::renderBar(CTEX_OPTION, vec2(slot + UI::width / 2 - 48, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
+            UI::textOut(vec2(UI::width / 2 - 48, 240 + 24), STR_YES, UI::aCenter, 48);
+            UI::textOut(vec2(UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
             return;
         }
 
         if (page == PAGE_LEVEL_STATS) {
-            showLevelStats(vec2(-eye, 180));
+            showLevelStats(vec2(0, 180));
             return;
         }
 
         if (!game->getLevel()->isTitle()) 
-            UI::textOut(vec2(-eye, 32), pageTitle[page], UI::aCenter, UI::width);
+            UI::textOut(vec2(0, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {
-            UI::textOut(vec2(16 - eye, 32), "[", UI::aLeft, UI::width);
-            UI::textOut(vec2(-eye, 32), "[", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);
+            UI::textOut(vec2( 0, 32), "[", UI::aRight, UI::width - 20);
         }
 
         if (canFlipPage(1)) {
-            UI::textOut(vec2(16 - eye, 480 - 16), "]", UI::aLeft, UI::width);
-            UI::textOut(vec2(-eye,  480 - 16), "]", UI::aRight, UI::width - 20);
+            UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width);
+            UI::textOut(vec2( 0, 480 - 16), "]", UI::aRight, UI::width - 20);
         }
 
         if (index == targetIndex && page == targetPage)
-            renderItemText(eye, items[getGlobalIndex(page, index)]);
+            renderItemText(items[getGlobalIndex(page, index)]);
 
     // inventory controls help
         if (page == targetPage && Input::touchTimerVis <= 0.0f) {
-            float dx = 32.0f - eye;
+            float dx = 32.0f;
             char buf[64];
             const char *bSelect = STR[STR_KEY_FIRST + ikEnter];
             const char *bBack   = STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[cInventory].key];

@@ -646,13 +646,15 @@ struct mat4 {
         e33 = 1.0f;
     }
 
-    mat4(ProjRange range, float l, float r, float b, float t, float znear, float zfar) {
+    void ortho(ProjRange range, float l, float r, float b, float t, float znear, float zfar) {
         identity();
+
         e00 = 2.0f / (r - l);
         e11 = 2.0f / (t - b);
         e22 = 2.0f / (znear - zfar);
         e03 = (l + r) / (l - r);
         e13 = (t + b) / (b - t);
+
         switch (range) {
             case PROJ_NEG_POS :
                 e23 = (zfar + znear) / (znear - zfar);
@@ -663,18 +665,16 @@ struct mat4 {
         }
     }
 
-    mat4(ProjRange range, float fov, float aspect, float znear, float zfar) {
-        float k = 1.0f / tanf(fov * 0.5f * DEG2RAD);
+    void frustum(ProjRange range, float l, float r, float b, float t, float znear, float zfar) {
         identity();
-        if (aspect >= 1.0f) {
-            e00 = k / aspect;
-            e11 = k;
-        } else {
-            e00 = k;
-            e11 = k * aspect;
-        }
-        e33 = 0.0f;
+
+        e00 = 2.0f * znear / (r - l);
+        e11 = 2.0f * znear / (t - b);
+        e02 = (r + l) / (r - l);
+        e12 = (t + b) / (t - b);
         e32 = -1.0f;
+        e33 = 0.0f;
+
         switch (range) {
             case PROJ_NEG_POS :
                 e22 = (znear + zfar) / (znear - zfar);
@@ -685,6 +685,20 @@ struct mat4 {
                 e23 = znear * e22;
                 break;
         }
+    }
+
+    void perspective(ProjRange range, float fov, float aspect, float znear, float zfar, float eye = 0.0f) {
+        float y = tanf(fov * 0.5f * DEG2RAD) * znear;
+        float x = y;
+
+        if (aspect >= 1.0f) {
+            x = y * aspect;
+        } else {
+            x = y;
+            y /= aspect;
+        }
+
+        frustum(range, -x - eye, x - eye, -y, y, znear, zfar);
     }
 
     mat4(const vec3 &from, const vec3 &at, const vec3 &up) {

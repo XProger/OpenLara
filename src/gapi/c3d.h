@@ -487,7 +487,7 @@ namespace GAPI {
         return res;
     }
 
-    mat4 perspective(float fov, float aspect, float znear, float zfar) {
+    mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
         Mtx_PerspTilt((C3D_Mtx*)&m, fov * DEG2RAD, aspect, znear, zfar, false);
 
