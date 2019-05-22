@@ -2,6 +2,7 @@ R"====(
 varying vec2 vTexCoord;
 varying vec4 vColor;
 uniform vec4 uParam;
+uniform mat4 uViewProj;
 
 #ifdef VERTEX
 	attribute vec4 aCoord;
@@ -9,9 +10,9 @@ uniform vec4 uParam;
 	attribute vec4 aLight;
 
 	void main() {
-		vTexCoord	= aTexCoord.xy;
-		vColor		= aLight;
-		gl_Position	= vec4(aCoord.xy * (1.0 / 32767.0), 0.0, 1.0);
+		vTexCoord   = aTexCoord.xy;
+		vColor      = aLight;
+		gl_Position = uViewProj * vec4(aCoord.xy, 0.0, 1.0);
 	}
 #else
 	uniform sampler2D sDiffuse;

@@ -13,59 +13,104 @@
 #elif _OS_ANDROID
     #include <dlfcn.h>
 
-    #include <GLES3/gl3.h>
-    #include <GLES3/gl3ext.h>
-    #include <GLES2/gl2ext.h>
+//    #define _GAPI_GLES2 // for old devices
+
+    #ifdef _GAPI_GLES2
+        #include <GLES2/gl2.h>
+        #include <GLES2/gl2ext.h>
+
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
+
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+        #undef  GL_RG
+        #undef  GL_RG32F
+        #undef  GL_RG16F
+        #undef  GL_RGBA32F
+        #undef  GL_RGBA16F
+        #undef  GL_HALF_FLOAT
+
+        #define GL_RG           GL_RGBA
+        #define GL_RGBA32F      GL_RGBA
+        #define GL_RGBA16F      GL_RGBA
+        #define GL_RG32F        GL_RGBA
+        #define GL_RG16F        GL_RGBA
+        #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+        #define GL_TEXTURE_3D           0
+        #define GL_TEXTURE_WRAP_R       0
+        #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+        #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+
+        #define glTexImage3D(...) 0
+
+        #define glGenVertexArrays(...)
+        #define glDeleteVertexArrays(...)
+        #define glBindVertexArray(...)
+    
+        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+        #define glGetProgramBinary(...)
+        #define glProgramBinary(...)
+
+        #define glInvalidateFramebuffer(...)
+    #else
+        #include <GLES3/gl3.h>
+        #include <GLES3/gl3ext.h>
+        #include <GLES2/gl2ext.h>
+    #endif
 
 #elif defined(__SDL2__) 
     #include <SDL2/SDL.h>
 
     #if defined(_GAPI_GLES)
-	#define GL_GLEXT_PROTOTYPES 1
-	#include <SDL2/SDL_opengles2.h>
-	#include <SDL2/SDL_opengles2_gl2ext.h>
+        #define GL_GLEXT_PROTOTYPES 1
+        #include <SDL2/SDL_opengles2.h>
+        #include <SDL2/SDL_opengles2_gl2ext.h>
 
-	#define GL_CLAMP_TO_BORDER          0x812D
-	#define GL_TEXTURE_BORDER_COLOR     0x1004
+        #define GL_CLAMP_TO_BORDER          0x812D
+        #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-	#define GL_TEXTURE_COMPARE_MODE     0x884C
-	#define GL_TEXTURE_COMPARE_FUNC     0x884D
-	#define GL_COMPARE_REF_TO_TEXTURE   0x884E
+        #define GL_TEXTURE_COMPARE_MODE     0x884C
+        #define GL_TEXTURE_COMPARE_FUNC     0x884D
+        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-	#undef  GL_RG
-	#undef  GL_RG32F
-	#undef  GL_RG16F
-	#undef  GL_RGBA32F
-	#undef  GL_RGBA16F
-	#undef  GL_HALF_FLOAT
+        #undef  GL_RG
+        #undef  GL_RG32F
+        #undef  GL_RG16F
+        #undef  GL_RGBA32F
+        #undef  GL_RGBA16F
+        #undef  GL_HALF_FLOAT
 
-	#define GL_RG           GL_RGBA
-	#define GL_RGBA32F      GL_RGBA
-	#define GL_RGBA16F      GL_RGBA
-	#define GL_RG32F        GL_RGBA
-	#define GL_RG16F        GL_RGBA
-	#define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+        #define GL_RG           GL_RGBA
+        #define GL_RGBA32F      GL_RGBA
+        #define GL_RGBA16F      GL_RGBA
+        #define GL_RG32F        GL_RGBA
+        #define GL_RG16F        GL_RGBA
+        #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
-	#define GL_TEXTURE_WRAP_R       0
-	#define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-	#define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+        #define GL_TEXTURE_WRAP_R       0
+        #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+        #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
 
-	#define glTexImage3D(...) 0
+        #define glTexImage3D(...) 0
         #ifndef GL_TEXTURE_3D // WUUUUUT!?
-	    #define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+            #define GL_TEXTURE_3D GL_TEXTURE_3D_OES
         #endif
 
-	#define glGenVertexArrays(...)
-	#define glDeleteVertexArrays(...)
-	#define glBindVertexArray(...)
-	
-	#define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-	#define glGetProgramBinary(...)
-	#define glProgramBinary(...)
+        #define glGenVertexArrays(...)
+        #define glDeleteVertexArrays(...)
+        #define glBindVertexArray(...)
+
+        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+        #define glGetProgramBinary(...)
+        #define glProgramBinary(...)
     #else
-	#define GL_GLEXT_PROTOTYPES 1
-	#include <SDL2/SDL_opengl.h>
-	#include <SDL2/SDL_opengl_glext.h>
+        #define GL_GLEXT_PROTOTYPES 1
+        #include <SDL2/SDL_opengl.h>
+        #include <SDL2/SDL_opengl_glext.h>
     #endif
 
 #elif defined(_OS_PSC)
@@ -811,7 +856,7 @@ namespace GAPI {
             glGenerateMipmap(target);
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) // TODO
+            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_GAPI_GLES2) // TODO
                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
             #endif
             }
@@ -998,14 +1043,12 @@ namespace GAPI {
 
 
     GLuint FBO, defaultFBO;
-    struct RenderTargetCache {
-        int count;
-        struct Item {
-            GLuint  ID;
-            int     width;
-            int     height;
-        } items[MAX_RENDER_BUFFERS];
-    } rtCache[2];
+    struct RenderTargetCacheItem {
+        GLuint  ID;
+        int     width;
+        int     height;
+    };
+    Array<RenderTargetCacheItem> rtCache[2];
 
     bool extSupport(const char *str, const char *ext) {
         if (!str) return false;
@@ -1013,10 +1056,8 @@ namespace GAPI {
     }
 
     void init() {
-        memset(rtCache, 0, sizeof(rtCache));
-
         #ifdef _OS_ANDROID
-            void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
+            //void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
         #if defined(_OS_WIN) || defined(_OS_LINUX)
@@ -1125,7 +1166,7 @@ namespace GAPI {
         #ifdef _OS_WEB
             GLES3 = WEBGL_VERSION != 1;
         #else
-            #ifdef _GAPI_GLES
+            #if defined(_GAPI_GLES) && !defined(_GAPI_GLES2)
                 int GLES_VERSION = 1;
                 #if defined(__SDL2__)
                     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &GLES_VERSION);
@@ -1151,6 +1192,12 @@ namespace GAPI {
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
+        #ifdef _GAPI_GLES2 // TODO
+            support.shaderBinary = false;
+            support.VAO = false;
+            support.texRG = false;
+            support.discardFrame = false;
+        #endif
         #ifdef _GAPI_GLES
             support.derivatives = GLES3 || _GL_OES_standard_derivatives; 
             support.tex3D       = GLES3;
@@ -1282,9 +1329,12 @@ namespace GAPI {
         glDeleteFramebuffers(1, &FBO);
 
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        for (int b = 0; b < 2; b++)
-            for (int i = 0; i < rtCache[b].count; i++)
-                glDeleteRenderbuffers(1, &rtCache[b].items[i].ID);
+        for (int b = 0; b < 2; b++) {
+            for (int i = 0; i < rtCache[b].length; i++) {
+                glDeleteRenderbuffers(1, &rtCache[b][i].ID);
+            }
+            rtCache[b].clear();
+        }
     }
 
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
@@ -1315,15 +1365,21 @@ namespace GAPI {
     }
 
     int cacheRenderTarget(bool depth, int width, int height) {
-        RenderTargetCache &cache = rtCache[depth];
+        Array<RenderTargetCacheItem> &items = rtCache[depth];
 
-        for (int i = 0; i < cache.count; i++)
-            if (cache.items[i].width == width && cache.items[i].height == height)
-                return i;
+        for (int i = 0; i < items.length; i++)
+            if (items[i].width == width && items[i].height == height) {
+                RenderTargetCacheItem item = items[i];
+                items.remove(i);
+                return items.push(item);
+            }
 
-        ASSERT(cache.count < MAX_RENDER_BUFFERS);
+        if (items.length >= MAX_RENDER_BUFFERS) {
+            glDeleteRenderbuffers(1, &items[0].ID);
+            items.remove(0);
+        }
 
-        RenderTargetCache::Item &item = cache.items[cache.count];
+        RenderTargetCacheItem item;
         item.width  = width;
         item.height = height;
 
@@ -1331,7 +1387,7 @@ namespace GAPI {
         glBindRenderbuffer(GL_RENDERBUFFER, item.ID);
         glRenderbufferStorage(GL_RENDERBUFFER, depth ? GL_DEPTH_COMPONENT16 : GL_RGB565, width, height);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        return cache.count++;
+        return items.push(item);
     }
 
     void bindTarget(Texture *target, int face) {

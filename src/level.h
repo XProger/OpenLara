@@ -63,6 +63,7 @@ struct Level : IGame {
     bool needRedrawTitleBG;
     bool needRedrawReflections;
     bool needRenderGame;
+    bool needRenderInventory;
     bool showStats;
     bool skyIsVisible;
 
@@ -2512,7 +2513,7 @@ struct Level : IGame {
 
         Core::mViewInv  = mat4(pos, pos + dir, up);
         Core::mView     = Core::mViewInv.inverseOrtho();
-        Core::mProj     = GAPI::perspective(90, 1.0f, camera->znear, camera->zfar, 0.0f);
+        Core::mProj     = GAPI::perspective(90, 1.0f, 32.0f, 45.0f * 1024.0f, 0.0f);
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
 
@@ -2889,7 +2890,7 @@ struct Level : IGame {
     }
     #endif
 
-    void setViewport(int view, int eye, bool isUI) {
+    float setViewport(int view, int eye) {
         int vX = Core::x;
         int vY = Core::y;
         int vW = Core::width;
@@ -2905,13 +2906,15 @@ struct Level : IGame {
         }
 
         Viewport &vp = Core::viewportDef;
+        vp = Viewport(vX, vY, vW, vH);
 
-        if (players[1] != NULL) {
+        if (players[1] != NULL && view >= 0) {
             vp = Viewport(vX + vW / 2 * view, vY, vW / 2, vH);
-            if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT)
+
+            if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT) {
                 aspect *= 0.5f;
-        } else
-            vp = Viewport(vX, vY, vW, vH); 
+            }
+        }
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS) {
             switch (eye) {
@@ -2922,10 +2925,7 @@ struct Level : IGame {
 
         Core::setViewport(vp.x, vp.y, vp.width, vp.height);
 
-        if (isUI)
-            UI::updateAspect(aspect);
-        else
-            camera->aspect = aspect;
+        return aspect;
     }
 
     void renderPrepare() {
@@ -2948,20 +2948,14 @@ struct Level : IGame {
         }
 
         needRenderGame = !inventory->video && !level.isTitle() && ((inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) || needRedrawTitleBG);
+        needRenderInventory = inventory->video || level.isTitle() || inventory->phaseRing > 0.0f || inventory->titleTimer > 0.0f;
 
-        if (inventory->video) {
-            inventory->render(1.0);
+        bool title  = inventory->isActive() || level.isTitle();
+        bool copyBg = title && (lastTitle != title || needRedrawTitleBG);
+        lastTitle = title;
+        needRedrawTitleBG = false;
 
-            if (UI::subsStr != STR_EMPTY) {
-                UI::begin();
-                UI::updateAspect(float(Core::width) / float(Core::height));
-                atlasGlyphs->bind(sDiffuse);
-                UI::renderSubs();
-                UI::end();
-            }
-        }
-
-        if (!needRenderGame)
+        if (!needRenderGame && !copyBg)
             return;
 
         if (needRedrawReflections) {
@@ -2986,39 +2980,44 @@ struct Level : IGame {
                 renderShadows(player->getRoomIndex(), shadow[1]);
             }
         }
+
+        if (copyBg) {
+            inventory->prepareBackground();
+        }
     }
 
-    void renderEye(int eye, bool showUI) {
+    void setDefaultTarget(int eye, int view, bool invBG) {
+        int texIndex = eye <= 0 ? 0 : 1;
+
+        #ifdef _OS_3DS
+            Core::eye *= osGet3DSliderState() / 3.0f;
+
+            GAPI::curTarget = GAPI::defTarget[texIndex];
+
+            C3D_FrameDrawOn(GAPI::curTarget);
+        #else
+            if (invBG) {
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
+                    Core::defaultTarget = inventory->getBackgroundTarget(view);
+                } else {
+                    Core::defaultTarget = inventory->getBackgroundTarget(texIndex);
+                }
+            } else {
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH || Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
+                    Core::defaultTarget = invBG ? inventory->getBackgroundTarget(texIndex) : Core::eyeTex[texIndex];
+                }
+            }
+        #endif
+    }
+
+    void renderEye(int eye, bool showUI, bool invBG) {
         float          oldEye      = Core::eye;
         Viewport       oldViewport = Core::viewportDef;
         GAPI::Texture *oldTarget   = Core::defaultTarget;
 
         Core::eye = float(eye);
 
-    #ifdef _OS_3DS
-        Core::eye *= osGet3DSliderState() / 3.0f;
-
-        if (eye <= 0) {
-            GAPI::curTarget = GAPI::defTarget[0];
-        } else {
-            GAPI::curTarget = GAPI::defTarget[1];
-        }
-
-        C3D_FrameDrawOn(GAPI::curTarget);
-    #else
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH || Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
-            if (eye <= 0) {
-                Core::defaultTarget = Core::eyeTex[0];
-            } else {
-                Core::defaultTarget = Core::eyeTex[1];
-            }
-        }
-    #endif
-        if (Core::lightColor[1].x > 0.5f) {
-            LOG("hello");
-        }
-
-        if (needRenderGame) {
+        if (needRenderGame || invBG) {
             int viewsCount = players[1] ? 2 : 1;
             for (int view = 0; view < viewsCount; view++) {
                 player = players[view];
@@ -3029,22 +3028,27 @@ struct Level : IGame {
 
                 Core::pass = Core::passCompose;
 
-                setViewport(view, eye, false);
+                setDefaultTarget(eye, view, invBG);
+
+                if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
+                    camera->aspect = setViewport(invBG ? -1 : view, invBG ? 0 : eye);               
+                } else {
+                    camera->aspect = setViewport(view, invBG ? 0 : eye);
+                }
+
                 setup();
                 renderView(camera->getRoomIndex(), true, showUI);
             }
-        } else {
-            Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
         }
-        
-        Core::pushLights();
-        Core::resetLights();
 
-        if (!(level.isTitle() || inventory->titleTimer > 0.0f))
-            inventory->renderBackground();
-
-        renderInventoryEye(eye);
-        Core::popLights();
+        if (needRenderInventory && !invBG) {
+            if (players[1] && Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
+                renderInventoryEye(eye, 0);
+                renderInventoryEye(eye, 1);
+            } else {
+                renderInventoryEye(eye, -1);
+            }
+        }
 
         Core::defaultTarget = oldTarget;
         Core::viewportDef   = oldViewport;
@@ -3056,15 +3060,21 @@ struct Level : IGame {
         }
     }
 
-    void renderGame(bool showUI) {
+    void renderGame(bool showUI, bool invBG) {
         if (Core::eye == 0.0f && Core::settings.detail.isStereo()) {
-            renderEye(-1, showUI);
-            renderEye(+1, showUI);
+            renderEye(-1, showUI, invBG);
+            renderEye(+1, showUI, invBG);
         }  else {
-            renderEye(int(Core::eye), showUI);
+            renderEye(int(Core::eye), showUI, invBG);
         }
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
+        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH && !invBG) {
+            mat4 mProj, mView;
+            mView.identity();
+            mProj.identity();
+            mProj.scale(vec3(1.0f / 32767.0f));
+            Core::setViewProj(mView, mProj);
+
             Core::setTarget(NULL, NULL, RT_STORE_COLOR);
             setShader(Core::passFilter, Shader::FILTER_ANAGLYPH, false, false);
             Core::eyeTex[0]->bind(sDiffuse);
@@ -3133,23 +3143,31 @@ struct Level : IGame {
         Core::popLights();
     }
 
-    void renderInventoryEye(int eye) {
-        float aspect = float(Core::width) / float(Core::height);
+    void renderInventoryEye(int eye, int view) {
+        setDefaultTarget(eye, view, false);
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS) {
-            switch (eye) {
-                case -1 : Core::setViewport(Core::x, Core::y, Core::width / 2, Core::height); break;
-                case  0 : Core::setViewport(Core::x, Core::y, Core::width, Core::height); break;
-                case +1 : Core::setViewport(Core::x + Core::width / 2, Core::y, Core::width / 2, Core::height); break;
+        Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
+
+        float aspect = setViewport(view, eye);
+
+        Core::pushLights();
+        Core::resetLights();
+
+        if (inventory->video) {
+            inventory->render(1.0);
+
+            if (UI::subsStr != STR_EMPTY) {
+                UI::begin();
+                UI::updateAspect(float(Core::width) / float(Core::height));
+                atlasGlyphs->bind(sDiffuse);
+                UI::renderSubs();
+                UI::end();
             }
         }
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
-            Core::setViewport(Core::x, Core::y, Core::width, Core::height);
+        if (!inventory->video) {
+            inventory->renderBackground(max(0, view));
         }
-
-        if (level.isTitle() || inventory->titleTimer > 0.0f)
-            inventory->renderBackground();
 
         setupBinding();
         atlasObjects->bind(sDiffuse);
@@ -3158,20 +3176,18 @@ struct Level : IGame {
         UI::begin();
         UI::updateAspect(aspect);
         atlasGlyphs->bind(sDiffuse);
-        inventory->renderUI();
+        if (!inventory->video) {
+            inventory->renderUI();
+        } else {
+            UI::renderSubs();
+        }
         UI::end();
+
+        Core::popLights();
     }
 
     void render() {
-        if (inventory->video)
-            return;
-
-        bool title  = inventory->isActive() || level.isTitle();
-        bool copyBg = title && (lastTitle != title || needRedrawTitleBG);
-        lastTitle = title;
-        needRedrawTitleBG = false;
-
-        if (isEnded) {
+        if (isEnded && !inventory->video) {
             Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
             UI::begin();
             UI::updateAspect(float(Core::width) / float(Core::height));
@@ -3181,11 +3197,7 @@ struct Level : IGame {
             return;
         }
 
-        if (copyBg) {
-            inventory->prepareBackground();
-        }
-
-        renderGame(true);
+        renderGame(true, false);
     }
 
 };

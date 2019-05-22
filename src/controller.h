@@ -75,7 +75,7 @@ struct IGame {
     virtual void renderModelFull(int modelIndex, bool underwater, Basis *joints) {}
     virtual void renderCompose(int roomIndex) {}
     virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {}
-    virtual void renderGame(bool showUI) {}
+    virtual void renderGame(bool showUI, bool invBG) {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
     virtual void checkTrigger(Controller *controller, bool heavy) {}

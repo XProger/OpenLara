@@ -351,6 +351,7 @@ namespace Core {
     #include "napi_dummy.h"
 #endif
 
+#define LIGHT_STACK_SIZE     1
 #define MAX_LIGHTS           4
 #define MAX_RENDER_BUFFERS   32
 #define MAX_CONTACTS         15
@@ -567,6 +568,12 @@ namespace Core {
     vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
+    struct LightStack {
+        vec4 pos[MAX_LIGHTS];
+        vec4 color[MAX_LIGHTS];
+    } lightStack[LIGHT_STACK_SIZE];
+    int lightStackCount;
+
     Texture *whiteTex, *whiteCube, *blackTex, *ditherTex, *noiseTex, *perlinTex;
 
     enum Pass { passCompose, passShadow, passAmbient, passSky, passWater, passFilter, passGUI, passMAX } pass;
@@ -707,6 +714,7 @@ namespace Core {
 
         x = y = 0;
         eyeTex[0] = eyeTex[1] = NULL;
+        lightStackCount = 0;
 
         memset(&support, 0, sizeof(support));
         support.texMinSize = 1;
@@ -1098,6 +1106,21 @@ namespace Core {
             lightPos[i]   = vec4(0, 0, 0, 0);
             lightColor[i] = vec4(0, 0, 0, 1);
         }
+        updateLights();
+    }
+
+    void pushLights() {
+        ASSERT(lightStackCount < LIGHT_STACK_SIZE);
+        memcpy(lightStack[lightStackCount].pos,   lightPos,   sizeof(lightPos));
+        memcpy(lightStack[lightStackCount].color, lightColor, sizeof(lightColor));
+        lightStackCount++;
+    }
+
+    void popLights() {
+        ASSERT(lightStackCount > 0);
+        lightStackCount--;
+        memcpy(lightPos,   lightStack[lightStackCount].pos,   sizeof(lightPos));
+        memcpy(lightColor, lightStack[lightStackCount].color, sizeof(lightColor));
         updateLights();
     }
 

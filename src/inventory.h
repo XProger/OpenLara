@@ -14,15 +14,15 @@
     #define INV_BG_SIZE    512
 #endif
 
-#define INV_HEIGHT     2048.0f
-#define TITLE_LOADING        64.0f
-#define LINE_HEIGHT          20.0f
-
-#define INV_EYE_SEPARATION    16.0f
-#define INV_EYE_FOCAL_LENGTH  256.0f
+#define INV_HEIGHT            2048.0f
+#define INV_EYE_SEPARATION    8.0f
+#define INV_EYE_FOCAL_LENGTH  512.0f
 #define INV_ZNEAR             32.0f
 #define INV_ZFAR              2048.0f
 #define INV_FOV               70.0f
+
+#define TITLE_LOADING         64.0f
+#define LINE_HEIGHT           20.0f
 
 static const struct OptionItem *waitForKey = NULL;
 
@@ -202,7 +202,7 @@ struct Inventory {
     };
 
     IGame   *game;
-    Texture *background[2];
+    Texture *background[3]; // [LEFT EYE or SINGLE, RIGHT EYE, TEMP]
     Video   *video;
 
     bool    playLogo;
@@ -1351,7 +1351,7 @@ struct Inventory {
         return false;
     }
 
-    Texture* getBackgroundTarget() {
+    Texture* getBackgroundTarget(int view) {
         if (background[0] && (background[0]->origWidth != INV_BG_SIZE || background[0]->origHeight != INV_BG_SIZE)) {
             delete background[0];
             background[0] = NULL;
@@ -1361,7 +1361,36 @@ struct Inventory {
             if (!background[i])
                 background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
 
-        return background[0];
+        return background[view];
+    }
+
+    void blur(Texture *texInOut, Texture *tmp) {
+    #ifdef FFP
+        return; // TODO
+    #endif
+        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
+        // vertical
+        Core::setTarget(tmp, NULL, RT_STORE_COLOR);
+        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INV_BG_SIZE, 0, 0));
+        texInOut->bind(sDiffuse);
+        game->getMesh()->renderQuad();
+        // horizontal
+        Core::setTarget(texInOut, NULL, RT_STORE_COLOR);
+        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
+        Core::active.shader->setParam(uParam, vec4(1.0f / INV_BG_SIZE, 0, 0, 0));
+        tmp->bind(sDiffuse);
+        game->getMesh()->renderQuad();
+    }
+
+    void grayscale(Texture *texIn, Texture *texOut) {
+    #ifdef FFP
+        return; // TODO
+    #endif
+        game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
+        Core::setTarget(texOut, NULL, RT_STORE_COLOR);
+        Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, 1.0f));
+        texIn->bind(sDiffuse);
+        game->getMesh()->renderQuad();
     }
 
     void prepareBackground() {
@@ -1371,9 +1400,8 @@ struct Inventory {
         #ifdef _OS_PSP
             return;
         #endif
-        Core::defaultTarget = getBackgroundTarget();
-        game->renderGame(false);
-        Core::defaultTarget = NULL;
+
+        game->renderGame(false, true);
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);
@@ -1385,34 +1413,25 @@ struct Inventory {
         Core::mModel.identity();
     #endif
 
-    #ifdef _OS_PSP
-        //
-    #else
-        // vertical blur
-        Core::setTarget(background[1], NULL, RT_STORE_COLOR);
-        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INV_BG_SIZE, 0, 0));
-        background[0]->bind(sDiffuse);
-        game->getMesh()->renderQuad();
+        int viewsCount = (Core::settings.detail.stereo == Core::Settings::STEREO_OFF) ? 1 : 2;
 
-        // horizontal blur
-        Core::setTarget(background[0], NULL, RT_STORE_COLOR);
-        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(1.0f / INV_BG_SIZE, 0, 0, 0));
-        background[1]->bind(sDiffuse);
-        game->getMesh()->renderQuad();
+        mat4 mProj, mView;
+        mView.identity();
+        mProj.identity();
+        mProj.scale(vec3(1.0f / 32767.0f));
+        Core::setViewProj(mView, mProj);
 
-        // grayscale
-        Core::setTarget(background[1], NULL, RT_STORE_COLOR);
-        game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
-        Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, 1.0f));
-        background[0]->bind(sDiffuse);
-        game->getMesh()->renderQuad();
-
-        swap(background[0], background[1]);
-    #endif
+        for (int view = 0; view < viewsCount; view++) {
+            blur(background[view], background[2]);
+            grayscale(background[view], background[2]);
+            swap(background[view], background[2]);
+        }
 
         Core::setDepthTest(true);
+    }
+
+    float getEyeOffset() {
+        return -Core::eye * INV_EYE_SEPARATION * 0.75f;
     }
 
     void renderItemCount(const Item *item, const vec2 &pos, float width) {
@@ -1446,11 +1465,13 @@ struct Inventory {
             if (item->value == 2) str = STR_EXIT_TO_TITLE;
         }
 
-        UI::textOut(vec2(0, 480 - 32), str, UI::aCenter, UI::width);
+        float eye = getEyeOffset();
+
+        UI::textOut(vec2(eye, 480 - 32), str, UI::aCenter, UI::width);
         int tw = UI::getTextSize(STR[str]).x;
 
-        if (item->value > 0) UI::specOut(vec2((UI::width - tw) * 0.5f - 32.0f, 480 - 32), 108);
-        if (item->value < 2) UI::specOut(vec2((UI::width + tw) * 0.5f + 16.0f, 480 - 32), 109);
+        if (item->value > 0) UI::specOut(vec2((UI::width - tw) * 0.5f - 32.0f + eye, 480 - 32), 108);
+        if (item->value < 2) UI::specOut(vec2((UI::width + tw) * 0.5f + 16.0f + eye, 480 - 32), 109);
 
         if (item->value != 0) return;
 
@@ -1473,7 +1494,7 @@ struct Inventory {
         if (item->type == TR::Entity::INV_CONTROLS || item->type == TR::Entity::INV_DETAIL)
             width += 80;
 
-        float x = ( UI::width  - width  ) * 0.5f;
+        float x = ( UI::width  - width  ) * 0.5f + getEyeOffset();
         float y = ( UI::height - height ) * 0.5f + LINE_HEIGHT;
 
     // background
@@ -1540,11 +1561,13 @@ struct Inventory {
     }
 
     void renderItemText(Item *item) {
+        float eye = getEyeOffset() * 0.5f;
+
         if (item->type == TR::Entity::INV_PASSPORT && phaseChoose == 1.0f) {
             //
         } else {
             StringID str = getItemName(item->desc.str, game->getLevel()->id, item->type);
-            UI::textOut(vec2(0, 480 - 32), str, UI::aCenter, UI::width);
+            UI::textOut(vec2(eye, 480 - 32), str, UI::aCenter, UI::width);
         }
 
         renderItemCount(item, vec2(UI::width / 2 - 160, 480 - 96), 320);
@@ -1644,7 +1667,7 @@ struct Inventory {
     }
 
     void renderTitleBG(float sx = 1.0f, float sy = 1.0f, uint8 alpha = 255, float cropW = 1.0f, float cropH = 1.0f) {
-        float aspectSrc, aspectDst, aspectImg, ax, ay, tx, ty;
+        float aspectSrc, ax, ay, tx, ty;
 
         if (background[0]) {
             Texture *tex = background[0];
@@ -1655,15 +1678,15 @@ struct Inventory {
             float ox = sx * origW;
             float oy = sy * origH;
             aspectSrc = ox / oy;
-            aspectDst = float(Core::width) / float(Core::height);
             ax = origW / tex->width;
             ay = origH / tex->height;
         } else {
             tx = ty = 0.0f;
             aspectSrc = ax = ay = 1.0f;
-            aspectDst = float(Core::width) / float(Core::height);
         }
-        aspectImg = aspectSrc / aspectDst;
+
+        float aspectDst = float(Core::width) / float(Core::height);
+        float aspectImg = aspectSrc / aspectDst;
 
         #ifdef FFP
             mat4 m;
@@ -1673,45 +1696,40 @@ struct Inventory {
             Core::mModel.scale(vec3(1.0f / 32767.0f));
         #endif
 
-        Index  indices[6 * 3] = { 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11 };
-        Vertex vertices[4 * 3];
+        short o_frame = 32767;
+        short i_frame = 16384;
 
-        short2 size;
+        short2 size = short2(short(i_frame * aspectImg), i_frame);
         if (aspectImg < 1.0f) {
-            size.x = short(32767 * aspectImg);
-            size.y = 32767;
-
-            vertices[ 4].coord = short4( -32767,  size.y, 0, 0);
-            vertices[ 5].coord = short4(-size.x,  size.y, 0, 0);
-            vertices[ 6].coord = short4(-size.x, -size.y, 0, 0);
-            vertices[ 7].coord = short4( -32767, -size.y, 0, 0);
-
-            vertices[ 8].coord = short4( size.x,  size.y, 0, 0);
-            vertices[ 9].coord = short4(  32767,  size.y, 0, 0);
-            vertices[10].coord = short4(  32767, -size.y, 0, 0);
-            vertices[11].coord = short4( size.x, -size.y, 0, 0);
+            size.x = short(i_frame * aspectImg);
+            size.y = i_frame;
         } else {
-            size.x = 32767;
-            size.y = short(32767 / aspectImg);
-
-            vertices[ 4].coord = short4(-size.x,   32767, 0, 0);
-            vertices[ 5].coord = short4( size.x,   32767, 0, 0);
-            vertices[ 6].coord = short4( size.x,  size.y, 0, 0);
-            vertices[ 7].coord = short4(-size.x,  size.y, 0, 0);
-
-            vertices[ 8].coord = short4(-size.x, -size.y, 0, 0);
-            vertices[ 9].coord = short4( size.x, -size.y, 0, 0);
-            vertices[10].coord = short4( size.x,  -32767, 0, 0);
-            vertices[11].coord = short4(-size.x,  -32767, 0, 0);
+            size.x = i_frame;
+            size.y = short(i_frame / aspectImg);
         }
 
-        short2 t0(short(tx * 32767), short(ty * 32767));
-        short2 t1(t0.x + short(ax * 32767), t0.y + short(ay * 32767));
+        float eye = -getEyeOffset() * size.x / 320.0f;
+        if (titleTimer > 0.0f || video) {
+            eye = 0.0f;
+        }
+
+        Index  indices[10 * 3] = { 0,1,2, 0,2,3, 8,9,5, 8,5,4, 9,10,6, 9,6,5, 10,11,7, 10,7,6, 11,8,4, 11,4,7 };
+        Vertex vertices[4 * 3];
 
         vertices[ 0].coord = short4(-size.x,  size.y, 0, 0);
         vertices[ 1].coord = short4( size.x,  size.y, 0, 0);
         vertices[ 2].coord = short4( size.x, -size.y, 0, 0);
         vertices[ 3].coord = short4(-size.x, -size.y, 0, 0);
+
+        vertices[ 4].coord = vertices[0].coord;
+        vertices[ 5].coord = vertices[1].coord;
+        vertices[ 6].coord = vertices[2].coord;
+        vertices[ 7].coord = vertices[3].coord;
+
+        vertices[ 8].coord = short4(-o_frame,  o_frame, 0, 0);
+        vertices[ 9].coord = short4( o_frame,  o_frame, 0, 0);
+        vertices[10].coord = short4( o_frame, -o_frame, 0, 0);
+        vertices[11].coord = short4(-o_frame, -o_frame, 0, 0);
 
         vertices[ 0].light =
         vertices[ 1].light =
@@ -1725,6 +1743,9 @@ struct Inventory {
         vertices[ 9].light = 
         vertices[10].light = 
         vertices[11].light = ubyte4(0, 0, 0, alpha);
+
+        short2 t0(short(tx * 32767), short(ty * 32767));
+        short2 t1(t0.x + short(ax * 32767), t0.y + short(ay * 32767));
 
         vertices[ 0].texCoord = short4(t0.x, t0.y, 0, 0);
         vertices[ 1].texCoord = short4(t1.x, t0.y, 0, 0);
@@ -1747,12 +1768,19 @@ struct Inventory {
 
         Core::setBlendMode(alpha < 255 ? bmAlpha : bmNone);
 
+        mat4 mProj, mView;
+        mView.identity();
+        mProj.identity();
+        mProj.scale(vec3(1.0f / max(size.x, size.y)));
+        mProj.translate(vec3(eye, 0.0f, 0.0f));
+        Core::setViewProj(mView, mProj);
+
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), Core::getTime() * 0.001f, 0.0f));
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
-    void renderGameBG() {
+    void renderGameBG(int view) {
         Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
         Vertex vertices[4];
         vertices[0].coord = short4(-32767,  32767, 0, 0);
@@ -1780,10 +1808,22 @@ struct Inventory {
     #else
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
             backTex = Core::blackTex; // black background 
-        } else
-            backTex = background[0]; // blured grayscale image
+        } else {
+            // blured grayscale image
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
+                backTex = background[view];
+            } else {
+                backTex = background[Core::eye <= 0.0f ? 0 : 1];
+            }
+        }
     #endif
         backTex->bind(sDiffuse);
+
+        mat4 mProj, mView;
+        mView.identity();
+        mProj.identity();
+        mProj.scale(vec3(1.0f / 32767.0f));
+        Core::setViewProj(mView, mProj);
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
@@ -1792,7 +1832,7 @@ struct Inventory {
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
-    void renderBackground() {
+    void renderBackground(int view) {
         if (!isActive() && titleTimer == 0.0f)
             return;
 
@@ -1813,10 +1853,10 @@ struct Inventory {
             if (game->getLevel()->isTitle())
                 renderTitleBG(1.0f, sy, alpha);
             else
-                renderGameBG();
+                renderGameBG(view);
         } else {
             if (background[1])
-                renderGameBG();
+                renderGameBG(view);
             else
                 renderTitleBG(1.0f, sy, alpha);
         }
@@ -1947,6 +1987,8 @@ struct Inventory {
             Core::active.shader->setParam(uViewProj, Core::mViewProj);
         }
 
+        float eye = getEyeOffset() * 0.5f;
+
         if (page == PAGE_SAVEGAME) {
             UI::renderBar(CTEX_OPTION, vec2(UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
             UI::textOut(vec2(0, 240), pageTitle[page], UI::aCenter, UI::width);
@@ -1962,7 +2004,7 @@ struct Inventory {
         }
 
         if (!game->getLevel()->isTitle()) 
-            UI::textOut(vec2(0, 32), pageTitle[page], UI::aCenter, UI::width);
+            UI::textOut(vec2(eye, 32), pageTitle[page], UI::aCenter, UI::width);
 
         if (canFlipPage(-1)) {
             UI::textOut(vec2(16, 32), "[", UI::aLeft, UI::width);
@@ -1973,9 +2015,6 @@ struct Inventory {
             UI::textOut(vec2(16, 480 - 16), "]", UI::aLeft, UI::width);
             UI::textOut(vec2( 0, 480 - 16), "]", UI::aRight, UI::width - 20);
         }
-
-        if (index == targetIndex && page == targetPage)
-            renderItemText(items[getGlobalIndex(page, index)]);
 
     // inventory controls help
         if (page == targetPage && Input::touchTimerVis <= 0.0f) {
@@ -1990,11 +2029,15 @@ struct Inventory {
             #endif
 
             sprintf(buf, STR[STR_HELP_SELECT], bSelect);
-            UI::textOut(vec2(dx, 480 - 64), buf, UI::aLeft, UI::width);
+            UI::textOut(vec2(eye + dx, 480 - 64), buf, UI::aLeft, UI::width);
             if (chosen) {
                 sprintf(buf, STR[STR_HELP_BACK], bBack);
-                UI::textOut(vec2(0, 480 - 64), buf, UI::aRight, UI::width - dx);
+                UI::textOut(vec2(eye, 480 - 64), buf, UI::aRight, UI::width - dx);
             }
+        }
+
+        if (index == targetIndex && page == targetPage) {
+            renderItemText(items[getGlobalIndex(page, index)]);
         }
     }
 };
