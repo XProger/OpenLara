@@ -1993,7 +1993,7 @@ namespace TR {
                 && type != ENEMY_MUMMY
                 && type != ENEMY_NATLA)
                 opaque = true;
-            if (type == SWITCH || type == SWITCH_WATER)
+            if (type == SWITCH || type == SWITCH_WATER || type == CUT_1)
                 opaque = true;
             if ((type >= PUZZLE_HOLE_1 && type <= PUZZLE_HOLE_4) || type == LIGHTNING)
                 opaque = false;
@@ -3793,7 +3793,7 @@ namespace TR {
             if (isCutsceneLevel()) {
                 for (int i = 0; i < entitiesBaseCount; i++) {
                     Entity &e = entities[i];
-                    if ((((version & VER_TR1)) && e.isActor()) || 
+                    if ((((version & VER_TR1)) && e.type == Entity::CUT_1) || 
                         (((version & (VER_TR2 | VER_TR3))) && e.isLara())) {
                         cutEntity = i;
                         break;

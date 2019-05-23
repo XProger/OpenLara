@@ -1949,7 +1949,7 @@ struct Level : IGame {
         if (isModel) { // model
             ASSERT(controller->intensity >= 0.0f);
 
-            setMainLight(controller);
+            setMainLight(level.isCutsceneLevel() ? player : controller);
             setRoomParams(roomIndex, type, 1.0f, controller->intensity, controller->specular, 1.0f, mesh->transparent == 1);
 
             vec3 pos = controller->getPos();

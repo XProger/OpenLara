@@ -1324,7 +1324,9 @@ struct Controller {
     }
 
     mat4 getMatrix() {
-        if (level->isCutsceneLevel() && (getEntity().isActor() || getEntity().isLara())) 
+        const TR::Entity &e = getEntity();
+
+        if (level->isCutsceneLevel() && (e.isActor() || e.isLara()) && e.type != TR::Entity::CUT_4) 
             return level->cutMatrix;
 
         if (!lockMatrix) {

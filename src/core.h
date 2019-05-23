@@ -122,7 +122,7 @@
 #include "utils.h"
 
 // muse be equal with base shader
-#define SHADOW_TEX_SIZE      1024
+#define SHADOW_TEX_SIZE      2048
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
