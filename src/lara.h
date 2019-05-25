@@ -3449,7 +3449,7 @@ struct Lara : Character {
 
             Controller *controller = (Controller*)e.controller;
 
-            if (!controller || !controller->isCollider()) continue;
+            if (!controller || controller->flags.invisible || !controller->isCollider()) continue;
 
             if (e.type == TR::Entity::TRAP_DOOR_1 || e.type == TR::Entity::TRAP_DOOR_2) continue;
 
