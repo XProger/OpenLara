@@ -2092,10 +2092,8 @@ struct Lara : Character {
                     if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
                         level->cameras[cmd.args].flags.once |= cam.once;
                         camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed);
-                    }
-
-                    if (cmd.args == camera->viewIndexLast)
                         cameraIndex = cmd.args;
+                    }
 
                     break;
                 }
