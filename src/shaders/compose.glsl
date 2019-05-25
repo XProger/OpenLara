@@ -13,7 +13,7 @@ R"====(
 #endif
 
 #ifdef OPT_SHADOW
-	#define SHADOW_TEXEL	vec3(1.0 / 1024.0, 1.0 / 1024.0, 0.0)
+	#define SHADOW_TEXEL	vec3(1.0 / 2048.0, 1.0 / 2048.0, 0.0)
 	uniform mat4 uLightProj;
 
 	#ifdef OPT_VLIGHTPROJ

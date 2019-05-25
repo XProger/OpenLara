@@ -1961,12 +1961,21 @@ struct Level : IGame {
                         memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
                     }
                 } else {
-                    controller->ambient[0] =
-                    controller->ambient[1] =
-                    controller->ambient[2] =
-                    controller->ambient[3] =
-                    controller->ambient[4] =
-                    controller->ambient[5] = vec4(Core::active.material.y);
+                    if (entity.isPickup()) {
+                        controller->ambient[0] =
+                        controller->ambient[1] =
+                        controller->ambient[5] =
+                        controller->ambient[4] = vec4(Core::active.material.y * 0.8f);
+                        controller->ambient[2] = vec4(Core::active.material.y * 0.1f);
+                        controller->ambient[3] = vec4(Core::active.material.y);
+                    } else {
+                        controller->ambient[0] =
+                        controller->ambient[1] =
+                        controller->ambient[2] =
+                        controller->ambient[3] =
+                        controller->ambient[4] =
+                        controller->ambient[5] = vec4(Core::active.material.y);
+                    }
                 }
                 Core::active.shader->setParam(uAmbient, controller->ambient[0], 6);
             }
