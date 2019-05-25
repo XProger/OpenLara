@@ -1,5 +1,8 @@
 ; constants
-.constf const0(1.0, 3.05185094e-005, 0.00392156886, -0.5)
+.constf const0(3.05185094e-005, 0.00392156886, 0.0, 0.0)
+
+; uniforms
+.fvec uViewProj[4]
 
 ; in
 .alias aCoord    v0
@@ -12,13 +15,14 @@
 .out vColor    color
 
 .proc main
-    mul r0.xyzw, const0.yyyy, aCoord.yxzw
-    mov r0.w, const0.xxxx
-    mov r0.y, -r0.y
-    mov vPosition, r0
+; uViewProj * coord
+    mov r0, uViewProj[3]
+    mad r1, aCoord.xxxx, uViewProj[0], r0
+    mad r1, aCoord.yyyy, uViewProj[1], r1
+    mad vPosition, aCoord.zzzz, uViewProj[2], r1
 
-    mul vTexCoord, const0.yyyy, aTexCoord
-    mul vColor, const0.zzzz, aLight
+    mul vTexCoord, const0.xxxx, aTexCoord
+    mul vColor, const0.yyyy, aLight
 
     end
 .end

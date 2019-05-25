@@ -143,8 +143,7 @@ namespace GAPI {
             cbCount[uType] = count * 4;
 
             ASSERT(count == 1);
-            mat4 m = value.transpose();
-            memcpy(cbMem + bindings[uType], &m, sizeof(m));
+            memcpy(cbMem + bindings[uType], &value, sizeof(value));
         }
     };
 
@@ -477,26 +476,14 @@ namespace GAPI {
     
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
         mat4 m;
-        Mtx_OrthoTilt((C3D_Mtx*)&m, l, r, b, t, znear, zfar, false);
-
-        mat4 res;
-        res.e00 = m.e30; res.e10 = m.e31; res.e20 = m.e32; res.e30 = m.e33;
-        res.e01 = m.e20; res.e11 = m.e21; res.e21 = m.e22; res.e31 = m.e23;
-        res.e02 = m.e10; res.e12 = m.e11; res.e22 = m.e12; res.e32 = m.e13;
-        res.e03 = m.e00; res.e13 = m.e01; res.e23 = m.e02; res.e33 = m.e03;
-        return res;
+        m.ortho(mat4::PROJ_NEG_ZERO, l, r, b, t, znear, zfar, true);
+        return m;
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
-        Mtx_PerspTilt((C3D_Mtx*)&m, fov * DEG2RAD, aspect, znear, zfar, false);
-
-        mat4 res;
-        res.e00 = m.e30; res.e10 = m.e31; res.e20 = m.e32; res.e30 = m.e33;
-        res.e01 = m.e20; res.e11 = m.e21; res.e21 = m.e22; res.e31 = m.e23;
-        res.e02 = m.e10; res.e12 = m.e11; res.e22 = m.e12; res.e32 = m.e13;
-        res.e03 = m.e00; res.e13 = m.e01; res.e23 = m.e02; res.e33 = m.e03;
-        return res;
+        m.perspective(mat4::PROJ_NEG_ZERO, fov, aspect, znear, zfar, eye, true);
+        return m;
     }
 
     bool beginFrame() {

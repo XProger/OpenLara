@@ -3000,7 +3000,7 @@ struct Level : IGame {
         int texIndex = eye <= 0 ? 0 : 1;
 
         #ifdef _OS_3DS
-            Core::eye *= osGet3DSliderState() / 3.0f;
+            Core::eye *= osGet3DSliderState();
 
             GAPI::curTarget = GAPI::defTarget[texIndex];
 
@@ -3081,9 +3081,12 @@ struct Level : IGame {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH && !invBG) {
             mat4 mProj, mView;
             mView.identity();
-            mProj.identity();
+            mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
             mProj.scale(vec3(1.0f / 32767.0f));
             Core::setViewProj(mView, mProj);
+\
+            Core::setDepthTest(false);
+            Core::setDepthWrite(false);
 
             Core::setTarget(NULL, NULL, RT_STORE_COLOR);
             setShader(Core::passFilter, Shader::FILTER_ANAGLYPH, false, false);
@@ -3091,6 +3094,9 @@ struct Level : IGame {
             Core::eyeTex[1]->bind(sNormal);
             Core::setDepthTest(false);
             mesh->renderQuad();
+
+            Core::setDepthTest(true);
+            Core::setDepthWrite(true);
         }
     }
 

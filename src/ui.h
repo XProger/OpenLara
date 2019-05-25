@@ -105,8 +105,14 @@ namespace UI {
     void patchGlyphs(TR::Level &level) {
         UI::advGlyphsStart = level.spriteTexturesCount;
 
-        TR::TextureInfo ruSprites[RU_GLYPH_COUNT];
-        for (int i = 0; i < COUNT(ruSprites); i++) {
+    // init new sprites array with additional sprites
+        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT];
+
+    // copy original sprites
+        memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
+    // append russian glyphs
+        TR::TextureInfo *ruSprites = newSprites + level.spriteTexturesCount;
+        for (int i = 0; i < RU_GLYPH_COUNT; i++) {
             int idx = 110 + i; // mapped index
             int w = char_width[idx];
             int h = upperCase(idx) ? 13 : 9;
@@ -119,34 +125,21 @@ namespace UI {
 
             ruSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
-
-        TR::TextureInfo jaSprites[JA_GLYPH_COUNT];
-        for (int i = 0; i < COUNT(jaSprites); i++) {
+    // append japanese glyphs
+        TR::TextureInfo *jaSprites = newSprites + level.spriteTexturesCount + RU_GLYPH_COUNT;
+        for (int i = 0; i < JA_GLYPH_COUNT; i++) {
             jaSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
         }
-
-        TR::TextureInfo grSprites[GR_GLYPH_COUNT];
-        for (int i = 0; i < COUNT(grSprites); i++) {
+    // append greek glyphs
+        TR::TextureInfo *grSprites = newSprites + level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT;
+        for (int i = 0; i < GR_GLYPH_COUNT; i++) {
             grSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, GR_GLYPH_WIDTH[i], 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, GR_GLYPH_WIDTH[i], 16);
         }
 
-    // init new sprites array with additional sprites
-        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + COUNT(ruSprites) + COUNT(jaSprites) + COUNT(grSprites)];
-    // copy original sprites
-        memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
-    // append russian glyphs
-        memcpy(newSprites + level.spriteTexturesCount, ruSprites, sizeof(TR::TextureInfo) * COUNT(ruSprites));
-        level.spriteTexturesCount += COUNT(ruSprites);
-    // append japanese glyphs
-        memcpy(newSprites + level.spriteTexturesCount, jaSprites, sizeof(TR::TextureInfo) * COUNT(jaSprites));
-        level.spriteTexturesCount += COUNT(jaSprites);
-    // append greek glyphs
-        memcpy(newSprites + level.spriteTexturesCount, grSprites, sizeof(TR::TextureInfo) * COUNT(grSprites));
-        level.spriteTexturesCount += COUNT(grSprites);
+        level.spriteTexturesCount += RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT;
 
         delete[] level.spriteTextures;
-        level.spriteTextures = newSprites;
-        TR::gSpriteTextures      = level.spriteTextures;
+        TR::gSpriteTextures      = level.spriteTextures = newSprites;
         TR::gSpriteTexturesCount = level.spriteTexturesCount;
     }
 
@@ -276,6 +269,7 @@ namespace UI {
         ensureLanguage(Core::settings.audio.language);
 
         Core::setDepthTest(false);
+        Core::setDepthWrite(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
         game->setupBinding();
@@ -298,6 +292,7 @@ namespace UI {
         Core::setCullMode(cmFront);
         Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
+        Core::setDepthWrite(true);
     }
 
     enum ShadeType {
@@ -802,6 +797,7 @@ namespace UI {
         Basis joints[MAX_SPHERES];
 
         Core::setDepthTest(true);
+        Core::setDepthWrite(true);
 
         for (int i = 0; i < pickups.length; i++) {
             const PickupItem &item = pickups[i];
@@ -836,6 +832,7 @@ namespace UI {
         }
 
         Core::setDepthTest(false);
+        Core::setDepthWrite(false);
 
         Core::setViewProj(mView, Core::mProj);
         game->setShader(Core::passGUI, Shader::DEFAULT);

@@ -430,6 +430,7 @@ namespace GAPI {
     typedef ::Vertex Vertex;
 
     int cullMode, blendMode;
+    bool depthWrite;
 
     char GLSL_HEADER_VERT[512];
     char GLSL_HEADER_FRAG[512];
@@ -1454,7 +1455,15 @@ namespace GAPI {
 
     void clear(bool color, bool depth) {
         uint32 mask = (color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0);
-        if (mask) glClear(mask);
+        if (mask) {
+            if (depth && !depthWrite) {
+                glDepthMask(GL_TRUE);
+                glClear(mask);
+                glDepthMask(GL_FALSE);
+            } else {
+                glClear(mask);
+            }
+        }
     }
 
     void setClearColor(const vec4 &color) {
@@ -1474,6 +1483,7 @@ namespace GAPI {
     }
 
     void setDepthWrite(bool enable) {
+        depthWrite = enable;
         glDepthMask(enable ? GL_TRUE : GL_FALSE);
     }
 

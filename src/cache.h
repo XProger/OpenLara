@@ -286,7 +286,7 @@ struct AmbientCache {
 
         mat4 mProj, mView;
         mView.identity();
-        mProj.identity();
+        mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
         mProj.scale(vec3(1.0f / 32767.0f));
         Core::setViewProj(mView, mProj);
         game->setShader(Core::passFilter, Shader::FILTER_DOWNSAMPLE);

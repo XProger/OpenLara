@@ -1401,6 +1401,10 @@ struct Inventory {
             return;
         #endif
 
+        #ifdef _OS_3DS
+            return;
+        #endif
+
         game->renderGame(false, true);
 
         Core::setDepthTest(false);
@@ -1417,7 +1421,7 @@ struct Inventory {
 
         mat4 mProj, mView;
         mView.identity();
-        mProj.identity();
+        mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
         mProj.scale(vec3(1.0f / 32767.0f));
         Core::setViewProj(mView, mProj);
 
@@ -1716,20 +1720,20 @@ struct Inventory {
         Index  indices[10 * 3] = { 0,1,2, 0,2,3, 8,9,5, 8,5,4, 9,10,6, 9,6,5, 10,11,7, 10,7,6, 11,8,4, 11,4,7 };
         Vertex vertices[4 * 3];
 
-        vertices[ 0].coord = short4(-size.x,  size.y, 0, 0);
-        vertices[ 1].coord = short4( size.x,  size.y, 0, 0);
-        vertices[ 2].coord = short4( size.x, -size.y, 0, 0);
-        vertices[ 3].coord = short4(-size.x, -size.y, 0, 0);
+        vertices[ 0].coord = short4(-size.x,  size.y, 0, 1);
+        vertices[ 1].coord = short4( size.x,  size.y, 0, 1);
+        vertices[ 2].coord = short4( size.x, -size.y, 0, 1);
+        vertices[ 3].coord = short4(-size.x, -size.y, 0, 1);
 
         vertices[ 4].coord = vertices[0].coord;
         vertices[ 5].coord = vertices[1].coord;
         vertices[ 6].coord = vertices[2].coord;
         vertices[ 7].coord = vertices[3].coord;
 
-        vertices[ 8].coord = short4(-o_frame,  o_frame, 0, 0);
-        vertices[ 9].coord = short4( o_frame,  o_frame, 0, 0);
-        vertices[10].coord = short4( o_frame, -o_frame, 0, 0);
-        vertices[11].coord = short4(-o_frame, -o_frame, 0, 0);
+        vertices[ 8].coord = short4(-o_frame,  o_frame, 0, 1);
+        vertices[ 9].coord = short4( o_frame,  o_frame, 0, 1);
+        vertices[10].coord = short4( o_frame, -o_frame, 0, 1);
+        vertices[11].coord = short4(-o_frame, -o_frame, 0, 1);
 
         vertices[ 0].light =
         vertices[ 1].light =
@@ -1770,7 +1774,7 @@ struct Inventory {
 
         mat4 mProj, mView;
         mView.identity();
-        mProj.identity();
+        mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
         mProj.scale(vec3(1.0f / max(size.x, size.y)));
         mProj.translate(vec3(eye, 0.0f, 0.0f));
         Core::setViewProj(mView, mProj);
@@ -1783,10 +1787,10 @@ struct Inventory {
     void renderGameBG(int view) {
         Index  indices[6] = { 0, 1, 2, 0, 2, 3 };
         Vertex vertices[4];
-        vertices[0].coord = short4(-32767,  32767, 0, 0);
-        vertices[1].coord = short4( 32767,  32767, 0, 0);
-        vertices[2].coord = short4( 32767, -32767, 0, 0);
-        vertices[3].coord = short4(-32767, -32767, 0, 0);
+        vertices[0].coord = short4(-32767,  32767, 0, 1);
+        vertices[1].coord = short4( 32767,  32767, 0, 1);
+        vertices[2].coord = short4( 32767, -32767, 0, 1);
+        vertices[3].coord = short4(-32767, -32767, 0, 1);
         vertices[0].light =
         vertices[1].light =
         vertices[2].light =
@@ -1821,7 +1825,7 @@ struct Inventory {
 
         mat4 mProj, mView;
         mView.identity();
-        mProj.identity();
+        mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
         mProj.scale(vec3(1.0f / 32767.0f));
         Core::setViewProj(mView, mProj);
 
@@ -1837,6 +1841,7 @@ struct Inventory {
             return;
 
         Core::setDepthTest(false);
+        Core::setDepthWrite(false);
 
         uint8 alpha;
         if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f)
@@ -1863,6 +1868,7 @@ struct Inventory {
 
         Core::setBlendMode(bmPremult);
         Core::setDepthTest(true);
+        Core::setDepthWrite(true);
     }
 
     void setupCamera(float aspect, bool ui = false) {

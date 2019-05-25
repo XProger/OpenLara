@@ -11,12 +11,12 @@ varying vec4 vColor;
 	attribute vec4 aLight;
 
 	void main() {
-		vTexCoord	= aTexCoord.xy;
-		vColor		= aLight * uMaterial;
-		gl_Position = uViewProj * vec4(aCoord.xyz, 1.0);
+		vTexCoord   = aTexCoord.xy;
+		vColor      = aLight * uMaterial;
+		gl_Position = uViewProj * aCoord;
 	}
 #else
-	uniform sampler2D	sDiffuse;
+	uniform sampler2D sDiffuse;
 
 	void main() {
 		fragColor = texture2D(sDiffuse, vTexCoord) * vColor;

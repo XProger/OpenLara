@@ -20,19 +20,8 @@
 
 .proc main
 ; mulQuat
-    ;mul r0.xyz, uBasis[0], aCoord.zxy
-    ;mad r0.xyz, aCoord, uBasis[0].zxy, -r0
-    ;mad r0.xyz, aCoord.yzx, uBasis[0].w, r0
-    ;mul r1.xyz, uBasis[0].zxy, r0
-    ;mad r0.xyz, r0.yzx, uBasis[0].yzx, -r1
-    ;mad r0.xyz, r0, const0.x, aCoord
-    ;add r0.xyz, uBasis[1], r0
-    ;mov r0.w, uBasis[1].w
-    
     mul r0.x, const0.xxxx, aCoord.wwww
-    
-    ;frc r0.x, v0.w
-    ;add r0.x, -r0.x, v0.w
+
     mova a0.x, r0.x
     mul r0.xyz, uBasis[a0.x], aCoord.zxyw
     mad r0.xyz, aCoord, uBasis[a0.x].zxyw, -r0
@@ -44,24 +33,16 @@
     mov r0.w, uBasis[a0.x + 1].w
 
 ; uViewProj * coord
-    dp4 vPosition.x, uViewProj[0], r0
-    dp4 vPosition.y, uViewProj[1], r0
-    dp4 vPosition.z, uViewProj[2], r0
-    dp4 vPosition.w, uViewProj[3], r0
-    
-    mul r2, const1.xxxx, aTexCoord.xyzw
-    mov vTexCoord, r2
-    
-    mov r3, aColor
-    mul r3, const1.yyyy, r3.xyzw
-    
-    mov r4, aLight
-    mul r4, const1.yyyy, r4.xyzw
-        
+    mul r1, uViewProj[0], r0.xxxx
+    mad r1, r0.yyyy, uViewProj[1], r1
+    mad r1, r0.zzzz, uViewProj[2], r1
+    mad vPosition, r0.wwww, uViewProj[3], r1
+
+    mul vTexCoord, const1.xxxx, aTexCoord.xyzw
+
+    mul r3, const1.yyyy, aColor
+    mul r4, const1.yyyy, aLight
     mul vColor, r3, r4
-    ;mov vColor, r3
-    ;mov vColor.xyz, r2.xyz
-    ;mov vColor.w, const0.yyyy
-    
+
     end
 .end
