@@ -1954,11 +1954,12 @@ struct Level : IGame {
 
             vec3 pos = controller->getPos();
             if (ambientCache) {
-                if (!entity.isDoor() && !entity.isBlock()) { // no advanced ambient lighting for secret (all) doors and blocks
+                if (!entity.isDoor() && !entity.isBlock() && !entity.isPickup()) { // no advanced ambient lighting for secret (all) doors and blocks
                     AmbientCache::Cube cube;
                     ambientCache->getAmbient(roomIndex, pos, cube);
-                    if (cube.status == AmbientCache::Cube::READY)
+                    if (cube.status == AmbientCache::Cube::READY) {
                         memcpy(controller->ambient, cube.colors, sizeof(cube.colors)); // store last calculated ambient into controller
+                    }
                 } else {
                     controller->ambient[0] =
                     controller->ambient[1] =
