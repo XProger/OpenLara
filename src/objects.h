@@ -420,6 +420,11 @@ struct TrapBoulder : Controller {
     TrapBoulder(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
 
     virtual void update() {
+        if (flags.active == 0) {
+            const TR::Entity &e = getEntity();
+            pos = vec3(e.x, e.y, e.z);
+        }
+
         TR::Level::FloorInfo info;
         getFloorInfo(getRoomIndex(), pos, info);
 
@@ -455,7 +460,6 @@ struct TrapBoulder : Controller {
         if (pos.y > info.floor) {
             if (onGround) {
                 pos = p;
-                deactivate(true);
                 game->checkTrigger(this, true);
                 return;
             } else {
