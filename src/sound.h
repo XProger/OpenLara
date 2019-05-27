@@ -107,6 +107,10 @@ namespace Sound {
                         panCoeff[i][1] = panCoeff[i + 1][1] =  1;
                 }
 
+                clear();
+            }
+
+            void clear() {
                 memset(output, 0, sizeof(output));
                 memset(df, 0, sizeof(df));
                 memset(af, 0, sizeof(af));
@@ -1111,6 +1115,7 @@ namespace Sound {
 
     void stopAll() {
         OS_LOCK(lock);
+        reverb.clear();
 
         for (int i = 0; i < channelsCount; i++)
             delete channels[i];
