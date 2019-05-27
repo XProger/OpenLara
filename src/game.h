@@ -52,7 +52,7 @@ namespace Game {
         bool playLogo = level->level.isTitle() && id == TR::LVL_MAX;
         playVideo = playVideo && (id != level->level.id);
 
-        if (level->level.isTitle() && id != TR::LVL_MAX)
+        if (level->level.isTitle() && id != TR::LVL_MAX && !TR::isGameEnded)
             playVideo = false;
 
         level->init(playLogo, playVideo);
@@ -151,6 +151,8 @@ namespace Game {
             Debug::init();
         #endif
         char fileName[255];
+
+        TR::isGameEnded = false;
 
         TR::Version version = TR::getGameVersion();
         if (!lvlName)

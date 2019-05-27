@@ -9,6 +9,7 @@
 namespace TR {
 
     bool useEasyStart;
+    bool isGameEnded;
 
     enum {
         NO_TRACK = 0xFF,
@@ -949,7 +950,7 @@ namespace TR {
     StringID getVideoSubs(LevelID id) {
         switch (id) {
         // TR1
-            case LVL_TR1_TITLE : return STR_TR1_SUB_CAFE;
+            case LVL_TR1_TITLE : return isGameEnded ? STR_EMPTY : STR_TR1_SUB_CAFE;
             case LVL_TR1_4     : return STR_TR1_SUB_LIFT;
             case LVL_TR1_10A   : return STR_TR1_SUB_CANYON;
             case LVL_TR1_CUT_4 : return STR_TR1_SUB_PRISON;
@@ -963,10 +964,12 @@ namespace TR {
         const char *str = NULL;
         switch (id) {
         // TR1
-            case LVL_TR1_TITLE : str = "CAFE";   break;
+            case LVL_TR1_TITLE : str = isGameEnded ? NULL : "CAFE"; break;
             case LVL_TR1_4     : str = "LIFT";   break;
             case LVL_TR1_10A   : str = "CANYON"; break;
             case LVL_TR1_CUT_4 : str = "PRISON"; break;
+        // TR2 TODO
+        // TR3 TODO
             default            : return false;
         }
 
@@ -983,6 +986,7 @@ namespace TR {
         if ((version & VER_TR1) && (track >= 22 && track <= 56 && track != 24)) {
             return StringID(STR_TR1_SUB_22 + (track - 22));
         }
+        // TR2, TR3 TODO
         return STR_EMPTY;
     }
 
@@ -1234,12 +1238,21 @@ namespace TR {
         switch (id) {
         // TR1
             case LVL_TR1_TITLE :
-                CHECK_FILE("FMV/CAFE.FMV");
-                CHECK_FILE("FMV/CAFE.RPL");
-                CHECK_FILE("FMV/CAFE.CPK");
-                CHECK_FILE("video/1/CAFE.FMV");
-                CHECK_FILE("video/1/CAFE.RPL");
-                CHECK_FILE("video/1/CAFE.CPK");
+                if (isGameEnded) {
+                    CHECK_FILE("FMV/END.FMV");
+                    CHECK_FILE("FMV/END.RPL");
+                    CHECK_FILE("FMV/END.CPK");
+                    CHECK_FILE("video/1/END.FMV");
+                    CHECK_FILE("video/1/END.RPL");
+                    CHECK_FILE("video/1/END.CPK");
+                } else {
+                    CHECK_FILE("FMV/CAFE.FMV");
+                    CHECK_FILE("FMV/CAFE.RPL");
+                    CHECK_FILE("FMV/CAFE.CPK");
+                    CHECK_FILE("video/1/CAFE.FMV");
+                    CHECK_FILE("video/1/CAFE.RPL");
+                    CHECK_FILE("video/1/CAFE.CPK");
+                }
                 break;
             case LVL_TR1_GYM :
                 CHECK_FILE("FMV/MANSION.FMV");
@@ -1350,10 +1363,17 @@ namespace TR {
                 break;
         // TR3
             case LVL_TR3_TITLE :
-                CHECK_FILE("FMV/INTRO.FMV");
-                CHECK_FILE("fmv/Intr_Eng.rpl");
-                CHECK_FILE("video/3/INTRO.FMV");
-                CHECK_FILE("video/3/Intr_Eng.rpl");
+                if (isGameEnded) {
+                    CHECK_FILE("FMV/END.FMV");
+                    CHECK_FILE("fmv/Endgame.rpl");
+                    CHECK_FILE("video/3/END.FMV");
+                    CHECK_FILE("video/3/Endgame.rpl");
+                } else {
+                    CHECK_FILE("FMV/INTRO.FMV");
+                    CHECK_FILE("fmv/Intr_Eng.rpl");
+                    CHECK_FILE("video/3/INTRO.FMV");
+                    CHECK_FILE("video/3/Intr_Eng.rpl");
+                }
                 break;
             case LVL_TR3_SHORE :
                 CHECK_FILE("FMV/LAGOON.FMV");

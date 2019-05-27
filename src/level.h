@@ -98,6 +98,8 @@ struct Level : IGame {
     #endif
         id = (level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1);
 
+        TR::isGameEnded = level.isEnd();
+
         if (!level.isTitle() && loadSlot == -1) {
         // update statistics info for current level
             if (!TR::isCutsceneLevel(level.id) && !level.isHome())
