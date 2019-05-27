@@ -18,13 +18,14 @@
 .proc main
 ; uViewProj * coord
     mov r0, uViewProj[3]
-    mad r1, aCoord.xxxx, uViewProj[0], r0
-    mad r1, aCoord.yyyy, uViewProj[1], r1
-    mad vPosition, aCoord.zzzz, uViewProj[2], r1
+    mad r0, aCoord.xxxx, uViewProj[0], r0
+    mad r0, aCoord.yyyy, uViewProj[1], r0
+    mad vPosition, aCoord.zzzz, uViewProj[2], r0
 
     mul vTexCoord, const0.xxxx, aTexCoord
-    mul r2, const0.yyyy, aLight
-    mul vColor, uMaterial, r2
+
+    mul r1, const0.yyyy, aLight
+    mul vColor, uMaterial, r1
 
     end
 .end
