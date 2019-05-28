@@ -417,57 +417,70 @@ struct TrapBoulder : Controller {
 
     vec3 velocity;
 
-    TrapBoulder(IGame *game, int entity) : Controller(game, entity), velocity(0) {}
+    TrapBoulder(IGame *game, int entity) : Controller(game, entity), velocity(0) {
+        flags.unused = false;
+    }
 
     virtual void update() {
         if (flags.active == 0) {
-            const TR::Entity &e = getEntity();
-            pos = vec3(e.x, e.y, e.z);
+            if (state != STATE_FALL) {
+                const TR::Entity &e = getEntity();
+                roomIndex = e.room;
+                pos       = vec3(float(e.x), float(e.y), float(e.z));
+                velocity  = vec3(0.0f);
+                animation.setAnim(0);
+                flags.unused = false;
+            }
+            return;
         }
 
-        TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
-
-        vec3 dir = getDir();
-
-        bool onGround = false;
-
-        if (pos.y >= info.floor - 256) {
-            onGround = true;
-            pos.y = info.floor;
-            velocity = dir * animation.getSpeed();
-            if (state != STATE_ROLL)
-                animation.setState(STATE_ROLL);
-        } else {
-            if (velocity.y == 0.0f)
-                velocity.y = 10.0f;
-            applyGravity(velocity.y);
-            animation.setState(STATE_FALL);
+        if (flags.unused) {
+            Character *lara = (Character*)game->getLara(pos);
+            if (lara->collide(this, true)) {
+                vec3 delta = lara->pos - pos;
+                Box box(delta + vec3(-125, 0, -125), delta + vec3(125, 762, 125));
+                lara->pos += getBoundingBoxLocal().pushOut2D(box);
+            }
+            return;
         }
 
         vec3 p = pos;
+
+        if (velocity.y != 0.0f) {
+            applyGravity(velocity.y);
+        }
         pos += velocity * (30.0f * Core::deltaTime);
 
-        if (info.roomNext != TR::NO_ROOM)
-            roomIndex = info.roomNext;
+        TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+        p.y = level->getFloor(sector, pos);
 
-        if (onGround) {
-            game->checkTrigger(this, true);
-        }
-
-        vec3 v = pos + getDir() * 512.0f;
-        getFloorInfo(getRoomIndex(), v, info);
-        if (pos.y > info.floor) {
-            if (onGround) {
-                pos = p;
-                game->checkTrigger(this, true);
-                return;
-            } else {
-                pos.x = p.x;
-                pos.z = p.z;
-                velocity.x = velocity.z = 0.0f;
+        if (pos.y < p.y) {
+            if (velocity.y == 0.0f) {
+                velocity.y = -10.0f;
+            }
+        } else {
+            if (state != STATE_ROLL) {
+                animation.setState(STATE_ROLL);
+                velocity = getDir() * animation.getSpeed();
             }
         }
+
+        if (pos.y >= p.y - 256.0f) {
+            velocity.y = 0.0f;
+            pos.y      = p.y;
+        }
+
+        int16 roomIdx = this->roomIndex;
+        vec3 v = pos + getDir() * 512.0f;
+        sector = level->getSector(roomIdx, v);
+        if (pos.y > level->getFloor(sector, v)) {
+            velocity.y = 0.0f;
+            pos = p;
+            flags.unused = true;
+        }
+
+        game->checkTrigger(this, true);
+        updateAnimation(true);
 
         Character *lara = (Character*)game->getLara(pos);
         if (lara->health > 0.0f && collide(lara)) {
@@ -476,8 +489,6 @@ struct TrapBoulder : Controller {
             if (lara->stand == Character::STAND_AIR)
                 lara->hit(BOULDER_DAMAGE_AIR * 30.0f * Core::deltaTime, this);
         }
-
-        updateAnimation(true);
     }
 };
 

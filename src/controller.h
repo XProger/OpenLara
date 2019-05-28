@@ -6,7 +6,7 @@
 #include "mesh.h"
 #include "animation.h"
 
-#define GRAVITY     (6.0f * 30.0f)
+#define GRAVITY     6.0f
 #define SPRITE_FPS  10.0f
 
 #define MAX_LAYERS  4
@@ -777,7 +777,7 @@ struct Controller {
     }
 
     static inline void applyGravity(float &speed) {
-        speed += (speed < 128.0f ? GRAVITY : 30.0f) * Core::deltaTime;
+        speed += (speed < 128.0f ? GRAVITY : 1.0f) * (30.0f * Core::deltaTime);
     }
 
     bool alignToWall(float offset = 0.0f, int quadrant = -1, int maxDist = 0, int maxWidth = 0) {
