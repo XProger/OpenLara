@@ -1050,9 +1050,11 @@ struct Rat : Enemy {
         modelLand  = level->getModelIndex(TR::Entity::ENEMY_RAT_LAND)  - 1;
         modelWater = level->getModelIndex(TR::Entity::ENEMY_RAT_WATER) - 1;
     }
-    
+
     const virtual TR::Model* getModel() {
-        bool water = getRoom().flags.water;
+        bool water = getRoom().flags.water || modelWater == -1;
+        stand = water ? STAND_ONWATER : STAND_GROUND;
+
         int modelIndex = water ? modelWater : modelLand;
 
         if (modelIndex == -1) {
@@ -1065,7 +1067,6 @@ struct Rat : Enemy {
         if (animation.model != model) {
             targetBox = TR::NO_BOX;
             animation.setModel(model);
-            stand = water ? STAND_ONWATER : STAND_GROUND;
 
             int16 rIndex = getRoomIndex();
             if (water) {
@@ -1075,7 +1076,6 @@ struct Rat : Enemy {
                     roomIndex = rIndex;
                 }
             } else {
-                int16 rIndex = getRoomIndex();
                 TR::Room::Sector *sector = level->getSector(rIndex, pos);
                 if (sector) {
                     pos.y = float(sector->floor * 256);
@@ -1229,13 +1229,15 @@ struct Crocodile : Enemy {
         modelLand  = level->getModelIndex(TR::Entity::ENEMY_CROCODILE_LAND)  - 1;
         modelWater = level->getModelIndex(TR::Entity::ENEMY_CROCODILE_WATER) - 1;
 
-        bool water = getRoom().flags.water;
+        bool water = getRoom().flags.water || modelWater == -1;
         flying     = water;
         stand      = water ? STAND_UNDERWATER : STAND_GROUND;
     }
 
     const virtual TR::Model* getModel() {
-        bool water = getRoom().flags.water;
+        bool water = getRoom().flags.water || modelWater == -1;
+        stand  = water ? STAND_UNDERWATER : STAND_GROUND;
+
         int modelIndex = water ? modelWater : modelLand;
 
         if (modelIndex == -1) {
@@ -1248,7 +1250,6 @@ struct Crocodile : Enemy {
         if (animation.model != model) {
             targetBox = TR::NO_BOX;
             animation.setModel(model);
-            stand  = water ? STAND_UNDERWATER : STAND_GROUND;
             flying = water;
 
             int16 rIndex = getRoomIndex();
@@ -1259,7 +1260,6 @@ struct Crocodile : Enemy {
                     roomIndex = rIndex;
                 }
             } else {
-                int16 rIndex = getRoomIndex();
                 TR::Room::Sector *sector = level->getSector(rIndex, pos);
                 if (sector) {
                     pos.y = float(sector->floor * 256);
