@@ -166,7 +166,10 @@ struct Flame : Sprite {
 
     virtual void update() {
         Sprite::update();
-        game->playSound(TR::SND_FLAME, pos, Sound::PAN);
+
+        if (jointIndex <= 0) {
+            game->playSound(TR::SND_FLAME, pos, Sound::PAN);
+        }
 
         Character *lara = (Character*)((owner && owner->getEntity().isLara()) ? owner : game->getLara(pos));
 
