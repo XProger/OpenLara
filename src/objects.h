@@ -438,12 +438,6 @@ struct TrapBoulder : Controller {
         }
 
         if (flags.unused) {
-            Character *lara = (Character*)game->getLara(pos);
-            if (lara->collide(this, true)) {
-                vec3 delta = lara->pos - pos;
-                Box box(delta + vec3(-125, 0, -125), delta + vec3(125, 762, 125));
-                lara->pos += getBoundingBoxLocal().pushOut2D(box);
-            }
             return;
         }
 
@@ -477,9 +471,12 @@ struct TrapBoulder : Controller {
         vec3 v = pos + getDir() * 512.0f;
         sector = level->getSector(roomIdx, v);
         if (pos.y > level->getFloor(sector, v)) {
-            velocity.y = 0.0f;
-            pos = p;
             flags.unused = true;
+
+            pos.x = int(pos.x / 1024.0f) * 1024.0f + 512.0f;
+            pos.z = int(pos.z / 1024.0f) * 1024.0f + 512.0f;
+            sector = level->getSector(roomIndex, pos);
+            pos.y = level->getFloor(sector, pos);
         }
 
         game->checkTrigger(this, true);

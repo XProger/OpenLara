@@ -622,7 +622,9 @@ struct Controller {
         return e.isEnemy() ||
                e.isVehicle() ||
                e.isDoor() ||
-               e.type == TR::Entity::SCION_HOLDER;
+               e.type == TR::Entity::SCION_HOLDER ||
+               e.type == TR::Entity::TRAP_BOULDER ||
+               e.type == TR::Entity::MUTANT_EGG_SMALL;
     }
 
     virtual bool activate() {

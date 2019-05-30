@@ -64,6 +64,8 @@
 
 #define LARA_VIBRATE_HIT_TIME   0.2f
 
+#define COLLIDE_MAX_RANGE   (1024.0f * 4.0f)
+
 struct Lara : Character {
 
     // http://www.tombraiderforums.com/showthread.php?t=148859
@@ -3457,24 +3459,29 @@ struct Lara : Character {
             } else {
             // fast distance check for object
                 if (e.type != TR::Entity::HAMMER_HANDLE && e.type != TR::Entity::HAMMER_BLOCK && e.type != TR::Entity::SCION_HOLDER)
-                    if (fabsf(pos.x - controller->pos.x) > 2048 || fabsf(pos.z - controller->pos.z) > 2048 || fabsf(pos.y - controller->pos.y) > 2048) continue;
+                    if (fabsf(pos.x - controller->pos.x) > COLLIDE_MAX_RANGE || 
+                        fabsf(pos.z - controller->pos.z) > COLLIDE_MAX_RANGE || 
+                        fabsf(pos.y - controller->pos.y) > COLLIDE_MAX_RANGE) continue;
             }
+
+            if (e.type == TR::Entity::TRAP_BOULDER && !controller->flags.unused) continue; // boulder should stay still
 
             vec3 dir = pos - vec3(0.0f, 128.0f, 0.0f) - controller->pos;
             vec3 p   = dir.rotateY(controller->angle.y);
 
             Box box = controller->getBoundingBoxLocal();
             box.expand(vec3(LARA_RADIUS + 50.0f, 0.0f, LARA_RADIUS + 50.0f));
-            box.max.y += 768;
+            box.max.y += LARA_HEIGHT;
 
             if (!box.contains(p)) // TODO: Box vs Box or check Lara's head point? (check thor hammer handle)
                 continue;
 
+            if (!collide(controller, false))
+                continue;
+
             if (e.isEnemy()) { // enemy collision
-                if (!collide(controller, false))
-                    continue;
             //    velocity.x = velocity.y = 0.0f;
-            } else { // door collision
+            } else {
                 p += box.pushOut2D(p);
                 p = (p.rotateY(-controller->angle.y) + controller->pos) - pos;
                 collisionOffset += vec3(p.x, 0.0f, p.z);
