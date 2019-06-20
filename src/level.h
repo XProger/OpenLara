@@ -3002,7 +3002,7 @@ struct Level : IGame {
         int texIndex = eye <= 0 ? 0 : 1;
 
         #ifdef _OS_3DS
-            Core::eye *= osGet3DSliderState() * 3.25;
+            Core::eye *= osGet3DSliderState() * 3.25f;
 
             GAPI::curTarget = GAPI::defTarget[texIndex];
 

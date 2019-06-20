@@ -520,7 +520,11 @@ struct Camera : ICamera {
                 Core::mViewInv.setPos(Core::mViewInv.getPos() + vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
             if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
-                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                #ifdef _OS_3DS
+                    Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION / (firstPerson ? 8.0f : 1.0f) ) );
+                #else
+					Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                #endif
 
             if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
@@ -559,7 +563,7 @@ struct Camera : ICamera {
         zfar  = 45.0f * 1024.0f;
 
         #ifdef _OS_3DS
-            fov   = firstPerson ? 55.0f : 55.0f;
+            fov   = firstPerson ? 65.0f : 55.0f;
         #endif
 
         #ifdef _OS_PSP
