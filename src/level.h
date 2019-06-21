@@ -2942,7 +2942,13 @@ struct Level : IGame {
 
     void renderPrepare() {
         #ifdef _OS_3DS
-            Core::settings.detail.stereo = osGet3DSliderState() > 0.0f ? Core::Settings::STEREO_SBS : Core::Settings::STEREO_OFF;
+            if (osGet3DSliderState() > 0.0f && !inventory->video) {
+                Core::settings.detail.stereo = Core::Settings::STEREO_SBS;
+                gfxSet3D(true);
+            } else {
+                Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
+                gfxSet3D(false);
+            }
         #endif
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
