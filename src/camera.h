@@ -21,6 +21,11 @@
 #define CAM_LOOK_ANGLE_XMIN  (-75.0f * DEG2RAD)
 #define CAM_LOOK_ANGLE_Y     ( 80.0f * DEG2RAD)
 
+#ifdef _OS_3DS
+    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f + 256.0f)
+    #define CAM_FOCAL_LENGTH     512.0f
+#endif
+
 struct Camera : ICamera {
     IGame      *game;
     TR::Level  *level;
@@ -529,7 +534,11 @@ struct Camera : ICamera {
                 Core::mViewInv.setPos(Core::mViewInv.getPos() + vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
             if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
-                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                #ifdef _OS_3DS
+                    Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION / (firstPerson ? 8.0f : 1.0f) ) );
+                #else
+					Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                #endif
 
             if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
@@ -566,6 +575,10 @@ struct Camera : ICamera {
         fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 16.0f : 32.0f;
         zfar  = 45.0f * 1024.0f;
+
+        #ifdef _OS_3DS
+            fov   = firstPerson ? 65.0f : 55.0f;
+        #endif
 
         #ifdef _OS_PSP
             znear = 256.0f;
