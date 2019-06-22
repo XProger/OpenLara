@@ -3107,8 +3107,7 @@ struct Level : IGame {
 
         Core::pushLights();
 
-        UI::begin();
-        UI::updateAspect(camera->aspect);
+        UI::begin(camera->aspect);
 
         atlasObjects->bind(sDiffuse);
         UI::renderPickups();
@@ -3175,8 +3174,7 @@ struct Level : IGame {
             inventory->render(1.0);
 
             if (UI::subsStr != STR_EMPTY) {
-                UI::begin();
-                UI::updateAspect(float(Core::width) / float(Core::height));
+                UI::begin(float(Core::width) / float(Core::height));
                 atlasGlyphs->bind(sDiffuse);
                 UI::renderSubs();
                 UI::end();
@@ -3191,8 +3189,7 @@ struct Level : IGame {
         atlasObjects->bind(sDiffuse);
         inventory->render(aspect);
 
-        UI::begin();
-        UI::updateAspect(aspect);
+        UI::begin(aspect);
         atlasGlyphs->bind(sDiffuse);
         if (!inventory->video) {
             inventory->renderUI();
@@ -3207,8 +3204,7 @@ struct Level : IGame {
     void render() {
         if (isEnded && !inventory->video) {
             Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
-            UI::begin();
-            UI::updateAspect(float(Core::width) / float(Core::height));
+            UI::begin(float(Core::width) / float(Core::height));
             atlasGlyphs->bind(sDiffuse);
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();

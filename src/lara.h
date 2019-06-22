@@ -1930,6 +1930,53 @@ struct Lara : Character {
         return false;
     }
 
+    void refreshCamera(const TR::Level::FloorInfo &info) {
+        const TR::FloorData::TriggerCommand *cameraCmdSwitch = NULL;
+        const TR::FloorData::TriggerCommand *cameraCmdTarget = NULL;
+        
+        int cmdIndex = 0;
+
+        while (cmdIndex < info.trigCmdCount) {
+            const TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
+
+            switch (cmd.action) {
+                case TR::Action::CAMERA_SWITCH :
+                    ASSERT(!cameraCmdSwitch);
+                    cameraCmdSwitch = &cmd;
+                    cmdIndex++; // skip camera info cmd
+                    break;
+                case TR::Action::CAMERA_TARGET :
+                    ASSERT(!cameraCmdTarget);
+                    cameraCmdTarget = &cmd;
+                    break;
+                default : ;
+            }
+        }
+
+        if (cameraCmdTarget && camera->mode != Camera::MODE_LOOK && camera->mode != Camera::MODE_COMBAT) {
+            camera->viewTarget = (Controller*)level->entities[cameraCmdTarget->args].controller;
+        }
+
+        if (cameraCmdSwitch) {
+            if (cameraCmdSwitch->args == camera->viewIndexLast) {
+                camera->viewIndex = camera->viewIndexLast;
+
+                if (camera->mode == Camera::MODE_LOOK || camera->mode == Camera::MODE_COMBAT || camera->timer < 0) {
+                    camera->timer = -1.0f;
+                    camera->viewTarget = NULL;
+                } else {
+                    camera->mode = Camera::MODE_STATIC;
+                }
+            } else {
+                camera->viewTarget = NULL;
+            }
+        } else {
+            if (viewTarget && camera->viewTarget != camera->viewTargetLast) {
+                camera->viewTarget = NULL;
+            }
+        }
+    }
+
     void checkTrigger(Controller *controller, bool heavy) {
         TR::Level::FloorInfo info;
         getFloorInfo(controller->getRoomIndex(), controller->pos, info);
@@ -1940,6 +1987,10 @@ struct Lara : Character {
         }
 
         if (!info.trigCmdCount) return; // has no trigger
+
+        if (camera->mode != Camera::MODE_HEAVY) {
+            refreshCamera(info);
+        }
 
         TR::Limits::Limit *limit = NULL;
         bool switchIsDown = false;
@@ -2050,9 +2101,6 @@ struct Lara : Character {
         bool needFlip = false;
         TR::Effect::Type effect = TR::Effect::NONE;
 
-        int         cameraIndex  = -1;
-        Controller *cameraTarget = NULL;
-
         while (cmdIndex < info.trigCmdCount) {
             TR::FloorData::TriggerCommand &cmd = info.trigCmd[cmdIndex++];
 
@@ -2084,20 +2132,22 @@ struct Lara : Character {
                 }
                 case TR::Action::CAMERA_SWITCH : {
                     TR::FloorData::TriggerCommand &cam = info.trigCmd[cmdIndex++];
-                    if (level->cameras[cmd.args].flags.once)
-                        break;
 
-                    if (info.trigger == TR::Level::Trigger::COMBAT)
-                        break;
-                    if (info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && !switchIsDown)
-                        break;
- 
-                    if (info.trigger == TR::Level::Trigger::SWITCH || cmd.args != camera->viewIndexLast) {
-                        level->cameras[cmd.args].flags.once |= cam.once;
-                        camera->setView(cmd.args, cam.timer == 1 ? EPS : float(cam.timer), cam.speed);
-                        cameraIndex = cmd.args;
+                    if (!level->cameras[cmd.args].flags.once) {
+                        camera->viewIndex = cmd.args;
+
+                        if (!(info.trigger == TR::Level::Trigger::COMBAT) &&
+                            !(info.trigger == TR::Level::Trigger::SWITCH && info.trigInfo.timer && !switchIsDown) &&
+                             (info.trigger == TR::Level::Trigger::SWITCH || camera->viewIndex != camera->viewIndexLast))
+                        {
+                            camera->smooth = cam.speed > 0;
+                            camera->mode   = heavy ? Camera::MODE_HEAVY : Camera::MODE_STATIC;
+                            camera->timer  = cam.timer == 1 ? EPS : float(cam.timer);
+                            camera->speed  = cam.speed * 8;
+
+                            level->cameras[camera->viewIndex].flags.once |= cam.once;
+                        }
                     }
-
                     break;
                 }
                 case TR::Action::FLOW :
@@ -2131,7 +2181,9 @@ struct Lara : Character {
                         needFlip = true;
                     break;
                 case TR::Action::CAMERA_TARGET :
-                    cameraTarget = (Controller*)level->entities[cmd.args].controller;
+                    if (camera->mode == Camera::MODE_STATIC || camera->mode == Camera::MODE_HEAVY) {
+                        camera->viewTarget = (Controller*)level->entities[cmd.args].controller;
+                    }
                     break;
                 case TR::Action::END :
                     game->loadNextLevel();
@@ -2174,12 +2226,6 @@ struct Lara : Character {
                     break;
             }
         }
-
-        if (cameraTarget && (camera->mode == Camera::MODE_STATIC || cameraIndex == -1))
-           camera->viewTarget = cameraTarget;
-
-        if (!cameraTarget && cameraIndex > -1)
-            camera->viewIndex = cameraIndex;
 
         if (needFlip) {
             game->flipMap();

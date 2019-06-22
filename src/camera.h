@@ -36,6 +36,7 @@ struct Camera : ICamera {
     int         viewIndex;
     int         viewIndexLast;
     Controller* viewTarget;
+    Controller* viewTargetLast;
     Basis       fpHead;
     int         speed;
     bool        smooth;
@@ -97,9 +98,21 @@ struct Camera : ICamera {
         return level->rooms[getRoomIndex()].flags.water;
     }
 
-    vec3 getViewPoint() {
+    vec3 getViewPoint(bool useBounds = true) {
         Box box = owner->getBoundingBox();
         vec3 pos = owner->pos;
+
+        if (!useBounds) {
+            if (owner->getEntity().type == TR::Entity::LARA &&
+                owner->stand != Character::STAND_UNDERWATER &&
+                owner->stand != Character::STAND_ONWATER)
+            {
+                pos.y -= 512.0f;
+            }
+            return pos;
+        }
+
+
         vec3 center = box.center();
 
         if (centerView) {
@@ -107,39 +120,25 @@ struct Camera : ICamera {
             pos.z = center.z;
         }
 
-        if (mode == MODE_LOOK) {
-            Basis b = owner->getJoint(owner->jointHead);
-            b.translate(vec3(0, -128, 0));
-            pos = b.pos;
-        } else {
-            if (mode != MODE_STATIC)
-                pos.y = box.max.y + (box.min.y - box.max.y) * (3.0f / 4.0f);
-            else
-                pos.y = center.y;
+        if (owner->getEntity().type == TR::Entity::LARA) {
+            if (mode == MODE_LOOK) {
+                Basis b = owner->getJoint(owner->jointHead);
+                b.translate(vec3(0, -128, 0));
+                pos = b.pos;
+            } else {
+                if (mode != MODE_STATIC)
+                    pos.y = box.max.y + (box.min.y - box.max.y) * (3.0f / 4.0f);
+                else
+                    pos.y = center.y;
 
-            if (owner->stand != Character::STAND_UNDERWATER)
-                pos.y -= 256;
+                if (owner->stand != Character::STAND_UNDERWATER)
+                    pos.y -= 256;
+            }
+        } else {
+            pos.y = center.y;
         }
 
         return pos;
-    }
-
-    void setView(int viewIndex, float timer, int speed) {
-        viewIndexLast   = viewIndex;
-        smooth          = speed > 0;
-        mode            = MODE_STATIC;
-        this->viewIndex = viewIndex;
-        this->timer     = timer;
-        this->speed     = speed * 8;
-    }
-
-    void resetTarget() {
-        smooth        = speed > 0;
-        mode          = MODE_FOLLOW;
-        viewIndex     = -1;
-        viewTarget    = NULL;
-        timer         = -1.0f;
-        speed         = CAM_SPEED_FOLLOW;
     }
 
     virtual void doCutscene(const vec3 &pos, float rotation) {
@@ -334,6 +333,14 @@ struct Camera : ICamera {
             Input::setJoyVibration(cameraIndex,  clamp(shake, 0.0f, 1.0f), 0);
         }
 
+        if (mode == MODE_FOLLOW) {
+            speed = CAM_SPEED_FOLLOW;
+        }
+
+        if (mode == MODE_COMBAT) {
+            speed = CAM_SPEED_COMBAT;
+        }
+
         if (mode == MODE_CUTSCENE) {
             ASSERT(level->cameraFramesCount && level->cameraFrames);
 
@@ -437,19 +444,13 @@ struct Camera : ICamera {
                 targetAngle += angle;
             }
 
-            if (!firstPerson || viewIndex != -1) {
+            bool isStatic = (mode == MODE_STATIC || mode == MODE_HEAVY) && viewTarget;
 
-                if (timer > 0.0f) {
-                    timer -= Core::deltaTime;
-                    if (timer <= 0.0f) {
-                        resetTarget();
-                    }
-                }
-
+            if (!firstPerson || isStatic) {
                 TR::Location to;
 
                 target.box  = TR::NO_BOX;
-                if (viewIndex > -1) {
+                if (mode == MODE_STATIC && viewIndex > -1) {
                     TR::Camera &cam = level->cameras[viewIndex];
                     to.room = cam.room;
                     to.pos  = vec3(float(cam.x), float(cam.y), float(cam.z));
@@ -458,8 +459,7 @@ struct Camera : ICamera {
                         target.pos  = lookAt->getBoundingBox().center();
                     } else {
                         target.room = owner->getRoomIndex();
-                        target.pos  = owner->pos;
-                        target.pos.y -= 512.0f;
+                        target.pos  = getViewPoint(false);
                     }
                 } else {
                     vec3 p = getViewPoint();
@@ -486,9 +486,6 @@ struct Camera : ICamera {
 
                 move(to);
 
-                if (timer <= 0.0f)
-                    resetTarget();
-
                 mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
             } else
                 updateFirstPerson();
@@ -502,6 +499,23 @@ struct Camera : ICamera {
             updateListener(mViewInv);
 
         smooth = true;
+
+        viewIndexLast = viewIndex;
+
+        if ((mode == MODE_STATIC || mode == MODE_HEAVY) && timer != 0.0f) {
+            timer -= Core::deltaTime;
+            if (timer <= 0.0f) {
+                timer = -1.0f;
+                smooth = false;
+            }
+        }
+
+        if (mode != MODE_HEAVY || timer == -1.0f) {
+            mode           = MODE_FOLLOW;
+            viewIndex      = -1;
+            viewTargetLast = viewTarget;
+            viewTarget     = NULL;
+        }
     }
 
     virtual void setup(bool calcMatrices) {

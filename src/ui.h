@@ -257,25 +257,22 @@ namespace UI {
         uint16 curTile, curClut;
     #endif
 
-    void updateAspect(float aspect) {
+    void begin(float aspect) {
+        ensureLanguage(Core::settings.audio.language);
+
         height = 480.0f;
         width  = height * aspect;
+
+        Core::mModel.identity();
+        Core::mView.identity();
         Core::mProj = GAPI::ortho(0.0f, width, height, 0.0f, -128.0f, 127.0f);
         Core::setViewProj(Core::mView, Core::mProj);
-        Core::active.shader->setParam(uViewProj, Core::mViewProj);
-    }
-
-    void begin() {
-        ensureLanguage(Core::settings.audio.language);
 
         Core::setDepthTest(false);
         Core::setDepthWrite(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
         game->setupBinding();
-
-        Core::mView.identity();
-        Core::mModel.identity();
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
         Core::setMaterial(1, 1, 1, 1);
