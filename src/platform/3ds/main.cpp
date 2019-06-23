@@ -57,7 +57,8 @@ void inputUpdate() {
 
     hidScanInput();
 
-    u64 mask = hidKeysDown() | hidKeysHeld();
+	u64 down = hidKeysDown();
+    u64 mask = down | hidKeysHeld();
 
     for (int i = 1; i < jkMAX; i++) {
         Input::setJoyDown(0, JoyKey(jkNone + i), (mask & keys[i]) != 0);
@@ -71,20 +72,24 @@ void inputUpdate() {
     if (fabsf(stickL.x) < 0.3f && fabsf(stickL.y) < 0.3f) stickL = vec2(0.0f);
     Input::setJoyPos(0, jkL, stickL);
 
-    if (hidKeysDown() & KEY_TOUCH) {
+    if (down & KEY_TOUCH) {
+		bottomScreenOn = !bottomScreenOn;
         gspLcdInit();
         if (bottomScreenOn) {
             GSPLCD_PowerOffBacklight(GSPLCD_SCREEN_BOTTOM);
-            bottomScreenOn = false;
         } else {
             GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
-            bottomScreenOn = true;
         }
         gspLcdExit();
     }
 }
 
 void inputFree() {
+    if (!bottomScreenOn) {
+        gspLcdInit();
+        GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
+        gspLcdExit();
+    }
     hidExit();
 }
 
@@ -180,7 +185,7 @@ int main() {
 
     osStartTime = Core::getTime();
 
-    Game::init("PSXDATA/LEVEL1.PSX");
+    Game::init();
 
     while (aptMainLoop() && !Core::isQuit) {
         inputUpdate();
@@ -196,11 +201,6 @@ int main() {
 
     inputFree();
     sndFree();
-    if (!bottomScreenOn) {
-        gspLcdInit();
-        GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
-        gspLcdExit();
-    }
     Game::deinit();
 
     return 0;

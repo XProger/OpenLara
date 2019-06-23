@@ -13,7 +13,7 @@
 #define DISPLAY_BUFFER_COUNT    2
 
 #define DISPLAY_TRANSFER_FLAGS (\
-      GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_XY) \
+      GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO) \
     | GX_TRANSFER_FLIP_VERT(0) \
     | GX_TRANSFER_OUT_TILED(0) \
     | GX_TRANSFER_RAW_COPY(0)  \
@@ -328,7 +328,7 @@ namespace GAPI {
                 vCount *= COUNT(chunks);
             }
 
-            VAO = new C3D_BufInfo[aCount + 1];
+            VAO = new C3D_BufInfo[aCount];
 
             iBuffer = (Index*)  linearAlloc(iCount * sizeof(Index));
             vBuffer = (Vertex*) linearAlloc(vCount * sizeof(Vertex));
@@ -382,16 +382,12 @@ namespace GAPI {
         }
 
         void bind(const MeshRange &range) {
-            C3D_BufInfo *vao = VAO;
+            ASSERT(range.aIndex > -1);
+            C3D_BufInfo *vao = VAO + range.aIndex;
 
-            if (range.aIndex == -1) {
-                vao += aCount - 1;
-                initVAO(vao, vBuffer + range.vStart + getChunk().vStart);
-            // workaround for passing "info != &ctx->bufInfo" check inside C3D_SetBufInfo for the same VAO pointers
-                C3D_BufInfo dummyBufInfo;
-                C3D_SetBufInfo(&dummyBufInfo);
+            if (dynamic) {
+                initVAO(vao, vBuffer + getChunk().vStart + range.vStart);
             } else {
-                vao += range.aIndex;
                 if (Core::active.VAO == vao) {
                     return;
                 }
@@ -420,12 +416,11 @@ namespace GAPI {
         LOG("Version  : %s\n", "1.0");
 
         gfxInitDefault();
-        gfxSet3D(true);
         consoleInit(GFX_BOTTOM, NULL);
 
         C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
-        defTarget[0] = C3D_RenderTargetCreate(240 * 2, 400 * 2, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
-        defTarget[1] = C3D_RenderTargetCreate(240 * 2, 400 * 2, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+        defTarget[0] = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+        defTarget[1] = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
         C3D_RenderTargetSetOutput(defTarget[0], GFX_TOP, GFX_LEFT,  DISPLAY_TRANSFER_FLAGS);
         C3D_RenderTargetSetOutput(defTarget[1], GFX_TOP, GFX_RIGHT, DISPLAY_TRANSFER_FLAGS);
         curTarget = defTarget[0];
@@ -455,7 +450,7 @@ namespace GAPI {
         //C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR);
         //C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
 
-        clearColor = 0x68B0D8FF;
+        clearColor = 0; //0x68B0D8FF;
         colorMask  = GPU_WRITE_COLOR;
         depthMask  = GPU_WRITE_DEPTH;
 

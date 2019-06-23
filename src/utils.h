@@ -652,8 +652,8 @@ struct mat4 {
 
         if (rotate90) {
             e00 = e11 = 0.0f;
-            e01 = 2.0f / (r - l);
-            e10 = 2.0f / (b - t);
+            e10 = 2.0f / (l - r);
+            e01 = 2.0f / (t - b);
         } else {
             e00 = 2.0f / (r - l);
             e11 = 2.0f / (t - b);
@@ -670,6 +670,7 @@ struct mat4 {
             case PROJ_NEG_ZERO :
                 e22 = 1.0f / (znear - zfar);
                 e23 = (znear + zfar) / (znear - zfar) * 0.5f - 0.5f;
+                e03 = -e03;
                 break;
             case PROJ_ZERO_POS :
                 e22 = 2.0f / (znear - zfar);

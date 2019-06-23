@@ -1328,8 +1328,7 @@ struct MeshBuilder {
     }
     
     void renderBuffer(Index *indices, int iCount, Vertex *vertices, int vCount) {
-        if (!iCount) return;
-        ASSERT(vCount > 0);
+        if (iCount <= 0) return;
 
         dynRange.iStart = 0;
         dynRange.iCount = iCount;
