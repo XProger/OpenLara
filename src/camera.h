@@ -13,18 +13,18 @@
 #define CAM_SPEED_FOLLOW  12
 #define CAM_SPEED_COMBAT  8
 
-#define CAM_FOCAL_LENGTH     1536.0f
 #define CAM_EYE_SEPARATION   16.0f
+#ifdef _OS_3DS
+    #define CAM_FOCAL_LENGTH     512.0f
+#else
+    #define CAM_FOCAL_LENGTH     1536.0f
+#endif
 
 #define CAM_FOLLOW_ANGLE     0.0f
 #define CAM_LOOK_ANGLE_XMAX  ( 55.0f * DEG2RAD)
 #define CAM_LOOK_ANGLE_XMIN  (-75.0f * DEG2RAD)
 #define CAM_LOOK_ANGLE_Y     ( 80.0f * DEG2RAD)
 
-#ifdef _OS_3DS
-    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f + 256.0f)
-    #define CAM_FOCAL_LENGTH     512.0f
-#endif
 
 struct Camera : ICamera {
     IGame      *game;
