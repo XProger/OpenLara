@@ -32,19 +32,42 @@ int osGetTimeMS() {
     return int(osGetTime() - osStartTime);
 }
 
+// backlight
+bool bottomScreenOn = true;
+
+void setBottomScreen(bool enable) {
+    gspLcdInit();
+    enable ? GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM) : GSPLCD_PowerOffBacklight(GSPLCD_SCREEN_BOTTOM);
+    gspLcdExit();
+}
+
+aptHookCookie(cookie);
+
+void checkAptHook(APT_HookType hook, void *param) {
+    if (!bottomScreenOn) {
+        switch(hook) {
+            case APTHOOK_ONSUSPEND : setBottomScreen(1);
+                break;
+            case APTHOOK_ONRESTORE :
+            case APTHOOK_ONWAKEUP  : setBottomScreen(0);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 // input
 bool osJoyReady(int index) {
     return index == 0;
 }
-
-// backlight
-bool bottomScreenOn = true;
 
 void osJoyVibrate(int index, float L, float R) {
     //
 }
 
 void inputInit() {
+    aptHook(&cookie, checkAptHook, NULL);
     hidInit();
 }
 
@@ -73,23 +96,14 @@ void inputUpdate() {
     Input::setJoyPos(0, jkL, stickL);
 
     if (down & KEY_TOUCH) {
-		bottomScreenOn = !bottomScreenOn;
-        gspLcdInit();
-        if (bottomScreenOn) {
-            GSPLCD_PowerOffBacklight(GSPLCD_SCREEN_BOTTOM);
-        } else {
-            GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
-        }
-        gspLcdExit();
+        bottomScreenOn = !bottomScreenOn;
+        bottomScreenOn ? setBottomScreen(1) : setBottomScreen(0);
     }
 }
 
 void inputFree() {
-    if (!bottomScreenOn) {
-        gspLcdInit();
-        GSPLCD_PowerOnBacklight(GSPLCD_SCREEN_BOTTOM);
-        gspLcdExit();
-    }
+    if (!bottomScreenOn)
+        setBottomScreen(1);
     hidExit();
 }
 
