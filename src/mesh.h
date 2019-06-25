@@ -1285,16 +1285,17 @@ struct MeshBuilder {
         int16 minY = int16(pos.y);
         int16 maxX = int16(size.x) + minX;
         int16 maxY = int16(size.y) + minY;
+        int16 s    = 1;
 
-        vertices[vCount + 0].coord = short4( minX, minY, 0, 1 );
-        vertices[vCount + 1].coord = short4( maxX, minY, 0, 1 );
-        vertices[vCount + 2].coord = short4( maxX, int16(minY + 1), 0, 1 );
-        vertices[vCount + 3].coord = short4( minX, int16(minY + 1), 0, 1 );
+        vertices[vCount + 0].coord = short4( minX - s, minY - s, 0, 1 );
+        vertices[vCount + 1].coord = short4( maxX + s, minY - s, 0, 1 );
+        vertices[vCount + 2].coord = short4( maxX + s, minY + s, 0, 1 );
+        vertices[vCount + 3].coord = short4( minX - s, minY + s, 0, 1 );
 
-        vertices[vCount + 4].coord = short4( minX, minY, 0, 1 );
-        vertices[vCount + 5].coord = short4( int16(minX + 1), minY, 0, 1 );
-        vertices[vCount + 6].coord = short4( int16(minX + 1), maxY, 0, 1 );
-        vertices[vCount + 7].coord = short4( minX, maxY, 0, 1 );
+        vertices[vCount + 4].coord = short4( minX - s, minY - s, 0, 1 );
+        vertices[vCount + 5].coord = short4( minX + s, minY - s, 0, 1 );
+        vertices[vCount + 6].coord = short4( minX + s, maxY + s, 0, 1 );
+        vertices[vCount + 7].coord = short4( minX - s, maxY + s, 0, 1 );
 
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];
@@ -1306,15 +1307,15 @@ struct MeshBuilder {
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
         addQuad(indices, iCount, vCount, 0, vertices, NULL, false, false); vCount += 4;
 
-        vertices[vCount + 0].coord = short4( minX, int16(maxY - 1), 0, 1 );
-        vertices[vCount + 1].coord = short4( maxX, int16(maxY - 1), 0, 1 );
-        vertices[vCount + 2].coord = short4( maxX, maxY, 0, 1 );
-        vertices[vCount + 3].coord = short4( minX, maxY, 0, 1 );
+        vertices[vCount + 0].coord = short4( minX + s, maxY - s, 0, 1 );
+        vertices[vCount + 1].coord = short4( maxX + s, maxY - s, 0, 1 );
+        vertices[vCount + 2].coord = short4( maxX + s, maxY + s, 0, 1 );
+        vertices[vCount + 3].coord = short4( minX + s, maxY + s, 0, 1 );
 
-        vertices[vCount + 4].coord = short4( int16(maxX - 1), minY, 0, 1 );
-        vertices[vCount + 5].coord = short4( maxX, minY, 0, 1 );
-        vertices[vCount + 6].coord = short4( maxX, maxY, 0, 1 );
-        vertices[vCount + 7].coord = short4( int16(maxX - 1), maxY, 0, 1 );
+        vertices[vCount + 4].coord = short4( maxX - s, minY + s, 0, 1 );
+        vertices[vCount + 5].coord = short4( maxX + s, minY + s, 0, 1 );
+        vertices[vCount + 6].coord = short4( maxX + s, maxY + s, 0, 1 );
+        vertices[vCount + 7].coord = short4( maxX - s, maxY + s, 0, 1 );
 
         for (int i = 0; i < 8; i++) {
             Vertex &v = vertices[vCount + i];

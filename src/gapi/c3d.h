@@ -57,7 +57,7 @@ namespace GAPI {
 
     struct Shader {
         shaderProgram_s program;
-        C3D_TexEnv      env;
+        C3D_TexEnv      env[2];
 
         int32   uID[uMAX];
 
@@ -77,7 +77,14 @@ namespace GAPI {
                 default               : src = compose_dvlb;
             }
 
-	        shaderProgramSetVsh(&program, &src->DVLE[0]);
+            shaderProgramSetVsh(&program, &src->DVLE[0]);
+
+            bool underwater = false;
+            for (int i = 0; i < defCount; i++) {
+                if (def[i] == SD_UNDERWATER) {
+                    underwater = true;
+                }
+            }
 
             for (int ut = 0; ut < uMAX; ut++) {
                 uID[ut] = shaderInstanceGetUniformLocation(program.vertexShader, UniformName[ut]);
@@ -85,11 +92,19 @@ namespace GAPI {
 
             rebind = true;
 
-            C3D_TexEnvInit(&env);
-            C3D_TexEnvSrc(&env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
-            C3D_TexEnvFunc(&env, C3D_Both, GPU_MODULATE);
+            C3D_TexEnvInit(&env[0]);
+            C3D_TexEnvInit(&env[1]);
+
+            C3D_TexEnvSrc(&env[0], C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+            C3D_TexEnvFunc(&env[0], C3D_Both, GPU_MODULATE);
             if (Core::pass == Core::passCompose && type == 2) { // rooms
-                C3D_TexEnvScale(&env, C3D_RGB, GPU_TEVSCALE_2);
+                C3D_TexEnvScale(&env[0], C3D_RGB, GPU_TEVSCALE_2);
+            }
+
+            if (underwater) {
+                C3D_TexEnvSrc(&env[1], C3D_Both, GPU_PREVIOUS, GPU_CONSTANT, GPU_PRIMARY_COLOR);
+                C3D_TexEnvFunc(&env[1], C3D_Both, GPU_MODULATE);
+                C3D_TexEnvColor(&env[1], 0xFFE5E599); // modulate by underwater color
             }
         }
 
@@ -108,7 +123,8 @@ namespace GAPI {
         void validate() {
             if (rebind) {
                 C3D_BindProgram(&program);
-                C3D_SetTexEnv(0, &env);
+                C3D_SetTexEnv(0, &env[0]);
+                C3D_SetTexEnv(1, &env[1]);
                 rebind = false;
             }
 

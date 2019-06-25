@@ -159,19 +159,39 @@ static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_LANGUAGE,  SETTINGS( audio.language  ), STR_LANG_EN, 0, 10 ),
 };
 
+#if defined(_OS_CLOVER) || defined(_OS_PSC)
+    #define INV_GAMEPAD_ONLY
+#endif
+
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS)
+    #define INV_SINGLE_PLAYER
+    #define INV_GAMEPAD_ONLY
+    #define INV_CTRL_START_OPTION 1
+#else
+    #define INV_CTRL_START_OPTION 2
+#endif
+
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI)
+    #define INV_VIBRATION
+#endif
+
 static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY,                SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
-#ifndef _OS_CLOVER
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD, SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
+#ifndef INV_SINGLE_PLAYER
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( playerIndex                    ), STR_PLAYER_1,  0, 1 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_GAMEPAD    , SETTINGS( controls[0].joyIndex           ), STR_GAMEPAD_1, 0, 3 ),
 #endif
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI)
+#ifdef INV_VIBRATION
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_VIBRATION  , SETTINGS( controls[0].vibration          ), STR_OFF,       0, 1 ),
 #endif
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM   , SETTINGS( controls[0].multiaim           ), STR_OFF,       0, 1 ),
+#ifdef INV_GAMEPAD_ONLY
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( playerIndex                    ), STR_OPT_CONTROLS_GAMEPAD,  0, 0 ),
+#else
     OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
+#endif
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cUp        , SETTINGS( controls[0].keys[ cUp        ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDown      , SETTINGS( controls[0].keys[ cDown      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRight     , SETTINGS( controls[0].keys[ cRight     ] ), STR_KEY_FIRST ),
@@ -403,13 +423,12 @@ struct Inventory {
                 case TR::Entity::INV_SOUND :
                     optCount = COUNT(optSound);
                     return optSound;
-                case TR::Entity::INV_CONTROLS :
-                    ASSERT(optControls[2].offset == SETTINGS( playerIndex) );
+                case TR::Entity::INV_CONTROLS : {
                     for (int i = 0; i < COUNT(optControls); i++) {
                         OptionItem &opt = optControlsPlayer[i];
                         opt = optControls[i];
 
-                        if (i > 2 && opt.offset != SETTINGS( playerIndex ) && opt.offset != SETTINGS( ctrlIndex ) )
+                        if (i > INV_CTRL_START_OPTION && opt.offset != SETTINGS( playerIndex ) && opt.offset != SETTINGS( ctrlIndex ) )
                             opt.offset += sizeof(Core::Settings::Controls) * Core::settings.playerIndex;
 
                         if (opt.type == OptionItem::TYPE_KEY) {
@@ -422,6 +441,7 @@ struct Inventory {
                     }
                     optCount = COUNT(optControlsPlayer);
                     return optControlsPlayer;
+                }
                 default :
                     optCount = 0;
                     return NULL;
@@ -967,7 +987,11 @@ struct Inventory {
             }
             case TR::Entity::INV_CONTROLS :
                 Core::settings.playerIndex = 0;
-                Core::settings.ctrlIndex   = 0;
+                #ifdef INV_GAMEPAD_ONLY
+                    Core::settings.ctrlIndex = 1;
+                #else
+                    Core::settings.ctrlIndex = 0;
+                #endif
                 break;
             case TR::Entity::INV_DETAIL :
                 settings = Core::settings;
@@ -1234,8 +1258,11 @@ struct Inventory {
                         newKey = Input::lastKey;
                     } else {
                         JoyKey jk = Input::joy[Core::settings.controls[Core::settings.playerIndex].joyIndex].lastKey;
-                        if (Core::settings.ctrlIndex == 1 && jk != jkNone)
+                        if (Core::settings.ctrlIndex == 1 && jk != jkNone) {
                             newKey = jk;
+                        } else if (Input::lastKey != ikNone) {
+                            waitForKey = NULL;
+                        }
                     }
 
                     if (newKey != -1) {
