@@ -500,9 +500,9 @@ struct MeshBuilder {
 
         addQuad(indices, iCount, vCount, vStartCommon, vertices, &whiteSprite, false, false);
         vertices[vCount + 0].coord = short4( -32767,  32767, 0, 1 );
-        vertices[vCount + 1].coord = short4(  32767,  32767, 1, 1 );
-        vertices[vCount + 2].coord = short4(  32767, -32767, 1, 0 );
-        vertices[vCount + 3].coord = short4( -32767, -32767, 0, 0 );
+        vertices[vCount + 1].coord = short4(  32767,  32767, 0, 1 );
+        vertices[vCount + 2].coord = short4(  32767, -32767, 0, 1 );
+        vertices[vCount + 3].coord = short4( -32767, -32767, 0, 1 );
 
         vertices[vCount + 0].texCoord = short4(     0,  32767, 0, 0 );
         vertices[vCount + 1].texCoord = short4( 32767,  32767, 0, 0 );
@@ -528,7 +528,7 @@ struct MeshBuilder {
         for (int i = 0; i < CIRCLE_SEGS; i++) {
             Vertex &v = vertices[vCount + i];
             pos.rotate(cs);
-            v.coord     = short4( short(pos.x), short(pos.y), 0, 0 );
+            v.coord     = short4( short(pos.x), short(pos.y), 0, 1 );
             v.normal    = short4( 0, 0, 0, 32767 );
             v.texCoord  = short4( whiteSprite.texCoordAtlas[0].x, whiteSprite.texCoordAtlas[0].y, 32767, 32767 );
             v.color     = ubyte4( 255, 255, 255, 255 );
@@ -539,7 +539,7 @@ struct MeshBuilder {
             indices[iCount++] = baseIdx + CIRCLE_SEGS;
         }
         vertices[vCount + CIRCLE_SEGS] = vertices[vCount];
-        vertices[vCount + CIRCLE_SEGS].coord = short4( 0, 0, 0, 0 );
+        vertices[vCount + CIRCLE_SEGS].coord = short4( 0, 0, 0, 1 );
         vCount += CIRCLE_SEGS + 1;
 
     // box
@@ -570,7 +570,7 @@ struct MeshBuilder {
         baseIdx = vCount - vStartCommon;
         for (int16 j = -PLANE_DETAIL; j <= PLANE_DETAIL; j++)
             for (int16 i = -PLANE_DETAIL; i <= PLANE_DETAIL; i++) {
-                vertices[vCount++].coord = short4( i, j, 0, 0 );
+                vertices[vCount++].coord = short4( i, j, 0, 1 );
                 if (j < PLANE_DETAIL && i < PLANE_DETAIL) {
                     int idx = baseIdx + (j + PLANE_DETAIL) * (PLANE_DETAIL * 2 + 1) + i + PLANE_DETAIL;
                     indices[iCount + 0] = idx + PLANE_DETAIL * 2 + 1;
