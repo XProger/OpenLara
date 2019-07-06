@@ -6,7 +6,6 @@
 #include "controller.h"
 #include "character.h"
 
-#define CAM_OFFSET_FOLLOW (1024.0f + 512.0f)
 #define CAM_OFFSET_COMBAT (2048.0f + 512.0f)
 #define CAM_OFFSET_LOOK   (512.0f)
 
@@ -16,8 +15,10 @@
 #define CAM_EYE_SEPARATION   16.0f
 #ifdef _OS_3DS
     #define CAM_FOCAL_LENGTH     512.0f
+    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f + 256.0f)
 #else
     #define CAM_FOCAL_LENGTH     1536.0f
+    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f)
 #endif
 
 #define CAM_FOLLOW_ANGLE     0.0f

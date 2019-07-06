@@ -1213,7 +1213,7 @@ struct Inventory {
             if (Input::lastState[playerIndex] == cLeft || Input::lastState[playerIndex] == cRight)
                 slot ^= 1;
 
-            if (Input::lastState[playerIndex] == cAction) {
+            if (key == cAction) {
                 if (slot == 1) {
                     if (index > -1) {
                         TR::Entity &e = game->getLevel()->entities[index];
