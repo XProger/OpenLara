@@ -1,0 +1,68 @@
+; constants
+.constf const0(0.0, 0.5, 1.0, 2.0)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.0)
+.alias ZERO      const0.x
+.alias HALF      const0.y
+.alias ONE       const0.z
+.alias TWO       const0.w
+.alias INV_BYTE  const1.x
+.alias INV_SHORT const1.y
+.alias EPS       const1.z
+
+; uniforms
+.fvec uViewProj[4]
+.fvec uBasis[32*2]
+.fvec uMaterial
+
+; in
+.alias aCoord    v0
+.alias aNormal   v1
+.alias aTexCoord v2
+.alias aColor    v3
+.alias aLight    v4
+
+; variables
+.alias lv0    r0
+.alias lv1    r1
+.alias lv2    r2
+.alias lv3    r3
+.alias normal r4
+.alias att    r5
+.alias light  r6
+.alias pos    r7
+.alias tmp    r8
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+; joint = int(aCoord.w * 2)
+    mul tmp.x, TWO, aCoord.w
+    mova a0.x, tmp.x
+    
+; pos = mulQuatPos(uBasis[joint], aCoord)
+    mul pos.xyz, uBasis[a0.x], aCoord.zxyw
+    mad pos.xyz, aCoord, uBasis[a0.x].zxyw, -pos
+    mad pos.xyz, aCoord.yzxw, uBasis[a0.x].w, pos
+    mul tmp.xyz, uBasis[a0.x].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[a0.x].yzxw, -tmp
+    mad pos.xyz, pos, TWO, aCoord
+    add pos.xyz, uBasis[a0.x + 1], pos
+    mov pos.w, uBasis[a0.x + 1].w
+
+; vPosition = uViewProj * pos
+    mul tmp, uViewProj[0], pos.x
+    mad tmp, pos.y, uViewProj[1], tmp
+    mad tmp, pos.z, uViewProj[2], tmp
+    mad vPosition, pos.w, uViewProj[3], tmp
+
+; vColor = uMaterial
+    mov vColor, uMaterial
+
+; vTecCoord = aTexCoord/32767
+    mul vTexCoord, INV_SHORT, aTexCoord
+
+    end
+.end

@@ -1,0 +1,14 @@
+; constants
+.constf const0(0.0, 0.0, 0.0, 0.0)
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+    mov vPosition, const0.xxxx
+    mov vTexCoord, const0.xxxx
+    mov vColor,    const0.xxxx
+    end
+.end

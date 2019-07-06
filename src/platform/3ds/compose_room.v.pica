@@ -1,0 +1,101 @@
+; constants
+.constf const0(0.0, 0.5, 1.0, 2.0)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.0)
+.alias ZERO      const0.x
+.alias HALF      const0.y
+.alias ONE       const0.z
+.alias TWO       const0.w
+.alias INV_BYTE  const1.x
+.alias INV_SHORT const1.y
+.alias EPS       const1.z
+
+; uniforms
+.fvec uViewProj[4]
+.fvec uBasis[2]
+.fvec uLightPos[4];
+.fvec uLightColor[4];
+
+; in
+.alias aCoord    v0
+.alias aNormal   v1
+.alias aTexCoord v2
+.alias aColor    v3
+.alias aLight    v4
+
+; variables
+.alias lv1    r1
+.alias lv2    r2
+.alias lv3    r3
+.alias normal r4
+.alias att    r5
+.alias light  r6
+.alias pos    r7
+.alias tmp    r8
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+; pos = mulQuatPos(uBasis[0], aCoord)
+    mul pos.xyz, uBasis[0], aCoord.zxyw
+    mad pos.xyz, aCoord, uBasis[0].zxyw, -pos
+    mad pos.xyz, aCoord.yzxw, uBasis[0].w, pos
+    mul tmp.xyz, uBasis[0].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[0].yzxw, -tmp
+    mad pos.xyz, pos, TWO, aCoord
+    add pos.xyz, uBasis[1], pos
+    mov pos.w, ONE
+    
+; vPosition = uViewProj * pos
+    mul tmp, uViewProj[0], pos.x
+    mad tmp, pos.y, uViewProj[1], tmp
+    mad tmp, pos.z, uViewProj[2], tmp
+    mad vPosition, pos.w, uViewProj[3], tmp
+    
+; lighting
+    ; lv[1..3] = (uLightPos[1..3].xyz - pos) * uLightColor[1..3].w;
+    add lv1.xyz, uLightPos[1], -pos
+    add lv2.xyz, uLightPos[2], -pos
+    add lv3.xyz, uLightPos[3], -pos
+    mul lv1.xyz, uLightColor[1].w, lv1
+    mul lv2.xyz, uLightColor[2].w, lv2
+    mul lv3.xyz, uLightColor[3].w, lv3
+    ; att[1..3] = dot(lv[1..3], lv[1..3])
+    mov att.x, ONE
+    dp3 att.y, lv1, lv1
+    dp3 att.z, lv2, lv2
+    dp3 att.w, lv3, lv3
+    ; normalize lv[1..3]
+    rsq tmp, att
+    mul lv1.xyz, lv1, tmp.y
+    mul lv2.xyz, lv2, tmp.z
+    mul lv3.xyz, lv3, tmp.w
+    ; att = max(0, 1 - att)
+    add att, ONE, -att
+    max att, ZERO, att
+    ; normal = aNormal/32767
+    mul normal, INV_SHORT, aNormal
+    ; light = max(0, dot(normal, lv[1..3]))
+    mov light.x, ZERO
+    dp3 light.y, lv1, normal
+    dp3 light.z, lv2, normal
+    dp3 light.w, lv3, normal
+    max light, ZERO, light
+    ; light *= att
+    mul light, light, att
+
+; vColor = (aLight/255 + light[1..3] * uLightColor[1..3]) * aColor/255
+    mul pos, INV_BYTE, aColor
+    mul tmp, INV_BYTE, aLight
+    mad tmp.xyz, light.y, uLightColor[1], tmp
+    mad tmp.xyz, light.z, uLightColor[2], tmp
+    mad tmp.xyz, light.w, uLightColor[3], tmp
+    mul vColor, pos, tmp
+
+; vTecCoord = aTexCoord/32767
+    mul vTexCoord, INV_SHORT, aTexCoord
+
+    end
+.end

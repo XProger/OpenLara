@@ -1,0 +1,122 @@
+; constants
+.constf const0(0.0, 0.5, 1.0, 2.0)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.0)
+.alias ZERO      const0.x
+.alias HALF      const0.y
+.alias ONE       const0.z
+.alias TWO       const0.w
+.alias INV_BYTE  const1.x
+.alias INV_SHORT const1.y
+.alias EPS       const1.z
+
+; uniforms
+.fvec uViewProj[4]
+.fvec uBasis[32*2]
+.fvec uLightPos[4];
+.fvec uLightColor[4];
+.fvec uMaterial
+.alias MAT_AMBIENT uMaterial.y
+.alias MAT_ALPHA   uMaterial.w
+
+; in
+.alias aCoord    v0
+.alias aNormal   v1
+.alias aTexCoord v2
+.alias aColor    v3
+.alias aLight    v4
+
+; variables
+.alias lv0    r0
+.alias lv1    r1
+.alias lv2    r2
+.alias lv3    r3
+.alias normal r4
+.alias att    r5
+.alias light  r6
+.alias pos    r7
+.alias tmp    r8
+
+; out
+.out vPosition position
+.out vTexCoord texcoord0
+.out vColor    color
+
+.proc main
+; joint = int(aCoord.w * 2)
+    mul tmp.x, TWO, aCoord.w
+    mova a0.x, tmp.x
+    
+; pos = mulQuatPos(uBasis[joint], aCoord)
+    mul pos.xyz, uBasis[a0.x], aCoord.zxyw
+    mad pos.xyz, aCoord, uBasis[a0.x].zxyw, -pos
+    mad pos.xyz, aCoord.yzxw, uBasis[a0.x].w, pos
+    mul tmp.xyz, uBasis[a0.x].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[a0.x].yzxw, -tmp
+    mad pos.xyz, pos, TWO, aCoord
+    add pos.xyz, uBasis[a0.x + 1], pos
+    mov pos.w, uBasis[a0.x + 1].w
+
+; vPosition = uViewProj * pos
+    mul tmp, uViewProj[0], pos.x
+    mad tmp, pos.y, uViewProj[1], tmp
+    mad tmp, pos.z, uViewProj[2], tmp
+    mad vPosition, pos.w, uViewProj[3], tmp
+    
+; lighting
+    ; lv[0..3] = (uLightPos[0..3].xyz - pos) * uLightColor[0..3].w;
+    add lv0.xyz, uLightPos[0], -pos
+    add lv1.xyz, uLightPos[1], -pos
+    add lv2.xyz, uLightPos[2], -pos
+    add lv3.xyz, uLightPos[3], -pos
+    mul lv0.xyz, uLightColor[0].w, lv0
+    mul lv1.xyz, uLightColor[1].w, lv1
+    mul lv2.xyz, uLightColor[2].w, lv2
+    mul lv3.xyz, uLightColor[3].w, lv3
+    ; att[0..3] = dot(lv[0..3], lv[0..3])
+    dp3 att.x, lv0, lv0
+    dp3 att.y, lv1, lv1
+    dp3 att.z, lv2, lv2
+    dp3 att.w, lv3, lv3
+    ; normalize lv[0..3]
+    rsq tmp, att
+    mul lv0.xyz, lv0, tmp.x
+    mul lv1.xyz, lv1, tmp.y
+    mul lv2.xyz, lv2, tmp.z
+    mul lv3.xyz, lv3, tmp.w
+    ; att = max(0, 1 - att)
+    add att, ONE, -att
+    max att, ZERO, att
+    ; normal = mulQuat(uBasis[joint], aNormal/32767)
+    mul normal, INV_SHORT, aNormal
+    mul pos.xyz, uBasis[a0.x], normal.zxyw
+    mad pos.xyz, normal, uBasis[a0.x].zxyw, -pos
+    mad pos.xyz, normal.yzxw, uBasis[a0.x].w, pos
+    mul tmp.xyz, uBasis[a0.x].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[a0.x].yzxw, -tmp
+    mad normal.xyz, pos, TWO, normal
+    ; light = max(0, dot(normal, lv[0..3]))
+    dp3 light.x, lv0, normal
+    dp3 light.y, lv1, normal
+    dp3 light.z, lv2, normal
+    dp3 light.w, lv3, normal
+    ; light = max(0, light)
+    max light, ZERO, light
+    ; light *= att
+    mul light, light, att
+
+; vColor = aColor/255 * material.alpha * (material.ambient + light[0..3] * uLightColor[0..3])
+    mul pos, INV_BYTE, aColor
+    mul pos, MAT_ALPHA, pos
+    mov tmp.xyz, MAT_AMBIENT
+    mov tmp.w, ONE
+    mad tmp.xyz, light.x, uLightColor[0], tmp
+    mad tmp.xyz, light.y, uLightColor[1], tmp
+    mad tmp.xyz, light.z, uLightColor[2], tmp
+    mad tmp.xyz, light.w, uLightColor[3], tmp
+    mul vColor, pos, tmp
+
+; vTecCoord = aTexCoord/32767
+    mul vTexCoord, INV_SHORT, aTexCoord
+
+    end
+.end
