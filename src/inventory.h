@@ -2025,7 +2025,7 @@ struct Inventory {
         if (page == PAGE_SAVEGAME) {
             UI::renderBar(CTEX_OPTION, vec2(UI::width / 2 - 120, 240 - 14), vec2(240, LINE_HEIGHT - 6), 1.0f, 0x802288FF, 0, 0, 0);
             UI::textOut(vec2(0, 240), pageTitle[page], UI::aCenter, UI::width);
-            UI::renderBar(CTEX_OPTION, vec2(slot + UI::width / 2 - 48, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
+            UI::renderBar(CTEX_OPTION, vec2(-slot * 48 + UI::width / 2, 240 + 24 - 16), vec2(48, 18), 1.0f, 0xFFD8377C, 0);
             UI::textOut(vec2(UI::width / 2 - 48, 240 + 24), STR_YES, UI::aCenter, 48);
             UI::textOut(vec2(UI::width / 2, 240 + 24), STR_NO, UI::aCenter, 48);
             return;
