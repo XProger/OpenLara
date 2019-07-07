@@ -104,9 +104,8 @@ vec3 calcNormal(vec2 tc, float base) {
 
 	#define PI	 3.141592653589793
 
-	float calcFresnel(float VoH, float f0) {
-		float f = pow(1.0 - VoH, 5.0);
-		return f + f0 * (1.0 - f);
+	float calcFresnel(float NdotV, float f0) {
+		return f0 + (1.0 - f0) * pow(1.0 - NdotV, 5.0);
 	}
 
 #ifdef WATER_DROP
@@ -234,7 +233,7 @@ vec3 calcNormal(vec2 tc, float base) {
 		vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
 		vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 
-		float fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
+		float fresnel = calcFresnel(abs(dot(normal, viewVec)), 0.12);
 
 		vec4 color = mix(refr, refl, fresnel);
 		color.xyz += spec * 1.5;
