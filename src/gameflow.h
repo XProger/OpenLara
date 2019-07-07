@@ -288,6 +288,16 @@ namespace TR {
         { "STPAUL"    , STR_TR3_STPAUL    , TRACK_TR3_CAVES     },
     };
 
+    Version getGameVersionByLevel(LevelID id) {
+        if (id >= LVL_TR1_TITLE && id <= LVL_TR1_END2)
+            return VER_TR1;
+        if (id >= LVL_TR2_TITLE && id <= LVL_TR2_HOUSE)
+            return VER_TR2;
+        if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
+            return VER_TR3;
+        return VER_UNKNOWN;
+    }
+
     LevelID getLevelID(int size, const char *name, Version &version, bool &isDemoLevel) {
         isDemoLevel = false;
         switch (size) {
@@ -683,16 +693,30 @@ namespace TR {
             // skip file extension
             char buf[255];
             strcpy(buf, name + start);
+            char *ext = NULL;
             for (int i = 0; i < int(strlen(buf)); i++)
                 if (buf[i] == '.') {
                     buf[i] = 0;
+                    ext = buf + i + 1;
                     break;
                 }
             // compare with standard levels
             // TODO: fix TITLE (2-3), HOUSE (3), CUTx (2-3)
             for (int i = 0; i < LVL_MAX; i++)
-                if (!strcmp(buf, LEVEL_INFO[i].name))
-                    return LevelID(i);
+                if (!strcmp(buf, LEVEL_INFO[i].name)) {
+                    LevelID id = LevelID(i);
+                    if (ext) {
+                        version = getGameVersionByLevel(id);
+                        if (!strcmp("PSX", ext)) {
+                            version = Version(version | VER_PSX);
+                        } else if (!strcmp("SAT", ext)) {
+                            version = Version(version | VER_SAT);
+                        } else {
+                            version = Version(version | VER_PC);
+                        }
+                    }
+                    return id;
+                }
         }
 
         return LVL_CUSTOM;
@@ -775,16 +799,6 @@ namespace TR {
             return VER_TR3_PSX;
 
         useEasyStart = false;
-        return VER_UNKNOWN;
-    }
-
-    Version getGameVersionByLevel(LevelID id) {
-        if (id >= LVL_TR1_TITLE && id <= LVL_TR1_END2)
-            return VER_TR1;
-        if (id >= LVL_TR2_TITLE && id <= LVL_TR2_HOUSE)
-            return VER_TR2;
-        if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
-            return VER_TR3;
         return VER_UNKNOWN;
     }
 
