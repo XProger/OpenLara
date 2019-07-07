@@ -516,7 +516,7 @@ struct Camera : ICamera {
             }
         }
 
-        if (mode != MODE_HEAVY || timer == -1.0f) {
+        if (!level->isCutsceneLevel() && (mode != MODE_HEAVY || timer == -1.0f)) {
             mode           = MODE_FOLLOW;
             viewIndex      = -1;
             viewTargetLast = viewTarget;
