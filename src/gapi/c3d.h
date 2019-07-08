@@ -466,12 +466,12 @@ namespace GAPI {
     C3D_AttrInfo      vertexAttribs;
 
     void init() {
+        gfxInitDefault();
+        consoleInit(GFX_BOTTOM, NULL);
+
         LOG("Vendor   : %s\n", "Nintendo");
         LOG("Renderer : %s\n", "PICA200 citro3D");
         LOG("Version  : %s\n", "1.0");
-
-        gfxInitDefault();
-        consoleInit(GFX_BOTTOM, NULL);
 
         C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
         defTarget[0] = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);

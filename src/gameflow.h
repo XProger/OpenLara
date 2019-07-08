@@ -18,15 +18,16 @@ namespace TR {
     enum Version {
         VER_UNKNOWN  = 0,
 
-        VER_PC       = 256,
-        VER_PSX      = 512,
-        VER_SAT      = 1024,
+        VER_PC       = 0x1000,
+        VER_PSX      = 0x2000,
+        VER_SAT      = 0x4000,
+        VER_SDC      = 0x8000,
 
-        VER_TR1      = 1,
-        VER_TR2      = 2, 
-        VER_TR3      = 4,
-        VER_TR4      = 8,
-        VER_TR5      = 16,
+        VER_TR1      = 0x01,
+        VER_TR2      = 0x02, 
+        VER_TR3      = 0x04,
+        VER_TR4      = 0x08,
+        VER_TR5      = 0x10,
 
         VER_VERSION  = VER_TR1 | VER_TR2 | VER_TR3 | VER_TR4 | VER_TR5,
         VER_PLATFORM = VER_PC  | VER_PSX | VER_SAT,
@@ -40,6 +41,14 @@ namespace TR {
 
         VER_TR3_PC   = VER_TR3 | VER_PC,
         VER_TR3_PSX  = VER_TR3 | VER_PSX,
+
+        VER_TR4_PC   = VER_TR4 | VER_PC,
+        VER_TR4_PSX  = VER_TR4 | VER_PSX,
+        VER_TR4_SDC  = VER_TR4 | VER_SDC,
+
+        VER_TR5_PC   = VER_TR5 | VER_PC,
+        VER_TR5_PSX  = VER_TR5 | VER_PSX,
+        VER_TR5_SDC  = VER_TR5 | VER_SDC,
 
         VER_MAX      = 0xFFFFFFFF,
     };
