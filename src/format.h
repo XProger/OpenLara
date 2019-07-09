@@ -1088,9 +1088,13 @@ namespace TR {
         };
     }
 
-    struct fixed {
-        uint16  L;
-        int16   H;
+    union fixed {
+        uint32 value;
+        struct {
+            uint16 L;
+            int16  H;
+        };
+
         operator float() const {
             return H + L / 65535.0f;
         }
