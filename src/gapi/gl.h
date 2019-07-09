@@ -857,7 +857,7 @@ namespace GAPI {
             glGenerateMipmap(target);
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_GAPI_GLES2) // TODO
+            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) && !(defined (__SDL2__) && defined (_GAPI_GLES))// TODO
                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
             #endif
             }
