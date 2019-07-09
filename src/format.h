@@ -1171,6 +1171,7 @@ namespace TR {
 
         short3 normal;
         uint16 vertices[4];
+        uint16 effects;
         uint8  triangle:1, colored:1, water:1, flip:5;
 
         static int cmp(const Face &a, const Face &b) {
@@ -1309,8 +1310,8 @@ namespace TR {
             };
             uint16 value;
         } flags;
-        uint16  reverbType;
         uint8   waterScheme;
+        uint8   reverbType;
         uint8   filter;
         uint8   align;
         int32   waterLevel[2]; // water level for normal and flipped level state
@@ -1353,10 +1354,19 @@ namespace TR {
         } *sectors;
 
         struct Light {
+
+            enum Type {
+                DIRECT, POINT, SPOT, SHADOW, FOG
+            };
+
             int32   x, y, z;
             uint32  radius;
             int32   intensity;
             Color32 color;
+            float   in, out;
+            float   length, cutoff;
+            vec3    dir;
+            uint8   type;
         } *lights;
 
         struct Mesh {
@@ -1559,7 +1569,10 @@ namespace TR {
         int32   x, y, z;
         angle   rotation;
         int16   intensity;
-        int16   intensity2;
+        union {
+            int16 intensity2;
+            int16 OCB;
+        };
         union Flags {
             struct { 
                 uint16 state:2, unused:3, smooth:1, :1, invisible:1, once:1, active:5, reverse:1, rendered:1;
@@ -2057,6 +2070,9 @@ namespace TR {
         fixed   speed;
         fixed   accel;
 
+        fixed   speedLateral;
+        fixed   accelLateral;
+
         uint16  frameStart;
         uint16  frameEnd;
         uint16  nextAnimation;
@@ -2199,11 +2215,33 @@ namespace TR {
         } flags;
     };
 
+    struct FlybyCamera {
+        int32   x, y, z;
+        int32   dx, dy, dz;
+        uint8   sequence;
+        uint8   index;
+        uint16  fov;
+        int16   roll;
+        uint16  timer;
+        uint16  speed;
+        uint16  flags;
+        uint32  room;
+    };
+
     struct CameraFrame {
         short3  target;
         short3  pos;
         int16   fov;
         int16   roll;
+    };
+
+    struct AIObject {
+        uint16 type;
+        uint16 room;
+        int32  x, y, z;
+        uint16 OCB;
+        uint16 flags;
+        int32  angle;
     };
 
     struct SoundSource {
@@ -2351,6 +2389,9 @@ namespace TR {
         int32           camerasCount;
         Camera          *cameras;
 
+        int32           flybyCamerasCount;
+        FlybyCamera     *flybyCameras;
+
         int32           soundSourcesCount;
         SoundSource     *soundSources;
 
@@ -2377,9 +2418,14 @@ namespace TR {
         Tile4           *tiles4;
         Tile8           *tiles8;
         Tile16          *tiles16;
+        Tile32          *tiles32;
+        Tile32          *tilesMisc;
 
         uint16          cameraFramesCount;
         CameraFrame     *cameraFrames;
+
+        AIObject        *AIObjects;
+        uint32          AIObjectsCount;
 
         uint16          demoDataSize;
         uint8           *demoData;
@@ -2587,7 +2633,7 @@ namespace TR {
                     case MAGIC_TR3_PC2 : 
                     case MAGIC_TR3_PC3 : version = VER_TR3_PC;  break;
                     case MAGIC_TR3_PSX : version = VER_TR3_PSX; break;
-                    //case MAGIC_TR4_PC  : version = VER_TR4_PC;  break;
+                    case MAGIC_TR4_PC  : version = VER_TR4_PC;  break;
                     default            : ;
                 }
             }
@@ -2650,6 +2696,7 @@ namespace TR {
             delete[] spriteSequences;
             delete[] spriteTexturesData;
             delete[] cameras;
+            delete[] flybyCameras;
             delete[] soundSources;
             delete[] boxes;
             delete[] overlaps;
@@ -2670,7 +2717,10 @@ namespace TR {
             delete[] tiles4;
             delete[] tiles8;
             delete[] tiles16;
+            delete[] tiles32;
+            delete[] tilesMisc;
             delete[] cameraFrames;
+            delete[] AIObjects;
             delete[] demoData;
             delete[] soundsMap;
             delete[] soundsInfo;
@@ -2978,7 +3028,65 @@ namespace TR {
         }
 
         void loadTR4_PC (Stream &stream) {
+            uint16 roomTilesCount, objTilesCount, bumpTilesCount;
+            uint32 sizeD, sizeC, sizeR;
+            uint8  *dataC, *dataD;
 
+            stream.read(roomTilesCount);
+            stream.read(objTilesCount);
+            stream.read(bumpTilesCount);
+
+        // tiles32
+            stream.read(sizeD);
+            stream.read(dataC, stream.read(sizeC));
+            ASSERT(sizeD == sizeof(Tile32) * (roomTilesCount + objTilesCount + bumpTilesCount));
+            tiles32 = new Tile32[roomTilesCount + objTilesCount + bumpTilesCount];
+            tinf_uncompress(tiles32, &sizeR, dataC + 2, 0);
+            ASSERT(sizeD == sizeR);
+            delete[] dataC;
+
+        // tiles16
+            stream.read(sizeD);
+            stream.read(sizeC);
+            stream.seek(sizeC); // skip compressed 16-bit tiles
+
+        // tiles16
+            stream.read(sizeD);
+            stream.read(dataC, stream.read(sizeC));
+            ASSERT(sizeD == sizeof(Tile32) * 2);
+            tilesMisc = new Tile32[2];
+            tinf_uncompress(tilesMisc, &sizeR, dataC + 2, 0);
+            ASSERT(sizeD == sizeR);
+            delete[] dataC;
+
+            stream.read(sizeD);
+            stream.read(dataC, stream.read(sizeC));
+            dataD = new uint8[sizeD];
+            tinf_uncompress(dataD, &sizeR, dataC + 2, 0);
+            ASSERT(sizeD == sizeR);
+            delete[] dataC;
+
+            {
+                Stream stream(NULL, dataD, sizeD);
+                readDataArrays(stream);
+                stream.seek(3); // SPR
+                readSpriteTex(stream);
+                readCameras(stream);
+                readFlybyCameras(stream);
+                readSoundSources(stream);
+                readBoxes(stream);
+                readOverlaps(stream);
+                readZones(stream);
+                readAnimTex(stream);
+                stream.seek(3); // TEX
+                readObjectTex(stream);
+                readEntities(stream);
+                readAIObjects(stream);
+                readDemoData(stream);
+                readSoundMap(stream);
+                readSoundOffsets(stream);
+            }
+            delete[] dataD;
         }
 
         void loadTR4_PSX (Stream &stream) {
@@ -3027,7 +3135,9 @@ namespace TR {
 
             stream.read(meshData,    stream.read(meshDataSize));
             stream.read(meshOffsets, stream.read(meshOffsetsCount));
-            stream.read(anims,       stream.read(animsCount));
+
+            readAnims(stream);
+
             stream.read(states,      stream.read(statesCount));
             stream.read(ranges,      stream.read(rangesCount));
             stream.read(commands,    stream.read(commandsCount));
@@ -3037,6 +3147,36 @@ namespace TR {
             readModels(stream);
 
             stream.read(staticMeshes, stream.read(staticMeshesCount));
+        }
+
+        void readAnims(Stream &stream) {
+            stream.read(animsCount);
+            anims = animsCount ? new Animation[animsCount] : NULL;
+            for (int i = 0; i < animsCount; i++) {
+                Animation &anim = anims[i];
+                stream.read(anim.frameOffset);
+                stream.read(anim.frameRate);
+                stream.read(anim.frameSize);
+                stream.read(anim.state);
+                stream.read(anim.speed);
+                stream.read(anim.accel);
+                if (version & (VER_TR4 | VER_TR5)) {
+                    stream.read(anim.speedLateral);
+                    stream.read(anim.accelLateral);
+                } else {
+                    anim.speedLateral.value = 0;
+                    anim.accelLateral.value = 0;
+                }
+                stream.read(anim.frameStart);
+                stream.read(anim.frameEnd);
+                stream.read(anim.nextAnimation);
+                stream.read(anim.nextFrame);
+                stream.read(anim.scCount);
+                stream.read(anim.scOffset);
+                stream.read(anim.acCount);
+                stream.read(anim.animCommand);
+            }
+
         }
 
         void readModels(Stream &stream) {
@@ -3062,6 +3202,10 @@ namespace TR {
             stream.read(cameras, stream.read(camerasCount));
         }
 
+        void readFlybyCameras(Stream &stream) {
+            stream.read(flybyCameras, stream.read(flybyCamerasCount));
+        }
+
         void readSoundSources(Stream &stream) {
             stream.read(soundSources, stream.read(soundSourcesCount));
         }
@@ -3077,7 +3221,7 @@ namespace TR {
                     stream.read(b.maxX);
                 }
                 
-                if (version & (VER_TR2 | VER_TR3)) {
+                if (version & (VER_TR2 | VER_TR3 | VER_TR4 | VER_TR5)) {
                     uint8 value;
                     b.minZ = stream.read(value) * 1024;
                     b.maxZ = stream.read(value) * 1024;
@@ -3117,6 +3261,10 @@ namespace TR {
             stream.read(cameraFrames, stream.read(cameraFramesCount));
         }
 
+        void readAIObjects(Stream &stream) {
+            stream.read(AIObjects, stream.read(AIObjectsCount));
+        }
+
         void readDemoData(Stream &stream) {
             stream.read(demoData, stream.read(demoDataSize));
         }
@@ -3128,7 +3276,7 @@ namespace TR {
                 SoundInfo &s = soundsInfo[i];
 
                 stream.read(s.index);
-                if (version & (VER_TR1 | VER_TR2)) {
+                if (version & (VER_TR1 | VER_TR2 | VER_TR4 | VER_TR5)) {
                     uint16 v;
                     stream.read(v); s.volume = float(v) / 0x7FFF;
                     stream.read(v); s.chance = float(v) / 0xFFFF;
@@ -3909,12 +4057,14 @@ namespace TR {
                 Model &model = models[i];
                 model.type = Entity::remap(version, model.type);
 
-                for (int j = 0; j < model.mCount; j++)
+                for (int j = 0; j < model.mCount; j++) {
                     initMesh(model.mStart + j, model.type);
+                }
             }
 
-            for (int i = 0; i < staticMeshesCount; i++)
+            for (int i = 0; i < staticMeshesCount; i++) {
                 initMesh(staticMeshes[i].mesh);
+            }
 
             remapMeshOffsetsToIndices();
 
@@ -4274,16 +4424,22 @@ namespace TR {
             return TR::isCutsceneLevel(id);
         }
 
-        void readFace(Stream &stream, Face &f, bool colored, bool triangle) {
+        void readFace(Stream &stream, Face &f, bool colored, bool triangle, bool isRoomMesh) {
             f.triangle = triangle;
 
-            for (int i = 0; i < (triangle ? 3 : 4); i++)
+            for (int i = 0; i < (triangle ? 3 : 4); i++) {
                 stream.read(f.vertices[i]);
+            }
 
-            if (triangle)
+            if (triangle) {
                 f.vertices[3] = 0;
+            }
 
             stream.read(f.flags.value);
+
+            if (!isRoomMesh && (version & (VER_TR4 | VER_TR5))) {
+                stream.read(f.effects);
+            }
 
             f.colored = colored;
             f.water = false;
@@ -4298,7 +4454,9 @@ namespace TR {
         // room data
             stream.read(d.size);
             int startOffset = stream.pos;
-            if (version == VER_TR1_PSX) stream.seek(2);
+            if (version == VER_TR1_PSX) {
+                stream.seek(2);
+            }
 
             // only for TR3 PSX
             int32 partsCount;
@@ -4344,8 +4502,9 @@ namespace TR {
                 d.vertices = d.vCount ? new Room::Data::Vertex[d.vCount] : NULL;
 
                 d.vCount = d.fCount = 0;
-            } else
+            } else {
                 d.vertices = stream.read(d.vCount) ? new Room::Data::Vertex[d.vCount] : NULL;
+            }
 
             if (version == VER_TR3_PSX) {
                 for (int pIndex = 0; pIndex < partsCount; pIndex++) {
@@ -4472,21 +4631,24 @@ namespace TR {
                         stream.read(v.pos.z);
                         stream.read(lighting);
 
-                        if (version == VER_TR2_PC || version == VER_TR3_PC)
+                        if (version == VER_TR2_PC || version == VER_TR3_PC || version == VER_TR4_PC) {
                             stream.read(v.attributes);
-                   
-                        if (version == VER_TR2_PC)
-                            stream.read(lighting); // real lighting value
+                        }
 
-                        if (version == VER_TR3_PC) {
+                        if (version == VER_TR2_PC) {
+                            stream.read(lighting); // real lighting value
+                        }
+
+                        if (version == VER_TR3_PC || version == VER_TR4_PC) {
                             Color16 color;
                             stream.read(color.value);
                             v.color = color.getBGR();
                         }
                     }
 
-                    if (version == VER_TR1_PSX || version == VER_TR3_PSX)
+                    if (version == VER_TR1_PSX || version == VER_TR3_PSX) {
                         lighting = 0x1FFF - (lighting << 5); // convert vertex luminance from PSX to PC format
+                    }
 
                     if ((version & VER_VERSION) < VER_TR3) { // lighting to color conversion
                         int value = clamp((lighting > 0x1FFF) ? 255 : (255 - (lighting >> 5)), 0, 255);
@@ -4495,8 +4657,9 @@ namespace TR {
                     }
                 }
 
-                if (version == VER_TR2_PSX)
+                if (version == VER_TR2_PSX) {
                     stream.seek(2);
+                }
 
                 int tmp = stream.pos;
                 if (version == VER_TR2_PSX) {
@@ -4504,8 +4667,9 @@ namespace TR {
                     stream.seek(sizeof(uint16) * d.rCount);
                     if ((stream.pos - startOffset) % 4) stream.seek(2);
                     stream.seek(sizeof(uint16) * 4 * d.rCount);
-                } else
+                } else {
                     stream.seek(stream.read(d.rCount) * FACE4_SIZE); // uint32 colored (not existing in file)
+                }
                 stream.read(d.tCount);
                 stream.setPos(tmp);
 
@@ -4521,7 +4685,11 @@ namespace TR {
                 if (version == VER_TR2_PSX) {
                     for (int i = 0; i < d.rCount; i++)
                         stream.raw(&d.faces[i].flags.value, sizeof(uint16));
-                    if ((stream.pos - startOffset) % 4) stream.seek(2);
+                    
+                    if ((stream.pos - startOffset) % 4) {
+                        stream.seek(2);
+                    }
+
                     for (int i = 0; i < d.rCount; i++) {
                         Face &f = d.faces[i];
                         stream.raw(f.vertices, sizeof(uint16) * 4);
@@ -4534,8 +4702,11 @@ namespace TR {
                         f.water    = false;
                         f.flip     = false;
                     }
-                } else
-                    for (int i = 0; i < d.rCount; i++) readFace(stream, d.faces[idx++], false, false);
+                } else {
+                    for (int i = 0; i < d.rCount; i++) {
+                        readFace(stream, d.faces[idx++], false, false, true);
+                    }
+                }
 
                 stream.read(tmpCount);
                 ASSERT(tmpCount == d.tCount);
@@ -4556,27 +4727,31 @@ namespace TR {
                         f.flip     = false;
                     }
                 } else {
-                    for (int i = 0; i < d.tCount; i++)
-                        readFace(stream, d.faces[idx++], false, true);
+                    for (int i = 0; i < d.tCount; i++) {
+                        readFace(stream, d.faces[idx++], false, true, true);
+                    }
                 }
             }
 
             if (version & VER_PSX) { // swap indices (quad strip -> quad list) only for PSX version
-                for (int j = 0; j < d.fCount; j++)
-                    if (!d.faces[j].triangle)
+                for (int j = 0; j < d.fCount; j++) {
+                    if (!d.faces[j].triangle) {
                         swap(d.faces[j].vertices[2], d.faces[j].vertices[3]);
+                    }
+                }
             }
 
         // room sprites
             if (version == VER_TR2_PSX || version == VER_TR3_PSX) { // there is no room sprites
                 d.sprites = NULL;
                 d.sCount  = 0;
-            } else
+            } else {
                 stream.read(d.sprites, stream.read(d.sCount));
+            }
 
-            if (version == VER_TR3_PSX)
-                if (partsCount != 0)
-                    stream.seek(4); // skip unknown shit
+            if (version == VER_TR3_PSX && partsCount != 0) {
+                stream.seek(4); // skip unknown shit
+            }
 
             ASSERT(int(d.size * 2) >= stream.pos - startOffset);
             stream.setPos(startOffset + d.size * 2);
@@ -4613,15 +4788,17 @@ namespace TR {
                 } else {
                     s.material = s.boxIndex & 0x0F; 
                     s.boxIndex = s.boxIndex >> 4;
-                    if (s.boxIndex == 2047) 
+                    if (s.boxIndex == 2047) {
                         s.boxIndex = 0; // TODO TR3 slide box indices
+                    }
                 }
             }
+
         // ambient light luminance
             stream.read(r.ambient);
 
             if (version != VER_TR3_PSX) {
-                if (version & (VER_TR2 | VER_TR3))
+                if (version & (VER_TR2 | VER_TR3 | VER_TR4))
                     stream.read(r.ambient2);
 
                 if (version & VER_TR2)
@@ -4641,21 +4818,39 @@ namespace TR {
 
                 uint16 intensity;
 
-                if (version & VER_TR3)
+                if (version & (VER_TR3 | VER_TR4)) {
                     stream.read(light.color);
+                }
 
-                stream.read(intensity);
+                if (version & VER_TR4) {
+                    stream.read(light.type);
+                    uint8 byteIntensity;
+                    intensity = stream.read(byteIntensity);
+                    stream.read(light.in);
+                    stream.read(light.out);
+                    stream.read(light.length);
+                    stream.read(light.cutoff);
+                    stream.read(light.dir);
+                    light.radius = uint32(light.length);
+                } else {
+                    stream.read(intensity);
+                }
 
-                if (version == VER_TR1_PSX)
+                if (version == VER_TR1_PSX) {
                     stream.seek(2);
+                }
 
-                if (version & (VER_TR2 | VER_TR3))
+                if (version & (VER_TR2 | VER_TR3)) {
                     stream.seek(2); // intensity2
+                }
 
-                stream.read(light.radius);
+                if (version != VER_TR4_PC) {
+                    stream.read(light.radius);
+                }
 
-                if (version & VER_TR2)
+                if (version & VER_TR2) {
                     stream.seek(4); // radius2
+                }
 
                 if ((version & VER_VERSION) < VER_TR3) {
                     int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
@@ -4665,8 +4860,9 @@ namespace TR {
 
                 light.intensity = intensity;
 
-                if (version == VER_TR3_PSX)
+                if (version == VER_TR3_PSX) {
                     light.radius >>= 2;
+                }
 
                 light.radius *= 2;
             }
@@ -4678,15 +4874,16 @@ namespace TR {
                 stream.read(m.x);
                 stream.read(m.y);
                 stream.read(m.z);
-                stream.read(m.rotation);
-                if (version & VER_TR3) {
+                stream.read(m.rotation.value);
+                if (version & (VER_TR3 | VER_TR4)) {
                     Color16 color;
                     stream.read(color.value);
                     m.color = color;
                     stream.seek(2);
                 } else {
-                    if (version & VER_TR2)
+                    if (version & VER_TR2) {
                         stream.seek(2);
+                    }
 
                     uint16 intensity;
                     stream.read(intensity);
@@ -4698,16 +4895,18 @@ namespace TR {
                 }
 
                 stream.read(m.meshID);
-                if (version == VER_TR1_PSX)
+                if (version == VER_TR1_PSX) {
                     stream.seek(2); // skip padding
+                }
             }
 
         // misc flags
             stream.read(r.alternateRoom);
             stream.read(r.flags.value);
-            if (version & VER_TR3) {
+            if (version & (VER_TR3 | VER_TR4)) {
                 stream.read(r.waterScheme);
                 stream.read(r.reverbType);
+                stream.read(r.filter);
             }
 
             r.dynLightsCount = 0;
@@ -4715,9 +4914,11 @@ namespace TR {
 
         void initMesh(int mIndex, Entity::Type type = Entity::NONE) {
             int offset = meshOffsets[mIndex];
-            for (int i = 0; i < meshesCount; i++)
-                if (meshes[i].offset == offset)
+            for (int i = 0; i < meshesCount; i++) {
+                if (meshes[i].offset == offset) {
                     return;
+                }
+            }
 
             Stream stream(NULL, &meshData[offset / 2], 1024 * 1024);
 
@@ -4920,24 +5121,9 @@ namespace TR {
                 }
                 case VER_TR1_PC :
                 case VER_TR2_PC :
-                case VER_TR3_PC : {
-                /*  struct {
-                        short3      center;
-                        short2      collider;
-                        short       vCount;
-                        short3      vertices[vCount];
-                        short       nCount;
-                        short3      normals[max(0, nCount)];
-                        ushort      luminance[-min(0, nCount)];
-                        short       rCount;
-                        Rectangle   rectangles[rCount];
-                        short       tCount;
-                        Triangle    triangles[tCount];
-                        short       crCount;
-                        Rectangle   crectangles[crCount];
-                        short       ctCount;
-                        Triangle    ctriangles[ctCount];
-                    }; */
+                case VER_TR3_PC : 
+                case VER_TR4_PC :
+                case VER_TR5_PC : {
                     mesh.vertices = new Mesh::Vertex[mesh.vCount];
                     for (int i = 0; i < mesh.vCount; i++) {
                         short4 &c = mesh.vertices[i].coord;
@@ -4963,13 +5149,22 @@ namespace TR {
                         }
                     }
 
-                    uint16 rCount, tCount, crCount, ctCount;
+                    uint16 rCount, tCount, crCount = 0, ctCount = 0;
+
+                    int faceSize4 = FACE4_SIZE;
+                    int faceSize3 = FACE3_SIZE;
+                    if (version & (VER_TR4 | VER_TR5)) {
+                        faceSize4 += 2;
+                        faceSize3 += 2;
+                    }
 
                     int tmp = stream.pos;
-                    stream.seek(stream.read(rCount)  * FACE4_SIZE); // uint32 colored (not existing in file)
-                    stream.seek(stream.read(tCount)  * FACE3_SIZE);
-                    stream.seek(stream.read(crCount) * FACE4_SIZE);
-                    stream.seek(stream.read(ctCount) * FACE3_SIZE);
+                    stream.seek(stream.read(rCount) * faceSize4); // uint32 colored (not existing in file)
+                    stream.seek(stream.read(tCount) * faceSize3);
+                    if (!(version & (VER_TR4 | VER_TR5))) {
+                        stream.seek(stream.read(crCount) * faceSize4);
+                        stream.seek(stream.read(ctCount) * faceSize3);
+                    }
                     stream.setPos(tmp);
 
                     mesh.rCount = rCount + crCount;
@@ -4978,26 +5173,26 @@ namespace TR {
                     mesh.faces  = mesh.fCount ? new Face[mesh.fCount] : NULL;
 
                     int idx = 0;
-                    stream.seek(sizeof(rCount));  for (int i = 0; i < rCount; i++)  readFace(stream, mesh.faces[idx++], false, false);
-                    stream.seek(sizeof(tCount));  for (int i = 0; i < tCount; i++)  readFace(stream, mesh.faces[idx++], false,  true);
-                    stream.seek(sizeof(crCount)); for (int i = 0; i < crCount; i++) readFace(stream, mesh.faces[idx++],  true, false);
-                    stream.seek(sizeof(ctCount)); for (int i = 0; i < ctCount; i++) readFace(stream, mesh.faces[idx++],  true,  true);
+                    stream.seek(sizeof(rCount));  for (int i = 0; i < rCount; i++)  readFace(stream, mesh.faces[idx++], false, false, false);
+                    stream.seek(sizeof(tCount));  for (int i = 0; i < tCount; i++)  readFace(stream, mesh.faces[idx++], false,  true, false);
+                    if (!(version & (VER_TR4 | VER_TR5))) {
+                        stream.seek(sizeof(crCount)); for (int i = 0; i < crCount; i++) readFace(stream, mesh.faces[idx++],  true, false, false);
+                        stream.seek(sizeof(ctCount)); for (int i = 0; i < ctCount; i++) readFace(stream, mesh.faces[idx++],  true,  true, false);
+                    }
+
+                #ifdef _DEBUG
+                    for (int i = 0; i < mesh.fCount; i++) {
+                        Face &f = mesh.faces[i];
+                        for (int j = 0; j < (f.triangle ? 3 : 4); j++) {
+                            ASSERT(f.vertices[j] < mesh.vCount);
+                        }
+                    }
+                #endif
+
                     break;
                 }
                 case VER_TR1_PSX :
                 case VER_TR2_PSX : {
-                /*  struct {
-                        short3      center;
-                        short2      collider;
-                        short       vCount;
-                        short4      vertices[abs(vCount)];
-                        short4      normals[max(0, vCount)];
-                        ushort      luminance[-min(0, vCount)];
-                        short       rCount;
-                        Rectangle   rectangles[rCount];
-                        short       tCount;
-                        Triangle    triangles[tCount];
-                    }; */
                     int nCount = mesh.vCount;
                     mesh.vCount = abs(mesh.vCount);
                     mesh.vertices = new Mesh::Vertex[mesh.vCount];
@@ -5035,8 +5230,8 @@ namespace TR {
                     mesh.faces  = mesh.fCount ? new Face[mesh.fCount] : NULL;
 
                     int idx = 0;
-                    stream.seek(sizeof(mesh.rCount)); for (int i = 0; i < mesh.rCount; i++) readFace(stream, mesh.faces[idx++], false, false);
-                    stream.seek(sizeof(mesh.tCount)); for (int i = 0; i < mesh.tCount; i++) readFace(stream, mesh.faces[idx++], false,  true);
+                    stream.seek(sizeof(mesh.rCount)); for (int i = 0; i < mesh.rCount; i++) readFace(stream, mesh.faces[idx++], false, false, false);
+                    stream.seek(sizeof(mesh.tCount)); for (int i = 0; i < mesh.tCount; i++) readFace(stream, mesh.faces[idx++], false,  true, false);
 
                     if (!mesh.fCount)
                         LOG("! warning: mesh %d has no geometry with %d vertices\n", meshesCount - 1, mesh.vCount);
@@ -5264,7 +5459,29 @@ namespace TR {
                         uint8   xh2, x2, yh2, y2;
                         uint8   xh3, x3, yh3, y3;
                     } d;
+
                     stream.raw(&d, sizeof(d));
+                    SET_PARAMS(t, d, 0);
+                    break;
+                }
+                case VER_TR4_PC :
+                case VER_TR5_PC : {
+                    struct {
+                        uint16  attribute;
+                        uint16  tile:14, :2;
+                        uint16  flags;
+                        uint8   xh0, x0, yh0, y0;
+                        uint8   xh1, x1, yh1, y1;
+                        uint8   xh2, x2, yh2, y2;
+                        uint8   xh3, x3, yh3, y3;
+                    } d;
+
+                    struct {
+                        uint32 U, V, W, H;
+                    } duv;
+
+                    stream.raw(&d,   sizeof(d));
+                    stream.raw(&duv, sizeof(duv));
                     SET_PARAMS(t, d, 0);
                     break;
                 }
@@ -5305,8 +5522,9 @@ namespace TR {
 
         void readObjectTex(Stream &stream) {
             objectTextures = stream.read(objectTexturesCount) ? new TextureInfo[objectTexturesCount] : NULL;
-            for (int i = 0; i < objectTexturesCount; i++)
+            for (int i = 0; i < objectTexturesCount; i++) {
                 readObjectTex(stream, objectTextures[i]);
+            }
         }
 
         void readSpriteTex(Stream &stream, TextureInfo &t) {
@@ -5347,7 +5565,9 @@ namespace TR {
                 }
                 case VER_TR1_PC :
                 case VER_TR2_PC :
-                case VER_TR3_PC : {
+                case VER_TR3_PC : 
+                case VER_TR4_PC :
+                case VER_TR5_PC : {
                     struct {
                         uint16  tile;
                         uint8   u, v;
@@ -5423,18 +5643,24 @@ namespace TR {
         void readAnimTex(Stream &stream) {
             uint32 size;
             stream.read(size);
+            stream.seek(size * 2);
+            size =  0;
+            if (size) {
+                stream.read(animTexturesCount);
+                animTextures = animTexturesCount ? new AnimTexture[animTexturesCount] : NULL;
 
-            if (!size) return;
+                for (int i = 0; i < animTexturesCount; i++) {
+                    AnimTexture &animTex = animTextures[i];
+                    animTex.count    = stream.readLE16() + 1;
+                    animTex.textures = new uint16[animTex.count];
+                    for (int j = 0; j < animTex.count; j++)
+                        animTex.textures[j] = stream.readLE16();
+                }
+            }
 
-            stream.read(animTexturesCount);
-            animTextures = animTexturesCount ? new AnimTexture[animTexturesCount] : NULL;
-
-            for (int i = 0; i < animTexturesCount; i++) {
-                AnimTexture &animTex = animTextures[i];
-                animTex.count    = stream.readLE16() + 1;
-                animTex.textures = new uint16[animTex.count];
-                for (int j = 0; j < animTex.count; j++)
-                    animTex.textures[j] = stream.readLE16();
+            if (version & (VER_TR4 | VER_TR5)) {
+                uint8 animTexUVs;
+                stream.read(animTexUVs);
             }
         }
 
@@ -5449,10 +5675,14 @@ namespace TR {
                 stream.read(e.x);
                 stream.read(e.y);
                 stream.read(e.z);
-                stream.read(e.rotation);
+                stream.read(e.rotation.value);
                 stream.read(e.intensity);
-                if (version & (VER_TR2 | VER_TR3))
+                if (version & (VER_TR2 | VER_TR3)) {
                     stream.read(e.intensity2);
+                }
+                if (version & (VER_TR4 | VER_TR5)) {
+                    stream.read(e.OCB);
+                }
                 stream.read(e.flags.value);
             }
         }
@@ -5591,6 +5821,23 @@ namespace TR {
                     for (int y = uv.y; y < uv.w; y++) {
                         for (int x = uv.x; x < uv.z; x++) {
                             Color32 c = tiles16[t->tile].color[y * 256 + x];
+                            ptr[x].r = c.b;
+                            ptr[x].g = c.g;
+                            ptr[x].b = c.r;
+                            ptr[x].a = c.a;
+                        }
+                        ptr += 256;
+                    }
+                    break;
+                }
+                case VER_TR4_PC :
+                case VER_TR5_PC : {
+                    ASSERT(tiles32);
+
+                    Color32 *ptr = &dst->color[uv.y * 256];
+                    for (int y = uv.y; y < uv.w; y++) {
+                        for (int x = uv.x; x < uv.z; x++) {
+                            Color32 c = tiles32[t->tile].color[y * 256 + x];
                             ptr[x].r = c.b;
                             ptr[x].g = c.g;
                             ptr[x].b = c.r;
