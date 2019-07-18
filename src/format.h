@@ -16,6 +16,8 @@
 #define TR1_TYPES_START       0
 #define TR2_TYPES_START       1000
 #define TR3_TYPES_START       2000
+#define TR4_TYPES_START       3000
+
 
 #define TR_TYPES(E) \
     E( LARA                  = TR1_TYPES_START) \
@@ -850,7 +852,528 @@
     E( UNUSED_TR3_371        ) \
     E( UNUSED_TR3_372        ) \
     E( ELECTRIC_SWITCH       ) \
-    E( TR3_TYPE_MAX          )
+    E( TR3_TYPE_MAX          ) \
+    E( ___LARA               = TR4_TYPES_START ) \
+    E( ___LARA_PISTOLS       ) \
+    E( ___LARA_UZIS          ) \
+    E( ___LARA_SHOTGUN       ) \
+    E( LARA_CROSSBOW         ) \
+    E( ___LARA_GRENADE       ) \
+    E( LARA_REVOLVER         ) \
+    E( ___LARA_FLARE         ) \
+    E( ___LARA_SKIN          ) \
+    E( LARA_SKIN_JOINTS      ) \
+    E( LARA_SCREAM           ) \
+    E( LARA_CROSSBOW_LASER   ) \
+    E( LARA_REVOLVER_LASER   ) \
+    E( LARA_HOLSTERS         ) \
+    E( LARA_HOLSTERS_PISTOLS ) \
+    E( LARA_HOLSTERS_UZIS    ) \
+    E( LARA_HOLSTERS_REVOLVER ) \
+    E( LARA_HEAD1            ) \
+    E( LARA_HEAD2            ) \
+    E( LARA_HEAD3            ) \
+    E( LARA_HEAD4            ) \
+    E( ACTOR1_HEAD1          ) \
+    E( ACTOR1_HEAD2          ) \
+    E( ACTOR2_HEAD1          ) \
+    E( ACTOR2_HEAD2          ) \
+    E( LARA_WATER_MESH       ) \
+    E( LARA_PETROL_MESH      ) \
+    E( LARA_DIRT_MESH        ) \
+    E( CROWBAR_ANIM          ) \
+    E( TORCH_ANIM            ) \
+    E( ___LARA_BRAID         ) \
+    E( MOTORBIKE             ) \
+    E( JEEP                  ) \
+    E( VEHICLE_EXTRA         ) \
+    E( ENEMY_JEEP            ) \
+    E( SKELETON              ) \
+    E( SKELETON_MIP          ) \
+    E( GUIDE                 ) \
+    E( GUIDE_MIP             ) \
+    E( VON_CROY              ) \
+    E( VON_CROY_MIP          ) \
+    E( BADDY_1               ) \
+    E( BADDY_1_MIP           ) \
+    E( BADDY_2               ) \
+    E( BADDY_2_MIP           ) \
+    E( SETHA                 ) \
+    E( SETHA_MIP             ) \
+    E( MUMMY                 ) \
+    E( MUMMY_MIP             ) \
+    E( SPHINX                ) \
+    E( SPHINX_MIP            ) \
+    E( CROCODILE             ) \
+    E( CROCODILE_MIP         ) \
+    E( HORSEMAN              ) \
+    E( HORSEMAN_MIP          ) \
+    E( SCORPION              ) \
+    E( SCORPION_MIP          ) \
+    E( JEAN_YVES             ) \
+    E( JEAN_YVES_MIP         ) \
+    E( TROOPS                ) \
+    E( TROOPS_MIP            ) \
+    E( KNIGHTS_TEMPLAR       ) \
+    E( KNIGHTS_TEMPLAR_MIP   ) \
+    E( MUTANT                ) \
+    E( MUTANT_MIP            ) \
+    E( HORSE                 ) \
+    E( HORSE_MIP             ) \
+    E( BABOON_NORMAL         ) \
+    E( BABOON_NORMAL_MIP     ) \
+    E( BABOON_INV            ) \
+    E( BABOON_INV_MIP        ) \
+    E( BABOON_SILENT         ) \
+    E( BABOON_SILENT_MIP     ) \
+    E( WILD_BOAR             ) \
+    E( WILD_BOAR_MIP         ) \
+    E( HARPY                 ) \
+    E( HARPY_MIP             ) \
+    E( DEMIGOD1              ) \
+    E( DEMIGOD1_MIP          ) \
+    E( DEMIGOD2              ) \
+    E( DEMIGOD2_MIP          ) \
+    E( DEMIGOD3              ) \
+    E( DEMIGOD3_MIP          ) \
+    E( LITTLE_BEETLE         ) \
+    E( BIG_BEETLE            ) \
+    E( BIG_BEETLE_MIP        ) \
+    E( WRAITH1               ) \
+    E( WRAITH2               ) \
+    E( WRAITH3               ) \
+    E( WRAITH4               ) \
+    E( BAT                   ) \
+    E( DOG                   ) \
+    E( DOG_MIP               ) \
+    E( HAMMERHEAD            ) \
+    E( HAMMERHEAD_MIP        ) \
+    E( SAS                   ) \
+    E( SAS_MIP               ) \
+    E( SAS_DYING             ) \
+    E( SAS_DYING_MIP         ) \
+    E( SAS_CAPTAIN           ) \
+    E( SAS_CAPTAIN_MIP       ) \
+    E( SAS_DRAG_BLOKE        ) \
+    E( AHMET                 ) \
+    E( AHMET_MIP             ) \
+    E( LARA_DOUBLE           ) \
+    E( LARA_DOUBLE_MIP       ) \
+    E( SMALL_SCORPION        ) \
+    E( LOCUST_EMITTER        ) \
+    E( GAME_PIECE1           ) \
+    E( GAME_PIECE2           ) \
+    E( GAME_PIECE3           ) \
+    E( ENEMY_PIECE           ) \
+    E( WHEEL_OF_FORTUNE      ) \
+    E( SCALES                ) \
+    E( DARTS                 ) \
+    E( DART_EMITTER          ) \
+    E( HOMING_DART_EMITTER   ) \
+    E( FALLING_CEILING       ) \
+    E( FALLING_BLOCK         ) \
+    E( FALLING_BLOCK2        ) \
+    E( SMASHABLE_BIKE_WALL   ) \
+    E( SMASHABLE_BIKE_FLOOR  ) \
+    E( TRAPDOOR1             ) \
+    E( TRAPDOOR2             ) \
+    E( TRAPDOOR3             ) \
+    E( FLOOR_TRAPDOOR1       ) \
+    E( FLOOR_TRAPDOOR2       ) \
+    E( CEILING_TRAPDOOR1     ) \
+    E( CEILING_TRAPDOOR2     ) \
+    E( SCALING_TRAPDOOR      ) \
+    E( ROLLINGBALL           ) \
+    E( SPIKEY_FLOOR          ) \
+    E( TEETH_SPIKES          ) \
+    E( JOBY_SPIKES           ) \
+    E( SLICER_DICER          ) \
+    E( CHAIN                 ) \
+    E( PLOUGH                ) \
+    E( STARGATE              ) \
+    E( HAMMER                ) \
+    E( BURNING_FLOOR         ) \
+    E( COG                   ) \
+    E( SPIKEBALL             ) \
+    E( ___FLAME              ) \
+    E( ___TRAP_FLAME_EMITTER ) \
+    E( TRAP_FLAME_EMITTER2   ) \
+    E( TRAP_FLAME_EMITTER3   ) \
+    E( ROPE                  ) \
+    E( FIREROPE              ) \
+    E( POLEROPE              ) \
+    E( ONEBLOCK_PLATFORM     ) \
+    E( TWOBLOCK_PLATFORM     ) \
+    E( RAISING_BLOCK1        ) \
+    E( RAISING_BLOCK2        ) \
+    E( EXPANDING_PLATFORM    ) \
+    E( SQUISHY_BLOCK1        ) \
+    E( SQUISHY_BLOCK2        ) \
+    E( PUSHABLE_OBJECT1      ) \
+    E( PUSHABLE_OBJECT2      ) \
+    E( PUSHABLE_OBJECT3      ) \
+    E( PUSHABLE_OBJECT4      ) \
+    E( PUSHABLE_OBJECT5      ) \
+    E( ___TRIPWIRE           ) \
+    E( SENTRY_GUN            ) \
+    E( MINE                  ) \
+    E( MAPPER                ) \
+    E( OBELISK               ) \
+    E( FLOOR_4BLADE          ) \
+    E( ROOF_4BLADE           ) \
+    E( BIRD_BLADE            ) \
+    E( CATWALK_BLADE         ) \
+    E( MOVING_BLADE          ) \
+    E( PLINTH_BLADE          ) \
+    E( SETH_BLADE            ) \
+    E( LIGHTNING_CONDUCTOR   ) \
+    E( ELEMENT_PUZZLE        ) \
+    E( PUZZLE_ITEM1          ) \
+    E( PUZZLE_ITEM2          ) \
+    E( PUZZLE_ITEM3          ) \
+    E( PUZZLE_ITEM4          ) \
+    E( PUZZLE_ITEM5          ) \
+    E( PUZZLE_ITEM6          ) \
+    E( PUZZLE_ITEM7          ) \
+    E( PUZZLE_ITEM8          ) \
+    E( PUZZLE_ITEM9          ) \
+    E( PUZZLE_ITEM10         ) \
+    E( PUZZLE_ITEM11         ) \
+    E( PUZZLE_ITEM12         ) \
+    E( PUZZLE_ITEM1_COMBO1   ) \
+    E( PUZZLE_ITEM1_COMBO2   ) \
+    E( PUZZLE_ITEM2_COMBO1   ) \
+    E( PUZZLE_ITEM2_COMBO2   ) \
+    E( PUZZLE_ITEM3_COMBO1   ) \
+    E( PUZZLE_ITEM3_COMBO2   ) \
+    E( PUZZLE_ITEM4_COMBO1   ) \
+    E( PUZZLE_ITEM4_COMBO2   ) \
+    E( PUZZLE_ITEM5_COMBO1   ) \
+    E( PUZZLE_ITEM5_COMBO2   ) \
+    E( PUZZLE_ITEM6_COMBO1   ) \
+    E( PUZZLE_ITEM6_COMBO2   ) \
+    E( PUZZLE_ITEM7_COMBO1   ) \
+    E( PUZZLE_ITEM7_COMBO2   ) \
+    E( PUZZLE_ITEM8_COMBO1   ) \
+    E( PUZZLE_ITEM8_COMBO2   ) \
+    E( KEY_ITEM1             ) \
+    E( KEY_ITEM2             ) \
+    E( KEY_ITEM3             ) \
+    E( KEY_ITEM4             ) \
+    E( KEY_ITEM5             ) \
+    E( KEY_ITEM6             ) \
+    E( KEY_ITEM7             ) \
+    E( KEY_ITEM8             ) \
+    E( KEY_ITEM9             ) \
+    E( KEY_ITEM10            ) \
+    E( KEY_ITEM11            ) \
+    E( KEY_ITEM12            ) \
+    E( KEY_ITEM1_COMBO1      ) \
+    E( KEY_ITEM1_COMBO2      ) \
+    E( KEY_ITEM2_COMBO1      ) \
+    E( KEY_ITEM2_COMBO2      ) \
+    E( KEY_ITEM3_COMBO1      ) \
+    E( KEY_ITEM3_COMBO2      ) \
+    E( KEY_ITEM4_COMBO1      ) \
+    E( KEY_ITEM4_COMBO2      ) \
+    E( KEY_ITEM5_COMBO1      ) \
+    E( KEY_ITEM5_COMBO2      ) \
+    E( KEY_ITEM6_COMBO1      ) \
+    E( KEY_ITEM6_COMBO2      ) \
+    E( KEY_ITEM7_COMBO1      ) \
+    E( KEY_ITEM7_COMBO2      ) \
+    E( KEY_ITEM8_COMBO1      ) \
+    E( KEY_ITEM8_COMBO2      ) \
+    E( PICKUP_ITEM1          ) \
+    E( PICKUP_ITEM2          ) \
+    E( PICKUP_ITEM3          ) \
+    E( PICKUP_ITEM4          ) \
+    E( PICKUP_ITEM1_COMBO1   ) \
+    E( PICKUP_ITEM1_COMBO2   ) \
+    E( PICKUP_ITEM2_COMBO1   ) \
+    E( PICKUP_ITEM2_COMBO2   ) \
+    E( PICKUP_ITEM3_COMBO1   ) \
+    E( PICKUP_ITEM3_COMBO2   ) \
+    E( PICKUP_ITEM4_COMBO1   ) \
+    E( PICKUP_ITEM4_COMBO2   ) \
+    E( EXAMINE1              ) \
+    E( EXAMINE2              ) \
+    E( EXAMINE3              ) \
+    E( CROWBAR_ITEM          ) \
+    E( BURNING_TORCH_ITEM    ) \
+    E( CLOCKWORK_BEETLE      ) \
+    E( CLOCKWORK_BEETLE_COMBO1 ) \
+    E( CLOCKWORK_BEETLE_COMBO2 ) \
+    E( MINE_DETECTOR         ) \
+    E( QUEST_ITEM1           ) \
+    E( QUEST_ITEM2           ) \
+    E( QUEST_ITEM3           ) \
+    E( QUEST_ITEM4           ) \
+    E( QUEST_ITEM5           ) \
+    E( QUEST_ITEM6           ) \
+    E( MAP                   ) \
+    E( SECRET_MAP            ) \
+    E( PUZZLE_HOLE1          ) \
+    E( PUZZLE_HOLE2          ) \
+    E( PUZZLE_HOLE3          ) \
+    E( PUZZLE_HOLE4          ) \
+    E( PUZZLE_HOLE5          ) \
+    E( PUZZLE_HOLE6          ) \
+    E( PUZZLE_HOLE7          ) \
+    E( PUZZLE_HOLE8          ) \
+    E( PUZZLE_HOLE9          ) \
+    E( PUZZLE_HOLE10         ) \
+    E( PUZZLE_HOLE11         ) \
+    E( PUZZLE_HOLE12         ) \
+    E( PUZZLE_DONE1          ) \
+    E( PUZZLE_DONE2          ) \
+    E( PUZZLE_DONE3          ) \
+    E( PUZZLE_DONE4          ) \
+    E( PUZZLE_DONE5          ) \
+    E( PUZZLE_DONE6          ) \
+    E( PUZZLE_DONE7          ) \
+    E( PUZZLE_DONE8          ) \
+    E( PUZZLE_DONE9          ) \
+    E( PUZZLE_DONE10         ) \
+    E( PUZZLE_DONE11         ) \
+    E( PUZZLE_DONE12         ) \
+    E( KEY_HOLE1             ) \
+    E( KEY_HOLE2             ) \
+    E( KEY_HOLE3             ) \
+    E( KEY_HOLE4             ) \
+    E( KEY_HOLE5             ) \
+    E( KEY_HOLE6             ) \
+    E( KEY_HOLE7             ) \
+    E( KEY_HOLE8             ) \
+    E( KEY_HOLE9             ) \
+    E( KEY_HOLE10            ) \
+    E( KEY_HOLE11            ) \
+    E( KEY_HOLE12            ) \
+    E( WATERSKIN1_EMPTY      ) \
+    E( WATERSKIN1_1          ) \
+    E( WATERSKIN1_2          ) \
+    E( WATERSKIN1_3          ) \
+    E( WATERSKIN2_EMPTY      ) \
+    E( WATERSKIN2_1          ) \
+    E( WATERSKIN2_2          ) \
+    E( WATERSKIN2_3          ) \
+    E( WATERSKIN2_4          ) \
+    E( WATERSKIN2_5          ) \
+    E( SWITCH_TYPE1          ) \
+    E( SWITCH_TYPE2          ) \
+    E( SWITCH_TYPE3          ) \
+    E( SWITCH_TYPE4          ) \
+    E( SWITCH_TYPE5          ) \
+    E( SWITCH_TYPE6          ) \
+    E( SWITCH_TYPE7          ) \
+    E( SWITCH_TYPE8          ) \
+    E( UNDERWATER_SWITCH1    ) \
+    E( UNDERWATER_SWITCH2    ) \
+    E( TURN_SWITCH           ) \
+    E( COG_SWITCH            ) \
+    E( LEVER_SWITCH          ) \
+    E( JUMP_SWITCH           ) \
+    E( CROWBAR_SWITCH        ) \
+    E( PULLEY                ) \
+    E( DOOR_TYPE1            ) \
+    E( DOOR_TYPE2            ) \
+    E( DOOR_TYPE3            ) \
+    E( DOOR_TYPE4            ) \
+    E( DOOR_TYPE5            ) \
+    E( DOOR_TYPE6            ) \
+    E( DOOR_TYPE7            ) \
+    E( DOOR_TYPE8            ) \
+    E( PUSHPULL_DOOR1        ) \
+    E( PUSHPULL_DOOR2        ) \
+    E( KICK_DOOR1            ) \
+    E( KICK_DOOR2            ) \
+    E( UNDERWATER_DOOR       ) \
+    E( DOUBLE_DOORS          ) \
+    E( BRIDGE_FLAT           ) \
+    E( BRIDGE_TILT1          ) \
+    E( BRIDGE_TILT2          ) \
+    E( SARCOPHAGUS           ) \
+    E( SEQUENCE_DOOR1        ) \
+    E( SEQUENCE_SWITCH1      ) \
+    E( SEQUENCE_SWITCH2      ) \
+    E( SEQUENCE_SWITCH3      ) \
+    E( SARCOPHAGUS_CUT       ) \
+    E( HORUS_STATUE          ) \
+    E( GOD_HEAD              ) \
+    E( SETH_DOOR             ) \
+    E( STATUE_PLINTH         ) \
+    E( PISTOLS_ITEM          ) \
+    E( PISTOLS_AMMO_ITEM     ) \
+    E( UZI_ITEM              ) \
+    E( UZI_AMMO_ITEM         ) \
+    E( SHOTGUN_ITEM          ) \
+    E( SHOTGUN_AMMO1_ITEM    ) \
+    E( SHOTGUN_AMMO2_ITEM    ) \
+    E( CROSSBOW_ITEM         ) \
+    E( CROSSBOW_AMMO1_ITEM   ) \
+    E( CROSSBOW_AMMO2_ITEM   ) \
+    E( CROSSBOW_AMMO3_ITEM   ) \
+    E( CROSSBOW_BOLT         ) \
+    E( GRENADE_GUN_ITEM      ) \
+    E( GRENADE_GUN_AMMO1_ITEM ) \
+    E( GRENADE_GUN_AMMO2_ITEM ) \
+    E( GRENADE_GUN_AMMO3_ITEM ) \
+    E( ___GRENADE            ) \
+    E( REVOLVER_ITEM         ) \
+    E( REVOLVER_AMMO_ITEM    ) \
+    E( ___INV_MEDIKIT_BIG    ) \
+    E( ___INV_MEDIKIT_SMALL  ) \
+    E( LASERSIGHT_ITEM       ) \
+    E( BINOCULARS_ITEM       ) \
+    E( ___FLARES             ) \
+    E( ___INV_FLARES         ) \
+    E( ___INV_PASSPORT       ) \
+    E( ___INV_COMPASS        ) \
+    E( MEMCARD_LOAD_INV_ITEM ) \
+    E( MEMCARD_SAVE_INV_ITEM ) \
+    E( PC_LOAD_INV_ITEM      ) \
+    E( PC_SAVE_INV_ITEM      ) \
+    E( SMOKE_EMITTER_WHITE   ) \
+    E( SMOKE_EMITTER_BLACK   ) \
+    E( STEAM_EMITTER         ) \
+    E( ___EARTHQUAKE         ) \
+    E( BUBBLES               ) \
+    E( WATERFALLMIST         ) \
+    E( GUNSHELL              ) \
+    E( SHOTGUNSHELL          ) \
+    E( ___MUZZLE_FLASH       ) \
+    E( BUTTERFLY             ) \
+    E( SPRINKLER             ) \
+    E( RED_LIGHT             ) \
+    E( GREEN_LIGHT           ) \
+    E( BLUE_LIGHT            ) \
+    E( AMBER_LIGHT           ) \
+    E( WHITE_LIGHT           ) \
+    E( BLINKING_LIGHT        ) \
+    E( LENS_FLARE            ) \
+    E( ___AI_GUARD           ) \
+    E( ___AI_AMBUSH          ) \
+    E( AI_PATROL1            ) \
+    E( ___AI_MODIFY          ) \
+    E( ___AI_FOLLOW          ) \
+    E( AI_PATROL2            ) \
+    E( AI_X1                 ) \
+    E( AI_X2                 ) \
+    E( LARA_START_POS        ) \
+    E( ___KILL_ALL_TRIGGERS  ) \
+    E( TRIGGER_TRIGGERER     ) \
+    E( SMASH_OBJECT1         ) \
+    E( SMASH_OBJECT2         ) \
+    E( SMASH_OBJECT3         ) \
+    E( SMASH_OBJECT4         ) \
+    E( SMASH_OBJECT5         ) \
+    E( SMASH_OBJECT6         ) \
+    E( SMASH_OBJECT7         ) \
+    E( SMASH_OBJECT8         ) \
+    E( MESHSWAP1             ) \
+    E( MESHSWAP2             ) \
+    E( MESHSWAP3             ) \
+    E( DEATH_SLIDE           ) \
+    E( BODY_PART             ) \
+    E( CAMERA_TARGET         ) \
+    E( WATERFALL1            ) \
+    E( WATERFALL2            ) \
+    E( WATERFALL3            ) \
+    E( PLANET_EFFECT         ) \
+    E( ANIMATING1            ) \
+    E( ANIMATING1_MIP        ) \
+    E( ANIMATING2            ) \
+    E( ANIMATING2_MIP        ) \
+    E( ANIMATING3            ) \
+    E( ANIMATING3_MIP        ) \
+    E( ANIMATING4            ) \
+    E( ANIMATING4_MIP        ) \
+    E( ANIMATING5            ) \
+    E( ANIMATING5_MIP        ) \
+    E( ANIMATING6            ) \
+    E( ANIMATING6_MIP        ) \
+    E( ANIMATING7            ) \
+    E( ANIMATING7_MIP        ) \
+    E( ANIMATING8            ) \
+    E( ANIMATING8_MIP        ) \
+    E( ANIMATING9            ) \
+    E( ANIMATING9_MIP        ) \
+    E( ANIMATING10           ) \
+    E( ANIMATING10_MIP       ) \
+    E( ANIMATING11           ) \
+    E( ANIMATING11_MIP       ) \
+    E( ANIMATING12           ) \
+    E( ANIMATING12_MIP       ) \
+    E( ANIMATING13           ) \
+    E( ANIMATING13_MIP       ) \
+    E( ANIMATING14           ) \
+    E( ANIMATING14_MIP       ) \
+    E( ANIMATING15           ) \
+    E( ANIMATING15_MIP       ) \
+    E( ANIMATING16           ) \
+    E( ANIMATING16_MIP       ) \
+    E( HORIZON               ) \
+    E( SKY_GRAPHICS          ) \
+    E( BINOCULAR_GRAPHICS    ) \
+    E( TARGET_GRAPHICS       ) \
+    E( ___GLYPHS             ) \
+    E( ___MISC_SPRITES       ) \
+    E( MOTOR_BOAT            ) \
+    E( MOTOR_BOAT_LARA       ) \
+    E( RUBBER_BOAT           ) \
+    E( RUBBER_BOAT_LARA      ) \
+    E( MOTORBIKE_LARA        ) \
+    E( FONT_GRAPHICS         ) \
+    E( PARALLEL_BARS         ) \
+    E( PANEL_BORDER          ) \
+    E( PANEL_MIDDLE          ) \
+    E( PANEL_CORNER          ) \
+    E( PANEL_DIAGONAL        ) \
+    E( PANEL_STRIP           ) \
+    E( PANEL_HALF_BORDER1    ) \
+    E( PANEL_HALF_BORDER2    ) \
+    E( PANEL_MIDDLE_CORNER   ) \
+    E( TIGHT_ROPE            ) \
+    E( LASER_HEAD            ) \
+    E( LASER_HEAD_BASE       ) \
+    E( LASER_HEAD_TENTACLE   ) \
+    E( HYDRA                 ) \
+    E( HYDRA_MISSILE         ) \
+    E( ENEMY_SUB_MARINE      ) \
+    E( ENEMY_SUB_MARINE_MIP  ) \
+    E( SUB_MARINE_MISSILE    ) \
+    E( FROG_MAN              ) \
+    E( FROG_MAN_HARPOON      ) \
+    E( FISH_EMITTER          ) \
+    E( KAYAK                 ) \
+    E( KAYAK_LARA            ) \
+    E( CUSTOM_SPRITES        ) \
+    E( BRIDGE_TILT3          ) \
+    E( BRIDGE_TILT4          ) \
+    E( BRIDGE_CUSTOM         ) \
+    E( ROBOT_CLEANER         ) \
+    E( ROBOT_STAR_WARS       ) \
+    E( MECH_WARRIOR          ) \
+    E( MECH_WARRIOR_LARA     ) \
+    E( UW_PROPULSOR          ) \
+    E( UW_PROPULSOR_LARA     ) \
+    E( MINE_CART             ) \
+    E( MINE_CART_LARA        ) \
+    E( NEW_SLOT5             ) \
+    E( NEW_SLOT6             ) \
+    E( NEW_SLOT7             ) \
+    E( NEW_SLOT8             ) \
+    E( NEW_SLOT9             ) \
+    E( NEW_SLOT10            ) \
+    E( NEW_SLOT11            ) \
+    E( NEW_SLOT12            ) \
+    E( NEW_SLOT13            ) \
+    E( NEW_SLOT14            ) \
+    E( NEW_SLOT15            ) \
+    E( NEW_SLOT16            ) \
+    E( NEW_SLOT17            ) \
+    E( NEW_SLOT18            ) \
+    E( TR4_TYPE_MAX          )
 
 namespace TR {
 
@@ -1173,9 +1696,13 @@ namespace TR {
             uint16 value;
         } flags;
 
+        union {
+            struct { uint16 additive:1, env:1, shininess:6; };
+            uint16 value;
+        } effects;
+
         short3 normal;
         uint16 vertices[4];
-        uint16 effects;
         uint8  triangle:1, colored:1, water:1, flip:5;
 
         static int cmp(const Face &a, const Face &b) {
@@ -1597,8 +2124,12 @@ namespace TR {
             if (version & VER_TR3)
                 type = Type(type + TR3_TYPES_START);
 
-            #define REMAP_2(TYPE) case _##TYPE  : return TYPE
-            #define REMAP_3(TYPE) case __##TYPE : return TYPE
+            if (version & VER_TR4)
+                type = Type(type + TR4_TYPES_START);
+
+            #define REMAP_2(TYPE) case _##TYPE   : return TYPE
+            #define REMAP_3(TYPE) case __##TYPE  : return TYPE
+            #define REMAP_4(TYPE) case ___##TYPE : return TYPE
 
             switch (type) {
             // TR2
@@ -1848,6 +2379,34 @@ namespace TR {
                 REMAP_3( SOUND_DOOR_BELL      );
                 REMAP_3( ENEMY_WINSTON        );
                 REMAP_3( EARTHQUAKE           );
+            // TR4
+                REMAP_4( LARA                 );
+                REMAP_4( LARA_PISTOLS         );
+                REMAP_4( LARA_UZIS            );
+                REMAP_4( LARA_SHOTGUN         );
+                REMAP_4( LARA_GRENADE         );
+                REMAP_4( LARA_FLARE           );
+                REMAP_4( LARA_SKIN            );
+                REMAP_4( LARA_BRAID           );
+                REMAP_4( FLAME                );
+                REMAP_4( TRAP_FLAME_EMITTER   );
+                REMAP_4( TRIPWIRE             );
+                REMAP_4( GRENADE              );
+                REMAP_4( INV_MEDIKIT_BIG      );
+                REMAP_4( INV_MEDIKIT_SMALL    );
+                REMAP_4( FLARES               );
+                REMAP_4( INV_FLARES           );
+                REMAP_4( INV_PASSPORT         );
+                REMAP_4( INV_COMPASS          );
+                REMAP_4( EARTHQUAKE           );
+                REMAP_4( MUZZLE_FLASH         );
+                REMAP_4( AI_GUARD             );
+                REMAP_4( AI_AMBUSH            );
+                REMAP_4( AI_MODIFY            );
+                REMAP_4( AI_FOLLOW            );
+                REMAP_4( KILL_ALL_TRIGGERS    );
+                REMAP_4( GLYPHS               );
+                REMAP_4( MISC_SPRITES         );
 
                 default : return type;
             }
@@ -2114,7 +2673,7 @@ namespace TR {
         short3  pos;
         uint16  angles[1];  // angle frames in YXZ order, first angle must be skipped in TR1
 
-        #define ANGLE_SCALE (2.0f * PI / 1024.0f)
+        #define ANGLE_SCALE (PI2 / 1024.0f)
 
         vec3 unpack(uint16 a, uint16 b) {
             return vec3(float((a & 0x3FF0) >> 4), float( ((a & 0x000F) << 6) | ((b & 0xFC00) >> 10)), float(b & 0x03FF)) * ANGLE_SCALE;
@@ -2127,21 +2686,26 @@ namespace TR {
                 index = joint * 2 + 1;
                 uint16 b = angles[index++];
                 uint16 a = angles[index++];
-                if (version & VER_SAT)
+                if (version & VER_SAT) {
                     swap(a, b);
+                }
                 return unpack(a, b);
-            }
-
-            if (version & (VER_TR2 | VER_TR3)) {
-
-                // TODO: remove this !!!
-                for (int i = 0; i < joint; i++)
-                    if (!(angles[index++] & 0xC000))
+            } else {
+                // TODO: optimize this !!!
+                for (int i = 0; i < joint; i++) {
+                    if (!(angles[index++] & 0xC000)) {
                         index++;
+                    }
+                }
 
                 uint16 a = angles[index++];
 
-                float rot = float(a & 0x03FF) * ANGLE_SCALE;
+                float rot;
+                if (((version & VER_VERSION) >= VER_TR4)) {
+                    rot = float(a & 0x0FFF) * (PI2 / 4096.0f);
+                } else {
+                    rot = float(a & 0x03FF) * (PI2 / 1024.0f);
+                }
 
                 switch (a & 0xC000) {
                     case 0x4000 : return vec3(rot, 0, 0);
@@ -2439,6 +3003,7 @@ namespace TR {
         int32           soundsInfoCount;
         SoundInfo       *soundsInfo;
 
+        int32           soundsCount;
         int32           soundDataSize;
         uint8           *soundData;
 
@@ -3091,6 +3656,19 @@ namespace TR {
                 readSoundOffsets(stream);
             }
             delete[] dataD;
+
+            stream.read(soundsCount);
+            ASSERT(soundsCount == soundOffsetsCount);
+            soundDataSize = stream.size - stream.pos;
+            soundData = new uint8[soundDataSize];
+            soundDataSize = 0;
+            for (int i = 0; i < soundsCount; i++) {
+                stream.read(sizeD);
+                stream.read(sizeC);
+                soundOffsets[i] = soundDataSize;
+                stream.raw(soundData + soundDataSize, sizeC);
+                soundDataSize += sizeC;
+            }
         }
 
         void loadTR4_PSX (Stream &stream) {
@@ -3274,13 +3852,14 @@ namespace TR {
         }
 
         void readSoundMap(Stream &stream) {
-            stream.read(soundsMap, (version & VER_TR1) ? 256 : 370);
+            soundsCount = (version & VER_TR1) ? 256 : 370;
+            stream.read(soundsMap, soundsCount);
             soundsInfo = stream.read(soundsInfoCount) ? new SoundInfo[soundsInfoCount] : NULL;
             for (int i = 0; i < soundsInfoCount; i++) {
                 SoundInfo &s = soundsInfo[i];
 
                 stream.read(s.index);
-                if (version & (VER_TR1 | VER_TR2 | VER_TR4 | VER_TR5)) {
+                if (version & (VER_TR1 | VER_TR2)) {
                     uint16 v;
                     stream.read(v); s.volume = float(v) / 0x7FFF;
                     stream.read(v); s.chance = float(v) / 0xFFFF;
@@ -4168,8 +4747,9 @@ namespace TR {
                 dataOffset += FOURCC(soundData + dataOffset + 4) + 8; // add chunk size
             }
 
-            for (int i = 0; i < soundOffsetsCount; i++)
+            for (int i = 0; i < soundOffsetsCount; i++) {
                 soundOffsets[i] = dataOffsets[soundOffsets[i]];
+            }
         }
 
         static void sfxLoadAsync(Stream *stream, void *userData) {
@@ -4442,7 +5022,9 @@ namespace TR {
             stream.read(f.flags.value);
 
             if (!isRoomMesh && (version & (VER_TR4 | VER_TR5))) {
-                stream.read(f.effects);
+                stream.read(f.effects.value);
+            } else {
+                f.effects.value = 0;
             }
 
             f.colored = colored;
@@ -5908,13 +6490,14 @@ namespace TR {
 
         Stream* getSampleStream(int index) const {
             if (!soundOffsets || !soundData) return NULL;
-            uint8 *data = &soundData[soundOffsets[index]];
+            uint8 *data = soundData + soundOffsets[index];
             uint32 size = 0;
             switch (version) {
                 case VER_TR1_SAT : size = soundSize[index]; break;
-                case VER_TR1_PC  : 
+                case VER_TR1_PC  :
                 case VER_TR2_PC  :
-                case VER_TR3_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
+                case VER_TR3_PC  :
+                case VER_TR4_PC  : size = FOURCC(data + 4) + 8; break; // read size from wave header
                 case VER_TR1_PSX :
                 case VER_TR2_PSX :
                 case VER_TR3_PSX : size = soundSize[index]; break;

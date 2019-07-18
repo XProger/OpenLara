@@ -995,6 +995,10 @@ struct MeshBuilder {
 
             int texAttrib = forceOpaque ? 0 : t.attribute;
 
+            if (f.effects.additive) {
+                texAttrib = 2;
+            }
+
             if (texAttrib != 0)
                 isOpaque = false;
 

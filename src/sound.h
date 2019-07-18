@@ -316,25 +316,49 @@ namespace Sound {
                 for (int i = 0; i < channels; i++) stream->read(channel[i].sample2);
 
                 if (channels == 1) {
-                    frames[0].L = frames[0].R = channel[0].sample2;
-                    frames[1].L = frames[1].R = channel[0].sample1;
+                    if (freq == 22050) {
+                        ASSERT(count >= 4);
+                        frames[0].L = frames[0].R =
+                        frames[1].L = frames[1].R = channel[0].sample2;
+                        frames[2].L = frames[2].R =
+                        frames[3].L = frames[3].R = channel[0].sample1;
+                        return 4;
+                    } else {
+                        ASSERT(count >= 2);
+                        frames[0].L = frames[0].R = channel[0].sample2;
+                        frames[1].L = frames[1].R = channel[0].sample1;
+                        return 2;
+                    }
                 } else {
+                    ASSERT(freq == 44100);
+                    ASSERT(count >= 2);
                     frames[0].L = channel[0].sample2;
                     frames[0].R = channel[1].sample2;
                     frames[1].L = channel[0].sample1;
                     frames[1].R = channel[1].sample1;
+                    return 2;
                 }
-                return 2;
             } else {
                 uint8 value;
                 stream->read(value);
                 uint8 n1 = value >> 4, n2 = value & 0xF;
 
                 if (channels == 1) {
-                    frames[0].L = frames[0].R = channel[0].predicate(n1);
-                    frames[1].L = frames[1].R = channel[0].predicate(n2);
-                    return 2;
+                    if (freq == 22050) {
+                        ASSERT(count >= 4);
+                        frames[0].L = frames[0].R =
+                        frames[1].L = frames[1].R = channel[0].predicate(n1);
+                        frames[2].L = frames[2].R =
+                        frames[3].L = frames[3].R = channel[0].predicate(n2);
+                        return 4;
+                    } else {
+                        ASSERT(count >= 2);
+                        frames[0].L = frames[0].R = channel[0].predicate(n1);
+                        frames[1].L = frames[1].R = channel[0].predicate(n2);
+                        return 2;
+                    }
                 } else {
+                    ASSERT(freq == 44100);
                     frames[0].L = channel[0].predicate(n1);
                     frames[0].R = channel[1].predicate(n2);
                     return 1;
@@ -931,7 +955,7 @@ namespace Sound {
     void renderChannels(FrameHI *result, int count, bool music) {
         PROFILE_CPU_TIMING(stats.render[music]);
 
-        int bufSize = count + count / 2;
+        int bufSize = count + count / 2 + 4;
         if (!buffer) buffer = new Frame[bufSize]; // + 50% for pitch
 
         for (int i = 0; i < channelsCount; i++) {
@@ -951,7 +975,7 @@ namespace Sound {
                 continue;
 
             memset(buffer, 0, sizeof(Frame) * bufSize);
-            channels[i]->render(buffer, int(count * channels[i]->pitch));
+            channels[i]->render(buffer, (int(count * channels[i]->pitch) + 3) / 4 * 4);
 
             if (channels[i]->pitch == 1.0f) { // no pitch
                 for (int j = 0; j < count; j++) {

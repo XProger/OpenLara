@@ -30,7 +30,7 @@ namespace TR {
         VER_TR5      = 0x10,
 
         VER_VERSION  = VER_TR1 | VER_TR2 | VER_TR3 | VER_TR4 | VER_TR5,
-        VER_PLATFORM = VER_PC  | VER_PSX | VER_SAT,
+        VER_PLATFORM = VER_PC  | VER_PSX | VER_SAT | VER_SDC,
 
         VER_TR1_PC   = VER_TR1 | VER_PC,
         VER_TR1_PSX  = VER_TR1 | VER_PSX,
@@ -140,6 +140,8 @@ namespace TR {
         LVL_TR3_CUT_12,
         LVL_TR3_CHAMBER,
         LVL_TR3_STPAUL,
+    // TR4
+        LVL_TR4_ANGKOR1,
 
         LVL_MAX,
     };
@@ -199,6 +201,8 @@ namespace TR {
         TRACK_TR3_CUT_9     = 69,
         TRACK_TR3_CUT_11    = 71,
         TRACK_TR3_CUT_12    = 66,
+    // TR4
+        TRACK_TR4_OUT_DAY   = 106,
     };
 
 //    #define LEVEL (version,name,track) { #name, STR_##version##_##name, TRACK_##version##track },
@@ -295,6 +299,123 @@ namespace TR {
         { "CUT12"     , STR_EMPTY         , TRACK_TR3_CUT_12    },
         { "CHAMBER"   , STR_TR3_CHAMBER   , TRACK_TR3_ANTARC_3  },
         { "STPAUL"    , STR_TR3_STPAUL    , TRACK_TR3_CAVES     },
+    // TR4
+        { "ANGKOR1"   , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+    };
+
+    static const char* TRACK_LIST_TR4[] = {
+        "VonCroy2",
+        "VonCroy3",
+        "VonCroy4",
+        "VonCroy5",
+        "VonCroy6_Lara2",
+        "VonCroy7",
+        "VonCroy8",
+        "VonCroy9a",
+        "VonCroy9b_Lara3",
+        "VonCroy10",
+        "VonCroy11a",
+        "VonCroy11b",
+        "VonCroy12_13a_Lara4",
+        "VonCroy13b",
+        "VonCroy14",
+        "VonCroy15",
+        "VonCroy16_lara5",
+        "VonCroy17",
+        "Lara6_VonCroy18",
+        "VonCroy19",
+        "VC20_L7_VC21_L8_VC22a",
+        "VonCroy22b",
+        "VonCroy23",
+        "VonCroy24a",
+        "VonCroy24b",
+        "VC25_L9_VC26_L10",
+        "VonCroy27",
+        "VonCroy28_L11",
+        "VonCroy29",
+        "VonCroy30",
+        "VonCroy31_L12",
+        "VonCroy32_L13",
+        "VonCroy33",
+        "VonCroy34",
+        "VonCroy35",
+        "VonCroy36",
+        "VC37_L15_VC38",
+        "A_Short_01",
+        "TR4_Title_Q10",
+        "Action_Part_ii",
+        "Action_Part_iii",
+        "Action_Part_iv",
+        "Action_Part_v",
+        "Attack_part_i",
+        "Authentic_TR",
+        "Boss_01",
+        "Boss_02",
+        "Close_to_the_End",
+        "Close_to_the_End_part_ii",
+        "Underwater_Find_part_i",
+        "Egyptian_Mood_Part_i",
+        "Egyptian_Mood_Part_ii",
+        "General_Part_i",
+        "General_Part_ii",
+        "General_Part_iii",
+        "General_Part_iv",
+        "General_Part_v",
+        "Gods_Part_i",
+        "Gods_Part_ii",
+        "Gods_Part_iii",
+        "In_The_Pyramid_Part_i",
+        "Jeep_Thrills_max",
+        "Misc_Inc_01",
+        "Misc_Inc_02",
+        "Misc_Inc_03",
+        "Misc_Inc_04",
+        "Mystery_Part_i",
+        "Mystery_Part_ii",
+        "Mystery_Part_iii",
+        "Mystery_Part_iv",
+        "Ominous_Part_i",
+        "Puzzle_part_i",
+        "Secret",
+        "backpack",
+        "captain1",
+        "captain2",
+        "crocgod",
+        "croywon",
+        "crypt1",
+        "crypt2",
+        "dig",
+        "finale",
+        "horus",
+        "inscrip",
+        "intro",
+        "jeepA",
+        "jeepB",
+        "key",
+        "larawon",
+        "libend",
+        "minilib1",
+        "minilib2",
+        "minilib3",
+        "minilib4",
+        "phildoor",
+        "sarcoph",
+        "scorpion",
+        "throne",
+        "whouse",
+        "Attack_part_ii",
+        "A1_In_Dark",
+        "A2_In_Drips",
+        "A3_Out_Night",
+        "A4_Weird1",
+        "A5_Battle",
+        "A6_Out_Day",
+        "A7_Train+",
+        "A8_Coastal",
+        "Lyre_01",
+        "Lyre_02",
+        "charmer",
+        "Gods_part_iv"
     };
 
     Version getGameVersionByLevel(LevelID id) {
@@ -304,6 +425,8 @@ namespace TR {
             return VER_TR2;
         if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
             return VER_TR3;
+        if (id >= LVL_TR4_ANGKOR1 && id < LVL_MAX)
+            return VER_TR4;
         return VER_UNKNOWN;
     }
 
@@ -689,6 +812,8 @@ namespace TR {
             case 1080128 : // PSX JAP
             case 1080046 :
             case 2321393 : return LVL_TR3_CUT_12;
+        // TR4
+            case 4034313 : return LVL_TR4_ANGKOR1;
         }
 
         if (name) {
@@ -746,6 +871,7 @@ namespace TR {
             case VER_TR1 : return LVL_TR1_GYM;
             case VER_TR2 : return LVL_TR2_ASSAULT;
             case VER_TR3 : return LVL_TR3_HOUSE;
+            case VER_TR4 : return LVL_MAX;
         }
         ASSERT(false);
         return LVL_MAX;
@@ -806,6 +932,9 @@ namespace TR {
 
         if (Stream::existsContent("DATA/JUNGLE.PSX"))
             return VER_TR3_PSX;
+
+        if (Stream::existsContent("data/angkor1.tr4"))
+            return VER_TR4_PC;
 
         useEasyStart = false;
         return VER_UNKNOWN;
@@ -954,7 +1083,7 @@ namespace TR {
             lng[start] = lng[Core::settings.audio.language + 2];
         }
 
-        char buf[32];
+        char buf[64];
         for (int f = 0; f < COUNT(fmt); f++)
             for (int l = start; l < COUNT(lng); l++) {
                 strcpy(buf, pre);
@@ -1022,7 +1151,7 @@ namespace TR {
     }
 
     void getGameTrack(Version version, int track, Stream::Callback callback, void *userData) {
-        char title[32];
+        char title[64];
         if (useEasyStart) {
             switch (version) {
                 case VER_TR1_SAT :
@@ -1055,6 +1184,12 @@ namespace TR {
                 case VER_TR3_PSX :
                     callback(Sound::openCDAudioWAD("audio/cdaudio.wad", track), userData);
                     return;
+                case VER_TR4_PC  :
+                    sprintf(title, "audio/%03d_%s", track, TRACK_LIST_TR4[track - 1]);
+                    if (!checkTrack("", title)) {
+                        callback(NULL, userData);
+                    }
+                    break;
                 default : return;
             }
         } else {
