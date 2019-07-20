@@ -3085,9 +3085,9 @@ struct Level : IGame {
         Viewport       oldViewport = Core::viewportDef;
         GAPI::Texture *oldTarget   = Core::defaultTarget;
 
-        bool upsample = !invBG && Core::settings.detail.scale != Core::Settings::SCALE_100;
+        bool upscale = !invBG && Core::settings.detail.scale != Core::Settings::SCALE_100;
 
-        if (upsample) {
+        if (upscale) {
             int scale = (Core::settings.detail.scale + 1) * 25;
             int w = Core::width  * scale / 100;
             int h = Core::height * scale / 100;
@@ -3130,7 +3130,7 @@ struct Level : IGame {
         Core::defaultTarget = oldTarget;
         Core::viewportDef   = oldViewport;
 
-        if (!invBG && Core::settings.detail.scale != Core::Settings::SCALE_100) {
+        if (upscale) {
             mat4 mProj, mView;
             mView.identity();
             mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
@@ -3141,7 +3141,10 @@ struct Level : IGame {
             setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
             Core::active.shader->setParam(uParam, vec4(float(scaleTex->width), float(scaleTex->height), 0.0f, 0.0f));
             scaleTex->bind(sDiffuse);
+            Core::setDepthTest(false);
             mesh->renderQuad();
+            Core::setDepthTest(true);
+            Core::setDepthWrite(true);
         }
 
         // TODO render all UI with native resolution here
