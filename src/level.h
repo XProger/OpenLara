@@ -43,6 +43,7 @@ struct Level : IGame {
     Lara        *players[2], *player;
     Camera      *camera;
     Texture     *shadow[2];
+    Texture     *scaleTex;
 
     struct Params {
         float   time;
@@ -922,6 +923,7 @@ struct Level : IGame {
         initEntities();
 
         shadow[0] = shadow[1] = NULL;
+        scaleTex     = NULL;
         camera       = NULL;
         ambientCache = NULL;
         waterCache   = NULL;
@@ -991,6 +993,7 @@ struct Level : IGame {
 
         delete shadow[0];
         delete shadow[1];
+        delete scaleTex;
         delete ambientCache;
         delete waterCache;
         delete zoneCache;
@@ -3079,6 +3082,23 @@ struct Level : IGame {
     }
 
     void renderGame(bool showUI, bool invBG) {
+        Viewport       oldViewport = Core::viewportDef;
+        GAPI::Texture *oldTarget   = Core::defaultTarget;
+
+        bool upsample = !invBG && Core::settings.detail.scale != Core::Settings::SCALE_100;
+
+        if (upsample) {
+            int scale = (Core::settings.detail.scale + 1) * 25;
+            int w = Core::width  * scale / 100;
+            int h = Core::height * scale / 100;
+            if (!scaleTex || scaleTex->width != w || scaleTex->height != h) {
+                delete scaleTex;
+                scaleTex = new Texture(w, h, 1, FMT_RGBA, OPT_TARGET);
+            }
+            Core::defaultTarget = scaleTex;
+            Core::viewportDef   = Viewport(0, 0, w, h);
+        }
+
         if (Core::eye == 0.0f && Core::settings.detail.isStereo()) {
             renderEye(-1, showUI, invBG);
             renderEye(+1, showUI, invBG);
@@ -3086,13 +3106,13 @@ struct Level : IGame {
             renderEye(int(Core::eye), showUI, invBG);
         }
 
-        if (Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH && !invBG) {
+        if (!invBG && Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
             mat4 mProj, mView;
             mView.identity();
             mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
             mProj.scale(vec3(1.0f / 32767.0f));
             Core::setViewProj(mView, mProj);
-\
+
             Core::setDepthTest(false);
             Core::setDepthWrite(false);
 
@@ -3106,6 +3126,25 @@ struct Level : IGame {
             Core::setDepthTest(true);
             Core::setDepthWrite(true);
         }
+
+        Core::defaultTarget = oldTarget;
+        Core::viewportDef   = oldViewport;
+
+        if (!invBG && Core::settings.detail.scale != Core::Settings::SCALE_100) {
+            mat4 mProj, mView;
+            mView.identity();
+            mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
+            mProj.scale(vec3(1.0f / 32767.0f));
+            Core::setViewProj(mView, mProj);
+
+            Core::setTarget(NULL, NULL, RT_STORE_COLOR);
+            setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
+            Core::active.shader->setParam(uParam, vec4(float(scaleTex->width), float(scaleTex->height), 0.0f, 0.0f));
+            scaleTex->bind(sDiffuse);
+            mesh->renderQuad();
+        }
+
+        // TODO render all UI with native resolution here
     }
 
     void renderUI() {

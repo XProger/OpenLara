@@ -229,12 +229,13 @@ namespace Core {
     #endif
     } support;
 
-#define SETTINGS_VERSION 6
+#define SETTINGS_VERSION 7
 #define SETTINGS_READING 0xFF
 
     struct Settings {
         enum Quality  { LOW, MEDIUM, HIGH };
         enum Stereo   { STEREO_OFF, STEREO_SBS, STEREO_ANAGLYPH, STEREO_SPLIT, STEREO_VR };
+        enum Scale    { SCALE_25, SCALE_50, SCALE_75, SCALE_100 };
 
         uint8 version;
 
@@ -249,6 +250,7 @@ namespace Core {
                 uint8 quality[4];
             };
             uint8 simple;
+            uint8 scale;
             uint8 vsync;
             uint8 stereo;
             void setFilter(Quality value) {
@@ -812,6 +814,7 @@ namespace Core {
         settings.detail.simple       = false;
         settings.detail.vsync        = true;
         settings.detail.stereo       = Settings::STEREO_OFF;
+        settings.detail.scale        = Settings::SCALE_100;
         settings.audio.music         = 14;
         settings.audio.sound         = 14;
         settings.audio.reverb        = true;

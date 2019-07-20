@@ -73,6 +73,8 @@ const char *STR_PT[] = { ""
     , "VSync"
     , "Est)ereo"
     , "Itens Simples"
+    , "Resolution"
+    , STR_SCALE
 // sound options
     , "Configurar o Volume"
     , "Revertebra|c+ao"

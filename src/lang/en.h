@@ -1,7 +1,7 @@
 #ifndef H_LANG_EN
 #define H_LANG_EN
 
-// Thanks: Nancy Charlton
+// Thanks: Nancy Charlton, Vague Rant
 
 const char *STR_EN[] = { ""
 // help
@@ -73,6 +73,8 @@ const char *STR_EN[] = { ""
     , "VSync"
     , "Stereo"
     , "Simple Items"
+    , "Resolution"
+    , STR_SCALE
 // sound options
     , "Set Volumes"
     , "Reverberation"

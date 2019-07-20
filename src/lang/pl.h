@@ -73,6 +73,8 @@ const char *STR_PL[] = { ""
     , "VSync"
     , "Stereoskopia"
     , "Proste przedmioty"
+    , "Resolution"
+    , STR_SCALE
 // sound options
     , "Ustaw g}lo)sno)s)c"
     , "Pog}los"

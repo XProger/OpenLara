@@ -80,6 +80,11 @@ enum StringID {
     , STR_OPT_DETAIL_VSYNC
     , STR_OPT_DETAIL_STEREO
     , STR_OPT_SIMPLE_ITEMS
+    , STR_OPT_RESOLUTION
+    , STR_SCALE_100
+    , STR_SCALE_75
+    , STR_SCALE_50
+    , STR_SCALE_25
 // sound options
     , STR_SET_VOLUMES
     , STR_REVERBERATION
@@ -269,6 +274,8 @@ enum StringID {
     , "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" \
     , "-", "+", "<", ">", "/", "\\", ",", ".", "$", ":", "'", "PGUP", "PGDN", "HOME", "END", "DEL", "INS", "BKSP" \
     , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+
+#define STR_SCALE "25", "50", "75", "100"
 
 const char *helpText = 
     "Start - add second player or restore Lara@"
