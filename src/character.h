@@ -272,7 +272,7 @@ struct Character : Controller {
     }
 
     void addSparks(uint32 mask) {
-        Sphere spheres[MAX_SPHERES];
+        Sphere spheres[MAX_JOINTS];
         int count = getSpheres(spheres);
         for (int i = 0; i < count; i++)
             if (mask & (1 << i)) {

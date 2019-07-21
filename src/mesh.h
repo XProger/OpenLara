@@ -166,6 +166,8 @@ struct MeshBuilder {
     struct ModelRange {
         int      parts[3][32];
         Geometry geometry[3];
+        int      vStart;
+        int      vCount;
     } *models;
 
 // procedured
@@ -260,8 +262,10 @@ struct MeshBuilder {
         }
 
     // get models info
+        int vStartModel = vCount;
         models = new ModelRange[level->modelsCount];
         for (int i = 0; i < level->modelsCount; i++) {
+            models[i].vStart = vCount;
             TR::Model &model = level->models[i];
             for (int j = 0; j < model.mCount; j++) {
                 int index = level->meshOffsets[model.mStart + j];
@@ -271,6 +275,8 @@ struct MeshBuilder {
                 iCount += (mesh.rCount * 6 + mesh.tCount * 3) * DOUBLE_SIDED;
                 vCount += (mesh.rCount * 4 + mesh.tCount * 3);
             }
+            models[i].vCount = vCount - models[i].vStart;
+            models[i].vStart -= vStartModel;
         }
 
     // shadow blob mesh (8 triangles, 8 vertices)
@@ -381,12 +387,11 @@ struct MeshBuilder {
         ASSERT(vCount - vStartRoom <= 0xFFFF);
 
     // build models geometry
-        int vStartModel = vCount;
+        vStartModel = vCount;
         aCount++;
 
         for (int i = 0; i < level->modelsCount; i++) {
             TR::Model &model = level->models[i];
-
             int vCountStart = vCount;
 
             for (int transp = 0; transp < 3; transp++) {
@@ -442,6 +447,9 @@ struct MeshBuilder {
                 }
             }
         }
+
+        weldSkinJoints(vertices + vStartModel);
+
         ASSERT(vCount - vStartModel <= 0xFFFF);
 
     // build common primitives
@@ -686,6 +694,69 @@ struct MeshBuilder {
                 return true;
         }
         return false;
+    }
+
+    void weldSkinJoints(Vertex *vertices) {
+        if (level->extra.laraSkin == -1 || level->extra.laraJoints == -1) {
+            return;
+        }
+        int t = Core::getTime();
+        ASSERT(level->models[level->extra.laraSkin].mCount == level->models[level->extra.laraJoints].mCount);
+
+        const TR::Model *model = level->models + level->extra.laraSkin;
+        const TR::Node  *node  = (TR::Node*)level->nodesData + model->node;
+
+        int sIndex = 0;
+        short4 stack[16];
+        short4 pos(0, 0, 0, 0);
+        short4 jointsPos[MAX_JOINTS];
+
+        for (int i = 0; i < model->mCount; i++) {
+            if (i > 0 && node) {
+                const TR::Node &t = node[i - 1];
+                if (t.flags & 0x01) pos = stack[--sIndex];
+                if (t.flags & 0x02) stack[sIndex++] = pos;
+                pos.x += t.x;
+                pos.y += t.y;
+                pos.z += t.z;
+            }
+            jointsPos[i] = pos;
+        }
+
+        const ModelRange &rangeSkin   = models[level->extra.laraSkin];
+        const ModelRange &rangeJoints = models[level->extra.laraJoints];
+
+        #define COORD_FILL(VAR,RANGE)\
+            short4 *VAR = new short4[RANGE.vCount];\
+            for (int i = 0; i < RANGE.vCount; i++) {\
+                VAR[i] = vertices[RANGE.vStart + i].coord;\
+                VAR[i].x += jointsPos[VAR[i].w].x;\
+                VAR[i].y += jointsPos[VAR[i].w].y;\
+                VAR[i].z += jointsPos[VAR[i].w].z;\
+            }
+
+        COORD_FILL(vSkin,   rangeSkin);
+        COORD_FILL(vJoints, rangeJoints);
+
+        // bruteforce :(
+        for (int j = 0; j < rangeJoints.vCount; j++) {
+            for (int i = 0; i < rangeSkin.vCount; i++) {
+                if (abs(vSkin[i].x - vJoints[j].x) <= 1 &&
+                    abs(vSkin[i].y - vJoints[j].y) <= 1 &&
+                    abs(vSkin[i].z - vJoints[j].z) <= 1) { // compare position
+                    vertices[rangeJoints.vStart + j].coord  = vertices[rangeSkin.vStart + i].coord; // set bone index
+                    vertices[rangeJoints.vStart + j].normal = vertices[rangeSkin.vStart + i].normal;
+                    break;
+                }
+            }
+        }
+
+        delete[] vSkin;
+        delete[] vJoints;
+
+        #undef COORD_FILL
+
+        LOG("remap joints: %d\n", Core::getTime() - t);
     }
 
     int calcWaterLevel(int16 roomIndex, bool flip) {

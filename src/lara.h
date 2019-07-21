@@ -1506,7 +1506,7 @@ struct Lara : Character {
         if (box.intersect(m, from, v, t)) {
             t *= v.length();
             v = v.normal();
-            Sphere spheres[MAX_SPHERES];
+            Sphere spheres[MAX_JOINTS];
             int count = target->getSpheres(spheres);
             for (int i = 0; i < count; i++) {
                 float st;
@@ -3779,6 +3779,16 @@ struct Lara : Character {
         if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
             visibleMask &= ~JOINT_MASK_HEAD;
         Controller::render(frustum, mesh, type, caustics);
+
+        if (level->extra.laraJoints > -1) {
+            const TR::Model *model = getModel();
+            for (int i = 0; i < model->mCount; i++) {
+                joints[i].w = 1.0f;
+            }
+            Core::setBasis(joints, model->mCount);
+            mesh->renderModel(level->extra.laraJoints, caustics); 
+        }
+
         visibleMask = visMask;
 
         if (braid)

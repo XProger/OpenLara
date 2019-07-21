@@ -9,6 +9,7 @@
 #define MAX_TRIGGER_COMMANDS  32
 #define MAX_MESHES            512
 #define MAX_WEAPONS           4
+#define MAX_JOINTS            32
 
 // Lara's height in units / height in meters
 #define ONE_METER             (768.0f / 1.8f)
@@ -2405,7 +2406,7 @@ namespace TR {
                 REMAP_4( AI_MODIFY            );
                 REMAP_4( AI_FOLLOW            );
                 REMAP_4( KILL_ALL_TRIGGERS    );
-                REMAP_4( GLYPHS               );
+                //REMAP_4( GLYPHS               );
                 REMAP_4( MISC_SPRITES         );
 
                 default : return type;
@@ -3107,6 +3108,7 @@ namespace TR {
             int16 braid;
             int16 laraSpec;
             int16 laraSkin;
+            int16 laraJoints;
             int16 meshSwap[3];
             int16 sky;
             int16 smoke;
@@ -4778,6 +4780,7 @@ namespace TR {
                     case Entity::LARA_BRAID          : extra.braid           = i; break;
                     case Entity::LARA_SPEC           : extra.laraSpec        = i; break;
                     case Entity::LARA_SKIN           : extra.laraSkin        = i; break;
+                    case Entity::LARA_SKIN_JOINTS    : extra.laraJoints      = i; break;
                     case Entity::CUT_1               : extra.meshSwap[0]     = i; break;
                     case Entity::CUT_2               : extra.meshSwap[1]     = i; break;
                     case Entity::CUT_3               : extra.meshSwap[2]     = i; break;
@@ -4839,7 +4842,7 @@ namespace TR {
                     default : ;
                 }
 
-            ASSERT(extra.glyphs != -1);
+            //ASSERT(extra.glyphs != -1);
         }
 
         void initCutscene() {

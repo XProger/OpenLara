@@ -795,7 +795,7 @@ namespace UI {
         vec3 lightOffset = vec3(UI::width - 64.0f, UI::height - 64.0f, 2048.0f);
         setupInventoryShading(lightOffset);
 
-        Basis joints[MAX_SPHERES];
+        Basis joints[MAX_JOINTS];
 
         Core::setDepthTest(true);
         Core::setDepthWrite(true);

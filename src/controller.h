@@ -10,7 +10,6 @@
 #define SPRITE_FPS  10.0f
 
 #define MAX_LAYERS  4
-#define MAX_SPHERES 32
 
 #define UNLIMITED_AMMO  10000
 
@@ -831,7 +830,7 @@ struct Controller {
 
     int getSpheres(Sphere *spheres) {
         const TR::Model *m = getModel();
-        ASSERT(m->mCount <= MAX_SPHERES);
+        ASSERT(m->mCount <= MAX_JOINTS);
 
         int jFrame = jointsFrame;
         updateJoints();
@@ -848,7 +847,7 @@ struct Controller {
     }
 
     Box getSpheresBox(bool local = false) {
-        Sphere spheres[MAX_SPHERES];
+        Sphere spheres[MAX_JOINTS];
         int count = getSpheres(spheres);
         if (count) {
 
@@ -880,8 +879,8 @@ struct Controller {
         ASSERT(a->mCount <= 34);
         ASSERT(b->mCount <= 34);
 
-        Sphere aSpheres[MAX_SPHERES];
-        Sphere bSpheres[MAX_SPHERES];
+        Sphere aSpheres[MAX_JOINTS];
+        Sphere bSpheres[MAX_JOINTS];
 
         int aCount = getSpheres(aSpheres);
         int bCount = controller->getSpheres(bSpheres);

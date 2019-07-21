@@ -545,7 +545,7 @@ struct Inventory {
 
             TR::Level *level = game->getLevel();
             TR::Model &m     = level->models[desc.model];
-            Basis joints[MAX_SPHERES];
+            Basis joints[MAX_JOINTS];
 
             mat4 matrix;
             matrix.identity();

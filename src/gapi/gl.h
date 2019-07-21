@@ -4,7 +4,7 @@
 #include "core.h"
 
 #if defined(_DEBUG) || defined(PROFILE)
-    //#define _DEBUG_SHADERS
+    //#define _DEBUG_SHADERS "../../OpenLara/src/shaders/"
 #endif
 
 #ifdef _OS_WIN
@@ -521,13 +521,13 @@ namespace GAPI {
             #ifdef _DEBUG_SHADERS
                 Stream *stream = NULL;
                 switch (pass) {
-                    case Core::passCompose : stream = new Stream("../../src/shaders/compose.glsl"); break;
-                    case Core::passShadow  : stream = new Stream("../../src/shaders/shadow.glsl");  break;
-                    case Core::passAmbient : stream = new Stream("../../src/shaders/ambient.glsl"); break;
-                    case Core::passSky     : stream = new Stream("../../src/shaders/sky.glsl");     break;
-                    case Core::passWater   : stream = new Stream("../../src/shaders/water.glsl");   break;
-                    case Core::passFilter  : stream = new Stream("../../src/shaders/filter.glsl");  break;
-                    case Core::passGUI     : stream = new Stream("../../src/shaders/gui.glsl");     break;
+                    case Core::passCompose : stream = new Stream(_DEBUG_SHADERS "compose.glsl"); break;
+                    case Core::passShadow  : stream = new Stream(_DEBUG_SHADERS "shadow.glsl");  break;
+                    case Core::passAmbient : stream = new Stream(_DEBUG_SHADERS "ambient.glsl"); break;
+                    case Core::passSky     : stream = new Stream(_DEBUG_SHADERS "sky.glsl");     break;
+                    case Core::passWater   : stream = new Stream(_DEBUG_SHADERS "water.glsl");   break;
+                    case Core::passFilter  : stream = new Stream(_DEBUG_SHADERS "filter.glsl");  break;
+                    case Core::passGUI     : stream = new Stream(_DEBUG_SHADERS "gui.glsl");     break;
                     default                : ASSERT(false);  return;
                 }
                 

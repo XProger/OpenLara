@@ -3052,7 +3052,7 @@ struct Level : IGame {
                 setDefaultTarget(eye, view, invBG);
 
                 if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
-                    camera->aspect = setViewport(invBG ? -1 : view, invBG ? 0 : eye);               
+                    camera->aspect = setViewport(invBG ? -1 : view, invBG ? 0 : eye);
                 } else {
                     camera->aspect = setViewport(view, invBG ? 0 : eye);
                 }

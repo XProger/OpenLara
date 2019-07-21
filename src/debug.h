@@ -624,7 +624,7 @@ namespace Debug {
                 Box box = controller->getBoundingBoxLocal();
                 Debug::Draw::box(matrix, box.min, box.max, bboxIntersect ? vec4(1, 0, 0, 1): vec4(1));
 
-                Sphere spheres[MAX_SPHERES];
+                Sphere spheres[MAX_JOINTS];
                 int count = controller->getSpheres(spheres);
 
                 for (int joint = 0; joint < count; joint++) {
