@@ -419,7 +419,7 @@ struct Lara : Character {
                 if (joints[j].pos.y > info.floor)
                     joints[j].pos.y = info.floor;
 
-            #define BRAID_RADIUS 16.0f
+            #define BRAID_RADIUS 0.0f
 
             lara->updateJoints();
 
@@ -557,14 +557,14 @@ struct Lara : Character {
                     break;
                 case TR::VER_TR2 :
                 case TR::VER_TR3 :
-                    braid[0] = new Braid(this, vec3(-2.0f, -16.0f, -48.0f));
+                    braid[0] = new Braid(this, vec3(0.0f, -23.0f, -55.0f));
                     break;
                 case TR::VER_TR4 :
                     if (isYoung()) {
                         braid[0] = new Braid(this, vec3(-32.0f, -48.0f, -32.0f));
                         braid[1] = new Braid(this, vec3( 32.0f, -48.0f, -32.0f));
                     } else {
-                        braid[0] = new Braid(this, vec3(-2.0f, -16.0f, -48.0f));
+                        braid[0] = new Braid(this, vec3(0.0f, -23.0f, -32.0f));
                     }
                     break;
             }

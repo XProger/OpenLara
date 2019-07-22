@@ -166,8 +166,8 @@
 			</script>
 
 			<div id="info">
-				<input type="file" id="browseFile" style="display:none" accept=".phd,.psx, .tr2" onchange="readLevel(event)" />
-				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2)&nbsp;
+				<input type="file" id="browseFile" style="display:none" accept=".phd,.psx, .tr2, .tr4" onchange="readLevel(event)" />
+				<input type="button" value="Browse Level" onclick="document.getElementById('browseFile').click();" /> (.PHD, .PSX, .TR2, .TR4)&nbsp;
 				<!--
 				<input type="button" value="Backup Saves" onclick="backupSaves();" />
 				<input type="button" value="Restore Saves" onclick="restoreSaves();" />
