@@ -141,7 +141,44 @@ namespace TR {
         LVL_TR3_CHAMBER,
         LVL_TR3_STPAUL,
     // TR4
+        LVL_TR4_TITLE,
         LVL_TR4_ANGKOR1,
+        LVL_TR4_ANG_RACE,
+        LVL_TR4_SETTOMB1,
+        LVL_TR4_SETTOMB2,
+        LVL_TR4_JEEPCHAS,
+        LVL_TR4_JEEPCHS2,
+        LVL_TR4_KARNAK1,
+        LVL_TR4_HALL,
+        LVL_TR4_LAKE,
+        LVL_TR4_SEMER,
+        LVL_TR4_SEMER2,
+        LVL_TR4_TRAIN,
+        LVL_TR4_ALEXHUB,
+        LVL_TR4_ALEXHUB2,
+        LVL_TR4_PALACES,
+        LVL_TR4_PALACES2,
+        LVL_TR4_CSPLIT1,
+        LVL_TR4_CSPLIT2,
+        LVL_TR4_LIBRARY,
+        LVL_TR4_LIBEND,
+        LVL_TR4_BIKEBIT,
+        LVL_TR4_NUTRENCH,
+        LVL_TR4_CORTYARD,
+        LVL_TR4_LOWSTRT,
+        LVL_TR4_HIGHSTRT,
+        LVL_TR4_CITNEW,
+        LVL_TR4_JOBY1A,
+        LVL_TR4_JOBY1B,
+        LVL_TR4_JOBY2,
+        LVL_TR4_JOBY3A,
+        LVL_TR4_JOBY3B,
+        LVL_TR4_JOBY4A,
+        LVL_TR4_JOBY4B,
+        LVL_TR4_JOBY4C,
+        LVL_TR4_JOBY5A,
+        LVL_TR4_JOBY5B,
+        LVL_TR4_JOBY5C,
 
         LVL_MAX,
     };
@@ -202,7 +239,17 @@ namespace TR {
         TRACK_TR3_CUT_11    = 71,
         TRACK_TR3_CUT_12    = 66,
     // TR4
-        TRACK_TR4_OUT_DAY   = 106,
+        TRACK_TR4_BOSS      = 97,
+        TRACK_TR4_JEEP      = 98,
+        TRACK_TR4_BATTLE    = 102,
+        TRACK_TR4_TITLE     = 104,
+        TRACK_TR4_COASTAL   = 105,
+        TRACK_TR4_TRAIN     = 106,
+        TRACK_TR4_IN_DARK   = 107,
+        TRACK_TR4_IN_DRIPS  = 108,
+        TRACK_TR4_WEIRD1    = 109,
+        TRACK_TR4_OUT_DAY   = 110,
+        TRACK_TR4_OUT_NIGHT = 111,
     };
 
 //    #define LEVEL (version,name,track) { #name, STR_##version##_##name, TRACK_##version##track },
@@ -300,122 +347,159 @@ namespace TR {
         { "CHAMBER"   , STR_TR3_CHAMBER   , TRACK_TR3_ANTARC_3  },
         { "STPAUL"    , STR_TR3_STPAUL    , TRACK_TR3_CAVES     },
     // TR4
-        { "ANGKOR1"   , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "title"     , STR_UNKNOWN       , TRACK_TR4_TITLE     },
+        { "angkor1"   , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "ang_race"  , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "settomb1"  , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "settomb2"  , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "jeepchas"  , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "jeepchs2"  , STR_UNKNOWN       , TRACK_TR4_JEEP      },
+        { "karnak1"   , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "hall"      , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "lake"      , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "semer"     , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "semer2"    , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "train"     , STR_UNKNOWN       , TRACK_TR4_TRAIN     },
+        { "alexhub"   , STR_UNKNOWN       , TRACK_TR4_OUT_DAY   },
+        { "alexhub2"  , STR_UNKNOWN       , TRACK_TR4_COASTAL   },
+        { "palaces"   , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "palaces2"  , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "csplit1"   , STR_UNKNOWN       , TRACK_TR4_IN_DRIPS  },
+        { "csplit2"   , STR_UNKNOWN       , TRACK_TR4_IN_DRIPS  },
+        { "library"   , STR_UNKNOWN       , TRACK_TR4_IN_DRIPS  },
+        { "libend"    , STR_UNKNOWN       , TRACK_TR4_WEIRD1    },
+        { "bikebit"   , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "nutrench"  , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "cortyard"  , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "lowstrt"   , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "highstrt"  , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "citnew"    , STR_UNKNOWN       , TRACK_TR4_BATTLE    },
+        { "joby1a"    , STR_UNKNOWN       , TRACK_TR4_OUT_NIGHT },
+        { "joby1b"    , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "joby2"     , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "joby3a"    , STR_UNKNOWN       , TRACK_TR4_OUT_NIGHT },
+        { "joby3b"    , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "joby4a"    , STR_UNKNOWN       , TRACK_TR4_OUT_NIGHT },
+        { "joby4b"    , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "joby4c"    , STR_UNKNOWN       , TRACK_TR4_OUT_NIGHT },
+        { "joby5a"    , STR_UNKNOWN       , TRACK_TR4_IN_DARK   },
+        { "joby5b"    , STR_UNKNOWN       , TRACK_TR4_BOSS      },
+        { "joby5c"    , STR_UNKNOWN       , TRACK_TR4_IN_DRIPS  },
     };
 
     static const char* TRACK_LIST_TR4[] = {
-        "VonCroy2",
-        "VonCroy3",
-        "VonCroy4",
-        "VonCroy5",
-        "VonCroy6_Lara2",
-        "VonCroy7",
-        "VonCroy8",
-        "VonCroy9a",
-        "VonCroy9b_Lara3",
-        "VonCroy10",
-        "VonCroy11a",
-        "VonCroy11b",
-        "VonCroy12_13a_Lara4",
-        "VonCroy13b",
-        "VonCroy14",
-        "VonCroy15",
-        "VonCroy16_lara5",
-        "VonCroy17",
-        "Lara6_VonCroy18",
-        "VonCroy19",
-        "VC20_L7_VC21_L8_VC22a",
-        "VonCroy22b",
-        "VonCroy23",
-        "VonCroy24a",
-        "VonCroy24b",
-        "VC25_L9_VC26_L10",
-        "VonCroy27",
-        "VonCroy28_L11",
-        "VonCroy29",
-        "VonCroy30",
-        "VonCroy31_L12",
-        "VonCroy32_L13",
-        "VonCroy33",
-        "VonCroy34",
-        "VonCroy35",
-        "VonCroy36",
-        "VC37_L15_VC38",
-        "A_Short_01",
-        "TR4_Title_Q10",
-        "Action_Part_ii",
-        "Action_Part_iii",
-        "Action_Part_iv",
-        "Action_Part_v",
-        "Attack_part_i",
-        "Authentic_TR",
-        "Boss_01",
-        "Boss_02",
-        "Close_to_the_End",
-        "Close_to_the_End_part_ii",
-        "Underwater_Find_part_i",
-        "Egyptian_Mood_Part_i",
-        "Egyptian_Mood_Part_ii",
-        "General_Part_i",
-        "General_Part_ii",
-        "General_Part_iii",
-        "General_Part_iv",
-        "General_Part_v",
-        "Gods_Part_i",
-        "Gods_Part_ii",
-        "Gods_Part_iii",
-        "In_The_Pyramid_Part_i",
-        "Jeep_Thrills_max",
-        "Misc_Inc_01",
-        "Misc_Inc_02",
-        "Misc_Inc_03",
-        "Misc_Inc_04",
-        "Mystery_Part_i",
-        "Mystery_Part_ii",
-        "Mystery_Part_iii",
-        "Mystery_Part_iv",
-        "Ominous_Part_i",
-        "Puzzle_part_i",
-        "Secret",
-        "backpack",
-        "captain1",
-        "captain2",
-        "crocgod",
-        "croywon",
-        "crypt1",
-        "crypt2",
-        "dig",
-        "finale",
-        "horus",
-        "inscrip",
-        "intro",
-        "jeepA",
-        "jeepB",
-        "key",
-        "larawon",
-        "libend",
-        "minilib1",
-        "minilib2",
-        "minilib3",
-        "minilib4",
-        "phildoor",
-        "sarcoph",
-        "scorpion",
-        "throne",
-        "whouse",
-        "Attack_part_ii",
-        "A1_In_Dark",
-        "A2_In_Drips",
-        "A3_Out_Night",
-        "A4_Weird1",
-        "A5_Battle",
-        "A6_Out_Day",
-        "A7_Train+",
-        "A8_Coastal",
-        "Lyre_01",
-        "Lyre_02",
-        "charmer",
-        "Gods_part_iv"
+          "044_Attack_part_i"
+        , "008_VonCroy9a"
+        , "100_Attack_part_ii"
+        , "010_VonCroy10"
+        , "015_VonCroy14"
+        , "073_Secret"
+        , "109_Lyre_01"
+        , "042_Action_Part_iv"
+        , "043_Action_Part_v"
+        , "030_VonCroy30"
+        , "012_VonCroy11b"
+        , "011_VonCroy11a"
+        , "063_Misc_Inc_01"
+        , "014_VonCroy13b"
+        , "111_charmer"
+        , "025_VonCroy24b"
+        , "023_VonCroy23"
+        , "006_VonCroy7"
+        , "024_VonCroy24a"
+        , "110_Lyre_02"
+        , "020_VonCroy19"
+        , "034_VonCroy34"
+        , "054_General_Part_ii"
+        , "036_VonCroy36"
+        , "004_VonCroy5"
+        , "035_VonCroy35"
+        , "027_VonCroy27"
+        , "053_General_Part_i"
+        , "022_VonCroy22b"
+        , "028_VonCroy28_L11"
+        , "003_VonCroy4"
+        , "001_VonCroy2"
+        , "041_Action_Part_iii"
+        , "057_General_Part_v"
+        , "018_VonCroy17"
+        , "064_Misc_Inc_02"
+        , "033_VonCroy33"
+        , "031_VonCroy31_L12"
+        , "032_VonCroy32_L13"
+        , "016_VonCroy15"
+        , "065_Misc_Inc_03"
+        , "040_Action_Part_ii"
+        , "112_Gods_part_iv"
+        , "029_VonCroy29"
+        , "007_VonCroy8"
+        , "013_VonCroy12_13a_Lara4"
+        , "009_VonCroy9b_Lara3"
+        , "081_dig"
+        , "085_intro"
+        , "071_Ominous_Part_i"
+        , "095_phildoor"
+        , "061_In_The_Pyramid_Part_i"
+        , "050_Underwater_Find_part_i"
+        , "058_Gods_Part_i"
+        , "005_VonCroy6_Lara2"
+        , "045_Authentic_TR"
+        , "060_Gods_Part_iii"
+        , "055_General_Part_iii"
+        , "059_Gods_Part_ii"
+        , "068_Mystery_Part_ii"
+        , "076_captain2"
+        , "019_Lara6_VonCroy18"
+        , "002_VonCroy3"
+        , "066_Misc_Inc_04"
+        , "067_Mystery_Part_i"
+        , "038_A_Short_01"
+        , "088_key"
+        , "017_VonCroy16_lara5"
+        , "026_VC25_L9_VC26_L10"
+        , "056_General_Part_iv"
+        , "021_VC20_L7_VC21_L8_VC22a"
+        , "096_sarcoph"
+        , "087_jeepB"
+        , "091_minilib1"
+        , "086_jeepA"
+        , "051_Egyptian_Mood_Part_i"
+        , "078_croywon"
+        , "092_minilib2"
+        , "083_horus"
+        , "049_Close_to_the_End_part_ii"
+        , "037_VC37_L15_VC38"
+        , "097_scorpion"
+        , "089_larawon"
+        , "094_minilib4"
+        , "098_throne"
+        , "048_Close_to_the_End"
+        , "070_Mystery_Part_iv"
+        , "093_minilib3"
+        , "072_Puzzle_part_i"
+        , "074_backpack"
+        , "069_Mystery_Part_iii"
+        , "052_Egyptian_Mood_Part_ii"
+        , "084_inscrip"
+        , "099_whouse"
+        , "047_Boss_02"
+        , "080_crypt2"
+        , "090_libend"
+        , "046_Boss_01"
+        , "062_Jeep_Thrills_max"
+        , "079_crypt1"
+        , "082_finale"
+        , "075_captain1"
+        , "105_A5_Battle"
+        , "077_crocgod"
+        , "039_TR4_Title_Q10"
+        , "108_A8_Coastal"
+        , "107_A7_Train+"
+        , "101_A1_In_Dark"
+        , "102_A2_In_Drips"
+        , "104_A4_Weird1"
+        , "106_A6_Out_Day"
+        , "103_A3_Out_Night"
     };
 
     Version getGameVersionByLevel(LevelID id) {
@@ -425,7 +509,7 @@ namespace TR {
             return VER_TR2;
         if (id >= LVL_TR3_TITLE && id <= LVL_TR3_STPAUL)
             return VER_TR3;
-        if (id >= LVL_TR4_ANGKOR1 && id < LVL_MAX)
+        if (id >= LVL_TR4_TITLE && id <= LVL_TR4_JOBY5C)
             return VER_TR4;
         return VER_UNKNOWN;
     }
@@ -813,7 +897,44 @@ namespace TR {
             case 1080046 :
             case 2321393 : return LVL_TR3_CUT_12;
         // TR4
+            case 3007155 : return LVL_TR4_TITLE;
             case 4034313 : return LVL_TR4_ANGKOR1;
+            case 4343019 : return LVL_TR4_ANG_RACE;
+            case 3715110 : return LVL_TR4_SETTOMB1;
+            case 3868566 : return LVL_TR4_SETTOMB2;
+            case 3600478 : return LVL_TR4_JEEPCHAS;
+            case 4826055 : return LVL_TR4_JEEPCHS2;
+            case 4773596 : return LVL_TR4_KARNAK1;
+            case 4882065 : return LVL_TR4_HALL;
+            case 5021843 : return LVL_TR4_LAKE;
+            case 4409367 : return LVL_TR4_SEMER;
+            case 4294398 : return LVL_TR4_SEMER2;
+            case 3246177 : return LVL_TR4_TRAIN;
+            case 4007946 : return LVL_TR4_ALEXHUB;
+            case 4735043 : return LVL_TR4_ALEXHUB2;
+            case 4549992 : return LVL_TR4_PALACES;
+            case 4779709 : return LVL_TR4_PALACES2;
+            case 4570232 : return LVL_TR4_CSPLIT1;
+            case 4838007 : return LVL_TR4_CSPLIT2;
+            case 4606099 : return LVL_TR4_LIBRARY;
+            case 3240517 : return LVL_TR4_LIBEND;
+            case 5013974 : return LVL_TR4_BIKEBIT;
+            case 4260336 : return LVL_TR4_NUTRENCH;
+            case 4989001 : return LVL_TR4_CORTYARD;
+            case 3970465 : return LVL_TR4_LOWSTRT;
+            case 4725022 : return LVL_TR4_HIGHSTRT;
+            case 4776907 : return LVL_TR4_CITNEW;
+            case 5011064 : return LVL_TR4_JOBY1A;
+            case 4544163 : return LVL_TR4_JOBY1B;
+            case 4839409 : return LVL_TR4_JOBY2;
+            case 4433722 : return LVL_TR4_JOBY3A;
+            case 5141026 : return LVL_TR4_JOBY3B;
+            case 4786641 : return LVL_TR4_JOBY4A;
+            case 4401690 : return LVL_TR4_JOBY4B;
+            case 4999677 : return LVL_TR4_JOBY4C;
+            case 3741579 : return LVL_TR4_JOBY5A;
+            case 4623726 : return LVL_TR4_JOBY5B;
+            case 4398142 : return LVL_TR4_JOBY5C;
         }
 
         if (name) {
@@ -861,6 +982,7 @@ namespace TR {
             case VER_TR1 : return LVL_TR1_TITLE;
             case VER_TR2 : return LVL_TR2_TITLE;
             case VER_TR3 : return LVL_TR3_TITLE;
+            case VER_TR4 : return LVL_TR4_TITLE;
         }
         return LVL_TR1_TITLE;
         ASSERT(false);
@@ -882,6 +1004,7 @@ namespace TR {
             case VER_TR1 : return LVL_TR1_1;
             case VER_TR2 : return LVL_TR2_WALL;
             case VER_TR3 : return LVL_TR3_JUNGLE;
+            case VER_TR4 : return LVL_TR4_ANGKOR1;
         }
         ASSERT(false);
         return LVL_MAX;
@@ -892,6 +1015,7 @@ namespace TR {
             case VER_TR1 : return LVL_TR1_10C;
             case VER_TR2 : return LVL_TR2_HOUSE;
             case VER_TR3 : return LVL_TR3_CHAMBER;
+            case VER_TR4 : return LVL_TR4_JOBY5C;
         }
         ASSERT(false);
         return LVL_MAX;
@@ -906,7 +1030,10 @@ namespace TR {
     }
 
     bool isTitleLevel(LevelID id) {
-        return id == LVL_TR1_TITLE || id == LVL_TR2_TITLE || id == LVL_TR3_TITLE;
+        return id == LVL_TR1_TITLE || 
+               id == LVL_TR2_TITLE ||
+               id == LVL_TR3_TITLE ||
+               id == LVL_TR4_TITLE;
     }
 
     bool isEmptyLevel(LevelID id) {
@@ -974,6 +1101,7 @@ namespace TR {
                 case VER_TR2_PSX : sprintf(dst, "DATA/%s.PSX", LEVEL_INFO[id].name); break;
                 case VER_TR3_PC  : sprintf(dst, isCutsceneLevel(id) ? "cuts/%s.TR2" : "data/%s.TR2", LEVEL_INFO[id].name); break;
                 case VER_TR3_PSX : sprintf(dst, isCutsceneLevel(id) ? "CUTS/%s.PSX" : "DATA/%s.PSX", LEVEL_INFO[id].name); break;
+                case VER_TR4_PC  : sprintf(dst, "DATA/%s.tr4", LEVEL_INFO[id].name); break;
                 default          : ASSERT(false);
             }
         } else {
@@ -1185,8 +1313,8 @@ namespace TR {
                     callback(Sound::openCDAudioWAD("audio/cdaudio.wad", track), userData);
                     return;
                 case VER_TR4_PC  :
-                    sprintf(title, "audio/%03d_%s", track, TRACK_LIST_TR4[track - 1]);
-                    if (!checkTrack("", title)) {
+                    strcpy(title, TRACK_LIST_TR4[track]);
+                    if (!checkTrack("audio/", title)) {
                         callback(NULL, userData);
                     }
                     break;

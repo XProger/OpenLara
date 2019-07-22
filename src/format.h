@@ -1555,6 +1555,9 @@ namespace TR {
             SOUNDTRACK      ,   // play soundtrack
             EFFECT          ,   // special effect trigger
             SECRET          ,   // secret found
+            CLEAR_BODIES    ,   // clear all dead bodies
+            FLYBY           ,   // play flyby camera sequence
+            CUTSCENE        ,   // play cutscene
         };
     };
 
@@ -1982,8 +1985,9 @@ namespace TR {
 
                 int D = (SQR(dx) + SQR(dy) + SQR(dz)) >> 12;
                 int R = SQR(light.radius >> 1) >> 12;
+                int M = max(1, D + R); // TODO TR4
 
-                int value = min(0x1FFF, (light.intensity * R) / (D + R) + ambientInv);
+                int value = min(0x1FFF, (light.intensity * R) / M + ambientInv);
 
                 if (maxValue < value) {
                     if (nearLight) {
@@ -3229,6 +3233,7 @@ namespace TR {
                 case VER_TR5_PC   : loadTR5_PC  (stream); break;
                 case VER_TR5_PSX  : loadTR5_PSX (stream); break;
                 case VER_TR5_SDC  : loadTR5_SDC (stream); break;
+                default           : ASSERT(false);
             }
 
             prepare();

@@ -498,10 +498,12 @@ struct Lara : Character {
             mesh->renderModel(lara->level->extra.braid);
         }
 
-    } *braid;
+    } *braid[2];
 
-    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE), braid(NULL) {
+    Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE) {
         camera = new Camera(game, this);
+
+        braid[0] = braid[1] = NULL;
 
         itemHolster  = TR::Entity::NONE;
         hitTimer     = 0.0f;
@@ -547,8 +549,26 @@ struct Lara : Character {
             arms[i].rotAbs    = quat(0, 0, 0, 1);
         }
 
-        if (level->extra.braid > -1)
-            braid = new Braid(this, (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? vec3(-2.0f, -16.0f, -48.0f) : vec3(-4.0f, 24.0f, -48.0f));
+        if (level->extra.braid > -1) {
+            vec3 offset(0.0f);
+            switch (level->version & TR::VER_VERSION) {
+                case TR::VER_TR1 :
+                    braid[0] = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
+                    break;
+                case TR::VER_TR2 :
+                case TR::VER_TR3 :
+                    braid[0] = new Braid(this, vec3(-2.0f, -16.0f, -48.0f));
+                    break;
+                case TR::VER_TR4 :
+                    if (isYoung()) {
+                        braid[0] = new Braid(this, vec3(-32.0f, -48.0f, -32.0f));
+                        braid[1] = new Braid(this, vec3( 32.0f, -48.0f, -32.0f));
+                    } else {
+                        braid[0] = new Braid(this, vec3(-2.0f, -16.0f, -48.0f));
+                    }
+                    break;
+            }
+        }
 
     // TR1
         //reset(14, vec3(40448, 3584, 60928), PI * 0.5f, STAND_ONWATER);  // gym (pool)
@@ -626,8 +646,13 @@ struct Lara : Character {
 
     virtual ~Lara() {
         delete camera;
-        delete braid;
+        delete braid[0];
+        delete braid[1];
         delete environment;
+    }
+
+    bool isYoung() {
+        return level->id == TR::LVL_TR4_ANGKOR1 || level->id == TR::LVL_TR4_ANG_RACE;
     }
 
     bool canSaveGame() {
@@ -1546,6 +1571,9 @@ struct Lara : Character {
     }
 
     void doBubbles() {
+        if ((level->version & TR::VER_VERSION) > TR::VER_TR2) {
+            return; // TODO
+        }
         int count = rand() % 3;
         if (!count) return;
         game->playSound(TR::SND_BUBBLE, pos, Sound::PAN);
@@ -2223,6 +2251,14 @@ struct Lara : Character {
                         if (!game->playSound(TR::SND_SECRET, pos))
                             game->playTrack(TR::TRACK_TR1_SECRET, true);
                     }
+                    break;
+                case TR::Action::CLEAR_BODIES :
+                    break;
+                case TR::Action::FLYBY :
+                    cmdIndex++; // TODO
+                    break;
+                case TR::Action::CUTSCENE :
+                    cmdIndex++; // TODO
                     break;
             }
         }
@@ -3202,8 +3238,13 @@ struct Lara : Character {
 
             updateLights();
 
-            if (fixRoomIndex() && braid)
-                braid->update();
+            if (fixRoomIndex()) {
+                for (int i = 0; i < COUNT(braid); i++) {
+                    if (braid[i]) {
+                        braid[i]->update();
+                    }
+                }
+            }
         } else {
             switch (usedItem) {
                 case TR::Entity::INV_MEDIKIT_SMALL :
@@ -3219,8 +3260,11 @@ struct Lara : Character {
             }
 
             Character::update();
-            if (braid)
-                braid->update();
+            for (int i = 0; i < COUNT(braid); i++) {
+                if (braid[i]) {
+                    braid[i]->update();
+                }
+            }
         }
         
         camera->update();
@@ -3791,8 +3835,11 @@ struct Lara : Character {
 
         visibleMask = visMask;
 
-        if (braid)
-            braid->render(mesh);
+        for (int i = 0; i < COUNT(braid); i++) {
+            if (braid[i]) {
+                braid[i]->render(mesh);
+            }
+        }
 
         if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);

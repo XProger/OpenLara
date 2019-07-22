@@ -448,7 +448,8 @@ struct MeshBuilder {
             }
         }
 
-        weldSkinJoints(vertices + vStartModel);
+        weldSkinJoints(vertices + vStartModel, level->extra.laraSkin, level->extra.laraJoints);
+        weldSkinJoints(vertices + vStartModel, level->extra.braid,    level->extra.braid);
 
         ASSERT(vCount - vStartModel <= 0xFFFF);
 
@@ -696,15 +697,15 @@ struct MeshBuilder {
         return false;
     }
 
-    void weldSkinJoints(Vertex *vertices) {
-        if (level->extra.laraSkin == -1 || level->extra.laraJoints == -1) {
+    void weldSkinJoints(Vertex *vertices, int16 skinIndex, int16 jointsIndex) {
+        if (skinIndex == -1 || jointsIndex == -1) {
             return;
         }
-        int t = Core::getTime();
-        ASSERT(level->models[level->extra.laraSkin].mCount == level->models[level->extra.laraJoints].mCount);
 
-        const TR::Model *model = level->models + level->extra.laraSkin;
-        const TR::Node  *node  = (TR::Node*)level->nodesData + model->node;
+        ASSERT(level->models[skinIndex].mCount == level->models[jointsIndex].mCount);
+
+        const TR::Model *model = level->models + skinIndex;
+        const TR::Node  *node  = (TR::Node*)&level->nodesData[model->node];//(TR::Node*)level->nodesData + model->node;
 
         int sIndex = 0;
         short4 stack[16];
@@ -723,8 +724,8 @@ struct MeshBuilder {
             jointsPos[i] = pos;
         }
 
-        const ModelRange &rangeSkin   = models[level->extra.laraSkin];
-        const ModelRange &rangeJoints = models[level->extra.laraJoints];
+        const ModelRange &rangeSkin   = models[skinIndex];
+        const ModelRange &rangeJoints = models[jointsIndex];
 
         #define COORD_FILL(VAR,RANGE)\
             short4 *VAR = new short4[RANGE.vCount];\
@@ -741,7 +742,8 @@ struct MeshBuilder {
         // bruteforce :(
         for (int j = 0; j < rangeJoints.vCount; j++) {
             for (int i = 0; i < rangeSkin.vCount; i++) {
-                if (abs(vSkin[i].x - vJoints[j].x) <= 1 &&
+                if (//vSkin[i].w < vJoints[j].w &&
+                    abs(vSkin[i].x - vJoints[j].x) <= 1 &&
                     abs(vSkin[i].y - vJoints[j].y) <= 1 &&
                     abs(vSkin[i].z - vJoints[j].z) <= 1) { // compare position
                     vertices[rangeJoints.vStart + j].coord  = vertices[rangeSkin.vStart + i].coord; // set bone index
@@ -755,8 +757,6 @@ struct MeshBuilder {
         delete[] vJoints;
 
         #undef COORD_FILL
-
-        LOG("remap joints: %d\n", Core::getTime() - t);
     }
 
     int calcWaterLevel(int16 roomIndex, bool flip) {

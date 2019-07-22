@@ -748,7 +748,7 @@ namespace Debug {
                     
                     const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? getEntityName(level, level.entities[cmd.args]) : "";
                     sprintf(buf, "%s -> %s (%d)", getTriggerAction(level, cmd.action), ent, cmd.args);
-                    if (cmd.action == TR::Action::CAMERA_SWITCH) {
+                    if (cmd.action == TR::Action::CAMERA_SWITCH || cmd.action == TR::Action::FLYBY || cmd.action == TR::Action::CUTSCENE) {
                         i++;
                         sprintf(buf, "%s delay: %d speed: %d", buf, int(info.trigCmd[i].timer), int(info.trigCmd[i].speed));
                     }
