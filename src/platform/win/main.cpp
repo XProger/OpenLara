@@ -14,14 +14,6 @@
     #endif
 #endif
 
-//#define VR_SUPPORT
-// TODO: fix depth precision
-// TODO: fix water surface rendering
-// TODO: fix clipping
-// TODO: add MSAA support for render targets
-// TODO: add IK for arms
-// TODO: controls (WIP)
-
 // hint to the driver to use discrete GPU
 extern "C" {
 // NVIDIA
@@ -29,10 +21,6 @@ extern "C" {
 // AMD
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
-
-#ifdef VR_SUPPORT
-   #include "libs/openvr/openvr.h"
-#endif
 
 #include "game.h"
 
@@ -673,7 +661,18 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 //VR Support
+#define VR_SUPPORT
+
 #ifdef VR_SUPPORT
+// TODO: fix depth precision
+// TODO: fix water surface rendering
+// TODO: fix clipping
+// TODO: add MSAA support for render targets
+// TODO: add IK for arms
+// TODO: controls (WIP)
+
+#include "libs/openvr/openvr.h"
+
 vr::IVRSystem *hmd; // vrContext
 vr::IVRRenderModels* rm; // not currently in use
 vr::TrackedDevicePose_t tPose[vr::k_unMaxTrackedDeviceCount];
@@ -707,6 +706,8 @@ vr::VRActionHandle_t VRcDash = vr::k_ulInvalidActionHandle;
 vr::VRActionSetHandle_t m_actionsetTR = vr::k_ulInvalidActionSetHandle;
 
 void vrInit() {
+    vr::VR_InitLibrary("openvr_api.dll");
+
     vr::EVRInitError eError = vr::VRInitError_None;
     hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
     //rm = vr::VRRenderModels(); // initialize render models interface
@@ -758,6 +759,11 @@ void vrInitTargets() {
 void vrFree() {
     if (!hmd) return;
     vr::VR_Shutdown();
+    hmd = NULL;
+    Input::hmd.ready = false;
+    delete Core::eyeTex[0];
+    delete Core::eyeTex[1];
+    Core::eyeTex[0] = Core::eyeTex[1] = NULL;
 }
 
 mat4 convToMat4(const vr::HmdMatrix44_t &m) {
@@ -796,7 +802,7 @@ void ProcessVREvent(const vr::VREvent_t &event) {
     switch (event.eventType) {
     case vr::VREvent_TrackedDeviceActivated:
         //SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
-        vr::RenderModel_t ** controllerRender;
+        //vr::RenderModel_t ** controllerRender;
         hmd->GetStringTrackedDeviceProperty(event.trackedDeviceIndex, vr::ETrackedDeviceProperty::Prop_RenderModelName_String, buffer, 1024); // can be filled with an error,but I can't find the right type
         //rm->LoadRenderModel_Async(buffer, controllerRender);
         // need to process render model?
@@ -869,6 +875,30 @@ void vrCompose() {
     vr::Texture_t RTex = {(void*)(uintptr_t)Core::eyeTex[1]->ID, vr::TextureType_OpenGL, vr::ColorSpace_Gamma};
     vr::VRCompositor()->Submit(vr::Eye_Right, &RTex);
 }
+
+void osToggleVR(bool enable) {
+    if (enable) {
+        vrInit();
+        vrInitTargets();
+        Input::hmd.ready = hmd != NULL;
+        if (!hmd) {
+            Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
+        }
+    } else {
+        vrFree();
+    }
+}
+
+#else
+
+void osToggleVR(bool enable) {
+    Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
+}
+
+void vrUpdateInput() {}
+void vrUpdateView() {}
+void vrCompose() {}
+
 #endif // #ifdef VR_SUPPORT
 
 #ifdef _DEBUG
@@ -915,10 +945,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     ContextCreate();
 
-#ifdef VR_SUPPORT
-    vrInit();
-#endif
-
     Sound::channelsCount = 0;
 
     osStartTime = Core::getTime();
@@ -930,11 +956,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     Core::defLang = checkLanguage();
 
     Game::init(argc > 1 ? argv[1] : NULL);
-
-#ifdef VR_SUPPORT
-    Input::hmd.ready = hmd != NULL;
-    vrInitTargets();
-#endif
 
     SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
 
@@ -954,17 +975,11 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
                 Core::quit();
         } else {
             joyUpdate();
-        #ifdef VR_SUPPORT
             vrUpdateInput();
-        #endif
             if (Game::update()) {
-            #ifdef VR_SUPPORT
                 vrUpdateView();
-            #endif
                 Game::render();
-            #ifdef VR_SUPPORT
                 vrCompose();
-            #endif
                 Core::waitVBlank();
                 ContextSwap();
             }

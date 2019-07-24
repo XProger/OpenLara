@@ -1629,6 +1629,8 @@ struct ImuSample_t
 
 #pragma pack( pop )
 
+#define LINK_DYNAMIC
+
 // figure out how to import from the VR API dll
 #if defined(_WIN32)
 
@@ -4487,6 +4489,63 @@ namespace vr
 	* can be called outside of VR_Init/VR_Shutdown. It should be used when an application wants
 	* to know if initializing VR is a possibility but isn't ready to take that step yet.
 	*/
+#ifdef LINK_DYNAMIC
+	bool (VR_CALLTYPE *VR_IsHmdPresent)();
+	bool (VR_CALLTYPE *VR_IsRuntimeInstalled)();
+	const char *(VR_CALLTYPE *VR_RuntimePath)();
+	const char *(VR_CALLTYPE *VR_GetVRInitErrorAsSymbol)( EVRInitError error );
+	const char *(VR_CALLTYPE *VR_GetVRInitErrorAsEnglishDescription)( EVRInitError error );
+	void *(VR_CALLTYPE *VR_GetGenericInterface)( const char *pchInterfaceVersion, EVRInitError *peError );
+	bool (VR_CALLTYPE *VR_IsInterfaceVersionValid)( const char *pchInterfaceVersion );
+	uint32_t (VR_CALLTYPE *VR_GetInitToken)();
+	uint32_t (VR_CALLTYPE *VR_InitInternal2)( EVRInitError *peError, EVRApplicationType eApplicationType, const char *pStartupInfo );
+	void (VR_CALLTYPE *VR_ShutdownInternal)();
+
+// dummy
+    uint32_t VR_CALLTYPE def_VR_InitInternal2(vr::EVRInitError *peError, vr::EVRApplicationType eApplicationType, const char *pStartupInfo) {
+        *peError = vr::VRInitError_None;
+        return 0;
+    }
+
+    void VR_CALLTYPE def_VR_ShutdownInternal() {
+        //
+    }
+
+    bool VR_CALLTYPE def_VR_IsInterfaceVersionValid(const char *pchInterfaceVersion) {
+        return false;
+    }
+
+    const char* VR_CALLTYPE def_VR_GetVRInitErrorAsEnglishDescription( vr::EVRInitError error) {
+        return "openvr_api.dll not found";
+    }
+
+    void VR_InitLibrary(const char *name) {
+        #define VR_GetProc(x) (x = (decltype(x))GetProcAddress(h, #x))
+
+        if (!VR_GetGenericInterface) {
+            HMODULE h = LoadLibrary(name);
+            VR_GetProc(VR_IsHmdPresent);
+            VR_GetProc(VR_IsRuntimeInstalled);
+            VR_GetProc(VR_RuntimePath);
+            VR_GetProc(VR_GetVRInitErrorAsSymbol);
+            VR_GetProc(VR_GetVRInitErrorAsEnglishDescription);
+            VR_GetProc(VR_GetGenericInterface);
+            VR_GetProc(VR_IsInterfaceVersionValid);
+            VR_GetProc(VR_GetInitToken);
+            VR_GetProc(VR_InitInternal2);
+            VR_GetProc(VR_ShutdownInternal);
+        }
+
+        if (!VR_InitInternal2) {
+            VR_InitInternal2                      = def_VR_InitInternal2;
+            VR_ShutdownInternal                   = def_VR_ShutdownInternal;
+            VR_IsInterfaceVersionValid            = def_VR_IsInterfaceVersionValid;
+            VR_GetVRInitErrorAsEnglishDescription = def_VR_GetVRInitErrorAsEnglishDescription;
+        }
+
+        #undef GetProc
+    }
+#else
 	VR_INTERFACE bool VR_CALLTYPE VR_IsHmdPresent();
 
 	/** Returns true if the OpenVR runtime is installed. */
@@ -4513,6 +4572,10 @@ namespace vr
 
 	/** Returns a token that represents whether the VR interface handles need to be reloaded */
 	VR_INTERFACE uint32_t VR_CALLTYPE VR_GetInitToken();
+
+	VR_INTERFACE uint32_t VR_CALLTYPE VR_InitInternal2( EVRInitError *peError, EVRApplicationType eApplicationType, const char *pStartupInfo );
+	VR_INTERFACE void VR_CALLTYPE VR_ShutdownInternal();
+#endif
 
 	// These typedefs allow old enum names from SDK 0.9.11 to be used in applications.
 	// They will go away in the future.
@@ -4788,9 +4851,6 @@ namespace vr
 		m_pVRIOBuffer = nullptr;
 		m_pVRSpatialAnchors = nullptr;
 	}
-	
-	VR_INTERFACE uint32_t VR_CALLTYPE VR_InitInternal2( EVRInitError *peError, EVRApplicationType eApplicationType, const char *pStartupInfo );
-	VR_INTERFACE void VR_CALLTYPE VR_ShutdownInternal();
 
 	/** Finds the active installation of vrclient.dll and initializes it */
 	inline IVRSystem *VR_Init( EVRInitError *peError, EVRApplicationType eApplicationType, const char *pStartupInfo )

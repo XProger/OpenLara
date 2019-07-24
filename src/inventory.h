@@ -139,7 +139,7 @@ static const OptionItem optDetail[] = {
 #endif
 #if !defined(_OS_PSP) && !defined(_OS_PSV) && !defined(_OS_3DS)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_NO_STEREO, 0, 
-    #if /*defined(_OS_WIN) ||*/ defined(_OS_ANDROID)
+    #if defined(_OS_WIN) || defined(_OS_ANDROID)
         4 /* with VR option */
     #else
         3 /* without VR support */

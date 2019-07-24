@@ -21,6 +21,8 @@
     #include <windows.h>
 
     #undef OS_PTHREAD_MT
+
+    extern void osToggleVR(bool enable);
 #elif ANDROID
     #define _OS_ANDROID 1
     #define _GAPI_GL    1

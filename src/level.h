@@ -381,12 +381,13 @@ struct Level : IGame {
 
         bool redraw = memcmp(&settings.detail, &Core::settings.detail, sizeof(settings.detail)) != 0;
 
-    #ifdef _OS_ANDROID
-        if ((settings.detail.stereo == Core::Settings::STEREO_VR) ^ (Core::settings.detail.stereo == Core::Settings::STEREO_VR))
-            osToggleVR(settings.detail.stereo == Core::Settings::STEREO_VR);
-    #endif
+        bool toggleVR = (settings.detail.stereo == Core::Settings::STEREO_VR) ^ (Core::settings.detail.stereo == Core::Settings::STEREO_VR);
 
         Core::settings = settings;
+
+        if (toggleVR) {
+            osToggleVR(Core::settings.detail.stereo == Core::Settings::STEREO_VR);
+        }
 
         Core::setVSync(Core::settings.detail.vsync != 0);
 
@@ -2962,10 +2963,6 @@ struct Level : IGame {
                     tex = new Texture(Core::width, Core::height, 1, FMT_RGBA, OPT_TARGET | OPT_NEAREST);
                 }
             }
-        } else if (Core::settings.detail.stereo != Core::Settings::STEREO_VR) {
-            delete Core::eyeTex[0];
-            delete Core::eyeTex[1];
-            Core::eyeTex[0] = Core::eyeTex[1] = NULL;
         }
 
         needRenderGame = !inventory->video && !level.isTitle() && ((inventory->phaseRing < 1.0f && inventory->titleTimer <= 1.0f) || needRedrawTitleBG);
