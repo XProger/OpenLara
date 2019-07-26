@@ -20,8 +20,9 @@ int osGetTimeMS() {
 }
 
 // sound
+#define SND_FRAME_SIZE  4
+#define SND_FRAMES      1024
 
-int SND_FRAMES = 512;
 // A Frame is a struct containing: int16 L, int16 R.
 Sound::Frame        *sndData;
 SDL_AudioDeviceID sdl_audiodev;
@@ -29,9 +30,9 @@ SDL_AudioDeviceID sdl_audiodev;
 void sndFill(void *udata, Uint8 *stream, int len) {
         // Let's milk the audio subsystem for SND_FRAMES frames!
         Sound::fill(sndData, SND_FRAMES);
-        // We have the number of samples, but each sample is sizeof(Sound::Frame) bytes long,
+        // We have the number of samples, but each sample is 4 bytes long (16bit stereo sound),
         // and memcpy copies a number of bytes.
-        memcpy (stream, sndData, SND_FRAMES * sizeof(Sound::Frame));
+        memcpy (stream, sndData, SND_FRAMES * SND_FRAME_SIZE);
 }
 
 bool sndInit() {
@@ -60,7 +61,7 @@ bool sndInit() {
 
     // Initialize audio buffer and fill it with zeros
     sndData = new Sound::Frame[SND_FRAMES];
-    memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
+    memset(sndData, 0, SND_FRAMES * SND_FRAME_SIZE);
 
     SDL_PauseAudioDevice(sdl_audiodev,0);
 
