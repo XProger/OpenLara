@@ -103,6 +103,10 @@ void osJoyVibrate(int index, float L, float R) {
     // TODO
 }
 
+void osToggleVR(bool enable) {
+    // TODO
+}
+
 bool isKeyPressed (SDL_Scancode scancode) {
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     if (state[scancode]) {
