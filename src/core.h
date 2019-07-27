@@ -31,6 +31,7 @@
 
     extern void osToggleVR(bool enable);
 #elif __SDL2__
+    extern void osToggleVR(bool enable);
     #define _GAPI_GL   1
 #ifdef SDL2_GLES
     #define _GAPI_GLES 1
