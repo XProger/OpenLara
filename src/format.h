@@ -1902,7 +1902,7 @@ namespace TR {
             int32   x, y, z;
             uint32  radius;
             int32   intensity;
-            Color32 color;
+            Color24 color;
             float   in, out;
             float   length, cutoff;
             vec3    dir;
@@ -4189,7 +4189,6 @@ namespace TR {
                             ASSERTV(intensity == intensity2);
                             int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                             light.color.r = light.color.g = light.color.b = value;
-                            light.color.a = 0;
                             light.intensity = intensity;
 
                             light.radius = stream.readBE32() * 2;
@@ -5394,10 +5393,13 @@ namespace TR {
 
                 if (version & (VER_TR3 | VER_TR4)) {
                     stream.read(light.color);
+                    stream.read(light.type);
                 }
 
                 if (version & VER_TR4) {
-                    stream.read(light.type);
+                    uint8 unknown;
+                    stream.read(unknown);
+                    ASSERT(unknown == 0x00 || unknown == 0xFF);
                     uint8 byteIntensity;
                     intensity = stream.read(byteIntensity);
                     stream.read(light.in);
@@ -5429,7 +5431,6 @@ namespace TR {
                 if ((version & VER_VERSION) < VER_TR3) {
                     int value = clamp((intensity > 0x1FFF) ? 0 : (intensity >> 5), 0, 255);
                     light.color.r = light.color.g = light.color.b = value;
-                    light.color.a = 0;
                 }
 
                 light.intensity = intensity;
