@@ -1709,6 +1709,11 @@ namespace TR {
         uint16 vertices[4];
         uint8  triangle:1, colored:1, water:1, flip:5;
 
+        Face() : triangle(0), colored(0), water(0), flip(0) {
+            flags.value   = 0;
+            effects.value = 0;
+        }
+
         static int cmp(const Face &a, const Face &b) {
             int aIndex = a.flags.texture;
             int bIndex = b.flags.texture;
@@ -4040,7 +4045,6 @@ namespace TR {
                                 ASSERT(fIndex < data.fCount);
 
                                 Face &f = data.faces[fIndex++];
-                                f.flags.value = 0;
                                 switch (type) {
                                     case TYPE_SPRITE       : {
                                         Room::Data::Sprite &sprite = data.sprites[data.sCount++];
@@ -4067,7 +4071,6 @@ namespace TR {
                                     case TYPE_R_INVISIBLE  :
                                     case TYPE_R_TRANSP     :
                                     case TYPE_R_SOLID      :
-                                        f.triangle    = false;
                                         f.vertices[0] = (stream.readBE16() >> 4);
                                         f.vertices[1] = (stream.readBE16() >> 4);
                                         f.vertices[2] = (stream.readBE16() >> 4);
@@ -4087,9 +4090,6 @@ namespace TR {
                                 ASSERT(f.flags.value % 16 == 0);
                                 ASSERT(f.flags.value / 16 < roomTexturesCount);
                                 f.flags.value /= 16;
-                                f.water       = false;
-                                f.colored     = false;
-                                f.flip        = false;
 
                                 if (type == TYPE_R_TRANSP)
                                     roomTextures[f.flags.texture].attribute = 1;
@@ -5031,13 +5031,9 @@ namespace TR {
 
             if (!isRoomMesh && (version & (VER_TR4 | VER_TR5))) {
                 stream.read(f.effects.value);
-            } else {
-                f.effects.value = 0;
             }
 
             f.colored = colored;
-            f.water = false;
-            f.flip  = false;
         }
 
         void readRoom(Stream &stream, int roomIndex) {
@@ -5144,16 +5140,12 @@ namespace TR {
                         ASSERT(t.unknown == 0);
 
                         Face &f = d.faces[d.fCount++];
-                        f.flags.texture     = t.texture;
-                        f.flags.doubleSided = false;
-                        f.triangle    = true;
-                        f.colored     = false;
-                        f.water       = false;
-                        f.flip        = false;
-                        f.vertices[0] = vStart + t.i0;
-                        f.vertices[1] = vStart + t.i1;
-                        f.vertices[2] = vStart + t.i2;
-                        f.vertices[3] = 0;
+                        f.flags.texture = t.texture;
+                        f.triangle      = true;
+                        f.vertices[0]   = vStart + t.i0;
+                        f.vertices[1]   = vStart + t.i1;
+                        f.vertices[2]   = vStart + t.i2;
+                        f.vertices[3]   = 0;
                         ASSERT(f.vertices[0] < d.vCount);
                         ASSERT(f.vertices[1] < d.vCount);
                         ASSERT(f.vertices[2] < d.vCount);
@@ -5180,16 +5172,11 @@ namespace TR {
                         ASSERT(r.unknown == 0);
 
                         Face &f = d.faces[d.fCount++];
-                        f.flags.texture     = texture;
-                        f.flags.doubleSided = false;
-                        f.triangle    = false;
-                        f.colored     = false;
-                        f.water       = false;
-                        f.flip        = false;
-                        f.vertices[0] = vStart + r.i0;
-                        f.vertices[1] = vStart + r.i1;
-                        f.vertices[2] = vStart + r.i2;
-                        f.vertices[3] = vStart + r.i3;
+                        f.flags.texture = texture;
+                        f.vertices[0]   = vStart + r.i0;
+                        f.vertices[1]   = vStart + r.i1;
+                        f.vertices[2]   = vStart + r.i2;
+                        f.vertices[3]   = vStart + r.i3;
 
                         ASSERT(f.vertices[0] < d.vCount);
                         ASSERT(f.vertices[1] < d.vCount);
@@ -5291,10 +5278,6 @@ namespace TR {
                         f.vertices[1] >>= 2;
                         f.vertices[2] >>= 2;
                         f.vertices[3] >>= 2;
-                        f.triangle = false;
-                        f.colored  = false;
-                        f.water    = false;
-                        f.flip     = false;
                     }
                 } else {
                     for (int i = 0; i < d.rCount; i++) {
@@ -5315,10 +5298,7 @@ namespace TR {
                         f.vertices[1] >>= 2;
                         f.vertices[2] >>= 2;
                         f.vertices[3] = 0;
-                        f.triangle = true;
-                        f.colored  = false;
-                        f.water    = false;
-                        f.flip     = false;
+                        f.triangle    = true;
                     }
                 } else {
                     for (int i = 0; i < d.tCount; i++) {
@@ -5620,9 +5600,6 @@ namespace TR {
                         for (int k = 0; k < count; k++) {
                             ASSERT(fIndex < mesh.fCount);
                             Face &f = mesh.faces[fIndex++];
-                            f.water   = false;
-                            f.colored = false;
-                            f.flip    = 0;
                             switch (type) {
                                 case TYPE_T_COLOR      : f.colored = true;
                                 case TYPE_T_TEX_UNK    : 
@@ -5678,7 +5655,6 @@ namespace TR {
                                 case TYPE_R_FLIP_TRANSP : f.flip = 1;
                                 case TYPE_R_TEX         :
                                 case TYPE_R_TRANSP      :
-                                    f.triangle    = false;
                                     f.vertices[0] = (stream.readBE16() >> 5);
                                     f.vertices[1] = (stream.readBE16() >> 5);
                                     f.vertices[2] = (stream.readBE16() >> 5);
@@ -5892,12 +5868,8 @@ namespace TR {
                         stream.raw(&r, sizeof(r));
 
                         Face &f = mesh.faces[idx++];
-                        f.flags.doubleSided = false;
                         f.flags.texture     = (info & 0xFF) | (r.tex << 8);
-                        f.triangle = true;
-                        f.colored  = false;
-                        f.water    = false;
-                        f.flip     = false;
+                        f.triangle          = true;
 
                         f.vertices[0] = r.i0;
                         f.vertices[1] = r.i1;
@@ -5913,12 +5885,7 @@ namespace TR {
                             stream.read(info);
                             
                         Face &f = mesh.faces[idx++];
-                        f.flags.doubleSided = false;
-                        f.flags.texture     = info & 0xFFFF;
-                        f.triangle = false;
-                        f.colored  = false;
-                        f.water    = false;
-                        f.flip     = false;
+                        f.flags.texture = info & 0xFFFF;
 
                         struct {
                             uint32 i0:8, i1:8, i2:8, i3:8;
