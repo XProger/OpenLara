@@ -130,6 +130,10 @@ void osJoyVibrate(int index, float L, float R) {
     joyDevice[index].vR = R;
 }
 
+void osToggleVR(bool enable) {
+    Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
+}
+
 void joyInit() {
     LOG("init gamepads:\n");
     char name[128];
