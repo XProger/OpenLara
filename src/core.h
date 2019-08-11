@@ -22,16 +22,12 @@
 
     #undef OS_PTHREAD_MT
 
-    extern void osToggleVR(bool enable);
 #elif ANDROID
     #define _OS_ANDROID 1
     #define _GAPI_GL    1
     #define _GAPI_GLES  1
     //#define _GAPI_VULKAN
-
-    extern void osToggleVR(bool enable);
 #elif __SDL2__
-    extern void osToggleVR(bool enable);
     #define _GAPI_GL   1
 #ifdef SDL2_GLES
     #define _GAPI_GLES 1
@@ -130,6 +126,8 @@
 #else
     #define SHADOW_TEX_SIZE      2048
 #endif
+
+extern void osToggleVR(bool enable);
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
