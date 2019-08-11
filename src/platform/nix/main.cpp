@@ -365,25 +365,25 @@ void WndProc(const XEvent &e,Display*dpy,Window wnd) {
 int checkLanguage() {
     char *lang = getenv("LANG");
     if (!lang || strlen(lang) < 2) return 0;
-    
+
     uint16 id;
     memcpy(&id, lang, 2);
-    
-    int str = STR_LANG_EN;
-    if (id == TWOCC("en")) str = STR_LANG_EN;
-    if (id == TWOCC("fr")) str = STR_LANG_FR;
-    if (id == TWOCC("de")) str = STR_LANG_DE;
-    if (id == TWOCC("es")) str = STR_LANG_ES;
-    if (id == TWOCC("it")) str = STR_LANG_IT;
-    if (id == TWOCC("pl")) str = STR_LANG_PL;
-    if (id == TWOCC("uk")) str = STR_LANG_RU;
-    if (id == TWOCC("be")) str = STR_LANG_RU;
-    if (id == TWOCC("ru")) str = STR_LANG_RU;
-    if (id == TWOCC("ja")) str = STR_LANG_JA;
-    if (id == TWOCC("gr")) str = STR_LANG_GR;
-    if (id == TWOCC("fi")) str = STR_LANG_FI;
 
-    return str - STR_LANG_EN;
+    if (id == TWOCC("en")) return STR_LANG_EN - STR_LANG_EN;
+    if (id == TWOCC("fr")) return STR_LANG_FR - STR_LANG_EN;
+    if (id == TWOCC("de")) return STR_LANG_DE - STR_LANG_EN;
+    if (id == TWOCC("es")) return STR_LANG_ES - STR_LANG_EN;
+    if (id == TWOCC("it")) return STR_LANG_IT - STR_LANG_EN;
+    if (id == TWOCC("pl")) return STR_LANG_PL - STR_LANG_EN;
+    if (id == TWOCC("pt")) return STR_LANG_PT - STR_LANG_EN;
+    if (id == TWOCC("uk")) return STR_LANG_RU - STR_LANG_EN;
+    if (id == TWOCC("be")) return STR_LANG_RU - STR_LANG_EN;
+    if (id == TWOCC("ru")) return STR_LANG_RU - STR_LANG_EN;
+    if (id == TWOCC("ja")) return STR_LANG_JA - STR_LANG_EN;
+    if (id == TWOCC("gr")) return STR_LANG_GR - STR_LANG_EN;
+    if (id == TWOCC("fi")) return STR_LANG_FI - STR_LANG_EN;
+
+    return 0;
 }
 
 int main(int argc, char **argv) {
