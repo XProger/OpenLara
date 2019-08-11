@@ -370,18 +370,18 @@ int checkLanguage() {
     memcpy(&id, lang, 2);
     
     int str = STR_LANG_EN;
-    if (id == TWOCC("en")) return STR_LANG_EN;
-    if (id == TWOCC("fr")) return STR_LANG_FR;
-    if (id == TWOCC("de")) return STR_LANG_DE;
-    if (id == TWOCC("es")) return STR_LANG_ES;
-    if (id == TWOCC("it")) return STR_LANG_IT;
-    if (id == TWOCC("pl")) return STR_LANG_PL;
-    if (id == TWOCC("uk")) return STR_LANG_RU;
-    if (id == TWOCC("be")) return STR_LANG_RU;
-    if (id == TWOCC("ru")) return STR_LANG_RU;
-    if (id == TWOCC("ja")) return STR_LANG_JA;
-    if (id == TWOCC("gr")) return STR_LANG_GR;
-    if (id == TWOCC("fi")) return STR_LANG_FI;
+    if (id == TWOCC("en")) str = STR_LANG_EN;
+    if (id == TWOCC("fr")) str = STR_LANG_FR;
+    if (id == TWOCC("de")) str = STR_LANG_DE;
+    if (id == TWOCC("es")) str = STR_LANG_ES;
+    if (id == TWOCC("it")) str = STR_LANG_IT;
+    if (id == TWOCC("pl")) str = STR_LANG_PL;
+    if (id == TWOCC("uk")) str = STR_LANG_RU;
+    if (id == TWOCC("be")) str = STR_LANG_RU;
+    if (id == TWOCC("ru")) str = STR_LANG_RU;
+    if (id == TWOCC("ja")) str = STR_LANG_JA;
+    if (id == TWOCC("gr")) str = STR_LANG_GR;
+    if (id == TWOCC("fi")) str = STR_LANG_FI;
 
     return str - STR_LANG_EN;
 }
