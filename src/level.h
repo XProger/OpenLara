@@ -48,8 +48,7 @@ struct Level : IGame {
     struct Params {
         float   time;
         float   waterHeight;
-        float   clipSign;
-        float   clipHeight;
+        float   reserved[2];
     } *params;
 
     ZoneCache    *zoneCache;
@@ -495,11 +494,6 @@ struct Level : IGame {
         updateBlocks(true);
     }
 
-    virtual void setClipParams(float clipSign, float clipHeight) {
-        params->clipSign   = clipSign;
-        params->clipHeight = clipHeight;
-    }
-
     virtual void setWaterParams(float height) {
         params->waterHeight = height;
     }
@@ -510,7 +504,7 @@ struct Level : IGame {
     }
 
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0) | ((params->clipHeight != NO_CLIP_PLANE && pass == Core::passCompose) ? ShaderCache::FX_CLIP_PLANE : 0));
+        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0));
     }
 
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
@@ -577,7 +571,7 @@ struct Level : IGame {
             }
             setWaterParams(float(room.waterLevel[level.state.flags.flipped]));
         } else {
-            setWaterParams(NO_CLIP_PLANE);
+            setWaterParams(NO_WATER_HEIGHT);
         }
 
         Core::active.shader->setParam(uParam, Core::params);
@@ -958,8 +952,6 @@ struct Level : IGame {
             }
 
         }
-
-        setClipParams(1.0f, NO_CLIP_PLANE);
 
         effect  = TR::Effect::NONE;
 
@@ -3040,9 +3032,6 @@ struct Level : IGame {
             for (int view = 0; view < viewsCount; view++) {
                 player = players[view];
                 camera = player->camera;
-
-                setClipParams(1.0f, NO_CLIP_PLANE);
-                params->waterHeight = params->clipHeight;
 
                 Core::pass = Core::passCompose;
 

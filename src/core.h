@@ -223,7 +223,6 @@ namespace Core {
         bool texBorder;
         bool colorFloat, texFloat, texFloatLinear;
         bool colorHalf, texHalf,  texHalfLinear;
-        bool clipDist;
     #ifdef PROFILE
         bool profMarker;
         bool profTiming;
@@ -526,7 +525,6 @@ struct MeshRange {
     /* options */ \
     E( UNDERWATER      ) \
     E( ALPHA_TEST      ) \
-    E( CLIP_PLANE      ) \
     E( OPT_AMBIENT     ) \
     E( OPT_SHADOW      ) \
     E( OPT_CONTACT     ) \
@@ -751,7 +749,6 @@ namespace Core {
         LOG("  3D   textures  : %s\n", support.tex3D         ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
-        LOG("  clip distance  : %s\n", support.clipDist      ? "true" : "false");
         LOG("  anisotropic    : %d\n", support.maxAniso);
         LOG("  float textures : float = %s, half = %s\n", 
             support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),

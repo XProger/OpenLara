@@ -111,7 +111,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
 		#endif
 
-		vViewVec = vec4((uViewPos.xyz - coord) * uFogParams.w, coord.y * uParam.z);
+		vViewVec = vec4((uViewPos.xyz - coord) * uFogParams.w, 0.0);
 
 		#ifndef TYPE_FLASH
 			#ifdef TYPE_SPRITE
@@ -354,11 +354,6 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	}
 
 	void main() {
-		#ifdef CLIP_PLANE
-			if (vViewVec.w > uParam.w)
-				discard;
-		#endif
-
 		vec2 uv = vTexCoord.xy;
 		vec4 color;
 		#ifdef TYPE_MIRROR

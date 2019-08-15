@@ -538,7 +538,7 @@ struct Camera : ICamera {
                 #ifdef _OS_3DS
                     Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION / (firstPerson ? 8.0f : 1.0f) ) );
                 #else
-					Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                    Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
                 #endif
 
             if (reflectPlane) {
@@ -554,6 +554,10 @@ struct Camera : ICamera {
                 float eyeSep = (Core::eye * CAM_EYE_SEPARATION) * znear / CAM_FOCAL_LENGTH;
                 Core::mProj = GAPI::perspective(fov, aspect, znear, zfar, eyeSep);
             }
+
+            if (reflectPlane) {
+                setOblique(*reflectPlane);
+            }
         }
 
         Core::setViewProj(Core::mView, Core::mProj);
@@ -565,6 +569,23 @@ struct Camera : ICamera {
 
         frustum->pos = Core::viewPos.xyz();
         frustum->calcPlanes(Core::mViewProj);
+    }
+
+    void setOblique(const vec4 &clipPlane) { // http://www.terathon.com/code/oblique.html
+        vec4 p = Core::mViewInv.transpose() * clipPlane;
+
+        vec4 q;
+        q.x = (sign(p.x) + Core::mProj.e02) / Core::mProj.e00;
+        q.y = (sign(p.y) + Core::mProj.e12) / Core::mProj.e11;
+        q.z = -1.0f;
+        q.w = (1.0f + Core::mProj.e22) / Core::mProj.e23;
+
+        vec4 c = p * (2.0f / p.dot(q));
+
+        Core::mProj.e20 = c.x;
+        Core::mProj.e21 = c.y;
+        Core::mProj.e22 = c.z + 1.0f;
+        Core::mProj.e23 = c.w;
     }
 
     void changeView(bool firstPerson) {

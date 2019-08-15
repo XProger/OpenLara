@@ -493,6 +493,8 @@ struct vec4 {
     vec4 operator * (const vec4 &v) const { return vec4(x*v.x, y*v.y, z*v.z, w*v.w); }
     vec4& operator *= (const vec4 &v) { x*=v.x; y*=v.y; z*=v.z; w*=v.w; return *this; }
 
+    float dot(const vec4 &v) const { return x * v.x + y * v.y + z * v.z + w * v.w; }
+
     vec4 lerp(const vec4 &v, const float t) const {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return v;

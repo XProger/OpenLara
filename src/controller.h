@@ -63,7 +63,6 @@ struct IGame {
     virtual uint16       getRandomBox(uint16 zone, uint16 *zones) { return 0; }
     virtual uint16       findPath(int ascend, int descend, bool big, int boxStart, int boxEnd, uint16 *zones, uint16 **boxes) { return 0; }
     virtual void         flipMap(bool water = true) {}
-    virtual void setClipParams(float clipSign, float clipHeight) {}
     virtual void setWaterParams(float height) {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}

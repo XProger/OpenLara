@@ -1215,7 +1215,6 @@ namespace GAPI {
         support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
  
         support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
-        support.clipDist       = false; // TODO
 
         #ifdef SDL2_GLES
             support.shaderBinary  = false; // TODO
