@@ -661,7 +661,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 //VR Support
-#define VR_SUPPORT
+#ifdef _GAPI_GL
+    #define VR_SUPPORT
+#endif
 
 #ifdef VR_SUPPORT
 // TODO: fix depth precision

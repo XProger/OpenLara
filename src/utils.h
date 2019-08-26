@@ -129,8 +129,8 @@ inline const T& clamp(const T &x, const T &a, const T &b) {
 }
 
 template <class T>
-inline const int sign(const T &x) {
-    return x > 0 ? 1 : (x < 0 ? -1 : 0);
+inline const T sign(const T &x) {
+    return (T)(x > 0 ? 1 : (x < 0 ? -1 : 0));
 }
 
 template <class T>

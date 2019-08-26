@@ -80,6 +80,8 @@ struct Level : IGame {
     vec4 underwaterFogParams;
     vec4 levelFogParams;
 
+    mat4 mLightProj[2];
+
 // IGame implementation ========
     virtual void loadLevel(TR::LevelID id) {
         sndWater = sndTrack = NULL;
@@ -2538,7 +2540,8 @@ struct Level : IGame {
         Core::mView    = Core::mViewInv.inverseOrtho();
         Core::mProj    = GAPI::perspective(90.0f, 1.0f, znear, zfar, 0.0f);
 
-        Core::mLightProj = Core::mProj * Core::mView;
+        mat4 &m = mLightProj[player->camera->cameraIndex];
+        m = Core::mProj * Core::mView;
 
         mat4 bias;
         bias.identity();
@@ -2546,7 +2549,9 @@ struct Level : IGame {
     #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
         bias.e11 = -bias.e11;
     #endif
-        Core::mLightProj = bias * Core::mLightProj;
+        m = bias * m;
+
+        Core::mLightProj = m;
 
         camera->frustum->pos = Core::viewPos.xyz();
         camera->frustum->calcPlanes(Core::mViewProj);
@@ -3032,6 +3037,8 @@ struct Level : IGame {
             for (int view = 0; view < viewsCount; view++) {
                 player = players[view];
                 camera = player->camera;
+
+                Core::mLightProj = mLightProj[view];
 
                 Core::pass = Core::passCompose;
 

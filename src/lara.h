@@ -1422,7 +1422,7 @@ struct Lara : Character {
 
         // flip left and right by relative target direction
             if (count > 1) {
-                int side[2] = { 0, 0 };
+                float side[2] = { 0, 0 };
                 vec3 dir = getDir();
                 dir.y = 0.0f;
 
