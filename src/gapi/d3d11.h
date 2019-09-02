@@ -187,6 +187,7 @@ namespace GAPI {
                         case 1  : SHADER ( filter_downsample, v );  SHADER ( filter_downsample, f ); break;
                         case 3  : SHADER ( filter_grayscale,  v );  SHADER ( filter_grayscale,  f ); break;
                         case 4  : SHADER ( filter_blur,       v );  SHADER ( filter_blur,       f ); break;
+                        case 5  : SHADER ( filter_blur,       v );  SHADER ( filter_blur,       f ); break; // TODO anaglyph
                         default : ASSERT(false);
                     }
                     break;
@@ -606,7 +607,6 @@ namespace GAPI {
         support.texHalfLinear  = true;
         support.texHalf        = true;
         support.tex3D          = true;
-        support.clipDist       = true;
 
         #ifdef PROFILE
             support.profMarker = false;
@@ -717,15 +717,19 @@ namespace GAPI {
         }
     }
 
+    inline mat4::ProjRange getProjRange() {
+        return mat4::PROJ_ZERO_POS;
+    }
+
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
         mat4 m;
-        m.ortho(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+        m.ortho(getProjRange(), l, r, b, t, znear, zfar);
         return m;
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
-        m.perspective(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar, eye);
+        m.perspective(getProjRange(), fov, aspect, znear, zfar, eye);
         return m;
     }
 

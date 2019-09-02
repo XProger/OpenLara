@@ -229,7 +229,7 @@ vec3 calcNormal(vec2 tc, float base) {
 		vec2 tc = vProjCoord.xy / vProjCoord.w * 0.5 + 0.5;
 
 		vec4 refrA = texture2D(sDiffuse, uParam.xy * clamp(tc + dudv * uParam.z, 0.0, 0.999) );
-		vec4 refrB = texture2D(sDiffuse, uParam.xy * tc );
+		vec4 refrB = texture2D(sDiffuse, uParam.xy * tc);
 		vec4 refr  = vec4(mix(refrA.xyz, refrB.xyz, refrA.w), 1.0);
 		vec4 refl  = texture2D(sReflect, vec2(tc.x, 1.0 - tc.y) + dudv * uParam.w);
 

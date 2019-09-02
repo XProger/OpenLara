@@ -509,16 +509,20 @@ namespace GAPI {
         C3D_Fini();
         gfxExit();
     }
+
+    inline mat4::ProjRange getProjRange() {
+        return mat4::PROJ_NEG_ZERO;
+    }
     
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
         mat4 m;
-        m.ortho(mat4::PROJ_NEG_ZERO, l, r, b, t, znear, zfar, true);
+        m.ortho(getProjRange(), l, r, b, t, znear, zfar, true);
         return m;
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
-        m.perspective(mat4::PROJ_NEG_ZERO, fov, aspect, znear, zfar, eye, true);
+        m.perspective(getProjRange(), fov, aspect, znear, zfar, eye, true);
         return m;
     }
 

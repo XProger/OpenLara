@@ -24,10 +24,6 @@ static const float3 SHADOW_TEXEL = float3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 
 	#define FLAGS_TYPE  float4
 #endif
 
-#ifndef _GAPI_GXM
-	#define CLIP_PLANE
-#endif
-
 struct VS_INPUT {
 	int4   aCoord    : POSITION;
 	int4   aNormal   : NORMAL;

@@ -580,11 +580,13 @@ struct Camera : ICamera {
         q.z = -1.0f;
         q.w = (1.0f + Core::mProj.e22) / Core::mProj.e23;
 
-        vec4 c = p * (2.0f / p.dot(q));
+        float f = GAPI::getProjRange() == mat4::PROJ_NEG_POS ? 2.0f : 1.0f;
+
+        vec4 c = p * (f / p.dot(q));
 
         Core::mProj.e20 = c.x;
         Core::mProj.e21 = c.y;
-        Core::mProj.e22 = c.z + 1.0f;
+        Core::mProj.e22 = c.z + (f - 1.0f);
         Core::mProj.e23 = c.w;
     }
 

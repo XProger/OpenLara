@@ -195,6 +195,7 @@ namespace GAPI {
                         case 1  : vSrc = SHADER ( filter_downsample, v );  fSrc = SHADER ( filter_downsample, f ); break;
                         case 3  : vSrc = SHADER ( filter_grayscale,  v );  fSrc = SHADER ( filter_grayscale,  f ); break;
                         case 4  : vSrc = SHADER ( filter_blur,       v );  fSrc = SHADER ( filter_blur,       f ); break;
+                        case 5  : vSrc = SHADER ( filter_blur,       v );  fSrc = SHADER ( filter_blur,       f ); break; // TODO anaglyph
                         default : ASSERT(false);
                     }
                     break;
@@ -249,6 +250,7 @@ namespace GAPI {
         int       width, height, depth, origWidth, origHeight, origDepth;
         TexFormat fmt;
         uint32    opt;
+        D3DFORMAT d3dformat;
 
         Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), texCube(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {}
 
@@ -283,6 +285,8 @@ namespace GAPI {
 
             D3DPOOL pool = (isTarget || isDepth) ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
 
+            d3dformat = desc.format;
+
             if (cube) {
                 D3DCHECK(device->CreateCubeTexture(width, 1, usage, desc.format, pool, &texCube, NULL));
             } else {
@@ -290,14 +294,18 @@ namespace GAPI {
                 if (data && !isTarget) {
                     D3DLOCKED_RECT rect;
                     D3DCHECK(tex2D->LockRect(0, &rect, NULL, 0));
-                    if (width != origWidth || height != origHeight) {
-                        memset(rect.pBits, 0, width * height * (desc.bpp / 8));
+                    if (fmt == FMT_RGBA) {
                         uint8 *dst = (uint8*)rect.pBits;
                         uint8 *src = (uint8*)data;
-                        for (int y = 0; y < origHeight; y++) {
-                            memcpy(dst, src, origWidth * (desc.bpp / 8));
-                            src += origWidth * (desc.bpp / 8);
-                            dst += width * (desc.bpp / 8);
+                        for (int y = 0; y < height; y++) {
+                            for (int x = 0; x < width; x++) {
+                                dst[0] = src[2];
+                                dst[1] = src[1];
+                                dst[2] = src[0];
+                                dst[3] = src[3];
+                                dst += 4;
+                                src += 4;
+                            }
                         }
                     } else {
                         memcpy(rect.pBits, data, width * height * (desc.bpp / 8));
@@ -473,7 +481,6 @@ namespace GAPI {
         support.texFloat       = true;
         support.texHalfLinear  = true;
         support.texHalf        = true;
-        support.clipDist       = true;
 
         #ifdef PROFILE
             support.profMarker = false;
@@ -484,8 +491,8 @@ namespace GAPI {
             {0, OFFSETOF(Vertex, coord),    D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // aCoord
             {0, OFFSETOF(Vertex, normal),   D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL,   0}, // aNormal
             {0, OFFSETOF(Vertex, texCoord), D3DDECLTYPE_SHORT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0}, // aTexCoord
-            {0, OFFSETOF(Vertex, color),    D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0}, // aColor
-            {0, OFFSETOF(Vertex, light),    D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    1}, // aLight
+            {0, OFFSETOF(Vertex, color),    D3DDECLTYPE_UBYTE4N,  D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0}, // aColor
+            {0, OFFSETOF(Vertex, light),    D3DDECLTYPE_UBYTE4N,  D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    1}, // aLight
             D3DDECL_END()
         };
 
@@ -539,15 +546,19 @@ namespace GAPI {
         }
     }
 
+    inline mat4::ProjRange getProjRange() {
+        return mat4::PROJ_ZERO_POS;
+    }
+
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
         mat4 m;
-        m.ortho(mat4::PROJ_ZERO_POS, l, r, b, t, znear, zfar);
+        m.ortho(getProjRange(), l, r, b, t, znear, zfar);
         return m;
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
-        m.perspective(mat4::PROJ_ZERO_POS, fov, aspect, znear, zfar, eye);
+        m.perspective(getProjRange(), fov, aspect, znear, zfar, eye);
         return m;
     }
 
@@ -764,7 +775,7 @@ namespace GAPI {
 
         LPDIRECT3DSURFACE9 surface, texSurface;
         D3DCHECK(t->tex2D->GetSurfaceLevel(0, &texSurface));
-        D3DCHECK(device->CreateOffscreenPlainSurface(t->width, t->height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &surface, NULL));
+        D3DCHECK(device->CreateOffscreenPlainSurface(t->width, t->height, t->d3dformat, D3DPOOL_SYSTEMMEM, &surface, NULL));
         D3DCHECK(device->GetRenderTargetData(texSurface, surface));
 
         RECT r = { x, y, x + 1, y + 1 };

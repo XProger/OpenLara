@@ -1,6 +1,6 @@
 #include "common.hlsl"
 
-// ALPHA_TEST, UNDERWATER, CLIP_PLANE (D3D9 only), OPT_SHADOW, OPT_CAUSTICS, OPT_AMBIENT
+// ALPHA_TEST, UNDERWATER, OPT_SHADOW, OPT_CAUSTICS, OPT_AMBIENT
 
 struct VS_OUTPUT {
 	float4 pos       : POSITION;
@@ -12,9 +12,6 @@ struct VS_OUTPUT {
 	float3 ambient   : TEXCOORD5;
 	float4 light     : TEXCOORD6;
 	float4 lightProj : TEXCOORD7;
-#ifdef _GAPI_GXM
-	float  clipDist  : CLP0;
-#endif
 };
 
 #ifdef VERTEX
@@ -76,10 +73,6 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
 	Out.lightProj = mul(uLightProj, float4(Out.coord, 1.0));
 
-#ifdef _GAPI_GXM
-	Out.clipDist = Out.viewVec.w;
-#endif
-	
 	return Out;
 }
 
@@ -90,10 +83,6 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 
 	#ifdef ALPHA_TEST
 		clip(color.w - ALPHA_REF);
-	#endif
-
-	#ifdef CLIP_PLANE
-		clip(In.viewVec.w);
 	#endif
 
 	color *= In.diffuse;
