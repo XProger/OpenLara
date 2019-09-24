@@ -6205,8 +6205,6 @@ namespace TR {
         void readAnimTex(Stream &stream) {
             uint32 size;
             stream.read(size);
-            stream.seek(size * 2);
-            size =  0;
             if (size) {
                 stream.read(animTexturesCount);
                 animTextures = animTexturesCount ? new AnimTexture[animTexturesCount] : NULL;
