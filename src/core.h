@@ -22,11 +22,16 @@
 
     #undef OS_PTHREAD_MT
 
+    #ifdef _GAPI_GL
+        #define VR_SUPPORT
+    #endif
 #elif ANDROID
     #define _OS_ANDROID 1
     #define _GAPI_GL    1
     #define _GAPI_GLES  1
     //#define _GAPI_VULKAN
+
+    #define VR_SUPPORT
 #elif __SDL2__
     #define _GAPI_GL   1
 #ifdef SDL2_GLES
@@ -126,8 +131,6 @@
 #else
     #define SHADOW_TEX_SIZE      2048
 #endif
-
-extern void osToggleVR(bool enable);
 
 extern void* osMutexInit     ();
 extern void  osMutexFree     (void *obj);
@@ -329,6 +332,14 @@ namespace Core {
         isQuit = true;
     }
 }
+
+#ifdef VR_SUPPORT
+extern void osToggleVR(bool enable);
+#else
+void osToggleVR(bool enable) {
+    Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
+}
+#endif
 
 #ifdef PROFILE
     struct TimingCPU {

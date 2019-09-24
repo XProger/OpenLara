@@ -661,10 +661,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 //VR Support
-#ifdef _GAPI_GL
-    #define VR_SUPPORT
-#endif
-
 #ifdef VR_SUPPORT
 // TODO: fix depth precision
 // TODO: fix water surface rendering
@@ -885,10 +881,6 @@ void osToggleVR(bool enable) {
 }
 
 #else
-
-void osToggleVR(bool enable) {
-    Core::settings.detail.stereo = Core::Settings::STEREO_OFF;
-}
 
 void vrUpdate() {}
 void vrCompose() {}
