@@ -1986,10 +1986,12 @@ struct Inventory {
         char buf[256];
         char time[16];
 
-        int secretsMax = 3;
-        int secrets = ((saveStats.secrets & 1) != 0) +
-                      ((saveStats.secrets & 2) != 0) +
-                      ((saveStats.secrets & 4) != 0);
+        int secretsMax = TR::LEVEL_INFO[saveStats.level].secrets;
+        int secrets = ((saveStats.secrets & (1 << 0)) != 0) +
+                      ((saveStats.secrets & (1 << 1)) != 0) +
+                      ((saveStats.secrets & (1 << 2)) != 0) + 
+                      ((saveStats.secrets & (1 << 3)) != 0) + 
+                      ((saveStats.secrets & (1 << 4)) != 0);
 
         int s = saveStats.time % 60;
         int m = saveStats.time / 60 % 60;
