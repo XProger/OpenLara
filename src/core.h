@@ -16,6 +16,8 @@
     //#define _GAPI_D3D9   1
     //#define _GAPI_D3D11  1
     //#define _GAPI_VULKAN 1
+    //#define _GAPI_SW     1
+
     //#define _NAPI_SOCKET
 
     #include <windows.h>
@@ -34,10 +36,10 @@
     #define VR_SUPPORT
 #elif __SDL2__
     #define _GAPI_GL   1
-#ifdef SDL2_GLES
-    #define _GAPI_GLES 1
-    #define DYNGEOM_NO_VBO
-#endif
+    #ifdef SDL2_GLES
+        #define _GAPI_GLES 1
+        #define DYNGEOM_NO_VBO
+    #endif
 #elif __RPI__
     #define _OS_RPI    1
     #define _GAPI_GL   1
@@ -56,6 +58,9 @@
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+#elif __BITTBOY__
+    #define _OS_LINUX 1
+    #define _GAPI_SW  1
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
@@ -86,7 +91,6 @@
     #define _OS_PSP  1
     #define _GAPI_GU 1
 
-    #define FFP
     #define TEX_SWIZZLE
     //#define EDRAM_MESH
     #define EDRAM_TEX
@@ -112,9 +116,13 @@
     #include "libs/tinf/tinf.h"
 #endif
 
+#if defined(_GAPI_SW) || defined(_GAPI_GU)
+    #define FFP
+#endif
+
 #ifdef FFP
     #define SPLIT_BY_TILE
-    #ifdef _OS_PSP
+    #if defined(_GAPI_GU) || defined(_GAPI_SW)
         #define SPLIT_BY_CLUT
     #endif
 #else
@@ -263,7 +271,7 @@ namespace Core {
             }
 
             void setLighting(Quality value) {
-            #ifdef _OS_PSP
+            #if defined(_GAPI_SW) || defined(_GAPI_GU)
                 lighting = LOW;
             #else
                 lighting = value;
@@ -271,7 +279,7 @@ namespace Core {
             }
 
             void setShadows(Quality value) {
-            #ifdef _OS_PSP
+            #if defined(_GAPI_SW) || defined(_GAPI_GU)
                 shadows = LOW;
             #else
                 shadows = value;
@@ -279,7 +287,7 @@ namespace Core {
             }
 
             void setWater(Quality value) {
-            #ifdef _OS_PSP
+            #if defined(_GAPI_SW) || defined(_GAPI_GU)
                 water = LOW;
             #else
                 if (value > LOW && !(support.texFloat || support.texHalf))
@@ -666,7 +674,9 @@ namespace Core {
     } stats;
 }
 
-#ifdef _GAPI_GL
+#ifdef _GAPI_SW
+    #include "gapi/sw.h"
+#elif _GAPI_GL
     #include "gapi/gl.h"
 #elif _GAPI_D3D9
     #include "gapi/d3d9.h"

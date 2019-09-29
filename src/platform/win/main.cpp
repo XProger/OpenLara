@@ -379,7 +379,31 @@ void sndInit(HWND hwnd) {
 
 HWND hWnd;
 
-#ifdef _GAPI_GL
+
+#ifdef _GAPI_SW
+    HDC    hDC;
+
+    void ContextCreate() {
+        hDC = GetDC(hWnd);
+    }
+
+    void ContextDelete() {
+        ReleaseDC(hWnd, hDC);
+        delete[] GAPI::swColor;
+    }
+
+    void ContextResize() {
+        delete[] GAPI::swColor;
+        GAPI::swColor = new GAPI::ColorSW[Core::width * Core::height];
+
+        GAPI::resize();
+    }
+
+    void ContextSwap() {
+        const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), Core::width, -Core::height, 1, sizeof(GAPI::ColorSW) * 8, BI_RGB, 0, 0, 0, 0, 0 };
+        SetDIBitsToDevice(hDC, 0, 0, Core::width, Core::height, 0, 0, 0, Core::height, GAPI::swColor, &bmi, 0);
+    }
+#elif _GAPI_GL
     HDC   hDC;
     HGLRC hRC;
 

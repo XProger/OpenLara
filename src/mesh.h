@@ -1525,7 +1525,7 @@ struct MeshBuilder {
         TR::Room::Data &d = level->rooms[roomIndex].data;
         for (int j = 0; j < d.sCount; j++) {
             TR::Room::Data::Sprite &f = d.sprites[j];
-            addDynSprite(f.texture, d.vertices[f.vertexIndex].pos, COLOR_WHITE, COLOR_WHITE);
+            addDynSprite(f.texture, d.vertices[f.vertexIndex].pos, false, false, COLOR_WHITE, COLOR_WHITE);
         }
 
         dynEnd();

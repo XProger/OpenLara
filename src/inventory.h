@@ -1425,11 +1425,11 @@ struct Inventory {
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             return;
 
-        #ifdef _OS_PSP
+        #ifdef _GAPI_GU
             return;
         #endif
 
-        #ifdef _OS_3DS
+        #ifdef _GAPI_C3D
             return;
         #endif
 

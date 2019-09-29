@@ -891,7 +891,7 @@ struct Level : IGame {
         level.simpleItems = Core::settings.detail.simple == 1;
         level.initModelIndices();
 
-    #ifdef _OS_PSP
+    #ifdef _GAPI_GU
         GAPI::freeEDRAM();
     #endif
         nextLevel = TR::LVL_MAX;
@@ -994,9 +994,11 @@ struct Level : IGame {
         delete zoneCache;
 
         delete atlasRooms;
-        delete atlasObjects;
-        delete atlasSprites;
-        delete atlasGlyphs;
+        #if !defined(_GAPI_SW) && !defined(_GAPI_GU)
+            delete atlasObjects;
+            delete atlasSprites;
+            delete atlasGlyphs;
+        #endif
         delete mesh;
 
         Sound::stopAll();
@@ -1494,7 +1496,7 @@ struct Level : IGame {
     void initTextures() {
     #ifndef SPLIT_BY_TILE
 
-        #ifdef _OS_PSP
+        #if defined(_GAPI_SW) || defined(_GAPI_GU)
             #error atlas packing is not allowed for this platform
         #endif
 
@@ -1628,8 +1630,11 @@ struct Level : IGame {
     #else
         ASSERT(level.tilesCount);
 
-        #ifdef _OS_PSP
-            atlas = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
+        #if defined(_GAPI_SW) || defined(_GAPI_GU)
+            atlasRooms   =
+            atlasObjects =
+            atlasSprites =
+            atlasGlyphs  = new Texture(level.tiles4, level.tilesCount, level.cluts, level.clutsCount);
         #else
             Texture::Tile *tiles = new Texture::Tile[level.tilesCount];
             for (int i = 0; i < level.tilesCount; i++) {
@@ -1669,6 +1674,7 @@ struct Level : IGame {
             delete[] tiles;
         #endif
 
+        #ifndef _GAPI_SW
         for (int i = 0; i < level.objectTexturesCount; i++) {
             TR::TextureInfo &t = level.objectTextures[i];
 
@@ -1705,6 +1711,7 @@ struct Level : IGame {
             t.texCoord[1].y += 16;
             */
         }
+        #endif
     #endif
     }
 
@@ -2267,7 +2274,7 @@ struct Level : IGame {
             Core::setBlendMode(bmNone);
 
             #ifdef FFP
-                atlas->bind(0);
+                atlasRooms->bind(0);
             #endif
         }
 

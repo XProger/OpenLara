@@ -330,6 +330,8 @@ namespace GAPI {
 
     void discardTarget(bool color, bool depth) {}
 
+    void copyTarget(Texture *dst, int xOffset, int yOffset, int x, int y, int width, int height) {}
+
     void setVSync(bool enable) {}
 
     void waitVBlank() {

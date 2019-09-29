@@ -8,11 +8,11 @@ struct Texture : GAPI::Texture {
 
     #ifdef SPLIT_BY_TILE
 
-        #ifdef _OS_PSP
+        #if defined(_GAPI_SW) || defined(_GAPI_GU)
             TR::Tile4 *tiles;
             TR::CLUT  *cluts;
 
-            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, OPT_PROXY) {
+            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
                 #ifdef EDRAM_TEX
                     this->tiles = (TR::Tile4*)GAPI::allocEDRAM(tilesCount * sizeof(tiles[0]));
                     this->cluts =  (TR::CLUT*)GAPI::allocEDRAM(clutsCount * sizeof(cluts[0]));
@@ -37,7 +37,7 @@ struct Texture : GAPI::Texture {
                 uint32 *data;
             };
 
-            Texture(Tile *tiles, int tilesCount) : GAPI::Texture(256, 256, OPT_PROXY) {
+            Texture(Tile *tiles, int tilesCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
                 memset(this->tiles, 0, sizeof(this->tiles));
 
                 ASSERT(tilesCount < COUNT(this->tiles));
@@ -47,7 +47,7 @@ struct Texture : GAPI::Texture {
         #endif
 
         void bindTile(uint16 tile, uint16 clut) {
-        #ifdef _OS_PSP
+        #if defined(_GAPI_SW) || defined(_GAPI_GU)
             bindTileCLUT(tiles + tile, cluts + clut);
         #else
             tiles[tile]->bind(0);
@@ -68,7 +68,7 @@ struct Texture : GAPI::Texture {
 
     Texture(int width, int height, int depth, TexFormat format, uint32 opt = 0, void *data = NULL) : GAPI::Texture(width, height, depth, opt) {
         #ifdef SPLIT_BY_TILE
-            #ifndef _OS_PSP
+            #if !defined(_GAPI_SW) && !defined(_GAPI_GU)
                 memset(this->tiles, 0, sizeof(tiles));
             #endif
         #endif
@@ -123,7 +123,7 @@ struct Texture : GAPI::Texture {
     }
 
     virtual ~Texture() {
-        #ifndef _OS_PSP
+        #if !defined(_GAPI_SW) && !defined(_GAPI_GU)
             #ifdef SPLIT_BY_TILE
                 for (int i = 0; i < COUNT(tiles); i++)
                     delete tiles[i];

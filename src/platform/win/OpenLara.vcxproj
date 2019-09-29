@@ -177,6 +177,7 @@
     <ClInclude Include="..\..\gapi\gl.h" />
     <ClInclude Include="..\..\gapi\gu.h" />
     <ClInclude Include="..\..\gapi\gxm.h" />
+    <ClInclude Include="..\..\gapi\sw.h" />
     <ClInclude Include="..\..\gapi\vk.h" />
     <ClInclude Include="..\..\gltf.h" />
     <ClInclude Include="..\..\json.h" />
