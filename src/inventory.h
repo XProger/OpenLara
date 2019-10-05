@@ -157,7 +157,9 @@ static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY,         SETTINGS( audio.sound     ), 0xFFFF8000, 102, SND_MAX_VOLUME, true ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION, SETTINGS( audio.reverb    ), STR_OFF, 0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SUBTITLES, SETTINGS( audio.subtitles ), STR_OFF, 0, 1 ),
+#ifndef FFP
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_LANGUAGE,  SETTINGS( audio.language  ), STR_LANG_EN, 0, 10 ),
+#endif
 };
 
 #if defined(_OS_CLOVER) || defined(_OS_PSC)
@@ -1836,7 +1838,7 @@ struct Inventory {
         m.identity();
         Core::setViewProj(m, m);
         Core::mModel.identity();
-        Core::mModel.scale(vec3(1.0f / 32767.0f));
+
     #else
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR || !background[0]) {
             backTex = Core::blackTex; // black background 

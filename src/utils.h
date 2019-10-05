@@ -737,6 +737,16 @@ struct mat4 {
         frustum(range, -x - eyeX, x - eyeX, -y - eyeY, y - eyeY, znear, zfar, rotate90);
     }
 
+    void viewport(float x, float y, float width, float height, float n, float f) {
+        identity();
+        e00 = width   * 0.5f;
+        e11 = height  * 0.5f;
+        e22 = (f - n) * 0.5f;
+        e23 = (f + n) * 0.5f;
+        e03 = x + e00;
+        e13 = y + e11;
+    }
+
     mat4(const vec3 &from, const vec3 &at, const vec3 &up) {
         vec3 r, u, d;
         d = (from - at).normal();
@@ -1444,6 +1454,29 @@ union Color16 { // RGBA5551
     operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
 };
 
+struct ColorIndex4 {
+    uint8 a:4, b:4;
+};
+
+struct Tile4 {
+    ColorIndex4 index[256 * 256 / 2];
+};
+
+struct Tile8 {
+    uint8 index[256 * 256];
+};
+
+struct Tile16 {
+    Color16 color[256 * 256];
+};
+
+struct Tile32 {
+    Color32 color[256 * 256]; // + 128 for mips data
+};
+
+struct CLUT {
+    Color16 color[16];
+};
 
 namespace String {
 
@@ -2053,8 +2086,12 @@ struct Array {
         this->length = length;
     }
 
-    void clear() {
+    void reset() {
         length = 0;
+    }
+
+    void clear() {
+        reset();
         free(items);
         items = NULL;
     }
@@ -2068,7 +2105,7 @@ struct Array {
         return items[index]; 
     };
 
-    operator T*() const { return items; };
+    inline operator T*() const { return items; };
 };
 
 

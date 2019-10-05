@@ -6,6 +6,8 @@
 #endif
 
 #include <stdio.h>
+#include <memory.h>
+#include <stdint.h>
 
 #define OS_FILEIO_CACHE
 #define OS_PTHREAD_MT
@@ -59,8 +61,9 @@
 
     #define DYNGEOM_NO_VBO
 #elif __BITTBOY__
-    #define _OS_LINUX 1
-    #define _GAPI_SW  1
+    #define _OS_BITTBOY 1
+    #define _OS_LINUX   1
+    #define _GAPI_SW    1
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
@@ -122,7 +125,7 @@
 
 #ifdef FFP
     #define SPLIT_BY_TILE
-    #if defined(_GAPI_GU) || defined(_GAPI_SW)
+    #if defined(_GAPI_GU)
         #define SPLIT_BY_CLUT
     #endif
 #else
@@ -461,7 +464,7 @@ struct Edge {
 
 struct Vertex {
     short4 coord;      // xyz  - position, w - joint index (for entities only)
-    short4 normal;     // xyz  - vertex normal, w - unused
+    short4 normal;     // xyz  - vertex normal, w - quad(0) or triangle (1)
     short4 texCoord;   // xy   - texture coordinates, zw - trapezoid warping
     ubyte4 color;      // for non-textured geometry
     ubyte4 light;      // xyz  - color, w - use premultiplied alpha
@@ -1042,6 +1045,12 @@ namespace Core {
 
     void setViewport(int x, int y, int width, int height) {
         setViewport(Viewport(x, y, width, height));
+    }
+
+    void setViewport(const vec4 &vp, int width, int height) {
+        vec4 s = vec4(vp.x, -vp.w, vp.z, -vp.y);
+        s = (s * 0.5 + 0.5) * vec4(float(width), float(height), float(width), float(height));
+        setViewport(int(s.x), int(s.y), int(s.z) - int(s.x), int(s.w) - int(s.y));
     }
 
     void setCullMode(CullMode mode) {

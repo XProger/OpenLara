@@ -11,6 +11,19 @@
     #define COLOR_16
 #endif
 
+#ifdef COLOR_16
+    #ifdef _OS_LINUX
+        #define COLOR_FMT_565
+        #define CONV_COLOR(r,g,b) (((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
+    #else
+        #define COLOR_FMT_555
+        #define CONV_COLOR(r,g,b) (((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3))
+    #endif
+#else 
+    #define COLOR_FMT_888
+    #define CONV_COLOR(r,g,b) ((r << 16) | (g << 8) | b)
+#endif
+
 namespace GAPI {
 
     using namespace Core;
@@ -23,6 +36,16 @@ namespace GAPI {
         typedef uint32 ColorSW;
     #endif
     typedef uint16 DepthSW;
+
+    uint8   *swLightmap; // 32 * 256
+    ColorSW *swPalette;
+    ColorSW swPaletteColor[256];
+    ColorSW swPaletteWater[256];
+    ColorSW swPaletteGray[256];
+    uint8   swGradient[256];
+    Tile8   *curTile;
+
+    uint8 ambient;
 
 // Shader
     struct Shader {
@@ -71,17 +94,11 @@ namespace GAPI {
             if (!this || (opt & OPT_PROXY)) return;
             ASSERT(memory);
 
-//            sceGuTexMode(GU_PSM_8888, 0, 0, getSwizzle());
-//            sceGuTexImage(0, width, height, width, memory);
+            curTile = NULL;
         }
 
-        void bindTileCLUT(void *tile, void *clut) {
-            ASSERT(tile);
-            ASSERT(clut);
-
-//            sceGuTexMode(GU_PSM_T4, 0, 0, getSwizzle());
-//            sceGuClutLoad(1, clut);
-//            sceGuTexImage(0, width, height, width, tile);
+        void bindTileIndices(Tile8 *tile) {
+            curTile = (Tile8*)tile;
         }
 
         void unbind(int sampler) {}
@@ -124,7 +141,7 @@ namespace GAPI {
             if (indices) {
                 memcpy(iBuffer, indices, iCount * sizeof(indices[0]));
             }
-        
+
             if (vertices) {
                 memcpy(vBuffer, vertices, vCount * sizeof(vertices[0]));
             }
@@ -142,76 +159,81 @@ namespace GAPI {
 
     ColorSW *swColor;
     DepthSW *swDepth;
+    short4  swClipRect;
 
-    mat4    swMatrix;
-    vec4    swViewport;
+    mat4     swMatrix;
+    vec2     swScale;
 
     struct VertexSW {
-        float   w;
-        short2  coord;
-        ubyte4  color;
-        short2  uv;
-        DepthSW z;
+        int32 x, y, z, w;
+        int32 u, v, l;
+
+        inline VertexSW operator + (const VertexSW &p) const {
+            VertexSW ret;
+            ret.x = x + p.x;
+            ret.y = y;
+            ret.z = z + p.z;
+            ret.w = w + p.w;
+            ret.u = u + p.u;
+            ret.v = v + p.v;
+            ret.l = l + p.l;
+            return ret;
+        }
+
+        inline VertexSW operator - (const VertexSW &p) const {
+            VertexSW ret;
+            ret.x = x - p.x;
+            ret.y = y;
+            ret.z = z - p.z;
+            ret.w = w - p.w;
+            ret.u = u - p.u;
+            ret.v = v - p.v;
+            ret.l = l - p.l;
+            return ret;
+        }
+
+        inline VertexSW operator * (const int32 s) const {
+            VertexSW ret;
+            ret.x = x * s;
+            ret.y = y;
+            ret.z = z * s;
+            ret.w = w * s;
+            ret.u = u * s;
+            ret.v = v * s;
+            ret.l = l * s;
+            return ret;
+        }
+
+        inline VertexSW operator / (const int32 s) const {
+            VertexSW ret;
+            ret.x = x / s;
+            ret.y = y;
+            ret.z = z / s;
+            ret.w = w / s;
+            ret.u = u / s;
+            ret.v = v / s;
+            ret.l = l / s;
+            return ret;
+        }
     };
 
-    VertexSW *swVertices;
-    int32    swVerticesCount;
-
-    Index  *swIndices;
-    int32  swIndicesCount;
-
+    Array<VertexSW> swVertices;
+    Array<Index>    swIndices;
+    Array<int32>    swTriangles;
+    Array<int32>    swQuads;
 
     void init() {
         LOG("Renderer : %s\n", "Software");
         LOG("Version  : %s\n", "0.1");
-        /*
-        sceGuEnable(GU_TEXTURE_2D);
-        sceGuDepthFunc(GU_LEQUAL);
-        sceGuDepthRange(0x0000, 0xFFFF);
-        sceGuClearDepth(0xFFFF);
-
-        sceGuShadeModel(GU_SMOOTH);
-        sceGuAlphaFunc(GU_GREATER, 127, 255);
-
-        int swizzle = GU_FALSE;
-        #ifdef TEX_SWIZZLE
-            swizzle = GU_TRUE;
-        #endif
-
-        sceGuClutMode(GU_PSM_5551, 0, 0xFF, 0);
-        sceGuTexMode(GU_PSM_T4, 0, 0, swizzle);
-        sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
-        sceGuTexScale(1.0f, 1.0f);
-        sceGuTexOffset(0.0f, 0.0f);
-        sceGuTexFilter(GU_LINEAR, GU_LINEAR);
-        //sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-        sceGuEnable(GU_CLIP_PLANES);
-
-        const ScePspIMatrix4 dith =
-            { {-4,  0, -3,  1},
-            { 2, -2,  3, -1},
-            {-3,  1, -4,  0},
-            { 3, -1,  2, -2} };
-        sceGuSetDither(&dith);
-        sceGuEnable(GU_DITHER);
-
-        sceGuAmbientColor(0xFFFFFFFF);
-        sceGuColor(0xFFFFFFFF);
-        sceGuClearColor(0x00000000);
-        sceGuColorMaterial(GU_AMBIENT | GU_DIFFUSE);
-        */
-        swDepth    = NULL;        
-        swVertices = NULL;
-        swIndices  = NULL;
-
-        swVerticesCount = 0;
-        swIndicesCount  = 0;
+        swDepth = NULL;
     }
 
     void deinit() {
         delete[] swDepth;
-        delete[] swVertices;
-        delete[] swIndices;
+        swVertices.clear();
+        swIndices.clear();
+        swTriangles.clear();
+        swQuads.clear();
     }
 
     void resize() {
@@ -220,7 +242,7 @@ namespace GAPI {
     }
 
     inline mat4::ProjRange getProjRange() {
-        return mat4::PROJ_NEG_POS;
+        return mat4::PROJ_ZERO_POS;
     }
 
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
@@ -239,20 +261,11 @@ namespace GAPI {
         return true;
     }
 
-    void endFrame() {
-        //
-    }
+    void endFrame() {}
 
     void resetState() {}
 
-    void bindTarget(Texture *texture, int face) {
-/*
-                if (!target)
-                    sceGuDrawBufferList(GU_PSM_5650, GAPI::curBackBuffer, 512);
-                else
-                    sceGuDrawBufferList(GU_PSM_5650, target->offset, target->width);
-*/
-    }
+    void bindTarget(Texture *texture, int face) {}
 
     void discardTarget(bool color, bool depth) {}
 
@@ -260,13 +273,11 @@ namespace GAPI {
 
     void setVSync(bool enable) {}
 
-    void waitVBlank() {
-        //sceDisplayWaitVblankStart();
-    }
+    void waitVBlank() {}
 
     void clear(bool color, bool depth) {
         if (color) {
-            memset(swColor, 0, Core::width * Core::height * sizeof(ColorSW));
+        //    memset(swColor, 0x00, Core::width * Core::height * sizeof(ColorSW));
         }
 
         if (depth) {
@@ -274,270 +285,387 @@ namespace GAPI {
         }
     }
 
-    void setClearColor(const vec4 &color) {
-        //
-    }
+    void setClearColor(const vec4 &color) {}
 
     void setViewport(const Viewport &vp) {
-        //
+        swClipRect.x = vp.x;
+        swClipRect.y = vp.y;
+        swClipRect.z = vp.x + vp.width;
+        swClipRect.w = vp.y + vp.height;
     }
 
-    void setDepthTest(bool enable) {
-        //
-    }
+    void setDepthTest(bool enable) {}
 
-    void setDepthWrite(bool enable) {
-        //
-    }
+    void setDepthWrite(bool enable) {}
 
-    void setColorWrite(bool r, bool g, bool b, bool a) {
-        //
-    }
+    void setColorWrite(bool r, bool g, bool b, bool a) {}
 
-    void setAlphaTest(bool enable) {
-        //
-    }
+    void setAlphaTest(bool enable) {}
 
-    void setCullMode(int rsMask) {
-        cullMode = rsMask;
-        //switch (rsMask) {
-        //    case RS_CULL_BACK  : sceGuFrontFace(GU_CCW);     break;
-        //    case RS_CULL_FRONT : sceGuFrontFace(GU_CW);      break;
-        //    default            : sceGuDisable(GU_CULL_FACE); return;
-        //}
-        //sceGuEnable(GU_CULL_FACE);
-    }
+    void setCullMode(int rsMask) {}
 
-    void setBlendMode(int rsMask) {
-        blendMode = rsMask;
-        //switch (rsMask) {
-        //    case RS_BLEND_ALPHA   : sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);    break;
-        //    case RS_BLEND_ADD     : sceGuBlendFunc(GU_ADD, GU_FIX, GU_FIX, 0xffffffff, 0xffffffff);        break;
-        //    case RS_BLEND_MULT    : sceGuBlendFunc(GU_ADD, GU_DST_COLOR, GU_FIX, 0, 0);                    break;
-        //    case RS_BLEND_PREMULT : sceGuBlendFunc(GU_ADD, GU_FIX, GU_ONE_MINUS_SRC_ALPHA, 0xffffffff, 0); break;
-        //    default               : sceGuDisable(GU_BLEND); return;
-        //}
-        //sceGuEnable(GU_BLEND);
-    }
+    void setBlendMode(int rsMask) {}
 
-    void setViewProj(const mat4 &mView, const mat4 &mProj) {
-        //
-    }
+    void setViewProj(const mat4 &mView, const mat4 &mProj) {}
 
     void updateLights(vec4 *lightPos, vec4 *lightColor, int count) {
         int lightsCount = 0;
 
-        ubyte4 amb;
-        amb.x = amb.y = amb.z = clamp(int(active.material.y * 255), 0, 255);
-        amb.w = 255;
-    /*
-        sceGuAmbient(*(uint32*)&amb);
+        ambient = clamp(int32(active.material.y * 255), 0, 255);
 
         for (int i = 0; i < MAX_LIGHTS; i++) {
-            if (lightColor[i].w != 1.0f) {
-                sceGuEnable(GU_LIGHT0 + i);
-                lightsCount++;
-            } else {
-                sceGuDisable(GU_LIGHT0 + i);
-                continue;
-            }
-
-            ScePspFVector3 pos;
-            pos.x = lightPos[i].x;
-            pos.y = lightPos[i].y;
-            pos.z = lightPos[i].z;
-
-            sceGuLight(i, GU_POINTLIGHT, GU_DIFFUSE, &pos);
-
-            ubyte4 color;
-            color.x = clamp(int(lightColor[i].x * 255), 0, 255);
-            color.y = clamp(int(lightColor[i].y * 255), 0, 255);
-            color.z = clamp(int(lightColor[i].z * 255), 0, 255);
-            color.w = 255;
-
-            sceGuLightColor(i, GU_DIFFUSE, *(uint32*)&color);
-            sceGuLightAtt(i, 1.0f, 0.0f, lightColor[i].w * lightColor[i].w);
+            // TODO
         }
-
-        if (lightsCount) {
-            sceGuEnable(GU_LIGHTING);
-        } else {
-            sceGuDisable(GU_LIGHTING);
-        }
-        */
-    }
-    
-    struct Edge {
-        float A, B, C;
-
-        Edge(const vec3 &a, const vec3 &b) {
-            A = a.y - b.y;
-            B = b.x - a.x;
-            C = -(A * (a.x + b.x) + B * (a.y + b.y)) * 0.5f;
-        }
-
-        float evaluate(float x, float y) const {
-            return A*x + B*y + C;
-        }
-    };
-
-    #define VERTEX_CACHE_MAX 4
-
-    Index vertexCache[2][VERTEX_CACHE_MAX];
-
-    void vcacheClear() {
-        memset(vertexCache, 0xFF, sizeof(vertexCache));
     }
 
-    void vcacheSet(int in, int out) {
-        int i = in % VERTEX_CACHE_MAX;
-        vertexCache[0][i] = in;
-        vertexCache[1][i] = out;
+    bool checkBackface(const VertexSW *a, const VertexSW *b, const VertexSW *c) {
+        return ((b->x - a->x) >> 16) * (c->y - a->y) -
+               ((c->x - a->x) >> 16) * (b->y - a->y) <= 0;
     }
 
-    Index vcacheGet(int in) {
-        int i = in % VERTEX_CACHE_MAX;
-        if (vertexCache[0][i] == in) {
-            return vertexCache[1][i];
+    inline void sortVertices(VertexSW *&t, VertexSW *&m, VertexSW *&b) {
+        if (t->y > m->y) swap(t, m);
+        if (t->y > b->y) swap(t, b);
+        if (m->y > b->y) swap(m, b);
+    }
+
+    inline void sortVertices(VertexSW *&t, VertexSW *&m, VertexSW *&b, VertexSW *&o) {
+        if (t->y > m->y) swap(t, m);
+        if (o->y > b->y) swap(o, b);
+        if (t->y > o->y) swap(t, o);
+        if (m->y > b->y) swap(m, b);
+        if (m->y > o->y) swap(m, o);
+    }
+
+    inline void step(VertexSW &v, const VertexSW &d) {
+        //v.w += d.w;
+        v.u += d.u;
+        v.v += d.v;
+        v.l += d.l;
+    }
+
+    inline void step(VertexSW &v, const VertexSW &d, int32 count) {
+        //v.w += d.w * count;
+        v.u += d.u * count;
+        v.v += d.v * count;
+        v.l += d.l * count;
+    }
+
+    void drawLine(const VertexSW &L, const VertexSW &R, int32 y) {
+        int32 x1 = L.x >> 16;
+        int32 x2 = R.x >> 16;
+
+        int32 f = x2 - x1;
+        if (f == 0) return;
+
+        VertexSW dS = (R - L) / f;
+        VertexSW S  = L;
+
+        if (x1 < swClipRect.x) {
+            x1 = swClipRect.x - x1;
+            S.z += dS.z * x1;
+            step(S, dS, x1);
+            x1 = Core::viewport.x;
         }
-        return 0xFFFF;
-    }
-
-    void DrawLine(int x1, int x2, int y, DepthSW z, ColorSW color) {
-        if (x2 - x1 == 0) return;
-
-        if (x1 < 0) x1 = 0;
-        if (x2 > Core::width - 1) x2 = Core::width - 1;
-        if (x2 < x1) return;
+        if (x2 > swClipRect.z) x2 = swClipRect.z;
 
         int32 i = y * Core::width;
 
         for (int x = i + x1; x < i + x2; x++) {
+            S.z += dS.z;
+
+            DepthSW z = DepthSW(uint32(S.z) >> 16);
+
             if (swDepth[x] >= z) {
-                swDepth[x] = z;
-                swColor[x] = color;
+                uint32 u = uint32(S.u) >> 16;
+                uint32 v = uint32(S.v) >> 16;
+
+                uint8 index = curTile->index[(v << 8) + u];
+
+                if (index != 0) {
+                    index = swLightmap[((S.l >> (16 + 3)) << 8) + index];
+
+                    swColor[x] = swPalette[index];
+                    swDepth[x] = z;
+                }
             }
+
+            step(S, dS);
         }
     }
 
-    void DrawTriangle(Index *indices) {
-        VertexSW a = swVertices[indices[0]];
-        VertexSW b = swVertices[indices[1]];
-        VertexSW c = swVertices[indices[2]];
+    void drawPart(const VertexSW &a, const VertexSW &b, const VertexSW &c, const VertexSW &d) {
+        VertexSW L, R, dL, dR;
+        int32 minY, maxY;
 
-        if (a.w < 0.0f || b.w < 0.0f || c.w < 0.0f) return;
+        int32 f = c.y - a.y;
+        dL = (c - a) / f;
+        dR = (d - b) / f;
 
-        short2 &ia = a.coord;
-        short2 &ib = b.coord;
-        short2 &ic = c.coord;
+        L = a;
+        R = b;
 
-        if ((ib.x - ia.x) * (ic.y - ia.y) -
-            (ib.y - ia.y) * (ic.x - ia.x) <= 0) return;
+        minY = a.y;
+        maxY = c.y;
 
-        DepthSW z = DepthSW((uint32(a.z) + uint32(b.z) + uint32(c.z)) / 3.0f); // 16-bit depth range
+        if (maxY < swClipRect.y || minY >= swClipRect.w) return;
 
-        if (a.coord.y > b.coord.y) swap(a, b);
-        if (a.coord.y > c.coord.y) swap(a, c);
-        if (b.coord.y > c.coord.y) swap(b, c);
+        if (minY < swClipRect.y) {
+            minY = swClipRect.y - minY;
+            L.x += dL.x * minY;
+            L.z += dL.z * minY;
+            R.x += dR.x * minY;
+            R.z += dR.z * minY;
+            step(L, dL, minY);
+            step(R, dR, minY);
+            minY = swClipRect.y;
+        }
 
-        ColorSW color = a.color.value;
+        if (maxY > swClipRect.w) maxY = swClipRect.w;
 
-        int16 minY = ia.y;
-        int16 maxY = ic.y;
-        if (minY < 0) minY = 0;
-        if (maxY > Core::height - 1) maxY = Core::height - 1;
-        if (minY > maxY) return; 
+        for (int y = minY; y < maxY; y++) {
+            drawLine(L, R, y);
+            L.x += dL.x;
+            L.z += dL.z;
+            R.x += dR.x;
+            R.z += dR.z;
+            step(L, dL);
+            step(R, dR);
+        }
+    }
 
-        int16 midY = clamp(ib.y, minY, maxY);
+    void drawTriangle(Index *indices) {
+    /*
+             t
+            /\ <----- top triangle
+         m /__\/ n
+           \  /\
+             \  \ <-- bottom triangle
+               \ \
+                 \\
+                   \
+                    b
+    */
+        VertexSW _n;
+        VertexSW *t = swVertices + indices[0];
+        VertexSW *m = swVertices + indices[1];
+        VertexSW *b = swVertices + indices[2];
+        VertexSW *n = &_n;
 
-        int32 f = ((ic.x - ia.x) << 16) / (ic.y - ia.y);
+        if (t->w <= 0 || m->w <= 0 || b->w <= 0)
+            return;
 
-        if (ia.y != ib.y) {
-            int32 f1 = f;
-            int32 f2 = ((ib.x - ia.x) << 16) / (ib.y - ia.y);
-            int32 x1 = (ia.x << 16) + (minY - ia.y) * f1;
-            int32 x2 = (ia.x << 16) + (minY - ia.y) * f2;
+        if (checkBackface(t, m, b))
+            return;
 
-            if (f1 > f2) {
-                swap(x1, x2);
-                swap(f1, f2);
+        int32 cx1 = swClipRect.x << 16;
+        int32 cx2 = swClipRect.z << 16;
+
+        if (t->x < cx1 && m->x < cx1 && b->x < cx1)
+            return;
+
+        if (t->x > cx2 && m->x > cx2 && b->x > cx2)
+            return;
+
+        sortVertices(t, m, b);
+
+        if (b->y < swClipRect.y || t->y > swClipRect.w)
+            return;
+
+        *n = ((*b - *t) / (b->y - t->y) * (m->y - t->y)) + *t;
+        n->y = m->y;
+
+        if (m->x > n->x) {
+            swap(m, n);
+        }
+
+        if (m->y != t->y) drawPart(*t, *t, *m, *n);
+        if (m->y != b->y) drawPart(*m, *n, *b, *b);
+    }
+
+    void drawQuad(Index *indices) {
+    /*
+             t
+            /\ <----- top triangle
+         m /__\/ n
+           \  /\
+            \   \ <-- quad
+           p \/__\ o
+             /\  / 
+               \/ <-- bottom triangle
+               b
+    */
+        VertexSW _n;
+        VertexSW _p;
+        VertexSW *t = swVertices + indices[0];
+        VertexSW *m = swVertices + indices[1];
+        VertexSW *b = swVertices + indices[2];
+        VertexSW *o = swVertices + indices[3];
+        VertexSW *n = &_n;
+        VertexSW *p = &_p;
+
+        if (t->w <= 0 || m->w <= 0 || o->w <= 0 || b->w <= 0)
+            return;
+
+        if (checkBackface(t, m, b))
+            return;
+
+        int32 cx1 = swClipRect.x << 16;
+        int32 cx2 = swClipRect.z << 16;
+
+        if (t->x < cx1 && m->x < cx1 && o->x < cx1 && b->x < cx1)
+            return;
+
+        if (t->x > cx2 && m->x > cx2 && o->x > cx2 && b->x > cx2)
+            return;
+
+        sortVertices(t, m, b, o);
+
+        if (b->y < swClipRect.y || t->y > swClipRect.w)
+            return;
+
+        if (checkBackface(t, b, m) == checkBackface(t, b, o)) {
+
+            VertexSW d = (*b - *t) / (b->y - t->y);
+
+            *n = *t + d * (m->y - t->y);
+            *p = *t + d * (o->y - t->y);
+
+            n->y = m->y;
+            p->y = o->y;
+
+        } else {
+
+            if (o->y != t->y) {
+                *n = *t + ((*o - *t) / (o->y - t->y) * (m->y - t->y));
+                n->y = m->y;
             }
 
-            for (int16 y = minY; y < midY; y++) {
-                DrawLine(x1 >> 16, x2 >> 16, y, z, color);
-                x1 += f1;
-                x2 += f2;
+            if (m->y != b->y) {
+                *p = *b + ((*m - *b) / (m->y - b->y) * (o->y - b->y));
+                p->y = o->y;
+            }
+
+        }
+
+        if (o->y != t->y && m->x > n->x) swap(m, n);
+        if (m->y != b->y && p->x > o->x) swap(p, o);
+
+        if (t->y != m->y) drawPart(*t, *t, *m, *n);
+        if (m->y != o->y) drawPart(*m, *n, *p, *o);
+        if (o->y != b->y) drawPart(*p, *o, *b, *b);
+    }
+
+    bool transform(const Index *indices, const Vertex *vertices, int iStart, int iCount, int vStart) {
+        swVertices.reset();
+        swIndices.reset();
+        swTriangles.reset();
+        swQuads.reset();
+
+        int vIndex = 0;
+        bool isTriangle = false;
+        bool colored = false;
+
+        for (int i = 0; i < iCount; i++) {
+            const Index  index   = indices[iStart + i];
+            const Vertex &vertex = vertices[vStart + index];
+
+            vIndex++;
+
+            if (vIndex == 1) {
+                isTriangle = vertex.normal.w == 1;
+            }
+
+            if (vertex.color.w == 142) {
+                colored = true;
+            }
+
+            if (!isTriangle && (vIndex == 4 || vIndex == 5)) { // loader splits quads to two triangles with indices 012[02]3, we ignore [02] to make it quad again!
+                continue;
+            }
+
+            vec4 c;
+            c = swMatrix * vec4(vertex.coord.x, vertex.coord.y, vertex.coord.z, 1.0f);
+
+            c.x /= c.w;
+            c.y /= c.w;
+            c.z /= c.w;
+            c.x = clamp(c.x, -16384.0f, 16384.0f);
+            c.y = clamp(c.y, -16384.0f, 16384.0f);
+
+            VertexSW result;
+            result.x = int32(c.x) << 16;
+            result.y = int32(c.y);
+            result.z = uint32(clamp(c.z, 0.0f, 1.0f) * 65535.0f) << 16;
+            result.w = int32(c.w);
+
+            if (colored) {
+                result.u = vertex.color.x << 16;
+                result.v = 0;
+            } else {
+                result.u = (vertex.texCoord.x << 16);// / result.w;
+                result.v = (vertex.texCoord.y << 16);// / result.w;
+            }
+            result.w = result.w << 16;
+            result.l = (255 - ((vertex.light.x * ambient) >> 8)) << 16;
+
+            swIndices.push(swVertices.push(result));
+
+            ASSERT(!(isTriangle && vIndex > 3));
+
+            if (isTriangle && vIndex == 3) {
+                swTriangles.push(swIndices.length - 3);
+                vIndex = 0;
+            } else if (vIndex == 6) {
+                swQuads.push(swIndices.length - 4);
+                vIndex = 0;
             }
         }
 
-        if (ib.y != ic.y) {
-            int32 f1 = f;
-            int32 f2 = ((ic.x - ib.x) << 16) / (ic.y - ib.y);
-            int32 x1 = (ia.x << 16) + (midY - ia.y) * f1;
-            int32 x2 = (ib.x << 16) + (midY - ib.y) * f2;
-
-            if (x1 > x2) {
-                swap(x1, x2);
-                swap(f1, f2);
-            }
-
-            for (int16 y = midY; y < maxY; y++) {
-                DrawLine(x1 >> 16, x2 >> 16, y, z, color);
-                x1 += f1;
-                x2 += f2;
-            }
-        }
+        return colored;
     }
 
     void DIP(Mesh *mesh, const MeshRange &range) {
-        swMatrix   = mViewProj * mModel;
-        swViewport = vec4(float(Core::width / 2), float(Core::height / 2), 0, 0);
-
-        if (swVerticesCount < mesh->vCount) {
-            delete[] swVertices;
-            swVerticesCount = mesh->vCount;
-            swVertices = new VertexSW[swVerticesCount];
+        if (curTile == NULL) {
+            //uint32 *tex = (uint32*)Core::active.textures[0]->memory; // TODO
+            return;
         }
 
-        if (swIndicesCount < mesh->iCount) {
-            delete[] swIndices;
-            swIndicesCount = mesh->iCount;
-            swIndices = new Index[swIndicesCount];
+        swMatrix.viewport(0.0f, (float)Core::height, (float)Core::width, -(float)Core::height, 0.0f, 1.0f);
+        swMatrix = swMatrix * mViewProj * mModel;
+
+        bool colored = transform(mesh->iBuffer, mesh->vBuffer, range.iStart, range.iCount, range.vStart);
+
+        Tile8 *oldTile = curTile;
+
+        if (colored) {
+            curTile = (Tile8*)swGradient;
         }
 
-        vcacheClear();
-
-        uint32 vCount = 0;
-
-        for (int i = 0; i < range.iCount; i++) {
-            Index in  = mesh->iBuffer[range.iStart + i];
-            Index out = vcacheGet(in);
-
-            if (out == 0xFFFF) {
-                out = vCount++;
-                VertexSW &result = swVertices[out];
-                Vertex   &vertex = mesh->vBuffer[range.vStart + in];
-
-                vec4 c;
-                c = swMatrix * vec4(vertex.coord.x, vertex.coord.y, vertex.coord.z, 1.0f); \
-                c.x = clamp( swViewport.x * ( c.x / c.w + 1.0f), -16384.0f, 16384.0f); \
-                c.y = clamp( swViewport.y * (-c.y / c.w + 1.0f), -16384.0f, 16384.0f); \
-                c.z /= c.w;
-
-                result.w     = c.w;
-                result.coord = short2( int16(c.x), int16(c.y) );
-                result.z     = DepthSW(clamp(c.z, 0.0f, 1.0f) * 0xFFFF);
-                result.color = vertex.light; 
-
-                vcacheSet(in, out);
-            }
-
-            swIndices[i] = out;
+        for (int i = 0; i < swQuads.length; i++) {
+            drawQuad(&swIndices[swQuads[i]]);
         }
 
-        for (int i = 0; i < range.iCount; i += 3) {
-            DrawTriangle(swIndices + i);
+        for (int i = 0; i < swTriangles.length; i++) {
+            drawTriangle(&swIndices[swTriangles[i]]);
         }
+
+        curTile = oldTile;
+    }
+
+    void initPalette(Color24 *palette, uint8 *lightmap) {
+        swLightmap = lightmap;
+        for (uint32 i = 0; i < 256; i++) {
+            const Color24 &p = palette[i];
+            swPaletteColor[i] = CONV_COLOR(p.r, p.g, p.b);
+            swPaletteWater[i] = CONV_COLOR((uint32(p.r) * 150) >> 8, (uint32(p.g) * 230) >> 8, (uint32(p.b) * 230) >> 8);
+            swPaletteGray[i]  = CONV_COLOR((i * 57) >> 8, (i * 29) >> 8, (i * 112) >> 8);
+            swGradient[i]     = i;
+        }
+    }
+
+    void setPalette(ColorSW *palette) {
+        swPalette = palette;
     }
 
     vec4 copyPixel(int x, int y) {

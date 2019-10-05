@@ -46,6 +46,14 @@ struct ICamera {
     }
 };
 
+struct RoomDesc {
+    int32 index;
+    vec4  portal;
+
+    RoomDesc() {}
+    RoomDesc(int32 index, const vec4 &portal) : index(index), portal(portal) {}
+};
+
 struct IGame {
     virtual ~IGame() {}
     virtual void         loadLevel(TR::LevelID id) {}
@@ -68,11 +76,11 @@ struct IGame {
     virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {}
     virtual void setupBinding() {}
-    virtual void getVisibleRooms(int *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {}
+    virtual void getVisibleRooms(RoomDesc *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
     virtual void renderModelFull(int modelIndex, bool underwater, Basis *joints) {}
     virtual void renderCompose(int roomIndex) {}
-    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, int *roomsList = NULL) {}
+    virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, RoomDesc *roomsList = NULL) {}
     virtual void renderGame(bool showUI, bool invBG) {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 

@@ -70,7 +70,7 @@ struct Mesh : GAPI::Mesh {
                 TR::Room::Data::Vertex &v = d.vertices[f.vertices[k]];\
                 Vertex &rv = _vertices[vCount++];\
                 rv.coord  = short4( v.pos.x,    v.pos.y,    v.pos.z,    0 );\
-                rv.normal = short4( f.normal.x, f.normal.y, f.normal.z, 0 );\
+                rv.normal = short4( f.normal.x, f.normal.y, f.normal.z, f.triangle ? 1 : 0 );\
                 rv.color  = ubyte4( 255, 255, 255, 255 );\
                 rv.light  = ubyte4( v.color.r, v.color.g, v.color.b, 255 );\
             }
@@ -462,7 +462,7 @@ struct MeshBuilder {
         shadowBlob.iCount = 8 * 3 * 3;
         for (int i = 0; i < 9; i++) {
             Vertex &v0 = vertices[vCount + i * 2 + 0];
-            v0.normal    = short4( 0, -1, 0, 32767 );
+            v0.normal    = short4( 0, -1, 0, 1 );
             v0.texCoord  = short4( whiteObject.texCoordAtlas[0].x, whiteObject.texCoordAtlas[0].y, 32767, 32767 );
             v0.color     = v0.light = ubyte4( 0, 0, 0, 0 );
 
@@ -538,7 +538,7 @@ struct MeshBuilder {
             Vertex &v = vertices[vCount + i];
             pos.rotate(cs);
             v.coord     = short4( short(pos.x), short(pos.y), 0, 1 );
-            v.normal    = short4( 0, 0, 0, 32767 );
+            v.normal    = short4( 0, 0, 0, 1 );
             v.texCoord  = short4( whiteSprite.texCoordAtlas[0].x, whiteSprite.texCoordAtlas[0].y, 32767, 32767 );
             v.color     = ubyte4( 255, 255, 255, 255 );
             v.light     = ubyte4( 255, 255, 255, 255 );
@@ -564,7 +564,7 @@ struct MeshBuilder {
         for (int i = 0; i < COUNT(boxCoords); i++) {
             Vertex &v = vertices[vCount++];
             v.coord    = boxCoords[i];
-            v.normal   = short4(0, 0, 0, 32767);
+            v.normal   = short4(0, 0, 0, 0);
             v.texCoord = short4(0, 0, 0, 0);
             v.color    = ubyte4(255, 255, 255, 255);
             v.light    = ubyte4(255, 255, 255, 255);
@@ -1092,9 +1092,9 @@ struct MeshBuilder {
 
                 vertices[vCount].coord  = transform(v.coord, joint, x, y, z, dir);
                 vec3 n = vec3(v.normal.x, v.normal.y, v.normal.z).normal() * 32767.0f;
-                v.normal = short4(short(n.x), short(n.y), short(n.z), 0);
+                v.normal = short4(short(n.x), short(n.y), short(n.z), f.triangle ? 1 : 0);
                 vertices[vCount].normal = rotate(v.normal, dir);
-                vertices[vCount].color  = ubyte4( c.r, c.g, c.b, 255 );
+                vertices[vCount].color  = ubyte4( c.r, c.g, c.b, c.a );
                 vertices[vCount].light  = ubyte4( light.r, light.g, light.b, 255 );
 
                 vCount++;
@@ -1525,7 +1525,8 @@ struct MeshBuilder {
         TR::Room::Data &d = level->rooms[roomIndex].data;
         for (int j = 0; j < d.sCount; j++) {
             TR::Room::Data::Sprite &f = d.sprites[j];
-            addDynSprite(f.texture, d.vertices[f.vertexIndex].pos, false, false, COLOR_WHITE, COLOR_WHITE);
+            TR::Room::Data::Vertex &v = d.vertices[f.vertexIndex];
+            addDynSprite(f.texture, d.vertices[f.vertexIndex].pos, false, false, v.color, v.color);
         }
 
         dynEnd();

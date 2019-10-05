@@ -870,7 +870,7 @@ struct WaterCache {
         game->setupBinding();
 
     // merge visible rooms for all items
-        int roomsList[256];
+        RoomDesc roomsList[256];
         int roomsCount = 0;
 
         for (int i = 0; i < level->roomsCount; i++)

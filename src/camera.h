@@ -6,9 +6,6 @@
 #include "controller.h"
 #include "character.h"
 
-#define CAM_OFFSET_COMBAT (2048.0f + 512.0f)
-#define CAM_OFFSET_LOOK   (512.0f)
-
 #define CAM_SPEED_FOLLOW  12
 #define CAM_SPEED_COMBAT  8
 
@@ -20,6 +17,14 @@
     #define CAM_FOCAL_LENGTH     1536.0f
     #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f)
 #endif
+
+#ifdef _OS_BITTBOY
+    #define CAM_OFFSET_COMBAT CAM_OFFSET_FOLLOW
+#else
+    #define CAM_OFFSET_COMBAT (2048.0f + 512.0f)
+#endif
+
+#define CAM_OFFSET_LOOK   (512.0f)
 
 #define CAM_FOLLOW_ANGLE     0.0f
 #define CAM_LOOK_ANGLE_XMAX  ( 55.0f * DEG2RAD)

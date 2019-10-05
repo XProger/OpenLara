@@ -494,6 +494,7 @@ namespace GAPI {
         void init(Core::Pass pass, int type, int *def, int defCount) {}
         void deinit() {}
         void bind() {}
+        void validate() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
         void setParam(UniformType uType, const mat4  &value, int count = 1) {}
     #else
@@ -1257,8 +1258,7 @@ namespace GAPI {
         glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
 
         glClearColor(0, 0, 0, 0);
-    #endif
-
+    #else 
         char extHeader[256];
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = extHeader[0] = 0;
         if (_GL_OES_standard_derivatives) {
@@ -1322,6 +1322,7 @@ namespace GAPI {
     #endif
         ASSERT(strlen(GLSL_HEADER_VERT) < COUNT(GLSL_HEADER_VERT));
         ASSERT(strlen(GLSL_HEADER_FRAG) < COUNT(GLSL_HEADER_FRAG));
+    #endif // FFP
     }
 
     void deinit() {

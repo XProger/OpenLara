@@ -1752,30 +1752,6 @@ namespace TR {
     #define FACE4_SIZE (sizeof(uint16) + sizeof(uint16) * 4) // flags + vertices[4]
     #define FACE3_SIZE (FACE4_SIZE - sizeof(uint16))
 
-    struct ColorIndex4 {
-        uint8 a:4, b:4;
-    };
-
-    struct Tile4 {
-        ColorIndex4 index[256 * 256 / 2];
-    };
-
-    struct Tile8 {
-        uint8 index[256 * 256];
-    };
-
-    struct Tile16 {
-        Color16 color[256 * 256];
-    };
-
-    struct Tile32 {
-        Color32 color[256 * 256]; // + 128 for mips data
-    };
-
-    struct CLUT {
-        Color16 color[16];
-    };
-
     struct Room {
 
         struct Info {
@@ -2986,6 +2962,7 @@ namespace TR {
         int32           entitiesCount;
         Entity          *entities;
 
+        uint8           lightmap[32 * 256]; // color indices table for 32 shades
         Color24         *palette;
         Color32         *palette32;
 
@@ -2998,6 +2975,7 @@ namespace TR {
         Tile16          *tiles16;
         Tile32          *tiles32;
         Tile32          *tilesMisc;
+
 
         uint16          cameraFramesCount;
         CameraFrame     *cameraFrames;
@@ -3848,7 +3826,10 @@ namespace TR {
         }
 
         void readLightMap(Stream &stream) {
-            stream.seek(32 * 256); // unused
+            stream.raw(lightmap, 32 * 256);
+            for (int i = 0; i < 32; i++) {
+                lightmap[i * 256] = 0;
+            }
         }
 
         void readCameraFrames(Stream &stream) {
@@ -6443,7 +6424,12 @@ namespace TR {
         Color32 getColor(int texture) const {
             switch (version) {
                 case VER_TR1_SAT : return Color16((uint16)texture);
-                case VER_TR1_PC  : return palette[texture & 0xFF];
+                case VER_TR1_PC  : 
+                    #ifdef _GAPI_SW
+                        return Color32(texture & 0xFF, 0, 0, 142);
+                    #else
+                        return palette[texture & 0xFF];
+                    #endif
                 case VER_TR2_PC  :
                 case VER_TR3_PC  : return palette32[(texture >> 8) & 0xFF];
                 case VER_TR1_PSX : 

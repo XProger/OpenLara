@@ -8,11 +8,17 @@ struct Texture : GAPI::Texture {
 
     #ifdef SPLIT_BY_TILE
 
-        #if defined(_GAPI_SW) || defined(_GAPI_GU)
-            TR::Tile4 *tiles;
-            TR::CLUT  *cluts;
+        #if defined(_GAPI_SW)
+            Tile8 *tiles;
 
-            Texture(TR::Tile4 *tiles, int tilesCount, TR::CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
+            Texture(Tile8 *tiles, int tilesCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
+                this->tiles = tiles;
+            }
+        #elif defined(_GAPI_GU)
+            Tile4 *tiles;
+            CLUT  *cluts;
+
+            Texture(Tile4 *tiles, int tilesCount, CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
                 #ifdef EDRAM_TEX
                     this->tiles = (TR::Tile4*)GAPI::allocEDRAM(tilesCount * sizeof(tiles[0]));
                     this->cluts =  (TR::CLUT*)GAPI::allocEDRAM(clutsCount * sizeof(cluts[0]));
@@ -47,7 +53,9 @@ struct Texture : GAPI::Texture {
         #endif
 
         void bindTile(uint16 tile, uint16 clut) {
-        #if defined(_GAPI_SW) || defined(_GAPI_GU)
+        #if defined(_GAPI_SW)
+            bindTileIndices(tiles + tile);
+        #elif defined(_GAPI_GU)
             bindTileCLUT(tiles + tile, cluts + clut);
         #else
             tiles[tile]->bind(0);

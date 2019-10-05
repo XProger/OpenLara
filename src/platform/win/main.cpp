@@ -923,7 +923,7 @@ int main(int argc, char** argv) {
 #else
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     int argc = (lpCmdLine && strlen(lpCmdLine)) ? 2 : 1;
-    char *argv[] = { "", lpCmdLine };
+    const char *argv[] = { "", lpCmdLine };
 #endif
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
