@@ -1846,6 +1846,19 @@ struct Level : IGame {
         setMainLight(player);
     }
 
+    short4 getPortalRect(const vec4 &v, int width, int height) {
+        //vec4 s = vec4(v.x, -v.w, v.z, -v.y);
+        vec4 s = v;
+        s = (s * 0.5 + 0.5) * vec4(float(width), float(height), float(width), float(height));
+        s.z -= s.x;
+        s.w -= s.y;
+        s.x = clamp(s.x, -16383.0f, 16383.0f);
+        s.y = clamp(s.y, -16383.0f, 16383.0f);
+        s.z = clamp(s.z, -16383.0f, 16383.0f);
+        s.w = clamp(s.w, -16383.0f, 16383.0f);
+        return short4(short(s.x), short(s.y), short(s.z), short(s.w));
+    }
+
     void renderRooms(RoomDesc *roomsList, int roomsCount, int transp) {
         PROFILE_MARKER("ROOMS");
 
@@ -1875,7 +1888,7 @@ struct Level : IGame {
 
         atlasRooms->bind(sDiffuse);
 
-        Viewport vp = Core::viewport;
+        short4 vp = Core::scissor;
 
         while (i != end) {
             int roomIndex = roomsList[i].index;
@@ -1886,9 +1899,7 @@ struct Level : IGame {
                 continue;
             }
 
-            #ifdef _GAPI_SW
-                Core::setViewport(roomsList[i].portal, vp.width, vp.height);
-            #endif
+            Core::setScissor(getPortalRect(roomsList[i].portal, vp.z, vp.w));
 
             const TR::Room &room = level.rooms[roomIndex];
 
@@ -1930,9 +1941,7 @@ struct Level : IGame {
                 if (!range.sprites.iCount)
                     continue;
 
-            #ifdef _GAPI_SW
-                Core::setViewport(roomsList[i].portal, vp.width, vp.height);
-            #endif
+                Core::setScissor(getPortalRect(roomsList[i].portal, vp.z, vp.w));
 
                 setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
 
@@ -1943,7 +1952,7 @@ struct Level : IGame {
             }
         }
 
-        Core::setViewport(vp);
+        Core::setScissor(vp);
         Core::setBlendMode(bmNone);
     }
 
@@ -2387,13 +2396,11 @@ struct Level : IGame {
 
         TR::Room &room = level.rooms[to];
 
-        if (!room.flags.visible) {
-            if (Core::pass == Core::passCompose && water && waterCache && from != TR::NO_ROOM && (level.rooms[from].flags.water ^ level.rooms[to].flags.water))
-                waterCache->setVisible(from, to);
+        if (Core::pass == Core::passCompose && water && waterCache && from != TR::NO_ROOM && (level.rooms[from].flags.water ^ level.rooms[to].flags.water))
+            waterCache->setVisible(from, to);
 
-            room.flags.visible = true;
-            roomsList[roomsCount++] = RoomDesc(to, viewPort);
-        }
+        room.flags.visible = true;
+        roomsList[roomsCount++] = RoomDesc(to, viewPort);
 
         vec4 clipPort;
         for (int i = 0; i < room.portalsCount; i++) {
@@ -2947,11 +2954,11 @@ struct Level : IGame {
             vH = Core::defaultTarget->height;
         }
 
-        Viewport &vp = Core::viewportDef;
-        vp = Viewport(vX, vY, vW, vH);
+        short4 &vp = Core::viewportDef;
+        vp = short4(vX, vY, vW, vH);
 
         if (players[1] != NULL && view >= 0) {
-            vp = Viewport(vX + vW / 2 * view, vY, vW / 2, vH);
+            vp = short4(vX + vW / 2 * view, vY, vW / 2, vH);
 
             if (Core::settings.detail.stereo != Core::Settings::STEREO_SPLIT) {
                 aspect *= 0.5f;
@@ -2960,12 +2967,12 @@ struct Level : IGame {
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS) {
             switch (eye) {
-                case -1 : vp = Viewport(vX + vp.x - vp.x / 2, vY + vp.y, vp.width / 2, vp.height);   break;
-                case +1 : vp = Viewport(vX + vW / 2 + vp.x / 2, vY + vp.y, vp.width / 2, vp.height); break;
+                case -1 : vp = short4(vX + vp.x - vp.x / 2, vY + vp.y, vp.z / 2, vp.w);   break;
+                case +1 : vp = short4(vX + vW / 2 + vp.x / 2, vY + vp.y, vp.z / 2, vp.w); break;
             }
         }
 
-        Core::setViewport(vp.x, vp.y, vp.width, vp.height);
+        Core::setViewport(vp.x, vp.y, vp.z, vp.w);
 
         return aspect;
     }
@@ -3056,7 +3063,7 @@ struct Level : IGame {
 
     void renderEye(int eye, bool showUI, bool invBG) {
         float          oldEye      = Core::eye;
-        Viewport       oldViewport = Core::viewportDef;
+        short4         oldViewport = Core::viewportDef;
         GAPI::Texture *oldTarget   = Core::defaultTarget;
 
         Core::eye = float(eye);
@@ -3104,7 +3111,7 @@ struct Level : IGame {
     }
 
     void renderGame(bool showUI, bool invBG) {
-        Viewport       oldViewport = Core::viewportDef;
+        short4         oldViewport = Core::viewportDef;
         GAPI::Texture *oldTarget   = Core::defaultTarget;
 
         bool upscale = !invBG && Core::settings.detail.scale != Core::Settings::SCALE_100;
@@ -3118,7 +3125,7 @@ struct Level : IGame {
                 scaleTex = new Texture(w, h, 1, FMT_RGBA, OPT_TARGET);
             }
             Core::defaultTarget = scaleTex;
-            Core::viewportDef   = Viewport(0, 0, w, h);
+            Core::viewportDef   = short4(0, 0, w, h);
         }
 
         if (Core::eye == 0.0f && Core::settings.detail.isStereo()) {

@@ -649,6 +649,7 @@ namespace GAPI {
         {
             D3D11_RASTERIZER_DESC desc;
             memset(&desc, 0, sizeof(desc));
+            desc.ScissorEnable         = TRUE;
             desc.FrontCounterClockwise = TRUE;
             desc.FillMode = D3D11_FILL_SOLID;
             desc.CullMode = D3D11_CULL_NONE;
@@ -873,7 +874,7 @@ namespace GAPI {
 
         deviceContext->OMSetRenderTargets(1, &RTV, DSV);
 
-        Core::active.viewport = Viewport(0, 0, 0, 0); // forcing viewport reset
+        Core::active.viewport = short4(0, 0, 0, 0); // forcing viewport reset
     }
 
     void discardTarget(bool color, bool depth) {}
@@ -925,7 +926,7 @@ namespace GAPI {
         clearColor = color;
     }
 
-    void setViewport(const Viewport &vp) {
+    void setViewport(const short4 &v) {
         D3D11_VIEWPORT viewport;
         viewport.TopLeftX = (FLOAT)x;
         viewport.TopLeftY = (FLOAT)y;
@@ -933,7 +934,18 @@ namespace GAPI {
         viewport.Height   = (FLOAT)height;
         viewport.MinDepth = 0.0f;
         viewport.MaxDepth = 1.0f;
+
         deviceContext->RSSetViewports(1, &viewport);
+    }
+
+    void setScissor(const short4 &s) {
+        D3D11_RECT scissor;
+        scissor.left   = s.x;
+        scissor.top    = active.viewport.w - (s.y + s.w);
+        scissor.right  = s.x + s.z;
+        scissor.bottom = active.viewport.w - s.y;
+
+        deviceContext->RSSetScissorRects(1, &scissor);
     }
 
     void setDepthTest(bool enable) {

@@ -1474,9 +1474,12 @@ namespace GAPI {
         glClearColor(color.x, color.y, color.z, color.w);
     }
 
-    void setViewport(const Viewport &vp) {
-        glViewport(vp.x, vp.y, vp.width, vp.height);
-        glScissor(vp.x, vp.y, vp.width, vp.height);
+    void setViewport(const short4 &v) {
+        glViewport(v.x, v.y, v.z, v.w);
+    }
+
+    void setScissor(const short4 &s) {
+        glScissor(s.x, s.y, s.z, s.w);
     }
 
     void setDepthTest(bool enable) {

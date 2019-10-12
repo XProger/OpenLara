@@ -287,11 +287,13 @@ namespace GAPI {
 
     void setClearColor(const vec4 &color) {}
 
-    void setViewport(const Viewport &vp) {
-        swClipRect.x = vp.x;
-        swClipRect.y = vp.y;
-        swClipRect.z = vp.x + vp.width;
-        swClipRect.w = vp.y + vp.height;
+    void setViewport(const short4 &v) {}
+
+    void setScissor(const short4 &s) {
+        swClipRect.x = s.x;
+        swClipRect.y = Core::active.viewport.w - (s.y + s.w);
+        swClipRect.z = s.x + s.z;
+        swClipRect.w = Core::active.viewport.w - s.y;
     }
 
     void setDepthTest(bool enable) {}
@@ -365,7 +367,7 @@ namespace GAPI {
             x1 = swClipRect.x - x1;
             S.z += dS.z * x1;
             step(S, dS, x1);
-            x1 = Core::viewport.x;
+            x1 = swClipRect.x;
         }
         if (x2 > swClipRect.z) x2 = swClipRect.z;
 

@@ -398,22 +398,23 @@ namespace GAPI {
 enum RenderState {
     RS_TARGET           = 1 << 0,
     RS_VIEWPORT         = 1 << 1,
-    RS_DEPTH_TEST       = 1 << 2,
-    RS_DEPTH_WRITE      = 1 << 3,
-    RS_COLOR_WRITE_R    = 1 << 4,
-    RS_COLOR_WRITE_G    = 1 << 5,
-    RS_COLOR_WRITE_B    = 1 << 6,
-    RS_COLOR_WRITE_A    = 1 << 7,
+    RS_SCISSOR          = 1 << 2,
+    RS_DEPTH_TEST       = 1 << 3,
+    RS_DEPTH_WRITE      = 1 << 4,
+    RS_COLOR_WRITE_R    = 1 << 5,
+    RS_COLOR_WRITE_G    = 1 << 6,
+    RS_COLOR_WRITE_B    = 1 << 7,
+    RS_COLOR_WRITE_A    = 1 << 8,
     RS_COLOR_WRITE      = RS_COLOR_WRITE_R | RS_COLOR_WRITE_G | RS_COLOR_WRITE_B | RS_COLOR_WRITE_A,
-    RS_CULL_BACK        = 1 << 8,
-    RS_CULL_FRONT       = 1 << 9,
+    RS_CULL_BACK        = 1 << 9,
+    RS_CULL_FRONT       = 1 << 10,
     RS_CULL             = RS_CULL_BACK | RS_CULL_FRONT,
-    RS_BLEND_ALPHA      = 1 << 10,
-    RS_BLEND_ADD        = 1 << 11,
-    RS_BLEND_MULT       = 1 << 12,
-    RS_BLEND_PREMULT    = 1 << 13,
+    RS_BLEND_ALPHA      = 1 << 11,
+    RS_BLEND_ADD        = 1 << 12,
+    RS_BLEND_MULT       = 1 << 13,
+    RS_BLEND_PREMULT    = 1 << 14,
     RS_BLEND            = RS_BLEND_ALPHA | RS_BLEND_ADD | RS_BLEND_MULT | RS_BLEND_PREMULT,
-    RS_DISCARD          = 1 << 14,
+    RS_DISCARD          = 1 << 15,
 };
 
 // Texture image format
@@ -571,20 +572,10 @@ const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 enum CullMode  { cmNone, cmBack,  cmFront, cmMAX };
 enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
 
-struct Viewport {
-    int x, y, width, height;
-
-    Viewport() : x(0), y(0), width(0), height(0) {}
-    Viewport(int x, int y, int width, int height) : x(x), y(y), width(width), height(height) {}
-
-    inline bool operator == (const Viewport &vp) const { return x == vp.x && y == vp.y && width == vp.width && height == vp.height; }
-    inline bool operator != (const Viewport &vp) const { return !(*this == vp); }
-};
-
 namespace Core {
     float eye;
     Texture *eyeTex[2];
-    Viewport viewport, viewportDef;
+    short4 viewport, viewportDef, scissor;
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
     mat4 mLightProj;
     Basis basis;
@@ -617,7 +608,8 @@ namespace Core {
         int32         renderState;
         uint32        targetFace;
         uint32        targetOp;
-        Viewport      viewport; // TODO: ivec4
+        short4        viewport; // x, y, width, height
+        short4        scissor;  // x, y, width, height
         vec4          material;
 
     #ifdef _GAPI_GL
@@ -1008,6 +1000,14 @@ namespace Core {
             renderState &= ~RS_VIEWPORT;
         }
 
+        if (mask & RS_SCISSOR) {
+            if (scissor != active.scissor) {
+                active.scissor = scissor;
+                GAPI::setScissor(scissor);
+            }
+            renderState &= ~RS_SCISSOR;
+        }
+
         if (mask & RS_DEPTH_TEST)
             GAPI::setDepthTest((renderState & RS_DEPTH_TEST) != 0);
         
@@ -1038,19 +1038,18 @@ namespace Core {
         GAPI::setClearColor(color);
     }
 
-    void setViewport(const Viewport &vp) {
-        viewport = vp;
+    void setViewport(const short4 &v) {
+        viewport = v;
         renderState |= RS_VIEWPORT;
     }
 
     void setViewport(int x, int y, int width, int height) {
-        setViewport(Viewport(x, y, width, height));
+        setViewport(short4(x, y, width, height));
     }
 
-    void setViewport(const vec4 &vp, int width, int height) {
-        vec4 s = vec4(vp.x, -vp.w, vp.z, -vp.y);
-        s = (s * 0.5 + 0.5) * vec4(float(width), float(height), float(width), float(height));
-        setViewport(int(s.x), int(s.y), int(s.z) - int(s.x), int(s.w) - int(s.y));
+    void setScissor(const short4 &s) {
+        scissor = s;
+        renderState |= RS_SCISSOR;
     }
 
     void setCullMode(CullMode mode) {
@@ -1112,6 +1111,8 @@ namespace Core {
             setViewport(viewportDef);
         else
             setViewport(0, 0, color->origWidth, color->origHeight);
+
+        setScissor(viewport);
 
         reqTarget.texture = color;
         reqTarget.op      = op;
@@ -1177,6 +1178,7 @@ namespace Core {
 
         setViewport(Core::x, Core::y, Core::width, Core::height);
         viewportDef = viewport;
+        scissor     = viewport;
 
         setCullMode(cmFront);
         setBlendMode(bmAlpha);

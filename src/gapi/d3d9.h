@@ -646,7 +646,8 @@ namespace GAPI {
             surface->Release();
         }
 
-        Core::active.viewport = Viewport(0, 0, 0, 0); // forcing viewport reset
+        Core::active.viewport = short4(0, 0, 0, 0); // forcing viewport reset
+        Core::active.scissor  = short4(0, 0, 0, 0);
     }
 
     void discardTarget(bool color, bool depth) {}
@@ -684,23 +685,26 @@ namespace GAPI {
                      (int(color.w * 255) << 24);
     }
 
-    void setViewport(const Viewport &vp) {
-        D3DVIEWPORT9 dv;
-        dv.X      = vp.x;
-        dv.Y      = vp.y;
-        dv.Width  = vp.width;
-        dv.Height = vp.height;
-        dv.MinZ   = 0.0f;
-        dv.MaxZ   = 1.0f;
+    void setViewport(const short4 &v) {
+        D3DVIEWPORT9 viewport;
+        viewport.X      = v.x;
+        viewport.Y      = v.y;
+        viewport.Width  = v.z;
+        viewport.Height = v.w;
+        viewport.MinZ   = 0.0f;
+        viewport.MaxZ   = 1.0f;
 
-        RECT ds;
-        ds.left   = vp.x;
-        ds.top    = vp.y;
-        ds.right  = vp.x + vp.width;
-        ds.bottom = vp.y + vp.height;
+        device->SetViewport(&viewport);
+    }
 
-        device->SetViewport(&dv);
-        device->SetScissorRect(&ds);
+    void setScissor(const short4 &s) {
+        RECT scissor;
+        scissor.left   = s.x;
+        scissor.top    = active.viewport.w - (s.y + s.w);
+        scissor.right  = s.x + s.z;
+        scissor.bottom = active.viewport.w - s.y;
+
+        device->SetScissorRect(&scissor);
     }
 
     void setDepthTest(bool enable) {

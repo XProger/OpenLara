@@ -794,8 +794,8 @@ struct WaterCache {
 
 
     Texture* getScreenTex() {
-        int w = Core::viewportDef.width;
-        int h = Core::viewportDef.height;
+        int w = Core::viewportDef.z;
+        int h = Core::viewportDef.w;
     // get refraction texture
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
             PROFILE_MARKER("WATER_REFRACT_INIT");
@@ -829,7 +829,7 @@ struct WaterCache {
             blitTexture(screen, flip);
             Core::setTarget(screen, NULL, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
         } else {
-            Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.width, Core::viewportDef.height); // copy framebuffer into refraction texture
+            Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.z, Core::viewportDef.w); // copy framebuffer into refraction texture
         }
     }
 
