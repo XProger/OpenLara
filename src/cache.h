@@ -908,8 +908,8 @@ struct WaterCache {
             }
 
             float waterLevel = items[waterItem].pos.y;
-
-            reflectPlane = vec4(0.0f, underwater ? 1.0f : -1.0f, 0.0f, waterLevel);
+            float sign = underwater ? -1.0f : 1.0f;
+            reflectPlane = vec4(0.0f, -1.0f, 0.0f, waterLevel) * sign;
             camera->reflectPlane = &reflectPlane;
             camera->setup(true);
 
