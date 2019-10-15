@@ -89,6 +89,13 @@ void loadSettings(Stream *stream, void *userData) {
     Core::settings.version = SETTINGS_VERSION;
     Core::setVSync(Core::settings.detail.vsync != 0);
 
+    #if defined(_GAPI_SW) || defined(_GAPI_GU)
+        Core::settings.detail.filter   = Core::Settings::LOW;
+        Core::settings.detail.lighting = Core::Settings::LOW;
+        Core::settings.detail.shadows  = Core::Settings::LOW;
+        Core::settings.detail.water    = Core::Settings::LOW;
+    #endif
+
     shaderCache = new ShaderCache();
     Game::startLevel((Stream*)userData);
 }

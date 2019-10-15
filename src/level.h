@@ -567,6 +567,7 @@ struct Level : IGame {
 
         #ifdef _GAPI_SW
             GAPI::setPalette(room.flags.water ? GAPI::swPaletteWater : GAPI::swPaletteColor);
+            GAPI::setShading(true);
         #endif
 
         Core::setMaterial(material.x, material.y, material.z, material.w);
@@ -1643,7 +1644,6 @@ struct Level : IGame {
             atlasSprites =
             atlasGlyphs  = new Texture(level.tiles8, level.tilesCount);
             GAPI::initPalette(level.palette, level.lightmap);
-            GAPI::setPalette(GAPI::swPaletteColor);
         #elif defined(_GAPI_GU)
             atlasRooms   =
             atlasObjects =
@@ -3184,6 +3184,7 @@ struct Level : IGame {
 
         #ifdef _GAPI_SW
             GAPI::setPalette(GAPI::swPaletteColor);
+            GAPI::setShading(false);
         #endif
 
         Core::pushLights();

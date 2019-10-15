@@ -37,7 +37,9 @@ namespace GAPI {
     #endif
     typedef uint16 DepthSW;
 
-    uint8   *swLightmap; // 32 * 256
+    uint8   *swLightmap;
+    uint8   swLightmapNone[32 * 256];
+    uint8   swLightmapShade[32 * 256];
     ColorSW *swPalette;
     ColorSW swPaletteColor[256];
     ColorSW swPaletteWater[256];
@@ -46,6 +48,13 @@ namespace GAPI {
     Tile8   *curTile;
 
     uint8 ambient;
+    int32 lightsCount;
+
+    struct LightSW {
+        uint32 intensity;
+        vec3   pos;
+        float  radius;
+    } lights[MAX_LIGHTS], lightsRel[MAX_LIGHTS];
 
 // Shader
     struct Shader {
@@ -161,9 +170,6 @@ namespace GAPI {
     DepthSW *swDepth;
     short4  swClipRect;
 
-    mat4     swMatrix;
-    vec2     swScale;
-
     struct VertexSW {
         int32 x, y, z, w;
         int32 u, v, l;
@@ -277,7 +283,7 @@ namespace GAPI {
 
     void clear(bool color, bool depth) {
         if (color) {
-        //    memset(swColor, 0x00, Core::width * Core::height * sizeof(ColorSW));
+            memset(swColor, 0x00, Core::width * Core::height * sizeof(ColorSW));
         }
 
         if (depth) {
@@ -311,12 +317,18 @@ namespace GAPI {
     void setViewProj(const mat4 &mView, const mat4 &mProj) {}
 
     void updateLights(vec4 *lightPos, vec4 *lightColor, int count) {
-        int lightsCount = 0;
-
         ambient = clamp(int32(active.material.y * 255), 0, 255);
 
-        for (int i = 0; i < MAX_LIGHTS; i++) {
-            // TODO
+        lightsCount = 0;
+        for (int i = 0; i < count; i++) {
+            if (lightColor[i].w >= 1.0f) {
+                continue;
+            }
+            LightSW &light = lights[lightsCount++];
+            vec4 &c = lightColor[i];
+            light.intensity = uint32(((c.x + c.y + c.z) / 3.0f) * 255.0f);
+            light.pos    = lightPos[i].xyz();
+            light.radius = lightColor[i].w;
         }
     }
 
@@ -558,11 +570,31 @@ namespace GAPI {
         if (o->y != b->y) drawPart(*p, *o, *b, *b);
     }
 
+    void applyLighting(VertexSW &result, const Vertex &vertex) {
+        vec3 coord  = vec3(vertex.coord);
+        vec3 normal = vec3(vertex.normal).normal();
+        float lighting = 0.0f;
+        for (int i = 0; i < lightsCount; i++) {
+            LightSW &light = lightsRel[i];
+            vec3 dir = (light.pos - coord) * light.radius;
+            float att = dir.length2();
+            float lum = normal.dot(dir / sqrtf(att));
+            lighting += (max(0.0f, lum) * max(0.0f, 1.0f - att)) * light.intensity;
+        }
+
+        result.l = (255 - min(255, result.l + int32(lighting))) << 16;
+//        result.l = (255 - int32(lighting)) << 16;
+    }
+
     bool transform(const Index *indices, const Vertex *vertices, int iStart, int iCount, int vStart) {
         swVertices.reset();
         swIndices.reset();
         swTriangles.reset();
         swQuads.reset();
+
+        mat4 swMatrix;
+        swMatrix.viewport(0.0f, (float)Core::height, (float)Core::width, -(float)Core::height, 0.0f, 1.0f);
+        swMatrix = swMatrix * mViewProj * mModel;
 
         int vIndex = 0;
         bool isTriangle = false;
@@ -609,7 +641,9 @@ namespace GAPI {
                 result.v = (vertex.texCoord.y << 16);// / result.w;
             }
             result.w = result.w << 16;
-            result.l = (255 - ((vertex.light.x * ambient) >> 8)) << 16;
+            result.l = ((vertex.light.x * ambient) >> 8);
+
+            applyLighting(result, vertex);
 
             swIndices.push(swVertices.push(result));
 
@@ -627,14 +661,22 @@ namespace GAPI {
         return colored;
     }
 
+    void transformLights() {
+        memcpy(lightsRel, lights, sizeof(LightSW) * lightsCount);
+
+        mat4 mModelInv = mModel.inverseOrtho();
+        for (int i = 0; i < lightsCount; i++) {
+            lightsRel[i].pos = mModelInv * lights[i].pos;
+        }
+    }
+
     void DIP(Mesh *mesh, const MeshRange &range) {
         if (curTile == NULL) {
             //uint32 *tex = (uint32*)Core::active.textures[0]->memory; // TODO
             return;
         }
 
-        swMatrix.viewport(0.0f, (float)Core::height, (float)Core::width, -(float)Core::height, 0.0f, 1.0f);
-        swMatrix = swMatrix * mViewProj * mModel;
+        transformLights();
 
         bool colored = transform(mesh->iBuffer, mesh->vBuffer, range.iStart, range.iCount, range.vStart);
 
@@ -656,7 +698,6 @@ namespace GAPI {
     }
 
     void initPalette(Color24 *palette, uint8 *lightmap) {
-        swLightmap = lightmap;
         for (uint32 i = 0; i < 256; i++) {
             const Color24 &p = palette[i];
             swPaletteColor[i] = CONV_COLOR(p.r, p.g, p.b);
@@ -664,10 +705,22 @@ namespace GAPI {
             swPaletteGray[i]  = CONV_COLOR((i * 57) >> 8, (i * 29) >> 8, (i * 112) >> 8);
             swGradient[i]     = i;
         }
+
+        for (uint32 i = 0; i < 256 * 32; i++) {
+            swLightmapNone[i]  = i % 256;
+            swLightmapShade[i] = lightmap[i];
+        }
+
+        swLightmap = swLightmapShade;
+        swPalette  = swPaletteColor;
     }
 
     void setPalette(ColorSW *palette) {
         swPalette = palette;
+    }
+
+    void setShading(bool enabled) {
+        swLightmap = enabled ? swLightmapShade : swLightmapNone;
     }
 
     vec4 copyPixel(int x, int y) {
