@@ -24,6 +24,9 @@
     #define CONV_COLOR(r,g,b) ((r << 16) | (g << 8) | b)
 #endif
 
+#define SW_MAX_DIST  (20.0f * 1024.0f)
+#define SW_FOG_START (12.0f * 1024.0f)
+
 namespace GAPI {
 
     using namespace Core;
@@ -466,9 +469,6 @@ namespace GAPI {
         VertexSW *b = swVertices + indices[2];
         VertexSW *n = &_n;
 
-        if (t->w <= 0 || m->w <= 0 || b->w <= 0)
-            return;
-
         if (checkBackface(t, m, b))
             return;
 
@@ -517,9 +517,6 @@ namespace GAPI {
         VertexSW *o = swVertices + indices[3];
         VertexSW *n = &_n;
         VertexSW *p = &_p;
-
-        if (t->w <= 0 || m->w <= 0 || o->w <= 0 || b->w <= 0)
-            return;
 
         if (checkBackface(t, m, b))
             return;
@@ -570,7 +567,7 @@ namespace GAPI {
         if (o->y != b->y) drawPart(*p, *o, *b, *b);
     }
 
-    void applyLighting(VertexSW &result, const Vertex &vertex) {
+    void applyLighting(VertexSW &result, const Vertex &vertex, float depth) {
         vec3 coord  = vec3(vertex.coord);
         vec3 normal = vec3(vertex.normal).normal();
         float lighting = 0.0f;
@@ -582,8 +579,14 @@ namespace GAPI {
             lighting += (max(0.0f, lum) * max(0.0f, 1.0f - att)) * light.intensity;
         }
 
-        result.l = (255 - min(255, result.l + int32(lighting))) << 16;
-//        result.l = (255 - int32(lighting)) << 16;
+        lighting += result.l;
+
+        depth -= SW_FOG_START;
+        if (depth > 0.0f) {
+            lighting *= clamp(1.0f - depth / (SW_MAX_DIST - SW_FOG_START), 0.0f, 1.0f);
+        }
+
+        result.l = (255 - min(255, int32(lighting))) << 16;
     }
 
     bool transform(const Index *indices, const Vertex *vertices, int iStart, int iCount, int vStart) {
@@ -596,9 +599,9 @@ namespace GAPI {
         swMatrix.viewport(0.0f, (float)Core::height, (float)Core::width, -(float)Core::height, 0.0f, 1.0f);
         swMatrix = swMatrix * mViewProj * mModel;
 
+        const bool colored = vertices[vStart + indices[iStart]].color.w == 142;
         int vIndex = 0;
         bool isTriangle = false;
-        bool colored = false;
 
         for (int i = 0; i < iCount; i++) {
             const Index  index   = indices[iStart + i];
@@ -608,18 +611,26 @@ namespace GAPI {
 
             if (vIndex == 1) {
                 isTriangle = vertex.normal.w == 1;
-            }
-
-            if (vertex.color.w == 142) {
-                colored = true;
-            }
-
-            if (!isTriangle && (vIndex == 4 || vIndex == 5)) { // loader splits quads to two triangles with indices 012[02]3, we ignore [02] to make it quad again!
-                continue;
+            } else {
+                if (vIndex == 4) { // loader splits quads to two triangles with indices 012[02]3, we ignore [02] to make it quad again!
+                    vIndex++;
+                    i++;
+                    continue;
+                }
             }
 
             vec4 c;
             c = swMatrix * vec4(vertex.coord.x, vertex.coord.y, vertex.coord.z, 1.0f);
+
+            if (c.w < 0.0f || c.w > SW_MAX_DIST) { // skip primitive
+                if (isTriangle) {
+                    i += 3 - vIndex;
+                } else {
+                    i += 6 - vIndex;
+                }
+                vIndex = 0;
+                continue;
+            }
 
             c.x /= c.w;
             c.y /= c.w;
@@ -643,11 +654,9 @@ namespace GAPI {
             result.w = result.w << 16;
             result.l = ((vertex.light.x * ambient) >> 8);
 
-            applyLighting(result, vertex);
+            applyLighting(result, vertex, c.w);
 
             swIndices.push(swVertices.push(result));
-
-            ASSERT(!(isTriangle && vIndex > 3));
 
             if (isTriangle && vIndex == 3) {
                 swTriangles.push(swIndices.length - 3);

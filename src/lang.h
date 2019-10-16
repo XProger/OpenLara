@@ -280,7 +280,7 @@ enum StringID {
 const char *helpText = 
     "Start - add second player or restore Lara@"
     "H - Show or hide this help@"
-    "ALT + ENTER - Fullscreen@"
+    "ALT and ENTER - Fullscreen@"
     "5 - Save Game@"
     "9 - Load Game@"
     "C - Look@"
