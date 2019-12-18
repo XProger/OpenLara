@@ -1846,12 +1846,14 @@ struct Level : IGame {
         setMainLight(player);
     }
 
-    short4 getPortalRect(const vec4 &v, int width, int height) {
+    short4 getPortalRect(const vec4 &v, short4 vp) {
         //vec4 s = vec4(v.x, -v.w, v.z, -v.y);
         vec4 s = v;
-        s = (s * 0.5 + 0.5) * vec4(float(width), float(height), float(width), float(height));
+        s = (s * 0.5 + 0.5) * vec4(float(vp.z), float(vp.w), float(vp.z), float(vp.w));
         s.z -= s.x;
         s.w -= s.y;
+        s.x += vp.x;
+        s.y += vp.y;
         s.x = clamp(s.x, -16383.0f, 16383.0f);
         s.y = clamp(s.y, -16383.0f, 16383.0f);
         s.z = clamp(s.z, -16383.0f, 16383.0f);
@@ -1899,7 +1901,7 @@ struct Level : IGame {
                 continue;
             }
 
-            Core::setScissor(getPortalRect(roomsList[i].portal, vp.z, vp.w));
+            Core::setScissor(getPortalRect(roomsList[i].portal, vp));
 
             const TR::Room &room = level.rooms[roomIndex];
 
@@ -1941,7 +1943,7 @@ struct Level : IGame {
                 if (!range.sprites.iCount)
                     continue;
 
-                Core::setScissor(getPortalRect(roomsList[i].portal, vp.z, vp.w));
+                Core::setScissor(getPortalRect(roomsList[i].portal, vp));
 
                 setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
 
