@@ -59,30 +59,6 @@ void osMutexUnlock(void *obj) {
     sceKernelSignalSema(*(SceUID*)obj, 1);
 }
 
-void* osRWLockInit() {
-    return osMutexInit();
-}
-
-void osRWLockFree(void *obj) {
-    osMutexFree(obj);
-}
-
-void osRWLockRead(void *obj) {
-    osMutexLock(obj);
-}
-
-void osRWUnlockRead(void *obj) {
-    osMutexUnlock(obj);
-}
-
-void osRWLockWrite(void *obj) {
-    osMutexLock(obj);
-}
-
-void osRWUnlockWrite(void *obj) {
-    osMutexUnlock(obj);
-}
-
 // timing
 int osStartTime = 0;
 int osTimerFreq;
