@@ -1850,10 +1850,23 @@ struct Level : IGame {
         //vec4 s = vec4(v.x, -v.w, v.z, -v.y);
         vec4 s = v;
         s = (s * 0.5 + 0.5) * vec4(float(vp.z), float(vp.w), float(vp.z), float(vp.w));
+
+        // expand
+        s.x -= 2.0f;
+        s.y -= 2.0f;
+        s.z += 2.0f;
+        s.w += 2.0f;
+
         s.z -= s.x;
         s.w -= s.y;
         s.x += vp.x;
         s.y += vp.y;
+
+        s.x = max(s.x, (float)vp.x);
+        s.y = max(s.y, (float)vp.y);
+        s.z = min(s.z, (float)vp.z);
+        s.w = min(s.w, (float)vp.w);
+
         s.x = clamp(s.x, -16383.0f, 16383.0f);
         s.y = clamp(s.y, -16383.0f, 16383.0f);
         s.z = clamp(s.z, -16383.0f, 16383.0f);
@@ -3065,7 +3078,6 @@ struct Level : IGame {
 
     void renderEye(int eye, bool showUI, bool invBG) {
         float          oldEye      = Core::eye;
-        short4         oldViewport = Core::viewportDef;
         GAPI::Texture *oldTarget   = Core::defaultTarget;
 
         Core::eye = float(eye);
@@ -3080,6 +3092,8 @@ struct Level : IGame {
 
                 Core::pass = Core::passCompose;
 
+                short4 oldViewport = Core::viewportDef;
+
                 setDefaultTarget(eye, view, invBG);
 
                 if (Core::settings.detail.stereo == Core::Settings::STEREO_SPLIT) {
@@ -3090,6 +3104,8 @@ struct Level : IGame {
 
                 setup();
                 renderView(camera->getRoomIndex(), true, showUI);
+
+                Core::viewportDef = oldViewport;
             }
         }
 
@@ -3103,8 +3119,10 @@ struct Level : IGame {
         }
 
         Core::defaultTarget = oldTarget;
-        Core::viewportDef   = oldViewport;
         Core::eye           = oldEye;
+
+        Core::setViewport(Core::viewportDef);
+        Core::setScissor(Core::viewportDef);
 
         player = players[0];
         if (player) {
@@ -3245,6 +3263,8 @@ struct Level : IGame {
     }
 
     void renderInventoryEye(int eye, int view) {
+        short4 oldViewport = Core::viewportDef;
+
         setDefaultTarget(eye, view, false);
 
         Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
@@ -3283,6 +3303,8 @@ struct Level : IGame {
         UI::end();
 
         Core::popLights();
+
+        Core::viewportDef = oldViewport;
     }
 
     void render() {
