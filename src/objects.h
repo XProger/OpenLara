@@ -1326,7 +1326,6 @@ struct MidasHand : Controller {
 
         if (d.x < 512.0f && d.z < 512.0f) { // check for same sector
             lara->hit(1001.0f, this, TR::HIT_MIDAS);
-            deactivate(true);
             return;
         }
 
