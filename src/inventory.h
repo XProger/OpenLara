@@ -158,7 +158,7 @@ static const OptionItem optSound[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_REVERBERATION, SETTINGS( audio.reverb    ), STR_OFF, 0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SUBTITLES, SETTINGS( audio.subtitles ), STR_OFF, 0, 1 ),
 #ifndef FFP
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_LANGUAGE,  SETTINGS( audio.language  ), STR_LANG_EN, 0, 10 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_LANGUAGE,  SETTINGS( audio.language  ), STR_LANG_EN, 0, 11/*TODO: sizeof(LANG_PREFIXES)*/ ),
 #endif
 };
 
