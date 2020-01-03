@@ -3168,7 +3168,7 @@ namespace TR {
 
             id = TR::getLevelID(stream.size, stream.name, version, isDemoLevel);
 
-            if (version == VER_UNKNOWN || version == VER_TR1_PSX || version == VER_TR3_PSX) {
+            if (version == VER_UNKNOWN || version == VER_TR1_PSX || version == VER_TR1_SAT || version == VER_TR3_PSX) {
                 stream.read(magic);
 
                 if (magic != MAGIC_TR1_PC  &&
@@ -4068,12 +4068,16 @@ namespace TR {
                                         LOG("! unknown face type: %d\n", type);
                                         ASSERT(false);
                                 }
-                                ASSERT(f.flags.value % 16 == 0);
-                                ASSERT(f.flags.value / 16 < roomTexturesCount);
-                                f.flags.value /= 16;
 
-                                if (type == TYPE_R_TRANSP)
+                                if (type != TYPE_SPRITE) {
+                                    ASSERT(f.flags.value % 16 == 0);
+                                    ASSERT(f.flags.value / 16 < roomTexturesCount);
+                                    f.flags.value /= 16;
+                                }
+
+                                if (type == TYPE_R_TRANSP) {
                                     roomTextures[f.flags.texture].attribute = 1;
+                                }
                             }
                         }
                         data.fCount = fIndex;
