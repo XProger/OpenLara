@@ -576,6 +576,7 @@ int checkLanguage() {
         case LANG_JAPANESE   : str = STR_LANG_JA; break;
         case LANG_GREEK      : str = STR_LANG_GR; break;
         case LANG_FINNISH    : str = STR_LANG_FI; break;
+        case LANG_CZECH      : str = STR_LANG_CZ; break;
     }
     return str - STR_LANG_EN;
 }
