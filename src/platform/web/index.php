@@ -55,7 +55,7 @@
 				window.onload = function() { window.focus(); }
 				
 				var Module = {
-					TOTAL_MEMORY: 64*1024*1024,
+					TOTAL_MEMORY: 192*1024*1024,
 					preRun: [],
 					postRun: [],
 					print: (function() {
