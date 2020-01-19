@@ -746,7 +746,7 @@ namespace Debug {
                 for (int i = 0; i < info.trigCmdCount; i++) {
                     TR::FloorData::TriggerCommand &cmd = info.trigCmd[i];
                     
-                    const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? getEntityName(level, level.entities[cmd.args]) : "";
+                    const char *ent = (cmd.action == TR::Action::ACTIVATE || cmd.action == TR::Action::CAMERA_TARGET) ? (cmd.args < level.entitiesBaseCount ? getEntityName(level, level.entities[cmd.args]) : "BAD_ENTITY_INDEX") : "";
                     sprintf(buf, "%s -> %s (%d)", getTriggerAction(level, cmd.action), ent, cmd.args);
                     if (cmd.action == TR::Action::CAMERA_SWITCH || cmd.action == TR::Action::FLYBY || cmd.action == TR::Action::CUTSCENE) {
                         i++;

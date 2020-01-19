@@ -26,6 +26,7 @@ struct Animation {
 
     Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), model(NULL), smooth(smooth), overrides(NULL), overrideMask(0) {
         setModel(model);
+        frameA = frameB = NULL;
     }
 
     ~Animation() {
@@ -248,6 +249,9 @@ struct Animation {
     }
 
     quat getJointRot(int joint) {
+        if (!frameA || !frameB) {
+            return quat(0, 0, 0, 1);
+        }
         return lerpAngle(frameA->getAngle(level->version, joint), frameB->getAngle(level->version, joint), delta);
     }
 
@@ -256,7 +260,10 @@ struct Animation {
 
         ASSERT(model);
         vec3 offset = isPrepareToNext ? this->offset : vec3(0.0f);
-        basis.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
+
+        if (frameA && frameB) {
+            basis.translate(((vec3)frameA->pos).lerp(offset + frameB->pos, delta));
+        }
 
         TR::Node *node = (int)model->node < level->nodesDataSize ? (TR::Node*)&level->nodesData[model->node] : NULL;
 
@@ -298,8 +305,9 @@ struct Animation {
     }
 
     Box getBoundingBox(const vec3 &pos, int dir) {
-        if (!model)
+        if (!model || !frameA || !frameB) {
             return Box(pos, pos);
+        }
 
         vec3 nextMin = frameB->box.min();
         vec3 nextMax = frameB->box.max();

@@ -478,6 +478,7 @@ struct Level : IGame {
                 case TR::Entity::BLOCK_2 :
                 case TR::Entity::BLOCK_3 :
                 case TR::Entity::BLOCK_4 :
+                case TR::Entity::BLOCK_5 :
                     ((Block*)controller)->updateFloor(rise);
                     break;
                 case TR::Entity::MOVING_BLOCK :
@@ -785,6 +786,8 @@ struct Level : IGame {
     virtual Sound::Sample* playSound(int id, const vec3 &pos = vec3(0.0f), int flags = 0) const {
         if (level.version == TR::VER_TR1_PSX && id == TR::SND_SECRET)
             return NULL;
+
+        if (!level.soundsInfo) return NULL;
 
         int16 a = level.soundsMap[id];
         if (a == -1) return NULL;
@@ -1142,7 +1145,8 @@ struct Level : IGame {
             case TR::Entity::BLOCK_1               :
             case TR::Entity::BLOCK_2               :
             case TR::Entity::BLOCK_3               :
-            case TR::Entity::BLOCK_4               : return new Block(this, index);
+            case TR::Entity::BLOCK_4               :
+            case TR::Entity::BLOCK_5               : return new Block(this, index);
             case TR::Entity::MOVING_BLOCK          : return new MovingBlock(this, index);
             case TR::Entity::TRAP_CEILING_1        :
             case TR::Entity::TRAP_CEILING_2        : return new TrapCeiling(this, index);
@@ -1240,6 +1244,8 @@ struct Level : IGame {
             case TR::Entity::WINDOW_2               : return new BreakableWindow(this, index);
 
             case TR::Entity::HELICOPTER_FLYING      : return new HelicopterFlying(this, index);
+
+            case TR::Entity::FISH_EMITTER           : return new DummyController(this, index);
 
             default                                 : return new Controller(this, index);
         }
@@ -2404,7 +2410,7 @@ struct Level : IGame {
     }
 
     virtual void getVisibleRooms(RoomDesc *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {
-        if (count > 16) {
+        if (roomsCount >= 255 || count > 16) {
             //ASSERT(false);
             return;
         }

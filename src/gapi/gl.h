@@ -1594,7 +1594,7 @@ namespace GAPI {
             Core::active.shader->validate();
         }
 
-        glDrawElements(GL_TRIANGLES, range.iCount, GL_UNSIGNED_SHORT, mesh->iBuffer + range.iStart);
+        glDrawElements(GL_TRIANGLES, range.iCount, sizeof(Index) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, mesh->iBuffer + range.iStart);
     }
 
     vec4 copyPixel(int x, int y) {

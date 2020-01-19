@@ -454,7 +454,7 @@ struct PSO {
     uint32     renderState;
 };
 
-typedef uint16 Index;
+typedef uint32 Index;
 
 struct Edge {
     Index a, b;

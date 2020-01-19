@@ -451,7 +451,7 @@ struct MeshBuilder {
         weldSkinJoints(vertices + vStartModel, level->extra.laraSkin, level->extra.laraJoints);
         weldSkinJoints(vertices + vStartModel, level->extra.braid,    level->extra.braid);
 
-        ASSERT(vCount - vStartModel <= 0xFFFF);
+        //ASSERT(vCount - vStartModel <= 0xFFFF);
 
     // build common primitives
         int vStartCommon = vCount;

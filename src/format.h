@@ -7,7 +7,7 @@
 
 #define MAX_RESERVED_ENTITIES 128
 #define MAX_TRIGGER_COMMANDS  32
-#define MAX_MESHES            512
+#define MAX_MESHES            1024
 #define MAX_WEAPONS           4
 #define MAX_JOINTS            32
 
@@ -1010,11 +1010,11 @@
     E( EXPANDING_PLATFORM    ) \
     E( SQUISHY_BLOCK1        ) \
     E( SQUISHY_BLOCK2        ) \
-    E( PUSHABLE_OBJECT1      ) \
-    E( PUSHABLE_OBJECT2      ) \
-    E( PUSHABLE_OBJECT3      ) \
-    E( PUSHABLE_OBJECT4      ) \
-    E( PUSHABLE_OBJECT5      ) \
+    E( ___BLOCK_1            ) \
+    E( ___BLOCK_2            ) \
+    E( ___BLOCK_3            ) \
+    E( ___BLOCK_4            ) \
+    E( BLOCK_5               ) \
     E( ___TRIPWIRE           ) \
     E( SENTRY_GUN            ) \
     E( MINE                  ) \
@@ -2377,6 +2377,10 @@ namespace TR {
                 REMAP_4( FLAME                );
                 REMAP_4( TRAP_FLAME_EMITTER   );
                 REMAP_4( TRIPWIRE             );
+                REMAP_4( BLOCK_1              );
+                REMAP_4( BLOCK_2              );
+                REMAP_4( BLOCK_3              );
+                REMAP_4( BLOCK_4              );
                 REMAP_4( GRENADE              );
                 REMAP_4( INV_MEDIKIT_BIG      );
                 REMAP_4( INV_MEDIKIT_SMALL    );
@@ -2501,7 +2505,7 @@ namespace TR {
         }
 
         bool isBlock() const {
-            return type >= BLOCK_1 && type <= BLOCK_4;
+            return type == BLOCK_1 || type == BLOCK_2 || type == BLOCK_3 || type == BLOCK_4 || type == BLOCK_5;
         }
 
         bool isLara() const {
@@ -3648,7 +3652,10 @@ namespace TR {
             delete[] dataD;
 
             stream.read(soundsCount);
-            ASSERT(soundsCount == soundOffsetsCount);
+            if (soundOffsetsCount <= 0 && soundsCount > 0) {
+                soundOffsetsCount = soundsCount;
+                soundOffsets = new uint32[soundOffsetsCount];
+            }
             soundDataSize = stream.size - stream.pos;
             soundData = new uint8[soundDataSize];
             soundDataSize = 0;
@@ -3847,7 +3854,7 @@ namespace TR {
         void readSoundMap(Stream &stream) {
             soundsCount = (version & VER_TR1) ? 256 : 370;
             stream.read(soundsMap, soundsCount);
-            soundsInfo = stream.read(soundsInfoCount) ? new SoundInfo[soundsInfoCount] : NULL;
+            soundsInfo = (stream.read(soundsInfoCount) > 0) ? new SoundInfo[soundsInfoCount] : NULL;
             for (int i = 0; i < soundsInfoCount; i++) {
                 SoundInfo &s = soundsInfo[i];
 
@@ -3873,11 +3880,11 @@ namespace TR {
         }
 
         void readSoundData(Stream &stream) {
-            stream.read(soundData, stream.read(soundDataSize));
+            stream.read(soundDataSize) > 0 ? stream.read(soundData, soundDataSize) : NULL;
         }
 
         void readSoundOffsets(Stream &stream) {
-            stream.read(soundOffsets, stream.read(soundOffsetsCount));
+            stream.read(soundOffsetsCount) > 0 ? stream.read(soundOffsets, soundOffsetsCount) : NULL;
         }
 
         #define CHUNK(str) ((uint64)((const char*)(str))[0]        | ((uint64)((const char*)(str))[1] << 8)  | ((uint64)((const char*)(str))[2] << 16) | ((uint64)((const char*)(str))[3] << 24) | \
@@ -4913,7 +4920,12 @@ namespace TR {
 
                     for (int i = 0; i < mesh.fCount; i++) {
                         Face &f = mesh.faces[i];
-                        ASSERT(f.colored || f.flags.texture < objectTexturesCount);
+//                        ASSERT(f.colored || f.flags.texture < objectTexturesCount);
+
+                        if (f.flags.texture >= objectTexturesCount) {
+                            f.colored = true;
+                        }
+
                         if (f.colored) continue;
                         TextureInfo &t = objectTextures[f.flags.texture];
                         if (t.type != TEX_TYPE_OBJECT) {
@@ -5384,7 +5396,7 @@ namespace TR {
                 if (version & VER_TR4) {
                     uint8 unknown;
                     stream.read(unknown);
-                    ASSERT(unknown == 0x00 || unknown == 0xFF);
+                    //ASSERT(unknown == 0x00 || unknown == 0xFF);
                     uint8 byteIntensity;
                     intensity = stream.read(byteIntensity);
                     stream.read(light.in);
@@ -6447,6 +6459,7 @@ namespace TR {
                     CLUT  &clut = cluts[t.clut];
                     return clut.color[part ? tile.index[idx].b : tile.index[idx].a];
                 }
+                case VER_TR4_PC : break;
                 default : ASSERT(false);
             }
             return Color32(255, 0, 255, 255);

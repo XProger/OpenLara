@@ -2134,6 +2134,9 @@ struct Lara : Character {
 
             switch (cmd.action) {
                 case TR::Action::ACTIVATE : {
+                    if (cmd.args >= level->entitiesBaseCount) {
+                        break;
+                    }
                     TR::Entity &e = level->entities[cmd.args];
                     Controller *controller = (Controller*)e.controller;
                     ASSERT(controller);
