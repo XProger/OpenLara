@@ -182,6 +182,7 @@
     <ClInclude Include="..\..\gltf.h" />
     <ClInclude Include="..\..\json.h" />
     <ClInclude Include="..\..\lang.h" />
+    <ClInclude Include="..\..\lang\cz.h" />
     <ClInclude Include="..\..\lang\de.h" />
     <ClInclude Include="..\..\lang\en.h" />
     <ClInclude Include="..\..\lang\es.h" />

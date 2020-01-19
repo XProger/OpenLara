@@ -1,4 +1,4 @@
-﻿#include <string.h>
+#include <string.h>
 #include <cstdlib>
 #include <malloc.h>
 
@@ -76,7 +76,7 @@ bool sndInit() {
 
     audoutStartAudioOut();
 
-    threadCreate(&sndThread, sndFill, NULL, 0x4000, 0x2B, 2);
+    threadCreate(&sndThread, sndFill, NULL, NULL, 0x4000, 0x2B, 2);
     threadStart(&sndThread);
 
     return true;
@@ -311,7 +311,7 @@ void makeCacheDir(char *elfPath) {
     // make directory by full path
     strcpy(cacheDir, buf + start);
     strcat(cacheDir, "/cache/");
-    fsFsCreateDirectory(fsdevGetDefaultFileSystem(), cacheDir);
+    fsFsCreateDirectory(fsdevGetDeviceFileSystem("sdmc"), cacheDir);
 }
 
 int main(int argc, char* argv[]) {
