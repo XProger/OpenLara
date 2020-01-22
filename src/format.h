@@ -1893,6 +1893,10 @@ namespace TR {
             uint32  meshIndex; // index into static meshes array
         } *meshes;
 
+        bool contains(const vec3 &p) const {
+            return p.x >= info.x && p.x <= info.x + xSectors * 1024 && p.z >= info.z && p.z <= info.z + zSectors * 1024 && p.y >= info.yTop && p.y <= info.yBottom;
+        }
+
         vec3 getOffset() const {
             return vec3(float(info.x), 0.0f, float(info.z));
         }

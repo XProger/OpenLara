@@ -296,7 +296,8 @@ const char *helpText =
     "Swan dive - Up & Walk & Jump@"
     "First Person View - Look & Action@"
     "DOZY on - Look & Duck & Action & Jump@"
-    "DOZY off - Walk";
+    "DOZY off - Walk@"
+    "Free Camera - hold L & R stick";
 
 #include "lang/en.h"
 #include "lang/fr.h"

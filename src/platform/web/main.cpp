@@ -103,14 +103,7 @@ JoyKey joyToInputKey(int code) {
     return jkNone;
 }
 
-#define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
-
-vec2 joyAxis(float x, float y) {
-    if (fabsf(x) > JOY_DEAD_ZONE_STICK || fabsf(y) > JOY_DEAD_ZONE_STICK)
-        return vec2(x, y);
-    return vec2(0.0f);
-}
 
 vec2 joyTrigger(float x) {
     return vec2(x > JOY_DEAD_ZONE_TRIGGER ? x : 0.0f, 0.0f);
@@ -146,8 +139,8 @@ void joyUpdate() {
                 Input::setJoyPos(j, key, joyTrigger(state.analogButton[i]));
         }
 
-        Input::setJoyPos(j, jkL, joyAxis(state.axis[0], state.axis[1]));
-        Input::setJoyPos(j, jkR, joyAxis(state.axis[2], state.axis[3]));
+        Input::setJoyPos(j, jkL, vec2(state.axis[0], state.axis[1]));
+        Input::setJoyPos(j, jkR, vec2(state.axis[2], state.axis[3]));
     }
 }
 

@@ -115,7 +115,6 @@ DWORD (WINAPI *XInputSetState) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration)
 void  (WINAPI *XInputEnable)   (BOOL enable) = NULL;
 #define XInputGetProc(x) (x = (decltype(x))GetProcAddress(h, #x))
 
-#define JOY_DEAD_ZONE_STICK      0.3f
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
 #define JOY_MIN_UPDATE_FX_TIME   50
 
@@ -188,13 +187,8 @@ float joyAxis(int x, int xMin, int xMax) {
 vec2 joyDir(float ax, float ay) {
     vec2 dir = vec2(ax, ay);
     float dist = min(1.0f, dir.length());
-    if (dist < JOY_DEAD_ZONE_STICK) dist = 0.0f;
 
     return dir.normal() * dist;
-}
-
-int joyDeadZone(int value, int zone) {
-    return (value < -zone || value > zone) ? value : 0;
 }
 
 void joyUpdate() {
@@ -208,12 +202,12 @@ void joyUpdate() {
             if (XInputGetState(j, &state) == ERROR_SUCCESS) {
                 //osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
 
-                Input::setJoyPos(j, jkL,   joyDir(joyAxis(joyDeadZone( state.Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE),  -32768, 32767),
-                                                  joyAxis(joyDeadZone(-state.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE),  -32768, 32767)));
-                Input::setJoyPos(j, jkR,   joyDir(joyAxis(joyDeadZone( state.Gamepad.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE), -32768, 32767),
-                                                  joyAxis(joyDeadZone(-state.Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE), -32768, 32767)));
-                Input::setJoyPos(j, jkLT,  vec2(joyDeadZone(state.Gamepad.bLeftTrigger,  XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / 255.0f, 0.0f));
-                Input::setJoyPos(j, jkRT,  vec2(joyDeadZone(state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD) / 255.0f, 0.0f));
+                Input::setJoyPos(j, jkL,   joyDir(joyAxis( state.Gamepad.sThumbLX,  -32768, 32767),
+                                                  joyAxis(-state.Gamepad.sThumbLY,  -32768, 32767)));
+                Input::setJoyPos(j, jkR,   joyDir(joyAxis( state.Gamepad.sThumbRX, -32768, 32767),
+                                                  joyAxis(-state.Gamepad.sThumbRY, -32768, 32767)));
+                Input::setJoyPos(j, jkLT,  vec2(state.Gamepad.bLeftTrigger / 255.0f, 0.0f));
+                Input::setJoyPos(j, jkRT,  vec2(state.Gamepad.bRightTrigger/ 255.0f, 0.0f));
 
                 static const JoyKey keys[] = { jkUp, jkDown, jkLeft, jkRight, jkStart, jkSelect, jkL, jkR, jkLB, jkRB, jkNone, jkNone, jkA, jkB, jkX, jkY };
                 for (int i = 0; i < 16; i++)

@@ -3102,28 +3102,35 @@ struct Lara : Character {
         if (input & LOOK)
             return input;
 
+        if (camera->spectator)
+            return input;
+
         Input::Joystick &joy = Input::joy[Core::settings.controls[pid].joyIndex];
 
-        if (!((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(joy.L.x) < 0.5f && fabsf(joy.L.y) < 0.5f)) {
+        vec2 L = joy.L;
+
+        if (L.length() < JOY_DEAD_ZONE) L = vec2(0.0f); // dead zone
+
+        if (!((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(L.x) < 0.5f && fabsf(L.y) < 0.5f)) {
             bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
 
             if (!moving) {
-                if (fabsf(joy.L.x) < fabsf(joy.L.y))
-                    joy.L.x = 0.0f;
+                if (fabsf(L.x) < fabsf(L.y))
+                    L.x = 0.0f;
                 else
-                    joy.L.y = 0.0f;
+                    L.y = 0.0f;
             }
 
-            if (joy.L.x != 0.0f) {
-                input |= (joy.L.x < 0.0f) ? LEFT : RIGHT;
+            if (L.x != 0.0f) {
+                input |= (L.x < 0.0f) ? LEFT : RIGHT;
                 if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
-                    rotFactor.y = min(fabsf(joy.L.x) / 0.9f, 1.0f);
+                    rotFactor.y = min(fabsf(L.x) / 0.9f, 1.0f);
             }
 
-            if (joy.L.y != 0.0f) {
-                input |= (joy.L.y < 0.0f) ? FORTH : BACK;
+            if (L.y != 0.0f) {
+                input |= (L.y < 0.0f) ? FORTH : BACK;
                 if (stand == STAND_UNDERWATER)
-                    rotFactor.x = min(fabsf(joy.L.y) / 0.9f, 1.0f);
+                    rotFactor.x = min(fabsf(L.y) / 0.9f, 1.0f);
             }
         }
 

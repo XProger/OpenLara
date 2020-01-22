@@ -6,6 +6,7 @@
 
 #define INPUT_JOY_COUNT 4
 #define MAX_PLAYERS     COUNT(Core::settings.controls)
+#define JOY_DEAD_ZONE   0.3f
 
 namespace Input {
     InputKey lastKey;
