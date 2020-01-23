@@ -2,6 +2,7 @@
 Classic Tomb Raider open-source engine
 
 [WebGL build with demo level](http://xproger.info/projects/OpenLara/)
+[Standalone version](https://github.com/XProger/OpenLara/releases/tag/latest)
 
 inspired by OpenTomb project http://opentomb.github.io/
 
