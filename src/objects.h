@@ -237,7 +237,16 @@ struct MuzzleFlash : Controller {
         timer = 0.0f;
     }
 
+    virtual bool getSaveData(SaveEntity &data) {
+        return false;
+    }
+
     virtual void update() {
+        if (!owner) {
+            game->removeEntity(this);
+            return;
+        }
+
         timer += Core::deltaTime;
         if (timer < MUZZLE_FLASH_TIME) {
             float intensity = clamp((MUZZLE_FLASH_TIME - timer) * 20.0f, EPS, 1.0f);
