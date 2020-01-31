@@ -246,7 +246,10 @@ JoyKey codeToJoyKey(int code) {
         case KEY_KPDOT      : return jkR;
         case KEY_PAGEUP     : return jkLT;
         case KEY_PAGEDOWN   : return jkRT;
-        case KEY_POWER      : Core::quit();
+        case KEY_POWER      : {
+            Game::quickSave();
+            Core::quit();
+        }
     }
     return jkNone;
 }
@@ -376,12 +379,10 @@ int main(int argc, char **argv) {
     strcpy(contentDir, home);
     strcat(contentDir, "/.openlara/");
 
-    LOG("content dir: %s\n", contentDir);
-
     struct stat st = {0};
 
     if (stat(contentDir, &st) == -1) {
-        LOG("no data directory found, please copy the original game content into /home/.openlara/\n");
+        LOG("no data directory found, please copy the original game content into %s\n", contentDir);
         return -1;
     }
 
@@ -400,6 +401,9 @@ int main(int argc, char **argv) {
     startTime = t.tv_sec;
 
     Game::init();
+
+    Game::quickLoad(true);
+
     inputInit();
     sndInit();
 

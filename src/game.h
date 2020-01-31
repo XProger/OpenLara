@@ -225,12 +225,16 @@ namespace Game {
         }
 
         if (slot > -1) {
+            level->loadGame(slot);
             if (forced) {
                 level->loadGame(slot);
                 level->loadLevel(saveSlots[slot].getLevelID());
                 level->loadNextLevelData();
-            } else {
-                level->loadGame(slot);
+                if (nextLevel) {
+                    startLevel(nextLevel);
+                    nextLevel = NULL;
+                    inventory->titleTimer = 0.0f;
+                }
             }
         }
     }
