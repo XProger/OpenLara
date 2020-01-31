@@ -208,6 +208,32 @@ namespace Game {
         Core::deltaTime = dt;
     }
 
+    void quickSave() {
+        if (!level || TR::isTitleLevel(level->level.id) || TR::isCutsceneLevel(level->level.id)) {
+            return;
+        }
+        level->saveGame(level->level.id, true, false);
+    }
+
+    void quickLoad(bool forced = false) {
+        if (!level) return;
+
+        int slot = getSaveSlot(level->level.id, true);
+
+        if (slot == -1) {
+            slot = getSaveSlot(level->level.id, false);
+        }
+
+        if (slot > -1) {
+            if (forced) {
+                level->loadLevel(saveSlots[slot].getLevelID());
+                level->loadNextLevel();
+            } else {
+                level->loadGame(slot);
+            }
+        }
+    }
+
     bool update() {
     // async load for settings
         if (Core::settings.version == SETTINGS_READING)
@@ -245,16 +271,12 @@ namespace Game {
 
         if (Input::down[ik5] && !inventory->isActive()) {
             if (level->players[0]->canSaveGame())
-                level->saveGame(level->level.id, true, false);
+                quickSave();
             Input::down[ik5] = false;
         }
 
         if (Input::down[ik9] && !inventory->isActive()) {
-            int slot = getSaveSlot(level->level.id, true);
-            if (slot == -1)
-                slot = getSaveSlot(level->level.id, false);
-            if (slot > -1)
-                level->loadGame(slot);
+            quickLoad();
             Input::down[ik9] = false;
         }
 

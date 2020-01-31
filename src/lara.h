@@ -553,7 +553,7 @@ struct Lara : Character {
             vec3 offset(0.0f);
             switch (level->version & TR::VER_VERSION) {
                 case TR::VER_TR1 :
-                    braid[0] = new Braid(this, vec3(-4.0f, 24.0f, -48.0f));
+                    //braid[0] = new Braid(this, vec3(-4.0f, 24.0f, -48.0f)); // it's just ugly :)
                     break;
                 case TR::VER_TR2 :
                 case TR::VER_TR3 :
