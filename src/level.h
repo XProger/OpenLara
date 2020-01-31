@@ -2051,6 +2051,14 @@ struct Level : IGame {
         controller->render(camera->frustum, mesh, type, room.flags.water);
     }
 
+    void loadNextLevelData() {
+        isEnded = true;
+        char buf[64];
+        TR::getGameLevelFile(buf, level.version, nextLevel);
+        nextLevel = TR::LVL_MAX;
+        new Stream(buf, loadLevelAsync);
+    }
+
     void update() {
         if (isEnded) return;
 
@@ -2121,11 +2129,7 @@ struct Level : IGame {
                 showStats = false;
                 return;
             }
-            isEnded = true;
-            char buf[64];
-            TR::getGameLevelFile(buf, level.version, nextLevel);
-            nextLevel = TR::LVL_MAX;
-            new Stream(buf, loadLevelAsync);
+            loadNextLevelData();
             return;
         }
 

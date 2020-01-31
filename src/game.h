@@ -226,8 +226,9 @@ namespace Game {
 
         if (slot > -1) {
             if (forced) {
+                level->loadGame(slot);
                 level->loadLevel(saveSlots[slot].getLevelID());
-                level->loadNextLevel();
+                level->loadNextLevelData();
             } else {
                 level->loadGame(slot);
             }
