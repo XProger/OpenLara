@@ -3109,7 +3109,7 @@ struct Lara : Character {
 
         vec2 L = joy.L;
 
-        if (L.length() < JOY_DEAD_ZONE) L = vec2(0.0f); // dead zone
+        if (L.length() < INPUT_JOY_DZ_STICK) L = vec2(0.0f); // dead zone
 
         if (!((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(L.x) < 0.5f && fabsf(L.y) < 0.5f)) {
             bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;

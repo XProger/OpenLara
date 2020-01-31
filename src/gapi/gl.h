@@ -1244,7 +1244,7 @@ namespace GAPI {
         support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
         support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
-        support.discardFrame   = extSupport(ext, "_discard_framebuffer") && (glDiscardFramebufferEXT != NULL);
+        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
         support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
         support.texMaxLevel    = GLES3 || extSupport(ext, "_texture_max_level");

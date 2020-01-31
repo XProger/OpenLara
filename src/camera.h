@@ -418,7 +418,7 @@ struct Camera : ICamera {
                     float d = 3.0f * Core::deltaTime;
 
                     vec2 L = Input::joy[cameraIndex].L;
-                    if (L.length() < JOY_DEAD_ZONE) L = vec2(0.0f);
+                    L = L.normal() * max(0.0f, L.length() - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK);
 
                     lookAngle.x += L.y * d;
                     lookAngle.y += L.x * d;
@@ -539,7 +539,7 @@ struct Camera : ICamera {
             viewTarget     = NULL;
         }
 
-        Input::Joystick &specJoy = Input::joy[cameraIndex];
+        Input::Joystick &specJoy = Input::joy[Core::settings.controls[cameraIndex].joyIndex];
 
         if (specJoy.down[jkL] && specJoy.down[jkR]) {
             specTimer += Core::deltaTime;
@@ -563,6 +563,11 @@ struct Camera : ICamera {
             vec2  R = specJoy.R;
             float U = specJoy.RT;
             float D = specJoy.LT;
+
+            L = L.normal() * max(0.0f, L.length() - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK);
+            R = R.normal() * max(0.0f, R.length() - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK);
+            U = max(0.0f, U - INPUT_JOY_DZ_TRIGGER) / (1.0f - INPUT_JOY_DZ_TRIGGER);
+            D = max(0.0f, D - INPUT_JOY_DZ_TRIGGER) / (1.0f - INPUT_JOY_DZ_TRIGGER);
 
             // apply dead zone
             if (L.length() < 0.05f) L = vec2(0.0f);
@@ -591,16 +596,15 @@ struct Camera : ICamera {
             mViewInv.rotateX(specRotSmooth.x);
             mViewInv.rotateZ(specRotSmooth.z);
 
-            level->getSector(specRoom, specPos);
-            /*
             for (int i = 0; i < level->roomsCount; i++) {
                 TR::Room &room = level->rooms[i];
                 if (room.contains(specPos)) {
-                    eye.room = i;
+                    specRoom = i;
                     break;
                 }
             }
-            */
+
+            level->getSector(specRoom, specPos);
         }
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)

@@ -211,7 +211,7 @@ void joyInit() {
 void joyUpdate() {
     const static u64 keys[jkMAX] = { 0,
         KEY_B, KEY_A, KEY_Y, KEY_X, KEY_L, KEY_R, KEY_PLUS, KEY_MINUS, 
-        0, 0, KEY_ZL, KEY_ZR,
+        KEY_LSTICK, KEY_RSTICK, KEY_ZL, KEY_ZR,
         KEY_DLEFT, KEY_DRIGHT, KEY_DUP, KEY_DDOWN,
     };
 
