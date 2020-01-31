@@ -10,7 +10,6 @@
 #include <EGL/egl.h>
 #include <fcntl.h>
 #include <linux/input.h>
-#include <libudev.h>
 #include <alsa/asoundlib.h>
 
 #include "game.h"
@@ -208,23 +207,44 @@ void eglFree() {
 }
 
 // Input
-#define MAX_INPUT_DEVICES 16
-struct InputDevice {
-    int fd;
-} inputDevices[MAX_INPUT_DEVICES];
+int ev_buttons;
+int ev_haptic;
+ff_effect joy_ff;
 
-udev *udevObj;
-udev_monitor *udevMon;
-int udevMon_fd;
+#define JOY_RUMBLE_TIMER  50
+#define JOY_RUMBLE_GAIN   0xFFFF
 
 vec2 joyL, joyR;
+float joyVGain, joyVGainOld;
+int   joyVTime;
 
 bool osJoyReady(int index) {
-    return index == 0; // TODO
+    return index == 0;
 }
 
 void osJoyVibrate(int index, float L, float R) {
-    // TODO
+    if (ev_haptic == -1) return;
+    joyVGain = (L + R) * 0.5f;
+}
+
+float joyAxisValue(int value) {
+    return value / 1536.0f - 1.0f;
+}
+
+vec2 joyDir(const vec2 &value) {
+    float dist = min(1.0f, value.length());
+    return value.normal() * dist;
+}
+
+void joyRumble() {
+    if (joy_ff.id == -1 || joyVGain == joyVGainOld || osGetTimeMS() < joyVTime)
+        return;
+
+    joy_ff.u.rumble.strong_magnitude = int(JOY_RUMBLE_GAIN * joyVGain);
+    ioctl(ev_haptic, EVIOCSFF, &joy_ff);
+
+    joyVGainOld = joyVGain;
+    joyVTime    = osGetTimeMS() + JOY_RUMBLE_TIMER;
 }
 
 JoyKey codeToJoyKey(int code) {
@@ -254,111 +274,91 @@ JoyKey codeToJoyKey(int code) {
     return jkNone;
 }
 
-int inputDevIndex(const char *node) {
-    const char *str = strstr(node, "/event");
-    if (str)
-        return atoi(str + 6);
-    return -1;
-}
+void inputInit() {
+    joyL = joyR = vec2(0.0f);
+    joyVGain    = 0.0f;
+    joyVGainOld = 0.0f;
+    joyVTime    = osGetTimeMS();
 
-void inputDevAdd(const char *node, udev_device *device) {
-    int index = inputDevIndex(node);
-    if (index != -1) {
-        InputDevice &item = inputDevices[index];
-        item.fd = open(node, O_RDONLY | O_NONBLOCK);
-        //ioctl(item.fd, EVIOCGRAB, 1);
-        //LOG("input: add %s (%d)\n", node, item.joyIndex);
-    }
-}
+    memset(&joy_ff, 0, sizeof(joy_ff));
+    joy_ff.id = -1;
 
-bool inputInit() {
-    joyL = joyR = vec2(0);
+    // TODO find compatible device instead of hardcode
+    ev_buttons = open("/dev/input/event3", O_NONBLOCK | O_RDONLY);
+    ev_haptic  = open("/dev/input/event1", O_RDWR);
 
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++) {
-        inputDevices[i].fd = -1;
+    if (ev_buttons == -1) {
+        LOG("! input device was not found\n");
     }
 
-    udevObj = udev_new();
-    if (!udevObj)
-        return false;
+    if (ev_haptic == -1) {
+        LOG("! haptic device was not found\n");
+    } else {
+        joy_ff.type                      = FF_RUMBLE;
+        joy_ff.id                        = -1;
+        joy_ff.replay.length             = 0;
+        joy_ff.replay.delay              = 0;
+        joy_ff.u.rumble.strong_magnitude = 0x8000;
+        joy_ff.u.rumble.weak_magnitude   = 0;
 
-    udevMon = udev_monitor_new_from_netlink(udevObj, "udev");
-    udev_monitor_filter_add_match_subsystem_devtype(udevMon, "input", NULL);
-    udev_monitor_enable_receiving(udevMon);
-    udevMon_fd = udev_monitor_get_fd(udevMon);
+        if (ioctl(ev_haptic, EVIOCSFF, &joy_ff) != -1) {
+            input_event gain;
+            gain.type  = EV_FF;
+            gain.code  = FF_GAIN;
+            gain.value = JOY_RUMBLE_GAIN;
+            write(ev_haptic, &gain, sizeof(gain));
 
-    udev_enumerate *e = udev_enumerate_new(udevObj);
-    udev_enumerate_add_match_subsystem(e, "input");
-    udev_enumerate_scan_devices(e);
-    udev_list_entry *devices = udev_enumerate_get_list_entry(e);
-
-    udev_list_entry *entry;
-    udev_list_entry_foreach(entry, devices) {
-        const char *path, *node;
-        udev_device *device;
-
-        path   = udev_list_entry_get_name(entry);
-        device = udev_device_new_from_syspath(udevObj, path);
-        node   = udev_device_get_devnode(device);
-
-        if (node)
-            inputDevAdd(node, device);
+            input_event state;
+            state.type  = EV_FF;
+            state.code  = joy_ff.id;
+            state.value = 1; // play
+            write(ev_haptic, &state, sizeof(state));
+        } else {
+            LOG("! can't initialize vibration\n");
+            close(ev_haptic);
+            ev_haptic = -1;
+        }
     }
-    udev_enumerate_unref(e);
-
-    return true;
 }
 
 void inputFree() {
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++)
-        if (inputDevices[i].fd != -1)
-            close(inputDevices[i].fd);
-    udev_monitor_unref(udevMon);
-    udev_unref(udevObj);
-}
-
-float joyAxisValue(int value) {
-    return value / 1536.0f - 1.0f;
-}
-
-vec2 joyDir(const vec2 &value) {
-    float dist = min(1.0f, value.length());
-    return value.normal() * dist;
+    if (ev_buttons != -1) close(ev_buttons);
+    if (ev_haptic  != -1) close(ev_haptic);
 }
 
 void inputUpdate() {
-// get input events
-    input_event events[16];
+    joyRumble();
 
-    for (int i = 0; i < MAX_INPUT_DEVICES; i++) {
-        if (inputDevices[i].fd == -1) continue;
-        int rb = read(inputDevices[i].fd, events, sizeof(events));
+    if (ev_buttons == -1) return;
 
-        input_event *e = events;
-        while (rb > 0) {
-            switch (e->type) {
-                case EV_KEY : {
-                    JoyKey key = codeToJoyKey(e->code);
-                    Input::setJoyDown(0, key, e->value != 0);
-                    break;
-                }
-                case EV_ABS : {
-                    switch (e->code) {
-                    // Left stick
-                        case ABS_X  : joyL.x = -joyAxisValue(e->value); break;
-                        case ABS_Y  : joyL.y = -joyAxisValue(e->value); break;
-                    // Right stick
-                        case ABS_RX : joyR.x = joyAxisValue(e->value); break;
-                        case ABS_RY : joyR.y = joyAxisValue(e->value); break;
-                    }
+    input_event events[64];
 
-                    Input::setJoyPos(0, jkL, joyDir(joyL));
-                    Input::setJoyPos(0, jkR, joyDir(joyR));
-                }
+    int rb = read(ev_buttons, events, sizeof(events));
+
+    input_event *e = events;
+    while (rb > 0) {
+        switch (e->type) {
+            case EV_KEY : {
+                JoyKey key = codeToJoyKey(e->code);
+                Input::setJoyDown(0, key, e->value != 0);
+                break;
             }
-            e++;
-            rb -= sizeof(events[0]);
+            case EV_ABS : {
+                switch (e->code) {
+                // Left stick
+                    case ABS_X  : joyL.x = -joyAxisValue(e->value); break;
+                    case ABS_Y  : joyL.y = -joyAxisValue(e->value); break;
+                // Right stick
+                    case ABS_RX : joyR.x = joyAxisValue(e->value); break;
+                    case ABS_RY : joyR.y = joyAxisValue(e->value); break;
+                }
+
+                Input::setJoyPos(0, jkL, joyDir(joyL));
+                Input::setJoyPos(0, jkR, joyDir(joyR));
+            }
         }
+        e++;
+        rb -= sizeof(events[0]);
     }
 }
 

@@ -179,7 +179,7 @@ static const OptionItem optSound[] = {
     #define INV_CTRL_START_OPTION 2
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0)
     #define INV_VIBRATION
 #endif
 
