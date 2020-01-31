@@ -13,7 +13,7 @@ R"====(
 #endif
 
 #ifdef OPT_SHADOW
-	#define SHADOW_TEXEL	vec3(1.0 / 2048.0, 1.0 / 2048.0, 0.0)
+	#define SHADOW_TEXEL	vec3(1.0 / SHADOW_SIZE, 1.0 / SHADOW_SIZE, 0.0)
 	uniform mat4 uLightProj;
 
 	#ifdef OPT_VLIGHTPROJ
@@ -95,7 +95,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 	}
 
 	vec4 _transform() {
-		#if defined(TYPE_ENTITY) || defined(TYPE_MIRROR)
+		#if (defined(TYPE_ENTITY) || defined(TYPE_MIRROR)) && defined(MESH_SKINNING)
 			int index = int(aCoord.w * 2.0);
 			vec4 rBasisRot = uBasis[index];
 			vec4 rBasisPos = uBasis[index + 1];
@@ -122,18 +122,16 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 			float fog;
 			#if defined(UNDERWATER) && !defined(OPT_UNDERWATER_FOG)
-				float d;
-				if (uViewPos.y < uParam.y) // TODO: fix for mediump
-					d = abs((coord.y - uParam.y) / normalize(uViewPos.xyz - coord).y);
-				else
-					d = length(uViewPos.xyz - coord);
+				float d = length(uViewPos.xyz - coord);
+				if (uViewPos.y < uParam.y) {
+					d *= (coord.y - uParam.y) / (coord.y - uViewPos.y);
+				}
 				fog = d * WATER_FOG_DIST;
 				fog *= step(uParam.y, coord.y);
-				vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 			#else
 				fog = length(vViewVec.xyz);
-    			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 			#endif
+			vNormal.w = clamp(1.0 / exp(fog), 0.0, 1.0);
 
 			vCoord = coord;
 		#endif
@@ -189,7 +187,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 			lum.w = dot(vNormal.xyz, normalize(lv3)); att.w = dot(lv3, lv3);
 			vec4 light = max(vec4(0.0), lum) * max(vec4(0.0), vec4(1.0) - att);
 
-			#if (defined(TYPE_ENTITY) || defined(TYPE_ROOM)) && defined(UNDERWATER)
+			#if (defined(TYPE_ENTITY) || defined(TYPE_ROOM)) && defined(UNDERWATER) && defined(VERT_CAUSTICS)
 				light.x *= 0.5 + abs(sin(dot(coord.xyz, vec3(1.0 / 1024.0)) + uParam.x)) * 0.75;
 			#endif
 

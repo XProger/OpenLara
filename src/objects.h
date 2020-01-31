@@ -850,7 +850,11 @@ struct Crystal : Controller {
     Texture *environment;
 
     Crystal(IGame *game, int entity) : Controller(game, entity) {
-        environment = new Texture(64, 64, 1, FMT_RGBA, OPT_CUBEMAP | OPT_MIPMAPS | OPT_TARGET);
+        uint32 opt = OPT_CUBEMAP | OPT_TARGET;
+        #ifdef USE_CUBEMAP_MIPS
+            opt |= OPT_MIPMAPS;
+        #endif
+        environment = new Texture(64, 64, 1, FMT_RGB16, opt);
         activate();
     }
 

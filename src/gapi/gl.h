@@ -117,6 +117,50 @@
     #include <GLES3/gl3.h>
     #include <GLES2/gl2ext.h>
     extern EGLDisplay display;
+#elif defined(_OS_GCW0)
+    #include <GLES2/gl2.h>
+    #include <GLES2/gl2ext.h>
+    #include <EGL/egl.h>
+    #include <EGL/eglext.h>
+
+    #define GL_TEXTURE_MAX_LEVEL        GL_TEXTURE_MAX_LEVEL_APPLE
+    #define GL_TEXTURE_3D               0 
+    #define GL_TEXTURE_WRAP_R           0 
+    #define GL_TEXTURE_COMPARE_MODE     0x884C
+    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+
+    #undef  GL_RG
+    #undef  GL_RG32F
+    #undef  GL_RG16F
+    #undef  GL_RGBA32F
+    #undef  GL_RGBA16F
+    #undef  GL_HALF_FLOAT
+
+    #define GL_RG           GL_RGBA
+    #define GL_RGBA32F      GL_RGBA
+    #define GL_RGBA16F      GL_RGBA
+    #define GL_RG32F        GL_RGBA
+    #define GL_RG16F        GL_RGBA
+    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+
+    #define glTexImage3D(...) 0
+
+    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+
+    #define PFNGLGENVERTEXARRAYSPROC    PFNGLGENVERTEXARRAYSOESPROC
+    #define PFNGLDELETEVERTEXARRAYSPROC PFNGLDELETEVERTEXARRAYSOESPROC
+    #define PFNGLBINDVERTEXARRAYPROC    PFNGLBINDVERTEXARRAYOESPROC
+    #define PFNGLGETPROGRAMBINARYPROC   PFNGLGETPROGRAMBINARYOESPROC
+    #define PFNGLPROGRAMBINARYPROC      PFNGLPROGRAMBINARYOESPROC
+
+    #define glGenVertexArrays    glGenVertexArraysOES
+    #define glDeleteVertexArrays glDeleteVertexArraysOES
+    #define glBindVertexArray    glBindVertexArrayOES
+    #define glGetProgramBinary   glGetProgramBinaryOES
+    #define glProgramBinary      glProgramBinaryOES
+
+    extern EGLDisplay display;
 #elif defined(_OS_RPI) || defined(_OS_CLOVER)
     #include <GLES2/gl2.h>
     #include <GLES2/gl2ext.h>
@@ -158,7 +202,7 @@
     #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
     #define glGetProgramBinary(...)
     #define glProgramBinary(...)
-    
+
     extern EGLDisplay display;
 #elif _OS_SWITCH
     #define GL_GLEXT_PROTOTYPES
@@ -248,21 +292,17 @@
     #define glProgramBinary(...)
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0)
 
-    #ifdef _OS_ANDROID
-        #define GetProc(x) dlsym(libGL, x);
-    #else
-        void* GetProc(const char *name) {
-            #ifdef _OS_WIN
-                return (void*)wglGetProcAddress(name);
-            #elif _OS_LINUX
-                return (void*)glXGetProcAddress((GLubyte*)name);
-            #else // EGL
-                return (void*)eglGetProcAddress(name);
-            #endif
-        }
-    #endif
+    void* GetProc(const char *name) {
+        #ifdef _OS_WIN
+            return (void*)wglGetProcAddress(name);
+        #elif _OS_LINUX
+            return (void*)glXGetProcAddress((GLubyte*)name);
+        #else // EGL
+            return (void*)eglGetProcAddress(name);
+        #endif
+    }
 
     #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
 
@@ -341,15 +381,17 @@
         PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
     #endif
 
+// Vertex Arrays
     PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
     PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
     PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+// Binary shaders
     PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
     PFNGLPROGRAMBINARYPROC              glProgramBinary;
-#endif
 
-#if defined(_GAPI_GLES) && !defined(_OS_RPI) && !defined(_OS_CLOVER) && !defined(_OS_PSC) && !defined(_OS_IOS) && !defined(_OS_ANDROID) && !defined(__SDL2__)
-    PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
+    #if defined(_GAPI_GLES)
+        PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
+    #endif 
 #endif
 
 #ifdef PROFILE
@@ -560,7 +602,18 @@ namespace GAPI {
                 sprintf(defines + strlen(defines), "#define %s\n", DefineName[def[i]]);
             }
 
-            #if defined(_OS_RPI) || defined(_OS_CLOVER) || (defined (__SDL2__) && defined (_GAPI_GLES))
+            sprintf(defines + strlen(defines), "#define SHADOW_SIZE %d.0\n", SHADOW_TEX_SIZE);
+
+            #ifdef MERGE_MODELS
+                strcat(defines, "#define MESH_SKINNING\n");
+            #endif
+
+            // etnaviv driver has no sin/cos/abs implementation
+            #if !defined(_OS_GCW0) 
+                strcat(defines, "#define VERT_CAUSTICS\n");
+            #endif
+
+            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || (defined (__SDL2__) && defined(_GAPI_GLES))
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
                 strcat(defines, "#define OPT_VLIGHTVEC\n");
                 strcat(defines, "#define OPT_SHADOW_ONETAP\n");
@@ -858,9 +911,9 @@ namespace GAPI {
             glGenerateMipmap(target);
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
-            #if !defined(_OS_RPI) && !defined(_OS_CLOVER) && !(defined (__SDL2__) && defined (_GAPI_GLES))// TODO
-                glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
-            #endif
+                if (Core::support.texMaxLevel) {
+                    glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 3);
+                }
             }
         }
 
@@ -1062,7 +1115,7 @@ namespace GAPI {
             //void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(_OS_WIN) || defined(_OS_LINUX)
+        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0)
             #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
@@ -1135,10 +1188,11 @@ namespace GAPI {
             GetProcOGL(glGenVertexArrays);
             GetProcOGL(glDeleteVertexArrays);
             GetProcOGL(glBindVertexArray);
+
             GetProcOGL(glGetProgramBinary);
             GetProcOGL(glProgramBinary);
 
-            #ifdef _GAPI_GLES
+            #if defined(_GAPI_GLES)
                 GetProcOGL(glDiscardFramebufferEXT);
             #endif
         #endif
@@ -1162,7 +1216,6 @@ namespace GAPI {
                 }
         }
 */
-
     #ifndef FFP
         bool GLES3 = false;
         #ifdef _OS_WEB
@@ -1173,7 +1226,7 @@ namespace GAPI {
                 #if defined(__SDL2__)
                     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &GLES_VERSION);
                 #else
-                    #if defined(_OS_RPI) || defined(_OS_CLOVER)
+                    #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0)
                         GLES_VERSION = 2;
                     #else
                         glGetIntegerv(GL_MAJOR_VERSION, &GLES_VERSION);
@@ -1191,9 +1244,11 @@ namespace GAPI {
         support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
         support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
-        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
+        support.discardFrame   = extSupport(ext, "_discard_framebuffer") && (glDiscardFramebufferEXT != NULL);
         support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
         support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texMaxLevel    = GLES3 || extSupport(ext, "_texture_max_level");
+
         #ifdef _GAPI_GLES2 // TODO
             support.shaderBinary = false;
             support.VAO = false;
@@ -1400,8 +1455,9 @@ namespace GAPI {
             glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
         } else {
             GLenum texTarget = GL_TEXTURE_2D;
-            if (target->opt & OPT_CUBEMAP) 
+            if (target->opt & OPT_CUBEMAP) {
                 texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+            }
 
             bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
 
@@ -1412,7 +1468,7 @@ namespace GAPI {
             glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[!depth].items[rtIndex].ID);
             GLuint status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
             if (status != GL_FRAMEBUFFER_COMPLETE) {
-                LOG("status: %d\n", (int)status);
+                LOG("status: 0x%04X\n", (int)status);
             }
         }
     }
@@ -1428,9 +1484,7 @@ namespace GAPI {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
                 #else
-                    #if !defined(__SDL2__) && !defined(_OS_PSC)
-                        glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
-                    #endif
+                    glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                 #endif
             }
         }

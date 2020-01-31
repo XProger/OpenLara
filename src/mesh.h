@@ -1565,6 +1565,8 @@ struct MeshBuilder {
                     Core::mModel.identity();
                     Core::mModel.setRot(basis.rot);
                     Core::mModel.setPos(basis.pos);
+                #else
+                    Core::active.shader->setParam(uBasis, *(vec4*)&basis, 2);
                 #endif
             #endif
 

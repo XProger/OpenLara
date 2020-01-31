@@ -133,11 +133,13 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows   ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water     ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple    ), STR_OFF, 0, 1 ),
+#if !defined(_OS_3DS) && !defined(_OS_GCW0)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_RESOLUTION,      SETTINGS( detail.scale     ), STR_SCALE_100, 0, 3 ),
+#endif
 #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI) || defined(_OS_PSV)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync     ), STR_OFF, 0, 1 ),
 #endif
-#if !defined(_OS_PSP) && !defined(_OS_PSV) && !defined(_OS_3DS)
+#if !defined(_OS_PSP) && !defined(_OS_PSV) && !defined(_OS_3DS) && !defined(_OS_GCW0)
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_NO_STEREO, 0, 
     #if defined(_OS_WIN) || defined(_OS_ANDROID)
         4 /* with VR option */
@@ -166,9 +168,12 @@ static const OptionItem optSound[] = {
     #define INV_GAMEPAD_ONLY
 #endif
 
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS)
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0)
     #define INV_SINGLE_PLAYER
     #define INV_GAMEPAD_ONLY
+#endif
+
+#ifdef INV_SINGLE_PLAYER
     #define INV_CTRL_START_OPTION 1
 #else
     #define INV_CTRL_START_OPTION 2
@@ -1192,7 +1197,7 @@ struct Inventory {
         else if (Input::down[ikDown]  || joy.down[jkDown]  || joy.L.y >  0.5f)
             key = cDown;
 
-        #if defined(_OS_SWITCH) || defined(_OS_3DS)
+        #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0)
         // swap A/B keys for Nintendo (Japanese) UX style
         if (Input::touchTimerVis == 0.0f) {
             if (key == cAction) {
@@ -1387,9 +1392,11 @@ struct Inventory {
             background[0] = NULL;
         }
 
-        for (int i = 0; i < COUNT(background); i++)
-            if (!background[i])
-                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
+        for (int i = 0; i < COUNT(background); i++) {
+            if (!background[i]) {
+                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGB16, OPT_TARGET);
+            }
+        }
 
         return background[view];
     }
@@ -2061,7 +2068,7 @@ struct Inventory {
             const char *bSelect = STR[STR_KEY_FIRST + ikEnter];
             const char *bBack   = STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[cInventory].key];
 
-            #if defined(_OS_SWITCH) || defined(_OS_3DS)
+            #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0)
                 bSelect = "A";
                 bBack   = "B";
             #endif

@@ -58,7 +58,7 @@ namespace Game {
         level->init(playLogo, playVideo);
 
         UI::game = level;
-        #if !defined(_OS_PSP) && !defined(_OS_CLOVER)
+        #if !defined(INV_GAMEPAD_ONLY)
             UI::helpTipTime = 5.0f;
         #endif
         delete lvl;

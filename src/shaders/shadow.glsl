@@ -22,9 +22,14 @@ R"====(
 	}
 
 	void main() {
-		int index = int(aCoord.w * 2.0);
-		vec4 rBasisRot = uBasis[index];
-		vec4 rBasisPos = uBasis[index + 1];
+		#ifdef MESH_SKINNING
+			int index = int(aCoord.w * 2.0);
+			vec4 rBasisRot = uBasis[index];
+			vec4 rBasisPos = uBasis[index + 1];
+		#else
+			vec4 rBasisRot = uBasis[0];
+			vec4 rBasisPos = uBasis[1];
+		#endif
 		#ifdef ALPHA_TEST
 			vTexCoord = aTexCoord.xy;
 		#endif

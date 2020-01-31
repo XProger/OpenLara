@@ -12,6 +12,8 @@
 #define OS_FILEIO_CACHE
 #define OS_PTHREAD_MT
 
+#define USE_CUBEMAP_MIPS
+
 #ifdef WIN32
     #define _OS_WIN      1
     #define _GAPI_GL     1
@@ -64,6 +66,15 @@
     #define _OS_BITTBOY 1
     #define _OS_LINUX   1
     #define _GAPI_SW    1
+#elif __GCW0__
+    #define _OS_GCW0   1
+    #define _GAPI_GL   1
+    #define _GAPI_GLES 1
+
+    #define DYNGEOM_NO_VBO
+
+    // etnaviv driver has a bug with cubemap mips generator
+    #undef USE_CUBEMAP_MIPS
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
@@ -129,7 +140,12 @@
         #define SPLIT_BY_CLUT
     #endif
 #else
-    #define MERGE_MODELS
+    // current etnaviv driver implementation uses uncompatible Mesa GLSL compiler
+    // it produce unimplemented TRUNC/ARL instructions instead of F2I
+    // so we can't use joints indexing in the shader (see MESH_SKINNING)
+    #ifndef _OS_GCW0
+        #define MERGE_MODELS
+    #endif
     #define MERGE_SPRITES
     #define GENERATE_WATER_PLANE
 #endif
@@ -137,8 +153,10 @@
 #include "utils.h"
 
 // muse be equal with base shader
-#ifdef __OS_3DS
+#if defined(_OS_3DS)
     #define SHADOW_TEX_SIZE      512
+#elif defined(_OS_GCW0)
+    #define SHADOW_TEX_SIZE      256
 #else
     #define SHADOW_TEX_SIZE      2048
 #endif
@@ -235,6 +253,7 @@ namespace Core {
         bool tex3D;
         bool texRG;
         bool texBorder;
+        bool texMaxLevel;
         bool colorFloat, texFloat, texFloatLinear;
         bool colorHalf, texHalf,  texHalfLinear;
     #ifdef PROFILE
@@ -454,7 +473,11 @@ struct PSO {
     uint32     renderState;
 };
 
-typedef uint32 Index;
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_WEB)
+    typedef uint32 Index;
+#else
+    typedef uint16 Index;
+#endif
 
 struct Edge {
     Index a, b;
@@ -738,8 +761,9 @@ namespace Core {
         lightStackCount = 0;
 
         memset(&support, 0, sizeof(support));
-        support.texMinSize = 1;
-        Core::support.derivatives = true;
+        support.texMinSize  = 1;
+        support.texMaxLevel = true;
+        support.derivatives = true;
 
         #ifdef USE_INFLATE
             tinf_init();
@@ -765,6 +789,7 @@ namespace Core {
         LOG("  3D   textures  : %s\n", support.tex3D         ? "true" : "false");
         LOG("  RG   textures  : %s\n", support.texRG         ? "true" : "false");
         LOG("  border color   : %s\n", support.texBorder     ? "true" : "false");
+        LOG("  max level      : %s\n", support.texMaxLevel   ? "true" : "false");
         LOG("  anisotropic    : %d\n", support.maxAniso);
         LOG("  float textures : float = %s, half = %s\n", 
             support.colorFloat ? "full" : (support.texFloat ? (support.texFloatLinear ? "linear" : "nearest") : "false"),
@@ -897,6 +922,13 @@ namespace Core {
     #if defined(_OS_RPI) || defined(_OS_CLOVER)
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setLighting (Core::Settings::MEDIUM);
+    #endif
+
+    #if defined(_OS_GCW0)
+        settings.detail.setFilter   (Core::Settings::MEDIUM);
+        settings.detail.setShadows  (Core::Settings::MEDIUM);
+        settings.detail.setLighting (Core::Settings::MEDIUM);
+        settings.audio.subtitles = false;
     #endif
 
     #ifdef _OS_PSC

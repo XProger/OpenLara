@@ -1744,7 +1744,9 @@ struct Level : IGame {
             if (e.type == TR::Entity::CRYSTAL) {
                 Crystal *c = (Crystal*)e.controller;
                 renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
-                c->environment->generateMipMap();
+                #ifdef USE_CUBEMAP_MIPS
+                    c->environment->generateMipMap();
+                #endif
             }
         }
     }
