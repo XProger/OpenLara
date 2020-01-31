@@ -298,7 +298,7 @@ void inputInit() {
         joy_ff.id                        = -1;
         joy_ff.replay.length             = 0;
         joy_ff.replay.delay              = 0;
-        joy_ff.u.rumble.strong_magnitude = 0x8000;
+        joy_ff.u.rumble.strong_magnitude = 0;
         joy_ff.u.rumble.weak_magnitude   = 0;
 
         if (ioctl(ev_haptic, EVIOCSFF, &joy_ff) != -1) {
