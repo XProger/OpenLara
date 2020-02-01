@@ -66,7 +66,6 @@
     #include <SDL2/SDL.h>
 
     #if defined(_GAPI_GLES)
-        #define GL_GLEXT_PROTOTYPES 1
         #include <SDL2/SDL_opengles2.h>
         #include <SDL2/SDL_opengles2_gl2ext.h>
 
@@ -94,6 +93,8 @@
         #define GL_TEXTURE_WRAP_R       0
         #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
         #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+	//We need this on GLES2, too.
+        #define GL_TEXTURE_MAX_LEVEL     GL_TEXTURE_MAX_LEVEL_APPLE
 
         #define glTexImage3D(...) 0
         #ifndef GL_TEXTURE_3D // WUUUUUT!?
@@ -108,7 +109,6 @@
         #define glGetProgramBinary(...)
         #define glProgramBinary(...)
     #else
-        #define GL_GLEXT_PROTOTYPES 1
         #include <SDL2/SDL_opengl.h>
         #include <SDL2/SDL_opengl_glext.h>
     #endif
@@ -1483,7 +1483,9 @@ namespace GAPI {
             if (count) {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
-                #else
+                #elif !defined(__SDL2__)
+                    /* SDL2 typically uses MESA which does not have glDiscardFramebufferEXT() implemented
+                       for some drivers, like Gallium VC4. */ 
                     glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                 #endif
             }
