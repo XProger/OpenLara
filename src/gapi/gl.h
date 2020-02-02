@@ -1317,11 +1317,15 @@ namespace GAPI {
         char extHeader[256];
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = extHeader[0] = 0;
         if (_GL_OES_standard_derivatives) {
-            strcat(extHeader, "#extension GL_OES_standard_derivatives : enable\n");
+            if (!GLES3) {
+                strcat(extHeader, "#extension GL_OES_standard_derivatives : enable\n");
+            }
         }
 
         if (_GL_EXT_shadow_samplers && !_GL_ARB_shadow) {
-            strcat(extHeader, "#extension GL_EXT_shadow_samplers : enable\n");
+            if (!GLES3) {
+                strcat(extHeader, "#extension GL_EXT_shadow_samplers : enable\n");
+            }
             strcat(extHeader, "#define USE_GL_EXT_shadow_samplers\n");
         }
         
@@ -1346,6 +1350,7 @@ namespace GAPI {
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
+                                     "#define shadow2DEXT texture\n"
                                      "out vec4 fragColor;\n");
         } else {
             // vertex

@@ -189,7 +189,7 @@ JNI_METHOD(void, nativeFrameRender)(JNIEnv* env) {
 }
 
 JNI_METHOD(void, nativeResize)(JNIEnv* env, jobject obj, jint x, jint y, jint w, jint h) {
-    Core::viewportDef = Viewport(x, y, w, h);
+    Core::viewportDef = short4(x, y, w, h);
     Core::x      = x;
     Core::y      = y;
     Core::width  = w;
