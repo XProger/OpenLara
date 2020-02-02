@@ -66,49 +66,55 @@
     #include <SDL2/SDL.h>
 
     #if defined(_GAPI_GLES)
-        #include <SDL2/SDL_opengles2.h>
-        #include <SDL2/SDL_opengles2_gl2ext.h>
+        #if defined (_GAPI_GLES2) // We want GLES2 on SDL2
+	    #include <SDL2/SDL_opengles2.h>
+	    #include <SDL2/SDL_opengles2_gl2ext.h>
 
-        #define GL_CLAMP_TO_BORDER          0x812D
-        #define GL_TEXTURE_BORDER_COLOR     0x1004
+	    #define GL_CLAMP_TO_BORDER          0x812D
+	    #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-        #define GL_TEXTURE_COMPARE_MODE     0x884C
-        #define GL_TEXTURE_COMPARE_FUNC     0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+	    #define GL_TEXTURE_COMPARE_MODE     0x884C
+	    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+	    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-        #undef  GL_RG
-        #undef  GL_RG32F
-        #undef  GL_RG16F
-        #undef  GL_RGBA32F
-        #undef  GL_RGBA16F
-        #undef  GL_HALF_FLOAT
+	    #undef  GL_RG
+	    #undef  GL_RG32F
+	    #undef  GL_RG16F
+	    #undef  GL_RGBA32F
+	    #undef  GL_RGBA16F
+	    #undef  GL_HALF_FLOAT
 
-        #define GL_RG           GL_RGBA
-        #define GL_RGBA32F      GL_RGBA
-        #define GL_RGBA16F      GL_RGBA
-        #define GL_RG32F        GL_RGBA
-        #define GL_RG16F        GL_RGBA
-        #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+	    #define GL_RG           GL_RGBA
+	    #define GL_RGBA32F      GL_RGBA
+	    #define GL_RGBA16F      GL_RGBA
+	    #define GL_RG32F        GL_RGBA
+	    #define GL_RG16F        GL_RGBA
+	    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
-        #define GL_TEXTURE_WRAP_R       0
-        #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-        #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
-	//We need this on GLES2, too.
-        #define GL_TEXTURE_MAX_LEVEL     GL_TEXTURE_MAX_LEVEL_APPLE
+	    #define GL_TEXTURE_WRAP_R       0
+	    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+	    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+	    //We need this on GLES2, too.
+	    #define GL_TEXTURE_MAX_LEVEL     GL_TEXTURE_MAX_LEVEL_APPLE
 
-        #define glTexImage3D(...) 0
-        #ifndef GL_TEXTURE_3D // WUUUUUT!?
-            #define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+	    #define glTexImage3D(...) 0
+	    #ifndef GL_TEXTURE_3D // WUUUUUT!?
+		#define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+	    #endif
+
+	    #define glGenVertexArrays(...)
+	    #define glDeleteVertexArrays(...)
+	    #define glBindVertexArray(...)
+
+	    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+	    #define glGetProgramBinary(...)
+	    #define glProgramBinary(...)
+        #else // We want GLES3 on SDL2
+	    #include <GLES3/gl3.h>
+	    #include <GLES3/gl3ext.h>
+	    #include <GLES2/gl2ext.h>
         #endif
-
-        #define glGenVertexArrays(...)
-        #define glDeleteVertexArrays(...)
-        #define glBindVertexArray(...)
-
-        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-        #define glGetProgramBinary(...)
-        #define glProgramBinary(...)
-    #else
+    #else // We want OpenGL on SDL2, not GLES
         #include <SDL2/SDL_opengl.h>
         #include <SDL2/SDL_opengl_glext.h>
     #endif
@@ -1486,12 +1492,12 @@ namespace GAPI {
             if (color) discard[count++] = Core::active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
             if (depth) discard[count++] = Core::active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
             if (count) {
-                #ifdef _OS_ANDROID
+                #if defined _OS_ANDROID && !defined(_GAPI_GLES2)
+                   /* glInvalidateBuffer() is the GLES3 version of glDiscardFramebufferEXT(), available
+                      also on Android but NOT on some GLES2 MESA implementations like Gallium vc4.
+                      This leaves us without cases where we need glDiscardFramebufferEXT AND know
+                      it is implemented for sure, so use glInvalidateFramebuffer or nothing. */
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
-                #elif !defined(__SDL2__)
-                    /* SDL2 typically uses MESA which does not have glDiscardFramebufferEXT() implemented
-                       for some drivers, like Gallium VC4. */ 
-                    glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                 #endif
             }
         }
