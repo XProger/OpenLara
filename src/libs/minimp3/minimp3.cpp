@@ -21,7 +21,65 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "libc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#ifdef _MSC_VER
+    #define INLINE __forceinline
+    #define FASTCALL __fastcall
+    #ifdef NOLIBC
+        #ifdef MAIN_PROGRAM
+            int _fltused=0;
+        #endif
+    #endif
+#else
+    #define INLINE inline
+    #define FASTCALL __attribute__((fastcall))
+    #include <stdint.h>
+#endif
+
+typedef unsigned char       uint8;
+typedef   signed char        int8;
+typedef unsigned short      uint16;
+typedef   signed short       int16;
+typedef unsigned int        uint32;
+typedef   signed int         int32;
+typedef unsigned long long  uint64;
+typedef   signed long long   int64;
+
+#define PI 3.14159265358979
+
+#define libc_malloc  malloc
+#define libc_calloc  calloc
+#define libc_realloc realloc
+#define libc_free    free
+
+#define libc_memset  memset
+#define libc_memcpy  memcpy
+#define libc_memmove memmove
+
+#define libc_exp     exp
+#define libc_pow     pow
+
+#if defined(_MSC_VER) && !defined(_DEBUG) 
+static INLINE double libc_frexp(double x, int *e) {
+    double res = -9999.999;
+    unsigned __int64 i = *(unsigned __int64*)(&x);
+    if (!(i & 0x7F00000000000000UL)) {
+        *e = 0;
+        return x;
+    }
+    *e = ((i << 1) >> 53) - 1022;
+    i &= 0x800FFFFFFFFFFFFFUL;
+    i |= 0x3FF0000000000000UL;
+    return *(double*)(&i) * 0.5;
+}
+#else
+    #define libc_frexp  frexp
+#endif
+
 #include "minimp3.h"
 
 #define MP3_FRAME_SIZE 1152
@@ -53,32 +111,8 @@
 #define FRAC_RND(a) (((a) + (FRAC_ONE/2)) >> FRAC_BITS)
 #define FIXHR(a) ((int)((a) * (1LL<<32) + 0.5))
 
-#ifndef _MSC_VER
-    #define MULL(a,b) int32_t(((int64_t)(a) * (int64_t)(b)) >> FRAC_BITS)
-    #define MULH(a,b) int32_t(((int64_t)(a) * (int64_t)(b)) >> 32)
-#else
-    static INLINE int32_t MULL(int a, int b) {
-        int res;
-        __asm {
-            mov eax, a
-            imul b
-            shr eax, 15
-            shl edx, 17
-            or eax, edx
-            mov res, eax
-        }
-        return res;
-    }
-    static INLINE int32_t MULH(int a, int b) {
-        int res;
-        __asm {
-            mov eax, a
-            imul b
-            mov res, edx
-        }
-        return res;
-    }
-#endif
+#define MULL(a,b) int32(((int64)(a) * (int64)(b)) >> FRAC_BITS)
+#define MULH(a,b) int32(((int64)(a) * (int64)(b)) >> 32)
 #define MULS(ra, rb) ((ra) * (rb))
 
 #define ISQRT2 FIXR(0.70710678118654752440)
@@ -87,14 +121,14 @@
 #define BACKSTEP_SIZE 512
 #define EXTRABYTES 24
 
-#define VLC_TYPE int16_t
+#define VLC_TYPE int16
 
 ////////////////////////////////////////////////////////////////////////////////
 
 struct _granule;
 
 typedef struct _bitstream {
-    const uint8_t *buffer, *buffer_end;
+    const uint8 *buffer, *buffer_end;
     int index;
     int size_in_bits;
 } bitstream_t;
@@ -106,10 +140,10 @@ typedef struct _vlc {
 } vlc_t;
 
 typedef struct _mp3_context {
-    uint8_t last_buf[2*BACKSTEP_SIZE + EXTRABYTES];
+    uint8 last_buf[2*BACKSTEP_SIZE + EXTRABYTES];
     int last_buf_size;
     int frame_size;
-    uint32_t free_format_next_header;
+    uint32 free_format_next_header;
     int error_protection;
     int sample_rate;
     int sample_rate_index;
@@ -120,63 +154,63 @@ typedef struct _mp3_context {
     int mode;
     int mode_ext;
     int lsf;
-    int16_t synth_buf[MP3_MAX_CHANNELS][512 * 2];
+    int16 synth_buf[MP3_MAX_CHANNELS][512 * 2];
     int synth_buf_offset[MP3_MAX_CHANNELS];
-    int32_t sb_samples[MP3_MAX_CHANNELS][36][SBLIMIT];
-    int32_t mdct_buf[MP3_MAX_CHANNELS][SBLIMIT * 18];
+    int32 sb_samples[MP3_MAX_CHANNELS][36][SBLIMIT];
+    int32 mdct_buf[MP3_MAX_CHANNELS][SBLIMIT * 18];
     int dither_state;
 } mp3_context_t;
 
 typedef struct _granule {
-    uint8_t scfsi;
+    uint8 scfsi;
     int part2_3_length;
     int big_values;
     int global_gain;
     int scalefac_compress;
-    uint8_t block_type;
-    uint8_t switch_point;
+    uint8 block_type;
+    uint8 switch_point;
     int table_select[3];
     int subblock_gain[3];
-    uint8_t scalefac_scale;
-    uint8_t count1table_select;
+    uint8 scalefac_scale;
+    uint8 count1table_select;
     int region_size[3];
     int preflag;
     int short_start, long_end;
-    uint8_t scale_factors[40];
-    int32_t sb_hybrid[SBLIMIT * 18];
+    uint8 scale_factors[40];
+    int32 sb_hybrid[SBLIMIT * 18];
 } granule_t;
 
 typedef struct _huff_table {
     int xsize;
-    const uint8_t *bits;
-    const uint16_t *codes;
+    const uint8 *bits;
+    const uint16 *codes;
 } huff_table_t;
 
 static vlc_t huff_vlc[16];
 static vlc_t huff_quad_vlc[2];
-static uint16_t band_index_long[9][23];
+static uint16 band_index_long[9][23];
 #define TABLE_4_3_SIZE (8191 + 16)*4
-static int8_t  *table_4_3_exp;
-static uint32_t *table_4_3_value;
-static uint32_t exp_table[512];
-static uint32_t expval_table[512][16];
-static int32_t is_table[2][16];
-static int32_t is_table_lsf[2][2][16];
-static int32_t csa_table[8][4];
+static int8  *table_4_3_exp;
+static uint32 *table_4_3_value;
+static uint32 exp_table[512];
+static uint32 expval_table[512][16];
+static int32 is_table[2][16];
+static int32 is_table_lsf[2][2][16];
+static int32 csa_table[8][4];
 static float csa_table_float[8][4];
-static int32_t mdct_win[8][36];
-static int16_t window[512];
+static int32 mdct_win[8][36];
+static int16 window[512];
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const uint16_t mp3_bitrate_tab[2][15] = {
+static const uint16 mp3_bitrate_tab[2][15] = {
     {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 },
     {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160}
 };
 
-static const uint16_t mp3_freq_tab[3] = { 44100, 48000, 32000 };
+static const uint16 mp3_freq_tab[3] = { 44100, 48000, 32000 };
 
-static const int32_t mp3_enwindow[257] = {
+static const int32 mp3_enwindow[257] = {
      0,    -1,    -1,    -1,    -1,    -1,    -1,    -2,
     -2,    -2,    -2,    -3,    -3,    -4,    -4,    -5,
     -5,    -6,    -7,    -7,    -8,    -9,   -10,   -11,
@@ -212,12 +246,12 @@ static const int32_t mp3_enwindow[257] = {
  75038,
 };
 
-static const uint8_t slen_table[2][16] = {
+static const uint8 slen_table[2][16] = {
     { 0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4 },
     { 0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3 },
 };
 
-static const uint8_t lsf_nsf_table[6][3][4] = {
+static const uint8 lsf_nsf_table[6][3][4] = {
     { {  6,  5,  5, 5 }, {  9,  9,  9, 9 }, {  6,  9,  9, 9 } },
     { {  6,  5,  7, 3 }, {  9,  9, 12, 6 }, {  6,  9, 12, 6 } },
     { { 11, 10,  0, 0 }, { 18, 18,  0, 0 }, { 15, 18,  0, 0 } },
@@ -226,55 +260,55 @@ static const uint8_t lsf_nsf_table[6][3][4] = {
     { {  8,  8,  5, 0 }, { 15, 12,  9, 0 }, {  6, 18,  9, 0 } },
 };
 
-static const uint16_t mp3_huffcodes_1[4] = {
+static const uint16 mp3_huffcodes_1[4] = {
  0x0001, 0x0001, 0x0001, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_1[4] = {
+static const uint8 mp3_huffbits_1[4] = {
   1,  3,  2,  3,
 };
 
-static const uint16_t mp3_huffcodes_2[9] = {
+static const uint16 mp3_huffcodes_2[9] = {
  0x0001, 0x0002, 0x0001, 0x0003, 0x0001, 0x0001, 0x0003, 0x0002,
  0x0000,
 };
 
-static const uint8_t mp3_huffbits_2[9] = {
+static const uint8 mp3_huffbits_2[9] = {
   1,  3,  6,  3,  3,  5,  5,  5,
   6,
 };
 
-static const uint16_t mp3_huffcodes_3[9] = {
+static const uint16 mp3_huffcodes_3[9] = {
  0x0003, 0x0002, 0x0001, 0x0001, 0x0001, 0x0001, 0x0003, 0x0002,
  0x0000,
 };
 
-static const uint8_t mp3_huffbits_3[9] = {
+static const uint8 mp3_huffbits_3[9] = {
   2,  2,  6,  3,  2,  5,  5,  5,
   6,
 };
 
-static const uint16_t mp3_huffcodes_5[16] = {
+static const uint16 mp3_huffcodes_5[16] = {
  0x0001, 0x0002, 0x0006, 0x0005, 0x0003, 0x0001, 0x0004, 0x0004,
  0x0007, 0x0005, 0x0007, 0x0001, 0x0006, 0x0001, 0x0001, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_5[16] = {
+static const uint8 mp3_huffbits_5[16] = {
   1,  3,  6,  7,  3,  3,  6,  7,
   6,  6,  7,  8,  7,  6,  7,  8,
 };
 
-static const uint16_t mp3_huffcodes_6[16] = {
+static const uint16 mp3_huffcodes_6[16] = {
  0x0007, 0x0003, 0x0005, 0x0001, 0x0006, 0x0002, 0x0003, 0x0002,
  0x0005, 0x0004, 0x0004, 0x0001, 0x0003, 0x0003, 0x0002, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_6[16] = {
+static const uint8 mp3_huffbits_6[16] = {
   3,  3,  5,  7,  3,  2,  4,  5,
   4,  4,  5,  6,  6,  5,  6,  7,
 };
 
-static const uint16_t mp3_huffcodes_7[36] = {
+static const uint16 mp3_huffcodes_7[36] = {
  0x0001, 0x0002, 0x000a, 0x0013, 0x0010, 0x000a, 0x0003, 0x0003,
  0x0007, 0x000a, 0x0005, 0x0003, 0x000b, 0x0004, 0x000d, 0x0011,
  0x0008, 0x0004, 0x000c, 0x000b, 0x0012, 0x000f, 0x000b, 0x0002,
@@ -282,7 +316,7 @@ static const uint16_t mp3_huffcodes_7[36] = {
  0x0005, 0x0003, 0x0002, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_7[36] = {
+static const uint8 mp3_huffbits_7[36] = {
   1,  3,  6,  8,  8,  9,  3,  4,
   6,  7,  7,  8,  6,  5,  7,  8,
   8,  9,  7,  7,  8,  9,  9,  9,
@@ -290,7 +324,7 @@ static const uint8_t mp3_huffbits_7[36] = {
   9, 10, 10, 10,
 };
 
-static const uint16_t mp3_huffcodes_8[36] = {
+static const uint16 mp3_huffcodes_8[36] = {
  0x0003, 0x0004, 0x0006, 0x0012, 0x000c, 0x0005, 0x0005, 0x0001,
  0x0002, 0x0010, 0x0009, 0x0003, 0x0007, 0x0003, 0x0005, 0x000e,
  0x0007, 0x0003, 0x0013, 0x0011, 0x000f, 0x000d, 0x000a, 0x0004,
@@ -298,7 +332,7 @@ static const uint16_t mp3_huffcodes_8[36] = {
  0x0004, 0x0001, 0x0001, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_8[36] = {
+static const uint8 mp3_huffbits_8[36] = {
   2,  3,  6,  8,  8,  9,  3,  2,
   4,  8,  8,  8,  6,  4,  6,  8,
   8,  9,  8,  8,  8,  9,  9, 10,
@@ -306,7 +340,7 @@ static const uint8_t mp3_huffbits_8[36] = {
   9,  9, 11, 11,
 };
 
-static const uint16_t mp3_huffcodes_9[36] = {
+static const uint16 mp3_huffcodes_9[36] = {
  0x0007, 0x0005, 0x0009, 0x000e, 0x000f, 0x0007, 0x0006, 0x0004,
  0x0005, 0x0005, 0x0006, 0x0007, 0x0007, 0x0006, 0x0008, 0x0008,
  0x0008, 0x0005, 0x000f, 0x0006, 0x0009, 0x000a, 0x0005, 0x0001,
@@ -314,7 +348,7 @@ static const uint16_t mp3_huffcodes_9[36] = {
  0x0006, 0x0002, 0x0006, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_9[36] = {
+static const uint8 mp3_huffbits_9[36] = {
   3,  3,  5,  6,  8,  9,  3,  3,
   4,  5,  6,  8,  4,  4,  5,  6,
   7,  8,  6,  5,  6,  7,  7,  8,
@@ -322,7 +356,7 @@ static const uint8_t mp3_huffbits_9[36] = {
   8,  8,  9,  9,
 };
 
-static const uint16_t mp3_huffcodes_10[64] = {
+static const uint16 mp3_huffcodes_10[64] = {
  0x0001, 0x0002, 0x000a, 0x0017, 0x0023, 0x001e, 0x000c, 0x0011,
  0x0003, 0x0003, 0x0008, 0x000c, 0x0012, 0x0015, 0x000c, 0x0007,
  0x000b, 0x0009, 0x000f, 0x0015, 0x0020, 0x0028, 0x0013, 0x0006,
@@ -333,7 +367,7 @@ static const uint16_t mp3_huffcodes_10[64] = {
  0x0009, 0x0008, 0x0007, 0x0008, 0x0004, 0x0004, 0x0002, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_10[64] = {
+static const uint8 mp3_huffbits_10[64] = {
   1,  3,  6,  8,  9,  9,  9, 10,
   3,  4,  6,  7,  8,  9,  8,  8,
   6,  6,  7,  8,  9, 10,  9,  9,
@@ -344,7 +378,7 @@ static const uint8_t mp3_huffbits_10[64] = {
   9,  8,  9, 10, 10, 11, 11, 11,
 };
 
-static const uint16_t mp3_huffcodes_11[64] = {
+static const uint16 mp3_huffcodes_11[64] = {
  0x0003, 0x0004, 0x000a, 0x0018, 0x0022, 0x0021, 0x0015, 0x000f,
  0x0005, 0x0003, 0x0004, 0x000a, 0x0020, 0x0011, 0x000b, 0x000a,
  0x000b, 0x0007, 0x000d, 0x0012, 0x001e, 0x001f, 0x0014, 0x0005,
@@ -355,7 +389,7 @@ static const uint16_t mp3_huffcodes_11[64] = {
  0x000b, 0x0004, 0x0006, 0x0006, 0x0006, 0x0003, 0x0002, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_11[64] = {
+static const uint8 mp3_huffbits_11[64] = {
   2,  3,  5,  7,  8,  9,  8,  9,
   3,  3,  4,  6,  8,  8,  7,  8,
   5,  5,  6,  7,  8,  9,  8,  8,
@@ -366,7 +400,7 @@ static const uint8_t mp3_huffbits_11[64] = {
   8,  7,  8,  9, 10, 10, 10, 10,
 };
 
-static const uint16_t mp3_huffcodes_12[64] = {
+static const uint16 mp3_huffcodes_12[64] = {
  0x0009, 0x0006, 0x0010, 0x0021, 0x0029, 0x0027, 0x0026, 0x001a,
  0x0007, 0x0005, 0x0006, 0x0009, 0x0017, 0x0010, 0x001a, 0x000b,
  0x0011, 0x0007, 0x000b, 0x000e, 0x0015, 0x001e, 0x000a, 0x0007,
@@ -377,7 +411,7 @@ static const uint16_t mp3_huffcodes_12[64] = {
  0x001b, 0x000c, 0x0008, 0x000c, 0x0006, 0x0003, 0x0001, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_12[64] = {
+static const uint8 mp3_huffbits_12[64] = {
   4,  3,  5,  7,  8,  9,  9,  9,
   3,  3,  4,  5,  7,  7,  8,  8,
   5,  4,  5,  6,  7,  8,  7,  8,
@@ -388,7 +422,7 @@ static const uint8_t mp3_huffbits_12[64] = {
   9,  8,  8,  9,  9,  9,  9, 10,
 };
 
-static const uint16_t mp3_huffcodes_13[256] = {
+static const uint16 mp3_huffcodes_13[256] = {
  0x0001, 0x0005, 0x000e, 0x0015, 0x0022, 0x0033, 0x002e, 0x0047,
  0x002a, 0x0034, 0x0044, 0x0034, 0x0043, 0x002c, 0x002b, 0x0013,
  0x0003, 0x0004, 0x000c, 0x0013, 0x001f, 0x001a, 0x002c, 0x0021,
@@ -423,7 +457,7 @@ static const uint16_t mp3_huffcodes_13[256] = {
  0x0011, 0x000c, 0x0010, 0x0008, 0x0001, 0x0001, 0x0000, 0x0001,
 };
 
-static const uint8_t mp3_huffbits_13[256] = {
+static const uint8 mp3_huffbits_13[256] = {
   1,  4,  6,  7,  8,  9,  9, 10,
   9, 10, 11, 11, 12, 12, 13, 13,
   3,  4,  6,  7,  8,  8,  9,  9,
@@ -458,7 +492,7 @@ static const uint8_t mp3_huffbits_13[256] = {
  15, 15, 16, 16, 19, 18, 19, 16,
 };
 
-static const uint16_t mp3_huffcodes_15[256] = {
+static const uint16 mp3_huffcodes_15[256] = {
  0x0007, 0x000c, 0x0012, 0x0035, 0x002f, 0x004c, 0x007c, 0x006c,
  0x0059, 0x007b, 0x006c, 0x0077, 0x006b, 0x0051, 0x007a, 0x003f,
  0x000d, 0x0005, 0x0010, 0x001b, 0x002e, 0x0024, 0x003d, 0x0033,
@@ -493,7 +527,7 @@ static const uint16_t mp3_huffcodes_15[256] = {
  0x0015, 0x0010, 0x000a, 0x0006, 0x0008, 0x0006, 0x0002, 0x0000,
 };
 
-static const uint8_t mp3_huffbits_15[256] = {
+static const uint8 mp3_huffbits_15[256] = {
   3,  4,  5,  7,  7,  8,  9,  9,
   9, 10, 10, 11, 11, 11, 12, 13,
   4,  3,  5,  6,  7,  7,  8,  8,
@@ -528,7 +562,7 @@ static const uint8_t mp3_huffbits_15[256] = {
  12, 12, 12, 12, 13, 13, 13, 13,
 };
 
-static const uint16_t mp3_huffcodes_16[256] = {
+static const uint16 mp3_huffcodes_16[256] = {
  0x0001, 0x0005, 0x000e, 0x002c, 0x004a, 0x003f, 0x006e, 0x005d,
  0x00ac, 0x0095, 0x008a, 0x00f2, 0x00e1, 0x00c3, 0x0178, 0x0011,
  0x0003, 0x0004, 0x000c, 0x0014, 0x0023, 0x003e, 0x0035, 0x002f,
@@ -563,7 +597,7 @@ static const uint16_t mp3_huffcodes_16[256] = {
  0x000d, 0x000c, 0x000a, 0x0007, 0x0005, 0x0003, 0x0001, 0x0003,
 };
 
-static const uint8_t mp3_huffbits_16[256] = {
+static const uint8 mp3_huffbits_16[256] = {
   1,  4,  6,  8,  9,  9, 10, 10,
  11, 11, 11, 12, 12, 12, 13,  9,
   3,  4,  6,  7,  8,  9,  9,  9,
@@ -598,7 +632,7 @@ static const uint8_t mp3_huffbits_16[256] = {
  11, 11, 11, 11, 11, 11, 11,  8,
 };
 
-static const uint16_t mp3_huffcodes_24[256] = {
+static const uint16 mp3_huffcodes_24[256] = {
  0x000f, 0x000d, 0x002e, 0x0050, 0x0092, 0x0106, 0x00f8, 0x01b2,
  0x01aa, 0x029d, 0x028d, 0x0289, 0x026d, 0x0205, 0x0408, 0x0058,
  0x000e, 0x000c, 0x0015, 0x0026, 0x0047, 0x0082, 0x007a, 0x00d8,
@@ -633,7 +667,7 @@ static const uint16_t mp3_huffcodes_24[256] = {
  0x0007, 0x0006, 0x0004, 0x0007, 0x0005, 0x0003, 0x0001, 0x0003,
 };
 
-static const uint8_t mp3_huffbits_24[256] = {
+static const uint8 mp3_huffbits_24[256] = {
   4,  4,  6,  7,  8,  9,  9, 10,
  10, 11, 11, 11, 11, 11, 12,  9,
   4,  4,  5,  6,  7,  8,  8,  9,
@@ -687,7 +721,7 @@ static const huff_table_t mp3_huff_tables[16] = {
 { 16, mp3_huffbits_24, mp3_huffcodes_24 },
 };
 
-static const uint8_t mp3_huff_data[32][2] = {
+static const uint8 mp3_huff_data[32][2] = {
 { 0, 0 },
 { 1, 0 },
 { 2, 0 },
@@ -722,17 +756,17 @@ static const uint8_t mp3_huff_data[32][2] = {
 { 15, 13 },
 };
 
-static const uint8_t mp3_quad_codes[2][16] = {
+static const uint8 mp3_quad_codes[2][16] = {
     {  1,  5,  4,  5,  6,  5,  4,  4, 7,  3,  6,  0,  7,  2,  3,  1, },
     { 15, 14, 13, 12, 11, 10,  9,  8, 7,  6,  5,  4,  3,  2,  1,  0, },
 };
 
-static const uint8_t mp3_quad_bits[2][16] = {
+static const uint8 mp3_quad_bits[2][16] = {
     { 1, 4, 4, 5, 4, 6, 5, 6, 4, 5, 5, 6, 5, 6, 6, 6, },
     { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, },
 };
 
-static const uint8_t band_size_long[9][22] = {
+static const uint8 band_size_long[9][22] = {
 { 4, 4, 4, 4, 4, 4, 6, 6, 8, 8, 10,
   12, 16, 20, 24, 28, 34, 42, 50, 54, 76, 158, }, /* 44100 */
 { 4, 4, 4, 4, 4, 4, 6, 6, 6, 8, 10,
@@ -753,7 +787,7 @@ static const uint8_t band_size_long[9][22] = {
   40, 48, 56, 64, 76, 90, 2, 2, 2, 2, 2, }, /* 8000 */
 };
 
-static const uint8_t band_size_short[9][13] = {
+static const uint8 band_size_short[9][13] = {
 { 4, 4, 4, 4, 6, 8, 10, 12, 14, 18, 22, 30, 56, }, /* 44100 */
 { 4, 4, 4, 4, 6, 6, 10, 12, 14, 16, 20, 26, 66, }, /* 48000 */
 { 4, 4, 4, 4, 6, 8, 12, 16, 20, 26, 34, 42, 12, }, /* 32000 */
@@ -765,7 +799,7 @@ static const uint8_t band_size_short[9][13] = {
 { 8, 8, 8, 12, 16, 20, 24, 28, 36, 2, 2, 2, 26, }, /* 8000 */
 };
 
-static const uint8_t mp3_pretab[2][22] = {
+static const uint8 mp3_pretab[2][22] = {
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 3, 2, 0 },
 };
@@ -809,15 +843,15 @@ static const int icos36h[9] = {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static INLINE int unaligned32_be(const uint8_t *p)
+static INLINE int unaligned32_be(const uint8 *p)
 {
         return (((p[0]<<8) | p[1])<<16) | (p[2]<<8) | (p[3]);
 }
 
 #define MIN_CACHE_BITS 25
 
-#define NEG_SSR32(a,s) ((( int32_t)(a))>>(32-(s)))
-#define NEG_USR32(a,s) (((uint32_t)(a))>>(32-(s)))
+#define NEG_SSR32(a,s) ((( int32)(a))>>(32-(s)))
+#define NEG_USR32(a,s) (((uint32)(a))>>(32-(s)))
 
 #define OPEN_READER(name, gb) \
         int name##_index= (gb)->index;\
@@ -851,7 +885,7 @@ static INLINE int unaligned32_be(const uint8_t *p)
         NEG_SSR32(name##_cache, num)
 
 #define GET_CACHE(name, gb)\
-        ((uint32_t)name##_cache)
+        ((uint32)name##_cache)
 
 static INLINE int get_bits_count(bitstream_t *s){
     return s->index;
@@ -862,7 +896,7 @@ static INLINE void skip_bits_long(bitstream_t *s, int n){
 }
 #define skip_bits skip_bits_long
 
-static void init_get_bits(bitstream_t *s, const uint8_t *buffer, int bit_size) {
+static void init_get_bits(bitstream_t *s, const uint8 *buffer, int bit_size) {
     int buffer_size= (bit_size+7)>>3;
     if(buffer_size < 0 || bit_size < 0) {
         buffer_size = bit_size = 0;
@@ -894,7 +928,7 @@ static INLINE int get_bitsz(bitstream_t *s, int n)
 
 static INLINE unsigned int get_bits1(bitstream_t *s){
     int index= s->index;
-    uint8_t result= s->buffer[ index>>3 ];
+    uint8 result= s->buffer[ index>>3 ];
     result<<= (index&0x07);
     result>>= 8 - 1;
     index++;
@@ -910,16 +944,16 @@ static INLINE void align_get_bits(bitstream_t *s)
 
 #define GET_DATA(v, table, i, wrap, size) \
 {\
-    const uint8_t *ptr = (const uint8_t *)table + i * wrap;\
+    const uint8 *ptr = (const uint8 *)table + i * wrap;\
     switch(size) {\
     case 1:\
-        v = *(const uint8_t *)ptr;\
+        v = *(const uint8 *)ptr;\
         break;\
     case 2:\
-        v = *(const uint16_t *)ptr;\
+        v = *(const uint16 *)ptr;\
         break;\
     default:\
-        v = *(const uint32_t *)ptr;\
+        v = *(const uint32 *)ptr;\
         break;\
     }\
 }
@@ -942,10 +976,10 @@ static int build_table(
     int nb_codes,
     const void *bits, int bits_wrap, int bits_size,
     const void *codes, int codes_wrap, int codes_size,
-    uint32_t code_prefix, int n_prefix
+    uint32 code_prefix, int n_prefix
 ) {
     int i, j, k, n, table_size, table_index, nb, n1, index, code_prefix2;
-    uint32_t code;
+    uint32 code;
     VLC_TYPE (*table)[2];
 
     table_size = 1 << table_nb_bits;
@@ -1082,7 +1116,7 @@ static void switch_buffer(mp3_context_t *s, int *pos, int *end_pos, int *end_pos
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static INLINE int mp3_check_header(uint32_t header){
+static INLINE int mp3_check_header(uint32 header){
     /* header */
     if ((header & 0xffe00000) != 0xffe00000)
         return -1;
@@ -1146,11 +1180,11 @@ static INLINE int round_sample(int *sum) {
 }
 
 static void exponents_from_scale_factors(
-    mp3_context_t *s, granule_t *g, int16_t *exponents
+    mp3_context_t *s, granule_t *g, int16 *exponents
 ) {
-    const uint8_t *bstab, *pretab;
+    const uint8 *bstab, *pretab;
     int len, i, j, k, l, v0, shift, gain, gains[3];
-    int16_t *exp_ptr;
+    int16 *exp_ptr;
 
     exp_ptr = exponents;
     gain = g->global_gain - 210;
@@ -1185,8 +1219,8 @@ static void exponents_from_scale_factors(
 static void reorder_block(mp3_context_t *s, granule_t *g)
 {
     int i, j, len;
-    int32_t *ptr, *dst, *ptr1;
-    int32_t tmp[576];
+    int32 *ptr, *dst, *ptr1;
+    int32 tmp[576];
 
     if (g->block_type != 2)
         return;
@@ -1217,7 +1251,7 @@ static void reorder_block(mp3_context_t *s, granule_t *g)
 }
 
 static void compute_antialias(mp3_context_t *s, granule_t *g) {
-    int32_t *ptr, *csa;
+    int32 *ptr, *csa;
     int n, i;
 
     /* we antialias only "long" bands */
@@ -1258,10 +1292,10 @@ static void compute_stereo(
     mp3_context_t *s, granule_t *g0, granule_t *g1
 ) {
     int i, j, k, l;
-    int32_t v1, v2;
+    int32 v1, v2;
     int sf_max, tmp0, tmp1, sf, len, non_zero_found;
-    int32_t (*is_tab)[16];
-    int32_t *tab0, *tab1;
+    int32 (*is_tab)[16];
+    int32 *tab0, *tab1;
     int non_zero_found_short[3];
 
     if (s->mode_ext & MODE_EXT_I_STEREO) {
@@ -1381,7 +1415,7 @@ static void compute_stereo(
 }
 
 static int huffman_decode(
-    mp3_context_t *s, granule_t *g, int16_t *exponents, int end_pos2
+    mp3_context_t *s, granule_t *g, int16 *exponents, int end_pos2
 ) {
     int s_index;
     int i;
@@ -1644,10 +1678,10 @@ static void imdct36(int *out, int *buf, int *in, int *win)
 }
 
 static void compute_imdct(
-    mp3_context_t *s, granule_t *g, int32_t *sb_samples, int32_t *mdct_buf
+    mp3_context_t *s, granule_t *g, int32 *sb_samples, int32 *mdct_buf
 ) {
-    int32_t *ptr, *win, *win1, *buf, *out_ptr, *ptr1;
-    int32_t out2[12];
+    int32 *ptr, *win, *win1, *buf, *out_ptr, *ptr1;
+    int32 out2[12];
     int i, j, mdct_long_end, v, sblimit;
 
     /* find last non zero block */
@@ -1835,7 +1869,7 @@ static void compute_imdct(
 
 #define ADD(a, b) tab[a] += tab[b]
 
-static void dct32(int32_t *out, int32_t *tab)
+static void dct32(int32 *out, int32 *tab)
 {
     int tmp0, tmp1;
 
@@ -1994,16 +2028,16 @@ static void dct32(int32_t *out, int32_t *tab)
 }
 
 static void mp3_synth_filter(
-    int16_t *synth_buf_ptr, int *synth_buf_offset,
-    int16_t *window, int *dither_state,
-    int16_t *samples, int incr,
-    int32_t sb_samples[SBLIMIT]
+    int16 *synth_buf_ptr, int *synth_buf_offset,
+    int16 *window, int *dither_state,
+    int16 *samples, int incr,
+    int32 sb_samples[SBLIMIT]
 ) {
-    int32_t tmp[32];
-    int16_t *synth_buf;
-    const int16_t *w, *w2, *p;
+    int32 tmp[32];
+    int16 *synth_buf;
+    const int16 *w, *w2, *p;
     int j, offset, v;
-    int16_t *samples2;
+    int16 *samples2;
     int sum, sum2;
 
     dct32(tmp, sb_samples);
@@ -2022,7 +2056,7 @@ static void mp3_synth_filter(
         synth_buf[j] = v;
     }
     /* copy to avoid wrap */
-    libc_memcpy(synth_buf + 512, synth_buf, 32 * sizeof(int16_t));
+    libc_memcpy(synth_buf + 512, synth_buf, 32 * sizeof(int16));
 
     samples2 = samples + 31 * incr;
     w = window;
@@ -2066,7 +2100,7 @@ static void mp3_synth_filter(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static int decode_header(mp3_context_t *s, uint32_t header) {
+static int decode_header(mp3_context_t *s, uint32 header) {
     int sample_rate, frame_size, mpeg25, padding;
     int sample_rate_index, bitrate_index;
     if (header & (1<<20)) {
@@ -2106,8 +2140,8 @@ static int mp_decode_layer3(mp3_context_t *s) {
     int gr, ch, blocksplit_flag, i, j, k, n, bits_pos;
     granule_t *g;
     static granule_t granules[2][2];
-    static int16_t exponents[576];
-    const uint8_t *ptr;
+    static int16 exponents[576];
+    const uint8 *ptr;
 
     if (s->lsf) {
         main_data_begin = get_bits(&s->gb, 8);
@@ -2240,7 +2274,7 @@ static int mp_decode_layer3(mp3_context_t *s) {
             bits_pos = get_bits_count(&s->gb);
 
             if (!s->lsf) {
-                uint8_t *sc;
+                uint8 *sc;
                 int slen, slen1, slen2;
 
                 /* MPEG1 scale factors */
@@ -2374,10 +2408,10 @@ static int mp_decode_layer3(mp3_context_t *s) {
 
 static int mp3_decode_main(
     mp3_context_t *s,
-    int16_t *samples, const uint8_t *buf, int buf_size
+    int16 *samples, const uint8 *buf, int buf_size
 ) {
     int i, nb_frames, ch;
-    int16_t *samples_ptr;
+    int16 *samples_ptr;
 
     init_get_bits(&s->gb, buf + HEADER_SIZE, (buf_size - HEADER_SIZE)*8);
 
@@ -2420,7 +2454,7 @@ static int mp3_decode_main(
             samples_ptr += 32 * s->nb_channels;
         }
     }
-    return nb_frames * 32 * sizeof(uint16_t) * s->nb_channels;
+    return nb_frames * 32 * sizeof(uint16) * s->nb_channels;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2449,8 +2483,8 @@ int mp3_decode_init() {
             const huff_table_t *h = &mp3_huff_tables[i];
             int xsize, x, y;
             unsigned int n;
-            uint8_t  tmp_bits [512];
-            uint16_t tmp_codes[512];
+            uint8  tmp_bits [512];
+            uint16 tmp_codes[512];
 
             libc_memset(tmp_bits , 0, sizeof(tmp_bits ));
             libc_memset(tmp_codes, 0, sizeof(tmp_codes));
@@ -2484,10 +2518,10 @@ int mp3_decode_init() {
         }
 
         /* compute n ^ (4/3) and store it in mantissa/exp format */
-        table_4_3_exp = (int8_t*)libc_malloc(TABLE_4_3_SIZE * sizeof(table_4_3_exp[0]));
+        table_4_3_exp = (int8*)libc_malloc(TABLE_4_3_SIZE * sizeof(table_4_3_exp[0]));
         if(!table_4_3_exp)
             return -1;
-        table_4_3_value = (uint32_t*)libc_malloc(TABLE_4_3_SIZE * sizeof(table_4_3_value[0]));
+        table_4_3_value = (uint32*)libc_malloc(TABLE_4_3_SIZE * sizeof(table_4_3_value[0]));
         if(!table_4_3_value)
             return -1;
 
@@ -2496,7 +2530,7 @@ int mp3_decode_init() {
             int e, m;
             f = libc_pow((double)(i/4), 4.0 / 3.0) * libc_pow(2, (i&3)*0.25);
             fm = libc_frexp(f, &e);
-            m = (uint32_t)(fm*(1LL<<31) + 0.5);
+            m = (uint32)(fm*(1LL<<31) + 0.5);
             e+= FRAC_BITS - 31 + 5 - 100;
             table_4_3_value[i] = m;
             table_4_3_exp[i] = -e;
@@ -2504,16 +2538,16 @@ int mp3_decode_init() {
         for(i=0; i<512*16; i++){
             int exponent= (i>>4);
             double f= libc_pow(i&15, 4.0 / 3.0) * libc_pow(2, (exponent-400)*0.25 + FRAC_BITS + 5);
-            expval_table[exponent][i&15]= uint32_t(f);
+            expval_table[exponent][i&15]= uint32(f);
             if((i&15)==1)
-                exp_table[exponent]= uint32_t(f);
+                exp_table[exponent]= uint32(f);
         }
 
         for(i=0;i<7;i++) {
             float f;
             int v;
             if (i != 6) {
-                f = float(tan((double)i * M_PI / 12.0));
+                f = float(tan((double)i * PI / 12.0));
                 v = FIXR(f / (1.0 + f));
             } else {
                 v = FIXR(1.0);
@@ -2560,17 +2594,17 @@ int mp3_decode_init() {
                 if(j==2 && i%3 != 1)
                     continue;
 
-                d= sin(M_PI * (i + 0.5) / 36.0);
+                d= sin(PI * (i + 0.5) / 36.0);
                 if(j==1){
                     if     (i>=30) d= 0;
-                    else if(i>=24) d= sin(M_PI * (i - 18 + 0.5) / 12.0);
+                    else if(i>=24) d= sin(PI * (i - 18 + 0.5) / 12.0);
                     else if(i>=18) d= 1;
                 }else if(j==3){
                     if     (i<  6) d= 0;
-                    else if(i< 12) d= sin(M_PI * (i -  6 + 0.5) / 12.0);
+                    else if(i< 12) d= sin(PI * (i -  6 + 0.5) / 12.0);
                     else if(i< 18) d= 1;
                 }
-                d*= 0.5 / cos(M_PI*(2*i + 19)/72);
+                d*= 0.5 / cos(PI*(2*i + 19)/72);
                 if(j==2)
                     mdct_win[j][i/3] = FIXHR((d / (1<<5)));
                 else
@@ -2598,10 +2632,10 @@ void mp3_decode_free() {
 
 static int mp3_decode_frame(
     mp3_context_t *s,
-    int16_t *out_samples, int *data_size,
-    uint8_t *buf, int buf_size
+    int16 *out_samples, int *data_size,
+    uint8 *buf, int buf_size
 ) {
-    uint32_t header;
+    uint32 header;
     int out_size;
     int extra_bytes = 0;
 
@@ -2654,7 +2688,7 @@ int mp3_decode(mp3_decoder_t dec, void *buf, int bytes, signed short *out, mp3_i
     int res, size = -1;
     mp3_context_t *s = (mp3_context_t*) dec;
     if (!s) return 0;
-    res = mp3_decode_frame(s, (int16_t*) out, &size, (uint8_t*)buf, bytes);
+    res = mp3_decode_frame(s, (int16*) out, &size, (uint8*)buf, bytes);
     if (res < 0) return 0;
     if (info) {
         info->sample_rate = s->sample_rate;
