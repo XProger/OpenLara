@@ -1,6 +1,7 @@
 ; constants
 .constf const0(0.0, 0.5, 1.0, 2.0)
-.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.0)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.00787401574)
+
 .alias ZERO      const0.x
 .alias HALF      const0.y
 .alias ONE       const0.z
@@ -8,6 +9,7 @@
 .alias INV_BYTE  const1.x
 .alias INV_SHORT const1.y
 .alias EPS       const1.z
+.alias INV_127   const1.w
 
 ; uniforms
 .fvec uViewProj[4]
@@ -34,11 +36,11 @@
 
 ; out
 .out vPosition position
-.out vTexCoord texcoord0
+.out vTexCoord texcoord1
 .out vColor    color
 
 .proc main
-; pos = mulQuatPos(uBasis[0], aCoord)
+; pos = mulQuatPos(uBasis, aCoord)
     mul pos.xyz, uBasis[0], aCoord.zxyw
     mad pos.xyz, aCoord, uBasis[0].zxyw, -pos
     mad pos.xyz, aCoord.yzxw, uBasis[0].w, pos
@@ -47,7 +49,7 @@
     mad pos.xyz, pos, TWO, aCoord
     add pos.xyz, uBasis[1], pos
     mov pos.w, ONE
-    
+
 ; vPosition = uViewProj * pos
     mul tmp, uViewProj[0], pos.x
     mad tmp, pos.y, uViewProj[1], tmp
@@ -75,8 +77,9 @@
     ; att = max(0, 1 - att)
     add att, ONE, -att
     max att, ZERO, att
-    ; normal = aNormal/32767
-    mul normal, INV_SHORT, aNormal
+    ; normal = aNormal/127 - 1
+    mul normal, INV_127, aNormal
+    add normal, -ONE, normal
     ; light = max(0, dot(normal, lv[1..3]))
     mov light.x, ZERO
     dp3 light.y, lv1, normal

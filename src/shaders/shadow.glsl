@@ -23,7 +23,7 @@ R"====(
 
 	void main() {
 		#ifdef MESH_SKINNING
-			int index = int(aCoord.w * 2.0);
+			int index = int(aCoord.w);
 			vec4 rBasisRot = uBasis[index];
 			vec4 rBasisPos = uBasis[index + 1];
 		#else

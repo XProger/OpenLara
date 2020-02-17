@@ -20,6 +20,7 @@ namespace Game {
         if (key == cMAX || !level || level->level.isTitle() || level->level.isCutsceneLevel()) return;
         const ControlKey CHEAT_ALL_WEAPONS[] = { cLook, cWeapon, cDash, cDuck, cDuck, cDash, cRoll, cLook };
         const ControlKey CHEAT_SKIP_LEVEL[]  = { cDuck, cDash, cLook, cRoll, cWeapon, cLook, cDash, cDuck };
+        const ControlKey CHEAT_DOZY_MODE[]   = { cWalk, cLook, cWalk, cLook, cWalk, cLook, cWalk, cLook };
 
         for (int i = 0; i < MAX_CHEAT_SEQUENCE - 1; i++)
             cheatSeq[i] = cheatSeq[i + 1];
@@ -33,6 +34,13 @@ namespace Game {
     // skip level
         if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_SKIP_LEVEL)], CHEAT_SKIP_LEVEL, sizeof(CHEAT_SKIP_LEVEL)))
             level->loadNextLevel();
+    // dozy mode
+        if (!memcmp(&cheatSeq[MAX_CHEAT_SEQUENCE - COUNT(CHEAT_DOZY_MODE)], CHEAT_DOZY_MODE, sizeof(CHEAT_DOZY_MODE))) {
+            Lara *lara = (Lara*)level->getLara(0);
+            if (lara) {
+                lara->setDozy(true);
+            }
+        }
     }
 
     void startLevel(Stream *lvl) {

@@ -786,19 +786,19 @@ namespace GAPI {
 
 
 // Texture
-	static const struct FormatDesc {
-		GLuint ifmt, fmt;
-		GLenum type;
-	} formats[FMT_MAX] = {
-		{ GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
-		{ GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
-		{ GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
-		{ GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
-		{ GL_RG32F,           GL_RG,              GL_FLOAT                  }, // RG_FLOAT
-		{ GL_RG16F,           GL_RG,              GL_HALF_FLOAT             }, // RG_HALF
-		{ GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
-		{ GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
-	};
+    static const struct FormatDesc {
+        GLuint ifmt, fmt;
+        GLenum type;
+    } formats[FMT_MAX] = {
+        { GL_LUMINANCE,       GL_LUMINANCE,       GL_UNSIGNED_BYTE          }, // LUMINANCE
+        { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_BYTE          }, // RGBA
+        { GL_RGB,             GL_RGB,             GL_UNSIGNED_SHORT_5_6_5   }, // RGB16
+        { GL_RGBA,            GL_RGBA,            GL_UNSIGNED_SHORT_5_5_5_1 }, // RGBA16
+        { GL_RG32F,           GL_RG,              GL_FLOAT                  }, // RG_FLOAT
+        { GL_RG16F,           GL_RG,              GL_HALF_FLOAT             }, // RG_HALF
+        { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // DEPTH
+        { GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT         }, // SHADOW
+    };
 
     struct Texture {
         uint32     ID;

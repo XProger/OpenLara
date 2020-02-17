@@ -124,6 +124,10 @@ struct Texture : GAPI::Texture {
             this->opt &= ~OPT_VOLUME;
         }
 
+        if (this->opt & OPT_PROXY) {
+            return;
+        }
+
         init(data);
 
         if (mipmaps && width > Core::support.texMinSize && height > Core::support.texMinSize)
@@ -137,6 +141,11 @@ struct Texture : GAPI::Texture {
                     delete tiles[i];
             #endif
         #endif
+
+        if (this->opt & OPT_PROXY) {
+            return;
+        }
+
         deinit();
     }
 
@@ -723,6 +732,7 @@ struct Texture : GAPI::Texture {
 
 
 struct Atlas {
+
     struct Tile {
         uint16          id;
         TR::TextureInfo *tex;
@@ -828,7 +838,7 @@ struct Atlas {
         return true;
     }
 
-    Texture* pack(bool mipmaps) {
+    Texture* pack(uint32 opt) {
     // TODO TR2 fix CUT2 AV
 //        width  = 4096;//nextPow2(int(sqrtf(float(size))));
 //        height = 2048;//(width * width / 2 > size) ? (width / 2) : width;
@@ -870,12 +880,12 @@ struct Atlas {
 
         delete[] indices;
 
-        uint32 *data = new uint32[width * height];
+        AtlasColor *data = new AtlasColor[width * height];
         memset(data, 0, width * height * sizeof(data[0]));
         fill(root, data);
         fillInstances();
 
-        Texture *atlas = new Texture(width, height, 1, FMT_RGBA, mipmaps ? OPT_MIPMAPS : 0, data);
+        Texture *atlas = new Texture(width, height, 1, ATLAS_FORMAT, opt, data);
 
         //Texture::SaveBMP("atlas", (char*)data, width, height);
 

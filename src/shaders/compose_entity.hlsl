@@ -19,7 +19,7 @@ struct VS_OUTPUT {
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
-	int index = int(In.aCoord.w * 2.0);
+	int index = int(In.aCoord.w);
 	float4 rBasisRot = uBasis[index];
 	float4 rBasisPos = uBasis[index + 1];
 

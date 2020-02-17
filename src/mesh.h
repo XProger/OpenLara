@@ -682,7 +682,7 @@ struct MeshBuilder {
         res.x += x;
         res.y += y;
         res.z += z;
-        res.w = joint;
+        res.w = joint * 2;
         return res;
     }
 

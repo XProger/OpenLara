@@ -3007,6 +3007,15 @@ struct Lara : Character {
         }
     }
 
+    void setDozy(bool enable) {
+        if (enable) {
+            reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
+        } else {
+            stand = getRoom().flags.water ? STAND_UNDERWATER : STAND_AIR;
+        }
+        dozy = enable;
+    }
+
     virtual int getInput() { // TODO: updateInput
         if (level->isCutsceneLevel()) return 0;
 
@@ -3017,14 +3026,12 @@ struct Lara : Character {
         int pid = camera->cameraIndex;
 
         if (!dozy && ((Input::state[pid][cAction] && Input::state[pid][cJump] && Input::state[pid][cLook] && Input::state[pid][cDash]) || Input::down[ikO])) {
-            reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
-            dozy = true;
+            setDozy(true);
             return input;
         }
 
         if (dozy && Input::state[pid][cWalk]) {
-            dozy  = false;
-            stand = getRoom().flags.water ? STAND_UNDERWATER : STAND_AIR;
+            setDozy(false);
             return input;
         }
 
@@ -3201,7 +3208,8 @@ struct Lara : Character {
                         item->flags.invisible = true;
                         game->invAdd(item->getEntity().type, 1);
 
-                        vec4 p = Core::mViewProj * vec4(item->pos, 1.0f);
+                        vec4 p = game->projectPoint(vec4(item->pos, 1.0f));
+
                         if (p.w != 0.0f) {
                             p.x = ( p.x / p.w * 0.5f + 0.5f) * UI::width;
                             p.y = (-p.y / p.w * 0.5f + 0.5f) * UI::height;
@@ -3609,7 +3617,7 @@ struct Lara : Character {
         if (lightning && lightning->flash && !lightning->armed) {
             if (hitDir == -1)
                 hitTime = 0.0f;
-            hitDir = int(randf() * 4);
+            hitDir = rand() % 4;
         } else {
             hitDir = -1;
             lightning = NULL;

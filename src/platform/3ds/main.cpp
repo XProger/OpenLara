@@ -190,7 +190,6 @@ int main() {
     strcpy(contentDir, "sdmc:/3ds/OpenLara/");
 
     if(chdir(contentDir) != 0) {
-        gfxExit();
         return 0;
     }
 

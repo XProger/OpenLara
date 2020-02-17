@@ -22,8 +22,13 @@
     #endif
 
 #else
-    //#define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); }
-    #define ASSERT(expr)
+
+#ifdef _OS_3DS
+    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); /* svcSleepThread(3000000000LL);*/ abort(); }
+#else
+    #define ASSERT(expr
+#endif
+
     #define ASSERTV(expr) (expr) ? 1 : 0
 
     #ifdef PROFILE
@@ -474,6 +479,7 @@ struct vec3 {
 struct vec4 {
     float x, y, z, w;
 
+    vec2& xy()  const { return *((vec2*)&x); }
     vec3& xyz() const { return *((vec3*)&x); }
 
     vec4() {}
@@ -1385,6 +1391,7 @@ union Color32 { // RGBA8888
     struct { uint8 r, g, b, a; };
 
     Color32() {}
+    Color32(uint32 value) : value(value) {}
     Color32(uint8 r, uint8 g, uint8 b, uint8 a) : r(r), g(g), b(b), a(a) {}
 
     void SetRGB15(uint16 v) {
@@ -1470,8 +1477,30 @@ struct Tile16 {
     Color16 color[256 * 256];
 };
 
+#ifdef USE_ATLAS_RGBA16
+union AtlasColor {
+    struct { uint16 a:1, b:5, g:5, r:5; };
+    uint16 value;
+
+    AtlasColor() {}
+    AtlasColor(uint16 value) : value(value) {}
+    AtlasColor(const Color16 &value) : a(value.a), b(value.b), g(value.g), r(value.r) {}
+    AtlasColor(const Color24 &value) : a(1), b(value.b >> 3), g(value.g >> 3), r(value.r >> 3) {}
+    AtlasColor(const Color32 &value) : a(value.a ? 1 : 0), b(value.b >> 3), g(value.g >> 3), r(value.r >> 3) {}
+};
+
+#define ATLAS_FORMAT FMT_RGBA16
+#else
+typedef Color32 AtlasColor;
+#define ATLAS_FORMAT FMT_RGBA
+#endif
+
+struct AtlasTile {
+    AtlasColor color[256 * 256];
+};
+
 struct Tile32 {
-    Color32 color[256 * 256]; // + 128 for mips data
+    Color32 color[256 * 256];
 };
 
 struct CLUT {

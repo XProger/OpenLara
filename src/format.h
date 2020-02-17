@@ -6285,22 +6285,18 @@ namespace TR {
             }
         }
 
-        void fillObjectTexture32(Tile32 *dst, const Color32 *data, const short4 &uv, TextureInfo *t) {
-            Color32 *ptr = &dst->color[uv.y * 256];
+        void fillObjectTexture32(AtlasTile *dst, const Color32 *data, const short4 &uv, TextureInfo *t) {
+            AtlasColor *ptr = &dst->color[uv.y * 256];
             for (int y = uv.y; y < uv.w; y++) {
                 for (int x = uv.x; x < uv.z; x++) {
-                    const Color32 &p = data[y * 256 + x];
-                    ptr[x].r = p.r;
-                    ptr[x].g = p.g;
-                    ptr[x].b = p.b;
-                    ptr[x].a = p.a;
+                    ptr[x] = data[y * 256 + x];
                 }
                 ptr += 256;
             }
             premultiplyAlpha(dst->color, uv);
         }
 
-        void fillObjectTexture(Tile32 *dst, const short4 &uv, TextureInfo *t) {
+        void fillObjectTexture(AtlasTile *dst, const short4 &uv, TextureInfo *t) {
         // convert to RGBA
             switch (version) {
                 case VER_TR1_SAT : {
@@ -6345,7 +6341,7 @@ namespace TR {
                             Color16 &c = clut->color[idx];
 
                             if (t->attribute == 1 && idx == 0)
-                                dst->color[y * 256 + x] = Color32(0, 0, 0, 0);
+                                dst->color[y * 256 + x].value = 0;
                             else
                                 dst->color[y * 256 + x] = Color16(swap16(c.value));
                         }
@@ -6356,19 +6352,15 @@ namespace TR {
                     ASSERT(tiles8);
                     ASSERT(palette);
 
-                    Color32 *ptr = &dst->color[uv.y * 256];
+                    AtlasColor *ptr = &dst->color[uv.y * 256];
                     for (int y = uv.y; y < uv.w; y++) {
                         for (int x = uv.x; x < uv.z; x++) {
                             ASSERT(x >= 0 && y >= 0 && x < 256 && y < 256);
                             uint8 index = tiles8[t->tile].index[y * 256 + x];
-                            Color24 &p = palette[index];
                             if (index != 0) {
-                                ptr[x].r = p.r;
-                                ptr[x].g = p.g;
-                                ptr[x].b = p.b;
-                                ptr[x].a = 255;
+                                ptr[x] = palette[index];
                             } else
-                                ptr[x].r = ptr[x].g = ptr[x].b = ptr[x].a = 0;
+                                ptr[x].value = 0;
                         }
                         ptr += 256;
                     }
@@ -6378,14 +6370,10 @@ namespace TR {
                 case VER_TR3_PC : {
                     ASSERT(tiles16);
 
-                    Color32 *ptr = &dst->color[uv.y * 256];
+                    AtlasColor *ptr = &dst->color[uv.y * 256];
                     for (int y = uv.y; y < uv.w; y++) {
                         for (int x = uv.x; x < uv.z; x++) {
-                            Color32 c = tiles16[t->tile].color[y * 256 + x];
-                            ptr[x].r = c.b;
-                            ptr[x].g = c.g;
-                            ptr[x].b = c.r;
-                            ptr[x].a = c.a;
+                            ptr[x] = tiles16[t->tile].color[y * 256 + x];
                         }
                         ptr += 256;
                     }
@@ -6395,14 +6383,10 @@ namespace TR {
                 case VER_TR5_PC : {
                     ASSERT(tiles32);
 
-                    Color32 *ptr = &dst->color[uv.y * 256];
+                    AtlasColor *ptr = &dst->color[uv.y * 256];
                     for (int y = uv.y; y < uv.w; y++) {
                         for (int x = uv.x; x < uv.z; x++) {
-                            Color32 c = tiles32[t->tile].color[y * 256 + x];
-                            ptr[x].r = c.b;
-                            ptr[x].g = c.g;
-                            ptr[x].b = c.r;
-                            ptr[x].a = c.a;
+                            ptr[x] = tiles32[t->tile].color[y * 256 + x];
                         }
                         ptr += 256;
                     }
@@ -6416,11 +6400,11 @@ namespace TR {
 
                     CLUT   &clut = cluts[t->clut];
                     Tile4  &src  = tiles4[t->tile];
-
-                    for (int y = uv.y; y < uv.w; y++)
-                        for (int x = uv.x; x < uv.z; x++)
+                    for (int y = uv.y; y < uv.w; y++) {
+                        for (int x = uv.x; x < uv.z; x++) {
                             dst->color[y * 256 + x] = clut.color[(x % 2) ? src.index[(y * 256 + x) / 2].b : src.index[(y * 256 + x) / 2].a];
-
+                        }
+                    }
                     break;
                 }
                 default : ASSERT(false);
@@ -6429,14 +6413,20 @@ namespace TR {
             premultiplyAlpha(dst->color, uv);
         }
 
-        void premultiplyAlpha(Color32 *data, const short4 &uv) {
+        void premultiplyAlpha(AtlasColor *data, const short4 &uv) {
         // pre-multiple alpha
             for (int y = uv.y; y < uv.w; y++)
                 for (int x = uv.x; x < uv.z; x++) {
-                    Color32 &c = data[y * 256 + x]; 
+                    AtlasColor &c = data[y * 256 + x]; 
+                #ifdef USE_ATLAS_RGBA16
+                    if (c.a == 0) {
+                        c.value = 0;
+                    }
+                #else
                     c.r = uint8((uint16(c.r) * c.a) / 255);
                     c.g = uint8((uint16(c.g) * c.a) / 255);
                     c.b = uint8((uint16(c.b) * c.a) / 255);
+                #endif
                 }
         }
 

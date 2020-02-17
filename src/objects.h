@@ -854,6 +854,7 @@ struct Drawbridge : Controller {
 
 #define CRYSTAL_LIGHT_RADIUS 1024.0f
 #define CRYSTAL_LIGHT_COLOR  vec4(0.1f, 0.1f, 3.0f, 1.0f / CRYSTAL_LIGHT_RADIUS)
+#define CRYSTAL_CUBEMAP_SIZE 64
 
 struct Crystal : Controller {
     Texture *environment;
@@ -863,7 +864,7 @@ struct Crystal : Controller {
         #ifdef USE_CUBEMAP_MIPS
             opt |= OPT_MIPMAPS;
         #endif
-        environment = new Texture(64, 64, 1, FMT_RGB16, opt);
+        environment = new Texture(CRYSTAL_CUBEMAP_SIZE, CRYSTAL_CUBEMAP_SIZE, 1, FMT_RGB16, opt);
         activate();
     }
 
@@ -1206,7 +1207,7 @@ struct Lightning : Controller {
                     } else if (!hasTargets) {
                         target = pos + vec3(0.0f, 1024.0f, 0.0f);
                     } else
-                        target = getJoint(1 + int(randf() * 5)).pos;
+                        target = getJoint(1 + rand() % 5).pos;
                 }
                 game->playSound(TR::SND_LIGHTNING, pos, Sound::PAN);
             }
@@ -1283,7 +1284,7 @@ struct Lightning : Controller {
 
         if (depth > 0) {
             for (int i = 0; i < 2; i++) {
-                vec3 a = points[int(randf() * (count - 1))];
+                vec3 a = points[rand() % (count - 1)];
                 vec3 b = a;
                 b.x += (randf() - 0.5f) * spread;
                 b.y  = points[count - 1].y;

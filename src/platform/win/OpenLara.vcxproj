@@ -205,7 +205,6 @@
     <ClInclude Include="..\..\lara.h" />
     <ClInclude Include="..\..\level.h" />
     <ClInclude Include="..\..\libs\tinf\tinf.h" />
-    <ClInclude Include="..\..\libs\minimp3\libc.h" />
     <ClInclude Include="..\..\libs\minimp3\minimp3.h" />
     <ClInclude Include="..\..\mesh.h" />
     <ClInclude Include="..\..\savegame.h" />

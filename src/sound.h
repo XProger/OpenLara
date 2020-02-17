@@ -25,7 +25,10 @@
 
 #define SND_CHANNELS_MAX    128
 #define SND_FADEOFF_DIST    (1024.0f * 8.0f)
+#define SND_LOWPASS_FREQ    0.2f
 #define SND_MAX_VOLUME      20
+#define SND_PAN_FACTOR      0.7f
+#define SND_FACING_FACTOR   0.3f
 
 namespace Sound {
 
@@ -81,8 +84,31 @@ namespace Sound {
         struct Absorption {
             int16 out;
 
-            void process(int16 &x, int32 *coeff) { // coeff[0] - gain, coeff[1] - damping
-                x = out = (out * coeff[1] + ((x * coeff[0] * (DSP_SCALE - coeff[1])) >> DSP_SCALE_BIT)) >> DSP_SCALE_BIT;
+            void process(int16 &x, int32 gain, int32 damping) {
+                x = out = (out * damping + ((x * gain * (DSP_SCALE - damping)) >> DSP_SCALE_BIT)) >> DSP_SCALE_BIT;
+            }
+        };
+
+        struct LowPass {
+            float buffer[2][4];
+
+            LowPass() {
+                memset(buffer, 0, sizeof(buffer));
+            }
+
+            inline void process(int32 &x, float *out, float freq) {
+                out[0] += freq * (float(x) - out[0]);
+                out[1] += freq * (out[0] - out[1]);
+                out[2] += freq * (out[1] - out[2]);
+                out[3] += freq * (out[2] - out[3]);
+                x = int32(out[3]);
+            }
+
+            void process(FrameHI *frames, int count, float freq) {
+                for (int i = 0; i < count; i++) {
+                    process(frames[i].L, buffer[0], freq);
+                    process(frames[i].R, buffer[1], freq);
+                }
             }
         };
 
@@ -146,7 +172,7 @@ namespace Sound {
                     for (int j = 0; j < MAX_FDN; j++) {
                         int16 k = clamp(in + output[j], -0x7FFF, 0x7FFF);
                         df[j].process(k, FDN[j]);
-                        af[j].process(k, absCoeff[j]);
+                        af[j].process(k, absCoeff[j][0], absCoeff[j][1]);
                         buffer[j] = k;
                         out += k;
                     }
@@ -722,6 +748,7 @@ namespace Sound {
 
     struct Listener {
         mat4 matrix;
+        bool underwater;
     } listener[2];
 
     int listenersCount;
@@ -847,14 +874,16 @@ namespace Sound {
                 return vec2(1.0f);
             mat4  m = Sound::getListener(pos).matrix;
             vec3  v = pos - m.offset().xyz();
+            vec3  n = v.normal();
 
-            float dist = max(0.0f, 1.0f - (v.length() / SND_FADEOFF_DIST));
-            float pan  = m.right().xyz().dot(v.normal());
+            float dist   = max(0.0f, 1.0f - (v.length() / SND_FADEOFF_DIST));
+            float pan    = m.right().xyz().dot(n);
+            float facing = (0.5f - m.dir().xyz().dot(n) * 0.5f) * SND_FACING_FACTOR + (1.0f - SND_FACING_FACTOR);
 
-            float l = min(1.0f, 1.0f - pan);
-            float r = min(1.0f, 1.0f + pan);
+            vec2  value(min(1.0f, 1.0f - pan),
+                        min(1.0f, 1.0f + pan));
 
-            return vec2(l, r) * dist;
+            return (value * SND_PAN_FACTOR + (1.0f - SND_PAN_FACTOR)) * facing * dist;
         }
 
         bool render(Frame *frames, int count) {
@@ -929,7 +958,10 @@ namespace Sound {
 
     FrameHI *result;
     Frame   *buffer;
+
+    // TODO: per listener
     Filter::Reverberation reverb;
+    Filter::LowPass       lowPass;
 
     void init() {
         flipped = false;
@@ -1026,8 +1058,12 @@ namespace Sound {
         if (Core::settings.audio.sound != 0) {
             renderChannels(result, count, false);
 
-            if (Core::settings.audio.reverb)
+            if (Core::settings.audio.reverb) {
+                if (listener[0].underwater) {
+                    lowPass.process(result, count, SND_LOWPASS_FREQ);
+                }
                 reverb.process(result, count);
+            }
         }
 
         if (Core::settings.audio.music != 0) {

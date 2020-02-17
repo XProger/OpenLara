@@ -1,6 +1,7 @@
 ; constants
 .constf const0(0.0, 0.5, 1.0, 2.0)
-.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.0)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.00787401574)
+
 .alias ZERO      const0.x
 .alias HALF      const0.y
 .alias ONE       const0.z
@@ -8,13 +9,15 @@
 .alias INV_BYTE  const1.x
 .alias INV_SHORT const1.y
 .alias EPS       const1.z
+.alias INV_127   const1.w
 
 ; uniforms
 .fvec uViewProj[4]
-.fvec uBasis[32*2]
 .fvec uLightPos[4];
 .fvec uLightColor[4];
 .fvec uMaterial
+.fvec uBasis[32*2]
+
 .alias MAT_AMBIENT uMaterial.y
 .alias MAT_ALPHA   uMaterial.w
 
@@ -38,14 +41,13 @@
 
 ; out
 .out vPosition position
-.out vTexCoord texcoord0
+.out vTexCoord texcoord1
 .out vColor    color
 
 .proc main
-; joint = int(aCoord.w * 2)
-    mul tmp.x, TWO, aCoord.w
-    mova a0.x, tmp.x
-    
+; joint = int(aCoord.w)
+    mova a0.x, aCoord.w
+
 ; pos = mulQuatPos(uBasis[joint], aCoord)
     mul pos.xyz, uBasis[a0.x], aCoord.zxyw
     mad pos.xyz, aCoord, uBasis[a0.x].zxyw, -pos
@@ -86,13 +88,14 @@
     ; att = max(0, 1 - att)
     add att, ONE, -att
     max att, ZERO, att
-    ; normal = mulQuat(uBasis[joint], aNormal/32767)
-    mul normal, INV_SHORT, aNormal
-    mul pos.xyz, uBasis[a0.x], normal.zxyw
-    mad pos.xyz, normal, uBasis[a0.x].zxyw, -pos
-    mad pos.xyz, normal.yzxw, uBasis[a0.x].w, pos
-    mul tmp.xyz, uBasis[a0.x].zxyw, pos
-    mad pos.xyz, pos.yzxw, uBasis[a0.x].yzxw, -tmp
+    ; normal = mulQuat(uBasis[joint], aNormal/127 - 1)
+    mul normal, INV_127, aNormal
+    add normal, -ONE, normal
+    mul pos.xyz, uBasis[0], normal.zxyw
+    mad pos.xyz, normal, uBasis[0].zxyw, -pos
+    mad pos.xyz, normal.yzxw, uBasis[0].w, pos
+    mul tmp.xyz, uBasis[0].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[0].yzxw, -tmp
     mad normal.xyz, pos, TWO, normal
     ; light = max(0, dot(normal, lv[0..3]))
     dp3 light.x, lv0, normal

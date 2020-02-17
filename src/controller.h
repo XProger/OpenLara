@@ -84,6 +84,7 @@ struct IGame {
     virtual void renderGame(bool showUI, bool invBG) {}
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {}
 
+    virtual vec4 projectPoint(const vec4 &p) { return vec4(0.0f); }
     virtual void checkTrigger(Controller *controller, bool heavy) {}
     virtual void shakeCamera(float value, bool add = false) {}
 

@@ -8,7 +8,7 @@
 
 #define INV_MAX_ITEMS  32
 #define INV_MAX_RADIUS 688.0f
-#ifdef _OS_PSP
+#if defined(_OS_PSP) || defined(_OS_3DS) || defined(_OS_GCW0)
     #define INV_BG_SIZE    256
 #else
     #define INV_BG_SIZE    512
@@ -164,13 +164,16 @@ static const OptionItem optSound[] = {
 #endif
 };
 
-#if defined(_OS_CLOVER) || defined(_OS_PSC)
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC)
     #define INV_GAMEPAD_ONLY
 #endif
 
 #if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0)
     #define INV_SINGLE_PLAYER
-    #define INV_GAMEPAD_ONLY
+#endif
+
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_CLOVER)
+    #define INV_GAMEPAD_NO_TRIGGER
 #endif
 
 #ifdef INV_SINGLE_PLAYER
@@ -209,8 +212,10 @@ static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cAction    , SETTINGS( controls[0].keys[ cAction    ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cWeapon    , SETTINGS( controls[0].keys[ cWeapon    ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cLook      , SETTINGS( controls[0].keys[ cLook      ] ), STR_KEY_FIRST ),
+#if !(defined(INV_GAMEPAD_ONLY) && defined(INV_GAMEPAD_NO_TRIGGER))
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDuck      , SETTINGS( controls[0].keys[ cDuck      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDash      , SETTINGS( controls[0].keys[ cDash      ] ), STR_KEY_FIRST ),
+#endif
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRoll      , SETTINGS( controls[0].keys[ cRoll      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cInventory , SETTINGS( controls[0].keys[ cInventory ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cStart     , SETTINGS( controls[0].keys[ cStart     ] ), STR_KEY_FIRST ),
@@ -1402,6 +1407,9 @@ struct Inventory {
     }
 
     void blur(Texture *texInOut, Texture *tmp) {
+    #ifdef _GAPI_C3D
+        return; // TODO
+    #endif
     #ifdef FFP
         return; // TODO
     #endif
@@ -1438,9 +1446,9 @@ struct Inventory {
             return;
         #endif
 
-        #ifdef _GAPI_C3D
-            return;
-        #endif
+    #ifdef _OS_3DS
+        GAPI::rotate90 = false;
+    #endif
 
         game->renderGame(false, true);
 
@@ -1467,6 +1475,10 @@ struct Inventory {
             grayscale(background[view], background[2]);
             swap(background[view], background[2]);
         }
+
+    #ifdef _OS_3DS
+        GAPI::rotate90 = true;
+    #endif
 
         Core::setDepthTest(true);
     }

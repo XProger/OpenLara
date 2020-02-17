@@ -36,11 +36,11 @@
 
 ; out
 .out vPosition position
-.out vTexCoord texcoord0
+.out vTexCoord texcoord1
 .out vColor    color
 
 .proc main
-; pos = mulQuatPos(uBasis[0], aCoord)
+; pos = mulQuatPos(uBasis, aCoord)
     mul pos.xyz, uBasis[0], aCoord.zxyw
     mad pos.xyz, aCoord, uBasis[0].zxyw, -pos
     mad pos.xyz, aCoord.yzxw, uBasis[0].w, pos
@@ -48,7 +48,7 @@
     mad pos.xyz, pos.yzxw, uBasis[0].yzxw, -tmp
     mad pos.xyz, pos, TWO, aCoord
     add pos.xyz, uBasis[1], pos
-    mov pos.w, uBasis[1].w
+    mov pos.w, ONE
 
 ; vPosition = uViewProj * pos
     mul tmp, uViewProj[0], pos.x

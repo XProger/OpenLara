@@ -13,7 +13,6 @@
 #define OS_PTHREAD_MT
 
 #define USE_CUBEMAP_MIPS
-
 #ifdef WIN32
     #define _OS_WIN      1
     #define _GAPI_GL     1
@@ -101,6 +100,8 @@
     #define _GAPI_C3D  1
 
     #undef OS_PTHREAD_MT
+    #undef USE_CUBEMAP_MIPS
+    #define USE_ATLAS_RGBA16
 #elif _PSP
     #define _OS_PSP  1
     #define _GAPI_GU 1
@@ -152,7 +153,6 @@
 
 #include "utils.h"
 
-// muse be equal with base shader
 #if defined(_OS_3DS)
     #define SHADOW_TEX_SIZE      512
 #elif defined(_OS_GCW0)
@@ -451,16 +451,17 @@ enum TexFormat {
 
 // Texture options
 enum TexOption {
-    OPT_REPEAT  = 0x0001,
-    OPT_CUBEMAP = 0x0002,
-    OPT_VOLUME  = 0x0004,
-    OPT_MIPMAPS = 0x0008, 
-    OPT_NEAREST = 0x0010,
-    OPT_TARGET  = 0x0020,
-    OPT_VERTEX  = 0x0040,
-    OPT_DYNAMIC = 0x0080,
-    OPT_DEPEND  = 0x0100,
-    OPT_PROXY   = 0x0200,
+    OPT_REPEAT      = 0x0001,
+    OPT_CUBEMAP     = 0x0002,
+    OPT_VOLUME      = 0x0004,
+    OPT_MIPMAPS     = 0x0008,
+    OPT_NEAREST     = 0x0010,
+    OPT_TARGET      = 0x0020,
+    OPT_VERTEX      = 0x0040,
+    OPT_DYNAMIC     = 0x0080,
+    OPT_DEPEND      = 0x0100,
+    OPT_PROXY       = 0x0200,
+    OPT_VRAM_3DS    = 0x0400,
 };
 
 // Pipeline State Object
@@ -776,6 +777,13 @@ namespace Core {
         NAPI::init();
 
         GAPI::init();
+
+        #ifdef _OS_3DS
+            Core::eyeTex[0] = new Texture(Core::width, Core::height, 1, TexFormat::FMT_RGB16, OPT_TARGET | OPT_PROXY);
+            Core::eyeTex[1] = new Texture(Core::width, Core::height, 1, TexFormat::FMT_RGB16, OPT_TARGET | OPT_PROXY);
+            GAPI::Texture *outputTex[2] = { Core::eyeTex[0], Core::eyeTex[1] };
+            GAPI::initOutput(outputTex);
+        #endif
 
         LOG("cache    : %s\n", cacheDir);
         LOG("supports :\n");
@@ -1155,6 +1163,10 @@ namespace Core {
     void setBasis(Basis *basis, int count) {
         Core::active.basis      = basis;
         Core::active.basisCount = count;
+
+    #ifndef MERGE_MODELS
+        count = min(1, count);
+    #endif
 
         Core::active.shader->setParam(uBasis, *(vec4*)basis, count * 2);
     }

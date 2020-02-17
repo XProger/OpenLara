@@ -39,9 +39,6 @@
     <ClInclude Include="..\..\libs\minimp3\minimp3.h">
       <Filter>libs\minimp3</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\libs\minimp3\libc.h">
-      <Filter>libs\minimp3</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\gameflow.h" />
     <ClInclude Include="..\..\libs\tinf\tinf.h">
       <Filter>libs\tinf</Filter>

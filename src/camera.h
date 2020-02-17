@@ -33,7 +33,7 @@
 
 #define SPECTATOR_TIMER      1.0f
 #define SPECTATOR_POS_SPEED  4096.0f
-#define SPECTATOR_ROT_SPEED  PIH
+#define SPECTATOR_ROT_SPEED  PI
 #define SPECTATOR_SMOOTH     4.0f
 
 struct Camera : ICamera {
@@ -623,12 +623,15 @@ struct Camera : ICamera {
             if (shake > 0.0f)
                 Core::mViewInv.setPos(Core::mViewInv.getPos() + vec3(0.0f, sinf(shake * PI * 7) * shake * 48.0f, 0.0f));
 
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH)
+            if (Core::settings.detail.stereo == Core::Settings::STEREO_SBS || Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
+                float separation = Core::eye * CAM_EYE_SEPARATION;
                 #ifdef _OS_3DS
-                    Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION / (firstPerson ? 8.0f : 1.0f) ) );
-                #else
-                    Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * (Core::eye * CAM_EYE_SEPARATION) );
+                    if (firstPerson) {
+                        separation *= 0.125;
+                    }
                 #endif
+                Core::mViewInv.setPos(Core::mViewInv.getPos() + Core::mViewInv.right().xyz() * separation);
+            }
 
             if (reflectPlane) {
                 Core::mViewInv = mat4(*reflectPlane) * Core::mViewInv;
@@ -685,13 +688,14 @@ struct Camera : ICamera {
         if (firstPerson)
             smooth = false;
 
-        fov   = firstPerson ? 90.0f : 65.0f;
+        #ifdef _OS_3DS
+            fov = firstPerson ? 65.0f : 55.0f;
+        #else
+            fov = firstPerson ? 90.0f : 65.0f;
+        #endif
+        
         znear = firstPerson ? 16.0f : 32.0f;
         zfar  = 45.0f * 1024.0f;
-
-        #ifdef _OS_3DS
-            fov   = firstPerson ? 65.0f : 55.0f;
-        #endif
 
         #ifdef _OS_PSP
             znear = 256.0f;
