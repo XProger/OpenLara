@@ -500,7 +500,7 @@ namespace GAPI {
         void bind(const MeshRange &range) const {
             UINT stride = sizeof(Vertex);
             UINT offset = 0;//range.vStart * stride;
-            deviceContext->IASetIndexBuffer(IB, DXGI_FORMAT_R16_UINT, 0);
+            deviceContext->IASetIndexBuffer(IB, sizeof(Index) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
             deviceContext->IASetVertexBuffers(0, 1, &VB, &stride, &offset);
         }
 

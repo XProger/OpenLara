@@ -401,7 +401,7 @@ namespace GAPI {
             uint32 usage = D3DUSAGE_WRITEONLY | (dynamic ? D3DUSAGE_DYNAMIC : 0);
             D3DPOOL pool = dynamic ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;
 
-            D3DCHECK(device->CreateIndexBuffer  (iCount * sizeof(Index),  usage, D3DFMT_INDEX16, pool, &IB, NULL));
+            D3DCHECK(device->CreateIndexBuffer  (iCount * sizeof(Index),  usage, sizeof(Index) == 2 ? D3DFMT_INDEX16 : D3DFMT_INDEX32, pool, &IB, NULL));
             D3DCHECK(device->CreateVertexBuffer (vCount * sizeof(Vertex), usage, D3DFMT_UNKNOWN, pool, &VB, NULL));
 
             update(indices, iCount, vertices, vCount);
