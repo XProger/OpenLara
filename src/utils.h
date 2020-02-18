@@ -26,7 +26,7 @@
 #ifdef _OS_3DS
     #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); /* svcSleepThread(3000000000LL);*/ abort(); }
 #else
-    #define ASSERT(expr
+    #define ASSERT(expr)
 #endif
 
     #define ASSERTV(expr) (expr) ? 1 : 0
