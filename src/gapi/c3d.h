@@ -1,9 +1,7 @@
 #ifndef H_GAPI_C3D
 #define H_GAPI_C3D
 
-#include <3ds.h>
 #include <citro3d.h>
-
 #include "core.h"
 
 #define PROFILE_MARKER(title)
@@ -34,11 +32,10 @@ namespace GAPI {
         ubyte4 light;
     };
 
-    int VRAM = 0;
+    int VRAM_TOTAL = 0;
 
-    void mmLogVRAM(int size) {
-        VRAM += size;
-        LOG("VRAM: %d = %d kb\n", size / 1024, VRAM / 1024);
+    void mmLogVRAM() {
+        LOG("VRAM: %d / %d kb\n", (VRAM_TOTAL - vramSpaceFree()) / 1024, VRAM_TOTAL / 1024);
     }
 
     bool mmIsVRAM(void *addr) {
@@ -49,11 +46,11 @@ namespace GAPI {
     void* mmAlloc(size_t size) {
         void *addr = vramAlloc(size);
         if (!addr) {
-            LOG("! OUT OF VRAM %d + %d\n", VRAM / 1024, size / 1024);
+            LOG("! OUT OF VRAM %d < %d\n", vramSpaceFree() / 1024, size / 1024);
             addr = linearAlloc(size);
             ASSERT(addr);
         } else {
-            mmLogVRAM(size);
+            mmLogVRAM();
         }
         return addr;
     }
@@ -61,8 +58,8 @@ namespace GAPI {
     void mmFree(void *addr) {
         if (!addr) return;
         if (mmIsVRAM(addr)) {
-            mmLogVRAM(-vramGetSize(addr));
             vramFree(addr);
+            mmLogVRAM();
         } else {
             linearFree(addr);
         }
@@ -70,7 +67,7 @@ namespace GAPI {
 
     void mmCopy(void *dst, void *src, size_t size) {
         if (mmIsVRAM(dst)) {
-            GSPGPU_FlushDataCache(dst, size);
+            GSPGPU_FlushDataCache(src, size);
             GX_RequestDma((u32*)src, (u32*)dst, size);
             gspWaitForDMA();
         } else {
@@ -321,7 +318,7 @@ namespace GAPI {
 
         C3D_Tex          tex;
         C3D_TexCube      texCube;
-        C3D_RenderTarget *target[6];
+        C3D_RenderTarget *target;
 
         void convertImage32(uint32 *dst, uint32 *src, int dstWidth, int dstHeight, int srcWidth, int srcHeight) {
             // 8x8 tiles swizzling
@@ -422,7 +419,8 @@ namespace GAPI {
 
         Texture(int width, int height, int depth, uint32 opt) : width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) {
             opt |= OPT_NEAREST;
-            memset(target, 0, sizeof(target));
+            target = (C3D_RenderTarget*)malloc(sizeof(C3D_RenderTarget) * 6);
+            memset(target, 0, sizeof(C3D_RenderTarget) * 6);
         }
 
         void init(void *data) {
@@ -472,9 +470,7 @@ namespace GAPI {
 
             ASSERT(ret);
 
-            if (mmIsVRAM(tex.data)) {
-                mmLogVRAM(C3D_TexCalcTotalSize(tex.size, tex.maxLevel) * (isCube ? 6 : 1));
-            }
+            mmLogVRAM();
 
             if (data && !isCube) {
                 update(data);
@@ -486,17 +482,10 @@ namespace GAPI {
         }
 
         void deinit() {
-            for (int i = 0; i < 6; i++) {
-                if (target[i]) {
-                    C3D_RenderTargetDelete(target[i]);
-                }
-            }
-
-            if (mmIsVRAM(tex.data)) {
-                mmLogVRAM(-C3D_TexCalcTotalSize(tex.size, tex.maxLevel) * ((opt & OPT_CUBEMAP) ? 6 : 1));
-            }
-
             C3D_TexDelete(&tex);
+            mmLogVRAM();
+
+            free(target);
         }
 
         void generateMipMap() {
@@ -739,12 +728,7 @@ namespace GAPI {
 
         DepthBuffer &db = depthBuffers[group];
 
-        int size = width * height;
-        switch (format) {
-            case GPU_RB_DEPTH16          : size *= 2; break;
-            case GPU_RB_DEPTH24          : size *= 3; break;
-            case GPU_RB_DEPTH24_STENCIL8 : size *= 4; break;
-        }
+        int size = C3D_CalcDepthBufSize(width, height, format);
 
         if (!db.data) {
             LOG("alloc depth alias group %d (size: %d %dx%d)\n", group, size / 1024, width, height);
@@ -758,28 +742,39 @@ namespace GAPI {
             return db.data;
         }
 
+        LOG("! can't fit depth %dx%d %d ([%d] = %d)\n", width, height, size / 1024, group, db.size / 1024);
+
         ASSERT(false);
         return NULL;
     }
 
     C3D_RenderTarget* checkRenderTarget(Texture *texture, int face, int group, GPU_DEPTHBUF depthFmt) {
-        if (!texture->target[face]) {
-            if (face > 0) {
-                LOG("create RT for face:%d %dx%d\n", face, texture->width, texture->height);
-            }
-            C3D_RenderTarget *target = C3D_RenderTargetCreateFromTex(&texture->tex, GPU_TEXFACE(face), 0, GPU_DEPTHBUF(-1));
-            void *depthBuf = getDepthBuffer(texture->width, texture->height, group, depthFmt);
-            C3D_FrameBufDepth(&target->frameBuf, depthBuf, depthFmt);
-            texture->target[face] = target;
+        if (!texture->target[face].frameBuf.colorBuf) {
+            LOG("create RT for face:%d %dx%d\n", face, texture->width, texture->height);
+
+            C3D_FrameBuf &fb = texture->target[face].frameBuf;
+            fb.colorBuf  = (texture->opt & OPT_CUBEMAP) ? texture->texCube.data[face] : texture->tex.data;
+            fb.depthBuf  = getDepthBuffer(texture->width, texture->height, group, depthFmt);
+            fb.colorFmt  = GPU_COLORBUF(formats[texture->fmt].format);
+            fb.depthFmt  = depthFmt;
+            fb.colorMask = 0x0F;
+            fb.depthMask = 0x02; // no stencil
+            fb.width     = texture->width;
+            fb.height    = texture->height;
+            fb.block32   = false;
         }
 
-        return texture->target[face];
+        return &texture->target[face];
     }
 
     void init() {
         memset(depthBuffers, 0, sizeof(depthBuffers));
 
         gfxInitDefault();
+
+        vramAlloc(0);
+        VRAM_TOTAL = vramSpaceFree();
+
         consoleInit(GFX_BOTTOM, NULL);
 
         LOG("Vendor   : %s\n", "DMP");
@@ -832,11 +827,13 @@ namespace GAPI {
             int height = tex->width;
 
             C3D_RenderTarget *target = C3D_RenderTargetCreate(width, height, GPU_RB_RGB8, C3D_DEPTHTYPE(-1));
-            mmLogVRAM(width * height * 3);
+            mmLogVRAM();
             void *depthBuf = getDepthBuffer(width, height, 0, GPU_RB_DEPTH16);
             C3D_FrameBufDepth(&target->frameBuf, depthBuf, GPU_RB_DEPTH16);
 
-            GAPI::defTarget[i] = tex->target[0] = target;
+            tex->target[0] = *target;
+
+            GAPI::defTarget[i] = &tex->target[0];
         }
 
         C3D_RenderTargetSetOutput(defTarget[0], GFX_TOP, GFX_LEFT,  DISPLAY_TRANSFER_FLAGS);

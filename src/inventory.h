@@ -235,6 +235,7 @@ struct Inventory {
     };
 
     IGame   *game;
+    Texture *title;
     Texture *background[3]; // [LEFT EYE or SINGLE, RIGHT EYE, TEMP]
     Video   *video;
 
@@ -592,7 +593,8 @@ struct Inventory {
         }
         inv->titleTimer = inv->game->getLevel()->isTitle() ? 0.0f : 3.0f;
 
-        inv->background[0] = Texture::Load(*stream);
+        inv->title = Texture::Load(*stream);
+        inv->background[0] = inv->title;
         delete stream;
     }
 
@@ -615,7 +617,7 @@ struct Inventory {
         }
     }
 
-    Inventory() : game(NULL), itemsCount(0) {
+    Inventory() : game(NULL), title(NULL), itemsCount(0) {
         memset(background, 0, sizeof(background));
         reset();
     }
@@ -630,10 +632,17 @@ struct Inventory {
             delete items[i];
         itemsCount = 0;
 
+        if (background[0] == title) {
+            background[0] = NULL;
+        }
+
         for (int i = 0; i < COUNT(background); i++) {
             delete background[i];
             background[i] = NULL;
         }
+
+        delete title;
+        title = NULL;
     }
 
     void reset() {
@@ -1392,14 +1401,13 @@ struct Inventory {
     }
 
     Texture* getBackgroundTarget(int view) {
-        if (background[0] && (background[0]->origWidth != INV_BG_SIZE || background[0]->origHeight != INV_BG_SIZE)) {
-            delete background[0];
+        if (background[0] == title) {
             background[0] = NULL;
         }
 
         for (int i = 0; i < COUNT(background); i++) {
             if (!background[i]) {
-                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGB16, OPT_TARGET);
+                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
             }
         }
 

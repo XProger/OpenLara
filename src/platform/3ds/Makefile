@@ -48,7 +48,7 @@ APP_DESCRIPTION := Classic Tomb Raider open-source engine
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -w -Ofast -ffast-math -mword-relocations \
+CFLAGS	:=	-g0 -w -Ofast -ffast-math -mword-relocations \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 

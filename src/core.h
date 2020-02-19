@@ -96,6 +96,8 @@
 
     extern int WEBGL_VERSION;
 #elif _3DS
+    #include <3ds.h>
+
     #define _OS_3DS    1
     #define _GAPI_C3D  1
 
