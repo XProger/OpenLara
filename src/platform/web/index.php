@@ -2,6 +2,7 @@
 <html>
 		<head>
 			<title>OpenLara</title>
+			<link href="/projects/OpenLara/favicon.ico" rel="shortcut icon" type="image/x-icon" />
 			<style>
 			html {
 				overflow: hidden;

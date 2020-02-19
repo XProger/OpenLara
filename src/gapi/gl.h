@@ -1488,7 +1488,7 @@ namespace GAPI {
             if (count) {
                 #ifdef _OS_ANDROID
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
-                #elif !defined(__SDL2__)
+                #elif !defined(__SDL2__) && !defined(_OS_WEB)
                     /* SDL2 typically uses MESA which does not have glDiscardFramebufferEXT() implemented
                        for some drivers, like Gallium VC4. */ 
                     glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);

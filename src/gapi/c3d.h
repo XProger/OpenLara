@@ -772,7 +772,7 @@ namespace GAPI {
 
         gfxInitDefault();
 
-        vramAlloc(0);
+        vramFree(vramAlloc(0)); // vramInit()
         VRAM_TOTAL = vramSpaceFree();
 
         consoleInit(GFX_BOTTOM, NULL);
