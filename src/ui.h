@@ -789,7 +789,7 @@ namespace UI {
 
         mat4 mView = Core::mView;
         Core::mView.scale(vec3(0.5f));
-        Core::mView.translate(vec3(-Core::eye * CAM_EYE_SEPARATION, 0.0f, 0.0f));
+        //Core::mView.translate(vec3(-Core::eye * CAM_EYE_SEPARATION, 0.0f, 0.0f));
         Core::setViewProj(Core::mView, Core::mProj);
 
         vec3 lightOffset = vec3(UI::width - 64.0f, UI::height - 64.0f, 2048.0f);

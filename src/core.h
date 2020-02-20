@@ -13,6 +13,7 @@
 #define OS_PTHREAD_MT
 
 #define USE_CUBEMAP_MIPS
+
 #ifdef WIN32
     #define _OS_WIN      1
     #define _GAPI_GL     1

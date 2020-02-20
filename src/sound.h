@@ -21,7 +21,6 @@
 #ifdef DECODE_OGG
     #ifdef USE_LIBVORBIS
         #include <tremor/ivorbisfile.h>
-        #include <tremor/ivorbiscodec.h>
     #else
         #define STB_VORBIS_HEADER_ONLY
         #include "libs/stb_vorbis/stb_vorbis.c"
