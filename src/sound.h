@@ -19,8 +19,13 @@
 #endif
 
 #ifdef DECODE_OGG
-    #define STB_VORBIS_HEADER_ONLY
-    #include "libs/stb_vorbis/stb_vorbis.c"
+    #ifdef USE_LIBVORBIS
+        #include <tremor/ivorbisfile.h>
+        #include <tremor/ivorbiscodec.h>
+    #else
+        #define STB_VORBIS_HEADER_ONLY
+        #include "libs/stb_vorbis/stb_vorbis.c"
+    #endif
 #endif
 
 #define SND_CHANNELS_MAX    128
@@ -699,13 +704,60 @@ namespace Sound {
 #endif
 
 #ifdef DECODE_OGG
+
+#ifdef USE_LIBVORBIS
+    struct OGG : Decoder {
+        OggVorbis_File   vf;
+        FILE            *memFile;
+        uint8           *data;
+
+        OGG(Stream *stream, int channels) : Decoder(stream, channels, 0) {
+            char buf[255];
+            strcpy(buf, contentDir);
+            strcat(buf, stream->name);
+
+            data = new uint8[stream->size];
+            stream->raw(data, stream->size);
+
+            memFile = fmemopen(data, stream->size, "rb");
+            int err = ov_open(memFile, &vf, NULL, 0);
+            ASSERT(err >= 0);
+            vorbis_info *info = ov_info(&vf, -1);
+            this->channels = info->channels;
+            this->freq     = info->rate;
+        }
+
+        virtual ~OGG() {
+            ov_clear(&vf);
+            fclose(memFile);
+            delete[] data;
+        }
+
+        virtual int decode(Frame *frames, int count) {
+            PROFILE_CPU_TIMING(stats.ogg);
+            int i = 0;
+            int bytes = count * sizeof(Frame);
+            while (i < bytes) {
+                int bitstream;
+                int res = ov_read(&vf, (char*)frames + i, bytes - i, &bitstream);
+                if (!res) break;
+                i += res;
+            }
+            return i / sizeof(Frame);
+        }
+
+        virtual void replay() {
+            fseek(memFile, 0, SEEK_SET);
+            ov_open(memFile, &vf, NULL, 0);
+        }
+    };
+#else // stb_vorbis
     struct OGG : Decoder {
         stb_vorbis       *ogg;
         stb_vorbis_alloc alloc;
+        uint8            *data;
 
-        uint8 *data;
-
-        OGG(Stream *stream, int channels) : Decoder(stream, channels, 0), ogg(NULL) {
+        OGG(Stream *stream, int channels) : Decoder(stream, channels, 0) {
             char buf[255];
             strcpy(buf, contentDir);
             strcat(buf, stream->name);
@@ -744,6 +796,9 @@ namespace Sound {
         }
     };
 #endif
+
+#endif // DECODE_OGG
+
     Core::Mutex lock;
 
     struct Listener {

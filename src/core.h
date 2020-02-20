@@ -104,6 +104,11 @@
     #undef OS_PTHREAD_MT
     #undef USE_CUBEMAP_MIPS
     #define USE_ATLAS_RGBA16
+
+    // for 2352 stereo samples
+    // stb_vorbis - 8 ms
+    // libvorbis  - 6 ms
+    #define USE_LIBVORBIS
 #elif _PSP
     #define _OS_PSP  1
     #define _GAPI_GU 1
