@@ -531,7 +531,6 @@ struct MeshRange {
     E( sMask            )
 
 #define SHADER_UNIFORMS(E) \
-    E( uFlags           ) \
     E( uParam           ) \
     E( uTexParam        ) \
     E( uViewProj        ) \
@@ -870,8 +869,8 @@ namespace Core {
         settings.detail.vsync        = true;
         settings.detail.stereo       = Settings::STEREO_OFF;
         settings.detail.scale        = Settings::SCALE_100;
-        settings.audio.music         = 14;
-        settings.audio.sound         = 14;
+        settings.audio.music         = SND_MAX_VOLUME;
+        settings.audio.sound         = SND_MAX_VOLUME;
         settings.audio.reverb        = true;
         settings.audio.subtitles     = true;
         settings.audio.language      = defLang;
@@ -933,6 +932,9 @@ namespace Core {
     #ifdef _OS_WEB
         settings.controls[0].keys[ cJump      ].key = ikD;
         settings.controls[0].keys[ cInventory ].key = ikTab;
+
+        settings.audio.music = 14;
+        settings.audio.sound = 14;
     #endif
 
     #if defined(_OS_RPI) || defined(_OS_CLOVER)

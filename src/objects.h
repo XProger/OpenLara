@@ -253,19 +253,25 @@ struct MuzzleFlash : Controller {
 
             vec4 lightPos   = vec4(owner->getJoint(joint).pos, 0);
             vec4 lightColor = FLASH_LIGHT_COLOR * vec4(intensity, intensity, intensity, 1.0f / sqrtf(intensity));
+
             if (lightIndex > -1) {
                 ASSERT(lightIndex + 1 < MAX_LIGHTS);
                 Core::lightPos[lightIndex]   = lightPos;
                 Core::lightColor[lightIndex] = lightColor;
-            } else
+            } else {
                 getRoom().addDynLight(owner->entity, lightPos, lightColor, true);
+            }
+
         } else {
+            
             if (lightIndex > -1) {
                 ASSERT(lightIndex < MAX_LIGHTS);
                 Core::lightPos[lightIndex]   = vec4(0);
                 Core::lightColor[lightIndex] = vec4(0, 0, 0, 1);
-            } else
+            } else {
                 getRoom().removeDynLight(owner->entity);
+            }
+
             game->removeEntity(this);
         }
     }

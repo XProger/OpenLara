@@ -720,12 +720,13 @@ struct mat4 {
     void perspective(ProjRange range, float fov, float aspect, float znear, float zfar, float eye = 0.0f, bool rotate90 = false) {
         float y = tanf(fov * 0.5f * DEG2RAD) * znear;
         float x = y;
-
         float eyeX, eyeY;
+
         if (rotate90) {
             eyeX = 0.0f;
             eyeY = -eye;
             aspect = 1.0f / aspect;
+            swap(x, y);
         } else {
             eyeX = eye;
             eyeY = 0.0f;

@@ -89,7 +89,6 @@ namespace GAPI {
         int reg;
         int usage;
     } bindings[uMAX] = {
-        {   0, USAGE_VS | USAGE_PS }, // uFlags
         {   0, USAGE_VS | USAGE_PS }, // uParam
         {   1, USAGE_VS | USAGE_PS }, // uTexParam
         {   2, USAGE_VS | USAGE_PS }, // uViewProj
@@ -126,12 +125,8 @@ namespace GAPI {
 
             for (int i = 0; i < defCount; i++) {
                 switch (def[i]) {
-                    case SD_UNDERWATER   : underwater = true; break;
-                    case SD_ALPHA_TEST   : alphatest  = true; break;
-                    case SD_OPT_AMBIENT  : cbMem[uFlags].x = 1.0f; break;
-                    case SD_OPT_SHADOW   : cbMem[uFlags].y = 1.0f; break;
-                    case SD_OPT_CONTACT  : cbMem[uFlags].z = 1.0f; break;
-                    case SD_OPT_CAUSTICS : cbMem[uFlags].w = 1.0f; break;
+                    case SD_UNDERWATER : underwater = true; break;
+                    case SD_ALPHA_TEST : alphatest  = true; break;
                 }
             }
 

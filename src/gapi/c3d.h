@@ -27,7 +27,7 @@ namespace GAPI {
     struct Vertex {
         short4 coord;
         ubyte4 normal;
-        short2 texCoord;
+        short4 texCoord;
         ubyte4 color;
         ubyte4 light;
     };
@@ -106,7 +106,6 @@ namespace GAPI {
     #define SHADER_FREE(v) DVLB_Free(v);
 
     static const int bindings[uMAX] = {
-        94, // uFlags
          0, // uParam
          1, // uTexParam
          2, // uViewProj
@@ -120,7 +119,7 @@ namespace GAPI {
         87, // uLightColor
         91, // uRoomSize
         92, // uPosScale
-        98, // uContacts
+         0, // uContacts (unused)
     };
 
     SHADERS_LIST(SHADER_DECL);
@@ -269,16 +268,16 @@ namespace GAPI {
 
         void setParam(UniformType uType, const vec4 &value, int count = 1) {
             if (uID[uType] == -1) return;
-            cbCount[uType] = count;
-            memcpy(cbMem + bindings[uType], &value, count * 16);
+            cbCount[uType] = max(cbCount[uType], count);
+            memcpy(cbMem + bindings[uType], &value, count * sizeof(value));
         }
 
         void setParam(UniformType uType, const mat4 &value, int count = 1) {
             if (uID[uType] == -1) return;
-            cbCount[uType] = count * 4;
+            cbCount[uType] = max(cbCount[uType], count * 4);
 
             ASSERT(count == 1);
-            memcpy(cbMem + bindings[uType], &value, sizeof(value));
+            memcpy(cbMem + bindings[uType], &value, count * sizeof(value));
         }
     };
 
@@ -794,7 +793,7 @@ namespace GAPI {
         AttrInfo_Init(&vertexAttribs);
         AttrInfo_AddLoader(&vertexAttribs, aCoord    , GPU_SHORT         , 4);
         AttrInfo_AddLoader(&vertexAttribs, aNormal   , GPU_UNSIGNED_BYTE , 4);
-        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 2);
+        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 4);
         AttrInfo_AddLoader(&vertexAttribs, aColor    , GPU_UNSIGNED_BYTE , 4);
         AttrInfo_AddLoader(&vertexAttribs, aLight    , GPU_UNSIGNED_BYTE , 4);
 

@@ -102,7 +102,6 @@ namespace GAPI {
         int reg;
         int usage;
     } bindings[uMAX] = {
-        {   0, USAGE_VS | USAGE_PS }, // uFlags
         {   0, USAGE_VS | USAGE_PS }, // uParam
         {   1, USAGE_VS | USAGE_PS }, // uTexParam
         {   2, USAGE_VS | USAGE_PS }, // uViewProj

@@ -63,7 +63,7 @@
     mad tmp, pos.y, uViewProj[1], tmp
     mad tmp, pos.z, uViewProj[2], tmp
     mad vPosition, pos.w, uViewProj[3], tmp
-    
+
 ; lighting
     ; lv[0..3] = (uLightPos[0..3].xyz - pos) * uLightColor[0..3].w;
     add lv0.xyz, uLightPos[0], -pos
@@ -74,37 +74,41 @@
     mul lv1.xyz, uLightColor[1].w, lv1
     mul lv2.xyz, uLightColor[2].w, lv2
     mul lv3.xyz, uLightColor[3].w, lv3
+
     ; att[0..3] = dot(lv[0..3], lv[0..3])
     dp3 att.x, lv0, lv0
     dp3 att.y, lv1, lv1
     dp3 att.z, lv2, lv2
     dp3 att.w, lv3, lv3
-    ; normalize lv[0..3]
-    rsq tmp, att
-    mul lv0.xyz, lv0, tmp.x
-    mul lv1.xyz, lv1, tmp.y
-    mul lv2.xyz, lv2, tmp.z
-    mul lv3.xyz, lv3, tmp.w
-    ; att = max(0, 1 - att)
+
+    ; att = max(0, 1 - att) / sqrt(att)
+    rsq tmp.x, att.x
+    rsq tmp.y, att.y
+    rsq tmp.z, att.z
+    rsq tmp.w, att.w
+
     add att, ONE, -att
     max att, ZERO, att
+    mul att, tmp,  att
+
     ; normal = mulQuat(uBasis[joint], aNormal/127 - 1)
-    mul normal, INV_127, aNormal
-    add normal, -ONE, normal
-    mul pos.xyz, uBasis[0], normal.zxyw
-    mad pos.xyz, normal, uBasis[0].zxyw, -pos
-    mad pos.xyz, normal.yzxw, uBasis[0].w, pos
-    mul tmp.xyz, uBasis[0].zxyw, pos
-    mad pos.xyz, pos.yzxw, uBasis[0].yzxw, -tmp
+    mul normal.xyz, INV_127, aNormal
+    add normal.xyz, -ONE, normal
+    mul pos.xyz, uBasis[a0.x], normal.zxyw
+    mad pos.xyz, normal, uBasis[a0.x].zxyw, -pos
+    mad pos.xyz, normal.yzxw, uBasis[a0.x].w, pos
+    mul tmp.xyz, uBasis[a0.x].zxyw, pos
+    mad pos.xyz, pos.yzxw, uBasis[a0.x].yzxw, -tmp
     mad normal.xyz, pos, TWO, normal
+
     ; light = max(0, dot(normal, lv[0..3]))
     dp3 light.x, lv0, normal
     dp3 light.y, lv1, normal
     dp3 light.z, lv2, normal
     dp3 light.w, lv3, normal
-    ; light = max(0, light)
+
+    ; light = max(0, light) * att
     max light, ZERO, light
-    ; light *= att
     mul light, light, att
 
 ; vColor = aColor/255 * material.alpha * (material.ambient + light[0..3] * uLightColor[0..3])

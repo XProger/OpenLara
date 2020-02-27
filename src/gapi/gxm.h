@@ -432,7 +432,6 @@ namespace GAPI {
     #include "shaders/gxm/shaders.h"
 
     static const int bindings[uMAX] = {
-        94, // uFlags
          0, // uParam
          1, // uTexParam
          2, // uViewProj
@@ -473,24 +472,18 @@ namespace GAPI {
         bool rebind;
 
         void init(Pass pass, int type, int *def, int defCount) {
-			LOG("init shader %d %d ", int(pass), int(type));
+            LOG("init shader %d %d ", int(pass), int(type));
             memset(pso, 0, sizeof(pso));
 
             outputFmt = SCE_GXM_OUTPUT_REGISTER_FORMAT_UCHAR4;
-
-            float *flags = (float*)(cbMem + bindings[uFlags]);
 
             bool underwater = false;
             bool alphatest  = false;
 
             for (int i = 0; i < defCount; i++) {
                 switch (def[i]) {
-                    case SD_UNDERWATER      : underwater = true; break;
-                    case SD_ALPHA_TEST      : alphatest  = true; break;
-                    case SD_OPT_AMBIENT     : flags[0] = 1.0f; break;
-                    case SD_OPT_SHADOW      : flags[1] = 1.0f; break;
-                    case SD_OPT_CONTACT     : flags[2] = 1.0f; break;
-                    case SD_OPT_CAUSTICS    : flags[3] = 1.0f; break;
+                    case SD_UNDERWATER : underwater = true; break;
+                    case SD_ALPHA_TEST : alphatest  = true; break;
                 }
             }
 
@@ -697,7 +690,6 @@ namespace GAPI {
                 active.shader = this;
 
                 memset(cbCount, 0, sizeof(cbCount));
-                cbCount[uFlags] = 16;
 
                 rebind = true;
             }

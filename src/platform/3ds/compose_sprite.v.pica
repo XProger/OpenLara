@@ -74,34 +74,40 @@
     mul lv1.xyz, uLightColor[1].w, lv1
     mul lv2.xyz, uLightColor[2].w, lv2
     mul lv3.xyz, uLightColor[3].w, lv3
+
     ; att[1..3] = dot(lv[1..3], lv[1..3])
     mov att.x, ONE
     dp3 att.y, lv1, lv1
     dp3 att.z, lv2, lv2
     dp3 att.w, lv3, lv3
-    ; normalize lv[1..3]
-    rsq tmp, att
-    mul lv1.xyz, lv1, tmp.y
-    mul lv2.xyz, lv2, tmp.z
-    mul lv3.xyz, lv3, tmp.w
-    ; att = max(0, 1 - att)
+
+    ; att = max(0, 1 - att) / sqrt(att)
+    rsq tmp.y, att.y
+    rsq tmp.z, att.z
+    rsq tmp.w, att.w
+
     add att, ONE, -att
     max att, ZERO, att
+    mul att, tmp,  att
+
     ; viewVec = uViewPos - pos
     add vv.xyz, uViewPos, -pos
+
     ; normal = normalize(viewVec)
     dp3 tmp.x, vv, vv
     rsq tmp.x, tmp.x
     mul normal, vv, tmp.x
+
     ; light = max(0, dot(normal, lv[1..3]))
     mov light.x, MAT_AMBIENT
     dp3 light.y, lv1, normal
     dp3 light.z, lv2, normal
     dp3 light.w, lv3, normal
+
+    ; light = max(0, light) * att
     max light, ZERO, light
-    ; light *= att
     mul light, light, att
- 
+
 ; vColor = vec4(aLight.rgb * aLight.a, aLight.a)
     mul tmp, INV_BYTE, aLight
     mad tmp.xyz, light.x, uLightColor[0], tmp

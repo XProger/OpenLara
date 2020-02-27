@@ -514,7 +514,6 @@ namespace GAPI {
         bool vec; // true - vec4, false - mat4
         int  reg;
     } bindings[uMAX] = {
-        { true,  94 }, // uFlags
         { true,   0 }, // uParam
         { true,   1 }, // uTexParam
         { false,  2 }, // uViewProj

@@ -10,18 +10,19 @@
 #define CAM_SPEED_COMBAT  8
 
 #define CAM_EYE_SEPARATION   16.0f
+
 #ifdef _OS_3DS
     #define CAM_FOCAL_LENGTH     512.0f
-    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f + 256.0f)
 #else
     #define CAM_FOCAL_LENGTH     1536.0f
-    #define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f)
 #endif
+
+#define CAM_OFFSET_FOLLOW    (1024.0f + 512.0f)
 
 #ifdef _OS_BITTBOY
     #define CAM_OFFSET_COMBAT CAM_OFFSET_FOLLOW
 #else
-    #define CAM_OFFSET_COMBAT (2048.0f + 512.0f)
+    #define CAM_OFFSET_COMBAT (CAM_OFFSET_FOLLOW + 512.0f)
 #endif
 
 #define CAM_OFFSET_LOOK   (512.0f)
@@ -688,12 +689,7 @@ struct Camera : ICamera {
         if (firstPerson)
             smooth = false;
 
-        #ifdef _OS_3DS
-            fov = firstPerson ? 65.0f : 55.0f;
-        #else
-            fov = firstPerson ? 90.0f : 65.0f;
-        #endif
-        
+        fov   = firstPerson ? 90.0f : 65.0f;
         znear = firstPerson ? 16.0f : 32.0f;
         zfar  = 45.0f * 1024.0f;
 

@@ -586,8 +586,9 @@ struct Level : IGame {
 
         Core::updateLights();
 
-        if (Core::settings.detail.shadows > Core::Settings::MEDIUM)
+        if (Core::settings.detail.shadows > Core::Settings::MEDIUM) {
             Core::active.shader->setParam(uContacts, Core::contacts[0], MAX_CONTACTS);
+        }
     }
 
     virtual void setupBinding() {
@@ -3047,9 +3048,10 @@ struct Level : IGame {
 
             if (gfxIs3D() != isStereo) {
                 gfxSet3D(isStereo);
-                Core::settings.detail.stereo = isStereo ? Core::Settings::STEREO_ANAGLYPH : Core::Settings::STEREO_OFF;
                 needRedrawTitleBG = inventory->active && !level.isTitle();
             }
+
+            Core::settings.detail.stereo = isStereo ? Core::Settings::STEREO_ANAGLYPH : Core::Settings::STEREO_OFF;
 
             if (slider != sliderState) {
                 sliderState = slider;
