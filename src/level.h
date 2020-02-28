@@ -1874,7 +1874,7 @@ struct Level : IGame {
         //vec4 s = vec4(v.x, -v.w, v.z, -v.y);
         vec4 sp = (v * 0.5 + 0.5) * vec4(float(vp.z), float(vp.w), float(vp.z), float(vp.w));
 
-        short4 s(short(sp.x), short(sp.y), short(sp.z), short(sp.w));
+        short4 s(short(sp.x) + vp.x, short(sp.y) + vp.y, short(sp.z)+ vp.x, short(sp.w) + vp.y);
 
         // expand
         s.x -= 2;
@@ -1882,17 +1882,15 @@ struct Level : IGame {
         s.z += 2;
         s.w += 2;
 
-        // convert from bounds to x,y,w,h
-        s.z -= s.x;
-        s.w -= s.y;
-        s.x += vp.x;
-        s.y += vp.y;
-
         // clamp
         s.x = max(s.x, vp.x);
         s.y = max(s.y, vp.y);
-        s.z = min(s.z, vp.z);
-        s.w = min(s.w, vp.w);
+        s.z = min(s.z, short(vp.x + vp.z));
+        s.w = min(s.w, short(vp.y + vp.w));
+
+        // convert from bounds to x,y,w,h
+        s.z -= s.x;
+        s.w -= s.y;
 
         return s;
     }
