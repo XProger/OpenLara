@@ -1882,17 +1882,17 @@ struct Level : IGame {
         s.z += 2;
         s.w += 2;
 
-        // clamp
-        s.x = max(s.x, vp.x);
-        s.y = max(s.y, vp.y);
-        s.z = min(s.z, short(vp.x + vp.z));
-        s.w = min(s.w, short(vp.y + vp.w));
-
         // convert from bounds to x,y,w,h
         s.z -= s.x;
         s.w -= s.y;
         s.x += vp.x;
         s.y += vp.y;
+
+        // clamp
+        s.x = max(s.x, vp.x);
+        s.y = max(s.y, vp.y);
+        s.z = min(s.z, vp.z);
+        s.w = min(s.w, vp.w);
 
         return s;
     }
