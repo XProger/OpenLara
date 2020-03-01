@@ -731,9 +731,10 @@ struct MeshBuilder {
             short4 *VAR = new short4[RANGE.vCount];\
             for (int i = 0; i < RANGE.vCount; i++) {\
                 VAR[i] = vertices[RANGE.vStart + i].coord;\
-                VAR[i].x += jointsPos[VAR[i].w].x;\
-                VAR[i].y += jointsPos[VAR[i].w].y;\
-                VAR[i].z += jointsPos[VAR[i].w].z;\
+                int index = VAR[i].w / 2;\
+                VAR[i].x += jointsPos[index].x;\
+                VAR[i].y += jointsPos[index].y;\
+                VAR[i].z += jointsPos[index].z;\
             }
 
         COORD_FILL(vSkin,   rangeSkin);
