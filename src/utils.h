@@ -1448,16 +1448,27 @@ struct Color24 { // RGB888
 };
 
 union Color16 { // RGBA5551
-    struct { uint16 r:5, g:5, b:5, a:1; };
+    struct { uint16 b:5, g:5, r:5, a:1; };
     uint16 value;
 
     Color16() {}
     Color16(uint16 value) : value(value) {}
 
-    Color32  getBGR()  const { return Color32((b << 3) | (b >> 2), (g << 3) | (g >> 2), (r << 3) | (r >> 2), 255); }
     operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
     operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
 };
+
+union ColorCLUT { // RGBA5551
+    struct { uint16 r:5, g:5, b:5, a:1; };
+    uint16 value;
+
+    ColorCLUT() {}
+    ColorCLUT(uint16 value) : value(value) {}
+
+    operator Color24() const { return Color24((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2)); }
+    operator Color32() const { return Color32((r << 3) | (r >> 2), (g << 3) | (g >> 2), (b << 3) | (b >> 2), -a); }
+};
+
 
 struct ColorIndex4 {
     uint8 a:4, b:4;
@@ -1485,6 +1496,7 @@ union AtlasColor {
     AtlasColor(const Color16 &value) : a(value.a), b(value.b), g(value.g), r(value.r) {}
     AtlasColor(const Color24 &value) : a(1), b(value.b >> 3), g(value.g >> 3), r(value.r >> 3) {}
     AtlasColor(const Color32 &value) : a(value.a ? 1 : 0), b(value.b >> 3), g(value.g >> 3), r(value.r >> 3) {}
+    AtlasColor(const ColorCLUT &value) : a(value.a), b(value.b), g(value.g), r(value.r) {}
 };
 
 #define ATLAS_FORMAT FMT_RGBA16
@@ -1502,7 +1514,7 @@ struct Tile32 {
 };
 
 struct CLUT {
-    Color16 color[16];
+    ColorCLUT color[16];
 };
 
 namespace String {
@@ -2121,6 +2133,14 @@ struct Array {
         reset();
         free(items);
         items = NULL;
+    }
+
+    int find(const T &item) {
+        for (int i = 0; i < length; i++) {
+            if (items[i] == item)
+                return i;
+        }
+        return -1;
     }
 
     void sort() {
