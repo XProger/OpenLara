@@ -1352,6 +1352,7 @@ namespace TR {
                         callback(Sound::openCDAudioWAD("audio/3/cdaudio.wad", track), userData);
                         return;
                     #else
+                        return; // TODO ask hoster to fix problems with gzip for wav's
                         sprintf(title, "audio/3/track_%02d.wav", track);
                     #endif
                     break;

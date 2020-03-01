@@ -5223,7 +5223,7 @@ namespace TR {
                         if (version == VER_TR3_PC || version == VER_TR4_PC) {
                             Color16 color;
                             stream.read(color.value);
-                            v.color = color.getBGR();
+                            v.color = color;
                         }
                     }
 
@@ -6338,7 +6338,7 @@ namespace TR {
                                 index = indices + (y * w + x) / 2;
 
                             int idx = (x % 2) ? index->a : index->b;
-                            Color16 &c = clut->color[idx];
+                            ColorCLUT &c = clut->color[idx];
 
                             if (t->attribute == 1 && idx == 0)
                                 dst->color[y * 256 + x].value = 0;
@@ -6386,7 +6386,9 @@ namespace TR {
                     AtlasColor *ptr = &dst->color[uv.y * 256];
                     for (int y = uv.y; y < uv.w; y++) {
                         for (int x = uv.x; x < uv.z; x++) {
-                            ptr[x] = tiles32[t->tile].color[y * 256 + x];
+                            Color32 c = tiles32[t->tile].color[y * 256 + x];
+                            swap(c.r, c.b);
+                            ptr[x] = c;
                         }
                         ptr += 256;
                     }
