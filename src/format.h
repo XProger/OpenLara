@@ -6343,7 +6343,7 @@ namespace TR {
                             if (t->attribute == 1 && idx == 0)
                                 dst->color[y * 256 + x].value = 0;
                             else
-                                dst->color[y * 256 + x] = Color16(swap16(c.value));
+                                dst->color[y * 256 + x] = ColorCLUT(swap16(c.value));
                         }
 
                     break;
@@ -6435,7 +6435,7 @@ namespace TR {
     // common methods
         Color32 getColor(int texture) const {
             switch (version) {
-                case VER_TR1_SAT : return Color16((uint16)texture);
+                case VER_TR1_SAT : return ColorCLUT((uint16)texture);
                 case VER_TR1_PC  : 
                     #ifdef _GAPI_SW
                         return Color32(texture & 0xFF, 0, 0, 142);
