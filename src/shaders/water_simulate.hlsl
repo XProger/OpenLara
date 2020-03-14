@@ -15,14 +15,14 @@ struct VS_OUTPUT {
 
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
-	
-	float3 coord = In.aCoord.xyz * (1.0 / 32767.0);
+
+	float3 coord = In.aCoord.xyz * INV_SHORT_HALF;
 	float4 uv = float4(coord.x, coord.y, coord.x, -coord.y) * 0.5 + 0.5;
 
 	Out.pos       = float4(coord.xyz, 1.0);
 	Out.maskCoord = uv.xy * uRoomSize.zw;
 	Out.texCoord  = uv.zw * uTexParam.zw;
-	#ifndef _GAPI_GXM
+	#ifdef _GAPI_D3D9
 		Out.texCoord += 0.5 * uTexParam.xy;
 	#endif
 
@@ -54,9 +54,9 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	v.y += (average - v.x) * WATER_VEL;
 	v.y *= WATER_VIS;
 	v.x += v.y;
-	v.x += (SAMPLE_2D_LINEAR(sDiffuse, In.noiseCoord).x * 2.0 - 1.0) * 0.00025;
+	v.x += (SAMPLE_2D_LINEAR_WRAP(sDiffuse, In.noiseCoord).x * 2.0 - 1.0) * 0.00025;
 
-	v *= SAMPLE_2D_POINT(sMask, In.maskCoord).a;
+	v *= SAMPLE_2D_POINT(sMask, In.maskCoord).r;
 
 	return v;
 }

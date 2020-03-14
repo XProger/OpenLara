@@ -23,6 +23,7 @@ call :compile filter    _upscale    "/DUPSCALE"
 call :compile filter    _downsample "/DDOWNSAMPLE"
 call :compile filter    _grayscale  "/DGRAYSCALE"
 call :compile filter    _blur       "/DBLUR"
+call :compile filter    _anaglyph   "/DANAGLYPH"
 
 call :compile gui
 

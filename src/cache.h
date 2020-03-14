@@ -8,7 +8,7 @@
 
 #define NO_WATER_HEIGHT  1000000.0f
 
-#if defined(_OS_IOS) || defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+#if defined(_OS_IOS) || defined(_GAPI_D3D9) || defined(_GAPI_D3D11) || defined(_GAPI_GXM)
     #define USE_SCREEN_TEX
 #endif
 
@@ -292,6 +292,7 @@ struct AmbientCache {
                 Texture *src = textures[j * 4 + i - 1];
                 Texture *dst = textures[j * 4 + i];
                 Core::setTarget(dst, NULL, RT_STORE_COLOR);
+                Core::validateRenderState();
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
             }
@@ -680,10 +681,12 @@ struct WaterCache {
 
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
-            item.data[0]->bind(sNormal);
             Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
+            Core::validateRenderState();
+            item.data[0]->bind(sNormal);
             game->getMesh()->renderQuad();
+            item.data[0]->unbind(sNormal);
             swap(item.data[0], item.data[1]);
         }
     }
@@ -700,10 +703,12 @@ struct WaterCache {
 
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
-            item.data[0]->bind(sNormal);
             Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
             Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
+            Core::validateRenderState();
+            item.data[0]->bind(sNormal);
             game->getMesh()->renderQuad();
+            item.data[0]->unbind(sNormal);
             swap(item.data[0], item.data[1]);
             item.timer -= SIMULATE_TIMESTEP;
         }
@@ -721,12 +726,14 @@ struct WaterCache {
 
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, sx, sz));
 
-        Core::whiteTex->bind(sReflect);
-        item.data[0]->bind(sNormal);
+        item.caustics->unbind(sReflect);
         Core::setTarget(item.caustics, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
         Core::validateRenderState(); // force clear color for borders
         Core::setViewport(1, 1, item.caustics->width - 1, item.caustics->width - 1); // leave 2px for black border
+        Core::whiteTex->bind(sReflect);
+        item.data[0]->bind(sNormal);
         game->getMesh()->renderPlane();
+        item.data[0]->unbind(sNormal);
     }
 
     void renderRays() {
@@ -822,12 +829,14 @@ struct WaterCache {
 
         if (screen) {
             Core::setTarget(refract, NULL, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
+            Core::validateRenderState();
             bool flip = false;
-            #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+            #if defined(_GAPI_D3D9) || defined(_GAPI_D3D11) || defined(_GAPI_GXM)
                 flip = true;
             #endif
             blitTexture(screen, flip);
             Core::setTarget(screen, NULL, RT_LOAD_COLOR | RT_LOAD_DEPTH | RT_STORE_COLOR);
+            Core::validateRenderState();
         } else {
             Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.z, Core::viewportDef.w); // copy framebuffer into refraction texture
         }
@@ -971,7 +980,7 @@ struct WaterCache {
         Core::active.shader->setParam(uViewProj, mProj);
         Core::active.shader->setParam(uMaterial, vec4(1.0f));
 
-        tex->bind(0);
+        tex->bind(sDiffuse);
         int w = tex->width;
         int h = tex->height;
 
@@ -986,7 +995,7 @@ struct WaterCache {
         vertices[2].light =
         vertices[3].light = ubyte4(255, 255, 255, 255);
 
-    #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
+    #if defined(_GAPI_D3D9) || defined(_GAPI_D3D11) || defined(_GAPI_GXM)
         flip = !flip;
     #endif
 
@@ -1008,6 +1017,8 @@ struct WaterCache {
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
 
         Core::setDepthTest(true);
+
+        tex->unbind(sDiffuse);
     }
 
     #undef MAX_SURFACES

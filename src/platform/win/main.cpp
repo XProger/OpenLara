@@ -268,7 +268,9 @@ BOOL (WINAPI *RegisterTouchWindowX)(HWND, ULONG);
 BOOL (WINAPI *GetTouchInputInfoX)(HTOUCHINPUT, UINT, PTOUCHINPUT, int);
 BOOL (WINAPI *CloseTouchInputHandleX)(HTOUCHINPUT);
 
-#define MAX_TOUCH_COUNT 6
+#ifndef MAX_TOUCH_COUNT
+    #define MAX_TOUCH_COUNT 6
+#endif
 
 void touchInit(HWND hWnd) {
     int value = GetSystemMetrics(SM_DIGITIZER);

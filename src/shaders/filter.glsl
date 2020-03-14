@@ -19,7 +19,7 @@ uniform mat4 uViewProj;
 	uniform sampler2D sNormal;
 
 	#ifdef FILTER_DOWNSAMPLE
-		vec4 downsample() { // uParam (textureSize, unused, unused, unused)
+		vec4 downsample() { // uParam (texelSize, unused, unused, unused)
 			vec4 color = vec4(0.0);
 			for (float y = -1.5; y < 2.0; y++)
 				for (float x = -1.5; x < 2.0; x++) {
@@ -48,15 +48,15 @@ uniform mat4 uViewProj;
 	#endif
 
 	#ifdef FILTER_GRAYSCALE
-		vec4 grayscale() { // uParam (factor, unused, unused, unused)
+		vec4 grayscale() { // uParam (tint.rgb, texelSize)
 			vec4 color = texture2D(sDiffuse, vTexCoord);
 			vec3 gray  = vec3(dot(color, vec4(0.299, 0.587, 0.114, 0.0)));
-			return vec4(mix(color.xyz, gray, uParam.w) * uParam.xyz, color.w);
+			return vec4(gray * uParam.xyz, color.w);
 		}
 	#endif
 
 	#ifdef FILTER_BLUR
-		vec4 blur() { // uParam (dirX, dirY, 1 / textureSize, unused)
+		vec4 blur() { // uParam (dirX, dirY, unused, texelSize)
 			const vec3 offset = vec3(0.0, 1.3846153846, 3.2307692308);
 			const vec3 weight = vec3(0.2270270270, 0.3162162162, 0.0702702703);
 

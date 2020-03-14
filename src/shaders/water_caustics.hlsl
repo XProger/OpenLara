@@ -8,9 +8,11 @@ struct VS_OUTPUT {
 
 float2 getInvUV(float2 uv, float4 param) {
 	float2 p = (float2(uv.x, -uv.y) * 0.5 + 0.5) * param.zw;
-#ifndef _GAPI_GXM
+
+#ifdef _GAPI_D3D9
 	p.xy += 0.5 * param.xy;
 #endif
+
 	return p;
 }
 
@@ -22,7 +24,7 @@ float2 getUV(float2 uv, float4 param) {
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
-	float3 coord  = In.aCoord.xyz * (1.0 / 32767.0);
+	float3 coord  = In.aCoord.xyz * INV_SHORT_HALF;
 
 	float3 rCoord = float3(coord.x, coord.y, 0.0) * uPosScale[1].xzy;
 

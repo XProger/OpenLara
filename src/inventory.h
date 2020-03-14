@@ -1422,15 +1422,18 @@ struct Inventory {
         return; // TODO
     #endif
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
+        float s = 1.0f / INV_BG_SIZE;
         // vertical
         Core::setTarget(tmp, NULL, RT_STORE_COLOR);
-        Core::active.shader->setParam(uParam, vec4(0, 1.0f / INV_BG_SIZE, 0, 0));
+        Core::validateRenderState();
+        Core::active.shader->setParam(uParam, vec4(0, s, 0, s));
         texInOut->bind(sDiffuse);
         game->getMesh()->renderQuad();
         // horizontal
         Core::setTarget(texInOut, NULL, RT_STORE_COLOR);
+        Core::validateRenderState();
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
-        Core::active.shader->setParam(uParam, vec4(1.0f / INV_BG_SIZE, 0, 0, 0));
+        Core::active.shader->setParam(uParam, vec4(s, 0, 0, s));
         tmp->bind(sDiffuse);
         game->getMesh()->renderQuad();
     }
@@ -1439,9 +1442,11 @@ struct Inventory {
     #ifdef FFP
         return; // TODO
     #endif
+        float s = 1.0f / INV_BG_SIZE;
         game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
         Core::setTarget(texOut, NULL, RT_STORE_COLOR);
-        Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, 1.0f));
+        Core::validateRenderState();
+        Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, s));
         texIn->bind(sDiffuse);
         game->getMesh()->renderQuad();
     }
@@ -1837,7 +1842,7 @@ struct Inventory {
         Core::setViewProj(mView, mProj);
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
-        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), Core::getTime() * 0.001f, 0.0f));
+        Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 

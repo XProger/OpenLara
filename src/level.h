@@ -395,7 +395,7 @@ struct Level : IGame {
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
-        #if !defined(_GAPI_D3D9) && !defined(_GAPI_GXM)
+        #if !defined(_GAPI_D3D9) && !defined(_GAPI_D3D11) && !defined(_GAPI_GXM)
             delete shaderCache;
             shaderCache = new ShaderCache();
         #endif
@@ -598,8 +598,10 @@ struct Level : IGame {
         Core::whiteTex->bind(sReflect);
         Core::whiteCube->bind(sEnvironment);
 
-        Texture *shadowMap = shadow[player ? player->camera->cameraIndex : 0];
-        if (shadowMap) shadowMap->bind(sShadow);
+        if (Core::pass != Core::passShadow) {
+            Texture *shadowMap = shadow[player ? player->camera->cameraIndex : 0];
+            if (shadowMap) shadowMap->bind(sShadow);
+        }
 
         Core::basis.identity();
     }
@@ -627,8 +629,11 @@ struct Level : IGame {
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
-            Texture *target = (targets[0]->opt & OPT_CUBEMAP) ? targets[0] : targets[i * stride];
-            Core::setTarget(target, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
+            if (targets[0]->opt & OPT_CUBEMAP) {
+                Core::setTarget(targets[0], NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
+            } else {
+                Core::setTarget(targets[i * stride], NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+            }
             renderView(rIndex, false, false);
         }
 
@@ -1773,6 +1778,9 @@ struct Level : IGame {
     }
 
     void renderSky() {
+        #ifndef _GAPI_GL
+            return;
+        #endif
         ASSERT(mesh->transparent == 0);
 
         Shader::Type type;
@@ -2557,6 +2565,7 @@ struct Level : IGame {
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
             Core::setTarget(screen, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
+            Core::validateRenderState();
             setupBinding();
         }
 
@@ -2593,6 +2602,7 @@ struct Level : IGame {
 
         if (water && waterCache && waterCache->visible && screen) {
             Core::setTarget(NULL, NULL, RT_STORE_COLOR);
+            Core::validateRenderState();
             waterCache->blitTexture(screen);
         }
 
@@ -2638,11 +2648,23 @@ struct Level : IGame {
         m = Core::mProj * Core::mView;
 
         mat4 bias;
-        bias.identity();
-        bias.e03 = bias.e13 = bias.e23 = bias.e00 = bias.e11 = bias.e22 = 0.5f;
-    #if defined(_GAPI_D3D9) || defined(_GAPI_GXM)
-        bias.e11 = -bias.e11;
-    #endif
+
+        if (GAPI::getProjRange() == mat4::PROJ_ZERO_POS)
+            bias = mat4(
+                0.5f, 0.0f, 0.0f, 0.0f,
+                0.0f,-0.5f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.5f, 0.5f, 0.0f, 1.0f
+            );
+        else {
+            bias = mat4(
+                0.5f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.5f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.5f, 0.0f,
+                0.5f, 0.5f, 0.5f, 1.0f
+            );
+        }
+
         m = bias * m;
 
         Core::mLightProj = m;
@@ -2792,6 +2814,11 @@ struct Level : IGame {
         //Core::setCullMode(cmFront);
         if (colorShadow)
             Core::setClearColor(vec4(0.0f));
+
+        #ifdef _GAPI_D3D11 // TODO render pass
+            Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_CLEAR_COLOR | RT_STORE_COLOR | RT_STORE_DEPTH);
+            Core::validateRenderState();
+        #endif
 
         Core::eye = oldEye;
     }
@@ -3221,6 +3248,7 @@ struct Level : IGame {
             Core::setDepthWrite(false);
 
             Core::setTarget(NULL, NULL, RT_STORE_COLOR);
+            Core::validateRenderState();
             setShader(Core::passFilter, Shader::FILTER_ANAGLYPH, false, false);
             Core::eyeTex[0]->bind(sDiffuse);
             Core::eyeTex[1]->bind(sNormal);

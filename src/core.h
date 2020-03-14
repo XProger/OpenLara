@@ -165,6 +165,8 @@
     #define SHADOW_TEX_SIZE      512
 #elif defined(_OS_GCW0)
     #define SHADOW_TEX_SIZE      256
+#elif defined(_OS_PSV)
+    #define SHADOW_TEX_SIZE      1024
 #else
     #define SHADOW_TEX_SIZE      2048
 #endif

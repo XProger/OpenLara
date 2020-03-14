@@ -6,53 +6,38 @@
 
 #define SAFE_RELEASE(P) if(P){P->Release(); P = NULL;}
 
-#define PROFILE_MARKER(title)
-#define PROFILE_LABEL(id, name, label)
-#define PROFILE_TIMING(time)
+#if defined(_DEBUG) || defined(PROFILE)
+    #include <d3d9.h>
+
+    struct Marker {
+        Marker(const char *title) {
+            wchar_t ws[128];
+            swprintf(ws, sizeof(ws), L"%hs", title);
+            D3DPERF_BeginEvent(0xFFFFFFFF, ws);
+        }
+
+        ~Marker() {
+            D3DPERF_EndEvent();
+        }
+
+        static void setLabel(ID3D11DeviceChild *child, const char *label) {
+            // TODO: use Windows 10 SDK
+            //child->SetPrivateData(WKPDID_D3DDebugObjectName, strlen(label), label);
+        }
+    };
+
+    #define PROFILE_MARKER(title) Marker marker(title)
+    #define PROFILE_LABEL(id, child, label) Marker::setLabel(child, label)
+    #define PROFILE_TIMING(time)
+#else
+    #define PROFILE_MARKER(title)
+    #define PROFILE_LABEL(id, child, label)
+    #define PROFILE_TIMING(time)
+#endif
 
 extern ID3D11Device          *device;
 extern ID3D11DeviceContext   *deviceContext;
 extern IDXGISwapChain        *swapChain;
-
-#ifdef _DEBUG
-void D3DCHECK(HRESULT res) {
-    if (res == S_OK) return;
-    /*
-    LOG("! ");
-    switch (res) {
-        case D3DERR_WRONGTEXTUREFORMAT        : LOG("D3DERR_WRONGTEXTUREFORMAT");        break;
-        case D3DERR_UNSUPPORTEDCOLOROPERATION : LOG("D3DERR_UNSUPPORTEDCOLOROPERATION"); break;
-        case D3DERR_UNSUPPORTEDCOLORARG       : LOG("D3DERR_UNSUPPORTEDCOLORARG");       break;
-        case D3DERR_UNSUPPORTEDALPHAOPERATION : LOG("D3DERR_UNSUPPORTEDALPHAOPERATION"); break;
-        case D3DERR_UNSUPPORTEDALPHAARG       : LOG("D3DERR_UNSUPPORTEDALPHAARG");       break;
-        case D3DERR_TOOMANYOPERATIONS         : LOG("D3DERR_TOOMANYOPERATIONS");         break;
-        case D3DERR_CONFLICTINGTEXTUREFILTER  : LOG("D3DERR_CONFLICTINGTEXTUREFILTER");  break;
-        case D3DERR_UNSUPPORTEDFACTORVALUE    : LOG("D3DERR_UNSUPPORTEDFACTORVALUE");    break;
-        case D3DERR_CONFLICTINGRENDERSTATE    : LOG("D3DERR_CONFLICTINGRENDERSTATE");    break;
-        case D3DERR_UNSUPPORTEDTEXTUREFILTER  : LOG("D3DERR_UNSUPPORTEDTEXTUREFILTER");  break;
-        case D3DERR_CONFLICTINGTEXTUREPALETTE : LOG("D3DERR_CONFLICTINGTEXTUREPALETTE"); break;
-        case D3DERR_DRIVERINTERNALERROR       : LOG("D3DERR_DRIVERINTERNALERROR");       break;
-        case D3DERR_NOTFOUND                  : LOG("D3DERR_NOTFOUND");                  break;
-        case D3DERR_MOREDATA                  : LOG("D3DERR_MOREDATA");                  break;
-        case D3DERR_DEVICELOST                : LOG("D3DERR_DEVICELOST");                break;
-        case D3DERR_DEVICENOTRESET            : LOG("D3DERR_DEVICENOTRESET");            break;
-        case D3DERR_NOTAVAILABLE              : LOG("D3DERR_NOTAVAILABLE");              break;
-        case D3DERR_OUTOFVIDEOMEMORY          : LOG("D3DERR_OUTOFVIDEOMEMORY");          break;
-        case D3DERR_INVALIDDEVICE             : LOG("D3DERR_INVALIDDEVICE");             break;
-        case D3DERR_INVALIDCALL               : LOG("D3DERR_INVALIDCALL");               break;
-        case D3DERR_DRIVERINVALIDCALL         : LOG("D3DERR_DRIVERINVALIDCALL");         break;
-        case D3DERR_WASSTILLDRAWING           : LOG("D3DERR_WASSTILLDRAWING");           break;
-        default                               : LOG("D3DERR_UNKNOWN");                   break;
-    }
-    LOG("\n");
-    */
-    ASSERT(false);
-}
-#else
-    #define D3DCHECK(res) res
-#endif
-
-#define MAX_SAMPLERS 5
 
 namespace GAPI {
     using namespace Core;
@@ -75,7 +60,19 @@ namespace GAPI {
     ID3D11RasterizerState   *RS[cmMAX];    // [cullMode]
     ID3D11DepthStencilState *DS[2][2];     // [depthTest][depthWrite]
 
-    ID3D11SamplerState      *samplers[MAX_SAMPLERS];
+    enum {
+        smpDefault,
+        smpPoint,
+        smpPointWrap,
+        smpLinear,
+        smpLinearWrap,
+        smpCmp,
+        smpMAX
+    };
+
+    ID3D11SamplerState      *samplers[smpMAX];
+
+    ID3D11Texture2D         *stagingPixel;
 
 // Shader
     #include "shaders/d3d11/shaders.h"
@@ -182,7 +179,7 @@ namespace GAPI {
                         case 1  : SHADER ( filter_downsample, v );  SHADER ( filter_downsample, f ); break;
                         case 3  : SHADER ( filter_grayscale,  v );  SHADER ( filter_grayscale,  f ); break;
                         case 4  : SHADER ( filter_blur,       v );  SHADER ( filter_blur,       f ); break;
-                        case 5  : SHADER ( filter_blur,       v );  SHADER ( filter_blur,       f ); break; // TODO anaglyph
+                        case 5  : SHADER ( filter_anaglyph,   v );  SHADER ( filter_anaglyph,   f ); break; // TODO anaglyph
                         default : ASSERT(false);
                     }
                     break;
@@ -267,17 +264,22 @@ namespace GAPI {
 
 // Texture
     struct Texture {
-        ID3D11Texture2D          *tex2D;
-        ID3D11Texture3D          *tex3D;
+        union {
+            ID3D11Resource       *ID;
+            ID3D11Texture2D      *tex2D;
+            ID3D11Texture3D      *tex3D;
+        };
         ID3D11ShaderResourceView *SRV;
-        ID3D11RenderTargetView   *RTV;
+        ID3D11RenderTargetView   *RTV[6];
         ID3D11DepthStencilView   *DSV;
 
         int       width, height, depth, origWidth, origHeight, origDepth;
         TexFormat fmt;
         uint32    opt;
 
-        Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), tex3D(NULL), SRV(NULL), RTV(NULL), DSV(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {}
+        Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), tex3D(NULL), SRV(NULL), DSV(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {
+            memset(RTV, 0, sizeof(RTV));
+        }
 
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
@@ -378,8 +380,18 @@ namespace GAPI {
                         device->CreateDepthStencilView(tex2D, &descDSV, &DSV);
                         ASSERT(DSV);
                     } else {
-                        device->CreateRenderTargetView(tex2D, NULL, &RTV);
-                        ASSERT(RTV);
+                        D3D11_RENDER_TARGET_VIEW_DESC descRTV;
+                        memset(&descRTV, 0, sizeof(descRTV));
+                        descRTV.Format                   = desc.Format;
+                        descRTV.ViewDimension            = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+                        descRTV.Texture2DArray.ArraySize = 1;
+
+                        for (int i = 0; i < 6; i++) {
+                            descRTV.Texture2DArray.FirstArraySlice = i;
+                            device->CreateRenderTargetView(tex2D, &descRTV, &RTV[i]);
+                            ASSERT(RTV[i]);
+                            if (!isCube) break;
+                        }
                     }
                 }
 
@@ -394,7 +406,9 @@ namespace GAPI {
             SAFE_RELEASE(tex2D);
             SAFE_RELEASE(tex3D);
             SAFE_RELEASE(SRV);
-            SAFE_RELEASE(RTV);
+            for (int i = 0; i < 6; i++) {
+                SAFE_RELEASE(RTV[i]);
+            }
             SAFE_RELEASE(DSV);
         }
 
@@ -407,7 +421,7 @@ namespace GAPI {
             ASSERT(tex2D);
             ASSERT(opt & OPT_DYNAMIC);
             D3D11_MAPPED_SUBRESOURCE mapped;
-            D3DCHECK(deviceContext->Map(tex2D, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
+            deviceContext->Map(tex2D, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
             memcpy(mapped.pData, data, mapped.RowPitch * height);
             deviceContext->Unmap(tex2D, 0);
         }
@@ -429,6 +443,13 @@ namespace GAPI {
         void unbind(int sampler) {
             if (Core::active.textures[sampler]) {
                 Core::active.textures[sampler] = NULL;
+
+                ID3D11ShaderResourceView *none = NULL;
+
+                if (opt & OPT_VERTEX) {
+                    deviceContext->VSSetShaderResources(sampler, 1, &none);
+                }
+                deviceContext->PSSetShaderResources(sampler, 1, &none);
             }
         }
 
@@ -437,13 +458,15 @@ namespace GAPI {
 
 // Mesh
     struct Mesh {
-        ID3D11Buffer *IB, *VB;
+        ID3D11Buffer *ID[2];
 
         int  iCount;
         int  vCount;
         bool dynamic;
 
-        Mesh(bool dynamic) : IB(NULL), VB(NULL), dynamic(dynamic) {}
+        Mesh(bool dynamic) : dynamic(dynamic) {
+            ID[0] = ID[1] = NULL;
+        }
 
         void init(Index *indices, int iCount, ::Vertex *vertices, int vCount, int aCount) {
             this->iCount = iCount;
@@ -461,17 +484,17 @@ namespace GAPI {
             desc.BindFlags   = D3D11_BIND_INDEX_BUFFER;
             desc.ByteWidth   = iCount * sizeof(Index);
             initData.pSysMem = indices;
-            D3DCHECK(device->CreateBuffer(&desc, dynamic ? NULL : &initData, &IB));
+            device->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[0]);
 
             desc.BindFlags   = D3D11_BIND_VERTEX_BUFFER;
             desc.ByteWidth   = vCount * sizeof(Vertex);
             initData.pSysMem = vertices;
-            D3DCHECK(device->CreateBuffer(&desc, dynamic ? NULL : &initData, &VB));
+            device->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[1]);
         }
 
         void deinit() {
-            SAFE_RELEASE(IB);
-            SAFE_RELEASE(VB);
+            SAFE_RELEASE(ID[0]);
+            SAFE_RELEASE(ID[1]);
         }
 
         void update(Index *indices, int iCount, ::Vertex *vertices, int vCount) {
@@ -480,23 +503,23 @@ namespace GAPI {
             D3D11_MAPPED_SUBRESOURCE mapped;
          
             if (indices && iCount) {
-                deviceContext->Map(IB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+                deviceContext->Map(ID[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
                 memcpy(mapped.pData, indices, iCount * sizeof(indices[0]));
-                deviceContext->Unmap(IB, 0);
+                deviceContext->Unmap(ID[0], 0);
             }
 
             if (vertices && vCount) {
-                deviceContext->Map(VB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+                deviceContext->Map(ID[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
                 memcpy(mapped.pData, vertices, vCount * sizeof(vertices[0]));
-                deviceContext->Unmap(VB, 0);
+                deviceContext->Unmap(ID[1], 0);
             }
         }
 
         void bind(const MeshRange &range) const {
             UINT stride = sizeof(Vertex);
             UINT offset = 0;//range.vStart * stride;
-            deviceContext->IASetIndexBuffer(IB, sizeof(Index) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-            deviceContext->IASetVertexBuffers(0, 1, &VB, &stride, &offset);
+            deviceContext->IASetIndexBuffer(ID[0], sizeof(Index) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+            deviceContext->IASetVertexBuffers(0, 1, &ID[1], &stride, &offset);
         }
 
         void initNextRange(MeshRange &range, int &aIndex) const {
@@ -542,15 +565,19 @@ namespace GAPI {
         }
 
         if (cmp) {
-            desc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+            desc.Filter         = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
             desc.ComparisonFunc = D3D11_COMPARISON_LESS;
+            desc.BorderColor[0] =
+            desc.BorderColor[1] =
+            desc.BorderColor[2] =
+            desc.BorderColor[3] = 1.0f;
         } else {
             desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
         }
 
         desc.AddressU =
         desc.AddressV =
-        desc.AddressW = wrap ? D3D11_TEXTURE_ADDRESS_WRAP : D3D11_TEXTURE_ADDRESS_CLAMP;
+        desc.AddressW = cmp ? D3D11_TEXTURE_ADDRESS_BORDER : (wrap ? D3D11_TEXTURE_ADDRESS_WRAP : D3D11_TEXTURE_ADDRESS_CLAMP);
         desc.MinLOD   = 0;
         desc.MaxLOD   = D3D11_FLOAT32_MAX;
 
@@ -561,18 +588,12 @@ namespace GAPI {
 
     void initSamplers() {
         deinitSamplers();
-    /*
-        0 - smpDefault
-        1 - smpPoint
-        2 - smpPointWrap
-        3 - smpLinear
-        4 - smpCmp
-    */
-        samplers[0] = initSampler(true,  true,  false, false); // TODO settings dependent
-        samplers[1] = initSampler(false, false, false, false);
-        samplers[2] = initSampler(false, false, true,  false);
-        samplers[3] = initSampler(true,  false, false, false);
-        samplers[4] = initSampler(true,  false, false, true);
+        samplers[smpDefault]    = initSampler(true,  true,  false, false); // TODO settings dependent
+        samplers[smpPoint]      = initSampler(false, false, false, false);
+        samplers[smpPointWrap]  = initSampler(false, false, true,  false);
+        samplers[smpLinear]     = initSampler(true,  false, false, false);
+        samplers[smpLinearWrap] = initSampler(true,  false, true,  false);
+        samplers[smpCmp]        = initSampler(true,  false, false, true);
     }
 
     void init() {
@@ -646,6 +667,7 @@ namespace GAPI {
             memset(&desc, 0, sizeof(desc));
             desc.ScissorEnable         = TRUE;
             desc.FrontCounterClockwise = TRUE;
+            desc.DepthClipEnable       = TRUE;
             desc.FillMode = D3D11_FILL_SOLID;
             desc.CullMode = D3D11_CULL_NONE;
             device->CreateRasterizerState(&desc, &RS[cmNone]);
@@ -675,6 +697,20 @@ namespace GAPI {
     // init samplers
         memset(samplers, 0, sizeof(samplers));
         initSamplers();
+
+    // init staging texture for copyPixel
+        D3D11_TEXTURE2D_DESC desc;
+        memset(&desc, 0, sizeof(desc));
+        desc.Width            = 1;
+        desc.Height           = 1;
+        desc.MipLevels        = 1;
+        desc.ArraySize        = 1;
+        desc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.Usage            = D3D11_USAGE_STAGING;
+        desc.MiscFlags        = 0;
+        desc.CPUAccessFlags   = D3D11_CPU_ACCESS_READ;
+        device->CreateTexture2D(&desc, NULL, &stagingPixel);
     }
 
     void resetDevice() {
@@ -686,14 +722,15 @@ namespace GAPI {
             SAFE_RELEASE(rtCache.items[i].DSV);
         }
 
-        deinitSamplers();
-
         rtCache.count = 0;
     }
 
-
     void deinit() {
         resetDevice();
+
+        deinitSamplers();
+
+        SAFE_RELEASE(stagingPixel);
 
         for (int i = 0; i < COUNT(RS); i++) {
             SAFE_RELEASE(RS[i]);
@@ -704,7 +741,6 @@ namespace GAPI {
                 SAFE_RELEASE(DS[j][i]);
             }
         }
-
 
         for (int j = 0; j < COUNT(BS); j++) {
             for (int i = 0; i < COUNT(BS[0]); i++) {
@@ -732,8 +768,8 @@ namespace GAPI {
     bool beginFrame() {
         if (!defRTV) {
             ID3D11Texture2D *pBackBuffer = NULL;
-            D3DCHECK(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer));
-            D3DCHECK(device->CreateRenderTargetView(pBackBuffer, NULL, &defRTV));
+            swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+            device->CreateRenderTargetView(pBackBuffer, NULL, &defRTV);
             SAFE_RELEASE(pBackBuffer);
         }
 
@@ -750,14 +786,14 @@ namespace GAPI {
             desc.BindFlags        = D3D11_BIND_DEPTH_STENCIL;
 
             ID3D11Texture2D *dsTex;
-            D3DCHECK(device->CreateTexture2D(&desc, NULL, &dsTex));
+            device->CreateTexture2D(&desc, NULL, &dsTex);
 
             D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
-	        memset(&descDSV, 0, sizeof(descDSV));
+            memset(&descDSV, 0, sizeof(descDSV));
             descDSV.Format             = desc.Format;
             descDSV.ViewDimension      = D3D11_DSV_DIMENSION_TEXTURE2D;
             descDSV.Texture2D.MipSlice = 0;
-            D3DCHECK(device->CreateDepthStencilView(dsTex, &descDSV, &defDSV));
+            device->CreateDepthStencilView(dsTex, &descDSV, &defDSV);
 
             SAFE_RELEASE(dsTex);
         }
@@ -777,8 +813,8 @@ namespace GAPI {
         depthTest = depthWrite = dirtyDepthState = true;
         colorWrite = dirtyBlendState = true;
 
-        deviceContext->VSGetSamplers(0, COUNT(samplers), samplers);
-        deviceContext->PSGetSamplers(0, COUNT(samplers), samplers);
+        deviceContext->VSSetSamplers(0, COUNT(samplers), samplers);
+        deviceContext->PSSetSamplers(0, COUNT(samplers), samplers);
     }
 
     void cacheRenderTarget(ID3D11RenderTargetView **RTV, ID3D11DepthStencilView **DSV, int width, int height) {
@@ -856,8 +892,8 @@ namespace GAPI {
         if (target) {
             ASSERT(target->opt & OPT_TARGET);
 
-            if (target->RTV) {
-                RTV = target->RTV;
+            if (target->RTV[face]) {
+                RTV = target->RTV[face];
                 cacheRenderTarget(NULL, &DSV, target->width, target->height);
             } else if (target->DSV) {
                 DSV = target->DSV;
@@ -923,10 +959,10 @@ namespace GAPI {
 
     void setViewport(const short4 &v) {
         D3D11_VIEWPORT viewport;
-        viewport.TopLeftX = (FLOAT)x;
-        viewport.TopLeftY = (FLOAT)y;
-        viewport.Width    = (FLOAT)width;
-        viewport.Height   = (FLOAT)height;
+        viewport.TopLeftX = (FLOAT)v.x;
+        viewport.TopLeftY = (FLOAT)v.y;
+        viewport.Width    = (FLOAT)v.z;
+        viewport.Height   = (FLOAT)v.w;
         viewport.MinDepth = 0.0f;
         viewport.MaxDepth = 1.0f;
 
@@ -1008,27 +1044,24 @@ namespace GAPI {
     }
 
     vec4 copyPixel(int x, int y) {
-        /* TODO
-        GAPI::Texture *t = Core::active.target;
-        ASSERT(t && t->tex2D);
+        D3D11_BOX srcBox;
+        srcBox.left   = x;
+        srcBox.top    = y;
+        srcBox.right  = x + 1;
+        srcBox.bottom = y + 1;
+        srcBox.front  = 0;
+        srcBox.back   = 1;
 
-        LPDIRECT3DSURFACE9 surface, texSurface;
-        D3DCHECK(t->tex2D->GetSurfaceLevel(0, &texSurface));
-        D3DCHECK(device->CreateOffscreenPlainSurface(t->width, t->height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &surface, NULL));
-        D3DCHECK(device->GetRenderTargetData(texSurface, surface));
+        ASSERT(Core::active.target);
+        deviceContext->CopySubresourceRegion(stagingPixel, 0, 0, 0, 0, Core::active.target->tex2D, 0, &srcBox);
 
-        RECT r = { x, y, x + 1, y + 1 };
-        D3DLOCKED_RECT rect;
-        surface->LockRect(&rect, &r, D3DLOCK_READONLY);
-        ubyte4 c = *((ubyte4*)rect.pBits);
-        surface->UnlockRect();
+        D3D11_MAPPED_SUBRESOURCE res;
+        deviceContext->Map(stagingPixel, 0, D3D11_MAP_READ, 0, &res);
+        ASSERT(res.pData);
+        Color32 c = *((Color32*)res.pData);
+        deviceContext->Unmap(stagingPixel, 0);
 
-        texSurface->Release();
-        surface->Release();
-
-        return vec4(float(c.z), float(c.y), float(c.x), float(c.w)) * (1.0f / 255.0f);
-        */
-        return vec4(0.0f);
+        return vec4(float(c.r), float(c.g), float(c.b), float(c.a)) * (1.0f / 255.0f);
     }
 }
 

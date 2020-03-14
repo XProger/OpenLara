@@ -19,7 +19,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	float4 rBasisRot = uBasis[0];
 	float4 rBasisPos = uBasis[1];
 
-	Out.texCoord = In.aTexCoord * (1.0 / 32767.0);
+	Out.texCoord = In.aTexCoord * INV_SHORT_HALF;
 
 	Out.coord = mulBasis(rBasisRot, rBasisPos.xyz + In.aCoord.xyz, float3(In.aTexCoord.z, In.aTexCoord.w, 0.0));
 
@@ -57,7 +57,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.diffuse *= uMaterial.w;
 	Out.diffuse *= In.aLight.a;
 
-	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
+	Out.pos = mul(uViewProj, float4(Out.coord, 1.0));
 
 	return Out;
 }
@@ -76,10 +76,6 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	float3 normal   = normalize(In.normal.xyz);
 
 	float3 light = In.light.xyz;
-
-	if (OPT_CAUSTICS) {
-		light += calcCaustics(In.coord, normal);
-	}
 
 	color.xyz *= light;
 

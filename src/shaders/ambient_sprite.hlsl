@@ -14,7 +14,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	float4 rBasisRot = uBasis[0];
 	float4 rBasisPos = uBasis[1];
 
-	Out.texCoord = In.aTexCoord * (1.0 / 32767.0);
+	Out.texCoord = In.aTexCoord * INV_SHORT_HALF;
 
 	float3 coord;
 	
@@ -27,7 +27,7 @@ VS_OUTPUT main(VS_INPUT In) {
 	
 	Out.diffuse *= In.aLight.a;
 
-	Out.pos = mul(uViewProj, float4(coord, rBasisPos.w));
+	Out.pos = mul(uViewProj, float4(coord, 1.0));
 	
 	return Out;
 }

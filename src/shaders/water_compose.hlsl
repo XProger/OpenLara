@@ -15,14 +15,15 @@ struct VS_OUTPUT {
 VS_OUTPUT main(VS_INPUT In) {
 	VS_OUTPUT Out;
 
-	float3 coord = In.aCoord.xyz * (1.0 / 32767.0);
+	float3 coord = In.aCoord.xyz * INV_SHORT_HALF;
 
 	float4 uv = float4(coord.x, coord.y, coord.x, -coord.y) * 0.5 + 0.5;
 	Out.maskCoord = uv.xy * uRoomSize.zw;
 	Out.texCoord  = uv.zw * uTexParam.zw;
-	#ifdef _GAPI_D3D9
-		Out.texCoord += 0.5 * uTexParam.xy;
-	#endif
+
+#ifdef _GAPI_D3D9
+	Out.texCoord += 0.5 * uTexParam.xy;
+#endif
 
 	coord           = float3(coord.x, 0.0, coord.y) * uPosScale[1].xyz + uPosScale[0].xyz;
 
@@ -64,7 +65,7 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 
 	half fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
 
-	half  mask  = SAMPLE_2D_POINT(sMask, In.maskCoord).a;
+	half  mask  = SAMPLE_2D_POINT(sMask, In.maskCoord).r;
 	half4 color = half4(lerp(refr, refl, fresnel), mask);
 	color.xyz += spec * 1.5;
 
