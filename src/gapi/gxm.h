@@ -507,7 +507,7 @@ namespace GAPI {
                 case passShadow : 
                     switch (type) {
                         case 3  : 
-						case 4  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
+                        case 4  : vSrc = SHADER ( shadow_entity, v );  fSrc = SHADER ( shadow_entity, f ); break;
                         default : ASSERT(false);
                     }
                     break;
@@ -540,12 +540,12 @@ namespace GAPI {
                     }
                     break;
                 case passGUI    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
-				case passSky    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
+                case passSky    : vSrc = SHADER ( gui,   v );  fSrc = SHADER ( gui,   f ); break;
                 case PASS_CLEAR : vSrc = SHADER ( clear, v );  fSrc = SHADER ( clear, f ); break;
                 default         : ASSERT(false); LOG("! wrong pass id\n"); return;
             }
 
-			LOG("  %s", vSrc != NULL ? "true" : "false");
+            LOG("  %s", vSrc != NULL ? "true" : "false");
 
             #undef SHADER_A
             #undef SHADER_U
@@ -603,7 +603,7 @@ namespace GAPI {
 
             colorMask = blendMode = -1;
 
-			LOG("done\n");
+            LOG("done\n");
         }
 
         void deinit() {

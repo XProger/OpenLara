@@ -206,8 +206,8 @@ namespace Debug {
             vec4 p = Core::mViewProj * vec4(pos, 1);
             if (p.w > 0) {
                 p.xyz() = p.xyz() * (1.0f / p.w);
-                p.y = -p.y;	
-                p.xyz() = (p.xyz() * 0.5f + vec3(0.5f)) * vec3(float(Core::width), float(Core::height), 1.0f);	
+                p.y = -p.y;
+                p.xyz() = (p.xyz() * 0.5f + vec3(0.5f)) * vec3(float(Core::width), float(Core::height), 1.0f);
                 text(vec2(p.x, p.y), color, str);
             }
         }

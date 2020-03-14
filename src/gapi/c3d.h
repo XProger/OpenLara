@@ -137,7 +137,7 @@ namespace GAPI {
         bool  rebind;
 
         void init(Pass pass, int type, int *def, int defCount) {
-	        shaderProgramInit(&program);
+            shaderProgramInit(&program);
 
             DVLB_s* src = NULL;
 

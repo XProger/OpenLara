@@ -59,8 +59,8 @@ namespace NAPI {
     void init() {
         sock = INVALID_SOCKET;
 
-	    WSAData wData;
-	    WSAStartup(0x0101, &wData);
+        WSAData wData;
+        WSAStartup(0x0101, &wData);
     }
 
     void deinit() {

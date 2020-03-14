@@ -1063,15 +1063,15 @@ struct Basis {
         w   = 1.0f;
     }
 
-	Basis operator * (const Basis &basis) const {
+    Basis operator * (const Basis &basis) const {
         return Basis(rot * basis.rot, pos + rot * basis.pos);
     }
 
-	vec3 operator * (const vec3 &v) const {
+    vec3 operator * (const vec3 &v) const {
         return rot * v + pos;
     }
 
-	Basis inverse() const {
+    Basis inverse() const {
         quat q = rot.conjugate();
         return Basis(q, -(q * pos));
     }
