@@ -523,6 +523,7 @@ namespace TR {
             case 320412  : // PC JAP
             case 334874  :
             case 316138  :
+            case 316518  : // PC G
             case 316460  : return LVL_TR1_TITLE;
             // GYM
             case 1234800 : // PSX JAP
@@ -530,6 +531,7 @@ namespace TR {
             case 343854  : // SAT
             case 3377974 : // PC JAP
             case 3236806 :
+            case 3282970 : // PC G
             case 3237128 : return LVL_TR1_GYM;
             // LEVEL1
             case 1667568 : // PSX JAP
@@ -598,6 +600,7 @@ namespace TR {
             case 596416  : // SAT
             case 3603912 : // PC JAP
             case 3388774 :
+            case 3395618 : // PC G
             case 3389096 : return LVL_TR1_7B;
             // CUT2
             case 542960  : version = VER_TR1_PSX;
@@ -623,6 +626,7 @@ namespace TR {
             case 536950  : // SAT
             case 3072066 : // PC JAP
             case 3105128 :
+            case 3025380 : // PC G
             case 3105450 : return LVL_TR1_8C;
             // LEVEL10A
             case 1680146 : // PSX JAP
@@ -630,6 +634,7 @@ namespace TR {
             case 569856  : // SAT
             case 3270372 : // PC JAP
             case 3223816 :
+            case 3154346 : // PC G
             case 3224138 : return LVL_TR1_10A;
             // CUT3
             case 636660  : version = VER_TR1_PSX;
@@ -652,6 +657,7 @@ namespace TR {
             case 418170  : // SAT
             case 3533814 : // PC JAP
             case 3531702 :
+            case 3496692 : // PC G
             case 3532024 : return LVL_TR1_10C;
             // EGYPT
             case 3278614 : version = VER_TR1_PSX;
