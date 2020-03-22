@@ -65,50 +65,64 @@
 #elif defined(__SDL2__) 
     #include <SDL2/SDL.h>
 
-    #if defined(_GAPI_GLES)
-        #include <SDL2/SDL_opengles2.h>
-        #include <SDL2/SDL_opengles2_gl2ext.h>
+    #if defined(_GAPI_GLES) // Default in SDL2 is GLES3. If we want GLES2, pass -D_GAPI_GLES2.
+	#if defined (_GAPI_GLES2) // We want GLES2 on SDL2
+	    #include <SDL2/SDL_opengles2.h>
+	    #include <SDL2/SDL_opengles2_gl2ext.h>
 
-        #define GL_CLAMP_TO_BORDER          0x812D
-        #define GL_TEXTURE_BORDER_COLOR     0x1004
+	    #define GL_CLAMP_TO_BORDER          0x812D
+	    #define GL_TEXTURE_BORDER_COLOR     0x1004
 
-        #define GL_TEXTURE_COMPARE_MODE     0x884C
-        #define GL_TEXTURE_COMPARE_FUNC     0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
+	    #define GL_TEXTURE_COMPARE_MODE     0x884C
+	    #define GL_TEXTURE_COMPARE_FUNC     0x884D
+	    #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
-        #undef  GL_RG
-        #undef  GL_RG32F
-        #undef  GL_RG16F
-        #undef  GL_RGBA32F
-        #undef  GL_RGBA16F
-        #undef  GL_HALF_FLOAT
+	    #undef  GL_RG
+	    #undef  GL_RG32F
+	    #undef  GL_RG16F
+	    #undef  GL_RGBA32F
+	    #undef  GL_RGBA16F
+	    #undef  GL_HALF_FLOAT
 
-        #define GL_RG           GL_RGBA
-        #define GL_RGBA32F      GL_RGBA
-        #define GL_RGBA16F      GL_RGBA
-        #define GL_RG32F        GL_RGBA
-        #define GL_RG16F        GL_RGBA
-        #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
+	    #define GL_RG           GL_RGBA
+	    #define GL_RGBA32F      GL_RGBA
+	    #define GL_RGBA16F      GL_RGBA
+	    #define GL_RG32F        GL_RGBA
+	    #define GL_RG16F        GL_RGBA
+	    #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
-        #define GL_TEXTURE_WRAP_R       0
-        #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
-        #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
-	//We need this on GLES2, too.
-        #define GL_TEXTURE_MAX_LEVEL     GL_TEXTURE_MAX_LEVEL_APPLE
+	    #define GL_TEXTURE_WRAP_R       0
+	    #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
+	    #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
+	    //We need this on GLES2, too.
+	    #define GL_TEXTURE_MAX_LEVEL     GL_TEXTURE_MAX_LEVEL_APPLE
 
-        #define glTexImage3D(...) 0
-        #ifndef GL_TEXTURE_3D // WUUUUUT!?
-            #define GL_TEXTURE_3D GL_TEXTURE_3D_OES
-        #endif
+	    #define glTexImage3D(...) 0
+	    #ifndef GL_TEXTURE_3D // WUUUUUT!?
+		#define GL_TEXTURE_3D GL_TEXTURE_3D_OES
+	    #endif
 
-        #define glGenVertexArrays(...)
-        #define glDeleteVertexArrays(...)
-        #define glBindVertexArray(...)
+	    #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
+        #else // We want GLES3 on SDL2
+	    #include <GLES3/gl3.h>
+	    #include <GLES3/gl3ext.h>
+	    #include <GLES2/gl2ext.h>
+        #endif //GAPI_GLES2
 
-        #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-        #define glGetProgramBinary(...)
-        #define glProgramBinary(...)
-    #else
+	// These are needed for both GLES2 and GLES3 on SDL2
+	#define glGenVertexArrays(...)
+	#define glDeleteVertexArrays(...)
+	#define glBindVertexArray(...)
+	#define glGetProgramBinary(...)
+	#define glProgramBinary(...)
+
+	#define PFNGLGENVERTEXARRAYSPROC    PFNGLGENVERTEXARRAYSOESPROC
+	#define PFNGLDELETEVERTEXARRAYSPROC PFNGLDELETEVERTEXARRAYSOESPROC
+	#define PFNGLBINDVERTEXARRAYPROC    PFNGLBINDVERTEXARRAYOESPROC
+	#define PFNGLGETPROGRAMBINARYPROC   PFNGLGETPROGRAMBINARYOESPROC
+	#define PFNGLPROGRAMBINARYPROC      PFNGLPROGRAMBINARYOESPROC
+
+    #else // We want OpenGL on SDL2, not GLES
         #include <SDL2/SDL_opengl.h>
         #include <SDL2/SDL_opengl_glext.h>
     #endif
@@ -292,13 +306,15 @@
     #define glProgramBinary(...)
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL))
 
     void* GetProc(const char *name) {
         #ifdef _OS_WIN
             return (void*)wglGetProcAddress(name);
         #elif _OS_LINUX
             return (void*)glXGetProcAddress((GLubyte*)name);
+        #elif __SDL2__
+            return (void*)SDL_GL_GetProcAddress(name);
         #else // EGL
             return (void*)eglGetProcAddress(name);
         #endif
@@ -322,7 +338,7 @@
         PFNGLXSWAPINTERVALSGIPROC glXSwapIntervalSGI;
     #endif
 
-    #if defined(_OS_WIN) || defined(_OS_LINUX)
+    #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(__SDL2__) && !defined(_GAPI_GLES2)
         PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
         #ifdef _OS_WIN
             PFNGLTEXIMAGE3DPROC             glTexImage3D;
@@ -612,7 +628,7 @@ namespace GAPI {
                 strcat(defines, "#define VERT_CAUSTICS\n");
             #endif
 
-            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || (defined (__SDL2__) && defined(_GAPI_GLES))
+            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || defined (__SDL2__) && defined(_GAPI_GLES)
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
                 strcat(defines, "#define OPT_VLIGHTVEC\n");
                 strcat(defines, "#define OPT_SHADOW_ONETAP\n");
@@ -1114,7 +1130,11 @@ namespace GAPI {
             //void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0)
+        #if defined(__SDL2__) && defined(_GAPI_GLES2)
+                GetProcOGL(glDiscardFramebufferEXT);
+        #endif
+
+        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || defined(__SDL2__) && !defined(_GAPI_GLES) 
             #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
@@ -1125,7 +1145,7 @@ namespace GAPI {
                 GetProcOGL(glXSwapIntervalSGI);
             #endif
 
-            #if defined(_OS_WIN) || defined(_OS_LINUX)
+            #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL))
                 GetProcOGL(glGenerateMipmap);
                 #ifdef _OS_WIN
                     GetProcOGL(glTexImage3D);
@@ -1485,11 +1505,14 @@ namespace GAPI {
             if (color) discard[count++] = Core::active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
             if (depth) discard[count++] = Core::active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
             if (count) {
-                #ifdef _OS_ANDROID
+                #if defined(_OS_ANDROID) || defined(__SDL2__) && !defined(_GAPI_GLES2)
+                   /* glInvalidateBuffer() is the GLES3 version of glDiscardFramebufferEXT(), also
+                      available on Android. Not available in any GLES2 implementation, this is GLES3 stuff.*/
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
-                #elif !defined(__SDL2__) && !defined(_OS_WEB)
-                    /* SDL2 typically uses MESA which does not have glDiscardFramebufferEXT() implemented
-                       for some drivers, like Gallium VC4. */ 
+                #elif !defined(_OS_WEB) || defined(__SDL2__) && defined(_GAPI_GLES2)
+                    /* glDiscardFramebufferEXT() is available even in GLES2 MESA implementations,
+                       but we have to get the extension function pointer address to use it.
+                       Not available in GLES3, which is SDL2 default GLES version. */
                     glDiscardFramebufferEXT(GL_FRAMEBUFFER, count, discard);
                 #endif
             }
