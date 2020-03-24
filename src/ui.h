@@ -106,12 +106,12 @@ namespace UI {
         UI::advGlyphsStart = level.spriteTexturesCount;
 
     // init new sprites array with additional sprites
-        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT];
+        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT];
 
     // copy original sprites
         memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
     // append russian glyphs
-        TR::TextureInfo *ruSprites = newSprites + level.spriteTexturesCount;
+        TR::TextureInfo *glyphSprite = newSprites + level.spriteTexturesCount;
         for (int i = 0; i < RU_GLYPH_COUNT; i++) {
             int idx = 110 + i; // mapped index
             int w = char_width[idx];
@@ -123,20 +123,22 @@ namespace UI {
             if (c == 'Ö' || c == 'Ù' || c == 'ö' || c == 'ù') { o = 1; h++; }
             if (c == 'ô') { o = 2; h += 2; }
 
-            ruSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
+            *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
     // append japanese glyphs
-        TR::TextureInfo *jaSprites = newSprites + level.spriteTexturesCount + RU_GLYPH_COUNT;
         for (int i = 0; i < JA_GLYPH_COUNT; i++) {
-            jaSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+            *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
         }
     // append greek glyphs
-        TR::TextureInfo *grSprites = newSprites + level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT;
         for (int i = 0; i < GR_GLYPH_COUNT; i++) {
-            grSprites[i] = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, GR_GLYPH_WIDTH[i], 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, GR_GLYPH_WIDTH[i], 16);
+            *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16 + GR_GLYPH_BASE - 1, GR_GLYPH_WIDTH[i], 0 + GR_GLYPH_BASE - 1, (i % 16) * 16, ((i % 256) / 16) * 16, GR_GLYPH_WIDTH[i], 16);
+        }
+    // append chinese glyphs
+        for (int i = 0; i < CN_GLYPH_COUNT; i++) {
+            *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
         }
 
-        level.spriteTexturesCount += RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT;
+        level.spriteTexturesCount += RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT;
 
         delete[] level.spriteTextures;
         TR::gSpriteTextures      = level.spriteTextures = newSprites;
@@ -145,7 +147,7 @@ namespace UI {
 
     bool isWideCharStart(char c) {
         int lang = Core::settings.audio.language + STR_LANG_EN;
-        if (lang == STR_LANG_JA || lang == STR_LANG_GR)
+        if (lang == STR_LANG_JA || lang == STR_LANG_GR || lang == STR_LANG_CN)
             return c == '\x11';
         return false;
     }
@@ -170,16 +172,19 @@ namespace UI {
             ASSERT(glyph < GR_GLYPH_COUNT);
             return GR_GLYPH_WIDTH[glyph];
         }
+        if (lang == STR_LANG_CN) {
+            ASSERT(glyph < CN_GLYPH_COUNT);
+            return 16;
+        }
         return 1;
     }
 
     int getWideCharGlyphIndex(uint16 glyph) {
         int lang = Core::settings.audio.language + STR_LANG_EN;
         glyph += UI::advGlyphsStart + RU_GLYPH_COUNT;
-        if (lang == STR_LANG_JA)
-            return glyph;
-        if (lang == STR_LANG_GR)
-            return glyph + JA_GLYPH_COUNT;
+        if (lang == STR_LANG_JA) return glyph; glyph += JA_GLYPH_COUNT;
+        if (lang == STR_LANG_GR) return glyph; glyph += GR_GLYPH_COUNT;
+        if (lang == STR_LANG_CN) return glyph; glyph += CN_GLYPH_COUNT;
         ASSERT(false);
         return glyph;
     }

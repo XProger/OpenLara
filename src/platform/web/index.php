@@ -138,6 +138,10 @@
 						id = 9;
 					} else if (lang == "fi") {
                         id = 10;
+                    } else if (lang == "cs") {
+                        id = 11;
+                    } else if (lang == "zh") {
+                        id = 12;
                     }
 					Module.ccall('set_def_lang', 'null', ['number'], [id]);
 				}

@@ -37,6 +37,7 @@ enum StringID {
     , STR_LANG_GR
     , STR_LANG_FI
     , STR_LANG_CZ
+    , STR_LANG_CN
     , STR_APPLY
     , STR_GAMEPAD_1
     , STR_GAMEPAD_2
@@ -263,9 +264,10 @@ enum StringID {
     , "\x11\x02\x70\x01\x97\x01\xD6\xFF\xFF" \
     , "\x11\x01\x22\x01\x0F\x01\x0F\x01\x0E\x01\x06\x01\x04\x01\x0C\x01\x0B\xFF\xFF" \
     , "Suomi"         \
-    , "{Cesky"
+    , "{Cesky"        \
+    , "\x11\x02\x8A\x02\x6C\x01\x54\x03\x02\xFF\xFF"
 
-#define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ"
+#define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ", "_CN"
 
 #define STR_KEYS \
       "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT" \
@@ -311,6 +313,7 @@ const char *helpText =
 #include "lang/gr.h"
 #include "lang/fi.h"
 #include "lang/cz.h"
+#include "lang/cn.h"
 
 char **STR = NULL;
 
@@ -327,6 +330,7 @@ void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_GR) == STR_MAX);
     ASSERT(COUNT(STR_FI) == STR_MAX);
     ASSERT(COUNT(STR_CZ) == STR_MAX);
+    ASSERT(COUNT(STR_CN) == STR_MAX);
 
     lang += STR_LANG_EN;
 
@@ -342,6 +346,7 @@ void ensureLanguage(int lang) {
         case STR_LANG_GR : STR = (char**)STR_GR; break;
         case STR_LANG_FI : STR = (char**)STR_FI; break;
         case STR_LANG_CZ : STR = (char**)STR_CZ; break;
+        case STR_LANG_CN : STR = (char**)STR_CN; break;
         default          : STR = (char**)STR_EN; break;
     }
 }

@@ -182,12 +182,14 @@
     <ClInclude Include="..\..\gltf.h" />
     <ClInclude Include="..\..\json.h" />
     <ClInclude Include="..\..\lang.h" />
+    <ClInclude Include="..\..\lang\cn.h" />
     <ClInclude Include="..\..\lang\cz.h" />
     <ClInclude Include="..\..\lang\de.h" />
     <ClInclude Include="..\..\lang\en.h" />
     <ClInclude Include="..\..\lang\es.h" />
     <ClInclude Include="..\..\lang\fi.h" />
     <ClInclude Include="..\..\lang\fr.h" />
+    <ClInclude Include="..\..\lang\glyph_cn.h" />
     <ClInclude Include="..\..\lang\glyph_gr.h" />
     <ClInclude Include="..\..\lang\glyph_ja.h" />
     <ClInclude Include="..\..\lang\glyph_ru.h" />

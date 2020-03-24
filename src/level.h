@@ -1274,15 +1274,23 @@ struct Level : IGame {
     uint8 *glyphsRU;
     uint8 *glyphsJA;
     uint8 *glyphsGR;
+    uint8 *glyphsCN;
 
     static int getAdvGlyphPage(int index) {
         index -= UI::advGlyphsStart;
         if (index >= RU_GLYPH_COUNT) {
             index -= RU_GLYPH_COUNT;
-            if (index >= JA_GLYPH_COUNT)
-                return 3; // GR
-            else
+            if (index >= JA_GLYPH_COUNT) {
+                index -= JA_GLYPH_COUNT;
+                if (index >= GR_GLYPH_COUNT) {
+                    index -= GR_GLYPH_COUNT;
+                    return 4 + index / 256; // CN
+                } else {
+                    return 3; // GR
+                }
+            } else {
                 return 1 + index / 256; // JA
+            }
         }
         return 0; // RU
     }
@@ -1351,10 +1359,15 @@ struct Level : IGame {
                         Color32 *glyphsData = NULL;
 
                         switch (page) {
-                            case 0 : glyphsData = (Color32*)owner->glyphsRU; break;
-                            case 1 :
-                            case 2 : glyphsData = (Color32*)owner->glyphsJA + (page - 1) * 256 * 256; break;
-                            case 3 : glyphsData = (Color32*)owner->glyphsGR; break;
+                            case 0  : glyphsData = (Color32*)owner->glyphsRU; break;
+                            case 1  :
+                            case 2  : glyphsData = (Color32*)owner->glyphsJA + (page - 1) * 256 * 256; break;
+                            case 3  : glyphsData = (Color32*)owner->glyphsGR; break;
+                            case 4  :
+                            case 5  :
+                            case 6  :
+                            case 7  : glyphsData = (Color32*)owner->glyphsCN + (page - 4) * 256 * 256; break;
+                            default : ASSERT(false);
                         }
 
                         level->fillObjectTexture32(owner->tileData, glyphsData, uv, tile.tex);
@@ -1560,6 +1573,12 @@ struct Level : IGame {
             glyphsGR = Texture::LoadBMP(stream, glyphsW, glyphsH);
         }
 
+        {
+            uint32 glyphsW, glyphsH;
+            Stream stream(NULL, GLYPH_CN, size_GLYPH_CN);
+            glyphsCN = Texture::LoadBMP(stream, glyphsW, glyphsH);
+        }
+
     // repack texture tiles
         int maxTiles = level.objectTexturesCount + level.spriteTexturesCount + CTEX_MAX;
         Atlas *rAtlas = new Atlas(maxTiles, short4(4, 4, 4, 4), this, fillCallback);
@@ -1639,9 +1658,12 @@ struct Level : IGame {
         delete[] glyphsRU;
         delete[] glyphsJA;
         delete[] glyphsGR;
+        delete[] glyphsCN;
+
         glyphsRU = NULL;
         glyphsJA = NULL;
         glyphsGR = NULL;
+        glyphsCN = NULL;
 
         atlasRooms->setFilterQuality(Core::settings.detail.filter);
         atlasObjects->setFilterQuality(Core::settings.detail.filter);

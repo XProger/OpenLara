@@ -573,6 +573,7 @@ int checkLanguage() {
         case LANG_GREEK      : str = STR_LANG_GR; break;
         case LANG_FINNISH    : str = STR_LANG_FI; break;
         case LANG_CZECH      : str = STR_LANG_CZ; break;
+        case LANG_CHINESE    : str = STR_LANG_CN; break;
     }
     return str - STR_LANG_EN;
 }
