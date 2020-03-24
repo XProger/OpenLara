@@ -584,7 +584,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_ACTIVATE :
             if (XInputEnable)
                 XInputEnable(wParam != WA_INACTIVE);
-            Input::reset();
+            //Input::reset();
             break;
         case WM_SIZE:
             Core::width  = LOWORD(lParam);
@@ -812,6 +812,8 @@ void vrUpdate() {
 
     vr::VRCompositor()->WaitGetPoses(tPose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
+    static bool forceUpdatePose = false;
+
     for (int id = 0; id < vr::k_unMaxTrackedDeviceCount; id++) {
         vr::TrackedDevicePose_t &pose = tPose[id];
 
@@ -825,8 +827,9 @@ void vrUpdate() {
                 mat4 pR = convToMat4(hmd->GetProjectionMatrix(vr::Eye_Right, 8.0f, 45.0f * 1024.0f));
 
                 mat4 head = convToMat4(pose.mDeviceToAbsoluteTracking);
-                if (Input::hmd.zero.x == INF) {
+                if (Input::hmd.zero.x == INF || forceUpdatePose) {
                     Input::hmd.zero = head.getPos();
+                    forceUpdatePose = false;
                 }
                 head.setPos(head.getPos() - Input::hmd.zero);
 
@@ -850,32 +853,41 @@ void vrUpdate() {
                  //   continue;
                 }
 
-                Input::setJoyDown(0, jkLeft,  IS_DOWN(vr::k_EButton_DPad_Left));
-                Input::setJoyDown(0, jkUp,    IS_DOWN(vr::k_EButton_DPad_Up));
-                Input::setJoyDown(0, jkRight, IS_DOWN(vr::k_EButton_DPad_Right));
-                Input::setJoyDown(0, jkDown,  IS_DOWN(vr::k_EButton_DPad_Down));
-
-                if (IS_DOWN(vr::k_EButton_Axis0)) {
-                     Input::setJoyPos(0, jkL, vec2(state.rAxis[0].x, -state.rAxis[0].y));
+                if (IS_DOWN(vr::k_EButton_SteamVR_Touchpad)) {
+                    forceUpdatePose = true;
                 }
 
-                Input::setJoyDown(0, jkA, IS_DOWN(vr::k_EButton_Axis1) ? (state.rAxis[1].x > 0.5) : false);
-                Input::setJoyDown(0, jkY, IS_DOWN(vr::k_EButton_Grip));
-                Input::setJoyDown(0, jkX, IS_DOWN(vr::k_EButton_ApplicationMenu));
-
-                // TODO
+                int joyIndex;
                 switch (hmd->GetControllerRoleForTrackedDeviceIndex(id)) {
-                    case vr::TrackedControllerRole_LeftHand :
-                        // TODO
-                        break;
-                    case vr::TrackedControllerRole_RightHand :
-                        // TODO
-                        break;
-                    default : ;
+                    case vr::TrackedControllerRole_RightHand : joyIndex =  0; break;
+                    case vr::TrackedControllerRole_LeftHand  : joyIndex =  1; break;
+                    default                                  : joyIndex = -1; break;
                 }
-                break;
+
+                if (joyIndex == -1) {
+                    break;
+                }
+
+                Input::setJoyPos(joyIndex, jkL, vec2(state.rAxis[0].x, -state.rAxis[0].y));
+                Input::setJoyDown(joyIndex, jkA, IS_DOWN(vr::k_EButton_Axis1) ? (state.rAxis[1].x > 0.25) : false);
+                Input::setJoyDown(joyIndex, jkY, IS_DOWN(vr::k_EButton_Grip));
+                Input::setJoyDown(joyIndex, jkX, IS_DOWN(vr::k_EButton_ApplicationMenu));
+
+                mat4 m = convToMat4(pose.mDeviceToAbsoluteTracking);
+                m.setPos((m.getPos() - Input::hmd.zero) * ONE_METER);
+                
+                mat4 scaleBasis(
+                    1,  0,  0, 0,
+                    0, -1,  0, 0,
+                    0,  0, -1, 0,
+                    0,  0,  0, 1);
+
+                m = scaleBasis * m * scaleBasis.inverse();
+                Input::hmd.controllers[joyIndex] = m;
 
                 #undef IS_DOWN
+
+                break;
             }
         }
     }

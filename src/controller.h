@@ -1432,7 +1432,10 @@ struct Controller {
             return;
         animation.getJoints(getMatrix(), -1, true, joints);
         jointsFrame = Core::stats.frame;
+        updateIK();
     }
+
+    virtual void updateIK() {}
 
     Basis& getJoint(int index) {
         updateJoints();

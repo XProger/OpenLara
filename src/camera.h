@@ -57,6 +57,7 @@ struct Camera : ICamera {
     int         speed;
     bool        smooth;
 
+    bool        spectatorVR;
     bool        spectator;
     vec3        specPos, specPosSmooth;
     vec3        specRot, specRotSmooth;
@@ -67,6 +68,7 @@ struct Camera : ICamera {
         this->owner = owner;
         reset();
 
+        spectatorVR = false;
         spectator = false;
         specTimer = 0.0f;
     }
@@ -557,6 +559,10 @@ struct Camera : ICamera {
             }
         } else {
             specTimer = 0.0f;
+        }
+
+        if (!spectator && spectatorVR) {
+            mViewInv = mat4(owner->mainLightPos, owner->pos, vec3(0, -1, 0));
         }
 
         if (spectator) {

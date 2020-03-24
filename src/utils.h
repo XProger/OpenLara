@@ -1057,6 +1057,22 @@ struct Basis {
     Basis(const quat &rot, const vec3 &pos) : rot(rot), pos(pos), w(1.0f) {}
     Basis(const mat4 &matrix) : rot(matrix.getRot()), pos(matrix.getPos()), w(1.0f) {}
 
+    Basis(const vec3 &start, const vec3 &end, const vec3 &right) {
+        vec3 u = (end - start).normal();
+        vec3 d = right.cross(u).normal();
+        vec3 r = u.cross(d);
+
+        mat4 m;
+        m.up()     = vec4(u, 0.0f);
+        m.dir()    = vec4(d, 0.0f);
+        m.right()  = vec4(r, 0.0f);
+        m.offset() = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+        identity();
+        translate(start);
+        rotate(m.getRot().normal());
+    }
+
     void identity() {
         rot = quat(0, 0, 0, 1);
         pos = vec3(0, 0, 0);
@@ -1093,6 +1109,93 @@ struct Basis {
         return b;
     }
 };
+
+int qSolve(float a, float b, float c, float &x1, float &x2) {
+    if (fabsf(a) < EPS) {
+        if (fabsf(b) < EPS) {
+            return 0;
+        }
+        x1 = x2 = -c / b;
+        return 1;
+    }
+
+    float d = b * b - 4.0f * a * c;
+    if (d < 0.0f) {
+        return 0;
+    }
+
+    float inv2a = 1.0f / (2.0f * a);
+
+    if (d < EPS) {
+        x1 = x2 = -b * inv2a;
+        return 1;
+    }
+
+    d = sqrtf(d);
+    x1 = (-b - d) * inv2a;
+    x2 = (-b + d) * inv2a;
+    return 2;
+} 
+
+bool ikSolve2D(const vec2 &end, float length1, float length2, vec2 &middle) {
+    float length = end.length();
+
+    if (length > length1 + length2) {
+        return false;
+    }
+
+    bool flipXY = end.x < end.y;
+
+    float a, b;
+
+    if (flipXY) {
+        a = end.y;
+        b = end.x;
+    } else {
+        a = end.x;
+        b = end.y;
+    }
+    ASSERT(fabsf(a) > EPS);
+
+    float m = (SQR(length1) - SQR(length2) + SQR(a) + SQR(b)) / (2.0f * a);
+    float n = b / a;
+
+    float y1, y2;
+
+    if (qSolve(1.0f + SQR(n), -2.0f * m * n, SQR(m) - SQR(length1), y1, y2)) {
+
+        if (flipXY) {
+            middle.x = y2;
+            middle.y = m - n * y2;
+        } else {
+            middle.y = y2;
+            middle.x = m - n * y2;
+        }
+
+        return true;
+    }
+
+    middle = end * (length1 / length);
+    return false;
+}
+
+bool ikSolve3D(const vec3 &start, const vec3 &end, const vec3 &pole, float length1, float length2, vec3 &middle) {
+   vec3 d = (end - start).normal();
+   vec3 n = d.cross(pole - start).normal();
+
+   mat4 m;
+   m.right()  = vec4(n.cross(d), 0.0f);
+   m.up()     = vec4(d, 0.0f);
+   m.dir()    = vec4(n, 0.0f);
+   m.offset() = vec4(start, 1.0f);
+
+   bool res = ikSolve2D((m.inverse() * end).xy(), length1, length2, middle.xy());
+
+   middle.z = 0.0f;
+   middle = m * middle;
+
+   return res;
+}
 
 struct ubyte2 {
     uint8 x, y;

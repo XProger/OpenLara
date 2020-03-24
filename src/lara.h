@@ -44,6 +44,8 @@
 #define LARA_WADE_MAX_DEPTH 730.0f
 #define LARA_SWIM_MIN_DEPTH 512.0f
 
+#define LARA_HEEL_HEIGHT    48.0f
+
 #define LARA_MIN_SPECULAR   0.03f
 #define LARA_WET_SPECULAR   0.5f
 #define LARA_WET_TIMER      (LARA_WET_SPECULAR / 16.0f)   // 4 sec
@@ -79,7 +81,7 @@ struct Lara : Character {
 
         ANIM_STAND              = 11,
 
-        ANIM_LANDING            = 24,
+        ANIM_LANDING_HIGH       = 24,
 
         ANIM_CLIMB_JUMP         = 26,
 
@@ -106,6 +108,8 @@ struct Lara : Character {
         ANIM_BACK_DESCEND_RIGHT = 62,
 
         ANIM_SLIDE_FORTH        = 70,
+
+        ANIM_LANDING_LOW        = 82,
 
         ANIM_FALL_BACK          = 93,
 
@@ -326,6 +330,8 @@ struct Lara : Character {
 
     bool        dozy;
     bool        canJump;
+    bool        useIK;
+    bool        useIKAim;
 
     int32       networkInput;
 
@@ -642,6 +648,9 @@ struct Lara : Character {
             } else
                 animation.setAnim(ANIM_STAND);
         }
+
+        useIK = true;
+        useIKAim = false;
     }
 
     virtual ~Lara() {
@@ -947,6 +956,27 @@ struct Lara : Character {
                || state == STATE_STEP_LEFT;
     }
 
+    bool canIKLegs() {
+        return (animation.index != ANIM_RUN_ASCEND_LEFT
+             && animation.index != ANIM_RUN_ASCEND_RIGHT
+             && animation.index != ANIM_WALK_ASCEND_LEFT
+             && animation.index != ANIM_WALK_ASCEND_RIGHT
+             && animation.index != ANIM_WALK_DESCEND_RIGHT
+             && animation.index != ANIM_WALK_DESCEND_LEFT
+             && animation.index != ANIM_BACK_DESCEND_LEFT
+             && animation.index != ANIM_BACK_DESCEND_RIGHT)
+             && (state == STATE_WALK
+              || state == STATE_RUN
+              || state == STATE_STOP
+              || state == STATE_FAST_BACK
+              || state == STATE_TURN_RIGHT
+              || state == STATE_TURN_LEFT
+              || state == STATE_BACK
+              || state == STATE_FAST_TURN
+              || state == STATE_STEP_RIGHT
+              || state == STATE_STEP_LEFT);
+    }
+
     bool wpnReady() {
         return arms[0].anim != Weapon::Anim::PREPARE && arms[0].anim != Weapon::Anim::UNHOLSTER && arms[0].anim != Weapon::Anim::HOLSTER;
     }
@@ -1018,6 +1048,11 @@ struct Lara : Character {
     }
 
     void wpnFire() {
+        if (useIKAim) {
+            doShot(Input::joy[0].down[jkA], Input::joy[1].down[jkA]);
+            return;
+        }
+
         bool armShot[2] = { false, false };
         for (int i = 0; i < 2; i++) {
             Arm &arm = arms[i];
@@ -1084,10 +1119,19 @@ struct Lara : Character {
                 game->addMuzzleFlash(this, i ? LARA_LGUN_JOINT : LARA_RGUN_JOINT, i ? LARA_LGUN_OFFSET : LARA_RGUN_OFFSET, 1 + camera->cameraIndex);
 
         // TODO: use new trace code
-            int joint = wpnCurrent == TR::Entity::SHOTGUN ? 8 : (i ? 11 : 8);
-            vec3 p = getJoint(joint).pos;
-            vec3 d = arm->rotAbs * vec3(0, 0, 1);
-            vec3 t = p + d * (24.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
+            vec3 p, d, t;
+
+            if (useIKAim) {
+                int joint = wpnCurrent == TR::Entity::SHOTGUN ? JOINT_ARM_R3 : (i ? JOINT_ARM_L3 : JOINT_ARM_R3);
+                p = getJoint(joint).pos;
+                d = getJoint(joint).rot * vec3(0, 1, 0);
+                t = p + d * 15.0f * 1024.0f;
+            } else {
+                int joint = wpnCurrent == TR::Entity::SHOTGUN ? JOINT_ARM_R1 : (i ? JOINT_ARM_L1 : JOINT_ARM_R1);
+                p = getJoint(joint).pos;
+                d = arm->rotAbs * vec3(0, 0, 1);
+                t = p + d * (15.0f * 1024.0f) + ((vec3(randf(), randf(), randf()) * 2.0f) - vec3(1.0f)) * 1024.0f;
+            }
 
             int room;
             vec3 hit = trace(getRoomIndex(), p, t, room, false);
@@ -1140,6 +1184,12 @@ struct Lara : Character {
         }
 
         if (!emptyHands()) {
+
+            if (useIK) {
+                //wpnFire(); 
+                //return;
+            }
+
             bool isRifle = wpnCurrent == TR::Entity::SHOTGUN;
 
             for (int i = 0; i < 2; i++) {
@@ -2397,7 +2447,7 @@ struct Lara : Character {
                     }
 
                     if (state == STATE_FALL && health > 0.0f)
-                        animation.setAnim(ANIM_LANDING);
+                        animation.setAnim(ANIM_LANDING_HIGH);
                 }
             }
             return STAND_GROUND;
@@ -3401,7 +3451,7 @@ struct Lara : Character {
             w *= TURN_FAST;
         else if (state == STATE_FAST_BACK)
             w *= TURN_FAST_BACK;
-        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || (state == STATE_STOP && animation.index == ANIM_LANDING))
+        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || (state == STATE_STOP && animation.index == ANIM_LANDING_HIGH))
             w *= TURN_NORMAL;
         else if (state == STATE_FORWARD_JUMP || state == STATE_BACK || state == STATE_WADE)
             w *= TURN_SLOW;
@@ -3514,7 +3564,7 @@ struct Lara : Character {
             vTilt *= 2.0f;
         vTilt *= rotFactor.y;
         bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
+        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING_HIGH) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
 
         collisionOffset = vec3(0.0f);
 
@@ -3869,6 +3919,119 @@ struct Lara : Character {
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
             visibleMask ^= 0xFFFFFFFF;
+        }
+    }
+
+    void solveJointsArm(int j0, int j1, int j2) {
+        int index = j0 == JOINT_ARM_R1 ? 0 : 1;
+
+        Basis &hJoint = getJoint(jointHead);
+        vec3 hPos = hJoint.pos - hJoint.rot * vec3(0, 48, -24);
+
+        vec3 target = Input::hmd.controllers[index].getPos();
+        target += hPos;
+
+        vec3 start  = joints[j0].pos;
+        vec3 middle = joints[j1].pos;
+        vec3 end    = target;
+
+        float length1 = (middle - start).length();
+        float length2 = (joints[j2].pos - middle).length();
+
+        vec3 dir = end - start;
+        float length = dir.length();
+        if (length > length1 + length2) {
+            end = start + dir * ((length1 + length2 - 0.1f) / length);
+        }
+
+        vec3 down = vec3(0.0f, 1.0f, 0.0f);
+        vec3 pole = start + (getDir().cross(down) * (index == 0 ? -1.0f : 1.0f) + down) * 1000.0f;
+
+        if (ikSolve3D(start, end, pole, length1, length2, middle))
+        {
+            joints[j0] = Basis(start, middle, joints[j0].rot * vec3(1.0f, 0.0f, 0.0f));
+            joints[j1] = Basis(middle, end,   joints[j1].rot * vec3(1.0f, 0.0f, 0.0f));
+            joints[j2].pos = end;
+        }
+
+        joints[j2].rot = Input::hmd.controllers[index].getRot();
+    }
+
+    void solveJointsLeg(int j0, int j1, int j2, float footHeight) {
+        vec3 start  = joints[j0].pos;
+        vec3 middle = joints[j1].pos;
+        vec3 end    = joints[j2].pos;
+
+        float length1 = (middle - start).length();
+        float length2 = (end - middle).length();
+
+        if (end.y > footHeight) {
+            end.y = footHeight;
+        }
+
+        vec3 pole = middle + (middle - start + middle - end) * 1024.0f;
+
+        if (ikSolve3D(start, end, pole, length1, length2, middle)) {
+            joints[j0] = Basis(start, middle, joints[j0].rot * vec3(1.0f, 0.0f, 0.0f));
+            joints[j1] = Basis(middle, end,   joints[j1].rot * vec3(1.0f, 0.0f, 0.0f));
+            joints[j2].pos = end;
+        }
+        /*
+        
+        vec3 pole = start + getDir() * 10000.0f;
+
+        if (ikSolve3D(start, end, pole, length1, length2, middle)) {
+            float angle = middle.xy().angle();
+            quat q(vec3(1, 0, 0), PI * 0.5f - angle);
+
+            joints[j0].rot = joints[j0].rot * q;
+
+            TR::Node *node = (TR::Node*)&level->nodesData[getModel()->node];
+            TR::Node *t = node + j0;
+
+            joints[j1].rotate(q.conjugate());
+            joints[j1].pos = joints[j0].pos + joints[j0].rot * vec3(float(t->x), float(t->y), float(t->z));
+
+            t = node + j1;
+            joints[j2].pos = joints[j1].pos + joints[j1].rot * vec3(float(t->x), float(t->y), float(t->z));
+        }
+        
+        */
+    }
+
+    float getFloorHeight(const vec3 &pos) {
+        int16 roomIndex = getRoomIndex();
+        TR::Room::Sector *sector = level->getSector(roomIndex, pos);
+
+        if (!sector) {
+            return this->pos.y;
+        }
+
+        return level->getFloor(sector, pos);// - LARA_HEEL_HEIGHT;
+    }
+
+    virtual void updateIK() override {
+        if (useIK && canIKLegs()) {
+            float ikPivotOffset = -Input::hmd.head.getPos().y * ONE_METER;
+
+            float footHeightL = getFloorHeight(joints[JOINT_LEG_L3].pos);
+            float footHeightR = getFloorHeight(joints[JOINT_LEG_R3].pos);
+
+            if (fabsf(footHeightL - footHeightR) < 256.0f) {
+                ikPivotOffset += max(footHeightL, footHeightR) - pos.y;
+            }
+
+            for (int i = 0; i < getModel()->mCount; i++) {
+                joints[i].pos.y += ikPivotOffset;
+            }
+
+            solveJointsLeg(JOINT_LEG_L1, JOINT_LEG_L2, JOINT_LEG_L3, footHeightL - LARA_HEEL_HEIGHT);
+            solveJointsLeg(JOINT_LEG_R1, JOINT_LEG_R2, JOINT_LEG_R3, footHeightR - LARA_HEEL_HEIGHT);
+        }
+
+        if (useIKAim) {
+            solveJointsArm(JOINT_ARM_L1, JOINT_ARM_L2, JOINT_ARM_L3);
+            solveJointsArm(JOINT_ARM_R1, JOINT_ARM_R2, JOINT_ARM_R3);
         }
     }
 };

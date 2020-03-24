@@ -1,18 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerWorkingDirectory>..\..\..\bin\TR1_PSX</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\Projects\TR\TR1_PSX</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>
-    </LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>PSXDATA/LEVEL2.PSX</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">
-    <LocalDebuggerWorkingDirectory>..\..\..\bin\TR1_PSX</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\Projects\TR\TR1_PSX</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerWorkingDirectory>..\..\..\bin\TR1_PSX</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\Projects\TR\TR1_PSX</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>PSXDATA/GYM.PSX</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>PSXDATA/LEVEL2.PSX</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>
