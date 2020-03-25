@@ -182,6 +182,7 @@ namespace Sound {
             #define R(x)   int32(preset.##x)
             #define V(x)   value(R(x))
             #define D(a,b) value(preset.##a - preset.##b)
+            #define C(a)   clamp(a, -0x8000, 0x7FFF)
 
             void process(FrameHI *frames, int count) {
                 PROFILE_CPU_TIMING(stats.reverb);
@@ -193,24 +194,24 @@ namespace Sound {
                     int32 Rin = frame.R;
 
                     // Same Side Reflection (left-to-left and right-to-right)
-                    V(mLSAME) = ((Lin + (V(dLSAME) * R(vWALL) >> 15) - V(mLSAME - 1)) * R(vIIR) >> 15) + V(mLSAME - 1);
-                    V(mRSAME) = ((Rin + (V(dRSAME) * R(vWALL) >> 15) - V(mRSAME - 1)) * R(vIIR) >> 15) + V(mRSAME - 1);
+                    V(mLSAME) = C(((Lin + (V(dLSAME) * R(vWALL) >> 15) - V(mLSAME - 1)) * R(vIIR) >> 15) + V(mLSAME - 1));
+                    V(mRSAME) = C(((Rin + (V(dRSAME) * R(vWALL) >> 15) - V(mRSAME - 1)) * R(vIIR) >> 15) + V(mRSAME - 1));
 
                     // Different Side Reflection (left-to-right and right-to-left)
-                    V(mLDIFF) = ((Lin + (V(dRDIFF) * R(vWALL) >> 15) - V(mLDIFF - 1)) * R(vIIR) >> 15) + V(mLDIFF - 1);
-                    V(mRDIFF) = ((Rin + (V(dLDIFF) * R(vWALL) >> 15) - V(mRDIFF - 1)) * R(vIIR) >> 15) + V(mRDIFF - 1);
+                    V(mLDIFF) = C(((Lin + (V(dRDIFF) * R(vWALL) >> 15) - V(mLDIFF - 1)) * R(vIIR) >> 15) + V(mLDIFF - 1));
+                    V(mRDIFF) = C(((Rin + (V(dLDIFF) * R(vWALL) >> 15) - V(mRDIFF - 1)) * R(vIIR) >> 15) + V(mRDIFF - 1));
 
                     // Early Echo (Comb Filter, with input from buffer)
                     int32 Lout = (R(vCOMB1) * V(mLCOMB1) + R(vCOMB2) * V(mLCOMB2) + R(vCOMB3) * V(mLCOMB3) + R(vCOMB4) * V(mLCOMB4)) >> 15;
                     int32 Rout = (R(vCOMB1) * V(mRCOMB1) + R(vCOMB2) * V(mRCOMB2) + R(vCOMB3) * V(mRCOMB3) + R(vCOMB4) * V(mRCOMB4)) >> 15;
 
                     // Late Reverb APF1 (All Pass Filter 1, with input from COMB)
-                    Lout = Lout - (R(vAPF1) * D(mLAPF1, dAPF1) >> 15); V(mLAPF1) = Lout; Lout = (Lout * R(vAPF1) >> 15) + D(mLAPF1, dAPF1);
-                    Rout = Rout - (R(vAPF1) * D(mRAPF1, dAPF1) >> 15); V(mRAPF1) = Rout; Rout = (Rout * R(vAPF1) >> 15) + D(mRAPF1, dAPF1);
+                    Lout = Lout - (R(vAPF1) * D(mLAPF1, dAPF1) >> 15); V(mLAPF1) = C(Lout); Lout = (Lout * R(vAPF1) >> 15) + D(mLAPF1, dAPF1);
+                    Rout = Rout - (R(vAPF1) * D(mRAPF1, dAPF1) >> 15); V(mRAPF1) = C(Rout); Rout = (Rout * R(vAPF1) >> 15) + D(mRAPF1, dAPF1);
 
                     // Late Reverb APF2 (All Pass Filter 2, with input from APF1)
-                    Lout = Lout - (R(vAPF2) * D(mLAPF2, dAPF2) >> 15); V(mLAPF2) = Lout; Lout = (Lout * R(vAPF2) >> 15) + D(mLAPF2, dAPF2);
-                    Rout = Rout - (R(vAPF2) * D(mRAPF2, dAPF2) >> 15); V(mRAPF2) = Rout; Rout = (Rout * R(vAPF2) >> 15) + D(mRAPF2, dAPF2);
+                    Lout = Lout - (R(vAPF2) * D(mLAPF2, dAPF2) >> 15); V(mLAPF2) = C(Lout); Lout = (Lout * R(vAPF2) >> 15) + D(mLAPF2, dAPF2);
+                    Rout = Rout - (R(vAPF2) * D(mRAPF2, dAPF2) >> 15); V(mRAPF2) = C(Rout); Rout = (Rout * R(vAPF2) >> 15) + D(mRAPF2, dAPF2);
 
                     // Output to Mixer (Output volume multiplied with input from APF2)
                     frame.L = Lout;
@@ -226,6 +227,7 @@ namespace Sound {
             #undef R
             #undef V
             #undef D
+            #undef C
         };
     };
 
