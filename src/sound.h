@@ -181,7 +181,7 @@ namespace Sound {
 
             #define R(x)   int32(preset.##x)
             #define V(x)   value(R(x))
-            #define D(a,b) value(preset.##a - preset.##b)
+            #define D(a,b) value(R(a) - R(b))
             #define C(a)   clamp(a, -0x8000, 0x7FFF)
 
             void process(FrameHI *frames, int count) {
