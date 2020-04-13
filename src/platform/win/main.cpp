@@ -931,12 +931,20 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     CreateDirectory(cacheDir, NULL);
 
     RECT r = { 0, 0, 1280, 720 };
+
+    int sw = GetSystemMetrics(SM_CXSCREEN);
+    int sh = GetSystemMetrics(SM_CYSCREEN);
+    if (sw <= r.right || sh <= r.bottom) {
+        r.right  /= 2;
+        r.bottom /= 2;
+    }
+
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
 
 #ifndef _DEBUG
     {
-        int ox = (GetSystemMetrics(SM_CXSCREEN) - (r.right - r.left)) / 2;
-        int oy = (GetSystemMetrics(SM_CYSCREEN) - (r.bottom - r.top)) / 2;
+        int ox = (sw - (r.right - r.left)) / 2;
+        int oy = (sh - (r.bottom - r.top)) / 2;
         r.left   += ox;
         r.top    += oy;
         r.right  += ox;
