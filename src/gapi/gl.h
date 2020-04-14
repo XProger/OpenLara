@@ -306,7 +306,7 @@
     #define glProgramBinary(...)
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL))
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || (defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL)))
 
     void* GetProc(const char *name) {
         #ifdef _OS_WIN
@@ -338,7 +338,7 @@
         PFNGLXSWAPINTERVALSGIPROC glXSwapIntervalSGI;
     #endif
 
-    #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(__SDL2__) && !defined(_GAPI_GLES2)
+    #if defined(_OS_WIN) || defined(_OS_LINUX) || (defined(__SDL2__) && !defined(_GAPI_GLES2))
         PFNGLGENERATEMIPMAPPROC             glGenerateMipmap;
         #ifdef _OS_WIN
             PFNGLTEXIMAGE3DPROC             glTexImage3D;
@@ -628,7 +628,7 @@ namespace GAPI {
                 strcat(defines, "#define VERT_CAUSTICS\n");
             #endif
 
-            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || defined (__SDL2__) && defined(_GAPI_GLES)
+            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || (defined (__SDL2__) && defined(_GAPI_GLES))
                 strcat(defines, "#define OPT_VLIGHTPROJ\n");
                 strcat(defines, "#define OPT_VLIGHTVEC\n");
                 strcat(defines, "#define OPT_SHADOW_ONETAP\n");
@@ -1130,11 +1130,11 @@ namespace GAPI {
             //void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
 
-        #if defined(__SDL2__) && defined(_GAPI_GLES2)
+        #if (defined(__SDL2__) && defined(_GAPI_GLES2))
                 GetProcOGL(glDiscardFramebufferEXT);
         #endif
 
-        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || defined(__SDL2__) && !defined(_GAPI_GLES) 
+        #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_GCW0) || (defined(__SDL2__) && !defined(_GAPI_GLES)) 
             #ifdef _OS_WIN
                 GetProcOGL(glActiveTexture);
             #endif
@@ -1145,7 +1145,7 @@ namespace GAPI {
                 GetProcOGL(glXSwapIntervalSGI);
             #endif
 
-            #if defined(_OS_WIN) || defined(_OS_LINUX) || defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL))
+            #if defined(_OS_WIN) || defined(_OS_LINUX) || (defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL)))
                 GetProcOGL(glGenerateMipmap);
                 #ifdef _OS_WIN
                     GetProcOGL(glTexImage3D);
@@ -1505,11 +1505,11 @@ namespace GAPI {
             if (color) discard[count++] = Core::active.target ? GL_COLOR_ATTACHMENT0 : GL_COLOR_EXT;
             if (depth) discard[count++] = Core::active.target ? GL_DEPTH_ATTACHMENT  : GL_DEPTH_EXT;
             if (count) {
-                #if defined(_OS_ANDROID) || defined(__SDL2__) && !defined(_GAPI_GLES2)
+                #if defined(_OS_ANDROID) || (defined(__SDL2__) && !defined(_GAPI_GLES2))
                    /* glInvalidateBuffer() is the GLES3 version of glDiscardFramebufferEXT(), also
                       available on Android. Not available in any GLES2 implementation, this is GLES3 stuff.*/
                     glInvalidateFramebuffer(GL_FRAMEBUFFER, count, discard);
-                #elif !defined(_OS_WEB) || defined(__SDL2__) && defined(_GAPI_GLES2)
+                #elif !defined(_OS_WEB) || (defined(__SDL2__) && defined(_GAPI_GLES2))
                     /* glDiscardFramebufferEXT() is available even in GLES2 MESA implementations,
                        but we have to get the extension function pointer address to use it.
                        Not available in GLES3, which is SDL2 default GLES version. */
