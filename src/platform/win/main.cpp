@@ -971,8 +971,20 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 #endif
 
     // set our process to be DPI aware before creating main window
-    HMODULE hUser32 = LoadLibrary("User32.dll");
-    HMODULE hShcore = LoadLibrary("Shcore.dll");
+
+    bool high_dpi = false;
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--high-dpi") == 0) {
+            high_dpi = true;
+        }
+    }
+
+    HMODULE hUser32 = NULL, hShcore = NULL;
+    
+    if (high_dpi) {
+        hUser32 = LoadLibrary("User32.dll");
+        hShcore = LoadLibrary("Shcore.dll");
+    }
 
     GetProcAddr(hUser32, _SetProcessDpiAwarenessContext);
     GetProcAddr(hShcore, _SetProcessDpiAwareness);
@@ -1013,7 +1025,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     Core::defLang = checkLanguage();
 
-    Game::init(argc > 1 ? argv[1] : NULL);
+    Game::init((argc > 1 && strstr(argv[1], "--") != argv[1]) ? argv[1] : NULL);
 
     if (Core::isQuit) {
         MessageBoxA(hWnd, "Please check the readme file first!", "Game resources not found", MB_ICONHAND);
