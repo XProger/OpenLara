@@ -373,6 +373,12 @@ void sndInit(HWND hwnd) {
     }
 }
 
+// DPI api
+BOOL (WINAPI *pfnSetProcessDpiAwarenessContext)(HANDLE);// Win 10
+BOOL (WINAPI *pfnSetProcessDpiAwareness)(int);          // Win 8.1
+BOOL (WINAPI *pfnSetProcessDPIAware)();                 // Win Vista
+BOOL (WINAPI *pfnEnableNonClientDpiScaling)(HWND);      // Win 10
+
 HWND hWnd;
 
 
@@ -520,7 +526,7 @@ HWND hWnd;
     }
 
     void ContextResize() {
-        if (Core::width <= 0 || Core::height <= 0)
+        if (swapChain == NULL || Core::width <= 0 || Core::height <= 0)
             return;
 
         GAPI::resetDevice();
@@ -675,6 +681,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         // sound
         case MM_WOM_DONE :
             sndFill((HWAVEOUT)wParam, (WAVEHDR*)lParam);
+            break;
+        case WM_NCCREATE:
+            // allow windows to properly scale non-client area based on per-monitor dpi
+            if (pfnEnableNonClientDpiScaling != NULL) {
+                pfnEnableNonClientDpiScaling(hWnd);
+            }
+            // we have to pass this message to default wnd proc
+            return DefWindowProc(hWnd, msg, wParam, lParam);
             break;
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -956,8 +970,36 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     r.left = r.top = 0;
 #endif
 
-    hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
-    SendMessage(hWnd, WM_SETICON, 1, (LPARAM)LoadIcon(GetModuleHandle(NULL), "MAINICON"));
+    // set our process to be DPI aware before creating main window
+    HMODULE user32dll = LoadLibrary(TEXT("User32.dll"));
+    HMODULE shcoredll = LoadLibrary(TEXT("Shcore.dll"));
+
+    pfnSetProcessDpiAwarenessContext = (user32dll != NULL) ? (BOOL(__stdcall*)(HANDLE))GetProcAddress(user32dll, "SetProcessDpiAwarenessContext") : NULL;
+    pfnSetProcessDpiAwareness = (shcoredll != NULL) ? (BOOL(__stdcall*)(int))GetProcAddress(shcoredll, "SetProcessDpiAwareness") : NULL;
+    pfnSetProcessDPIAware = (user32dll != NULL) ? (BOOL(__stdcall*)())GetProcAddress(user32dll, "SetProcessDPIAware") : NULL;
+    pfnEnableNonClientDpiScaling = (user32dll != NULL) ? (BOOL(__stdcall*)(HWND))GetProcAddress(user32dll, "EnableNonClientDpiScaling") : NULL;
+
+    if (pfnSetProcessDpiAwarenessContext != NULL) {
+        pfnSetProcessDpiAwarenessContext((HANDLE)-3);   // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE v1
+    } else if (pfnSetProcessDpiAwareness != NULL) {
+        pfnSetProcessDpiAwareness(2);                   // DPI_AWARENESS_PER_MONITOR_AWARE
+    } else if (pfnSetProcessDPIAware != NULL) {
+        pfnSetProcessDPIAware();
+    }
+
+    WNDCLASSEX wcex;
+    memset(&wcex, 0, sizeof(wcex));
+    wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.hInstance = GetModuleHandle(NULL);
+    wcex.hIcon = LoadIcon(wcex.hInstance, "MAINICON");
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wcex.lpszClassName = "OpenLaraWndClass";
+    wcex.hIconSm = wcex.hIcon;
+    wcex.lpfnWndProc = &WndProc;
+    RegisterClassEx(&wcex);
+
+    hWnd = CreateWindow(wcex.lpszClassName, "OpenLara", WS_OVERLAPPEDWINDOW, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
 
     ContextCreate();
 
@@ -972,8 +1014,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     Core::defLang = checkLanguage();
 
     Game::init(argc > 1 ? argv[1] : NULL);
-
-    SetWindowLong(hWnd, GWL_WNDPROC, (LONG)&WndProc);
 
     if (Core::isQuit) {
         MessageBoxA(hWnd, "Please check the readme file first!", "Game resources not found", MB_ICONHAND);
