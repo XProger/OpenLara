@@ -24,6 +24,7 @@ extern "C" {
 
 #include "game.h"
 
+#define GetProcAddr(lib, x) (x = lib ? (decltype(x))GetProcAddress(lib, #x + 1) : NULL)
 
 // multi-threading
 void* osMutexInit() {
@@ -110,10 +111,9 @@ typedef struct _XINPUT_VIBRATION {
 #define XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE 8689
 #define XINPUT_GAMEPAD_TRIGGER_THRESHOLD    30
 
-DWORD (WINAPI *XInputGetState) (DWORD dwUserIndex, XINPUT_STATE* pState) = NULL;
-DWORD (WINAPI *XInputSetState) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration) = NULL;
-void  (WINAPI *XInputEnable)   (BOOL enable) = NULL;
-#define XInputGetProc(x) (x = (decltype(x))GetProcAddress(h, #x))
+DWORD (WINAPI *_XInputGetState) (DWORD dwUserIndex, XINPUT_STATE* pState);
+DWORD (WINAPI *_XInputSetState) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+void  (WINAPI *_XInputEnable)   (BOOL enable);
 
 #define JOY_DEAD_ZONE_TRIGGER    0.01f
 #define JOY_MIN_UPDATE_FX_TIME   50
@@ -136,11 +136,11 @@ void osJoyVibrate(int index, float L, float R) {
 
 void joyRumble(int index) {
     JoyDevice &joy = joyDevice[index];
-    if (XInputSetState && joy.ready && (joy.vL != joy.oL || joy.vR != joy.oR) && Core::getTime() >= joy.time) {
+    if (_XInputSetState && joy.ready && (joy.vL != joy.oL || joy.vR != joy.oR) && Core::getTime() >= joy.time) {
         XINPUT_VIBRATION vibration;
         vibration.wLeftMotorSpeed  = int(joy.vL * 65535.0f);
         vibration.wRightMotorSpeed = int(joy.vR * 65535.0f);
-        XInputSetState(index, &vibration);
+        _XInputSetState(index, &vibration);
         joy.oL = joy.vL;
         joy.oR = joy.vR;
         joy.time = Core::getTime() + JOY_MIN_UPDATE_FX_TIME;
@@ -151,18 +151,19 @@ void joyInit() {
     memset(joyDevice, 0, sizeof(joyDevice));
 
     HMODULE h = LoadLibrary("xinput1_3.dll");
-    if (h == NULL)
+    if (h == NULL) {
         h = LoadLibrary("xinput9_1_0.dll");
+    }
 
-    XInputGetProc(XInputGetState);
-    XInputGetProc(XInputSetState);
-    XInputGetProc(XInputEnable);
+    GetProcAddr(h, _XInputGetState);
+    GetProcAddr(h, _XInputSetState);
+    GetProcAddr(h, _XInputEnable);
 
     for (int j = 0; j < INPUT_JOY_COUNT; j++) {
-        if (XInputGetState) { // XInput
+        if (_XInputGetState) { // XInput
             XINPUT_STATE state;
-            int res = XInputGetState(j, &state);
-            joyDevice[j].ready = (XInputGetState(j, &state) == ERROR_SUCCESS);
+            int res = _XInputGetState(j, &state);
+            joyDevice[j].ready = (_XInputGetState(j, &state) == ERROR_SUCCESS);
         } else { // mmSystem (legacy)
             JOYINFOEX info;
             info.dwSize  = sizeof(info);
@@ -197,9 +198,9 @@ void joyUpdate() {
 
         joyRumble(j);
 
-        if (XInputGetState) { // XInput
+        if (_XInputGetState) { // XInput
             XINPUT_STATE state;
-            if (XInputGetState(j, &state) == ERROR_SUCCESS) {
+            if (_XInputGetState(j, &state) == ERROR_SUCCESS) {
                 //osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
 
                 Input::setJoyPos(j, jkL,   joyDir(joyAxis( state.Gamepad.sThumbLX,  -32768, 32767),
@@ -264,9 +265,9 @@ void joyUpdate() {
 }
 
 // touch
-BOOL (WINAPI *RegisterTouchWindowX)(HWND, ULONG);
-BOOL (WINAPI *GetTouchInputInfoX)(HTOUCHINPUT, UINT, PTOUCHINPUT, int);
-BOOL (WINAPI *CloseTouchInputHandleX)(HTOUCHINPUT);
+BOOL (WINAPI *_RegisterTouchWindow)(HWND, ULONG);
+BOOL (WINAPI *_GetTouchInputInfo)(HTOUCHINPUT, UINT, PTOUCHINPUT, int);
+BOOL (WINAPI *_CloseTouchInputHandle)(HTOUCHINPUT);
 
 #ifndef MAX_TOUCH_COUNT
     #define MAX_TOUCH_COUNT 6
@@ -276,11 +277,12 @@ void touchInit(HWND hWnd) {
     int value = GetSystemMetrics(SM_DIGITIZER);
     if (value) {
         HMODULE hUser32 = LoadLibrary("user32.dll");
-        RegisterTouchWindowX     = (decltype(RegisterTouchWindowX))   GetProcAddress(hUser32, "RegisterTouchWindow");
-        GetTouchInputInfoX       = (decltype(GetTouchInputInfoX))     GetProcAddress(hUser32, "GetTouchInputInfo");
-        CloseTouchInputHandleX   = (decltype(CloseTouchInputHandleX)) GetProcAddress(hUser32, "CloseTouchInputHandle");
-        if (RegisterTouchWindowX && GetTouchInputInfoX && CloseTouchInputHandleX)
-            RegisterTouchWindowX(hWnd, 0);
+        GetProcAddr(hUser32, _RegisterTouchWindow);
+        GetProcAddr(hUser32, _GetTouchInputInfo);
+        GetProcAddr(hUser32, _CloseTouchInputHandle);
+
+        if (_RegisterTouchWindow && _GetTouchInputInfo && _CloseTouchInputHandle)
+            _RegisterTouchWindow(hWnd, 0);
     }
 }
 
@@ -288,7 +290,7 @@ void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
     TOUCHINPUT touch[MAX_TOUCH_COUNT];
     count = min(count, MAX_TOUCH_COUNT);
 
-    if (!GetTouchInputInfoX(hTouch, count, touch, sizeof(TOUCHINPUT)))
+    if (!_GetTouchInputInfo(hTouch, count, touch, sizeof(TOUCHINPUT)))
         return;
 
     for (int i = 0; i < count; i++) {
@@ -302,7 +304,7 @@ void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
             Input::setDown(key, (touch[i].dwFlags & TOUCHEVENTF_DOWN) != 0);
     }
 
-    CloseTouchInputHandleX(hTouch);
+    _CloseTouchInputHandle(hTouch);
 }
 
 // sound
@@ -374,13 +376,12 @@ void sndInit(HWND hwnd) {
 }
 
 // DPI api
-BOOL (WINAPI *pfnSetProcessDpiAwarenessContext)(HANDLE);// Win 10
-BOOL (WINAPI *pfnSetProcessDpiAwareness)(int);          // Win 8.1
-BOOL (WINAPI *pfnSetProcessDPIAware)();                 // Win Vista
-BOOL (WINAPI *pfnEnableNonClientDpiScaling)(HWND);      // Win 10
+BOOL (WINAPI *_SetProcessDpiAwarenessContext)(HANDLE);  // Win 10
+BOOL (WINAPI *_SetProcessDpiAwareness)(int);            // Win 8.1
+BOOL (WINAPI *_SetProcessDPIAware)();                   // Win Vista
+BOOL (WINAPI *_EnableNonClientDpiScaling)(HWND);        // Win 10
 
 HWND hWnd;
-
 
 #ifdef _GAPI_SW
     HDC    hDC;
@@ -588,8 +589,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
         // window
         case WM_ACTIVATE :
-            if (XInputEnable)
-                XInputEnable(wParam != WA_INACTIVE);
+            if (_XInputEnable) {
+                _XInputEnable(wParam != WA_INACTIVE);
+            }
             Input::reset();
             break;
         case WM_SIZE:
@@ -684,12 +686,10 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         case WM_NCCREATE:
             // allow windows to properly scale non-client area based on per-monitor dpi
-            if (pfnEnableNonClientDpiScaling != NULL) {
-                pfnEnableNonClientDpiScaling(hWnd);
+            if (_EnableNonClientDpiScaling != NULL) {
+                _EnableNonClientDpiScaling(hWnd);
             }
             // we have to pass this message to default wnd proc
-            return DefWindowProc(hWnd, msg, wParam, lParam);
-            break;
         default :
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
@@ -971,32 +971,32 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 #endif
 
     // set our process to be DPI aware before creating main window
-    HMODULE user32dll = LoadLibrary(TEXT("User32.dll"));
-    HMODULE shcoredll = LoadLibrary(TEXT("Shcore.dll"));
+    HMODULE hUser32 = LoadLibrary("User32.dll");
+    HMODULE hShcore = LoadLibrary("Shcore.dll");
 
-    pfnSetProcessDpiAwarenessContext = (user32dll != NULL) ? (BOOL(__stdcall*)(HANDLE))GetProcAddress(user32dll, "SetProcessDpiAwarenessContext") : NULL;
-    pfnSetProcessDpiAwareness = (shcoredll != NULL) ? (BOOL(__stdcall*)(int))GetProcAddress(shcoredll, "SetProcessDpiAwareness") : NULL;
-    pfnSetProcessDPIAware = (user32dll != NULL) ? (BOOL(__stdcall*)())GetProcAddress(user32dll, "SetProcessDPIAware") : NULL;
-    pfnEnableNonClientDpiScaling = (user32dll != NULL) ? (BOOL(__stdcall*)(HWND))GetProcAddress(user32dll, "EnableNonClientDpiScaling") : NULL;
+    GetProcAddr(hUser32, _SetProcessDpiAwarenessContext);
+    GetProcAddr(hShcore, _SetProcessDpiAwareness);
+    GetProcAddr(hUser32, _SetProcessDPIAware);
+    GetProcAddr(hUser32, _EnableNonClientDpiScaling);
 
-    if (pfnSetProcessDpiAwarenessContext != NULL) {
-        pfnSetProcessDpiAwarenessContext((HANDLE)-3);   // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE v1
-    } else if (pfnSetProcessDpiAwareness != NULL) {
-        pfnSetProcessDpiAwareness(2);                   // DPI_AWARENESS_PER_MONITOR_AWARE
-    } else if (pfnSetProcessDPIAware != NULL) {
-        pfnSetProcessDPIAware();
+    if (_SetProcessDpiAwarenessContext) {
+        _SetProcessDpiAwarenessContext((HANDLE)-3);   // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE v1
+    } else if (_SetProcessDpiAwareness) {
+        _SetProcessDpiAwareness(2);                   // DPI_AWARENESS_PER_MONITOR_AWARE
+    } else if (_SetProcessDPIAware) {
+        _SetProcessDPIAware();
     }
 
     WNDCLASSEX wcex;
     memset(&wcex, 0, sizeof(wcex));
-    wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style = CS_HREDRAW | CS_VREDRAW;
-    wcex.hInstance = GetModuleHandle(NULL);
-    wcex.hIcon = LoadIcon(wcex.hInstance, "MAINICON");
-    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wcex.lpszClassName = "OpenLaraWndClass";
-    wcex.hIconSm = wcex.hIcon;
-    wcex.lpfnWndProc = &WndProc;
+    wcex.cbSize         = sizeof(WNDCLASSEX);
+    wcex.style          = CS_HREDRAW | CS_VREDRAW;
+    wcex.hInstance      = GetModuleHandle(NULL);
+    wcex.hIcon          = LoadIcon(wcex.hInstance, "MAINICON");
+    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
+    wcex.lpszClassName  = "OpenLaraWnd";
+    wcex.hIconSm        = wcex.hIcon;
+    wcex.lpfnWndProc    = &WndProc;
     RegisterClassEx(&wcex);
 
     hWnd = CreateWindow(wcex.lpszClassName, "OpenLara", WS_OVERLAPPEDWINDOW, r.left, r.top, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);

@@ -320,7 +320,7 @@
         #endif
     }
 
-    #define GetProcOGL(x) x=(decltype(x))GetProc(#x);
+    #define GetProcOGL(x) x=(decltype(x))GetProc(#x)
 
     // TODO: different systems, different headers, different extension suffixes... fuck this shit and make your own OGL header!
 
