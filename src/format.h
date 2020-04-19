@@ -3210,6 +3210,20 @@ namespace TR {
                 return;
             }
 
+        #ifdef _GAPI_SW
+            ASSERT((version & VER_TR1_PC) == VER_TR1_PC);
+            if ((version & VER_TR1_PC) != VER_TR1_PC) {
+                return;
+            }
+        #endif
+
+        #ifdef _GAPI_GU
+            ASSERT((version & VER_TR1_PSX) == VER_TR1_PSX);
+            if ((version & VER_TR1_PSX) != VER_TR1_PSX) {
+                return;
+            }
+        #endif
+
             switch (version) {
                 case VER_TR1_PC   : loadTR1_PC  (stream); break;
                 case VER_TR1_PSX  : loadTR1_PSX (stream); break;
