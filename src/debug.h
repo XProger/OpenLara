@@ -48,7 +48,10 @@ namespace Debug {
     }
 
     void begin() {
+    #ifndef FFP
         glActiveTexture(GL_TEXTURE0);
+        glUseProgram(0);
+    #endif
         glDisable(GL_TEXTURE_2D);
         glMatrixMode(GL_PROJECTION);
         glLoadMatrixf((GLfloat*)&Core::mProj);
@@ -59,7 +62,6 @@ namespace Debug {
         glLineWidth(3);
         glPointSize(32);
 
-        glUseProgram(0);
         Core::active.shader = NULL;
         Core::active.textures[0] = NULL;
         Core::validateRenderState();

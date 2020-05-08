@@ -356,13 +356,14 @@ struct Level : IGame {
         delete shadow[0];
         delete shadow[1];
         shadow[0] = shadow[1] = NULL;
-
+    #ifndef FFP
         if (Core::settings.detail.shadows > Core::Settings::LOW) {
             if (level.isTitle())
                 shadow[0] = new Texture(32, 32, 1, FMT_SHADOW); // init dummy shadow map
             else
                 shadow[0] = new Texture(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, 1, FMT_SHADOW, OPT_TARGET);
         }
+    #endif
     }
 
     virtual void applySettings(const Core::Settings &settings) {
@@ -607,6 +608,10 @@ struct Level : IGame {
     }
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {
+    #ifdef FFP
+        return;
+    #endif
+
     #ifdef _GAPI_SW
         return;
     #endif
@@ -1021,7 +1026,7 @@ struct Level : IGame {
         delete zoneCache;
 
         delete atlasRooms;
-        #if !defined(_GAPI_SW) && !defined(_GAPI_GU)
+        #ifndef FFP
             delete atlasObjects;
             delete atlasSprites;
             delete atlasGlyphs;
@@ -3137,6 +3142,7 @@ struct Level : IGame {
             ambientCache->processQueue();
         }
 
+    #ifndef FFP
         if (shadow[0] && players[0]) {
             player = players[0];
             renderShadows(player->getRoomIndex(), shadow[0]);
@@ -3150,6 +3156,7 @@ struct Level : IGame {
                 renderShadows(player->getRoomIndex(), shadow[1]);
             }
         }
+    #endif
 
         if (copyBg) {
             inventory->prepareBackground();

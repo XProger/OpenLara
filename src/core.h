@@ -255,6 +255,7 @@ namespace Core {
         int  texMinSize;
         bool shaderBinary;
         bool VAO;
+        bool VBO;
         bool depthTexture;
         bool shadowSampler;
         bool discardFrame;
@@ -484,7 +485,7 @@ struct PSO {
     uint32     renderState;
 };
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_WEB)
+#if !defined(FFP) && (defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_WEB))
     typedef uint32 Index;
 #else
     typedef uint16 Index;

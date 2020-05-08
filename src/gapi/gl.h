@@ -922,8 +922,9 @@ namespace GAPI {
 
         void generateMipMap() {
             bind(0);
-
-            glGenerateMipmap(target);
+            if (glGenerateMipmap) {
+                glGenerateMipmap(target);
+            }
             if ((opt & (OPT_VOLUME | OPT_CUBEMAP | OPT_NEAREST)) == 0 && (Core::support.maxAniso > 0)) {
                 glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, min(int(Core::support.maxAniso), 8));
                 if (Core::support.texMaxLevel) {
@@ -945,7 +946,13 @@ namespace GAPI {
 
             if (Core::active.textures[sampler] != this) {
                 Core::active.textures[sampler] = this;
+            #ifdef FFP
+                if (sampler != sDiffuse) {
+                    return;
+                }
+            #else
                 glActiveTexture(GL_TEXTURE0 + sampler);
+            #endif
                 glBindTexture(target, ID);
             }
         }
@@ -953,7 +960,13 @@ namespace GAPI {
         void unbind(int sampler) {
             if (Core::active.textures[sampler]) {
                 Core::active.textures[sampler] = NULL;
+            #ifdef FFP
+                if (sampler != sDiffuse) {
+                    return;
+                }
+            #else
                 glActiveTexture(GL_TEXTURE0 + sampler);
+            #endif
                 glBindTexture(target, 0);
             }
         }
@@ -996,21 +1009,27 @@ namespace GAPI {
             if (Core::support.VAO)
                 glBindVertexArray(Core::active.VAO = 0);
 
+            bool useVBO = Core::support.VBO;
+
             #ifdef DYNGEOM_NO_VBO
                 if (!vertices && !indices) {
-                    iBuffer = new Index[iCount];
-                    vBuffer = new GAPI::Vertex[vCount];
-                    return;
+                    useVBO = false;
                 }
-            #endif 
+            #endif
 
             ASSERT(sizeof(GAPI::Vertex) == sizeof(::Vertex));
 
-            glGenBuffers(2, ID);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID[0]);
-            glBindBuffer(GL_ARRAY_BUFFER,         ID[1]);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index),  indices,  dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-            glBufferData(GL_ARRAY_BUFFER,         vCount * sizeof(Vertex), vertices, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            if (useVBO) {
+                glGenBuffers(2, ID);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID[0]);
+                glBindBuffer(GL_ARRAY_BUFFER,         ID[1]);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, iCount * sizeof(Index),  indices,  dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+                glBufferData(GL_ARRAY_BUFFER,         vCount * sizeof(Vertex), vertices, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            } else {
+                iBuffer = new Index[iCount];
+                vBuffer = new GAPI::Vertex[vCount];
+                update(indices, iCount, vertices, vCount);
+            }
             
             if (Core::support.VAO && aCount) {
                 VAO = new GLuint[aCount];
@@ -1078,9 +1097,9 @@ namespace GAPI {
 
         void bind(const MeshRange &range) const {
             if (range.aIndex == -1) {
-                if (Core::active.iBuffer != ID[0])
+                if (Core::support.VBO && Core::active.iBuffer != ID[0])
                     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Core::active.iBuffer = ID[0]);
-                if (Core::active.vBuffer != ID[1])
+                if (Core::support.VBO && Core::active.vBuffer != ID[1])
                     glBindBuffer(GL_ARRAY_BUFFER, Core::active.vBuffer = ID[1]);
                 setupFVF(vBuffer + range.vStart);
             } else {
@@ -1261,6 +1280,7 @@ namespace GAPI {
 
         support.shaderBinary   = extSupport(ext, "_program_binary");
         support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
+        support.VBO            = glGenBuffers != NULL;
         support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
         support.discardFrame   = extSupport(ext, "_discard_framebuffer");
@@ -1314,8 +1334,6 @@ namespace GAPI {
         glEnable(GL_SCISSOR_TEST);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
-        glGenFramebuffers(1, &FBO);
         glDepthFunc(GL_LEQUAL);
 
     #ifdef FFP
@@ -1333,6 +1351,9 @@ namespace GAPI {
 
         glClearColor(0, 0, 0, 0);
     #else 
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
+        glGenFramebuffers(1, &FBO);
+
         char extHeader[256];
         GLSL_HEADER_VERT[0] = GLSL_HEADER_FRAG[0] = extHeader[0] = 0;
         if (_GL_OES_standard_derivatives) {
@@ -1405,6 +1426,9 @@ namespace GAPI {
     }
 
     void deinit() {
+        #ifdef FFP
+            return;
+        #endif
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFramebuffers(1, &FBO);
 
@@ -1442,10 +1466,16 @@ namespace GAPI {
     void resetState() {
         if (Core::support.VAO)
             glBindVertexArray(0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glUseProgram(0);
+
+        #ifndef FFP
+            glActiveTexture(GL_TEXTURE0);
+            glUseProgram(0);
+        #endif
+
+        if (Core::support.VBO) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
     }
 
     int cacheRenderTarget(bool depth, int width, int height) {
