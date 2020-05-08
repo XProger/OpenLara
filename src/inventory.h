@@ -1452,6 +1452,10 @@ struct Inventory {
     }
 
     void prepareBackground() {
+    #ifdef FFP
+        return;
+    #endif
+
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             return;
 
@@ -1467,13 +1471,6 @@ struct Inventory {
 
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);
-
-    #ifdef FFP
-        mat4 m;
-        m.identity();
-        Core::setViewProj(m, m);
-        Core::mModel.identity();
-    #endif
 
         int viewsCount = (Core::settings.detail.stereo == Core::Settings::STEREO_OFF) ? 1 : 2;
 
