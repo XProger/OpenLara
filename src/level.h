@@ -93,11 +93,11 @@ struct Level : IGame {
         if (nextLevel != TR::LVL_MAX) return;
 
         TR::LevelID id = TR::LVL_MAX;
-    #ifdef _OS_WEB
-        if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC)
-            id = TR::LVL_TR1_TITLE;
-        else
-    #endif
+    //#ifdef _OS_WEB
+    //    if (level.id == TR::LVL_TR1_2 && level.version != TR::VER_TR1_PC)
+    //        id = TR::LVL_TR1_TITLE;
+    //    else
+    //#endif
         id = (level.isEnd() || level.isHome()) ? level.getTitleId() : TR::LevelID(level.id + 1);
 
         TR::isGameEnded = level.isEnd();
@@ -1710,7 +1710,7 @@ struct Level : IGame {
                 short4 uv = t.getMinMax();
                 uv.z++;
                 uv.w++;
-                level.fillObjectTexture((Tile32*)tiles[t.tile].data, uv, &t);
+                level.fillObjectTexture((AtlasTile*)tiles[t.tile].data, uv, &t);
             }
 
             for (int i = 0; i < level.spriteTexturesCount; i++) {
@@ -1718,15 +1718,16 @@ struct Level : IGame {
                 short4 uv = t.getMinMax();
                 uv.z++;
                 uv.w++;
-                level.fillObjectTexture((Tile32*)tiles[t.tile].data, uv, &t);
+                level.fillObjectTexture((AtlasTile*)tiles[t.tile].data, uv, &t);
             }
 
             for (int i = 0; i < level.tilesCount; i++) {
                 char buf[256];
                 sprintf(buf, "texture/%s_%d.png", TR::LEVEL_INFO[level.id].name, i);
                 if (Stream::exists(buf)) {
+                    Stream stream(buf);
                     delete[] tiles[i].data;
-                    tiles[i].data = (uint32*)Texture::LoadPNG(Stream(buf), tiles[i].width, tiles[i].height);
+                    tiles[i].data = (uint32*)Texture::LoadPNG(stream, tiles[i].width, tiles[i].height);
                 }
             }
 

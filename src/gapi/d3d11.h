@@ -277,7 +277,7 @@ namespace GAPI {
         TexFormat fmt;
         uint32    opt;
 
-        Texture(int width, int height, int depth, uint32 opt) : tex2D(NULL), tex3D(NULL), SRV(NULL), DSV(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {
+        Texture(int width, int height, int depth, uint32 opt) : ID(NULL), SRV(NULL), DSV(NULL), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {
             memset(RTV, 0, sizeof(RTV));
         }
 
@@ -288,8 +288,8 @@ namespace GAPI {
             bool isDepth   = fmt == FMT_DEPTH || fmt == FMT_SHADOW;
             bool isCube    = (opt & OPT_CUBEMAP) != 0;
             bool isVolume  = (opt & OPT_VOLUME)  != 0;
-            bool isTarget  = (opt & OPT_TARGET);
-            bool isDynamic = (opt & OPT_DYNAMIC);
+            bool isTarget  = (opt & OPT_TARGET)  != 0;
+            bool isDynamic = (opt & OPT_DYNAMIC) != 0;
 
             static const struct FormatDesc {
                 int         bpp;
