@@ -443,11 +443,15 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    // We start in fullscreen mode using the vide mode currently in use, to avoid video mode changes.
+    /* In GLES, start in fullscreen mode using the vide mode currently in use. */
     sdl_window = SDL_CreateWindow(WND_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        //sdl_displaymode.w, sdl_displaymode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-	WIN_W, WIN_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-  
+#ifdef _GAPI_GLES
+        sdl_displaymode.w, sdl_displaymode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP
+#else
+	WIN_W, WIN_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+#endif
+    ); 
+ 
     // We try to use the current video mode, but we inform the core of whatever mode SDL2 gave us in the end. 
     SDL_GetWindowSize(sdl_window, &w, &h);
 
