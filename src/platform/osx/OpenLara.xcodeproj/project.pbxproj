@@ -59,10 +59,10 @@
 		99713CC8204CAD9900006FAC /* tinflate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tinflate.c; path = ../../libs/tinf/tinflate.c; sourceTree = "<group>"; };
 		9975BF0A21E9F5D300F13342 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		99BF38CC21E7176900D90A38 /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
-		99BF38CE21E7202500D90A38 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../../Desktop/OpenLara_TR1/audio; sourceTree = "<group>"; };
-		99BF38CF21E7202500D90A38 /* DELDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DELDATA; path = ../../../../Desktop/OpenLara_TR1/DELDATA; sourceTree = "<group>"; };
-		99BF38D021E7202500D90A38 /* PSXDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PSXDATA; path = ../../../../Desktop/OpenLara_TR1/PSXDATA; sourceTree = "<group>"; };
-		99BF38D121E7202500D90A38 /* FMV */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FMV; path = ../../../../Desktop/OpenLara_TR1/FMV; sourceTree = "<group>"; };
+		99BF38CE21E7202500D90A38 /* audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = audio; path = ../../../bin/audio; sourceTree = "<group>"; };
+		99BF38CF21E7202500D90A38 /* DELDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DELDATA; path = ../../../bin/DELDATA; sourceTree = "<group>"; };
+		99BF38D021E7202500D90A38 /* PSXDATA */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PSXDATA; path = ../../../bin/PSXDATA; sourceTree = "<group>"; };
+		99BF38D121E7202500D90A38 /* FMV */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FMV; path = ../../../bin/FMV; sourceTree = "<group>"; };
 		99BFB69E1DCA7F1700E2E997 /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = ../../libs; sourceTree = "<group>"; };
 		99BFB6A81DCA87BF00E2E997 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../libs/stb_vorbis/stb_vorbis.c; sourceTree = "<group>"; };
 		99BFB6AA1DCA87C500E2E997 /* minimp3.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = minimp3.cpp; path = ../../libs/minimp3/minimp3.cpp; sourceTree = "<group>"; };

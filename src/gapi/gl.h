@@ -254,7 +254,7 @@
         #undef  GL_RG16F
         #undef  GL_HALF_FLOAT
 
-        #define RG              GL_RGBA
+        #define GL_RG           GL_RGBA
         #define GL_RG16F        GL_RGBA
         #define GL_RG32F        GL_RGBA
         #define GL_RGBA32F      GL_RGBA
