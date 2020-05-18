@@ -46,7 +46,7 @@ void sndFill(void *args) {
 
     while (!Core::isQuit) {
         AudioOutBuffer *chunk;
-        audoutWaitPlayFinish(&chunk, NULL, U64_MAX);
+        audoutWaitPlayFinish(&chunk, NULL, UINT64_MAX);
 
         Sound::fill(frames, SND_FRAMES_FILL);
 
