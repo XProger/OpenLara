@@ -1,0 +1,47 @@
+{
+    "version" : "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "C/C++: clang++ build active file",
+            "command": "/usr/bin/clang++",
+            "args": [
+                "-std=c++11",
+                "-Os",
+                "-s",
+                "-fno-exceptions",
+                "-fno-rtti",
+                "-ffunction-sections",
+                "-fdata-sections",
+                "-Wl,--gc-sections",
+                "-Wno-invalid-source-encoding",
+                "-DNDEBUG",
+                "-D_POSIX_THREADS",
+                "-D_POSIX_READER_WRITER_LOCKS",
+                "main.cpp",
+                "../../libs/stb_vorbis/stb_vorbis.c",
+                "../../libs/minimp3/minimp3.cpp",
+                "../../libs/tinf/tinflate.c",
+                "-I../../",
+                "-lX11",
+                "-lGL",
+                "-lm",
+                "-lpthread",
+                "-lpulse-simple",
+                "-lpulse",
+                "-o",
+                "../../../bin/OpenLara"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

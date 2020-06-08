@@ -86,7 +86,7 @@
 #define COS60   0.50000000000f
 
 #define SQR(x)  ((x)*(x))
-#define randf() ((float)rand()/RAND_MAX)
+#define randf() (float(rand())/float(RAND_MAX))
 
 typedef signed char        int8;
 typedef signed short       int16;
