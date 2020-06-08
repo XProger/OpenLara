@@ -2,6 +2,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <linux/input.h>
+#include <X11/Xutil.h>
 #include <linux/joystick.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -77,20 +78,21 @@ void sndFree() {
 }
 
 // Input
-InputKey keyToInputKey(int code) {
-    int codes[] = {
-    #ifdef ELBRUS
-        200, 201, 198, 204,
-    #else
-        113, 114, 111, 116,
-    #endif
-        65, 23, 36, 9, 50, 37, 64,
-        19, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-        38, 56, 54, 40, 26, 41, 42, 43, 31, 44, 45, 46, 58,
-        57, 32, 33, 24, 27, 39, 28, 30, 55, 25, 53, 29, 52,
-        0x5A, 0x57, 0x58, 0x59, 0x53, 0x54, 0x55, 0x4F, 0x50, 0x51, 0x56, 0x52, 0x3F, 0x6A, 0x5B,
-        0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x5F, 0x60,
-        0x14, 0x15, 0x22, 0x23, 0x3D, 0x33, 0x3B, 0x3C, 0x31, 0x2F, 0x30, 0x70, 0x75, 0x6E, 0x73, 0x77, 0x76, 0x16
+InputKey keyToInputKey(XKeyEvent event) {
+    KeySym code = XLookupKeysym(&event, 0);
+
+    if (code == XK_Shift_R)   code = XK_Shift_L;
+    if (code == XK_Control_R) code = XK_Control_L;
+    if (code == XK_Alt_R)     code = XK_Alt_L;
+
+    KeySym codes[] = {
+        XK_Left, XK_Right, XK_Up, XK_Down, XK_space, XK_Tab, XK_Return, XK_Escape, XK_Shift_L, XK_Control_L, XK_Alt_L,
+        XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9,
+        XK_a, XK_b, XK_c, XK_d, XK_e, XK_f, XK_g, XK_h, XK_i, XK_j, XK_k, XK_l, XK_m,
+        XK_n, XK_o, XK_p, XK_q, XK_r, XK_s, XK_t, XK_u, XK_v, XK_w, XK_x, XK_y, XK_z,
+        XK_KP_0, XK_KP_1, XK_KP_2, XK_KP_3, XK_KP_4, XK_KP_5, XK_KP_6, XK_KP_7, XK_KP_8, XK_KP_9, XK_KP_Add, XK_KP_Subtract, XK_KP_Multiply, XK_KP_Divide, XK_KP_Separator, 
+        XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, XK_F10, XK_F11, XK_F12,
+        XK_minus, XK_equal, XK_bracketleft, XK_bracketright, XK_slash, XK_backslash, XK_comma, XK_period, XK_grave, XK_semicolon, XK_apostrophe, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Delete, XK_Insert, XK_BackSpace
     };
 
     for (int i = 0; i < COUNT(codes); i++) {
@@ -348,7 +350,7 @@ void WndProc(const XEvent &e,Display*dpy,Window wnd) {
                 toggle_fullscreen(dpy,wnd);
                 break;
             }
-            Input::setDown(keyToInputKey(e.xkey.keycode), e.type == KeyPress);
+            Input::setDown(keyToInputKey(e.xkey), e.type == KeyPress);
             break;
         case ButtonPress :
         case ButtonRelease : {
