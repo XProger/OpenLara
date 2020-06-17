@@ -493,6 +493,21 @@ namespace GAPI {
     char GLSL_HEADER_VERT[512];
     char GLSL_HEADER_FRAG[512];
 
+    GLuint FBO, defaultFBO;
+    struct RenderTargetCacheItem {
+        GLuint  ID;
+        int     width;
+        int     height;
+    };
+    Array<RenderTargetCacheItem> rtCache[2];
+
+    uint32 m_alphaTest;
+    uint32 m_depthTest;
+    uint32 m_depthWrite;
+    uint32 m_colorMask;
+    uint32 m_cullMode;
+    uint32 m_blendMode;
+
 // Shader
     #ifndef FFP
         const char SHADER_COMPOSE[] =
@@ -550,7 +565,16 @@ namespace GAPI {
     #ifdef FFP
         void init(Core::Pass pass, int type, int *def, int defCount) {}
         void deinit() {}
-        void bind() {}
+        void bind() {
+            if (alphaTest != m_alphaTest) {
+                if (opt & PO_ALPHA_TEST) {
+                    glEnable(GL_ALPHA_TEST);
+                } else {
+                    glDisable(GL_ALPHA_TEST);
+                }
+                m_alphaTest = alphaTest;
+            }
+        }
         void validate() {}
         void setParam(UniformType uType, const vec4  &value, int count = 1) {}
         void setParam(UniformType uType, const mat4  &value, int count = 1) {}
@@ -1131,13 +1155,92 @@ namespace GAPI {
     };
 
 
-    GLuint FBO, defaultFBO;
-    struct RenderTargetCacheItem {
-        GLuint  ID;
-        int     width;
-        int     height;
+// RenderPass
+    struct RenderPass {
+        TexFormat   colorFmt;
+        TexFormat   depthFmt;
+        uint32      opt;
+
+        RenderPass(TexFormat colorFmt, TexFormat depthFmt, uint32 opt) : colorFmt(colorFmt), depthFmt(depthFmt), opt(opt) {}
+
+        void begin(Texture *color, int face, int mip, Texture *depth) {
+            //setRenderTarget
+        }
+
+        void end() {}
     };
-    Array<RenderTargetCacheItem> rtCache[2];
+
+
+// PipelineState
+    struct PipelineState {
+        RenderPass   *renderPass;
+        Shader       *shader;
+        uint32       opt;
+
+        PipelineState(RenderPass *renderPass, Shader *shader, uint32 opt) : renderPass(renderPass), shader(shader), opt(opt) {}
+
+        void bind() {
+            shader->bind();
+
+            uint32 depthTest = opt & PO_DEPTH_TEST;
+            if (depthTest != m_depthTest) {
+                if (depthTest) {
+                    glEnable(GL_DEPTH_TEST);
+                } else {
+                    glDisable(GL_DEPTH_TEST);
+                }
+                m_depthTest = depthTest;
+            }
+
+            uint32 depthWrite = opt & PO_DEPTH_WRITE;
+            if (depthWrite != m_depthWrite) {
+                glDepthMask(depthWrite != 0);
+                m_depthWrite = depthWrite;
+            }
+
+            uint32 colorMask = opt & (PO_COLOR_WRITE_R | PO_COLOR_WRITE_G | PO_COLOR_WRITE_B | PO_COLOR_WRITE_A);
+            if (colorMask != m_colorMask) {
+                glColorMask((opt & PO_COLOR_WRITE_R), 
+                            (opt & PO_COLOR_WRITE_G), 
+                            (opt & PO_COLOR_WRITE_B), 
+                            (opt & PO_COLOR_WRITE_A));
+                m_colorMask = colorMask;
+            }
+
+            uint32 cullMode = opt & (PO_CULL_BACK | PO_CULL_FRONT);
+            if (cullMode != m_cullMode) {
+                if (opt & PO_CULL_BACK) {
+                    glCullFace(GL_BACK);
+                } else if (opt & PO_CULL_FRONT) {
+                    glCullFace(GL_FRONT);
+                } else {
+                    glDisable(GL_CULL_FACE);
+                }
+                if (!m_cullMode) {
+                    glEnable(GL_CULL_FACE);
+                }
+                m_cullMode = cullMode;
+            }
+
+            uint32 blendMode = opt & (PO_BLEND_ALPHA | PO_BLEND_ADD | PO_BLEND_MULT);
+            if (blendMode != m_blendMode) {
+                if (opt & PO_BLEND_ALPHA) {
+                    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                } else if (opt & PO_BLEND_ADD) {
+                    glBlendFunc(GL_ONE, GL_ONE);
+                } else if (opt & PO_BLEND_MULT) {
+                    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+                } else {
+                    glDisable(GL_BLEND);
+                }
+
+                if (!m_blendMode) {
+                    glEnable(GL_BLEND);
+                }
+                m_blendMode = blendMode;
+            } 
+        }
+    };
 
     bool extSupport(const char *str, const char *ext) {
         if (!str) return false;
@@ -1594,7 +1697,7 @@ namespace GAPI {
     void setScissor(const short4 &s) {
         glScissor(s.x, s.y, s.z, s.w);
     }
-
+/*
     void setDepthTest(bool enable) {
         if (enable)
             glEnable(GL_DEPTH_TEST);
@@ -1641,7 +1744,7 @@ namespace GAPI {
         }
         glEnable(GL_BLEND);
     }
-
+*/
     void setViewProj(const mat4 &mView, const mat4 &mProj) {
     #ifdef FFP
         glMatrixMode(GL_PROJECTION);
@@ -1710,7 +1813,8 @@ namespace GAPI {
         glDrawElements(GL_TRIANGLES, range.iCount, sizeof(Index) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, mesh->iBuffer + range.iStart);
     }
 
-    vec4 copyPixel(int x, int y) {
+    vec4 copyPixel(Texture *texture, int x, int y) {
+        // TODO setTarget
         ubyte4 c;
         glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &c);
         return vec4(float(c.x), float(c.y), float(c.z), float(c.w)) * (1.0f / 255.0f);

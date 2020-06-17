@@ -14,7 +14,7 @@
 
 #include "game.h"
 
-#define WND_TITLE       "OpenLara"
+#define WND_TITLE "OpenLara"
 
 // timing
 unsigned int startTime;
@@ -399,25 +399,39 @@ int main(int argc, char **argv) {
         home = getpwuid(getuid())->pw_dir;
     strcat(cacheDir, home);
     strcat(cacheDir, "/.openlara/");
-
+int i = 0;
+i = i / i;
     struct stat st = {0};
     if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
         cacheDir[0] = 0;
     strcpy(saveDir, cacheDir);
 
-    static int XGLAttr[] = {
-        GLX_RGBA,
-        GLX_DOUBLEBUFFER,
-        GLX_DEPTH_SIZE, 24,
-        GLX_RED_SIZE, 8,
-        GLX_GREEN_SIZE, 8,
-        GLX_BLUE_SIZE, 8,
-        GLX_ALPHA_SIZE, 8,
-        0
-    };
-
     Display *dpy = XOpenDisplay(NULL);
-    XVisualInfo *vis = glXChooseVisual(dpy, XDefaultScreen(dpy), XGLAttr);
+    XVisualInfo *vis = NULL;
+
+    #ifdef _GAPI_GL
+        static int XGLAttr[] = {
+            GLX_RGBA,
+            GLX_DOUBLEBUFFER,
+            GLX_DEPTH_SIZE, 24,
+            GLX_RED_SIZE, 8,
+            GLX_GREEN_SIZE, 8,
+            GLX_BLUE_SIZE, 8,
+            GLX_ALPHA_SIZE, 8,
+            0
+        };
+
+        vis = glXChooseVisual(dpy, XDefaultScreen(dpy), XGLAttr);
+
+        GLXContext ctx = glXCreateContext(dpy, vis, NULL, true);
+    #elif _GAPI_VULKAN
+        XVisualInfo visTpl;
+        memset(&visTpl, 0, sizeof(visTpl));
+        visTpl.screen = DefaultScreen(dpy);
+
+        int visCount = 0;
+        vis = XGetVisualInfo(dpy, 2, &visTpl, &visCount);
+    #endif
 
     XSetWindowAttributes attr;
     attr.colormap = XCreateColormap(dpy, RootWindow(dpy, vis->screen), vis->visual, AllocNone);
@@ -432,8 +446,11 @@ int main(int argc, char **argv) {
                                CWColormap | CWBorderPixel | CWEventMask, &attr);
     XStoreName(dpy, wnd, WND_TITLE);
 
-    GLXContext ctx = glXCreateContext(dpy, vis, NULL, true);
-    glXMakeCurrent(dpy, wnd, ctx);
+    #ifdef _GAPI_GL
+        glXMakeCurrent(dpy, wnd, ctx);
+    #endif
+
+    XSync(dpy, false);
     XMapWindow(dpy, wnd);
 
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
@@ -462,7 +479,11 @@ int main(int argc, char **argv) {
             if (updated) {
 				Game::render();
                 Core::waitVBlank();
-				glXSwapBuffers(dpy, wnd);
+                #ifdef _GAPI_GL
+				    glXSwapBuffers(dpy, wnd);
+                #elif _GAPI_VULKAN
+
+                #endif
 			}
         }
     };
@@ -471,7 +492,12 @@ int main(int argc, char **argv) {
     sndFree();
     Game::deinit();
 
-    glXMakeCurrent(dpy, 0, 0);
-    XCloseDisplay(dpy);
+    #ifdef _GAPI_GL
+        glXMakeCurrent(dpy, 0, 0);
+        XCloseDisplay(dpy);
+    #elif _GAPI_VULKAN
+
+    #endif
+
     return 0;
 }

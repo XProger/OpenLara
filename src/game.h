@@ -309,7 +309,6 @@ namespace Game {
 
     bool frameBegin() {
         if (Core::settings.version == SETTINGS_READING) return false;
-        Core::reset();
         if (Core::beginFrame()) {
             level->renderPrepare();
             return true;

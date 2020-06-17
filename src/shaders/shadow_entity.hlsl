@@ -1,5 +1,7 @@
 #include "common.hlsl"
 
+// ALPHA_TEST, SHADOW_DEPTH
+
 struct VS_OUTPUT {
 	float4 pos      : POSITION;
 	float4 texCoord : TEXCOORD0;

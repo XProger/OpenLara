@@ -292,9 +292,11 @@ struct MuzzleFlash : Controller {
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::setMaterial(lum * alpha, 0.0f, 0.0f, alpha);
         Core::setBasis(&b, 1);
+    #if 0
         Core::setDepthWrite(false);
         mesh->renderModel(level->extra.muzzleFlash);
         Core::setDepthWrite(true);
+    #endif
     }
 };
 
@@ -1315,16 +1317,17 @@ struct Lightning : Controller {
         game->setShader(Core::pass, Shader::FLASH, false, false);
         Core::setMaterial(0.0f, 0.0f, 0.0f, 1.0f);
         Core::setBasis(&b, 1);
-
+#if 0
         Core::setCullMode(cmNone);
         Core::setBlendMode(bmAdd);
         Core::setDepthWrite(false);
-
+#endif
         renderPolyline(vec3(0.0f), target - b.pos, 64.0f, 512.0f, 1);
-
+#if 0
         Core::setDepthWrite(true);
         Core::setBlendMode(bmNone);
         Core::setCullMode(cmFront);
+#endif
     }
 };
 

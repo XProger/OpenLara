@@ -47,7 +47,7 @@ namespace UI {
 
     int advGlyphsStart;
 
-    #define RU_MAP              "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜİŞßáâãäæçêëìíïòôö÷øùúûüışÿ" "i~"
+    #define RU_MAP              "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" "i~"
     #define RU_GLYPH_COUNT      (COUNT(RU_MAP) - 1)
     #define RU_GLYPH_START      102
     #define RU_GLYPH_UPPERCASE  20
@@ -62,9 +62,9 @@ namespace UI {
         5, 5, 5, 11, 9, 7, 8, 6, 0, 7, 7, 3, 8, 8, 13, 7, 9, 4, 12, 12, 
         7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8,
     // cyrillic
-        11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛ
-         9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ÜİŞßáâãäæçêëìíïò
-        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // ôö÷øùúûüışÿ
+        11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+         9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     // additional latin (i~)
         5, 10
     }; 
@@ -82,10 +82,11 @@ namespace UI {
     enum Align  { aLeft, aRight, aCenter, aCenterV };
 
     inline int charRemap(char c) {
+#if 0
         if (isCyrillic(c)) {
-            return char_map[RU_GLYPH_START + (c - 'À')];
+            return char_map[RU_GLYPH_START + (c - 'Ğ')];
         }
-
+#endif
         if (c < 11)
             return c + 81;
         if (c < 16)
@@ -118,11 +119,11 @@ namespace UI {
             int h = upperCase(idx) ? 13 : 9;
             int o = 0;
             char c = RU_MAP[i];
-
-            if (c == 'á' || c == 'ä' || c == '~') h = 14;
-            if (c == 'Ö' || c == 'Ù' || c == 'ö' || c == 'ù') { o = 1; h++; }
-            if (c == 'ô') { o = 2; h += 2; }
-
+#if 0
+            if (c == 'Ğ±' || c == 'Ğ´' || c == '~') h = 14;
+            if (c == 'Ğ¦' || c == 'Ğ©' || c == 'Ñ†' || c == 'Ñ‰') { o = 1; h++; }
+            if (c == 'Ñ„') { o = 2; h += 2; }
+#endif
             *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
     // append japanese glyphs
@@ -273,10 +274,13 @@ namespace UI {
         Core::mProj = GAPI::ortho(0.0f, width, height, 0.0f, -128.0f, 127.0f);
         Core::setViewProj(Core::mView, Core::mProj);
 
+        Core::setPipelineState(PS_GUI);
+    #if 0
         Core::setDepthTest(false);
         Core::setDepthWrite(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
+    #endif
         game->setupBinding();
 
         game->setShader(Core::passGUI, Shader::DEFAULT);
@@ -291,10 +295,12 @@ namespace UI {
 
     void end() {
         game->getMesh()->dynEnd();
+    #if 0
         Core::setCullMode(cmFront);
         Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
+    #endif
     }
 
     enum ShadeType {
@@ -667,9 +673,12 @@ namespace UI {
 
         Core::whiteTex->bind(sDiffuse);
 
+        Core::setPipelineState(PS_GUI);
+    #if 0
         Core::setDepthTest(false);
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
+    #endif
 
         Core::mViewProj = GAPI::ortho(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
         
@@ -691,9 +700,11 @@ namespace UI {
             if (Input::btnEnable[i])
                 renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
 
+    #if 0
         Core::setCullMode(cmFront);
         Core::setBlendMode(bmNone);
         Core::setDepthTest(true);
+    #endif
     }
 
     void renderBar(CommonTexType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474, uint32 fgColor2 = 0) {
@@ -801,7 +812,7 @@ namespace UI {
         setupInventoryShading(lightOffset);
 
         Basis joints[MAX_JOINTS];
-
+#if 0
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
 
@@ -834,7 +845,7 @@ namespace UI {
 
             Core::setMaterial(1.0f, 0.0f, 0.0f, alpha);
 
-            game->renderModelFull(item.modelIndex - 1, false, joints);
+            game->renderModelFull(item.modelIndex - 1, joints);
         }
 
         Core::setDepthTest(false);
@@ -846,6 +857,7 @@ namespace UI {
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
         Core::setMaterial(1, 1, 1, 1);
+    #endif
     }
 };
 

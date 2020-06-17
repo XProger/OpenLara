@@ -571,7 +571,7 @@ struct Inventory {
                 joints[1].rotate(quat(vec3(0.0f, 1.0f, 0.0f), -params.x));
             }
 
-            game->renderModelFull(desc.model, false, joints);
+            game->renderModelFull(desc.model, joints);
         }
 
         void choose() {
@@ -1424,31 +1424,36 @@ struct Inventory {
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         float s = 1.0f / INV_BG_SIZE;
         // vertical
-        Core::setTarget(tmp, NULL, RT_STORE_COLOR);
-        Core::validateRenderState();
+        Core::beginRenderPass(RP_FILTER, RenderTarget(tmp), RenderTarget(NULL));
+        Core::setPipelineState(PS_FILTER_BLUR);
         Core::active.shader->setParam(uParam, vec4(0, s, 0, s));
         texInOut->bind(sDiffuse);
         game->getMesh()->renderQuad();
+        Core::endRenderPass();
+
         // horizontal
-        Core::setTarget(texInOut, NULL, RT_STORE_COLOR);
-        Core::validateRenderState();
+        Core::beginRenderPass(RP_FILTER, RenderTarget(texInOut), RenderTarget(NULL));
+        Core::setPipelineState(PS_FILTER_BLUR);
         game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(s, 0, 0, s));
         tmp->bind(sDiffuse);
         game->getMesh()->renderQuad();
+        Core::endRenderPass();
     }
 
     void grayscale(Texture *texIn, Texture *texOut) {
     #ifdef FFP
         return; // TODO
     #endif
+        Core::beginRenderPass(RP_FILTER, RenderTarget(texOut), RenderTarget(NULL));
+        Core::setPipelineState(PS_FILTER_GRAYSCALE);
+
         float s = 1.0f / INV_BG_SIZE;
-        game->setShader(Core::passFilter, Shader::FILTER_GRAYSCALE, false, false);
-        Core::setTarget(texOut, NULL, RT_STORE_COLOR);
-        Core::validateRenderState();
         Core::active.shader->setParam(uParam, vec4(0.75f, 0.75f, 1.0f, s));
         texIn->bind(sDiffuse);
         game->getMesh()->renderQuad();
+
+        Core::endRenderPass();
     }
 
     void prepareBackground() {
@@ -1469,9 +1474,6 @@ struct Inventory {
 
         game->renderGame(false, true);
 
-        Core::setDepthTest(false);
-        Core::setBlendMode(bmNone);
-
         int viewsCount = (Core::settings.detail.stereo == Core::Settings::STEREO_OFF) ? 1 : 2;
 
         mat4 mProj, mView;
@@ -1489,8 +1491,6 @@ struct Inventory {
     #ifdef _OS_3DS
         GAPI::rotate90 = true;
     #endif
-
-        Core::setDepthTest(true);
     }
 
     float getEyeOffset() {
@@ -1828,9 +1828,9 @@ struct Inventory {
         } else {
             background[0]->bind(sDiffuse);
         }
-
+#if 0
         Core::setBlendMode(alpha < 255 ? bmAlpha : bmNone);
-
+#endif
         mat4 mProj, mView;
         mView.identity();
         mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
@@ -1890,18 +1890,19 @@ struct Inventory {
 
         game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
-
+#if 0
         Core::setBlendMode(phaseRing < 1.0f ? bmAlpha : bmNone);
+#endif
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
 
     void renderBackground(int view) {
         if (!isActive() && titleTimer == 0.0f)
             return;
-
+#if 0
         Core::setDepthTest(false);
         Core::setDepthWrite(false);
-
+#endif
         uint8 alpha;
         if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f)
             alpha = uint8(titleTimer * 255);
@@ -1924,10 +1925,11 @@ struct Inventory {
             else
                 renderTitleBG(1.0f, sy, alpha);
         }
-
+#if 0
         Core::setBlendMode(bmPremult);
         Core::setDepthTest(true);
         Core::setDepthWrite(true);
+#endif
     }
 
     void setupCamera(float aspect, bool ui = false) {
@@ -1969,7 +1971,9 @@ struct Inventory {
 
     void render(float aspect) {
         if (video) {
+#if 0
             Core::setDepthTest(false);
+#endif
             video->render();
 
             Texture *tmp = background[0];
@@ -1992,8 +1996,9 @@ struct Inventory {
             renderTitleBG(1.0f, sy, clamp(int((video->stepTimer / video->step) * 255), 0, 255), 1.0f, ch);
 
             background[0] = tmp;
-
+#if 0
             Core::setDepthTest(true);
+#endif
             return;
         }
 

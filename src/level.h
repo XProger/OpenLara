@@ -513,7 +513,7 @@ struct Level : IGame {
 
     virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
-            setShader(Core::pass, type, false, alphaTest);
+            Core::setPipelineState(alphaTest ? PS_ENTITY_SHADOW_ALPHA : PS_ENTITY_SHADOW);
             return;
         }
 
@@ -621,7 +621,7 @@ struct Level : IGame {
         GAPI::rotate90 = false;
     #endif
 
-        PROFILE_MARKER("ENVIRONMENT");
+        PROFILE_MARKER("environment");
         setupBinding();
         float      tmpEye  = Core::eye;
         Core::Pass tmpPass = Core::pass;
@@ -630,17 +630,29 @@ struct Level : IGame {
         int16 rIndex = roomIndex;
         level.getSector(rIndex, pos); // fix room index for overlapped blocks
 
+        Texture *depthTex = Core::acquireTarget(targets[0]->width, targets[0]->height, FMT_DEPTH);
+
     // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
             setupCubeCamera(pos, i);
             Core::pass = pass;
+
+            int index, face;
+
             if (targets[0]->opt & OPT_CUBEMAP) {
-                Core::setTarget(targets[0], NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR, i);
+                index = 0;
+                face  = i;
             } else {
-                Core::setTarget(targets[i * stride], NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
+                index = i * stride;
+                face  = 0;
             }
+
+            Core::beginRenderPass(RP_MAIN, RenderTarget(targets[index], face, 0), RenderTarget(depthTex));
             renderView(rIndex, false, false);
+            Core::endRenderPass();
         }
+
+        Core::releaseTarget(depthTex);
 
     #ifdef _OS_3DS
         GAPI::rotate90 = true;
@@ -650,39 +662,19 @@ struct Level : IGame {
         Core::eye  = tmpEye;
     }
 
-    virtual void renderModelFull(int modelIndex, bool underwater, Basis *joints) {
+    virtual void renderModelFull(int modelIndex, Basis *joints) {
         vec4 ambient[6] = { vec4(0), vec4(0), vec4(0), vec4(0), vec4(0), vec4(0) };
 
-        // opaque
-        Core::setBlendMode(bmPremult); // inventory items has fade-out/in alpha
-        mesh->transparent = 0;
-        setShader(Core::passCompose, Shader::ENTITY, underwater, false);
+        Core::setPipelineState(PS_ENTITY_ALPHA); // inventory items has fade-out/in alpha
         Core::setBasis(joints, level.models[modelIndex].mCount);
         Core::active.shader->setParam(uMaterial, Core::active.material);
         Core::active.shader->setParam(uAmbient, ambient[0], 6);
         Core::updateLights();
-        mesh->renderModel(modelIndex, underwater);
-        // transparent
-        mesh->transparent = 1;
-        setShader(Core::passCompose, Shader::ENTITY, underwater, true);
-        Core::setBasis(joints, level.models[modelIndex].mCount);
-        Core::active.shader->setParam(uMaterial, Core::active.material);
-        Core::active.shader->setParam(uAmbient, ambient[0], 6);
-        Core::updateLights();
-        mesh->renderModel(modelIndex, underwater);
-        // additive
-        Core::setBlendMode(bmAdd);
-        Core::setDepthWrite(false);
-        mesh->transparent = 2;
-        setShader(Core::passCompose, Shader::ENTITY, underwater, false);
-        Core::setBasis(joints, level.models[modelIndex].mCount);
-        Core::active.shader->setParam(uMaterial, Core::active.material);
-        Core::active.shader->setParam(uAmbient, ambient[0], 6);
-        Core::updateLights();
-        mesh->renderModel(modelIndex, underwater);
-        Core::setDepthWrite(true);
-        Core::setBlendMode(bmNone);
-        mesh->transparent = 0;
+
+        for (int i = 0; i < 0; i++) {
+            mesh->transparent = i;
+            mesh->renderModel(modelIndex, false);
+        }
     }
     
     virtual void setEffect(Controller *controller, TR::Effect::Type effect) {
@@ -1811,29 +1803,29 @@ struct Level : IGame {
         #endif
         ASSERT(mesh->transparent == 0);
 
-        Shader::Type type;
+        PipelineStateType type;
         TR::SkyParams skyParams;
 
         if (level.version & TR::VER_TR1) {
             if (Core::settings.detail.lighting < Core::Settings::HIGH || !Core::support.tex3D || !TR::getSkyParams(level.id, skyParams))
                 return;
-            type = Shader::SKY_CLOUDS_AZURE;
+            type = PS_SKY_CLOUDS_AZURE;
         } else { // TR2, TR3
             if (level.extra.sky == -1)
                 return;
 
             if (Core::settings.detail.lighting < Core::Settings::HIGH || !Core::support.tex3D) {
-                type = Shader::DEFAULT;
+                type = PS_SKY;
             } else {
-                type = Shader::SKY_CLOUDS;
+                type = PS_SKY_CLOUDS;
                 if (!TR::getSkyParams(level.id, skyParams)) {
-                    type = Shader::DEFAULT;
+                    type = PS_SKY;
                 }
             }
         }
 
-        if (type != Shader::DEFAULT && !Core::perlinTex) {
-            type = Shader::DEFAULT;
+        if (type != PS_SKY && !Core::perlinTex) {
+            type = PS_SKY;
             if (level.version & TR::VER_TR1) {
                 return;
             }
@@ -1846,9 +1838,9 @@ struct Level : IGame {
         Core::mView.setPos(vec3(0));
         Core::setViewProj(Core::mView, Core::mProj);
 
-        setShader(Core::passSky, type, false, false);
+        Core::setPipelineState(type);
 
-        if (type != Shader::DEFAULT) {
+        if (type != PS_SKY) {
             float time = Core::params.x;
             if (time > SKY_TIME_PERIOD) {
                 time /= SKY_TIME_PERIOD;
@@ -1864,9 +1856,7 @@ struct Level : IGame {
         }
 
         if (level.version & TR::VER_TR1) {
-            Core::setCullMode(cmNone);
-            mesh->renderBox();
-            Core::setCullMode(cmFront);
+            mesh->renderBox(); // TODO renderBoxInv
         } else {
             Basis b;
             Core::setBasis(&b, 1); // unused
@@ -1932,7 +1922,7 @@ struct Level : IGame {
     }
 
     void renderRooms(RoomDesc *roomsList, int roomsCount, int transp) {
-        PROFILE_MARKER("ROOMS");
+        PROFILE_MARKER("rooms");
 
         if (Core::pass == Core::passShadow)
             return;
@@ -1941,12 +1931,6 @@ struct Level : IGame {
         basis.identity();
 
         Core::mModel.identity();
-
-        switch (transp) {
-            case 0 : Core::setBlendMode(bmNone);    break;
-            case 1 : Core::setBlendMode(bmPremult); break;
-            case 2 : Core::setBlendMode(bmAdd);   Core::setDepthWrite(false); break;
-        }
 
         int i     = 0;
         int end   = roomsCount;
@@ -1991,12 +1975,8 @@ struct Level : IGame {
             i += dir;
         }
 
-        Core::setDepthWrite(true);
-
         if (transp == 1) {
             atlasSprites->bind(sDiffuse);
-
-            Core::setBlendMode(bmPremult);
 
             #ifdef MERGE_SPRITES
                 basis.rot = Core::mViewInv.getRot();
@@ -2025,7 +2005,6 @@ struct Level : IGame {
         }
 
         Core::setScissor(vp);
-        Core::setBlendMode(bmNone);
     }
 
     void renderEntity(const TR::Entity &entity) {
@@ -2338,7 +2317,7 @@ struct Level : IGame {
         }
 
         {
-            PROFILE_MARKER("ENTITY_SPRITES");
+            PROFILE_MARKER("sprites");
 
             if (mesh->dynICount) {
                 atlasSprites->bind(sDiffuse);
@@ -2365,36 +2344,27 @@ struct Level : IGame {
         if (Core::pass == Core::passAmbient) // TODO allow static entities
             return;
 
-        PROFILE_MARKER("ENTITIES");
+        PROFILE_MARKER("objects");
 
-        if (transp == 0) {
-            Core::setBlendMode(bmNone);
-            renderEntitiesTransp(transp);
+        renderEntitiesTransp(transp);
+    }
+
+    void renderBlobs() {
+        PROFILE_MARKER("blobs");
+
+        if (Core::pass != Core::passCompose || level.isCutsceneLevel())
+            return;
+
+    #ifndef FFP
+        Core::setPipelineState(PS_BLOB);
+        Core::whiteTex->bind(sDiffuse);
+        for (int i = 0; i < level.entitiesCount; i++) {
+            TR::Entity &entity = level.entities[i];
+            Controller *controller = (Controller*)entity.controller;
+            if (controller && controller->flags.rendered && controller->getEntity().castShadow())
+                controller->renderShadow(mesh);
         }
-
-        if (transp == 1) {
-            Core::setBlendMode(bmPremult);
-            renderEntitiesTransp(transp);
-
-        #ifndef FFP
-            Core::whiteTex->bind(sDiffuse);
-            Core::setBlendMode(bmMult);
-            for (int i = 0; i < level.entitiesCount; i++) {
-                TR::Entity &entity = level.entities[i];
-                Controller *controller = (Controller*)entity.controller;
-                if (controller && controller->flags.rendered && controller->getEntity().castShadow())
-                    controller->renderShadow(mesh);
-            }
-            Core::setBlendMode(bmNone);
-        #endif
-        }
-
-        if (transp == 2) {
-            Core::setDepthWrite(false);
-            Core::setBlendMode(bmAdd);
-            renderEntitiesTransp(transp);
-            Core::setDepthWrite(true);
-        }
+    #endif
     }
 
     virtual vec4 projectPoint(const vec4 &p) {
@@ -2447,25 +2417,27 @@ struct Level : IGame {
 
                 if ((a.w > 0.0f) ^ (b.w > 0.0f)) {
 
-                    if (a.x < 0.0f && b.x < 0.0f)
+                    if (a.x < 0.0f && b.x < 0.0f) {
                         clipPort.x = -1.0f;
-                    else
+                    } else {
                         if (a.x > 0.0f && b.x > 0.0f)
                             clipPort.z = 1.0f;
                         else {
                             clipPort.x = -1.0f;
                             clipPort.z =  1.0f;
                         }
+                    }
 
-                    if (a.y < 0.0f && b.y < 0.0f)
+                    if (a.y < 0.0f && b.y < 0.0f) {
                         clipPort.y = -1.0f;
-                    else
+                    } else {
                         if (a.y > 0.0f && b.y > 0.0f)
                             clipPort.w = 1.0f;
                         else {
                             clipPort.y = -1.0f;
                             clipPort.w =  1.0f;
                         }
+                    }
 
                 }
             }
@@ -2530,8 +2502,8 @@ struct Level : IGame {
     }
 
     virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, RoomDesc *roomsList = NULL) {
-        PROFILE_MARKER("VIEW");
-
+        PROFILE_MARKER("view");
+#if 0
         if (water && waterCache)
             waterCache->reset();
 
@@ -2590,8 +2562,12 @@ struct Level : IGame {
             }
 
         Texture *screen = NULL;
+        Texture *depthTex = NULL;
+
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
+
+            Core::beginrenderPass(RP_SCENE, RenderTarget(screen), RenderTarget());
             Core::setTarget(screen, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
             Core::validateRenderState();
             setupBinding();
@@ -2601,6 +2577,7 @@ struct Level : IGame {
 
         renderOpaque(roomsList, roomsCount);
         renderTransparent(roomsList, roomsCount);
+        renderBlobs();
 
         if (camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
@@ -2639,6 +2616,7 @@ struct Level : IGame {
         }
 
         Core::pass = pass;
+#endif
     }
 
     void setupCubeCamera(const vec3 &pos, int face) {
@@ -2804,7 +2782,7 @@ struct Level : IGame {
     }
 */
     void renderShadows(int roomIndex, Texture *shadowMap) {
-        PROFILE_MARKER("PASS_SHADOW");
+        PROFILE_MARKER("shadows");
 
         if (Core::settings.detail.shadows == Core::Settings::LOW)
             return;
@@ -2816,12 +2794,14 @@ struct Level : IGame {
 
         Core::pass = Core::passShadow;
         shadowMap->unbind(sShadow);
+
+#if 0
         bool colorShadow = shadowMap->fmt == FMT_RGBA ? true : false;
         if (colorShadow)
             Core::setClearColor(vec4(1.0f));
         Core::setTarget(shadowMap, NULL, RT_CLEAR_DEPTH | (colorShadow ? (RT_CLEAR_COLOR | RT_STORE_COLOR) : RT_STORE_DEPTH));
         //Core::setCullMode(cmBack);
-        Core::validateRenderState();
+        //Core::validateRenderState();
 
         /*
         if (Core::settings.detail.shadows > Core::Settings::MEDIUM) { // per-object shadow map (atlas)
@@ -2847,7 +2827,7 @@ struct Level : IGame {
             Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_CLEAR_COLOR | RT_STORE_COLOR | RT_STORE_DEPTH);
             Core::validateRenderState();
         #endif
-
+#endif
         Core::eye = oldEye;
     }
 
@@ -3265,7 +3245,7 @@ struct Level : IGame {
         }  else {
             renderEye(int(Core::eye), showUI, invBG);
         }
-
+#if 0
     #ifndef _OS_3DS
         if (!invBG && Core::settings.detail.stereo == Core::Settings::STEREO_ANAGLYPH) {
             mat4 mProj, mView;
@@ -3309,7 +3289,7 @@ struct Level : IGame {
             Core::setDepthTest(true);
             Core::setDepthWrite(true);
         }
-
+#endif
         // TODO render all UI with native resolution here
     }
 
@@ -3381,7 +3361,7 @@ struct Level : IGame {
 
         setDefaultTarget(eye, view, false);
 
-        Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
+        //Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
 
         float aspect = setViewport(view, eye);
 
@@ -3422,6 +3402,7 @@ struct Level : IGame {
     }
 
     void render() {
+#if 0
         if (isEnded && !inventory->video) {
             Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
             UI::begin(float(Core::width) / float(Core::height));
@@ -3430,6 +3411,7 @@ struct Level : IGame {
             UI::end();
             return;
         }
+#endif
 
         renderGame(true, false);
     }

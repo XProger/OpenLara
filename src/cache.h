@@ -16,8 +16,7 @@ struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2 };
 
     Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST) + 1];
-    PSO    *pso[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST) + 1][bmMAX];
-
+    
     ShaderCache() {
         memset(shaders, 0, sizeof(shaders));
 
@@ -47,82 +46,69 @@ struct ShaderCache {
                     delete shaders[pass][type][fx];
     }
 
-    #define rsBase   (RS_COLOR_WRITE | RS_DEPTH_TEST | RS_DEPTH_WRITE | RS_CULL_FRONT)
-    #define rsBlend  (RS_BLEND_ALPHA | RS_BLEND_ADD)
-    #define rsFull   (rsBase | rsBlend)
-    #define rsShadow (RS_DEPTH_TEST | RS_DEPTH_WRITE | RS_CULL_BACK)
-
     void prepareCompose(int fx) {
-        compile(Core::passCompose, Shader::MIRROR, fx,                 rsBase);
+        compile(Core::passCompose, Shader::MIRROR, fx);
 
-        compile(Core::passCompose, Shader::ROOM,   fx,                 rsFull);
-        compile(Core::passCompose, Shader::ROOM,   fx,                 rsFull | RS_DISCARD);
-        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER, rsFull);
-        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER, rsFull | RS_DISCARD);
+        compile(Core::passCompose, Shader::ROOM,   fx);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER | FX_ALPHA_TEST);
 
-        compile(Core::passCompose, Shader::ENTITY, fx,                 rsFull);
-        compile(Core::passCompose, Shader::ENTITY, fx,                 rsFull | RS_DISCARD);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER, rsFull);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
+        compile(Core::passCompose, Shader::ENTITY, fx);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER);
+        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST);
 
-        compile(Core::passCompose, Shader::SPRITE, fx,                 rsFull | RS_DISCARD);
-        compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER, rsFull | RS_DISCARD);
+        compile(Core::passCompose, Shader::SPRITE, fx | FX_ALPHA_TEST);
+        compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER | FX_ALPHA_TEST);
 
-        compile(Core::passCompose, Shader::FLASH,  fx,                 rsFull | RS_BLEND_MULT); // spot shadow
+        compile(Core::passCompose, Shader::FLASH,  fx); // spot shadow
     }
 
     void prepareAmbient(int fx) {
-        compile(Core::passAmbient, Shader::ROOM,   fx, rsFull);
-        compile(Core::passAmbient, Shader::ROOM,   fx, rsFull | RS_DISCARD);
-        compile(Core::passAmbient, Shader::SPRITE, fx, rsFull | RS_DISCARD);
+        compile(Core::passAmbient, Shader::ROOM,   fx);
+        compile(Core::passAmbient, Shader::ROOM,   fx | FX_ALPHA_TEST);
+        compile(Core::passAmbient, Shader::SPRITE, fx | FX_ALPHA_TEST);
     }
 
     void prepareShadows(int fx) {
-        compile(Core::passShadow, Shader::MIRROR, fx, rsShadow);
-        compile(Core::passShadow, Shader::ENTITY, fx, rsShadow);
-        compile(Core::passShadow, Shader::ENTITY, fx, rsShadow | RS_DISCARD);
+        compile(Core::passShadow, Shader::MIRROR, fx);
+        compile(Core::passShadow, Shader::ENTITY, fx);
+        compile(Core::passShadow, Shader::ENTITY, fx | FX_ALPHA_TEST);
     }
 
     void prepareSky(int fx) {
-        compile(Core::passSky, Shader::DEFAULT, fx, rsBase);
+        compile(Core::passSky, Shader::DEFAULT, fx);
         if (Core::support.tex3D) {
-            compile(Core::passSky, Shader::SKY_CLOUDS,       fx, rsBase);
-            compile(Core::passSky, Shader::SKY_CLOUDS_AZURE, fx, rsBase);
+            compile(Core::passSky, Shader::SKY_CLOUDS,       fx);
+            compile(Core::passSky, Shader::SKY_CLOUDS_AZURE, fx);
         }
     }
 
     void prepareWater(int fx) {
-        compile(Core::passWater, Shader::WATER_MASK,     fx, RS_COLOR_WRITE_A | RS_DEPTH_TEST);
-        compile(Core::passWater, Shader::WATER_SIMULATE, fx, RS_COLOR_WRITE);
-        compile(Core::passWater, Shader::WATER_DROP,     fx, RS_COLOR_WRITE);
-        compile(Core::passWater, Shader::WATER_RAYS,     fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
+        compile(Core::passWater, Shader::WATER_MASK,     fx);
+        compile(Core::passWater, Shader::WATER_SIMULATE, fx);
+        compile(Core::passWater, Shader::WATER_DROP,     fx);
+        compile(Core::passWater, Shader::WATER_RAYS,     fx);
         if (Core::support.derivatives) {
-            compile(Core::passWater, Shader::WATER_CAUSTICS, fx, RS_COLOR_WRITE);
+            compile(Core::passWater, Shader::WATER_CAUSTICS, fx);
         }
-        compile(Core::passWater, Shader::WATER_COMPOSE,  fx, RS_COLOR_WRITE | RS_DEPTH_TEST);
+        compile(Core::passWater, Shader::WATER_COMPOSE,  fx);
     }
 
     void prepareFilter(int fx) {
-        compile(Core::passFilter, Shader::FILTER_UPSCALE,    fx, RS_COLOR_WRITE);
-        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx, RS_COLOR_WRITE);
-        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx, RS_COLOR_WRITE);
-        compile(Core::passFilter, Shader::FILTER_BLUR,       fx, RS_COLOR_WRITE);
-        compile(Core::passFilter, Shader::FILTER_ANAGLYPH,   fx, RS_COLOR_WRITE);
+        compile(Core::passFilter, Shader::FILTER_UPSCALE,    fx);
+        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx);
+        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx);
+        compile(Core::passFilter, Shader::FILTER_BLUR,       fx);
+        compile(Core::passFilter, Shader::FILTER_ANAGLYPH,   fx);
     }
 
     void prepareGUI(int fx) {
-        compile(Core::passGUI, Shader::DEFAULT, fx, RS_COLOR_WRITE | RS_BLEND_ALPHA);
+        compile(Core::passGUI, Shader::DEFAULT, fx);
     }
 
-    #undef rsBase
-    #undef rsBlend
-    #undef rsFull
-    #undef rsShadow
-
-    Shader* compile(Core::Pass pass, Shader::Type type, int fx, uint32 rs) {
-        if (rs & RS_DISCARD)
-            fx |= FX_ALPHA_TEST;
-
+    Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
     #ifndef FFP
         if (shaders[pass][type][fx])
             return shaders[pass][type][fx];
@@ -196,7 +182,7 @@ struct ShaderCache {
             shader->setup();
         }
 
-        Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
+        //Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
     }
 };
 
@@ -259,7 +245,7 @@ struct AmbientCache {
     }
 
     void renderAmbient(int room, int sector, vec4 *colors) {
-        PROFILE_MARKER("PASS_AMBIENT");
+        PROFILE_MARKER("ambient");
                 
         TR::Room &r = level->rooms[room];
         TR::Room::Sector &s = r.sectors[sector];
@@ -274,8 +260,6 @@ struct AmbientCache {
         game->renderEnvironment(room, pos, textures, 4);
 
         // second pass - downsample it
-        Core::setDepthTest(false);
-
         mat4 mProj, mView;
         mView.identity();
         mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
@@ -291,20 +275,22 @@ struct AmbientCache {
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
                 Texture *dst = textures[j * 4 + i];
-                Core::setTarget(dst, NULL, RT_STORE_COLOR);
-                Core::validateRenderState();
+
+                Core::beginRenderPass(RP_FILTER, RenderTarget(dst, 0, 0), RenderTarget(NULL, 0, 0));
+                Core::setPipelineState(PS_FILTER_DOWNSAMPLE);
+
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
+
+                Core::endRenderPass();
             }
         }
 
         // get result color from 1x1 textures
         for (int j = 0; j < 6; j++) {
-            Core::setTarget(textures[j * 4 + 3], NULL, RT_LOAD_COLOR);
-            colors[j] = Core::copyPixel(0, 0);
+            colors[j] = Core::copyPixel(textures[j * 4 + 3], 0, 0);
         }
 
-        Core::setDepthTest(true);
         Core::setClearColor(vec4(0, 0, 0, 0));
     }
 
@@ -671,7 +657,7 @@ struct WaterCache {
         vec4 rPosScale[2] = { vec4(0.0f), vec4(1.0f) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
-            
+    #if 0
         for (int i = 0; i < dropCount; i++) {
             Drop &drop = drops[i];
 
@@ -689,6 +675,7 @@ struct WaterCache {
             item.data[0]->unbind(sNormal);
             swap(item.data[0], item.data[1]);
         }
+    #endif
     }
     
     void step(Item &item) {
@@ -700,7 +687,7 @@ struct WaterCache {
         Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, Core::params.x));
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
         Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
-
+#if 0
         while (item.timer >= SIMULATE_TIMESTEP) {
         // water step
             Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
@@ -734,6 +721,7 @@ struct WaterCache {
         item.data[0]->bind(sNormal);
         game->getMesh()->renderPlane();
         item.data[0]->unbind(sNormal);
+    #endif
     }
 
     void renderRays() {
@@ -761,7 +749,7 @@ struct WaterCache {
 
             Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
             Core::active.shader->setParam(uParam,    vec4(level->rooms[item.to].getOffset(), 0.35f));
-
+#if 0
             Core::setBlendMode(bmAdd);
             Core::setCullMode(cmBack);
             Core::setDepthWrite(false);
@@ -769,6 +757,7 @@ struct WaterCache {
             Core::setDepthWrite(true);
             Core::setCullMode(cmFront);
             Core::setBlendMode(bmNone);
+    #endif
         }
     }
 
@@ -778,12 +767,12 @@ struct WaterCache {
     // mask underwater geometry by zero alpha
         game->setShader(Core::passWater, Shader::WATER_MASK);
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
-
+#if 0
         Core::setColorWrite(false, false, false, true);
         Core::setDepthWrite(false);
         Core::setCullMode(cmNone);
         Core::setBlendMode(bmNone);
-
+#endif
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -793,10 +782,11 @@ struct WaterCache {
 
             game->getMesh()->renderQuad();
         }
-
+#if 0
         Core::setColorWrite(true, true, true, true);
         Core::setDepthWrite(true);
         Core::setCullMode(cmFront);
+#endif
     }
 
 
@@ -805,7 +795,6 @@ struct WaterCache {
         int h = Core::viewportDef.w;
     // get refraction texture
         if (!refract || w != refract->origWidth || h != refract->origHeight) {
-            PROFILE_MARKER("WATER_REFRACT_INIT");
             delete refract;
             refract = new Texture(w, h, 1, FMT_RGBA, OPT_TARGET);
         #ifdef USE_SCREEN_TEX
@@ -817,7 +806,7 @@ struct WaterCache {
     }
 
     void copyScreenToRefraction() {
-        PROFILE_MARKER("WATER_REFRACT_COPY");
+        PROFILE_MARKER("water_copy_refraction");
     // get refraction texture
         int x, y;
         if (!screen) {
@@ -826,7 +815,7 @@ struct WaterCache {
         } else {
             x = y = 0;
         }
-
+#if 0
         if (screen) {
             Core::setTarget(refract, NULL, RT_LOAD_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
             Core::validateRenderState();
@@ -840,11 +829,13 @@ struct WaterCache {
         } else {
             Core::copyTarget(refract, 0, 0, x, y, Core::viewportDef.z, Core::viewportDef.w); // copy framebuffer into refraction texture
         }
+#endif
     }
 
     void simulate() {
-        PROFILE_MARKER("WATER_SIMULATE");
+        PROFILE_MARKER("water_simulate");
     // simulate water
+    #if 0
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);
         for (int i = 0; i < count; i++) {
@@ -861,18 +852,19 @@ struct WaterCache {
             }
         }
         Core::setDepthTest(true);
+    #endif
     }
 
     void renderReflection() {
         if (!visible) return;
-        PROFILE_MARKER("WATER_REFLECT");
+        PROFILE_MARKER("water_reflection");
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (item.visible && item.blank)
                 item.init(game);
         }
-
+#if 0
     // render mirror reflection
         Core::setTarget(reflect, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR);
         Camera *camera = (Camera*)game->getCamera();
@@ -928,11 +920,12 @@ struct WaterCache {
 
         camera->reflectPlane = NULL;
         camera->setup(true);
+#endif
     }
 
     void compose() {
         if (!visible) return;
-        PROFILE_MARKER("WATER_COMPOSE");
+        PROFILE_MARKER("water_compose");
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -953,6 +946,7 @@ struct WaterCache {
             reflect->bind(sReflect);
             item.mask->bind(sMask);
             item.data[0]->bind(sNormal);
+#if 0
             Core::setCullMode(cmNone);
             Core::setBlendMode(bmAlpha);
             #ifdef WATER_USE_GRID
@@ -966,6 +960,7 @@ struct WaterCache {
             #endif
             Core::setCullMode(cmFront);
             Core::setBlendMode(bmNone);
+#endif
         }
         dropCount = 0;
     }
@@ -1010,14 +1005,14 @@ struct WaterCache {
             vertices[2].texCoord = short4(32767,     0, 0, 0);
             vertices[3].texCoord = short4(    0,     0, 0, 0);
         }
-
+#if 0
         Core::setDepthTest(false);
         Core::setBlendMode(bmNone);
 
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
 
         Core::setDepthTest(true);
-
+#endif
         tex->unbind(sDiffuse);
     }
 
