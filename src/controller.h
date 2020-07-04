@@ -73,8 +73,7 @@ struct IGame {
     virtual void         flipMap(bool water = true) {}
     virtual void setWaterParams(float height) {}
     virtual void waterDrop(const vec3 &pos, float radius, float strength) {}
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {}
-    virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {}
+    virtual void setRoomParams(int roomIndex, ShaderType type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {}
     virtual void setupBinding() {}
     virtual void getVisibleRooms(RoomDesc *roomsList, int &roomsCount, int from, int to, const vec4 &viewPort, bool water, int count = 0) {}
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {}
@@ -1411,7 +1410,7 @@ struct Controller {
         Basis b;
         b.identity();
 
-        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::setPipelineState(PS_FLASH);
         Core::active.shader->setParam(uViewProj, Core::mViewProj * m);
         Core::setBasis(&b, 1);
 
@@ -1454,7 +1453,7 @@ struct Controller {
         game->getMesh()->addDynSprite(level->spriteSequences[-(getEntity().modelIndex + 1)].sStart + frame, short3(int16(p.x), int16(p.y), int16(p.z)), false, false, color, color);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         if (getEntity().modelIndex < 0) {
             renderSprite(0);
             return;

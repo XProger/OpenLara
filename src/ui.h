@@ -47,7 +47,7 @@ namespace UI {
 
     int advGlyphsStart;
 
-    #define RU_MAP              "�������������������������������������������" "i~"
+    #define RU_MAP              "БГДЖЗИЛПУФЦЧШЩЪЫЬЭЮЯбвгджзклмнптфцчшщъыьэюя" "i~"
     #define RU_GLYPH_COUNT      (COUNT(RU_MAP) - 1)
     #define RU_GLYPH_START      102
     #define RU_GLYPH_UPPERCASE  20
@@ -62,9 +62,9 @@ namespace UI {
         5, 5, 5, 11, 9, 7, 8, 6, 0, 7, 7, 3, 8, 8, 13, 7, 9, 4, 12, 12, 
         7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8,
     // cyrillic
-        11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // ����������������
-         9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ����������������
-        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // �����������
+        11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // БГДЖЗИЛПУФЦЧШЩЪЫ
+         9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ЬЭЮЯбвгджзклмнпт
+        10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // фцчшщъыьэюя
     // additional latin (i~)
         5, 10
     }; 
@@ -82,11 +82,10 @@ namespace UI {
     enum Align  { aLeft, aRight, aCenter, aCenterV };
 
     inline int charRemap(char c) {
-#if 0
         if (isCyrillic(c)) {
             return char_map[RU_GLYPH_START + (c - 'А')];
         }
-#endif
+
         if (c < 11)
             return c + 81;
         if (c < 16)
@@ -119,11 +118,11 @@ namespace UI {
             int h = upperCase(idx) ? 13 : 9;
             int o = 0;
             char c = RU_MAP[i];
-#if 0
+
             if (c == 'б' || c == 'д' || c == '~') h = 14;
             if (c == 'Ц' || c == 'Щ' || c == 'ц' || c == 'щ') { o = 1; h++; }
             if (c == 'ф') { o = 2; h += 2; }
-#endif
+
             *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -h + o, w, o, (i % 16) * 16, (i / 16) * 16 + (16 - h), w, h);
         }
     // append japanese glyphs
@@ -275,15 +274,8 @@ namespace UI {
         Core::setViewProj(Core::mView, Core::mProj);
 
         Core::setPipelineState(PS_GUI);
-    #if 0
-        Core::setDepthTest(false);
-        Core::setDepthWrite(false);
-        Core::setBlendMode(bmPremult);
-        Core::setCullMode(cmNone);
-    #endif
         game->setupBinding();
 
-        game->setShader(Core::passGUI, Shader::DEFAULT);
         Core::setMaterial(1, 1, 1, 1);
 
         game->getMesh()->dynBegin();
@@ -295,12 +287,6 @@ namespace UI {
 
     void end() {
         game->getMesh()->dynEnd();
-    #if 0
-        Core::setCullMode(cmFront);
-        Core::setBlendMode(bmNone);
-        Core::setDepthTest(true);
-        Core::setDepthWrite(true);
-    #endif
     }
 
     enum ShadeType {
@@ -673,16 +659,9 @@ namespace UI {
 
         Core::whiteTex->bind(sDiffuse);
 
-        Core::setPipelineState(PS_GUI);
-    #if 0
-        Core::setDepthTest(false);
-        Core::setBlendMode(bmPremult);
-        Core::setCullMode(cmNone);
-    #endif
-
         Core::mViewProj = GAPI::ortho(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
-        
-        game->setShader(Core::passGUI, Shader::DEFAULT);
+
+        Core::setPipelineState(PS_GUI);
 
         float offset = Core::height * 0.25f;
 
@@ -699,12 +678,6 @@ namespace UI {
         for (int i = Input::bWeapon; i < Input::bMAX; i++)
             if (Input::btnEnable[i])
                 renderControl(Input::btnPos[i], Input::btnRadius, Input::btn == i);
-
-    #if 0
-        Core::setCullMode(cmFront);
-        Core::setBlendMode(bmNone);
-        Core::setDepthTest(true);
-    #endif
     }
 
     void renderBar(CommonTexType type, const vec2 &pos, const vec2 &size, float value, uint32 fgColor = 0xFFFFFFFF, uint32 bgColor = 0x80000000, uint32 brColor1 = 0xFF4C504C, uint32 brColor2 = 0xFF748474, uint32 fgColor2 = 0) {
@@ -773,7 +746,8 @@ namespace UI {
         Core::mProj = GAPI::perspective(1.0f, 1.0f, 1.0f, 2.0f, 0.0f);
         Core::mLightProj = Core::mProj * Core::mView;
 
-        game->setShader(Core::passCompose, Shader::ENTITY, false, false);
+        Core::setPipelineState(PS_ENTITY_ALPHA);
+
         Core::setMaterial(1.0f, 0.0f, 0.0f, 1.0f);
 
         vec4 o = vec4(offset, 0.0f);
@@ -812,9 +786,6 @@ namespace UI {
         setupInventoryShading(lightOffset);
 
         Basis joints[MAX_JOINTS];
-#if 0
-        Core::setDepthTest(true);
-        Core::setDepthWrite(true);
 
         for (int i = 0; i < pickups.length; i++) {
             const PickupItem &item = pickups[i];
@@ -848,16 +819,10 @@ namespace UI {
             game->renderModelFull(item.modelIndex - 1, joints);
         }
 
-        Core::setDepthTest(false);
-        Core::setDepthWrite(false);
-
         Core::setViewProj(mView, Core::mProj);
-        game->setShader(Core::passGUI, Shader::DEFAULT);
+        Core::setPipelineState(PS_GUI);
         Core::active.shader->setParam(uViewProj, Core::mViewProj);
-        Core::setBlendMode(bmPremult);
-        Core::setCullMode(cmNone);
         Core::setMaterial(1, 1, 1, 1);
-    #endif
     }
 };
 

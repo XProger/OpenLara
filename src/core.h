@@ -408,7 +408,6 @@ void osToggleVR(bool enable) {
 #define PERLIN_TEX_SIZE      128
 #define PERLIN_TEX_NAME      "perlin3_128.raw"
 
-struct Shader;
 struct Texture;
 
 namespace GAPI {
@@ -509,6 +508,7 @@ struct MeshRange {
     E( uPosScale        ) \
     E( uContacts        )
 
+#if 0
 #define SHADER_DEFINES(E) \
     /* shadow types */ \
     E( SHADOW_SAMPLER ) \
@@ -547,13 +547,15 @@ struct MeshRange {
     E( OPT_CONTACT     ) \
     E( OPT_CAUSTICS    )
 
-enum AttribType   { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
-enum SamplerType  { SHADER_SAMPLERS(DECL_ENUM) sMAX };
-enum UniformType  { SHADER_UNIFORMS(DECL_ENUM) uMAX };
-
 #define DECL_SD_ENUM(v) SD_##v,
 enum ShaderDefine { SHADER_DEFINES(DECL_SD_ENUM) SD_MAX };
 #undef DECL_SD_ENUM
+
+#endif
+
+enum AttribType   { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
+enum SamplerType  { SHADER_SAMPLERS(DECL_ENUM) sMAX };
+enum UniformType  { SHADER_UNIFORMS(DECL_ENUM) uMAX };
 
 const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
 const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
@@ -563,8 +565,41 @@ const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 #undef SHADER_SAMPLERS
 #undef SHADER_UNIFORMS
 
-enum CullMode  { cmNone, cmBack,  cmFront, cmMAX };
-enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
+enum ShaderType {
+    SH_GUI,
+    SH_SHADOW,
+    SH_SHADOW_A,
+    SH_ROOM,
+    SH_ROOM_A,
+    SH_ROOM_U,
+    SH_ROOM_UA,
+    SH_AMBIENT,
+    SH_AMBIENT_A,
+    SH_ENTITY,
+    SH_ENTITY_A,
+    SH_ENTITY_U,
+    SH_ENTITY_UA,
+    SH_ENTITY_MIRROR,
+    SH_FLASH,
+    SH_BLOB,
+    SH_SPRITE,
+    SH_SPRITE_U,
+    SH_SKY,
+    SH_SKY_CLOUDS,
+    SH_SKY_CLOUDS_AZURE,
+    SH_WATER_COMPOSE,
+    SH_WATER_MASK,
+    SH_WATER_RAYS,
+    SH_WATER_DROP,
+    SH_WATER_CALC,
+    SH_WATER_CAUSTICS,
+    SH_FILTER_UPSCALE,
+    SH_FILTER_DOWNSAMPLE,
+    SH_FILTER_GRAYSCALE,
+    SH_FILTER_BLUR,
+    SH_FILTER_ANAGLYPH,
+    SH_MAX
+};
 
 enum RenderPassType {
     RP_MAIN,
@@ -590,9 +625,6 @@ enum PipelineStateType {
     PS_AMBIENT,
     PS_AMBIENT_ALPHA,
     PS_AMBIENT_ADD,
-    PS_AMBIENT_UNDERWATER,
-    PS_AMBIENT_UNDERWATER_ALPHA,
-    PS_AMBIENT_UNDERWATER_ADD,
     PS_ENTITY,
     PS_ENTITY_ALPHA,
     PS_ENTITY_ADD,
@@ -767,7 +799,6 @@ namespace Core {
 #endif
 
 #include "texture.h"
-#include "shader.h"
 #include "video.h"
 
 struct RenderTarget {
@@ -780,6 +811,7 @@ struct RenderTarget {
 
 namespace Core {
 
+    GAPI::Shader*         shaders[SH_MAX];
     GAPI::RenderPass*     renderPasses[RP_MAX];
     GAPI::PipelineState*  pipelineStates[PS_MAX];
 
@@ -811,6 +843,31 @@ namespace Core {
         delete[] perlinData;
     }
 
+    void initShaders() {
+        for (int i = 0; i < SH_MAX; i++) {
+            delete shaders[i];
+            shaders[i] = NULL;
+
+            if (Core::settings.detail.shadows == Core::Settings::LOW) {
+                if (i == SH_SHADOW || i == SH_SHADOW_A)
+                    continue;
+            }
+
+            if (Core::settings.detail.water == Core::Settings::LOW) {
+                if (i >= SH_WATER_COMPOSE && i <= SH_WATER_CAUSTICS)
+                    continue;
+            }
+
+            if (i == SH_WATER_CAUSTICS && !support.derivatives)
+                continue;
+
+            if ((i == SH_SKY_CLOUDS || i == SH_SKY_CLOUDS_AZURE) && !support.tex3D)
+                continue;
+
+            shaders[i] = new GAPI::Shader((ShaderType)i);
+        }
+    }
+
     void initRenderPasses() {
         memset(renderPasses, 0, sizeof(renderPasses));
 
@@ -824,113 +881,99 @@ namespace Core {
     void initPipelineStates() {
         memset(pipelineStates, 0, sizeof(pipelineStates));
 
-        Shader *gui;
-        Shader *shadow, *shadow_a;
-        Shader *room, *room_a, *room_u, *room_ua;
-        Shader *ambient, *ambient_a, *ambient_u, *ambient_ua;
-        Shader *entity, *entity_a, *entity_u, *entity_ua, *entity_mirror;
-        Shader *flash, *blob;
-        Shader *sprite, *sprite_u;
-        Shader *sky, *sky_clouds, *sky_clouds_azure;
-        Shader *water_compose, *water_mask, *water_rays, *water_drop, *water_calc, *water_caustics;
-        Shader *filter_upscale, *filter_downsample, *filter_grayscale, *filter_blur, *filter_anaglyph;
+        #define PIPELINE(rpIdx, shIdx, opt) shaders[shIdx] ? new GAPI::PipelineState(renderPasses[rpIdx], shaders[shIdx], opt) : NULL
 
-        pipelineStates[PS_WATER_RAYS] = new GAPI::PipelineState(renderPasses[RP_MAIN], gui,
+        pipelineStates[PS_GUI] = PIPELINE(RP_MAIN, SH_GUI,
             PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
 
-        pipelineStates[PS_ENTITY_SHADOW] = new GAPI::PipelineState(renderPasses[RP_SHADOW], shadow,
+        pipelineStates[PS_ENTITY_SHADOW] = PIPELINE(RP_SHADOW, SH_SHADOW,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_SHADOW_ALPHA] = new GAPI::PipelineState(renderPasses[RP_SHADOW], shadow_a,
+        pipelineStates[PS_ENTITY_SHADOW_ALPHA] = PIPELINE(RP_SHADOW, SH_SHADOW_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_ROOM] = new GAPI::PipelineState(renderPasses[RP_MAIN], room,
+        pipelineStates[PS_ROOM] = PIPELINE(RP_MAIN, SH_ROOM,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ROOM_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], room_a,
+        pipelineStates[PS_ROOM_ALPHA] = PIPELINE(RP_MAIN, SH_ROOM_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ROOM_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], room,
+        pipelineStates[PS_ROOM_ADD] = PIPELINE(RP_MAIN, SH_ROOM,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
              
-        pipelineStates[PS_ROOM_UNDERWATER] = new GAPI::PipelineState(renderPasses[RP_MAIN], room_u,
+        pipelineStates[PS_ROOM_UNDERWATER] = PIPELINE(RP_MAIN, SH_ROOM_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ROOM_UNDERWATER_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], room_ua,
+        pipelineStates[PS_ROOM_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, SH_ROOM_UA,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ROOM_UNDERWATER_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], room_u,
+        pipelineStates[PS_ROOM_UNDERWATER_ADD] = PIPELINE(RP_MAIN, SH_ROOM_U,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_AMBIENT] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient,
+        pipelineStates[PS_AMBIENT] = PIPELINE(RP_MAIN, SH_AMBIENT,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_AMBIENT_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient_a,
+        pipelineStates[PS_AMBIENT_ALPHA] = PIPELINE(RP_MAIN, SH_AMBIENT_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_AMBIENT_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient,
+        pipelineStates[PS_AMBIENT_ADD] = PIPELINE(RP_MAIN, SH_AMBIENT,
+            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
+
+        pipelineStates[PS_ENTITY] = PIPELINE(RP_MAIN, SH_ENTITY,
+            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
+        pipelineStates[PS_ENTITY_ALPHA] = PIPELINE(RP_MAIN, SH_ENTITY_A,
+            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
+        pipelineStates[PS_ENTITY_ADD] = PIPELINE(RP_MAIN, SH_ENTITY,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
              
-        pipelineStates[PS_AMBIENT_UNDERWATER] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient_u,
+        pipelineStates[PS_ENTITY_UNDERWATER] = PIPELINE(RP_MAIN, SH_ENTITY_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_AMBIENT_UNDERWATER_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient_ua,
+        pipelineStates[PS_ENTITY_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, SH_ENTITY_UA,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_AMBIENT_UNDERWATER_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], ambient_u,
+        pipelineStates[PS_ENTITY_UNDERWATER_ADD] = PIPELINE(RP_MAIN, SH_ENTITY_U,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_ENTITY] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity_a,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ENTITY_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity,
-            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
-             
-        pipelineStates[PS_ENTITY_UNDERWATER] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity_u,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_UNDERWATER_ALPHA] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity_ua,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ENTITY_UNDERWATER_ADD] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity_u,
-            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
-
-        pipelineStates[PS_ENTITY_MIRROR] = new GAPI::PipelineState(renderPasses[RP_MAIN], entity_mirror,
+        pipelineStates[PS_ENTITY_MIRROR] = PIPELINE(RP_MAIN, SH_ENTITY_MIRROR,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_FLASH] = new GAPI::PipelineState(renderPasses[RP_MAIN], flash,
+        pipelineStates[PS_FLASH] = PIPELINE(RP_MAIN, SH_FLASH,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_BLOB] = new GAPI::PipelineState(renderPasses[RP_MAIN], blob,
+        pipelineStates[PS_BLOB] = PIPELINE(RP_MAIN, SH_BLOB,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_MULT);
 
-        pipelineStates[PS_SPRITE] = new GAPI::PipelineState(renderPasses[RP_MAIN], sprite,
+        pipelineStates[PS_SPRITE] = PIPELINE(RP_MAIN, SH_SPRITE,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_SPRITE_UNDERWATER] = new GAPI::PipelineState(renderPasses[RP_MAIN], sprite_u,
+        pipelineStates[PS_SPRITE_UNDERWATER] = PIPELINE(RP_MAIN, SH_SPRITE_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
 
-        pipelineStates[PS_SKY] = new GAPI::PipelineState(renderPasses[RP_MAIN], sky,
+        pipelineStates[PS_SKY] = PIPELINE(RP_MAIN, SH_SKY,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_SKY_CLOUDS] = new GAPI::PipelineState(renderPasses[RP_MAIN], sky_clouds,
+        pipelineStates[PS_SKY_CLOUDS] = PIPELINE(RP_MAIN, SH_SKY_CLOUDS,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_SKY_CLOUDS_AZURE] = new GAPI::PipelineState(renderPasses[RP_MAIN], sky_clouds_azure,
+        pipelineStates[PS_SKY_CLOUDS_AZURE] = PIPELINE(RP_MAIN, SH_SKY_CLOUDS_AZURE,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_WATER_COMPOSE] = new GAPI::PipelineState(renderPasses[RP_MAIN], water_compose,
+        pipelineStates[PS_WATER_COMPOSE] = PIPELINE(RP_MAIN, SH_WATER_COMPOSE,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE);
-        pipelineStates[PS_WATER_MASK] = new GAPI::PipelineState(renderPasses[RP_MAIN], water_mask,
+        pipelineStates[PS_WATER_MASK] = PIPELINE(RP_MAIN, SH_WATER_MASK,
             PO_DEPTH_TEST | PO_COLOR_WRITE_A);
-        pipelineStates[PS_WATER_RAYS] = new GAPI::PipelineState(renderPasses[RP_MAIN], water_mask,
-            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_FRONT | PO_BLEND_ADD);
+        pipelineStates[PS_WATER_RAYS] = PIPELINE(RP_MAIN, SH_WATER_RAYS,
+            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_WATER_DROP] = new GAPI::PipelineState(renderPasses[RP_WATER_PROCESS], water_drop,
+        pipelineStates[PS_WATER_DROP] = PIPELINE(RP_WATER_PROCESS, SH_WATER_DROP,
             PO_COLOR_WRITE_R | PO_COLOR_WRITE_G | PO_CULL_BACK);
-        pipelineStates[PS_WATER_CALC] = new GAPI::PipelineState(renderPasses[RP_WATER_PROCESS], water_calc,
+        pipelineStates[PS_WATER_CALC] = PIPELINE(RP_WATER_PROCESS, SH_WATER_CALC,
             PO_COLOR_WRITE_R | PO_COLOR_WRITE_G | PO_CULL_BACK);
             
-        pipelineStates[PS_WATER_CAUSTICS] = new GAPI::PipelineState(renderPasses[RP_WATER_CAUSTICS], water_caustics,
+        pipelineStates[PS_WATER_CAUSTICS] = PIPELINE(RP_WATER_CAUSTICS, SH_WATER_CAUSTICS,
             PO_COLOR_WRITE | PO_BLEND_ADD);
 
-        pipelineStates[PS_FILTER_UPSCALE] = new GAPI::PipelineState(renderPasses[RP_FILTER], filter_upscale,
+        pipelineStates[PS_FILTER_UPSCALE] = PIPELINE(RP_FILTER, SH_FILTER_UPSCALE,
             PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_FILTER_DOWNSAMPLE] = new GAPI::PipelineState(renderPasses[RP_FILTER], filter_downsample,
+        pipelineStates[PS_FILTER_DOWNSAMPLE] = PIPELINE(RP_FILTER, SH_FILTER_DOWNSAMPLE,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_GRAYSCALE] = new GAPI::PipelineState(renderPasses[RP_FILTER], filter_grayscale,
+        pipelineStates[PS_FILTER_GRAYSCALE] = PIPELINE(RP_FILTER, SH_FILTER_GRAYSCALE,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_BLUR] = new GAPI::PipelineState(renderPasses[RP_FILTER], filter_blur,
+        pipelineStates[PS_FILTER_BLUR] = PIPELINE(RP_FILTER, SH_FILTER_BLUR,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_ANAGLYPH] = new GAPI::PipelineState(renderPasses[RP_FILTER], filter_anaglyph,
+        pipelineStates[PS_FILTER_ANAGLYPH] = PIPELINE(RP_FILTER, SH_FILTER_ANAGLYPH,
             PO_COLOR_WRITE | PO_CULL_BACK);
+
+        #undef PIPELINE
     }
 
     void init() {
@@ -957,6 +1000,7 @@ namespace Core {
 
         GAPI::init();
 
+        initShaders();
         initRenderPasses();
         initPipelineStates();
 
@@ -1178,7 +1222,7 @@ namespace Core {
             if (ct.tex == NULL) {
                 ct.acquired = true;
                 ct.tex = new Texture(width, height, 1, fmt, OPT_TARGET | OPT_NEAREST);
-                break;
+                return ct.tex;
             }
 
             if (!ct.acquired && ct.tex->origWidth == width && ct.tex->origHeight == height && ct.tex->fmt == fmt) {

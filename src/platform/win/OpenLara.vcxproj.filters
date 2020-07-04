@@ -30,7 +30,6 @@
     <ClInclude Include="..\..\lara.h" />
     <ClInclude Include="..\..\level.h" />
     <ClInclude Include="..\..\mesh.h" />
-    <ClInclude Include="..\..\shader.h" />
     <ClInclude Include="..\..\sound.h" />
     <ClInclude Include="..\..\sprite.h" />
     <ClInclude Include="..\..\texture.h" />
@@ -148,7 +147,22 @@
     <None Include="..\..\shaders\ambient.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\compose.glsl">
+    <None Include="..\..\shaders\blob.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\entity.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\flash.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\room.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\sprite.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\mirror.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

@@ -210,7 +210,6 @@
     <ClInclude Include="..\..\libs\minimp3\minimp3.h" />
     <ClInclude Include="..\..\mesh.h" />
     <ClInclude Include="..\..\savegame.h" />
-    <ClInclude Include="..\..\shader.h" />
     <ClInclude Include="..\..\sound.h" />
     <ClInclude Include="..\..\sprite.h" />
     <ClInclude Include="..\..\texture.h" />
@@ -221,11 +220,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\ambient.glsl" />
-    <None Include="..\..\shaders\compose.glsl" />
+    <None Include="..\..\shaders\blob.glsl" />
+    <None Include="..\..\shaders\entity.glsl" />
     <None Include="..\..\shaders\filter.glsl" />
+    <None Include="..\..\shaders\flash.glsl" />
     <None Include="..\..\shaders\gui.glsl" />
+    <None Include="..\..\shaders\mirror.glsl" />
+    <None Include="..\..\shaders\room.glsl" />
     <None Include="..\..\shaders\shadow.glsl" />
     <None Include="..\..\shaders\sky.glsl" />
+    <None Include="..\..\shaders\sprite.glsl" />
     <None Include="..\..\shaders\water.glsl" />
   </ItemGroup>
   <ItemGroup>

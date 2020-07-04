@@ -276,7 +276,7 @@ struct MuzzleFlash : Controller {
         }
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         ASSERT(level->extra.muzzleFlash);
         ASSERT(owner);
 
@@ -289,14 +289,10 @@ struct MuzzleFlash : Controller {
         if (level->version & (TR::VER_TR2 | TR::VER_TR3))
             lum = alpha;
 
-        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::setPipelineState(PS_FLASH);
         Core::setMaterial(lum * alpha, 0.0f, 0.0f, alpha);
         Core::setBasis(&b, 1);
-    #if 0
-        Core::setDepthWrite(false);
         mesh->renderModel(level->extra.muzzleFlash);
-        Core::setDepthWrite(true);
-    #endif
     }
 };
 
@@ -410,7 +406,7 @@ struct TrapLavaEmitter : Controller {
         }
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         for (int i = 0; i < particles.length; i++) {
             Particle &part = particles[i];
 
@@ -896,7 +892,7 @@ struct Crystal : Controller {
         getRoom().addDynLight(entity, vec4(lightPos, 0.0f), CRYSTAL_LIGHT_COLOR);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         Core::setMaterial(0.5, 0.5, 3.0, 1.0f);
         environment->bind(sEnvironment);
         Controller::render(frustum, mesh, type, caustics);
@@ -1304,7 +1300,7 @@ struct Lightning : Controller {
     }
 
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         Controller::render(frustum, mesh, type, caustics);
         if (!flash) return;
 
@@ -1314,7 +1310,7 @@ struct Lightning : Controller {
         Basis b = getJoint(0);
         b.rot = quat(0, 0, 0, 1);
 
-        game->setShader(Core::pass, Shader::FLASH, false, false);
+        Core::setPipelineState(PS_FLASH);
         Core::setMaterial(0.0f, 0.0f, 0.0f, 1.0f);
         Core::setBasis(&b, 1);
 #if 0

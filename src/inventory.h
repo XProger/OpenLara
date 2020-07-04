@@ -1421,7 +1421,6 @@ struct Inventory {
     #ifdef FFP
         return; // TODO
     #endif
-        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         float s = 1.0f / INV_BG_SIZE;
         // vertical
         Core::beginRenderPass(RP_FILTER, RenderTarget(tmp), RenderTarget(NULL));
@@ -1434,7 +1433,6 @@ struct Inventory {
         // horizontal
         Core::beginRenderPass(RP_FILTER, RenderTarget(texInOut), RenderTarget(NULL));
         Core::setPipelineState(PS_FILTER_BLUR);
-        game->setShader(Core::passFilter, Shader::FILTER_BLUR, false, false);
         Core::active.shader->setParam(uParam, vec4(s, 0, 0, s));
         tmp->bind(sDiffuse);
         game->getMesh()->renderQuad();
@@ -1838,7 +1836,7 @@ struct Inventory {
         mProj.translate(vec3(eye, 0.0f, 0.0f));
         Core::setViewProj(mView, mProj);
 
-        game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
+        Core::setPipelineState(PS_FILTER_UPSCALE);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
         game->getMesh()->renderBuffer(indices, COUNT(indices), vertices, COUNT(vertices));
     }
@@ -1888,7 +1886,7 @@ struct Inventory {
         mProj.scale(vec3(1.0f / 32767.0f));
         Core::setViewProj(mView, mProj);
 
-        game->setShader(Core::passFilter, Shader::FILTER_UPSCALE, false, false);
+        Core::setPipelineState(PS_FILTER_UPSCALE);
         Core::active.shader->setParam(uParam, vec4(float(Core::active.textures[sDiffuse]->width), float(Core::active.textures[sDiffuse]->height), 0.0f, 0.0f));
 #if 0
         Core::setBlendMode(phaseRing < 1.0f ? bmAlpha : bmNone);
@@ -1899,10 +1897,9 @@ struct Inventory {
     void renderBackground(int view) {
         if (!isActive() && titleTimer == 0.0f)
             return;
-#if 0
-        Core::setDepthTest(false);
-        Core::setDepthWrite(false);
-#endif
+
+        Core::setPipelineState(PS_GUI);
+
         uint8 alpha;
         if (!isActive() && titleTimer > 0.0f && titleTimer < 1.0f)
             alpha = uint8(titleTimer * 255);
@@ -1925,11 +1922,6 @@ struct Inventory {
             else
                 renderTitleBG(1.0f, sy, alpha);
         }
-#if 0
-        Core::setBlendMode(bmPremult);
-        Core::setDepthTest(true);
-        Core::setDepthWrite(true);
-#endif
     }
 
     void setupCamera(float aspect, bool ui = false) {

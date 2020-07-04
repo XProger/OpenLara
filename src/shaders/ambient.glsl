@@ -31,12 +31,7 @@ varying vec4 vDiffuse;
 		vec4 rBasisRot = uBasis[0];
 		vec4 rBasisPos = uBasis[1];
 
-		vec3 coord =
-		#ifdef TYPE_SPRITE
-			mulBasis(rBasisRot, rBasisPos.xyz + aCoord.xyz, vec3(aTexCoord.z, aTexCoord.w, 0.0) * 32767.0);
-		#else
-			mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
-		#endif
+		vec3 coord = mulBasis(rBasisRot, rBasisPos.xyz, aCoord.xyz);
 
 		vDiffuse.xyz = aColor.xyz * aLight.xyz * uMaterial.xyz;
 		float fog = length(uViewPos.xyz - coord.xyz) * uFogParams.w;

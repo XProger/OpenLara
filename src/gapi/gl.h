@@ -510,8 +510,28 @@ namespace GAPI {
 
 // Shader
     #ifndef FFP
-        const char SHADER_COMPOSE[] =
-            #include "../shaders/compose.glsl"
+        const char SHADER_ENTITY[] =
+            #include "../shaders/entity.glsl"
+        ;
+
+        const char SHADER_ROOM[] =
+            #include "../shaders/room.glsl"
+        ;
+
+        const char SHADER_MIRROR[] =
+            #include "../shaders/mirror.glsl"
+        ;
+
+        const char SHADER_FLASH[] =
+            #include "../shaders/flash.glsl"
+        ;
+
+        const char SHADER_BLOB[] =
+            #include "../shaders/blob.glsl"
+        ;
+
+        const char SHADER_SPRITE[] =
+            #include "../shaders/sprite.glsl"
         ;
 
         const char SHADER_SHADOW[] =
@@ -537,8 +557,6 @@ namespace GAPI {
         const char SHADER_GUI[] =
             #include "../shaders/gui.glsl"
         ;
-        
-        const char *DefineName[SD_MAX]  = { SHADER_DEFINES(DECL_STR) };
     #endif
 
     static const struct Binding {
@@ -587,20 +605,114 @@ namespace GAPI {
 
         bool  rebind;
 
-        void init(Pass pass, int type, int *def, int defCount) {
-            const char *source;
-            switch (pass) {
-                case Core::passCompose : source = SHADER_COMPOSE; break;
-                case Core::passShadow  : source = SHADER_SHADOW;  break;
-                case Core::passAmbient : source = SHADER_AMBIENT; break;
-                case Core::passSky     : source = SHADER_SKY;     break;
-                case Core::passWater   : source = SHADER_WATER;   break;
-                case Core::passFilter  : source = SHADER_FILTER;  break;
-                case Core::passGUI     : source = SHADER_GUI;     break;
-                default                : ASSERT(false); LOG("! wrong pass id\n"); return;
+        Shader(ShaderType type) {
+
+            bool underwater = type == SH_ROOM_U
+                           || type == SH_ROOM_UA
+                           || type == SH_ENTITY_U
+                           || type == SH_ENTITY_UA;
+
+            bool alphaTest = type == SH_SHADOW_A
+                          || type == SH_ROOM_A
+                          || type == SH_ROOM_UA
+                          || type == SH_AMBIENT_A
+                          || type == SH_ENTITY_A
+                          || type == SH_ENTITY_UA;
+
+            const char *source = NULL;
+
+            switch (type) {
+                case SH_GUI                 : source = SHADER_GUI; break;
+                case SH_SHADOW              :
+                case SH_SHADOW_A            : source = SHADER_SHADOW; break;
+                case SH_ROOM                :
+                case SH_ROOM_A              :
+                case SH_ROOM_U              :
+                case SH_ROOM_UA             : source = SHADER_ROOM; break;
+                case SH_AMBIENT             :
+                case SH_AMBIENT_A           : source = SHADER_AMBIENT; break;
+                case SH_ENTITY              :
+                case SH_ENTITY_A            :
+                case SH_ENTITY_U            :
+                case SH_ENTITY_UA           : source = SHADER_ENTITY; break;
+                case SH_ENTITY_MIRROR       : source = SHADER_MIRROR; break;
+                case SH_FLASH               : source = SHADER_FLASH; break;
+                case SH_BLOB                : source = SHADER_BLOB; break;
+                case SH_SPRITE              :
+                case SH_SPRITE_U            : source = SHADER_SPRITE; break;
+                case SH_SKY                 :
+                case SH_SKY_CLOUDS          :
+                case SH_SKY_CLOUDS_AZURE    : source = SHADER_SKY; break;
+                case SH_WATER_COMPOSE       :
+                case SH_WATER_MASK          :
+                case SH_WATER_RAYS          :
+                case SH_WATER_DROP          :
+                case SH_WATER_CALC          :
+                case SH_WATER_CAUSTICS      : source = SHADER_WATER; break;
+                case SH_FILTER_UPSCALE      :
+                case SH_FILTER_DOWNSAMPLE   :
+                case SH_FILTER_GRAYSCALE    :
+                case SH_FILTER_BLUR         :
+                case SH_FILTER_ANAGLYPH     : source = SHADER_FILTER; break;
             }
 
-            #ifdef _DEBUG_SHADERS
+            ASSERT(source);
+
+            char defines[1024];
+            defines[0] = 0;
+            strcat(defines, "#define VER4\n");
+
+            if (Core::settings.detail.shadows) {
+                if (Core::support.shadowSampler) {
+                    strcat(defines, "#define SHADOW_SAMPLER\n");
+                } else if (Core::support.depthTexture) {
+                    strcat(defines, "#define SHADOW_DEPTH\n");
+                } else {
+                    strcat(defines, "#define SHADOW_COLOR\n");
+                }
+            }
+
+            if (underwater) strcat(defines, "#define UNDERWATER\n");
+            if (alphaTest)  strcat(defines, "#define ALPHA_TEST\n");
+
+            if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (source == SHADER_ENTITY))
+                strcat(defines, "#define OPT_AMBIENT\n");
+            if (Core::settings.detail.shadows  > Core::Settings::LOW && (source == SHADER_ENTITY || source == SHADER_ROOM))
+                strcat(defines, "#define OPT_SHADOW\n");
+            if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (source == SHADER_ROOM))
+                strcat(defines, "#define OPT_CONTACT\n");
+            if (Core::settings.detail.water    > Core::Settings::MEDIUM && (source == SHADER_ENTITY || source == SHADER_ROOM) && underwater)
+                strcat(defines, "#define OPT_CAUSTICS\n");
+
+            sprintf(defines + strlen(defines), "#define SHADOW_SIZE %d.0\n", SHADOW_TEX_SIZE);
+
+            #ifdef MERGE_MODELS
+                strcat(defines, "#define MESH_SKINNING\n");
+            #endif
+
+            // etnaviv driver has no sin/cos/abs implementation
+            #if !defined(_OS_GCW0) 
+                strcat(defines, "#define VERT_CAUSTICS\n");
+            #endif
+
+            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || (defined (__SDL2__) && defined(_GAPI_GLES))
+                strcat(defines, "#define OPT_VLIGHTPROJ\n");
+                strcat(defines, "#define OPT_VLIGHTVEC\n");
+                strcat(defines, "#define OPT_SHADOW_ONETAP\n");
+            #endif
+
+            if (support.tex3D) {
+                strcat(defines, "#define OPT_TEXTURE_3D\n");
+            }
+
+            #ifndef _OS_CLOVER
+                // TODO: only for non Mali-400?
+                strcat(defines, "#define OPT_TRAPEZOID\n");
+                if (Core::settings.detail.water > Core::Settings::LOW)
+                    strcat(defines, "#define OPT_UNDERWATER_FOG\n");
+            #endif
+
+            #ifdef _DEBUG_SHADERS // TODO
                 Stream *stream = NULL;
                 switch (pass) {
                     case Core::passCompose : stream = new Stream(_DEBUG_SHADERS "compose.glsl"); break;
@@ -631,42 +743,6 @@ namespace GAPI {
                     }
 
                 delete stream;
-            #endif
-
-            char defines[1024];
-            defines[0] = 0;
-            strcat(defines, "#define VER3\n");
-
-            for (int i = 0; i < defCount; i++) {
-                sprintf(defines + strlen(defines), "#define %s\n", DefineName[def[i]]);
-            }
-
-            sprintf(defines + strlen(defines), "#define SHADOW_SIZE %d.0\n", SHADOW_TEX_SIZE);
-
-            #ifdef MERGE_MODELS
-                strcat(defines, "#define MESH_SKINNING\n");
-            #endif
-
-            // etnaviv driver has no sin/cos/abs implementation
-            #if !defined(_OS_GCW0) 
-                strcat(defines, "#define VERT_CAUSTICS\n");
-            #endif
-
-            #if defined(_OS_RPI) || defined(_OS_CLOVER) || defined(_OS_GCW0) || (defined (__SDL2__) && defined(_GAPI_GLES))
-                strcat(defines, "#define OPT_VLIGHTPROJ\n");
-                strcat(defines, "#define OPT_VLIGHTVEC\n");
-                strcat(defines, "#define OPT_SHADOW_ONETAP\n");
-            #endif
-
-            if (support.tex3D) {
-                strcat(defines, "#define OPT_TEXTURE_3D\n");
-            }
-
-            #ifndef _OS_CLOVER
-                // TODO: only for non Mali-400?
-                strcat(defines, "#define OPT_TRAPEZOID\n");
-                if (Core::settings.detail.water > Core::Settings::LOW)
-                    strcat(defines, "#define OPT_UNDERWATER_FOG\n");
             #endif
 
             char fileName[255];
@@ -712,7 +788,7 @@ namespace GAPI {
             rebind = true;
         }
 
-        void deinit() {
+        ~Shader() {
             glDeleteProgram(ID);
         }
 
@@ -784,6 +860,12 @@ namespace GAPI {
                 Core::active.shader = this;
                 memset(cbCount, 0, sizeof(cbCount));
                 rebind = true;
+
+                setParam(uViewProj,  Core::mViewProj);
+                setParam(uLightProj, Core::mLightProj);
+                setParam(uViewPos,   Core::viewPos);
+                setParam(uParam,     Core::params);
+                setParam(uFogParams, Core::fogParams);
             }
         }
 

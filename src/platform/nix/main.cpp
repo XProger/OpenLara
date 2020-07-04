@@ -399,8 +399,7 @@ int main(int argc, char **argv) {
         home = getpwuid(getuid())->pw_dir;
     strcat(cacheDir, home);
     strcat(cacheDir, "/.openlara/");
-int i = 0;
-i = i / i;
+
     struct stat st = {0};
     if (stat(cacheDir, &st) == -1 && mkdir(cacheDir, 0777) == -1)
         cacheDir[0] = 0;
@@ -475,16 +474,16 @@ i = i / i;
             WndProc(event,dpy,wnd);
         } else {
             joyUpdate();
-			bool updated = Game::update();
+            bool updated = Game::update();
             if (updated) {
-				Game::render();
+                Game::render();
                 Core::waitVBlank();
                 #ifdef _GAPI_GL
-				    glXSwapBuffers(dpy, wnd);
+                    glXSwapBuffers(dpy, wnd);
                 #elif _GAPI_VULKAN
 
                 #endif
-			}
+            }
         }
     };
 

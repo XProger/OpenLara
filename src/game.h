@@ -104,7 +104,6 @@ void loadSettings(Stream *stream, void *userData) {
         Core::settings.detail.water    = Core::Settings::LOW;
     #endif
 
-    shaderCache = new ShaderCache();
     Game::startLevel((Stream*)userData);
 }
 
@@ -141,7 +140,6 @@ namespace Game {
     void init(Stream *lvl) {
         loadSlot    = -1;
         nextLevel   = NULL;
-        shaderCache = NULL;
         level       = NULL;
 
         memset(cheatSeq, 0, sizeof(cheatSeq));
@@ -188,7 +186,6 @@ namespace Game {
         delete inventory;
         delete level;
         UI::deinit();
-        delete shaderCache;
         Core::deinit();
     }
 

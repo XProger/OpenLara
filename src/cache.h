@@ -12,180 +12,6 @@
     #define USE_SCREEN_TEX
 #endif
 
-struct ShaderCache {
-    enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2 };
-
-    Shader *shaders[Core::passMAX][Shader::MAX][(FX_UNDERWATER | FX_ALPHA_TEST) + 1];
-    
-    ShaderCache() {
-        memset(shaders, 0, sizeof(shaders));
-
-        LOG("shader: cache warm-up...\n");
-        prepareCompose(FX_NONE);
-        prepareAmbient(FX_NONE);
-
-        if (Core::settings.detail.shadows > Core::Settings::LOW)
-            prepareShadows(FX_NONE);
-
-        prepareSky(FX_NONE);
-
-        if (Core::settings.detail.water > Core::Settings::LOW)
-            prepareWater(FX_NONE);
-
-        prepareFilter(FX_NONE);
-        prepareGUI(FX_NONE);
-
-        Core::resetTime();
-        LOG("shader: cache is ready\n");
-    }
-
-    ~ShaderCache() {
-        for (int pass = 0; pass < Core::passMAX; pass++)
-            for (int type = 0; type < Shader::MAX; type++)
-                for (int fx = 0; fx < COUNT(shaders[pass][Shader::MAX]); fx++)
-                    delete shaders[pass][type][fx];
-    }
-
-    void prepareCompose(int fx) {
-        compile(Core::passCompose, Shader::MIRROR, fx);
-
-        compile(Core::passCompose, Shader::ROOM,   fx);
-        compile(Core::passCompose, Shader::ROOM,   fx | FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ROOM,   fx | FX_UNDERWATER | FX_ALPHA_TEST);
-
-        compile(Core::passCompose, Shader::ENTITY, fx);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER);
-        compile(Core::passCompose, Shader::ENTITY, fx | FX_UNDERWATER | FX_ALPHA_TEST);
-
-        compile(Core::passCompose, Shader::SPRITE, fx | FX_ALPHA_TEST);
-        compile(Core::passCompose, Shader::SPRITE, fx | FX_UNDERWATER | FX_ALPHA_TEST);
-
-        compile(Core::passCompose, Shader::FLASH,  fx); // spot shadow
-    }
-
-    void prepareAmbient(int fx) {
-        compile(Core::passAmbient, Shader::ROOM,   fx);
-        compile(Core::passAmbient, Shader::ROOM,   fx | FX_ALPHA_TEST);
-        compile(Core::passAmbient, Shader::SPRITE, fx | FX_ALPHA_TEST);
-    }
-
-    void prepareShadows(int fx) {
-        compile(Core::passShadow, Shader::MIRROR, fx);
-        compile(Core::passShadow, Shader::ENTITY, fx);
-        compile(Core::passShadow, Shader::ENTITY, fx | FX_ALPHA_TEST);
-    }
-
-    void prepareSky(int fx) {
-        compile(Core::passSky, Shader::DEFAULT, fx);
-        if (Core::support.tex3D) {
-            compile(Core::passSky, Shader::SKY_CLOUDS,       fx);
-            compile(Core::passSky, Shader::SKY_CLOUDS_AZURE, fx);
-        }
-    }
-
-    void prepareWater(int fx) {
-        compile(Core::passWater, Shader::WATER_MASK,     fx);
-        compile(Core::passWater, Shader::WATER_SIMULATE, fx);
-        compile(Core::passWater, Shader::WATER_DROP,     fx);
-        compile(Core::passWater, Shader::WATER_RAYS,     fx);
-        if (Core::support.derivatives) {
-            compile(Core::passWater, Shader::WATER_CAUSTICS, fx);
-        }
-        compile(Core::passWater, Shader::WATER_COMPOSE,  fx);
-    }
-
-    void prepareFilter(int fx) {
-        compile(Core::passFilter, Shader::FILTER_UPSCALE,    fx);
-        compile(Core::passFilter, Shader::FILTER_DOWNSAMPLE, fx);
-        compile(Core::passFilter, Shader::FILTER_GRAYSCALE,  fx);
-        compile(Core::passFilter, Shader::FILTER_BLUR,       fx);
-        compile(Core::passFilter, Shader::FILTER_ANAGLYPH,   fx);
-    }
-
-    void prepareGUI(int fx) {
-        compile(Core::passGUI, Shader::DEFAULT, fx);
-    }
-
-    Shader* compile(Core::Pass pass, Shader::Type type, int fx) {
-    #ifndef FFP
-        if (shaders[pass][type][fx])
-            return shaders[pass][type][fx];
-
-        int def[SD_MAX], defCount = 0;
-
-        #define SD_ADD(x) (def[defCount++] = SD_##x)
-
-        if (Core::settings.detail.shadows) {
-            if (Core::support.shadowSampler) {
-                SD_ADD(SHADOW_SAMPLER);
-            } else {
-                if (Core::support.depthTexture)
-                    SD_ADD(SHADOW_DEPTH);
-                else
-                    SD_ADD(SHADOW_COLOR);
-            }
-        }
-
-        switch (pass) {
-            case Core::passCompose    :
-            case Core::passShadow     :
-            case Core::passAmbient    : {
-                def[defCount++] = SD_TYPE_SPRITE + type;
-
-                if (fx & FX_UNDERWATER) SD_ADD(UNDERWATER);
-                if (fx & FX_ALPHA_TEST) SD_ADD(ALPHA_TEST);
-
-                if (pass == Core::passCompose) {
-                    if (Core::settings.detail.lighting > Core::Settings::MEDIUM && (type == Shader::ENTITY))
-                        SD_ADD(OPT_AMBIENT);
-                    if (Core::settings.detail.shadows  > Core::Settings::LOW && (type == Shader::ENTITY || type == Shader::ROOM))
-                        SD_ADD(OPT_SHADOW);
-                    if (Core::settings.detail.shadows  > Core::Settings::MEDIUM && (type == Shader::ROOM))
-                        SD_ADD(OPT_CONTACT);
-                    if (Core::settings.detail.water    > Core::Settings::MEDIUM && (type == Shader::ENTITY || type == Shader::ROOM) && (fx & FX_UNDERWATER))
-                        SD_ADD(OPT_CAUSTICS);
-                }
-                break;
-            }
-            case Core::passSky     : def[defCount++] = SD_SKY_TEXTURE + type;    break;
-            case Core::passWater   : def[defCount++] = SD_WATER_DROP + type;     break;
-            case Core::passFilter  : def[defCount++] = SD_FILTER_UPSCALE + type; break;
-            case Core::passGUI     : break;
-            default : ASSERT(false);
-        }
-
-        #undef SD_ADD
-
-        return shaders[pass][type][fx] = new Shader(pass, type, def, defCount);
-    #else
-        return NULL;
-    #endif
-    }
-
-    Shader *getShader(Core::Pass pass, Shader::Type type, int fx) {
-        Shader *shader = shaders[pass][type][fx];
-    #ifndef FFP
-        if (shader == NULL)
-            LOG("! NULL shader: %d %d %d\n", int(pass), int(type), int(fx));
-        ASSERT(shader != NULL);
-    #endif
-        return shader;
-    }
-
-    void bind(Core::Pass pass, Shader::Type type, int fx) {
-        Core::pass = pass;
-
-        Shader *shader = getShader(pass, type, fx);
-        if (shader) {
-            shader->setup();
-        }
-
-        //Core::setAlphaTest((fx & FX_ALPHA_TEST) != 0);
-    }
-};
-
 struct AmbientCache {
     IGame     *game;
     TR::Level *level;
@@ -194,7 +20,7 @@ struct AmbientCache {
         enum int32 {
             BLANK, WAIT, READY
         }    status;
-        vec4 colors[6]; // TODO: ubyte4[6]
+        vec4 colors[6];
     } *items;
     int *offsets;
 
@@ -265,12 +91,9 @@ struct AmbientCache {
         mProj = GAPI::ortho(-1, +1, -1, +1, 0, 1);
         mProj.scale(vec3(1.0f / 32767.0f));
         Core::setViewProj(mView, mProj);
-        game->setShader(Core::passFilter, Shader::FILTER_DOWNSAMPLE);
 
         for (int i = 1; i < 4; i++) {
             int size = 64 >> (i << 1);
-
-            Core::active.shader->setParam(uParam, vec4(1.0f / (size << 2), 0.0f, 0.0f, 0.0f));
 
             for (int j = 0; j < 6; j++) {
                 Texture *src = textures[j * 4 + i - 1];
@@ -278,6 +101,7 @@ struct AmbientCache {
 
                 Core::beginRenderPass(RP_FILTER, RenderTarget(dst, 0, 0), RenderTarget(NULL, 0, 0));
                 Core::setPipelineState(PS_FILTER_DOWNSAMPLE);
+                Core::active.shader->setParam(uParam, vec4(1.0f / (size << 2), 0.0f, 0.0f, 0.0f));
 
                 src->bind(sDiffuse);
                 game->getMesh()->renderQuad();
@@ -651,13 +475,10 @@ struct WaterCache {
         if (!dropCount) return;
 
         vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
-
-        game->setShader(Core::passWater, Shader::WATER_DROP);
+        Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
 
         vec4 rPosScale[2] = { vec4(0.0f), vec4(1.0f) };
-        Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
-        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
-    #if 0
+
         for (int i = 0; i < dropCount; i++) {
             Drop &drop = drops[i];
 
@@ -665,46 +486,55 @@ struct WaterCache {
             p.x = (drop.pos.x - (item.pos.x - item.size.x)) * DETAIL;
             p.z = (drop.pos.z - (item.pos.z - item.size.z)) * DETAIL;
 
+            Core::beginRenderPass(RP_WATER_PROCESS, item.data[1], RenderTarget(NULL));
+            Core::setPipelineState(PS_WATER_DROP);
+
+            Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
+            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
             Core::active.shader->setParam(uParam, vec4(p.x, p.z, drop.radius * DETAIL, -drop.strength));
 
-            Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
-            Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
-            Core::validateRenderState();
             item.data[0]->bind(sNormal);
             game->getMesh()->renderQuad();
             item.data[0]->unbind(sNormal);
             swap(item.data[0], item.data[1]);
+
+            Core::endRenderPass();
         }
-    #endif
     }
     
-    void step(Item &item) {
-        if (item.timer < SIMULATE_TIMESTEP) return;
+    bool step(Item &item) {
+        if (item.timer < SIMULATE_TIMESTEP) return false;
 
         vec2 s(item.size.x * DETAIL * 2.0f, item.size.z * DETAIL * 2.0f);
+        Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
 
-        game->setShader(Core::passWater, Shader::WATER_SIMULATE);
-        Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, Core::params.x));
-        Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
-        Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
-#if 0
         while (item.timer >= SIMULATE_TIMESTEP) {
-        // water step
-            Core::setTarget(item.data[1], NULL, RT_STORE_COLOR);
-            Core::setViewport(0, 0, int(s.x + 0.5f), int(s.y + 0.5f));
-            Core::validateRenderState();
+            Core::beginRenderPass(RP_WATER_PROCESS, item.data[1], RenderTarget(NULL));
+            Core::setPipelineState(PS_WATER_CALC);
+
+            Core::active.shader->setParam(uParam, vec4(0.995f, 1.0f, randf() * 0.5f, Core::params.x));
+            Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, s.x / item.data[0]->width, s.y / item.data[0]->height));
+            Core::active.shader->setParam(uRoomSize, vec4(1.0f / item.mask->origWidth, 1.0f / item.mask->origHeight, float(item.mask->origWidth) / item.mask->width, float(item.mask->origHeight) / item.mask->height));
+
             item.data[0]->bind(sNormal);
             game->getMesh()->renderQuad();
             item.data[0]->unbind(sNormal);
             swap(item.data[0], item.data[1]);
             item.timer -= SIMULATE_TIMESTEP;
+
+            Core::endRenderPass();
         }
 
+        return true;
+    }
+
+    void caustics(Item &item) {
         if (Core::settings.detail.water < Core::Settings::HIGH)
             return;
 
-    // calc caustics
-        game->setShader(Core::passWater, Shader::WATER_CAUSTICS);
+        Core::beginRenderPass(RP_WATER_CAUSTICS, item.caustics, RenderTarget(NULL));
+        Core::setPipelineState(PS_WATER_CAUSTICS);
+
         vec4 rPosScale[2] = { vec4(0.0f), vec4(32767.0f / PLANE_DETAIL) };
         Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
 
@@ -714,14 +544,13 @@ struct WaterCache {
         Core::active.shader->setParam(uTexParam, vec4(1.0f / item.data[0]->width, 1.0f / item.data[0]->height, sx, sz));
 
         item.caustics->unbind(sReflect);
-        Core::setTarget(item.caustics, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
-        Core::validateRenderState(); // force clear color for borders
         Core::setViewport(1, 1, item.caustics->width - 1, item.caustics->width - 1); // leave 2px for black border
         Core::whiteTex->bind(sReflect);
         item.data[0]->bind(sNormal);
         game->getMesh()->renderPlane();
         item.data[0]->unbind(sNormal);
-    #endif
+
+        Core::endRenderPass();
     }
 
     void renderRays() {
@@ -731,13 +560,13 @@ struct WaterCache {
         if (!visible) return;
         PROFILE_MARKER("WATER_RAYS");
 
+        Core::setPipelineState(PS_WATER_RAYS);
+
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible || !item.caustics) continue;
 
         // render water plane
-            game->setShader(Core::passWater, Shader::WATER_RAYS);
-
             item.caustics->bind(sReflect);
             Core::ditherTex->bind(sMask);
 
@@ -749,15 +578,8 @@ struct WaterCache {
 
             Core::active.shader->setParam(uPosScale, rPosScale[0], 2);
             Core::active.shader->setParam(uParam,    vec4(level->rooms[item.to].getOffset(), 0.35f));
-#if 0
-            Core::setBlendMode(bmAdd);
-            Core::setCullMode(cmBack);
-            Core::setDepthWrite(false);
+
             game->getMesh()->renderWaterVolume(item.to);
-            Core::setDepthWrite(true);
-            Core::setCullMode(cmFront);
-            Core::setBlendMode(bmNone);
-    #endif
         }
     }
 
@@ -765,14 +587,10 @@ struct WaterCache {
         if (!visible) return;
         PROFILE_MARKER("WATER_MASK");
     // mask underwater geometry by zero alpha
-        game->setShader(Core::passWater, Shader::WATER_MASK);
+        Core::setPipelineState(PS_WATER_MASK);
+
         Core::active.shader->setParam(uTexParam, vec4(1.0f));
-#if 0
-        Core::setColorWrite(false, false, false, true);
-        Core::setDepthWrite(false);
-        Core::setCullMode(cmNone);
-        Core::setBlendMode(bmNone);
-#endif
+
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -782,11 +600,6 @@ struct WaterCache {
 
             game->getMesh()->renderQuad();
         }
-#if 0
-        Core::setColorWrite(true, true, true, true);
-        Core::setDepthWrite(true);
-        Core::setCullMode(cmFront);
-#endif
     }
 
 
@@ -835,9 +648,6 @@ struct WaterCache {
     void simulate() {
         PROFILE_MARKER("water_simulate");
     // simulate water
-    #if 0
-        Core::setDepthTest(false);
-        Core::setBlendMode(bmNone);
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;
@@ -845,14 +655,14 @@ struct WaterCache {
             if (item.timer >= SIMULATE_TIMESTEP || dropCount) {
                 Core::noiseTex->bind(sDiffuse);
                 item.mask->bind(sMask);
-            // add water drops
+
                 drop(item);
-            // simulation step
-                step(item);
+
+                if (step(item)) {
+                    caustics(item);
+                }
             }
         }
-        Core::setDepthTest(true);
-    #endif
     }
 
     void renderReflection() {
@@ -931,7 +741,7 @@ struct WaterCache {
             if (!item.visible) continue;
 
         // render water plane
-            game->setShader(Core::passWater, Shader::WATER_COMPOSE);
+            Core::setPipelineState(PS_WATER_COMPOSE);
             Core::updateLights();
 
             Core::active.shader->setParam(uParam, vec4(float(refract->origWidth) / refract->width, float(refract->origHeight) / refract->height, 0.05f, 0.0f));
@@ -968,7 +778,7 @@ struct WaterCache {
     void blitTexture(Texture *tex, bool flip = false) {
         ASSERT(tex);
 
-        game->setShader(Core::passGUI, Shader::DEFAULT);
+        Core::setPipelineState(PS_GUI);
 
         mat4 mProj = GAPI::ortho(0.0f, float(tex->origWidth), 0.0f, float(tex->origHeight), 0.0f, 1.0f);
 
@@ -1166,9 +976,5 @@ struct ZoneCache {
         return 0;
     }
 };
-
-ShaderCache *shaderCache;
-
-#undef UNDERWATER_COLOR
 
 #endif

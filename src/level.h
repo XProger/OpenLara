@@ -15,7 +15,7 @@
 #include "extension.h"
 
 #if defined(_DEBUG) && defined(_GAPI_GL) && !defined(_GAPI_GLES)
-    #define DEBUG_RENDER
+    //#define DEBUG_RENDER
 #endif
 
 #ifdef DEBUG_RENDER
@@ -380,6 +380,9 @@ struct Level : IGame {
         bool switchModels   = settings.detail.simple   != Core::settings.detail.simple;
 
         bool rebuildShaders = rebuildWater || rebuildAmbient || rebuildShadows;
+        #if !defined(_GAPI_D3D9) && !defined(_GAPI_D3D11) && !defined(_GAPI_GXM)
+            rebuildShaders = false;
+        #endif
 
         bool redraw = memcmp(&settings.detail, &Core::settings.detail, sizeof(settings.detail)) != 0;
 
@@ -396,10 +399,7 @@ struct Level : IGame {
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
-        #if !defined(_GAPI_D3D9) && !defined(_GAPI_D3D11) && !defined(_GAPI_GXM)
-            delete shaderCache;
-            shaderCache = new ShaderCache();
-        #endif
+            Core::initShaders();
         }
 
         if (rebuildMesh) {
@@ -507,11 +507,7 @@ struct Level : IGame {
             waterCache->addDrop(pos, radius, strength);
     }
 
-    virtual void setShader(Core::Pass pass, Shader::Type type, bool underwater = false, bool alphaTest = false) {
-        shaderCache->bind(pass, type, (underwater ? ShaderCache::FX_UNDERWATER : 0) | (alphaTest ? ShaderCache::FX_ALPHA_TEST : 0));
-    }
-
-    virtual void setRoomParams(int roomIndex, Shader::Type type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
+    virtual void setRoomParams(int roomIndex, ShaderType type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
             Core::setPipelineState(alphaTest ? PS_ENTITY_SHADOW_ALPHA : PS_ENTITY_SHADOW);
             return;
@@ -525,10 +521,6 @@ struct Level : IGame {
         } else {
             Core::lightPos[3]   = vec4(0);
             Core::lightColor[3] = vec4(0, 0, 0, 1);
-        }
-
-        if (type == Shader::SPRITE) {
-            alphaTest = true;
         }
 
     #ifdef FFP
@@ -565,7 +557,9 @@ struct Level : IGame {
             material = vec4(diffuse, ambient, specular, alpha);
         }
         
+    #if 0
         setShader(Core::pass, type, (Core::pass == Core::passAmbient) ? false : room.flags.water, alphaTest);
+    #endif
 
         #ifdef _GAPI_SW
             GAPI::setPalette(room.flags.water ? GAPI::swPaletteWater : GAPI::swPaletteColor);
@@ -1962,7 +1956,7 @@ struct Level : IGame {
             vec3 center = room.getCenter();
             int ambient = room.getAmbient(int(center.x), int(center.y), int(center.z));
 
-            setRoomParams(roomIndex, Shader::ROOM, 1.0f, intensityf(ambient), 0.0f, 1.0f, transp == 1);
+            setRoomParams(roomIndex, SH_ROOM, 1.0f, intensityf(ambient), 0.0f, 1.0f, transp == 1);
 
             basis.pos = room.getOffset();
             Core::setBasis(&basis, 1);
@@ -1995,7 +1989,7 @@ struct Level : IGame {
 
                 Core::setScissor(getPortalRect(roomsList[i].portal, vp));
 
-                setRoomParams(roomIndex, Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
+                setRoomParams(roomIndex, SH_SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
 
                 basis.pos = level.rooms[roomIndex].getOffset();
                 Core::setBasis(&basis, 1);
@@ -2037,9 +2031,9 @@ struct Level : IGame {
             isModel = false;
         }
 
-        Shader::Type type = isModel ? Shader::ENTITY : Shader::SPRITE;
+        ShaderType type = isModel ? SH_ENTITY : SH_SPRITE;
         if (entity.type == TR::Entity::CRYSTAL)
-            type = Shader::MIRROR;
+            type = SH_ENTITY_MIRROR;
 
         if (isModel) { // model
             ASSERT(controller->intensity >= 0.0f);
@@ -2323,7 +2317,7 @@ struct Level : IGame {
                 atlasSprites->bind(sDiffuse);
                 Core::lightPos[0]   = vec4(0, 0, 0, 0);
                 Core::lightColor[0] = vec4(0, 0, 0, 1);
-                setRoomParams(getLara()->getRoomIndex(), Shader::SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
+                setRoomParams(getLara()->getRoomIndex(), SH_SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
 
                 Basis b;
                 b.w   = 1.0f;

@@ -3836,7 +3836,7 @@ struct Lara : Character {
         return mask;
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         uint32 visMask = visibleMask;
         if (Core::pass != Core::passShadow && camera->firstPerson && camera->viewIndex == -1 && game->getCamera() == camera) // hide head in first person view // TODO: fix for firstPerson with viewIndex always == -1
             visibleMask &= ~JOINT_MASK_HEAD;
@@ -3860,7 +3860,7 @@ struct Lara : Character {
         }
 
         if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
-            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
+            game->setRoomParams(getRoomIndex(), SH_ENTITY_MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
         /* catsuit test
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
             Core::updateLights();

@@ -52,7 +52,7 @@ struct Sprite : Controller {
             game->removeEntity(this);
     }
 
-    virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
+    virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         renderSprite(frame);
     }
 };

@@ -1,0 +1,37 @@
+R"====(
+uniform mat4 uViewProj;
+uniform vec4 uMaterial;	// x - diffuse, y - ambient, z - specular, w - alpha
+
+varying vec4 vColor;
+
+#ifdef VERTEX
+
+	uniform vec4 uBasis[2];
+
+	attribute vec4 aCoord;
+	attribute vec4 aColor;
+
+	vec3 mulQuat(vec4 q, vec3 v) {
+		return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + v * q.w);
+	}
+
+	vec3 mulBasis(vec4 rot, vec3 pos, vec3 v) {
+		return mulQuat(rot, v) + pos;
+	}
+
+	void main() {
+		vColor = vec4(aColor.xyz * uMaterial.w, 1.0);
+
+		vec3 coord = mulBasis(uBasis[0], uBasis[1].xyz, aCoord.xyz);
+
+		gl_Position = uViewProj * vec4(coord, uBasis[1].w);
+	}
+
+#else
+
+	void main() {
+		fragColor = vColor;
+	}
+
+#endif
+)===="
