@@ -487,17 +487,17 @@ struct MeshBuilder {
 
             int idx = iCount + i * 3 * 3;
             int j = ((i + 1) % 8) * 2;
-            indices[idx++] = i * 2;
+            indices[idx++] = j;
             indices[idx++] = 8 * 2;
-            indices[idx++] = j;
-
-            indices[idx++] = i * 2 + 1;
             indices[idx++] = i * 2;
-            indices[idx++] = j;
 
-            indices[idx++] = i * 2 + 1;
             indices[idx++] = j;
+            indices[idx++] = i * 2;
+            indices[idx++] = i * 2 + 1;
+
             indices[idx++] = j + 1;
+            indices[idx++] = j;
+            indices[idx++] = i * 2 + 1;
         }
         vCount += 8 * 2 + 1;
         iCount += shadowBlob.iCount;
@@ -1154,16 +1154,16 @@ struct MeshBuilder {
     void addTriangle(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, uint8 flip) {
         int vIndex = vCount - vStart;
 
-        indices[iCount + 0] = vIndex + 0;
+        indices[iCount + 0] = vIndex + 2;
         indices[iCount + 1] = vIndex + 1;
-        indices[iCount + 2] = vIndex + 2;
+        indices[iCount + 2] = vIndex + 0;
 
         iCount += 3;
 
         if (doubleSided) {
-            indices[iCount + 0] = vIndex + 2;
+            indices[iCount + 0] = vIndex + 0;
             indices[iCount + 1] = vIndex + 1;
-            indices[iCount + 2] = vIndex + 0;
+            indices[iCount + 2] = vIndex + 2;
             iCount += 3;
         }
 
@@ -1173,24 +1173,24 @@ struct MeshBuilder {
     void addQuad(Index *indices, int &iCount, int vCount, int vStart, Vertex *vertices, TR::TextureInfo *tex, bool doubleSided, uint8 flip) {
         int vIndex = vCount - vStart;
 
-        indices[iCount + 0] = vIndex + 0;
+        indices[iCount + 0] = vIndex + 2;
         indices[iCount + 1] = vIndex + 1;
-        indices[iCount + 2] = vIndex + 2;
+        indices[iCount + 2] = vIndex + 0;
 
-        indices[iCount + 3] = vIndex + 0;
+        indices[iCount + 3] = vIndex + 3;
         indices[iCount + 4] = vIndex + 2;
-        indices[iCount + 5] = vIndex + 3;
+        indices[iCount + 5] = vIndex + 0;
 
         iCount += 6;
 
         if (doubleSided) {
-            indices[iCount + 0] = vIndex + 2;
+            indices[iCount + 0] = vIndex + 0;
             indices[iCount + 1] = vIndex + 1;
-            indices[iCount + 2] = vIndex + 0;
+            indices[iCount + 2] = vIndex + 2;
 
-            indices[iCount + 3] = vIndex + 3;
+            indices[iCount + 3] = vIndex + 0;
             indices[iCount + 4] = vIndex + 2;
-            indices[iCount + 5] = vIndex + 0;
+            indices[iCount + 5] = vIndex + 3;
 
             iCount += 6;
         }

@@ -71,7 +71,7 @@ struct AmbientCache {
     }
 
     void renderAmbient(int room, int sector, vec4 *colors) {
-        PROFILE_MARKER("ambient");
+        PROFILE_MARKER("Ambient");
                 
         TR::Room &r = level->rooms[room];
         TR::Room::Sector &s = r.sectors[sector];
@@ -558,7 +558,7 @@ struct WaterCache {
             return;
         #endif
         if (!visible) return;
-        PROFILE_MARKER("WATER_RAYS");
+        PROFILE_MARKER("Water (rays)");
 
         Core::setPipelineState(PS_WATER_RAYS);
 
@@ -585,7 +585,7 @@ struct WaterCache {
 
     void renderMask() {
         if (!visible) return;
-        PROFILE_MARKER("WATER_MASK");
+        PROFILE_MARKER("Water (mask)");
     // mask underwater geometry by zero alpha
         Core::setPipelineState(PS_WATER_MASK);
 
@@ -619,7 +619,7 @@ struct WaterCache {
     }
 
     void copyScreenToRefraction() {
-        PROFILE_MARKER("water_copy_refraction");
+        PROFILE_MARKER("Water (copy)");
     // get refraction texture
         int x, y;
         if (!screen) {
@@ -646,7 +646,7 @@ struct WaterCache {
     }
 
     void simulate() {
-        PROFILE_MARKER("water_simulate");
+        PROFILE_MARKER("Water (simulate)");
     // simulate water
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -667,7 +667,7 @@ struct WaterCache {
 
     void renderReflection() {
         if (!visible) return;
-        PROFILE_MARKER("water_reflection");
+        PROFILE_MARKER("Water (refl)");
 
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
@@ -735,7 +735,7 @@ struct WaterCache {
 
     void compose() {
         if (!visible) return;
-        PROFILE_MARKER("water_compose");
+        PROFILE_MARKER("Water");
         for (int i = 0; i < count; i++) {
             Item &item = items[i];
             if (!item.visible) continue;

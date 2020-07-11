@@ -399,7 +399,7 @@ struct Level : IGame {
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
-            Core::initShaders();
+            Core::reinitShaders();
         }
 
         if (rebuildMesh) {
@@ -507,13 +507,45 @@ struct Level : IGame {
             waterCache->addDrop(pos, radius, strength);
     }
 
-    virtual void setRoomParams(int roomIndex, ShaderType type, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
+    virtual void setRoomParams(int roomIndex, ShaderType shaderType, float diffuse, float ambient, float specular, float alpha, bool alphaTest = false) {
         if (Core::pass == Core::passShadow) {
-            Core::setPipelineState(alphaTest ? PS_ENTITY_SHADOW_ALPHA : PS_ENTITY_SHADOW);
+            Core::setPipelineState(alphaTest ? PS_SHADOW_ALPHA : PS_SHADOW);
             return;
         }
 
         TR::Room &room = level.rooms[roomIndex];
+
+        PipelineStateType ps;
+
+        switch (shaderType) {
+            case shRoom : {
+                if (room.flags.water) {
+                    ps = alphaTest ? PS_ROOM_UNDERWATER_ALPHA : PS_ROOM_UNDERWATER;
+                } else {
+                    ps = alphaTest ? PS_ROOM_ALPHA : PS_ROOM;
+                }
+                break;
+            }
+            case shEntity : {
+                if (room.flags.water) {
+                    ps = alphaTest ? PS_ENTITY_UNDERWATER_ALPHA : PS_ENTITY_UNDERWATER;
+                } else {
+                    ps = alphaTest ? PS_ENTITY_ALPHA : PS_ENTITY;
+                }
+                break;
+            }
+            case shSprite : {
+                ps = room.flags.water ? PS_SPRITE_UNDERWATER : PS_SPRITE;
+                break;
+            }
+            case shMirror : {
+                ps = PS_MIRROR;
+                break;
+            }
+            default : ASSERT(false);
+        }
+
+        Core::setPipelineState(ps);
 
         if (room.dynLightsCount) {
             Core::lightPos[3]   = room.dynLights[0].pos;
@@ -556,10 +588,6 @@ struct Level : IGame {
             Core::fogParams = levelFogParams;
             material = vec4(diffuse, ambient, specular, alpha);
         }
-        
-    #if 0
-        setShader(Core::pass, type, (Core::pass == Core::passAmbient) ? false : room.flags.water, alphaTest);
-    #endif
 
         #ifdef _GAPI_SW
             GAPI::setPalette(room.flags.water ? GAPI::swPaletteWater : GAPI::swPaletteColor);
@@ -615,7 +643,7 @@ struct Level : IGame {
         GAPI::rotate90 = false;
     #endif
 
-        PROFILE_MARKER("environment");
+        PROFILE_MARKER("Environment");
         setupBinding();
         float      tmpEye  = Core::eye;
         Core::Pass tmpPass = Core::pass;
@@ -1670,10 +1698,10 @@ struct Level : IGame {
         LOG("objects : %d x %d\n", atlasObjects->width, atlasObjects->height);
         LOG("sprites : %d x %d\n", atlasSprites->width, atlasSprites->height);
         LOG("glyphs  : %d x %d\n", atlasGlyphs->width, atlasGlyphs->height);
-        PROFILE_LABEL(TEXTURE, atlasRooms->ID, "atlas_rooms");
-        PROFILE_LABEL(TEXTURE, atlasObjects->ID, "atlas_objects");
-        PROFILE_LABEL(TEXTURE, atlasSprites->ID, "atlas_sprites");
-        PROFILE_LABEL(TEXTURE, atlasGlyphs->ID, "atlas_glyphs");
+        PROFILE_LABEL(TEXTURE, atlasRooms->ID, "atlasRooms");
+        PROFILE_LABEL(TEXTURE, atlasObjects->ID, "atlasObjects");
+        PROFILE_LABEL(TEXTURE, atlasSprites->ID, "atlasSprites");
+        PROFILE_LABEL(TEXTURE, atlasGlyphs->ID, "atlasGlyphs");
 
     #else
         ASSERT(level.tilesCount);
@@ -1916,7 +1944,7 @@ struct Level : IGame {
     }
 
     void renderRooms(RoomDesc *roomsList, int roomsCount, int transp) {
-        PROFILE_MARKER("rooms");
+        PROFILE_MARKER("Rooms");
 
         if (Core::pass == Core::passShadow)
             return;
@@ -1956,7 +1984,7 @@ struct Level : IGame {
             vec3 center = room.getCenter();
             int ambient = room.getAmbient(int(center.x), int(center.y), int(center.z));
 
-            setRoomParams(roomIndex, SH_ROOM, 1.0f, intensityf(ambient), 0.0f, 1.0f, transp == 1);
+            setRoomParams(roomIndex, shRoom, 1.0f, intensityf(ambient), 0.0f, 1.0f, transp == 1);
 
             basis.pos = room.getOffset();
             Core::setBasis(&basis, 1);
@@ -1989,7 +2017,7 @@ struct Level : IGame {
 
                 Core::setScissor(getPortalRect(roomsList[i].portal, vp));
 
-                setRoomParams(roomIndex, SH_SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, true);
+                setRoomParams(roomIndex, shSprite, 1.0f, 1.0f, 0.0f, 1.0f, true);
 
                 basis.pos = level.rooms[roomIndex].getOffset();
                 Core::setBasis(&basis, 1);
@@ -2031,9 +2059,10 @@ struct Level : IGame {
             isModel = false;
         }
 
-        ShaderType type = isModel ? SH_ENTITY : SH_SPRITE;
-        if (entity.type == TR::Entity::CRYSTAL)
-            type = SH_ENTITY_MIRROR;
+        ShaderType type = isModel ? shEntity : shSprite;
+        if (entity.type == TR::Entity::CRYSTAL) {
+            type = shMirror;
+        }
 
         if (isModel) { // model
             ASSERT(controller->intensity >= 0.0f);
@@ -2311,13 +2340,13 @@ struct Level : IGame {
         }
 
         {
-            PROFILE_MARKER("sprites");
+            PROFILE_MARKER("Sprites");
 
             if (mesh->dynICount) {
                 atlasSprites->bind(sDiffuse);
                 Core::lightPos[0]   = vec4(0, 0, 0, 0);
                 Core::lightColor[0] = vec4(0, 0, 0, 1);
-                setRoomParams(getLara()->getRoomIndex(), SH_SPRITE, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
+                setRoomParams(getLara()->getRoomIndex(), shSprite, 1.0f, 1.0f, 0.0f, 1.0f, mesh->transparent == 1);
 
                 Basis b;
                 b.w   = 1.0f;
@@ -2338,13 +2367,13 @@ struct Level : IGame {
         if (Core::pass == Core::passAmbient) // TODO allow static entities
             return;
 
-        PROFILE_MARKER("objects");
+        PROFILE_MARKER("Objects");
 
         renderEntitiesTransp(transp);
     }
 
     void renderBlobs() {
-        PROFILE_MARKER("blobs");
+        PROFILE_MARKER("Blobs");
 
         if (Core::pass != Core::passCompose || level.isCutsceneLevel())
             return;
@@ -2496,8 +2525,8 @@ struct Level : IGame {
     }
 
     virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, RoomDesc *roomsList = NULL) {
-        PROFILE_MARKER("view");
-#if 0
+        PROFILE_MARKER("View");
+
         if (water && waterCache)
             waterCache->reset();
 
@@ -2561,9 +2590,7 @@ struct Level : IGame {
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
 
-            Core::beginrenderPass(RP_SCENE, RenderTarget(screen), RenderTarget());
-            Core::setTarget(screen, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
-            Core::validateRenderState();
+            Core::beginRenderPass(RP_MAIN, screen ? RenderTarget(screen) : GAPI::defColorTarget, GAPI::defDepthTarget);
             setupBinding();
         }
 
@@ -2576,7 +2603,6 @@ struct Level : IGame {
         if (camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
 
-        Core::setBlendMode(bmNone);
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
             if (!camera->isUnderwater())
@@ -2594,14 +2620,15 @@ struct Level : IGame {
 
         if (!camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
-    
-        Core::setBlendMode(bmNone);
 
         Core::Pass pass = Core::pass;
 
+        if (water) {
+            Core::endRenderPass();
+        }
+
         if (water && waterCache && waterCache->visible && screen) {
-            Core::setTarget(NULL, NULL, RT_STORE_COLOR);
-            Core::validateRenderState();
+            Core::beginRenderPass(RP_MAIN, GAPI::defColorTarget, GAPI::defDepthTarget);
             waterCache->blitTexture(screen);
         }
 
@@ -2610,7 +2637,6 @@ struct Level : IGame {
         }
 
         Core::pass = pass;
-#endif
     }
 
     void setupCubeCamera(const vec3 &pos, int face) {
@@ -2776,7 +2802,7 @@ struct Level : IGame {
     }
 */
     void renderShadows(int roomIndex, Texture *shadowMap) {
-        PROFILE_MARKER("shadows");
+        PROFILE_MARKER("Shadows");
 
         if (Core::settings.detail.shadows == Core::Settings::LOW)
             return;
@@ -3396,16 +3422,17 @@ struct Level : IGame {
     }
 
     void render() {
-#if 0
         if (isEnded && !inventory->video) {
-            Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_STORE_COLOR);
+            Core::beginRenderPass(RP_MAIN, GAPI::defColorTarget, GAPI::defDepthTarget);
+
             UI::begin(float(Core::width) / float(Core::height));
             atlasGlyphs->bind(sDiffuse);
             UI::textOut(vec2(0, 480 - 16), STR_LOADING, UI::aCenter, UI::width);
             UI::end();
+
+            Core::endRenderPass();
             return;
         }
-#endif
 
         renderGame(true, false);
     }

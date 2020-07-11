@@ -29,7 +29,7 @@
     #undef OS_PTHREAD_MT
 
     #ifdef _GAPI_GL
-        #define VR_SUPPORT
+        //#define VR_SUPPORT
     #endif
 #elif ANDROID
     #define _OS_ANDROID 1
@@ -477,6 +477,38 @@ struct MeshRange {
     MeshRange() : iStart(0), iCount(0), vStart(0), aIndex(-1), tile(0), clut(0) {}
 };
 
+#define SHADER_TYPES(E) \
+    E( shGUI               ) \
+    E( shShadow            ) \
+    E( shShadow_A          ) \
+    E( shRoom              ) \
+    E( shRoom_A            ) \
+    E( shRoom_U            ) \
+    E( shRoom_UA           ) \
+    E( shEntity            ) \
+    E( shEntity_A          ) \
+    E( shEntity_U          ) \
+    E( shEntity_UA         ) \
+    E( shMirror            ) \
+    E( shFlash             ) \
+    E( shBlob              ) \
+    E( shSprite            ) \
+    E( shSprite_U          ) \
+    E( shSky               ) \
+    E( shSky_Clouds        ) \
+    E( shSky_Clouds_Azure  ) \
+    E( shWater_Compose     ) \
+    E( shWater_Mask        ) \
+    E( shWater_Rays        ) \
+    E( shWater_Drop        ) \
+    E( shWater_Calc        ) \
+    E( shWater_Caustics    ) \
+    E( shFilter_Upscale    ) \
+    E( shFilter_Downsample ) \
+    E( shFilter_Grayscale  ) \
+    E( shFilter_Blur       ) \
+    E( shFilter_Anaglyph   )
+
 #define SHADER_ATTRIBS(E) \
     E( aCoord           ) \
     E( aNormal          ) \
@@ -508,98 +540,20 @@ struct MeshRange {
     E( uPosScale        ) \
     E( uContacts        )
 
-#if 0
-#define SHADER_DEFINES(E) \
-    /* shadow types */ \
-    E( SHADOW_SAMPLER ) \
-    E( SHADOW_DEPTH   ) \
-    E( SHADOW_COLOR   ) \
-    /* compose types */ \
-    E( TYPE_SPRITE    ) \
-    E( TYPE_FLASH     ) \
-    E( TYPE_ROOM      ) \
-    E( TYPE_ENTITY    ) \
-    E( TYPE_MIRROR    ) \
-    /* sky */ \
-    E( SKY_TEXTURE      ) \
-    E( SKY_CLOUDS       ) \
-    E( SKY_CLOUDS_AZURE ) \
-    /* water sub-passes */ \
-    E( WATER_DROP     ) \
-    E( WATER_SIMULATE ) \
-    E( WATER_CAUSTICS ) \
-    E( WATER_RAYS     ) \
-    E( WATER_MASK     ) \
-    E( WATER_COMPOSE  ) \
-    /* filter types */ \
-    E( FILTER_UPSCALE          ) \
-    E( FILTER_DOWNSAMPLE       ) \
-    E( FILTER_DOWNSAMPLE_DEPTH ) \
-    E( FILTER_GRAYSCALE        ) \
-    E( FILTER_BLUR             ) \
-    E( FILTER_ANAGLYPH         ) \
-    E( FILTER_EQUIRECTANGULAR  ) \
-    /* options */ \
-    E( UNDERWATER      ) \
-    E( ALPHA_TEST      ) \
-    E( OPT_AMBIENT     ) \
-    E( OPT_SHADOW      ) \
-    E( OPT_CONTACT     ) \
-    E( OPT_CAUSTICS    )
+enum ShaderType   { SHADER_TYPES(DECL_ENUM)    shMAX };
+enum AttribType   { SHADER_ATTRIBS(DECL_ENUM)  aMAX  };
+enum SamplerType  { SHADER_SAMPLERS(DECL_ENUM) sMAX  };
+enum UniformType  { SHADER_UNIFORMS(DECL_ENUM) uMAX  };
 
-#define DECL_SD_ENUM(v) SD_##v,
-enum ShaderDefine { SHADER_DEFINES(DECL_SD_ENUM) SD_MAX };
-#undef DECL_SD_ENUM
-
-#endif
-
-enum AttribType   { SHADER_ATTRIBS(DECL_ENUM)  aMAX };
-enum SamplerType  { SHADER_SAMPLERS(DECL_ENUM) sMAX };
-enum UniformType  { SHADER_UNIFORMS(DECL_ENUM) uMAX };
-
+const char *ShaderName[shMAX] = { SHADER_TYPES(DECL_STR)    };
 const char *AttribName[aMAX]  = { SHADER_ATTRIBS(DECL_STR)  };
 const char *SamplerName[sMAX] = { SHADER_SAMPLERS(DECL_STR) };
 const char *UniformName[uMAX] = { SHADER_UNIFORMS(DECL_STR) };
 
+#undef SHADER_TYPES
 #undef SHADER_ATTRIBS
 #undef SHADER_SAMPLERS
 #undef SHADER_UNIFORMS
-
-enum ShaderType {
-    SH_GUI,
-    SH_SHADOW,
-    SH_SHADOW_A,
-    SH_ROOM,
-    SH_ROOM_A,
-    SH_ROOM_U,
-    SH_ROOM_UA,
-    SH_AMBIENT,
-    SH_AMBIENT_A,
-    SH_ENTITY,
-    SH_ENTITY_A,
-    SH_ENTITY_U,
-    SH_ENTITY_UA,
-    SH_ENTITY_MIRROR,
-    SH_FLASH,
-    SH_BLOB,
-    SH_SPRITE,
-    SH_SPRITE_U,
-    SH_SKY,
-    SH_SKY_CLOUDS,
-    SH_SKY_CLOUDS_AZURE,
-    SH_WATER_COMPOSE,
-    SH_WATER_MASK,
-    SH_WATER_RAYS,
-    SH_WATER_DROP,
-    SH_WATER_CALC,
-    SH_WATER_CAUSTICS,
-    SH_FILTER_UPSCALE,
-    SH_FILTER_DOWNSAMPLE,
-    SH_FILTER_GRAYSCALE,
-    SH_FILTER_BLUR,
-    SH_FILTER_ANAGLYPH,
-    SH_MAX
-};
 
 enum RenderPassType {
     RP_MAIN,
@@ -612,8 +566,8 @@ enum RenderPassType {
 
 enum PipelineStateType {
 // RP_SHADOW
-    PS_ENTITY_SHADOW,
-    PS_ENTITY_SHADOW_ALPHA,
+    PS_SHADOW,
+    PS_SHADOW_ALPHA,
 // RP_MAIN
     PS_GUI,
     PS_ROOM,
@@ -621,17 +575,14 @@ enum PipelineStateType {
     PS_ROOM_ADD,
     PS_ROOM_UNDERWATER,
     PS_ROOM_UNDERWATER_ALPHA,
-    PS_ROOM_UNDERWATER_ADD,    
-    PS_AMBIENT,
-    PS_AMBIENT_ALPHA,
-    PS_AMBIENT_ADD,
+    PS_ROOM_UNDERWATER_ADD,
     PS_ENTITY,
     PS_ENTITY_ALPHA,
     PS_ENTITY_ADD,
     PS_ENTITY_UNDERWATER,
     PS_ENTITY_UNDERWATER_ALPHA,
     PS_ENTITY_UNDERWATER_ADD,
-    PS_ENTITY_MIRROR,
+    PS_MIRROR,
     PS_FLASH,
     PS_BLOB,
     PS_SPRITE,
@@ -801,17 +752,10 @@ namespace Core {
 #include "texture.h"
 #include "video.h"
 
-struct RenderTarget {
-    Texture *target;
-    int     face;
-    int     mip;
-
-    RenderTarget(Texture *target, int face = 0, int mip = 0) : target(target), face(face), mip(mip) {}
-};
+typedef GAPI::RenderTarget RenderTarget;
 
 namespace Core {
-
-    GAPI::Shader*         shaders[SH_MAX];
+    GAPI::Shader*         shaders[shMAX];
     GAPI::RenderPass*     renderPasses[RP_MAX];
     GAPI::PipelineState*  pipelineStates[PS_MAX];
 
@@ -844,27 +788,31 @@ namespace Core {
     }
 
     void initShaders() {
-        for (int i = 0; i < SH_MAX; i++) {
-            delete shaders[i];
-            shaders[i] = NULL;
-
+        for (int i = 0; i < shMAX; i++) {
             if (Core::settings.detail.shadows == Core::Settings::LOW) {
-                if (i == SH_SHADOW || i == SH_SHADOW_A)
+                if (i == shShadow || i == shShadow_A)
                     continue;
             }
 
             if (Core::settings.detail.water == Core::Settings::LOW) {
-                if (i >= SH_WATER_COMPOSE && i <= SH_WATER_CAUSTICS)
+                if (i >= shWater_Compose && i <= shWater_Caustics)
                     continue;
             }
 
-            if (i == SH_WATER_CAUSTICS && !support.derivatives)
+            if (i == shWater_Caustics && !support.derivatives)
                 continue;
 
-            if ((i == SH_SKY_CLOUDS || i == SH_SKY_CLOUDS_AZURE) && !support.tex3D)
+            if ((i == shSky_Clouds || i == shSky_Clouds_Azure) && !support.tex3D)
                 continue;
 
             shaders[i] = new GAPI::Shader((ShaderType)i);
+        }
+    }
+
+    void deinitShaders() {
+        for (int i = 0; i < shMAX; i++) {
+            delete shaders[i];
+            shaders[i] = NULL;
         }
     }
 
@@ -878,102 +826,159 @@ namespace Core {
         renderPasses[RP_WATER_CAUSTICS] = new GAPI::RenderPass(FMT_RGBA, FMT_MAX, RO_COLOR_CLEAR | RO_COLOR_STORE);
     }
 
+    void deinitRenderPasses() {
+        for (int i = 0; i < RP_MAX; i++) {
+            delete renderPasses[i];
+            renderPasses[i] = NULL;
+        }
+    }
+
     void initPipelineStates() {
         memset(pipelineStates, 0, sizeof(pipelineStates));
 
         #define PIPELINE(rpIdx, shIdx, opt) shaders[shIdx] ? new GAPI::PipelineState(renderPasses[rpIdx], shaders[shIdx], opt) : NULL
 
-        pipelineStates[PS_GUI] = PIPELINE(RP_MAIN, SH_GUI,
+        pipelineStates[PS_GUI] = PIPELINE(RP_MAIN, shGUI,
             PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
 
-        pipelineStates[PS_ENTITY_SHADOW] = PIPELINE(RP_SHADOW, SH_SHADOW,
+        pipelineStates[PS_SHADOW] = PIPELINE(RP_SHADOW, shShadow,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_SHADOW_ALPHA] = PIPELINE(RP_SHADOW, SH_SHADOW_A,
+        pipelineStates[PS_SHADOW_ALPHA] = PIPELINE(RP_SHADOW, shShadow_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_ROOM] = PIPELINE(RP_MAIN, SH_ROOM,
+        pipelineStates[PS_ROOM] = PIPELINE(RP_MAIN, shRoom,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ROOM_ALPHA] = PIPELINE(RP_MAIN, SH_ROOM_A,
+        pipelineStates[PS_ROOM_ALPHA] = PIPELINE(RP_MAIN, shRoom_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ROOM_ADD] = PIPELINE(RP_MAIN, SH_ROOM,
+        pipelineStates[PS_ROOM_ADD] = PIPELINE(RP_MAIN, shRoom,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
              
-        pipelineStates[PS_ROOM_UNDERWATER] = PIPELINE(RP_MAIN, SH_ROOM_U,
+        pipelineStates[PS_ROOM_UNDERWATER] = PIPELINE(RP_MAIN, shRoom_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ROOM_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, SH_ROOM_UA,
+        pipelineStates[PS_ROOM_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, shRoom_UA,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ROOM_UNDERWATER_ADD] = PIPELINE(RP_MAIN, SH_ROOM_U,
+        pipelineStates[PS_ROOM_UNDERWATER_ADD] = PIPELINE(RP_MAIN, shRoom_U,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_AMBIENT] = PIPELINE(RP_MAIN, SH_AMBIENT,
+        pipelineStates[PS_ENTITY] = PIPELINE(RP_MAIN, shEntity,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_AMBIENT_ALPHA] = PIPELINE(RP_MAIN, SH_AMBIENT_A,
+        pipelineStates[PS_ENTITY_ALPHA] = PIPELINE(RP_MAIN, shEntity_A,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_AMBIENT_ADD] = PIPELINE(RP_MAIN, SH_AMBIENT,
-            PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
-
-        pipelineStates[PS_ENTITY] = PIPELINE(RP_MAIN, SH_ENTITY,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_ALPHA] = PIPELINE(RP_MAIN, SH_ENTITY_A,
-            PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ENTITY_ADD] = PIPELINE(RP_MAIN, SH_ENTITY,
+        pipelineStates[PS_ENTITY_ADD] = PIPELINE(RP_MAIN, shEntity,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
              
-        pipelineStates[PS_ENTITY_UNDERWATER] = PIPELINE(RP_MAIN, SH_ENTITY_U,
+        pipelineStates[PS_ENTITY_UNDERWATER] = PIPELINE(RP_MAIN, shEntity_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_ENTITY_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, SH_ENTITY_UA,
+        pipelineStates[PS_ENTITY_UNDERWATER_ALPHA] = PIPELINE(RP_MAIN, shEntity_UA,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_ENTITY_UNDERWATER_ADD] = PIPELINE(RP_MAIN, SH_ENTITY_U,
+        pipelineStates[PS_ENTITY_UNDERWATER_ADD] = PIPELINE(RP_MAIN, shEntity_U,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_ENTITY_MIRROR] = PIPELINE(RP_MAIN, SH_ENTITY_MIRROR,
+        pipelineStates[PS_MIRROR] = PIPELINE(RP_MAIN, shMirror,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_FLASH] = PIPELINE(RP_MAIN, SH_FLASH,
+        pipelineStates[PS_FLASH] = PIPELINE(RP_MAIN, shFlash,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_BLOB] = PIPELINE(RP_MAIN, SH_BLOB,
+        pipelineStates[PS_BLOB] = PIPELINE(RP_MAIN, shBlob,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_MULT);
 
-        pipelineStates[PS_SPRITE] = PIPELINE(RP_MAIN, SH_SPRITE,
+        pipelineStates[PS_SPRITE] = PIPELINE(RP_MAIN, shSprite,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_SPRITE_UNDERWATER] = PIPELINE(RP_MAIN, SH_SPRITE_U,
+        pipelineStates[PS_SPRITE_UNDERWATER] = PIPELINE(RP_MAIN, shSprite_U,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
 
-        pipelineStates[PS_SKY] = PIPELINE(RP_MAIN, SH_SKY,
+        pipelineStates[PS_SKY] = PIPELINE(RP_MAIN, shSky,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_SKY_CLOUDS] = PIPELINE(RP_MAIN, SH_SKY_CLOUDS,
+        pipelineStates[PS_SKY_CLOUDS] = PIPELINE(RP_MAIN, shSky_Clouds,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_SKY_CLOUDS_AZURE] = PIPELINE(RP_MAIN, SH_SKY_CLOUDS_AZURE,
+        pipelineStates[PS_SKY_CLOUDS_AZURE] = PIPELINE(RP_MAIN, shSky_Clouds_Azure,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK);
 
-        pipelineStates[PS_WATER_COMPOSE] = PIPELINE(RP_MAIN, SH_WATER_COMPOSE,
+        pipelineStates[PS_WATER_COMPOSE] = PIPELINE(RP_MAIN, shWater_Compose,
             PO_DEPTH_TEST | PO_DEPTH_WRITE | PO_COLOR_WRITE);
-        pipelineStates[PS_WATER_MASK] = PIPELINE(RP_MAIN, SH_WATER_MASK,
+        pipelineStates[PS_WATER_MASK] = PIPELINE(RP_MAIN, shWater_Mask,
             PO_DEPTH_TEST | PO_COLOR_WRITE_A);
-        pipelineStates[PS_WATER_RAYS] = PIPELINE(RP_MAIN, SH_WATER_RAYS,
+        pipelineStates[PS_WATER_RAYS] = PIPELINE(RP_MAIN, shWater_Rays,
             PO_DEPTH_TEST | PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ADD);
 
-        pipelineStates[PS_WATER_DROP] = PIPELINE(RP_WATER_PROCESS, SH_WATER_DROP,
+        pipelineStates[PS_WATER_DROP] = PIPELINE(RP_WATER_PROCESS, shWater_Drop,
             PO_COLOR_WRITE_R | PO_COLOR_WRITE_G | PO_CULL_BACK);
-        pipelineStates[PS_WATER_CALC] = PIPELINE(RP_WATER_PROCESS, SH_WATER_CALC,
+        pipelineStates[PS_WATER_CALC] = PIPELINE(RP_WATER_PROCESS, shWater_Calc,
             PO_COLOR_WRITE_R | PO_COLOR_WRITE_G | PO_CULL_BACK);
             
-        pipelineStates[PS_WATER_CAUSTICS] = PIPELINE(RP_WATER_CAUSTICS, SH_WATER_CAUSTICS,
+        pipelineStates[PS_WATER_CAUSTICS] = PIPELINE(RP_WATER_CAUSTICS, shWater_Caustics,
             PO_COLOR_WRITE | PO_BLEND_ADD);
 
-        pipelineStates[PS_FILTER_UPSCALE] = PIPELINE(RP_FILTER, SH_FILTER_UPSCALE,
+        pipelineStates[PS_FILTER_UPSCALE] = PIPELINE(RP_FILTER, shFilter_Upscale,
             PO_COLOR_WRITE | PO_CULL_BACK | PO_BLEND_ALPHA);
-        pipelineStates[PS_FILTER_DOWNSAMPLE] = PIPELINE(RP_FILTER, SH_FILTER_DOWNSAMPLE,
+        pipelineStates[PS_FILTER_DOWNSAMPLE] = PIPELINE(RP_FILTER, shFilter_Downsample,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_GRAYSCALE] = PIPELINE(RP_FILTER, SH_FILTER_GRAYSCALE,
+        pipelineStates[PS_FILTER_GRAYSCALE] = PIPELINE(RP_FILTER, shFilter_Grayscale,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_BLUR] = PIPELINE(RP_FILTER, SH_FILTER_BLUR,
+        pipelineStates[PS_FILTER_BLUR] = PIPELINE(RP_FILTER, shFilter_Blur,
             PO_COLOR_WRITE | PO_CULL_BACK);
-        pipelineStates[PS_FILTER_ANAGLYPH] = PIPELINE(RP_FILTER, SH_FILTER_ANAGLYPH,
+        pipelineStates[PS_FILTER_ANAGLYPH] = PIPELINE(RP_FILTER, shFilter_Anaglyph,
             PO_COLOR_WRITE | PO_CULL_BACK);
 
         #undef PIPELINE
+    }
+
+    void deinitPipelineStates() {
+        for (int i = 0; i < PS_MAX; i++) {
+            delete pipelineStates[i];
+            pipelineStates[i] = NULL;
+        }
+    }
+
+    void reinitShaders() {
+        Core::deinitPipelineStates();
+        Core::deinitShaders();
+        Core::initShaders();
+        Core::initPipelineStates();
+    }
+
+    Texture* acquireTarget(int width, int height, TexFormat fmt) {        
+        for (int i = 0; i < MAX_CACHED_TARGETS; i++) {
+            CachedTarget &ct = cachedTargets[i];
+
+            if (ct.tex == NULL) {
+                ct.acquired = true;
+                ct.tex = new Texture(width, height, 1, fmt, OPT_TARGET | OPT_NEAREST);
+                return ct.tex;
+            }
+
+            if (!ct.acquired && ct.tex->origWidth == width && ct.tex->origHeight == height && ct.tex->fmt == fmt) {
+                ct.acquired = true;
+                return ct.tex;
+            }
+        }
+
+        ASSERT(false);
+        return NULL;
+    }
+
+    void releaseTarget(Texture *target) {
+        for (int i = 0; i < MAX_CACHED_TARGETS; i++) {
+            CachedTarget &ct = cachedTargets[i];
+            if (ct.tex == target) {
+                ASSERT(ct.acquired);
+                ct.acquired = false;
+                return;
+            }
+        }
+        ASSERT(false);
+    }
+
+    void resetRenderTargets() {
+        for (int i = 0; i < MAX_CACHED_TARGETS; i++) {
+            CachedTarget &ct = cachedTargets[i];
+            if (ct.tex) {
+                ASSERT(!ct.acquired);
+                delete ct.tex;
+                ct.tex = NULL;
+            }
+        }
     }
 
     void init() {
@@ -1201,6 +1206,12 @@ namespace Core {
     }
 
     void deinit() {
+        resetRenderTargets();
+
+        deinitPipelineStates();
+        deinitRenderPasses();
+        deinitShaders();
+
         delete eyeTex[0];
         delete eyeTex[1];
         delete whiteTex;
@@ -1213,38 +1224,6 @@ namespace Core {
         GAPI::deinit();
         NAPI::deinit();
         Sound::deinit();
-    }
-
-    Texture* acquireTarget(int width, int height, TexFormat fmt) {        
-        for (int i = 0; i < MAX_CACHED_TARGETS; i++) {
-            CachedTarget &ct = cachedTargets[i];
-
-            if (ct.tex == NULL) {
-                ct.acquired = true;
-                ct.tex = new Texture(width, height, 1, fmt, OPT_TARGET | OPT_NEAREST);
-                return ct.tex;
-            }
-
-            if (!ct.acquired && ct.tex->origWidth == width && ct.tex->origHeight == height && ct.tex->fmt == fmt) {
-                ct.acquired = true;
-                return ct.tex;
-            }
-        }
-
-        ASSERT(false);
-        return NULL;
-    }
-
-    void releaseTarget(Texture *target) {
-        for (int i = 0; i < MAX_CACHED_TARGETS; i++) {
-            CachedTarget &ct = cachedTargets[i];
-            if (ct.tex == target) {
-                ASSERT(ct.acquired);
-                ct.acquired = false;
-                return;
-            }
-        }
-        ASSERT(false);
     }
 
     void setVSync(bool enable) {
@@ -1270,7 +1249,7 @@ namespace Core {
         active.rp = rp;
 
         ASSERT(renderPasses[active.rp]);
-        renderPasses[active.rp]->begin(color.target, color.face, color.mip, depth.target);
+        renderPasses[active.rp]->begin(color, depth);
     }
 
     void endRenderPass() {
@@ -1542,8 +1521,6 @@ namespace Core {
     }
 
     void DIP(GAPI::Mesh *mesh, const MeshRange &range) {
-        //validateRenderState();
-
         mesh->bind(range);
         GAPI::DIP(mesh, range);
 

@@ -249,8 +249,6 @@ namespace Game {
         if (Core::settings.version == SETTINGS_READING)
             return true;
 
-        PROFILE_MARKER("UPDATE");
-
         if (!Core::update())
             return false;
 
@@ -316,7 +314,7 @@ namespace Game {
     void frameRender() {
         if (Core::settings.version == SETTINGS_READING) return;
 
-        PROFILE_MARKER("RENDER");
+        PROFILE_MARKER("Render");
         PROFILE_TIMING(Core::stats.tFrame);
 
         level->render();

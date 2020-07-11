@@ -3860,7 +3860,7 @@ struct Lara : Character {
         }
 
         if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
-            game->setRoomParams(getRoomIndex(), SH_ENTITY_MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
+            game->setRoomParams(getRoomIndex(), shMirror, 1.2f, 1.0f, 0.2f, 1.0f, false);
         /* catsuit test
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
             Core::updateLights();

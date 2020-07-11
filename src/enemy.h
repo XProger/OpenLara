@@ -3495,7 +3495,7 @@ struct Winston : Enemy {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, ShaderType type, bool caustics) {
         if (environment && (flags.unused & 4)) {
-            game->setRoomParams(getRoomIndex(), SH_ENTITY_MIRROR, 1.5f, 2.0f, 2.5f, 1.0f, false);
+            game->setRoomParams(getRoomIndex(), shMirror, 1.5f, 2.0f, 2.5f, 1.0f, false);
             environment->bind(sEnvironment);
             Controller::render(frustum, mesh, type, caustics);
         } else {

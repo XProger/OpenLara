@@ -10,6 +10,7 @@
 #ifdef _OS_WIN
     #include <gl/GL.h>
     #include <gl/glext.h>
+    #include <gl/wglext.h>
 #elif _OS_ANDROID
     #include <dlfcn.h>
 
@@ -343,6 +344,7 @@
         #ifdef _OS_WIN
             PFNGLTEXIMAGE3DPROC             glTexImage3D;
         #endif
+        PFNGLGETSTRINGIPROC                 glGetStringi;
     // Profiling
         #ifdef PROFILE
             PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -379,16 +381,17 @@
         PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
         PFNGLGETPROGRAMIVPROC               glGetProgramiv;
     // Render to texture
-        PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
-        PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
-        PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
-        PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
-        PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
-        PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
-        PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
-        PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
-        PFNGLDELETEFRAMEBUFFERSPROC         glDeleteFramebuffers;
-        PFNGLDELETERENDERBUFFERSPROC        glDeleteRenderbuffers;
+        PFNGLGENFRAMEBUFFERSPROC                     glGenFramebuffers;
+        PFNGLBINDFRAMEBUFFERPROC                     glBindFramebuffer;
+        PFNGLGENRENDERBUFFERSPROC                    glGenRenderbuffers;
+        PFNGLBINDRENDERBUFFERPROC                    glBindRenderbuffer;
+        PFNGLFRAMEBUFFERTEXTURE2DPROC                glFramebufferTexture2D;
+        PFNGLFRAMEBUFFERRENDERBUFFERPROC             glFramebufferRenderbuffer;
+        PFNGLRENDERBUFFERSTORAGEPROC                 glRenderbufferStorage;
+        PFNGLCHECKFRAMEBUFFERSTATUSPROC              glCheckFramebufferStatus;
+        PFNGLDELETEFRAMEBUFFERSPROC                  glDeleteFramebuffers;
+        PFNGLDELETERENDERBUFFERSPROC                 glDeleteRenderbuffers;
+        PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC glGetFramebufferAttachmentParameteriv;
     // Mesh
         PFNGLGENBUFFERSARBPROC              glGenBuffers;
         PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
@@ -493,14 +496,15 @@ namespace GAPI {
     char GLSL_HEADER_VERT[512];
     char GLSL_HEADER_FRAG[512];
 
-    GLuint FBO, defaultFBO;
+    GLuint FBO;
+    /*
     struct RenderTargetCacheItem {
         GLuint  ID;
         int     width;
         int     height;
     };
     Array<RenderTargetCacheItem> rtCache[2];
-
+    */
     uint32 m_alphaTest;
     uint32 m_depthTest;
     uint32 m_depthWrite;
@@ -607,53 +611,50 @@ namespace GAPI {
 
         Shader(ShaderType type) {
 
-            bool underwater = type == SH_ROOM_U
-                           || type == SH_ROOM_UA
-                           || type == SH_ENTITY_U
-                           || type == SH_ENTITY_UA;
+            bool underwater = type == shRoom_U
+                           || type == shRoom_UA
+                           || type == shEntity_U
+                           || type == shEntity_UA;
 
-            bool alphaTest = type == SH_SHADOW_A
-                          || type == SH_ROOM_A
-                          || type == SH_ROOM_UA
-                          || type == SH_AMBIENT_A
-                          || type == SH_ENTITY_A
-                          || type == SH_ENTITY_UA;
+            bool alphaTest = type == shShadow_A
+                          || type == shRoom_A
+                          || type == shRoom_UA
+                          || type == shEntity_A
+                          || type == shEntity_UA;
 
             const char *source = NULL;
 
             switch (type) {
-                case SH_GUI                 : source = SHADER_GUI; break;
-                case SH_SHADOW              :
-                case SH_SHADOW_A            : source = SHADER_SHADOW; break;
-                case SH_ROOM                :
-                case SH_ROOM_A              :
-                case SH_ROOM_U              :
-                case SH_ROOM_UA             : source = SHADER_ROOM; break;
-                case SH_AMBIENT             :
-                case SH_AMBIENT_A           : source = SHADER_AMBIENT; break;
-                case SH_ENTITY              :
-                case SH_ENTITY_A            :
-                case SH_ENTITY_U            :
-                case SH_ENTITY_UA           : source = SHADER_ENTITY; break;
-                case SH_ENTITY_MIRROR       : source = SHADER_MIRROR; break;
-                case SH_FLASH               : source = SHADER_FLASH; break;
-                case SH_BLOB                : source = SHADER_BLOB; break;
-                case SH_SPRITE              :
-                case SH_SPRITE_U            : source = SHADER_SPRITE; break;
-                case SH_SKY                 :
-                case SH_SKY_CLOUDS          :
-                case SH_SKY_CLOUDS_AZURE    : source = SHADER_SKY; break;
-                case SH_WATER_COMPOSE       :
-                case SH_WATER_MASK          :
-                case SH_WATER_RAYS          :
-                case SH_WATER_DROP          :
-                case SH_WATER_CALC          :
-                case SH_WATER_CAUSTICS      : source = SHADER_WATER; break;
-                case SH_FILTER_UPSCALE      :
-                case SH_FILTER_DOWNSAMPLE   :
-                case SH_FILTER_GRAYSCALE    :
-                case SH_FILTER_BLUR         :
-                case SH_FILTER_ANAGLYPH     : source = SHADER_FILTER; break;
+                case shGUI                 : source = SHADER_GUI; break;
+                case shShadow              :
+                case shShadow_A            : source = SHADER_SHADOW; break;
+                case shRoom                :
+                case shRoom_A              :
+                case shRoom_U              :
+                case shRoom_UA             : source = SHADER_ROOM; break;
+                case shEntity              :
+                case shEntity_A            :
+                case shEntity_U            :
+                case shEntity_UA           : source = SHADER_ENTITY; break;
+                case shMirror              : source = SHADER_MIRROR; break;
+                case shFlash               : source = SHADER_FLASH; break;
+                case shBlob                : source = SHADER_BLOB; break;
+                case shSprite              :
+                case shSprite_U            : source = SHADER_SPRITE; break;
+                case shSky                 :
+                case shSky_Clouds          :
+                case shSky_Clouds_Azure    : source = SHADER_SKY; break;
+                case shWater_Compose       :
+                case shWater_Mask          :
+                case shWater_Rays          :
+                case shWater_Drop          :
+                case shWater_Calc          :
+                case shWater_Caustics      : source = SHADER_WATER; break;
+                case shFilter_Upscale      :
+                case shFilter_Downsample   :
+                case shFilter_Grayscale    :
+                case shFilter_Blur         :
+                case shFilter_Anaglyph     : source = SHADER_FILTER; break;
             }
 
             ASSERT(source);
@@ -753,6 +754,8 @@ namespace GAPI {
             }
 
             ID = glCreateProgram();
+
+            PROFILE_LABEL(PROGRAM, ID, ShaderName[type]);
 
             if (!(Core::support.shaderBinary && linkBinary(fileName))) { // try to load cached shader     
                 if (linkSource(source, defines) && Core::support.shaderBinary) { // compile shader from source and dump it into cache
@@ -1236,6 +1239,41 @@ namespace GAPI {
         }
     };
 
+// RenderTarget
+    struct RenderTarget {
+        GLint    type;
+        GLint    id;
+        GLint    level;
+        GLint    target;
+        GLenum   attachment;
+
+        RenderTarget(Texture *texture = NULL, int face = 0, int mip = 0) : type(GL_NONE) {
+            if (!texture) return;
+            type       = GL_TEXTURE;
+            id         = texture->ID;
+            level      = mip;
+            target     = (texture->opt & OPT_CUBEMAP) ? (GL_TEXTURE_CUBE_MAP_POSITIVE_X + face) : GL_TEXTURE_2D;
+            attachment = (texture->fmt == FMT_DEPTH || texture->fmt == FMT_SHADOW) ? GL_DEPTH_ATTACHMENT : GL_COLOR_ATTACHMENT0;
+        }
+
+        void bind() const {
+            switch (type) {
+                case GL_NONE :
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, 0, 0);
+                    break;
+                case GL_FRAMEBUFFER_DEFAULT :
+                    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_FRAMEBUFFER_DEFAULT, id);
+                    break;
+                case GL_RENDERBUFFER :
+                    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, id);
+                    break;
+                case GL_TEXTURE :
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, target, id, level);
+                    break;
+                default : ASSERT(false);
+            }
+        }
+    };
 
 // RenderPass
     struct RenderPass {
@@ -1245,11 +1283,70 @@ namespace GAPI {
 
         RenderPass(TexFormat colorFmt, TexFormat depthFmt, uint32 opt) : colorFmt(colorFmt), depthFmt(depthFmt), opt(opt) {}
 
-        void begin(Texture *color, int face, int mip, Texture *depth) {
-            //setRenderTarget
+        void begin(const RenderTarget &color, const RenderTarget &depth) {
+            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+
+            color.bind();
+            depth.bind();
+
+            GLuint status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+            if (status != GL_FRAMEBUFFER_COMPLETE) {
+                LOG("status: 0x%04X\n", (int)status);
+            }
+
+            /*
+            if (!color) { // may be a null
+                glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
+            } else {
+
+                bool depth = color->fmt == FMT_DEPTH || color->fmt == FMT_SHADOW;
+
+                int rtIndex = cacheRenderTarget(!depth, color->width, color->height);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+                glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       color->ID, mip);
+                glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, [!depth].items[rtIndex].ID);
+            }
+            */
+
+            GLbitfield mode = 0;
+            if (opt & RO_COLOR_CLEAR)
+            {
+                mode |= GL_COLOR_BUFFER_BIT;
+
+                if (m_colorMask != PO_COLOR_WRITE)
+                {
+                    m_colorMask = PO_COLOR_WRITE;
+                    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                }
+            }
+
+            if (opt & RO_DEPTH_CLEAR)
+            {
+                mode |= GL_DEPTH_BUFFER_BIT;
+
+                if (m_depthTest != PO_DEPTH_TEST)
+                {
+                    m_depthTest = PO_DEPTH_TEST;
+                    glEnable(GL_DEPTH_TEST);
+                }
+
+                if (m_depthWrite != PO_DEPTH_WRITE)
+                {
+                    m_depthWrite = PO_DEPTH_WRITE;
+                    glDepthMask(GL_TRUE);
+                }
+            }
+            
+            if (mode)
+            {
+                glClear(mode);
+            }
         }
 
-        void end() {}
+        void end() {
+        
+        }
     };
 
 
@@ -1324,9 +1421,42 @@ namespace GAPI {
         }
     };
 
-    bool extSupport(const char *str, const char *ext) {
-        if (!str) return false;
-        return strstr(str, ext) != NULL;
+    bool extSupport(const char *str) {
+        if (glGetStringi != NULL) {
+            GLint count = 0;
+            glGetIntegerv(GL_NUM_EXTENSIONS, &count); 
+            for (int i = 0; i < count; i++) {
+                const char *ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
+                if (strstr(ext, str) != NULL) {
+                    return true;
+                }
+            }
+        } else {
+            const char *ext =  (const char*)glGetString(GL_EXTENSIONS);
+            if (!ext) {
+                return false;
+            }
+            return strstr(ext, str) != NULL;
+        }
+
+        return false;
+    }
+
+    RenderTarget defColorTarget;
+    RenderTarget defDepthTarget;
+
+    void initDefaultTarget() {
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_BACK, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &defColorTarget.type);
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_BACK, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &defColorTarget.id);
+        defColorTarget.level      = 0;
+        defColorTarget.target     = GL_TEXTURE_2D;
+        defColorTarget.attachment = GL_COLOR_ATTACHMENT0;
+
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &defDepthTarget.type);
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &defDepthTarget.id);
+        defDepthTarget.level      = 0;
+        defDepthTarget.target     = GL_TEXTURE_2D;
+        defDepthTarget.attachment = GL_DEPTH_ATTACHMENT;
     }
 
     void init() {
@@ -1354,6 +1484,8 @@ namespace GAPI {
                 #ifdef _OS_WIN
                     GetProcOGL(glTexImage3D);
                 #endif
+
+                GetProcOGL(glGetStringi);
 
                 #ifdef PROFILE
                     GetProcOGL(glObjectLabel);
@@ -1400,6 +1532,7 @@ namespace GAPI {
                 GetProcOGL(glCheckFramebufferStatus);
                 GetProcOGL(glDeleteFramebuffers);
                 GetProcOGL(glDeleteRenderbuffers);
+                GetProcOGL(glGetFramebufferAttachmentParameteriv);
 
                 GetProcOGL(glGenBuffers);
                 GetProcOGL(glDeleteBuffers);
@@ -1424,21 +1557,6 @@ namespace GAPI {
         LOG("Renderer : %s\n", (char*)glGetString(GL_RENDERER));
         LOG("Version  : %s\n", (char*)glGetString(GL_VERSION));
 
-        char *ext = (char*)glGetString(GL_EXTENSIONS);
-/*
-        if (ext != NULL) {
-            char buf[255];
-            int len = strlen(ext);
-            int start = 0;
-            for (int i = 0; i < len; i++)
-                if (ext[i] == ' ' || (i == len - 1)) {
-                    memcpy(buf, &ext[start], i - start);
-                    buf[i - start] = 0;
-                    LOG("%s\n", buf);
-                    start = i + 1;
-                }
-        }
-*/
     #ifndef FFP
         bool GLES3 = false;
         #ifdef _OS_WEB
@@ -1459,19 +1577,19 @@ namespace GAPI {
             #endif
         #endif
 
-        bool _GL_EXT_shadow_samplers      = extSupport(ext, "GL_EXT_shadow_samplers");
-        bool _GL_ARB_shadow               = extSupport(ext, "GL_ARB_shadow");
-        bool _GL_OES_standard_derivatives = extSupport(ext, "GL_OES_standard_derivatives");
+        bool _GL_EXT_shadow_samplers      = extSupport("GL_EXT_shadow_samplers");
+        bool _GL_ARB_shadow               = extSupport("GL_ARB_shadow");
+        bool _GL_OES_standard_derivatives = extSupport("GL_OES_standard_derivatives");
 
-        support.shaderBinary   = extSupport(ext, "_program_binary");
-        support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
+        support.shaderBinary   = extSupport("_program_binary");
+        support.VAO            = GLES3 || extSupport("_vertex_array_object");
         support.VBO            = glGenBuffers != NULL;
-        support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
+        support.depthTexture   = GLES3 || extSupport("_depth_texture");
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
-        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
-        support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
-        support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
-        support.texMaxLevel    = GLES3 || extSupport(ext, "_texture_max_level");
+        support.discardFrame   = extSupport("_discard_framebuffer");
+        support.texNPOT        = GLES3 || extSupport("_texture_npot") || extSupport("_texture_non_power_of_two");
+        support.texRG          = GLES3 || extSupport("_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texMaxLevel    = GLES3 || extSupport("_texture_max_level");
 
         #ifdef _GAPI_GLES2 // TODO
             support.shaderBinary = false;
@@ -1486,15 +1604,15 @@ namespace GAPI {
             support.derivatives = true; 
             support.tex3D       = glTexImage3D != NULL;
         #endif
-        support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.maxAniso       = extSupport(ext, "_texture_filter_anisotropic");
-        support.colorFloat     = extSupport(ext, "_color_buffer_float");
-        support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
-        support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
-        support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
-        support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
+        support.texBorder      = extSupport("_texture_border_clamp");
+        support.maxAniso       = extSupport("_texture_filter_anisotropic");
+        support.colorFloat     = extSupport("_color_buffer_float");
+        support.colorHalf      = extSupport("_color_buffer_half_float") || extSupport("GL_ARB_half_float_pixel");
+        support.texFloatLinear = support.colorFloat || extSupport("GL_ARB_texture_float") || extSupport("_texture_float_linear");
+        support.texFloat       = support.texFloatLinear || extSupport("_texture_float");
+        support.texHalfLinear  = support.colorHalf || extSupport("GL_ARB_texture_float") || extSupport("_texture_half_float_linear") || extSupport("_color_buffer_half_float");
  
-        support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+        support.texHalf        = support.texHalfLinear || extSupport("_texture_half_float");
 
         #ifdef SDL2_GLES
             support.shaderBinary  = false; // TODO
@@ -1503,8 +1621,8 @@ namespace GAPI {
         #endif
 
         #ifdef PROFILE
-            support.profMarker = extSupport(ext, "_KHR_debug");
-            support.profTiming = extSupport(ext, "_timer_query");
+            support.profMarker = extSupport("_KHR_debug");
+            support.profTiming = extSupport("_timer_query");
         #endif
 
         if (support.maxAniso)
@@ -1535,8 +1653,9 @@ namespace GAPI {
         glScalef(1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f);
 
         glClearColor(0, 0, 0, 0);
-    #else 
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*)&defaultFBO);
+    #else
+        initDefaultTarget();
+
         glGenFramebuffers(1, &FBO);
 
         char extHeader[256];
@@ -1618,12 +1737,14 @@ namespace GAPI {
         glDeleteFramebuffers(1, &FBO);
 
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        /*
         for (int b = 0; b < 2; b++) {
             for (int i = 0; i < rtCache[b].length; i++) {
                 glDeleteRenderbuffers(1, &rtCache[b][i].ID);
             }
             rtCache[b].clear();
         }
+        */
     }
 
     inline mat4::ProjRange getProjRange() {
@@ -1662,7 +1783,7 @@ namespace GAPI {
             glBindBuffer(GL_ARRAY_BUFFER, 0);
         }
     }
-
+/*
     int cacheRenderTarget(bool depth, int width, int height) {
         Array<RenderTargetCacheItem> &items = rtCache[depth];
 
@@ -1688,30 +1809,7 @@ namespace GAPI {
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         return items.push(item);
     }
-
-    void bindTarget(Texture *target, int face) {
-        if (!target) { // may be a null
-            glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
-        } else {
-            GLenum texTarget = GL_TEXTURE_2D;
-            if (target->opt & OPT_CUBEMAP) {
-                texTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
-            }
-
-            bool depth = target->fmt == FMT_DEPTH || target->fmt == FMT_SHADOW;
-
-            int rtIndex = cacheRenderTarget(!depth, target->width, target->height);
-
-            glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-            glFramebufferTexture2D    (GL_FRAMEBUFFER, depth ? GL_DEPTH_ATTACHMENT  : GL_COLOR_ATTACHMENT0, texTarget,       target->ID, 0);
-            glFramebufferRenderbuffer (GL_FRAMEBUFFER, depth ? GL_COLOR_ATTACHMENT0 : GL_DEPTH_ATTACHMENT,  GL_RENDERBUFFER, rtCache[!depth].items[rtIndex].ID);
-            GLuint status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-            if (status != GL_FRAMEBUFFER_COMPLETE) {
-                LOG("status: 0x%04X\n", (int)status);
-            }
-        }
-    }
-
+*/
     void discardTarget(bool color, bool depth) {
     #ifdef _GAPI_GLES
         if (Core::support.discardFrame) {
@@ -1883,6 +1981,7 @@ namespace GAPI {
     }
 
     void DIP(Mesh *mesh, const MeshRange &range) {
+        ASSERT(Core::active.VAO != 0);
     #ifdef FFP
         mat4 m = mView * mModel;
         glMatrixMode(GL_MODELVIEW);
