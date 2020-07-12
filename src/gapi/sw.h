@@ -368,6 +368,12 @@ namespace GAPI {
         v.l += d.l * count;
     }
 
+    // https://www.flipcode.com/archives/Texturing_As_In_Unreal.shtml
+    const int uvDither[8] = {
+        32768, 16384,           0, 49152,   // (xx yy) for (y & 1 == 0)
+        49152,     0,       32768, 16384    // (xx yy) for (y & 1 == 1)
+    };
+
     void drawLine(const VertexSW &L, const VertexSW &R, int32 y) {
         int32 x1 = L.x >> 16;
         int32 x2 = R.x >> 16;
@@ -388,14 +394,18 @@ namespace GAPI {
 
         int32 i = y * Core::width;
 
+        const int *dithY = uvDither + ((y & 1) * 4);
+
         for (int x = i + x1; x < i + x2; x++) {
             S.z += dS.z;
 
             DepthSW z = DepthSW(uint32(S.z) >> 16);
 
             if (swDepth[x] >= z) {
-                uint32 u = uint32(S.u) >> 16;
-                uint32 v = uint32(S.v) >> 16;
+                const int *dithX = dithY + (x & 1);
+
+                uint32 u = uint32(S.u + dithX[0]) >> 16;
+                uint32 v = uint32(S.v + dithX[2]) >> 16;
 
                 uint8 index = curTile->index[(v << 8) + u];
 
