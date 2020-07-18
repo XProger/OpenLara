@@ -47,18 +47,29 @@ void osMutexUnlock(void *obj) {
 }
 
 // timing
-int osStartTime = 0;
+int64 osCounterStart = 0;
+int64 osCounterFrequency = 0;
+
+int64 osGetCounter() {
+    LARGE_INTEGER value;
+    QueryPerformanceCounter(&value);
+    return value.QuadPart - osCounterStart;
+}
+
+int64 osGetFrequency() {
+    return osCounterFrequency;
+}
 
 int osGetTimeMS() {
-#ifdef DEBUG
-    LARGE_INTEGER Freq, Count;
-    QueryPerformanceFrequency(&Freq);
-    QueryPerformanceCounter(&Count);
-    return int(Count.QuadPart * 1000L / Freq.QuadPart);
-#else
-    timeBeginPeriod(0);
-    return int(timeGetTime()) - osStartTime;
-#endif
+    return int32(osGetCounter() * 1000L / osCounterFrequency);
+}
+
+void initCounter() {
+    LARGE_INTEGER value;
+    QueryPerformanceCounter(&value);
+    osCounterStart = value.QuadPart;
+    QueryPerformanceFrequency(&value);
+    osCounterFrequency = value.QuadPart;
 }
 
 // common input functions
@@ -929,7 +940,6 @@ int main(int argc, char** argv) {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
     _CrtMemCheckpoint(&_msBegin);
-//#elif PROFILE
 #elif PROFILE
 int main(int argc, char** argv) {
 #else
@@ -1017,7 +1027,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     Sound::channelsCount = 0;
 
-    osStartTime = Core::getTime();
+    initCounter();
 
     touchInit(hWnd);
     joyInit();

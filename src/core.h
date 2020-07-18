@@ -176,6 +176,8 @@ extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
 
+extern int64 osGetCounter    ();
+extern int64 osGetFrequency  ();
 extern int   osGetTimeMS     ();
 
 extern bool  osJoyReady      (int index);
@@ -228,6 +230,10 @@ enum RenderTargetOp {
 };
 
 namespace Core {
+
+    enum {
+        UPS = 30,
+    };
 
     struct Mutex {
         void *obj;

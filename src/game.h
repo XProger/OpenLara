@@ -203,17 +203,17 @@ namespace Game {
             if (Input::lastState[1] == cStart) level->addPlayer(1);
         }
 
+        /*
         float dt = Core::deltaTime;
         if (Input::down[ikR]) // slow motion (for animation debugging)
             Core::deltaTime /= 10.0f;
+        */
 
         if (Input::down[ikT]) // fast motion
             for (int i = 0; i < 9; i++)
                 level->update();
 
         level->update();
-
-        Core::deltaTime = dt;
     }
 
     void quickSave() {
@@ -247,17 +247,23 @@ namespace Game {
         }
     }
 
+    int32 lastFrame = -1;
+
     bool update() {
     // async load for settings
         if (Core::settings.version == SETTINGS_READING)
             return true;
 
-        PROFILE_MARKER("UPDATE");
-
         if (!Core::update())
             return false;
 
-        float delta = Core::deltaTime;
+        int32 frame = int32(osGetCounter() * 30L / osGetFrequency());
+        int32 frameDelta = frame - lastFrame;
+        lastFrame = frame;
+
+        if (frameDelta <= 0) {
+            return false;
+        }
 
         if (nextLevel) {
             startLevel(nextLevel);
@@ -293,15 +299,9 @@ namespace Game {
             Input::down[ik9] = false;
         }
 
-        if (!level->level.isCutsceneLevel())
-            delta = min(0.2f, delta);
-
-        while (delta > EPS) {
-            Core::deltaTime = min(delta, 1.0f / 30.0f);
+        Core::deltaTime = 1.0f / Core::UPS;
+        for (int i = 0; i < frameDelta; i++) {
             Game::updateTick();
-            delta -= Core::deltaTime;
-            if (Core::resetState) // resetTime was called
-                break;
         }
 
         return true;
