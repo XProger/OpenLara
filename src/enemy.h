@@ -60,7 +60,6 @@ struct Enemy : Character {
     uint16 targetBox;
     vec3   waypoint;
 
-    float thinkTime;
     float length;       // dist from center to head (jaws)
     float aggression;
     int   radius;
@@ -76,7 +75,7 @@ struct Enemy : Character {
     bool  targetFromView;   // enemy in target view zone
     bool  targetCanAttack;
 
-    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(TR::NO_BOX), thinkTime(1.0f / 30.0f), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
+    Enemy(IGame *game, int entity, float health, int radius, float length, float aggression) : Character(game, entity, health), ai(AI_RANDOM), mood(MOOD_SLEEP), wound(false), nextState(0), targetBox(TR::NO_BOX), length(length), aggression(aggression), radius(radius), hitSound(-1), target(NULL), path(NULL) {
         targetDist   = +INF;
         targetInView = targetFromView = targetCanAttack = false;
         waypoint     = pos;
@@ -329,12 +328,7 @@ struct Enemy : Character {
         return brave ? MOOD_STALK : mood;
     }
     
-    bool think(bool fixedLogic) {
-        thinkTime += Core::deltaTime;
-        if (thinkTime < 1.0f / 30.0f)
-            return false;
-        thinkTime -= 1.0f / 30.0f;
-
+    void think(bool fixedLogic) {
         int zoneOld = zone;
         updateZone();
 
@@ -426,8 +420,6 @@ struct Enemy : Character {
             if (fabsf(d.x) < 512 && fabsf(d.y) < 512 && fabsf(d.z) < 512)
                 nextWaypoint();
         }
-
-        return true;
     }
 
     void nextWaypoint() {
@@ -585,8 +577,7 @@ struct Wolf : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -731,8 +722,7 @@ struct Lion : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -844,9 +834,8 @@ struct Gorilla : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
-        
+        think(true);
+
         if (nextState == state)
             nextState = STATE_NONE;
 
@@ -1097,8 +1086,7 @@ struct Rat : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1137,8 +1125,7 @@ struct Rat : Enemy {
     }
 
     virtual int getStateOnwater() {
-        if (!think(false))
-            return state;
+        think(false);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1281,8 +1268,7 @@ struct Crocodile : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1330,8 +1316,7 @@ struct Crocodile : Enemy {
     }
 
     virtual int getStateUnderwater() {
-        if (!think(false))
-            return state;
+        think(false);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1439,8 +1424,7 @@ struct Bear : Enemy {
         if (!flags.active)
             return state;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1574,8 +1558,7 @@ struct Bat : Enemy {
             return STATE_AWAKE;
         }
 
-        if (!think(false))
-            return state;
+        think(false);
 
         switch (state) {
             case STATE_AWAKE  : return STATE_FLY;
@@ -1661,8 +1644,7 @@ struct Rex : Enemy {
         if (!flags.active)
             return state;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1776,8 +1758,7 @@ struct Raptor : Enemy {
         if (!flags.active)
             return state;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -1935,8 +1916,7 @@ struct Mutant : Enemy {
         stepHeight = 256;
         dropHeight = -stepHeight;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -2057,8 +2037,7 @@ struct Mutant : Enemy {
         stepHeight = 30 * 1024;
         dropHeight = -stepHeight;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if ((flags.unused & FLAG_FLY) && mood != MOOD_ESCAPE && zone == target->zone)
             flags.unused &= ~FLAG_FLY;
@@ -2168,8 +2147,7 @@ struct GiantMutant : Enemy {
         if (health <= 0)
             return state;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         if (!target || target->health <= 0.0f)
             return STATE_STOP;
@@ -2305,8 +2283,7 @@ struct Centaur : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -2412,8 +2389,7 @@ struct Mummy : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
         return state;
     }
 
@@ -2486,8 +2462,7 @@ struct Doppelganger : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
         return state;
     }
 
@@ -2568,8 +2543,7 @@ struct Human : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
         return state;
     }
 
@@ -2614,8 +2588,7 @@ struct Larson : Human {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         fullChestRotation = state == STATE_FIRE || state == STATE_AIM;
 
@@ -2698,8 +2671,7 @@ struct Pierre : Human {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         if (!flags.once && health <= PIERRE_MIN_HEALTH) {
             health = PIERRE_MIN_HEALTH;
@@ -2823,8 +2795,7 @@ struct SkaterBoy : Human {
     };
     
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         fullChestRotation = state == STATE_STAND_FIRE || state == STATE_MOVE_FIRE;
 
@@ -2894,8 +2865,7 @@ struct Cowboy : Human {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         fullChestRotation = state == STATE_WAIT || state == STATE_AIM;
 
@@ -2973,8 +2943,7 @@ struct MrT : Human {
     }
 
     virtual int getStateGround() {
-        if (!think(false))
-            return state;
+        think(false);
 
         fullChestRotation = state == STATE_WAIT || state == STATE_AIM;
 
@@ -3072,8 +3041,7 @@ struct Natla : Human {
             dropHeight *= 80;
         }
 
-        if (!think(false))
-            return state;
+        think(false);
 
         timer += Core::deltaTime;
         bool canShot = target && target->health > 0.0f && targetIsVisible(HUMAN_DIST_SHOT);
@@ -3135,8 +3103,7 @@ struct Natla : Human {
         dropHeight = -256;
         flying     = false;
 
-        if (!think(true))
-            return state;
+        think(true);
 
         timer += Core::deltaTime;
         bool canShot = target && target->health > 0.0f && fabsf(targetAngle) < NATLA_FIRE_ANGLE && targetIsVisible(HUMAN_DIST_SHOT);
@@ -3287,8 +3254,7 @@ struct Tiger : Enemy {
     }
 
     virtual int getStateGround() {
-        if (!think(true))
-            return state;
+        think(true);
 
         if (nextState == state)
             nextState = STATE_NONE;
@@ -3430,8 +3396,7 @@ struct Winston : Enemy {
             return STATE_STOP;
         }
 
-        if (!think(false))
-            return state;
+        think(false);
 
         if (nextState == state)
             nextState = STATE_NONE;
