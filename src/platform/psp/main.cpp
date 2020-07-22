@@ -178,7 +178,10 @@ int main() {
         Game::update();
         Game::render();
         GAPI::submitCmdBuf();
-        Core::waitVBlank();
+
+        if (Core::settings.detail.vsync)
+            GAPI::waitVBlank();
+
         GAPI::curBackBuffer = sceGuSwapBuffers();
     }
 

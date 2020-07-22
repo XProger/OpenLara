@@ -176,9 +176,10 @@ extern void  osMutexFree     (void *obj);
 extern void  osMutexLock     (void *obj);
 extern void  osMutexUnlock   (void *obj);
 
-extern int64 osGetCounter    ();
-extern int64 osGetFrequency  ();
-extern int   osGetTimeMS     ();
+extern void  osTimerReset       ();
+extern int64 osTimerCounter     ();
+extern int64 osTimerFrequency   ();
+extern int   osGetTimeMS        ();
 
 extern bool  osJoyReady      (int index);
 extern void  osJoyVibrate    (int index, float L, float R);
@@ -252,7 +253,7 @@ namespace Core {
     };
 
     float deltaTime;
-    int   lastTime;
+
     int   x, y, width, height;
 
     struct Support {
@@ -363,7 +364,6 @@ namespace Core {
         uint8 ctrlIndex;
     } settings;
 
-    bool resetState;
     bool isQuit;
 
     int getTime() {
@@ -371,8 +371,7 @@ namespace Core {
     }
 
     void resetTime() {
-        lastTime = getTime();
-        resetState = true;
+        osTimerReset();
     }
 
     void quit() {
@@ -1007,21 +1006,6 @@ namespace Core {
 
     void setVSync(bool enable) {
         GAPI::setVSync((Core::settings.detail.vsync = enable));
-    }
-
-    void waitVBlank() {
-        if (Core::settings.detail.vsync)
-            GAPI::waitVBlank();
-    }
-
-    bool update() {
-        resetState = false;
-        int time = getTime();
-        if (time - lastTime <= 0)
-            return false;
-        deltaTime = (time - lastTime) * 0.001f;
-        lastTime = time;
-        return true;
     }
 
     void validateRenderState() {

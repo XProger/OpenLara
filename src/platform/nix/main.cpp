@@ -275,7 +275,7 @@ void joyUpdate() {
 
     for (int i = 0; i < INPUT_JOY_COUNT; i++) {
         JoyDevice &joy = joyDevice[i];
-    
+
         if (joy.fd == -1)
             continue;
 
@@ -458,12 +458,11 @@ int main(int argc, char **argv) {
             WndProc(event,dpy,wnd);
         } else {
             joyUpdate();
-			bool updated = Game::update();
+            bool updated = Game::update();
             if (updated) {
-				Game::render();
-                Core::waitVBlank();
-				glXSwapBuffers(dpy, wnd);
-			}
+                Game::render();
+                glXSwapBuffers(dpy, wnd);
+            }
         }
     };
 

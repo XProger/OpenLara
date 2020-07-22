@@ -46,31 +46,33 @@ void osMutexUnlock(void *obj) {
     LeaveCriticalSection((CRITICAL_SECTION*)obj);
 }
 
-// timing
-int64 osCounterStart = 0;
-int64 osCounterFrequency = 0;
 
-int64 osGetCounter() {
+// timing
+int64 timerStart;
+int64 timerFrequency;
+
+void osTimerReset() {
     LARGE_INTEGER value;
     QueryPerformanceCounter(&value);
-    return value.QuadPart - osCounterStart;
+    timerStart = value.QuadPart;
+    QueryPerformanceFrequency(&value);
+    timerFrequency = value.QuadPart;
 }
 
-int64 osGetFrequency() {
-    return osCounterFrequency;
+int64 osTimerCounter() {
+    LARGE_INTEGER value;
+    QueryPerformanceCounter(&value);
+    return value.QuadPart - timerStart;
+}
+
+int64 osTimerFrequency() {
+    return timerFrequency;
 }
 
 int osGetTimeMS() {
-    return int32(osGetCounter() * 1000L / osCounterFrequency);
+    return int32(osTimerCounter() * 1000L / timerFrequency);
 }
 
-void initCounter() {
-    LARGE_INTEGER value;
-    QueryPerformanceCounter(&value);
-    osCounterStart = value.QuadPart;
-    QueryPerformanceFrequency(&value);
-    osCounterFrequency = value.QuadPart;
-}
 
 // common input functions
 InputKey keyToInputKey(int code) {
@@ -1027,7 +1029,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     Sound::channelsCount = 0;
 
-    initCounter();
+    osTimerReset();
 
     touchInit(hWnd);
     joyInit();
@@ -1057,7 +1059,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
             if (Game::update()) {
                 Game::render();
                 vrCompose();
-                Core::waitVBlank();
                 ContextSwap();
             }
             #ifdef _DEBUG

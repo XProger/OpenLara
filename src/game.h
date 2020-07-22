@@ -254,10 +254,7 @@ namespace Game {
         if (Core::settings.version == SETTINGS_READING)
             return true;
 
-        if (!Core::update())
-            return false;
-
-        int32 frame = int32(osGetCounter() * 30L / osGetFrequency());
+        int32 frame = int32(osTimerCounter() * 30L / osTimerFrequency());
         int32 frameDelta = frame - lastFrame;
         lastFrame = frame;
 

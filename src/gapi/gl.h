@@ -1568,8 +1568,6 @@ namespace GAPI {
         #endif
     }
 
-    void waitVBlank() {}
-
     void clear(bool color, bool depth) {
         uint32 mask = (color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0);
         if (mask) {

@@ -282,8 +282,6 @@ namespace GAPI {
 
     void setVSync(bool enable) {}
 
-    void waitVBlank() {}
-
     void clear(bool color, bool depth) {
         if (color) {
             memset(swColor, 0x00, Core::width * Core::height * sizeof(ColorSW));

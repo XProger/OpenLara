@@ -544,7 +544,6 @@ int main(int argc, char **argv) {
 
         if (Game::update()) {
             Game::render();
-            Core::waitVBlank();
             eglSwapBuffers(display, surface);
         }
     };

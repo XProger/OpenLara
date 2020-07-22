@@ -933,7 +933,6 @@ namespace GAPI {
     }
 
     void setVSync(bool enable) {}
-    void waitVBlank() {}
 
     void clear(bool color, bool depth) {
         ID3D11RenderTargetView *RTV = NULL;

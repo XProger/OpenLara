@@ -670,8 +670,6 @@ namespace GAPI {
         GAPI::resetDevice();
     }
 
-    void waitVBlank() {}
-
     void clear(bool color, bool depth) {
         uint32 flags = (color ? D3DCLEAR_TARGET : 0) | (depth ? D3DCLEAR_ZBUFFER : 0);
         device->Clear(0, NULL, flags, clearColor, 1.0f, 0);

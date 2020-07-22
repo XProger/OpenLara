@@ -519,7 +519,6 @@ void main_loop(void *data, wl_callback *callback, uint32_t time) {
 
     Game::update();
     Game::render();
-    Core::waitVBlank();
 
     wl_region *region = wl_compositor_create_region(wlCompositor);
     wl_region_add(region, 0, 0, Core::width, Core::height);
