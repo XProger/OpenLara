@@ -27,7 +27,7 @@
 #define LARA_TILT_MAX       (DEG2RAD * 10.0f)
 
 #define LARA_MAX_HEALTH     1000.0f
-#define LARA_MAX_OXYGEN     60.0f
+#define LARA_MAX_OXYGEN     60
 
 #define LARA_HANG_OFFSET    724
 #define LARA_HEIGHT         762
@@ -312,7 +312,7 @@ struct Lara : Character {
     Texture           *environment;
     vec2              rotFactor;
 
-    float       oxygen;
+    int32       oxygen;
     float       damageTime;
     float       hitTime;
     int         hitDir;
@@ -682,7 +682,7 @@ struct Lara : Character {
         data.extra.lara.velZ        = velocity.z;
         data.extra.lara.angleX      = angle.x;
         data.extra.lara.health      = health;
-        data.extra.lara.oxygen      = oxygen;
+        data.extra.lara.oxygen      = float(oxygen); // TODO to int
         data.extra.lara.stamina     = 0.0f;
         data.extra.lara.poison      = 0.0f;
         data.extra.lara.freeze      = 0.0f;
@@ -704,7 +704,7 @@ struct Lara : Character {
         velocity = vec3(data.extra.lara.velX, data.extra.lara.velY, data.extra.lara.velZ);
         angle.x  = TR::angle(data.extra.lara.angleX);
         health   = data.extra.lara.health;
-        oxygen   = data.extra.lara.oxygen;
+        oxygen   = int(data.extra.lara.oxygen); // TODO to int
 
         if (level->isHome()) return;
 
@@ -3300,16 +3300,16 @@ struct Lara : Character {
 
         if (damageTime > 0.0f)
             damageTime = max(0.0f, damageTime - Core::deltaTime);
-
+        /* TODO_TIME
         if (stand == STAND_UNDERWATER && !dozy) {
-            if (oxygen > 0.0f)
+            if (oxygen > 0)
                 oxygen -= Core::deltaTime;
             else
                 hit(Core::deltaTime * 150.0f);
         } else
             if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
                 oxygen = min(LARA_MAX_OXYGEN, oxygen + Core::deltaTime * 10.0f);
-
+        */
         usedItem = TR::Entity::NONE;
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC) {
@@ -3871,6 +3871,186 @@ struct Lara : Character {
             visibleMask ^= 0xFFFFFFFF;
         }
     }
+
+#if 0
+    enum WaterState {
+        WATER_STATE_NONE,
+        WATER_STATE_SURFACE,
+        WATER_STATE_DIVE
+    };
+
+    WaterState waterState;
+    bool       gravity;
+
+    struct V2POS {
+        int32 x, y, z;
+    };
+
+    struct V2ROT {
+        int16 x, y, z;
+    };
+
+    V2POS v2pos;
+    V2ROT v2rot;
+    V2ROT v2torso;
+    V2ROT v2head;
+
+    #define DEG2SHORT (256 * 256 / 360)
+
+    int32 nextState;
+    int32 targetState;
+    int32 hSpeed;
+    int32 vSpeed;
+
+    int32 getWaterHeightV2() {
+        //
+    }
+
+    void setAnimV2(int32 animIndex) {
+        //
+    }
+
+    void updateRoomV2(int32 offset) {
+        //
+    }
+
+    void updateAnimationV2() {
+        //
+    }
+
+    void updateV2() {
+        TR::Room &room = getRoom();
+
+    // change water state
+        switch (waterState) {
+            case WATER_STATE_NONE : {
+                if (room.flags.water) { // go dive
+                    waterState = WATER_STATE_DIVE;
+                    gravity = false;
+                    oxygen = LARA_MAX_OXYGEN;
+                    
+                    v2pos.y += 100;
+                    updateRoomV2(0);
+                    stopScreaming();
+
+                    if (state == STATE_SWAN_DIVE) {
+                        v2rot.x = -45 * DEG2SHORT;
+                        targetState = STATE_DIVE;
+                        updateAnimationV2();
+                        vSpeed *= 2;
+                        game->waterDrop(pos, 128.0f, 0.2f);
+                    } else if (state == STATE_FAST_DIVE) {
+                        v2rot.x = -85 * DEG2SHORT;
+                        targetState = STATE_DIVE;
+                        updateAnimationV2();
+                        vSpeed *= 2;
+                        game->waterDrop(pos, 128.0f, 0.2f);
+                    } else {
+                        v2rot.x = -45 * DEG2SHORT;
+                        setAnimV2(ANIM_WATER_FALL);
+                        targetState = STATE_SWIM;
+                        vSpeed = vSpeed * 3 / 2;
+                        game->waterDrop(pos, 256.0f, 0.2f);
+                    }
+
+                    v2head.x = v2head.y = 0;
+                    v2torso.x = v2torso.y = 0;
+                    
+                    waterSplash();
+                }
+                break;
+            }
+            case WATER_STATE_SURFACE : {
+                if (!room.flags.water) {
+                    waterState = WATER_STATE_NONE;
+                    gravity = true;
+
+                    setAnimV2(ANIM_FALL_FORTH);
+
+                    hSpeed = vSpeed / 4;
+                    vSpeed = 0;
+                    v2rot.x = v2rot.z = 0;
+                    v2head.x = v2head.y = 0;
+                    v2torso.x = v2torso.y = 0;
+                }
+                break;
+            }
+            case WATER_STATE_DIVE : {
+                if (!room.flags.water) {
+                    int32 waterHeight = getWaterHeightV2();
+                    if (abs(v2pos.y - waterHeight) < 128) {
+                        waterState = WATER_STATE_SURFACE;
+                        v2pos.y = waterHeight + 1;
+                        setAnimV2(ANIM_TO_ONWATER);
+                        vSpeed = 0;
+                        updateRoomV2(-LARA_HEIGHT / 2);
+                        game->playSound(TR::SND_BREATH, pos, Sound::PAN | Sound::UNIQUE);
+                    } else {
+                        waterState = WATER_STATE_NONE;
+                        setAnimV2(ANIM_FALL_FORTH);
+                        hSpeed = vSpeed / 4;
+                        vSpeed = 0;
+                        gravity = true;
+                    }
+
+                    v2rot.x = v2rot.z = 0;
+                    v2head.x = v2head.y = 0;
+                    v2torso.x = v2torso.y = 0;
+                }
+                break;
+            }
+        }
+
+        switch (waterState) {
+            case WATER_STATE_NONE : {
+                oxygen = LARA_MAX_OXYGEN;
+                updateNone();
+                break;
+            }
+            case WATER_STATE_SURFACE : {
+                if (health >= 0.0f) {
+                    oxygen = min(oxygen + 10, LARA_MAX_OXYGEN);
+                }
+                updateSurface();
+                break;
+            }
+            case WATER_STATE_DIVE : {
+                if (health >= 0.0f) {
+                    oxygen = max(oxygen - 1, -1);
+                    if (oxygen < 0) {
+                        health -= 5;
+                    }
+                }
+                updateDive();
+                break;
+            }
+        }
+    }
+
+    void updateNone() {
+    }
+
+    void updateSurface() {
+    }
+
+    void updateDive() {
+    }
+
+    void stateCollision() {
+        switch (state) {
+            //
+        default : LOG("no collision for state %d\n", state);
+        }
+    }
+
+    void stateUpdate() {
+        switch (state) {
+            //
+        default : LOG("no update for state %d\n", state);
+        }
+    }
+#endif
+
 };
 
 #endif

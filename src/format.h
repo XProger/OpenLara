@@ -1458,6 +1458,7 @@ namespace TR {
 
         SND_WATER_SPLASH    = 33,
         
+        SND_BREATH          = 36,
         SND_BUBBLE          = 37,
          
         SND_UZIS_SHOT       = 43,
