@@ -3890,6 +3890,7 @@ struct Lara : Character {
         int16 x, y, z;
     };
 
+    int32 v2angle;
     V2POS v2pos;
     V2ROT v2rot;
     V2ROT v2torso;
@@ -3901,6 +3902,9 @@ struct Lara : Character {
     int32 targetState;
     int32 hSpeed;
     int32 vSpeed;
+    int32 vSpeedHack;
+    int32 frameIndex;
+    int32 animIndex;
 
     int32 getWaterHeightV2() {
         //
@@ -3914,8 +3918,123 @@ struct Lara : Character {
         //
     }
 
-    void updateAnimationV2() {
+    void moveV2(int16 x, int16 y, int16 z) {
         //
+    }
+
+    void playSoundV2(int16 cmd) {
+        //
+    }
+
+    void applyEffectV2(int16 cmd) {
+        //
+    }
+
+    void applyCommandsV2(bool effects) {
+        TR::Animation *anim = level->anims + animIndex;
+
+        int16 *ptr = &level->commands[anim->animCommand];
+
+        for (int i = 0; i < anim->acCount; i++) {
+            int cmd = *ptr++; 
+            switch (cmd) {
+                case TR::ANIM_CMD_OFFSET :
+                    if (!effects) {
+                        moveV2(ptr[0], ptr[1], ptr[2]);
+                    }
+                    ptr += 3;
+                    break;
+                case TR::ANIM_CMD_JUMP :
+                    if (!effects) {
+                        if (vSpeedHack) {
+                            vSpeedHack = vSpeedHack;
+                            vSpeedHack = 0;
+                        } else {
+                            vSpeed = ptr[0];
+                        }
+                        hSpeed = ptr[1];
+                        gravity = true;
+                    }
+                    ptr += 2;
+                    break;
+                case TR::ANIM_CMD_EMPTY :
+                    break;
+                case TR::ANIM_CMD_KILL :
+                    break;
+                case TR::ANIM_CMD_SOUND :
+                    if (effects && frameIndex == ptr[0]) {
+                        playSoundV2(ptr[1]);
+                    }
+                    ptr += 2;
+                    break;
+                case TR::ANIM_CMD_EFFECT :
+                    if (effects && frameIndex == ptr[0]) {
+                        applyEffectV2(ptr[1]);
+                    }
+                    ptr += 2;
+                    break;
+            }
+        }
+    }
+
+    void updateAnimationV2() {
+        frameIndex++;
+
+        const TR::Animation* anim = level->anims + animIndex;
+
+        if (state == targetState || anim->scCount == 0) {
+            return;
+        }
+
+        const TR::AnimState *states = level->states + anim->scOffset;
+
+        for (int i = 0; i < anim->scCount; i++) {
+
+            if (states[i].state != targetState) {
+                continue;
+            }
+            
+            const TR::AnimRange *range = level->ranges + states[i].rangesOffset;
+
+            for (int j = 0; j < states[i].rangesCount; j++) {
+                if (frameIndex >= range->low && frameIndex <= range->high) {
+                    animIndex  = range->nextAnimation;
+                    frameIndex = range->nextFrame;
+                    state      = targetState;
+                    return;
+                }
+                range++;
+            }
+        }
+    }
+
+    void animateV2() {
+        updateAnimationV2();
+
+        const TR::Animation *anim = level->anims + animIndex;
+        
+        if (frameIndex > anim->frameEnd) {
+            applyCommandsV2(false);
+            animIndex = anim->nextAnimation;
+            frameIndex = anim->nextFrame;
+            anim = level->anims + animIndex;
+        }
+
+        applyCommandsV2(true);
+
+        int32 speed = anim->speed.value + anim->accel.value * (frameIndex - anim->frameOffset);
+
+        if (gravity) {
+            hSpeed -= (speed - anim->accel.value) >> 16;
+            hSpeed += (speed) >> 16;
+            vSpeed += vSpeed < 128 ? GRAVITY : 1;
+            v2pos.y += vSpeed;
+        } else {
+            hSpeed = (speed) >> 16;
+        }
+
+        v2pos.x += (phd_sin(v2angle) * hSpeed) >> FIXED_SHIFT;
+        v2pos.z += (phd_cos(v2angle) * hSpeed) >> FIXED_SHIFT;
     }
 
     void updateV2() {
@@ -3928,7 +4047,7 @@ struct Lara : Character {
                     waterState = WATER_STATE_DIVE;
                     gravity = false;
                     oxygen = LARA_MAX_OXYGEN;
-                    
+
                     v2pos.y += 100;
                     updateRoomV2(0);
                     stopScreaming();
@@ -3936,13 +4055,13 @@ struct Lara : Character {
                     if (state == STATE_SWAN_DIVE) {
                         v2rot.x = -45 * DEG2SHORT;
                         targetState = STATE_DIVE;
-                        updateAnimationV2();
+                        animateV2();
                         vSpeed *= 2;
                         game->waterDrop(pos, 128.0f, 0.2f);
                     } else if (state == STATE_FAST_DIVE) {
                         v2rot.x = -85 * DEG2SHORT;
                         targetState = STATE_DIVE;
-                        updateAnimationV2();
+                        animateV2();
                         vSpeed *= 2;
                         game->waterDrop(pos, 128.0f, 0.2f);
                     } else {

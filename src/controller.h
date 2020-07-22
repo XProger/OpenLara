@@ -6,7 +6,7 @@
 #include "mesh.h"
 #include "animation.h"
 
-#define GRAVITY     6.0f
+#define GRAVITY     6
 #define SPRITE_FPS  10.0f
 
 #define MAX_LAYERS  4
