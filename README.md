@@ -14,12 +14,6 @@ inspired by OpenTomb project http://opentomb.github.io/
 * [Discord channel](https://discord.gg/EF8JaQB)
 * [Tomb Raider Forums thread](http://www.tombraiderforums.com/showthread.php?t=216618)
 
-## Roadmap
-- graphics improvements
-- bug fixes
-- RELEASE 1
-- OpenLara 2...
-
 ## Screenshots
 ![Waterfall](http://xproger.info/projects/OpenLara/shots/waterfall.jpg)
 ![Double-aim](http://xproger.info/projects/OpenLara/shots/multi-aim.jpg)
