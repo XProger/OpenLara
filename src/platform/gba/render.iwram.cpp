@@ -5,86 +5,35 @@
 uint16 divTable[DIV_TABLE_SIZE];
 
 #ifdef _WIN32
-    uint8* LEVEL1_PHD;
-
-    uint32  VRAM[WIDTH * HEIGHT];
-
-    #ifdef USE_MODE_5
-        uint16  fb[WIDTH * HEIGHT];
-    #else
-        uint8   fb[WIDTH * HEIGHT];
-    #endif
-
-    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
+    uint8 fb[WIDTH * HEIGHT * 2];
 #else
     uint32 fb = VRAM;
-
-    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
-    //#define MyDiv(Number, Divisor) Div(Number, Divisor)
 #endif
 
 #define FixedInvS(x) ((x < 0) ? -divTable[abs(x)] : divTable[x])
 #define FixedInvU(x) divTable[x]
 
-bool keys[IK_MAX] = {};
-
 #if defined(USE_MODE_5) || defined(_WIN32)
-uint16 palette[256];
+    extern uint16 palette[256];
 #endif
 
-uint8 lightmap[256 * 32];
+extern uint8            lightmap[256 * 32];
+extern const uint8*     tiles[15];
+extern const Texture*   textures;
 
-Vertex gVertices[MAX_VERTICES];
+extern Rect clip;
+extern int32 camSinY;
+extern int32 camCosY;
+
 uint32 gVerticesCount = 0;
+EWRAM_DATA Vertex gVertices[MAX_VERTICES];
 
-EWRAM_DATA Face gFaces[MAX_FACES];
 int32 gFacesCount = 0;
-
-Rect clip;
-
-const uint8* tiles[15];
+Face gFaces[MAX_FACES];
+Face* gFacesSorted[MAX_FACES];
 
 const uint8* curTile;
-
 uint16 mipMask;
-
-int32 fps;
-
-int32 camSinY;
-int32 camCosY;
-
-int32 camX = 75162;
-int32 camY = 3072 - 1024;
-int32 camZ = 5000;
-
-Vertex* Ledges[4];
-Vertex* Redges[4];
-int32   Lindex, Rindex;
-
-uint16       roomsCount;
-const Room*  rooms;
-
-uint32         texturesCount;
-const Texture* textures;
-
-const Sprite*  sprites;
-
-uint32                spriteSequencesCount;
-const SpriteSequence* spriteSequences;
-
-int32 seqGlyphs;
-
-const uint8*  meshData;
-const uint32* meshOffsets;
-
-const int32*  nodes;
-const Model*  models;
-
-#ifdef WIN32
-    #define INLINE inline
-#else
-    #define INLINE __attribute__((always_inline)) inline
-#endif
 
 int32 clamp(int32 x, int32 a, int32 b) {
     return x < a ? a : (x > b ? b : x);
@@ -261,6 +210,24 @@ struct Edge {
 
         return true;
     }
+
+    void build(int32 start, int32 count, int32 t, int32 b, int32 incr) {
+        vert[index = 0] = gVertices + start + b;
+
+        for (int i = 1; i < count; i++) {
+            b = (b + incr) % count;
+
+            Vertex *v = gVertices + start + b;
+
+            if (vert[index]->x != v->x || vert[index]->y != v->y) {
+                vert[++index] = v;
+            }
+
+            if (b == t) {
+                break;
+            }
+        }
+    }
 };
 
 INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, int32 dgdx) {
@@ -317,6 +284,8 @@ INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32
                 *(uint16*)pixel = p;
                 pixel += 1;
             }
+
+            if (p == 0xFFFFFFFF) return;
         }
 
         if (x2 & 1)
@@ -388,6 +357,8 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
                 *(uint16*)pixel = p;
                 pixel += 1;
             }
+
+            if (p == 0xFFFFFFFF) return;
         }
 
         if (x2 & 1)
@@ -565,7 +536,6 @@ void drawTriangle(uint16 flags, int32 start, const int8* indices)
 
 void drawQuad(uint16 flags, int32 start, const int8* indices) {
     Vertex *v1, *v2, *v3, *v4;
-
     bool clipped = indices[0] == indices[1];
 
     if (clipped) {
@@ -587,14 +557,14 @@ void drawQuad(uint16 flags, int32 start, const int8* indices) {
         palIndex = 0xFFFF;
         curTile = tiles[tex.tile];
         if (!clipped) {
-            v1->u = int32(tex.x0);
-            v1->v = int32(tex.y0);
-            v2->u = int32(tex.x1);
-            v2->v = int32(tex.y1);
-            v3->u = int32(tex.x2);
-            v3->v = int32(tex.y2);
-            v4->u = int32(tex.x3);
-            v4->v = int32(tex.y3);
+            v1->u = tex.x0;
+            v1->v = tex.y0;
+            v2->u = tex.x1;
+            v2->v = tex.y1;
+            v3->u = tex.x2;
+            v3->v = tex.y2;
+            v4->u = tex.x3;
+            v4->v = tex.y3;
         }
     }
 
@@ -687,28 +657,9 @@ void drawPoly(uint16 flags, int32 start, int32 count) {
     }
 
     Edge L, R;
-    L.vert[L.index = 0] = gVertices + start + b;
-    R.vert[R.index = 0] = gVertices + start + b;
 
-    for (int i = 0; i < count; i++) {
-        int32 idx = (b + count + i) % count;
-
-        L.vert[++L.index] = gVertices + start + idx;
-
-        if (idx == t) {
-            break;
-        }
-    }
-
-    for (int i = 0; i < count; i++) {
-        int32 idx = (b + count - i) % count;
-
-        R.vert[++R.index] = gVertices + start + idx;
-
-        if (idx == t) {
-            break;
-        }
-    }
+    L.build(start, count, t, b, count + 1);
+    R.build(start, count, t, b, count - 1);
 
     Vertex *v1 = gVertices + start + t;
 
@@ -719,9 +670,7 @@ void drawPoly(uint16 flags, int32 start, int32 count) {
     }
 }
 
-void drawGlyph(int32 index, int32 x, int32 y) {
-    const Sprite* sprite = sprites + spriteSequences[seqGlyphs].sStart + index;
-
+void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     int32 w = sprite->r - sprite->l;
     int32 h = sprite->b - sprite->t;
 
@@ -730,12 +679,25 @@ void drawGlyph(int32 index, int32 x, int32 y) {
     int32 ix = x + sprite->l;
     int32 iy = y + sprite->t;
 
-    uint16* ptr = (uint16*)fb + iy * (WIDTH / PIXEL_SIZE) + (ix >> 1);
+    uint16* ptr = (uint16*)fb + iy * (WIDTH / PIXEL_SIZE);
+
+#ifdef USE_MODE_5
+    ptr += ix;
+#else
+    ptr += ix >> 1;
+#endif
 
     const uint8* glyphData = tiles[sprite->tile] + 256 * sprite->v + sprite->u;
 
     while (h--)
     {
+    #ifdef USE_MODE_5
+        for (int i = 0; i < w; i++) {
+            if (glyphData[i] == 0) continue;
+
+            ptr[i] = palette[glyphData[i]];
+        }
+    #else
         const uint8* p = glyphData;
 
         for (int i = 0; i < (w / 2); i++) {
@@ -751,14 +713,14 @@ void drawGlyph(int32 index, int32 x, int32 y) {
 
             p += 2;
         }
+    #endif
 
         ptr += WIDTH / PIXEL_SIZE;
         glyphData += 256;
     }
 }
 
-void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount)
-{
+void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount) {
     #define LERP(a,b,t) (b + ((a - b) * t >> 16))
 
     #define CLIP_AXIS(x, y, edge, output) {\
@@ -798,15 +760,15 @@ void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount)
     if (!(flags & FACE_COLORED)) {
         const Texture &tex = textures[flags & FACE_TEXTURE];
         curTile = tiles[tex.tile];
-        poly[0]->u = int32(tex.x0);
-        poly[0]->v = int32(tex.y0);
-        poly[1]->u = int32(tex.x1);
-        poly[1]->v = int32(tex.y1);
-        poly[2]->u = int32(tex.x2);
-        poly[2]->v = int32(tex.y2);
+        poly[0]->u = tex.x0;
+        poly[0]->v = tex.y0;
+        poly[1]->u = tex.x1;
+        poly[1]->v = tex.y1;
+        poly[2]->u = tex.x2;
+        poly[2]->v = tex.y2;
         if (pCount == 4) {
-            poly[3]->u = int32(tex.x3);
-            poly[3]->v = int32(tex.y3);
+            poly[3]->u = tex.x3;
+            poly[3]->v = tex.y3;
         }
     }
 
@@ -828,23 +790,24 @@ void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount)
     int32 y1 = clip.y1;
     CLIP_VERTEX(y, x, y0, y1, &tmp, output);
 
-    Face &f = gFaces[gFacesCount++];
-    f.flags      = flags;
-    f.start      = gVerticesCount;
-    f.indices[0] = count;
-    f.indices[1] = count;
-    /*
+    Face *f = gFaces + gFacesCount;
+    gFacesSorted[gFacesCount++] = f;
+    f->flags      = flags;
+    f->start      = gVerticesCount;
+    f->indices[0] = count;
+    f->indices[1] = count;
+
     if (count == 3) {
-        f.flags |= FACE_TRIANGLE;
-        f.depth = (output[0].z + output[1].z + output[2].z) / 3;
+        f->flags |= FACE_TRIANGLE;
+        f->depth = (output[0].z + output[1].z + output[2].z) / 3;
     } else if (count == 4) {
-        f.depth = (output[0].z + output[1].z + output[2].z + output[3].z) >> 2;
-    } else*/ {
+        f->depth = (output[0].z + output[1].z + output[2].z + output[3].z) >> 2;
+    } else {
         int32 depth = output[0].z;
         for (int32 i = 1; i < count; i++) {
             depth = (depth + output[i].z) >> 1;
         }
-        f.depth = depth;
+        f->depth = depth;
     }
 
     gVerticesCount += count;
@@ -874,14 +837,15 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
         Vertex* poly[4] = { v1, v2, v3, v4 };
         faceAddPolyClip(flags, poly, 4);
     } else {
-        Face &f = gFaces[gFacesCount++];
-        f.flags      = flags;
-        f.depth      = (v1->z + v2->z + v3->z + v4->z) >> 2;
-        f.start      = startVertex + indices[0];
-        f.indices[0] = 0;
-        f.indices[1] = indices[1] - indices[0];
-        f.indices[2] = indices[2] - indices[0];
-        f.indices[3] = indices[3] - indices[0];
+        Face *f = gFaces + gFacesCount;
+        gFacesSorted[gFacesCount++] = f;
+        f->flags      = flags;
+        f->depth      = (v1->z + v2->z + v3->z + v4->z) >> 2;
+        f->start      = startVertex + indices[0];
+        f->indices[0] = 0;
+        f->indices[1] = indices[1] - indices[0];
+        f->indices[2] = indices[2] - indices[0];
+        f->indices[3] = indices[3] - indices[0];
     }
 }
 
@@ -908,41 +872,56 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
         Vertex* poly[3] = { v1, v2, v3 };
         faceAddPolyClip(flags, poly, 3);
     } else {
-        Face &f = gFaces[gFacesCount++];
-        f.flags      = flags | FACE_TRIANGLE;
-        f.depth      = (v1->z + v2->z + v3->z) / 3;
-        f.start      = startVertex + indices[0];
-        f.indices[0] = 0;
-        f.indices[1] = indices[1] - indices[0];
-        f.indices[2] = indices[2] - indices[0];
+        Face *f = gFaces + gFacesCount;
+        gFacesSorted[gFacesCount++] = f;
+        f->flags      = flags | FACE_TRIANGLE;
+        f->depth      = (v1->z + v2->z + v3->z) / 3;
+        f->start      = startVertex + indices[0];
+        f->indices[0] = 0;
+        f->indices[1] = indices[1] - indices[0];
+        f->indices[2] = indices[2] - indices[0];
     }
 }
 
-int faceCmp(const void *a, const void *b) {
-    return ((Face*)b)->depth - ((Face*)a)->depth;
+void faceSort(Face** faces, int32 L, int32 R) {
+    int32 i = L;
+    int32 j = R;
+    int16 depth = faces[(i + j) >> 1]->depth;
+
+    while (i <= j) {
+        while (faces[i]->depth > depth) i++;
+        while (faces[j]->depth < depth) j--;
+
+        if (i <= j) {
+            swap(faces[i++], faces[j--]);
+        }
+    };
+
+    if (L < j) faceSort(faces, L, j);
+    if (R > i) faceSort(faces, i, R);
 }
 
 //int32 gFacesCountMax, gVerticesCountMax;
 
 void flush() {
     if (gFacesCount) {
-        qsort(gFaces, gFacesCount, sizeof(Face), faceCmp);
+        faceSort(gFacesSorted, 0, gFacesCount - 1);
 
         //const uint16 mips[] = { 0xFFFF, 0xFEFE, 0xFCFC, 0xF8F8 };
 
         for (int32 i = 0; i < gFacesCount; i++) {
-            const Face &f = gFaces[i];
+            const Face *f = gFacesSorted[i];
 
             // TODO
             //mipMask = mips[MIN(3, f.depth / 2048)];
 
-            if (f.flags & FACE_TRIANGLE) {
-                drawTriangle(f.flags, f.start, f.indices);
+            if (f->flags & FACE_TRIANGLE) {
+                drawTriangle(f->flags, f->start, f->indices);
             } else {
-                if (f.indices[0] == f.indices[1] /* && f.indices[0] > 4 */) {
-                    drawPoly(f.flags, f.start, f.indices[0]);
+                if (f->indices[0] == f->indices[1] /* && f.indices[0] > 4 */) {
+                    drawPoly(f->flags, f->start, f->indices[0]);
                 } else {
-                    drawQuad(f.flags, f.start, f.indices);
+                    drawQuad(f->flags, f->start, f->indices);
                 }
             }
         }
