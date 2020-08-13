@@ -38,7 +38,16 @@
     #define PIXEL_SIZE   2
 #endif
 
-#define WND_SCALE   4
+#ifdef _WIN32
+    #define INLINE inline
+
+    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
+#else
+    #define INLINE __attribute__((always_inline)) inline
+
+    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
+    //#define MyDiv(Number, Divisor) Div(Number, Divisor)
+#endif
 
 typedef signed char        int8;
 typedef signed short       int16;
@@ -56,16 +65,6 @@ typedef int16              Index;
 #define RAD2DEG (180.0f / PI)
 
 #ifdef _WIN32
-    extern uint8* LEVEL1_PHD;
-
-    extern uint32  VRAM[WIDTH * HEIGHT];
-
-    #ifdef USE_MODE_5
-        extern uint16  fb[WIDTH * HEIGHT];
-    #else
-        extern uint8   fb[WIDTH * HEIGHT];
-    #endif
-
     #define IWRAM_CODE
     #define EWRAM_DATA
 
@@ -99,8 +98,6 @@ typedef int16              Index;
 
 #else
     #define ALIGN4 __attribute__ ((aligned (4)))
-
-    extern uint32 fb;
 #endif
 
 enum InputKey {
@@ -225,7 +222,7 @@ struct Sprite {
     int16   l, t, r, b;
 };
 
-struct SpriteSequence {
+struct SpriteSeq {
     uint16  type;
     uint16  unused;
     int16   sCount;
@@ -240,9 +237,9 @@ struct Rect {
 };
 
 struct Vertex {
-    int16 x, y;
-    int16 z;
-    uint8 u, v, g, clip;
+    int16 x, y, z;
+    uint8 g, clip;
+    uint8 u, v;
 };
 
 struct Face {
@@ -263,7 +260,16 @@ struct Face {
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-void drawGlyph(int32 index, int32 x, int32 y);
+void drawGlyph(const Sprite *sprite, int32 x, int32 y);
+void drawNumber(int32 number, int32 x, int32 y);
+
 void clear();
+void transform(int32 vx, int32 vy, int32 vz, int32 vg, int32 x, int32 y, int32 z);
+void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex);
+void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex);
+void flush();
+void initRender();
+
+void readLevel(const uint8 *data);
 
 #endif
