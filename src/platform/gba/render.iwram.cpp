@@ -462,25 +462,25 @@ void rasterizeGT(uint16* buffer, Edge &L, Edge &R)
     }
 }
 
-void drawTriangle(uint16 flags, int32 start, const int8* indices)
+void drawTriangle(const Face* face)
 {
     Vertex *v1, *v2, *v3;
 
-    bool clipped = indices[0] == indices[1];
+    bool clipped = face->indices[0] == face->indices[1];
 
     if (clipped) {
-        v1 = gVertices + start;
+        v1 = gVertices + face->start;
         v2 = v1 + 1;
         v3 = v1 + 2;
     } else {
-        v1 = gVertices + start;
-        v2 = v1 + indices[1];
-        v3 = v1 + indices[2];
+        v1 = gVertices + face->start;
+        v2 = v1 + face->indices[1];
+        v3 = v1 + face->indices[2];
     }
 
-    uint16 palIndex = flags & FACE_TEXTURE;
+    uint16 palIndex = face->flags & FACE_TEXTURE;
 
-    if (!(flags & FACE_COLORED)) {
+    if (!(face->flags & FACE_COLORED)) {
         const Texture &tex = textures[palIndex];
         palIndex = 0xFFFF;
         curTile = tiles[tex.tile];
@@ -534,25 +534,25 @@ void drawTriangle(uint16 flags, int32 start, const int8* indices)
     }
 }
 
-void drawQuad(uint16 flags, int32 start, const int8* indices) {
+void drawQuad(const Face* face) {
     Vertex *v1, *v2, *v3, *v4;
-    bool clipped = indices[0] == indices[1];
+    bool clipped = face->indices[0] == face->indices[1];
 
     if (clipped) {
-        v1 = gVertices + start;
+        v1 = gVertices + face->start;
         v2 = v1 + 1;
         v3 = v1 + 2;
         v4 = v1 + 3;
     } else {
-        v1 = gVertices + start;
-        v2 = v1 + indices[1];
-        v3 = v1 + indices[2];
-        v4 = v1 + indices[3];
+        v1 = gVertices + face->start;
+        v2 = v1 + face->indices[1];
+        v3 = v1 + face->indices[2];
+        v4 = v1 + face->indices[3];
     }
 
-    uint16 palIndex = flags & FACE_TEXTURE;
+    uint16 palIndex = face->flags & FACE_TEXTURE;
 
-    if (!(flags & FACE_COLORED)) {
+    if (!(face->flags & FACE_COLORED)) {
         const Texture &tex = textures[palIndex];
         palIndex = 0xFFFF;
         curTile = tiles[tex.tile];
@@ -629,14 +629,17 @@ void drawQuad(uint16 flags, int32 start, const int8* indices) {
     }
 }
 
-void drawPoly(uint16 flags, int32 start, int32 count) {
-    uint16 palIndex = flags & FACE_TEXTURE;
+void drawPoly(const Face* face) {
+    uint16 palIndex = face->flags & FACE_TEXTURE;
     
-    if (!(flags & FACE_COLORED)) {
+    if (!(face->flags & FACE_COLORED)) {
         const Texture &tex = textures[palIndex];
         palIndex = 0xFFFF;
         curTile = tiles[tex.tile];
     }
+
+    int32 start = face->start;
+    int32 count = face->indices[0];
 
     int32 minY =  0x7FFF;
     int32 maxY = -0x7FFF;
@@ -916,12 +919,12 @@ void flush() {
             //mipMask = mips[MIN(3, f.depth / 2048)];
 
             if (f->flags & FACE_TRIANGLE) {
-                drawTriangle(f->flags, f->start, f->indices);
+                drawTriangle(f);
             } else {
                 if (f->indices[0] == f->indices[1] /* && f.indices[0] > 4 */) {
-                    drawPoly(f->flags, f->start, f->indices[0]);
+                    drawPoly(f);
                 } else {
-                    drawQuad(f->flags, f->start, f->indices);
+                    drawQuad(f);
                 }
             }
         }
