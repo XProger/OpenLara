@@ -3,76 +3,64 @@
 
 #include "common.h"
 
-uint16 camRotY = 16 << 8;
+#define CAM_SPEED     (1 << 2)
+#define CAM_ROT_SPEED (1 << 8)
+#define CAM_ROT_X_MAX int16(85 * 0x8000 / 180)
 
-int32 camSinY;
-int32 camCosY;
+struct Camera {
+    vec3i pos;
+    int16 rotX, rotY;
+    int32 room;
 
-int32 camX = 75162;
-int32 camY = 3072 - 1024;
-int32 camZ = 5000;
+    void init() {
+        pos.x = 75162;
+        pos.y = 2048;
+        pos.z = 5000;
 
-Rect clip;
-
-#ifdef _WIN32
-    #define CAM_SPEED     (1 << 2)
-    #define CAM_ROT_SPEED (1 << 2)
-#else
-    #define CAM_SPEED     (1 << 6)
-    #define CAM_ROT_SPEED (1 << 8)
-#endif
-
-void updateCamera() {
-    if (keys[IK_LEFT])  camRotY -= CAM_ROT_SPEED;
-    if (keys[IK_RIGHT]) camRotY += CAM_ROT_SPEED;
-
-    {
-        ALIGN4 ObjAffineSource src;
-        ALIGN4 ObjAffineDest   dst;
-
-        src.sX    = 0x0100;
-        src.sY    = 0x0100;
-        src.theta = camRotY;
-
-        ObjAffineSet(&src, &dst, 1, 2);
-
-        camCosY = dst.pd << 8;
-        camSinY = dst.pc << 8;
+        rotX = 0;
+        rotY = 16 << 8;
     }
 
-    int32 dx = camSinY;
-    int32 dz = camCosY;
+    void update() {
+        if (keys[IK_UP])    rotX -= CAM_ROT_SPEED;
+        if (keys[IK_DOWN])  rotX += CAM_ROT_SPEED;
+        if (keys[IK_LEFT])  rotY -= CAM_ROT_SPEED;
+        if (keys[IK_RIGHT]) rotY += CAM_ROT_SPEED;
 
-    dx *= CAM_SPEED;
-    dz *= CAM_SPEED;
+        rotX = clamp(rotX, -CAM_ROT_X_MAX, CAM_ROT_X_MAX);
 
-    dx >>= 16;
-    dz >>= 16;
+        matrixSetView(pos, rotX, rotY);
 
-    if (keys[IK_UP]) {
-        camX += int32(dx);
-        camZ += int32(dz);
+        Matrix &m = matrixGet();
+
+        if (keys[IK_R]) {
+            pos.x += m[0].x * CAM_SPEED >> 10;
+            pos.y += m[0].y * CAM_SPEED >> 10;
+            pos.z += m[0].z * CAM_SPEED >> 10;
+        }
+
+        if (keys[IK_L]) {
+            pos.x -= m[0].x * CAM_SPEED >> 10;
+            pos.y -= m[0].y * CAM_SPEED >> 10;
+            pos.z -= m[0].z * CAM_SPEED >> 10;
+        }
+
+        if (keys[IK_A]) {
+            pos.x += m[2].x * CAM_SPEED >> 10;
+            pos.y += m[2].y * CAM_SPEED >> 10;
+            pos.z += m[2].z * CAM_SPEED >> 10;
+        }
+
+        if (keys[IK_B]) {
+            pos.x -= m[2].x * CAM_SPEED >> 10;
+            pos.y -= m[2].y * CAM_SPEED >> 10;
+            pos.z -= m[2].z * CAM_SPEED >> 10;
+        }
+
+        room = getRoomIndex(room, pos);
     }
+};
 
-    if (keys[IK_DOWN]) {
-        camX -= int32(dx);
-        camZ -= int32(dz);
-    }
-
-    if (keys[IK_L]) {
-        camX -= int32(dz);
-        camZ += int32(dx);
-    }
-
-    if (keys[IK_R]) {
-        camX += int32(dz);
-        camZ -= int32(dx);
-    }
-
-    if (keys[IK_A]) camY -= CAM_SPEED;
-    if (keys[IK_B]) camY += CAM_SPEED;
-
-    clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
-}
+Camera camera;
 
 #endif

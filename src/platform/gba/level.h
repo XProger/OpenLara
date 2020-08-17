@@ -15,7 +15,8 @@ const uint8*     tiles[15];
 ALIGN4 uint8     lightmap[256 * 32];
 
 uint16           roomsCount;
-const Room*      rooms;
+
+const uint16*    floors;
 
 uint32           texturesCount;
 const Texture*   textures;
@@ -29,27 +30,60 @@ const uint8*     meshData;
 const uint32*    meshOffsets;
 
 const int32*     nodes;
-const Model*     models;
+
+uint32           modelsCount;
+EWRAM_DATA Model models[MAX_MODELS];
+EWRAM_DATA int16 modelsMap[MAX_ENTITY];
+
+uint32           entitiesCount;
+const Entity*    entities;
 // -----------------------------------
 
 struct RoomDesc {
+    Rect                clip;
+    bool                visible;
     int32               x, z;
     uint16              vCount;
     uint16              qCount;
     uint16              tCount;
     uint16              pCount;
+    uint16              zSectors;
+    uint16              xSectors;
     const Room::Vertex* vertices;
     const Quad*         quads;
     const Triangle*     triangles;
     const Room::Portal* portals;
+    const Room::Sector* sectors;
+
+    INLINE void reset() {
+        visible = false;
+        clip = { FRAME_WIDTH, FRAME_HEIGHT, 0, 0 };
+    }
 };
 
-EWRAM_DATA RoomDesc roomDescs[64];
+EWRAM_DATA RoomDesc rooms[64];
 
-#define SEQ_GLYPH_ID    190
+int32 visRoomsCount;
+int32 visRooms[16];
+
+#define ROOM_VISIBLE (1 << 15)
+
+#define ENTITY_LARA  0
+
+#define SEQ_GLYPH    190
+
+enum FloorType {
+    FLOOR_TYPE_NONE,
+    FLOOR_TYPE_PORTAL,
+    FLOOR_TYPE_FLOOR,
+    FLOOR_TYPE_CEILING,
+};
+
 int32 seqGlyphs;
+int32 entityLara;
 
 extern uint32 gVerticesCount;
+extern Rect   clip;
 
 void readLevel(const uint8 *data) { // TODO non-hardcode level loader
     tilesCount = *((uint32*)(data + 4));
@@ -58,7 +92,9 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
     }
 
     roomsCount = *((uint16*)(data + 720908));
-    rooms = (Room*)(data + 720908 + 2);
+    const Room* roomsPtr = (Room*)(data + 720908 + 2);
+
+    floors = (uint16*)(data + 899492 + 4);
 
     texturesCount = *((uint32*)(data + 1271686));
     textures = (Texture*)(data + 1271686 + 4);
@@ -73,7 +109,11 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
 
     nodes = (int32*)(data + 990318);
 
-    models = (Model*)(data + 1270670);
+    modelsCount = *((uint32*)(data + 1270666));
+    const uint8* modelsPtr = (uint8*)(data + 1270666 + 4);
+
+    entitiesCount = *((uint32*)(data + 1319252));
+    entities = (Entity*)(data + 1319252 + 4);
 
 // prepare lightmap
     const uint8* f_lightmap = data + 1320576;
@@ -97,17 +137,31 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
         SetPalette(palette);
     #endif
 #endif
+// prepare models
+    for (uint32 i = 0; i < modelsCount; i++) {
+        dmaCopy(modelsPtr, models + i, sizeof(Model)); // sizeof(Model) is faster than FILE_MODEL_SIZE
+        modelsPtr += FILE_MODEL_SIZE;
+        modelsMap[models[i].type] = i;
+    }
+
+// prepare entities
+    for (uint32 i = 0; i < entitiesCount; i++) {
+        if (entities[i].type == ENTITY_LARA) {
+            entityLara = i;
+            break;
+        }
+    }
 
 // prepare glyphs
     for (uint32 i = 0; i < spritesSeqCount; i++) {
-        if (spritesSeq[i].type == SEQ_GLYPH_ID) {
+        if (spritesSeq[i].type == SEQ_GLYPH) {
             seqGlyphs = i;
             break;
         }
     }
 
 // prepare rooms
-    uint8 *ptr = (uint8*)rooms;
+    uint8 *ptr = (uint8*)roomsPtr;
 
     for (uint16 roomIndex = 0; roomIndex < roomsCount; roomIndex++) {
         const Room *room = (Room*)ptr;
@@ -117,7 +171,8 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
         memcpy(&dataSize, &room->dataSize, sizeof(dataSize));
         uint8* skipPtr = ptr + dataSize * 2;
 
-        RoomDesc &desc = roomDescs[roomIndex];
+        RoomDesc &desc = rooms[roomIndex];
+        desc.reset();
 
         // offset
         memcpy(&desc.x, &room->info.x, sizeof(room->info.x));
@@ -149,12 +204,12 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
         desc.portals = (Room::Portal*)ptr;
         ptr += sizeof(Room::Portal) * desc.pCount;
 
-        uint16 zSectors = *((uint16*)ptr);
+        desc.zSectors = *((uint16*)ptr);
         ptr += 2;
-        uint16 xSectors = *((uint16*)ptr);
+        desc.xSectors = *((uint16*)ptr);
         ptr += 2;
-        //sectors = (Room::Sector*)sectors;
-        ptr += sizeof(Room::Sector) * zSectors * xSectors;
+        desc.sectors = (Room::Sector*)ptr;
+        ptr += sizeof(Room::Sector) * desc.zSectors * desc.xSectors;
 
         //ambient = *((uint16*)ptr);
         ptr += 2;
@@ -171,42 +226,19 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader
 
         ptr += 2 + 2; // skip alternateRoom and flags
     }
+
+    camera.init();
+    camera.room = entities[entityLara].room;
 }
 
-void drawRoom(int16 roomIndex) {
-    RoomDesc &room = roomDescs[roomIndex];
-
-    int32 dx = -camX + room.x;
-    int32 dy = -camY;
-    int32 dz = -camZ + room.z;
-
-    int32 startVertex = gVerticesCount;
-
-    const Room::Vertex* vertices = room.vertices;
-    for (uint16 i = 0; i < room.vCount; i++) {
-        const Room::Vertex &v = vertices[i];
-        transform(v.x, v.y, v.z, v.lighting, dx, dy, dz);
-    }
-
-    const Quad* quads = room.quads;
-    for (uint16 i = 0; i < room.qCount; i++) {
-        faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
-    }
-
-    const Triangle* triangles = room.triangles;
-    for (uint16 i = 0; i < room.tCount; i++) {
-        faceAddTriangle(triangles[i].flags, triangles[i].indices, startVertex);
-    }
-}
-
-void drawMesh(int16 meshIndex, int32 x, int32 y, int32 z) {
+void drawMesh(int16 meshIndex) {
     uint32 offset = meshOffsets[meshIndex];
     const uint8* ptr = meshData + offset;
 
     ptr += 2 * 5; // skip [cx, cy, cz, radius, flags]
 
     int16 vCount = *(int16*)ptr; ptr += 2;
-    const int16* vertices = (int16*)ptr;
+    const vec3s* vertices = (vec3s*)ptr;
     ptr += vCount * 3 * sizeof(int16);
 
     int16 nCount = *(int16*)ptr; ptr += 2;
@@ -231,14 +263,8 @@ void drawMesh(int16 meshIndex, int32 x, int32 y, int32 z) {
 
     int32 startVertex = gVerticesCount;
 
-    int32 dx = x - camX;
-    int32 dy = y - camY;
-    int32 dz = z - camZ;
-
-    const int16* v = vertices;
     for (uint16 i = 0; i < vCount; i++) {
-        transform(v[0], v[1], v[2], 4096, dx, dy, dz);
-        v += 3;
+        transform(*vertices++, 4096);
     }
 
     for (int i = 0; i < rCount; i++) {
@@ -258,7 +284,7 @@ void drawMesh(int16 meshIndex, int32 x, int32 y, int32 z) {
     }
 }
 
-void drawModel(int32 modelIndex, int32 x, int32 y, int32 z) {
+void drawModel(int32 modelIndex) {
     const Model* model = models + modelIndex;
 
     // non-aligned access
@@ -271,35 +297,33 @@ void drawModel(int32 modelIndex, int32 x, int32 y, int32 z) {
 
     const Node* n = bones;
 
-    struct StackItem {
-        int32 x, y, z;
-    } stack[4];
-    StackItem *s = stack;
-
-    drawMesh(model->mStart, x, y, z);
+    drawMesh(model->mStart);
 
     for (int i = 1; i < model->mCount; i++) {
         if (n->flags & 1) {
-            s--;
-            x = s->x;
-            y = s->y;
-            z = s->z;
+            matrixPop();
         }
 
         if (n->flags & 2) {
-            s->x = x;
-            s->y = y;
-            s->z = z;
-            s++;
+            matrixPush();
         }
 
-        x += n->x;
-        y += n->y;
-        z += n->z;
+        matrixTranslate(n->pos);
         n++;
 
-        drawMesh(model->mStart + i, x, y, z);
+        drawMesh(model->mStart + i);
     }
+}
+
+void drawEntity(int32 entityIndex) {
+    const Entity &e = entities[entityIndex];
+
+    matrixPush();
+    matrixTranslateAbs(vec3i(e.pos.x, e.pos.y - 512, e.pos.z)); // TODO animation
+
+    drawModel(modelsMap[e.type]);
+
+    matrixPop();
 }
 
 void drawNumber(int32 number, int32 x, int32 y) {
@@ -311,6 +335,225 @@ void drawNumber(int32 number, int32 x, int32 y) {
         x -= widths[number % 10];
         drawGlyph(glyphSprites + 52 + (number % 10), x, y);
         number /= 10;
+    }
+}
+
+void drawRoom(int16 roomIndex) {
+    RoomDesc &room = rooms[roomIndex];
+
+    clip = room.clip;
+
+    int32 startVertex = gVerticesCount;
+
+    matrixPush();
+    matrixTranslateAbs(vec3i(room.x, 0, room.z));
+
+    const Room::Vertex* vertex = room.vertices;
+    for (uint16 i = 0; i < room.vCount; i++) {
+        transform(vertex->pos, vertex->lighting);
+        vertex++;
+    }
+
+    matrixPop();
+
+    const Quad* quads = room.quads;
+    for (uint16 i = 0; i < room.qCount; i++) {
+        faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
+    }
+
+    const Triangle* triangles = room.triangles;
+    for (uint16 i = 0; i < room.tCount; i++) {
+        faceAddTriangle(triangles[i].flags, triangles[i].indices, startVertex);
+    }
+
+    if (roomIndex == entityLara) { // TODO draw all entities in the room
+        drawEntity(entityLara);
+    }
+
+    room.reset();
+
+    flush();
+}
+
+const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
+    RoomDesc &room = rooms[roomIndex];
+
+    int32 sx = clamp((x - room.x) >> 10, 0, room.xSectors);
+    int32 sz = clamp((z - room.z) >> 10, 0, room.zSectors);
+
+    return room.sectors + sx * room.zSectors + sz;
+}
+
+int32 getRoomIndex(int32 roomIndex, const vec3i &pos) {
+    const Room::Sector *sector = getSector(roomIndex, pos.x, pos.z);
+
+    if (sector->floorIndex) {
+        const uint16 *data = floors + sector->floorIndex;
+        int16 type = *data++;
+
+        if (type == FLOOR_TYPE_FLOOR) {
+            data++;
+            type = *data++;
+        }
+
+        if (type == FLOOR_TYPE_CEILING) {
+            data++;
+            type = *data++;
+        }
+
+        if ((type & 0xFF) == FLOOR_TYPE_PORTAL) {
+            roomIndex = *data;
+        }
+    }
+
+    while (sector->roomAbove != 0xFF && pos.y < (sector->ceiling << 8)) {
+        roomIndex = sector->roomAbove;
+        sector = getSector(roomIndex, pos.x, pos.z);
+    }
+
+    while (sector->roomBelow != 0xFF && pos.y >= (sector->floor << 8)) {
+        roomIndex = sector->roomBelow;
+        sector = getSector(roomIndex, pos.x, pos.z);
+    }
+
+    return roomIndex;
+}
+
+bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
+    RoomDesc &room = rooms[roomIndex];
+
+    vec3i d;
+    d.x = portal.v[0].x - camera.pos.x + room.x;
+    d.y = portal.v[0].y - camera.pos.y;
+    d.z = portal.v[0].z - camera.pos.z + room.z;
+
+    if (DP33(portal.n, d) >= 0) {
+        return false;
+    }
+
+    int32 x0 = room.clip.x1;
+    int32 y0 = room.clip.y1;
+    int32 x1 = room.clip.x0;
+    int32 y1 = room.clip.y0;
+
+    int32 znear = 0, zfar = 0;
+
+    Matrix &m = matrixGet();
+
+    vec3i  pv[4];
+
+    for (int32 i = 0; i < 4; i++) {
+        const vec3s &v = portal.v[i];
+
+        int32 x = DP43(m[0], v);
+        int32 y = DP43(m[1], v);
+        int32 z = DP43(m[2], v);
+
+        pv[i].x = x;
+        pv[i].y = y;
+        pv[i].z = z;
+
+        if (z <= MIN_DIST) {
+            znear++;
+            continue;
+        }
+
+        if (z >= MAX_DIST) {
+            zfar++;
+        }
+
+        if (z != 0) {
+            z >>= FOV_SHIFT;
+            x = MyDiv(x, z) + (FRAME_WIDTH  / 2);
+            y = MyDiv(y, z) + (FRAME_HEIGHT / 2);
+        } else {
+            x = (x > 0) ? clip.x1 : clip.x0;
+            y = (y > 0) ? clip.y1 : clip.y0;
+        }
+
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+    }
+
+    if (znear == 4 || zfar == 4) return false;
+
+    if (znear) {
+        vec3i *a = pv;
+        vec3i *b = pv + 3;
+        for (int32 i = 0; i < 4; i++) {
+            if ((a->z < 0) ^ (b->z < 0)) {
+                if (a->x < 0 && b->x < 0) {
+                    x0 = 0;
+                } else if (a->x > 0 && b->x > 0) {
+                    x1 = FRAME_WIDTH;
+                } else {
+                    x0 = 0;
+                    x1 = FRAME_WIDTH;
+                }
+
+                if (a->y < 0 && b->y < 0) {
+                    y0 = 0;
+                } else if (a->y > 0 && b->y > 0) {
+                    y1 = FRAME_HEIGHT;
+                } else {
+                    y0 = 0;
+                    y1 = FRAME_HEIGHT;
+                }
+            }
+            b = a;
+            a++;
+        }
+    }
+
+    if (x0 < room.clip.x0) x0 = room.clip.x0;
+    if (x1 > room.clip.x1) x1 = room.clip.x1;
+    if (y0 < room.clip.y0) y0 = room.clip.y0;
+    if (y1 > room.clip.y1) y1 = room.clip.y1;
+
+    if (x0 >= x1 || y0 >= y1) return false;
+
+    RoomDesc &nextRoom = rooms[portal.roomIndex];
+
+    if (x0 < nextRoom.clip.x0) nextRoom.clip.x0 = x0;
+    if (x1 > nextRoom.clip.x1) nextRoom.clip.x1 = x1;
+    if (y0 < nextRoom.clip.y0) nextRoom.clip.y0 = y0;
+    if (y1 > nextRoom.clip.y1) nextRoom.clip.y1 = y1;
+
+    if (!nextRoom.visible) {
+        nextRoom.visible = true;
+        visRooms[visRoomsCount++] = portal.roomIndex;
+    }
+
+    return true;
+}
+
+void getVisibleRooms(int32 roomIndex) {
+    RoomDesc &room = rooms[roomIndex];
+
+    matrixPush();
+    matrixTranslateAbs(vec3i(room.x, 0, room.z));
+
+    for (int32 i = 0; i < room.pCount; i++) {
+        const Room::Portal &portal = room.portals[i];
+        if (checkPortal(roomIndex, portal)) {
+            getVisibleRooms(portal.roomIndex);
+        }
+    }
+
+    matrixPop();
+}
+
+void drawRooms() {
+    rooms[camera.room].clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
+    visRoomsCount = 0;
+    visRooms[visRoomsCount++] = camera.room;
+
+    getVisibleRooms(camera.room);
+
+    while (visRoomsCount--) {
+        drawRoom(visRooms[visRoomsCount]);
     }
 }
 

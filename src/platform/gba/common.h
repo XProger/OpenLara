@@ -70,32 +70,6 @@ typedef int16              Index;
 
     #define dmaCopy(src,dst,size) memcpy(dst,src,size)
     #define ALIGN4
-
-    struct ObjAffineSource {
-         int16 sX;
-         int16 sY;
-         uint16 theta;
-    };
-
-    struct ObjAffineDest {
-         int16 pa;
-         int16 pb;
-         int16 pc;
-         int16 pd;
-    };
-
-    static void ObjAffineSet(ObjAffineSource *source, ObjAffineDest *dest, int32 num, int32 offset) {
-        float ang = (source->theta >> 8) * PI / 128.0f;
-
-        int32 c = int32(cosf(ang) * 16384.0f);
-        int32 s = int32(sinf(ang) * 16384.0f);
-
-        dest->pa = ( source->sX * c) >> 14;
-        dest->pb = (-source->sX * s) >> 14;
-        dest->pc = ( source->sY * s) >> 14;
-        dest->pd = ( source->sY * c) >> 14;
-    }
-
 #else
     #define ALIGN4 __attribute__ ((aligned (4)))
 #endif
@@ -114,6 +88,23 @@ enum InputKey {
 
 extern bool keys[IK_MAX];
 
+struct vec3i {
+    int32 x, y, z;
+
+    vec3i() = default;
+    INLINE vec3i(int32 x, int32 y, int32 z) : x(x), y(y), z(z) {}
+};
+
+struct vec3s {
+    int16 x, y, z;
+};
+
+struct vec4i {
+    int32 x, y, z, w;
+};
+
+typedef vec4i Matrix[3];
+
 struct Quad {
     Index  indices[4];
     uint16 flags;
@@ -131,7 +122,7 @@ struct Room {
     };
 
     struct Vertex {
-        int16 x, y, z;
+        vec3s  pos;
         uint16 lighting;
     };
 
@@ -141,13 +132,9 @@ struct Room {
     };
     
     struct Portal {
-        struct Vertex {
-            int16 x, y, z;
-        };
-
         uint16 roomIndex;
-        Vertex n;
-        Vertex v[4];
+        vec3s  n;
+        vec3s  v[4];
     };
 
     struct Sector {
@@ -193,17 +180,27 @@ struct Room {
 
 struct Node {
     uint32 flags;
-    int32 x, y, z;
+    vec3i  pos;
 };
 
 struct Model {
-    uint16 type;
-    uint16 index;
+    uint32 type;
     uint16 mCount;
     uint16 mStart;
     uint32 node;
     uint32 frame;
     uint16 animation;
+    uint16 paddding;
+};
+
+#define FILE_MODEL_SIZE (sizeof(Model) - 2) // -padding
+
+struct Entity {
+    uint16 type;
+    uint16 room;
+    vec3i  pos;
+    int16  rotation;
+    uint16 flags;
 };
 
 struct Texture {
@@ -249,9 +246,16 @@ struct Face {
     int8   indices[4];
 };
 
+#define FIXED_SHIFT     14
+#define FOV_SHIFT       7
+
+#define MAX_MATRICES    8
+#define MAX_MODELS      64
+#define MAX_ENTITY      190
 #define MAX_VERTICES    1024
 #define MAX_FACES       384
-#define MAX_DIST        (16 * 1024)
+#define MIN_DIST        ((32) << FIXED_SHIFT)
+#define MAX_DIST        ((16 * 1024) << FIXED_SHIFT)
 
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
@@ -259,17 +263,34 @@ struct Face {
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define SQR(x)   ((x) * (x))
+
+#define DP43(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z + (a).w)
+#define DP33(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z)
+
+int32 clamp(int32 x, int32 a, int32 b);
+int32 phd_sin(int32 x);
+int32 phd_cos(int32 x);
+
+Matrix& matrixGet();
+void matrixPush();
+void matrixPop();
+void matrixTranslate(const vec3i &offset);
+void matrixTranslateAbs(const vec3i &offset);
+void matrixRotate(int16 rotX, int16 rotY, int16 rotZ);
+void matrixSetView(const vec3i &pos, int16 rotX, int16 rotY);
 
 void drawGlyph(const Sprite *sprite, int32 x, int32 y);
-void drawNumber(int32 number, int32 x, int32 y);
 
 void clear();
-void transform(int32 vx, int32 vy, int32 vz, int32 vg, int32 x, int32 y, int32 z);
+void transform(const vec3s &v, int32 vg);
 void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex);
 void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex);
 void flush();
 void initRender();
 
 void readLevel(const uint8 *data);
+const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z);
+int32 getRoomIndex(int32 roomIndex, const vec3i &pos);
 
 #endif
