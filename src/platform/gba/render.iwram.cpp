@@ -22,11 +22,11 @@ extern const uint8*     tiles[15];
 extern const Texture*   textures;
 
 uint32 gVerticesCount = 0;
-EWRAM_DATA Vertex gVertices[MAX_VERTICES];
+Vertex gVertices[MAX_VERTICES];
 
 int32 gFacesCount = 0;
-Face gFaces[MAX_FACES];
-Face* gFacesSorted[MAX_FACES];
+EWRAM_DATA Face gFaces[MAX_FACES];
+EWRAM_DATA Face* gFacesSorted[MAX_FACES];
 
 const uint8* curTile;
 uint16 mipMask;
@@ -311,29 +311,28 @@ void transform(const vec3s &v, int32 vg) {
 
     Vertex &res = gVertices[gVerticesCount++];
 
-    int32 cz = DP43(m[2], v);
+    int32 z = DP43(m[2], v);
     // znear / zfar clip
-    if (cz < MIN_DIST || cz >= MAX_DIST) {
+    if (z < MIN_DIST || z >= MAX_DIST) {
         res.z = -1;
         return;
     }
 
-    int32 cx = DP43(m[0], v);
-    int32 cy = DP43(m[1], v);
+    int32 x = DP43(m[0], v);
+    int32 y = DP43(m[1], v);
 
-    int32 fog = (8191 - vg) - (SQR(cz >> FIXED_SHIFT) >> 15);
+    int32 fog = (8191 - vg) - (SQR(z >> FIXED_SHIFT) >> 15);
     if (fog < 0) {
         fog = 0;
     }
 
-    cz >>= FOV_SHIFT;
-    cx = MyDiv(cx, cz) + (FRAME_WIDTH  / 2);
-    cy = MyDiv(cy, cz) + (FRAME_HEIGHT / 2);
-    cz >>= (FIXED_SHIFT - FOV_SHIFT);
+    z >>= FOV_SHIFT;
+    x = (x / z) + (FRAME_WIDTH  / 2);
+    y = (y / z) + (FRAME_HEIGHT / 2);
 
-    res.x = cx;
-    res.y = cy;
-    res.z = cz;
+    res.x = x;
+    res.y = y;
+    res.z = z >> (FIXED_SHIFT - FOV_SHIFT);;
     res.clip = classify(&res);
 
     res.g = uint32(255 - (fog >> 5)) >> 3;
@@ -494,8 +493,6 @@ INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32
                 *(uint16*)pixel = p;
                 pixel += 1;
             }
-
-            if (p == 0xFFFFFFFF) return;
         }
 
         if (x2 & 1)
@@ -567,8 +564,6 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
                 *(uint16*)pixel = p;
                 pixel += 1;
             }
-
-            if (p == 0xFFFFFFFF) return;
         }
 
         if (x2 & 1)
@@ -578,8 +573,7 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
     #endif
 }
 
-void rasterizeG(uint16* buffer, int32 palIndex, Edge &L, Edge &R)
-{
+void rasterizeG(uint16* buffer, int32 palIndex, Edge &L, Edge &R) {
     while (1)
     {
         while (L.h <= 0)
@@ -672,8 +666,7 @@ void rasterizeGT(uint16* buffer, Edge &L, Edge &R)
     }
 }
 
-void drawTriangle(const Face* face)
-{
+void drawTriangle(const Face* face) {
     Vertex *v1, *v2, *v3;
 
     bool clipped = face->indices[0] == face->indices[1];
@@ -937,7 +930,7 @@ void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount) {
     #define LERP(a,b,t) (b + ((a - b) * t >> 16))
 
     #define CLIP_AXIS(x, y, edge, output) {\
-        uint32 t = MyDiv((edge - b->x) << 16, a->x - b->x);\
+        uint32 t = ((edge - b->x) << 16) / (a->x - b->x);\
         Vertex* v = output + count++;\
         v->x = edge;\
         v->y = LERP(a->y, b->y, t);\
@@ -1157,35 +1150,25 @@ void flush() {
 void initRender() {
     divTable[0] = 0;
     for (uint32 i = 1; i < DIV_TABLE_SIZE; i++) {
-        divTable[i] = MyDiv(1 << 16, i);
+        divTable[i] = (1 << 16) / i;
     }
 }
 
+void dmaClear(uint32 *dst, uint32 count) {
+#ifdef WIN32
+    memset(dst, 0, count * 4);
+#else
+    vu32 value = 0;
+    REG_DMA3SAD	= (vu32)&value;
+    REG_DMA3DAD	= (vu32)dst;
+    REG_DMA3CNT	= count | (DMA_ENABLE | DMA32 | DMA_SRC_FIXED | DMA_DST_INC);
+#endif
+}
+
 void clear() {
-    uint32* dst = (uint32*)fb;
-
-    #ifdef USE_MODE_5
-        uint32* end = dst + (WIDTH * HEIGHT >> 1);
-    #else
-        uint32* end = dst + (WIDTH * HEIGHT >> 2);
-    #endif
-
-    while (dst < end) {
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-        *dst++ = 0;
-    }
+#ifdef USE_MODE_5
+    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 1);
+#else
+    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 2);
+#endif
 }
