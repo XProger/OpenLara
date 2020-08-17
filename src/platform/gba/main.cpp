@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "level.h"
+#include "camera.h"
 
 #ifdef _WIN32
     uint8* LEVEL1_PHD;
@@ -37,19 +38,14 @@ int32 fpsCounter = 0;
 
 void update(int32 frames) {
     for (int32 i = 0; i < frames; i++) {
-        updateCamera();
+        camera.update();
     }
 }
 
 void render() {
     clear();
 
-    drawRoom(6);
-    flush();
-
-    drawRoom(0);
-    drawModel(0, 75162, 3072 - 512, 5000 + 1024);
-    flush();
+    drawRooms();
 
     drawNumber(fps, WIDTH, 16);
 }
@@ -57,7 +53,7 @@ void render() {
 #ifdef _WIN32
 HDC hDC;
 
-void VBlankIntrWait() {
+void blit() {
     #ifdef USE_MODE_5
         for (int i = 0; i < WIDTH * HEIGHT; i++) {
             uint16 c = ((uint16*)fb)[i];
@@ -146,16 +142,22 @@ int main(void) {
 
     MSG msg;
 
+    int startTime = GetTickCount();
+    int lastTime = -15;
+
     do {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
 
-            update(1);
+            int time = GetTickCount() - startTime;
+            update((time - lastTime) / 16);
+            lastTime = time;
+
             render();
 
-            VBlankIntrWait();
+            blit();
         }
     } while (msg.message != WM_QUIT);
 
