@@ -40,13 +40,8 @@
 
 #ifdef _WIN32
     #define INLINE inline
-
-    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
 #else
     #define INLINE __attribute__((always_inline)) inline
-
-    #define MyDiv(Number, Divisor) ((Number) / (Divisor))
-    //#define MyDiv(Number, Divisor) Div(Number, Divisor)
 #endif
 
 typedef signed char        int8;

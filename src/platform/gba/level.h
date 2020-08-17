@@ -464,8 +464,8 @@ bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
 
         if (z != 0) {
             z >>= FOV_SHIFT;
-            x = MyDiv(x, z) + (FRAME_WIDTH  / 2);
-            y = MyDiv(y, z) + (FRAME_HEIGHT / 2);
+            x = (x / z) + (FRAME_WIDTH  / 2);
+            y = (y / z) + (FRAME_HEIGHT / 2);
         } else {
             x = (x > 0) ? clip.x1 : clip.x0;
             y = (y > 0) ? clip.y1 : clip.y0;
