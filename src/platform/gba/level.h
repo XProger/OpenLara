@@ -453,12 +453,12 @@ bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
         pv[i].y = y;
         pv[i].z = z;
 
-        if (z <= MIN_DIST) {
+        if (z <= VIEW_MIN_F) {
             znear++;
             continue;
         }
 
-        if (z >= MAX_DIST) {
+        if (z >= VIEW_MAX_F) {
             zfar++;
         }
 

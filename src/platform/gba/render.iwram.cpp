@@ -313,7 +313,7 @@ void transform(const vec3s &v, int32 vg) {
 
     int32 z = DP43(m[2], v);
     // znear / zfar clip
-    if (z < MIN_DIST || z >= MAX_DIST) {
+    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) {
         res.z = -1;
         return;
     }
@@ -321,21 +321,26 @@ void transform(const vec3s &v, int32 vg) {
     int32 x = DP43(m[0], v);
     int32 y = DP43(m[1], v);
 
-    int32 fog = (8191 - vg) - (SQR(z >> FIXED_SHIFT) >> 15);
-    if (fog < 0) {
-        fog = 0;
+    int32 fogZ = z >> FIXED_SHIFT;
+    if (fogZ > FOG_MAX) {
+        vg = 8191;
+    } else if (fogZ > FOG_MIN) {
+        vg += fogZ - FOG_MIN;
+        if (vg > 8191) {
+            vg = 8191;
+        }
     }
+    res.g = vg >> 8;
 
     z >>= FOV_SHIFT;
     x = (x / z) + (FRAME_WIDTH  / 2);
     y = (y / z) + (FRAME_HEIGHT / 2);
+    z >>= (FIXED_SHIFT - FOV_SHIFT - 1);
 
     res.x = x;
     res.y = y;
-    res.z = z >> (FIXED_SHIFT - FOV_SHIFT);;
+    res.z = z;
     res.clip = classify(&res);
-
-    res.g = uint32(255 - (fog >> 5)) >> 3;
 }
 
 #define FETCH_T()               curTile[(t & 0xFF00) | (t >> 24)]
@@ -1033,9 +1038,6 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
     if (v1->z < 0 || v2->z < 0 || v3->z < 0 || v4->z < 0)
         return;
 
-    if (!(v1->g | v2->g | v3->g | v4->g))
-        return;
-
     if (checkBackface(v1, v2, v3))
         return;
 
@@ -1069,9 +1071,6 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
     Vertex* v3 = gVertices + startVertex + indices[2];
 
     if (v1->z < 0 || v2->z < 0 || v3->z < 0)
-        return;
-
-    if (!(v1->g | v2->g | v3->g))
         return;
 
     if (checkBackface(v1, v2, v3))
