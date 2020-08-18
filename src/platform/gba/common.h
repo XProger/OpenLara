@@ -249,8 +249,10 @@ struct Face {
 #define MAX_ENTITY      190
 #define MAX_VERTICES    1024
 #define MAX_FACES       384
-#define MIN_DIST        ((32) << FIXED_SHIFT)
-#define MAX_DIST        ((16 * 1024) << FIXED_SHIFT)
+#define FOG_MAX         (16 * 1024)
+#define FOG_MIN         (FOG_MAX - 8192)
+#define VIEW_MIN_F      ((32) << FIXED_SHIFT)
+#define VIEW_MAX_F      (FOG_MAX << FIXED_SHIFT)
 
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
