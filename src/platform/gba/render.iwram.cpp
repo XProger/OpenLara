@@ -312,8 +312,8 @@ void transform(const vec3s &v, int32 vg) {
     Vertex &res = gVertices[gVerticesCount++];
 
     int32 z = DP43(m[2], v);
-    // znear / zfar clip
-    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) {
+
+    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) { // TODO znear clip
         res.z = -1;
         return;
     }
@@ -336,6 +336,9 @@ void transform(const vec3s &v, int32 vg) {
     x = (x / z) + (FRAME_WIDTH  / 2);
     y = (y / z) + (FRAME_HEIGHT / 2);
     z >>= (FIXED_SHIFT - FOV_SHIFT - 1);
+
+    //x = clamp(x, -0x7FFF, 0x7FFF);
+    //y = clamp(y, -0x7FFF, 0x7FFF);
 
     res.x = x;
     res.y = y;
@@ -431,7 +434,7 @@ struct Edge {
         for (int i = 1; i < count; i++) {
             b = (b + incr) % count;
 
-            Vertex *v = gVertices + start + b;
+            Vertex* v = gVertices + start + b;
 
             if (vert[index]->x != v->x || vert[index]->y != v->y) {
                 vert[++index] = v;
@@ -605,9 +608,10 @@ void rasterizeG(uint16* buffer, int32 palIndex, Edge &L, Edge &R) {
             int32 x1 = L.x >> 16;
             int32 x2 = R.x >> 16;
 
-            if (x2 > x1)
+            int32 width = x2 - x1;
+            if (width > 0)
             {
-                int32 d = FixedInvU(x2 - x1);
+                int32 d = FixedInvU(width);
 
                 int32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
@@ -650,9 +654,10 @@ void rasterizeGT(uint16* buffer, Edge &L, Edge &R)
             int32 x1 = L.x >> 16;
             int32 x2 = R.x >> 16;
 
-            if (x2 > x1)
+            int32 width = x2 - x1;
+            if (width > 0)
             {
-                uint32 d = FixedInvU(x2 - x1);
+                uint32 d = FixedInvU(width);
 
                 int32  dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
@@ -661,7 +666,7 @@ void rasterizeGT(uint16* buffer, Edge &L, Edge &R)
                 uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
 
                 scanlineGT(buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
-            }
+            };
 
             buffer += WIDTH / PIXEL_SIZE;
 
@@ -776,59 +781,42 @@ void drawQuad(const Face* face) {
         }
     }
 
-    sortVertices(v1, v2, v3, v4);
+    int32 minY =  0x7FFF;
+    int32 maxY = -0x7FFF;
+    int32 t = 0, b = 0;
 
-    int32 temp = (v2->y - v1->y) * FixedInvU(v4->y - v1->y);
+    Vertex* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
 
-    int32 longest = ((temp * (v4->x - v1->x)) >> 16) + (v1->x - v2->x);
-    if (longest == 0)
-    {
-        return;
+    for (int i = 0; i < 4; i++) {
+        Vertex *v = poly[i];
+
+        if (v->y < minY) {
+            minY = v->y;
+            t = i;
+        }
+
+        if (v->y > maxY) {
+            maxY = v->y;
+            b = i;
+        }
     }
 
     Edge L, R;
 
-    if (checkBackface(v1, v4, v2) == checkBackface(v1, v4, v3))
-    {
-        if (longest < 0)
-        {
-            L.vert[0] = v4;
-            L.vert[1] = v1;
-            L.index   = 1;
-            R.vert[0] = v4;
-            R.vert[1] = v3;
-            R.vert[2] = v2;
-            R.vert[3] = v1;
-            R.index   = 3;
-        }
-        else
-        {
-            R.vert[0] = v4;
-            R.vert[1] = v1;
-            R.index   = 1;
-            L.vert[0] = v4;
-            L.vert[1] = v3;
-            L.vert[2] = v2;
-            L.vert[3] = v1;
-            L.index   = 3;
-        }
-    }
-    else
-    {
-        R.vert[0] = v4;
-        R.vert[1] = v3;
-        R.vert[2] = v1;
-        R.index   = 2;
-        L.vert[0] = v4;
-        L.vert[1] = v2;
-        L.vert[2] = v1;
-        L.index   = 2;
+    v1 = poly[t];
 
-        if (longest < 0)
-        {
-            swap(L.vert[1], R.vert[1]);
-        }
-    }
+    L.vert[L.index = 0] = poly[b];
+    R.vert[R.index = 0] = poly[b];
+
+    int32 ib = b;
+    do {
+        L.vert[++L.index] = poly[++b];
+    } while (poly[b] != v1);
+
+    b = ib + 4;
+    do {
+        R.vert[++R.index] = poly[--b];
+    } while (poly[b] != v1);
 
     if (palIndex != 0xFFFF) {
         rasterizeG((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), palIndex, L, R);
@@ -931,36 +919,36 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     }
 }
 
-void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount) {
+void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount, int32 depth) {
     #define LERP(a,b,t) (b + ((a - b) * t >> 16))
 
-    #define CLIP_AXIS(x, y, edge, output) {\
-        uint32 t = ((edge - b->x) << 16) / (a->x - b->x);\
+    #define CLIP_AXIS(X, Y, edge, output) {\
+        uint32 t = ((edge - b->X) << 16) / (a->X - b->X);\
         Vertex* v = output + count++;\
-        v->x = edge;\
-        v->y = LERP(a->y, b->y, t);\
+        v->X = edge;\
+        v->Y = LERP(a->Y, b->Y, t);\
         v->z = LERP(a->z, b->z, t);\
         v->u = LERP(a->u, b->u, t);\
         v->v = LERP(a->v, b->v, t);\
         v->g = LERP(a->g, b->g, t);\
     }
 
-    #define CLIP_VERTEX(x, y, x0, x1, input, output) {\
+    #define CLIP_VERTEX(X, Y, X0, X1, input, output) {\
         const Vertex *a, *b = input[pCount - 1];\
         for (int32 i = 0; i < pCount; i++) {\
             a = b;\
             b = input[i];\
-            if (a->x < x0) {\
-                if (b->x < x0) continue;\
-                CLIP_AXIS(x, y, x0, output);\
-            } else if (a->x > x1) {\
-                if (b->x > x1) continue;\
-                CLIP_AXIS(x, y, x1, output);\
+            if (a->X < X0) {\
+                if (b->X < X0) continue;\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (a->X > X1) {\
+                if (b->X > X1) continue;\
+                CLIP_AXIS(X, Y, X1, output);\
             }\
-            if (b->x < x0) {\
-                CLIP_AXIS(x, y, x0, output);\
-            } else if (b->x > x1) {\
-                CLIP_AXIS(x, y, x1, output);\
+            if (b->X < X0) {\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (b->X > X1) {\
+                CLIP_AXIS(X, Y, X1, output);\
             } else {\
                 output[count++] = *b;\
             }\
@@ -987,9 +975,7 @@ void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount) {
     int32 count = 0;
 
 // clip x
-    int32 x0 = clip.x0;
-    int32 x1 = clip.x1;
-    CLIP_VERTEX(x, y, x0, x1, poly, tmp);
+    CLIP_VERTEX(x, y, clip.x0, clip.x1, poly, tmp);
 
     pCount = count;
     count = 0;
@@ -997,29 +983,20 @@ void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount) {
     Vertex* output = gVertices + gVerticesCount;
 
 // clip y
-    int32 y0 = clip.y0;
-    int32 y1 = clip.y1;
-    CLIP_VERTEX(y, x, y0, y1, &tmp, output);
+    CLIP_VERTEX(y, x, clip.y0, clip.y1, &tmp, output);
 
     Face *f = gFaces + gFacesCount;
     gFacesSorted[gFacesCount++] = f;
+
+    if (count == 3) {
+        flags |= FACE_TRIANGLE;
+    }
+
     f->flags      = flags;
+    f->depth      = depth;
     f->start      = gVerticesCount;
     f->indices[0] = count;
     f->indices[1] = count;
-
-    if (count == 3) {
-        f->flags |= FACE_TRIANGLE;
-        f->depth = (output[0].z + output[1].z + output[2].z) / 3;
-    } else if (count == 4) {
-        f->depth = (output[0].z + output[1].z + output[2].z + output[3].z) >> 2;
-    } else {
-        int32 depth = output[0].z;
-        for (int32 i = 1; i < count; i++) {
-            depth = (depth + output[i].z) >> 1;
-        }
-        f->depth = depth;
-    }
 
     gVerticesCount += count;
 }
@@ -1044,14 +1021,16 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
     if (v1->clip & v2->clip & v3->clip & v4->clip)
         return;
 
+    int32 depth = (v1->z + v2->z + v3->z + v4->z) >> 2;
+
     if (v1->clip | v2->clip | v3->clip | v4->clip) {
         Vertex* poly[4] = { v1, v2, v3, v4 };
-        faceAddPolyClip(flags, poly, 4);
+        faceAddPolyClip(flags, poly, 4, depth);
     } else {
         Face *f = gFaces + gFacesCount;
         gFacesSorted[gFacesCount++] = f;
         f->flags      = flags;
-        f->depth      = (v1->z + v2->z + v3->z + v4->z) >> 2;
+        f->depth      = depth;
         f->start      = startVertex + indices[0];
         f->indices[0] = 0;
         f->indices[1] = indices[1] - indices[0];
@@ -1079,14 +1058,16 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
     if (v1->clip & v2->clip & v3->clip)
         return;
 
+    int32 depth = (v1->z + v2->z + v3->z) / 3;
+
     if (v1->clip | v2->clip | v3->clip) {
         Vertex* poly[3] = { v1, v2, v3 };
-        faceAddPolyClip(flags, poly, 3);
+        faceAddPolyClip(flags, poly, 3, depth);
     } else {
         Face *f = gFaces + gFacesCount;
         gFacesSorted[gFacesCount++] = f;
         f->flags      = flags | FACE_TRIANGLE;
-        f->depth      = (v1->z + v2->z + v3->z) / 3;
+        f->depth      = depth;
         f->start      = startVertex + indices[0];
         f->indices[0] = 0;
         f->indices[1] = indices[1] - indices[0];
@@ -1129,7 +1110,7 @@ void flush() {
             if (f->flags & FACE_TRIANGLE) {
                 drawTriangle(f);
             } else {
-                if (f->indices[0] == f->indices[1] /* && f.indices[0] > 4 */) {
+                if (f->indices[0] == f->indices[1] && f->indices[0] > 4) {
                     drawPoly(f);
                 } else {
                     drawQuad(f);
