@@ -9,10 +9,6 @@
 #include "enemy.h"
 #include "inventory.h"
 
-// TODO: slide to slide in WALL
-// TODO: static sounds in LEVEL3A
-// TODO: fix enemy head rotation glitches
-
 #define TURN_FAST           PI
 #define TURN_FAST_BACK      PI * 3.0f / 4.0f
 #define TURN_NORMAL         PI / 2.0f
@@ -26,22 +22,26 @@
 #define LARA_TILT_SPEED     (DEG2RAD * 37.5f)
 #define LARA_TILT_MAX       (DEG2RAD * 10.0f)
 
-#define LARA_MAX_HEALTH     1000.0f
-#define LARA_MAX_OXYGEN     60
+#define LARA_MAX_HEALTH     1000
+#define LARA_MAX_OXYGEN     1800
 
+#define LARA_HANG_SLANT     60
 #define LARA_HANG_OFFSET    724
 #define LARA_HEIGHT         762
-#define LARA_HEIGHT_WATER   400
-#define LARA_RADIUS         100.0f
-#define LARA_RADIUS_WATER   300.0f
+#define LARA_HEIGHT_JUMP    870 // LARA_HEIGHT + hands up
+#define LARA_HEIGHT_UW      400
+#define LARA_HEIGHT_SURF    700
+#define LARA_RADIUS         100
+#define LARA_RADIUS_WATER   300
+#define LARA_RADIUS_CLIMB   220
 
 #define LARA_WATER_ACCEL    2.0f
 #define LARA_SURF_SPEED     15.0f
 #define LARA_SWIM_SPEED     50.0f
 #define LARA_SWIM_FRICTION  1.0f
 
-#define LARA_WADE_DEPTH     384.0f
-#define LARA_WADE_MAX_DEPTH 730.0f
+#define LARA_WADE_MIN_DEPTH 384
+#define LARA_WADE_MAX_DEPTH 730
 #define LARA_SWIM_MIN_DEPTH 512.0f
 
 #define LARA_MIN_SPECULAR   0.03f
@@ -65,6 +65,11 @@
 #define LARA_VIBRATE_HIT_TIME   0.2f
 
 #define COLLIDE_MAX_RANGE   (1024.0f * 4.0f)
+
+#define DECL_S_HANDLER(v) &Lara::s_##v, 
+#define DECL_C_HANDLER(v) &Lara::c_##v, 
+#define S_HANDLER(state) void s_##state()
+#define C_HANDLER(state) void c_##state()
 
 struct Lara : Character {
 
@@ -107,30 +112,34 @@ struct Lara : Character {
 
         ANIM_SLIDE_FORTH        = 70,
 
+        ANIM_UW_GLIDE           = 87,
+
         ANIM_FALL_BACK          = 93,
 
         ANIM_HANG               = 96,
 
         ANIM_STAND_NORMAL       = 103,
 
-        ANIM_SLIDE_BACK         = 105,
+        ANIM_SLIDE_BACK         = 104,
 
         ANIM_UNDERWATER         = 108,
 
+        ANIM_WATER_OUT          = 111,
         ANIM_WATER_FALL         = 112,
-        ANIM_TO_ONWATER         = 114,
-        ANIM_ONWATER_SWIM_F     = 116,
-        ANIM_ONWATER_SWIM_B     = 141,
-        ANIM_ONWATER_SWIM_L     = 143,
-        ANIM_ONWATER_SWIM_R     = 144,
+        ANIM_SURF               = 114,
+        ANIM_SURF_SWIM          = 116,
+        ANIM_SURF_DIVE          = 119,
 
-        ANIM_TO_UNDERWATER      = 119,
         ANIM_HIT_FRONT          = 125,
         ANIM_HIT_BACK           = 126,
         ANIM_HIT_LEFT           = 127,
         ANIM_HIT_RIGHT          = 128,
 
         ANIM_DEATH_BOULDER      = 139,
+        ANIM_SURF_BACK          = 140,
+
+        ANIM_SURF_LEFT          = 143,
+        ANIM_SURF_RIGHT         = 144,
 
         ANIM_STAND_ROLL_BEGIN   = 146,
         ANIM_STAND_ROLL_END     = 147,
@@ -138,13 +147,15 @@ struct Lara : Character {
         ANIM_DEATH_SPIKES       = 149,
         ANIM_HANG_SWING         = 150,
 
+        ANIM_CLIMB_START        = 164,
+
         ANIM_WADE_SWIM          = 176,
         ANIM_WADE               = 177,
         ANIM_WADE_RUN_LEFT      = 178,
         ANIM_WADE_RUN_RIGHT     = 179,
         ANIM_WADE_STAND         = 186,
         ANIM_WADE_ASCEND        = 190,
-        ANIM_WATER_OUT          = 191,
+        ANIM_SURF_OUT           = 191,
         ANIM_SWIM_STAND         = 192,
         ANIM_SURF_STAND         = 193,
 
@@ -152,84 +163,99 @@ struct Lara : Character {
         ANIM_SWITCH_BIG_UP      = 196,
         ANIM_PUSH_BUTTON        = 197,
 
-        ANIM_ROLL_WATER         = 203,
+        ANIM_UW_ROLL         = 203,
     };
 
     // http://www.tombraiderforums.com/showthread.php?t=211681
-    enum {
-        STATE_WALK,
-        STATE_RUN,
-        STATE_STOP,
-        STATE_FORWARD_JUMP,
-        STATE_UNUSED_0,
-        STATE_FAST_BACK,
-        STATE_TURN_RIGHT,
-        STATE_TURN_LEFT,
-        STATE_DEATH,
-        STATE_FALL,
-        STATE_HANG,
-        STATE_REACH,
-        STATE_SPLAT,
-        STATE_TREAD,
-        STATE_FAST_TURN_14,
-        STATE_COMPRESS,
-        STATE_BACK,
-        STATE_SWIM,
-        STATE_GLIDE,
-        STATE_HANG_UP,
-        STATE_FAST_TURN,
-        STATE_STEP_RIGHT,
-        STATE_STEP_LEFT,
-        STATE_ROLL_END,
-        STATE_SLIDE,
-        STATE_BACK_JUMP,
-        STATE_RIGHT_JUMP,
-        STATE_LEFT_JUMP,
-        STATE_UP_JUMP,
-        STATE_FALL_BACK,
-        STATE_HANG_LEFT,
-        STATE_HANG_RIGHT,
-        STATE_SLIDE_BACK,
-        STATE_SURF_TREAD,
-        STATE_SURF_SWIM,
-        STATE_DIVE,
-        STATE_PUSH_BLOCK,
-        STATE_PULL_BLOCK,
-        STATE_PUSH_PULL_READY,
-        STATE_PICK_UP,
-        STATE_SWITCH_DOWN,
-        STATE_SWITCH_UP,
-        STATE_USE_KEY,
-        STATE_USE_PUZZLE,
-        STATE_UNDERWATER_DEATH,
-        STATE_ROLL_START,
-        STATE_SPECIAL,
-        STATE_SURF_BACK,
-        STATE_SURF_LEFT,
-        STATE_SURF_RIGHT,
-        STATE_MIDAS_USE,
-        STATE_MIDAS_DEATH,
-        STATE_SWAN_DIVE,
-        STATE_FAST_DIVE,
-        STATE_HANDSTAND,
-        STATE_WATER_OUT,
-        STATE_CLIMB_START,
-        STATE_CLIMB_UP,
-        STATE_CLIMB_LEFT,
-        STATE_CLIMB_END,
-        STATE_CLIMB_RIGHT,
-        STATE_CLIMB_DOWN,
-        STATE_UNUSED_1,
-        STATE_UNUSED_2,
-        STATE_UNUSED_3,
-        STATE_WADE,
-        STATE_ROLL_WATER,
-        STATE_PICKUP_FLARE,
-        STATE_ROLL_AIR,
-        STATE_UNUSED_5,
-        STATE_DEATH_SLIDE,
+    #define LARA_STATES(E) \
+        /* TR1 ------------------*/ \
+        E( STATE_WALK             ) \
+        E( STATE_RUN              ) \
+        E( STATE_STOP             ) \
+        E( STATE_FORWARD_JUMP     ) \
+        E( STATE_POSE             ) \
+        E( STATE_FAST_BACK        ) \
+        E( STATE_TURN_RIGHT       ) \
+        E( STATE_TURN_LEFT        ) \
+        E( STATE_DEATH            ) \
+        E( STATE_FALL             ) \
+        E( STATE_HANG             ) \
+        E( STATE_REACH            ) \
+        E( STATE_SPLAT            ) \
+        E( STATE_TREAD            ) \
+        E( STATE_LAND             ) \
+        E( STATE_COMPRESS         ) \
+        E( STATE_BACK             ) \
+        E( STATE_SWIM             ) \
+        E( STATE_GLIDE            ) \
+        E( STATE_HANG_UP          ) \
+        E( STATE_FAST_TURN        ) \
+        E( STATE_STEP_RIGHT       ) \
+        E( STATE_STEP_LEFT        ) \
+        E( STATE_ROLL_END         ) \
+        E( STATE_SLIDE            ) \
+        E( STATE_BACK_JUMP        ) \
+        E( STATE_RIGHT_JUMP       ) \
+        E( STATE_LEFT_JUMP        ) \
+        E( STATE_UP_JUMP          ) \
+        E( STATE_FALL_BACK        ) \
+        E( STATE_HANG_LEFT        ) \
+        E( STATE_HANG_RIGHT       ) \
+        E( STATE_SLIDE_BACK       ) \
+        E( STATE_SURF_TREAD       ) \
+        E( STATE_SURF_SWIM        ) \
+        E( STATE_DIVE             ) \
+        E( STATE_PUSH_BLOCK       ) \
+        E( STATE_PULL_BLOCK       ) \
+        E( STATE_PUSH_PULL_READY  ) \
+        E( STATE_PICK_UP          ) \
+        E( STATE_SWITCH_DOWN      ) \
+        E( STATE_SWITCH_UP        ) \
+        E( STATE_USE_KEY          ) \
+        E( STATE_USE_PUZZLE       ) \
+        E( STATE_UW_DEATH         ) \
+        E( STATE_ROLL_START       ) \
+        E( STATE_SPECIAL          ) \
+        E( STATE_SURF_BACK        ) \
+        E( STATE_SURF_LEFT        ) \
+        E( STATE_SURF_RIGHT       ) \
+        E( STATE_MIDAS_USE        ) \
+        E( STATE_MIDAS_DEATH      ) \
+        E( STATE_SWAN_DIVE        ) \
+        E( STATE_FAST_DIVE        ) \
+        E( STATE_HANDSTAND        ) \
+        E( STATE_WATER_OUT        ) \
+        /* TR2 ------------------*/ \
+        E( STATE_CLIMB_START      ) \
+        E( STATE_CLIMB_UP         ) \
+        E( STATE_CLIMB_LEFT       ) \
+        E( STATE_CLIMB_END        ) \
+        E( STATE_CLIMB_RIGHT      ) \
+        E( STATE_CLIMB_DOWN       ) \
+        E( STATE_UNUSED_1         ) \
+        E( STATE_UNUSED_2         ) \
+        E( STATE_UNUSED_3         ) \
+        E( STATE_WADE             ) \
+        E( STATE_UW_ROLL          ) \
+        E( STATE_PICKUP_FLARE     ) \
+        E( STATE_AIR_ROLL         ) \
+        E( STATE_UNUSED_5         ) \
+        E( STATE_ZIPLINE          ) \
+        /* TR3 ------------------*/ \
+        E( STATE_DUCK             ) \
+        E( STATE_DUCK_ROLL        ) \
+        E( STATE_DASH             ) \
+        E( STATE_DASH_DIVE        ) \
+        E( STATE_MONKEYSWING_IDLE ) \
+        E( STATE_MONKEYSWING      )
 
-        STATE_MAX };
+    enum { LARA_STATES(DECL_ENUM) STATE_MAX };
+
+    typedef void (Lara::*sHandler)();
+    typedef void (Lara::*cHandler)();
+
+    static const sHandler sLaraHandlers[STATE_MAX];
+    static const cHandler cLaraHandlers[STATE_MAX];
 
     #define LARA_RGUN_JOINT 10
     #define LARA_LGUN_JOINT 13
@@ -503,6 +529,29 @@ struct Lara : Character {
     Lara(IGame *game, int entity) : Character(game, entity, LARA_MAX_HEALTH), wpnCurrent(TR::Entity::NONE), wpnNext(TR::Entity::NONE) {
         camera = new Camera(game, this);
 
+        v2pos.x = int32(pos.x);
+        v2pos.y = int32(pos.y);
+        v2pos.z = int32(pos.z);
+
+        v2rot.x = 0;
+        v2rot.y = int16(angle.y / PI * ANGLE_180);
+        v2rot.z = 0;
+            
+        waterState = WATER_STATE_ABOVE;
+        gravity = 0;
+        hSpeed = 0;
+        vSpeed = 0;
+        vSpeedHack = 0;
+        animIndex = ANIM_STAND;
+        frameIndex = (level->anims + animIndex)->frameStart;
+        turnSpeed = 0;
+
+        animation.setAnim(animIndex, frameIndex);
+        state = animation.state;
+        nextState = state;
+        targetState = state;
+
+
         braid[0] = braid[1] = NULL;
 
         itemHolster  = TR::Entity::NONE;
@@ -657,6 +706,8 @@ struct Lara : Character {
 
     bool canSaveGame() {
         return health > 0.0f && !burn 
+               && state != STATE_PICK_UP
+               && state != STATE_PICKUP_FLARE
                && state != STATE_USE_KEY
                && state != STATE_USE_PUZZLE; // && (state == STATE_STOP || state == STATE_TREAD || state == STATE_SURF_TREAD);
     }
@@ -729,6 +780,10 @@ struct Lara : Character {
                 stand = STAND_ONWATER;
         } else
             stand = STAND_AIR;
+
+        v2pos.x = int32(pos.x);
+        v2pos.y = int32(pos.y);
+        v2pos.z = int32(pos.z);
     }
 
     int getRoomByPos(const vec3 &pos) {
@@ -779,10 +834,18 @@ struct Lara : Character {
         this->pos   = pos;
         this->angle = vec3(0.0f, angle, 0.0f);
 
+        v2pos.x = int32(pos.x);
+        v2pos.y = int32(pos.y);
+        v2pos.z = int32(pos.z);
+
+        v2rot.x = 0;
+        v2rot.y = int16(angle * ANGLE_180);
+        v2rot.z = 0;
+
         if (forceStand != STAND_GROUND) {
             stand = forceStand;
             switch (stand) {
-                case STAND_ONWATER    : animation.setAnim(ANIM_TO_ONWATER); break;
+                case STAND_ONWATER    : animation.setAnim(ANIM_SURF); break;
                 case STAND_UNDERWATER : animation.setAnim(ANIM_UNDERWATER); break;
                 default               : ;
             }
@@ -925,7 +988,7 @@ struct Lara : Character {
                && state != STATE_SWITCH_UP
                && state != STATE_USE_KEY
                && state != STATE_USE_PUZZLE
-               && state != STATE_UNDERWATER_DEATH
+               && state != STATE_UW_DEATH
                && state != STATE_SPECIAL
                && state != STATE_SURF_BACK
                && state != STATE_SURF_LEFT
@@ -1549,15 +1612,9 @@ struct Lara : Character {
     }
 
     virtual void cmdOffset(const vec3 &offset) {
-        Character::cmdOffset(offset);
-        move();
     }
 
     virtual void cmdJump(const vec3 &vel) {
-        vec3 v = vel;
-        if (state == STATE_HANG_UP)
-            v.y = (3.0f - sqrtf(-2.0f * GRAVITY * (collision.info[Collision::FRONT].floor - pos.y + 800.0f - 128.0f)));
-        Character::cmdJump(v);
     }
 
     void drawGun(int right) {
@@ -1583,21 +1640,6 @@ struct Lara : Character {
     }
 
     virtual void cmdEffect(int fx) {
-        switch (fx) {
-            case TR::Effect::LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
-            case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
-            case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
-            case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
-            case TR::Effect::DRAW_LEFTGUN   : drawGun(false); break;
-            case TR::Effect::SHOT_RIGHTGUN  : game->addMuzzleFlash(this, LARA_RGUN_JOINT, LARA_RGUN_OFFSET, 1 + camera->cameraIndex); break;
-            case TR::Effect::SHOT_LEFTGUN   : game->addMuzzleFlash(this, LARA_LGUN_JOINT, LARA_LGUN_OFFSET, 1 + camera->cameraIndex); break;
-            case TR::Effect::MESH_SWAP_1    : 
-            case TR::Effect::MESH_SWAP_2    : 
-            case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
-            case 26 : break; // TODO TR2 reset_hair
-            case 32 : break; // TODO TR3 footprint
-            default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
-        }
     }
 
     virtual void hit(float damage, Controller *enemy = NULL, TR::HitType hitType = TR::HIT_DEFAULT) {
@@ -1756,44 +1798,11 @@ struct Lara : Character {
         return true;
     }
 
-    bool waterOut() {
-        // TODO: playSound 36
-        if (collision.side != Collision::FRONT || pos.y - collision.info[Collision::FRONT].floor > 256 + 128)
-            return false;
-
-        vec3 dst = pos + getDir() * (LARA_RADIUS + 32.0f);
-
-        TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
-        int roomAbove = info.roomAbove;
-        if (roomAbove == TR::NO_ROOM)
-            return false;
-
-        getFloorInfo(roomAbove, dst, info);
-
-        int h = int(pos.y - info.floor);
-
-        if (h >= 0 && h <= (256 + 128) && (state == STATE_SURF_TREAD || animation.setState(STATE_SURF_TREAD)) && animation.setState(STATE_STOP)) {
-            if ((level->version & TR::VER_VERSION) > TR::VER_TR1) {
-                if (h < 128) // 0 clicks out of water animation
-                    animation.setAnim(ANIM_WATER_OUT);
-            }
-            alignToWall(LARA_RADIUS);
-            roomIndex = roomAbove;
-            pos.y    = info.floor;
-            specular = LARA_WET_SPECULAR;
-            move();
-            return true;
-        }
-
-        return false;
-    }
-
     int goUnderwater() {
         angle.x = -PI * 0.25f;
         game->waterDrop(pos, 256.0f, 0.2f);
         stand = STAND_UNDERWATER;
-        return animation.setAnim(ANIM_TO_UNDERWATER);
+        return animation.setAnim(ANIM_SURF_DIVE);
     }
 
     bool doPickUp() {
@@ -2278,7 +2287,8 @@ struct Lara : Character {
         specular = LARA_WET_SPECULAR;
     }
 
-    virtual Stand getStand() {
+    virtual Stand getStand() { // TODO remove
+        /*
         if (dozy) return STAND_UNDERWATER;
 
         if (stand == STAND_ONWATER && state == STATE_STOP)
@@ -2314,14 +2324,14 @@ struct Lara : Character {
                     pos.y = waterLevel;
                     updateRoom();
                     switch (state) {
-                        case STATE_BACK       : animation.setAnim(ANIM_ONWATER_SWIM_B); break;
-                        case STATE_STEP_LEFT  : animation.setAnim(ANIM_ONWATER_SWIM_L); break;
-                        case STATE_STEP_RIGHT : animation.setAnim(ANIM_ONWATER_SWIM_R); break;
-                        default               : animation.setAnim(ANIM_ONWATER_SWIM_F); 
+                        case STATE_BACK       : animation.setAnim(ANIM_SURF_BACK); break;
+                        case STATE_STEP_LEFT  : animation.setAnim(ANIM_SURF_LEFT); break;
+                        case STATE_STEP_RIGHT : animation.setAnim(ANIM_SURF_RIGHT); break;
+                        default               : animation.setAnim(ANIM_SURF_SWIM); 
                     }
                     return STAND_ONWATER;
                 }
-            } else if (waterDepth > LARA_WADE_DEPTH) {
+            } else if (waterDepth > LARA_WADE_MIN_DEPTH) {
                 if (stand == STAND_GROUND && (waterLevel + waterDepth) - pos.y > 300)
                     return STAND_AIR;
 
@@ -2402,13 +2412,16 @@ struct Lara : Character {
             }
             return STAND_GROUND;
         }
-
+        */
         return STAND_AIR;
     }
 
+    void startScreaming() {
+        game->playSound(TR::SND_SCREAM, pos, Sound::PAN | Sound::UNIQUE);
+    }
+
     void stopScreaming() {
-        if (velocity.y >= 154.0f)
-            Sound::stop(TR::SND_SCREAM);
+        Sound::stop(TR::SND_SCREAM);
     }
 
     virtual int getHeight() {
@@ -2466,7 +2479,7 @@ struct Lara : Character {
             if ((state == STATE_FORWARD_JUMP && (roll || (input & BACK)  )) ||
                 (state == STATE_BACK_JUMP    && (roll || (input & FORTH) )) || 
                 (state == STATE_FAST_DIVE    &&  roll))
-                return STATE_ROLL_AIR;
+                return STATE_AIR_ROLL;
         }
 
         if (state == STATE_FORWARD_JUMP || state == STATE_FALL_BACK) {
@@ -2564,6 +2577,7 @@ struct Lara : Character {
     }
 
     virtual int getStateGround() {
+        /*
         int res = STATE_STOP;
         angle.x = 0.0f;
 
@@ -2685,40 +2699,21 @@ struct Lara : Character {
         }
 
         return res;
+            */
+        return STATE_STOP;
     }
 
-    void slide() {
-        TR::Level::FloorInfo info;
-        getFloorInfo(getRoomIndex(), pos, info);
-
-        int sx = abs(info.slantX), sz = abs(info.slantZ);
-        // get direction
-        float dir;
-        if (sx >= sz)
-            dir = info.slantX > 0 ? 3.0f : 1.0f;
-        else
-            dir = info.slantZ > 0 ? 2.0f : 0.0f;
-        dir *= PI * 0.5f;
-
-        int aIndex = ANIM_SLIDE_FORTH;
-        if (fabsf(shortAngle(dir, angle.y)) > PI * 0.5f) {
-            aIndex = ANIM_SLIDE_BACK;
-            dir += PI;
-        }
-
-        angle.y = dir;
-        if (animation.index != aIndex)
-            animation.setAnim(aIndex);
-    }
-
-    virtual int getStateSlide() {
+    virtual int getStateSlide() { // TODO remove
+        /*
         if (input & JUMP)
             return state == STATE_SLIDE ? STATE_FORWARD_JUMP : STATE_BACK_JUMP;
         // TODO: update slide direction
+                */
         return state;
     }
 
-    virtual int getStateHang() {
+    virtual int getStateHang() { // TODO remove
+        /*
         if (input & LEFT)  return STATE_HANG_LEFT;
         if (input & RIGHT) return STATE_HANG_RIGHT;
         if (input & FORTH) {
@@ -2728,10 +2723,12 @@ struct Lara : Character {
             if (info.floor - info.ceiling >= LARA_HEIGHT)
                 return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;            
         }
+        */
         return STATE_HANG;
     }
 
-    virtual int getStateUnderwater() {
+    virtual int getStateUnderwater() { // TODO remove
+        /*
         if ((input == ACTION) && (state == STATE_TREAD) && emptyHands() && doPickUp())
             return state;
 
@@ -2744,9 +2741,9 @@ struct Lara : Character {
             return animation.setAnim(ANIM_WATER_FALL); // TODO: wronng animation
         }
 
-        if ((level->version & TR::VER_VERSION) > TR::VER_TR1 && state != STATE_ROLL_WATER) {
+        if ((level->version & TR::VER_VERSION) > TR::VER_TR1 && state != STATE_UW_ROLL) {
             if ((input & (FORTH | BACK)) == (FORTH | BACK))
-                return animation.setAnim(ANIM_ROLL_WATER);
+                return animation.setAnim(ANIM_UW_ROLL);
         }
 
         if (state == STATE_SWAN_DIVE || state == STATE_FAST_DIVE) {
@@ -2762,11 +2759,12 @@ struct Lara : Character {
 
         if (state == STATE_GLIDE && speed < LARA_SWIM_SPEED * 2.0f / 3.0f)
             return STATE_TREAD;
-
+            */
         return STATE_GLIDE;
     }
 
     virtual int getStateOnwater() {
+        /*
         angle.x = 0.0f;
 
         if (state == STATE_WATER_OUT) return state;
@@ -2775,21 +2773,15 @@ struct Lara : Character {
             game->waterDrop(pos, 128.0f, 0.2f);
             specular = LARA_WET_SPECULAR;
             switch (state) {
-                case STATE_WADE       : return animation.setAnim(ANIM_ONWATER_SWIM_F);
-                case STATE_BACK       : return animation.setAnim(ANIM_ONWATER_SWIM_B);
-                case STATE_STEP_LEFT  : return animation.setAnim(ANIM_ONWATER_SWIM_L);
-                case STATE_STEP_RIGHT : return animation.setAnim(ANIM_ONWATER_SWIM_R);
-                default               : return animation.setAnim(ANIM_TO_ONWATER);
+                case STATE_WADE       : return animation.setAnim(ANIM_SURF_SWIM);
+                case STATE_BACK       : return animation.setAnim(ANIM_SURF_BACK);
+                case STATE_STEP_LEFT  : return animation.setAnim(ANIM_SURF_LEFT);
+                case STATE_STEP_RIGHT : return animation.setAnim(ANIM_SURF_RIGHT);
+                default               : return animation.setAnim(ANIM_SURF);
             }
         }
 
-        if (state == STATE_SURF_TREAD) {
-            if (animation.isFrameActive(0))
-                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.03f);
-        } else {
-            if (animation.frameIndex % 4 == 0)
-                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.02f);
-        }
+
 
         if (input & FORTH) {
             if (input & JUMP) 
@@ -2808,33 +2800,12 @@ struct Lara : Character {
             if (input & LEFT)  return STATE_SURF_LEFT;
             if (input & RIGHT) return STATE_SURF_RIGHT;
         }
+        */
         return STATE_SURF_TREAD;
     }
 
-    bool getLeadingFoot() {
-        int rightStart = 0;
-        if (state == STATE_RUN)  rightStart = 6;
-        if (state == STATE_WALK) rightStart = 13;
-        if (state == STATE_BACK) rightStart = 28;
-        return animation.frameIndex < rightStart || animation.frameIndex > (rightStart + animation.framesCount / 2);
-    }
-
-    int checkMove(int newState, int maxAscent = 256 + 128, int maxDescent = 0xFFFFFF) {
-        float ext = angle.y;
-        if (newState == STATE_BACK || newState == STATE_FAST_BACK)
-            ext += PI;
-        else if (newState == STATE_STEP_LEFT)
-            ext -= PI * 0.5f;
-        else if (newState == STATE_STEP_RIGHT)
-            ext += PI * 0.5f;
-        vec3 p = pos;
-        collision  = Collision(this, getRoomIndex(), p, vec3(0.0f), vec3(0.0f), LARA_RADIUS * 1.1f, ext, 0, LARA_HEIGHT, maxAscent, maxDescent);
-        if (collision.side == Collision::FRONT)
-            return STATE_STOP;
-        return newState;
-    }
-
-    virtual int getStateWade() {
+    virtual int getStateWade() { // TODO remove
+    /*
         angle.x = 0.0f;
 
         if (waterDepth > 0.0f && !(animation.frameIndex % 4))
@@ -2911,47 +2882,40 @@ struct Lara : Character {
 
         if (input & (LEFT | RIGHT))
             return getTurn();
-
+            */
         return STATE_STOP;
     }
 
-    virtual int getStateDeath() {
-        if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
-            return STATE_UNDERWATER_DEATH;
-        if (state == STATE_MIDAS_DEATH)
-            return STATE_MIDAS_DEATH;
-        if (state == STATE_HANG || state == STATE_HANG_LEFT || state == STATE_HANG_RIGHT || state == STATE_UP_JUMP)
-            return STATE_FALL;
+    virtual int getStateDeath() { // TODO remove
         return STATE_DEATH;
     }
 
-    virtual int getStateDefault() {
-        if (state == STATE_DIVE || (state == STATE_RUN && (input & JUMP)) ) return state;
-        switch (stand) {
-            case STAND_GROUND     : return STATE_STOP;
-            case STAND_HANG       : return STATE_HANG;
-            case STAND_ONWATER    : return STATE_SURF_TREAD;
-            case STAND_UNDERWATER : return STATE_TREAD;
-            case STAND_WADE       : return STATE_STOP;
-            default : ;
-        }
+    virtual int getStateDefault() { // TODO remove
         return STATE_FALL;
     }
 
     virtual void updateState() {
         Character::updateState();
+    }
 
+    void updateCamera() {
         if (camera->mode != ICamera::MODE_FOLLOW)
             return;
 
         camera->centerView = false;
+
+        if ((waterState == WATER_STATE_WADE) || (waterState == WATER_STATE_SURFACE))
+        {
+            camera->setAngle(-22, 0);
+            return;
+        }
 
         switch (state) {
             case STATE_WATER_OUT  :
                 camera->centerView = true;
                 break;
             case STATE_DEATH      :
-            case STATE_UNDERWATER_DEATH :
+            case STATE_UW_DEATH :
                 camera->centerView = true;
                 break;
             case STATE_REACH      :
@@ -2959,13 +2923,6 @@ struct Lara : Character {
                 break;
             case STATE_BACK_JUMP  :
                 camera->setAngle(0, 135);
-                break;
-            case STATE_SURF_TREAD :
-            case STATE_SURF_SWIM  :
-            case STATE_SURF_BACK  :
-            case STATE_SURF_LEFT  :
-            case STATE_SURF_RIGHT :
-                camera->setAngle(-22, 0);
                 break;
             case STATE_SLIDE      :
             case STATE_SLIDE_BACK :
@@ -2999,8 +2956,24 @@ struct Lara : Character {
                 camera->setAngle(-25, 170);
                 camera->centerView = true;
                 break;
-            case STATE_WADE       :
-                camera->setAngle(-22, 0);
+            case STATE_CLIMB_START :
+                camera->setAngle(-20, 0);
+                break;
+            case STATE_CLIMB_UP    :
+                camera->setAngle(-30, 0);
+                break;                
+            case STATE_CLIMB_LEFT  :
+                camera->setAngle(-15, -30);
+                break;
+            case STATE_CLIMB_END   :
+                camera->setAngle(-20, -45);
+                camera->centerView = true;
+                break;
+            case STATE_CLIMB_RIGHT :
+                camera->setAngle(-15, 30);
+                break;
+            case STATE_CLIMB_DOWN  :
+                camera->setAngle(-45, 0);
                 break;
             default :
                 camera->setAngle(0, 0);
@@ -3009,7 +2982,18 @@ struct Lara : Character {
 
     void setDozy(bool enable) {
         if (enable) {
-            reset(getRoomIndex(), pos - vec3(0, 512, 0), angle.y, STAND_UNDERWATER);
+            waterState = WATER_STATE_UNDER;
+            gravity = false;
+            oxygen = LARA_MAX_OXYGEN;
+            health = LARA_MAX_HEALTH;
+
+            v2pos.y += 100;
+            updateRoomV2(0);
+            stopScreaming();
+
+            v2rot.x = 0;
+            setAnimV2(ANIM_UW_GLIDE, true);
+            targetState = STATE_SWIM;
         } else {
             stand = getRoom().flags.water ? STAND_UNDERWATER : STAND_AIR;
         }
@@ -3036,11 +3020,6 @@ struct Lara : Character {
         }
 
         input = Character::getInput();
-        if (input & DEATH) {
-            if (stand != STAND_AIR) // Lara can't die in the air
-                return input;
-            input &= ~DEATH;
-        }
 
         if (Input::state[pid][cUp])        input |= FORTH;
         if (Input::state[pid][cRight])     input |= RIGHT;
@@ -3052,9 +3031,6 @@ struct Lara : Character {
         if (Input::state[pid][cAction])    input |= ACTION;
         if (Input::state[pid][cWeapon])    input |= WEAPON;
         if (Input::state[pid][cLook] && canLookAt()) input = LOOK;
-        //if (Input::state[pid][cStepRight]) input  = WALK  | RIGHT;
-        //if (Input::state[pid][cStepLeft])  input  = WALK  | LEFT;
-
 
         if (Input::down[ikP]) {
             switch (level->id) {
@@ -3161,7 +3137,7 @@ struct Lara : Character {
     virtual bool useHeadAnimation() {
         return state == STATE_WATER_OUT
             || state == STATE_DEATH
-            || state == STATE_UNDERWATER_DEATH
+            || state == STATE_UW_DEATH
             || state == STATE_HANG
             || state == STATE_HANG_UP
             || state == STATE_HANG_LEFT
@@ -3248,6 +3224,33 @@ struct Lara : Character {
     }
 
     virtual void update() {
+        lastInput = input;
+        input = getInput();
+
+        updateV2();
+
+        int32 oldState = state;
+
+        TR::Animation *anim = animation.anims + animIndex;
+        animation.setAnim(animIndex, frameIndex);
+
+        state = animation.state;
+
+        state = oldState;
+
+        pos.x = float(v2pos.x);
+        pos.y = float(v2pos.y);
+        pos.z = float(v2pos.z);
+
+        angle.x = PI * float(v2rot.x) / ANGLE_180;
+        angle.y = PI * float(v2rot.y) / ANGLE_180;
+        angle.z = PI * float(v2rot.z) / ANGLE_180;
+
+        camera->update();
+    }
+
+/*
+    virtual void update() {
         if (Input::state[camera->cameraIndex][cLook] && Input::lastState[camera->cameraIndex] == cAction)
             camera->changeView(!camera->firstPerson);
 
@@ -3300,16 +3303,7 @@ struct Lara : Character {
 
         if (damageTime > 0.0f)
             damageTime = max(0.0f, damageTime - Core::deltaTime);
-        /* TODO_TIME
-        if (stand == STAND_UNDERWATER && !dozy) {
-            if (oxygen > 0)
-                oxygen -= Core::deltaTime;
-            else
-                hit(Core::deltaTime * 150.0f);
-        } else
-            if (oxygen < LARA_MAX_OXYGEN && health > 0.0f)
-                oxygen = min(LARA_MAX_OXYGEN, oxygen + Core::deltaTime * 10.0f);
-        */
+
         usedItem = TR::Entity::NONE;
 
         if (camera->mode != Camera::MODE_CUTSCENE && camera->mode != Camera::MODE_STATIC) {
@@ -3354,187 +3348,20 @@ struct Lara : Character {
             //m = getMatrix();
         }
     }
-
+*/
     virtual void updateAnimation(bool commands) {
-        Controller::updateAnimation(commands);
-        updateWeapon();
-
-        if (stand == STAND_UNDERWATER)
-            specular = LARA_MIN_SPECULAR;
-        else
-            if (specular > LARA_MIN_SPECULAR)
-                specular = max(LARA_MIN_SPECULAR, specular - LARA_WET_TIMER * Core::deltaTime);
-
-        if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
-            uint32 sparklesMask = getMidasMask();
-
-            if (state == STATE_MIDAS_DEATH)
-                visibleMask = sparklesMask ^ 0xFFFFFFFF;
-
-            timer += Core::deltaTime;
-            if (timer >= 1.0f / 30.0f) {
-                timer -= 1.0f / 30.0f;
-                addSparks(sparklesMask);
-            }
-        }
     }
 
     virtual void updateVelocity() {
-        flowVelocity = vec3(0);
-
-        if (!(input & DEATH) && !level->isCutsceneLevel())
-            checkTrigger(this, false);
-
-    // get turning angle
-        float w = ((input & WALK) && state != STATE_WALK) ? 0.0f : ((input & LEFT) ? -1.0f : ((input & RIGHT) ? 1.0f : 0.0f));
-
-        if (state == STATE_SWIM || state == STATE_GLIDE)
-            w *= TURN_WATER_FAST;
-        else if (state == STATE_TREAD || state == STATE_SURF_TREAD || state == STATE_SURF_SWIM || state == STATE_SURF_BACK)
-            w *= TURN_WATER_FAST;
-        else if (state == STATE_RUN) {
-            if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
-                w *= TURN_FAST;
-            else
-                w *= sign(w) != sign(tilt) ? 0.0f : w * TURN_FAST * tilt / LARA_TILT_MAX;
-        } else if (state == STATE_FAST_TURN)
-            w *= TURN_FAST;
-        else if (state == STATE_FAST_BACK)
-            w *= TURN_FAST_BACK;
-        else if (state == STATE_TURN_LEFT || state == STATE_TURN_RIGHT || state == STATE_WALK || (state == STATE_STOP && animation.index == ANIM_LANDING))
-            w *= TURN_NORMAL;
-        else if (state == STATE_FORWARD_JUMP || state == STATE_BACK || state == STATE_WADE)
-            w *= TURN_SLOW;
-        else
-            w = 0.0f;
-
-        if (w != 0.0f)
-            rotateY(w * rotFactor.y * Core::deltaTime);
-    // pitch (underwater only)
-        if (stand == STAND_UNDERWATER && (((input & FORTH) != 0) ^ ((input & BACK) != 0)))
-            rotateX(((input & FORTH) ? -TURN_WATER_SLOW : TURN_WATER_SLOW) * rotFactor.x * Core::deltaTime);
-
-    // get animation direction
-        angleExt = angle.y;
-        switch (state) {
-            case STATE_BACK :
-            case STATE_SURF_BACK  :
-            case STATE_BACK_JUMP  :
-            case STATE_FAST_BACK  :
-            case STATE_SLIDE_BACK :
-            case STATE_ROLL_END   :
-                angleExt += PI;
-                break;
-            case STATE_LEFT_JUMP  :
-            case STATE_STEP_LEFT  :
-            case STATE_SURF_LEFT  :
-            case STATE_HANG_LEFT  :
-                angleExt -= PI * 0.5f;
-                break;
-            case STATE_RIGHT_JUMP :
-            case STATE_STEP_RIGHT :
-            case STATE_SURF_RIGHT :
-            case STATE_HANG_RIGHT :
-                angleExt +=  PI * 0.5f;
-                break;
-        }
-
-        switch (stand) {
-            case STAND_AIR :
-                applyGravity(velocity.y);
-                if (velocity.y >= 154.0f && state == STATE_FALL)
-                    game->playSound(TR::SND_SCREAM, pos, Sound::PAN | Sound::UNIQUE);
-                /*
-                if (state == STATE_FALL || state == STATE_FAST_DIVE) {
-                    velocity.x *= 0.95 * Core::deltaTime;
-                    velocity.z *= 0.95 * Core::deltaTime;
-                }
-                */
-                break;
-            case STAND_GROUND  :
-            case STAND_WADE    :
-            case STAND_SLIDE   :
-            case STAND_HANG    :
-            case STAND_ONWATER : {
-
-                switch (state) {
-                    case STATE_SURF_SWIM  :
-                    case STATE_SURF_BACK  :
-                    case STATE_SURF_LEFT  :
-                    case STATE_SURF_RIGHT :
-                        speed = min(speed + 30.0f * LARA_WATER_ACCEL * Core::deltaTime, LARA_SURF_SPEED);
-                        break;
-                    default :
-                        speed = animation.getSpeed();
-                }
-
-                if (stand == STAND_ONWATER) {
-                    velocity.x = sinf(angleExt) * speed;
-                    velocity.z = cosf(angleExt) * speed;
-                    velocity.y = 0.0f;
-                } else {
-                    TR::Level::FloorInfo info;
-                    if (stand == STAND_HANG) {
-                        vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
-                        getFloorInfo(getRoomIndex(), p, info);
-                        if (info.roomAbove != TR::NO_ROOM && info.floor >= pos.y - LARA_HANG_OFFSET)
-                            getFloorInfo(info.roomAbove, p, info);
-                    } else
-                        getFloorInfo(getRoomIndex(), pos, info);
-
-                    vec3 v(sinf(angleExt), 0.0f, cosf(angleExt));
-                    velocity = info.getSlant(v) * speed;
-                }
-                break;
-            }
-            case STAND_UNDERWATER : {
-                if (animation.index == ANIM_TO_UNDERWATER)
-                    speed = 15.0f;
-                if (state == STATE_SWIM)
-                    speed = min(speed + 30.0f * LARA_WATER_ACCEL * Core::deltaTime, LARA_SWIM_SPEED);
-                if (state == STATE_TREAD || state == STATE_GLIDE)
-                    speed = max(speed - 30.0f * LARA_SWIM_FRICTION * Core::deltaTime, 0.0f);
-                velocity = vec3(angle.x, angle.y) * speed;
-                // TODO: apply flow velocity
-                break;
-            }
-        }
-
-        if (state == STATE_DEATH || state == STATE_UNDERWATER_DEATH)
-            velocity.x = velocity.z = 0.0f;
     }
 
     virtual void updatePosition() { // TODO: sphere / bbox collision
-        if (level->isCutsceneLevel())
-            return;
-
-        // tilt control
-        vec2 vTilt(LARA_TILT_SPEED * Core::deltaTime, LARA_TILT_MAX);
-        if (stand == STAND_UNDERWATER)
-            vTilt *= 2.0f;
-        vTilt *= rotFactor.y;
-        bool VR = (Core::settings.detail.stereo == Core::Settings::STEREO_VR) && camera->firstPerson;
-        updateTilt((input & WALK) == 0 && (state == STATE_RUN || (state == STATE_STOP && animation.index == ANIM_LANDING) || stand == STAND_UNDERWATER) && !VR, vTilt.x, vTilt.y);
-
-        collisionOffset = vec3(0.0f);
-
-        if (checkCollisions() || (velocity + flowVelocity + collisionOffset).length2() >= 1.0f) { // TODO: stop & smash anim
-            vec3 oldPos = pos;
-
-            move();
-
-            statsDistDelta += (pos - oldPos).length();
-            while (statsDistDelta >= UNITS_PER_METER) {
-                statsDistDelta -= UNITS_PER_METER;
-                saveStats.distance++;
-            }
-        }
     }
 
     virtual vec3 getPos() {
         return level->isCutsceneLevel() ? getViewPoint() : pos;
     }
-
+/*
     bool checkCollisions() {
     // check static objects (TODO: check linked rooms?)
         const TR::Room &room = getRoom();
@@ -3546,7 +3373,7 @@ struct Lara : Character {
             if (sm.flags != 2) continue;
             Box meshBox;
             sm.getBox(true, m.rotation, meshBox);
-            meshBox.translate(vec3(float(m.x), float(m.y), float(m.z)));
+            meshBox.translate(vec3(float(m.pos.x), float(m.pos.y), float(m.pos.z)));
             if (!box.intersect(meshBox)) continue;
 
             collisionOffset += meshBox.pushOut2D(box);
@@ -3624,157 +3451,7 @@ struct Lara : Character {
         }
         return false;
     }
-
-    void move() {
-        vec3 vel = (velocity + flowVelocity) * Core::deltaTime * 30.0f + collisionOffset;
-        vec3 opos(pos), offset(0.0f);
-
-        float radius   = stand == STAND_UNDERWATER ? LARA_RADIUS_WATER : LARA_RADIUS;
-        int maxHeight  = stand == STAND_UNDERWATER ? LARA_HEIGHT_WATER : LARA_HEIGHT;
-        int minHeight  = 0;
-        int maxAscent  = 256 + 128;
-        int maxDescent = 0xFFFFFF;
-
-        int room = getRoomIndex();
-
-        if (state == STATE_WALK || state == STATE_BACK)
-            maxDescent = maxAscent;
-        if (state == STATE_STEP_LEFT || state == STATE_STEP_RIGHT)
-            maxAscent = maxDescent = 64;
-        if (stand == STAND_ONWATER) {
-            maxAscent = -2;
-            maxHeight =  0;
-            offset.y  = -1;
-        }
-
-        bool standHang = stand == STAND_HANG && state != STATE_HANG_UP && state != STATE_HANDSTAND;
-
-        if (standHang) {
-            maxHeight = 0;
-            maxAscent = maxDescent = 64;
-            offset    = getDir() * (LARA_RADIUS + 32.0f);
-            offset.y  -= LARA_HANG_OFFSET + 32;
-        }
-        if (stand == STAND_UNDERWATER) {
-            offset.y += LARA_HEIGHT_WATER * 0.5f;
-        }
-
-        collision = Collision(this, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
-
-        if (!standHang && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
-            float rot = TURN_WALL_Y * Core::deltaTime;
-            rotateY((collision.side == Collision::LEFT) ? rot : -rot);
-        }
-
-        if (standHang && collision.side != Collision::FRONT) {
-            offset.x = offset.z = 0.0f;
-            minHeight  = LARA_HANG_OFFSET;
-            maxDescent = 0xFFFFFF;
-            maxAscent  = -LARA_HANG_OFFSET;
-            vec3 p = pos;
-            collision  = Collision(this, room, p, offset, vec3(0.0f), radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
-            if (collision.side == Collision::FRONT)
-                pos = opos;
-        }
-
-        bool isLeftFoot = getLeadingFoot();
-
-        if (stand == STAND_UNDERWATER) {
-            if (collision.side == Collision::TOP)
-                rotateX(-TURN_WALL_X * Core::deltaTime);
-            if (collision.side == Collision::BOTTOM)
-                rotateX( TURN_WALL_X * Core::deltaTime);
-        }
-
-        if (stand == STAND_AIR && collision.side == Collision::TOP && velocity.y < 0.0f)
-            velocity.y = 30.0f;
-
-        if (collision.side == Collision::FRONT) {
-            float floor = collision.info[Collision::FRONT].floor;
-/*
-            switch (angleQuadrant(angleExt - angle.y)) {
-                case 0 : collision.side = Collision::FRONT; LOG("FRONT\n"); break;
-                case 1 : collision.side = Collision::RIGHT; LOG("RIGHT\n"); break;
-                case 2 : collision.side = Collision::BACK;  LOG("BACK\n");  break;
-                case 3 : collision.side = Collision::LEFT;  LOG("LEFT\n");  break;
-            }
 */
-            if (velocity.dot(getDir()) <= EPS) 
-                collision.side = Collision::NONE;
-
-        // hit the wall
-            switch (stand) {
-                case STAND_AIR :
-                    if (state == STATE_UP_JUMP || state == STATE_REACH || state == STATE_FALL_BACK)
-                        velocity.x = velocity.z = 0.0f;
-
-                    if (velocity.x != 0.0f || velocity.z != 0.0f) {
-                        animation.setAnim(ANIM_SMASH_JUMP);
-                        velocity.x = -velocity.x * 0.25f;
-                        velocity.z = -velocity.z * 0.25f;
-                        if (velocity.y < 0.0f)
-                            velocity.y = 30.0f;
-                    }
-                    break;
-                case STAND_GROUND :
-                case STAND_HANG   :
-                case STAND_WADE   :
-                    if (opos.y - floor > (256 * 3 - 128) && state == STATE_RUN) {
-                        if (input & ACTION) {
-                            animation.setAnim(isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT);
-                        } else {
-                            animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
-                        }
-                    } else if (stand == STAND_HANG)
-                        animation.setAnim(ANIM_HANG, -21);
-                    else if (state != STATE_ROLL_START && state != STATE_ROLL_END)
-                        animation.setAnim((state == STATE_RUN || state == STATE_WALK) ? (isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT) : ANIM_STAND);
-                    velocity.x = velocity.z = 0.0f;
-                    break;
-                case STAND_UNDERWATER :
-                    if (fabsf(angle.x) > TURN_WALL_X_CLAMP)
-                        rotateX(TURN_WALL_X * Core::deltaTime * sign(angle.x));
-                    else
-                        pos.y = opos.y;
-                    break;
-                default : ;// no smash animation
-            }
-        } else {
-            if (stand == STAND_GROUND) {
-                float floor = collision.info[Collision::NONE].floor;
-                float h = floor - opos.y;
-
-                if (h >= 128 && (state == STATE_WALK || state == STATE_BACK)) { // descend
-                    if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_DESCEND_LEFT : ANIM_WALK_DESCEND_RIGHT);
-                    if (state == STATE_BACK) animation.setAnim(isLeftFoot ? ANIM_BACK_DESCEND_LEFT : ANIM_BACK_DESCEND_RIGHT);
-                    pos.y = float(floor);
-                } else if (h > -1.0f) {
-                    pos.y = min(float(floor), pos.y + DESCENT_SPEED * Core::deltaTime);
-                } else if (h > -128) {
-                    pos.y = float(floor);
-                } else if (h >= -(256 + 128) && (state == STATE_RUN || state == STATE_WALK)) { // ascend
-                    if (state == STATE_RUN)  animation.setAnim(isLeftFoot ? ANIM_RUN_ASCEND_LEFT  : ANIM_RUN_ASCEND_RIGHT);
-                    if (state == STATE_WALK) animation.setAnim(isLeftFoot ? ANIM_WALK_ASCEND_LEFT : ANIM_WALK_ASCEND_RIGHT);
-                    pos.y = float(floor);
-                } else
-                    pos.y = float(floor);
-            }
-            collision.side = Collision::NONE;
-        }
-
-        if (dozy) stand = STAND_GROUND;
-        updateRoom();
-        if (stand == STAND_UNDERWATER && !(waterLevel == 0.0f && waterDepth == 0.0f) && pos.y <= waterLevel) {
-            if (waterLevel - pos.y < 256.0f) {
-                pos.y = waterLevel;
-                updateRoom();
-                stand = STAND_ONWATER;
-            } else
-                stand = STAND_AIR;
-        }
-        if (dozy) stand = STAND_UNDERWATER;
-    }
-
     virtual void applyFlow(TR::Camera &sink) {
         if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;
 
@@ -3815,24 +3492,24 @@ struct Lara : Character {
     }
 
     uint32 getMidasMask() {
-        if (state == STATE_MIDAS_USE)
+        if (state == STATE_MIDAS_USE) {
             return JOINT_MASK_ARM_L3 | JOINT_MASK_ARM_R3;
+        }
 
         uint32 mask = 0;
-        int frame = animation.frameIndex;
-        if (frame > 4  ) mask |= JOINT_MASK_LEG_L3 | JOINT_MASK_LEG_R3;
-        if (frame > 69 ) mask |= JOINT_MASK_LEG_L2;
-        if (frame > 79 ) mask |= JOINT_MASK_LEG_L1;
-        if (frame > 99 ) mask |= JOINT_MASK_LEG_R2;
-        if (frame > 119) mask |= JOINT_MASK_LEG_R1 | JOINT_MASK_HIPS;
-        if (frame > 134) mask |= JOINT_MASK_CHEST;
-        if (frame > 149) mask |= JOINT_MASK_ARM_L1;
-        if (frame > 162) mask |= JOINT_MASK_ARM_L2;
-        if (frame > 173) mask |= JOINT_MASK_ARM_L3;
-        if (frame > 185) mask |= JOINT_MASK_ARM_R1;
-        if (frame > 194) mask |= JOINT_MASK_ARM_R2;
-        if (frame > 217) mask |= JOINT_MASK_ARM_R3;
-        if (frame > 224) mask |= JOINT_MASK_HEAD;
+        if (frameIndex > 4  ) mask |= JOINT_MASK_LEG_L3 | JOINT_MASK_LEG_R3;
+        if (frameIndex > 69 ) mask |= JOINT_MASK_LEG_L2;
+        if (frameIndex > 79 ) mask |= JOINT_MASK_LEG_L1;
+        if (frameIndex > 99 ) mask |= JOINT_MASK_LEG_R2;
+        if (frameIndex > 119) mask |= JOINT_MASK_LEG_R1 | JOINT_MASK_HIPS;
+        if (frameIndex > 134) mask |= JOINT_MASK_CHEST;
+        if (frameIndex > 149) mask |= JOINT_MASK_ARM_L1;
+        if (frameIndex > 162) mask |= JOINT_MASK_ARM_L2;
+        if (frameIndex > 173) mask |= JOINT_MASK_ARM_L3;
+        if (frameIndex > 185) mask |= JOINT_MASK_ARM_R1;
+        if (frameIndex > 194) mask |= JOINT_MASK_ARM_R2;
+        if (frameIndex > 217) mask |= JOINT_MASK_ARM_R3;
+        if (frameIndex > 224) mask |= JOINT_MASK_HEAD;
         return mask;
     }
 
@@ -3859,12 +3536,9 @@ struct Lara : Character {
             }
         }
 
-        if (state == STATE_MIDAS_DEATH /* && Core::pass == Core::passCompose */) {
+        if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
-        /* catsuit test
-            game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
-            Core::updateLights();
-        */
+
             environment->bind(sEnvironment);
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
@@ -3872,62 +3546,224 @@ struct Lara : Character {
         }
     }
 
-#if 0
+#if 1
+    #define LARA_TURN_ACCEL         (2 * DEG2SHORT + DEG2SHORT / 4)
+    #define LARA_TURN_JUMP          (3 * DEG2SHORT)
+    #define LARA_TURN_VERY_SLOW     (2 * DEG2SHORT)
+    #define LARA_TURN_SLOW          (4 * DEG2SHORT)
+    #define LARA_TURN_MED           (6 * DEG2SHORT)
+    #define LARA_TURN_FAST          (8 * DEG2SHORT)
+    #define LARA_TILT_ACCEL         (DEG2SHORT + DEG2SHORT / 2)
+    #define LARA_TILT_MAX           (11 * DEG2SHORT)
+    #define LARA_STEP_HEIGHT        384
+    #define LARA_SMASH_HEIGHT       640
+    #define LARA_FLOAT_UP_SPEED     5
+    #define LARA_SWIM_FRICTION      6
+    #define LARA_SWIM_ACCEL         8
+    #define LARA_SWIM_SPEED_MIN     133
+    #define LARA_SWIM_SPEED_MAX     200
+    #define LARA_SWIM_TIMER         10  // 1/3 sec
+    #define LARA_SURF_FRICTION      4
+    #define LARA_SURF_ACCEL         8
+    #define LARA_SURF_SPEED_MAX     60
+    #define LARA_DIVE_SPEED         80
+
     enum WaterState {
-        WATER_STATE_NONE,
+        WATER_STATE_ABOVE,
         WATER_STATE_SURFACE,
-        WATER_STATE_DIVE
+        WATER_STATE_UNDER,
+        WATER_STATE_WADE,
     };
 
     WaterState waterState;
     bool       gravity;
 
-    struct V2POS {
-        int32 x, y, z;
+    enum CollisionType {
+        CT_NONE          = 0,
+        CT_FRONT         = (1 << 0),
+        CT_LEFT          = (1 << 1),
+        CT_RIGHT         = (1 << 2),
+        CT_CEILING       = (1 << 3),
+        CT_FRONT_CEILING = (1 << 4),
+        CT_FLOOR_CEILING = (1 << 5),
     };
 
-    struct V2ROT {
-        int16 x, y, z;
+    struct CollisionInfo {
+
+        enum SideType {
+            ST_MIDDLE,
+            ST_FRONT,
+            ST_LEFT,
+            ST_RIGHT,
+            ST_MAX
+        };
+
+        struct Side {
+            int32         floor;
+            int32         ceiling;
+            TR::SlantType slantType;
+        };
+
+        int16 *trigger;
+
+        Side m;
+        Side f;
+        Side l;
+        Side r;
+
+        int32 radius;
+
+        int32 gapPos;
+        int32 gapNeg;
+        int32 gapCeiling;
+
+        vec3i offset;
+        vec3i pos;
+
+        int16 angle;
+        int16 quadrant;
+
+        CollisionType type;
+
+        int8 slantX;
+        int8 slantZ;
+
+        bool enemyPush;
+        bool enemyHit;
+        bool staticHit;
+        bool stopOnSlant;
+        bool stopOnLava;
+
+        void setSide(SideType st, int32 floor, int32 ceiling, TR::SlantType slantType) {
+            if (st != ST_MIDDLE) {
+                if (stopOnSlant && floor < 0 && slantType == TR::SLANT_HIGH) {
+                    floor -= 0x7FFF;
+                } else if (stopOnSlant && floor > 0 && slantType == TR::SLANT_HIGH) {
+                    floor = 512;
+                } else if (stopOnLava && floor > 0 && trigger && TR::FloorData(*(uint16*)trigger).cmd.func == TR::FloorData::LAVA) {
+                    floor = 512;
+                }
+            }
+
+            Side *s = &m + st;
+            s->slantType = slantType;
+            s->floor     = floor;
+            s->ceiling   = ceiling;
+        }
     };
 
-    int32 v2angle;
-    V2POS v2pos;
-    V2ROT v2rot;
-    V2ROT v2torso;
-    V2ROT v2head;
+    CollisionInfo cinfo;
 
-    #define DEG2SHORT (256 * 256 / 360)
+    int16 v2angle;
+    vec3i v2pos;
+    vec3s v2rot;
+    vec3s v2torso;
+    vec3s v2head;
+    int32 v2floor;
+    int32 swimTimer;
 
     int32 nextState;
     int32 targetState;
     int32 hSpeed;
-    int32 vSpeed;
+    int32 vSpeed;   // vertical speed, but used as main speed while swim
     int32 vSpeedHack;
     int32 frameIndex;
     int32 animIndex;
+    int16 turnSpeed;
 
-    int32 getWaterHeightV2() {
-        //
+    int32 getWaterLevel() {
+        int16 waterRoomIndex = roomIndex;
+
+        TR::Room::Sector *sector = level->getWaterLevelSector(waterRoomIndex, v2pos.x, v2pos.z);
+
+        if (sector) {
+            return sector->ceiling * 256;
+        }
+
+        return TR::NO_VALUE;
     }
 
-    void setAnimV2(int32 animIndex) {
-        //
+    int32 getWaterDepth() {
+        int16 waterRoomIndex = roomIndex;
+
+        TR::Room::Sector *sector = level->getWaterLevelSector(waterRoomIndex, v2pos.x, v2pos.z);
+
+        if (sector) {
+            return level->getFloor(sector, v2pos.x, v2pos.y, v2pos.z) - (sector->ceiling * 256);
+        }
+
+        return TR::NO_VALUE;
     }
 
-    void updateRoomV2(int32 offset) {
-        //
+    void setAnimV2(int32 index, bool resetState, int32 frameOffset = 0) {
+        TR::Animation *anim = level->anims + index;
+
+        animIndex   = index;
+        frameIndex  = anim->frameStart + frameOffset;
+
+        if (resetState) {
+            state       = anim->state;
+            targetState = state;
+        }
+    }
+
+    void dive() {
+        setAnimV2(ANIM_SURF_DIVE, true);
+        v2rot.x = -45 * DEG2SHORT;
+        vSpeed = LARA_DIVE_SPEED;
+        waterState = WATER_STATE_UNDER;
+    }
+
+    void updateRoomV2(int32 height) {
+        int16 newRoomIndex = roomIndex;
+
+        TR::Room::Sector *sector = level->getSector(newRoomIndex, v2pos.x, v2pos.y + height, v2pos.z);
+
+        if (sector) {
+            v2floor = level->getFloor(sector, v2pos.x, v2pos.y + height, v2pos.z);
+            if (roomIndex != newRoomIndex) {
+                roomIndex = newRoomIndex;
+            }
+        }
     }
 
     void moveV2(int16 x, int16 y, int16 z) {
-        //
+        int32 s = phd_sin(v2rot.y);
+        int32 c = phd_cos(v2rot.y);
+
+        v2pos.x += (c * x + s * z) >> FIXED_SHIFT;
+        v2pos.y += y;
+        v2pos.z += (c * z - s * x) >> FIXED_SHIFT;
     }
 
     void playSoundV2(int16 cmd) {
-        //
+        if (!(level->version & TR::VER_TR1)) {
+            if ((cmd & 0x8000) && waterDepth <= 0.0f)
+                return;
+            if ((cmd & 0x4000) && waterDepth > 0.0f)
+                return;
+        }
+        game->playSound(cmd & 0x3FFF, pos, Sound::PAN);
     }
 
-    void applyEffectV2(int16 cmd) {
-        //
+    void applyEffectV2(int16 fx) {
+        switch (fx) {
+            case TR::Effect::ROTATE_180     : v2rot.y -= ANGLE_180; break;
+            case TR::Effect::FLOOR_SHAKE    : ASSERT(false);
+            case TR::Effect::LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
+            case TR::Effect::LARA_BUBBLES   : doBubbles(); break;
+            case TR::Effect::LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
+            case TR::Effect::DRAW_RIGHTGUN  : drawGun(true); break;
+            case TR::Effect::DRAW_LEFTGUN   : drawGun(false); break;
+            case TR::Effect::SHOT_RIGHTGUN  : game->addMuzzleFlash(this, LARA_RGUN_JOINT, LARA_RGUN_OFFSET, 1 + camera->cameraIndex); break;
+            case TR::Effect::SHOT_LEFTGUN   : game->addMuzzleFlash(this, LARA_LGUN_JOINT, LARA_LGUN_OFFSET, 1 + camera->cameraIndex); break;
+            case TR::Effect::MESH_SWAP_1    : 
+            case TR::Effect::MESH_SWAP_2    : 
+            case TR::Effect::MESH_SWAP_3    : Character::cmdEffect(fx);
+            case 26 : break; // TODO TR2 reset_hair
+            case 32 : break; // TODO TR3 footprint
+            default : LOG("unknown effect command %d (anim %d)\n", fx, animation.index); ASSERT(false);
+        }
     }
 
     void applyCommandsV2(bool effects) {
@@ -3947,7 +3783,7 @@ struct Lara : Character {
                 case TR::ANIM_CMD_JUMP :
                     if (!effects) {
                         if (vSpeedHack) {
-                            vSpeedHack = vSpeedHack;
+                            vSpeed = vSpeedHack;
                             vSpeedHack = 0;
                         } else {
                             vSpeed = ptr[0];
@@ -4000,7 +3836,7 @@ struct Lara : Character {
                 if (frameIndex >= range->low && frameIndex <= range->high) {
                     animIndex  = range->nextAnimation;
                     frameIndex = range->nextFrame;
-                    state      = targetState;
+                    state      = level->anims[animIndex].state;
                     return;
                 }
                 range++;
@@ -4008,7 +3844,7 @@ struct Lara : Character {
         }
     }
 
-    void animateV2() {
+    void processAnimation() {
         updateAnimationV2();
 
         const TR::Animation *anim = level->anims + animIndex;
@@ -4018,19 +3854,20 @@ struct Lara : Character {
             animIndex = anim->nextAnimation;
             frameIndex = anim->nextFrame;
             anim = level->anims + animIndex;
+            state = anim->state;
         }
 
         applyCommandsV2(true);
 
-        int32 speed = anim->speed.value + anim->accel.value * (frameIndex - anim->frameOffset);
+        int32 speed = anim->speed.value + anim->accel.value * (frameIndex - anim->frameStart);
 
         if (gravity) {
-            hSpeed -= (speed - anim->accel.value) >> 16;
-            hSpeed += (speed) >> 16;
+            hSpeed -= int16((speed - anim->accel.value) >> 16);
+            hSpeed += int16(speed >> 16);
             vSpeed += vSpeed < 128 ? GRAVITY : 1;
             v2pos.y += vSpeed;
         } else {
-            hSpeed = (speed) >> 16;
+            hSpeed = int16(speed >> 16);
         }
 
         v2pos.x += (phd_sin(v2angle) * hSpeed) >> FIXED_SHIFT;
@@ -4040,53 +3877,79 @@ struct Lara : Character {
     void updateV2() {
         TR::Room &room = getRoom();
 
+        int32 waterLevel = getWaterLevel();
+        int32 waterDist  = TR::NO_VALUE;
+
+        if (waterLevel != TR::NO_VALUE) {
+            waterDist = v2pos.y - waterLevel;
+        }
+
     // change water state
         switch (waterState) {
-            case WATER_STATE_NONE : {
-                if (room.flags.water) { // go dive
-                    waterState = WATER_STATE_DIVE;
-                    gravity = false;
-                    oxygen = LARA_MAX_OXYGEN;
+            case WATER_STATE_ABOVE : {
+                if (waterDist == TR::NO_VALUE || waterDist < LARA_WADE_MIN_DEPTH) {
+                    break;
+                }
 
-                    v2pos.y += 100;
-                    updateRoomV2(0);
-                    stopScreaming();
+                int32 waterDepth = getWaterDepth();
+                if (waterDepth > LARA_WADE_MAX_DEPTH - 256) {
+                    if (room.flags.water) { // go dive
+                        waterState = WATER_STATE_UNDER;
+                        gravity = false;
+                        oxygen = LARA_MAX_OXYGEN;
 
-                    if (state == STATE_SWAN_DIVE) {
-                        v2rot.x = -45 * DEG2SHORT;
-                        targetState = STATE_DIVE;
-                        animateV2();
-                        vSpeed *= 2;
-                        game->waterDrop(pos, 128.0f, 0.2f);
-                    } else if (state == STATE_FAST_DIVE) {
-                        v2rot.x = -85 * DEG2SHORT;
-                        targetState = STATE_DIVE;
-                        animateV2();
-                        vSpeed *= 2;
-                        game->waterDrop(pos, 128.0f, 0.2f);
-                    } else {
-                        v2rot.x = -45 * DEG2SHORT;
-                        setAnimV2(ANIM_WATER_FALL);
-                        targetState = STATE_SWIM;
-                        vSpeed = vSpeed * 3 / 2;
-                        game->waterDrop(pos, 256.0f, 0.2f);
-                    }
+                        v2pos.y += 100;
+                        updateRoomV2(0);
+                        stopScreaming();
 
-                    v2head.x = v2head.y = 0;
-                    v2torso.x = v2torso.y = 0;
+                        if (state == STATE_SWAN_DIVE) {
+                            v2rot.x = -45 * DEG2SHORT;
+                            targetState = STATE_DIVE;
+                            processAnimation();
+                            vSpeed *= 2;
+                            game->waterDrop(pos, 128.0f, 0.2f);
+                        } else if (state == STATE_FAST_DIVE) {
+                            v2rot.x = -85 * DEG2SHORT;
+                            targetState = STATE_DIVE;
+                            processAnimation();
+                            vSpeed *= 2;
+                            game->waterDrop(pos, 128.0f, 0.2f);
+                        } else {
+                            v2rot.x = -45 * DEG2SHORT;
+                            setAnimV2(ANIM_WATER_FALL, true);
+                            state       = STATE_DIVE; // TODO check necessary
+                            targetState = STATE_SWIM;
+                            vSpeed = vSpeed * 3 / 2;
+                            game->waterDrop(pos, 256.0f, 0.2f);
+                        }
+
+                        v2head.x = v2head.y = 0;
+                        v2torso.x = v2torso.y = 0;
                     
-                    waterSplash();
+                        waterSplash();
+                    }
+                } else if (waterDist > LARA_WADE_MIN_DEPTH) {
+                    waterState = WATER_STATE_WADE;
+                    if (!gravity) {
+                        targetState = STATE_STOP;
+                    }
                 }
                 break;
             }
             case WATER_STATE_SURFACE : {
                 if (!room.flags.water) {
-                    waterState = WATER_STATE_NONE;
-                    gravity = true;
+                    if (waterDist > LARA_WADE_MIN_DEPTH) {
+                        waterState = WATER_STATE_WADE;
+                        setAnimV2(ANIM_STAND_NORMAL, true);
+                        targetState = STATE_WADE;
+                        processAnimation();
+                    } else {
+                        waterState = WATER_STATE_ABOVE;
+                        setAnimV2(ANIM_FALL_FORTH, true);
+                        hSpeed = vSpeed / 4;
+                        gravity = true;
+                    }
 
-                    setAnimV2(ANIM_FALL_FORTH);
-
-                    hSpeed = vSpeed / 4;
                     vSpeed = 0;
                     v2rot.x = v2rot.z = 0;
                     v2head.x = v2head.y = 0;
@@ -4094,19 +3957,19 @@ struct Lara : Character {
                 }
                 break;
             }
-            case WATER_STATE_DIVE : {
-                if (!room.flags.water) {
-                    int32 waterHeight = getWaterHeightV2();
-                    if (abs(v2pos.y - waterHeight) < 128) {
+            case WATER_STATE_UNDER : {
+                if (!room.flags.water && !dozy) {
+                    if ((getWaterDepth() != TR::NO_VALUE) && abs(waterDist) < 256) {
                         waterState = WATER_STATE_SURFACE;
-                        v2pos.y = waterHeight + 1;
-                        setAnimV2(ANIM_TO_ONWATER);
+                        v2pos.y -= (waterDist - 1);
+                        setAnimV2(ANIM_SURF, true);
                         vSpeed = 0;
+                        swimTimer = LARA_SWIM_TIMER + 1; // block dive before we press jump button again
                         updateRoomV2(-LARA_HEIGHT / 2);
                         game->playSound(TR::SND_BREATH, pos, Sound::PAN | Sound::UNIQUE);
                     } else {
-                        waterState = WATER_STATE_NONE;
-                        setAnimV2(ANIM_FALL_FORTH);
+                        waterState = WATER_STATE_ABOVE;
+                        setAnimV2(ANIM_FALL_FORTH, true);
                         hSpeed = vSpeed / 4;
                         vSpeed = 0;
                         gravity = true;
@@ -4118,12 +3981,43 @@ struct Lara : Character {
                 }
                 break;
             }
+            case WATER_STATE_WADE : {
+                if (waterDist < LARA_WADE_MIN_DEPTH) {
+                    waterState = WATER_STATE_ABOVE;
+                    if (state == STATE_WADE) {
+                        targetState = STATE_RUN;
+                    }
+                } else if (waterDist > LARA_WADE_MAX_DEPTH) {
+                    waterState = WATER_STATE_SURFACE;
+                    v2pos.y -= (waterDist - 1);
+
+                    if (state == STATE_BACK) {
+                        setAnimV2(ANIM_SURF_BACK, true);
+                    } else if (state == STATE_STEP_RIGHT) {
+                        setAnimV2(ANIM_SURF_RIGHT, true);
+                    } else if (state == STATE_STEP_LEFT) {
+                        setAnimV2(ANIM_SURF_LEFT, true);
+                    } else {
+                        setAnimV2(ANIM_SURF_SWIM, true);
+                    }
+
+                    swimTimer = 0;
+                    vSpeed = 0;
+                    gravity = false;
+                    v2rot.x = v2rot.z = 0;
+                    v2head.x = v2head.y = 0;
+                    v2torso.x = v2torso.y = 0;
+                    updateRoomV2(0);
+                }
+                break;
+            }
         }
 
         switch (waterState) {
-            case WATER_STATE_NONE : {
+            case WATER_STATE_ABOVE : 
+            case WATER_STATE_WADE  : {
                 oxygen = LARA_MAX_OXYGEN;
-                updateNone();
+                updateAbove();
                 break;
             }
             case WATER_STATE_SURFACE : {
@@ -4133,43 +4027,2603 @@ struct Lara : Character {
                 updateSurface();
                 break;
             }
-            case WATER_STATE_DIVE : {
+            case WATER_STATE_UNDER : {
                 if (health >= 0.0f) {
                     oxygen = max(oxygen - 1, -1);
                     if (oxygen < 0) {
                         health -= 5;
                     }
                 }
-                updateDive();
+                updateUnder();
+                break;
+            }
+        }
+
+        if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
+            uint32 sparklesMask = getMidasMask();
+
+            if (state == STATE_MIDAS_DEATH) {
+                visibleMask = sparklesMask ^ 0xFFFFFFFF;
+            }
+
+            addSparks(sparklesMask);
+        }
+
+        if (waterState == WATER_STATE_UNDER) {
+            specular = LARA_MIN_SPECULAR;
+        } else if (specular > LARA_MIN_SPECULAR) {
+            specular = max(LARA_MIN_SPECULAR, specular - LARA_WET_TIMER * (1.0f / 30.0f));
+        }
+
+        updateCamera();
+    }
+
+    void unroll(int16 &angle, int32 degrees) {
+        if (angle < -degrees * DEG2SHORT) {
+            angle += degrees * DEG2SHORT;
+        } else if (angle > degrees * DEG2SHORT) {
+            angle -= degrees * DEG2SHORT;
+        } else {
+            angle = 0;
+        }
+    }
+
+    void unroll_smooth(int16 &angle, int32 degrees, int32 factor) {
+        if (abs(angle) >= degrees * DEG2SHORT) {
+            angle -= angle / factor;
+        } else {
+            angle = 0;
+        }
+    }
+
+    void updateAbove() {
+        cinfo.trigger     = NULL;
+        cinfo.radius      = LARA_RADIUS;
+        cinfo.pos         = v2pos;
+        cinfo.enemyPush   = true;
+        cinfo.enemyHit    = true;
+        cinfo.stopOnSlant = false;
+        cinfo.stopOnLava  = false;
+
+        processState();
+
+        if (camera->mode != Camera::MODE_LOOK) {
+            unroll_smooth(v2head.x, 2, 8);
+            unroll_smooth(v2head.y, 2, 8);
+            v2torso = v2head;
+        }
+
+        unroll(v2rot.z, 1);
+        unroll(turnSpeed, 2);
+        v2rot.y += turnSpeed;
+
+        processAnimation();
+
+        processCollisions();
+
+        updateRoomV2(-LARA_HEIGHT / 2);
+
+        updateWeaponV2();
+
+        checkTriggerV2(cinfo.trigger, false);
+    }
+
+    void updateSurface() {
+        cinfo.trigger     = NULL;
+        cinfo.radius      = LARA_RADIUS;
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -128;
+        cinfo.gapCeiling  = 100;
+        cinfo.pos      = v2pos;
+        cinfo.enemyPush   = false;
+        cinfo.enemyHit    = false;
+        cinfo.stopOnSlant = false;
+        cinfo.stopOnLava  = false;
+
+        processState();
+
+        if (camera->mode != Camera::MODE_LOOK) {
+            unroll_smooth(v2head.x, 3, 8);
+            unroll_smooth(v2head.y, 3, 8);
+            v2torso = v2head;
+        }
+
+        unroll(v2rot.z, 2);
+
+        updateFlowV2();
+
+        processAnimation();
+
+        v2pos.x += (phd_sin(v2angle) * vSpeed) >> 16; // TODO WHY vSpeed?
+        v2pos.z += (phd_cos(v2angle) * vSpeed) >> 16;
+
+        processCollisions();
+
+        updateRoomV2(100);
+
+        updateWeaponV2();
+
+        checkTriggerV2(cinfo.trigger, false);
+    }
+
+    void updateUnder() {
+        cinfo.trigger     = NULL;
+        cinfo.radius      = LARA_RADIUS_WATER;
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -LARA_HEIGHT_UW;
+        cinfo.gapCeiling  = LARA_HEIGHT_UW;
+        cinfo.pos      = v2pos;
+        cinfo.enemyPush   = false;
+        cinfo.enemyHit    = false;
+        cinfo.stopOnSlant = false;
+        cinfo.stopOnLava  = false;
+
+        processState();
+
+        unroll(v2rot.z, 2);
+
+        v2rot.x = clamp(int32(v2rot.x), -85 * DEG2SHORT, 85 * DEG2SHORT); // 100 for TR1?
+        v2rot.z = clamp(int32(v2rot.z), -22 * DEG2SHORT, 22 * DEG2SHORT);
+
+        unroll(turnSpeed, 2);
+        v2rot.y += turnSpeed;
+
+        updateFlowV2();
+        
+        processAnimation();
+
+        int32 c = phd_cos(v2rot.x);
+
+        v2pos.y -= (phd_sin(v2rot.x) * vSpeed) >> 16;
+        v2pos.x += (((phd_sin(v2rot.y) * vSpeed) >> 16) * c) >> FIXED_SHIFT;
+        v2pos.z += (((phd_cos(v2rot.y) * vSpeed) >> 16) * c) >> FIXED_SHIFT;
+        
+        processCollisions();
+
+        updateRoomV2(0);
+
+        updateWeaponV2();
+
+        checkTriggerV2(cinfo.trigger, false);
+    }
+
+    void updateFlowV2() {
+    }
+
+    void updateWeaponV2() {
+    }
+
+    void updateEnemyCollisionV2() {
+    }
+
+    void checkTriggerV2(int16 *trigger, bool hard) {
+    }
+
+    void processCollisions() {
+        updateEnemyCollisionV2();
+
+        (this->*cLaraHandlers[state])();
+    }
+
+    void processState() {
+        (this->*sLaraHandlers[state])();
+    }
+
+    int32 alignOffset(int32 a, int32 b) {
+        int32 ca = a / 1024;
+        int32 cb = b / 1024;
+
+        if (ca == cb) {
+            return 0;
+        }
+
+        a &= 1023;
+
+        if (ca < cb) {
+            return 1025 - a;
+        }
+
+        return -(a + 1);
+    }
+
+    bool collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height) {
+        cinfo.staticHit = false;
+        cinfo.offset    = vec3i(0);
+
+        BoxV2 objBox(v2pos - vec3i(cinfo.radius, height, cinfo.radius), 
+                     v2pos + vec3i(cinfo.radius, 0, cinfo.radius));
+
+    // TODO: check linked rooms
+        for (int j = 0; j < level->roomsCount; j++) {
+            const TR::Room &room = level->rooms[j];
+
+            for (int i = 0; i < room.meshesCount; i++) {
+                TR::Room::Mesh &m  = room.meshes[i];
+                TR::StaticMesh &sm = level->staticMeshes[m.meshIndex];
+
+                if (sm.flags & 1) continue;
+
+                BoxV2 meshBox = sm.getBox(true);
+                meshBox.rotate90(m.rotation.value / ANGLE_90);
+                meshBox.translate(m.pos);
+
+                if (!objBox.intersect(meshBox)) continue;
+
+                cinfo.offset = meshBox.pushOut2D(objBox);
+
+                bool flip = (cinfo.quadrant > 1);
+
+                if (cinfo.quadrant & 1) {
+                    if (abs(cinfo.offset.z) > cinfo.radius) {
+                        cinfo.offset.z = cinfo.pos.z - p.z;
+                        cinfo.type = CT_FRONT;
+                    } else if (cinfo.offset.z != 0) {
+                        cinfo.offset.x = 0;
+                        cinfo.type = ((cinfo.offset.z > 0) ^ flip) ? CT_RIGHT : CT_LEFT;
+                    } else {
+                        cinfo.offset = vec3i(0);
+                    }
+                } else {
+                    if (abs(cinfo.offset.x) > cinfo.radius) {
+                        cinfo.offset.x = cinfo.pos.x - p.x;
+                        cinfo.type = CT_FRONT;
+                    } else if (cinfo.offset.x != 0) {
+                        cinfo.offset.z = 0;
+                        cinfo.type = ((cinfo.offset.x > 0) ^ flip) ? CT_LEFT : CT_RIGHT;
+                    } else {
+                        cinfo.offset = vec3i(0);
+                    }
+                }
+
+                cinfo.staticHit = true;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void collideRoom(int32 height, int32 yOffset = 0) {
+        cinfo.type     = CT_NONE;
+        cinfo.offset   = vec3i(0, 0, 0);
+
+        vec3i p = v2pos;
+        p.y += yOffset;
+
+        int32 y = p.y - height;
+
+        int32 cy = y - 160;
+
+        TR::Room::Sector *sector;
+        int32 floor, ceiling;
+        int16 slant;
+        int16 *trigger;
+        TR::SlantType slantType;
+
+        #define CHECK_HEIGHT(v) {\
+            int16 dummyRoom = roomIndex;\
+            sector = level->getSector(dummyRoom, v.x, cy, v.z);\
+            floor = level->getFloor(sector, v.x, cy, v.z, &slantType, &slant, &trigger);\
+            if (floor != TR::NO_VALUE) floor -= p.y;\
+            ceiling = level->getCeiling(sector, v.x, cy, v.z);\
+            if (ceiling != TR::NO_VALUE) ceiling -= y;\
+        }
+
+    // middle
+        CHECK_HEIGHT(p);
+
+        cinfo.trigger = trigger;
+        {
+            TR::FloorData fd;
+            fd.value = slant;
+            cinfo.slantX = fd.slantX;
+            cinfo.slantZ = fd.slantZ;
+        }
+
+        cinfo.setSide(CollisionInfo::ST_MIDDLE, floor, ceiling, slantType);
+
+        vec3i f, l, r;
+        int32 R = cinfo.radius;
+
+        switch (cinfo.quadrant) {
+            case 0 : {
+                f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, R);
+                l = vec3i(-R, 0,  R);
+                r = vec3i( R, 0,  R);
+                break;
+            }
+            case 1 : {
+                f = vec3i( R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+                l = vec3i( R, 0,  R);
+                r = vec3i( R, 0, -R);
+                break;
+            }
+            case 2 : {
+                f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, -R);
+                l = vec3i( R, 0, -R);
+                r = vec3i(-R, 0, -R);
+                break;
+            }
+            case 3 : {
+                f = vec3i(-R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+                l = vec3i(-R, 0, -R);
+                r = vec3i(-R, 0,  R);
+                break;
+            }
+        }
+
+        f = f + p;
+        l = l + p;
+        r = r + p;
+
+        vec3i delta = cinfo.pos - p;
+
+    // front
+        CHECK_HEIGHT(f);
+        cinfo.setSide(CollisionInfo::ST_FRONT, floor, ceiling, slantType);
+
+    // left
+        CHECK_HEIGHT(l);
+        cinfo.setSide(CollisionInfo::ST_LEFT, floor, ceiling, slantType);
+
+    // right
+        CHECK_HEIGHT(r);
+        cinfo.setSide(CollisionInfo::ST_RIGHT, floor, ceiling, slantType);
+
+    // static objects
+        collideStatic(cinfo, p, height);
+
+    // check middle
+        if (cinfo.m.floor == TR::NO_VALUE) {
+            cinfo.offset = delta;
+            cinfo.type   = CT_FRONT;
+            return;
+        }
+
+        if (cinfo.m.floor <= cinfo.m.ceiling) {
+            cinfo.offset = delta;
+            cinfo.type   = CT_FLOOR_CEILING;
+            return;
+        }
+
+        if (cinfo.m.ceiling >= 0) {
+            cinfo.offset.y = cinfo.m.ceiling;
+            cinfo.type     = CT_CEILING;
+        }
+
+    // front
+        if (cinfo.f.floor > cinfo.gapPos || cinfo.f.floor < cinfo.gapNeg || cinfo.f.ceiling > cinfo.gapCeiling) {
+            if (cinfo.quadrant & 1) {
+                cinfo.offset.x = alignOffset(f.x, p.x);
+                cinfo.offset.z = delta.z;
+            } else {
+                cinfo.offset.x = delta.x;
+                cinfo.offset.z = alignOffset(f.z, p.z);
+            }
+            cinfo.type = CT_FRONT;
+            return;
+        }
+
+    // front ceiling
+        if (cinfo.f.ceiling >= cinfo.gapCeiling) {
+            cinfo.offset = delta;
+            cinfo.type   = CT_FRONT_CEILING;
+            return;
+        }
+
+    // left
+        if (cinfo.l.floor > cinfo.gapPos || cinfo.l.floor < cinfo.gapNeg) {
+            if (cinfo.quadrant & 1) {
+                cinfo.offset.z = alignOffset(l.z, f.z);
+            } else {
+                cinfo.offset.x = alignOffset(l.x, f.x);
+            }
+            cinfo.type = CT_LEFT;
+            return;
+        }
+
+    // right
+        if (cinfo.r.floor > cinfo.gapPos || cinfo.r.floor < cinfo.gapNeg) {
+            if (cinfo.quadrant & 1) {
+                cinfo.offset.z = alignOffset(r.z, f.z);
+            } else {
+                cinfo.offset.x = alignOffset(r.x, f.x);
+            }
+            cinfo.type = CT_RIGHT;
+            return;
+        }
+    }
+
+    void c_applyOffset() {
+        v2pos = v2pos + cinfo.offset;
+        cinfo.offset = vec3i(0, 0, 0);
+    }
+
+    int32 getFrames(const TR::AnimFrame *&frameA, const TR::AnimFrame *&frameB, int32 &frameRate) {
+        TR::Animation *anim = level->anims + animIndex;
+
+        frameRate = anim->frameRate;
+
+        int32 animFrame = frameIndex - anim->frameStart;
+        int32 keyframe = animFrame / frameRate;
+
+        frameA = animation.getFrame(anim, keyframe);
+        frameB = animation.getFrame(anim, keyframe + 1);
+
+        int32 mod = animFrame % frameRate;
+        if (mod == 0) {
+            return 0;
+        }
+
+        int32 next = (keyframe + 1) * frameRate;
+        if (next > anim->frameEnd) {
+            frameRate = anim->frameEnd - next + frameRate;
+        }
+
+        return mod;
+    }
+
+    TR::MinMax getBounds() {
+        const TR::AnimFrame *frameA, *frameB;
+        int32 frameRate;
+
+        int32 mod = getFrames(frameA, frameB, frameRate);
+
+        if (mod == 0) {
+            return frameA->box;
+        }
+
+        return frameA->box.lerp(frameB->box, mod, frameRate);
+    }
+
+    bool checkDeath() {
+        return health < 0; 
+    }
+
+    void getHeight(int16 angle, int32 radius, int16 *floor, int16 *ceiling, TR::SlantType *slantType) {
+        angle += v2rot.y;
+
+        vec3i p = v2pos;
+        p.x += (radius * phd_sin(angle)) >> FIXED_SHIFT;
+        p.z += (radius * phd_cos(angle)) >> FIXED_SHIFT;
+        p.y -= LARA_HEIGHT;
+
+        int16 frontRoomIndex = roomIndex;
+        TR::Room::Sector *sector = level->getSector(frontRoomIndex, p.x, p.y, p.z);
+
+        if (slantType) {
+            *slantType = TR::SLANT_NONE;
+        }
+
+        if (sector) {
+            if (floor && (*floor = level->getFloor(sector, p.x, p.y, p.z, slantType)) != TR::NO_VALUE) {
+                *floor -= v2pos.y;
+            }
+
+            if (ceiling && (*ceiling = level->getCeiling(sector, p.x, p.y, p.z)) != TR::NO_VALUE) {
+                *ceiling -= p.y;
+            }
+        } else {
+            if (floor) {
+                *floor = TR::NO_VALUE;
+            }
+
+            if (ceiling) {
+                *ceiling = TR::NO_VALUE;
+            }
+        }
+    }
+
+    int16 getFloor(int32 angle, int16 radius) {
+        int16 floor;
+        getHeight(angle, radius, &floor, NULL, NULL);
+        return floor;
+    }
+
+    int16 getCeiling(int32 angle, int16 radius) {
+        int16 ceiling;
+        getHeight(angle, radius, NULL, &ceiling, NULL);
+        return ceiling;
+    }
+    
+// state handlers
+    void s_ignoreEnemy() { // should be called from state process, before collision check with enemies
+        cinfo.enemyPush = false;
+        cinfo.enemyHit  = false;
+    }
+
+    void s_rotate(int32 maxSpeed, int32 tilt = 0) {
+        tilt *= LARA_TILT_ACCEL;
+
+        if (input & LEFT) {
+            turnSpeed = max(turnSpeed - LARA_TURN_ACCEL, -maxSpeed);
+            v2rot.z = max(v2rot.z - tilt, -LARA_TILT_MAX);
+        } else if (input & RIGHT) {
+            turnSpeed = min(turnSpeed + LARA_TURN_ACCEL, maxSpeed);
+            v2rot.z = min(v2rot.z + tilt, LARA_TILT_MAX);
+        }
+    }
+
+    bool s_checkFall() {
+        if (vSpeed > 131) {
+            if (state == STATE_SWAN_DIVE) {
+                targetState = STATE_FAST_DIVE;
+            } else {
+                targetState = STATE_FALL;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    void s_checkWalk(int32 stopState = STATE_STOP) {
+        if ((input & FORTH) && s_checkFront(ANGLE_0)) {
+            if (waterState == WATER_STATE_WADE) {
+                targetState = STATE_WADE;
+            } else {
+                if (input & WALK) {
+                    targetState = STATE_WALK;
+                } else {
+                    targetState = STATE_RUN;
+                }
+            }
+        } else {
+            targetState = stopState;
+        }
+    }
+
+    bool s_checkRoll() {
+        if ((waterState != WATER_STATE_ABOVE) && (waterState != WATER_STATE_UNDER)) {
+            return false;
+        }
+
+        bool roll = (input & (FORTH | BACK)) == (FORTH | BACK);
+
+        if ((waterState == WATER_STATE_ABOVE) && roll) {
+            if ((state == STATE_RUN) || (state == STATE_STOP)) {
+                setAnimV2(ANIM_STAND_ROLL_BEGIN, true, 2);
+                targetState = STATE_STOP;
+                return true;
+            }
+        }
+
+        if (level->version & TR::VER_TR1) {
+            return false;
+        }
+
+        if ((waterState == WATER_STATE_UNDER) && roll) {
+            setAnimV2(ANIM_UW_ROLL, true);
+            targetState = STATE_SWIM;
+            return true;
+        }
+
+        if (waterState == WATER_STATE_ABOVE) {
+            if (targetState != state) {
+                return false;
+            }
+
+            if (((state == STATE_FAST_DIVE)    && roll) ||
+                ((state == STATE_FORWARD_JUMP) && (input & BACK)) ||
+                ((state == STATE_BACK_JUMP)    && (input & FORTH)))
+            {
+                targetState = STATE_AIR_ROLL;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void s_turnUW() {
+        if (input & FORTH) {
+            v2rot.x -= 2 * DEG2SHORT;
+        } else if (input & BACK) {
+            v2rot.x += 2 * DEG2SHORT;
+        }
+
+        if (input & LEFT) {
+            turnSpeed = max(turnSpeed - LARA_TURN_ACCEL, -LARA_TURN_MED);
+            v2rot.z -= LARA_TILT_ACCEL * 2;
+        } else if (input & RIGHT) {
+            turnSpeed = min(turnSpeed + LARA_TURN_ACCEL,  LARA_TURN_MED);
+            v2rot.z += LARA_TILT_ACCEL * 2;
+        }
+    }
+
+    bool s_checkFront(int16 angle) {
+        CollisionInfo tmp = cinfo;
+        int16 tmpAngle = v2angle;
+
+        c_angle(angle);
+        cinfo.radius = LARA_RADIUS + 4;
+
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.stopOnSlant = true;
+        cinfo.gapCeiling  = 0;
+
+        if ((angle == -ANGLE_180) && ((input & WALK) || (waterState == WATER_STATE_WADE))) {
+            cinfo.gapPos = LARA_STEP_HEIGHT;
+        }
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        bool collide = (cinfo.type == CT_FRONT) || (cinfo.type == CT_FRONT_CEILING);
+
+        cinfo = tmp;
+        v2angle = tmpAngle;
+
+        return !collide;
+    }
+
+    S_HANDLER(STATE_WALK) {
+        if (checkDeath()) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        s_rotate(LARA_TURN_SLOW);
+
+        s_checkWalk();
+    }
+
+    S_HANDLER(STATE_RUN) {
+        if (checkDeath()) {
+            targetState = STATE_DEATH;
+            return;
+        }
+
+        if (s_checkRoll()) {
+            return;
+        }
+
+        s_rotate(LARA_TURN_FAST, 1);
+        
+        if (state == STATE_RUN) {
+            if (animIndex == ANIM_RUN_START) {
+                canJump = false;
+            } else if (animIndex == ANIM_RUN) {
+                if (frameIndex == 4) {
+                    canJump = true;
+                }
+            } else {
+                canJump = true;
+            }
+        }
+
+        if ((input & JUMP) && canJump && !gravity) {
+            targetState = STATE_FORWARD_JUMP;
+        } else {
+            s_checkWalk();
+        }
+    }
+    
+    S_HANDLER(STATE_STOP) {
+        if (checkDeath()) {
+            targetState = STATE_DEATH;
+            return;
+        }
+
+        if (s_checkRoll()) {
+            return;
+        }
+
+        if ((input & (FORTH | ACTION)) == (FORTH | ACTION)) {
+            c_angle(ANGLE_0);
+            cinfo.radius = LARA_RADIUS + 4;
+            c_default();
+            cinfo.radius = LARA_RADIUS;
+            if (c_checkClimbUp()) {
+                return;
+            }
+        }
+
+        if (input & WALK) {
+            if ((input & LEFT) && s_checkFront(-ANGLE_90)) {
+                targetState = STATE_STEP_LEFT;
+            } else if ((input & RIGHT) && s_checkFront(ANGLE_90)) {
+                targetState = STATE_STEP_RIGHT;
+            }
+        } else {
+            if (input & LEFT) {
+                targetState = STATE_TURN_LEFT;
+            } else if (input & RIGHT) {
+                targetState = STATE_TURN_RIGHT;
+            }
+        }
+
+        if (waterState == WATER_STATE_WADE) {
+
+            if (input & JUMP) {
+                targetState = STATE_COMPRESS;
+            } else if ((input & FORTH) && s_checkFront(ANGLE_0)) {
+                if (input & WALK) {
+                    s_STATE_WADE();
+                } else {
+                    s_STATE_WALK();
+                }
+            } else if ((input & BACK) && s_checkFront(-ANGLE_180)) {
+                s_STATE_BACK();
+            }
+
+        } else {
+
+            if (input & JUMP) {
+                targetState = STATE_COMPRESS;
+            } else if ((input & FORTH) && s_checkFront(ANGLE_0)) {
+                if (input & WALK) {
+                    s_STATE_WALK();
+                } else {
+                    s_STATE_RUN();
+                }
+            } else if ((input & BACK) && s_checkFront(-ANGLE_180)) {
+                if (input & WALK) {
+                    s_STATE_BACK();
+                } else {
+                    targetState = STATE_FAST_BACK;
+                }
+            }
+
+        }
+    }
+
+    S_HANDLER(STATE_FORWARD_JUMP) {
+        if (targetState == STATE_SWAN_DIVE || targetState == STATE_REACH) {
+            targetState = STATE_FORWARD_JUMP;
+        }
+    
+        if (targetState != STATE_DEATH && targetState != STATE_STOP && targetState != STATE_RUN) {
+            if (input & ACTION) {
+                targetState = STATE_REACH;
+            }
+            if (input & WALK) {
+                targetState = STATE_SWAN_DIVE;
+            }
+            s_checkRoll();
+            s_checkFall();
+        }
+
+        s_rotate(LARA_TURN_JUMP);
+    }
+
+    S_HANDLER(STATE_POSE) {
+        // empty
+    }
+
+    S_HANDLER(STATE_FAST_BACK) {
+        s_rotate(LARA_TURN_MED);
+        targetState = STATE_STOP;
+    }
+    
+    S_HANDLER(STATE_TURN_RIGHT) {
+        if (checkDeath() || (input & LOOK)) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        turnSpeed += LARA_TURN_ACCEL;
+
+        if (turnSpeed > LARA_TURN_SLOW) {
+            targetState = STATE_FAST_TURN;
+        }
+
+        s_checkWalk((input & RIGHT) ? targetState : STATE_STOP);
+    }
+
+    S_HANDLER(STATE_TURN_LEFT) {
+        if (checkDeath() || (input & LOOK)) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        turnSpeed -= LARA_TURN_ACCEL;
+
+        if (turnSpeed < -LARA_TURN_SLOW) {
+            targetState = STATE_FAST_TURN;
+        }
+
+        s_checkWalk((input & LEFT) ? targetState : STATE_STOP);
+    }
+
+    S_HANDLER(STATE_DEATH) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_FALL) {
+        hSpeed = (hSpeed * 95) / 100;
+        if (vSpeed >= 154) {
+            startScreaming();
+        }
+    }
+
+    S_HANDLER(STATE_HANG) {
+        s_ignoreEnemy();
+        if (input & LEFT) {
+            targetState = STATE_HANG_LEFT;
+        } else if (input & RIGHT) {
+            targetState = STATE_HANG_RIGHT;
+        }
+    }
+
+    S_HANDLER(STATE_REACH) {
+        s_checkFall();
+    }
+
+    S_HANDLER(STATE_SPLAT) {
+        // empty
+    }
+
+    S_HANDLER(STATE_TREAD) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        if (s_checkRoll()) {
+            return;
+        }
+
+        s_turnUW();
+
+        if (input & JUMP) {
+            targetState = STATE_SWIM;
+        }
+
+        vSpeed = max(vSpeed - LARA_SWIM_FRICTION, 0);
+    }
+    
+    S_HANDLER(STATE_LAND) {
+        // empty
+    }
+
+    S_HANDLER(STATE_COMPRESS) {
+        if (waterState == WATER_STATE_WADE) {
+            // up jump
+        } else {
+            if ((input & FORTH) && getFloor(0, 256) >= -LARA_STEP_HEIGHT) {
+                targetState = STATE_FORWARD_JUMP;
+            } else if ((input & LEFT) && getFloor(-ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
+                targetState = STATE_LEFT_JUMP;
+            } else if ((input & RIGHT) && getFloor(ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
+                targetState = STATE_RIGHT_JUMP;
+            } else if ((input & BACK) && getFloor(-ANGLE_180, 256) >= -LARA_STEP_HEIGHT) {
+                targetState = STATE_BACK_JUMP;
+            }
+        }
+        s_checkFall();
+    }
+
+    S_HANDLER(STATE_BACK) {
+        if (checkDeath()) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        if ((input & BACK) && ((input & WALK) || (waterState == WATER_STATE_WADE))) {
+            targetState = STATE_BACK;
+        } else {
+            targetState = STATE_STOP;
+        }
+
+        s_rotate(LARA_TURN_SLOW);
+    }
+
+    S_HANDLER(STATE_SWIM) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        if (s_checkRoll()) {
+            return;
+        }
+
+        s_turnUW();
+
+        vSpeed = min(vSpeed + LARA_SWIM_ACCEL, LARA_SWIM_SPEED_MAX);
+
+        if (!(input & JUMP)) {
+            targetState = STATE_GLIDE;
+        }
+    }
+
+    S_HANDLER(STATE_GLIDE) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        if (s_checkRoll()) {
+            return;
+        }
+
+        s_turnUW();
+
+        if (input & JUMP) {
+            targetState = STATE_SWIM;
+        }
+
+        vSpeed = max(vSpeed - LARA_SWIM_FRICTION, 0);
+
+        if (vSpeed <= LARA_SWIM_SPEED_MIN) {
+            targetState = STATE_TREAD;
+        }
+    }
+
+    S_HANDLER(STATE_HANG_UP) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_FAST_TURN) {
+        if (checkDeath() || (input & LOOK)) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        if (turnSpeed < 0) {
+            turnSpeed = -LARA_TURN_FAST;
+            if (!(input & LEFT)) {
+                targetState = STATE_STOP;
+            }
+        } else {
+            turnSpeed = LARA_TURN_FAST;
+            if (!(input & RIGHT)) {
+                targetState = STATE_STOP;
+            }
+        }
+    }
+
+    S_HANDLER(STATE_STEP_RIGHT) {
+        if (checkDeath() || (input & (WALK | RIGHT)) != (WALK | RIGHT)) {
+            targetState = STATE_STOP;
+        }
+    }
+
+    S_HANDLER(STATE_STEP_LEFT) {
+        if (checkDeath() || (input & (WALK | LEFT)) != (WALK | LEFT)) {
+            targetState = STATE_STOP;
+        }
+    }
+
+    S_HANDLER(STATE_ROLL_END) {
+        // empty
+    }
+
+    S_HANDLER(STATE_SLIDE) {
+        if (input & JUMP) {
+            targetState = STATE_FORWARD_JUMP;
+        }
+    }
+
+    S_HANDLER(STATE_BACK_JUMP) {
+        if (s_checkFall()) {
+            return;
+        }
+
+        if (targetState == STATE_RUN) {
+            targetState = STATE_STOP;
+        } else {
+            s_checkRoll();
+        }
+    }
+
+    S_HANDLER(STATE_RIGHT_JUMP) {
+        if (s_checkFall()) {
+            return;
+        }
+        s_checkRoll();
+    }
+
+    S_HANDLER(STATE_LEFT_JUMP) {
+        if (s_checkFall()) {
+            return;
+        }
+        s_checkRoll();
+    }
+
+    S_HANDLER(STATE_UP_JUMP) {
+        s_checkFall();
+    }
+
+    S_HANDLER(STATE_FALL_BACK) {
+        s_checkFall();
+        if (input & ACTION) {
+            targetState = STATE_REACH;
+        }
+    }
+
+    S_HANDLER(STATE_HANG_LEFT) {
+        s_ignoreEnemy();
+        if (!(input & LEFT)) {
+            targetState = STATE_HANG;
+        }
+    }
+
+    S_HANDLER(STATE_HANG_RIGHT) {
+        s_ignoreEnemy();
+        if (!(input & RIGHT)) {
+            targetState = STATE_HANG;
+        }
+    }
+
+    S_HANDLER(STATE_SLIDE_BACK) {
+        if (input & JUMP) {
+            targetState = STATE_BACK_JUMP;
+        }
+    }
+
+    S_HANDLER(STATE_SURF_TREAD) {
+        vSpeed = max(vSpeed - LARA_SURF_FRICTION, 0);
+
+        if (input & LEFT) {
+            v2rot.y -= LARA_TURN_SLOW;
+        } else if (input & RIGHT) {
+            v2rot.y += LARA_TURN_SLOW;
+        }
+
+        if (input & FORTH) {
+            targetState = STATE_SURF_SWIM;
+        } else if (input & BACK) {
+            targetState = STATE_SURF_BACK;
+        } else if ((input & (WALK | LEFT)) == (WALK | LEFT)) {
+            targetState = STATE_SURF_LEFT;
+        } else if ((input & (WALK | RIGHT)) == (WALK | RIGHT)) {
+            targetState = STATE_SURF_RIGHT;
+        }
+
+        if (input & JUMP) {
+            swimTimer++;
+            if (swimTimer == LARA_SWIM_TIMER) {
+                dive();
+            }
+        } else {
+            swimTimer = 0;
+        }
+    }
+
+    S_HANDLER(STATE_SURF_SWIM) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        swimTimer = 0;
+
+        if (input & LEFT) {
+            v2rot.y -= LARA_TURN_SLOW;
+        } else if (input & RIGHT) {
+            v2rot.y += LARA_TURN_SLOW;
+        }
+
+        if (!(input & FORTH) || (input & JUMP)) {
+            targetState = STATE_SURF_TREAD;
+        }
+
+        vSpeed = min(vSpeed + LARA_SURF_ACCEL, LARA_SURF_SPEED_MAX);
+    }
+    
+    S_HANDLER(STATE_DIVE) {
+        if (input & FORTH) {
+            v2rot.x -= ANGLE_1;
+        }
+    }
+
+    S_HANDLER(STATE_PUSH_BLOCK) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_PULL_BLOCK) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_PUSH_PULL_READY) {
+        s_ignoreEnemy();
+        if (!(input & ACTION)) {
+            targetState = STATE_STOP;
+        }
+    }
+
+    S_HANDLER(STATE_PICK_UP) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_SWITCH_DOWN) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_SWITCH_UP) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_USE_KEY) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_USE_PUZZLE) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_UW_DEATH) {
+        vSpeed = max(vSpeed - LARA_SWIM_ACCEL, 0);
+        unroll(v2rot.x, 2);
+    }
+
+    S_HANDLER(STATE_ROLL_START) {
+        // empty
+    }
+
+    S_HANDLER(STATE_SPECIAL) {
+        // empty
+    }
+
+    S_HANDLER(STATE_SURF_BACK) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        swimTimer = 0;
+
+        if (input & LEFT) {
+            v2rot.y -= LARA_TURN_VERY_SLOW;
+        } else if (input & RIGHT) {
+            v2rot.y += LARA_TURN_VERY_SLOW;
+        }
+
+        if (!(input & BACK)) {
+            targetState = STATE_SURF_TREAD;
+        }
+
+        vSpeed = min(vSpeed + LARA_SURF_ACCEL, LARA_SURF_SPEED_MAX);
+    }
+
+    S_HANDLER(STATE_SURF_LEFT) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        swimTimer = 0;
+
+        if ((input & (WALK | LEFT)) != (WALK | LEFT)) {
+            targetState = STATE_SURF_TREAD;
+        }
+
+        vSpeed = min(vSpeed + LARA_SURF_ACCEL, LARA_SURF_SPEED_MAX);
+    }
+
+    S_HANDLER(STATE_SURF_RIGHT) {
+        if (checkDeath()) {
+            targetState = STATE_UW_DEATH;
+            return;
+        }
+
+        swimTimer = 0;
+
+        if ((input & (WALK | RIGHT)) != (WALK | RIGHT)) {
+            targetState = STATE_SURF_TREAD;
+        }
+
+        vSpeed = min(vSpeed + LARA_SURF_ACCEL, LARA_SURF_SPEED_MAX);
+    }
+
+    S_HANDLER(STATE_MIDAS_USE) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_MIDAS_DEATH) {
+        s_ignoreEnemy();
+        gravity = false;
+    }
+
+    S_HANDLER(STATE_SWAN_DIVE) {
+        cinfo.enemyPush = true;
+        cinfo.enemyHit  = false;
+        s_checkFall();
+    }
+
+    S_HANDLER(STATE_FAST_DIVE) {
+        cinfo.enemyPush = true;
+        cinfo.enemyHit  = false;
+        hSpeed = (hSpeed * 95) / 100;
+        s_checkRoll();
+    }
+
+    S_HANDLER(STATE_HANDSTAND) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_WATER_OUT) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_CLIMB_START) {
+        s_ignoreEnemy();
+        if (input & LEFT) {
+            targetState = STATE_CLIMB_LEFT;
+        } else if (input & RIGHT) {
+            targetState = STATE_CLIMB_RIGHT;
+        } else if (input & JUMP) {
+            targetState = STATE_BACK_JUMP;
+            c_angle(-ANGLE_180);
+        }
+    }
+
+    S_HANDLER(STATE_CLIMB_UP) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_CLIMB_LEFT) {
+        s_ignoreEnemy();
+
+        if (!(input & LEFT)) {
+            targetState = STATE_CLIMB_START;
+        }
+    }
+
+    S_HANDLER(STATE_CLIMB_END) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_CLIMB_RIGHT) {
+        s_ignoreEnemy();
+
+        if (!(input & LEFT)) {
+            targetState = STATE_CLIMB_START;
+        }
+    }
+
+    S_HANDLER(STATE_CLIMB_DOWN) {
+        s_ignoreEnemy();
+    }
+
+    S_HANDLER(STATE_UNUSED_1) {
+        // empty
+    }
+
+    S_HANDLER(STATE_UNUSED_2) {
+        // empty
+    }
+
+    S_HANDLER(STATE_UNUSED_3) {
+        // empty
+    }
+
+    S_HANDLER(STATE_WADE) {
+        if (checkDeath()) {
+            targetState = STATE_STOP;
+            return;
+        }
+
+        s_rotate(LARA_TURN_FAST, 1);
+        
+        if (input & FORTH) {
+            targetState = (waterState == WATER_STATE_ABOVE) ? STATE_RUN : STATE_WADE;
+        } else {
+            targetState = STATE_STOP;
+        }
+    }
+
+    S_HANDLER(STATE_UW_ROLL) {
+        vSpeed = 0;
+    }
+    
+    S_HANDLER(STATE_PICKUP_FLARE) {}
+
+    S_HANDLER(STATE_AIR_ROLL) {
+        // empty
+    }
+
+    S_HANDLER(STATE_UNUSED_5) {
+        // empty
+    }
+
+    S_HANDLER(STATE_ZIPLINE) {
+        // TODO checkTriggerV2();
+
+        if (!(input & ACTION)) {
+            targetState = STATE_FORWARD_JUMP;
+            hSpeed  = 100;
+            vSpeed  = 40;
+            gravity = true;
+        }
+    }
+
+    S_HANDLER(STATE_DUCK) {}
+    S_HANDLER(STATE_DUCK_ROLL) {}
+    S_HANDLER(STATE_DASH) {}
+    S_HANDLER(STATE_DASH_DIVE) {}
+    S_HANDLER(STATE_MONKEYSWING_IDLE) {}
+    S_HANDLER(STATE_MONKEYSWING) {}
+
+
+// collision handlers
+    bool alignAngle(int16 &angle, int16 threshold) {
+        if (angle >= -threshold && angle <= threshold) {
+            angle = 0;
+        } else if (angle >= ANGLE_90 - threshold && angle <= ANGLE_90 + threshold) {
+            angle = ANGLE_90;
+        } else if (angle >= -ANGLE_90 - threshold && angle <= -ANGLE_90 + threshold) {
+            angle = -ANGLE_90;
+        } else if (angle >= (ANGLE_180 - 1) - threshold || angle <= -(ANGLE_180 - 1) + threshold) {
+            angle = -ANGLE_180;
+        }
+
+        return (angle & (ANGLE_90 - 1)) > 0;
+    }
+
+    void alignWall() {
+        int x = (~1023) & v2pos.x;
+        int z = (~1023) & v2pos.z;
+
+        switch (v2rot.y) {
+            case  ANGLE_0   : v2pos.z = z + 1024 + LARA_RADIUS; break;
+            case  ANGLE_90  : v2pos.x = x + 1024 + LARA_RADIUS; break;
+            case -ANGLE_90  : v2pos.x = x - LARA_RADIUS; break;
+            case -ANGLE_180 : v2pos.z = z - LARA_RADIUS; break;
+            default         : ASSERT(false);
+        }
+    }
+
+    void c_angle(int32 angleDelta) {
+        v2angle = v2rot.y + angleDelta;
+
+        cinfo.angle    = v2angle;
+        cinfo.quadrant = uint16(cinfo.angle + ANGLE_45) / ANGLE_90;
+    }
+
+    bool c_checkCeiling() {
+        if (cinfo.type != CT_CEILING && cinfo.type != CT_FLOOR_CEILING) {
+            return false;
+        }
+
+        setAnimV2(ANIM_STAND, true);
+        targetState = state;
+        hSpeed      = 0;
+        vSpeed      = 0;
+        gravity     = false;
+        v2pos       = cinfo.pos;
+
+        return true;
+    }
+
+    bool c_checkWall() {
+        if (cinfo.type == CT_FRONT || cinfo.type == CT_FRONT_CEILING) {
+            c_applyOffset();
+            targetState = STATE_STOP;
+            hSpeed      = 0;
+            gravity     = false;
+            return true;
+        }
+
+        if (cinfo.type == CT_LEFT) {
+            c_applyOffset();
+            v2rot.y += 5 * DEG2SHORT;
+            unroll(v2rot.z, 2);
+        } else if (cinfo.type == CT_RIGHT) {
+            c_applyOffset();
+            v2rot.y -= 5 * DEG2SHORT;
+            unroll(v2rot.z, 2);
+        }
+
+        return false;
+    }
+
+    bool c_checkWallUW() {
+        if (cinfo.type == CT_FRONT) {
+            if (v2rot.x > 35 * DEG2SHORT) {
+                v2rot.x += 2 * DEG2SHORT;
+            } else if (v2rot.x < -35 * DEG2SHORT) {
+                v2rot.x -= 2 * DEG2SHORT;
+            } else {
+                vSpeed = 0;
+            }
+        } else if (cinfo.type == CT_CEILING) {
+            if (v2rot.x >= -45 * DEG2SHORT) {
+                v2rot.x -= 2 * DEG2SHORT;
+            }
+        } else if (cinfo.type == CT_FRONT_CEILING) {
+            vSpeed = 0;
+        } else if (cinfo.type == CT_LEFT) {
+            v2rot.y += 5 * DEG2SHORT;
+        } else if (cinfo.type == CT_RIGHT) {
+            v2rot.y -= 5 * DEG2SHORT;
+        } else if (cinfo.type == CT_FLOOR_CEILING) {
+            v2pos = cinfo.pos;
+            vSpeed = 0;
+            return true;
+        }
+
+        if (cinfo.m.floor < 0) {
+            v2pos.y += cinfo.m.floor;
+            v2rot.x += 2 * DEG2SHORT;
+        }
+
+        if (dozy) {
+            return false;
+        }
+
+        int32 waterDepth = getWaterDepth();
+
+        if (waterDepth == TR::NO_VALUE) {
+            vSpeed = 0;
+            v2pos = cinfo.pos;
+        } else if (waterDepth <= 512) {
+            waterState = WATER_STATE_WADE;
+
+            setAnimV2(ANIM_SWIM_STAND, true);
+            targetState = STATE_STOP;
+
+            v2rot.x = 0;
+            v2rot.z = 0;
+            gravity = false;
+            hSpeed  = 0;
+            vSpeed  = 0;
+
+            int16 waterRoomIndex = roomIndex;
+            TR::Room::Sector *sector = level->getSector(waterRoomIndex, v2pos.x, v2pos.y, v2pos.z);
+            v2pos.y = level->getFloor(sector, v2pos.x, v2pos.y, v2pos.z);
+        }
+
+        return false;
+    }
+
+    bool c_checkWallSurf() {
+        if ((cinfo.m.floor < 0 && cinfo.m.slantType == TR::SLANT_HIGH) || (cinfo.type & (CT_FRONT | CT_CEILING | CT_FRONT_CEILING | CT_FLOOR_CEILING))) {
+            v2pos  = cinfo.pos;
+            vSpeed = 0;
+        } else if (cinfo.type == CT_LEFT) {
+            v2rot.y += 5 * DEG2SHORT;
+        } else if (cinfo.type == CT_RIGHT) {
+            v2rot.y -= 5 * DEG2SHORT;
+        }
+
+        return true;
+    }
+
+    bool c_checkSlide() {
+        if (waterState == WATER_STATE_WADE) {
+            return false;
+        }
+
+        if (cinfo.m.slantType != TR::SLANT_HIGH) {
+            return false;
+        }
+
+        c_applyOffset();
+
+        int16 angle;
+
+        if (cinfo.slantX > 2) {
+            angle = -ANGLE_90;
+        } else if (cinfo.slantX < -2) {
+            angle =  ANGLE_90;
+        } else if (cinfo.slantZ > 2) {
+            angle = -ANGLE_180;
+        } else {
+            angle = 0;
+        }
+
+        if (abs(angle - v2rot.y) <= ANGLE_90) {
+            if (state != STATE_SLIDE) {
+                setAnimV2(ANIM_SLIDE_FORTH, true);
+            }
+            v2angle = angle;
+            v2rot.y = angle;
+        } else {
+            if (state != STATE_SLIDE_BACK) {
+                setAnimV2(ANIM_SLIDE_BACK, true);
+            }
+            v2angle = angle;
+            v2rot.y = angle - ANGLE_180;
+        }
+
+        return true;
+    }
+
+    bool c_checkFall(int32 height, int32 fallAnimIndex = ANIM_FALL_FORTH) {
+        if (waterState == WATER_STATE_WADE) {
+            return false;
+        }
+
+        if (cinfo.m.floor <= height) {
+            return false;
+        }
+
+        setAnimV2(fallAnimIndex, true);
+
+        vSpeed  = 0;
+        gravity = true;
+
+        return true;
+    }
+
+    bool c_checkLanding() {
+        if ((state == STATE_FAST_DIVE || state == STATE_AIR_ROLL) && vSpeed > 133) {
+            health = 0;
+            return true;
+        }
+
+        int32 y = v2pos.y;
+        v2pos.y += cinfo.m.floor;
+        v2floor = v2pos.y;
+
+        checkTriggerV2(cinfo.trigger, false);
+
+        v2pos.y = y;
+
+        if (vSpeed <= 140) {
+            return false;
+        }
+
+        if (vSpeed > 154) {
+            health = 0;
+        } else {
+            health -= (SQR(vSpeed - 140) * LARA_MAX_HEALTH) / 196;
+        }
+
+        return checkDeath();
+    }
+
+    bool c_checkSwing() {
+        int32 x = v2pos.x;
+        int32 y = v2pos.y;
+        int32 z = v2pos.z;
+        int16 r = roomIndex;
+
+        switch (v2rot.y) {
+            case  ANGLE_0   : z += 256; break;
+            case  ANGLE_90  : x += 256; break;
+            case -ANGLE_90  : x -= 256; break;
+            case -ANGLE_180 : z -= 256; break;
+        }
+
+        TR::Room::Sector *sector = level->getSector(r, x, y, z);
+        int32 floor = level->getFloor(sector, x, y, z);
+
+        if (floor != TR::NO_VALUE) {
+            int32 ceiling = level->getCeiling(sector, x, y, z);
+
+            floor   -= y;
+            ceiling -= y;
+
+            if (floor > 0 && ceiling < -400) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool c_checkGrab() {
+        return !(input & ACTION) || cinfo.type != CT_FRONT || abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT;
+    }
+
+    bool c_checkSpace() {
+        return (cinfo.f.floor < cinfo.f.ceiling ||
+                cinfo.l.floor < cinfo.l.ceiling ||
+                cinfo.r.floor < cinfo.r.ceiling);
+    }
+
+    bool c_checkClimbUp() {
+        if (c_checkGrab()) {
+            return false;
+        }
+
+        int16 angle = v2rot.y;
+        if (alignAngle(angle, 30 * DEG2SHORT)) {
+            return false;
+        }
+
+        if (cinfo.f.floor >= -640 && cinfo.f.floor <= -384) {
+            if (c_checkSpace()) return false;
+
+            setAnimV2(ANIM_CLIMB_2, true);
+            state = STATE_HANG_UP;
+
+            v2pos.y += 512 + cinfo.f.floor;
+        } else if (cinfo.f.floor >= -896 && cinfo.f.floor <= -640) {
+            if (c_checkSpace()) return false;
+
+            setAnimV2(ANIM_CLIMB_3, true);
+            state = STATE_HANG_UP;
+
+            v2pos.y += 768 + cinfo.f.floor;
+        } else if (cinfo.f.floor >= -1920 && cinfo.f.floor <= -896) {
+            setAnimV2(ANIM_STAND, true);
+            targetState = STATE_UP_JUMP;
+            vSpeedHack = -int32(phd_sqrt(-2 * GRAVITY * (cinfo.f.floor + 800)) + 3);
+            processAnimation();
+        } else {
+            return false;
+        }
+
+        v2rot.y = angle;
+        c_applyOffset();
+
+        return true;
+    }
+
+    bool c_checkHang() {
+        if (c_checkGrab()) {
+            return false;
+        }
+
+        if (cinfo.f.ceiling > 0 || cinfo.m.ceiling > -LARA_STEP_HEIGHT || (cinfo.m.floor < 200 && state == STATE_REACH)) {
+            return false;
+        }
+
+        int32 h = cinfo.f.floor - getBounds().minY;
+        int32 v = h + vSpeed;
+
+        if ((h < 0 && v < 0) || (h > 0 && v > 0)) {
+            LOG("%d %d\n", h, vSpeed);
+            return false;
+        }
+
+        if (alignAngle(v2rot.y, 35 * DEG2SHORT)) {
+            return false;
+        }
+
+        if (state == STATE_REACH) {
+            if (c_checkSwing()) {
+                setAnimV2(ANIM_HANG_SWING, true);
+            } else {
+                setAnimV2(ANIM_HANG, true);
+            }
+        } else {
+            setAnimV2(ANIM_HANG, true, 12);
+        }
+
+        cinfo.offset.y = cinfo.f.floor - getBounds().minY;
+
+        c_applyOffset();
+
+        gravity = false;
+        hSpeed  = 0;
+        vSpeed  = 0;
+
+        return true;
+    }
+
+    bool c_checkDrop() {
+        // TODO getTrigger here
+
+        if ((health > 0) && (input & ACTION)) {
+            gravity = false;
+            vSpeed  = 0;
+            return false;
+        }
+
+        gravity = true;
+        hSpeed  = 2;
+        vSpeed  = 1;
+
+        setAnimV2(ANIM_FALL_FORTH, true);
+
+        return true;
+    }
+
+    bool c_checkWaterOut() {
+        if (!(input & ACTION) ||
+            (cinfo.type != CT_FRONT) ||
+            (cinfo.f.ceiling > 0) ||
+            (cinfo.m.ceiling > -LARA_STEP_HEIGHT) ||
+            (abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT))
+        {
+            return false;
+        }
+
+        int32 h = cinfo.f.floor + LARA_HEIGHT_SURF;
+
+        if (h <= -512 || h > 316) {
+            return false;
+        }
+
+        if (alignAngle(v2rot.y, 35 * DEG2SHORT)) {
+            return false;
+        }
+
+        v2pos.y += h - 5;
+
+        updateRoomV2(-LARA_HEIGHT / 2);
+
+        alignWall();
+
+        if ((h < -128) || (level->version & TR::VER_TR1)) {
+            setAnimV2(ANIM_WATER_OUT, true);
+            specular = LARA_WET_SPECULAR;
+        } else if (h < 128) {
+            setAnimV2(ANIM_SURF_OUT, true);
+        } else {
+            setAnimV2(ANIM_SURF_STAND, true);
+        }
+        
+        game->waterDrop(pos, 128.0f, 0.2f);
+
+        targetState = STATE_STOP;
+        v2rot.x = 0;
+        v2rot.z = 0;
+        gravity = false;
+        hSpeed  = 0;
+        vSpeed  = 0;
+        waterState = WATER_STATE_ABOVE;
+
+        return true;
+    }
+
+    void c_default() {
+        cinfo.gapPos      = LARA_STEP_HEIGHT;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+    }
+
+    void c_step() {
+        cinfo.gapPos      = (waterState == WATER_STATE_WADE) ? -TR::NO_VALUE : 128;
+        cinfo.gapNeg      = -128;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkWall()) {
+            setAnimV2(ANIM_STAND, true);
+        }
+
+        if (c_checkSlide()) return;
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    void c_fall() {
+        if (vSpeed > 0 && cinfo.m.floor <= 0) {
+            if (c_checkLanding()) {
+                targetState = STATE_DEATH;
+            } else if (state == STATE_FORWARD_JUMP && (input & FORTH) && !(input & WALK)) {
+                targetState = STATE_RUN;
+            } else if (state == STATE_FALL) {
+                setAnimV2(ANIM_LANDING, true);
+            } else {
+                targetState = STATE_STOP;
+            }
+
+            stopScreaming();
+
+            v2pos.y += cinfo.m.floor;
+            vSpeed  = 0;
+            gravity = false;
+
+            if (state == STATE_FORWARD_JUMP) {
+                processAnimation();
+            }
+        }
+    }
+
+    void c_jump() {
+        cinfo.gapPos     = -TR::NO_VALUE;
+        cinfo.gapNeg     = (state == STATE_REACH) ? 0 : -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling = 192;
+
+        collideRoom(state == STATE_UP_JUMP ? LARA_HEIGHT_JUMP : LARA_HEIGHT, 0);
+
+        if ((state == STATE_REACH || state == STATE_UP_JUMP) && c_checkHang()) {
+            return;
+        }
+
+        c_applyOffset();
+
+        bool slide = (state == STATE_FALL) || (state == STATE_REACH) || (state == STATE_UP_JUMP);
+
+        if ((cinfo.type == CT_CEILING) || ((cinfo.type == CT_FRONT_CEILING) && slide)) {
+            if (vSpeed <= 0) {
+                vSpeed = 1;
+            }
+        } else if (!slide && ((cinfo.type == CT_FRONT) || (cinfo.type == CT_FRONT_CEILING))) {
+            setAnimV2(ANIM_SMASH_JUMP, true, 1);
+            v2angle -= ANGLE_180;
+            hSpeed /= 4;
+            if (vSpeed <= 0) {
+                vSpeed = 1;
+            }
+        } else if (cinfo.type == CT_FLOOR_CEILING) {
+            v2pos.x -= (LARA_RADIUS * phd_sin(cinfo.angle)) >> FIXED_SHIFT;
+            v2pos.z -= (LARA_RADIUS * phd_cos(cinfo.angle)) >> FIXED_SHIFT;
+            cinfo.m.floor = 0;
+            hSpeed = 0;
+            if (vSpeed <= 0) {
+                vSpeed = 16;
+            }
+        } else if (cinfo.type == CT_LEFT) {
+            v2rot.y += 5 * DEG2SHORT;
+        } else if (cinfo.type == CT_RIGHT) {
+            v2rot.y -= 5 * DEG2SHORT;
+        }
+
+        c_fall();
+    }
+
+    void c_slide() {
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -512;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        c_checkWall();
+
+        if (c_checkFall(200, state == STATE_SLIDE ? ANIM_FALL_FORTH : ANIM_FALL_BACK)) return;
+
+        c_checkSlide();
+
+        v2pos.y += cinfo.m.floor;
+
+        if (cinfo.m.slantType != TR::SLANT_HIGH) {
+            targetState = STATE_STOP;
+        }
+    }
+
+    void c_roll() {
+        vSpeed  = 0;
+        gravity = false;
+
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkSlide()) return;
+
+        if (c_checkFall(200, state == STATE_ROLL_START ? ANIM_FALL_FORTH : ANIM_FALL_BACK)) return;
+
+        c_applyOffset();
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    void c_hang(int32 angleDelta) {
+        c_angle(angleDelta);
+        cinfo.gapPos     = -TR::NO_VALUE;
+        cinfo.gapNeg     = TR::NO_VALUE;
+        cinfo.gapCeiling = 0;
+        collideRoom(LARA_HEIGHT, 0);
+
+        bool noFloor = cinfo.f.floor < 200;
+
+        c_angle(ANGLE_0);
+        cinfo.gapPos     = -TR::NO_VALUE;
+        cinfo.gapNeg     = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling = 0;
+
+        switch (cinfo.quadrant) {
+            case 0 : v2pos.z += 2; break;
+            case 1 : v2pos.x += 2; break;
+            case 2 : v2pos.z -= 2; break;
+            case 3 : v2pos.x -= 2; break;
+        }
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        v2angle = v2rot.y + angleDelta;
+
+        if (health <= 0 || !(input & ACTION)) {
+            setAnimV2(ANIM_FALL_HANG, true, 9);
+
+            cinfo.offset.y = cinfo.f.floor - getBounds().minY + 2;
+            c_applyOffset();
+
+            hSpeed  = 2;
+            vSpeed  = 1;
+            gravity = true;
+            return;
+        }
+
+        vSpeed  = 0;
+        gravity = false;
+
+        if (noFloor || (cinfo.type != CT_FRONT) || (cinfo.m.ceiling >= 0) || abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT)
+        {
+            if (state != STATE_HANG) {
+                setAnimV2(ANIM_HANG, true, 21);
+            }
+            v2pos = cinfo.pos;
+            return;
+        }
+
+        if (cinfo.quadrant & 1) {
+            v2pos.x += cinfo.offset.x;
+        } else {
+            v2pos.z += cinfo.offset.z;
+        }
+
+        int32 h = cinfo.f.floor - getBounds().minY;
+        if (abs(h) <= 256) {
+            v2pos.y += h;
+        }
+    }
+
+    enum ClimbState {
+        CLIMB_HANG,
+        CLIMB_COLLIDE,
+        CLIMB_OK,
+    };
+
+    ClimbState c_climbCollide(int32 width) {
+        int32 dx = 0, dz = 0;
+
+        int32 x = v2pos.x;
+        int32 y = v2pos.y - 512;
+        int32 z = v2pos.z;
+
+        switch (cinfo.quadrant) {
+            case 0 :
+                x += width;
+                z += cinfo.radius;
+                dz = 4;
+                break;
+            case 1 :
+                x += cinfo.radius;
+                z -= width;
+                dx = 4;
+                break;
+            case 2 :
+                x -= width;
+                z -= cinfo.radius;
+                dz = -4;
+                break;
+            case 3 :
+                x -= cinfo.radius;
+                z += width;
+                dx = -4;
+                break;
+        }
+
+        // TODO
+        cinfo.offset.y = 0;
+        return CLIMB_OK;
+    }
+
+    void c_climbSide(int32 width) {
+        if (c_checkDrop()) {
+            return;
+        }
+
+        switch (c_climbCollide(width)) {
+            case CLIMB_HANG : {
+                v2pos.x = cinfo.pos.x;
+                v2pos.z = cinfo.pos.z;
+                targetState = STATE_HANG;
+                break;
+            }
+            case CLIMB_COLLIDE : {
+                v2pos.x = cinfo.pos.x;
+                v2pos.z = cinfo.pos.z;
+                setAnimV2(ANIM_CLIMB_START, true);
+                break;
+            }
+            case CLIMB_OK : {
+                if (input & LEFT) {
+                    targetState = STATE_CLIMB_LEFT;
+                } else if (input & RIGHT) {
+                    targetState = STATE_CLIMB_RIGHT;
+                } else {
+                    targetState = STATE_CLIMB_START;
+                }
+                v2pos.y += cinfo.offset.y;
                 break;
             }
         }
     }
 
-    void updateNone() {
-    }
+    void c_swim() {
+        c_angle(ANGLE_0);
 
-    void updateSurface() {
-    }
+        collideRoom(LARA_HEIGHT_UW, LARA_HEIGHT_UW / 2);
 
-    void updateDive() {
-    }
+        c_applyOffset();
 
-    void stateCollision() {
-        switch (state) {
-            //
-        default : LOG("no collision for state %d\n", state);
+        if (c_checkWallUW()) {
+            return;
         }
     }
 
-    void stateUpdate() {
-        switch (state) {
-            //
-        default : LOG("no update for state %d\n", state);
+    void c_surf() {
+        collideRoom(LARA_HEIGHT_SURF + 100, LARA_HEIGHT_SURF);
+
+        c_applyOffset();
+
+        c_checkWallSurf();
+
+        if (state == STATE_SURF_TREAD) {
+            if (frameIndex == 0) {
+                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.03f);
+            }
+        } else {
+            if (frameIndex % 4 == 0) {
+                game->waterDrop(getJoint(jointHead).pos, 96.0f, 0.02f);
+            }
+        }
+
+        int32 waterLevel = getWaterLevel();
+        if (waterLevel - v2pos.y <= -100) {
+            dive();
+            return;
+        }
+
+        if (level->version & TR::VER_TR1) {
+            return;
+        }
+
+        if ((cinfo.type == CT_FRONT) || (cinfo.m.slantType == TR::SLANT_HIGH) || (cinfo.m.floor >= 0)) {
+            return;
+        }
+
+        if (cinfo.m.floor >= -128) {
+            if (targetState == STATE_SURF_LEFT) {
+                targetState = STATE_STEP_LEFT;
+            } else if (targetState == STATE_SURF_RIGHT) {
+                targetState = STATE_STEP_RIGHT;
+            } else {
+                setAnimV2(ANIM_WADE, true);
+            }
+        } else {
+            setAnimV2(ANIM_WADE_ASCEND, true);
+            targetState = STATE_STOP;
+        }
+
+        v2pos.y += cinfo.f.floor + LARA_HEIGHT - 5;
+        updateRoomV2(-LARA_HEIGHT / 2);
+
+        gravity = false;
+        v2rot.x = 0;
+        v2rot.z = 0;
+        hSpeed  = 0;
+        vSpeed  = 0;
+        waterState = WATER_STATE_WADE;
+    }
+
+    C_HANDLER(STATE_WALK) {
+        vSpeed  = 0;
+        gravity = false;
+        cinfo.stopOnLava = true;
+
+        c_angle(ANGLE_0);
+        c_default();
+
+        if (c_checkCeiling()) return;
+        
+        if (c_checkClimbUp()) return;
+
+        if (c_checkWall()) {
+            if (frameIndex >= 29 && frameIndex <= 47) {
+                setAnimV2(ANIM_STAND_RIGHT, false);
+            } else if ((frameIndex >= 22 && frameIndex <= 28) || (frameIndex >= 48 && frameIndex <= 57)) {
+                setAnimV2(ANIM_STAND_LEFT, false);
+            } else {
+                setAnimV2(ANIM_STAND, false);
+            }
+        }
+
+        if (c_checkFall(LARA_STEP_HEIGHT)) return;
+
+        // descend
+        if (cinfo.m.floor > 128) {
+            if (frameIndex >= 28 && frameIndex <= 45) {
+                setAnimV2(ANIM_WALK_DESCEND_RIGHT, false);
+            } else {
+                setAnimV2(ANIM_WALK_DESCEND_LEFT, false);
+            }
+        }
+
+        // ascend
+        if (cinfo.m.floor >= -LARA_STEP_HEIGHT && cinfo.m.floor < -128) {
+            if (frameIndex >= 27 && frameIndex <= 44) {
+                setAnimV2(ANIM_WALK_ASCEND_RIGHT, false);
+            } else {
+                setAnimV2(ANIM_WALK_ASCEND_LEFT, false);
+            }
+        }
+
+        if (c_checkSlide()) return;
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_RUN) {
+        c_angle(ANGLE_0);
+
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkClimbUp()) return;
+
+        if (c_checkWall()) {
+            v2rot.z = 0;
+
+            if (cinfo.f.slantType == TR::SLANT_NONE && cinfo.f.floor < -LARA_SMASH_HEIGHT && frameIndex < 22) {
+                setAnimV2(frameIndex < 10 ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT, false);
+                state = STATE_SPLAT;
+                return;
+            }
+
+            setAnimV2(ANIM_STAND, true);
+        }
+
+        if (c_checkFall(LARA_STEP_HEIGHT)) return;
+
+        // ascend
+        if (cinfo.m.floor >= -LARA_STEP_HEIGHT && cinfo.m.floor < -128) {
+            if (frameIndex >= 3 && frameIndex <= 14) {
+                setAnimV2(ANIM_RUN_ASCEND_RIGHT, false);
+            } else {
+                setAnimV2(ANIM_RUN_ASCEND_LEFT, false);
+            }
+        }
+
+        if (c_checkSlide()) return;
+
+        if (cinfo.m.floor >= 50) {
+            v2pos.y += 50;
+            return;
+        }
+
+        v2pos.y += cinfo.m.floor;
+    }
+    
+    C_HANDLER(STATE_STOP) {
+        vSpeed  = 0;
+        gravity = false;
+
+        c_angle(ANGLE_0);
+        c_default();
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkFall(100)) return;
+
+        if (c_checkSlide()) return;
+
+        c_applyOffset();
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_FORWARD_JUMP) {
+        c_angle(ANGLE_0);
+        c_jump();
+    }
+    
+    C_HANDLER(STATE_POSE) {
+        c_STATE_STOP();
+    }
+
+    C_HANDLER(STATE_FAST_BACK) {
+        vSpeed  = 0;
+        gravity = false;
+
+        c_angle(-ANGLE_180);
+
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkFall(200, ANIM_FALL_BACK)) return;
+
+        if (c_checkWall()) {
+            setAnimV2(ANIM_STAND, false);
+        }
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_TURN_RIGHT) {
+        c_angle(ANGLE_0);
+        c_default();
+
+        if (c_checkFall(100)) return;
+
+        if (c_checkSlide()) return;
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_TURN_LEFT) {
+        c_STATE_TURN_RIGHT();
+    }
+
+    C_HANDLER(STATE_DEATH) {
+        cinfo.radius = LARA_RADIUS * 4;
+        
+        c_angle(ANGLE_0);
+        c_default();
+
+        c_applyOffset();
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_FALL) {
+        gravity = true;
+        c_jump();
+    }
+
+    C_HANDLER(STATE_HANG) {
+        c_hang(0);
+
+        if ((input & FORTH) && targetState == STATE_HANG) {
+
+            if (cinfo.f.floor <= -850 ||
+                cinfo.f.floor >= -650 ||
+                c_checkSpace() ||
+                cinfo.staticHit) return;
+
+            if (input & WALK) {
+                targetState = STATE_HANDSTAND;
+            } else {
+                targetState = STATE_HANG_UP;
+            }
+
         }
     }
+
+    C_HANDLER(STATE_REACH) {
+        ASSERT(gravity);
+        gravity = true;
+        c_angle(ANGLE_0);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_SPLAT) {
+        c_angle(ANGLE_0);
+        c_default();
+        c_applyOffset();
+    }
+
+    C_HANDLER(STATE_TREAD) {
+        c_swim();
+    }
+
+    C_HANDLER(STATE_LAND) {
+        c_STATE_STOP();
+    }
+
+    C_HANDLER(STATE_COMPRESS) {
+        vSpeed  = 0;
+        gravity = false;
+
+        cinfo.gapPos      = -TR::NO_VALUE;
+        cinfo.gapNeg      = TR::NO_VALUE;
+        cinfo.gapCeiling  = 0;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (cinfo.m.ceiling > -100) {
+            setAnimV2(ANIM_STAND, true);
+            hSpeed  = 0;
+            vSpeed  = 0;
+            gravity = false;
+            v2pos   = cinfo.pos;
+        }
+    }
+
+    C_HANDLER(STATE_BACK) {
+        vSpeed  = 0;
+        gravity = false;
+
+        c_angle(-ANGLE_180);
+
+        cinfo.gapPos      = (waterState == WATER_STATE_WADE) ? -TR::NO_VALUE : LARA_STEP_HEIGHT;
+        cinfo.gapNeg      = -LARA_STEP_HEIGHT;
+        cinfo.gapCeiling  = 0;
+        cinfo.stopOnSlant = true;
+
+        collideRoom(LARA_HEIGHT, 0);
+
+        if (c_checkCeiling()) return;
+
+        if (c_checkWall()) {
+            setAnimV2(ANIM_STAND, true);
+        }
+
+        if (cinfo.m.floor > 128 && cinfo.m.floor < LARA_STEP_HEIGHT) {
+            if (frameIndex < 568) {
+                setAnimV2(ANIM_BACK_DESCEND_LEFT, false);
+            } else {
+                setAnimV2(ANIM_BACK_DESCEND_RIGHT, false);
+            }
+        }
+
+        if (c_checkSlide()) return;
+
+        v2pos.y += cinfo.m.floor;
+    }
+
+    C_HANDLER(STATE_SWIM) {
+        c_swim();
+    }
+
+    C_HANDLER(STATE_GLIDE) {
+        c_swim();
+    }
+
+    C_HANDLER(STATE_HANG_UP) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_FAST_TURN) {
+        c_STATE_STOP();
+    }
+
+    C_HANDLER(STATE_STEP_RIGHT) {
+        c_angle(+ANGLE_90);
+        c_step();
+    }
+
+    C_HANDLER(STATE_STEP_LEFT) {
+        c_angle(-ANGLE_90);
+        c_step();
+    }
+
+    C_HANDLER(STATE_ROLL_END) {
+        c_angle(-ANGLE_180);
+        c_roll();
+    }
+
+    C_HANDLER(STATE_SLIDE) {
+        c_angle(ANGLE_0);
+        c_slide();
+    }
+
+    C_HANDLER(STATE_BACK_JUMP) {
+        c_angle(-ANGLE_180);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_RIGHT_JUMP) {
+        c_angle(ANGLE_90);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_LEFT_JUMP) {
+        c_angle(-ANGLE_90);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_UP_JUMP) {
+        c_angle(ANGLE_0);
+        c_jump();
+    }
+    
+    C_HANDLER(STATE_FALL_BACK) {
+        c_angle(-ANGLE_180);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_HANG_LEFT) {
+        c_hang(-ANGLE_90);
+    }
+
+    C_HANDLER(STATE_HANG_RIGHT) {
+        c_hang(ANGLE_90);
+    }
+
+    C_HANDLER(STATE_SLIDE_BACK) {
+        c_angle(-ANGLE_180);
+        c_slide();
+    }
+
+    C_HANDLER(STATE_SURF_TREAD) {
+        c_angle(ANGLE_0);
+        c_surf();
+    }
+
+    C_HANDLER(STATE_SURF_SWIM) {
+        cinfo.gapNeg = -LARA_STEP_HEIGHT;
+        c_angle(ANGLE_0);
+        c_surf();
+        c_checkWaterOut();
+    }
+
+    C_HANDLER(STATE_DIVE) {
+        c_swim();
+    }
+
+    C_HANDLER(STATE_PUSH_BLOCK) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_PULL_BLOCK) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_PUSH_PULL_READY) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_PICK_UP) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_SWITCH_DOWN) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_SWITCH_UP) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_USE_KEY) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_USE_PUZZLE) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_UW_DEATH) {
+        health = 0;
+        oxygen = 0;
+
+        int16 waterLevel = getWaterLevel();
+        if (waterLevel != TR::NO_VALUE && waterLevel < v2pos.y - LARA_RADIUS) {
+            v2pos.y -= LARA_FLOAT_UP_SPEED;
+        }
+
+        c_swim();
+    }
+
+    C_HANDLER(STATE_ROLL_START) {
+        c_angle(ANGLE_0);
+        c_roll();
+    }
+
+    C_HANDLER(STATE_SPECIAL) {
+        // empty
+    }
+
+    C_HANDLER(STATE_SURF_BACK) {
+        c_angle(ANGLE_180);
+        c_surf();
+    }
+
+    C_HANDLER(STATE_SURF_LEFT) {
+        c_angle(-ANGLE_90);
+        c_surf();
+    }
+
+    C_HANDLER(STATE_SURF_RIGHT) {
+        c_angle(ANGLE_90);
+        c_surf();
+    }
+
+    C_HANDLER(STATE_MIDAS_USE) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_MIDAS_DEATH) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_SWAN_DIVE) {
+        c_angle(ANGLE_0);
+        c_jump();
+    }
+
+    C_HANDLER(STATE_FAST_DIVE) {
+        c_angle(ANGLE_0);
+        c_jump();
+    }
+    
+    C_HANDLER(STATE_HANDSTAND) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_WATER_OUT) {
+        c_angle(ANGLE_0);
+        c_default();
+    }
+
+    C_HANDLER(STATE_CLIMB_START) {}
+    C_HANDLER(STATE_CLIMB_UP) {}
+
+    C_HANDLER(STATE_CLIMB_LEFT) {
+        c_angle(-ANGLE_90);
+        c_climbSide(-LARA_RADIUS_CLIMB);
+    }
+
+    C_HANDLER(STATE_CLIMB_END) {
+        // empty
+    }
+
+    C_HANDLER(STATE_CLIMB_RIGHT) {
+        c_angle(ANGLE_90);
+        c_climbSide(LARA_RADIUS_CLIMB);
+    }
+
+    C_HANDLER(STATE_CLIMB_DOWN) {}
+
+    C_HANDLER(STATE_UNUSED_1) {
+        // empty
+    }
+
+    C_HANDLER(STATE_UNUSED_2) {
+        // empty
+    }
+
+    C_HANDLER(STATE_UNUSED_3) {
+        // empty
+    }
+
+    C_HANDLER(STATE_WADE) {
+        c_STATE_RUN();
+    }
+
+    C_HANDLER(STATE_UW_ROLL) {
+        c_swim();
+    }
+
+    C_HANDLER(STATE_PICKUP_FLARE) {}
+
+    C_HANDLER(STATE_AIR_ROLL) {
+        // empty
+    }
+    
+    C_HANDLER(STATE_UNUSED_5) {
+        // empty
+    }
+
+    C_HANDLER(STATE_ZIPLINE) {
+        // empty
+    }
+
+    C_HANDLER(STATE_DUCK) {}
+    C_HANDLER(STATE_DUCK_ROLL) {}
+    C_HANDLER(STATE_DASH) {}
+    C_HANDLER(STATE_DASH_DIVE) {}
+    C_HANDLER(STATE_MONKEYSWING_IDLE) {}
+    C_HANDLER(STATE_MONKEYSWING) {}
 #endif
-
 };
+
+const Lara::sHandler Lara::sLaraHandlers[Lara::STATE_MAX] = { LARA_STATES(DECL_S_HANDLER) };
+const Lara::cHandler Lara::cLaraHandlers[Lara::STATE_MAX] = { LARA_STATES(DECL_C_HANDLER) };
+
+#undef LARA_STATES
+#undef DECL_S_HANDLER
+#undef DECL_C_HANDLER
 
 #endif

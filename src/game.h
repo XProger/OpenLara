@@ -262,6 +262,10 @@ namespace Game {
             return false;
         }
 
+        if (frameDelta > 30) { // maximum one sec frame drop
+            frameDelta = 30;
+        }
+
         if (nextLevel) {
             startLevel(nextLevel);
             nextLevel = NULL;

@@ -31,8 +31,7 @@ struct Character : Controller {
         WALK        = 1 << 6,
         ACTION      = 1 << 7,
         WEAPON      = 1 << 8,
-        LOOK        = 1 << 9,
-        DEATH       = 1 << 10
+        LOOK        = 1 << 9
     };
 
     Controller  *viewTarget;
@@ -143,10 +142,11 @@ struct Character : Controller {
     virtual int   getStateWade()        { return state; }
     virtual int   getStateDeath()       { return state; }
     virtual int   getStateDefault()     { return state; }
-    virtual int   getInput()            { return health <= 0 ? DEATH : 0; }
+    virtual int   getInput()            { return 0; }
     virtual bool  useHeadAnimation()    { return false; }
 
     int getNextState() {
+    /*
         if (input & DEATH) {
             int deathState = getStateDeath();
             if (state == deathState || animation.canSetState(deathState)) {
@@ -155,7 +155,7 @@ struct Character : Controller {
                 return deathState;
             }
         }
-
+        */
         switch (stand) {
             case STAND_AIR        : return getStateAir();
             case STAND_GROUND     : return getStateGround();

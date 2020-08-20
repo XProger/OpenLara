@@ -573,7 +573,7 @@ namespace Debug {
                     TR::StaticMesh *sm = &level.staticMeshes[m.meshIndex];
 
                     Box box;
-                    vec3 offset = vec3(float(m.x), float(m.y), float(m.z));
+                    vec3 offset = vec3(float(m.pos.x), float(m.pos.y), float(m.pos.z));
                     sm->getBox(false, m.rotation, box); // visible box
 
                     Debug::Draw::box(offset + box.min, offset + box.max, vec4(1, 1, 0, 0.25));

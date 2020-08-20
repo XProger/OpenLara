@@ -88,6 +88,14 @@
 #define SQR(x)  ((x)*(x))
 #define randf() (float(rand())/float(RAND_MAX))
 
+// fixed point angles
+#define DEG2SHORT       (0x10000 / 360)
+#define ANGLE_0         0
+#define ANGLE_1         DEG2SHORT
+#define ANGLE_45        0x2000      // != 45 * DEG2SHORT !!!
+#define ANGLE_90        0x4000
+#define ANGLE_180       0x8000
+
 typedef signed char        int8;
 typedef signed short       int16;
 typedef signed int         int32;
@@ -347,6 +355,24 @@ namespace Noise { // based on https://github.com/Auburns/FastNoise
         return dst;
     }
 }
+
+struct vec3i {
+    int32 x, y, z;
+
+    inline vec3i() {}
+    inline vec3i(int s) : x(s), y(s), z(s) {}
+    inline vec3i(int32 x, int32 y, int32 z) : x(x), y(y), z(z) {}
+
+    inline vec3i operator + (const vec3i &v) const { return vec3i(x + v.x, y + v.y, z + v.z); }
+    inline vec3i operator - (const vec3i &v) const { return vec3i(x - v.x, y - v.y, z - v.z); }
+
+    inline vec3i operator * (int32 s) const { return vec3i(x * s, y * s, z * s); }
+    inline vec3i operator / (int32 s) const { return vec3i(x / s, y / s, z / s); }
+};
+
+struct vec3s {
+    int16 x, y, z;
+};
 
 struct vec2 {
     float x, y;
@@ -1225,17 +1251,6 @@ struct Box {
         return min;
     }
 
-    Box intersection2D(const Box &b) const {
-        Box r(vec3(0.0f), vec3(0.0f));
-        if (max.x < b.min.x || min.x > b.max.x) return r;
-        if (max.y < b.min.y || min.y > b.max.y) return r;
-        r.max.x = ::min(max.x, b.max.x);
-        r.max.y = ::min(max.y, b.max.y);
-        r.min.x = ::max(min.x, b.min.x);
-        r.min.y = ::max(min.y, b.min.y);
-        return r;
-    }
-
     Box& operator += (const Box &box) {
         min.x = ::min(min.x, box.min.x);
         min.y = ::min(min.y, box.min.y);
@@ -1269,7 +1284,7 @@ struct Box {
     Box operator * (const mat4 &m) const {
         Box res(vec3(+INF), vec3(-INF));
         for (int i = 0; i < 8; i++) {
-            vec4 v = m * vec4((*this)[i], 1.0f);            
+            vec4 v = m * vec4((*this)[i], 1.0f);
             res += v.xyz() /= v.w;
         }
         return res;
@@ -1381,6 +1396,59 @@ struct Box {
     bool intersect(const mat4 &matrix, const vec3 &rayPos, const vec3 &rayDir, float &t) const {
         mat4 mInv = matrix.inverseOrtho();
         return intersect(mInv * rayPos, (mInv * vec4(rayDir, 0)).xyz(), t);
+    }
+};
+
+struct BoxV2 {
+    vec3i min, max;
+
+    BoxV2() {}
+    BoxV2(const vec3i &min, const vec3i &max) : min(min), max(max) {}
+
+    bool intersect(const BoxV2 &box) const {
+        return !((max.x <= box.min.x || min.x >= box.max.x) || (max.y <= box.min.y || min.y >= box.max.y) || (max.z <= box.min.z || min.z >= box.max.z));
+    }
+
+    vec3i center() const {
+        return (min + max) / 2;
+    }
+
+    vec3i size() const {
+        return max - min;
+    }
+
+    vec3i closestPoint(const vec3i &p) const {
+        return vec3i(clamp(p.x, min.x, max.x),
+                     clamp(p.y, min.y, max.y),
+                     clamp(p.z, min.z, max.z));
+    }
+
+    vec3i pushOut2D(const BoxV2 &b) const {
+        int32 ax = b.max.x - min.x;
+        int32 bx = max.x - b.min.x;
+        int32 az = b.max.z - min.z;
+        int32 bz = max.z - b.min.z;
+
+        return vec3i(
+            (ax < bx) ? -ax : bx,
+            0,
+            (az < bz) ? -az : bz
+        );
+    }
+
+    void translate(const vec3i &v) {
+        min = min + v;
+        max = max + v;
+    }
+
+    void rotate90(int n) {
+        switch (n) {
+            case 0  : break;
+            case 1  : *this = BoxV2(vec3i( min.z, min.y, -max.x), vec3i( max.z, max.y, -min.x)); break;
+            case 2  : *this = BoxV2(vec3i(-max.x, min.y, -max.z), vec3i(-min.x, max.y, -min.z)); break;
+            case 3  : *this = BoxV2(vec3i(-max.z, min.y,  min.x), vec3i(-min.z, max.y,  max.x)); break;
+            default : ASSERT(false);
+        }
     }
 };
 

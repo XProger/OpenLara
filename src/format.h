@@ -1274,7 +1274,7 @@
     E( MESHSWAP1             ) \
     E( MESHSWAP2             ) \
     E( MESHSWAP3             ) \
-    E( DEATH_SLIDE           ) \
+    E( ZIPLINE               ) \
     E( BODY_PART             ) \
     E( CAMERA_TARGET         ) \
     E( WATERFALL1            ) \
@@ -1382,6 +1382,7 @@ namespace TR {
 
     enum {
         NO_FLOOR = -127,
+        NO_VALUE = NO_FLOOR * 256,
         NO_ROOM  = 0xFF,
         NO_BOX   = 0xFFFF,
         NO_WATER = 0x7FFFFFFF,
@@ -1617,7 +1618,7 @@ namespace TR {
     }
 
     union fixed {
-        uint32 value;
+        int32 value;
         struct {
             uint16 L;
             int16  H;
@@ -1887,7 +1888,7 @@ namespace TR {
         } *lights;
 
         struct Mesh {
-            int32   x, y, z;
+            vec3i   pos;
             angle   rotation;
             uint16  meshID;
             Color32 color;
@@ -1987,6 +1988,12 @@ namespace TR {
         }
     };
 
+    enum SlantType {
+        SLANT_NONE,
+        SLANT_LOW,
+        SLANT_HIGH
+    };
+
     union FloorData {
         uint16 value;
         union Command {
@@ -2014,6 +2021,9 @@ namespace TR {
                 uint16 timer:8, once:1, speed:5, :2;
             };
         } triggerCmd;
+
+        FloorData() {}
+        FloorData(uint16 value) : value(value) {}
 
         enum {
               NONE
@@ -2661,6 +2671,18 @@ namespace TR {
 
         vec3 min() const { return vec3((float)minX, (float)minY, (float)minZ); }
         vec3 max() const { return vec3((float)maxX, (float)maxY, (float)maxZ); }
+
+        MinMax lerp(const MinMax &b, int32 mod, int32 rate) const {
+            #define LERP(v) r.##v = v + ((b.##v - v) * mod) / rate;
+
+            MinMax r;
+            LERP(minX); LERP(maxX);
+            LERP(minY); LERP(maxY);
+            LERP(minZ); LERP(maxZ);
+            return r;
+
+            #undef LERP
+        }
     };
 
     struct AnimFrame {
@@ -2744,8 +2766,13 @@ namespace TR {
         MinMax  cbox;
         uint16  flags;
 
+        BoxV2 getBox(bool collision) {
+            MinMax &b = collision ? cbox : vbox;
+            return BoxV2(vec3i(b.minX, b.minY, b.minZ), vec3i(b.maxX, b.maxY, b.maxZ));
+        }
+
         void getBox(bool collision, angle rotation, ::Box &box) {
-            int k = rotation.value / 0x4000;
+            int k = rotation.value / ANGLE_90;
 
             MinMax &m = collision ? cbox : vbox;
 
@@ -3997,9 +4024,9 @@ namespace TR {
                             room->meshes = room->meshesCount ? new Room::Mesh[room->meshesCount] : NULL;
                             for (int i = 0; i < room->meshesCount; i++) {
                                 Room::Mesh &m = room->meshes[i];
-                                m.x = stream.readBE32();
-                                m.y = stream.readBE32();
-                                m.z = stream.readBE32();
+                                m.pos.x = stream.readBE32();
+                                m.pos.y = stream.readBE32();
+                                m.pos.z = stream.readBE32();
                                 m.rotation.value = stream.readBE16();
                                 uint16 intensity = stream.readBE16();
                                 stream.readBE16();
@@ -5462,9 +5489,9 @@ namespace TR {
             r.meshes = r.meshesCount ? new Room::Mesh[r.meshesCount] : NULL;
             for (int i = 0; i < r.meshesCount; i++) {
                 Room::Mesh &m = r.meshes[i];
-                stream.read(m.x);
-                stream.read(m.y);
-                stream.read(m.z);
+                stream.read(m.pos.x);
+                stream.read(m.pos.y);
+                stream.read(m.pos.z);
                 stream.read(m.rotation.value);
                 if (version & (VER_TR3 | VER_TR4)) {
                     Color16 color;
@@ -6646,14 +6673,10 @@ namespace TR {
             return room.sectors[sectorIndex = (x * room.zSectors + z)];
         }
         
-        Room::Sector* getSector(int16 &roomIndex, const vec3 &pos) {
+        Room::Sector* getSector(int16 &roomIndex, int32 x, int32 y, int32 z) {
             ASSERT(roomIndex >= 0 && roomIndex <= roomsCount);
 
             Room::Sector *sector = NULL;
-
-            int x = int(pos.x);
-            int y = int(pos.y);
-            int z = int(pos.z);
 
         // check horizontal
             int16 prevRoom = roomIndex;
@@ -6687,23 +6710,38 @@ namespace TR {
             return sector;
         }
 
-        float getFloor(const Room::Sector *sector, const vec3 &pos, int16 *roomIndex = NULL) {
-            int x = int(pos.x);
-            int z = int(pos.z);
+        Room::Sector* getSector(int16 &roomIndex, const vec3 &pos) {
+            return getSector(roomIndex, int32(pos.x), int32(pos.y), int32(pos.z));
+        }
+
+        int16 getFloor(const Room::Sector *sector, int32 x, int32 y, int32 z, SlantType *slantType = NULL, int16 *slant = NULL, int16 **trigger = NULL, int16 *roomIndex = NULL) {
             int dx = x & 1023;
             int dz = z & 1023;
 
+            if (slant) {
+               *slant = 0;
+            }
+
+            if (slantType) {
+                *slantType = SLANT_NONE;
+            }
+
+            if (trigger) {
+                *trigger = NULL;
+            }
+
             while (sector->roomBelow != NO_ROOM) {
                 Room &room = rooms[sector->roomBelow];
-                if (roomIndex)
+                if (roomIndex) {
                     *roomIndex = sector->roomBelow;
+                }
                 sector = room.getSector((x - room.info.x) / 1024, (z - room.info.z) / 1024);
             }
 
             int floor = sector->floor * 256;
 
             if (!sector->floorIndex)
-                return float(floor);
+                return floor;
 
             FloorData *fd = &floors[sector->floorIndex];
             FloorData::Command cmd;
@@ -6724,6 +6762,14 @@ namespace TR {
                         if (cmd.func == TR::FloorData::FLOOR) {
                             sx = fd->slantX;
                             sz = fd->slantZ;
+
+                            if (slant) {
+                                *slant = fd->value;
+                            }
+
+                            if (slantType) {
+                                *slantType = (abs(sx) <= 2 && abs(sz) <= 2) ? SLANT_LOW : SLANT_HIGH;
+                            }
                         } else {
                             if (cmd.func == TR::FloorData::FLOOR_NW_SE_SOLID     || 
                                 cmd.func == TR::FloorData::FLOOR_NW_SE_PORTAL_SE ||
@@ -6757,6 +6803,9 @@ namespace TR {
                     }
 
                     case FloorData::TRIGGER :  {
+                        if (trigger && *trigger == NULL) {
+                            *trigger = (int16*)(fd - 1);
+                        }
                         fd++;
                         FloorData::TriggerCommand trigCmd;
                         do {
@@ -6772,12 +6821,10 @@ namespace TR {
                 }
             } while (!cmd.end);
 
-            return float(floor);
+            return floor;
         }
 
-        float getCeiling(const Room::Sector *sector, const vec3 &pos) {
-            int x = int(pos.x);
-            int z = int(pos.z);
+        int16 getCeiling(const Room::Sector *sector, int32 x, int32 y, int32 z) {
             int dx = x & 1023;
             int dz = z & 1023;
 
@@ -6790,7 +6837,7 @@ namespace TR {
             int ceiling = sector->ceiling * 256;
 
             if (!sector->floorIndex)
-                return float(ceiling);
+                return ceiling;
 
             FloorData *fd = &floors[sector->floorIndex];
             FloorData::Command cmd;
@@ -6859,13 +6906,18 @@ namespace TR {
                 }
             } while (!cmd.end);
 
-            return float(ceiling);
+            return ceiling;
         }
 
-        Room::Sector* getWaterLevelSector(int16 &roomIndex, const vec3 &pos) {
-            int x = int(pos.x);
-            int z = int(pos.z);
+        float getFloor(const Room::Sector *sector, const vec3 &pos, int16 *roomIndex = NULL) {
+            return (float)getFloor(sector, int32(pos.x), int32(pos.y), int32(pos.z), NULL, NULL, NULL, roomIndex);
+        }
 
+        float getCeiling(const Room::Sector *sector, const vec3 &pos, int16 *roomIndex = NULL) {
+            return (float)getCeiling(sector, int32(pos.x), int32(pos.y), int32(pos.z));
+        }
+
+        Room::Sector* getWaterLevelSector(int16 &roomIndex, int32 x, int32 z) {
             Room *room = &rooms[roomIndex];
             Room::Sector *sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
 
@@ -6877,6 +6929,7 @@ namespace TR {
                     roomIndex = sector->roomAbove;
                     sector = room->getSector((x - room->info.x) / 1024, (z - room->info.z) / 1024);
                 }
+                return sector;
             } else { // go down to the water
                 while (sector->roomBelow != NO_ROOM) {
                     room   = &rooms[roomIndex = sector->roomBelow];
@@ -6884,8 +6937,12 @@ namespace TR {
                     if (room->flags.water)
                         return sector;
                 }
+                return NULL;
             }
-            return NULL;
+        }
+
+        Room::Sector* getWaterLevelSector(int16 &roomIndex, const vec3 &pos) {
+            return getWaterLevelSector(roomIndex, int32(pos.x), int32(pos.z));
         }
 
         void getWaterInfo(int16 roomIndex, const vec3 &pos, float &level, float &depth) {
