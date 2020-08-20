@@ -47,7 +47,7 @@ void render() {
 
     drawRooms();
 
-    drawNumber(fps, WIDTH, 16);
+    drawNumber(fps, FRAME_WIDTH, 16);
 }
 
 #ifdef _WIN32
@@ -61,8 +61,13 @@ void blit() {
         }
     #else
         for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        #ifdef DEBUG_OVERDRAW
+            uint8 c = ((uint8*)fb)[i];
+            SCREEN[i] = c | (c << 8) | (c << 16) | 0xFF000000;
+        #else
             uint16 c = palette[((uint8*)fb)[i]];
             SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
+        #endif
         }
     #endif
 
@@ -175,6 +180,9 @@ int main(void) {
         REG_BG2PD = 256 - 48 - 2;
     #else
         mode |= MODE_4;
+
+        REG_BG2PA = 256 / SCALE;
+        REG_BG2PD = 256 / SCALE;
     #endif
 
     int32 lastFrameIndex = -1;

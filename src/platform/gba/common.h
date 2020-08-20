@@ -23,6 +23,9 @@
 #include <assert.h>
 
 //#define USE_MODE_5
+//#define DEBUG_OVERDRAW
+
+#define SCALE   1
 
 #ifdef USE_MODE_5
     #define WIDTH        160
@@ -33,8 +36,8 @@
 #else // MODE_4
     #define WIDTH        240
     #define HEIGHT       160
-    #define FRAME_WIDTH  240
-    #define FRAME_HEIGHT 160
+    #define FRAME_WIDTH  (240/SCALE)
+    #define FRAME_HEIGHT (160/SCALE)
     #define PIXEL_SIZE   2
 #endif
 
@@ -198,6 +201,25 @@ struct Entity {
     uint16 flags;
 };
 
+struct EntityDesc { // 32 bytes
+    uint16 type;
+    uint16 flags;
+
+    vec3i  pos;
+
+    vec3s  rot;
+    uint8  state;
+    uint8  targetState;
+
+    uint8  vSpeed;
+    uint8  hSpeed;
+    uint8  room;
+    uint8  modelIndex;
+
+    uint16 animIndex;
+    uint16 frameIndex;
+};
+
 struct Texture {
     uint16  attribute;
     uint16  tile:14, :2;
@@ -242,16 +264,17 @@ struct Face {
 };
 
 #define FIXED_SHIFT     14
-#define FOV_SHIFT       7
+#define FOV_SHIFT       (7 - (SCALE - 1))
 
 #define MAX_MATRICES    8
 #define MAX_MODELS      64
 #define MAX_ENTITY      190
 #define MAX_VERTICES    1024
 #define MAX_FACES       384
-#define FOG_MAX         (16 * 1024)
-#define FOG_MIN         (FOG_MAX - 8192)
-#define VIEW_MIN_F      ((32) << FIXED_SHIFT)
+#define FOG_SHIFT       2
+#define FOG_MAX         (10 * 1024)
+#define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
+#define VIEW_MIN_F      (32 << FIXED_SHIFT)
 #define VIEW_MAX_F      (FOG_MAX << FIXED_SHIFT)
 
 #define FACE_TRIANGLE   0x8000
