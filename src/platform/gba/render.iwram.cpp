@@ -268,13 +268,13 @@ int32 clamp(int32 x, int32 a, int32 b) {
 }
 
 template <class T>
-inline void swap(T &a, T &b) {
+INLINE void swap(T &a, T &b) {
     T tmp = a;
     a = b;
     b = tmp;
 }
 
-bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
+INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
     return (b->x - a->x) * (c->y - a->y) -
            (c->x - a->x) * (b->y - a->y) <= 0;
 }
@@ -314,6 +314,7 @@ void transform(const vec3s &v, int32 vg) {
     int32 z = DP43(m[2], v);
 
     if (z < VIEW_MIN_F || z >= VIEW_MAX_F) { // TODO znear clip
+        res.clip = 16;
         res.z = -1;
         return;
     }
@@ -325,7 +326,7 @@ void transform(const vec3s &v, int32 vg) {
     if (fogZ > FOG_MAX) {
         vg = 8191;
     } else if (fogZ > FOG_MIN) {
-        vg += fogZ - FOG_MIN;
+        vg += (fogZ - FOG_MIN) << FOG_SHIFT;
         if (vg > 8191) {
             vg = 8191;
         }
@@ -335,21 +336,25 @@ void transform(const vec3s &v, int32 vg) {
     z >>= FOV_SHIFT;
     x = (x / z) + (FRAME_WIDTH  / 2);
     y = (y / z) + (FRAME_HEIGHT / 2);
-    z >>= (FIXED_SHIFT - FOV_SHIFT - 1);
 
     //x = clamp(x, -0x7FFF, 0x7FFF);
     //y = clamp(y, -0x7FFF, 0x7FFF);
 
     res.x = x;
     res.y = y;
-    res.z = z;
+    res.z = fogZ;
     res.clip = classify(&res);
 }
 
+#ifdef DEBUG_OVERDRAW
+#define FETCH_GT()              32
+#define FETCH_G(palIndex)       32
+#else
 #define FETCH_T()               curTile[(t & 0xFF00) | (t >> 24)]
 #define FETCH_T_MIP()           curTile[(t & 0xFF00) | (t >> 24) & mipMask]
 #define FETCH_GT()              lightmap[(g & 0x1F00) | FETCH_T()]
 #define FETCH_G(palIndex)       lightmap[(g & 0x1F00) | palIndex]
+#endif
 #define FETCH_GT_PAL()          palette[FETCH_GT()]
 #define FETCH_G_PAL(palIndex)   palette[FETCH_G(palIndex)]
 
@@ -581,7 +586,10 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
     #endif
 }
 
-void rasterizeG(uint16* buffer, int32 palIndex, Edge &L, Edge &R) {
+void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R)
+{
+    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+
     while (1)
     {
         while (L.h <= 0)
@@ -626,8 +634,10 @@ void rasterizeG(uint16* buffer, int32 palIndex, Edge &L, Edge &R) {
     }
 }
 
-void rasterizeGT(uint16* buffer, Edge &L, Edge &R)
+void rasterizeGT(int16 y, Edge &L, Edge &R)
 {
+    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+
     while (1)
     {
         while (L.h <= 0)
@@ -741,9 +751,9 @@ void drawTriangle(const Face* face) {
     }
 
     if (palIndex != 0xFFFF) {
-        rasterizeG((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), palIndex, L, R);
+        rasterizeG(v1->y, palIndex, L, R);
     } else {
-        rasterizeGT((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), L, R);
+        rasterizeGT(v1->y, L, R);
     }
 }
 
@@ -819,9 +829,9 @@ void drawQuad(const Face* face) {
     } while (poly[b] != v1);
 
     if (palIndex != 0xFFFF) {
-        rasterizeG((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), palIndex, L, R);
+        rasterizeG(v1->y, palIndex, L, R);
     } else {
-        rasterizeGT((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), L, R);
+        rasterizeGT(v1->y, L, R);
     }
 }
 
@@ -863,9 +873,9 @@ void drawPoly(const Face* face) {
     Vertex *v1 = gVertices + start + t;
 
     if (palIndex != 0xFFFF) {
-        rasterizeG((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), palIndex, L, R);
+        rasterizeG(v1->y, palIndex, L, R);
     } else {
-        rasterizeGT((uint16*)fb + v1->y * (WIDTH / PIXEL_SIZE), L, R);
+        rasterizeGT(v1->y, L, R);
     }
 }
 
@@ -1012,7 +1022,7 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
     Vertex* v3 = gVertices + startVertex + indices[2];
     Vertex* v4 = gVertices + startVertex + indices[3];
 
-    if (v1->z < 0 || v2->z < 0 || v3->z < 0 || v4->z < 0)
+    if ((v1->clip | v2->clip | v3->clip | v4->clip) & 16)
         return;
 
     if (checkBackface(v1, v2, v3))
@@ -1049,7 +1059,7 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
     Vertex* v2 = gVertices + startVertex + indices[1];
     Vertex* v3 = gVertices + startVertex + indices[2];
 
-    if (v1->z < 0 || v2->z < 0 || v3->z < 0)
+    if ((v1->clip | v2->clip | v3->clip) & 16)
         return;
 
     if (checkBackface(v1, v2, v3))
