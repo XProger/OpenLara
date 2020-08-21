@@ -32,9 +32,12 @@ namespace Extension {
             vec3   coord;
             vec3   normal;
             vec2   texCoord;
+            ubyte4 color;
             ubyte4 joints;
             ubyte4 weights;
         };
+
+        typedef uint32 ModelIndex;
 
         char name[256];
         sprintf(name, "models/dump/%d.glb", int(model.type));
@@ -86,7 +89,7 @@ namespace Extension {
         int rotationOffset    = translationOffset + animFrames * sizeof(vec3);
         int verticesOffset    = rotationOffset + model.mCount * animFrames * sizeof(quat);
         int indicesOffset     = verticesOffset + vCount * sizeof(ModelVertex);
-        int bufferSize        = indicesOffset + iCount * sizeof(Index);
+        int bufferSize        = indicesOffset + iCount * sizeof(ModelIndex);
 
         char *bufferData = new char[bufferSize];
 
@@ -114,7 +117,8 @@ namespace Extension {
             dst.normal   = flip * dst.normal;
 
             dst.texCoord *= (1.0f / 32767.0f);
-            dst.joints   = ubyte4(uint8(src.coord.w), 0, 0, 0);
+            dst.color    = src.color;
+            dst.joints   = ubyte4(uint8(src.coord.w / 2), 0, 0, 0);
             dst.weights  = ubyte4(255, 0, 0, 0);
 
             vMin.x = min(vMin.x, dst.coord.x);
@@ -125,7 +129,11 @@ namespace Extension {
             vMax.y = max(vMax.y, dst.coord.y);
             vMax.z = max(vMax.z, dst.coord.z);
         }
-        memcpy(bufferData + indicesOffset, indices, sizeof(Index) * iCount);
+
+        for (int i = 0; i < iCount; i++) {
+            ModelIndex &dst = ((ModelIndex*)(bufferData + indicesOffset))[i];
+            dst = indices[i];
+        }
 
         GLTF *gltf = new GLTF();
 
@@ -137,14 +145,15 @@ namespace Extension {
         delete[] vertices;
         delete[] indices;
 
-        gltf->addAccessor(0, 0, iCount, GLTF::SCALAR, GL_UNSIGNED_SHORT); // 0
+        gltf->addAccessor(0, 0, iCount, GLTF::SCALAR, GL_UNSIGNED_INT); // 0
         gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, coord),    vCount, GLTF::VEC3, GL_FLOAT, false, vMin, vMax); // 1
         gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, normal),   vCount, GLTF::VEC3, GL_FLOAT); // 2
         gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, texCoord), vCount, GLTF::VEC2, GL_FLOAT); // 3
+        //gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, color),    vCount, GLTF::VEC4, GL_UNSIGNED_BYTE); // TODO
         gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, joints),   vCount, GLTF::VEC4, GL_UNSIGNED_BYTE); // 4
         gltf->addAccessor(1, (int)OFFSETOF(ModelVertex, weights),  vCount, GLTF::VEC4, GL_UNSIGNED_BYTE, true); // 5
 
-        gltf->addBufferView(0, 0, indicesOffset, sizeof(Index) * iCount); // 0
+        gltf->addBufferView(0, 0, indicesOffset, sizeof(ModelIndex) * iCount); // 0
         gltf->addBufferView(0, sizeof(ModelVertex), verticesOffset, sizeof(ModelVertex) * vCount);    // 1
 
         sprintf(name, "%d_mesh", int(model.type));
