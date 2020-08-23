@@ -5,21 +5,21 @@
 #include "camera.h"
 
 // level file data -------------------
-uint32           tilesCount;
-const uint8*     tiles[15];
+uint32              tilesCount;
+extern const uint8* tiles[15];
 
 #if defined(USE_MODE_5) || defined(_WIN32)
     ALIGN4 uint16 palette[256];
 #endif
 
-ALIGN4 uint8     lightmap[256 * 32];
+extern uint8     lightmap[256 * 32];
 
 uint16           roomsCount;
 
 const uint16*    floors;
 
-uint32           texturesCount;
-const Texture*   textures;
+uint32                texturesCount;
+extern const Texture* textures;
 
 const Sprite*    sprites;
 
@@ -85,45 +85,48 @@ int32 entityLara;
 extern uint32 gVerticesCount;
 extern Rect   clip;
 
-void readLevel(const uint8 *data) { // TODO non-hardcode level loader
+void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_OFF alignment bytes
     tilesCount = *((uint32*)(data + 4));
     for (uint32 i = 0; i < tilesCount; i++) {
         tiles[i] = data + 8 + 256 * 256 * i;
     }
+
+    #define MDL_OFF 2
+    #define ENT_OFF 2
 
     roomsCount = *((uint16*)(data + 720908));
     const Room* roomsPtr = (Room*)(data + 720908 + 2);
 
     floors = (uint16*)(data + 899492 + 4);
 
-    texturesCount = *((uint32*)(data + 1271686));
-    textures = (Texture*)(data + 1271686 + 4);
-
-    sprites = (Sprite*)(data + 1289634);
-
-    spritesSeqCount = *((uint32*)(data + 1292130));
-    spritesSeq = (SpriteSeq*)(data + 1292130 + 4);
-
     meshData = data + 908172 + 4;
     meshOffsets = (uint32*)(data + 975724 + 4);
 
     nodes = (int32*)(data + 990318);
 
-    modelsCount = *((uint32*)(data + 1270666));
-    const uint8* modelsPtr = (uint8*)(data + 1270666 + 4);
+    modelsCount = *((uint32*)(data + 1270666 + MDL_OFF));
+    const uint8* modelsPtr = (uint8*)(data + 1270666 + 4 + MDL_OFF);
 
-    entitiesCount = *((uint32*)(data + 1319252));
-    entities = (Entity*)(data + 1319252 + 4);
+    texturesCount = *((uint32*)(data + 1271686 + MDL_OFF));
+    textures = (Texture*)(data + 1271686 + 4 + MDL_OFF);
+
+    sprites = (Sprite*)(data + 1289634 + MDL_OFF);
+
+    spritesSeqCount = *((uint32*)(data + 1292130 + MDL_OFF));
+    spritesSeq = (SpriteSeq*)(data + 1292130 + 4 + MDL_OFF);
+
+    entitiesCount = *((uint32*)(data + 1319252 + MDL_OFF + ENT_OFF));
+    entities = (Entity*)(data + 1319252 + 4 + MDL_OFF + ENT_OFF);
 
 // prepare lightmap
-    const uint8* f_lightmap = data + 1320576;
+    const uint8* f_lightmap = data + 1320576 + MDL_OFF + ENT_OFF;
     memcpy(lightmap, f_lightmap, sizeof(lightmap));
 
 // prepare palette
 #if !(defined(USE_MODE_5) || defined(_WIN32))
     uint16 palette[256];
 #endif
-    const uint8* f_palette = data + 1328768;
+    const uint8* f_palette = data + 1328768 + MDL_OFF + ENT_OFF;
 
     const uint8* p = f_palette;
 

@@ -42,10 +42,87 @@ void update(int32 frames) {
     }
 }
 
+#ifdef WIN32
+extern Vertex gVertices[MAX_VERTICES];
+
+INLINE int32 classify(const Vertex* v) {
+    return (v->x < clip.x0 ? 1 : 0) |
+           (v->x > clip.x1 ? 2 : 0) |
+           (v->y < clip.y0 ? 4 : 0) |
+           (v->y > clip.y1 ? 8 : 0);
+}
+
+void drawTest() {
+    static Rect testClip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
+    static int32 testTile = 707; // 712
+
+    int dx = 0;
+    int dy = 0;
+
+    if (GetAsyncKeyState(VK_LEFT)) dx--;
+    if (GetAsyncKeyState(VK_RIGHT)) dx++;
+    if (GetAsyncKeyState(VK_UP)) dy--;
+    if (GetAsyncKeyState(VK_DOWN)) dy++;
+
+    if (GetAsyncKeyState('T')) {
+        testClip.x0 += dx;
+        testClip.y0 += dy;
+    }
+
+    if (GetAsyncKeyState('B')) {
+        testClip.x1 += dx;
+        testClip.y1 += dy;
+    }
+
+    if (GetAsyncKeyState('U')) {
+        testTile += dx;
+        if (testTile < 0) testTile = 0;
+        if (testTile >= texturesCount) testTile = texturesCount - 1;
+    }
+
+    clip = testClip;
+
+    gVertices[0].x = 50 + 50;
+    gVertices[0].y = 50;
+
+    gVertices[1].x = FRAME_WIDTH - 50 - 50;
+    gVertices[1].y = 50;
+
+    gVertices[2].x = FRAME_WIDTH - 50;
+    gVertices[2].y = FRAME_HEIGHT - 50;
+
+    gVertices[3].x = 50;
+    gVertices[3].y = FRAME_HEIGHT - 50;
+
+    for (int i = 0; i < 4; i++) {
+        gVertices[i].z = 100;
+        gVertices[i].g = 128;
+        gVertices[i].clip = classify(gVertices + i);
+    }
+    gVerticesCount = 4;
+
+    Index indices[] = { 0, 1, 2, 3, 0, 2, 3 };
+
+    faceAddQuad(testTile, indices, 0);
+
+    for (int y = 0; y < FRAME_HEIGHT; y++) {
+        for (int x = 0; x < FRAME_WIDTH; x++) {
+            if (x == clip.x0 || x == clip.x1 - 1 || y == clip.y0 || y == clip.y1 - 1)
+                fb[y * FRAME_WIDTH + x] = 255;
+        }
+    }
+
+    flush();
+
+    Sleep(16);
+}
+#endif
+
 void render() {
     clear();
 
     drawRooms();
+    //drawTest();
 
     drawNumber(fps, FRAME_WIDTH, 16);
 }
@@ -112,7 +189,7 @@ void vblank() {
 int main(void) {
 #ifdef _WIN32
     {
-        FILE *f = fopen("C:/Projects/TR/TR1_ANDROID/LEVEL1.PHD", "rb");
+        FILE *f = fopen("data/LEVEL1.PHD", "rb");
         fseek(f, 0, SEEK_END);
         int32 size = ftell(f);
         fseek(f, 0, SEEK_SET);
