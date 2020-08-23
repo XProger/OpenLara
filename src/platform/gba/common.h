@@ -24,6 +24,7 @@
 
 //#define USE_MODE_5
 //#define DEBUG_OVERDRAW
+//#define DEBUG_FACES
 
 #define SCALE   1
 
@@ -223,10 +224,10 @@ struct EntityDesc { // 32 bytes
 struct Texture {
     uint16  attribute;
     uint16  tile:14, :2;
-    uint8   xh0, x0, yh0, y0;
-    uint8   xh1, x1, yh1, y1;
-    uint8   xh2, x2, yh2, y2;
-    uint8   xh3, x3, yh3, y3;
+    uint32  uv0;
+    uint32  uv1;
+    uint32  uv2;
+    uint32  uv3;
 };
 
 struct Sprite {
@@ -253,7 +254,7 @@ struct Rect {
 struct Vertex {
     int16 x, y, z;
     uint8 g, clip;
-    uint8 u, v;
+    uint32 uv;
 };
 
 struct Face {
@@ -269,8 +270,8 @@ struct Face {
 #define MAX_MATRICES    8
 #define MAX_MODELS      64
 #define MAX_ENTITY      190
-#define MAX_VERTICES    1024
-#define MAX_FACES       384
+#define MAX_VERTICES    850
+#define MAX_FACES       220
 #define FOG_SHIFT       2
 #define FOG_MAX         (10 * 1024)
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
