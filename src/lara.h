@@ -889,7 +889,7 @@ struct Lara : Character {
     float wpnGetDamage() {
         switch (wpnCurrent) {
             case TR::Entity::PISTOLS : return 1;
-            case TR::Entity::SHOTGUN : return 1;
+            case TR::Entity::SHOTGUN : return 3;
             case TR::Entity::MAGNUMS : return 2;
             case TR::Entity::UZIS    : return 1;
             default : ;
