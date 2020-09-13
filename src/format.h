@@ -1313,7 +1313,7 @@
     E( ANIMATING15_MIP       ) \
     E( ANIMATING16           ) \
     E( ANIMATING16_MIP       ) \
-    E( HORIZON               ) \
+    E( ___SKY                ) \
     E( SKY_GRAPHICS          ) \
     E( BINOCULAR_GRAPHICS    ) \
     E( TARGET_GRAPHICS       ) \
@@ -2399,6 +2399,7 @@ namespace TR {
                 REMAP_4( AI_MODIFY            );
                 REMAP_4( AI_FOLLOW            );
                 REMAP_4( KILL_ALL_TRIGGERS    );
+                REMAP_4( SKY                  );
                 //REMAP_4( GLYPHS               );
                 REMAP_4( MISC_SPRITES         );
 
