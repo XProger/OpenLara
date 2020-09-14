@@ -14,7 +14,7 @@ uint16 divTable[DIV_TABLE_SIZE];
 #define FixedInvU(x) divTable[x]
 
 #if defined(USE_MODE_5) || defined(_WIN32)
-    extern uint16 palette[256];
+    uint16 palette[256];
 #endif
 
 uint8 lightmap[256 * 32];
@@ -279,18 +279,10 @@ INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
     return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
 }
 
-INLINE void sortVertices(Vertex *&t, Vertex *&m, Vertex *&b) {
-    if (t->y > m->y) swap(t, m);
-    if (t->y > b->y) swap(t, b);
-    if (m->y > b->y) swap(m, b);
-}
-
-INLINE void sortVertices(Vertex *&t, Vertex *&m, Vertex *&o, Vertex *&b) {
-    if (t->y > m->y) swap(t, m);
-    if (o->y > b->y) swap(o, b);
-    if (t->y > o->y) swap(t, o);
-    if (m->y > b->y) swap(m, b);
-    if (m->y > o->y) swap(m, o);
+INLINE void sortVertices(VertexUV *&t, VertexUV *&m, VertexUV *&b) {
+    if (t->v.y > m->v.y) swap(t, m);
+    if (t->v.y > b->v.y) swap(t, b);
+    if (m->v.y > b->v.y) swap(m, b);
 }
 
 INLINE int32 classify(const Vertex* v) {
@@ -357,6 +349,57 @@ void transform(const vec3s &v, int32 vg) {
     res.clip = classify(&res);
 }
 
+int32 clipPoly(int32 pCount, VertexUV* poly) {
+    #define LERP(a,b,t) ((b) + (((a) - (b)) * t >> 16))
+
+    #define CLIP_AXIS(X, Y, edge, output) {\
+        uint32 t = ((edge - b->v.X) << 16) / (a->v.X - b->v.X);\
+        VertexUV* v = output + count++;\
+        v->v.X = edge;\
+        v->v.Y = LERP(a->v.Y, b->v.Y, t);\
+        v->v.z = LERP(a->v.z, b->v.z, t);\
+        v->v.g = LERP(a->v.g, b->v.g, t);\
+        v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
+    }
+
+    #define CLIP_VERTEX(X, Y, X0, X1, input, output) {\
+        const VertexUV *a, *b = input + pCount - 1;\
+        for (int32 i = 0; i < pCount; i++) {\
+            a = b;\
+            b = input + i;\
+            if (a->v.X < X0) {\
+                if (b->v.X < X0) continue;\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (a->v.X > X1) {\
+                if (b->v.X > X1) continue;\
+                CLIP_AXIS(X, Y, X1, output);\
+            }\
+            if (b->v.X < X0) {\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (b->v.X > X1) {\
+                CLIP_AXIS(X, Y, X1, output);\
+            } else {\
+                output[count++] = *b;\
+            }\
+        }\
+        if (count < 3) return 0;\
+    }
+
+    VertexUV tmp[8];
+    int32 count = 0;
+
+// clip x
+    CLIP_VERTEX(x, y, clip.x0, clip.x1, poly, tmp);
+
+    pCount = count;
+    count = 0;
+
+// clip y
+    CLIP_VERTEX(y, x, clip.y0, clip.y1, tmp, poly);
+
+    return count;
+}
+
 #ifdef DEBUG_OVERDRAW
 #define FETCH_GT()              32
 #define FETCH_G(palIndex)       32
@@ -378,8 +421,8 @@ struct Edge {
     int32  dg;
     uint32 dt;
 
-    int32   index;
-    Vertex* vert[8];
+    int32     index;
+    VertexUV* vert[8];
 
     Edge() : h(0), dx(0), dg(0), dt(0) {}
 
@@ -399,18 +442,18 @@ struct Edge {
             return false;
         }
 
-        Vertex* v1 = vert[index--];
-        Vertex* v2 = vert[index];
+        VertexUV* v1 = vert[index--];
+        VertexUV* v2 = vert[index];
 
-        h = v2->y - v1->y;
-        x = v1->x << 16;
-        g = v1->g << 16;
+        h = v2->v.y - v1->v.y;
+        x = v1->v.x << 16;
+        g = v1->v.g << 16;
 
         if (h > 1) {
             uint32 d = FixedInvU(h);
 
-            dx = d * (v2->x - v1->x);
-            dg = d * (v2->g - v1->g);
+            dx = d * (v2->v.x - v1->v.x);
+            dg = d * (v2->v.g - v1->v.g);
         }
 
         return true;
@@ -421,19 +464,19 @@ struct Edge {
             return false;
         }
 
-        Vertex* v1 = vert[index--];
-        Vertex* v2 = vert[index];
+        VertexUV* v1 = vert[index--];
+        VertexUV* v2 = vert[index];
 
-        h = v2->y - v1->y;
-        x = v1->x << 16;
-        g = v1->g << 16;
+        h = v2->v.y - v1->v.y;
+        x = v1->v.x << 16;
+        g = v1->v.g << 16;
         t = (v1->uv >> 16) | (v1->uv << 16); // TODO preprocess
 
         if (h > 1) {
             uint32 d = FixedInvU(h);
 
-            dx = d * (v2->x - v1->x);
-            dg = d * (v2->g - v1->g);
+            dx = d * (v2->v.x - v1->v.x);
+            dg = d * (v2->v.g - v1->v.g);
 
             int32 du = d * ((v2->uv & 0xFFFF) - (v1->uv & 0xFFFF));
             int32 dv = d * ((v2->uv >> 16) - (v1->uv >> 16));
@@ -444,15 +487,15 @@ struct Edge {
         return true;
     }
 
-    void build(int32 start, int32 count, int32 t, int32 b, int32 incr) {
-        vert[index = 0] = gVertices + start + b;
+    void build(VertexUV *vertices, int32 count, int32 t, int32 b, int32 incr) {
+        vert[index = 0] = vertices + b;
 
         for (int i = 1; i < count; i++) {
             b = (b + incr) % count;
 
-            Vertex* v = gVertices + start + b;
+            VertexUV* v = vertices + b;
 
-            if (vert[index]->x != v->x || vert[index]->y != v->y) {
+            if (vert[index]->v.x != v->v.x || vert[index]->v.y != v->v.y) {
                 vert[++index] = v;
             }
 
@@ -529,15 +572,40 @@ INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32
 INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, int32 dgdx, uint32 dtdx) {
     #ifdef USE_MODE_5
         uint16* pixel = buffer + x1;
-        int32 width = (x2 - x1);
 
-        while (width--)
-        {
+        if (x1 & 1) {
             *pixel++ = FETCH_GT_PAL();
             t += dtdx;
             g += dgdx;
+            x1++;
+
+            if (x1 >= x2) {
+                return;
+            }
         }
+
+        int32 width = (x2 - x1);
+        int32 width2 = width >> 1;
+
+        dgdx <<= 1;
+
+        while (width2--) {
+            uint32 p = FETCH_GT_PAL();
+            t += dtdx;
+            p |= FETCH_GT_PAL() << 16;
+            t += dtdx;
+            g += dgdx;
+
+            *(uint32*)pixel = p;
+            pixel += 2;
+        }
+
+        if (x2 & 1) {
+            *pixel++ = FETCH_GT_PAL();
+        }
+
     #else
+
         if (x1 & 1)
         {
             uint16 &p = *(uint16*)((uint8*)buffer + x1 - 1);
@@ -697,39 +765,16 @@ void rasterizeGT(int16 y, Edge &L, Edge &R)
     }
 }
 
-void drawTriangle(const Face* face) {
-    Vertex *v1, *v2, *v3;
-
-    bool clipped = face->indices[0] == face->indices[1];
-
-    if (clipped) {
-        v1 = gVertices + face->start;
-        v2 = v1 + 1;
-        v3 = v1 + 2;
-    } else {
-        v1 = gVertices + face->start;
-        v2 = v1 + face->indices[1];
-        v3 = v1 + face->indices[2];
-    }
-
-    uint16 palIndex = face->flags & FACE_TEXTURE;
-
-    if (!(face->flags & FACE_COLORED)) {
-        const Texture &tex = textures[palIndex];
-        palIndex = 0xFFFF;
-        curTile = tiles[tex.tile];
-        if (!clipped) {
-            v1->uv = tex.uv0;
-            v2->uv = tex.uv1;
-            v3->uv = tex.uv2;
-        }
-    }
+void drawTriangle(const Face* face, VertexUV *v) {
+    VertexUV *v1 = v + 0,
+             *v2 = v + 1,
+             *v3 = v + 2;
 
     sortVertices(v1, v2, v3);
 
-    int32 temp = (v2->y - v1->y) * FixedInvU(v3->y - v1->y);
+    int32 temp = (v2->v.y - v1->v.y) * FixedInvU(v3->v.y - v1->v.y);
 
-    int32 longest = ((temp * (v3->x - v1->x)) >> 16) + (v1->x - v2->x);
+    int32 longest = ((temp * (v3->v.x - v1->v.x)) >> 16) + (v1->v.x - v2->v.x);
     if (longest == 0)
     {
         return;
@@ -758,60 +803,35 @@ void drawTriangle(const Face* face) {
         R.index   = 1;
     }
 
-    if (palIndex != 0xFFFF) {
-        rasterizeG(v1->y, palIndex, L, R);
+    if (face->flags & FACE_COLORED) {
+        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->y, L, R);
+        rasterizeGT(v1->v.y, L, R);
     }
 }
 
-void drawQuad(const Face* face) {
-    Vertex *v1, *v2, *v3, *v4;
-    bool clipped = face->indices[0] == face->indices[1];
-
-    if (clipped) {
-        v1 = gVertices + face->start;
-        v2 = v1 + 1;
-        v3 = v1 + 2;
-        v4 = v1 + 3;
-    } else {
-        v1 = gVertices + face->start;
-        v2 = v1 + face->indices[1];
-        v3 = v1 + face->indices[2];
-        v4 = v1 + face->indices[3];
-    }
-
-    uint16 palIndex = face->flags & FACE_TEXTURE;
-
-    if (!(face->flags & FACE_COLORED)) {
-        const Texture &tex = textures[palIndex];
-        palIndex = 0xFFFF;
-        curTile = tiles[tex.tile];
-
-        if (!clipped) {
-            v1->uv = tex.uv0;
-            v2->uv = tex.uv1;
-            v3->uv = tex.uv2;
-            v4->uv = tex.uv3;
-        }
-    }
+void drawQuad(const Face* face, VertexUV *v) {
+    VertexUV *v1 = v + 0,
+             *v2 = v + 1,
+             *v3 = v + 2,
+             *v4 = v + 3;
 
     int32 minY =  0x7FFF;
     int32 maxY = -0x7FFF;
     int32 t = 0, b = 0;
 
-    Vertex* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
+    VertexUV* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
 
     for (int i = 0; i < 4; i++) {
-        Vertex *v = poly[i];
+        VertexUV *v = poly[i];
 
-        if (v->y < minY) {
-            minY = v->y;
+        if (v->v.y < minY) {
+            minY = v->v.y;
             t = i;
         }
 
-        if (v->y > maxY) {
-            maxY = v->y;
+        if (v->v.y > maxY) {
+            maxY = v->v.y;
             b = i;
         }
     }
@@ -833,54 +853,59 @@ void drawQuad(const Face* face) {
         R.vert[++R.index] = poly[--b];
     } while (poly[b] != v1);
 
-    if (palIndex != 0xFFFF) {
-        rasterizeG(v1->y, palIndex, L, R);
+    if (face->flags & FACE_COLORED) {
+        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->y, L, R);
+        rasterizeGT(v1->v.y, L, R);
     }
 }
 
-void drawPoly(const Face* face) {
-    uint16 palIndex = face->flags & FACE_TEXTURE;
-    
-    if (!(face->flags & FACE_COLORED)) {
-        const Texture &tex = textures[palIndex];
-        palIndex = 0xFFFF;
-        curTile = tiles[tex.tile];
-    }
+void drawPoly(Face* face, VertexUV *v) {
+    int32 count = clipPoly((face->flags & FACE_TRIANGLE) ? 3 : 4, v);
 
-    int32 start = face->start;
-    int32 count = face->indices[0];
+    if (count < 3) return;
+
+    if (count <= 4) {
+        face->indices[0] = 0;
+        face->indices[1] = 1;
+        face->indices[2] = 2;
+        face->indices[3] = 3;
+
+        if (count == 3) {
+            drawTriangle(face, v);
+        } else {
+            drawQuad(face, v);
+        }
+        return;
+    }
 
     int32 minY =  0x7FFF;
     int32 maxY = -0x7FFF;
-    int32 t = start, b = start;
+    int32 t = 0, b = 0;
 
     for (int i = 0; i < count; i++) {
-        Vertex *v = gVertices + start + i;
+        VertexUV *p = v + i;
 
-        if (v->y < minY) {
-            minY = v->y;
+        if (p->v.y < minY) {
+            minY = p->v.y;
             t = i;
         }
 
-        if (v->y > maxY) {
-            maxY = v->y;
+        if (p->v.y > maxY) {
+            maxY = p->v.y;
             b = i;
         }
     }
 
     Edge L, R;
 
-    L.build(start, count, t, b, count + 1);
-    R.build(start, count, t, b, count - 1);
+    L.build(v, count, t, b, count + 1);
+    R.build(v, count, t, b, count - 1);
 
-    Vertex *v1 = gVertices + start + t;
-
-    if (palIndex != 0xFFFF) {
-        rasterizeG(v1->y, palIndex, L, R);
+    if (face->flags & FACE_COLORED) {
+        rasterizeG(v[t].v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->y, L, R);
+        rasterizeGT(v[t].v.y, L, R);
     }
 }
 
@@ -934,83 +959,6 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     }
 }
 
-void faceAddPolyClip(uint16 flags, Vertex** poly, int32 pCount, int32 depth) {
-    #define LERP(a,b,t) ((b) + (((a) - (b)) * t >> 16))
-
-    #define CLIP_AXIS(X, Y, edge, output) {\
-        uint32 t = ((edge - b->X) << 16) / (a->X - b->X);\
-        Vertex* v = output + count++;\
-        v->X = edge;\
-        v->Y = LERP(a->Y, b->Y, t);\
-        v->z = LERP(a->z, b->z, t);\
-        v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
-        v->g = LERP(a->g, b->g, t);\
-    }
-
-    #define CLIP_VERTEX(X, Y, X0, X1, input, output) {\
-        const Vertex *a, *b = input[pCount - 1];\
-        for (int32 i = 0; i < pCount; i++) {\
-            a = b;\
-            b = input[i];\
-            if (a->X < X0) {\
-                if (b->X < X0) continue;\
-                CLIP_AXIS(X, Y, X0, output);\
-            } else if (a->X > X1) {\
-                if (b->X > X1) continue;\
-                CLIP_AXIS(X, Y, X1, output);\
-            }\
-            if (b->X < X0) {\
-                CLIP_AXIS(X, Y, X0, output);\
-            } else if (b->X > X1) {\
-                CLIP_AXIS(X, Y, X1, output);\
-            } else {\
-                output[count++] = *b;\
-            }\
-        }\
-        if (count < 3) return;\
-    }
-
-    if (!(flags & FACE_COLORED)) {
-        const Texture &tex = textures[flags & FACE_TEXTURE];
-        curTile = tiles[tex.tile];
-        poly[0]->uv = tex.uv0;
-        poly[1]->uv = tex.uv1;
-        poly[2]->uv = tex.uv2;
-        if (pCount == 4) {
-            poly[3]->uv = tex.uv3;
-        }
-    }
-
-    Vertex tmp[8];
-    int32 count = 0;
-
-// clip x
-    CLIP_VERTEX(x, y, clip.x0, clip.x1, poly, tmp);
-
-    pCount = count;
-    count = 0;
-
-    Vertex* output = gVertices + gVerticesCount;
-
-// clip y
-    CLIP_VERTEX(y, x, clip.y0, clip.y1, &tmp, output);
-
-    Face *f = gFaces + gFacesCount;
-    gFacesSorted[gFacesCount++] = f;
-
-    if (count == 3) {
-        flags |= FACE_TRIANGLE;
-    }
-
-    f->flags      = flags;
-    f->depth      = depth;
-    f->start      = gVerticesCount;
-    f->indices[0] = count;
-    f->indices[1] = count;
-
-    gVerticesCount += count;
-}
-
 void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
 #ifdef _WIN32
     if (gFacesCount >= MAX_FACES) {
@@ -1034,19 +982,18 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
     int32 depth = (v1->z + v2->z + v3->z + v4->z) >> 2;
 
     if (v1->clip | v2->clip | v3->clip | v4->clip) {
-        Vertex* poly[4] = { v1, v2, v3, v4 };
-        faceAddPolyClip(flags, poly, 4, depth);
-    } else {
-        Face *f = gFaces + gFacesCount;
-        gFacesSorted[gFacesCount++] = f;
-        f->flags      = flags;
-        f->depth      = depth;
-        f->start      = startVertex + indices[0];
-        f->indices[0] = 0;
-        f->indices[1] = indices[1] - indices[0];
-        f->indices[2] = indices[2] - indices[0];
-        f->indices[3] = indices[3] - indices[0];
+        flags |= FACE_CLIPPED;
     }
+
+    Face *f = gFaces + gFacesCount;
+    gFacesSorted[gFacesCount++] = f;
+    f->flags      = flags;
+    f->depth      = depth;
+    f->start      = startVertex + indices[0];
+    f->indices[0] = 0;
+    f->indices[1] = indices[1] - indices[0];
+    f->indices[2] = indices[2] - indices[0];
+    f->indices[3] = indices[3] - indices[0];
 }
 
 void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
@@ -1071,18 +1018,17 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
     int32 depth = (v1->z + v2->z + v3->z) / 3;
 
     if (v1->clip | v2->clip | v3->clip) {
-        Vertex* poly[3] = { v1, v2, v3 };
-        faceAddPolyClip(flags, poly, 3, depth);
-    } else {
-        Face *f = gFaces + gFacesCount;
-        gFacesSorted[gFacesCount++] = f;
-        f->flags      = flags | FACE_TRIANGLE;
-        f->depth      = depth;
-        f->start      = startVertex + indices[0];
-        f->indices[0] = 0;
-        f->indices[1] = indices[1] - indices[0];
-        f->indices[2] = indices[2] - indices[0];
+        flags |= FACE_CLIPPED;
     }
+
+    Face *f = gFaces + gFacesCount;
+    gFacesSorted[gFacesCount++] = f;
+    f->flags      = flags | FACE_TRIANGLE;
+    f->depth      = depth;
+    f->start      = startVertex + indices[0];
+    f->indices[0] = 0;
+    f->indices[1] = indices[1] - indices[0];
+    f->indices[2] = indices[2] - indices[0];
 }
 
 void faceSort(Face** faces, int32 L, int32 R) {
@@ -1114,20 +1060,41 @@ void flush() {
         //const uint16 mips[] = { 0xFFFF, 0xFEFE, 0xFCFC, 0xF8F8 };
 
         for (int32 i = 0; i < gFacesCount; i++) {
-            const Face *f = gFacesSorted[i];
+            Face *face = gFacesSorted[i];
 
             // TODO
             //mipMask = mips[MIN(3, f.depth / 2048)];
 
-            if (f->flags & FACE_TRIANGLE) {
-                drawTriangle(f);
-            } else {
-                if (f->indices[0] == f->indices[1] && f->indices[0] > 4) {
-                    drawPoly(f);
-                } else {
-                    drawQuad(f);
-                }
+            VertexUV v[8];
+
+            uint32 flags = face->flags;
+
+            if (!(flags & FACE_COLORED)) {
+                const Texture &tex = textures[face->flags & FACE_TEXTURE];
+                curTile = tiles[tex.tile];
+                v[0].uv = tex.uv0;
+                v[1].uv = tex.uv1;
+                v[2].uv = tex.uv2;
+                v[3].uv = tex.uv3;
             }
+
+            Vertex *p = gVertices + face->start;
+            v[0].v = p[0];
+            v[1].v = p[face->indices[1]];
+            v[2].v = p[face->indices[2]];
+            if (!(flags & FACE_TRIANGLE)) {
+                v[3].v = p[face->indices[3]];
+            }
+
+            if (flags & FACE_CLIPPED) {
+                drawPoly(face, v);
+            } else {
+                if (flags & FACE_TRIANGLE) {
+                    drawTriangle(face, v);
+                } else {
+                    drawQuad(face, v);
+                }
+            };
         }
     }
 
@@ -1162,8 +1129,8 @@ void dmaClear(uint32 *dst, uint32 count) {
 
 void clear() {
 #ifdef USE_MODE_5
-    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 1);
+    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> PIXEL_SIZE);
 #else
-    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 2);
+    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> PIXEL_SIZE);
 #endif
 }
