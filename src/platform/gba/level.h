@@ -9,7 +9,7 @@ uint32              tilesCount;
 extern const uint8* tiles[15];
 
 #if defined(USE_MODE_5) || defined(_WIN32)
-    ALIGN4 uint16 palette[256];
+    extern uint16 palette[256];
 #endif
 
 extern uint8     lightmap[256 * 32];

@@ -22,7 +22,7 @@
 #include <math.h>
 #include <assert.h>
 
-//#define USE_MODE_5
+#define USE_MODE_5
 //#define DEBUG_OVERDRAW
 //#define DEBUG_FACES
 
@@ -37,8 +37,8 @@
 #else // MODE_4
     #define WIDTH        240
     #define HEIGHT       160
-    #define FRAME_WIDTH  (240/SCALE)
-    #define FRAME_HEIGHT (160/SCALE)
+    #define FRAME_WIDTH  (WIDTH/SCALE)
+    #define FRAME_HEIGHT (HEIGHT/SCALE)
     #define PIXEL_SIZE   2
 #endif
 
@@ -254,6 +254,10 @@ struct Rect {
 struct Vertex {
     int16 x, y, z;
     uint8 g, clip;
+};
+
+struct VertexUV {
+    Vertex v;
     uint32 uv;
 };
 
@@ -270,8 +274,8 @@ struct Face {
 #define MAX_MATRICES    8
 #define MAX_MODELS      64
 #define MAX_ENTITY      190
-#define MAX_VERTICES    850
-#define MAX_FACES       220
+#define MAX_VERTICES    1024
+#define MAX_FACES       512
 #define FOG_SHIFT       2
 #define FOG_MAX         (10 * 1024)
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
@@ -280,7 +284,8 @@ struct Face {
 
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
-#define FACE_TEXTURE    0x3FFF
+#define FACE_CLIPPED    0x2000
+#define FACE_TEXTURE    0x1FFF
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
