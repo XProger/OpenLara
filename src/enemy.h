@@ -2550,7 +2550,7 @@ struct Human : Enemy {
     int jointGun;
     int animDeath;
 
-    Human(IGame *game, int entity, float health) : Enemy(game, entity, health, 100, 375.0f, 1.0f), animDeath(-1) {
+    Human(IGame *game, int entity, float health) : Enemy(game, entity, health, 100, 0.0f, 1.0f), animDeath(-1) {
         jointGun   = 0;
         jointChest = 7;
         jointHead  = 8;
