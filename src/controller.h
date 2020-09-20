@@ -790,7 +790,7 @@ struct Controller {
     }
 
     bool alignToWall(float offset = 0.0f, int quadrant = -1, int maxDist = 0, int maxWidth = 0) {
-        int q  = angleQuadrant(angle.y);
+        int q  = angleQuadrant(angle.y, 0.25f);
         int ix = int(pos.x);
         int iz = int(pos.z);
         int x  = ix & ~1023;
