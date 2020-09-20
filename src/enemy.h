@@ -472,7 +472,14 @@ struct Enemy : Character {
         int z = (b.minZ + b.maxZ) / 2 - int(target->pos.z);
         if (abs(z) > STALK_BOX) return false;
 
-        // TODO: check for some quadrant shit
+        int target_quadrant = angleQuadrant(target->angle.y, 0.0);
+        int box_quadrant = z > 0 ? (x > 0 ? 2 : 1) : (x > 0 ? 3 : 0);
+
+        if (target_quadrant == box_quadrant) return false;
+
+        int controller_quadrant = pos.z > target->pos.z ? (pos.x > target->pos.x ? 2 : 1) : (pos.x > target->pos.x ? 3 : 0);
+
+        if (target_quadrant == controller_quadrant && abs(target_quadrant - box_quadrant) == 2) return false;
 
         return true;
     }

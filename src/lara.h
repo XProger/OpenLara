@@ -2510,7 +2510,7 @@ struct Lara : Character {
 
             Block *block = (Block*)e.controller;
             float oldAngle = block->angle.y;
-            block->angle.y = angleQuadrant(angle.y) * (PI * 0.5f);
+            block->angle.y = angleQuadrant(angle.y, 0.25f) * (PI * 0.5f);
 
             if (!checkInteraction(block, &TR::Limits::BLOCK, (input & ACTION) != 0)) {
                 block->angle.y = oldAngle;
@@ -3609,7 +3609,7 @@ struct Lara : Character {
                 }
 
                 if (level->version & TR::VER_TR1) // TODO: check hit animation indices for TR2 and TR3
-                    hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY());
+                    hitDir = angleQuadrant(dir.rotateY(angle.y + PI * 0.5f).angleY(), 0.25f);
                 return true;
             }
         };
@@ -3692,7 +3692,7 @@ struct Lara : Character {
         if (collision.side == Collision::FRONT) {
             float floor = collision.info[Collision::FRONT].floor;
 /*
-            switch (angleQuadrant(angleExt - angle.y)) {
+            switch (angleQuadrant(angleExt - angle.y), 0.25f) {
                 case 0 : collision.side = Collision::FRONT; LOG("FRONT\n"); break;
                 case 1 : collision.side = Collision::RIGHT; LOG("RIGHT\n"); break;
                 case 2 : collision.side = Collision::BACK;  LOG("BACK\n");  break;
