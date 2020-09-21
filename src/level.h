@@ -1928,6 +1928,13 @@ struct Level : IGame {
         s.z -= s.x;
         s.w -= s.y;
 
+        // Use the viewport rect if one of the dimensions is the same size
+        // as the viewport. This may fix clipping bugs while still allowing
+        // impossible geometry tricks.
+        if (s.z - s.x >= vp.z - vp.x || s.w - s.y >= vp.w - vp.y) {
+           return vp;
+        }
+
         return s;
     }
 
