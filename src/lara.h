@@ -4684,7 +4684,7 @@ struct Lara : Character {
             if (animIndex == ANIM_RUN_START) {
                 canJump = false;
             } else if (animIndex == ANIM_RUN) {
-                if (frameIndex == 4) {
+                if (frameIndex == 2) {
                     canJump = true;
                 }
             } else {
@@ -4700,6 +4700,8 @@ struct Lara : Character {
     }
     
     S_HANDLER(STATE_STOP) {
+        targetState = STATE_STOP;
+
         if (checkDeath()) {
             targetState = STATE_DEATH;
             return;
