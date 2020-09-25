@@ -1,6 +1,6 @@
 #include "common.h"
 
-#define DIV_TABLE_SIZE 512
+#define DIV_TABLE_SIZE 641
 
 uint16 divTable[DIV_TABLE_SIZE];
 
@@ -27,8 +27,8 @@ uint32 gVerticesCount = 0;
 Vertex gVertices[MAX_VERTICES];
 
 int32 gFacesCount = 0;
+Face* gFacesSorted[MAX_FACES];
 EWRAM_DATA Face gFaces[MAX_FACES];
-EWRAM_DATA Face* gFacesSorted[MAX_FACES];
 
 const uint8* curTile;
 uint16 mipMask;
@@ -327,12 +327,18 @@ void transform(const vec3s &v, int32 vg) {
 
     z >>= FOV_SHIFT;
 
-#if 0
-    x >>= 12;
-    y >>= 12;
-    z >>= 12;
-    uint32 iz = FixedInvU(z);
+#if 1
+    x >>= 11;
+    y >>= 11;
+    z >>= 11;
 
+    #ifdef WIN32
+        if (abs(z) >= DIV_TABLE_SIZE) {
+            DebugBreak();
+        }
+    #endif
+
+    uint32 iz = FixedInvS(z);
     x = (x * iz) >> 16;
     y = (y * iz) >> 16;
 #else
@@ -349,7 +355,30 @@ void transform(const vec3s &v, int32 vg) {
     res.clip = classify(&res);
 }
 
-int32 clipPoly(int32 pCount, VertexUV* poly) {
+#if 0 // TODO
+void clipZ(int32 znear, VertexUV *output, int32 &count, const VertexUV *a, const VertexUV *b) {
+    #define LERP2(a,b,t) int32((b) + (((a) - (b)) * t))
+
+    float t = (znear - b->v.sz) / float(a->v.sz - b->v.sz);
+    VertexUV* v = output + count++;
+/*
+    int32 ax = (a->v.x - (FRAME_WIDTH  / 2)) * a->v.z;
+    int32 ay = (a->v.y - (FRAME_HEIGHT / 2)) * a->v.z;
+    int32 bx = (b->v.x - (FRAME_WIDTH  / 2)) * b->v.z;
+    int32 by = (b->v.y - (FRAME_HEIGHT / 2)) * b->v.z;
+    int32 x = LERP2(ax, bx, t);
+    int32 y = LERP2(ay, by, t);
+*/
+    int32 x = LERP2(a->v.sx, b->v.sx, t);
+    int32 y = LERP2(a->v.sy, b->v.sy, t);
+    int32 z = LERP2(a->v.sz, b->v.sz, t);
+    v->v.x = (x / znear) + (FRAME_WIDTH  / 2);
+    v->v.y = (y / znear) + (FRAME_HEIGHT / 2);
+    v->v.g = LERP2(a->v.g, b->v.g, t);
+    v->uv = (LERP2(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP2(a->uv >> 16, b->uv >> 16, t) << 16);
+}
+#endif
+VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
     #define LERP(a,b,t) ((b) + (((a) - (b)) * t >> 16))
 
     #define CLIP_AXIS(X, Y, edge, output) {\
@@ -362,7 +391,26 @@ int32 clipPoly(int32 pCount, VertexUV* poly) {
         v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
     }
 
-    #define CLIP_VERTEX(X, Y, X0, X1, input, output) {\
+/* TODO
+    #define CLIP_NEAR(znear, output) {\
+        //clipZ(znear, output, count, a, b);\
+        uint32 t = ((znear - b->v.z) << 16) / (a->v.z - b->v.z);\
+        VertexUV* v = output + count++;\
+        int32 ax = (a->v.x - (FRAME_WIDTH  / 2)) * a->v.z;\
+        int32 ay = (a->v.y - (FRAME_HEIGHT / 2)) * a->v.z;\
+        int32 bx = (b->v.x - (FRAME_WIDTH  / 2)) * b->v.z;\
+        int32 by = (b->v.y - (FRAME_HEIGHT / 2)) * b->v.z;\
+        int32 x = LERP(ax, bx, t);\
+        int32 y = LERP(ay, by, t);\
+        v->v.x = (x / znear) + (FRAME_WIDTH  / 2);\
+        v->v.y = (y / znear) + (FRAME_HEIGHT / 2);\
+        v->v.z = LERP(a->v.z, b->v.z, t);\
+        v->v.g = LERP(a->v.g, b->v.g, t);\
+        v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
+    }
+*/
+
+    #define CLIP_XY(X, Y, X0, X1, input, output) {\
         const VertexUV *a, *b = input + pCount - 1;\
         for (int32 i = 0; i < pCount; i++) {\
             a = b;\
@@ -382,22 +430,59 @@ int32 clipPoly(int32 pCount, VertexUV* poly) {
                 output[count++] = *b;\
             }\
         }\
-        if (count < 3) return 0;\
+        if (count < 3) return NULL;\
     }
 
-    VertexUV tmp[8];
+    #define ZNEAR (VIEW_MIN_F << FIXED_SHIFT >> FOV_SHIFT)
+
+    #define CLIP_Z(input, output) {\
+        const VertexUV *a, *b = input + pCount - 1;\
+        for (int32 i = 0; i < pCount; i++) {\
+            a = b;\
+            b = input + i;\
+            if (a->v.z < ZNEAR) {\
+                if (b->v.z < ZNEAR) continue;\
+                CLIP_NEAR(ZNEAR, output);\
+            }\
+            if (b->v.z < ZNEAR) {\
+                CLIP_NEAR(ZNEAR, output);\
+            } else {\
+                output[count++] = *b;\
+            }\
+        }\
+        if (count < 3) return NULL;\
+    }
+
     int32 count = 0;
 
-// clip x
-    CLIP_VERTEX(x, y, clip.x0, clip.x1, poly, tmp);
+    VertexUV *in = poly;
+    VertexUV *out = tmp;
+/*
+    uint32 clipFlags = poly[0].v.clip | poly[1].v.clip | poly[2].v.clip;
+    if (pCount > 3) {
+        clipFlags |= poly[3].v.clip;
+    }
 
-    pCount = count;
-    count = 0;
+    if (clipFlags & 16) {
+        CLIP_Z(in, out);
+        swap(in, out);
+        pCount = count;
+        count = 0;
+    }
+*/
+    {//if (clipFlags & (1 | 2 | 4 | 8)) {
+    // clip x
+        CLIP_XY(x, y, clip.x0, clip.x1, in, out);
 
-// clip y
-    CLIP_VERTEX(y, x, clip.y0, clip.y1, tmp, poly);
+        pCount = count;
+        count = 0;
 
-    return count;
+    // clip y
+        CLIP_XY(y, x, clip.y0, clip.y1, out, in);
+        pCount = count;
+    }
+
+    return in;
 }
 
 #ifdef DEBUG_OVERDRAW
@@ -506,15 +591,34 @@ struct Edge {
     }
 };
 
-INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, int32 dgdx) {
+INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
     #ifdef USE_MODE_5
         uint16* pixel = buffer + x1;
-        int32 width = (x2 - x1);
 
-        while (width--)
-        {
+        if (x1 & 1) {
             *pixel++ = FETCH_G_PAL(palIndex);
             g += dgdx;
+            x1++;
+
+            if (x1 >= x2) {
+                return;
+            }
+        }
+
+        int32 width2 = (x2 - x1) >> 1;
+
+        dgdx <<= 1;
+
+        while (width2--) {
+            uint32 p = FETCH_G_PAL(palIndex);
+            g += dgdx;
+
+            *(uint32*)pixel = p | (p << 16);
+            pixel += 2;
+        }
+
+        if (x2 & 1) {
+            *pixel++ = FETCH_G_PAL(palIndex);
         }
     #else
         if (x1 & 1)
@@ -569,7 +673,7 @@ INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32
     #endif
 }
 
-INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, int32 dgdx, uint32 dtdx) {
+INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
     #ifdef USE_MODE_5
         uint16* pixel = buffer + x1;
 
@@ -584,8 +688,7 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
             }
         }
 
-        int32 width = (x2 - x1);
-        int32 width2 = width >> 1;
+        int32 width2 = (x2 - x1) >> 1;
 
         dgdx <<= 1;
 
@@ -665,8 +768,7 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, i
     #endif
 }
 
-void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R)
-{
+void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -698,9 +800,9 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R)
             int32 width = x2 - x1;
             if (width > 0)
             {
-                int32 d = FixedInvU(width);
+                uint32 d = FixedInvU(width);
 
-                int32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
+                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
                 scanlineG(buffer, x1, x2, palIndex, L.g >> 8, dgdx);
             }
@@ -713,8 +815,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R)
     }
 }
 
-void rasterizeGT(int16 y, Edge &L, Edge &R)
-{
+void rasterizeGT(int16 y, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -748,7 +849,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R)
             {
                 uint32 d = FixedInvU(width);
 
-                int32  dgdx = d * ((R.g - L.g) >> 8) >> 16;
+                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
                 uint32 u = d * ((R.t >> 16) - (L.t >> 16));
                 uint32 v = d * ((R.t & 0xFFFF) - (L.t & 0xFFFF));
@@ -861,9 +962,13 @@ void drawQuad(const Face* face, VertexUV *v) {
 }
 
 void drawPoly(Face* face, VertexUV *v) {
-    int32 count = clipPoly((face->flags & FACE_TRIANGLE) ? 3 : 4, v);
+    VertexUV tmp[16];
 
-    if (count < 3) return;
+    int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
+
+    v = clipPoly(v, tmp, count);
+
+    if (!v) return;
 
     if (count <= 4) {
         face->indices[0] = 0;
@@ -965,12 +1070,13 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
         DebugBreak();
     }
 #endif
-    Vertex* v1 = gVertices + startVertex + indices[0];
-    Vertex* v2 = gVertices + startVertex + indices[1];
-    Vertex* v3 = gVertices + startVertex + indices[2];
-    Vertex* v4 = gVertices + startVertex + indices[3];
+    Vertex* v = gVertices + startVertex;
+    Vertex* v1 = v + indices[0];
+    Vertex* v2 = v + indices[1];
+    Vertex* v3 = v + indices[2];
+    Vertex* v4 = v + indices[3];
 
-    if ((v1->clip | v2->clip | v3->clip | v4->clip) & 16)
+    if ((v1->clip | v2->clip | v3->clip | v4->clip) & 16) // TODO znear clip
         return;
 
     if (checkBackface(v1, v2, v3))
@@ -1002,11 +1108,12 @@ void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
         DebugBreak();
     }
 #endif
-    Vertex* v1 = gVertices + startVertex + indices[0];
-    Vertex* v2 = gVertices + startVertex + indices[1];
-    Vertex* v3 = gVertices + startVertex + indices[2];
+    Vertex* v = gVertices + startVertex;
+    Vertex* v1 = v + indices[0];
+    Vertex* v2 = v + indices[1];
+    Vertex* v3 = v + indices[2];
 
-    if ((v1->clip | v2->clip | v3->clip) & 16)
+    if ((v1->clip | v2->clip | v3->clip) & 16) // TODO znear clip
         return;
 
     if (checkBackface(v1, v2, v3))
@@ -1065,7 +1172,7 @@ void flush() {
             // TODO
             //mipMask = mips[MIN(3, f.depth / 2048)];
 
-            VertexUV v[8];
+            VertexUV v[16];
 
             uint32 flags = face->flags;
 
@@ -1101,7 +1208,7 @@ void flush() {
 #ifdef DEBUG_FACES
     if (gFacesCount > gFacesCountMax) gFacesCountMax = gFacesCount;
     if (gVerticesCount > gVerticesCountMax) gVerticesCountMax = gVerticesCount;
-    printf("%d %d\n", gFacesCountMax, gVerticesCountMax);
+    printf("f: %d v: %d\n", gFacesCountMax, gVerticesCountMax);
 #endif
 
     gVerticesCount = 0;
