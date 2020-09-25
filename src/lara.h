@@ -4709,7 +4709,7 @@ struct Lara : Character {
             return;
         }
 
-		targetState = STATE_STOP;
+        targetState = STATE_STOP;
 
         if ((input & (FORTH | ACTION)) == (FORTH | ACTION)) {
             c_angle(ANGLE_0);
