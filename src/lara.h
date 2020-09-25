@@ -4684,7 +4684,7 @@ struct Lara : Character {
             if (animIndex == ANIM_RUN_START) {
                 canJump = false;
             } else if (animIndex == ANIM_RUN) {
-                if (frameIndex == 4) {
+                if (frameIndex == 4 || ((level->version & TR::VER_VERSION) == TR::VER_TR1)) {
                     canJump = true;
                 }
             } else {
@@ -4708,6 +4708,8 @@ struct Lara : Character {
         if (s_checkRoll()) {
             return;
         }
+
+        targetState = STATE_STOP;
 
         if ((input & (FORTH | ACTION)) == (FORTH | ACTION)) {
             c_angle(ANGLE_0);
