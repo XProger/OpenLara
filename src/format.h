@@ -6219,19 +6219,28 @@ namespace TR {
         }
 
         void readAnimTex(Stream &stream) {
-            uint32 size;
-            stream.read(size);
-            if (size) {
-                stream.read(animTexturesCount);
+            uint32 animTexBlockSize;
+            stream.read(animTexBlockSize);
+            
+            if (animTexBlockSize) {
+                uint16 *animTexBlock = new uint16[animTexBlockSize];
+                for (int i = 0; i < animTexBlockSize; i++) {
+                    animTexBlock[i] = stream.readLE16();
+                }
+
+                uint16 *ptr = animTexBlock;
+
+                animTexturesCount = *(ptr++);
                 animTextures = animTexturesCount ? new AnimTexture[animTexturesCount] : NULL;
 
                 for (int i = 0; i < animTexturesCount; i++) {
                     AnimTexture &animTex = animTextures[i];
-                    animTex.count    = stream.readLE16() + 1;
+                    animTex.count    = *(ptr++) + 1;
                     animTex.textures = new uint16[animTex.count];
                     for (int j = 0; j < animTex.count; j++)
-                        animTex.textures[j] = stream.readLE16();
+                        animTex.textures[j] = *(ptr++);
                 }
+                delete animTexBlock;
             }
 
             if (version & (VER_TR4 | VER_TR5)) {

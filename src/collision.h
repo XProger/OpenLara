@@ -22,7 +22,7 @@ struct Collision {
             angle = normalizeAngle(PI2 + vec2(velocity.z, velocity.x).angle());
         pos += velocity;
 
-        int q = angleQuadrant(angle);
+        int q = angleQuadrant(angle, 0.25f);
 
         const vec2 v[] = {
             vec2( -radius,  radius ),
