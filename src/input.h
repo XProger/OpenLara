@@ -7,7 +7,7 @@
 #define MAX_PLAYERS            COUNT(Core::settings.controls)
 
 #define INPUT_JOY_COUNT        4
-#define INPUT_JOY_DZ_STICK     0.2f
+#define INPUT_JOY_DZ_STICK     0.3f
 #define INPUT_JOY_DZ_TRIGGER   0.01f
 
 namespace Input {
