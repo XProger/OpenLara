@@ -1695,6 +1695,7 @@ namespace TR {
     }
 
     #define FOG_DIST    (1.0f / (18 * 1024))
+    #define FOG_NONE    vec4(0.0f,  0.0f, 0.0f,  0.0f)
     #define FOG_BLACK   vec4(0.0f,  0.0f, 0.0f,  FOG_DIST)
     #define FOG_SANDY   vec4(0.2f,  0.1f, 0.0f,  FOG_DIST)
     #define FOG_GREEN   vec4(0.0f,  0.1f, 0.0f,  FOG_DIST)

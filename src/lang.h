@@ -252,6 +252,12 @@ enum StringID {
     , STR_MAX
 };
 
+#ifdef _XBOX // TODO: illegal escape sequence
+    #define STR_RUSSIAN "Russian"
+#else
+    #define STR_RUSSIAN "–усски{и"
+#endif
+
 #define STR_LANGUAGES \
       "English"       \
     , "Fran|cais"     \
@@ -260,7 +266,7 @@ enum StringID {
     , "Italiano"      \
     , "Polski"        \
     , "Portugu(es"    \
-    , "–усски{и"      \
+    , STR_RUSSIAN     \
     , "\x11\x02\x70\x01\x97\x01\xD6\xFF\xFF" \
     , "\x11\x01\x22\x01\x0F\x01\x0F\x01\x0E\x01\x06\x01\x04\x01\x0C\x01\x0B\xFF\xFF" \
     , "Suomi"         \

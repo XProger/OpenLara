@@ -551,21 +551,23 @@ struct Level : IGame {
     #endif
 
         vec4 material;
-
         if (Core::pass == Core::passAmbient) {
             if (room.flags.water) {
-                Core::fogParams = underwaterFogParams;
                 material = vec4(underwaterColor, 1.0f);
             } else {
-                Core::fogParams = levelFogParams;
                 material = vec4(1.0f);
             }
         } else {
-            Core::fogParams = levelFogParams;
             material = vec4(diffuse, ambient, specular, alpha);
         }
         
         setShader(Core::pass, type, (Core::pass == Core::passAmbient) ? false : room.flags.water, alphaTest);
+
+        if (room.flags.water) {
+            Core::setFog(underwaterFogParams);
+        } else {
+            Core::setFog(levelFogParams);
+        }
 
         #ifdef _GAPI_SW
             GAPI::setPalette(room.flags.water ? GAPI::swPaletteWater : GAPI::swPaletteColor);
@@ -2384,6 +2386,7 @@ struct Level : IGame {
             renderEntitiesTransp(transp);
 
         #ifndef FFP
+            Core::setFog(FOG_NONE);
             Core::whiteTex->bind(sDiffuse);
             Core::setBlendMode(bmMult);
             for (int i = 0; i < level.entitiesCount; i++) {
@@ -2529,11 +2532,17 @@ struct Level : IGame {
     }
 
     void renderAdditive(RoomDesc *roomsList, int roomsCount) {
-        vec4 oldFog = Core::fogParams;
-        Core::fogParams = FOG_BLACK; // don't apply fog for additive 
+        // don't apply fog for additive geometry
+        vec4 oldLevelFogParams = levelFogParams;
+        vec4 oldUnderwaterFogParams = underwaterFogParams;
+        levelFogParams = FOG_NONE;
+        underwaterFogParams = FOG_NONE;
+
         renderRooms(roomsList, roomsCount, 2);
         renderEntities(2);
-        Core::fogParams = oldFog;
+
+        levelFogParams = oldLevelFogParams;
+        underwaterFogParams = oldUnderwaterFogParams;
     }
 
     virtual void renderView(int roomIndex, bool water, bool showUI, int roomsCount = 0, RoomDesc *roomsList = NULL) {
@@ -2612,6 +2621,8 @@ struct Level : IGame {
         if (camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
 
+        Core::setFog(FOG_NONE);
+
         Core::setBlendMode(bmNone);
         if (water && waterCache && waterCache->visible) {
             Core::Pass pass = Core::pass;
@@ -2631,6 +2642,8 @@ struct Level : IGame {
         if (!camera->isUnderwater())
             renderAdditive(roomsList, roomsCount);
     
+        Core::setFog(FOG_NONE);
+
         Core::setBlendMode(bmNone);
 
         Core::Pass pass = Core::pass;
@@ -3065,7 +3078,7 @@ struct Level : IGame {
         int vW = Core::width;
         int vH = Core::height;
 
-        float aspect = float(vW) / float(vH);
+        float aspect = float(vW) / float(vH) * Core::aspectFix;
 
         if (Core::defaultTarget) {
             vX = 0;

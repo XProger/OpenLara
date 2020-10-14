@@ -1296,7 +1296,7 @@ static void compute_window(int n, float *window)
    rotate(c, s, s, c);
 
    for (i=0; i < n2; ++i) {
-      window[i] = sinf((float)(0.5 * M_PI * (y * y)));
+      window[i] = (float)sin(0.5 * M_PI * (y * y));
       rotate(x, y, s, c);
    }
 }

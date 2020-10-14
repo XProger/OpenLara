@@ -35,16 +35,16 @@ struct OptionItem {
         TYPE_KEY,
     } type;
     StringID title;
-    intptr_t offset;
+    int32    offset;
     uint32   color;
     uint32   icon;
     uint8    maxValue;
     bool     bar;
 
-    OptionItem(Type type = TYPE_EMPTY, int title = STR_EMPTY, intptr_t offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
+    OptionItem(Type type = TYPE_EMPTY, int title = STR_EMPTY, int32 offset = 0, uint32 color = 0xFFFFFFFF, int icon = 0, uint8 maxValue = 0, bool bar = false) : type(type), title(StringID(title)), offset(offset), color(color), icon(icon), maxValue(maxValue), bar(bar) {}
 
     void setValue(uint8 value, Core::Settings *settings) const {
-        *(uint8*)(intptr_t(settings) + offset) = value;
+        *((uint8*)settings + offset) = value;
     }
 
     bool checkValue(uint8 value) const {
@@ -102,7 +102,7 @@ struct OptionItem {
         if (active)
             UI::renderBar(CTEX_OPTION, vec2(x, y - LINE_HEIGHT + 6), vec2(w, LINE_HEIGHT - 6), 1.0f, 0xFFD8377C, 0);
 
-        const uint8 &value = *(uint8*)(intptr_t(settings) + offset);
+        const uint8 &value = *((uint8*)settings + offset);
 
         switch (type) {
             case TYPE_TITLE   : 
@@ -164,7 +164,7 @@ static const OptionItem optSound[] = {
 #endif
 };
 
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC)
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC) || defined(_OS_XBOX)
     #define INV_GAMEPAD_ONLY
 #endif
 
@@ -182,7 +182,7 @@ static const OptionItem optSound[] = {
     #define INV_CTRL_START_OPTION 2
 #endif
 
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0)
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0) || defined(_OS_XBOX)
     #define INV_VIBRATION
 #endif
 
@@ -430,7 +430,7 @@ struct Inventory {
                 case TR::Entity::INV_PASSPORT :
                     if (value != 0) return NULL;
                     optCount = optLoadSlots.length;
-                    return optLoadSlots;
+                    return optLoadSlots.items;
                 case TR::Entity::INV_DETAIL :
                     optCount = COUNT(optDetail);
                     return optDetail;
@@ -492,7 +492,7 @@ struct Inventory {
 
             opt = opt + slot;
 
-            uint8 &value = *(uint8*)(intptr_t(settings) + opt->offset);
+            uint8 &value = *((uint8*)settings + opt->offset);
 
             switch (key) {
                 case cAction : return (opt->type == OptionItem::TYPE_BUTTON || opt->type == OptionItem::TYPE_KEY) ? opt : NULL;
@@ -818,7 +818,7 @@ struct Inventory {
         }
 
         int pos = 0;
-        for (int pos = 0; pos < itemsCount; pos++)
+        for (; pos < itemsCount; pos++)
             if (items[pos]->type > type)
                 break;
 
@@ -1407,7 +1407,7 @@ struct Inventory {
 
         for (int i = 0; i < COUNT(background); i++) {
             if (!background[i]) {
-                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGBA, OPT_TARGET);
+                background[i] = new Texture(INV_BG_SIZE, INV_BG_SIZE, 1, FMT_RGB16, OPT_TARGET);
             }
         }
 
@@ -1748,7 +1748,7 @@ struct Inventory {
             aspectSrc = ax = ay = 1.0f;
         }
 
-        float aspectDst = float(Core::width) / float(Core::height);
+        float aspectDst = float(Core::width) / float(Core::height) * Core::aspectFix;
         float aspectImg = aspectSrc / aspectDst;
 
         #ifdef FFP
@@ -2090,7 +2090,7 @@ struct Inventory {
             const char *bSelect = STR[STR_KEY_FIRST + ikEnter];
             const char *bBack   = STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[cInventory].key];
 
-            #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0)
+            #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_XBOX)
                 bSelect = "A";
                 bBack   = "B";
             #endif
