@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <memory.h>
-#include <stdint.h>
 
 #define OS_FILEIO_CACHE
 #define OS_PTHREAD_MT
@@ -129,6 +128,15 @@
     #define _GAPI_GL   1
 
     #undef OS_PTHREAD_MT
+#elif _XBOX
+    #define _OS_XBOX   1
+    #define _GAPI_D3D8 1
+
+    #undef OS_PTHREAD_MT
+
+    #define NOMINMAX
+    #include <xtl.h>
+    #include <xgraphics.h>
 #endif
 
 #ifndef _OS_PSP
@@ -613,6 +621,7 @@ enum BlendMode { bmNone, bmAlpha, bmAdd, bmMult, bmPremult, bmMAX };
 
 namespace Core {
     float eye;
+    float aspectFix = 1.0f;
     Texture *eyeTex[2];
     short4 viewport, viewportDef, scissor;
     mat4 mModel, mView, mProj, mViewProj, mViewInv;
@@ -622,7 +631,6 @@ namespace Core {
     vec4 lightPos[MAX_LIGHTS];
     vec4 lightColor[MAX_LIGHTS];
     vec4 params;
-    vec4 fogParams;
     vec4 contacts[MAX_CONTACTS];
 
     struct LightStack {
@@ -712,6 +720,8 @@ namespace Core {
     #include "gapi/sw.h"
 #elif _GAPI_GL
     #include "gapi/gl.h"
+#elif _GAPI_D3D8
+    #include "gapi/d3d8.h"
 #elif _GAPI_D3D9
     #include "gapi/d3d9.h"
 #elif _GAPI_D3D11
@@ -983,6 +993,13 @@ namespace Core {
         settings.audio.reverb = false;
     #endif
 
+    #ifdef _OS_XBOX
+        settings.detail.setFilter   (Core::Settings::HIGH);
+        settings.detail.setLighting (Core::Settings::LOW);
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setWater    (Core::Settings::LOW);
+    #endif
+
         memset(&active, 0, sizeof(active));
         renderState = 0;
 
@@ -1178,6 +1195,15 @@ namespace Core {
         Core::active.material = vec4(diffuse, ambient, specular, alpha);
 
         Core::active.shader->setParam(uMaterial, Core::active.material);
+    }
+
+    void setFog(const vec4 &params) {
+    #ifdef _XBOX
+        GAPI::setFog(params);
+    #else
+        ASSERT(Core::active.shader);
+        Core::active.shader->setParam(uFogParams, params);
+    #endif
     }
 
     void updateLights() {

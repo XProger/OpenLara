@@ -8,7 +8,7 @@
 
 #define DECODE_OGG
 
-#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV) && !defined(_OS_3DS)
+#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV) && !defined(_OS_3DS) && !defined(_OS_XBOX)
     #define DECODE_MP3
 #endif
 

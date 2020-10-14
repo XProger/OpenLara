@@ -3139,14 +3139,14 @@ namespace TR {
             int16 waterSplash;
             int16 glyphs;
 
-            struct {
+            struct Weapon {
                 int16 items[MAX_WEAPONS];
                 int16& operator[] (Entity::Type type) {
                     return items[getWeaponIndex(type)];
                 };
             } weapons;
 
-            struct {
+            struct Inventory {
                 int16 passport;
                 int16 passport_closed;
                 int16 map;
@@ -3159,14 +3159,14 @@ namespace TR {
                 int16 gamma;
                 int16 explosive;
 
-                struct {
+                struct Weapon {
                     int16 items[MAX_WEAPONS];
                     int16& operator[] (Entity::Type type) {
                         return items[getWeaponIndex(type)];
                     };
                 } weapons;
 
-                struct {
+                struct Ammo {
                     int16 items[MAX_WEAPONS];
                     int16& operator[] (Entity::Type type) {
                         return items[getWeaponIndex(type)];
@@ -3938,7 +3938,7 @@ namespace TR {
                            ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
 
         void readSAT(Stream &stream) {
-        #if !defined(_OS_PSP) && !defined(_OS_3DS)
+        #if !defined(_OS_PSP) && !defined(_OS_3DS) && !defined(_OS_XBOX)
             Room *room = NULL;
 
             while (stream.pos < stream.size) {
@@ -6252,7 +6252,7 @@ namespace TR {
             
             if (animTexBlockSize) {
                 uint16 *animTexBlock = new uint16[animTexBlockSize];
-                for (int i = 0; i < animTexBlockSize; i++) {
+                for (uint32 i = 0; i < animTexBlockSize; i++) {
                     animTexBlock[i] = stream.readLE16();
                 }
 

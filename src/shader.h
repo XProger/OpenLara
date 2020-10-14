@@ -28,7 +28,6 @@ struct Shader : GAPI::Shader {
         setParam(uLightProj, Core::mLightProj);
         setParam(uViewPos,   Core::viewPos);
         setParam(uParam,     Core::params);
-        setParam(uFogParams, Core::fogParams);
     }
 };
 
