@@ -249,6 +249,10 @@ namespace GAPI {
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
 
+            if (origWidth < 8 || origHeight < 8) {
+                opt &= ~OPT_MIPMAPS;
+            }
+
             bool isDepth  = fmt == FMT_DEPTH || fmt == FMT_SHADOW;
             bool mipmaps  = (opt & OPT_MIPMAPS) != 0;
             bool cube     = (opt & OPT_CUBEMAP) != 0;
@@ -270,10 +274,6 @@ namespace GAPI {
             };
 
             FormatDesc desc = formats[fmt];
-
-            if (isTarget) {
-                
-            }
 
             uint32 usage = 0;
             if (isDepth)  usage |= D3DUSAGE_DEPTHSTENCIL;

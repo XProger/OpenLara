@@ -316,7 +316,7 @@ void main()
 
     Core::defLang = checkLanguage();
 
-    Game::init("PSXDATA\\LEVEL1.PSX"); // (char*)NULL);
+    Game::init((char*)NULL);//"PSXDATA\\LEVEL1.PSX");
 
     while (!Core::isQuit) {
         joyUpdate();
