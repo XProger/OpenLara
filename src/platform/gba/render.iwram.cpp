@@ -30,7 +30,6 @@ int32 gFacesCount = 0;
 Face* gFacesSorted[MAX_FACES];
 EWRAM_DATA Face gFaces[MAX_FACES];
 
-const uint8* curTile;
 uint16 mipMask;
 
 Rect clip;
@@ -302,7 +301,7 @@ void transform(const vec3s &v, int32 vg) {
     const Matrix &m = matrixStack[matrixStackIndex];
 
     Vertex &res = gVertices[gVerticesCount++];
-
+    // TODO https://mikro.naprvyraz.sk/docs/Coding/1/3D-ROTAT.TXT
     int32 z = DP43(m[2], v);
 
     if (z < VIEW_MIN_F || z >= VIEW_MAX_F) { // TODO znear clip
@@ -328,9 +327,9 @@ void transform(const vec3s &v, int32 vg) {
     z >>= FOV_SHIFT;
 
 #if 1
-    x >>= 11;
-    y >>= 11;
-    z >>= 11;
+    x >>= (10 + SCALE);
+    y >>= (10 + SCALE);
+    z >>= (10 + SCALE);
 
     #ifdef WIN32
         if (abs(z) >= DIV_TABLE_SIZE) {
@@ -488,14 +487,16 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
 #ifdef DEBUG_OVERDRAW
 #define FETCH_GT()              32
 #define FETCH_G(palIndex)       32
+#define FETCH_GT_PAL()          32
+#define FETCH_G_PAL(palIndex)   32
 #else
-#define FETCH_T()               curTile[(t & 0xFF00) | (t >> 24)]
-#define FETCH_T_MIP()           curTile[(t & 0xFF00) | (t >> 24) & mipMask]
+#define FETCH_T()               tile[(t & 0xFF00) | (t >> 24)]
+#define FETCH_T_MIP()           tile[(t & 0xFF00) | (t >> 24) & mipMask]
 #define FETCH_GT()              lightmap[(g & 0x1F00) | FETCH_T()]
 #define FETCH_G(palIndex)       lightmap[(g & 0x1F00) | palIndex]
-#endif
 #define FETCH_GT_PAL()          palette[FETCH_GT()]
 #define FETCH_G_PAL(palIndex)   palette[FETCH_G(palIndex)]
+#endif
 
 struct Edge {
     int32  h;
@@ -591,7 +592,7 @@ struct Edge {
     }
 };
 
-INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
+INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
     #ifdef USE_MODE_5
         uint16* pixel = buffer + x1;
 
@@ -673,7 +674,7 @@ INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32
     #endif
 }
 
-INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
+INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
     #ifdef USE_MODE_5
         uint16* pixel = buffer + x1;
 
@@ -768,7 +769,7 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, u
     #endif
 }
 
-void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
+void rasterizeG(const uint8 *tile, int16 y, int32 palIndex, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -804,7 +805,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
 
                 uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
-                scanlineG(buffer, x1, x2, palIndex, L.g >> 8, dgdx);
+                scanlineG(tile, buffer, x1, x2, palIndex, L.g >> 8, dgdx);
             }
 
             buffer += WIDTH / PIXEL_SIZE;
@@ -815,7 +816,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
     }
 }
 
-void rasterizeGT(int16 y, Edge &L, Edge &R) {
+void rasterizeGT(const uint8 *tile, int16 y, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -855,7 +856,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
                 uint32 v = d * ((R.t & 0xFFFF) - (L.t & 0xFFFF));
                 uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
 
-                scanlineGT(buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
+                scanlineGT(tile, buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
             };
 
             buffer += WIDTH / PIXEL_SIZE;
@@ -866,7 +867,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
     }
 }
 
-void drawTriangle(const Face* face, VertexUV *v) {
+void drawTriangle(const uint8* tile, const Face* face, VertexUV *v) {
     VertexUV *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2;
@@ -905,13 +906,13 @@ void drawTriangle(const Face* face, VertexUV *v) {
     }
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(tile, v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->v.y, L, R);
+        rasterizeGT(tile, v1->v.y, L, R);
     }
 }
 
-void drawQuad(const Face* face, VertexUV *v) {
+void drawQuad(const uint8* tile, const Face* face, VertexUV *v) {
     VertexUV *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2,
@@ -955,13 +956,13 @@ void drawQuad(const Face* face, VertexUV *v) {
     } while (poly[b] != v1);
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(tile, v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->v.y, L, R);
+        rasterizeGT(tile, v1->v.y, L, R);
     }
 }
 
-void drawPoly(Face* face, VertexUV *v) {
+void drawPoly(const uint8* tile, Face* face, VertexUV* v) {
     VertexUV tmp[16];
 
     int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
@@ -977,9 +978,9 @@ void drawPoly(Face* face, VertexUV *v) {
         face->indices[3] = 3;
 
         if (count == 3) {
-            drawTriangle(face, v);
+            drawTriangle(tile, face, v);
         } else {
-            drawQuad(face, v);
+            drawQuad(tile, face, v);
         }
         return;
     }
@@ -1008,9 +1009,9 @@ void drawPoly(Face* face, VertexUV *v) {
     R.build(v, count, t, b, count - 1);
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(v[t].v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(tile, v[t].v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v[t].v.y, L, R);
+        rasterizeGT(tile, v[t].v.y, L, R);
     }
 }
 
@@ -1166,6 +1167,8 @@ void flush() {
 
         //const uint16 mips[] = { 0xFFFF, 0xFEFE, 0xFCFC, 0xF8F8 };
 
+        const uint8* gTile = NULL;
+
         for (int32 i = 0; i < gFacesCount; i++) {
             Face *face = gFacesSorted[i];
 
@@ -1178,7 +1181,7 @@ void flush() {
 
             if (!(flags & FACE_COLORED)) {
                 const Texture &tex = textures[face->flags & FACE_TEXTURE];
-                curTile = tiles[tex.tile];
+                gTile = tiles[tex.tile];
                 v[0].uv = tex.uv0;
                 v[1].uv = tex.uv1;
                 v[2].uv = tex.uv2;
@@ -1194,12 +1197,12 @@ void flush() {
             }
 
             if (flags & FACE_CLIPPED) {
-                drawPoly(face, v);
+                drawPoly(gTile, face, v);
             } else {
                 if (flags & FACE_TRIANGLE) {
-                    drawTriangle(face, v);
+                    drawTriangle(gTile, face, v);
                 } else {
-                    drawQuad(face, v);
+                    drawQuad(gTile, face, v);
                 }
             };
         }
