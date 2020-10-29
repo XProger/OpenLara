@@ -71,6 +71,26 @@ typedef int16              Index;
     #define ALIGN4
 #else
     #define ALIGN4 __attribute__ ((aligned (4)))
+
+    // TODO profiling
+    #define REG_TM2D   *(vu16*)(REG_BASE+0x0108)
+    #define REG_TM3D   *(vu16*)(REG_BASE+0x010C)
+    #define TM_ENABLE  0x800000
+    #define TM_CASCADE 0x0004
+
+    INLINE void profile_start()
+    {
+        REG_TM2D= 0;    REG_TM3D= 0;
+        REG_TM2CNT= 0;  REG_TM3CNT= 0;
+        REG_TM3CNT= TM_ENABLE | TM_CASCADE;
+        REG_TM2CNT= TM_ENABLE;
+    }
+
+    INLINE uint32 profile_stop()
+    {
+       REG_TM2CNT= 0;
+       return (REG_TM3D<<16)|REG_TM2D;
+    }
 #endif
 
 enum InputKey {
