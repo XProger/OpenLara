@@ -1523,7 +1523,7 @@ struct DummyController : Controller {
 
     DummyController(IGame *game, int entity) : Controller(game, entity) {}
 
-    virtual void update() override {};
+    virtual void update() {}
 };
 
 

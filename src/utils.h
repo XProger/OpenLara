@@ -20,7 +20,7 @@
     #define ASSERTV(expr) ASSERT(expr)
 
     #ifndef _OS_ANDROID
-        #define LOG(...) printf(__VA_ARGS__)
+        #define LOG printf
     #endif
 
 #else
@@ -35,7 +35,7 @@
             #define LOG(...) printf(__VA_ARGS__)
         #endif
     #else
-        #define LOG(...) printf(__VA_ARGS__)
+        #define LOG printf
     #endif
 #endif
 
@@ -49,6 +49,21 @@
     #undef LOG
     #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
 #endif
+
+#ifdef _OS_XBOX
+    #define MAX_LOG_LENGTH 1024
+
+    #undef LOG
+    void LOG(const char *format, ...) {
+        char str[MAX_LOG_LENGTH];
+        va_list arglist;
+        va_start(arglist, format);
+        _vsnprintf(str, MAX_LOG_LENGTH, format, arglist);
+        va_end(arglist);
+        OutputDebugStringA(str);
+    }
+#endif
+
 
 #ifdef _OS_PSP
     extern "C" {
@@ -74,7 +89,7 @@
 #define DECL_STR(v)  #v,
 
 #define EPS     FLT_EPSILON
-#define INF     INFINITY
+#define INF     FLT_MAX
 #define PI      3.14159265358979323846f
 #define PIH     (PI * 0.5f)
 #define PI2     (PI * 2.0f)
@@ -1585,14 +1600,15 @@ struct Stream {
             ASSERT(false);
         }
 
+        char path[256];
+        path[0] = 0;
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
-            char path[255];
-            path[0] = 0;
             strcat(path, contentDir);
-            strcat(path, name);
-            f = fopen(path, "rb");
-        } else
-            f = fopen(name, "rb");
+        }
+        strcat(path, name);
+        fixBackslash(path);
+
+        f = fopen(path, "rb");
 
         if (!f) {
             #ifdef _OS_WEB
@@ -1650,6 +1666,17 @@ struct Stream {
         osCacheWrite(stream);
     }
 
+    static void fixBackslash(char *str) {
+    #ifdef _OS_XBOX
+        int len = strlen(str);
+        for (int i = 0; i < len; i++) {
+            if (str[i] == '/') {
+                str[i] = '\\';
+            }
+        }
+    #endif
+    }
+
     static bool exists(const char *name) {
         FILE *f = fopen(name, "rb");
         if (!f) return false;
@@ -1661,6 +1688,7 @@ struct Stream {
         char fileName[1024];
         strcpy(fileName, contentDir);
         strcat(fileName, name);
+        fixBackslash(fileName);
         return exists(fileName);
     }
 
@@ -2151,8 +2179,6 @@ struct Array {
         ASSERT(index >= 0 && index < length);
         return items[index]; 
     };
-
-    inline operator T*() const { return items; };
 };
 
 
