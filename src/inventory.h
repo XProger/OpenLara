@@ -82,8 +82,10 @@ struct OptionItem {
             int maxWidth = UI::getTextSize(STR[color + value]).x;
             maxWidth = maxWidth / 2 + 8;
             x += w * 0.5f;
-            if (checkValue(value - 1)) UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
-            if (checkValue(value + 1)) UI::specOut(vec2(x + maxWidth, y), 109);
+            if (maxValue != 0xFF) {
+                if (checkValue(value - 1)) UI::specOut(vec2(x - maxWidth - 16.0f, y), 108);
+                if (checkValue(value + 1)) UI::specOut(vec2(x + maxWidth, y), 109);
+            }
         }
         return y + LINE_HEIGHT;
     }
@@ -123,23 +125,51 @@ struct OptionItem {
     }
 };
 
-#define SETTINGS(x) OFFSETOF(Core::Settings, x)
+#define SETTINGS(x) int32(OFFSETOF(Core::Settings, x))
+
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC) || defined(_OS_XBOX) || defined(_OS_XB1)
+    #define INV_GAMEPAD_ONLY
+#else
+    #define INV_QUALITY
+#endif
+
+#if !(defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_XBOX) || defined(_OS_XB1)) 
+    #define INV_STEREO
+#endif
+
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0)
+    #define INV_SINGLE_PLAYER
+#endif
+
+#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_CLOVER) || defined(_OS_XBOX)
+    #define INV_GAMEPAD_NO_TRIGGER
+#endif
+
+#ifdef INV_SINGLE_PLAYER
+    #define INV_CTRL_START_OPTION 1
+#else
+    #define INV_CTRL_START_OPTION 2
+#endif
+
+#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0) || defined(_OS_XBOX) || defined(_OS_XB1)
+    #define INV_VIBRATION
+#endif
 
 static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SELECT_DETAIL ),
     OptionItem( ),
+#ifdef INV_QUALITY
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_FILTER,   SETTINGS( detail.filter    ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_LIGHTING, SETTINGS( detail.lighting  ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_SHADOWS,  SETTINGS( detail.shadows   ), STR_QUALITY_LOW, 0, 2 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_WATER,    SETTINGS( detail.water     ), STR_QUALITY_LOW, 0, 2 ),
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple    ), STR_OFF, 0, 1 ),
-#if !defined(_OS_3DS) && !defined(_OS_GCW0)
-    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_RESOLUTION,      SETTINGS( detail.scale     ), STR_SCALE_100, 0, 3 ),
 #endif
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_PSP) || defined(_OS_RPI) || defined(_OS_PSV)
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple    ), STR_OFF, 0, 1 ),
+#ifdef INV_QUALITY
+    OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_RESOLUTION,      SETTINGS( detail.scale     ), STR_SCALE_100, 0, 3 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync     ), STR_OFF, 0, 1 ),
 #endif
-#if !defined(_OS_PSP) && !defined(_OS_PSV) && !defined(_OS_3DS) && !defined(_OS_GCW0)
+#ifdef INV_STEREO
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_NO_STEREO, 0, 
     #if defined(_OS_WIN) || defined(_OS_ANDROID)
         4 /* with VR option */
@@ -164,28 +194,6 @@ static const OptionItem optSound[] = {
 #endif
 };
 
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC) || defined(_OS_XBOX)
-    #define INV_GAMEPAD_ONLY
-#endif
-
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0)
-    #define INV_SINGLE_PLAYER
-#endif
-
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_CLOVER)
-    #define INV_GAMEPAD_NO_TRIGGER
-#endif
-
-#ifdef INV_SINGLE_PLAYER
-    #define INV_CTRL_START_OPTION 1
-#else
-    #define INV_CTRL_START_OPTION 2
-#endif
-
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0) || defined(_OS_XBOX)
-    #define INV_VIBRATION
-#endif
-
 static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_TITLE,  STR_SET_CONTROLS ),
     OptionItem( ),
@@ -199,7 +207,7 @@ static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_RETARGET   , SETTINGS( controls[0].retarget           ), STR_OFF,       0, 1 ),
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_CONTROLS_MULTIAIM   , SETTINGS( controls[0].multiaim           ), STR_OFF,       0, 1 ),
 #ifdef INV_GAMEPAD_ONLY
-    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( playerIndex                    ), STR_OPT_CONTROLS_GAMEPAD,  0, 0 ),
+    OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 0xFF ),
 #else
     OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
 #endif
@@ -499,14 +507,14 @@ struct Inventory {
                 case cUp     : nextSlot(slot, -1); break;
                 case cDown   : nextSlot(slot, +1); break;
                 case cLeft   :
-                    if (opt->type == OptionItem::TYPE_PARAM && opt->checkValue(value - 1)) {
+                    if (opt->type == OptionItem::TYPE_PARAM && (opt->maxValue != 0xFF) && opt->checkValue(value - 1)) {
                         value--;
                         timer = 0.2f;
                         return opt;
                     }    
                     break;
                 case cRight  :
-                    if (opt->type == OptionItem::TYPE_PARAM && opt->checkValue(value + 1)) {
+                    if (opt->type == OptionItem::TYPE_PARAM && (opt->maxValue != 0xFF) && opt->checkValue(value + 1)) {
                         value++;
                         timer = 0.2f;
                         return opt;
@@ -2090,7 +2098,7 @@ struct Inventory {
             const char *bSelect = STR[STR_KEY_FIRST + ikEnter];
             const char *bBack   = STR[STR_KEY_FIRST + Core::settings.controls[playerIndex].keys[cInventory].key];
 
-            #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_XBOX)
+            #if defined(_OS_SWITCH) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_XBOX) || defined(_OS_XB1)
                 bSelect = "A";
                 bBack   = "B";
             #endif

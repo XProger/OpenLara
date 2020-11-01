@@ -13,7 +13,16 @@
 
 #define USE_CUBEMAP_MIPS
 
-#ifdef WIN32
+#ifdef __UWP__
+    #define _OS_UWP      1
+    #define _GAPI_D3D11  1
+
+    #ifdef __XB1__
+        #define _OS_XB1
+    #endif
+
+    #undef OS_PTHREAD_MT
+#elif WIN32
     #define _OS_WIN      1
     #define _GAPI_GL     1
     //#define _GAPI_D3D9   1
@@ -137,6 +146,12 @@
     #define NOMINMAX
     #include <xtl.h>
     #include <xgraphics.h>
+#elif _X360
+    #define _OS_X360  1
+    // TODO
+#elif _XB1
+    #define _OS_XB1     1
+    #define _GAPI_D3D11 1
 #endif
 
 #ifndef _OS_PSP
@@ -1014,6 +1029,7 @@ namespace Core {
         GAPI::deinit();
         NAPI::deinit();
         Sound::deinit();
+        Stream::deinit();
     }
 
     void setVSync(bool enable) {

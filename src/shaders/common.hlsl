@@ -62,8 +62,8 @@ struct VS_INPUT {
 	#define SAMPLE_2D_LINEAR_WRAP(T,uv) T.Sample(smpLinearWrap,  uv)
 	#define SAMPLE_2D_CMP(T,uv)         T.SampleCmp(smpCmp,      uv.xy, uv.z)
 	#define SAMPLE_2D_LOD0(T,uv)        T.SampleLevel(smpLinear, uv, 0)
-	#define SAMPLE_3D(T,uv)             T.Sample(smpLinear,      uv)
-	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)
+	#define SAMPLE_3D(T,uv)             T.SampleLevel(smpLinearWrap, uv, 0)
+	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)	
 #else
 	sampler2D    sDiffuse     : register(s0);
 	sampler2D    sNormal      : register(s1);
@@ -81,6 +81,8 @@ struct VS_INPUT {
 	#define SAMPLE_2D_CMP(T,uv)         ((tex2D(T, uv.xy) => uv.z) ? 1 : 0)
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
 	#define SAMPLE_CUBE(T,uv)           texCUBE(T, uv)
+	
+	#define SV_POSITION					POSITION
 #endif
 
 float4      uParam                  : register(  c0 );
@@ -147,15 +149,16 @@ float calcCausticsV(float3 coord) {
 	return 0.5 + abs(sin(dot(coord.xyz, 1.0 / 1024.0) + uParam.x)) * 0.75;
 }
 
+#ifndef NORMAL_AS_3D
 float3 calcHeightMapNormal(float2 tcR, float2 tcB, float base) {
 	float dx = SAMPLE_2D_LOD0(sNormal, tcR).x - base;
 	float dz = SAMPLE_2D_LOD0(sNormal, tcB).x - base;
 	return normalize( float3(dx, 64.0 / (1024.0 * 8.0), dz) );
 }
+#endif
 
-half calcFresnel(half VoH, half f0) {
-	half f = (half)pow(1.0 - VoH, 5.0);
-	return f + f0 * (1.0h - f);
+float calcFresnel(float NdotV, float f0) {
+	return f0 + (1.0 - f0) * pow(1.0 - NdotV, 5.0);
 }
 
 void applyFogUW(inout float3 color, float3 coord, float waterFogDist, float waterColorDist) {

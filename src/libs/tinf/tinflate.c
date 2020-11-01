@@ -303,7 +303,7 @@ static int tinf_inflate_block_data(TINF_DATA *d, TINF_TREE *lt, TINF_TREE *dt)
       /* check for end of block */
       if (sym == 256)
       {
-         *d->destLen += d->dest - start;
+         *d->destLen += (unsigned int)(d->dest - start);
          return TINF_OK;
       }
 

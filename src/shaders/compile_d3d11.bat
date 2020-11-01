@@ -25,6 +25,10 @@ call :compile filter    _grayscale  "/DGRAYSCALE"
 call :compile filter    _blur       "/DBLUR"
 call :compile filter    _anaglyph   "/DANAGLYPH"
 
+call :compile sky
+call :compile sky    	_clouds 	"/DSKY_CLOUDS"
+call :compile sky    	_azure  	"/DSKY_AZURE"
+
 call :compile gui
 
 

@@ -33,9 +33,9 @@ float boxIntersect(float3 rayPos, float3 rayDir, float3 center, float3 hsize) {
 #ifdef _GAPI_GXM
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float2 pixelCoord = float2(__pixel_x(), __pixel_y());
-#else
-float4 main(VS_OUTPUT In/*, float2 pixelCoord: VPOS*/) : COLOR0 {
-	float2 pixelCoord = 0.0;
+#else defined(_GAPI_D3D11
+float4 main(VS_OUTPUT In) : COLOR0 {
+    float2 pixelCoord = In.pos.xy;
 #endif
 	float3 viewVec = normalize(In.viewVec);
 

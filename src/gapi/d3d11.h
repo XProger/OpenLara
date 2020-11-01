@@ -37,7 +37,11 @@
 
 extern ID3D11Device          *device;
 extern ID3D11DeviceContext   *deviceContext;
+#ifdef _OS_XB1
+extern IDXGISwapChain1       *swapChain;
+#else
 extern IDXGISwapChain        *swapChain;
+#endif
 
 namespace GAPI {
     using namespace Core;
@@ -134,7 +138,7 @@ namespace GAPI {
             #define SHADER_U(S,P)  (underwater ? SHADER(S##_u,P) : SHADER(S,P))
             #define SHADER_AU(S,P) ((underwater && alphatest) ? SHADER(S##_au,P) : (alphatest ? SHADER(S##_a,P) : SHADER_U(S,P)))
 
-            const uint8 *vSrc, *fSrc;
+            const uint8 *vSrc = NULL, *fSrc = NULL;
             switch (pass) {
                 case passCompose :
                     switch (type) {
@@ -161,7 +165,14 @@ namespace GAPI {
                         default : ASSERT(false);
                     }
                     break;
-                case passSky   : SHADER ( gui, v );  SHADER ( gui, f ); break; // TODO
+                case passSky   :
+                    switch (type) {
+                        case 0  : SHADER ( sky,     v );     SHADER ( sky,     f );    break;
+                        case 1  : SHADER ( sky_clouds, v );  SHADER ( sky_clouds, f ); break;
+                        case 2  : SHADER ( sky_azure, v );   SHADER ( sky_azure, f );  break;
+                        default : ASSERT(false);
+                    }
+                    break;
                 case passWater : 
                     switch (type) {
                         case 0  : SHADER ( water_drop,     v );  SHADER ( water_drop,     f ); break;
@@ -179,7 +190,7 @@ namespace GAPI {
                         case 1  : SHADER ( filter_downsample, v );  SHADER ( filter_downsample, f ); break;
                         case 3  : SHADER ( filter_grayscale,  v );  SHADER ( filter_grayscale,  f ); break;
                         case 4  : SHADER ( filter_blur,       v );  SHADER ( filter_blur,       f ); break;
-                        case 5  : SHADER ( filter_anaglyph,   v );  SHADER ( filter_anaglyph,   f ); break; // TODO anaglyph
+                        case 5  : SHADER ( filter_anaglyph,   v );  SHADER ( filter_anaglyph,   f ); break;
                         default : ASSERT(false);
                     }
                     break;

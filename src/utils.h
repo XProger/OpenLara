@@ -23,6 +23,20 @@
         #define LOG printf
     #endif
 
+    #if defined(_OS_XBOX) || defined(_OS_XB1)
+        #define MAX_LOG_LENGTH 1024
+
+        #undef LOG
+        void LOG(const char *format, ...) {
+            char str[MAX_LOG_LENGTH];
+            va_list arglist;
+            va_start(arglist, format);
+            _vsnprintf(str, MAX_LOG_LENGTH, format, arglist);
+            va_end(arglist);
+            OutputDebugStringA(str);
+        }
+    #endif
+
 #else
 
     #define ASSERT(expr)
@@ -48,20 +62,6 @@
     #include <android/log.h>
     #undef LOG
     #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)
-#endif
-
-#ifdef _OS_XBOX
-    #define MAX_LOG_LENGTH 1024
-
-    #undef LOG
-    void LOG(const char *format, ...) {
-        char str[MAX_LOG_LENGTH];
-        va_list arglist;
-        va_start(arglist, format);
-        _vsnprintf(str, MAX_LOG_LENGTH, format, arglist);
-        va_end(arglist);
-        OutputDebugStringA(str);
-    }
 #endif
 
 
@@ -1572,6 +1572,8 @@ char contentDir[255];
 
 #define STREAM_BUFFER_SIZE (16 * 1024)
 
+#define MAX_PACKS 32
+
 struct Stream {
     typedef void (Callback)(Stream *stream, void *userData);
     Callback    *callback;
@@ -1584,12 +1586,144 @@ struct Stream {
 
     char        *buffer;
     int         bufferIndex;
+    bool        buffering;
+    uint32      baseOffset;
+
+    struct Pack
+    {
+        Stream* stream;
+        uint8*  table;
+        uint32  count;
+
+        struct FileInfo
+        {
+            uint32 size;
+            uint32 offset;
+        };
+
+        bool findFile(const char* name, FileInfo &info)
+        {
+            if (!table || !name || !name[0]) {
+                return false;
+            }
+
+            uint16 len = (uint16)strlen(name);
+            uint8* ptr = table;
+
+            for (uint32 i = 0; i < count; i++)
+            {
+                uint32 magic;
+                memcpy(&magic, ptr, sizeof(magic));
+                if (magic != 0x02014B50) {
+                    ASSERT(false);
+                    return false;
+                }
+
+                uint16 nameLen, extraLen, infoLen;
+                memcpy(&nameLen, ptr + 28, sizeof(nameLen));
+                memcpy(&extraLen, ptr + 30, sizeof(extraLen));
+
+                if ((nameLen == len) && (memcmp(ptr + 46, name, len) == 0))
+                {
+                    uint16 compression;
+                    memcpy(&compression, ptr + 10, sizeof(compression));
+
+                    if (compression != 0)
+                    {
+                        ASSERT(false);
+                        return false;
+                    }
+
+                    memcpy(&info.size,   ptr + 24, sizeof(info.size));
+                    memcpy(&info.offset, ptr + 42, sizeof(info.offset));
+
+                    stream->setPos(info.offset);
+                    magic = stream->readLE32();
+
+                    if (magic != 0x04034B50) {
+                        ASSERT(false);
+                        return false;
+                    }
+                    stream->seek(22);
+                    nameLen = stream->readLE16();
+                    extraLen = stream->readLE16();
+
+                    info.offset += 4 + 22 + 2 + 2 + nameLen + extraLen; 
+
+                    return true;
+                }
+
+                memcpy(&infoLen,  ptr + 32, sizeof(infoLen));
+
+                ptr += 46 + nameLen + extraLen + infoLen;
+            }
+
+            return false;
+        }
+
+        Pack(const char *name) : stream(NULL), table(NULL), count(0)
+        {
+            stream = new Stream(name);
+            stream->buffering = false;
+            stream->setPos(stream->size - 22);
+            uint32 magic = stream->readLE32();
+            
+            if (magic != 0x06054B50)
+            {
+                ASSERT(false);
+                return;
+            }
+
+            stream->seek(6);
+            count = stream->readLE16();
+            uint32 tableSize = stream->readLE32();
+            uint32 tableOffset = stream->readLE32();
+
+            stream->setPos(tableOffset);
+
+            table = new uint8[tableSize];
+            stream->raw(table, tableSize);
+        }
+
+        ~Pack() {
+            delete stream;
+            delete[] table;
+        }
+    };
+
+    static Pack* packs[MAX_PACKS];
+
+    static bool addPack(const char *name)
+    {
+        if (!existsContent(name)) {
+            return false;
+        }
+
+        for (int i = 0; i < MAX_PACKS; i++)
+        {
+            if (!packs[i])
+            {
+                packs[i] = new Pack(name);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void deinit()
+    {
+        for (int i = 0; i < MAX_PACKS; i++)
+        {
+            if (!packs[i]) break;
+            delete packs[i];
+        }
+    }
 
     Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0), buffer(NULL) {
         this->name = String::copy(name);
     }
 
-    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), buffer(NULL) {
+    Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), buffer(NULL), buffering(true), baseOffset(0) {
         if (!name && callback) {
             callback(NULL, userData);
             delete this;
@@ -1600,10 +1734,45 @@ struct Stream {
             ASSERT(false);
         }
 
+        Stream::Pack::FileInfo info;
+
         char path[256];
+
+        for (int i = 0; i < MAX_PACKS; i++)
+        {
+            if (!packs[i]) break;
+
+            if (packs[i]->findFile(name, info))
+            {
+                path[0] = 0;
+                if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
+                    strcpy(path, contentDir);
+                }
+                strcat(path, packs[i]->stream->name);
+                fixBackslash(path);
+
+                f = fopen(path, "rb");
+                if (!f) {
+                    LOG("error loading file from pack \"%s -> %s\"\n", packs[i]->stream->name, name);
+                    ASSERT(false);
+                    return;
+                }
+                baseOffset = info.offset;
+                fseek(f, info.offset, SEEK_SET);
+                size = info.size;
+
+                fpos = 0;
+                bufferIndex = -1;
+
+                this->name = String::copy(name);
+                if (callback) callback(this, userData);
+                return;
+            }
+        }
+
         path[0] = 0;
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
-            strcat(path, contentDir);
+            strcpy(path, contentDir);
         }
         strcat(path, name);
         fixBackslash(path);
@@ -1627,14 +1796,12 @@ struct Stream {
             fseek(f, 0, SEEK_END);
             size = (int32)ftell(f);
             fseek(f, 0, SEEK_SET);
-            fpos = 0;
 
+            fpos = 0;
             bufferIndex = -1;
 
             this->name = String::copy(name);
-
-            if (callback)
-                callback(this, userData);
+            if (callback) callback(this, userData);
         }
     }
 
@@ -1685,6 +1852,15 @@ struct Stream {
     }
 
     static bool existsContent(const char *name) {
+        for (uint32 i = 0; i < MAX_PACKS; i++)
+        {
+            if (!packs[i]) break;
+
+            Pack::FileInfo info;
+            if (packs[i]->findFile(name, info))
+                return true;
+        }
+
         char fileName[1024];
         strcpy(fileName, contentDir);
         strcat(fileName, name);
@@ -1704,6 +1880,18 @@ struct Stream {
         if (!count) return;
 
         if (f) {
+
+            if (!buffering) {
+                if (fpos != pos) {
+                    fseek(f, baseOffset + pos, SEEK_SET);
+                    fpos = pos;
+                }
+                fread(data, 1, count, f);
+                pos += count;
+                fpos += count;
+                return;
+            }
+
             uint8 *ptr = (uint8*)data;
 
             while (count > 0) {
@@ -1712,16 +1900,16 @@ struct Stream {
                 if (bufferIndex != bIndex) {
                     bufferIndex = bIndex;
 
-                    size_t readed;
+                    int readed;
                     int part;
 
                     if (fpos == pos) {
                         part = min(count / STREAM_BUFFER_SIZE * STREAM_BUFFER_SIZE, size - fpos);
                         if (part > STREAM_BUFFER_SIZE) {
-                            readed = fread(ptr, 1, part, f);
+                            readed = (int)fread(ptr, 1, part, f);
 
                             #ifdef TEST_SLOW_FIO
-                                LOG("%s read %d + %d\n", name, fpos, (int)readed);
+                                LOG("%s read %d + %d\n", name, fpos, readed);
                                 Sleep(5);
                             #endif
 
@@ -1742,7 +1930,7 @@ struct Stream {
 
                     if (fpos != bufferIndex * STREAM_BUFFER_SIZE) {
                         fpos = bufferIndex * STREAM_BUFFER_SIZE;
-                        fseek(f, fpos, SEEK_SET);
+                        fseek(f, baseOffset + fpos, SEEK_SET);
 
                         #ifdef TEST_SLOW_FIO
                             LOG("%s seek %d\n", name, fpos);
@@ -1755,7 +1943,7 @@ struct Stream {
                     }
 
                     part   = min(STREAM_BUFFER_SIZE, size - fpos);
-                    readed = fread(buffer, 1, part, f);
+                    readed = (int)fread(buffer, 1, part, f);
 
                     #ifdef TEST_SLOW_FIO
                         LOG("%s read %d + %d\n", name, fpos, readed);
@@ -1829,6 +2017,7 @@ struct Stream {
     }
 };
 
+Stream::Pack* Stream::packs[MAX_PACKS];
 
 #ifdef OS_FILEIO_CACHE
 void osDataWrite(Stream *stream, const char *dir) {
