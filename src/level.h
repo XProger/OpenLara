@@ -1808,7 +1808,7 @@ struct Level : IGame {
     }
 
     void renderSky() {
-        #ifndef _GAPI_GL
+        #if !defined(_GAPI_GL) && !defined(_GAPI_D3D11)
             return;
         #endif
         ASSERT(mesh->transparent == 0);
@@ -1819,7 +1819,7 @@ struct Level : IGame {
         if (level.version & TR::VER_TR1) {
             if (Core::settings.detail.lighting < Core::Settings::HIGH || !Core::support.tex3D || !TR::getSkyParams(level.id, skyParams))
                 return;
-            type = Shader::SKY_CLOUDS_AZURE;
+            type = Shader::SKY_AZURE;
         } else { // TR2, TR3
             if (level.extra.sky == -1)
                 return;
@@ -1857,7 +1857,7 @@ struct Level : IGame {
                 time = (time - int(time)) * SKY_TIME_PERIOD;
             }
 
-            Core::active.shader->setParam(uParam,     vec4(skyParams.wind * time, 1.0));
+            Core::active.shader->setParam(uParam,     vec4(skyParams.wind * time * 2.0f, 1.0));
             Core::active.shader->setParam(uLightProj, *(mat4*)&skyParams);
             Core::active.shader->setParam(uPosScale,  skyParams.cloudDownColor, 2);
 
@@ -2608,7 +2608,18 @@ struct Level : IGame {
         Texture *screen = NULL;
         if (water) {
             screen = (waterCache && waterCache->visible) ? waterCache->getScreenTex() : NULL;
-            Core::setTarget(screen, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | (screen ? RT_STORE_DEPTH : 0)); // render to screen texture (FUCK YOU iOS!) or back buffer
+
+            int clearFlags = RT_STORE_COLOR;
+
+            if (screen) {
+                clearFlags |= RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_DEPTH;
+            }
+
+            #ifndef EARLY_CLEAR
+                clearFlags |= RT_CLEAR_COLOR | RT_CLEAR_DEPTH;
+            #endif
+
+            Core::setTarget(screen, NULL, clearFlags); // render to screen texture or back buffer
             Core::validateRenderState();
             setupBinding();
         }
@@ -2649,7 +2660,7 @@ struct Level : IGame {
         Core::Pass pass = Core::pass;
 
         if (water && waterCache && waterCache->visible && screen) {
-            Core::setTarget(NULL, NULL, RT_STORE_COLOR);
+            Core::setTarget(NULL, NULL, RT_CLEAR_DEPTH | RT_STORE_COLOR);
             Core::validateRenderState();
             waterCache->blitTexture(screen);
         }
@@ -3201,6 +3212,13 @@ struct Level : IGame {
             #endif
             }
         }
+
+        #ifdef EARLY_CLEAR
+            if (view == 0 && eye <= 0) {
+                Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);
+                Core::validateRenderState();
+            }
+        #endif
     }
 
     void renderEye(int eye, bool showUI, bool invBG) {

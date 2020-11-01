@@ -12,6 +12,10 @@
     #define USE_SCREEN_TEX
 #endif
 
+#if defined(_GAPI_D3D8) || defined(_GAPI_D3D9) || defined(_GAPI_D3D11)
+    #define EARLY_CLEAR
+#endif
+
 struct ShaderCache {
     enum Effect { FX_NONE = 0, FX_UNDERWATER = 1, FX_ALPHA_TEST = 2 };
 
@@ -86,8 +90,8 @@ struct ShaderCache {
     void prepareSky(int fx) {
         compile(Core::passSky, Shader::DEFAULT, fx, rsBase);
         if (Core::support.tex3D) {
-            compile(Core::passSky, Shader::SKY_CLOUDS,       fx, rsBase);
-            compile(Core::passSky, Shader::SKY_CLOUDS_AZURE, fx, rsBase);
+            compile(Core::passSky, Shader::SKY_CLOUDS, fx, rsBase);
+            compile(Core::passSky, Shader::SKY_AZURE,  fx, rsBase);
         }
     }
 

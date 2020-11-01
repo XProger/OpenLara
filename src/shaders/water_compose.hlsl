@@ -30,9 +30,9 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.pos         = mul(uViewProj, float4(coord, 1.0));
 	Out.hpos        = Out.pos.xyw;
 	Out.viewVec.xyz = uViewPos.xyz - coord;
+	Out.lightVec    = uLightPos[0].xyz - coord;
 	Out.viewVec.y   = abs(Out.viewVec.y);
 	Out.lightVec.y  = abs(Out.lightVec.y);
-	Out.lightVec    = uLightPos[0].xyz - coord;
 
 	Out.viewVec.w   = step(uPosScale[0].y, uViewPos.y);
 
@@ -63,7 +63,7 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	half3 refr  = lerp(refrA.xyz, refrB.xyz, refrA.w);
 	half3 refl  = SAMPLE_2D_LINEAR(sReflect, float2(tc.x, tc.y) + dudv * uParam.w).xyz;
 
-	half fresnel = calcFresnel(max(0.0, dot(normal, viewVec)), 0.12);
+	half fresnel = calcFresnel(abs(dot(normal, viewVec)), 0.12);
 
 	half  mask  = SAMPLE_2D_POINT(sMask, In.maskCoord).r;
 	half4 color = half4(lerp(refr, refl, fresnel), mask);

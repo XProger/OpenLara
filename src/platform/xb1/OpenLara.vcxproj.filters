@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>db6ab835-f1cb-4efb-94eb-2bdfd0c3a3d2</UniqueIdentifier>
+      <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
+    </Filter>
+    <Filter Include="libs">
+      <UniqueIdentifier>{ba6867bc-3dac-49f7-b628-c02d534f8825}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\stb_vorbis">
+      <UniqueIdentifier>{d606bd3a-145c-432f-ae5a-66dcb178b466}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\tinf">
+      <UniqueIdentifier>{d5e2e716-2bc5-43a1-bebc-4c5631d0b1bc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\libs\tinf\tinflate.c">
+      <Filter>libs\tinf</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c">
+      <Filter>libs\stb_vorbis</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\libs\tinf\tinf.h">
+      <Filter>libs\tinf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\utils.h" />
+    <ClInclude Include="..\..\animation.h" />
+    <ClInclude Include="..\..\cache.h" />
+    <ClInclude Include="..\..\camera.h" />
+    <ClInclude Include="..\..\character.h" />
+    <ClInclude Include="..\..\collision.h" />
+    <ClInclude Include="..\..\controller.h" />
+    <ClInclude Include="..\..\core.h" />
+    <ClInclude Include="..\..\debug.h" />
+    <ClInclude Include="..\..\enemy.h" />
+    <ClInclude Include="..\..\extension.h" />
+    <ClInclude Include="..\..\format.h" />
+    <ClInclude Include="..\..\frustum.h" />
+    <ClInclude Include="..\..\game.h" />
+    <ClInclude Include="..\..\gameflow.h" />
+    <ClInclude Include="..\..\gltf.h" />
+    <ClInclude Include="..\..\input.h" />
+    <ClInclude Include="..\..\inventory.h" />
+    <ClInclude Include="..\..\json.h" />
+    <ClInclude Include="..\..\lang.h" />
+    <ClInclude Include="..\..\lara.h" />
+    <ClInclude Include="..\..\level.h" />
+    <ClInclude Include="..\..\mesh.h" />
+    <ClInclude Include="..\..\napi_dummy.h" />
+    <ClInclude Include="..\..\napi_socket.h" />
+    <ClInclude Include="..\..\network.h" />
+    <ClInclude Include="..\..\objects.h" />
+    <ClInclude Include="..\..\savegame.h" />
+    <ClInclude Include="..\..\shader.h" />
+    <ClInclude Include="..\..\sound.h" />
+    <ClInclude Include="..\..\sprite.h" />
+    <ClInclude Include="..\..\texture.h" />
+    <ClInclude Include="..\..\ui.h" />
+    <ClInclude Include="..\..\video.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="OpenLara_TemporaryKey.pfx" />
+    <None Include="Package.StoreAssociation.xml" />
+    <None Include="OpenLara_StoreKey.pfx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\LargeTile.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SmallTile.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.altform-unplated_targetsize-48.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-48.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+</Project>
