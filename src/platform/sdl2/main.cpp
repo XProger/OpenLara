@@ -346,31 +346,33 @@ void inputUpdate() {
                     }
                 }
 #endif
-                
-		break;
-             }
-             case SDL_KEYUP: {
+                break;
+            }
+
+            case SDL_KEYUP: {
 		int scancode = event.key.keysym.scancode;
                 InputKey key = codeToInputKey(scancode);
 		if (key != ikNone) {
 		    Input::setDown(key, 0);
                 }
                 break;
-             }
-             // Joystick reading using the modern GameController interface
-             case SDL_CONTROLLERBUTTONDOWN: {
-                        joyIndex = joyGetIndex(event.cbutton.which);
-                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
-                        Input::setJoyDown(joyIndex, key, 1);
-                        break;
-             }
-             case SDL_CONTROLLERBUTTONUP: {
-                        joyIndex = joyGetIndex(event.cbutton.which);
-                        JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
-                        Input::setJoyDown(joyIndex, key, 0);
-                        break;
-             }
-             case SDL_CONTROLLERAXISMOTION: {
+            }
+
+            // Joystick reading using the modern SDL GameController interface
+            case SDL_CONTROLLERBUTTONDOWN: {
+                joyIndex = joyGetIndex(event.cbutton.which);
+                JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
+                Input::setJoyDown(joyIndex, key, 1);
+                break;
+            }
+            case SDL_CONTROLLERBUTTONUP: {
+                joyIndex = joyGetIndex(event.cbutton.which);
+                JoyKey key = controllerCodeToJoyKey(event.cbutton.button);
+                Input::setJoyDown(joyIndex, key, 0);
+                break;
+            }
+
+            case SDL_CONTROLLERAXISMOTION: {
                  joyIndex = joyGetIndex(event.caxis.which);
                  switch (event.caxis.axis) {
                      case SDL_CONTROLLER_AXIS_LEFTX:  joyL.x = joyAxisValue(event.caxis.value); break;
@@ -381,49 +383,81 @@ void inputUpdate() {
                  Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
                  Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
                  break;
-             }
-             // Joystick reading using the classic Joystick interface
-             case SDL_JOYBUTTONDOWN: {
-                        joyIndex = joyGetIndex(event.jbutton.which);
-                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
-                        Input::setJoyDown(joyIndex, key, 1);
-                        break;
-             }
-             case SDL_JOYBUTTONUP: {
-                        joyIndex = joyGetIndex(event.jbutton.which);
-                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
-                        Input::setJoyDown(joyIndex, key, 0);
-                        break;
-             }
-             case SDL_JOYAXISMOTION: {
-                 joyIndex = joyGetIndex(event.jaxis.which);
-                 switch (event.jaxis.axis) {
-                     // In the classic joystick interface we know what axis changed by it's number,
-                     // they have no names like on the fancy GameController interface. 
-                     case 0: joyL.x = joyAxisValue(event.jaxis.value); break;
-                     case 1: joyL.y = joyAxisValue(event.jaxis.value); break;
-                     case 2: joyR.x = joyAxisValue(event.jaxis.value); break;
-                     case 3: joyR.y = joyAxisValue(event.jaxis.value); break;
-                 }
-                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
-                 break;
-             }
-             // Joystick connection or disconnection
-             case SDL_JOYDEVICEADDED : {
+            }
+
+            // GameController connection or disconnection
+            case SDL_CONTROLLERDEVICEADDED: {
                  // Upon connection, 'which' is the internal SDL2 joystick index,
                  // but on disconnection, 'which' is the instanceID.
                  // We store the joysticks in their corresponding position on the joysticks array,
                  // IE: joystick with index 3 will be in sdl_joysticks[3].
-                 joyAdd(event.jdevice.which);
+                 joyAdd(event.cdevice.which);
                  break;
-             }
-             case SDL_JOYDEVICEREMOVED : {
-                 joyRemove(event.jdevice.which);
-                 break;
-             }
-         }
-     }
+            }
+            case SDL_CONTROLLERDEVICEREMOVED: {
+                joyRemove(event.cdevice.which);
+                break;
+
+            // Joystick reading using the old SDL Joystick interface
+            case SDL_JOYBUTTONDOWN:
+            case SDL_JOYBUTTONUP:
+            case SDL_JOYAXISMOTION:
+            case SDL_JOYDEVICEADDED:
+            case SDL_JOYDEVICEREMOVED:
+                // Only handle the event if the joystick is incompatible with the SDL_GameController interface.
+	        // (Otherwise it will interfere with the normal action of the SDL_GameController API, because
+                // the event is both a GameController event AND a Joystick event.)
+		if (SDL_IsGameController(joyIndex)) {
+                    break;
+                }
+
+                switch (event.type) {
+                    case SDL_JOYBUTTONDOWN: {
+                       joyIndex = joyGetIndex(event.jbutton.which);
+                       JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                       Input::setJoyDown(joyIndex, key, 1);
+                       break;
+                    }
+                    case SDL_JOYBUTTONUP: {
+                        joyIndex = joyGetIndex(event.jbutton.which);
+                        JoyKey key = joyCodeToJoyKey(event.jbutton.button);
+                        Input::setJoyDown(joyIndex, key, 0);
+                        break;
+                    }
+                    case SDL_JOYAXISMOTION: {
+                        joyIndex = joyGetIndex(event.jaxis.which);
+                        switch (event.jaxis.axis)
+                        {
+                            // In the classic joystick interface we know what axis changed by it's number,
+                            // they have no names like on the fancy GameController interface. 
+                            case 0: joyL.x = joyAxisValue(event.jaxis.value); break;
+                            case 1: joyL.y = joyAxisValue(event.jaxis.value); break;
+                            case 2: joyR.x = joyAxisValue(event.jaxis.value); break;
+                            case 3: joyR.y = joyAxisValue(event.jaxis.value); break;
+                        }
+                        Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                        Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+                        break;
+                    }
+
+                    // Joystick connection or disconnection
+                    case SDL_JOYDEVICEADDED: {
+                        // Upon connection, 'which' is the internal SDL2 joystick index,
+                        // but on disconnection, 'which' is the instanceID.
+                        // We store the joysticks in their corresponding position on the joysticks array,
+                        // IE: joystick with index 3 will be in sdl_joysticks[3].
+                        joyAdd(event.jdevice.which);
+                        break;
+                    }
+                    case SDL_JOYDEVICEREMOVED: {
+                         joyRemove(event.jdevice.which);
+                         break;
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
 
 int main(int argc, char **argv) {
