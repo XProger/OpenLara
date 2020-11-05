@@ -1460,9 +1460,9 @@ struct Inventory {
     }
 
     void prepareBackground() {
-    #ifdef FFP
-        return;
-    #endif
+        #ifdef FFP
+            return;
+        #endif
 
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR)
             return;
@@ -1471,9 +1471,9 @@ struct Inventory {
             return;
         #endif
 
-    #ifdef _OS_3DS
-        GAPI::rotate90 = false;
-    #endif
+        #ifdef _OS_3DS
+            GAPI::rotate90 = false;
+        #endif
 
         game->renderGame(false, true);
 
@@ -1494,9 +1494,9 @@ struct Inventory {
             swap(background[view], background[2]);
         }
 
-    #ifdef _OS_3DS
-        GAPI::rotate90 = true;
-    #endif
+        #ifdef _OS_3DS
+            GAPI::rotate90 = true;
+        #endif
 
         Core::setDepthTest(true);
     }
