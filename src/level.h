@@ -3213,6 +3213,12 @@ struct Level : IGame {
             }
         }
 
+        if (Core::defaultTarget) {
+            Core::viewportDef = short4(0, 0, Core::defaultTarget->origWidth, Core::defaultTarget->origHeight);
+        } else {
+            Core::viewportDef = short4(0, 0, Core::width, Core::height);
+        }
+
         #ifdef EARLY_CLEAR
             if (view == 0 && eye <= 0) {
                 Core::setTarget(NULL, NULL, RT_CLEAR_COLOR | RT_CLEAR_DEPTH | RT_STORE_COLOR | RT_STORE_DEPTH);

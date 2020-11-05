@@ -59,6 +59,7 @@
 				TitleID="0x14021968"
 				TitleName="OpenLara"
 				TitleImage="titleimage.xbx"
+				SaveGameImage="saveimage.xbx"
 				XBEVersion="4096"/>
 		</Configuration>
 		<Configuration
@@ -113,6 +114,8 @@
 				IncludeDebugInfo="TRUE"
 				NoLibWarn="TRUE"
 				TitleName="OpenLara"
+				TitleImage="titleimage.xbx"
+				SaveGameImage="saveimage.xbx"
 				XBEVersion="4096"/>
 		</Configuration>
 		<Configuration
@@ -168,6 +171,8 @@
 				IncludeDebugInfo="TRUE"
 				NoLibWarn="TRUE"
 				TitleName="OpenLara"
+				TitleImage="titleimage.xbx"
+				SaveGameImage="saveimage.xbx"
 				XBEVersion="4096"/>
 		</Configuration>
 		<Configuration
@@ -220,6 +225,8 @@
 				FileName="$(TargetDir)default.xbe"
 				StackSize="65536"
 				TitleName="OpenLara"
+				TitleImage="titleimage.xbx"
+				SaveGameImage="saveimage.xbx"
 				XBEVersion="4096"/>
 		</Configuration>
 		<Configuration
@@ -273,6 +280,8 @@
 				FileName="$(TargetDir)default.xbe"
 				StackSize="65536"
 				TitleName="OpenLara"
+				TitleImage="titleimage.xbx"
+				SaveGameImage="saveimage.xbx"
 				XBEVersion="4096"/>
 		</Configuration>
 	</Configurations>

@@ -710,8 +710,8 @@ namespace GAPI {
     }
 
     void setVSync(bool enable) {
-        d3dpp.FullScreen_PresentationInterval = enable ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
-        GAPI::resetDevice();
+    //    d3dpp.FullScreen_PresentationInterval = enable ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
+    //    GAPI::resetDevice();
     }
 
     void waitVBlank() {}
