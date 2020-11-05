@@ -25,13 +25,15 @@
 ; vColor = (material.diffuse * aColor.xyz * 2.0 + material.emissive, 1.0)
     mul tmp, MAT_DIFFUSE, aColor
     add tmp, tmp, tmp
-    add vColor, tmp, MAT_EMISSIVE
-    mov vColor.w, MAT_EMISSIVE
+    add tmp, tmp, MAT_EMISSIVE
+    mov tmp.w, MAT_EMISSIVE
+    mul tmp, tmp, HALF
+    encodeColor(tmp)
 
 ; vTecCoord = (aTexCoord.xyz, 1)
     mov vTexCoord, aTexCoord
     mov vTexCoord.w, ONE
 #else
     tex t0
-    mul r0, t0, vColor
+    applyColor(r0, t0)
 #endif

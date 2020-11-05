@@ -396,7 +396,7 @@ struct Level : IGame {
         Stream::cacheWrite("settings", (char*)&settings, sizeof(settings));
 
         if (rebuildShaders) {
-        #if !defined(_GAPI_D3D9) && !defined(_GAPI_D3D11) && !defined(_GAPI_GXM)
+        #if !defined(_GAPI_D3D8) && !defined(_GAPI_D3D9) && !defined(_GAPI_D3D11) && !defined(_GAPI_GXM)
             delete shaderCache;
             shaderCache = new ShaderCache();
         #endif
@@ -595,11 +595,10 @@ struct Level : IGame {
     }
 
     virtual void setupBinding() {
-        atlasRooms->bind(sDiffuse);
         Core::whiteTex->bind(sNormal);
         Core::whiteTex->bind(sMask);
         Core::whiteTex->bind(sReflect);
-        Core::whiteCube->bind(sEnvironment);
+        atlasRooms->bind(sDiffuse);
 
         if (Core::pass != Core::passShadow) {
             Texture *shadowMap = shadow[player ? player->camera->cameraIndex : 0];
@@ -610,18 +609,18 @@ struct Level : IGame {
     }
 
     virtual void renderEnvironment(int roomIndex, const vec3 &pos, Texture **targets, int stride = 0, Core::Pass pass = Core::passAmbient) {
-    #ifdef FFP
-        return;
-    #endif
+        #ifdef FFP
+            return;
+        #endif
 
-    #ifdef _GAPI_SW
-        return;
-    #endif
+        #ifdef _GAPI_SW
+            return;
+        #endif
 
-    #ifdef _OS_3DS
-        return; // TODO render to cubemap face
-        GAPI::rotate90 = false;
-    #endif
+        #ifdef _OS_3DS
+            return; // TODO render to cubemap face
+            GAPI::rotate90 = false;
+        #endif
 
         PROFILE_MARKER("ENVIRONMENT");
         setupBinding();
@@ -631,6 +630,10 @@ struct Level : IGame {
 
         int16 rIndex = roomIndex;
         level.getSector(rIndex, pos); // fix room index for overlapped blocks
+
+        #ifdef _GAPI_D3D8
+            GAPI::setFrontFace(false);
+        #endif
 
     // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
@@ -644,9 +647,13 @@ struct Level : IGame {
             renderView(rIndex, false, false);
         }
 
-    #ifdef _OS_3DS
-        GAPI::rotate90 = true;
-    #endif
+        #ifdef _GAPI_D3D8
+            GAPI::setFrontFace(true);
+        #endif
+
+        #ifdef _OS_3DS
+            GAPI::rotate90 = true;
+        #endif
 
         Core::pass = tmpPass;
         Core::eye  = tmpEye;
@@ -2687,6 +2694,11 @@ struct Level : IGame {
         Core::mViewInv  = mat4(pos, pos + dir, up);
         Core::mView     = Core::mViewInv.inverseOrtho();
         Core::mProj     = GAPI::perspective(90, 1.0f, 32.0f, 45.0f * 1024.0f, 0.0f);
+
+        #ifdef _GAPI_D3D8
+            Core::mProj.scale(vec3(1.0f, -1.0f, 1.0f));
+        #endif
+
         Core::mViewProj = Core::mProj * Core::mView;
         Core::viewPos   = Core::mViewInv.offset().xyz();
 

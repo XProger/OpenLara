@@ -3865,10 +3865,14 @@ struct Lara : Character {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 0.3f, 0.3f, 0.3f, 1.0f, false);
             Core::updateLights();
         */
-            environment->bind(sEnvironment);
+            GAPI::Texture *dtex = Core::active.textures[sDiffuse];
+
+            environment->bind(sDiffuse);
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
             visibleMask ^= 0xFFFFFFFF;
+
+            if (dtex) dtex->bind(sDiffuse);
         }
     }
 };

@@ -142,6 +142,7 @@
     #define _GAPI_D3D8 1
 
     #undef OS_PTHREAD_MT
+    #undef USE_CUBEMAP_MIPS
 
     #define NOMINMAX
     #include <xtl.h>
@@ -149,9 +150,6 @@
 #elif _X360
     #define _OS_X360  1
     // TODO
-#elif _XB1
-    #define _OS_XB1     1
-    #define _GAPI_D3D11 1
 #endif
 
 #ifndef _OS_PSP
@@ -553,7 +551,6 @@ struct MeshRange {
     E( sNormal          ) \
     E( sReflect         ) \
     E( sShadow          ) \
-    E( sEnvironment     ) \
     E( sMask            )
 
 #define SHADER_UNIFORMS(E) \

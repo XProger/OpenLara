@@ -54,19 +54,19 @@
     mul light, light, att
 
 ; vColor = (aLight + light[1..3] * uLightColor[1..3]) * aColor * 2
-    mov pos, aColor
+    mov att, aColor
     mov tmp, aLight
     mad tmp.xyz, light.y, c[uLightColor + 1], tmp
     mad tmp.xyz, light.z, c[uLightColor + 2], tmp
     mad tmp.xyz, light.w, c[uLightColor + 3], tmp
-    mul tmp, pos, tmp
-    applyUnderwater(tmp)
-    add vColor, tmp, tmp
+    mul att, att, tmp
+    applyUnderwater(att, pos)
+    encodeColor(att)
 
 ; vTecCoord = (aTexCoord.xyz, 1)
     mov vTexCoord, aTexCoord
     mov vTexCoord.w, ONE
 #else
     tex t0
-    mul r0, t0, vColor
+    applyColor(r0, t0)
 #endif

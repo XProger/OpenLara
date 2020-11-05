@@ -896,8 +896,10 @@ struct Crystal : Controller {
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         Core::setMaterial(0.5, 0.5, 3.0, 1.0f);
-        environment->bind(sEnvironment);
+        GAPI::Texture *dtex = Core::active.textures[sDiffuse];
+        environment->bind(sDiffuse);
         Controller::render(frustum, mesh, type, caustics);
+        if (dtex) dtex->bind(sDiffuse);
     }
 };
 

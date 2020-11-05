@@ -53,6 +53,7 @@ namespace GAPI {
 
     int cullMode, blendMode;
     uint32 clearColor;
+    bool isFrontCW;
 
     LPDIRECT3DSURFACE8 defRT, defDS;
 
@@ -222,7 +223,6 @@ namespace GAPI {
         void setConstant(UniformType uType, const float *value, int vectors) {
             const Binding &b = bindings[uType];
             if (b.usage | USAGE_VS) device->SetVertexShaderConstant (b.reg, value, vectors);
-//            if (b.usage | USAGE_PS) device->SetPixelShaderConstant  (b.reg, value, vectors);
         }
 
         void setParam(UniformType uType, const vec4 &value, int count = 1) {
@@ -300,21 +300,6 @@ namespace GAPI {
             unregisterResource(this);
             if (tex2D)   tex2D->Release();
             if (texCube) texCube->Release();
-        }
-
-        VOID XBUtil_SwizzleTexture2D( D3DLOCKED_RECT* pLock, const D3DSURFACE_DESC* pDesc )
-        {
-            DWORD dwPixelSize   = XGBytesPerPixelFromFormat( pDesc->Format );
-            DWORD dwTextureSize = pDesc->Width * pDesc->Height * dwPixelSize;
-
-            BYTE* pSrcBits = new BYTE[ dwTextureSize ];
-            memcpy( pSrcBits, pLock->pBits, dwTextureSize );
-            
-            XGSwizzleRect( pSrcBits, 0, NULL, pLock->pBits,
-                        pDesc->Width, pDesc->Height, 
-                        NULL, dwPixelSize );
-
-            delete[] pSrcBits;
         }
 
         void updateLevel(int32 level, void *data) {
@@ -525,6 +510,7 @@ namespace GAPI {
 
     void init() {
         memset(rtCache, 0, sizeof(rtCache));
+        isFrontCW = true;
         
         D3DADAPTER_IDENTIFIER8 adapterInfo;
         D3D->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &adapterInfo);
@@ -555,11 +541,13 @@ namespace GAPI {
 
         defRT = defDS = NULL;
 
-        const float factors[] = { 
+        const float factors[] = {
+            1.0f, -19.555555555556f, 60.444444444444f, -56.888888888889f,   // uCosCoeff
+            0.5f, 0.5f/PI, 0.75f, 1.0f/1024.0f,                             // uAngles
             0.0f, 0.5f, 1.0f, 2.0f,
             0.6f, 0.9f, 0.9f, 32767.0f
         };
-        device->SetVertexShaderConstant(94, factors, 2);
+        device->SetVertexShaderConstant(92, factors, 4);
 
         device->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_EXP);
     }
@@ -775,10 +763,15 @@ namespace GAPI {
     void setCullMode(int rsMask) {
         cullMode = rsMask;
         switch (rsMask) {
-            case RS_CULL_BACK  : device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);  break;
-            case RS_CULL_FRONT : device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW); break;
+            case RS_CULL_BACK  : device->SetRenderState(D3DRS_CULLMODE, isFrontCW ? D3DCULL_CW : D3DCULL_CCW);  break;
+            case RS_CULL_FRONT : device->SetRenderState(D3DRS_CULLMODE, isFrontCW ? D3DCULL_CCW : D3DCULL_CW); break;
             default            : device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
         }
+    }
+
+    void setFrontFace(bool cw) {
+        isFrontCW = cw;
+        setCullMode(cullMode);
     }
 
     void setBlendMode(int rsMask) {

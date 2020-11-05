@@ -54,12 +54,7 @@
     mul att, tmp,  att
 
     ; normal = mulQuat(uBasis[joint], aNormal)
-    mul pos.xyz, c[uBasis + a0.x], aNormal.zxyw
-    mad pos.xyz, aNormal, c[uBasis + a0.x].zxyw, -pos
-    mad pos.xyz, aNormal.yzxw, c[uBasis + a0.x].w, pos
-    mul tmp.xyz, c[uBasis + a0.x].zxyw, pos
-    mad pos.xyz, pos.yzxw, c[uBasis + a0.x].yzxw, -tmp
-    mad normal, pos, TWO, aNormal
+    mulQuat(normal, aNormal, a0.x)
 
     ; light = max(0, dot(normal, lv[0..3]))
     dp3 light.x, lv0, normal
@@ -72,22 +67,22 @@
     mul light, light, att
 
 ; vColor = aColor * material.alpha * (material.ambient + light[0..3] * uLightColor[0..3]) * 2
-    mov pos, aColor
-    mul pos, MAT_ALPHA, pos
+    mov att, aColor
+    mul att, MAT_ALPHA, att
     mov tmp.xyz, MAT_AMBIENT
     mov tmp.w, ONE
     mad tmp.xyz, light.x, c[uLightColor + 0], tmp
     mad tmp.xyz, light.y, c[uLightColor + 1], tmp
     mad tmp.xyz, light.z, c[uLightColor + 2], tmp
     mad tmp.xyz, light.w, c[uLightColor + 3], tmp
-    mul tmp, pos, tmp
-    applyUnderwater(tmp)
-    add vColor, tmp, tmp
+    mul att, att, tmp
+    applyUnderwater(att, pos)
+    encodeColor(att)
 
 ; vTecCoord = (aTexCoord.xyz, 1)
     mov vTexCoord, aTexCoord
     mov vTexCoord.w, ONE
 #else
     tex t0
-    mul r0, t0, vColor
+    applyColor(r0, t0)
 #endif
