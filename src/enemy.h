@@ -3468,8 +3468,10 @@ struct Winston : Enemy {
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
         if (environment && (flags.unused & 4)) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.5f, 2.0f, 2.5f, 1.0f, false);
-            environment->bind(sEnvironment);
+            GAPI::Texture *dtex = Core::active.textures[sDiffuse];
+            environment->bind(sDiffuse);
             Controller::render(frustum, mesh, type, caustics);
+            if (dtex) dtex->bind(sDiffuse);
         } else {
             Enemy::render(frustum, mesh, type, caustics);
         }

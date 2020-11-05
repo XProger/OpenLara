@@ -3539,10 +3539,14 @@ struct Lara : Character {
         if (state == STATE_MIDAS_DEATH || state == STATE_MIDAS_USE) {
             game->setRoomParams(getRoomIndex(), Shader::MIRROR, 1.2f, 1.0f, 0.2f, 1.0f, false);
 
-            environment->bind(sEnvironment);
+            GAPI::Texture *dtex = Core::active.textures[sDiffuse];
+
+            environment->bind(sDiffuse);
             visibleMask ^= 0xFFFFFFFF;
             Controller::render(frustum, mesh, type, caustics);
             visibleMask ^= 0xFFFFFFFF;
+
+            if (dtex) dtex->bind(sDiffuse);
         }
     }
 

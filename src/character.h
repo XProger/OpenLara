@@ -308,6 +308,8 @@ struct Character : Controller {
     }
 
     void bakeEnvironment(Texture *&environment) {
+        Core::beginFrame();
+
         flags.invisible = true;
         if (!environment) {
             uint32 opt = OPT_CUBEMAP | OPT_TARGET;
@@ -321,6 +323,8 @@ struct Character : Controller {
             environment->generateMipMap();
         #endif
         flags.invisible = false;
+
+        Core::endFrame();
     }
 };
 
