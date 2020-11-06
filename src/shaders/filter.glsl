@@ -71,14 +71,14 @@ uniform mat4 uViewProj;
 	#endif
 
 	#ifdef FILTER_EQUIRECTANGULAR
-		uniform samplerCube sEnvironment;
+		uniform samplerCube sDiffuse;
 
 		#define PI 3.14159265358979323846
 
 		vec4 equirectangular() {
 			vec2 a = (vTexCoord - 0.5) * vec2(PI * 2.0, PI);
 			vec3 v = vec3(sin(a.x) * cos(a.y), -sin(a.y), cos(a.x) * cos(a.y));
-			return textureCube(sEnvironment, normalize(v));
+			return textureCube(sDiffuse, normalize(v));
 		}
 	#endif
 
