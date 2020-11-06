@@ -29,13 +29,13 @@ float boxIntersect(float3 rayPos, float3 rayDir, float3 center, float3 hsize) {
 	float3 m = min(bMin, bMax);
 	return max(0.0, max(m.x, max(m.y, m.z)));
 }
-	
-#ifdef _GAPI_GXM
+
+#if defined(_GAPI_GXM)
 float4 main(VS_OUTPUT In) : COLOR0 {
 	float2 pixelCoord = float2(__pixel_x(), __pixel_y());
-#else defined(_GAPI_D3D11
+#else
 float4 main(VS_OUTPUT In) : COLOR0 {
-    float2 pixelCoord = In.pos.xy;
+	float2 pixelCoord = In.pos.xy;
 #endif
 	float3 viewVec = normalize(In.viewVec);
 

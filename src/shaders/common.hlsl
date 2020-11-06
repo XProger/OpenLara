@@ -44,16 +44,21 @@ struct VS_INPUT {
 	SamplerState           smpLinearWrap : register(s4);
 	SamplerComparisonState smpCmp        : register(s5);
 
-	Texture2D    sDiffuse     : register(t0);
-#ifdef NORMAL_AS_3D
-	Texture3D    sNormal      : register(t1);
-#else
-	Texture2D    sNormal      : register(t1);
-#endif
+	#ifdef DIFFUSE_AS_CUBE
+		TextureCube  sDiffuse : register(t0);
+	#else
+		Texture2D    sDiffuse : register(t0);
+	#endif
+
+	#ifdef NORMAL_AS_3D
+		Texture3D    sNormal  : register(t1);
+	#else
+		Texture2D    sNormal  : register(t1);
+	#endif
+
 	Texture2D    sReflect     : register(t2);
 	Texture2D    sShadow      : register(t3);
-	TextureCube  sEnvironment : register(t4);
-	Texture2D    sMask        : register(t5);
+	Texture2D    sMask        : register(t4);
 	
 	#define SAMPLE_2D(T,uv)             T.Sample(smpDefault,     uv)
 	#define SAMPLE_2D_POINT(T,uv)       T.Sample(smpPoint,       uv)
@@ -64,14 +69,20 @@ struct VS_INPUT {
 	#define SAMPLE_2D_LOD0(T,uv)        T.SampleLevel(smpLinear, uv, 0)
 	#define SAMPLE_3D(T,uv)             T.SampleLevel(smpLinearWrap, uv, 0)
 	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)	
+
+	#define POSITION    SV_POSITION
 #else
-	sampler2D    sDiffuse     : register(s0);
+	#ifdef DIFFUSE_AS_CUBE
+		samplerCUBE  sDiffuse : register(s0);
+	#else
+		sampler2D    sDiffuse : register(s0);
+	#endif
+
 	sampler2D    sNormal      : register(s1);
 	sampler2D    sReflect     : register(s2);
 	sampler2D    sShadow      : register(s3);
-	samplerCUBE  sEnvironment : register(s4);
-	sampler2D    sMask        : register(s5);
-	
+	sampler2D    sMask        : register(s4);
+
 	#define SAMPLE_2D(T,uv)             tex2D(T, uv)
 	#define SAMPLE_2D_POINT(T,uv)       tex2D(T, uv)
 	#define SAMPLE_2D_POINT_WRAP(T,uv)  tex2D(T, uv)
@@ -81,8 +92,10 @@ struct VS_INPUT {
 	#define SAMPLE_2D_CMP(T,uv)         ((tex2D(T, uv.xy) => uv.z) ? 1 : 0)
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
 	#define SAMPLE_CUBE(T,uv)           texCUBE(T, uv)
-	
-	#define SV_POSITION					POSITION
+
+	#ifdef PIXEL
+		#define POSITION    VPOS
+	#endif
 #endif
 
 float4      uParam                  : register(  c0 );

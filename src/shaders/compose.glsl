@@ -247,10 +247,10 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 #else
 
-	uniform sampler2D sDiffuse;
-
 	#ifdef TYPE_MIRROR
-		uniform samplerCube sEnvironment;
+		uniform samplerCube sDiffuse;
+	#else
+		uniform sampler2D sDiffuse;
 	#endif
 
 	float unpack(vec4 value) {
@@ -356,7 +356,7 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 		vec4 color;
 		#ifdef TYPE_MIRROR
 			vec3 rv = reflect(-normalize(vViewVec.xyz), normalize(vNormal.xyz));
-			color = textureCube(sEnvironment, normalize(rv));
+			color = textureCube(sDiffuse, normalize(rv));
 		#else
 			#ifndef TYPE_SPRITE
 				#ifdef OPT_TRAPEZOID

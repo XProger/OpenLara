@@ -3,7 +3,7 @@
 #include "common.hlsl"
 
 struct VS_OUTPUT {
-	float4 pos       : SV_POSITION;
+	float4 pos       : POSITION;
 	half4  color     : TEXCOORD0;
 	half2  texCoord  : TEXCOORD1;
 	float3 coord     : TEXCOORD2;
