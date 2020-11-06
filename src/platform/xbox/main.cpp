@@ -263,8 +263,15 @@ HRESULT ContextCreate() {
     d3dpp.EnableAutoDepthStencil = TRUE;
     d3dpp.AutoDepthStencilFormat = D3DFMT_D24S8;
     d3dpp.SwapEffect             = D3DSWAPEFFECT_DISCARD;
-    d3dpp.MultiSampleType        = D3DMULTISAMPLE_4_SAMPLES_MULTISAMPLE_GAUSSIAN;
     d3dpp.FullScreen_PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+
+    if (d3dpp.BackBufferHeight == 480) {
+        d3dpp.MultiSampleType = D3DMULTISAMPLE_4_SAMPLES_MULTISAMPLE_GAUSSIAN;
+    } else if (d3dpp.BackBufferHeight == 720) {
+        d3dpp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES_MULTISAMPLE_QUINCUNX;
+    } else if (d3dpp.BackBufferHeight == 1080) {
+        d3dpp.MultiSampleType = D3DMULTISAMPLE_NONE;
+    }
 
     if (FAILED(D3D->CreateDevice(0, D3DDEVTYPE_HAL, NULL, D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &device)))
         return E_FAIL;
