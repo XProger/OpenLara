@@ -184,13 +184,8 @@ namespace GAPI {
 
             C3D_TexEnv *e = env;
 
-            GPU_TEVSRC texSrc = GPU_TEXTURE1;
-            if (src == compose_mirror) {
-                texSrc = GPU_TEXTURE0;
-            }
-
             { // texture * vertex color
-                C3D_TexEnvSrc(e, C3D_Both, texSrc, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+                C3D_TexEnvSrc(e, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
                 C3D_TexEnvFunc(e, C3D_Both, GPU_MODULATE);
                 if (pass == Core::passCompose) {
                     C3D_TexEnvScale(e, C3D_RGB, GPU_TEVSCALE_2);
@@ -557,11 +552,7 @@ namespace GAPI {
         void bind(int sampler) {
             if (opt & OPT_PROXY) return;
 
-            if (sampler == sEnvironment) {
-                sampler = 0; // PICA200 can fetch cubemap only from tex unit 0
-            } else if (sampler == sDiffuse) {
-                sampler = 1;
-            } else {
+            if (sampler > 3) {
                 return;
             }
 
