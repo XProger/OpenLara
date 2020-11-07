@@ -41,7 +41,7 @@
 
 ; out
 .out vPosition position
-.out vTexCoord texcoord1
+.out vTexCoord texcoord0
 .out vColor    color
 
 .proc main
