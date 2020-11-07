@@ -33,7 +33,7 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	OpenLara
 BUILD		:=	build
-SOURCES		:=	. ../../libs/stb_vorbis ../../libs/tinf
+SOURCES		:=	. ../../libs/stb_vorbis ../../libs/tinf ../../shaders/pica
 DATA		:=	data
 INCLUDES	:=	../..
 GRAPHICS	:=	gfx
