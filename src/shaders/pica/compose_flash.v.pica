@@ -1,6 +1,6 @@
 ; constants
 .constf const0(0.0, 0.5, 1.0, 2.0)
-.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.1)
+.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.25)
 .alias ZERO      const0.x
 .alias HALF      const0.y
 .alias ONE       const0.z
@@ -8,6 +8,7 @@
 .alias INV_BYTE  const1.x
 .alias INV_SHORT const1.y
 .alias EPS       const1.z
+.alias QUART     const1.w
 
 ; uniforms
 .fvec uViewProj[4]
@@ -36,7 +37,7 @@
 
 ; out
 .out vPosition position
-.out vTexCoord texcoord1
+.out vTexCoord texcoord0
 .out vColor    color
 
 .proc main
@@ -58,10 +59,11 @@
 
 ; vColor = aColor/255 * material.diffuse + material.emissive * 0.5
     mul tmp, INV_BYTE, aColor
-    mul tmp.xyz, MAT_DIFFUSE, tmp
-    mov pos.xyz, MAT_EMISSIVE
-    mad tmp.xyz, pos, HALF, tmp
-    mov vColor, tmp
+    mul tmp, MAT_DIFFUSE, tmp
+    add tmp, tmp, tmp
+    add tmp, MAT_EMISSIVE, tmp
+    mov tmp.w, MAT_EMISSIVE
+    mul vColor, QUART, tmp
 
 ; vTecCoord = aTexCoord/32767
     mul vTexCoord, INV_SHORT, aTexCoord

@@ -1551,7 +1551,99 @@ namespace String {
         strcpy(res, str);
         return res;
     }
+
+    int32 length(uint16 *str) {
+        if (!str || !str[0]) return 0;
+        int32 len = 0;
+        while (*str++) {
+            len++;
+        }
+        return len;
+    }
 }
+
+
+template <typename T>
+struct Array {
+    int capacity;
+    int length;
+    T   *items;
+
+    Array(int capacity = 32) : capacity(capacity), length(0), items(NULL) {}
+
+    ~Array() { 
+        clear();
+    }
+
+    void reserve(int capacity) {
+        this->capacity = capacity;
+        if (items)
+            items = (T*)realloc(items, capacity * sizeof(T));
+        else
+            items = (T*)malloc(capacity * sizeof(T));
+    }
+
+    int push(const T &item) {
+        if (!items)
+            items = (T*)malloc(capacity * sizeof(T));
+
+        if (length == capacity)
+            reserve(capacity + capacity / 2);
+
+        items[length] = item;
+        return length++;
+    }
+
+    int pop() {
+        ASSERT(length > 0);
+        return --length;
+    }
+
+    void removeFast(int index) {
+        (*this)[index] = (*this)[length - 1];
+        length--;
+    }
+
+    void remove(int index) {
+        length--;
+        ASSERT(length >= 0);
+        for (int i = index; i < length; i++)
+            items[i] = items[i + 1];
+    }
+
+    void resize(int length) {
+        if (capacity < length)
+            reserve(length);
+        this->length = length;
+    }
+
+    void reset() {
+        length = 0;
+    }
+
+    void clear() {
+        reset();
+        free(items);
+        items = NULL;
+    }
+
+    int find(const T &item) {
+        for (int i = 0; i < length; i++) {
+            if (items[i] == item)
+                return i;
+        }
+        return -1;
+    }
+
+    void sort() {
+        ::sort(items, length);
+    }
+
+    T& operator[] (int index) {
+        ASSERT(index >= 0 && index < length);
+        return items[index]; 
+    };
+};
 
 
 struct Stream;
@@ -1693,6 +1785,8 @@ struct Stream {
 
     static Pack* packs[MAX_PACKS];
 
+    static Array<char*> fileList;
+
     static bool addPack(const char *name)
     {
         if (!existsContent(name)) {
@@ -1710,6 +1804,10 @@ struct Stream {
         return false;
     }
 
+    static void init() {
+        readFileList();
+    }
+
     static void deinit()
     {
         for (int i = 0; i < MAX_PACKS; i++)
@@ -1717,7 +1815,57 @@ struct Stream {
             if (!packs[i]) break;
             delete packs[i];
         }
+
+        for (int i = 0; i < fileList.length; i++) {
+            delete[] fileList[i];
+        }
+        fileList.clear();
     }
+
+private:
+#ifdef _OS_3DS
+    static void streamThread(void *arg) {
+        Stream* stream = (Stream*)arg;
+        stream->openFile();
+    }
+#endif
+
+    void openFile() {
+        char path[255];
+
+        path[0] = 0;
+        if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
+            strcpy(path, contentDir);
+        }
+        strcat(path, name);
+        fixBackslash(path);
+
+        f = fopen(path, "rb");
+
+        if (!f) {
+            #ifdef _OS_WEB
+                osDownload(this);
+            #else
+                LOG("error loading file \"%s\"\n", name);
+                if (callback) {
+                    callback(NULL, userData);
+                    delete this;
+                } else {
+                    ASSERT(false);
+                }
+            #endif
+        } else {
+            fseek(f, 0, SEEK_END);
+            size = (int32)ftell(f);
+            fseek(f, 0, SEEK_SET);
+
+            fpos = 0;
+            bufferIndex = -1;
+
+            if (callback) callback(this, userData);
+        }
+    }
+public:
 
     Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0), buffer(NULL) {
         this->name = String::copy(name);
@@ -1770,39 +1918,18 @@ struct Stream {
             }
         }
 
-        path[0] = 0;
-        if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
-            strcpy(path, contentDir);
-        }
-        strcat(path, name);
-        fixBackslash(path);
+        this->name = String::copy(name);
 
-        f = fopen(path, "rb");
+    #ifdef _OS_3DS /* TODO
+        if (callback) {
+            s32 priority = 0;
+            svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+            threadCreate(streamThread, this, 64 * 1024, priority - 1, -2, false);
+            return;
+        }*/
+    #endif
 
-        if (!f) {
-            #ifdef _OS_WEB
-                this->name = String::copy(name);
-                osDownload(this);
-            #else
-                LOG("error loading file \"%s\"\n", name);
-                if (callback) {
-                    callback(NULL, userData);
-                    delete this;
-                } else {
-                    ASSERT(false);
-                }
-            #endif
-        } else {
-            fseek(f, 0, SEEK_END);
-            size = (int32)ftell(f);
-            fseek(f, 0, SEEK_SET);
-
-            fpos = 0;
-            bufferIndex = -1;
-
-            this->name = String::copy(name);
-            if (callback) callback(this, userData);
-        }
+        openFile();
     }
 
     ~Stream() {
@@ -1810,6 +1937,62 @@ struct Stream {
         delete[] buffer;
         if (f) fclose(f);
     }
+
+#ifdef _OS_3DS
+    static void readDirectory(const FS_Archive &archive, const char* path) {
+        char buf[255];
+        strcpy(buf, contentDir + 5); // 5 to skip "sdmc:"
+        strcat(buf, path);
+
+        FS_Path fsPath = fsMakePath(FS_PathType::PATH_ASCII, buf);
+
+        Handle dir;
+        if (FSUSER_OpenDirectory(&dir, archive, fsPath) != 0) {
+            return;
+        }
+
+        int32 pathLen = strlen(path);
+        strcpy(buf, path);
+
+        while (1) {
+            FS_DirectoryEntry entry;
+
+            u32 entriesRead = 0;
+            FSDIR_Read(dir, &entriesRead, 1, &entry);
+
+            if (entriesRead == 0) {
+                break;
+            }
+
+            int32 len = utf16_to_utf8((uint8*)buf + pathLen, entry.name, String::length(entry.name));
+            buf[pathLen + len] = 0;
+
+            if (entry.attributes & FS_ATTRIBUTE_DIRECTORY) {
+                strcat(buf, "/");
+                readDirectory(archive, buf);
+            } else {
+                fileList.push(String::copy(buf));
+            }
+        }
+
+        FSDIR_Close(dir);
+    }
+
+    static void readFileList() {
+        FS_Archive sdmc;
+        FS_Path fsRoot = fsMakePath(FS_PathType::PATH_ASCII, "");
+
+        if (FSUSER_OpenArchive(&sdmc, FS_ArchiveID::ARCHIVE_SDMC, fsRoot) != 0) {
+            return;
+        }
+
+        readDirectory(sdmc, "");
+
+        FSUSER_CloseArchive(sdmc);
+    }
+#else
+    static void readFileList() {};
+#endif
 
     static void cacheRead(const char *name, Callback *callback = NULL, void *userData = NULL) {
         Stream *stream = new Stream(name, NULL, 0, callback, userData);
@@ -1859,6 +2042,15 @@ struct Stream {
             Pack::FileInfo info;
             if (packs[i]->findFile(name, info))
                 return true;
+        }
+
+        if (fileList.length) {
+            for (int i = 0; i < fileList.length; i++) {
+                if (strcmp(fileList[i], name) == 0) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         char fileName[1024];
@@ -2018,6 +2210,7 @@ struct Stream {
 };
 
 Stream::Pack* Stream::packs[MAX_PACKS];
+Array<char*> Stream::fileList;
 
 #ifdef OS_FILEIO_CACHE
 void osDataWrite(Stream *stream, const char *dir) {
@@ -2286,89 +2479,5 @@ struct FixedStr {
 };
 
 typedef FixedStr<16> str16;
-
-
-template <typename T>
-struct Array {
-    int capacity;
-    int length;
-    T   *items;
-
-    Array(int capacity = 32) : capacity(capacity), length(0), items(NULL) {}
-
-    ~Array() { 
-        clear();
-    }
-
-    void reserve(int capacity) {
-        this->capacity = capacity;
-        if (items)
-            items = (T*)realloc(items, capacity * sizeof(T));
-        else
-            items = (T*)malloc(capacity * sizeof(T));
-    }
-
-    int push(const T &item) {
-        if (!items)
-            items = (T*)malloc(capacity * sizeof(T));
-
-        if (length == capacity)
-            reserve(capacity + capacity / 2);
-
-        items[length] = item;
-        return length++;
-    }
-
-    int pop() {
-        ASSERT(length > 0);
-        return --length;
-    }
-
-    void removeFast(int index) {
-        (*this)[index] = (*this)[length - 1];
-        length--;
-    }
-
-    void remove(int index) {
-        length--;
-        ASSERT(length >= 0);
-        for (int i = index; i < length; i++)
-            items[i] = items[i + 1];
-    }
-
-    void resize(int length) {
-        if (capacity < length)
-            reserve(length);
-        this->length = length;
-    }
-
-    void reset() {
-        length = 0;
-    }
-
-    void clear() {
-        reset();
-        free(items);
-        items = NULL;
-    }
-
-    int find(const T &item) {
-        for (int i = 0; i < length; i++) {
-            if (items[i] == item)
-                return i;
-        }
-        return -1;
-    }
-
-    void sort() {
-        ::sort(items, length);
-    }
-
-    T& operator[] (int index) {
-        ASSERT(index >= 0 && index < length);
-        return items[index]; 
-    };
-};
-
 
 #endif

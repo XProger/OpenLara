@@ -193,6 +193,8 @@ int main() {
         return 0;
     }
 
+    Stream::init();
+
     sndInit();
     inputInit();
 

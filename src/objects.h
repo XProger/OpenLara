@@ -865,12 +865,7 @@ struct Drawbridge : Controller {
 struct Crystal : Controller {
     Texture *environment;
 
-    Crystal(IGame *game, int entity) : Controller(game, entity) {
-        uint32 opt = OPT_CUBEMAP | OPT_TARGET;
-        #ifdef USE_CUBEMAP_MIPS
-            opt |= OPT_MIPMAPS;
-        #endif
-        environment = new Texture(CRYSTAL_CUBEMAP_SIZE, CRYSTAL_CUBEMAP_SIZE, 1, FMT_RGB16, opt);
+    Crystal(IGame *game, int entity) : Controller(game, entity), environment(NULL) {
         activate();
     }
 
@@ -895,11 +890,30 @@ struct Crystal : Controller {
     }
 
     virtual void render(Frustum *frustum, MeshBuilder *mesh, Shader::Type type, bool caustics) {
-        Core::setMaterial(0.5, 0.5, 3.0, 1.0f);
+        Core::setMaterial(0.5, 0.5, 3.0, 0.0f); // 0.0f - use vertex normal as texcoord
         GAPI::Texture *dtex = Core::active.textures[sDiffuse];
-        environment->bind(sDiffuse);
+        if (environment) {
+            environment->bind(sDiffuse);
+        } else {
+            Core::whiteCube->bind(sDiffuse);
+        }
         Controller::render(frustum, mesh, type, caustics);
         if (dtex) dtex->bind(sDiffuse);
+    }
+
+    void bake() {
+        ASSERT(!environment);
+
+        uint32 opt = OPT_CUBEMAP | OPT_TARGET;
+        #ifdef USE_CUBEMAP_MIPS
+            opt |= OPT_MIPMAPS;
+        #endif
+
+        environment = new Texture(CRYSTAL_CUBEMAP_SIZE, CRYSTAL_CUBEMAP_SIZE, 1, FMT_RGB16, opt);
+        game->renderEnvironment(getRoomIndex(), pos - vec3(0, 512, 0), &environment);
+        if (opt & OPT_MIPMAPS) {
+            environment->generateMipMap();
+        }
     }
 };
 
