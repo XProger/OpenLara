@@ -617,9 +617,12 @@ struct Level : IGame {
             return;
         #endif
 
-        #ifdef _OS_3DS
-            return; // TODO render to cubemap face
+        #ifdef _GAPI_C3D
             GAPI::rotate90 = false;
+        #endif
+
+        #ifdef _GAPI_D3D8
+            GAPI::setFrontFace(false);
         #endif
 
         PROFILE_MARKER("ENVIRONMENT");
@@ -630,10 +633,6 @@ struct Level : IGame {
 
         int16 rIndex = roomIndex;
         level.getSector(rIndex, pos); // fix room index for overlapped blocks
-
-        #ifdef _GAPI_D3D8
-            GAPI::setFrontFace(false);
-        #endif
 
     // render level into cube faces or texture images
         for (int i = 0; i < 6; i++) {
@@ -651,7 +650,7 @@ struct Level : IGame {
             GAPI::setFrontFace(true);
         #endif
 
-        #ifdef _OS_3DS
+        #ifdef _GAPI_C3D
             GAPI::rotate90 = true;
         #endif
 
@@ -1801,12 +1800,18 @@ struct Level : IGame {
             TR::Entity &e = level.entities[i];
             if (e.type == TR::Entity::CRYSTAL) {
                 Crystal *c = (Crystal*)e.controller;
-                renderEnvironment(c->getRoomIndex(), c->pos - vec3(0, 512, 0), &c->environment);
-                #ifdef USE_CUBEMAP_MIPS
-                    c->environment->generateMipMap();
-                #endif
+                if (c->environment) { // already initialized and baked
+                    continue;
+                }
+                c->bake();
+
+            #ifdef _GAPI_C3D
+                // C3D has a limit of GX commands for buffers clearing (GX_MemoryFill), so we limit render to one cubemap per frame
+                return;
+            #endif
             }
         }
+        needRedrawReflections = false;
     }
 
     void setMainLight(Controller *controller) {
@@ -3178,7 +3183,6 @@ struct Level : IGame {
 
         if (needRedrawReflections) {
             initReflections();
-            needRedrawReflections = false;
         }
 
         if (ambientCache) {

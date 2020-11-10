@@ -1211,7 +1211,7 @@ namespace Core {
     }
 
     void setFog(const vec4 &params) {
-    #ifdef _XBOX
+    #if defined(_GAPI_D3D8) || defined(_GAPI_C3D)
         GAPI::setFog(params);
     #else
         ASSERT(Core::active.shader);

@@ -84,6 +84,11 @@ namespace GAPI {
         #include "compose_room_shbin.h"
         #include "compose_entity_shbin.h"
         #include "compose_mirror_shbin.h"
+        #include "compose_sprite_u_shbin.h"
+        #include "compose_room_u_shbin.h"
+        #include "compose_entity_u_shbin.h"
+        #include "ambient_sprite_shbin.h"
+        #include "ambient_room_shbin.h"
         #include "shadow_entity_shbin.h"
         #include "filter_upscale_shbin.h"
         #include "gui_shbin.h"
@@ -91,15 +96,20 @@ namespace GAPI {
     }
 
     #define SHADERS_LIST(E) \
-        E( compose_sprite  ) \
-        E( compose_flash   ) \
-        E( compose_room    ) \
-        E( compose_entity  ) \
-        E( compose_mirror  ) \
-        E( shadow_entity   ) \
-        E( filter_upscale  ) \
-        E( gui             ) \
-        E( dummy           )
+        E( compose_sprite   ) \
+        E( compose_flash    ) \
+        E( compose_room     ) \
+        E( compose_entity   ) \
+        E( compose_mirror   ) \
+        E( compose_sprite_u ) \
+        E( compose_room_u   ) \
+        E( compose_entity_u ) \
+        E( ambient_sprite   ) \
+        E( ambient_room     ) \
+        E( shadow_entity    ) \
+        E( filter_upscale   ) \
+        E( gui              ) \
+        E( dummy            )
 
     #define SHADER_DECL(v) DVLB_s* v;
     #define SHADER_INIT(v) v = DVLB_ParseFile((u32*)v##_shbin, v##_shbin_size);
@@ -124,6 +134,14 @@ namespace GAPI {
 
     SHADERS_LIST(SHADER_DECL);
 
+    struct FogLUT {
+        vec4       params;
+        uint32     color;
+        C3D_FogLut table;
+    } fogLUT[3];
+
+    vec4 fogParams;
+
     struct Shader {
         shaderProgram_s program;
         C3D_TexEnv      env[4];
@@ -141,24 +159,6 @@ namespace GAPI {
 
             DVLB_s* src = NULL;
 
-            switch (pass) {
-                case Core::passCompose :
-                    switch (type) {
-                        case 0 : src = compose_sprite; break;
-                        case 1 : src = compose_flash;  break;
-                        case 2 : src = compose_room;   break;
-                        case 3 : src = compose_entity; break;
-                        case 4 : src = compose_mirror; break;
-                    }
-                    break;
-                case Core::passShadow : src = shadow_entity;  break;
-                case Core::passFilter : src = filter_upscale; break;
-                case Core::passGUI    : src = gui;            break;
-                default               : src = dummy;
-            }
-
-            shaderProgramSetVsh(&program, &src->DVLE[0]);
-
             bool underwater = false;
             bool grayscale  = false;
 
@@ -170,6 +170,44 @@ namespace GAPI {
                     grayscale = true;
                 }
             }
+
+            switch (pass) {
+                case Core::passCompose :
+                    if (underwater) {
+                        switch (type) {
+                            case 0  : src = compose_sprite_u; break;
+                            case 1  : src = compose_flash;    break;
+                            case 2  : src = compose_room_u;   break;
+                            case 3  : src = compose_entity_u; break;
+                            case 4  : src = compose_mirror;   break;
+                            default : src = dummy;
+                        }
+                    } else {
+                        switch (type) {
+                            case 0  : src = compose_sprite; break;
+                            case 1  : src = compose_flash;  break;
+                            case 2  : src = compose_room;   break;
+                            case 3  : src = compose_entity; break;
+                            case 4  : src = compose_mirror; break;
+                            default : src = dummy;
+                        }
+                    }
+                    break;
+                case Core::passAmbient :
+                    switch (type) {
+                        case 0  : src = ambient_sprite; break;
+                        case 1  : src = ambient_room;   break;
+                        case 2  : src = ambient_room;   break;
+                        default : src = dummy;
+                    }
+                    break;
+                case Core::passShadow : src = shadow_entity;  break;
+                case Core::passFilter : src = filter_upscale; break;
+                case Core::passGUI    : src = gui;            break;
+                default               : src = dummy;
+            }
+
+            shaderProgramSetVsh(&program, &src->DVLE[0]);
 
             for (int ut = 0; ut < uMAX; ut++) {
                 uID[ut] = shaderInstanceGetUniformLocation(program.vertexShader, UniformName[ut]);
@@ -187,13 +225,13 @@ namespace GAPI {
             { // texture * vertex color
                 C3D_TexEnvSrc(e, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
                 C3D_TexEnvFunc(e, C3D_Both, GPU_MODULATE);
-                if (pass == Core::passCompose) {
-                    C3D_TexEnvScale(e, C3D_RGB, GPU_TEVSCALE_2);
+                if (pass == Core::passCompose || pass == Core::passAmbient) {
+                    C3D_TexEnvScale(e, C3D_Both, GPU_TEVSCALE_4);
                 }
                 e++;
             }
 
-            if (underwater) { // multiply by underwater color
+            if (pass == Core::passAmbient && underwater) { // multiply by underwater color only for ambient pass
                 C3D_TexEnvSrc(e, C3D_Both, GPU_PREVIOUS, GPU_CONSTANT, GPU_PRIMARY_COLOR);
                 C3D_TexEnvFunc(e, C3D_Both, GPU_MODULATE);
                 C3D_TexEnvColor(e, 0xFFE5E599);
@@ -743,7 +781,7 @@ namespace GAPI {
             LOG("create RT for face:%d %dx%d\n", face, texture->width, texture->height);
 
             C3D_FrameBuf &fb = texture->target[face].frameBuf;
-            fb.colorBuf  = (texture->opt & OPT_CUBEMAP) ? texture->texCube.data[face] : texture->tex.data;
+            fb.colorBuf  = (texture->opt & OPT_CUBEMAP) ? texture->tex.cube->data[face] : texture->tex.data;
             fb.depthBuf  = getDepthBuffer(texture->width, texture->height, group, depthFmt);
             fb.colorFmt  = GPU_COLORBUF(formats[texture->fmt].format);
             fb.depthFmt  = depthFmt;
@@ -759,6 +797,10 @@ namespace GAPI {
 
     void init() {
         memset(depthBuffers, 0, sizeof(depthBuffers));
+
+        for (int i = 0; i < COUNT(fogLUT); i++) {
+            fogLUT[i].params = vec4(-2.0f); // initialize with some unique value
+        }
 
         gfxInitDefault();
 
@@ -860,6 +902,7 @@ namespace GAPI {
     }
 
     void resetState() {
+        fogParams = vec4(-1.0f);
         C3D_SetAttrInfo(&vertexAttribs);
     }
 
@@ -966,6 +1009,39 @@ namespace GAPI {
         }
     }
 
+    void setFog(const vec4 &params) {
+        if (fogParams == params) return;
+
+        fogParams = params;
+
+        int32 index;
+
+        if (fogLUT[0].params == params) {
+            index = 0;
+        } else if (fogLUT[1].params == params) {
+            index = 1;
+        } else if (fogLUT[2].params == params) {
+            index = 2;
+        } else {
+            index = 2;
+            fogLUT[0] = fogLUT[1];
+            fogLUT[1] = fogLUT[2];
+
+            // for some reason GPU_NO_FOG breaks depth, blend or texEnv states in some cases, so we use low density fog table (0.0f) as NO_FOG
+            FogLut_Exp(&fogLUT[index].table, params.w, 1.0f, 32.0f, 45.0f * 1024.0f);
+            fogLUT[index].params = params;
+            fogLUT[index].color = 0xFF000000
+                | (uint32(clamp(params.x * 255.0f, 0.0f, 255.0f)) << 0)
+                | (uint32(clamp(params.y * 255.0f, 0.0f, 255.0f)) << 8)
+                | (uint32(clamp(params.z * 255.0f, 0.0f, 255.0f)) << 16);
+        }
+
+
+        C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+        C3D_FogColor(fogLUT[index].color);
+        C3D_FogLutBind(&fogLUT[index].table);
+    }
+
     void clear(bool color, bool depth) {
         uint32 mask = 0;
         if (color) mask |= C3D_CLEAR_COLOR;
@@ -973,7 +1049,7 @@ namespace GAPI {
         if (!mask) return;
 
         C3D_FrameSplit(0);
-        C3D_RenderTargetClear(curTarget, C3D_ClearBits(mask), clearColor, 0);
+        C3D_FrameBufClear(&curTarget->frameBuf, C3D_ClearBits(mask), clearColor, 0);
     }
 
     void setClearColor(const vec4 &color) {

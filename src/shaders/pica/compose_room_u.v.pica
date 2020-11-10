@@ -1,15 +1,14 @@
 ; constants
 .constf const0(0.0, 0.5, 1.0, 2.0)
-.constf const1(0.00392156886, 3.05185094e-005, 0.00001, 0.00787401574)
+.constf const1(0.00392156886, 3.05185094e-005, 0.0009765625, 0.00787401574)
 
-.alias ZERO      const0.x
-.alias HALF      const0.y
-.alias ONE       const0.z
-.alias TWO       const0.w
-.alias INV_BYTE  const1.x
-.alias INV_SHORT const1.y
-.alias EPS       const1.z
-.alias INV_127   const1.w
+.alias ZERO        const0.x
+.alias HALF        const0.y
+.alias ONE         const0.z
+.alias TWO         const0.w
+.alias INV_BYTE    const1.x
+.alias INV_SHORT   const1.y
+.alias INV_127     const1.w
 
 ; uniforms
 .fvec uViewProj[4]
@@ -25,19 +24,77 @@
 .alias aLight    v4
 
 ; variables
-.alias lv1    r1
-.alias lv2    r2
-.alias lv3    r3
-.alias normal r4
-.alias att    r5
-.alias light  r6
-.alias pos    r7
-.alias tmp    r8
+.alias lv1     r1
+.alias lv2     r2
+.alias lv3     r3
+.alias normal  r4
+.alias att     r5
+.alias light   r6
+.alias pos     r7
+.alias tmp     r8
+.alias diffuse r5
 
 ; out
 .out vPosition position
 .out vTexCoord texcoord0
 .out vColor    color
+
+
+; underwater block --------------------------------------------------
+.constf const2(6.28318530718, 0.15915494309, 0.63661977236, 0.0)
+.constf const3(1.0, 3.0, 0.0009765625, 0.75)
+.constf const4(0.6, 0.9, 0.9, 1.0)
+
+.alias TWO_PI      const2.x
+.alias INV_TWO_PI  const2.y
+.alias INV_HALF_PI const2.z
+.alias ONE_THREE   const3.xy
+.alias WAVE_SIZE   const3.z
+.alias WAVE_LUM    const3.w
+.alias UW_COLOR    const4
+
+.fvec uParam
+.alias TIME uParam.x
+
+; tmp.x = abs(tmp.x)
+.proc abs
+    max tmp.x, tmp.x, -tmp.x
+.end
+
+; tmp.x = mod(tmp.x, TWO_PI)
+.proc mod2pi
+    mul tmp.y, INV_TWO_PI, tmp.x
+    flr tmp.y, tmp.y
+    mul tmp.y, TWO_PI, tmp.y
+    add tmp.x, tmp.x, -tmp.y
+.end
+
+; tmp.x = sin(tmp.x)
+.proc sin
+    mul tmp.x, INV_HALF_PI, tmp.x
+    add tmp.xy, -ONE_THREE, tmp.xx
+    mad tmp.xy, tmp.xy, -tmp.xy, ONE_THREE.xx
+    max tmp.xy, ZERO, tmp.xy
+    add tmp.x, tmp.x, tmp.y
+.end
+
+.proc applyUnderwater
+    ; k = dot(pos, 1/1024) + time
+    dp3 tmp.x, WAVE_SIZE, pos
+    add tmp.x, TIME, tmp.x
+    
+    call mod2pi
+    call sin
+    call abs
+
+    mul tmp.x, WAVE_LUM, tmp.x
+    add tmp.x, HALF, tmp.x
+    mul tmp.xyz, UW_COLOR, tmp.xxx
+    mul diffuse.xyz, diffuse.xyz, tmp.xyz    
+    mul vColor, HALF, diffuse
+.end
+; -------------------------------------------------------------------
+
 
 .proc main
 ; pos = mulQuatPos(uBasis, aCoord)
@@ -94,14 +151,16 @@
     max light, ZERO, light
     mul light, light, att
 
-; vColor = (aLight/255 + light[1..3] * uLightColor[1..3]) * aColor/255
-    mul pos, INV_BYTE, aColor
+; color = (aLight/255 + light[1..3] * uLightColor[1..3]) * aColor/255
     mul tmp, INV_BYTE, aLight
     mad tmp.xyz, light.y, uLightColor[1], tmp
     mad tmp.xyz, light.z, uLightColor[2], tmp
     mad tmp.xyz, light.w, uLightColor[3], tmp
-    mul tmp, pos, tmp
-    mul vColor, HALF, tmp
+    mul diffuse, INV_BYTE, aColor
+    mul diffuse, diffuse, tmp
+    
+; vColor = applyUnderwater(diffuse, pos)
+    call applyUnderwater
 
 ; vTecCoord = aTexCoord/32767
     mul vTexCoord, INV_SHORT, aTexCoord
