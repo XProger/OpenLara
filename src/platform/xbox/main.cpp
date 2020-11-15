@@ -268,7 +268,7 @@ HRESULT ContextCreate() {
     if (d3dpp.BackBufferHeight == 480) {
         d3dpp.MultiSampleType = D3DMULTISAMPLE_4_SAMPLES_MULTISAMPLE_GAUSSIAN;
     } else if (d3dpp.BackBufferHeight == 720) {
-        d3dpp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES_MULTISAMPLE_QUINCUNX;
+        d3dpp.MultiSampleType = D3DMULTISAMPLE_NONE; //D3DMULTISAMPLE_2_SAMPLES_MULTISAMPLE_QUINCUNX; // unstable 60 fps
     } else if (d3dpp.BackBufferHeight == 1080) {
         d3dpp.MultiSampleType = D3DMULTISAMPLE_NONE;
     }
