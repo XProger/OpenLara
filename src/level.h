@@ -1655,7 +1655,7 @@ struct Level : IGame {
         tileData = new AtlasTile();
         
         atlasRooms   = rAtlas->pack(OPT_MIPMAPS | OPT_VRAM_3DS);
-        atlasObjects = oAtlas->pack(OPT_MIPMAPS | OPT_VRAM_3DS);
+        atlasObjects = oAtlas->pack(OPT_MIPMAPS);
         atlasSprites = sAtlas->pack(OPT_MIPMAPS);
         atlasGlyphs  = gAtlas->pack(0);
 

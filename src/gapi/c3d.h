@@ -27,7 +27,7 @@ namespace GAPI {
     struct Vertex {
         short4 coord;
         ubyte4 normal;
-        short4 texCoord;
+        short2 texCoord;
         ubyte4 color;
         ubyte4 light;
     };
@@ -778,8 +778,6 @@ namespace GAPI {
 
     C3D_RenderTarget* checkRenderTarget(Texture *texture, int face, int group, GPU_DEPTHBUF depthFmt) {
         if (!texture->target[face].frameBuf.colorBuf) {
-            LOG("create RT for face:%d %dx%d\n", face, texture->width, texture->height);
-
             C3D_FrameBuf &fb = texture->target[face].frameBuf;
             fb.colorBuf  = (texture->opt & OPT_CUBEMAP) ? texture->tex.cube->data[face] : texture->tex.data;
             fb.depthBuf  = getDepthBuffer(texture->width, texture->height, group, depthFmt);
@@ -826,7 +824,7 @@ namespace GAPI {
         AttrInfo_Init(&vertexAttribs);
         AttrInfo_AddLoader(&vertexAttribs, aCoord    , GPU_SHORT         , 4);
         AttrInfo_AddLoader(&vertexAttribs, aNormal   , GPU_UNSIGNED_BYTE , 4);
-        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 4);
+        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 2);
         AttrInfo_AddLoader(&vertexAttribs, aColor    , GPU_UNSIGNED_BYTE , 4);
         AttrInfo_AddLoader(&vertexAttribs, aLight    , GPU_UNSIGNED_BYTE , 4);
 
