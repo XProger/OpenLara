@@ -3937,8 +3937,62 @@ namespace TR {
         #define CHUNK(str) ((uint64)((const char*)(str))[0]        | ((uint64)((const char*)(str))[1] << 8)  | ((uint64)((const char*)(str))[2] << 16) | ((uint64)((const char*)(str))[3] << 24) | \
                            ((uint64)((const char*)(str))[4] << 32) | ((uint64)((const char*)(str))[5] << 40) | ((uint64)((const char*)(str))[6] << 48) | ((uint64)((const char*)(str))[7] << 56))
 
+        #define SAT_ROOMFILE 0x454C49464D4F4F52ULL  /* CHUNK("ROOMFILE") */
+        #define SAT_ROOMTINF 0x464E49544D4F4F52ULL  /* CHUNK("ROOMTINF") */
+        #define SAT_ROOMTQTR 0x525451544D4F4F52ULL  /* CHUNK("ROOMTQTR") */
+        #define SAT_ROOMTSUB 0x425553544D4F4F52ULL  /* CHUNK("ROOMTSUB") */
+        #define SAT_ROOMTPAL 0x4C4150544D4F4F52ULL  /* CHUNK("ROOMTPAL") */
+        #define SAT_ROOMSPAL 0x4C4150534D4F4F52ULL  /* CHUNK("ROOMSPAL") */
+        #define SAT_ROOMDATA 0x415441444D4F4F52ULL  /* CHUNK("ROOMDATA") */
+        #define SAT_ROOMNUMB 0x424D554E4D4F4F52ULL  /* CHUNK("ROOMNUMB") */
+        #define SAT_MESHPOS_ 0x20534F504853454DULL  /* CHUNK("MESHPOS ") */
+        #define SAT_MESHSIZE 0x455A49534853454DULL  /* CHUNK("MESHSIZE") */
+        #define SAT_DOORDATA 0x41544144524F4F44ULL  /* CHUNK("DOORDATA") */
+        #define SAT_FLOORDAT 0x544144524F4F4C46ULL  /* CHUNK("FLOORDAT") */
+        #define SAT_FLOORSIZ 0x5A4953524F4F4C46ULL  /* CHUNK("FLOORSIZ") */
+        #define SAT_FLORDATA 0x41544144524F4C46ULL  /* CHUNK("FLORDATA") */
+        #define SAT_LIGHTAMB 0x424D41544847494CULL  /* CHUNK("LIGHTAMB") */
+        #define SAT_RM_FLIP_ 0x2050494C465F4D52ULL  /* CHUNK("RM_FLIP ") */
+        #define SAT_RM_FLAGS 0x5347414C465F4D52ULL  /* CHUNK("RM_FLAGS") */
+        #define SAT_LIGHTSIZ 0x5A4953544847494CULL  /* CHUNK("LIGHTSIZ") */
+        #define SAT_CAMERAS_ 0x20534152454D4143ULL  /* CHUNK("CAMERAS ") */
+        #define SAT_SOUNDFX_ 0x205846444E554F53ULL  /* CHUNK("SOUNDFX ") */
+        #define SAT_BOXES___ 0x2020205345584F42ULL  /* CHUNK("BOXES   ") */
+        #define SAT_OVERLAPS 0x5350414C5245564FULL  /* CHUNK("OVERLAPS") */
+        #define SAT_GND_ZONE 0x454E4F5A5F444E47ULL  /* CHUNK("GND_ZONE") */
+        #define SAT_GND_ZON2 0x324E4F5A5F444E47ULL  /* CHUNK("GND_ZON2") */
+        #define SAT_FLY_ZONE 0x454E4F5A5F594C46ULL  /* CHUNK("FLY_ZONE") */
+        #define SAT_ARANGES_ 0x205345474E415241ULL  /* CHUNK("ARANGES ") */
+        #define SAT_ITEMDATA 0x415441444D455449ULL  /* CHUNK("ITEMDATA") */
+        #define SAT_ROOMEND_ 0x20444E454D4F4F52ULL  /* CHUNK("ROOMEND ") */
+        #define SAD_OBJFILE_ 0x20454C49464A424FULL  /* CHUNK("OBJFILE ") */
+        #define SAD_ANIMS___ 0x202020534D494E41ULL  /* CHUNK("ANIMS   ") */
+        #define SAD_CHANGES_ 0x205345474E414843ULL  /* CHUNK("CHANGES ") */
+        #define SAD_RANGES_z 0x00205345474E4152ULL  /* CHUNK("RANGES \0") */
+        #define SAD_COMMANDS 0x53444E414D4D4F43ULL  /* CHUNK("COMMANDS") */
+        #define SAD_ANIBONES 0x53454E4F42494E41ULL  /* CHUNK("ANIBONES") */
+        #define SAD_ANIMOBJ_ 0x204A424F4D494E41ULL  /* CHUNK("ANIMOBJ ") */
+        #define SAD_STATOBJ_ 0x204A424F54415453ULL  /* CHUNK("STATOBJ ") */
+        #define SAD_FRAMES__ 0x202053454D415246ULL  /* CHUNK("FRAMES  ") */
+        #define SAD_MESHPTRS 0x535254504853454DULL  /* CHUNK("MESHPTRS") */
+        #define SAD_MESHDATA 0x415441444853454DULL  /* CHUNK("MESHDATA") */
+        #define SAD_OTEXTINF 0x464E49545845544FULL  /* CHUNK("OTEXTINF") */
+        #define SAD_OTEXTDAT 0x544144545845544FULL  /* CHUNK("OTEXTDAT") */
+        #define SAD_ITEXTINF 0x464E495458455449ULL  /* CHUNK("ITEXTINF") */
+        #define SAD_ITEXTDAT 0x5441445458455449ULL  /* CHUNK("ITEXTDAT") */
+        #define SAD_OBJEND__ 0x2020444E454A424FULL  /* CHUNK("OBJEND  ") */
+        #define SPR_SPRFILE_ 0x20454C4946525053ULL  /* CHUNK("SPRFILE ") */
+        #define SPR_SPRITINF 0x464E495449525053ULL  /* CHUNK("SPRITINF") */
+        #define SPR_SPRITDAT 0x5441445449525053ULL  /* CHUNK("SPRITDAT") */
+        #define SPR_OBJECTS_ 0x20535443454A424FULL  /* CHUNK("OBJECTS ") */
+        #define SPR_SPRITEND 0x444E455449525053ULL  /* CHUNK("SPRITEND") */
+        #define SND_SAMPLUT_ 0x2054554C504D4153ULL  /* CHUNK("SAMPLUT ") */
+        #define SND_SAMPINFS 0x53464E49504D4153ULL  /* CHUNK("SAMPINFS") */
+        #define SND_SAMPLE__ 0x2020454C504D4153ULL  /* CHUNK("SAMPLE  ") */
+        #define SND_ENDFILEz 0x00454C4946444E45ULL  /* CHUNK("ENDFILE\0") */
+
         void readSAT(Stream &stream) {
-        #if !defined(_OS_PSP) && !defined(_OS_3DS) && !defined(_OS_XBOX)
+        #if !defined(_OS_PSP)
             Room *room = NULL;
 
             while (stream.pos < stream.size) {
@@ -3954,18 +4008,18 @@ namespace TR {
 
                 switch (chunkType) {
                 // SAT
-                    case CHUNK("ROOMFILE") : 
+                    case SAT_ROOMFILE : 
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000020);
                         break;
-                    case CHUNK("ROOMTINF") :
+                    case SAT_ROOMTINF :
                         ASSERTV(stream.readBE32() == 0x00000010);
                         roomTexturesCount = stream.readBE32();
                         roomTextures = roomTexturesCount ? new TextureInfo[roomTexturesCount] : NULL;
                         for (int i = 0; i < roomTexturesCount; i++)
                             readObjectTex(stream, roomTextures[i], TEX_TYPE_ROOM);
                         break;
-                    case CHUNK("ROOMTQTR") : {
+                    case SAT_ROOMTQTR : {
                         ASSERTV(stream.readBE32() == 0x00000001);
                         roomTexturesDataSize = stream.readBE32();
                         roomTexturesData = roomTexturesDataSize ? new uint8[roomTexturesDataSize] : NULL;
@@ -3976,7 +4030,7 @@ namespace TR {
                     */
                         break;
                     }
-                    case CHUNK("ROOMTSUB") :
+                    case SAT_ROOMTSUB :
                         ASSERTV(stream.readBE32() == 0x00000001);
                         /*
                         roomTexturesDataSize = stream.readBE32();
@@ -3989,34 +4043,34 @@ namespace TR {
                         stream.raw(tsub, sizeof(uint8) * tsubCount);
 
                         break;
-                    case CHUNK("ROOMTPAL") : {
+                    case SAT_ROOMTPAL : {
                         ASSERTV(stream.readBE32() == 0x00000003);
                         stream.seek(stream.readBE32() * 3);
                         break;
                     }
-                    case CHUNK("ROOMSPAL") : {
+                    case SAT_ROOMSPAL : {
                         ASSERTV(stream.readLE32() == 0x02000000);
                         stream.seek(stream.readBE32() * 2);
                         break;
                     }
-                    case CHUNK("ROOMDATA") :
+                    case SAT_ROOMDATA :
                         ASSERTV(stream.readBE32() == 0x00000044);
                         roomsCount = stream.readBE32();
                         rooms = new Room[roomsCount];
                         memset(rooms, 0, sizeof(Room) * roomsCount);
                         break;
-                    case CHUNK("ROOMNUMB") :
+                    case SAT_ROOMNUMB :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         room = &rooms[stream.readBE32()];
                         break;
-                    case CHUNK("MESHPOS ") :
+                    case SAT_MESHPOS_ :
                         ASSERT(room);
                         room->info.x       = stream.readBE32();
                         room->info.z       = stream.readBE32();
                         room->info.yBottom = stream.readBE32();
                         room->info.yTop    = stream.readBE32();
                         break;
-                    case CHUNK("MESHSIZE") : {
+                    case SAT_MESHSIZE : {
                         ASSERT(room);
                         uint32 flag = stream.readBE32();
                         if (flag == 0x00000014) {
@@ -4137,7 +4191,7 @@ namespace TR {
                         data.fCount = fIndex;
                         break;
                     }
-                    case CHUNK("DOORDATA") : {
+                    case SAT_DOORDATA : {
                         int32 roomIndex = stream.readBE32();
                         ASSERT(roomIndex < roomsCount);
                         Room *room = &rooms[roomIndex];
@@ -4160,12 +4214,12 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("FLOORDAT") :
+                    case SAT_FLOORDAT :
                         ASSERT(room);
                         room->zSectors = stream.readBE32();
                         room->xSectors = stream.readBE32();
                         break;
-                    case CHUNK("FLOORSIZ") : {
+                    case SAT_FLOORSIZ : {
                         ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(room && room->sectors == NULL);
 
@@ -4186,7 +4240,7 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("FLORDATA") :
+                    case SAT_FLORDATA :
                         ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(floors == NULL);
                         floorsCount = stream.readBE32();
@@ -4194,25 +4248,25 @@ namespace TR {
                         for (int i = 0; i < floorsCount; i++)
                             floors[i].value = stream.readBE16();
                         break;
-                    case CHUNK("LIGHTAMB") :
+                    case SAT_LIGHTAMB :
                         ASSERT(room);
                         room->ambient  = stream.readBE32();
                         room->ambient2 = stream.readBE32();
                         break;
-                    case CHUNK("RM_FLIP ") : {
+                    case SAT_RM_FLIP_ : {
                         ASSERTV(stream.readBE32() == 0x00000002);
                         uint32 value = stream.readBE32();
                         room->alternateRoom = value == 0xFFFFFFFF ? -1 : value;
                         break;
                     }
-                    case CHUNK("RM_FLAGS") : {
+                    case SAT_RM_FLAGS : {
                         ASSERT(room);
                         ASSERTV(stream.readBE32() == 0x00000002);
                         uint32 value = stream.readBE32();
                         room->flags.water = (value & 0x01) != 0;
                         break;
                     }
-                    case CHUNK("LIGHTSIZ") : {
+                    case SAT_LIGHTSIZ : {
                         ASSERTV(stream.readBE32() == 0x00000014);
                         ASSERT(room && room->lights == NULL);
                         room->lightsCount = stream.readBE32();
@@ -4234,7 +4288,7 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("CAMERAS ") :
+                    case SAT_CAMERAS_ :
                         ASSERTV(stream.readBE32() == 0x00000010);
                         ASSERT(cameras == NULL);
                         camerasCount = stream.readBE32();
@@ -4248,7 +4302,7 @@ namespace TR {
                             cam.flags.boxIndex = stream.readBE16();
                         }
                         break;
-                    case CHUNK("SOUNDFX ") : {
+                    case SAT_SOUNDFX_ : {
                         uint32 flag = stream.readBE32();
                         if (flag == 0x00000000) { // SND
                             ASSERTV(stream.readBE32() == 0x00000000);
@@ -4282,7 +4336,7 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("BOXES   ") :
+                    case SAT_BOXES___ :
                         ASSERTV(stream.readBE32() == 0x00000014);
                         ASSERT(boxes == NULL);
                         boxesCount = stream.readBE32();
@@ -4297,7 +4351,7 @@ namespace TR {
                             b.overlap.value = stream.readBE16();
                         }
                         break;
-                    case CHUNK("OVERLAPS") :
+                    case SAT_OVERLAPS :
                         ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(overlaps == NULL);
                         overlapsCount = stream.readBE32();
@@ -4305,16 +4359,16 @@ namespace TR {
                         for (int i = 0; i < overlapsCount; i++)
                             overlaps[i].value = stream.readBE16();
                         break;
-                    case CHUNK("GND_ZONE") :
-                    case CHUNK("GND_ZON2") :
-                    case CHUNK("FLY_ZONE") : {
+                    case SAT_GND_ZONE :
+                    case SAT_GND_ZON2 :
+                    case SAT_FLY_ZONE : {
                         ASSERTV(stream.readBE32() == 0x00000002);
                         uint16 **ptr;
 
                         switch (chunkType) {
-                            case CHUNK("GND_ZONE") : ptr = zones[0].ground1 ? &zones[1].ground1 : &zones[0].ground1; break;
-                            case CHUNK("GND_ZON2") : ptr = zones[0].ground2 ? &zones[1].ground2 : &zones[0].ground2; break;
-                            case CHUNK("FLY_ZONE") : ptr = zones[0].fly     ? &zones[1].fly     : &zones[0].fly;     break;
+                            case SAT_GND_ZONE : ptr = zones[0].ground1 ? &zones[1].ground1 : &zones[0].ground1; break;
+                            case SAT_GND_ZON2 : ptr = zones[0].ground2 ? &zones[1].ground2 : &zones[0].ground2; break;
+                            case SAT_FLY_ZONE : ptr = zones[0].fly     ? &zones[1].fly     : &zones[0].fly;     break;
                             default                : ptr = NULL;
                         }
                         
@@ -4327,7 +4381,7 @@ namespace TR {
                             (*ptr)[i] = stream.readBE16();
                         break;
                     }
-                    case CHUNK("ARANGES ") : {
+                    case SAT_ARANGES_ : {
                         ASSERTV(stream.readBE32() == 0x00000008);
                         animTexturesCount = stream.readBE32();
                         animTextures = new AnimTexture[animTexturesCount];
@@ -4342,7 +4396,7 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("ITEMDATA") : {
+                    case SAT_ITEMDATA : {
                         ASSERTV(stream.readBE32() == 0x00000014);
                         entitiesBaseCount = stream.readBE32();
                         entitiesCount = entitiesBaseCount + MAX_RESERVED_ENTITIES;
@@ -4361,16 +4415,16 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("ROOMEND ") :
+                    case SAT_ROOMEND_ :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
                         break;
                 // SAD
-                    case CHUNK("OBJFILE ") :
+                    case SAD_OBJFILE_ :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000020);
                         break;
-                    case CHUNK("ANIMS   ") :
+                    case SAD_ANIMS___ :
                         ASSERTV(stream.readBE32() == 0x00000022);
                         ASSERT(anims == NULL);
                         animsCount = stream.readBE32();
@@ -4395,7 +4449,7 @@ namespace TR {
                             anim.animCommand   = stream.readBE16();
                         }
                         break;
-                    case CHUNK("CHANGES ") :
+                    case SAD_CHANGES_ :
                         ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(states == NULL);
                         statesCount = stream.readBE32();
@@ -4408,7 +4462,7 @@ namespace TR {
                             ASSERTV(stream.readBE16() == state.rangesOffset); // dummy
                         }
                         break;
-                    case CHUNK("RANGES \0") :
+                    case SAD_RANGES_z :
                         ASSERTV(stream.readBE32() == 0x00000008);
                         ASSERT(ranges == NULL);
                         rangesCount = stream.readBE32();
@@ -4421,7 +4475,7 @@ namespace TR {
                             range.nextFrame     = stream.readBE16();
                         }
                         break;
-                    case CHUNK("COMMANDS") :
+                    case SAD_COMMANDS :
                         ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(commands == NULL);
                         commandsCount = stream.readBE32();
@@ -4429,7 +4483,7 @@ namespace TR {
                         for (int i = 0; i < commandsCount; i++)
                             commands[i] = stream.readBE16();
                         break;
-                    case CHUNK("ANIBONES") :
+                    case SAD_ANIBONES :
                         ASSERTV(stream.readBE32() == 0x00000004);
                         ASSERT(nodesData == NULL);
                         nodesDataSize = stream.readBE32();
@@ -4437,7 +4491,7 @@ namespace TR {
                         for (int i = 0; i < nodesDataSize; i++)
                             nodesData[i] = stream.readBE32();
                         break;
-                    case CHUNK("ANIMOBJ ") :
+                    case SAD_ANIMOBJ_ :
                         ASSERTV(stream.readBE32() == 0x00000038);
                         ASSERT(models == NULL);
                         modelsCount = stream.readBE32();
@@ -4455,7 +4509,7 @@ namespace TR {
                             ASSERTV(stream.readBE16() == model.animation);
                         }
                         break;
-                    case CHUNK("STATOBJ ") :
+                    case SAD_STATOBJ_ :
                         ASSERTV(stream.readBE32() == 0x00000020);
                         ASSERT(staticMeshes == NULL);
                         staticMeshesCount = stream.readBE32();
@@ -4479,7 +4533,7 @@ namespace TR {
                             mesh.flags     = stream.readBE16();
                         }
                         break;
-                    case CHUNK("FRAMES  ") :
+                    case SAD_FRAMES__ :
                         ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(frameData == NULL);
                         frameDataSize = stream.readBE32();
@@ -4487,7 +4541,7 @@ namespace TR {
                         for (int i = 0; i < frameDataSize; i++) 
                             frameData[i] = stream.readBE16();
                         break;
-                    case CHUNK("MESHPTRS") :
+                    case SAD_MESHPTRS :
                         ASSERTV(stream.readBE32() == 0x00000004);
                         ASSERT(meshOffsets == NULL);
                         meshOffsetsCount = stream.readBE32();
@@ -4495,14 +4549,14 @@ namespace TR {
                         for (int i = 0; i < meshOffsetsCount; i++) 
                             meshOffsets[i] = stream.readBE32();
                         break;
-                    case CHUNK("MESHDATA") :
+                    case SAD_MESHDATA :
                         ASSERTV(stream.readBE32() == 0x00000002);
                         ASSERT(meshData == NULL);
                         meshDataSize = stream.readBE32();
                         meshData = meshDataSize ? new uint16[meshDataSize] : NULL;
                         stream.raw(meshData, sizeof(uint16) * meshDataSize);
                         break;
-                    case CHUNK("OTEXTINF") :
+                    case SAD_OTEXTINF :
                         ASSERTV(stream.readBE32() == 0x00000010);
                         ASSERT(objectTextures == NULL);
                         objectTexturesCount = stream.readBE32();
@@ -4512,14 +4566,14 @@ namespace TR {
                         objectTexturesBaseCount = objectTexturesCount;
                         expandObjectTex(objectTextures, objectTexturesCount);
                         break;
-                    case CHUNK("OTEXTDAT") : {
+                    case SAD_OTEXTDAT : {
                         ASSERTV(stream.readBE32() == 0x00000001);
                         objectTexturesDataSize = stream.readBE32();
                         objectTexturesData = objectTexturesDataSize ? new uint8[objectTexturesDataSize] : NULL;
                         stream.raw(objectTexturesData, objectTexturesDataSize);
                         break;
                     }
-                    case CHUNK("ITEXTINF") : {
+                    case SAD_ITEXTINF : {
                         ASSERTV(stream.readBE32() == 0x00000014);
                         itemTexturesCount = stream.readBE32();
                         itemTextures = itemTexturesCount ? new TextureInfo[itemTexturesCount * 5] : NULL;
@@ -4529,23 +4583,23 @@ namespace TR {
                         expandObjectTex(itemTextures, itemTexturesCount);
                         break;
                     }
-                    case CHUNK("ITEXTDAT") : {
+                    case SAD_ITEXTDAT : {
                         ASSERTV(stream.readBE32() == 0x00000001);
                         itemTexturesDataSize = stream.readBE32();
                         itemTexturesData = itemTexturesDataSize ? new uint8[itemTexturesDataSize] : NULL;
                         stream.raw(itemTexturesData, itemTexturesDataSize);
                         break;
                     }
-                    case CHUNK("OBJEND  ") :
+                    case SAD_OBJEND__ :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
                         break;
                 // SPR
-                    case CHUNK("SPRFILE ") :
+                    case SPR_SPRFILE_ :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000020);
                         break;
-                    case CHUNK("SPRITINF") : {
+                    case SPR_SPRITINF : {
                         ASSERTV(stream.readBE32() == 0x00000010);
                         spriteTexturesCount = stream.readBE32();
                         spriteTextures = spriteTexturesCount ? new TextureInfo[spriteTexturesCount] : NULL;
@@ -4553,14 +4607,14 @@ namespace TR {
                             readSpriteTex(stream, spriteTextures[i]);
                         break;
                     }
-                    case CHUNK("SPRITDAT") : {
+                    case SPR_SPRITDAT : {
                         ASSERTV(stream.readBE32() == 0x00000001);
                         spriteTexturesDataSize = stream.readBE32();
                         spriteTexturesData = spriteTexturesDataSize ? new uint8[spriteTexturesDataSize] : NULL;
                         stream.raw(spriteTexturesData, spriteTexturesDataSize);
                         break;
                     }
-                    case CHUNK("OBJECTS ") : {
+                    case SPR_OBJECTS_ : {
                         ASSERTV(stream.readBE32() == 0x00000000);
                         spriteSequencesCount = stream.readBE32();
                         spriteSequences = spriteSequencesCount ? new SpriteSequence[spriteSequencesCount] : NULL;
@@ -4574,12 +4628,12 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("SPRITEND") :
+                    case SPR_SPRITEND :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
                         break;
                 // SND
-                    case CHUNK("SAMPLUT ") : {
+                    case SND_SAMPLUT_ : {
                         ASSERTV(stream.readBE32() == 0x00000002);
                         int count = stream.readBE32();
                         soundsMap = new int16[count];
@@ -4587,7 +4641,7 @@ namespace TR {
                             soundsMap[i] = stream.readBE16();
                         break;
                     }
-                    case CHUNK("SAMPINFS") : {
+                    case SND_SAMPINFS : {
                         ASSERTV(stream.readBE32() == 0x00000008);
                         soundsInfoCount = stream.readBE32();
                         soundsInfo = soundsInfoCount ? new SoundInfo[soundsInfoCount] : NULL;
@@ -4602,7 +4656,7 @@ namespace TR {
                         }
                         break;
                     }
-                    case CHUNK("SAMPLE  ") : {
+                    case SND_SAMPLE__ : {
                         int32 index = stream.readBE32();
                         int32 size  = stream.readBE32();
                         ASSERT(index < soundOffsetsCount);
@@ -4612,7 +4666,7 @@ namespace TR {
                         stream.seek(size);
                         break;
                     }
-                    case CHUNK("ENDFILE\0") :
+                    case SND_ENDFILEz :
                         ASSERTV(stream.readBE32() == 0x00000000);
                         ASSERTV(stream.readBE32() == 0x00000000);
                         break;

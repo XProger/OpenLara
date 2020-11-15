@@ -647,7 +647,7 @@ struct Texture : GAPI::Texture {
     }
 
     static uint8* LoadBIN(Stream &stream, uint32 &width, uint32 &height) {
-        if (strstr(stream.name, "224.")) {
+        if (strstr(stream.name, "224.") || stream.size == 157696) {
             height = 224;
         } else {
             height = 256;
