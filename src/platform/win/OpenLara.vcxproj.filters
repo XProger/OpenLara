@@ -128,6 +128,9 @@
     <ClInclude Include="..\..\lang\glyph_cn.h">
       <Filter>lang</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\gapi\d3d8.h">
+      <Filter>gapi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">

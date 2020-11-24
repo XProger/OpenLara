@@ -1,25 +1,25 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2013 for Windows Desktop
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.1022
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OpenLara", "OpenLara.vcxproj", "{6935E070-59B8-418A-9241-70BACB4217B5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
-		Profile|Win32 = Profile|Win32
 		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{6935E070-59B8-418A-9241-70BACB4217B5}.Debug|Win32.ActiveCfg = Debug|Win32
 		{6935E070-59B8-418A-9241-70BACB4217B5}.Debug|Win32.Build.0 = Debug|Win32
-		{6935E070-59B8-418A-9241-70BACB4217B5}.Profile|Win32.ActiveCfg = Profile|Win32
-		{6935E070-59B8-418A-9241-70BACB4217B5}.Profile|Win32.Build.0 = Profile|Win32
 		{6935E070-59B8-418A-9241-70BACB4217B5}.Release|Win32.ActiveCfg = Release|Win32
 		{6935E070-59B8-418A-9241-70BACB4217B5}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {969CCE82-3511-4643-9273-4B4554C4E782}
 	EndGlobalSection
 EndGlobal
