@@ -148,7 +148,9 @@ varying vec4 vTexCoord; // xy - atlas coords, zw - trapezoidal correction
 
 		#ifdef TYPE_FLASH
 			vDiffuse.xyz += uMaterial.w;
-		#else
+		#endif
+
+		#ifdef TYPE_ENTITY
 			vDiffuse *= uMaterial.w;
 		#endif
 
