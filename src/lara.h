@@ -3625,6 +3625,11 @@ struct Lara : Character {
         return false;
     }
 
+    #ifdef _OS_3DS // for some reason move() math works incorrect on 3DS
+        #pragma GCC push_options
+        #pragma GCC optimize ("O0")
+    #endif
+
     void move() {
         vec3 vel = (velocity + flowVelocity) * Core::deltaTime * 30.0f + collisionOffset;
         vec3 opos(pos), offset(0.0f);
@@ -3774,6 +3779,10 @@ struct Lara : Character {
         }
         if (dozy) stand = STAND_UNDERWATER;
     }
+
+    #ifdef _OS_3DS
+        #pragma GCC pop_options
+    #endif
 
     virtual void applyFlow(TR::Camera &sink) {
         if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;

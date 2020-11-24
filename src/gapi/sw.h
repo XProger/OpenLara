@@ -335,6 +335,8 @@ namespace GAPI {
         }
     }
 
+    void setFog(const vec4 &params) {}
+
     bool checkBackface(const VertexSW *a, const VertexSW *b, const VertexSW *c) {
         return ((b->x - a->x) >> 16) * (c->y - a->y) -
                ((c->x - a->x) >> 16) * (b->y - a->y) <= 0;
@@ -474,9 +476,9 @@ namespace GAPI {
                     b
     */
         VertexSW _n;
-        VertexSW *t = swVertices + indices[0];
-        VertexSW *m = swVertices + indices[1];
-        VertexSW *b = swVertices + indices[2];
+        VertexSW *t = swVertices.items + indices[0];
+        VertexSW *m = swVertices.items + indices[1];
+        VertexSW *b = swVertices.items + indices[2];
         VertexSW *n = &_n;
 
         if (checkBackface(t, m, b))
@@ -521,10 +523,10 @@ namespace GAPI {
     */
         VertexSW _n;
         VertexSW _p;
-        VertexSW *t = swVertices + indices[0];
-        VertexSW *m = swVertices + indices[1];
-        VertexSW *b = swVertices + indices[2];
-        VertexSW *o = swVertices + indices[3];
+        VertexSW *t = swVertices.items + indices[0];
+        VertexSW *m = swVertices.items + indices[1];
+        VertexSW *b = swVertices.items + indices[2];
+        VertexSW *o = swVertices.items + indices[3];
         VertexSW *n = &_n;
         VertexSW *p = &_p;
 
