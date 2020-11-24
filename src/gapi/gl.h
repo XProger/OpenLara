@@ -1695,6 +1695,10 @@ namespace GAPI {
     #endif
     }
 
+    void setFog(const vec4 &params) {
+        // FFP TODO
+    }
+
     void DIP(Mesh *mesh, const MeshRange &range) {
     #ifdef FFP
         mat4 m = mView * mModel;

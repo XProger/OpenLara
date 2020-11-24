@@ -3452,6 +3452,10 @@ struct Lara : Character {
         return false;
     }
 */
+    #ifdef _OS_3DS
+        #pragma GCC pop_options
+    #endif
+
     virtual void applyFlow(TR::Camera &sink) {
         if (stand != STAND_UNDERWATER && stand != STAND_ONWATER) return;
 

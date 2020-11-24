@@ -27,7 +27,7 @@ namespace GAPI {
     struct Vertex {
         short4 coord;
         ubyte4 normal;
-        short2 texCoord;
+        short4 texCoord;
         ubyte4 color;
         ubyte4 light;
     };
@@ -461,17 +461,28 @@ namespace GAPI {
             FormatDesc desc = formats[fmt];
 
             if (width < 8 || height < 8) {
-                LOG("texture too small %dx%d [%d %d]!\n", width, height, fmt, opt);
+                LOG("\ntexture too small %dx%d [%d %d]!\n\n", width, height, fmt, opt);
                 width  = 8;
                 height = 8;
                 data   = NULL;
             }
 
+            void* tmpData = NULL;
+
             if (width > 1024 || height > 1024) {
-                LOG("texture too large %dx%d [%d %d]!\n", width, height, fmt, opt);
-                width  = 8;
-                height = 8;
-                data   = NULL;
+                LOG("\ntexture too large %dx%d [%d %d]!\n", width, height, fmt, opt);
+
+                origWidth  >>= 1;
+                origHeight >>= 1;
+                width      >>= 1;
+                height     >>= 1;
+
+                LOG("downsample to %dx%d\n\n", width, height);
+
+                tmpData = linearAlloc(width * height * desc.bpp / 8);
+                downsampleImage(tmpData, data, width << 1, height << 1);
+
+                data = tmpData;
             }
 
             bool isCube   = (opt & OPT_CUBEMAP) != 0;
@@ -506,6 +517,10 @@ namespace GAPI {
 
             if (data && !isCube) {
                 update(data);
+            }
+
+            if (tmpData) {
+                linearFree(tmpData);
             }
 
             GPU_TEXTURE_FILTER_PARAM filter = (opt & OPT_NEAREST) ? GPU_NEAREST : GPU_LINEAR;
@@ -824,7 +839,7 @@ namespace GAPI {
         AttrInfo_Init(&vertexAttribs);
         AttrInfo_AddLoader(&vertexAttribs, aCoord    , GPU_SHORT         , 4);
         AttrInfo_AddLoader(&vertexAttribs, aNormal   , GPU_UNSIGNED_BYTE , 4);
-        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 2);
+        AttrInfo_AddLoader(&vertexAttribs, aTexCoord , GPU_SHORT         , 4);
         AttrInfo_AddLoader(&vertexAttribs, aColor    , GPU_UNSIGNED_BYTE , 4);
         AttrInfo_AddLoader(&vertexAttribs, aLight    , GPU_UNSIGNED_BYTE , 4);
 
