@@ -890,6 +890,11 @@ namespace GAPI {
                 desc.fmt  = GL_RGBA;
             }
 
+            if (fmt == FMT_LUMINANCE && Core::support.texRG) {
+                desc.ifmt = GL_R8;
+                desc.fmt  = GL_RED;
+            }
+
             #ifdef _OS_WEB // fucking firefox!
                 if (WEBGL_VERSION == 1) {
                     if (fmt == FMT_RG_FLOAT) {
@@ -1293,7 +1298,7 @@ namespace GAPI {
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
         support.discardFrame   = extSupport("_discard_framebuffer");
         support.texNPOT        = GLES3 || extSupport("_texture_npot") || extSupport("_texture_non_power_of_two");
-        support.texRG          = GLES3 || extSupport("_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texRG          = GLES3 || extSupport("_texture_rg");
         support.texMaxLevel    = GLES3 || extSupport("_texture_max_level");
 
         #ifdef _GAPI_GLES2 // TODO
