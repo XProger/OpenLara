@@ -404,15 +404,13 @@ HWND hWnd;
 
     void ContextSwap() {
         const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), Core::width, -Core::height, 1, sizeof(GAPI::ColorSW) * 8, BI_RGB, 0, 0, 0, 0, 0 };
-        SetDIBitsToDevice(hDC, 0, 0, Core::width, Core::height, 0, 0, 0, Core::height, GAPI::swColor, &bmi, 0);
+        SetDIBitsToDevice(hDC, 0, 0, Core::width, Core::height, 0, 0, 0, Core::height, GAPI::swColor, &bmi, DIB_RGB_COLORS);
     }
 #elif _GAPI_GL
     HDC   hDC;
     HGLRC hRC;
 
     void ContextCreate() {
-        hDC = GetDC(hWnd);
-
         PIXELFORMATDESCRIPTOR pfd;
         memset(&pfd, 0, sizeof(pfd));
         pfd.nSize        = sizeof(pfd);
@@ -424,11 +422,64 @@ HWND hWnd;
         pfd.cBlueBits    = 8;
         pfd.cAlphaBits   = 8;
         pfd.cDepthBits   = 24;
-        pfd.cStencilBits = 8;
 
-        int format = ChoosePixelFormat(hDC, &pfd);
-        SetPixelFormat(hDC, format, &pfd);
-        hRC = wglCreateContext(hDC);
+        PFNWGLCHOOSEPIXELFORMATARBPROC    wglChoosePixelFormatARB    = NULL;
+        PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = NULL;
+
+        {
+            HWND fWnd = CreateWindow("static", NULL, WS_POPUP, 0, 0, 0, 0, 0, 0, 0, 0);
+            HDC fDC = GetDC(fWnd);
+
+            int format = ChoosePixelFormat(fDC, &pfd);
+            SetPixelFormat(fDC, format, &pfd);
+            HGLRC fRC = wglCreateContext(fDC);
+            wglMakeCurrent(fDC, fRC);
+
+            wglChoosePixelFormatARB    = GetProcOGL(wglChoosePixelFormatARB);
+            wglCreateContextAttribsARB = GetProcOGL(wglCreateContextAttribsARB);
+
+            wglMakeCurrent(0, 0);
+            ReleaseDC(fWnd, fDC);
+            wglDeleteContext(fRC);
+            DestroyWindow(fWnd);
+        }
+
+        hDC = GetDC(hWnd);
+
+        if (wglChoosePixelFormatARB && wglCreateContextAttribsARB) {
+            const int pixelAttribs[] = {
+                WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+                WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+                WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
+                WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+                WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
+                WGL_COLOR_BITS_ARB,     32,
+                WGL_ALPHA_BITS_ARB,     8,
+                0
+            };
+
+            int format;
+            UINT numFormats;
+            bool status = wglChoosePixelFormatARB(hDC, pixelAttribs, NULL, 1, &format, &numFormats);
+            ASSERT(status && numFormats > 0);
+
+            DescribePixelFormat(hDC, format, sizeof(pfd), &pfd);
+            SetPixelFormat(hDC, format, &pfd);
+
+            int contextAttribs[] = {
+                WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+                WGL_CONTEXT_MINOR_VERSION_ARB, 2,
+                WGL_CONTEXT_PROFILE_MASK_ARB,  WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+                0
+            };
+
+            hRC = wglCreateContextAttribsARB(hDC, 0, contextAttribs);
+        } else {
+            int format = ChoosePixelFormat(hDC, &pfd);
+            SetPixelFormat(hDC, format, &pfd);
+            hRC = wglCreateContext(hDC);
+        }
+
         wglMakeCurrent(hDC, hRC);
     }
 

@@ -10,6 +10,7 @@
 #ifdef _OS_WIN
     #include <gl/GL.h>
     #include <gl/glext.h>
+    #include <gl/wglext.h>
 #elif _OS_ANDROID
     #include <dlfcn.h>
 
@@ -343,6 +344,7 @@
         #ifdef _OS_WIN
             PFNGLTEXIMAGE3DPROC             glTexImage3D;
         #endif
+        PFNGLGETSTRINGIPROC                 glGetStringi;
     // Profiling
         #ifdef PROFILE
             PFNGLOBJECTLABELPROC                glObjectLabel;
@@ -379,16 +381,17 @@
         PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
         PFNGLGETPROGRAMIVPROC               glGetProgramiv;
     // Render to texture
-        PFNGLGENFRAMEBUFFERSPROC            glGenFramebuffers;
-        PFNGLBINDFRAMEBUFFERPROC            glBindFramebuffer;
-        PFNGLGENRENDERBUFFERSPROC           glGenRenderbuffers;
-        PFNGLBINDRENDERBUFFERPROC           glBindRenderbuffer;
-        PFNGLFRAMEBUFFERTEXTURE2DPROC       glFramebufferTexture2D;
-        PFNGLFRAMEBUFFERRENDERBUFFERPROC    glFramebufferRenderbuffer;
-        PFNGLRENDERBUFFERSTORAGEPROC        glRenderbufferStorage;
-        PFNGLCHECKFRAMEBUFFERSTATUSPROC     glCheckFramebufferStatus;
-        PFNGLDELETEFRAMEBUFFERSPROC         glDeleteFramebuffers;
-        PFNGLDELETERENDERBUFFERSPROC        glDeleteRenderbuffers;
+        PFNGLGENFRAMEBUFFERSPROC                     glGenFramebuffers;
+        PFNGLBINDFRAMEBUFFERPROC                     glBindFramebuffer;
+        PFNGLGENRENDERBUFFERSPROC                    glGenRenderbuffers;
+        PFNGLBINDRENDERBUFFERPROC                    glBindRenderbuffer;
+        PFNGLFRAMEBUFFERTEXTURE2DPROC                glFramebufferTexture2D;
+        PFNGLFRAMEBUFFERRENDERBUFFERPROC             glFramebufferRenderbuffer;
+        PFNGLRENDERBUFFERSTORAGEPROC                 glRenderbufferStorage;
+        PFNGLCHECKFRAMEBUFFERSTATUSPROC              glCheckFramebufferStatus;
+        PFNGLDELETEFRAMEBUFFERSPROC                  glDeleteFramebuffers;
+        PFNGLDELETERENDERBUFFERSPROC                 glDeleteRenderbuffers;
+        PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC glGetFramebufferAttachmentParameteriv;
     // Mesh
         PFNGLGENBUFFERSARBPROC              glGenBuffers;
         PFNGLDELETEBUFFERSARBPROC           glDeleteBuffers;
@@ -1139,9 +1142,26 @@ namespace GAPI {
     };
     Array<RenderTargetCacheItem> rtCache[2];
 
-    bool extSupport(const char *str, const char *ext) {
-        if (!str) return false;
-        return strstr(str, ext) != NULL;
+
+    bool extSupport(const char *str) {
+        if (glGetStringi != NULL) {
+            GLint count = 0;
+            glGetIntegerv(GL_NUM_EXTENSIONS, &count); 
+            for (int i = 0; i < count; i++) {
+                const char *ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
+                if (strstr(ext, str) != NULL) {
+                    return true;
+                }
+            }
+        } else {
+            const char *ext =  (const char*)glGetString(GL_EXTENSIONS);
+            if (!ext) {
+                return false;
+            }
+            return strstr(ext, str) != NULL;
+        }
+
+        return false;
     }
 
     void init() {
@@ -1169,6 +1189,8 @@ namespace GAPI {
                 #ifdef _OS_WIN
                     GetProcOGL(glTexImage3D);
                 #endif
+
+                GetProcOGL(glGetStringi);
 
                 #ifdef PROFILE
                     GetProcOGL(glObjectLabel);
@@ -1215,6 +1237,7 @@ namespace GAPI {
                 GetProcOGL(glCheckFramebufferStatus);
                 GetProcOGL(glDeleteFramebuffers);
                 GetProcOGL(glDeleteRenderbuffers);
+                GetProcOGL(glGetFramebufferAttachmentParameteriv);
 
                 GetProcOGL(glGenBuffers);
                 GetProcOGL(glDeleteBuffers);
@@ -1239,21 +1262,6 @@ namespace GAPI {
         LOG("Renderer : %s\n", (char*)glGetString(GL_RENDERER));
         LOG("Version  : %s\n", (char*)glGetString(GL_VERSION));
 
-        char *ext = (char*)glGetString(GL_EXTENSIONS);
-/*
-        if (ext != NULL) {
-            char buf[255];
-            int len = strlen(ext);
-            int start = 0;
-            for (int i = 0; i < len; i++)
-                if (ext[i] == ' ' || (i == len - 1)) {
-                    memcpy(buf, &ext[start], i - start);
-                    buf[i - start] = 0;
-                    LOG("%s\n", buf);
-                    start = i + 1;
-                }
-        }
-*/
     #ifndef FFP
         bool GLES3 = false;
         #ifdef _OS_WEB
@@ -1274,19 +1282,19 @@ namespace GAPI {
             #endif
         #endif
 
-        bool _GL_EXT_shadow_samplers      = extSupport(ext, "GL_EXT_shadow_samplers");
-        bool _GL_ARB_shadow               = extSupport(ext, "GL_ARB_shadow");
-        bool _GL_OES_standard_derivatives = extSupport(ext, "GL_OES_standard_derivatives");
+        bool _GL_EXT_shadow_samplers      = extSupport("GL_EXT_shadow_samplers");
+        bool _GL_ARB_shadow               = extSupport("GL_ARB_shadow");
+        bool _GL_OES_standard_derivatives = extSupport("GL_OES_standard_derivatives");
 
-        support.shaderBinary   = extSupport(ext, "_program_binary");
-        support.VAO            = GLES3 || extSupport(ext, "_vertex_array_object");
+        support.shaderBinary   = extSupport("_program_binary");
+        support.VAO            = GLES3 || extSupport("_vertex_array_object");
         support.VBO            = glGenBuffers != NULL;
-        support.depthTexture   = GLES3 || extSupport(ext, "_depth_texture");
+        support.depthTexture   = GLES3 || extSupport("_depth_texture");
         support.shadowSampler  = _GL_EXT_shadow_samplers || _GL_ARB_shadow;
-        support.discardFrame   = extSupport(ext, "_discard_framebuffer");
-        support.texNPOT        = GLES3 || extSupport(ext, "_texture_npot") || extSupport(ext, "_texture_non_power_of_two");
-        support.texRG          = GLES3 || extSupport(ext, "_texture_rg ");   // hope that isn't last extension in string ;)
-        support.texMaxLevel    = GLES3 || extSupport(ext, "_texture_max_level");
+        support.discardFrame   = extSupport("_discard_framebuffer");
+        support.texNPOT        = GLES3 || extSupport("_texture_npot") || extSupport("_texture_non_power_of_two");
+        support.texRG          = GLES3 || extSupport("_texture_rg ");   // hope that isn't last extension in string ;)
+        support.texMaxLevel    = GLES3 || extSupport("_texture_max_level");
 
         #ifdef _GAPI_GLES2 // TODO
             support.shaderBinary = false;
@@ -1301,15 +1309,15 @@ namespace GAPI {
             support.derivatives = true; 
             support.tex3D       = glTexImage3D != NULL;
         #endif
-        support.texBorder      = extSupport(ext, "_texture_border_clamp");
-        support.maxAniso       = extSupport(ext, "_texture_filter_anisotropic");
-        support.colorFloat     = extSupport(ext, "_color_buffer_float");
-        support.colorHalf      = extSupport(ext, "_color_buffer_half_float") || extSupport(ext, "GL_ARB_half_float_pixel");
-        support.texFloatLinear = support.colorFloat || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_float_linear");
-        support.texFloat       = support.texFloatLinear || extSupport(ext, "_texture_float");
-        support.texHalfLinear  = support.colorHalf || extSupport(ext, "GL_ARB_texture_float") || extSupport(ext, "_texture_half_float_linear") || extSupport(ext, "_color_buffer_half_float");
+        support.texBorder      = extSupport("_texture_border_clamp");
+        support.maxAniso       = extSupport("_texture_filter_anisotropic");
+        support.colorFloat     = extSupport("_color_buffer_float");
+        support.colorHalf      = extSupport("_color_buffer_half_float") || extSupport("GL_ARB_half_float_pixel");
+        support.texFloatLinear = support.colorFloat || extSupport("GL_ARB_texture_float") || extSupport("_texture_float_linear");
+        support.texFloat       = support.texFloatLinear || extSupport("_texture_float");
+        support.texHalfLinear  = support.colorHalf || extSupport("GL_ARB_texture_float") || extSupport("_texture_half_float_linear") || extSupport("_color_buffer_half_float");
  
-        support.texHalf        = support.texHalfLinear || extSupport(ext, "_texture_half_float");
+        support.texHalf        = support.texHalfLinear || extSupport("_texture_half_float");
 
         #ifdef SDL2_GLES
             support.shaderBinary  = false; // TODO
@@ -1318,8 +1326,8 @@ namespace GAPI {
         #endif
 
         #ifdef PROFILE
-            support.profMarker = extSupport(ext, "_KHR_debug");
-            support.profTiming = extSupport(ext, "_timer_query");
+            support.profMarker = extSupport("_KHR_debug");
+            support.profTiming = extSupport("_timer_query");
         #endif
 
         if (support.maxAniso)
