@@ -27,7 +27,7 @@ int osGetTimeMS() {
 
 // sound
 #define SND_FRAME_SIZE  4
-#define SND_DATA_SIZE   (1024 * SND_FRAME_SIZE)
+#define SND_DATA_SIZE   (2352 * SND_FRAME_SIZE)
 
 pa_simple *sndOut;
 pthread_t sndThread;
