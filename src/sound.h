@@ -1,15 +1,20 @@
 #ifndef H_SOUND
 #define H_SOUND
 
-#define DECODE_ADPCM
-#define DECODE_IMA
-#define DECODE_VAG
-#define DECODE_XA
+#ifdef _OS_TNS
+    #define NO_SOUND
+#endif
 
-#define DECODE_OGG
+#ifndef NO_SOUND
+    #define DECODE_ADPCM
+    #define DECODE_IMA
+    #define DECODE_VAG
+    #define DECODE_XA
+    #define DECODE_OGG
 
-#if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV) && !defined(_OS_3DS) && !defined(_OS_XBOX) && !defined(_OS_XB1)
-    #define DECODE_MP3
+    #if !defined(_OS_PSP) && !defined(_OS_WEB) && !defined(_OS_PSV) && !defined(_OS_3DS) && !defined(_OS_XBOX) && !defined(_OS_XB1)
+        #define DECODE_MP3
+    #endif
 #endif
 
 #include "utils.h"
@@ -846,7 +851,8 @@ namespace Sound {
 
         Sample(Stream *stream, const vec3 *pos, float volume, float pitch, int flags, int id) : uniquePtr(pos), decoder(NULL), volume(volume), volumeTarget(volume), volumeDelta(0.0f), pitch(pitch), flags(flags), id(id) {
             this->pos = pos ? *pos : vec3(0.0f);
-            
+
+        #ifndef NO_SOUND
             uint32 fourcc;
             stream->read(fourcc);
             if (fourcc == FOURCC("RIFF")) { // wav
@@ -898,6 +904,7 @@ namespace Sound {
                     decoder = new VAG(stream);
                 #endif
             }
+        #endif
 
             if (!decoder)
                 delete stream;
@@ -1171,6 +1178,7 @@ namespace Sound {
     }
 
     Sample* play(Stream *stream, const vec3 *pos = NULL, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1) {
+    #ifndef NO_SOUND
         OS_LOCK(lock);
 
         ASSERT(pitch >= 0.0f);
@@ -1207,6 +1215,7 @@ namespace Sound {
 
             LOG("! no free channels\n");
         }
+    #endif
         delete stream;
         return NULL;
     }

@@ -3261,7 +3261,9 @@ namespace TR {
                 case VER_TR2_PSX  : loadTR2_PSX (stream); break;
                 case VER_TR3_PC   : loadTR3_PC  (stream); break;
                 case VER_TR3_PSX  : loadTR3_PSX (stream); break;
+            #ifdef USE_INFLATE
                 case VER_TR4_PC   : loadTR4_PC  (stream); break;
+            #endif
                 case VER_TR4_PSX  : loadTR4_PSX (stream); break;
                 case VER_TR4_SDC  : loadTR4_SDC (stream); break;
                 case VER_TR5_PC   : loadTR5_PC  (stream); break;
@@ -3637,6 +3639,7 @@ namespace TR {
             readCameraFrames(stream);
         }
 
+    #ifdef USE_INFLATE
         void loadTR4_PC (Stream &stream) {
             uint16 roomTilesCount, objTilesCount, bumpTilesCount;
             uint32 sizeD, sizeC, sizeR;
@@ -3714,6 +3717,7 @@ namespace TR {
                 soundDataSize += sizeC;
             }
         }
+    #endif
 
         void loadTR4_PSX (Stream &stream) {
 
@@ -5923,10 +5927,13 @@ namespace TR {
                     break;
                 }
                 case VER_TR3_PSX : {
+                    mesh.tCount = 0;
+                    mesh.rCount = 0;
+                    mesh.fCount = 0;
+
                     if (!mesh.vCount) {
                         mesh.vertices = NULL;
                         mesh.faces    = NULL;
-                        mesh.tCount   = mesh.rCount = mesh.fCount = 0;
                         break;
                     }
 

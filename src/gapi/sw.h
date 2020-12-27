@@ -7,12 +7,14 @@
 #define PROFILE_LABEL(id, name, label)
 #define PROFILE_TIMING(time)
 
-#ifdef _OS_LINUX
+//#define DITHER_FILTER
+
+#if defined(_OS_LINUX) || defined(_OS_TNS)
     #define COLOR_16
 #endif
 
 #ifdef COLOR_16
-    #ifdef _OS_LINUX
+    #if defined(_OS_LINUX) || defined(_OS_TNS)
         #define COLOR_FMT_565
         #define CONV_COLOR(r,g,b) (((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
     #else
@@ -288,7 +290,7 @@ namespace GAPI {
         }
 
         if (depth) {
-            memset(swDepth, 0xFF, Core::width * Core::height * sizeof(DepthSW));
+            //memset(swDepth, 0xFF, Core::width * Core::height * sizeof(DepthSW));
         }
     }
 
@@ -394,18 +396,25 @@ namespace GAPI {
 
         int32 i = y * Core::width;
 
+    #ifdef DITHER_FILTER
         const int *dithY = uvDither + ((y & 1) * 4);
+    #endif
 
         for (int x = i + x1; x < i + x2; x++) {
             S.z += dS.z;
 
             DepthSW z = DepthSW(uint32(S.z) >> 16);
 
-            if (swDepth[x] >= z) {
+            {//if (swDepth[x] >= z) {
+            #ifdef DITHER_FILTER
                 const int *dithX = dithY + (x & 1);
 
                 uint32 u = uint32(S.u + dithX[0]) >> 16;
                 uint32 v = uint32(S.v + dithX[2]) >> 16;
+            #else
+                uint32 u = uint32(S.u) >> 16;
+                uint32 v = uint32(S.v) >> 16;
+            #endif
 
                 uint8 index = curTile->index[(v << 8) + u];
 
@@ -413,7 +422,7 @@ namespace GAPI {
                     index = swLightmap[((S.l >> (16 + 3)) << 8) + index];
 
                     swColor[x] = swPalette[index];
-                    swDepth[x] = z;
+                    //swDepth[x] = z;
                 }
             }
 
@@ -578,8 +587,8 @@ namespace GAPI {
     }
 
     void applyLighting(VertexSW &result, const Vertex &vertex, float depth) {
-        vec3 coord  = vec3(vertex.coord);
-        vec3 normal = vec3(vertex.normal).normal();
+        vec3 coord  = vec3(float(vertex.coord.x), float(vertex.coord.y), float(vertex.coord.z));
+        vec3 normal = vec3(float(vertex.normal.x), float(vertex.normal.y), float(vertex.normal.z)).normal();
         float lighting = 0.0f;
         for (int i = 0; i < lightsCount; i++) {
             LightSW &light = lightsRel[i];

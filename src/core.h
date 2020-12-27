@@ -150,9 +150,15 @@
 #elif _X360
     #define _OS_X360  1
     // TODO
+#elif __NDLESS__
+	#define _OS_TNS   1
+	#define _GAPI_SW  1
+	#include <os.h>
+
+	#undef OS_PTHREAD_MT
 #endif
 
-#ifndef _OS_PSP
+#if !defined(_OS_PSP) && !defined(_OS_TNS)
     #define USE_INFLATE
 #endif
 
