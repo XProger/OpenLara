@@ -1532,7 +1532,7 @@ struct CLUT {
     ColorCLUT color[16];
 };
 
-namespace String {
+namespace StrUtils {
 
     void toLower(char *str) {
         if (!str) return;
@@ -1868,7 +1868,7 @@ private:
 public:
 
     Stream(const char *name, const void *data, int size, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data((char*)data), name(NULL), size(size), pos(0), buffer(NULL) {
-        this->name = String::copy(name);
+        this->name = StrUtils::copy(name);
     }
 
     Stream(const char *name, Callback *callback = NULL, void *userData = NULL) : callback(callback), userData(userData), f(NULL), data(NULL), name(NULL), size(-1), pos(0), buffer(NULL), buffering(true), baseOffset(0) {
@@ -1912,13 +1912,13 @@ public:
                 fpos = 0;
                 bufferIndex = -1;
 
-                this->name = String::copy(name);
+                this->name = StrUtils::copy(name);
                 if (callback) callback(this, userData);
                 return;
             }
         }
 
-        this->name = String::copy(name);
+        this->name = StrUtils::copy(name);
 
     #ifdef _OS_3DS /* TODO
         if (callback) {
@@ -1964,14 +1964,14 @@ public:
                 break;
             }
 
-            int32 len = utf16_to_utf8((uint8*)buf + pathLen, entry.name, String::length(entry.name));
+            int32 len = utf16_to_utf8((uint8*)buf + pathLen, entry.name, StrUtils::length(entry.name));
             buf[pathLen + len] = 0;
 
             if (entry.attributes & FS_ATTRIBUTE_DIRECTORY) {
                 strcat(buf, "/");
                 readDirectory(archive, buf);
             } else {
-                fileList.push(String::copy(buf));
+                fileList.push(StrUtils::copy(buf));
             }
         }
 

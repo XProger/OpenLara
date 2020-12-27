@@ -5,6 +5,10 @@
 #include "texture.h"
 #include "sound.h"
 
+#ifdef _OS_TNS
+    #define NO_VIDEO
+#endif
+
 struct AC_ENTRY {
     uint8 code;
     uint8 skip;
@@ -264,6 +268,9 @@ struct Video {
 
             nextChunk(0, 0);
 
+        #ifdef NO_SOUND
+            audioDecoder = NULL;
+        #else
             if (sfmt == 1)
                 audioDecoder = new Sound::PCM(NULL, channels, rate, 0x7FFFFF, bps);      // TR2
             else if (sfmt == 101) {
@@ -272,6 +279,7 @@ struct Video {
                 else
                     audioDecoder = new Sound::IMA(NULL, channels, rate);          // TR3
             }
+        #endif
         }
 
         virtual ~Escape() {
@@ -678,6 +686,9 @@ struct Video {
         }
 
         virtual int decode(Sound::Frame *frames, int count) {
+        #ifdef NO_VIDEO
+            return 0;
+        #else
             if (!audioDecoder) return 0;
 
             if (bps != 4 && abs(curAudioChunk - curVideoChunk) > 1) { // sync with video chunk, doesn't work for IMA
@@ -718,6 +729,7 @@ struct Video {
             }
 
             return count;
+        #endif
         }
     };
 
@@ -838,7 +850,11 @@ struct Video {
             channels = 2;
             freq     = 37800;
 
+        #ifdef NO_SOUND
+            audioDecoder = NULL;
+        #else
             audioDecoder = new Sound::XA(NULL);
+        #endif
         }
 
         virtual ~STR() {
@@ -1077,6 +1093,9 @@ struct Video {
         }
 
         virtual int decode(Sound::Frame *frames, int count) {
+        #ifdef NO_VIDEO
+            return 0;
+        #else
             if (!audioDecoder) return 0;
             Sound::XA *xa = (Sound::XA*)audioDecoder;
 
@@ -1104,6 +1123,7 @@ struct Video {
             }
 
             return count;
+        #endif
         }
     };
 

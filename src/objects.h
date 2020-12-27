@@ -153,9 +153,9 @@ struct Flame : Sprite {
 
     Controller *owner;
     int32 jointIndex;
-    float sleep;
+    float sleepTime;
 
-    Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), owner(NULL), jointIndex(0), sleep(0.0f) {
+    Flame(IGame *game, int entity) : Sprite(game, entity, false, Sprite::FRAME_ANIMATED), owner(NULL), jointIndex(0), sleepTime(0.0f) {
         time = randf() * 3.0f;
         activate();
     }
@@ -186,15 +186,15 @@ struct Flame : Sprite {
             lara->hit(FLAME_BURN_DAMAGE * Core::deltaTime, this);
         } else 
             if (lara->health > 0.0f) {
-                if (sleep > 0.0f)
-                    sleep = max(0.0f, sleep - Core::deltaTime);
+                if (sleepTime > 0.0f)
+                    sleepTime = max(0.0f, sleepTime - Core::deltaTime);
 
-                if (sleep == 0.0f && !lara->burn && lara->collide(Sphere(pos, 600.0f))) {
+                if (sleepTime == 0.0f && !lara->burn && lara->collide(Sphere(pos, 600.0f))) {
                     lara->hit(FLAME_HEAT_DAMAGE * Core::deltaTime, this);
 
                     if (lara->collide(Sphere(pos, 300.0f))) {
                         Flame::add(game, lara, 0);
-                        sleep = 3.0f; // stay inactive for 3 seconds
+                        sleepTime = 3.0f; // stay inactive for 3 seconds
                     }
                 }
             }

@@ -9,7 +9,7 @@
 #define SUBTITLES_SPEED  0.1f
 #define TEXT_LINE_HEIGHT 18
 
-#ifdef _OS_PSV
+#if defined(_OS_PSV) || defined(_OS_TNS)
     #define UI_SHOW_FPS
 #endif
 

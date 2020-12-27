@@ -1087,7 +1087,7 @@ namespace TR {
                         id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
                         char buf[64];
                         strcpy(buf, LEVEL_INFO[id].name);
-                        String::toLower(buf);
+                        StrUtils::toLower(buf);
                         sprintf(dst, "DATA/%s.TR2", buf);
                     } else if (id == LVL_TR2_TITLE) {
                         sprintf(dst, "DATA/%s.tr2", LEVEL_INFO[id].name);
@@ -1098,7 +1098,7 @@ namespace TR {
                     }
                     if (Stream::existsContent(dst)) break;
                     strcpy(dst, LEVEL_INFO[id].name);
-                    String::toLower(dst);
+                    StrUtils::toLower(dst);
                     strcat(dst, ".TR2");
                     break;
                 }
