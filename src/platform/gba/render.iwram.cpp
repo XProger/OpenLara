@@ -4,10 +4,12 @@
 
 uint16 divTable[DIV_TABLE_SIZE];
 
-#ifdef _WIN32
+#if defined(_WIN32)
     uint8 fb[WIDTH * HEIGHT * 2];
-#else
+#elif defined(__GBA__)
     uint32 fb = VRAM;
+#elif defined(__TNS__)
+    uint8 fb[WIDTH * HEIGHT];
 #endif
 
 #define FixedInvS(x) ((x < 0) ? -divTable[abs(x)] : divTable[x])
@@ -194,7 +196,7 @@ Matrix& matrixGet() {
 }
 
 void matrixPush() {
-#ifdef _WIN32
+#if defined(_WIN32)
     if (matrixStackIndex >= MAX_MATRICES - 1) {
         DebugBreak();
         return;
@@ -206,7 +208,7 @@ void matrixPush() {
 }
 
 void matrixPop() {
-#ifdef _WIN32
+#if defined(_WIN32)
     if (matrixStackIndex <= 0) {
         DebugBreak();
         return;
@@ -292,7 +294,7 @@ INLINE int32 classify(const Vertex* v) {
 }
 
 void transform(const vec3s &v, int32 vg) {
-#ifdef _WIN32
+#if defined(_WIN32)
     if (gVerticesCount >= MAX_VERTICES) {
         DebugBreak();
         return;
@@ -326,12 +328,12 @@ void transform(const vec3s &v, int32 vg) {
 
     z >>= FOV_SHIFT;
 
-#if 1
+#if 0
     x >>= (10 + SCALE);
     y >>= (10 + SCALE);
     z >>= (10 + SCALE);
 
-    #ifdef WIN32
+    #if defined(_WIN32)
         if (abs(z) >= DIV_TABLE_SIZE) {
             DebugBreak();
         }
@@ -593,7 +595,7 @@ struct Edge {
 };
 
 INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
-    #ifdef USE_MODE_5
+    #if defined(USE_MODE_5)
         uint16* pixel = buffer + x1;
 
         if (x1 & 1) {
@@ -621,7 +623,7 @@ INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uin
         if (x2 & 1) {
             *pixel++ = FETCH_G_PAL(palIndex);
         }
-    #else
+    #elif defined(USE_MODE_4)
         if (x1 & 1)
         {
             uint16 &p = *(uint16*)((uint8*)buffer + x1 - 1);
@@ -671,11 +673,60 @@ INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uin
         {
             *pixel = (*pixel & 0xFF00) | FETCH_G(palIndex);
         }
+    #else
+        if (x1 & 1)
+        {
+            *((uint8*)buffer + x1) = FETCH_G(palIndex);
+            g += dgdx;
+            x1++;
+        }
+
+        int32 width = (x2 - x1) >> 1;
+        uint16* pixel = (uint16*)((uint8*)buffer + x1);
+
+        dgdx <<= 1;
+
+        if (width && (x1 & 3))
+        {
+            uint16 p = FETCH_G(palIndex);
+            *pixel++ = p | (FETCH_G(palIndex) << 8);
+
+            g += dgdx;
+
+            width--;
+        }
+
+        while (width-- > 0)
+        {
+            uint32 p = FETCH_G(palIndex);
+            p |= (FETCH_G(palIndex) << 8);
+
+            g += dgdx;
+
+            if (width-- > 0)
+            {
+                p |= (FETCH_G(palIndex) << 16);
+                p |= (FETCH_G(palIndex) << 24);
+
+                g += dgdx;
+
+                *(uint32*)pixel = p;
+                pixel += 2;
+            } else {
+                *(uint16*)pixel = p;
+                pixel += 1;
+            }
+        }
+
+        if (x2 & 1)
+        {
+            *((uint8*)pixel) = FETCH_G(palIndex);
+        }
     #endif
 }
 
 INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
-    #ifdef USE_MODE_5
+    #if defined(USE_MODE_5)
         uint16* pixel = buffer + x1;
 
         if (x1 & 1) {
@@ -708,7 +759,7 @@ INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, ui
             *pixel++ = FETCH_GT_PAL();
         }
 
-    #else
+    #elif defined(USE_MODE_4)
 
         if (x1 & 1)
         {
@@ -765,6 +816,62 @@ INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, ui
         if (x2 & 1)
         {
             *pixel = (*pixel & 0xFF00) | FETCH_GT();
+        }
+    #else
+        if (x1 & 1)
+        {
+            *((uint8*)buffer + x1) = FETCH_GT();
+            t += dtdx;
+            g += dgdx;
+            x1++;
+        }
+
+        int32 width = (x2 - x1) >> 1;
+        uint16* pixel = (uint16*)((uint8*)buffer + x1);
+
+        dgdx <<= 1;
+
+        if (width && (x1 & 3))
+        {
+            uint16 p = FETCH_GT();
+            t += dtdx;
+            *pixel++ = p | (FETCH_GT() << 8);
+            t += dtdx;
+
+            g += dgdx;
+
+            width--;
+        }
+
+        while (width-- > 0)
+        {
+            uint32 p = FETCH_GT();
+            t += dtdx;
+            p |= (FETCH_GT() << 8);
+            t += dtdx;
+
+            g += dgdx;
+
+            if (width-- > 0)
+            {
+                p |= (FETCH_GT() << 16);
+                t += dtdx;
+                p |= (FETCH_GT() << 24);
+                t += dtdx;
+
+                g += dgdx;
+
+                *(uint32*)pixel = p;
+                pixel += 2;
+            } else {
+                *(uint16*)pixel = p;
+                pixel += 1;
+            }
+        }
+
+        if (x2 & 1)
+        {
+            *((uint8*)pixel) = FETCH_GT();
         }
     #endif
 }
@@ -1066,7 +1173,7 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
 }
 
 void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
-#ifdef _WIN32
+#if defined(_WIN32)
     if (gFacesCount >= MAX_FACES) {
         DebugBreak();
     }
@@ -1104,7 +1211,7 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
 }
 
 void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
-#ifdef _WIN32
+#if defined(_WIN32)
     if (gFacesCount >= MAX_FACES) {
         DebugBreak();
     }
@@ -1227,9 +1334,9 @@ void initRender() {
 }
 
 void dmaClear(uint32 *dst, uint32 count) {
-#ifdef WIN32
+#if defined(_WIN32) || defined(__TNS__)
     memset(dst, 0, count * 4);
-#else
+#elif defined(__GBA__)
     vu32 value = 0;
     REG_DMA3SAD	= (vu32)&value;
     REG_DMA3DAD	= (vu32)dst;
@@ -1238,9 +1345,5 @@ void dmaClear(uint32 *dst, uint32 count) {
 }
 
 void clear() {
-#ifdef USE_MODE_5
     dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> PIXEL_SIZE);
-#else
-    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> PIXEL_SIZE);
-#endif
 }

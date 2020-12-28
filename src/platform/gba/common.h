@@ -1,19 +1,21 @@
 #ifndef H_COMMON
 #define H_COMMON
 
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>
-#else
-#include <gba_console.h>
-#include <gba_video.h>
-#include <gba_timers.h>
-#include <gba_interrupt.h>
-#include <gba_systemcalls.h>
-#include <gba_input.h>
-#include <gba_dma.h>
-#include <gba_affine.h>
-#include <fade.h>
+#if defined(_WIN32)
+    #define _CRT_SECURE_NO_WARNINGS
+    #include <windows.h>
+#elif defined(__GBA__)
+    #include <gba_console.h>
+    #include <gba_video.h>
+    #include <gba_timers.h>
+    #include <gba_interrupt.h>
+    #include <gba_systemcalls.h>
+    #include <gba_input.h>
+    #include <gba_dma.h>
+    #include <gba_affine.h>
+    #include <fade.h>
+#elif defined(__TNS__)
+    #include <os.h>
 #endif
 
 #include <stdio.h>
@@ -22,29 +24,47 @@
 #include <math.h>
 #include <assert.h>
 
-#define USE_MODE_5
 //#define DEBUG_OVERDRAW
 //#define DEBUG_FACES
 
+//#define USE_MODE_5
+//#define USE_MODE_4
+
 #define SCALE   1
 
-#ifdef USE_MODE_5
-    #define WIDTH        160
-    #define HEIGHT       128
-    #define FRAME_WIDTH  160
-    #define FRAME_HEIGHT 128
-    #define PIXEL_SIZE   1
-#else // MODE_4
-    #define WIDTH        240
-    #define HEIGHT       160
+#if defined(__TNS__)
+    #define WIDTH        SCREEN_WIDTH
+    #define HEIGHT       SCREEN_HEIGHT
     #define FRAME_WIDTH  (WIDTH/SCALE)
     #define FRAME_HEIGHT (HEIGHT/SCALE)
-    #define PIXEL_SIZE   2
+    #define FOV_SHIFT    8
+#else
+    #ifdef USE_MODE_5
+        #define WIDTH        160
+        #define HEIGHT       128
+        #define FRAME_WIDTH  160
+        #define FRAME_HEIGHT 128
+        #define FOV_SHIFT    7
+    #elif USE_MODE_4
+        #define WIDTH        240
+        #define HEIGHT       160
+        #define FRAME_WIDTH  (WIDTH/SCALE)
+        #define FRAME_HEIGHT (HEIGHT/SCALE)
+        #define FOV_SHIFT    7
+    #else
+        #error
+    #endif
 #endif
 
-#ifdef _WIN32
-    #define INLINE inline
+#ifdef USE_MODE_5
+    #define PIXEL_SIZE 1
 #else
+    #define PIXEL_SIZE 2
+#endif
+
+#if defined(_WIN32)
+    #define INLINE inline
+#elif defined(__GBA__) || defined(__TNS__)
     #define INLINE __attribute__((always_inline)) inline
 #endif
 
@@ -63,13 +83,13 @@ typedef int16              Index;
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
 
-#ifdef _WIN32
+#if defined(_WIN32)
     #define IWRAM_CODE
     #define EWRAM_DATA
 
     #define dmaCopy(src,dst,size) memcpy(dst,src,size)
     #define ALIGN4
-#else
+#elif defined(__GBA__)
     #define ALIGN4 __attribute__ ((aligned (4)))
 
     // TODO profiling
@@ -91,6 +111,18 @@ typedef int16              Index;
        REG_TM2CNT= 0;
        return (REG_TM3D<<16)|REG_TM2D;
     }
+#elif defined(__TNS__)
+    #define IWRAM_CODE
+    #define EWRAM_DATA
+
+    #define dmaCopy(src,dst,size) memcpy(dst,src,size)
+
+    #define ALIGN4 __attribute__ ((aligned (4)))
+
+    void SetPalette(unsigned short* palette);
+
+    INLINE void profile_start() {}
+    INLINE uint32 profile_stop() { return 0; }
 #endif
 
 enum InputKey {
@@ -289,7 +321,6 @@ struct Face {
 };
 
 #define FIXED_SHIFT     14
-#define FOV_SHIFT       (7 - (SCALE - 1))
 
 #define MAX_MATRICES    8
 #define MAX_MODELS      64

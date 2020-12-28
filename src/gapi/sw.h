@@ -249,7 +249,7 @@ namespace GAPI {
 
     void resize() {
         delete[] swDepth;
-        swDepth = new DepthSW[Core::width * Core::height];
+        //swDepth = new DepthSW[Core::width * Core::height];
     }
 
     inline mat4::ProjRange getProjRange() {
