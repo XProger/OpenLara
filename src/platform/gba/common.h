@@ -27,8 +27,12 @@
 //#define DEBUG_OVERDRAW
 //#define DEBUG_FACES
 
-//#define USE_MODE_5
-//#define USE_MODE_4
+#if defined(_WIN32)
+    #define USE_MODE_5 1
+#elif defined(__GBA__)
+    #define USE_MODE_5 1
+    //#define USE_MODE_4 1
+#endif
 
 #define SCALE   1
 
