@@ -52,7 +52,7 @@ bool osJoyReady(int index)
 
 void osJoyVibrate(int index, float L, float R) {}
 
-void joyUpdate()
+bool inputUpdate()
 {
     Input::setJoyPos(0, jkL, vec2(0.0f, 0.0f));
     Input::setJoyPos(0, jkR, vec2(0.0f, 0.0f));
@@ -70,21 +70,23 @@ void joyUpdate()
         }
     }
     
-    Input::setJoyDown(0, jkA,      isKeyPressed(KEY_NSPIRE_2));
-    Input::setJoyDown(0, jkB,      isKeyPressed(KEY_NSPIRE_3));
-    Input::setJoyDown(0, jkX,      isKeyPressed(KEY_NSPIRE_5));
-    Input::setJoyDown(0, jkY,      isKeyPressed(KEY_NSPIRE_6));
-    Input::setJoyDown(0, jkLB,     isKeyPressed(KEY_NSPIRE_7));
-    Input::setJoyDown(0, jkRB,     isKeyPressed(KEY_NSPIRE_9));
+    uint8 inputData[0x20];
+    memcpy(inputData, (void*)0x900E0000, 0x20);
+
+    #define IS_KEY_DOWN(key) ((*(short*)(inputData + key.tpad_row)) & key.tpad_col)
+
+    Input::setJoyDown(0, jkA,      IS_KEY_DOWN(KEY_NSPIRE_2));
+    Input::setJoyDown(0, jkB,      IS_KEY_DOWN(KEY_NSPIRE_3));
+    Input::setJoyDown(0, jkX,      IS_KEY_DOWN(KEY_NSPIRE_5));
+    Input::setJoyDown(0, jkY,      IS_KEY_DOWN(KEY_NSPIRE_6));
+    Input::setJoyDown(0, jkLB,     IS_KEY_DOWN(KEY_NSPIRE_7));
+    Input::setJoyDown(0, jkRB,     IS_KEY_DOWN(KEY_NSPIRE_9));
     Input::setJoyDown(0, jkL,      false);
     Input::setJoyDown(0, jkR,      false);
-    Input::setJoyDown(0, jkStart,  isKeyPressed(KEY_NSPIRE_ENTER));
-    Input::setJoyDown(0, jkSelect, isKeyPressed(KEY_NSPIRE_MENU));
+    Input::setJoyDown(0, jkStart,  IS_KEY_DOWN(KEY_NSPIRE_ENTER));
+    Input::setJoyDown(0, jkSelect, IS_KEY_DOWN(KEY_NSPIRE_MENU));
 
-    Input::setJoyDown(0, jkUp,     isKeyPressed(KEY_NSPIRE_UP)    || isKeyPressed(KEY_NSPIRE_LEFTUP)    || isKeyPressed(KEY_NSPIRE_UPRIGHT));
-    Input::setJoyDown(0, jkDown,   isKeyPressed(KEY_NSPIRE_DOWN)  || isKeyPressed(KEY_NSPIRE_RIGHTDOWN) || isKeyPressed(KEY_NSPIRE_DOWNLEFT));
-    Input::setJoyDown(0, jkLeft,   isKeyPressed(KEY_NSPIRE_LEFT)  || isKeyPressed(KEY_NSPIRE_LEFTUP)    || isKeyPressed(KEY_NSPIRE_DOWNLEFT));
-    Input::setJoyDown(0, jkRight,  isKeyPressed(KEY_NSPIRE_RIGHT) || isKeyPressed(KEY_NSPIRE_RIGHTDOWN) || isKeyPressed(KEY_NSPIRE_UPRIGHT));
+    return !IS_KEY_DOWN(KEY_NSPIRE_ESC);
 }
 
 unsigned short* osPalette()
@@ -113,7 +115,7 @@ int main(void)
     Core::width  = SCREEN_WIDTH;
     Core::height = SCREEN_HEIGHT;
     
-    GAPI::swColor = new GAPI::ColorSW[SCREEN_WIDTH * SCREEN_HEIGHT];
+    GAPI::swColor = new GAPI::ColorSW[Core::width * Core::height];
     GAPI::resize();
     
     Sound::channelsCount = 0;
@@ -122,18 +124,16 @@ int main(void)
 
     while (!Core::isQuit)
     {
-        joyUpdate();
+        if (!inputUpdate())
+        {
+            Core::quit();
+        }
 
         if (Game::update())
         {
             Game::render();
             
             lcd_blit(GAPI::swColor, SCR_320x240_565);
-        }
-
-        if (isKeyPressed(KEY_NSPIRE_ESC))
-        {
-            Core::quit();
         }
     }
 

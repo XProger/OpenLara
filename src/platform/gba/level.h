@@ -130,16 +130,22 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
 
     const uint8* p = f_palette;
 
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 256; i++)
+    {
+    #if defined(_WIN32) || defined(__GBA__)
         palette[i] = (p[0] >> 1) | ((p[1] >> 1) << 5) | ((p[2] >> 1) << 10);
+    #elif defined(__TNS__)
+        palette[i] = (p[2] >> 1) | ((p[1] >> 1) << 5) | ((p[0] >> 1) << 10);
+    #endif
         p += 3;
     }
    
-#ifndef _WIN32
+#if defined(__GBA__) || defined(__TNS__)
     #ifndef USE_MODE_5
         SetPalette(palette);
     #endif
 #endif
+
 // prepare models
     for (uint32 i = 0; i < modelsCount; i++) {
         dmaCopy(modelsPtr, models + i, sizeof(Model)); // sizeof(Model) is faster than FILE_MODEL_SIZE

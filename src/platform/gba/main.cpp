@@ -1,24 +1,10 @@
-#ifndef _WIN32
-#include <gba_console.h>
-#include <gba_video.h>
-#include <gba_timers.h>
-#include <gba_interrupt.h>
-#include <gba_systemcalls.h>
-#include <gba_input.h>
-#include <gba_dma.h>
-#include <gba_affine.h>
-#include <fade.h>
-
-#include "LEVEL1_PHD.h"
-#endif
-
 //#define PROFILE
 
 #include "common.h"
 #include "level.h"
 #include "camera.h"
 
-#ifdef _WIN32
+#if defined(_WIN32)
     uint8* LEVEL1_PHD;
 
     uint32 SCREEN[WIDTH * HEIGHT];
@@ -26,8 +12,69 @@
     extern uint8 fb[WIDTH * HEIGHT * 2];
 
     #define WND_SCALE 4
-#else
+#elif defined(__GBA__)
+    #include "LEVEL1_PHD.h"
+
     extern uint32 fb;
+#elif defined(__TNS__)
+    uint8* LEVEL1_PHD;
+
+    extern uint8 fb[WIDTH * HEIGHT];
+
+    unsigned int osTime;
+    volatile unsigned int *timerBUS;
+    volatile unsigned int *timerCLK;
+    volatile unsigned int *timerCTR;
+    volatile unsigned int *timerDIV;
+
+    void timerInit()
+    {
+        timerBUS = (unsigned int*)0x900B0018;
+        timerCLK = (unsigned int*)0x900C0004;
+        timerCTR = (unsigned int*)0x900C0008;
+        timerDIV = (unsigned int*)0x900C0080;
+
+        *timerBUS &= ~(1 << 11);
+        *timerDIV = 0x0A;
+        *timerCTR = 0x82;
+
+        osTime = *timerCLK;
+    }
+
+    int GetTickCount()
+    {
+        return (osTime - *timerCLK) / 33;
+    }
+
+    void SetPalette(unsigned short* palette)
+    {
+        unsigned short *palReg = (unsigned short*)0xC0000200;
+        memcpy(palReg, palette, 256 * 2);
+    }
+
+    touchpad_info_t*  touchInfo;
+    touchpad_report_t touchReport;
+    uint8 inputData[0x20];
+
+    void inputInit()
+    {
+        touchInfo = is_touchpad ? touchpad_getinfo() : NULL;
+    }
+
+    void inputUpdate()
+    {
+        if (touchInfo)
+        {
+            touchpad_scan(&touchReport);
+        }
+
+        memcpy(inputData, (void*)0x900E0000, 0x20);
+    }
+
+    bool keyDown(const t_key &key)
+    {
+        return (*(short*)(inputData + key.tpad_row)) & key.tpad_col;
+    }
 #endif
 
 bool keys[IK_MAX] = {};
@@ -42,7 +89,7 @@ void update(int32 frames) {
     }
 }
 
-#ifdef WIN32
+#if defined(_WIN32)
 extern Vertex gVertices[MAX_VERTICES];
 
 INLINE int32 classify(const Vertex* v) {
@@ -127,7 +174,7 @@ void render() {
     drawNumber(fps, FRAME_WIDTH, 16);
 }
 
-#ifdef _WIN32
+#if defined(_WIN32)
 HDC hDC;
 
 void blit() {
@@ -187,9 +234,20 @@ void vblank() {
 }
 
 int main(void) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__TNS__)
     {
-        FILE *f = fopen("data/LEVEL1.PHD", "rb");
+        #if defined(_WIN32)
+            FILE *f = fopen("data/LEVEL1.PHD", "rb");
+        #elif defined(__TNS__)
+            FILE *f = fopen("/documents/OpenLara/LEVEL1.PHD.tns", "rb");
+        #else
+            #error
+        #endif
+
+        if (!f) {
+            return 0;
+        }
+
         fseek(f, 0, SEEK_END);
         int32 size = ftell(f);
         fseek(f, 0, SEEK_SET);
@@ -197,7 +255,7 @@ int main(void) {
         fread(LEVEL1_PHD, 1, size, f);
         fclose(f);
     }
-#else
+#elif defined(__GBA__)
     // set low latency mode via WAITCNT register (thanks to GValiente)
     #define BIT_SET(y, flag)    (y |= (flag))
     #define REG_WAITCNT_NV      *(u16*)(REG_BASE + 0x0204)
@@ -209,7 +267,7 @@ int main(void) {
 
     readLevel(LEVEL1_PHD);
 
-#ifdef _WIN32
+#if defined(_WIN32)
     RECT r = { 0, 0, 240 * WND_SCALE, 160 * WND_SCALE };
 
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
@@ -243,7 +301,7 @@ int main(void) {
         }
     } while (msg.message != WM_QUIT);
 
-#else
+#elif defined(__GBA__)
     irqInit();
     irqSet(IRQ_VBLANK, vblank);
     irqEnable(IRQ_VBLANK);
@@ -305,6 +363,68 @@ int main(void) {
             fpsCounter = 0;
         }
 
+    }
+#elif defined(__TNS__)
+    if (!has_colors)
+        return 0;
+
+    lcd_init(SCR_320x240_8);
+
+    timerInit();
+    inputInit();
+
+    int startTime = GetTickCount();
+    int lastTime = -15;
+    int fpsTime = startTime;
+
+    memset(keys, 0, sizeof(keys));
+
+    while (1)
+    {
+        inputUpdate();
+
+        if (keyDown(KEY_NSPIRE_ESC))
+        {
+            break;
+        }
+
+        if (touchInfo && touchReport.contact)
+        {
+            float tx = float(touchReport.x) / float(touchInfo->width)  * 2.0f - 1.0f;
+            float ty = float(touchReport.y) / float(touchInfo->height) * 2.0f - 1.0f;
+
+            keys[IK_LEFT]  = tx < -0.5f;
+            keys[IK_RIGHT] = tx >  0.5f;
+            keys[IK_UP]    = ty >  0.5f;
+            keys[IK_DOWN]  = ty < -0.5f;
+        } else {
+            keys[IK_LEFT]  =
+            keys[IK_RIGHT] =
+            keys[IK_UP]    =
+            keys[IK_DOWN]  = false;
+        }
+
+        keys[IK_A] = keyDown(KEY_NSPIRE_2);
+        keys[IK_B] = keyDown(KEY_NSPIRE_3);
+        keys[IK_L] = keyDown(KEY_NSPIRE_7);
+        keys[IK_R] = keyDown(KEY_NSPIRE_9);
+
+        int time = GetTickCount() - startTime;
+        update((time - lastTime) / 16);
+        lastTime = time;
+
+        render();
+
+        lcd_blit(fb, SCR_320x240_8);
+        //msleep(16);
+
+        fpsCounter++;
+        if (lastTime - fpsTime >= 1000)
+        {
+            fps = fpsCounter;
+            fpsCounter = 0;
+            fpsTime = lastTime - ((lastTime - fpsTime) - 1000);
+        }
     }
 #endif
 }
