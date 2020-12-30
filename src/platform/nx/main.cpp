@@ -96,7 +96,7 @@ EGLContext context;
 NWindow    *window;
 
 void configureResolution() {
-    if (appletGetOperationMode() == AppletOperationMode_Docked) {
+    if (appletGetOperationMode() == AppletOperationMode_Console) {
         Core::width = 1920;
         Core::height = 1080;
     }
@@ -184,19 +184,19 @@ void osJoyVibrate(int index, float L, float R) {
 
 bool joyIsSplit;
 int  joySplitTime;
+PadState pads[2];
 
 void joySplit(bool split) {
     joyIsSplit   = split;
     joySplitTime = Core::getTime();
+
     if (split) {
-        hidSetNpadJoyHoldType(HidJoyHoldType_Horizontal);
-        hidSetNpadJoyAssignmentModeSingleByDefault(CONTROLLER_PLAYER_1);
-        hidSetNpadJoyAssignmentModeSingleByDefault(CONTROLLER_PLAYER_2);
+        hidSetNpadJoyAssignmentModeSingle(HidNpadIdType_No1, HidNpadJoyDeviceType_Left);
+        hidSetNpadJoyAssignmentModeSingle(HidNpadIdType_No2, HidNpadJoyDeviceType_Right);
     } else {
-        hidSetNpadJoyHoldType(HidJoyHoldType_Default);
-        hidSetNpadJoyAssignmentModeDual(CONTROLLER_PLAYER_1);
-        hidSetNpadJoyAssignmentModeDual(CONTROLLER_PLAYER_2);
-        hidMergeSingleJoyAsDualJoy(CONTROLLER_PLAYER_1, CONTROLLER_PLAYER_2);
+        hidSetNpadJoyAssignmentModeDual(HidNpadIdType_No1);
+        hidSetNpadJoyAssignmentModeDual(HidNpadIdType_No2);
+        hidMergeSingleJoyAsDualJoy(HidNpadIdType_No1, HidNpadIdType_No2);
 
         if (Game::level && Game::level->players[1]) {
             Game::level->addPlayer(1); // add existing player == remove player
@@ -205,6 +205,12 @@ void joySplit(bool split) {
 }
 
 void joyInit() {
+    hidSetNpadJoyHoldType(HidNpadJoyHoldType_Horizontal);
+
+    padConfigureInput(2, HidNpadStyleSet_NpadStandard);
+    padInitialize(&pads[0], HidNpadIdType_No1, HidNpadIdType_Handheld);
+    padInitialize(&pads[1], HidNpadIdType_No2, HidNpadIdType_Handheld);
+
     joySplit(false);
 }
 
@@ -215,18 +221,12 @@ void joyUpdate() {
         KEY_DLEFT, KEY_DRIGHT, KEY_DUP, KEY_DDOWN,
     };
 
-    if (hidGetHandheldMode() && joyIsSplit) {
-        joySplit(false);
-    }
-
-    hidScanInput();
-
     bool waitForSplit = false;
 
     for (int i = 0; i < (joyIsSplit ? 2 : 1); i++) {
-        HidControllerID ctrl = (i == 0 ? CONTROLLER_P1_AUTO : CONTROLLER_PLAYER_2);
+        padUpdate(&pads[i]);
 
-        u64 mask = hidKeysDown(ctrl) | hidKeysHeld(ctrl);
+        u64 mask = padGetButtonsDown(&pads[i]) | padGetButtons(&pads[i]);
 
         for (int j = 1; j < jkMAX; j++) {
             if (j != jkSelect && j != jkStart) {
@@ -237,15 +237,14 @@ void joyUpdate() {
         Input::setJoyDown(i, jkSelect, (mask & (KEY_MINUS  | KEY_PLUS))   != 0);
         Input::setJoyDown(i, jkStart,  (mask & (KEY_LSTICK | KEY_RSTICK)) != 0);
 
-        JoystickPosition sL, sR;
+        HidAnalogStickState sL = padGetStickPos(&pads[i], 0);
+        HidAnalogStickState sR = padGetStickPos(&pads[i], 1);
 
-        hidJoystickRead(&sL, ctrl, JOYSTICK_LEFT);
-        hidJoystickRead(&sR, ctrl, JOYSTICK_RIGHT);
-        Input::setJoyPos(i, jkL, vec2(float(sL.dx), float(-sL.dy)) / 32767.0f);
-        Input::setJoyPos(i, jkR, vec2(float(sR.dx), float(-sR.dy)) / 32767.0f);
+        Input::setJoyPos(i, jkL, vec2(float(sL.x), float(-sL.y)) / 32767.0f);
+        Input::setJoyPos(i, jkR, vec2(float(sR.x), float(-sR.y)) / 32767.0f);
 
         if ((mask & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) { // hold L and R to split/merge joy-con's
-            if (joySplitTime + 1000 < Core::getTime()) { // 1 sec timer
+            if (Core::getTime() - joySplitTime > 1000) { // 1 sec timer
                 joySplit(!joyIsSplit);
             }
             waitForSplit = true;
@@ -258,7 +257,8 @@ void joyUpdate() {
 }
 
 void touchUpdate() {
-    int touchesCount = hidTouchCount();
+    HidTouchScreenState state;
+    hidGetTouchScreenStates(&state, 1);
 
     bool touchState[COUNT(Input::touch)];
 
@@ -266,14 +266,11 @@ void touchUpdate() {
         touchState[i] = Input::down[ikTouchA + i];
     }
 
-    for (int i = 0; i < touchesCount; i++) {
-        touchPosition touch;
-        hidTouchRead(&touch, i);
-
-        InputKey key = Input::getTouch(touch.id);
+    for (int i = 0; i < state.count; i++) {
+        InputKey key = Input::getTouch(state.touches[i].finger_id);
         if (key == ikNone) continue;
 
-        Input::setPos(key, vec2(float(touch.px), float(touch.py)));
+        Input::setPos(key, vec2(float(state.touches[i].x), float(state.touches[i].y)));
         Input::setDown(key, true);
 
         touchState[key - ikTouchA] = false;
