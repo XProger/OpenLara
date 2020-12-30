@@ -23,7 +23,7 @@ struct JSON {
     Type type;
 
     JSON(Type type, const char *name = NULL) : nodes(NULL), prev(NULL), next(NULL), type(type) {
-        this->name = String::copy(name);
+        this->name = StrUtils::copy(name);
     }
 
     ~JSON() {
@@ -66,7 +66,7 @@ struct JSON {
 
 
     void add(const char *name, const char *value) {
-        add(STRING, name)->sValue = String::copy(value);
+        add(STRING, name)->sValue = StrUtils::copy(value);
     }
 
     void add(const char *name, int value) {
