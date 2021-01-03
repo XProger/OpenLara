@@ -6329,7 +6329,7 @@ namespace TR {
                     for (int j = 0; j < animTex.count; j++)
                         animTex.textures[j] = *(ptr++);
                 }
-                delete animTexBlock;
+                delete[] animTexBlock;
             }
 
             if (version & (VER_TR4 | VER_TR5)) {
