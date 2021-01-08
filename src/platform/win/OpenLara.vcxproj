@@ -149,6 +149,7 @@
     <ClInclude Include="..\..\lang\glyph_ja.h" />
     <ClInclude Include="..\..\lang\glyph_ru.h" />
     <ClInclude Include="..\..\lang\gr.h" />
+    <ClInclude Include="..\..\lang\hu.h" />
     <ClInclude Include="..\..\lang\it.h" />
     <ClInclude Include="..\..\lang\ja.h" />
     <ClInclude Include="..\..\lang\pl.h" />

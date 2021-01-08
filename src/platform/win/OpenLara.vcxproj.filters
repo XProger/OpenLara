@@ -131,6 +131,9 @@
     <ClInclude Include="..\..\gapi\d3d8.h">
       <Filter>gapi</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\lang\hu.h">
+      <Filter>lang</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\filter.glsl">

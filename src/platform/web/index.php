@@ -142,6 +142,8 @@
                         id = 11;
                     } else if (lang == "zh") {
                         id = 12;
+                    } else if (lang == "hu") {
+                        id = 13;
                     }
 					Module.ccall('set_def_lang', 'null', ['number'], [id]);
 				}
