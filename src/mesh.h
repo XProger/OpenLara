@@ -348,8 +348,8 @@ struct MeshBuilder {
 
                 Geometry &geom = range.geometry[transp];
 
-            // rooms geometry
-                buildRoom(geom, range.dynamic[transp], blendMask, room, level, indices, vertices, iCount, vCount, vStartRoom);
+            // room geometry
+                buildRoom(geom, range.dynamic + transp, blendMask, room, level, indices, vertices, iCount, vCount, vStartRoom);
 
             // static meshes
                 for (int j = 0; j < room.meshesCount; j++) {
@@ -1004,11 +1004,13 @@ struct MeshBuilder {
         return 1 << texAttribute;
     }
 
-    void buildRoom(Geometry &geom, Dynamic &dyn, int blendMask, const TR::Room &room, TR::Level *level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart) {
+    void buildRoom(Geometry &geom, Dynamic *dyn, int blendMask, const TR::Room &room, TR::Level *level, Index *indices, Vertex *vertices, int &iCount, int &vCount, int vStart) {
         const TR::Room::Data &d = room.data;
 
-        dyn.count = 0;
-        dyn.faces = NULL;
+        if (dyn) {
+            dyn->count = 0;
+            dyn->faces = NULL;
+        }
 
         for (int j = 0; j < d.fCount; j++) {
             TR::Face &f = d.faces[j];
@@ -1023,9 +1025,9 @@ struct MeshBuilder {
             if (!(blendMask & getBlendMask(t.attribute)))
                 continue;
 
-            if (t.animated) {
-                ASSERT(dyn.count < 0xFFFF);
-                dyn.count++;
+            if (dyn && t.animated) {
+                ASSERT(dyn->count < 0xFFFF);
+                dyn->count++;
                 continue;
             }
 
@@ -1036,9 +1038,9 @@ struct MeshBuilder {
         }
 
     // if room has non-static polygons, fill the list of dynamic faces
-        if (dyn.count) {
-            dyn.faces = new uint16[dyn.count];
-            dyn.count = 0;
+        if (dyn && dyn->count) {
+            dyn->faces = new uint16[dyn->count];
+            dyn->count = 0;
             for (int j = 0; j < d.fCount; j++) {
                 TR::Face        &f = d.faces[j];
                 TR::TextureInfo &t = level->objectTextures[f.flags.texture];
@@ -1049,7 +1051,7 @@ struct MeshBuilder {
                     continue;
 
                 if (t.animated)
-                    dyn.faces[dyn.count++] = j;
+                    dyn->faces[dyn->count++] = j;
             }
         }
     }
