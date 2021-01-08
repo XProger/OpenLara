@@ -380,6 +380,8 @@ public:
             str = STR_LANG_CZ;
         } else if (CHECK("zh")) {
             str = STR_LANG_CN;
+        } else if (CHECK("hu")) {
+            str = STR_LANG_HU;
         }
 
         return str - STR_LANG_EN;

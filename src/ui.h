@@ -47,13 +47,13 @@ namespace UI {
 
     int advGlyphsStart;
 
-    #define RU_MAP              "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ" "i~"
+    #define RU_MAP              "ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛÜÝÞ‗בגדהזחךכלםןעפצקרשתûü‎‏ÿ" "i~\""
     #define RU_GLYPH_COUNT      (COUNT(RU_MAP) - 1)
     #define RU_GLYPH_START      102
     #define RU_GLYPH_UPPERCASE  20
-    #define CHAR_SPR_TILDA      (110 + RU_GLYPH_COUNT - 1)
+    #define CHAR_SPR_TILDA      (110 + RU_GLYPH_COUNT - 2)
     #define CHAR_SPR_I          (CHAR_SPR_TILDA - 1)
-
+    #define CHAR_SPR_QUOTE      (CHAR_SPR_TILDA + 1)
 
     const static uint8 char_width[110 + RU_GLYPH_COUNT] = {
         14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
@@ -65,8 +65,8 @@ namespace UI {
         11, 11, 11, 13, 10, 13, 11, 11, 12, 12, 11,  9, 13, 13, 10, 13, // ÁÃÄÆÇÈËÏÓÔÖ×ØÙÚÛ
          9, 11, 12, 11, 10,  9,  8, 10, 11,  9, 10, 10, 11,  9, 10, 12, // ÜÝÞ‗בגדהזחךכלםןע
         10, 10,  9, 11, 12,  9, 11,  8,  9, 13,  9,                     // פצקרשתûü‎‏ÿ
-    // additional latin (i~)
-        5, 10
+    // additional
+        5, 10, 10 // i~"
     }; 
         
     static const uint8 char_map[102 + 33*2] = {
@@ -95,7 +95,7 @@ namespace UI {
     }
 
     inline bool skipChar(char c) {
-        return c == '~' || c == '$' || c == '(' || c == ')' || c == '|' || c == '}' || c == '*' || c == '{' || c == '+';
+        return c == '~' || c == '\"' || c == '$' || c == '(' || c == ')' || c == '|' || c == '}' || c == '*' || c == '{' || c == '+';
     }
 
     inline bool upperCase(int index) {
@@ -119,7 +119,7 @@ namespace UI {
             int o = 0;
             char c = RU_MAP[i];
 
-            if (c == 'ב' || c == 'ה' || c == '~') h = 14;
+            if (c == 'ב' || c == 'ה' || c == '~' || c == '\"') h = 14;
             if (c == 'Ö' || c == 'Ù' || c == 'צ' || c == 'ש') { o = 1; h++; }
             if (c == 'פ') { o = 2; h += 2; }
 
@@ -422,6 +422,7 @@ namespace UI {
             int frame = charRemap(charFrame);
             if (c == '+' && *text && *text != '@') frame = CHAR_SPR_TILDA;
             if (c == 'i' && skipChar(lastChar)) frame = CHAR_SPR_I;
+            if (c == '\"') frame = CHAR_SPR_QUOTE;
             lastChar = c;
 
             if (isShadow) {
