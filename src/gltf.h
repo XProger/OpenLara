@@ -26,9 +26,9 @@ struct GLTF {
     JSON *textures;
     JSON *materials;
     JSON *nodes;
+    JSON *scenes;
     JSON *skins;
     JSON *animations;
-    JSON *scenes;
 
     char *binaryData;
     int  binarySize;
@@ -46,9 +46,9 @@ struct GLTF {
         accessors   = root->add(JSON::ARRAY, "accessors");
         meshes      = root->add(JSON::ARRAY, "meshes");
         nodes       = root->add(JSON::ARRAY, "nodes");
-        skins       = root->add(JSON::ARRAY, "skins");
-        animations  = root->add(JSON::ARRAY, "animations");
         scenes      = root->add(JSON::ARRAY, "scenes");
+        skins       = NULL;//root->add(JSON::ARRAY, "skins");
+        animations  = NULL;//root->add(JSON::ARRAY, "animations");
 
         asset->add("generator", "OpenLara");
         asset->add("version", "2.0");
@@ -120,13 +120,17 @@ struct GLTF {
         return header->length;
     }
 
-    JSON* addAccessor(int bufferView, int byteOffset, int count, AccessorType type, int format, bool normalized = false, const vec4 &vMin = vec4(0.0f), const vec4 &vMax = vec4(0.0f)) {
+    JSON* addAccessor(int bufferView, int byteStride, int byteOffset, int count, AccessorType type, int format, bool normalized = false, const vec4 &vMin = vec4(0.0f), const vec4 &vMax = vec4(0.0f)) {
         static const char *AccessorTypeName[ACCESSOR_TYPE_MAX]  = { ACCESSOR_TYPES(DECL_STR) };
 
         JSON *item = accessors->add(JSON::OBJECT);
 
         item->add("bufferView", bufferView);
         
+        if (byteStride) {
+            //item->add("byteStride", byteStride);
+        }
+
         if (byteOffset) {
             item->add("byteOffset", byteOffset);
         }
@@ -280,6 +284,10 @@ struct GLTF {
     }
 
     JSON *addSkin(const char *name, int inverseBindMatrices, int skeleton, int *joints, int jointsCount) {
+        if (!skins) {
+            skins = root->add(JSON::ARRAY, "skins");
+        }
+
         JSON *item = skins->add(JSON::OBJECT);
 
         if (name) {
@@ -301,6 +309,9 @@ struct GLTF {
     }
 
     JSON* addAnimation(const char *name, JSON **samplers, JSON **channels) {
+        if (!animations) {
+            animations = root->add(JSON::ARRAY, "animations");
+        }
         JSON *item = animations->add(JSON::OBJECT);
 
         if (name)     item->add("name", name);

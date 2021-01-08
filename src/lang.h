@@ -273,7 +273,7 @@ enum StringID {
     , "Suomi"         \
     , "{Cesky"        \
     , "\x11\x02\x8A\x02\x6C\x01\x54\x03\x02\xFF\xFF" \
-	, "Magyar"
+    , "Magyar"
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ", "_CN", "_HU"
 
@@ -341,7 +341,7 @@ void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_CZ) == STR_MAX);
     ASSERT(COUNT(STR_CN) == STR_MAX);
     ASSERT(COUNT(STR_HU) == STR_MAX);
-	
+
     lang += STR_LANG_EN;
 
     switch (lang) {
