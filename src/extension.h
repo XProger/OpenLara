@@ -95,9 +95,9 @@ namespace Extension {
                     if (!level->meshOffsets[s->mesh]) continue;
                     TR::Mesh &staticMesh = level->meshes[level->meshOffsets[s->mesh]];
 
-                    int x = m.x - room.info.x;
-                    int y = m.y;
-                    int z = m.z - room.info.z;
+                    int x = m.pos.x - room.info.x;
+                    int y = m.pos.y;
+                    int z = m.pos.z - room.info.z;
                     int d = m.rotation.value / 0x4000;
                     mesh->buildMesh(geom, blendMask, staticMesh, level, indices, vertices, iCount, vCount, params.vStart, 0, x, y, z, d, m.color, true, false);
                 }
