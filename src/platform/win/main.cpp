@@ -455,6 +455,7 @@ HWND hWnd;
                 WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
                 WGL_COLOR_BITS_ARB,     32,
                 WGL_ALPHA_BITS_ARB,     8,
+                WGL_DEPTH_BITS_ARB,     24,
                 0
             };
 
