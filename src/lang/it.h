@@ -131,7 +131,7 @@ const char *STR_IT[] = { ""
     /* CAFE */ ,
     "[43500]Che cosa deve fare un uomo@per ricevere da te questo genere di attenzioni?"
     "[47500]Difficile dirlo con certezza,@ma forse sei sulla buona strada."
-    "[50000]Ottimo allora. Anche se a dire il vero@$non sono io che ti sto cercando."
+    "[50000]Ottimo allora. Anche se a dire il vero@non sono io che ti sto cercando."
     "[54500]No?"
     "[55000]No. Sono qui per conto di Miss Jacqueline Natla,@della Natla Technologies."
     "[59000]Hai presente la creatrice di cose@brillanti e spettacolari?"
