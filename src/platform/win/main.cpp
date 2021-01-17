@@ -475,6 +475,8 @@ HWND hWnd;
             };
 
             hRC = wglCreateContextAttribsARB(hDC, 0, contextAttribs);
+
+            GAPI::GL_VER_3 = true;
         } else {
             int format = ChoosePixelFormat(hDC, &pfd);
             SetPixelFormat(hDC, format, &pfd);
