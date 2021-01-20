@@ -209,7 +209,7 @@ const char *STR_IT[] = { ""
     "[73000]Neppure tu riposerai bene, o tantomeno il tuo@dannato continente di Atlantide!"
     /* 22 */ ,
     "[04000]Di nuovo qui?"
-    "[05500]Anche tu - per assistere al grande debutto, suppongo."
+    "[05500]Anche tu - per assistere alla grande riapertura, suppongo."
     "[09500]L'evoluzione fluisce ma la selezione naturale scorre pi$u lenta che mai..."
     "[13500]Un rifornimento di carne fresca risveglier$a il nostro orgoglio identitario"
     "[17500] - ci rinforzer$a e ci avvantagger$a..."
