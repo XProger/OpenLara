@@ -155,6 +155,7 @@
     <ClInclude Include="..\..\lang\pl.h" />
     <ClInclude Include="..\..\lang\pt.h" />
     <ClInclude Include="..\..\lang\ru.h" />
+    <ClInclude Include="..\..\lang\sv.h" />
     <ClInclude Include="..\..\napi_dummy.h" />
     <ClInclude Include="..\..\napi_socket.h" />
     <ClInclude Include="..\..\network.h" />
