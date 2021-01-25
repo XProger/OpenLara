@@ -275,7 +275,7 @@ void joyUpdate() {
 
     for (int i = 0; i < INPUT_JOY_COUNT; i++) {
         JoyDevice &joy = joyDevice[i];
-
+    
         if (joy.fd == -1)
             continue;
 
@@ -388,6 +388,7 @@ int checkLanguage() {
     if (id == TWOCC("cs")) return STR_LANG_CZ - STR_LANG_EN;
     if (id == TWOCC("zh")) return STR_LANG_CN - STR_LANG_EN;
     if (id == TWOCC("hu")) return STR_LANG_HU - STR_LANG_EN;
+    if (id == TWOCC("sv")) return STR_LANG_SV - STR_LANG_EN;
 
     return 0;
 }
@@ -459,11 +460,12 @@ int main(int argc, char **argv) {
             WndProc(event, dpy, wnd);
         } else {
             joyUpdate();
-            bool updated = Game::update();
+			bool updated = Game::update();
             if (updated) {
-                Game::render();
-                glXSwapBuffers(dpy, wnd);
-            }
+				Game::render();
+                Core::waitVBlank();
+				glXSwapBuffers(dpy, wnd);
+			}
         }
     };
 

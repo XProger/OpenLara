@@ -496,6 +496,8 @@ namespace GAPI {
     char GLSL_HEADER_VERT[512];
     char GLSL_HEADER_FRAG[512];
 
+    bool GL_VER_3 = false;
+
 // Shader
     #ifndef FFP
         const char SHADER_COMPOSE[] =
@@ -1424,14 +1426,32 @@ namespace GAPI {
             strcat(GLSL_HEADER_FRAG, "#define sampler2DShadow lowp sampler2DShadow\n");
         }
     #else
-        // vertex
-        strcat(GLSL_HEADER_VERT, "#version 110\n"
-                                 "#define VERTEX\n");
-        // fragment
-        strcat(GLSL_HEADER_FRAG, "#version 110\n");
-        strcat(GLSL_HEADER_FRAG, extHeader);
-        strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
-                                 "#define fragColor gl_FragColor\n");
+        if (GL_VER_3) {
+            strcat(GLSL_HEADER_VERT, "#version 150\n"
+                                     "#define VERTEX\n"
+                                     "#define varying   out\n"
+                                     "#define attribute in\n"
+                                     "#define texture2D texture\n");
+            // fragment
+            strcat(GLSL_HEADER_FRAG, "#version 150\n");
+            strcat(GLSL_HEADER_FRAG, extHeader);
+            strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
+                                     "#define varying     in\n"
+                                     "#define texture2D   texture\n"
+                                     "#define texture3D   texture\n"
+                                     "#define textureCube texture\n"
+                                     "#define shadow2D    texture\n"
+                                     "out vec4 fragColor;\n");
+        } else {
+            // vertex
+            strcat(GLSL_HEADER_VERT, "#version 110\n"
+                                     "#define VERTEX\n");
+            // fragment
+            strcat(GLSL_HEADER_FRAG, "#version 110\n");
+            strcat(GLSL_HEADER_FRAG, extHeader);
+            strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
+                                     "#define fragColor gl_FragColor\n");
+        }
     #endif
         ASSERT(strlen(GLSL_HEADER_VERT) < COUNT(GLSL_HEADER_VERT));
         ASSERT(strlen(GLSL_HEADER_FRAG) < COUNT(GLSL_HEADER_FRAG));

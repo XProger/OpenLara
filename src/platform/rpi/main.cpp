@@ -492,6 +492,7 @@ int checkLanguage() {
     if (id == TWOCC("cs")) return STR_LANG_CZ - STR_LANG_EN;
     if (id == TWOCC("zh")) return STR_LANG_CN - STR_LANG_EN;
     if (id == TWOCC("hu")) return STR_LANG_HU - STR_LANG_EN;
+    if (id == TWOCC("sv")) return STR_LANG_SV - STR_LANG_EN;
 
     return 0;
 }
@@ -545,6 +546,7 @@ int main(int argc, char **argv) {
 
         if (Game::update()) {
             Game::render();
+            Core::waitVBlank();
             eglSwapBuffers(display, surface);
         }
     };

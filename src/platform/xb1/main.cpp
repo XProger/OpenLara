@@ -382,6 +382,8 @@ public:
             str = STR_LANG_CN;
         } else if (CHECK("hu")) {
             str = STR_LANG_HU;
+        } else if (CHECK("sv")) {
+            str = STR_LANG_SV;
         }
 
         return str - STR_LANG_EN;

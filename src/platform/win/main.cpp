@@ -468,6 +468,7 @@ HWND hWnd;
                 WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
                 WGL_COLOR_BITS_ARB,     32,
                 WGL_ALPHA_BITS_ARB,     8,
+                WGL_DEPTH_BITS_ARB,     24,
                 0
             };
 
@@ -487,6 +488,8 @@ HWND hWnd;
             };
 
             hRC = wglCreateContextAttribsARB(hDC, 0, contextAttribs);
+
+            GAPI::GL_VER_3 = true;
         } else {
             int format = ChoosePixelFormat(hDC, &pfd);
             SetPixelFormat(hDC, format, &pfd);
@@ -646,6 +649,7 @@ int checkLanguage() {
         case LANG_CZECH      : str = STR_LANG_CZ; break;
         case LANG_CHINESE    : str = STR_LANG_CN; break;
         case LANG_HUNGARIAN  : str = STR_LANG_HU; break;
+        case LANG_SWEDISH    : str = STR_LANG_SV; break;
     }
     return str - STR_LANG_EN;
 }
