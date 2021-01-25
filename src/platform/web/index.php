@@ -5,7 +5,7 @@
 			<link href="/projects/OpenLara/favicon.ico" rel="shortcut icon" type="image/x-icon" />
 			<style>
 			html {
-				overflow: hidden;
+				overflow: auto;
 			}
 			body {
 				margin: 0px;
