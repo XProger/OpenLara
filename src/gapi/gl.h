@@ -1440,7 +1440,7 @@ namespace GAPI {
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
-                                     "#define shadow2DEXT texture\n"
+                                     "#define shadow2D    texture\n"
                                      "out vec4 fragColor;\n");
         } else {
             // vertex
