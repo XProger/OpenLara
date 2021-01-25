@@ -37,7 +37,7 @@
     #undef OS_PTHREAD_MT
 
     #ifdef _GAPI_GL
-        #define VR_SUPPORT
+        //#define VR_SUPPORT
     #endif
 #elif ANDROID
     #define _OS_ANDROID 1
@@ -702,14 +702,15 @@ namespace Core {
     } reqTarget;
 
     struct Stats {
-        uint32 dips, tris, rt, cb, frame, frameIndex, fps;
+        uint32 dips, tris, rt, cb, frame, frameIndex, updateIndex, fps;
         int fpsTime;
+        float frameDelta;
     #ifdef PROFILE
         int tFrame;
         int video;
     #endif
 
-        Stats() : frame(0), frameIndex(0), fps(0), fpsTime(0) {}
+        Stats() : frame(0), frameIndex(0), updateIndex(0), fps(0), fpsTime(0), frameDelta(1.0f) {}
 
         void start() {
             dips = tris = rt = cb = 0;

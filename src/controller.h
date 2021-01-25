@@ -122,6 +122,7 @@ struct Controller {
     int16             roomIndex;
     TR::Entity::Flags flags;
 
+    Basis   *jointsPrev;
     Basis   *joints;
     int     jointsFrame;
 
@@ -171,7 +172,8 @@ struct Controller {
         flags.state = TR::Entity::asNone;
 
         const TR::Model *m = getModel();
-        joints      = m ? new Basis[m->mCount] : NULL;
+        joints      = m ? new Basis[m->mCount * 2] : NULL;
+        jointsPrev  = m ? (joints + m->mCount) : NULL;
         jointsFrame = -1;
 
         specular   = 0.0f;
@@ -214,7 +216,8 @@ struct Controller {
             return;
         animation.setModel(model);
         delete[] joints;
-        joints = new Basis[model->mCount];
+        joints = new Basis[model->mCount * 2];
+        jointsPrev = joints + model->mCount;
     }
 
     bool fixRoomIndex() { // TODO: remove this and fix braid
@@ -1428,10 +1431,29 @@ struct Controller {
     }
 
     void updateJoints() {
-        if (Core::stats.frame == jointsFrame)
+        if (Core::stats.updateIndex == jointsFrame)
             return;
+
+        if (jointsPrev) {
+            memcpy(jointsPrev, joints, getModel()->mCount * sizeof(Basis));
+        }
+
         animation.getJoints(getMatrix(), -1, true, joints);
-        jointsFrame = Core::stats.frame;
+        jointsFrame = Core::stats.updateIndex;
+    }
+
+    void lerpJoints(Basis *result, float t) {
+        int jointsCount = getModel()->mCount;
+
+        if (t == 0.0f) {
+            memcpy(result, jointsPrev, jointsCount * sizeof(Basis));
+        } else if (t == 1.0f) {
+            memcpy(result, joints, jointsCount * sizeof(Basis));
+        } else {
+            for (int i = 0; i < jointsCount; i++) {
+                result[i] = jointsPrev[i].lerp(joints[i], t);
+            }
+        }
     }
 
     Basis& getJoint(int index) {
@@ -1480,6 +1502,9 @@ struct Controller {
 
         updateJoints();
 
+        Basis jointsLerp[MAX_JOINTS];
+        lerpJoints(jointsLerp, Core::stats.frameDelta);
+
         Core::mModel = matrix;
 
         if (layers) {
@@ -1492,22 +1517,22 @@ struct Controller {
                 mask |= layers[i].mask;
             // set meshes visibility
                 for (int j = 0; j < model->mCount; j++)
-                    joints[j].w = (vmask & (1 << j)) ? 1.0f : 0.0f; // hide invisible parts
+                    jointsLerp[j].w = (vmask & (1 << j)) ? 1.0f : 0.0f; // hide invisible parts
 
                 if (explodeMask) {
                     ASSERT(explodeParts);
                     const TR::Model *model = getModel();
                     for (int i = 0; i < model->mCount; i++)
                         if (explodeMask & (1 << i))
-                            joints[i] = explodeParts[i].basis;
+                            jointsLerp[i] = explodeParts[i].basis;
                 }
 
             // render
-                Core::setBasis(joints, model->mCount);
+                Core::setBasis(jointsLerp, model->mCount);
                 mesh->renderModel(layers[i].model, caustics);
             }
         } else {
-            Core::setBasis(joints, model->mCount);
+            Core::setBasis(jointsLerp, model->mCount);
             mesh->renderModel(model->index, caustics);
         }
     }

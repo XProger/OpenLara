@@ -11,6 +11,9 @@
 
 #define MAX_CHEAT_SEQUENCE 8
 
+#define TARGET_UPS      30L
+#define TARGET_UPS_FREQ 10
+
 namespace Game {
     Level      *level;
     Stream     *nextLevel;
@@ -193,6 +196,8 @@ namespace Game {
     }
 
     void updateTick() {
+        Core::stats.updateIndex++;
+
         Input::update();
         Network::update();
 
@@ -254,12 +259,12 @@ namespace Game {
         if (Core::settings.version == SETTINGS_READING)
             return true;
 
-        int32 frame = int32(osTimerCounter() * 30L / osTimerFrequency());
+        int32 frame = int32(osTimerCounter() * TARGET_UPS / osTimerFrequency());
         int32 frameDelta = frame - lastFrame;
         lastFrame = frame;
 
         if (frameDelta <= 0) {
-            return false;
+            return true;
         }
 
         if (frameDelta > 30) { // maximum one sec frame drop
@@ -312,6 +317,13 @@ namespace Game {
         if (Core::settings.version == SETTINGS_READING) return false;
         Core::reset();
         if (Core::beginFrame()) {
+            int32 frame = int32(osTimerCounter() * (TARGET_UPS * TARGET_UPS_FREQ) / osTimerFrequency());
+            Core::stats.frameDelta = float(frame % TARGET_UPS_FREQ) / TARGET_UPS_FREQ;
+
+            if (Input::down[ikU]) {
+                Core::stats.frameDelta = 1.0f;
+            }
+
             level->renderPrepare();
             return true;
         }

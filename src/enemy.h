@@ -276,7 +276,7 @@ struct Enemy : Character {
         speed *= Core::deltaTime;
         decrease(delta, pos.y, speed);
         if (speed != 0.0f) {
-            return speed < 0 ? FORTH : BACK;
+            return speed < 0 ? IN_UP : IN_DOWN;
         }
         return 0;
     }
@@ -2230,7 +2230,7 @@ struct GiantMutant : Enemy {
             decrease(delta, angle.y, w);
             if (speed != 0.0f) {
                 velocity = velocity.rotateY(-w);
-                return speed < 0 ? LEFT : RIGHT;
+                return speed < 0 ? IN_LEFT : IN_RIGHT;
             }
         }
 

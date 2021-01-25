@@ -1114,7 +1114,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
                 ContextSwap();
             }
             #ifdef _DEBUG
-                Sleep(10);
+                //Sleep(10); // TODO
             #endif
         }
     };

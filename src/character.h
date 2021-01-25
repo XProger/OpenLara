@@ -18,20 +18,22 @@ struct Character : Controller {
         STAND_UNDERWATER,
         STAND_ONWATER,
         STAND_WADE
-    }       stand;
+    };
+
+    Stand   stand;
 
     int     input, lastInput;
 
-    enum Key {  
-        LEFT        = 1 << 1, 
-        RIGHT       = 1 << 2, 
-        FORTH       = 1 << 3, 
-        BACK        = 1 << 4, 
-        JUMP        = 1 << 5,
-        WALK        = 1 << 6,
-        ACTION      = 1 << 7,
-        WEAPON      = 1 << 8,
-        LOOK        = 1 << 9
+    enum InputFlag {
+        IN_LEFT   = 1 << cLeft, 
+        IN_RIGHT  = 1 << cRight, 
+        IN_UP     = 1 << cUp, 
+        IN_DOWN   = 1 << cDown, 
+        IN_JUMP   = 1 << cJump,
+        IN_WALK   = 1 << cWalk,
+        IN_ACTION = 1 << cAction,
+        IN_WEAPON = 1 << cWeapon,
+        IN_LOOK   = 1 << cLook
     };
 
     Controller  *viewTarget;
@@ -185,9 +187,9 @@ struct Character : Controller {
 
     virtual void updateTilt(bool active, float tiltSpeed, float tiltMax) {
     // calculate turning tilt
-        if (active && (input & (LEFT | RIGHT)) && (tilt == 0.0f || (tilt < 0.0f && (input & LEFT)) || (tilt > 0.0f && (input & RIGHT)))) {
-            if (input & LEFT)  tilt -= tiltSpeed;
-            if (input & RIGHT) tilt += tiltSpeed;
+        if (active && (input & (IN_LEFT | IN_RIGHT)) && (tilt == 0.0f || (tilt < 0.0f && (input & IN_LEFT)) || (tilt > 0.0f && (input & IN_RIGHT)))) {
+            if (input & IN_LEFT)  tilt -= tiltSpeed;
+            if (input & IN_RIGHT) tilt += tiltSpeed;
             tilt = clamp(tilt, -tiltMax, +tiltMax);
         } else {
             if (tilt > 0.0f) tilt = max(0.0f, tilt - tiltSpeed);
@@ -196,7 +198,7 @@ struct Character : Controller {
         angle.z = tilt;
     }
 
-    bool isPressed(Key key) {
+    bool isPressed(InputFlag key) {
         return (input & key) && !(lastInput & key);
     }
 

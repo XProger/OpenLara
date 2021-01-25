@@ -520,6 +520,7 @@ struct Lara : Character {
         }
         
         void render(MeshBuilder *mesh) {
+            return; // TODO
             Core::setBasis(basis, jointsCount - 1);
             mesh->renderModel(lara->level->extra.braid);
         }
@@ -1089,7 +1090,7 @@ struct Lara : Character {
                 //int realFrameIndex = int(arms[i].animation.time * 30.0f / anim->frameRate) % ((anim->frameEnd - anim->frameStart) / anim->frameRate + 1);
                 if (anim.frameIndex != anim.framePrev) {
                     if (anim.frameIndex == 0) { //realFrameIndex < arms[i].animation.framePrev) {
-                        if ((input & ACTION) && (!arm.tracking || arm.target))
+                        if ((input & IN_ACTION) && (!arm.tracking || arm.target))
                             armShot[i] = true;
                         else
                             wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, arm.target == NULL);
@@ -1195,7 +1196,7 @@ struct Lara : Character {
         }
 
     // apply weapon state changes
-        if (input & WEAPON) {
+        if (input & IN_WEAPON) {
             if (emptyHands())
                 wpnDraw();
             else
@@ -1208,7 +1209,7 @@ struct Lara : Character {
             for (int i = 0; i < 2; i++) {
                 Arm &arm = arms[i];
 
-                if (arm.target || ((input & ACTION) && !arm.tracking)) {
+                if (arm.target || ((input & IN_ACTION) && !arm.tracking)) {
                     if (arm.anim == Weapon::Anim::HOLD)
                         wpnSetAnim(arm, wpnState, Weapon::Anim::AIM, 0.0f, 1.0f);
                 } else
@@ -1242,7 +1243,7 @@ struct Lara : Character {
                     case Weapon::Anim::UNHOLSTER : wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::HOLD, 0.0f, 1.0f, false); break;
                     case Weapon::Anim::AIM       :
                     case Weapon::Anim::FIRE      :
-                        if (input & ACTION)
+                        if (input & IN_ACTION)
                             wpnSetAnim(arm, Weapon::IS_FIRING, Weapon::Anim::FIRE, arm.animation.time - arm.animation.timeMax, wpnCurrent == TR::Entity::UZIS ? 2.0f : 1.0f);
                         else
                             wpnSetAnim(arm, Weapon::IS_ARMED, Weapon::Anim::AIM, 0.0f, -1.0f, false);
@@ -1269,7 +1270,7 @@ struct Lara : Character {
                     case Weapon::Anim::HOLSTER   : wpnSetAnim(arm, Weapon::IS_HIDDEN, Weapon::Anim::NONE, 0.0f, 1.0f, false); break;
                     case Weapon::Anim::AIM       :
                     case Weapon::Anim::FIRE      :
-                        if (input & ACTION)
+                        if (input & IN_ACTION)
                             wpnSetAnim(arm, Weapon::IS_FIRING, Weapon::Anim::FIRE, arm.animation.time - arm.animation.timeMax, 1.0f);
                         else
                             wpnSetAnim(arm, Weapon::IS_ARMED,  Weapon::Anim::AIM, 0.0f, -1.0f, false);
@@ -1469,7 +1470,7 @@ struct Lara : Character {
         }
 
         int count = wpnCurrent != TR::Entity::SHOTGUN ? 2 : 1;
-        if (!(input & ACTION) || retarget) {
+        if (!(input & IN_ACTION) || retarget) {
             getTargets(arms[0].tracking, arms[1].tracking);
             if (count == 1)
                 arms[1].tracking = NULL;
@@ -2078,11 +2079,11 @@ struct Lara : Character {
                         return;
 
                     limit = actionState == STATE_USE_PUZZLE ? &TR::Limits::PUZZLE_HOLE : &TR::Limits::KEY_HOLE;
-                    if (!checkInteraction(controller, limit, isPressed(ACTION) || usedItem != TR::Entity::NONE))
+                    if (!checkInteraction(controller, limit, isPressed(IN_ACTION) || usedItem != TR::Entity::NONE))
                         return;
 
                     if (usedItem == TR::Entity::NONE) {
-                        if (isPressed(ACTION) && !game->invChooseKey(camera->cameraIndex, entity.type))
+                        if (isPressed(IN_ACTION) && !game->invChooseKey(camera->cameraIndex, entity.type))
                             game->playSound(TR::SND_NO, pos, Sound::PAN); // no compatible items in inventory
                         return;
                     }
@@ -2440,7 +2441,7 @@ struct Lara : Character {
         if (state == STATE_REACH && getDir().dot(vec3(velocity.x, 0.0f, velocity.z)) < 0)
             velocity.x = velocity.z = 0.0f;
 
-        if ((state == STATE_REACH || state == STATE_UP_JUMP) && (input & ACTION) && emptyHands()) {
+        if ((state == STATE_REACH || state == STATE_UP_JUMP) && (input & IN_ACTION) && emptyHands()) {
             if (state == STATE_REACH && velocity.y < 0.0f)
                 return state;
 
@@ -2474,18 +2475,18 @@ struct Lara : Character {
         }
 
         if ((level->version & TR::VER_VERSION) > TR::VER_TR1) {
-            bool roll = (input & (FORTH | BACK)) == (FORTH | BACK);
+            bool roll = (input & (IN_UP | IN_DOWN)) == (IN_UP | IN_DOWN);
 
-            if ((state == STATE_FORWARD_JUMP && (roll || (input & BACK)  )) ||
-                (state == STATE_BACK_JUMP    && (roll || (input & FORTH) )) || 
+            if ((state == STATE_FORWARD_JUMP && (roll || (input & IN_DOWN)  )) ||
+                (state == STATE_BACK_JUMP    && (roll || (input & IN_UP) )) || 
                 (state == STATE_FAST_DIVE    &&  roll))
                 return STATE_AIR_ROLL;
         }
 
         if (state == STATE_FORWARD_JUMP || state == STATE_FALL_BACK) {
             if (emptyHands()) {
-                if (input & ACTION) return STATE_REACH;
-                if ((input & (JUMP | FORTH | WALK)) == (JUMP | FORTH | WALK)) return STATE_SWAN_DIVE;
+                if (input & IN_ACTION) return STATE_REACH;
+                if ((input & (IN_JUMP | IN_UP | IN_WALK)) == (IN_JUMP | IN_UP | IN_WALK)) return STATE_SWAN_DIVE;
             }
         } else
             if (state != STATE_FALL && state != STATE_FALL_BACK && state != STATE_SWAN_DIVE && state != STATE_FAST_DIVE && state != STATE_REACH && state != STATE_UP_JUMP && state != STATE_BACK_JUMP && state != STATE_LEFT_JUMP && state != STATE_RIGHT_JUMP)
@@ -2525,7 +2526,7 @@ struct Lara : Character {
             float oldAngle = block->angle.y;
             block->angle.y = angleQuadrant(angle.y, 0.25f) * (PI * 0.5f);
 
-            if (!checkInteraction(block, &TR::Limits::BLOCK, (input & ACTION) != 0)) {
+            if (!checkInteraction(block, &TR::Limits::BLOCK, (input & IN_ACTION) != 0)) {
                 block->angle.y = oldAngle;
                 continue;
             }
@@ -2541,15 +2542,15 @@ struct Lara : Character {
 
         bool weaponReady = wpnReady() && !emptyHands();
 
-        if (input & LEFT)  return (state == STATE_TURN_LEFT  && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_LEFT;
-        if (input & RIGHT) return (state == STATE_TURN_RIGHT && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
+        if (input & IN_LEFT)  return (state == STATE_TURN_LEFT  && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_LEFT;
+        if (input & IN_RIGHT) return (state == STATE_TURN_RIGHT && (animation.prev == animation.index || weaponReady)) ? STATE_FAST_TURN : STATE_TURN_RIGHT;
 
         ASSERT(false);
         return STATE_STOP;
     }
 
     bool checkClimb() {
-        if ((input & (FORTH | ACTION)) == (FORTH | ACTION) && !(input & (LEFT | RIGHT)) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
+        if ((input & (IN_UP | IN_ACTION)) == (IN_UP | IN_ACTION) && !(input & (IN_LEFT | IN_RIGHT)) && (animation.index == ANIM_STAND || animation.index == ANIM_STAND_NORMAL) && emptyHands() && collision.side == Collision::FRONT) { // TODO: get rid of animation.index
             float floor   = collision.info[Collision::FRONT].floor;
             float ceiling = collision.info[Collision::FRONT].ceiling; 
 
@@ -3021,16 +3022,16 @@ struct Lara : Character {
 
         input = Character::getInput();
 
-        if (Input::state[pid][cUp])        input |= FORTH;
-        if (Input::state[pid][cRight])     input |= RIGHT;
-        if (Input::state[pid][cDown])      input |= BACK;
-        if (Input::state[pid][cLeft])      input |= LEFT;
-        if (Input::state[pid][cRoll])      input  = FORTH | BACK;
-        if (Input::state[pid][cJump])      input |= JUMP;
-        if (Input::state[pid][cWalk])      input |= WALK;
-        if (Input::state[pid][cAction])    input |= ACTION;
-        if (Input::state[pid][cWeapon])    input |= WEAPON;
-        if (Input::state[pid][cLook] && canLookAt()) input = LOOK;
+        if (Input::state[pid][cUp])        input |= IN_UP;
+        if (Input::state[pid][cRight])     input |= IN_RIGHT;
+        if (Input::state[pid][cDown])      input |= IN_DOWN;
+        if (Input::state[pid][cLeft])      input |= IN_LEFT;
+        if (Input::state[pid][cRoll])      input  = IN_UP | IN_DOWN;
+        if (Input::state[pid][cJump])      input |= IN_JUMP;
+        if (Input::state[pid][cWalk])      input |= IN_WALK;
+        if (Input::state[pid][cAction])    input |= IN_ACTION;
+        if (Input::state[pid][cWeapon])    input |= IN_WEAPON;
+        if (Input::state[pid][cLook] && canLookAt()) input = IN_LOOK;
 
         if (Input::down[ikP]) {
             switch (level->id) {
@@ -3082,7 +3083,7 @@ struct Lara : Character {
     // analog control
         rotFactor = vec2(1.0f);
 
-        if (input & LOOK)
+        if (input & IN_LOOK)
             return input;
 
         if (camera->spectator)
@@ -3105,13 +3106,13 @@ struct Lara : Character {
             }
 
             if (L.x != 0.0f) {
-                input |= (L.x < 0.0f) ? LEFT : RIGHT;
+                input |= (L.x < 0.0f) ? IN_LEFT : IN_RIGHT;
                 if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
                     rotFactor.y = min(fabsf(L.x) / 0.9f, 1.0f);
             }
 
             if (L.y != 0.0f) {
-                input |= (L.y < 0.0f) ? FORTH : BACK;
+                input |= (L.y < 0.0f) ? IN_UP : IN_DOWN;
                 if (stand == STAND_UNDERWATER)
                     rotFactor.x = min(fabsf(L.y) / 0.9f, 1.0f);
             }
@@ -3120,14 +3121,14 @@ struct Lara : Character {
     // VR control
         if (Core::settings.detail.stereo == Core::Settings::STEREO_VR && camera->firstPerson && canFreeRotate()) {
 
-            if (!(input & WALK)) {
-                input &= ~(LEFT | RIGHT);
+            if (!(input & IN_WALK)) {
+                input &= ~(IN_LEFT | IN_RIGHT);
             }
 
             vec3 ang = getAngleAbs(Input::hmd.head.dir().xyz());
             angle.y = ang.y;
             if (stand == STAND_UNDERWATER) {
-                input &= ~(FORTH | BACK);
+                input &= ~(IN_UP | IN_DOWN);
                 angle.x = ang.x;
             }
         }
@@ -4544,10 +4545,10 @@ struct Lara : Character {
     void s_rotate(int32 maxSpeed, int32 tilt = 0) {
         tilt *= LARA_TILT_ACCEL;
 
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             turnSpeed = max(turnSpeed - LARA_TURN_ACCEL, -maxSpeed);
             v2rot.z = max(v2rot.z - tilt, -LARA_TILT_MAX);
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             turnSpeed = min(turnSpeed + LARA_TURN_ACCEL, maxSpeed);
             v2rot.z = min(v2rot.z + tilt, LARA_TILT_MAX);
         }
@@ -4566,11 +4567,11 @@ struct Lara : Character {
     }
 
     void s_checkWalk(int32 stopState = STATE_STOP) {
-        if ((input & FORTH) && s_checkFront(ANGLE_0)) {
+        if ((input & IN_UP) && s_checkFront(ANGLE_0)) {
             if (waterState == WATER_STATE_WADE) {
                 targetState = STATE_WADE;
             } else {
-                if (input & WALK) {
+                if (input & IN_WALK) {
                     targetState = STATE_WALK;
                 } else {
                     targetState = STATE_RUN;
@@ -4586,7 +4587,7 @@ struct Lara : Character {
             return false;
         }
 
-        bool roll = (input & (FORTH | BACK)) == (FORTH | BACK);
+        bool roll = (input & (IN_UP | IN_DOWN)) == (IN_UP | IN_DOWN);
 
         if ((waterState == WATER_STATE_ABOVE) && roll) {
             if ((state == STATE_RUN) || (state == STATE_STOP)) {
@@ -4612,8 +4613,8 @@ struct Lara : Character {
             }
 
             if (((state == STATE_FAST_DIVE)    && roll) ||
-                ((state == STATE_FORWARD_JUMP) && (input & BACK)) ||
-                ((state == STATE_BACK_JUMP)    && (input & FORTH)))
+                ((state == STATE_FORWARD_JUMP) && (input & IN_DOWN)) ||
+                ((state == STATE_BACK_JUMP)    && (input & IN_UP)))
             {
                 targetState = STATE_AIR_ROLL;
                 return true;
@@ -4624,16 +4625,16 @@ struct Lara : Character {
     }
 
     void s_turnUW() {
-        if (input & FORTH) {
+        if (input & IN_UP) {
             v2rot.x -= 2 * DEG2SHORT;
-        } else if (input & BACK) {
+        } else if (input & IN_DOWN) {
             v2rot.x += 2 * DEG2SHORT;
         }
 
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             turnSpeed = max(turnSpeed - LARA_TURN_ACCEL, -LARA_TURN_MED);
             v2rot.z -= LARA_TILT_ACCEL * 2;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             turnSpeed = min(turnSpeed + LARA_TURN_ACCEL,  LARA_TURN_MED);
             v2rot.z += LARA_TILT_ACCEL * 2;
         }
@@ -4651,7 +4652,7 @@ struct Lara : Character {
         cinfo.stopOnSlant = true;
         cinfo.gapCeiling  = 0;
 
-        if ((angle == -ANGLE_180) && ((input & WALK) || (waterState == WATER_STATE_WADE))) {
+        if ((angle == -ANGLE_180) && ((input & IN_WALK) || (waterState == WATER_STATE_WADE))) {
             cinfo.gapPos = LARA_STEP_HEIGHT;
         }
 
@@ -4700,7 +4701,7 @@ struct Lara : Character {
             }
         }
 
-        if ((input & JUMP) && canJump && !gravity) {
+        if ((input & IN_JUMP) && canJump && !gravity) {
             targetState = STATE_FORWARD_JUMP;
         } else {
             s_checkWalk();
@@ -4719,7 +4720,7 @@ struct Lara : Character {
 
         targetState = STATE_STOP;
 
-        if ((input & (FORTH | ACTION)) == (FORTH | ACTION)) {
+        if ((input & (IN_UP | IN_ACTION)) == (IN_UP | IN_ACTION)) {
             c_angle(ANGLE_0);
             cinfo.radius = LARA_RADIUS + 4;
             c_default();
@@ -4729,46 +4730,46 @@ struct Lara : Character {
             }
         }
 
-        if (input & WALK) {
-            if ((input & LEFT) && s_checkFront(-ANGLE_90)) {
+        if (input & IN_WALK) {
+            if ((input & IN_LEFT) && s_checkFront(-ANGLE_90)) {
                 targetState = STATE_STEP_LEFT;
-            } else if ((input & RIGHT) && s_checkFront(ANGLE_90)) {
+            } else if ((input & IN_RIGHT) && s_checkFront(ANGLE_90)) {
                 targetState = STATE_STEP_RIGHT;
             }
         } else {
-            if (input & LEFT) {
+            if (input & IN_LEFT) {
                 targetState = STATE_TURN_LEFT;
-            } else if (input & RIGHT) {
+            } else if (input & IN_RIGHT) {
                 targetState = STATE_TURN_RIGHT;
             }
         }
 
         if (waterState == WATER_STATE_WADE) {
 
-            if (input & JUMP) {
+            if (input & IN_JUMP) {
                 targetState = STATE_COMPRESS;
-            } else if ((input & FORTH) && s_checkFront(ANGLE_0)) {
-                if (input & WALK) {
+            } else if ((input & IN_UP) && s_checkFront(ANGLE_0)) {
+                if (input & IN_WALK) {
                     s_STATE_WADE();
                 } else {
                     s_STATE_WALK();
                 }
-            } else if ((input & BACK) && s_checkFront(-ANGLE_180)) {
+            } else if ((input & IN_DOWN) && s_checkFront(-ANGLE_180)) {
                 s_STATE_BACK();
             }
 
         } else {
 
-            if (input & JUMP) {
+            if (input & IN_JUMP) {
                 targetState = STATE_COMPRESS;
-            } else if ((input & FORTH) && s_checkFront(ANGLE_0)) {
-                if (input & WALK) {
+            } else if ((input & IN_UP) && s_checkFront(ANGLE_0)) {
+                if (input & IN_WALK) {
                     s_STATE_WALK();
                 } else {
                     s_STATE_RUN();
                 }
-            } else if ((input & BACK) && s_checkFront(-ANGLE_180)) {
-                if (input & WALK) {
+            } else if ((input & IN_DOWN) && s_checkFront(-ANGLE_180)) {
+                if (input & IN_WALK) {
                     s_STATE_BACK();
                 } else {
                     targetState = STATE_FAST_BACK;
@@ -4784,10 +4785,10 @@ struct Lara : Character {
         }
     
         if (targetState != STATE_DEATH && targetState != STATE_STOP && targetState != STATE_RUN) {
-            if (input & ACTION) {
+            if (input & IN_ACTION) {
                 targetState = STATE_REACH;
             }
-            if (input & WALK) {
+            if (input & IN_WALK) {
                 targetState = STATE_SWAN_DIVE;
             }
             s_checkRoll();
@@ -4807,7 +4808,7 @@ struct Lara : Character {
     }
     
     S_HANDLER(STATE_TURN_RIGHT) {
-        if (checkDeath() || (input & LOOK)) {
+        if (checkDeath() || (input & IN_LOOK)) {
             targetState = STATE_STOP;
             return;
         }
@@ -4818,11 +4819,11 @@ struct Lara : Character {
             targetState = STATE_FAST_TURN;
         }
 
-        s_checkWalk((input & RIGHT) ? targetState : STATE_STOP);
+        s_checkWalk((input & IN_RIGHT) ? targetState : STATE_STOP);
     }
 
     S_HANDLER(STATE_TURN_LEFT) {
-        if (checkDeath() || (input & LOOK)) {
+        if (checkDeath() || (input & IN_LOOK)) {
             targetState = STATE_STOP;
             return;
         }
@@ -4833,7 +4834,7 @@ struct Lara : Character {
             targetState = STATE_FAST_TURN;
         }
 
-        s_checkWalk((input & LEFT) ? targetState : STATE_STOP);
+        s_checkWalk((input & IN_LEFT) ? targetState : STATE_STOP);
     }
 
     S_HANDLER(STATE_DEATH) {
@@ -4849,9 +4850,9 @@ struct Lara : Character {
 
     S_HANDLER(STATE_HANG) {
         s_ignoreEnemy();
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             targetState = STATE_HANG_LEFT;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             targetState = STATE_HANG_RIGHT;
         }
     }
@@ -4876,7 +4877,7 @@ struct Lara : Character {
 
         s_turnUW();
 
-        if (input & JUMP) {
+        if (input & IN_JUMP) {
             targetState = STATE_SWIM;
         }
 
@@ -4891,13 +4892,13 @@ struct Lara : Character {
         if (waterState == WATER_STATE_WADE) {
             // up jump
         } else {
-            if ((input & FORTH) && getFloor(0, 256) >= -LARA_STEP_HEIGHT) {
+            if ((input & IN_UP) && getFloor(0, 256) >= -LARA_STEP_HEIGHT) {
                 targetState = STATE_FORWARD_JUMP;
-            } else if ((input & LEFT) && getFloor(-ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
+            } else if ((input & IN_LEFT) && getFloor(-ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
                 targetState = STATE_LEFT_JUMP;
-            } else if ((input & RIGHT) && getFloor(ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
+            } else if ((input & IN_RIGHT) && getFloor(ANGLE_90, 256) >= -LARA_STEP_HEIGHT) {
                 targetState = STATE_RIGHT_JUMP;
-            } else if ((input & BACK) && getFloor(-ANGLE_180, 256) >= -LARA_STEP_HEIGHT) {
+            } else if ((input & IN_DOWN) && getFloor(-ANGLE_180, 256) >= -LARA_STEP_HEIGHT) {
                 targetState = STATE_BACK_JUMP;
             }
         }
@@ -4910,7 +4911,7 @@ struct Lara : Character {
             return;
         }
 
-        if ((input & BACK) && ((input & WALK) || (waterState == WATER_STATE_WADE))) {
+        if ((input & IN_DOWN) && ((input & IN_WALK) || (waterState == WATER_STATE_WADE))) {
             targetState = STATE_BACK;
         } else {
             targetState = STATE_STOP;
@@ -4933,7 +4934,7 @@ struct Lara : Character {
 
         vSpeed = min(vSpeed + LARA_SWIM_ACCEL, LARA_SWIM_SPEED_MAX);
 
-        if (!(input & JUMP)) {
+        if (!(input & IN_JUMP)) {
             targetState = STATE_GLIDE;
         }
     }
@@ -4950,7 +4951,7 @@ struct Lara : Character {
 
         s_turnUW();
 
-        if (input & JUMP) {
+        if (input & IN_JUMP) {
             targetState = STATE_SWIM;
         }
 
@@ -4966,32 +4967,32 @@ struct Lara : Character {
     }
 
     S_HANDLER(STATE_FAST_TURN) {
-        if (checkDeath() || (input & LOOK)) {
+        if (checkDeath() || (input & IN_LOOK)) {
             targetState = STATE_STOP;
             return;
         }
 
         if (turnSpeed < 0) {
             turnSpeed = -LARA_TURN_FAST;
-            if (!(input & LEFT)) {
+            if (!(input & IN_LEFT)) {
                 targetState = STATE_STOP;
             }
         } else {
             turnSpeed = LARA_TURN_FAST;
-            if (!(input & RIGHT)) {
+            if (!(input & IN_RIGHT)) {
                 targetState = STATE_STOP;
             }
         }
     }
 
     S_HANDLER(STATE_STEP_RIGHT) {
-        if (checkDeath() || (input & (WALK | RIGHT)) != (WALK | RIGHT)) {
+        if (checkDeath() || (input & (IN_WALK | IN_RIGHT)) != (IN_WALK | IN_RIGHT)) {
             targetState = STATE_STOP;
         }
     }
 
     S_HANDLER(STATE_STEP_LEFT) {
-        if (checkDeath() || (input & (WALK | LEFT)) != (WALK | LEFT)) {
+        if (checkDeath() || (input & (IN_WALK | IN_LEFT)) != (IN_WALK | IN_LEFT)) {
             targetState = STATE_STOP;
         }
     }
@@ -5001,7 +5002,7 @@ struct Lara : Character {
     }
 
     S_HANDLER(STATE_SLIDE) {
-        if (input & JUMP) {
+        if (input & IN_JUMP) {
             targetState = STATE_FORWARD_JUMP;
         }
     }
@@ -5038,27 +5039,27 @@ struct Lara : Character {
 
     S_HANDLER(STATE_FALL_BACK) {
         s_checkFall();
-        if (input & ACTION) {
+        if (input & IN_ACTION) {
             targetState = STATE_REACH;
         }
     }
 
     S_HANDLER(STATE_HANG_LEFT) {
         s_ignoreEnemy();
-        if (!(input & LEFT)) {
+        if (!(input & IN_LEFT)) {
             targetState = STATE_HANG;
         }
     }
 
     S_HANDLER(STATE_HANG_RIGHT) {
         s_ignoreEnemy();
-        if (!(input & RIGHT)) {
+        if (!(input & IN_RIGHT)) {
             targetState = STATE_HANG;
         }
     }
 
     S_HANDLER(STATE_SLIDE_BACK) {
-        if (input & JUMP) {
+        if (input & IN_JUMP) {
             targetState = STATE_BACK_JUMP;
         }
     }
@@ -5066,23 +5067,23 @@ struct Lara : Character {
     S_HANDLER(STATE_SURF_TREAD) {
         vSpeed = max(vSpeed - LARA_SURF_FRICTION, 0);
 
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             v2rot.y -= LARA_TURN_SLOW;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             v2rot.y += LARA_TURN_SLOW;
         }
 
-        if (input & FORTH) {
+        if (input & IN_UP) {
             targetState = STATE_SURF_SWIM;
-        } else if (input & BACK) {
+        } else if (input & IN_DOWN) {
             targetState = STATE_SURF_BACK;
-        } else if ((input & (WALK | LEFT)) == (WALK | LEFT)) {
+        } else if ((input & (IN_WALK | IN_LEFT)) == (IN_WALK | IN_LEFT)) {
             targetState = STATE_SURF_LEFT;
-        } else if ((input & (WALK | RIGHT)) == (WALK | RIGHT)) {
+        } else if ((input & (IN_WALK | IN_RIGHT)) == (IN_WALK | IN_RIGHT)) {
             targetState = STATE_SURF_RIGHT;
         }
 
-        if (input & JUMP) {
+        if (input & IN_JUMP) {
             swimTimer++;
             if (swimTimer == LARA_SWIM_TIMER) {
                 dive();
@@ -5100,13 +5101,13 @@ struct Lara : Character {
 
         swimTimer = 0;
 
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             v2rot.y -= LARA_TURN_SLOW;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             v2rot.y += LARA_TURN_SLOW;
         }
 
-        if (!(input & FORTH) || (input & JUMP)) {
+        if (!(input & IN_UP) || (input & IN_JUMP)) {
             targetState = STATE_SURF_TREAD;
         }
 
@@ -5114,7 +5115,7 @@ struct Lara : Character {
     }
     
     S_HANDLER(STATE_DIVE) {
-        if (input & FORTH) {
+        if (input & IN_UP) {
             v2rot.x -= ANGLE_1;
         }
     }
@@ -5129,7 +5130,7 @@ struct Lara : Character {
 
     S_HANDLER(STATE_PUSH_PULL_READY) {
         s_ignoreEnemy();
-        if (!(input & ACTION)) {
+        if (!(input & IN_ACTION)) {
             targetState = STATE_STOP;
         }
     }
@@ -5175,13 +5176,13 @@ struct Lara : Character {
 
         swimTimer = 0;
 
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             v2rot.y -= LARA_TURN_VERY_SLOW;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             v2rot.y += LARA_TURN_VERY_SLOW;
         }
 
-        if (!(input & BACK)) {
+        if (!(input & IN_DOWN)) {
             targetState = STATE_SURF_TREAD;
         }
 
@@ -5196,7 +5197,7 @@ struct Lara : Character {
 
         swimTimer = 0;
 
-        if ((input & (WALK | LEFT)) != (WALK | LEFT)) {
+        if ((input & (IN_WALK | IN_LEFT)) != (IN_WALK | IN_LEFT)) {
             targetState = STATE_SURF_TREAD;
         }
 
@@ -5211,7 +5212,7 @@ struct Lara : Character {
 
         swimTimer = 0;
 
-        if ((input & (WALK | RIGHT)) != (WALK | RIGHT)) {
+        if ((input & (IN_WALK | IN_RIGHT)) != (IN_WALK | IN_RIGHT)) {
             targetState = STATE_SURF_TREAD;
         }
 
@@ -5250,11 +5251,11 @@ struct Lara : Character {
 
     S_HANDLER(STATE_CLIMB_START) {
         s_ignoreEnemy();
-        if (input & LEFT) {
+        if (input & IN_LEFT) {
             targetState = STATE_CLIMB_LEFT;
-        } else if (input & RIGHT) {
+        } else if (input & IN_RIGHT) {
             targetState = STATE_CLIMB_RIGHT;
-        } else if (input & JUMP) {
+        } else if (input & IN_JUMP) {
             targetState = STATE_BACK_JUMP;
             c_angle(-ANGLE_180);
         }
@@ -5267,7 +5268,7 @@ struct Lara : Character {
     S_HANDLER(STATE_CLIMB_LEFT) {
         s_ignoreEnemy();
 
-        if (!(input & LEFT)) {
+        if (!(input & IN_LEFT)) {
             targetState = STATE_CLIMB_START;
         }
     }
@@ -5279,7 +5280,7 @@ struct Lara : Character {
     S_HANDLER(STATE_CLIMB_RIGHT) {
         s_ignoreEnemy();
 
-        if (!(input & LEFT)) {
+        if (!(input & IN_LEFT)) {
             targetState = STATE_CLIMB_START;
         }
     }
@@ -5308,7 +5309,7 @@ struct Lara : Character {
 
         s_rotate(LARA_TURN_FAST, 1);
         
-        if (input & FORTH) {
+        if (input & IN_UP) {
             targetState = (waterState == WATER_STATE_ABOVE) ? STATE_RUN : STATE_WADE;
         } else {
             targetState = STATE_STOP;
@@ -5332,7 +5333,7 @@ struct Lara : Character {
     S_HANDLER(STATE_ZIPLINE) {
         // TODO checkTriggerV2();
 
-        if (!(input & ACTION)) {
+        if (!(input & IN_ACTION)) {
             targetState = STATE_FORWARD_JUMP;
             hSpeed  = 100;
             vSpeed  = 40;
@@ -5607,13 +5608,17 @@ struct Lara : Character {
     }
 
     bool c_checkGrab() {
-        return !(input & ACTION) || cinfo.type != CT_FRONT || abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT;
+        return !(input & IN_ACTION) || cinfo.type != CT_FRONT || abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT;
     }
 
     bool c_checkSpace() {
         return (cinfo.f.floor < cinfo.f.ceiling ||
                 cinfo.l.floor < cinfo.l.ceiling ||
                 cinfo.r.floor < cinfo.r.ceiling);
+    }
+
+    bool c_checkClimbStart() {
+        return false;
     }
 
     bool c_checkClimbUp() {
@@ -5644,6 +5649,15 @@ struct Lara : Character {
             setAnimV2(ANIM_STAND, true);
             targetState = STATE_UP_JUMP;
             vSpeedHack = -int32(phd_sqrt(-2 * GRAVITY * (cinfo.f.floor + 800)) + 3);
+            processAnimation();
+        } else if ((waterState != WATER_STATE_WADE) && (cinfo.f.floor <= -1920) && (cinfo.l.floor <= -1920) && (cinfo.r.floor <= -1920) && (cinfo.m.ceiling <= -1158)) {
+            setAnimV2(ANIM_STAND, true);
+            targetState = STATE_UP_JUMP;
+            vSpeedHack = -116;
+            processAnimation();
+        } else if (((cinfo.f.floor < -1024) && (cinfo.f.ceiling >= 506)) || (cinfo.m.ceiling <= -518) && c_checkClimbStart()) {
+            setAnimV2(ANIM_STAND, true);
+            targetState = STATE_CLIMB_START;
             processAnimation();
         } else {
             return false;
@@ -5700,7 +5714,7 @@ struct Lara : Character {
     bool c_checkDrop() {
         // TODO getTrigger here
 
-        if ((health > 0) && (input & ACTION)) {
+        if ((health > 0) && (input & IN_ACTION)) {
             gravity = false;
             vSpeed  = 0;
             return false;
@@ -5716,7 +5730,7 @@ struct Lara : Character {
     }
 
     bool c_checkWaterOut() {
-        if (!(input & ACTION) ||
+        if (!(input & IN_ACTION) ||
             (cinfo.type != CT_FRONT) ||
             (cinfo.f.ceiling > 0) ||
             (cinfo.m.ceiling > -LARA_STEP_HEIGHT) ||
@@ -5795,7 +5809,7 @@ struct Lara : Character {
         if (vSpeed > 0 && cinfo.m.floor <= 0) {
             if (c_checkLanding()) {
                 targetState = STATE_DEATH;
-            } else if (state == STATE_FORWARD_JUMP && (input & FORTH) && !(input & WALK)) {
+            } else if (state == STATE_FORWARD_JUMP && (input & IN_UP) && !(input & IN_WALK)) {
                 targetState = STATE_RUN;
             } else if (state == STATE_FALL) {
                 setAnimV2(ANIM_LANDING, true);
@@ -5928,7 +5942,7 @@ struct Lara : Character {
 
         v2angle = v2rot.y + angleDelta;
 
-        if (health <= 0 || !(input & ACTION)) {
+        if (health <= 0 || !(input & IN_ACTION)) {
             setAnimV2(ANIM_FALL_HANG, true, 9);
 
             cinfo.offset.y = cinfo.f.floor - getBounds().minY + 2;
@@ -6024,9 +6038,9 @@ struct Lara : Character {
                 break;
             }
             case CLIMB_OK : {
-                if (input & LEFT) {
+                if (input & IN_LEFT) {
                     targetState = STATE_CLIMB_LEFT;
-                } else if (input & RIGHT) {
+                } else if (input & IN_RIGHT) {
                     targetState = STATE_CLIMB_RIGHT;
                 } else {
                     targetState = STATE_CLIMB_START;
@@ -6282,14 +6296,14 @@ struct Lara : Character {
     C_HANDLER(STATE_HANG) {
         c_hang(0);
 
-        if ((input & FORTH) && targetState == STATE_HANG) {
+        if ((input & IN_UP) && targetState == STATE_HANG) {
 
             if (cinfo.f.floor <= -850 ||
                 cinfo.f.floor >= -650 ||
                 c_checkSpace() ||
                 cinfo.staticHit) return;
 
-            if (input & WALK) {
+            if (input & IN_WALK) {
                 targetState = STATE_HANDSTAND;
             } else {
                 targetState = STATE_HANG_UP;
