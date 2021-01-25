@@ -1381,7 +1381,6 @@ namespace GAPI {
             if (!GLES3) {
                 strcat(extHeader, "#extension GL_EXT_shadow_samplers : enable\n");
             }
-            strcat(extHeader, "#define USE_GL_EXT_shadow_samplers\n");
         }
         
     #ifdef _GAPI_GLES
@@ -1405,7 +1404,7 @@ namespace GAPI {
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
-                                     "#define shadow2DEXT texture\n"
+                                     "#define FETCH_SHADOW2D(a,b) texture(a,b)\n"
                                      "out vec4 fragColor;\n");
         } else {
             // vertex
@@ -1419,6 +1418,7 @@ namespace GAPI {
             strcat(GLSL_HEADER_FRAG, "precision lowp  int;\n"
                                      "precision highp float;\n"
                                      "#define FRAGMENT\n"
+                                     "#define FETCH_SHADOW2D(a,b) shadow2DEXT(a,b)\n"
                                      "#define fragColor gl_FragColor\n");
         }
 
@@ -1440,7 +1440,7 @@ namespace GAPI {
                                      "#define texture2D   texture\n"
                                      "#define texture3D   texture\n"
                                      "#define textureCube texture\n"
-                                     "#define shadow2D    texture\n"
+                                     "#define FETCH_SHADOW2D(a,b) texture(a,b)\n"
                                      "out vec4 fragColor;\n");
         } else {
             // vertex
@@ -1450,6 +1450,7 @@ namespace GAPI {
             strcat(GLSL_HEADER_FRAG, "#version 110\n");
             strcat(GLSL_HEADER_FRAG, extHeader);
             strcat(GLSL_HEADER_FRAG, "#define FRAGMENT\n"
+                                     "#define FETCH_SHADOW2D(a,b) shadow2D(a,b).x\n"
                                      "#define fragColor gl_FragColor\n");
         }
     #endif
