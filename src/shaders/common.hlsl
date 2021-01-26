@@ -29,9 +29,15 @@
 #endif
 
 struct VS_INPUT {
+#ifdef _GAPI_GXM
+	float4 aCoord    : POSITION;
+	float4 aNormal   : NORMAL;
+	float4 aTexCoord : TEXCOORD0;
+#else
 	int4   aCoord    : POSITION;
 	int4   aNormal   : NORMAL;
 	int4   aTexCoord : TEXCOORD0;
+#endif
 	float4 aColor    : COLOR0;
 	float4 aLight    : COLOR1;
 };
@@ -93,7 +99,7 @@ struct VS_INPUT {
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
 	#define SAMPLE_CUBE(T,uv)           texCUBE(T, uv)
 
-	#ifdef PIXEL
+	#if defined(PIXEL) && !defined(_GAPI_GXM)
 		#define POSITION    VPOS
 	#endif
 #endif
@@ -114,10 +120,17 @@ float4      uPosScale[2]            : register( c92 );
 float4      uContacts[MAX_CONTACTS] : register( c98 );
 
 // options for compose, shadow, ambient passes
-#define OPT_AMBIENT             1
-#define OPT_SHADOW              1
-#define OPT_CONTACT             1
-#define OPT_CAUSTICS            1
+#ifdef _GAPI_GXM
+	//#define OPT_AMBIENT
+	//#define OPT_SHADOW
+	//#define OPT_CONTACT
+	//#define OPT_CAUSTICS
+#else
+    #define OPT_AMBIENT
+    #define OPT_SHADOW
+    #define OPT_CONTACT
+    #define OPT_CAUSTICS
+#endif
 
 float4 pack(float value) {
 	float4 v = frac(value * float4(1.0, 255.0, 65025.0, 16581375.0));
@@ -177,14 +190,14 @@ float calcFresnel(float NdotV, float f0) {
 void applyFogUW(inout float3 color, float3 coord, float waterFogDist, float waterColorDist) {
 	float h    = coord.y - uParam.y;
 	float3 dir = uViewPos.xyz - coord.xyz;
-	float dist;
-	
+	float dist = lerp(length(dir), abs(h / normalize(dir).y), step(uViewPos.y, uParam.y));
+/*
 	if (uViewPos.y < uParam.y) {
 		dist = abs(h / normalize(dir).y);
 	} else {
 		dist = length(dir);
 	}
-
+*/
 	float fog = saturate(1.0 / exp(dist * waterFogDist));
 	dist += h;
 	color.xyz *= lerp((float3)1.0, UNDERWATER_COLOR, clamp(dist * waterColorDist, 0.0, 2.0));
@@ -222,11 +235,11 @@ float getShadowValue(float3 lightVec, float4 lightProj) {
 	return rShadow + (1.0 - rShadow) * fade;
 }
 
-float getShadow(float3 lightVec, float3 normal, float4 lightProj) {
+float getShadow(float3 lightVec, float4 lightProj) {
 	return getShadowValue(lightVec, lightProj);
 }
 
-float4 calcLightProj(float3 coord, float3 lightVec, float3 normal) {
+float4 calcLightProj(float3 coord) {
 	return mul(uLightProj, float4(coord, 1.0));
 }
 

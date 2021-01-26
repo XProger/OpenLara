@@ -193,7 +193,7 @@ int main() {
     osTimerFreq = sceRtcGetTickResolution();
     osStartTime = Core::getTime();
 
-    Game::init("PSXDATA/LEVEL2.PSX");
+    Game::init();//"PSXDATA/LEVEL2.PSX");
 //    sceRazorGpuCaptureSetTrigger(100, "ux0:data/OpenLara/capture.sgx");
 
     while (!Core::isQuit) {

@@ -58,7 +58,6 @@ namespace GAPI {
 
     ID3D11RenderTargetView  *defRTV;
     ID3D11DepthStencilView  *defDSV;
-    ID3D11InputLayout       *inputLayout;
 
     ID3D11BlendState        *BS[2][bmMAX]; // [colorWrite][blendMode] ONLY two colorWrite modes are supported (A and RGBA)
     ID3D11RasterizerState   *RS[cmMAX];    // [cullMode]
@@ -109,6 +108,7 @@ namespace GAPI {
     struct Shader {
         ID3D11VertexShader *VS;
         ID3D11PixelShader  *PS;
+        ID3D11InputLayout  *IL;
         ID3D11Buffer       *CB;
 
         vec4  cbMem[98 + MAX_CONTACTS];
@@ -214,7 +214,7 @@ namespace GAPI {
                 { "COLOR",    1, DXGI_FORMAT_R8G8B8A8_UNORM,    0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 }, // aLight
             };
 
-            ret = device->CreateInputLayout(vertexDecl, COUNT(vertexDecl), vSrc, vSize, &inputLayout);
+            ret = device->CreateInputLayout(vertexDecl, COUNT(vertexDecl), vSrc, vSize, &IL);
             ASSERT(ret == S_OK);
 
             rebind = true;
@@ -229,6 +229,8 @@ namespace GAPI {
         }
 
         void deinit() {
+            SAFE_RELEASE(CB);
+            SAFE_RELEASE(IL);
             SAFE_RELEASE(VS);
             SAFE_RELEASE(PS);
         }
@@ -243,7 +245,7 @@ namespace GAPI {
 
         void validate() {
             if (rebind) {
-                deviceContext->IASetInputLayout(inputLayout);
+                deviceContext->IASetInputLayout(IL);
                 deviceContext->VSSetShader(VS, NULL, 0);
                 deviceContext->PSSetShader(PS, NULL, 0);
                 rebind = false;

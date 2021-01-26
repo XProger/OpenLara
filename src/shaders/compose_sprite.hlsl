@@ -73,8 +73,6 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 
 	color *= In.diffuse;
 
-	float3 normal   = normalize(In.normal.xyz);
-
 	float3 light = In.light.xyz;
 
 	color.xyz *= light;

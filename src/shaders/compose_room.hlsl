@@ -52,22 +52,22 @@ VS_OUTPUT main(VS_INPUT In) {
 		Out.normal.w = saturate(1.0 / exp(length(viewVec.xyz)));
 	#endif
 
-	if (OPT_SHADOW) {
+	#ifdef OPT_SHADOW
 		Out.light    = light;
 		Out.lightMap = In.aLight.rgb * light.x;
-	} else {
+	#else
 		Out.light.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 		Out.light.w = 0.0;
 		Out.light.xyz += In.aLight.rgb * light.x;
 		Out.lightMap  = 0.0;
-	}
+	#endif
 
 	Out.diffuse = float4(In.aColor.rgb * (uMaterial.x * 1.8), 1.0);
 
 	Out.diffuse *= uMaterial.w;
 
 	Out.pos = mul(uViewProj, float4(Out.coord, 1.0));
-	Out.lightProj = calcLightProj(Out.coord, normalize(uLightPos[0].xyz - Out.coord), Out.normal.xyz);
+	Out.lightProj = calcLightProj(Out.coord);
 
 	return Out;
 }
@@ -83,25 +83,27 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 
 	color *= In.diffuse;
 
-	float3 lightVec = (uLightPos[0].xyz - In.coord) * uLightColor[0].w;
-	float3 normal   = normalize(In.normal.xyz);
-
 	float3 light;
-	if (OPT_SHADOW) {
+	#ifdef OPT_SHADOW
+		float3 lightVec = (uLightPos[0].xyz - In.coord) * uLightColor[0].w;
 		light = uLightColor[1].xyz * In.light.y + uLightColor[2].xyz * In.light.z + uLightColor[3].xyz * In.light.w;
-		float rShadow = getShadow(lightVec, normal, In.lightProj);
+		float rShadow = getShadow(lightVec, In.lightProj);
 		light += lerp(In.ambient, In.lightMap, rShadow);
-	} else {
+	#else
 		light = In.light.xyz;
-	}
+	#endif
 
-	if (OPT_CAUSTICS) {
+	#if defined(OPT_CAUSTICS) || defined(OPT_CONTACT)
+		float3 normal = normalize(In.normal.xyz);
+	#endif
+
+	#ifdef OPT_CAUSTICS
 		light += calcCaustics(In.coord, normal);
-	}
+	#endif
 
-	if (OPT_CONTACT) {
+	#ifdef OPT_CONTACT
 		light *= getContactAO(In.coord, normal) * 0.5 + 0.5;
-	}
+	#endif
 
 	color.xyz *= light;
 

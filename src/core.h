@@ -1006,6 +1006,13 @@ namespace Core {
         settings.audio.reverb = false;
     #endif
 
+    #ifdef _OS_PSV
+        settings.detail.setFilter   (Core::Settings::HIGH);
+        settings.detail.setLighting (Core::Settings::LOW);
+        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setWater    (Core::Settings::MEDIUM);
+    #endif
+
     #ifdef _OS_XBOX
         settings.detail.setFilter   (Core::Settings::HIGH);
         settings.detail.setLighting (Core::Settings::LOW);

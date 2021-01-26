@@ -30,7 +30,13 @@ VS_OUTPUT main(VS_INPUT In) {
 
 #else // PIXEL
 
-float4 main(VS_OUTPUT In) : COLOR0 {
+#if defined(ALPHA_TEST) || !defined(SHADOW_DEPTH)
+	#define PS_PARAMS VS_OUTPUT In
+#else
+	#define PS_PARAMS
+#endif
+
+float4 main(PS_PARAMS) : COLOR0 {
 #ifdef ALPHA_TEST
 	clip(SAMPLE_2D_LINEAR(sDiffuse, In.texCoord.xy).a - ALPHA_REF);
 #endif

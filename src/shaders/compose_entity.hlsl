@@ -37,11 +37,11 @@ VS_OUTPUT main(VS_INPUT In) {
 	float3 lv2 = (uLightPos[2].xyz - Out.coord) * uLightColor[2].w;
 	float3 lv3 = (uLightPos[3].xyz - Out.coord) * uLightColor[3].w;
 
-	if (OPT_AMBIENT) {
+	#ifdef OPT_AMBIENT
 		Out.ambient = calcAmbient(Out.normal.xyz);
-	} else {
+	#else
 		Out.ambient = min(uMaterial.yyy, In.aLight.xyz);
-	}
+	#endif
 
 	float4 lum, att, light;
 	lum.x = dot(Out.normal.xyz, normalize(lv0)); att.x = dot(lv0, lv0);	
@@ -57,21 +57,21 @@ VS_OUTPUT main(VS_INPUT In) {
 		Out.normal.w = saturate(1.0 / exp(length(Out.viewVec.xyz)));
 	#endif
 
-	if (OPT_SHADOW) {
+	#ifdef OPT_SHADOW
 		Out.light = light;
-	} else {
+	#else
 		Out.light.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 		Out.light.w = 0.0;
 
 		Out.light.xyz += Out.ambient + uLightColor[0].xyz * light.x;
-	}
+	#endif
 
 	Out.diffuse = float4(In.aColor.xyz * (uMaterial.x * 1.8), 1.0);
 
 	Out.diffuse *= uMaterial.w;
 
 	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
-	Out.lightProj = calcLightProj(Out.coord, normalize(uLightPos[0].xyz - Out.coord), Out.normal.xyz);
+	Out.lightProj = calcLightProj(Out.coord);
 
 	return Out;
 }
@@ -93,18 +93,18 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 	float rSpecular = 0.0;
 
 	float3 light;
-	if (OPT_SHADOW) {
+	#ifdef OPT_SHADOW
 		light = uLightColor[1].xyz * In.light.y + uLightColor[2].xyz * In.light.z + uLightColor[3].xyz * In.light.w;
-		float rShadow = getShadow(lightVec, normal, In.lightProj);
+		float rShadow = getShadow(lightVec, In.lightProj);
 		rSpecular = (uMaterial.z + 0.03) * rShadow;
 		light += In.ambient + uLightColor[0].xyz * (In.light.x * rShadow);
-	} else {
+	#else
 		light = In.light.xyz;
-	}
+	#endif
 
-	if (OPT_CAUSTICS) {
+	#ifdef OPT_CAUSTICS
 		light += calcCaustics(In.coord, normal);
-	}
+	#endif
 
 	color.xyz *= light;
 
