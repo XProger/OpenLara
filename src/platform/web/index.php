@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 		<head>
 			<title>OpenLara</title>
 			<link href="/projects/OpenLara/favicon.ico" rel="shortcut icon" type="image/x-icon" />
@@ -10,7 +10,6 @@
 			body {
 				margin: 0px;
 				font-size: 1.0em;
-				overflow: hidden;
 			}
 			.game_fs {
 				position: fixed;
