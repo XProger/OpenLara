@@ -1,7 +1,7 @@
 #ifndef H_LANG_FR
 #define H_LANG_FR
 
-// Thanks: Zellphie
+// Thanks: Zellphie, Laripette
 
 const char *STR_FR[] = { ""
 // help
