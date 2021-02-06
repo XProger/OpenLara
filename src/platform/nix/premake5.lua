@@ -21,4 +21,4 @@ project "OpenLara"
 
    filter "configurations:Release"
       defines { "NDEBUG" }
-      optimize "Speed"
+      optimize "Size"
