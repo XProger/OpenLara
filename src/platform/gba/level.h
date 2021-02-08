@@ -272,10 +272,13 @@ void drawMesh(int16 meshIndex) {
 
     int32 startVertex = gVerticesCount;
 
+    profile_start();
     for (uint16 i = 0; i < vCount; i++) {
         transform(*vertices++, 4096);
     }
+    dbg_transform += profile_stop();
 
+    profile_start();
     for (int i = 0; i < rCount; i++) {
         faceAddQuad(rFaces[i].flags, rFaces[i].indices, startVertex);
     }
@@ -291,6 +294,7 @@ void drawMesh(int16 meshIndex) {
     for (int i = 0; i < ctCount; i++) {
         faceAddTriangle(ctFaces[i].flags | FACE_COLORED, ctFaces[i].indices, startVertex);
     }
+    dbg_poly += profile_stop();
 }
 
 void drawModel(int32 modelIndex) {
@@ -357,14 +361,17 @@ void drawRoom(int16 roomIndex) {
     matrixPush();
     matrixTranslateAbs(vec3i(room.x, 0, room.z));
 
+    profile_start();
     const Room::Vertex* vertex = room.vertices;
     for (uint16 i = 0; i < room.vCount; i++) {
         transform(vertex->pos, vertex->lighting);
         vertex++;
     }
+    dbg_transform += profile_stop();
 
     matrixPop();
 
+    profile_start();
     const Quad* quads = room.quads;
     for (uint16 i = 0; i < room.qCount; i++) {
         faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
@@ -378,17 +385,20 @@ void drawRoom(int16 roomIndex) {
     if (roomIndex == entityLara) { // TODO draw all entities in the room
         drawEntity(entityLara);
     }
+    dbg_poly += profile_stop();
 
     room.reset();
 
+    profile_start();
     flush();
+    dbg_flush += profile_stop();
 }
 
 const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
     RoomDesc &room = rooms[roomIndex];
 
-    int32 sx = clamp((x - room.x) >> 10, 0, room.xSectors);
-    int32 sz = clamp((z - room.z) >> 10, 0, room.zSectors);
+    int32 sx = clamp((x - room.x) >> 10, 0, room.xSectors - 1);
+    int32 sz = clamp((z - room.z) >> 10, 0, room.zSectors - 1);
 
     return room.sectors + sx * room.zSectors + sz;
 }
@@ -555,6 +565,10 @@ void getVisibleRooms(int32 roomIndex) {
 }
 
 void drawRooms() {
+    dbg_transform = 0;
+    dbg_poly = 0;
+    dbg_flush = 0;
+
     rooms[camera.room].clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
     visRoomsCount = 0;
     visRooms[visRoomsCount++] = camera.room;

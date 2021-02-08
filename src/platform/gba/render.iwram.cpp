@@ -22,6 +22,7 @@ uint16 divTable[DIV_TABLE_SIZE];
 uint8 lightmap[256 * 32];
 
 const uint8* tiles[15];
+const uint8* tile;
 
 const Texture* textures;
 
@@ -328,24 +329,8 @@ void transform(const vec3s &v, int32 vg) {
 
     z >>= FOV_SHIFT;
 
-#if 0
-    x >>= (10 + SCALE);
-    y >>= (10 + SCALE);
-    z >>= (10 + SCALE);
-
-    #if defined(_WIN32)
-        if (abs(z) >= DIV_TABLE_SIZE) {
-            DebugBreak();
-        }
-    #endif
-
-    uint32 iz = FixedInvS(z);
-    x = (x * iz) >> 16;
-    y = (y * iz) >> 16;
-#else
     x = (x / z);
     y = (y / z);
-#endif
 
     //x = clamp(x, -0x7FFF, 0x7FFF);
     //y = clamp(y, -0x7FFF, 0x7FFF);
@@ -495,6 +480,28 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
 #define FETCH_T()               tile[(t & 0xFF00) | (t >> 24)]
 #define FETCH_T_MIP()           tile[(t & 0xFF00) | (t >> 24) & mipMask]
 #define FETCH_GT()              lightmap[(g & 0x1F00) | FETCH_T()]
+
+#define FETCH_T2(t)             tile[(t & 0xFF00) | (t >> 24)]
+
+INLINE uint32 FETCH_GT2(uint32 &g, uint32 &t, uint32 dgdx, uint32 dtdx) {
+#if 0
+    uint32 light = g & 0x1F00;
+    uint32 p = lightmap[light | FETCH_T()];
+    t += dtdx;
+    p |= lightmap[light | FETCH_T()] << 8;
+    t += dtdx;
+    g += dgdx;
+    return p;
+#else
+    uint32 p = FETCH_GT();
+    t += dtdx;
+    p |= FETCH_GT() << 8;
+    t += dtdx;
+    g += dgdx;
+    return p;
+#endif
+}
+
 #define FETCH_G(palIndex)       lightmap[(g & 0x1F00) | palIndex]
 #define FETCH_GT_PAL()          palette[FETCH_GT()]
 #define FETCH_G_PAL(palIndex)   palette[FETCH_G(palIndex)]
@@ -578,7 +585,7 @@ struct Edge {
     void build(VertexUV *vertices, int32 count, int32 t, int32 b, int32 incr) {
         vert[index = 0] = vertices + b;
 
-        for (int i = 1; i < count; i++) {
+        for (int32 i = 1; i < count; i++) {
             b = (b + incr) % count;
 
             VertexUV* v = vertices + b;
@@ -594,7 +601,7 @@ struct Edge {
     }
 };
 
-INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
+INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
     #if defined(USE_MODE_5)
         uint16* pixel = buffer + x1;
 
@@ -725,7 +732,7 @@ INLINE void scanlineG(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uin
     #endif
 }
 
-INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
+INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
     #if defined(USE_MODE_5)
         uint16* pixel = buffer + x1;
 
@@ -760,62 +767,56 @@ INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, ui
         }
 
     #elif defined(USE_MODE_4)
+        uint8* pixel = (uint8*)buffer + x1;
 
+        // align to 2
         if (x1 & 1)
         {
-            uint16 &p = *(uint16*)((uint8*)buffer + x1 - 1);
-            p = (p & 0x00FF) | (FETCH_GT() << 8);
+            pixel--;
+            *(uint16*)pixel = *pixel | (FETCH_GT() << 8);
+            pixel += 2;
             t += dtdx;
             g += dgdx;
             x1++;
         }
 
         int32 width = (x2 - x1) >> 1;
-        uint16* pixel = (uint16*)((uint8*)buffer + x1);
 
         dgdx <<= 1;
 
+        // align to 4
         if (width && (x1 & 3))
         {
-            uint16 p = FETCH_GT();
-            t += dtdx;
-            *pixel++ = p | (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
+            *(uint16*)pixel = FETCH_GT2(g, t, dgdx, dtdx);
+            pixel += 2;
             width--;
         }
 
-        while (width-- > 0)
+        // fast line
+        if (width > 0)
         {
-            uint32 p = FETCH_GT();
-            t += dtdx;
-            p |= (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
-            if (width-- > 0)
+            while (width)
             {
-                p |= (FETCH_GT() << 16);
-                t += dtdx;
-                p |= (FETCH_GT() << 24);
-                t += dtdx;
-
-                g += dgdx;
-
-                *(uint32*)pixel = p;
-                pixel += 2;
-            } else {
+                uint32 p = FETCH_GT2(g, t, dgdx, dtdx);
+                if (width > 1) {
+                    // write 4 px
+                    p |= (FETCH_GT2(g, t, dgdx, dtdx) << 16);
+                    *(uint32*)pixel = p;
+                    pixel += 4;
+                    width -= 2;
+                    continue;
+                }
+                // write 2 px, end of fast line
                 *(uint16*)pixel = p;
-                pixel += 1;
+                pixel += 2;
+                width -= 1;
             }
         }
 
+        // write 1 px, end of scanline
         if (x2 & 1)
         {
-            *pixel = (*pixel & 0xFF00) | FETCH_GT();
+            *(uint16*)pixel = (*(uint16*)pixel & 0xFF00) | FETCH_GT();
         }
     #else
         if (x1 & 1)
@@ -876,7 +877,7 @@ INLINE void scanlineGT(const uint8 *tile, uint16* buffer, int32 x1, int32 x2, ui
     #endif
 }
 
-void rasterizeG(const uint8 *tile, int16 y, int32 palIndex, Edge &L, Edge &R) {
+void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -912,7 +913,7 @@ void rasterizeG(const uint8 *tile, int16 y, int32 palIndex, Edge &L, Edge &R) {
 
                 uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
-                scanlineG(tile, buffer, x1, x2, palIndex, L.g >> 8, dgdx);
+                scanlineG(buffer, x1, x2, palIndex, L.g >> 8, dgdx);
             }
 
             buffer += WIDTH / PIXEL_SIZE;
@@ -923,7 +924,7 @@ void rasterizeG(const uint8 *tile, int16 y, int32 palIndex, Edge &L, Edge &R) {
     }
 }
 
-void rasterizeGT(const uint8 *tile, int16 y, Edge &L, Edge &R) {
+void rasterizeGT(int16 y, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
@@ -963,7 +964,7 @@ void rasterizeGT(const uint8 *tile, int16 y, Edge &L, Edge &R) {
                 uint32 v = d * ((R.t & 0xFFFF) - (L.t & 0xFFFF));
                 uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
 
-                scanlineGT(tile, buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
+                scanlineGT(buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
             };
 
             buffer += WIDTH / PIXEL_SIZE;
@@ -974,7 +975,7 @@ void rasterizeGT(const uint8 *tile, int16 y, Edge &L, Edge &R) {
     }
 }
 
-void drawTriangle(const uint8* tile, const Face* face, VertexUV *v) {
+void drawTriangle(const Face* face, VertexUV *v) {
     VertexUV *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2;
@@ -1013,13 +1014,13 @@ void drawTriangle(const uint8* tile, const Face* face, VertexUV *v) {
     }
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(tile, v1->v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(tile, v1->v.y, L, R);
+        rasterizeGT(v1->v.y, L, R);
     }
 }
 
-void drawQuad(const uint8* tile, const Face* face, VertexUV *v) {
+void drawQuad(const Face* face, VertexUV *v) {
     VertexUV *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2,
@@ -1031,7 +1032,7 @@ void drawQuad(const uint8* tile, const Face* face, VertexUV *v) {
 
     VertexUV* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
 
-    for (int i = 0; i < 4; i++) {
+    for (int32 i = 0; i < 4; i++) {
         VertexUV *v = poly[i];
 
         if (v->v.y < minY) {
@@ -1063,13 +1064,13 @@ void drawQuad(const uint8* tile, const Face* face, VertexUV *v) {
     } while (poly[b] != v1);
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(tile, v1->v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(tile, v1->v.y, L, R);
+        rasterizeGT(v1->v.y, L, R);
     }
 }
 
-void drawPoly(const uint8* tile, Face* face, VertexUV* v) {
+void drawPoly(Face* face, VertexUV* v) {
     VertexUV tmp[16];
 
     int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
@@ -1085,9 +1086,9 @@ void drawPoly(const uint8* tile, Face* face, VertexUV* v) {
         face->indices[3] = 3;
 
         if (count == 3) {
-            drawTriangle(tile, face, v);
+            drawTriangle(face, v);
         } else {
-            drawQuad(tile, face, v);
+            drawQuad(face, v);
         }
         return;
     }
@@ -1096,7 +1097,7 @@ void drawPoly(const uint8* tile, Face* face, VertexUV* v) {
     int32 maxY = -0x7FFF;
     int32 t = 0, b = 0;
 
-    for (int i = 0; i < count; i++) {
+    for (int32 i = 0; i < count; i++) {
         VertexUV *p = v + i;
 
         if (p->v.y < minY) {
@@ -1116,9 +1117,9 @@ void drawPoly(const uint8* tile, Face* face, VertexUV* v) {
     R.build(v, count, t, b, count - 1);
 
     if (face->flags & FACE_COLORED) {
-        rasterizeG(tile, v[t].v.y, face->flags & FACE_TEXTURE, L, R);
+        rasterizeG(v[t].v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(tile, v[t].v.y, L, R);
+        rasterizeGT(v[t].v.y, L, R);
     }
 }
 
@@ -1144,7 +1145,7 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     while (h--)
     {
     #ifdef USE_MODE_5
-        for (int i = 0; i < w; i++) {
+        for (int32 i = 0; i < w; i++) {
             if (glyphData[i] == 0) continue;
 
             ptr[i] = palette[glyphData[i]];
@@ -1152,7 +1153,7 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     #else
         const uint8* p = glyphData;
 
-        for (int i = 0; i < (w / 2); i++) {
+        for (int32 i = 0; i < (w / 2); i++) {
 
             if (p[0] || p[1]) {
                 uint16 d = ptr[i];
@@ -1172,7 +1173,7 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     }
 }
 
-void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
+void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
 #if defined(_WIN32)
     if (gFacesCount >= MAX_FACES) {
         DebugBreak();
@@ -1210,7 +1211,7 @@ void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex) {
     f->indices[3] = indices[3] - indices[0];
 }
 
-void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex) {
+void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
 #if defined(_WIN32)
     if (gFacesCount >= MAX_FACES) {
         DebugBreak();
@@ -1274,8 +1275,6 @@ void flush() {
 
         //const uint16 mips[] = { 0xFFFF, 0xFEFE, 0xFCFC, 0xF8F8 };
 
-        const uint8* gTile = NULL;
-
         for (int32 i = 0; i < gFacesCount; i++) {
             Face *face = gFacesSorted[i];
 
@@ -1288,7 +1287,7 @@ void flush() {
 
             if (!(flags & FACE_COLORED)) {
                 const Texture &tex = textures[face->flags & FACE_TEXTURE];
-                gTile = tiles[tex.tile];
+                tile = tiles[tex.tile];
                 v[0].uv = tex.uv0;
                 v[1].uv = tex.uv1;
                 v[2].uv = tex.uv2;
@@ -1304,12 +1303,12 @@ void flush() {
             }
 
             if (flags & FACE_CLIPPED) {
-                drawPoly(gTile, face, v);
+                drawPoly(face, v);
             } else {
                 if (flags & FACE_TRIANGLE) {
-                    drawTriangle(gTile, face, v);
+                    drawTriangle(face, v);
                 } else {
-                    drawQuad(gTile, face, v);
+                    drawQuad(face, v);
                 }
             };
         }
@@ -1334,13 +1333,13 @@ void initRender() {
 }
 
 void dmaClear(uint32 *dst, uint32 count) {
-#if defined(_WIN32) || defined(__TNS__)
-    memset(dst, 0, count * 4);
-#elif defined(__GBA__)
+#ifdef __GBA__
     vu32 value = 0;
     REG_DMA3SAD	= (vu32)&value;
     REG_DMA3DAD	= (vu32)dst;
     REG_DMA3CNT	= count | (DMA_ENABLE | DMA32 | DMA_SRC_FIXED | DMA_DST_INC);
+#else
+    memset(dst, 0, count * 4);
 #endif
 }
 

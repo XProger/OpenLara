@@ -1,5 +1,3 @@
-//#define PROFILE
-
 #include "common.h"
 #include "level.h"
 #include "camera.h"
@@ -10,6 +8,8 @@
     uint32 SCREEN[WIDTH * HEIGHT];
 
     extern uint8 fb[WIDTH * HEIGHT * 2];
+
+    LARGE_INTEGER g_timer;
 
     #define WND_SCALE 4
 #elif defined(__GBA__)
@@ -83,13 +83,16 @@ int32 fps;
 int32 frameIndex = 0;
 int32 fpsCounter = 0;
 
+uint16 dbg_transform;
+uint16 dbg_poly;
+uint16 dbg_flush;
+
 void update(int32 frames) {
     for (int32 i = 0; i < frames; i++) {
         camera.update();
     }
 }
 
-#if defined(_WIN32)
 extern Vertex gVertices[MAX_VERTICES];
 
 INLINE int32 classify(const Vertex* v) {
@@ -102,6 +105,9 @@ INLINE int32 classify(const Vertex* v) {
 void drawTest() {
     static Rect testClip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
     static int32 testTile = 707; // 712
+
+#ifdef _WIN32
+    Sleep(16);
 
     int dx = 0;
     int dy = 0;
@@ -126,6 +132,7 @@ void drawTest() {
         if (testTile < 0) testTile = 0;
         if (testTile >= texturesCount) testTile = texturesCount - 1;
     }
+#endif
 
     clip = testClip;
 
@@ -152,24 +159,38 @@ void drawTest() {
 
     faceAddQuad(testTile, indices, 0);
 
+#ifdef _WIN32
     for (int y = 0; y < FRAME_HEIGHT; y++) {
         for (int x = 0; x < FRAME_WIDTH; x++) {
             if (x == clip.x0 || x == clip.x1 - 1 || y == clip.y0 || y == clip.y1 - 1)
                 fb[y * FRAME_WIDTH + x] = 255;
         }
     }
+#endif
 
     flush();
-
-    Sleep(16);
 }
-#endif
 
 void render() {
     clear();
 
-    drawRooms();
-    //drawTest();
+    #ifdef PROFILE
+        #ifdef __GBA__
+            VBlankIntrWait();
+        #endif
+        
+        profile_start();
+        drawTest();
+        uint16 cycles = profile_stop();
+
+        drawNumber(cycles, FRAME_WIDTH, 32);
+    #else
+        drawRooms();
+        drawNumber(dbg_transform, FRAME_WIDTH, 32);
+        drawNumber(dbg_poly, FRAME_WIDTH, 48);
+        drawNumber(dbg_flush, FRAME_WIDTH, 64);
+        drawNumber(dbg_transform + dbg_poly + dbg_flush, FRAME_WIDTH, 80);
+    #endif
 
     drawNumber(fps, FRAME_WIDTH, 16);
 }
@@ -283,7 +304,7 @@ int main(void) {
     MSG msg;
 
     int startTime = GetTickCount();
-    int lastTime = -15;
+    int lastTime = -16;
 
     do {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -322,16 +343,8 @@ int main(void) {
 
     int32 lastFrameIndex = -1;
 
-    #ifdef PROFILE
-        int counter = 0;
-    #endif
-
     while (1) {
         //VBlankIntrWait();
-
-    #ifdef PROFILE
-        if (counter++ >= 10) return 0;
-    #endif
 
         SetMode(mode ^= BACKBUFFER);
         fb ^= 0xA000;
@@ -374,7 +387,7 @@ int main(void) {
     inputInit();
 
     int startTime = GetTickCount();
-    int lastTime = -15;
+    int lastTime = -16;
     int fpsTime = startTime;
 
     memset(keys, 0, sizeof(keys));

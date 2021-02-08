@@ -1,6 +1,8 @@
 #ifndef H_COMMON
 #define H_COMMON
 
+//#define PROFILE
+
 #if defined(_WIN32)
     #define _CRT_SECURE_NO_WARNINGS
     #include <windows.h>
@@ -27,12 +29,8 @@
 //#define DEBUG_OVERDRAW
 //#define DEBUG_FACES
 
-#if defined(_WIN32)
-    #define USE_MODE_5 1
-#elif defined(__GBA__)
-    #define USE_MODE_5 1
-    //#define USE_MODE_4 1
-#endif
+//#define USE_MODE_5 1
+#define USE_MODE_4 1
 
 #define SCALE   1
 
@@ -87,46 +85,71 @@ typedef int16              Index;
 #define DEG2RAD (PI / 180.0f)
 #define RAD2DEG (180.0f / PI)
 
+#ifdef __GBA__
+    #define ARM_CODE    __attribute__((target("arm")))
+    #define THUMB_CODE  __attribute__((target("thumb")))
+    #define IWRAM_DATA  __attribute__((section(".iwram")))
+    #define EWRAM_DATA  __attribute__((section(".ewram")))
+    #define EWRAM_BSS   __attribute__((section(".sbss")))
+    #define IWRAM_CODE  __attribute__((section(".iwram"), long_call))
+    #define EWRAM_CODE  __attribute__((section(".ewram"), long_call))
+#else
+    #define ARM_CODE
+    #define THUMB_CODE
+    #define IWRAM_DATA
+    #define EWRAM_DATA
+    #define EWRAM_BSS
+    #define IWRAM_CODE
+    #define EWRAM_CODE
+
+    #define dmaCopy(src,dst,size) memcpy(dst,src,size)
+#endif
+
 #if defined(_WIN32)
-    #define IWRAM_CODE
-    #define EWRAM_DATA
-
-    #define dmaCopy(src,dst,size) memcpy(dst,src,size)
-    #define ALIGN4
+    #define ALIGN4      __declspec(align(4))
 #elif defined(__GBA__)
-    #define ALIGN4 __attribute__ ((aligned (4)))
-
-    // TODO profiling
-    #define REG_TM2D   *(vu16*)(REG_BASE+0x0108)
-    #define REG_TM3D   *(vu16*)(REG_BASE+0x010C)
-    #define TM_ENABLE  0x800000
-    #define TM_CASCADE 0x0004
-
-    INLINE void profile_start()
-    {
-        REG_TM2D= 0;    REG_TM3D= 0;
-        REG_TM2CNT= 0;  REG_TM3CNT= 0;
-        REG_TM3CNT= TM_ENABLE | TM_CASCADE;
-        REG_TM2CNT= TM_ENABLE;
-    }
-
-    INLINE uint32 profile_stop()
-    {
-       REG_TM2CNT= 0;
-       return (REG_TM3D<<16)|REG_TM2D;
-    }
+    #define ALIGN4      __attribute__((aligned(4)))
 #elif defined(__TNS__)
-    #define IWRAM_CODE
-    #define EWRAM_DATA
+    #define ALIGN4      __attribute__((aligned(4)))
+#endif
 
-    #define dmaCopy(src,dst,size) memcpy(dst,src,size)
+#if defined(_WIN32)
+    extern LARGE_INTEGER g_timer;
 
-    #define ALIGN4 __attribute__ ((aligned (4)))
+    INLINE void profile_start() {
+        QueryPerformanceCounter(&g_timer);
+    }
 
-    void SetPalette(unsigned short* palette);
+    INLINE uint32 profile_stop() {
+        LARGE_INTEGER current;
+        QueryPerformanceCounter(&current);
+        return (current.QuadPart - g_timer.QuadPart);
+    }
+#elif defined(__GBA__)
+    #ifdef PROFILE
+        #define TIMER_FREQ_DIV 1
+    #else
+        #define TIMER_FREQ_DIV 3
+    #endif
 
+    INLINE void profile_start() {
+        REG_TM0CNT_L = 0;
+        REG_TM0CNT_H = (1 << 7) | TIMER_FREQ_DIV; // enable | 1024 divisor
+    }
+
+    INLINE uint32 profile_stop() {
+        vu16 cycles = REG_TM0CNT_L;
+        REG_TM0CNT_H = 0;
+        return cycles;
+    }
+#else
     INLINE void profile_start() {}
+
     INLINE uint32 profile_stop() { return 0; }
+#endif
+
+#ifdef __TNS__
+    void SetPalette(unsigned short* palette);
 #endif
 
 enum InputKey {
@@ -324,6 +347,10 @@ struct Face {
     int8   indices[4];
 };
 
+extern uint16 dbg_transform;
+extern uint16 dbg_poly;
+extern uint16 dbg_flush;
+
 #define FIXED_SHIFT     14
 
 #define MAX_MATRICES    8
@@ -331,11 +358,11 @@ struct Face {
 #define MAX_ENTITY      190
 #define MAX_VERTICES    1024
 #define MAX_FACES       512
-#define FOG_SHIFT       2
+#define FOG_SHIFT       1
 #define FOG_MAX         (10 * 1024)
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
 #define VIEW_MIN_F      (32 << FIXED_SHIFT)
-#define VIEW_MAX_F      (FOG_MAX << FIXED_SHIFT)
+#define VIEW_MAX_F      ((FOG_MAX - 1024) << FIXED_SHIFT)
 
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
@@ -365,8 +392,8 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y);
 
 void clear();
 void transform(const vec3s &v, int32 vg);
-void faceAddTriangle(uint16 flags, const Index* indices, int32 startVertex);
-void faceAddQuad(uint16 flags, const Index* indices, int32 startVertex);
+void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex);
+void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex);
 void flush();
 void initRender();
 
