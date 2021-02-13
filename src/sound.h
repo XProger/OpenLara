@@ -532,7 +532,9 @@ namespace Sound {
                 res += length;
 
                 if (bufferSize -= length) { // if data remained in buffer, move it to the beginning
-                    memcpy(buffer, &buffer[sizeof(buffer) / sizeof(Frame) - bufferSize], bufferSize * sizeof(Frame));
+                    for (int i = 0; i < bufferSize; i++) {
+                        buffer[i] = buffer[sizeof(buffer) / sizeof(Frame) - bufferSize + i];
+                    }
                     break;
                 }
             }
