@@ -1,7 +1,7 @@
 #ifndef H_LANG_CZ
 #define H_LANG_CZ
 
-// Thanks: bax-cz
+// Thanks: bax-cz, Hansy995
 
 const char *STR_CZ[] = { ""
 // help
