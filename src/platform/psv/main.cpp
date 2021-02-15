@@ -1,19 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "debugScreen.h"
-
-#include <psp2/rtc.h>
-#include <psp2/ctrl.h>
-#include <psp2/audioout.h>
-#include <psp2/kernel/sysmem.h>
-#include <psp2/kernel/threadmgr.h>
-#include <psp2/power.h>
-#include <psp2/touch.h>
-#include <psp2/apputil.h>
-#include <psp2/system_param.h>
-#include <malloc.h>
+#include <vitasdk.h>
 
 #include "game.h"
 
@@ -249,6 +240,8 @@ int main()
     strcpy(cacheDir,    "ux0:data/OpenLara/");
     strcpy(saveDir,     "ux0:data/OpenLara/");
     strcpy(contentDir,  "ux0:data/OpenLara/");
+
+    Stream::init();
 
     Core::defLang = checkLanguage();
 

@@ -1938,7 +1938,7 @@ public:
         if (f) fclose(f);
     }
 
-#ifdef _OS_3DS
+#if _OS_3DS
     static void readDirectory(const FS_Archive &archive, const char* path) {
         char buf[255];
         strcpy(buf, contentDir + 5); // 5 to skip "sdmc:"
@@ -1989,6 +1989,36 @@ public:
         readDirectory(sdmc, "");
 
         FSUSER_CloseArchive(sdmc);
+    }
+#elif _OS_PSV
+    static void readDirectory(char* path) {
+        SceUID dd = sceIoDopen(path);
+
+        size_t len = strlen(path);
+
+        SceIoDirent entry;
+        while (sceIoDread(dd, &entry) > 0)
+        {
+            strcat(path, entry.d_name);
+
+            if (SCE_S_ISDIR(entry.d_stat.st_mode))
+            {
+                strcat(path, "/");
+                readDirectory(path);
+            } else {
+                fileList.push(StrUtils::copy(path + strlen(contentDir)));
+            }
+
+            path[len] = 0;
+        }
+
+        sceIoClose(dd);
+    }
+
+    static void readFileList() {
+        char path[255];
+        strcpy(path, contentDir);
+        readDirectory(path);
     }
 #else
     static void readFileList() {};
