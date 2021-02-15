@@ -175,7 +175,30 @@ void sndFree() {
     linearFree((uint32*)sndBuffer);
 }
 
+int checkLanguage()
+{
+    uint8 id;
+    CFGU_GetSystemLanguage(&id);
+
+    int str = STR_LANG_EN;
+    switch (id)
+    {
+        case CFG_LANGUAGE_EN : str = STR_LANG_EN; break;
+        case CFG_LANGUAGE_FR : str = STR_LANG_FR; break;
+        case CFG_LANGUAGE_DE : str = STR_LANG_DE; break;
+        case CFG_LANGUAGE_ES : str = STR_LANG_ES; break;
+        case CFG_LANGUAGE_IT : str = STR_LANG_IT; break;
+        case CFG_LANGUAGE_PT : str = STR_LANG_PT; break;
+        case CFG_LANGUAGE_RU : str = STR_LANG_RU; break;
+        case CFG_LANGUAGE_JP : str = STR_LANG_JA; break;
+        case CFG_LANGUAGE_ZH : str = STR_LANG_CN; break;
+    }
+    return str - STR_LANG_EN;
+}
+
 int main() {
+    cfguInit();
+    
     setBottomScreen(false);
 
     {
@@ -191,6 +214,8 @@ int main() {
     strcpy(contentDir, "sdmc:/3ds/OpenLara/");
 
     Stream::init();
+    
+    Core::defLang = checkLanguage();
 
     sndInit();
     inputInit();

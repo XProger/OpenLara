@@ -511,6 +511,11 @@ namespace GAPI {
                 ret = C3D_TexInitWithParams(&tex, &texCube, params);
             }
 
+            if (width != origWidth || height != origHeight) {
+                uint32 texSize = C3D_TexCalcTotalSize(tex.size, tex.maxLevel);
+                memset(tex.data, 0, texSize);
+            }
+
             ASSERT(ret);
 
             mmLogVRAM();
