@@ -17,8 +17,8 @@ set(VITA_APP_NAME "OpenLara")
 set(VITA_TITLEID  "OPENLARA1")
 set(VITA_VERSION  "01.00")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O3 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -std=c++11")
 set(VITA_MKSFOEX_FLAGS "${VITA_MKSFOEX_FLAGS} -d PARENTAL_LEVEL=1")
 
 include_directories(
@@ -44,6 +44,7 @@ target_link_libraries(OpenLara
   SceCtrl_stub
   SceAudio_stub 
   SceTouch_stub
+  SceAppUtil_stub
 )
 
 

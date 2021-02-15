@@ -11,27 +11,39 @@
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/power.h>
 #include <psp2/touch.h>
+#include <psp2/apputil.h>
+#include <psp2/system_param.h>
 #include <malloc.h>
 
 #include "game.h"
 
 
 // multi-threading
-void* osMutexInit() {
-    SceUID *mutex = new SceUID();
-    *mutex = sceKernelCreateMutex(NULL, 0, 0, NULL);
+void* osMutexInit()
+{
+    SceUID mutex = sceKernelCreateMutex(NULL, SCE_KERNEL_MUTEX_ATTR_RECURSIVE, 0, NULL);
+    if (mutex < 0)
+    {
+        return NULL;
+    }
+    SceUID* obj = new SceUID();
+    *obj = mutex;
+    return obj;
 }
 
-void osMutexFree(void *obj) {
+void osMutexFree(void *obj)
+{
     sceKernelDeleteMutex(*(SceUID*)obj);
     delete (SceUID*)obj;
 }
 
-void osMutexLock(void *obj) {
+void osMutexLock(void *obj)
+{
     sceKernelLockMutex(*(SceUID*)obj, 1, NULL);
 }
 
-void osMutexUnlock(void *obj) {
+void osMutexUnlock(void *obj)
+{
     sceKernelUnlockMutex(*(SceUID*)obj, 1);
 }
 
@@ -39,28 +51,33 @@ void osMutexUnlock(void *obj) {
 int osStartTime = 0;
 int osTimerFreq;
 
-int osGetTimeMS() {
+int osGetTimeMS()
+{
     SceRtcTick current;
     sceRtcGetCurrentTick(&current);
     return int(current.tick * 1000 / osTimerFreq - osStartTime);
 }
 
 // input
-bool osJoyReady(int index) {
+bool osJoyReady(int index)
+{
     return index == 0;
 }
 
-void osJoyVibrate(int index, float L, float R) {
+void osJoyVibrate(int index, float L, float R)
+{
     //
 }
 
-void inputInit() {
+void inputInit()
+{
     sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
     sceTouchEnableTouchForce(SCE_TOUCH_PORT_FRONT);
 }
 
-void inputUpdate() {
+void inputUpdate()
+{
 // gamepad
     SceCtrlData pad;
     sceCtrlReadBufferPositive(0, &pad, 1);
@@ -91,9 +108,12 @@ void inputUpdate() {
 
     bool touchState[COUNT(Input::touch)];
     for (int i = 0; i < COUNT(Input::touch); i++)
+    {
         touchState[i] = Input::down[ikTouchA + i];
+    }
 
-    for (int i = 0; i < touch.reportNum; i++) {
+    for (int i = 0; i < touch.reportNum; i++)
+    {
         SceTouchReport &t = touch.report[i];
 
         InputKey key = Input::getTouch(t.id);
@@ -106,8 +126,12 @@ void inputUpdate() {
     }
 
     for (int i = 0; i < COUNT(Input::touch); i++)
+    {
         if (touchState[i])
+        {
             Input::setDown(InputKey(ikTouchA + i), false);
+        }
+    }
 }
 
 bool sndTerm;
@@ -119,8 +143,10 @@ Sound::Frame *sndBuffer;
 
 #define SND_FRAMES 2048
 
-int sndPrepThread(SceSize args, void *argp) {
-    while (!sndTerm) {
+int sndPrepThread(SceSize args, void *argp)
+{
+    while (!sndTerm)
+    {
         sceKernelWaitSema(sndSema, 1, NULL);
         sndPartIndex ^= 1;
         Sound::Frame *part = sndBuffer + SND_FRAMES * sndPartIndex;
@@ -129,8 +155,10 @@ int sndPrepThread(SceSize args, void *argp) {
     return 0;
 }
 
-int sndOutThread(SceSize args, void *argp) {
-    while (!sndTerm) {
+int sndOutThread(SceSize args, void *argp)
+{
+    while (!sndTerm)
+    {
         Sound::Frame *part = sndBuffer + SND_FRAMES * sndPartIndex;
         sceKernelSignalSema(sndSema, 1);
         sceAudioOutOutput(sndPort, part);
@@ -138,7 +166,8 @@ int sndOutThread(SceSize args, void *argp) {
     return 0;
 }
 
-void sndInit() {
+void sndInit()
+{
     sndTerm = false;
     sndPartIndex = 0;
 
@@ -158,7 +187,8 @@ void sndInit() {
     sceKernelStartThread(sndOutTID,  0, NULL);
 }
 
-void sndFree() {
+void sndFree()
+{
     sndTerm = true;
 
     sceKernelSignalSema(sndSema, 1);
@@ -173,8 +203,35 @@ void sndFree() {
     free(sndBuffer);
 }
 
+int checkLanguage()
+{
+    int id;
+    sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, &id);
+    
+    int str = STR_LANG_EN;
+    switch (id)
+    {
+        case SCE_SYSTEM_PARAM_LANG_ENGLISH_US    :
+        case SCE_SYSTEM_PARAM_LANG_ENGLISH_GB    : str = STR_LANG_EN; break;
+        case SCE_SYSTEM_PARAM_LANG_FRENCH        : str = STR_LANG_FR; break;
+        case SCE_SYSTEM_PARAM_LANG_GERMAN        : str = STR_LANG_DE; break;
+        case SCE_SYSTEM_PARAM_LANG_SPANISH       : str = STR_LANG_ES; break;
+        case SCE_SYSTEM_PARAM_LANG_ITALIAN       : str = STR_LANG_IT; break;
+        case SCE_SYSTEM_PARAM_LANG_POLISH        : str = STR_LANG_PL; break;
+        case SCE_SYSTEM_PARAM_LANG_PORTUGUESE_PT :
+        case SCE_SYSTEM_PARAM_LANG_PORTUGUESE_BR : str = STR_LANG_PT; break;
+        case SCE_SYSTEM_PARAM_LANG_RUSSIAN       : str = STR_LANG_RU; break;
+        case SCE_SYSTEM_PARAM_LANG_JAPANESE      : str = STR_LANG_JA; break;
+        case SCE_SYSTEM_PARAM_LANG_FINNISH       : str = STR_LANG_FI; break;
+        case SCE_SYSTEM_PARAM_LANG_CHINESE_T     :
+        case SCE_SYSTEM_PARAM_LANG_CHINESE_S     : str = STR_LANG_CN; break;
+        case SCE_SYSTEM_PARAM_LANG_SWEDISH       : str = STR_LANG_SV; break;
+    }
+    return str - STR_LANG_EN;
+}
 
-int main() {
+int main()
+{
     psvDebugScreenInit();
 
     scePowerSetArmClockFrequency(444);
@@ -182,25 +239,34 @@ int main() {
     scePowerSetGpuClockFrequency(222);
     scePowerSetGpuXbarClockFrequency(166);
 
+    {
+        SceAppUtilInitParam initParam = {};
+        SceAppUtilBootParam bootParam = {};
+        sceAppUtilInit(&initParam, &bootParam);
+    }
+
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
     strcpy(cacheDir,    "ux0:data/OpenLara/");
     strcpy(saveDir,     "ux0:data/OpenLara/");
     strcpy(contentDir,  "ux0:data/OpenLara/");
 
+    Core::defLang = checkLanguage();
+
     sndInit();
     inputInit();
 
     osTimerFreq = sceRtcGetTickResolution();
-    osStartTime = Core::getTime();
+    osStartTime = osGetTimeMS();
 
-    Game::init();//"PSXDATA/LEVEL2.PSX");
-//    sceRazorGpuCaptureSetTrigger(100, "ux0:data/OpenLara/capture.sgx");
+    Game::init();
 
     while (!Core::isQuit) {
         inputUpdate();
 
         if (Input::joy[0].down[jkStart])
+        {
             Core::quit();
+        }
 
         Game::update();
         Game::render();
