@@ -1,6 +1,7 @@
 #ifndef H_COMMON
 #define H_COMMON
 
+//#define TEST
 //#define PROFILE
 
 #if defined(_WIN32)
@@ -65,9 +66,11 @@
 #endif
 
 #if defined(_WIN32)
-    #define INLINE inline
+    #define INLINE    inline
+    #define NOINLINE  __declspec(noinline)
 #elif defined(__GBA__) || defined(__TNS__)
-    #define INLINE __attribute__((always_inline)) inline
+    #define INLINE    __attribute__((always_inline)) inline
+    #define NOINLINE  __attribute__((noinline))
 #endif
 
 typedef signed char        int8;
@@ -113,39 +116,46 @@ typedef int16              Index;
     #define ALIGN4      __attribute__((aligned(4)))
 #endif
 
-#if defined(_WIN32)
-    extern LARGE_INTEGER g_timer;
+#ifdef PROFILE
+    #if defined(_WIN32)
 
-    INLINE void profile_start() {
-        QueryPerformanceCounter(&g_timer);
-    }
+        extern LARGE_INTEGER g_timer;
+        extern LARGE_INTEGER g_current;
 
-    INLINE uint32 profile_stop() {
-        LARGE_INTEGER current;
-        QueryPerformanceCounter(&current);
-        return (current.QuadPart - g_timer.QuadPart);
-    }
-#elif defined(__GBA__)
-    #ifdef PROFILE
-        #define TIMER_FREQ_DIV 1
+        #define PROFILE_START() {\
+            QueryPerformanceCounter(&g_timer);\
+        }
+
+        #define PROFILE_STOP(value) {\
+            QueryPerformanceCounter(&g_current);\
+            value += (g_current.QuadPart - g_timer.QuadPart);\
+        }
+
+    #elif defined(__GBA__)
+
+        #ifdef TEST
+            #define TIMER_FREQ_DIV 1
+        #else
+            #define TIMER_FREQ_DIV 3
+        #endif
+
+        #define PROFILE_START() {\
+            REG_TM0CNT_L = 0;\
+            REG_TM0CNT_H = (1 << 7) | TIMER_FREQ_DIV;\
+        }
+
+        #define PROFILE_STOP(value) {\
+            value += REG_TM0CNT_L;\
+            REG_TM0CNT_H = 0;\
+        }
+
     #else
-        #define TIMER_FREQ_DIV 3
+        #define PROFILE_START()
+        #define PROFILE_STOP(value)
     #endif
-
-    INLINE void profile_start() {
-        REG_TM0CNT_L = 0;
-        REG_TM0CNT_H = (1 << 7) | TIMER_FREQ_DIV; // enable | 1024 divisor
-    }
-
-    INLINE uint32 profile_stop() {
-        vu16 cycles = REG_TM0CNT_L;
-        REG_TM0CNT_H = 0;
-        return cycles;
-    }
 #else
-    INLINE void profile_start() {}
-
-    INLINE uint32 profile_stop() { return 0; }
+    #define PROFILE_START()
+    #define PROFILE_STOP(value)
 #endif
 
 #ifdef __TNS__
@@ -347,9 +357,14 @@ struct Face {
     int8   indices[4];
 };
 
-extern uint16 dbg_transform;
-extern uint16 dbg_poly;
-extern uint16 dbg_flush;
+#ifdef PROFILE
+    extern uint16 dbg_transform;
+    extern uint16 dbg_poly;
+    extern uint16 dbg_sort;
+    extern uint16 dbg_flush;
+    extern uint16 dbg_vert_count;
+    extern uint16 dbg_poly_count;
+#endif
 
 #define FIXED_SHIFT     14
 
@@ -391,9 +406,11 @@ void matrixSetView(const vec3i &pos, int16 rotX, int16 rotY);
 void drawGlyph(const Sprite *sprite, int32 x, int32 y);
 
 void clear();
-void transform(const vec3s &v, int32 vg);
-void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex);
-void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex);
+void transform_room(const Room::Vertex* vertices, int32 vCount);
+void transform_mesh(const vec3s* vertices, int32 vCount);
+void faceAdd_room(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex);
+void faceAdd_mesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex);
+
 void flush();
 void initRender();
 

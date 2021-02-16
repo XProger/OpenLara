@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="common.cpp" />
     <ClCompile Include="render.iwram.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

@@ -6,7 +6,7 @@
 
 // level file data -------------------
 uint32              tilesCount;
-extern const uint8* tiles[15];
+extern const uint8* tiles;
 
 #if defined(USE_MODE_5) || defined(_WIN32)
     extern uint16 palette[256];
@@ -87,9 +87,7 @@ extern Rect   clip;
 
 void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_OFF alignment bytes
     tilesCount = *((uint32*)(data + 4));
-    for (uint32 i = 0; i < tilesCount; i++) {
-        tiles[i] = data + 8 + 256 * 256 * i;
-    }
+    tiles = data + 8;
 
     #define MDL_OFF 2
     #define ENT_OFF 2
@@ -272,29 +270,13 @@ void drawMesh(int16 meshIndex) {
 
     int32 startVertex = gVerticesCount;
 
-    profile_start();
-    for (uint16 i = 0; i < vCount; i++) {
-        transform(*vertices++, 4096);
-    }
-    dbg_transform += profile_stop();
+    PROFILE_START();
+    transform_mesh(vertices, vCount);
+    PROFILE_STOP(dbg_transform);
 
-    profile_start();
-    for (int i = 0; i < rCount; i++) {
-        faceAddQuad(rFaces[i].flags, rFaces[i].indices, startVertex);
-    }
-
-    for (int i = 0; i < crCount; i++) {
-        faceAddQuad(crFaces[i].flags | FACE_COLORED, crFaces[i].indices, startVertex);
-    }
-
-    for (int i = 0; i < tCount; i++) {
-        faceAddTriangle(tFaces[i].flags, tFaces[i].indices, startVertex);
-    }
-
-    for (int i = 0; i < ctCount; i++) {
-        faceAddTriangle(ctFaces[i].flags | FACE_COLORED, ctFaces[i].indices, startVertex);
-    }
-    dbg_poly += profile_stop();
+    PROFILE_START();
+    faceAdd_mesh(rFaces, crFaces, tFaces, ctFaces, rCount, crCount, tCount, ctCount, startVertex);
+    PROFILE_STOP(dbg_poly);
 }
 
 void drawModel(int32 modelIndex) {
@@ -351,6 +333,9 @@ void drawNumber(int32 number, int32 x, int32 y) {
     }
 }
 
+extern vec3i viewPos;
+extern Vertex gVertices[MAX_VERTICES];
+
 void drawRoom(int16 roomIndex) {
     RoomDesc &room = rooms[roomIndex];
 
@@ -361,37 +346,22 @@ void drawRoom(int16 roomIndex) {
     matrixPush();
     matrixTranslateAbs(vec3i(room.x, 0, room.z));
 
-    profile_start();
-    const Room::Vertex* vertex = room.vertices;
-    for (uint16 i = 0; i < room.vCount; i++) {
-        transform(vertex->pos, vertex->lighting);
-        vertex++;
-    }
-    dbg_transform += profile_stop();
+    PROFILE_START();
+    transform_room(room.vertices, room.vCount);
+    PROFILE_STOP(dbg_transform);
 
     matrixPop();
 
-    profile_start();
-    const Quad* quads = room.quads;
-    for (uint16 i = 0; i < room.qCount; i++) {
-        faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
-    }
-
-    const Triangle* triangles = room.triangles;
-    for (uint16 i = 0; i < room.tCount; i++) {
-        faceAddTriangle(triangles[i].flags, triangles[i].indices, startVertex);
-    }
-
+    PROFILE_START();
+    faceAdd_room(room.quads, room.qCount, room.triangles, room.tCount, startVertex);
     if (roomIndex == entityLara) { // TODO draw all entities in the room
         drawEntity(entityLara);
     }
-    dbg_poly += profile_stop();
+    PROFILE_STOP(dbg_poly);
 
     room.reset();
 
-    profile_start();
     flush();
-    dbg_flush += profile_stop();
 }
 
 const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
@@ -565,10 +535,6 @@ void getVisibleRooms(int32 roomIndex) {
 }
 
 void drawRooms() {
-    dbg_transform = 0;
-    dbg_poly = 0;
-    dbg_flush = 0;
-
     rooms[camera.room].clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
     visRoomsCount = 0;
     visRooms[visRoomsCount++] = camera.room;

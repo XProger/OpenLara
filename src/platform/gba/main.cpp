@@ -10,6 +10,7 @@
     extern uint8 fb[WIDTH * HEIGHT * 2];
 
     LARGE_INTEGER g_timer;
+    LARGE_INTEGER g_current;
 
     #define WND_SCALE 4
 #elif defined(__GBA__)
@@ -83,15 +84,23 @@ int32 fps;
 int32 frameIndex = 0;
 int32 fpsCounter = 0;
 
-uint16 dbg_transform;
-uint16 dbg_poly;
-uint16 dbg_flush;
+#ifdef PROFILE
+    uint16 dbg_transform;
+    uint16 dbg_poly;
+    uint16 dbg_sort;
+    uint16 dbg_flush;
+    uint16 dbg_vert_count;
+    uint16 dbg_poly_count;
+#endif
 
 void update(int32 frames) {
     for (int32 i = 0; i < frames; i++) {
         camera.update();
     }
 }
+
+#ifdef TEST
+void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex);
 
 extern Vertex gVertices[MAX_VERTICES];
 
@@ -170,26 +179,44 @@ void drawTest() {
 
     flush();
 }
+#endif
 
 void render() {
     clear();
 
-    #ifdef PROFILE
+    #ifdef TEST
         #ifdef __GBA__
             VBlankIntrWait();
         #endif
-        
-        profile_start();
+
+        int32 cycles = 0;
+        PROFILE_START();
         drawTest();
-        uint16 cycles = profile_stop();
+        PROFILE_STOP(cycles);
 
         drawNumber(cycles, FRAME_WIDTH, 32);
     #else
+        #ifdef PROFILE
+            dbg_transform = 0;
+            dbg_poly = 0;
+            dbg_sort = 0;
+            dbg_flush = 0;
+            dbg_vert_count = 0;
+            dbg_poly_count = 0;
+        #endif
+
         drawRooms();
-        drawNumber(dbg_transform, FRAME_WIDTH, 32);
-        drawNumber(dbg_poly, FRAME_WIDTH, 48);
-        drawNumber(dbg_flush, FRAME_WIDTH, 64);
-        drawNumber(dbg_transform + dbg_poly + dbg_flush, FRAME_WIDTH, 80);
+
+        #ifdef PROFILE
+            drawNumber(dbg_transform, FRAME_WIDTH, 32);
+            drawNumber(dbg_poly, FRAME_WIDTH, 48);
+            drawNumber(dbg_sort, FRAME_WIDTH, 64);
+            drawNumber(dbg_flush, FRAME_WIDTH, 80);
+            drawNumber(dbg_transform + dbg_poly + dbg_sort + dbg_flush, FRAME_WIDTH, 96);
+            drawNumber(dbg_vert_count, FRAME_WIDTH, 120);
+            drawNumber(dbg_poly_count, FRAME_WIDTH, 136);
+        #endif
+
     #endif
 
     drawNumber(fps, FRAME_WIDTH, 16);
