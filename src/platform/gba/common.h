@@ -345,9 +345,14 @@ struct Vertex {
     uint8 g, clip;
 };
 
+union UV {
+    struct { uint16 v, u; };
+    uint32 uv;
+};
+
 struct VertexUV {
     Vertex v;
-    uint32 uv;
+    UV t;
 };
 
 struct Face {
@@ -358,12 +363,12 @@ struct Face {
 };
 
 #ifdef PROFILE
-    extern uint16 dbg_transform;
-    extern uint16 dbg_poly;
-    extern uint16 dbg_sort;
-    extern uint16 dbg_flush;
-    extern uint16 dbg_vert_count;
-    extern uint16 dbg_poly_count;
+    extern uint32 dbg_transform;
+    extern uint32 dbg_poly;
+    extern uint32 dbg_sort;
+    extern uint32 dbg_flush;
+    extern uint32 dbg_vert_count;
+    extern uint32 dbg_poly_count;
 #endif
 
 #define FIXED_SHIFT     14
@@ -382,7 +387,8 @@ struct Face {
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
 #define FACE_CLIPPED    0x2000
-#define FACE_TEXTURE    0x1FFF
+#define FACE_FLAT       0x1000
+#define FACE_TEXTURE    0x0FFF
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))

@@ -20,6 +20,7 @@ uint16 divTable[DIV_TABLE_SIZE];    // IWRAM 0.5 kb
 #endif
 
 uint8 lightmap[256 * 32]; // IWRAM 8 kb
+uint8* ft_lightmap;
 
 const uint8* tiles;
 const uint8* tile;
@@ -158,7 +159,8 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
         v->v.Y = LERP(a->v.Y, b->v.Y, t);\
         v->v.z = LERP(a->v.z, b->v.z, t);\
         v->v.g = LERP(a->v.g, b->v.g, t);\
-        v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
+        v->t.u = LERP(a->t.u, b->t.u, t);\
+        v->t.v = LERP(a->t.v, b->t.v, t);\
     }
 
 /* TODO
@@ -262,10 +264,16 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
 #define FETCH_G_PAL(palIndex)   32
 #else
 #define FETCH_T()               tile[(t & 0xFF00) | (t >> 24)]
-#define FETCH_T_MIP()           tile[(t & 0xFF00) | (t >> 24) & mipMask]
 #define FETCH_GT()              lightmap[(g & 0x1F00) | FETCH_T()]
+#define FETCH_FT()              ft_lightmap[FETCH_T()]
 
-#define FETCH_T2(t)             tile[(t & 0xFF00) | (t >> 24)]
+INLINE uint32 FETCH_FT2(uint32 &t, uint32 dtdx) {
+    uint32 p = FETCH_FT();
+    t += dtdx;
+    p |= FETCH_FT() << 8;
+    t += dtdx;
+    return p;
+}
 
 INLINE uint32 FETCH_GT2(uint32 &g, uint32 &t, uint32 dgdx, uint32 dtdx) {
 #if 0
@@ -295,7 +303,7 @@ struct Edge {
     int32  h;
     int32  x;
     int32  g;
-    uint32 t;
+    UV     t;
     int32  dx;
     int32  dg;
     uint32 dt;
@@ -303,7 +311,7 @@ struct Edge {
     int32     index;
     VertexUV* vert[8];
 
-    Edge() : h(0), dx(0), dg(0), dt(0) {}
+    Edge() : h(0) {}
 
     INLINE void stepG() {
         x += dx;
@@ -313,7 +321,12 @@ struct Edge {
     INLINE void stepGT() {
         x += dx;
         g += dg;
-        t += dt;
+        t.uv += dt;
+    }
+
+    INLINE void stepFT() {
+        x += dx;
+        t.uv += dt;
     }
 
     INLINE bool nextG() {
@@ -349,7 +362,8 @@ struct Edge {
         h = v2->v.y - v1->v.y;
         x = v1->v.x << 16;
         g = v1->v.g << 16;
-        t = (v1->uv >> 16) | (v1->uv << 16); // TODO preprocess
+        t.v = v1->t.u;
+        t.u = v1->t.v;
 
         if (h > 1) {
             uint32 d = FixedInvU(h);
@@ -357,8 +371,35 @@ struct Edge {
             dx = d * (v2->v.x - v1->v.x);
             dg = d * (v2->v.g - v1->v.g);
 
-            int32 du = d * ((v2->uv & 0xFFFF) - (v1->uv & 0xFFFF));
-            int32 dv = d * ((v2->uv >> 16) - (v1->uv >> 16));
+            int32 du = d * (v2->t.v - v1->t.v);
+            int32 dv = d * (v2->t.u - v1->t.u);
+
+            dt = (du & 0xFFFF0000) | int16(dv >> 16);
+        }
+
+        return true;
+    }
+
+    INLINE bool nextFT() {
+        if (index == 0) {
+            return false;
+        }
+
+        VertexUV* v1 = vert[index--];
+        VertexUV* v2 = vert[index];
+
+        h = v2->v.y - v1->v.y;
+        x = v1->v.x << 16;
+        t.u = v1->t.v;
+        t.v = v1->t.u;
+
+        if (h > 1) {
+            uint32 d = FixedInvU(h);
+
+            dx = d * (v2->v.x - v1->v.x);
+
+            int32 du = d * (v2->t.v - v1->t.v);
+            int32 dv = d * (v2->t.u - v1->t.u);
 
             dt = (du & 0xFFFF0000) | int16(dv >> 16);
         }
@@ -661,12 +702,155 @@ INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, u
     #endif
 }
 
+INLINE void scanlineFT(uint16* buffer, int32 x1, int32 x2, uint32 t, uint32 dtdx) {
+    #if defined(USE_MODE_5)
+        uint16* pixel = buffer + x1;
+
+        if (x1 & 1) {
+            *pixel++ = FETCH_GT_PAL();
+            t += dtdx;
+            g += dgdx;
+            x1++;
+
+            if (x1 >= x2) {
+                return;
+            }
+        }
+
+        int32 width2 = (x2 - x1) >> 1;
+
+        dgdx <<= 1;
+
+        while (width2--) {
+            uint32 p = FETCH_GT_PAL();
+            t += dtdx;
+            p |= FETCH_GT_PAL() << 16;
+            t += dtdx;
+            g += dgdx;
+
+            *(uint32*)pixel = p;
+            pixel += 2;
+        }
+
+        if (x2 & 1) {
+            *pixel++ = FETCH_GT_PAL();
+        }
+
+    #elif defined(USE_MODE_4)
+        uint8* pixel = (uint8*)buffer + x1;
+
+        // align to 2
+        if (x1 & 1)
+        {
+            pixel--;
+            *(uint16*)pixel = *pixel | (FETCH_FT() << 8);
+            pixel += 2;
+            t += dtdx;
+            x1++;
+        }
+
+        int32 width = (x2 - x1) >> 1;
+
+        // align to 4
+        if (width && (x1 & 3))
+        {
+            *(uint16*)pixel = FETCH_FT2(t, dtdx);
+            pixel += 2;
+            width--;
+        }
+
+        // fast line
+        if (width > 0)
+        {
+            while (width)
+            {
+                uint32 p = FETCH_FT2(t, dtdx);
+                if (width > 1) {
+                    // write 4 px
+                    p |= (FETCH_FT2(t, dtdx) << 16);
+                    *(uint32*)pixel = p;
+                    pixel += 4;
+                    width -= 2;
+                    continue;
+                }
+                // write 2 px, end of fast line
+                *(uint16*)pixel = p;
+                pixel += 2;
+                width -= 1;
+            }
+        }
+
+        // write 1 px, end of scanline
+        if (x2 & 1)
+        {
+            *(uint16*)pixel = (*(uint16*)pixel & 0xFF00) | FETCH_FT();
+        }
+
+    #else
+        if (x1 & 1)
+        {
+            *((uint8*)buffer + x1) = FETCH_GT();
+            t += dtdx;
+            g += dgdx;
+            x1++;
+        }
+
+        int32 width = (x2 - x1) >> 1;
+        uint16* pixel = (uint16*)((uint8*)buffer + x1);
+
+        dgdx <<= 1;
+
+        if (width && (x1 & 3))
+        {
+            uint16 p = FETCH_GT();
+            t += dtdx;
+            *pixel++ = p | (FETCH_GT() << 8);
+            t += dtdx;
+
+            g += dgdx;
+
+            width--;
+        }
+
+        while (width-- > 0)
+        {
+            uint32 p = FETCH_GT();
+            t += dtdx;
+            p |= (FETCH_GT() << 8);
+            t += dtdx;
+
+            g += dgdx;
+
+            if (width-- > 0)
+            {
+                p |= (FETCH_GT() << 16);
+                t += dtdx;
+                p |= (FETCH_GT() << 24);
+                t += dtdx;
+
+                g += dgdx;
+
+                *(uint32*)pixel = p;
+                pixel += 2;
+            } else {
+                *(uint16*)pixel = p;
+                pixel += 1;
+            }
+        }
+
+        if (x2 & 1)
+        {
+            *((uint8*)pixel) = FETCH_GT();
+        }
+    #endif
+}
+
 void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
     uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
 
     while (1)
     {
-        while (L.h <= 0)
+        while (!L.h)
         {
             if (!L.nextG())
             {
@@ -674,7 +858,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
             }
         }
 
-        while (R.h <= 0)
+        while (!R.h)
         {
             if (!R.nextG())
             {
@@ -713,7 +897,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
 
     while (1)
     {
-        while (L.h <= 0)
+        while (!L.h)
         {
             if (!L.nextGT())
             {
@@ -721,7 +905,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
             }
         }
 
-        while (R.h <= 0)
+        while (!R.h)
         {
             if (!R.nextGT())
             {
@@ -744,17 +928,68 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
 
                 uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
 
-                uint32 u = d * ((R.t >> 16) - (L.t >> 16));
-                uint32 v = d * ((R.t & 0xFFFF) - (L.t & 0xFFFF));
+                uint32 u = d * (R.t.u - L.t.u);
+                uint32 v = d * (R.t.v - L.t.v);
                 uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
 
-                scanlineGT(buffer, x1, x2, L.g >> 8, L.t, dgdx, dtdx);
+                scanlineGT(buffer, x1, x2, L.g >> 8, L.t.uv, dgdx, dtdx);
             };
 
             buffer += WIDTH / PIXEL_SIZE;
 
             L.stepGT();
             R.stepGT();
+        }
+    }
+}
+
+void rasterizeFT(int16 y, Edge &L, Edge &R) {
+    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+
+    ft_lightmap = &lightmap[(L.vert[0]->v.g << 8) & 0x1F00];
+
+    while (1)
+    {
+        while (!L.h)
+        {
+            if (!L.nextFT())
+            {
+                return;
+            }
+        }
+
+        while (!R.h)
+        {
+            if (!R.nextFT())
+            {
+                return;
+            }
+        }
+
+        int32 h = MIN(L.h, R.h);
+        L.h -= h;
+        R.h -= h;
+
+        while (h--) {
+            int32 x1 = L.x >> 16;
+            int32 x2 = R.x >> 16;
+
+            int32 width = x2 - x1;
+            if (width > 0)
+            {
+                uint32 d = FixedInvU(width);
+
+                uint32 u = d * (R.t.u - L.t.u);
+                uint32 v = d * (R.t.v - L.t.v);
+                uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
+
+                scanlineFT(buffer, x1, x2, L.t.uv, dtdx);
+            };
+
+            buffer += WIDTH / PIXEL_SIZE;
+
+            L.stepFT();
+            R.stepFT();
         }
     }
 }
@@ -800,7 +1035,11 @@ void drawTriangle(const Face* face, VertexUV *v) {
     if (face->flags & FACE_COLORED) {
         rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->v.y, L, R);
+        if (face->flags & FACE_FLAT) {
+            rasterizeFT(v1->v.y, L, R);
+        } else {
+            rasterizeGT(v1->v.y, L, R);
+        }
     }
 }
 
@@ -850,7 +1089,11 @@ void drawQuad(const Face* face, VertexUV *v) {
     if (face->flags & FACE_COLORED) {
         rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v1->v.y, L, R);
+        if (face->flags & FACE_FLAT) {
+            rasterizeFT(v1->v.y, L, R);
+        } else {
+            rasterizeGT(v1->v.y, L, R);
+        }
     }
 }
 
@@ -903,7 +1146,11 @@ void drawPoly(Face* face, VertexUV* v) {
     if (face->flags & FACE_COLORED) {
         rasterizeG(v[t].v.y, face->flags & FACE_TEXTURE, L, R);
     } else {
-        rasterizeGT(v[t].v.y, L, R);
+        if (face->flags & FACE_FLAT) {
+            rasterizeFT(v[t].v.y, L, R);
+        } else {
+            rasterizeGT(v[t].v.y, L, R);
+        }
     }
 }
 
@@ -984,6 +1231,10 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
         flags |= FACE_CLIPPED;
     }
 
+    if (v1->g == v2->g && v1->g == v3->g && v1->g == v4->g) {
+        flags |= FACE_FLAT;
+    }
+
     Face *f = gFaces + gFacesCount;
     gFacesSorted[gFacesCount++] = f;
     f->flags      = flags;
@@ -1015,10 +1266,14 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
     if (v1->clip & v2->clip & v3->clip)
         return;
 
-    int32 depth = (v1->z + v2->z + v3->z) / 3;
+    int32 depth = (v1->z + v2->z + v3->z + v3->z) >> 2; // not entirely correct but fast
 
     if (v1->clip | v2->clip | v3->clip) {
         flags |= FACE_CLIPPED;
+    }
+
+    if (v1->g == v2->g && v1->g == v3->g) {
+        flags |= FACE_FLAT;
     }
 
     Face *f = gFaces + gFacesCount;
@@ -1089,14 +1344,9 @@ void flush() {
         faceSort(gFacesSorted, 0, gFacesCount - 1);
         PROFILE_STOP(dbg_sort);
 
-        //const uint16 mips[] = { 0xFFFF, 0xFEFE, 0xFCFC, 0xF8F8 };
-
         PROFILE_START();
         for (int32 i = 0; i < gFacesCount; i++) {
             Face *face = gFacesSorted[i];
-
-            // TODO
-            //mipMask = mips[MIN(3, f.depth / 2048)];
 
             VertexUV v[16];
 
@@ -1105,10 +1355,10 @@ void flush() {
             if (!(flags & FACE_COLORED)) {
                 const Texture &tex = textures[face->flags & FACE_TEXTURE];
                 tile = tiles + (tex.tile << 16);
-                v[0].uv = tex.uv0;
-                v[1].uv = tex.uv1;
-                v[2].uv = tex.uv2;
-                v[3].uv = tex.uv3;
+                v[0].t.uv = tex.uv0;
+                v[1].t.uv = tex.uv1;
+                v[2].t.uv = tex.uv2;
+                v[3].t.uv = tex.uv3;
             }
 
             Vertex *p = gVertices + face->start;

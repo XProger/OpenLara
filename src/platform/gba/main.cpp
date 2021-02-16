@@ -85,12 +85,12 @@ int32 frameIndex = 0;
 int32 fpsCounter = 0;
 
 #ifdef PROFILE
-    uint16 dbg_transform;
-    uint16 dbg_poly;
-    uint16 dbg_sort;
-    uint16 dbg_flush;
-    uint16 dbg_vert_count;
-    uint16 dbg_poly_count;
+    uint32 dbg_transform;
+    uint32 dbg_poly;
+    uint32 dbg_sort;
+    uint32 dbg_flush;
+    uint32 dbg_vert_count;
+    uint32 dbg_poly_count;
 #endif
 
 void update(int32 frames) {
