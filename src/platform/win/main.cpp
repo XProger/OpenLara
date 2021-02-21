@@ -308,15 +308,15 @@ void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
 }
 
 // sound
-#define SND_SIZE 4704*2
+#define SND_SIZE (2352*3*2)
 
 bool sndReady;
 char *sndData;
 HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 2, 44100, 44100 * 4, 4, 16, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
-HANDLE  sndThread;
-HANDLE  sndSema;
+HANDLE sndThread;
+HANDLE sndSema;
 
 void sndFree() {
     if (!sndReady) return;
