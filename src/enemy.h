@@ -1910,7 +1910,7 @@ struct Mutant : Enemy {
     }
 
     virtual void setSaveData(const SaveEntity &data) {
-        Character::setSaveData(data);
+        Enemy::setSaveData(data);
         if (flags.invisible)
             deactivate(true);
     }
@@ -2139,7 +2139,7 @@ struct GiantMutant : Enemy {
     }
 
     virtual void setSaveData(const SaveEntity &data) {
-        Character::setSaveData(data);
+        Enemy::setSaveData(data);
         if (flags.invisible)
             deactivate(true);
     }
@@ -2226,7 +2226,7 @@ struct GiantMutant : Enemy {
                 }
                 break;
             case STATE_ATTACK_3 :
-                if (target->stand != STAND_HANG) {
+                if ((mask & HIT_MASK_HAND) && (target->stand != STAND_HANG)) {
                     target->hit(GIANT_MUTANT_DAMAGE_FATAL, this, TR::HIT_GIANT_MUTANT);
                     return STATE_FATAL;
                 }
@@ -2306,7 +2306,7 @@ struct Centaur : Enemy {
     }
 
     virtual void setSaveData(const SaveEntity &data) {
-        Character::setSaveData(data);
+        Enemy::setSaveData(data);
         if (flags.invisible)
             deactivate(true);
     }
