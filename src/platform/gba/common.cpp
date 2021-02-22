@@ -1,9 +1,9 @@
 #include "common.h"
 
-vec3i viewPos;
-
-extern Matrix matrixStack[MAX_MATRICES];
-extern int32  matrixStackIndex;
+uint16 divTable[DIV_TABLE_SIZE];    // IWRAM 0.5 kb
+vec3i  viewPos;
+Matrix matrixStack[MAX_MATRICES];
+int32  matrixStackIndex = 0;
 
 const int16 sin_table[1025] = { // IWRAM 2 kb
     0x0000, 0x0019, 0x0032, 0x004B, 0x0065, 0x007E, 0x0097, 0x00B0,
@@ -160,76 +160,171 @@ int32 clamp(int32 x, int32 a, int32 b) {
     return x < a ? a : (x > b ? b : x);
 }
 
-Matrix& matrixGet() {
+void initLUT() {
+    divTable[0] = 0xFFFF;
+    divTable[1] = 0xFFFF;
+    for (uint32 i = 2; i < DIV_TABLE_SIZE; i++) {
+        divTable[i] = (1 << 16) / i;
+    }
+}
+
+Matrix& matrixGet()
+{
     return matrixStack[matrixStackIndex];
 }
 
-void matrixPush() {
-#if defined(_WIN32)
-    if (matrixStackIndex >= MAX_MATRICES - 1) {
-        DebugBreak();
-        return;
-    }
-#endif
+void matrixPush()
+{
+    ASSERT(matrixStackIndex < MAX_MATRICES - 1);
+
     Matrix &a = matrixStack[matrixStackIndex++];
     Matrix &b = matrixStack[matrixStackIndex];
     memcpy(b, a, sizeof(Matrix));
 }
 
-void matrixPop() {
-#if defined(_WIN32)
-    if (matrixStackIndex <= 0) {
-        DebugBreak();
-        return;
-    }
-#endif
+void matrixPop()
+{
+    ASSERT(matrixStackIndex > 0);
     matrixStackIndex--;
 }
 
-void matrixTranslate(const vec3i &offset) {
+void matrixTranslate(int32 x, int32 y, int32 z)
+{
     Matrix &m = matrixGet();
 
-    m[0].w += DP33(m[0], offset);
-    m[1].w += DP33(m[1], offset);
-    m[2].w += DP33(m[2], offset);
+    vec3i offset(x, y, z);
+    m[0][3] += DP33(m[0], offset);
+    m[1][3] += DP33(m[1], offset);
+    m[2][3] += DP33(m[2], offset);
 }
 
-void matrixTranslateAbs(const vec3i &offset) {
+void matrixTranslateAbs(int32 x, int32 y, int32 z)
+{
     vec3i d;
-    d.x = offset.x - viewPos.x;
-    d.y = offset.y - viewPos.y;
-    d.z = offset.z - viewPos.z;
+    d.x = x - viewPos.x;
+    d.y = y - viewPos.y;
+    d.z = z - viewPos.z;
 
     Matrix &m = matrixGet();
-    m[0].w = DP33(m[0], d);
-    m[1].w = DP33(m[1], d);
-    m[2].w = DP33(m[2], d);
+    m[0][3] = DP33(m[0], d);
+    m[1][3] = DP33(m[1], d);
+    m[2][3] = DP33(m[2], d);
 }
 
-void matrixRotate(int16 rotX, int16 rotY, int16 rotZ) {}
+void matrixRotateX(int32 angle)
+{
+    int32 s = phd_sin(angle);
+    int32 c = phd_cos(angle);
 
-void matrixSetView(const vec3i &pos, int16 rotX, int16 rotY) {
-    int32 sx = phd_sin(rotX);
-    int32 cx = phd_cos(rotX);
-    int32 sy = phd_sin(rotY);
-    int32 cy = phd_cos(rotY);
+    Matrix &m = matrixGet();
+    int32 a, b;
+
+    a = c * m[0][1] + s * m[0][2];
+    b = c * m[0][2] - s * m[0][1];
+    m[0][1] = a >> FIXED_SHIFT;
+    m[0][2] = b >> FIXED_SHIFT;
+
+    a = c * m[1][1] + s * m[1][2];
+    b = c * m[1][2] - s * m[1][1];
+    m[1][1] = a >> FIXED_SHIFT;
+    m[1][2] = b >> FIXED_SHIFT;
+
+    a = c * m[2][1] + s * m[2][2];
+    b = c * m[2][2] - s * m[2][1];
+    m[2][1] = a >> FIXED_SHIFT;
+    m[2][2] = b >> FIXED_SHIFT;
+}
+
+void matrixRotateY(int32 angle)
+{
+    int32 s = phd_sin(angle);
+    int32 c = phd_cos(angle);
+
+    Matrix &m = matrixGet();
+    int32 a, b;
+
+    a = c * m[0][0] - s * m[0][2];
+    b = c * m[0][2] + s * m[0][0];
+    m[0][0] = a >> FIXED_SHIFT;
+    m[0][2] = b >> FIXED_SHIFT;
+
+    a = c * m[1][0] - s * m[1][2];
+    b = c * m[1][2] + s * m[1][0];
+    m[1][0] = a >> FIXED_SHIFT;
+    m[1][2] = b >> FIXED_SHIFT;
+
+    a = c * m[2][0] - s * m[2][2];
+    b = c * m[2][2] + s * m[2][0];
+    m[2][0] = a >> FIXED_SHIFT;
+    m[2][2] = b >> FIXED_SHIFT;
+}
+
+void matrixRotateZ(int32 angle)
+{
+    int32 s = phd_sin(angle);
+    int32 c = phd_cos(angle);
+
+    Matrix &m = matrixGet();
+    int32 a, b;
+
+    a = c * m[0][0] + s * m[0][1];
+    b = c * m[0][1] - s * m[0][0];
+    m[0][0] = a >> FIXED_SHIFT;
+    m[0][1] = b >> FIXED_SHIFT;
+
+    a = c * m[1][0] + s * m[1][1];
+    b = c * m[1][1] - s * m[1][0];
+    m[1][0] = a >> FIXED_SHIFT;
+    m[1][1] = b >> FIXED_SHIFT;
+
+    a = c * m[2][0] + s * m[2][1];
+    b = c * m[2][1] - s * m[2][0];
+    m[2][0] = a >> FIXED_SHIFT;
+    m[2][1] = b >> FIXED_SHIFT;
+}
+
+void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ)
+{
+    if (angleY) matrixRotateY(angleY);
+    if (angleX) matrixRotateX(angleX);
+    if (angleZ) matrixRotateZ(angleZ);
+}
+
+void matrixFrame(int32 x, int32 y, int32 z, uint16* angles)
+{
+    int32 angleX = (angles[1] & 0x3FF0) << 2;
+    int32 angleY = (angles[1] & 0x000F) << 12 | (angles[0] & 0xFC00) >> 4;
+    int32 angleZ = (angles[0] & 0x03FF) << 6;
+
+    matrixTranslate(x, y, z);
+    matrixRotateYXZ(angleX, angleY, angleZ);
+}
+
+void matrixSetView(int32 x, int32 y, int32 z, int32 angleX, int32 angleY)
+{
+    int32 sx = phd_sin(angleX);
+    int32 cx = phd_cos(angleX);
+    int32 sy = phd_sin(angleY);
+    int32 cy = phd_cos(angleY);
 
     Matrix &m = matrixGet();
 
-    m[0].x = cy;
-    m[0].y = 0;
-    m[0].z = -sy;
-    m[0].w = pos.x;
+    m[0][0] = cy;
+    m[0][1] = 0;
+    m[0][2] = -sy;
+    m[0][3] = x;
 
-    m[1].x = (sx * sy) >> FIXED_SHIFT;
-    m[1].y = cx;
-    m[1].z = (sx * cy) >> FIXED_SHIFT;
-    m[1].w = pos.y;
+    m[1][0] = (sx * sy) >> FIXED_SHIFT;
+    m[1][1] = cx;
+    m[1][2] = (sx * cy) >> FIXED_SHIFT;
+    m[1][3] = y;
 
-    m[2].x = (cx * sy) >> FIXED_SHIFT;
-    m[2].y = -sx;
-    m[2].z = (cx * cy) >> FIXED_SHIFT;
-    m[2].w = pos.z;
+    m[2][0] = (cx * sy) >> FIXED_SHIFT;
+    m[2][1] = -sx;
+    m[2][2] = (cx * cy) >> FIXED_SHIFT;
+    m[2][3] = z;
 
-    viewPos = pos;
+    viewPos.x = x;
+    viewPos.y = y;
+    viewPos.z = z;
 }

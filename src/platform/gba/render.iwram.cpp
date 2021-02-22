@@ -1,45 +1,34 @@
 #include "common.h"
 
-#define DIV_TABLE_SIZE 256
-
-uint16 divTable[DIV_TABLE_SIZE];    // IWRAM 0.5 kb
-
 #if defined(_WIN32)
-    uint8 fb[WIDTH * HEIGHT * 2];
+    uint16 fb[WIDTH * HEIGHT];
 #elif defined(__GBA__)
     uint32 fb = VRAM;
 #elif defined(__TNS__)
-    uint8 fb[WIDTH * HEIGHT];
+    uint16 fb[WIDTH * HEIGHT];
 #endif
 
-#define FixedInvS(x) ((x < 0) ? -divTable[abs(x)] : divTable[x])
-#define FixedInvU(x) divTable[x]
+#define PAL_COLOR_TRANSP    0x0000
+#define PAL_COLOR_BLACK     0x0421
 
-#if defined(USE_MODE_5) || defined(_WIN32)
-    uint16 palette[256];
-#endif
-
-uint8 lightmap[256 * 32]; // IWRAM 8 kb
-uint8* ft_lightmap;
-
-const uint8* tiles;
-const uint8* tile;
+uint16 palette[256];       // IWRAM 0.5 kb
+uint8  lightmap[256 * 32]; // IWRAM 8 kb
+const uint8* ft_lightmap;
 
 const Texture* textures;
+const uint8*   tiles;
+const uint8*   tile;
 
 uint32 gVerticesCount = 0;
 int32 gFacesCount = 0;
 
-EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 8 kb
+EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16 kb
 EWRAM_DATA Face* gFacesSorted[MAX_FACES];  // EWRAM 2 kb
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5 kb
 
 //uint16 mipMask;
 
 Rect clip;
-
-Matrix matrixStack[MAX_MATRICES];
-int32  matrixStackIndex = 0;
 
 template <class T>
 INLINE void swap(T &a, T &b) {
@@ -52,12 +41,6 @@ INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
     return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
 }
 
-INLINE void sortVertices(VertexUV *&t, VertexUV *&m, VertexUV *&b) {
-    if (t->v.y > m->v.y) swap(t, m);
-    if (t->v.y > b->v.y) swap(t, b);
-    if (m->v.y > b->v.y) swap(m, b);
-}
-
 INLINE int32 classify(const Vertex* v) {
     return (v->x < clip.x0 ? 1 : 0) |
            (v->x > clip.x1 ? 2 : 0) |
@@ -65,14 +48,68 @@ INLINE int32 classify(const Vertex* v) {
            (v->y > clip.y1 ? 8 : 0);
 }
 
-void transform(const vec3s &v, int32 vg) {
-#if defined(_WIN32)
-    if (gVerticesCount >= MAX_VERTICES) {
-        DebugBreak();
-        return;
+bool boxIsVisible(const Box* box)
+{
+    const Matrix &m = matrixGet();
+
+    if (m[2][3] >= VIEW_MAX_F) {
+        return false;
     }
-#endif
-    const Matrix &m = matrixStack[matrixStackIndex];
+
+    if (m[2][3] < VIEW_MIN_F) { // TODO large objects
+        return false;
+    }
+
+    const vec3i v[8] {
+        { box->minX, box->minY, box->minZ },
+        { box->maxX, box->minY, box->minZ },
+        { box->minX, box->maxY, box->minZ },
+        { box->maxX, box->maxY, box->minZ },
+        { box->minX, box->minY, box->maxZ },
+        { box->maxX, box->minY, box->maxZ },
+        { box->minX, box->maxY, box->maxZ },
+        { box->maxX, box->maxY, box->maxZ }
+    };
+
+    Rect rect = { INT_MAX, INT_MAX, INT_MIN, INT_MIN };
+
+    for (int32 i = 0; i < 8; i++) {
+        int32 z = DP43(m[2], v[i]);
+
+        if (z < VIEW_MIN_F || z >= VIEW_MAX_F) { // TODO znear clip
+            continue;
+        }
+
+        int32 x = DP43(m[0], v[i]);
+        int32 y = DP43(m[1], v[i]);
+
+        z >>= FOV_SHIFT;
+
+        x = (x / z);
+        y = (y / z);
+
+        if (x < rect.x0) rect.x0 = x;
+        if (x > rect.x1) rect.x1 = x;
+        if (y < rect.y0) rect.y0 = y;
+        if (y > rect.y1) rect.y1 = y;
+    }
+
+    rect.x0 += (FRAME_WIDTH  / 2);
+    rect.y0 += (FRAME_HEIGHT / 2);
+    rect.x1 += (FRAME_WIDTH  / 2);
+    rect.y1 += (FRAME_HEIGHT / 2);
+
+    return !(rect.x0 > rect.x1 ||
+             rect.x0 > clip.x1 ||
+             rect.x1 < clip.x0 ||
+             rect.y0 > clip.y1 ||
+             rect.y1 < clip.y0);
+}
+
+void transform(const vec3s &v, int32 vg) {
+    ASSERT(gVerticesCount < MAX_VERTICES);
+
+    const Matrix &m = matrixGet();
 
     Vertex &res = gVertices[gVerticesCount++];
 
@@ -110,7 +147,7 @@ void transform(const vec3s &v, int32 vg) {
     res.clip = classify(&res);
 }
 
-void transform_room(const Room::Vertex* vertex, int32 vCount)
+void transformRoom(const RoomInfo::Vertex* vertex, int32 vCount)
 {
     for (int32 i = 0; i < vCount; i++)
     {
@@ -119,10 +156,10 @@ void transform_room(const Room::Vertex* vertex, int32 vCount)
     }
 }
 
-void transform_mesh(const vec3s* vertices, int32 vCount)
+void transformMesh(const vec3s* vertices, int32 vCount, uint16 intensity)
 {
     for (int32 i = 0; i < vCount; i++) {
-        transform(*vertices++, 4096);
+        transform(*vertices++, intensity);
     }
 }
 
@@ -263,40 +300,15 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
 #define FETCH_GT_PAL()          32
 #define FETCH_G_PAL(palIndex)   32
 #else
-#define FETCH_T()               tile[(t & 0xFF00) | (t >> 24)]
-#define FETCH_GT()              lightmap[(g & 0x1F00) | FETCH_T()]
-#define FETCH_FT()              ft_lightmap[FETCH_T()]
 
-INLINE uint32 FETCH_FT2(uint32 &t, uint32 dtdx) {
-    uint32 p = FETCH_FT();
-    t += dtdx;
-    p |= FETCH_FT() << 8;
-    t += dtdx;
-    return p;
-}
+#define FETCH_T()      tile[(t & 0xFF00) | (t >> 24)]
+#define FETCH_G()      lightmap[(g & 0x1F00) | palIndex]
+#define FETCH_GT()     lightmap[(g & 0x1F00) | FETCH_T()]
+#define FETCH_FT()     ft_lightmap[FETCH_T()]
 
-INLINE uint32 FETCH_GT2(uint32 &g, uint32 &t, uint32 dgdx, uint32 dtdx) {
-#if 0
-    uint32 light = g & 0x1F00;
-    uint32 p = lightmap[light | FETCH_T()];
-    t += dtdx;
-    p |= lightmap[light | FETCH_T()] << 8;
-    t += dtdx;
-    g += dgdx;
-    return p;
-#else
-    uint32 p = FETCH_GT();
-    t += dtdx;
-    p |= FETCH_GT() << 8;
-    t += dtdx;
-    g += dgdx;
-    return p;
-#endif
-}
-
-#define FETCH_G(palIndex)       lightmap[(g & 0x1F00) | palIndex]
-#define FETCH_GT_PAL()          palette[FETCH_GT()]
-#define FETCH_G_PAL(palIndex)   palette[FETCH_G(palIndex)]
+#define PUT_PIXEL_GT() { uint16 p = palette[FETCH_GT()]; if (p) *pixel = p; }
+#define PUT_PIXEL_FT() { uint16 p = palette[FETCH_FT()]; if (p) *pixel = p; }
+#define PUT_PIXEL_G()  { *pixel = palette[FETCH_G()]; }
 #endif
 
 struct Edge {
@@ -427,426 +439,70 @@ struct Edge {
 };
 
 INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
-    #if defined(USE_MODE_5)
-        uint16* pixel = buffer + x1;
+    uint16* pixel = buffer + x1;
 
-        if (x1 & 1) {
-            *pixel++ = FETCH_G_PAL(palIndex);
-            g += dgdx;
-            x1++;
+    int32 width = x2 - x1;
 
-            if (x1 >= x2) {
-                return;
-            }
-        }
+    dgdx <<= 1;
 
-        int32 width2 = (x2 - x1) >> 1;
+    while (width--) {
+        PUT_PIXEL_G();
+        pixel++;
 
-        dgdx <<= 1;
-
-        while (width2--) {
-            uint32 p = FETCH_G_PAL(palIndex);
-            g += dgdx;
-
-            *(uint32*)pixel = p | (p << 16);
-            pixel += 2;
-        }
-
-        if (x2 & 1) {
-            *pixel++ = FETCH_G_PAL(palIndex);
-        }
-    #elif defined(USE_MODE_4)
-        if (x1 & 1)
-        {
-            uint16 &p = *(uint16*)((uint8*)buffer + x1 - 1);
-            p = (p & 0x00FF) | (FETCH_G(palIndex) << 8);
-            g += dgdx;
-            x1++;
-        }
-
-        int32 width = (x2 - x1) >> 1;
-        uint16* pixel = (uint16*)((uint8*)buffer + x1);
-
-        dgdx <<= 1;
-
-        if (width && (x1 & 3))
-        {
-            uint16 p = FETCH_G(palIndex);
-            *pixel++ = p | (FETCH_G(palIndex) << 8);
-
-            g += dgdx;
-
+        if (width) {
             width--;
+            PUT_PIXEL_G();
+            pixel++;
         }
 
-        while (width-- > 0)
-        {
-            uint32 p = FETCH_G(palIndex);
-            p |= (FETCH_G(palIndex) << 8);
-
-            g += dgdx;
-
-            if (width-- > 0)
-            {
-                p |= (FETCH_G(palIndex) << 16);
-                p |= (FETCH_G(palIndex) << 24);
-
-                g += dgdx;
-
-                *(uint32*)pixel = p;
-                pixel += 2;
-            } else {
-                *(uint16*)pixel = p;
-                pixel += 1;
-            }
-        }
-
-        if (x2 & 1)
-        {
-            *pixel = (*pixel & 0xFF00) | FETCH_G(palIndex);
-        }
-    #else
-        if (x1 & 1)
-        {
-            *((uint8*)buffer + x1) = FETCH_G(palIndex);
-            g += dgdx;
-            x1++;
-        }
-
-        int32 width = (x2 - x1) >> 1;
-        uint16* pixel = (uint16*)((uint8*)buffer + x1);
-
-        dgdx <<= 1;
-
-        if (width && (x1 & 3))
-        {
-            uint16 p = FETCH_G(palIndex);
-            *pixel++ = p | (FETCH_G(palIndex) << 8);
-
-            g += dgdx;
-
-            width--;
-        }
-
-        while (width-- > 0)
-        {
-            uint32 p = FETCH_G(palIndex);
-            p |= (FETCH_G(palIndex) << 8);
-
-            g += dgdx;
-
-            if (width-- > 0)
-            {
-                p |= (FETCH_G(palIndex) << 16);
-                p |= (FETCH_G(palIndex) << 24);
-
-                g += dgdx;
-
-                *(uint32*)pixel = p;
-                pixel += 2;
-            } else {
-                *(uint16*)pixel = p;
-                pixel += 1;
-            }
-        }
-
-        if (x2 & 1)
-        {
-            *((uint8*)pixel) = FETCH_G(palIndex);
-        }
-    #endif
+        g += dgdx;
+    }
 }
 
 INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
-    #if defined(USE_MODE_5)
-        uint16* pixel = buffer + x1;
+    uint16* pixel = buffer + x1;
 
-        if (x1 & 1) {
-            *pixel++ = FETCH_GT_PAL();
-            t += dtdx;
-            g += dgdx;
-            x1++;
+    int32 width = x2 - x1;
 
-            if (x1 >= x2) {
-                return;
-            }
-        }
+    dgdx <<= 1;
 
-        int32 width2 = (x2 - x1) >> 1;
+    while (width--) {
+        PUT_PIXEL_GT();
+        pixel++;
+        t += dtdx;
 
-        dgdx <<= 1;
-
-        while (width2--) {
-            uint32 p = FETCH_GT_PAL();
-            t += dtdx;
-            p |= FETCH_GT_PAL() << 16;
-            t += dtdx;
-            g += dgdx;
-
-            *(uint32*)pixel = p;
-            pixel += 2;
-        }
-
-        if (x2 & 1) {
-            *pixel++ = FETCH_GT_PAL();
-        }
-
-    #elif defined(USE_MODE_4)
-        uint8* pixel = (uint8*)buffer + x1;
-
-        // align to 2
-        if (x1 & 1)
-        {
-            pixel--;
-            *(uint16*)pixel = *pixel | (FETCH_GT() << 8);
-            pixel += 2;
-            t += dtdx;
-            g += dgdx;
-            x1++;
-        }
-
-        int32 width = (x2 - x1) >> 1;
-
-        dgdx <<= 1;
-
-        // align to 4
-        if (width && (x1 & 3))
-        {
-            *(uint16*)pixel = FETCH_GT2(g, t, dgdx, dtdx);
-            pixel += 2;
+        if (width) {
             width--;
-        }
-
-        // fast line
-        if (width > 0)
-        {
-            while (width)
-            {
-                uint32 p = FETCH_GT2(g, t, dgdx, dtdx);
-                if (width > 1) {
-                    // write 4 px
-                    p |= (FETCH_GT2(g, t, dgdx, dtdx) << 16);
-                    *(uint32*)pixel = p;
-                    pixel += 4;
-                    width -= 2;
-                    continue;
-                }
-                // write 2 px, end of fast line
-                *(uint16*)pixel = p;
-                pixel += 2;
-                width -= 1;
-            }
-        }
-
-        // write 1 px, end of scanline
-        if (x2 & 1)
-        {
-            *(uint16*)pixel = (*(uint16*)pixel & 0xFF00) | FETCH_GT();
-        }
-    #else
-        if (x1 & 1)
-        {
-            *((uint8*)buffer + x1) = FETCH_GT();
+            PUT_PIXEL_GT();
+            pixel++;
             t += dtdx;
-            g += dgdx;
-            x1++;
         }
 
-        int32 width = (x2 - x1) >> 1;
-        uint16* pixel = (uint16*)((uint8*)buffer + x1);
-
-        dgdx <<= 1;
-
-        if (width && (x1 & 3))
-        {
-            uint16 p = FETCH_GT();
-            t += dtdx;
-            *pixel++ = p | (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
-            width--;
-        }
-
-        while (width-- > 0)
-        {
-            uint32 p = FETCH_GT();
-            t += dtdx;
-            p |= (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
-            if (width-- > 0)
-            {
-                p |= (FETCH_GT() << 16);
-                t += dtdx;
-                p |= (FETCH_GT() << 24);
-                t += dtdx;
-
-                g += dgdx;
-
-                *(uint32*)pixel = p;
-                pixel += 2;
-            } else {
-                *(uint16*)pixel = p;
-                pixel += 1;
-            }
-        }
-
-        if (x2 & 1)
-        {
-            *((uint8*)pixel) = FETCH_GT();
-        }
-    #endif
+        g += dgdx;
+    }
 }
 
 INLINE void scanlineFT(uint16* buffer, int32 x1, int32 x2, uint32 t, uint32 dtdx) {
-    #if defined(USE_MODE_5)
-        uint16* pixel = buffer + x1;
+    uint16* pixel = buffer + x1;
 
-        if (x1 & 1) {
-            *pixel++ = FETCH_GT_PAL();
-            t += dtdx;
-            g += dgdx;
-            x1++;
+    int32 width = x2 - x1;
 
-            if (x1 >= x2) {
-                return;
-            }
-        }
+    while (width--) {
+        PUT_PIXEL_FT();
+        pixel++;
+        t += dtdx;
 
-        int32 width2 = (x2 - x1) >> 1;
-
-        dgdx <<= 1;
-
-        while (width2--) {
-            uint32 p = FETCH_GT_PAL();
-            t += dtdx;
-            p |= FETCH_GT_PAL() << 16;
-            t += dtdx;
-            g += dgdx;
-
-            *(uint32*)pixel = p;
-            pixel += 2;
-        }
-
-        if (x2 & 1) {
-            *pixel++ = FETCH_GT_PAL();
-        }
-
-    #elif defined(USE_MODE_4)
-        uint8* pixel = (uint8*)buffer + x1;
-
-        // align to 2
-        if (x1 & 1)
-        {
-            pixel--;
-            *(uint16*)pixel = *pixel | (FETCH_FT() << 8);
-            pixel += 2;
-            t += dtdx;
-            x1++;
-        }
-
-        int32 width = (x2 - x1) >> 1;
-
-        // align to 4
-        if (width && (x1 & 3))
-        {
-            *(uint16*)pixel = FETCH_FT2(t, dtdx);
-            pixel += 2;
+        if (width) {
             width--;
-        }
-
-        // fast line
-        if (width > 0)
-        {
-            while (width)
-            {
-                uint32 p = FETCH_FT2(t, dtdx);
-                if (width > 1) {
-                    // write 4 px
-                    p |= (FETCH_FT2(t, dtdx) << 16);
-                    *(uint32*)pixel = p;
-                    pixel += 4;
-                    width -= 2;
-                    continue;
-                }
-                // write 2 px, end of fast line
-                *(uint16*)pixel = p;
-                pixel += 2;
-                width -= 1;
-            }
-        }
-
-        // write 1 px, end of scanline
-        if (x2 & 1)
-        {
-            *(uint16*)pixel = (*(uint16*)pixel & 0xFF00) | FETCH_FT();
-        }
-
-    #else
-        if (x1 & 1)
-        {
-            *((uint8*)buffer + x1) = FETCH_GT();
+            PUT_PIXEL_FT();
+            pixel++;
             t += dtdx;
-            g += dgdx;
-            x1++;
         }
-
-        int32 width = (x2 - x1) >> 1;
-        uint16* pixel = (uint16*)((uint8*)buffer + x1);
-
-        dgdx <<= 1;
-
-        if (width && (x1 & 3))
-        {
-            uint16 p = FETCH_GT();
-            t += dtdx;
-            *pixel++ = p | (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
-            width--;
-        }
-
-        while (width-- > 0)
-        {
-            uint32 p = FETCH_GT();
-            t += dtdx;
-            p |= (FETCH_GT() << 8);
-            t += dtdx;
-
-            g += dgdx;
-
-            if (width-- > 0)
-            {
-                p |= (FETCH_GT() << 16);
-                t += dtdx;
-                p |= (FETCH_GT() << 24);
-                t += dtdx;
-
-                g += dgdx;
-
-                *(uint32*)pixel = p;
-                pixel += 2;
-            } else {
-                *(uint16*)pixel = p;
-                pixel += 1;
-            }
-        }
-
-        if (x2 & 1)
-        {
-            *((uint8*)pixel) = FETCH_GT();
-        }
-    #endif
+    }
 }
 
 void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+    uint16 *buffer = (uint16*)fb + y * WIDTH;
 
     while (1)
     {
@@ -884,7 +540,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
                 scanlineG(buffer, x1, x2, palIndex, L.g >> 8, dgdx);
             }
 
-            buffer += WIDTH / PIXEL_SIZE;
+            buffer += WIDTH;
 
             L.stepG();
             R.stepG();
@@ -893,7 +549,7 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
 }
 
 void rasterizeGT(int16 y, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+    uint16 *buffer = (uint16*)fb + y * WIDTH;
 
     while (1)
     {
@@ -935,7 +591,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
                 scanlineGT(buffer, x1, x2, L.g >> 8, L.t.uv, dgdx, dtdx);
             };
 
-            buffer += WIDTH / PIXEL_SIZE;
+            buffer += WIDTH;
 
             L.stepGT();
             R.stepGT();
@@ -944,7 +600,7 @@ void rasterizeGT(int16 y, Edge &L, Edge &R) {
 }
 
 void rasterizeFT(int16 y, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * (WIDTH / PIXEL_SIZE);
+    uint16 *buffer = (uint16*)fb + y * WIDTH;
 
     ft_lightmap = &lightmap[(L.vert[0]->v.g << 8) & 0x1F00];
 
@@ -986,7 +642,7 @@ void rasterizeFT(int16 y, Edge &L, Edge &R) {
                 scanlineFT(buffer, x1, x2, L.t.uv, dtdx);
             };
 
-            buffer += WIDTH / PIXEL_SIZE;
+            buffer += WIDTH;
 
             L.stepFT();
             R.stepFT();
@@ -999,7 +655,9 @@ void drawTriangle(const Face* face, VertexUV *v) {
              *v2 = v + 1,
              *v3 = v + 2;
 
-    sortVertices(v1, v2, v3);
+    if (v1->v.y > v2->v.y) swap(v1, v2);
+    if (v1->v.y > v3->v.y) swap(v1, v3);
+    if (v2->v.y > v3->v.y) swap(v2, v3);
 
     int32 temp = (v2->v.y - v1->v.y) * FixedInvU(v3->v.y - v1->v.y);
 
@@ -1020,9 +678,7 @@ void drawTriangle(const Face* face, VertexUV *v) {
         L.vert[0] = v3;
         L.vert[1] = v1;
         L.index   = 1;
-    }
-    else
-    {
+    } else {
         L.vert[0] = v3;
         L.vert[1] = v2;
         L.vert[2] = v1;
@@ -1049,23 +705,35 @@ void drawQuad(const Face* face, VertexUV *v) {
              *v3 = v + 2,
              *v4 = v + 3;
 
-    int32 minY =  0x7FFF;
-    int32 maxY = -0x7FFF;
-    int32 t = 0, b = 0;
-
     VertexUV* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
 
-    for (int32 i = 0; i < 4; i++) {
-        VertexUV *v = poly[i];
+    int32 t, b;
 
-        if (v->v.y < minY) {
-            minY = v->v.y;
-            t = i;
+    if (v1->v.y < v2->v.y) {
+        if (v1->v.y < v3->v.y) {
+            t = (v1->v.y < v4->v.y) ? 0 : 3;
+        } else {
+            t = (v3->v.y < v4->v.y) ? 2 : 3;
         }
+    } else {
+        if (v2->v.y < v3->v.y) {
+            t = (v2->v.y < v4->v.y) ? 1 : 3;
+        } else {
+            t = (v3->v.y < v4->v.y) ? 2 : 3;
+        }
+    }
 
-        if (v->v.y > maxY) {
-            maxY = v->v.y;
-            b = i;
+    if (v1->v.y > v2->v.y) {
+        if (v1->v.y > v3->v.y) {
+            b = (v1->v.y > v4->v.y) ? 0 : 3;
+        } else {
+            b = (v3->v.y > v4->v.y) ? 2 : 3;
+        }
+    } else {
+        if (v2->v.y > v3->v.y) {
+            b = (v2->v.y > v4->v.y) ? 1 : 3;
+        } else {
+            b = (v3->v.y > v4->v.y) ? 2 : 3;
         }
     }
 
@@ -1163,53 +831,28 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     int32 ix = x + sprite->l;
     int32 iy = y + sprite->t;
 
-    uint16* ptr = (uint16*)fb + iy * (WIDTH / PIXEL_SIZE);
+    uint16* ptr = (uint16*)fb + iy * WIDTH;
 
-#ifdef USE_MODE_5
     ptr += ix;
-#else
-    ptr += ix >> 1;
-#endif
 
     const uint8* glyphData = tiles + (sprite->tile << 16) + 256 * sprite->v + sprite->u;
 
     while (h--)
     {
-    #ifdef USE_MODE_5
         for (int32 i = 0; i < w; i++) {
             if (glyphData[i] == 0) continue;
 
             ptr[i] = palette[glyphData[i]];
         }
-    #else
-        const uint8* p = glyphData;
 
-        for (int32 i = 0; i < (w / 2); i++) {
-
-            if (p[0] || p[1]) {
-                uint16 d = ptr[i];
-
-                if (p[0]) d = (d & 0xFF00) | p[0];
-                if (p[1]) d = (d & 0x00FF) | (p[1] << 8);
-
-                ptr[i] = d;
-            }
-
-            p += 2;
-        }
-    #endif
-
-        ptr += WIDTH / PIXEL_SIZE;
+        ptr += WIDTH;
         glyphData += 256;
     }
 }
 
 void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
-#if defined(_WIN32)
-    if (gFacesCount >= MAX_FACES) {
-        DebugBreak();
-    }
-#endif
+    ASSERT(gFacesCount < MAX_FACES);
+
     Vertex* v = gVertices + startVertex;
     Vertex* v1 = v + indices[0];
     Vertex* v2 = v + indices[1];
@@ -1247,11 +890,8 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
 }
 
 void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
-#if defined(_WIN32)
-    if (gFacesCount >= MAX_FACES) {
-        DebugBreak();
-    }
-#endif
+    ASSERT(gFacesCount < MAX_FACES);
+
     Vertex* v = gVertices + startVertex;
     Vertex* v1 = v + indices[0];
     Vertex* v2 = v + indices[1];
@@ -1286,7 +926,7 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
     f->indices[2] = indices[2] - indices[0];
 }
 
-void faceAdd_room(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
+void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
 {
     for (uint16 i = 0; i < qCount; i++) {
         faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
@@ -1297,7 +937,7 @@ void faceAdd_room(const Quad* quads, int32 qCount, const Triangle* triangles, in
     }
 }
 
-void faceAdd_mesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex)
+void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex)
 {
     for (int i = 0; i < rCount; i++) {
         faceAddQuad(rFaces[i].flags, rFaces[i].indices, startVertex);
@@ -1359,6 +999,9 @@ void flush() {
                 v[1].t.uv = tex.uv1;
                 v[2].t.uv = tex.uv2;
                 v[3].t.uv = tex.uv3;
+                palette[0] = (tex.attribute == 1) ? PAL_COLOR_TRANSP : PAL_COLOR_BLACK;
+            } else {
+                palette[0] = PAL_COLOR_BLACK;
             }
 
             Vertex *p = gVertices + face->start;
@@ -1397,14 +1040,6 @@ void flush() {
     gFacesCount = 0;
 }
 
-void initRender() {
-    divTable[0] = 0xFFFF;
-    divTable[1] = 0xFFFF;
-    for (uint32 i = 2; i < DIV_TABLE_SIZE; i++) {
-        divTable[i] = (1 << 16) / i;
-    }
-}
-
 void dmaClear(uint32 *dst, uint32 count) {
 #ifdef __GBA__
     vu32 value = 0;
@@ -1417,5 +1052,5 @@ void dmaClear(uint32 *dst, uint32 count) {
 }
 
 void clear() {
-    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> PIXEL_SIZE);
+    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 1);
 }

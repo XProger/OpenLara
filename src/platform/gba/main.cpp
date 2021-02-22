@@ -7,7 +7,7 @@
 
     uint32 SCREEN[WIDTH * HEIGHT];
 
-    extern uint8 fb[WIDTH * HEIGHT * 2];
+    extern uint16 fb[WIDTH * HEIGHT];
 
     LARGE_INTEGER g_timer;
     LARGE_INTEGER g_current;
@@ -20,7 +20,7 @@
 #elif defined(__TNS__)
     uint8* LEVEL1_PHD;
 
-    extern uint8 fb[WIDTH * HEIGHT];
+    extern uint16 fb[WIDTH * HEIGHT];
 
     unsigned int osTime;
     volatile unsigned int *timerBUS;
@@ -95,6 +95,7 @@ int32 fpsCounter = 0;
 
 void update(int32 frames) {
     for (int32 i = 0; i < frames; i++) {
+        updateItems();
         camera.update();
     }
 }
@@ -212,9 +213,8 @@ void render() {
             drawNumber(dbg_poly, FRAME_WIDTH, 48);
             drawNumber(dbg_sort, FRAME_WIDTH, 64);
             drawNumber(dbg_flush, FRAME_WIDTH, 80);
-            drawNumber(dbg_transform + dbg_poly + dbg_sort + dbg_flush, FRAME_WIDTH, 96);
-            drawNumber(dbg_vert_count, FRAME_WIDTH, 120);
-            drawNumber(dbg_poly_count, FRAME_WIDTH, 136);
+            drawNumber(dbg_vert_count, FRAME_WIDTH, 96);
+            drawNumber(dbg_poly_count, FRAME_WIDTH, 112);
         #endif
 
     #endif
@@ -226,22 +226,10 @@ void render() {
 HDC hDC;
 
 void blit() {
-    #ifdef USE_MODE_5
-        for (int i = 0; i < WIDTH * HEIGHT; i++) {
-            uint16 c = ((uint16*)fb)[i];
-            SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
-        }
-    #else
-        for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        #ifdef DEBUG_OVERDRAW
-            uint8 c = ((uint8*)fb)[i];
-            SCREEN[i] = c | (c << 8) | (c << 16) | 0xFF000000;
-        #else
-            uint16 c = palette[((uint8*)fb)[i]];
-            SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
-        #endif
-        }
-    #endif
+    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        uint16 c = ((uint16*)fb)[i];
+        SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
+    }
 
     const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), WIDTH, -HEIGHT, 1, 32, BI_RGB, 0, 0, 0, 0, 0 };
     StretchDIBits(hDC, 0, 0, 240 * WND_SCALE, 160 * WND_SCALE, 0, 0, WIDTH, HEIGHT, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
@@ -305,13 +293,11 @@ int main(void) {
     }
 #elif defined(__GBA__)
     // set low latency mode via WAITCNT register (thanks to GValiente)
-    #define BIT_SET(y, flag)    (y |= (flag))
-    #define REG_WAITCNT_NV      *(u16*)(REG_BASE + 0x0204)
-
-    BIT_SET(REG_WAITCNT_NV, 0x0008 | 0x0010 | 0x4000);
+    #define REG_WAITCNT_NV  *(u16*)(REG_BASE + 0x0204)
+    REG_WAITCNT_NV |= (0x0008 | 0x0010 | 0x4000);
 #endif
 
-    initRender();
+    initLUT();
 
     readLevel(LEVEL1_PHD);
 
@@ -330,8 +316,8 @@ int main(void) {
 
     MSG msg;
 
-    int startTime = GetTickCount();
-    int lastTime = -16;
+    int startTime = GetTickCount() - 33;
+    int lastFrame = 0;
 
     do {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -339,9 +325,9 @@ int main(void) {
             DispatchMessage(&msg);
         } else {
 
-            int time = GetTickCount() - startTime;
-            update((time - lastTime) / 16);
-            lastTime = time;
+            int frame = (GetTickCount() - startTime) / 33; 
+            update(frame - lastFrame);
+            lastFrame = frame;
 
             render();
 
@@ -356,17 +342,10 @@ int main(void) {
 
     uint16 mode = BG2_ON | BACKBUFFER;
 
-    #ifdef USE_MODE_5
-        mode |= MODE_5;
+    mode |= MODE_5;
 
-        REG_BG2PA = 256 - 64 - 16 - 4 - 1;
-        REG_BG2PD = 256 - 48 - 2;
-    #else
-        mode |= MODE_4;
-
-        REG_BG2PA = 256 / SCALE;
-        REG_BG2PD = 256 / SCALE;
-    #endif
+    REG_BG2PA = 256 - 64 - 16 - 4 - 1;
+    REG_BG2PD = 256 - 48 - 2;
 
     int32 lastFrameIndex = -1;
 
@@ -387,7 +366,7 @@ int main(void) {
         keys[IK_L]     = (key & KEY_L);
         keys[IK_R]     = (key & KEY_R);
 
-        int32 frame = frameIndex;
+        int32 frame = frameIndex / 2;
         update(frame - lastFrameIndex);
         lastFrameIndex = frame;
 
@@ -396,7 +375,7 @@ int main(void) {
         fpsCounter++;
         if (frameIndex >= 60) {
             frameIndex -= 60;
-            lastFrameIndex -= 60;
+            lastFrameIndex -= 30;
 
             fps = fpsCounter;
 

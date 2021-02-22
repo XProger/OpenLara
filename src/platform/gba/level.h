@@ -4,72 +4,82 @@
 #include "common.h"
 #include "camera.h"
 
+#define GRAVITY    6
+
 // level file data -------------------
-uint32              tilesCount;
+int32               tilesCount;
 extern const uint8* tiles;
 
-#if defined(USE_MODE_5) || defined(_WIN32)
-    extern uint16 palette[256];
-#endif
-
+extern uint16    palette[256];
 extern uint8     lightmap[256 * 32];
-
-uint16           roomsCount;
-
 const uint16*    floors;
 
-uint32                texturesCount;
+int32                 texturesCount;
 extern const Texture* textures;
 
 const Sprite*    sprites;
 
-uint32           spritesSeqCount;
+int32            spritesSeqCount;
 const SpriteSeq* spritesSeq;
 
 const uint8*     meshData;
-const uint32*    meshOffsets;
+const int32*     meshOffsets;
 
-const int32*     nodes;
+const int32*     nodesPtr;
 
-uint32           modelsCount;
+int32            animsCount;
+const Anim*      anims;
+
+int32            framesCount;
+const uint16*    frames;
+
+int32            modelsCount;
 EWRAM_DATA Model models[MAX_MODELS];
-EWRAM_DATA int16 modelsMap[MAX_ENTITY];
+EWRAM_DATA uint8 modelsMap[MAX_ITEMS];
+EWRAM_DATA uint8 staticMeshesMap[MAX_MESHES];
 
-uint32           entitiesCount;
-const Entity*    entities;
+int32             staticMeshesCount;
+const StaticMesh* staticMeshes;
+
+int32           itemsCount;
+EWRAM_DATA Item items[MAX_ITEMS];
 // -----------------------------------
 
-struct RoomDesc {
+struct Room {
     Rect                clip;
+    uint8               firstItem;
     bool                visible;
+
+    // TODO leave in ROM
     int32               x, z;
     uint16              vCount;
     uint16              qCount;
     uint16              tCount;
     uint16              pCount;
+    uint16              lCount;
+    uint16              mCount;
     uint16              zSectors;
     uint16              xSectors;
-    const Room::Vertex* vertices;
-    const Quad*         quads;
-    const Triangle*     triangles;
-    const Room::Portal* portals;
-    const Room::Sector* sectors;
+    uint16              ambient;
 
-    INLINE void reset() {
-        visible = false;
-        clip = { FRAME_WIDTH, FRAME_HEIGHT, 0, 0 };
-    }
+    const RoomInfo::Vertex* vertices;
+    const Quad*             quads;
+    const Triangle*         triangles;
+    const RoomInfo::Portal* portals;
+    const RoomInfo::Sector* sectors;
+    const RoomInfo::Light*  lights;
+    const RoomInfo::Mesh*   meshes;
 };
 
-EWRAM_DATA RoomDesc rooms[64];
+int16           roomsCount;
+EWRAM_DATA Room rooms[64];
+
+int32 firstActive = NO_ITEM;
 
 int32 visRoomsCount;
 int32 visRooms[16];
 
 #define ROOM_VISIBLE (1 << 15)
-
-#define ENTITY_LARA  0
-
 #define SEQ_GLYPH    190
 
 enum FloorType {
@@ -80,51 +90,145 @@ enum FloorType {
 };
 
 int32 seqGlyphs;
-int32 entityLara;
 
 extern uint32 gVerticesCount;
 extern Rect   clip;
 
+void roomReset(int32 roomIndex)
+{
+    Room* room = rooms + roomIndex;
+
+    room->visible = false;
+    room->clip = { FRAME_WIDTH, FRAME_HEIGHT, 0, 0 };
+}
+
+void roomItemAdd(int32 roomIndex, int32 itemIndex)
+{
+    ASSERT(items[itemIndex].nextItem == NO_ITEM);
+
+    Room* room = rooms + roomIndex;
+
+    items[itemIndex].nextItem = room->firstItem;
+    room->firstItem = itemIndex;
+}
+
+void roomItemRemove(int32 roomIndex, int32 itemIndex)
+{
+    Room* room = rooms + roomIndex;
+
+    int32 prevIndex = NO_ITEM;
+    int32 index = room->firstItem;
+
+    while (index != NO_ITEM)
+    {
+        int32 next = items[index].nextItem;
+
+        if (index == itemIndex)
+        {
+            items[index].nextItem = NO_ITEM;
+
+            if (prevIndex == NO_ITEM) {
+                room->firstItem = next;
+            } else {
+                items[prevIndex].nextItem = next;
+            }
+
+            break;
+        }
+
+        prevIndex = index;
+        index = next;
+    }
+}
+
+void activateItem(int32 itemIndex)
+{
+    items[itemIndex].nextActive = firstActive;
+    firstActive = itemIndex;
+}
+
+void deactivateItem(int32 itemIndex)
+{
+    int32 prevIndex = NO_ITEM;
+    int32 index = firstActive;
+
+    while (index != NO_ITEM)
+    {
+        int32 next = items[index].nextActive;
+
+        if (index == itemIndex)
+        {
+            items[index].nextItem = NO_ITEM;
+
+            if (prevIndex == NO_ITEM) {
+                firstActive = next;
+            } else {
+                items[prevIndex].nextActive = next;
+            }
+
+            break;
+        }
+
+        prevIndex = index;
+        index = next;
+    }
+}
+
 void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_OFF alignment bytes
-    tilesCount = *((uint32*)(data + 4));
+    tilesCount = *((int32*)(data + 4));
     tiles = data + 8;
 
     #define MDL_OFF 2
-    #define ENT_OFF 2
+    #define ITM_OFF 2
 
-    roomsCount = *((uint16*)(data + 720908));
-    const Room* roomsPtr = (Room*)(data + 720908 + 2);
+    roomsCount = *((int16*)(data + 720908));
+    const RoomInfo* roomsPtr = (RoomInfo*)(data + 720908 + 2);
 
     floors = (uint16*)(data + 899492 + 4);
 
     meshData = data + 908172 + 4;
-    meshOffsets = (uint32*)(data + 975724 + 4);
+    meshOffsets = (int32*)(data + 975724 + 4);
 
-    nodes = (int32*)(data + 990318);
+    animsCount = *((int32*)(data + 976596));
+    anims = (Anim*)(data + 976596 + 4);
+    ASSERT((intptr_t)anims % 4 == 0);
 
-    modelsCount = *((uint32*)(data + 1270666 + MDL_OFF));
+    framesCount = *((int32*)(data + 992990));
+    frames = (uint16*)(data + 992990 + 4);
+    ASSERT((intptr_t)frames % 2 == 0);
+
+    nodesPtr = (int32*)(data + 990318);
+
+    modelsCount = *((int32*)(data + 1270666 + MDL_OFF));
     const uint8* modelsPtr = (uint8*)(data + 1270666 + 4 + MDL_OFF);
+    ASSERT((intptr_t)modelsPtr % 4 == 0);
 
-    texturesCount = *((uint32*)(data + 1271686 + MDL_OFF));
+    staticMeshesCount = *((int32*)(data + 1271426 + MDL_OFF));
+    staticMeshes = (StaticMesh*)(data + 1271426 + 4 + MDL_OFF);
+    ASSERT((intptr_t)staticMeshes % 4 == 0);
+
+    texturesCount = *((int32*)(data + 1271686 + MDL_OFF));
     textures = (Texture*)(data + 1271686 + 4 + MDL_OFF);
 
     sprites = (Sprite*)(data + 1289634 + MDL_OFF);
 
-    spritesSeqCount = *((uint32*)(data + 1292130 + MDL_OFF));
+    spritesSeqCount = *((int32*)(data + 1292130 + MDL_OFF));
     spritesSeq = (SpriteSeq*)(data + 1292130 + 4 + MDL_OFF);
 
-    entitiesCount = *((uint32*)(data + 1319252 + MDL_OFF + ENT_OFF));
-    entities = (Entity*)(data + 1319252 + 4 + MDL_OFF + ENT_OFF);
+    itemsCount = *((int32*)(data + 1319252 + MDL_OFF + ITM_OFF));
+    const uint8* itemsPtr = (data + 1319252 + 4 + MDL_OFF + ITM_OFF);
+
+    for (int32 i = 0; i < itemsCount; i++) {
+        memcpy(items + i, itemsPtr, FILE_ITEM_SIZE);
+        itemsPtr += FILE_ITEM_SIZE;
+    }
 
 // prepare lightmap
-    const uint8* f_lightmap = data + 1320576 + MDL_OFF + ENT_OFF;
+    const uint8* f_lightmap = data + 1320576 + MDL_OFF + ITM_OFF;
     memcpy(lightmap, f_lightmap, sizeof(lightmap));
 
 // prepare palette
-#if !(defined(USE_MODE_5) || defined(_WIN32))
-    uint16 palette[256];
-#endif
-    const uint8* f_palette = data + 1328768 + MDL_OFF + ENT_OFF;
+    const uint8* f_palette = data + 1328768 + MDL_OFF + ITM_OFF;
 
     const uint8* p = f_palette;
 
@@ -137,59 +241,33 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
     #endif
         p += 3;
     }
-   
-#if defined(__GBA__) || defined(__TNS__)
-    #ifndef USE_MODE_5
-        SetPalette(palette);
-    #endif
-#endif
-
-// prepare models
-    for (uint32 i = 0; i < modelsCount; i++) {
-        dmaCopy(modelsPtr, models + i, sizeof(Model)); // sizeof(Model) is faster than FILE_MODEL_SIZE
-        modelsPtr += FILE_MODEL_SIZE;
-        modelsMap[models[i].type] = i;
-    }
-
-// prepare entities
-    for (uint32 i = 0; i < entitiesCount; i++) {
-        if (entities[i].type == ENTITY_LARA) {
-            entityLara = i;
-            break;
-        }
-    }
-
-// prepare glyphs
-    for (uint32 i = 0; i < spritesSeqCount; i++) {
-        if (spritesSeq[i].type == SEQ_GLYPH) {
-            seqGlyphs = i;
-            break;
-        }
-    }
 
 // prepare rooms
     uint8 *ptr = (uint8*)roomsPtr;
 
-    for (uint16 roomIndex = 0; roomIndex < roomsCount; roomIndex++) {
-        const Room *room = (Room*)ptr;
-        ptr += sizeof(Room);
+    for (int32 roomIndex = 0; roomIndex < roomsCount; roomIndex++)
+    {
+        const RoomInfo *room = (RoomInfo*)ptr;
+        ptr += sizeof(RoomInfo);
 
         uint32 dataSize;
         memcpy(&dataSize, &room->dataSize, sizeof(dataSize));
         uint8* skipPtr = ptr + dataSize * 2;
 
-        RoomDesc &desc = rooms[roomIndex];
-        desc.reset();
+        Room &desc = rooms[roomIndex];
+        roomReset(roomIndex);
+
+        desc.firstItem = NO_ITEM;
 
         // offset
-        memcpy(&desc.x, &room->info.x, sizeof(room->info.x));
-        memcpy(&desc.z, &room->info.z, sizeof(room->info.z));
+        memcpy(&desc.x, &room->x, sizeof(room->x));
+        memcpy(&desc.z, &room->z, sizeof(room->z));
 
         // vertices
         desc.vCount = *((uint16*)ptr);
         ptr += 2;
-        desc.vertices = (Room::Vertex*)ptr;
-        ptr += sizeof(Room::Vertex) * desc.vCount;
+        desc.vertices = (RoomInfo::Vertex*)ptr;
+        ptr += sizeof(RoomInfo::Vertex) * desc.vCount;
 
         // quads
         desc.qCount = *((uint16*)ptr);
@@ -208,38 +286,99 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
         // portals
         desc.pCount = *((uint16*)ptr);
         ptr += 2;
-        desc.portals = (Room::Portal*)ptr;
-        ptr += sizeof(Room::Portal) * desc.pCount;
+        desc.portals = (RoomInfo::Portal*)ptr;
+        ptr += sizeof(RoomInfo::Portal) * desc.pCount;
 
         desc.zSectors = *((uint16*)ptr);
         ptr += 2;
         desc.xSectors = *((uint16*)ptr);
         ptr += 2;
-        desc.sectors = (Room::Sector*)ptr;
-        ptr += sizeof(Room::Sector) * desc.zSectors * desc.xSectors;
+        desc.sectors = (RoomInfo::Sector*)ptr;
+        ptr += sizeof(RoomInfo::Sector) * desc.zSectors * desc.xSectors;
 
-        //ambient = *((uint16*)ptr);
+        desc.ambient = *((uint16*)ptr);
         ptr += 2;
 
-        uint16 lightsCount = *((uint16*)ptr);
+        desc.lCount = *((uint16*)ptr);
         ptr += 2;
-        //lights = (Room::Light*)ptr;
-        ptr += sizeof(Room::Light) * lightsCount;
+        desc.lights = (RoomInfo::Light*)ptr;
+        ptr += sizeof(RoomInfo::Light) * desc.lCount;
 
-        uint16 meshesCount = *((uint16*)ptr);
+        desc.mCount = *((uint16*)ptr);
         ptr += 2;
-        //meshes = (Room::Mesh*)ptr;
-        ptr += sizeof(Room::Mesh) * meshesCount;
+        desc.meshes = (RoomInfo::Mesh*)ptr;
+        ptr += sizeof(RoomInfo::Mesh) * desc.mCount;
 
         ptr += 2 + 2; // skip alternateRoom and flags
     }
 
+// prepare models
+    memset(modelsMap, 0xFF, sizeof(modelsMap));
+    for (int32 i = 0; i < modelsCount; i++)
+    {
+        memcpy(models + i, modelsPtr, sizeof(Model)); // sizeof(Model) is faster than FILE_MODEL_SIZE
+        modelsPtr += FILE_MODEL_SIZE;
+        modelsMap[models[i].type] = i;
+    }
+
+// prepare static meshes
+    memset(staticMeshesMap, 0xFF, sizeof(staticMeshesMap));
+    for (int32 i = 0; i < staticMeshesCount; i++)
+    {
+        staticMeshesMap[staticMeshes[i].id] = i;
+    }
+
+// prepare items
+    for (int32 i = 0; i < itemsCount; i++) {
+        Item* item = items + i;
+
+        item->angleX      = 0;
+        item->angleZ      = 0;
+        item->vSpeed      = 0;
+        item->hSpeed      = 0;
+        item->nextItem    = NO_ITEM;
+        item->nextActive  = NO_ITEM;
+        item->animIndex   = models[modelsMap[item->type]].animIndex;
+        item->frameIndex  = anims[item->animIndex].frameBegin;
+        item->state       = anims[item->animIndex].state;
+        item->nextState   = item->state;
+        item->goalState   = item->state;
+        item->intensity   = 4096; // TODO lighting
+
+        item->flags.gravity = 0; 
+
+        if (item->room > -1) {
+            roomItemAdd(item->room, i);
+        }
+
+        if (item->type == ITEM_LARA) {
+            activateItem(i);
+        }
+
+        // TODO remove
+        if (item->type == ITEM_WOLF ||
+            item->type == ITEM_BEAR ||
+            item->type == ITEM_BAT  ||
+            item->type == ITEM_CRYSTAL)
+        {
+            activateItem(i);
+        }
+    }
+
+// prepare glyphs
+    for (int32 i = 0; i < spritesSeqCount; i++) {
+        if (spritesSeq[i].type == SEQ_GLYPH) {
+            seqGlyphs = i;
+            break;
+        }
+    }
+
     camera.init();
-    camera.room = entities[entityLara].room;
+    camera.room = 0;
 }
 
-void drawMesh(int16 meshIndex) {
-    uint32 offset = meshOffsets[meshIndex];
+void drawMesh(int16 meshIndex, uint16 intensity) {
+    int32 offset = meshOffsets[meshIndex];
     const uint8* ptr = meshData + offset;
 
     ptr += 2 * 5; // skip [cx, cy, cz, radius, flags]
@@ -271,52 +410,67 @@ void drawMesh(int16 meshIndex) {
     int32 startVertex = gVerticesCount;
 
     PROFILE_START();
-    transform_mesh(vertices, vCount);
+    transformMesh(vertices, vCount, intensity);
     PROFILE_STOP(dbg_transform);
 
     PROFILE_START();
-    faceAdd_mesh(rFaces, crFaces, tFaces, ctFaces, rCount, crCount, tCount, ctCount, startVertex);
+    faceAddMesh(rFaces, crFaces, tFaces, ctFaces, rCount, crCount, tCount, ctCount, startVertex);
     PROFILE_STOP(dbg_poly);
 }
 
-void drawModel(int32 modelIndex) {
-    const Model* model = models + modelIndex;
+Frame* getFrame(const Item* item, const Model* model)
+{
+    const Anim* anim = anims + item->animIndex;
 
-    // non-aligned access
-    uint32 node, frame;
-    memcpy(&node,  &model->node,  sizeof(node));
-    memcpy(&frame, &model->frame, sizeof(frame));
+    int32 frameSize = sizeof(Frame) / 2 + model->mCount * 2;
+    int32 frameIndex = (item->frameIndex - anim->frameBegin) / anim->frameRate;//* FixedInvU(anim->frameRate) >> 16;
 
-    Node bones[32];
-    memcpy(bones, nodes + node, (model->mCount - 1) * sizeof(Node));
-
-    const Node* n = bones;
-
-    drawMesh(model->mStart);
-
-    for (int i = 1; i < model->mCount; i++) {
-        if (n->flags & 1) {
-            matrixPop();
-        }
-
-        if (n->flags & 2) {
-            matrixPush();
-        }
-
-        matrixTranslate(n->pos);
-        n++;
-
-        drawMesh(model->mStart + i);
-    }
+    return (Frame*)(frames + anim->frameOffset / 2 + frameIndex * frameSize);
 }
 
-void drawEntity(int32 entityIndex) {
-    const Entity &e = entities[entityIndex];
+void drawItem(const Item* item) {
+    int32 modelIndex = modelsMap[item->type];
+    if (modelIndex == NO_MODEL) {
+        return; // TODO sprite items
+    }
+
+    const Model* model = models + modelIndex;
+
+    if (model->mCount == 1 && meshOffsets[model->mStart] == 0) return;
+
+    Frame* frame = getFrame(item, model);
+    uint16* frameAngles = frame->angles + 1;
 
     matrixPush();
-    matrixTranslateAbs(vec3i(e.pos.x, e.pos.y - 512, e.pos.z)); // TODO animation
+    matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
+    matrixRotateYXZ(item->angleX, item->angleY, item->angleZ);
 
-    drawModel(modelsMap[e.type]);
+    if (boxIsVisible(&frame->box)) {
+        // non-aligned access (TODO)
+        uint32 nodeIndex;
+        memcpy(&nodeIndex, &model->nodeIndex,  sizeof(nodeIndex));
+        Node nodes[32];
+        memcpy(nodes, nodesPtr + nodeIndex, (model->mCount - 1) * sizeof(Node));
+
+        const Node* node = nodes;
+
+        matrixFrame(frame->pos.x, frame->pos.y, frame->pos.z, frameAngles);
+
+        drawMesh(model->mStart, item->intensity);
+
+        for (int32 i = 1; i < model->mCount; i++)
+        {
+            if (node->flags & 1) matrixPop();
+            if (node->flags & 2) matrixPush();
+
+            frameAngles += 2;
+            matrixFrame(node->pos.x, node->pos.y, node->pos.z, frameAngles);
+
+            drawMesh(model->mStart + i, item->intensity);
+
+            node++;
+        }
+    }
 
     matrixPop();
 }
@@ -333,39 +487,62 @@ void drawNumber(int32 number, int32 x, int32 y) {
     }
 }
 
-extern vec3i viewPos;
-extern Vertex gVertices[MAX_VERTICES];
+void drawRoom(int32 roomIndex) {
+    const Room* room = rooms + roomIndex;
 
-void drawRoom(int16 roomIndex) {
-    RoomDesc &room = rooms[roomIndex];
-
-    clip = room.clip;
+    clip = room->clip;
 
     int32 startVertex = gVerticesCount;
 
     matrixPush();
-    matrixTranslateAbs(vec3i(room.x, 0, room.z));
+    matrixTranslateAbs(room->x, 0, room->z);
 
     PROFILE_START();
-    transform_room(room.vertices, room.vCount);
+    transformRoom(room->vertices, room->vCount);
     PROFILE_STOP(dbg_transform);
 
     matrixPop();
 
     PROFILE_START();
-    faceAdd_room(room.quads, room.qCount, room.triangles, room.tCount, startVertex);
-    if (roomIndex == entityLara) { // TODO draw all entities in the room
-        drawEntity(entityLara);
+    faceAddRoom(room->quads, room->qCount, room->triangles, room->tCount, startVertex);
+
+    for (int32 i = 0; i < room->mCount; i++)
+    {
+        const RoomInfo::Mesh* mesh = room->meshes + i;
+        const StaticMesh* staticMesh = staticMeshes + staticMeshesMap[mesh->staticMeshId];
+
+        if (!(staticMesh->flags & 2)) continue; // invisible
+        
+        // TODO align RoomInfo::Mesh (room relative int16?)
+        vec3i pos;
+        memcpy(&pos, &mesh->pos, sizeof(pos));
+
+        matrixPush();
+        matrixTranslateAbs(pos.x, pos.y, pos.z);
+        matrixRotateY(mesh->rotation);
+
+        if (boxIsVisible(&staticMesh->vbox)) {
+            drawMesh(staticMesh->meshIndex, mesh->intensity);
+        }
+
+        matrixPop();
+    }
+
+    int32 itemIndex = room->firstItem;
+    while (itemIndex != NO_ITEM)
+    {
+        drawItem(items + itemIndex);
+        itemIndex = items[itemIndex].nextItem;
     }
     PROFILE_STOP(dbg_poly);
 
-    room.reset();
+    roomReset(roomIndex);
 
     flush();
 }
 
-const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
-    RoomDesc &room = rooms[roomIndex];
+const RoomInfo::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
+    Room &room = rooms[roomIndex];
 
     int32 sx = clamp((x - room.x) >> 10, 0, room.xSectors - 1);
     int32 sz = clamp((z - room.z) >> 10, 0, room.zSectors - 1);
@@ -373,8 +550,8 @@ const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
     return room.sectors + sx * room.zSectors + sz;
 }
 
-int32 getRoomIndex(int32 roomIndex, const vec3i &pos) {
-    const Room::Sector *sector = getSector(roomIndex, pos.x, pos.z);
+int32 getRoomIndex(int32 roomIndex, const vec3i* pos) {
+    const RoomInfo::Sector *sector = getSector(roomIndex, pos->x, pos->z);
 
     if (sector->floorIndex) {
         const uint16 *data = floors + sector->floorIndex;
@@ -395,28 +572,28 @@ int32 getRoomIndex(int32 roomIndex, const vec3i &pos) {
         }
     }
 
-    while (sector->roomAbove != 0xFF && pos.y < (sector->ceiling << 8)) {
+    while (sector->roomAbove != NO_ROOM && pos->y < (sector->ceiling << 8)) {
         roomIndex = sector->roomAbove;
-        sector = getSector(roomIndex, pos.x, pos.z);
+        sector = getSector(roomIndex, pos->x, pos->z);
     }
 
-    while (sector->roomBelow != 0xFF && pos.y >= (sector->floor << 8)) {
+    while (sector->roomBelow != 0xFF && pos->y >= (sector->floor << 8)) {
         roomIndex = sector->roomBelow;
-        sector = getSector(roomIndex, pos.x, pos.z);
+        sector = getSector(roomIndex, pos->x, pos->z);
     }
 
     return roomIndex;
 }
 
-bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
-    RoomDesc &room = rooms[roomIndex];
+bool checkPortal(int32 roomIndex, const RoomInfo::Portal* portal) {
+    Room &room = rooms[roomIndex];
 
     vec3i d;
-    d.x = portal.v[0].x - camera.pos.x + room.x;
-    d.y = portal.v[0].y - camera.pos.y;
-    d.z = portal.v[0].z - camera.pos.z + room.z;
+    d.x = portal->v[0].x - camera.pos.x + room.x;
+    d.y = portal->v[0].y - camera.pos.y;
+    d.z = portal->v[0].z - camera.pos.z + room.z;
 
-    if (DP33(portal.n, d) >= 0) {
+    if (DP33(portal->n, d) >= 0) {
         return false;
     }
 
@@ -432,7 +609,7 @@ bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
     vec3i  pv[4];
 
     for (int32 i = 0; i < 4; i++) {
-        const vec3s &v = portal.v[i];
+        const vec3s &v = portal->v[i];
 
         int32 x = DP43(m[0], v);
         int32 y = DP43(m[1], v);
@@ -503,7 +680,7 @@ bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
 
     if (x0 >= x1 || y0 >= y1) return false;
 
-    RoomDesc &nextRoom = rooms[portal.roomIndex];
+    Room &nextRoom = rooms[portal->roomIndex];
 
     if (x0 < nextRoom.clip.x0) nextRoom.clip.x0 = x0;
     if (x1 > nextRoom.clip.x1) nextRoom.clip.x1 = x1;
@@ -512,37 +689,122 @@ bool checkPortal(int32 roomIndex, const Room::Portal &portal) {
 
     if (!nextRoom.visible) {
         nextRoom.visible = true;
-        visRooms[visRoomsCount++] = portal.roomIndex;
+        visRooms[visRoomsCount++] = portal->roomIndex;
     }
 
     return true;
 }
 
-void getVisibleRooms(int32 roomIndex) {
-    RoomDesc &room = rooms[roomIndex];
+void getVisibleRooms(int32 roomIndex)
+{
+    const Room* room = rooms + roomIndex;
 
     matrixPush();
-    matrixTranslateAbs(vec3i(room.x, 0, room.z));
+    matrixTranslateAbs(room->x, 0, room->z);
 
-    for (int32 i = 0; i < room.pCount; i++) {
-        const Room::Portal &portal = room.portals[i];
-        if (checkPortal(roomIndex, portal)) {
-            getVisibleRooms(portal.roomIndex);
+    for (int32 i = 0; i < room->pCount; i++)
+    {
+        const RoomInfo::Portal* portal = room->portals + i;
+
+        if (checkPortal(roomIndex, portal))
+        {
+            getVisibleRooms(portal->roomIndex);
         }
     }
 
     matrixPop();
 }
 
-void drawRooms() {
+void drawRooms()
+{
     rooms[camera.room].clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
     visRoomsCount = 0;
     visRooms[visRoomsCount++] = camera.room;
 
     getVisibleRooms(camera.room);
 
-    while (visRoomsCount--) {
+    while (visRoomsCount--)
+    {
         drawRoom(visRooms[visRoomsCount]);
+    }
+}
+
+void move(Item* item, const Anim* anim)
+{
+    int32 speed = anim->speed;
+
+    if (item->flags.gravity)
+    {
+        speed += anim->accel * (item->frameIndex - anim->frameBegin - 1);
+        item->hSpeed -= speed >> 16;
+        speed += anim->accel;
+        item->hSpeed += speed >> 16;
+
+        item->vSpeed += (item->vSpeed < 128) ? GRAVITY : 1;
+
+        item->pos.y += item->vSpeed;
+    } else {
+        speed += anim->accel * (item->frameIndex - anim->frameBegin);
+    
+        item->hSpeed = speed >> 16;
+    }
+
+    item->pos.x += phd_sin(item->angleY) * item->hSpeed >> FIXED_SHIFT;
+    item->pos.z += phd_cos(item->angleY) * item->hSpeed >> FIXED_SHIFT;
+}
+
+void animChange(Item* item, const Anim* anim)
+{
+    if (!anim->scCount) return;
+    // check state change
+}
+
+void animCommand(bool fx, Item* item, const Anim* anim)
+{
+    if (!anim->acCount) return;
+    // check animation command
+}
+
+const Anim* animSet(Item* item, int32 animIndex, int32 frameIndex)
+{
+    item->animIndex = animIndex;
+    item->frameIndex = frameIndex;
+    item->state = anims[animIndex].state;
+
+    return anims + animIndex;
+}
+
+void animUpdate(Item* item)
+{
+    const Anim* anim = anims + item->animIndex;
+
+    item->frameIndex++;
+
+    animChange(item, anim);
+
+    if (item->frameIndex > anim->frameEnd)
+    {
+        animCommand(false, item, anim);
+        anim = animSet(item, anim->nextAnimIndex, anim->nextFrameIndex);
+    }
+
+    animCommand(true, item, anim);
+
+    //move(item, anim);
+}
+
+void updateItems()
+{
+    int32 itemIndex = firstActive;
+    while (itemIndex != NO_ITEM)
+    {
+        Item* item = items + itemIndex;
+
+        if (modelsMap[item->type] != NO_MODEL) {
+            animUpdate(item);
+        }
+
+        itemIndex = item->nextActive;
     }
 }
 

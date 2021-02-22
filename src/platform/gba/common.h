@@ -22,47 +22,25 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
+#include <limits.h>
 
 //#define DEBUG_OVERDRAW
 //#define DEBUG_FACES
 
-//#define USE_MODE_5 1
-#define USE_MODE_4 1
-
-#define SCALE   1
-
 #if defined(__TNS__)
     #define WIDTH        SCREEN_WIDTH
     #define HEIGHT       SCREEN_HEIGHT
-    #define FRAME_WIDTH  (WIDTH/SCALE)
-    #define FRAME_HEIGHT (HEIGHT/SCALE)
+    #define FRAME_WIDTH  WIDTH
+    #define FRAME_HEIGHT HEIGHT
     #define FOV_SHIFT    8
 #else
-    #ifdef USE_MODE_5
-        #define WIDTH        160
-        #define HEIGHT       128
-        #define FRAME_WIDTH  160
-        #define FRAME_HEIGHT 128
-        #define FOV_SHIFT    7
-    #elif USE_MODE_4
-        #define WIDTH        240
-        #define HEIGHT       160
-        #define FRAME_WIDTH  (WIDTH/SCALE)
-        #define FRAME_HEIGHT (HEIGHT/SCALE)
-        #define FOV_SHIFT    7
-    #else
-        #error
-    #endif
-#endif
-
-#ifdef USE_MODE_5
-    #define PIXEL_SIZE 1
-#else
-    #define PIXEL_SIZE 2
+    #define WIDTH        160
+    #define HEIGHT       128
+    #define FRAME_WIDTH  160
+    #define FRAME_HEIGHT 128
+    #define FOV_SHIFT    7
 #endif
 
 #if defined(_WIN32)
@@ -114,6 +92,12 @@ typedef int16              Index;
     #define ALIGN4      __attribute__((aligned(4)))
 #elif defined(__TNS__)
     #define ALIGN4      __attribute__((aligned(4)))
+#endif
+
+#if defined(_WIN32)
+    #define ASSERT(x) { if (!(x)) { DebugBreak(); } }
+#else
+    #define ASSERT(x)
 #endif
 
 #ifdef PROFILE
@@ -189,6 +173,11 @@ struct vec3s {
 
 struct vec4i {
     int32 x, y, z, w;
+
+    INLINE int32& operator [] (int32 index) const {
+        ASSERT(index >= 0 && index <= 3);
+        return ((int32*)this)[index];
+    }
 };
 
 typedef vec4i Matrix[3];
@@ -203,12 +192,16 @@ struct Triangle {
     uint16 flags;
 };
 
-struct Room {
-    struct Info {
-        int32 x, z;
-        int32 yBottom, yTop;
-    };
+struct Box {
+    int16 minX;
+    int16 maxX;
+    int16 minY;
+    int16 maxY;
+    int16 minZ;
+    int16 maxZ;
+};
 
+struct RoomInfo {
     struct Vertex {
         vec3s  pos;
         uint16 lighting;
@@ -242,14 +235,17 @@ struct Room {
     };
 
     struct Mesh {
-        // int32  x, y, z;
-        // uint16 rotation;
-        // uint16 intensity;
-        // uint16 meshID;
-        uint8 dummy[18];
+        int16  pos[6]; // TODO align struct (int32 x, y, z)
+        int16  rotation;
+        uint16 intensity;
+        uint16 staticMeshId;
     };
 
-    Info   info;
+    int32 x;
+    int32 z;
+    int32 yBottom;
+    int32 yTop;
+
     uint32 dataSize;
 /*
     uint16    vCount;
@@ -275,39 +271,89 @@ struct Model {
     uint32 type;
     uint16 mCount;
     uint16 mStart;
-    uint32 node;
-    uint32 frame;
-    uint16 animation;
-    uint16 paddding;
+    uint32 nodeIndex;
+    uint32 frameIndex;
+    uint16 animIndex;
+    uint16 _padding;
 };
 
 #define FILE_MODEL_SIZE (sizeof(Model) - 2) // -padding
 
-struct Entity {
-    uint16 type;
-    uint16 room;
-    vec3i  pos;
-    int16  rotation;
-    uint16 flags;
+struct StaticMesh {
+    int32   id;
+    uint16  meshIndex;
+    Box     vbox;
+    Box     cbox;
+    uint16  flags;
 };
 
-struct EntityDesc { // 32 bytes
+struct ItemInfo { // 24
     uint16 type;
-    uint16 flags;
-
+    int16  room;
     vec3i  pos;
+    int16  angleY;
+    uint16 intensity;
 
-    vec3s  rot;
-    uint8  state;
-    uint8  targetState;
+    union {
+        struct {
+            uint16 gravity:1; // TODO
+        };
+        uint16 value;
+    } flags;
 
-    uint8  vSpeed;
-    uint8  hSpeed;
-    uint8  room;
-    uint8  modelIndex;
+    uint16 _padding;
+};
+
+#define FILE_ITEM_SIZE (sizeof(ItemInfo) - 2)
+
+struct Item : ItemInfo { // 24 + 20 = 44
+    int16  angleX;
+    int16  angleZ;
+
+    uint16 vSpeed;
+    uint16 hSpeed;
 
     uint16 animIndex;
     uint16 frameIndex;
+
+    uint8  state;
+    uint8  nextState;
+    uint8  goalState;
+    uint8  timer;
+
+    uint16 health;
+    uint8  nextItem;
+    uint8  nextActive;
+};
+
+struct Anim {
+    uint32  frameOffset;
+
+    uint8   frameRate;
+    uint8   frameSize;
+    uint16  state;
+
+    int32   speed;
+
+    int32   accel;
+
+    uint16  frameBegin;
+    uint16  frameEnd;
+
+    uint16  nextAnimIndex;
+    uint16  nextFrameIndex;
+
+    uint16  scCount;
+    uint16  scOffset;
+
+    uint16  acCount;
+    uint16  animCommand;
+};
+
+struct Frame {
+    Box    box;
+    vec3s  pos;
+    uint16 angles[1];
 };
 
 struct Texture {
@@ -352,7 +398,7 @@ union UV {
 
 struct VertexUV {
     Vertex v;
-    UV t;
+    UV     t;
 };
 
 struct Face {
@@ -371,12 +417,19 @@ struct Face {
     extern uint32 dbg_poly_count;
 #endif
 
+#define DIV_TABLE_SIZE  256
+#define FixedInvS(x)    ((x < 0) ? -divTable[abs(x)] : divTable[x])
+#define FixedInvU(x)    divTable[x]
+
+extern uint16 divTable[DIV_TABLE_SIZE];
+
 #define FIXED_SHIFT     14
 
 #define MAX_MATRICES    8
 #define MAX_MODELS      64
-#define MAX_ENTITY      190
-#define MAX_VERTICES    1024
+#define MAX_ITEMS       256
+#define MAX_MESHES      50
+#define MAX_VERTICES    2048
 #define MAX_FACES       512
 #define FOG_SHIFT       1
 #define FOG_MAX         (10 * 1024)
@@ -390,6 +443,10 @@ struct Face {
 #define FACE_FLAT       0x1000
 #define FACE_TEXTURE    0x0FFF
 
+#define NO_ROOM         0xFF
+#define NO_ITEM         0xFF
+#define NO_MODEL        0xFF
+
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define SQR(x)   ((x) * (x))
@@ -397,31 +454,47 @@ struct Face {
 #define DP43(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z + (a).w)
 #define DP33(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z)
 
+#define ITEM_LARA    0
+#define ITEM_WOLF    7
+#define ITEM_BEAR    8
+#define ITEM_BAT     9
+#define ITEM_CRYSTAL 83
+
+extern vec3i  viewPos;
+extern Matrix matrixStack[MAX_MATRICES];
+extern int32  matrixStackIndex;
+
 int32 clamp(int32 x, int32 a, int32 b);
 int32 phd_sin(int32 x);
 int32 phd_cos(int32 x);
 
+void initLUT();
+
 Matrix& matrixGet();
 void matrixPush();
 void matrixPop();
-void matrixTranslate(const vec3i &offset);
-void matrixTranslateAbs(const vec3i &offset);
-void matrixRotate(int16 rotX, int16 rotY, int16 rotZ);
-void matrixSetView(const vec3i &pos, int16 rotX, int16 rotY);
+void matrixTranslate(int32 x, int32 y, int32 z);
+void matrixTranslateAbs(int32 x, int32 y, int32 z);
+void matrixRotateX(int32 angle);
+void matrixRotateY(int32 angle);
+void matrixRotateZ(int32 angle);
+void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ);
+void matrixFrame(int32 x, int32 y, int32 z, uint16* angles);
+void matrixSetView(int32 x, int32 y, int32 z, int32 angleX, int32 angleY);
 
 void drawGlyph(const Sprite *sprite, int32 x, int32 y);
 
 void clear();
-void transform_room(const Room::Vertex* vertices, int32 vCount);
-void transform_mesh(const vec3s* vertices, int32 vCount);
-void faceAdd_room(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex);
-void faceAdd_mesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex);
+bool boxIsVisible(const Box* box);
+void transformRoom(const RoomInfo::Vertex* vertices, int32 vCount);
+void transformMesh(const vec3s* vertices, int32 vCount, uint16 intensity);
+void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex);
+void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex);
 
 void flush();
-void initRender();
 
 void readLevel(const uint8 *data);
-const Room::Sector* getSector(int32 roomIndex, int32 x, int32 z);
-int32 getRoomIndex(int32 roomIndex, const vec3i &pos);
+const RoomInfo::Sector* getSector(int32 roomIndex, int32 x, int32 z);
+int32 getRoomIndex(int32 roomIndex, const vec3i* pos);
 
 #endif
