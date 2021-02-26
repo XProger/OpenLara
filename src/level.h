@@ -345,6 +345,11 @@ struct Level : IGame {
                 controller->next = NULL;
                 controller->flags.state = TR::Entity::asNone;
                 if (i >= level.entitiesBaseCount) {
+
+                    if (e.type == TR::Entity::ENEMY_SKATEBOARD) {
+                        continue;
+                    }
+
                     delete controller;
                     e.controller = NULL;
                 }
