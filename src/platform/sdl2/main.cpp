@@ -493,7 +493,7 @@ int main(int argc, char **argv) {
     Core::height = h;
 
     SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
-    SDL_GL_SetSwapInterval(0);
+    SDL_GL_SetSwapInterval(1);
 
     sdl_renderer = SDL_CreateRenderer(sdl_window, -1,
 	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
