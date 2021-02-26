@@ -418,7 +418,7 @@ struct Camera : ICamera {
                 if (mode == MODE_LOOK) {
                     float d = 3.0f * Core::deltaTime;
 
-                    vec2 L = Input::joy[cameraIndex].L;
+                    vec2 L = Input::joy[Core::settings.controls[cameraIndex].joyIndex].L;
                     L = L.normal() * max(0.0f, L.length() - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK);
 
                     lookAngle.x += L.y * d;
