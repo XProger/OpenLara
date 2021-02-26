@@ -88,7 +88,6 @@ int sdl_numjoysticks, sdl_numcontrollers;
 SDL_Joystick *sdl_joysticks[MAX_JOYS];
 SDL_GameController *sdl_controllers[MAX_JOYS];
 SDL_Window *sdl_window;
-SDL_Renderer *sdl_renderer;
 SDL_DisplayMode sdl_displaymode;
 
 bool fullscreen;
@@ -493,10 +492,6 @@ int main(int argc, char **argv) {
     Core::height = h;
 
     SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
-    SDL_GL_SetSwapInterval(1);
-
-    sdl_renderer = SDL_CreateRenderer(sdl_window, -1,
-	  SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 
     SDL_ShowCursor(SDL_DISABLE);
 
@@ -538,7 +533,6 @@ int main(int argc, char **argv) {
     sndFree();
     Game::deinit();
 
-    SDL_DestroyRenderer(sdl_renderer);
     SDL_DestroyWindow(sdl_window);
     SDL_Quit();
 
