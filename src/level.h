@@ -1081,6 +1081,14 @@ struct Level : IGame {
     void addPlayer(int index) {
         if (level.isCutsceneLevel()) return;
 
+        Controller *c = Controller::first;
+        while (c) {
+            Controller *next = c->next;
+            if (c->getEntity().type == TR::Entity::FLAME && ((Flame*)c)->owner == players[index])
+                removeEntity(c);
+            c = next;
+        }
+
         if (!players[index]) {
             players[index] = (Lara*)addEntity(TR::Entity::LARA, 0, vec3(0.0f), 0.0f);
             players[index]->camera->cameraIndex = index;
@@ -1105,14 +1113,6 @@ struct Level : IGame {
                     e->target = NULL;
                 }
             }
-        }
-
-        Controller *c = Controller::first;
-        while (c) {
-            Controller *next = c->next;
-            if (c->getEntity().type == TR::Entity::FLAME && ((Flame*)c)->owner == players[index])
-                removeEntity(c);
-            c = next;
         }
 
         removeEntity(players[index]);
