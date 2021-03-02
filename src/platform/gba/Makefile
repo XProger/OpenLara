@@ -26,6 +26,7 @@ SOURCES		:= .
 INCLUDES	:= include
 DATA		:= data
 MUSIC		:=
+LIBTONC		:= $(DEVKITPRO)/libtonc
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -48,14 +49,14 @@ LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map)
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:= -lmm -lgba
+LIBS	:= -lmm -ltonc
  
  
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:=	$(LIBGBA)
+LIBDIRS	:=	$(LIBGBA) $(LIBTONC)
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional

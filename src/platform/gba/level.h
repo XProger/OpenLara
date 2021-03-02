@@ -2,12 +2,9 @@
 #define H_LEVEL
 
 #include "common.h"
-#include "camera.h"
-
-#define GRAVITY    6
 
 // level file data -------------------
-int32               tilesCount;
+//int32               tilesCount;
 extern const uint8* tiles;
 
 extern uint16    palette[256];
@@ -27,11 +24,20 @@ const int32*     meshOffsets;
 
 const int32*     nodesPtr;
 
-int32            animsCount;
+//int32            animsCount;
 const Anim*      anims;
 
-int32            framesCount;
-const uint16*    frames;
+//int32            animStatesCount;
+const AnimState* animStates;
+
+//int32            animRangesCount;
+const AnimRange* animRanges;
+
+//int32            animCommandsCount;
+const int16*     animCommands;
+
+//int32            animFramesCount;
+const uint16*    animFrames;
 
 int32            modelsCount;
 EWRAM_DATA Model models[MAX_MODELS];
@@ -43,33 +49,18 @@ const StaticMesh* staticMeshes;
 
 int32           itemsCount;
 EWRAM_DATA Item items[MAX_ITEMS];
+
+const uint16*    soundMap;
+
+//int32            soundInfosCount;
+const SoundInfo* soundInfos;
+
+//int32           soundDataSize;
+const uint8*    soundData;
+
+//int32           soundOffsetsCount;
+const uint32*   soundOffsets;
 // -----------------------------------
-
-struct Room {
-    Rect                clip;
-    uint8               firstItem;
-    bool                visible;
-
-    // TODO leave in ROM
-    int32               x, z;
-    uint16              vCount;
-    uint16              qCount;
-    uint16              tCount;
-    uint16              pCount;
-    uint16              lCount;
-    uint16              mCount;
-    uint16              zSectors;
-    uint16              xSectors;
-    uint16              ambient;
-
-    const RoomInfo::Vertex* vertices;
-    const Quad*             quads;
-    const Triangle*         triangles;
-    const RoomInfo::Portal* portals;
-    const RoomInfo::Sector* sectors;
-    const RoomInfo::Light*  lights;
-    const RoomInfo::Mesh*   meshes;
-};
 
 int16           roomsCount;
 EWRAM_DATA Room rooms[64];
@@ -80,41 +71,24 @@ int32 visRoomsCount;
 int32 visRooms[16];
 
 #define ROOM_VISIBLE (1 << 15)
-#define SEQ_GLYPH    190
-
-enum FloorType {
-    FLOOR_TYPE_NONE,
-    FLOOR_TYPE_PORTAL,
-    FLOOR_TYPE_FLOOR,
-    FLOOR_TYPE_CEILING,
-};
-
-int32 seqGlyphs;
-
-extern uint32 gVerticesCount;
-extern Rect   clip;
-
-void roomReset(int32 roomIndex)
-{
-    Room* room = rooms + roomIndex;
-
-    room->visible = false;
-    room->clip = { FRAME_WIDTH, FRAME_HEIGHT, 0, 0 };
-}
 
 void roomItemAdd(int32 roomIndex, int32 itemIndex)
 {
-    ASSERT(items[itemIndex].nextItem == NO_ITEM);
-
+    Item* item = items + itemIndex;
     Room* room = rooms + roomIndex;
 
-    items[itemIndex].nextItem = room->firstItem;
+    ASSERT(item->nextItem == NO_ITEM);
+
+    item->room = roomIndex;
+    item->nextItem = room->firstItem;
     room->firstItem = itemIndex;
 }
 
-void roomItemRemove(int32 roomIndex, int32 itemIndex)
+void roomItemRemove(int32 itemIndex)
 {
-    Room* room = rooms + roomIndex;
+    Item* item = items + itemIndex;
+    Room* room = rooms + item->room;
+    item->room = NO_ROOM;
 
     int32 prevIndex = NO_ITEM;
     int32 index = room->firstItem;
@@ -174,8 +148,28 @@ void deactivateItem(int32 itemIndex)
     }
 }
 
-void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_OFF alignment bytes
-    tilesCount = *((int32*)(data + 4));
+void fixLightmap(int32 palIndex)
+{
+    uint16 color = palette[palIndex];
+
+    int32 r = 0x1F & (color);
+    int32 g = 0x1F & (color >> 5);
+    int32 b = 0x1F & (color >> 10);
+
+    for (int32 i = 0; i < 32; i++)
+    {
+        int32 lum = 31 - i;
+
+        int32 lumR = X_CLAMP((r * lum) / 14, 0, 31);
+        int32 lumG = X_CLAMP((g * lum) / 14, 0, 31);
+        int32 lumB = X_CLAMP((b * lum) / 14, 0, 31);
+
+        palette[lightmap[i * 256 + palIndex]] = lumR | (lumG << 5) | (lumB << 10);
+    }
+}
+
+void readLevel(const uint8* data) { // TODO non-hardcode level loader, added *_OFF alignment bytes
+//    tilesCount = *((int32*)(data + 4));
     tiles = data + 8;
 
     #define MDL_OFF 2
@@ -189,13 +183,25 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
     meshData = data + 908172 + 4;
     meshOffsets = (int32*)(data + 975724 + 4);
 
-    animsCount = *((int32*)(data + 976596));
+//    animsCount = *((int32*)(data + 976596));
     anims = (Anim*)(data + 976596 + 4);
     ASSERT((intptr_t)anims % 4 == 0);
 
-    framesCount = *((int32*)(data + 992990));
-    frames = (uint16*)(data + 992990 + 4);
-    ASSERT((intptr_t)frames % 2 == 0);
+//    animStatesCount = *((int32*)(data + 985464));
+    animStates = (AnimState*)(data + 985464 + 4);
+    ASSERT((intptr_t)animStates % 2 == 0);
+
+//    animRangesCount = *((int32*)(data + 986872));
+    animRanges = (AnimRange*)(data + 986872 + 4);
+    ASSERT((intptr_t)animRanges % 2 == 0);
+
+//    animCommandsCount = *((int32*)(data + 988868));
+    animCommands = (int16*)(data + 988868 + 4);
+    ASSERT((intptr_t)animCommands % 2 == 0);
+
+//    animFramesCount = *((int32*)(data + 992990));
+    animFrames = (uint16*)(data + 992990 + 4);
+    ASSERT((intptr_t)animFrames % 2 == 0);
 
     nodesPtr = (int32*)(data + 990318);
 
@@ -218,6 +224,18 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
     itemsCount = *((int32*)(data + 1319252 + MDL_OFF + ITM_OFF));
     const uint8* itemsPtr = (data + 1319252 + 4 + MDL_OFF + ITM_OFF);
 
+    soundMap = (uint16*)(data + 1329540 + MDL_OFF + ITM_OFF);
+
+//    soundInfosCount = *((int32*)(data + 1330052 + MDL_OFF + ITM_OFF));
+    soundInfos = (SoundInfo*)(data + 1330052 + 4 + MDL_OFF + ITM_OFF);
+
+//    soundDataSize = *((int32*)(data + 1330624 + MDL_OFF + ITM_OFF));
+    soundData = (uint8*)(data + 1330624 + 4 + MDL_OFF + ITM_OFF);
+
+//    soundOffsetsCount = *((int32*)(data + 2533294 + MDL_OFF + ITM_OFF));
+    soundOffsets = (uint32*)(data + 2533294 + 4 + MDL_OFF + ITM_OFF);
+
+    memset(items, 0, sizeof(items));
     for (int32 i = 0; i < itemsCount; i++) {
         memcpy(items + i, itemsPtr, FILE_ITEM_SIZE);
         itemsPtr += FILE_ITEM_SIZE;
@@ -235,19 +253,28 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
     for (int i = 0; i < 256; i++)
     {
     #if defined(_WIN32) || defined(__GBA__)
+        // grayscale palette
+        //uint8 c = ((p[0] + p[1] + p[2]) / 3) >> 1;
+        //palette[i] = c | (c << 5) | (c << 10);
+
         palette[i] = (p[0] >> 1) | ((p[1] >> 1) << 5) | ((p[2] >> 1) << 10);
     #elif defined(__TNS__)
         palette[i] = (p[2] >> 1) | ((p[1] >> 1) << 5) | ((p[0] >> 1) << 10);
     #endif
         p += 3;
     }
+    palette[0] = 0; // black or transparent
+
+    // TODO preprocess fix Laras palette
+    fixLightmap(6);  // boots
+    fixLightmap(14); // skin
 
 // prepare rooms
-    uint8 *ptr = (uint8*)roomsPtr;
+    uint8* ptr = (uint8*)roomsPtr;
 
     for (int32 roomIndex = 0; roomIndex < roomsCount; roomIndex++)
     {
-        const RoomInfo *room = (RoomInfo*)ptr;
+        const RoomInfo* room = (RoomInfo*)ptr;
         ptr += sizeof(RoomInfo);
 
         uint32 dataSize;
@@ -255,7 +282,6 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
         uint8* skipPtr = ptr + dataSize * 2;
 
         Room &desc = rooms[roomIndex];
-        roomReset(roomIndex);
 
         desc.firstItem = NO_ITEM;
 
@@ -327,485 +353,321 @@ void readLevel(const uint8 *data) { // TODO non-hardcode level loader, added *_O
     {
         staticMeshesMap[staticMeshes[i].id] = i;
     }
+}
 
-// prepare items
-    for (int32 i = 0; i < itemsCount; i++) {
-        Item* item = items + i;
-
-        item->angleX      = 0;
-        item->angleZ      = 0;
-        item->vSpeed      = 0;
-        item->hSpeed      = 0;
-        item->nextItem    = NO_ITEM;
-        item->nextActive  = NO_ITEM;
-        item->animIndex   = models[modelsMap[item->type]].animIndex;
-        item->frameIndex  = anims[item->animIndex].frameBegin;
-        item->state       = anims[item->animIndex].state;
-        item->nextState   = item->state;
-        item->goalState   = item->state;
-        item->intensity   = 4096; // TODO lighting
-
-        item->flags.gravity = 0; 
-
-        if (item->room > -1) {
-            roomItemAdd(item->room, i);
-        }
-
-        if (item->type == ITEM_LARA) {
-            activateItem(i);
-        }
-
-        // TODO remove
-        if (item->type == ITEM_WOLF ||
-            item->type == ITEM_BEAR ||
-            item->type == ITEM_BAT  ||
-            item->type == ITEM_CRYSTAL)
-        {
-            activateItem(i);
-        }
+int32 getBridgeFloor(const Item* item, int32 x, int32 z)
+{
+    if (item->type == ITEM_BRIDGE_1) {
+        return item->pos.y;
     }
 
-// prepare glyphs
-    for (int32 i = 0; i < spritesSeqCount; i++) {
-        if (spritesSeq[i].type == SEQ_GLYPH) {
-            seqGlyphs = i;
+    int32 h;
+    if (item->angleY == ANGLE_0) {
+        h = 1024 - x;
+    } else if (item->angleY == -ANGLE_180) {
+        h = x;
+    } else if (item->angleY == ANGLE_90) {
+        h = z;
+    } else {
+        h = 1024 - z;
+    }
+
+    h &= 1023;
+
+    return item->pos.y + ((item->type == ITEM_BRIDGE_2) ? (h >> 2) : (h >> 1));
+}
+
+int32 getTrapDoorFloor(const Item* item, int32 x, int32 z)
+{
+    int32 dx = (item->pos.x >> 10) - (x >> 10);
+    int32 dz = (item->pos.z >> 10) - (z >> 10);
+
+    if (((dx ==  0) && (dz ==  0)) ||
+        ((dx ==  0) && (dz ==  1) && (item->angleY ==  ANGLE_0))   ||
+        ((dx ==  0) && (dz == -1) && (item->angleY == -ANGLE_180)) ||
+        ((dx ==  1) && (dz ==  0) && (item->angleY ==  ANGLE_90))  ||
+        ((dx == -1) && (dz ==  0) && (item->angleY == -ANGLE_90)))
+    {
+        return item->pos.y;
+    }
+
+    return WALL;
+}
+
+int32 getDrawBridgeFloor(const Item* item, int32 x, int32 z)
+{
+    int32 dx = (item->pos.x >> 10) - (x >> 10);
+    int32 dz = (item->pos.z >> 10) - (z >> 10);
+
+    if (((dx == 0) && ((dz == -1) || (dz == -2)) && (item->angleY ==  ANGLE_0))   ||
+        ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (item->angleY == -ANGLE_180)) ||
+        ((dz == 0) && ((dx == -1) || (dz == -2)) && (item->angleY ==  ANGLE_90))  ||
+        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (item->angleY == -ANGLE_90)))
+    {
+        return item->pos.y;
+    }
+
+    return WALL;
+}
+
+void getItemFloorData(const Item* item, int32 x, int32 y, int32 z, int32* floor, int32* ceiling)
+{
+    int32 h = WALL;
+
+    switch (item->type)
+    {
+        case ITEM_TRAP_FLOOR:
+        {
+            if (item->state == 0 || item->state == 1) {
+                h = item->pos.y - 512;
+            }
             break;
         }
-    }
-
-    camera.init();
-    camera.room = 0;
-}
-
-void drawMesh(int16 meshIndex, uint16 intensity) {
-    int32 offset = meshOffsets[meshIndex];
-    const uint8* ptr = meshData + offset;
-
-    ptr += 2 * 5; // skip [cx, cy, cz, radius, flags]
-
-    int16 vCount = *(int16*)ptr; ptr += 2;
-    const vec3s* vertices = (vec3s*)ptr;
-    ptr += vCount * 3 * sizeof(int16);
-
-    int16 nCount = *(int16*)ptr; ptr += 2;
-    //const int16* normals = (int16*)ptr;
-    if (nCount > 0) { // normals
-        ptr += nCount * 3 * sizeof(int16);
-    } else { // intensity
-        ptr += vCount * sizeof(int16);
-    }
-
-    int16     rCount = *(int16*)ptr; ptr += 2;
-    Quad*     rFaces = (Quad*)ptr; ptr += rCount * sizeof(Quad);
-
-    int16     tCount = *(int16*)ptr; ptr += 2;
-    Triangle* tFaces = (Triangle*)ptr; ptr += tCount * sizeof(Triangle);
-
-    int16     crCount = *(int16*)ptr; ptr += 2;
-    Quad*     crFaces = (Quad*)ptr; ptr += crCount * sizeof(Quad);
-
-    int16     ctCount = *(int16*)ptr; ptr += 2;
-    Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
-
-    int32 startVertex = gVerticesCount;
-
-    PROFILE_START();
-    transformMesh(vertices, vCount, intensity);
-    PROFILE_STOP(dbg_transform);
-
-    PROFILE_START();
-    faceAddMesh(rFaces, crFaces, tFaces, ctFaces, rCount, crCount, tCount, ctCount, startVertex);
-    PROFILE_STOP(dbg_poly);
-}
-
-Frame* getFrame(const Item* item, const Model* model)
-{
-    const Anim* anim = anims + item->animIndex;
-
-    int32 frameSize = sizeof(Frame) / 2 + model->mCount * 2;
-    int32 frameIndex = (item->frameIndex - anim->frameBegin) / anim->frameRate;//* FixedInvU(anim->frameRate) >> 16;
-
-    return (Frame*)(frames + anim->frameOffset / 2 + frameIndex * frameSize);
-}
-
-void drawItem(const Item* item) {
-    int32 modelIndex = modelsMap[item->type];
-    if (modelIndex == NO_MODEL) {
-        return; // TODO sprite items
-    }
-
-    const Model* model = models + modelIndex;
-
-    if (model->mCount == 1 && meshOffsets[model->mStart] == 0) return;
-
-    Frame* frame = getFrame(item, model);
-    uint16* frameAngles = frame->angles + 1;
-
-    matrixPush();
-    matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
-    matrixRotateYXZ(item->angleX, item->angleY, item->angleZ);
-
-    if (boxIsVisible(&frame->box)) {
-        // non-aligned access (TODO)
-        uint32 nodeIndex;
-        memcpy(&nodeIndex, &model->nodeIndex,  sizeof(nodeIndex));
-        Node nodes[32];
-        memcpy(nodes, nodesPtr + nodeIndex, (model->mCount - 1) * sizeof(Node));
-
-        const Node* node = nodes;
-
-        matrixFrame(frame->pos.x, frame->pos.y, frame->pos.z, frameAngles);
-
-        drawMesh(model->mStart, item->intensity);
-
-        for (int32 i = 1; i < model->mCount; i++)
+        case ITEM_DRAWBRIDGE:
         {
-            if (node->flags & 1) matrixPop();
-            if (node->flags & 2) matrixPush();
-
-            frameAngles += 2;
-            matrixFrame(node->pos.x, node->pos.y, node->pos.z, frameAngles);
-
-            drawMesh(model->mStart + i, item->intensity);
-
-            node++;
+            if (item->state == 1) {
+                h = getDrawBridgeFloor(item, x, z);
+            }
+            break;
         }
-    }
-
-    matrixPop();
-}
-
-void drawNumber(int32 number, int32 x, int32 y) {
-    const int32 widths[] = { 12, 8, 10, 10, 10, 10, 10, 10, 10, 10 };
-
-    const Sprite *glyphSprites = sprites + spritesSeq[seqGlyphs].sStart;
-
-    while (number > 0) {
-        x -= widths[number % 10];
-        drawGlyph(glyphSprites + 52 + (number % 10), x, y);
-        number /= 10;
-    }
-}
-
-void drawRoom(int32 roomIndex) {
-    const Room* room = rooms + roomIndex;
-
-    clip = room->clip;
-
-    int32 startVertex = gVerticesCount;
-
-    matrixPush();
-    matrixTranslateAbs(room->x, 0, room->z);
-
-    PROFILE_START();
-    transformRoom(room->vertices, room->vCount);
-    PROFILE_STOP(dbg_transform);
-
-    matrixPop();
-
-    PROFILE_START();
-    faceAddRoom(room->quads, room->qCount, room->triangles, room->tCount, startVertex);
-
-    for (int32 i = 0; i < room->mCount; i++)
-    {
-        const RoomInfo::Mesh* mesh = room->meshes + i;
-        const StaticMesh* staticMesh = staticMeshes + staticMeshesMap[mesh->staticMeshId];
-
-        if (!(staticMesh->flags & 2)) continue; // invisible
-        
-        // TODO align RoomInfo::Mesh (room relative int16?)
-        vec3i pos;
-        memcpy(&pos, &mesh->pos, sizeof(pos));
-
-        matrixPush();
-        matrixTranslateAbs(pos.x, pos.y, pos.z);
-        matrixRotateY(mesh->rotation);
-
-        if (boxIsVisible(&staticMesh->vbox)) {
-            drawMesh(staticMesh->meshIndex, mesh->intensity);
+        case ITEM_BRIDGE_1:
+        case ITEM_BRIDGE_2:
+        case ITEM_BRIDGE_3:
+        {
+            h = getBridgeFloor(item, x, z);
+            break;
         }
+        case ITEM_TRAP_DOOR_1:
+        case ITEM_TRAP_DOOR_2:
+        {
+            if (item->state == 0) {
+                h = getTrapDoorFloor(item, x, z);
+            }
 
-        matrixPop();
+            if ((floor && (h >= *floor)) || (ceiling && (h <= *ceiling)))
+            {
+                h = WALL;
+            }
+        }
+        default : return;
     }
 
-    int32 itemIndex = room->firstItem;
-    while (itemIndex != NO_ITEM)
+    if (floor && (y <= h))
     {
-        drawItem(items + itemIndex);
-        itemIndex = items[itemIndex].nextItem;
+        *floor = h;
     }
-    PROFILE_STOP(dbg_poly);
 
-    roomReset(roomIndex);
-
-    flush();
+    if (ceiling && (y > h))
+    {
+        *ceiling = h + 256;
+    }
 }
 
-const RoomInfo::Sector* getSector(int32 roomIndex, int32 x, int32 z) {
+const RoomInfo::Sector* getSector(int32 roomIndex, int32 x, int32 z)
+{
     Room &room = rooms[roomIndex];
 
-    int32 sx = clamp((x - room.x) >> 10, 0, room.xSectors - 1);
-    int32 sz = clamp((z - room.z) >> 10, 0, room.zSectors - 1);
+    int32 sx = X_CLAMP((x - room.x) >> 10, 0, room.xSectors - 1);
+    int32 sz = X_CLAMP((z - room.z) >> 10, 0, room.zSectors - 1);
 
     return room.sectors + sx * room.zSectors + sz;
 }
 
-int32 getRoomIndex(int32 roomIndex, const vec3i* pos) {
-    const RoomInfo::Sector *sector = getSector(roomIndex, pos->x, pos->z);
-
-    if (sector->floorIndex) {
-        const uint16 *data = floors + sector->floorIndex;
-        int16 type = *data++;
-
-        if (type == FLOOR_TYPE_FLOOR) {
-            data++;
-            type = *data++;
-        }
-
-        if (type == FLOOR_TYPE_CEILING) {
-            data++;
-            type = *data++;
-        }
-
-        if ((type & 0xFF) == FLOOR_TYPE_PORTAL) {
-            roomIndex = *data;
-        }
+const RoomInfo::Sector* getSectorBelow(const RoomInfo::Sector* sector, int32 x, int32 z)
+{
+    while (sector->roomBelow != NO_ROOM)
+    {
+        Room* room = rooms + sector->roomBelow;
+        int32 sx = (x - room->x) >> 10;
+        int32 sz = (z - room->z) >> 10;
+        sector = room->sectors + sx * room->zSectors + sz;
     }
+    return sector;
+}
 
-    while (sector->roomAbove != NO_ROOM && pos->y < (sector->ceiling << 8)) {
+const RoomInfo::Sector* getSectorAbove(const RoomInfo::Sector* sector, int32 x, int32 z)
+{
+    while (sector->roomAbove != NO_ROOM)
+    {
+        Room* room = rooms + sector->roomAbove;
+        int32 sx = (x - room->x) >> 10;
+        int32 sz = (z - room->z) >> 10;
+        sector = room->sectors + sx * room->zSectors + sz;
+    }
+    return sector;
+}
+
+int32 getRoomIndex(int32 roomIndex, int32 x, int32 y, int32 z)
+{
+    const RoomInfo::Sector* sector = getSector(roomIndex, x, z);
+
+    while (1)
+    {
+        if (!sector->floorIndex)
+            break;
+
+        // always in this order
+        // - floor
+        // - ceiling
+        // - portal
+        // - other
+
+        FloorData* fd = (FloorData*)(floors + sector->floorIndex);
+        FloorData::Command cmd = (fd++)->cmd;
+
+        if (cmd.func == FLOOR_TYPE_FLOOR)  // skip floor
+        {
+            if (cmd.end) break;
+            fd++;
+            cmd = (fd++)->cmd;
+        }
+
+        if (cmd.func == FLOOR_TYPE_CEILING) // skip ceiling
+        {
+            if (cmd.end) break;
+            fd++;
+            cmd = (fd++)->cmd;
+        }
+
+        if (cmd.func != FLOOR_TYPE_PORTAL) // no portal
+            break;
+
+        roomIndex = fd->value;
+        sector = getSector(roomIndex, x, z);
+    };
+
+    while (sector->roomAbove != NO_ROOM && y < (sector->ceiling << 8))
+    {
         roomIndex = sector->roomAbove;
-        sector = getSector(roomIndex, pos->x, pos->z);
+        sector = getSector(roomIndex, x, z);
     }
 
-    while (sector->roomBelow != 0xFF && pos->y >= (sector->floor << 8)) {
+    while (sector->roomBelow != NO_ROOM && y >= (sector->floor << 8))
+    {
         roomIndex = sector->roomBelow;
-        sector = getSector(roomIndex, pos->x, pos->z);
+        sector = getSector(roomIndex, x, z);
     }
 
     return roomIndex;
 }
 
-bool checkPortal(int32 roomIndex, const RoomInfo::Portal* portal) {
-    Room &room = rooms[roomIndex];
-
-    vec3i d;
-    d.x = portal->v[0].x - camera.pos.x + room.x;
-    d.y = portal->v[0].y - camera.pos.y;
-    d.z = portal->v[0].z - camera.pos.z + room.z;
-
-    if (DP33(portal->n, d) >= 0) {
-        return false;
-    }
-
-    int32 x0 = room.clip.x1;
-    int32 y0 = room.clip.y1;
-    int32 x1 = room.clip.x0;
-    int32 y1 = room.clip.y0;
-
-    int32 znear = 0, zfar = 0;
-
-    Matrix &m = matrixGet();
-
-    vec3i  pv[4];
-
-    for (int32 i = 0; i < 4; i++) {
-        const vec3s &v = portal->v[i];
-
-        int32 x = DP43(m[0], v);
-        int32 y = DP43(m[1], v);
-        int32 z = DP43(m[2], v);
-
-        pv[i].x = x;
-        pv[i].y = y;
-        pv[i].z = z;
-
-        if (z <= VIEW_MIN_F) {
-            znear++;
-            continue;
-        }
-
-        if (z >= VIEW_MAX_F) {
-            zfar++;
-        }
-
-        if (z != 0) {
-            z >>= FOV_SHIFT;
-            x = (x / z) + (FRAME_WIDTH  / 2);
-            y = (y / z) + (FRAME_HEIGHT / 2);
-        } else {
-            x = (x > 0) ? clip.x1 : clip.x0;
-            y = (y > 0) ? clip.y1 : clip.y0;
-        }
-
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-    }
-
-    if (znear == 4 || zfar == 4) return false;
-
-    if (znear) {
-        vec3i *a = pv;
-        vec3i *b = pv + 3;
-        for (int32 i = 0; i < 4; i++) {
-            if ((a->z < 0) ^ (b->z < 0)) {
-                if (a->x < 0 && b->x < 0) {
-                    x0 = 0;
-                } else if (a->x > 0 && b->x > 0) {
-                    x1 = FRAME_WIDTH;
-                } else {
-                    x0 = 0;
-                    x1 = FRAME_WIDTH;
-                }
-
-                if (a->y < 0 && b->y < 0) {
-                    y0 = 0;
-                } else if (a->y > 0 && b->y > 0) {
-                    y1 = FRAME_HEIGHT;
-                } else {
-                    y0 = 0;
-                    y1 = FRAME_HEIGHT;
-                }
-            }
-            b = a;
-            a++;
-        }
-    }
-
-    if (x0 < room.clip.x0) x0 = room.clip.x0;
-    if (x1 > room.clip.x1) x1 = room.clip.x1;
-    if (y0 < room.clip.y0) y0 = room.clip.y0;
-    if (y1 > room.clip.y1) y1 = room.clip.y1;
-
-    if (x0 >= x1 || y0 >= y1) return false;
-
-    Room &nextRoom = rooms[portal->roomIndex];
-
-    if (x0 < nextRoom.clip.x0) nextRoom.clip.x0 = x0;
-    if (x1 > nextRoom.clip.x1) nextRoom.clip.x1 = x1;
-    if (y0 < nextRoom.clip.y0) nextRoom.clip.y0 = y0;
-    if (y1 > nextRoom.clip.y1) nextRoom.clip.y1 = y1;
-
-    if (!nextRoom.visible) {
-        nextRoom.visible = true;
-        visRooms[visRoomsCount++] = portal->roomIndex;
-    }
-
-    return true;
-}
-
-void getVisibleRooms(int32 roomIndex)
+void getTriggerFloorData(const RoomInfo::Sector* sector, int32 x, int32 y, int32 z, int32* floor, int32* ceiling)
 {
-    const Room* room = rooms + roomIndex;
+    if (!sector->floorIndex)
+        return;
 
-    matrixPush();
-    matrixTranslateAbs(room->x, 0, room->z);
+    FloorData::Command cmd;
+    FloorData* fd = (FloorData*)(floors + sector->floorIndex);
 
-    for (int32 i = 0; i < room->pCount; i++)
-    {
-        const RoomInfo::Portal* portal = room->portals + i;
-
-        if (checkPortal(roomIndex, portal))
+    do {
+        cmd = (fd++)->cmd;
+            
+        switch (cmd.func)
         {
-            getVisibleRooms(portal->roomIndex);
+            case FLOOR_TYPE_PORTAL:
+            case FLOOR_TYPE_FLOOR:
+            case FLOOR_TYPE_CEILING:
+            {
+                fd++;
+                break;
+            }
+            
+            case FLOOR_TYPE_TRIGGER:
+            {
+                fd++;
+                FloorData::TriggerCommand trigger;
+
+                do {
+                    trigger = (fd++)->triggerCmd;
+
+                    if (trigger.action == TRIGGER_ACTION_ACTIVATE)
+                    {
+                        getItemFloorData(items + trigger.args, x, y, z, floor, ceiling);
+                    }
+
+                    if (trigger.action == TRIGGER_ACTION_CAMERA_SWITCH)
+                    {
+                        trigger = (fd++)->triggerCmd; // skip camera index
+                    }
+
+                } while (!trigger.end);
+
+                break;
+            }
+
+            case FLOOR_TYPE_LAVA:
+                break;
+        }
+
+    } while (!cmd.end);
+}
+
+FloorData floorSlant;
+
+int32 getFloor(const RoomInfo::Sector* sector, int32 x, int32 y, int32 z)
+{
+    const RoomInfo::Sector* lowerSector = getSectorBelow(sector, x, z);
+
+    int32 floor = lowerSector->floor << 8;
+
+    floorSlant.value = 0;
+
+    if (lowerSector->floorIndex)
+    {
+        FloorData* fd = (FloorData*)(floors + lowerSector->floorIndex);
+        FloorData::Command cmd = (fd++)->cmd;
+
+        if (cmd.func == FLOOR_TYPE_FLOOR) // found floor
+        {
+            floorSlant = *fd;
+            int32 sx = fd->slantX;
+            int32 sz = fd->slantZ;
+            int32 dx = x & 1023;
+            int32 dz = z & 1023;
+            floor -= sx * (sx < 0 ? dx : (dx - 1023)) >> 2;
+            floor -= sz * (sz < 0 ? dz : (dz - 1023)) >> 2;
         }
     }
 
-    matrixPop();
+    getTriggerFloorData(lowerSector, x, y, z, &floor, NULL);
+
+    return floor;
 }
 
-void drawRooms()
+int32 getCeiling(const RoomInfo::Sector* sector, int32 x, int32 y, int32 z)
 {
-    rooms[camera.room].clip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
-    visRoomsCount = 0;
-    visRooms[visRoomsCount++] = camera.room;
+    const RoomInfo::Sector* upperSector = getSectorAbove(sector, x, z);
 
-    getVisibleRooms(camera.room);
+    int32 ceiling = upperSector->ceiling << 8;
 
-    while (visRoomsCount--)
+    if (upperSector->floorIndex)
     {
-        drawRoom(visRooms[visRoomsCount]);
-    }
-}
+        FloorData* fd = (FloorData*)(floors + upperSector->floorIndex);
+        FloorData::Command cmd = (fd++)->cmd;
 
-void move(Item* item, const Anim* anim)
-{
-    int32 speed = anim->speed;
-
-    if (item->flags.gravity)
-    {
-        speed += anim->accel * (item->frameIndex - anim->frameBegin - 1);
-        item->hSpeed -= speed >> 16;
-        speed += anim->accel;
-        item->hSpeed += speed >> 16;
-
-        item->vSpeed += (item->vSpeed < 128) ? GRAVITY : 1;
-
-        item->pos.y += item->vSpeed;
-    } else {
-        speed += anim->accel * (item->frameIndex - anim->frameBegin);
-    
-        item->hSpeed = speed >> 16;
-    }
-
-    item->pos.x += phd_sin(item->angleY) * item->hSpeed >> FIXED_SHIFT;
-    item->pos.z += phd_cos(item->angleY) * item->hSpeed >> FIXED_SHIFT;
-}
-
-void animChange(Item* item, const Anim* anim)
-{
-    if (!anim->scCount) return;
-    // check state change
-}
-
-void animCommand(bool fx, Item* item, const Anim* anim)
-{
-    if (!anim->acCount) return;
-    // check animation command
-}
-
-const Anim* animSet(Item* item, int32 animIndex, int32 frameIndex)
-{
-    item->animIndex = animIndex;
-    item->frameIndex = frameIndex;
-    item->state = anims[animIndex].state;
-
-    return anims + animIndex;
-}
-
-void animUpdate(Item* item)
-{
-    const Anim* anim = anims + item->animIndex;
-
-    item->frameIndex++;
-
-    animChange(item, anim);
-
-    if (item->frameIndex > anim->frameEnd)
-    {
-        animCommand(false, item, anim);
-        anim = animSet(item, anim->nextAnimIndex, anim->nextFrameIndex);
-    }
-
-    animCommand(true, item, anim);
-
-    //move(item, anim);
-}
-
-void updateItems()
-{
-    int32 itemIndex = firstActive;
-    while (itemIndex != NO_ITEM)
-    {
-        Item* item = items + itemIndex;
-
-        if (modelsMap[item->type] != NO_MODEL) {
-            animUpdate(item);
+        if (cmd.func == FLOOR_TYPE_FLOOR) // skip floor
+        {
+            fd++;
+            cmd = (fd++)->cmd;
         }
 
-        itemIndex = item->nextActive;
+        if (cmd.func == FLOOR_TYPE_CEILING) // found ceiling
+        {
+            int32 sx = fd->slantX;
+            int32 sz = fd->slantZ;
+            int32 dx = x & 1023;
+            int32 dz = z & 1023;
+            ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2;
+            ceiling += sz * (sz < 0 ? dz : (dz - 1023)) >> 2;
+        }
     }
+
+    const RoomInfo::Sector* lowerSector = getSectorBelow(sector, x, z);
+
+    getTriggerFloorData(lowerSector, x, y, z, NULL, &ceiling);
+
+    return ceiling;
 }
+
 
 #endif

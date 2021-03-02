@@ -1,2 +1,2 @@
 make
-./NO\$GBA.exe C:\\Projects\\OpenLara\\src\\platform\\gba\\OpenLara.elf
+./mGBA.exe C:\\Projects\\OpenLara\\src\\platform\\gba\\OpenLara.gba
