@@ -462,7 +462,7 @@ void inputUpdate() {
 int main(int argc, char **argv) {
 
     int w, h;
-
+    SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
     SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
 
     SDL_GetCurrentDisplayMode(0, &sdl_displaymode);
