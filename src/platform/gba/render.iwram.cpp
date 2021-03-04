@@ -1,54 +1,39 @@
 #include "common.h"
 
 #if defined(_WIN32)
-    uint16 fb[WIDTH * HEIGHT];
+    uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
-    uint32 fb = VRAM;
+    uint32 fb = MEM_VRAM;
 #elif defined(__TNS__)
-    uint16 fb[WIDTH * HEIGHT];
+    uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #endif
 
 #define PAL_COLOR_TRANSP    0x0000
 #define PAL_COLOR_BLACK     0x0421
 
 uint16 palette[256];       // IWRAM 0.5 kb
-uint8  lightmap[256 * 32]; // IWRAM 8 kb
+uint8 lightmap[256 * 32]; // IWRAM 8 kb
 const uint8* ft_lightmap;
 
 const Texture* textures;
-const uint8*   tiles;
-const uint8*   tile;
+const uint8* tiles;
+const uint8* tile;
 
 uint32 gVerticesCount = 0;
-int32 gFacesCount = 0;
+int32 gFacesCount = 0; // 1 is reserved as OT terminator
 
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16 kb
-EWRAM_DATA Face* gFacesSorted[MAX_FACES];  // EWRAM 2 kb
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5 kb
+EWRAM_DATA Face* otFaces[OT_SIZE] = { 0 };
+int32 otMin = OT_SIZE - 1;
+int32 otMax = 0;
+bool alphaKill;
 
-//uint16 mipMask;
-
-Rect clip;
-
-template <class T>
-INLINE void swap(T &a, T &b) {
-    T tmp = a;
-    a = b;
-    b = tmp;
-}
-
-INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
+X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c) {
     return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
 }
 
-INLINE int32 classify(const Vertex* v) {
-    return (v->x < clip.x0 ? 1 : 0) |
-           (v->x > clip.x1 ? 2 : 0) |
-           (v->y < clip.y0 ? 4 : 0) |
-           (v->y > clip.y1 ? 8 : 0);
-}
-
-bool boxIsVisible(const Box* box)
+bool transformBoxRect(const Box* box, Rect* rect)
 {
     const Matrix &m = matrixGet();
 
@@ -71,7 +56,7 @@ bool boxIsVisible(const Box* box)
         { box->maxX, box->maxY, box->maxZ }
     };
 
-    Rect rect = { INT_MAX, INT_MAX, INT_MIN, INT_MIN };
+    *rect = { INT_MAX, INT_MAX, INT_MIN, INT_MIN };
 
     for (int32 i = 0; i < 8; i++) {
         int32 z = DP43(m[2], v[i]);
@@ -83,30 +68,39 @@ bool boxIsVisible(const Box* box)
         int32 x = DP43(m[0], v[i]);
         int32 y = DP43(m[1], v[i]);
 
-        z >>= FOV_SHIFT;
+        PERSPECTIVE(x, y, z);
 
-        x = (x / z);
-        y = (y / z);
-
-        if (x < rect.x0) rect.x0 = x;
-        if (x > rect.x1) rect.x1 = x;
-        if (y < rect.y0) rect.y0 = y;
-        if (y > rect.y1) rect.y1 = y;
+        if (x < rect->x0) rect->x0 = x;
+        if (x > rect->x1) rect->x1 = x;
+        if (y < rect->y0) rect->y0 = y;
+        if (y > rect->y1) rect->y1 = y;
     }
 
-    rect.x0 += (FRAME_WIDTH  / 2);
-    rect.y0 += (FRAME_HEIGHT / 2);
-    rect.x1 += (FRAME_WIDTH  / 2);
-    rect.y1 += (FRAME_HEIGHT / 2);
+    rect->x0 += (FRAME_WIDTH  / 2);
+    rect->y0 += (FRAME_HEIGHT / 2);
+    rect->x1 += (FRAME_WIDTH  / 2);
+    rect->y1 += (FRAME_HEIGHT / 2);
 
-    return !(rect.x0 > rect.x1 ||
-             rect.x0 > clip.x1 ||
-             rect.x1 < clip.x0 ||
-             rect.y0 > clip.y1 ||
-             rect.y1 < clip.y0);
+    return true;
 }
 
-void transform(const vec3s &v, int32 vg) {
+bool rectIsVisible(const Rect* rect)
+{
+    return !(rect->x0 > rect->x1 ||
+             rect->x0 > clip.x1  ||
+             rect->x1 < clip.x0  ||
+             rect->y0 > clip.y1  ||
+             rect->y1 < clip.y0);
+}
+
+bool boxIsVisible(const Box* box)
+{
+    Rect rect;
+    return transformBoxRect(box, &rect) && rectIsVisible(&rect);
+}
+
+void transform(const vec3s &v, int32 vg)
+{
     ASSERT(gVerticesCount < MAX_VERTICES);
 
     const Matrix &m = matrixGet();
@@ -136,19 +130,20 @@ void transform(const vec3s &v, int32 vg) {
     }
     res.g = vg >> 8;
 
-    z >>= FOV_SHIFT;
+    PERSPECTIVE(x, y, z)
 
-    x = (x / z);
-    y = (y / z);
+    //x = X_CLAMP(x, -512, 511);
+    //y = X_CLAMP(y, -512, 511);
 
-    res.x = x + (FRAME_WIDTH  / 2);
-    res.y = y + (FRAME_HEIGHT / 2);
+    res.x = x + (FRAME_WIDTH  >> 1);
+    res.y = y + (FRAME_HEIGHT >> 1);
     res.z = fogZ;
-    res.clip = classify(&res);
+    res.clip = classify(&res, clip);
 }
 
 void transformRoom(const RoomInfo::Vertex* vertex, int32 vCount)
 {
+    // TODO per-sector clipping?
     for (int32 i = 0; i < vCount; i++)
     {
         transform(vertex->pos, vertex->lighting);
@@ -187,14 +182,18 @@ void clipZ(int32 znear, VertexUV *output, int32 &count, const VertexUV *a, const
 }
 #endif
 VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
-    #define LERP(a,b,t) ((b) + (((a) - (b)) * t >> 16))
+    #define LERP(a,b,t)         (b + ((a - b) * t >> 12))
+    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> 12) )
 
     #define CLIP_AXIS(X, Y, edge, output) {\
-        uint32 t = ((edge - b->v.X) << 16) / (a->v.X - b->v.X);\
+        int32 ta = (edge - b->v.X) << 12;\
+        int32 tb = (a->v.X - b->v.X);\
+        ASSERT(tb != 0);\
+        int32 t = ta / tb;\
         VertexUV* v = output + count++;\
         v->v.X = edge;\
-        v->v.Y = LERP(a->v.Y, b->v.Y, t);\
-        v->v.z = LERP(a->v.z, b->v.z, t);\
+        v->v.Y = LERP2(a->v.Y, b->v.Y, ta, tb);\
+        /*v->v.z = LERP(a->v.z, b->v.z, t);*/\
         v->v.g = LERP(a->v.g, b->v.g, t);\
         v->t.u = LERP(a->t.u, b->t.u, t);\
         v->t.v = LERP(a->t.v, b->t.v, t);\
@@ -295,59 +294,87 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
 }
 
 #ifdef DEBUG_OVERDRAW
-#define FETCH_GT()              32
-#define FETCH_G(palIndex)       32
-#define FETCH_GT_PAL()          32
-#define FETCH_G_PAL(palIndex)   32
+#define INC_PIXEL()     { *pixel += 0b001000010000100; }
+#define PUT_PIXEL_F()   INC_PIXEL()
+#define PUT_PIXEL_G()   INC_PIXEL()
+#define PUT_PIXEL_FT()  INC_PIXEL()
+#define PUT_PIXEL_GT()  INC_PIXEL()
+#define PUT_PIXEL_FTA() INC_PIXEL()
+#define PUT_PIXEL_GTA() INC_PIXEL()
+#define SHADE_PIXEL2()  INC_PIXEL()
 #else
-
 #define FETCH_T()      tile[(t & 0xFF00) | (t >> 24)]
-#define FETCH_G()      lightmap[(g & 0x1F00) | palIndex]
+#define FETCH_G()      ft_lightmap[g & 0x1F00]
 #define FETCH_GT()     lightmap[(g & 0x1F00) | FETCH_T()]
 #define FETCH_FT()     ft_lightmap[FETCH_T()]
 
-#define PUT_PIXEL_GT() { uint16 p = palette[FETCH_GT()]; if (p) *pixel = p; }
-#define PUT_PIXEL_FT() { uint16 p = palette[FETCH_FT()]; if (p) *pixel = p; }
-#define PUT_PIXEL_G()  { *pixel = palette[FETCH_G()]; }
+#define PUT_PIXEL_F()   { *pixel = color; }
+#define PUT_PIXEL_G()   { *pixel = palette[FETCH_G()]; }
+#define PUT_PIXEL_FT()  { uint16 p = palette[FETCH_FT()]; *pixel = p; }
+#define PUT_PIXEL_GT()  { uint16 p = palette[FETCH_GT()]; *pixel = p; }
+#define PUT_PIXEL_FTA() { uint16 p = palette[FETCH_FT()]; if (p) *pixel = p; }
+#define PUT_PIXEL_GTA() { uint16 p = palette[FETCH_GT()]; if (p) *pixel = p; }
+#define SHADE_PIXEL2()  { *pixel = (*pixel >> 1) & 0b11110111101111; }
 #endif
 
 struct Edge {
     int32  h;
-    int32  x;
+    uint32 x;
     int32  g;
     UV     t;
     int32  dx;
     int32  dg;
     uint32 dt;
 
-    int32     index;
-    VertexUV* vert[8];
+    const VertexUV* top;
 
-    Edge() : h(0) {}
+    Edge(const VertexUV* top) : h(0), top(top) {}
 
-    INLINE void stepG() {
+    X_INLINE void stepF() {
+        x += dx;
+    }
+
+    X_INLINE void stepG() {
         x += dx;
         g += dg;
     }
 
-    INLINE void stepGT() {
+    X_INLINE void stepGT() {
         x += dx;
         g += dg;
         t.uv += dt;
     }
 
-    INLINE void stepFT() {
+    X_INLINE void stepFT() {
         x += dx;
         t.uv += dt;
     }
 
-    INLINE bool nextG() {
-        if (index == 0) {
-            return false;
+    X_INLINE bool calcF(const VertexUV* next) {
+        const VertexUV* v1 = top;
+        const VertexUV* v2 = next;
+        top = next;
+
+        if (v2->v.y < v1->v.y) return false;
+
+        h = v2->v.y - v1->v.y;
+        x = v1->v.x << 16;
+
+        if (h > 1) {
+            uint32 d = FixedInvU(h);
+
+            dx = d * (v2->v.x - v1->v.x);
         }
 
-        VertexUV* v1 = vert[index--];
-        VertexUV* v2 = vert[index];
+        return true;
+    }
+
+    X_INLINE bool calcG(const VertexUV* next) {
+        const VertexUV* v1 = top;
+        const VertexUV* v2 = next;
+        top = next;
+
+        if (v2->v.y < v1->v.y) return false;
 
         h = v2->v.y - v1->v.y;
         x = v1->v.x << 16;
@@ -363,19 +390,43 @@ struct Edge {
         return true;
     }
 
-    INLINE bool nextGT() {
-        if (index == 0) {
-            return false;
+    X_INLINE bool calcFT(const VertexUV* next) {
+        const VertexUV* v1 = top;
+        const VertexUV* v2 = next;
+        top = next;
+
+        if (v2->v.y < v1->v.y) return false;
+
+        h = v2->v.y - v1->v.y;
+        x = v1->v.x << 16;
+        t.u = v1->t.v; // TODO preprocess swap
+        t.v = v1->t.u; // TODO preprocess swap
+
+        if (h > 1) {
+            uint32 d = FixedInvU(h);
+
+            dx = d * (v2->v.x - v1->v.x);
+
+            uint32 du = d * (v2->t.v - v1->t.v); // TODO preprocess swap
+            uint32 dv = d * (v2->t.u - v1->t.u); // TODO preprocess swap
+            dt = (du & 0xFFFF0000) | (dv >> 16);
         }
 
-        VertexUV* v1 = vert[index--];
-        VertexUV* v2 = vert[index];
+        return true;
+    }
+
+    X_INLINE bool calcGT(const VertexUV* next) {
+        const VertexUV* v1 = top;
+        const VertexUV* v2 = next;
+        top = next;
+
+        if (v2->v.y < v1->v.y) return false;
 
         h = v2->v.y - v1->v.y;
         x = v1->v.x << 16;
         g = v1->v.g << 16;
-        t.v = v1->t.u;
-        t.u = v1->t.v;
+        t.v = v1->t.u; // TODO preprocess swap
+        t.u = v1->t.v; // TODO preprocess swap
 
         if (h > 1) {
             uint32 d = FixedInvU(h);
@@ -383,150 +434,214 @@ struct Edge {
             dx = d * (v2->v.x - v1->v.x);
             dg = d * (v2->v.g - v1->v.g);
 
-            int32 du = d * (v2->t.v - v1->t.v);
-            int32 dv = d * (v2->t.u - v1->t.u);
-
-            dt = (du & 0xFFFF0000) | int16(dv >> 16);
+            uint32 du = d * (v2->t.v - v1->t.v); // TODO preprocess swap
+            uint32 dv = d * (v2->t.u - v1->t.u); // TODO preprocess swap
+            dt = (du & 0xFFFF0000) | (dv >> 16);
         }
 
         return true;
-    }
-
-    INLINE bool nextFT() {
-        if (index == 0) {
-            return false;
-        }
-
-        VertexUV* v1 = vert[index--];
-        VertexUV* v2 = vert[index];
-
-        h = v2->v.y - v1->v.y;
-        x = v1->v.x << 16;
-        t.u = v1->t.v;
-        t.v = v1->t.u;
-
-        if (h > 1) {
-            uint32 d = FixedInvU(h);
-
-            dx = d * (v2->v.x - v1->v.x);
-
-            int32 du = d * (v2->t.v - v1->t.v);
-            int32 dv = d * (v2->t.u - v1->t.u);
-
-            dt = (du & 0xFFFF0000) | int16(dv >> 16);
-        }
-
-        return true;
-    }
-
-    void build(VertexUV *vertices, int32 count, int32 t, int32 b, int32 incr) {
-        vert[index = 0] = vertices + b;
-
-        for (int32 i = 1; i < count; i++) {
-            b = (b + incr) % count;
-
-            VertexUV* v = vertices + b;
-
-            if (vert[index]->v.x != v->v.x || vert[index]->v.y != v->v.y) {
-                vert[++index] = v;
-            }
-
-            if (b == t) {
-                break;
-            }
-        }
     }
 };
 
-INLINE void scanlineG(uint16* buffer, int32 x1, int32 x2, uint8 palIndex, uint32 g, uint32 dgdx) {
-    uint16* pixel = buffer + x1;
+X_INLINE void scanlineF_c(uint16* pixel, int32 width, uint32 color)
+{
+    while (1)
+    {
+        PUT_PIXEL_F()
+        if (!--width) break;
+        pixel++;
 
-    int32 width = x2 - x1;
+        PUT_PIXEL_F()
+        if (!--width) break;
+        pixel++;
+    }
+}
 
-    dgdx <<= 1;
-
-    while (width--) {
+X_INLINE void scanlineG_c(uint16* pixel, int32 width, uint32 g, uint32 dgdx)
+{
+    while (1)
+    {
         PUT_PIXEL_G();
+        if (!--width) break;
         pixel++;
-
-        if (width) {
-            width--;
-            PUT_PIXEL_G();
-            pixel++;
-        }
+        
+        PUT_PIXEL_G();
+        if (!--width) break;
+        pixel++;
 
         g += dgdx;
     }
 }
 
-INLINE void scanlineGT(uint16* buffer, int32 x1, int32 x2, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx) {
-    uint16* pixel = buffer + x1;
-
-    int32 width = x2 - x1;
-
-    dgdx <<= 1;
-
-    while (width--) {
+X_INLINE void scanlineGT_c(uint16* pixel, int32 width, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx)
+{
+    while (1) {
         PUT_PIXEL_GT();
+        if (!--width) break;
         pixel++;
         t += dtdx;
-
-        if (width) {
-            width--;
-            PUT_PIXEL_GT();
-            pixel++;
-            t += dtdx;
-        }
+        
+        PUT_PIXEL_GT();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
 
         g += dgdx;
     }
 }
 
-INLINE void scanlineFT(uint16* buffer, int32 x1, int32 x2, uint32 t, uint32 dtdx) {
-    uint16* pixel = buffer + x1;
-
-    int32 width = x2 - x1;
-
-    while (width--) {
+X_INLINE void scanlineFT_c(uint16* pixel, int32 width, uint32 t, uint32 dtdx)
+{
+    while (1)
+    {
         PUT_PIXEL_FT();
+        if (!--width) break;
         pixel++;
         t += dtdx;
 
-        if (width) {
-            width--;
-            PUT_PIXEL_FT();
-            pixel++;
-            t += dtdx;
-        }
+        PUT_PIXEL_FT();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
     }
 }
 
-void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * WIDTH;
+X_INLINE void scanlineGTA_c(uint16* pixel, int32 width, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx)
+{
+    while (1) {
+        PUT_PIXEL_GTA();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
+        
+        PUT_PIXEL_GTA();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
+
+        g += dgdx;
+    }
+}
+
+X_INLINE void scanlineFTA_c(uint16* pixel, int32 width, uint32 t, uint32 dtdx)
+{
+    while (1)
+    {
+        PUT_PIXEL_FTA();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
+
+        PUT_PIXEL_FTA();
+        if (!--width) break;
+        pixel++;
+        t += dtdx;
+    }
+}
+
+X_INLINE void scanlineS_c(uint16* pixel, int32 width)
+{
+    while (1)
+    {
+        SHADE_PIXEL2();
+        if (!--width) break;
+        pixel++;
+
+        SHADE_PIXEL2();
+        if (!--width) break;
+        pixel++;
+    }
+}
+
+#if defined(_WIN32)
+#define scanlineS scanlineS_c
+#define scanlineF scanlineF_c
+#define scanlineG scanlineG_c
+#define scanlineFT scanlineFT_c
+#define scanlineGT scanlineGT_c
+#define scanlineGTA scanlineGTA_c
+#define scanlineFTA scanlineFTA_c
+#define rasterizeF rasterizeF_c
+#define rasterizeF_inner rasterizeF_inner_c
+#else
+extern "C" {
+    void scanlineF_asm(uint16* pixel, int32 width, uint16 color);
+    void scanlineG_asm(uint16* pixel, int32 width, uint32 g, uint32 dgdx);
+    void scanlineFT_asm(uint16* pixel, int32 width, uint32 t, uint32 dtdx);
+    void scanlineGT_asm(uint16* pixel, int32 width, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx);
+    void scanlineFTA_asm(uint16* pixel, int32 width, uint32 t, uint32 dtdx);
+    void scanlineGTA_asm(uint16* pixel, int32 width, uint32 g, uint32 t, uint32 dgdx, uint32 dtdx);
+    void rasterizeF_asm(uint16* pixel, Edge &L, Edge &R, int32 palIndex);
+    void rasterizeF_asm(uint16* pixel, Edge &L, Edge &R, int32 palIndex);
+    uint16* rasterizeF_inner_asm(uint16* pixel, Edge &L, Edge &R, uint32 color);
+}
+
+#define scanlineS scanlineS_c
+#define scanlineF scanlineF_asm
+#define scanlineG scanlineG_asm
+#define scanlineFT scanlineFT_asm
+#define scanlineGT scanlineGT_asm
+#define scanlineGTA scanlineGTA_asm
+#define scanlineFTA scanlineFTA_asm
+#define rasterizeF rasterizeF_c
+#define rasterizeF_inner rasterizeF_inner_asm
+#endif
+
+X_INLINE uint16* rasterizeF_inner_c(uint16* pixel, Edge &L, Edge &R, uint32 color)
+{
+    int32 h = X_MIN(L.h, R.h);
+    L.h -= h;
+    R.h -= h;
+    
+    while (h--)
+    {
+        int32 x1 = L.x >> 16;
+        int32 x2 = R.x >> 16;
+
+        int32 width = x2 - x1;
+
+        if (width > 0)
+        {
+            scanlineF(pixel + x1, width, color);
+        }
+
+        pixel += FRAME_WIDTH;
+
+        L.stepF();
+        R.stepF();
+    }
+
+    return pixel;
+}
+
+void rasterizeF_c(uint16* pixel, Edge &L, Edge &R, int32 palIndex)
+{
+    uint32 color = palette[lightmap[(L.top->v.g << 8) | palIndex]];
 
     while (1)
     {
-        while (!L.h)
-        {
-            if (!L.nextG())
-            {
-                return;
-            }
-        }
+        while (!L.h) if (!L.calcF(L.top->prev)) return;
+        while (!R.h) if (!R.calcF(R.top->next)) return;
 
-        while (!R.h)
-        {
-            if (!R.nextG())
-            {
-                return;
-            }
-        }
+        pixel = rasterizeF_inner(pixel, L, R, color);
+    }
+}
 
-        int32 h = MIN(L.h, R.h);
+void rasterizeG(uint16* pixel, Edge &L, Edge &R, int32 palIndex)
+{
+    ft_lightmap = lightmap + palIndex;
+
+    while (1)
+    {
+        while (!L.h) if (!L.calcG(L.top->prev)) return;
+        while (!R.h) if (!R.calcG(R.top->next)) return;
+
+        int32 h = X_MIN(L.h, R.h);
         L.h -= h;
         R.h -= h;
 
-        while (h--) {
+        while (h--)
+        {
             int32 x1 = L.x >> 16;
             int32 x2 = R.x >> 16;
 
@@ -535,12 +650,12 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
             {
                 uint32 d = FixedInvU(width);
 
-                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
+                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 15;
 
-                scanlineG(buffer, x1, x2, palIndex, L.g >> 8, dgdx);
+                scanlineG(pixel + x1, width, L.g >> 8, dgdx);
             }
 
-            buffer += WIDTH;
+            pixel += FRAME_WIDTH;
 
             L.stepG();
             R.stepG();
@@ -548,85 +663,21 @@ void rasterizeG(int16 y, int32 palIndex, Edge &L, Edge &R) {
     }
 }
 
-void rasterizeGT(int16 y, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * WIDTH;
+void rasterizeFT(uint16* pixel, Edge &L, Edge &R)
+{
+    ft_lightmap = &lightmap[L.top->v.g << 8];
 
     while (1)
     {
-        while (!L.h)
-        {
-            if (!L.nextGT())
-            {
-                return;
-            }
-        }
+        while (!L.h) if (!L.calcFT(L.top->prev)) return;
+        while (!R.h) if (!R.calcFT(R.top->next)) return;
 
-        while (!R.h)
-        {
-            if (!R.nextGT())
-            {
-                return;
-            }
-        }
-
-        int32 h = MIN(L.h, R.h);
+        int32 h = X_MIN(L.h, R.h);
         L.h -= h;
         R.h -= h;
 
-        while (h--) {
-            int32 x1 = L.x >> 16;
-            int32 x2 = R.x >> 16;
-
-            int32 width = x2 - x1;
-            if (width > 0)
-            {
-                uint32 d = FixedInvU(width);
-
-                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 16;
-
-                uint32 u = d * (R.t.u - L.t.u);
-                uint32 v = d * (R.t.v - L.t.v);
-                uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
-
-                scanlineGT(buffer, x1, x2, L.g >> 8, L.t.uv, dgdx, dtdx);
-            };
-
-            buffer += WIDTH;
-
-            L.stepGT();
-            R.stepGT();
-        }
-    }
-}
-
-void rasterizeFT(int16 y, Edge &L, Edge &R) {
-    uint16 *buffer = (uint16*)fb + y * WIDTH;
-
-    ft_lightmap = &lightmap[(L.vert[0]->v.g << 8) & 0x1F00];
-
-    while (1)
-    {
-        while (!L.h)
+        while (h--)
         {
-            if (!L.nextFT())
-            {
-                return;
-            }
-        }
-
-        while (!R.h)
-        {
-            if (!R.nextFT())
-            {
-                return;
-            }
-        }
-
-        int32 h = MIN(L.h, R.h);
-        L.h -= h;
-        R.h -= h;
-
-        while (h--) {
             int32 x1 = L.x >> 16;
             int32 x2 = R.x >> 16;
 
@@ -639,10 +690,10 @@ void rasterizeFT(int16 y, Edge &L, Edge &R) {
                 uint32 v = d * (R.t.v - L.t.v);
                 uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
 
-                scanlineFT(buffer, x1, x2, L.t.uv, dtdx);
+                scanlineFT(pixel + x1, width, L.t.uv, dtdx);
             };
 
-            buffer += WIDTH;
+            pixel += FRAME_WIDTH;
 
             L.stepFT();
             R.stepFT();
@@ -650,122 +701,254 @@ void rasterizeFT(int16 y, Edge &L, Edge &R) {
     }
 }
 
-void drawTriangle(const Face* face, VertexUV *v) {
-    VertexUV *v1 = v + 0,
-             *v2 = v + 1,
-             *v3 = v + 2;
-
-    if (v1->v.y > v2->v.y) swap(v1, v2);
-    if (v1->v.y > v3->v.y) swap(v1, v3);
-    if (v2->v.y > v3->v.y) swap(v2, v3);
-
-    int32 temp = (v2->v.y - v1->v.y) * FixedInvU(v3->v.y - v1->v.y);
-
-    int32 longest = ((temp * (v3->v.x - v1->v.x)) >> 16) + (v1->v.x - v2->v.x);
-    if (longest == 0)
+void rasterizeGT(uint16* pixel, Edge &L, Edge &R)
+{
+    while (1)
     {
-        return;
-    }
+        while (!L.h) if (!L.calcGT(L.top->prev)) return;
+        while (!R.h) if (!R.calcGT(R.top->next)) return;
 
-    Edge L, R;
+        int32 h = X_MIN(L.h, R.h);
+        L.h -= h;
+        R.h -= h;
 
-    if (longest < 0)
-    {
-        R.vert[0] = v3;
-        R.vert[1] = v2;
-        R.vert[2] = v1;
-        R.index   = 2;
-        L.vert[0] = v3;
-        L.vert[1] = v1;
-        L.index   = 1;
-    } else {
-        L.vert[0] = v3;
-        L.vert[1] = v2;
-        L.vert[2] = v1;
-        L.index   = 2;
-        R.vert[0] = v3;
-        R.vert[1] = v1;
-        R.index   = 1;
-    }
+        while (h--)
+        {
+            int32 x1 = L.x >> 16;
+            int32 x2 = R.x >> 16;
 
-    if (face->flags & FACE_COLORED) {
-        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
-    } else {
-        if (face->flags & FACE_FLAT) {
-            rasterizeFT(v1->v.y, L, R);
-        } else {
-            rasterizeGT(v1->v.y, L, R);
+            int32 width = x2 - x1;
+            if (width > 0)
+            {
+                uint32 d = FixedInvU(width);
+
+                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 15;
+
+                uint32 u = d * (R.t.u - L.t.u);
+                uint32 v = d * (R.t.v - L.t.v);
+                uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
+
+                scanlineGT(pixel + x1, width, L.g >> 8, L.t.uv, dgdx, dtdx);
+            };
+
+            pixel += FRAME_WIDTH;
+
+            L.stepGT();
+            R.stepGT();
         }
     }
 }
 
-void drawQuad(const Face* face, VertexUV *v) {
+void rasterizeFTA(uint16* pixel, Edge &L, Edge &R)
+{
+    ft_lightmap = &lightmap[L.top->v.g << 8];
+
+    while (1)
+    {
+        while (!L.h) if (!L.calcFT(L.top->prev)) return;
+        while (!R.h) if (!R.calcFT(R.top->next)) return;
+
+        int32 h = X_MIN(L.h, R.h);
+        L.h -= h;
+        R.h -= h;
+
+        while (h--)
+        {
+            int32 x1 = L.x >> 16;
+            int32 x2 = R.x >> 16;
+
+            int32 width = x2 - x1;
+            if (width > 0)
+            {
+                uint32 d = FixedInvU(width);
+
+                uint32 u = d * (R.t.u - L.t.u);
+                uint32 v = d * (R.t.v - L.t.v);
+                uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
+
+                scanlineFTA(pixel + x1, width, L.t.uv, dtdx);
+            };
+
+            pixel += FRAME_WIDTH;
+
+            L.stepFT();
+            R.stepFT();
+        }
+    }
+}
+
+void rasterizeGTA(uint16* pixel, Edge &L, Edge &R)
+{
+    while (1)
+    {
+        while (!L.h) if (!L.calcGT(L.top->prev)) return;
+        while (!R.h) if (!R.calcGT(R.top->next)) return;
+
+        int32 h = X_MIN(L.h, R.h);
+        L.h -= h;
+        R.h -= h;
+
+        while (h--)
+        {
+            int32 x1 = L.x >> 16;
+            int32 x2 = R.x >> 16;
+
+            int32 width = x2 - x1;
+            if (width > 0)
+            {
+                uint32 d = FixedInvU(width);
+
+                uint32 dgdx = d * ((R.g - L.g) >> 8) >> 15;
+
+                uint32 u = d * (R.t.u - L.t.u);
+                uint32 v = d * (R.t.v - L.t.v);
+                uint32 dtdx = (u & 0xFFFF0000) | (v >> 16);
+
+                scanlineGTA(pixel + x1, width, L.g >> 8, L.t.uv, dgdx, dtdx);
+            };
+
+            pixel += FRAME_WIDTH;
+
+            L.stepGT();
+            R.stepGT();
+        }
+    }
+}
+
+void rasterizeS(uint16* pixel, Edge &L, Edge &R)
+{
+    while (1)
+    {
+        while (!L.h) if (!L.calcF(L.top->prev)) return;
+        while (!R.h) if (!R.calcF(R.top->next)) return;
+
+        int32 h = X_MIN(L.h, R.h);
+        L.h -= h;
+        R.h -= h;
+
+        while (h--)
+        {
+            int32 x1 = L.x >> 16;
+            int32 x2 = R.x >> 16;
+
+            int32 width = x2 - x1;
+            if (width > 0)
+            {
+                scanlineS(pixel + x1, width);
+            }
+
+            pixel += FRAME_WIDTH;
+
+            L.stepF();
+            R.stepF();
+        }
+    }
+}
+
+void rasterize(Edge &L, Edge &R, const Face* face)
+{
+    uint16* pixel = (uint16*)fb + L.top->v.y * FRAME_WIDTH;
+#if 0
+    rasterizeF(pixel, L, R, (face->flags & FACE_TEXTURE) + 10);
+#else
+    if (face->flags & FACE_COLORED) {
+        if (face->flags & FACE_FLAT) {
+            if (face->flags & FACE_SHADOW) {
+                rasterizeS(pixel, L, R);
+            } else {
+                rasterizeF(pixel, L, R, face->flags & FACE_TEXTURE);
+            }
+        } else {
+            rasterizeG(pixel, L, R, face->flags & FACE_TEXTURE);
+        }
+    } else {
+        if (alphaKill) {
+            if (face->flags & FACE_FLAT) {
+                rasterizeFTA(pixel, L, R);
+            } else {
+               rasterizeGTA(pixel, L, R);
+            }
+        } else {
+            if (face->flags & FACE_FLAT) {
+                rasterizeFT(pixel, L, R);
+            } else {
+                rasterizeGT(pixel, L, R);
+            }
+        }
+    }
+#endif
+}
+
+void drawTriangle(const Face* face, VertexUV *v)
+{
+    VertexUV *v1 = v + 0,
+             *v2 = v + 1,
+             *v3 = v + 2;
+
+    v1->next = v2;
+    v2->next = v3;
+    v3->next = v1;
+    v1->prev = v3;
+    v2->prev = v1;
+    v3->prev = v2;
+
+    const VertexUV* top = v1;
+    if (v1->v.y < v2->v.y) {
+        if (v1->v.y < v3->v.y) {
+            top = v1;
+        } else {
+            top = v3;
+        }
+    } else {
+        if (v2->v.y < v3->v.y) {
+            top = v2;
+        } else {
+            top = v3;
+        }
+    }
+
+    Edge L(top), R(top);
+    rasterize(L, R, face);
+}
+
+void drawQuad(const Face* face, VertexUV *v)
+{
     VertexUV *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2,
              *v4 = v + 3;
 
-    VertexUV* poly[8] = { v1, v2, v3, v4, v1, v2, v3, v4 };
+    v1->next = v2;
+    v2->next = v3;
+    v3->next = v4;
+    v4->next = v1;
+    v1->prev = v4;
+    v2->prev = v1;
+    v3->prev = v2;
+    v4->prev = v3;
 
-    int32 t, b;
+    VertexUV* top;
 
     if (v1->v.y < v2->v.y) {
         if (v1->v.y < v3->v.y) {
-            t = (v1->v.y < v4->v.y) ? 0 : 3;
+            top = (v1->v.y < v4->v.y) ? v1 : v4;
         } else {
-            t = (v3->v.y < v4->v.y) ? 2 : 3;
+            top = (v3->v.y < v4->v.y) ? v3 : v4;
         }
     } else {
         if (v2->v.y < v3->v.y) {
-            t = (v2->v.y < v4->v.y) ? 1 : 3;
+            top = (v2->v.y < v4->v.y) ? v2 : v4;
         } else {
-            t = (v3->v.y < v4->v.y) ? 2 : 3;
+            top = (v3->v.y < v4->v.y) ? v3 : v4;
         }
     }
 
-    if (v1->v.y > v2->v.y) {
-        if (v1->v.y > v3->v.y) {
-            b = (v1->v.y > v4->v.y) ? 0 : 3;
-        } else {
-            b = (v3->v.y > v4->v.y) ? 2 : 3;
-        }
-    } else {
-        if (v2->v.y > v3->v.y) {
-            b = (v2->v.y > v4->v.y) ? 1 : 3;
-        } else {
-            b = (v3->v.y > v4->v.y) ? 2 : 3;
-        }
-    }
-
-    Edge L, R;
-
-    v1 = poly[t];
-
-    L.vert[L.index = 0] = poly[b];
-    R.vert[R.index = 0] = poly[b];
-
-    int32 ib = b;
-    do {
-        L.vert[++L.index] = poly[++b];
-    } while (poly[b] != v1);
-
-    b = ib + 4;
-    do {
-        R.vert[++R.index] = poly[--b];
-    } while (poly[b] != v1);
-
-    if (face->flags & FACE_COLORED) {
-        rasterizeG(v1->v.y, face->flags & FACE_TEXTURE, L, R);
-    } else {
-        if (face->flags & FACE_FLAT) {
-            rasterizeFT(v1->v.y, L, R);
-        } else {
-            rasterizeGT(v1->v.y, L, R);
-        }
-    }
+    Edge L(top), R(top);
+    rasterize(L, R, face);
 }
 
-void drawPoly(Face* face, VertexUV* v) {
+void drawPoly(Face* face, VertexUV* v)
+{
     VertexUV tmp[16];
 
     int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
@@ -774,55 +957,63 @@ void drawPoly(Face* face, VertexUV* v) {
 
     if (!v) return;
 
-    if (count <= 4) {
+    if (count <= 4)
+    {
         face->indices[0] = 0;
         face->indices[1] = 1;
         face->indices[2] = 2;
         face->indices[3] = 3;
 
         if (count == 3) {
+
+            if (v[0].v.y == v[1].v.y &&
+                v[0].v.y == v[2].v.y)
+                return;
+
             drawTriangle(face, v);
         } else {
+
+            if (v[0].v.y == v[1].v.y &&
+                v[0].v.y == v[2].v.y &&
+                v[0].v.y == v[3].v.y)
+                return;
+
             drawQuad(face, v);
         }
         return;
     }
 
-    int32 minY =  0x7FFF;
-    int32 maxY = -0x7FFF;
-    int32 t = 0, b = 0;
+    VertexUV* top = v;
+    top->next = v + 1;
+    top->prev = v + count - 1;
 
-    for (int32 i = 0; i < count; i++) {
+    bool skip = true;
+
+    for (int32 i = 1; i < count; i++)
+    {
         VertexUV *p = v + i;
 
-        if (p->v.y < minY) {
-            minY = p->v.y;
-            t = i;
-        }
+        p->next = v + (i + 1) % count;
+        p->prev = v + (i - 1 + count) % count;
 
-        if (p->v.y > maxY) {
-            maxY = p->v.y;
-            b = i;
-        }
-    }
-
-    Edge L, R;
-
-    L.build(v, count, t, b, count + 1);
-    R.build(v, count, t, b, count - 1);
-
-    if (face->flags & FACE_COLORED) {
-        rasterizeG(v[t].v.y, face->flags & FACE_TEXTURE, L, R);
-    } else {
-        if (face->flags & FACE_FLAT) {
-            rasterizeFT(v[t].v.y, L, R);
-        } else {
-            rasterizeGT(v[t].v.y, L, R);
+        if (p->v.y != top->v.y) {
+            if (p->v.y < top->v.y) {
+                top = p;
+            }
+            skip = false;
         }
     }
+
+    if (skip) {
+        return; // zero height poly
+    }
+
+    Edge L(top), R(top);
+    rasterize(L, R, face);
 }
 
-void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
+void drawGlyph(const Sprite *sprite, int32 x, int32 y)
+{
     int32 w = sprite->r - sprite->l;
     int32 h = sprite->b - sprite->t;
 
@@ -831,26 +1022,47 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y) {
     int32 ix = x + sprite->l;
     int32 iy = y + sprite->t;
 
-    uint16* ptr = (uint16*)fb + iy * WIDTH;
-
-    ptr += ix;
+#ifdef ROTATE90_MODE
+    uint16* pixel = (uint16*)fb + iy;
+#else
+    uint16* pixel = (uint16*)fb + iy * FRAME_WIDTH + ix;
+#endif
 
     const uint8* glyphData = tiles + (sprite->tile << 16) + 256 * sprite->v + sprite->u;
 
     while (h--)
     {
-        for (int32 i = 0; i < w; i++) {
+        for (int32 i = 0; i < w; i++)
+        {
             if (glyphData[i] == 0) continue;
-
-            ptr[i] = palette[glyphData[i]];
+        #ifdef ROTATE90_MODE
+            pixel[(FRAME_HEIGHT - (ix + i) - 1) * FRAME_WIDTH] = palette[glyphData[i]];
+        #else
+            pixel[i] = palette[glyphData[i]];
+        #endif
         }
 
-        ptr += WIDTH;
+    #ifdef ROTATE90_MODE
+        pixel += 1;
+    #else
+        pixel += FRAME_WIDTH;
+    #endif
         glyphData += 256;
     }
 }
 
-void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
+X_INLINE void faceAddToOTable(Face* face, int32 depth)
+{
+    ASSERT(depth < OT_SIZE);
+    face->next = otFaces[depth];
+    otFaces[depth] = face;
+
+    if (depth < otMin) otMin = depth;
+    if (depth > otMax) otMax = depth;
+}
+
+void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex)
+{
     ASSERT(gFacesCount < MAX_FACES);
 
     Vertex* v = gVertices + startVertex;
@@ -868,8 +1080,6 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
     if (v1->clip & v2->clip & v3->clip & v4->clip)
         return;
 
-    int32 depth = (v1->z + v2->z + v3->z + v4->z) >> 2;
-
     if (v1->clip | v2->clip | v3->clip | v4->clip) {
         flags |= FACE_CLIPPED;
     }
@@ -878,10 +1088,18 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
         flags |= FACE_FLAT;
     }
 
-    Face *f = gFaces + gFacesCount;
-    gFacesSorted[gFacesCount++] = f;
+    Face *f = gFaces + gFacesCount++;
+
+    int32 depth = X_MAX(v1->z, X_MAX(v2->z, X_MAX(v3->z, v4->z))) >> OT_SHIFT;
+
+    // z-bias hack for the shadow plane
+    if (flags & FACE_SHADOW) {
+        depth = X_MAX(0, depth - 8);
+    }
+
+    faceAddToOTable(f, depth);
+
     f->flags      = flags;
-    f->depth      = depth;
     f->start      = startVertex + indices[0];
     f->indices[0] = 0;
     f->indices[1] = indices[1] - indices[0];
@@ -889,7 +1107,8 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex) {
     f->indices[3] = indices[3] - indices[0];
 }
 
-void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
+void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
+{
     ASSERT(gFacesCount < MAX_FACES);
 
     Vertex* v = gVertices + startVertex;
@@ -906,8 +1125,6 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
     if (v1->clip & v2->clip & v3->clip)
         return;
 
-    int32 depth = (v1->z + v2->z + v3->z + v3->z) >> 2; // not entirely correct but fast
-
     if (v1->clip | v2->clip | v3->clip) {
         flags |= FACE_CLIPPED;
     }
@@ -916,10 +1133,12 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex) {
         flags |= FACE_FLAT;
     }
 
-    Face *f = gFaces + gFacesCount;
-    gFacesSorted[gFacesCount++] = f;
+    Face *f = gFaces + gFacesCount++;
+
+    int32 depth = X_MAX(v1->z, X_MAX(v2->z, v3->z)) >> OT_SHIFT;
+    faceAddToOTable(f, depth);
+
     f->flags      = flags | FACE_TRIANGLE;
-    f->depth      = depth;
     f->start      = startVertex + indices[0];
     f->indices[0] = 0;
     f->indices[1] = indices[1] - indices[0];
@@ -956,73 +1175,63 @@ void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces
     }
 }
 
-void faceSort(Face** faces, int32 L, int32 R) {
-    int32 i = L;
-    int32 j = R;
-    int16 depth = faces[(i + j) >> 1]->depth;
-
-    while (i <= j) {
-        while (faces[i]->depth > depth) i++;
-        while (faces[j]->depth < depth) j--;
-
-        if (i <= j) {
-            swap(faces[i++], faces[j--]);
-        }
-    };
-
-    if (L < j) faceSort(faces, L, j);
-    if (R > i) faceSort(faces, i, R);
-}
-
 #ifdef DEBUG_FACES
     int32 gFacesCountMax, gVerticesCountMax;
 #endif
 
-void flush() {
-    if (gFacesCount) {
+void flush()
+{
+    if (gFacesCount)
+    {
         PROFILE_START();
-        faceSort(gFacesSorted, 0, gFacesCount - 1);
-        PROFILE_STOP(dbg_sort);
+        for (int32 i = otMax; i >= otMin; i--)
+        {
+            if (!otFaces[i]) continue;
 
-        PROFILE_START();
-        for (int32 i = 0; i < gFacesCount; i++) {
-            Face *face = gFacesSorted[i];
+            Face *face = otFaces[i];
+            otFaces[i] = NULL;
 
-            VertexUV v[16];
+            do {
+                VertexUV v[16];
 
-            uint32 flags = face->flags;
+                uint32 flags = face->flags;
 
-            if (!(flags & FACE_COLORED)) {
-                const Texture &tex = textures[face->flags & FACE_TEXTURE];
-                tile = tiles + (tex.tile << 16);
-                v[0].t.uv = tex.uv0;
-                v[1].t.uv = tex.uv1;
-                v[2].t.uv = tex.uv2;
-                v[3].t.uv = tex.uv3;
-                palette[0] = (tex.attribute == 1) ? PAL_COLOR_TRANSP : PAL_COLOR_BLACK;
-            } else {
-                palette[0] = PAL_COLOR_BLACK;
-            }
-
-            Vertex *p = gVertices + face->start;
-            v[0].v = p[0];
-            v[1].v = p[face->indices[1]];
-            v[2].v = p[face->indices[2]];
-            if (!(flags & FACE_TRIANGLE)) {
-                v[3].v = p[face->indices[3]];
-            }
-
-            if (flags & FACE_CLIPPED) {
-                drawPoly(face, v);
-            } else {
-                if (flags & FACE_TRIANGLE) {
-                    drawTriangle(face, v);
-                } else {
-                    drawQuad(face, v);
+                if (!(flags & FACE_COLORED)) {
+                    const Texture &tex = textures[face->flags & FACE_TEXTURE];
+                    tile = tiles + (tex.tile << 16);
+                    v[0].t.uv = tex.uv0 & 0xFF00FF00; // TODO preprocess
+                    v[1].t.uv = tex.uv1 & 0xFF00FF00; // TODO preprocess
+                    v[2].t.uv = tex.uv2 & 0xFF00FF00; // TODO preprocess
+                    v[3].t.uv = tex.uv3 & 0xFF00FF00; // TODO preprocess
+                    alphaKill = (tex.attribute == 1);
                 }
-            };
+
+                Vertex *p = gVertices + face->start;
+                v[0].v = p[0];
+                v[1].v = p[face->indices[1]];
+                v[2].v = p[face->indices[2]];
+                if (!(flags & FACE_TRIANGLE)) {
+                    v[3].v = p[face->indices[3]];
+                }
+
+                if (flags & FACE_CLIPPED) {
+                    drawPoly(face, v);
+                } else {
+                    if (flags & FACE_TRIANGLE) {
+                        drawTriangle(face, v);
+                    } else {
+                        drawQuad(face, v);
+                    }
+                };
+
+                face = face->next;
+            } while (face);
         }
+
         PROFILE_STOP(dbg_flush);
+
+        otMin = OT_SIZE - 1;
+        otMax = 0;
     }
 
 #ifdef DEBUG_FACES
@@ -1040,17 +1249,7 @@ void flush() {
     gFacesCount = 0;
 }
 
-void dmaClear(uint32 *dst, uint32 count) {
-#ifdef __GBA__
-    vu32 value = 0;
-    REG_DMA3SAD	= (vu32)&value;
-    REG_DMA3DAD	= (vu32)dst;
-    REG_DMA3CNT	= count | (DMA_ENABLE | DMA32 | DMA_SRC_FIXED | DMA_DST_INC);
-#else
-    memset(dst, 0, count * 4);
-#endif
-}
-
-void clear() {
-    dmaClear((uint32*)fb, (WIDTH * HEIGHT) >> 1);
+void clear()
+{
+    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT * 2);
 }
