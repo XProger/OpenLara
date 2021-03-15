@@ -305,6 +305,10 @@ class Wrapper implements GvrView.StereoRenderer {
             id = 11;
         } else if (lang.startsWith("zh")) {
             id = 12;
+        } else if (lang.startsWith("hu")) {
+            id = 13;
+        } else if (lang.startsWith("sv")) {
+            id = 14;
         }
         return id;
     }
