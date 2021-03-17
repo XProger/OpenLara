@@ -1151,7 +1151,7 @@ namespace GAPI {
 
 
     bool extSupport(const char *str) {
-        if (glGetStringi != NULL) {
+        #if defined(_OS_WIN) || defined(_OS_LINUX) || (defined(__SDL2__) && !defined(_GAPI_GLES2))
             GLint count = 0;
             glGetIntegerv(GL_NUM_EXTENSIONS, &count); 
             for (int i = 0; i < count; i++) {
@@ -1160,13 +1160,13 @@ namespace GAPI {
                     return true;
                 }
             }
-        } else {
+        #else
             const char *ext =  (const char*)glGetString(GL_EXTENSIONS);
             if (!ext) {
                 return false;
             }
             return strstr(ext, str) != NULL;
-        }
+        #endif
 
         return false;
     }
