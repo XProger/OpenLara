@@ -483,6 +483,13 @@
     #define PROFILE_TIMING(time)
 #endif
 
+#ifndef GL_RED
+    #define GL_RED 0x1903
+#endif
+
+#ifndef GL_R8
+    #define GL_R8 0x8229
+#endif
 
 namespace GAPI {
 
