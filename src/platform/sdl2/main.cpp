@@ -198,6 +198,10 @@ JoyKey controllerCodeToJoyKey(int code) {
         case SDL_CONTROLLER_BUTTON_START                : return jkStart;
         case SDL_CONTROLLER_BUTTON_LEFTSTICK            : return jkL;
         case SDL_CONTROLLER_BUTTON_RIGHTSTICK           : return jkR;
+        case SDL_CONTROLLER_BUTTON_DPAD_UP              : return jkUp;
+        case SDL_CONTROLLER_BUTTON_DPAD_DOWN            : return jkDown;
+        case SDL_CONTROLLER_BUTTON_DPAD_LEFT            : return jkLeft;
+        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT           : return jkRight;
     }
     return jkNone;
 }
