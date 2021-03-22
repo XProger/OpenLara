@@ -298,10 +298,10 @@ struct Texture : GAPI::Texture {
         stream.read(height);
         stream.seek(2);
         stream.read(bpp);
-        stream.seek(4);
-        stream.read(size);
+        stream.seek(8);
         stream.seek(offset - stream.pos);
 
+        size = width * height * bpp >> 3;
         uint8 *data = new uint8[size];
         stream.raw(data, size);
 
