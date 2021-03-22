@@ -99,7 +99,7 @@ struct VS_INPUT {
 	#if defined(_GAPI_GXM)
 		#define SAMPLE_SHADOW(T,uv)     f1tex2Dproj(T, uv)
 	#else
-		#define SAMPLE_SHADOW(T,uv)     ((tex2D(T, uv.xy/uv.w) => uv.z/uv.w) ? 1 : 0)
+		#define SAMPLE_SHADOW(T,uv)     ((tex2D(T, uv.xy/uv.w).r >= uv.z/uv.w) ? 1 : 0)
 	#endif
 
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
