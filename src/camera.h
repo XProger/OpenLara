@@ -433,7 +433,7 @@ struct Camera : ICamera {
 
                     lookAngle.x = clamp(lookAngle.x,  CAM_LOOK_ANGLE_XMIN, CAM_LOOK_ANGLE_XMAX);
                     lookAngle.y = clamp(lookAngle.y, -CAM_LOOK_ANGLE_Y,    CAM_LOOK_ANGLE_Y);
-                } else
+                } else {
                     if (lookAngle.x != CAM_FOLLOW_ANGLE || lookAngle.y != 0.0f) {
                         float t = 10.0f * Core::deltaTime;
                         lookAngle.x = lerp(clampAngle(lookAngle.x), CAM_FOLLOW_ANGLE, t);
@@ -442,13 +442,14 @@ struct Camera : ICamera {
                         if (lookAngle.y < EPS) lookAngle.y = 0.0f;
                     }
 
-                vec2 R = Input::joy[Core::settings.controls[cameraIndex].joyIndex].R;
-                R.x = sign(R.x) * max(0.0f, (fabsf(R.x) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
-                R.y = sign(R.y) * max(0.0f, (fabsf(R.y) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
+                    vec2 R = Input::joy[Core::settings.controls[cameraIndex].joyIndex].R;
+                    R.x = sign(R.x) * max(0.0f, (fabsf(R.x) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
+                    R.y = sign(R.y) * max(0.0f, (fabsf(R.y) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
 
-                viewAngle.x = -R.y * PIH;
-                viewAngle.y = R.x * PIH;
-                viewAngle.z = 0.0f;
+                    viewAngle.x = -R.y * PI * 0.375f;
+                    viewAngle.y = R.x * PI * 0.5f;
+                    viewAngle.z = 0.0f;
+                }
             }
 
             targetAngle = owner->angle + lookAngle + viewAngle;
