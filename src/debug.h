@@ -548,6 +548,9 @@ namespace Debug {
             for (int i = 0; i < level.roomsCount; i++)
                 for (int j = 0; j < level.rooms[i].lightsCount; j++) {
                     TR::Room::Light &l = level.rooms[i].lights[j];
+
+                    if (!level.rooms[i].flags.visible) continue;
+
                     vec3 p = vec3(float(l.x), float(l.y), float(l.z));
                     vec4 color = vec4(l.color.r, l.color.g, l.color.b, 255) * (1.0f / 255.0f);
 

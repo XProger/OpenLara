@@ -134,7 +134,7 @@ static const AC_ENTRY STR_AC[] = {
     { 0X3E , 27 , 1  , 17 }, // 00111110
 };
 
-static const uint8 STR_ZIG_ZAG[] = {
+static const uint8 STR_ZSCAN[] = {
      0,  1,  8, 16,  9,  2,  3, 10,
     17, 24, 32, 25, 18, 11,  4,  5,
     12, 19, 26, 33, 40, 48, 41, 34,
@@ -145,24 +145,16 @@ static const uint8 STR_ZIG_ZAG[] = {
     53, 60, 61, 54, 47, 55, 62, 63,
 };
 
-static const uint8 STR_QUANTIZATION[] = {
-     2, 16, 19, 22, 26, 27, 29, 34,
-    16, 16, 22, 24, 27, 29, 34, 37,
-    19, 22, 26, 27, 29, 34, 34, 38,
-    22, 22, 26, 27, 29, 34, 37, 40,
-    22, 26, 27, 29, 32, 35, 40, 48,
-    26, 27, 29, 32, 35, 40, 48, 58,
-    26, 27, 29, 34, 38, 46, 56, 69,
-    27, 29, 35, 38, 46, 56, 69, 83
+static const int32 STR_QTABLE[] = {
+    0x00020000, 0x00163150, 0x00163150, 0x0018D321, 0x001EC830, 0x0018D321, 0x0019DE84, 0x0027DEA0,
+    0x0027DEA0, 0x0019DE84, 0x00160000, 0x0023E1B0, 0x002C6282, 0x002724C0, 0x001A0000, 0x001536B1,
+    0x00257337, 0x00297B55, 0x0027F206, 0x00241022, 0x00146D8E, 0x000E1238, 0x001D6CAF, 0x002346F9,
+    0x00255528, 0x0025E3EF, 0x001F9AA9, 0x000FB1DC, 0x00096162, 0x001985B6, 0x0022E73A, 0x002219AE,
+    0x002219AE, 0x001DC539, 0x00144489, 0x000772FB, 0x000B1918, 0x00148191, 0x001D9060, 0x00200000,
+    0x001F6966, 0x00180AAA, 0x000E28D8, 0x000DB2B0, 0x00178BD2, 0x001B7FC9, 0x001B7FC9, 0x0015A314,
+    0x000C9DD8, 0x000C53EE, 0x001490C8, 0x0018B140, 0x0015A5E0, 0x000CFA08, 0x000D3E30, 0x00146910,
+    0x00138F5A, 0x000CB0EE, 0x000C2390, 0x001066E8, 0x000C928C, 0x000A4DA2, 0x000A4DA2, 0x00065187,
 };
-
-#define STR_IDCT_A 23170
-#define STR_IDCT_B 32138
-#define STR_IDCT_C 27245
-#define STR_IDCT_D 18204
-#define STR_IDCT_E 6392
-#define STR_IDCT_F 30273
-#define STR_IDCT_G 12539
 
 struct Video {
 
@@ -766,12 +758,13 @@ struct Video {
             uint16 chunksCount;
             uint32 frameIndex;
             uint32 chunkSize;
-            uint16 width, height;
+            uint16 width;
+            uint16 height;
             uint16 blocks;
-            uint16 unk1;
+            uint16 unk3800;
             uint16 qscale;
             uint16 version;
-            uint32 unk2;
+            uint32 unk00000000;
         };
 
         struct VideoChunk {
@@ -800,7 +793,7 @@ struct Video {
         int   curVideoChunk;
         int   curAudioChunk;
 
-        Sound::Decoder *audioDecoder;
+        Sound::XA *audioDecoder;
 
         struct {
             uint8 code;
@@ -809,9 +802,13 @@ struct Video {
 
         bool hasSyncHeader;
 
-        STR(Stream *stream) : Decoder(stream), videoChunksCount(0), audioChunksCount(0), curVideoChunk(-1), curAudioChunk(-1), audioDecoder(NULL) {
+        STR(Stream *stream) : Decoder(stream), videoChunksCount(0), audioChunksCount(0), curVideoChunk(-1), curAudioChunk(-1), audioDecoder(NULL)
+        {
+            memset(videoChunks, 0, sizeof(videoChunks));
+            memset(audioChunks, 0, sizeof(audioChunks));
 
-            if (stream->pos >= stream->size) {
+            if (stream->pos >= stream->size)
+            {
                 LOG("Can't load STR format \"%s\"\n", stream->name);
                 ASSERT(false);
                 return;
@@ -831,13 +828,9 @@ struct Video {
 
             hasSyncHeader = syncMagic[0] == 0xFFFFFF00 && syncMagic[1] == 0xFFFFFFFF && syncMagic[2] == 0x00FFFFFF;
             
-            if (!hasSyncHeader) {
+            if (!hasSyncHeader)
+            {
                 LOG("! No sync header found, please use jpsxdec tool to extract FMVs\n");
-            }
-
-            for (int i = 0; i < MAX_CHUNKS; i++) {
-                videoChunks[i].size = 0;
-                audioChunks[i].size = 0;
             }
 
             nextChunk();
@@ -853,49 +846,63 @@ struct Video {
         #ifdef NO_SOUND
             audioDecoder = NULL;
         #else
-            audioDecoder = new Sound::XA(NULL);
+            audioDecoder = new Sound::XA(this, audioNextBlockCallback);
         #endif
         }
 
-        virtual ~STR() {
+        virtual ~STR()
+        {
             OS_LOCK(Sound::lock);
             audioDecoder->stream = NULL;
             delete audioDecoder;
         }
 
-        void buildLUT(uint8 *LUT, int start, int end, int shift) {
-            for (int i = start; i < end; i++) {
+        void buildLUT(uint8 *LUT, int start, int end, int shift)
+        {
+            for (int i = start; i < end; i++)
+            {
                 const AC_ENTRY &e = STR_AC[i];
                 uint8 trash = (1 << (8 + shift - e.length + 1));
             // fill the value and all possible endings
                 while (trash--)
+                {
                     LUT[e.code | trash] = i;
+                }
             }
         }
 
-        bool nextChunk() {
+        bool nextChunk()
+        {
             OS_LOCK(Sound::lock);
 
             if (videoChunks[videoChunksCount % MAX_CHUNKS].size > 0)
+            {
                 return false;
+            }
 
             if (stream->pos >= stream->size)
+            {
                 return false;
+            }
 
             bool readingVideo = false;
 
-            while (stream->pos < stream->size) {
-
+            while (stream->pos < stream->size)
+            {
                 if (hasSyncHeader)
+                {
                     stream->seek(24);
+                }
 
                 Sector sector;
                 stream->raw(&sector, sizeof(Sector));
 
-                if (sector.magic == MAGIC_STR) {
+                if (sector.magic == MAGIC_STR)
+                {
                     VideoChunk *chunk = videoChunks + (videoChunksCount % MAX_CHUNKS);
 
-                    if (sector.chunkIndex == 0) {
+                    if (sector.chunkIndex == 0)
+                    {
                         readingVideo  = true;
                         chunk->size   = 0;
                         chunk->width  = sector.width;
@@ -908,9 +915,12 @@ struct Video {
                     chunk->size += VIDEO_SECTOR_SIZE;
 
                     if (hasSyncHeader)
+                    {
                         stream->seek(280);
+                    }
 
-                    if (sector.chunkIndex == sector.chunksCount - 1) {
+                    if (sector.chunkIndex == sector.chunksCount - 1)
+                    {
                         videoChunksCount++;
                         return true;
                     }
@@ -924,19 +934,26 @@ struct Video {
                     stream->seek(24);
 
                     if (!hasSyncHeader)
+                    {
                         stream->seek(2048 - (AUDIO_SECTOR_SIZE + 24));
+                    }
 
                     if (!readingVideo)
+                    {
                         return true;
+                    }
                 };
             }
             return false;
         }
 
         // http://jpsxdec.blogspot.com/2011/06/decoding-mpeg-like-bitstreams.html
-        bool readCode(BitStream &bs, int16 &skip, int16 &ac) {
-            if (bs.readU(1)) {
-                if (bs.readU(1)) {
+        bool readCode(BitStream &bs, int16 &skip, int16 &ac)
+        {
+            if (bs.readU(1))
+            {
+                if (bs.readU(1))
+                {
                     skip = 0;
                     ac   = bs.readU(1) ? -1 : 1;
                     return true;
@@ -946,9 +963,12 @@ struct Video {
 
             int nz = 1;
             while (!bs.readU(1))
+            {
                 nz++;
+            }
 
-            if (nz == 5) { // escape code == 0b1000001
+            if (nz == 5) // escape code == 0b1000001
+            {
                 uint16 esc = bs.readU(16);
                 skip = esc >> 10;
                 ac   = esc & 0x3FF;
@@ -987,49 +1007,208 @@ struct Video {
             return true;
         }
 
-        void IDCT_PASS(int16 *src, int16 *dst, int32 x) { \
-            int32 a0 = src[0 * x] * STR_IDCT_A;
-            int32 b1 = src[1 * x] * STR_IDCT_B;
-            int32 c1 = src[1 * x] * STR_IDCT_C;
-            int32 d1 = src[1 * x] * STR_IDCT_D;
-            int32 e1 = src[1 * x] * STR_IDCT_E;
-            int32 f2 = src[2 * x] * STR_IDCT_F;
-            int32 g2 = src[2 * x] * STR_IDCT_G;
-            int32 b3 = src[3 * x] * STR_IDCT_B;
-            int32 c3 = src[3 * x] * STR_IDCT_C;
-            int32 d3 = src[3 * x] * STR_IDCT_D;
-            int32 e3 = src[3 * x] * STR_IDCT_E;
-            int32 a4 = src[4 * x] * STR_IDCT_A;
-            int32 b5 = src[5 * x] * STR_IDCT_B;
-            int32 c5 = src[5 * x] * STR_IDCT_C;
-            int32 d5 = src[5 * x] * STR_IDCT_D;
-            int32 e5 = src[5 * x] * STR_IDCT_E;
-            int32 f6 = src[6 * x] * STR_IDCT_F;
-            int32 g6 = src[6 * x] * STR_IDCT_G;
-            int32 b7 = src[7 * x] * STR_IDCT_B;
-            int32 c7 = src[7 * x] * STR_IDCT_C;
-            int32 d7 = src[7 * x] * STR_IDCT_D;
-            int32 e7 = src[7 * x] * STR_IDCT_E;
-            dst[0 * x] = ( a0 + b1 + f2 + c3 + a4 + d5 + g6 + e7 ) >> 16;
-            dst[1 * x] = ( a0 + c1 + g2 - e3 - a4 - b5 - f6 - d7 ) >> 16;
-            dst[2 * x] = ( a0 + d1 - g2 - b3 - a4 + e5 + f6 + c7 ) >> 16;
-            dst[3 * x] = ( a0 + e1 - f2 - d3 + a4 + c5 - g6 - b7 ) >> 16;
-            dst[4 * x] = ( a0 - e1 - f2 + d3 + a4 - c5 - g6 + b7 ) >> 16;
-            dst[5 * x] = ( a0 - d1 - g2 + b3 - a4 - e5 + f6 - c7 ) >> 16;
-            dst[6 * x] = ( a0 - c1 + g2 + e3 - a4 + b5 - f6 + d7 ) >> 16;
-            dst[7 * x] = ( a0 - b1 + f2 - c3 + a4 - d5 + g6 - e7 ) >> 16;
+        // https://psx-spx.consoledev.net/macroblockdecodermdec/
+        // https://github.com/grumpycoders/pcsx-redux/
+        #define AAN_CONST_BITS 12
+        #define AAN_PRESCALE_BITS 16
+
+        #define AAN_EXTRA 12
+        #define SCALE(x, n) ((x) >> (n))
+        #define SCALER(x, n) (((x) + ((1 << (n)) >> 1)) >> (n))
+        #define RLE_RUN(a) ((a) >> 10)
+        #define RLE_VAL(a) (((int)(a) << (sizeof(int) * 8 - 10)) >> (sizeof(int) * 8 - 10))
+        #define MULS(var, c) (SCALE((var) * (c), AAN_CONST_BITS))
+
+        #define AAN_CONST_SIZE 24
+        #define AAN_CONST_SCALE (AAN_CONST_SIZE - AAN_CONST_BITS)
+
+        #define MULR(a) ((1434 * (a)))
+        #define MULB(a) ((1807 * (a)))
+        #define MULG2(a, b) ((-351 * (a)-728 * (b)))
+        #define MULY(a) ((a) << 10)
+
+        #define MAKERGB15(r, g, b, a) ((a | ((b) << 10) | ((g) << 5) | (r)))
+        #define SCALE8(c) SCALER(c, 20)
+        #define SCALE5(c) SCALER(c, 23)
+
+        #define CLAMP5(c) (((c) < -16) ? 0 : (((c) > (31 - 16)) ? 31 : ((c) + 16)))
+        #define CLAMP8(c) (((c) < -128) ? 0 : (((c) > (255 - 128)) ? 255 : ((c) + 128)))
+
+        #define CLAMP_SCALE8(a) (CLAMP8(SCALE8(a)))
+        #define CLAMP_SCALE5(a) (CLAMP5(SCALE5(a)))
+
+        static inline void fillCol(int *blk, int val)
+        {
+            blk[0 * 8] = blk[1 * 8] = blk[2 * 8] = blk[3 * 8] = blk[4 * 8] = blk[5 * 8] = blk[6 * 8] = blk[7 * 8] = val;
         }
 
-        void IDCT(int16 *b) {
-            int16 t[64];
-            for (int i = 0; i < 8 * 1; i += 1) IDCT_PASS(b + i, t + i, 8);
-            for (int i = 0; i < 8 * 8; i += 8) IDCT_PASS(t + i, b + i, 1);
+        static inline void fillRow(int *blk, int val)
+        {
+            blk[0] = blk[1] = blk[2] = blk[3] = blk[4] = blk[5] = blk[6] = blk[7] = val;
         }
 
-        virtual bool decodeVideo(Color32 *pixels) {
+        static void IDCT(int *block, int used_col)
+        {
+            #define FIX_1_082392200 4433
+            #define FIX_1_414213562 5793
+            #define FIX_1_847759065 7568
+            #define FIX_2_613125930 10703
+
+            int tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7;
+            int z5, z10, z11, z12, z13;
+            int *ptr;
+            int i;
+
+            if (used_col == -1)
+            {
+                int v = block[0];
+                for (i = 0; i < 64; i++)
+                {
+                    block[i] = v;
+                }
+                return;
+            }
+
+            ptr = block;
+            for (i = 0; i < 8; i++, ptr++)
+            {
+                if ((used_col & (1 << i)) == 0)
+                {
+                    if (ptr[8 * 0])
+                    {
+                        fillCol(ptr, ptr[0]);
+                        used_col |= (1 << i);
+                    }
+                    continue;
+                }
+
+                z10 = ptr[8 * 0] + ptr[8 * 4];
+                z11 = ptr[8 * 0] - ptr[8 * 4];
+                z13 = ptr[8 * 2] + ptr[8 * 6];
+                z12 = MULS(ptr[8 * 2] - ptr[8 * 6], FIX_1_414213562) - z13;
+
+                tmp0 = z10 + z13;
+                tmp3 = z10 - z13;
+                tmp1 = z11 + z12;
+                tmp2 = z11 - z12;
+
+                z13 = ptr[8 * 3] + ptr[8 * 5];
+                z10 = ptr[8 * 3] - ptr[8 * 5];
+                z11 = ptr[8 * 1] + ptr[8 * 7];
+                z12 = ptr[8 * 1] - ptr[8 * 7];
+
+                tmp7 = z11 + z13;
+
+                z5 = (z12 - z10) * (FIX_1_847759065);
+                tmp6 = SCALE(z10 * (FIX_2_613125930) + z5, AAN_CONST_BITS) - tmp7;
+                tmp5 = MULS(z11 - z13, FIX_1_414213562) - tmp6;
+                tmp4 = SCALE(z12 * (FIX_1_082392200)-z5, AAN_CONST_BITS) + tmp5;
+
+                ptr[8 * 0] = (tmp0 + tmp7);
+                ptr[8 * 7] = (tmp0 - tmp7);
+                ptr[8 * 1] = (tmp1 + tmp6);
+                ptr[8 * 6] = (tmp1 - tmp6);
+                ptr[8 * 2] = (tmp2 + tmp5);
+                ptr[8 * 5] = (tmp2 - tmp5);
+                ptr[8 * 4] = (tmp3 + tmp4);
+                ptr[8 * 3] = (tmp3 - tmp4);
+            }
+
+            ptr = block;
+            if (used_col == 1)
+            {
+                for (i = 0; i < 8; i++) 
+                {
+                    fillRow(block + 8 * i, block[8 * i]);
+                }
+            } else {
+                for (i = 0; i < 8; i++, ptr += 8)
+                {
+                    z10 = ptr[0] + ptr[4];
+                    z11 = ptr[0] - ptr[4];
+                    z13 = ptr[2] + ptr[6];
+                    z12 = MULS(ptr[2] - ptr[6], FIX_1_414213562) - z13;
+
+                    tmp0 = z10 + z13;
+                    tmp3 = z10 - z13;
+                    tmp1 = z11 + z12;
+                    tmp2 = z11 - z12;
+
+                    z13 = ptr[3] + ptr[5];
+                    z10 = ptr[3] - ptr[5];
+                    z11 = ptr[1] + ptr[7];
+                    z12 = ptr[1] - ptr[7];
+
+                    tmp7 = z11 + z13;
+                    z5 = (z12 - z10) * FIX_1_847759065;
+                    tmp6 = SCALE(z10 * FIX_2_613125930 + z5, AAN_CONST_BITS) - tmp7;
+                    tmp5 = MULS(z11 - z13, FIX_1_414213562) - tmp6;
+                    tmp4 = SCALE(z12 * FIX_1_082392200 - z5, AAN_CONST_BITS) + tmp5;
+
+                    ptr[0] = tmp0 + tmp7;
+
+                    ptr[7] = tmp0 - tmp7;
+                    ptr[1] = tmp1 + tmp6;
+                    ptr[6] = tmp1 - tmp6;
+                    ptr[2] = tmp2 + tmp5;
+                    ptr[5] = tmp2 - tmp5;
+                    ptr[4] = tmp3 + tmp4;
+                    ptr[3] = tmp3 - tmp4;
+                }
+            }
+        }
+
+        static inline void putQuadRGB24(uint8 *image, int *Yblk, int Cr, int Cb)
+        {
+            int Y, R, G, B;
+
+            R = MULR(Cr);
+            G = MULG2(Cb, Cr);
+            B = MULB(Cb);
+
+            Y = MULY(Yblk[0]);
+            image[0 * 3 + 0] = CLAMP_SCALE8(Y + R);
+            image[0 * 3 + 1] = CLAMP_SCALE8(Y + G);
+            image[0 * 3 + 2] = CLAMP_SCALE8(Y + B);
+            Y = MULY(Yblk[1]);
+            image[1 * 3 + 0] = CLAMP_SCALE8(Y + R);
+            image[1 * 3 + 1] = CLAMP_SCALE8(Y + G);
+            image[1 * 3 + 2] = CLAMP_SCALE8(Y + B);
+            Y = MULY(Yblk[8]);
+            image[16 * 3 + 0] = CLAMP_SCALE8(Y + R);
+            image[16 * 3 + 1] = CLAMP_SCALE8(Y + G);
+            image[16 * 3 + 2] = CLAMP_SCALE8(Y + B);
+            Y = MULY(Yblk[9]);
+            image[17 * 3 + 0] = CLAMP_SCALE8(Y + R);
+            image[17 * 3 + 1] = CLAMP_SCALE8(Y + G);
+            image[17 * 3 + 2] = CLAMP_SCALE8(Y + B);
+        }
+
+        inline void YUV2RGB24(int32 *blk, uint8 *image)
+        {
+            int x, y;
+            int *Yblk = blk + 64 * 2;
+            int *Crblk = blk;
+            int *Cbblk = blk + 64;
+
+            for (y = 0; y < 16; y += 2, Crblk += 4, Cbblk += 4, Yblk += 8, image += 8 * 3 * 3)
+            {
+                if (y == 8) Yblk += 64;
+                for (x = 0; x < 4; x++, image += 6, Crblk++, Cbblk++, Yblk += 2)
+                {
+                    putQuadRGB24(image, Yblk, *Crblk, *Cbblk);
+                    putQuadRGB24(image + 8 * 3, Yblk + 64, *(Crblk + 4), *(Cbblk + 4));
+                }
+            }
+        }
+
+        virtual bool decodeVideo(Color32 *pixels)
+        {
             curVideoChunk++;
-            while (curVideoChunk >= videoChunksCount) {
-                if (!nextChunk()) {
+            while (curVideoChunk >= videoChunksCount)
+            {
+                if (!nextChunk())
+                {
                     return false;
                 }
             }
@@ -1038,51 +1217,55 @@ struct Video {
 
             BitStream bs(chunk->data + 8, chunk->size - 8); // make bitstream without frame header
 
-            int16 block[6][64]; // Cr, Cb, YTL, YTR, YBL, YBR
-            for (int bX = 0; bX < width / 16; bX++) {
-                for (int bY = 0; bY < height / 16; bY++) {
-                    memset(block, 0, sizeof(block));
+            int32 qscale = chunk->qscale;
 
-                    for (int i = 0; i < 6; i++) {
-                        bool nonZero = false;
+            int32 blocks[64 * 6]; // Cr, Cb, YTL, YTR, YBL, YBR
+            for (int32 bX = 0; bX < width / 16; bX++)
+            {
+                for (int32 bY = 0; bY < height / 16; bY++)
+                {
+                    memset(blocks, 0, sizeof(blocks));
 
-                        int16 *channel = block[i];
-                        channel[0] = bs.readU(10);
-                        if (channel[0]) {
-                            if (channel[0] & 0x200) {
-                                channel[0] -= 0x400;
-                            }
-                            channel[0] = channel[0] * STR_QUANTIZATION[0]; // DC
-                            nonZero = true;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        int32* block = blocks + i * 64;
+
+                        int16 dc = bs.readU(10);
+                        if (dc & 0x200) {
+                            dc -= 0x400;
                         }
-                        
+
+                        block[0] = SCALER(dc * STR_QTABLE[0], AAN_EXTRA - 3);
+
+                        int32 used_col = 0;
+
                         int16 skip, ac;
-                        int index = 0;
-                        while (readCode(bs, skip, ac)) {
-                            index += 1 + skip;
+                        int32 index = 0;
+                        while (readCode(bs, skip, ac))
+                        {
+                            index += skip + 1;
                             ASSERT(index < 64);
-                            int zIndex = STR_ZIG_ZAG[index];
-                            channel[zIndex] = (ac * STR_QUANTIZATION[zIndex] * chunk->qscale + 4) >> 3;
-                            nonZero = true;
+                            block[STR_ZSCAN[index]] = SCALER(ac * STR_QTABLE[index] * qscale, AAN_EXTRA);
+
+                            used_col |= (STR_ZSCAN[index] > 7) ? 1 << (STR_ZSCAN[index] & 7) : 0;
                         }
 
-                        if (nonZero)
-                            IDCT(channel);
+                        if (index == 0) used_col = -1;
+
+                        IDCT(block, used_col);
                     }
 
+                    Color24 pix[16 * 16];
+                    YUV2RGB24(blocks, (uint8*)pix);
+
+                    int32 i = 0;
                     Color32 *blockPixels = pixels + (width * bY * 16 + bX * 16);
-
-                    for (uint32 i = 0; i < 8 * 8; i++) {
-                        int x = (i % 8) * 2;
-                        int y = (i / 8) * 2;
-                        int j = (x & 7) + (y & 7) * 8;
-
-                        Color32 *c = blockPixels + (width * y + x);
-
-                        int16 *b = block[(x < 8) ? ((y < 8) ? 2 : 4) : ((y < 8) ? 3 : 5)];
-
-                        Color32::YCbCr_T871_420(b[j] + 128, b[j + 1] + 128, b[j + 8] + 128, b[j + 8 + 1] + 128, block[1][i], block[0][i], 4,
-                                                c[0], c[1], c[width], c[width + 1]);
+                    for (int y = 0; y < 16; y++)
+                    {
+                        for (int x = 0; x < 16; x++)
+                        {
+                            blockPixels[y * width + x] = pix[i++];
+                        }
                     }
                 }
             }
@@ -1092,34 +1275,40 @@ struct Video {
             return true;
         }
 
-        virtual int decode(Sound::Frame *frames, int count) {
+        bool getNextAudioStream()
+        {
+            curAudioChunk++;
+            while (curAudioChunk >= audioChunksCount)
+            {
+                if (!nextChunk())
+                {
+                    curAudioChunk--;
+                    return false;
+                }
+            }
+
+            AudioChunk *chunk = audioChunks + (curAudioChunk % MAX_CHUNKS);
+            ASSERT(chunk->size > 0);
+            audioDecoder->processSector(chunk->data);
+            return true;
+        }
+
+        static bool audioNextBlockCallback(void* userData)
+        {
+            return ((STR*)userData)->getNextAudioStream();
+        }
+
+        virtual int decode(Sound::Frame *frames, int count)
+        {
         #ifdef NO_VIDEO
             return 0;
         #else
             if (!audioDecoder) return 0;
             Sound::XA *xa = (Sound::XA*)audioDecoder;
 
-            int i = 0;
-            while (i < count) {
-                if (xa->pos >= COUNT(xa->buffer)) {
-                    curAudioChunk++;
-                    while (curAudioChunk >= audioChunksCount) {
-                        if (!nextChunk()) {
-                            curAudioChunk--;
-                            memset(frames, 0, count * sizeof(Sound::Frame));
-                            return count;
-                        }
-                    }
-                }
-
-                AudioChunk *chunk = audioChunks + (curAudioChunk % MAX_CHUNKS);
-                ASSERT(chunk->size > 0);
-                Stream *memStream = new Stream(NULL, chunk->data, AUDIO_SECTOR_SIZE);
-                audioDecoder->stream = memStream;
-
-                i += audioDecoder->decode(&frames[i], count - i);
-
-                delete memStream;
+            int ret = audioDecoder->decode(frames, count);
+            if (ret < count) {
+                memset(frames + ret, 0, (count - ret) * sizeof(Sound::Frame));
             }
 
             return count;
@@ -1298,7 +1487,7 @@ struct Video {
         }
     }
 
-    Video(Stream *stream, TR::LevelID id) : sample(NULL), decoder(NULL), stepTimer(0.0f), time(0.0f), isPlaying(false) {
+    Video(Stream *stream, TR::LevelID id) : sample(NULL), decoder(NULL), stepTimer(0.0f), time(0.0f), isPlaying(false), needUpdate(false) {
         frameTex[0] = frameTex[1] = NULL;
 
         if (!stream) return;
@@ -1323,12 +1512,16 @@ struct Video {
         frameData = new Color32[decoder->width * decoder->height];
         memset(frameData, 0, decoder->width * decoder->height * sizeof(Color32));
 
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             frameTex[i] = new Texture(decoder->width, decoder->height, 1, FMT_RGBA, OPT_DYNAMIC, frameData);
+        }
 
         if (!TR::getVideoTrack(id, playAsync, this)) {
             sample = Sound::play(decoder);
             sample->pitch = pitch;
+            if (sample) {
+                sample->pitch = pitch;
+            }
         }
 
         step      = 1.0f / decoder->fps;

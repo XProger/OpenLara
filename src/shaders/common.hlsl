@@ -65,16 +65,16 @@ struct VS_INPUT {
 	Texture2D    sReflect     : register(t2);
 	Texture2D    sShadow      : register(t3);
 	Texture2D    sMask        : register(t4);
-	
+
 	#define SAMPLE_2D(T,uv)             T.Sample(smpDefault,     uv)
 	#define SAMPLE_2D_POINT(T,uv)       T.Sample(smpPoint,       uv)
 	#define SAMPLE_2D_POINT_WRAP(T,uv)  T.Sample(smpPointWrap,   uv)
 	#define SAMPLE_2D_LINEAR(T,uv)      T.Sample(smpLinear,      uv)
 	#define SAMPLE_2D_LINEAR_WRAP(T,uv) T.Sample(smpLinearWrap,  uv)
-	#define SAMPLE_2D_CMP(T,uv)         T.SampleCmp(smpCmp,      uv.xy, uv.z)
+	#define SAMPLE_SHADOW(T,uv)         T.SampleCmpLevelZero(smpCmp, uv.xy/uv.w, uv.z/uv.w)
 	#define SAMPLE_2D_LOD0(T,uv)        T.SampleLevel(smpLinear, uv, 0)
 	#define SAMPLE_3D(T,uv)             T.SampleLevel(smpLinearWrap, uv, 0)
-	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)	
+	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)
 
 	#define POSITION    SV_POSITION
 #else
@@ -95,7 +95,13 @@ struct VS_INPUT {
 	#define SAMPLE_2D_LINEAR(T,uv)      tex2D(T, uv)
 	#define SAMPLE_2D_LINEAR_WRAP(T,uv) tex2D(T, uv)
 	#define SAMPLE_2D_LOD0(T,uv)        tex2Dlod(T, float4(uv.xy, 0, 0))
-	#define SAMPLE_2D_CMP(T,uv)         ((tex2D(T, uv.xy) => uv.z) ? 1 : 0)
+
+	#if defined(_GAPI_GXM)
+		#define SAMPLE_SHADOW(T,uv)     f1tex2Dproj(T, uv)
+	#else
+		#define SAMPLE_SHADOW(T,uv)     ((tex2D(T, uv.xy/uv.w) => uv.z/uv.w) ? 1 : 0)
+	#endif
+
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
 	#define SAMPLE_CUBE(T,uv)           texCUBE(T, uv)
 
@@ -122,7 +128,7 @@ float4      uContacts[MAX_CONTACTS] : register( c98 );
 // options for compose, shadow, ambient passes
 #ifdef _GAPI_GXM
 	//#define OPT_AMBIENT
-	//#define OPT_SHADOW
+	#define OPT_SHADOW
 	//#define OPT_CONTACT
 	//#define OPT_CAUSTICS
 #else
@@ -220,16 +226,10 @@ float getShadowValue(float3 lightVec, float4 lightProj) {
 */
 	float factor = step(0.0, lightProj.w); //float((sMin > 0.0f) && (sMax < lightProj.w)); // 
 	lightProj.xyz *= factor;
-	lightProj.xyz /= lightProj.w;
-	lightProj.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL;
+	lightProj.z -= SHADOW_CONST_BIAS * SHADOW_TEXEL * lightProj.w;
 
-#ifdef _GAPI_GXM
-	float rShadow = f1tex2Dproj(sShadow, lightProj);
-#elif _GAPI_D3D11
-	float rShadow = sShadow.SampleCmpLevelZero(smpCmp, lightProj.xy, lightProj.z);
-#else
-	float rShadow = 1.0;
-#endif
+
+	float rShadow = SAMPLE_SHADOW(sShadow, lightProj);
 
 	float fade = saturate(dot(lightVec, lightVec));
 	return rShadow + (1.0 - rShadow) * fade;

@@ -203,8 +203,8 @@ void joyUpdate() {
             if (_XInputGetState(j, &state) == ERROR_SUCCESS) {
                 //osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
 
-                Input::setJoyPos(j, jkL,   joyDir(joyAxis( state.Gamepad.sThumbLX,  -32768, 32767),
-                                                  joyAxis(-state.Gamepad.sThumbLY,  -32768, 32767)));
+                Input::setJoyPos(j, jkL,   joyDir(joyAxis( state.Gamepad.sThumbLX, -32768, 32767),
+                                                  joyAxis(-state.Gamepad.sThumbLY, -32768, 32767)));
                 Input::setJoyPos(j, jkR,   joyDir(joyAxis( state.Gamepad.sThumbRX, -32768, 32767),
                                                   joyAxis(-state.Gamepad.sThumbRY, -32768, 32767)));
                 Input::setJoyPos(j, jkLT,  vec2(state.Gamepad.bLeftTrigger / 255.0f, 0.0f));

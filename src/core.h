@@ -132,6 +132,8 @@
     #define _GAPI_GXM 1
 
     #undef OS_PTHREAD_MT
+
+    //#define USE_LIBVORBIS // TODO crash
 #elif __SWITCH__
     #define _OS_SWITCH 1
     #define _GAPI_GL   1
@@ -259,10 +261,10 @@ namespace Core {
     struct Mutex {
         void *obj;
     
-        Mutex()       { obj = osMutexInit(); }
-        ~Mutex()      { osMutexFree(obj);    }
-        void lock()   { osMutexLock(obj);    }
-        void unlock() { osMutexUnlock(obj);  }
+        Mutex()       { obj = osMutexInit();          }
+        ~Mutex()      { if (obj) osMutexFree(obj);    }
+        void lock()   { if (obj) osMutexLock(obj);    }
+        void unlock() { if (obj) osMutexUnlock(obj);  }
     };
     
     struct Lock {
@@ -1009,7 +1011,7 @@ namespace Core {
     #ifdef _OS_PSV
         settings.detail.setFilter   (Core::Settings::HIGH);
         settings.detail.setLighting (Core::Settings::LOW);
-        settings.detail.setShadows  (Core::Settings::LOW);
+        settings.detail.setShadows  (Core::Settings::MEDIUM);
         settings.detail.setWater    (Core::Settings::MEDIUM);
     #endif
 
@@ -1069,7 +1071,7 @@ namespace Core {
             GAPI::discardTarget(!(active.targetOp & RT_STORE_COLOR), !(active.targetOp & RT_STORE_DEPTH));
 
             GAPI::Texture *target = reqTarget.texture;
-            uint32  face          = reqTarget.face;
+            uint32 face           = reqTarget.face;
 
             if (target != active.target || face != active.targetFace) {
                 Core::stats.rt++;

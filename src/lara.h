@@ -2304,7 +2304,7 @@ struct Lara : Character {
                 if (stand == STAND_UNDERWATER || stand == STAND_ONWATER)
                     return stand;
                 if (stand == STAND_AIR) {
-                    if (velocity.y > 0.0f && pos.y - waterLevel > 300.0) {
+                    if (velocity.y > 0.0f && pos.y - waterLevel > 300.0f) {
                         stopScreaming();
                         return STAND_UNDERWATER;
                     }
@@ -2326,7 +2326,7 @@ struct Lara : Character {
                     return STAND_AIR;
 
                 if (stand == STAND_AIR) {
-                    if (velocity.y > 0.0f && pos.y - waterLevel > 300.0) {
+                    if (velocity.y > 0.0f && pos.y - waterLevel > 300.0f) {
                         waterSplash();
                         pos.y = waterLevel + waterDepth;
                         game->playSound(TR::SND_WATER_SPLASH, pos, Sound::PAN);

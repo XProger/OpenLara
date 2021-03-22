@@ -767,7 +767,6 @@ namespace GAPI {
             bool isCube     = (opt & OPT_CUBEMAP) != 0;
             bool isTarget   = (opt & OPT_TARGET)  != 0;
             bool isDynamic  = (opt & OPT_DYNAMIC) != 0;
-            bool isShadow   = fmt == FMT_SHADOW;
             bool isTiled    = isTarget;
             bool isSwizzled = !isDynamic && !isTiled && filter;
 
@@ -814,7 +813,7 @@ namespace GAPI {
                 size *= 6;
             }
 
-            SceGxmMemoryAttribFlags flags = (isTarget || mipCount > 1) ? SCE_GXM_MEMORY_ATTRIB_RW : SCE_GXM_MEMORY_ATTRIB_READ;
+            SceGxmMemoryAttribFlags flags = (isTarget || isDynamic || mipCount > 1) ? SCE_GXM_MEMORY_ATTRIB_RW : SCE_GXM_MEMORY_ATTRIB_READ;
             this->data = (uint8*)Context::allocGPU(SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, size, flags, &uid);
 
             if (data && this->data) {
@@ -858,7 +857,7 @@ namespace GAPI {
             if (opt & OPT_REPEAT) {
                 addrMode = SCE_GXM_TEXTURE_ADDR_REPEAT;
             } else {
-                addrMode = (isShadow && support.texBorder) ? SCE_GXM_TEXTURE_ADDR_CLAMP_FULL_BORDER : SCE_GXM_TEXTURE_ADDR_CLAMP;
+                addrMode = SCE_GXM_TEXTURE_ADDR_CLAMP;
             }
 
             sceGxmTextureSetUAddrMode(&ID, addrMode);
@@ -1365,6 +1364,7 @@ namespace GAPI {
     }
 
     void clear(bool color, bool depth) {
+        // TODO save and restore states
         int  oColorMask  = colorMask;
         int  oBlendMode  = blendMode;
         bool oDepthTest  = depthTest;

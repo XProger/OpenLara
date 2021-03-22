@@ -221,6 +221,8 @@ int checkLanguage()
     return str - STR_LANG_EN;
 }
 
+extern "C" int32_t sceKernelChangeThreadVfpException(int32_t clear, int32_t set);
+
 int main()
 {
     psvDebugScreenInit();
@@ -235,6 +237,8 @@ int main()
         SceAppUtilBootParam bootParam = {};
         sceAppUtilInit(&initParam, &bootParam);
     }
+
+    sceKernelChangeThreadVfpException(0x0800009FU, 0x0);
 
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
     strcpy(cacheDir,    "ux0:data/OpenLara/");
@@ -265,6 +269,8 @@ int main()
         Game::render();
 
         GAPI::present();
+
+        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT);
     }
 
     sndFree();
