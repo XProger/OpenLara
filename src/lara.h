@@ -3116,8 +3116,6 @@ struct Lara : Character {
 
         vec2 L = joy.L;
 
-        if (L.length() < INPUT_JOY_DZ_STICK) L = vec2(0.0f); // dead zone
-
         if (!((state == STATE_STOP || state == STATE_SURF_TREAD || state == STATE_HANG) && fabsf(L.x) < 0.5f && fabsf(L.y) < 0.5f)) {
             bool moving = state == STATE_RUN || state == STATE_WALK || state == STATE_BACK || state == STATE_FAST_BACK || state == STATE_SURF_SWIM || state == STATE_SURF_BACK || state == STATE_FORWARD_JUMP;
 
@@ -3128,13 +3126,13 @@ struct Lara : Character {
                     L.y = 0.0f;
             }
 
-            if (L.x != 0.0f) {
+            if (fabsf(L.x) > INPUT_JOY_DZ_STICK) {
                 input |= (L.x < 0.0f) ? LEFT : RIGHT;
                 if (moving || stand == STAND_UNDERWATER || stand == STAND_ONWATER)
                     rotFactor.y = min(fabsf(L.x) / 0.9f, 1.0f);
             }
 
-            if (L.y != 0.0f) {
+            if (fabsf(L.y) > INPUT_JOY_DZ_STICK) {
                 input |= (L.y < 0.0f) ? FORTH : BACK;
                 if (stand == STAND_UNDERWATER)
                     rotFactor.x = min(fabsf(L.y) / 0.9f, 1.0f);
