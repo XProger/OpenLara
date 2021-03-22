@@ -44,7 +44,7 @@ struct Camera : ICamera {
     Frustum    *frustum;
 
     float       fov, aspect, znear, zfar;
-    vec3        lookAngle, targetAngle;
+    vec3        lookAngle, targetAngle, viewAngle;
     mat4        mViewInv;
 
     float       timer;
@@ -366,6 +366,8 @@ struct Camera : ICamera {
             speed = CAM_SPEED_COMBAT;
         }
 
+        viewAngle = vec3(0.0f);
+
         if (mode == MODE_CUTSCENE) {
             ASSERT(level->cameraFramesCount && level->cameraFrames);
 
@@ -439,9 +441,17 @@ struct Camera : ICamera {
                         if (fabsf(lookAngle.x - CAM_FOLLOW_ANGLE) < EPS) lookAngle.x = CAM_FOLLOW_ANGLE;
                         if (lookAngle.y < EPS) lookAngle.y = 0.0f;
                     }
+
+                vec2 R = Input::joy[Core::settings.controls[cameraIndex].joyIndex].R;
+                R.x = sign(R.x) * max(0.0f, (fabsf(R.x) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
+                R.y = sign(R.y) * max(0.0f, (fabsf(R.y) - INPUT_JOY_DZ_STICK) / (1.0f - INPUT_JOY_DZ_STICK));
+
+                viewAngle.x = -R.y * PIH;
+                viewAngle.y = R.x * PIH;
+                viewAngle.z = 0.0f;
             }
 
-            targetAngle = owner->angle + lookAngle;
+            targetAngle = owner->angle + lookAngle + viewAngle;
 
             targetAngle.x = clampAngle(targetAngle.x);
             targetAngle.y = clampAngle(targetAngle.y);
@@ -503,7 +513,7 @@ struct Camera : ICamera {
                     if (mode == MODE_LOOK)
                         offset = CAM_OFFSET_LOOK;
                     else 
-                        offset = (mode == MODE_COMBAT ? CAM_OFFSET_COMBAT : CAM_OFFSET_FOLLOW) * cosf(targetAngle.x);
+                        offset = (mode == MODE_COMBAT ? CAM_OFFSET_COMBAT : CAM_OFFSET_FOLLOW);
 
                     vec3 dir = vec3(targetAngle.x, targetAngle.y) * offset;
                     to.pos  = target.pos - dir;

@@ -1301,7 +1301,7 @@ struct Lara : Character {
         updateTargets();
 
         Controller *lookTarget = canLookAt() ? target : NULL;
-        if (camera->mode == Camera::MODE_LOOK) {
+        if (camera->mode == Camera::MODE_LOOK || (lookTarget == NULL && (camera->viewAngle.x != 0.0f || camera->viewAngle.y != 0.0f))) {
             vec3 p = pos + vec3(camera->targetAngle.x, camera->targetAngle.y) * 8192.0f;
             Character::lookAtPos(&p);
         } else

@@ -1304,7 +1304,6 @@ struct Video {
             return 0;
         #else
             if (!audioDecoder) return 0;
-            Sound::XA *xa = (Sound::XA*)audioDecoder;
 
             int ret = audioDecoder->decode(frames, count);
             if (ret < count) {
