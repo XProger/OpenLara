@@ -1042,7 +1042,7 @@ struct Level : IGame {
         delete zoneCache;
 
         delete atlasRooms;
-        #ifndef FFP
+        #ifndef SPLIT_BY_TILE
             delete atlasObjects;
             delete atlasSprites;
             delete atlasGlyphs;
