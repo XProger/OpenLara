@@ -66,6 +66,7 @@ struct Level : IGame {
     bool needRenderInventory;
     bool showStats;
     bool skyIsVisible;
+    bool paused;
 
     TR::LevelID nextLevel;
 
@@ -936,6 +937,8 @@ struct Level : IGame {
 //==============================
 
     Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f), statsTimeDelta(0.0f) {
+        paused = false;
+
         level.simpleItems = Core::settings.detail.simple == 1;
         level.initModelIndices();
 
@@ -2241,25 +2244,35 @@ struct Level : IGame {
                 }
             }
 
-            params->time += Core::deltaTime;
-            animTexTimer += Core::deltaTime;
-
-            float timeStep = ANIM_TEX_TIMESTEP;
-            if (level.version & TR::VER_TR1)
-                timeStep *= 0.5f;
-
-            if (animTexTimer > timeStep) {
-                level.shiftAnimTex();
-                animTexTimer -= timeStep;
+            if (camera->spectator && Input::lastState[0] == cStart) {
+                paused = !paused;
             }
 
-            updateEffect();
+            if (!paused) {
+                params->time += Core::deltaTime;
+                animTexTimer += Core::deltaTime;
 
-            Controller *c = Controller::first;
-            while (c) {
-                Controller *next = c->next;
-                c->update();
-                c = next;
+                float timeStep = ANIM_TEX_TIMESTEP;
+                if (level.version & TR::VER_TR1)
+                    timeStep *= 0.5f;
+
+                if (animTexTimer > timeStep) {
+                    level.shiftAnimTex();
+                    animTexTimer -= timeStep;
+                }
+
+                updateEffect();
+
+                Controller *c = Controller::first;
+                while (c) {
+                    Controller *next = c->next;
+                    c->update();
+                    c = next;
+                }
+            } else {
+                if (camera->spectator) {
+                    camera->update();
+                }
             }
 
             if (waterCache) 
@@ -3405,7 +3418,7 @@ struct Level : IGame {
 
         Core::resetLights();
 
-        if (!level.isCutsceneLevel()) {
+        if (!level.isCutsceneLevel() && !camera->spectator) {
         // render health & oxygen bars
             vec2 size = vec2(180, 10);
 
@@ -3442,7 +3455,9 @@ struct Level : IGame {
             UI::renderHelp();
         }
 
-        UI::renderSubs();
+        if (!camera->spectator) {
+            UI::renderSubs();
+        }
 
         UI::end();
 

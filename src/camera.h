@@ -69,6 +69,7 @@ struct Camera : ICamera {
 
         spectator = false;
         specTimer = 0.0f;
+        targetAngle = vec3(0.0f);
     }
 
     void reset() {
@@ -388,31 +389,33 @@ struct Camera : ICamera {
                 }
             }
 
-            if (!firstPerson) {
-                TR::CameraFrame *frameA = &level->cameraFrames[indexA];
-                TR::CameraFrame *frameB = &level->cameraFrames[indexB];
+            if (!spectator) {
+                if (!firstPerson) {
+                    TR::CameraFrame *frameA = &level->cameraFrames[indexA];
+                    TR::CameraFrame *frameB = &level->cameraFrames[indexB];
 
-                const float maxDelta = 512 * 512;
+                    const float maxDelta = 512 * 512;
 
-                float dp = (vec3(frameA->pos) - vec3(frameB->pos)).length2();
-                float dt = (vec3(frameA->target) - vec3(frameB->target)).length2();
+                    float dp = (vec3(frameA->pos) - vec3(frameB->pos)).length2();
+                    float dt = (vec3(frameA->target) - vec3(frameB->target)).length2();
 
-                if (dp > maxDelta || dt > maxDelta) {
-                    eye.pos    = frameA->pos;
-                    target.pos = frameA->target;
-                    fov        = frameA->fov / 32767.0f * 120.0f;
-                } else {
-                    eye.pos    = vec3(frameA->pos).lerp(frameB->pos, t);
-                    target.pos = vec3(frameA->target).lerp(frameB->target, t);
-                    fov        = lerp(frameA->fov / 32767.0f * 120.0f, frameB->fov / 32767.0f * 120.0f, t);
-                }
+                    if (dp > maxDelta || dt > maxDelta) {
+                        eye.pos    = frameA->pos;
+                        target.pos = frameA->target;
+                        fov        = frameA->fov / 32767.0f * 120.0f;
+                    } else {
+                        eye.pos    = vec3(frameA->pos).lerp(frameB->pos, t);
+                        target.pos = vec3(frameA->target).lerp(frameB->target, t);
+                        fov        = lerp(frameA->fov / 32767.0f * 120.0f, frameB->fov / 32767.0f * 120.0f, t);
+                    }
 
-                eye.pos    = level->cutMatrix * eye.pos;
-                target.pos = level->cutMatrix * target.pos;
+                    eye.pos    = level->cutMatrix * eye.pos;
+                    target.pos = level->cutMatrix * target.pos;
 
-                mViewInv   = mat4(eye.pos, target.pos, vec3(0, -1, 0));
-            } else
-                updateFirstPerson();
+                    mViewInv = mat4(eye.pos, target.pos, vec3(0, -1, 0));
+                } else
+                    updateFirstPerson();
+            }
         } else {
             if (Core::settings.detail.stereo == Core::Settings::STEREO_VR) {
                 lookAngle = vec3(0.0f);
@@ -558,6 +561,7 @@ struct Camera : ICamera {
         if (specJoy.down[jkL] && specJoy.down[jkR]) {
             specTimer += Core::deltaTime;
             if (specTimer > SPECTATOR_TIMER) {
+                firstPerson = false;
                 spectator = !spectator;
                 specTimer = 0.0f;
                 specPos   = eye.pos;
