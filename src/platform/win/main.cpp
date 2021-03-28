@@ -264,6 +264,7 @@ void joyUpdate() {
     }
 }
 
+#ifndef NO_TOUCH_SUPPORT
 // touch
 BOOL (WINAPI *_RegisterTouchWindow)(HWND, ULONG);
 BOOL (WINAPI *_GetTouchInputInfo)(HTOUCHINPUT, UINT, PTOUCHINPUT, int);
@@ -306,6 +307,9 @@ void touchUpdate(HWND hWnd, HTOUCHINPUT hTouch, int count) {
 
     _CloseTouchInputHandle(hTouch);
 }
+#else
+void touchInit(HWND hWnd) {};
+#endif
 
 // sound
 #define SND_SIZE (2352*3*2)
@@ -732,10 +736,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
             joyFree();
             joyInit();
             return 1;
+    #ifndef NO_TOUCH_SUPPORT
         // touch
         case WM_TOUCH :
             touchUpdate(hWnd, (HTOUCHINPUT)lParam, wParam);
             break;
+    #endif
         // sound
         case MM_WOM_DONE :
             sndFill((HWAVEOUT)wParam, (WAVEHDR*)lParam);
