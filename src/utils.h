@@ -58,7 +58,7 @@
     #define LOG(...) psvDebugScreenPrintf(__VA_ARGS__)
 #endif
 
-#ifdef _OS_ANDROID
+#if defined(_OS_ANDROID) && !defined(__LIBRETRO__)
     #include <android/log.h>
     #undef LOG
     #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"OpenLara",__VA_ARGS__)

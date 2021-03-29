@@ -1421,7 +1421,7 @@ namespace TR {
                 CHECK_FILE("data/TITLE.PCX");       // PC
                 CHECK_FILE("pix/title.pcx");        // PC
                 CHECK_FILE("PIXUS/TITLEUS.RAW");    // PSX US
-                CHECK_FILE("PIXJAP/TITLEJAP.RAW");  // PSX US
+                //CHECK_FILE("PIXJAP/TITLEJAP.RAW");  // PSX US
                 return "level/2/TITLEUS.PNG";       // WEB
             case LVL_TR2_ASSAULT :
             case LVL_TR2_HOUSE   :

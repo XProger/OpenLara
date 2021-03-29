@@ -227,6 +227,7 @@ namespace Game {
         if (!level || TR::isTitleLevel(level->level.id) || TR::isCutsceneLevel(level->level.id)) {
             return;
         }
+		printf("quickSave level->level.id :%d \n", level->level.id);
         level->saveGame(level->level.id, true, false);
     }
 
@@ -234,7 +235,9 @@ namespace Game {
         if (!level) return;
 
         int slot = getSaveSlot(level->level.id, true);
-
+		
+		printf("quickLoad slot :%d \n", slot);
+		
         if (slot == -1) {
             slot = getSaveSlot(level->level.id, false);
         }
@@ -261,8 +264,11 @@ namespace Game {
 
         PROFILE_MARKER("UPDATE");
 
+
+#ifndef __LIBRETRO__
         if (!Core::update())
             return false;
+#endif
 
         float delta = Core::deltaTime;
 
@@ -289,16 +295,29 @@ namespace Game {
         }
     #endif
 
-        if (Input::down[ik5] && !inventory->isActive()) {
-            if (level->players[0]->canSaveGame())
-                quickSave();
-            Input::down[ik5] = false;
-        }
+        if (Input::down[ik5])
+		{
+			printf("get ik5 input \n");
+			if( !inventory->isActive()) {
+				printf("inventory->isActive() \n");
+				if (level->players[0]->canSaveGame())
+				{
+					printf("quickSave \n");
+					quickSave();
+				}
+				Input::down[ik5] = false;
+			}
+		}
 
-        if (Input::down[ik9] && !inventory->isActive()) {
-            quickLoad();
-            Input::down[ik9] = false;
-        }
+        if (Input::down[ik9])
+		{			
+			printf("get ik9 input \n");
+			if(!inventory->isActive()) {
+				printf("quickSave \n");
+				quickLoad();				
+			}
+			Input::down[ik9] = false;
+		}
 
         if (!level->level.isCutsceneLevel())
             delta = min(0.2f, delta);

@@ -167,7 +167,11 @@ static const OptionItem optDetail[] = {
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_SIMPLE_ITEMS,    SETTINGS( detail.simple    ), STR_OFF, 0, 1 ),
 #ifdef INV_QUALITY
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_RESOLUTION,      SETTINGS( detail.scale     ), STR_SCALE_100, 0, 3 ),
+
+#if !defined(__LIBRETRO__) 	
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_VSYNC,    SETTINGS( detail.vsync     ), STR_OFF, 0, 1 ),
+#endif
+	
 #endif
 #ifdef INV_STEREO
     OptionItem( OptionItem::TYPE_PARAM,  STR_OPT_DETAIL_STEREO,   SETTINGS( detail.stereo    ), STR_NO_STEREO, 0, 
@@ -209,8 +213,12 @@ static const OptionItem optControls[] = {
 #ifdef INV_GAMEPAD_ONLY
     OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 0xFF ),
 #else
+	#ifndef __LIBRETRO__
     OptionItem( OptionItem::TYPE_PARAM,  STR_EMPTY                   , SETTINGS( ctrlIndex                      ), STR_OPT_CONTROLS_KEYBOARD, 0, 1 ),
+	#endif
 #endif
+
+#ifndef __LIBRETRO__
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cUp        , SETTINGS( controls[0].keys[ cUp        ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cDown      , SETTINGS( controls[0].keys[ cDown      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRight     , SETTINGS( controls[0].keys[ cRight     ] ), STR_KEY_FIRST ),
@@ -227,6 +235,8 @@ static const OptionItem optControls[] = {
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cRoll      , SETTINGS( controls[0].keys[ cRoll      ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cInventory , SETTINGS( controls[0].keys[ cInventory ] ), STR_KEY_FIRST ),
     OptionItem( OptionItem::TYPE_KEY,    STR_CTRL_FIRST + cStart     , SETTINGS( controls[0].keys[ cStart     ] ), STR_KEY_FIRST ),
+#endif
+
 };
 
 static OptionItem optControlsPlayer[COUNT(optControls)];
@@ -2092,6 +2102,7 @@ struct Inventory {
         }
 
     // inventory controls help
+#ifndef __LIBRETRO__
         if (page == targetPage && Input::touchTimerVis <= 0.0f) {
             float dx = 32.0f;
             char buf[64];
@@ -2110,6 +2121,7 @@ struct Inventory {
                 UI::textOut(vec2(eye, 480 - 64), buf, UI::aRight, UI::width - dx);
             }
         }
+#endif		
 
         if (index == targetIndex && page == targetPage) {
             renderItemText(items[getGlobalIndex(page, index)]);

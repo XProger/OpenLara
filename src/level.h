@@ -200,7 +200,7 @@ struct Level : IGame {
         }
 
         slot.size = int32(ptr - slot.data);
-
+		printf("createSaveSlot size is %d \n", slot.size);
         return slot;
     }
 
@@ -285,7 +285,7 @@ struct Level : IGame {
             UI::showHint(STR_HINT_SAVING_ERROR, 3.0f);
         }
     }
-
+	
     virtual void saveGame(TR::LevelID id, bool checkpoint, bool updateStats) {
         ASSERT(saveResult != SAVE_RESULT_WAIT);
 
