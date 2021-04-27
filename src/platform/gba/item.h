@@ -4,6 +4,7 @@
 #include "common.h"
 #include "sound.h"
 #include "camera.h"
+#include "draw.h"
 
 int32 curItemIndex;
 
@@ -18,24 +19,7 @@ int16 angleDec(int16 angle, int32 value) {
     return 0;
 }
 
-AnimFrame* getFrame(const Item* item, const Model* model)
-{
-    const Anim* anim = anims + item->animIndex;
-
-    int32 frameSize = sizeof(AnimFrame) / 2 + model->mCount * 2;
-    int32 frameIndex = (item->frameIndex - anim->frameBegin) / anim->frameRate; // TODO fixed div? check the range
-
-    return (AnimFrame*)(animFrames + anim->frameOffset / 2 + frameIndex * frameSize);
-}
-
-const Box& getBoundingBox(const Item* item)
-{
-    const Model* model = models + modelsMap[item->type];
-    AnimFrame* frame = getFrame(item, model);
-    return frame->box;
-}
-
-Sound::Sample* soundPlay(int16 id, const vec3i &pos)
+Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 {
     int16 a = soundMap[id];
 
@@ -49,7 +33,7 @@ Sound::Sample* soundPlay(int16 id, const vec3i &pos)
         return NULL;
     }
 
-    vec3i d = pos - camera.targetPos;
+    vec3i d = pos - camera.target.pos;
 
     if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST) {
         return NULL;
@@ -61,11 +45,11 @@ Sound::Sample* soundPlay(int16 id, const vec3i &pos)
         volume -= xRand() >> 2;
     }
 
+    volume = X_MIN(volume, 0x7FFF) >> 9;
+
     if (volume <= 0) {
         return NULL;
     }
-
-    volume = X_MIN(volume, 0x7FFF);
 
     int32 pitch = 128;
 
@@ -78,77 +62,102 @@ Sound::Sample* soundPlay(int16 id, const vec3i &pos)
         index += (xRand() * b->flags.count) >> 15;
     }
 
-    const uint8 *data = soundData + soundOffsets[index];
+    int32 offset;
+    memcpy(&offset, soundOffsets + index, 4); // TODO preprocess and remove wave header
+
+    const uint8 *data = soundData + offset;//soundOffsets[index];
 
     int32 size;
     memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
     data += 44;
 
-    return sound.play(data, size, volume, pitch, b->flags.mode);
+    return mixer.playSample(data, size, volume, pitch, b->flags.mode);
 }
 
-void move(Item* item, const Anim* anim)
+AnimFrame* Item::getFrame(const Model* model) const
 {
-    int32 speed = anim->speed;
-
-    if (item->flags.gravity)
-    {
-        speed += anim->accel * (item->frameIndex - anim->frameBegin - 1);
-        item->hSpeed -= speed >> 16;
-        speed += anim->accel;
-        item->hSpeed += speed >> 16;
-
-        item->vSpeed += (item->vSpeed < 128) ? GRAVITY : 1;
-
-        item->pos.y += item->vSpeed;
-    } else {
-        speed += anim->accel * (item->frameIndex - anim->frameBegin);
-    
-        item->hSpeed = speed >> 16;
-    }
-
-    item->pos.x += phd_sin(item->moveAngle) * item->hSpeed >> FIXED_SHIFT;
-    item->pos.z += phd_cos(item->moveAngle) * item->hSpeed >> FIXED_SHIFT;
-}
-
-const Anim* animSet(Item* item, int32 animIndex, bool resetState, int32 frameOffset = 0) {
     const Anim* anim = anims + animIndex;
 
-    item->animIndex   = animIndex;
-    item->frameIndex  = anim->frameBegin + frameOffset;
+    int32 frameSize = sizeof(AnimFrame) / 2 + model->mCount * 2;
+    int32 keyFrame = (frameIndex - anim->frameBegin) / anim->frameRate; // TODO fixed div? check the range
+
+    return (AnimFrame*)(animFrames + anim->frameOffset / 2 + keyFrame * frameSize);
+}
+
+const Box& Item::getBoundingBox() const
+{
+    const Model* model = models + modelsMap[type];
+    AnimFrame* frame = getFrame(model);
+    return frame->box;
+}
+
+void Item::move()
+{
+    const Anim* anim = anims + animIndex;
+
+    int32 s = anim->speed;
+
+    if (flags.gravity)
+    {
+        s += anim->accel * (frameIndex - anim->frameBegin - 1);
+        hSpeed -= s >> 16;
+        s += anim->accel;
+        hSpeed += s >> 16;
+
+        vSpeed += (vSpeed < 128) ? GRAVITY : 1;
+
+        pos.y += vSpeed;
+    } else {
+        s += anim->accel * (frameIndex - anim->frameBegin);
+    
+        hSpeed = s >> 16;
+    }
+
+    int16 angle = (type == ITEM_LARA) ? moveAngle : angleY;
+
+    pos.x += phd_sin(angle) * hSpeed >> FIXED_SHIFT;
+    pos.z += phd_cos(angle) * hSpeed >> FIXED_SHIFT;
+}
+
+const Anim* Item::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset)
+{
+    const Anim* anim = anims + newAnimIndex;
+
+    animIndex   = newAnimIndex;
+    frameIndex  = anim->frameBegin + frameOffset;
 
     if (resetState) {
-        item->state = item->goalState = anim->state;
+        state = goalState = uint8(anim->state);
     }
 
     return anim;
 }
 
-const Anim* animChange(Item* item, const Anim* anim)
+const Anim* Item::animChange(const Anim* anim)
 {
-    if (!anim->statesCount || item->goalState == item->state)
+    if (!anim->statesCount || goalState == state)
         return anim;
 
     const AnimState* animState = animStates + anim->statesStart;
 
     for (int32 i = 0; i < anim->statesCount; i++)
     {
-        if (item->goalState == animState->state)
+        if (goalState == animState->state)
         {
             const AnimRange* animRange = animRanges + animState->rangesStart;
 
             for (int32 j = 0; j < animState->rangesCount; j++)
             {
-                if ((item->frameIndex >= animRange->frameBegin) && (item->frameIndex <= animRange->frameEnd))
+                if ((frameIndex >= animRange->frameBegin) && (frameIndex <= animRange->frameEnd))
                 {
-                    if ((item->type != ITEM_LARA) && (item->nextState == animState->state)) {
-                        item->nextState = 0;
+                    if ((type != ITEM_LARA) && (nextState == animState->state)) {
+                        nextState = 0;
                     }
 
-                    item->frameIndex = animRange->nextFrameIndex;
-                    item->animIndex = animRange->nextAnimIndex;
+                    frameIndex = animRange->nextFrameIndex;
+                    animIndex = animRange->nextAnimIndex;
                     anim = anims + animRange->nextAnimIndex;
-                    item->state = anim->state;
+                    state = uint8(anim->state);
                     return anim;
                 }
                 animRange++;
@@ -160,7 +169,7 @@ const Anim* animChange(Item* item, const Anim* anim)
     return anim;
 }
 
-void animCmd(bool fx, Item* item, const Anim* anim)
+void Item::animCmd(bool fx, const Anim* anim)
 {
     if (!anim->commandsCount) return;
 
@@ -177,14 +186,14 @@ void animCmd(bool fx, Item* item, const Anim* anim)
             {
                 if (!fx)
                 {
-                    int32 s = phd_sin(item->moveAngle);
-                    int32 c = phd_cos(item->moveAngle);
+                    int32 s = phd_sin(moveAngle);
+                    int32 c = phd_cos(moveAngle);
                     int32 x = ptr[0];
                     int32 y = ptr[1];
                     int32 z = ptr[2];
-                    item->pos.x += (c * x + s * z) >> FIXED_SHIFT;
-                    item->pos.y += y;
-                    item->pos.z += (c * z - s * x) >> FIXED_SHIFT;
+                    pos.x += (c * x + s * z) >> FIXED_SHIFT;
+                    pos.y += y;
+                    pos.z += (c * z - s * x) >> FIXED_SHIFT;
                 }
                 ptr += 3;
                 break;
@@ -192,32 +201,36 @@ void animCmd(bool fx, Item* item, const Anim* anim)
             case ANIM_CMD_JUMP:
                 if (!fx)
                 {
-                    if (item->vSpeedHack) {
-                        item->vSpeed = item->vSpeedHack;
-                        item->vSpeedHack = 0;
+                    if (vSpeedHack) {
+                        vSpeed = vSpeedHack;
+                        vSpeedHack = 0;
                     } else {
-                        item->vSpeed = ptr[0];
+                        vSpeed = ptr[0];
                     }
-                    item->hSpeed = ptr[1];
-                    item->flags.gravity = true;
+                    hSpeed = ptr[1];
+                    flags.gravity = true;
                 }
                 ptr += 2;
                 break;
             case ANIM_CMD_EMPTY:
                 break;
             case ANIM_CMD_KILL:
+                if (!fx)
+                {
+                    flags.status = ITEM_FLAGS_STATUS_INACTIVE;
+                }
                 break;
             case ANIM_CMD_SOUND:
-                if (fx && item->frameIndex == ptr[0])
+                if (fx && frameIndex == ptr[0])
                 {
-                    soundPlay(ptr[1] & 0x03FFF, item->pos);
+                    soundPlay(ptr[1] & 0x03FFF, pos);
                 }
                 ptr += 2;
                 break;
             case ANIM_CMD_EFFECT:
-                if (fx && item->frameIndex == ptr[0]) {
+                if (fx && frameIndex == ptr[0]) {
                     switch (ptr[1]) {
-                        case FX_ROTATE_180     : item->angleY -= ANGLE_180; break;
+                        case FX_ROTATE_180     : angleY += ANGLE_180; break;
                     /*
                         case FX_FLOOR_SHAKE    : ASSERT(false);
                         case FX_LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
@@ -243,35 +256,150 @@ void animCmd(bool fx, Item* item, const Anim* anim)
     }
 }
 
-void animUpdate(Item* item)
+void Item::skipAnim()
 {
-    if (modelsMap[item->type] == NO_MODEL)
-        return;
+    vec3i p = pos;
 
-    const Anim* anim = anims + item->animIndex;
-
-    item->frameIndex++;
-
-    anim = animChange(item, anim);
-
-    if (item->frameIndex > anim->frameEnd)
+    while (state != goalState)
     {
-        animCmd(false, item, anim);
-
-        item->frameIndex = anim->nextFrameIndex;
-        item->animIndex = anim->nextAnimIndex;
-        anim = anims + anim->nextAnimIndex;
-        item->state = anim->state;
+        updateAnim(false);
     }
 
-    animCmd(true, item, anim);
-
-    move(item, anim);
+    pos = p;
+    vSpeed = 0;
+    hSpeed = 0;
 }
 
-int32 calcLight(const vec3i &pos, int32 roomIndex)
+void Item::updateAnim(bool movement)
 {
-    Room* room = rooms + roomIndex;
+    if (modelsMap[type] == NO_MODEL)
+        return;
+
+    const Anim* anim = anims + animIndex;
+
+#ifndef STATIC_ITEMS
+    frameIndex++;
+#endif
+
+    anim = animChange(anim);
+
+    if (frameIndex > anim->frameEnd)
+    {
+        animCmd(false, anim);
+
+        frameIndex = anim->nextFrameIndex;
+        animIndex = anim->nextAnimIndex;
+        anim = anims + anim->nextAnimIndex;
+        state = uint8(anim->state);
+    }
+
+    animCmd(true, anim);
+
+#ifndef STATIC_ITEMS
+    if (movement) {
+        move();
+    }
+#endif
+}
+
+Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
+{
+    if (!Item::sFirstFree) {
+        ASSERT(false);
+        return NULL;
+    }
+
+    Item* item = Item::sFirstFree;
+    Item::sFirstFree = item->nextItem;
+
+    item->type = type;
+    item->pos = pos;
+    item->angleY = angleY;
+    item->intensity = -1;
+
+    item->init(room);
+
+    return item;
+}
+
+void Item::remove()
+{
+    deactivate();
+    room->remove(this);
+
+    nextItem = Item::sFirstFree;
+    Item::sFirstFree = this;
+}
+
+void Item::activate()
+{
+    ASSERT(!flags.active)
+
+    flags.active = true;
+
+    nextActive = sFirstActive;
+    sFirstActive = this;
+}
+
+void Item::deactivate()
+{
+    Item* prev = NULL;
+    Item* curr = sFirstActive;
+
+    while (curr)
+    {
+        Item* next = curr->nextActive;
+
+        if (curr == this)
+        {
+            flags.active = false;
+            nextActive = NULL;
+
+            if (prev) {
+                prev->nextActive = next;
+            } else {
+                sFirstActive = next;
+            }
+
+            break;
+        }
+
+        prev = curr;
+        curr = next;
+    }
+}
+
+void Item::updateRoom(int32 offset)
+{
+    Room* nextRoom = room->getRoom(pos.x, pos.y + offset, pos.z);
+        
+    if (room != nextRoom)
+    {
+        room->remove(this);
+        nextRoom->add(this);
+    }
+
+    const RoomInfo::Sector* sector = room->getSector(pos.x, pos.z);
+    floor = sector->getFloor(pos.x, pos.y, pos.z);
+}
+
+int32 Item::calcLighting(const Box& box) const
+{
+    matrixPush();
+    Matrix &m = matrixGet();
+    m[0][3] = m[1][3] = m[2][3] = 0;
+    matrixRotateYXZ(angleX, angleY, angleZ);
+
+    vec3i p((box.maxX + box.minX) >> 1,
+            (box.maxY + box.minY) >> 1,
+            (box.maxZ + box.minZ) >> 1);
+
+    matrixTranslate(p);
+
+    p = vec3i(m[0][3] >> FIXED_SHIFT,
+              m[1][3] >> FIXED_SHIFT,
+              m[2][3] >> FIXED_SHIFT) + pos;
+    matrixPop();
 
     if (!room->lCount) {
         return room->ambient;
@@ -290,7 +418,7 @@ int32 calcLight(const vec3i &pos, int32 roomIndex)
         memcpy(&lpos, &light->pos[0], sizeof(lpos));
         memcpy(&lradius, &light->radius[0], sizeof(lradius));
 
-        vec3i d = pos - lpos;
+        vec3i d = p - lpos;
         int32 dist = dot(d, d) >> 12;
         int32 att = X_SQR(lradius) >> 12;
 
@@ -305,80 +433,241 @@ int32 calcLight(const vec3i &pos, int32 roomIndex)
     return 8191 - ((intensity + ambient) >> 1);
 }
 
-int32 itemCalcLighting(const Item* item, const Box& box)
+#include "lara.h"
+#include "enemy.h"
+#include "object.h"
+
+Item::Item(Room* room) 
 {
-    matrixPush();
-    Matrix &m = matrixGet();
-    m[0][3] = m[1][3] = m[2][3] = 0;
-    matrixRotateYXZ(item->angleX, item->angleY, item->angleZ);
+    angleX      = 0;
+    angleZ      = 0;
+    vSpeed      = 0;
+    hSpeed      = 0;
+    nextItem    = NULL;
+    nextActive  = NULL;
+    animIndex   = models[modelsMap[type]].animIndex;
+    frameIndex  = anims[animIndex].frameBegin;
+    state       = uint8(anims[animIndex].state);
+    nextState   = state;
+    goalState   = state;
 
-    vec3i v((box.maxX + box.minX) >> 1,
-            (box.maxY + box.minY) >> 1,
-            (box.maxZ + box.minZ) >> 1);
+    flags.save = true;
+    flags.gravity = false;
+    flags.active = false;
+    flags.status = ITEM_FLAGS_STATUS_NONE;
+    flags.collision = true;
+    flags.custom = 0;
+    flags.shadow = false;
 
-    matrixTranslate(v);
-
-    v = vec3i(m[0][3] >> FIXED_SHIFT,
-              m[1][3] >> FIXED_SHIFT,
-              m[2][3] >> FIXED_SHIFT) + item->pos;
-    matrixPop();
-
-    return calcLight(v, item->room);
-}
-
-void itemControl(Item* item)
-{
-    animUpdate(item);
-}
-
-void itemInit(Item* item)
-{
-    item->angleX      = 0;
-    item->angleZ      = 0;
-    item->vSpeed      = 0;
-    item->hSpeed      = 0;
-    item->nextItem    = NO_ITEM;
-    item->nextActive  = NO_ITEM;
-    item->animIndex   = models[modelsMap[item->type]].animIndex;
-    item->frameIndex  = anims[item->animIndex].frameBegin;
-    item->state       = anims[item->animIndex].state;
-    item->nextState   = item->state;
-    item->goalState   = item->state;
-    item->flags.gravity = false;
-    item->flags.shadow = true;
-
-    switch (item->type) {
-        case ITEM_LARA            : item->health = 1000; break;
-        case ITEM_DOPPELGANGER    : item->health = 1000; break;
-        case ITEM_WOLF            : item->health = 6;    break;
-        case ITEM_BEAR            : item->health = 20;   break;
-        case ITEM_BAT             : item->health = 1;    break;
-        case ITEM_CROCODILE_LAND  : item->health = 20;   break;
-        case ITEM_CROCODILE_WATER : item->health = 20;   break;
-        case ITEM_LION_MALE       : item->health = 30;   break;
-        case ITEM_LION_FEMALE     : item->health = 25;   break;
-        case ITEM_PUMA            : item->health = 45;   break;
-        case ITEM_GORILLA         : item->health = 22;   break;
-        case ITEM_RAT_LAND        : item->health = 5;    break;
-        case ITEM_RAT_WATER       : item->health = 5;    break;
-        case ITEM_REX             : item->health = 100;  break;
-        case ITEM_RAPTOR          : item->health = 20;   break;
-        case ITEM_MUTANT_1        : item->health = 50;   break;
-        case ITEM_MUTANT_2        : item->health = 50;   break;
-        case ITEM_MUTANT_3        : item->health = 50;   break;
-        case ITEM_CENTAUR         : item->health = 120;  break;
-        case ITEM_MUMMY           : item->health = 18;   break;
-        case ITEM_LARSON          : item->health = 50;   break;
-        case ITEM_PIERRE          : item->health = 70;   break;
-        case ITEM_SKATEBOY        : item->health = 125;  break;
-        case ITEM_COWBOY          : item->health = 150;  break;
-        case ITEM_MR_T            : item->health = 200;  break;
-        case ITEM_NATLA           : item->health = 400;  break;
-        case ITEM_GIANT_MUTANT    : item->health = 500;  break;
-        default                   : 
-            item->health = 0;
-            item->flags.shadow = false;
+    if (flags.once) // once -> invisible
+    {
+        flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+        flags.once = false;
     }
+
+    if (flags.mask == ITEM_FLAGS_MASK_ALL) // full set of mask -> reverse
+    {
+        flags.mask = 0;
+        flags.active = true;
+        flags.reverse = true;
+        activate();
+    }
+
+    ASSERT(type <= ITEM_MAX);
+
+    ASSERT(room);
+
+    room->add(this);
+}
+
+void Item::update()
+{
+    //
+}
+
+void Item::draw()
+{
+    drawItem(this);
+}
+
+void Item::collide(Lara* lara, CollisionInfo* cinfo)
+{
+    UNUSED(lara);
+    UNUSED(cinfo);
+}
+
+Item* Item::init(Room* room)
+{
+    #define INIT_ITEM(type, className) case ITEM_##type : return new (this) className(room)
+
+    switch (type)
+    {
+        INIT_ITEM( LARA                  , Lara );
+        // INIT_ITEM( DOPPELGANGER          , ??? );
+        INIT_ITEM( WOLF                  , Wolf );
+        INIT_ITEM( BEAR                  , Bear );
+        INIT_ITEM( BAT                   , Bat );
+        // INIT_ITEM( CROCODILE_LAND        , ??? );
+        // INIT_ITEM( CROCODILE_WATER       , ??? );
+        // INIT_ITEM( LION_MALE             , ??? );
+        // INIT_ITEM( LION_FEMALE           , ??? );
+        // INIT_ITEM( PUMA                  , ??? );
+        // INIT_ITEM( GORILLA               , ??? );
+        // INIT_ITEM( RAT_LAND              , ??? );
+        // INIT_ITEM( RAT_WATER             , ??? );
+        // INIT_ITEM( REX                   , ??? );
+        // INIT_ITEM( RAPTOR                , ??? );
+        // INIT_ITEM( MUTANT_1              , ??? );
+        // INIT_ITEM( MUTANT_2              , ??? );
+        // INIT_ITEM( MUTANT_3              , ??? );
+        // INIT_ITEM( CENTAUR               , ??? );
+        // INIT_ITEM( MUMMY                 , ??? );
+        // INIT_ITEM( LARSON                , ??? );
+        // INIT_ITEM( PIERRE                , ??? );
+        // INIT_ITEM( SKATEBOARD            , ??? );
+        // INIT_ITEM( SKATER                , ??? );
+        // INIT_ITEM( COWBOY                , ??? );
+        // INIT_ITEM( MR_T                  , ??? );
+        // INIT_ITEM( NATLA                 , ??? );
+        // INIT_ITEM( GIANT_MUTANT          , ??? );
+        INIT_ITEM( TRAP_FLOOR            , TrapFloor );
+        // INIT_ITEM( TRAP_SWING_BLADE      , ??? );
+        // INIT_ITEM( TRAP_SPIKES           , ??? );
+        // INIT_ITEM( TRAP_BOULDER          , ??? );
+        INIT_ITEM( DART                  , Dart );
+        INIT_ITEM( TRAP_DART_EMITTER     , TrapDartEmitter );
+        // INIT_ITEM( DRAWBRIDGE            , ??? );
+        // INIT_ITEM( TRAP_SLAM             , ??? );
+        // INIT_ITEM( TRAP_SWORD            , ??? );
+        // INIT_ITEM( HAMMER_HANDLE         , ??? );
+        // INIT_ITEM( HAMMER_BLOCK          , ??? );
+        // INIT_ITEM( LIGHTNING             , ??? );
+        // INIT_ITEM( MOVING_OBJECT         , ??? );
+        // INIT_ITEM( BLOCK_1               , ??? );
+        // INIT_ITEM( BLOCK_2               , ??? );
+        // INIT_ITEM( BLOCK_3               , ??? );
+        // INIT_ITEM( BLOCK_4               , ??? );
+        // INIT_ITEM( MOVING_BLOCK          , ??? );
+        // INIT_ITEM( TRAP_CEILING_1        , ??? );
+        // INIT_ITEM( TRAP_CEILING_2        , ??? );
+        INIT_ITEM( SWITCH                , Switch );
+        INIT_ITEM( SWITCH_WATER          , SwitchWater );
+        INIT_ITEM( DOOR_1                , Door );
+        INIT_ITEM( DOOR_2                , Door );
+        INIT_ITEM( DOOR_3                , Door );
+        INIT_ITEM( DOOR_4                , Door );
+        INIT_ITEM( DOOR_5                , Door );
+        INIT_ITEM( DOOR_6                , Door );
+        INIT_ITEM( DOOR_7                , Door );
+        INIT_ITEM( DOOR_8                , Door );
+        // INIT_ITEM( TRAP_DOOR_1           , ??? );
+        // INIT_ITEM( TRAP_DOOR_2           , ??? );
+        // INIT_ITEM( BRIDGE_FLAT           , ??? );
+        // INIT_ITEM( BRIDGE_TILT1          , ??? );
+        // INIT_ITEM( BRIDGE_TILT2          , ??? );
+        // INIT_ITEM( INV_PASSPORT          , ??? );
+        // INIT_ITEM( INV_COMPASS           , ??? );
+        // INIT_ITEM( INV_HOME              , ??? );
+        // INIT_ITEM( GEARS_1               , ??? );
+        // INIT_ITEM( GEARS_2               , ??? );
+        // INIT_ITEM( GEARS_3               , ??? );
+        // INIT_ITEM( CUT_1                 , ??? );
+        // INIT_ITEM( CUT_2                 , ??? );
+        // INIT_ITEM( CUT_3                 , ??? );
+        // INIT_ITEM( CUT_4                 , ??? );
+        // INIT_ITEM( INV_PASSPORT_CLOSED   , ??? );
+        // INIT_ITEM( INV_MAP               , ??? );
+        // INIT_ITEM( CRYSTAL               , ??? );
+        INIT_ITEM( PISTOLS               , Pickup );
+        INIT_ITEM( SHOTGUN               , Pickup );
+        INIT_ITEM( MAGNUMS               , Pickup );
+        INIT_ITEM( UZIS                  , Pickup );
+        INIT_ITEM( AMMO_PISTOLS          , Pickup );
+        INIT_ITEM( AMMO_SHOTGUN          , Pickup );
+        INIT_ITEM( AMMO_MAGNUMS          , Pickup );
+        INIT_ITEM( AMMO_UZIS             , Pickup );
+        INIT_ITEM( EXPLOSIVE             , Pickup );
+        INIT_ITEM( MEDIKIT_SMALL         , Pickup );
+        INIT_ITEM( MEDIKIT_BIG           , Pickup );
+        // INIT_ITEM( INV_DETAIL            , ??? );
+        // INIT_ITEM( INV_SOUND             , ??? );
+        // INIT_ITEM( INV_CONTROLS          , ??? );
+        // INIT_ITEM( INV_GAMMA             , ??? );
+        // INIT_ITEM( INV_PISTOLS           , ??? );
+        // INIT_ITEM( INV_SHOTGUN           , ??? );
+        // INIT_ITEM( INV_MAGNUMS           , ??? );
+        // INIT_ITEM( INV_UZIS              , ??? );
+        // INIT_ITEM( INV_AMMO_PISTOLS      , ??? );
+        // INIT_ITEM( INV_AMMO_SHOTGUN      , ??? );
+        // INIT_ITEM( INV_AMMO_MAGNUMS      , ??? );
+        // INIT_ITEM( INV_AMMO_UZIS         , ??? );
+        // INIT_ITEM( INV_EXPLOSIVE         , ??? );
+        // INIT_ITEM( INV_MEDIKIT_SMALL     , ??? );
+        // INIT_ITEM( INV_MEDIKIT_BIG       , ??? );
+        INIT_ITEM( PUZZLE_1              , Pickup );
+        INIT_ITEM( PUZZLE_2              , Pickup );
+        INIT_ITEM( PUZZLE_3              , Pickup );
+        INIT_ITEM( PUZZLE_4              , Pickup );
+        // INIT_ITEM( INV_PUZZLE_1          , ??? );
+        // INIT_ITEM( INV_PUZZLE_2          , ??? );
+        // INIT_ITEM( INV_PUZZLE_3          , ??? );
+        // INIT_ITEM( INV_PUZZLE_4          , ??? );
+        // INIT_ITEM( PUZZLE_HOLE_1         , ??? );
+        // INIT_ITEM( PUZZLE_HOLE_2         , ??? );
+        // INIT_ITEM( PUZZLE_HOLE_3         , ??? );
+        // INIT_ITEM( PUZZLE_HOLE_4         , ??? );
+        // INIT_ITEM( PUZZLE_DONE_1         , ??? );
+        // INIT_ITEM( PUZZLE_DONE_2         , ??? );
+        // INIT_ITEM( PUZZLE_DONE_3         , ??? );
+        // INIT_ITEM( PUZZLE_DONE_4         , ??? );
+        INIT_ITEM( LEADBAR               , Pickup );
+        // INIT_ITEM( INV_LEADBAR           , ??? );
+        // INIT_ITEM( MIDAS_HAND            , ??? );
+        INIT_ITEM( KEY_ITEM_1            , Pickup );
+        INIT_ITEM( KEY_ITEM_2            , Pickup );
+        INIT_ITEM( KEY_ITEM_3            , Pickup );
+        INIT_ITEM( KEY_ITEM_4            , Pickup );
+        // INIT_ITEM( INV_KEY_ITEM_1        , ??? );
+        // INIT_ITEM( INV_KEY_ITEM_2        , ??? );
+        // INIT_ITEM( INV_KEY_ITEM_3        , ??? );
+        // INIT_ITEM( INV_KEY_ITEM_4        , ??? );
+        // INIT_ITEM( KEY_HOLE_1            , ??? );
+        // INIT_ITEM( KEY_HOLE_2            , ??? );
+        // INIT_ITEM( KEY_HOLE_3            , ??? );
+        // INIT_ITEM( KEY_HOLE_4            , ??? );
+        // INIT_ITEM( SCION_PICKUP_QUALOPEC , ??? );
+        INIT_ITEM( SCION_PICKUP_DROP     , Pickup );
+        INIT_ITEM( SCION_TARGET          , ViewTarget );
+        // INIT_ITEM( SCION_PICKUP_HOLDER   , ??? );
+        // INIT_ITEM( SCION_HOLDER          , ??? );
+        // INIT_ITEM( INV_SCION             , ??? );
+        // INIT_ITEM( EXPLOSION             , ??? );
+        // INIT_ITEM( WATER_SPLASH          , ??? );
+        // INIT_ITEM( BUBBLE                , ??? );
+        // INIT_ITEM( BLOOD                 , ??? );
+        // INIT_ITEM( SMOKE                 , ??? );
+        // INIT_ITEM( CENTAUR_STATUE        , ??? );
+        // INIT_ITEM( CABIN                 , ??? );
+        // INIT_ITEM( MUTANT_EGG_SMALL      , ??? );
+        // INIT_ITEM( RICOCHET              , ??? );
+        // INIT_ITEM( SPARKLES              , ??? );
+        // INIT_ITEM( MUZZLE_FLASH          , ??? );
+        INIT_ITEM( VIEW_TARGET           , ViewTarget );
+        // INIT_ITEM( WATERFALL             , ??? );
+        // INIT_ITEM( NATLA_BULLET          , ??? );
+        // INIT_ITEM( MUTANT_BULLET         , ??? );
+        // INIT_ITEM( CENTAUR_BULLET        , ??? );
+        // INIT_ITEM( LAVA_PARTICLE         , ??? );
+        // INIT_ITEM( TRAP_LAVA_EMITTER     , ??? );
+        // INIT_ITEM( FLAME                 , ??? );
+        // INIT_ITEM( TRAP_FLAME_EMITTER    , ??? );
+        // INIT_ITEM( TRAP_LAVA             , ??? );
+        // INIT_ITEM( MUTANT_EGG_BIG        , ??? );
+        // INIT_ITEM( BOAT                  , ??? );
+        // INIT_ITEM( EARTHQUAKE            , ??? );
+    }
+
+    return new (this) Item(room);
 }
 
 #endif

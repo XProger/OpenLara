@@ -33,10 +33,11 @@ LIBTONC		:= $(DEVKITPRO)/libtonc
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 
-CFLAGS	:=	-g -Wall -save-temps -O3 -D__GBA__\
+CFLAGS	:=	-g -Wall -O3 -D__GBA__\
 		-mcpu=arm7tdmi -mtune=arm7tdmi\
  		-fomit-frame-pointer\
 		-ffast-math\
+		-Wno-class-memaccess\
 		$(ARCH)
 
 CFLAGS	+=	$(INCLUDE)
@@ -151,14 +152,13 @@ soundbank.bin soundbank.h : $(AUDIOFILES)
 #---------------------------------------------------------------------------------
 	@mmutil $^ -osoundbank.bin -hsoundbank.h
 
-#---------------------------------------------------------------------------------
-# This rule links in binary data with the .bin extension
-#---------------------------------------------------------------------------------
 %.PHD.o	%_PHD.h :	%.PHD
-#---------------------------------------------------------------------------------
 	@echo $(notdir $<)
 	@$(bin2o)
 
+%.WAV.o	%_WAV.h :	%.WAV
+	@echo $(notdir $<)
+	@$(bin2o)
 
 
 -include $(DEPSDIR)/*.d

@@ -1,11 +1,16 @@
 #include "common.h"
 
-Rect   clip;
-vec3i  viewPos;
+uint32 keys;
+AABB   frustumAABB;
+Rect   viewport;
+vec3i  cameraViewPos;
 Matrix matrixStack[MAX_MATRICES];
 int32  matrixStackIndex = 0;
 
-uint32 keys;
+SaveGame gSaveGame;
+
+const FloorData* gLastFloorData;
+FloorData gLastFloorSlant;
 
 const uint16 divTable[DIV_TABLE_SIZE] = {
     0xFFFF, 0xFFFF, 0x8000, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
@@ -612,6 +617,57 @@ void anglesFromVector(int32 x, int32 y, int32 z, int16 &angleX, int16 &angleY)
     }
 }
 
+Box boxRotate(const Box &box, int16 angle)
+{
+    if (angle == ANGLE_90) {
+        return Box(  box.minZ,  box.maxZ, box.minY, box.maxY, -box.maxX, -box.minX );
+    } else if (angle == -ANGLE_90) {
+        return Box( -box.maxZ, -box.minZ, box.minY, box.maxY,  box.minX,  box.maxX );
+    } else if (angle == ANGLE_180) {
+        return Box( -box.maxX, -box.minX, box.minY, box.maxY, -box.maxZ, -box.minZ );
+    }
+    return box;
+}
+
+void boxTranslate(Box &box, const vec3i &offset)
+{
+    box.minX += offset.x;
+    box.maxX += offset.x;
+    box.minY += offset.y;
+    box.maxY += offset.y;
+    box.minZ += offset.z;
+    box.maxZ += offset.z;
+}
+
+bool boxIntersect(const Box &a, const Box &b)
+{
+    return !(a.maxX <= b.minX || a.minX >= b.maxX || 
+             a.maxY <= b.minY || a.minY >= b.maxY || 
+             a.maxZ <= b.minZ || a.minZ >= b.maxZ);
+}
+
+bool boxContains(const Box &a, const vec3i &p)
+{
+    return !(a.minX > p.x || a.maxX < p.x ||
+             a.minY > p.y || a.maxY < p.y ||
+             a.minZ > p.z || a.maxZ < p.z);
+}
+
+vec3i boxPushOut(const Box &a, const Box &b)
+{
+    int32 ax = b.maxX - a.minX;
+    int32 bx = a.maxX - b.minX;
+    int32 az = b.maxZ - a.minZ;
+    int32 bz = a.maxZ - b.minZ;
+
+    vec3i p;
+    p.y = 0;
+    p.x = (ax < bx) ? -ax : bx;
+    p.z = (az < bz) ? -az : bz;
+
+    return p;
+}
+
 /*
 void initDivTable()
 {
@@ -635,26 +691,6 @@ void initDivTable()
 }
 */
 
-Matrix& matrixGet()
-{
-    return matrixStack[matrixStackIndex];
-}
-
-void matrixPush()
-{
-    ASSERT(matrixStackIndex < MAX_MATRICES - 1);
-
-    Matrix &a = matrixStack[matrixStackIndex++];
-    Matrix &b = matrixStack[matrixStackIndex];
-    memcpy(b, a, sizeof(Matrix));
-}
-
-void matrixPop()
-{
-    ASSERT(matrixStackIndex > 0);
-    matrixStackIndex--;
-}
-
 void matrixTranslate(const vec3i &pos)
 {
     Matrix &m = matrixGet();
@@ -665,7 +701,7 @@ void matrixTranslate(const vec3i &pos)
 
 void matrixTranslateAbs(const vec3i &pos)
 {
-    vec3i d = pos - viewPos;
+    vec3i d = pos - cameraViewPos;
 
     Matrix &m = matrixGet();
     m[0][3] = DP33(m[0], d);
@@ -752,6 +788,23 @@ void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ)
     if (angleZ) matrixRotateZ(angleZ);
 }
 
+void matrixRotateZXY(int32 angleX, int32 angleY, int32 angleZ)
+{
+    if (angleZ) matrixRotateZ(angleZ);
+    if (angleX) matrixRotateX(angleX);
+    if (angleY) matrixRotateY(angleY);
+}
+
+void matrixFrame(const vec3i &pos, uint16* angles)
+{
+    int32 angleX = (angles[1] & 0x3FF0) << 2;
+    int32 angleY = (angles[1] & 0x000F) << 12 | (angles[0] & 0xFC00) >> 4;
+    int32 angleZ = (angles[0] & 0x03FF) << 6;
+
+    matrixTranslate(pos);
+    matrixRotateYXZ(angleX, angleY, angleZ);
+}
+
 #define LERP_FAST(a, b, mul, div) a = (a + b) >> 1
 #define LERP_SLOW(a, b, mul, div) a = a + (b - a) * mul / div
 
@@ -776,14 +829,36 @@ void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
     }
 }
 
-void matrixFrame(const vec3i &pos, uint16* angles)
+void matrixSetIdentity()
 {
-    int32 angleX = (angles[1] & 0x3FF0) << 2;
-    int32 angleY = (angles[1] & 0x000F) << 12 | (angles[0] & 0xFC00) >> 4;
-    int32 angleZ = (angles[0] & 0x03FF) << 6;
+    Matrix &m = matrixGet();
 
-    matrixTranslate(pos);
-    matrixRotateYXZ(angleX, angleY, angleZ);
+#ifdef ROTATE90_MODE
+    m[0][0] = 0;
+    m[0][1] = 0x4000;
+    m[0][2] = 0;
+    m[0][3] = 0;
+
+    m[1][0] = -0x4000;
+    m[1][1] = 0;
+    m[1][2] = 0;
+    m[1][3] = 0;
+#else
+    m[0][0] = 0x4000;
+    m[0][1] = 0;
+    m[0][2] = 0;
+    m[0][3] = 0;
+
+    m[1][0] = 0;
+    m[1][1] = 0x4000;
+    m[1][2] = 0;
+    m[1][3] = 0;
+#endif
+
+    m[2][0] = 0;
+    m[2][1] = 0;
+    m[2][2] = 0x4000;
+    m[2][3] = 0;
 }
 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
@@ -796,36 +871,31 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     Matrix &m = matrixGet();
 
 #ifdef ROTATE90_MODE
-    m[1][0] = -(cy);
-    m[1][1] = -(0);
-    m[1][2] = -(-sy);
-    m[1][3] = pos.x;
-
     m[0][0] = (sx * sy) >> FIXED_SHIFT;
     m[0][1] = cx;
     m[0][2] = (sx * cy) >> FIXED_SHIFT;
-    m[0][3] = pos.y;
+    m[0][3] = 0;
 
-    m[2][0] = (cx * sy) >> FIXED_SHIFT;
-    m[2][1] = -sx;
-    m[2][2] = (cx * cy) >> FIXED_SHIFT;
-    m[2][3] = pos.z;
+    m[1][0] = -cy;
+    m[1][1] = 0;
+    m[1][2] = sy;
+    m[1][3] = 0;
 #else
     m[0][0] = cy;
     m[0][1] = 0;
     m[0][2] = -sy;
-    m[0][3] = pos.x;
+    m[0][3] = 0;
 
     m[1][0] = (sx * sy) >> FIXED_SHIFT;
     m[1][1] = cx;
     m[1][2] = (sx * cy) >> FIXED_SHIFT;
-    m[1][3] = pos.y;
+    m[1][3] = 0;
+#endif
 
     m[2][0] = (cx * sy) >> FIXED_SHIFT;
     m[2][1] = -sx;
     m[2][2] = (cx * cy) >> FIXED_SHIFT;
-    m[2][3] = pos.z;
-#endif
+    m[2][3] = 0;
 
-    viewPos = pos;
+    cameraViewPos = pos;
 }

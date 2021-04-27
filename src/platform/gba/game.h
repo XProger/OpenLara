@@ -4,10 +4,18 @@
 #include "common.h"
 #include "sound.h"
 #include "level.h"
+#include "room.h"
 #include "camera.h"
 #include "item.h"
-#include "lara.h"
 #include "draw.h"
+
+Lara* players[2];
+
+Lara* getLara(const vec3i &pos)
+{
+    UNUSED(pos); // TODO two players
+    return players[0]; // TODO find nearest player
+}
 
 struct Game
 {
@@ -20,12 +28,12 @@ struct Game
     {
         camera.init();
 
-        readLevel((uint8*)LEVEL1_PHD);
+        readLevel((uint8*)data);
 
     // prepare rooms
         for (int32 i = 0; i < roomsCount; i++)
         {
-            roomReset(rooms + i);
+            rooms[i].reset();
         }
 
     // prepare items
@@ -33,92 +41,91 @@ struct Game
         {
             Item* item = items + i;
 
-            itemInit(item);
+            item->init(rooms + item->startRoomIndex);
 
-            if (item->room > -1) {
-                roomItemAdd(item->room, i);
-            }
-
-            if (item->type == ITEM_LARA) {
+            if (item->type == ITEM_LARA)
+            {
                 camera.item = item;
 
+            //#ifdef PROFILE
             // debug
-                //resetItem(i, 14, vec3i(20215, 6656, 52942), 0); // level 1 (bridge)
-                //resetItem(i, 26, vec3i(24475, 6912, 83505), 90 * DEG2SHORT); // level 1 (switch timer)
+                //resetItem(item, 0, vec3i(74588, 3072, 19673), 0); // level 1 (first darts)
+                //resetItem(item, 9, vec3i(49669, 7680, 57891), 0); // level 1 (first door)
+                //resetItem(item, 10, vec3i(43063, 7168, 61198), 0); // level 1 (transp)
+                //resetItem(item, 14, vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // level 1 (bridge)
+                //resetItem(item, 17, vec3i(16475, 6656, 59845), ANGLE_90); // level 1 (bear)
+                //resetItem(item, 26, vec3i(24475, 6912, 83505), ANGLE_90); // level 1 (switch timer)
+                //resetItem(item, 35, vec3i(35149, 2048, 74189), ANGLE_90); // level 1 (switch timer)
+            //#endif
 
-                camera.room = item->room;
-            }
+                camera.view.pos = camera.target.pos = item->pos;
+                camera.view.room = item->room;
 
-            // TODO remove
-            if (item->type == ITEM_LARA ||
-                item->type == ITEM_WOLF ||
-                item->type == ITEM_BEAR ||
-                item->type == ITEM_BAT  ||
-                item->type == ITEM_CRYSTAL)
-            {
-                activateItem(i);
+                players[0] = (Lara*)item;
             }
         }
 
     // prepare glyphs
-        for (int32 i = 0; i < spritesSeqCount; i++) {
-            if (spritesSeq[i].type == ITEM_GLYPHS) {
+        for (int32 i = 0; i < spritesSeqCount; i++)
+        {
+            if (spritesSeq[i].type == ITEM_GLYPHS)
+            {
                 seqGlyphs = i;
                 break;
             }
         }
     }
 
-    void resetItem(int32 itemIndex, int32 roomIndex, const vec3i &pos, int32 angleY)
+    void resetItem(Item* item, int32 roomIndex, const vec3i &pos, int32 angleY)
     {
-        roomItemRemove(itemIndex);
+        item->room->remove(item);
 
-        Item* item = items + itemIndex;
-        item->pos = vec3i(20215, 6656, 52942);
+        item->pos = pos;
         item->angleY = angleY;
         item->health = LARA_MAX_HEALTH;
 
-        roomItemAdd(roomIndex, itemIndex);
+        rooms[roomIndex].add(item);
     }
 
     void updateItems()
     {
-        curItemIndex = firstActive;
-        while (curItemIndex != NO_ITEM)
+        Item* item = Item::sFirstActive;
+        while (item)
         {
-            Item* item = items + curItemIndex;
-
-            if (item->type == ITEM_LARA) {
-                Lara* lara = (Lara*)item;
-                lara->update();
-            } else {
-                itemControl(item);
-            }
-
-            curItemIndex = item->nextActive;
+            Item* next = item->nextActive;
+            item->update();
+            item = next;
         }
     }
 
     void update(int32 frames)
     {
+    #ifdef TEST
+        return;
+    #endif
         if (frames > MAX_UPDATE_FRAMES) {
             frames = MAX_UPDATE_FRAMES;
         }
 
-        for (int32 i = 0; i < frames; i++) {
+        for (int32 i = 0; i < frames; i++)
+        {
             updateItems();
             camera.update();
         }
-    }
 
-#ifdef ROTATE90_MODE
-    int32 TEXT_POSX = FRAME_HEIGHT;
-#else
-    int32 TEXT_POSX = FRAME_WIDTH;
-#endif
+        if (keys & IK_SELECT) {
+            mixer.playMusic(TRACK_13_WAV);
+        }
+    }
 
     void render()
     {
+    #ifdef ROTATE90_MODE
+        #define TEXT_POSX   FRAME_HEIGHT
+    #else
+        #define TEXT_POSX   FRAME_WIDTH
+    #endif
+
         clear();
 
         #ifdef TEST

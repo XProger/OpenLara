@@ -13,8 +13,8 @@ enum CollisionType {
     CT_FLOOR_CEILING = (1 << 5),
 };
 
-struct CollisionInfo {
-
+struct CollisionInfo
+{
     enum SideType {
         ST_MIDDLE,
         ST_FRONT,
@@ -23,13 +23,14 @@ struct CollisionInfo {
         ST_MAX
     };
 
-    struct Side {
+    struct Side
+    {
         int32     floor;
         int32     ceiling;
         SlantType slantType;
     };
 
-    int16 *trigger;
+    const FloorData* trigger;
 
     Side m;
     Side f;
@@ -63,9 +64,9 @@ struct CollisionInfo {
     {
         SlantType slantType;
 
-        if (floorSlant.slantX == 0 && floorSlant.slantZ == 0) {
+        if (gLastFloorSlant.slantX == 0 && gLastFloorSlant.slantZ == 0) {
             slantType = SLANT_NONE;
-        } else if (abs(floorSlant.slantX) < 3 && abs(floorSlant.slantZ) < 3) {
+        } else if (abs(gLastFloorSlant.slantX) < 3 && abs(gLastFloorSlant.slantZ) < 3) {
             slantType = SLANT_LOW;
         } else {
             slantType = SLANT_HIGH;
@@ -108,31 +109,49 @@ int32 alignOffset(int32 a, int32 b)
     return -(a + 1);
 }
 
-bool collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height) {
-    /*
+bool collideStatic(Room* room, CollisionInfo &cinfo, const vec3i &p, int32 height)
+{
     cinfo.staticHit = false;
     cinfo.offset    = vec3i(0);
 
-    BoxV2 objBox(v2pos - vec3i(cinfo.radius, height, cinfo.radius), 
-                    v2pos + vec3i(cinfo.radius, 0, cinfo.radius));
+    Box objBox;
+    objBox.minX = -cinfo.radius;
+    objBox.maxX =  cinfo.radius;
+    objBox.minZ = -cinfo.radius;
+    objBox.maxZ =  cinfo.radius;
+    objBox.minY = -height;
+    objBox.maxY = 0;
 
-// TODO: check linked rooms
-    for (int j = 0; j < level->roomsCount; j++) {
-        const TR::Room &room = level->rooms[j];
+    Room** nearRoom = room->getNearRooms(p, cinfo.radius, height);
 
-        for (int i = 0; i < room.meshesCount; i++) {
-            TR::Room::Mesh &m  = room.meshes[i];
-            TR::StaticMesh &sm = level->staticMeshes[m.meshIndex];
+    while (*nearRoom)
+    {
+        const Room* room = *nearRoom++;
 
-            if (sm.flags & 1) continue;
+        for (int i = 0; i < room->mCount; i++)
+        {
+            const RoomInfo::Mesh* mesh = room->meshes + i;
 
-            BoxV2 meshBox = sm.getBox(true);
-            meshBox.rotate90(m.rotation.value / ANGLE_90);
-            meshBox.translate(m.pos);
+        #ifdef NO_STATIC_MESHES
+            if (mesh->staticMeshId != STATIC_MESH_GATE) continue;
+        #endif
 
-            if (!objBox.intersect(meshBox)) continue;
+            const StaticMesh* staticMesh = staticMeshes + staticMeshesMap[mesh->staticMeshId];
 
-            cinfo.offset = meshBox.pushOut2D(objBox);
+            if (staticMesh->flags & 1) continue;
+
+            Box meshBox = boxRotate(staticMesh->cbox, mesh->rotation);
+
+        // TODO align RoomInfo::Mesh (room relative int16?)
+            vec3i pos;
+            memcpy(&pos, &(mesh->pos[0]), sizeof(pos));
+            pos -= p;
+
+            boxTranslate(meshBox, pos);
+
+            if (!boxIntersect(meshBox, objBox)) continue;
+
+            cinfo.offset = boxPushOut(meshBox, objBox);
 
             bool flip = (cinfo.quadrant > 1);
 
@@ -163,7 +182,7 @@ bool collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height) {
             return true;
         }
     }
-    */
+
     return false;
 }
 
@@ -182,20 +201,20 @@ void collideRoom(Item* item, int32 height, int32 yOffset = 0)
     int32 floor, ceiling;
 
     #define CHECK_HEIGHT(v) {\
-        int32 roomIndex = getRoomIndex(item->room, v.x, cy, v.z);\
-        const RoomInfo::Sector* sector = getSector(roomIndex, v.x, v.z);\
-        floor = getFloor(sector, v.x, cy, v.z);\
+        const Room* room = item->room->getRoom(v.x, cy, v.z);\
+        const RoomInfo::Sector* sector = room->getSector(v.x, v.z);\
+        floor = sector->getFloor(v.x, cy, v.z);\
         if (floor != WALL) floor -= p.y;\
-        ceiling = getCeiling(sector, v.x, cy, v.z);\
+        ceiling = sector->getCeiling(v.x, cy, v.z);\
         if (ceiling != WALL) ceiling -= y;\
     }
 
 // middle
     CHECK_HEIGHT(p);
 
-    //cinfo.trigger = floorTrigger; TODO
-    cinfo.slantX = floorSlant.slantX;
-    cinfo.slantZ = floorSlant.slantZ;
+    cinfo.trigger = gLastFloorData;
+    cinfo.slantX = gLastFloorSlant.slantX;
+    cinfo.slantZ = gLastFloorSlant.slantZ;
 
     cinfo.setSide(CollisionInfo::ST_MIDDLE, floor, ceiling);
 
@@ -257,7 +276,7 @@ void collideRoom(Item* item, int32 height, int32 yOffset = 0)
     cinfo.setSide(CollisionInfo::ST_RIGHT, floor, ceiling);
 
 // static objects
-    collideStatic(cinfo, p, height);
+    collideStatic(item->room, cinfo, p, height);
 
 // check middle
     if (cinfo.m.floor == WALL)
