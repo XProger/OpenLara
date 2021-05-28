@@ -7,12 +7,12 @@ vec3i  cameraViewPos;
 Matrix matrixStack[MAX_MATRICES];
 int32  matrixStackIndex = 0;
 
-SaveGame gSaveGame;
+EWRAM_DATA SaveGame gSaveGame;
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
 
-const uint16 divTable[DIV_TABLE_SIZE] = {
+const uint16 divTable[DIV_TABLE_SIZE] = { // ROM, not a big difference with IWRAM
     0xFFFF, 0xFFFF, 0x8000, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
     0x2000, 0x1C71, 0x1999, 0x1745, 0x1555, 0x13B1, 0x1249, 0x1111,
     0x1000, 0x0F0F, 0x0E38, 0x0D79, 0x0CCC, 0x0C30, 0x0BA2, 0x0B21,
@@ -143,7 +143,7 @@ const uint16 divTable[DIV_TABLE_SIZE] = {
     0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040
 };
 
-const int16 sinTable[1025] = {
+const int16 sinTable[1025] = { // ROM
     0x0000, 0x0019, 0x0032, 0x004B, 0x0065, 0x007E, 0x0097, 0x00B0,
     0x00C9, 0x00E2, 0x00FB, 0x0114, 0x012E, 0x0147, 0x0160, 0x0179,
     0x0192, 0x01AB, 0x01C4, 0x01DD, 0x01F7, 0x0210, 0x0229, 0x0242,
@@ -274,7 +274,7 @@ const int16 sinTable[1025] = {
     0x3FFF, 0x3FFF, 0x3FFF, 0x4000, 0x4000, 0x4000, 0x4000, 0x4000, 0x4000
 };
 
-const int16 atanTable[2050] = {
+const int16 atanTable[2050] = { // ROM
     0x0000, 0x0005, 0x000A, 0x000F, 0x0014, 0x0019, 0x001F, 0x0024,
     0x0029, 0x002E, 0x0033, 0x0038, 0x003D, 0x0042, 0x0047, 0x004C,
     0x0051, 0x0057, 0x005C, 0x0061, 0x0066, 0x006B, 0x0070, 0x0075,
@@ -617,19 +617,19 @@ void anglesFromVector(int32 x, int32 y, int32 z, int16 &angleX, int16 &angleY)
     }
 }
 
-Box boxRotate(const Box &box, int16 angle)
+Bounds boxRotate(const Bounds &box, int16 angle)
 {
     if (angle == ANGLE_90) {
-        return Box(  box.minZ,  box.maxZ, box.minY, box.maxY, -box.maxX, -box.minX );
+        return Bounds(  box.minZ,  box.maxZ, box.minY, box.maxY, -box.maxX, -box.minX );
     } else if (angle == -ANGLE_90) {
-        return Box( -box.maxZ, -box.minZ, box.minY, box.maxY,  box.minX,  box.maxX );
+        return Bounds( -box.maxZ, -box.minZ, box.minY, box.maxY,  box.minX,  box.maxX );
     } else if (angle == ANGLE_180) {
-        return Box( -box.maxX, -box.minX, box.minY, box.maxY, -box.maxZ, -box.minZ );
+        return Bounds( -box.maxX, -box.minX, box.minY, box.maxY, -box.maxZ, -box.minZ );
     }
     return box;
 }
 
-void boxTranslate(Box &box, const vec3i &offset)
+void boxTranslate(Bounds &box, const vec3i &offset)
 {
     box.minX += offset.x;
     box.maxX += offset.x;
@@ -639,21 +639,21 @@ void boxTranslate(Box &box, const vec3i &offset)
     box.maxZ += offset.z;
 }
 
-bool boxIntersect(const Box &a, const Box &b)
+bool boxIntersect(const Bounds &a, const Bounds &b)
 {
     return !(a.maxX <= b.minX || a.minX >= b.maxX || 
              a.maxY <= b.minY || a.minY >= b.maxY || 
              a.maxZ <= b.minZ || a.minZ >= b.maxZ);
 }
 
-bool boxContains(const Box &a, const vec3i &p)
+bool boxContains(const Bounds &a, const vec3i &p)
 {
     return !(a.minX > p.x || a.maxX < p.x ||
              a.minY > p.y || a.maxY < p.y ||
              a.minZ > p.z || a.maxZ < p.z);
 }
 
-vec3i boxPushOut(const Box &a, const Box &b)
+vec3i boxPushOut(const Bounds &a, const Bounds &b)
 {
     int32 ax = b.maxX - a.minX;
     int32 bx = a.maxX - b.minX;

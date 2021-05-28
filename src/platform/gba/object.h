@@ -17,14 +17,14 @@ vec3i getBlockOffset(int16 angleY, int32 offset)
 
 struct Limit
 {
-    Box   box;
+    Bounds box;
     vec3s angle;
 };
 
 namespace Limits
 {
     static const Limit SWITCH = {
-        Box( -200, 200, 0, 0, 312, 512 ),
+        Bounds( -200, 200, 0, 0, 312, 512 ),
         vec3s( 10 * DEG2SHORT, 30 * DEG2SHORT, 10 * DEG2SHORT )
     };
 };
@@ -57,9 +57,9 @@ struct Object : Item
 
     bool checkLimit(Lara* lara, const Limit& limit)
     {
-        int16 ax = abs(lara->angleX - angleX);
-        int16 ay = abs(lara->angleY - angleY);
-        int16 az = abs(lara->angleZ - angleZ);
+        int16 ax = abs(lara->angle.x - angle.x);
+        int16 ay = abs(lara->angle.y - angle.y);
+        int16 az = abs(lara->angle.z - angle.z);
 
         if (ax > limit.angle.x || ay > limit.angle.y || az > limit.angle.z)
             return false;
@@ -67,7 +67,7 @@ struct Object : Item
         vec3i d = lara->pos - pos;
 
         matrixSetIdentity();
-        matrixRotateZXY(-angleX, -angleY, -angleZ);
+        matrixRotateZXY(-angle.x, -angle.y, -angle.z);
         const Matrix &m = matrixGet();
 
         vec3i p;
@@ -128,7 +128,7 @@ struct Door : Object
 
     void action(bool close)
     {
-        vec3i nextPos = getBlockOffset(angleY, 1);
+        vec3i nextPos = getBlockOffset(angle.y, 1);
         nextPos.x = pos.x + (nextPos.x << 10);
         nextPos.z = pos.z + (nextPos.z << 10);
 
@@ -141,7 +141,7 @@ struct Door : Object
     {
         room->modify(); // make room->sectors dynamic (non ROM)
 
-        RoomInfo::Sector* sector = (RoomInfo::Sector*)room->getSector(x, z); // now we can modify room sectors
+        Sector* sector = (Sector*)room->getSector(x, z); // now we can modify room sectors
 
         Room* nextRoom;
 
@@ -155,7 +155,7 @@ struct Door : Object
             sector->roomAbove  = NO_ROOM;
             sector->ceiling    = NO_FLOOR;
         } else {
-            *sector = room->sectorsOrig[sector - room->sectors];
+            *sector = room->data.sectors[sector - room->sectors];
 
             nextRoom = sector->getNextRoom();
         }
@@ -203,7 +203,7 @@ struct Switch : Object
         if (!checkLimit(lara, Limits::SWITCH))
             return;
 
-        lara->angleY = angleY;
+        lara->angle.y = angle.y;
 
         ASSERT(state == STATE_DOWN || state == STATE_UP);
 
@@ -410,13 +410,13 @@ struct TrapDartEmitter : Object
             return;
         }
 
-        if (state == STATE_FIRE && frameIndex == anims[animIndex].frameBegin)
+        if (state == STATE_FIRE && frameIndex == level.anims[animIndex].frameBegin)
         {
-            vec3i p = getBlockOffset(angleY, 412);
+            vec3i p = getBlockOffset(angle.y, 412);
             p.y = -512;
             p += pos;
 
-            Item* dart = Item::add(ITEM_DART, room, p, angleY);
+            Item* dart = Item::add(ITEM_DART, room, p, angle.y);
 
             if (dart)
             {

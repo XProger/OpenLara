@@ -10,11 +10,11 @@ int32 getBridgeFloor(const Item* item, int32 x, int32 z)
     }
 
     int32 h;
-    if (item->angleY == ANGLE_0) {
+    if (item->angle.y == ANGLE_0) {
         h = 1024 - x;
-    } else if (item->angleY == ANGLE_180) {
+    } else if (item->angle.y == ANGLE_180) {
         h = x;
-    } else if (item->angleY == ANGLE_90) {
+    } else if (item->angle.y == ANGLE_90) {
         h = z;
     } else {
         h = 1024 - z;
@@ -31,10 +31,10 @@ int32 getTrapDoorFloor(const Item* item, int32 x, int32 z)
     int32 dz = (item->pos.z >> 10) - (z >> 10);
 
     if (((dx ==  0) && (dz ==  0)) ||
-        ((dx ==  0) && (dz ==  1) && (item->angleY ==  ANGLE_0))   ||
-        ((dx ==  0) && (dz == -1) && (item->angleY ==  ANGLE_180)) ||
-        ((dx ==  1) && (dz ==  0) && (item->angleY ==  ANGLE_90))  ||
-        ((dx == -1) && (dz ==  0) && (item->angleY == -ANGLE_90)))
+        ((dx ==  0) && (dz ==  1) && (item->angle.y ==  ANGLE_0))   ||
+        ((dx ==  0) && (dz == -1) && (item->angle.y ==  ANGLE_180)) ||
+        ((dx ==  1) && (dz ==  0) && (item->angle.y ==  ANGLE_90))  ||
+        ((dx == -1) && (dz ==  0) && (item->angle.y == -ANGLE_90)))
     {
         return item->pos.y;
     }
@@ -47,10 +47,10 @@ int32 getDrawBridgeFloor(const Item* item, int32 x, int32 z)
     int32 dx = (item->pos.x >> 10) - (x >> 10);
     int32 dz = (item->pos.z >> 10) - (z >> 10);
 
-    if (((dx == 0) && ((dz == -1) || (dz == -2)) && (item->angleY ==  ANGLE_0))   ||
-        ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (item->angleY ==  ANGLE_180)) ||
-        ((dz == 0) && ((dx == -1) || (dz == -2)) && (item->angleY ==  ANGLE_90))  ||
-        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (item->angleY == -ANGLE_90)))
+    if (((dx == 0) && ((dz == -1) || (dz == -2)) && (item->angle.y ==  ANGLE_0))   ||
+        ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (item->angle.y ==  ANGLE_180)) ||
+        ((dz == 0) && ((dx == -1) || (dz == -2)) && (item->angle.y ==  ANGLE_90))  ||
+        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (item->angle.y == -ANGLE_90)))
     {
         return item->pos.y;
     }
@@ -115,25 +115,25 @@ void getItemFloorCeiling(const Item* item, int32 x, int32 y, int32 z, int32* flo
 }
 
 
-const RoomInfo::Sector* RoomInfo::Sector::getSectorBelow(int32 posX, int32 posZ) const
+const Sector* Sector::getSectorBelow(int32 posX, int32 posZ) const
 {
     if (roomBelow == NO_ROOM)
         return this;
     return rooms[roomBelow].getSector(posX, posZ);
 }
 
-const RoomInfo::Sector* RoomInfo::Sector::getSectorAbove(int32 posX, int32 posZ) const
+const Sector* Sector::getSectorAbove(int32 posX, int32 posZ) const
 {
     if (roomAbove == NO_ROOM)
         return this;
     return rooms[roomAbove].getSector(posX, posZ);
 }
 
-int32 RoomInfo::Sector::getFloor(int32 x, int32 y, int32 z) const
+int32 Sector::getFloor(int32 x, int32 y, int32 z) const
 {
     gLastFloorData = NULL;
 
-    const RoomInfo::Sector* lowerSector = getSectorBelow(x, z);
+    const Sector* lowerSector = getSectorBelow(x, z);
 
     int32 floor = lowerSector->floor << 8;
 
@@ -141,7 +141,7 @@ int32 RoomInfo::Sector::getFloor(int32 x, int32 y, int32 z) const
 
     if (lowerSector->floorIndex)
     {
-        const FloorData* fd = floors + lowerSector->floorIndex;
+        const FloorData* fd = level.floors + lowerSector->floorIndex;
         FloorData::Command cmd = (fd++)->cmd;
 
         if (cmd.func == FLOOR_TYPE_FLOOR) // found floor
@@ -161,15 +161,15 @@ int32 RoomInfo::Sector::getFloor(int32 x, int32 y, int32 z) const
     return floor;
 }
 
-int32 RoomInfo::Sector::getCeiling(int32 x, int32 y, int32 z) const
+int32 Sector::getCeiling(int32 x, int32 y, int32 z) const
 {
-    const RoomInfo::Sector* upperSector = getSectorAbove(x, z);
+    const Sector* upperSector = getSectorAbove(x, z);
 
     int32 ceiling = upperSector->ceiling << 8;
 
     if (upperSector->floorIndex)
     {
-        const FloorData* fd = floors + upperSector->floorIndex;
+        const FloorData* fd = level.floors + upperSector->floorIndex;
         FloorData::Command cmd = (fd++)->cmd;
 
         if (cmd.func == FLOOR_TYPE_FLOOR) // skip floor
@@ -189,14 +189,14 @@ int32 RoomInfo::Sector::getCeiling(int32 x, int32 y, int32 z) const
         }
     }
 
-    const RoomInfo::Sector* lowerSector = getSectorBelow(x, z);
+    const Sector* lowerSector = getSectorBelow(x, z);
 
     lowerSector->getTriggerFloorCeiling(x, y, z, NULL, &ceiling);
 
     return ceiling;
 }
 
-Room* RoomInfo::Sector::getNextRoom() const
+Room* Sector::getNextRoom() const
 {
     if (!floorIndex)
         return NULL;
@@ -207,7 +207,7 @@ Room* RoomInfo::Sector::getNextRoom() const
     // - portal
     // - other
 
-    const FloorData* fd = floors + floorIndex;
+    const FloorData* fd = level.floors + floorIndex;
     FloorData::Command cmd = (fd++)->cmd;
 
     if (cmd.func == FLOOR_TYPE_FLOOR)  // skip floor
@@ -232,13 +232,13 @@ Room* RoomInfo::Sector::getNextRoom() const
     return rooms + fd->value;
 }
 
-void RoomInfo::Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
+void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
 {
     if (!floorIndex)
         return;
 
     FloorData::Command cmd;
-    const FloorData* fd = floors + floorIndex;
+    const FloorData* fd = level.floors + floorIndex;
 
     do {
         cmd = (fd++)->cmd;
@@ -291,17 +291,17 @@ void RoomInfo::Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* 
 }
 
 
-const RoomInfo::Sector* Room::getSector(int32 posX, int32 posZ) const
+const Sector* Room::getSector(int32 posX, int32 posZ) const
 {
-    int32 sx = X_CLAMP((posX - x) >> 10, 0, xSectors - 1);
-    int32 sz = X_CLAMP((posZ - z) >> 10, 0, zSectors - 1);
+    int32 sx = X_CLAMP((posX - (info->x << 8)) >> 10, 0, info->xSectors - 1);
+    int32 sz = X_CLAMP((posZ - (info->z << 8)) >> 10, 0, info->zSectors - 1);
 
-    return sectors + sx * zSectors + sz;
+    return sectors + sx * info->zSectors + sz;
 }
 
 Room* Room::getRoom(int32 x, int32 y, int32 z)
 {
-    const RoomInfo::Sector* sector = getSector(x, z);
+    const Sector* sector = getSector(x, z);
 
     Room* room = this;
 
@@ -339,12 +339,12 @@ int32 Room::getWaterDepth()
     return WALL; // TODO
 }
 
-bool Room::checkPortal(const RoomInfo::Portal* portal)
+bool Room::checkPortal(const Portal* portal)
 {
     vec3i d;
-    d.x = portal->v[0].x - cameraViewPos.x + x;
+    d.x = portal->v[0].x - cameraViewPos.x + (info->x << 8);
     d.y = portal->v[0].y - cameraViewPos.y;
-    d.z = portal->v[0].z - cameraViewPos.z + z;
+    d.z = portal->v[0].z - cameraViewPos.z + (info->z << 8);
 
     if (DP33(portal->n, d) >= 0) {
         return false;
@@ -379,6 +379,7 @@ bool Room::checkPortal(const RoomInfo::Portal* portal)
         }
 
         if (z >= VIEW_MAX_F) {
+            z = VIEW_MAX_F;
             zfar++;
         }
 
@@ -451,11 +452,11 @@ bool Room::checkPortal(const RoomInfo::Portal* portal)
 Room** Room::addVisibleRoom(Room** list)
 {
     matrixPush();
-    matrixTranslateAbs(vec3i(x, 0, z));
+    matrixTranslateAbs(vec3i(info->x << 8, 0, info->z << 8));
 
-    for (int32 i = 0; i < pCount; i++)
+    for (int32 i = 0; i < info->portalsCount; i++)
     {
-        const RoomInfo::Portal* portal = portals + i;
+        const Portal* portal = data.portals + i;
 
         if (checkPortal(portal))
         {
@@ -534,9 +535,9 @@ Room** Room::getAdjRooms()
     Room** list = roomsList;
 
     *list++ = this;
-    for (int32 i = 0; i < pCount; i++)
+    for (int32 i = 0; i < info->portalsCount; i++)
     {
-        *list++ = rooms + portals[i].roomIndex;
+        *list++ = rooms + data.portals[i].roomIndex;
     }
     *list++ = NULL;
 
@@ -545,13 +546,13 @@ Room** Room::getAdjRooms()
 
 void Room::modify()
 {
-    if (sectors == sectorsOrig) // TODO ROM only
+    if (sectors == data.sectors)
     {
         // convert room->sectors to mutable (non-ROM) data
         sectors = dynSectors + dynSectorsCount;
-        memcpy((RoomInfo::Sector*)sectors, sectorsOrig, xSectors * zSectors * sizeof(RoomInfo::Sector));
+        memcpy((Sector*)sectors, data.sectors, info->xSectors * info->zSectors * sizeof(Sector));
 
-        dynSectorsCount += xSectors * zSectors;
+        dynSectorsCount += info->xSectors * info->zSectors;
         //printf("dynSectors: %d\n", dynSectorsCount);
         ASSERT(dynSectorsCount <= MAX_DYN_SECTORS);
     }
@@ -733,9 +734,31 @@ void checkTrigger(const FloorData* fd, Item* lara)
                 // TODO go to the next level
                 break;
 
-            case TRIGGER_ACTION_SOUNDTRACK:
-                // TODO soundtrack
+            case TRIGGER_ACTION_SOUNDTRACK: {
+                int32 track = doTutorial(lara, triggerCmd.args);
+
+                if (track == 0) break;
+
+                SaveGame::TrackFlags &flags = gSaveGame.tracks[track];
+
+                if (flags.once)
+                    break;
+
+                if (cmd.type == TRIGGER_TYPE_SWITCH)
+                    flags.mask ^= info.mask;
+                else if (cmd.type == TRIGGER_TYPE_ANTIPAD)
+                    flags.mask &= ~info.mask;
+                else
+                    flags.mask |= info.mask;
+
+                if (flags.mask == ITEM_FLAGS_MASK_ALL) {
+                    flags.once |= info.once;
+                    musicPlay(track);
+                } else {
+                    musicStop();
+                }
                 break;
+            }
 
             case TRIGGER_ACTION_EFFECT:
                 // TODO effect

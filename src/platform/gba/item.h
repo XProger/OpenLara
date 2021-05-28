@@ -21,13 +21,13 @@ int16 angleDec(int16 angle, int32 value) {
 
 Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 {
-    int16 a = soundMap[id];
+    int16 a = level.soundMap[id];
 
     if (a == -1) {
         return NULL;
     }
 
-    const SoundInfo* b = soundInfos + a;
+    const SoundInfo* b = level.soundsInfo + a;
 
     if (b->chance && b->chance < xRand()) {
         return NULL;
@@ -62,10 +62,7 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
         index += (xRand() * b->flags.count) >> 15;
     }
 
-    int32 offset;
-    memcpy(&offset, soundOffsets + index, 4); // TODO preprocess and remove wave header
-
-    const uint8 *data = soundData + offset;//soundOffsets[index];
+    const uint8 *data = level.soundData + level.soundOffsets[index];
 
     int32 size;
     memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
@@ -74,26 +71,39 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
     return mixer.playSample(data, size, volume, pitch, b->flags.mode);
 }
 
-AnimFrame* Item::getFrame(const Model* model) const
+void musicPlay(int32 track)
 {
-    const Anim* anim = anims + animIndex;
-
-    int32 frameSize = sizeof(AnimFrame) / 2 + model->mCount * 2;
-    int32 keyFrame = (frameIndex - anim->frameBegin) / anim->frameRate; // TODO fixed div? check the range
-
-    return (AnimFrame*)(animFrames + anim->frameOffset / 2 + keyFrame * frameSize);
+    if (track > 25 && track < 57) // gym tutorial
+    {
+        soundPlay(148 + track, camera.view.pos); // play embedded tracks
+    }
 }
 
-const Box& Item::getBoundingBox() const
+void musicStop()
 {
-    const Model* model = models + modelsMap[type];
+    // TODO
+}
+
+AnimFrame* Item::getFrame(const Model* model) const
+{
+    const Anim* anim = level.anims + animIndex;
+
+    int32 frameSize = sizeof(AnimFrame) / 2 + model->count * 2;
+    int32 keyFrame = (frameIndex - anim->frameBegin) / anim->frameRate; // TODO fixed div? check the range
+
+    return (AnimFrame*)(level.animFrames + anim->frameOffset / 2 + keyFrame * frameSize);
+}
+
+const Bounds& Item::getBoundingBox() const
+{
+    const Model* model = models + type;
     AnimFrame* frame = getFrame(model);
     return frame->box;
 }
 
 void Item::move()
 {
-    const Anim* anim = anims + animIndex;
+    const Anim* anim = level.anims + animIndex;
 
     int32 s = anim->speed;
 
@@ -113,15 +123,15 @@ void Item::move()
         hSpeed = s >> 16;
     }
 
-    int16 angle = (type == ITEM_LARA) ? moveAngle : angleY;
+    int16 realAngle = (type == ITEM_LARA) ? moveAngle : angle.y;
 
-    pos.x += phd_sin(angle) * hSpeed >> FIXED_SHIFT;
-    pos.z += phd_cos(angle) * hSpeed >> FIXED_SHIFT;
+    pos.x += phd_sin(realAngle) * hSpeed >> FIXED_SHIFT;
+    pos.z += phd_cos(realAngle) * hSpeed >> FIXED_SHIFT;
 }
 
 const Anim* Item::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset)
 {
-    const Anim* anim = anims + newAnimIndex;
+    const Anim* anim = level.anims + newAnimIndex;
 
     animIndex   = newAnimIndex;
     frameIndex  = anim->frameBegin + frameOffset;
@@ -138,13 +148,13 @@ const Anim* Item::animChange(const Anim* anim)
     if (!anim->statesCount || goalState == state)
         return anim;
 
-    const AnimState* animState = animStates + anim->statesStart;
+    const AnimState* animState = level.animStates + anim->statesStart;
 
     for (int32 i = 0; i < anim->statesCount; i++)
     {
         if (goalState == animState->state)
         {
-            const AnimRange* animRange = animRanges + animState->rangesStart;
+            const AnimRange* animRange = level.animRanges + animState->rangesStart;
 
             for (int32 j = 0; j < animState->rangesCount; j++)
             {
@@ -156,7 +166,7 @@ const Anim* Item::animChange(const Anim* anim)
 
                     frameIndex = animRange->nextFrameIndex;
                     animIndex = animRange->nextAnimIndex;
-                    anim = anims + animRange->nextAnimIndex;
+                    anim = level.anims + animRange->nextAnimIndex;
                     state = uint8(anim->state);
                     return anim;
                 }
@@ -173,7 +183,7 @@ void Item::animCmd(bool fx, const Anim* anim)
 {
     if (!anim->commandsCount) return;
 
-    const int16 *ptr = animCommands + anim->commandsStart;
+    const int16 *ptr = level.animCommands + anim->commandsStart;
 
     for (int32 i = 0; i < anim->commandsCount; i++)
     {
@@ -230,7 +240,7 @@ void Item::animCmd(bool fx, const Anim* anim)
             case ANIM_CMD_EFFECT:
                 if (fx && frameIndex == ptr[0]) {
                     switch (ptr[1]) {
-                        case FX_ROTATE_180     : angleY += ANGLE_180; break;
+                        case FX_ROTATE_180     : angle.y += ANGLE_180; break;
                     /*
                         case FX_FLOOR_SHAKE    : ASSERT(false);
                         case FX_LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
@@ -272,10 +282,9 @@ void Item::skipAnim()
 
 void Item::updateAnim(bool movement)
 {
-    if (modelsMap[type] == NO_MODEL)
-        return;
+    ASSERT(models[type].count > 0);
 
-    const Anim* anim = anims + animIndex;
+    const Anim* anim = level.anims + animIndex;
 
 #ifndef STATIC_ITEMS
     frameIndex++;
@@ -289,7 +298,7 @@ void Item::updateAnim(bool movement)
 
         frameIndex = anim->nextFrameIndex;
         animIndex = anim->nextAnimIndex;
-        anim = anims + anim->nextAnimIndex;
+        anim = level.anims + anim->nextAnimIndex;
         state = uint8(anim->state);
     }
 
@@ -314,8 +323,8 @@ Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
 
     item->type = type;
     item->pos = pos;
-    item->angleY = angleY;
-    item->intensity = -1;
+    item->angle.y = angleY;
+    item->intensity = 0;
 
     item->init(room);
 
@@ -337,14 +346,14 @@ void Item::activate()
 
     flags.active = true;
 
-    nextActive = sFirstActive;
-    sFirstActive = this;
+    nextActive = Item::sFirstActive;
+    Item::sFirstActive = this;
 }
 
 void Item::deactivate()
 {
     Item* prev = NULL;
-    Item* curr = sFirstActive;
+    Item* curr = Item::sFirstActive;
 
     while (curr)
     {
@@ -358,7 +367,7 @@ void Item::deactivate()
             if (prev) {
                 prev->nextActive = next;
             } else {
-                sFirstActive = next;
+                Item::sFirstActive = next;
             }
 
             break;
@@ -379,16 +388,16 @@ void Item::updateRoom(int32 offset)
         nextRoom->add(this);
     }
 
-    const RoomInfo::Sector* sector = room->getSector(pos.x, pos.z);
+    const Sector* sector = room->getSector(pos.x, pos.z);
     floor = sector->getFloor(pos.x, pos.y, pos.z);
 }
 
-int32 Item::calcLighting(const Box& box) const
+int32 Item::calcLighting(const Bounds& box) const
 {
     matrixPush();
     Matrix &m = matrixGet();
     m[0][3] = m[1][3] = m[2][3] = 0;
-    matrixRotateYXZ(angleX, angleY, angleZ);
+    matrixRotateYXZ(angle.x, angle.y, angle.z);
 
     vec3i p((box.maxX + box.minX) >> 1,
             (box.maxY + box.minY) >> 1,
@@ -401,36 +410,41 @@ int32 Item::calcLighting(const Box& box) const
               m[2][3] >> FIXED_SHIFT) + pos;
     matrixPop();
 
-    if (!room->lCount) {
-        return room->ambient;
+    const RoomInfo* info = room->info;
+
+    if (!info->lightsCount) {
+        return info->ambient << 5;
     }
 
-    int32 ambient = 8191 - room->ambient;
-    int32 intensity = 0;
+    int32 ambient = 8191 - (info->ambient << 5);
+    int32 maxLum = 0;
 
-    for (int i = 0; i < room->lCount; i++)
+    for (int i = 0; i < info->lightsCount; i++)
     {
-        const RoomInfo::Light* light = room->lights + i;
+        const Light* light = room->data.lights + i;
 
         // TODO preprocess align
-        vec3i lpos;
-        int32 lradius;
-        memcpy(&lpos, &light->pos[0], sizeof(lpos));
-        memcpy(&lradius, &light->radius[0], sizeof(lradius));
+        vec3i pos;
+        pos.x = light->pos.x + (info->x << 8);
+        pos.y = light->pos.y;
+        pos.z = light->pos.z + (info->z << 8);
 
-        vec3i d = p - lpos;
+        int32 radius = light->radius << 8;
+        int32 intensity = light->intensity << 5;
+
+        vec3i d = p - pos;
         int32 dist = dot(d, d) >> 12;
-        int32 att = X_SQR(lradius) >> 12;
+        int32 att = X_SQR(radius) >> 12;
 
-        int32 lum = (light->intensity * att) / (dist + att) + ambient;
+        int32 lum = (intensity * att) / (dist + att) + ambient;
 
-        if (lum > intensity)
+        if (lum > maxLum)
         {
-            intensity = lum;
+            maxLum = lum;
         }
     }
 
-    return 8191 - ((intensity + ambient) >> 1);
+    return 8191 - ((maxLum + ambient) >> 1);
 }
 
 #include "lara.h"
@@ -439,15 +453,15 @@ int32 Item::calcLighting(const Box& box) const
 
 Item::Item(Room* room) 
 {
-    angleX      = 0;
-    angleZ      = 0;
+    angle.x     = 0;
+    angle.z     = 0;
     vSpeed      = 0;
     hSpeed      = 0;
     nextItem    = NULL;
     nextActive  = NULL;
-    animIndex   = models[modelsMap[type]].animIndex;
-    frameIndex  = anims[animIndex].frameBegin;
-    state       = uint8(anims[animIndex].state);
+    animIndex   = models[type].animIndex;
+    frameIndex  = level.anims[animIndex].frameBegin;
+    state       = uint8(level.anims[animIndex].state);
     nextState   = state;
     goalState   = state;
 
@@ -503,33 +517,35 @@ Item* Item::init(Room* room)
     switch (type)
     {
         INIT_ITEM( LARA                  , Lara );
-        // INIT_ITEM( DOPPELGANGER          , ??? );
+        INIT_ITEM( DOPPELGANGER          , Doppelganger );
         INIT_ITEM( WOLF                  , Wolf );
         INIT_ITEM( BEAR                  , Bear );
         INIT_ITEM( BAT                   , Bat );
-        // INIT_ITEM( CROCODILE_LAND        , ??? );
-        // INIT_ITEM( CROCODILE_WATER       , ??? );
-        // INIT_ITEM( LION_MALE             , ??? );
-        // INIT_ITEM( LION_FEMALE           , ??? );
-        // INIT_ITEM( PUMA                  , ??? );
-        // INIT_ITEM( GORILLA               , ??? );
-        // INIT_ITEM( RAT_LAND              , ??? );
-        // INIT_ITEM( RAT_WATER             , ??? );
-        // INIT_ITEM( REX                   , ??? );
-        // INIT_ITEM( RAPTOR                , ??? );
-        // INIT_ITEM( MUTANT_1              , ??? );
-        // INIT_ITEM( MUTANT_2              , ??? );
-        // INIT_ITEM( MUTANT_3              , ??? );
-        // INIT_ITEM( CENTAUR               , ??? );
-        // INIT_ITEM( MUMMY                 , ??? );
-        // INIT_ITEM( LARSON                , ??? );
-        // INIT_ITEM( PIERRE                , ??? );
+        INIT_ITEM( CROCODILE_LAND        , Crocodile );
+        INIT_ITEM( CROCODILE_WATER       , Crocodile );
+        INIT_ITEM( LION_MALE             , Lion );
+        INIT_ITEM( LION_FEMALE           , Lion );
+        INIT_ITEM( PUMA                  , Lion );
+        INIT_ITEM( GORILLA               , Gorilla );
+        INIT_ITEM( RAT_LAND              , Rat );
+        INIT_ITEM( RAT_WATER             , Rat );
+        INIT_ITEM( REX                   , Rex );
+        INIT_ITEM( RAPTOR                , Raptor );
+        INIT_ITEM( MUTANT_1              , Mutant );
+        INIT_ITEM( MUTANT_2              , Mutant );
+        INIT_ITEM( MUTANT_3              , Mutant );
+        INIT_ITEM( CENTAUR               , Centaur );
+        INIT_ITEM( MUMMY                 , Mummy );
+        // INIT_ITEM( UNUSED_1              , ??? );
+        // INIT_ITEM( UNUSED_2              , ??? );
+        INIT_ITEM( LARSON                , Larson );
+        INIT_ITEM( PIERRE                , Pierre );
         // INIT_ITEM( SKATEBOARD            , ??? );
-        // INIT_ITEM( SKATER                , ??? );
-        // INIT_ITEM( COWBOY                , ??? );
-        // INIT_ITEM( MR_T                  , ??? );
-        // INIT_ITEM( NATLA                 , ??? );
-        // INIT_ITEM( GIANT_MUTANT          , ??? );
+        INIT_ITEM( SKATER                , Skater );
+        INIT_ITEM( COWBOY                , Cowboy );
+        INIT_ITEM( MR_T                  , MrT );
+        INIT_ITEM( NATLA                 , Natla );
+        INIT_ITEM( ADAM                  , Adam );
         INIT_ITEM( TRAP_FLOOR            , TrapFloor );
         // INIT_ITEM( TRAP_SWING_BLADE      , ??? );
         // INIT_ITEM( TRAP_SPIKES           , ??? );
@@ -562,6 +578,7 @@ Item* Item::init(Room* room)
         INIT_ITEM( DOOR_8                , Door );
         // INIT_ITEM( TRAP_DOOR_1           , ??? );
         // INIT_ITEM( TRAP_DOOR_2           , ??? );
+        // INIT_ITEM( UNUSED_3              , ??? );
         // INIT_ITEM( BRIDGE_FLAT           , ??? );
         // INIT_ITEM( BRIDGE_TILT1          , ??? );
         // INIT_ITEM( BRIDGE_TILT2          , ??? );
@@ -635,16 +652,25 @@ Item* Item::init(Room* room)
         // INIT_ITEM( KEY_HOLE_2            , ??? );
         // INIT_ITEM( KEY_HOLE_3            , ??? );
         // INIT_ITEM( KEY_HOLE_4            , ??? );
+        // INIT_ITEM( UNUSED_4              , ??? );
+        // INIT_ITEM( UNUSED_5              , ??? );
         // INIT_ITEM( SCION_PICKUP_QUALOPEC , ??? );
         INIT_ITEM( SCION_PICKUP_DROP     , Pickup );
         INIT_ITEM( SCION_TARGET          , ViewTarget );
         // INIT_ITEM( SCION_PICKUP_HOLDER   , ??? );
         // INIT_ITEM( SCION_HOLDER          , ??? );
+        // INIT_ITEM( UNUSED_6              , ??? );
+        // INIT_ITEM( UNUSED_7              , ??? );
         // INIT_ITEM( INV_SCION             , ??? );
         // INIT_ITEM( EXPLOSION             , ??? );
+        // INIT_ITEM( UNUSED_8              , ??? );
         // INIT_ITEM( WATER_SPLASH          , ??? );
+        // INIT_ITEM( UNUSED_9              , ??? );
         // INIT_ITEM( BUBBLE                , ??? );
+        // INIT_ITEM( UNUSED_10             , ??? );
+        // INIT_ITEM( UNUSED_11             , ??? );
         // INIT_ITEM( BLOOD                 , ??? );
+        // INIT_ITEM( UNUSED_12             , ??? );
         // INIT_ITEM( SMOKE                 , ??? );
         // INIT_ITEM( CENTAUR_STATUE        , ??? );
         // INIT_ITEM( CABIN                 , ??? );
@@ -652,11 +678,15 @@ Item* Item::init(Room* room)
         // INIT_ITEM( RICOCHET              , ??? );
         // INIT_ITEM( SPARKLES              , ??? );
         // INIT_ITEM( MUZZLE_FLASH          , ??? );
+        // INIT_ITEM( UNUSED_13             , ??? );
+        // INIT_ITEM( UNUSED_14             , ??? );
         INIT_ITEM( VIEW_TARGET           , ViewTarget );
         // INIT_ITEM( WATERFALL             , ??? );
         // INIT_ITEM( NATLA_BULLET          , ??? );
         // INIT_ITEM( MUTANT_BULLET         , ??? );
         // INIT_ITEM( CENTAUR_BULLET        , ??? );
+        // INIT_ITEM( UNUSED_15             , ??? );
+        // INIT_ITEM( UNUSED_16             , ??? );
         // INIT_ITEM( LAVA_PARTICLE         , ??? );
         // INIT_ITEM( TRAP_LAVA_EMITTER     , ??? );
         // INIT_ITEM( FLAME                 , ??? );
@@ -665,6 +695,13 @@ Item* Item::init(Room* room)
         // INIT_ITEM( MUTANT_EGG_BIG        , ??? );
         // INIT_ITEM( BOAT                  , ??? );
         // INIT_ITEM( EARTHQUAKE            , ??? );
+        // INIT_ITEM( UNUSED_17             , ??? );
+        // INIT_ITEM( UNUSED_18             , ??? );
+        // INIT_ITEM( UNUSED_19             , ??? );
+        // INIT_ITEM( UNUSED_20             , ??? );
+        // INIT_ITEM( UNUSED_21             , ??? );
+        // INIT_ITEM( LARA_BRAID            , ??? );
+        // INIT_ITEM( GLYPHS                , ??? );
     }
 
     return new (this) Item(room);

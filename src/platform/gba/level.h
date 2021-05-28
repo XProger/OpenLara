@@ -3,72 +3,26 @@
 
 #include "common.h"
 
-// level file data -------------------
-//int32               tilesCount;
-extern const uint8* tiles;
+Level level;
 
-extern uint16    palette[256];
-extern uint8     lightmap[256 * 32];
+const Texture* textures;
+const uint8* tiles;
 
-const FloorData* floors;
+#ifndef MODE_PAL
+extern uint16 palette[256];
+#endif
 
-int32                 texturesCount;
-extern const Texture* textures;
+IWRAM_DATA uint8 lightmap[256 * 32]; // IWRAM 8k
 
-const Sprite*    sprites;
-
-int32            spritesSeqCount;
-const SpriteSeq* spritesSeq;
-
-const uint8*     meshData;
-const int32*     meshOffsets;
-
-const int32*     nodesPtr;
-
-//int32            animsCount;
-const Anim*      anims;
-
-//int32            animStatesCount;
-const AnimState* animStates;
-
-//int32            animRangesCount;
-const AnimRange* animRanges;
-
-//int32            animCommandsCount;
-const int16*     animCommands;
-
-//int32            animFramesCount;
-const uint16*    animFrames;
-
-int32            modelsCount;
-EWRAM_DATA Model models[MAX_MODELS];
-EWRAM_DATA uint8 modelsMap[MAX_ITEMS];
-EWRAM_DATA uint8 staticMeshesMap[MAX_MESHES];
-
-int32             staticMeshesCount;
-const StaticMesh* staticMeshes;
-
-int32           itemsCount;
 EWRAM_DATA Item items[MAX_ITEMS];
-
-const uint16*    soundMap;
-
-//int32            soundInfosCount;
-const SoundInfo* soundInfos;
-
-//int32           soundDataSize;
-const uint8*    soundData;
-
-//int32           soundOffsetsCount;
-const uint32*   soundOffsets;
 
 #define MAX_DYN_SECTORS     1024
 int32                       dynSectorsCount;
-EWRAM_DATA RoomInfo::Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
-// -----------------------------------
+EWRAM_DATA Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
 
-int16           roomsCount;
-EWRAM_DATA Room rooms[64];
+EWRAM_DATA Room rooms[MAX_ROOMS];
+EWRAM_DATA Model models[MAX_MODELS];
+EWRAM_DATA StaticMesh staticMeshes[MAX_STATIC_MESHES];
 
 Item* Item::sFirstActive;
 Item* Item::sFirstFree;
@@ -95,218 +49,89 @@ void fixLightmap(uint16* palette, int32 palIndex)
     }
 }
 
-void readLevel(const uint8* data) // TODO non-hardcode level loader, added *_OFF alignment bytes
+void readLevel(const uint8* data)
 {
     Item::sFirstActive = NULL;
     Item::sFirstFree = NULL;
 
     dynSectorsCount = 0;
 
-//    tilesCount = *((int32*)(data + 4));
-    tiles = data + 8;
-
-    #define MDL_OFF 2
-    #define ITM_OFF 2
-
-    roomsCount = *((int16*)(data + 720908));
-    const RoomInfo* roomsPtr = (RoomInfo*)(data + 720908 + 2);
-
-    floors = (FloorData*)(data + 899492 + 4);
-
-    meshData = data + 908172 + 4;
-    meshOffsets = (int32*)(data + 975724 + 4);
-
-//    animsCount = *((int32*)(data + 976596));
-    anims = (Anim*)(data + 976596 + 4);
-    ASSERT((intptr_t)anims % 4 == 0);
-
-//    animStatesCount = *((int32*)(data + 985464));
-    animStates = (AnimState*)(data + 985464 + 4);
-    ASSERT((intptr_t)animStates % 2 == 0);
-
-//    animRangesCount = *((int32*)(data + 986872));
-    animRanges = (AnimRange*)(data + 986872 + 4);
-    ASSERT((intptr_t)animRanges % 2 == 0);
-
-//    animCommandsCount = *((int32*)(data + 988868));
-    animCommands = (int16*)(data + 988868 + 4);
-    ASSERT((intptr_t)animCommands % 2 == 0);
-
-//    animFramesCount = *((int32*)(data + 992990));
-    animFrames = (uint16*)(data + 992990 + 4);
-    ASSERT((intptr_t)animFrames % 2 == 0);
-
-    nodesPtr = (int32*)(data + 990318);
-
-    modelsCount = *((int32*)(data + 1270666 + MDL_OFF));
-    const uint8* modelsPtr = (uint8*)(data + 1270666 + 4 + MDL_OFF);
-    ASSERT((intptr_t)modelsPtr % 4 == 0);
-
-    staticMeshesCount = *((int32*)(data + 1271426 + MDL_OFF));
-    staticMeshes = (StaticMesh*)(data + 1271426 + 4 + MDL_OFF);
-    ASSERT((intptr_t)staticMeshes % 4 == 0);
-
-    texturesCount = *((int32*)(data + 1271686 + MDL_OFF));
-    textures = (Texture*)(data + 1271686 + 4 + MDL_OFF);
-
-    sprites = (Sprite*)(data + 1289634 + MDL_OFF);
-
-    spritesSeqCount = *((int32*)(data + 1292130 + MDL_OFF));
-    spritesSeq = (SpriteSeq*)(data + 1292130 + 4 + MDL_OFF);
-
-    itemsCount = *((int32*)(data + 1319252 + MDL_OFF + ITM_OFF));
-    const uint8* itemsPtr = (data + 1319252 + 4 + MDL_OFF + ITM_OFF);
-
-    soundMap = (uint16*)(data + 1329540 + MDL_OFF + ITM_OFF);
-
-//    soundInfosCount = *((int32*)(data + 1330052 + MDL_OFF + ITM_OFF));
-    soundInfos = (SoundInfo*)(data + 1330052 + 4 + MDL_OFF + ITM_OFF);
-
-//    int32 soundDataSize = *((int32*)(data + 1330624 + MDL_OFF + ITM_OFF));
-    soundData = (uint8*)(data + 1330624 + 4 + MDL_OFF + ITM_OFF);
-
-//    soundOffsetsCount = *((int32*)(data + 2533294 + MDL_OFF + ITM_OFF));
-    soundOffsets = (uint32*)(data + 2533294 + 4 + MDL_OFF + ITM_OFF);
-
-    memset(items, 0, sizeof(items));
-    for (int32 i = 0; i < itemsCount; i++) {
-        memcpy(&items[i].type, itemsPtr, FILE_ITEM_SIZE);
-        itemsPtr += FILE_ITEM_SIZE;
+    memcpy(&level, data, sizeof(level));
+    
+    { // fix level data offsets
+        uint32* ptr = (uint32*)&level.palette;
+        while (ptr <= (uint32*)&level.soundOffsets)
+        {
+            *ptr++ += (uint32)data;
+        }
     }
 
-// prepare free list
-    for (int32 i = MAX_ITEMS - 1; i >= itemsCount; i--)
+    { // prepare rooms
+        for (int32 i = 0; i < level.roomsCount; i++)
+        {
+            Room* room = rooms + i;
+            room->info = level.roomsInfo + i;
+            room->data = room->info->data;
+
+            for (uint32 j = 0; j < sizeof(room->data) / 4; j++)
+            {
+                int32* x = (int32*)&room->data + j;
+                *x += (int32)data;
+            }
+
+            room->sectors = room->data.sectors;
+            room->firstItem = NULL;
+        }
+    }
+
+    // initialize global pointers
+#ifdef MODE_PAL
+    paletteSet(level.palette);
+#endif
+
+    memcpy(lightmap, level.lightmap, sizeof(lightmap));
+
+    tiles = level.tiles;
+
+    textures = level.textures;
+
+    // prepare models // TODO prerocess
+    memset(models, 0, sizeof(models));
+    for (int32 i = 0; i < level.modelsCount; i++)
+    {
+        const Model* model = level.models + i;
+        models[model->type] = *model;
+    }
+
+    //  prepare static meshes // TODO preprocess
+    memset(staticMeshes, 0, sizeof(staticMeshes));
+    for (int32 i = 0; i < level.staticMeshesCount; i++)
+    {
+        const StaticMesh* staticMesh = level.staticMeshes + i;
+
+        ASSERT(staticMesh->id < MAX_STATIC_MESHES);
+        staticMeshes[staticMesh->id] = *staticMesh;
+    }
+
+    // prepare sprites // TODO preprocess
+    for (int32 i = 0; i < level.spriteSequencesCount; i++)
+    {
+        const SpriteSeq* spriteSeq = level.spriteSequences + i;
+
+        if (spriteSeq->type >= TR1_ITEM_MAX) // WTF?
+            continue;
+
+        Model *m = models + spriteSeq->type;
+        m->count = spriteSeq->count;
+        m->start = spriteSeq->start;
+    }
+
+    // prepare free list
+    for (int32 i = MAX_ITEMS - 1; i >= level.itemsCount; i--)
     {
         items[i].nextItem = items + i + 1;
     }
-    Item::sFirstFree = items + itemsCount;
-
-// prepare lightmap
-    const uint8* f_lightmap = data + 1320576 + MDL_OFF + ITM_OFF;
-    memcpy(lightmap, f_lightmap, sizeof(lightmap));
-    
-    // TODO preprocess
-    for (int i = 0; i < 32; i++) {
-        lightmap[i * 256] = 0;
-    }
-
-// prepare palette
-    const uint8* f_palette = data + 1328768 + MDL_OFF + ITM_OFF;
-
-    const uint8* p = f_palette;
-
-#ifdef MODE_PAL
-    uint16 palette[256];
-#endif
-
-    for (int i = 0; i < 256; i++) // TODO preprocess
-    {
-    #if defined(_WIN32) || defined(__GBA__) || defined(__DOS__)
-        // grayscale palette
-        //uint8 c = ((p[0] + p[1] + p[2]) / 3) >> 1;
-        //palette[i] = c | (c << 5) | (c << 10);
-
-        palette[i] = (p[0] >> 1) | ((p[1] >> 1) << 5) | ((p[2] >> 1) << 10);
-    #elif defined(__TNS__)
-        palette[i] = (p[2] >> 1) | ((p[1] >> 1) << 5) | ((p[0] >> 1) << 10);
-    #endif
-        p += 3;
-    }
-    palette[0] = 0; // black or transparent
-
-    // TODO preprocess fix Laras palette
-    fixLightmap(palette, 6);  // boots
-    fixLightmap(palette, 14); // skin
-
-#ifdef MODE_PAL
-    paletteSet(palette);
-#endif
-
-// prepare rooms
-    uint8* ptr = (uint8*)roomsPtr;
-
-    for (int32 roomIndex = 0; roomIndex < roomsCount; roomIndex++)
-    {
-        const RoomInfo* room = (RoomInfo*)ptr;
-        ptr += sizeof(RoomInfo);
-
-        uint32 dataSize;
-        memcpy(&dataSize, &room->dataSize, sizeof(dataSize));
-        uint8* skipPtr = ptr + dataSize * 2;
-
-        Room &desc = rooms[roomIndex];
-
-        desc.firstItem = NULL;
-
-        // offset
-        memcpy(&desc.x, &room->x, sizeof(room->x));
-        memcpy(&desc.z, &room->z, sizeof(room->z));
-
-        // vertices
-        desc.vCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.vertices = (RoomInfo::Vertex*)ptr;
-        ptr += sizeof(RoomInfo::Vertex) * desc.vCount;
-
-        // quads
-        desc.qCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.quads = (Quad*)ptr;
-        ptr += sizeof(Quad) * desc.qCount;
-
-        // triangles
-        desc.tCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.triangles = (Triangle*)ptr;
-        ptr += sizeof(Triangle) * desc.tCount;
-
-        ptr = skipPtr;
-
-        // portals
-        desc.pCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.portals = (RoomInfo::Portal*)ptr;
-        ptr += sizeof(RoomInfo::Portal) * desc.pCount;
-
-        desc.zSectors = *((uint16*)ptr);
-        ptr += 2;
-        desc.xSectors = *((uint16*)ptr);
-        ptr += 2;
-        desc.sectors = (RoomInfo::Sector*)ptr;
-        desc.sectorsOrig = desc.sectors;
-        ptr += sizeof(RoomInfo::Sector) * desc.zSectors * desc.xSectors;
-
-        desc.ambient = *((uint16*)ptr);
-        ptr += 2;
-
-        desc.lCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.lights = (RoomInfo::Light*)ptr;
-        ptr += sizeof(RoomInfo::Light) * desc.lCount;
-
-        desc.mCount = *((uint16*)ptr);
-        ptr += 2;
-        desc.meshes = (RoomInfo::Mesh*)ptr;
-        ptr += sizeof(RoomInfo::Mesh) * desc.mCount;
-
-        ptr += 2 + 2; // skip alternateRoom and flags
-    }
-
-// prepare models
-    memset(modelsMap, 0xFF, sizeof(modelsMap));
-    for (int32 i = 0; i < modelsCount; i++)
-    {
-        memcpy(models + i, modelsPtr, sizeof(Model)); // sizeof(Model) is faster than FILE_MODEL_SIZE
-        modelsPtr += FILE_MODEL_SIZE;
-        modelsMap[models[i].type] = i;
-    }
-
-// prepare static meshes
-    memset(staticMeshesMap, 0xFF, sizeof(staticMeshesMap));
-    for (int32 i = 0; i < staticMeshesCount; i++)
-    {
-        staticMeshesMap[staticMeshes[i].id] = i;
-    }
+    Item::sFirstFree = items + level.itemsCount;
 }
 
 #endif

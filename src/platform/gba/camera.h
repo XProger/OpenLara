@@ -89,7 +89,7 @@ struct Camera
     {
         view.room = view.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
 
-        const RoomInfo::Sector* sector = view.room->getSector(view.pos.x, view.pos.z);
+        const Sector* sector = view.room->getSector(view.pos.x, view.pos.z);
         int32 floor = sector->getFloor(view.pos.x, view.pos.y, view.pos.z);
         int32 ceiling = sector->getCeiling(view.pos.x, view.pos.y, view.pos.z) - 256;
         
@@ -161,14 +161,14 @@ struct Camera
             int32 ty = item->pos.y;
             int32 tz = item->pos.z;
 
-            const Box &box = item->getBoundingBox();
+            const Bounds &box = item->getBoundingBox();
             ty += box.maxY + ((box.minY - box.maxY) * 3 >> 2);
 
             target.pos.x = tx;
             target.pos.y += (ty - target.pos.y) >> 2;
             target.pos.z = tz;
 
-            int16 angle = item->angleY + targetAngleY;
+            int16 angle = item->angle.y + targetAngleY;
 
             int32 dy = targetDist * phd_sin(targetAngleX) >> FIXED_SHIFT;
             int32 dz = targetDist * phd_cos(targetAngleX) >> FIXED_SHIFT;

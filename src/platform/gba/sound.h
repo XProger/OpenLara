@@ -3,11 +3,11 @@
 
 #include "common.h"
 
-int16 IMA_INDEX[] = {
+int16 IMA_INDEX[] = { // IWRAM !
     -1, -1, -1, -1, 2, 4, 6, 8,
 };
 
-int16 IMA_STEP[] = {
+int16 IMA_STEP[] = { // IWRAM !
     7,     8,     9,     10,    11,    12,    13,    14,
     16,    17,    19,    21,    23,    25,    28,    31,
     34,    37,    41,    45,    50,    55,    60,    66,
@@ -58,11 +58,8 @@ struct Mixer
 
         X_INLINE void fill(int32* buffer, int32 count)
         {
-            for (int i = 0; i < count; i += 2)
+            for (int32 i = 0; i < count; i += 2)
             {
-                uint32 n = data[pos];
-
-                pos++;
                 if (pos >= size)
                 {
                     data = NULL;
@@ -70,8 +67,9 @@ struct Mixer
                     return;
                 }
 
-                buffer[i + 0] = getSample(n);
-                buffer[i + 1] = getSample(n >> 4);
+                uint32 n = data[pos++];
+                *buffer++ = getSample(n);
+                *buffer++ = getSample(n >> 4);
             }
         }
     };
@@ -119,6 +117,7 @@ struct Mixer
         }
 
         int32 tmp[SND_SAMPLES];
+
         if (music.data) {
             music.fill(tmp, count);
         } else {

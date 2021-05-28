@@ -15,3 +15,5 @@
 #else
 	.equ VRAM_STRIDE,   240
 #endif
+
+#define TEX_2PX

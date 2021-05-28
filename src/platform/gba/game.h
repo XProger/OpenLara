@@ -21,7 +21,7 @@ struct Game
 {
     void init()
     {
-        loadLevel(LEVEL1_PHD);
+        loadLevel(LEVEL1_PKD);
     }
 
     void loadLevel(const void* data)
@@ -31,17 +31,28 @@ struct Game
         readLevel((uint8*)data);
 
     // prepare rooms
-        for (int32 i = 0; i < roomsCount; i++)
+        for (int32 i = 0; i < level.roomsCount; i++)
         {
             rooms[i].reset();
         }
 
     // prepare items
-        for (int32 i = 0; i < itemsCount; i++)
+        for (int32 i = 0; i < level.itemsCount; i++)
         {
             Item* item = items + i;
+            const ItemInfo* info = level.itemsInfo + i;
 
-            item->init(rooms + item->startRoomIndex);
+            item->type = info->type;
+            item->intensity = info->intensity << 5;
+
+            item->pos.x = info->pos.x + (rooms[info->roomIndex].info->x << 8);
+            item->pos.y = info->pos.y;
+            item->pos.z = info->pos.z + (rooms[info->roomIndex].info->z << 8);
+
+            item->angle.y = ((info->flags >> 14) - 2) * ANGLE_90;
+            item->flags.value = info->flags & 0x3FFF;
+
+            item->init(rooms + info->roomIndex);
 
             if (item->type == ITEM_LARA)
             {
@@ -64,16 +75,6 @@ struct Game
                 players[0] = (Lara*)item;
             }
         }
-
-    // prepare glyphs
-        for (int32 i = 0; i < spritesSeqCount; i++)
-        {
-            if (spritesSeq[i].type == ITEM_GLYPHS)
-            {
-                seqGlyphs = i;
-                break;
-            }
-        }
     }
 
     void resetItem(Item* item, int32 roomIndex, const vec3i &pos, int32 angleY)
@@ -81,7 +82,7 @@ struct Game
         item->room->remove(item);
 
         item->pos = pos;
-        item->angleY = angleY;
+        item->angle.y = angleY;
         item->health = LARA_MAX_HEALTH;
 
         rooms[roomIndex].add(item);

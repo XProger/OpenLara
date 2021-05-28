@@ -152,7 +152,7 @@ soundbank.bin soundbank.h : $(AUDIOFILES)
 #---------------------------------------------------------------------------------
 	@mmutil $^ -osoundbank.bin -hsoundbank.h
 
-%.PHD.o	%_PHD.h :	%.PHD
+%.PKD.o	%_PKD.h :	%.PKD
 	@echo $(notdir $<)
 	@$(bin2o)
 

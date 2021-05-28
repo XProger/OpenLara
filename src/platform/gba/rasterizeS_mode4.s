@@ -112,7 +112,7 @@ rasterizeS_mode4_asm:
     orr pair, indexA, lsl #8
     strh pair, [tmp], #2
 
-    subs width, #1                  // width--;
+    subs width, #1                  // width--
       beq .scanline_end
 
 .align_right:

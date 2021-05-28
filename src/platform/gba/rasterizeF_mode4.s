@@ -105,10 +105,10 @@ rasterizeF_mode4_asm:
 .align_left:
     tst tmp, #1                 // if (tmp & 1)
       beq .align_right
-    ldrb pair, [tmp, #-1]!      //   *tmp++ = (*tmp & 0x00FF) | (index << 8);
+    ldrb pair, [tmp, #-1]!      //   *tmp++ = (*tmp & 0x00FF) | (index << 8)
     orr pair, index, lsl #8
     strh pair, [tmp], #2
-    subs width, #1              // width--;
+    subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
 
 .align_right:

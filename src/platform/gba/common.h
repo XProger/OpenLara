@@ -7,7 +7,6 @@
     #define STATIC_ITEMS
 #endif
 
-
 #if defined(_WIN32)
     #define MODE4
     //#define MODE5
@@ -288,18 +287,17 @@ union UV {
 struct VertexUV {
     Vertex v;
     UV     t;
-    VertexUV *prev;
-    VertexUV *next;
+    VertexUV* prev;
+    VertexUV* next;
 };
 
 struct Face { // 12
     Face*  next;
     uint16 flags;
-    int16  start;
-    int8   indices[4];
+    int16  indices[4];
 };
 
-struct Box {
+struct Bounds {
     int16 minX;
     int16 maxX;
     int16 minY;
@@ -307,8 +305,8 @@ struct Box {
     int16 minZ;
     int16 maxZ;
 
-    X_INLINE Box() {}
-    X_INLINE Box(int16 minX, int16 maxX, int16 minY, int16 maxY, int16 minZ, int16 maxZ) :
+    X_INLINE Bounds() {}
+    X_INLINE Bounds(int16 minX, int16 maxX, int16 minY, int16 maxY, int16 minZ, int16 maxZ) :
         minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ) {}
 };
 
@@ -323,102 +321,105 @@ struct AABB {
 
 struct Room;
 
-struct RoomInfo {
-    struct Vertex {
-        vec3s  pos;
-        uint16 lighting;
-    };
+struct RoomVertex {
+    int8 x, y, z;
+    uint8 g;
+};
 
-    struct Sprite {
-        Index  index;
-        uint16 texture;
-    };
-    
-    struct Portal {
-        uint16 roomIndex;
-        vec3s  n;
-        vec3s  v[4];
-    };
+struct RoomSprite {
+    int16 x, y, z;
+    uint8 g;
+    uint8 reserved;
+    uint16 texture;
+};
 
-    struct Sector {
-        uint16 floorIndex;
-        uint16 boxIndex;
-        uint8  roomBelow;
-        int8   floor;
-        uint8  roomAbove;
-        int8   ceiling;
+struct Portal {
+    uint16 roomIndex;
+    vec3s n;
+    vec3s v[4];
+};
 
-        const Sector* getSectorBelow(int32 posX, int32 posZ) const;
-        const Sector* getSectorAbove(int32 posX, int32 posZ) const;
-        int32 getFloor(int32 x, int32 y, int32 z) const;
-        int32 getCeiling(int32 x, int32 y, int32 z) const;
-        Room* getNextRoom() const;
-        void getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const;
-    };
+struct Sector {
+    uint16 floorIndex;
+    uint16 boxIndex;
+    uint8  roomBelow;
+    int8   floor;
+    uint8  roomAbove;
+    int8   ceiling;
 
-    struct Light { // TODO align struct
-        uint8 pos[12];
-        int16 intensity;
-        uint8 radius[4];
-    };
+    const Sector* getSectorBelow(int32 posX, int32 posZ) const;
+    const Sector* getSectorAbove(int32 posX, int32 posZ) const;
+    int32 getFloor(int32 x, int32 y, int32 z) const;
+    int32 getCeiling(int32 x, int32 y, int32 z) const;
+    Room* getNextRoom() const;
+    void getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const;
+};
 
-    struct Mesh {
-        int16  pos[6]; // TODO align struct (int32 x, y, z)
-        int16  rotation;
-        uint16 intensity;
-        uint16 staticMeshId;
-    };
+struct Light
+{
+    vec3s pos;
+    uint8 radius;
+    uint8 intensity;
+};
 
-    int32 x;
-    int32 z;
-    int32 yBottom;
-    int32 yTop;
-
-    uint32 dataSize;
-/*
-    uint16    vCount;
-    Vertex*   vertices;
-
-    uint16    qCount;
-    Quad*     quads;
-    
-    uint16    tCount;
-    Triangle* triangles;
-    
-    uint16    sCount;
-    Sprite*   sprites;
-*/
+struct RoomMesh
+{
+    vec3s pos;
+    uint8 intensity;
+    uint8 id:6, rot:2;
 };
 
 struct Item;
 
+struct RoomData
+{
+    const Quad* quads;
+    const Triangle* triangles;
+    const RoomVertex* vertices;
+    const RoomSprite* sprites;
+    const Portal* portals;
+    const Sector* sectors;
+    const Light* lights;
+    const RoomMesh* meshes;
+};
+
+struct RoomInfo
+{
+    int16 x;
+    int16 z;
+
+    int16 yBottom;
+    int16 yTop;
+
+    uint16 quadsCount;
+    uint16 trianglesCount;
+    
+    uint16 verticesCount;
+    uint16 spritesCount;
+
+    uint8 portalsCount;
+    uint8 lightsCount;
+    uint8 meshesCount;
+    uint8 ambient;
+
+    uint8 xSectors;
+    uint8 zSectors;
+    uint8 alternateRoom;
+    uint8 flags;
+
+    RoomData data;
+};
+
 struct Room {
-    Item*               firstItem;
+    Item* firstItem;
+    const RoomInfo* info;
+    const Sector* sectors; // == info->sectors (const) by default (see roomModify) 
 
-    Rect                clip;
-    uint8               _reserved;
-    bool                visible;
+    RoomData data;
 
-    // TODO leave in ROM
-    int32               x, z;
-    uint16              vCount;
-    uint16              qCount;
-    uint16              tCount;
-    uint16              pCount;
-    uint16              lCount;
-    uint16              mCount;
-    uint16              zSectors;
-    uint16              xSectors;
-    uint16              ambient;
-
-    const RoomInfo::Vertex* vertices;
-    const Quad*             quads;
-    const Triangle*         triangles;
-    const RoomInfo::Portal* portals;
-    const RoomInfo::Light*  lights;
-    const RoomInfo::Mesh*   meshes;
-    const RoomInfo::Sector* sectors; // == sectorsOrig (const) by default (see roomModify) 
-    const RoomInfo::Sector* sectorsOrig;
+    Rect clip;
+    uint8 _reserved;
+    bool visible;
 
     void modify();
     void reset();
@@ -426,9 +427,9 @@ struct Room {
     void add(Item* item);
     void remove(Item* item);
 
-    const RoomInfo::Sector* getSector(int32 posX, int32 posZ) const;
+    const Sector* getSector(int32 posX, int32 posZ) const;
     Room* getRoom(int32 x, int32 y, int32 z);
-    bool checkPortal(const RoomInfo::Portal* portal);
+    bool checkPortal(const Portal* portal);
     Room** addVisibleRoom(Room** list);
     Room** addNearRoom(Room** list, int32 x, int32 y, int32 z);
     Room** getNearRooms(const vec3i &pos, int32 radius, int32 height);
@@ -445,23 +446,21 @@ struct Node {
 };
 
 struct Model {
-    uint32 type;
-    uint16 mCount;
-    uint16 mStart;
-    uint32 nodeIndex;
-    uint32 frameIndex;
+    uint8  type;
+    int8   count;
+    uint16 start;
+    uint16 nodeIndex;
     uint16 animIndex;
-    uint16 _padding;
 };
 
 #define FILE_MODEL_SIZE (sizeof(Model) - 2) // -padding
 
 struct StaticMesh {
-    int32   id;
-    uint16  meshIndex;
-    Box     vbox;
-    Box     cbox;
-    uint16  flags;
+    uint16 id;
+    uint16 meshIndex;
+    uint16 flags;
+    Bounds vbox;
+    Bounds cbox;
 };
 
 struct SoundInfo
@@ -500,9 +499,9 @@ struct Anim {
 };
 
 struct AnimState {
-    uint16  state;
-    uint16  rangesCount;
-    uint16  rangesStart;
+    uint8  state;
+    uint8  rangesCount;
+    uint16 rangesStart;
 };
 
 struct AnimRange {
@@ -513,7 +512,7 @@ struct AnimRange {
 };
 
 struct AnimFrame {
-    Box    box;
+    Bounds    box;
     vec3s  pos;
     uint16 angles[1];
 };
@@ -537,25 +536,17 @@ struct Sprite {
 struct SpriteSeq {
     uint16  type;
     uint16  unused;
-    int16   sCount;
-    int16   sStart;
+    int16   count;
+    int16   start;
 };
 
-struct ItemInfo { // 24
-    uint16 type;
-    int16  startRoomIndex;
-    vec3i  pos;
-    int16  angleY;
+struct ItemInfo
+{
+    uint8 type;
+    uint8 roomIndex;
+    vec3s pos;
     uint16 intensity;
-
-    union {
-        struct {
-            uint16 save:1, gravity:1, active:1, status:2, collision:1, custom:2, once:1, mask:5, reverse:1, shadow:1; // TODO
-        };
-        uint16 value;
-    } flags;
-
-    uint16 input; // used by Lara only
+    uint16 flags;
 };
 
 #define ITEM_FLAGS_MASK_ALL         0x1F
@@ -605,7 +596,7 @@ struct Lara;
     E( COWBOY                ) \
     E( MR_T                  ) \
     E( NATLA                 ) \
-    E( GIANT_MUTANT          ) \
+    E( ADAM                  ) \
     E( TRAP_FLOOR            ) \
     E( TRAP_SWING_BLADE      ) \
     E( TRAP_SPIKES           ) \
@@ -624,8 +615,8 @@ struct Lara;
     E( BLOCK_3               ) \
     E( BLOCK_4               ) \
     E( MOVING_BLOCK          ) \
-    E( TRAP_CEILING_1        ) \
-    E( TRAP_CEILING_2        ) \
+    E( TRAP_CEILING          ) \
+    E( UNUSED_3              ) \
     E( SWITCH                ) \
     E( SWITCH_WATER          ) \
     E( DOOR_1                ) \
@@ -638,7 +629,7 @@ struct Lara;
     E( DOOR_8                ) \
     E( TRAP_DOOR_1           ) \
     E( TRAP_DOOR_2           ) \
-    E( UNUSED_3              ) \
+    E( UNUSED_4              ) \
     E( BRIDGE_FLAT           ) \
     E( BRIDGE_TILT1          ) \
     E( BRIDGE_TILT2          ) \
@@ -712,25 +703,25 @@ struct Lara;
     E( KEY_HOLE_2            ) \
     E( KEY_HOLE_3            ) \
     E( KEY_HOLE_4            ) \
-    E( UNUSED_4              ) \
     E( UNUSED_5              ) \
+    E( UNUSED_6              ) \
     E( SCION_PICKUP_QUALOPEC ) \
     E( SCION_PICKUP_DROP     ) \
     E( SCION_TARGET          ) \
     E( SCION_PICKUP_HOLDER   ) \
     E( SCION_HOLDER          ) \
-    E( UNUSED_6              ) \
     E( UNUSED_7              ) \
+    E( UNUSED_8              ) \
     E( INV_SCION             ) \
     E( EXPLOSION             ) \
-    E( UNUSED_8              ) \
-    E( WATER_SPLASH          ) \
     E( UNUSED_9              ) \
-    E( BUBBLE                ) \
+    E( WATER_SPLASH          ) \
     E( UNUSED_10             ) \
+    E( BUBBLE                ) \
     E( UNUSED_11             ) \
-    E( BLOOD                 ) \
     E( UNUSED_12             ) \
+    E( BLOOD                 ) \
+    E( UNUSED_13             ) \
     E( SMOKE                 ) \
     E( CENTAUR_STATUE        ) \
     E( CABIN                 ) \
@@ -738,8 +729,8 @@ struct Lara;
     E( RICOCHET              ) \
     E( SPARKLES              ) \
     E( MUZZLE_FLASH          ) \
-    E( UNUSED_13             ) \
     E( UNUSED_14             ) \
+    E( UNUSED_15             ) \
     E( VIEW_TARGET           ) \
     E( WATERFALL             ) \
     E( NATLA_BULLET          ) \
@@ -767,42 +758,54 @@ struct Lara;
 
 enum ItemType {
     ITEM_TYPES(DECL_ENUM)
-    ITEM_MAX
+    TR1_ITEM_MAX,
+    ITEM_MAX = TR1_ITEM_MAX
 };
 
 #undef DECL_ENUM
 
-struct Item : ItemInfo { // 24 + 28 = 52
-    Room*  room;
+struct Item {
+    Room* room;
 
-    int16  angleX;
-    int16  angleZ;
+    vec3i pos;
+    vec3s angle;
+    
+    union {
+        struct {
+            uint16 save:1, gravity:1, active:1, status:2, collision:1, custom:2, once:1, mask:5, reverse:1, shadow:1; // TODO
+        };
+        uint16 value;
+    } flags;
 
-    int16  vSpeed;
-    int16  hSpeed;
+    int16 vSpeed;
+    int16 hSpeed;
 
     uint16 animIndex;
     uint16 frameIndex;
 
-    uint8  state;
-    uint8  nextState;
-    uint8  goalState;
-    uint8  waterState;
+    uint8 state;
+    uint8 nextState;
+    uint8 goalState;
+    uint8 waterState;
 
-    int16  health;
+    int16 health;
     union {
         int16 timer;
         int16 oxygen;
     };
 
-    int16  moveAngle;
-    int16  floor;
+    int16 moveAngle;
+    int16 floor;
 
-    int16  turnSpeed;
-    int16  vSpeedHack;
+    int16 turnSpeed;
+    int16 vSpeedHack;
 
-    Item*  nextItem;
-    Item*  nextActive;
+    uint16 input;
+    uint8 type;
+    uint8 intensity;
+
+    Item* nextItem;
+    Item* nextActive;
 
     static Item* sFirstActive;
     static Item* sFirstFree;
@@ -813,7 +816,7 @@ struct Item : ItemInfo { // 24 + 28 = 52
     void deactivate();
 
     AnimFrame* getFrame(const Model* model) const;
-    const Box& getBoundingBox() const;
+    const Bounds& getBoundingBox() const;
     void move();
     const Anim* animSet(int32 newAnimIndex, bool resetState, int32 frameOffset = 0);
     const Anim* animChange(const Anim* anim);
@@ -822,7 +825,7 @@ struct Item : ItemInfo { // 24 + 28 = 52
     void skipAnim();
     void updateAnim(bool movement = true);
     void updateRoom(int32 offset = 0);
-    int32 calcLighting(const Box& box) const;
+    int32 calcLighting(const Bounds& box) const;
 
     Item* init(Room* room);
 
@@ -835,7 +838,12 @@ struct Item : ItemInfo { // 24 + 28 = 52
 
 struct SaveGame
 {
-    uint8 secrets;
+    struct TrackFlags {
+        uint8 once:1, mask:5, :2;
+    };
+
+    uint8 secrets;    
+    TrackFlags tracks[64];
 };
 
 union FloorData { // 2 bytes
@@ -1051,8 +1059,65 @@ enum {
     SND_WINSTON_TRAY    = 347,
 };
 
+struct Box {
+    int8 minZ, maxZ;
+    int8 minX, maxX;
+    int16 floor;
+    int16 overlap;
+};
+
+struct Level {
+    uint32 magic;
+
+    uint16 tilesCount;
+    uint16 roomsCount;
+    uint16 modelsCount;
+    uint16 staticMeshesCount;
+    uint16 spriteSequencesCount;
+    uint16 soundSourcesCount;
+    uint16 boxesCount;
+    uint16 animTexDataSize;
+    uint16 itemsCount;
+    uint16 cameraFramesCount;
+
+    const uint16* palette;
+    const uint8* lightmap;
+    const uint8* tiles;
+    const RoomInfo* roomsInfo;
+    const FloorData* floors;
+    const uint8* meshData;
+    const int32* meshOffsets;
+    const Anim* anims;
+    const AnimState* animStates;
+    const AnimRange* animRanges;
+    const int16* animCommands;
+    const Node* nodes;
+    const uint16* animFrames;
+    const Model* models;
+    const StaticMesh* staticMeshes;
+    const Texture* textures;
+    const Sprite* sprites;
+    const SpriteSeq* spriteSequences;
+    uint32 cameras;
+    uint32 soundSources;
+    const Box* boxes;
+    const uint16* overlaps;
+    const uint16* zones[2][3];
+    uint32 animTexData;
+    const ItemInfo* itemsInfo;
+    uint32 cameraFrames;
+    const uint16* soundMap;
+    const SoundInfo* soundsInfo;
+    const uint8* soundData;
+    const int32* soundOffsets;
+};
+
+extern Level level;
 
 #define STATIC_MESH_GATE    10
+
+#define STATIC_MESH_FLAG_NO_COLLISION   1
+#define STATIC_MESH_FLAG_VISIBLE        2
 
 extern int32 fps;
 
@@ -1107,14 +1172,16 @@ extern int32 fps;
 
 #define MAX_UPDATE_FRAMES 10
 
+#define MAX_MATRICES        8
+#define MAX_ITEMS           256
+#define MAX_MODELS          ITEM_MAX
+#define MAX_ROOMS           139 // LEVEL7A
+#define MAX_STATIC_MESHES   50
+#define MAX_VERTICES        3072
+#define MAX_FACES           1024
+#define MAX_ROOM_LIST       16
+
 #define FOV_SHIFT       3
-#define MAX_MATRICES    8
-#define MAX_MODELS      64
-#define MAX_ITEMS       256
-#define MAX_MESHES      50
-#define MAX_VERTICES    3072
-#define MAX_FACES       1024
-#define MAX_ROOM_LIST   16
 #define FOG_SHIFT       1
 #define FOG_MAX         (10 * 1024)
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
@@ -1150,8 +1217,12 @@ extern int32 fps;
 #define X_MAX(a,b)       ((a) > (b) ? (a) : (b))
 #define X_SQR(x)         ((x) * (x))
 
-#define DP43(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z + (a).w)
-#define DP33(a,b)  ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z)
+#define DP43c(a,bx,by,bz)  ((a).x * bx + (a).y * by + (a).z * bz + (a).w)
+#define DP33c(a,bx,by,bz)  ((a).x * bx + (a).y * by + (a).z * bz)
+
+#define DP43(a,b)  DP43c(a, b.x, b.y, b.z)
+#define DP33(a,b)  DP33c(a, b.x, b.y, b.z)
+
 
 #define DIV_TABLE_SIZE  1024
 #define FixedInvS(x)    ((x < 0) ? -divTable[abs(x)] : divTable[x])
@@ -1176,8 +1247,9 @@ extern int32 fps;
     }
 #elif defined(MODE4)
     #define PERSPECTIVE(x, y, z) {\
-        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT - 1)) / 3;\
-        if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
+        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1));\
+        dz += (dz >> 2);\
+        ASSERT(dz < DIV_TABLE_SIZE);\
         int32 d = FixedInvU(dz);\
         x = d * (x >> FIXED_SHIFT) >> 12;\
         y = d * (y >> FIXED_SHIFT) >> 12;\
@@ -1203,7 +1275,7 @@ extern int32 fps;
 extern const uint16 divTable[DIV_TABLE_SIZE];
 
 // renderer internal
-extern uint32 keys; 
+extern uint32 keys;
 extern AABB   frustumAABB;
 extern Rect   viewport;
 extern vec3i  cameraViewPos;
@@ -1217,16 +1289,6 @@ extern const FloorData* gLastFloorData;
 extern FloorData gLastFloorSlant;
 
 // level data
-extern const Anim*      anims;
-extern const AnimState* animStates;
-extern const AnimRange* animRanges;
-extern const uint16*    animFrames;
-
-extern int32 modelsCount;
-extern Model models[MAX_MODELS];
-extern uint8 modelsMap[MAX_ITEMS];
-extern uint8 staticMeshesMap[MAX_MESHES];
-
 extern bool enableClipping;
 
 template <class T>
@@ -1255,11 +1317,11 @@ X_INLINE int32 dot(const vec3i &a, const vec3i &b)
 
 void anglesFromVector(int32 x, int32 y, int32 z, int16 &angleX, int16 &angleY);
 
-Box boxRotate(const Box &box, int16 angle);
-void boxTranslate(Box &box, const vec3i &offset);
-bool boxIntersect(const Box &a, const Box &b);
-bool boxContains(const Box &a, const vec3i &p);
-vec3i boxPushOut(const Box &a, const Box &b);
+Bounds boxRotate(const Bounds &box, int16 angle);
+void boxTranslate(Bounds &box, const vec3i &offset);
+bool boxIntersect(const Bounds &a, const Bounds &b);
+bool boxContains(const Bounds &a, const vec3i &p);
+vec3i boxPushOut(const Bounds &a, const Bounds &b);
 
 X_INLINE Matrix& matrixGet()
 {
@@ -1292,16 +1354,16 @@ void matrixFrame(const vec3i &pos, uint16* angles);
 void matrixSetIdentity();
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
-void paletteSet(uint16* palette);
+void paletteSet(const uint16* palette);
 
 void drawGlyph(const Sprite *sprite, int32 x, int32 y);
 
 void clear();
 int32 rectIsVisible(const Rect* rect);
-int32 boxIsVisible(const Box* box);
-void transform(const vec3s &v, int32 vg);
-bool transformBoxRect(const Box* box, Rect* rect);
-void transformRoom(const RoomInfo::Vertex* vertices, int32 vCount);
+int32 boxIsVisible(const Bounds* box);
+void transform(int32 vx, int32 vy, int32 vz, int32 vg);
+bool transformBoxRect(const Bounds* box, Rect* rect);
+void transformRoom(const RoomVertex* vertices, int32 vCount);
 void transformMesh(const vec3s* vertices, int32 vCount, uint16 intensity);
 void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex);
 void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex);
@@ -1318,6 +1380,9 @@ bool useSwitch(Item* item, int32 timer);
 bool useKey(Item* item);
 bool usePickup(Item* item);
 
+void musicPlay(int32 track);
+void musicStop();
+int32 doTutorial(Item* lara, int32 track);
 
 X_INLINE void dmaFill(void *dst, uint8 value, uint32 count)
 {

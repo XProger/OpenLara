@@ -1,8 +1,8 @@
 #if defined(_WIN32) || defined(__DOS__)
-    void* LEVEL1_PHD;
+    void* LEVEL1_PKD;
     void* TRACK_13_WAV;
 #elif defined(__GBA__)
-    #include "LEVEL1_PHD.h"
+    #include "LEVEL1_PKD.h"
     #include "TRACK_13_WAV.h"
 #elif defined(__TNS__)
     void* LEVEL1_PHD;
@@ -35,14 +35,14 @@ int32 fpsCounter = 0;
         uint16 MEM_PAL_BG[256];
     #endif
 
-    void paletteSet(uint16* palette)
+    void paletteSet(const uint16* palette)
     {
     #ifdef MODE_PAL
         memcpy(MEM_PAL_BG, palette, 256 * 2);
     #endif
     }
 #elif defined(__GBA__)
-    void paletteSet(uint16* palette)
+    void paletteSet(const uint16* palette)
     {
         memcpy((uint16*)MEM_PAL_BG, palette, 256 * 2);
     }
@@ -419,7 +419,7 @@ int main(void) {
     {
     // level1
         #if defined(_WIN32) || defined(__DOS__)
-            FILE *f = fopen("data/LEVEL1.PHD", "rb");
+            FILE *f = fopen("data/LEVEL1.PKD", "rb");
         #elif defined(__TNS__)
             FILE *f = fopen("/documents/OpenLara/LEVEL1.PHD.tns", "rb");
         #else
@@ -433,8 +433,8 @@ int main(void) {
         fseek(f, 0, SEEK_END);
         int32 size = ftell(f);
         fseek(f, 0, SEEK_SET);
-        LEVEL1_PHD = new uint8[size];
-        fread(LEVEL1_PHD, 1, size, f);
+        LEVEL1_PKD = new uint8[size];
+        fread(LEVEL1_PKD, 1, size, f);
         fclose(f);
 
     // track 13
@@ -457,6 +457,7 @@ int main(void) {
 #elif defined(__GBA__)
     // set low latency mode via WAITCNT register (thanks to GValiente)
     REG_WSCNT = WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH;
+    //*(vu32*)(REG_BASE+0x0800) = 0x0E000020; // Undocumented - Internal Memory Control (R/W)
 #endif
 
 #if defined(_WIN32)

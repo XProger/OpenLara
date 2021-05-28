@@ -4,16 +4,15 @@
 #include "common.h"
 #include "item.h"
 
-int32 seqGlyphs;
 extern AABB fastClipAABB;
 
 void drawNumber(int32 number, int32 x, int32 y)
 {
-    const int32 widths[] = {
+    static const int32 widths[] = {
         12, 8, 10, 10, 10, 10, 10, 10, 10, 10
     };
 
-    const Sprite* glyphSprites = sprites + spritesSeq[seqGlyphs].sStart;
+    const Sprite* glyphSprites = level.sprites + models[ITEM_GLYPHS].start;
 
     while (number > 0)
     {
@@ -25,8 +24,8 @@ void drawNumber(int32 number, int32 x, int32 y)
 
 void drawMesh(int16 meshIndex, uint16 intensity)
 {
-    int32 offset = meshOffsets[meshIndex];
-    const uint8* ptr = meshData + offset;
+    int32 offset = level.meshOffsets[meshIndex];
+    const uint8* ptr = level.meshData + offset;
 
     ptr += 2 * 5; // skip [cx, cy, cz, radius, flags]
 
@@ -67,13 +66,15 @@ void drawMesh(int16 meshIndex, uint16 intensity)
 
 void drawShadow(const Item* item, int32 size)
 {
-    const RoomInfo::Sector* sector = item->room->getSector(item->pos.x, item->pos.z);
+    const Sector* sector = item->room->getSector(item->pos.x, item->pos.z);
     int32 floor = sector->getFloor(item->pos.x, item->pos.y, item->pos.z);
 
     if (floor == WALL)
         return;
 
-    const Box& box = item->getBoundingBox();
+    enableClipping = true;
+
+    const Bounds& box = item->getBoundingBox();
     int32 x = (box.maxX + box.minX) >> 1;
     int32 z = (box.maxZ + box.minZ) >> 1;
     int32 sx = (box.maxX - box.minX) * size >> 10;
@@ -85,15 +86,19 @@ void drawShadow(const Item* item, int32 size)
 
     int32 y = floor - item->pos.y;
 
-    transform(vec3s(x - sx,  y, z + sz2), 4096);
-    transform(vec3s(x + sx,  y, z + sz2), 4096);
-    transform(vec3s(x + sx2, y, z + sz),  4096);
-    transform(vec3s(x + sx2, y, z - sz),  4096);
+    matrixPush();
+    matrixTranslateAbs(item->pos);
+    matrixRotateY(item->angle.y);
 
-    transform(vec3s(x + sx,  y, z - sz2), 4096);
-    transform(vec3s(x - sx,  y, z - sz2), 4096);
-    transform(vec3s(x - sx2, y, z - sz),  4096);
-    transform(vec3s(x - sx2, y, z + sz),  4096);
+    transform(x - sx,  y, z + sz2, 4096);
+    transform(x + sx,  y, z + sz2, 4096);
+    transform(x + sx2, y, z + sz,  4096);
+    transform(x + sx2, y, z - sz,  4096);
+
+    transform(x + sx,  y, z - sz2, 4096);
+    transform(x - sx,  y, z - sz2, 4096);
+    transform(x - sx2, y, z - sz,  4096);
+    transform(x - sx2, y, z + sz,  4096);
 
     static const Index indices[] = { 
         0, 1, 2, 7,
@@ -104,16 +109,18 @@ void drawShadow(const Item* item, int32 size)
     faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 0, startVertex);
     faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 4, startVertex);
     faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 8, startVertex);
+
+    matrixPop();
 }
 
-void drawItem(const Item* item)
+void drawSprite(const Item* item)
 {
-    int32 modelIndex = modelsMap[item->type];
-    if (modelIndex == NO_MODEL) {
-        return; // TODO sprite items
-    }
+    // TODO
+}
 
-    const Model* model = models + modelIndex;
+void drawModel(const Item* item, uint16* meshOverrides)
+{
+    const Model* model = models + item->type;
 
     AnimFrame* frame = item->getFrame(model);
     uint16* frameAngles = frame->angles + 1;
@@ -122,11 +129,11 @@ void drawItem(const Item* item)
 
     matrixPush();
     matrixTranslateAbs(item->pos);
-    matrixRotateYXZ(item->angleX, item->angleY, item->angleZ);
+    matrixRotateYXZ(item->angle.x, item->angle.y, item->angle.z);
 
-    int32 intensity = item->intensity;
+    int32 intensity = item->intensity << 5;
 
-    if (intensity == 0xFFFF) {
+    if (intensity == 0) {
         intensity = item->calcLighting(frame->box);
     }
 
@@ -145,19 +152,13 @@ void drawItem(const Item* item)
         Rect oldViewport = viewport;
         viewport = Rect( 0, 0, FRAME_WIDTH, FRAME_HEIGHT );
 
-        // non-aligned access (TODO)
-        uint32 nodeIndex;
-        memcpy(&nodeIndex, &model->nodeIndex,  sizeof(nodeIndex));
-        Node nodes[32];
-        memcpy(nodes, nodesPtr + nodeIndex, (model->mCount - 1) * sizeof(Node));
-
-        const Node* node = nodes;
+        const Node* node = level.nodes + model->nodeIndex;
 
         matrixFrame(frame->pos, frameAngles);
 
-        drawMesh(model->mStart, intensity);
+        drawMesh(meshOverrides ? meshOverrides[0] : model->start, intensity);
 
-        for (int32 i = 1; i < model->mCount; i++)
+        for (int32 i = 1; i < model->count; i++)
         {
             if (node->flags & 1) matrixPop();
             if (node->flags & 2) matrixPush();
@@ -165,7 +166,7 @@ void drawItem(const Item* item)
             frameAngles += 2;
             matrixFrame(node->pos, frameAngles);
 
-            drawMesh(model->mStart + i, intensity);
+            drawMesh(meshOverrides ? meshOverrides[i] : (model->start + i), intensity);
 
             node++;
         }
@@ -178,14 +179,16 @@ void drawItem(const Item* item)
 // shadow
     if (vis != 0 && item->flags.shadow)
     {
-        matrixPush();
-        matrixTranslateAbs(item->pos);
-        matrixRotateY(item->angleY);
-
-        enableClipping = true;
         drawShadow(item, 160);  // TODO per item shadow size
+    }
+}
 
-        matrixPop();
+void drawItem(const Item* item)
+{
+    if (models[item->type].count > 0) {
+        drawModel(item, NULL);
+    } else {
+        drawSprite(item);
     }
 }
 
@@ -195,49 +198,53 @@ void drawRoom(const Room* room)
 
     int32 startVertex = gVerticesCount;
 
-    matrixPush();
-    matrixTranslateAbs(vec3i(room->x, 0, room->z));
+    const RoomInfo* info = room->info;
+    const RoomData& data = room->data;
 
-    camera.updateFrustum(room->x, 0, room->z);
+    matrixPush();
+    matrixTranslateAbs(vec3i(info->x << 8, 0, info->z << 8));
+
+    camera.updateFrustum(info->x << 8, 0, info->z << 8);
 
     enableClipping = true;
 
     PROFILE_START();
-    transformRoom(room->vertices, room->vCount);
+    transformRoom(data.vertices, info->verticesCount);
     PROFILE_STOP(dbg_transform);
 
     matrixPop();
 
     PROFILE_START();
-    faceAddRoom(room->quads, room->qCount, room->triangles, room->tCount, startVertex);
+    faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount, startVertex);
     PROFILE_STOP(dbg_poly);
 
-    for (int32 i = 0; i < room->mCount; i++)
+    for (int32 i = 0; i < info->meshesCount; i++)
     {
-        const RoomInfo::Mesh* mesh = room->meshes + i;
+        const RoomMesh* mesh = data.meshes + i;
 
     #ifdef NO_STATIC_MESHES
-        if (mesh->staticMeshId != STATIC_MESH_GATE) continue;
+        if (mesh->id != STATIC_MESH_GATE) continue;
     #endif
 
-        const StaticMesh* staticMesh = staticMeshes + staticMeshesMap[mesh->staticMeshId];
+        const StaticMesh* staticMesh = staticMeshes + mesh->id;
 
-        if (!(staticMesh->flags & 2)) continue; // invisible
-                                                
-// TODO align RoomInfo::Mesh (room relative int16?)
+        if (!(staticMesh->flags & STATIC_MESH_FLAG_VISIBLE)) continue; // invisible
+
         vec3i pos;
-        memcpy(&pos, &(mesh->pos[0]), sizeof(pos));
+        pos.x = mesh->pos.x + (info->x << 8);
+        pos.y = mesh->pos.y;
+        pos.z = mesh->pos.z + (info->z << 8);
 
         camera.updateFrustum(pos.x, pos.y, pos.z);
 
         matrixPush();
         matrixTranslateAbs(pos);
-        matrixRotateY(mesh->rotation);
+        matrixRotateY((mesh->rot - 2) * 0x4000);
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis != 0) {
             enableClipping = vis < 0;
-            drawMesh(staticMesh->meshIndex, mesh->intensity);
+            drawMesh(staticMesh->meshIndex, mesh->intensity << 5);
         }
 
         matrixPop();
@@ -311,7 +318,7 @@ void drawTest() {
         //Sleep(100);
     }
 
-    testTile = (testTile + texturesCount) % texturesCount;
+    //testTile = (testTile + texturesCount) % texturesCount;
 
     clip = testClip;
 

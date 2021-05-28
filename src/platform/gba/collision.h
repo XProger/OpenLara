@@ -114,7 +114,7 @@ bool collideStatic(Room* room, CollisionInfo &cinfo, const vec3i &p, int32 heigh
     cinfo.staticHit = false;
     cinfo.offset    = vec3i(0);
 
-    Box objBox;
+    Bounds objBox;
     objBox.minX = -cinfo.radius;
     objBox.maxX =  cinfo.radius;
     objBox.minZ = -cinfo.radius;
@@ -128,23 +128,26 @@ bool collideStatic(Room* room, CollisionInfo &cinfo, const vec3i &p, int32 heigh
     {
         const Room* room = *nearRoom++;
 
-        for (int i = 0; i < room->mCount; i++)
+        for (int i = 0; i < room->info->meshesCount; i++)
         {
-            const RoomInfo::Mesh* mesh = room->meshes + i;
+            const RoomMesh* mesh = room->data.meshes + i;
 
         #ifdef NO_STATIC_MESHES
-            if (mesh->staticMeshId != STATIC_MESH_GATE) continue;
+            if (mesh->id != STATIC_MESH_GATE) continue;
         #endif
 
-            const StaticMesh* staticMesh = staticMeshes + staticMeshesMap[mesh->staticMeshId];
+            const StaticMesh* staticMesh = staticMeshes + mesh->id;
 
-            if (staticMesh->flags & 1) continue;
+            if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION) continue;
 
-            Box meshBox = boxRotate(staticMesh->cbox, mesh->rotation);
+            Bounds meshBox = boxRotate(staticMesh->cbox, (mesh->rot - 2) * ANGLE_90);
 
         // TODO align RoomInfo::Mesh (room relative int16?)
             vec3i pos;
-            memcpy(&pos, &(mesh->pos[0]), sizeof(pos));
+            pos.x = mesh->pos.x + (room->info->x << 8);
+            pos.y = mesh->pos.y;
+            pos.z = mesh->pos.z + (room->info->z << 8);
+
             pos -= p;
 
             boxTranslate(meshBox, pos);
@@ -202,7 +205,7 @@ void collideRoom(Item* item, int32 height, int32 yOffset = 0)
 
     #define CHECK_HEIGHT(v) {\
         const Room* room = item->room->getRoom(v.x, cy, v.z);\
-        const RoomInfo::Sector* sector = room->getSector(v.x, v.z);\
+        const Sector* sector = room->getSector(v.x, v.z);\
         floor = sector->getFloor(v.x, cy, v.z);\
         if (floor != WALL) floor -= p.y;\
         ceiling = sector->getCeiling(v.x, cy, v.z);\

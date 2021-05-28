@@ -154,7 +154,7 @@ rasterizeG_mode4_asm:
     strh pair, [tmp], #2
     add g, dgdx, asr #1
 
-    subs width, #1              // width--;
+    subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
 
 .align_right:
@@ -177,7 +177,7 @@ rasterizeG_mode4_asm:
 
     PUT_PIXELS
 
-    subs width, #2              // width -= 2;
+    subs width, #2              // width -= 2
       beq .scanline_end         // if (width == 0)
 
 .scanline_block_4px:

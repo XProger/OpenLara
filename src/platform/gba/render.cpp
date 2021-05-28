@@ -10,6 +10,8 @@
     uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #endif
 
+#define GUARD_BAND 512
+
 #define PAL_COLOR_TRANSP    0x0000
 #define PAL_COLOR_BLACK     0x0421
 
@@ -31,10 +33,10 @@ uint16 palette[256];      // IWRAM 0.5k
     #error no supported video mode set
 #endif
 
-IWRAM_DATA uint8 lightmap[256 * 32]; // IWRAM 8k
+extern uint8 lightmap[256 * 32];
+extern const Texture* textures;
+extern const uint8* tiles;
 
-const Texture* textures;
-const uint8* tiles;
 const uint8* tile;
 
 uint32 gVerticesCount = 0;
@@ -49,7 +51,7 @@ int32 otMax = 0;
 bool enableAlphaTest;
 bool enableClipping;
 
-bool transformBoxRect(const Box* box, Rect* rect)
+bool transformBoxRect(const Bounds* box, Rect* rect)
 {
     const Matrix &m = matrixGet();
 
@@ -112,7 +114,7 @@ int32 rectIsVisible(const Rect* rect)
     return 1; // fully visible
 }
 
-int32 boxIsVisible(const Box* box)
+int32 boxIsVisible(const Bounds* box)
 {
     Rect rect;
     if (!transformBoxRect(box, &rect))
@@ -120,99 +122,126 @@ int32 boxIsVisible(const Box* box)
     return rectIsVisible(&rect);
 }
 
-void transform(const vec3s &v, int32 vg)
+void transform(int32 vx, int32 vy, int32 vz, int32 vg)
 {
     ASSERT(gVerticesCount < MAX_VERTICES);
 
     Vertex &res = gVertices[gVerticesCount++];
 
-#if defined(MODE4) // TODO for all modes
-    if (v.z < frustumAABB.minZ || v.z > frustumAABB.maxZ ||
-        //v.y < frustumAABB.minY || v.y > frustumAABB.maxY ||
-        v.x < frustumAABB.minX || v.x > frustumAABB.maxX)
-    {
-        res.clip = 16;
-        res.z = -1;
-        return;
-    }
-#endif
-
     const Matrix &m = matrixGet();
 
-    // TODO https://mikro.naprvyraz.sk/docs/Coding/1/3D-ROTAT.TXT
-    int32 z = DP43(m[2], v);
+    int32 z = DP43c(m[2], vx, vy, vz);
 
-    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) { // TODO znear clip
+    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) // TODO znear clip
+    {
         res.clip = 16;
-        res.z = -1;
         return;
     }
 
-    int32 x = DP43(m[0], v);
-    int32 y = DP43(m[1], v);
+    int32 x = DP43c(m[0], vx, vy, vz);
+    int32 y = DP43c(m[1], vx, vy, vz);
 
     int32 fogZ = z >> FIXED_SHIFT;
-    if (fogZ > FOG_MAX) {
-        vg = 8191;
-    } else if (fogZ > FOG_MIN) {
+    res.z = fogZ;
+
+    if (fogZ > FOG_MIN)
+    {
         vg += (fogZ - FOG_MIN) << FOG_SHIFT;
         if (vg > 8191) {
             vg = 8191;
         }
     }
+
     res.g = vg >> 8;
 
     PERSPECTIVE(x, y, z);
 
-    x = X_CLAMP(x, -512, 511);
-    y = X_CLAMP(y, -512, 511);
+    x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
+    y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
 
     res.x = x + (FRAME_WIDTH  >> 1);
     res.y = y + (FRAME_HEIGHT >> 1);
-    res.z = fogZ;
+
     res.clip = enableClipping ? classify(res, viewport) : 0;
 }
 
-void transformRoom(const RoomInfo::Vertex* vertex, int32 vCount)
+void transformRoomVertex(const RoomVertex* v)
 {
-    // TODO per-sector clipping?
+    int32 vx = v->x << 10;
+    int32 vz = v->z << 10;
+
+    ASSERT(gVerticesCount < MAX_VERTICES);
+
+    Vertex &res = gVertices[gVerticesCount++];
+
+#if defined(MODE4) // TODO for all modes
+    if (vz < frustumAABB.minZ || vz > frustumAABB.maxZ ||
+        vx < frustumAABB.minX || vx > frustumAABB.maxX)
+    {
+        res.clip = 16;
+        return;
+    }
+#endif
+
+    int32 vy = v->y << 8;
+
+    const Matrix &m = matrixGet();
+
+    int32 z = DP43c(m[2], vx, vy, vz);
+
+    if (z < VIEW_MIN_F || z >= VIEW_MAX_F) // TODO znear clip
+    {
+        res.clip = 16;
+        return;
+    }
+
+    int32 fogZ = z >> FIXED_SHIFT;
+    res.z = fogZ;
+
+    int32 vg = v->g << 5;
+
+    if (fogZ > FOG_MIN)
+    {
+        vg += (fogZ - FOG_MIN) << FOG_SHIFT;
+        if (vg > 8191) {
+            vg = 8191;
+        }
+    }
+
+    res.g = vg >> 8;
+
+    int32 x = DP43c(m[0], vx, vy, vz);
+    int32 y = DP43c(m[1], vx, vy, vz);
+
+    PERSPECTIVE(x, y, z);
+
+    x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
+    y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
+
+    res.x = x + (FRAME_WIDTH  >> 1);
+    res.y = y + (FRAME_HEIGHT >> 1);
+
+    res.clip = classify(res, viewport);
+}
+
+void transformRoom(const RoomVertex* vertices, int32 vCount)
+{
     for (int32 i = 0; i < vCount; i++)
     {
-        transform(vertex->pos, vertex->lighting);
-        vertex++;
+        transformRoomVertex(vertices);
+        vertices++;
     }
 }
 
 void transformMesh(const vec3s* vertices, int32 vCount, uint16 intensity)
 {
-    for (int32 i = 0; i < vCount; i++) {
-        transform(*vertices++, intensity);
+    for (int32 i = 0; i < vCount; i++)
+    {
+        transform(vertices->x, vertices->y, vertices->z, intensity);
+        vertices++;
     }
 }
 
-#if 0 // TODO
-void clipZ(int32 znear, VertexUV *output, int32 &count, const VertexUV *a, const VertexUV *b) {
-    #define LERP2(a,b,t) int32((b) + (((a) - (b)) * t))
-
-    float t = (znear - b->v.sz) / float(a->v.sz - b->v.sz);
-    VertexUV* v = output + count++;
-/*
-    int32 ax = (a->v.x - (FRAME_WIDTH  / 2)) * a->v.z;
-    int32 ay = (a->v.y - (FRAME_HEIGHT / 2)) * a->v.z;
-    int32 bx = (b->v.x - (FRAME_WIDTH  / 2)) * b->v.z;
-    int32 by = (b->v.y - (FRAME_HEIGHT / 2)) * b->v.z;
-    int32 x = LERP2(ax, bx, t);
-    int32 y = LERP2(ay, by, t);
-*/
-    int32 x = LERP2(a->v.sx, b->v.sx, t);
-    int32 y = LERP2(a->v.sy, b->v.sy, t);
-    int32 z = LERP2(a->v.sz, b->v.sz, t);
-    v->v.x = (x / znear) + (FRAME_WIDTH  / 2);
-    v->v.y = (y / znear) + (FRAME_HEIGHT / 2);
-    v->v.g = LERP2(a->v.g, b->v.g, t);
-    v->uv = (LERP2(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP2(a->uv >> 16, b->uv >> 16, t) << 16);
-}
-#endif
 VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
     #define LERP(a,b,t)         (b + ((a - b) * t >> 12))
     #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> 12) )
@@ -225,30 +254,10 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
         VertexUV* v = output + count++;\
         v->v.X = edge;\
         v->v.Y = LERP2(a->v.Y, b->v.Y, ta, tb);\
-        /*v->v.z = LERP(a->v.z, b->v.z, t);*/\
         v->v.g = LERP(a->v.g, b->v.g, t);\
         v->t.u = LERP(a->t.u, b->t.u, t);\
         v->t.v = LERP(a->t.v, b->t.v, t);\
     }
-
-/* TODO
-    #define CLIP_NEAR(znear, output) {\
-        //clipZ(znear, output, count, a, b);\
-        uint32 t = ((znear - b->v.z) << 16) / (a->v.z - b->v.z);\
-        VertexUV* v = output + count++;\
-        int32 ax = (a->v.x - (FRAME_WIDTH  / 2)) * a->v.z;\
-        int32 ay = (a->v.y - (FRAME_HEIGHT / 2)) * a->v.z;\
-        int32 bx = (b->v.x - (FRAME_WIDTH  / 2)) * b->v.z;\
-        int32 by = (b->v.y - (FRAME_HEIGHT / 2)) * b->v.z;\
-        int32 x = LERP(ax, bx, t);\
-        int32 y = LERP(ay, by, t);\
-        v->v.x = (x / znear) + (FRAME_WIDTH  / 2);\
-        v->v.y = (y / znear) + (FRAME_HEIGHT / 2);\
-        v->v.z = LERP(a->v.z, b->v.z, t);\
-        v->v.g = LERP(a->v.g, b->v.g, t);\
-        v->uv = (LERP(a->uv & 0xFFFF, b->uv & 0xFFFF, t)) | (LERP(a->uv >> 16, b->uv >> 16, t) << 16);\
-    }
-*/
 
     #define CLIP_XY(X, Y, X0, X1, input, output) {\
         const VertexUV *a, *b = input + pCount - 1;\
@@ -273,54 +282,20 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
         if (count < 3) return NULL;\
     }
 
-    #define ZNEAR (VIEW_MIN_F << FIXED_SHIFT >> FOV_SHIFT)
-
-    #define CLIP_Z(input, output) {\
-        const VertexUV *a, *b = input + pCount - 1;\
-        for (int32 i = 0; i < pCount; i++) {\
-            a = b;\
-            b = input + i;\
-            if (a->v.z < ZNEAR) {\
-                if (b->v.z < ZNEAR) continue;\
-                CLIP_NEAR(ZNEAR, output);\
-            }\
-            if (b->v.z < ZNEAR) {\
-                CLIP_NEAR(ZNEAR, output);\
-            } else {\
-                output[count++] = *b;\
-            }\
-        }\
-        if (count < 3) return NULL;\
-    }
-
     int32 count = 0;
 
     VertexUV *in = poly;
     VertexUV *out = tmp;
-/*
-    uint32 clipFlags = poly[0].v.clip | poly[1].v.clip | poly[2].v.clip;
-    if (pCount > 3) {
-        clipFlags |= poly[3].v.clip;
-    }
 
-    if (clipFlags & 16) {
-        CLIP_Z(in, out);
-        swap(in, out);
-        pCount = count;
-        count = 0;
-    }
-*/
-    {//if (clipFlags & (1 | 2 | 4 | 8)) {
     // clip x
-        CLIP_XY(x, y, viewport.x0, viewport.x1, in, out);
+    CLIP_XY(x, y, viewport.x0, viewport.x1, in, out);
 
-        pCount = count;
-        count = 0;
+    pCount = count;
+    count = 0;
 
     // clip y
-        CLIP_XY(y, x, viewport.y0, viewport.y1, out, in);
-        pCount = count;
-    }
+    CLIP_XY(y, x, viewport.y0, viewport.y1, out, in);
+    pCount = count;
 
     return in;
 }
@@ -609,11 +584,10 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex)
     faceAddToOTable(f, depth);
 
     f->flags      = uint16(flags);
-    f->start      = startVertex + indices[0];
-    f->indices[0] = 0;
-    f->indices[1] = indices[1] - indices[0];
-    f->indices[2] = indices[2] - indices[0];
-    f->indices[3] = indices[3] - indices[0];
+    f->indices[0] = startVertex + indices[0];
+    f->indices[1] = startVertex + indices[1];
+    f->indices[2] = startVertex + indices[2];
+    f->indices[3] = startVertex + indices[3];
 }
 
 void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
@@ -648,10 +622,9 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
     faceAddToOTable(f, depth);
 
     f->flags      = uint16(flags | FACE_TRIANGLE);
-    f->start      = startVertex + indices[0];
-    f->indices[0] = 0;
-    f->indices[1] = indices[1] - indices[0];
-    f->indices[2] = indices[2] - indices[0];
+    f->indices[0] = startVertex + indices[0];
+    f->indices[1] = startVertex + indices[1];
+    f->indices[2] = startVertex + indices[2];
 }
 
 void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
@@ -710,19 +683,18 @@ void flush()
                     const Texture &tex = textures[face->flags & FACE_TEXTURE];
                     tile = tiles + (tex.tile << 16);
 
-                    v[0].t.uv = ((tex.uv0 << 16) | (tex.uv0 >> 16)) & 0xFF00FF00; // TODO preprocess
-                    v[1].t.uv = ((tex.uv1 << 16) | (tex.uv1 >> 16)) & 0xFF00FF00; // TODO preprocess
-                    v[2].t.uv = ((tex.uv2 << 16) | (tex.uv2 >> 16)) & 0xFF00FF00; // TODO preprocess
-                    v[3].t.uv = ((tex.uv3 << 16) | (tex.uv3 >> 16)) & 0xFF00FF00; // TODO preprocess
+                    v[0].t.uv = tex.uv0;
+                    v[1].t.uv = tex.uv1;
+                    v[2].t.uv = tex.uv2;
+                    v[3].t.uv = tex.uv3;
                     enableAlphaTest = (tex.attribute == 1);
                 }
 
-                Vertex *p = gVertices + face->start;
-                v[0].v = p[0];
-                v[1].v = p[face->indices[1]];
-                v[2].v = p[face->indices[2]];
+                v[0].v = gVertices[face->indices[0]];
+                v[1].v = gVertices[face->indices[1]];
+                v[2].v = gVertices[face->indices[2]];
                 if (!(flags & FACE_TRIANGLE)) {
-                    v[3].v = p[face->indices[3]];
+                    v[3].v = gVertices[face->indices[3]];
                 }
 
                 if (flags & FACE_CLIPPED) {

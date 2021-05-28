@@ -120,7 +120,7 @@ rasterizeFTA_mode4_asm:
         mul Ldu, tmp                // Rdu = tmp * int16(Lduv >> 16)
         lsl Ldv, Lduv, #16
         asr Ldv, #16
-        mul Ldv, tmp                // Rdv = tmp * int16(Lduv);
+        mul Ldv, tmp                // Rdv = tmp * int16(Lduv)
         lsr Ldu, #16
         lsl Ldu, #16
         orr Ldt, Ldu, Ldv, lsr #16  // Ldt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
@@ -160,7 +160,7 @@ rasterizeFTA_mode4_asm:
         mul Rdu, tmp                // Rdu = tmp * int16(Rduv >> 16)
         lsl Rdv, Rduv, #16
         asr Rdv, #16
-        mul Rdv, tmp                // Rdv = tmp * int16(Rduv);
+        mul Rdv, tmp                // Rdv = tmp * int16(Rduv)
         lsr Rdu, #16
         lsl Rdu, #16
         orr Rdt, Rdu, Rdv, lsr #16  // Rdt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
@@ -195,7 +195,7 @@ rasterizeFTA_mode4_asm:
     mul du, inv                     // du = inv * int16(duv >> 16)
     lsl dv, duv, #16
     asr dv, #16
-    mul dv, inv                     // dv = inv * int16(duv);
+    mul dv, inv                     // dv = inv * int16(duv)
     lsr du, #16
     lsl du, #16
     orr dtdx, du, dv, lsr #16       // dtdx = (du & 0xFFFF0000) | (dv >> 16)
@@ -220,7 +220,7 @@ rasterizeFTA_mode4_asm:
     strneh indexB, [tmp]
     add tmp, #2
 
-    subs width, #1              // width--;
+    subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
 
 .align_right:
