@@ -1,0 +1,29 @@
+LIBRETRO_COMM_DIR := $(CORE_DIR)/libretro-common
+
+INCFLAGS		:= -I$(CORE_DIR) \
+					-I$(CORE_DIR)/../.. \
+					-I$(LIBRETRO_COMM_DIR)/include \
+					-I$(LIBRETRO_COMM_DIR)/glsym
+
+
+LIBS_DIR    := $(CORE_DIR)/../../libs
+SOURCES_C   := $(LIBRETRO_COMM_DIR)/glsym/rglgen.c \
+					$(LIBS_DIR)/stb_vorbis/stb_vorbis.c \
+					$(LIBS_DIR)/tinf/tinflate.c \
+					$(LIBRETRO_COMM_DIR)/compat/compat_strl.c \
+					$(LIBRETRO_COMM_DIR)/compat/compat_strcasestr.c \
+					$(LIBRETRO_COMM_DIR)/file/file_path.c \
+					$(LIBRETRO_COMM_DIR)/encodings/encoding_utf.c
+
+ifeq ($(GLES), 1)
+ifeq ($(GLES3), 1)
+SOURCES_C	+= $(LIBRETRO_COMM_DIR)/glsym/glsym_es3.c
+else
+SOURCES_C	+= $(LIBRETRO_COMM_DIR)/glsym/glsym_es2.c
+endif
+else
+SOURCES_C	+= $(LIBRETRO_COMM_DIR)/glsym/glsym_gl.c
+endif
+
+SOURCES_CXX := $(CORE_DIR)/main.cpp \
+					$(LIBS_DIR)/minimp3/minimp3.cpp

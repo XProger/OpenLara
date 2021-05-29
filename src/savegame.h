@@ -154,7 +154,6 @@ uint8* writeSaveSlots(int &size) {
         memcpy(ptr + 4, s.data,   s.size);
         ptr += 4 + s.size;
     }
-
     return data;
 }
 

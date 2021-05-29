@@ -13,6 +13,11 @@
 
 #define USE_CUBEMAP_MIPS
 
+
+
+
+
+
 #ifdef __UWP__
     #define _OS_UWP      1
     #define _GAPI_D3D11  1
@@ -24,7 +29,16 @@
     #undef OS_PTHREAD_MT
 #elif WIN32
     #define _OS_WIN      1
-    #define _GAPI_GL     1
+	
+	#ifdef __LIBRETRO__
+	    #define _GAPI_GL     1
+	#ifdef __LIBRETRO_GLES__
+	    #define _GAPI_GLES   1
+	#endif
+	#else
+	    #define _GAPI_GL     1
+	#endif	
+    //#define _GAPI_GL     1
     //#define _GAPI_D3D9   1
     //#define _GAPI_D3D11  1
     //#define _GAPI_VULKAN 1
@@ -43,7 +57,6 @@
     #define _OS_ANDROID 1
     #define _GAPI_GL    1
     #define _GAPI_GLES  1
-    //#define _GAPI_VULKAN
 
     #define VR_SUPPORT
 #elif __SDL2__
@@ -86,6 +99,7 @@
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
+    #define _GAPI_GLES 1	 //sunxu？？
 #elif __APPLE__
     #define _GAPI_GL 1
     #include "TargetConditionals.h"
@@ -714,7 +728,9 @@ namespace Core {
 
         void stop() {
             if (fpsTime < Core::getTime()) {
+#ifndef __LIBRETRO__
                 LOG("FPS: %d DIP: %d TRI: %d RT: %d\n", fps, dips, tris, rt);
+#endif
             #ifdef PROFILE
                 LOG("frame time: %d mcs\n", tFrame / 1000);
                 LOG("sound: mix %d rev %d ren %d/%d ogg %d\n", Sound::stats.mixer, Sound::stats.reverb, Sound::stats.render[0], Sound::stats.render[1], Sound::stats.ogg);
@@ -735,6 +751,8 @@ namespace Core {
     #include "gapi/sw.h"
 #elif _GAPI_GL
     #include "gapi/gl.h"
+#elif _GAPI_GLES
+    #include "gapi/gl.h"	
 #elif _GAPI_D3D8
     #include "gapi/d3d8.h"
 #elif _GAPI_D3D9
@@ -894,10 +912,10 @@ namespace Core {
     // init settings
         settings.version = SETTINGS_VERSION;
 
-        settings.detail.setFilter   (Core::Settings::HIGH);
-        settings.detail.setLighting (Core::Settings::HIGH);
-        settings.detail.setShadows  (Core::Settings::HIGH);
-        settings.detail.setWater    (Core::Settings::HIGH);
+        settings.detail.setFilter   (Core::Settings::MEDIUM);
+        settings.detail.setLighting (Core::Settings::MEDIUM);
+        settings.detail.setShadows  (Core::Settings::MEDIUM);
+        settings.detail.setWater    (Core::Settings::MEDIUM);
         settings.detail.simple       = false;
         settings.detail.vsync        = true;
         settings.detail.stereo       = Settings::STEREO_OFF;
@@ -961,6 +979,11 @@ namespace Core {
         settings.controls[0].keys[ cAction    ].key = ikS;
     #endif
 
+#ifdef __LIBRETRO__
+        settings.controls[0].keys[ cInventory ].key = ikTab;
+        settings.controls[0].keys[ cStart ].key     = ikEnter;
+        settings.detail.vsync        = false;
+#endif
     // use D key for jump in browsers
     #ifdef _OS_WEB
         settings.controls[0].keys[ cJump      ].key = ikD;
