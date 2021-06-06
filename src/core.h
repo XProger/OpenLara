@@ -13,12 +13,23 @@
 
 #define USE_CUBEMAP_MIPS
 
-#ifdef __UWP__
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP)
+    #define _OS_WP8      1
+    #define _GAPI_D3D11  1
+
+    #undef OS_PTHREAD_MT
+
+    #define INV_SINGLE_PLAYER
+    #define INV_VIBRATION
+    #define INV_GAMEPAD_ONLY
+#elif __UWP__
     #define _OS_UWP      1
     #define _GAPI_D3D11  1
 
     #ifdef __XB1__
         #define _OS_XB1
+        #define INV_VIBRATION
+        #define INV_GAMEPAD_ONLY
     #endif
 
     #undef OS_PTHREAD_MT
@@ -39,6 +50,9 @@
     #ifdef _GAPI_GL
         #define VR_SUPPORT
     #endif
+
+    #define INV_VIBRATION
+    #define INV_QUALITY
 #elif ANDROID
     #define _OS_ANDROID 1
     #define _GAPI_GL    1
@@ -46,30 +60,42 @@
     //#define _GAPI_VULKAN
 
     #define VR_SUPPORT
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif __SDL2__
     #define _GAPI_GL   1
     #ifdef SDL2_GLES
         #define _GAPI_GLES 1
         #define DYNGEOM_NO_VBO
     #endif
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif __RPI__
     #define _OS_RPI    1
     #define _GAPI_GL   1
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+    #define INV_VIBRATION
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif __CLOVER__
     #define _OS_CLOVER 1
     #define _GAPI_GL   1
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+    #define INV_GAMEPAD_NO_TRIGGER
+    #define INV_GAMEPAD_ONLY
+    #define INV_STEREO
 #elif __PSC__
     #define _OS_PSC    1
     #define _GAPI_GL   1
     #define _GAPI_GLES 1
 
     #define DYNGEOM_NO_VBO
+    #define INV_GAMEPAD_ONLY
+    #define INV_STEREO
 #elif __BITTBOY__
     #define _OS_BITTBOY 1
     #define _OS_LINUX   1
@@ -83,9 +109,17 @@
 
     // etnaviv driver has a bug with cubemap mips generator
     #undef USE_CUBEMAP_MIPS
+
+    #define INV_SINGLE_PLAYER
+    #define INV_VIBRATION
+    #define INV_GAMEPAD_ONLY
 #elif __linux__
     #define _OS_LINUX 1
     #define _GAPI_GL  1
+
+    #define INV_VIBRATION
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif __APPLE__
     #define _GAPI_GL 1
     #include "TargetConditionals.h"
@@ -95,7 +129,9 @@
         #define _GAPI_GLES 1
     #else
         #define _OS_MAC    1
+        #define INV_STEREO
     #endif
+    #define INV_QUALITY
 #elif __EMSCRIPTEN__
     #define _OS_WEB    1
     #define _GAPI_GL   1
@@ -104,6 +140,9 @@
     #undef  OS_FILEIO_CACHE
 
     extern int WEBGL_VERSION;
+
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif _3DS
     #include <3ds.h>
 
@@ -118,6 +157,11 @@
     // stb_vorbis - 8 ms
     // libvorbis  - 6 ms
     #define USE_LIBVORBIS
+
+    #define INV_SINGLE_PLAYER
+    #define INV_GAMEPAD_NO_TRIGGER
+    #define INV_GAMEPAD_ONLY
+    //#define INV_STEREO // hardware switch
 #elif _PSP
     #define _OS_PSP  1
     #define _GAPI_GU 1
@@ -127,6 +171,10 @@
     #define EDRAM_TEX
 
     #undef OS_PTHREAD_MT
+
+    #define INV_SINGLE_PLAYER
+    #define INV_GAMEPAD_NO_TRIGGER
+    #define INV_GAMEPAD_ONLY
 #elif __vita__
     #define _OS_PSV   1
     #define _GAPI_GXM 1
@@ -134,11 +182,17 @@
     #undef OS_PTHREAD_MT
 
     //#define USE_LIBVORBIS // TODO crash
+
+    #define INV_SINGLE_PLAYER
+    #define INV_GAMEPAD_NO_TRIGGER
+    #define INV_GAMEPAD_ONLY
 #elif __SWITCH__
     #define _OS_SWITCH 1
     #define _GAPI_GL   1
 
     #undef OS_PTHREAD_MT
+    #define INV_QUALITY
+    #define INV_STEREO
 #elif _XBOX
     #define _OS_XBOX   1
     #define _GAPI_D3D8 1
@@ -149,6 +203,10 @@
     #define NOMINMAX
     #include <xtl.h>
     #include <xgraphics.h>
+
+    #define INV_GAMEPAD_NO_TRIGGER
+    #define INV_GAMEPAD_ONLY
+    #define INV_VIBRATION
 #elif _X360
     #define _OS_X360  1
     // TODO
@@ -1020,6 +1078,13 @@ namespace Core {
         settings.detail.setLighting (Core::Settings::LOW);
         settings.detail.setShadows  (Core::Settings::LOW);
         settings.detail.setWater    (Core::Settings::LOW);
+    #endif
+
+    #ifdef _OS_WP8
+        settings.detail.setFilter(Core::Settings::HIGH);
+        settings.detail.setLighting(Core::Settings::LOW);
+        settings.detail.setShadows(Core::Settings::LOW);
+        settings.detail.setWater(Core::Settings::LOW);
     #endif
 
         memset(&active, 0, sizeof(active));

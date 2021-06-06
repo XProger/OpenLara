@@ -646,13 +646,36 @@ namespace Debug {
             }
         }
 
-        void dumpSample(TR::Level *level, int index) {
+        void dumpPalette(TR::Level *level, int index)
+        {
             char buf[255];
-            sprintf(buf, "samples_PSX/%03d.wav", index);
+            sprintf(buf, "tiles_PC/%02d.pal", index);
+
             FILE *f = fopen(buf, "wb");
+            for (int i = 0; i < 256; i++) {
+                Color24 c = level->palette[i];
+                uint16 res = (c.r >> 3) | ((c.g >> 3) << 5) | ((c.b >> 3) << 10);
+                fwrite(&res, 2, 1, f);
+            }
+            fclose(f);
+        }
+
+        void dumpSample(TR::Level *level, int index, int id, int sample) {
+            char buf[255];
+            sprintf(buf, "samples_PSX/%03d_%d.wav", id, sample);
 
             if (level->version == TR::VER_TR1_PSX) {
                 uint32 dataSize = level->soundSize[index] / 16 * 28 * 2 * 4;
+                uint32 size = -1;
+
+                FILE *f = fopen(buf, "rb");
+                if (f) {
+                    fseek(f, 0, SEEK_END);
+                    size = ftell(f);
+                    fclose(f);
+                }
+
+                f = fopen(buf, "wb");
 
                 struct Header {
                     uint32 RIFF;
@@ -679,19 +702,30 @@ namespace Debug {
 
                 fwrite(&header, sizeof(header), 1, f);
 
-                Sound::VAG vag(new Stream(NULL, &level->soundData[level->soundOffsets[index]], dataSize));        
+                Sound::VAG vag(level->getSampleStream(index));        
                 Sound::Frame frames[4 * 28];
                 while (int count = vag.decode(frames, 4 * 28))
+                {
                     for (int i = 0; i < count; i++)
-                        fwrite(&frames[i].L, 2, 1, f);                
+                    {
+                        fwrite(&frames[i].L, 2, 1, f);
+                    }
+                }
+
+                dataSize = ftell(f);
+                if (size != -1 && size != dataSize) {
+                    LOG("audio diff %03d_%d : %d -> %d\n", id, sample, size, dataSize);
+                }
+
+                fclose(f);
             }
 
             if (level->version == TR::VER_TR1_PC) {
                 uint32 *data = (uint32*)&level->soundData[level->soundOffsets[index]];
+                FILE *f = fopen(buf, "wb");
                 fwrite(data, data[1] + 8, 1, f);
+                fclose(f);
             }
-
-            fclose(f);
         }
 
         void info(IGame *game, Controller *controller, Animation &anim) {

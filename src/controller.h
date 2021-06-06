@@ -1054,17 +1054,17 @@ struct Controller {
     bool trace(const TR::Location &from, TR::Location &to) {
         int rx, rz;
 
-        if (fabsf(to.pos.x - from.pos.x) < fabsf(to.pos.z - from.pos.z)) {
+        if (fabsf(to.pos.x - from.pos.x) > fabsf(to.pos.z - from.pos.z)) {
             rz = traceZ(from, to);
-            if (!rz) return false;
-            rx = traceX(from, to);
-        } else {
             rx = traceX(from, to);
             if (!rx) return false;
+        } else {
+            rx = traceX(from, to);
             rz = traceZ(from, to);
+            if (!rz) return false;
         }
         TR::Room::Sector *sector = level->getSector(to.room, to.pos);
-        return clipHeight(from, to, sector) && rx == 1 && rz == 1;
+        return !(!clipHeight(from, to, sector) || rx != 1 || rz != 1);
     }
 
     bool clipHeight(const TR::Location &from, TR::Location &to, TR::Room::Sector *sector) {

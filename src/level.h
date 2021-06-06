@@ -1018,6 +1018,27 @@ struct Level : IGame {
         }
         */
 
+    #if DUMP_SAMPLES
+        for (int i = 0; i < 256; i++) {
+            int16 a = level.soundsMap[i];
+            if (a == -1) continue;
+            ASSERT(a < level.soundsInfoCount);
+            TR::SoundInfo &b = level.soundsInfo[a];
+            for (int j = 0; j < b.flags.count; j++) {
+                //ASSERT((b.index + j) < level.soundOffsetsCount);
+                if ((b.index + j) < level.soundOffsetsCount) {
+                    Debug::Level::dumpSample(&level, b.index + j, i, j);
+                }
+            }
+        }
+        loadNextLevel();
+    #endif
+
+    #if DUMP_PALETTE
+        Debug::Level::dumpPalette(&level, level.id);
+        loadNextLevel();
+    #endif
+
         saveResult = SAVE_RESULT_SUCCESS;
         if (loadSlot != -1 && saveSlots[loadSlot].getLevelID() == level.id) {
             parseSaveSlot(saveSlots[loadSlot]);

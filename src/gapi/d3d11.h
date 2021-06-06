@@ -6,7 +6,7 @@
 
 #define SAFE_RELEASE(P) if(P){P->Release(); P = NULL;}
 
-#if defined(_DEBUG) || defined(PROFILE)
+#if 0 //defined(_DEBUG) || defined(PROFILE)
     #include <d3d9.h>
 
     struct Marker {
@@ -35,12 +35,18 @@
     #define PROFILE_TIMING(time)
 #endif
 
-extern ID3D11Device          *device;
-extern ID3D11DeviceContext   *deviceContext;
-#ifdef _OS_XB1
-extern IDXGISwapChain1       *swapChain;
+#ifdef _OS_WP8
+    extern Microsoft::WRL::ComPtr<ID3D11Device1>        osDevice;
+    extern Microsoft::WRL::ComPtr<ID3D11DeviceContext1> osContext;
+    extern Microsoft::WRL::ComPtr<IDXGISwapChain1>      osSwapChain;
 #else
-extern IDXGISwapChain        *swapChain;
+    extern ID3D11Device          *osDevice;
+    extern ID3D11DeviceContext   *osDeviceContext;
+    #ifdef _OS_XB1
+        extern IDXGISwapChain1   *osSwapChain;
+    #else
+        extern IDXGISwapChain    *osSwapChain;
+    #endif
 #endif
 
 namespace GAPI {
@@ -203,8 +209,8 @@ namespace GAPI {
             #undef SHADER_AU
 
             HRESULT ret;
-            ret = device->CreateVertexShader ((DWORD*)vSrc, vSize, NULL, &VS); ASSERT(ret == S_OK);
-            ret = device->CreatePixelShader  ((DWORD*)fSrc, fSize, NULL, &PS); ASSERT(ret == S_OK);
+            ret = osDevice->CreateVertexShader ((DWORD*)vSrc, vSize, NULL, &VS); ASSERT(ret == S_OK);
+            ret = osDevice->CreatePixelShader  ((DWORD*)fSrc, fSize, NULL, &PS); ASSERT(ret == S_OK);
 
             const D3D11_INPUT_ELEMENT_DESC vertexDecl[] = {
                 { "POSITION", 0, DXGI_FORMAT_R16G16B16A16_SINT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 }, // aCoord
@@ -214,7 +220,7 @@ namespace GAPI {
                 { "COLOR",    1, DXGI_FORMAT_R8G8B8A8_UNORM,    0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 }, // aLight
             };
 
-            ret = device->CreateInputLayout(vertexDecl, COUNT(vertexDecl), vSrc, vSize, &IL);
+            ret = osDevice->CreateInputLayout(vertexDecl, COUNT(vertexDecl), vSrc, vSize, &IL);
             ASSERT(ret == S_OK);
 
             rebind = true;
@@ -225,7 +231,7 @@ namespace GAPI {
             desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
             desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
             desc.ByteWidth      = sizeof(cbMem);
-            device->CreateBuffer(&desc, NULL, &CB);
+            osDevice->CreateBuffer(&desc, NULL, &CB);
         }
 
         void deinit() {
@@ -245,19 +251,19 @@ namespace GAPI {
 
         void validate() {
             if (rebind) {
-                deviceContext->IASetInputLayout(IL);
-                deviceContext->VSSetShader(VS, NULL, 0);
-                deviceContext->PSSetShader(PS, NULL, 0);
+                osContext->IASetInputLayout(IL);
+                osContext->VSSetShader(VS, NULL, 0);
+                osContext->PSSetShader(PS, NULL, 0);
                 rebind = false;
             }
 
             D3D11_MAPPED_SUBRESOURCE mapped;
-            deviceContext->Map(CB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            osContext->Map(CB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
             memcpy(mapped.pData, cbMem, sizeof(cbMem));
-            deviceContext->Unmap(CB, 0);
+            osContext->Unmap(CB, 0);
 
-            deviceContext->VSSetConstantBuffers(0, 1, &CB);
-            deviceContext->PSSetConstantBuffers(0, 1, &CB);
+            osContext->VSSetConstantBuffers(0, 1, &CB);
+            osContext->PSSetConstantBuffers(0, 1, &CB);
             Core::stats.cb++;
         }
 
@@ -345,11 +351,11 @@ namespace GAPI {
                 desc.Format             = formats[fmt].format;
                 desc.Usage              = D3D11_USAGE_DEFAULT;
                 desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
-                device->CreateTexture3D(&desc, data ? initialData : NULL, &tex3D);
+                osDevice->CreateTexture3D(&desc, data ? initialData : NULL, &tex3D);
                 ASSERT(tex3D);
 
                 descSRV.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
-                device->CreateShaderResourceView(tex3D, &descSRV, &SRV);
+                osDevice->CreateShaderResourceView(tex3D, &descSRV, &SRV);
             } else {
                 D3D11_TEXTURE2D_DESC desc;
                 memset(&desc, 0, sizeof(desc));
@@ -381,7 +387,7 @@ namespace GAPI {
                     desc.MiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
                 }
 
-                device->CreateTexture2D(&desc, data ? initialData : NULL, &tex2D);
+                osDevice->CreateTexture2D(&desc, data ? initialData : NULL, &tex2D);
                 ASSERT(tex2D);
 
                 if (isTarget) {
@@ -390,7 +396,7 @@ namespace GAPI {
                         memset(&descDSV, 0, sizeof(descDSV));
                         descDSV.Format        = DXGI_FORMAT_D16_UNORM;
                         descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-                        device->CreateDepthStencilView(tex2D, &descDSV, &DSV);
+                        osDevice->CreateDepthStencilView(tex2D, &descDSV, &DSV);
                         ASSERT(DSV);
                     } else {
                         D3D11_RENDER_TARGET_VIEW_DESC descRTV;
@@ -401,7 +407,7 @@ namespace GAPI {
 
                         for (int i = 0; i < 6; i++) {
                             descRTV.Texture2DArray.FirstArraySlice = i;
-                            device->CreateRenderTargetView(tex2D, &descRTV, &RTV[i]);
+                            osDevice->CreateRenderTargetView(tex2D, &descRTV, &RTV[i]);
                             ASSERT(RTV[i]);
                             if (!isCube) break;
                         }
@@ -409,7 +415,7 @@ namespace GAPI {
                 }
 
                 descSRV.ViewDimension = isCube ? D3D11_SRV_DIMENSION_TEXTURECUBE : D3D11_SRV_DIMENSION_TEXTURE2D;
-                device->CreateShaderResourceView(tex2D, &descSRV, &SRV);
+                osDevice->CreateShaderResourceView(tex2D, &descSRV, &SRV);
             }
 
             ASSERT(SRV);
@@ -427,16 +433,16 @@ namespace GAPI {
 
         void generateMipMap() {
             ASSERT(SRV && tex2D);
-            deviceContext->GenerateMips(SRV);
+            osContext->GenerateMips(SRV);
         }
 
         void update(void *data) {
             ASSERT(tex2D);
             ASSERT(opt & OPT_DYNAMIC);
             D3D11_MAPPED_SUBRESOURCE mapped;
-            deviceContext->Map(tex2D, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            osContext->Map(tex2D, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
             memcpy(mapped.pData, data, mapped.RowPitch * height);
-            deviceContext->Unmap(tex2D, 0);
+            osContext->Unmap(tex2D, 0);
         }
 
         void bind(int sampler) {
@@ -446,10 +452,13 @@ namespace GAPI {
             if (Core::active.textures[sampler] != this) {
                 Core::active.textures[sampler] = this;
 
+            #ifndef _OS_WP8
                 if (opt & OPT_VERTEX) {
-                    deviceContext->VSSetShaderResources(sampler, 1, &SRV);
+                    osContext->VSSetShaderResources(sampler, 1, &SRV);
                 }
-                deviceContext->PSSetShaderResources(sampler, 1, &SRV);
+            #endif
+
+                osContext->PSSetShaderResources(sampler, 1, &SRV);
             }
         }
 
@@ -460,9 +469,9 @@ namespace GAPI {
                 ID3D11ShaderResourceView *none = NULL;
 
                 if (opt & OPT_VERTEX) {
-                    deviceContext->VSSetShaderResources(sampler, 1, &none);
+                    osContext->VSSetShaderResources(sampler, 1, &none);
                 }
-                deviceContext->PSSetShaderResources(sampler, 1, &none);
+                osContext->PSSetShaderResources(sampler, 1, &none);
             }
         }
 
@@ -497,12 +506,12 @@ namespace GAPI {
             desc.BindFlags   = D3D11_BIND_INDEX_BUFFER;
             desc.ByteWidth   = iCount * sizeof(Index);
             initData.pSysMem = indices;
-            device->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[0]);
+            osDevice->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[0]);
 
             desc.BindFlags   = D3D11_BIND_VERTEX_BUFFER;
             desc.ByteWidth   = vCount * sizeof(Vertex);
             initData.pSysMem = vertices;
-            device->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[1]);
+            osDevice->CreateBuffer(&desc, dynamic ? NULL : &initData, &ID[1]);
         }
 
         void deinit() {
@@ -516,23 +525,23 @@ namespace GAPI {
             D3D11_MAPPED_SUBRESOURCE mapped;
          
             if (indices && iCount) {
-                deviceContext->Map(ID[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+                osContext->Map(ID[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
                 memcpy(mapped.pData, indices, iCount * sizeof(indices[0]));
-                deviceContext->Unmap(ID[0], 0);
+                osContext->Unmap(ID[0], 0);
             }
 
             if (vertices && vCount) {
-                deviceContext->Map(ID[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+                osContext->Map(ID[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
                 memcpy(mapped.pData, vertices, vCount * sizeof(vertices[0]));
-                deviceContext->Unmap(ID[1], 0);
+                osContext->Unmap(ID[1], 0);
             }
         }
 
         void bind(const MeshRange &range) const {
             UINT stride = sizeof(Vertex);
             UINT offset = 0;//range.vStart * stride;
-            deviceContext->IASetIndexBuffer(ID[0], sizeof(Index) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-            deviceContext->IASetVertexBuffers(0, 1, &ID[1], &stride, &offset);
+            osContext->IASetIndexBuffer(ID[0], sizeof(Index) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+            osContext->IASetVertexBuffers(0, 1, &ID[1], &stride, &offset);
         }
 
         void initNextRange(MeshRange &range, int &aIndex) const {
@@ -579,7 +588,7 @@ namespace GAPI {
 
         if (cmp) {
             desc.Filter         = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
-            desc.ComparisonFunc = D3D11_COMPARISON_LESS;
+            desc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL;
             desc.BorderColor[0] =
             desc.BorderColor[1] =
             desc.BorderColor[2] =
@@ -595,7 +604,7 @@ namespace GAPI {
         desc.MaxLOD   = D3D11_FLOAT32_MAX;
 
         ID3D11SamplerState *sampler;
-        device->CreateSamplerState(&desc, &sampler);
+        osDevice->CreateSamplerState(&desc, &sampler);
         return sampler;
     }
 
@@ -611,7 +620,7 @@ namespace GAPI {
 
     void init() {
         memset(&rtCache, 0, sizeof(rtCache));
-        
+
         /* TODO
         D3DADAPTER_IDENTIFIER9 adapterInfo;
         D3D->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &adapterInfo);
@@ -637,6 +646,18 @@ namespace GAPI {
         support.texHalf        = true;
         support.tex3D          = true;
 
+        #ifdef _OS_WP8
+            support.depthTexture   = false;
+            support.shadowSampler  = false;
+            support.colorFloat     = true;
+            support.colorHalf      = true;
+            support.texFloatLinear = true;
+            support.texFloat       = true;
+            support.texHalfLinear  = true;
+            support.texHalf        = true;
+            support.tex3D          = false;
+        #endif
+
         #ifdef PROFILE
             support.profMarker = false;
             support.profTiming = false;
@@ -650,7 +671,7 @@ namespace GAPI {
             #define BLEND_FUNC(B,S,D)\
                 desc.RenderTarget[0].SrcBlend  = S;\
                 desc.RenderTarget[0].DestBlend = D;\
-                device->CreateBlendState(&desc, &BS[i][B])
+                osDevice->CreateBlendState(&desc, &BS[i][B])
 
             D3D11_BLEND_DESC desc;
             memset(&desc, 0, sizeof(desc));
@@ -683,11 +704,11 @@ namespace GAPI {
             desc.DepthClipEnable       = TRUE;
             desc.FillMode = D3D11_FILL_SOLID;
             desc.CullMode = D3D11_CULL_NONE;
-            device->CreateRasterizerState(&desc, &RS[cmNone]);
+            osDevice->CreateRasterizerState(&desc, &RS[cmNone]);
             desc.CullMode = D3D11_CULL_BACK;
-            device->CreateRasterizerState(&desc, &RS[cmBack]);
+            osDevice->CreateRasterizerState(&desc, &RS[cmBack]);
             desc.CullMode = D3D11_CULL_FRONT;
-            device->CreateRasterizerState(&desc, &RS[cmFront]);
+            osDevice->CreateRasterizerState(&desc, &RS[cmFront]);
         }
 
     // init depth stencil states
@@ -702,7 +723,7 @@ namespace GAPI {
                 desc.DepthEnable = i ? TRUE : FALSE;
                 for (int j = 0; j < 2; j++) {
                     desc.DepthWriteMask = j ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-                    device->CreateDepthStencilState(&desc, &DS[i][j]);
+                    osDevice->CreateDepthStencilState(&desc, &DS[i][j]);
                 }
             }
         }
@@ -723,7 +744,7 @@ namespace GAPI {
         desc.Usage            = D3D11_USAGE_STAGING;
         desc.MiscFlags        = 0;
         desc.CPUAccessFlags   = D3D11_CPU_ACCESS_READ;
-        device->CreateTexture2D(&desc, NULL, &stagingPixel);
+        osDevice->CreateTexture2D(&desc, NULL, &stagingPixel);
     }
 
     void resetDevice() {
@@ -769,20 +790,35 @@ namespace GAPI {
     mat4 ortho(float l, float r, float b, float t, float znear, float zfar) {
         mat4 m;
         m.ortho(getProjRange(), l, r, b, t, znear, zfar);
+
+        #ifdef _OS_WP8
+            m.rot90();
+        #endif
+
         return m;
     }
 
     mat4 perspective(float fov, float aspect, float znear, float zfar, float eye) {
         mat4 m;
+
+        #ifdef _OS_WP8
+            aspect = 1.0f / aspect;
+        #endif
+
         m.perspective(getProjRange(), fov, aspect, znear, zfar, eye);
+
+        #ifdef _OS_WP8
+            m.rot90();
+        #endif
+
         return m;
     }
 
     bool beginFrame() {
         if (!defRTV) {
             ID3D11Texture2D *pBackBuffer = NULL;
-            swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-            device->CreateRenderTargetView(pBackBuffer, NULL, &defRTV);
+            osSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+            osDevice->CreateRenderTargetView(pBackBuffer, NULL, &defRTV);
             SAFE_RELEASE(pBackBuffer);
         }
 
@@ -799,19 +835,19 @@ namespace GAPI {
             desc.BindFlags        = D3D11_BIND_DEPTH_STENCIL;
 
             ID3D11Texture2D *dsTex;
-            device->CreateTexture2D(&desc, NULL, &dsTex);
+            osDevice->CreateTexture2D(&desc, NULL, &dsTex);
 
             D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
             memset(&descDSV, 0, sizeof(descDSV));
             descDSV.Format             = desc.Format;
             descDSV.ViewDimension      = D3D11_DSV_DIMENSION_TEXTURE2D;
             descDSV.Texture2D.MipSlice = 0;
-            device->CreateDepthStencilView(dsTex, &descDSV, &defDSV);
+            osDevice->CreateDepthStencilView(dsTex, &descDSV, &defDSV);
 
             SAFE_RELEASE(dsTex);
         }
 
-        deviceContext->OMSetRenderTargets(1, &defRTV, defDSV);
+        osContext->OMSetRenderTargets(1, &defRTV, defDSV);
 
         return true;
     }
@@ -821,13 +857,16 @@ namespace GAPI {
     }
 
     void resetState() {
-        deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        deviceContext->RSSetState(RS[cmNone]);
+        osContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        osContext->RSSetState(RS[cmNone]);
         depthTest = depthWrite = dirtyDepthState = true;
         colorWrite = dirtyBlendState = true;
 
-        deviceContext->VSSetSamplers(0, COUNT(samplers), samplers);
-        deviceContext->PSSetSamplers(0, COUNT(samplers), samplers);
+    #ifndef _OS_WP8
+        osContext->VSSetSamplers(0, COUNT(samplers), samplers);
+    #endif
+
+        osContext->PSSetSamplers(0, COUNT(samplers), samplers);
     }
 
     void cacheRenderTarget(ID3D11RenderTargetView **RTV, ID3D11DepthStencilView **DSV, int width, int height) {
@@ -862,8 +901,8 @@ namespace GAPI {
                 desc.SampleDesc.Count = 1;
                 desc.Usage            = D3D11_USAGE_DEFAULT;
                 desc.BindFlags        = D3D11_BIND_RENDER_TARGET;
-                device->CreateTexture2D(&desc, NULL, &tex2D);
-                device->CreateRenderTargetView(tex2D, NULL, &rtCache.items[index].RTV);
+                osDevice->CreateTexture2D(&desc, NULL, &tex2D);
+                osDevice->CreateRenderTargetView(tex2D, NULL, &rtCache.items[index].RTV);
                 SAFE_RELEASE(tex2D);
             }
             *RTV = rtCache.items[index].RTV;
@@ -884,13 +923,13 @@ namespace GAPI {
                 desc.SampleDesc.Count = 1;
                 desc.Usage            = D3D11_USAGE_DEFAULT;
                 desc.BindFlags        = D3D11_BIND_DEPTH_STENCIL;
-                device->CreateTexture2D(&desc, NULL, &tex2D);
+                osDevice->CreateTexture2D(&desc, NULL, &tex2D);
 
                 D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
                 memset(&descDSV, 0, sizeof(descDSV));
                 descDSV.Format        = DXGI_FORMAT_D16_UNORM;
                 descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-                device->CreateDepthStencilView(tex2D, &descDSV, &rtCache.items[index].DSV);
+                osDevice->CreateDepthStencilView(tex2D, &descDSV, &rtCache.items[index].DSV);
                 SAFE_RELEASE(tex2D);
             }
             *DSV = rtCache.items[index].DSV;
@@ -916,7 +955,7 @@ namespace GAPI {
             }
         }
 
-        deviceContext->OMSetRenderTargets(1, &RTV, DSV);
+        osContext->OMSetRenderTargets(1, &RTV, DSV);
 
         Core::active.viewport = short4(0, 0, 0, 0); // forcing viewport reset
     }
@@ -936,10 +975,10 @@ namespace GAPI {
         ID3D11RenderTargetView *RTV;
         ID3D11Resource         *res;
 
-        deviceContext->OMGetRenderTargets(1, &RTV, NULL);
+        osContext->OMGetRenderTargets(1, &RTV, NULL);
         RTV->GetResource(&res);
 
-        deviceContext->CopySubresourceRegion(dst->tex2D, 0, xOffset, yOffset, 0, res, 0, &box);
+        osContext->CopySubresourceRegion(dst->tex2D, 0, xOffset, yOffset, 0, res, 0, &box);
 
         SAFE_RELEASE(RTV);
         SAFE_RELEASE(res);
@@ -952,14 +991,14 @@ namespace GAPI {
         ID3D11RenderTargetView *RTV = NULL;
         ID3D11DepthStencilView *DSV = NULL;
 
-        deviceContext->OMGetRenderTargets(1, &RTV, &DSV);
+        osContext->OMGetRenderTargets(1, &RTV, &DSV);
 
         if (color && RTV) {
-            deviceContext->ClearRenderTargetView(RTV, (FLOAT*)&clearColor);
+            osContext->ClearRenderTargetView(RTV, (FLOAT*)&clearColor);
         }
 
         if (depth && DSV) {
-            deviceContext->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, 1.0, 0);
+            osContext->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, 1.0, 0);
         }
 
         SAFE_RELEASE(RTV);
@@ -979,7 +1018,7 @@ namespace GAPI {
         viewport.MinDepth = 0.0f;
         viewport.MaxDepth = 1.0f;
 
-        deviceContext->RSSetViewports(1, &viewport);
+        osContext->RSSetViewports(1, &viewport);
     }
 
     void setScissor(const short4 &s) {
@@ -989,7 +1028,7 @@ namespace GAPI {
         scissor.right  = s.x + s.z;
         scissor.bottom = active.viewport.w - s.y;
 
-        deviceContext->RSSetScissorRects(1, &scissor);
+        osContext->RSSetScissorRects(1, &scissor);
     }
 
     void setDepthTest(bool enable) {
@@ -1015,7 +1054,7 @@ namespace GAPI {
             case RS_CULL_BACK  : cullMode = cmBack;  break;
             case RS_CULL_FRONT : cullMode = cmFront; break;
         }
-        deviceContext->RSSetState(RS[cullMode]);
+        osContext->RSSetState(RS[cullMode]);
     }
 
     void setBlendMode(int rsMask) {
@@ -1044,16 +1083,16 @@ namespace GAPI {
         }
 
         if (dirtyDepthState) {
-            deviceContext->OMSetDepthStencilState(DS[depthTest][depthWrite], 0);
+            osContext->OMSetDepthStencilState(DS[depthTest][depthWrite], 0);
             dirtyDepthState = false;
         }
 
         if (dirtyBlendState) {
-            deviceContext->OMSetBlendState(BS[colorWrite][blendMode], NULL, 0xFFFFFFFF);
+            osContext->OMSetBlendState(BS[colorWrite][blendMode], NULL, 0xFFFFFFFF);
             dirtyBlendState = false;
         }
 
-        deviceContext->DrawIndexed(range.iCount, range.iStart, range.vStart);
+        osContext->DrawIndexed(range.iCount, range.iStart, range.vStart);
     }
 
     vec4 copyPixel(int x, int y) {
@@ -1066,13 +1105,13 @@ namespace GAPI {
         srcBox.back   = 1;
 
         ASSERT(Core::active.target);
-        deviceContext->CopySubresourceRegion(stagingPixel, 0, 0, 0, 0, Core::active.target->tex2D, 0, &srcBox);
+        osContext->CopySubresourceRegion(stagingPixel, 0, 0, 0, 0, Core::active.target->tex2D, 0, &srcBox);
 
         D3D11_MAPPED_SUBRESOURCE res;
-        deviceContext->Map(stagingPixel, 0, D3D11_MAP_READ, 0, &res);
+        osContext->Map(stagingPixel, 0, D3D11_MAP_READ, 0, &res);
         ASSERT(res.pData);
         Color32 c = *((Color32*)res.pData);
-        deviceContext->Unmap(stagingPixel, 0);
+        osContext->Unmap(stagingPixel, 0);
 
         return vec4(float(c.r), float(c.g), float(c.b), float(c.a)) * (1.0f / 255.0f);
     }

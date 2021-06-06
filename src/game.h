@@ -20,24 +20,36 @@ namespace Game {
         ControlKey key = Input::lastState[playerIndex];
 
         if (key == cMAX || !level || level->level.isTitle() || level->level.isCutsceneLevel()) return;
-        const ControlKey CHEAT_ALL_WEAPONS[] = { cLook, cWeapon, cDash, cDuck, cDuck, cDash, cRoll, cLook };
-        const ControlKey CHEAT_SKIP_LEVEL[]  = { cDuck, cDash, cLook, cRoll, cWeapon, cLook, cDash, cDuck };
-        const ControlKey CHEAT_DOZY_MODE[]   = { cWalk, cLook, cWalk, cLook, cWalk, cLook, cWalk, cLook };
+        const ControlKey CHEAT_ALL_WEAPONS_1[] = { cLook, cWeapon, cDash, cDuck, cDuck, cDash, cRoll, cLook };
+        const ControlKey CHEAT_ALL_WEAPONS_2[] = { cWeapon, cLook, cWeapon, cLook, cWeapon, cLook, cWeapon, cLook };
+        
+        const ControlKey CHEAT_SKIP_LEVEL_1[]  = { cDuck, cDash, cLook, cRoll, cWeapon, cLook, cDash, cDuck };
+        const ControlKey CHEAT_SKIP_LEVEL_2[]  = { cJump, cLook, cJump, cLook, cJump, cLook, cJump, cLook };
+
+        const ControlKey CHEAT_DOZY_MODE[]     = { cWalk, cLook, cWalk, cLook, cWalk, cLook, cWalk, cLook };
 
         for (int i = 0; i < MAX_CHEAT_SEQUENCE - 1; i++)
             cheatSeq[playerIndex][i] = cheatSeq[playerIndex][i + 1];
         cheatSeq[playerIndex][MAX_CHEAT_SEQUENCE - 1] = key;
 
+        #define CHECK_CHEAT(seq) (!memcmp(&cheatSeq[playerIndex][MAX_CHEAT_SEQUENCE - COUNT(seq)], seq, sizeof(seq)))
+
     // add all weapons
-        if (!memcmp(&cheatSeq[playerIndex][MAX_CHEAT_SEQUENCE - COUNT(CHEAT_ALL_WEAPONS)], CHEAT_ALL_WEAPONS, sizeof(CHEAT_ALL_WEAPONS))) {
+        if (CHECK_CHEAT(CHEAT_ALL_WEAPONS_1) || CHECK_CHEAT(CHEAT_ALL_WEAPONS_2))
+        {
             inventory->addWeapons();
             level->playSound(TR::SND_SCREAM);
         }
+
     // skip level
-        if (!memcmp(&cheatSeq[playerIndex][MAX_CHEAT_SEQUENCE - COUNT(CHEAT_SKIP_LEVEL)], CHEAT_SKIP_LEVEL, sizeof(CHEAT_SKIP_LEVEL)))
+        if (CHECK_CHEAT(CHEAT_SKIP_LEVEL_1) || CHECK_CHEAT(CHEAT_SKIP_LEVEL_2))
+        {
             level->loadNextLevel();
+        }
+
     // dozy mode
-        if (!memcmp(&cheatSeq[playerIndex][MAX_CHEAT_SEQUENCE - COUNT(CHEAT_DOZY_MODE)], CHEAT_DOZY_MODE, sizeof(CHEAT_DOZY_MODE))) {
+        if (CHECK_CHEAT(CHEAT_DOZY_MODE))
+        {
             Lara *lara = (Lara*)level->getLara(playerIndex);
             if (lara) {
                 lara->setDozy(true);

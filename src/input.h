@@ -208,6 +208,26 @@ namespace Input {
         state[playerIndex][key] = down;
     }
 
+
+    int32 getTouchWidth()
+    {
+    #ifdef _OS_WP8
+        return Core::height;
+    #else
+        return Core::width;
+    #endif
+    }
+
+    int32 getTouchHeight()
+    {
+    #ifdef _OS_WP8
+        return Core::width;
+    #else
+        return Core::height;
+    #endif
+    }
+
+
     void update() {
         bool newState[MAX_PLAYERS][cMAX];
 
@@ -231,16 +251,16 @@ namespace Input {
                 touchTimerVis = max(0.0f, touchTimerVis - Core::deltaTime);
 
     // update buttons
-        float offset = Core::height * 0.25f;
+        float offset = getTouchHeight() * 0.25f;
         float radius = offset; 
-        vec2  center = vec2(Core::width - offset * 0.7f, Core::height - offset * 0.7f);
+        vec2  center = vec2(getTouchWidth() - offset * 0.7f, getTouchHeight() - offset * 0.7f);
 
-        btnRadius          = Core::height * (25.0f / 1080.0f);
+        btnRadius          = getTouchHeight() * (25.0f / 1080.0f);
         btnPos[bWeapon]    = center;
         btnPos[bJump]      = center + vec2(cosf(-PI * 0.5f), sinf(-PI * 0.5f)) * radius;
         btnPos[bAction]    = center + vec2(cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * radius;
         btnPos[bWalk]      = center + vec2(cosf(-PI), sinf(-PI)) * radius;
-        btnPos[bInventory] = vec2(Core::width - btnRadius * 8.0f, btnRadius * 4.0f);
+        btnPos[bInventory] = vec2(getTouchWidth() - btnRadius * 8.0f, btnRadius * 4.0f);
 
     // touch update
         Joystick &joy = Input::joy[Core::settings.controls[0].joyIndex];
@@ -248,8 +268,10 @@ namespace Input {
         if (checkTouchZone(zMove))
             joy.L = vec2(0.0f);
 
-        if (checkTouchZone(zLook))
+        if (checkTouchZone(zLook)) {
             joy.L = vec2(0.0f);
+            joy.R = vec2(0.0f);
+        }
 
         if (checkTouchZone(zButton))
             btn = bMove; // no active buttons == bNone
@@ -257,7 +279,7 @@ namespace Input {
         if (doubleTap)
             doubleTap = false;
 
-        float zoneSize = Core::width / 3.0f;
+        float zoneSize = getTouchWidth() / 3.0f;
 
         for (int i = 0; i < COUNT(touch); i++) {
             InputKey key = InputKey(i + ikTouchA);

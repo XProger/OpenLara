@@ -4700,7 +4700,7 @@ namespace TR {
 
         void prepare() {
             if (version == VER_TR1_PC) {
-            // Amiga -> PC color palette for TR1 PC
+            // DOS 6-bit -> 8-bit per component
                 ASSERT(palette);
                 Color24 *c = palette;
                 for (int i = 0; i < 256; i++) {

@@ -8,7 +8,9 @@
 //#define TEST_SLOW_FIO
 
 #ifdef _DEBUG
-    #if defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_CLOVER)
+    #if defined(_OS_WP8)
+        #define debugBreak() /* TODO */
+    #elif defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_CLOVER)
         #define debugBreak() raise(SIGTRAP);
     #elif defined(_OS_3DS)
         #define debugBreak() svcBreak(USERBREAK_ASSERT); 
@@ -16,14 +18,14 @@
         #define debugBreak() _asm { int 3 }
     #endif
 
-    #define ASSERT(expr) if (expr) {} else { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
+    #define ASSERT(expr) if (!(expr)) { LOG("ASSERT:\n  %s:%d\n  %s => %s\n", __FILE__, __LINE__, __FUNCTION__, #expr); debugBreak(); }
     #define ASSERTV(expr) ASSERT(expr)
 
     #ifndef _OS_ANDROID
         #define LOG printf
     #endif
 
-    #if defined(_OS_XBOX) || defined(_OS_XB1)
+    #if defined(_OS_XBOX) || defined(_OS_XB1) || defined(_OS_WP8)
         #define MAX_LOG_LENGTH 1024
 
         #undef LOG
@@ -1061,6 +1063,32 @@ struct mat4 {
     void setPos(const vec3 &pos) {
         offset().xyz() = pos;
     }
+
+    void rot90()
+    {
+        swap(e00, e10);
+        swap(e01, e11);
+        swap(e02, e12);
+        swap(e03, e13);
+
+        e10 = -e10;
+        e11 = -e11;
+        e12 = -e12;
+        e13 = -e13;
+    }
+
+    void unrot90()
+    {
+        e10 = -e10;
+        e11 = -e11;
+        e12 = -e12;
+        e13 = -e13;
+
+        swap(e00, e10);
+        swap(e01, e11);
+        swap(e02, e12);
+        swap(e03, e13);
+    }
 };
 
 struct Basis {
@@ -1225,7 +1253,7 @@ struct Box {
     Box() {}
     Box(const vec3 &min, const vec3 &max) : min(min), max(max) {}
 
-    vec3 operator [] (int index) const {        
+    vec3 operator [] (int index) const {
         ASSERT(index >= 0 && index <= 7);
         switch (index) {
             case 0 : return min;

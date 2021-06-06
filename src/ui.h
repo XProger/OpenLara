@@ -267,6 +267,10 @@ namespace UI {
     void begin(float aspect) {
         ensureLanguage(Core::settings.audio.language);
 
+        #ifdef _OS_WP8
+            aspect = 1.0f / aspect;
+        #endif
+
         height = 480.0f;
         width  = height * aspect;
 
@@ -675,14 +679,14 @@ namespace UI {
         Core::setBlendMode(bmPremult);
         Core::setCullMode(cmNone);
 
-        Core::mViewProj = GAPI::ortho(0.0f, float(Core::width), float(Core::height), 0.0f, 0.0f, 1.0f);
+        Core::mViewProj = GAPI::ortho(0.0f, float(Input::getTouchWidth()), float(Input::getTouchHeight()), 0.0f, 0.0f, 1.0f);
         
         game->setShader(Core::passGUI, Shader::DEFAULT);
 
-        float offset = Core::height * 0.25f;
+        float offset = Input::getTouchHeight() * 0.25f;
 
         if (Input::btnEnable[Input::bMove]) {
-            vec2 pos = vec2(offset * 0.7f, Core::height - offset * 0.7f) + vec2(-cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * offset;
+            vec2 pos = vec2(offset * 0.7f, Input::getTouchHeight() - offset * 0.7f) + vec2(-cosf(-PI * 3.0f / 4.0f), sinf(-PI * 3.0f / 4.0f)) * offset;
             if (Input::down[Input::touchKey[Input::zMove]]) {
                 Input::Touch &t = Input::touch[Input::touchKey[Input::zMove] - ikTouchA];
                 renderControl(t.pos, Input::btnRadius, true);

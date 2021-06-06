@@ -682,6 +682,10 @@ struct Camera : ICamera {
     }
 
     void setOblique(const vec4 &clipPlane) { // http://www.terathon.com/code/oblique.html
+    #ifdef _OS_WP8
+        Core::mProj.unrot90();
+    #endif
+
         vec4 p = Core::mViewInv.transpose() * clipPlane;
 
         vec4 q;
@@ -698,6 +702,10 @@ struct Camera : ICamera {
         Core::mProj.e21 = c.y;
         Core::mProj.e22 = c.z + (f - 1.0f);
         Core::mProj.e23 = c.w;
+
+    #ifdef _OS_WP8
+        Core::mProj.rot90();
+    #endif
     }
 
     void changeView(bool firstPerson) {

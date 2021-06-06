@@ -3208,6 +3208,10 @@ struct Lara : Character {
 
                         vec4 p = game->projectPoint(vec4(item->pos, 1.0f));
 
+                        #ifdef _OS_WP8
+                            swap(p.x, p.y);
+                        #endif
+
                         if (p.w != 0.0f) {
                             p.x = ( p.x / p.w * 0.5f + 0.5f) * UI::width;
                             p.y = (-p.y / p.w * 0.5f + 0.5f) * UI::height;

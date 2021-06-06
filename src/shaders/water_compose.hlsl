@@ -61,6 +61,12 @@ half4 main(VS_OUTPUT In) : COLOR0 {
 	half4 refrA = SAMPLE_2D_LINEAR(sDiffuse, clamp(tc + dudv * uParam.z, 0.0, 0.999));
 	half4 refrB = SAMPLE_2D_POINT(sDiffuse, tc);
 	half3 refr  = lerp(refrA.xyz, refrB.xyz, refrA.w);
+
+#ifdef _GAPI_D3D11_9_3 // TODO scale reflection matrix
+	tc.x = 1.0 - tc.x;
+	tc.y = 1.0 - tc.y;
+#endif
+
 	half3 refl  = SAMPLE_2D_LINEAR(sReflect, float2(tc.x, tc.y) + dudv * uParam.w).xyz;
 
 	half fresnel = calcFresnel(abs(dot(normal, viewVec)), 0.12);

@@ -9,9 +9,15 @@ struct VS_OUTPUT {
 	float4 viewVec   : TEXCOORD2;
 	float4 normal    : TEXCOORD3;
 	float4 diffuse   : TEXCOORD4;
-	float3 ambient   : TEXCOORD5;
-	float4 light     : TEXCOORD6;
-	float4 lightProj : TEXCOORD7;
+	float4 light     : TEXCOORD5;
+
+#ifdef OPT_SHADOW
+	float4 lightProj : TEXCOORD6;
+#endif
+
+#ifdef OPT_AMBIENT
+	float3 ambient   : TEXCOORD7;
+#endif
 };
 
 #ifdef VERTEX
@@ -37,10 +43,11 @@ VS_OUTPUT main(VS_INPUT In) {
 	float3 lv2 = (uLightPos[2].xyz - Out.coord) * uLightColor[2].w;
 	float3 lv3 = (uLightPos[3].xyz - Out.coord) * uLightColor[3].w;
 
+	float3 ambient;
 	#ifdef OPT_AMBIENT
-		Out.ambient = calcAmbient(Out.normal.xyz);
+		ambient = calcAmbient(Out.normal.xyz);
 	#else
-		Out.ambient = min(uMaterial.yyy, In.aLight.xyz);
+		ambient = uMaterial.yyy;
 	#endif
 
 	float4 lum, att, light;
@@ -59,11 +66,15 @@ VS_OUTPUT main(VS_INPUT In) {
 
 	#ifdef OPT_SHADOW
 		Out.light = light;
+		Out.lightProj = calcLightProj(Out.coord);
+		#ifdef OPT_AMBIENT
+			Out.ambient = ambient;
+		#endif
 	#else
 		Out.light.xyz = uLightColor[1].xyz * light.y + uLightColor[2].xyz * light.z + uLightColor[3].xyz * light.w;
 		Out.light.w = 0.0;
 
-		Out.light.xyz += Out.ambient + uLightColor[0].xyz * light.x;
+		Out.light.xyz += ambient + uLightColor[0].xyz * light.x;
 	#endif
 
 	Out.diffuse = float4(In.aColor.xyz * (uMaterial.x * 1.8), 1.0);
@@ -71,7 +82,6 @@ VS_OUTPUT main(VS_INPUT In) {
 	Out.diffuse *= uMaterial.w;
 
 	Out.pos = mul(uViewProj, float4(Out.coord, rBasisPos.w));
-	Out.lightProj = calcLightProj(Out.coord);
 
 	return Out;
 }
@@ -97,7 +107,15 @@ float4 main(VS_OUTPUT In) : COLOR0 {
 		light = uLightColor[1].xyz * In.light.y + uLightColor[2].xyz * In.light.z + uLightColor[3].xyz * In.light.w;
 		float rShadow = getShadow(lightVec, In.lightProj);
 		rSpecular = (uMaterial.z + 0.03) * rShadow;
-		light += In.ambient + uLightColor[0].xyz * (In.light.x * rShadow);
+
+		float3 ambient;
+		#ifdef OPT_AMBIENT
+			ambient = In.ambient;
+		#else
+			ambient = uMaterial.yyy;
+		#endif
+
+		light += ambient + uLightColor[0].xyz * (In.light.x * rShadow);
 	#else
 		light = In.light.xyz;
 	#endif

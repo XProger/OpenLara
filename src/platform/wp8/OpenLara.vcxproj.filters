@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Assets">
+      <UniqueIdentifier>17b52f90-9b33-4188-8a0e-808582bbabbc</UniqueIdentifier>
+      <Extensions>ico;bmp;dlg;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;resw;resjson</Extensions>
+    </Filter>
+    <Filter Include="libs">
+      <UniqueIdentifier>{095bc541-7391-4afd-8d1a-bf8ffb6c9db6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\minimp3">
+      <UniqueIdentifier>{64d3ea92-1a79-4d88-9672-ab9b528494d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\tinf">
+      <UniqueIdentifier>{93e9d653-9fd0-4db2-bb1b-ab70c41de674}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\stb_vorbis">
+      <UniqueIdentifier>{cfed5f2e-b257-47d1-b336-a0d7b4e8ff9b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content">
+      <UniqueIdentifier>{05e6d078-92d8-4497-b3f9-217b429676ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\ApplicationIcon.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Tiles\FlipCycleTileMedium.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Tiles\FlipCycleTileSmall.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Content\TITLEH.png">
+      <Filter>Content</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\libs\minimp3\minimp3.cpp">
+      <Filter>libs\minimp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libs\stb_vorbis\stb_vorbis.c">
+      <Filter>libs\stb_vorbis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\libs\tinf\tinflate.c">
+      <Filter>libs\tinf</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="WMAppManifest.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\libs\minimp3\minimp3.h">
+      <Filter>libs\minimp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\libs\tinf\tinf.h">
+      <Filter>libs\tinf</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="Content\GYM.PHD">
+      <Filter>Content</Filter>
+    </Media>
+    <Media Include="Content\LEVEL1.PHD">
+      <Filter>Content</Filter>
+    </Media>
+    <Media Include="Content\LEVEL2.PHD">
+      <Filter>Content</Filter>
+    </Media>
+    <Media Include="Content\TITLE.PHD">
+      <Filter>Content</Filter>
+    </Media>
+  </ItemGroup>
+</Project>

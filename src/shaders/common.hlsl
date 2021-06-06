@@ -24,7 +24,7 @@
 
 #define INV_SHORT_HALF      (1.0 / 32767.0)
 
-#if defined(_GAPI_D3D11) || defined(_GAPI_GXM)
+#if (defined(_GAPI_D3D11) || defined(_GAPI_GXM)) && !defined(_GAPI_D3D11_9_3)
 	#define SHADOW_DEPTH
 #endif
 
@@ -71,10 +71,17 @@ struct VS_INPUT {
 	#define SAMPLE_2D_POINT_WRAP(T,uv)  T.Sample(smpPointWrap,   uv)
 	#define SAMPLE_2D_LINEAR(T,uv)      T.Sample(smpLinear,      uv)
 	#define SAMPLE_2D_LINEAR_WRAP(T,uv) T.Sample(smpLinearWrap,  uv)
-	#define SAMPLE_SHADOW(T,uv)         T.SampleCmpLevelZero(smpCmp, uv.xy/uv.w, uv.z/uv.w)
-	#define SAMPLE_2D_LOD0(T,uv)        T.SampleLevel(smpLinear, uv, 0)
+
+	#ifdef _GAPI_D3D11_9_3
+		#define SAMPLE_2D_LOD0(T,uv)        SAMPLE_2D_POINT(T, uv)
+		#define SAMPLE_SHADOW(T,uv)         ((unpack(SAMPLE_2D_POINT(T, uv.xy/uv.w)) >= uv.z/uv.w) ? 1 : 0)
+	#else
+		#define SAMPLE_2D_LOD0(T,uv)        T.SampleLevel(smpLinear, uv, 0)
+		#define SAMPLE_SHADOW(T,uv)         T.SampleCmpLevelZero(smpCmp, uv.xy/uv.w, uv.z/uv.w)
+	#endif
+
 	#define SAMPLE_3D(T,uv)             T.SampleLevel(smpLinearWrap, uv, 0)
-	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear,      uv)
+	#define SAMPLE_CUBE(T,uv)           T.Sample(smpLinear, uv)
 
 	#define POSITION    SV_POSITION
 #else
@@ -99,7 +106,7 @@ struct VS_INPUT {
 	#if defined(_GAPI_GXM)
 		#define SAMPLE_SHADOW(T,uv)     f1tex2Dproj(T, uv)
 	#else
-		#define SAMPLE_SHADOW(T,uv)     ((tex2D(T, uv.xy/uv.w).r >= uv.z/uv.w) ? 1 : 0)
+		#define SAMPLE_SHADOW(T,uv)     ((unpack(tex2D(T, uv.xy/uv.w)) >= uv.z/uv.w) ? 1 : 0)
 	#endif
 
 	#define SAMPLE_3D(T,uv)             tex3D(T, uv)
@@ -129,6 +136,11 @@ float4      uContacts[MAX_CONTACTS] : register( c98 );
 #ifdef _GAPI_GXM
 	//#define OPT_AMBIENT
 	#define OPT_SHADOW
+	//#define OPT_CONTACT
+	//#define OPT_CAUSTICS
+#elif _GAPI_D3D11_9_3
+	//#define OPT_AMBIENT
+	//#define OPT_SHADOW
 	//#define OPT_CONTACT
 	//#define OPT_CAUSTICS
 #else

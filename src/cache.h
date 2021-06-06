@@ -981,6 +981,10 @@ struct WaterCache {
 
         mat4 mProj = GAPI::ortho(0.0f, float(tex->origWidth), 0.0f, float(tex->origHeight), 0.0f, 1.0f);
 
+    #ifdef _OS_WP8
+        mProj.unrot90();
+    #endif
+
         Core::active.shader->setParam(uViewProj, mProj);
         Core::active.shader->setParam(uMaterial, vec4(1.0f));
 

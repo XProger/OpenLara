@@ -127,32 +127,10 @@ struct OptionItem {
 
 #define SETTINGS(x) int32(OFFSETOF(Core::Settings, x))
 
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_CLOVER) || defined(_OS_PSC) || defined(_OS_XBOX) || defined(_OS_XB1)
-    #define INV_GAMEPAD_ONLY
-#else
-    #define INV_QUALITY
-#endif
-
-#if !(defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0) || defined(_OS_XBOX) || defined(_OS_XB1)) 
-    #define INV_STEREO
-#endif
-
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_GCW0)
-    #define INV_SINGLE_PLAYER
-#endif
-
-#if defined(_OS_PSP) || defined(_OS_PSV) || defined(_OS_3DS) || defined(_OS_CLOVER) || defined(_OS_XBOX)
-    #define INV_GAMEPAD_NO_TRIGGER
-#endif
-
 #ifdef INV_SINGLE_PLAYER
     #define INV_CTRL_START_OPTION 1
 #else
     #define INV_CTRL_START_OPTION 2
-#endif
-
-#if defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_GCW0) || defined(_OS_XBOX) || defined(_OS_XB1)
-    #define INV_VIBRATION
 #endif
 
 static const OptionItem optDetail[] = {
@@ -1757,6 +1735,11 @@ struct Inventory {
         }
 
         float aspectDst = float(Core::width) / float(Core::height) * Core::aspectFix;
+
+        #ifdef _OS_WP8
+            aspectDst = 1.0f / aspectDst;
+        #endif
+
         float aspectImg = aspectSrc / aspectDst;
 
         #ifdef FFP
