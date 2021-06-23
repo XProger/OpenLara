@@ -78,6 +78,8 @@
         #define GL_TEXTURE_COMPARE_FUNC     0x884D
         #define GL_COMPARE_REF_TO_TEXTURE   0x884E
 
+        #define GL_NUM_EXTENSIONS           0x821D
+
         #undef  GL_RG
         #undef  GL_RG32F
         #undef  GL_RG16F
@@ -92,6 +94,9 @@
         #define GL_RG16F        GL_RGBA
         #define GL_HALF_FLOAT   GL_HALF_FLOAT_OES
 
+        #define GL_R8           GL_R8_EXT
+        #define GL_RED          GL_RED_EXT
+
         #define GL_TEXTURE_WRAP_R       0
         #define GL_DEPTH_STENCIL        GL_DEPTH_STENCIL_OES
         #define GL_UNSIGNED_INT_24_8    GL_UNSIGNED_INT_24_8_OES
@@ -104,11 +109,11 @@
         #endif
 
         #define GL_PROGRAM_BINARY_LENGTH     GL_PROGRAM_BINARY_LENGTH_OES
-        #else // We want GLES3 on SDL2
+    #else // We want GLES3 on SDL2
         #include <GLES3/gl3.h>
         #include <GLES3/gl3ext.h>
         #include <GLES2/gl2ext.h>
-        #endif //GAPI_GLES2
+    #endif //GAPI_GLES2
 
     // These are needed for both GLES2 and GLES3 on SDL2
     #define glGenVertexArrays(...)
@@ -1151,6 +1156,7 @@ namespace GAPI {
 
 
     bool extSupport(const char *str) {
+        #if !defined(_GAPI_GLES2) 
         if (glGetStringi != NULL) {
             GLint count = 0;
             glGetIntegerv(GL_NUM_EXTENSIONS, &count); 
@@ -1160,7 +1166,9 @@ namespace GAPI {
                     return true;
                 }
             }
-        } else {
+        } else
+        #endif
+        {
             const char *ext =  (const char*)glGetString(GL_EXTENSIONS);
             if (!ext) {
                 return false;
@@ -1172,6 +1180,7 @@ namespace GAPI {
     }
 
     void init() {
+
         #ifdef _OS_ANDROID
             //void *libGL = dlopen("libGLESv2.so", RTLD_LAZY);
         #endif
