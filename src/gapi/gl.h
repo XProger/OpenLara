@@ -271,32 +271,11 @@
         //#define GL_TEXTURE_COMPARE_FUNC     GL_TEXTURE_COMPARE_FUNC_EXT
         //#define GL_COMPARE_REF_TO_TEXTURE   GL_COMPARE_REF_TO_TEXTURE_EXT
     #else
-        #include <Carbon/Carbon.h>
         #include <AudioToolbox/AudioQueue.h>
-        #include <OpenGL/OpenGL.h>
-        #include <OpenGL/gl.h>
-        #include <OpenGL/glext.h>
-        #include <AGL/agl.h>
+        #include <OpenGL/gl3.h>
+        #include <OpenGL/gl3ext.h>
 
-        #define GL_RG                       0x8227
-        #define GL_RG16F                    0x822F
-        #define GL_RG32F                    0x8230
-        #define GL_RGBA16F                  0x881A
-        #define GL_RGBA32F                  0x8814
-        #define GL_HALF_FLOAT               0x140B
-
-        #define GL_RGB565                   GL_RGBA
-        #define GL_TEXTURE_COMPARE_MODE     0x884C
-        #define GL_TEXTURE_COMPARE_FUNC     0x884D
-        #define GL_COMPARE_REF_TO_TEXTURE   0x884E
-
-        #define glGenVertexArrays    glGenVertexArraysAPPLE
-        #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
-        #define glBindVertexArray    glBindVertexArrayAPPLE
-
-        #define GL_PROGRAM_BINARY_LENGTH 0
-        #define glGetProgramBinary(...)  0
-        #define glProgramBinary(...)     0
+        #define GL_LUMINANCE 0x1909
     #endif
 #elif _OS_WEB
     #include <emscripten/emscripten.h>
