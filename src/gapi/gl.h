@@ -274,6 +274,14 @@
         #include <AudioToolbox/AudioQueue.h>
         #include <OpenGL/gl3.h>
         #include <OpenGL/gl3ext.h>
+        #include <OpenGL/glext.h>
+
+        // In compatibility mode, macOS only provides OpenGL 2.1 (no VAO), but it does
+        // support the Apple-specific VAO extension which is older and in all relevant
+        // parts 100% compatible. So use those functions instead.
+        #define glGenVertexArrays    glGenVertexArraysAPPLE
+        #define glDeleteVertexArrays glDeleteVertexArraysAPPLE
+        #define glBindVertexArray    glBindVertexArrayAPPLE
 
         #define GL_LUMINANCE 0x1909
     #endif
@@ -1135,7 +1143,7 @@ namespace GAPI {
 
 
     bool extSupport(const char *str) {
-        #if !defined(_GAPI_GLES2) 
+        #if !defined(_GAPI_GLES2) && !_OS_MAC
         if (glGetStringi != NULL) {
             GLint count = 0;
             glGetIntegerv(GL_NUM_EXTENSIONS, &count); 
