@@ -2,6 +2,28 @@
 #define H_ROOM
 
 #include "common.h"
+#include "camera.h"
+
+void animTexturesShift()
+{
+    const int16* data = level.animTexData;
+
+    int32 texRangesCount = *data++;
+
+    for (int32 i = 0; i < texRangesCount; i++)
+    {
+        int32 count = *data++;
+
+        Texture tmp = textures[*data];
+        while (count > 0)
+        {
+            textures[data[0]] = textures[data[1]];
+            data++;
+            count--;
+        }
+        textures[*data++] = tmp;
+    }
+}
 
 int32 getBridgeFloor(const Item* item, int32 x, int32 z)
 {
@@ -22,7 +44,7 @@ int32 getBridgeFloor(const Item* item, int32 x, int32 z)
 
     h &= 1023;
 
-    return item->pos.y + ((item->type == ITEM_BRIDGE_TILT1) ? (h >> 2) : (h >> 1));
+    return item->pos.y + ((item->type == ITEM_BRIDGE_TILT_1) ? (h >> 2) : (h >> 1));
 }
 
 int32 getTrapDoorFloor(const Item* item, int32 x, int32 z)
@@ -79,8 +101,8 @@ void getItemFloorCeiling(const Item* item, int32 x, int32 y, int32 z, int32* flo
             break;
         }
         case ITEM_BRIDGE_FLAT:
-        case ITEM_BRIDGE_TILT1:
-        case ITEM_BRIDGE_TILT2:
+        case ITEM_BRIDGE_TILT_1:
+        case ITEM_BRIDGE_TILT_2:
         {
             h = getBridgeFloor(item, x, z);
             break;
@@ -119,14 +141,14 @@ const Sector* Sector::getSectorBelow(int32 posX, int32 posZ) const
 {
     if (roomBelow == NO_ROOM)
         return this;
-    return rooms[roomBelow].getSector(posX, posZ);
+    return rooms[roomBelow].getSector(posX, posZ)->getSectorBelow(posX, posZ);
 }
 
 const Sector* Sector::getSectorAbove(int32 posX, int32 posZ) const
 {
     if (roomAbove == NO_ROOM)
         return this;
-    return rooms[roomAbove].getSector(posX, posZ);
+    return rooms[roomAbove].getSector(posX, posZ)->getSectorAbove(posX, posZ);
 }
 
 int32 Sector::getFloor(int32 x, int32 y, int32 z) const
@@ -291,12 +313,47 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
 }
 
 
-const Sector* Room::getSector(int32 posX, int32 posZ) const
+const Sector* Room::getSector(int32 x, int32 z) const
 {
-    int32 sx = X_CLAMP((posX - (info->x << 8)) >> 10, 0, info->xSectors - 1);
-    int32 sz = X_CLAMP((posZ - (info->z << 8)) >> 10, 0, info->zSectors - 1);
+    int32 sx = X_CLAMP((x - (info->x << 8)) >> 10, 0, info->xSectors - 1);
+    int32 sz = X_CLAMP((z - (info->z << 8)) >> 10, 0, info->zSectors - 1);
 
     return sectors + sx * info->zSectors + sz;
+}
+
+const Sector* Room::getWaterSector(int32 x, int32 z) const
+{
+    const Room* room = this;
+    const Sector* sector = room->getSector(x, z);
+
+    // go up to the air
+    if (room->info->flags.water)
+    {
+        while (sector->roomAbove != NO_ROOM)
+        {
+            room = rooms + sector->roomAbove;
+
+            if (!room->info->flags.water) {
+                return sector;
+            }
+
+            sector = room->getSector(x, z);
+        }
+        return sector;
+    }
+    
+    // go down to the water
+    while (sector->roomBelow != NO_ROOM)
+    {
+        room = rooms + sector->roomBelow;
+        sector = room->getSector(x, z);
+
+        if (room->info->flags.water) {
+            return sector;
+        }
+    }
+
+    return NULL;
 }
 
 Room* Room::getRoom(int32 x, int32 y, int32 z)
@@ -327,16 +384,6 @@ Room* Room::getRoom(int32 x, int32 y, int32 z)
     }
 
     return room;
-}
-
-int32 Room::getWaterLevel()
-{
-    return WALL; // TODO
-}
-
-int32 Room::getWaterDepth()
-{
-    return WALL; // TODO
 }
 
 bool Room::checkPortal(const Portal* portal)
@@ -598,10 +645,61 @@ void Room::remove(Item* item)
     }
 }
 
+void checkCamera(const FloorData* fd)
+{
+    if (camera.mode == CAMERA_MODE_OBJECT)
+        return;
+
+    while (1)
+    {
+        FloorData::TriggerCommand triggerCmd = (fd++)->triggerCmd;
+
+        switch (triggerCmd.action)
+        {
+            case TRIGGER_ACTION_ACTIVATE_CAMERA:
+            {
+                triggerCmd.end = (fd++)->triggerCmd.end;
+
+                if (triggerCmd.args != camera.lastIndex)
+                    break;
+
+                camera.index = triggerCmd.args;
+
+                if (camera.timer < 0 || camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
+                {
+                    camera.timer = -1;
+                    break;
+                }
+
+                camera.mode = CAMERA_MODE_FIXED;
+                break;
+            }
+
+            case TRIGGER_ACTION_CAMERA_TARGET:
+            {
+                if (camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
+                    break;
+
+                ASSERT(triggerCmd.args < level.itemsCount);
+                camera.lookAtItem = items + triggerCmd.args;
+                break;
+            }
+
+            case TRIGGER_ACTION_FLYBY:
+            {
+                triggerCmd.end = (fd++)->triggerCmd.end;
+                break;
+            }
+        }
+
+        if (triggerCmd.end) break;
+    };
+}
 
 void checkTrigger(const FloorData* fd, Item* lara)
 {
-    if (!fd) return;
+    if (!fd)
+        return;
 
     if (fd->cmd.func == FLOOR_TYPE_LAVA)
     {
@@ -609,6 +707,7 @@ void checkTrigger(const FloorData* fd, Item* lara)
 
         if (fd->cmd.end)
             return;
+
         fd++;
     }
 
@@ -616,8 +715,9 @@ void checkTrigger(const FloorData* fd, Item* lara)
     FloorData::TriggerInfo info = (fd++)->triggerInfo;
 
     Item* switchItem = NULL;
-    Item* keyItem = NULL;
-    Item* pickupItem = NULL;
+    Item* cameraItem = NULL;
+
+    checkCamera(fd);
 
     if (!lara && cmd.type != TRIGGER_TYPE_OBJECT)
         return;
@@ -631,37 +731,48 @@ void checkTrigger(const FloorData* fd, Item* lara)
 
             case TRIGGER_TYPE_PAD:
             case TRIGGER_TYPE_ANTIPAD:
-                if (lara->pos.y != lara->floor)
+            {
+                if (lara->pos.y != lara->roomFloor)
                     return;
                 break;
+            }
 
             case TRIGGER_TYPE_SWITCH:
+            {
                 switchItem = items + fd->triggerCmd.args;
                 if (!useSwitch(switchItem, info.timer))
                     return;
                 fd++;
                 break;
+            }
 
             case TRIGGER_TYPE_KEY:
-                keyItem = items + fd->triggerCmd.args;
-                if (!useKey(keyItem))
+            {
+                Item* keyItem = items + fd->triggerCmd.args;
+                if (!useKey(keyItem, lara))
                     return;
                 fd++;
                 break;
+            }
 
             case TRIGGER_TYPE_PICKUP:
-                pickupItem = items + fd->triggerCmd.args;
+            {
+                Item* pickupItem = items + fd->triggerCmd.args;
                 if (!usePickup(pickupItem))
                     return;
                 fd++;
                 break;
+            }
                 
             case TRIGGER_TYPE_OBJECT:
                 return;
 
             case TRIGGER_TYPE_COMBAT:
-                // TODO unused? 
+            {
+                if (lara->weaponState != WEAPON_STATE_READY)
+                    return;
                 break;
+            }
 
             case TRIGGER_TYPE_DUMMY:
                 return;
@@ -674,15 +785,18 @@ void checkTrigger(const FloorData* fd, Item* lara)
 
         switch (triggerCmd.action)
         {
-            case TRIGGER_ACTION_ACTIVATE_OBJECT: {
+            case TRIGGER_ACTION_ACTIVATE_OBJECT:
+            {
+                ASSERT(triggerCmd.args < level.itemsCount);
                 Item* item = items + triggerCmd.args;
                 
                 if (item->flags.once)
                     break;
 
                 item->timer = info.timer;
-                if (item->timer != 1)
+                if (item->timer != 1) {
                     item->timer *= 30;
+                }
 
                 if (cmd.type == TRIGGER_TYPE_SWITCH) {
                     item->flags.mask ^= info.mask;
@@ -707,8 +821,40 @@ void checkTrigger(const FloorData* fd, Item* lara)
             }
 
             case TRIGGER_ACTION_ACTIVATE_CAMERA:
-                // TODO fixed camera
+            {
+                FloorData::TriggerCommand cam = (fd++)->triggerCmd;
+                triggerCmd.end = cam.end;
+
+                if (cameras[triggerCmd.args].flags.once)
+                    break;
+
+                camera.index = triggerCmd.args;
+
+                if (camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
+                    break;
+
+                if (cmd.type == TRIGGER_TYPE_COMBAT)
+                    break;
+
+                if (cmd.type == TRIGGER_TYPE_SWITCH && (switchItem->state == 1) && (info.timer != 0))
+                    break;
+
+                if (cmd.type == TRIGGER_TYPE_SWITCH || camera.index != camera.lastIndex)
+                {
+                    camera.timer = cam.timer;
+                    if (camera.timer != 1) {
+                        camera.timer *= 30;
+                    }
+
+                    if (cam.once) {
+                        cameras[camera.index].flags.once = true;
+                    }
+                
+                    camera.speed = (cam.speed << 3) + 1;
+                    camera.mode = lara ? CAMERA_MODE_FIXED : CAMERA_MODE_OBJECT;
+                }
                 break;
+            }
 
             case TRIGGER_ACTION_FLOW:
                 // TODO flow
@@ -727,14 +873,17 @@ void checkTrigger(const FloorData* fd, Item* lara)
                 break;
 
             case TRIGGER_ACTION_CAMERA_TARGET:
-                // TODO change fixed camera target
+            {
+                cameraItem = items + triggerCmd.args;
                 break;
+            }
 
             case TRIGGER_ACTION_END:
                 // TODO go to the next level
                 break;
 
-            case TRIGGER_ACTION_SOUNDTRACK: {
+            case TRIGGER_ACTION_SOUNDTRACK:
+            {
                 int32 track = doTutorial(lara, triggerCmd.args);
 
                 if (track == 0) break;
@@ -764,7 +913,8 @@ void checkTrigger(const FloorData* fd, Item* lara)
                 // TODO effect
                 break;
 
-            case TRIGGER_ACTION_SECRET: {
+            case TRIGGER_ACTION_SECRET:
+            {
                 if ((gSaveGame.secrets >> triggerCmd.args) & 1)
                     break;
 
@@ -777,6 +927,7 @@ void checkTrigger(const FloorData* fd, Item* lara)
                 break;
 
             case TRIGGER_ACTION_FLYBY:
+                triggerCmd.end = (fd++)->triggerCmd.end;
                 break;
 
             case TRIGGER_ACTION_CUTSCENE:
@@ -785,6 +936,11 @@ void checkTrigger(const FloorData* fd, Item* lara)
 
         if (triggerCmd.end) break;
     };
+
+    if (cameraItem && (camera.mode == CAMERA_MODE_FIXED || camera.mode == CAMERA_MODE_OBJECT))
+    {
+        camera.lookAtItem = cameraItem;
+    }
 }
 
 #endif

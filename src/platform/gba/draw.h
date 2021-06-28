@@ -4,7 +4,85 @@
 #include "common.h"
 #include "item.h"
 
-extern AABB fastClipAABB;
+int32 lightAmbient;
+
+int32 caustics[MAX_CAUSTICS];
+int32 causticsRand[MAX_CAUSTICS];
+int32 causticsFrame;
+
+void drawInit()
+{
+    for (int32 i = 0; i < MAX_CAUSTICS; i++)
+    {
+        int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
+        caustics[i] = phd_sin(rot) * 768 >> FIXED_SHIFT;
+        causticsRand[i] = (rand_draw() >> 5) - 511;
+    }
+}
+
+void drawFree()
+{
+    //
+}
+
+void calcLightingDynamic(const Room* room, const vec3i &point)
+{
+    const RoomInfo* info = room->info;
+
+    lightAmbient = (info->ambient << 5);
+
+    if (!info->lightsCount)
+        return;
+
+    lightAmbient = 8191 - lightAmbient;
+    int32 maxLum = 0;
+
+    for (int i = 0; i < info->lightsCount; i++)
+    {
+        const Light* light = room->data.lights + i;
+
+        vec3i pos;
+        pos.x = light->pos.x + (info->x << 8);
+        pos.y = light->pos.y;
+        pos.z = light->pos.z + (info->z << 8);
+
+        int32 radius = light->radius << 8;
+        int32 intensity = light->intensity << 5;
+
+        vec3i d = point - pos;
+        int32 dist = dot(d, d) >> 12;
+        int32 att = X_SQR(radius) >> 12;
+
+        int32 lum = (intensity * att) / (dist + att) + lightAmbient;
+
+        if (lum > maxLum)
+        {
+            maxLum = lum;
+        }
+    }
+
+    lightAmbient = 8191 - ((maxLum + lightAmbient) >> 1);
+
+    Matrix &m = matrixGet();
+
+    int32 fogZ = m[2].w >> FIXED_SHIFT;
+    if (fogZ > FOG_MIN) {
+        lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
+        lightAmbient = X_MIN(lightAmbient, 8191);
+    }
+}
+
+void calcLightingStatic(int32 intensity)
+{
+    lightAmbient = intensity - 4096;
+
+    Matrix &m = matrixGet();
+
+    int32 fogZ = m[2].w >> FIXED_SHIFT;
+    if (fogZ > FOG_MIN) {
+        lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
+    }
+}
 
 void drawNumber(int32 number, int32 x, int32 y)
 {
@@ -22,7 +100,7 @@ void drawNumber(int32 number, int32 x, int32 y)
     }
 }
 
-void drawMesh(int16 meshIndex, uint16 intensity)
+void drawMesh(int16 meshIndex)
 {
     int32 offset = level.meshOffsets[meshIndex];
     const uint8* ptr = level.meshData + offset;
@@ -33,12 +111,17 @@ void drawMesh(int16 meshIndex, uint16 intensity)
     const vec3s* vertices = (vec3s*)ptr;
     ptr += vCount * 3 * sizeof(int16);
 
+    const uint16* vIntensity = NULL;
+    const vec3s* vNormal = NULL;
+
     int16 nCount = *(int16*)ptr; ptr += 2;
     //const int16* normals = (int16*)ptr;
     if (nCount > 0) { // normals
+        vNormal = (vec3s*)ptr;
         ptr += nCount * 3 * sizeof(int16);
     } else { // intensity
-        ptr += vCount * sizeof(int16);
+        vIntensity = (uint16*)ptr;
+        ptr += vCount * sizeof(uint16);
     }
 
     int16     rCount = *(int16*)ptr; ptr += 2;
@@ -56,7 +139,7 @@ void drawMesh(int16 meshIndex, uint16 intensity)
     int32 startVertex = gVerticesCount;
 
     PROFILE_START();
-    transformMesh(vertices, vCount, intensity);
+    transformMesh(vertices, vCount, vIntensity, vNormal);
     PROFILE_STOP(dbg_transform);
 
     PROFILE_START();
@@ -106,16 +189,17 @@ void drawShadow(const Item* item, int32 size)
         6, 3, 4, 5
     };
 
-    faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 0, startVertex);
-    faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 4, startVertex);
-    faceAddQuad(FACE_COLORED | FACE_FLAT | FACE_SHADOW, indices + 8, startVertex);
+    faceAddQuad(FACE_SHADOW, indices + 0, startVertex);
+    faceAddQuad(FACE_SHADOW, indices + 4, startVertex);
+    faceAddQuad(FACE_SHADOW, indices + 8, startVertex);
 
     matrixPop();
 }
 
 void drawSprite(const Item* item)
 {
-    // TODO
+    vec3i d = item->pos - cameraViewPos;
+    faceAddSprite(d.x, d.y, d.z, item->intensity << 5, models[item->type].start);
 }
 
 void drawModel(const Item* item, uint16* meshOverrides)
@@ -134,7 +218,10 @@ void drawModel(const Item* item, uint16* meshOverrides)
     int32 intensity = item->intensity << 5;
 
     if (intensity == 0) {
-        intensity = item->calcLighting(frame->box);
+        vec3i point = item->getRelative(frame->box.getCenter());
+        calcLightingDynamic(item->room, point);
+    } else {
+        calcLightingStatic(intensity);
     }
 
     int32 vis = boxIsVisible(&frame->box);
@@ -156,7 +243,7 @@ void drawModel(const Item* item, uint16* meshOverrides)
 
         matrixFrame(frame->pos, frameAngles);
 
-        drawMesh(meshOverrides ? meshOverrides[0] : model->start, intensity);
+        drawMesh(meshOverrides ? meshOverrides[0] : model->start);
 
         for (int32 i = 1; i < model->count; i++)
         {
@@ -166,7 +253,7 @@ void drawModel(const Item* item, uint16* meshOverrides)
             frameAngles += 2;
             matrixFrame(node->pos, frameAngles);
 
-            drawMesh(meshOverrides ? meshOverrides[i] : (model->start + i), intensity);
+            drawMesh(meshOverrides ? meshOverrides[i] : (model->start + i));
 
             node++;
         }
@@ -209,21 +296,27 @@ void drawRoom(const Room* room)
     enableClipping = true;
 
     PROFILE_START();
-    transformRoom(data.vertices, info->verticesCount);
+    transformRoom(data.vertices, info->verticesCount, info->flags.water);
     PROFILE_STOP(dbg_transform);
-
-    matrixPop();
 
     PROFILE_START();
     faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount, startVertex);
     PROFILE_STOP(dbg_poly);
 
+    for (int32 i = 0; i < info->spritesCount; i++)
+    {
+        const RoomSprite* sprite = data.sprites + i;
+        faceAddSprite(sprite->pos.x, sprite->pos.y, sprite->pos.z, sprite->g << 5, sprite->index);
+    }
+
+    matrixPop();
+
     for (int32 i = 0; i < info->meshesCount; i++)
     {
         const RoomMesh* mesh = data.meshes + i;
 
-    #ifdef NO_STATIC_MESHES
-        if (mesh->id != STATIC_MESH_GATE) continue;
+    #ifdef NO_STATIC_MESH_PLANTS
+        if (mesh->id < 10) continue;
     #endif
 
         const StaticMesh* staticMesh = staticMeshes + mesh->id;
@@ -243,8 +336,10 @@ void drawRoom(const Room* room)
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis != 0) {
-            enableClipping = vis < 0;
-            drawMesh(staticMesh->meshIndex, mesh->intensity << 5);
+            enableClipping = true;//vis < 0; // TODO wrong visibility BBox?
+
+            calcLightingStatic(mesh->intensity << 5);
+            drawMesh(staticMesh->meshIndex);
         }
 
         matrixPop();
@@ -276,104 +371,5 @@ void drawRooms()
 
     flush();
 }
-
-#ifdef TEST
-void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex);
-
-extern Vertex gVertices[MAX_VERTICES];
-
-Rect testClip = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
-int32 testTile = 10; // 707 // 712
-
-void drawTest() {
-#ifdef _WIN32
-    Sleep(16);
-#endif
-
-    int dx = 0;
-    int dy = 0;
-
-    if (keys & IK_LEFT) dy++;
-    if (keys & IK_RIGHT) dy--;
-    if (keys & IK_UP) dx--;
-    if (keys & IK_DOWN) dx++;
-
-    if (keys & IK_L) {
-        testClip.x0 += dx;
-        testClip.y0 += dy;
-    }
-
-    if (keys & IK_R) {
-        testClip.x1 += dx;
-        testClip.y1 += dy;
-    }
-
-    if (keys & IK_A) {
-        testTile++;
-        //Sleep(100);
-    }
-
-    if (keys & IK_B) {
-        testTile--;
-        //Sleep(100);
-    }
-
-    //testTile = (testTile + texturesCount) % texturesCount;
-
-    clip = testClip;
-
-    static int vidx = 0;
-
-    if (keys & IK_SELECT) {
-        vidx++;
-        //Sleep(100);
-    }
-
-    gVertices[(vidx + 0) % 4].x = -25;
-    gVertices[(vidx + 0) % 4].y = -25;
-
-    gVertices[(vidx + 1) % 4].x = 25;
-    gVertices[(vidx + 1) % 4].y = -25;
-
-    gVertices[(vidx + 2) % 4].x = 50;
-    gVertices[(vidx + 2) % 4].y = 25;
-
-    gVertices[(vidx + 3) % 4].x = -50;
-    gVertices[(vidx + 3) % 4].y = 25;
-
-    for (int i = 0; i < 4; i++)
-    {
-        gVertices[i].x += FRAME_WIDTH/2;
-        gVertices[i].y += FRAME_HEIGHT/2;
-        gVertices[i].z = 100;
-        gVertices[i].g = 16;
-        gVertices[i].clip = classify(gVertices[i], clip);
-    }
-    gVerticesCount = 4;
-
-    Index indices[] = { 0, 1, 2, 3, 0, 2, 3 };
-
-    faceAddQuad(testTile, indices, 0);
-
-#ifdef _WIN32
-    for (int y = 0; y < FRAME_HEIGHT; y++)
-    {
-        for (int x = 0; x < FRAME_WIDTH; x++)
-        {
-            if (x == clip.x0 || x == clip.x1 - 1 || y == clip.y0 || y == clip.y1 - 1)
-            {
-            #ifdef MODE4
-                ((uint8*)fb)[y * FRAME_WIDTH + x] = 255;
-            #else
-                ((uint16*)fb)[y * FRAME_WIDTH + x] = 255;
-            #endif
-            }
-        }
-    }
-#endif
-
-    flush();
-}
-#endif
 
 #endif

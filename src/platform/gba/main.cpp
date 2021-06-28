@@ -1,11 +1,13 @@
 #if defined(_WIN32) || defined(__DOS__)
-    void* LEVEL1_PKD;
-    void* TRACK_13_WAV;
+    const void* TRACK_13_WAV;
+    const void* levelData;
+    #define LEVEL_NAME "LEVEL1.PKD"
 #elif defined(__GBA__)
-    #include "LEVEL1_PKD.h"
     #include "TRACK_13_WAV.h"
+    #include "LEVEL1_PKD.h"
+    const void* levelData = LEVEL1_PKD;
 #elif defined(__TNS__)
-    void* LEVEL1_PHD;
+    const void* levelData;
 #endif
 
 #include "game.h"
@@ -41,10 +43,21 @@ int32 fpsCounter = 0;
         memcpy(MEM_PAL_BG, palette, 256 * 2);
     #endif
     }
+
+    int32 osGetSystemTimeMS()
+    {
+        return GetTickCount();
+    }
+
 #elif defined(__GBA__)
     void paletteSet(const uint16* palette)
     {
         memcpy((uint16*)MEM_PAL_BG, palette, 256 * 2);
+    }
+
+    int32 osGetSystemTimeMS()
+    {
+        return 0; // TODO
     }
 #elif defined(__TNS__)
     unsigned int osTime;
@@ -67,9 +80,14 @@ int32 fpsCounter = 0;
         osTime = *timerCLK;
     }
 
-    int GetTickCount()
+    int32 GetTickCount()
     {
         return (osTime - *timerCLK) / 33;
+    }
+
+    int32 osGetSystemTimeMS()
+    {
+        return *timerCLK / 33;
     }
 
     void paletteSet(uint16* palette)
@@ -419,7 +437,7 @@ int main(void) {
     {
     // level1
         #if defined(_WIN32) || defined(__DOS__)
-            FILE *f = fopen("data/LEVEL1.PKD", "rb");
+            FILE *f = fopen("data/" LEVEL_NAME, "rb");
         #elif defined(__TNS__)
             FILE *f = fopen("/documents/OpenLara/LEVEL1.PHD.tns", "rb");
         #else
@@ -430,12 +448,16 @@ int main(void) {
             return 0;
         }
 
-        fseek(f, 0, SEEK_END);
-        int32 size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        LEVEL1_PKD = new uint8[size];
-        fread(LEVEL1_PKD, 1, size, f);
-        fclose(f);
+        {
+            fseek(f, 0, SEEK_END);
+            int32 size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+            uint8* data = new uint8[size];
+            fread(data, 1, size, f);
+            fclose(f);
+
+            levelData = data;
+        }
 
     // track 13
         #if defined(_WIN32) || defined(__DOS__)
@@ -448,16 +470,14 @@ int main(void) {
             fseek(f, 0, SEEK_END);
             int32 size = ftell(f);
             fseek(f, 0, SEEK_SET);
-            TRACK_13_WAV = new uint8[size];
-            fread(TRACK_13_WAV, 1, size, f);
+            uint8* data = new uint8[size];
+            fread(data, 1, size, f);
             fclose(f);
+
+            TRACK_13_WAV = data;
         }
         #endif
     }
-#elif defined(__GBA__)
-    // set low latency mode via WAITCNT register (thanks to GValiente)
-    REG_WSCNT = WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH;
-    //*(vu32*)(REG_BASE+0x0800) = 0x0E000020; // Undocumented - Internal Memory Control (R/W)
 #endif
 
 #if defined(_WIN32)
@@ -506,6 +526,30 @@ int main(void) {
     // https://mgba-emu.github.io/gbatek/#4000002h---undocumented---green-swap-rw
     //uint16 &GreenSwap = *(uint16*)0x4000002;
     //GreenSwap = 1;
+
+    // set low latency mode via WAITCNT register (thanks to GValiente)
+    REG_WSCNT = WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH; // fast ROM
+    
+    // Undocumented - Internal Memory Control (R/W)
+    #define MEM_CHECK_MAGIC 14021968
+    vu32& fastAccessReg = *(vu32*)(REG_BASE+0x0800);
+
+    fastAccessReg = 0x0E000020; // fast EWRAM
+
+    vu32* fastAccessMem = (vu32*)soundBufferA; // check EWRAM access
+    // write
+    for (int32 i = 0; i < 16; i++)
+    {
+        fastAccessMem[i] = MEM_CHECK_MAGIC + i;
+    }
+    // read
+    for (int32 i = 0; i < 16; i++)
+    {
+        if (fastAccessMem[i] != vu32(MEM_CHECK_MAGIC + i))
+        {
+            fastAccessReg = 0x0D000020; // device doesn't support this feature, revert reg value
+        }
+    }
 
     soundInit();
 

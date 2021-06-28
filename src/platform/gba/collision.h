@@ -47,7 +47,7 @@ struct CollisionInfo
     vec3i pos;
 
     int16 angle;
-    int16 quadrant;
+    uint16 quadrant;
 
     CollisionType type;
 
@@ -132,8 +132,8 @@ bool collideStatic(Room* room, CollisionInfo &cinfo, const vec3i &p, int32 heigh
         {
             const RoomMesh* mesh = room->data.meshes + i;
 
-        #ifdef NO_STATIC_MESHES
-            if (mesh->id != STATIC_MESH_GATE) continue;
+        #ifdef NO_STATIC_MESH_PLANTS
+            if (mesh->id < 10) continue;
         #endif
 
             const StaticMesh* staticMesh = staticMeshes + mesh->id;
@@ -191,8 +191,8 @@ bool collideStatic(Room* room, CollisionInfo &cinfo, const vec3i &p, int32 heigh
 
 void collideRoom(Item* item, int32 height, int32 yOffset = 0)
 {
-    cinfo.type     = CT_NONE;
-    cinfo.offset   = vec3i(0, 0, 0);
+    cinfo.type = CT_NONE;
+    cinfo.offset = vec3i(0, 0, 0);
 
     vec3i p = item->pos;
     p.y += yOffset;
@@ -203,8 +203,10 @@ void collideRoom(Item* item, int32 height, int32 yOffset = 0)
 
     int32 floor, ceiling;
 
+    Room* room = item->room;
+
     #define CHECK_HEIGHT(v) {\
-        const Room* room = item->room->getRoom(v.x, cy, v.z);\
+        room = room->getRoom(v.x, cy, v.z);\
         const Sector* sector = room->getSector(v.x, v.z);\
         floor = sector->getFloor(v.x, cy, v.z);\
         if (floor != WALL) floor -= p.y;\

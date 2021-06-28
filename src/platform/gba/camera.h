@@ -3,18 +3,22 @@
 
 #include "common.h"
 
-#define CAM_SPEED           (1 << 3)
-#define CAM_ROT_SPEED       (1 << 9)
-#define CAM_ROT_X_MAX       int16(85 * 0x8000 / 180)
-#define CAM_DIST_FOLLOW     (1024 + 512)
+#define CAM_SPEED               (1 << 3)
+#define CAM_ROT_SPEED           (1 << 9)
+#define CAM_DIST_FOLLOW         (1024 + 512)
+#define CAMERA_ANGLE_FOLLOW    -10 * DEG2SHORT
+#define CAMERA_ANGLE_MAX        85 * DEG2SHORT
+#define CAMERA_TRACE_SHIFT      3
+#define CAMERA_TRACE_STEPS      (1 << CAMERA_TRACE_SHIFT)
 
 enum CameraMode
 {
-    CAMERA_MODE_FREE   = 0,
-    CAMERA_MODE_FOLLOW = 1,
-    CAMERA_MODE_COMBAT = 2,
-    CAMERA_MODE_FIXED  = 3,
-    CAMERA_MODE_OBJECT = 4,
+    CAMERA_MODE_FREE,
+    CAMERA_MODE_FOLLOW,
+    CAMERA_MODE_COMBAT,
+    CAMERA_MODE_LOOK,
+    CAMERA_MODE_FIXED,
+    CAMERA_MODE_OBJECT,
 };
 
 struct Camera
@@ -27,37 +31,63 @@ struct Camera
     Location view;
     Location target;
 
+    int32 targetDist;
     int16 targetAngleX;
     int16 targetAngleY;
-    int16 targetDist;
 
     int16 angleX;
     int16 angleY;
 
     AABB  frustumBase;
 
-    Item* item;
+    Item* laraItem;
+    Item* lastItem;
+    Item* lookAtItem;
+
+    int32 speed;
+    int32 timer;
+    int32 index;
+    int32 lastIndex;
 
     CameraMode mode;
-    bool modeSwitch;
 
-    void init()
+    bool modeSwitch;
+    bool lastFixed;
+    bool center;
+
+    void init(Item* lara)
     {
-        item = NULL;
-        mode = CAMERA_MODE_FOLLOW;
-        modeSwitch = false;
+        target.pos = lara->pos;
+        target.pos.y -= 1024;
+        target.room = lara->room;
+
+        view = target;
+        view.pos.z -= 100;
 
         angleX = 0;
         angleY = 0;
 
-        view.pos = vec3i(0);
-        target.pos = view.pos;
-        targetDist = CAM_DIST_FOLLOW;
         targetAngleX = 0;
         targetAngleY = 0;
+        targetDist = CAM_DIST_FOLLOW;
+
+        laraItem = lara;
+        lastItem = NULL;
+        lookAtItem = NULL;
+
+        speed = 1;
+        timer = 0;
+        index = -1;
+        lastIndex = -1;
+
+        mode = CAMERA_MODE_FOLLOW;
+
+        modeSwitch = false;
+        lastFixed = false;
+        center = false;
     }
 
-    void freeControl()
+    void updateFree()
     {
         matrixSetView(view.pos, angleX, angleY);
 
@@ -68,7 +98,7 @@ struct Camera
         if (keys & IK_LEFT)  angleY -= CAM_ROT_SPEED;
         if (keys & IK_RIGHT) angleY += CAM_ROT_SPEED;
 
-        angleX = X_CLAMP(angleX, -CAM_ROT_X_MAX, CAM_ROT_X_MAX);
+        angleX = X_CLAMP(angleX, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
 
         if (keys & IK_A)
         {
@@ -133,6 +163,166 @@ struct Camera
         return true;
     }
 
+    bool trace(const Location &from, Location &to, int32 radius)
+    {
+        vec3i d = to.pos - from.pos;
+        d.x >>= CAMERA_TRACE_SHIFT;
+        d.y >>= CAMERA_TRACE_SHIFT;
+        d.z >>= CAMERA_TRACE_SHIFT;
+
+        Room* room = from.room;
+        vec3i pos = from.pos;
+        int32 i;
+
+        for (i = 0; i < CAMERA_TRACE_STEPS; i++)
+        {
+            if (radius)
+            {
+                to.pos = pos;
+                to.room = room;
+            }
+
+            pos += d;
+            room = room->getRoom(pos.x, pos.y, pos.z);
+
+            const Sector* sector = room->getSector(pos.x, pos.z);
+            int32 floor = sector->getFloor(pos.x, pos.y, pos.z);
+            int32 ceiling = sector->getCeiling(pos.x, pos.y, pos.z);
+
+            if (floor == WALL || ceiling == WALL || ceiling >= floor)
+            {
+                return false;
+            }
+
+            int32 h = pos.y - floor;
+            if (h > 0)
+            {
+                if (h >= radius) {
+                    return false;
+                }
+                pos.y = floor;
+            }
+
+            h = ceiling - pos.y;
+            if (h > 0)
+            {
+                if (h >= radius) {
+                    return false;
+                }
+                pos.y = ceiling;
+            }
+        }
+
+        to.pos = pos;
+        to.room = room;
+
+        return true;
+    }
+
+    Location getLocationForAngle(int32 angle, int32 distH, int32 distV)
+    {
+        Location res;
+        res.pos.x = target.pos.x - (distH * phd_sin(angle) >> FIXED_SHIFT);
+        res.pos.y = target.pos.y + (distV);
+        res.pos.z = target.pos.z - (distH * phd_cos(angle) >> FIXED_SHIFT);
+        res.room = target.room;
+        return res;
+    }
+
+    Location getBestLocation(Item* item)
+    {
+        int32 distH = targetDist * phd_cos(targetAngleX) >> FIXED_SHIFT;
+        int32 distV = targetDist * phd_sin(targetAngleX) >> FIXED_SHIFT;
+
+        Location best = getLocationForAngle(targetAngleY + item->angle.y, distH, distV);
+
+        if (trace(target, best, 200))
+            return best;
+
+        int32 distQ = X_SQR(target.pos.x - best.pos.x) + X_SQR(target.pos.z - best.pos.z);
+
+        if (distQ > X_SQR(768))
+            return best;
+
+        int32 minDistQ = INT_MAX;
+
+        for (int32 i = 0; i < 4; i++)
+        {
+            Location tmp = getLocationForAngle(i * ANGLE_90, distH, distV);
+
+            if (!trace(target, tmp, 200) || !trace(tmp, view, 0)) {
+                continue;
+            }
+
+            distQ = X_SQR(view.pos.x - tmp.pos.x) + X_SQR(view.pos.z - tmp.pos.z);
+
+            if (distQ < minDistQ)
+            {
+                minDistQ = distQ;
+                best = tmp;
+            }
+        }
+
+        return best;
+    }
+
+    void move(const Location &to, int32 speed)
+    {
+        vec3i d = to.pos - view.pos;
+        if (speed > 1)
+        {
+            d.x /= speed;
+            d.y /= speed;
+            d.z /= speed;
+        }
+
+        view.pos += d;
+        view.room =  to.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
+    }
+
+    void updateFollow(Item* item)
+    {
+        if (targetAngleX == 0) {
+            targetAngleX = CAMERA_ANGLE_FOLLOW;
+        }
+
+        targetAngleX = X_CLAMP(targetAngleX + item->angle.x, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
+
+        Location best = getBestLocation(item);
+
+        move(best, lastFixed ? speed : 12);
+    }
+
+    void updateCombat()
+    {
+        //
+    }
+
+    void updateLook()
+    {
+        //
+    }
+
+    void updateFixed()
+    {
+        const FixedCamera* cam = cameras + index;
+
+        Location best;
+        best.pos = cam->pos;
+        best.room = rooms + cam->roomIndex;
+
+        lastFixed = true;
+        move(best, 1);
+
+        if (timer != 0)
+        {
+            timer--;
+            if (timer == 0) {
+                timer = -1;
+            }
+        }
+    }
+
     void update()
     {
         if (keys & IK_START)
@@ -152,51 +342,98 @@ struct Camera
 
         if (mode == CAMERA_MODE_FREE)
         {
-            freeControl();
-        }
-
-        if (mode == CAMERA_MODE_FOLLOW && item)
-        {
-            int32 tx = item->pos.x;
-            int32 ty = item->pos.y;
-            int32 tz = item->pos.z;
-
-            const Bounds &box = item->getBoundingBox();
-            ty += box.maxY + ((box.minY - box.maxY) * 3 >> 2);
-
-            target.pos.x = tx;
-            target.pos.y += (ty - target.pos.y) >> 2;
-            target.pos.z = tz;
-
-            int16 angle = item->angle.y + targetAngleY;
-
-            int32 dy = targetDist * phd_sin(targetAngleX) >> FIXED_SHIFT;
-            int32 dz = targetDist * phd_cos(targetAngleX) >> FIXED_SHIFT;
-
-            int32 cx = target.pos.x - (phd_sin(angle) * dz >> FIXED_SHIFT);
-            int32 cy = target.pos.y - 256 + dy;
-            int32 cz = target.pos.z - (phd_cos(angle) * dz >> FIXED_SHIFT);
-
-            view.pos.x += (cx - view.pos.x) >> 2;
-            view.pos.y += (cy - view.pos.y) >> 2;
-            view.pos.z += (cz - view.pos.z) >> 2;
-
+            updateFree();
+            prepareFrustum();
+            matrixSetView(view.pos, angleX, angleY);
             updateRoom();
-
-            vec3i dir = target.pos - view.pos;
-            anglesFromVector(dir.x, dir.y, dir.z, angleX, angleY);
+            return;
         }
+
+        bool isFixed = false;
+        Item* item = laraItem;
+
+        if (lookAtItem && (mode == CAMERA_MODE_FIXED || mode == CAMERA_MODE_OBJECT))
+        {
+            isFixed = true;
+            item = lookAtItem;
+        }
+
+        ASSERT(item);
+
+        target.room = item->room;
+
+        const Bounds &box = item->getBoundingBox();
+
+        int32 y = item->pos.y;
+        if (isFixed) {
+            y += (box.minY + box.maxY) >> 1;
+        } else {
+            y += box.maxY + ((box.minY - box.maxY) * 3 >> 2);
+        }
+
+        if (mode == CAMERA_MODE_LOOK || mode == CAMERA_MODE_COMBAT)
+        {
+            y -= 256;
+
+            if (lastFixed) {
+                target.pos.y = 0;
+                speed = 1;
+            } else {
+                target.pos.y += (y - target.pos.y) >> 2;
+                speed = (mode == CAMERA_MODE_LOOK) ? 4 : 8;
+            }
+        } else {
+            target.pos.x = item->pos.x;
+            target.pos.z = item->pos.z;
+
+            if (center)
+            {
+                int32 offset = (box.minZ + box.maxZ) >> 1;
+                target.pos.x += (phd_sin(item->angle.y) * offset) >> FIXED_SHIFT;
+                target.pos.z += (phd_cos(item->angle.y) * offset) >> FIXED_SHIFT;
+            }
+
+            lastFixed ^= isFixed;
+
+            if (lastFixed) {
+                target.pos.y = y;
+                speed = 1;
+            } else {
+                target.pos.y += (y - target.pos.y) >> 2;
+            }
+        }
+
+        switch (mode)
+        {
+            case CAMERA_MODE_FOLLOW : updateFollow(item); break;
+            case CAMERA_MODE_COMBAT : updateCombat(); break;
+            case CAMERA_MODE_LOOK   : updateLook(); break;
+            default                 : updateFixed();
+        }
+
+        lastFixed = isFixed;
+        lastIndex = index;
+
+        if (mode != CAMERA_MODE_OBJECT || timer == -1)
+        {
+            mode = CAMERA_MODE_FOLLOW;
+            index = -1;
+            lastItem = lookAtItem;
+            lookAtItem = NULL;
+            targetAngleX = 0;
+            targetAngleY = 0;
+            targetDist = CAM_DIST_FOLLOW;
+            center = false;
+        }
+
+        vec3i dir = target.pos - view.pos;
+        anglesFromVector(dir.x, dir.y, dir.z, angleX, angleY);
 
         prepareFrustum();
 
         matrixSetView(view.pos, angleX, angleY);
 
         updateRoom();
-
-    // reset additional angles, Lara states can override it during the update proc
-        targetAngleX = 0;
-        targetAngleY = 0;
-        targetDist = CAM_DIST_FOLLOW;
     }
 
     void prepareFrustum()

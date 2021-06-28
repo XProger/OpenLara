@@ -65,8 +65,10 @@ SP_RDT = 12
     ldrb indexB, [TILE, indexB]
     add t, dtdx
 
-  // cheap non-accurate alpha test, skip pixels pair if both are transparent
-    orrs indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
+  // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
+    ands indexA, #255
+    andnes indexB, #255
+    orrne indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
     ldrneb indexA, [LMAP, indexA]
     ldrneb indexB, [LMAP, indexB, lsr #8]
     orrne indexA, indexB, lsl #8
@@ -206,19 +208,19 @@ rasterizeFTA_mode4_asm:
 .align_left:
     tst tmp, #1                     // if (tmp & 1)
       beq .align_right
-    ldrb indexB, [tmp, #-1]!        // read pal index from VRAM (byte)
 
     and indexA, t, #0xFF00
     orr indexA, t, lsr #24          // res = (t & 0xFF00) | (t >> 24)
-    add t, dtdx
     ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
 
     cmp indexA, #0
+    ldrneb indexB, [tmp, #-1]        // read pal index from VRAM (byte)
     ldrneb indexA, [LMAP, indexA]
     orrne indexB, indexA, lsl #8
     strneh indexB, [tmp]
-    add tmp, #2
+
+    add tmp, #1
+    add t, dtdx
 
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
@@ -226,7 +228,6 @@ rasterizeFTA_mode4_asm:
 .align_right:
     tst width, #1
       beq .align_block_4px
-    ldrb indexB, [tmp, width]
 
     sub Rt, dtdx
     and indexA, Rt, #0xFF00
@@ -236,6 +237,7 @@ rasterizeFTA_mode4_asm:
 
     cmp indexA, #0
     ldrneb indexA, [LMAP, indexA]
+    ldrneb indexB, [tmp, width]
     orrne indexB, indexA, indexB, lsl #8
     strneh indexB, [tmp, width]
 

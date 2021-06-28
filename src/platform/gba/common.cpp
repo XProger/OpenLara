@@ -12,6 +12,31 @@ EWRAM_DATA SaveGame gSaveGame;
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
 
+int32 rand_seed_ctrl;
+int32 rand_seed_draw;
+
+void set_seed_ctrl(int32 seed)
+{
+    rand_seed_ctrl = seed;
+}
+
+void set_seed_draw(int32 seed)
+{
+    rand_seed_draw = seed;
+}
+
+#define X_RAND(seed) (((seed = 0x3039 + seed * 0x41C64E6D) >> 10) & 0x7FFF);
+
+int16 rand_ctrl()
+{
+    return X_RAND(rand_seed_ctrl);
+}
+
+int16 rand_draw()
+{
+    return X_RAND(rand_seed_draw);
+}
+
 const uint16 divTable[DIV_TABLE_SIZE] = { // ROM, not a big difference with IWRAM
     0xFFFF, 0xFFFF, 0x8000, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
     0x2000, 0x1C71, 0x1999, 0x1745, 0x1555, 0x13B1, 0x1249, 0x1111,
@@ -805,7 +830,9 @@ void matrixFrame(const vec3i &pos, uint16* angles)
     matrixRotateYXZ(angleX, angleY, angleZ);
 }
 
-#define LERP_FAST(a, b, mul, div) a = (a + b) >> 1
+#define LERP_1(a, b, mul, div) a = (b + a) >> 1
+#define LERP_2(a, b, mul, div) a = a + ((b - a) >> 2)
+#define LERP_3(a, b, mul, div) a = b - ((b - a) >> 2)
 #define LERP_SLOW(a, b, mul, div) a = a + (b - a) * mul / div
 
 #define LERP_ROW(lerp_func, a, b, mul, div) \
@@ -818,15 +845,23 @@ void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
 {
     Matrix &m = matrixGet();
 
-    if (divider == 2) {
-        LERP_ROW(LERP_FAST, m[0], n[0], multiplier, divider);
-        LERP_ROW(LERP_FAST, m[1], n[1], multiplier, divider);
-        LERP_ROW(LERP_FAST, m[2], n[2], multiplier, divider);
+    if ((divider == 2) || ((divider == 4) && (multiplier == 2))) {
+        LERP_ROW(LERP_1, m[0], n[0], multiplier, divider);
+        LERP_ROW(LERP_1, m[1], n[1], multiplier, divider);
+        LERP_ROW(LERP_1, m[2], n[2], multiplier, divider);
+    } else if (multiplier == 1) {
+        LERP_ROW(LERP_2, m[0], n[0], multiplier, divider);
+        LERP_ROW(LERP_2, m[1], n[1], multiplier, divider);
+        LERP_ROW(LERP_2, m[2], n[2], multiplier, divider);
     } else {
-        LERP_ROW(LERP_SLOW, m[0], n[0], multiplier, divider);
-        LERP_ROW(LERP_SLOW, m[1], n[1], multiplier, divider);
-        LERP_ROW(LERP_SLOW, m[2], n[2], multiplier, divider);
+        LERP_ROW(LERP_3, m[0], n[0], multiplier, divider);
+        LERP_ROW(LERP_3, m[1], n[1], multiplier, divider);
+        LERP_ROW(LERP_3, m[2], n[2], multiplier, divider);
     }
+
+    //LERP_ROW(LERP_SLOW, m[0], n[0], multiplier, divider);
+    //LERP_ROW(LERP_SLOW, m[1], n[1], multiplier, divider);
+    //LERP_ROW(LERP_SLOW, m[2], n[2], multiplier, divider);
 }
 
 void matrixSetIdentity()

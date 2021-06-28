@@ -105,8 +105,6 @@ struct Mixer
 
     void fill(uint8* bufferA, uint8* bufferB, int32 count)
     {
-        UNUSED(bufferB);
-
         if ((channelsCount == 0) && !music.data)
         {
             dmaFill(bufferA, SND_ENCODE(0), count);
@@ -178,9 +176,8 @@ struct Mixer
             }
         }
 
-        if (channelsCount >= SND_CHANNELS) {
+        if (channelsCount >= SND_CHANNELS)
             return NULL;
-        }
 
     #ifdef USE_9BIT_SOUND
         // expand 8 to 9-bit
@@ -195,6 +192,19 @@ struct Mixer
         sample->volume = volume + 1;
 
         return sample;
+    }
+
+    void stopSample(const uint8* data)
+    {
+        int32 i = channelsCount;
+
+        while (--i >= 0)
+        {
+            if (channels[i].data == data)
+            {
+                channels[i] = channels[--channelsCount];
+            }
+        }
     }
 
     void playMusic(const void* data)

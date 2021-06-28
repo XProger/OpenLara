@@ -14,13 +14,11 @@ struct Enemy : Item
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
         //
-        UNUSED(lara);
-        UNUSED(cinfo);
     }
 
     virtual void update()
     {
-        updateAnim();
+        animProcess();
     }
 };
 

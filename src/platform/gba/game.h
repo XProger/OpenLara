@@ -9,25 +9,23 @@
 #include "item.h"
 #include "draw.h"
 
-Lara* players[2];
-
-Lara* getLara(const vec3i &pos)
-{
-    UNUSED(pos); // TODO two players
-    return players[0]; // TODO find nearest player
-}
-
 struct Game
 {
+    int32 animTexFrame;
+
     void init()
     {
-        loadLevel(LEVEL1_PKD);
+        set_seed_ctrl(osGetSystemTimeMS() * 3);
+        set_seed_draw(osGetSystemTimeMS() * 7);
+
+        animTexFrame = 0;
+
+        loadLevel(levelData);
     }
 
     void loadLevel(const void* data)
     {
-        camera.init();
-
+        drawFree();
         readLevel((uint8*)data);
 
     // prepare rooms
@@ -39,34 +37,47 @@ struct Game
     // prepare items
         for (int32 i = 0; i < level.itemsCount; i++)
         {
-            Item* item = items + i;
             const ItemInfo* info = level.itemsInfo + i;
+            Item* item = items + i;
 
             item->type = info->type;
-            item->intensity = info->intensity << 5;
+            item->intensity = info->intensity;
 
             item->pos.x = info->pos.x + (rooms[info->roomIndex].info->x << 8);
             item->pos.y = info->pos.y;
             item->pos.z = info->pos.z + (rooms[info->roomIndex].info->z << 8);
 
-            item->angle.y = ((info->flags >> 14) - 2) * ANGLE_90;
-            item->flags.value = info->flags & 0x3FFF;
+            item->angle.y = (info->flags.angle - 2) * ANGLE_90;
+            item->flags.value = info->flags.value;
 
             item->init(rooms + info->roomIndex);
 
             if (item->type == ITEM_LARA)
             {
-                camera.item = item;
+                camera.init(item);
+                camera.laraItem = item;
 
             //#ifdef PROFILE
-            // debug
-                //resetItem(item, 0, vec3i(74588, 3072, 19673), 0); // level 1 (first darts)
-                //resetItem(item, 9, vec3i(49669, 7680, 57891), 0); // level 1 (first door)
-                //resetItem(item, 10, vec3i(43063, 7168, 61198), 0); // level 1 (transp)
-                //resetItem(item, 14, vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // level 1 (bridge)
-                //resetItem(item, 17, vec3i(16475, 6656, 59845), ANGLE_90); // level 1 (bear)
-                //resetItem(item, 26, vec3i(24475, 6912, 83505), ANGLE_90); // level 1 (switch timer)
-                //resetItem(item, 35, vec3i(35149, 2048, 74189), ANGLE_90); // level 1 (switch timer)
+            // gym
+                //resetItem(item, 13, vec3i(38953, 3328, 63961), ANGLE_90 + ANGLE_45); // pool
+            // level 1
+                //resetItem(item, 0, vec3i(74588, 3072, 19673), ANGLE_0); // first darts
+                //resetItem(item, 9, vec3i(49669, 7680, 57891), ANGLE_0); // first door
+                //resetItem(item, 10, vec3i(43063, 7168, 61198), ANGLE_0); // transp
+                //resetItem(item, 14, vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // bridge
+                //resetItem(item, 17, vec3i(16475, 6656, 59845), ANGLE_90); // bear
+                //resetItem(item, 26, vec3i(24475, 6912, 83505), ANGLE_90); // switch timer 1
+                //resetItem(item, 35, vec3i(35149, 2048, 74189), ANGLE_90); // switch timer 2
+            // level 2
+                //resetItem(item, 15, vec3i(66179, 0, 25920), -ANGLE_90 - ANGLE_45); // sprites
+                //resetItem(item, 19, vec3i(61018, 1024, 31214), ANGLE_180); // block
+                //resetItem(item, 14, vec3i(64026, 512, 20806), ANGLE_0); // key and puzzle
+                //resetItem(item, 5, vec3i(55644, 0, 29155), -ANGLE_90); // keyhole
+                //resetItem(item, 71, vec3i(12705, -768, 30195), -ANGLE_90); // puzzle
+                //resetItem(item, 63, vec3i(31055, -2048, 33406), ANGLE_0); // right room
+                //resetItem(item, 44, vec3i(27868, -1024, 29191), -ANGLE_90); // swing blades
+            // level 3a
+                //resetItem(item, 44, vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
             //#endif
 
                 camera.view.pos = camera.target.pos = item->pos;
@@ -75,6 +86,8 @@ struct Game
                 players[0] = (Lara*)item;
             }
         }
+
+        drawInit();
     }
 
     void resetItem(Item* item, int32 roomIndex, const vec3i &pos, int32 angleY)
@@ -99,11 +112,20 @@ struct Game
         }
     }
 
+    void nextFrame(int32 frames)
+    {
+        causticsFrame += frames;
+
+        animTexFrame += frames;
+        while (animTexFrame > 5)
+        {
+            animTexturesShift();
+            animTexFrame -= 5;
+        }
+    }
+
     void update(int32 frames)
     {
-    #ifdef TEST
-        return;
-    #endif
         if (frames > MAX_UPDATE_FRAMES) {
             frames = MAX_UPDATE_FRAMES;
         }
@@ -113,6 +135,8 @@ struct Game
             updateItems();
             camera.update();
         }
+
+        nextFrame(frames);
 
         if (keys & IK_SELECT) {
             mixer.playMusic(TRACK_13_WAV);
@@ -129,36 +153,22 @@ struct Game
 
         clear();
 
-        #ifdef TEST
-            #ifdef __GBA__
-                VBlankIntrWait();
-            #endif
+        #ifdef PROFILE
+            dbg_transform = 0;
+            dbg_poly = 0;
+            dbg_flush = 0;
+            dbg_vert_count = 0;
+            dbg_poly_count = 0;
+        #endif
 
-            int32 cycles = 0;
-            PROFILE_START();
-            drawTest();
-            PROFILE_STOP(cycles);
+        drawRooms();
 
-            drawNumber(cycles, TEXT_POSX, 32);
-        #else
-            #ifdef PROFILE
-                dbg_transform = 0;
-                dbg_poly = 0;
-                dbg_flush = 0;
-                dbg_vert_count = 0;
-                dbg_poly_count = 0;
-            #endif
-
-            drawRooms();
-
-            #ifdef PROFILE
-                drawNumber(dbg_transform, TEXT_POSX, 32);
-                drawNumber(dbg_poly, TEXT_POSX, 48);
-                drawNumber(dbg_flush, TEXT_POSX, 64);
-                drawNumber(dbg_vert_count, TEXT_POSX, 84);
-                drawNumber(dbg_poly_count, TEXT_POSX, 100);
-            #endif
-
+        #ifdef PROFILE
+            drawNumber(dbg_transform, TEXT_POSX, 32);
+            drawNumber(dbg_poly, TEXT_POSX, 48);
+            drawNumber(dbg_flush, TEXT_POSX, 64);
+            drawNumber(dbg_vert_count, TEXT_POSX, 84);
+            drawNumber(dbg_poly_count, TEXT_POSX, 100);
         #endif
 
         drawNumber(fps, TEXT_POSX, 16);

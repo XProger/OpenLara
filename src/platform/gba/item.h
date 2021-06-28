@@ -5,61 +5,59 @@
 #include "sound.h"
 #include "camera.h"
 #include "draw.h"
+#include "room.h"
 
 int32 curItemIndex;
 
 #define GRAVITY      6
 
-int16 angleDec(int16 angle, int32 value) {
-    if (angle < -value) {
-        return angle + value;
-    } else if (angle > value) {
-        return angle - value;
-    }
-    return 0;
+X_INLINE int16 angleLerp(int16 a, int16 b, int32 w)
+{
+    int16 d = b - a;
+    if (d > +w) return a + w;
+    if (d < -w) return a - w;
+    return b;
 }
+
+#define angleDec(angle, value) angleLerp(angle, 0, value)
 
 Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 {
     int16 a = level.soundMap[id];
 
-    if (a == -1) {
+    if (a == -1)
         return NULL;
-    }
 
     const SoundInfo* b = level.soundsInfo + a;
 
-    if (b->chance && b->chance < xRand()) {
+    if (b->chance && b->chance < rand_draw())
         return NULL;
-    }
 
     vec3i d = pos - camera.target.pos;
 
-    if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST) {
+    if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST)
         return NULL;
-    }
-
+    
     int32 volume = b->volume - (phd_sqrt(dot(d, d)) << 2);
 
     if (b->flags.gain) {
-        volume -= xRand() >> 2;
+        volume -= rand_draw() >> 2;
     }
 
     volume = X_MIN(volume, 0x7FFF) >> 9;
 
-    if (volume <= 0) {
+    if (volume <= 0)
         return NULL;
-    }
 
     int32 pitch = 128;
 
     if (b->flags.pitch) {
-        pitch += ((xRand() * 13) >> 14) - 13;
+        pitch += ((rand_draw() * 13) >> 14) - 13;
     }
 
     int32 index = b->index;
     if (b->flags.count > 1) {
-        index += (xRand() * b->flags.count) >> 15;
+        index += (rand_draw() * b->flags.count) >> 15;
     }
 
     const uint8 *data = level.soundData + level.soundOffsets[index];
@@ -68,7 +66,34 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
     memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
     data += 44;
 
+    if (id >= 148 + 25) {
+        pitch >>= 1; // GYM PC sample rate hack
+    }
+
     return mixer.playSample(data, size, volume, pitch, b->flags.mode);
+}
+
+void soundStop(int16 id)
+{
+    int16 a = level.soundMap[id];
+
+    if (a == -1)
+        return;
+
+    const SoundInfo* b = level.soundsInfo + a;
+
+    for (int32 i = 0; i < b->flags.count; i++)
+    {
+        int32 index = b->index + i;
+
+        const uint8 *data = level.soundData + level.soundOffsets[index];
+
+        int32 size;
+        memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
+        data += 44;
+
+        mixer.stopSample(data);
+    }
 }
 
 void musicPlay(int32 track)
@@ -189,15 +214,17 @@ void Item::animCmd(bool fx, const Anim* anim)
     {
         int32 cmd = *ptr++;
 
-        switch (cmd) {
+        switch (cmd)
+        {
             case ANIM_CMD_NONE:
                 break;
+
             case ANIM_CMD_OFFSET:
             {
                 if (!fx)
                 {
-                    int32 s = phd_sin(moveAngle);
-                    int32 c = phd_cos(moveAngle);
+                    int32 s = phd_sin(angle.y);
+                    int32 c = phd_cos(angle.y);
                     int32 x = ptr[0];
                     int32 y = ptr[1];
                     int32 z = ptr[2];
@@ -208,7 +235,9 @@ void Item::animCmd(bool fx, const Anim* anim)
                 ptr += 3;
                 break;
             }
+
             case ANIM_CMD_JUMP:
+            {
                 if (!fx)
                 {
                     if (vSpeedHack) {
@@ -222,23 +251,37 @@ void Item::animCmd(bool fx, const Anim* anim)
                 }
                 ptr += 2;
                 break;
+            }
+
             case ANIM_CMD_EMPTY:
+            {
+                if (!fx) {
+                    weaponState = WEAPON_STATE_FREE;
+                }
                 break;
+            }
+
             case ANIM_CMD_KILL:
-                if (!fx)
-                {
+            {
+                if (!fx) {
                     flags.status = ITEM_FLAGS_STATUS_INACTIVE;
                 }
                 break;
+            }
+
             case ANIM_CMD_SOUND:
-                if (fx && frameIndex == ptr[0])
-                {
+            {
+                if (fx && frameIndex == ptr[0]) {
                     soundPlay(ptr[1] & 0x03FFF, pos);
                 }
                 ptr += 2;
                 break;
+            }
+
             case ANIM_CMD_EFFECT:
-                if (fx && frameIndex == ptr[0]) {
+            {
+                if (fx && frameIndex == ptr[0])
+                {
                     switch (ptr[1]) {
                         case FX_ROTATE_180     : angle.y += ANGLE_180; break;
                     /*
@@ -262,26 +305,42 @@ void Item::animCmd(bool fx, const Anim* anim)
                 }
                 ptr += 2;
                 break;
+            }
         }
     }
 }
 
-void Item::skipAnim()
+void Item::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
 {
+    goalState = stateBefore;
+
     vec3i p = pos;
 
     while (state != goalState)
     {
-        updateAnim(false);
+        animProcess(false);
+    }
+
+    if (advance) {
+        animProcess();
     }
 
     pos = p;
     vSpeed = 0;
     hSpeed = 0;
+
+    goalState = stateAfter;
 }
 
-void Item::updateAnim(bool movement)
+#define ANIM_MOVE_LERP_POS  (16)
+#define ANIM_MOVE_LERP_ROT  (2 * DEG2SHORT)
+
+void Item::animProcess(bool movement)
 {
+    if (models[type].count <= 0) {
+        return; // TODO sprite animation
+    }
+
     ASSERT(models[type].count > 0);
 
     const Anim* anim = level.anims + animIndex;
@@ -311,6 +370,41 @@ void Item::updateAnim(bool movement)
 #endif
 }
 
+bool Item::animIsEnd(int32 offset) const
+{
+    return frameIndex == level.anims[animIndex].frameEnd - offset;
+}
+
+bool Item::moveTo(const vec3i &point, Item* item, bool lerp)
+{
+    // lerp position
+    vec3i p = item->getRelative(point);
+
+    if (!lerp)
+    {
+        pos = p;
+        angle = item->angle;
+        return true;
+    }
+
+    vec3i posDelta = p - pos;
+
+    int32 dist = phd_sqrt(X_SQR(posDelta.x) + X_SQR(posDelta.y) + X_SQR(posDelta.z));
+
+    if (dist > ANIM_MOVE_LERP_POS) {
+        pos += (posDelta * ANIM_MOVE_LERP_POS) / dist;
+    } else {
+        pos = p;
+    }
+
+    // lerp rotation
+    angle.x = angleLerp(angle.x, item->angle.x, ANIM_MOVE_LERP_ROT);
+    angle.y = angleLerp(angle.y, item->angle.y, ANIM_MOVE_LERP_ROT);
+    angle.z = angleLerp(angle.z, item->angle.z, ANIM_MOVE_LERP_ROT);
+
+    return (pos == p && angle == item->angle);
+}
+
 Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
 {
     if (!Item::sFirstFree) {
@@ -324,7 +418,7 @@ Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
     item->type = type;
     item->pos = pos;
     item->angle.y = angleY;
-    item->intensity = 0;
+    item->intensity = 128;
 
     item->init(room);
 
@@ -342,7 +436,7 @@ void Item::remove()
 
 void Item::activate()
 {
-    ASSERT(!flags.active)
+    //ASSERT(!flags.active)
 
     flags.active = true;
 
@@ -389,62 +483,47 @@ void Item::updateRoom(int32 offset)
     }
 
     const Sector* sector = room->getSector(pos.x, pos.z);
-    floor = sector->getFloor(pos.x, pos.y, pos.z);
+    roomFloor = sector->getFloor(pos.x, pos.y, pos.z);
 }
 
-int32 Item::calcLighting(const Bounds& box) const
+vec3i Item::getRelative(const vec3i &point) const
 {
     matrixPush();
+
     Matrix &m = matrixGet();
-    m[0][3] = m[1][3] = m[2][3] = 0;
+
+    matrixSetIdentity();
     matrixRotateYXZ(angle.x, angle.y, angle.z);
 
-    vec3i p((box.maxX + box.minX) >> 1,
-            (box.maxY + box.minY) >> 1,
-            (box.maxZ + box.minZ) >> 1);
+    vec3i p;
+    p.x = pos.x + (DP33(m[0], point) >> FIXED_SHIFT);
+    p.y = pos.y + (DP33(m[1], point) >> FIXED_SHIFT);
+    p.z = pos.z + (DP33(m[2], point) >> FIXED_SHIFT);
 
-    matrixTranslate(p);
-
-    p = vec3i(m[0][3] >> FIXED_SHIFT,
-              m[1][3] >> FIXED_SHIFT,
-              m[2][3] >> FIXED_SHIFT) + pos;
     matrixPop();
 
-    const RoomInfo* info = room->info;
+    return p;
+}
 
-    if (!info->lightsCount) {
-        return info->ambient << 5;
+int32 Item::getWaterLevel()
+{
+    const Sector* sector = room->getWaterSector(pos.x, pos.z);
+    if (sector) {
+        return sector->ceiling * 256;
     }
 
-    int32 ambient = 8191 - (info->ambient << 5);
-    int32 maxLum = 0;
+    return WALL;
+}
 
-    for (int i = 0; i < info->lightsCount; i++)
-    {
-        const Light* light = room->data.lights + i;
+int32 Item::getWaterDepth()
+{
+    const Sector* sector = room->getWaterSector(pos.x, pos.z);
 
-        // TODO preprocess align
-        vec3i pos;
-        pos.x = light->pos.x + (info->x << 8);
-        pos.y = light->pos.y;
-        pos.z = light->pos.z + (info->z << 8);
-
-        int32 radius = light->radius << 8;
-        int32 intensity = light->intensity << 5;
-
-        vec3i d = p - pos;
-        int32 dist = dot(d, d) >> 12;
-        int32 att = X_SQR(radius) >> 12;
-
-        int32 lum = (intensity * att) / (dist + att) + ambient;
-
-        if (lum > maxLum)
-        {
-            maxLum = lum;
-        }
+    if (sector) {
+        return sector->getFloor(pos.x, pos.y, pos.z) - (sector->ceiling * 256);
     }
 
-    return 8191 - ((maxLum + ambient) >> 1);
+    return WALL;
 }
 
 #include "lara.h"
@@ -506,8 +585,7 @@ void Item::draw()
 
 void Item::collide(Lara* lara, CollisionInfo* cinfo)
 {
-    UNUSED(lara);
-    UNUSED(cinfo);
+    // empty
 }
 
 Item* Item::init(Room* room)
@@ -547,7 +625,7 @@ Item* Item::init(Room* room)
         INIT_ITEM( NATLA                 , Natla );
         INIT_ITEM( ADAM                  , Adam );
         INIT_ITEM( TRAP_FLOOR            , TrapFloor );
-        // INIT_ITEM( TRAP_SWING_BLADE      , ??? );
+        INIT_ITEM( TRAP_SWING_BLADE      , TrapSwingBlade );
         // INIT_ITEM( TRAP_SPIKES           , ??? );
         // INIT_ITEM( TRAP_BOULDER          , ??? );
         INIT_ITEM( DART                  , Dart );
@@ -559,10 +637,10 @@ Item* Item::init(Room* room)
         // INIT_ITEM( HAMMER_BLOCK          , ??? );
         // INIT_ITEM( LIGHTNING             , ??? );
         // INIT_ITEM( MOVING_OBJECT         , ??? );
-        // INIT_ITEM( BLOCK_1               , ??? );
-        // INIT_ITEM( BLOCK_2               , ??? );
-        // INIT_ITEM( BLOCK_3               , ??? );
-        // INIT_ITEM( BLOCK_4               , ??? );
+        INIT_ITEM( BLOCK_1               , Block );
+        INIT_ITEM( BLOCK_2               , Block );
+        INIT_ITEM( BLOCK_3               , Block );
+        INIT_ITEM( BLOCK_4               , Block );
         // INIT_ITEM( MOVING_BLOCK          , ??? );
         // INIT_ITEM( TRAP_CEILING_1        , ??? );
         // INIT_ITEM( TRAP_CEILING_2        , ??? );
@@ -576,12 +654,12 @@ Item* Item::init(Room* room)
         INIT_ITEM( DOOR_6                , Door );
         INIT_ITEM( DOOR_7                , Door );
         INIT_ITEM( DOOR_8                , Door );
-        // INIT_ITEM( TRAP_DOOR_1           , ??? );
-        // INIT_ITEM( TRAP_DOOR_2           , ??? );
+        INIT_ITEM( TRAP_DOOR_1           , TrapDoor );
+        INIT_ITEM( TRAP_DOOR_2           , TrapDoor );
         // INIT_ITEM( UNUSED_3              , ??? );
         // INIT_ITEM( BRIDGE_FLAT           , ??? );
-        // INIT_ITEM( BRIDGE_TILT1          , ??? );
-        // INIT_ITEM( BRIDGE_TILT2          , ??? );
+        // INIT_ITEM( BRIDGE_TILT_1         , ??? );
+        // INIT_ITEM( BRIDGE_TILT_2         , ??? );
         // INIT_ITEM( INV_PASSPORT          , ??? );
         // INIT_ITEM( INV_COMPASS           , ??? );
         // INIT_ITEM( INV_HOME              , ??? );
@@ -629,10 +707,10 @@ Item* Item::init(Room* room)
         // INIT_ITEM( INV_PUZZLE_2          , ??? );
         // INIT_ITEM( INV_PUZZLE_3          , ??? );
         // INIT_ITEM( INV_PUZZLE_4          , ??? );
-        // INIT_ITEM( PUZZLE_HOLE_1         , ??? );
-        // INIT_ITEM( PUZZLE_HOLE_2         , ??? );
-        // INIT_ITEM( PUZZLE_HOLE_3         , ??? );
-        // INIT_ITEM( PUZZLE_HOLE_4         , ??? );
+        INIT_ITEM( PUZZLEHOLE_1          , PuzzleHole );
+        INIT_ITEM( PUZZLEHOLE_2          , PuzzleHole );
+        INIT_ITEM( PUZZLEHOLE_3          , PuzzleHole );
+        INIT_ITEM( PUZZLEHOLE_4          , PuzzleHole );
         // INIT_ITEM( PUZZLE_DONE_1         , ??? );
         // INIT_ITEM( PUZZLE_DONE_2         , ??? );
         // INIT_ITEM( PUZZLE_DONE_3         , ??? );
@@ -648,10 +726,10 @@ Item* Item::init(Room* room)
         // INIT_ITEM( INV_KEY_ITEM_2        , ??? );
         // INIT_ITEM( INV_KEY_ITEM_3        , ??? );
         // INIT_ITEM( INV_KEY_ITEM_4        , ??? );
-        // INIT_ITEM( KEY_HOLE_1            , ??? );
-        // INIT_ITEM( KEY_HOLE_2            , ??? );
-        // INIT_ITEM( KEY_HOLE_3            , ??? );
-        // INIT_ITEM( KEY_HOLE_4            , ??? );
+        INIT_ITEM( KEYHOLE_1             , KeyHole );
+        INIT_ITEM( KEYHOLE_2             , KeyHole );
+        INIT_ITEM( KEYHOLE_3             , KeyHole );
+        INIT_ITEM( KEYHOLE_4             , KeyHole );
         // INIT_ITEM( UNUSED_4              , ??? );
         // INIT_ITEM( UNUSED_5              , ??? );
         // INIT_ITEM( SCION_PICKUP_QUALOPEC , ??? );
@@ -681,16 +759,16 @@ Item* Item::init(Room* room)
         // INIT_ITEM( UNUSED_13             , ??? );
         // INIT_ITEM( UNUSED_14             , ??? );
         INIT_ITEM( VIEW_TARGET           , ViewTarget );
-        // INIT_ITEM( WATERFALL             , ??? );
+        INIT_ITEM( WATERFALL             , Waterfall );
         // INIT_ITEM( NATLA_BULLET          , ??? );
         // INIT_ITEM( MUTANT_BULLET         , ??? );
         // INIT_ITEM( CENTAUR_BULLET        , ??? );
         // INIT_ITEM( UNUSED_15             , ??? );
         // INIT_ITEM( UNUSED_16             , ??? );
         // INIT_ITEM( LAVA_PARTICLE         , ??? );
-        // INIT_ITEM( TRAP_LAVA_EMITTER     , ??? );
+        INIT_ITEM( LAVA_EMITTER          , LavaEmitter );
         // INIT_ITEM( FLAME                 , ??? );
-        // INIT_ITEM( TRAP_FLAME_EMITTER    , ??? );
+        // INIT_ITEM( FLAME_EMITTER         , ??? );
         // INIT_ITEM( TRAP_LAVA             , ??? );
         // INIT_ITEM( MUTANT_EGG_BIG        , ??? );
         // INIT_ITEM( BOAT                  , ??? );

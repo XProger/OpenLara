@@ -91,8 +91,10 @@ SP_RDT = 20
     ldrb indexB, [TILE, indexB]
     add t, dtdx
 
-  // cheap non-accurate alpha test, skip pixels pair if both are transparent
-    orrs indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
+  // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
+    ands indexA, #255
+    andnes indexB, #255
+    orrne indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
     ldrneb indexA, [LMAP, indexA]
     ldrneb indexB, [LMAP, indexB, lsr #8]
     orrne indexA, indexB, lsl #8
@@ -256,19 +258,25 @@ rasterizeGTA_mode4_asm:
 .align_left:
     tst ptr, #1                   // if (ptr & 1)
       beq .align_right
-    ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
-
-    bic LMAP, g, #255
-    add g, dgdx, asr #1
 
     and indexA, t, #0xFF00
     orr indexA, t, lsr #24        // res = (t & 0xFF00) | (t >> 24)
     ldrb indexA, [TILE, indexA]
+
+    cmp indexA, #0
+      beq .skip_left
+
+    bic LMAP, g, #255
     ldrb indexA, [LMAP, indexA]
 
+    ldrb indexB, [ptr, #-1]      // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
-    strh indexB, [ptr], #2
+    strh indexB, [ptr]
+
+.skip_left:
+    add ptr, #1
     add t, dtdx
+    add g, dgdx, asr #1
 
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
@@ -276,14 +284,18 @@ rasterizeGTA_mode4_asm:
 .align_right:
     tst width, #1
       beq .align_block_4px
+
     ldrb indexB, [ptr, width]
 
-    subs width, #1              // width--
+    sub width, #1              // width--
 
     mla Rti, width, dtdx, t     // Rti = width * dtdx + t
     and indexA, Rti, #0xFF00
     orr indexA, Rti, lsr #24    // res = (t & 0xFF00) | (t >> 24)
     ldrb indexA, [TILE, indexA]
+
+    cmp indexA, #0
+      beq .skip_right
 
     asr Rgi, dgdx, #1
     mla Rgi, width, Rgi, g      // Rgi = width * (dgdx / 2) + g
@@ -294,6 +306,8 @@ rasterizeGTA_mode4_asm:
     orr indexB, indexA, indexB, lsl #8
     strh indexB, [ptr, width]
 
+.skip_right:
+    cmp width, #0               // width--
       beq .scanline_end         // if (width == 0)
 
 .align_block_4px:

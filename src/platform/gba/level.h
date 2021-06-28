@@ -5,7 +5,7 @@
 
 Level level;
 
-const Texture* textures;
+const Sprite* sprites;
 const uint8* tiles;
 
 #ifndef MODE_PAL
@@ -16,13 +16,14 @@ IWRAM_DATA uint8 lightmap[256 * 32]; // IWRAM 8k
 
 EWRAM_DATA Item items[MAX_ITEMS];
 
-#define MAX_DYN_SECTORS     1024
+#define MAX_DYN_SECTORS     (1024*3)
 int32                       dynSectorsCount;
 EWRAM_DATA Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
-
+EWRAM_DATA Texture textures[MAX_TEXTURES];
 EWRAM_DATA Room rooms[MAX_ROOMS];
 EWRAM_DATA Model models[MAX_MODELS];
 EWRAM_DATA StaticMesh staticMeshes[MAX_STATIC_MESHES];
+EWRAM_DATA FixedCamera cameras[MAX_CAMERAS];
 
 Item* Item::sFirstActive;
 Item* Item::sFirstFree;
@@ -93,7 +94,10 @@ void readLevel(const uint8* data)
 
     tiles = level.tiles;
 
-    textures = level.textures;
+    // prepare textures (required by anim tex logic)
+    memcpy(textures, level.textures, level.texturesCount * sizeof(Texture));
+
+    sprites = level.sprites;
 
     // prepare models // TODO prerocess
     memset(models, 0, sizeof(models));
@@ -125,6 +129,9 @@ void readLevel(const uint8* data)
         m->count = spriteSeq->count;
         m->start = spriteSeq->start;
     }
+
+    // prepare fixed cameras
+    memcpy(cameras, level.cameras, level.camerasCount * sizeof(FixedCamera));
 
     // prepare free list
     for (int32 i = MAX_ITEMS - 1; i >= level.itemsCount; i--)
