@@ -276,6 +276,12 @@
         #include <OpenGL/gl3ext.h>
         #include <OpenGL/glext.h>
 
+        // In OpenGL 2.1, the 16-bit RGB565 sized internal format is unavailable
+        // (because macOS doesn't provide the GL_ARB_ES2_compatibility extension),
+        // so use a 32-bit format for renderbuffer storage on macOS. See issue 360.
+        #undef GL_RGB565
+        #define GL_RGB565 GL_RGBA
+
         // In compatibility mode, macOS only provides OpenGL 2.1 (no VAO), but it does
         // support the Apple-specific VAO extension which is older and in all relevant
         // parts 100% compatible. So use those functions instead.
