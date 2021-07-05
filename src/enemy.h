@@ -1611,6 +1611,9 @@ struct Bat : Enemy {
     virtual void updatePosition() {
         turn(state == STATE_FLY || state == STATE_ATTACK, BAT_TURN_SPEED);
 
+        if (!target)
+            target = (Character*)game->getLara(pos);
+
         if (flying) {
             float wy = waypoint.y - (target->stand != STAND_ONWATER ? 765.0f : 64.0f);
             lift(wy - pos.y, BAT_LIFT_SPEED);
