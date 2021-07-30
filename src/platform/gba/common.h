@@ -12,12 +12,9 @@
 
 #if defined(_WIN32)
     #define MODE4
-    //#define MODE5
     //#define MODE13
 #elif defined(__GBA__)
     #define MODE4
-    //#define MODE5
-
     //#define USE_9BIT_SOUND
 #elif defined(__TNS__)
     #define MODE13
@@ -25,10 +22,6 @@
     #define MODE13
 #else
     #error unsupported platform
-#endif
-
-#if defined(MODE5)
-    //#define DEBUG_OVERDRAW
 #endif
 
 #define NO_STATIC_MESH_PLANTS
@@ -61,10 +54,6 @@
     #define VRAM_WIDTH   120 // in shorts (240 bytes)
     #define FRAME_WIDTH  240
     #define FRAME_HEIGHT 160
-#elif defined(MODE5)
-    #define VRAM_WIDTH   160
-    #define FRAME_WIDTH  120
-    #define FRAME_HEIGHT 80
 #elif defined(MODE13)
     #define MODE_PAL
     #define VRAM_WIDTH   160 // in shorts (320 bytes)
@@ -281,8 +270,8 @@ extern int32 fps;
     #define SND_DECODE(x)    ((x) - 128)
 
     #ifdef USE_9BIT_SOUND
-        #define SND_MIN          -256
-        #define SND_MAX          255
+        #define SND_MIN          -255
+        #define SND_MAX          254
     #else
         #define SND_MIN          -128
         #define SND_MAX          127

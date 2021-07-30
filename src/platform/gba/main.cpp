@@ -550,15 +550,9 @@ int main(void) {
 
     uint16 mode = DCNT_BG2 | DCNT_PAGE;
 
-#ifdef MODE4
     mode |= DCNT_MODE4;
     REG_BG2PA = (1 << 8);
     REG_BG2PD = (1 << 8);
-#else
-    mode |= DCNT_MODE5;
-    REG_BG2PA = (1 << 7);
-    REG_BG2PD = (1 << 7);
-#endif
 
     int32 lastFrameIndex = -1;
 

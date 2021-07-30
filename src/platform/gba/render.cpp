@@ -25,8 +25,6 @@ uint16 palette[256];      // IWRAM 0.5k
 
 #if defined(MODE4)
     #include "rasterizer_mode4.h"
-#elif defined(MODE5)
-    #include "rasterizer_mode5.h"
 #elif defined(MODE13)
     #include "rasterizer_mode13.h"
 #else

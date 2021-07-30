@@ -36,7 +36,6 @@
     <ClInclude Include="object.h" />
     <ClInclude Include="rasterizer_mode13.h" />
     <ClInclude Include="rasterizer_mode4.h" />
-    <ClInclude Include="rasterizer_mode5.h" />
     <ClInclude Include="room.h" />
     <ClInclude Include="sound.h" />
   </ItemGroup>
