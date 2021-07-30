@@ -10,6 +10,7 @@
 #define rasterizeGT rasterizeGT_mode5_c
 #define rasterizeFTA rasterizeFTA_mode5_c
 #define rasterizeGTA rasterizeGTA_mode5_c
+#define rasterizeSprite rasterizeSprite_mode5_c
 
 extern uint16 palette[256];
 extern uint8 lightmap[256 * 32];
@@ -832,6 +833,11 @@ void rasterizeGTA_mode5_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
             Rt += Rdt;
         }
     }
+}
+
+void rasterizeSprite_mode5_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+{
+    // TODO
 }
 
 #endif

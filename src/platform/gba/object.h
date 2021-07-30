@@ -26,32 +26,32 @@ namespace Limits
 {
     static const Limit SWITCH = {
         Bounds( -200, 200, 0, 0, 312, 512 ),
-        vec3s( 10 * DEG2SHORT, 30 * DEG2SHORT, 10 * DEG2SHORT )
+        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
     };
 
     static const Limit SWITCH_UW = {
         Bounds( -1024, 1024, -1024, 1024, -1024, 1024 ),
-        vec3s( 80 * DEG2SHORT, 80 * DEG2SHORT, 80 * DEG2SHORT )
+        vec3s( ANGLE(80), ANGLE(80), ANGLE(80) )
     };
 
     static const Limit BLOCK = {
         Bounds( -300, 300, 0, 0, -692, -512 ),
-        vec3s( 10 * DEG2SHORT, 30 * DEG2SHORT, 10 * DEG2SHORT )
+        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
     };
 
     static const Limit PICKUP = {
         Bounds( -256, 256, -100, 100, -256, 100 ),
-        vec3s( 10 * DEG2SHORT, 0, 0 )
+        vec3s( ANGLE(10), 0, 0 )
     };
 
     static const Limit PICKUP_UW = {
         Bounds( -512, 512, -512, 512, -512, 512 ),
-        vec3s( 45 * DEG2SHORT, 45 * DEG2SHORT, 45 * DEG2SHORT )
+        vec3s( ANGLE(45), ANGLE(45), ANGLE(45) )
     };
 
     static const Limit HOLE = {
         Bounds( -200, 200, 0, 0, 312, 512 ),
-        vec3s( 10 * DEG2SHORT, 30 * DEG2SHORT, 10 * DEG2SHORT )
+        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
     };
 };
 
@@ -103,6 +103,99 @@ struct Object : Item
 
         return boxContains(limit.box, p);
     }
+
+    void collideDefault(Lara* lara, CollisionInfo* cinfo)
+    {
+        if (!updateHitMask(lara, cinfo))
+            return;
+
+        if (!cinfo->enemyPush)
+            return;
+
+        collidePush(lara, cinfo, false);
+    }
+};
+
+
+struct SpriteEffect : Item
+{
+    SpriteEffect(Room* room) : Item(room)
+    {
+        tick = 0;
+        timer = 0;
+        hSpeed = 0;
+        frameIndex = 0;
+        activate();
+    }
+
+    virtual void update()
+    {
+        tick++;
+        if (tick >= timer)
+        {
+            tick = 0;
+
+            if (flags.animated)
+            {
+                frameIndex++;
+                if (frameIndex >= -models[type].count)
+                {
+                    remove();
+                    return;
+                }
+            } else {
+                remove();
+                return;
+            }
+        }
+
+        if (hSpeed)
+        {
+            pos.x += phd_sin(angle.y) * hSpeed >> FIXED_SHIFT;
+            pos.z += phd_cos(angle.y) * hSpeed >> FIXED_SHIFT;
+        }
+    }
+};
+
+
+struct Bubble : Item
+{
+    Bubble(Room* room) : Item(room)
+    {
+        soundPlay(SND_BUBBLE, pos);
+        frameIndex = rand_draw() % (-models[type].count);
+        vSpeed = -(10 + (rand_draw() % 6));
+        angle = vec3s(0, 0, ANGLE_90);
+        activate();
+
+        roomFloor = getWaterLevel();
+    }
+
+    virtual void update()
+    {
+        pos.y += vSpeed;
+        if (roomFloor > pos.y)
+        {
+            remove();
+            return;
+        }
+
+        angle.x += ANGLE(9);
+        angle.z += ANGLE(13);
+
+        int32 dx = phd_sin(angle.x);
+        int32 dz = phd_sin(angle.z);
+
+        pos.x += dx * 11 >> FIXED_SHIFT;
+        pos.z += dz * 8 >> FIXED_SHIFT;
+
+        Room* nextRoom = room->getRoom(pos.x, pos.y, pos.z);
+        if (nextRoom != room)
+        {
+            room->remove(this);
+            nextRoom->add(this);
+        }
+    }
 };
 
 
@@ -128,6 +221,7 @@ struct LavaEmitter : Object
 
     virtual void draw() {}
 };
+
 
 struct Door : Object
 {
@@ -235,6 +329,21 @@ struct TrapDoor : Object
 };
 
 
+struct Crystal : Object
+{
+    Crystal(Room* room) : Object(room)
+    {
+        activate();
+    }
+
+    virtual void collide(Lara* lara, CollisionInfo* cinfo)
+    {
+        collideDefault(lara, cinfo);
+        // TODO
+    }
+};
+
+
 struct Switch : Object
 {
     enum {
@@ -257,7 +366,7 @@ struct Switch : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        if (lara->weaponState != WEAPON_STATE_FREE)
+        if (lara->extraL->weaponState != WEAPON_STATE_FREE)
             return;
 
         if (!(lara->input & IN_ACTION))
@@ -282,7 +391,7 @@ struct Switch : Object
         lara->animSkip(isDown ? Lara::STATE_SWITCH_DOWN : Lara::STATE_SWITCH_UP, Lara::STATE_STOP, true);
         activate();
         flags.status = ITEM_FLAGS_STATUS_ACTIVE;
-        lara->weaponState = WEAPON_STATE_BUSY;
+        lara->extraL->weaponState = WEAPON_STATE_BUSY;
     }
 
     bool use(int32 t)
@@ -314,7 +423,7 @@ struct SwitchWater : Switch
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        if (lara->weaponState != WEAPON_STATE_FREE)
+        if (lara->extraL->weaponState != WEAPON_STATE_FREE)
             return;
 
         if (!(lara->input & IN_ACTION))
@@ -348,7 +457,7 @@ struct Key : Object
 
     bool use(Item* lara)
     {
-        if (flags.status == ITEM_FLAGS_STATUS_ACTIVE && lara->weaponState == WEAPON_STATE_FREE) // TODO check weapons
+        if (flags.status == ITEM_FLAGS_STATUS_ACTIVE && lara->extraL->weaponState == WEAPON_STATE_FREE) // TODO check weapons
         {
             flags.status = ITEM_FLAGS_STATUS_INACTIVE;
             return true;
@@ -360,7 +469,10 @@ struct Key : Object
 
 struct Pickup : Object
 {
-    Pickup(Room* room) : Object(room) {}
+    Pickup(Room* room) : Object(room)
+    {
+        frameIndex = 0;
+    }
 
     bool use()
     {
@@ -396,7 +508,7 @@ struct Pickup : Object
             }
             else if (lara->state == Lara::STATE_STOP)
             {
-                if (lara->weaponState != WEAPON_STATE_FREE)
+                if (lara->extraL->weaponState != WEAPON_STATE_FREE)
                     return;
 
                 if (!(lara->input & IN_ACTION))
@@ -406,13 +518,13 @@ struct Pickup : Object
                     return;
 
                 lara->animSkip(Lara::STATE_PICKUP, Lara::STATE_STOP);
-                lara->weaponState = WEAPON_STATE_BUSY;
+                lara->extraL->weaponState = WEAPON_STATE_BUSY;
             }
         }
 
         if (lara->waterState == WATER_STATE_UNDER)
         {
-            angle.x = -25 * DEG2SHORT;
+            angle.x = ANGLE(-25);
 
             if (!checkLimit(lara, Limits::PICKUP_UW))
                 return;
@@ -473,7 +585,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
 
     void apply(int32 offset, Lara* lara, Lara::State stateUse)
     {
-        if (lara->weaponState != WEAPON_STATE_FREE)
+        if (lara->extraL->weaponState != WEAPON_STATE_FREE)
             return;
 
         if (flags.status != ITEM_FLAGS_STATUS_NONE)
@@ -499,7 +611,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
             {
                 lara->moveTo(vec3i(0, 0, offset), this, false);
                 lara->animSkip(stateUse, Lara::STATE_STOP);
-                lara->weaponState = WEAPON_STATE_BUSY;
+                lara->extraL->weaponState = WEAPON_STATE_BUSY;
                 flags.status = ITEM_FLAGS_STATUS_ACTIVE;
                 return;
             }
@@ -629,7 +741,20 @@ struct TrapSwingBlade : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        //
+        if (flags.status != ITEM_FLAGS_STATUS_ACTIVE)
+            return;
+
+        if (state != STATE_SWING)
+            return;
+
+        if (!updateHitMask(lara, cinfo))
+            return;
+
+        vec3i offsetPos = vec3i((rand_logic() - 0x4000) >> 8, -256 - (rand_logic() >> 6), (rand_logic() - 0x4000) >> 8);
+        int32 offsetAngle = (rand_logic() - 0x4000) >> 3;
+        lara->fxBlood(lara->pos + offsetPos, lara->angle.y + offsetAngle, lara->hSpeed);
+
+        lara->health -= 100; // TODO TR2 50?
     }
 
     virtual void update()
@@ -644,8 +769,6 @@ struct TrapSwingBlade : Object
             }
         }
 
-        // TODO damage
-
         animProcess();
     }
 };
@@ -656,23 +779,30 @@ struct Dart : Object
     Dart(Room* room) : Object(room)
     {
         flags.shadow = true;
+    }
 
-        soundPlay(SND_DART, pos);
-        // TODO create smoke
+    virtual void collide(Lara* lara, CollisionInfo* cinfo)
+    {
+        collideDefault(lara, cinfo);
+
+        if (hitMask)
+        {
+            lara->fxBlood(pos, lara->angle.y, lara->hSpeed);
+            lara->health -= 50;
+        }
     }
 
     virtual void update()
     {
-        // TODO collide with Lara
-
         animProcess();
         updateRoom();
 
-        if (pos.y >= roomFloor)
-        {
-            // TODO create spark
-            remove();
-        }
+        if (pos.y < roomFloor)
+            return;
+
+        remove();
+
+        fxRicochet(room, pos, false);
     }
 };
 
@@ -706,9 +836,13 @@ struct TrapDartEmitter : Object
 
             if (dart)
             {
+                soundPlay(SND_DART, p);
+
                 dart->intensity = 0;
                 dart->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
                 dart->activate();
+
+                fxSmoke(p);
             }
         }
 
@@ -803,7 +937,7 @@ struct Block : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        if (lara->weaponState != WEAPON_STATE_FREE)
+        if (lara->extraL->weaponState != WEAPON_STATE_FREE)
             return;
 
         if (!(lara->input & IN_ACTION))

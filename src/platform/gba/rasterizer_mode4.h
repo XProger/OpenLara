@@ -985,16 +985,19 @@ void rasterizeSprite_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
     int32 w = R->v.x - L->v.x;
-    if (w <= 0) return;
+    if (w <= 0 || w >= DIV_TABLE_SIZE) return;
 
     int32 h = R->v.y - L->v.y;
-    if (h <= 0) return;
+    if (h <= 0 || h >= DIV_TABLE_SIZE) return;
 
     int32 u = L->t.u << 8;
     int32 v = L->t.v << 8;
 
-    int32 du = (R->t.u << 8) / w;
-    int32 dv = (R->t.v << 8) / h;
+    int32 iw = FixedInvU(w);
+    int32 ih = FixedInvU(h);
+
+    int32 du = (R->t.u << 8) * iw >> 16;
+    int32 dv = (R->t.v << 8) * ih >> 16;
 
     if (L->v.y < 0)
     {

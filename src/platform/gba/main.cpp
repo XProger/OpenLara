@@ -1,9 +1,9 @@
 #if defined(_WIN32) || defined(__DOS__)
-    const void* TRACK_13_WAV;
+    const void* TRACKS_IMA;
     const void* levelData;
     #define LEVEL_NAME "LEVEL1.PKD"
 #elif defined(__GBA__)
-    #include "TRACK_13_WAV.h"
+    #include "TRACKS_IMA.h"
     #include "LEVEL1_PKD.h"
     const void* levelData = LEVEL1_PKD;
 #elif defined(__TNS__)
@@ -259,14 +259,6 @@ int32 fpsCounter = 0;
     }
 #endif
 
-#ifdef PROFILE
-    uint32 dbg_transform;
-    uint32 dbg_poly;
-    uint32 dbg_flush;
-    uint32 dbg_vert_count;
-    uint32 dbg_poly_count;
-#endif
-
 EWRAM_DATA ALIGN16 uint8 soundBufferA[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 #ifdef USE_9BIT_SOUND
 EWRAM_DATA ALIGN16 uint8 soundBufferB[2 * SND_SAMPLES + 32]; // for 9-bit mixer support via Direct Mixer B channel
@@ -310,9 +302,11 @@ void soundInit()
     mixer.init();
 
     REG_SOUNDCNT_X = SSTAT_ENABLE;
-    REG_SOUNDCNT_H = SDS_ATMR0 | SDS_A100 | SDS_AL | SDS_AR | SDS_ARESET;
 #ifdef USE_9BIT_SOUND
-    REG_SOUNDCNT_H |= SDS_BTMR0 | SDS_B100 | SDS_BL | SDS_BR | SDS_BRESET;
+    REG_SOUNDCNT_H = SDS_ATMR0 | SDS_AL | SDS_AR | SDS_ARESET | SDS_A50 |
+                     SDS_BTMR0 | SDS_BL | SDS_BR | SDS_BRESET | SDS_B50;
+#else
+    REG_SOUNDCNT_H = SDS_ATMR0 | SDS_AL | SDS_AR | SDS_ARESET | SDS_A100;
 #endif
     REG_TM0D = 65536 - (16777216 / SND_OUTPUT_FREQ);
     REG_TM0CNT = TM_ENABLE;
@@ -357,15 +351,6 @@ void blit() {
     }
     const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), FRAME_WIDTH, -FRAME_HEIGHT, 1, 32, BI_RGB, 0, 0, 0, 0, 0 };
     StretchDIBits(hDC, 0, 0, WND_WIDTH, WND_HEIGHT, 0, 0, FRAME_WIDTH, FRAME_HEIGHT, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
-#elif defined(ROTATE90_MODE)
-    for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++) {
-        int32 x = FRAME_HEIGHT - (i % FRAME_HEIGHT) - 1;
-        int32 y = i / FRAME_HEIGHT;
-        uint16 c = ((uint16*)fb)[x * FRAME_WIDTH + y];
-        SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
-    }
-    const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), FRAME_HEIGHT, -FRAME_WIDTH, 1, 32, BI_RGB, 0, 0, 0, 0, 0 };
-    StretchDIBits(hDC, 0, 0, WND_WIDTH, WND_HEIGHT, 0, 0, FRAME_HEIGHT, FRAME_WIDTH, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
 #else
     for (int i = 0; i < VRAM_WIDTH * FRAME_HEIGHT; i++) {
         uint16 c = ((uint16*)fb)[i];
@@ -402,6 +387,11 @@ LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 case VK_RETURN : key = IK_START;  break;
                 case VK_SPACE  : key = IK_SELECT; break;
             }
+
+            if (wParam == '1') players[0]->extraL->goalWeapon = WEAPON_PISTOLS;
+            if (wParam == '2') players[0]->extraL->goalWeapon = WEAPON_MAGNUMS;
+            if (wParam == '3') players[0]->extraL->goalWeapon = WEAPON_UZIS;
+            if (wParam == '4') players[0]->extraL->goalWeapon = WEAPON_SHOTGUN;
 
             if (msg != WM_KEYUP && msg != WM_SYSKEYUP) {
                 keys |= key;
@@ -462,7 +452,7 @@ int main(void) {
     // track 13
         #if defined(_WIN32) || defined(__DOS__)
         {
-            FILE *f = fopen("data/TRACK_13.WAV", "rb");
+            FILE *f = fopen("data/TRACKS.IMA", "rb");
             if (!f) {
                 return 0;
             }
@@ -474,7 +464,7 @@ int main(void) {
             fread(data, 1, size, f);
             fclose(f);
 
-            TRACK_13_WAV = data;
+            TRACKS_IMA = data;
         }
         #endif
     }
@@ -507,8 +497,11 @@ int main(void) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
-            int frame = (GetTickCount() - startTime) / 33; 
-            game.update(frame - lastFrame);
+            int32 frame = (GetTickCount() - startTime) / 33;
+            if (GetAsyncKeyState('R')) frame /= 10;
+            int32 count = frame - lastFrame;
+            if (GetAsyncKeyState('T')) count *= 10;
+            game.update(count);
             lastFrame = frame;
 
             game.render();
@@ -561,13 +554,6 @@ int main(void) {
     mode |= DCNT_MODE4;
     REG_BG2PA = (1 << 8);
     REG_BG2PD = (1 << 8);
-#elif defined(ROTATE90_MODE)
-    mode |= DCNT_MODE5;
-    REG_BG2PA = 0;
-    REG_BG2PB =  (1 << 8);
-    REG_BG2PC = -(1 << 7);
-    REG_BG2PD = 0;
-    REG_BG2Y = (FRAME_HEIGHT << 8) - 128;
 #else
     mode |= DCNT_MODE5;
     REG_BG2PA = (1 << 7);
@@ -577,11 +563,6 @@ int main(void) {
     int32 lastFrameIndex = -1;
 
     while (1) {
-        //VBlankIntrWait();
-        REG_DISPCNT = (mode ^= DCNT_PAGE);
-
-        fb ^= 0xA000;
-
         { // input
             keys = 0;
             key_poll();
@@ -600,6 +581,12 @@ int main(void) {
         int32 frame = frameIndex / 2;
         game.update(frame - lastFrameIndex);
         lastFrameIndex = frame;
+
+        #ifdef PROFILING
+            VBlankIntrWait();
+        #endif
+        REG_DISPCNT = (mode ^= DCNT_PAGE);
+        fb ^= 0xA000;
 
         game.render();
 

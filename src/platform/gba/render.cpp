@@ -38,8 +38,8 @@ extern Texture textures[MAX_TEXTURES];
 extern const Sprite* sprites;
 extern const uint8* tiles;
 extern int32 lightAmbient;
+extern int32 randTable[MAX_RAND_TABLE];
 extern int32 caustics[MAX_CAUSTICS];
-extern int32 causticsRand[MAX_CAUSTICS];
 extern int32 causticsFrame;
 
 const uint8* tile;
@@ -242,7 +242,7 @@ void transformRoom(const RoomVertex* vertices, int32 vCount, bool applyCaustics)
     for (int32 i = 0; i < vCount; i++)
     {
         if (applyCaustics) {
-            causticsValue = caustics[(causticsRand[i & (MAX_CAUSTICS - 1)] + causticsFrame) & (MAX_CAUSTICS - 1)];
+            causticsValue = caustics[(randTable[i & (MAX_RAND_TABLE - 1)] + causticsFrame) & (MAX_CAUSTICS - 1)];
         }
 
         transformRoomVertex(vertices, causticsValue);
@@ -517,8 +517,6 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y)
 
 #if defined(MODE_PAL)
     uint16* pixel = (uint16*)fb + iy * VRAM_WIDTH + (ix >> 1);
-#elif defined(ROTATE90_MODE)
-    uint16* pixel = (uint16*)fb + iy;
 #else
     uint16* pixel = (uint16*)fb + iy * VRAM_WIDTH + ix;
 #endif
@@ -548,19 +546,11 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y)
         for (int32 i = 0; i < w; i++)
         {
             if (glyphData[i] == 0) continue;
-        #ifdef ROTATE90_MODE
-            pixel[(FRAME_HEIGHT - (ix + i) - 1) * FRAME_WIDTH] = palette[glyphData[i]];
-        #else
             pixel[i] = palette[glyphData[i]];
-        #endif
         }
     #endif
 
-    #ifdef ROTATE90_MODE
-        pixel += 1;
-    #else
         pixel += VRAM_WIDTH;
-    #endif
 
         glyphData += 256;
     }
@@ -650,8 +640,6 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
 
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 {
-    ASSERT(gVerticesCount + 1 < MAX_VERTICES);
-
     const Matrix &m = matrixGet();
 
     int32 z = DP43c(m[2], vx, vy, vz);
@@ -674,18 +662,18 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     PERSPECTIVE(l, t, z);
 
     l += (FRAME_WIDTH >> 1);
-    if (l >= FRAME_WIDTH) return;
+    if (l >= viewport.x1) return;
 
     t += (FRAME_HEIGHT >> 1);
-    if (t >= FRAME_HEIGHT) return;
+    if (t >= viewport.y1) return;
 
     PERSPECTIVE(r, b, z);
 
     r += (FRAME_WIDTH >> 1);
-    if (r < 0) return;
+    if (r < viewport.x0) return;
 
     b += (FRAME_HEIGHT >> 1);
-    if (b < 0) return;
+    if (b < viewport.y0) return;
 
     if (l == r) return;
     if (t == b) return;
@@ -700,6 +688,8 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     }
     vg >>= 8;
 
+    ASSERT(gVerticesCount + 1 < MAX_VERTICES);
+
     Vertex &v1 = gVertices[gVerticesCount++];
     v1.x = l;
     v1.y = t;
@@ -710,10 +700,12 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     v2.x = r;
     v2.y = b;
     //v2.z = z;
-    //v2.g = g;
+    //v2.g = vg;
 
     ASSERT(v2.x >= v1.x);
     ASSERT(v2.y >= v1.y);
+
+    fogZ -= 128;
 
     Face* f = faceAdd(fogZ >> OT_SHIFT);
     f->flags = uint16(FACE_SPRITE);
@@ -759,7 +751,7 @@ void flush()
 {
     if (gFacesCount)
     {
-        PROFILE_START();
+        PROFILE(CNT_FLUSH);
 
         for (int32 i = otMax; i >= otMin; i--)
         {
@@ -823,8 +815,6 @@ void flush()
             } while (face);
         }
 
-        PROFILE_STOP(dbg_flush);
-
         otMin = OT_SIZE - 1;
         otMax = 0;
     }
@@ -838,9 +828,11 @@ void flush()
     }
 #endif
 
-#ifdef PROFILE
-    dbg_vert_count += gVerticesCount;
-    dbg_poly_count += gFacesCount;
+#ifdef PROFILING
+    #if !defined(PROFILE_FRAMETIME) && !defined(PROFILE_SOUNDTIME)
+        gCounters[CNT_VERT] += gVerticesCount;
+        gCounters[CNT_POLY] += gFacesCount;
+    #endif
 #endif
 
     gVerticesCount = 0;
@@ -851,3 +843,114 @@ void clear()
 {
     dmaFill((void*)fb, 0, VRAM_WIDTH * FRAME_HEIGHT * 2);
 }
+
+#ifdef IWRAM_MATRIX_LERP
+void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
+{
+    Matrix &m = matrixGet();
+
+    if ((divider == 2) || ((divider == 4) && (multiplier == 2))) {
+        LERP_MATRIX(LERP_1_2);
+    } else if (divider == 4) {
+
+        if (multiplier == 1) {
+            LERP_MATRIX(LERP_1_4);
+        } else {
+            LERP_MATRIX(LERP_3_4);
+        }
+
+    } else {
+        LERP_MATRIX(LERP_SLOW);
+    }
+}
+#endif
+
+// TODO move to sound.iwram.cpp?
+int16 IMA_STEP[] = { // IWRAM !
+    7,     8,     9,     10,    11,    12,    13,    14,
+    16,    17,    19,    21,    23,    25,    28,    31,
+    34,    37,    41,    45,    50,    55,    60,    66,
+    73,    80,    88,    97,    107,   118,   130,   143,
+    157,   173,   190,   209,   230,   253,   279,   307,
+    337,   371,   408,   449,   494,   544,   598,   658,
+    724,   796,   876,   963,   1060,  1166,  1282,  1411,
+    1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,
+    3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,
+    7132,  7845,  8630,  9493,  10442, 11487, 12635, 13899,
+    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+    32767
+};
+
+#define DECODE_IMA_4(n)\
+    step = IMA_STEP[idx];\
+    index = n & 7;\
+    step += index * step << 1;\
+    if (index < 4) {\
+        idx = X_MAX(idx - 1, 0);\
+    } else {\
+        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
+    }\
+    if (n & 8) {\
+        smp -= step >> 3;\
+    } else {\
+        smp += step >> 3;\
+    }\
+    *buffer++ = smp >> (16 - (8 + SND_VOL_SHIFT));
+
+void decodeIMA(IMA_STATE &state, const uint8* data, int32* buffer, int32 size)
+{
+    uint32 step, index;
+
+    int32 idx = state.idx;
+    int32 smp = state.smp;
+
+    for (int32 i = 0; i < size; i++)
+    {
+        uint32 n = *data++;
+        DECODE_IMA_4(n);
+        n >>= 4;
+        DECODE_IMA_4(n);
+    }
+
+    state.idx = idx;
+    state.smp = smp;
+}
+
+/* TODO OUT OF IWRAM!
+#define DECODE_IMA_4_sample(n)\
+    step = IMA_STEP[idx];\
+    index = n & 7;\
+    step += index * step << 1;\
+    if (index < 4) {\
+        idx = X_MAX(idx - 1, 0);\
+    } else {\
+        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
+    }\
+    if (n & 8) {\
+        smp -= step >> 3;\
+    } else {\
+        smp += step >> 3;\
+    }\
+    *buffer++ += smp * volume >> (16 - (8 + SND_VOL_SHIFT));
+
+void decodeIMA_sample(IMA_STATE &state, const uint8* data, int32* buffer, int32 size, int32 inc, int32 volume)
+{
+    uint32 step, index;
+
+    int32 idx = state.idx;
+    int32 smp = state.smp;
+
+    for (int32 i = 0; i < size; i++)
+    {
+        uint32 n = *data;
+        DECODE_IMA_4_sample(n);
+        n >>= 4;
+        DECODE_IMA_4_sample(n);
+
+        data += inc;
+    }
+
+    state.idx = idx;
+    state.smp = smp;
+}
+*/

@@ -205,7 +205,7 @@ void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height)
         uint32  bfOffBits;
     } fhdr;
 
-    struct BITMAPINFOHEADER{
+    struct BITMAPINFOHEADER {
         uint32 biSize;
         uint32 biWidth;
         uint32 biHeight;
@@ -726,6 +726,12 @@ struct LevelPC
     {
         uint32 flags;
         vec3i pos;
+    };
+
+    struct NodeComp
+    {
+        uint16 flags;
+        vec3s pos;
     };
 
     int32 tilesCount;
@@ -1323,11 +1329,32 @@ struct LevelPC
         f.write(commands, commandsCount);
 
         header.nodes = f.align4();
-        f.write(nodesData, nodesDataSize);
+        for (int32 i = 0; i < nodesDataSize / 4; i++)
+        {
+            const Node* node = (Node*)(nodesData + i * 4);
+
+            ASSERT(node->pos.x > -32768);
+            ASSERT(node->pos.x <  32767);
+            ASSERT(node->pos.y > -32768);
+            ASSERT(node->pos.y <  32767);
+            ASSERT(node->pos.z > -32768);
+            ASSERT(node->pos.z <  32767);
+            ASSERT(node->flags < 0xFFFF);
+
+            LevelPC::NodeComp comp;
+            comp.flags = uint16(node->flags);
+            comp.pos.x = int16(node->pos.x);
+            comp.pos.y = int16(node->pos.y);
+            comp.pos.z = int16(node->pos.z);
+            f.write(comp);
+        }
+        //f.write(nodesData, nodesDataSize);
 
         header.frameData = f.align4();
         f.write(frameData, frameDataSize);
         
+        static int32 maxMeshes = 0;
+
         header.models = f.align4();
         for (int32 i = 0; i < modelsCount; i++)
         {
@@ -2273,8 +2300,105 @@ struct WAD
     }
 };
 
+#define MAX_TRACKS 256
+
+#define ALIGN(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
+
+void pack_tracks(const char* dir)
+{
+    WIN32_FIND_DATA fd;
+    HANDLE h = FindFirstFile(dir, &fd);
+
+    if (h == INVALID_HANDLE_VALUE)
+        return;
+
+    struct Track {
+        int32 size;
+        char* data;
+    };
+    Track tracks[MAX_TRACKS];
+    memset(tracks, 0, sizeof(tracks));
+
+    char buf[256];
+
+    do
+    {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            const char* src = fd.cFileName;
+            char* dst = buf;
+
+            while (*src)
+            {
+                if (*src >= '0' && *src <= '9')
+                {
+                    *dst++ = *src;
+                }
+                src++;
+            }
+            *dst++ = 0;
+
+            int32 index = atoi(buf);
+
+            if (index != 0)
+            {
+                strcpy(buf, dir);
+                buf[strlen(buf) - 5] = 0;
+                strcat(buf, fd.cFileName);
+
+                FILE* f = fopen(buf, "rb");
+
+                if (!f)
+                    continue;
+
+                fseek(f, 0, SEEK_END);
+                int32 size = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                tracks[index].data = new char[size + 4];
+                fread(tracks[index].data, 1, size, f);
+                fclose(f);
+
+                tracks[index].size = ALIGN(*((int32*)tracks[index].data + 2), 4) - 4;
+
+                ASSERT(tracks[index].size % 4 == 0);
+            }
+        }
+    }
+    while (FindNextFile(h, &fd));
+    FindClose(h);
+
+    FILE* f = fopen("../data/TRACKS.IMA", "wb");
+
+    int32 offset = MAX_TRACKS * (4 + 4);
+
+    for (int32 i = 0; i < MAX_TRACKS; i++)
+    {
+        if (tracks[i].size == 0) {
+            int32 zero = 0;
+            fwrite(&zero, 4, 1, f);
+        } else {
+            fwrite(&offset, 4, 1, f);
+        }
+        fwrite(&tracks[i].size, 4, 1, f);
+        offset += tracks[i].size;
+    }
+
+    for (int32 i = 0; i < MAX_TRACKS; i++)
+    {
+        if (tracks[i].size == 0)
+            continue;
+        fwrite((uint8*)tracks[i].data + 16, 1, tracks[i].size, f);
+        delete[] tracks[i].data;
+    }
+
+    fclose(f);
+}
+
 int main()
 {
+    pack_tracks("tracks/conv_demo/*.ima");
+    return 0;
+
     for (int32 i = 0; i < MAX_LEVELS; i++)
     {
         char path[64];

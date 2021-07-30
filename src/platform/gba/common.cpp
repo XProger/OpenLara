@@ -7,17 +7,25 @@ vec3i  cameraViewPos;
 Matrix matrixStack[MAX_MATRICES];
 int32  matrixStackIndex = 0;
 
-EWRAM_DATA SaveGame gSaveGame;
-
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
 
-int32 rand_seed_ctrl;
+EWRAM_DATA SaveGame gSaveGame;
+EWRAM_DATA Settings gSettings;
+EWRAM_DATA int32 gCurTrack;
+
+EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
+
+#ifdef PROFILING
+    uint32 gCounters[CNT_MAX];
+#endif
+
+int32 rand_seed_logic;
 int32 rand_seed_draw;
 
-void set_seed_ctrl(int32 seed)
+void set_seed_logic(int32 seed)
 {
-    rand_seed_ctrl = seed;
+    rand_seed_logic = seed;
 }
 
 void set_seed_draw(int32 seed)
@@ -27,12 +35,12 @@ void set_seed_draw(int32 seed)
 
 #define X_RAND(seed) (((seed = 0x3039 + seed * 0x41C64E6D) >> 10) & 0x7FFF);
 
-int16 rand_ctrl()
+int32 rand_logic()
 {
-    return X_RAND(rand_seed_ctrl);
+    return X_RAND(rand_seed_logic);
 }
 
-int16 rand_draw()
+int32 rand_draw()
 {
     return X_RAND(rand_seed_draw);
 }
@@ -622,7 +630,7 @@ uint32 phd_sqrt(uint32 x)
             y = z;
         } else {
             x -= y;
-            y = m | z;
+            y = z + m;
         }
 
         z = y >> 1;
@@ -716,94 +724,73 @@ void initDivTable()
 }
 */
 
-void matrixTranslate(const vec3i &pos)
+X_INLINE int16 lerpAngle(int16 a, int16 b, uint32 t)
 {
-    Matrix &m = matrixGet();
-    m[0][3] += DP33(m[0], pos);
-    m[1][3] += DP33(m[1], pos);
-    m[2][3] += DP33(m[2], pos);
+    int32 d = b - a;
+
+    if (d > 0x8000) {
+        d -= 0x10000;
+    } else if (d < -0x8000) {
+        d += 0x10000;
+    }
+
+    return a + ((d * t) >> FIXED_SHIFT);
 }
 
-void matrixTranslateAbs(const vec3i &pos)
+void matrixTranslate(int32 x, int32 y, int32 z)
 {
-    vec3i d = pos - cameraViewPos;
+    Matrix &m = matrixGet();
+    m[0][3] += DP33c(m[0], x, y, z);
+    m[1][3] += DP33c(m[1], x, y, z);
+    m[2][3] += DP33c(m[2], x, y, z);
+}
+
+void matrixTranslateAbs(int32 x, int32 y, int32 z)
+{
+    x -= cameraViewPos.x;
+    y -= cameraViewPos.y;
+    z -= cameraViewPos.z;
 
     Matrix &m = matrixGet();
-    m[0][3] = DP33(m[0], d);
-    m[1][3] = DP33(m[1], d);
-    m[2][3] = DP33(m[2], d);
+    m[0][3] = DP33c(m[0], x, y, z);
+    m[1][3] = DP33c(m[1], x, y, z);
+    m[2][3] = DP33c(m[2], x, y, z);
 }
 
 void matrixRotateX(int32 angle)
 {
+    Matrix &m = matrixGet();
+
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    Matrix &m = matrixGet();
-    int32 a, b;
-
-    a = c * m[0][1] + s * m[0][2];
-    b = c * m[0][2] - s * m[0][1];
-    m[0][1] = a >> FIXED_SHIFT;
-    m[0][2] = b >> FIXED_SHIFT;
-
-    a = c * m[1][1] + s * m[1][2];
-    b = c * m[1][2] - s * m[1][1];
-    m[1][1] = a >> FIXED_SHIFT;
-    m[1][2] = b >> FIXED_SHIFT;
-
-    a = c * m[2][1] + s * m[2][2];
-    b = c * m[2][2] - s * m[2][1];
-    m[2][1] = a >> FIXED_SHIFT;
-    m[2][2] = b >> FIXED_SHIFT;
+    X_ROTXY(m[0][2], m[0][1], s, c);
+    X_ROTXY(m[1][2], m[1][1], s, c);
+    X_ROTXY(m[2][2], m[2][1], s, c);
 }
 
 void matrixRotateY(int32 angle)
 {
+    Matrix &m = matrixGet();
+
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    Matrix &m = matrixGet();
-    int32 a, b;
-
-    a = c * m[0][0] - s * m[0][2];
-    b = c * m[0][2] + s * m[0][0];
-    m[0][0] = a >> FIXED_SHIFT;
-    m[0][2] = b >> FIXED_SHIFT;
-
-    a = c * m[1][0] - s * m[1][2];
-    b = c * m[1][2] + s * m[1][0];
-    m[1][0] = a >> FIXED_SHIFT;
-    m[1][2] = b >> FIXED_SHIFT;
-
-    a = c * m[2][0] - s * m[2][2];
-    b = c * m[2][2] + s * m[2][0];
-    m[2][0] = a >> FIXED_SHIFT;
-    m[2][2] = b >> FIXED_SHIFT;
+    X_ROTXY(m[0][0], m[0][2], s, c);
+    X_ROTXY(m[1][0], m[1][2], s, c);
+    X_ROTXY(m[2][0], m[2][2], s, c);
 }
 
 void matrixRotateZ(int32 angle)
 {
+    Matrix &m = matrixGet();
+
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    Matrix &m = matrixGet();
-    int32 a, b;
-
-    a = c * m[0][0] + s * m[0][1];
-    b = c * m[0][1] - s * m[0][0];
-    m[0][0] = a >> FIXED_SHIFT;
-    m[0][1] = b >> FIXED_SHIFT;
-
-    a = c * m[1][0] + s * m[1][1];
-    b = c * m[1][1] - s * m[1][0];
-    m[1][0] = a >> FIXED_SHIFT;
-    m[1][1] = b >> FIXED_SHIFT;
-
-    a = c * m[2][0] + s * m[2][1];
-    b = c * m[2][1] - s * m[2][0];
-    m[2][0] = a >> FIXED_SHIFT;
-    m[2][1] = b >> FIXED_SHIFT;
+    X_ROTXY(m[0][1], m[0][0], s, c);
+    X_ROTXY(m[1][1], m[1][0], s, c);
+    X_ROTXY(m[2][1], m[2][0], s, c);
 }
 
 void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ)
@@ -820,65 +807,87 @@ void matrixRotateZXY(int32 angleX, int32 angleY, int32 angleZ)
     if (angleY) matrixRotateY(angleY);
 }
 
-void matrixFrame(const vec3i &pos, uint16* angles)
+void matrixFrame(const vec3s &pos, const uint32* angles)
 {
-    int32 angleX = (angles[1] & 0x3FF0) << 2;
-    int32 angleY = (angles[1] & 0x000F) << 12 | (angles[0] & 0xFC00) >> 4;
-    int32 angleZ = (angles[0] & 0x03FF) << 6;
+    int16 aX, aY, aZ;
+    DECODE_ANGLES(angles, aX, aY, aZ);
 
-    matrixTranslate(pos);
-    matrixRotateYXZ(angleX, angleY, angleZ);
+    matrixTranslate(pos.x, pos.y, pos.z);
+    matrixRotateYXZ(aX, aY, aZ);
 }
 
-#define LERP_1(a, b, mul, div) a = (b + a) >> 1
-#define LERP_2(a, b, mul, div) a = a + ((b - a) >> 2)
-#define LERP_3(a, b, mul, div) a = b - ((b - a) >> 2)
-#define LERP_SLOW(a, b, mul, div) a = a + (b - a) * mul / div
-
-#define LERP_ROW(lerp_func, a, b, mul, div) \
-    lerp_func(a[0], b[0], mul, div); \
-    lerp_func(a[1], b[1], mul, div); \
-    lerp_func(a[2], b[2], mul, div); \
-    lerp_func(a[3], b[3], mul, div);
-
+#ifdef IWRAM_MATRIX_LERP
+void matrixLerp(const Matrix &n, int32 multiplier, int32 divider);
+#else
 void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
 {
     Matrix &m = matrixGet();
 
     if ((divider == 2) || ((divider == 4) && (multiplier == 2))) {
-        LERP_ROW(LERP_1, m[0], n[0], multiplier, divider);
-        LERP_ROW(LERP_1, m[1], n[1], multiplier, divider);
-        LERP_ROW(LERP_1, m[2], n[2], multiplier, divider);
-    } else if (multiplier == 1) {
-        LERP_ROW(LERP_2, m[0], n[0], multiplier, divider);
-        LERP_ROW(LERP_2, m[1], n[1], multiplier, divider);
-        LERP_ROW(LERP_2, m[2], n[2], multiplier, divider);
-    } else {
-        LERP_ROW(LERP_3, m[0], n[0], multiplier, divider);
-        LERP_ROW(LERP_3, m[1], n[1], multiplier, divider);
-        LERP_ROW(LERP_3, m[2], n[2], multiplier, divider);
-    }
+        LERP_MATRIX(LERP_1_2);
+    } else if (divider == 4) {
 
-    //LERP_ROW(LERP_SLOW, m[0], n[0], multiplier, divider);
-    //LERP_ROW(LERP_SLOW, m[1], n[1], multiplier, divider);
-    //LERP_ROW(LERP_SLOW, m[2], n[2], multiplier, divider);
+        if (multiplier == 1) {
+            LERP_MATRIX(LERP_1_4);
+        } else {
+            LERP_MATRIX(LERP_3_4);
+        }
+
+    } else if (divider == 3) {
+        
+        if (multiplier == 1) {
+            LERP_MATRIX(LERP_1_3);
+        } else {
+            LERP_MATRIX(LERP_2_3);
+        }
+
+    } else if (divider == 5) {
+
+        switch (multiplier)
+        {
+            case 4 : LERP_MATRIX(LERP_4_5); break;
+            case 3 : LERP_MATRIX(LERP_3_5); break;
+            case 2 : LERP_MATRIX(LERP_2_5); break;
+            case 1 : LERP_MATRIX(LERP_1_5); break;
+        }
+
+    } else {
+        LERP_MATRIX(LERP_SLOW);
+    }
+}
+#endif
+
+void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* anglesB, int32 delta, int32 rate)
+{
+    int16 aX, aY, aZ;
+    int16 bX, bY, bZ;
+
+    DECODE_ANGLES(anglesA, aX, aY, aZ);
+    DECODE_ANGLES(anglesB, bX, bY, bZ);
+
+    matrixTranslate(pos.x, pos.y, pos.z);
+
+#if 0 // TODO oh, damn Gimbal Lock!
+    if (aX != bX) aX = lerpAngle(aX, bX, t);
+    if (aY != bY) aY = lerpAngle(aY, bY, t);
+    if (aZ != bZ) aZ = lerpAngle(aZ, bZ, t);
+    matrixRotateYXZ(aX, aY, aZ);
+#else
+    matrixPush();
+    matrixRotateYXZ(bX, bY, bZ);
+    Matrix &m = matrixGet();
+    matrixPop();
+
+    matrixRotateYXZ(aX, aY, aZ);
+
+    matrixLerp(m, delta, rate);
+#endif
 }
 
 void matrixSetIdentity()
 {
     Matrix &m = matrixGet();
 
-#ifdef ROTATE90_MODE
-    m[0][0] = 0;
-    m[0][1] = 0x4000;
-    m[0][2] = 0;
-    m[0][3] = 0;
-
-    m[1][0] = -0x4000;
-    m[1][1] = 0;
-    m[1][2] = 0;
-    m[1][3] = 0;
-#else
     m[0][0] = 0x4000;
     m[0][1] = 0;
     m[0][2] = 0;
@@ -888,7 +897,6 @@ void matrixSetIdentity()
     m[1][1] = 0x4000;
     m[1][2] = 0;
     m[1][3] = 0;
-#endif
 
     m[2][0] = 0;
     m[2][1] = 0;
@@ -905,17 +913,6 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
 
     Matrix &m = matrixGet();
 
-#ifdef ROTATE90_MODE
-    m[0][0] = (sx * sy) >> FIXED_SHIFT;
-    m[0][1] = cx;
-    m[0][2] = (sx * cy) >> FIXED_SHIFT;
-    m[0][3] = 0;
-
-    m[1][0] = -cy;
-    m[1][1] = 0;
-    m[1][2] = sy;
-    m[1][3] = 0;
-#else
     m[0][0] = cy;
     m[0][1] = 0;
     m[0][2] = -sy;
@@ -925,7 +922,6 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     m[1][1] = cx;
     m[1][2] = (sx * cy) >> FIXED_SHIFT;
     m[1][3] = 0;
-#endif
 
     m[2][0] = (cx * sy) >> FIXED_SHIFT;
     m[2][1] = -sx;
@@ -933,4 +929,32 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     m[2][3] = 0;
 
     cameraViewPos = pos;
+}
+
+void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceiling)
+{
+    SlantType slantType;
+
+    if (gLastFloorSlant.slantX == 0 && gLastFloorSlant.slantZ == 0) {
+        slantType = SLANT_NONE;
+    } else if (abs(gLastFloorSlant.slantX) < 3 && abs(gLastFloorSlant.slantZ) < 3) {
+        slantType = SLANT_LOW;
+    } else {
+        slantType = SLANT_HIGH;
+    }
+
+    if (st != ST_MIDDLE) {
+        if (stopOnSlant && floor < 0 && slantType == SLANT_HIGH) {
+            floor = -0x7FFF;
+        } else if (stopOnSlant && floor > 0 && slantType == SLANT_HIGH) {
+            floor = 512;
+        }/* TODO lava else if (stopOnLava && floor > 0 && trigger && FloorData(*(uint16*)trigger).cmd.func == FloorData::LAVA) {
+            floor = 512;
+        }*/
+    }
+
+    Side *s = &m + st;
+    s->slantType = slantType;
+    s->floor     = floor;
+    s->ceiling   = ceiling;
 }

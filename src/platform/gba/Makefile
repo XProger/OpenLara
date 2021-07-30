@@ -156,7 +156,7 @@ soundbank.bin soundbank.h : $(AUDIOFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
-%.WAV.o	%_WAV.h :	%.WAV
+%.IMA.o	%_IMA.h :	%.IMA
 	@echo $(notdir $<)
 	@$(bin2o)
 

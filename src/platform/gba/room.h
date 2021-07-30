@@ -2,7 +2,6 @@
 #define H_ROOM
 
 #include "common.h"
-#include "camera.h"
 
 void animTexturesShift()
 {
@@ -24,118 +23,6 @@ void animTexturesShift()
         textures[*data++] = tmp;
     }
 }
-
-int32 getBridgeFloor(const Item* item, int32 x, int32 z)
-{
-    if (item->type == ITEM_BRIDGE_FLAT) {
-        return item->pos.y;
-    }
-
-    int32 h;
-    if (item->angle.y == ANGLE_0) {
-        h = 1024 - x;
-    } else if (item->angle.y == ANGLE_180) {
-        h = x;
-    } else if (item->angle.y == ANGLE_90) {
-        h = z;
-    } else {
-        h = 1024 - z;
-    }
-
-    h &= 1023;
-
-    return item->pos.y + ((item->type == ITEM_BRIDGE_TILT_1) ? (h >> 2) : (h >> 1));
-}
-
-int32 getTrapDoorFloor(const Item* item, int32 x, int32 z)
-{
-    int32 dx = (item->pos.x >> 10) - (x >> 10);
-    int32 dz = (item->pos.z >> 10) - (z >> 10);
-
-    if (((dx ==  0) && (dz ==  0)) ||
-        ((dx ==  0) && (dz ==  1) && (item->angle.y ==  ANGLE_0))   ||
-        ((dx ==  0) && (dz == -1) && (item->angle.y ==  ANGLE_180)) ||
-        ((dx ==  1) && (dz ==  0) && (item->angle.y ==  ANGLE_90))  ||
-        ((dx == -1) && (dz ==  0) && (item->angle.y == -ANGLE_90)))
-    {
-        return item->pos.y;
-    }
-
-    return WALL;
-}
-
-int32 getDrawBridgeFloor(const Item* item, int32 x, int32 z)
-{
-    int32 dx = (item->pos.x >> 10) - (x >> 10);
-    int32 dz = (item->pos.z >> 10) - (z >> 10);
-
-    if (((dx == 0) && ((dz == -1) || (dz == -2)) && (item->angle.y ==  ANGLE_0))   ||
-        ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (item->angle.y ==  ANGLE_180)) ||
-        ((dz == 0) && ((dx == -1) || (dz == -2)) && (item->angle.y ==  ANGLE_90))  ||
-        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (item->angle.y == -ANGLE_90)))
-    {
-        return item->pos.y;
-    }
-
-    return WALL;
-}
-
-void getItemFloorCeiling(const Item* item, int32 x, int32 y, int32 z, int32* floor, int32* ceiling)
-{
-    int32 h = WALL;
-
-    switch (item->type)
-    {
-        case ITEM_TRAP_FLOOR:
-        {
-            if (item->state == 0 || item->state == 1) {
-                h = item->pos.y - 512;
-            }
-            break;
-        }
-        case ITEM_DRAWBRIDGE:
-        {
-            if (item->state == 1) {
-                h = getDrawBridgeFloor(item, x, z);
-            }
-            break;
-        }
-        case ITEM_BRIDGE_FLAT:
-        case ITEM_BRIDGE_TILT_1:
-        case ITEM_BRIDGE_TILT_2:
-        {
-            h = getBridgeFloor(item, x, z);
-            break;
-        }
-        case ITEM_TRAP_DOOR_1:
-        case ITEM_TRAP_DOOR_2:
-        {
-            if (item->state != 0)
-                return;
-
-            h = getTrapDoorFloor(item, x, z);
-
-            if ((floor && (h >= *floor)) || (ceiling && (h <= *ceiling)))
-            {
-                return;
-            }
-        }
-    }
-
-    if (h == WALL)
-        return;
-
-    if (floor && (y <= h))
-    {
-        *floor = h;
-    }
-
-    if (ceiling && (y > h))
-    {
-        *ceiling = h + 256;
-    }
-}
-
 
 const Sector* Sector::getSectorBelow(int32 posX, int32 posZ) const
 {
@@ -289,7 +176,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
 
                     if (trigger.action == TRIGGER_ACTION_ACTIVATE_OBJECT)
                     {
-                        getItemFloorCeiling(items + trigger.args, x, y, z, floor, ceiling);
+                        items[trigger.args].getItemFloorCeiling(x, y, z, floor, ceiling);
                     }
 
                     if (trigger.action == TRIGGER_ACTION_ACTIVATE_CAMERA)
@@ -315,6 +202,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
 
 const Sector* Room::getSector(int32 x, int32 z) const
 {
+    // TODO remove clamp?
     int32 sx = X_CLAMP((x - (info->x << 8)) >> 10, 0, info->xSectors - 1);
     int32 sz = X_CLAMP((z - (info->z << 8)) >> 10, 0, info->zSectors - 1);
 
@@ -386,6 +274,93 @@ Room* Room::getRoom(int32 x, int32 y, int32 z)
     return room;
 }
 
+bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
+{
+    cinfo.staticHit = false;
+    cinfo.offset    = vec3i(0);
+
+    Bounds objBox;
+    objBox.minX = -cinfo.radius;
+    objBox.maxX =  cinfo.radius;
+    objBox.minZ = -cinfo.radius;
+    objBox.maxZ =  cinfo.radius;
+    objBox.minY = -height;
+    objBox.maxY = 0;
+
+    Room** nearRoom = getNearRooms(p, cinfo.radius, height);
+
+    while (*nearRoom)
+    {
+        const Room* room = *nearRoom++;
+
+        for (int i = 0; i < room->info->meshesCount; i++)
+        {
+            const RoomMesh* mesh = room->data.meshes + i;
+
+        #ifdef NO_STATIC_MESH_PLANTS
+            if (mesh->id < 10)
+                continue;
+        #endif
+
+            const StaticMesh* staticMesh = staticMeshes + mesh->id;
+
+            if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION)
+                continue;
+
+            Bounds meshBox = boxRotate(staticMesh->cbox, (mesh->rot - 2) * ANGLE_90);
+
+        // TODO align RoomInfo::Mesh (room relative int16?)
+            vec3i pos;
+            pos.x = mesh->pos.x + (room->info->x << 8);
+            pos.y = mesh->pos.y;
+            pos.z = mesh->pos.z + (room->info->z << 8);
+
+            pos -= p;
+
+            boxTranslate(meshBox, pos);
+
+            if (!boxIntersect(meshBox, objBox))
+                continue;
+
+            cinfo.offset = boxPushOut(meshBox, objBox);
+
+            bool flip = (cinfo.quadrant > 1);
+
+            if (cinfo.quadrant & 1) {
+                if (abs(cinfo.offset.z) > cinfo.radius) {
+                    cinfo.offset.z = cinfo.pos.z - p.z;
+                    if ((cinfo.offset.x < 0 && cinfo.quadrant == 1) || (cinfo.offset.x > 0 && cinfo.quadrant == 3)) {
+                        cinfo.type = CT_FRONT;
+                    }
+                } else if (cinfo.offset.z != 0) {
+                    cinfo.offset.x = 0;
+                    cinfo.type = ((cinfo.offset.z > 0) ^ flip) ? CT_RIGHT : CT_LEFT;
+                } else {
+                    cinfo.offset = vec3i(0);
+                }
+            } else {
+                if (abs(cinfo.offset.x) > cinfo.radius) {
+                    cinfo.offset.x = cinfo.pos.x - p.x;
+                    if ((cinfo.offset.z < 0 && cinfo.quadrant == 0) || (cinfo.offset.z > 0 && cinfo.quadrant == 2)) {
+                        cinfo.type = CT_FRONT;
+                    }
+                } else if (cinfo.offset.x != 0) {
+                    cinfo.offset.z = 0;
+                    cinfo.type = ((cinfo.offset.x > 0) ^ flip) ? CT_LEFT : CT_RIGHT;
+                } else {
+                    cinfo.offset = vec3i(0);
+                }
+            }
+
+            cinfo.staticHit = (cinfo.offset.x != 0 || cinfo.offset.z != 0);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool Room::checkPortal(const Portal* portal)
 {
     vec3i d;
@@ -393,9 +368,8 @@ bool Room::checkPortal(const Portal* portal)
     d.y = portal->v[0].y - cameraViewPos.y;
     d.z = portal->v[0].z - cameraViewPos.z + (info->z << 8);
 
-    if (DP33(portal->n, d) >= 0) {
+    if (DP33(portal->n, d) >= 0)
         return false;
-    }
 
     int32 x0 = clip.x1;
     int32 y0 = clip.y1;
@@ -446,7 +420,8 @@ bool Room::checkPortal(const Portal* portal)
         if (y > y1) y1 = y;
     }
 
-    if (znear == 4 || zfar == 4) return false;
+    if (znear == 4 || zfar == 4)
+        return false;
 
     if (znear)
     {
@@ -484,7 +459,8 @@ bool Room::checkPortal(const Portal* portal)
     if (y0 < clip.y0) y0 = clip.y0;
     if (y1 > clip.y1) y1 = clip.y1;
 
-    if (x0 >= x1 || y0 >= y1) return false;
+    if (x0 >= x1 || y0 >= y1)
+        return false;
 
     Room* nextRoom = rooms + portal->roomIndex;
 
@@ -499,7 +475,7 @@ bool Room::checkPortal(const Portal* portal)
 Room** Room::addVisibleRoom(Room** list)
 {
     matrixPush();
-    matrixTranslateAbs(vec3i(info->x << 8, 0, info->z << 8));
+    matrixTranslateAbs(info->x << 8, 0, info->z << 8);
 
     for (int32 i = 0; i < info->portalsCount; i++)
     {
@@ -511,7 +487,8 @@ Room** Room::addVisibleRoom(Room** list)
 
             list = nextRoom->addVisibleRoom(list);
 
-            if (!nextRoom->visible) {
+            if (!nextRoom->visible)
+            {
                 nextRoom->visible = true;
                 *list++ = nextRoom;
             }
@@ -549,7 +526,8 @@ Room** Room::addNearRoom(Room** list, int32 x, int32 y, int32 z)
     int32 count = list - roomsList;
     for (int32 i = 0; i < count; i++)
     {
-        if (roomsList[i] == nearRoom) return list;
+        if (roomsList[i] == nearRoom)
+            return list;
     }
 
     *list++ = nearRoom;
@@ -618,8 +596,6 @@ void Room::remove(Item* item)
 {
     ASSERT(item && item->room == this);
 
-    item->room = NULL;
-
     Item* prev = NULL;
     Item* curr = firstItem;
 
@@ -642,304 +618,6 @@ void Room::remove(Item* item)
 
         prev = curr;
         curr = next;
-    }
-}
-
-void checkCamera(const FloorData* fd)
-{
-    if (camera.mode == CAMERA_MODE_OBJECT)
-        return;
-
-    while (1)
-    {
-        FloorData::TriggerCommand triggerCmd = (fd++)->triggerCmd;
-
-        switch (triggerCmd.action)
-        {
-            case TRIGGER_ACTION_ACTIVATE_CAMERA:
-            {
-                triggerCmd.end = (fd++)->triggerCmd.end;
-
-                if (triggerCmd.args != camera.lastIndex)
-                    break;
-
-                camera.index = triggerCmd.args;
-
-                if (camera.timer < 0 || camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
-                {
-                    camera.timer = -1;
-                    break;
-                }
-
-                camera.mode = CAMERA_MODE_FIXED;
-                break;
-            }
-
-            case TRIGGER_ACTION_CAMERA_TARGET:
-            {
-                if (camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
-                    break;
-
-                ASSERT(triggerCmd.args < level.itemsCount);
-                camera.lookAtItem = items + triggerCmd.args;
-                break;
-            }
-
-            case TRIGGER_ACTION_FLYBY:
-            {
-                triggerCmd.end = (fd++)->triggerCmd.end;
-                break;
-            }
-        }
-
-        if (triggerCmd.end) break;
-    };
-}
-
-void checkTrigger(const FloorData* fd, Item* lara)
-{
-    if (!fd)
-        return;
-
-    if (fd->cmd.func == FLOOR_TYPE_LAVA)
-    {
-        // TODO lava
-
-        if (fd->cmd.end)
-            return;
-
-        fd++;
-    }
-
-    FloorData::Command cmd = (fd++)->cmd;
-    FloorData::TriggerInfo info = (fd++)->triggerInfo;
-
-    Item* switchItem = NULL;
-    Item* cameraItem = NULL;
-
-    checkCamera(fd);
-
-    if (!lara && cmd.type != TRIGGER_TYPE_OBJECT)
-        return;
-
-    if (lara)
-    {
-        switch (cmd.type)
-        {
-            case TRIGGER_TYPE_ACTIVATE:
-                break;
-
-            case TRIGGER_TYPE_PAD:
-            case TRIGGER_TYPE_ANTIPAD:
-            {
-                if (lara->pos.y != lara->roomFloor)
-                    return;
-                break;
-            }
-
-            case TRIGGER_TYPE_SWITCH:
-            {
-                switchItem = items + fd->triggerCmd.args;
-                if (!useSwitch(switchItem, info.timer))
-                    return;
-                fd++;
-                break;
-            }
-
-            case TRIGGER_TYPE_KEY:
-            {
-                Item* keyItem = items + fd->triggerCmd.args;
-                if (!useKey(keyItem, lara))
-                    return;
-                fd++;
-                break;
-            }
-
-            case TRIGGER_TYPE_PICKUP:
-            {
-                Item* pickupItem = items + fd->triggerCmd.args;
-                if (!usePickup(pickupItem))
-                    return;
-                fd++;
-                break;
-            }
-                
-            case TRIGGER_TYPE_OBJECT:
-                return;
-
-            case TRIGGER_TYPE_COMBAT:
-            {
-                if (lara->weaponState != WEAPON_STATE_READY)
-                    return;
-                break;
-            }
-
-            case TRIGGER_TYPE_DUMMY:
-                return;
-        }
-    }
-
-    while (1)
-    {
-        FloorData::TriggerCommand triggerCmd = (fd++)->triggerCmd;
-
-        switch (triggerCmd.action)
-        {
-            case TRIGGER_ACTION_ACTIVATE_OBJECT:
-            {
-                ASSERT(triggerCmd.args < level.itemsCount);
-                Item* item = items + triggerCmd.args;
-                
-                if (item->flags.once)
-                    break;
-
-                item->timer = info.timer;
-                if (item->timer != 1) {
-                    item->timer *= 30;
-                }
-
-                if (cmd.type == TRIGGER_TYPE_SWITCH) {
-                    item->flags.mask ^= info.mask;
-                } else if (cmd.type == TRIGGER_TYPE_ANTIPAD) {
-                    item->flags.mask &= ~info.mask;
-                } else {
-                    item->flags.mask |= info.mask;
-                }
-
-                if (item->flags.mask != ITEM_FLAGS_MASK_ALL)
-                    break;
-
-                item->flags.once |= info.once;
-
-                if (item->flags.active)
-                    break;
-
-                item->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
-
-                item->activate();
-                break;
-            }
-
-            case TRIGGER_ACTION_ACTIVATE_CAMERA:
-            {
-                FloorData::TriggerCommand cam = (fd++)->triggerCmd;
-                triggerCmd.end = cam.end;
-
-                if (cameras[triggerCmd.args].flags.once)
-                    break;
-
-                camera.index = triggerCmd.args;
-
-                if (camera.mode == CAMERA_MODE_LOOK || camera.mode == CAMERA_MODE_COMBAT)
-                    break;
-
-                if (cmd.type == TRIGGER_TYPE_COMBAT)
-                    break;
-
-                if (cmd.type == TRIGGER_TYPE_SWITCH && (switchItem->state == 1) && (info.timer != 0))
-                    break;
-
-                if (cmd.type == TRIGGER_TYPE_SWITCH || camera.index != camera.lastIndex)
-                {
-                    camera.timer = cam.timer;
-                    if (camera.timer != 1) {
-                        camera.timer *= 30;
-                    }
-
-                    if (cam.once) {
-                        cameras[camera.index].flags.once = true;
-                    }
-                
-                    camera.speed = (cam.speed << 3) + 1;
-                    camera.mode = lara ? CAMERA_MODE_FIXED : CAMERA_MODE_OBJECT;
-                }
-                break;
-            }
-
-            case TRIGGER_ACTION_FLOW:
-                // TODO flow
-                break;
-
-            case TRIGGER_ACTION_FLIP:
-                // TODO flipmap
-                break;
-
-            case TRIGGER_ACTION_FLIP_ON:
-                // TODO flipmap
-                break;
-
-            case TRIGGER_ACTION_FLIP_OFF:
-                // TODO flipmap
-                break;
-
-            case TRIGGER_ACTION_CAMERA_TARGET:
-            {
-                cameraItem = items + triggerCmd.args;
-                break;
-            }
-
-            case TRIGGER_ACTION_END:
-                // TODO go to the next level
-                break;
-
-            case TRIGGER_ACTION_SOUNDTRACK:
-            {
-                int32 track = doTutorial(lara, triggerCmd.args);
-
-                if (track == 0) break;
-
-                SaveGame::TrackFlags &flags = gSaveGame.tracks[track];
-
-                if (flags.once)
-                    break;
-
-                if (cmd.type == TRIGGER_TYPE_SWITCH)
-                    flags.mask ^= info.mask;
-                else if (cmd.type == TRIGGER_TYPE_ANTIPAD)
-                    flags.mask &= ~info.mask;
-                else
-                    flags.mask |= info.mask;
-
-                if (flags.mask == ITEM_FLAGS_MASK_ALL) {
-                    flags.once |= info.once;
-                    musicPlay(track);
-                } else {
-                    musicStop();
-                }
-                break;
-            }
-
-            case TRIGGER_ACTION_EFFECT:
-                // TODO effect
-                break;
-
-            case TRIGGER_ACTION_SECRET:
-            {
-                if ((gSaveGame.secrets >> triggerCmd.args) & 1)
-                    break;
-
-                gSaveGame.secrets |= (1 << triggerCmd.args);
-                mixer.playMusic(TRACK_13_WAV); // TODO play sample?
-                break;
-            }
-
-            case TRIGGER_ACTION_CLEAR_BODIES:
-                break;
-
-            case TRIGGER_ACTION_FLYBY:
-                triggerCmd.end = (fd++)->triggerCmd.end;
-                break;
-
-            case TRIGGER_ACTION_CUTSCENE:
-                break;
-        }
-
-        if (triggerCmd.end) break;
-    };
-
-    if (cameraItem && (camera.mode == CAMERA_MODE_FIXED || camera.mode == CAMERA_MODE_OBJECT))
-    {
-        camera.lookAtItem = cameraItem;
     }
 }
 

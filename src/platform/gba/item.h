@@ -11,18 +11,30 @@ int32 curItemIndex;
 
 #define GRAVITY      6
 
-X_INLINE int16 angleLerp(int16 a, int16 b, int32 w)
+int32 alignOffset(int32 a, int32 b)
 {
-    int16 d = b - a;
-    if (d > +w) return a + w;
-    if (d < -w) return a - w;
-    return b;
-}
+    int32 ca = a >> 10;
+    int32 cb = b >> 10;
 
-#define angleDec(angle, value) angleLerp(angle, 0, value)
+    if (ca == cb) {
+        return 0;
+    }
+
+    a &= 1023;
+
+    if (ca < cb) {
+        return 1025 - a;
+    }
+
+    return -(a + 1);
+}
 
 Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 {
+    // TODO gym
+    // 0 -> 200
+    // 4 -> 204
+
     int16 a = level.soundMap[id];
 
     if (a == -1)
@@ -33,7 +45,7 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
     if (b->chance && b->chance < rand_draw())
         return NULL;
 
-    vec3i d = pos - camera.target.pos;
+    vec3i d = pos - viewCameras[0].target.pos; // TODO find nearest camera for coop
 
     if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST)
         return NULL;
@@ -48,6 +60,8 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 
     if (volume <= 0)
         return NULL;
+
+    volume += 1; // 63 to 64 (1 << SND_VOL_SHIFT) for 100% vol samples
 
     int32 pitch = 128;
 
@@ -65,10 +79,6 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
     int32 size;
     memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
     data += 44;
-
-    if (id >= 148 + 25) {
-        pitch >>= 1; // GYM PC sample rate hack
-    }
 
     return mixer.playSample(data, size, volume, pitch, b->flags.mode);
 }
@@ -98,32 +108,106 @@ void soundStop(int16 id)
 
 void musicPlay(int32 track)
 {
-    if (track > 25 && track < 57) // gym tutorial
-    {
-        soundPlay(148 + track, camera.view.pos); // play embedded tracks
+    if (track == 13) {
+        gCurTrack = 0;
     }
+
+    if (track == gCurTrack)
+        return;
+
+    gCurTrack = track;
+
+    struct TrackInfo {
+        int32 offset;
+        int32 size;
+    } *info = (TrackInfo*)((uint8*)TRACKS_IMA + track * 8);
+
+    if (!info->size)
+        return;
+
+    mixer.playMusic((uint8*)TRACKS_IMA + info->offset, info->size);
 }
 
 void musicStop()
 {
-    // TODO
+    mixer.stopMusic();
 }
 
-AnimFrame* Item::getFrame(const Model* model) const
+int32 Item::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int32 &animFrameRate) const
 {
     const Anim* anim = level.anims + animIndex;
 
-    int32 frameSize = sizeof(AnimFrame) / 2 + model->count * 2;
-    int32 keyFrame = (frameIndex - anim->frameBegin) / anim->frameRate; // TODO fixed div? check the range
+    animFrameRate = anim->frameRate;
 
-    return (AnimFrame*)(level.animFrames + anim->frameOffset / 2 + keyFrame * frameSize);
+    int32 frameSize = (sizeof(AnimFrame) >> 1) + (models[type].count << 1);
+
+    int32 frame = frameIndex - anim->frameBegin;
+
+//    int32 d = FixedInvU(animFrameRate);
+//    int32 indexA = frame * d >> 16;
+
+    int32 indexA = frame / animFrameRate;
+    int32 frameDelta = frame - indexA * animFrameRate;
+    int32 indexB = indexA + 1;
+
+    if (indexB * animFrameRate >= anim->frameEnd)
+    {
+        indexB = indexA;
+    }
+
+    frameA = (AnimFrame*)(level.animFrames + (anim->frameOffset >> 1) + indexA * frameSize);
+    frameB = (AnimFrame*)(level.animFrames + (anim->frameOffset >> 1) + indexB * frameSize);
+
+    if (!frameDelta)
+        return 0;
+
+    indexB *= animFrameRate;
+    if (indexB > anim->frameEnd) {
+        animFrameRate -= indexB - anim->frameEnd;
+    }
+
+    return frameDelta;
 }
 
-const Bounds& Item::getBoundingBox() const
+const AnimFrame* Item::getFrame() const
 {
-    const Model* model = models + type;
-    AnimFrame* frame = getFrame(model);
-    return frame->box;
+    const AnimFrame *frameA, *frameB;
+
+    int32 frameRate;
+    int32 frameDelta = getFrames(frameA, frameB, frameRate);
+
+    return (frameDelta <= (frameRate >> 1)) ? frameA : frameB;
+}
+
+Bounds tmpBox;
+
+const Bounds& Item::getBoundingBox(bool lerp) const
+{
+    if (!lerp)
+        return getFrame()->box;
+
+    const AnimFrame *frameA, *frameB;
+
+    int32 frameRate;
+    int32 frameDelta = getFrames(frameA, frameB, frameRate);
+
+    if (!frameDelta)
+        return frameA->box;
+
+    int32 d = FixedInvU(frameRate) * frameDelta;
+
+    #define COMP_LERP(COMP) tmpBox.COMP = frameA->box.COMP + ((frameB->box.COMP - frameA->box.COMP) * d >> 16);
+
+    COMP_LERP(minX);
+    COMP_LERP(maxX);
+    COMP_LERP(minY);
+    COMP_LERP(maxY);
+    COMP_LERP(minZ);
+    COMP_LERP(maxZ);
+
+    #undef COMP_LERP
+
+    return tmpBox;
 }
 
 void Item::move()
@@ -148,7 +232,7 @@ void Item::move()
         hSpeed = s >> 16;
     }
 
-    int16 realAngle = (type == ITEM_LARA) ? moveAngle : angle.y;
+    int16 realAngle = (type == ITEM_LARA) ? extraL->moveAngle : angle.y;
 
     pos.x += phd_sin(realAngle) * hSpeed >> FIXED_SHIFT;
     pos.z += phd_cos(realAngle) * hSpeed >> FIXED_SHIFT;
@@ -226,11 +310,10 @@ void Item::animCmd(bool fx, const Anim* anim)
                     int32 s = phd_sin(angle.y);
                     int32 c = phd_cos(angle.y);
                     int32 x = ptr[0];
-                    int32 y = ptr[1];
                     int32 z = ptr[2];
-                    pos.x += (c * x + s * z) >> FIXED_SHIFT;
-                    pos.y += y;
-                    pos.z += (c * z - s * x) >> FIXED_SHIFT;
+                    pos.x += X_ROTX(x, z, -s, c);
+                    pos.y += ptr[1];
+                    pos.z += X_ROTY(x, z, -s, c);
                 }
                 ptr += 3;
                 break;
@@ -240,9 +323,9 @@ void Item::animCmd(bool fx, const Anim* anim)
             {
                 if (!fx)
                 {
-                    if (vSpeedHack) {
-                        vSpeed = vSpeedHack;
-                        vSpeedHack = 0;
+                    if (type == ITEM_LARA && extraL->vSpeedHack) {
+                        vSpeed = -extraL->vSpeedHack;
+                        extraL->vSpeedHack = 0;
                     } else {
                         vSpeed = ptr[0];
                     }
@@ -256,7 +339,8 @@ void Item::animCmd(bool fx, const Anim* anim)
             case ANIM_CMD_EMPTY:
             {
                 if (!fx) {
-                    weaponState = WEAPON_STATE_FREE;
+                    ASSERT(type == ITEM_LARA);
+                    extraL->weaponState = WEAPON_STATE_FREE;
                 }
                 break;
             }
@@ -283,12 +367,36 @@ void Item::animCmd(bool fx, const Anim* anim)
                 if (fx && frameIndex == ptr[0])
                 {
                     switch (ptr[1]) {
-                        case FX_ROTATE_180     : angle.y += ANGLE_180; break;
+                        case FX_ROTATE_180 :
+                        {
+                            angle.y += ANGLE_180;
+                            break;
+                        }
+
                     /*
                         case FX_FLOOR_SHAKE    : ASSERT(false);
-                        case FX_LARA_NORMAL    : animation.setAnim(ANIM_STAND); break;
-                        case FX_LARA_BUBBLES   : doBubbles(); break;
-                        case FX_LARA_HANDSFREE : break;//meshSwap(1, level->extra.weapons[wpnCurrent], BODY_LEG_L1 | BODY_LEG_R1); break;
+                    */
+
+                        case FX_LARA_NORMAL :
+                        {
+                            ASSERT(type == ITEM_LARA);
+                            animSet(11, true); // Lara::ANIM_STAND
+                            break;
+                        }
+
+                        case FX_LARA_BUBBLES :
+                        {
+                            fxBubbles(room, JOINT_HEAD, vec3i(0, 0, 50));
+                            break;
+                        }
+
+                        case FX_LARA_HANDSFREE :
+                        {
+                            ASSERT(type == ITEM_LARA && extraL);
+                            extraL->weaponState = WEAPON_STATE_FREE;
+                            break;
+                        }
+                    /*
                         case FX_DRAW_RIGHTGUN  : drawGun(true); break;
                         case FX_DRAW_LEFTGUN   : drawGun(false); break;
                         case FX_SHOT_RIGHTGUN  : game->addMuzzleFlash(this, LARA_RGUN_JOINT, LARA_RGUN_OFFSET, 1 + camera->cameraIndex); break;
@@ -333,14 +441,10 @@ void Item::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
 }
 
 #define ANIM_MOVE_LERP_POS  (16)
-#define ANIM_MOVE_LERP_ROT  (2 * DEG2SHORT)
+#define ANIM_MOVE_LERP_ROT  ANGLE(2)
 
 void Item::animProcess(bool movement)
 {
-    if (models[type].count <= 0) {
-        return; // TODO sprite animation
-    }
-
     ASSERT(models[type].count > 0);
 
     const Anim* anim = level.anims + animIndex;
@@ -373,6 +477,15 @@ void Item::animProcess(bool movement)
 bool Item::animIsEnd(int32 offset) const
 {
     return frameIndex == level.anims[animIndex].frameEnd - offset;
+}
+
+void Item::animHit(int32 dirX, int32 dirZ, int32 hitTimer)
+{
+    ASSERT(type == ITEM_LARA);
+    ASSERT(extraL != NULL);
+
+    extraL->hitQuadrant = uint16(angle.y - phd_atan(dirZ, dirX) + ANGLE_180 + ANGLE_45) / ANGLE_90;
+    extraL->hitTimer = hitTimer;
 }
 
 bool Item::moveTo(const vec3i &point, Item* item, bool lerp)
@@ -430,13 +543,19 @@ void Item::remove()
     deactivate();
     room->remove(this);
 
+    for (int32 i = 0; i < MAX_PLAYERS; i++)
+    {
+        if (playersExtra[i].armR.target == this) playersExtra[i].armR.target = NULL;
+        if (playersExtra[i].armL.target == this) playersExtra[i].armL.target = NULL;
+    }
+
     nextItem = Item::sFirstFree;
     Item::sFirstFree = this;
 }
 
 void Item::activate()
 {
-    //ASSERT(!flags.active)
+    ASSERT(!flags.active)
 
     flags.active = true;
 
@@ -469,6 +588,82 @@ void Item::deactivate()
 
         prev = curr;
         curr = next;
+    }
+}
+
+void Item::hit(int32 damage, const vec3i &point, int32 soundId)
+{
+    //
+}
+
+void Item::fxBubbles(Room *fxRoom, int32 fxJoint, const vec3i &fxOffset)
+{
+    int32 count = rand_draw() % 3;
+
+    if (!count)
+        return;
+
+    vec3i fxPos = pos + getJoint(fxJoint, fxOffset);
+
+    for (int32 i = 0; i < count; i++)
+    {
+        Item::add(ITEM_BUBBLE, fxRoom, fxPos, 0);
+    }
+}
+
+void Item::fxRicochet(Room *fxRoom, const vec3i &fxPos, bool fxSound)
+{
+    Item* ricochet = Item::add(ITEM_RICOCHET, fxRoom, fxPos, 0);
+
+    if (!ricochet)
+        return;
+
+    ricochet->timer = 4;
+    ricochet->frameIndex = rand_draw() % (-models[ricochet->type].count);
+
+    if (fxSound) {
+        soundPlay(SND_RICOCHET, ricochet->pos);
+    }
+}
+
+void Item::fxBlood(const vec3i &fxPos, int16 fxAngleY, int16 fxSpeed)
+{
+    Item* blood = Item::add(ITEM_BLOOD, room, fxPos, fxAngleY);
+    
+    if (!blood)
+        return;
+
+    blood->hSpeed = fxSpeed;
+    blood->timer = 4;
+    blood->flags.animated = true;
+}
+
+void Item::fxSmoke(const vec3i &fxPos)
+{
+    Item* smoke = Item::add(ITEM_SMOKE, room, fxPos, 0);
+    
+    if (!smoke)
+        return;
+
+    smoke->timer = 3;
+    smoke->flags.animated = true;
+}
+
+void Item::fxSplash()
+{
+    vec3i fxPos = pos;
+    fxPos.y = getWaterLevel();
+
+    // TODO TR3+
+    for (int32 i = 0; i < 10; i++)
+    {
+        Item* splash = Item::add(ITEM_SPLASH, room, fxPos, int16(rand_draw() - ANGLE_90) << 1);
+    
+        if (!splash)
+            return;
+
+        splash->hSpeed = int16(rand_draw() >> 8);
+        splash->flags.animated = true;
     }
 }
 
@@ -505,25 +700,252 @@ vec3i Item::getRelative(const vec3i &point) const
     return p;
 }
 
-int32 Item::getWaterLevel()
+int32 Item::getWaterLevel() const
 {
     const Sector* sector = room->getWaterSector(pos.x, pos.z);
     if (sector) {
-        return sector->ceiling * 256;
+        if (sector->roomAbove == NO_ROOM) {
+            return sector->getCeiling(pos.x, pos.y, pos.z);
+        } else {
+            return sector->ceiling << 8;
+        }
     }
 
     return WALL;
 }
 
-int32 Item::getWaterDepth()
+int32 Item::getWaterDepth() const
 {
     const Sector* sector = room->getWaterSector(pos.x, pos.z);
 
-    if (sector) {
+    if (sector)
         return sector->getFloor(pos.x, pos.y, pos.z) - (sector->ceiling * 256);
+
+    return WALL;
+}
+
+int32 Item::getBridgeFloor(int32 x, int32 z) const
+{
+    if (type == ITEM_BRIDGE_FLAT)
+        return pos.y;
+
+    int32 h;
+    if (angle.y == ANGLE_0) {
+        h = 1024 - x;
+    } else if (angle.y == ANGLE_180) {
+        h = x;
+    } else if (angle.y == ANGLE_90) {
+        h = z;
+    } else {
+        h = 1024 - z;
+    }
+
+    h &= 1023;
+
+    return pos.y + ((type == ITEM_BRIDGE_TILT_1) ? (h >> 2) : (h >> 1));
+}
+
+int32 Item::getTrapDoorFloor(int32 x, int32 z) const
+{
+    int32 dx = (pos.x >> 10) - (x >> 10);
+    int32 dz = (pos.z >> 10) - (z >> 10);
+
+    if (((dx ==  0) && (dz ==  0)) ||
+        ((dx ==  0) && (dz ==  1) && (angle.y ==  ANGLE_0))   ||
+        ((dx ==  0) && (dz == -1) && (angle.y ==  ANGLE_180)) ||
+        ((dx ==  1) && (dz ==  0) && (angle.y ==  ANGLE_90))  ||
+        ((dx == -1) && (dz ==  0) && (angle.y == -ANGLE_90)))
+    {
+        return pos.y;
     }
 
     return WALL;
+}
+
+int32 Item::getDrawBridgeFloor(int32 x, int32 z) const
+{
+    int32 dx = (pos.x >> 10) - (x >> 10);
+    int32 dz = (pos.z >> 10) - (z >> 10);
+
+    if (((dx == 0) && ((dz == -1) || (dz == -2)) && (angle.y ==  ANGLE_0))   ||
+        ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (angle.y ==  ANGLE_180)) ||
+        ((dz == 0) && ((dx == -1) || (dz == -2)) && (angle.y ==  ANGLE_90))  ||
+        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (angle.y == -ANGLE_90)))
+    {
+        return pos.y;
+    }
+
+    return WALL;
+}
+
+void Item::getItemFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
+{
+    int32 h = WALL;
+
+    switch (type)
+    {
+        case ITEM_TRAP_FLOOR:
+        {
+            if (state == 0 || state == 1) {
+                h = pos.y - 512;
+            }
+            break;
+        }
+        case ITEM_DRAWBRIDGE:
+        {
+            if (state == 1) {
+                h = getDrawBridgeFloor(x, z);
+            }
+            break;
+        }
+        case ITEM_BRIDGE_FLAT:
+        case ITEM_BRIDGE_TILT_1:
+        case ITEM_BRIDGE_TILT_2:
+        {
+            h = getBridgeFloor(x, z);
+            break;
+        }
+        case ITEM_TRAP_DOOR_1:
+        case ITEM_TRAP_DOOR_2:
+        {
+            if (state != 0)
+                return;
+
+            h = getTrapDoorFloor(x, z);
+
+            if ((floor && (h >= *floor)) || (ceiling && (h <= *ceiling)))
+                return;
+        }
+    }
+
+    if (h == WALL)
+        return;
+
+    if (floor && (y <= h))
+    {
+        *floor = h;
+    }
+
+    if (ceiling && (y > h))
+    {
+        *ceiling = h + 256;
+    }
+}
+
+vec3i Item::getJoint(int32 jointIndex, const vec3i &offset) const
+{
+    const Model* model = models + type;
+
+    const AnimFrame* frame = getFrame();
+
+    const uint32* frameAngles = (uint32*)(frame->angles + 1);
+
+    matrixPush();
+    matrixSetIdentity();
+    matrixRotateYXZ(angle.x, angle.y, angle.z);
+
+    const Node* node = level.nodes + model->nodeIndex;
+
+    matrixFrame(frame->pos, frameAngles);
+
+    ASSERT(jointIndex < model->count);
+
+    for (int32 i = 0; i < jointIndex; i++)
+    {
+        if (node->flags & 1) matrixPop();
+        if (node->flags & 2) matrixPush();
+
+        matrixFrame(node->pos, ++frameAngles);
+
+        // TODO extra rotations
+
+        node++;
+    }
+
+    matrixTranslate(offset.x, offset.y, offset.z);
+
+    Matrix &m = matrixGet();
+    vec3i result = vec3i(m[0].w >> FIXED_SHIFT, m[1].w >> FIXED_SHIFT, m[2].w >> FIXED_SHIFT);
+
+    matrixPop();
+
+    return result;
+}
+
+int32 Item::getSpheres(Sphere* spheres, bool flag) const
+{
+    const Model* model = models + type;
+
+    const AnimFrame* frame = getFrame();
+    const uint32* frameAngles = (uint32*)(frame->angles + 1);
+
+    const Mesh** meshPtr = meshes + model->start;
+
+    int32 x, y, z;
+
+    if (flag) {
+        x = pos.x;
+        y = pos.y;
+        z = pos.z;
+        matrixPush();
+        matrixSetIdentity();
+    } else {
+        x = y = z = 0;
+        matrixPush();
+        matrixTranslateAbs(pos.x, pos.y, pos.z);
+    }
+
+    matrixRotateYXZ(angle.x, angle.y, angle.z);
+
+    const Node* node = level.nodes + model->nodeIndex;
+
+    matrixFrame(frame->pos, frameAngles);
+
+    Sphere* sphere = spheres;
+
+    matrixPush();
+    {
+        const Mesh* mesh = *meshPtr;
+        matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
+        Matrix &m = matrixGet();
+        sphere->center.x = x + (m[0].w >> FIXED_SHIFT);
+        sphere->center.y = y + (m[1].w >> FIXED_SHIFT);
+        sphere->center.z = z + (m[2].w >> FIXED_SHIFT);
+        sphere->radius = mesh->radius;
+        sphere++;
+        meshPtr++;
+    }
+    matrixPop();
+    
+    for (int32 i = 1; i < model->count; i++)
+    {
+        if (node->flags & 1) matrixPop();
+        if (node->flags & 2) matrixPush();
+
+        matrixFrame(node->pos, ++frameAngles);
+
+        // TODO extra rotations
+
+        matrixPush();
+        {
+            const Mesh* mesh = *meshPtr;
+            matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
+            Matrix &m = matrixGet();
+            sphere->center.x = x + (m[0].w >> FIXED_SHIFT);
+            sphere->center.y = y + (m[1].w >> FIXED_SHIFT);
+            sphere->center.z = z + (m[2].w >> FIXED_SHIFT);
+            sphere->radius = mesh->radius;
+            sphere++;
+            meshPtr++;
+        }
+        matrixPop();
+
+        node++;
+    }
+
+    matrixPop();
+
+    return sphere - spheres;
 }
 
 #include "lara.h"
@@ -543,13 +965,15 @@ Item::Item(Room* room)
     state       = uint8(level.anims[animIndex].state);
     nextState   = state;
     goalState   = state;
+    extra       = NULL;
+    health      = NOT_ENEMY;
 
     flags.save = true;
     flags.gravity = false;
     flags.active = false;
     flags.status = ITEM_FLAGS_STATUS_NONE;
     flags.collision = true;
-    flags.custom = 0;
+    flags.animated = false;
     flags.shadow = false;
 
     if (flags.once) // once -> invisible
@@ -586,6 +1010,317 @@ void Item::draw()
 void Item::collide(Lara* lara, CollisionInfo* cinfo)
 {
     // empty
+}
+
+uint32 Item::collideSpheres(Lara* lara) const
+{
+    Sphere a[MAX_SPHERES];
+    Sphere b[MAX_SPHERES];
+
+    int32 aCount = getSpheres(a, true);
+    int32 bCount = lara->getSpheres(b, true);
+
+    uint32 mask = 0;
+
+    for (int32 i = 0; i < aCount; i++)
+    {
+        if (a[i].radius <= 0)
+            continue;
+
+        for (int32 j = 0; j < bCount; j++)
+        {
+            if (b[j].radius <= 0)
+                continue;
+
+            vec3i d = b[j].center - a[i].center;
+            int32 r = b[j].radius + a[i].radius;
+
+            if (X_SQR(d.x) + X_SQR(d.y) + X_SQR(d.z) < X_SQR(r))
+            {
+                mask |= (1 << i);
+            }
+        }
+    }
+
+    return mask;
+}
+
+bool Item::collideBounds(Lara* lara, CollisionInfo* cinfo) const
+{
+    const Bounds &a = getBoundingBox(false);
+    const Bounds &b = lara->getBoundingBox(false);
+
+    int32 dy = lara->pos.y - pos.y;
+
+    if ((a.maxY - b.minY <= dy) ||
+        (a.minY - b.maxY >= dy))
+        return false;
+
+    int32 dx = lara->pos.x - pos.x;
+    int32 dz = lara->pos.z - pos.z;
+
+    int32 s = phd_sin(angle.y);
+    int32 c = phd_cos(angle.y);
+
+    int32 px = X_ROTX(dx, dz, s, c);
+    int32 pz = X_ROTY(dx, dz, s, c);
+
+    int32 r = cinfo->radius;
+
+    return (px >= a.minX - r) &&
+           (px <= a.maxX + r) &&
+           (pz >= a.minZ - r) &&
+           (pz <= a.maxZ + r);
+}
+
+void Item::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
+{
+    int32 dx = lara->pos.x - pos.x;
+    int32 dz = lara->pos.z - pos.z;
+
+    int32 s = phd_sin(angle.y);
+    int32 c = phd_cos(angle.y);
+
+    int32 px = X_ROTX(dx, dz, s, c);
+    int32 pz = X_ROTY(dx, dz, s, c);
+
+    const Bounds &box = getBoundingBox(false);
+    int32 minX = box.minX - cinfo->radius;
+    int32 maxX = box.maxX + cinfo->radius;
+    int32 minZ = box.minZ - cinfo->radius;
+    int32 maxZ = box.maxZ + cinfo->radius;
+
+    if ((px < minX) || (px > maxX) || (pz < minZ) || (pz > maxZ))
+        return;
+
+    enemyHit &= cinfo->enemyHit && (box.maxY - box.minY) > 256;
+
+    int32 ax = px - minX;
+    int32 bx = maxX - px;
+    int32 az = pz - minZ;
+    int32 bz = maxZ - pz;
+
+    if (ax <= bx && ax <= az && ax <= bz) {
+        px -= ax;
+    } else if (bx <= ax && bx <= az && bx <= bz) {
+        px += bx;
+    } else if (az <= ax && az <= bx && az <= bz) {
+        pz -= az;
+    } else {
+        pz += bz;
+    }
+
+    s = -s;
+
+    lara->pos.x = pos.x + X_ROTX(px, pz, s, c);
+    lara->pos.z = pos.z + X_ROTY(px, pz, s, c);
+
+    if (enemyHit)
+    {
+        int32 cx = (minX + maxX) >> 1;
+        int32 cz = (minZ + maxZ) >> 1;
+        dx -= X_ROTX(cx, cz, s, c);
+        dz -= X_ROTY(cx, cz, s, c);
+        lara->animHit(dx, dz, 5);
+    }
+
+    int32 tmpAngle = cinfo->angle;
+
+    cinfo->gapPos = -WALL;
+    cinfo->gapNeg = -LARA_STEP_HEIGHT;
+    cinfo->gapCeiling = 0;
+
+    cinfo->setAngle(phd_atan(lara->pos.z - cinfo->pos.z, lara->pos.x - cinfo->pos.x));
+    
+    collideRoom(LARA_HEIGHT, 0);
+
+    cinfo->setAngle(tmpAngle);
+
+    if (cinfo->type != CT_NONE) {
+        lara->pos.x = cinfo->pos.x;
+        lara->pos.z = cinfo->pos.z;
+    } else {
+        cinfo->pos = lara->pos;
+        lara->updateRoom(-10);
+    }
+}
+
+void Item::collideRoom(int32 height, int32 yOffset) const
+{
+    cinfo.type = CT_NONE;
+    cinfo.offset = vec3i(0, 0, 0);
+
+    vec3i p = pos;
+    p.y += yOffset;
+
+    int32 y = p.y - height;
+
+    int32 cy = y - 160;
+
+    int32 floor, ceiling;
+
+    Room* nextRoom = room;
+
+    #define CHECK_HEIGHT(v) {\
+        nextRoom = nextRoom->getRoom(v.x, cy, v.z);\
+        const Sector* sector = nextRoom->getSector(v.x, v.z);\
+        floor = sector->getFloor(v.x, cy, v.z);\
+        if (floor != WALL) floor -= p.y;\
+        ceiling = sector->getCeiling(v.x, cy, v.z);\
+        if (ceiling != WALL) ceiling -= y;\
+    }
+
+// middle
+    CHECK_HEIGHT(p);
+
+    cinfo.trigger = gLastFloorData;
+    cinfo.slantX = gLastFloorSlant.slantX;
+    cinfo.slantZ = gLastFloorSlant.slantZ;
+
+    cinfo.setSide(CollisionInfo::ST_MIDDLE, floor, ceiling);
+
+    vec3i f, l, r;
+    int32 R = cinfo.radius;
+
+    switch (cinfo.quadrant) {
+        case 0 : {
+            f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, R);
+            l = vec3i(-R, 0,  R);
+            r = vec3i( R, 0,  R);
+            break;
+        }
+        case 1 : {
+            f = vec3i( R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            l = vec3i( R, 0,  R);
+            r = vec3i( R, 0, -R);
+            break;
+        }
+        case 2 : {
+            f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, -R);
+            l = vec3i( R, 0, -R);
+            r = vec3i(-R, 0, -R);
+            break;
+        }
+        case 3 : {
+            f = vec3i(-R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            l = vec3i(-R, 0, -R);
+            r = vec3i(-R, 0,  R);
+            break;
+        }
+        default : {
+            f.x = f.y = f.z = 0;
+            l.x = l.y = l.z = 0;
+            r.x = r.y = r.z = 0;
+            ASSERT(false);
+        }
+    }
+
+    f += p;
+    l += p;
+    r += p;
+
+    vec3i delta;
+    delta.x = cinfo.pos.x - p.x;
+    delta.y = cinfo.pos.y - p.y;
+    delta.z = cinfo.pos.z - p.z;
+
+// front
+    CHECK_HEIGHT(f);
+    cinfo.setSide(CollisionInfo::ST_FRONT, floor, ceiling);
+
+// left
+    CHECK_HEIGHT(l);
+    cinfo.setSide(CollisionInfo::ST_LEFT, floor, ceiling);
+
+// right
+    CHECK_HEIGHT(r);
+    cinfo.setSide(CollisionInfo::ST_RIGHT, floor, ceiling);
+
+// static objects
+    room->collideStatic(cinfo, p, height);
+
+// check middle
+    if (cinfo.m.floor == WALL)
+    {
+        cinfo.offset = delta;
+        cinfo.type   = CT_FRONT;
+        return;
+    }
+
+    if (cinfo.m.floor <= cinfo.m.ceiling)
+    {
+        cinfo.offset = delta;
+        cinfo.type   = CT_FLOOR_CEILING;
+        return;
+    }
+
+    if (cinfo.m.ceiling >= 0)
+    {
+        cinfo.offset.y = cinfo.m.ceiling;
+        cinfo.type     = CT_CEILING;
+    }
+
+// front
+    if (cinfo.f.floor > cinfo.gapPos || 
+        cinfo.f.floor < cinfo.gapNeg ||
+        cinfo.f.ceiling > cinfo.gapCeiling)
+    {
+        if (cinfo.quadrant & 1)
+        {
+            cinfo.offset.x = alignOffset(f.x, p.x);
+            cinfo.offset.z = delta.z;
+        } else {
+            cinfo.offset.x = delta.x;
+            cinfo.offset.z = alignOffset(f.z, p.z);
+        }
+
+        cinfo.type = CT_FRONT;
+        return;
+    }
+
+// front ceiling
+    if (cinfo.f.ceiling >= cinfo.gapCeiling)
+    {
+        cinfo.offset = delta;
+        cinfo.type   = CT_FRONT_CEILING;
+        return;
+    }
+
+// left
+    if (cinfo.l.floor > cinfo.gapPos || cinfo.l.floor < cinfo.gapNeg)
+    {
+        if (cinfo.quadrant & 1) {
+            cinfo.offset.z = alignOffset(l.z, f.z);
+        } else {
+            cinfo.offset.x = alignOffset(l.x, f.x);
+        }
+        cinfo.type = CT_LEFT;
+        return;
+    }
+
+// right
+    if (cinfo.r.floor > cinfo.gapPos || cinfo.r.floor < cinfo.gapNeg)
+    {
+        if (cinfo.quadrant & 1) {
+            cinfo.offset.z = alignOffset(r.z, f.z);
+        } else {
+            cinfo.offset.x = alignOffset(r.x, f.x);
+        }
+        cinfo.type = CT_RIGHT;
+        return;
+    }
+}
+
+uint32 Item::updateHitMask(Lara* lara, CollisionInfo* cinfo)
+{
+    hitMask = 0;
+
+    if (!collideBounds(lara, cinfo)) // check bound box intersection
+        return false;
+
+    hitMask = collideSpheres(lara); // get hitMask = spheres collision mask
+
+    return hitMask;
 }
 
 Item* Item::init(Room* room)
@@ -672,7 +1407,7 @@ Item* Item::init(Room* room)
         // INIT_ITEM( CUT_4                 , ??? );
         // INIT_ITEM( INV_PASSPORT_CLOSED   , ??? );
         // INIT_ITEM( INV_MAP               , ??? );
-        // INIT_ITEM( CRYSTAL               , ??? );
+        INIT_ITEM( CRYSTAL               , Crystal );
         INIT_ITEM( PISTOLS               , Pickup );
         INIT_ITEM( SHOTGUN               , Pickup );
         INIT_ITEM( MAGNUMS               , Pickup );
@@ -742,19 +1477,19 @@ Item* Item::init(Room* room)
         // INIT_ITEM( INV_SCION             , ??? );
         // INIT_ITEM( EXPLOSION             , ??? );
         // INIT_ITEM( UNUSED_8              , ??? );
-        // INIT_ITEM( WATER_SPLASH          , ??? );
+        INIT_ITEM( SPLASH                , SpriteEffect );
         // INIT_ITEM( UNUSED_9              , ??? );
-        // INIT_ITEM( BUBBLE                , ??? );
+        INIT_ITEM( BUBBLE                , Bubble );
         // INIT_ITEM( UNUSED_10             , ??? );
         // INIT_ITEM( UNUSED_11             , ??? );
-        // INIT_ITEM( BLOOD                 , ??? );
+        INIT_ITEM( BLOOD                 , SpriteEffect );
         // INIT_ITEM( UNUSED_12             , ??? );
-        // INIT_ITEM( SMOKE                 , ??? );
+        INIT_ITEM( SMOKE                 , SpriteEffect );
         // INIT_ITEM( CENTAUR_STATUE        , ??? );
         // INIT_ITEM( CABIN                 , ??? );
         // INIT_ITEM( MUTANT_EGG_SMALL      , ??? );
-        // INIT_ITEM( RICOCHET              , ??? );
-        // INIT_ITEM( SPARKLES              , ??? );
+        INIT_ITEM( RICOCHET              , SpriteEffect );
+        INIT_ITEM( SPARKLES              , SpriteEffect );
         // INIT_ITEM( MUZZLE_FLASH          , ??? );
         // INIT_ITEM( UNUSED_13             , ??? );
         // INIT_ITEM( UNUSED_14             , ??? );

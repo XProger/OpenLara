@@ -5,11 +5,12 @@
 
 #define CAM_SPEED               (1 << 3)
 #define CAM_ROT_SPEED           (1 << 9)
-#define CAM_DIST_FOLLOW         (1024 + 512)
-#define CAMERA_ANGLE_FOLLOW    -10 * DEG2SHORT
-#define CAMERA_ANGLE_MAX        85 * DEG2SHORT
-#define CAMERA_TRACE_SHIFT      3
-#define CAMERA_TRACE_STEPS      (1 << CAMERA_TRACE_SHIFT)
+#define CAM_DIST_FOLLOW         1536
+#define CAM_DIST_LOOK           768
+#define CAM_DIST_COMBAT         2048
+#define CAMERA_ANGLE_FOLLOW     ANGLE(-10)
+#define CAMERA_ANGLE_COMBAT     ANGLE(-10)
+#define CAMERA_ANGLE_MAX        ANGLE(85)
 
 enum CameraMode
 {
@@ -19,15 +20,11 @@ enum CameraMode
     CAMERA_MODE_LOOK,
     CAMERA_MODE_FIXED,
     CAMERA_MODE_OBJECT,
+    CAMERA_MODE_CUTSCENE,
 };
 
 struct Camera
 {
-    struct Location {
-        Room* room;
-        vec3i pos;
-    };
-
     Location view;
     Location target;
 
@@ -57,6 +54,8 @@ struct Camera
 
     void init(Item* lara)
     {
+        ASSERT(lara->extraL);
+
         target.pos = lara->pos;
         target.pos.y -= 1024;
         target.room = lara->room;
@@ -113,110 +112,8 @@ struct Camera
             view.pos.y -= m[2].y * CAM_SPEED >> 10;
             view.pos.z -= m[2].z * CAM_SPEED >> 10;
         }
-    }
 
-    void updateRoom()
-    {
         view.room = view.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
-
-        const Sector* sector = view.room->getSector(view.pos.x, view.pos.z);
-        int32 floor = sector->getFloor(view.pos.x, view.pos.y, view.pos.z);
-        int32 ceiling = sector->getCeiling(view.pos.x, view.pos.y, view.pos.z) - 256;
-        
-        if (floor != WALL) {
-            view.pos.y = X_MIN(view.pos.y, floor - 256);
-        }
-
-        if (ceiling != WALL)
-        {
-            view.pos.y = X_MAX(view.pos.y, ceiling + 256);
-        }
-    }
-
-    int32 traceX()
-    {
-        return 1;
-    }
-
-    int32 traceZ()
-    {
-        return 1;
-    }
-
-    bool trace()
-    {
-        int32 dx = abs(view.pos.x - target.pos.x);
-        int32 dz = abs(view.pos.z - target.pos.z);
-
-        int32 tx, tz;
-
-        if (dx < dz) {
-            tx = traceX();
-            tz = traceZ();
-            if (tz == 0) return false;
-        } else {
-            tz = traceZ();
-            tx = traceX();
-            if (tx == 0) return false;
-        }
-
-        return true;
-    }
-
-    bool trace(const Location &from, Location &to, int32 radius)
-    {
-        vec3i d = to.pos - from.pos;
-        d.x >>= CAMERA_TRACE_SHIFT;
-        d.y >>= CAMERA_TRACE_SHIFT;
-        d.z >>= CAMERA_TRACE_SHIFT;
-
-        Room* room = from.room;
-        vec3i pos = from.pos;
-        int32 i;
-
-        for (i = 0; i < CAMERA_TRACE_STEPS; i++)
-        {
-            if (radius)
-            {
-                to.pos = pos;
-                to.room = room;
-            }
-
-            pos += d;
-            room = room->getRoom(pos.x, pos.y, pos.z);
-
-            const Sector* sector = room->getSector(pos.x, pos.z);
-            int32 floor = sector->getFloor(pos.x, pos.y, pos.z);
-            int32 ceiling = sector->getCeiling(pos.x, pos.y, pos.z);
-
-            if (floor == WALL || ceiling == WALL || ceiling >= floor)
-            {
-                return false;
-            }
-
-            int32 h = pos.y - floor;
-            if (h > 0)
-            {
-                if (h >= radius) {
-                    return false;
-                }
-                pos.y = floor;
-            }
-
-            h = ceiling - pos.y;
-            if (h > 0)
-            {
-                if (h >= radius) {
-                    return false;
-                }
-                pos.y = ceiling;
-            }
-        }
-
-        to.pos = pos;
-        to.room = room;
-
-        return true;
     }
 
     Location getLocationForAngle(int32 angle, int32 distH, int32 distV)
@@ -229,14 +126,34 @@ struct Camera
         return res;
     }
 
-    Location getBestLocation(Item* item)
+    void clip(Location &loc)
+    {
+        const Sector* sector = loc.room->getSector(loc.pos.x, loc.pos.z);
+        
+        int32 floor = sector->getFloor(loc.pos.x, loc.pos.y, loc.pos.z);
+        if (floor != WALL && loc.pos.y > floor - 128) {
+            loc.pos.y = floor - 128;
+        }
+
+        int32 ceiling = sector->getCeiling(loc.pos.x, loc.pos.y, loc.pos.z);
+        if (ceiling != WALL && loc.pos.y < ceiling + 128) {
+            loc.pos.y = ceiling + 128;
+        }
+
+        // TODO clip walls?
+    }
+
+    Location getBestLocation(Item* item, bool clip)
     {
         int32 distH = targetDist * phd_cos(targetAngleX) >> FIXED_SHIFT;
         int32 distV = targetDist * phd_sin(targetAngleX) >> FIXED_SHIFT;
 
-        Location best = getLocationForAngle(targetAngleY + item->angle.y, distH, distV);
+        Location best = getLocationForAngle(targetAngleY, distH, distV);
 
-        if (trace(target, best, 200))
+        if (trace(target, best))
+            return best;
+
+        if (clip && best.pos != target.pos)
             return best;
 
         int32 distQ = X_SQR(target.pos.x - best.pos.x) + X_SQR(target.pos.z - best.pos.z);
@@ -248,36 +165,36 @@ struct Camera
 
         for (int32 i = 0; i < 4; i++)
         {
-            Location tmp = getLocationForAngle(i * ANGLE_90, distH, distV);
+            Location tmpDest = getLocationForAngle(i * ANGLE_90, distH, distV);
+            Location tmpView = view;
 
-            if (!trace(target, tmp, 200) || !trace(tmp, view, 0)) {
+            if (!trace(target, tmpDest) || !trace(tmpDest, tmpView))
                 continue;
-            }
 
-            distQ = X_SQR(view.pos.x - tmp.pos.x) + X_SQR(view.pos.z - tmp.pos.z);
+            distQ = X_SQR(view.pos.x - tmpDest.pos.x) + X_SQR(view.pos.z - tmpDest.pos.z);
 
             if (distQ < minDistQ)
             {
                 minDistQ = distQ;
-                best = tmp;
+                best = tmpDest;
             }
         }
 
         return best;
     }
 
-    void move(const Location &to, int32 speed)
+    void move(Location &to, int32 speed)
     {
+        clip(to);
+
         vec3i d = to.pos - view.pos;
-        if (speed > 1)
-        {
-            d.x /= speed;
-            d.y /= speed;
-            d.z /= speed;
+
+        if (speed > 1) {
+            d /= speed;
         }
 
         view.pos += d;
-        view.room =  to.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
+        view.room = to.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
     }
 
     void updateFollow(Item* item)
@@ -287,20 +204,55 @@ struct Camera
         }
 
         targetAngleX = X_CLAMP(targetAngleX + item->angle.x, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
+        targetAngleY += item->angle.y;
 
-        Location best = getBestLocation(item);
+        Location best = getBestLocation(item, false);
 
         move(best, lastFixed ? speed : 12);
     }
 
-    void updateCombat()
+    void updateCombat(Item* item)
     {
-        //
+        ASSERT(item->type == ITEM_LARA);
+
+        targetAngleX = item->angle.x + CAMERA_ANGLE_COMBAT;
+        targetAngleY = item->angle.y;
+        
+        if (item->extraL->armR.target || item->extraL->armL.target)
+        {
+            int32 aX = item->extraL->armR.angleAim.x + item->extraL->armL.angleAim.x;
+            int32 aY = item->extraL->armR.angleAim.y + item->extraL->armL.angleAim.y;
+
+            if (item->extraL->armR.target && item->extraL->armL.target) {
+                targetAngleX += aX >> 1;
+                targetAngleY += aY >> 1;
+            } else {
+                targetAngleX += aX;
+                targetAngleY += aY;
+            }
+        } else {
+            targetAngleX += item->extraL->head.angle.x + item->extraL->torso.angle.x;
+            targetAngleY += item->extraL->head.angle.y + item->extraL->torso.angle.y;
+        }
+
+        targetDist = CAM_DIST_COMBAT;
+
+        Location best = getBestLocation(item, true);
+
+        move(best, speed);
     }
 
-    void updateLook()
+    void updateLook(Item* item)
     {
-        //
+        ASSERT(item->type == ITEM_LARA);
+
+        targetAngleX = item->extraL->head.angle.x + item->extraL->torso.angle.x + item->angle.x;
+        targetAngleY = item->extraL->head.angle.y + item->extraL->torso.angle.y + item->angle.y;
+        targetDist = lookAtItem ? CAM_DIST_FOLLOW : CAM_DIST_LOOK;
+
+        Location best = getBestLocation(item, true);
+
+        move(best, speed);
     }
 
     void updateFixed()
@@ -321,6 +273,40 @@ struct Camera
                 timer = -1;
             }
         }
+    }
+
+    void lookAt(int32 offset)
+    {
+        int32 dx = lookAtItem->pos.x - laraItem->pos.x;
+        int32 dz = lookAtItem->pos.z - laraItem->pos.z;
+
+        int16 ay = int16(phd_atan(dz, dx) - laraItem->angle.y) >> 1;
+
+        if (abs(ay) >= LARA_LOOK_ANGLE_Y)
+        {
+            lookAtItem = NULL;
+            return;
+        }
+
+        const Bounds& box = lookAtItem->getBoundingBox(true);
+
+        offset -= lookAtItem->pos.y + ((box.minY + box.maxY) >> 1);
+
+        int16 ax = int16(phd_atan(phd_sqrt(X_SQR(dx) + X_SQR(dz)), offset)) >> 1;
+
+        if (ax < LARA_LOOK_ANGLE_MIN || ax > LARA_LOOK_ANGLE_MAX)
+        {
+            lookAtItem = NULL;
+            return;
+        }
+
+        laraItem->extraL->head.angle.x = angleLerp(laraItem->extraL->head.angle.x, ax, LARA_LOOK_TURN_SPEED);
+        laraItem->extraL->head.angle.y = angleLerp(laraItem->extraL->head.angle.y, ay, LARA_LOOK_TURN_SPEED);
+
+        laraItem->extraL->torso.angle = laraItem->extraL->head.angle;
+
+        lookAtItem->flags.animated = true; // use as once flag
+        mode = CAMERA_MODE_LOOK;
     }
 
     void update()
@@ -345,7 +331,6 @@ struct Camera
             updateFree();
             prepareFrustum();
             matrixSetView(view.pos, angleX, angleY);
-            updateRoom();
             return;
         }
 
@@ -361,14 +346,20 @@ struct Camera
         ASSERT(item);
 
         target.room = item->room;
+        target.pos.x = item->pos.x;
+        target.pos.z = item->pos.z;
 
-        const Bounds &box = item->getBoundingBox();
+        const Bounds &box = item->getBoundingBox(true);
 
         int32 y = item->pos.y;
         if (isFixed) {
             y += (box.minY + box.maxY) >> 1;
         } else {
             y += box.maxY + ((box.minY - box.maxY) * 3 >> 2);
+        }
+
+        if (!isFixed && lookAtItem) {
+            lookAt(y);
         }
 
         if (mode == CAMERA_MODE_LOOK || mode == CAMERA_MODE_COMBAT)
@@ -382,9 +373,8 @@ struct Camera
                 target.pos.y += (y - target.pos.y) >> 2;
                 speed = (mode == CAMERA_MODE_LOOK) ? 4 : 8;
             }
+
         } else {
-            target.pos.x = item->pos.x;
-            target.pos.z = item->pos.z;
 
             if (center)
             {
@@ -406,8 +396,8 @@ struct Camera
         switch (mode)
         {
             case CAMERA_MODE_FOLLOW : updateFollow(item); break;
-            case CAMERA_MODE_COMBAT : updateCombat(); break;
-            case CAMERA_MODE_LOOK   : updateLook(); break;
+            case CAMERA_MODE_COMBAT : updateCombat(item); break;
+            case CAMERA_MODE_LOOK   : updateLook(item); break;
             default                 : updateFixed();
         }
 
@@ -432,15 +422,12 @@ struct Camera
         prepareFrustum();
 
         matrixSetView(view.pos, angleX, angleY);
-
-        updateRoom();
     }
 
     void prepareFrustum()
     {
         matrixSetIdentity();
-        matrixRotateY(angleY);
-        matrixRotateX(angleX);
+        matrixRotateYXZ(angleX, angleY, 0);
 
         static const vec3i v[5] = {
         // near plane
@@ -492,8 +479,20 @@ struct Camera
         frustumAABB.minZ = frustumBase.minZ - offsetZ;
         frustumAABB.maxZ = frustumBase.maxZ - offsetZ;
     }
+
+    void toCombat()
+    {
+        if (mode == CAMERA_MODE_CUTSCENE)
+            return;
+
+        if (mode == CAMERA_MODE_LOOK)
+            return;
+
+        mode = CAMERA_MODE_COMBAT;
+    }
 };
 
-Camera camera;
+Camera* gCamera;
+Camera viewCameras[MAX_PLAYERS];
 
 #endif
