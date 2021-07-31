@@ -215,11 +215,11 @@ const WeaponParams weaponParams[WEAPON_MAX] = {
         0,                  // flashOffset
         0,                  // flashTimer
         0,                  // flashIntensity
-        ANGLE(60),          // aimX
+        ANGLE(55),          // aimX
         ANGLE(60),          // aimY
-        ANGLE(80),          // armX
-        ANGLE(-60),         // armMinY
-        ANGLE(170),         // armMaxY
+        ANGLE(65),          // armX
+        ANGLE(-80),         // armMinY
+        ANGLE(80),          // armMaxY
     },
 };
 
@@ -3397,6 +3397,8 @@ struct Lara : Item
     void weaponUpdateShotgun()
     {
         ExtraInfoLara::Arm &R = extraL->armR;
+        ExtraInfoLara::Arm &L = extraL->armL;
+
         vec3s &H = extraL->head.angle;
         vec3s &T = extraL->torso.angle;
 
@@ -3404,8 +3406,8 @@ struct Lara : Item
 
         if (R.aim)
         {
-            T.x = R.angle.x >> 1;
-            T.y = R.angle.y >> 1;
+            T.x = R.angle.x;
+            T.y = R.angle.y;
             H.x = H.y = 0;
         }
 
@@ -3439,7 +3441,8 @@ struct Lara : Item
             }
             case ANIM_SHOTGUN_DRAW:
             {
-                if ((input & IN_ACTION) || arm->aim) {
+                if (((input & IN_ACTION) && !arm->target) || arm->aim)
+                {
                     anim = ANIM_SHOTGUN_AIM;
                     frame = 1;
                 }
@@ -3447,20 +3450,23 @@ struct Lara : Item
             }
             case ANIM_SHOTGUN_AIM:
             {
-                if ((input & IN_ACTION) || arm->aim)
+                if (((input & IN_ACTION) && !arm->target) || arm->aim)
                 {
                     if (frame == animLength)
                     {
-                        frame = 1;
-                        anim = ANIM_SHOTGUN_FIRE;
-
-                        for (int32 i = 0; i < 6; i++)
+                        if (input & IN_ACTION)
                         {
-                            if (!weaponShoot(arm))
-                                break;
+                            frame = 1;
+                            anim = ANIM_SHOTGUN_FIRE;
 
-                            if (i == 5) {
-                                soundPlay(params.soundId, pos);
+                            for (int32 i = 0; i < 6; i++)
+                            {
+                                if (!weaponShoot(arm))
+                                    break;
+
+                                if (i == 5) {
+                                    soundPlay(params.soundId, pos);
+                                }
                             }
                         }
                     } else {
@@ -3480,9 +3486,9 @@ struct Lara : Item
             }
         }
 
-        extraL->armR.angle = extraL->armL.angle = vec3s(0, 0, 0);
-        extraL->armR.animIndex = extraL->armL.animIndex = anim + models[params.animType].animIndex;
-        extraL->armR.frameIndex = extraL->armL.frameIndex = frame;
+        R.useBasis = L.useBasis = false;
+        R.animIndex = L.animIndex = anim + models[params.animType].animIndex;
+        R.frameIndex = L.frameIndex = frame;
     }
 
     void weaponUpdateState()

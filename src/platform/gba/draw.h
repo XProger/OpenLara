@@ -363,8 +363,8 @@ void drawLaraNodes(const Item* lara, const AnimFrame* frameA)
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
                     matrixSetBasis(matrixGet(), basis);
+                    matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
-                matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 matrixFrame(vec3s(0, 0, 0), anglesArm[i]++);
                 drawMesh(*mesh++);
 
@@ -495,8 +495,8 @@ void drawLaraNodesLerp(const Item* lara, const AnimFrame* frameA, const AnimFram
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
                     matrixSetBasis(matrixGet(), basis);
+                    matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
-                matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
 
                 bool useLerp = frameRateArm[i] > 1; // armed hands always use frameRate == 1 (i.e. useLerp == false)
 
