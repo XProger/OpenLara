@@ -3003,7 +3003,7 @@ struct Lara : Item
         pos.z += (c * ((phd_cos(angle.y) * vSpeed) >> 16)) >> FIXED_SHIFT;
     }
 
-    bool weaponShoot(const ExtraInfoLara::Arm* arm)
+    bool weaponFire(const ExtraInfoLara::Arm* arm)
     {
         int16 ammo = extraL->ammo[extraL->weapon];
 
@@ -3025,63 +3025,71 @@ struct Lara : Item
         from.pos.z = pos.z;
         from.room = room;
 
-        int32 aimX = int32(rand_logic() - 0x4000) * params.spread >> 16;
-        int32 aimY = int32(rand_logic() - 0x4000) * params.spread >> 16;
+        int32 count = (extraL->weapon == WEAPON_SHOTGUN) ? 6 : 1;
 
-        aimX += arm->angle.x;
-        aimY += arm->angle.y;
-        aimY += angle.y;
-
-        matrixSetView(from.pos, aimX, aimY);
-
-        int32 minDist = INT_MAX;
-
-        if (arm->target)
+        for (int32 i = 0; i < count; i++)
         {
-            Sphere spheres[MAX_SPHERES];
-            int32 spheresCount = arm->target->getSpheres(spheres, false);
+            int32 aimX = int32(rand_logic() - 0x4000) * params.spread >> 16;
+            int32 aimY = int32(rand_logic() - 0x4000) * params.spread >> 16;
 
-            for (int32 i = 0; i < spheresCount; i++)
+            aimX += arm->angle.x;
+            aimY += arm->angle.y;
+            aimY += angle.y;
+
+            matrixSetView(from.pos, aimX, aimY);
+
+            int32 minDist = INT_MAX;
+
+            if (arm->target)
             {
-                Sphere &s = spheres[i];
+                Sphere spheres[MAX_SPHERES];
+                int32 spheresCount = arm->target->getSpheres(spheres, false);
 
-                if (abs(s.center.x) >= s.radius)
-                    continue;
+                for (int32 i = 0; i < spheresCount; i++)
+                {
+                    Sphere &s = spheres[i];
 
-                if (abs(s.center.y) >= s.radius)
-                    continue;
+                    if (abs(s.center.x) >= s.radius)
+                        continue;
 
-                if (s.center.z <= s.radius)
-                    continue;
+                    if (abs(s.center.y) >= s.radius)
+                        continue;
 
-                if (X_SQR(s.center.x) + X_SQR(s.center.y) > X_SQR(s.radius))
-                    continue;
+                    if (s.center.z <= s.radius)
+                        continue;
 
-                int32 dist = s.center.z - s.radius;
+                    if (X_SQR(s.center.x) + X_SQR(s.center.y) > X_SQR(s.radius))
+                        continue;
 
-                if (dist < minDist) {
-                    minDist = dist;
+                    int32 dist = s.center.z - s.radius;
+
+                    if (dist < minDist) {
+                        minDist = dist;
+                    }
                 }
+            }
+
+            vec3i dir = matrixGetDir(matrixGet());
+
+            Location to = from;
+
+            if (minDist != INT_MAX)
+            {
+                dir *= minDist;
+                to.pos.x += dir.x >> FIXED_SHIFT;
+                to.pos.y += dir.y >> FIXED_SHIFT;
+                to.pos.z += dir.z >> FIXED_SHIFT;
+
+                arm->target->hit(params.damage, to.pos, 0);
+            } else {
+                to.pos += dir;
+
+                trace(from, to);
+                fxRicochet(to.room, to.pos, true);
             }
         }
 
-        vec3i dir = matrixGetDir(matrixGet());
-
-        Location to = from;
-
-        if (minDist != INT_MAX)
-        {
-            to.pos.x += dir.x * minDist >> FIXED_SHIFT;
-            to.pos.y += dir.y * minDist >> FIXED_SHIFT;
-            to.pos.z += dir.z * minDist >> FIXED_SHIFT;
-
-            arm->target->hit(params.damage, to.pos, 0);
-        } else {
-            to.pos += dir;
-
-            trace(from, to);
-            fxRicochet(to.room, to.pos, true);
-        }
+        soundPlay(params.soundId, pos);
 
         return true;
     }
@@ -3330,8 +3338,6 @@ struct Lara : Item
             H.y = T.y = aY >> 1;
         }
 
-        bool shotFlag = false;
-
         const WeaponParams &params = weaponParams[extraL->weapon];
 
         for (int32 i = 0; i < LARA_ARM_MAX; i++)
@@ -3349,7 +3355,7 @@ struct Lara : Item
                 {
                     if (frame == animLength)
                     {
-                        if ((input & IN_ACTION) && weaponShoot(arm))
+                        if ((input & IN_ACTION) && weaponFire(arm))
                         {
                             anim = ANIM_PISTOLS_FIRE;
                             frame = 0;
@@ -3358,12 +3364,6 @@ struct Lara : Item
                             arm->flash.angle = int16(rand_draw() << 1);
                             arm->flash.offset = params.flashOffset;
                             arm->flash.intensity = params.flashIntensity << 8;
-
-                            if (!shotFlag) // skip sound replay if double shoot
-                            {
-                                shotFlag = true;
-                                soundPlay(params.soundId, pos);
-                            }
                         }
                     } else {
                         frame++;
@@ -3454,20 +3454,10 @@ struct Lara : Item
                 {
                     if (frame == animLength)
                     {
-                        if (input & IN_ACTION)
+                        if ((input & IN_ACTION) && weaponFire(arm))
                         {
                             frame = 1;
                             anim = ANIM_SHOTGUN_FIRE;
-
-                            for (int32 i = 0; i < 6; i++)
-                            {
-                                if (!weaponShoot(arm))
-                                    break;
-
-                                if (i == 5) {
-                                    soundPlay(params.soundId, pos);
-                                }
-                            }
                         }
                     } else {
                         frame++;
@@ -3697,7 +3687,6 @@ struct Lara : Item
             case WEAPON_STATE_READY:
             {
                 gCamera->toCombat();
-
                 weaponUpdateTargets();
 
                 if (extraL->weapon < WEAPON_SHOTGUN) {

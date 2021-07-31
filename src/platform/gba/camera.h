@@ -482,6 +482,9 @@ struct Camera
 
     void toCombat()
     {
+        if (mode == CAMERA_MODE_FREE)
+            return;
+
         if (mode == CAMERA_MODE_CUTSCENE)
             return;
 
