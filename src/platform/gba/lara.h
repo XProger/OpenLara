@@ -2757,37 +2757,70 @@ struct Lara : Item
 
     void updateLook()
     {
+        ExtraInfoLara::Arm &R = extraL->armR;
+        ExtraInfoLara::Arm &L = extraL->armL;
+        vec3s &H = extraL->head.angle;
+        vec3s &T = extraL->torso.angle;
+
         if (health <= 0) {
-            extraL->head.angle = vec3s(0, 0, 0);
-        } else if ((input & IN_LOOK) && gCamera->mode != CAMERA_MODE_FIXED) {
+            H = T = vec3s(0, 0, 0);
+            return;
+        }
+
+        if (R.target || L.target)
+        {
+            if (extraL->weapon < WEAPON_SHOTGUN)
+            {
+                int32 aX = R.angle.x + L.angle.x;
+                int32 aY = R.angle.y + L.angle.y;
+
+                if (R.aim && L.aim) {
+                    H.x = T.x = aX >> 2;
+                    H.y = T.y = aY >> 2;
+                } else if (R.aim ^ L.aim) {
+                    H.x = T.x = aX >> 1;
+                    H.y = T.y = aY >> 1;
+                }
+            } else {
+                T.x = R.angle.x;
+                T.y = R.angle.y;
+                H.x = H.y = 0;
+            }
+            return;
+        }
+
+        if ((input & IN_LOOK) && gCamera->mode != CAMERA_MODE_FIXED)
+        {
             gCamera->lookAtItem = NULL;
 
             if (input & IN_UP) {
-                extraL->head.angle.x -= LARA_LOOK_TURN_SPEED;
+                H.x -= LARA_LOOK_TURN_SPEED;
             }
 
             if (input & IN_DOWN) {
-                extraL->head.angle.x += LARA_LOOK_TURN_SPEED;
+                H.x += LARA_LOOK_TURN_SPEED;
             }
 
             if (input & IN_LEFT) {
-                extraL->head.angle.y -= LARA_LOOK_TURN_SPEED;
+                H.y -= LARA_LOOK_TURN_SPEED;
             }
 
             if (input & IN_RIGHT) {
-                extraL->head.angle.y += LARA_LOOK_TURN_SPEED;
+                H.y += LARA_LOOK_TURN_SPEED;
             }
 
-            extraL->head.angle.x = X_CLAMP(extraL->head.angle.x, LARA_LOOK_ANGLE_MIN, LARA_LOOK_ANGLE_MAX);
-            extraL->head.angle.y = X_CLAMP(extraL->head.angle.y, -LARA_LOOK_ANGLE_Y, LARA_LOOK_ANGLE_Y);
+            H.x = T.x = X_CLAMP(H.x, LARA_LOOK_ANGLE_MIN, LARA_LOOK_ANGLE_MAX);
+            H.y = T.y = X_CLAMP(H.y, -LARA_LOOK_ANGLE_Y, LARA_LOOK_ANGLE_Y);
 
             input &= ~(IN_RIGHT | IN_LEFT | IN_UP | IN_DOWN);
-        } else if (gCamera->lastItem == NULL) {
-            extraL->head.angle.x = angleDec(extraL->head.angle.x, abs(extraL->head.angle.x) >> 3);
-            extraL->head.angle.y = angleDec(extraL->head.angle.y, abs(extraL->head.angle.y) >> 3);
+            return;
         }
 
-        extraL->torso.angle = extraL->head.angle;
+        if (gCamera->lastItem != NULL)
+            return;
+
+        H.x = T.x = angleDec(H.x, abs(H.x) >> 3);
+        H.y = T.y = angleDec(H.y, abs(H.y) >> 3);
     }
 
     void updateWaterState()
@@ -3100,19 +3133,27 @@ struct Lara : Item
             return;
         extraL->weaponState = weaponState;
 
+        ExtraInfoLara::Arm &R = extraL->armR;
+        ExtraInfoLara::Arm &L = extraL->armL;
+
         if (weaponState == WEAPON_STATE_DRAW)
         {
             const WeaponParams &params = weaponParams[extraL->weapon];
             int32 anim = (extraL->weapon == WEAPON_SHOTGUN) ? ANIM_SHOTGUN_DRAW : ANIM_PISTOLS_PICK;
-            extraL->armR.animIndex = extraL->armL.animIndex = models[params.animType].animIndex + anim;
-            extraL->armR.frameIndex = extraL->armL.frameIndex = 0;
+            R.animIndex = L.animIndex = models[params.animType].animIndex + anim;
+            R.frameIndex = L.frameIndex = 0;
+        }
+
+        if (weaponState == WEAPON_STATE_HOLSTER)
+        {
+            R.target = L.target = NULL;
         }
 
         if (weaponState == WEAPON_STATE_FREE)
         {
-            extraL->armR.useBasis = extraL->armL.useBasis = false;
-            extraL->armR.animIndex = extraL->armL.animIndex = 0;
-            extraL->armR.frameIndex = extraL->armL.frameIndex = 0;
+            R.useBasis = L.useBasis = false;
+            R.animIndex = L.animIndex = 0;
+            R.frameIndex = L.frameIndex = 0;
         }
     }
 
@@ -3321,22 +3362,9 @@ struct Lara : Item
     {
         ExtraInfoLara::Arm &R = extraL->armR;
         ExtraInfoLara::Arm &L = extraL->armL;
-        vec3s &H = extraL->head.angle;
-        vec3s &T = extraL->torso.angle;
 
         weaponAim(R);
         weaponAim(L);
-
-        int32 aX = R.angle.x + L.angle.x;
-        int32 aY = R.angle.y + L.angle.y;
-
-        if (R.aim && L.aim) {
-            H.x = T.x = aX >> 2;
-            H.y = T.y = aY >> 2;
-        } else if (R.aim ^ L.aim) {
-            H.x = T.x = aX >> 1;
-            H.y = T.y = aY >> 1;
-        }
 
         const WeaponParams &params = weaponParams[extraL->weapon];
 
@@ -3399,17 +3427,7 @@ struct Lara : Item
         ExtraInfoLara::Arm &R = extraL->armR;
         ExtraInfoLara::Arm &L = extraL->armL;
 
-        vec3s &H = extraL->head.angle;
-        vec3s &T = extraL->torso.angle;
-
         weaponAim(R);
-
-        if (R.aim)
-        {
-            T.x = R.angle.x;
-            T.y = R.angle.y;
-            H.x = H.y = 0;
-        }
 
         const WeaponParams &params = weaponParams[extraL->weapon];
 
@@ -3419,6 +3437,8 @@ struct Lara : Item
         int32 animLength = animPtr->frameEnd - animPtr->frameBegin;
         int32 frame = arm->frameIndex;
         int32 anim = arm->animIndex - models[params.animType].animIndex;
+
+        bool aim = ((input & IN_ACTION) && !arm->target) || arm->aim;
 
         switch (anim)
         {
@@ -3431,7 +3451,7 @@ struct Lara : Item
                     anim = ANIM_SHOTGUN_AIM;
                     animPtr = level.anims + models[params.animType].animIndex + anim;
                     frame = animPtr->frameEnd - animPtr->frameBegin;
-                } else if ((animLength - frame < 10) && !(input & IN_ACTION)) {
+                } else if ((animLength - frame < 10) && !aim) {
                     anim = ANIM_SHOTGUN_AIM;
                     frame = animLength - frame; // how many frames left for fire animation
                     animPtr = level.anims + models[params.animType].animIndex + anim;
@@ -3441,7 +3461,7 @@ struct Lara : Item
             }
             case ANIM_SHOTGUN_DRAW:
             {
-                if (((input & IN_ACTION) && !arm->target) || arm->aim)
+                if (aim)
                 {
                     anim = ANIM_SHOTGUN_AIM;
                     frame = 1;
@@ -3450,7 +3470,7 @@ struct Lara : Item
             }
             case ANIM_SHOTGUN_AIM:
             {
-                if (((input & IN_ACTION) && !arm->target) || arm->aim)
+                if (aim)
                 {
                     if (frame == animLength)
                     {
