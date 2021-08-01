@@ -47,9 +47,9 @@ rasterizeG_mode4_asm:
     stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
     sub sp, #16 // reserve stack space for [Ldx, Ldg, Rdx, Rdg]
 
-    ldr tmp, =lightmap
+    mov tmp, #LMAP_ADDR
     add LMAP, index, tmp  // LMAP = lightmap + index
-    ldr DIVLUT, =divTable
+    mov DIVLUT, #DIVLUT_ADDR
 
     mov Lh, #0            // Lh = 0
     mov Rh, #0            // Rh = 0

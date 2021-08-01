@@ -128,7 +128,7 @@ rasterizeGTA_mode4_asm:
           ble .skip_left_dx
 
         lsl tmp, Lh, #1
-        ldr DIVLUT, =divTable
+        mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
@@ -156,9 +156,8 @@ rasterizeGTA_mode4_asm:
 
         .skip_left_dx:
         lsl Lx, #16                 // Lx <<= 16
-
-        ldr LMAP, =lightmap         // !!! lightmap should be 64k aligned
-        add Lg, LMAP, Lg, lsl #8    // Lg is address in lightmap array
+        lsl Lg, #8                  // Lg <= 8
+        add Lg, #LMAP_ADDR          // Lg += lightmap
 
         b .calc_left_start
     .calc_left_end:
@@ -179,7 +178,7 @@ rasterizeGTA_mode4_asm:
           ble .skip_right_dx
 
         lsl tmp, Rh, #1
-        ldr DIVLUT, =divTable
+        mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
@@ -207,9 +206,8 @@ rasterizeGTA_mode4_asm:
 
         .skip_right_dx:
         lsl Rx, #16                 // Rx <<= 16
-
-        ldr LMAP, =lightmap         // !!! lightmap should be 64k aligned
-        add Rg, LMAP, Rg, lsl #8    // Rg is address in lightmap array
+        lsl Rg, #8                  // Rg <= 8
+        add Rg, #LMAP_ADDR          // Rg += lightmap
 
         b .calc_right_start
     .calc_right_end:
@@ -234,7 +232,7 @@ rasterizeGTA_mode4_asm:
 
     add ptr, pixel, tmp             // ptr = pixel + x1
 
-    ldr DIVLUTi, =divTable
+    mov DIVLUTi, #DIVLUT_ADDR
     lsl inv, width, #1
     ldrh inv, [DIVLUTi, inv]        // inv = FixedInvU(width)
 
@@ -321,7 +319,7 @@ rasterizeGTA_mode4_asm:
 
 .align_block_8px:
     tst width, #4
-      beq .scanlin_block_8px
+      beq .scanline_block_8px
 
     PUT_PIXELS
     PUT_PIXELS
@@ -329,14 +327,14 @@ rasterizeGTA_mode4_asm:
     subs width, #4
       beq .scanline_end
 
-.scanlin_block_8px:
+.scanline_block_8px:
     PUT_PIXELS
     PUT_PIXELS
     PUT_PIXELS
     PUT_PIXELS
 
     subs width, #8
-      bne .scanlin_block_8px
+      bne .scanline_block_8px
 
 .scanline_end:
     ldmfd sp!, {Lx,Rx,Lg,Rg,Lt,Rt}  // sp+24

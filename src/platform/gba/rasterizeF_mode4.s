@@ -27,7 +27,7 @@ blocks  .req DIVLUT
 rasterizeF_mode4_asm:
     stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
 
-    ldr LMAP, =lightmap
+    mov LMAP, #LMAP_ADDR
 
     ldrb tmp, [L, #VERTEX_G]
     orr tmp, index, tmp, lsl #8     // tmp = index | (L->v.g << 8)
@@ -38,7 +38,7 @@ rasterizeF_mode4_asm:
     mov Rh, #0                      // Rh = 0
 
 .loop:
-    ldr DIVLUT, =divTable
+    mov DIVLUT, #DIVLUT_ADDR
 
     .calc_left_start:
         cmp Lh, #0

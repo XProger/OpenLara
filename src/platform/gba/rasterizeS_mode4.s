@@ -36,7 +36,7 @@ rasterizeS_mode4_asm:
     mov Rh, #0                      // Rh = 0
 
 .loop:
-    ldr DIVLUT, =divTable
+    mov DIVLUT, #DIVLUT_ADDR
 
     .calc_left_start:
         cmp Lh, #0

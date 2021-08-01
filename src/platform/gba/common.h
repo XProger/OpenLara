@@ -3,9 +3,9 @@
 
 //#define PROFILING
 #ifdef PROFILING
-//    #define STATIC_ITEMS
+    #define STATIC_ITEMS
 //    #define PROFILE_FRAMETIME
-    #define PROFILE_SOUNDTIME
+//    #define PROFILE_SOUNDTIME
 #endif
 
 #define IWRAM_MATRIX_LERP
@@ -1646,7 +1646,7 @@ struct IMA_STATE {
     }
 #endif
 
-extern const uint16 divTable[DIV_TABLE_SIZE];
+extern uint16 divTable[DIV_TABLE_SIZE];
 
 // renderer internal
 extern uint32 keys;

@@ -81,7 +81,7 @@ rasterizeFTA_mode4_asm:
     stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
     sub sp, #16 // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
 
-    ldr LMAP, =lightmap
+    mov LMAP, #LMAP_ADDR
     ldrb tmp, [L, #VERTEX_G]
     add LMAP, tmp, lsl #8           // tmp = (L->v.g << 8)
 
@@ -108,7 +108,7 @@ rasterizeFTA_mode4_asm:
           ble .skip_left_dx
 
         lsl tmp, Lh, #1
-        ldr DIVLUT, =divTable
+        mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
@@ -148,7 +148,7 @@ rasterizeFTA_mode4_asm:
           ble .skip_right_dx
 
         lsl tmp, Rh, #1
-        ldr DIVLUT, =divTable
+        mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
@@ -188,7 +188,7 @@ rasterizeFTA_mode4_asm:
 
     add tmp, pixel, tmp             // tmp = pixel + x1
 
-    ldr DIVLUTi, =divTable
+    mov DIVLUTi, #DIVLUT_ADDR
     lsl inv, width, #1
     ldrh inv, [DIVLUTi, inv]        // inv = FixedInvU(width)
 
@@ -255,7 +255,7 @@ rasterizeFTA_mode4_asm:
 
 .align_block_8px:
     tst width, #4
-      beq .scanlin_block_8px
+      beq .scanline_block_8px
 
     PUT_PIXELS
     PUT_PIXELS
@@ -263,14 +263,14 @@ rasterizeFTA_mode4_asm:
     subs width, #4
       beq .scanline_end
 
-.scanlin_block_8px:
+.scanline_block_8px:
     PUT_PIXELS
     PUT_PIXELS
     PUT_PIXELS
     PUT_PIXELS
 
     subs width, #8
-      bne .scanlin_block_8px
+      bne .scanline_block_8px
 
 .scanline_end:
     ldr tmp, [sp, #(SP_LDX + 16)]

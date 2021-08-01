@@ -511,6 +511,9 @@ int main(void) {
     } while (msg.message != WM_QUIT);
 
 #elif defined(__GBA__)
+    if (intptr_t(divTable) != MEM_EWRAM) return 0;
+    if (intptr_t(lightmap) != MEM_IWRAM) return 0;
+
     irq_init(NULL);
     irq_add(II_VBLANK, vblank);
     irq_enable(II_VBLANK);
