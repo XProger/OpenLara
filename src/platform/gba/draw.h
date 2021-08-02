@@ -103,7 +103,7 @@ void drawNumber(int32 number, int32 x, int32 y)
     }
 }
 
-void drawMesh(int16 meshIndex)
+void drawMesh(int32 meshIndex)
 {
     const uint8* ptr = (uint8*)meshes[meshIndex] + sizeof(Mesh);
 
@@ -224,22 +224,41 @@ void drawNodes(const Item* item, const AnimFrame* frameA)
 {
     const Model* model = models + item->type;
     const Node* node = level.nodes + model->nodeIndex;
+    int32 meshIndex = model->start;
+    int32 meshCount = model->count;
+    uint32 visibleMask = item->visibleMask;
 
     const uint32* angles = (uint32*)(frameA->angles + 1);
+    const int16* extraAngles = (int16*)item->extra;
 
     matrixFrame(frameA->pos, angles);
+    if (visibleMask & 1) {
+        drawMesh(meshIndex);
+    }
 
-    drawMesh(model->start);
-
-    for (int32 i = 1; i < model->count; i++)
+    while (meshCount > 1)
     {
-        if (node->flags & 1) matrixPop();
-        if (node->flags & 2) matrixPush();
+        meshIndex++;
+        visibleMask >>= 1;
+        angles++;
 
-        matrixFrame(node->pos, ++angles);
+        if (node->flags & NODE_FLAG_POP)  matrixPop();
+        if (node->flags & NODE_FLAG_PUSH) matrixPush();
 
-        drawMesh(model->start + i);
+        matrixFrame(node->pos, angles);
 
+        if (extraAngles)
+        {
+            if (node->flags & NODE_FLAG_ROTY) matrixRotateY(*extraAngles++);
+            if (node->flags & NODE_FLAG_ROTX) matrixRotateX(*extraAngles++);
+            if (node->flags & NODE_FLAG_ROTZ) matrixRotateZ(*extraAngles++);
+        }
+
+        if (visibleMask & 1) {
+            drawMesh(meshIndex);
+        }
+
+        meshCount--;
         node++;
     }
 }
@@ -254,9 +273,13 @@ void drawNodesLerp(const Item* item, const AnimFrame* frameA, const AnimFrame* f
 
     const Model* model = models + item->type;
     const Node* node = level.nodes + model->nodeIndex;
+    int32 meshIndex = model->start;
+    int32 meshCount = model->count;
+    uint32 visibleMask = item->visibleMask;
 
     const uint32* anglesA = (uint32*)(frameA->angles + 1);
     const uint32* anglesB = (uint32*)(frameB->angles + 1);
+    const int16* extraAngles = (int16*)item->extra;
 
     int32 t = FixedInvU(frameRate) * frameDelta;
 
@@ -266,18 +289,34 @@ void drawNodesLerp(const Item* item, const AnimFrame* frameA, const AnimFrame* f
     posLerp.z = frameA->pos.z + ((frameB->pos.z - frameA->pos.z) * t >> 16);
 
     matrixFrameLerp(posLerp, anglesA, anglesB, frameDelta, frameRate);
+    if (visibleMask & 1) {
+        drawMesh(meshIndex);
+    }
 
-    drawMesh(model->start);
-
-    for (int32 i = 1; i < model->count; i++)
+    while (meshCount > 1)
     {
-        if (node->flags & 1) matrixPop();
-        if (node->flags & 2) matrixPush();
+        meshIndex++;
+        visibleMask >>= 1;
+        anglesA++;
+        anglesB++;
 
-        matrixFrameLerp(node->pos, ++anglesA, ++anglesB, frameDelta, frameRate);
+        if (node->flags & NODE_FLAG_POP)  matrixPop();
+        if (node->flags & NODE_FLAG_PUSH) matrixPush();
 
-        drawMesh(model->start + i);
+        matrixFrameLerp(node->pos, anglesA, anglesB, frameDelta, frameRate);
 
+        if (extraAngles)
+        {
+            if (node->flags & NODE_FLAG_ROTY) matrixRotateY(*extraAngles++);
+            if (node->flags & NODE_FLAG_ROTX) matrixRotateX(*extraAngles++);
+            if (node->flags & NODE_FLAG_ROTZ) matrixRotateZ(*extraAngles++);
+        }
+
+        if (visibleMask & 1) {
+            drawMesh(meshIndex);
+        }
+
+        meshCount--;
         node++;
     }
 }

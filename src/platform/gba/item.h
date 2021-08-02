@@ -967,6 +967,8 @@ Item::Item(Room* room)
     goalState   = state;
     extra       = NULL;
     health      = NOT_ENEMY;
+    hitMask     = 0;
+    visibleMask = 0xFFFFFFFF;
 
     flags.save = true;
     flags.gravity = false;

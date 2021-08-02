@@ -18,6 +18,209 @@ typedef unsigned long long uint64;
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
+#define ITEM_TYPES(E) \
+    E( LARA                  ) \
+    E( LARA_PISTOLS          ) \
+    E( LARA_SHOTGUN          ) \
+    E( LARA_MAGNUMS          ) \
+    E( LARA_UZIS             ) \
+    E( LARA_SPEC             ) \
+    E( DOPPELGANGER          ) \
+    E( WOLF                  ) \
+    E( BEAR                  ) \
+    E( BAT                   ) \
+    E( CROCODILE_LAND        ) \
+    E( CROCODILE_WATER       ) \
+    E( LION_MALE             ) \
+    E( LION_FEMALE           ) \
+    E( PUMA                  ) \
+    E( GORILLA               ) \
+    E( RAT_LAND              ) \
+    E( RAT_WATER             ) \
+    E( REX                   ) \
+    E( RAPTOR                ) \
+    E( MUTANT_1              ) \
+    E( MUTANT_2              ) \
+    E( MUTANT_3              ) \
+    E( CENTAUR               ) \
+    E( MUMMY                 ) \
+    E( UNUSED_1              ) \
+    E( UNUSED_2              ) \
+    E( LARSON                ) \
+    E( PIERRE                ) \
+    E( SKATEBOARD            ) \
+    E( SKATER                ) \
+    E( COWBOY                ) \
+    E( MR_T                  ) \
+    E( NATLA                 ) \
+    E( ADAM                  ) \
+    E( TRAP_FLOOR            ) \
+    E( TRAP_SWING_BLADE      ) \
+    E( TRAP_SPIKES           ) \
+    E( TRAP_BOULDER          ) \
+    E( DART                  ) \
+    E( TRAP_DART_EMITTER     ) \
+    E( DRAWBRIDGE            ) \
+    E( TRAP_SLAM             ) \
+    E( TRAP_SWORD            ) \
+    E( HAMMER_HANDLE         ) \
+    E( HAMMER_BLOCK          ) \
+    E( LIGHTNING             ) \
+    E( MOVING_OBJECT         ) \
+    E( BLOCK_1               ) \
+    E( BLOCK_2               ) \
+    E( BLOCK_3               ) \
+    E( BLOCK_4               ) \
+    E( MOVING_BLOCK          ) \
+    E( TRAP_CEILING          ) \
+    E( UNUSED_3              ) \
+    E( SWITCH                ) \
+    E( SWITCH_WATER          ) \
+    E( DOOR_1                ) \
+    E( DOOR_2                ) \
+    E( DOOR_3                ) \
+    E( DOOR_4                ) \
+    E( DOOR_5                ) \
+    E( DOOR_6                ) \
+    E( DOOR_7                ) \
+    E( DOOR_8                ) \
+    E( TRAP_DOOR_1           ) \
+    E( TRAP_DOOR_2           ) \
+    E( UNUSED_4              ) \
+    E( BRIDGE_FLAT           ) \
+    E( BRIDGE_TILT_1         ) \
+    E( BRIDGE_TILT_2         ) \
+    E( INV_PASSPORT          ) \
+    E( INV_COMPASS           ) \
+    E( INV_HOME              ) \
+    E( GEARS_1               ) \
+    E( GEARS_2               ) \
+    E( GEARS_3               ) \
+    E( CUT_1                 ) \
+    E( CUT_2                 ) \
+    E( CUT_3                 ) \
+    E( CUT_4                 ) \
+    E( INV_PASSPORT_CLOSED   ) \
+    E( INV_MAP               ) \
+    E( CRYSTAL               ) \
+    E( PISTOLS               ) \
+    E( SHOTGUN               ) \
+    E( MAGNUMS               ) \
+    E( UZIS                  ) \
+    E( AMMO_PISTOLS          ) \
+    E( AMMO_SHOTGUN          ) \
+    E( AMMO_MAGNUMS          ) \
+    E( AMMO_UZIS             ) \
+    E( EXPLOSIVE             ) \
+    E( MEDIKIT_SMALL         ) \
+    E( MEDIKIT_BIG           ) \
+    E( INV_DETAIL            ) \
+    E( INV_SOUND             ) \
+    E( INV_CONTROLS          ) \
+    E( INV_GAMMA             ) \
+    E( INV_PISTOLS           ) \
+    E( INV_SHOTGUN           ) \
+    E( INV_MAGNUMS           ) \
+    E( INV_UZIS              ) \
+    E( INV_AMMO_PISTOLS      ) \
+    E( INV_AMMO_SHOTGUN      ) \
+    E( INV_AMMO_MAGNUMS      ) \
+    E( INV_AMMO_UZIS         ) \
+    E( INV_EXPLOSIVE         ) \
+    E( INV_MEDIKIT_SMALL     ) \
+    E( INV_MEDIKIT_BIG       ) \
+    E( PUZZLE_1              ) \
+    E( PUZZLE_2              ) \
+    E( PUZZLE_3              ) \
+    E( PUZZLE_4              ) \
+    E( INV_PUZZLE_1          ) \
+    E( INV_PUZZLE_2          ) \
+    E( INV_PUZZLE_3          ) \
+    E( INV_PUZZLE_4          ) \
+    E( PUZZLEHOLE_1          ) \
+    E( PUZZLEHOLE_2          ) \
+    E( PUZZLEHOLE_3          ) \
+    E( PUZZLEHOLE_4          ) \
+    E( PUZZLEHOLE_DONE_1     ) \
+    E( PUZZLEHOLE_DONE_2     ) \
+    E( PUZZLEHOLE_DONE_3     ) \
+    E( PUZZLEHOLE_DONE_4     ) \
+    E( LEADBAR               ) \
+    E( INV_LEADBAR           ) \
+    E( MIDAS_HAND            ) \
+    E( KEY_ITEM_1            ) \
+    E( KEY_ITEM_2            ) \
+    E( KEY_ITEM_3            ) \
+    E( KEY_ITEM_4            ) \
+    E( INV_KEY_ITEM_1        ) \
+    E( INV_KEY_ITEM_2        ) \
+    E( INV_KEY_ITEM_3        ) \
+    E( INV_KEY_ITEM_4        ) \
+    E( KEYHOLE_1             ) \
+    E( KEYHOLE_2             ) \
+    E( KEYHOLE_3             ) \
+    E( KEYHOLE_4             ) \
+    E( UNUSED_5              ) \
+    E( UNUSED_6              ) \
+    E( SCION_PICKUP_QUALOPEC ) \
+    E( SCION_PICKUP_DROP     ) \
+    E( SCION_TARGET          ) \
+    E( SCION_PICKUP_HOLDER   ) \
+    E( SCION_HOLDER          ) \
+    E( UNUSED_7              ) \
+    E( UNUSED_8              ) \
+    E( INV_SCION             ) \
+    E( EXPLOSION             ) \
+    E( UNUSED_9              ) \
+    E( SPLASH                ) \
+    E( UNUSED_10             ) \
+    E( BUBBLE                ) \
+    E( UNUSED_11             ) \
+    E( UNUSED_12             ) \
+    E( BLOOD                 ) \
+    E( UNUSED_13             ) \
+    E( SMOKE                 ) \
+    E( CENTAUR_STATUE        ) \
+    E( CABIN                 ) \
+    E( MUTANT_EGG_SMALL      ) \
+    E( RICOCHET              ) \
+    E( SPARKLES              ) \
+    E( MUZZLE_FLASH          ) \
+    E( UNUSED_14             ) \
+    E( UNUSED_15             ) \
+    E( VIEW_TARGET           ) \
+    E( WATERFALL             ) \
+    E( NATLA_BULLET          ) \
+    E( MUTANT_BULLET         ) \
+    E( CENTAUR_BULLET        ) \
+    E( UNUSED_16             ) \
+    E( UNUSED_17             ) \
+    E( LAVA_PARTICLE         ) \
+    E( LAVA_EMITTER          ) \
+    E( FLAME                 ) \
+    E( FLAME_EMITTER         ) \
+    E( TRAP_LAVA             ) \
+    E( MUTANT_EGG_BIG        ) \
+    E( BOAT                  ) \
+    E( EARTHQUAKE            ) \
+    E( UNUSED_18             ) \
+    E( UNUSED_19             ) \
+    E( UNUSED_20             ) \
+    E( UNUSED_21             ) \
+    E( UNUSED_22             ) \
+    E( LARA_BRAID            ) \
+    E( GLYPHS                )
+
+#define DECL_ENUM(v) ITEM_##v,
+
+enum ItemType {
+    ITEM_TYPES(DECL_ENUM)
+    TR1_ITEM_MAX,
+    ITEM_MAX = TR1_ITEM_MAX
+};
+
+#undef DECL_ENUM
+
 struct vec3s
 {
     int16 x, y, z;
@@ -722,6 +925,15 @@ struct LevelPC
         uint16 flags;
     };
 
+    enum NodeFlag
+    {
+        NODE_FLAG_POP  = (1 << 0),
+        NODE_FLAG_PUSH = (1 << 1),
+        NODE_FLAG_ROTX = (1 << 2),
+        NODE_FLAG_ROTY = (1 << 3),
+        NODE_FLAG_ROTZ = (1 << 4),
+    };
+
     struct Node
     {
         uint32 flags;
@@ -1108,6 +1320,46 @@ struct LevelPC
         */
     }
 
+    void fixHeadMask()
+    {
+        #define SET_ROT(joint, mask) (((Node*)nodesData)[models[i].nodeIndex / 4 + joint]).flags |= mask;
+
+        for (int32 i = 0; i < modelsCount; i++)
+        {
+            switch (models[i].type)
+            {
+                case ITEM_WOLF            : SET_ROT(2, NODE_FLAG_ROTY); break;
+                case ITEM_BEAR            : SET_ROT(13, NODE_FLAG_ROTY); break;
+                //case ITEM_BAT             : break;
+                case ITEM_CROCODILE_LAND  : SET_ROT(7, NODE_FLAG_ROTY); break;
+                case ITEM_CROCODILE_WATER : SET_ROT(7, NODE_FLAG_ROTY); break;
+                case ITEM_LION_MALE       : SET_ROT(19, NODE_FLAG_ROTY); break;
+                case ITEM_LION_FEMALE     : SET_ROT(19, NODE_FLAG_ROTY); break;
+                case ITEM_PUMA            : SET_ROT(19, NODE_FLAG_ROTY); break;
+                case ITEM_GORILLA         : SET_ROT(13, NODE_FLAG_ROTY); break;
+                case ITEM_RAT_LAND        : SET_ROT(1, NODE_FLAG_ROTY); break;
+                case ITEM_RAT_WATER       : SET_ROT(1, NODE_FLAG_ROTY); break;
+                case ITEM_REX             : SET_ROT(10, NODE_FLAG_ROTY); SET_ROT(11, NODE_FLAG_ROTY); break;
+                case ITEM_RAPTOR          : SET_ROT(21, NODE_FLAG_ROTY); break;
+                case ITEM_MUTANT_1        : SET_ROT(0, NODE_FLAG_ROTY); SET_ROT(2, NODE_FLAG_ROTY); break;
+                case ITEM_MUTANT_2        : SET_ROT(0, NODE_FLAG_ROTY); SET_ROT(2, NODE_FLAG_ROTY); break;
+                case ITEM_MUTANT_3        : SET_ROT(0, NODE_FLAG_ROTY); SET_ROT(2, NODE_FLAG_ROTY); break;
+                case ITEM_CENTAUR         : SET_ROT(10, NODE_FLAG_ROTX | NODE_FLAG_ROTY); break;
+                case ITEM_MUMMY           : SET_ROT(2, NODE_FLAG_ROTY); break;
+                case ITEM_LARSON          : SET_ROT(6, NODE_FLAG_ROTY); break;
+                case ITEM_PIERRE          : SET_ROT(6, NODE_FLAG_ROTY); break;
+                case ITEM_SKATER          : SET_ROT(0, NODE_FLAG_ROTY); break;
+                case ITEM_COWBOY          : SET_ROT(0, NODE_FLAG_ROTY); break;
+                case ITEM_MR_T            : SET_ROT(0, NODE_FLAG_ROTY); break;
+                case ITEM_NATLA           : SET_ROT(2, NODE_FLAG_ROTX | NODE_FLAG_ROTZ); break;
+                case ITEM_ADAM            : SET_ROT(1, NODE_FLAG_ROTY); break;
+                default                   : break;
+            }
+        }
+
+        #undef SET_ROT
+    }
+
     void convertGBA(const char* fileName)
     {
         FileStream f(fileName, true);
@@ -1155,6 +1407,8 @@ struct LevelPC
         for (int32 i = 0; i < 32; i++) {
             lightmap[i * 256] = 0;
         }
+
+        fixHeadMask();
 
         header.lightmap = f.align4();
         f.write(lightmap);
@@ -2396,8 +2650,7 @@ void pack_tracks(const char* dir)
 
 int main()
 {
-    pack_tracks("tracks/conv_demo/*.ima");
-    return 0;
+    //pack_tracks("tracks/conv_demo/*.ima"); return 0;
 
     for (int32 i = 0; i < MAX_LEVELS; i++)
     {

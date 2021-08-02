@@ -640,6 +640,14 @@ struct Room {
     Room** getVisibleRooms();
 };
 
+enum NodeFlag {
+    NODE_FLAG_POP  = (1 << 0),
+    NODE_FLAG_PUSH = (1 << 1),
+    NODE_FLAG_ROTX = (1 << 2),
+    NODE_FLAG_ROTY = (1 << 3),
+    NODE_FLAG_ROTZ = (1 << 4),
+};
+
 struct Node {
     uint16 flags;
     vec3s pos;
@@ -1159,24 +1167,29 @@ struct Item {
     uint16 frameIndex;
 
     uint8 state;
-    uint8 nextState;
+    uint8 nextState; // enemies only
     uint8 goalState;
     uint8 waterState;
+
+    int16 headOffset; // enemies only
+    int16 aggression;
 
     int16 health;
     union {
         int16 timer;
-        int16 oxygen;
+        int16 oxygen; // Lara only
+        int16 radius; // enemies only
     };
 
-    uint16 input;
+    uint16 input; // Lara only
     int16 turnSpeed;
 
     uint8 type;
     uint8 intensity;
     int16 roomFloor;
 
-    int32 hitMask;
+    uint32 hitMask;
+    uint32 visibleMask;
 
     union {
         uint8* extra;
@@ -1605,6 +1618,17 @@ struct Level {
     const uint8* soundData;
     const int32* soundOffsets;
 };
+
+// used by enemies
+struct TargetInfo
+{
+    Item* target;
+    int16 angle;
+    int16 rotHead;
+    bool aim;
+};
+
+extern TargetInfo tinfo;
 
 extern Level level;
 

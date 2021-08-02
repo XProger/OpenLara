@@ -9,6 +9,7 @@ int32  matrixStackIndex = 0;
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
+TargetInfo tinfo;
 
 EWRAM_DATA SaveGame gSaveGame;
 EWRAM_DATA Settings gSettings;

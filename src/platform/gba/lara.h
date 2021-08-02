@@ -3073,7 +3073,7 @@ struct Lara : Item
 
             int32 minDist = INT_MAX;
 
-            if (arm->target)
+            if (arm->target && arm->target->health > 0)
             {
                 Sphere spheres[MAX_SPHERES];
                 int32 spheresCount = arm->target->getSpheres(spheres, false);
