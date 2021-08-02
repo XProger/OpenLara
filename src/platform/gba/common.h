@@ -745,7 +745,7 @@ struct SpriteSeq {
     uint16 type;
     uint16 unused;
     int16 count;
-    int16 start;
+    uint16 start;
 };
 
 struct FixedCamera {
@@ -1679,7 +1679,7 @@ extern Rect   viewport;
 extern vec3i  cameraViewPos;
 extern Matrix matrixStack[MAX_MATRICES];
 extern int32  matrixStackIndex;
-extern uint32 gVerticesCount;
+extern int32  gVerticesCount;
 
 extern SaveGame gSaveGame;
 extern Settings gSettings;

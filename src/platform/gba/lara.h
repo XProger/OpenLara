@@ -3650,7 +3650,7 @@ struct Lara : Item
 
             minAimY = angleAim.y;
             extraL->armR.target = item;
-        } while ((item = item->nextActive));
+        } while ((item = item->nextActive) != NULL);
     }
 
     void weaponUpdateTargets()

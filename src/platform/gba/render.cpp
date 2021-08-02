@@ -43,7 +43,7 @@ extern int32 causticsFrame;
 const uint8* tile;
 const Sprite* sprite;
 
-uint32 gVerticesCount = 0;
+int32 gVerticesCount = 0;
 int32 gFacesCount = 0; // 1 is reserved as OT terminator
 
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
@@ -260,7 +260,8 @@ void transformMesh(const vec3s* vertices, int32 vCount, const uint16* vIntensity
     }
 }
 
-VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount) {
+VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount)
+{
     #define LERP(a,b,t)         (b + ((a - b) * t >> 12))
     #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> 12) )
 
@@ -615,7 +616,6 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
         return;
 
     int32 clip = (v1->clip | v2->clip | v3->clip);
-
     if (clip & 32)
         return;
 

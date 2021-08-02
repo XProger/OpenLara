@@ -110,8 +110,8 @@ void readLevel(const uint8* data)
         if (spriteSeq->type >= TR1_ITEM_MAX) // WTF?
             continue;
 
-        Model *m = models + spriteSeq->type;
-        m->count = spriteSeq->count;
+        Model* m = models + spriteSeq->type;
+        m->count = int8(spriteSeq->count);
         m->start = spriteSeq->start;
     }
 

@@ -725,7 +725,7 @@ void initDivTable()
 }
 */
 
-X_INLINE int16 lerpAngle(int16 a, int16 b, uint32 t)
+X_INLINE int16 lerpAngle(int16 a, int16 b, int32 t)
 {
     int32 d = b - a;
 

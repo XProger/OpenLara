@@ -16,7 +16,7 @@ enum AggressionLevel
 
 struct Enemy : Item
 {
-    Enemy(Room* room, int32 _health, int32 _radius, int32 _headOffset, uint32 _aggression) : Item(room)
+    Enemy(Room* room, int32 _health, int32 _radius, int32 _headOffset, int32 _aggression) : Item(room)
     {
         flags.shadow = true;
 

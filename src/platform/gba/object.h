@@ -266,12 +266,12 @@ struct Door : Object
         nextPos.x = pos.x + (nextPos.x << 10);
         nextPos.z = pos.z + (nextPos.z << 10);
 
-        activate(close, false, room, nextPos.x, nextPos.z); // use the sector behind the door
+        setDoorState(close, false, room, nextPos.x, nextPos.z); // use the sector behind the door
 
         // TODO flip rooms
     }
 
-    void activate(bool close, bool behind, Room* room, int32 x, int32 z)
+    void setDoorState(bool close, bool behind, Room* room, int32 x, int32 z)
     {
         room->modify(); // make room->sectors dynamic (non ROM)
 
@@ -297,7 +297,7 @@ struct Door : Object
         // TODO modify level.boxes
 
         if (!behind && nextRoom) {
-            activate(close, true, nextRoom, pos.x, pos.z); // use sector from item pos
+            setDoorState(close, true, nextRoom, pos.x, pos.z); // use sector from item pos
         }
     }
 };

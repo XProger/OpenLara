@@ -143,7 +143,7 @@ struct Camera
         // TODO clip walls?
     }
 
-    Location getBestLocation(Item* item, bool clip)
+    Location getBestLocation(bool clip)
     {
         int32 distH = targetDist * phd_cos(targetAngleX) >> FIXED_SHIFT;
         int32 distV = targetDist * phd_sin(targetAngleX) >> FIXED_SHIFT;
@@ -206,7 +206,7 @@ struct Camera
         targetAngleX = X_CLAMP(targetAngleX + item->angle.x, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
         targetAngleY += item->angle.y;
 
-        Location best = getBestLocation(item, false);
+        Location best = getBestLocation(false);
 
         move(best, lastFixed ? speed : 12);
     }
@@ -237,7 +237,7 @@ struct Camera
 
         targetDist = CAM_DIST_COMBAT;
 
-        Location best = getBestLocation(item, true);
+        Location best = getBestLocation(true);
 
         move(best, speed);
     }
@@ -250,7 +250,7 @@ struct Camera
         targetAngleY = item->extraL->head.angle.y + item->extraL->torso.angle.y + item->angle.y;
         targetDist = lookAtItem ? CAM_DIST_FOLLOW : CAM_DIST_LOOK;
 
-        Location best = getBestLocation(item, true);
+        Location best = getBestLocation(true);
 
         move(best, speed);
     }

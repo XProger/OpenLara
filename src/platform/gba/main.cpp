@@ -90,7 +90,7 @@ int32 fpsCounter = 0;
         return *timerCLK / 33;
     }
 
-    void paletteSet(uint16* palette)
+    void paletteSet(const uint16* palette)
     {
         memcpy((uint16*)0xC0000200, palette, 256 * 2);
     }
@@ -172,7 +172,7 @@ int32 fpsCounter = 0;
         "mov ax,03h"          \
         "int 10h";
 
-    void paletteSet(uint16* palette)
+    void paletteSet(const uint16* palette)
     {
         outp(0x03C8, 0);
         for (int32 i = 0; i < 256; i++)
@@ -256,6 +256,11 @@ int32 fpsCounter = 0;
         if (keyState[KB_S])       keys |= IK_R;
         if (keyState[KB_ENTER])   keys |= IK_START;
         if (keyState[KB_TAB])     keys |= IK_SELECT;
+    }
+
+    int32 osGetSystemTimeMS()
+    {
+        return 0;
     }
 #endif
 

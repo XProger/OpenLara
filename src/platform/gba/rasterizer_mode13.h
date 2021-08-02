@@ -13,6 +13,7 @@ extern const uint8* tile;
 #define rasterizeGT rasterizeGT_mode13_c
 #define rasterizeFTA rasterizeFTA_mode13_c
 #define rasterizeGTA rasterizeGTA_mode13_c
+#define rasterizeSprite rasterizeSprite_mode13_c
 
 void rasterizeS_mode13_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 {
@@ -768,6 +769,11 @@ void rasterizeFTA_mode13_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 void rasterizeGTA_mode13_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 {
     rasterizeGT(pixel, L, R);
+}
+
+void rasterizeSprite_mode13_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+{
+    // TODO
 }
 
 #endif

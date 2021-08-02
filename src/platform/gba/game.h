@@ -60,7 +60,7 @@ struct Game
             Item* item = items + i;
 
             item->type = info->type;
-            item->intensity = info->intensity;
+            item->intensity = uint8(info->intensity);
 
             item->pos.x = info->pos.x + (rooms[info->roomIndex].info->x << 8);
             item->pos.y = info->pos.y;
