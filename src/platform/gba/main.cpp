@@ -49,6 +49,8 @@ int32 fpsCounter = 0;
         return GetTickCount();
     }
 
+    void osJoyVibrate(int32 index, int32 L, int32 R) {}
+
 #elif defined(__GBA__)
     void paletteSet(const uint16* palette)
     {
@@ -127,6 +129,8 @@ int32 fpsCounter = 0;
     {
         return *timerCLK / 33;
     }
+
+    void osJoyVibrate(int32 index, int32 L, int32 R) {}
 
     void paletteSet(const uint16* palette)
     {
@@ -300,6 +304,8 @@ int32 fpsCounter = 0;
     {
         return 0;
     }
+
+    void osJoyVibrate(int32 index, int32 L, int32 R) {}
 #endif
 
 EWRAM_DATA ALIGN16 uint8 soundBufferA[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt

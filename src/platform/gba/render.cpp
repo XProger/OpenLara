@@ -557,7 +557,8 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y)
 
 X_INLINE Face* faceAdd(int32 depth)
 {
-    ASSERT(depth < OT_SIZE);
+    ASSERT(depth >= 0 && depth < OT_SIZE);
+
     Face* face = gFaces + gFacesCount++;
     face->next = otFaces[depth];
     otFaces[depth] = face;
@@ -647,6 +648,8 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
         return;
     }
 
+    ASSERT(gFacesCount < MAX_FACES);
+
     int32 x = DP43c(m[0], vx, vy, vz);
     int32 y = DP43c(m[1], vx, vy, vz);
 
@@ -703,9 +706,9 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     ASSERT(v2.x >= v1.x);
     ASSERT(v2.y >= v1.y);
 
-    fogZ -= 128;
+    int32 depth = X_MAX(0, fogZ - 128); // depth hack
 
-    Face* f = faceAdd(fogZ >> OT_SHIFT);
+    Face* f = faceAdd(depth >> OT_SHIFT);
     f->flags = uint16(FACE_SPRITE);
     f->indices[0] = gVerticesCount - 2;
     f->indices[1] = index;
